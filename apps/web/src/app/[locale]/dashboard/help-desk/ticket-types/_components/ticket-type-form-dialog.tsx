@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import { MemberSelector } from "@/components/help-desk/member-selector";
 import type { MemberOption } from "@/components/help-desk/member-selector";
+import type { PriorityBadgeConfig } from "@/components/help-desk/ticket-priority-badge";
 import {
   createTicketTypeWithRespondersAction,
   updateTicketTypeWithRespondersAction,
@@ -37,6 +38,7 @@ interface TicketTypeFormDialogProps {
   editingType: HelpdeskTicketTypeWithDetails | null;
   members: MemberOption[];
   availableBranches: Array<{ id: string; name: string }>;
+  priorityConfigs: Record<string, PriorityBadgeConfig> | null;
   onSaved: (type: HelpdeskTicketTypeWithDetails) => void;
 }
 
@@ -46,6 +48,7 @@ export function TicketTypeFormDialog({
   editingType,
   members,
   availableBranches,
+  priorityConfigs,
   onSaved,
 }: TicketTypeFormDialogProps) {
   const t = useTranslations("modules.helpDesk");
@@ -248,7 +251,7 @@ export function TicketTypeFormDialog({
               <SelectContent>
                 {TICKET_PRIORITIES.map((p) => (
                   <SelectItem key={p} value={p}>
-                    {t(`tickets.priority.${p}`)}
+                    {priorityConfigs?.[p]?.label ?? t(`tickets.priority.${p}`)}
                   </SelectItem>
                 ))}
               </SelectContent>
