@@ -433,6 +433,8 @@ export function TicketsClient({
     [branches]
   );
 
+  const branchNameMap = useMemo(() => new Map(branches.map((b) => [b.id, b.name])), [branches]);
+
   const columns = useMemo<DataViewColumnDef<HelpdeskTicketListRow>[]>(
     () => [
       {
@@ -484,6 +486,18 @@ export function TicketsClient({
           ),
         sortable: false,
         defaultVisible: true,
+      },
+      {
+        key: "branch",
+        header: t("tickets.columns.branch"),
+        accessor: (row) =>
+          row.branch_id ? (
+            <span className="text-sm">{branchNameMap.get(row.branch_id) ?? "—"}</span>
+          ) : (
+            <span className="text-muted-foreground text-xs">—</span>
+          ),
+        sortable: false,
+        defaultVisible: branchOptions.length > 0,
       },
       {
         key: "status",
@@ -575,7 +589,7 @@ export function TicketsClient({
         defaultVisible: false,
       },
     ],
-    [t, router]
+    [t, router, branchNameMap, branchOptions.length]
   );
 
   const filters = useMemo<DataViewFilterDef[]>(
