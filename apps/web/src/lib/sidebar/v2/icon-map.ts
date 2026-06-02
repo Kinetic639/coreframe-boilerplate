@@ -24,6 +24,16 @@ import {
   Car,
   LifeBuoy,
   Ticket,
+  Tags,
+  Building2,
+  CreditCard,
+  GitBranch,
+  TrendingUp,
+  ClipboardList,
+  Truck,
+  LayoutDashboard,
+  ArrowLeftRight,
+  ShieldCheck,
 } from "lucide-react";
 import type { IconKey } from "@/lib/types/v2/sidebar";
 
@@ -57,6 +67,16 @@ export const ICON_MAP: Record<IconKey, React.ComponentType<{ className?: string 
   car: Car,
   lifeBuoy: LifeBuoy,
   ticket: Ticket,
+  tags: Tags,
+  building: Building2,
+  creditCard: CreditCard,
+  branch: GitBranch,
+  trending: TrendingUp,
+  clipboard: ClipboardList,
+  truck: Truck,
+  dashboard: LayoutDashboard,
+  transfers: ArrowLeftRight,
+  shieldCheck: ShieldCheck,
 };
 
 /**

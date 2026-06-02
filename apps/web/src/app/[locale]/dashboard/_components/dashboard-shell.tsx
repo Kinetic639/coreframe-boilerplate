@@ -191,7 +191,7 @@ function NavL2Item({
 // ---------------------------------------------------------------------------
 
 const FLYOUT_W = 220;
-const FLYOUT_ROW_H = 30;
+const FLYOUT_ROW_H = 38;
 const FLYOUT_CLOSE_DELAY = 140;
 const ROOT_TRANSITION_MS = 145;
 
@@ -395,7 +395,7 @@ function FlyoutRow({
   const routeActive = item.disabledReason ? false : isItemActive(item, pathname);
 
   const className = cn(
-    "group relative z-20 flex items-center gap-1.5 px-2.5 text-[13px] leading-none select-none overflow-visible",
+    "group relative z-20 flex items-center gap-1.5 px-2.5 text-[13px] leading-normal select-none overflow-visible",
     "transition-[width,background-color,color,border-radius,box-shadow] duration-150 ease-out",
     stretched ? "" : "w-full",
     getFlyoutRowRadius({ role: stretched ? "title" : "item", index, total }),

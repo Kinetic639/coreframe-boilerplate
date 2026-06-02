@@ -77,7 +77,7 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
         id: "warehouse.inventory",
         title: "Inventory",
         titleKey: "modules.warehouse.items.inventory.title",
-        iconKey: "warehouse",
+        iconKey: "clipboard",
         href: "/dashboard/warehouse/inventory",
         match: { startsWith: "/dashboard/warehouse/inventory" },
         visibility: {
@@ -88,7 +88,7 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
             id: "warehouse.inventory.movements",
             title: "Stock Movements",
             titleKey: "modules.warehouse.items.inventory.movements",
-            iconKey: "warehouse",
+            iconKey: "transfers",
             href: "/dashboard/warehouse/inventory/movements",
             match: { startsWith: "/dashboard/warehouse/inventory/movements" },
             visibility: {
@@ -113,7 +113,7 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
         id: "warehouse.purchases",
         title: "Purchases",
         titleKey: "modules.warehouse.items.purchases.title",
-        iconKey: "warehouse",
+        iconKey: "truck",
         href: "/dashboard/warehouse/purchases",
         match: { startsWith: "/dashboard/warehouse/purchases" },
         children: [
@@ -121,7 +121,7 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
             id: "warehouse.deliveries",
             title: "Deliveries",
             titleKey: "modules.warehouse.items.deliveries.title",
-            iconKey: "warehouse",
+            iconKey: "truck",
             href: "/dashboard/warehouse/deliveries",
             match: { startsWith: "/dashboard/warehouse/deliveries" },
           },
@@ -129,7 +129,7 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
             id: "warehouse.suppliers",
             title: "Suppliers",
             titleKey: "modules.warehouse.items.suppliers.title",
-            iconKey: "users",
+            iconKey: "building",
             href: "/dashboard/warehouse/suppliers",
             match: { startsWith: "/dashboard/warehouse/suppliers" },
           },
@@ -190,7 +190,7 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
         id: "help-desk.overview",
         title: "Overview",
         titleKey: "modules.helpDesk.items.overview",
-        iconKey: "lifeBuoy",
+        iconKey: "dashboard",
         href: "/dashboard/help-desk",
         match: { exact: "/dashboard/help-desk" },
         visibility: {
@@ -212,7 +212,7 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
         id: "help-desk.ticket-types",
         title: "Ticket Types",
         titleKey: "modules.helpDesk.items.ticketTypes",
-        iconKey: "ticket",
+        iconKey: "tags",
         href: "/dashboard/help-desk/ticket-types",
         match: { startsWith: "/dashboard/help-desk/ticket-types" },
         visibility: {
@@ -255,7 +255,7 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
     group: "admin",
     title: "Organization",
     titleKey: "modules.organizationManagement.titleSidebar",
-    iconKey: "users",
+    iconKey: "building",
     visibility: {
       requiresModules: [MODULE_ORGANIZATION_MANAGEMENT],
       requiresPermissions: [MODULE_ORGANIZATION_MANAGEMENT_ACCESS],
@@ -265,7 +265,7 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
         id: "organization.profile",
         title: "Profile",
         titleKey: "modules.organizationManagement.items.profile",
-        iconKey: "settings",
+        iconKey: "building",
         href: "/dashboard/organization/profile",
         match: { exact: "/dashboard/organization/profile" },
         visibility: {
@@ -287,7 +287,7 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
         id: "organization.branches",
         title: "Branches",
         titleKey: "modules.organizationManagement.items.branches",
-        iconKey: "settings",
+        iconKey: "branch",
         href: "/dashboard/organization/branches",
         match: { exact: "/dashboard/organization/branches" },
         visibility: {
@@ -298,7 +298,7 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
         id: "organization.billing",
         title: "Billing",
         titleKey: "modules.organizationManagement.items.billing",
-        iconKey: "settings",
+        iconKey: "creditCard",
         href: "/dashboard/organization/billing",
         match: { exact: "/dashboard/organization/billing" },
         visibility: {
@@ -327,7 +327,7 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
         id: "analytics.overview",
         title: "Overview",
         titleKey: "modules.analytics.items.overview",
-        iconKey: "barChart",
+        iconKey: "trending",
         href: "/dashboard/analytics",
         match: { exact: "/dashboard/analytics" },
         visibility: {
@@ -349,7 +349,7 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
         id: "analytics.audit",
         title: "Audit Log",
         titleKey: "modules.analytics.items.audit",
-        iconKey: "shield",
+        iconKey: "shieldCheck",
         href: "/dashboard/analytics/audit",
         match: { exact: "/dashboard/analytics/audit" },
         visibility: {

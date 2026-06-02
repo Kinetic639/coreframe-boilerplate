@@ -49,7 +49,17 @@ export type IconKey =
   | "barChart"
   | "car"
   | "lifeBuoy"
-  | "ticket";
+  | "ticket"
+  | "tags"
+  | "building"
+  | "creditCard"
+  | "branch"
+  | "trending"
+  | "clipboard"
+  | "truck"
+  | "dashboard"
+  | "transfers"
+  | "shieldCheck";
 
 /**
  * Active route matching rules (strict discriminated union)
