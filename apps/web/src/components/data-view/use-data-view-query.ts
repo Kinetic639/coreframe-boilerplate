@@ -28,6 +28,7 @@ export function useDataViewListQuery<TListRow>({
     // `placeholderData` shows prior data while loading (smooth UX) but always fetches.
     placeholderData: (prev) => prev ?? initialData,
     staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
 }
 
@@ -47,6 +48,7 @@ export function useDataViewDetailQuery<TDetail>({
     queryFn: () => detailFetcher(selectedId!),
     enabled: !!selectedId,
     staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 }
 
@@ -107,5 +109,6 @@ export function useDataViewSidebarInfiniteQuery<TListRow>({
           }
         : undefined,
     staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
 }

@@ -19,6 +19,7 @@ import { useDataViewReturn } from "./use-data-view-return";
 
 export type DataViewStaticContextValue<TListRow, TDetail> = {
   entity: string;
+  queryKey: string[];
   columns: DataViewColumnDef<TListRow>[];
   filters: DataViewFilterDef[];
   getRowId: (row: TListRow) => string;
@@ -192,6 +193,7 @@ export function DataViewProvider<TListRow, TDetail>({
   const staticValue = useMemo<DataViewStaticContextValue<TListRow, TDetail>>(
     () => ({
       entity,
+      queryKey,
       columns,
       filters,
       getRowId,
@@ -203,6 +205,7 @@ export function DataViewProvider<TListRow, TDetail>({
     }),
     [
       entity,
+      queryKey,
       columns,
       filters,
       getRowId,

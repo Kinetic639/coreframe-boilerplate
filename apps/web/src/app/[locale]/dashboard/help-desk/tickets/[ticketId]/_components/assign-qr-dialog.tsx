@@ -341,7 +341,7 @@ export function AssignQrDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="w-[min(480px,calc(100vw-2rem))]" style={{ maxWidth: "none" }}>
         <DialogHeader>
           <DialogTitle>Assign QR Code to {ticketNumber}</DialogTitle>
         </DialogHeader>
