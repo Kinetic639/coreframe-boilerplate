@@ -212,7 +212,7 @@ function FilterField({
     return (
       <div className="space-y-1.5">
         <label className="text-xs font-medium text-muted-foreground">{def.label}</label>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="flex flex-col gap-1.5">
           <div className="space-y-0.5">
             <p className="text-[10px] text-muted-foreground">{t("filters.from")}</p>
             <Input
