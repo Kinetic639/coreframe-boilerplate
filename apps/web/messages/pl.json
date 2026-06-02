@@ -3003,7 +3003,7 @@
           "updatedAt": "Zaktualizowane"
         },
         "filters": {
-          "createdAt": "Data utworzenia",
+          "createdAt": "Utworzone",
           "createdBy": "Autor",
           "assignedTo": "Przypisani",
           "branch": "Oddział",

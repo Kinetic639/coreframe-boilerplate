@@ -210,27 +210,31 @@ function FilterField({
       typeof filters[def.fromKey] === "string" ? (filters[def.fromKey] as string) : "";
     const toVal = typeof filters[def.toKey] === "string" ? (filters[def.toKey] as string) : "";
     return (
-      <div className="space-y-1">
+      <div className="space-y-1.5">
         <label className="text-xs font-medium text-muted-foreground">{def.label}</label>
-        <div className="flex gap-2">
-          <Input
-            value={fromVal}
-            onChange={(e) =>
-              onChange({ [def.fromKey]: e.target.value || null, [def.toKey]: toVal || null })
-            }
-            placeholder={t("filters.from")}
-            className="h-8"
-            type="date"
-          />
-          <Input
-            value={toVal}
-            onChange={(e) =>
-              onChange({ [def.fromKey]: fromVal || null, [def.toKey]: e.target.value || null })
-            }
-            placeholder={t("filters.to")}
-            className="h-8"
-            type="date"
-          />
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-0.5">
+            <p className="text-[10px] text-muted-foreground">{t("filters.from")}</p>
+            <Input
+              value={fromVal}
+              onChange={(e) =>
+                onChange({ [def.fromKey]: e.target.value || null, [def.toKey]: toVal || null })
+              }
+              className="h-8 w-full text-xs"
+              type="date"
+            />
+          </div>
+          <div className="space-y-0.5">
+            <p className="text-[10px] text-muted-foreground">{t("filters.to")}</p>
+            <Input
+              value={toVal}
+              onChange={(e) =>
+                onChange({ [def.fromKey]: fromVal || null, [def.toKey]: e.target.value || null })
+              }
+              className="h-8 w-full text-xs"
+              type="date"
+            />
+          </div>
         </div>
       </div>
     );
@@ -297,7 +301,7 @@ function DataViewFilterPill({
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-60 p-3">
+      <PopoverContent align="start" className="w-72 p-3">
         <FilterField def={def} filters={filters} onChange={onChange} t={t} />
       </PopoverContent>
     </Popover>
