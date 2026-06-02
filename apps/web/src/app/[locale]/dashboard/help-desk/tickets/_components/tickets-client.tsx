@@ -1,9 +1,20 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
-import { Plus, Ticket, Calendar, Clock, Tag, User, CheckCircle, Loader2 } from "lucide-react";
+import {
+  Plus,
+  Ticket,
+  Calendar,
+  Clock,
+  Tag,
+  User,
+  CheckCircle,
+  Loader2,
+  QrCode,
+  Link2Off,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { DataView } from "@/components/data-view/data-view";
@@ -14,6 +25,9 @@ import type {
   PaginatedResult,
 } from "@/components/data-view/data-view.types";
 import { listTicketsForDataViewAction, getTicketDetailAction } from "@/app/actions/help-desk";
+import { getQrAssignmentForTicketAction, assignQrToTicketAction } from "@/app/actions/qr/assign";
+import { revokeQrAction } from "@/app/actions/qr/revoke";
+import { AssignQrDialog } from "../[ticketId]/_components/assign-qr-dialog";
 import { useAddTicketCommentMutation, useAcceptTicketMutation } from "@/hooks/queries/help-desk";
 import type {
   HelpdeskTicketListRow,
@@ -78,6 +92,45 @@ function TicketDetailPanel({
 
   const [acceptedAt, setAcceptedAt] = useState<string | null>(detail.accepted_at);
   const [acceptedByName, setAcceptedByName] = useState<string | null>(detail.accepted_by_name);
+
+  // QR assignment
+  type QrInfo = {
+    assignmentId: string;
+    qrCodeId: string;
+    token: string;
+    label: string | null;
+    status: string;
+  } | null;
+  const [qrAssignment, setQrAssignment] = useState<QrInfo>(null);
+  const [qrLoading, setQrLoading] = useState(true);
+  const [showAssignQr, setShowAssignQr] = useState(false);
+  const [isRevokingQr, setIsRevokingQr] = useState(false);
+
+  useEffect(() => {
+    setQrLoading(true);
+    getQrAssignmentForTicketAction(detail.id).then((r) => {
+      if (r.success) setQrAssignment(r.data);
+      setQrLoading(false);
+    });
+  }, [detail.id]);
+
+  const handleRevokeQr = async () => {
+    if (!qrAssignment) return;
+    setIsRevokingQr(true);
+    try {
+      const result = await revokeQrAction({ qrCodeId: qrAssignment.qrCodeId });
+      if (!result.success) {
+        const { toast } = await import("react-toastify");
+        toast.error((result as { success: false; error: string }).error);
+        return;
+      }
+      setQrAssignment(null);
+      const { toast } = await import("react-toastify");
+      toast.success("QR code unlinked from ticket.");
+    } finally {
+      setIsRevokingQr(false);
+    }
+  };
 
   const addCommentMutation = useAddTicketCommentMutation(detail.ticket_number);
   const acceptMutation = useAcceptTicketMutation(detail.ticket_number);
@@ -208,6 +261,52 @@ function TicketDetailPanel({
             <Ticket className="mr-1.5 h-3.5 w-3.5" />
             {t("tickets.viewFull")}
           </Button>
+
+          {/* QR Code card */}
+          <div className="rounded-lg border p-3 space-y-2">
+            <h4 className="text-xs font-semibold flex items-center gap-1.5">
+              <QrCode className="h-3.5 w-3.5 text-muted-foreground" />
+              QR Code
+            </h4>
+            {qrLoading ? (
+              <div className="h-4 w-full animate-pulse rounded bg-muted" />
+            ) : qrAssignment ? (
+              <div className="space-y-2">
+                <div className="rounded-md bg-muted/50 px-2.5 py-1.5 text-xs">
+                  <p className="font-medium truncate">{qrAssignment.label ?? "Unlabelled"}</p>
+                  <p className="text-muted-foreground font-mono truncate">{qrAssignment.token}</p>
+                </div>
+                {canManage && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-destructive hover:text-destructive h-7 text-xs"
+                    onClick={handleRevokeQr}
+                    disabled={isRevokingQr}
+                  >
+                    {isRevokingQr ? (
+                      <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+                    ) : (
+                      <Link2Off className="mr-1.5 h-3 w-3" />
+                    )}
+                    Unlink
+                  </Button>
+                )}
+              </div>
+            ) : canManage ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full h-7 text-xs"
+                onClick={() => setShowAssignQr(true)}
+              >
+                <QrCode className="mr-1.5 h-3 w-3" />
+                Assign QR Code
+              </Button>
+            ) : (
+              <p className="text-xs text-muted-foreground">No QR code assigned.</p>
+            )}
+          </div>
 
           {/* Acceptance card */}
           {detail.requires_acceptance && (
@@ -382,6 +481,14 @@ function TicketDetailPanel({
           )}
         </div>
       </div>
+
+      <AssignQrDialog
+        open={showAssignQr}
+        onOpenChange={setShowAssignQr}
+        ticketId={detail.id}
+        ticketNumber={detail.ticket_number}
+        onAssigned={(a) => setQrAssignment(a)}
+      />
     </div>
   );
 }
