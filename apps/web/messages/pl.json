@@ -3127,7 +3127,14 @@
         "deleteConfirmDescription": "Typ zostanie zarchiwizowany. Istniejące zgłoszenia nie zostaną zmienione.",
         "createSuccess": "Typ zgłoszenia został utworzony.",
         "updateSuccess": "Typ zgłoszenia został zaktualizowany.",
-        "deleteSuccess": "Typ zgłoszenia został usunięty."
+        "deleteSuccess": "Typ zgłoszenia został usunięty.",
+        "backToList": "Wróć do typów zgłoszeń",
+        "viewType": "Zobacz typ",
+        "name": "Nazwa",
+        "inactive": "Nieaktywny",
+        "allowsManualAssignees": "Ręczny wybór osób",
+        "noDefaultAssignees": "Brak domyślnych osób odpowiedzialnych.",
+        "noDefaultAcceptors": "Brak domyślnych osób akceptujących."
       }
     },
     "analytics": {

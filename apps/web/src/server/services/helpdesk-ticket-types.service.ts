@@ -6,6 +6,7 @@ import type {
   TicketPriority,
   UpdateTicketTypeInput,
 } from "@/lib/validations/helpdesk";
+import type { PaginatedResult } from "@/lib/data-view/types";
 
 export interface HelpdeskTicketType {
   id: string;
@@ -200,6 +201,48 @@ export class HelpdeskTicketTypesService {
 
     if (error) return { success: false, error: error.message };
     return { success: true, data: data as HelpdeskTicketType };
+  }
+
+  static async getDetailById(
+    supabase: SupabaseClient,
+    orgId: string,
+    id: string
+  ): Promise<ServiceResult<HelpdeskTicketTypeWithDetails>> {
+    const typeResult = await HelpdeskTicketTypesService.getById(supabase, orgId, id);
+    if (!typeResult.success)
+      return { success: false, error: (typeResult as { success: false; error: string }).error };
+
+    const [respondersResult, acceptorsResult] = await Promise.all([
+      HelpdeskTicketTypesService.getDefaultResponders(supabase, orgId, id),
+      HelpdeskTicketTypesService.getDefaultAcceptors(supabase, orgId, id),
+    ]);
+
+    return {
+      success: true,
+      data: {
+        ...typeResult.data,
+        default_responders: respondersResult.success ? respondersResult.data : [],
+        default_acceptors: acceptorsResult.success ? acceptorsResult.data : [],
+      },
+    };
+  }
+
+  static async listForDataView(
+    supabase: SupabaseClient,
+    orgId: string,
+    page = 1,
+    pageSize = 50
+  ): Promise<ServiceResult<PaginatedResult<HelpdeskTicketTypeWithDetails>>> {
+    const result = await HelpdeskTicketTypesService.listWithDetails(supabase, orgId);
+    if (!result.success)
+      return { success: false, error: (result as { success: false; error: string }).error };
+
+    const all = result.data;
+    const totalCount = all.length;
+    const offset = (page - 1) * pageSize;
+    const rows = all.slice(offset, offset + pageSize);
+
+    return { success: true, data: { rows, totalCount, page, pageSize } };
   }
 
   // ── Default responders ────────────────────────────────────────────────────

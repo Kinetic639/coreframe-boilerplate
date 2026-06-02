@@ -291,6 +291,10 @@ export const routing = defineRouting({
       en: "/dashboard/help-desk/settings",
       pl: "/dashboard/help-desk/ustawienia",
     },
+    "/dashboard/help-desk/ticket-types/[typeId]": {
+      en: "/dashboard/help-desk/ticket-types/[typeId]",
+      pl: "/dashboard/help-desk/typy-zgloszen/[typeId]",
+    },
     "/dashboard/help-desk/ticket-types": {
       en: "/dashboard/help-desk/ticket-types",
       pl: "/dashboard/help-desk/typy-zgloszen",
