@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { headers } from "next/headers";
 import { redirect } from "@/i18n/navigation";
+import { redirect as nextRedirect } from "next/navigation";
 import { getLocale } from "next-intl/server";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { loadAdminContextV2 } from "@/server/loaders/v2/load-admin-context.v2";
@@ -107,10 +108,10 @@ export default async function DashboardV2Layout({ children }: { children: React.
     const headersList = await headers();
     const rawPath = headersList.get("x-pathname") ?? "";
     const safeReturnUrl = rawPath.startsWith("/") && rawPath !== "/" ? rawPath : undefined;
-    return redirect({
-      href: safeReturnUrl ? `/sign-in?returnUrl=${encodeURIComponent(safeReturnUrl)}` : "/sign-in",
-      locale,
-    });
+    if (safeReturnUrl) {
+      return nextRedirect(`/${locale}/sign-in?returnUrl=${encodeURIComponent(safeReturnUrl)}`);
+    }
+    return redirect({ href: "/sign-in", locale });
   }
 
   // Authenticated but no org membership — show protection screen, not broken shell
