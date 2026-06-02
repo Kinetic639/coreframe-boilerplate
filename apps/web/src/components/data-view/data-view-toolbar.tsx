@@ -3,11 +3,13 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useTranslations } from "next-intl";
-import { Filter, Search, X } from "lucide-react";
+import { Filter, Search, X, RefreshCw } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
   useDataViewDetail,
+  useDataViewList,
   useDataViewSelection,
   useDataViewStatic,
   useDataViewUrl,
@@ -25,8 +27,14 @@ type DataViewToolbarProps = {
 
 export function DataViewToolbar({ mode = "list" }: DataViewToolbarProps) {
   const { urlState } = useDataViewUrl();
-  const { renderToolbarControls } = useDataViewStatic();
+  const { renderToolbarControls, queryKey } = useDataViewStatic();
   const { closeDetail, isClosingDetail } = useDataViewDetail();
+  const { listIsTransitioning } = useDataViewList();
+  const queryClient = useQueryClient();
+
+  const handleRefresh = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey });
+  }, [queryClient, queryKey]);
   const {
     selectedRowCount,
     keepOnlySelected,
@@ -121,6 +129,18 @@ export function DataViewToolbar({ mode = "list" }: DataViewToolbarProps) {
         {searchControl}
         <DataViewFilters mode="inline" />
         <div className="flex-1" />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 shrink-0"
+          onClick={handleRefresh}
+          disabled={listIsTransitioning}
+          aria-label="Refresh"
+          title="Refresh"
+          data-testid="refresh-button"
+        >
+          <RefreshCw className={`h-4 w-4 ${listIsTransitioning ? "animate-spin" : ""}`} />
+        </Button>
         {renderToolbarControls ? renderToolbarControls() : null}
         {selectedRowCount > 0 ? (
           <div className="flex items-center gap-2">
