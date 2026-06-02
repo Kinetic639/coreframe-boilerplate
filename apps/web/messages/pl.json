@@ -3004,8 +3004,8 @@
         },
         "filters": {
           "createdAt": "Data utworzenia",
-          "createdBy": "Utworzone przez",
-          "assignedTo": "Przypisane do",
+          "createdBy": "Autor",
+          "assignedTo": "Przypisani",
           "branch": "Oddział",
           "status": "Status",
           "priority": "Priorytet",
