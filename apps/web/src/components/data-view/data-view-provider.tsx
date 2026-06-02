@@ -226,10 +226,9 @@ export function DataViewProvider<TListRow, TDetail>({
     () => ({
       listData: resolvedListData,
       listIsLoading: listQuery.isFetching,
-      listIsTransitioning:
-        listQuery.isFetching && listQuery.isPlaceholderData && listQuery.isFetched,
+      listIsTransitioning: listQuery.isFetching,
     }),
-    [resolvedListData, listQuery.isFetching, listQuery.isPlaceholderData, listQuery.isFetched]
+    [resolvedListData, listQuery.isFetching]
   );
 
   const columnsValue = useMemo<DataViewColumnsContextValue>(

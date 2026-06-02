@@ -14,8 +14,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { MultiSelect } from "@/components/primitives/multi-select/multi-select";
 import { useDataViewStatic, useDataViewUrl } from "./use-data-view";
 import type { DataViewFilterDef } from "./data-view.types";
 
@@ -57,7 +57,8 @@ function getFilterValueLabel(
   if (Array.isArray(val)) {
     if (val.length === 0) return null;
     if (def.type === "multi-select") {
-      return val.map((v) => def.options.find((o) => o.value === v)?.label ?? v).join(", ");
+      if (val.length === 1) return def.options.find((o) => o.value === val[0])?.label ?? val[0];
+      return `+${val.length}`;
     }
     return val.join(", ");
   }
@@ -136,28 +137,12 @@ function FilterField({
     return (
       <div className="space-y-1">
         <label className="text-xs font-medium text-muted-foreground">{def.label}</label>
-        <div className="space-y-1 max-h-40 overflow-y-auto">
-          {def.options.map((opt) => {
-            const checked = arrVal.includes(opt.value);
-            return (
-              <label
-                key={opt.value}
-                className="flex items-center gap-2 cursor-pointer rounded px-1 py-0.5 hover:bg-muted text-sm"
-              >
-                <Checkbox
-                  checked={checked}
-                  onCheckedChange={(ch) => {
-                    const next = ch
-                      ? [...arrVal, opt.value]
-                      : arrVal.filter((v) => v !== opt.value);
-                    onChange({ [def.key]: next.length > 0 ? next : null });
-                  }}
-                />
-                {opt.label}
-              </label>
-            );
-          })}
-        </div>
+        <MultiSelect
+          options={def.options}
+          value={arrVal}
+          onChange={(next) => onChange({ [def.key]: next.length > 0 ? next : null })}
+          maxHeight={160}
+        />
       </div>
     );
   }
@@ -225,27 +210,31 @@ function FilterField({
       typeof filters[def.fromKey] === "string" ? (filters[def.fromKey] as string) : "";
     const toVal = typeof filters[def.toKey] === "string" ? (filters[def.toKey] as string) : "";
     return (
-      <div className="space-y-1">
+      <div className="space-y-1.5">
         <label className="text-xs font-medium text-muted-foreground">{def.label}</label>
         <div className="flex gap-2">
-          <Input
-            value={fromVal}
-            onChange={(e) =>
-              onChange({ [def.fromKey]: e.target.value || null, [def.toKey]: toVal || null })
-            }
-            placeholder={t("filters.from")}
-            className="h-8"
-            type="date"
-          />
-          <Input
-            value={toVal}
-            onChange={(e) =>
-              onChange({ [def.fromKey]: fromVal || null, [def.toKey]: e.target.value || null })
-            }
-            placeholder={t("filters.to")}
-            className="h-8"
-            type="date"
-          />
+          <div className="flex-1 space-y-0.5">
+            <p className="text-[10px] text-muted-foreground">{t("filters.from")}</p>
+            <Input
+              value={fromVal}
+              onChange={(e) =>
+                onChange({ [def.fromKey]: e.target.value || null, [def.toKey]: toVal || null })
+              }
+              className="h-8 w-full text-xs"
+              type="date"
+            />
+          </div>
+          <div className="flex-1 space-y-0.5">
+            <p className="text-[10px] text-muted-foreground">{t("filters.to")}</p>
+            <Input
+              value={toVal}
+              onChange={(e) =>
+                onChange({ [def.fromKey]: fromVal || null, [def.toKey]: e.target.value || null })
+              }
+              className="h-8 w-full text-xs"
+              type="date"
+            />
+          </div>
         </div>
       </div>
     );
@@ -312,7 +301,10 @@ function DataViewFilterPill({
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-60 p-3">
+      <PopoverContent
+        align="start"
+        className={cn("p-3", def.type === "date-range" ? "w-[340px]" : "w-72")}
+      >
         <FilterField def={def} filters={filters} onChange={onChange} t={t} />
       </PopoverContent>
     </Popover>

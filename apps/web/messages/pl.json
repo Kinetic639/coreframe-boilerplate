@@ -3003,9 +3003,9 @@
           "updatedAt": "Zaktualizowane"
         },
         "filters": {
-          "createdAt": "Data utworzenia",
-          "createdBy": "Utworzone przez",
-          "assignedTo": "Przypisane do",
+          "createdAt": "Utworzone",
+          "createdBy": "Autor",
+          "assignedTo": "Przypisani",
           "branch": "Oddział",
           "status": "Status",
           "priority": "Priorytet",
