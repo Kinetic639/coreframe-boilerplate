@@ -212,8 +212,8 @@ function FilterField({
     return (
       <div className="space-y-1.5">
         <label className="text-xs font-medium text-muted-foreground">{def.label}</label>
-        <div className="flex flex-col gap-1.5">
-          <div className="space-y-0.5">
+        <div className="flex gap-2">
+          <div className="flex-1 space-y-0.5">
             <p className="text-[10px] text-muted-foreground">{t("filters.from")}</p>
             <Input
               value={fromVal}
@@ -224,7 +224,7 @@ function FilterField({
               type="date"
             />
           </div>
-          <div className="space-y-0.5">
+          <div className="flex-1 space-y-0.5">
             <p className="text-[10px] text-muted-foreground">{t("filters.to")}</p>
             <Input
               value={toVal}
@@ -301,7 +301,10 @@ function DataViewFilterPill({
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-72 p-3">
+      <PopoverContent
+        align="start"
+        className={cn("p-3", def.type === "date-range" ? "w-[340px]" : "w-72")}
+      >
         <FilterField def={def} filters={filters} onChange={onChange} t={t} />
       </PopoverContent>
     </Popover>
