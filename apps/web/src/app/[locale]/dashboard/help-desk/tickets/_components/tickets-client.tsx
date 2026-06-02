@@ -623,13 +623,13 @@ export function TicketsClient({
         toKey: "createdAtTo",
       },
       {
-        type: "select",
+        type: "multi-select",
         key: "createdBy",
         label: t("tickets.filters.createdBy"),
         options: memberOptions,
       },
       {
-        type: "select",
+        type: "multi-select",
         key: "assignedTo",
         label: t("tickets.filters.assignedTo"),
         options: memberOptions,
@@ -639,30 +639,55 @@ export function TicketsClient({
         key: "status",
         label: t("tickets.filters.status"),
         options: [
-          { label: t("tickets.status.open"), value: "open" },
-          { label: t("tickets.status.in_progress"), value: "in_progress" },
-          { label: t("tickets.status.waiting_response"), value: "waiting_response" },
-          { label: t("tickets.status.waiting"), value: "waiting" },
-          { label: t("tickets.status.resolved"), value: "resolved" },
-          { label: t("tickets.status.closed"), value: "closed" },
-          { label: t("tickets.status.cancelled"), value: "cancelled" },
+          { label: statusConfigs?.["open"]?.label ?? t("tickets.status.open"), value: "open" },
+          {
+            label: statusConfigs?.["in_progress"]?.label ?? t("tickets.status.in_progress"),
+            value: "in_progress",
+          },
+          {
+            label:
+              statusConfigs?.["waiting_response"]?.label ?? t("tickets.status.waiting_response"),
+            value: "waiting_response",
+          },
+          {
+            label: statusConfigs?.["waiting"]?.label ?? t("tickets.status.waiting"),
+            value: "waiting",
+          },
+          {
+            label: statusConfigs?.["resolved"]?.label ?? t("tickets.status.resolved"),
+            value: "resolved",
+          },
+          {
+            label: statusConfigs?.["closed"]?.label ?? t("tickets.status.closed"),
+            value: "closed",
+          },
+          {
+            label: statusConfigs?.["cancelled"]?.label ?? t("tickets.status.cancelled"),
+            value: "cancelled",
+          },
         ],
       },
       {
-        type: "select",
+        type: "multi-select",
         key: "priority",
         label: t("tickets.filters.priority"),
         options: [
-          { label: t("tickets.priority.low"), value: "low" },
-          { label: t("tickets.priority.medium"), value: "medium" },
-          { label: t("tickets.priority.high"), value: "high" },
-          { label: t("tickets.priority.urgent"), value: "urgent" },
+          { label: priorityConfigs?.["low"]?.label ?? t("tickets.priority.low"), value: "low" },
+          {
+            label: priorityConfigs?.["medium"]?.label ?? t("tickets.priority.medium"),
+            value: "medium",
+          },
+          { label: priorityConfigs?.["high"]?.label ?? t("tickets.priority.high"), value: "high" },
+          {
+            label: priorityConfigs?.["urgent"]?.label ?? t("tickets.priority.urgent"),
+            value: "urgent",
+          },
         ],
       },
       ...(typeOptions.length > 0
         ? [
             {
-              type: "select" as const,
+              type: "multi-select" as const,
               key: "ticketTypeId",
               label: t("tickets.filters.ticketType"),
               options: typeOptions,
@@ -672,7 +697,7 @@ export function TicketsClient({
       ...(branchOptions.length > 0
         ? [
             {
-              type: "select" as const,
+              type: "multi-select" as const,
               key: "branchId",
               label: t("tickets.filters.branch"),
               options: branchOptions,
@@ -680,7 +705,7 @@ export function TicketsClient({
           ]
         : []),
     ],
-    [t, memberOptions, typeOptions, branchOptions]
+    [t, memberOptions, typeOptions, branchOptions, statusConfigs, priorityConfigs]
   );
 
   return (

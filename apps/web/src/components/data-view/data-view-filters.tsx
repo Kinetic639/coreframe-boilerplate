@@ -14,8 +14,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { MultiSelect } from "@/components/primitives/multi-select/multi-select";
 import { useDataViewStatic, useDataViewUrl } from "./use-data-view";
 import type { DataViewFilterDef } from "./data-view.types";
 
@@ -57,7 +57,8 @@ function getFilterValueLabel(
   if (Array.isArray(val)) {
     if (val.length === 0) return null;
     if (def.type === "multi-select") {
-      return val.map((v) => def.options.find((o) => o.value === v)?.label ?? v).join(", ");
+      if (val.length === 1) return def.options.find((o) => o.value === val[0])?.label ?? val[0];
+      return `+${val.length}`;
     }
     return val.join(", ");
   }
@@ -136,28 +137,12 @@ function FilterField({
     return (
       <div className="space-y-1">
         <label className="text-xs font-medium text-muted-foreground">{def.label}</label>
-        <div className="space-y-1 max-h-40 overflow-y-auto">
-          {def.options.map((opt) => {
-            const checked = arrVal.includes(opt.value);
-            return (
-              <label
-                key={opt.value}
-                className="flex items-center gap-2 cursor-pointer rounded px-1 py-0.5 hover:bg-muted text-sm"
-              >
-                <Checkbox
-                  checked={checked}
-                  onCheckedChange={(ch) => {
-                    const next = ch
-                      ? [...arrVal, opt.value]
-                      : arrVal.filter((v) => v !== opt.value);
-                    onChange({ [def.key]: next.length > 0 ? next : null });
-                  }}
-                />
-                {opt.label}
-              </label>
-            );
-          })}
-        </div>
+        <MultiSelect
+          options={def.options}
+          value={arrVal}
+          onChange={(next) => onChange({ [def.key]: next.length > 0 ? next : null })}
+          maxHeight={160}
+        />
       </div>
     );
   }

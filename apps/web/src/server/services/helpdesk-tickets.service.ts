@@ -210,14 +210,17 @@ export class HelpdeskTicketsService {
     const { search, sort, page, pageSize, filters } = params;
     const offset = (page - 1) * pageSize;
 
-    // Resolve assignedTo filter: get ticket IDs where that user is an assignee
+    // Resolve assignedTo filter: get ticket IDs where any of the selected users are assignees
     let assignedToTicketIds: string[] | null = null;
     if (filters.assignedTo) {
+      const userIds = Array.isArray(filters.assignedTo)
+        ? (filters.assignedTo as string[])
+        : [filters.assignedTo as string];
       const { data: assigneeRows } = await supabase
         .from("helpdesk_ticket_assignees")
         .select("ticket_id")
         .eq("org_id", orgId)
-        .eq("user_id", filters.assignedTo as string)
+        .in("user_id", userIds)
         .is("deleted_at", null);
       assignedToTicketIds = (assigneeRows ?? []).map((r) => r.ticket_id as string);
       if (assignedToTicketIds.length === 0) {
@@ -250,10 +253,34 @@ export class HelpdeskTicketsService {
         query = query.eq("status", filters.status as string);
       }
     }
-    if (filters.priority) query = query.eq("priority", filters.priority as string);
-    if (filters.ticketTypeId) query = query.eq("ticket_type_id", filters.ticketTypeId as string);
-    if (filters.branchId) query = query.eq("branch_id", filters.branchId as string);
-    if (filters.createdBy) query = query.eq("created_by", filters.createdBy as string);
+    if (filters.priority) {
+      if (Array.isArray(filters.priority)) {
+        query = query.in("priority", filters.priority as string[]);
+      } else {
+        query = query.eq("priority", filters.priority as string);
+      }
+    }
+    if (filters.ticketTypeId) {
+      if (Array.isArray(filters.ticketTypeId)) {
+        query = query.in("ticket_type_id", filters.ticketTypeId as string[]);
+      } else {
+        query = query.eq("ticket_type_id", filters.ticketTypeId as string);
+      }
+    }
+    if (filters.branchId) {
+      if (Array.isArray(filters.branchId)) {
+        query = query.in("branch_id", filters.branchId as string[]);
+      } else {
+        query = query.eq("branch_id", filters.branchId as string);
+      }
+    }
+    if (filters.createdBy) {
+      if (Array.isArray(filters.createdBy)) {
+        query = query.in("created_by", filters.createdBy as string[]);
+      } else {
+        query = query.eq("created_by", filters.createdBy as string);
+      }
+    }
     if (filters.createdAtFrom) query = query.gte("created_at", filters.createdAtFrom as string);
     if (filters.createdAtTo) query = query.lte("created_at", filters.createdAtTo as string);
     if (assignedToTicketIds) query = query.in("id", assignedToTicketIds);
