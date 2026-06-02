@@ -34,15 +34,19 @@ export default async function TicketDetailPage({ params }: PageProps) {
   const supabase = await createClient();
   const orgId = context.app.activeOrgId;
 
-  const [result, settingsResult, qrAssignmentResult] = await Promise.all([
+  // Fetch ticket + settings in parallel; QR assignment needs the ticket UUID
+  // which comes from getDetail, so it runs after.
+  const [result, settingsResult] = await Promise.all([
     HelpdeskTicketsService.getDetail(supabase, orgId, ticketId),
     HelpdeskTicketTypesService.getSettings(supabase, orgId),
-    getQrAssignmentForTicketAction(ticketId),
   ]);
 
   if (!result.success || !result.data) {
     notFound();
   }
+
+  // Now we have the UUID — look up the QR assignment with the correct target_id
+  const qrAssignmentResult = await getQrAssignmentForTicketAction(result.data.id);
 
   const canManage = checkPermission(context.user.permissionSnapshot, HELPDESK_TICKETS_MANAGE);
   const currentUserId = context.user.user?.id ?? "";

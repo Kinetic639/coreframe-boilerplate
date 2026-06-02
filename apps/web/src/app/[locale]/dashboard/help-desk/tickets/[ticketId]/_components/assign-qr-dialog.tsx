@@ -54,11 +54,17 @@ export function AssignQrDialog({
     setLoading(true);
     listQrCodesAction().then((result) => {
       if (result.success) {
-        // Only show active unassigned codes
+        // Show only active codes that are either unassigned,
+        // or not already assigned to this specific ticket (UUID match).
         setCodes(
-          (result as { success: true; data: QrCodeWithStatus[] }).data.filter(
-            (c) => c.status === "active" && !c.assignment
-          )
+          (result as { success: true; data: QrCodeWithStatus[] }).data.filter((c) => {
+            if (c.status !== "active") return false;
+            if (!c.assignment) return true;
+            // Exclude if already linked to this ticket
+            return !(
+              c.assignment.target_type === "helpdesk.ticket" && c.assignment.target_id === ticketId
+            );
+          })
         );
       }
       setLoading(false);
