@@ -192,10 +192,12 @@ export const signInAction = async (formData: FormData) => {
     }
   }
 
-  // If there's a returnUrl (e.g. /invite/[token]), honor it directly
-  if (returnUrl && returnUrl.trim() !== "") {
+  // If there's a returnUrl, validate it is same-origin (starts with /, not //)
+  // before honoring it — prevents open-redirect attacks.
+  const trimmedReturnUrl = returnUrl?.trim() ?? "";
+  if (trimmedReturnUrl && trimmedReturnUrl.startsWith("/") && !trimmedReturnUrl.startsWith("//")) {
     const { redirect: nextRedirect } = await import("next/navigation");
-    return nextRedirect(returnUrl);
+    return nextRedirect(trimmedReturnUrl);
   }
 
   // Check for pending invites — route to resolution if found

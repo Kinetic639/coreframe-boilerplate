@@ -3,7 +3,18 @@
 import { useState, useCallback } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
-import { ArrowLeft, Loader2, CheckCircle, Clock, User, Tag, Calendar } from "lucide-react";
+import {
+  ArrowLeft,
+  Loader2,
+  CheckCircle,
+  Clock,
+  User,
+  Tag,
+  Calendar,
+  QrCode,
+  Link2Off,
+  Plus,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -35,6 +46,16 @@ import {
   useCloseTicketMutation,
   useAcceptTicketMutation,
 } from "@/hooks/queries/help-desk";
+import { revokeQrAction } from "@/app/actions/qr/revoke";
+import { AssignQrDialog } from "./assign-qr-dialog";
+
+type QrAssignmentInfo = {
+  assignmentId: string;
+  qrCodeId: string;
+  token: string;
+  label: string | null;
+  status: string;
+} | null;
 
 interface TicketDetailClientProps {
   ticket: HelpdeskTicketDetail;
@@ -42,6 +63,7 @@ interface TicketDetailClientProps {
   currentUserId: string;
   statusConfigs: Record<string, StatusBadgeConfig> | null;
   priorityConfigs: Record<string, PriorityBadgeConfig> | null;
+  initialQrAssignment: QrAssignmentInfo;
 }
 
 function formatDate(iso: string): string {
@@ -63,6 +85,7 @@ export function TicketDetailClient({
   currentUserId,
   statusConfigs,
   priorityConfigs,
+  initialQrAssignment,
 }: TicketDetailClientProps) {
   const t = useTranslations("modules.helpDesk");
   const router = useRouter();
@@ -82,6 +105,29 @@ export function TicketDetailClient({
     !ticket.accepted_at &&
     (canManage || ticket.acceptors.some((a) => a.user_id === currentUserId));
   const [commentValue, setCommentValue] = useState<RichTextValue>(createEmptyRichText);
+
+  // QR assignment state
+  const [qrAssignment, setQrAssignment] = useState<QrAssignmentInfo>(initialQrAssignment);
+  const [showAssignQr, setShowAssignQr] = useState(false);
+  const [isRevokingQr, setIsRevokingQr] = useState(false);
+
+  const handleRevokeQr = async () => {
+    if (!qrAssignment) return;
+    setIsRevokingQr(true);
+    try {
+      const result = await revokeQrAction({ qrCodeId: qrAssignment.qrCodeId });
+      if (!result.success) {
+        const { toast } = await import("react-toastify");
+        toast.error((result as { success: false; error: string }).error);
+        return;
+      }
+      setQrAssignment(null);
+      const { toast } = await import("react-toastify");
+      toast.success("QR code unlinked from ticket.");
+    } finally {
+      setIsRevokingQr(false);
+    }
+  };
 
   const isCreator = ticket.created_by === currentUserId;
   const canClose =
@@ -205,6 +251,55 @@ export function TicketDetailClient({
 
         {/* Sidebar */}
         <div className="w-full space-y-4 lg:w-64 lg:shrink-0">
+          {/* QR Code */}
+          <div className="rounded-lg border p-4 space-y-3">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <QrCode className="h-4 w-4 text-muted-foreground" />
+              QR Code
+            </h3>
+            {qrAssignment ? (
+              <div className="space-y-2">
+                <div className="rounded-md bg-muted/50 px-3 py-2 text-sm">
+                  <p className="font-medium truncate">{qrAssignment.label ?? "Unlabelled"}</p>
+                  <p className="text-xs text-muted-foreground font-mono truncate">
+                    {qrAssignment.token}
+                  </p>
+                </div>
+                {canManage && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-destructive hover:text-destructive"
+                    onClick={handleRevokeQr}
+                    disabled={isRevokingQr}
+                  >
+                    {isRevokingQr ? (
+                      <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Link2Off className="mr-2 h-3.5 w-3.5" />
+                    )}
+                    Unlink QR Code
+                  </Button>
+                )}
+              </div>
+            ) : (
+              canManage && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => setShowAssignQr(true)}
+                >
+                  <Plus className="mr-2 h-3.5 w-3.5" />
+                  Assign QR Code
+                </Button>
+              )
+            )}
+            {!qrAssignment && !canManage && (
+              <p className="text-xs text-muted-foreground">No QR code assigned.</p>
+            )}
+          </div>
+
           {/* Close button */}
           {canClose && (
             <Button
@@ -373,6 +468,14 @@ export function TicketDetailClient({
           )}
         </div>
       </div>
+
+      <AssignQrDialog
+        open={showAssignQr}
+        onOpenChange={setShowAssignQr}
+        ticketId={ticket.id}
+        ticketNumber={ticket.ticket_number}
+        onAssigned={(a) => setQrAssignment(a)}
+      />
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { HELPDESK_TICKETS_READ, HELPDESK_TICKETS_MANAGE } from "@/lib/constants/
 import { createClient } from "@/utils/supabase/server";
 import { HelpdeskTicketsService } from "@/server/services/helpdesk-tickets.service";
 import { HelpdeskTicketTypesService } from "@/server/services/helpdesk-ticket-types.service";
+import { getQrAssignmentForTicketAction } from "@/app/actions/qr/assign";
 import { TicketDetailClient } from "./_components/ticket-detail-client";
 
 type PageProps = {
@@ -33,9 +34,10 @@ export default async function TicketDetailPage({ params }: PageProps) {
   const supabase = await createClient();
   const orgId = context.app.activeOrgId;
 
-  const [result, settingsResult] = await Promise.all([
+  const [result, settingsResult, qrAssignmentResult] = await Promise.all([
     HelpdeskTicketsService.getDetail(supabase, orgId, ticketId),
     HelpdeskTicketTypesService.getSettings(supabase, orgId),
+    getQrAssignmentForTicketAction(ticketId),
   ]);
 
   if (!result.success || !result.data) {
@@ -45,6 +47,7 @@ export default async function TicketDetailPage({ params }: PageProps) {
   const canManage = checkPermission(context.user.permissionSnapshot, HELPDESK_TICKETS_MANAGE);
   const currentUserId = context.user.user?.id ?? "";
   const settings = settingsResult.success ? settingsResult.data : null;
+  const qrAssignment = qrAssignmentResult.success ? qrAssignmentResult.data : null;
 
   return (
     <TicketDetailClient
@@ -53,6 +56,7 @@ export default async function TicketDetailPage({ params }: PageProps) {
       currentUserId={currentUserId}
       statusConfigs={settings?.status_configs ?? null}
       priorityConfigs={settings?.priority_configs ?? null}
+      initialQrAssignment={qrAssignment}
     />
   );
 }
