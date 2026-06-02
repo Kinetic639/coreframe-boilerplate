@@ -107,11 +107,18 @@ export async function resolvePublicQrToken(
   orgSlug = (orgRow as { slug?: string | null } | null)?.slug ?? orgSlug;
   branchSlug = (branchResult.data as { slug?: string | null } | null)?.slug ?? null;
 
-  const rawPath = descriptor.resolverPath({
-    targetId: assignment.target_id,
-    orgSlug,
-    branchSlug,
-  });
+  const rawPath = descriptor.resolvePathAsync
+    ? await descriptor.resolvePathAsync({
+        supabase: client,
+        targetId: assignment.target_id,
+        orgSlug,
+        branchSlug,
+      })
+    : descriptor.resolverPath({
+        targetId: assignment.target_id,
+        orgSlug,
+        branchSlug,
+      });
 
   return {
     ok: true,

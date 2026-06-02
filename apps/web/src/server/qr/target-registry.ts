@@ -2,6 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { WAREHOUSE_LOCATIONS_MANAGE, WAREHOUSE_LOCATIONS_READ } from "@/lib/constants/permissions";
+import { HELPDESK_TICKETS_MANAGE, HELPDESK_TICKETS_READ } from "@/lib/constants/permissions";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -47,10 +48,21 @@ export interface QrTargetDescriptor {
   requiredReadPermission: string;
 
   /**
-   * Placeholder resolver path for the Phase 2 scan resolution pipeline.
-   * Defined now so the architecture is resolver-ready without committing to a URL.
+   * Synchronous redirect path. Used when no DB lookup is needed to build the URL.
    */
   resolverPath(params: { targetId: string; orgSlug: string; branchSlug?: string | null }): string;
+
+  /**
+   * Optional async redirect path override. When present, takes precedence over
+   * resolverPath. Use when the URL requires a secondary DB lookup (e.g. fetching
+   * a human-readable slug like ticket_number).
+   */
+  resolvePathAsync?(params: {
+    supabase: SupabaseClient;
+    targetId: string;
+    orgSlug: string;
+    branchSlug?: string | null;
+  }): Promise<string>;
 
   /**
    * Returns display fields for printing on the QR label PDF.
@@ -119,6 +131,65 @@ export const QR_TARGET_REGISTRY: Readonly<Record<string, QrTargetDescriptor>> = 
         primaryText: (data as { name: string } | null)?.name ?? targetId,
         secondaryText: (data as { code: string | null } | null)?.code ?? undefined,
         tertiaryText: "Warehouse Location",
+      };
+    },
+  },
+  "helpdesk.ticket": {
+    type: "helpdesk.ticket",
+
+    async validate({ supabase, targetId, orgId }) {
+      const { data, error } = await supabase
+        .from("helpdesk_tickets")
+        .select("id, org_id, branch_id, deleted_at")
+        .eq("id", targetId)
+        .maybeSingle();
+
+      if (error || !data) {
+        return { valid: false, organizationId: null, branchId: null, error: "NOT_FOUND" };
+      }
+      if (data.deleted_at !== null) {
+        return { valid: false, organizationId: null, branchId: null, error: "SOFT_DELETED" };
+      }
+      if (data.org_id !== orgId) {
+        return { valid: false, organizationId: null, branchId: null, error: "WRONG_ORG" };
+      }
+      return {
+        valid: true,
+        organizationId: data.org_id as string,
+        branchId: (data.branch_id as string | null) ?? null,
+      };
+    },
+
+    requiredAssignPermission: HELPDESK_TICKETS_MANAGE,
+    requiredReadPermission: HELPDESK_TICKETS_READ,
+
+    resolverPath({ targetId }) {
+      // Fallback — resolvePathAsync is always available so this is never reached.
+      return `/dashboard/help-desk/tickets?highlight=${targetId}`;
+    },
+
+    async resolvePathAsync({ supabase, targetId }) {
+      const { data } = await supabase
+        .from("helpdesk_tickets")
+        .select("ticket_number")
+        .eq("id", targetId)
+        .maybeSingle();
+      const number = (data as { ticket_number: string } | null)?.ticket_number ?? targetId;
+      return `/dashboard/help-desk/tickets/${number}`;
+    },
+
+    async getLabelContext({ supabase, targetId }) {
+      const { data } = await supabase
+        .from("helpdesk_tickets")
+        .select("ticket_number, title, status")
+        .eq("id", targetId)
+        .maybeSingle();
+
+      const ticket = data as { ticket_number: string; title: string; status: string } | null;
+      return {
+        primaryText: ticket?.ticket_number ?? targetId,
+        secondaryText: ticket?.title ?? undefined,
+        tertiaryText: ticket ? `Status: ${ticket.status}` : "Help Desk Ticket",
       };
     },
   },
