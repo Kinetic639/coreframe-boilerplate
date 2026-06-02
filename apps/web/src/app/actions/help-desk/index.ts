@@ -501,3 +501,38 @@ export async function getTicketTypeDefaultAcceptorsAction(
     return { success: false, error: "Unexpected error" };
   }
 }
+
+export async function listTicketTypesForDataViewAction(
+  orgId: string,
+  page = 1,
+  pageSize = 50
+): Promise<
+  ActionResult<import("@/lib/data-view/types").PaginatedResult<HelpdeskTicketTypeWithDetails>>
+> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Unauthorized" };
+    return HelpdeskTicketTypesService.listForDataView(supabase, orgId, page, pageSize);
+  } catch {
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
+export async function getTicketTypeDetailAction(
+  typeId: string,
+  orgId: string
+): Promise<ActionResult<HelpdeskTicketTypeWithDetails>> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Unauthorized" };
+    return HelpdeskTicketTypesService.getDetailById(supabase, orgId, typeId);
+  } catch {
+    return { success: false, error: "Unexpected error" };
+  }
+}

@@ -39,7 +39,7 @@ interface TicketTypeFormDialogProps {
   members: MemberOption[];
   availableBranches: Array<{ id: string; name: string }>;
   priorityConfigs: Record<string, PriorityBadgeConfig> | null;
-  onSaved: (type: HelpdeskTicketTypeWithDetails) => void;
+  onSaved: (type?: HelpdeskTicketTypeWithDetails) => void;
 }
 
 export function TicketTypeFormDialog({

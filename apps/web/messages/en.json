@@ -3156,7 +3156,14 @@
         "deleteConfirmDescription": "This will archive the type. Existing tickets are not affected.",
         "createSuccess": "Ticket type created.",
         "updateSuccess": "Ticket type updated.",
-        "deleteSuccess": "Ticket type deleted."
+        "deleteSuccess": "Ticket type deleted.",
+        "backToList": "Back to ticket types",
+        "viewType": "View Type",
+        "name": "Name",
+        "inactive": "Inactive",
+        "allowsManualAssignees": "Manual Assignees",
+        "noDefaultAssignees": "No default assignees configured.",
+        "noDefaultAcceptors": "No default acceptors configured."
       }
     },
     "analytics": {
