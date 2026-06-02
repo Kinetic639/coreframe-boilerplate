@@ -125,6 +125,7 @@ export function NewTicketForm({
         status: "waiting_response",
         priority,
         ticket_type_id: ticketTypeId || undefined,
+        branch_id: activeBranchId || undefined,
         assignee_user_ids: assigneeIds,
         requires_acceptance: requiresAcceptance,
         acceptor_user_ids: acceptorIds,
