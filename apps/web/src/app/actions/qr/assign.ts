@@ -41,6 +41,49 @@ export async function assignQrToTicketAction(rawInput: unknown) {
   }
 }
 
+export async function getQrCodeByTokenAction(token: string) {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { success: false as const, error: "Unauthorized" };
+
+    const { data, error } = await supabase
+      .from("qr_codes")
+      .select(
+        "id, token, label, status, qr_assignments!qr_assignments_qr_code_id_fkey(target_type, target_id, revoked_at)"
+      )
+      .eq("token", token)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (error) return { success: false as const, error: error.message };
+    if (!data) return { success: true as const, data: null };
+
+    const assignments =
+      (data.qr_assignments as
+        | { target_type: string; target_id: string; revoked_at: string | null }[]
+        | null) ?? [];
+    const activeAssignment = assignments.find((a) => a.revoked_at === null) ?? null;
+
+    return {
+      success: true as const,
+      data: {
+        id: data.id as string,
+        token: data.token as string,
+        label: (data.label as string | null) ?? null,
+        status: data.status as string,
+        assignment: activeAssignment
+          ? { target_type: activeAssignment.target_type, target_id: activeAssignment.target_id }
+          : null,
+      },
+    };
+  } catch {
+    return { success: false as const, error: "Unexpected error" };
+  }
+}
+
 export async function getQrAssignmentForTicketAction(ticketId: string) {
   try {
     // Lightweight auth — RLS enforces org scope
