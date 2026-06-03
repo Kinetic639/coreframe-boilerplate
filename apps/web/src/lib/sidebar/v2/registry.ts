@@ -21,6 +21,9 @@ import {
   HELPDESK_TICKETS_READ,
   HELPDESK_TICKET_TYPES_MANAGE,
   HELPDESK_SETTINGS_MANAGE,
+  MODULE_PLANNING_ACCESS,
+  PLANNING_READ,
+  PLANNING_TASKS_READ,
 } from "@/lib/constants/permissions";
 import {
   MODULE_ORGANIZATION_MANAGEMENT,
@@ -28,6 +31,7 @@ import {
   MODULE_ANALYTICS,
   MODULE_WORKSHOP,
   MODULE_HELPDESK,
+  MODULE_PLANNING,
 } from "@/lib/constants/modules";
 
 /**
@@ -303,6 +307,57 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
         match: { exact: "/dashboard/organization/billing" },
         visibility: {
           requiresPermissions: [ORG_UPDATE], // Only owners see billing
+        },
+      },
+    ],
+  },
+
+  // ── Group: planning ─────────────────────────────────────────────────────
+
+  // Planning (plan-gated: MODULE_PLANNING must be in enabled_modules,
+  // user-gated: MODULE_PLANNING_ACCESS permission required)
+  {
+    id: "planning",
+    group: "planning",
+    title: "Planning",
+    titleKey: "modules.planning.titleSidebar",
+    iconKey: "checkSquare",
+    visibility: {
+      requiresModules: [MODULE_PLANNING],
+      requiresPermissions: [MODULE_PLANNING_ACCESS],
+    },
+    children: [
+      {
+        id: "planning.overview",
+        title: "Overview",
+        titleKey: "modules.planning.items.overview",
+        iconKey: "layoutGrid",
+        href: "/dashboard/planning",
+        match: { exact: "/dashboard/planning" },
+        visibility: {
+          requiresPermissions: [PLANNING_READ],
+        },
+      },
+      {
+        id: "planning.tasks",
+        title: "Tasks",
+        titleKey: "modules.planning.items.tasks",
+        iconKey: "checkSquare",
+        href: "/dashboard/planning/tasks",
+        match: { startsWith: "/dashboard/planning/tasks" },
+        visibility: {
+          requiresPermissions: [PLANNING_TASKS_READ],
+        },
+      },
+      {
+        id: "planning.boards",
+        title: "Boards",
+        titleKey: "modules.planning.items.boards",
+        iconKey: "layoutGrid",
+        href: "/dashboard/planning/boards",
+        match: { exact: "/dashboard/planning/boards" },
+        visibility: {
+          requiresPermissions: [PLANNING_TASKS_READ],
         },
       },
     ],

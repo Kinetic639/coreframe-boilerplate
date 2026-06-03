@@ -3166,6 +3166,41 @@
         "noDefaultAcceptors": "No default acceptors configured."
       }
     },
+    "planning": {
+      "title": "Planning",
+      "titleSidebar": "Planning",
+      "description": "Organize and track tasks across your organization.",
+      "items": {
+        "overview": "Overview",
+        "tasks": "Tasks",
+        "boards": "Boards"
+      },
+      "pages": {
+        "overview": {
+          "title": "Planning",
+          "subtitle": "Organize and track tasks across your organization."
+        },
+        "tasks": {
+          "title": "Tasks",
+          "subtitle": "All tasks in your organization"
+        },
+        "boards": {
+          "title": "Boards",
+          "subtitle": "Visualize tasks on a Kanban board"
+        }
+      },
+      "features": {
+        "tasks": "Tasks",
+        "boards": "Kanban Boards"
+      },
+      "empty": {
+        "noData": "No tasks yet",
+        "noDataDescription": "Create a task to get started."
+      },
+      "errors": {
+        "loadFailed": "Failed to load planning data"
+      }
+    },
     "analytics": {
       "title": "Analytics & Reports",
       "titleSidebar": "Analytics",

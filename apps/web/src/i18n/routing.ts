@@ -300,6 +300,20 @@ export const routing = defineRouting({
       pl: "/dashboard/help-desk/typy-zgloszen",
     },
 
+    // === Planning module ===
+    "/dashboard/planning": {
+      en: "/dashboard/planning",
+      pl: "/dashboard/planowanie",
+    },
+    "/dashboard/planning/tasks": {
+      en: "/dashboard/planning/tasks",
+      pl: "/dashboard/planowanie/zadania",
+    },
+    "/dashboard/planning/boards": {
+      en: "/dashboard/planning/boards",
+      pl: "/dashboard/planowanie/tablice",
+    },
+
     // === Analytics & Reports module ===
     "/dashboard/analytics": {
       en: "/dashboard/analytics",
