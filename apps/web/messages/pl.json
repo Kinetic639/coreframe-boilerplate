@@ -3144,7 +3144,8 @@
       "items": {
         "overview": "Przegląd",
         "tasks": "Zadania",
-        "boards": "Tablice"
+        "boards": "Tablice",
+        "settings": "Ustawienia"
       },
       "pages": {
         "overview": {

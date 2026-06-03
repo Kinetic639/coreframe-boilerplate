@@ -61,7 +61,7 @@ export function PlanningTaskCreateDialog({
   const [title, setTitle] = useState("");
   const [descriptionRich, setDescriptionRich] = useState<RichTextValue>(createEmptyRichText);
   const [priority, setPriority] = useState<TaskPriority>("normal");
-  const [assignedTo, setAssignedTo] = useState<string>("");
+  const [assignedTo, setAssignedTo] = useState<string>("__unassigned__");
   const [dueAt, setDueAt] = useState<string>("");
   const [titleError, setTitleError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -70,7 +70,7 @@ export function PlanningTaskCreateDialog({
     setTitle("");
     setDescriptionRich(createEmptyRichText);
     setPriority("normal");
-    setAssignedTo("");
+    setAssignedTo("__unassigned__");
     setDueAt("");
     setTitleError(null);
   }
@@ -99,7 +99,11 @@ export function PlanningTaskCreateDialog({
         description_plain: hasDescription ? descriptionPlain : undefined,
         description_rich: hasDescription ? descriptionRich : undefined,
         priority,
-        assigned_to: assignToMe ? currentUserId : assignedTo || null,
+        assigned_to: assignToMe
+          ? currentUserId
+          : assignedTo === "__unassigned__"
+            ? null
+            : assignedTo || null,
         due_at: dueAt ? new Date(dueAt).toISOString() : null,
       });
 
@@ -112,6 +116,8 @@ export function PlanningTaskCreateDialog({
       reset();
       onOpenChange(false);
       onCreated(result.data);
+    } catch {
+      toast.error("Failed to create task. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -186,7 +192,7 @@ export function PlanningTaskCreateDialog({
                   <SelectValue placeholder="Unassigned" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Unassigned</SelectItem>
+                  <SelectItem value="__unassigned__">Unassigned</SelectItem>
                   {members.map((m) => (
                     <SelectItem key={m.user_id} value={m.user_id}>
                       {m.name ?? m.email ?? m.user_id}
@@ -200,13 +206,15 @@ export function PlanningTaskCreateDialog({
           {/* Due date */}
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="task-due">Due date</Label>
-            <Input
-              id="task-due"
-              type="date"
-              value={dueAt}
-              onChange={(e) => setDueAt(e.target.value)}
-              disabled={submitting}
-            />
+            <div className="w-48">
+              <Input
+                id="task-due"
+                type="date"
+                value={dueAt}
+                onChange={(e) => setDueAt(e.target.value)}
+                disabled={submitting}
+              />
+            </div>
           </div>
         </div>
 
