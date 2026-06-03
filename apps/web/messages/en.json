@@ -3193,6 +3193,32 @@
         "tasks": "Tasks",
         "boards": "Kanban Boards"
       },
+      "tasks": {
+        "createTask": "Create task",
+        "taskCreated": "Task created",
+        "taskUpdated": "Task updated",
+        "assignedTo": "Assigned to",
+        "unassigned": "Unassigned",
+        "status": "Status",
+        "priority": "Priority",
+        "dueDate": "Due date",
+        "open": "Open",
+        "inProgress": "In Progress",
+        "completed": "Completed",
+        "cancelled": "Cancelled",
+        "low": "Low",
+        "normal": "Normal",
+        "high": "High",
+        "urgent": "Urgent",
+        "activity": "Activity",
+        "noActivity": "No activity yet",
+        "markInProgress": "Mark in progress",
+        "complete": "Complete",
+        "reopen": "Reopen",
+        "cancelTask": "Cancel task",
+        "archiveTask": "Archive task",
+        "createAndAssignToMe": "Create & assign to me"
+      },
       "empty": {
         "noData": "No tasks yet",
         "noDataDescription": "Create a task to get started."

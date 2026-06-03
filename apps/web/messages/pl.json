@@ -3164,6 +3164,32 @@
         "tasks": "Zadania",
         "boards": "Tablice Kanban"
       },
+      "tasks": {
+        "createTask": "Utwórz zadanie",
+        "taskCreated": "Zadanie utworzone",
+        "taskUpdated": "Zadanie zaktualizowane",
+        "assignedTo": "Przypisane do",
+        "unassigned": "Nieprzypisane",
+        "status": "Status",
+        "priority": "Priorytet",
+        "dueDate": "Termin",
+        "open": "Otwarte",
+        "inProgress": "W realizacji",
+        "completed": "Zakończone",
+        "cancelled": "Anulowane",
+        "low": "Niski",
+        "normal": "Normalny",
+        "high": "Wysoki",
+        "urgent": "Pilny",
+        "activity": "Aktywność",
+        "noActivity": "Brak aktywności",
+        "markInProgress": "Oznacz jako w realizacji",
+        "complete": "Zakończ",
+        "reopen": "Otwórz ponownie",
+        "cancelTask": "Anuluj zadanie",
+        "archiveTask": "Archiwizuj zadanie",
+        "createAndAssignToMe": "Utwórz i przypisz do mnie"
+      },
       "empty": {
         "noData": "Brak zadań",
         "noDataDescription": "Utwórz zadanie, aby rozpocząć."

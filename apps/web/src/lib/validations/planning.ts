@@ -4,7 +4,7 @@ import { z } from "zod";
 // Enums
 // ---------------------------------------------------------------------------
 
-export const TASK_STATUSES = ["open", "in_progress", "completed"] as const;
+export const TASK_STATUSES = ["open", "in_progress", "completed", "cancelled"] as const;
 export const TASK_PRIORITIES = ["low", "normal", "high", "urgent"] as const;
 
 export type TaskStatus = (typeof TASK_STATUSES)[number];
@@ -15,17 +15,23 @@ export type TaskPriority = (typeof TASK_PRIORITIES)[number];
 // ---------------------------------------------------------------------------
 
 export const createTaskSchema = z.object({
-  title: z.string().min(1, "Title is required").max(200),
-  description: z.string().max(5000).optional(),
-  status: z.enum(TASK_STATUSES).default("open"),
+  title: z.string().trim().min(1, "Title is required").max(500),
+  description_plain: z.string().max(10000).optional(),
+  description_rich: z.unknown().optional(),
   priority: z.enum(TASK_PRIORITIES).default("normal"),
   branch_id: z.string().uuid().nullable().optional(),
   assigned_to: z.string().uuid().nullable().optional(),
   due_at: z.string().datetime().nullable().optional(),
 });
 
-export const updateTaskSchema = createTaskSchema.extend({
+export const updateTaskSchema = z.object({
   id: z.string().uuid(),
+  title: z.string().trim().min(1, "Title is required").max(500),
+  description_plain: z.string().max(10000).optional(),
+  description_rich: z.unknown().optional(),
+  priority: z.enum(TASK_PRIORITIES),
+  branch_id: z.string().uuid().nullable().optional(),
+  due_at: z.string().datetime().nullable().optional(),
 });
 
 export const changeTaskStatusSchema = z.object({

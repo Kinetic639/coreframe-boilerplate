@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback } from "react";
-import { Plus, CheckSquare, LayoutGrid } from "lucide-react";
+import { useState, useCallback, useMemo } from "react";
+import { Plus, CheckSquare } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { DataView } from "@/components/data-view/data-view";
 import type {
   DataViewColumnDef,
@@ -12,137 +12,62 @@ import type {
   PaginatedResult,
 } from "@/components/data-view/data-view.types";
 import { listTasksForDataViewAction, getTaskDetailAction } from "@/app/actions/planning";
+import { PlanningTaskDetailPanel } from "./planning-task-detail-panel";
+import { PlanningTaskCreateDialog } from "./planning-task-create-dialog";
+import { PlanningTaskStatusBadge } from "@/components/planning/planning-task-status-badge";
+import { PlanningTaskPriorityBadge } from "@/components/planning/planning-task-priority-badge";
 import type {
   PlanningTaskListRow,
   PlanningTaskDetail,
 } from "@/server/services/planning-tasks.service";
-import type { TaskStatus, TaskPriority } from "@/lib/validations/planning";
 
 const PLANNING_TASKS_QUERY_KEY = ["planning-tasks-dataview"];
+
+interface Member {
+  user_id: string;
+  name: string | null;
+  email: string | null;
+}
 
 interface TasksClientProps {
   initialData: PaginatedResult<PlanningTaskListRow>;
   canCreate: boolean;
+  canUpdate: boolean;
   canAssign: boolean;
-  members: Array<{ user_id: string; name: string | null; email: string | null }>;
+  canDelete: boolean;
+  members: Member[];
+  currentUserId: string;
   orgId: string;
-}
-
-const STATUS_LABELS: Record<TaskStatus, string> = {
-  open: "Open",
-  in_progress: "In Progress",
-  completed: "Completed",
-};
-
-const STATUS_COLORS: Record<TaskStatus, string> = {
-  open: "bg-blue-100 text-blue-700 border-blue-200",
-  in_progress: "bg-amber-100 text-amber-700 border-amber-200",
-  completed: "bg-emerald-100 text-emerald-700 border-emerald-200",
-};
-
-const PRIORITY_LABELS: Record<TaskPriority, string> = {
-  low: "Low",
-  normal: "Normal",
-  high: "High",
-  urgent: "Urgent",
-};
-
-const PRIORITY_COLORS: Record<TaskPriority, string> = {
-  low: "bg-slate-100 text-slate-600 border-slate-200",
-  normal: "bg-blue-100 text-blue-600 border-blue-200",
-  high: "bg-orange-100 text-orange-700 border-orange-200",
-  urgent: "bg-red-100 text-red-700 border-red-200",
-};
-
-function TaskDetailPanel({ detail }: { detail: PlanningTaskDetail }) {
-  return (
-    <div className="flex flex-col gap-4 p-4">
-      <div>
-        <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">Title</p>
-        <p className="mt-1 text-sm">{detail.title}</p>
-      </div>
-      {detail.description && (
-        <div>
-          <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
-            Description
-          </p>
-          <p className="mt-1 text-sm">{detail.description}</p>
-        </div>
-      )}
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
-            Status
-          </p>
-          <Badge variant="outline" className={`mt-1 text-xs ${STATUS_COLORS[detail.status] ?? ""}`}>
-            {STATUS_LABELS[detail.status] ?? detail.status}
-          </Badge>
-        </div>
-        <div>
-          <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
-            Priority
-          </p>
-          <Badge
-            variant="outline"
-            className={`mt-1 text-xs ${PRIORITY_COLORS[detail.priority] ?? ""}`}
-          >
-            {PRIORITY_LABELS[detail.priority] ?? detail.priority}
-          </Badge>
-        </div>
-      </div>
-      {detail.assignee_name && (
-        <div>
-          <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
-            Assigned to
-          </p>
-          <p className="mt-1 text-sm">{detail.assignee_name}</p>
-        </div>
-      )}
-      {detail.due_at && (
-        <div>
-          <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
-            Due date
-          </p>
-          <p className="mt-1 text-sm">{new Date(detail.due_at).toLocaleDateString()}</p>
-        </div>
-      )}
-      <div>
-        <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
-          Created by
-        </p>
-        <p className="mt-1 text-sm">{detail.creator_name ?? detail.creator_email ?? "Unknown"}</p>
-      </div>
-    </div>
-  );
 }
 
 const COLUMNS: DataViewColumnDef<PlanningTaskListRow>[] = [
   {
+    key: "task_number",
+    header: "ID",
+    accessor: (row) => (
+      <span className="text-muted-foreground font-mono text-xs">{row.task_number}</span>
+    ),
+  },
+  {
     key: "title",
     header: "Title",
     accessor: (row) => (
-      <span className="block max-w-[280px] truncate font-medium">{row.title}</span>
+      <span className="block max-w-[260px] truncate font-medium" title={row.title}>
+        {row.title}
+      </span>
     ),
     sortable: true,
   },
   {
     key: "status",
     header: "Status",
-    accessor: (row) => (
-      <Badge variant="outline" className={`text-xs ${STATUS_COLORS[row.status] ?? ""}`}>
-        {STATUS_LABELS[row.status] ?? row.status}
-      </Badge>
-    ),
+    accessor: (row) => <PlanningTaskStatusBadge status={row.status} />,
     sortable: true,
   },
   {
     key: "priority",
     header: "Priority",
-    accessor: (row) => (
-      <Badge variant="outline" className={`text-xs ${PRIORITY_COLORS[row.priority] ?? ""}`}>
-        {PRIORITY_LABELS[row.priority] ?? row.priority}
-      </Badge>
-    ),
+    accessor: (row) => <PlanningTaskPriorityBadge priority={row.priority} />,
     sortable: true,
   },
   {
@@ -156,7 +81,7 @@ const COLUMNS: DataViewColumnDef<PlanningTaskListRow>[] = [
   },
   {
     key: "due_at",
-    header: "Due date",
+    header: "Due",
     accessor: (row) =>
       row.due_at ? (
         <span className="text-sm">{new Date(row.due_at).toLocaleDateString()}</span>
@@ -166,11 +91,11 @@ const COLUMNS: DataViewColumnDef<PlanningTaskListRow>[] = [
     sortable: true,
   },
   {
-    key: "created_at",
-    header: "Created",
+    key: "updated_at",
+    header: "Updated",
     accessor: (row) => (
       <span className="text-muted-foreground text-sm">
-        {new Date(row.created_at).toLocaleDateString()}
+        {new Date(row.updated_at).toLocaleDateString()}
       </span>
     ),
     sortable: true,
@@ -186,6 +111,7 @@ const FILTERS: DataViewFilterDef[] = [
       { value: "open", label: "Open" },
       { value: "in_progress", label: "In Progress" },
       { value: "completed", label: "Completed" },
+      { value: "cancelled", label: "Cancelled" },
     ],
   },
   {
@@ -201,7 +127,19 @@ const FILTERS: DataViewFilterDef[] = [
   },
 ];
 
-export function TasksClient({ initialData, canCreate, orgId }: TasksClientProps) {
+export function TasksClient({
+  initialData,
+  canCreate,
+  canUpdate,
+  canAssign,
+  canDelete,
+  members,
+  currentUserId,
+  orgId,
+}: TasksClientProps) {
+  const [createOpen, setCreateOpen] = useState(false);
+  const queryClient = useQueryClient();
+
   const listFetcher = useCallback(
     async (params: DataViewListParams): Promise<PaginatedResult<PlanningTaskListRow>> => {
       const result = await listTasksForDataViewAction(params);
@@ -217,6 +155,14 @@ export function TasksClient({ initialData, canCreate, orgId }: TasksClientProps)
     return result.data;
   }, []);
 
+  const handleCreated = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: PLANNING_TASKS_QUERY_KEY });
+  }, [queryClient]);
+
+  const handleRefresh = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: PLANNING_TASKS_QUERY_KEY });
+  }, [queryClient]);
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b px-6 py-4">
@@ -225,7 +171,7 @@ export function TasksClient({ initialData, canCreate, orgId }: TasksClientProps)
           <h1 className="text-lg font-semibold">Tasks</h1>
         </div>
         {canCreate && (
-          <Button size="sm" className="gap-1.5">
+          <Button size="sm" className="gap-1.5" onClick={() => setCreateOpen(true)}>
             <Plus className="h-4 w-4" />
             New task
           </Button>
@@ -245,26 +191,31 @@ export function TasksClient({ initialData, canCreate, orgId }: TasksClientProps)
           renderCompactItem={(row) => (
             <div className="flex flex-col gap-1">
               <div className="flex items-center justify-between gap-2">
-                <Badge variant="outline" className={`text-xs ${STATUS_COLORS[row.status] ?? ""}`}>
-                  {STATUS_LABELS[row.status] ?? row.status}
-                </Badge>
-                <Badge
-                  variant="outline"
-                  className={`text-xs ${PRIORITY_COLORS[row.priority] ?? ""}`}
-                >
-                  {PRIORITY_LABELS[row.priority] ?? row.priority}
-                </Badge>
+                <span className="text-muted-foreground font-mono text-xs">{row.task_number}</span>
+                <PlanningTaskStatusBadge status={row.status} />
               </div>
               <span className="truncate text-sm font-medium" title={row.title}>
                 {row.title}
               </span>
+              <PlanningTaskPriorityBadge priority={row.priority} />
             </div>
           )}
-          renderDetail={(detail) => <TaskDetailPanel key={detail.id} detail={detail} />}
+          renderDetail={(detail) => (
+            <PlanningTaskDetailPanel
+              key={detail.id}
+              detail={detail}
+              canUpdate={canUpdate}
+              canAssign={canAssign}
+              canDelete={canDelete}
+              currentUserId={currentUserId}
+              members={members}
+              onRefresh={handleRefresh}
+            />
+          )}
           renderToolbarControls={
             canCreate
               ? () => (
-                  <Button size="sm" className="gap-1.5">
+                  <Button size="sm" className="gap-1.5" onClick={() => setCreateOpen(true)}>
                     <Plus className="h-4 w-4" />
                     New task
                   </Button>
@@ -273,6 +224,14 @@ export function TasksClient({ initialData, canCreate, orgId }: TasksClientProps)
           }
         />
       </div>
+
+      <PlanningTaskCreateDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        members={members}
+        currentUserId={currentUserId}
+        onCreated={handleCreated}
+      />
     </div>
   );
 }
