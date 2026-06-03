@@ -17,7 +17,7 @@ export type TaskPriority = (typeof TASK_PRIORITIES)[number];
 export const createTaskSchema = z.object({
   title: z.string().trim().min(1, "Title is required").max(500),
   description_plain: z.string().max(10000).optional(),
-  description_rich: z.unknown().optional(),
+  description_rich: z.string().optional(), // JSON-stringified on client to bypass React serialization
   priority: z.enum(TASK_PRIORITIES).default("normal"),
   branch_id: z.string().uuid().nullable().optional(),
   assigned_to: z.string().uuid().nullable().optional(),
@@ -28,7 +28,7 @@ export const updateTaskSchema = z.object({
   id: z.string().uuid(),
   title: z.string().trim().min(1, "Title is required").max(500),
   description_plain: z.string().max(10000).optional(),
-  description_rich: z.unknown().optional(),
+  description_rich: z.string().optional(), // JSON-stringified on client
   priority: z.enum(TASK_PRIORITIES),
   branch_id: z.string().uuid().nullable().optional(),
   due_at: z.string().datetime().nullable().optional(),

@@ -293,7 +293,15 @@ export const PlanningTasksService = {
           updated_by: userId,
           title: input.title,
           description_plain: input.description_plain ?? null,
-          description_rich: (input.description_rich as object | null) ?? null,
+          description_rich: input.description_rich
+            ? (() => {
+                try {
+                  return JSON.parse(input.description_rich);
+                } catch {
+                  return null;
+                }
+              })()
+            : null,
           status: "open",
           priority: input.priority ?? "normal",
           branch_id: input.branch_id ?? null,
@@ -348,7 +356,15 @@ export const PlanningTasksService = {
         .update({
           title: input.title,
           description_plain: input.description_plain ?? null,
-          description_rich: (input.description_rich as object | null) ?? null,
+          description_rich: input.description_rich
+            ? (() => {
+                try {
+                  return JSON.parse(input.description_rich);
+                } catch {
+                  return null;
+                }
+              })()
+            : null,
           priority: input.priority,
           branch_id: input.branch_id ?? null,
           due_at: input.due_at ?? null,

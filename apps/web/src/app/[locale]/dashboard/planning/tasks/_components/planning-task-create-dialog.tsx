@@ -97,7 +97,7 @@ export function PlanningTaskCreateDialog({
       const result = await createTaskAction({
         title: trimmedTitle,
         description_plain: hasDescription ? descriptionPlain : undefined,
-        description_rich: hasDescription ? descriptionRich : undefined,
+        description_rich: hasDescription ? JSON.stringify(descriptionRich) : undefined,
         priority,
         assigned_to: assignToMe
           ? currentUserId
