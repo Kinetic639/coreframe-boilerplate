@@ -3137,6 +3137,41 @@
         "noDefaultAcceptors": "Brak domyślnych osób akceptujących."
       }
     },
+    "planning": {
+      "title": "Planowanie",
+      "titleSidebar": "Planowanie",
+      "description": "Organizuj i śledź zadania w całej organizacji.",
+      "items": {
+        "overview": "Przegląd",
+        "tasks": "Zadania",
+        "boards": "Tablice"
+      },
+      "pages": {
+        "overview": {
+          "title": "Planowanie",
+          "subtitle": "Organizuj i śledź zadania w całej organizacji."
+        },
+        "tasks": {
+          "title": "Zadania",
+          "subtitle": "Wszystkie zadania w organizacji"
+        },
+        "boards": {
+          "title": "Tablice",
+          "subtitle": "Wizualizuj zadania na tablicy Kanban"
+        }
+      },
+      "features": {
+        "tasks": "Zadania",
+        "boards": "Tablice Kanban"
+      },
+      "empty": {
+        "noData": "Brak zadań",
+        "noDataDescription": "Utwórz zadanie, aby rozpocząć."
+      },
+      "errors": {
+        "loadFailed": "Nie udało się załadować danych planowania"
+      }
+    },
     "analytics": {
       "title": "Analityka i Raporty",
       "titleSidebar": "Analityka",

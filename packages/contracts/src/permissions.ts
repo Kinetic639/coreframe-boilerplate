@@ -187,6 +187,25 @@ export const HELPDESK_TICKETS_MANAGE = "helpdesk.tickets.manage" as const;
 export const HELPDESK_TICKET_TYPES_MANAGE = "helpdesk.ticket-types.manage" as const;
 export const HELPDESK_SETTINGS_MANAGE = "helpdesk.settings.manage" as const;
 
+// Planning Permissions (org-scoped — Professional/Enterprise)
+// planning.*              — wildcard for org_owner; compiler expands to all concrete planning.X slugs
+// planning.read           — view the Planning module shell and overview
+// planning.tasks.read     — list and view tasks in the org
+// planning.tasks.create   — create new tasks
+// planning.tasks.update   — edit task details, change status, priority
+// planning.tasks.delete   — soft-delete tasks
+// planning.tasks.assign   — assign tasks to other org members
+// module.planning.access  — user-level gate; admins assign to custom roles
+// Seeded in migration 20260601200000_planning_module.sql.
+export const MODULE_PLANNING_ACCESS = "module.planning.access" as const;
+export const PLANNING_WILDCARD = "planning.*" as const;
+export const PLANNING_READ = "planning.read" as const;
+export const PLANNING_TASKS_READ = "planning.tasks.read" as const;
+export const PLANNING_TASKS_CREATE = "planning.tasks.create" as const;
+export const PLANNING_TASKS_UPDATE = "planning.tasks.update" as const;
+export const PLANNING_TASKS_DELETE = "planning.tasks.delete" as const;
+export const PLANNING_TASKS_ASSIGN = "planning.tasks.assign" as const;
+
 // Tools Permissions (user-scoped — always available, no plan gating)
 // tools.read  — view the tools catalog, tool detail pages, and personal enabled-tools list
 // tools.manage — enable, disable, pin, and update settings for tools
@@ -300,6 +319,14 @@ export type PermissionSlug =
   | typeof HELPDESK_TICKETS_MANAGE
   | typeof HELPDESK_TICKET_TYPES_MANAGE
   | typeof HELPDESK_SETTINGS_MANAGE
+  | typeof MODULE_PLANNING_ACCESS
+  | typeof PLANNING_WILDCARD
+  | typeof PLANNING_READ
+  | typeof PLANNING_TASKS_READ
+  | typeof PLANNING_TASKS_CREATE
+  | typeof PLANNING_TASKS_UPDATE
+  | typeof PLANNING_TASKS_DELETE
+  | typeof PLANNING_TASKS_ASSIGN
   | typeof PERMISSION_TOOLS_READ
   | typeof PERMISSION_TOOLS_MANAGE
   | typeof PERMISSION_WDD_MATCHER_READ
@@ -393,6 +420,14 @@ export const ALL_PERMISSION_SLUGS: PermissionSlug[] = [
   HELPDESK_TICKETS_MANAGE,
   HELPDESK_TICKET_TYPES_MANAGE,
   HELPDESK_SETTINGS_MANAGE,
+  MODULE_PLANNING_ACCESS,
+  PLANNING_WILDCARD,
+  PLANNING_READ,
+  PLANNING_TASKS_READ,
+  PLANNING_TASKS_CREATE,
+  PLANNING_TASKS_UPDATE,
+  PLANNING_TASKS_DELETE,
+  PLANNING_TASKS_ASSIGN,
   PERMISSION_TOOLS_READ,
   PERMISSION_TOOLS_MANAGE,
   PERMISSION_WDD_MATCHER_READ,

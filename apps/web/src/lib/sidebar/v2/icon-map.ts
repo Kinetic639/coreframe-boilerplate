@@ -34,6 +34,8 @@ import {
   LayoutDashboard,
   ArrowLeftRight,
   ShieldCheck,
+  CheckSquare,
+  LayoutGrid,
 } from "lucide-react";
 import type { IconKey } from "@/lib/types/v2/sidebar";
 
@@ -77,6 +79,8 @@ export const ICON_MAP: Record<IconKey, React.ComponentType<{ className?: string 
   dashboard: LayoutDashboard,
   transfers: ArrowLeftRight,
   shieldCheck: ShieldCheck,
+  checkSquare: CheckSquare,
+  layoutGrid: LayoutGrid,
 };
 
 /**

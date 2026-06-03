@@ -59,7 +59,9 @@ export type IconKey =
   | "truck"
   | "dashboard"
   | "transfers"
-  | "shieldCheck";
+  | "shieldCheck"
+  | "checkSquare"
+  | "layoutGrid";
 
 /**
  * Active route matching rules (strict discriminated union)
