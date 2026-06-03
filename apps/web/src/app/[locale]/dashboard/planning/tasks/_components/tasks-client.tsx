@@ -142,18 +142,21 @@ export function TasksClient({
 
   const listFetcher = useCallback(
     async (params: DataViewListParams): Promise<PaginatedResult<PlanningTaskListRow>> => {
-      const result = await listTasksForDataViewAction(params);
+      const result = await listTasksForDataViewAction(params, orgId);
       if (result.success) return result.data;
       throw new Error((result as { success: false; error: string }).error);
     },
-    []
+    [orgId]
   );
 
-  const detailFetcher = useCallback(async (id: string): Promise<PlanningTaskDetail | null> => {
-    const result = await getTaskDetailAction(id);
-    if (!result.success) return null;
-    return result.data;
-  }, []);
+  const detailFetcher = useCallback(
+    async (id: string): Promise<PlanningTaskDetail | null> => {
+      const result = await getTaskDetailAction(id, orgId);
+      if (!result.success) return null;
+      return result.data;
+    },
+    [orgId]
+  );
 
   const handleCreated = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: PLANNING_TASKS_QUERY_KEY });
