@@ -116,8 +116,8 @@ export const PlanningTasksService = {
           `id, organization_id, task_number, title, status, priority,
            branch_id, assigned_to, due_at, started_at, completed_at, cancelled_at,
            created_by, created_at, updated_at,
-           assignee:users!planning_tasks_assigned_to_fkey(first_name, last_name, email),
-           creator:users!planning_tasks_created_by_fkey(first_name, last_name, email)`,
+           assignee:users!assigned_to(first_name, last_name, email),
+           creator:users!created_by(first_name, last_name, email)`,
           { count: "exact" }
         )
         .eq("organization_id", orgId)
@@ -197,8 +197,8 @@ export const PlanningTasksService = {
           `id, organization_id, task_number, title, description_plain, description_rich,
            status, priority, branch_id, assigned_to, due_at, started_at, completed_at,
            cancelled_at, created_by, updated_by, created_at, updated_at, deleted_at,
-           assignee:users!planning_tasks_assigned_to_fkey(first_name, last_name, email),
-           creator:users!planning_tasks_created_by_fkey(first_name, last_name, email)`
+           assignee:users!assigned_to(first_name, last_name, email),
+           creator:users!created_by(first_name, last_name, email)`
         )
         .eq("organization_id", orgId)
         .eq("id", taskId)
@@ -217,7 +217,7 @@ export const PlanningTasksService = {
         .from("planning_task_activity")
         .select(
           `id, organization_id, task_id, activity_type, actor_id, message, metadata, created_at,
-           actor:users!planning_task_activity_actor_id_fkey(first_name, last_name, email)`
+           actor:users!actor_id(first_name, last_name, email)`
         )
         .eq("task_id", taskId)
         .order("created_at", { ascending: true });

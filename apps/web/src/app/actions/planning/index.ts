@@ -10,6 +10,7 @@ import {
   PLANNING_TASKS_UPDATE,
   PLANNING_TASKS_DELETE,
   PLANNING_TASKS_ASSIGN,
+  PLANNING_SETTINGS_MANAGE,
 } from "@/lib/constants/permissions";
 import {
   PlanningTasksService,
@@ -259,6 +260,102 @@ export async function deleteTaskAction(taskId: string): Promise<ActionResult<voi
   }
 }
 
+// ---------------------------------------------------------------------------
+// Settings
+// ---------------------------------------------------------------------------
+
+export async function savePlanningSettingsAction(input: {
+  status_configs?: Record<string, { label: string; color: string }>;
+  priority_configs?: Record<string, { label: string; color: string }>;
+}): Promise<ActionResult<void>> {
+  try {
+    const ctx = await getAuthedContext();
+    if (!ctx) return { success: false, error: "Unauthorized" };
+    if (!checkPermission(ctx.context.user.permissionSnapshot, PLANNING_SETTINGS_MANAGE))
+      return { success: false, error: "Insufficient permissions" };
+
+    const { PlanningSettingsService } = await import("@/server/services/planning-settings.service");
+    const result = await PlanningSettingsService.saveSettings(ctx.supabase, ctx.orgId, input);
+    if (!result.success)
+      return { success: false, error: (result as { success: false; error: string }).error };
+    return { success: true, data: undefined };
+  } catch {
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// QR assignment for planning tasks
+// ---------------------------------------------------------------------------
+
+export async function assignQrToPlanningTaskAction(input: {
+  qrCodeId: string;
+  taskId: string;
+}): Promise<ActionResult<{ id: string; target_type: string; target_id: string }>> {
+  try {
+    const ctx = await getAuthedContext();
+    if (!ctx) return { success: false, error: "Unauthorized" };
+    if (!checkPermission(ctx.context.user.permissionSnapshot, PLANNING_TASKS_UPDATE))
+      return { success: false, error: "Insufficient permissions" };
+
+    const { QrAssignmentsService } = await import("@/server/services/qr.service");
+    return QrAssignmentsService.assignToTarget(ctx.supabase, {
+      qrCodeId: input.qrCodeId,
+      targetType: "planning.task",
+      targetId: input.taskId,
+      assignedBy: ctx.userId,
+      permissionSnapshot: ctx.context.user.permissionSnapshot,
+    });
+  } catch {
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
+export async function getQrAssignmentForTaskAction(taskId: string): Promise<
+  ActionResult<{
+    assignmentId: string;
+    qrCodeId: string;
+    token: string;
+    label: string | null;
+    status: string;
+  } | null>
+> {
+  try {
+    const ctx = await getAuthedContext();
+    if (!ctx) return { success: false, error: "Unauthorized" };
+    if (!checkPermission(ctx.context.user.permissionSnapshot, PLANNING_TASKS_READ))
+      return { success: false, error: "Insufficient permissions" };
+
+    const { data, error } = await ctx.supabase
+      .from("qr_assignments")
+      .select(
+        "id, qr_code_id, revoked_at, qr_codes!qr_assignments_qr_code_id_fkey(token, label, status)"
+      )
+      .eq("target_type", "planning.task")
+      .eq("target_id", taskId)
+      .is("revoked_at", null)
+      .maybeSingle();
+
+    if (error) return { success: false, error: error.message };
+    if (!data) return { success: true, data: null };
+
+    const row = data as any;
+    const code = Array.isArray(row.qr_codes) ? row.qr_codes[0] : row.qr_codes;
+    return {
+      success: true,
+      data: {
+        assignmentId: row.id,
+        qrCodeId: row.qr_code_id,
+        token: code?.token ?? "",
+        label: code?.label ?? null,
+        status: code?.status ?? "active",
+      },
+    };
+  } catch {
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
 // Re-export for pages
 export {
   PLANNING_READ,
@@ -267,4 +364,5 @@ export {
   PLANNING_TASKS_UPDATE,
   PLANNING_TASKS_DELETE,
   PLANNING_TASKS_ASSIGN,
+  PLANNING_SETTINGS_MANAGE,
 };

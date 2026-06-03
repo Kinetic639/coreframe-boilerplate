@@ -313,6 +313,10 @@ export const routing = defineRouting({
       en: "/dashboard/planning/boards",
       pl: "/dashboard/planowanie/tablice",
     },
+    "/dashboard/planning/settings": {
+      en: "/dashboard/planning/settings",
+      pl: "/dashboard/planowanie/ustawienia",
+    },
 
     // === Analytics & Reports module ===
     "/dashboard/analytics": {

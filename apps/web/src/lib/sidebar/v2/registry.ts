@@ -24,6 +24,7 @@ import {
   MODULE_PLANNING_ACCESS,
   PLANNING_READ,
   PLANNING_TASKS_READ,
+  PLANNING_SETTINGS_MANAGE,
 } from "@/lib/constants/permissions";
 import {
   MODULE_ORGANIZATION_MANAGEMENT,
@@ -358,6 +359,17 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
         match: { exact: "/dashboard/planning/boards" },
         visibility: {
           requiresPermissions: [PLANNING_TASKS_READ],
+        },
+      },
+      {
+        id: "planning.settings",
+        title: "Settings",
+        titleKey: "modules.planning.items.settings",
+        iconKey: "settings",
+        href: "/dashboard/planning/settings",
+        match: { startsWith: "/dashboard/planning/settings" },
+        visibility: {
+          requiresPermissions: [PLANNING_SETTINGS_MANAGE],
         },
       },
     ],

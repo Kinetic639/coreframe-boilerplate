@@ -205,6 +205,7 @@ export const PLANNING_TASKS_CREATE = "planning.tasks.create" as const;
 export const PLANNING_TASKS_UPDATE = "planning.tasks.update" as const;
 export const PLANNING_TASKS_DELETE = "planning.tasks.delete" as const;
 export const PLANNING_TASKS_ASSIGN = "planning.tasks.assign" as const;
+export const PLANNING_SETTINGS_MANAGE = "planning.settings.manage" as const;
 
 // Tools Permissions (user-scoped — always available, no plan gating)
 // tools.read  — view the tools catalog, tool detail pages, and personal enabled-tools list
@@ -327,6 +328,7 @@ export type PermissionSlug =
   | typeof PLANNING_TASKS_UPDATE
   | typeof PLANNING_TASKS_DELETE
   | typeof PLANNING_TASKS_ASSIGN
+  | typeof PLANNING_SETTINGS_MANAGE
   | typeof PERMISSION_TOOLS_READ
   | typeof PERMISSION_TOOLS_MANAGE
   | typeof PERMISSION_WDD_MATCHER_READ
@@ -428,6 +430,7 @@ export const ALL_PERMISSION_SLUGS: PermissionSlug[] = [
   PLANNING_TASKS_UPDATE,
   PLANNING_TASKS_DELETE,
   PLANNING_TASKS_ASSIGN,
+  PLANNING_SETTINGS_MANAGE,
   PERMISSION_TOOLS_READ,
   PERMISSION_TOOLS_MANAGE,
   PERMISSION_WDD_MATCHER_READ,

@@ -11,6 +11,9 @@ import {
   XCircle,
   Play,
   Trash2,
+  QrCode,
+  Link2Off,
+  Plus,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
@@ -34,7 +37,11 @@ import {
   cancelTaskAction,
   assignTaskAction,
   deleteTaskAction,
+  assignQrToPlanningTaskAction,
+  getQrAssignmentForTaskAction,
 } from "@/app/actions/planning";
+import { revokeQrAction } from "@/app/actions/qr/revoke";
+import { listQrCodesAction } from "@/app/actions/qr/list";
 import type { PlanningTaskDetail } from "@/server/services/planning-tasks.service";
 import type { TaskStatus } from "@/lib/validations/planning";
 
@@ -44,6 +51,14 @@ interface Member {
   email: string | null;
 }
 
+type QrInfo = {
+  assignmentId: string;
+  qrCodeId: string;
+  token: string;
+  label: string | null;
+  status: string;
+} | null;
+
 interface PlanningTaskDetailPanelProps {
   detail: PlanningTaskDetail;
   canUpdate: boolean;
@@ -52,6 +67,7 @@ interface PlanningTaskDetailPanelProps {
   currentUserId: string;
   members: Member[];
   onRefresh?: () => void;
+  initialQrAssignment?: QrInfo;
 }
 
 function formatDate(iso: string | null): string {
@@ -82,9 +98,21 @@ export function PlanningTaskDetailPanel({
   currentUserId,
   members,
   onRefresh,
+  initialQrAssignment = null,
 }: PlanningTaskDetailPanelProps) {
   const [detail, setDetail] = useState<PlanningTaskDetail>(initialDetail);
   const [saving, setSaving] = useState(false);
+  const [qrAssignment, setQrAssignment] = useState<QrInfo>(initialQrAssignment);
+  const [showAssignQr, setShowAssignQr] = useState(false);
+  const [isRevokingQr, setIsRevokingQr] = useState(false);
+  const [qrCodes, setQrCodes] = useState<
+    Array<{
+      id: string;
+      label: string | null;
+      status: string;
+      assignment: { target_type: string; target_id: string } | null;
+    }>
+  >([]);
 
   // Sync when parent provides a new detail (DataView refetch)
   const latestDetail = initialDetail.updated_at !== detail.updated_at ? initialDetail : detail;
@@ -132,6 +160,52 @@ export function PlanningTaskDetailPanel({
         return r as any;
       }),
     [currentDetail.id, saving]
+  );
+
+  const handleRevokeQr = useCallback(async () => {
+    if (!qrAssignment) return;
+    setIsRevokingQr(true);
+    try {
+      const result = await revokeQrAction({ qrCodeId: qrAssignment.qrCodeId });
+      if (result.success) {
+        setQrAssignment(null);
+        toast.success("QR code unlinked from task.");
+      } else {
+        toast.error("Failed to unlink QR code.");
+      }
+    } finally {
+      setIsRevokingQr(false);
+    }
+  }, [qrAssignment]);
+
+  const handleOpenAssignQr = useCallback(async () => {
+    const result = await listQrCodesAction();
+    if (result.success) {
+      setQrCodes(
+        (result.data as any[]).map((c: any) => ({
+          id: c.id,
+          label: c.label ?? null,
+          status: c.status,
+          assignment: c.assignment ?? null,
+        }))
+      );
+    }
+    setShowAssignQr(true);
+  }, []);
+
+  const handleQrAssigned = useCallback(
+    async (qrCodeId: string) => {
+      const result = await assignQrToPlanningTaskAction({ qrCodeId, taskId: currentDetail.id });
+      if (result.success) {
+        const freshResult = await getQrAssignmentForTaskAction(currentDetail.id);
+        if (freshResult.success && freshResult.data) setQrAssignment(freshResult.data);
+        setShowAssignQr(false);
+        toast.success("QR code assigned to task.");
+      } else {
+        toast.error("Failed to assign QR code.");
+      }
+    },
+    [currentDetail.id]
   );
 
   const handleAssignChange = useCallback(
@@ -316,6 +390,78 @@ export function PlanningTaskDetailPanel({
             </div>
           )}
         </div>
+
+        <Separator />
+
+        {/* QR Code */}
+        <div className="space-y-3 rounded-lg border p-4">
+          <h3 className="flex items-center gap-2 text-sm font-semibold">
+            <QrCode className="text-muted-foreground h-4 w-4" />
+            QR Code
+          </h3>
+          {qrAssignment ? (
+            <div className="space-y-2">
+              <div className="bg-muted/50 rounded-md px-3 py-2 text-sm">
+                <p className="truncate font-medium">{qrAssignment.label ?? "Unlabelled"}</p>
+                <p className="text-muted-foreground truncate font-mono text-xs">
+                  {qrAssignment.token}
+                </p>
+              </div>
+              {canUpdate && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-destructive hover:text-destructive w-full"
+                  onClick={handleRevokeQr}
+                  disabled={isRevokingQr}
+                >
+                  {isRevokingQr ? (
+                    <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Link2Off className="mr-2 h-3.5 w-3.5" />
+                  )}
+                  Unlink QR Code
+                </Button>
+              )}
+            </div>
+          ) : canUpdate ? (
+            <Button variant="outline" size="sm" className="w-full" onClick={handleOpenAssignQr}>
+              <Plus className="mr-2 h-3.5 w-3.5" />
+              Assign QR Code
+            </Button>
+          ) : (
+            <p className="text-muted-foreground text-xs">No QR code assigned.</p>
+          )}
+        </div>
+
+        {/* Assign QR inline picker */}
+        {showAssignQr && (
+          <div className="rounded-lg border p-3">
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-sm font-medium">Select a QR code</p>
+              <Button variant="ghost" size="sm" onClick={() => setShowAssignQr(false)}>
+                Cancel
+              </Button>
+            </div>
+            <div className="flex max-h-48 flex-col gap-1 overflow-y-auto">
+              {qrCodes
+                .filter((c) => c.status === "active" && !c.assignment)
+                .map((c) => (
+                  <button
+                    key={c.id}
+                    className="hover:bg-muted flex items-center gap-2 rounded px-2 py-1.5 text-left text-sm"
+                    onClick={() => handleQrAssigned(c.id)}
+                  >
+                    <QrCode className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">{c.label ?? c.id.slice(0, 8)}</span>
+                  </button>
+                ))}
+              {qrCodes.filter((c) => c.status === "active" && !c.assignment).length === 0 && (
+                <p className="text-muted-foreground px-2 py-1 text-xs">No available QR codes.</p>
+              )}
+            </div>
+          </div>
+        )}
 
         <Separator />
 

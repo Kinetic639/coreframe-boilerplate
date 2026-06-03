@@ -3,6 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { WAREHOUSE_LOCATIONS_MANAGE, WAREHOUSE_LOCATIONS_READ } from "@/lib/constants/permissions";
 import { HELPDESK_TICKETS_MANAGE, HELPDESK_TICKETS_READ } from "@/lib/constants/permissions";
+import { PLANNING_TASKS_UPDATE, PLANNING_TASKS_READ } from "@/lib/constants/permissions";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -190,6 +191,64 @@ export const QR_TARGET_REGISTRY: Readonly<Record<string, QrTargetDescriptor>> = 
         primaryText: ticket?.ticket_number ?? targetId,
         secondaryText: ticket?.title ?? undefined,
         tertiaryText: ticket ? `Status: ${ticket.status}` : "Help Desk Ticket",
+      };
+    },
+  },
+
+  "planning.task": {
+    type: "planning.task",
+
+    async validate({ supabase, targetId, orgId }) {
+      const { data, error } = await supabase
+        .from("planning_tasks")
+        .select("id, organization_id, branch_id, deleted_at")
+        .eq("id", targetId)
+        .maybeSingle();
+
+      if (error || !data) {
+        return { valid: false, organizationId: null, branchId: null, error: "NOT_FOUND" };
+      }
+      if (data.deleted_at !== null) {
+        return { valid: false, organizationId: null, branchId: null, error: "SOFT_DELETED" };
+      }
+      if ((data as any).organization_id !== orgId) {
+        return { valid: false, organizationId: null, branchId: null, error: "WRONG_ORG" };
+      }
+      return {
+        valid: true,
+        organizationId: (data as any).organization_id as string,
+        branchId: ((data as any).branch_id as string | null) ?? null,
+      };
+    },
+
+    requiredAssignPermission: PLANNING_TASKS_UPDATE,
+    requiredReadPermission: PLANNING_TASKS_READ,
+
+    resolverPath({ targetId }) {
+      return `/dashboard/planning/tasks?highlight=${targetId}`;
+    },
+
+    async resolvePathAsync({ supabase, targetId }) {
+      const { data } = await supabase
+        .from("planning_tasks")
+        .select("task_number")
+        .eq("id", targetId)
+        .maybeSingle();
+      const number = (data as { task_number: string } | null)?.task_number ?? targetId;
+      return `/dashboard/planning/tasks?highlight=${number}`;
+    },
+
+    async getLabelContext({ supabase, targetId }) {
+      const { data } = await supabase
+        .from("planning_tasks")
+        .select("task_number, title, status")
+        .eq("id", targetId)
+        .maybeSingle();
+      const task = data as { task_number: string; title: string; status: string } | null;
+      return {
+        primaryText: task?.task_number ?? targetId,
+        secondaryText: task?.title ?? undefined,
+        tertiaryText: task ? `Status: ${task.status}` : "Planning Task",
       };
     },
   },
