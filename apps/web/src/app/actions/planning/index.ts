@@ -51,37 +51,41 @@ async function getAuthedContext() {
 }
 
 // ---------------------------------------------------------------------------
-// List
+// List — lightweight auth (RLS enforces org membership + read permission)
 // ---------------------------------------------------------------------------
 
 export async function listTasksForDataViewAction(
   params: DataViewListParams,
+  orgId: string,
   filters: TaskListFilters = {}
 ): Promise<ActionResult<PaginatedResult<PlanningTaskListRow>>> {
   try {
-    const ctx = await getAuthedContext();
-    if (!ctx) return { success: false, error: "Unauthorized" };
-    if (!checkPermission(ctx.context.user.permissionSnapshot, PLANNING_TASKS_READ))
-      return { success: false, error: "Insufficient permissions" };
-    return PlanningTasksService.listForDataView(ctx.supabase, ctx.orgId, params, filters);
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Unauthorized" };
+    return PlanningTasksService.listForDataView(supabase, orgId, params, filters);
   } catch {
     return { success: false, error: "Unexpected error" };
   }
 }
 
 // ---------------------------------------------------------------------------
-// Detail
+// Detail — lightweight auth (RLS enforces org membership + read permission)
 // ---------------------------------------------------------------------------
 
 export async function getTaskDetailAction(
-  taskId: string
+  taskId: string,
+  orgId: string
 ): Promise<ActionResult<PlanningTaskDetail>> {
   try {
-    const ctx = await getAuthedContext();
-    if (!ctx) return { success: false, error: "Unauthorized" };
-    if (!checkPermission(ctx.context.user.permissionSnapshot, PLANNING_TASKS_READ))
-      return { success: false, error: "Insufficient permissions" };
-    return PlanningTasksService.getDetail(ctx.supabase, ctx.orgId, taskId);
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Unauthorized" };
+    return PlanningTasksService.getDetail(supabase, orgId, taskId);
   } catch {
     return { success: false, error: "Unexpected error" };
   }
@@ -321,12 +325,14 @@ export async function getQrAssignmentForTaskAction(taskId: string): Promise<
   } | null>
 > {
   try {
-    const ctx = await getAuthedContext();
-    if (!ctx) return { success: false, error: "Unauthorized" };
-    if (!checkPermission(ctx.context.user.permissionSnapshot, PLANNING_TASKS_READ))
-      return { success: false, error: "Insufficient permissions" };
+    // Lightweight auth — RLS enforces org membership + read permission
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Unauthorized" };
 
-    const { data, error } = await ctx.supabase
+    const { data, error } = await supabase
       .from("qr_assignments")
       .select(
         "id, qr_code_id, revoked_at, qr_codes!qr_assignments_qr_code_id_fkey(token, label, status)"
