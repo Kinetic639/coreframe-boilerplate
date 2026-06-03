@@ -5,6 +5,8 @@ import { checkPermission } from "@/lib/utils/permissions";
 import {
   PLANNING_TASKS_READ,
   PLANNING_TASKS_CREATE,
+  PLANNING_TASKS_UPDATE,
+  PLANNING_TASKS_DELETE,
   PLANNING_TASKS_ASSIGN,
 } from "@/lib/constants/permissions";
 import { createClient } from "@/utils/supabase/server";
@@ -54,15 +56,24 @@ export default async function PlanningTasksPage({ searchParams }: PageProps = {}
       }))
     : [];
 
-  const canCreate = checkPermission(context.user.permissionSnapshot, PLANNING_TASKS_CREATE);
-  const canAssign = checkPermission(context.user.permissionSnapshot, PLANNING_TASKS_ASSIGN);
+  const snap = context.user.permissionSnapshot;
+  const canCreate = checkPermission(snap, PLANNING_TASKS_CREATE);
+  const canUpdate = checkPermission(snap, PLANNING_TASKS_UPDATE);
+  const canAssign = checkPermission(snap, PLANNING_TASKS_ASSIGN);
+  const canDelete = checkPermission(snap, PLANNING_TASKS_DELETE);
+
+  const currentUser = context.user.user;
+  const currentUserId = currentUser?.id ?? "";
 
   return (
     <TasksClient
       initialData={initialData}
       canCreate={canCreate}
+      canUpdate={canUpdate}
       canAssign={canAssign}
+      canDelete={canDelete}
       members={members}
+      currentUserId={currentUserId}
       orgId={orgId}
     />
   );

@@ -12,15 +12,33 @@ Answers:
 - What is currently in progress?
 - What is completed?
 
+## Implementation Status
+
+| Feature                                              | Status  |
+| ---------------------------------------------------- | ------- |
+| Module base (routes, permissions, sidebar, i18n)     | Done    |
+| Task list (DataView with SSR initial data)           | Done    |
+| Create task dialog                                   | Done    |
+| Task detail panel (open from DataView)               | Done    |
+| Task activity/audit trail                            | Done    |
+| Status transitions (start, complete, reopen, cancel) | Done    |
+| Assign/unassign tasks                                | Done    |
+| Soft-delete (archive) tasks                          | Done    |
+| Kanban board                                         | Not yet |
+| Task comments                                        | Not yet |
+| Task labels/checklists                               | Not yet |
+| Recurring tasks                                      | Not yet |
+| Calendar/schedule view                               | Not yet |
+| Reminders/notifications                              | Not yet |
+| Cross-module task creation                           | Not yet |
+
 ## Routes
 
-| Route                                | Description          |
-| ------------------------------------ | -------------------- |
-| `/dashboard/planning`                | Module overview      |
-| `/dashboard/planning/tasks`          | Task list (DataView) |
-| `/dashboard/planning/tasks/new`      | Create task          |
-| `/dashboard/planning/tasks/[taskId]` | Task detail          |
-| `/dashboard/planning/boards`         | Kanban board view    |
+| Route                        | Description                     |
+| ---------------------------- | ------------------------------- |
+| `/dashboard/planning`        | Module overview                 |
+| `/dashboard/planning/tasks`  | Task list (DataView)            |
+| `/dashboard/planning/boards` | Kanban board view (placeholder) |
 
 ## Permissions
 
@@ -47,15 +65,23 @@ Answers:
 
 Core task entity. Org-scoped, soft-delete, with optional branch scoping.
 
+Fields: `id`, `organization_id`, `branch_id`, `task_number` (PT-000001 format), `title`, `description_plain`, `description_rich`, `status` (open/in_progress/completed/cancelled), `priority` (low/normal/high/urgent), `assigned_to`, `created_by`, `updated_by`, `started_at`, `completed_at`, `cancelled_at`, `due_at`, `created_at`, `updated_at`, `deleted_at`
+
 ### `planning_task_comments`
 
-Simple comment thread on a task. Org-scoped, soft-delete.
+Simple comment thread on a task (not yet implemented in UI).
+
+### `planning_task_activity`
+
+Append-only audit log. RLS: no UPDATE or DELETE for normal users.
+
+Activity types: `task_created`, `title_changed`, `description_changed`, `assigned`, `unassigned`, `status_changed`, `priority_changed`, `due_date_changed`, `completed`, `reopened`, `cancelled`, `archived`
 
 ## Services
 
-| File                        | Purpose                                         |
-| --------------------------- | ----------------------------------------------- |
-| `planning-tasks.service.ts` | CRUD, list/filter, status transitions for tasks |
+| File                        | Purpose                               |
+| --------------------------- | ------------------------------------- |
+| `planning-tasks.service.ts` | Full CRUD + activity writes for tasks |
 
 ## Actions
 
@@ -65,9 +91,30 @@ Simple comment thread on a task. Org-scoped, soft-delete.
 | `getTaskDetailAction`        | `PLANNING_TASKS_READ`   |
 | `createTaskAction`           | `PLANNING_TASKS_CREATE` |
 | `updateTaskAction`           | `PLANNING_TASKS_UPDATE` |
-| `changeTaskStatusAction`     | `PLANNING_TASKS_UPDATE` |
+| `startTaskAction`            | `PLANNING_TASKS_UPDATE` |
+| `completeTaskAction`         | `PLANNING_TASKS_UPDATE` |
+| `reopenTaskAction`           | `PLANNING_TASKS_UPDATE` |
+| `cancelTaskAction`           | `PLANNING_TASKS_UPDATE` |
 | `assignTaskAction`           | `PLANNING_TASKS_ASSIGN` |
 | `deleteTaskAction`           | `PLANNING_TASKS_DELETE` |
+
+## Components
+
+| File                                                       | Purpose                 |
+| ---------------------------------------------------------- | ----------------------- |
+| `src/components/planning/planning-task-status-badge.tsx`   | Status badge            |
+| `src/components/planning/planning-task-priority-badge.tsx` | Priority badge          |
+| `src/components/planning/planning-task-activity-list.tsx`  | Activity timeline       |
+| `tasks/_components/planning-task-create-dialog.tsx`        | Create task dialog      |
+| `tasks/_components/planning-task-detail-panel.tsx`         | Detail panel (DataView) |
+| `tasks/_components/tasks-client.tsx`                       | DataView client wrapper |
+
+## Migrations
+
+| File                                            | Purpose                                               |
+| ----------------------------------------------- | ----------------------------------------------------- |
+| `20260601200000_planning_module.sql`            | Initial tables, permissions, RLS                      |
+| `20260603120000_planning_tasks_v2_activity.sql` | task_number, cancelled status, planning_task_activity |
 
 ## Theme
 
@@ -79,24 +126,19 @@ Color: `#0d9488` (Teal)
 
 ### Phase 2 (Not yet implemented)
 
-- Schedules
-- Calendar view
-- Recurring tasks
+- Task comments
+- Labels/tags
+- Kanban board view
 
 ### Phase 3 (Not yet implemented)
 
+- Calendar view
+- Recurring tasks
+- Reminders/notifications
 - Workload planning
-- Team planning views
-- Capacity management
 
 ### Phase 4 (Not yet implemented)
 
 - Planning templates
-- Recurring schedules
 - Task dependencies
-
-### Phase 5 (Not yet implemented)
-
-- Integration with Workshop (link tasks to repair orders)
-- Integration with Warehouse (link tasks to inventory actions)
-- Integration with Help Desk (convert tickets to tasks)
+- Cross-module task creation (from Help Desk, Workshop, etc.)
