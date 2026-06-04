@@ -57,6 +57,22 @@ export interface PlanningTaskDetail extends PlanningTaskListRow {
 }
 
 export type ServiceResult<T> = { success: true; data: T } | { success: false; error: string };
+type DataViewFilterValue = string | string[] | boolean | null | undefined;
+
+const SORTABLE_TASK_FIELDS = new Set([
+  "task_number",
+  "title",
+  "status",
+  "priority",
+  "branch_id",
+  "assigned_to",
+  "due_at",
+  "started_at",
+  "completed_at",
+  "cancelled_at",
+  "created_at",
+  "updated_at",
+]);
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -71,6 +87,34 @@ function displayName(
   return name || email || null;
 }
 
+function stringArrayFilter(value: DataViewFilterValue): string[] | undefined {
+  if (Array.isArray(value)) return value.filter((item): item is string => Boolean(item));
+  if (typeof value === "string" && value) return [value];
+  return undefined;
+}
+
+function nullableStringFilter(value: DataViewFilterValue): string | null | undefined {
+  if (value === null) return null;
+  if (typeof value === "string" && value) return value;
+  return undefined;
+}
+
+function normalizeFilters(params: DataViewListParams, filters: TaskListFilters): TaskListFilters {
+  const rawFilters = params.filters ?? {};
+  return {
+    search: filters.search ?? params.search?.trim() ?? undefined,
+    status: filters.status ?? (stringArrayFilter(rawFilters.status) as TaskStatus[] | undefined),
+    priority:
+      filters.priority ?? (stringArrayFilter(rawFilters.priority) as TaskPriority[] | undefined),
+    branch_id: filters.branch_id ?? nullableStringFilter(rawFilters.branch_id),
+    assigned_to: filters.assigned_to ?? nullableStringFilter(rawFilters.assigned_to),
+  };
+}
+
+function resolveSortField(field: string | null | undefined): string {
+  return field && SORTABLE_TASK_FIELDS.has(field) ? field : "created_at";
+}
+
 async function insertActivity(
   supabase: SupabaseClient,
   orgId: string,
@@ -80,8 +124,8 @@ async function insertActivity(
   message: string,
   metadata: Record<string, unknown> | null = null,
   branchId: string | null = null
-): Promise<void> {
-  await supabase.from("planning_task_activity").insert({
+): Promise<ServiceResult<void>> {
+  const { error } = await supabase.from("planning_task_activity").insert({
     organization_id: orgId,
     task_id: taskId,
     activity_type: activityType,
@@ -90,6 +134,49 @@ async function insertActivity(
     metadata,
     branch_id: branchId,
   });
+  if (error) return { success: false, error: error.message };
+  return { success: true, data: undefined };
+}
+
+async function assertBranchBelongsToOrg(
+  supabase: SupabaseClient,
+  orgId: string,
+  branchId: string | null | undefined
+): Promise<ServiceResult<void>> {
+  if (!branchId) return { success: true, data: undefined };
+
+  const { data, error } = await supabase
+    .from("branches")
+    .select("id")
+    .eq("id", branchId)
+    .eq("organization_id", orgId)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (error) return { success: false, error: error.message };
+  if (!data) return { success: false, error: "Branch does not belong to this organization" };
+  return { success: true, data: undefined };
+}
+
+async function assertUserIsActiveOrgMember(
+  supabase: SupabaseClient,
+  orgId: string,
+  userId: string | null | undefined
+): Promise<ServiceResult<void>> {
+  if (!userId) return { success: true, data: undefined };
+
+  const { data, error } = await supabase
+    .from("organization_members")
+    .select("user_id")
+    .eq("organization_id", orgId)
+    .eq("user_id", userId)
+    .eq("status", "active")
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (error) return { success: false, error: error.message };
+  if (!data) return { success: false, error: "Assignee is not an active organization member" };
+  return { success: true, data: undefined };
 }
 
 // ---------------------------------------------------------------------------
@@ -109,6 +196,7 @@ export const PlanningTasksService = {
       const page = params.page ?? 1;
       const pageSize = params.pageSize ?? 20;
       const offset = (page - 1) * pageSize;
+      const resolvedFilters = normalizeFilters(params, filters);
 
       let query = supabase
         .from("planning_tasks")
@@ -123,23 +211,25 @@ export const PlanningTasksService = {
         .eq("organization_id", orgId)
         .is("deleted_at", null);
 
-      if (filters.status?.length) query = query.in("status", filters.status);
-      if (filters.priority?.length) query = query.in("priority", filters.priority);
-      if (filters.branch_id !== undefined) {
-        filters.branch_id === null
+      if (resolvedFilters.status?.length) query = query.in("status", resolvedFilters.status);
+      if (resolvedFilters.priority?.length) query = query.in("priority", resolvedFilters.priority);
+      if (resolvedFilters.branch_id !== undefined) {
+        resolvedFilters.branch_id === null
           ? (query = query.is("branch_id", null))
-          : (query = query.eq("branch_id", filters.branch_id));
+          : (query = query.eq("branch_id", resolvedFilters.branch_id));
       }
-      if (filters.assigned_to !== undefined) {
-        filters.assigned_to === null
+      if (resolvedFilters.assigned_to !== undefined) {
+        resolvedFilters.assigned_to === null
           ? (query = query.is("assigned_to", null))
-          : (query = query.eq("assigned_to", filters.assigned_to));
+          : (query = query.eq("assigned_to", resolvedFilters.assigned_to));
       }
-      if (filters.search) {
-        query = query.or(`title.ilike.%${filters.search}%,task_number.ilike.%${filters.search}%`);
+      if (resolvedFilters.search) {
+        query = query.or(
+          `title.ilike.%${resolvedFilters.search}%,task_number.ilike.%${resolvedFilters.search}%`
+        );
       }
 
-      const sortField = params.sort?.field ?? "created_at";
+      const sortField = resolveSortField(params.sort?.field);
       const sortAsc = params.sort?.direction === "asc";
       query = query.order(sortField, { ascending: sortAsc }).range(offset, offset + pageSize - 1);
 
@@ -220,6 +310,7 @@ export const PlanningTasksService = {
            actor:users!actor_id(first_name, last_name, email)`
         )
         .eq("task_id", taskId)
+        .eq("organization_id", orgId)
         .order("created_at", { ascending: true });
 
       const activity: PlanningTaskActivity[] = (activityRaw ?? []).map((a) => {
@@ -285,6 +376,12 @@ export const PlanningTasksService = {
     input: CreateTaskInput
   ): Promise<ServiceResult<PlanningTaskDetail>> {
     try {
+      const branchResult = await assertBranchBelongsToOrg(supabase, orgId, input.branch_id);
+      if (!branchResult.success) return branchResult as { success: false; error: string };
+
+      const assigneeResult = await assertUserIsActiveOrgMember(supabase, orgId, input.assigned_to);
+      if (!assigneeResult.success) return assigneeResult as { success: false; error: string };
+
       const { data: inserted, error } = await supabase
         .from("planning_tasks")
         .insert({
@@ -308,12 +405,19 @@ export const PlanningTasksService = {
           assigned_to: input.assigned_to ?? null,
           due_at: input.due_at ?? null,
         })
-        .select("id, organization_id")
+        .select(
+          `id, organization_id, task_number, title, description_plain, description_rich,
+           status, priority, branch_id, assigned_to, due_at, started_at, completed_at,
+           cancelled_at, created_by, updated_by, created_at, updated_at, deleted_at,
+           assignee:users!assigned_to(first_name, last_name, email),
+           creator:users!created_by(first_name, last_name, email)`
+        )
         .single();
 
       if (error) return { success: false, error: error.message };
 
-      const taskId = (inserted as any).id as string;
+      const row = inserted as any;
+      const taskId = row.id as string;
 
       await insertActivity(supabase, orgId, taskId, userId, "task_created", "Task created");
 
@@ -330,7 +434,42 @@ export const PlanningTasksService = {
         );
       }
 
-      return PlanningTasksService.getDetail(supabase, orgId, taskId);
+      const assignee = Array.isArray(row.assignee) ? row.assignee[0] : row.assignee;
+      const creator = Array.isArray(row.creator) ? row.creator[0] : row.creator;
+
+      return {
+        success: true,
+        data: {
+          id: row.id,
+          organization_id: row.organization_id,
+          task_number: row.task_number,
+          title: row.title,
+          description_plain: row.description_plain ?? null,
+          description_rich: row.description_rich ?? null,
+          status: row.status as TaskStatus,
+          priority: row.priority as TaskPriority,
+          branch_id: row.branch_id ?? null,
+          assigned_to: row.assigned_to ?? null,
+          assignee_name: assignee
+            ? displayName(assignee.first_name, assignee.last_name, assignee.email)
+            : null,
+          assignee_email: assignee?.email ?? null,
+          created_by: row.created_by,
+          creator_name: creator
+            ? displayName(creator.first_name, creator.last_name, creator.email)
+            : null,
+          creator_email: creator?.email ?? null,
+          updated_by: row.updated_by ?? null,
+          due_at: row.due_at ?? null,
+          started_at: row.started_at ?? null,
+          completed_at: row.completed_at ?? null,
+          cancelled_at: row.cancelled_at ?? null,
+          created_at: row.created_at,
+          updated_at: row.updated_at,
+          deleted_at: row.deleted_at ?? null,
+          activity: [],
+        },
+      };
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : "Unexpected error" };
     }
@@ -351,6 +490,9 @@ export const PlanningTasksService = {
     }
   ): Promise<ServiceResult<PlanningTaskDetail>> {
     try {
+      const branchResult = await assertBranchBelongsToOrg(supabase, orgId, input.branch_id);
+      if (!branchResult.success) return branchResult as { success: false; error: string };
+
       const { error } = await supabase
         .from("planning_tasks")
         .update({
@@ -498,6 +640,9 @@ export const PlanningTasksService = {
     previousAssignee: string | null
   ): Promise<ServiceResult<PlanningTaskDetail>> {
     try {
+      const assigneeResult = await assertUserIsActiveOrgMember(supabase, orgId, input.assigned_to);
+      if (!assigneeResult.success) return assigneeResult as { success: false; error: string };
+
       const { error } = await supabase
         .from("planning_tasks")
         .update({ assigned_to: input.assigned_to, updated_by: userId })

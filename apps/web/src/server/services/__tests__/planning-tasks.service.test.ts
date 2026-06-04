@@ -91,6 +91,10 @@ function makeSupabaseMock() {
   const orderMock = vi.fn().mockReturnThis();
   const rangeMock = vi.fn().mockReturnThis();
   const singleMock = vi.fn();
+  const maybeSingleMock = vi.fn().mockResolvedValue({
+    data: { user_id: ASSIGNEE_ID },
+    error: null,
+  });
 
   const fromMock = vi.fn(() => ({
     select: selectMock,
@@ -103,6 +107,7 @@ function makeSupabaseMock() {
     order: orderMock,
     range: rangeMock,
     single: singleMock,
+    maybeSingle: maybeSingleMock,
   }));
 
   // Make chainable methods return the same object
@@ -117,9 +122,10 @@ function makeSupabaseMock() {
     order: orderMock,
     range: rangeMock,
     single: singleMock,
+    maybeSingle: maybeSingleMock,
   };
   Object.values(chain).forEach((fn) => {
-    if (fn !== singleMock) {
+    if (fn !== singleMock && fn !== maybeSingleMock) {
       (fn as any).mockReturnValue(chain);
     }
   });
@@ -308,13 +314,9 @@ describe("PlanningTasksService", () => {
 
       // Call 1: insert().select().single() for task creation
       supabase._chain.single.mockResolvedValueOnce({
-        data: { id: TASK_ID, organization_id: ORG_ID },
+        data: rawTask,
         error: null,
       });
-      // Call 2: getDetail → select().eq().eq().is().single()
-      supabase._chain.single.mockResolvedValueOnce({ data: rawTask, error: null });
-      // Call 3: getDetail activity → select().eq().order()
-      supabase._chain.order.mockResolvedValueOnce({ data: [], error: null });
       // Note: insertActivity calls insert() which returns chain by default — no override needed
 
       const result = await PlanningTasksService.create(supabase as any, ORG_ID, USER_ID, {
@@ -508,7 +510,6 @@ describe("PlanningTasksService", () => {
   describe("assign", () => {
     it("writes assigned activity when assigning", async () => {
       const supabase = makeSupabaseMock();
-      supabase._chain.is.mockResolvedValueOnce({ data: null, error: null });
       supabase._chain.insert.mockResolvedValueOnce({ data: null, error: null });
       const rawTask = {
         ...makeTaskDetail({ assigned_to: ASSIGNEE_ID, assignee_name: "Assignee" }),
@@ -534,7 +535,6 @@ describe("PlanningTasksService", () => {
 
     it("writes unassigned activity when unassigning", async () => {
       const supabase = makeSupabaseMock();
-      supabase._chain.is.mockResolvedValueOnce({ data: null, error: null });
       supabase._chain.insert.mockResolvedValueOnce({ data: null, error: null });
       const rawTask = { ...makeTaskDetail({ assigned_to: null }) };
       supabase._chain.single.mockResolvedValueOnce({ data: rawTask, error: null });
