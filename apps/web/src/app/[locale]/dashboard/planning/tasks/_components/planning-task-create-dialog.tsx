@@ -30,6 +30,7 @@ import {
 import { createTaskAction } from "@/app/actions/planning";
 import { TASK_PRIORITIES, type TaskPriority } from "@/lib/validations/planning";
 import type { PlanningTaskDetail } from "@/server/services/planning-tasks.service";
+import type { PlanningPriorityBadgeConfig } from "@/components/planning/planning-task-priority-badge";
 
 interface Member {
   user_id: string;
@@ -44,6 +45,7 @@ interface PlanningTaskCreateDialogProps {
   currentUserId: string;
   canAssign: boolean;
   onCreated: (task: PlanningTaskDetail) => void;
+  priorityConfigs: Record<string, PlanningPriorityBadgeConfig> | null;
 }
 
 export function PlanningTaskCreateDialog({
@@ -53,6 +55,7 @@ export function PlanningTaskCreateDialog({
   currentUserId,
   canAssign,
   onCreated,
+  priorityConfigs,
 }: PlanningTaskCreateDialogProps) {
   const t = useTranslations("modules.planning.tasks");
   const [title, setTitle] = useState("");
@@ -175,7 +178,7 @@ export function PlanningTaskCreateDialog({
                 <SelectContent>
                   {TASK_PRIORITIES.map((p) => (
                     <SelectItem key={p} value={p}>
-                      {t(p)}
+                      {priorityConfigs?.[p]?.label ?? t(p)}
                     </SelectItem>
                   ))}
                 </SelectContent>

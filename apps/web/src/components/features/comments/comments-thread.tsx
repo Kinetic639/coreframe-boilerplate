@@ -26,7 +26,7 @@ interface CommentsThreadProps extends Partial<CommentsProviderValue> {
   className?: string;
   contentClassName?: string;
   showTitle?: boolean;
-  onCommentAdded?: () => void | Promise<void>;
+  onCommentAdded?: (comment: AppComment) => void | Promise<void>;
 }
 
 function formatCommentDate(iso: string): string {
@@ -61,6 +61,11 @@ function commentAuthor(comment: AppComment, formerMemberLabel: string) {
     avatarUrl: comment.author?.avatar_url ?? undefined,
     profileHref: comment.author?.profile_href ?? undefined,
   };
+}
+
+function appendComment(rows: AppComment[], comment: AppComment): AppComment[] {
+  if (rows.some((row) => row.id === comment.id)) return rows;
+  return [...rows, comment];
 }
 
 export function CommentsThread(props: CommentsThreadProps) {
@@ -121,15 +126,18 @@ export function CommentsThread(props: CommentsThreadProps) {
           visibility: "default",
         },
         {
-          onSuccess: async () => {
+          onSuccess: (comment) => {
+            setRows((current) => appendComment(current, comment));
+            setTotalCount((current) =>
+              rows.some((row) => row.id === comment.id) ? current : current + 1
+            );
             setDraft(createEmptyRichText());
-            await commentsQuery.refetch();
-            await onCommentAdded?.();
+            void onCommentAdded?.(comment);
           },
         }
       );
     },
-    [addCommentMutation, commentsQuery, config.targetId, config.targetType, onCommentAdded]
+    [addCommentMutation, config.targetId, config.targetType, onCommentAdded, rows]
   );
 
   const handleLoadMore = useCallback(async () => {
