@@ -3188,6 +3188,10 @@
         "boards": {
           "title": "Boards",
           "subtitle": "Visualize tasks on a Kanban board"
+        },
+        "settings": {
+          "title": "Planning Settings",
+          "subtitle": "Customize task status and priority labels and badge colors."
         }
       },
       "features": {
@@ -3219,6 +3223,17 @@
         "cancelTask": "Cancel task",
         "archiveTask": "Archive task",
         "createAndAssignToMe": "Create & assign to me"
+      },
+      "settings": {
+        "saveSettings": "Save settings",
+        "saving": "Saving…",
+        "statuses": "Statuses",
+        "statusesDescription": "Customize the display label and badge color for each task status.",
+        "priorities": "Priorities",
+        "prioritiesDescription": "Customize the display label and badge color for each task priority.",
+        "labelField": "Label",
+        "colorField": "Color",
+        "settingsSaved": "Settings saved."
       },
       "empty": {
         "noData": "No tasks yet",

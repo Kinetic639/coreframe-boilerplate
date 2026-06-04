@@ -11,6 +11,7 @@ import {
 } from "@/lib/constants/permissions";
 import { createClient } from "@/utils/supabase/server";
 import { PlanningTasksService } from "@/server/services/planning-tasks.service";
+import { PlanningSettingsService } from "@/server/services/planning-settings.service";
 import { OrgMembersService } from "@/server/services/organization.service";
 import { parseDataViewSearchParams } from "@/components/data-view/data-view-search-params";
 import { TasksClient } from "./_components/tasks-client";
@@ -39,9 +40,10 @@ export default async function PlanningTasksPage({ searchParams }: PageProps = {}
   const supabase = await createClient();
   const orgId = context.app.activeOrgId;
 
-  const [tasksResult, membersResult] = await Promise.all([
+  const [tasksResult, membersResult, settingsResult] = await Promise.all([
     PlanningTasksService.listForDataView(supabase, orgId, params),
     OrgMembersService.listMembers(supabase, orgId),
+    PlanningSettingsService.getSettings(supabase, orgId),
   ]);
 
   const initialData = tasksResult.success
@@ -64,6 +66,7 @@ export default async function PlanningTasksPage({ searchParams }: PageProps = {}
 
   const currentUser = context.user.user;
   const currentUserId = currentUser?.id ?? "";
+  const settings = settingsResult.success ? settingsResult.data : null;
 
   return (
     <TasksClient
@@ -75,6 +78,8 @@ export default async function PlanningTasksPage({ searchParams }: PageProps = {}
       members={members}
       currentUserId={currentUserId}
       orgId={orgId}
+      statusConfigs={settings?.status_configs ?? null}
+      priorityConfigs={settings?.priority_configs ?? null}
     />
   );
 }

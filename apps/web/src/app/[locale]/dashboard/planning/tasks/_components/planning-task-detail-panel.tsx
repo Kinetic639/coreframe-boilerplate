@@ -27,8 +27,14 @@ import {
 } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { RichTextRenderer } from "@/components/primitives/rich-text/rich-text-renderer";
-import { PlanningTaskStatusBadge } from "@/components/planning/planning-task-status-badge";
-import { PlanningTaskPriorityBadge } from "@/components/planning/planning-task-priority-badge";
+import {
+  PlanningTaskStatusBadge,
+  type PlanningStatusBadgeConfig,
+} from "@/components/planning/planning-task-status-badge";
+import {
+  PlanningTaskPriorityBadge,
+  type PlanningPriorityBadgeConfig,
+} from "@/components/planning/planning-task-priority-badge";
 import { PlanningTaskActivityList } from "@/components/planning/planning-task-activity-list";
 import {
   startTaskAction,
@@ -67,6 +73,8 @@ interface PlanningTaskDetailPanelProps {
   members: Member[];
   onRefresh?: () => void;
   initialQrAssignment?: QrInfo;
+  statusConfigs: Record<string, PlanningStatusBadgeConfig> | null;
+  priorityConfigs: Record<string, PlanningPriorityBadgeConfig> | null;
 }
 
 function formatDate(iso: string | null): string {
@@ -97,6 +105,8 @@ export function PlanningTaskDetailPanel({
   members,
   onRefresh,
   initialQrAssignment = null,
+  statusConfigs,
+  priorityConfigs,
 }: PlanningTaskDetailPanelProps) {
   const [detail, setDetail] = useState<PlanningTaskDetail>(initialDetail);
   const [saving, setSaving] = useState(false);
@@ -233,8 +243,14 @@ export function PlanningTaskDetailPanel({
           </div>
           <h2 className="mt-1 text-base font-semibold leading-snug">{currentDetail.title}</h2>
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <PlanningTaskStatusBadge status={currentDetail.status} />
-            <PlanningTaskPriorityBadge priority={currentDetail.priority} />
+            <PlanningTaskStatusBadge
+              status={currentDetail.status}
+              config={statusConfigs?.[currentDetail.status]}
+            />
+            <PlanningTaskPriorityBadge
+              priority={currentDetail.priority}
+              config={priorityConfigs?.[currentDetail.priority]}
+            />
           </div>
         </div>
 
@@ -364,7 +380,10 @@ export function PlanningTaskDetailPanel({
                 <Flag className="text-muted-foreground mt-0.5 h-3.5 w-3.5 shrink-0" />
                 <div className="min-w-0">
                   <p className="text-muted-foreground text-[10px] uppercase">Priority</p>
-                  <PlanningTaskPriorityBadge priority={currentDetail.priority} />
+                  <PlanningTaskPriorityBadge
+                    priority={currentDetail.priority}
+                    config={priorityConfigs?.[currentDetail.priority]}
+                  />
                 </div>
               </div>
 

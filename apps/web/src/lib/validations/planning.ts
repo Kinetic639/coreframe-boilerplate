@@ -50,6 +50,22 @@ export type ChangeTaskStatusInput = z.infer<typeof changeTaskStatusSchema>;
 export type AssignTaskInput = z.infer<typeof assignTaskSchema>;
 
 // ---------------------------------------------------------------------------
+// Settings
+// ---------------------------------------------------------------------------
+
+const planningBadgeConfigSchema = z.object({
+  label: z.string().trim().min(1).max(50),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Color must be a hex value"),
+});
+
+export const savePlanningSettingsSchema = z.object({
+  status_configs: z.record(z.enum(TASK_STATUSES), planningBadgeConfigSchema).optional(),
+  priority_configs: z.record(z.enum(TASK_PRIORITIES), planningBadgeConfigSchema).optional(),
+});
+
+export type SavePlanningSettingsInput = z.infer<typeof savePlanningSettingsSchema>;
+
+// ---------------------------------------------------------------------------
 // Filters
 // ---------------------------------------------------------------------------
 

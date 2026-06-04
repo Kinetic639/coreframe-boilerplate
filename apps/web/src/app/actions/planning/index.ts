@@ -20,11 +20,13 @@ import {
   createTaskSchema,
   updateTaskSchema,
   assignTaskSchema,
+  savePlanningSettingsSchema,
   type CreateTaskInput,
   type UpdateTaskInput,
   type AssignTaskInput,
   type TaskStatus,
   type TaskListFilters,
+  type SavePlanningSettingsInput,
 } from "@/lib/validations/planning";
 import type { DataViewListParams, PaginatedResult } from "@/lib/data-view/types";
 
@@ -283,18 +285,27 @@ export async function deleteTaskAction(taskId: string): Promise<ActionResult<voi
 // Settings
 // ---------------------------------------------------------------------------
 
-export async function savePlanningSettingsAction(input: {
-  status_configs?: Record<string, { label: string; color: string }>;
-  priority_configs?: Record<string, { label: string; color: string }>;
-}): Promise<ActionResult<void>> {
+export async function savePlanningSettingsAction(
+  input: SavePlanningSettingsInput
+): Promise<ActionResult<void>> {
   try {
     const ctx = await getAuthedContext();
     if (!ctx) return { success: false, error: "Unauthorized" };
     if (!checkPermission(ctx.context.user.permissionSnapshot, PLANNING_SETTINGS_MANAGE))
       return { success: false, error: "Insufficient permissions" };
+    const parsed = savePlanningSettingsSchema.safeParse(input);
+    if (!parsed.success)
+      return {
+        success: false,
+        error: (parsed.error as any).issues?.[0]?.message ?? parsed.error.message,
+      };
 
     const { PlanningSettingsService } = await import("@/server/services/planning-settings.service");
-    const result = await PlanningSettingsService.saveSettings(ctx.supabase, ctx.orgId, input);
+    const result = await PlanningSettingsService.saveSettings(
+      ctx.supabase,
+      ctx.orgId,
+      parsed.data as any
+    );
     if (!result.success)
       return { success: false, error: (result as { success: false; error: string }).error };
     return { success: true, data: undefined };

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Plus, CheckSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,8 +14,14 @@ import type {
 import { listTasksForDataViewAction, getTaskDetailAction } from "@/app/actions/planning";
 import { PlanningTaskDetailPanel } from "./planning-task-detail-panel";
 import { PlanningTaskCreateDialog } from "./planning-task-create-dialog";
-import { PlanningTaskStatusBadge } from "@/components/planning/planning-task-status-badge";
-import { PlanningTaskPriorityBadge } from "@/components/planning/planning-task-priority-badge";
+import {
+  PlanningTaskStatusBadge,
+  type PlanningStatusBadgeConfig,
+} from "@/components/planning/planning-task-status-badge";
+import {
+  PlanningTaskPriorityBadge,
+  type PlanningPriorityBadgeConfig,
+} from "@/components/planning/planning-task-priority-badge";
 import type {
   PlanningTaskListRow,
   PlanningTaskDetail,
@@ -38,69 +44,9 @@ interface TasksClientProps {
   members: Member[];
   currentUserId: string;
   orgId: string;
+  statusConfigs: Record<string, PlanningStatusBadgeConfig> | null;
+  priorityConfigs: Record<string, PlanningPriorityBadgeConfig> | null;
 }
-
-const COLUMNS: DataViewColumnDef<PlanningTaskListRow>[] = [
-  {
-    key: "task_number",
-    header: "ID",
-    accessor: (row) => (
-      <span className="text-muted-foreground font-mono text-xs">{row.task_number}</span>
-    ),
-  },
-  {
-    key: "title",
-    header: "Title",
-    accessor: (row) => (
-      <span className="block max-w-[260px] truncate font-medium" title={row.title}>
-        {row.title}
-      </span>
-    ),
-    sortable: true,
-  },
-  {
-    key: "status",
-    header: "Status",
-    accessor: (row) => <PlanningTaskStatusBadge status={row.status} />,
-    sortable: true,
-  },
-  {
-    key: "priority",
-    header: "Priority",
-    accessor: (row) => <PlanningTaskPriorityBadge priority={row.priority} />,
-    sortable: true,
-  },
-  {
-    key: "assigned_to",
-    header: "Assignee",
-    accessor: (row) => (
-      <span className="text-muted-foreground text-sm">
-        {row.assignee_name ?? row.assignee_email ?? "—"}
-      </span>
-    ),
-  },
-  {
-    key: "due_at",
-    header: "Due",
-    accessor: (row) =>
-      row.due_at ? (
-        <span className="text-sm">{new Date(row.due_at).toLocaleDateString()}</span>
-      ) : (
-        <span className="text-muted-foreground text-sm">—</span>
-      ),
-    sortable: true,
-  },
-  {
-    key: "updated_at",
-    header: "Updated",
-    accessor: (row) => (
-      <span className="text-muted-foreground text-sm">
-        {new Date(row.updated_at).toLocaleDateString()}
-      </span>
-    ),
-    sortable: true,
-  },
-];
 
 const FILTERS: DataViewFilterDef[] = [
   {
@@ -136,6 +82,8 @@ export function TasksClient({
   members,
   currentUserId,
   orgId,
+  statusConfigs,
+  priorityConfigs,
 }: TasksClientProps) {
   const [createOpen, setCreateOpen] = useState(false);
   const [refreshToken, setRefreshToken] = useState(0);
@@ -175,6 +123,78 @@ export function TasksClient({
     [pathname, refreshDataView, router, searchParams]
   );
 
+  const columns = useMemo<DataViewColumnDef<PlanningTaskListRow>[]>(
+    () => [
+      {
+        key: "task_number",
+        header: "ID",
+        accessor: (row) => (
+          <span className="text-muted-foreground font-mono text-xs">{row.task_number}</span>
+        ),
+      },
+      {
+        key: "title",
+        header: "Title",
+        accessor: (row) => (
+          <span className="block max-w-[260px] truncate font-medium" title={row.title}>
+            {row.title}
+          </span>
+        ),
+        sortable: true,
+      },
+      {
+        key: "status",
+        header: "Status",
+        accessor: (row) => (
+          <PlanningTaskStatusBadge status={row.status} config={statusConfigs?.[row.status]} />
+        ),
+        sortable: true,
+      },
+      {
+        key: "priority",
+        header: "Priority",
+        accessor: (row) => (
+          <PlanningTaskPriorityBadge
+            priority={row.priority}
+            config={priorityConfigs?.[row.priority]}
+          />
+        ),
+        sortable: true,
+      },
+      {
+        key: "assigned_to",
+        header: "Assignee",
+        accessor: (row) => (
+          <span className="text-muted-foreground text-sm">
+            {row.assignee_name ?? row.assignee_email ?? "—"}
+          </span>
+        ),
+      },
+      {
+        key: "due_at",
+        header: "Due",
+        accessor: (row) =>
+          row.due_at ? (
+            <span className="text-sm">{new Date(row.due_at).toLocaleDateString()}</span>
+          ) : (
+            <span className="text-muted-foreground text-sm">—</span>
+          ),
+        sortable: true,
+      },
+      {
+        key: "updated_at",
+        header: "Updated",
+        accessor: (row) => (
+          <span className="text-muted-foreground text-sm">
+            {new Date(row.updated_at).toLocaleDateString()}
+          </span>
+        ),
+        sortable: true,
+      },
+    ],
+    [priorityConfigs, statusConfigs]
+  );
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b px-6 py-4">
@@ -193,7 +213,7 @@ export function TasksClient({
       <div className="min-h-0 flex-1">
         <DataView<PlanningTaskListRow, PlanningTaskDetail>
           entity="planning-tasks"
-          columns={COLUMNS}
+          columns={columns}
           filters={FILTERS}
           initialData={initialData}
           queryKey={PLANNING_TASKS_QUERY_KEY}
@@ -208,9 +228,12 @@ export function TasksClient({
                   <span className="text-muted-foreground shrink-0 font-mono text-xs">
                     {row.task_number}
                   </span>
-                  <PlanningTaskPriorityBadge priority={row.priority} />
+                  <PlanningTaskPriorityBadge
+                    priority={row.priority}
+                    config={priorityConfigs?.[row.priority]}
+                  />
                 </div>
-                <PlanningTaskStatusBadge status={row.status} />
+                <PlanningTaskStatusBadge status={row.status} config={statusConfigs?.[row.status]} />
               </div>
               <span className="truncate text-sm font-medium" title={row.title}>
                 {row.title}
@@ -226,6 +249,8 @@ export function TasksClient({
               canDelete={canDelete}
               members={members}
               onRefresh={refreshDataView}
+              statusConfigs={statusConfigs}
+              priorityConfigs={priorityConfigs}
             />
           )}
           renderToolbarControls={
