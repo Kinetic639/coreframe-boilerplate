@@ -2,6 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { HELPDESK_TICKETS_MANAGE, HELPDESK_TICKETS_READ } from "@/lib/constants/permissions";
+import { PLANNING_TASKS_READ, PLANNING_TASKS_UPDATE } from "@/lib/constants/permissions";
 
 export interface CommentTargetValidationResult {
   valid: boolean;
@@ -64,6 +65,43 @@ export const COMMENT_TARGET_REGISTRY: Readonly<Record<string, CommentTargetDescr
         actor_id: actorId,
         event_type: "comment_added",
         payload: { is_internal: visibility === "internal" },
+      });
+    },
+  },
+  "planning.task": {
+    type: "planning.task",
+    requiredReadPermission: PLANNING_TASKS_READ,
+    requiredCommentPermission: PLANNING_TASKS_READ,
+    requiredModeratePermission: PLANNING_TASKS_UPDATE,
+
+    async validate({ supabase, targetId, orgId }) {
+      const { data, error } = await supabase
+        .from("planning_tasks")
+        .select("id, organization_id, deleted_at")
+        .eq("id", targetId)
+        .maybeSingle();
+
+      if (error || !data) {
+        return { valid: false, organizationId: null, error: "NOT_FOUND" };
+      }
+      if ((data as { deleted_at: string | null }).deleted_at !== null) {
+        return { valid: false, organizationId: null, error: "SOFT_DELETED" };
+      }
+      if ((data as { organization_id: string }).organization_id !== orgId) {
+        return { valid: false, organizationId: null, error: "WRONG_ORG" };
+      }
+
+      return { valid: true, organizationId: orgId };
+    },
+
+    async afterCommentCreated({ supabase, orgId, targetId, actorId, visibility }) {
+      await supabase.from("planning_task_activity").insert({
+        organization_id: orgId,
+        task_id: targetId,
+        actor_id: actorId,
+        activity_type: "comment_added",
+        message: "Comment added",
+        metadata: { visibility },
       });
     },
   },

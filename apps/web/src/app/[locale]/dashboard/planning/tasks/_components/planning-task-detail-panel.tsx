@@ -14,6 +14,7 @@ import {
   QrCode,
   Link2Off,
   Plus,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
@@ -36,7 +37,9 @@ import {
   type PlanningPriorityBadgeConfig,
 } from "@/components/planning/planning-task-priority-badge";
 import { PlanningTaskActivityList } from "@/components/planning/planning-task-activity-list";
+import { CommentsThread } from "@/components/features/comments";
 import {
+  getTaskDetailAction,
   startTaskAction,
   completeTaskAction,
   reopenTaskAction,
@@ -73,6 +76,7 @@ interface PlanningTaskDetailPanelProps {
   members: Member[];
   onRefresh?: () => void;
   initialQrAssignment?: QrInfo;
+  showFullLink?: boolean;
   statusConfigs: Record<string, PlanningStatusBadgeConfig> | null;
   priorityConfigs: Record<string, PlanningPriorityBadgeConfig> | null;
 }
@@ -105,6 +109,7 @@ export function PlanningTaskDetailPanel({
   members,
   onRefresh,
   initialQrAssignment = null,
+  showFullLink = true,
   statusConfigs,
   priorityConfigs,
 }: PlanningTaskDetailPanelProps) {
@@ -228,6 +233,12 @@ export function PlanningTaskDetailPanel({
     [currentDetail.id, saving]
   );
 
+  const refreshDetail = useCallback(async () => {
+    const result = await getTaskDetailAction(currentDetail.id, currentDetail.organization_id);
+    if (result.success) setDetail(result.data);
+    onRefresh?.();
+  }, [currentDetail.id, currentDetail.organization_id, onRefresh]);
+
   const status = currentDetail.status as TaskStatus;
 
   return (
@@ -280,6 +291,22 @@ export function PlanningTaskDetailPanel({
 
             <Separator />
 
+            <CommentsThread
+              key={currentDetail.id}
+              targetType="planning.task"
+              targetId={currentDetail.id}
+              density="compact"
+              labels={{
+                title: "Comments",
+                empty: "No comments yet.",
+                placeholder: "Write a task comment...",
+                submit: "Add comment",
+              }}
+              onCommentAdded={refreshDetail}
+            />
+
+            <Separator />
+
             <div>
               <p className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
                 Activity
@@ -289,6 +316,20 @@ export function PlanningTaskDetailPanel({
           </div>
 
           <div className="w-full shrink-0 space-y-3 self-start lg:w-56">
+            {showFullLink && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-start gap-1.5"
+                onClick={() =>
+                  (window.location.href = `/dashboard/planning/tasks/${currentDetail.id}`)
+                }
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                View full
+              </Button>
+            )}
+
             {canUpdate && (
               <div className="space-y-2 rounded-lg border p-3">
                 <p className="text-muted-foreground text-[10px] font-medium uppercase">Actions</p>
