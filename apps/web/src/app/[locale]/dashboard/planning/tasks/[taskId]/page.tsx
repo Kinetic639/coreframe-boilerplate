@@ -36,15 +36,14 @@ export default async function PlanningTaskDetailPage({ params }: PageProps) {
     });
   }
 
-  const { taskId } = await params;
+  const { taskId: taskNumber } = await params;
   const supabase = await createClient();
   const orgId = context.app.activeOrgId;
 
-  const [taskResult, membersResult, settingsResult, qrAssignmentResult] = await Promise.all([
-    PlanningTasksService.getDetail(supabase, orgId, taskId),
+  const [taskResult, membersResult, settingsResult] = await Promise.all([
+    PlanningTasksService.getDetail(supabase, orgId, taskNumber),
     OrgMembersService.listMembers(supabase, orgId),
     PlanningSettingsService.getSettings(supabase, orgId),
-    getQrAssignmentForTaskAction(taskId),
   ]);
 
   if (!taskResult.success || !taskResult.data) {
@@ -61,6 +60,9 @@ export default async function PlanningTaskDetailPage({ params }: PageProps) {
 
   const snap = context.user.permissionSnapshot;
   const settings = settingsResult.success ? settingsResult.data : null;
+  const qrAssignmentResult = taskResult.success
+    ? await getQrAssignmentForTaskAction(taskResult.data.id)
+    : { success: true as const, data: null };
 
   return (
     <div className="h-full min-h-0">

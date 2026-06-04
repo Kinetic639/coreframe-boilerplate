@@ -117,7 +117,7 @@ export function TasksClient({
     (task: PlanningTaskDetail) => {
       refreshDataView();
       const params = new URLSearchParams(searchParams.toString());
-      params.set("selected", task.id);
+      params.set("selected", task.task_number);
       router.push(`${pathname}?${params.toString()}`);
     },
     [pathname, refreshDataView, router, searchParams]
@@ -220,7 +220,7 @@ export function TasksClient({
           refreshToken={refreshToken}
           listFetcher={listFetcher}
           detailFetcher={detailFetcher}
-          getRowId={(row) => row.id}
+          getRowId={(row) => row.task_number}
           renderCompactItem={(row) => (
             <div className="flex flex-col gap-1">
               <div className="flex items-center justify-between gap-2">
