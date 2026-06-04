@@ -68,6 +68,19 @@ export function TasksClient({
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
+  const statusLabel = useCallback(
+    (status: "open" | "in_progress" | "completed" | "cancelled") =>
+      statusConfigs?.[status]?.label ??
+      t(`tasks.${status === "in_progress" ? "inProgress" : status}`),
+    [statusConfigs, t]
+  );
+
+  const priorityLabel = useCallback(
+    (priority: "low" | "normal" | "high" | "urgent") =>
+      priorityConfigs?.[priority]?.label ?? t(`tasks.${priority}`),
+    [priorityConfigs, t]
+  );
+
   const listFetcher = useCallback(
     async (params: DataViewListParams): Promise<PaginatedResult<PlanningTaskListRow>> => {
       const result = await listTasksForDataViewAction(params, orgId);
@@ -107,10 +120,10 @@ export function TasksClient({
         label: t("tasks.status"),
         type: "multi-select",
         options: [
-          { value: "open", label: t("tasks.open") },
-          { value: "in_progress", label: t("tasks.inProgress") },
-          { value: "completed", label: t("tasks.completed") },
-          { value: "cancelled", label: t("tasks.cancelled") },
+          { value: "open", label: statusLabel("open") },
+          { value: "in_progress", label: statusLabel("in_progress") },
+          { value: "completed", label: statusLabel("completed") },
+          { value: "cancelled", label: statusLabel("cancelled") },
         ],
       },
       {
@@ -118,14 +131,14 @@ export function TasksClient({
         label: t("tasks.priority"),
         type: "multi-select",
         options: [
-          { value: "low", label: t("tasks.low") },
-          { value: "normal", label: t("tasks.normal") },
-          { value: "high", label: t("tasks.high") },
-          { value: "urgent", label: t("tasks.urgent") },
+          { value: "low", label: priorityLabel("low") },
+          { value: "normal", label: priorityLabel("normal") },
+          { value: "high", label: priorityLabel("high") },
+          { value: "urgent", label: priorityLabel("urgent") },
         ],
       },
     ],
-    [t]
+    [priorityLabel, statusLabel, t]
   );
 
   const columns = useMemo<DataViewColumnDef<PlanningTaskListRow>[]>(
@@ -278,6 +291,7 @@ export function TasksClient({
         currentUserId={currentUserId}
         canAssign={canAssign}
         onCreated={handleCreated}
+        priorityConfigs={priorityConfigs}
       />
     </div>
   );

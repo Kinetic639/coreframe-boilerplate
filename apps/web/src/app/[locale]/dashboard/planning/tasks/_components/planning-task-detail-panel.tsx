@@ -40,7 +40,6 @@ import {
 import { PlanningTaskActivityList } from "@/components/planning/planning-task-activity-list";
 import { CommentsThread } from "@/components/features/comments";
 import {
-  getTaskDetailAction,
   startTaskAction,
   completeTaskAction,
   reopenTaskAction,
@@ -235,12 +234,6 @@ export function PlanningTaskDetailPanel({
     [currentDetail.id, saving]
   );
 
-  const refreshDetail = useCallback(async () => {
-    const result = await getTaskDetailAction(currentDetail.id, currentDetail.organization_id);
-    if (result.success) setDetail(result.data);
-    onRefresh?.();
-  }, [currentDetail.id, currentDetail.organization_id, onRefresh]);
-
   const status = currentDetail.status as TaskStatus;
 
   return (
@@ -304,7 +297,6 @@ export function PlanningTaskDetailPanel({
                 placeholder: t("tasks.comments.placeholder"),
                 submit: t("tasks.comments.submit"),
               }}
-              onCommentAdded={refreshDetail}
             />
 
             <Separator />
