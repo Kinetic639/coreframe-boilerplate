@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Columns3, MessageSquare, PanelRight, RotateCcw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -42,44 +43,46 @@ function paragraph(text: string): RichTextValue {
   };
 }
 
-const INITIAL_COMMENTS: DemoComment[] = [
-  {
-    id: "comment-1",
-    value: paragraph("Produkt utworzono"),
-    author: CURRENT_USER,
-    createdAt: "16:36",
-  },
-  {
-    id: "comment-2",
-    value: {
-      type: "doc",
-      content: [
-        {
-          type: "paragraph",
-          content: [
-            { type: "text", text: "Dodałem notatkę z " },
-            { type: "text", text: "ważnym kontekstem", marks: [{ type: "bold" }] },
-            { type: "text", text: " dla osoby, która przejmie zgłoszenie." },
-          ],
-        },
-      ],
+function createInitialComments(t: (key: string) => string): DemoComment[] {
+  return [
+    {
+      id: "comment-1",
+      value: paragraph(t("sampleCreated")),
+      author: CURRENT_USER,
+      createdAt: "16:36",
     },
-    author: CURRENT_USER,
-    createdAt: "16:37",
-    edited: true,
-  },
-  {
-    id: "comment-3",
-    value: paragraph("Sprawdzić przypisanie do właściwego magazynu przed zamknięciem."),
-    author: {
-      name: "Supa Dupa",
-      fallback: "SD",
-      email: "supa.dupa@ambra.app",
-      profileHref: "/dashboard/organization/users/members/supa-dupa",
+    {
+      id: "comment-2",
+      value: {
+        type: "doc",
+        content: [
+          {
+            type: "paragraph",
+            content: [
+              { type: "text", text: t("sampleNotePrefix") },
+              { type: "text", text: t("sampleNoteBold"), marks: [{ type: "bold" }] },
+              { type: "text", text: t("sampleNoteSuffix") },
+            ],
+          },
+        ],
+      },
+      author: CURRENT_USER,
+      createdAt: "16:37",
+      edited: true,
     },
-    createdAt: "16:38",
-  },
-];
+    {
+      id: "comment-3",
+      value: paragraph(t("sampleWarehouseCheck")),
+      author: {
+        name: "Supa Dupa",
+        fallback: "SD",
+        email: "supa.dupa@ambra.app",
+        profileHref: "/dashboard/organization/users/members/supa-dupa",
+      },
+      createdAt: "16:38",
+    },
+  ];
+}
 
 function createTimestamp() {
   return new Intl.DateTimeFormat("pl-PL", {
@@ -93,7 +96,8 @@ function isCurrentUserComment(comment: DemoComment): boolean {
 }
 
 export default function CommentsDemoPage() {
-  const [comments, setComments] = useState<DemoComment[]>(INITIAL_COMMENTS);
+  const t = useTranslations("admin.commentsDemo");
+  const [comments, setComments] = useState<DemoComment[]>(() => createInitialComments(t));
   const [panelDraft, setPanelDraft] = useState<RichTextValue>(createEmptyRichText());
   const [pageDraft, setPageDraft] = useState<RichTextValue>(createEmptyRichText());
 
@@ -113,7 +117,7 @@ export default function CommentsDemoPage() {
   };
 
   const resetDemo = () => {
-    setComments(INITIAL_COMMENTS);
+    setComments(createInitialComments(t));
     setPanelDraft(createEmptyRichText());
     setPageDraft(createEmptyRichText());
   };
@@ -125,17 +129,15 @@ export default function CommentsDemoPage() {
           <div>
             <div className="mb-2 flex items-center gap-2">
               <MessageSquare className="h-5 w-5 text-primary" />
-              <Badge variant="outline">Primitive demo</Badge>
+              <Badge variant="outline">{t("primitiveDemo")}</Badge>
             </div>
-            <h1 className="text-2xl font-bold tracking-tight">Comments</h1>
-            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-              Reusable comment editor and renderer built on the shared TipTap rich text primitives.
-            </p>
+            <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
+            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{t("description")}</p>
           </div>
 
           <Button type="button" variant="outline" onClick={resetDemo}>
             <RotateCcw className="h-4 w-4" />
-            Reset
+            {t("reset")}
           </Button>
         </div>
       </div>
@@ -146,7 +148,7 @@ export default function CommentsDemoPage() {
             <section className="space-y-3">
               <div className="flex items-center gap-2">
                 <Columns3 className="h-4 w-4 text-muted-foreground" />
-                <h2 className="text-base font-semibold">Full page usage</h2>
+                <h2 className="text-base font-semibold">{t("fullPageUsage")}</h2>
               </div>
 
               <CommentEditor
@@ -154,8 +156,8 @@ export default function CommentsDemoPage() {
                 onChange={setPageDraft}
                 onSubmit={(value) => addComment(value, "page")}
                 author={CURRENT_USER}
-                placeholder="Describe a ticket update, item note, request context..."
-                submitLabel="Add note"
+                placeholder={t("pagePlaceholder")}
+                submitLabel={t("addNote")}
                 mode="simple"
                 density="default"
                 maxLength={4000}
@@ -164,8 +166,8 @@ export default function CommentsDemoPage() {
 
             <section className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2 className="text-base font-semibold">Rendered thread</h2>
-                <Badge variant="secondary">{comments.length} comments</Badge>
+                <h2 className="text-base font-semibold">{t("renderedThread")}</h2>
+                <Badge variant="secondary">{t("commentsCount", { count: comments.length })}</Badge>
               </div>
 
               <div className="space-y-5">
@@ -175,7 +177,7 @@ export default function CommentsDemoPage() {
                     value={comment.value}
                     author={comment.author}
                     createdAt={comment.createdAt}
-                    editedLabel={comment.edited ? "edited" : undefined}
+                    editedLabel={comment.edited ? t("edited") : undefined}
                     isOwn={isCurrentUserComment(comment)}
                   />
                 ))}
@@ -190,10 +192,10 @@ export default function CommentsDemoPage() {
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <PanelRight className="h-4 w-4 text-muted-foreground" />
-                  <h2 className="text-sm font-semibold">Side panel usage</h2>
+                  <h2 className="text-sm font-semibold">{t("sidePanelUsage")}</h2>
                 </div>
                 <Badge variant="outline" className="text-xs">
-                  compact
+                  {t("compact")}
                 </Badge>
               </div>
             </div>
@@ -204,8 +206,8 @@ export default function CommentsDemoPage() {
                 onChange={setPanelDraft}
                 onSubmit={(value) => addComment(value, "panel")}
                 author={CURRENT_USER}
-                placeholder="Log an activity note..."
-                submitLabel="Save"
+                placeholder={t("panelPlaceholder")}
+                submitLabel={t("save")}
                 mode="simple"
                 density="compact"
                 maxLength={1200}
@@ -223,7 +225,7 @@ export default function CommentsDemoPage() {
                         value={comment.value}
                         author={comment.author}
                         createdAt={comment.createdAt}
-                        editedLabel={comment.edited ? "edited" : undefined}
+                        editedLabel={comment.edited ? t("edited") : undefined}
                         isOwn={isCurrentUserComment(comment)}
                         density="compact"
                         contentClassName="border-transparent bg-background/70 shadow-none"

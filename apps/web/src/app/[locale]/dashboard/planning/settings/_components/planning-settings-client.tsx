@@ -25,25 +25,11 @@ const DEFAULT_STATUS_COLORS: Record<TaskStatus, string> = {
   cancelled: "#6b7280",
 };
 
-const DEFAULT_STATUS_LABELS: Record<TaskStatus, string> = {
-  open: "Open",
-  in_progress: "In Progress",
-  completed: "Completed",
-  cancelled: "Cancelled",
-};
-
 const DEFAULT_PRIORITY_COLORS: Record<TaskPriority, string> = {
   low: "#6b7280",
   normal: "#3b82f6",
   high: "#f97316",
   urgent: "#ef4444",
-};
-
-const DEFAULT_PRIORITY_LABELS: Record<TaskPriority, string> = {
-  low: "Low",
-  normal: "Normal",
-  high: "High",
-  urgent: "Urgent",
 };
 
 interface PlanningSettingsClientProps {
@@ -60,7 +46,7 @@ export function PlanningSettingsClient({ settings }: PlanningSettingsClientProps
       TASK_STATUSES.map((s) => [
         s,
         {
-          label: saved[s]?.label ?? DEFAULT_STATUS_LABELS[s as TaskStatus],
+          label: saved[s]?.label ?? t(`tasks.${s === "in_progress" ? "inProgress" : s}`),
           color: saved[s]?.color ?? DEFAULT_STATUS_COLORS[s as TaskStatus],
         },
       ])
@@ -74,7 +60,7 @@ export function PlanningSettingsClient({ settings }: PlanningSettingsClientProps
         TASK_PRIORITIES.map((p) => [
           p,
           {
-            label: saved[p]?.label ?? DEFAULT_PRIORITY_LABELS[p as TaskPriority],
+            label: saved[p]?.label ?? t(`tasks.${p}`),
             color: saved[p]?.color ?? DEFAULT_PRIORITY_COLORS[p as TaskPriority],
           },
         ])
@@ -97,7 +83,7 @@ export function PlanningSettingsClient({ settings }: PlanningSettingsClientProps
         priority_configs: priorityConfigs,
       });
       if (!result.success) {
-        toast.error((result as { success: false; error: string }).error);
+        toast.error(t("settings.saveFailed"));
       } else {
         toast.success(t("settings.settingsSaved"));
       }

@@ -191,6 +191,43 @@
       "cta2": "See pricing"
     }
   },
+  "components": {
+    "comments": {
+      "title": "Comments",
+      "empty": "No comments yet.",
+      "placeholder": "Write a comment...",
+      "submit": "Post comment",
+      "submitting": "Posting...",
+      "cancel": "Cancel",
+      "loadMore": "Load more",
+      "edited": "edited",
+      "formerMember": "Former member",
+      "addFailed": "Failed to add comment"
+    }
+  },
+  "admin": {
+    "commentsDemo": {
+      "primitiveDemo": "Primitive demo",
+      "title": "Comments",
+      "description": "Reusable comment editor and renderer built on the shared TipTap rich text primitives.",
+      "reset": "Reset",
+      "fullPageUsage": "Full page usage",
+      "renderedThread": "Rendered thread",
+      "commentsCount": "{count, plural, one {# comment} other {# comments}}",
+      "sidePanelUsage": "Side panel usage",
+      "compact": "compact",
+      "pagePlaceholder": "Describe a ticket update, item note, request context...",
+      "panelPlaceholder": "Log an activity note...",
+      "addNote": "Add note",
+      "save": "Save",
+      "edited": "edited",
+      "sampleCreated": "Product created",
+      "sampleNotePrefix": "I added a note with ",
+      "sampleNoteBold": "important context",
+      "sampleNoteSuffix": " for the person who takes over the request.",
+      "sampleWarehouseCheck": "Check assignment to the correct warehouse before closing."
+    }
+  },
   "dataView": {
     "columns": {
       "manageAria": "Manage columns",
@@ -3189,6 +3226,10 @@
           "title": "Boards",
           "subtitle": "Visualize tasks on a Kanban board"
         },
+        "board": {
+          "title": "Kanban Board",
+          "comingSoon": "Coming soon."
+        },
         "settings": {
           "title": "Planning Settings",
           "subtitle": "Customize task status and priority labels and badge colors."
@@ -3200,13 +3241,27 @@
       },
       "tasks": {
         "createTask": "Create task",
+        "newTask": "New task",
         "taskCreated": "Task created",
         "taskUpdated": "Task updated",
+        "failedCreate": "Failed to create task",
+        "failedCreateRetry": "Failed to create task. Please try again.",
+        "title": "Title",
+        "titleRequired": "Title is required",
+        "titlePlaceholder": "Enter task title...",
+        "description": "Description",
+        "descriptionPlaceholder": "Add a description...",
+        "noDescription": "No description.",
+        "assignTo": "Assign to",
         "assignedTo": "Assigned to",
         "unassigned": "Unassigned",
+        "assignee": "Assignee",
         "status": "Status",
         "priority": "Priority",
         "dueDate": "Due date",
+        "due": "Due",
+        "updated": "Updated",
+        "id": "ID",
         "open": "Open",
         "inProgress": "In Progress",
         "completed": "Completed",
@@ -3217,12 +3272,53 @@
         "urgent": "Urgent",
         "activity": "Activity",
         "noActivity": "No activity yet",
+        "systemActor": "System",
+        "unknown": "Unknown",
+        "viewFull": "View full",
+        "actions": "Actions",
+        "start": "Start",
         "markInProgress": "Mark in progress",
         "complete": "Complete",
         "reopen": "Reopen",
+        "cancel": "Cancel",
         "cancelTask": "Cancel task",
         "archiveTask": "Archive task",
-        "createAndAssignToMe": "Create & assign to me"
+        "createAndAssignToMe": "Create & assign to me",
+        "createdBy": "Created by",
+        "created": "Created",
+        "qrCode": "QR Code",
+        "unlabelled": "Unlabelled",
+        "unlink": "Unlink",
+        "assignQrCode": "Assign QR Code",
+        "selectQrCode": "Select a QR code",
+        "noQrCodeAssigned": "No QR code assigned.",
+        "noAvailableQrCodes": "No available QR codes.",
+        "qrCodeUnlinked": "QR code unlinked from task.",
+        "qrCodeUnlinkFailed": "Failed to unlink QR code.",
+        "qrCodeAssigned": "QR code assigned to task.",
+        "qrCodeAssignFailed": "Failed to assign QR code.",
+        "comments": {
+          "title": "Comments",
+          "empty": "No comments yet.",
+          "placeholder": "Write a task comment...",
+          "submit": "Add comment"
+        },
+        "activityMessages": {
+          "task_created": "Task created",
+          "title_changed": "Title updated",
+          "description_changed": "Description updated",
+          "assigned": "Task assigned",
+          "unassigned": "Task unassigned",
+          "status_changed": "Status changed",
+          "priority_changed": "Priority changed",
+          "due_date_changed": "Due date updated",
+          "completed": "Task marked as completed",
+          "reopened": "Task reopened",
+          "cancelled": "Task cancelled",
+          "archived": "Task archived",
+          "restored": "Task restored",
+          "comment_added": "Comment added"
+        }
       },
       "settings": {
         "saveSettings": "Save settings",
@@ -3233,14 +3329,18 @@
         "prioritiesDescription": "Customize the display label and badge color for each task priority.",
         "labelField": "Label",
         "colorField": "Color",
-        "settingsSaved": "Settings saved."
+        "settingsSaved": "Settings saved.",
+        "saveFailed": "Failed to save planning settings."
       },
       "empty": {
         "noData": "No tasks yet",
         "noDataDescription": "Create a task to get started."
       },
       "errors": {
-        "loadFailed": "Failed to load planning data"
+        "loadFailed": "Failed to load planning data",
+        "loadPlanningRetry": "Failed to load Planning. Please try again.",
+        "tryAgain": "Try again",
+        "operationFailed": "Operation failed"
       }
     },
     "analytics": {

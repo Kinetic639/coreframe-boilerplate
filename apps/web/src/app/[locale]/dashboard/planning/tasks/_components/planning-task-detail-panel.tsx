@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import { useTranslations } from "next-intl";
 import {
   Loader2,
   User,
@@ -113,6 +114,7 @@ export function PlanningTaskDetailPanel({
   statusConfigs,
   priorityConfigs,
 }: PlanningTaskDetailPanelProps) {
+  const t = useTranslations("modules.planning");
   const [detail, setDetail] = useState<PlanningTaskDetail>(initialDetail);
   const [saving, setSaving] = useState(false);
   const [qrAssignment, setQrAssignment] = useState<QrInfo>(initialQrAssignment);
@@ -141,7 +143,7 @@ export function PlanningTaskDetailPanel({
     try {
       const result = await fn();
       if (!result.success) {
-        toast.error((result as any).error ?? "Operation failed");
+        toast.error(t("errors.operationFailed"));
         return;
       }
       if (result.data) setDetail(result.data);
@@ -171,10 +173,10 @@ export function PlanningTaskDetailPanel({
     () =>
       runAction(async () => {
         const r = await deleteTaskAction(currentDetail.id);
-        if (r.success) toast.success("Task archived");
+        if (r.success) toast.success(t("tasks.taskArchived"));
         return r as any;
       }),
-    [currentDetail.id, saving]
+    [currentDetail.id, saving, t]
   );
 
   const handleRevokeQr = useCallback(async () => {
@@ -185,14 +187,14 @@ export function PlanningTaskDetailPanel({
       if (result.success) {
         setQrAssignment(null);
         onRefresh?.();
-        toast.success("QR code unlinked from task.");
+        toast.success(t("tasks.qrCodeUnlinked"));
       } else {
-        toast.error("Failed to unlink QR code.");
+        toast.error(t("tasks.qrCodeUnlinkFailed"));
       }
     } finally {
       setIsRevokingQr(false);
     }
-  }, [onRefresh, qrAssignment]);
+  }, [onRefresh, qrAssignment, t]);
 
   const handleOpenAssignQr = useCallback(async () => {
     const result = await listQrCodesAction();
@@ -217,12 +219,12 @@ export function PlanningTaskDetailPanel({
         if (freshResult.success && freshResult.data) setQrAssignment(freshResult.data);
         onRefresh?.();
         setShowAssignQr(false);
-        toast.success("QR code assigned to task.");
+        toast.success(t("tasks.qrCodeAssigned"));
       } else {
-        toast.error("Failed to assign QR code.");
+        toast.error(t("tasks.qrCodeAssignFailed"));
       }
     },
-    [currentDetail.id, onRefresh]
+    [currentDetail.id, onRefresh, t]
   );
 
   const handleAssignChange = useCallback(
@@ -272,7 +274,7 @@ export function PlanningTaskDetailPanel({
             {currentDetail.description_rich ? (
               <div>
                 <p className="text-muted-foreground mb-1.5 text-xs font-medium uppercase tracking-wide">
-                  Description
+                  {t("tasks.description")}
                 </p>
                 <div className="prose prose-sm dark:prose-invert max-w-none text-sm">
                   <RichTextRenderer value={currentDetail.description_rich as any} />
@@ -281,12 +283,12 @@ export function PlanningTaskDetailPanel({
             ) : currentDetail.description_plain ? (
               <div>
                 <p className="text-muted-foreground mb-1.5 text-xs font-medium uppercase tracking-wide">
-                  Description
+                  {t("tasks.description")}
                 </p>
                 <p className="whitespace-pre-wrap text-sm">{currentDetail.description_plain}</p>
               </div>
             ) : (
-              <p className="text-muted-foreground text-sm">No description.</p>
+              <p className="text-muted-foreground text-sm">{t("tasks.noDescription")}</p>
             )}
 
             <Separator />
@@ -297,10 +299,10 @@ export function PlanningTaskDetailPanel({
               targetId={currentDetail.id}
               density="compact"
               labels={{
-                title: "Comments",
-                empty: "No comments yet.",
-                placeholder: "Write a task comment...",
-                submit: "Add comment",
+                title: t("tasks.comments.title"),
+                empty: t("tasks.comments.empty"),
+                placeholder: t("tasks.comments.placeholder"),
+                submit: t("tasks.comments.submit"),
               }}
               onCommentAdded={refreshDetail}
             />
@@ -309,7 +311,7 @@ export function PlanningTaskDetailPanel({
 
             <div>
               <p className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
-                Activity
+                {t("tasks.activity")}
               </p>
               <PlanningTaskActivityList activity={currentDetail.activity} />
             </div>
@@ -326,13 +328,15 @@ export function PlanningTaskDetailPanel({
                 }
               >
                 <ExternalLink className="h-3.5 w-3.5" />
-                View full
+                {t("tasks.viewFull")}
               </Button>
             )}
 
             {canUpdate && (
               <div className="space-y-2 rounded-lg border p-3">
-                <p className="text-muted-foreground text-[10px] font-medium uppercase">Actions</p>
+                <p className="text-muted-foreground text-[10px] font-medium uppercase">
+                  {t("tasks.actions")}
+                </p>
                 <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
                   {status === "open" && (
                     <Button
@@ -343,7 +347,7 @@ export function PlanningTaskDetailPanel({
                       className="justify-start gap-1.5"
                     >
                       <Play className="h-3.5 w-3.5" />
-                      Start
+                      {t("tasks.start")}
                     </Button>
                   )}
                   {(status === "open" || status === "in_progress") && (
@@ -355,7 +359,7 @@ export function PlanningTaskDetailPanel({
                       className="justify-start gap-1.5"
                     >
                       <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                      Complete
+                      {t("tasks.complete")}
                     </Button>
                   )}
                   {(status === "completed" || status === "cancelled") && (
@@ -367,7 +371,7 @@ export function PlanningTaskDetailPanel({
                       className="justify-start gap-1.5"
                     >
                       <RotateCcw className="h-3.5 w-3.5" />
-                      Reopen
+                      {t("tasks.reopen")}
                     </Button>
                   )}
                   {status !== "cancelled" && status !== "completed" && (
@@ -379,7 +383,7 @@ export function PlanningTaskDetailPanel({
                       className="justify-start gap-1.5 text-red-600 hover:text-red-600"
                     >
                       <XCircle className="h-3.5 w-3.5" />
-                      Cancel
+                      {t("tasks.cancel")}
                     </Button>
                   )}
                 </div>
@@ -390,7 +394,9 @@ export function PlanningTaskDetailPanel({
               <div className="flex items-start gap-2">
                 <User className="text-muted-foreground mt-0.5 h-3.5 w-3.5 shrink-0" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-muted-foreground text-[10px] uppercase">Assigned to</p>
+                  <p className="text-muted-foreground text-[10px] uppercase">
+                    {t("tasks.assignedTo")}
+                  </p>
                   {canAssign ? (
                     <Select
                       value={currentDetail.assigned_to ?? "__unassigned__"}
@@ -401,7 +407,7 @@ export function PlanningTaskDetailPanel({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="__unassigned__">Unassigned</SelectItem>
+                        <SelectItem value="__unassigned__">{t("tasks.unassigned")}</SelectItem>
                         {members.map((m) => (
                           <SelectItem key={m.user_id} value={m.user_id}>
                             {m.name ?? m.email ?? m.user_id}
@@ -411,7 +417,9 @@ export function PlanningTaskDetailPanel({
                     </Select>
                   ) : (
                     <p className="truncate text-xs">
-                      {currentDetail.assignee_name ?? currentDetail.assignee_email ?? "Unassigned"}
+                      {currentDetail.assignee_name ??
+                        currentDetail.assignee_email ??
+                        t("tasks.unassigned")}
                     </p>
                   )}
                 </div>
@@ -420,7 +428,9 @@ export function PlanningTaskDetailPanel({
               <div className="flex items-start gap-2">
                 <Flag className="text-muted-foreground mt-0.5 h-3.5 w-3.5 shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-muted-foreground text-[10px] uppercase">Priority</p>
+                  <p className="text-muted-foreground text-[10px] uppercase">
+                    {t("tasks.priority")}
+                  </p>
                   <PlanningTaskPriorityBadge
                     priority={currentDetail.priority}
                     config={priorityConfigs?.[currentDetail.priority]}
@@ -431,7 +441,9 @@ export function PlanningTaskDetailPanel({
               <div className="flex items-start gap-2">
                 <Calendar className="text-muted-foreground mt-0.5 h-3.5 w-3.5 shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-muted-foreground text-[10px] uppercase">Due date</p>
+                  <p className="text-muted-foreground text-[10px] uppercase">
+                    {t("tasks.dueDate")}
+                  </p>
                   <p className="text-xs">{formatDate(currentDetail.due_at)}</p>
                 </div>
               </div>
@@ -441,9 +453,13 @@ export function PlanningTaskDetailPanel({
               <div className="flex items-start gap-2">
                 <User className="text-muted-foreground mt-0.5 h-3.5 w-3.5 shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-muted-foreground text-[10px] uppercase">Created by</p>
+                  <p className="text-muted-foreground text-[10px] uppercase">
+                    {t("tasks.createdBy")}
+                  </p>
                   <p className="truncate text-xs">
-                    {currentDetail.creator_name ?? currentDetail.creator_email ?? "Unknown"}
+                    {currentDetail.creator_name ??
+                      currentDetail.creator_email ??
+                      t("tasks.unknown")}
                   </p>
                 </div>
               </div>
@@ -451,7 +467,9 @@ export function PlanningTaskDetailPanel({
               <div className="flex items-start gap-2">
                 <Calendar className="text-muted-foreground mt-0.5 h-3.5 w-3.5 shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-muted-foreground text-[10px] uppercase">Created</p>
+                  <p className="text-muted-foreground text-[10px] uppercase">
+                    {t("tasks.created")}
+                  </p>
                   <p className="text-xs">{formatDateTime(currentDetail.created_at)}</p>
                 </div>
               </div>
@@ -460,7 +478,9 @@ export function PlanningTaskDetailPanel({
                 <div className="flex items-start gap-2">
                   <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
                   <div className="min-w-0">
-                    <p className="text-muted-foreground text-[10px] uppercase">Completed</p>
+                    <p className="text-muted-foreground text-[10px] uppercase">
+                      {t("tasks.completed")}
+                    </p>
                     <p className="text-xs">{formatDateTime(currentDetail.completed_at)}</p>
                   </div>
                 </div>
@@ -470,7 +490,9 @@ export function PlanningTaskDetailPanel({
                 <div className="flex items-start gap-2">
                   <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gray-500" />
                   <div className="min-w-0">
-                    <p className="text-muted-foreground text-[10px] uppercase">Cancelled</p>
+                    <p className="text-muted-foreground text-[10px] uppercase">
+                      {t("tasks.cancelled")}
+                    </p>
                     <p className="text-xs">{formatDateTime(currentDetail.cancelled_at)}</p>
                   </div>
                 </div>
@@ -480,12 +502,14 @@ export function PlanningTaskDetailPanel({
             <div className="space-y-2 rounded-lg border p-3">
               <h3 className="flex items-center gap-1.5 text-xs font-semibold">
                 <QrCode className="text-muted-foreground h-3.5 w-3.5" />
-                QR Code
+                {t("tasks.qrCode")}
               </h3>
               {qrAssignment ? (
                 <div className="space-y-2">
                   <div className="bg-muted/50 rounded-md px-2.5 py-1.5 text-xs">
-                    <p className="truncate font-medium">{qrAssignment.label ?? "Unlabelled"}</p>
+                    <p className="truncate font-medium">
+                      {qrAssignment.label ?? t("tasks.unlabelled")}
+                    </p>
                     <p className="text-muted-foreground truncate font-mono">{qrAssignment.token}</p>
                   </div>
                   {canUpdate && (
@@ -501,7 +525,7 @@ export function PlanningTaskDetailPanel({
                       ) : (
                         <Link2Off className="mr-1.5 h-3 w-3" />
                       )}
-                      Unlink
+                      {t("tasks.unlink")}
                     </Button>
                   )}
                 </div>
@@ -513,19 +537,19 @@ export function PlanningTaskDetailPanel({
                   onClick={handleOpenAssignQr}
                 >
                   <Plus className="mr-1.5 h-3 w-3" />
-                  Assign QR Code
+                  {t("tasks.assignQrCode")}
                 </Button>
               ) : (
-                <p className="text-muted-foreground text-xs">No QR code assigned.</p>
+                <p className="text-muted-foreground text-xs">{t("tasks.noQrCodeAssigned")}</p>
               )}
             </div>
 
             {showAssignQr && (
               <div className="rounded-lg border p-3">
                 <div className="mb-2 flex items-center justify-between">
-                  <p className="text-sm font-medium">Select a QR code</p>
+                  <p className="text-sm font-medium">{t("tasks.selectQrCode")}</p>
                   <Button variant="ghost" size="sm" onClick={() => setShowAssignQr(false)}>
-                    Cancel
+                    {t("tasks.cancel")}
                   </Button>
                 </div>
                 <div className="flex max-h-48 flex-col gap-1 overflow-y-auto">
@@ -543,7 +567,7 @@ export function PlanningTaskDetailPanel({
                     ))}
                   {qrCodes.filter((c) => c.status === "active" && !c.assignment).length === 0 && (
                     <p className="text-muted-foreground px-2 py-1 text-xs">
-                      No available QR codes.
+                      {t("tasks.noAvailableQrCodes")}
                     </p>
                   )}
                 </div>
@@ -559,7 +583,7 @@ export function PlanningTaskDetailPanel({
                 disabled={saving}
               >
                 <Trash2 className="h-3.5 w-3.5" />
-                Archive task
+                {t("tasks.archiveTask")}
               </Button>
             )}
           </div>

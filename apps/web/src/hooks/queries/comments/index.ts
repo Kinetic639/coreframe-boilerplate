@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { toast } from "react-toastify";
 import { addCommentAction, listCommentsForTargetAction } from "@/app/actions/comments";
 import type { AddCommentInput, ListCommentsInput } from "@/lib/validations/comments";
@@ -31,6 +32,7 @@ export function useCommentsQuery(
 
 export function useAddCommentMutation(targetType: string, targetId: string) {
   const queryClient = useQueryClient();
+  const t = useTranslations("components.comments");
 
   return useMutation({
     mutationFn: async (input: AddCommentInput) => {
@@ -41,8 +43,8 @@ export function useAddCommentMutation(targetType: string, targetId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: commentsKeys.target(targetType, targetId) });
     },
-    onError: (error: Error) => {
-      toast.error(error.message || "Failed to add comment");
+    onError: () => {
+      toast.error(t("addFailed"));
     },
   });
 }

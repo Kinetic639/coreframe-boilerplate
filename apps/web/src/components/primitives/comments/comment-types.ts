@@ -19,6 +19,7 @@ export interface CommentEditorProps {
   author?: CommentAuthor;
   placeholder?: string;
   submitLabel?: string;
+  submittingLabel?: string;
   cancelLabel?: string;
   onCancel?: () => void;
   disabled?: boolean;
