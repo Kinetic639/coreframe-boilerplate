@@ -75,6 +75,7 @@ export function CommentsThread(props: CommentsThreadProps) {
   const labels = {
     title: config.labels?.title ?? t("title"),
     empty: config.labels?.empty ?? t("empty"),
+    loading: config.labels?.loading ?? t("loading"),
     placeholder: config.labels?.placeholder ?? t("placeholder"),
     submit: config.labels?.submit ?? t("submit"),
     submitting: config.labels?.submitting ?? t("submitting"),
@@ -104,6 +105,7 @@ export function CommentsThread(props: CommentsThreadProps) {
 
   const commentsQuery = useCommentsQuery(queryInput, props.initialData);
   const addCommentMutation = useAddCommentMutation(config.targetType, config.targetId);
+  const loadingInitialComments = !props.initialData && commentsQuery.isPending && rows.length === 0;
 
   useEffect(() => {
     if (!commentsQuery.data) return;
@@ -171,7 +173,12 @@ export function CommentsThread(props: CommentsThreadProps) {
         </div>
       )}
 
-      {rows.length === 0 ? (
+      {loadingInitialComments ? (
+        <div className="text-muted-foreground flex items-center gap-2 text-sm">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span>{labels.loading}</span>
+        </div>
+      ) : rows.length === 0 ? (
         <p className="text-muted-foreground text-sm">{labels.empty}</p>
       ) : (
         <div className={cn(compact ? "space-y-4" : "space-y-5", props.contentClassName)}>

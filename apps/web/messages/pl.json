@@ -195,6 +195,7 @@
     "comments": {
       "title": "Komentarze",
       "empty": "Brak komentarzy.",
+      "loading": "Ładowanie komentarzy...",
       "placeholder": "Napisz komentarz...",
       "submit": "Dodaj komentarz",
       "submitting": "Dodawanie...",

@@ -195,6 +195,7 @@
     "comments": {
       "title": "Comments",
       "empty": "No comments yet.",
+      "loading": "Loading comments...",
       "placeholder": "Write a comment...",
       "submit": "Post comment",
       "submitting": "Posting...",
