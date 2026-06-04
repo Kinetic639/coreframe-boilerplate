@@ -28,11 +28,10 @@ import { listTicketsForDataViewAction, getTicketDetailAction } from "@/app/actio
 import { getQrAssignmentForTicketAction, assignQrToTicketAction } from "@/app/actions/qr/assign";
 import { revokeQrAction } from "@/app/actions/qr/revoke";
 import { AssignQrDialog } from "../[ticketId]/_components/assign-qr-dialog";
-import { useAddTicketCommentMutation, useAcceptTicketMutation } from "@/hooks/queries/help-desk";
+import { useAcceptTicketMutation } from "@/hooks/queries/help-desk";
 import type {
   HelpdeskTicketListRow,
   HelpdeskTicketDetail,
-  HelpdeskTicketComment,
   HelpdeskTicketActivity,
 } from "@/server/services/helpdesk-tickets.service";
 import type { HelpdeskTicketType } from "@/server/services/helpdesk-ticket-types.service";
@@ -47,15 +46,9 @@ import {
 import { UserAvatarGroup } from "@/components/primitives/avatar/user-avatar-group";
 import type { UserAvatarGroupItem } from "@/components/primitives/avatar/user-avatar-group";
 import { UserAvatar } from "@/components/primitives/avatar/user-avatar";
-import { CommentRenderer } from "@/components/primitives/comments/comment-renderer";
-import { CommentEditor } from "@/components/primitives/comments/comment-editor";
+import { CommentsThread } from "@/components/features/comments";
 import { RichTextRenderer } from "@/components/primitives/rich-text/rich-text-renderer";
-import type { RichTextValue } from "@/components/primitives/rich-text/rich-text-types";
-import {
-  createEmptyRichText,
-  extractPlainText,
-  normalizeRichText,
-} from "@/components/primitives/rich-text/rich-text-utils";
+import { normalizeRichText } from "@/components/primitives/rich-text/rich-text-utils";
 
 const HELPDESK_TICKETS_QUERY_KEY = ["helpdesk-tickets-dataview"];
 
@@ -86,9 +79,7 @@ function TicketDetailPanel({
   priorityConfigs: Record<string, PriorityBadgeConfig> | null;
 }) {
   const t = useTranslations("modules.helpDesk");
-  const [comments, setComments] = useState<HelpdeskTicketComment[]>(detail.comments);
   const [activity, setActivity] = useState<HelpdeskTicketActivity[]>(detail.activity);
-  const [commentValue, setCommentValue] = useState<RichTextValue>(createEmptyRichText);
 
   const [acceptedAt, setAcceptedAt] = useState<string | null>(detail.accepted_at);
   const [acceptedByName, setAcceptedByName] = useState<string | null>(detail.accepted_by_name);
@@ -132,7 +123,6 @@ function TicketDetailPanel({
     }
   };
 
-  const addCommentMutation = useAddTicketCommentMutation(detail.ticket_number);
   const acceptMutation = useAcceptTicketMutation(detail.ticket_number);
   const canComment = detail.status !== "closed" && detail.status !== "cancelled";
   const canAccept =
@@ -140,27 +130,12 @@ function TicketDetailPanel({
     !acceptedAt &&
     (canManage || detail.acceptors.some((a) => a.user_id === currentUserId));
 
-  const handleAddComment = useCallback(
-    (value: RichTextValue) => {
-      const bodyPlain = extractPlainText(value);
-      if (!bodyPlain.trim()) return;
-      addCommentMutation.mutate(
-        { ticket_id: detail.id, body: bodyPlain.trim(), body_rich: value, is_internal: false },
-        {
-          onSuccess: async () => {
-            setCommentValue(createEmptyRichText());
-            // Refetch to get fresh comments + activity with signed avatars
-            const fresh = await getTicketDetailAction(detail.ticket_number, detail.org_id);
-            if (fresh.success && fresh.data) {
-              setComments(fresh.data.comments);
-              setActivity(fresh.data.activity);
-            }
-          },
-        }
-      );
-    },
-    [addCommentMutation, detail.id]
-  );
+  const refreshActivity = useCallback(async () => {
+    const fresh = await getTicketDetailAction(detail.ticket_number, detail.org_id);
+    if (fresh.success && fresh.data) {
+      setActivity(fresh.data.activity);
+    }
+  }, [detail.org_id, detail.ticket_number]);
 
   return (
     <div className="flex flex-col gap-3">
@@ -209,43 +184,25 @@ function TicketDetailPanel({
 
           <Separator />
 
-          <div className="space-y-3">
-            <h4 className="text-sm font-semibold">
-              {t("tickets.comments")} ({comments.length})
-            </h4>
-            {comments.length === 0 ? (
-              <p className="text-muted-foreground text-sm">{t("tickets.noComments")}</p>
-            ) : (
-              <div className="space-y-3">
-                {comments.map((c) => (
-                  <CommentRenderer
-                    key={c.id}
-                    value={normalizeRichText(c.body_rich) ?? undefined}
-                    author={{
-                      name: c.creator_name ?? c.creator_email ?? "Unknown",
-                      email: c.creator_email ?? undefined,
-                      avatarUrl: c.creator_avatar_url ?? undefined,
-                      profileHref: c.creator_profile_href ?? undefined,
-                    }}
-                    createdAt={new Date(c.created_at).toLocaleString()}
-                    emptyText={c.body}
-                    density="compact"
-                  />
-                ))}
-              </div>
-            )}
-            {canComment && (
-              <CommentEditor
-                value={commentValue}
-                onChange={setCommentValue}
-                onSubmit={handleAddComment}
-                placeholder={t("tickets.commentPlaceholder")}
-                submitLabel={t("tickets.addComment")}
-                submitting={addCommentMutation.isPending}
-                density="compact"
-              />
-            )}
-          </div>
+          <CommentsThread
+            key={detail.id}
+            targetType="helpdesk.ticket"
+            targetId={detail.id}
+            canComment={canComment}
+            initialData={{
+              rows: detail.comments,
+              totalCount: detail.comments.length,
+              nextCursor: null,
+            }}
+            labels={{
+              title: t("tickets.comments"),
+              empty: t("tickets.noComments"),
+              placeholder: t("tickets.commentPlaceholder"),
+              submit: t("tickets.addComment"),
+            }}
+            density="compact"
+            onCommentAdded={refreshActivity}
+          />
         </div>
 
         {/* Sidebar: view button + details */}
@@ -367,7 +324,6 @@ function TicketDetailPanel({
                           if (fresh.success && fresh.data) {
                             setAcceptedAt(fresh.data.accepted_at);
                             setAcceptedByName(fresh.data.accepted_by_name);
-                            setComments(fresh.data.comments);
                             setActivity(fresh.data.activity);
                           }
                         },

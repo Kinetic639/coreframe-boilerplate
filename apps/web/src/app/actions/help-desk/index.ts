@@ -22,7 +22,6 @@ import {
   HelpdeskTicketsService,
   type HelpdeskTicketListRow,
   type HelpdeskTicketDetail,
-  type HelpdeskTicketComment,
 } from "@/server/services/helpdesk-tickets.service";
 import {
   createTicketTypeSchema,
@@ -30,14 +29,12 @@ import {
   createTicketSchema,
   acceptTicketSchema,
   closeTicketSchema,
-  addTicketCommentSchema,
   saveHelpdeskSettingsSchema,
   type AcceptTicketInput,
   type CreateTicketTypeInput,
   type UpdateTicketTypeInput,
   type CreateTicketInput,
   type CloseTicketInput,
-  type AddTicketCommentInput,
   type SaveHelpdeskSettingsInput,
 } from "@/lib/validations/helpdesk";
 import { OrgMembersService, type OrgMember } from "@/server/services/organization.service";
@@ -241,27 +238,6 @@ export async function closeTicketAction(
 }
 
 // ---------------------------------------------------------------------------
-// Comments
-// ---------------------------------------------------------------------------
-
-export async function addTicketCommentAction(
-  input: AddTicketCommentInput
-): Promise<ActionResult<HelpdeskTicketComment>> {
-  try {
-    const ctx = await getAuthedContext();
-    if (!ctx) return { success: false, error: "Unauthorized" };
-    if (!checkPermission(ctx.context.user.permissionSnapshot, HELPDESK_TICKETS_READ))
-      return { success: false, error: "Insufficient permissions" };
-    const parsed = addTicketCommentSchema.safeParse(input);
-    if (!parsed.success)
-      return { success: false, error: parsed.error.errors[0]?.message ?? parsed.error.message };
-    return HelpdeskTicketsService.addComment(ctx.supabase, ctx.orgId, ctx.userId, parsed.data);
-  } catch {
-    return { success: false, error: "Unexpected error" };
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Org Members — for ticket assignment selector
 // Uses HELPDESK_TICKETS_CREATE (not MEMBERS_READ) so ticket creators
 // can fetch the member list without org management access.
@@ -335,20 +311,6 @@ export async function acceptTicketAction(
     if (!parsed.success)
       return { success: false, error: parsed.error.errors[0]?.message ?? parsed.error.message };
     return HelpdeskTicketsService.acceptTicket(ctx.supabase, ctx.orgId, ctx.userId, parsed.data);
-  } catch {
-    return { success: false, error: "Unexpected error" };
-  }
-}
-
-export async function listCommentsAction(
-  ticketId: string
-): Promise<ActionResult<HelpdeskTicketComment[]>> {
-  try {
-    const ctx = await getAuthedContext();
-    if (!ctx) return { success: false, error: "Unauthorized" };
-    if (!checkPermission(ctx.context.user.permissionSnapshot, HELPDESK_TICKETS_READ))
-      return { success: false, error: "Insufficient permissions" };
-    return HelpdeskTicketsService.listComments(ctx.supabase, ctx.orgId, ticketId);
   } catch {
     return { success: false, error: "Unexpected error" };
   }

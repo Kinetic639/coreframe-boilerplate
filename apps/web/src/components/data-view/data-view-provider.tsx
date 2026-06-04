@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useEffect, useMemo } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import type {
   DataViewColumnDef,
   DataViewFilterDef,
@@ -108,6 +109,7 @@ type DataViewProviderProps<TListRow, TDetail> = Pick<
   | "renderToolbarControls"
   | "renderDetail"
   | "onSelectionChange"
+  | "refreshToken"
 > & {
   children: React.ReactNode;
 };
@@ -128,9 +130,12 @@ export function DataViewProvider<TListRow, TDetail>({
   renderToolbarControls,
   renderDetail,
   onSelectionChange,
+  refreshToken,
   children,
 }: DataViewProviderProps<TListRow, TDetail>) {
+  const queryClient = useQueryClient();
   const urlState = useDataViewUrlState(entity);
+  const lastRefreshTokenRef = React.useRef(refreshToken);
   const columnKeys = useMemo(() => columns.map((column) => column.key), [columns]);
 
   const { columnVisibility, setColumnVisibility } = useColumnVisibility(entity, columnKeys);
@@ -153,6 +158,13 @@ export function DataViewProvider<TListRow, TDetail>({
     detailFetcher,
     selectedId: urlState.selected,
   });
+
+  useEffect(() => {
+    if (refreshToken === undefined) return;
+    if (lastRefreshTokenRef.current === refreshToken) return;
+    lastRefreshTokenRef.current = refreshToken;
+    void queryClient.invalidateQueries({ queryKey });
+  }, [queryClient, queryKey, refreshToken]);
 
   const isDetailOpen = !!urlState.selected;
   const resolvedListData = listQuery.data ?? initialData;

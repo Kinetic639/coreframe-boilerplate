@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "react-toastify";
 import { Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -50,6 +51,7 @@ interface PlanningSettingsClientProps {
 }
 
 export function PlanningSettingsClient({ settings }: PlanningSettingsClientProps) {
+  const t = useTranslations("modules.planning");
   const [isPending, startTransition] = useTransition();
 
   const [statusConfigs, setStatusConfigs] = useState<Record<string, PlanningBadgeConfig>>(() => {
@@ -90,18 +92,14 @@ export function PlanningSettingsClient({ settings }: PlanningSettingsClientProps
 
   function handleSave() {
     startTransition(async () => {
-      try {
-        const result = await savePlanningSettingsAction({
-          status_configs: statusConfigs,
-          priority_configs: priorityConfigs,
-        });
-        if (!result.success) {
-          toast.error((result as { success: false; error: string }).error);
-        } else {
-          toast.success("Settings saved");
-        }
-      } catch {
-        toast.error("Failed to save settings");
+      const result = await savePlanningSettingsAction({
+        status_configs: statusConfigs,
+        priority_configs: priorityConfigs,
+      });
+      if (!result.success) {
+        toast.error((result as { success: false; error: string }).error);
+      } else {
+        toast.success(t("settings.settingsSaved"));
       }
     });
   }
@@ -110,50 +108,60 @@ export function PlanningSettingsClient({ settings }: PlanningSettingsClientProps
     <div className="flex max-w-2xl flex-col gap-8 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Planning Settings</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Customize status and priority labels and colors for your tasks.
-          </p>
+          <h1 className="text-2xl font-semibold tracking-tight">{t("pages.settings.title")}</h1>
+          <p className="text-muted-foreground mt-1 text-sm">{t("pages.settings.subtitle")}</p>
         </div>
         <Button onClick={handleSave} disabled={isPending}>
           <Save className="mr-2 h-4 w-4" />
-          {isPending ? "Saving…" : "Save settings"}
+          {isPending ? t("settings.saving") : t("settings.saveSettings")}
         </Button>
       </div>
 
       <Separator />
 
       {/* Statuses */}
-      <div className="flex flex-col gap-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide">Statuses</h2>
+      <div className="space-y-4">
+        <div>
+          <h2 className="text-base font-semibold">{t("settings.statuses")}</h2>
+          <p className="text-muted-foreground text-sm">{t("settings.statusesDescription")}</p>
+        </div>
         {TASK_STATUSES.map((status) => {
           const cfg = statusConfigs[status]!;
           return (
             <div key={status} className="flex items-center gap-4">
-              <div className="w-36">
-                <PlanningTaskStatusBadge
-                  status={status}
-                  // @ts-expect-error custom color preview
-                  style={{ backgroundColor: `${cfg.color}1a`, color: cfg.color, border: 0 }}
-                  className="text-xs font-medium"
-                />
+              <div className="w-32 shrink-0">
+                <PlanningTaskStatusBadge status={status} config={cfg} />
               </div>
-              <div className="flex flex-1 items-center gap-2">
-                <Input
-                  value={cfg.label}
-                  onChange={(e) => updateStatus(status, "label", e.target.value)}
-                  className="h-8 text-sm"
-                  placeholder="Label"
-                />
-                <div className="flex items-center gap-1.5">
-                  <Label className="text-xs">Color</Label>
-                  <input
-                    type="color"
-                    value={cfg.color}
-                    onChange={(e) => updateStatus(status, "color", e.target.value)}
-                    className="h-8 w-10 cursor-pointer rounded border"
-                    title="Pick color"
+              <div className="flex flex-1 items-center gap-3">
+                <div className="flex flex-1 flex-col gap-1">
+                  <Label className="text-muted-foreground text-xs">
+                    {t("settings.labelField")}
+                  </Label>
+                  <Input
+                    value={cfg.label}
+                    onChange={(e) => updateStatus(status, "label", e.target.value)}
+                    className="h-8 text-sm"
+                    maxLength={50}
                   />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label className="text-muted-foreground text-xs">
+                    {t("settings.colorField")}
+                  </Label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={cfg.color}
+                      onChange={(e) => updateStatus(status, "color", e.target.value)}
+                      className="h-8 w-12 cursor-pointer rounded border p-0.5"
+                    />
+                    <Input
+                      value={cfg.color}
+                      onChange={(e) => updateStatus(status, "color", e.target.value)}
+                      className="h-8 w-24 font-mono text-xs"
+                      maxLength={7}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -164,36 +172,48 @@ export function PlanningSettingsClient({ settings }: PlanningSettingsClientProps
       <Separator />
 
       {/* Priorities */}
-      <div className="flex flex-col gap-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide">Priorities</h2>
+      <div className="space-y-4">
+        <div>
+          <h2 className="text-base font-semibold">{t("settings.priorities")}</h2>
+          <p className="text-muted-foreground text-sm">{t("settings.prioritiesDescription")}</p>
+        </div>
         {TASK_PRIORITIES.map((priority) => {
           const cfg = priorityConfigs[priority]!;
           return (
             <div key={priority} className="flex items-center gap-4">
-              <div className="w-36">
-                <PlanningTaskPriorityBadge
-                  priority={priority}
-                  // @ts-expect-error custom color preview
-                  style={{ backgroundColor: `${cfg.color}1a`, color: cfg.color, border: 0 }}
-                  className="text-xs font-medium"
-                />
+              <div className="w-32 shrink-0">
+                <PlanningTaskPriorityBadge priority={priority} config={cfg} />
               </div>
-              <div className="flex flex-1 items-center gap-2">
-                <Input
-                  value={cfg.label}
-                  onChange={(e) => updatePriority(priority, "label", e.target.value)}
-                  className="h-8 text-sm"
-                  placeholder="Label"
-                />
-                <div className="flex items-center gap-1.5">
-                  <Label className="text-xs">Color</Label>
-                  <input
-                    type="color"
-                    value={cfg.color}
-                    onChange={(e) => updatePriority(priority, "color", e.target.value)}
-                    className="h-8 w-10 cursor-pointer rounded border"
-                    title="Pick color"
+              <div className="flex flex-1 items-center gap-3">
+                <div className="flex flex-1 flex-col gap-1">
+                  <Label className="text-muted-foreground text-xs">
+                    {t("settings.labelField")}
+                  </Label>
+                  <Input
+                    value={cfg.label}
+                    onChange={(e) => updatePriority(priority, "label", e.target.value)}
+                    className="h-8 text-sm"
+                    maxLength={50}
                   />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label className="text-muted-foreground text-xs">
+                    {t("settings.colorField")}
+                  </Label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={cfg.color}
+                      onChange={(e) => updatePriority(priority, "color", e.target.value)}
+                      className="h-8 w-12 cursor-pointer rounded border p-0.5"
+                    />
+                    <Input
+                      value={cfg.color}
+                      onChange={(e) => updatePriority(priority, "color", e.target.value)}
+                      className="h-8 w-24 font-mono text-xs"
+                      maxLength={7}
+                    />
+                  </div>
                 </div>
               </div>
             </div>

@@ -1,26 +1,26 @@
-import { redirect } from "@/i18n/navigation";
+import { notFound } from "next/navigation";
 import { getLocale } from "next-intl/server";
+import { redirect } from "@/i18n/navigation";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { checkPermission } from "@/lib/utils/permissions";
 import {
-  PLANNING_TASKS_READ,
-  PLANNING_TASKS_CREATE,
-  PLANNING_TASKS_UPDATE,
-  PLANNING_TASKS_DELETE,
   PLANNING_TASKS_ASSIGN,
+  PLANNING_TASKS_DELETE,
+  PLANNING_TASKS_READ,
+  PLANNING_TASKS_UPDATE,
 } from "@/lib/constants/permissions";
 import { createClient } from "@/utils/supabase/server";
 import { PlanningTasksService } from "@/server/services/planning-tasks.service";
 import { PlanningSettingsService } from "@/server/services/planning-settings.service";
 import { OrgMembersService } from "@/server/services/organization.service";
-import { parseDataViewSearchParams } from "@/components/data-view/data-view-search-params";
-import { TasksClient } from "./_components/tasks-client";
+import { getQrAssignmentForTaskAction } from "@/app/actions/planning";
+import { PlanningTaskDetailPanel } from "../_components/planning-task-detail-panel";
 
 type PageProps = {
-  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+  params: Promise<{ taskId: string }>;
 };
 
-export default async function PlanningTasksPage({ searchParams }: PageProps = {}) {
+export default async function PlanningTaskDetailPage({ params }: PageProps) {
   const locale = await getLocale();
   const context = await loadDashboardContextV2();
 
@@ -36,19 +36,20 @@ export default async function PlanningTasksPage({ searchParams }: PageProps = {}
     });
   }
 
-  const params = parseDataViewSearchParams(searchParams ? await searchParams : {});
+  const { taskId } = await params;
   const supabase = await createClient();
   const orgId = context.app.activeOrgId;
 
-  const [tasksResult, membersResult, settingsResult] = await Promise.all([
-    PlanningTasksService.listForDataView(supabase, orgId, params),
+  const [taskResult, membersResult, settingsResult, qrAssignmentResult] = await Promise.all([
+    PlanningTasksService.getDetail(supabase, orgId, taskId),
     OrgMembersService.listMembers(supabase, orgId),
     PlanningSettingsService.getSettings(supabase, orgId),
+    getQrAssignmentForTaskAction(taskId),
   ]);
 
-  const initialData = tasksResult.success
-    ? tasksResult.data
-    : { rows: [], totalCount: 0, page: params.page, pageSize: params.pageSize };
+  if (!taskResult.success || !taskResult.data) {
+    notFound();
+  }
 
   const members = membersResult.success
     ? membersResult.data.map((m) => ({
@@ -59,27 +60,21 @@ export default async function PlanningTasksPage({ searchParams }: PageProps = {}
     : [];
 
   const snap = context.user.permissionSnapshot;
-  const canCreate = checkPermission(snap, PLANNING_TASKS_CREATE);
-  const canUpdate = checkPermission(snap, PLANNING_TASKS_UPDATE);
-  const canAssign = checkPermission(snap, PLANNING_TASKS_ASSIGN);
-  const canDelete = checkPermission(snap, PLANNING_TASKS_DELETE);
-
-  const currentUser = context.user.user;
-  const currentUserId = currentUser?.id ?? "";
   const settings = settingsResult.success ? settingsResult.data : null;
 
   return (
-    <TasksClient
-      initialData={initialData}
-      canCreate={canCreate}
-      canUpdate={canUpdate}
-      canAssign={canAssign}
-      canDelete={canDelete}
-      members={members}
-      currentUserId={currentUserId}
-      orgId={orgId}
-      statusConfigs={settings?.status_configs ?? null}
-      priorityConfigs={settings?.priority_configs ?? null}
-    />
+    <div className="h-full min-h-0">
+      <PlanningTaskDetailPanel
+        detail={taskResult.data}
+        canUpdate={checkPermission(snap, PLANNING_TASKS_UPDATE)}
+        canAssign={checkPermission(snap, PLANNING_TASKS_ASSIGN)}
+        canDelete={checkPermission(snap, PLANNING_TASKS_DELETE)}
+        members={members}
+        initialQrAssignment={qrAssignmentResult.success ? qrAssignmentResult.data : null}
+        showFullLink={false}
+        statusConfigs={settings?.status_configs ?? null}
+        priorityConfigs={settings?.priority_configs ?? null}
+      />
+    </div>
   );
 }

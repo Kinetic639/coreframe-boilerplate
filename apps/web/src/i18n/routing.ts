@@ -309,6 +309,10 @@ export const routing = defineRouting({
       en: "/dashboard/planning/tasks",
       pl: "/dashboard/planowanie/zadania",
     },
+    "/dashboard/planning/tasks/[taskId]": {
+      en: "/dashboard/planning/tasks/[taskId]",
+      pl: "/dashboard/planowanie/zadania/[taskId]",
+    },
     "/dashboard/planning/boards": {
       en: "/dashboard/planning/boards",
       pl: "/dashboard/planowanie/tablice",

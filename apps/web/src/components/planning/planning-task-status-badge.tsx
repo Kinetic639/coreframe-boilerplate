@@ -26,9 +26,34 @@ const STATUS_DEFAULTS: Record<TaskStatus, { label: string; className: string }> 
 interface PlanningTaskStatusBadgeProps {
   status: TaskStatus;
   className?: string;
+  config?: PlanningStatusBadgeConfig | null;
 }
 
-export function PlanningTaskStatusBadge({ status, className }: PlanningTaskStatusBadgeProps) {
+export interface PlanningStatusBadgeConfig {
+  label: string;
+  color: string;
+}
+
+export function PlanningTaskStatusBadge({
+  status,
+  className,
+  config,
+}: PlanningTaskStatusBadgeProps) {
+  if (config) {
+    return (
+      <Badge
+        variant="outline"
+        className={cn("border-0 text-xs font-medium", className)}
+        style={{
+          backgroundColor: `${config.color}1a`,
+          color: config.color,
+        }}
+      >
+        {config.label}
+      </Badge>
+    );
+  }
+
   const defaults = STATUS_DEFAULTS[status] ?? {
     label: status,
     className: "bg-muted text-muted-foreground",

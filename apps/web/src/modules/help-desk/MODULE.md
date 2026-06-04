@@ -45,9 +45,12 @@ Cross-module ticket and request hub for the Ambra platform. Any module can link 
 | `helpdesk_ticket_types`      | Ticket categories with color/icon      |
 | `helpdesk_tickets`           | Main ticket records (HD-000001 format) |
 | `helpdesk_ticket_references` | Cross-module entity links              |
-| `helpdesk_ticket_comments`   | Comments and internal notes            |
 | `helpdesk_ticket_activity`   | Append-only audit/activity log         |
 | `helpdesk_settings`          | Per-org settings (one row per org)     |
+
+Comments are now stored in the shared `app_comments` table with
+`target_type = 'helpdesk.ticket'`. The legacy `helpdesk_ticket_comments` table
+is kept only for migration/backfill compatibility.
 
 ## Cross-Module Reference Model
 
@@ -64,10 +67,11 @@ This design keeps the Help Desk module generic — it has no imports from Worksh
 
 ## Services
 
-| File                               | Purpose                     |
-| ---------------------------------- | --------------------------- |
-| `helpdesk-ticket-types.service.ts` | CRUD for ticket types       |
-| `helpdesk-tickets.service.ts`      | CRUD for tickets + comments |
+| File                               | Purpose                                                |
+| ---------------------------------- | ------------------------------------------------------ |
+| `helpdesk-ticket-types.service.ts` | CRUD for ticket types                                  |
+| `helpdesk-tickets.service.ts`      | CRUD for tickets                                       |
+| `comments.service.ts`              | Generic comments for ticket targets and future modules |
 
 ## Server Actions
 
@@ -75,7 +79,9 @@ All actions are in `src/app/actions/help-desk/index.ts`:
 
 - `listTicketTypesAction` / `createTicketTypeAction` / `updateTicketTypeAction` / `deleteTicketTypeAction`
 - `listTicketsAction` / `getTicketAction` / `createTicketAction` / `updateTicketAction` / `deleteTicketAction`
-- `listCommentsAction` / `addCommentAction`
+
+Comment actions live in `src/app/actions/comments/index.ts` and are used through
+the shared `CommentsThread` feature container.
 
 ## Migration
 

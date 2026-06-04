@@ -10,14 +10,12 @@ import {
   listOrgMembersForTicketAssignmentAction,
   createTicketAction,
   getTicketDetailAction,
-  addTicketCommentAction,
   closeTicketAction,
   acceptTicketAction,
 } from "@/app/actions/help-desk";
 import type {
   AcceptTicketInput,
   CreateTicketInput,
-  AddTicketCommentInput,
   CloseTicketInput,
 } from "@/lib/validations/helpdesk";
 import type { HelpdeskTicketDetail } from "@/server/services/helpdesk-tickets.service";
@@ -148,30 +146,6 @@ export function useCreateTicketMutation() {
     },
     onError: (err: Error) => {
       toast.error(err.message || t("errors.createFailed"));
-    },
-  });
-}
-
-// ---------------------------------------------------------------------------
-// Add Comment
-// ---------------------------------------------------------------------------
-
-export function useAddTicketCommentMutation(ticketNumber: string) {
-  const queryClient = useQueryClient();
-  const t = useTranslations("modules.helpDesk");
-
-  return useMutation({
-    mutationFn: async (input: AddTicketCommentInput) => {
-      const result = await addTicketCommentAction(input);
-      if (!result.success) throw new Error((result as { success: false; error: string }).error);
-      return result.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: helpdeskKeys.ticketDetail(ticketNumber) });
-      toast.success(t("tickets.commentAdded"));
-    },
-    onError: (err: Error) => {
-      toast.error(err.message || t("errors.commentFailed"));
     },
   });
 }

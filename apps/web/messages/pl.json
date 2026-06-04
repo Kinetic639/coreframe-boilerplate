@@ -3159,6 +3159,10 @@
         "boards": {
           "title": "Tablice",
           "subtitle": "Wizualizuj zadania na tablicy Kanban"
+        },
+        "settings": {
+          "title": "Ustawienia planowania",
+          "subtitle": "Dostosuj etykiety i kolory plakietek statusów oraz priorytetów zadań."
         }
       },
       "features": {
@@ -3190,6 +3194,17 @@
         "cancelTask": "Anuluj zadanie",
         "archiveTask": "Archiwizuj zadanie",
         "createAndAssignToMe": "Utwórz i przypisz do mnie"
+      },
+      "settings": {
+        "saveSettings": "Zapisz ustawienia",
+        "saving": "Zapisywanie…",
+        "statuses": "Statusy",
+        "statusesDescription": "Dostosuj etykiety i kolory plakietek dla każdego statusu zadania.",
+        "priorities": "Priorytety",
+        "prioritiesDescription": "Dostosuj etykiety i kolory plakietek dla każdego priorytetu zadania.",
+        "labelField": "Etykieta",
+        "colorField": "Kolor",
+        "settingsSaved": "Ustawienia zostały zapisane."
       },
       "empty": {
         "noData": "Brak zadań",

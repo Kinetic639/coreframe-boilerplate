@@ -14,6 +14,7 @@ import type {
   UpdateTicketInput,
 } from "@/lib/validations/helpdesk";
 import type { DataViewListParams, PaginatedResult } from "@/lib/data-view/types";
+import { CommentsService, type AppComment } from "./comments.service";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -72,7 +73,7 @@ export interface HelpdeskTicketDetail extends HelpdeskTicketListRow {
   closed_by: string | null;
   resolved_at: string | null;
   due_at: string | null;
-  comments: HelpdeskTicketComment[];
+  comments: AppComment[];
   activity: HelpdeskTicketActivity[];
   acceptors: HelpdeskAcceptorInfo[];
 }
@@ -180,6 +181,25 @@ function resolveAvatarUrl(
     return signedUrls.get(userId) ?? avatarUrl;
   }
   return avatarUrl;
+}
+
+function mapAppCommentToHelpdeskComment(comment: AppComment): HelpdeskTicketComment {
+  return {
+    id: comment.id,
+    ticket_id: comment.target_id,
+    org_id: comment.org_id,
+    body: comment.body_plain,
+    body_rich: comment.body_rich,
+    is_internal: comment.visibility === "internal",
+    created_by: comment.created_by,
+    creator_name: comment.author?.name ?? null,
+    creator_email: comment.author?.email ?? null,
+    creator_avatar_url: comment.author?.avatar_url ?? null,
+    creator_profile_href: comment.author?.profile_href ?? null,
+    created_at: comment.created_at,
+    updated_at: comment.updated_at,
+    deleted_at: comment.deleted_at,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -472,40 +492,36 @@ export class HelpdeskTicketsService {
     const ticketId = ticket.id as string;
 
     // Assignees, comments, activity, acceptors — all independent, fetch in parallel
-    const [
-      { data: assigneeRows },
-      { data: commentRows },
-      { data: activityRows },
-      { data: acceptorRows },
-    ] = await Promise.all([
-      supabase
-        .from("helpdesk_ticket_assignees")
-        .select(
-          "user_id, role, status, user:users!user_id(id,first_name,last_name,email,avatar_url,avatar_path)"
-        )
-        .eq("ticket_id", ticketId)
-        .is("deleted_at", null),
-      supabase
-        .from("helpdesk_ticket_comments")
-        .select(
-          "*, commenter:users!created_by(id,first_name,last_name,email,avatar_url,avatar_path)"
-        )
-        .eq("ticket_id", ticketId)
-        .eq("org_id", orgId)
-        .is("deleted_at", null)
-        .order("created_at", { ascending: true }),
-      supabase
-        .from("helpdesk_ticket_activity")
-        .select("*, actor:users!actor_id(id,first_name,last_name,email)")
-        .eq("ticket_id", ticketId)
-        .eq("org_id", orgId)
-        .order("created_at", { ascending: false })
-        .limit(50),
-      supabase
-        .from("helpdesk_ticket_acceptors")
-        .select("user_id, user:users!user_id(id,first_name,last_name,email,avatar_url,avatar_path)")
-        .eq("ticket_id", ticketId),
-    ]);
+    const [{ data: assigneeRows }, commentsResult, { data: activityRows }, { data: acceptorRows }] =
+      await Promise.all([
+        supabase
+          .from("helpdesk_ticket_assignees")
+          .select(
+            "user_id, role, status, user:users!user_id(id,first_name,last_name,email,avatar_url,avatar_path)"
+          )
+          .eq("ticket_id", ticketId)
+          .is("deleted_at", null),
+        CommentsService.listForTarget(supabase, orgId, {
+          targetType: "helpdesk.ticket",
+          targetId: ticketId,
+          pageSize: 50,
+        }),
+        supabase
+          .from("helpdesk_ticket_activity")
+          .select("*, actor:users!actor_id(id,first_name,last_name,email)")
+          .eq("ticket_id", ticketId)
+          .eq("org_id", orgId)
+          .order("created_at", { ascending: false })
+          .limit(50),
+        supabase
+          .from("helpdesk_ticket_acceptors")
+          .select(
+            "user_id, user:users!user_id(id,first_name,last_name,email,avatar_url,avatar_path)"
+          )
+          .eq("ticket_id", ticketId),
+      ]);
+
+    if (!commentsResult.success) return commentsResult as { success: false; error: string };
 
     const assignees = ((assigneeRows ?? []) as any[]).map((row) => {
       const u = row.user as {
@@ -527,20 +543,6 @@ export class HelpdeskTicketsService {
         profile_href: null,
       };
     });
-
-    type RawCommenter = {
-      id: string;
-      first_name: string | null;
-      last_name: string | null;
-      email: string | null;
-      avatar_url: string | null;
-      avatar_path: string | null;
-    };
-
-    const rawComments = (commentRows ?? []).map((row) => ({
-      row,
-      u: row.commenter as RawCommenter | null,
-    }));
 
     const activity: HelpdeskTicketActivity[] = (activityRows ?? []).map((row) => {
       const a = row.actor as {
@@ -588,11 +590,6 @@ export class HelpdeskTicketsService {
         detailAvatarEntries.push({ userId: a.user_id, avatarPath: ap });
       }
     });
-    rawComments.forEach(({ u }) => {
-      if (u?.avatar_path?.startsWith(`${u.id}/`)) {
-        detailAvatarEntries.push({ userId: u.id, avatarPath: u.avatar_path });
-      }
-    });
     type RawAcceptorUser = {
       id: string;
       first_name: string | null;
@@ -618,25 +615,6 @@ export class HelpdeskTicketsService {
       email: u?.email ?? null,
       avatar_url: u ? resolveAvatarUrl(u.id, u.avatar_url, u.avatar_path, detailSignedUrls) : null,
       profile_href: memberProfileHref(user_id),
-    }));
-
-    const comments: HelpdeskTicketComment[] = rawComments.map(({ row, u }) => ({
-      id: row.id as string,
-      ticket_id: row.ticket_id as string,
-      org_id: row.org_id as string,
-      body: row.body as string,
-      body_rich: row.body_rich ?? null,
-      is_internal: row.is_internal as boolean,
-      created_by: row.created_by as string,
-      creator_name: u ? displayName(u.first_name, u.last_name, u.email) : null,
-      creator_email: u?.email ?? null,
-      creator_avatar_url: u
-        ? resolveAvatarUrl(u.id, u.avatar_url, u.avatar_path, detailSignedUrls)
-        : null,
-      creator_profile_href: row.created_by ? memberProfileHref(row.created_by as string) : null,
-      created_at: row.created_at as string,
-      updated_at: row.updated_at as string,
-      deleted_at: (row.deleted_at as string | null) ?? null,
     }));
 
     const detail: HelpdeskTicketDetail = {
@@ -686,10 +664,7 @@ export class HelpdeskTicketsService {
       closed_by: (ticket.closed_by as string | null) ?? null,
       resolved_at: (ticket.resolved_at as string | null) ?? null,
       due_at: (ticket.due_at as string | null) ?? null,
-      comments: comments.map((c) => ({
-        ...c,
-        creator_profile_href: memberProfileHref(c.created_by),
-      })),
+      comments: commentsResult.data.rows,
       activity,
       acceptors,
     };
@@ -732,59 +707,17 @@ export class HelpdeskTicketsService {
     userId: string,
     input: AddTicketCommentInput
   ): Promise<ServiceResult<HelpdeskTicketComment>> {
-    const { data: commentRaw, error } = await supabase
-      .from("helpdesk_ticket_comments")
-      .insert({
-        ticket_id: input.ticket_id,
-        org_id: orgId,
-        body: input.body,
-        body_rich: (input.body_rich as object | null) ?? null,
-        is_internal: input.is_internal ?? false,
-        created_by: userId,
-      })
-      .select("*, commenter:users!created_by(id,first_name,last_name,email,avatar_url)")
-      .single();
-
-    if (error) return { success: false, error: error.message };
-
-    const data = commentRaw as any;
-
-    const u = data.commenter as {
-      id: string;
-      first_name: string | null;
-      last_name: string | null;
-      email: string | null;
-      avatar_url: string | null;
-    } | null;
-
-    // Log activity
-    await supabase.from("helpdesk_ticket_activity").insert({
-      ticket_id: input.ticket_id,
-      org_id: orgId,
-      actor_id: userId,
-      event_type: "comment_added",
-      payload: { is_internal: input.is_internal ?? false },
+    const result = await CommentsService.add(supabase, orgId, userId, {
+      targetType: "helpdesk.ticket",
+      targetId: input.ticket_id,
+      bodyPlain: input.body,
+      bodyRich: input.body_rich,
+      visibility: input.is_internal ? "internal" : "default",
     });
 
-    return {
-      success: true,
-      data: {
-        id: data.id as string,
-        ticket_id: data.ticket_id as string,
-        org_id: data.org_id as string,
-        body: data.body as string,
-        body_rich: data.body_rich ?? null,
-        is_internal: data.is_internal as boolean,
-        created_by: data.created_by as string,
-        creator_name: u ? displayName(u.first_name, u.last_name, u.email) : null,
-        creator_email: u?.email ?? null,
-        creator_avatar_url: u?.avatar_url ?? null,
-        creator_profile_href: null,
-        created_at: data.created_at as string,
-        updated_at: data.updated_at as string,
-        deleted_at: (data.deleted_at as string | null) ?? null,
-      },
-    };
+    if (!result.success) return result as { success: false; error: string };
+
+    return { success: true, data: mapAppCommentToHelpdeskComment(result.data) };
   }
 
   // ── Close Ticket ───────────────────────────────────────────────────────────
@@ -994,42 +927,17 @@ export class HelpdeskTicketsService {
     orgId: string,
     ticketId: string
   ): Promise<ServiceResult<HelpdeskTicketComment[]>> {
-    const { data, error } = await supabase
-      .from("helpdesk_ticket_comments")
-      .select("*, commenter:users!created_by(id,first_name,last_name,email,avatar_url)")
-      .eq("ticket_id", ticketId)
-      .eq("org_id", orgId)
-      .is("deleted_at", null)
-      .order("created_at", { ascending: true });
+    const result = await CommentsService.listForTarget(supabase, orgId, {
+      targetType: "helpdesk.ticket",
+      targetId: ticketId,
+      pageSize: 100,
+    });
 
-    if (error) return { success: false, error: error.message };
+    if (!result.success) return result as { success: false; error: string };
+
     return {
       success: true,
-      data: (data ?? []).map((row) => {
-        const u = row.commenter as {
-          id: string;
-          first_name: string | null;
-          last_name: string | null;
-          email: string | null;
-          avatar_url: string | null;
-        } | null;
-        return {
-          id: row.id as string,
-          ticket_id: row.ticket_id as string,
-          org_id: row.org_id as string,
-          body: row.body as string,
-          body_rich: row.body_rich ?? null,
-          is_internal: row.is_internal as boolean,
-          created_by: row.created_by as string,
-          creator_name: u ? displayName(u.first_name, u.last_name, u.email) : null,
-          creator_email: u?.email ?? null,
-          creator_avatar_url: u?.avatar_url ?? null,
-          creator_profile_href: null,
-          created_at: row.created_at as string,
-          updated_at: row.updated_at as string,
-          deleted_at: (row.deleted_at as string | null) ?? null,
-        };
-      }),
+      data: result.data.rows.map(mapAppCommentToHelpdeskComment),
     };
   }
 }

@@ -26,9 +26,34 @@ const PRIORITY_DEFAULTS: Record<TaskPriority, { label: string; className: string
 interface PlanningTaskPriorityBadgeProps {
   priority: TaskPriority;
   className?: string;
+  config?: PlanningPriorityBadgeConfig | null;
 }
 
-export function PlanningTaskPriorityBadge({ priority, className }: PlanningTaskPriorityBadgeProps) {
+export interface PlanningPriorityBadgeConfig {
+  label: string;
+  color: string;
+}
+
+export function PlanningTaskPriorityBadge({
+  priority,
+  className,
+  config,
+}: PlanningTaskPriorityBadgeProps) {
+  if (config) {
+    return (
+      <Badge
+        variant="outline"
+        className={cn("border-0 text-xs font-medium", className)}
+        style={{
+          backgroundColor: `${config.color}1a`,
+          color: config.color,
+        }}
+      >
+        {config.label}
+      </Badge>
+    );
+  }
+
   const defaults = PRIORITY_DEFAULTS[priority] ?? {
     label: priority,
     className: "bg-muted text-muted-foreground",

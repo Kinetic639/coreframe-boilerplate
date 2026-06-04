@@ -91,6 +91,7 @@ export type DataViewProps<TListRow, TDetail> = {
   renderToolbarControls?: () => React.ReactNode;
   renderDetail: (detail: TDetail) => React.ReactNode;
   onSelectionChange?: (selectedIds: string[]) => void;
+  refreshToken?: number;
   className?: string;
 };
 
