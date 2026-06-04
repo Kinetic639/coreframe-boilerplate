@@ -1,26 +1,15 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/utils";
 import type { TaskPriority } from "@/lib/validations/planning";
 
-const PRIORITY_DEFAULTS: Record<TaskPriority, { label: string; className: string }> = {
-  low: {
-    label: "Low",
-    className: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
-  },
-  normal: {
-    label: "Normal",
-    className: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
-  },
-  high: {
-    label: "High",
-    className: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
-  },
-  urgent: {
-    label: "Urgent",
-    className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-  },
+const PRIORITY_CLASSES: Record<TaskPriority, string> = {
+  low: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
+  normal: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+  high: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
+  urgent: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
 };
 
 interface PlanningTaskPriorityBadgeProps {
@@ -39,6 +28,8 @@ export function PlanningTaskPriorityBadge({
   className,
   config,
 }: PlanningTaskPriorityBadgeProps) {
+  const t = useTranslations("modules.planning.tasks");
+
   if (config) {
     return (
       <Badge
@@ -54,16 +45,15 @@ export function PlanningTaskPriorityBadge({
     );
   }
 
-  const defaults = PRIORITY_DEFAULTS[priority] ?? {
-    label: priority,
-    className: "bg-muted text-muted-foreground",
-  };
+  const label = t(priority);
+  const priorityClassName = PRIORITY_CLASSES[priority] ?? "bg-muted text-muted-foreground";
+
   return (
     <Badge
       variant="outline"
-      className={cn("border-0 text-xs font-medium", defaults.className, className)}
+      className={cn("border-0 text-xs font-medium", priorityClassName, className)}
     >
-      {defaults.label}
+      {label}
     </Badge>
   );
 }

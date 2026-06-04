@@ -191,6 +191,43 @@
       "cta2": "Zobacz cennik"
     }
   },
+  "components": {
+    "comments": {
+      "title": "Komentarze",
+      "empty": "Brak komentarzy.",
+      "placeholder": "Napisz komentarz...",
+      "submit": "Dodaj komentarz",
+      "submitting": "Dodawanie...",
+      "cancel": "Anuluj",
+      "loadMore": "Załaduj więcej",
+      "edited": "edytowano",
+      "formerMember": "Były członek",
+      "addFailed": "Nie udało się dodać komentarza"
+    }
+  },
+  "admin": {
+    "commentsDemo": {
+      "primitiveDemo": "Demo komponentu",
+      "title": "Komentarze",
+      "description": "Wielorazowy edytor i renderer komentarzy zbudowany na wspólnych komponentach rich text TipTap.",
+      "reset": "Resetuj",
+      "fullPageUsage": "Widok pełnej strony",
+      "renderedThread": "Wyrenderowany wątek",
+      "commentsCount": "{count, plural, one {# komentarz} few {# komentarze} many {# komentarzy} other {# komentarza}}",
+      "sidePanelUsage": "Widok panelu bocznego",
+      "compact": "kompaktowy",
+      "pagePlaceholder": "Opisz aktualizację zgłoszenia, notatkę do elementu lub kontekst prośby...",
+      "panelPlaceholder": "Dodaj notatkę aktywności...",
+      "addNote": "Dodaj notatkę",
+      "save": "Zapisz",
+      "edited": "edytowano",
+      "sampleCreated": "Produkt utworzono",
+      "sampleNotePrefix": "Dodałem notatkę z ",
+      "sampleNoteBold": "ważnym kontekstem",
+      "sampleNoteSuffix": " dla osoby, która przejmie zgłoszenie.",
+      "sampleWarehouseCheck": "Sprawdzić przypisanie do właściwego magazynu przed zamknięciem."
+    }
+  },
   "dataView": {
     "columns": {
       "manageAria": "Zarządzaj kolumnami",
@@ -3160,6 +3197,10 @@
           "title": "Tablice",
           "subtitle": "Wizualizuj zadania na tablicy Kanban"
         },
+        "board": {
+          "title": "Tablica Kanban",
+          "comingSoon": "Wkrótce."
+        },
         "settings": {
           "title": "Ustawienia planowania",
           "subtitle": "Dostosuj etykiety i kolory plakietek statusów oraz priorytetów zadań."
@@ -3171,13 +3212,27 @@
       },
       "tasks": {
         "createTask": "Utwórz zadanie",
+        "newTask": "Nowe zadanie",
         "taskCreated": "Zadanie utworzone",
         "taskUpdated": "Zadanie zaktualizowane",
+        "failedCreate": "Nie udało się utworzyć zadania",
+        "failedCreateRetry": "Nie udało się utworzyć zadania. Spróbuj ponownie.",
+        "title": "Tytuł",
+        "titleRequired": "Tytuł jest wymagany",
+        "titlePlaceholder": "Wpisz tytuł zadania...",
+        "description": "Opis",
+        "descriptionPlaceholder": "Dodaj opis...",
+        "noDescription": "Brak opisu.",
+        "assignTo": "Przypisz do",
         "assignedTo": "Przypisane do",
         "unassigned": "Nieprzypisane",
+        "assignee": "Osoba odpowiedzialna",
         "status": "Status",
         "priority": "Priorytet",
         "dueDate": "Termin",
+        "due": "Termin",
+        "updated": "Zaktualizowano",
+        "id": "ID",
         "open": "Otwarte",
         "inProgress": "W realizacji",
         "completed": "Zakończone",
@@ -3188,12 +3243,53 @@
         "urgent": "Pilny",
         "activity": "Aktywność",
         "noActivity": "Brak aktywności",
+        "systemActor": "System",
+        "unknown": "Nieznany",
+        "viewFull": "Otwórz pełny widok",
+        "actions": "Akcje",
+        "start": "Rozpocznij",
         "markInProgress": "Oznacz jako w realizacji",
         "complete": "Zakończ",
         "reopen": "Otwórz ponownie",
+        "cancel": "Anuluj",
         "cancelTask": "Anuluj zadanie",
         "archiveTask": "Archiwizuj zadanie",
-        "createAndAssignToMe": "Utwórz i przypisz do mnie"
+        "createAndAssignToMe": "Utwórz i przypisz do mnie",
+        "createdBy": "Utworzone przez",
+        "created": "Utworzono",
+        "qrCode": "Kod QR",
+        "unlabelled": "Bez etykiety",
+        "unlink": "Odepnij",
+        "assignQrCode": "Przypisz kod QR",
+        "selectQrCode": "Wybierz kod QR",
+        "noQrCodeAssigned": "Brak przypisanego kodu QR.",
+        "noAvailableQrCodes": "Brak dostępnych kodów QR.",
+        "qrCodeUnlinked": "Kod QR został odpięty od zadania.",
+        "qrCodeUnlinkFailed": "Nie udało się odpiąć kodu QR.",
+        "qrCodeAssigned": "Kod QR został przypisany do zadania.",
+        "qrCodeAssignFailed": "Nie udało się przypisać kodu QR.",
+        "comments": {
+          "title": "Komentarze",
+          "empty": "Brak komentarzy.",
+          "placeholder": "Napisz komentarz do zadania...",
+          "submit": "Dodaj komentarz"
+        },
+        "activityMessages": {
+          "task_created": "Zadanie utworzone",
+          "title_changed": "Tytuł zaktualizowany",
+          "description_changed": "Opis zaktualizowany",
+          "assigned": "Zadanie przypisane",
+          "unassigned": "Zadanie odpięte",
+          "status_changed": "Status zmieniony",
+          "priority_changed": "Priorytet zmieniony",
+          "due_date_changed": "Termin zaktualizowany",
+          "completed": "Zadanie oznaczone jako zakończone",
+          "reopened": "Zadanie otwarte ponownie",
+          "cancelled": "Zadanie anulowane",
+          "archived": "Zadanie zarchiwizowane",
+          "restored": "Zadanie przywrócone",
+          "comment_added": "Komentarz dodany"
+        }
       },
       "settings": {
         "saveSettings": "Zapisz ustawienia",
@@ -3204,14 +3300,18 @@
         "prioritiesDescription": "Dostosuj etykiety i kolory plakietek dla każdego priorytetu zadania.",
         "labelField": "Etykieta",
         "colorField": "Kolor",
-        "settingsSaved": "Ustawienia zostały zapisane."
+        "settingsSaved": "Ustawienia zostały zapisane.",
+        "saveFailed": "Nie udało się zapisać ustawień planowania."
       },
       "empty": {
         "noData": "Brak zadań",
         "noDataDescription": "Utwórz zadanie, aby rozpocząć."
       },
       "errors": {
-        "loadFailed": "Nie udało się załadować danych planowania"
+        "loadFailed": "Nie udało się załadować danych planowania",
+        "loadPlanningRetry": "Nie udało się załadować planowania. Spróbuj ponownie.",
+        "tryAgain": "Spróbuj ponownie",
+        "operationFailed": "Operacja nie powiodła się"
       }
     },
     "analytics": {

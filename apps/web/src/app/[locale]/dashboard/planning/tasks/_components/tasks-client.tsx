@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Plus, CheckSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DataView } from "@/components/data-view/data-view";
@@ -48,31 +49,6 @@ interface TasksClientProps {
   priorityConfigs: Record<string, PlanningPriorityBadgeConfig> | null;
 }
 
-const FILTERS: DataViewFilterDef[] = [
-  {
-    key: "status",
-    label: "Status",
-    type: "multi-select",
-    options: [
-      { value: "open", label: "Open" },
-      { value: "in_progress", label: "In Progress" },
-      { value: "completed", label: "Completed" },
-      { value: "cancelled", label: "Cancelled" },
-    ],
-  },
-  {
-    key: "priority",
-    label: "Priority",
-    type: "multi-select",
-    options: [
-      { value: "low", label: "Low" },
-      { value: "normal", label: "Normal" },
-      { value: "high", label: "High" },
-      { value: "urgent", label: "Urgent" },
-    ],
-  },
-];
-
 export function TasksClient({
   initialData,
   canCreate,
@@ -85,6 +61,7 @@ export function TasksClient({
   statusConfigs,
   priorityConfigs,
 }: TasksClientProps) {
+  const t = useTranslations("modules.planning");
   const [createOpen, setCreateOpen] = useState(false);
   const [refreshToken, setRefreshToken] = useState(0);
   const router = useRouter();
@@ -95,9 +72,9 @@ export function TasksClient({
     async (params: DataViewListParams): Promise<PaginatedResult<PlanningTaskListRow>> => {
       const result = await listTasksForDataViewAction(params, orgId);
       if (result.success) return result.data;
-      throw new Error((result as { success: false; error: string }).error);
+      throw new Error(t("errors.loadFailed"));
     },
-    [orgId]
+    [orgId, t]
   );
 
   const detailFetcher = useCallback(
@@ -123,18 +100,46 @@ export function TasksClient({
     [pathname, refreshDataView, router, searchParams]
   );
 
+  const filters = useMemo<DataViewFilterDef[]>(
+    () => [
+      {
+        key: "status",
+        label: t("tasks.status"),
+        type: "multi-select",
+        options: [
+          { value: "open", label: t("tasks.open") },
+          { value: "in_progress", label: t("tasks.inProgress") },
+          { value: "completed", label: t("tasks.completed") },
+          { value: "cancelled", label: t("tasks.cancelled") },
+        ],
+      },
+      {
+        key: "priority",
+        label: t("tasks.priority"),
+        type: "multi-select",
+        options: [
+          { value: "low", label: t("tasks.low") },
+          { value: "normal", label: t("tasks.normal") },
+          { value: "high", label: t("tasks.high") },
+          { value: "urgent", label: t("tasks.urgent") },
+        ],
+      },
+    ],
+    [t]
+  );
+
   const columns = useMemo<DataViewColumnDef<PlanningTaskListRow>[]>(
     () => [
       {
         key: "task_number",
-        header: "ID",
+        header: t("tasks.id"),
         accessor: (row) => (
           <span className="text-muted-foreground font-mono text-xs">{row.task_number}</span>
         ),
       },
       {
         key: "title",
-        header: "Title",
+        header: t("tasks.title"),
         accessor: (row) => (
           <span className="block max-w-[260px] truncate font-medium" title={row.title}>
             {row.title}
@@ -144,7 +149,7 @@ export function TasksClient({
       },
       {
         key: "status",
-        header: "Status",
+        header: t("tasks.status"),
         accessor: (row) => (
           <PlanningTaskStatusBadge status={row.status} config={statusConfigs?.[row.status]} />
         ),
@@ -152,7 +157,7 @@ export function TasksClient({
       },
       {
         key: "priority",
-        header: "Priority",
+        header: t("tasks.priority"),
         accessor: (row) => (
           <PlanningTaskPriorityBadge
             priority={row.priority}
@@ -163,7 +168,7 @@ export function TasksClient({
       },
       {
         key: "assigned_to",
-        header: "Assignee",
+        header: t("tasks.assignee"),
         accessor: (row) => (
           <span className="text-muted-foreground text-sm">
             {row.assignee_name ?? row.assignee_email ?? "—"}
@@ -172,7 +177,7 @@ export function TasksClient({
       },
       {
         key: "due_at",
-        header: "Due",
+        header: t("tasks.due"),
         accessor: (row) =>
           row.due_at ? (
             <span className="text-sm">{new Date(row.due_at).toLocaleDateString()}</span>
@@ -183,7 +188,7 @@ export function TasksClient({
       },
       {
         key: "updated_at",
-        header: "Updated",
+        header: t("tasks.updated"),
         accessor: (row) => (
           <span className="text-muted-foreground text-sm">
             {new Date(row.updated_at).toLocaleDateString()}
@@ -192,7 +197,7 @@ export function TasksClient({
         sortable: true,
       },
     ],
-    [priorityConfigs, statusConfigs]
+    [priorityConfigs, statusConfigs, t]
   );
 
   return (
@@ -200,12 +205,12 @@ export function TasksClient({
       <div className="flex items-center justify-between border-b px-6 py-4">
         <div className="flex items-center gap-2">
           <CheckSquare className="h-5 w-5 text-teal-600" />
-          <h1 className="text-lg font-semibold">Tasks</h1>
+          <h1 className="text-lg font-semibold">{t("pages.tasks.title")}</h1>
         </div>
         {canCreate && (
           <Button size="sm" className="gap-1.5" onClick={() => setCreateOpen(true)}>
             <Plus className="h-4 w-4" />
-            New task
+            {t("tasks.newTask")}
           </Button>
         )}
       </div>
@@ -214,7 +219,7 @@ export function TasksClient({
         <DataView<PlanningTaskListRow, PlanningTaskDetail>
           entity="planning-tasks"
           columns={columns}
-          filters={FILTERS}
+          filters={filters}
           initialData={initialData}
           queryKey={PLANNING_TASKS_QUERY_KEY}
           refreshToken={refreshToken}
@@ -258,7 +263,7 @@ export function TasksClient({
               ? () => (
                   <Button size="sm" className="gap-1.5" onClick={() => setCreateOpen(true)}>
                     <Plus className="h-4 w-4" />
-                    New task
+                    {t("tasks.newTask")}
                   </Button>
                 )
               : undefined

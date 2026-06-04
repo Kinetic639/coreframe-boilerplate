@@ -1,26 +1,15 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/utils";
 import type { TaskStatus } from "@/lib/validations/planning";
 
-const STATUS_DEFAULTS: Record<TaskStatus, { label: string; className: string }> = {
-  open: {
-    label: "Open",
-    className: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-  },
-  in_progress: {
-    label: "In Progress",
-    className: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
-  },
-  completed: {
-    label: "Completed",
-    className: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
-  },
-  cancelled: {
-    label: "Cancelled",
-    className: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
-  },
+const STATUS_CLASSES: Record<TaskStatus, string> = {
+  open: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+  in_progress: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
+  completed: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
+  cancelled: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
 };
 
 interface PlanningTaskStatusBadgeProps {
@@ -39,6 +28,8 @@ export function PlanningTaskStatusBadge({
   className,
   config,
 }: PlanningTaskStatusBadgeProps) {
+  const t = useTranslations("modules.planning.tasks");
+
   if (config) {
     return (
       <Badge
@@ -54,16 +45,16 @@ export function PlanningTaskStatusBadge({
     );
   }
 
-  const defaults = STATUS_DEFAULTS[status] ?? {
-    label: status,
-    className: "bg-muted text-muted-foreground",
-  };
+  const labelKey = status === "in_progress" ? "inProgress" : status;
+  const label = t(labelKey as "open" | "inProgress" | "completed" | "cancelled");
+  const statusClassName = STATUS_CLASSES[status] ?? "bg-muted text-muted-foreground";
+
   return (
     <Badge
       variant="outline"
-      className={cn("border-0 text-xs font-medium", defaults.className, className)}
+      className={cn("border-0 text-xs font-medium", statusClassName, className)}
     >
-      {defaults.label}
+      {label}
     </Badge>
   );
 }

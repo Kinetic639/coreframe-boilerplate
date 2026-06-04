@@ -1,6 +1,7 @@
 "use client";
 
 import { Send } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { RichTextEditorField } from "@/components/primitives/rich-text/rich-text-editor-field";
 import { isRichTextEmpty } from "@/components/primitives/rich-text/rich-text-utils";
@@ -11,9 +12,10 @@ export function CommentEditor({
   value,
   onChange,
   onSubmit,
-  placeholder = "Write a comment...",
-  submitLabel = "Post comment",
-  cancelLabel = "Cancel",
+  placeholder,
+  submitLabel,
+  submittingLabel,
+  cancelLabel,
   onCancel,
   disabled = false,
   submitting = false,
@@ -26,9 +28,14 @@ export function CommentEditor({
   actions,
   id,
 }: CommentEditorProps) {
+  const t = useTranslations("components.comments");
   const empty = isRichTextEmpty(value);
   const submitDisabled = disabled || submitting || (autoDisableSubmitWhenEmpty && empty);
   const compact = density === "compact";
+  const resolvedPlaceholder = placeholder ?? t("placeholder");
+  const resolvedSubmitLabel = submitLabel ?? t("submit");
+  const resolvedSubmittingLabel = submittingLabel ?? t("submitting");
+  const resolvedCancelLabel = cancelLabel ?? t("cancel");
 
   return (
     <div className={cn("min-w-0", className)}>
@@ -37,7 +44,7 @@ export function CommentEditor({
         value={value}
         onChange={onChange}
         mode={mode}
-        placeholder={placeholder}
+        placeholder={resolvedPlaceholder}
         disabled={disabled || submitting}
         maxLength={maxLength}
         className={editorClassName}
@@ -59,7 +66,7 @@ export function CommentEditor({
                 disabled={submitDisabled}
               >
                 <Send className="h-4 w-4" />
-                {submitting ? "Posting..." : submitLabel}
+                {submitting ? resolvedSubmittingLabel : resolvedSubmitLabel}
               </Button>
             )}
 
@@ -71,7 +78,7 @@ export function CommentEditor({
                 onClick={onCancel}
                 disabled={disabled || submitting}
               >
-                {cancelLabel}
+                {resolvedCancelLabel}
               </Button>
             )}
           </div>

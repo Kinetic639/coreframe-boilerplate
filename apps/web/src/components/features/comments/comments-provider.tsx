@@ -8,6 +8,10 @@ export interface CommentsLabels {
   empty?: string;
   placeholder?: string;
   submit?: string;
+  submitting?: string;
+  loadMore?: string;
+  edited?: string;
+  formerMember?: string;
 }
 
 export interface CommentsProviderValue {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Loader2, UserCheck } from "lucide-react";
 import { toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
@@ -45,13 +46,6 @@ interface PlanningTaskCreateDialogProps {
   onCreated: (task: PlanningTaskDetail) => void;
 }
 
-const PRIORITY_LABELS: Record<TaskPriority, string> = {
-  low: "Low",
-  normal: "Normal",
-  high: "High",
-  urgent: "Urgent",
-};
-
 export function PlanningTaskCreateDialog({
   open,
   onOpenChange,
@@ -60,6 +54,7 @@ export function PlanningTaskCreateDialog({
   canAssign,
   onCreated,
 }: PlanningTaskCreateDialogProps) {
+  const t = useTranslations("modules.planning.tasks");
   const [title, setTitle] = useState("");
   const [descriptionRich, setDescriptionRich] = useState<RichTextValue>(createEmptyRichText);
   const [priority, setPriority] = useState<TaskPriority>("normal");
@@ -86,7 +81,7 @@ export function PlanningTaskCreateDialog({
   async function handleSubmit(assignToMe = false) {
     const trimmedTitle = title.trim();
     if (!trimmedTitle) {
-      setTitleError("Title is required");
+      setTitleError(t("titleRequired"));
       return;
     }
     setTitleError(null);
@@ -110,16 +105,16 @@ export function PlanningTaskCreateDialog({
       });
 
       if (!result.success) {
-        toast.error((result as { success: false; error: string }).error ?? "Failed to create task");
+        toast.error(t("failedCreate"));
         return;
       }
 
-      toast.success("Task created");
+      toast.success(t("taskCreated"));
       reset();
       onOpenChange(false);
       onCreated(result.data);
     } catch {
-      toast.error("Failed to create task. Please try again.");
+      toast.error(t("failedCreateRetry"));
     } finally {
       setSubmitting(false);
     }
@@ -129,14 +124,14 @@ export function PlanningTaskCreateDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[560px]">
         <DialogHeader>
-          <DialogTitle>Create task</DialogTitle>
+          <DialogTitle>{t("createTask")}</DialogTitle>
         </DialogHeader>
 
         <div className="flex flex-col gap-4 py-2">
           {/* Title */}
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="task-title">
-              Title <span className="text-destructive">*</span>
+              {t("title")} <span className="text-destructive">*</span>
             </Label>
             <Input
               id="task-title"
@@ -145,7 +140,7 @@ export function PlanningTaskCreateDialog({
                 setTitle(e.target.value);
                 if (titleError && e.target.value.trim()) setTitleError(null);
               }}
-              placeholder="Enter task title…"
+              placeholder={t("titlePlaceholder")}
               disabled={submitting}
               autoFocus
             />
@@ -154,12 +149,12 @@ export function PlanningTaskCreateDialog({
 
           {/* Description */}
           <div className="flex flex-col gap-1.5">
-            <Label>Description</Label>
+            <Label>{t("description")}</Label>
             <div className="border-input rounded-md border">
               <RichTextEditorField
                 value={descriptionRich}
                 onChange={setDescriptionRich}
-                placeholder="Add a description…"
+                placeholder={t("descriptionPlaceholder")}
                 disabled={submitting}
               />
             </div>
@@ -168,7 +163,7 @@ export function PlanningTaskCreateDialog({
           {/* Priority + Assignee row */}
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
-              <Label>Priority</Label>
+              <Label>{t("priority")}</Label>
               <Select
                 value={priority}
                 onValueChange={(v) => setPriority(v as TaskPriority)}
@@ -180,7 +175,7 @@ export function PlanningTaskCreateDialog({
                 <SelectContent>
                   {TASK_PRIORITIES.map((p) => (
                     <SelectItem key={p} value={p}>
-                      {PRIORITY_LABELS[p]}
+                      {t(p)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -188,13 +183,13 @@ export function PlanningTaskCreateDialog({
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label>Assign to</Label>
+              <Label>{t("assignTo")}</Label>
               <Select value={assignedTo} onValueChange={setAssignedTo} disabled={submitting}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Unassigned" />
+                  <SelectValue placeholder={t("unassigned")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__unassigned__">Unassigned</SelectItem>
+                  <SelectItem value="__unassigned__">{t("unassigned")}</SelectItem>
                   {members
                     .filter((m) => canAssign || m.user_id === currentUserId)
                     .map((m) => (
@@ -209,7 +204,7 @@ export function PlanningTaskCreateDialog({
 
           {/* Due date */}
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="task-due">Due date</Label>
+            <Label htmlFor="task-due">{t("dueDate")}</Label>
             <div className="w-48">
               <Input
                 id="task-due"
@@ -224,7 +219,7 @@ export function PlanningTaskCreateDialog({
 
         <DialogFooter className="flex-col gap-2 sm:flex-row">
           <Button variant="outline" onClick={handleClose} disabled={submitting}>
-            Cancel
+            {t("cancel")}
           </Button>
           <Button
             variant="outline"
@@ -237,11 +232,11 @@ export function PlanningTaskCreateDialog({
             ) : (
               <UserCheck className="h-4 w-4" />
             )}
-            Create &amp; assign to me
+            {t("createAndAssignToMe")}
           </Button>
           <Button onClick={() => handleSubmit(false)} disabled={submitting}>
             {submitting && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
-            Create task
+            {t("createTask")}
           </Button>
         </DialogFooter>
       </DialogContent>

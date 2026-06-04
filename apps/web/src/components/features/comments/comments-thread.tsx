@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { CommentEditor, CommentRenderer } from "@/components/primitives/comments";
 import type { RichTextValue } from "@/components/primitives/rich-text/rich-text-types";
@@ -28,19 +29,8 @@ interface CommentsThreadProps extends Partial<CommentsProviderValue> {
   onCommentAdded?: () => void | Promise<void>;
 }
 
-const DEFAULT_LABELS: Required<CommentsLabels> = {
-  title: "Comments",
-  empty: "No comments yet.",
-  placeholder: "Write a comment...",
-  submit: "Post comment",
-};
-
 function formatCommentDate(iso: string): string {
   return new Date(iso).toLocaleString();
-}
-
-function mergeLabels(labels?: CommentsLabels): Required<CommentsLabels> {
-  return { ...DEFAULT_LABELS, ...labels };
 }
 
 function resolveConfig(
@@ -64,9 +54,9 @@ function resolveConfig(
   };
 }
 
-function commentAuthor(comment: AppComment) {
+function commentAuthor(comment: AppComment, formerMemberLabel: string) {
   return {
-    name: comment.author?.name ?? "Former member",
+    name: comment.author?.name ?? formerMemberLabel,
     email: comment.author?.email ?? undefined,
     avatarUrl: comment.author?.avatar_url ?? undefined,
     profileHref: comment.author?.profile_href ?? undefined,
@@ -74,9 +64,19 @@ function commentAuthor(comment: AppComment) {
 }
 
 export function CommentsThread(props: CommentsThreadProps) {
+  const t = useTranslations("components.comments");
   const providerConfig = useCommentsProvider();
   const config = resolveConfig(props, providerConfig);
-  const labels = mergeLabels(config.labels);
+  const labels = {
+    title: config.labels?.title ?? t("title"),
+    empty: config.labels?.empty ?? t("empty"),
+    placeholder: config.labels?.placeholder ?? t("placeholder"),
+    submit: config.labels?.submit ?? t("submit"),
+    submitting: config.labels?.submitting ?? t("submitting"),
+    loadMore: config.labels?.loadMore ?? t("loadMore"),
+    edited: config.labels?.edited ?? t("edited"),
+    formerMember: config.labels?.formerMember ?? t("formerMember"),
+  };
   const compact = config.density === "compact";
   const onCommentAdded = props.onCommentAdded;
 
@@ -171,9 +171,9 @@ export function CommentsThread(props: CommentsThreadProps) {
             <CommentRenderer
               key={comment.id}
               value={normalizeRichText(comment.body_rich) ?? undefined}
-              author={commentAuthor(comment)}
+              author={commentAuthor(comment, labels.formerMember)}
               createdAt={formatCommentDate(comment.created_at)}
-              editedLabel={comment.updated_at !== comment.created_at ? "edited" : undefined}
+              editedLabel={comment.updated_at !== comment.created_at ? labels.edited : undefined}
               emptyText={comment.body_plain}
               density={config.density}
               isOwn={comment.is_own}
@@ -191,7 +191,7 @@ export function CommentsThread(props: CommentsThreadProps) {
           disabled={loadingMore}
         >
           {loadingMore && <Loader2 className="h-4 w-4 animate-spin" />}
-          Load more
+          {labels.loadMore}
         </Button>
       )}
 
@@ -203,6 +203,7 @@ export function CommentsThread(props: CommentsThreadProps) {
             onSubmit={handleSubmit}
             placeholder={labels.placeholder}
             submitLabel={labels.submit}
+            submittingLabel={labels.submitting}
             submitting={addCommentMutation.isPending}
             density={config.density}
           />
