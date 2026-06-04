@@ -322,7 +322,7 @@ export function PlanningTaskDetailPanel({
                 size="sm"
                 className="w-full justify-start gap-1.5"
                 onClick={() =>
-                  (window.location.href = `/dashboard/planning/tasks/${currentDetail.id}`)
+                  (window.location.href = `/dashboard/planning/tasks/${currentDetail.task_number}`)
                 }
               >
                 <ExternalLink className="h-3.5 w-3.5" />

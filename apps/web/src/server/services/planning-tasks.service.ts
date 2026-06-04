@@ -115,6 +115,10 @@ function resolveSortField(field: string | null | undefined): string {
   return field && SORTABLE_TASK_FIELDS.has(field) ? field : "created_at";
 }
 
+function looksLikeUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 async function insertActivity(
   supabase: SupabaseClient,
   orgId: string,
@@ -278,9 +282,10 @@ export const PlanningTasksService = {
   async getDetail(
     supabase: SupabaseClient,
     orgId: string,
-    taskId: string
+    taskIdentifier: string
   ): Promise<ServiceResult<PlanningTaskDetail>> {
     try {
+      const identifierColumn = looksLikeUuid(taskIdentifier) ? "id" : "task_number";
       const { data: raw, error } = await supabase
         .from("planning_tasks")
         .select(
@@ -291,7 +296,7 @@ export const PlanningTasksService = {
            creator:users!created_by(first_name, last_name, email)`
         )
         .eq("organization_id", orgId)
-        .eq("id", taskId)
+        .eq(identifierColumn, taskIdentifier)
         .is("deleted_at", null)
         .single();
 
@@ -309,7 +314,7 @@ export const PlanningTasksService = {
           `id, organization_id, task_id, activity_type, actor_id, message, metadata, created_at,
            actor:users!actor_id(first_name, last_name, email)`
         )
-        .eq("task_id", taskId)
+        .eq("task_id", row.id)
         .eq("organization_id", orgId)
         .order("created_at", { ascending: true });
 

@@ -163,12 +163,7 @@ export function CommentsThread(props: CommentsThreadProps) {
         </div>
       )}
 
-      {commentsQuery.isLoading && rows.length === 0 ? (
-        <div className="space-y-3">
-          <div className="bg-muted h-10 w-full animate-pulse rounded-md" />
-          <div className="bg-muted h-10 w-4/5 animate-pulse rounded-md" />
-        </div>
-      ) : rows.length === 0 ? (
+      {rows.length === 0 ? (
         <p className="text-muted-foreground text-sm">{labels.empty}</p>
       ) : (
         <div className={cn(compact ? "space-y-4" : "space-y-5", props.contentClassName)}>
