@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   Loader2,
   User,
@@ -64,7 +64,6 @@ interface PlanningTaskDetailPanelProps {
   canUpdate: boolean;
   canAssign: boolean;
   canDelete: boolean;
-  currentUserId: string;
   members: Member[];
   onRefresh?: () => void;
   initialQrAssignment?: QrInfo;
@@ -95,7 +94,6 @@ export function PlanningTaskDetailPanel({
   canUpdate,
   canAssign,
   canDelete,
-  currentUserId,
   members,
   onRefresh,
   initialQrAssignment = null,
@@ -114,9 +112,11 @@ export function PlanningTaskDetailPanel({
     }>
   >([]);
 
-  // Sync when parent provides a new detail (DataView refetch)
-  const latestDetail = initialDetail.updated_at !== detail.updated_at ? initialDetail : detail;
-  const currentDetail = latestDetail;
+  useEffect(() => {
+    setDetail(initialDetail);
+  }, [initialDetail.id, initialDetail.updated_at]);
+
+  const currentDetail = detail;
 
   async function runAction(
     fn: () => Promise<{ success: boolean; data?: PlanningTaskDetail; error?: string }>
@@ -169,6 +169,7 @@ export function PlanningTaskDetailPanel({
       const result = await revokeQrAction({ qrCodeId: qrAssignment.qrCodeId });
       if (result.success) {
         setQrAssignment(null);
+        onRefresh?.();
         toast.success("QR code unlinked from task.");
       } else {
         toast.error("Failed to unlink QR code.");
@@ -176,7 +177,7 @@ export function PlanningTaskDetailPanel({
     } finally {
       setIsRevokingQr(false);
     }
-  }, [qrAssignment]);
+  }, [onRefresh, qrAssignment]);
 
   const handleOpenAssignQr = useCallback(async () => {
     const result = await listQrCodesAction();
@@ -199,13 +200,14 @@ export function PlanningTaskDetailPanel({
       if (result.success) {
         const freshResult = await getQrAssignmentForTaskAction(currentDetail.id);
         if (freshResult.success && freshResult.data) setQrAssignment(freshResult.data);
+        onRefresh?.();
         setShowAssignQr(false);
         toast.success("QR code assigned to task.");
       } else {
         toast.error("Failed to assign QR code.");
       }
     },
-    [currentDetail.id]
+    [currentDetail.id, onRefresh]
   );
 
   const handleAssignChange = useCallback(
@@ -238,257 +240,270 @@ export function PlanningTaskDetailPanel({
 
         <Separator />
 
-        {/* Status actions */}
-        {canUpdate && (
-          <div className="flex flex-wrap gap-2">
-            {status === "open" && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleStart}
-                disabled={saving}
-                className="gap-1.5"
-              >
-                <Play className="h-3.5 w-3.5" />
-                Start
-              </Button>
-            )}
-            {(status === "open" || status === "in_progress") && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleComplete}
-                disabled={saving}
-                className="gap-1.5"
-              >
-                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                Complete
-              </Button>
-            )}
-            {(status === "completed" || status === "cancelled") && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleReopen}
-                disabled={saving}
-                className="gap-1.5"
-              >
-                <RotateCcw className="h-3.5 w-3.5" />
-                Reopen
-              </Button>
-            )}
-            {status !== "cancelled" && status !== "completed" && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleCancel}
-                disabled={saving}
-                className="gap-1.5 text-red-600 hover:text-red-600"
-              >
-                <XCircle className="h-3.5 w-3.5" />
-                Cancel
-              </Button>
-            )}
-          </div>
-        )}
-
-        {/* Description */}
-        {currentDetail.description_rich ? (
-          <div>
-            <p className="text-muted-foreground mb-1.5 text-xs font-medium uppercase tracking-wide">
-              Description
-            </p>
-            <div className="prose prose-sm dark:prose-invert max-w-none text-sm">
-              <RichTextRenderer value={currentDetail.description_rich as any} />
-            </div>
-          </div>
-        ) : currentDetail.description_plain ? (
-          <div>
-            <p className="text-muted-foreground mb-1.5 text-xs font-medium uppercase tracking-wide">
-              Description
-            </p>
-            <p className="text-sm whitespace-pre-wrap">{currentDetail.description_plain}</p>
-          </div>
-        ) : null}
-
-        <Separator />
-
-        {/* Meta fields */}
-        <div className="flex flex-col gap-3">
-          {/* Assignee */}
-          <div className="flex items-center gap-2">
-            <User className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
-            <span className="text-muted-foreground w-24 shrink-0 text-xs">Assigned to</span>
-            {canAssign ? (
-              <Select
-                value={currentDetail.assigned_to ?? "__unassigned__"}
-                onValueChange={handleAssignChange}
-                disabled={saving}
-              >
-                <SelectTrigger className="h-7 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__unassigned__">Unassigned</SelectItem>
-                  {members.map((m) => (
-                    <SelectItem key={m.user_id} value={m.user_id}>
-                      {m.name ?? m.email ?? m.user_id}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : (
-              <span className="text-sm">
-                {currentDetail.assignee_name ?? currentDetail.assignee_email ?? "Unassigned"}
-              </span>
-            )}
-          </div>
-
-          {/* Due date */}
-          <div className="flex items-center gap-2">
-            <Calendar className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
-            <span className="text-muted-foreground w-24 shrink-0 text-xs">Due date</span>
-            <span className="text-sm">{formatDate(currentDetail.due_at)}</span>
-          </div>
-
-          {/* Priority */}
-          <div className="flex items-center gap-2">
-            <Flag className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
-            <span className="text-muted-foreground w-24 shrink-0 text-xs">Priority</span>
-            <PlanningTaskPriorityBadge priority={currentDetail.priority} />
-          </div>
-
-          {/* Created by */}
-          <div className="flex items-center gap-2">
-            <User className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
-            <span className="text-muted-foreground w-24 shrink-0 text-xs">Created by</span>
-            <span className="text-sm">
-              {currentDetail.creator_name ?? currentDetail.creator_email ?? "Unknown"}
-            </span>
-          </div>
-
-          {/* Dates */}
-          <div className="flex items-center gap-2">
-            <Calendar className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
-            <span className="text-muted-foreground w-24 shrink-0 text-xs">Created</span>
-            <span className="text-sm">{formatDateTime(currentDetail.created_at)}</span>
-          </div>
-
-          {currentDetail.completed_at && (
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
-              <span className="text-muted-foreground w-24 shrink-0 text-xs">Completed</span>
-              <span className="text-sm">{formatDateTime(currentDetail.completed_at)}</span>
-            </div>
-          )}
-
-          {currentDetail.cancelled_at && (
-            <div className="flex items-center gap-2">
-              <XCircle className="h-3.5 w-3.5 shrink-0 text-gray-500" />
-              <span className="text-muted-foreground w-24 shrink-0 text-xs">Cancelled</span>
-              <span className="text-sm">{formatDateTime(currentDetail.cancelled_at)}</span>
-            </div>
-          )}
-        </div>
-
-        <Separator />
-
-        {/* QR Code */}
-        <div className="space-y-3 rounded-lg border p-4">
-          <h3 className="flex items-center gap-2 text-sm font-semibold">
-            <QrCode className="text-muted-foreground h-4 w-4" />
-            QR Code
-          </h3>
-          {qrAssignment ? (
-            <div className="space-y-2">
-              <div className="bg-muted/50 rounded-md px-3 py-2 text-sm">
-                <p className="truncate font-medium">{qrAssignment.label ?? "Unlabelled"}</p>
-                <p className="text-muted-foreground truncate font-mono text-xs">
-                  {qrAssignment.token}
+        <div className="flex min-w-0 flex-col gap-4 lg:flex-row">
+          <div className="min-w-0 flex-1 space-y-4">
+            {currentDetail.description_rich ? (
+              <div>
+                <p className="text-muted-foreground mb-1.5 text-xs font-medium uppercase tracking-wide">
+                  Description
                 </p>
+                <div className="prose prose-sm dark:prose-invert max-w-none text-sm">
+                  <RichTextRenderer value={currentDetail.description_rich as any} />
+                </div>
               </div>
-              {canUpdate && (
+            ) : currentDetail.description_plain ? (
+              <div>
+                <p className="text-muted-foreground mb-1.5 text-xs font-medium uppercase tracking-wide">
+                  Description
+                </p>
+                <p className="whitespace-pre-wrap text-sm">{currentDetail.description_plain}</p>
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-sm">No description.</p>
+            )}
+
+            <Separator />
+
+            <div>
+              <p className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Activity
+              </p>
+              <PlanningTaskActivityList activity={currentDetail.activity} />
+            </div>
+          </div>
+
+          <div className="w-full shrink-0 space-y-3 self-start lg:w-56">
+            {canUpdate && (
+              <div className="space-y-2 rounded-lg border p-3">
+                <p className="text-muted-foreground text-[10px] font-medium uppercase">Actions</p>
+                <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
+                  {status === "open" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleStart}
+                      disabled={saving}
+                      className="justify-start gap-1.5"
+                    >
+                      <Play className="h-3.5 w-3.5" />
+                      Start
+                    </Button>
+                  )}
+                  {(status === "open" || status === "in_progress") && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleComplete}
+                      disabled={saving}
+                      className="justify-start gap-1.5"
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                      Complete
+                    </Button>
+                  )}
+                  {(status === "completed" || status === "cancelled") && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleReopen}
+                      disabled={saving}
+                      className="justify-start gap-1.5"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                      Reopen
+                    </Button>
+                  )}
+                  {status !== "cancelled" && status !== "completed" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleCancel}
+                      disabled={saving}
+                      className="justify-start gap-1.5 text-red-600 hover:text-red-600"
+                    >
+                      <XCircle className="h-3.5 w-3.5" />
+                      Cancel
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-3 rounded-lg border p-3">
+              <div className="flex items-start gap-2">
+                <User className="text-muted-foreground mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-muted-foreground text-[10px] uppercase">Assigned to</p>
+                  {canAssign ? (
+                    <Select
+                      value={currentDetail.assigned_to ?? "__unassigned__"}
+                      onValueChange={handleAssignChange}
+                      disabled={saving}
+                    >
+                      <SelectTrigger className="mt-1 h-7 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__unassigned__">Unassigned</SelectItem>
+                        {members.map((m) => (
+                          <SelectItem key={m.user_id} value={m.user_id}>
+                            {m.name ?? m.email ?? m.user_id}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <p className="truncate text-xs">
+                      {currentDetail.assignee_name ?? currentDetail.assignee_email ?? "Unassigned"}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-start gap-2">
+                <Flag className="text-muted-foreground mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-muted-foreground text-[10px] uppercase">Priority</p>
+                  <PlanningTaskPriorityBadge priority={currentDetail.priority} />
+                </div>
+              </div>
+
+              <div className="flex items-start gap-2">
+                <Calendar className="text-muted-foreground mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-muted-foreground text-[10px] uppercase">Due date</p>
+                  <p className="text-xs">{formatDate(currentDetail.due_at)}</p>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="flex items-start gap-2">
+                <User className="text-muted-foreground mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-muted-foreground text-[10px] uppercase">Created by</p>
+                  <p className="truncate text-xs">
+                    {currentDetail.creator_name ?? currentDetail.creator_email ?? "Unknown"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-2">
+                <Calendar className="text-muted-foreground mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-muted-foreground text-[10px] uppercase">Created</p>
+                  <p className="text-xs">{formatDateTime(currentDetail.created_at)}</p>
+                </div>
+              </div>
+
+              {currentDetail.completed_at && (
+                <div className="flex items-start gap-2">
+                  <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                  <div className="min-w-0">
+                    <p className="text-muted-foreground text-[10px] uppercase">Completed</p>
+                    <p className="text-xs">{formatDateTime(currentDetail.completed_at)}</p>
+                  </div>
+                </div>
+              )}
+
+              {currentDetail.cancelled_at && (
+                <div className="flex items-start gap-2">
+                  <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gray-500" />
+                  <div className="min-w-0">
+                    <p className="text-muted-foreground text-[10px] uppercase">Cancelled</p>
+                    <p className="text-xs">{formatDateTime(currentDetail.cancelled_at)}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2 rounded-lg border p-3">
+              <h3 className="flex items-center gap-1.5 text-xs font-semibold">
+                <QrCode className="text-muted-foreground h-3.5 w-3.5" />
+                QR Code
+              </h3>
+              {qrAssignment ? (
+                <div className="space-y-2">
+                  <div className="bg-muted/50 rounded-md px-2.5 py-1.5 text-xs">
+                    <p className="truncate font-medium">{qrAssignment.label ?? "Unlabelled"}</p>
+                    <p className="text-muted-foreground truncate font-mono">{qrAssignment.token}</p>
+                  </div>
+                  {canUpdate && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-destructive hover:text-destructive h-7 w-full text-xs"
+                      onClick={handleRevokeQr}
+                      disabled={isRevokingQr}
+                    >
+                      {isRevokingQr ? (
+                        <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+                      ) : (
+                        <Link2Off className="mr-1.5 h-3 w-3" />
+                      )}
+                      Unlink
+                    </Button>
+                  )}
+                </div>
+              ) : canUpdate ? (
                 <Button
                   variant="outline"
                   size="sm"
-                  className="text-destructive hover:text-destructive w-full"
-                  onClick={handleRevokeQr}
-                  disabled={isRevokingQr}
+                  className="h-7 w-full text-xs"
+                  onClick={handleOpenAssignQr}
                 >
-                  {isRevokingQr ? (
-                    <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Link2Off className="mr-2 h-3.5 w-3.5" />
-                  )}
-                  Unlink QR Code
+                  <Plus className="mr-1.5 h-3 w-3" />
+                  Assign QR Code
                 </Button>
+              ) : (
+                <p className="text-muted-foreground text-xs">No QR code assigned.</p>
               )}
             </div>
-          ) : canUpdate ? (
-            <Button variant="outline" size="sm" className="w-full" onClick={handleOpenAssignQr}>
-              <Plus className="mr-2 h-3.5 w-3.5" />
-              Assign QR Code
-            </Button>
-          ) : (
-            <p className="text-muted-foreground text-xs">No QR code assigned.</p>
-          )}
-        </div>
 
-        {/* Assign QR inline picker */}
-        {showAssignQr && (
-          <div className="rounded-lg border p-3">
-            <div className="mb-2 flex items-center justify-between">
-              <p className="text-sm font-medium">Select a QR code</p>
-              <Button variant="ghost" size="sm" onClick={() => setShowAssignQr(false)}>
-                Cancel
+            {showAssignQr && (
+              <div className="rounded-lg border p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-sm font-medium">Select a QR code</p>
+                  <Button variant="ghost" size="sm" onClick={() => setShowAssignQr(false)}>
+                    Cancel
+                  </Button>
+                </div>
+                <div className="flex max-h-48 flex-col gap-1 overflow-y-auto">
+                  {qrCodes
+                    .filter((c) => c.status === "active" && !c.assignment)
+                    .map((c) => (
+                      <button
+                        key={c.id}
+                        className="hover:bg-muted flex items-center gap-2 rounded px-2 py-1.5 text-left text-sm"
+                        onClick={() => handleQrAssigned(c.id)}
+                      >
+                        <QrCode className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">{c.label ?? c.id.slice(0, 8)}</span>
+                      </button>
+                    ))}
+                  {qrCodes.filter((c) => c.status === "active" && !c.assignment).length === 0 && (
+                    <p className="text-muted-foreground px-2 py-1 text-xs">
+                      No available QR codes.
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {canDelete && status !== "cancelled" && status !== "completed" && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-muted-foreground hover:text-destructive w-full gap-1.5 text-xs"
+                onClick={handleDelete}
+                disabled={saving}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Archive task
               </Button>
-            </div>
-            <div className="flex max-h-48 flex-col gap-1 overflow-y-auto">
-              {qrCodes
-                .filter((c) => c.status === "active" && !c.assignment)
-                .map((c) => (
-                  <button
-                    key={c.id}
-                    className="hover:bg-muted flex items-center gap-2 rounded px-2 py-1.5 text-left text-sm"
-                    onClick={() => handleQrAssigned(c.id)}
-                  >
-                    <QrCode className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">{c.label ?? c.id.slice(0, 8)}</span>
-                  </button>
-                ))}
-              {qrCodes.filter((c) => c.status === "active" && !c.assignment).length === 0 && (
-                <p className="text-muted-foreground px-2 py-1 text-xs">No available QR codes.</p>
-              )}
-            </div>
+            )}
           </div>
-        )}
-
-        <Separator />
-
-        {/* Activity */}
-        <div>
-          <p className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
-            Activity
-          </p>
-          <PlanningTaskActivityList activity={currentDetail.activity} />
         </div>
-
-        {/* Archive */}
-        {canDelete && status !== "cancelled" && status !== "completed" && (
-          <>
-            <Separator />
-            <Button
-              size="sm"
-              variant="ghost"
-              className="text-muted-foreground hover:text-destructive w-full gap-1.5 text-xs"
-              onClick={handleDelete}
-              disabled={saving}
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              Archive task
-            </Button>
-          </>
-        )}
       </div>
     </ScrollArea>
   );

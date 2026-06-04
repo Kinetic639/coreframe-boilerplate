@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Plus, CheckSquare } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { DataView } from "@/components/data-view/data-view";
 import type {
@@ -138,7 +138,10 @@ export function TasksClient({
   orgId,
 }: TasksClientProps) {
   const [createOpen, setCreateOpen] = useState(false);
-  const queryClient = useQueryClient();
+  const [refreshToken, setRefreshToken] = useState(0);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   const listFetcher = useCallback(
     async (params: DataViewListParams): Promise<PaginatedResult<PlanningTaskListRow>> => {
@@ -158,13 +161,19 @@ export function TasksClient({
     [orgId]
   );
 
-  const handleCreated = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: PLANNING_TASKS_QUERY_KEY });
-  }, [queryClient]);
+  const refreshDataView = useCallback(() => {
+    setRefreshToken((current) => current + 1);
+  }, []);
 
-  const handleRefresh = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: PLANNING_TASKS_QUERY_KEY });
-  }, [queryClient]);
+  const handleCreated = useCallback(
+    (task: PlanningTaskDetail) => {
+      refreshDataView();
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("selected", task.id);
+      router.push(`${pathname}?${params.toString()}`);
+    },
+    [pathname, refreshDataView, router, searchParams]
+  );
 
   return (
     <div className="flex h-full flex-col">
@@ -188,19 +197,24 @@ export function TasksClient({
           filters={FILTERS}
           initialData={initialData}
           queryKey={PLANNING_TASKS_QUERY_KEY}
+          refreshToken={refreshToken}
           listFetcher={listFetcher}
           detailFetcher={detailFetcher}
           getRowId={(row) => row.id}
           renderCompactItem={(row) => (
             <div className="flex flex-col gap-1">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-muted-foreground font-mono text-xs">{row.task_number}</span>
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <span className="text-muted-foreground shrink-0 font-mono text-xs">
+                    {row.task_number}
+                  </span>
+                  <PlanningTaskPriorityBadge priority={row.priority} />
+                </div>
                 <PlanningTaskStatusBadge status={row.status} />
               </div>
               <span className="truncate text-sm font-medium" title={row.title}>
                 {row.title}
               </span>
-              <PlanningTaskPriorityBadge priority={row.priority} />
             </div>
           )}
           renderDetail={(detail) => (
@@ -210,9 +224,8 @@ export function TasksClient({
               canUpdate={canUpdate}
               canAssign={canAssign}
               canDelete={canDelete}
-              currentUserId={currentUserId}
               members={members}
-              onRefresh={handleRefresh}
+              onRefresh={refreshDataView}
             />
           )}
           renderToolbarControls={

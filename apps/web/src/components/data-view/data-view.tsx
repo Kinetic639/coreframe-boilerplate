@@ -40,6 +40,7 @@ export function DataView<TListRow, TDetail>({
   renderToolbarControls,
   renderDetail,
   onSelectionChange,
+  refreshToken,
   className,
 }: DataViewProps<TListRow, TDetail>) {
   // Per-mount QueryClient — isolates cache between DataView instances and test renders.
@@ -63,6 +64,7 @@ export function DataView<TListRow, TDetail>({
         renderToolbarControls={renderToolbarControls}
         renderDetail={renderDetail}
         onSelectionChange={onSelectionChange}
+        refreshToken={refreshToken}
       >
         <div className={cn("h-full", className)}>
           <DataViewLayout />
