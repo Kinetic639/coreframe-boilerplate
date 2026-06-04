@@ -67,10 +67,6 @@ Core task entity. Org-scoped, soft-delete, with optional branch scoping.
 
 Fields: `id`, `organization_id`, `branch_id`, `task_number` (PT-000001 format), `title`, `description_plain`, `description_rich`, `status` (open/in_progress/completed/cancelled), `priority` (low/normal/high/urgent), `assigned_to`, `created_by`, `updated_by`, `started_at`, `completed_at`, `cancelled_at`, `due_at`, `created_at`, `updated_at`, `deleted_at`
 
-### `planning_task_comments`
-
-Simple comment thread on a task (not yet implemented in UI).
-
 ### `planning_task_activity`
 
 Append-only audit log. RLS: no UPDATE or DELETE for normal users.

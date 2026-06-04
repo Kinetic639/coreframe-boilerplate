@@ -4,7 +4,6 @@ import { createClient } from "@/utils/supabase/server";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { checkPermission } from "@/lib/utils/permissions";
 import {
-  PLANNING_READ,
   PLANNING_TASKS_READ,
   PLANNING_TASKS_CREATE,
   PLANNING_TASKS_UPDATE,
@@ -60,12 +59,11 @@ export async function listTasksForDataViewAction(
   filters: TaskListFilters = {}
 ): Promise<ActionResult<PaginatedResult<PlanningTaskListRow>>> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return { success: false, error: "Unauthorized" };
-    return PlanningTasksService.listForDataView(supabase, orgId, params, filters);
+    const ctx = await getAuthedContext();
+    if (!ctx || ctx.orgId !== orgId) return { success: false, error: "Unauthorized" };
+    if (!checkPermission(ctx.context.user.permissionSnapshot, PLANNING_TASKS_READ))
+      return { success: false, error: "Insufficient permissions" };
+    return PlanningTasksService.listForDataView(ctx.supabase, ctx.orgId, params, filters);
   } catch {
     return { success: false, error: "Unexpected error" };
   }
@@ -80,12 +78,11 @@ export async function getTaskDetailAction(
   orgId: string
 ): Promise<ActionResult<PlanningTaskDetail>> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return { success: false, error: "Unauthorized" };
-    return PlanningTasksService.getDetail(supabase, orgId, taskId);
+    const ctx = await getAuthedContext();
+    if (!ctx || ctx.orgId !== orgId) return { success: false, error: "Unauthorized" };
+    if (!checkPermission(ctx.context.user.permissionSnapshot, PLANNING_TASKS_READ))
+      return { success: false, error: "Insufficient permissions" };
+    return PlanningTasksService.getDetail(ctx.supabase, ctx.orgId, taskId);
   } catch {
     return { success: false, error: "Unexpected error" };
   }
@@ -105,7 +102,19 @@ export async function createTaskAction(
       return { success: false, error: "Insufficient permissions" };
     const parsed = createTaskSchema.safeParse(input);
     if (!parsed.success)
-      return { success: false, error: parsed.error.errors[0]?.message ?? parsed.error.message };
+      return {
+        success: false,
+        error: (parsed.error as any).issues?.[0]?.message ?? parsed.error.message,
+      };
+    if (!checkPermission(ctx.context.user.permissionSnapshot, PLANNING_TASKS_READ))
+      return { success: false, error: "Insufficient permissions" };
+    if (
+      parsed.data.assigned_to &&
+      parsed.data.assigned_to !== ctx.userId &&
+      !checkPermission(ctx.context.user.permissionSnapshot, PLANNING_TASKS_ASSIGN)
+    ) {
+      return { success: false, error: "Insufficient permissions" };
+    }
     return PlanningTasksService.create(ctx.supabase, ctx.orgId, ctx.userId, parsed.data);
   } catch {
     return { success: false, error: "Unexpected error" };
@@ -126,7 +135,10 @@ export async function updateTaskAction(
       return { success: false, error: "Insufficient permissions" };
     const parsed = updateTaskSchema.safeParse(input);
     if (!parsed.success)
-      return { success: false, error: parsed.error.errors[0]?.message ?? parsed.error.message };
+      return {
+        success: false,
+        error: (parsed.error as any).issues?.[0]?.message ?? parsed.error.message,
+      };
 
     // Fetch current task to diff for activity
     const current = await PlanningTasksService.getDetail(ctx.supabase, ctx.orgId, parsed.data.id);
@@ -230,7 +242,10 @@ export async function assignTaskAction(
       return { success: false, error: "Insufficient permissions" };
     const parsed = assignTaskSchema.safeParse(input);
     if (!parsed.success)
-      return { success: false, error: parsed.error.errors[0]?.message ?? parsed.error.message };
+      return {
+        success: false,
+        error: (parsed.error as any).issues?.[0]?.message ?? parsed.error.message,
+      };
 
     const current = await PlanningTasksService.getDetail(ctx.supabase, ctx.orgId, parsed.data.id);
     if (!current.success)
@@ -361,14 +376,3 @@ export async function getQrAssignmentForTaskAction(taskId: string): Promise<
     return { success: false, error: "Unexpected error" };
   }
 }
-
-// Re-export for pages
-export {
-  PLANNING_READ,
-  PLANNING_TASKS_READ,
-  PLANNING_TASKS_CREATE,
-  PLANNING_TASKS_UPDATE,
-  PLANNING_TASKS_DELETE,
-  PLANNING_TASKS_ASSIGN,
-  PLANNING_SETTINGS_MANAGE,
-};

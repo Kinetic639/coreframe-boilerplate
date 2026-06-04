@@ -41,6 +41,7 @@ interface PlanningTaskCreateDialogProps {
   onOpenChange: (open: boolean) => void;
   members: Member[];
   currentUserId: string;
+  canAssign: boolean;
   onCreated: (task: PlanningTaskDetail) => void;
 }
 
@@ -56,6 +57,7 @@ export function PlanningTaskCreateDialog({
   onOpenChange,
   members,
   currentUserId,
+  canAssign,
   onCreated,
 }: PlanningTaskCreateDialogProps) {
   const [title, setTitle] = useState("");
@@ -193,11 +195,13 @@ export function PlanningTaskCreateDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__unassigned__">Unassigned</SelectItem>
-                  {members.map((m) => (
-                    <SelectItem key={m.user_id} value={m.user_id}>
-                      {m.name ?? m.email ?? m.user_id}
-                    </SelectItem>
-                  ))}
+                  {members
+                    .filter((m) => canAssign || m.user_id === currentUserId)
+                    .map((m) => (
+                      <SelectItem key={m.user_id} value={m.user_id}>
+                        {m.name ?? m.email ?? m.user_id}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>

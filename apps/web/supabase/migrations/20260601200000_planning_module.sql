@@ -80,28 +80,8 @@ CREATE INDEX IF NOT EXISTS planning_tasks_org_assigned_idx ON public.planning_ta
 CREATE INDEX IF NOT EXISTS planning_tasks_org_created_idx  ON public.planning_tasks (organization_id, created_at DESC) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS planning_tasks_branch_idx       ON public.planning_tasks (branch_id)                       WHERE branch_id IS NOT NULL AND deleted_at IS NULL;
 
--- Part 5: planning_task_comments table
-CREATE TABLE IF NOT EXISTS public.planning_task_comments (
-  id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  task_id         UUID        NOT NULL REFERENCES public.planning_tasks(id)  ON DELETE CASCADE,
-  organization_id UUID        NOT NULL REFERENCES public.organizations(id)   ON DELETE CASCADE,
-  body            TEXT        NOT NULL CHECK (char_length(body) > 0),
-  body_rich       JSONB,
-  created_by      UUID        NOT NULL REFERENCES public.users(id) ON DELETE RESTRICT,
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-  deleted_at      TIMESTAMPTZ
-);
-
-CREATE OR REPLACE TRIGGER planning_task_comments_updated_at
-  BEFORE UPDATE ON public.planning_task_comments
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
-CREATE INDEX IF NOT EXISTS planning_task_comments_task_idx ON public.planning_task_comments (task_id) WHERE deleted_at IS NULL;
-
--- Part 6: RLS
+-- Part 5: RLS
 ALTER TABLE public.planning_tasks         ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.planning_task_comments ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "planning_tasks_select" ON public.planning_tasks FOR SELECT TO authenticated
   USING (is_org_member(organization_id) AND has_permission(organization_id, 'planning.tasks.read'));
@@ -114,15 +94,3 @@ CREATE POLICY "planning_tasks_update" ON public.planning_tasks FOR UPDATE TO aut
   WITH CHECK (is_org_member(organization_id) AND ((deleted_at IS NULL AND has_permission(organization_id, 'planning.tasks.update')) OR has_permission(organization_id, 'planning.tasks.delete')));
 
 CREATE POLICY "planning_tasks_delete" ON public.planning_tasks FOR DELETE TO authenticated USING (false);
-
-CREATE POLICY "planning_task_comments_select" ON public.planning_task_comments FOR SELECT TO authenticated
-  USING (is_org_member(organization_id) AND has_permission(organization_id, 'planning.tasks.read'));
-
-CREATE POLICY "planning_task_comments_insert" ON public.planning_task_comments FOR INSERT TO authenticated
-  WITH CHECK (is_org_member(organization_id) AND has_permission(organization_id, 'planning.tasks.create'));
-
-CREATE POLICY "planning_task_comments_update" ON public.planning_task_comments FOR UPDATE TO authenticated
-  USING (is_org_member(organization_id) AND has_permission(organization_id, 'planning.tasks.update'))
-  WITH CHECK (is_org_member(organization_id) AND has_permission(organization_id, 'planning.tasks.update'));
-
-CREATE POLICY "planning_task_comments_delete" ON public.planning_task_comments FOR DELETE TO authenticated USING (false);

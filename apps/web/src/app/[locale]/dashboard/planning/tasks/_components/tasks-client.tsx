@@ -233,6 +233,7 @@ export function TasksClient({
         onOpenChange={setCreateOpen}
         members={members}
         currentUserId={currentUserId}
+        canAssign={canAssign}
         onCreated={handleCreated}
       />
     </div>
