@@ -25,24 +25,13 @@ import {
   TicketPriorityBadge,
   type PriorityBadgeConfig,
 } from "@/components/help-desk/ticket-priority-badge";
-import type {
-  HelpdeskTicketDetail,
-  HelpdeskTicketComment,
-} from "@/server/services/helpdesk-tickets.service";
-import { CommentEditor } from "@/components/primitives/comments/comment-editor";
-import { CommentRenderer } from "@/components/primitives/comments/comment-renderer";
-import type { CommentAuthor } from "@/components/primitives/comments/comment-types";
+import type { HelpdeskTicketDetail } from "@/server/services/helpdesk-tickets.service";
+import { CommentsThread } from "@/components/features/comments";
 import { UserAvatar } from "@/components/primitives/avatar/user-avatar";
 import { RichTextRenderer } from "@/components/primitives/rich-text/rich-text-renderer";
-import type { RichTextValue } from "@/components/primitives/rich-text/rich-text-types";
-import {
-  createEmptyRichText,
-  extractPlainText,
-  normalizeRichText,
-} from "@/components/primitives/rich-text/rich-text-utils";
+import { normalizeRichText } from "@/components/primitives/rich-text/rich-text-utils";
 import {
   useTicketDetailQuery,
-  useAddTicketCommentMutation,
   useCloseTicketMutation,
   useAcceptTicketMutation,
 } from "@/hooks/queries/help-desk";
@@ -70,15 +59,6 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleString();
 }
 
-function commentToAuthor(comment: HelpdeskTicketComment): CommentAuthor {
-  return {
-    name: comment.creator_name ?? comment.creator_email ?? "Unknown",
-    email: comment.creator_email ?? undefined,
-    avatarUrl: comment.creator_avatar_url ?? undefined,
-    profileHref: comment.creator_profile_href ?? undefined,
-  };
-}
-
 export function TicketDetailClient({
   ticket: initialTicket,
   canManage,
@@ -96,7 +76,6 @@ export function TicketDetailClient({
     initialTicket.org_id,
     initialTicket
   );
-  const addCommentMutation = useAddTicketCommentMutation(initialTicket.ticket_number);
   const closeTicketMutation = useCloseTicketMutation(initialTicket.ticket_number);
   const acceptTicketMutation = useAcceptTicketMutation(initialTicket.ticket_number);
 
@@ -104,8 +83,6 @@ export function TicketDetailClient({
     ticket.requires_acceptance &&
     !ticket.accepted_at &&
     (canManage || ticket.acceptors.some((a) => a.user_id === currentUserId));
-  const [commentValue, setCommentValue] = useState<RichTextValue>(createEmptyRichText);
-
   // QR assignment state
   const [qrAssignment, setQrAssignment] = useState<QrAssignmentInfo>(initialQrAssignment);
   const [showAssignQr, setShowAssignQr] = useState(false);
@@ -132,18 +109,6 @@ export function TicketDetailClient({
   const isCreator = ticket.created_by === currentUserId;
   const canClose =
     (canManage || isCreator) && ticket.status !== "closed" && ticket.status !== "cancelled";
-
-  const handleAddComment = useCallback(
-    (value: RichTextValue) => {
-      const bodyPlain = extractPlainText(value);
-      if (!bodyPlain.trim()) return;
-      addCommentMutation.mutate(
-        { ticket_id: ticket.id, body: bodyPlain.trim(), body_rich: value, is_internal: false },
-        { onSuccess: () => setCommentValue(createEmptyRichText()) }
-      );
-    },
-    [addCommentMutation, ticket.id]
-  );
 
   const handleClose = useCallback(() => {
     if (!canClose) return;
@@ -211,42 +176,23 @@ export function TicketDetailClient({
           <Separator />
 
           {/* Comments */}
-          <div className="space-y-4">
-            <h2 className="text-base font-semibold">
-              {t("tickets.comments")} ({ticket.comments.length})
-            </h2>
-
-            {ticket.comments.length === 0 ? (
-              <p className="text-muted-foreground text-sm">{t("tickets.noComments")}</p>
-            ) : (
-              <div className="space-y-4">
-                {ticket.comments.map((c) => (
-                  <CommentRenderer
-                    key={c.id}
-                    value={normalizeRichText(c.body_rich) ?? undefined}
-                    author={commentToAuthor(c)}
-                    createdAt={formatDate(c.created_at)}
-                    emptyText={c.body}
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* Add comment */}
-            {ticket.status !== "closed" && ticket.status !== "cancelled" && (
-              <div className="pt-2">
-                <CommentEditor
-                  value={commentValue}
-                  onChange={setCommentValue}
-                  onSubmit={handleAddComment}
-                  placeholder={t("tickets.commentPlaceholder")}
-                  submitLabel={t("tickets.addComment")}
-                  submitting={addCommentMutation.isPending}
-                  density="compact"
-                />
-              </div>
-            )}
-          </div>
+          <CommentsThread
+            targetType="helpdesk.ticket"
+            targetId={ticket.id}
+            canComment={ticket.status !== "closed" && ticket.status !== "cancelled"}
+            initialData={{
+              rows: ticket.comments,
+              totalCount: ticket.comments.length,
+              nextCursor: null,
+            }}
+            labels={{
+              title: t("tickets.comments"),
+              empty: t("tickets.noComments"),
+              placeholder: t("tickets.commentPlaceholder"),
+              submit: t("tickets.addComment"),
+            }}
+            density="compact"
+          />
         </div>
 
         {/* Sidebar */}

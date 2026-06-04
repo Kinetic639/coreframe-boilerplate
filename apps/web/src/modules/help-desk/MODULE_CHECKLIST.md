@@ -94,11 +94,11 @@ Plans without:       free, starter
 - [x] `helpdesk_ticket_types` table created in migration.
 - [x] `helpdesk_tickets` table created with ticket number sequence.
 - [x] `helpdesk_ticket_references` cross-module reference table created.
-- [x] `helpdesk_ticket_comments` table created with soft delete.
+- [x] Shared `app_comments` table used for ticket comments (`target_type = 'helpdesk.ticket'`); legacy `helpdesk_ticket_comments` retained only for migration/backfill compatibility.
 - [x] `helpdesk_ticket_activity` append-only audit table created.
 - [x] `helpdesk_settings` per-org settings table created.
 - [x] Indexes on org_id, status, created_by, assigned_to fields.
-- [x] Soft delete (`deleted_at`) pattern on tickets and comments.
+- [x] Soft delete (`deleted_at`) pattern on tickets and shared comments.
 - [x] Ticket number sequence `helpdesk_ticket_number_seq` created.
 
 ---
@@ -108,7 +108,7 @@ Plans without:       free, starter
 - [x] `helpdesk_ticket_types`: SELECT / INSERT / UPDATE / DELETE policies.
 - [x] `helpdesk_tickets`: SELECT / INSERT / UPDATE / DELETE policies.
 - [x] `helpdesk_ticket_references`: SELECT / INSERT / DELETE policies.
-- [x] `helpdesk_ticket_comments`: SELECT / INSERT / UPDATE / DELETE policies.
+- [x] `app_comments`: SELECT / INSERT / UPDATE / DELETE policies via generic target authorization.
 - [x] `helpdesk_ticket_activity`: SELECT / INSERT policies (no UPDATE/DELETE — immutable).
 - [x] `helpdesk_settings`: SELECT / ALL policies.
 
