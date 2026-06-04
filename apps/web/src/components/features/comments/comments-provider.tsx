@@ -6,6 +6,7 @@ import type { CommentDensity } from "@/components/primitives/comments";
 export interface CommentsLabels {
   title?: string;
   empty?: string;
+  loading?: string;
   placeholder?: string;
   submit?: string;
   submitting?: string;
