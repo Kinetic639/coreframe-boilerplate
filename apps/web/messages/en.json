@@ -3243,6 +3243,12 @@
       "tasks": {
         "createTask": "Create task",
         "newTask": "New task",
+        "listView": "List view",
+        "kanbanView": "Kanban view",
+        "searchPlaceholder": "Search tasks...",
+        "filters": "Filters",
+        "emptyColumn": "No tasks in this status.",
+        "dragColumn": "Drag status column",
         "taskCreated": "Task created",
         "taskUpdated": "Task updated",
         "failedCreate": "Failed to create task",
@@ -3319,6 +3325,30 @@
           "archived": "Task archived",
           "restored": "Task restored",
           "comment_added": "Comment added"
+        }
+      },
+      "boards": {
+        "newBoard": "New board",
+        "createBoard": "Create board",
+        "creating": "Creating...",
+        "boardCreated": "Board created",
+        "myBoards": "Boards",
+        "empty": "No boards yet.",
+        "selectBoard": "Select a board or create a new one.",
+        "loading": "Loading...",
+        "title": "Title",
+        "titlePlaceholder": "Project board, roadmap, sprint...",
+        "description": "Description",
+        "descriptionPlaceholder": "What is this board for?",
+        "addColumn": "Add column",
+        "columnPlaceholder": "Column name...",
+        "cardPlaceholder": "Add card...",
+        "emptyColumn": "Drop cards here.",
+        "dragColumn": "Drag column",
+        "visibility": {
+          "label": "Visibility",
+          "private": "Private",
+          "public": "Public"
         }
       },
       "settings": {

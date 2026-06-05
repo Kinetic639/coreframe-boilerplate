@@ -3214,6 +3214,12 @@
       "tasks": {
         "createTask": "Utwórz zadanie",
         "newTask": "Nowe zadanie",
+        "listView": "Widok listy",
+        "kanbanView": "Widok Kanban",
+        "searchPlaceholder": "Szukaj zadań...",
+        "filters": "Filtry",
+        "emptyColumn": "Brak zadań w tym statusie.",
+        "dragColumn": "Przeciągnij kolumnę statusu",
         "taskCreated": "Zadanie utworzone",
         "taskUpdated": "Zadanie zaktualizowane",
         "failedCreate": "Nie udało się utworzyć zadania",
@@ -3290,6 +3296,30 @@
           "archived": "Zadanie zarchiwizowane",
           "restored": "Zadanie przywrócone",
           "comment_added": "Komentarz dodany"
+        }
+      },
+      "boards": {
+        "newBoard": "Nowa tablica",
+        "createBoard": "Utwórz tablicę",
+        "creating": "Tworzenie...",
+        "boardCreated": "Tablica utworzona",
+        "myBoards": "Tablice",
+        "empty": "Brak tablic.",
+        "selectBoard": "Wybierz tablicę albo utwórz nową.",
+        "loading": "Ładowanie...",
+        "title": "Tytuł",
+        "titlePlaceholder": "Tablica projektu, roadmapa, sprint...",
+        "description": "Opis",
+        "descriptionPlaceholder": "Do czego służy ta tablica?",
+        "addColumn": "Dodaj kolumnę",
+        "columnPlaceholder": "Nazwa kolumny...",
+        "cardPlaceholder": "Dodaj kartę...",
+        "emptyColumn": "Upuść karty tutaj.",
+        "dragColumn": "Przeciągnij kolumnę",
+        "visibility": {
+          "label": "Widoczność",
+          "private": "Prywatna",
+          "public": "Publiczna"
         }
       },
       "settings": {
