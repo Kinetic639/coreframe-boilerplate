@@ -4,6 +4,7 @@ import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-conte
 import { checkPermission } from "@/lib/utils/permissions";
 import {
   PLANNING_BOARDS_CREATE,
+  PLANNING_BOARDS_DELETE,
   PLANNING_BOARDS_READ,
   PLANNING_BOARDS_UPDATE,
 } from "@/lib/constants/permissions";
@@ -42,6 +43,7 @@ export default async function PlanningBoardsPage() {
       initialBoard={firstBoard}
       canCreate={checkPermission(snap, PLANNING_BOARDS_CREATE)}
       canUpdate={checkPermission(snap, PLANNING_BOARDS_UPDATE)}
+      canDelete={checkPermission(snap, PLANNING_BOARDS_DELETE)}
     />
   );
 }

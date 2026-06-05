@@ -66,7 +66,8 @@ export function KanbanColumn<TItem>({
             <button
               type="button"
               className={cn(
-                "mt-0.5 rounded p-0.5 text-muted-foreground transition hover:bg-muted hover:text-foreground",
+                "mt-0.5 cursor-grab rounded p-0.5 text-muted-foreground transition hover:bg-muted hover:text-foreground active:cursor-grabbing",
+                isDragging && "cursor-grabbing",
                 disabled && "cursor-not-allowed opacity-50"
               )}
               aria-label={labels?.dragColumn}

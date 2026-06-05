@@ -32,7 +32,7 @@ export function KanbanCard({ id, children, disabled = false, className }: Kanban
         "group rounded-md border border-border bg-card p-3 shadow-xs transition",
         "hover:border-muted-foreground/35 focus-within:ring-2 focus-within:ring-ring/30",
         disabled ? "cursor-not-allowed opacity-60" : "cursor-grab active:cursor-grabbing",
-        isDragging && "rotate-1 opacity-45 ring-2 ring-ring/30",
+        isDragging && "cursor-grabbing rotate-1 opacity-45 ring-2 ring-ring/30",
         className
       )}
       {...attributes}

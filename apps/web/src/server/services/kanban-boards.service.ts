@@ -4,6 +4,8 @@ import type {
   CreateKanbanBoardInput,
   CreateKanbanCardInput,
   CreateKanbanColumnInput,
+  DeleteKanbanBoardInput,
+  DeleteKanbanColumnInput,
   KanbanVisibility,
   MoveKanbanCardInput,
   ReorderKanbanColumnsInput,
@@ -11,53 +13,15 @@ import type {
   UpdateKanbanCardInput,
   UpdateKanbanColumnInput,
 } from "@/lib/validations/kanban";
+import {
+  MAX_KANBAN_BOARDS_PER_USER,
+  type KanbanBoardCard,
+  type KanbanBoardColumn,
+  type KanbanBoardDetail,
+  type KanbanBoardSummary,
+} from "@/lib/types/kanban";
 
 export type ServiceResult<T> = { success: true; data: T } | { success: false; error: string };
-
-export interface KanbanBoardSummary {
-  id: string;
-  organization_id: string;
-  title: string;
-  description: string | null;
-  visibility: KanbanVisibility;
-  created_by: string;
-  creator_name: string | null;
-  creator_email: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface KanbanBoardColumn {
-  id: string;
-  board_id: string;
-  organization_id: string;
-  title: string;
-  description: string | null;
-  color: string | null;
-  position: number;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface KanbanBoardCard {
-  id: string;
-  board_id: string;
-  column_id: string;
-  organization_id: string;
-  title: string;
-  description: string | null;
-  position: number;
-  created_by: string;
-  creator_name: string | null;
-  creator_email: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface KanbanBoardDetail extends KanbanBoardSummary {
-  columns: KanbanBoardColumn[];
-  cards: KanbanBoardCard[];
-}
 
 function displayName(
   firstName: string | null,
@@ -109,6 +73,9 @@ function mapCard(row: any): KanbanBoardCard {
     organization_id: row.organization_id,
     title: row.title,
     description: row.description ?? null,
+    due_at: row.due_at ?? null,
+    label: row.label ?? null,
+    label_color: row.label_color ?? null,
     position: row.position ?? 0,
     created_by: row.created_by,
     creator_name: creator
@@ -193,7 +160,7 @@ export const KanbanBoardsService = {
         supabase
           .from("planning_kanban_cards")
           .select(
-            `id, board_id, column_id, organization_id, title, description, position, created_by, created_at, updated_at,
+            `id, board_id, column_id, organization_id, title, description, due_at, label, label_color, position, created_by, created_at, updated_at,
              creator:users!created_by(first_name, last_name, email)`
           )
           .eq("organization_id", orgId)
@@ -225,6 +192,21 @@ export const KanbanBoardsService = {
     input: CreateKanbanBoardInput
   ): Promise<ServiceResult<KanbanBoardDetail>> {
     try {
+      const { count, error: countError } = await supabase
+        .from("planning_kanban_boards")
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", orgId)
+        .eq("created_by", userId)
+        .is("deleted_at", null);
+
+      if (countError) return { success: false, error: countError.message };
+      if ((count ?? 0) >= MAX_KANBAN_BOARDS_PER_USER) {
+        return {
+          success: false,
+          error: `You can create up to ${MAX_KANBAN_BOARDS_PER_USER} boards.`,
+        };
+      }
+
       const { data, error } = await supabase
         .from("planning_kanban_boards")
         .insert({
@@ -242,6 +224,44 @@ export const KanbanBoardsService = {
 
       const boardId = (data as any).id as string;
       return KanbanBoardsService.getBoard(supabase, orgId, boardId);
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : "Unexpected error" };
+    }
+  },
+
+  async softDeleteBoard(
+    supabase: SupabaseClient,
+    orgId: string,
+    userId: string,
+    input: DeleteKanbanBoardInput
+  ): Promise<ServiceResult<KanbanBoardSummary[]>> {
+    try {
+      const deletedAt = new Date().toISOString();
+      const { error } = await supabase
+        .from("planning_kanban_boards")
+        .update({ deleted_at: deletedAt, updated_by: userId })
+        .eq("organization_id", orgId)
+        .eq("id", input.id)
+        .is("deleted_at", null);
+
+      if (error) return { success: false, error: error.message };
+
+      await Promise.all([
+        supabase
+          .from("planning_kanban_columns")
+          .update({ deleted_at: deletedAt })
+          .eq("organization_id", orgId)
+          .eq("board_id", input.id)
+          .is("deleted_at", null),
+        supabase
+          .from("planning_kanban_cards")
+          .update({ deleted_at: deletedAt, updated_by: userId })
+          .eq("organization_id", orgId)
+          .eq("board_id", input.id)
+          .is("deleted_at", null),
+      ]);
+
+      return KanbanBoardsService.listBoards(supabase, orgId);
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : "Unexpected error" };
     }
@@ -324,6 +344,38 @@ export const KanbanBoardsService = {
     }
   },
 
+  async softDeleteColumn(
+    supabase: SupabaseClient,
+    orgId: string,
+    userId: string,
+    input: DeleteKanbanColumnInput
+  ): Promise<ServiceResult<KanbanBoardDetail>> {
+    try {
+      const deletedAt = new Date().toISOString();
+      const { error } = await supabase
+        .from("planning_kanban_columns")
+        .update({ deleted_at: deletedAt })
+        .eq("organization_id", orgId)
+        .eq("board_id", input.board_id)
+        .eq("id", input.id)
+        .is("deleted_at", null);
+
+      if (error) return { success: false, error: error.message };
+
+      await supabase
+        .from("planning_kanban_cards")
+        .update({ deleted_at: deletedAt, updated_by: userId })
+        .eq("organization_id", orgId)
+        .eq("board_id", input.board_id)
+        .eq("column_id", input.id)
+        .is("deleted_at", null);
+
+      return KanbanBoardsService.getBoard(supabase, orgId, input.board_id);
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : "Unexpected error" };
+    }
+  },
+
   async createCard(
     supabase: SupabaseClient,
     orgId: string,
@@ -343,6 +395,9 @@ export const KanbanBoardsService = {
         organization_id: orgId,
         title: input.title,
         description: input.description || null,
+        due_at: input.due_at || null,
+        label: input.label || null,
+        label_color: input.label_color || null,
         position,
         created_by: userId,
         updated_by: userId,
@@ -367,6 +422,9 @@ export const KanbanBoardsService = {
           column_id: input.column_id,
           title: input.title,
           description: input.description || null,
+          due_at: input.due_at || null,
+          label: input.label || null,
+          label_color: input.label_color || null,
           updated_by: userId,
         })
         .eq("organization_id", orgId)
