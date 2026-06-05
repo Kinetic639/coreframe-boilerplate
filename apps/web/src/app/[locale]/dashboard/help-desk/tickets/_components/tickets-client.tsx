@@ -797,12 +797,23 @@ export function TicketsClient({
           detailFetcher={detailFetcher}
           getRowId={(row) => row.ticket_number}
           renderCompactItem={(row) => (
-            <div className="flex flex-col gap-1">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-muted-foreground font-mono text-xs">{row.ticket_number}</span>
-                <TicketStatusBadge status={row.status} config={statusConfigs?.[row.status]} />
+            <div className="flex min-w-0 flex-col gap-1 overflow-hidden">
+              <div className="flex min-w-0 items-center justify-between gap-2">
+                <span className="text-muted-foreground shrink-0 font-mono text-xs">
+                  {row.ticket_number}
+                </span>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <TicketPriorityBadge
+                    priority={row.priority}
+                    config={priorityConfigs?.[row.priority]}
+                  />
+                  <TicketStatusBadge status={row.status} config={statusConfigs?.[row.status]} />
+                </div>
               </div>
-              <span className="truncate text-sm font-medium" title={row.title}>
+              <span
+                className="block min-w-0 max-w-full truncate text-sm font-medium"
+                title={row.title}
+              >
                 {row.title}
               </span>
             </div>
