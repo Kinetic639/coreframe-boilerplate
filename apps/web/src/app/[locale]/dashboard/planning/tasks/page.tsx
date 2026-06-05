@@ -40,8 +40,9 @@ export default async function PlanningTasksPage({ searchParams }: PageProps = {}
   const supabase = await createClient();
   const orgId = context.app.activeOrgId;
 
-  const [tasksResult, membersResult, settingsResult] = await Promise.all([
+  const [tasksResult, kanbanTasksResult, membersResult, settingsResult] = await Promise.all([
     PlanningTasksService.listForDataView(supabase, orgId, params),
+    PlanningTasksService.listForKanban(supabase, orgId),
     OrgMembersService.listMembers(supabase, orgId),
     PlanningSettingsService.getSettings(supabase, orgId),
   ]);
@@ -71,6 +72,7 @@ export default async function PlanningTasksPage({ searchParams }: PageProps = {}
   return (
     <TasksClient
       initialData={initialData}
+      initialKanbanTasks={kanbanTasksResult.success ? kanbanTasksResult.data : []}
       canCreate={canCreate}
       canUpdate={canUpdate}
       canAssign={canAssign}

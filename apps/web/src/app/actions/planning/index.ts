@@ -71,6 +71,20 @@ export async function listTasksForDataViewAction(
   }
 }
 
+export async function listTasksForKanbanAction(
+  orgId: string
+): Promise<ActionResult<PlanningTaskListRow[]>> {
+  try {
+    const ctx = await getAuthedContext();
+    if (!ctx || ctx.orgId !== orgId) return { success: false, error: "Unauthorized" };
+    if (!checkPermission(ctx.context.user.permissionSnapshot, PLANNING_TASKS_READ))
+      return { success: false, error: "Insufficient permissions" };
+    return PlanningTasksService.listForKanban(ctx.supabase, ctx.orgId);
+  } catch {
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Detail — lightweight auth (RLS enforces org membership + read permission)
 // ---------------------------------------------------------------------------

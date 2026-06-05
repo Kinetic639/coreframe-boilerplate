@@ -195,6 +195,10 @@ export const HELPDESK_SETTINGS_MANAGE = "helpdesk.settings.manage" as const;
 // planning.tasks.update   — edit task details, change status, priority
 // planning.tasks.delete   — soft-delete tasks
 // planning.tasks.assign   — assign tasks to other org members
+// planning.boards.read    — list and view public boards and private boards owned by the user
+// planning.boards.create  — create Kanban boards
+// planning.boards.update  — edit boards, columns, cards, and card order
+// planning.boards.delete  — soft-delete boards, columns, and cards
 // module.planning.access  — user-level gate; admins assign to custom roles
 // Seeded in migration 20260601200000_planning_module.sql.
 export const MODULE_PLANNING_ACCESS = "module.planning.access" as const;
@@ -205,6 +209,10 @@ export const PLANNING_TASKS_CREATE = "planning.tasks.create" as const;
 export const PLANNING_TASKS_UPDATE = "planning.tasks.update" as const;
 export const PLANNING_TASKS_DELETE = "planning.tasks.delete" as const;
 export const PLANNING_TASKS_ASSIGN = "planning.tasks.assign" as const;
+export const PLANNING_BOARDS_READ = "planning.boards.read" as const;
+export const PLANNING_BOARDS_CREATE = "planning.boards.create" as const;
+export const PLANNING_BOARDS_UPDATE = "planning.boards.update" as const;
+export const PLANNING_BOARDS_DELETE = "planning.boards.delete" as const;
 export const PLANNING_SETTINGS_MANAGE = "planning.settings.manage" as const;
 
 // Tools Permissions (user-scoped — always available, no plan gating)
@@ -328,6 +336,10 @@ export type PermissionSlug =
   | typeof PLANNING_TASKS_UPDATE
   | typeof PLANNING_TASKS_DELETE
   | typeof PLANNING_TASKS_ASSIGN
+  | typeof PLANNING_BOARDS_READ
+  | typeof PLANNING_BOARDS_CREATE
+  | typeof PLANNING_BOARDS_UPDATE
+  | typeof PLANNING_BOARDS_DELETE
   | typeof PLANNING_SETTINGS_MANAGE
   | typeof PERMISSION_TOOLS_READ
   | typeof PERMISSION_TOOLS_MANAGE
@@ -430,6 +442,10 @@ export const ALL_PERMISSION_SLUGS: PermissionSlug[] = [
   PLANNING_TASKS_UPDATE,
   PLANNING_TASKS_DELETE,
   PLANNING_TASKS_ASSIGN,
+  PLANNING_BOARDS_READ,
+  PLANNING_BOARDS_CREATE,
+  PLANNING_BOARDS_UPDATE,
+  PLANNING_BOARDS_DELETE,
   PLANNING_SETTINGS_MANAGE,
   PERMISSION_TOOLS_READ,
   PERMISSION_TOOLS_MANAGE,
