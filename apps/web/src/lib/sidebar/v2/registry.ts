@@ -23,6 +23,7 @@ import {
   HELPDESK_SETTINGS_MANAGE,
   MODULE_PLANNING_ACCESS,
   PLANNING_READ,
+  PLANNING_BOARDS_READ,
   PLANNING_TASKS_READ,
   PLANNING_SETTINGS_MANAGE,
 } from "@/lib/constants/permissions";
@@ -358,7 +359,7 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
         href: "/dashboard/planning/boards",
         match: { exact: "/dashboard/planning/boards" },
         visibility: {
-          requiresPermissions: [PLANNING_TASKS_READ],
+          requiresPermissions: [PLANNING_BOARDS_READ],
         },
       },
       {
