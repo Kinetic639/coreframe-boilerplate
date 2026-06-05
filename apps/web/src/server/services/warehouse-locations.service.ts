@@ -25,6 +25,14 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type {
+  LocationStatus,
+  LocationCategory,
+  LocationV2,
+  MappingStatusResult,
+  ArchiveValidationResult,
+  UpdateLocationV2Input,
+} from "@/lib/types/warehouse/locations-v2";
 
 // ─── Types (re-exported from shared lib so client components can import safely) ──
 
@@ -54,6 +62,12 @@ export interface CreateLocationInput {
   storage_mode?: string;
   allow_top_storage?: boolean;
   sort_order?: number;
+  // V2 fields (optional for backward compatibility)
+  can_store_inventory?: boolean;
+  location_category?: string;
+  width_mm?: number | null;
+  height_mm?: number | null;
+  depth_mm?: number | null;
 }
 
 export interface UpdateLocationInput {
@@ -262,6 +276,16 @@ export class WarehouseLocationsService {
         sort_order: input.sort_order ?? 0,
         created_by: userId,
         updated_by: userId,
+        // V2 fields
+        ...(input.can_store_inventory !== undefined && {
+          can_store_inventory: input.can_store_inventory,
+        }),
+        ...(input.location_category !== undefined && {
+          location_category: input.location_category,
+        }),
+        ...(input.width_mm !== undefined && { width_mm: input.width_mm }),
+        ...(input.height_mm !== undefined && { height_mm: input.height_mm }),
+        ...(input.depth_mm !== undefined && { depth_mm: input.depth_mm }),
       })
       .select(LOCATION_COLUMNS)
       .single();
@@ -513,6 +537,201 @@ export class WarehouseLocationsService {
     const failed = results.find((r) => r.error);
     if (failed?.error) return { success: false, error: failed.error.message };
     return { success: true, data: undefined };
+  }
+
+  // ─── V2 Methods ─────────────────────────────────────────────────────────────
+
+  /**
+   * Calls the validate_warehouse_location_archive RPC.
+   * Read-only — never mutates. Returns typed ArchiveValidationResult.
+   */
+  static async validateArchive(
+    supabase: SupabaseClient,
+    orgId: string,
+    locationId: string
+  ): Promise<ServiceResult<ArchiveValidationResult>> {
+    const { data, error } = await supabase.rpc("validate_warehouse_location_archive", {
+      p_location_id: locationId,
+    });
+    if (error) return { success: false, error: error.message };
+    const result = data as ArchiveValidationResult;
+    if (!result?.location_id) return { success: false, error: "Unexpected RPC response" };
+    // Verify the returned location belongs to the expected org (fail-closed)
+    const locResult = await supabase
+      .from("warehouse_locations")
+      .select("id, organization_id")
+      .eq("id", locationId)
+      .eq("organization_id", orgId)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (locResult.error) return { success: false, error: locResult.error.message };
+    if (!locResult.data) return { success: false, error: "Location not found" };
+    return { success: true, data: result };
+  }
+
+  /**
+   * Archives a location (status = 'archived').
+   * Validates blockers first. Returns failure with blockers if any exist.
+   * Does NOT hard-delete, does NOT modify stock, does NOT delete visual nodes.
+   */
+  static async archiveLocation(
+    supabase: SupabaseClient,
+    orgId: string,
+    locationId: string,
+    userId?: string
+  ): Promise<ServiceResult<{ archived: true; warnings: ArchiveValidationResult["warnings"] }>> {
+    const validation = await WarehouseLocationsService.validateArchive(supabase, orgId, locationId);
+    if (!validation.success) return { success: false as const, error: validation.error };
+    if (!validation.data.can_archive) {
+      return {
+        success: false,
+        error: `Cannot archive: ${validation.data.blockers.map((b) => b.message).join("; ")}`,
+      };
+    }
+    const update: Record<string, unknown> = {
+      status: "archived" as LocationStatus,
+      updated_at: new Date().toISOString(),
+    };
+    if (userId) update.updated_by = userId;
+    const { error } = await supabase
+      .from("warehouse_locations")
+      .update(update)
+      .eq("id", locationId)
+      .eq("organization_id", orgId)
+      .is("deleted_at", null);
+    if (error) return { success: false, error: error.message };
+    return { success: true, data: { archived: true, warnings: validation.data.warnings } };
+  }
+
+  /**
+   * Calls get_warehouse_location_mapping_status RPC.
+   * Returns typed MappingStatusResult.
+   */
+  static async getMappingStatus(
+    supabase: SupabaseClient,
+    orgId: string,
+    locationId: string
+  ): Promise<ServiceResult<MappingStatusResult>> {
+    // Verify org ownership before calling RPC
+    const locResult = await supabase
+      .from("warehouse_locations")
+      .select("id, organization_id")
+      .eq("id", locationId)
+      .eq("organization_id", orgId)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (locResult.error) return { success: false, error: locResult.error.message };
+    if (!locResult.data) return { success: false, error: "Location not found" };
+
+    const { data, error } = await supabase.rpc("get_warehouse_location_mapping_status", {
+      p_location_id: locationId,
+    });
+    if (error) return { success: false, error: error.message };
+    return { success: true, data: data as MappingStatusResult };
+  }
+
+  /**
+   * Updates can_store_inventory for a location.
+   * Explicit, auditable — does not silently affect stock.
+   */
+  static async updateStorageCapability(
+    supabase: SupabaseClient,
+    orgId: string,
+    locationId: string,
+    canStoreInventory: boolean,
+    userId?: string
+  ): Promise<ServiceResult<void>> {
+    const update: Record<string, unknown> = {
+      can_store_inventory: canStoreInventory,
+      updated_at: new Date().toISOString(),
+    };
+    if (userId) update.updated_by = userId;
+    const { error } = await supabase
+      .from("warehouse_locations")
+      .update(update)
+      .eq("id", locationId)
+      .eq("organization_id", orgId)
+      .is("deleted_at", null);
+    if (error) return { success: false, error: error.message };
+    return { success: true, data: undefined };
+  }
+
+  /**
+   * Updates width_mm/height_mm/depth_mm. Validates positive integers or null.
+   */
+  static async updateDimensions(
+    supabase: SupabaseClient,
+    orgId: string,
+    locationId: string,
+    dimensions: { width_mm?: number | null; height_mm?: number | null; depth_mm?: number | null },
+    userId?: string
+  ): Promise<ServiceResult<void>> {
+    for (const [key, val] of Object.entries(dimensions)) {
+      if (val !== null && val !== undefined && (!Number.isInteger(val) || val <= 0)) {
+        return { success: false, error: `${key} must be a positive integer` };
+      }
+    }
+    const update: Record<string, unknown> = {
+      ...dimensions,
+      updated_at: new Date().toISOString(),
+    };
+    if (userId) update.updated_by = userId;
+    const { error } = await supabase
+      .from("warehouse_locations")
+      .update(update)
+      .eq("id", locationId)
+      .eq("organization_id", orgId)
+      .is("deleted_at", null);
+    if (error) return { success: false, error: error.message };
+    return { success: true, data: undefined };
+  }
+
+  /**
+   * Updates V2 fields on an existing location.
+   * Merges safely alongside legacy fields — does not overwrite map_role etc.
+   */
+  static async updateV2Fields(
+    supabase: SupabaseClient,
+    orgId: string,
+    locationId: string,
+    input: UpdateLocationV2Input,
+    userId?: string
+  ): Promise<ServiceResult<LocationV2>> {
+    const V2_COLUMNS =
+      "id, organization_id, branch_id, parent_id, name, code, description, icon_name, color, " +
+      "inherit_group_color, inherit_parent_color, can_store_inventory, status, location_category, " +
+      "width_mm, height_mm, depth_mm, level, sort_order, qr_code, created_by, updated_by, created_at, updated_at, deleted_at";
+
+    if (input.width_mm !== undefined && input.width_mm !== null) {
+      if (!Number.isInteger(input.width_mm) || input.width_mm <= 0)
+        return { success: false, error: "width_mm must be a positive integer" };
+    }
+    if (input.height_mm !== undefined && input.height_mm !== null) {
+      if (!Number.isInteger(input.height_mm) || input.height_mm <= 0)
+        return { success: false, error: "height_mm must be a positive integer" };
+    }
+    if (input.depth_mm !== undefined && input.depth_mm !== null) {
+      if (!Number.isInteger(input.depth_mm) || input.depth_mm <= 0)
+        return { success: false, error: "depth_mm must be a positive integer" };
+    }
+
+    const update: Record<string, unknown> = {
+      ...input,
+      updated_at: new Date().toISOString(),
+    };
+    if (userId) update.updated_by = userId;
+
+    const { data, error } = await supabase
+      .from("warehouse_locations")
+      .update(update)
+      .eq("id", locationId)
+      .eq("organization_id", orgId)
+      .is("deleted_at", null)
+      .select(V2_COLUMNS)
+      .single();
+    if (error) return { success: false, error: error.message };
+    if (!data) return { success: false, error: "Location not found" };
+    return { success: true, data: data as unknown as LocationV2 };
   }
 
   // ─── Private helpers ────────────────────────────────────────────────────────
