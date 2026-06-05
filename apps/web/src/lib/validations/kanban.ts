@@ -9,6 +9,10 @@ export const createKanbanBoardSchema = z.object({
   visibility: z.enum(KANBAN_VISIBILITIES).default("private"),
 });
 
+export const deleteKanbanBoardSchema = z.object({
+  id: z.string().uuid(),
+});
+
 export const updateKanbanBoardSchema = createKanbanBoardSchema.extend({
   id: z.string().uuid(),
 });
@@ -28,11 +32,23 @@ export const updateKanbanColumnSchema = createKanbanColumnSchema.extend({
   id: z.string().uuid(),
 });
 
+export const deleteKanbanColumnSchema = z.object({
+  board_id: z.string().uuid(),
+  id: z.string().uuid(),
+});
+
 export const createKanbanCardSchema = z.object({
   board_id: z.string().uuid(),
   column_id: z.string().uuid(),
   title: z.string().trim().min(1).max(300),
   description: z.string().trim().max(4000).nullable().optional(),
+  due_at: z.string().datetime().nullable().optional(),
+  label: z.string().trim().max(80).nullable().optional(),
+  label_color: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .nullable()
+    .optional(),
 });
 
 export const updateKanbanCardSchema = createKanbanCardSchema.extend({
@@ -53,8 +69,10 @@ export const reorderKanbanColumnsSchema = z.object({
 
 export type CreateKanbanBoardInput = z.infer<typeof createKanbanBoardSchema>;
 export type UpdateKanbanBoardInput = z.infer<typeof updateKanbanBoardSchema>;
+export type DeleteKanbanBoardInput = z.infer<typeof deleteKanbanBoardSchema>;
 export type CreateKanbanColumnInput = z.infer<typeof createKanbanColumnSchema>;
 export type UpdateKanbanColumnInput = z.infer<typeof updateKanbanColumnSchema>;
+export type DeleteKanbanColumnInput = z.infer<typeof deleteKanbanColumnSchema>;
 export type CreateKanbanCardInput = z.infer<typeof createKanbanCardSchema>;
 export type UpdateKanbanCardInput = z.infer<typeof updateKanbanCardSchema>;
 export type MoveKanbanCardInput = z.infer<typeof moveKanbanCardSchema>;

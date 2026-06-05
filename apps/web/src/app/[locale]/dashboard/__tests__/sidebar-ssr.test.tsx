@@ -577,6 +577,79 @@ describe("Sidebar SSR Integration", () => {
     expect(findItemById(model, "tools")).toBeDefined();
   });
 
+  // ── Planning Module ────────────────────────────────────────────────────────
+
+  it("should show planning boards when planning is entitled and user has board read access", () => {
+    const userContext = {
+      user: {
+        id: "user-123",
+        email: "test@example.com",
+        first_name: null,
+        last_name: null,
+        avatar_url: null,
+        avatar_signed_url: null,
+      },
+      roles: [],
+      permissionSnapshot: {
+        allow: [
+          "module.planning.access",
+          "planning.read",
+          "planning.tasks.read",
+          "planning.boards.read",
+        ],
+        deny: [],
+      },
+    };
+
+    const entitlements = {
+      organization_id: "org-123",
+      plan_id: "plan-free",
+      enabled_modules: ["planning"],
+      contexts: [],
+      limits: {},
+      updated_at: "2026-06-05T00:00:00.000Z",
+    };
+
+    const model = buildSidebarModelUncached(BASE_APP_CONTEXT, userContext, entitlements, "en");
+
+    expect(findItemById(model, "planning")).toBeDefined();
+    expect(findItemById(model, "planning.tasks")).toBeDefined();
+    expect(findItemById(model, "planning.boards")).toBeDefined();
+  });
+
+  it("should hide planning boards when user lacks board read access", () => {
+    const userContext = {
+      user: {
+        id: "user-123",
+        email: "test@example.com",
+        first_name: null,
+        last_name: null,
+        avatar_url: null,
+        avatar_signed_url: null,
+      },
+      roles: [],
+      permissionSnapshot: {
+        allow: ["module.planning.access", "planning.read", "planning.tasks.read"],
+        deny: [],
+      },
+    };
+
+    const entitlements = {
+      organization_id: "org-123",
+      plan_id: "plan-free",
+      enabled_modules: ["planning"],
+      contexts: [],
+      limits: {},
+      updated_at: "2026-06-05T00:00:00.000Z",
+    };
+
+    const model = buildSidebarModelUncached(BASE_APP_CONTEXT, userContext, entitlements, "en");
+
+    expect(findItemById(model, "planning")).toBeDefined();
+    expect(findItemById(model, "planning.tasks")).toBeDefined();
+    expect(findItemById(model, "planning.boards")).toBeUndefined();
+  });
+
   // ── Analytics & Reports Module ─────────────────────────────────────────────
 
   // an-1: analytics group visible when module entitled + user has access + analytics.read
