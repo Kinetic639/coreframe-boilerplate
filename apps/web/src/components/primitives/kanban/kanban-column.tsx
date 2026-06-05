@@ -3,7 +3,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical } from "lucide-react";
+import { ChevronsLeftRight, ChevronsRightLeft, GripVertical } from "lucide-react";
 import type { KanbanBoardLabels, KanbanColumnDefinition } from "./kanban-types";
 import { cn } from "@/utils";
 
@@ -19,6 +19,8 @@ interface KanbanColumnProps<TItem> {
   disabled?: boolean;
   columnDraggable?: boolean;
   isOverlay?: boolean;
+  collapsed?: boolean;
+  onCollapsedChange?: (collapsed: boolean) => void;
 }
 
 export function KanbanColumn<TItem>({
@@ -33,6 +35,8 @@ export function KanbanColumn<TItem>({
   disabled = false,
   columnDraggable = true,
   isOverlay = false,
+  collapsed = false,
+  onCollapsedChange,
 }: KanbanColumnProps<TItem>) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging, isOver } =
     useSortable({
@@ -47,6 +51,49 @@ export function KanbanColumn<TItem>({
 
   const itemIds = items.map(getItemId);
   const accent = column.color || "hsl(var(--muted-foreground))";
+
+  if (collapsed) {
+    return (
+      <section
+        ref={setNodeRef}
+        style={style}
+        className={cn(
+          "flex max-h-[min(70vh,32rem)] w-12 shrink-0 flex-col items-center self-start rounded-md border border-border bg-muted/20",
+          "transition-[border-color,background-color,box-shadow,opacity]",
+          isOver && "border-dashed bg-muted/40 ring-1 ring-border",
+          isDragging && "opacity-50 ring-2 ring-ring/30",
+          className
+        )}
+      >
+        <div className="flex min-h-0 flex-col items-center gap-3 px-2 py-3">
+          <button
+            type="button"
+            className="rounded p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+            aria-label={labels?.expandColumn}
+            onClick={() => onCollapsedChange?.(false)}
+          >
+            <ChevronsLeftRight className="h-4 w-4" />
+          </button>
+          <span
+            className="h-2 w-2 shrink-0 rounded-full"
+            style={{ backgroundColor: accent }}
+            aria-hidden="true"
+          />
+          <button
+            type="button"
+            className="flex min-h-0 max-h-72 items-center justify-center rounded text-left text-sm font-semibold text-foreground"
+            title={column.title}
+            onClick={() => onCollapsedChange?.(false)}
+          >
+            <span className="max-h-full [writing-mode:vertical-rl]">{column.title}</span>
+          </button>
+          <span className="flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-muted px-1.5 text-[11px] font-medium text-muted-foreground">
+            {items.length}
+          </span>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section
@@ -99,7 +146,19 @@ export function KanbanColumn<TItem>({
             ) : null}
           </div>
         </div>
-        {actions ? <div className="shrink-0">{actions}</div> : null}
+        <div className="flex shrink-0 items-center gap-1">
+          {onCollapsedChange ? (
+            <button
+              type="button"
+              className="rounded p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+              aria-label={labels?.collapseColumn}
+              onClick={() => onCollapsedChange(true)}
+            >
+              <ChevronsRightLeft className="h-4 w-4" />
+            </button>
+          ) : null}
+          {actions}
+        </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">

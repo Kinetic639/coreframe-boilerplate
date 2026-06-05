@@ -18,6 +18,8 @@ export interface KanbanCardMoveParams {
 export interface KanbanBoardLabels {
   emptyColumn?: string;
   dragColumn?: string;
+  collapseColumn?: string;
+  expandColumn?: string;
 }
 
 export interface KanbanBoardProps<TItem> {
@@ -36,4 +38,6 @@ export interface KanbanBoardProps<TItem> {
   columnClassName?: string;
   disabled?: boolean;
   columnsDraggable?: boolean;
+  collapsedColumnIds?: string[];
+  onColumnCollapsedChange?: (columnId: string, collapsed: boolean) => void;
 }

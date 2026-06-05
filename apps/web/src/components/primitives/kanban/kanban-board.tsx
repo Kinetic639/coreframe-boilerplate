@@ -42,6 +42,8 @@ export function KanbanBoard<TItem>({
   columnClassName,
   disabled = false,
   columnsDraggable = true,
+  collapsedColumnIds = [],
+  onColumnCollapsedChange,
 }: KanbanBoardProps<TItem>) {
   const [orderedColumns, setOrderedColumns] = useState(columns);
   const [groupedItems, setGroupedItems] = useState(() =>
@@ -78,6 +80,7 @@ export function KanbanBoard<TItem>({
   );
 
   const columnIds = useMemo(() => orderedColumns.map((column) => column.id), [orderedColumns]);
+  const collapsedColumnSet = useMemo(() => new Set(collapsedColumnIds), [collapsedColumnIds]);
 
   const resetToProps = useCallback(() => {
     setOrderedColumns(columns);
@@ -250,6 +253,12 @@ export function KanbanBoard<TItem>({
               className={columnClassName}
               disabled={disabled}
               columnDraggable={columnsDraggable}
+              collapsed={collapsedColumnSet.has(column.id)}
+              onCollapsedChange={
+                onColumnCollapsedChange
+                  ? (collapsed) => onColumnCollapsedChange(column.id, collapsed)
+                  : undefined
+              }
             />
           ))}
         </SortableContext>
