@@ -6,10 +6,10 @@ import { cn } from "@/utils";
 import type { TaskStatus } from "@/lib/validations/planning";
 
 const STATUS_CLASSES: Record<TaskStatus, string> = {
-  open: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-  in_progress: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
-  completed: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
-  cancelled: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
+  open: "border-border bg-transparent text-blue-800 dark:text-blue-300",
+  in_progress: "border-border bg-transparent text-amber-800 dark:text-amber-300",
+  completed: "border-border bg-transparent text-emerald-800 dark:text-emerald-300",
+  cancelled: "border-border bg-transparent text-gray-600 dark:text-gray-400",
 };
 
 interface PlanningTaskStatusBadgeProps {
@@ -34,13 +34,17 @@ export function PlanningTaskStatusBadge({
     return (
       <Badge
         variant="outline"
-        className={cn("border-0 text-xs font-medium", className)}
+        className={cn(
+          "max-w-32 min-w-20 justify-center gap-1.5 px-2 text-xs font-medium",
+          className
+        )}
         style={{
-          backgroundColor: `${config.color}1a`,
           color: config.color,
         }}
+        title={config.label}
       >
-        {config.label}
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-80" />
+        <span className="min-w-0 truncate">{config.label}</span>
       </Badge>
     );
   }
@@ -52,9 +56,15 @@ export function PlanningTaskStatusBadge({
   return (
     <Badge
       variant="outline"
-      className={cn("border-0 text-xs font-medium", statusClassName, className)}
+      className={cn(
+        "max-w-32 min-w-20 justify-center gap-1.5 px-2 text-xs font-medium",
+        statusClassName,
+        className
+      )}
+      title={label}
     >
-      {label}
+      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-80" />
+      <span className="min-w-0 truncate">{label}</span>
     </Badge>
   );
 }

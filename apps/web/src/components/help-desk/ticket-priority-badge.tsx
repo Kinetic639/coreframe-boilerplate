@@ -1,5 +1,6 @@
 "use client";
 
+import { Flag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/utils";
 import type { TicketPriority } from "@/lib/validations/helpdesk";
@@ -7,19 +8,19 @@ import type { TicketPriority } from "@/lib/validations/helpdesk";
 const PRIORITY_DEFAULTS: Record<TicketPriority, { label: string; className: string }> = {
   low: {
     label: "Low",
-    className: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
+    className: "border-border bg-transparent text-gray-600 dark:text-gray-400",
   },
   medium: {
     label: "Medium",
-    className: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+    className: "border-border bg-transparent text-blue-700 dark:text-blue-300",
   },
   high: {
     label: "High",
-    className: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
+    className: "border-border bg-transparent text-orange-700 dark:text-orange-300",
   },
   urgent: {
     label: "Urgent",
-    className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+    className: "border-border bg-transparent text-red-700 dark:text-red-400",
   },
 };
 
@@ -39,13 +40,17 @@ export function TicketPriorityBadge({ priority, className, config }: TicketPrior
     return (
       <Badge
         variant="outline"
-        className={cn("border-0 text-xs font-medium", className)}
+        className={cn(
+          "max-w-28 min-w-16 justify-center gap-1 rounded-md px-1.5 text-xs font-medium",
+          className
+        )}
         style={{
-          backgroundColor: `${config.color}1a`,
           color: config.color,
         }}
+        title={config.label}
       >
-        {config.label}
+        <Flag className="h-3 w-3 shrink-0 fill-current opacity-70" />
+        <span className="min-w-0 truncate">{config.label}</span>
       </Badge>
     );
   }
@@ -57,9 +62,15 @@ export function TicketPriorityBadge({ priority, className, config }: TicketPrior
   return (
     <Badge
       variant="outline"
-      className={cn("border-0 text-xs font-medium", defaults.className, className)}
+      className={cn(
+        "max-w-28 min-w-16 justify-center gap-1 rounded-md px-1.5 text-xs font-medium",
+        defaults.className,
+        className
+      )}
+      title={defaults.label}
     >
-      {defaults.label}
+      <Flag className="h-3 w-3 shrink-0 fill-current opacity-70" />
+      <span className="min-w-0 truncate">{defaults.label}</span>
     </Badge>
   );
 }
