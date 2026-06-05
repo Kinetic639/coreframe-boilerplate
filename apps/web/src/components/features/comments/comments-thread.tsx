@@ -160,6 +160,17 @@ export function CommentsThread(props: CommentsThreadProps) {
     }
   }, [nextCursor, queryInput]);
 
+  if (loadingInitialComments) {
+    return (
+      <section className={cn("min-w-0", props.className)}>
+        <div className="text-muted-foreground flex items-center gap-2 text-sm">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span>{labels.loading}</span>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className={cn("min-w-0 space-y-4", props.className)}>
       {props.showTitle !== false && (
@@ -173,12 +184,7 @@ export function CommentsThread(props: CommentsThreadProps) {
         </div>
       )}
 
-      {loadingInitialComments ? (
-        <div className="text-muted-foreground flex items-center gap-2 text-sm">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <span>{labels.loading}</span>
-        </div>
-      ) : rows.length === 0 ? (
+      {rows.length === 0 ? (
         <p className="text-muted-foreground text-sm">{labels.empty}</p>
       ) : (
         <div className={cn(compact ? "space-y-4" : "space-y-5", props.contentClassName)}>

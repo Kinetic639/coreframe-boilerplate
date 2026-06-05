@@ -209,7 +209,7 @@ export function DataViewSidebar() {
                   data-testid={`sidebar-item-${rowId}`}
                 >
                   {renderCompactItem ? (
-                    renderCompactItem(row)
+                    <div className="min-w-0 flex-1 overflow-hidden">{renderCompactItem(row)}</div>
                   ) : (
                     <span className="block w-full truncate font-medium">
                       {primaryColumn ? primaryColumn.accessor(row) : rowId}
@@ -236,7 +236,7 @@ export function DataViewSidebar() {
                 data-testid={`sidebar-item-${rowId}`}
               >
                 {renderCompactItem ? (
-                  renderCompactItem(row)
+                  <div className="min-w-0 flex-1 overflow-hidden">{renderCompactItem(row)}</div>
                 ) : (
                   <span className="block w-full truncate font-medium">
                     {primaryColumn ? primaryColumn.accessor(row) : rowId}

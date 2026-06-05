@@ -240,20 +240,26 @@ export function TasksClient({
           detailFetcher={detailFetcher}
           getRowId={(row) => row.task_number}
           renderCompactItem={(row) => (
-            <div className="flex flex-col gap-1">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex min-w-0 items-center gap-1.5">
-                  <span className="text-muted-foreground shrink-0 font-mono text-xs">
-                    {row.task_number}
-                  </span>
+            <div className="flex min-w-0 flex-col gap-1 overflow-hidden">
+              <div className="flex min-w-0 items-center justify-between gap-2">
+                <span className="text-muted-foreground shrink-0 font-mono text-xs">
+                  {row.task_number}
+                </span>
+                <div className="flex shrink-0 items-center gap-1.5">
                   <PlanningTaskPriorityBadge
                     priority={row.priority}
                     config={priorityConfigs?.[row.priority]}
                   />
+                  <PlanningTaskStatusBadge
+                    status={row.status}
+                    config={statusConfigs?.[row.status]}
+                  />
                 </div>
-                <PlanningTaskStatusBadge status={row.status} config={statusConfigs?.[row.status]} />
               </div>
-              <span className="truncate text-sm font-medium" title={row.title}>
+              <span
+                className="block min-w-0 max-w-full truncate text-sm font-medium"
+                title={row.title}
+              >
                 {row.title}
               </span>
             </div>
