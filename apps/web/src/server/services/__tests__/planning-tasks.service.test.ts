@@ -53,6 +53,8 @@ function makeTaskRow(overrides: Partial<PlanningTaskListRow> = {}): PlanningTask
     assigned_to: null,
     assignee_name: null,
     assignee_email: null,
+    assignee_avatar_url: null,
+    assignee_profile_href: null,
     created_by: USER_ID,
     creator_name: "Test User",
     creator_email: "test@example.com",

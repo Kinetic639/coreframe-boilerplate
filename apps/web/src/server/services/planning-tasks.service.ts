@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { DataViewListParams, PaginatedResult } from "@/lib/data-view/types";
+import { createServiceClient } from "@/utils/supabase/service";
 import type {
   TaskStatus,
   TaskPriority,
@@ -25,6 +26,8 @@ export interface PlanningTaskListRow {
   assigned_to: string | null;
   assignee_name: string | null;
   assignee_email: string | null;
+  assignee_avatar_url: string | null;
+  assignee_profile_href: string | null;
   created_by: string;
   creator_name: string | null;
   creator_email: string | null;
@@ -74,6 +77,10 @@ const SORTABLE_TASK_FIELDS = new Set([
   "updated_at",
 ]);
 
+const USER_AVATAR_BUCKET = "user-avatars";
+const AVATAR_TTL_SECONDS = 60 * 60;
+const AVATAR_SIGN_TIMEOUT_MS = 2_000;
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -85,6 +92,110 @@ function displayName(
 ): string | null {
   const name = [firstName, lastName].filter(Boolean).join(" ").trim();
   return name || email || null;
+}
+
+function memberProfileHref(userId: string): string {
+  return `/dashboard/organization/users/members/${userId}`;
+}
+
+async function batchSignAvatarUrls(
+  entries: Array<{ userId: string; avatarPath: string }>
+): Promise<Map<string, string>> {
+  if (entries.length === 0) return new Map();
+
+  const sign = async (): Promise<Map<string, string>> => {
+    try {
+      const svc = createServiceClient();
+      const { data, error } = await svc.storage.from(USER_AVATAR_BUCKET).createSignedUrls(
+        entries.map((entry) => entry.avatarPath),
+        AVATAR_TTL_SECONDS
+      );
+
+      if (error || !data) return new Map();
+
+      const signedUrls = new Map<string, string>();
+      data.forEach((item, index) => {
+        const entry = entries[index];
+        if (entry && item.signedUrl) signedUrls.set(entry.userId, item.signedUrl);
+      });
+      return signedUrls;
+    } catch {
+      return new Map();
+    }
+  };
+
+  const timeout = new Promise<Map<string, string>>((resolve) => {
+    setTimeout(() => resolve(new Map()), AVATAR_SIGN_TIMEOUT_MS);
+  });
+
+  return Promise.race([sign(), timeout]);
+}
+
+function resolveAvatarUrl(
+  userId: string | null,
+  avatarUrl: string | null,
+  avatarPath: string | null,
+  signedUrls: Map<string, string>
+): string | null {
+  if (userId && avatarPath?.startsWith(`${userId}/`)) {
+    return signedUrls.get(userId) ?? avatarUrl;
+  }
+  return avatarUrl;
+}
+
+function collectAvatarSignEntries(rows: any[]): Array<{ userId: string; avatarPath: string }> {
+  const entries = new Map<string, string>();
+
+  rows.forEach((row) => {
+    const assignee = Array.isArray(row.assignee) ? row.assignee[0] : row.assignee;
+    const userId = row.assigned_to as string | null;
+    const avatarPath = assignee?.avatar_path as string | null | undefined;
+
+    if (userId && avatarPath?.startsWith(`${userId}/`)) entries.set(userId, avatarPath);
+  });
+
+  return Array.from(entries, ([userId, avatarPath]) => ({ userId, avatarPath }));
+}
+
+function mapTaskRow(row: any, signedAvatarUrls: Map<string, string>): PlanningTaskListRow {
+  const assignee = Array.isArray(row.assignee) ? row.assignee[0] : row.assignee;
+  const creator = Array.isArray(row.creator) ? row.creator[0] : row.creator;
+  const assignedTo = row.assigned_to ?? null;
+
+  return {
+    id: row.id,
+    organization_id: row.organization_id,
+    task_number: row.task_number,
+    title: row.title,
+    status: row.status as TaskStatus,
+    priority: row.priority as TaskPriority,
+    branch_id: row.branch_id ?? null,
+    assigned_to: assignedTo,
+    assignee_name: assignee
+      ? displayName(assignee.first_name, assignee.last_name, assignee.email)
+      : null,
+    assignee_email: assignee?.email ?? null,
+    assignee_avatar_url: assignee
+      ? resolveAvatarUrl(
+          assignedTo,
+          assignee.avatar_url ?? null,
+          assignee.avatar_path ?? null,
+          signedAvatarUrls
+        )
+      : null,
+    assignee_profile_href: assignedTo ? memberProfileHref(assignedTo) : null,
+    created_by: row.created_by,
+    creator_name: creator
+      ? displayName(creator.first_name, creator.last_name, creator.email)
+      : null,
+    creator_email: creator?.email ?? null,
+    due_at: row.due_at ?? null,
+    started_at: row.started_at ?? null,
+    completed_at: row.completed_at ?? null,
+    cancelled_at: row.cancelled_at ?? null,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
 }
 
 function stringArrayFilter(value: DataViewFilterValue): string[] | undefined {
@@ -208,7 +319,7 @@ export const PlanningTasksService = {
           `id, organization_id, task_number, title, status, priority,
            branch_id, assigned_to, due_at, started_at, completed_at, cancelled_at,
            created_by, created_at, updated_at,
-           assignee:users!assigned_to(first_name, last_name, email),
+           assignee:users!assigned_to(first_name, last_name, email, avatar_url, avatar_path),
            creator:users!created_by(first_name, last_name, email)`,
           { count: "exact" }
         )
@@ -240,38 +351,45 @@ export const PlanningTasksService = {
       const { data, error, count } = await query;
       if (error) return { success: false, error: error.message };
 
-      const rows: PlanningTaskListRow[] = (data ?? []).map((r) => {
-        const row = r as any;
-        const assignee = Array.isArray(row.assignee) ? row.assignee[0] : row.assignee;
-        const creator = Array.isArray(row.creator) ? row.creator[0] : row.creator;
-        return {
-          id: row.id,
-          organization_id: row.organization_id,
-          task_number: row.task_number,
-          title: row.title,
-          status: row.status as TaskStatus,
-          priority: row.priority as TaskPriority,
-          branch_id: row.branch_id ?? null,
-          assigned_to: row.assigned_to ?? null,
-          assignee_name: assignee
-            ? displayName(assignee.first_name, assignee.last_name, assignee.email)
-            : null,
-          assignee_email: assignee?.email ?? null,
-          created_by: row.created_by,
-          creator_name: creator
-            ? displayName(creator.first_name, creator.last_name, creator.email)
-            : null,
-          creator_email: creator?.email ?? null,
-          due_at: row.due_at ?? null,
-          started_at: row.started_at ?? null,
-          completed_at: row.completed_at ?? null,
-          cancelled_at: row.cancelled_at ?? null,
-          created_at: row.created_at,
-          updated_at: row.updated_at,
-        };
-      });
+      const rawRows = (data ?? []) as any[];
+      const signedAvatarUrls = await batchSignAvatarUrls(collectAvatarSignEntries(rawRows));
+      const rows = rawRows.map((row) => mapTaskRow(row, signedAvatarUrls));
 
       return { success: true, data: { rows, totalCount: count ?? 0, page, pageSize } };
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : "Unexpected error" };
+    }
+  },
+
+  // ── List for Kanban ─────────────────────────────────────────────────────
+
+  async listForKanban(
+    supabase: SupabaseClient,
+    orgId: string
+  ): Promise<ServiceResult<PlanningTaskListRow[]>> {
+    try {
+      const { data, error } = await supabase
+        .from("planning_tasks")
+        .select(
+          `id, organization_id, task_number, title, status, priority,
+           branch_id, assigned_to, due_at, started_at, completed_at, cancelled_at,
+           created_by, created_at, updated_at,
+           assignee:users!assigned_to(first_name, last_name, email, avatar_url, avatar_path),
+           creator:users!created_by(first_name, last_name, email)`
+        )
+        .eq("organization_id", orgId)
+        .in("status", ["open", "in_progress", "completed", "cancelled"])
+        .is("deleted_at", null)
+        .order("updated_at", { ascending: false })
+        .limit(500);
+
+      if (error) return { success: false, error: error.message };
+
+      const rawRows = (data ?? []) as any[];
+      const signedAvatarUrls = await batchSignAvatarUrls(collectAvatarSignEntries(rawRows));
+      const rows = rawRows.map((row) => mapTaskRow(row, signedAvatarUrls));
+
+      return { success: true, data: rows };
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : "Unexpected error" };
     }
@@ -292,7 +410,7 @@ export const PlanningTasksService = {
           `id, organization_id, task_number, title, description_plain, description_rich,
            status, priority, branch_id, assigned_to, due_at, started_at, completed_at,
            cancelled_at, created_by, updated_by, created_at, updated_at, deleted_at,
-           assignee:users!assigned_to(first_name, last_name, email),
+           assignee:users!assigned_to(first_name, last_name, email, avatar_url, avatar_path),
            creator:users!created_by(first_name, last_name, email)`
         )
         .eq("organization_id", orgId)
@@ -304,8 +422,8 @@ export const PlanningTasksService = {
       if (!raw) return { success: false, error: "Not found" };
 
       const row = raw as any;
-      const assignee = Array.isArray(row.assignee) ? row.assignee[0] : row.assignee;
-      const creator = Array.isArray(row.creator) ? row.creator[0] : row.creator;
+      const signedAvatarUrls = await batchSignAvatarUrls(collectAvatarSignEntries([row]));
+      const mappedRow = mapTaskRow(row, signedAvatarUrls);
 
       // Fetch activity
       const { data: activityRaw } = await supabase
@@ -343,26 +461,24 @@ export const PlanningTasksService = {
           title: row.title,
           description_plain: row.description_plain ?? null,
           description_rich: row.description_rich ?? null,
-          status: row.status as TaskStatus,
-          priority: row.priority as TaskPriority,
-          branch_id: row.branch_id ?? null,
-          assigned_to: row.assigned_to ?? null,
-          assignee_name: assignee
-            ? displayName(assignee.first_name, assignee.last_name, assignee.email)
-            : null,
-          assignee_email: assignee?.email ?? null,
-          created_by: row.created_by,
-          creator_name: creator
-            ? displayName(creator.first_name, creator.last_name, creator.email)
-            : null,
-          creator_email: creator?.email ?? null,
+          status: mappedRow.status,
+          priority: mappedRow.priority,
+          branch_id: mappedRow.branch_id,
+          assigned_to: mappedRow.assigned_to,
+          assignee_name: mappedRow.assignee_name,
+          assignee_email: mappedRow.assignee_email,
+          assignee_avatar_url: mappedRow.assignee_avatar_url,
+          assignee_profile_href: mappedRow.assignee_profile_href,
+          created_by: mappedRow.created_by,
+          creator_name: mappedRow.creator_name,
+          creator_email: mappedRow.creator_email,
           updated_by: row.updated_by ?? null,
-          due_at: row.due_at ?? null,
-          started_at: row.started_at ?? null,
-          completed_at: row.completed_at ?? null,
-          cancelled_at: row.cancelled_at ?? null,
-          created_at: row.created_at,
-          updated_at: row.updated_at,
+          due_at: mappedRow.due_at,
+          started_at: mappedRow.started_at,
+          completed_at: mappedRow.completed_at,
+          cancelled_at: mappedRow.cancelled_at,
+          created_at: mappedRow.created_at,
+          updated_at: mappedRow.updated_at,
           deleted_at: row.deleted_at ?? null,
           activity,
         },
@@ -414,7 +530,7 @@ export const PlanningTasksService = {
           `id, organization_id, task_number, title, description_plain, description_rich,
            status, priority, branch_id, assigned_to, due_at, started_at, completed_at,
            cancelled_at, created_by, updated_by, created_at, updated_at, deleted_at,
-           assignee:users!assigned_to(first_name, last_name, email),
+           assignee:users!assigned_to(first_name, last_name, email, avatar_url, avatar_path),
            creator:users!created_by(first_name, last_name, email)`
         )
         .single();
@@ -439,8 +555,8 @@ export const PlanningTasksService = {
         );
       }
 
-      const assignee = Array.isArray(row.assignee) ? row.assignee[0] : row.assignee;
-      const creator = Array.isArray(row.creator) ? row.creator[0] : row.creator;
+      const signedAvatarUrls = await batchSignAvatarUrls(collectAvatarSignEntries([row]));
+      const mappedRow = mapTaskRow(row, signedAvatarUrls);
 
       return {
         success: true,
@@ -451,26 +567,24 @@ export const PlanningTasksService = {
           title: row.title,
           description_plain: row.description_plain ?? null,
           description_rich: row.description_rich ?? null,
-          status: row.status as TaskStatus,
-          priority: row.priority as TaskPriority,
-          branch_id: row.branch_id ?? null,
-          assigned_to: row.assigned_to ?? null,
-          assignee_name: assignee
-            ? displayName(assignee.first_name, assignee.last_name, assignee.email)
-            : null,
-          assignee_email: assignee?.email ?? null,
-          created_by: row.created_by,
-          creator_name: creator
-            ? displayName(creator.first_name, creator.last_name, creator.email)
-            : null,
-          creator_email: creator?.email ?? null,
+          status: mappedRow.status,
+          priority: mappedRow.priority,
+          branch_id: mappedRow.branch_id,
+          assigned_to: mappedRow.assigned_to,
+          assignee_name: mappedRow.assignee_name,
+          assignee_email: mappedRow.assignee_email,
+          assignee_avatar_url: mappedRow.assignee_avatar_url,
+          assignee_profile_href: mappedRow.assignee_profile_href,
+          created_by: mappedRow.created_by,
+          creator_name: mappedRow.creator_name,
+          creator_email: mappedRow.creator_email,
           updated_by: row.updated_by ?? null,
-          due_at: row.due_at ?? null,
-          started_at: row.started_at ?? null,
-          completed_at: row.completed_at ?? null,
-          cancelled_at: row.cancelled_at ?? null,
-          created_at: row.created_at,
-          updated_at: row.updated_at,
+          due_at: mappedRow.due_at,
+          started_at: mappedRow.started_at,
+          completed_at: mappedRow.completed_at,
+          cancelled_at: mappedRow.cancelled_at,
+          created_at: mappedRow.created_at,
+          updated_at: mappedRow.updated_at,
           deleted_at: row.deleted_at ?? null,
           activity: [],
         },
