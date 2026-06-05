@@ -42,6 +42,7 @@ export const createKanbanCardSchema = z.object({
   column_id: z.string().uuid(),
   title: z.string().trim().min(1).max(300),
   description: z.string().trim().max(4000).nullable().optional(),
+  description_rich: z.unknown().nullable().optional(),
   due_at: z.string().datetime().nullable().optional(),
   label: z.string().trim().max(80).nullable().optional(),
   label_color: z

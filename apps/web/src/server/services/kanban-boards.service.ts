@@ -13,8 +13,10 @@ import type {
   UpdateKanbanCardInput,
   UpdateKanbanColumnInput,
 } from "@/lib/validations/kanban";
+import { normalizeCommentRichText } from "@/lib/validations/comments";
 import {
   MAX_KANBAN_BOARDS_PER_USER,
+  type KanbanCardActivity,
   type KanbanBoardCard,
   type KanbanBoardColumn,
   type KanbanBoardDetail,
@@ -73,6 +75,7 @@ function mapCard(row: any): KanbanBoardCard {
     organization_id: row.organization_id,
     title: row.title,
     description: row.description ?? null,
+    description_rich: row.description_rich ?? null,
     due_at: row.due_at ?? null,
     label: row.label ?? null,
     label_color: row.label_color ?? null,
@@ -84,6 +87,23 @@ function mapCard(row: any): KanbanBoardCard {
     creator_email: creator?.email ?? null,
     created_at: row.created_at,
     updated_at: row.updated_at,
+  };
+}
+
+function mapActivity(row: any): KanbanCardActivity {
+  const actor = Array.isArray(row.actor) ? row.actor[0] : row.actor;
+  return {
+    id: row.id,
+    organization_id: row.organization_id,
+    board_id: row.board_id,
+    card_id: row.card_id,
+    actor_id: row.actor_id ?? null,
+    actor_name: actor ? displayName(actor.first_name, actor.last_name, actor.email) : null,
+    actor_email: actor?.email ?? null,
+    activity_type: row.activity_type,
+    message: row.message ?? null,
+    metadata: row.metadata ?? {},
+    created_at: row.created_at,
   };
 }
 
@@ -105,6 +125,50 @@ async function nextPosition(
 }
 
 export const KanbanBoardsService = {
+  async recordCardActivity(
+    supabase: SupabaseClient,
+    orgId: string,
+    boardId: string,
+    cardId: string,
+    actorId: string | null,
+    activityType: string,
+    metadata: Record<string, unknown> = {},
+    message?: string
+  ): Promise<void> {
+    await supabase.from("planning_kanban_card_activity").insert({
+      organization_id: orgId,
+      board_id: boardId,
+      card_id: cardId,
+      actor_id: actorId,
+      activity_type: activityType,
+      message: message ?? null,
+      metadata,
+    });
+  },
+
+  async listCardActivity(
+    supabase: SupabaseClient,
+    orgId: string,
+    cardId: string
+  ): Promise<ServiceResult<KanbanCardActivity[]>> {
+    try {
+      const { data, error } = await supabase
+        .from("planning_kanban_card_activity")
+        .select(
+          `id, organization_id, board_id, card_id, actor_id, activity_type, message, metadata, created_at,
+           actor:users!actor_id(first_name, last_name, email)`
+        )
+        .eq("organization_id", orgId)
+        .eq("card_id", cardId)
+        .order("created_at", { ascending: true });
+
+      if (error) return { success: false, error: error.message };
+      return { success: true, data: (data ?? []).map(mapActivity) };
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : "Unexpected error" };
+    }
+  },
+
   async listBoards(
     supabase: SupabaseClient,
     orgId: string
@@ -161,6 +225,7 @@ export const KanbanBoardsService = {
           .from("planning_kanban_cards")
           .select(
             `id, board_id, column_id, organization_id, title, description, due_at, label, label_color, position, created_by, created_at, updated_at,
+             description_rich,
              creator:users!created_by(first_name, last_name, email)`
           )
           .eq("organization_id", orgId)
@@ -389,20 +454,33 @@ export const KanbanBoardsService = {
         "column_id",
         input.column_id
       );
-      const { error } = await supabase.from("planning_kanban_cards").insert({
-        board_id: input.board_id,
-        column_id: input.column_id,
-        organization_id: orgId,
-        title: input.title,
-        description: input.description || null,
-        due_at: input.due_at || null,
-        label: input.label || null,
-        label_color: input.label_color || null,
-        position,
-        created_by: userId,
-        updated_by: userId,
-      });
+      const { data, error } = await supabase
+        .from("planning_kanban_cards")
+        .insert({
+          board_id: input.board_id,
+          column_id: input.column_id,
+          organization_id: orgId,
+          title: input.title,
+          description: input.description || null,
+          description_rich: normalizeCommentRichText(input.description_rich) ?? null,
+          due_at: input.due_at || null,
+          label: input.label || null,
+          label_color: input.label_color || null,
+          position,
+          created_by: userId,
+          updated_by: userId,
+        })
+        .select("id")
+        .single();
       if (error) return { success: false, error: error.message };
+      await KanbanBoardsService.recordCardActivity(
+        supabase,
+        orgId,
+        input.board_id,
+        (data as any).id,
+        userId,
+        "card_created"
+      );
       return KanbanBoardsService.getBoard(supabase, orgId, input.board_id);
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : "Unexpected error" };
@@ -422,6 +500,7 @@ export const KanbanBoardsService = {
           column_id: input.column_id,
           title: input.title,
           description: input.description || null,
+          description_rich: normalizeCommentRichText(input.description_rich) ?? null,
           due_at: input.due_at || null,
           label: input.label || null,
           label_color: input.label_color || null,
@@ -432,6 +511,14 @@ export const KanbanBoardsService = {
         .eq("id", input.id)
         .is("deleted_at", null);
       if (error) return { success: false, error: error.message };
+      await KanbanBoardsService.recordCardActivity(
+        supabase,
+        orgId,
+        input.board_id,
+        input.id,
+        userId,
+        "card_updated"
+      );
       return KanbanBoardsService.getBoard(supabase, orgId, input.board_id);
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : "Unexpected error" };
@@ -458,6 +545,7 @@ export const KanbanBoardsService = {
       const cards = (cardsRaw ?? []) as any[];
       const moved = cards.find((card) => card.id === input.card_id);
       if (!moved) return { success: false, error: "Card not found" };
+      const fromColumnId = moved.column_id;
 
       const affectedColumnIds = new Set([moved.column_id, input.to_column_id]);
       const updates: Array<PromiseLike<{ error: unknown }>> = [];
@@ -495,6 +583,16 @@ export const KanbanBoardsService = {
           error: failed.error instanceof Error ? failed.error.message : "Failed to move card",
         };
       }
+
+      await KanbanBoardsService.recordCardActivity(
+        supabase,
+        orgId,
+        input.board_id,
+        input.card_id,
+        userId,
+        "card_moved",
+        { from_column_id: fromColumnId, to_column_id: input.to_column_id }
+      );
 
       return KanbanBoardsService.getBoard(supabase, orgId, input.board_id);
     } catch (e) {
@@ -543,6 +641,14 @@ export const KanbanBoardsService = {
         .eq("id", cardId)
         .is("deleted_at", null);
       if (error) return { success: false, error: error.message };
+      await KanbanBoardsService.recordCardActivity(
+        supabase,
+        orgId,
+        boardId,
+        cardId,
+        userId,
+        "card_archived"
+      );
       return KanbanBoardsService.getBoard(supabase, orgId, boardId);
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : "Unexpected error" };

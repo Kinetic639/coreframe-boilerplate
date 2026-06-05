@@ -4,15 +4,18 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import { useTranslations } from "next-intl";
 import {
   Archive,
-  Columns3,
+  Activity,
+  Calendar,
   Edit3,
   Globe2,
+  Loader2,
   Lock,
   MoreHorizontal,
   Plus,
   Save,
   SendHorizontal,
   Trash2,
+  User,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +36,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import {
   Select,
   SelectContent,
@@ -42,6 +46,16 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { KanbanBoard, KanbanCard, type KanbanCardMoveParams } from "@/components/primitives/kanban";
+import { PageLoader } from "@/components/page-loader";
+import { CommentsThread } from "@/components/features/comments";
+import { RichTextEditorField } from "@/components/primitives/rich-text/rich-text-editor-field";
+import { RichTextRenderer } from "@/components/primitives/rich-text/rich-text-renderer";
+import type { RichTextValue } from "@/components/primitives/rich-text/rich-text-types";
+import {
+  createEmptyRichText,
+  extractPlainText,
+  normalizeRichText,
+} from "@/components/primitives/rich-text/rich-text-utils";
 import {
   createKanbanBoardAction,
   createKanbanCardAction,
@@ -50,6 +64,8 @@ import {
   deleteKanbanCardAction,
   deleteKanbanColumnAction,
   getKanbanBoardAction,
+  listKanbanBoardsAction,
+  listKanbanCardActivityAction,
   moveKanbanCardAction,
   reorderKanbanColumnsAction,
   updateKanbanBoardAction,
@@ -62,6 +78,7 @@ import {
   type KanbanBoardColumn,
   type KanbanBoardDetail,
   type KanbanBoardSummary,
+  type KanbanCardActivity,
 } from "@/lib/types/kanban";
 import { useUiStoreV2 } from "@/lib/stores/v2/ui-store";
 import type { KanbanVisibility } from "@/lib/validations/kanban";
@@ -97,6 +114,33 @@ function fromDateInput(value: string): string | null {
 function formatDate(value: string | null): string | null {
   if (!value) return null;
   return new Date(value).toLocaleDateString();
+}
+
+function formatDateTime(value: string | null): string {
+  if (!value) return "—";
+  return new Date(value).toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function activityLabel(
+  t: ReturnType<typeof useTranslations>,
+  type: string,
+  fallback: string | null
+) {
+  const keys: Record<string, string> = {
+    card_created: "activityMessages.cardCreated",
+    card_updated: "activityMessages.cardUpdated",
+    card_moved: "activityMessages.cardMoved",
+    card_archived: "activityMessages.cardArchived",
+    comment_added: "activityMessages.commentAdded",
+  };
+  const key = keys[type];
+  return key ? t(`boards.${key}`) : (fallback ?? type);
 }
 
 function applyCardMoveToBoard(
@@ -148,8 +192,10 @@ export function PlanningBoardsClient({
   const setFlushContent = useUiStoreV2((state) => state.setFlushContent);
   const [boards, setBoards] = useState(initialBoards);
   const [selectedBoard, setSelectedBoard] = useState<KanbanBoardDetail | null>(initialBoard);
+  const [activeBoardId, setActiveBoardId] = useState<string | null>(initialBoard?.id ?? null);
+  const [loadingBoardId, setLoadingBoardId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
-  const [isPending, startTransition] = useTransition();
+  const boardLoadRequestIdRef = useRef(0);
 
   const canCreateMore = canCreate && boards.length < MAX_KANBAN_BOARDS_PER_USER;
 
@@ -158,47 +204,105 @@ export function PlanningBoardsClient({
     return () => setFlushContent(false);
   }, [setFlushContent]);
 
-  const selectBoard = useCallback((boardId: string) => {
-    startTransition(async () => {
-      const result = await getKanbanBoardAction(boardId);
-      if (!result.success) {
-        toast.error(actionError(result));
-        return;
-      }
-      setSelectedBoard(result.data);
-    });
+  const setBoardParam = useCallback((boardId: string | null) => {
+    const params = new URLSearchParams(window.location.search);
+    if (boardId) {
+      params.set("board", boardId);
+    } else {
+      params.delete("board");
+    }
+    const query = params.toString();
+    const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
+    window.history.pushState(null, "", nextUrl);
   }, []);
 
-  const handleBoardChange = useCallback((board: KanbanBoardDetail) => {
-    setSelectedBoard(board);
-    setBoards((current) =>
-      current.map((item) =>
-        item.id === board.id
-          ? {
-              id: board.id,
-              organization_id: board.organization_id,
-              title: board.title,
-              description: board.description,
-              visibility: board.visibility,
-              created_by: board.created_by,
-              creator_name: board.creator_name,
-              creator_email: board.creator_email,
-              created_at: board.created_at,
-              updated_at: board.updated_at,
-            }
-          : item
-      )
-    );
+  const refreshBoards = useCallback(async () => {
+    const result = await listKanbanBoardsAction();
+    if (result.success) {
+      setBoards(result.data);
+      return result.data;
+    }
+    toast.error(actionError(result));
+    return null;
   }, []);
+
+  const loadBoard = useCallback(async (boardId: string) => {
+    const requestId = boardLoadRequestIdRef.current + 1;
+    boardLoadRequestIdRef.current = requestId;
+    setActiveBoardId(boardId);
+    setLoadingBoardId(boardId);
+    setSelectedBoard(null);
+
+    const result = await getKanbanBoardAction(boardId);
+    if (requestId !== boardLoadRequestIdRef.current) return;
+
+    if (!result.success) {
+      setLoadingBoardId(null);
+      toast.error(actionError(result));
+      return;
+    }
+
+    setSelectedBoard(result.data);
+    setLoadingBoardId(null);
+  }, []);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const boardId = new URLSearchParams(window.location.search).get("board");
+      if (!boardId) return;
+      void loadBoard(boardId);
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [loadBoard]);
+
+  const selectBoard = useCallback(
+    (boardId: string) => {
+      if (activeBoardId === boardId) return;
+      setBoardParam(boardId);
+      void loadBoard(boardId);
+    },
+    [activeBoardId, loadBoard, setBoardParam]
+  );
+
+  const handleBoardChange = useCallback(
+    (board: KanbanBoardDetail) => {
+      if (activeBoardId && board.id !== activeBoardId) return;
+      setSelectedBoard(board);
+      setBoards((current) =>
+        [
+          {
+            id: board.id,
+            organization_id: board.organization_id,
+            title: board.title,
+            description: board.description,
+            visibility: board.visibility,
+            created_by: board.created_by,
+            creator_name: board.creator_name,
+            creator_email: board.creator_email,
+            created_at: board.created_at,
+            updated_at: board.updated_at,
+          },
+          ...current.filter((item) => item.id !== board.id),
+        ].sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+      );
+    },
+    [activeBoardId]
+  );
 
   const handleBoardCreated = useCallback(
     (board: KanbanBoardDetail) => {
       setBoards((current) => [board, ...current.filter((item) => item.id !== board.id)]);
+      boardLoadRequestIdRef.current += 1;
+      setActiveBoardId(board.id);
+      setLoadingBoardId(null);
       setSelectedBoard(board);
+      setBoardParam(board.id);
       setCreateOpen(false);
+      void refreshBoards();
       toast.success(t("boards.boardCreated"));
     },
-    [t]
+    [refreshBoards, setBoardParam, t]
   );
 
   const handleBoardDeleted = useCallback(
@@ -211,94 +315,90 @@ export function PlanningBoardsClient({
       setBoards(result.data);
       const nextBoard = result.data[0] ?? null;
       if (!nextBoard) {
+        boardLoadRequestIdRef.current += 1;
+        setActiveBoardId(null);
         setSelectedBoard(null);
+        setLoadingBoardId(null);
+        setBoardParam(null);
         return;
       }
-      const detail = await getKanbanBoardAction(nextBoard.id);
-      setSelectedBoard(detail.success ? detail.data : null);
+      setBoardParam(nextBoard.id);
+      void loadBoard(nextBoard.id);
       toast.success(t("boards.boardArchived"));
     },
-    [t]
+    [loadBoard, setBoardParam, t]
   );
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden">
-      <div className="flex items-center justify-between border-b px-6 py-4">
-        <div className="flex min-w-0 items-center gap-2">
-          <Columns3 className="h-5 w-5 text-teal-600" />
-          <div className="min-w-0">
-            <h1 className="truncate text-lg font-semibold">{t("pages.boards.title")}</h1>
-            <p className="text-sm text-muted-foreground">{t("pages.boards.subtitle")}</p>
-          </div>
+    <div className="grid h-full min-h-0 grid-cols-[18rem_minmax(0,1fr)] overflow-hidden">
+      <aside className="flex min-h-0 flex-col border-r bg-muted/10">
+        <div className="border-b p-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            {t("boards.myBoards")}
+          </p>
+        </div>
+        <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto p-2">
+          {boards.length ? (
+            boards.map((board) => (
+              <button
+                key={board.id}
+                type="button"
+                onClick={() => selectBoard(board.id)}
+                className={cn(
+                  "flex min-w-0 flex-col gap-1 rounded-md px-3 py-2 text-left transition hover:bg-muted",
+                  activeBoardId === board.id && "bg-muted"
+                )}
+              >
+                <span className="truncate text-sm font-medium">{board.title}</span>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  {board.visibility === "public" ? (
+                    <Globe2 className="h-3.5 w-3.5" />
+                  ) : (
+                    <Lock className="h-3.5 w-3.5" />
+                  )}
+                  <span>{t(`boards.visibility.${board.visibility}`)}</span>
+                </div>
+              </button>
+            ))
+          ) : (
+            <div className="px-3 py-8 text-sm text-muted-foreground">{t("boards.empty")}</div>
+          )}
         </div>
         {canCreate ? (
-          <CreateBoardDialog
-            open={createOpen}
-            onOpenChange={setCreateOpen}
-            onCreated={handleBoardCreated}
-            disabled={!canCreateMore}
-            helperText={
-              canCreateMore
-                ? t("boards.limit", { count: boards.length, max: MAX_KANBAN_BOARDS_PER_USER })
-                : t("boards.limitReached", { max: MAX_KANBAN_BOARDS_PER_USER })
-            }
-          />
-        ) : null}
-      </div>
-
-      <div className="grid min-h-0 flex-1 grid-cols-[18rem_minmax(0,1fr)] overflow-hidden">
-        <aside className="min-h-0 border-r bg-muted/10">
-          <div className="border-b p-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {t("boards.myBoards")}
-            </p>
-          </div>
-          <div className="flex min-h-0 flex-col gap-1 overflow-y-auto p-2">
-            {boards.length ? (
-              boards.map((board) => (
-                <button
-                  key={board.id}
-                  type="button"
-                  onClick={() => selectBoard(board.id)}
-                  className={cn(
-                    "flex min-w-0 flex-col gap-1 rounded-md px-3 py-2 text-left transition hover:bg-muted",
-                    selectedBoard?.id === board.id && "bg-muted"
-                  )}
-                >
-                  <span className="truncate text-sm font-medium">{board.title}</span>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    {board.visibility === "public" ? (
-                      <Globe2 className="h-3.5 w-3.5" />
-                    ) : (
-                      <Lock className="h-3.5 w-3.5" />
-                    )}
-                    <span>{t(`boards.visibility.${board.visibility}`)}</span>
-                  </div>
-                </button>
-              ))
-            ) : (
-              <div className="px-3 py-8 text-sm text-muted-foreground">{t("boards.empty")}</div>
-            )}
-          </div>
-        </aside>
-
-        <main className="min-h-0 overflow-hidden">
-          {selectedBoard ? (
-            <BoardWorkspace
-              board={selectedBoard}
-              canUpdate={canUpdate}
-              canDelete={canDelete}
-              isPending={isPending}
-              onBoardChange={handleBoardChange}
-              onBoardDeleted={() => handleBoardDeleted(selectedBoard.id)}
+          <div className="border-t p-2">
+            <CreateBoardDialog
+              open={createOpen}
+              onOpenChange={setCreateOpen}
+              onCreated={handleBoardCreated}
+              disabled={!canCreateMore}
+              helperText={
+                canCreateMore
+                  ? t("boards.limit", { count: boards.length, max: MAX_KANBAN_BOARDS_PER_USER })
+                  : t("boards.limitReached", { max: MAX_KANBAN_BOARDS_PER_USER })
+              }
             />
-          ) : (
-            <div className="flex h-full items-center justify-center p-8 text-center text-sm text-muted-foreground">
-              {t("boards.selectBoard")}
-            </div>
-          )}
-        </main>
-      </div>
+          </div>
+        ) : null}
+      </aside>
+
+      <main className="min-h-0 overflow-hidden">
+        {loadingBoardId ? (
+          <PageLoader className="h-full" />
+        ) : selectedBoard ? (
+          <BoardWorkspace
+            key={selectedBoard.id}
+            board={selectedBoard}
+            canUpdate={canUpdate}
+            canDelete={canDelete}
+            onBoardChange={handleBoardChange}
+            onBoardDeleted={() => handleBoardDeleted(selectedBoard.id)}
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center p-8 text-center text-sm text-muted-foreground">
+            {t("boards.selectBoard")}
+          </div>
+        )}
+      </main>
     </div>
   );
 }
@@ -339,7 +439,7 @@ function CreateBoardDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
-        <Button size="sm" className="gap-1.5" disabled={disabled}>
+        <Button size="sm" className="w-full justify-start gap-1.5" disabled={disabled}>
           <Plus className="h-4 w-4" />
           {t("boards.newBoard")}
         </Button>
@@ -398,19 +498,18 @@ function BoardWorkspace({
   board,
   canUpdate,
   canDelete,
-  isPending,
   onBoardChange,
   onBoardDeleted,
 }: {
   board: KanbanBoardDetail;
   canUpdate: boolean;
   canDelete: boolean;
-  isPending: boolean;
   onBoardChange: (board: KanbanBoardDetail) => void;
   onBoardDeleted: () => void | Promise<void>;
 }) {
   const t = useTranslations("modules.planning");
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+  const [collapsedColumnIds, setCollapsedColumnIds] = useState<string[]>([]);
   const cardMoveRequestIdRef = useRef(0);
   const cardMovePersistenceQueueRef = useRef<Promise<void>>(Promise.resolve());
 
@@ -515,9 +614,6 @@ function BoardWorkspace({
           ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          {isPending ? (
-            <span className="text-xs text-muted-foreground">{t("boards.loading")}</span>
-          ) : null}
           <BoardSettingsDialog
             board={board}
             canUpdate={canUpdate}
@@ -538,9 +634,19 @@ function BoardWorkspace({
           labels={{
             emptyColumn: t("boards.emptyColumn"),
             dragColumn: t("boards.dragColumn"),
+            collapseColumn: t("boards.collapseColumn"),
+            expandColumn: t("boards.expandColumn"),
           }}
           className="gap-3 p-0 pb-0"
           columnClassName="min-h-0 rounded-none border-y-0"
+          collapsedColumnIds={collapsedColumnIds}
+          onColumnCollapsedChange={(columnId, collapsed) => {
+            setCollapsedColumnIds((current) =>
+              collapsed
+                ? Array.from(new Set([...current, columnId]))
+                : current.filter((id) => id !== columnId)
+            );
+          }}
           onCardMove={moveCard}
           onColumnsChange={reorderColumns}
           renderColumnActions={(column) =>
@@ -880,24 +986,45 @@ function CardDetailDialog({
 }) {
   const t = useTranslations("modules.planning");
   const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
+  const [descriptionRich, setDescriptionRich] = useState<RichTextValue>(createEmptyRichText);
   const [columnId, setColumnId] = useState("");
   const [dueAt, setDueAt] = useState("");
   const [label, setLabel] = useState("");
   const [labelColor, setLabelColor] = useState(LABEL_COLORS[0]);
+  const [activity, setActivity] = useState<KanbanCardActivity[]>([]);
+  const [loadingActivity, setLoadingActivity] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
     setTitle(card?.title ?? "");
-    setDescription(card?.description ?? "");
+    setDescriptionRich(normalizeRichText(card?.description_rich) ?? createEmptyRichText());
     setColumnId(card?.column_id ?? "");
     setDueAt(toDateInput(card?.due_at ?? null));
     setLabel(card?.label ?? "");
     setLabelColor(card?.label_color ?? LABEL_COLORS[0]);
   }, [card]);
 
+  const loadActivity = useCallback(async (cardId: string) => {
+    setLoadingActivity(true);
+    try {
+      const result = await listKanbanCardActivityAction(cardId);
+      if (result.success) setActivity(result.data);
+    } finally {
+      setLoadingActivity(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!card) {
+      setActivity([]);
+      return;
+    }
+    void loadActivity(card.id);
+  }, [card, loadActivity]);
+
   const save = useCallback(() => {
     if (!card) return;
+    const description = extractPlainText(descriptionRich).trim();
     startTransition(async () => {
       const result = await updateKanbanCardAction({
         id: card.id,
@@ -905,6 +1032,7 @@ function CardDetailDialog({
         column_id: columnId,
         title,
         description,
+        description_rich: descriptionRich,
         due_at: fromDateInput(dueAt),
         label,
         label_color: label ? labelColor : null,
@@ -914,18 +1042,18 @@ function CardDetailDialog({
         return;
       }
       onChanged(result.data);
-      onOpenChange(false);
+      await loadActivity(card.id);
     });
   }, [
     board.id,
     card,
     columnId,
-    description,
+    descriptionRich,
     dueAt,
     label,
     labelColor,
+    loadActivity,
     onChanged,
-    onOpenChange,
     title,
   ]);
 
@@ -943,85 +1071,232 @@ function CardDetailDialog({
 
   return (
     <Dialog open={Boolean(card)} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="flex max-h-[88vh] max-w-5xl flex-col overflow-hidden p-0">
         <DialogHeader>
-          <DialogTitle>{t("boards.cardDetails")}</DialogTitle>
-        </DialogHeader>
-        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_14rem]">
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>{t("boards.cardTitle")}</Label>
-              <Input value={title} onChange={(event) => setTitle(event.target.value)} />
+          <div className="border-b px-5 py-4">
+            <div className="mb-1 flex items-center gap-2 text-xs text-muted-foreground">
+              <span>{t("boards.cardDetails")}</span>
+              <span>•</span>
+              <span>{columns.find((column) => column.id === card?.column_id)?.title}</span>
             </div>
-            <div className="space-y-2">
-              <Label>{t("boards.cardDescription")}</Label>
-              <Textarea
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                className="min-h-40"
+            <DialogTitle asChild>
+              <Input
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                disabled={!canUpdate || isPending}
+                className="h-auto border-0 bg-transparent px-0 text-xl font-semibold shadow-none focus-visible:ring-0"
               />
+            </DialogTitle>
+          </div>
+        </DialogHeader>
+
+        <div className="grid min-h-0 flex-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_18rem]">
+          <div className="min-h-0 overflow-y-auto px-5 py-4">
+            <div className="space-y-5">
+              <section className="space-y-2">
+                <Label>{t("boards.cardDescription")}</Label>
+                {canUpdate ? (
+                  <RichTextEditorField
+                    value={descriptionRich}
+                    onChange={setDescriptionRich}
+                    placeholder={t("boards.cardDescriptionPlaceholder")}
+                    disabled={isPending}
+                    mode="full"
+                    maxLength={4000}
+                    contentClassName="min-h-[180px] [&_.ProseMirror]:min-h-[160px]"
+                  />
+                ) : (
+                  <RichTextRenderer
+                    value={normalizeRichText(card?.description_rich) ?? undefined}
+                    emptyText={card?.description ?? t("boards.noDescription")}
+                  />
+                )}
+              </section>
+
+              <Separator />
+
+              {card ? (
+                <CommentsThread
+                  key={card.id}
+                  targetType="planning.kanban_card"
+                  targetId={card.id}
+                  density="compact"
+                  labels={{
+                    title: t("boards.comments.title"),
+                    empty: t("boards.comments.empty"),
+                    placeholder: t("boards.comments.placeholder"),
+                    submit: t("boards.comments.submit"),
+                  }}
+                  onCommentAdded={() => loadActivity(card.id)}
+                />
+              ) : null}
+
+              <Separator />
+
+              <section>
+                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  {t("boards.activity")}
+                </p>
+                {loadingActivity ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {t("boards.loading")}
+                  </div>
+                ) : (
+                  <KanbanCardActivityList activity={activity} />
+                )}
+              </section>
             </div>
           </div>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>{t("boards.column")}</Label>
-              <Select value={columnId} onValueChange={setColumnId}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {columns.map((column) => (
-                    <SelectItem key={column.id} value={column.id}>
-                      {column.title}
-                    </SelectItem>
+
+          <aside className="min-h-0 overflow-y-auto border-t bg-muted/10 p-4 lg:border-l lg:border-t-0">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>{t("boards.column")}</Label>
+                <Select value={columnId} onValueChange={setColumnId} disabled={!canUpdate}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {columns.map((column) => (
+                      <SelectItem key={column.id} value={column.id}>
+                        {column.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>{t("boards.dueDate")}</Label>
+                <Input
+                  type="date"
+                  value={dueAt}
+                  disabled={!canUpdate}
+                  onChange={(event) => setDueAt(event.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{t("boards.label")}</Label>
+                <Input
+                  value={label}
+                  disabled={!canUpdate}
+                  onChange={(event) => setLabel(event.target.value)}
+                />
+                <div className="flex flex-wrap gap-1">
+                  {LABEL_COLORS.map((candidate) => (
+                    <button
+                      key={candidate}
+                      type="button"
+                      disabled={!canUpdate}
+                      className={cn(
+                        "h-6 w-6 rounded-full border border-border",
+                        labelColor === candidate &&
+                          "ring-2 ring-ring ring-offset-2 ring-offset-background"
+                      )}
+                      style={{ backgroundColor: candidate }}
+                      onClick={() => setLabelColor(candidate)}
+                      aria-label={candidate}
+                    />
                   ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>{t("boards.dueDate")}</Label>
-              <Input type="date" value={dueAt} onChange={(event) => setDueAt(event.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>{t("boards.label")}</Label>
-              <Input value={label} onChange={(event) => setLabel(event.target.value)} />
-              <div className="flex flex-wrap gap-1">
-                {LABEL_COLORS.map((candidate) => (
-                  <button
-                    key={candidate}
-                    type="button"
-                    className={cn(
-                      "h-6 w-6 rounded-full border border-border",
-                      labelColor === candidate &&
-                        "ring-2 ring-ring ring-offset-2 ring-offset-background"
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-3 rounded-lg border bg-background p-3">
+                <div className="flex items-start gap-2">
+                  <User className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase text-muted-foreground">
+                      {t("boards.createdBy")}
+                    </p>
+                    <p className="truncate text-xs">
+                      {card?.creator_name ?? card?.creator_email ?? t("boards.unknown")}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Calendar className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase text-muted-foreground">
+                      {t("boards.created")}
+                    </p>
+                    <p className="text-xs">{formatDateTime(card?.created_at ?? null)}</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Calendar className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase text-muted-foreground">
+                      {t("boards.updated")}
+                    </p>
+                    <p className="text-xs">{formatDateTime(card?.updated_at ?? null)}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-2 lg:flex-col">
+                {canUpdate ? (
+                  <Button
+                    className="flex-1 gap-1.5"
+                    onClick={save}
+                    disabled={!title.trim() || !columnId || isPending}
+                  >
+                    {isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="h-4 w-4" />
                     )}
-                    style={{ backgroundColor: candidate }}
-                    onClick={() => setLabelColor(candidate)}
-                    aria-label={candidate}
-                  />
-                ))}
+                    {t("boards.save")}
+                  </Button>
+                ) : null}
+                {canDelete ? (
+                  <Button
+                    variant="outline"
+                    className="flex-1 gap-1.5 text-destructive hover:text-destructive"
+                    onClick={archive}
+                    disabled={isPending || !card}
+                  >
+                    <Archive className="h-4 w-4" />
+                    {t("boards.archiveCard")}
+                  </Button>
+                ) : null}
               </div>
             </div>
-          </div>
+          </aside>
         </div>
-        <DialogFooter className="gap-2 sm:justify-between">
-          {canDelete ? (
-            <Button variant="destructive" onClick={archive} disabled={isPending || !card}>
-              <Archive className="mr-1.5 h-4 w-4" />
-              {t("boards.archiveCard")}
-            </Button>
-          ) : (
-            <span />
-          )}
-          {canUpdate ? (
-            <Button disabled={!title.trim() || !columnId || isPending} onClick={save}>
-              <Save className="mr-1.5 h-4 w-4" />
-              {t("boards.save")}
-            </Button>
-          ) : null}
-        </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function KanbanCardActivityList({ activity }: { activity: KanbanCardActivity[] }) {
+  const t = useTranslations("modules.planning");
+
+  if (activity.length === 0) {
+    return (
+      <div className="flex flex-col items-center gap-2 py-6 text-center">
+        <Activity className="h-5 w-5 text-muted-foreground" />
+        <p className="text-xs text-muted-foreground">{t("boards.noActivity")}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {[...activity].reverse().map((item) => (
+        <div key={item.id} className="flex gap-2.5">
+          <span className="mt-0.5 shrink-0 text-sm">•</span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm">{activityLabel(t, item.activity_type, item.message)}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {item.actor_name ?? item.actor_email ?? t("boards.systemActor")} ·{" "}
+              {formatDateTime(item.created_at)}
+            </p>
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -1115,7 +1390,7 @@ function AddColumnPanel({
       <Button
         type="button"
         variant="outline"
-        className="h-11 w-[min(88vw,21rem)] shrink-0 justify-start gap-2 rounded-md border-dashed"
+        className="mt-3 h-11 w-[min(88vw,21rem)] shrink-0 justify-start gap-2 rounded-md border-dashed"
         onClick={() => setOpen(true)}
       >
         <Plus className="h-4 w-4" />
@@ -1125,7 +1400,7 @@ function AddColumnPanel({
   }
 
   return (
-    <section className="flex min-h-[12rem] w-[min(88vw,21rem)] shrink-0 flex-col gap-3 rounded-md border border-dashed border-border bg-muted/10 p-3">
+    <section className="mt-3 flex min-h-[12rem] w-[min(88vw,21rem)] shrink-0 flex-col gap-3 rounded-md border border-dashed border-border bg-muted/10 p-3">
       <p className="text-sm font-semibold">{t("boards.addColumn")}</p>
       <ColumnFields
         title={title}

@@ -34,6 +34,7 @@ export interface KanbanBoardCard {
   organization_id: string;
   title: string;
   description: string | null;
+  description_rich: unknown | null;
   due_at: string | null;
   label: string | null;
   label_color: string | null;
@@ -43,6 +44,20 @@ export interface KanbanBoardCard {
   creator_email: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface KanbanCardActivity {
+  id: string;
+  organization_id: string;
+  board_id: string;
+  card_id: string;
+  actor_id: string | null;
+  actor_name: string | null;
+  actor_email: string | null;
+  activity_type: string;
+  message: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
 }
 
 export interface KanbanBoardDetail extends KanbanBoardSummary {

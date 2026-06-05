@@ -32,7 +32,11 @@ import {
   type UpdateKanbanCardInput,
   type UpdateKanbanColumnInput,
 } from "@/lib/validations/kanban";
-import { type KanbanBoardDetail, type KanbanBoardSummary } from "@/lib/types/kanban";
+import {
+  type KanbanBoardDetail,
+  type KanbanBoardSummary,
+  type KanbanCardActivity,
+} from "@/lib/types/kanban";
 import { KanbanBoardsService } from "@/server/services/kanban-boards.service";
 
 type ActionResult<T> = { success: true; data: T } | { success: false; error: string };
@@ -81,6 +85,21 @@ export async function getKanbanBoardAction(
       return { success: false, error: "Insufficient permissions" };
     }
     return KanbanBoardsService.getBoard(ctx.supabase, ctx.orgId, boardId);
+  } catch {
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
+export async function listKanbanCardActivityAction(
+  cardId: string
+): Promise<ActionResult<KanbanCardActivity[]>> {
+  try {
+    const ctx = await getAuthedContext();
+    if (!ctx) return { success: false, error: "Unauthorized" };
+    if (!checkPermission(ctx.context.user.permissionSnapshot, PLANNING_BOARDS_READ)) {
+      return { success: false, error: "Insufficient permissions" };
+    }
+    return KanbanBoardsService.listCardActivity(ctx.supabase, ctx.orgId, cardId);
   } catch {
     return { success: false, error: "Unexpected error" };
   }

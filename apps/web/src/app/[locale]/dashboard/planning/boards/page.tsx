@@ -12,8 +12,13 @@ import { createClient } from "@/utils/supabase/server";
 import { KanbanBoardsService } from "@/server/services/kanban-boards.service";
 import { PlanningBoardsClient } from "./_components/planning-boards-client";
 
-export default async function PlanningBoardsPage() {
+interface PlanningBoardsPageProps {
+  searchParams?: Promise<{ board?: string }>;
+}
+
+export default async function PlanningBoardsPage({ searchParams }: PlanningBoardsPageProps) {
   const locale = await getLocale();
+  const resolvedSearchParams = await searchParams;
   const context = await loadDashboardContextV2();
 
   if (!context?.app.activeOrgId) return redirect({ href: "/sign-in", locale });
@@ -31,8 +36,13 @@ export default async function PlanningBoardsPage() {
   const supabase = await createClient();
   const boardsResult = await KanbanBoardsService.listBoards(supabase, context.app.activeOrgId);
   const boards = boardsResult.success ? boardsResult.data : [];
-  const firstBoardResult = boards[0]
-    ? await KanbanBoardsService.getBoard(supabase, context.app.activeOrgId, boards[0].id)
+  const requestedBoardId = resolvedSearchParams?.board;
+  const initialBoardId =
+    requestedBoardId && boards.some((board) => board.id === requestedBoardId)
+      ? requestedBoardId
+      : boards[0]?.id;
+  const firstBoardResult = initialBoardId
+    ? await KanbanBoardsService.getBoard(supabase, context.app.activeOrgId, initialBoardId)
     : null;
   const firstBoard = firstBoardResult?.success ? firstBoardResult.data : null;
   const snap = context.user.permissionSnapshot;
