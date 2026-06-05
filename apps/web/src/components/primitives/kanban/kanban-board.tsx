@@ -57,6 +57,20 @@ export function KanbanBoard<TItem>({
     setGroupedItems(groupKanbanItems(columns, items, getItemColumnId));
   }, [columns, getItemColumnId, items]);
 
+  useEffect(() => {
+    if (!activeItem && !activeColumn) return;
+
+    const previousBodyCursor = document.body.style.cursor;
+    const previousRootCursor = document.documentElement.style.cursor;
+    document.body.style.cursor = "grabbing";
+    document.documentElement.style.cursor = "grabbing";
+
+    return () => {
+      document.body.style.cursor = previousBodyCursor;
+      document.documentElement.style.cursor = previousRootCursor;
+    };
+  }, [activeColumn, activeItem]);
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 220, tolerance: 8 } }),

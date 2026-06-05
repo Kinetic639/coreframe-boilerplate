@@ -822,7 +822,7 @@ function BoardCard({
     <KanbanCard id={card.id}>
       <button
         type="button"
-        className="flex w-full min-w-0 cursor-inherit flex-col gap-2 text-left"
+        className="flex w-full min-w-0 cursor-grab flex-col gap-2 text-left active:cursor-grabbing"
         onClick={onOpen}
       >
         <div className="flex items-start justify-between gap-2">
