@@ -3308,6 +3308,9 @@
         "myBoards": "Tablice",
         "empty": "Brak tablic.",
         "selectBoard": "Wybierz tablicę albo utwórz nową.",
+        "switchBoards": "Przełącz tablicę",
+        "boardSearch": "Wyszukaj swoje tablice",
+        "recentBoards": "Ostatnie",
         "loading": "Ładowanie...",
         "limit": "Wykorzystano {count}/{max} tablic.",
         "limitReached": "Osiągnięto limit tablic. Możesz utworzyć maksymalnie {max} tablic.",
@@ -3350,6 +3353,11 @@
         "dragColumn": "Przeciągnij kolumnę",
         "collapseColumn": "Zwiń kolumnę",
         "expandColumn": "Rozwiń kolumnę",
+        "inbox": {
+          "title": "Skrzynka",
+          "description": "Wspólna skrzynka kart pomiędzy tablicami",
+          "toggle": "Pokaż lub ukryj skrzynkę"
+        },
         "comments": {
           "title": "Komentarze",
           "empty": "Brak komentarzy.",
@@ -3360,6 +3368,8 @@
           "cardCreated": "Karta utworzona",
           "cardUpdated": "Karta zaktualizowana",
           "cardMoved": "Karta przeniesiona",
+          "cardMovedToInbox": "Karta przeniesiona do skrzynki",
+          "cardMovedFromInbox": "Karta przeniesiona ze skrzynki",
           "cardArchived": "Karta zarchiwizowana",
           "commentAdded": "Komentarz dodany"
         },
@@ -3801,25 +3811,68 @@
       "quickAdd": {
         "title": "Szybkie dodawanie",
         "tooltip": "Szybkie dodawanie",
-        "inventory": {
+        "subtitle": "Twórz najczęstsze rekordy bez wychodzenia z pracy.",
+        "empty": "Brak dostępnych szybkich akcji.",
+        "warehouse": {
           "title": "MAGAZYN",
-          "product": "Produkt",
-          "location": "Lokalizacja",
-          "order": "Zamówienie"
+          "item": "Towar",
+          "itemDescription": "Otwórz formularz tworzenia towaru."
         },
-        "sales": {
-          "title": "SPRZEDAŻ",
-          "customer": "Klient",
-          "invoice": "Faktura"
+        "helpdesk": {
+          "title": "HELP DESK",
+          "ticket": "Zgłoszenie",
+          "ticketDescription": "Otwórz formularz nowego zgłoszenia."
         },
-        "purchases": {
-          "title": "ZAKUPY",
-          "supplier": "Dostawca",
-          "bill": "Rachunek"
+        "planning": {
+          "title": "PLANOWANIE",
+          "task": "Zadanie",
+          "taskDescription": "Utwórz szybkie zadanie planowania.",
+          "kanbanCard": "Karta Kanban",
+          "kanbanCardDescription": "Dodaj kartę do wybranej tablicy."
         },
-        "other": {
-          "title": "INNE",
-          "document": "Dokument"
+        "taskDialog": {
+          "title": "Utwórz zadanie",
+          "created": "Zadanie utworzone.",
+          "cancel": "Anuluj",
+          "submit": "Utwórz zadanie",
+          "fields": {
+            "title": "Tytuł",
+            "description": "Opis",
+            "priority": "Priorytet",
+            "due": "Termin"
+          },
+          "placeholders": {
+            "title": "Krótkie podsumowanie zadania",
+            "description": "Opcjonalny kontekst..."
+          },
+          "priorities": {
+            "low": "Niski",
+            "normal": "Normalny",
+            "high": "Wysoki",
+            "urgent": "Pilny"
+          }
+        },
+        "kanbanDialog": {
+          "title": "Utwórz kartę Kanban",
+          "created": "Karta Kanban utworzona.",
+          "cancel": "Anuluj",
+          "submit": "Utwórz kartę",
+          "loadingBoards": "Ładowanie tablic...",
+          "loadingColumns": "Ładowanie kolumn...",
+          "emptyBoards": "Najpierw utwórz tablicę Kanban, aby dodawać karty.",
+          "fields": {
+            "board": "Tablica",
+            "column": "Kolumna",
+            "title": "Tytuł",
+            "description": "Opis",
+            "due": "Termin"
+          },
+          "placeholders": {
+            "board": "Wybierz tablicę",
+            "column": "Wybierz kolumnę",
+            "title": "Tytuł karty",
+            "description": "Opcjonalny kontekst karty..."
+          }
         }
       },
       "userMenu": {

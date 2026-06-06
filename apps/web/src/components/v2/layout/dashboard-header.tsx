@@ -6,6 +6,7 @@ import { HeaderSearch } from "./header-search";
 import { HeaderNotifications } from "./header-notifications";
 import { HeaderMessages } from "./header-messages";
 import { HeaderContacts } from "./header-contacts";
+import { HeaderQuickAdd } from "./header-quick-add";
 
 /**
  * Dashboard Header V2
@@ -41,13 +42,14 @@ export function DashboardHeaderV2() {
         <HeaderSearch />
       </div>
 
-      {/* Right: Contacts + Messages + Notifications */}
+      {/* Right: Quick Add + Contacts + Messages + Notifications */}
       <div className="flex items-center gap-2 ml-auto px-6">
         {/* Mobile: Search icon */}
         <div className="md:hidden">
           <HeaderSearch />
         </div>
 
+        <HeaderQuickAdd />
         <HeaderContacts />
         <HeaderMessages />
         <HeaderNotifications />

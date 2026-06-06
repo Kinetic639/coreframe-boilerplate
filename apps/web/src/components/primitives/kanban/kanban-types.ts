@@ -32,12 +32,20 @@ export interface KanbanBoardProps<TItem> {
   onColumnsChange?: (columns: KanbanColumnDefinition[]) => void | Promise<void>;
   renderColumnActions?: (column: KanbanColumnDefinition) => ReactNode;
   renderColumnFooter?: (column: KanbanColumnDefinition) => ReactNode;
+  renderColumnEmpty?: (column: KanbanColumnDefinition) => ReactNode;
   renderAddColumn?: () => ReactNode;
+  renderScrollableHeader?: () => ReactNode;
+  renderScrollableEmpty?: () => ReactNode;
   labels?: KanbanBoardLabels;
   className?: string;
   columnClassName?: string;
+  scrollAreaClassName?: string;
+  fixedStartColumnIds?: string[];
+  fixedStartClassName?: string;
+  fixedColumnClassName?: string;
   disabled?: boolean;
   columnsDraggable?: boolean;
+  nonDraggableColumnIds?: string[];
   collapsedColumnIds?: string[];
   onColumnCollapsedChange?: (columnId: string, collapsed: boolean) => void;
 }

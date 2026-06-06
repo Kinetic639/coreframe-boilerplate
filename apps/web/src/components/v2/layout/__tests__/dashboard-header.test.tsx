@@ -13,6 +13,10 @@ vi.mock("../header-notifications", () => ({
   HeaderNotifications: () => <div data-testid="header-notifications">Notifications</div>,
 }));
 
+vi.mock("../header-quick-add", () => ({
+  HeaderQuickAdd: () => <div data-testid="header-quick-add">Quick Add</div>,
+}));
+
 // Mock shadcn/ui sidebar components
 vi.mock("@/components/ui/sidebar", () => ({
   SidebarTrigger: ({ className }: { className?: string }) => (

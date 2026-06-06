@@ -7,7 +7,9 @@ import type {
   DeleteKanbanBoardInput,
   DeleteKanbanColumnInput,
   KanbanVisibility,
+  MoveKanbanCardToInboxInput,
   MoveKanbanCardInput,
+  MoveKanbanInboxCardToBoardInput,
   ReorderKanbanColumnsInput,
   UpdateKanbanBoardInput,
   UpdateKanbanCardInput,
@@ -79,6 +81,7 @@ function mapCard(row: any): KanbanBoardCard {
     due_at: row.due_at ?? null,
     label: row.label ?? null,
     label_color: row.label_color ?? null,
+    is_inbox: row.is_inbox ?? false,
     position: row.position ?? 0,
     created_by: row.created_by,
     creator_name: creator
@@ -117,6 +120,19 @@ async function nextPosition(
     .from(table)
     .select("position")
     .eq(filterColumn, filterValue)
+    .is("deleted_at", null)
+    .order("position", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return ((data as any)?.position ?? -1) + 1;
+}
+
+async function nextInboxPosition(supabase: SupabaseClient, orgId: string): Promise<number> {
+  const { data } = await supabase
+    .from("planning_kanban_cards")
+    .select("position")
+    .eq("organization_id", orgId)
+    .eq("is_inbox", true)
     .is("deleted_at", null)
     .order("position", { ascending: false })
     .limit(1)
@@ -224,12 +240,13 @@ export const KanbanBoardsService = {
         supabase
           .from("planning_kanban_cards")
           .select(
-            `id, board_id, column_id, organization_id, title, description, due_at, label, label_color, position, created_by, created_at, updated_at,
+            `id, board_id, column_id, organization_id, title, description, due_at, label, label_color, is_inbox, position, created_by, created_at, updated_at,
              description_rich,
              creator:users!created_by(first_name, last_name, email)`
           )
           .eq("organization_id", orgId)
           .eq("board_id", boardId)
+          .eq("is_inbox", false)
           .is("deleted_at", null)
           .order("position", { ascending: true }),
       ]);
@@ -466,6 +483,7 @@ export const KanbanBoardsService = {
           due_at: input.due_at || null,
           label: input.label || null,
           label_color: input.label_color || null,
+          is_inbox: false,
           position,
           created_by: userId,
           updated_by: userId,
@@ -537,6 +555,7 @@ export const KanbanBoardsService = {
         .select("id, column_id, position")
         .eq("organization_id", orgId)
         .eq("board_id", input.board_id)
+        .eq("is_inbox", false)
         .is("deleted_at", null)
         .order("position", { ascending: true });
 
@@ -565,6 +584,7 @@ export const KanbanBoardsService = {
               .from("planning_kanban_cards")
               .update({
                 column_id: columnId,
+                is_inbox: false,
                 position: index,
                 updated_by: userId,
               })
@@ -595,6 +615,180 @@ export const KanbanBoardsService = {
       );
 
       return KanbanBoardsService.getBoard(supabase, orgId, input.board_id);
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : "Unexpected error" };
+    }
+  },
+
+  async listInboxCards(
+    supabase: SupabaseClient,
+    orgId: string
+  ): Promise<ServiceResult<KanbanBoardCard[]>> {
+    try {
+      const { data, error } = await supabase
+        .from("planning_kanban_cards")
+        .select(
+          `id, board_id, column_id, organization_id, title, description, due_at, label, label_color, is_inbox, position, created_by, created_at, updated_at,
+           description_rich,
+           creator:users!created_by(first_name, last_name, email)`
+        )
+        .eq("organization_id", orgId)
+        .eq("is_inbox", true)
+        .is("deleted_at", null)
+        .order("position", { ascending: true })
+        .order("updated_at", { ascending: false });
+
+      if (error) return { success: false, error: error.message };
+      return { success: true, data: (data ?? []).map(mapCard) };
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : "Unexpected error" };
+    }
+  },
+
+  async moveCardToInbox(
+    supabase: SupabaseClient,
+    orgId: string,
+    userId: string,
+    input: MoveKanbanCardToInboxInput
+  ): Promise<ServiceResult<{ board: KanbanBoardDetail; inbox: KanbanBoardCard[] }>> {
+    try {
+      const position = await nextInboxPosition(supabase, orgId);
+      const { data: cardRaw, error } = await supabase
+        .from("planning_kanban_cards")
+        .update({ is_inbox: true, position, updated_by: userId })
+        .eq("organization_id", orgId)
+        .eq("board_id", input.board_id)
+        .eq("id", input.card_id)
+        .eq("is_inbox", false)
+        .is("deleted_at", null)
+        .select("column_id")
+        .single();
+
+      if (error) return { success: false, error: error.message };
+
+      await KanbanBoardsService.recordCardActivity(
+        supabase,
+        orgId,
+        input.board_id,
+        input.card_id,
+        userId,
+        "card_moved_to_inbox",
+        { from_column_id: (cardRaw as any)?.column_id ?? null }
+      );
+
+      const [boardResult, inboxResult] = await Promise.all([
+        KanbanBoardsService.getBoard(supabase, orgId, input.board_id),
+        KanbanBoardsService.listInboxCards(supabase, orgId),
+      ]);
+      if (!boardResult.success) {
+        return {
+          success: false,
+          error: "error" in boardResult ? boardResult.error : "Failed to load board",
+        };
+      }
+      if (!inboxResult.success) {
+        return {
+          success: false,
+          error: "error" in inboxResult ? inboxResult.error : "Failed to load inbox",
+        };
+      }
+      return { success: true, data: { board: boardResult.data, inbox: inboxResult.data } };
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : "Unexpected error" };
+    }
+  },
+
+  async moveInboxCardToBoard(
+    supabase: SupabaseClient,
+    orgId: string,
+    userId: string,
+    input: MoveKanbanInboxCardToBoardInput
+  ): Promise<ServiceResult<{ board: KanbanBoardDetail; inbox: KanbanBoardCard[] }>> {
+    try {
+      const { data: targetCardsRaw, error: cardsError } = await supabase
+        .from("planning_kanban_cards")
+        .select("id, column_id, position")
+        .eq("organization_id", orgId)
+        .eq("board_id", input.board_id)
+        .eq("is_inbox", false)
+        .is("deleted_at", null)
+        .order("position", { ascending: true });
+
+      if (cardsError) return { success: false, error: cardsError.message };
+
+      const destinationCards = ((targetCardsRaw ?? []) as any[])
+        .filter((card) => card.column_id === input.column_id)
+        .sort((a, b) => a.position - b.position);
+      const boundedPosition = Math.max(0, Math.min(input.position, destinationCards.length));
+
+      destinationCards.splice(boundedPosition, 0, {
+        id: input.card_id,
+        column_id: input.column_id,
+        position: boundedPosition,
+      });
+
+      const movedUpdate = supabase
+        .from("planning_kanban_cards")
+        .update({
+          board_id: input.board_id,
+          column_id: input.column_id,
+          is_inbox: false,
+          position: boundedPosition,
+          updated_by: userId,
+        })
+        .eq("organization_id", orgId)
+        .eq("id", input.card_id)
+        .eq("is_inbox", true)
+        .is("deleted_at", null);
+
+      const positionUpdates = destinationCards
+        .filter((card) => card.id !== input.card_id)
+        .map((card, index) =>
+          supabase
+            .from("planning_kanban_cards")
+            .update({ position: index >= boundedPosition ? index + 1 : index, updated_by: userId })
+            .eq("organization_id", orgId)
+            .eq("board_id", input.board_id)
+            .eq("id", card.id)
+            .is("deleted_at", null)
+        );
+
+      const results = await Promise.all([movedUpdate, ...positionUpdates]);
+      const failed = results.find((result) => result.error);
+      if (failed?.error) {
+        return {
+          success: false,
+          error: failed.error instanceof Error ? failed.error.message : "Failed to move inbox card",
+        };
+      }
+
+      await KanbanBoardsService.recordCardActivity(
+        supabase,
+        orgId,
+        input.board_id,
+        input.card_id,
+        userId,
+        "card_moved_from_inbox",
+        { to_column_id: input.column_id }
+      );
+
+      const [boardResult, inboxResult] = await Promise.all([
+        KanbanBoardsService.getBoard(supabase, orgId, input.board_id),
+        KanbanBoardsService.listInboxCards(supabase, orgId),
+      ]);
+      if (!boardResult.success) {
+        return {
+          success: false,
+          error: "error" in boardResult ? boardResult.error : "Failed to load board",
+        };
+      }
+      if (!inboxResult.success) {
+        return {
+          success: false,
+          error: "error" in inboxResult ? inboxResult.error : "Failed to load inbox",
+        };
+      }
+      return { success: true, data: { board: boardResult.data, inbox: inboxResult.data } };
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : "Unexpected error" };
     }
