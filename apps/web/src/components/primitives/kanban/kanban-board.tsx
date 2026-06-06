@@ -36,12 +36,20 @@ export function KanbanBoard<TItem>({
   onColumnsChange,
   renderColumnActions,
   renderColumnFooter,
+  renderColumnEmpty,
   renderAddColumn,
+  renderScrollableHeader,
+  renderScrollableEmpty,
   labels,
   className,
   columnClassName,
+  scrollAreaClassName,
+  fixedStartColumnIds = [],
+  fixedStartClassName,
+  fixedColumnClassName,
   disabled = false,
   columnsDraggable = true,
+  nonDraggableColumnIds = [],
   collapsedColumnIds = [],
   onColumnCollapsedChange,
 }: KanbanBoardProps<TItem>) {
@@ -79,8 +87,25 @@ export function KanbanBoard<TItem>({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
-  const columnIds = useMemo(() => orderedColumns.map((column) => column.id), [orderedColumns]);
+  const fixedStartColumnSet = useMemo(() => new Set(fixedStartColumnIds), [fixedStartColumnIds]);
+  const fixedStartColumns = useMemo(
+    () => orderedColumns.filter((column) => fixedStartColumnSet.has(column.id)),
+    [fixedStartColumnSet, orderedColumns]
+  );
+  const scrollColumns = useMemo(
+    () => orderedColumns.filter((column) => !fixedStartColumnSet.has(column.id)),
+    [fixedStartColumnSet, orderedColumns]
+  );
+  const scrollColumnIds = useMemo(() => scrollColumns.map((column) => column.id), [scrollColumns]);
+  const fixedStartColumnIdsInOrder = useMemo(
+    () => fixedStartColumns.map((column) => column.id),
+    [fixedStartColumns]
+  );
   const collapsedColumnSet = useMemo(() => new Set(collapsedColumnIds), [collapsedColumnIds]);
+  const nonDraggableColumnSet = useMemo(
+    () => new Set(nonDraggableColumnIds),
+    [nonDraggableColumnIds]
+  );
 
   const resetToProps = useCallback(() => {
     setOrderedColumns(columns);
@@ -100,7 +125,7 @@ export function KanbanBoard<TItem>({
     const column = orderedColumns.find((candidate) => candidate.id === activeId);
 
     if (column) {
-      if (!columnsDraggable) return;
+      if (!columnsDraggable || nonDraggableColumnSet.has(column.id)) return;
       setActiveColumn(column);
       return;
     }
@@ -126,7 +151,9 @@ export function KanbanBoard<TItem>({
     if (activeId === overId) return;
 
     const draggingColumn =
-      columnsDraggable && orderedColumns.some((column) => column.id === activeId);
+      columnsDraggable &&
+      !nonDraggableColumnSet.has(activeId) &&
+      orderedColumns.some((column) => column.id === activeId);
     if (draggingColumn) {
       const activeIndex = orderedColumns.findIndex((column) => column.id === activeId);
       const overIndex = orderedColumns.findIndex((column) => column.id === overId);
@@ -192,6 +219,10 @@ export function KanbanBoard<TItem>({
         resetToProps();
         return;
       }
+      if (nonDraggableColumnSet.has(activeId) || nonDraggableColumnSet.has(overId)) {
+        resetToProps();
+        return;
+      }
 
       const activeIndex = columns.findIndex((column) => column.id === activeId);
       const overIndex = columns.findIndex((column) => column.id === overId);
@@ -238,31 +269,72 @@ export function KanbanBoard<TItem>({
       onDragOver={disabled ? undefined : handleDragOver}
       onDragEnd={disabled ? undefined : handleDragEnd}
     >
-      <div className={cn("flex h-full min-h-0 gap-4 overflow-x-auto p-1 pb-4", className)}>
-        <SortableContext items={columnIds} strategy={horizontalListSortingStrategy}>
-          {orderedColumns.map((column) => (
-            <KanbanColumn
-              key={column.id}
-              column={column}
-              items={groupedItems[column.id] ?? []}
-              getItemId={getItemId}
-              renderCard={(item) => renderCard(item, false)}
-              actions={renderColumnActions?.(column)}
-              footer={renderColumnFooter?.(column)}
-              labels={labels}
-              className={columnClassName}
-              disabled={disabled}
-              columnDraggable={columnsDraggable}
-              collapsed={collapsedColumnSet.has(column.id)}
-              onCollapsedChange={
-                onColumnCollapsedChange
-                  ? (collapsed) => onColumnCollapsedChange(column.id, collapsed)
-                  : undefined
-              }
-            />
-          ))}
-        </SortableContext>
-        {renderAddColumn ? <div className="shrink-0">{renderAddColumn()}</div> : null}
+      <div className="flex h-full min-h-0 overflow-hidden">
+        {fixedStartColumns.length ? (
+          <div className={cn("flex h-full min-h-0 shrink-0", fixedStartClassName)}>
+            <SortableContext
+              items={fixedStartColumnIdsInOrder}
+              strategy={horizontalListSortingStrategy}
+            >
+              {fixedStartColumns.map((column) => (
+                <KanbanColumn
+                  key={column.id}
+                  column={column}
+                  items={groupedItems[column.id] ?? []}
+                  getItemId={getItemId}
+                  renderCard={(item) => renderCard(item, false)}
+                  actions={renderColumnActions?.(column)}
+                  footer={renderColumnFooter?.(column)}
+                  emptyContent={renderColumnEmpty?.(column)}
+                  labels={labels}
+                  className={cn(columnClassName, fixedColumnClassName)}
+                  disabled={disabled}
+                  columnDraggable={columnsDraggable && !nonDraggableColumnSet.has(column.id)}
+                  collapsed={collapsedColumnSet.has(column.id)}
+                  onCollapsedChange={
+                    onColumnCollapsedChange && !nonDraggableColumnSet.has(column.id)
+                      ? (collapsed) => onColumnCollapsedChange(column.id, collapsed)
+                      : undefined
+                  }
+                />
+              ))}
+            </SortableContext>
+          </div>
+        ) : null}
+        <div className={cn("flex min-w-0 flex-1 flex-col overflow-hidden", scrollAreaClassName)}>
+          {renderScrollableHeader ? renderScrollableHeader() : null}
+          {scrollColumns.length || renderAddColumn ? (
+            <div className={cn("flex h-full min-h-0 gap-4 overflow-x-auto p-1 pb-4", className)}>
+              <SortableContext items={scrollColumnIds} strategy={horizontalListSortingStrategy}>
+                {scrollColumns.map((column) => (
+                  <KanbanColumn
+                    key={column.id}
+                    column={column}
+                    items={groupedItems[column.id] ?? []}
+                    getItemId={getItemId}
+                    renderCard={(item) => renderCard(item, false)}
+                    actions={renderColumnActions?.(column)}
+                    footer={renderColumnFooter?.(column)}
+                    emptyContent={renderColumnEmpty?.(column)}
+                    labels={labels}
+                    className={columnClassName}
+                    disabled={disabled}
+                    columnDraggable={columnsDraggable && !nonDraggableColumnSet.has(column.id)}
+                    collapsed={collapsedColumnSet.has(column.id)}
+                    onCollapsedChange={
+                      onColumnCollapsedChange
+                        ? (collapsed) => onColumnCollapsedChange(column.id, collapsed)
+                        : undefined
+                    }
+                  />
+                ))}
+              </SortableContext>
+              {renderAddColumn ? <div className="shrink-0">{renderAddColumn()}</div> : null}
+            </div>
+          ) : (
+            <div className="flex min-h-0 flex-1">{renderScrollableEmpty?.()}</div>
+          )}
+        </div>
       </div>
 
       <DragOverlay

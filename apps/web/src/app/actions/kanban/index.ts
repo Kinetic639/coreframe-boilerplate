@@ -16,7 +16,9 @@ import {
   createKanbanColumnSchema,
   deleteKanbanBoardSchema,
   deleteKanbanColumnSchema,
+  moveKanbanCardToInboxSchema,
   moveKanbanCardSchema,
+  moveKanbanInboxCardToBoardSchema,
   reorderKanbanColumnsSchema,
   updateKanbanBoardSchema,
   updateKanbanCardSchema,
@@ -26,7 +28,9 @@ import {
   type CreateKanbanColumnInput,
   type DeleteKanbanBoardInput,
   type DeleteKanbanColumnInput,
+  type MoveKanbanCardToInboxInput,
   type MoveKanbanCardInput,
+  type MoveKanbanInboxCardToBoardInput,
   type ReorderKanbanColumnsInput,
   type UpdateKanbanBoardInput,
   type UpdateKanbanCardInput,
@@ -35,6 +39,7 @@ import {
 import {
   type KanbanBoardDetail,
   type KanbanBoardSummary,
+  type KanbanBoardCard,
   type KanbanCardActivity,
 } from "@/lib/types/kanban";
 import { KanbanBoardsService } from "@/server/services/kanban-boards.service";
@@ -100,6 +105,19 @@ export async function listKanbanCardActivityAction(
       return { success: false, error: "Insufficient permissions" };
     }
     return KanbanBoardsService.listCardActivity(ctx.supabase, ctx.orgId, cardId);
+  } catch {
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
+export async function listKanbanInboxCardsAction(): Promise<ActionResult<KanbanBoardCard[]>> {
+  try {
+    const ctx = await getAuthedContext();
+    if (!ctx) return { success: false, error: "Unauthorized" };
+    if (!checkPermission(ctx.context.user.permissionSnapshot, PLANNING_BOARDS_READ)) {
+      return { success: false, error: "Insufficient permissions" };
+    }
+    return KanbanBoardsService.listInboxCards(ctx.supabase, ctx.orgId);
   } catch {
     return { success: false, error: "Unexpected error" };
   }
@@ -299,6 +317,54 @@ export async function moveKanbanCardAction(
     const parsed = moveKanbanCardSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: firstZodError(parsed.error) };
     const result = await KanbanBoardsService.moveCard(
+      ctx.supabase,
+      ctx.orgId,
+      ctx.userId,
+      parsed.data
+    );
+    if (result.success) revalidateBoards();
+    return result;
+  } catch {
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
+export async function moveKanbanCardToInboxAction(
+  input: MoveKanbanCardToInboxInput
+): Promise<ActionResult<{ board: KanbanBoardDetail; inbox: KanbanBoardCard[] }>> {
+  try {
+    const ctx = await getAuthedContext();
+    if (!ctx) return { success: false, error: "Unauthorized" };
+    if (!checkPermission(ctx.context.user.permissionSnapshot, PLANNING_BOARDS_UPDATE)) {
+      return { success: false, error: "Insufficient permissions" };
+    }
+    const parsed = moveKanbanCardToInboxSchema.safeParse(input);
+    if (!parsed.success) return { success: false, error: firstZodError(parsed.error) };
+    const result = await KanbanBoardsService.moveCardToInbox(
+      ctx.supabase,
+      ctx.orgId,
+      ctx.userId,
+      parsed.data
+    );
+    if (result.success) revalidateBoards();
+    return result;
+  } catch {
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
+export async function moveKanbanInboxCardToBoardAction(
+  input: MoveKanbanInboxCardToBoardInput
+): Promise<ActionResult<{ board: KanbanBoardDetail; inbox: KanbanBoardCard[] }>> {
+  try {
+    const ctx = await getAuthedContext();
+    if (!ctx) return { success: false, error: "Unauthorized" };
+    if (!checkPermission(ctx.context.user.permissionSnapshot, PLANNING_BOARDS_UPDATE)) {
+      return { success: false, error: "Insufficient permissions" };
+    }
+    const parsed = moveKanbanInboxCardToBoardSchema.safeParse(input);
+    if (!parsed.success) return { success: false, error: firstZodError(parsed.error) };
+    const result = await KanbanBoardsService.moveInboxCardToBoard(
       ctx.supabase,
       ctx.orgId,
       ctx.userId,

@@ -63,6 +63,18 @@ export const moveKanbanCardSchema = z.object({
   to_position: z.number().int().min(0),
 });
 
+export const moveKanbanCardToInboxSchema = z.object({
+  card_id: z.string().uuid(),
+  board_id: z.string().uuid(),
+});
+
+export const moveKanbanInboxCardToBoardSchema = z.object({
+  card_id: z.string().uuid(),
+  board_id: z.string().uuid(),
+  column_id: z.string().uuid(),
+  position: z.number().int().min(0),
+});
+
 export const reorderKanbanColumnsSchema = z.object({
   board_id: z.string().uuid(),
   column_ids: z.array(z.string().uuid()).min(1),
@@ -77,4 +89,6 @@ export type DeleteKanbanColumnInput = z.infer<typeof deleteKanbanColumnSchema>;
 export type CreateKanbanCardInput = z.infer<typeof createKanbanCardSchema>;
 export type UpdateKanbanCardInput = z.infer<typeof updateKanbanCardSchema>;
 export type MoveKanbanCardInput = z.infer<typeof moveKanbanCardSchema>;
+export type MoveKanbanCardToInboxInput = z.infer<typeof moveKanbanCardToInboxSchema>;
+export type MoveKanbanInboxCardToBoardInput = z.infer<typeof moveKanbanInboxCardToBoardSchema>;
 export type ReorderKanbanColumnsInput = z.infer<typeof reorderKanbanColumnsSchema>;

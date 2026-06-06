@@ -14,6 +14,7 @@ interface KanbanColumnProps<TItem> {
   renderCard: (item: TItem) => ReactNode;
   actions?: ReactNode;
   footer?: ReactNode;
+  emptyContent?: ReactNode;
   labels?: KanbanBoardLabels;
   className?: string;
   disabled?: boolean;
@@ -30,6 +31,7 @@ export function KanbanColumn<TItem>({
   renderCard,
   actions,
   footer,
+  emptyContent,
   labels,
   className,
   disabled = false,
@@ -166,6 +168,8 @@ export function KanbanColumn<TItem>({
           <div className="flex min-h-full flex-col gap-2">
             {items.length ? (
               items.map((item) => <div key={getItemId(item)}>{renderCard(item)}</div>)
+            ) : emptyContent ? (
+              emptyContent
             ) : (
               <div className="flex min-h-24 items-center justify-center rounded-md border border-dashed border-border bg-background/40 px-3 text-center text-xs text-muted-foreground">
                 {labels?.emptyColumn}

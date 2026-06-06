@@ -8,11 +8,14 @@ import {
   Calendar,
   Edit3,
   Globe2,
+  Inbox,
+  KanbanSquare,
   Loader2,
   Lock,
   MoreHorizontal,
   Plus,
   Save,
+  Search,
   SendHorizontal,
   Trash2,
   User,
@@ -37,6 +40,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -45,6 +49,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { KanbanBoard, KanbanCard, type KanbanCardMoveParams } from "@/components/primitives/kanban";
 import { PageLoader } from "@/components/page-loader";
 import { CommentsThread } from "@/components/features/comments";
@@ -64,9 +69,12 @@ import {
   deleteKanbanCardAction,
   deleteKanbanColumnAction,
   getKanbanBoardAction,
+  listKanbanInboxCardsAction,
   listKanbanBoardsAction,
   listKanbanCardActivityAction,
+  moveKanbanCardToInboxAction,
   moveKanbanCardAction,
+  moveKanbanInboxCardToBoardAction,
   reorderKanbanColumnsAction,
   updateKanbanBoardAction,
   updateKanbanCardAction,
@@ -94,6 +102,7 @@ interface PlanningBoardsClientProps {
 
 const COLUMN_COLORS = ["#64748b", "#0d9488", "#f59e0b", "#6366f1", "#22c55e", "#ef4444"];
 const LABEL_COLORS = ["#0d9488", "#2563eb", "#7c3aed", "#e11d48", "#ea580c", "#16a34a"];
+const INBOX_COLUMN_ID = "__kanban_inbox__";
 
 function actionError(result: unknown) {
   return "error" in (result as Record<string, unknown>)
@@ -136,6 +145,8 @@ function activityLabel(
     card_created: "activityMessages.cardCreated",
     card_updated: "activityMessages.cardUpdated",
     card_moved: "activityMessages.cardMoved",
+    card_moved_to_inbox: "activityMessages.cardMovedToInbox",
+    card_moved_from_inbox: "activityMessages.cardMovedFromInbox",
     card_archived: "activityMessages.cardArchived",
     comment_added: "activityMessages.commentAdded",
   };
@@ -181,6 +192,51 @@ function applyCardMoveToBoard(
   return { ...board, cards };
 }
 
+function removeCardFromBoard(board: KanbanBoardDetail, cardId: string): KanbanBoardDetail {
+  const cards = board.cards.filter((card) => card.id !== cardId);
+  return { ...board, cards };
+}
+
+function addInboxCardToBoard(
+  board: KanbanBoardDetail,
+  card: KanbanBoardCard,
+  toColumnId: string,
+  toIndex: number
+): KanbanBoardDetail {
+  const nextBoard: KanbanBoardDetail = {
+    ...board,
+    cards: [
+      ...board.cards.filter((candidate) => candidate.id !== card.id),
+      {
+        ...card,
+        board_id: board.id,
+        column_id: toColumnId,
+        is_inbox: false,
+      },
+    ],
+  };
+  return applyCardMoveToBoard(nextBoard, card.id, toColumnId, toIndex);
+}
+
+function moveBoardCardToInbox(cards: KanbanBoardCard[], card: KanbanBoardCard): KanbanBoardCard[] {
+  return [
+    { ...card, is_inbox: true, updated_at: new Date().toISOString() },
+    ...cards.filter((candidate) => candidate.id !== card.id),
+  ].map((candidate, position) => ({ ...candidate, position }));
+}
+
+function moveInboxCardWithinInbox(
+  cards: KanbanBoardCard[],
+  cardId: string,
+  toIndex: number
+): KanbanBoardCard[] {
+  const moving = cards.find((card) => card.id === cardId);
+  if (!moving) return cards;
+  const next = cards.filter((card) => card.id !== cardId);
+  next.splice(Math.max(0, Math.min(toIndex, next.length)), 0, moving);
+  return next.map((card, position) => ({ ...card, position }));
+}
+
 export function PlanningBoardsClient({
   initialBoards,
   initialBoard,
@@ -195,6 +251,10 @@ export function PlanningBoardsClient({
   const [activeBoardId, setActiveBoardId] = useState<string | null>(initialBoard?.id ?? null);
   const [loadingBoardId, setLoadingBoardId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [inboxOpen, setInboxOpen] = useState(true);
+  const [inboxCards, setInboxCards] = useState<KanbanBoardCard[]>([]);
+  const [loadingInbox, setLoadingInbox] = useState(true);
   const boardLoadRequestIdRef = useRef(0);
 
   const canCreateMore = canCreate && boards.length < MAX_KANBAN_BOARDS_PER_USER;
@@ -226,12 +286,27 @@ export function PlanningBoardsClient({
     return null;
   }, []);
 
+  const refreshInbox = useCallback(async () => {
+    setLoadingInbox(true);
+    const result = await listKanbanInboxCardsAction();
+    setLoadingInbox(false);
+    if (result.success) {
+      setInboxCards(result.data);
+      return result.data;
+    }
+    toast.error(actionError(result));
+    return null;
+  }, []);
+
+  useEffect(() => {
+    void refreshInbox();
+  }, [refreshInbox]);
+
   const loadBoard = useCallback(async (boardId: string) => {
     const requestId = boardLoadRequestIdRef.current + 1;
     boardLoadRequestIdRef.current = requestId;
     setActiveBoardId(boardId);
     setLoadingBoardId(boardId);
-    setSelectedBoard(null);
 
     const result = await getKanbanBoardAction(boardId);
     if (requestId !== boardLoadRequestIdRef.current) return;
@@ -299,6 +374,7 @@ export function PlanningBoardsClient({
       setSelectedBoard(board);
       setBoardParam(board.id);
       setCreateOpen(false);
+      setSwitcherOpen(false);
       void refreshBoards();
       toast.success(t("boards.boardCreated"));
     },
@@ -330,46 +406,204 @@ export function PlanningBoardsClient({
   );
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-[18rem_minmax(0,1fr)] overflow-hidden">
-      <aside className="flex min-h-0 flex-col border-r bg-muted/10">
-        <div className="border-b p-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {t("boards.myBoards")}
-          </p>
-        </div>
-        <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto p-2">
-          {boards.length ? (
-            boards.map((board) => (
-              <button
-                key={board.id}
-                type="button"
-                onClick={() => selectBoard(board.id)}
-                className={cn(
-                  "flex min-w-0 flex-col gap-1 rounded-md px-3 py-2 text-left transition hover:bg-muted",
-                  activeBoardId === board.id && "bg-muted"
-                )}
-              >
-                <span className="truncate text-sm font-medium">{board.title}</span>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  {board.visibility === "public" ? (
-                    <Globe2 className="h-3.5 w-3.5" />
-                  ) : (
-                    <Lock className="h-3.5 w-3.5" />
-                  )}
-                  <span>{t(`boards.visibility.${board.visibility}`)}</span>
-                </div>
-              </button>
-            ))
+    <TooltipProvider delayDuration={250}>
+      <div className="grid h-full min-h-0 grid-cols-[minmax(0,1fr)_3rem] overflow-hidden">
+        <main className="min-h-0 overflow-hidden">
+          {selectedBoard || loadingBoardId ? (
+            <BoardWorkspace
+              board={selectedBoard}
+              boardLoading={Boolean(loadingBoardId)}
+              inboxOpen={inboxOpen}
+              inboxCards={inboxCards}
+              loadingInbox={loadingInbox}
+              canUpdate={canUpdate}
+              canDelete={canDelete}
+              onBoardChange={handleBoardChange}
+              onInboxChange={setInboxCards}
+              onRefreshInbox={refreshInbox}
+              onBoardDeleted={() => selectedBoard && handleBoardDeleted(selectedBoard.id)}
+            />
           ) : (
-            <div className="px-3 py-8 text-sm text-muted-foreground">{t("boards.empty")}</div>
+            <div className="flex h-full items-center justify-center p-8 text-center text-sm text-muted-foreground">
+              {t("boards.selectBoard")}
+            </div>
           )}
-        </div>
-        {canCreate ? (
-          <div className="border-t p-2">
+        </main>
+        <KanbanRightToolbar
+          inboxOpen={inboxOpen}
+          onInboxToggle={() => setInboxOpen((value) => !value)}
+          onSwitchBoards={() => setSwitcherOpen(true)}
+        />
+        <BoardSwitcherDialog
+          open={switcherOpen}
+          onOpenChange={setSwitcherOpen}
+          boards={boards}
+          activeBoardId={activeBoardId}
+          canCreate={canCreate}
+          canCreateMore={canCreateMore}
+          createOpen={createOpen}
+          onCreateOpenChange={setCreateOpen}
+          onBoardCreated={handleBoardCreated}
+          onSelectBoard={(boardId) => {
+            selectBoard(boardId);
+            setSwitcherOpen(false);
+          }}
+        />
+      </div>
+    </TooltipProvider>
+  );
+}
+
+function KanbanRightToolbar({
+  inboxOpen,
+  onInboxToggle,
+  onSwitchBoards,
+}: {
+  inboxOpen: boolean;
+  onInboxToggle: () => void;
+  onSwitchBoards: () => void;
+}) {
+  const t = useTranslations("modules.planning");
+
+  return (
+    <aside className="flex min-h-0 flex-col items-center border-l bg-muted/10 px-1.5 py-3">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            size="icon"
+            variant={inboxOpen ? "default" : "ghost"}
+            className="h-8 w-8"
+            onClick={onInboxToggle}
+            aria-pressed={inboxOpen}
+            aria-label={t("boards.inbox.toggle")}
+          >
+            <Inbox className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="left">{t("boards.inbox.toggle")}</TooltipContent>
+      </Tooltip>
+
+      <div className="mt-auto">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              size="icon"
+              className="h-8 w-8"
+              onClick={onSwitchBoards}
+              aria-label={t("boards.switchBoards")}
+            >
+              <KanbanSquare className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="left">{t("boards.switchBoards")}</TooltipContent>
+        </Tooltip>
+      </div>
+    </aside>
+  );
+}
+
+function BoardSwitcherDialog({
+  open,
+  onOpenChange,
+  boards,
+  activeBoardId,
+  canCreate,
+  canCreateMore,
+  createOpen,
+  onCreateOpenChange,
+  onBoardCreated,
+  onSelectBoard,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  boards: KanbanBoardSummary[];
+  activeBoardId: string | null;
+  canCreate: boolean;
+  canCreateMore: boolean;
+  createOpen: boolean;
+  onCreateOpenChange: (open: boolean) => void;
+  onBoardCreated: (board: KanbanBoardDetail) => void;
+  onSelectBoard: (boardId: string) => void;
+}) {
+  const t = useTranslations("modules.planning");
+  const [query, setQuery] = useState("");
+
+  const filteredBoards = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) return boards;
+    return boards.filter(
+      (board) =>
+        board.title.toLowerCase().includes(normalized) ||
+        (board.description ?? "").toLowerCase().includes(normalized)
+    );
+  }, [boards, query]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl p-0">
+        <DialogHeader className="border-b px-5 py-4">
+          <DialogTitle>{t("boards.switchBoards")}</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-5 p-5">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={t("boards.boardSearch")}
+              className="pl-9"
+              autoFocus
+            />
+          </div>
+
+          <section className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {t("boards.recentBoards")}
+            </p>
+            {filteredBoards.length ? (
+              <div className="grid max-h-[46vh] gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+                {filteredBoards.map((board) => (
+                  <button
+                    key={board.id}
+                    type="button"
+                    onClick={() => onSelectBoard(board.id)}
+                    className={cn(
+                      "flex min-w-0 flex-col gap-2 rounded-md border bg-card p-3 text-left transition hover:border-muted-foreground/50 hover:bg-muted/40",
+                      activeBoardId === board.id && "border-primary ring-1 ring-primary/40"
+                    )}
+                  >
+                    <span className="truncate text-sm font-semibold">{board.title}</span>
+                    {board.description ? (
+                      <span className="line-clamp-2 text-xs text-muted-foreground">
+                        {board.description}
+                      </span>
+                    ) : null}
+                    <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      {board.visibility === "public" ? (
+                        <Globe2 className="h-3.5 w-3.5" />
+                      ) : (
+                        <Lock className="h-3.5 w-3.5" />
+                      )}
+                      {t(`boards.visibility.${board.visibility}`)}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-md border border-dashed py-10 text-center text-sm text-muted-foreground">
+                {t("boards.empty")}
+              </div>
+            )}
+          </section>
+
+          {canCreate ? (
             <CreateBoardDialog
               open={createOpen}
-              onOpenChange={setCreateOpen}
-              onCreated={handleBoardCreated}
+              onOpenChange={onCreateOpenChange}
+              onCreated={onBoardCreated}
               disabled={!canCreateMore}
               helperText={
                 canCreateMore
@@ -377,29 +611,10 @@ export function PlanningBoardsClient({
                   : t("boards.limitReached", { max: MAX_KANBAN_BOARDS_PER_USER })
               }
             />
-          </div>
-        ) : null}
-      </aside>
-
-      <main className="min-h-0 overflow-hidden">
-        {loadingBoardId ? (
-          <PageLoader className="h-full" />
-        ) : selectedBoard ? (
-          <BoardWorkspace
-            key={selectedBoard.id}
-            board={selectedBoard}
-            canUpdate={canUpdate}
-            canDelete={canDelete}
-            onBoardChange={handleBoardChange}
-            onBoardDeleted={() => handleBoardDeleted(selectedBoard.id)}
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center p-8 text-center text-sm text-muted-foreground">
-            {t("boards.selectBoard")}
-          </div>
-        )}
-      </main>
-    </div>
+          ) : null}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -496,15 +711,27 @@ function CreateBoardDialog({
 
 function BoardWorkspace({
   board,
+  boardLoading,
+  inboxOpen,
+  inboxCards,
+  loadingInbox,
   canUpdate,
   canDelete,
   onBoardChange,
+  onInboxChange,
+  onRefreshInbox,
   onBoardDeleted,
 }: {
-  board: KanbanBoardDetail;
+  board: KanbanBoardDetail | null;
+  boardLoading: boolean;
+  inboxOpen: boolean;
+  inboxCards: KanbanBoardCard[];
+  loadingInbox: boolean;
   canUpdate: boolean;
   canDelete: boolean;
   onBoardChange: (board: KanbanBoardDetail) => void;
+  onInboxChange: (cards: KanbanBoardCard[]) => void;
+  onRefreshInbox: () => Promise<KanbanBoardCard[] | null>;
   onBoardDeleted: () => void | Promise<void>;
 }) {
   const t = useTranslations("modules.planning");
@@ -514,48 +741,113 @@ function BoardWorkspace({
   const cardMovePersistenceQueueRef = useRef<Promise<void>>(Promise.resolve());
 
   const selectedCard = useMemo(
-    () => board.cards.find((card) => card.id === selectedCardId) ?? null,
-    [board.cards, selectedCardId]
+    () =>
+      board?.cards.find((card) => card.id === selectedCardId) ??
+      inboxCards.find((card) => card.id === selectedCardId) ??
+      null,
+    [board?.cards, inboxCards, selectedCardId]
   );
 
-  const columns = useMemo(
-    () =>
-      board.columns.map((column) => ({
-        id: column.id,
-        title: column.title,
-        description: column.description,
-        color: column.color,
-      })),
-    [board.columns]
+  const columns = useMemo(() => {
+    const boardColumns =
+      board && !boardLoading
+        ? board.columns.map((column) => ({
+            id: column.id,
+            title: column.title,
+            description: column.description,
+            color: column.color,
+          }))
+        : [];
+
+    if (!inboxOpen) return boardColumns;
+
+    return [
+      {
+        id: INBOX_COLUMN_ID,
+        title: t("boards.inbox.title"),
+        description: t("boards.inbox.description"),
+        color: null,
+      },
+      ...boardColumns,
+    ];
+  }, [board, boardLoading, inboxOpen, t]);
+
+  const kanbanItems = useMemo(
+    () => [
+      ...(inboxOpen && !loadingInbox ? inboxCards : []),
+      ...(board && !boardLoading ? board.cards : []),
+    ],
+    [board, boardLoading, inboxCards, inboxOpen, loadingInbox]
   );
 
   const moveCard = useCallback(
-    ({ itemId, toColumnId, newIndex }: KanbanCardMoveParams) => {
+    ({ itemId, fromColumnId, toColumnId, newIndex }: KanbanCardMoveParams) => {
+      if (!board || boardLoading) {
+        if (fromColumnId === INBOX_COLUMN_ID && toColumnId === INBOX_COLUMN_ID) {
+          onInboxChange(moveInboxCardWithinInbox(inboxCards, itemId, newIndex));
+        }
+        return;
+      }
+
       const requestId = cardMoveRequestIdRef.current + 1;
       cardMoveRequestIdRef.current = requestId;
       const previous = board;
-      const optimisticBoard = applyCardMoveToBoard(board, itemId, toColumnId, newIndex);
+      const previousInbox = inboxCards;
+      const boardCard = board.cards.find((card) => card.id === itemId);
+      const inboxCard = inboxCards.find((card) => card.id === itemId);
 
-      onBoardChange(optimisticBoard);
+      if (fromColumnId === INBOX_COLUMN_ID && toColumnId === INBOX_COLUMN_ID) {
+        onInboxChange(moveInboxCardWithinInbox(inboxCards, itemId, newIndex));
+      } else if (toColumnId === INBOX_COLUMN_ID && boardCard) {
+        onBoardChange(removeCardFromBoard(board, itemId));
+        onInboxChange(moveBoardCardToInbox(inboxCards, boardCard));
+      } else if (fromColumnId === INBOX_COLUMN_ID && inboxCard) {
+        onInboxChange(inboxCards.filter((card) => card.id !== itemId));
+        onBoardChange(addInboxCardToBoard(board, inboxCard, toColumnId, newIndex));
+      } else {
+        onBoardChange(applyCardMoveToBoard(board, itemId, toColumnId, newIndex));
+      }
 
       const persistMove = async () => {
         try {
-          const result = await moveKanbanCardAction({
-            board_id: board.id,
-            card_id: itemId,
-            to_column_id: toColumnId,
-            to_position: newIndex,
-          });
+          if (fromColumnId === INBOX_COLUMN_ID && toColumnId === INBOX_COLUMN_ID) {
+            return;
+          }
 
-          if (result.success) return;
+          const result =
+            toColumnId === INBOX_COLUMN_ID
+              ? await moveKanbanCardToInboxAction({ board_id: board.id, card_id: itemId })
+              : fromColumnId === INBOX_COLUMN_ID
+                ? await moveKanbanInboxCardToBoardAction({
+                    board_id: board.id,
+                    card_id: itemId,
+                    column_id: toColumnId,
+                    position: newIndex,
+                  })
+                : await moveKanbanCardAction({
+                    board_id: board.id,
+                    card_id: itemId,
+                    to_column_id: toColumnId,
+                    to_position: newIndex,
+                  });
+
+          if (result.success) {
+            if ("board" in result.data) {
+              onBoardChange(result.data.board);
+              onInboxChange(result.data.inbox);
+            }
+            return;
+          }
 
           if (requestId === cardMoveRequestIdRef.current) {
-            onBoardChange(previous);
+            if (previous) onBoardChange(previous);
+            onInboxChange(previousInbox);
           }
           toast.error(actionError(result));
         } catch (error) {
           if (requestId === cardMoveRequestIdRef.current) {
-            onBoardChange(previous);
+            if (previous) onBoardChange(previous);
+            onInboxChange(previousInbox);
           }
 
           toast.error(error instanceof Error ? error.message : "Operation failed");
@@ -567,12 +859,14 @@ function BoardWorkspace({
         persistMove
       );
     },
-    [board, onBoardChange]
+    [board, boardLoading, inboxCards, onBoardChange, onInboxChange]
   );
 
   const reorderColumns = useCallback(
     async (nextColumns: Array<{ id: string }>) => {
-      const optimisticColumns = nextColumns
+      if (!board || boardLoading) return;
+      const boardOnlyColumns = nextColumns.filter((column) => column.id !== INBOX_COLUMN_ID);
+      const optimisticColumns = boardOnlyColumns
         .map((column, index) => {
           const fullColumn = board.columns.find((candidate) => candidate.id === column.id);
           return fullColumn ? { ...fullColumn, position: index } : null;
@@ -582,7 +876,7 @@ function BoardWorkspace({
 
       const result = await reorderKanbanColumnsAction({
         board_id: board.id,
-        column_ids: nextColumns.map((column) => column.id),
+        column_ids: boardOnlyColumns.map((column) => column.id),
       });
       if (!result.success) {
         toast.error(actionError(result));
@@ -591,108 +885,147 @@ function BoardWorkspace({
       }
       onBoardChange(result.data);
     },
-    [board, onBoardChange]
+    [board, boardLoading, onBoardChange]
   );
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-start justify-between gap-3 border-b px-6 py-4">
-        <div className="min-w-0">
-          <div className="flex min-w-0 items-center gap-2">
-            <h2 className="truncate text-xl font-semibold">{board.title}</h2>
-            <Badge variant="outline" className="shrink-0 gap-1.5">
-              {board.visibility === "public" ? (
-                <Globe2 className="h-3.5 w-3.5" />
-              ) : (
-                <Lock className="h-3.5 w-3.5" />
-              )}
-              {t(`boards.visibility.${board.visibility}`)}
-            </Badge>
-          </div>
-          {board.description ? (
-            <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{board.description}</p>
-          ) : null}
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <BoardSettingsDialog
-            board={board}
-            canUpdate={canUpdate}
-            canDelete={canDelete}
-            onChanged={onBoardChange}
-            onDeleted={onBoardDeleted}
-          />
-        </div>
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-hidden">
-        <KanbanBoard
-          columns={columns}
-          items={board.cards}
-          getItemId={(card) => card.id}
-          getItemColumnId={(card) => card.column_id}
-          disabled={!canUpdate}
-          labels={{
-            emptyColumn: t("boards.emptyColumn"),
-            dragColumn: t("boards.dragColumn"),
-            collapseColumn: t("boards.collapseColumn"),
-            expandColumn: t("boards.expandColumn"),
-          }}
-          className="gap-3 p-0 pb-0"
-          columnClassName="min-h-0 rounded-none border-y-0"
-          collapsedColumnIds={collapsedColumnIds}
-          onColumnCollapsedChange={(columnId, collapsed) => {
-            setCollapsedColumnIds((current) =>
-              collapsed
-                ? Array.from(new Set([...current, columnId]))
-                : current.filter((id) => id !== columnId)
-            );
-          }}
-          onCardMove={moveCard}
-          onColumnsChange={reorderColumns}
-          renderColumnActions={(column) =>
-            canUpdate || canDelete ? (
-              <ColumnMenu
-                boardId={board.id}
-                column={board.columns.find((candidate) => candidate.id === column.id)!}
-                canUpdate={canUpdate}
-                canDelete={canDelete}
-                onChanged={onBoardChange}
-              />
-            ) : null
-          }
-          renderColumnFooter={(column) =>
-            canUpdate ? (
-              <AddCardForm boardId={board.id} columnId={column.id} onCreated={onBoardChange} />
-            ) : null
-          }
-          renderAddColumn={
-            canUpdate
-              ? () => <AddColumnPanel boardId={board.id} onCreated={onBoardChange} />
-              : undefined
-          }
-          renderCard={(card) => (
-            <BoardCard
-              card={card}
-              column={board.columns.find((candidate) => candidate.id === card.column_id)}
-              onOpen={() => setSelectedCardId(card.id)}
-            />
-          )}
-        />
-      </div>
-
-      <CardDetailDialog
-        board={board}
-        card={selectedCard}
-        columns={board.columns}
-        canUpdate={canUpdate}
-        canDelete={canDelete}
-        onOpenChange={(open) => !open && setSelectedCardId(null)}
-        onChanged={onBoardChange}
-        onDeleted={(nextBoard) => {
-          onBoardChange(nextBoard);
-          setSelectedCardId(null);
+    <div className="h-full min-h-0 overflow-hidden">
+      <KanbanBoard
+        columns={columns}
+        items={kanbanItems}
+        getItemId={(card) => card.id}
+        getItemColumnId={(card) => (card.is_inbox ? INBOX_COLUMN_ID : card.column_id)}
+        disabled={!canUpdate || boardLoading || !board}
+        labels={{
+          emptyColumn: t("boards.emptyColumn"),
+          dragColumn: t("boards.dragColumn"),
+          collapseColumn: t("boards.collapseColumn"),
+          expandColumn: t("boards.expandColumn"),
         }}
+        scrollAreaClassName="m-3 ml-3 overflow-hidden rounded-lg border bg-muted/10"
+        className="flex-1 gap-3 p-3 pb-3"
+        columnClassName="min-h-0 rounded-md"
+        fixedStartColumnIds={inboxOpen ? [INBOX_COLUMN_ID] : []}
+        fixedStartClassName="m-3 mr-0 w-[18rem] overflow-hidden rounded-lg border bg-muted/10 shadow-sm"
+        fixedColumnClassName="w-full rounded-none border-0 bg-transparent"
+        nonDraggableColumnIds={[INBOX_COLUMN_ID]}
+        renderScrollableHeader={
+          board && !boardLoading
+            ? () => (
+                <div className="flex items-start justify-between gap-3 border-b bg-background/40 px-5 py-4">
+                  <div className="min-w-0">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <h2 className="truncate text-xl font-semibold">{board.title}</h2>
+                      <Badge variant="outline" className="shrink-0 gap-1.5 bg-background/60">
+                        {board.visibility === "public" ? (
+                          <Globe2 className="h-3.5 w-3.5" />
+                        ) : (
+                          <Lock className="h-3.5 w-3.5" />
+                        )}
+                        {t(`boards.visibility.${board.visibility}`)}
+                      </Badge>
+                    </div>
+                    {board.description ? (
+                      <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+                        {board.description}
+                      </p>
+                    ) : null}
+                  </div>
+                  <BoardSettingsDialog
+                    board={board}
+                    canUpdate={canUpdate}
+                    canDelete={canDelete}
+                    onChanged={onBoardChange}
+                    onDeleted={onBoardDeleted}
+                  />
+                </div>
+              )
+            : undefined
+        }
+        renderScrollableEmpty={
+          boardLoading || !board
+            ? () => <PageLoader className="h-full min-h-0 flex-1" />
+            : undefined
+        }
+        collapsedColumnIds={collapsedColumnIds}
+        onColumnCollapsedChange={(columnId, collapsed) => {
+          if (columnId === INBOX_COLUMN_ID) return;
+          setCollapsedColumnIds((current) =>
+            collapsed
+              ? Array.from(new Set([...current, columnId]))
+              : current.filter((id) => id !== columnId)
+          );
+        }}
+        onCardMove={moveCard}
+        onColumnsChange={reorderColumns}
+        renderColumnActions={(column) =>
+          column.id === INBOX_COLUMN_ID || !board || boardLoading ? null : canUpdate ||
+            canDelete ? (
+            <ColumnMenu
+              boardId={board.id}
+              column={board.columns.find((candidate) => candidate.id === column.id)!}
+              canUpdate={canUpdate}
+              canDelete={canDelete}
+              onChanged={onBoardChange}
+            />
+          ) : null
+        }
+        renderColumnFooter={(column) =>
+          column.id === INBOX_COLUMN_ID || !board || boardLoading ? null : canUpdate ? (
+            <AddCardForm boardId={board.id} columnId={column.id} onCreated={onBoardChange} />
+          ) : null
+        }
+        renderColumnEmpty={(column) =>
+          column.id === INBOX_COLUMN_ID && loadingInbox ? <InboxLoadingSkeleton /> : null
+        }
+        renderAddColumn={
+          canUpdate && board && !boardLoading
+            ? () => <AddColumnPanel boardId={board.id} onCreated={onBoardChange} />
+            : undefined
+        }
+        renderCard={(card) => (
+          <BoardCard
+            card={card}
+            column={board?.columns.find((candidate) => candidate.id === card.column_id)}
+            onOpen={() => !boardLoading && setSelectedCardId(card.id)}
+          />
+        )}
       />
+
+      {board ? (
+        <CardDetailDialog
+          board={board}
+          card={selectedCard}
+          columns={board.columns}
+          canUpdate={canUpdate && !selectedCard?.is_inbox}
+          canDelete={canDelete && !selectedCard?.is_inbox}
+          onOpenChange={(open) => !open && setSelectedCardId(null)}
+          onChanged={onBoardChange}
+          onDeleted={(nextBoard) => {
+            onBoardChange(nextBoard);
+            void onRefreshInbox();
+            setSelectedCardId(null);
+          }}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function InboxLoadingSkeleton() {
+  return (
+    <div className="flex flex-col gap-2">
+      {Array.from({ length: 3 }).map((_, index) => (
+        <div key={index} className="rounded-md border border-border bg-card p-3 shadow-xs">
+          <div className="flex items-start justify-between gap-3">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-2 w-2 rounded-full" />
+          </div>
+          <Skeleton className="mt-3 h-3 w-24" />
+          <Skeleton className="mt-4 h-3 w-full" />
+          <Skeleton className="mt-2 h-3 w-2/3" />
+        </div>
+      ))}
     </div>
   );
 }
@@ -998,7 +1331,7 @@ function CardDetailDialog({
   useEffect(() => {
     setTitle(card?.title ?? "");
     setDescriptionRich(normalizeRichText(card?.description_rich) ?? createEmptyRichText());
-    setColumnId(card?.column_id ?? "");
+    setColumnId(card?.is_inbox ? "" : (card?.column_id ?? ""));
     setDueAt(toDateInput(card?.due_at ?? null));
     setLabel(card?.label ?? "");
     setLabelColor(card?.label_color ?? LABEL_COLORS[0]);
@@ -1077,7 +1410,11 @@ function CardDetailDialog({
             <div className="mb-1 flex items-center gap-2 text-xs text-muted-foreground">
               <span>{t("boards.cardDetails")}</span>
               <span>•</span>
-              <span>{columns.find((column) => column.id === card?.column_id)?.title}</span>
+              <span>
+                {card?.is_inbox
+                  ? t("boards.inbox.title")
+                  : columns.find((column) => column.id === card?.column_id)?.title}
+              </span>
             </div>
             <DialogTitle asChild>
               <Input

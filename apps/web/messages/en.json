@@ -3337,6 +3337,9 @@
         "myBoards": "Boards",
         "empty": "No boards yet.",
         "selectBoard": "Select a board or create a new one.",
+        "switchBoards": "Switch board",
+        "boardSearch": "Search your boards",
+        "recentBoards": "Recent",
         "loading": "Loading...",
         "limit": "{count}/{max} boards used.",
         "limitReached": "Board limit reached. You can create up to {max} boards.",
@@ -3379,6 +3382,11 @@
         "dragColumn": "Drag column",
         "collapseColumn": "Collapse column",
         "expandColumn": "Expand column",
+        "inbox": {
+          "title": "Inbox",
+          "description": "Shared holding column across boards",
+          "toggle": "Show or hide inbox"
+        },
         "comments": {
           "title": "Comments",
           "empty": "No comments yet.",
@@ -3389,6 +3397,8 @@
           "cardCreated": "Card created",
           "cardUpdated": "Card updated",
           "cardMoved": "Card moved",
+          "cardMovedToInbox": "Card moved to inbox",
+          "cardMovedFromInbox": "Card moved from inbox",
           "cardArchived": "Card archived",
           "commentAdded": "Comment added"
         },
@@ -3830,25 +3840,68 @@
       "quickAdd": {
         "title": "Quick Add",
         "tooltip": "Quick Add",
-        "inventory": {
-          "title": "INVENTORY",
-          "product": "Product",
-          "location": "Location",
-          "order": "Order"
+        "subtitle": "Create common records without leaving your flow.",
+        "empty": "No quick actions available.",
+        "warehouse": {
+          "title": "WAREHOUSE",
+          "item": "Item",
+          "itemDescription": "Open the item creation form."
         },
-        "sales": {
-          "title": "SALES",
-          "customer": "Customer",
-          "invoice": "Invoice"
+        "helpdesk": {
+          "title": "HELP DESK",
+          "ticket": "Ticket",
+          "ticketDescription": "Open a new ticket form."
         },
-        "purchases": {
-          "title": "PURCHASES",
-          "supplier": "Supplier",
-          "bill": "Bill"
+        "planning": {
+          "title": "PLANNING",
+          "task": "Task",
+          "taskDescription": "Create a lightweight planning task.",
+          "kanbanCard": "Kanban card",
+          "kanbanCardDescription": "Add a card to a selected board."
         },
-        "other": {
-          "title": "OTHER",
-          "document": "Document"
+        "taskDialog": {
+          "title": "Create task",
+          "created": "Task created.",
+          "cancel": "Cancel",
+          "submit": "Create task",
+          "fields": {
+            "title": "Title",
+            "description": "Description",
+            "priority": "Priority",
+            "due": "Due date"
+          },
+          "placeholders": {
+            "title": "Short task summary",
+            "description": "Optional context..."
+          },
+          "priorities": {
+            "low": "Low",
+            "normal": "Normal",
+            "high": "High",
+            "urgent": "Urgent"
+          }
+        },
+        "kanbanDialog": {
+          "title": "Create Kanban card",
+          "created": "Kanban card created.",
+          "cancel": "Cancel",
+          "submit": "Create card",
+          "loadingBoards": "Loading boards...",
+          "loadingColumns": "Loading columns...",
+          "emptyBoards": "Create a Kanban board first before adding cards.",
+          "fields": {
+            "board": "Board",
+            "column": "Column",
+            "title": "Title",
+            "description": "Description",
+            "due": "Due date"
+          },
+          "placeholders": {
+            "board": "Select board",
+            "column": "Select column",
+            "title": "Card title",
+            "description": "Optional card context..."
+          }
         }
       },
       "userMenu": {

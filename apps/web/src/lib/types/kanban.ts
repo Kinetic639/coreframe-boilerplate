@@ -38,6 +38,7 @@ export interface KanbanBoardCard {
   due_at: string | null;
   label: string | null;
   label_color: string | null;
+  is_inbox: boolean;
   position: number;
   created_by: string;
   creator_name: string | null;
