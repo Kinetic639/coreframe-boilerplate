@@ -25,7 +25,7 @@ import type {
   PaginatedResult,
 } from "@/components/data-view/data-view.types";
 import { listTicketsForDataViewAction, getTicketDetailAction } from "@/app/actions/help-desk";
-import { getQrAssignmentForTicketAction, assignQrToTicketAction } from "@/app/actions/qr/assign";
+import { getQrAssignmentForTicketAction } from "@/app/actions/qr/assign";
 import { revokeQrAction } from "@/app/actions/qr/revoke";
 import { AssignQrDialog } from "../[ticketId]/_components/assign-qr-dialog";
 import { useAcceptTicketMutation } from "@/hooks/queries/help-desk";
@@ -46,6 +46,7 @@ import {
 import { UserAvatarGroup } from "@/components/primitives/avatar/user-avatar-group";
 import type { UserAvatarGroupItem } from "@/components/primitives/avatar/user-avatar-group";
 import { UserAvatar } from "@/components/primitives/avatar/user-avatar";
+import { AttachmentsPanel } from "@/components/features/attachments";
 import { CommentsThread } from "@/components/features/comments";
 import { RichTextRenderer } from "@/components/primitives/rich-text/rich-text-renderer";
 import { normalizeRichText } from "@/components/primitives/rich-text/rich-text-utils";
@@ -181,6 +182,16 @@ function TicketDetailPanel({
               />
             </div>
           )}
+
+          <Separator />
+
+          <AttachmentsPanel
+            targetType="helpdesk.ticket"
+            targetId={detail.id}
+            canUpload={canComment}
+            onUploaded={refreshActivity}
+            onDeleted={refreshActivity}
+          />
 
           <Separator />
 

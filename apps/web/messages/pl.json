@@ -204,6 +204,26 @@
       "edited": "edytowano",
       "formerMember": "Były członek",
       "addFailed": "Nie udało się dodać komentarza"
+    },
+    "attachments": {
+      "title": "Załączniki",
+      "files": "Pliki",
+      "add": "Dodaj",
+      "empty": "Brak załączników.",
+      "loading": "Ładowanie załączników...",
+      "dropzoneTitle": "Upuść pliki tutaj",
+      "dropzoneSubtitle": "Kliknij, aby wybrać pliki albo przeciągnij je w to miejsce.",
+      "upload": "Prześlij pliki",
+      "uploading": "Przesyłanie...",
+      "maxSize": "Maks. 25 MB na plik.",
+      "remove": "Usuń plik",
+      "preview": "Podgląd",
+      "previewUnavailable": "Podgląd nie jest dostępny dla tego pliku.",
+      "openPreviewPage": "Otwórz plik",
+      "actions": "Akcje załącznika",
+      "download": "Pobierz",
+      "uploadFailed": "Nie udało się przesłać załącznika",
+      "deleteFailed": "Nie udało się usunąć załącznika"
     }
   },
   "admin": {
@@ -3093,6 +3113,7 @@
         "activity": {
           "ticket_created": "utworzył(a) zgłoszenie",
           "comment_added": "dodał(a) komentarz",
+          "attachment_added": "dodał(a) załącznik",
           "ticket_closed": "zamknął(a) zgłoszenie",
           "ticket_accepted": "zaakceptował(a) zgłoszenie",
           "status_changed": "zmienił(a) status",

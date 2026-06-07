@@ -26,6 +26,7 @@ import {
   type PriorityBadgeConfig,
 } from "@/components/help-desk/ticket-priority-badge";
 import type { HelpdeskTicketDetail } from "@/server/services/helpdesk-tickets.service";
+import { AttachmentsPanel } from "@/components/features/attachments";
 import { CommentsThread } from "@/components/features/comments";
 import { UserAvatar } from "@/components/primitives/avatar/user-avatar";
 import { RichTextRenderer } from "@/components/primitives/rich-text/rich-text-renderer";
@@ -172,6 +173,14 @@ export function TicketDetailClient({
               />
             </div>
           )}
+
+          <Separator />
+
+          <AttachmentsPanel
+            targetType="helpdesk.ticket"
+            targetId={ticket.id}
+            canUpload={ticket.status !== "closed" && ticket.status !== "cancelled"}
+          />
 
           <Separator />
 
