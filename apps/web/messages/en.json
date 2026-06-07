@@ -204,6 +204,26 @@
       "edited": "edited",
       "formerMember": "Former member",
       "addFailed": "Failed to add comment"
+    },
+    "attachments": {
+      "title": "Attachments",
+      "files": "Files",
+      "add": "Add",
+      "empty": "No attachments yet.",
+      "loading": "Loading attachments...",
+      "dropzoneTitle": "Drop files here",
+      "dropzoneSubtitle": "Click to browse or drag files into this area.",
+      "upload": "Upload files",
+      "uploading": "Uploading...",
+      "maxSize": "Max 25 MB per file.",
+      "remove": "Remove file",
+      "preview": "Preview",
+      "previewUnavailable": "Preview is not available for this file.",
+      "openPreviewPage": "Open file",
+      "actions": "Attachment actions",
+      "download": "Download",
+      "uploadFailed": "Failed to upload attachment",
+      "deleteFailed": "Failed to remove attachment"
     }
   },
   "admin": {
@@ -3122,6 +3142,7 @@
         "activity": {
           "ticket_created": "created the ticket",
           "comment_added": "added a comment",
+          "attachment_added": "added an attachment",
           "ticket_closed": "closed the ticket",
           "ticket_accepted": "accepted the ticket",
           "status_changed": "changed the status",

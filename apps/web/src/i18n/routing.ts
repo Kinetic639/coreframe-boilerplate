@@ -19,6 +19,10 @@ export const routing = defineRouting({
       en: "/tools/svwms-wdd-matcher",
       pl: "/narzedzia/svwms-wdd-matcher",
     },
+    "/attachments/[attachmentId]/download/[fileName]": {
+      en: "/attachments/[attachmentId]/download/[fileName]",
+      pl: "/zalaczniki/[attachmentId]/pobierz/[fileName]",
+    },
 
     // === Admin Panel ===
     "/admin": {

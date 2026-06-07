@@ -20,6 +20,7 @@ export interface CommentTargetDescriptor {
   requiredReadPermission: string;
   requiredCommentPermission: string;
   requiredModeratePermission?: string;
+  requiredAttachmentPermission?: string;
 
   validate(params: {
     supabase: SupabaseClient;
@@ -34,6 +35,15 @@ export interface CommentTargetDescriptor {
     actorId: string;
     visibility: "default" | "internal";
   }): Promise<void>;
+
+  afterAttachmentCreated?(params: {
+    supabase: SupabaseClient;
+    orgId: string;
+    targetId: string;
+    actorId: string;
+    attachmentId: string;
+    fileName: string;
+  }): Promise<void>;
 }
 
 export const COMMENT_TARGET_REGISTRY: Readonly<Record<string, CommentTargetDescriptor>> = {
@@ -41,6 +51,7 @@ export const COMMENT_TARGET_REGISTRY: Readonly<Record<string, CommentTargetDescr
     type: "helpdesk.ticket",
     requiredReadPermission: HELPDESK_TICKETS_READ,
     requiredCommentPermission: HELPDESK_TICKETS_READ,
+    requiredAttachmentPermission: HELPDESK_TICKETS_READ,
     requiredModeratePermission: HELPDESK_TICKETS_MANAGE,
 
     async validate({ supabase, targetId, orgId }) {
@@ -72,11 +83,22 @@ export const COMMENT_TARGET_REGISTRY: Readonly<Record<string, CommentTargetDescr
         payload: { is_internal: visibility === "internal" },
       });
     },
+
+    async afterAttachmentCreated({ supabase, orgId, targetId, actorId, attachmentId, fileName }) {
+      await supabase.from("helpdesk_ticket_activity").insert({
+        ticket_id: targetId,
+        org_id: orgId,
+        actor_id: actorId,
+        event_type: "attachment_added",
+        payload: { attachment_id: attachmentId, file_name: fileName },
+      });
+    },
   },
   "planning.task": {
     type: "planning.task",
     requiredReadPermission: PLANNING_TASKS_READ,
     requiredCommentPermission: PLANNING_TASKS_READ,
+    requiredAttachmentPermission: PLANNING_TASKS_READ,
     requiredModeratePermission: PLANNING_TASKS_UPDATE,
 
     async validate({ supabase, targetId, orgId }) {
@@ -109,11 +131,23 @@ export const COMMENT_TARGET_REGISTRY: Readonly<Record<string, CommentTargetDescr
         metadata: { visibility },
       });
     },
+
+    async afterAttachmentCreated({ supabase, orgId, targetId, actorId, attachmentId, fileName }) {
+      await supabase.from("planning_task_activity").insert({
+        organization_id: orgId,
+        task_id: targetId,
+        actor_id: actorId,
+        activity_type: "attachment_added",
+        message: "Attachment added",
+        metadata: { attachment_id: attachmentId, file_name: fileName },
+      });
+    },
   },
   "planning.kanban_card": {
     type: "planning.kanban_card",
     requiredReadPermission: PLANNING_BOARDS_READ,
     requiredCommentPermission: PLANNING_BOARDS_READ,
+    requiredAttachmentPermission: PLANNING_BOARDS_READ,
     requiredModeratePermission: PLANNING_BOARDS_UPDATE,
 
     async validate({ supabase, targetId, orgId }) {
@@ -155,6 +189,28 @@ export const COMMENT_TARGET_REGISTRY: Readonly<Record<string, CommentTargetDescr
         activity_type: "comment_added",
         message: "Comment added",
         metadata: { visibility },
+      });
+    },
+
+    async afterAttachmentCreated({ supabase, orgId, targetId, actorId, attachmentId, fileName }) {
+      const { data } = await supabase
+        .from("planning_kanban_cards")
+        .select("board_id")
+        .eq("organization_id", orgId)
+        .eq("id", targetId)
+        .maybeSingle();
+
+      const boardId = (data as { board_id?: string } | null)?.board_id;
+      if (!boardId) return;
+
+      await supabase.from("planning_kanban_card_activity").insert({
+        organization_id: orgId,
+        board_id: boardId,
+        card_id: targetId,
+        actor_id: actorId,
+        activity_type: "attachment_added",
+        message: "Attachment added",
+        metadata: { attachment_id: attachmentId, file_name: fileName },
       });
     },
   },
