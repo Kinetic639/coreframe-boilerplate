@@ -213,7 +213,7 @@ export const SchedulerYearView: React.FC<SchedulerYearViewProps> = ({
               {/* Localized Month Name & Click Zoom action */}
               <button
                 onClick={() => onNavigateToMonth?.(monthDate)}
-                className="text-sm font-bold text-slate-800 dark:text-neutral-200 hover:text-indigo-600 dark:hover:text-indigo-400 transition cursor-pointer font-sans text-left mb-3 shrink-0 flex items-center justify-between"
+                className="text-sm font-bold text-slate-800 dark:text-neutral-200 hover:text-primary transition cursor-pointer font-sans text-left mb-3 shrink-0 flex items-center justify-between"
               >
                 <span>{formatInTimezone(monthDate, "MMMM", timezone, locale)}</span>
                 <span className="text-[10px] bg-slate-100 hover:bg-slate-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 px-2 py-0.5 rounded-md text-slate-500 dark:text-neutral-400 transition ml-2 font-medium">
@@ -299,15 +299,11 @@ export const SchedulerYearView: React.FC<SchedulerYearViewProps> = ({
                       }}
                       className={`relative border-r border-b border-gray-50/50 dark:border-neutral-800/30 p-1 flex flex-col justify-between min-h-[46px] select-none cursor-pointer duration-100 ${
                         isSelected
-                          ? "bg-indigo-50/70 dark:bg-indigo-950/30 shadow-[inset_0_0_0_1.5px_rgba(99,102,241,0.4)] dark:shadow-[inset_0_0_0_1.5px_rgba(129,140,248,0.4)] z-30"
+                          ? "bg-primary/10 ring-2 ring-inset ring-primary/40 z-30"
                           : isCurrentMonth
                             ? "bg-transparent text-gray-800 dark:text-neutral-200"
                             : "bg-gray-50/20 dark:bg-neutral-950/10 text-gray-300 dark:text-neutral-700 opacity-40"
-                      } ${
-                        isDragOver
-                          ? "bg-indigo-50 dark:bg-indigo-950/20 shadow-sm duration-0 scale-[0.98]"
-                          : ""
-                      } ${
+                      } ${isDragOver ? "bg-primary/10 shadow-sm duration-0 scale-[0.98]" : ""} ${
                         hasBackgroundBlocked && showBackgroundEvents
                           ? "bg-rose-50/5 dark:bg-rose-950/5"
                           : ""
@@ -319,7 +315,7 @@ export const SchedulerYearView: React.FC<SchedulerYearViewProps> = ({
                         <span
                           className={`text-[9px] font-bold h-4 w-4 flex items-center justify-center rounded-full ${
                             isTodayDate
-                              ? "bg-indigo-600 text-white font-extrabold shadow-3xs"
+                              ? "bg-primary text-primary-foreground font-extrabold shadow-3xs"
                               : isCurrentMonth
                                 ? "text-gray-700 dark:text-neutral-300"
                                 : "text-gray-300 dark:text-neutral-700"
@@ -345,7 +341,7 @@ export const SchedulerYearView: React.FC<SchedulerYearViewProps> = ({
                                 const dayStr = `${monthIndex}-${format(day, "yyyy-MM-dd")}`;
                                 setOpenTooltipDay((prev) => (prev === dayStr ? null : dayStr));
                               }}
-                              className="w-full text-center py-1 px-1 rounded-md bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/50 font-sans text-[8px] font-bold text-indigo-600 dark:text-indigo-400 border border-indigo-100/50 dark:border-indigo-900/40 transition duration-150 cursor-pointer shadow-3xs"
+                              className="w-full text-center py-1 px-1 rounded-md bg-primary/10 hover:bg-primary/15 font-sans text-[8px] font-bold text-primary border border-primary/20 transition duration-150 cursor-pointer shadow-3xs"
                             >
                               +{cellEvents.length}
                             </button>
@@ -357,7 +353,7 @@ export const SchedulerYearView: React.FC<SchedulerYearViewProps> = ({
                                     <span>
                                       {formatInTimezone(day, "MMM d, yyyy", timezone, locale)}
                                     </span>
-                                    <span className="text-[10px] bg-indigo-50 dark:bg-indigo-950 px-1.5 py-0.5 rounded-full text-indigo-600 dark:text-indigo-400 font-bold">
+                                    <span className="text-[10px] bg-primary/10 px-1.5 py-0.5 rounded-full text-primary font-bold">
                                       {cellEvents.length}
                                     </span>
                                   </div>
@@ -383,7 +379,7 @@ export const SchedulerYearView: React.FC<SchedulerYearViewProps> = ({
                                     })}
                                   </div>
                                   <button
-                                    className="bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] py-1.5 px-3 rounded-lg font-bold w-full transition-colors cursor-pointer mt-1"
+                                    className="bg-primary hover:bg-primary/90 text-primary-foreground text-[10px] py-1.5 px-3 rounded-lg font-bold w-full transition-colors cursor-pointer mt-1"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       setOpenTooltipDay(null);

@@ -135,7 +135,7 @@ export const SchedulerEventPopover: React.FC<SchedulerEventPopoverProps> = ({
             </h3>
 
             {/* Start and end time display */}
-            <div className="flex items-center gap-2 text-xs font-medium text-indigo-600 dark:text-indigo-400 font-mono mt-1.5 bg-indigo-50/50 dark:bg-indigo-950/20 py-1 px-2.5 rounded-md w-fit">
+            <div className="flex items-center gap-2 text-xs font-medium text-primary font-mono mt-1.5 bg-primary/10 py-1 px-2.5 rounded-md w-fit">
               <Calendar size={13} />
               <span>{formatInTimezone(event.start, "EEEE, d MMM yyyy", timezone, locale)}</span>
               <span className="text-gray-300 dark:text-neutral-700">|</span>
@@ -184,7 +184,7 @@ export const SchedulerEventPopover: React.FC<SchedulerEventPopoverProps> = ({
                     key={index}
                     className="inline-flex items-center gap-1 px-2.5 py-1 text-xs text-gray-600 dark:text-neutral-300 bg-gray-50 dark:bg-neutral-800 border border-gray-150 dark:border-neutral-700 rounded-lg font-medium"
                   >
-                    <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full" />
+                    <span className="w-1.5 h-1.5 bg-primary rounded-full" />
                     {attendee}
                   </span>
                 ))}
@@ -221,7 +221,7 @@ export const SchedulerEventPopover: React.FC<SchedulerEventPopoverProps> = ({
             </button>
             <button
               onClick={onEdit}
-              className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 shadow-sm rounded-lg transition"
+              className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-primary-foreground bg-primary hover:bg-primary/90 active:scale-95 shadow-sm rounded-lg transition"
               id={`btn-popover-edit-${event.id}`}
             >
               <Edit3 size={14} />

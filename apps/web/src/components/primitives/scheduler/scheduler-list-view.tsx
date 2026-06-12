@@ -116,8 +116,8 @@ export const SchedulerListView: React.FC<SchedulerListViewProps> = ({
             return (
               <div key={dateStr} className="space-y-3" id={`agenda-date-group-${dateStr}`}>
                 {/* Date header label bubble banner */}
-                <h4 className="font-sans font-bold text-xs text-indigo-600 dark:text-indigo-400 flex items-center gap-2 pl-1 select-none">
-                  <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full" />
+                <h4 className="font-sans font-bold text-xs text-primary flex items-center gap-2 pl-1 select-none">
+                  <span className="w-1.5 h-1.5 bg-primary rounded-full" />
                   <span>{formatInTimezone(dateObj, "EEEE, MMMM d, yyyy", timezone, locale)}</span>
                 </h4>
 
@@ -131,7 +131,7 @@ export const SchedulerListView: React.FC<SchedulerListViewProps> = ({
                       <div
                         key={event.id}
                         onClick={() => onSelectEvent(event)}
-                        className="group relative p-4 border border-slate-200/60 dark:border-neutral-800 bg-white dark:bg-neutral-800/30 rounded-xl hover:border-indigo-400 dark:hover:border-neutral-700 hover:shadow-xs cursor-pointer transition flex flex-col md:flex-row md:items-center justify-between gap-4 select-none"
+                        className="group relative p-4 border border-slate-200/60 dark:border-neutral-800 bg-white dark:bg-neutral-800/30 rounded-xl hover:border-primary/40 hover:shadow-xs cursor-pointer transition flex flex-col md:flex-row md:items-center justify-between gap-4 select-none"
                         id={`agenda-event-row-${event.id}`}
                       >
                         {/* Event details summary info */}
@@ -154,7 +154,7 @@ export const SchedulerListView: React.FC<SchedulerListViewProps> = ({
                           />
 
                           <div className="space-y-1">
-                            <h5 className="font-sans font-bold text-sm text-slate-800 dark:text-white leading-tight group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                            <h5 className="font-sans font-bold text-sm text-slate-800 dark:text-white leading-tight group-hover:text-primary transition-colors">
                               {event.title}
                             </h5>
 

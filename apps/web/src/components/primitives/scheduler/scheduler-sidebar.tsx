@@ -299,7 +299,7 @@ export const SchedulerSidebar: React.FC<SchedulerSidebarProps> = ({
                 onClick={() => onNavigateDate && onNavigateDate(md.date)}
                 className={`h-6 w-6 flex items-center justify-center mx-auto rounded-full cursor-pointer transition duration-150 ${textClass} ${
                   isTodayDay
-                    ? "bg-indigo-600 text-white font-bold hover:bg-indigo-700 shadow-sm"
+                    ? "bg-primary text-primary-foreground font-bold hover:bg-primary/90 shadow-sm"
                     : ""
                 }`}
               >
@@ -398,7 +398,7 @@ export const SchedulerSidebar: React.FC<SchedulerSidebarProps> = ({
             <h3 className="text-[10px] font-extrabold text-slate-400 dark:text-neutral-500 uppercase tracking-widest font-mono text-left">
               {calendarSources ? label.noDueDateTitle || "No due date" : label.taskPool}
             </h3>
-            <span className="bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 font-extrabold px-2 py-0.5 rounded-full text-[10px]">
+            <span className="bg-primary/10 text-primary font-extrabold px-2 py-0.5 rounded-full text-[10px]">
               {unscheduledTasks.length}
             </span>
           </div>
@@ -415,10 +415,10 @@ export const SchedulerSidebar: React.FC<SchedulerSidebarProps> = ({
                   draggable
                   onDragStart={(e) => handleDragStart(e, task.id)}
                   onDragEnd={() => onDragTaskEnd?.()}
-                  className="p-3 bg-white dark:bg-neutral-800 border border-slate-200 dark:border-neutral-800 rounded-lg shadow-xs hover:border-indigo-300 dark:hover:border-neutral-700 hover:shadow-xs transition duration-200 cursor-pointer active:cursor-grabbing group"
+                  className="p-3 bg-white dark:bg-neutral-800 border border-slate-200 dark:border-neutral-800 rounded-lg shadow-xs hover:border-primary/40 dark:hover:border-neutral-700 hover:shadow-xs transition duration-200 cursor-pointer active:cursor-grabbing group"
                 >
                   <div className="flex justify-between items-start mb-1 gap-2">
-                    <span className="text-[11px] font-bold text-slate-800 dark:text-white line-clamp-1 group-hover:text-indigo-600 transition-colors">
+                    <span className="text-[11px] font-bold text-slate-800 dark:text-white line-clamp-1 group-hover:text-primary transition-colors">
                       {task.title}
                     </span>
                     <span className="text-[9px] bg-slate-50 dark:bg-neutral-800 text-slate-500 dark:text-neutral-400 px-1.5 py-0.5 rounded border border-slate-100 dark:border-neutral-700/60 font-mono font-semibold shrink-0">
@@ -472,7 +472,7 @@ export const SchedulerSidebar: React.FC<SchedulerSidebarProps> = ({
               type="checkbox"
               checked={settings.showWeekends}
               onChange={(e) => onUpdateSettings({ showWeekends: e.target.checked })}
-              className="accent-indigo-600 w-3.5 h-3.5 cursor-pointer"
+              className="accent-primary w-3.5 h-3.5 cursor-pointer"
             />
           </label>
           <label className="flex items-center justify-between cursor-pointer text-slate-600 dark:text-neutral-300">
@@ -481,7 +481,7 @@ export const SchedulerSidebar: React.FC<SchedulerSidebarProps> = ({
               type="checkbox"
               checked={settings.showBackgroundEvents}
               onChange={(e) => onUpdateSettings({ showBackgroundEvents: e.target.checked })}
-              className="accent-indigo-600 w-3.5 h-3.5 cursor-pointer"
+              className="accent-primary w-3.5 h-3.5 cursor-pointer"
             />
           </label>
         </div>
