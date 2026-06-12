@@ -164,14 +164,12 @@ export const SchedulerWorkspace: React.FC<SchedulerWorkspaceProps> = ({
   );
 
   const handleUpdateSettings = (newSettings: Partial<SchedulerSettings>) => {
-    setSettings((prev) => {
-      const updated = { ...prev, ...newSettings };
-      if (newSettings.locale && newSettings.locale !== prev.locale) {
-        updated.timeFormat = newSettings.locale === "en" ? "12h" : "24h";
-      }
-      onSettingsChange?.(updated);
-      return updated;
-    });
+    const updated = { ...settings, ...newSettings };
+    if (newSettings.locale && newSettings.locale !== settings.locale) {
+      updated.timeFormat = newSettings.locale === "en" ? "12h" : "24h";
+    }
+    setSettings(updated);
+    onSettingsChange?.(updated);
   };
 
   // Trigger creating modal prefilled on visual click cell slot
