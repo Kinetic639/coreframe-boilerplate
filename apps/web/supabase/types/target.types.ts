@@ -29,6 +29,223 @@ export type Database = {
         };
         Relationships: [];
       };
+      app_attachments: {
+        Row: {
+          bucket_id: string;
+          checksum: string | null;
+          content_type: string;
+          created_at: string;
+          created_by: string;
+          deleted_at: string | null;
+          deleted_by: string | null;
+          file_name: string;
+          id: string;
+          metadata: Json;
+          org_id: string;
+          size_bytes: number;
+          storage_path: string;
+          target_id: string;
+          target_type: string;
+        };
+        Insert: {
+          bucket_id?: string;
+          checksum?: string | null;
+          content_type: string;
+          created_at?: string;
+          created_by: string;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
+          file_name: string;
+          id?: string;
+          metadata?: Json;
+          org_id: string;
+          size_bytes: number;
+          storage_path: string;
+          target_id: string;
+          target_type: string;
+        };
+        Update: {
+          bucket_id?: string;
+          checksum?: string | null;
+          content_type?: string;
+          created_at?: string;
+          created_by?: string;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
+          file_name?: string;
+          id?: string;
+          metadata?: Json;
+          org_id?: string;
+          size_bytes?: number;
+          storage_path?: string;
+          target_id?: string;
+          target_type?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "app_attachments_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "app_attachments_deleted_by_fkey";
+            columns: ["deleted_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "app_attachments_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      app_comment_events: {
+        Row: {
+          actor_id: string | null;
+          comment_id: string | null;
+          created_at: string;
+          event_type: string;
+          id: string;
+          org_id: string;
+          payload: Json;
+          target_id: string;
+          target_type: string;
+        };
+        Insert: {
+          actor_id?: string | null;
+          comment_id?: string | null;
+          created_at?: string;
+          event_type: string;
+          id?: string;
+          org_id: string;
+          payload?: Json;
+          target_id: string;
+          target_type: string;
+        };
+        Update: {
+          actor_id?: string | null;
+          comment_id?: string | null;
+          created_at?: string;
+          event_type?: string;
+          id?: string;
+          org_id?: string;
+          payload?: Json;
+          target_id?: string;
+          target_type?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "app_comment_events_actor_id_fkey";
+            columns: ["actor_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "app_comment_events_comment_id_fkey";
+            columns: ["comment_id"];
+            isOneToOne: false;
+            referencedRelation: "app_comments";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "app_comment_events_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      app_comments: {
+        Row: {
+          body_plain: string;
+          body_rich: Json | null;
+          created_at: string;
+          created_by: string;
+          deleted_at: string | null;
+          id: string;
+          kind: string;
+          metadata: Json;
+          org_id: string;
+          parent_comment_id: string | null;
+          target_id: string;
+          target_type: string;
+          updated_at: string;
+          updated_by: string | null;
+          visibility: string;
+        };
+        Insert: {
+          body_plain: string;
+          body_rich?: Json | null;
+          created_at?: string;
+          created_by: string;
+          deleted_at?: string | null;
+          id?: string;
+          kind?: string;
+          metadata?: Json;
+          org_id: string;
+          parent_comment_id?: string | null;
+          target_id: string;
+          target_type: string;
+          updated_at?: string;
+          updated_by?: string | null;
+          visibility?: string;
+        };
+        Update: {
+          body_plain?: string;
+          body_rich?: Json | null;
+          created_at?: string;
+          created_by?: string;
+          deleted_at?: string | null;
+          id?: string;
+          kind?: string;
+          metadata?: Json;
+          org_id?: string;
+          parent_comment_id?: string | null;
+          target_id?: string;
+          target_type?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+          visibility?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "app_comments_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "app_comments_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "app_comments_parent_comment_id_fkey";
+            columns: ["parent_comment_id"];
+            isOneToOne: false;
+            referencedRelation: "app_comments";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "app_comments_updated_by_fkey";
+            columns: ["updated_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       app_config: {
         Row: {
           announcement_banner_enabled: boolean;
@@ -101,6 +318,8 @@ export type Database = {
           default_priority: string;
           email_notifications: boolean;
           org_id: string;
+          priority_configs: Json | null;
+          status_configs: Json | null;
           ticket_prefix: string;
           updated_at: string;
         };
@@ -110,6 +329,8 @@ export type Database = {
           default_priority?: string;
           email_notifications?: boolean;
           org_id: string;
+          priority_configs?: Json | null;
+          status_configs?: Json | null;
           ticket_prefix?: string;
           updated_at?: string;
         };
@@ -119,6 +340,8 @@ export type Database = {
           default_priority?: string;
           email_notifications?: boolean;
           org_id?: string;
+          priority_configs?: Json | null;
+          status_configs?: Json | null;
           ticket_prefix?: string;
           updated_at?: string;
         };
@@ -128,6 +351,62 @@ export type Database = {
             columns: ["org_id"];
             isOneToOne: true;
             referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      helpdesk_ticket_acceptors: {
+        Row: {
+          added_at: string;
+          added_by: string | null;
+          id: string;
+          org_id: string;
+          ticket_id: string;
+          user_id: string;
+        };
+        Insert: {
+          added_at?: string;
+          added_by?: string | null;
+          id?: string;
+          org_id: string;
+          ticket_id: string;
+          user_id: string;
+        };
+        Update: {
+          added_at?: string;
+          added_by?: string | null;
+          id?: string;
+          org_id?: string;
+          ticket_id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "helpdesk_ticket_acceptors_added_by_fkey";
+            columns: ["added_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "helpdesk_ticket_acceptors_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "helpdesk_ticket_acceptors_ticket_id_fkey";
+            columns: ["ticket_id"];
+            isOneToOne: false;
+            referencedRelation: "helpdesk_tickets";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "helpdesk_ticket_acceptors_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
             referencedColumns: ["id"];
           },
         ];
@@ -364,6 +643,62 @@ export type Database = {
           },
         ];
       };
+      helpdesk_ticket_type_acceptors: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          org_id: string;
+          ticket_type_id: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          org_id: string;
+          ticket_type_id: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          org_id?: string;
+          ticket_type_id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "helpdesk_ticket_type_acceptors_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "helpdesk_ticket_type_acceptors_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "helpdesk_ticket_type_acceptors_ticket_type_id_fkey";
+            columns: ["ticket_type_id"];
+            isOneToOne: false;
+            referencedRelation: "helpdesk_ticket_types";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "helpdesk_ticket_type_acceptors_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       helpdesk_ticket_type_default_responders: {
         Row: {
           created_at: string;
@@ -426,6 +761,7 @@ export type Database = {
       helpdesk_ticket_types: {
         Row: {
           allows_manual_assignees: boolean;
+          branch_id: string | null;
           color: string;
           created_at: string;
           created_by: string | null;
@@ -440,11 +776,14 @@ export type Database = {
           metadata: Json | null;
           name: string;
           org_id: string;
+          requires_acceptance: boolean;
+          scope: string;
           sort_order: number;
           updated_at: string;
         };
         Insert: {
           allows_manual_assignees?: boolean;
+          branch_id?: string | null;
           color?: string;
           created_at?: string;
           created_by?: string | null;
@@ -459,11 +798,14 @@ export type Database = {
           metadata?: Json | null;
           name: string;
           org_id: string;
+          requires_acceptance?: boolean;
+          scope?: string;
           sort_order?: number;
           updated_at?: string;
         };
         Update: {
           allows_manual_assignees?: boolean;
+          branch_id?: string | null;
           color?: string;
           created_at?: string;
           created_by?: string | null;
@@ -478,10 +820,19 @@ export type Database = {
           metadata?: Json | null;
           name?: string;
           org_id?: string;
+          requires_acceptance?: boolean;
+          scope?: string;
           sort_order?: number;
           updated_at?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "helpdesk_ticket_types_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branches";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "helpdesk_ticket_types_created_by_fkey";
             columns: ["created_by"];
@@ -500,6 +851,8 @@ export type Database = {
       };
       helpdesk_tickets: {
         Row: {
+          accepted_at: string | null;
+          accepted_by: string | null;
           assigned_to: string | null;
           branch_id: string | null;
           closed_at: string | null;
@@ -515,6 +868,7 @@ export type Database = {
           org_id: string;
           priority: string;
           requested_by: string | null;
+          requires_acceptance: boolean;
           resolved_at: string | null;
           status: string;
           ticket_number: string;
@@ -523,6 +877,8 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          accepted_at?: string | null;
+          accepted_by?: string | null;
           assigned_to?: string | null;
           branch_id?: string | null;
           closed_at?: string | null;
@@ -538,6 +894,7 @@ export type Database = {
           org_id: string;
           priority?: string;
           requested_by?: string | null;
+          requires_acceptance?: boolean;
           resolved_at?: string | null;
           status?: string;
           ticket_number: string;
@@ -546,6 +903,8 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          accepted_at?: string | null;
+          accepted_by?: string | null;
           assigned_to?: string | null;
           branch_id?: string | null;
           closed_at?: string | null;
@@ -561,6 +920,7 @@ export type Database = {
           org_id?: string;
           priority?: string;
           requested_by?: string | null;
+          requires_acceptance?: boolean;
           resolved_at?: string | null;
           status?: string;
           ticket_number?: string;
@@ -569,6 +929,13 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "helpdesk_tickets_accepted_by_fkey";
+            columns: ["accepted_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "helpdesk_tickets_assigned_to_fkey";
             columns: ["assigned_to"];
@@ -5127,6 +5494,484 @@ export type Database = {
         };
         Relationships: [];
       };
+      planning_kanban_boards: {
+        Row: {
+          created_at: string;
+          created_by: string;
+          deleted_at: string | null;
+          description: string | null;
+          id: string;
+          organization_id: string;
+          title: string;
+          updated_at: string;
+          updated_by: string | null;
+          visibility: string;
+        };
+        Insert: {
+          created_at?: string;
+          created_by: string;
+          deleted_at?: string | null;
+          description?: string | null;
+          id?: string;
+          organization_id: string;
+          title: string;
+          updated_at?: string;
+          updated_by?: string | null;
+          visibility?: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string;
+          deleted_at?: string | null;
+          description?: string | null;
+          id?: string;
+          organization_id?: string;
+          title?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+          visibility?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "planning_kanban_boards_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "planning_kanban_boards_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "planning_kanban_boards_updated_by_fkey";
+            columns: ["updated_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      planning_kanban_card_activity: {
+        Row: {
+          activity_type: string;
+          actor_id: string | null;
+          board_id: string;
+          card_id: string;
+          created_at: string;
+          id: string;
+          message: string | null;
+          metadata: Json;
+          organization_id: string;
+        };
+        Insert: {
+          activity_type: string;
+          actor_id?: string | null;
+          board_id: string;
+          card_id: string;
+          created_at?: string;
+          id?: string;
+          message?: string | null;
+          metadata?: Json;
+          organization_id: string;
+        };
+        Update: {
+          activity_type?: string;
+          actor_id?: string | null;
+          board_id?: string;
+          card_id?: string;
+          created_at?: string;
+          id?: string;
+          message?: string | null;
+          metadata?: Json;
+          organization_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "planning_kanban_card_activity_actor_id_fkey";
+            columns: ["actor_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "planning_kanban_card_activity_board_id_fkey";
+            columns: ["board_id"];
+            isOneToOne: false;
+            referencedRelation: "planning_kanban_boards";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "planning_kanban_card_activity_card_id_fkey";
+            columns: ["card_id"];
+            isOneToOne: false;
+            referencedRelation: "planning_kanban_cards";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "planning_kanban_card_activity_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      planning_kanban_cards: {
+        Row: {
+          board_id: string;
+          column_id: string;
+          created_at: string;
+          created_by: string;
+          deleted_at: string | null;
+          description: string | null;
+          description_rich: Json | null;
+          due_at: string | null;
+          id: string;
+          is_inbox: boolean;
+          label: string | null;
+          label_color: string | null;
+          organization_id: string;
+          position: number;
+          title: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          board_id: string;
+          column_id: string;
+          created_at?: string;
+          created_by: string;
+          deleted_at?: string | null;
+          description?: string | null;
+          description_rich?: Json | null;
+          due_at?: string | null;
+          id?: string;
+          is_inbox?: boolean;
+          label?: string | null;
+          label_color?: string | null;
+          organization_id: string;
+          position?: number;
+          title: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          board_id?: string;
+          column_id?: string;
+          created_at?: string;
+          created_by?: string;
+          deleted_at?: string | null;
+          description?: string | null;
+          description_rich?: Json | null;
+          due_at?: string | null;
+          id?: string;
+          is_inbox?: boolean;
+          label?: string | null;
+          label_color?: string | null;
+          organization_id?: string;
+          position?: number;
+          title?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "planning_kanban_cards_board_id_fkey";
+            columns: ["board_id"];
+            isOneToOne: false;
+            referencedRelation: "planning_kanban_boards";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "planning_kanban_cards_column_id_fkey";
+            columns: ["column_id"];
+            isOneToOne: false;
+            referencedRelation: "planning_kanban_columns";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "planning_kanban_cards_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "planning_kanban_cards_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "planning_kanban_cards_updated_by_fkey";
+            columns: ["updated_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      planning_kanban_columns: {
+        Row: {
+          board_id: string;
+          color: string | null;
+          created_at: string;
+          deleted_at: string | null;
+          description: string | null;
+          id: string;
+          organization_id: string;
+          position: number;
+          title: string;
+          updated_at: string;
+        };
+        Insert: {
+          board_id: string;
+          color?: string | null;
+          created_at?: string;
+          deleted_at?: string | null;
+          description?: string | null;
+          id?: string;
+          organization_id: string;
+          position?: number;
+          title: string;
+          updated_at?: string;
+        };
+        Update: {
+          board_id?: string;
+          color?: string | null;
+          created_at?: string;
+          deleted_at?: string | null;
+          description?: string | null;
+          id?: string;
+          organization_id?: string;
+          position?: number;
+          title?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "planning_kanban_columns_board_id_fkey";
+            columns: ["board_id"];
+            isOneToOne: false;
+            referencedRelation: "planning_kanban_boards";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "planning_kanban_columns_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      planning_settings: {
+        Row: {
+          created_at: string;
+          id: string;
+          organization_id: string;
+          priority_configs: Json;
+          status_configs: Json;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          organization_id: string;
+          priority_configs?: Json;
+          status_configs?: Json;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          organization_id?: string;
+          priority_configs?: Json;
+          status_configs?: Json;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "planning_settings_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: true;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      planning_task_activity: {
+        Row: {
+          activity_type: string;
+          actor_id: string | null;
+          branch_id: string | null;
+          created_at: string;
+          id: string;
+          message: string | null;
+          metadata: Json | null;
+          organization_id: string;
+          task_id: string;
+        };
+        Insert: {
+          activity_type: string;
+          actor_id?: string | null;
+          branch_id?: string | null;
+          created_at?: string;
+          id?: string;
+          message?: string | null;
+          metadata?: Json | null;
+          organization_id: string;
+          task_id: string;
+        };
+        Update: {
+          activity_type?: string;
+          actor_id?: string | null;
+          branch_id?: string | null;
+          created_at?: string;
+          id?: string;
+          message?: string | null;
+          metadata?: Json | null;
+          organization_id?: string;
+          task_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "planning_task_activity_actor_id_fkey";
+            columns: ["actor_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "planning_task_activity_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branches";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "planning_task_activity_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "planning_task_activity_task_id_fkey";
+            columns: ["task_id"];
+            isOneToOne: false;
+            referencedRelation: "planning_tasks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      planning_tasks: {
+        Row: {
+          assigned_to: string | null;
+          branch_id: string | null;
+          cancelled_at: string | null;
+          completed_at: string | null;
+          created_at: string;
+          created_by: string;
+          deleted_at: string | null;
+          description_plain: string | null;
+          description_rich: Json | null;
+          due_at: string | null;
+          id: string;
+          organization_id: string;
+          priority: string;
+          started_at: string | null;
+          status: string;
+          task_number: string;
+          title: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          assigned_to?: string | null;
+          branch_id?: string | null;
+          cancelled_at?: string | null;
+          completed_at?: string | null;
+          created_at?: string;
+          created_by: string;
+          deleted_at?: string | null;
+          description_plain?: string | null;
+          description_rich?: Json | null;
+          due_at?: string | null;
+          id?: string;
+          organization_id: string;
+          priority?: string;
+          started_at?: string | null;
+          status?: string;
+          task_number: string;
+          title: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          assigned_to?: string | null;
+          branch_id?: string | null;
+          cancelled_at?: string | null;
+          completed_at?: string | null;
+          created_at?: string;
+          created_by?: string;
+          deleted_at?: string | null;
+          description_plain?: string | null;
+          description_rich?: Json | null;
+          due_at?: string | null;
+          id?: string;
+          organization_id?: string;
+          priority?: string;
+          started_at?: string | null;
+          status?: string;
+          task_number?: string;
+          title?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "planning_tasks_assigned_to_fkey";
+            columns: ["assigned_to"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "planning_tasks_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branches";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "planning_tasks_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "planning_tasks_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "planning_tasks_updated_by_fkey";
+            columns: ["updated_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       platform_events: {
         Row: {
           action_key: string;
@@ -7166,6 +8011,16 @@ export type Database = {
           isSetofReturn: true;
         };
       };
+      can_access_comment_target: {
+        Args: {
+          p_action: string;
+          p_org_id: string;
+          p_target_id: string;
+          p_target_type: string;
+          p_visibility?: string;
+        };
+        Returns: boolean;
+      };
       cascade_warehouse_location_levels: {
         Args: { p_org_id: string; p_parent_id: string; p_parent_level: number };
         Returns: undefined;
@@ -7230,21 +8085,40 @@ export type Database = {
         Args: { org_id: string; permission: string };
         Returns: boolean;
       };
-      helpdesk_create_ticket: {
-        Args: {
-          p_assignee_ids: string[];
-          p_branch_id: string;
-          p_description_plain: string;
-          p_description_rich: Json;
-          p_due_at?: string;
-          p_org_id: string;
-          p_priority: string;
-          p_status: string;
-          p_ticket_type_id: string;
-          p_title: string;
-        };
-        Returns: Json;
-      };
+      helpdesk_accept_ticket: { Args: { p_ticket_id: string }; Returns: Json };
+      helpdesk_create_ticket:
+        | {
+            Args: {
+              p_assignee_ids: string[];
+              p_branch_id: string;
+              p_description_plain: string;
+              p_description_rich: Json;
+              p_due_at?: string;
+              p_org_id: string;
+              p_priority: string;
+              p_status: string;
+              p_ticket_type_id: string;
+              p_title: string;
+            };
+            Returns: Json;
+          }
+        | {
+            Args: {
+              p_acceptor_ids?: string[];
+              p_assignee_ids: string[];
+              p_branch_id: string;
+              p_description_plain: string;
+              p_description_rich: Json;
+              p_due_at?: string;
+              p_org_id: string;
+              p_priority: string;
+              p_requires_acceptance?: boolean;
+              p_status: string;
+              p_ticket_type_id: string;
+              p_title: string;
+            };
+            Returns: Json;
+          };
       inventory_accept_branch_transfer: {
         Args: {
           p_actor_user_id?: string;
