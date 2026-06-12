@@ -198,7 +198,7 @@ export const SchedulerEventDialog: React.FC<SchedulerEventDialogProps> = ({
         {/* Header toolbar */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-neutral-800">
           <div className="flex items-center gap-2">
-            <Calendar className="text-indigo-600 dark:text-indigo-400" size={18} />
+            <Calendar className="text-primary" size={18} />
             <span className="font-sans font-bold text-gray-900 dark:text-white">
               {event?.id ? `Edit: ${event.title}` : label.createEvent}
             </span>
@@ -233,7 +233,7 @@ export const SchedulerEventDialog: React.FC<SchedulerEventDialogProps> = ({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder={label.titlePlaceholder}
-              className="w-full text-sm bg-gray-50 dark:bg-neutral-800 text-gray-900 dark:text-white border border-gray-200 dark:border-neutral-700 rounded-xl p-3 focus:ring-1 focus:ring-indigo-500 outline-none placeholder-gray-400 dark:placeholder-neutral-500 font-semibold"
+              className="w-full text-sm bg-gray-50 dark:bg-neutral-800 text-gray-900 dark:text-white border border-gray-200 dark:border-neutral-700 rounded-xl p-3 focus:ring-1 focus:ring-primary outline-none placeholder-gray-400 dark:placeholder-neutral-500 font-semibold"
               id="input-event-title"
             />
           </div>
@@ -250,7 +250,7 @@ export const SchedulerEventDialog: React.FC<SchedulerEventDialogProps> = ({
                 required
                 value={startDateStr}
                 onChange={(e) => setStartDateStr(e.target.value)}
-                className="w-full text-xs bg-gray-50 dark:bg-neutral-800 text-gray-900 dark:text-white border border-gray-200 dark:border-neutral-700 rounded-xl p-3 focus:ring-1 focus:ring-indigo-500 outline-none font-mono"
+                className="w-full text-xs bg-gray-50 dark:bg-neutral-800 text-gray-900 dark:text-white border border-gray-200 dark:border-neutral-700 rounded-xl p-3 focus:ring-1 focus:ring-primary outline-none font-mono"
                 id="input-event-start"
               />
             </div>
@@ -267,7 +267,7 @@ export const SchedulerEventDialog: React.FC<SchedulerEventDialogProps> = ({
                 disabled={allDay}
                 value={endDateStr}
                 onChange={(e) => setEndDateStr(e.target.value)}
-                className={`w-full text-xs border rounded-xl p-3 focus:ring-1 focus:ring-indigo-500 outline-none font-mono ${
+                className={`w-full text-xs border rounded-xl p-3 focus:ring-1 focus:ring-primary outline-none font-mono ${
                   allDay
                     ? "bg-gray-100 dark:bg-neutral-850/40 text-gray-400 dark:text-neutral-600 border-gray-200 dark:border-neutral-800 cursor-not-allowed"
                     : "bg-gray-50 dark:bg-neutral-800 text-gray-900 dark:text-white border-gray-200 dark:border-neutral-700"
@@ -291,7 +291,7 @@ export const SchedulerEventDialog: React.FC<SchedulerEventDialogProps> = ({
               type="checkbox"
               checked={allDay}
               onChange={(e) => setAllDay(e.target.checked)}
-              className="accent-indigo-600 w-4 h-4 cursor-pointer"
+              className="accent-primary w-4 h-4 cursor-pointer"
               id="chk-event-allday"
             />
           </div>
@@ -311,7 +311,7 @@ export const SchedulerEventDialog: React.FC<SchedulerEventDialogProps> = ({
                 type="checkbox"
                 checked={isBackground}
                 onChange={(e) => setIsBackground(e.target.checked)}
-                className="accent-indigo-600 w-4 h-4 cursor-pointer"
+                className="accent-primary w-4 h-4 cursor-pointer"
                 id="chk-event-background"
               />
             </div>
@@ -324,7 +324,7 @@ export const SchedulerEventDialog: React.FC<SchedulerEventDialogProps> = ({
                 <select
                   value={bgType}
                   onChange={(e) => setBgType(e.target.value as any)}
-                  className="w-full text-xs bg-white dark:bg-neutral-800 text-gray-900 dark:text-white border border-gray-200 dark:border-neutral-700 rounded-lg p-2 outline-none focus:ring-1 focus:ring-indigo-500 font-semibold cursor-pointer"
+                  className="w-full text-xs bg-white dark:bg-neutral-800 text-gray-900 dark:text-white border border-gray-200 dark:border-neutral-700 rounded-lg p-2 outline-none focus:ring-1 focus:ring-primary font-semibold cursor-pointer"
                   id="select-bg-type"
                 >
                   <option value="break">🥪 Lunch Break / Rest Hour {"(break)"}</option>
@@ -354,7 +354,7 @@ export const SchedulerEventDialog: React.FC<SchedulerEventDialogProps> = ({
                     // Auto color match on category selection
                     if (!color) setColor(e.target.value);
                   }}
-                  className="w-full text-xs bg-gray-50 dark:bg-neutral-800 text-gray-900 dark:text-white border border-gray-200 dark:border-neutral-700 rounded-xl p-2.5 outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="w-full text-xs bg-gray-50 dark:bg-neutral-800 text-gray-900 dark:text-white border border-gray-200 dark:border-neutral-700 rounded-xl p-2.5 outline-none focus:ring-1 focus:ring-primary"
                   id="select-event-category"
                 >
                   <option value="meeting">{label.catMeeting || "Meeting"}</option>
@@ -374,7 +374,7 @@ export const SchedulerEventDialog: React.FC<SchedulerEventDialogProps> = ({
                 <select
                   value={priority}
                   onChange={(e) => setPriority(e.target.value as "low" | "medium" | "high")}
-                  className="w-full text-xs bg-gray-50 dark:bg-neutral-800 text-gray-900 dark:text-white border border-gray-200 dark:border-neutral-700 rounded-xl p-2.5 outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="w-full text-xs bg-gray-50 dark:bg-neutral-800 text-gray-900 dark:text-white border border-gray-200 dark:border-neutral-700 rounded-xl p-2.5 outline-none focus:ring-1 focus:ring-primary"
                   id="select-event-priority"
                 >
                   <option value="low">{label.priorityLow || "Low"}</option>
@@ -391,7 +391,7 @@ export const SchedulerEventDialog: React.FC<SchedulerEventDialogProps> = ({
                 <select
                   value={status}
                   onChange={(e) => setStatus(e.target.value as any)}
-                  className="w-full text-xs bg-gray-50 dark:bg-neutral-800 text-gray-900 dark:text-white border border-gray-200 dark:border-neutral-700 rounded-xl p-2.5 outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="w-full text-xs bg-gray-50 dark:bg-neutral-800 text-gray-900 dark:text-white border border-gray-200 dark:border-neutral-700 rounded-xl p-2.5 outline-none focus:ring-1 focus:ring-primary"
                   id="select-event-status"
                 >
                   <option value="confirmed">{label.statusConfirmed || "Confirmed"}</option>
@@ -410,7 +410,7 @@ export const SchedulerEventDialog: React.FC<SchedulerEventDialogProps> = ({
             <select
               value={resourceId}
               onChange={(e) => setResourceId(e.target.value)}
-              className="w-full text-xs bg-gray-50 dark:bg-neutral-800 text-gray-900 dark:text-white border border-gray-200 dark:border-neutral-700 rounded-xl p-3 outline-none focus:ring-1 focus:ring-indigo-500 font-semibold"
+              className="w-full text-xs bg-gray-50 dark:bg-neutral-800 text-gray-900 dark:text-white border border-gray-200 dark:border-neutral-700 rounded-xl p-3 outline-none focus:ring-1 focus:ring-primary font-semibold"
               id="select-event-resource"
             >
               <option value="">-- No Assigned Resource (Unassigned Event) --</option>
@@ -445,7 +445,7 @@ export const SchedulerEventDialog: React.FC<SchedulerEventDialogProps> = ({
                       onClick={() => setColor(p.value)}
                       className={`w-5 h-5 rounded-full flex items-center justify-center transition border ${p.class} ${
                         color === p.value
-                          ? "ring-2 ring-indigo-500 ring-offset-2 scale-110 border-white"
+                          ? "ring-2 ring-primary ring-offset-2 scale-110 border-white"
                           : "border-transparent opacity-80 hover:opacity-100 hover:scale-105"
                       }`}
                       title={p.name}
@@ -470,7 +470,7 @@ export const SchedulerEventDialog: React.FC<SchedulerEventDialogProps> = ({
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
                     placeholder={label.locationPlaceholder || "Google Meet, Conference Room A..."}
-                    className="w-full text-xs bg-gray-50 dark:bg-neutral-800 text-gray-900 dark:text-white border border-gray-200 dark:border-neutral-700 rounded-xl p-3 pl-9 focus:ring-1 focus:ring-indigo-500 outline-none placeholder-gray-400"
+                    className="w-full text-xs bg-gray-50 dark:bg-neutral-800 text-gray-900 dark:text-white border border-gray-200 dark:border-neutral-700 rounded-xl p-3 pl-9 focus:ring-1 focus:ring-primary outline-none placeholder-gray-400"
                     id="input-event-location"
                   />
                 </div>
@@ -488,7 +488,7 @@ export const SchedulerEventDialog: React.FC<SchedulerEventDialogProps> = ({
                     label.descriptionPlaceholder || "Provide a core outline, links, checklist..."
                   }
                   rows={3}
-                  className="w-full text-xs bg-gray-50 dark:bg-neutral-800 text-gray-900 dark:text-white border border-gray-200 dark:border-neutral-700 rounded-xl p-3 focus:ring-1 focus:ring-indigo-500 outline-none placeholder-gray-400 dark:placeholder-neutral-500 text-left resize-none font-sans"
+                  className="w-full text-xs bg-gray-50 dark:bg-neutral-800 text-gray-900 dark:text-white border border-gray-200 dark:border-neutral-700 rounded-xl p-3 focus:ring-1 focus:ring-primary outline-none placeholder-gray-400 dark:placeholder-neutral-500 text-left resize-none font-sans"
                   id="input-event-description"
                 />
               </div>
@@ -504,7 +504,7 @@ export const SchedulerEventDialog: React.FC<SchedulerEventDialogProps> = ({
                   value={attendeesStr}
                   onChange={(e) => setAttendeesStr(e.target.value)}
                   placeholder={label.attendeesPlaceholder || "Ariadne V., Juliet S., Caleb P."}
-                  className="w-full text-xs bg-gray-50 dark:bg-neutral-800 text-gray-900 dark:text-white border border-gray-200 dark:border-neutral-750 rounded-xl p-3 focus:ring-1 focus:ring-indigo-500 outline-none placeholder-gray-400"
+                  className="w-full text-xs bg-gray-50 dark:bg-neutral-800 text-gray-900 dark:text-white border border-gray-200 dark:border-neutral-750 rounded-xl p-3 focus:ring-1 focus:ring-primary outline-none placeholder-gray-400"
                   id="input-event-attendees"
                 />
               </div>
@@ -516,7 +516,7 @@ export const SchedulerEventDialog: React.FC<SchedulerEventDialogProps> = ({
                     type="checkbox"
                     checked={isDraggable}
                     onChange={(e) => setIsDraggable(e.target.checked)}
-                    className="accent-indigo-600 cursor-pointer"
+                    className="accent-primary cursor-pointer"
                     id="chk-event-draggable"
                   />
                   <span className="text-gray-600 dark:text-neutral-300 font-semibold">
@@ -532,7 +532,7 @@ export const SchedulerEventDialog: React.FC<SchedulerEventDialogProps> = ({
                     disabled={allDay}
                     checked={allDay ? false : isResizable}
                     onChange={(e) => setIsResizable(e.target.checked)}
-                    className="accent-indigo-600 cursor-pointer"
+                    className="accent-primary cursor-pointer"
                     id="chk-event-resizable"
                   />
                   <span className="text-gray-600 dark:text-neutral-300 font-semibold">
@@ -554,7 +554,7 @@ export const SchedulerEventDialog: React.FC<SchedulerEventDialogProps> = ({
             </button>
             <button
               type="submit"
-              className="px-5 py-2.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 rounded-xl transition cursor-pointer shadow-sm shadow-indigo-600/10"
+              className="px-5 py-2.5 text-xs font-bold text-primary-foreground bg-primary hover:bg-primary/90 active:scale-95 rounded-xl transition cursor-pointer shadow-sm shadow-primary/10"
               id="btn-event-dialog-save"
             >
               {label.save}

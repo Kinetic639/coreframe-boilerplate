@@ -292,8 +292,8 @@ export const SchedulerMonthView: React.FC<SchedulerMonthViewProps> = ({
               }}
               className={`relative border-r border-b border-gray-100 dark:border-neutral-800/60 p-1.5 flex flex-col min-h-16 h-full transition duration-150 group select-none cursor-pointer ${
                 isSelected
-                  ? "bg-indigo-50/70 dark:bg-indigo-950/30 shadow-[inset_0_0_0_1.5px_rgba(99,102,241,0.4)] dark:shadow-[inset_0_0_0_1.5px_rgba(129,140,248,0.4)] z-30"
-                  : "hover:bg-indigo-500/[0.04] dark:hover:bg-indigo-400/[0.04] hover:shadow-[inset_0_0_0_1px_rgba(79,70,229,0.15)] dark:hover:shadow-[inset_0_0_0_1px_rgba(129,140,248,0.15)] hover:z-40"
+                  ? "bg-primary/10 ring-2 ring-inset ring-primary/40 z-30"
+                  : "hover:bg-primary/[0.04] hover:ring-1 hover:ring-inset hover:ring-primary/15 hover:z-40"
               } ${
                 isCurrentMonth
                   ? "bg-transparent"
@@ -305,7 +305,7 @@ export const SchedulerMonthView: React.FC<SchedulerMonthViewProps> = ({
             >
               {/* Day Badge Number */}
               <div className="flex items-center justify-between mb-1">
-                <span className="opacity-0 group-hover:opacity-100 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 font-semibold tracking-wider transition-opacity duration-100 pointer-events-none pl-1">
+                <span className="opacity-0 group-hover:opacity-100 text-[10px] font-bold text-primary font-semibold tracking-wider transition-opacity duration-100 pointer-events-none pl-1">
                   {LABELS_MAP[locale]?.hoverAddAt || "+ Add"}
                 </span>
                 <span
@@ -319,7 +319,7 @@ export const SchedulerMonthView: React.FC<SchedulerMonthViewProps> = ({
                   }}
                   className={`text-xs ml-auto font-bold flex items-center justify-center rounded-full w-6 h-6 transition-colors ${
                     isTodayDate
-                      ? "bg-indigo-600 text-white shadow-sm"
+                      ? "bg-primary text-primary-foreground shadow-sm"
                       : isCurrentMonth
                         ? "text-gray-800 dark:text-neutral-200 group-hover:bg-gray-100 dark:group-hover:bg-neutral-800"
                         : "text-gray-300 dark:text-neutral-700"
@@ -455,7 +455,7 @@ export const SchedulerMonthView: React.FC<SchedulerMonthViewProps> = ({
                             })}
                           </div>
                           <button
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] py-1.5 px-3 rounded-lg font-bold w-full transition-colors cursor-pointer mt-1"
+                            className="bg-primary hover:bg-primary/90 text-primary-foreground text-[10px] py-1.5 px-3 rounded-lg font-bold w-full transition-colors cursor-pointer mt-1"
                             onClick={(e) => {
                               e.stopPropagation();
                               setOpenTooltipDay(null);

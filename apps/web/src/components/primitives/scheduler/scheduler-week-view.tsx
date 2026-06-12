@@ -485,7 +485,7 @@ export const SchedulerWeekView: React.FC<SchedulerWeekViewProps> = ({
                   <span
                     className={`mt-1 text-sm font-extrabold w-7 h-7 flex items-center justify-center rounded-full ${
                       isTodayDate
-                        ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/15"
+                        ? "bg-primary text-primary-foreground shadow-md shadow-primary/15"
                         : "text-gray-800 dark:text-neutral-200"
                     }`}
                   >
@@ -578,7 +578,7 @@ export const SchedulerWeekView: React.FC<SchedulerWeekViewProps> = ({
             {/* Hover active indicator time text badge inside side ruler */}
             {hoveredTime && !selectionStart && (
               <div
-                className="absolute right-1.5 bg-indigo-600 text-white font-mono text-[9px] px-1 py-0.5 rounded shadow-sm z-30 pointer-events-none opacity-95 whitespace-nowrap animate-fade-in"
+                className="absolute right-1.5 bg-primary text-primary-foreground font-mono text-[9px] px-1 py-0.5 rounded shadow-sm z-30 pointer-events-none opacity-95 whitespace-nowrap animate-fade-in"
                 style={{
                   top: `${((hoveredTime.minutes - dayStartHour * 60) / 60) * HOUR_HEIGHT}px`,
                   transform: "translateY(-50%)",
@@ -596,7 +596,7 @@ export const SchedulerWeekView: React.FC<SchedulerWeekViewProps> = ({
           {/* Global hover dashed line spanning all columns */}
           {hoveredTime && !selectionStart && (
             <div
-              className="absolute left-14 right-0 border-t border-dashed border-indigo-500/50 pointer-events-none z-30"
+              className="absolute left-14 right-0 border-t border-dashed border-primary/50 pointer-events-none z-30"
               style={{ top: `${((hoveredTime.minutes - dayStartHour * 60) / 60) * HOUR_HEIGHT}px` }}
             />
           )}
@@ -706,16 +706,16 @@ export const SchedulerWeekView: React.FC<SchedulerWeekViewProps> = ({
 
                     return (
                       <div
-                        className="absolute left-0 right-0 bg-indigo-500/20 border-y-2 border-indigo-500/50 pointer-events-none z-30 animate-pulse"
+                        className="absolute left-0 right-0 bg-primary/20 border-y-2 border-primary/50 pointer-events-none z-30 animate-pulse"
                         style={style}
                       >
                         {isStartDay && (
-                          <span className="absolute top-0.5 left-1 bg-indigo-600 text-white font-mono text-[9px] px-1 py-0.2 rounded shadow-xs select-none opacity-95 whitespace-nowrap">
+                          <span className="absolute top-0.5 left-1 bg-primary text-primary-foreground font-mono text-[9px] px-1 py-0.2 rounded shadow-xs select-none opacity-95 whitespace-nowrap">
                             Start: {format(range.start, timeFormat === "24h" ? "HH:mm" : "h:mm a")}
                           </span>
                         )}
                         {isEndDay && (
-                          <span className="absolute bottom-0.5 right-1 bg-indigo-600 text-white font-mono text-[9px] px-1 py-0.2 rounded shadow-xs select-none opacity-95 whitespace-nowrap">
+                          <span className="absolute bottom-0.5 right-1 bg-primary text-primary-foreground font-mono text-[9px] px-1 py-0.2 rounded shadow-xs select-none opacity-95 whitespace-nowrap">
                             End: {format(range.end, timeFormat === "24h" ? "HH:mm" : "h:mm a")}
                           </span>
                         )}
@@ -747,11 +747,11 @@ export const SchedulerWeekView: React.FC<SchedulerWeekViewProps> = ({
                       return (
                         <div
                           key={hr}
-                          className="w-full border-b border-gray-100/30 dark:border-neutral-800/5 hover:bg-indigo-500/[0.04] dark:hover:bg-indigo-400/[0.04] cursor-pointer pointer-events-auto transition duration-75 flex items-start pl-1 text-[8px] font-mono font-medium text-slate-350 dark:text-neutral-650 tracking-wider group"
+                          className="w-full border-b border-gray-100/30 dark:border-neutral-800/5 hover:bg-primary/[0.04] cursor-pointer pointer-events-auto transition duration-75 flex items-start pl-1 text-[8px] font-mono font-medium text-slate-350 dark:text-neutral-650 tracking-wider group"
                           style={{ height: `${HOUR_HEIGHT}px` }}
                           id={`week-hour-slot-${day.getDay()}-${hr}`}
                         >
-                          <span className="opacity-0 group-hover:opacity-100 mt-1 text-indigo-600 dark:text-indigo-400 font-semibold transition-opacity duration-100 font-mono">
+                          <span className="opacity-0 group-hover:opacity-100 mt-1 text-primary font-semibold transition-opacity duration-100 font-mono">
                             {LABELS_MAP[locale]?.hoverAddAt || "+ Add"}{" "}
                             {isThisHourHovered
                               ? formatPreciseMins(hoveredTime!.minutes)
@@ -782,8 +782,7 @@ export const SchedulerWeekView: React.FC<SchedulerWeekViewProps> = ({
                           "bg-rose-500/5 hover:bg-rose-500/10 border-rose-500/10 text-rose-500",
                         unavailable:
                           "bg-neutral-500/5 hover:bg-neutral-500/10 border-neutral-500/10 text-neutral-400",
-                        focus:
-                          "bg-indigo-500/5 hover:bg-indigo-505/15 border-indigo-500/10 text-indigo-500",
+                        focus: "bg-primary/5 hover:bg-primary/15 border-primary/10 text-primary",
                       };
 
                       const bgStartStr = formatInTimezone(
@@ -973,11 +972,11 @@ export const SchedulerWeekView: React.FC<SchedulerWeekViewProps> = ({
                               setIsResizeHandleActive(false);
                               handleResizePointerUp(e, event.id);
                             }}
-                            className="absolute bottom-0 left-0 right-0 h-2 bg-transparent group-hover/card:bg-indigo-300/20 active:bg-indigo-500/30 cursor-ns-resize transition duration-150 flex items-center justify-center pointer-events-auto"
+                            className="absolute bottom-0 left-0 right-0 h-2 bg-transparent group-hover/card:bg-primary/20 active:bg-primary/30 cursor-ns-resize transition duration-150 flex items-center justify-center pointer-events-auto"
                             title="Drag bottom to resize duration"
                           >
                             {/* Visual resizing indicator grip bars */}
-                            <span className="w-4 h-[2px] bg-indigo-500/40 rounded" />
+                            <span className="w-4 h-[2px] bg-primary/40 rounded" />
                           </div>
                         )}
                       </div>
