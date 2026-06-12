@@ -109,6 +109,16 @@ export const ADMIN_MAIN_NAV_ITEMS: SidebarItem[] = [
     },
   },
   {
+    id: "admin.calendar-demo",
+    title: "Calendar Demo",
+    iconKey: "calendar",
+    href: "/admin/calendar-demo",
+    match: { startsWith: "/admin/calendar-demo" },
+    visibility: {
+      requiresPermissions: [SUPERADMIN_ADMIN_READ],
+    },
+  },
+  {
     id: "admin.org-members",
     title: "Org Members",
     iconKey: "users",
