@@ -17,6 +17,8 @@ import {
   SchedulerSettings,
   EventCategory,
   UnscheduledTask,
+  CalendarEvent,
+  CalendarSource,
   SchedulerTheme,
   SchedulerLocale,
   SchedulerTimezone,
@@ -40,6 +42,8 @@ interface SchedulerSidebarProps {
   onDragTaskEnd?: () => void;
   currentDate?: Date;
   onNavigateDate?: (date: Date) => void;
+  calendarSources?: CalendarSource[];
+  events?: CalendarEvent[];
 }
 
 export const SchedulerSidebar: React.FC<SchedulerSidebarProps> = ({
@@ -50,6 +54,8 @@ export const SchedulerSidebar: React.FC<SchedulerSidebarProps> = ({
   onDragTaskEnd,
   currentDate = startOfDay(new Date()),
   onNavigateDate,
+  calendarSources,
+  events = [],
 }) => {
   const label = LABELS_MAP[settings.locale];
 
@@ -173,6 +179,30 @@ export const SchedulerSidebar: React.FC<SchedulerSidebarProps> = ({
     onUpdateSettings({ visibleCategories: updated });
   };
 
+  // Color swatches reused for dynamic calendar sources (keyed by their cycled category)
+  const CATEGORY_COLOR_MAP: Record<EventCategory, { bg: string; border: string }> = {
+    meeting: { bg: "bg-indigo-500", border: "border-indigo-200" },
+    workshop: { bg: "bg-emerald-500", border: "border-emerald-200" },
+    reminder: { bg: "bg-amber-500", border: "border-amber-200" },
+    warehouse: { bg: "bg-rose-500", border: "border-rose-200" },
+    task: { bg: "bg-cyan-500", border: "border-cyan-200" },
+    personal: { bg: "bg-fuchsia-500", border: "border-fuchsia-200" },
+  };
+
+  const isSourceVisible = (sourceId: string) =>
+    settings.visibleCalendarSources?.[sourceId] !== false;
+
+  const handleCalendarSourceToggle = (sourceId: string) => {
+    const updated = {
+      ...(settings.visibleCalendarSources ?? {}),
+      [sourceId]: !isSourceVisible(sourceId),
+    };
+    onUpdateSettings({ visibleCalendarSources: updated });
+  };
+
+  const getSourceForTask = (task: UnscheduledTask) =>
+    calendarSources?.find((source) => source.id === task.calendarSourceId);
+
   const handleThemeChange = (theme: SchedulerTheme) => {
     onUpdateSettings({ theme });
   };
@@ -283,42 +313,81 @@ export const SchedulerSidebar: React.FC<SchedulerSidebarProps> = ({
       {/* Calendars / Filters Categories */}
       <div className="space-y-4 pt-1">
         <h3 className="text-[10px] font-extrabold text-slate-400 dark:text-neutral-500 uppercase tracking-widest font-mono">
-          {label.filters}
+          {calendarSources ? label.calendarsTitle || "Calendars" : label.filters}
         </h3>
         <div className="space-y-2.5">
-          {categories.map((cat) => {
-            const isSelected = settings.visibleCategories[cat.key];
-            return (
-              <label
-                key={cat.key}
-                onClick={() => handleCategoryToggle(cat.key)}
-                className="flex items-center gap-3 text-xs text-slate-600 dark:text-neutral-300 cursor-pointer p-1.5 rounded-lg hover:bg-slate-100/50 dark:hover:bg-neutral-800/40 transition duration-150"
-              >
-                <div
-                  className={`w-4 h-4 rounded border flex items-center justify-center transition duration-150 ${
-                    isSelected
-                      ? `${cat.bg} border-transparent text-white`
-                      : "border-slate-300 dark:border-neutral-700 bg-transparent"
-                  }`}
-                >
-                  {isSelected && (
-                    <svg
-                      className="w-3 h-3 text-white"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth="3"
+          {calendarSources
+            ? calendarSources.map((source) => {
+                const isSelected = isSourceVisible(source.id);
+                const colors = CATEGORY_COLOR_MAP[source.category];
+                const count = events.filter((ev) => ev.calendarSourceId === source.id).length;
+                return (
+                  <label
+                    key={source.id}
+                    onClick={() => handleCalendarSourceToggle(source.id)}
+                    className="flex items-center gap-3 text-xs text-slate-600 dark:text-neutral-300 cursor-pointer p-1.5 rounded-lg hover:bg-slate-100/50 dark:hover:bg-neutral-800/40 transition duration-150"
+                  >
+                    <div
+                      className={`w-4 h-4 rounded border flex items-center justify-center transition duration-150 shrink-0 ${
+                        isSelected
+                          ? `${colors.bg} border-transparent text-white`
+                          : "border-slate-300 dark:border-neutral-700 bg-transparent"
+                      }`}
                     >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  )}
-                </div>
-                <span className="font-semibold text-slate-700 dark:text-neutral-250">
-                  {cat.labelText}
-                </span>
-              </label>
-            );
-          })}
+                      {isSelected && (
+                        <svg
+                          className="w-3 h-3 text-white"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth="3"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </div>
+                    <span className="font-semibold text-slate-700 dark:text-neutral-250 flex-1 line-clamp-1">
+                      {source.label}
+                    </span>
+                    <span className="text-[9px] bg-slate-50 dark:bg-neutral-800 text-slate-500 dark:text-neutral-400 px-1.5 py-0.5 rounded border border-slate-100 dark:border-neutral-700/60 font-mono font-semibold shrink-0">
+                      {count}
+                    </span>
+                  </label>
+                );
+              })
+            : categories.map((cat) => {
+                const isSelected = settings.visibleCategories[cat.key];
+                return (
+                  <label
+                    key={cat.key}
+                    onClick={() => handleCategoryToggle(cat.key)}
+                    className="flex items-center gap-3 text-xs text-slate-600 dark:text-neutral-300 cursor-pointer p-1.5 rounded-lg hover:bg-slate-100/50 dark:hover:bg-neutral-800/40 transition duration-150"
+                  >
+                    <div
+                      className={`w-4 h-4 rounded border flex items-center justify-center transition duration-150 ${
+                        isSelected
+                          ? `${cat.bg} border-transparent text-white`
+                          : "border-slate-300 dark:border-neutral-700 bg-transparent"
+                      }`}
+                    >
+                      {isSelected && (
+                        <svg
+                          className="w-3 h-3 text-white"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth="3"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </div>
+                    <span className="font-semibold text-slate-700 dark:text-neutral-250">
+                      {cat.labelText}
+                    </span>
+                  </label>
+                );
+              })}
         </div>
       </div>
 
@@ -327,7 +396,7 @@ export const SchedulerSidebar: React.FC<SchedulerSidebarProps> = ({
         <div className="flex-1 space-y-4 flex flex-col border-t border-slate-200/50 dark:border-neutral-800 pt-5 text-left">
           <div className="flex items-center justify-between shrink-0">
             <h3 className="text-[10px] font-extrabold text-slate-400 dark:text-neutral-500 uppercase tracking-widest font-mono text-left">
-              {label.taskPool}
+              {calendarSources ? label.noDueDateTitle || "No due date" : label.taskPool}
             </h3>
             <span className="bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 font-extrabold px-2 py-0.5 rounded-full text-[10px]">
               {unscheduledTasks.length}
@@ -361,12 +430,29 @@ export const SchedulerSidebar: React.FC<SchedulerSidebarProps> = ({
                       {task.description}
                     </p>
                   )}
-                  <div className="flex items-center gap-1">
-                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
-                    <span className="text-[8.5px] text-slate-400 uppercase tracking-tighter font-extrabold font-mono dark:text-neutral-500">
-                      {getCategoryLabel(task.category)}
-                    </span>
-                  </div>
+                  {calendarSources ? (
+                    (() => {
+                      const source = getSourceForTask(task);
+                      const colors = source
+                        ? CATEGORY_COLOR_MAP[source.category]
+                        : CATEGORY_COLOR_MAP.task;
+                      return (
+                        <div className="flex items-center gap-1">
+                          <div className={`w-1.5 h-1.5 rounded-full ${colors.bg}`} />
+                          <span className="text-[8.5px] text-slate-400 uppercase tracking-tighter font-extrabold font-mono dark:text-neutral-500">
+                            {source?.label ?? getCategoryLabel(task.category)}
+                          </span>
+                        </div>
+                      );
+                    })()
+                  ) : (
+                    <div className="flex items-center gap-1">
+                      <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                      <span className="text-[8.5px] text-slate-400 uppercase tracking-tighter font-extrabold font-mono dark:text-neutral-500">
+                        {getCategoryLabel(task.category)}
+                      </span>
+                    </div>
+                  )}
                 </div>
               ))
             )}

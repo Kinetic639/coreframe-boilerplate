@@ -27,6 +27,16 @@ import {
 
 export type ServiceResult<T> = { success: true; data: T } | { success: false; error: string };
 
+export interface CardCalendarRow {
+  id: string;
+  board_id: string;
+  title: string;
+  due_at: string | null;
+  label: string | null;
+  label_color: string | null;
+  is_inbox: boolean;
+}
+
 function displayName(
   firstName: string | null,
   lastName: string | null,
@@ -844,6 +854,61 @@ export const KanbanBoardsService = {
         "card_archived"
       );
       return KanbanBoardsService.getBoard(supabase, orgId, boardId);
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : "Unexpected error" };
+    }
+  },
+
+  // ── Calendar ─────────────────────────────────────────────────────────────
+
+  async listCardsForCalendar(
+    supabase: SupabaseClient,
+    orgId: string
+  ): Promise<ServiceResult<CardCalendarRow[]>> {
+    try {
+      const { data, error } = await supabase
+        .from("planning_kanban_cards")
+        .select("id, board_id, title, due_at, label, label_color, is_inbox")
+        .eq("organization_id", orgId)
+        .is("deleted_at", null);
+
+      if (error) return { success: false, error: error.message };
+      return { success: true, data: (data ?? []) as CardCalendarRow[] };
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : "Unexpected error" };
+    }
+  },
+
+  async updateCardDueAt(
+    supabase: SupabaseClient,
+    orgId: string,
+    userId: string,
+    cardId: string,
+    boardId: string,
+    dueAt: string | null
+  ): Promise<ServiceResult<void>> {
+    try {
+      const { error } = await supabase
+        .from("planning_kanban_cards")
+        .update({ due_at: dueAt, updated_by: userId })
+        .eq("organization_id", orgId)
+        .eq("board_id", boardId)
+        .eq("id", cardId)
+        .is("deleted_at", null);
+
+      if (error) return { success: false, error: error.message };
+
+      await KanbanBoardsService.recordCardActivity(
+        supabase,
+        orgId,
+        boardId,
+        cardId,
+        userId,
+        "card_updated",
+        { due_at: dueAt }
+      );
+
+      return { success: true, data: undefined };
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : "Unexpected error" };
     }

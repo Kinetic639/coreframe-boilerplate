@@ -23,6 +23,16 @@ export const LOCALE_MAP = {
   de: de,
 };
 
+// Cycle of existing event categories used to assign colors to dynamic calendar sources
+export const CALENDAR_SOURCE_CATEGORY_CYCLE: EventCategory[] = [
+  "task",
+  "warehouse",
+  "meeting",
+  "reminder",
+  "personal",
+  "workshop",
+];
+
 // Map locale to common labels
 export const LABELS_MAP = {
   en: {
@@ -108,6 +118,10 @@ export const LABELS_MAP = {
     timelineView: "Timeline View",
     gridView: "Grid View",
     searchResources: "Search resources...",
+    calendarsTitle: "Calendars",
+    noDueDateTitle: "No due date",
+    ticketsSource: "Tickets",
+    openItem: "Open",
   },
   pl: {
     today: "Dzisiaj",
@@ -192,6 +206,10 @@ export const LABELS_MAP = {
     timelineView: "Widok osi czasu",
     gridView: "Widok siatki",
     searchResources: "Szukaj zasobów...",
+    calendarsTitle: "Kalendarze",
+    noDueDateTitle: "Bez terminu",
+    ticketsSource: "Zgłoszenia",
+    openItem: "Otwórz",
   },
   de: {
     today: "Heute",
@@ -277,6 +295,10 @@ export const LABELS_MAP = {
     timelineView: "Zeitachse",
     gridView: "Spaltenansicht",
     searchResources: "Ressourcen suchen...",
+    calendarsTitle: "Kalender",
+    noDueDateTitle: "Ohne Termin",
+    ticketsSource: "Tickets",
+    openItem: "Öffnen",
   },
 };
 

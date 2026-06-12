@@ -2,10 +2,16 @@ import { redirect } from "@/i18n/navigation";
 import { getLocale } from "next-intl/server";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { checkPermission } from "@/lib/utils/permissions";
-import { PLANNING_READ } from "@/lib/constants/permissions";
-import { getTranslations } from "next-intl/server";
-
-const FEATURE_CARDS = ["tasks", "boards"] as const;
+import {
+  PLANNING_READ,
+  PLANNING_TASKS_CREATE,
+  PLANNING_TASKS_ASSIGN,
+} from "@/lib/constants/permissions";
+import { createClient } from "@/utils/supabase/server";
+import { OrgMembersService } from "@/server/services/organization.service";
+import { PlanningSettingsService } from "@/server/services/planning-settings.service";
+import { UserPreferencesService } from "@/server/services/user-preferences.service";
+import { PlanningCalendarClient } from "./_components/planning-calendar-client";
 
 export default async function PlanningOverviewPage() {
   const locale = await getLocale();
@@ -25,27 +31,37 @@ export default async function PlanningOverviewPage() {
     });
   }
 
-  const t = await getTranslations("modules.planning");
+  const supabase = await createClient();
+  const orgId = context.app.activeOrgId;
+  const userId = context.user.user?.id ?? "";
+  const snap = context.user.permissionSnapshot;
+
+  const [membersResult, settingsResult, preferences] = await Promise.all([
+    OrgMembersService.listMembers(supabase, orgId),
+    PlanningSettingsService.getSettings(supabase, orgId),
+    UserPreferencesService.getOrCreatePreferences(supabase, userId),
+  ]);
+
+  const members = membersResult.success
+    ? membersResult.data.map((m) => ({
+        user_id: m.user_id,
+        name: [m.user_first_name, m.user_last_name].filter(Boolean).join(" ") || null,
+        email: m.user_email,
+      }))
+    : [];
+
+  const calendarSettings = preferences.moduleSettings.calendar as
+    | { visibleSources?: Record<string, boolean> }
+    | undefined;
 
   return (
-    <div className="flex flex-col gap-6 p-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{t("pages.overview.title")}</h1>
-        <p className="text-muted-foreground mt-1 text-sm">{t("pages.overview.subtitle")}</p>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {FEATURE_CARDS.map((key) => (
-          <div
-            key={key}
-            className="bg-card text-card-foreground border-border flex flex-col gap-2 rounded-lg border p-5"
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">{t(`features.${key}`)}</span>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
+    <PlanningCalendarClient
+      members={members}
+      currentUserId={userId}
+      canAssign={checkPermission(snap, PLANNING_TASKS_ASSIGN)}
+      canCreateTasks={checkPermission(snap, PLANNING_TASKS_CREATE)}
+      priorityConfigs={settingsResult.success ? settingsResult.data.priority_configs : null}
+      initialVisibleSources={calendarSettings?.visibleSources ?? {}}
+    />
   );
 }

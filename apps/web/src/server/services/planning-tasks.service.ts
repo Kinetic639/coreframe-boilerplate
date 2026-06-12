@@ -59,6 +59,15 @@ export interface PlanningTaskDetail extends PlanningTaskListRow {
   activity: PlanningTaskActivity[];
 }
 
+export interface TaskCalendarRow {
+  id: string;
+  title: string;
+  due_at: string | null;
+  status: TaskStatus;
+  priority: TaskPriority;
+  assigned_to: string | null;
+}
+
 export type ServiceResult<T> = { success: true; data: T } | { success: false; error: string };
 type DataViewFilterValue = string | string[] | boolean | null | undefined;
 
@@ -803,6 +812,78 @@ export const PlanningTasksService = {
       if (error) return { success: false, error: error.message };
 
       await insertActivity(supabase, orgId, taskId, userId, "archived", "Task archived");
+      return { success: true, data: undefined };
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : "Unexpected error" };
+    }
+  },
+
+  // ── Calendar ─────────────────────────────────────────────────────────────
+
+  async listForCalendar(
+    supabase: SupabaseClient,
+    orgId: string
+  ): Promise<ServiceResult<{ scheduled: TaskCalendarRow[]; unscheduled: TaskCalendarRow[] }>> {
+    try {
+      const { data, error } = await supabase
+        .from("planning_tasks")
+        .select("id, title, due_at, status, priority, assigned_to")
+        .eq("organization_id", orgId)
+        .is("deleted_at", null)
+        .neq("status", "cancelled");
+
+      if (error) return { success: false, error: error.message };
+
+      const rows = (data ?? []) as TaskCalendarRow[];
+      const scheduled = rows.filter((row) => row.due_at !== null);
+      const unscheduled = rows.filter((row) => row.due_at === null && row.status !== "completed");
+
+      return { success: true, data: { scheduled, unscheduled } };
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : "Unexpected error" };
+    }
+  },
+
+  async updateDueAt(
+    supabase: SupabaseClient,
+    orgId: string,
+    userId: string,
+    taskId: string,
+    dueAt: string | null
+  ): Promise<ServiceResult<void>> {
+    try {
+      const { data: previous, error: fetchError } = await supabase
+        .from("planning_tasks")
+        .select("due_at")
+        .eq("id", taskId)
+        .eq("organization_id", orgId)
+        .is("deleted_at", null)
+        .maybeSingle();
+
+      if (fetchError) return { success: false, error: fetchError.message };
+      if (!previous) return { success: false, error: "Task not found" };
+
+      const { error } = await supabase
+        .from("planning_tasks")
+        .update({ due_at: dueAt, updated_by: userId })
+        .eq("id", taskId)
+        .eq("organization_id", orgId)
+        .is("deleted_at", null);
+
+      if (error) return { success: false, error: error.message };
+
+      if ((previous.due_at ?? null) !== (dueAt ?? null)) {
+        await insertActivity(
+          supabase,
+          orgId,
+          taskId,
+          userId,
+          "due_date_changed",
+          "Due date updated",
+          { from: previous.due_at, to: dueAt }
+        );
+      }
+
       return { success: true, data: undefined };
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : "Unexpected error" };
