@@ -92,20 +92,18 @@ export const SchedulerListView: React.FC<SchedulerListViewProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-neutral-900 p-6 space-y-6 overflow-y-auto scrollbar-thin select-none">
-      <div className="flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-neutral-800">
-        <Calendar className="text-slate-400" size={18} />
-        <h3 className="font-sans font-bold text-base text-slate-700 dark:text-white uppercase tracking-wider">
+    <div className="flex flex-col h-full bg-background p-6 space-y-6 overflow-y-auto scrollbar-thin select-none">
+      <div className="flex items-center gap-2 pb-2 border-b border-border">
+        <Calendar className="text-muted-foreground" size={18} />
+        <h3 className="font-sans font-bold text-base text-foreground uppercase tracking-wider">
           {label.upcoming}
         </h3>
       </div>
 
       {datesInsideAgenda.length === 0 ? (
-        <div className="py-24 text-center border border-dashed border-slate-200 dark:border-neutral-800 rounded-2xl flex flex-col items-center justify-center gap-3 bg-slate-50/35 dark:bg-neutral-900/10">
-          <Clock size={36} className="text-slate-350 dark:text-neutral-700 animate-pulse" />
-          <p className="text-slate-450 dark:text-neutral-500 text-sm font-semibold">
-            {label.noEvents}
-          </p>
+        <div className="py-24 text-center border border-dashed border-border rounded-2xl flex flex-col items-center justify-center gap-3 bg-muted/30">
+          <Clock size={36} className="text-muted-foreground animate-pulse" />
+          <p className="text-muted-foreground text-sm font-semibold">{label.noEvents}</p>
         </div>
       ) : (
         <div className="space-y-6 font-sans">
@@ -131,7 +129,7 @@ export const SchedulerListView: React.FC<SchedulerListViewProps> = ({
                       <div
                         key={event.id}
                         onClick={() => onSelectEvent(event)}
-                        className="group relative p-4 border border-slate-200/60 dark:border-neutral-800 bg-white dark:bg-neutral-800/30 rounded-xl hover:border-primary/40 hover:shadow-xs cursor-pointer transition flex flex-col md:flex-row md:items-center justify-between gap-4 select-none"
+                        className="group relative p-4 border border-border/60 bg-card rounded-xl hover:border-primary/40 hover:shadow-xs cursor-pointer transition flex flex-col md:flex-row md:items-center justify-between gap-4 select-none"
                         id={`agenda-event-row-${event.id}`}
                       >
                         {/* Event details summary info */}
@@ -154,20 +152,20 @@ export const SchedulerListView: React.FC<SchedulerListViewProps> = ({
                           />
 
                           <div className="space-y-1">
-                            <h5 className="font-sans font-bold text-sm text-slate-800 dark:text-white leading-tight group-hover:text-primary transition-colors">
+                            <h5 className="font-sans font-bold text-sm text-foreground leading-tight group-hover:text-primary transition-colors">
                               {event.title}
                             </h5>
 
                             {/* Description summary */}
                             {event.description && (
-                              <p className="text-[11px] text-slate-450 dark:text-neutral-400 line-clamp-1 max-w-lg leading-snug">
+                              <p className="text-[11px] text-muted-foreground line-clamp-1 max-w-lg leading-snug">
                                 {event.description}
                               </p>
                             )}
 
                             {/* Location element inside agenda row */}
                             {event.location && (
-                              <div className="flex items-center gap-1 text-[10px] text-slate-450 dark:text-neutral-500 font-semibold">
+                              <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-semibold">
                                 <MapPin size={10} />
                                 <span>{event.location}</span>
                               </div>
@@ -178,7 +176,7 @@ export const SchedulerListView: React.FC<SchedulerListViewProps> = ({
                         {/* Event Meta timing tags / badges */}
                         <div className="flex flex-wrap md:flex-nowrap items-center gap-3 self-end md:self-center">
                           {/* Formatted Hours widget */}
-                          <div className="text-[11px] font-mono font-bold text-slate-500 dark:text-neutral-350 bg-slate-50 dark:bg-neutral-800 border border-slate-100 dark:border-neutral-700 px-2.5 py-1 rounded-lg">
+                          <div className="text-[11px] font-mono font-bold text-muted-foreground bg-muted border border-border px-2.5 py-1 rounded-lg">
                             {formatEventTime(
                               event.start,
                               event.end,

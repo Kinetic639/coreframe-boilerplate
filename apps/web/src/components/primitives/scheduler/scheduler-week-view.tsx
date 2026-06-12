@@ -455,18 +455,18 @@ export const SchedulerWeekView: React.FC<SchedulerWeekViewProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-neutral-900 transition-colors duration-200 overflow-hidden select-none">
+    <div className="flex flex-col h-full bg-background transition-colors duration-200 overflow-hidden select-none">
       {/* Main vertical scrollable Grid Container */}
       <div
         ref={scrollContainerRef}
         className="flex-1 overflow-y-auto overflow-x-hidden relative scrollbar-thin"
       >
         {/* Sticky Header and All-Day Shelf container to perfectly align margins and widths with scrollbar visible area */}
-        <div className="sticky top-0 z-40 bg-white dark:bg-neutral-900 border-b border-gray-150 dark:border-neutral-800 shadow-sm">
+        <div className="sticky top-0 z-40 bg-background border-b border-border shadow-sm">
           {/* Week Shelf header row */}
           <div
-            className={`grid bg-gray-50/50 dark:bg-neutral-900/50 ${
-              weekAllDayEvents.length > 0 ? "border-b border-gray-150 dark:border-neutral-800" : ""
+            className={`grid bg-muted/50 ${
+              weekAllDayEvents.length > 0 ? "border-b border-border" : ""
             }`}
             style={{ gridTemplateColumns: `56px repeat(${weekDays.length}, minmax(0, 1fr))` }}
           >
@@ -477,16 +477,16 @@ export const SchedulerWeekView: React.FC<SchedulerWeekViewProps> = ({
                 <div
                   key={day.toString()}
                   onClick={() => onCellClick(day)}
-                  className="py-3 px-1 border-l border-gray-100 dark:border-neutral-800/60 text-center flex flex-col items-center cursor-pointer hover:bg-gray-100/40 dark:hover:bg-neutral-800/40 transition"
+                  className="py-3 px-1 border-l border-border text-center flex flex-col items-center cursor-pointer hover:bg-muted/40 transition"
                 >
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-neutral-500 font-mono">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground font-mono">
                     {formatInTimezone(day, "EEE", timezone, locale)}
                   </span>
                   <span
                     className={`mt-1 text-sm font-extrabold w-7 h-7 flex items-center justify-center rounded-full ${
                       isTodayDate
                         ? "bg-primary text-primary-foreground shadow-md shadow-primary/15"
-                        : "text-gray-800 dark:text-neutral-200"
+                        : "text-foreground"
                     }`}
                   >
                     {format(day, "d")}
@@ -514,7 +514,7 @@ export const SchedulerWeekView: React.FC<SchedulerWeekViewProps> = ({
                 return (
                   <div
                     key={day.toString()}
-                    className="border-l border-gray-100 dark:border-neutral-800/60 px-2 space-y-1 min-w-0 overflow-hidden"
+                    className="border-l border-border px-2 space-y-1 min-w-0 overflow-hidden"
                   >
                     {dayAllDayEvents.map((ev) => {
                       const style =
@@ -543,7 +543,7 @@ export const SchedulerWeekView: React.FC<SchedulerWeekViewProps> = ({
             {hours.map((hr) => (
               <div
                 key={hr}
-                className="border-b border-gray-100 dark:border-neutral-800/40 flex items-start text-[10px] text-gray-400 font-mono"
+                className="border-b border-border/40 flex items-start text-[10px] text-muted-foreground font-mono"
                 style={{ height: `${HOUR_HEIGHT}px` }}
               >
                 {/* Visual grid row spacer */}
@@ -552,7 +552,7 @@ export const SchedulerWeekView: React.FC<SchedulerWeekViewProps> = ({
           </div>
 
           {/* Time axis Labels column */}
-          <div className="absolute left-0 top-0 bottom-0 w-14 border-r border-gray-150 dark:border-neutral-800 z-30 bg-white/95 dark:bg-neutral-900/95 font-mono text-[10px] text-gray-400/90">
+          <div className="absolute left-0 top-0 bottom-0 w-14 border-r border-border z-30 bg-background/95 font-mono text-[10px] text-muted-foreground/90">
             {hours.map((hr, idx) => {
               const formattedHour = formatGridHour(hr, timeFormat);
               return (
@@ -692,7 +692,7 @@ export const SchedulerWeekView: React.FC<SchedulerWeekViewProps> = ({
                   onMouseLeave={() => {
                     setHoveredTime(null);
                   }}
-                  className="relative border-l border-gray-100 dark:border-neutral-800/60 h-full hover:bg-gray-50/10 transition"
+                  className="relative border-l border-border h-full hover:bg-muted/10 transition"
                 >
                   {/* Selection block visual overlay */}
                   {(() => {
@@ -747,7 +747,7 @@ export const SchedulerWeekView: React.FC<SchedulerWeekViewProps> = ({
                       return (
                         <div
                           key={hr}
-                          className="w-full border-b border-gray-100/30 dark:border-neutral-800/5 hover:bg-primary/[0.04] cursor-pointer pointer-events-auto transition duration-75 flex items-start pl-1 text-[8px] font-mono font-medium text-slate-350 dark:text-neutral-650 tracking-wider group"
+                          className="w-full border-b border-border/30 hover:bg-primary/[0.04] cursor-pointer pointer-events-auto transition duration-75 flex items-start pl-1 text-[8px] font-mono font-medium text-muted-foreground/50 tracking-wider group"
                           style={{ height: `${HOUR_HEIGHT}px` }}
                           id={`week-hour-slot-${day.getDay()}-${hr}`}
                         >
@@ -903,8 +903,8 @@ export const SchedulerWeekView: React.FC<SchedulerWeekViewProps> = ({
                           isProvisional
                             ? "pointer-events-none z-30 shadow-none"
                             : isDragging
-                              ? "cursor-grabbing z-40 shadow-md ring-1 ring-black/5 dark:ring-white/10"
-                              : "cursor-pointer active:cursor-grabbing hover:shadow-sm hover:shadow-slate-100/50 group/card z-20"
+                              ? "cursor-grabbing z-40 shadow-md ring-1 ring-foreground/5 dark:ring-foreground/10"
+                              : "cursor-pointer active:cursor-grabbing hover:shadow-sm hover:shadow-border/50 group/card z-20"
                         } ${style.bg} ${style.text} ${style.border}`}
                         style={{
                           top: pos.top,
@@ -941,14 +941,14 @@ export const SchedulerWeekView: React.FC<SchedulerWeekViewProps> = ({
 
                           {/* Location details */}
                           {showDetails && event.location && (
-                            <p className="text-[9px] text-gray-500 dark:text-neutral-400 font-semibold truncate leading-none shrink-0 pt-0.5">
+                            <p className="text-[9px] text-muted-foreground font-semibold truncate leading-none shrink-0 pt-0.5">
                               📍 {event.location}
                             </p>
                           )}
 
                           {/* Description details */}
                           {showDetails && event.description && (
-                            <p className="text-[9.5px] text-gray-400 dark:text-neutral-500 line-clamp-2 leading-normal mt-0.5 font-medium overflow-hidden">
+                            <p className="text-[9.5px] text-muted-foreground line-clamp-2 leading-normal mt-0.5 font-medium overflow-hidden">
                               {event.description}
                             </p>
                           )}

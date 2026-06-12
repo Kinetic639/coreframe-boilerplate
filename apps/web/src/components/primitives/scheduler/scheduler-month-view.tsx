@@ -210,13 +210,15 @@ export const SchedulerMonthView: React.FC<SchedulerMonthViewProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-neutral-900 transition-colors duration-200">
-      {/* 7 columns grid for days headers */}
-      <div className="grid grid-cols-7 border-b border-gray-150 dark:border-neutral-800 select-none bg-gray-50/50 dark:bg-neutral-900/50">
+    <div className="flex flex-col h-full bg-background transition-colors duration-200">
+      {/* Columns grid for days headers */}
+      <div
+        className={`grid ${filteredHeadings.length === 5 ? "grid-cols-5" : "grid-cols-7"} border-b border-border select-none bg-muted/50`}
+      >
         {filteredHeadings.map((head, i) => (
           <div
             key={i}
-            className="py-3 text-center text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-neutral-500 font-mono"
+            className="py-3 text-center text-[10px] font-bold uppercase tracking-wider text-muted-foreground font-mono"
           >
             {formatInTimezone(head, "EEE", timezone, locale)}
           </div>
@@ -290,7 +292,7 @@ export const SchedulerMonthView: React.FC<SchedulerMonthViewProps> = ({
                   setSelectionEnd(day);
                 }
               }}
-              className={`relative border-r border-b border-gray-100 dark:border-neutral-800/60 p-1.5 flex flex-col min-h-16 h-full transition duration-150 group select-none cursor-pointer ${
+              className={`relative border-r border-b border-border p-1.5 flex flex-col min-h-16 h-full transition duration-150 group select-none cursor-pointer ${
                 isSelected
                   ? "bg-primary/10 ring-2 ring-inset ring-primary/40 z-30"
                   : "hover:bg-primary/[0.04] hover:ring-1 hover:ring-inset hover:ring-primary/15 hover:z-40"
@@ -299,7 +301,7 @@ export const SchedulerMonthView: React.FC<SchedulerMonthViewProps> = ({
                   ? "bg-transparent"
                   : isSelected
                     ? ""
-                    : "bg-gray-50/40 dark:bg-neutral-950/20 text-gray-300 dark:text-neutral-700"
+                    : "bg-muted/40 text-muted-foreground/50"
               } ${hasBackgroundBlocked && showBackgroundEvents ? "bg-rose-50/10 hover:bg-rose-50/20 dark:bg-rose-950/5 dark:hover:bg-rose-950/10" : ""}`}
               id={`month-cell-${format(day, "yyyy-MM-dd")}`}
             >
@@ -321,8 +323,8 @@ export const SchedulerMonthView: React.FC<SchedulerMonthViewProps> = ({
                     isTodayDate
                       ? "bg-primary text-primary-foreground shadow-sm"
                       : isCurrentMonth
-                        ? "text-gray-800 dark:text-neutral-200 group-hover:bg-gray-100 dark:group-hover:bg-neutral-800"
-                        : "text-gray-300 dark:text-neutral-700"
+                        ? "text-foreground group-hover:bg-muted"
+                        : "text-muted-foreground/50"
                   }`}
                 >
                   {format(day, "d")}
@@ -421,7 +423,7 @@ export const SchedulerMonthView: React.FC<SchedulerMonthViewProps> = ({
                         const dayStr = format(day, "yyyy-MM-dd");
                         setOpenTooltipDay((prev) => (prev === dayStr ? null : dayStr));
                       }}
-                      className="w-full text-left px-2 py-1 rounded-md bg-gray-100 hover:bg-gray-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-[10px] font-medium text-gray-700 dark:text-neutral-300 transition duration-150 flex items-center gap-1.5 mt-0.5 cursor-pointer"
+                      className="w-full text-left px-2 py-1 rounded-md bg-muted hover:bg-border text-[10px] font-medium text-muted-foreground transition duration-150 flex items-center gap-1.5 mt-0.5 cursor-pointer"
                     >
                       <span>+{overflowCount} more</span>
                     </button>
@@ -429,8 +431,8 @@ export const SchedulerMonthView: React.FC<SchedulerMonthViewProps> = ({
                     {/* Tooltip Popup - shown on click instead of hover */}
                     {openTooltipDay === format(day, "yyyy-MM-dd") && (
                       <div className="absolute bottom-full left-1/2 -translate-x-1/2 pb-1.5 flex flex-col z-[100] w-48 pointer-events-auto">
-                        <div className="bg-white dark:bg-neutral-900 border border-gray-200 dark:border-neutral-700 shadow-xl rounded-xl p-3 flex flex-col">
-                          <div className="font-bold text-xs mb-2 border-b border-gray-100 dark:border-neutral-800 pb-2 text-slate-800 dark:text-white">
+                        <div className="bg-popover border border-border shadow-xl rounded-xl p-3 flex flex-col">
+                          <div className="font-bold text-xs mb-2 border-b border-border pb-2 text-foreground">
                             {formatInTimezone(day, "MMM d, yyyy", timezone, locale)}
                           </div>
                           <div className="flex flex-col gap-1 max-h-[150px] overflow-auto mb-2 custom-scrollbar">

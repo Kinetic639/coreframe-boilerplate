@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "react-toastify";
 import { format, startOfDay } from "date-fns";
-import { CalendarRange, ClipboardList, ExternalLink, KanbanSquare } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -331,31 +331,6 @@ export function PlanningCalendarClient({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex flex-none flex-wrap items-start justify-between gap-4 border-b px-6 py-4">
-        <div>
-          <div className="mb-1 flex items-center gap-2">
-            <CalendarRange className="h-5 w-5 text-primary" />
-            <h1 className="text-2xl font-semibold tracking-tight">{t("pages.overview.title")}</h1>
-          </div>
-          <p className="text-muted-foreground text-sm">{t("pages.overview.subtitle")}</p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/dashboard/planning/tasks">
-              <ClipboardList className="mr-1.5 h-4 w-4" />
-              {t("features.tasks")}
-            </Link>
-          </Button>
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/dashboard/planning/boards">
-              <KanbanSquare className="mr-1.5 h-4 w-4" />
-              {t("features.boards")}
-            </Link>
-          </Button>
-        </div>
-      </div>
-
       <div className="min-h-0 flex-1">
         <CalendarScheduler
           key={refreshKey}

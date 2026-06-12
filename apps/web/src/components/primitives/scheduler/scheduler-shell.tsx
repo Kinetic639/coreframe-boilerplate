@@ -204,16 +204,6 @@ export const SchedulerWorkspace: React.FC<SchedulerWorkspaceProps> = ({
     setIsDialogModelOpen(true);
   };
 
-  const handleCreateNewClick = () => {
-    if (onCreateAt) {
-      onCreateAt(currentDate);
-      return;
-    }
-
-    setDialogPrefillEvent(null);
-    setIsDialogModelOpen(true);
-  };
-
   const handleSelectEvent = (event: CalendarEvent) => {
     if (event.sourceModule && onSelectRealEvent) {
       onSelectRealEvent(event);
@@ -442,6 +432,7 @@ export const SchedulerWorkspace: React.FC<SchedulerWorkspaceProps> = ({
         <SchedulerToolbar
           currentDate={currentDate}
           view={activeView}
+          settings={settings}
           locale={settings.locale}
           timezone={settings.timezone}
           mode={mode}
@@ -459,7 +450,6 @@ export const SchedulerWorkspace: React.FC<SchedulerWorkspaceProps> = ({
               setCalendarView(v as Exclude<CalendarView, "timeline">);
             }
           }}
-          onCreateEventClick={handleCreateNewClick}
         />
 
         {/* Dynamic active calendar views mapping */}

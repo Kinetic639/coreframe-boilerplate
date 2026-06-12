@@ -434,18 +434,18 @@ export const SchedulerDayView: React.FC<SchedulerDayViewProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-neutral-900 transition-colors duration-200 overflow-hidden select-none">
+    <div className="flex flex-col h-full bg-background transition-colors duration-200 overflow-hidden select-none">
       {/* Day header row */}
       <div
-        className="grid border-b border-gray-150 dark:border-neutral-800 bg-gray-50/50 dark:bg-neutral-900/50"
+        className="grid border-b border-border bg-muted/50"
         style={{ gridTemplateColumns: "56px 1fr" }}
       >
         <div /> {/* Corner cell Spacer */}
         <div className="py-4 px-6 text-left flex flex-col justify-center">
-          <span className="text-xs font-bold uppercase tracking-widest text-gray-400 dark:text-neutral-500 font-mono">
+          <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground font-mono">
             {formatInTimezone(currentDate, "EEEE", timezone, locale)}
           </span>
-          <h3 className="font-extrabold text-xl text-gray-900 dark:text-white mt-1">
+          <h3 className="font-extrabold text-xl text-foreground mt-1">
             {format(currentDate, "MMMM d, yyyy")}
           </h3>
         </div>
@@ -454,7 +454,7 @@ export const SchedulerDayView: React.FC<SchedulerDayViewProps> = ({
       {/* All-day Section */}
       {dayAllDayEvents.length > 0 && (
         <div
-          className="grid border-b border-gray-150 dark:border-neutral-800 bg-amber-50/10 dark:bg-amber-950/5 p-3"
+          className="grid border-b border-border bg-amber-50/10 dark:bg-amber-950/5 p-3"
           style={{ gridTemplateColumns: "56px minmax(0, 1fr)" }}
         >
           <div className="flex items-center justify-center">
@@ -490,14 +490,14 @@ export const SchedulerDayView: React.FC<SchedulerDayViewProps> = ({
             {hours.map((hr) => (
               <div
                 key={hr}
-                className="border-b border-gray-100 dark:border-neutral-800/40"
+                className="border-b border-border/40"
                 style={{ height: `${HOUR_HEIGHT}px` }}
               />
             ))}
           </div>
 
           {/* Hour labels axis panel */}
-          <div className="absolute left-0 top-0 bottom-0 w-14 border-r border-gray-150 dark:border-neutral-800 z-30 bg-white/95 dark:bg-neutral-900/95 font-mono text-[10px] text-gray-400 select-none">
+          <div className="absolute left-0 top-0 bottom-0 w-14 border-r border-border z-30 bg-background/95 font-mono text-[10px] text-muted-foreground select-none">
             {hours.map((hr, idx) => {
               const formattedHour = formatGridHour(hr, timeFormat);
               return (
@@ -632,7 +632,7 @@ export const SchedulerDayView: React.FC<SchedulerDayViewProps> = ({
                 return (
                   <div
                     key={hr}
-                    className="w-full border-b border-gray-100/30 dark:border-neutral-800/5 hover:bg-primary/[0.04] cursor-pointer pointer-events-auto transition duration-75 flex items-start pl-2 text-[9px] font-mono font-medium text-slate-350 dark:text-neutral-650 tracking-wider group"
+                    className="w-full border-b border-border/30 hover:bg-primary/[0.04] cursor-pointer pointer-events-auto transition duration-75 flex items-start pl-2 text-[9px] font-mono font-medium text-muted-foreground tracking-wider group"
                     style={{ height: `${HOUR_HEIGHT}px` }}
                     id={`day-hour-slot-${hr}`}
                   >
@@ -774,8 +774,8 @@ export const SchedulerDayView: React.FC<SchedulerDayViewProps> = ({
                     isProvisional
                       ? "pointer-events-none z-30 shadow-none"
                       : isDragging
-                        ? "cursor-grabbing z-40 shadow-md ring-1 ring-black/5 dark:ring-white/10"
-                        : "cursor-pointer active:cursor-grabbing hover:shadow-md hover:shadow-slate-100/50 group/card z-20"
+                        ? "cursor-grabbing z-40 shadow-md ring-1 ring-foreground/5 dark:ring-foreground/10"
+                        : "cursor-pointer active:cursor-grabbing hover:shadow-md hover:shadow-border/50 group/card z-20"
                   } ${style.bg} ${style.text} ${style.border}`}
                   style={{
                     top: pos.top,
@@ -810,14 +810,14 @@ export const SchedulerDayView: React.FC<SchedulerDayViewProps> = ({
 
                     {/* Location Badge */}
                     {showDetails && event.location && (
-                      <p className="text-[10px] text-gray-500 dark:text-neutral-400 font-semibold truncate flex items-center gap-1 leading-none pt-0.5 shrink-0">
+                      <p className="text-[10px] text-muted-foreground font-semibold truncate flex items-center gap-1 leading-none pt-0.5 shrink-0">
                         📍 <span>{event.location}</span>
                       </p>
                     )}
 
                     {/* Short Description */}
                     {showDetails && event.description && (
-                      <p className="text-[10px] text-gray-400 dark:text-neutral-400 line-clamp-2 mt-1 leading-normal font-medium overflow-hidden">
+                      <p className="text-[10px] text-muted-foreground line-clamp-2 mt-1 leading-normal font-medium overflow-hidden">
                         {event.description}
                       </p>
                     )}

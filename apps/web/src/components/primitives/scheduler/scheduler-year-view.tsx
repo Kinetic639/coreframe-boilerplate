@@ -202,33 +202,33 @@ export const SchedulerYearView: React.FC<SchedulerYearViewProps> = ({
   }, [targetYear, showWeekends]);
 
   return (
-    <div className="absolute inset-0 overflow-y-auto custom-scrollbar bg-slate-50/50 dark:bg-neutral-950/10 p-4 sm:p-5">
+    <div className="absolute inset-0 overflow-y-auto custom-scrollbar bg-muted/30 p-4 sm:p-5">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-[1100px] mx-auto pb-8">
         {monthsData.map(({ monthIndex, date: monthDate, days }) => {
           return (
             <div
               key={monthIndex}
-              className="bg-white dark:bg-neutral-900 border border-slate-200/60 dark:border-neutral-800/80 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow duration-200 flex flex-col min-h-[380px]"
+              className="bg-card border border-border/60 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow duration-200 flex flex-col min-h-[380px]"
             >
               {/* Localized Month Name & Click Zoom action */}
               <button
                 onClick={() => onNavigateToMonth?.(monthDate)}
-                className="text-sm font-bold text-slate-800 dark:text-neutral-200 hover:text-primary transition cursor-pointer font-sans text-left mb-3 shrink-0 flex items-center justify-between"
+                className="text-sm font-bold text-foreground hover:text-primary transition cursor-pointer font-sans text-left mb-3 shrink-0 flex items-center justify-between"
               >
                 <span>{formatInTimezone(monthDate, "MMMM", timezone, locale)}</span>
-                <span className="text-[10px] bg-slate-100 hover:bg-slate-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 px-2 py-0.5 rounded-md text-slate-500 dark:text-neutral-400 transition ml-2 font-medium">
+                <span className="text-[10px] bg-muted hover:bg-border px-2 py-0.5 rounded-md text-muted-foreground transition ml-2 font-medium">
                   {label.month} view
                 </span>
               </button>
 
               {/* Day Headers Column Grid */}
               <div
-                className={`grid ${filteredHeadings.length === 5 ? "grid-cols-5" : "grid-cols-7"} border-b border-gray-100 dark:border-neutral-800/80 pb-1.5 shrink-0`}
+                className={`grid ${filteredHeadings.length === 5 ? "grid-cols-5" : "grid-cols-7"} border-b border-border pb-1.5 shrink-0`}
               >
                 {filteredHeadings.map((head, i) => (
                   <div
                     key={i}
-                    className="text-center text-[9px] font-bold text-gray-400 dark:text-neutral-500 font-mono select-none uppercase tracking-wider"
+                    className="text-center text-[9px] font-bold text-muted-foreground font-mono select-none uppercase tracking-wider"
                   >
                     {formatInTimezone(head, "EEE", timezone, locale).substring(0, 2)}
                   </div>
@@ -297,12 +297,12 @@ export const SchedulerYearView: React.FC<SchedulerYearViewProps> = ({
                           setSelectionEnd(day);
                         }
                       }}
-                      className={`relative border-r border-b border-gray-50/50 dark:border-neutral-800/30 p-1 flex flex-col justify-between min-h-[46px] select-none cursor-pointer duration-100 ${
+                      className={`relative border-r border-b border-border p-1 flex flex-col justify-between min-h-[46px] select-none cursor-pointer duration-100 ${
                         isSelected
                           ? "bg-primary/10 ring-2 ring-inset ring-primary/40 z-30"
                           : isCurrentMonth
-                            ? "bg-transparent text-gray-800 dark:text-neutral-200"
-                            : "bg-gray-50/20 dark:bg-neutral-950/10 text-gray-300 dark:text-neutral-700 opacity-40"
+                            ? "bg-transparent text-foreground"
+                            : "bg-muted/40 text-muted-foreground/50 opacity-40"
                       } ${isDragOver ? "bg-primary/10 shadow-sm duration-0 scale-[0.98]" : ""} ${
                         hasBackgroundBlocked && showBackgroundEvents
                           ? "bg-rose-50/5 dark:bg-rose-950/5"
@@ -317,8 +317,8 @@ export const SchedulerYearView: React.FC<SchedulerYearViewProps> = ({
                             isTodayDate
                               ? "bg-primary text-primary-foreground font-extrabold shadow-3xs"
                               : isCurrentMonth
-                                ? "text-gray-700 dark:text-neutral-300"
-                                : "text-gray-300 dark:text-neutral-700"
+                                ? "text-foreground"
+                                : "text-muted-foreground/50"
                           }`}
                         >
                           {format(day, "d")}
@@ -348,8 +348,8 @@ export const SchedulerYearView: React.FC<SchedulerYearViewProps> = ({
 
                             {openTooltipDay === `${monthIndex}-${format(day, "yyyy-MM-dd")}` && (
                               <div className="absolute bottom-full left-1/2 -translate-x-1/2 pb-1.5 flex flex-col z-[100] w-52 pointer-events-auto">
-                                <div className="bg-white dark:bg-neutral-900 border border-gray-250 dark:border-neutral-700 shadow-xl rounded-xl p-3 flex flex-col">
-                                  <div className="font-bold text-xs mb-2 border-b border-gray-100 dark:border-neutral-800 pb-2 text-slate-800 dark:text-white flex items-center justify-between">
+                                <div className="bg-popover border border-border shadow-xl rounded-xl p-3 flex flex-col">
+                                  <div className="font-bold text-xs mb-2 border-b border-border pb-2 text-foreground flex items-center justify-between">
                                     <span>
                                       {formatInTimezone(day, "MMM d, yyyy", timezone, locale)}
                                     </span>

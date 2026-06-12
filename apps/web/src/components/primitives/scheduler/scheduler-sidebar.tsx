@@ -10,6 +10,7 @@ import {
   Clock,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Globe,
   Languages,
 } from "lucide-react";
@@ -19,9 +20,7 @@ import {
   UnscheduledTask,
   CalendarEvent,
   CalendarSource,
-  SchedulerTheme,
   SchedulerLocale,
-  SchedulerTimezone,
 } from "./scheduler-types";
 import { LABELS_MAP, LOCALE_MAP } from "./scheduler-utils";
 import {
@@ -79,6 +78,10 @@ export const SchedulerSidebar: React.FC<SchedulerSidebarProps> = ({
 
   // Local state for browse-months in the sidebar's mini calendar independently
   const [miniBrowseDate, setMiniBrowseDate] = useState<Date>(currentDate);
+
+  // Foldable sidebar sections
+  const [isCalendarsOpen, setIsCalendarsOpen] = useState(true);
+  const [isTaskPoolOpen, setIsTaskPoolOpen] = useState(true);
 
   // Synchronize mini-calendar state with active grid date changes
   React.useEffect(() => {
@@ -203,18 +206,6 @@ export const SchedulerSidebar: React.FC<SchedulerSidebarProps> = ({
   const getSourceForTask = (task: UnscheduledTask) =>
     calendarSources?.find((source) => source.id === task.calendarSourceId);
 
-  const handleThemeChange = (theme: SchedulerTheme) => {
-    onUpdateSettings({ theme });
-  };
-
-  const handleLocaleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    onUpdateSettings({ locale: e.target.value as SchedulerLocale });
-  };
-
-  const handleTimezoneChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    onUpdateSettings({ timezone: e.target.value as SchedulerTimezone });
-  };
-
   const handleDragStart = (e: React.DragEvent, taskId: string) => {
     e.dataTransfer.setData("text/plain", JSON.stringify({ type: "task", id: taskId }));
     e.dataTransfer.effectAllowed = "copyMove";
@@ -235,7 +226,7 @@ export const SchedulerSidebar: React.FC<SchedulerSidebarProps> = ({
       <div className="border-border hidden items-center gap-2.5 border-b pb-2 lg:flex">
         <div className="bg-primary flex h-8 w-8 items-center justify-center rounded-md shadow-xs">
           <svg
-            className="w-4.5 h-4.5 text-white"
+            className="w-4.5 h-4.5 text-primary-foreground"
             fill="none"
             stroke="currentColor"
             strokeWidth="2.5"
@@ -248,26 +239,28 @@ export const SchedulerSidebar: React.FC<SchedulerSidebarProps> = ({
             />
           </svg>
         </div>
-        <span className="text-foreground text-xl font-semibold tracking-tight">Scheduler</span>
+        <span className="text-foreground text-xl font-semibold tracking-tight">
+          {label.modeCalendar}
+        </span>
       </div>
 
       {/* Dynamic Mini Calendar Section */}
       <div className="space-y-3.5" id="sidebar-mini-calendar">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-bold text-slate-800 dark:text-neutral-200 capitalize">
+          <span className="text-xs font-bold text-foreground capitalize">
             {format(miniBrowseDate, "MMMM yyyy", { locale: LOCALE_MAP[settings.locale] })}
           </span>
           <div className="flex gap-1">
             <button
               onClick={() => setMiniBrowseDate((prev) => subMonths(prev, 1))}
-              className="p-1 text-slate-400 hover:text-slate-800 dark:hover:text-white rounded-md hover:bg-slate-200/50 dark:hover:bg-neutral-800 transition cursor-pointer"
+              className="p-1 text-muted-foreground hover:text-foreground rounded-md hover:bg-muted transition cursor-pointer"
               aria-label="Previous Month mini calendar"
             >
               <ChevronLeft size={14} strokeWidth={2.5} />
             </button>
             <button
               onClick={() => setMiniBrowseDate((prev) => addMonths(prev, 1))}
-              className="p-1 text-slate-400 hover:text-slate-800 dark:hover:text-white rounded-md hover:bg-slate-200/50 dark:hover:bg-neutral-800 transition cursor-pointer"
+              className="p-1 text-muted-foreground hover:text-foreground rounded-md hover:bg-muted transition cursor-pointer"
               aria-label="Next Month mini calendar"
             >
               <ChevronRight size={14} strokeWidth={2.5} />
@@ -276,21 +269,20 @@ export const SchedulerSidebar: React.FC<SchedulerSidebarProps> = ({
         </div>
 
         {/* Days Column Header Grid */}
-        <div className="grid grid-cols-7 gap-y-1.5 text-center text-[10px] font-extrabold text-slate-400 dark:text-neutral-500 uppercase tracking-wider font-mono">
+        <div className="grid grid-cols-7 gap-y-1.5 text-center text-[10px] font-extrabold text-muted-foreground uppercase tracking-wider font-mono">
           {dayAbbrs[settings.locale].map((abbr, idx) => (
             <div key={idx}>{abbr}</div>
           ))}
         </div>
 
         {/* Day numbers body element */}
-        <div className="grid grid-cols-7 gap-y-1 text-center text-xs font-medium text-slate-600 dark:text-neutral-300">
+        <div className="grid grid-cols-7 gap-y-1 text-center text-xs font-medium text-muted-foreground">
           {miniDays.map((md, idx) => {
             const isTodayDay = isToday(md.date);
 
-            let textClass =
-              "text-slate-600 dark:text-neutral-350 hover:bg-slate-200/55 dark:hover:bg-neutral-800";
+            let textClass = "text-foreground hover:bg-muted";
             if (!md.currentMonth) {
-              textClass = "text-slate-300 dark:text-neutral-600";
+              textClass = "text-muted-foreground/50";
             }
 
             return (
@@ -312,161 +304,193 @@ export const SchedulerSidebar: React.FC<SchedulerSidebarProps> = ({
 
       {/* Calendars / Filters Categories */}
       <div className="space-y-4 pt-1">
-        <h3 className="text-[10px] font-extrabold text-slate-400 dark:text-neutral-500 uppercase tracking-widest font-mono">
-          {calendarSources ? label.calendarsTitle || "Calendars" : label.filters}
-        </h3>
-        <div className="space-y-2.5">
-          {calendarSources
-            ? calendarSources.map((source) => {
-                const isSelected = isSourceVisible(source.id);
-                const colors = CATEGORY_COLOR_MAP[source.category];
-                const count = events.filter((ev) => ev.calendarSourceId === source.id).length;
-                return (
-                  <label
-                    key={source.id}
-                    onClick={() => handleCalendarSourceToggle(source.id)}
-                    className="flex items-center gap-3 text-xs text-slate-600 dark:text-neutral-300 cursor-pointer p-1.5 rounded-lg hover:bg-slate-100/50 dark:hover:bg-neutral-800/40 transition duration-150"
-                  >
-                    <div
-                      className={`w-4 h-4 rounded border flex items-center justify-center transition duration-150 shrink-0 ${
-                        isSelected
-                          ? `${colors.bg} border-transparent text-white`
-                          : "border-slate-300 dark:border-neutral-700 bg-transparent"
-                      }`}
+        <button
+          type="button"
+          onClick={() => setIsCalendarsOpen((prev) => !prev)}
+          className="flex w-full cursor-pointer items-center justify-between"
+          id="btn-toggle-calendars-section"
+        >
+          <h3 className="text-[10px] font-extrabold text-muted-foreground uppercase tracking-widest font-mono">
+            {calendarSources ? label.calendarsTitle || "Calendars" : label.filters}
+          </h3>
+          <ChevronDown
+            size={14}
+            className={`text-muted-foreground transition-transform duration-200 ${
+              isCalendarsOpen ? "" : "-rotate-90"
+            }`}
+          />
+        </button>
+        {isCalendarsOpen && (
+          <div className="space-y-2.5">
+            {calendarSources
+              ? calendarSources.map((source) => {
+                  const isSelected = isSourceVisible(source.id);
+                  const colors = CATEGORY_COLOR_MAP[source.category];
+                  const count = events.filter((ev) => ev.calendarSourceId === source.id).length;
+                  return (
+                    <label
+                      key={source.id}
+                      onClick={() => handleCalendarSourceToggle(source.id)}
+                      className="flex items-center gap-3 text-xs text-muted-foreground cursor-pointer p-1.5 rounded-lg hover:bg-muted/50 transition duration-150"
                     >
-                      {isSelected && (
-                        <svg
-                          className="w-3 h-3 text-white"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth="3"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                    </div>
-                    <span className="font-semibold text-slate-700 dark:text-neutral-250 flex-1 line-clamp-1">
-                      {source.label}
-                    </span>
-                    <span className="text-[9px] bg-slate-50 dark:bg-neutral-800 text-slate-500 dark:text-neutral-400 px-1.5 py-0.5 rounded border border-slate-100 dark:border-neutral-700/60 font-mono font-semibold shrink-0">
-                      {count}
-                    </span>
-                  </label>
-                );
-              })
-            : categories.map((cat) => {
-                const isSelected = settings.visibleCategories[cat.key];
-                return (
-                  <label
-                    key={cat.key}
-                    onClick={() => handleCategoryToggle(cat.key)}
-                    className="flex items-center gap-3 text-xs text-slate-600 dark:text-neutral-300 cursor-pointer p-1.5 rounded-lg hover:bg-slate-100/50 dark:hover:bg-neutral-800/40 transition duration-150"
-                  >
-                    <div
-                      className={`w-4 h-4 rounded border flex items-center justify-center transition duration-150 ${
-                        isSelected
-                          ? `${cat.bg} border-transparent text-white`
-                          : "border-slate-300 dark:border-neutral-700 bg-transparent"
-                      }`}
+                      <div
+                        className={`w-4 h-4 rounded border flex items-center justify-center transition duration-150 shrink-0 ${
+                          isSelected
+                            ? `${colors.bg} border-transparent text-white`
+                            : "border-border bg-transparent"
+                        }`}
+                      >
+                        {isSelected && (
+                          <svg
+                            className="w-3 h-3 text-white"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth="3"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </div>
+                      <span className="font-semibold text-foreground flex-1 line-clamp-1">
+                        {source.label}
+                      </span>
+                      <span className="text-[9px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded border border-border font-mono font-semibold shrink-0">
+                        {count}
+                      </span>
+                    </label>
+                  );
+                })
+              : categories.map((cat) => {
+                  const isSelected = settings.visibleCategories[cat.key];
+                  return (
+                    <label
+                      key={cat.key}
+                      onClick={() => handleCategoryToggle(cat.key)}
+                      className="flex items-center gap-3 text-xs text-muted-foreground cursor-pointer p-1.5 rounded-lg hover:bg-muted/50 transition duration-150"
                     >
-                      {isSelected && (
-                        <svg
-                          className="w-3 h-3 text-white"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth="3"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                    </div>
-                    <span className="font-semibold text-slate-700 dark:text-neutral-250">
-                      {cat.labelText}
-                    </span>
-                  </label>
-                );
-              })}
-        </div>
+                      <div
+                        className={`w-4 h-4 rounded border flex items-center justify-center transition duration-150 ${
+                          isSelected
+                            ? `${cat.bg} border-transparent text-white`
+                            : "border-border bg-transparent"
+                        }`}
+                      >
+                        {isSelected && (
+                          <svg
+                            className="w-3 h-3 text-white"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth="3"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </div>
+                      <span className="font-semibold text-foreground">{cat.labelText}</span>
+                    </label>
+                  );
+                })}
+          </div>
+        )}
       </div>
 
       {/* Unscheduled Task Pool */}
       {settings.showTaskPool && (
-        <div className="flex-1 space-y-4 flex flex-col border-t border-slate-200/50 dark:border-neutral-800 pt-5 text-left">
-          <div className="flex items-center justify-between shrink-0">
-            <h3 className="text-[10px] font-extrabold text-slate-400 dark:text-neutral-500 uppercase tracking-widest font-mono text-left">
-              {calendarSources ? label.noDueDateTitle || "No due date" : label.taskPool}
-            </h3>
-            <span className="bg-primary/10 text-primary font-extrabold px-2 py-0.5 rounded-full text-[10px]">
-              {unscheduledTasks.length}
-            </span>
-          </div>
+        <div
+          className={`space-y-4 flex flex-col border-t border-border pt-5 text-left ${
+            isTaskPoolOpen ? "flex-1" : ""
+          }`}
+        >
+          <button
+            type="button"
+            onClick={() => setIsTaskPoolOpen((prev) => !prev)}
+            className="flex w-full cursor-pointer items-center justify-between shrink-0"
+            id="btn-toggle-taskpool-section"
+          >
+            <div className="flex items-center gap-2">
+              <h3 className="text-[10px] font-extrabold text-muted-foreground uppercase tracking-widest font-mono text-left">
+                {calendarSources ? label.noDueDateTitle || "No due date" : label.taskPool}
+              </h3>
+              <span className="bg-primary/10 text-primary font-extrabold px-2 py-0.5 rounded-full text-[10px]">
+                {unscheduledTasks.length}
+              </span>
+            </div>
+            <ChevronDown
+              size={14}
+              className={`text-muted-foreground transition-transform duration-200 ${
+                isTaskPoolOpen ? "" : "-rotate-90"
+              }`}
+            />
+          </button>
 
-          <div className="space-y-2.5 overflow-y-auto max-h-56 lg:max-h-none flex-1 pr-1 scrollbar-thin">
-            {unscheduledTasks.length === 0 ? (
-              <div className="py-6 text-center text-[11px] text-slate-400 dark:text-neutral-500 border border-dashed border-slate-200 dark:border-neutral-800 rounded-lg bg-white/40 dark:bg-transparent">
-                {label.allTasksScheduled || "All tasks scheduled"}
-              </div>
-            ) : (
-              unscheduledTasks.map((task) => (
-                <div
-                  key={task.id}
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, task.id)}
-                  onDragEnd={() => onDragTaskEnd?.()}
-                  className="p-3 bg-white dark:bg-neutral-800 border border-slate-200 dark:border-neutral-800 rounded-lg shadow-xs hover:border-primary/40 dark:hover:border-neutral-700 hover:shadow-xs transition duration-200 cursor-pointer active:cursor-grabbing group"
-                >
-                  <div className="flex justify-between items-start mb-1 gap-2">
-                    <span className="text-[11px] font-bold text-slate-800 dark:text-white line-clamp-1 group-hover:text-primary transition-colors">
-                      {task.title}
-                    </span>
-                    <span className="text-[9px] bg-slate-50 dark:bg-neutral-800 text-slate-500 dark:text-neutral-400 px-1.5 py-0.5 rounded border border-slate-100 dark:border-neutral-700/60 font-mono font-semibold shrink-0">
-                      {task.estimatedDurationMinutes}m
-                    </span>
-                  </div>
-                  {task.description && (
-                    <p className="text-[9.5px] text-slate-400 dark:text-neutral-450 line-clamp-1 leading-normal mb-1">
-                      {task.description}
-                    </p>
-                  )}
-                  {calendarSources ? (
-                    (() => {
-                      const source = getSourceForTask(task);
-                      const colors = source
-                        ? CATEGORY_COLOR_MAP[source.category]
-                        : CATEGORY_COLOR_MAP.task;
-                      return (
-                        <div className="flex items-center gap-1">
-                          <div className={`w-1.5 h-1.5 rounded-full ${colors.bg}`} />
-                          <span className="text-[8.5px] text-slate-400 uppercase tracking-tighter font-extrabold font-mono dark:text-neutral-500">
-                            {source?.label ?? getCategoryLabel(task.category)}
-                          </span>
-                        </div>
-                      );
-                    })()
-                  ) : (
-                    <div className="flex items-center gap-1">
-                      <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
-                      <span className="text-[8.5px] text-slate-400 uppercase tracking-tighter font-extrabold font-mono dark:text-neutral-500">
-                        {getCategoryLabel(task.category)}
+          {isTaskPoolOpen && (
+            <div className="space-y-2.5 overflow-y-auto max-h-56 lg:max-h-none flex-1 pr-1 scrollbar-thin">
+              {unscheduledTasks.length === 0 ? (
+                <div className="py-6 text-center text-[11px] text-muted-foreground border border-dashed border-border rounded-lg bg-muted/40">
+                  {label.allTasksScheduled || "All tasks scheduled"}
+                </div>
+              ) : (
+                unscheduledTasks.map((task) => (
+                  <div
+                    key={task.id}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, task.id)}
+                    onDragEnd={() => onDragTaskEnd?.()}
+                    className="p-3 bg-card border border-border rounded-lg shadow-xs hover:border-primary/40 hover:shadow-xs transition duration-200 cursor-pointer active:cursor-grabbing group"
+                  >
+                    <div className="flex justify-between items-start mb-1 gap-2">
+                      <span className="text-[11px] font-bold text-foreground line-clamp-1 group-hover:text-primary transition-colors">
+                        {task.title}
+                      </span>
+                      <span className="text-[9px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded border border-border font-mono font-semibold shrink-0">
+                        {task.estimatedDurationMinutes}m
                       </span>
                     </div>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
+                    {task.description && (
+                      <p className="text-[9.5px] text-muted-foreground line-clamp-1 leading-normal mb-1">
+                        {task.description}
+                      </p>
+                    )}
+                    {calendarSources ? (
+                      (() => {
+                        const source = getSourceForTask(task);
+                        const colors = source
+                          ? CATEGORY_COLOR_MAP[source.category]
+                          : CATEGORY_COLOR_MAP.task;
+                        return (
+                          <div className="flex items-center gap-1">
+                            <div className={`w-1.5 h-1.5 rounded-full ${colors.bg}`} />
+                            <span className="text-[8.5px] text-muted-foreground uppercase tracking-tighter font-extrabold font-mono">
+                              {source?.label ?? getCategoryLabel(task.category)}
+                            </span>
+                          </div>
+                        );
+                      })()
+                    ) : (
+                      <div className="flex items-center gap-1">
+                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                        <span className="text-[8.5px] text-muted-foreground uppercase tracking-tighter font-extrabold font-mono">
+                          {getCategoryLabel(task.category)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          )}
         </div>
       )}
 
       {/* Options Panel section */}
-      <div className="pt-4 border-t border-slate-200/50 dark:border-neutral-800 space-y-2.5">
-        <h3 className="text-[10px] font-extrabold text-slate-400 dark:text-neutral-500 uppercase tracking-widest font-mono">
+      <div className="pt-4 border-t border-border space-y-2.5">
+        <h3 className="text-[10px] font-extrabold text-muted-foreground uppercase tracking-widest font-mono">
           {label.optionsTitle || "Calendar Options"}
         </h3>
         <div className="space-y-2 text-xs">
-          <label className="flex items-center justify-between cursor-pointer text-slate-600 dark:text-neutral-300">
+          <label className="flex items-center justify-between cursor-pointer text-muted-foreground">
             <span>{label.weekends || "Show Weekends"}</span>
             <input
               type="checkbox"
@@ -475,7 +499,7 @@ export const SchedulerSidebar: React.FC<SchedulerSidebarProps> = ({
               className="accent-primary w-3.5 h-3.5 cursor-pointer"
             />
           </label>
-          <label className="flex items-center justify-between cursor-pointer text-slate-600 dark:text-neutral-300">
+          <label className="flex items-center justify-between cursor-pointer text-muted-foreground">
             <span>{label.showLunch || "Show Background Events"}</span>
             <input
               type="checkbox"
@@ -484,96 +508,6 @@ export const SchedulerSidebar: React.FC<SchedulerSidebarProps> = ({
               className="accent-primary w-3.5 h-3.5 cursor-pointer"
             />
           </label>
-        </div>
-      </div>
-
-      {/* Language / Theme / Settings Configuration drawer pop-up area */}
-      <div className="pt-4 border-t border-slate-200/50 dark:border-neutral-800 space-y-3">
-        <label className="block text-[9px] font-bold text-slate-400 dark:text-neutral-500 uppercase tracking-wider font-mono mb-1">
-          {label.configTitle || "System Config"}
-        </label>
-
-        <div className="space-y-3.5">
-          {/* Theme & Locale Row */}
-          <div className="grid grid-cols-2 gap-2">
-            <div className="flex flex-col gap-1 select-none">
-              <span className="text-[10px] text-slate-500 dark:text-neutral-400 font-medium">
-                {label.localeLabel || "Locale"}
-              </span>
-              <select
-                value={settings.locale}
-                onChange={handleLocaleChange}
-                className="w-full text-[10px] bg-white dark:bg-neutral-800 cursor-pointer text-slate-700 dark:text-neutral-200 border border-slate-200 dark:border-neutral-700 rounded-md p-1.5 outline-none font-semibold"
-                id="select-locale"
-              >
-                <option value="en">English (EN)</option>
-                <option value="pl">Polski (PL)</option>
-                <option value="de">Deutsch (DE)</option>
-              </select>
-            </div>
-
-            <div className="flex flex-col gap-1 select-none">
-              <span className="text-[10px] text-slate-500 dark:text-neutral-400 font-medium">
-                {label.theme || "Theme"}
-              </span>
-              <select
-                value={settings.theme}
-                onChange={(e) => handleThemeChange(e.target.value as SchedulerTheme)}
-                className="w-full text-[10px] bg-white dark:bg-neutral-800 cursor-pointer text-slate-700 dark:text-neutral-200 border border-slate-200 dark:border-neutral-700 rounded-md p-1.5 outline-none font-semibold"
-                id="select-theme"
-              >
-                <option value="light">Light</option>
-                <option value="dark">Dark</option>
-                <option value="system">System</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Timezone & Clock format Row */}
-          <div className="grid grid-cols-2 gap-2">
-            <div className="flex flex-col gap-1 select-none">
-              <span className="text-[10px] text-slate-500 dark:text-neutral-400 font-medium">
-                {label.timeFormatLabel || "Time Format"}
-              </span>
-              <select
-                value={settings.timeFormat || "12h"}
-                onChange={(e) => onUpdateSettings({ timeFormat: e.target.value as "12h" | "24h" })}
-                className="w-full text-[10px] bg-white dark:bg-neutral-800 cursor-pointer text-slate-700 dark:text-neutral-200 border border-slate-200 dark:border-neutral-700 rounded-md p-1.5 outline-none font-semibold"
-                id="select-timeformat"
-              >
-                <option value="12h">12-hour (12h)</option>
-                <option value="24h">24-hour (24h)</option>
-              </select>
-            </div>
-
-            <div className="flex flex-col gap-1 select-none">
-              <span className="text-[10px] text-slate-500 dark:text-neutral-400 font-medium">
-                {label.timeZoneLabel || "Time Zone"}
-              </span>
-              <select
-                value={settings.timezone}
-                onChange={handleTimezoneChange}
-                className="w-full text-[10px] bg-white dark:bg-neutral-800 cursor-pointer text-slate-700 dark:text-neutral-200 border border-slate-200 dark:border-neutral-700 rounded-md p-1.5 outline-none font-semibold truncate"
-                id="select-timezone"
-              >
-                <option value="Local">Local</option>
-                <option value="UTC">UTC</option>
-                <option value="Europe/Warsaw">Warsaw</option>
-                <option value="Europe/Berlin">Berlin</option>
-                <option value="America/New_York">New York</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* Global info and timezone footer details */}
-        <div className="flex items-center justify-between text-[9px] text-slate-400 dark:text-neutral-500 font-mono pt-2">
-          <span className="truncate max-w-[150px]" title={settings.timezone}>
-            {settings.timezone}
-          </span>
-          <span className="font-extrabold uppercase">
-            {settings.locale} / {settings.timeFormat}
-          </span>
         </div>
       </div>
     </aside>
