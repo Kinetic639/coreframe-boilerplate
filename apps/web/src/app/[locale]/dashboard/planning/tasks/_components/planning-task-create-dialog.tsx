@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Loader2, UserCheck } from "lucide-react";
 import { toast } from "react-toastify";
@@ -46,6 +46,7 @@ interface PlanningTaskCreateDialogProps {
   canAssign: boolean;
   onCreated: (task: PlanningTaskDetail) => void;
   priorityConfigs: Record<string, PlanningPriorityBadgeConfig> | null;
+  initialDueAt?: string;
 }
 
 export function PlanningTaskCreateDialog({
@@ -56,22 +57,29 @@ export function PlanningTaskCreateDialog({
   canAssign,
   onCreated,
   priorityConfigs,
+  initialDueAt,
 }: PlanningTaskCreateDialogProps) {
   const t = useTranslations("modules.planning.tasks");
   const [title, setTitle] = useState("");
   const [descriptionRich, setDescriptionRich] = useState<RichTextValue>(createEmptyRichText);
   const [priority, setPriority] = useState<TaskPriority>("normal");
   const [assignedTo, setAssignedTo] = useState<string>("__unassigned__");
-  const [dueAt, setDueAt] = useState<string>("");
+  const [dueAt, setDueAt] = useState<string>(initialDueAt ?? "");
   const [titleError, setTitleError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setDueAt(initialDueAt ?? "");
+    }
+  }, [open, initialDueAt]);
 
   function reset() {
     setTitle("");
     setDescriptionRich(createEmptyRichText);
     setPriority("normal");
     setAssignedTo("__unassigned__");
-    setDueAt("");
+    setDueAt(initialDueAt ?? "");
     setTitleError(null);
   }
 

@@ -106,6 +106,15 @@ export interface HelpdeskTicketActivity {
   created_at: string;
 }
 
+export interface TicketCalendarRow {
+  id: string;
+  ticket_number: string;
+  title: string;
+  due_at: string | null;
+  status: TicketStatus;
+  priority: TicketPriority;
+}
+
 // Legacy type kept for backward compat with existing action imports
 export interface HelpdeskTicket {
   id: string;
@@ -939,5 +948,46 @@ export class HelpdeskTicketsService {
       success: true,
       data: result.data.rows.map(mapAppCommentToHelpdeskComment),
     };
+  }
+
+  // ── Calendar ────────────────────────────────────────────────────────────
+
+  static async listForCalendar(
+    supabase: SupabaseClient,
+    orgId: string
+  ): Promise<ServiceResult<{ scheduled: TicketCalendarRow[]; unscheduled: TicketCalendarRow[] }>> {
+    const { data, error } = await supabase
+      .from("helpdesk_tickets")
+      .select("id, ticket_number, title, due_at, status, priority")
+      .eq("org_id", orgId)
+      .is("deleted_at", null)
+      .neq("status", "cancelled");
+
+    if (error) return { success: false, error: error.message };
+
+    const rows = (data ?? []) as TicketCalendarRow[];
+    const scheduled = rows.filter((row) => row.due_at !== null);
+    const unscheduled = rows.filter(
+      (row) => row.due_at === null && row.status !== "closed" && row.status !== "resolved"
+    );
+
+    return { success: true, data: { scheduled, unscheduled } };
+  }
+
+  static async updateDueAt(
+    supabase: SupabaseClient,
+    orgId: string,
+    ticketId: string,
+    dueAt: string | null
+  ): Promise<ServiceResult<void>> {
+    const { error } = await supabase
+      .from("helpdesk_tickets")
+      .update({ due_at: dueAt, updated_at: new Date().toISOString() })
+      .eq("id", ticketId)
+      .eq("org_id", orgId)
+      .is("deleted_at", null);
+
+    if (error) return { success: false, error: error.message };
+    return { success: true, data: undefined };
   }
 }

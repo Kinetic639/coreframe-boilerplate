@@ -19,6 +19,7 @@ import {
   UnscheduledTask,
   CalendarView,
   SchedulerSettings,
+  CalendarSource,
 } from "./scheduler-types";
 import {
   INITIAL_SETTINGS,
@@ -55,6 +56,12 @@ export interface SchedulerWorkspaceProps {
   initialBackgroundEvents?: BackgroundEvent[];
   initialUnscheduledTasks?: UnscheduledTask[];
   title?: string;
+  calendarSources?: CalendarSource[];
+  onSelectRealEvent?: (event: CalendarEvent) => void;
+  onCreateAt?: (date: Date) => void;
+  onMoveRealEvent?: (event: CalendarEvent, newDate: Date) => void;
+  onScheduleRealTask?: (task: UnscheduledTask, date: Date) => void;
+  onSettingsChange?: (settings: SchedulerSettings) => void;
 }
 
 export const SchedulerWorkspace: React.FC<SchedulerWorkspaceProps> = ({
@@ -66,6 +73,12 @@ export const SchedulerWorkspace: React.FC<SchedulerWorkspaceProps> = ({
   initialBackgroundEvents = INITIAL_BACKGROUND_EVENTS,
   initialUnscheduledTasks = INITIAL_UNSCHEDULED_TASKS,
   title = "Scheduler",
+  calendarSources,
+  onSelectRealEvent,
+  onCreateAt,
+  onMoveRealEvent,
+  onScheduleRealTask,
+  onSettingsChange,
 }) => {
   const today = useMemo(() => startOfDay(new Date()), []);
   const mergedInitialSettings = useMemo<SchedulerSettings>(
@@ -133,9 +146,13 @@ export const SchedulerWorkspace: React.FC<SchedulerWorkspaceProps> = ({
     }
   };
 
-  // Safe category filtering for showing calendar items and translating on-the-fly
+  // Safe category/source filtering for showing calendar items and translating on-the-fly
   const activeEvents = events
-    .filter((ev) => settings.visibleCategories[ev.category])
+    .filter((ev) =>
+      calendarSources
+        ? settings.visibleCalendarSources?.[ev.calendarSourceId ?? ""] !== false
+        : settings.visibleCategories[ev.category]
+    )
     .map((ev) => getLocalizedEvent(ev, settings.locale));
 
   const localizedBackgroundEvents = backgroundEvents.map((bg) =>
@@ -152,6 +169,7 @@ export const SchedulerWorkspace: React.FC<SchedulerWorkspaceProps> = ({
       if (newSettings.locale && newSettings.locale !== prev.locale) {
         updated.timeFormat = newSettings.locale === "en" ? "12h" : "24h";
       }
+      onSettingsChange?.(updated);
       return updated;
     });
   };
@@ -163,6 +181,11 @@ export const SchedulerWorkspace: React.FC<SchedulerWorkspaceProps> = ({
     resourceId?: string,
     endDate?: Date
   ) => {
+    if (onCreateAt) {
+      onCreateAt(date);
+      return;
+    }
+
     const now = new Date();
     // Maintain clicked day but prefill hours nicely
     const startObj = new Date(date);
@@ -182,11 +205,20 @@ export const SchedulerWorkspace: React.FC<SchedulerWorkspaceProps> = ({
   };
 
   const handleCreateNewClick = () => {
+    if (onCreateAt) {
+      onCreateAt(currentDate);
+      return;
+    }
+
     setDialogPrefillEvent(null);
     setIsDialogModelOpen(true);
   };
 
   const handleSelectEvent = (event: CalendarEvent) => {
+    if (event.sourceModule && onSelectRealEvent) {
+      onSelectRealEvent(event);
+      return;
+    }
     setSelectedEvent(event);
   };
 
@@ -266,6 +298,8 @@ export const SchedulerWorkspace: React.FC<SchedulerWorkspaceProps> = ({
 
   // Drag event handler for moving items on grid columns
   const handleMoveEvent = (eventId: string, newStartDate: Date, newResourceId?: string) => {
+    const sourceEvent = events.find((ev) => ev.id === eventId);
+
     setEvents((prev) =>
       prev.map((ev) => {
         if (ev.id === eventId) {
@@ -278,6 +312,10 @@ export const SchedulerWorkspace: React.FC<SchedulerWorkspaceProps> = ({
         return ev;
       })
     );
+
+    if (sourceEvent?.sourceModule && onMoveRealEvent) {
+      onMoveRealEvent(sourceEvent, newStartDate);
+    }
   };
 
   // Resizing event card boundaries handler
@@ -307,6 +345,10 @@ export const SchedulerWorkspace: React.FC<SchedulerWorkspaceProps> = ({
     }
     setEvents((prev) => [...prev, newEvent]);
     setUnscheduledTasks((prev) => prev.filter((t) => t.id !== taskId));
+
+    if (task.calendarSourceId && onScheduleRealTask) {
+      onScheduleRealTask(task, targetDate);
+    }
   };
 
   let computedStartHour = settings.dayStartHour;
@@ -388,6 +430,8 @@ export const SchedulerWorkspace: React.FC<SchedulerWorkspaceProps> = ({
             onDragTaskEnd={() => setDraggedTaskId(null)}
             currentDate={currentDate}
             onNavigateDate={setCurrentDate}
+            calendarSources={calendarSources}
+            events={activeEvents}
           />
         </div>
       </div>

@@ -23,6 +23,7 @@ export interface CalendarEvent {
   isProvisional?: boolean;
   resourceId?: string;
   metadata?: Record<string, unknown>;
+  calendarSourceId?: string;
 }
 
 export interface BackgroundEvent {
@@ -44,6 +45,7 @@ export interface UnscheduledTask {
   priority?: "low" | "medium" | "high";
   category: EventCategory;
   color?: string;
+  calendarSourceId?: string;
 }
 
 export type SchedulerTheme = "light" | "dark" | "system";
@@ -71,4 +73,13 @@ export interface SchedulerSettings {
   dayEndHour: number;
   autoTimeScale?: boolean;
   visibleCategories: Record<EventCategory, boolean>;
+  visibleCalendarSources?: Record<string, boolean>;
+}
+
+export interface CalendarSource {
+  id: string;
+  label: string;
+  category: EventCategory;
+  module: "planning" | "helpdesk" | "kanban";
+  boardId?: string;
 }
