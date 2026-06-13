@@ -83,3 +83,9 @@ export interface CalendarSource {
   module: "planning" | "helpdesk" | "kanban";
   boardId?: string;
 }
+
+export interface SchedulerLabels {
+  [key: string]: string;
+  allTasksScheduled: string;
+  moreUnscheduledAvailable: string;
+}

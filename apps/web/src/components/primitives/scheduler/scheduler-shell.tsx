@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   addMonths,
   subMonths,
@@ -11,6 +11,13 @@ import {
   addYears,
   subYears,
   startOfDay,
+  endOfDay,
+  startOfMonth,
+  endOfMonth,
+  startOfWeek,
+  endOfWeek,
+  startOfYear,
+  endOfYear,
   isSameDay,
 } from "date-fns";
 import {
@@ -21,12 +28,7 @@ import {
   SchedulerSettings,
   CalendarSource,
 } from "./scheduler-types";
-import {
-  INITIAL_SETTINGS,
-  INITIAL_EVENTS,
-  INITIAL_BACKGROUND_EVENTS,
-  INITIAL_UNSCHEDULED_TASKS,
-} from "./scheduler-demo-data";
+import { INITIAL_SETTINGS } from "./scheduler-demo-data";
 
 // Components
 import { SchedulerToolbar } from "./scheduler-toolbar";
@@ -55,6 +57,11 @@ export interface SchedulerWorkspaceProps {
   initialEvents?: CalendarEvent[];
   initialBackgroundEvents?: BackgroundEvent[];
   initialUnscheduledTasks?: UnscheduledTask[];
+  hasMoreUnscheduled?: boolean;
+  unscheduledSearch?: string;
+  onUnscheduledSearchChange?: (value: string) => void;
+  onLoadMoreUnscheduled?: () => void;
+  isLoadingMoreUnscheduled?: boolean;
   title?: string;
   calendarSources?: CalendarSource[];
   onSelectRealEvent?: (event: CalendarEvent) => void;
@@ -62,6 +69,7 @@ export interface SchedulerWorkspaceProps {
   onMoveRealEvent?: (event: CalendarEvent, newDate: Date) => void;
   onScheduleRealTask?: (task: UnscheduledTask, date: Date) => void;
   onSettingsChange?: (settings: SchedulerSettings) => void;
+  onVisibleRangeChange?: (range: { start: Date; end: Date; view: CalendarView }) => void;
 }
 
 export const SchedulerWorkspace: React.FC<SchedulerWorkspaceProps> = ({
@@ -69,9 +77,14 @@ export const SchedulerWorkspace: React.FC<SchedulerWorkspaceProps> = ({
   initialDate,
   initialView = "month",
   initialSettings,
-  initialEvents = INITIAL_EVENTS,
-  initialBackgroundEvents = INITIAL_BACKGROUND_EVENTS,
-  initialUnscheduledTasks = INITIAL_UNSCHEDULED_TASKS,
+  initialEvents = [],
+  initialBackgroundEvents = [],
+  initialUnscheduledTasks = [],
+  hasMoreUnscheduled = false,
+  unscheduledSearch = "",
+  onUnscheduledSearchChange,
+  onLoadMoreUnscheduled,
+  isLoadingMoreUnscheduled = false,
   title = "Scheduler",
   calendarSources,
   onSelectRealEvent,
@@ -79,6 +92,7 @@ export const SchedulerWorkspace: React.FC<SchedulerWorkspaceProps> = ({
   onMoveRealEvent,
   onScheduleRealTask,
   onSettingsChange,
+  onVisibleRangeChange,
 }) => {
   const today = useMemo(() => startOfDay(new Date()), []);
   const mergedInitialSettings = useMemo<SchedulerSettings>(
@@ -101,6 +115,18 @@ export const SchedulerWorkspace: React.FC<SchedulerWorkspaceProps> = ({
   const [unscheduledTasks, setUnscheduledTasks] =
     useState<UnscheduledTask[]>(initialUnscheduledTasks);
 
+  useEffect(() => {
+    setEvents(initialEvents);
+  }, [initialEvents]);
+
+  useEffect(() => {
+    setBackgroundEvents(initialBackgroundEvents);
+  }, [initialBackgroundEvents]);
+
+  useEffect(() => {
+    setUnscheduledTasks(initialUnscheduledTasks);
+  }, [initialUnscheduledTasks]);
+
   // Drag-and-drop live preview tracker state
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const draggedTask = unscheduledTasks.find((t) => t.id === draggedTaskId) || null;
@@ -115,6 +141,49 @@ export const SchedulerWorkspace: React.FC<SchedulerWorkspaceProps> = ({
 
   // Desktop sidebar collapse control
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+  useEffect(() => {
+    if (!onVisibleRangeChange) return;
+
+    switch (activeView) {
+      case "year":
+        onVisibleRangeChange({
+          start: startOfYear(currentDate),
+          end: endOfYear(currentDate),
+          view: activeView,
+        });
+        break;
+      case "month":
+        onVisibleRangeChange({
+          start: startOfWeek(startOfMonth(currentDate), { weekStartsOn: 1 }),
+          end: endOfWeek(endOfMonth(currentDate), { weekStartsOn: 1 }),
+          view: activeView,
+        });
+        break;
+      case "week":
+        onVisibleRangeChange({
+          start: startOfWeek(currentDate, { weekStartsOn: 1 }),
+          end: endOfWeek(currentDate, { weekStartsOn: 1 }),
+          view: activeView,
+        });
+        break;
+      case "day":
+      case "timeline":
+        onVisibleRangeChange({
+          start: startOfDay(currentDate),
+          end: endOfDay(currentDate),
+          view: activeView,
+        });
+        break;
+      case "list":
+        onVisibleRangeChange({
+          start: startOfMonth(currentDate),
+          end: endOfMonth(currentDate),
+          view: activeView,
+        });
+        break;
+    }
+  }, [activeView, currentDate, onVisibleRangeChange]);
 
   // Navigate dates step-wise corresponding to active range constraints
   const handleNavigate = (direction: "prev" | "next" | "today") => {
@@ -420,6 +489,11 @@ export const SchedulerWorkspace: React.FC<SchedulerWorkspaceProps> = ({
             onNavigateDate={setCurrentDate}
             calendarSources={calendarSources}
             events={activeEvents}
+            hasMoreUnscheduled={hasMoreUnscheduled}
+            unscheduledSearch={unscheduledSearch}
+            onUnscheduledSearchChange={onUnscheduledSearchChange}
+            onLoadMoreUnscheduled={onLoadMoreUnscheduled}
+            isLoadingMoreUnscheduled={isLoadingMoreUnscheduled}
           />
         </div>
       </div>

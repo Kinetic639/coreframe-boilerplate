@@ -13,6 +13,7 @@ import {
   ChevronDown,
   Globe,
   Languages,
+  Search,
 } from "lucide-react";
 import {
   SchedulerSettings,
@@ -43,6 +44,11 @@ interface SchedulerSidebarProps {
   onNavigateDate?: (date: Date) => void;
   calendarSources?: CalendarSource[];
   events?: CalendarEvent[];
+  hasMoreUnscheduled?: boolean;
+  unscheduledSearch?: string;
+  onUnscheduledSearchChange?: (value: string) => void;
+  onLoadMoreUnscheduled?: () => void;
+  isLoadingMoreUnscheduled?: boolean;
 }
 
 export const SchedulerSidebar: React.FC<SchedulerSidebarProps> = ({
@@ -55,6 +61,11 @@ export const SchedulerSidebar: React.FC<SchedulerSidebarProps> = ({
   onNavigateDate,
   calendarSources,
   events = [],
+  hasMoreUnscheduled = false,
+  unscheduledSearch = "",
+  onUnscheduledSearchChange,
+  onLoadMoreUnscheduled,
+  isLoadingMoreUnscheduled = false,
 }) => {
   const label = LABELS_MAP[settings.locale];
 
@@ -427,6 +438,17 @@ export const SchedulerSidebar: React.FC<SchedulerSidebarProps> = ({
 
           {isTaskPoolOpen && (
             <div className="space-y-2.5 overflow-y-auto max-h-56 lg:max-h-none flex-1 pr-1 scrollbar-thin">
+              {calendarSources && onUnscheduledSearchChange && (
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    value={unscheduledSearch}
+                    onChange={(event) => onUnscheduledSearchChange(event.target.value)}
+                    placeholder={label.searchNoDueDate}
+                    className="h-8 w-full rounded-md border border-border bg-background pl-8 pr-2 text-[11px] font-medium text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary/60"
+                  />
+                </div>
+              )}
               {unscheduledTasks.length === 0 ? (
                 <div className="py-6 text-center text-[11px] text-muted-foreground border border-dashed border-border rounded-lg bg-muted/40">
                   {label.allTasksScheduled || "All tasks scheduled"}
@@ -478,6 +500,23 @@ export const SchedulerSidebar: React.FC<SchedulerSidebarProps> = ({
                     )}
                   </div>
                 ))
+              )}
+              {hasMoreUnscheduled && (
+                <div className="space-y-2 rounded-lg border border-dashed border-border bg-muted/30 px-3 py-2 text-[10px] leading-relaxed text-muted-foreground">
+                  <p>{label.moreUnscheduledAvailable}</p>
+                  {onLoadMoreUnscheduled && (
+                    <button
+                      type="button"
+                      onClick={onLoadMoreUnscheduled}
+                      disabled={isLoadingMoreUnscheduled}
+                      className="inline-flex h-7 items-center rounded-md border border-border bg-background px-2 text-[10px] font-bold text-foreground transition hover:border-primary/50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isLoadingMoreUnscheduled
+                        ? label.loadingMoreUnscheduled
+                        : label.loadMoreUnscheduled}
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           )}

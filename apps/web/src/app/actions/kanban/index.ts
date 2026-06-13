@@ -74,7 +74,7 @@ export async function listKanbanBoardsAction(): Promise<ActionResult<KanbanBoard
     if (!checkPermission(ctx.context.user.permissionSnapshot, PLANNING_BOARDS_READ)) {
       return { success: false, error: "Insufficient permissions" };
     }
-    return KanbanBoardsService.listBoards(ctx.supabase, ctx.orgId);
+    return KanbanBoardsService.listBoards(ctx.supabase, ctx.orgId, ctx.userId);
   } catch {
     return { success: false, error: "Unexpected error" };
   }
@@ -89,7 +89,7 @@ export async function getKanbanBoardAction(
     if (!checkPermission(ctx.context.user.permissionSnapshot, PLANNING_BOARDS_READ)) {
       return { success: false, error: "Insufficient permissions" };
     }
-    return KanbanBoardsService.getBoard(ctx.supabase, ctx.orgId, boardId);
+    return KanbanBoardsService.getBoard(ctx.supabase, ctx.orgId, boardId, ctx.userId);
   } catch {
     return { success: false, error: "Unexpected error" };
   }
@@ -206,7 +206,12 @@ export async function createKanbanColumnAction(
     }
     const parsed = createKanbanColumnSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: firstZodError(parsed.error) };
-    const result = await KanbanBoardsService.createColumn(ctx.supabase, ctx.orgId, parsed.data);
+    const result = await KanbanBoardsService.createColumn(
+      ctx.supabase,
+      ctx.orgId,
+      ctx.userId,
+      parsed.data
+    );
     if (result.success) revalidateBoards();
     return result;
   } catch {
@@ -225,7 +230,12 @@ export async function updateKanbanColumnAction(
     }
     const parsed = updateKanbanColumnSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: firstZodError(parsed.error) };
-    const result = await KanbanBoardsService.updateColumn(ctx.supabase, ctx.orgId, parsed.data);
+    const result = await KanbanBoardsService.updateColumn(
+      ctx.supabase,
+      ctx.orgId,
+      ctx.userId,
+      parsed.data
+    );
     if (result.success) revalidateBoards();
     return result;
   } catch {
@@ -388,7 +398,12 @@ export async function reorderKanbanColumnsAction(
     }
     const parsed = reorderKanbanColumnsSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: firstZodError(parsed.error) };
-    const result = await KanbanBoardsService.reorderColumns(ctx.supabase, ctx.orgId, parsed.data);
+    const result = await KanbanBoardsService.reorderColumns(
+      ctx.supabase,
+      ctx.orgId,
+      ctx.userId,
+      parsed.data
+    );
     if (result.success) revalidateBoards();
     return result;
   } catch {

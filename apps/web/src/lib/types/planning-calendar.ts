@@ -6,7 +6,7 @@ export type CalendarItemSourceType = "planning_task" | "helpdesk_ticket" | "kanb
 export interface CalendarEventDTO {
   id: string;
   title: string;
-  dueAt: string;
+  dueDate: string;
   category: EventCategory;
   calendarSourceId: string;
   sourceModule: CalendarItemSourceModule;
@@ -30,4 +30,6 @@ export interface PlanningCalendarData {
   sources: CalendarSource[];
   events: CalendarEventDTO[];
   unscheduled: UnscheduledItemDTO[];
+  hasMoreUnscheduled?: boolean;
+  unscheduledLimit?: number;
 }

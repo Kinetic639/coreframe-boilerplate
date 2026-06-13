@@ -4,6 +4,11 @@ import { useState } from "react";
 import { CalendarRange, GanttChartSquare } from "lucide-react";
 
 import { CalendarScheduler, ResourcePlanner } from "@/components/primitives/scheduler";
+import {
+  INITIAL_BACKGROUND_EVENTS,
+  INITIAL_EVENTS,
+  INITIAL_UNSCHEDULED_TASKS,
+} from "@/components/primitives/scheduler/scheduler-demo-data";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/utils";
@@ -71,9 +76,19 @@ export default function CalendarDemoPage() {
 
       <div className="min-h-0 flex-1">
         {mode === "calendar" ? (
-          <CalendarScheduler title={activeMode.label} />
+          <CalendarScheduler
+            title={activeMode.label}
+            initialEvents={INITIAL_EVENTS}
+            initialBackgroundEvents={INITIAL_BACKGROUND_EVENTS}
+            initialUnscheduledTasks={INITIAL_UNSCHEDULED_TASKS}
+          />
         ) : (
-          <ResourcePlanner title={activeMode.label} />
+          <ResourcePlanner
+            title={activeMode.label}
+            initialEvents={INITIAL_EVENTS}
+            initialBackgroundEvents={INITIAL_BACKGROUND_EVENTS}
+            initialUnscheduledTasks={INITIAL_UNSCHEDULED_TASKS}
+          />
         )}
       </div>
     </div>

@@ -31,10 +31,27 @@ export interface CardCalendarRow {
   id: string;
   board_id: string;
   title: string;
-  due_at: string | null;
+  due_date: string | null;
   label: string | null;
   label_color: string | null;
   is_inbox: boolean;
+}
+
+export interface CardCalendarListParams {
+  rangeStart: string;
+  rangeEnd: string;
+  rangeStartIso: string;
+  rangeEndIso: string;
+  includeUnscheduled: boolean;
+  unscheduledLimit: number;
+  unscheduledSearch?: string;
+  boardIds?: string[];
+}
+
+export interface CardCalendarListResult {
+  scheduled: CardCalendarRow[];
+  unscheduled: CardCalendarRow[];
+  hasMoreUnscheduled: boolean;
 }
 
 function displayName(
@@ -197,7 +214,8 @@ export const KanbanBoardsService = {
 
   async listBoards(
     supabase: SupabaseClient,
-    orgId: string
+    orgId: string,
+    userId: string
   ): Promise<ServiceResult<KanbanBoardSummary[]>> {
     try {
       const { data, error } = await supabase
@@ -207,6 +225,7 @@ export const KanbanBoardsService = {
            creator:users!created_by(first_name, last_name, email)`
         )
         .eq("organization_id", orgId)
+        .or(`visibility.eq.public,created_by.eq.${userId}`)
         .is("deleted_at", null)
         .order("updated_at", { ascending: false });
 
@@ -220,10 +239,11 @@ export const KanbanBoardsService = {
   async getBoard(
     supabase: SupabaseClient,
     orgId: string,
-    boardId: string
+    boardId: string,
+    userId?: string
   ): Promise<ServiceResult<KanbanBoardDetail>> {
     try {
-      const { data: boardRaw, error: boardError } = await supabase
+      let boardQuery = supabase
         .from("planning_kanban_boards")
         .select(
           `id, organization_id, title, description, visibility, created_by, created_at, updated_at,
@@ -231,8 +251,13 @@ export const KanbanBoardsService = {
         )
         .eq("organization_id", orgId)
         .eq("id", boardId)
-        .is("deleted_at", null)
-        .single();
+        .is("deleted_at", null);
+
+      if (userId) {
+        boardQuery = boardQuery.or(`visibility.eq.public,created_by.eq.${userId}`);
+      }
+
+      const { data: boardRaw, error: boardError } = await boardQuery.single();
 
       if (boardError) return { success: false, error: boardError.message };
       const board = mapBoard(boardRaw as any);
@@ -315,7 +340,7 @@ export const KanbanBoardsService = {
       if (error) return { success: false, error: error.message };
 
       const boardId = (data as any).id as string;
-      return KanbanBoardsService.getBoard(supabase, orgId, boardId);
+      return KanbanBoardsService.getBoard(supabase, orgId, boardId, userId);
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : "Unexpected error" };
     }
@@ -353,7 +378,7 @@ export const KanbanBoardsService = {
           .is("deleted_at", null),
       ]);
 
-      return KanbanBoardsService.listBoards(supabase, orgId);
+      return KanbanBoardsService.listBoards(supabase, orgId, userId);
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : "Unexpected error" };
     }
@@ -379,7 +404,7 @@ export const KanbanBoardsService = {
         .is("deleted_at", null);
 
       if (error) return { success: false, error: error.message };
-      return KanbanBoardsService.getBoard(supabase, orgId, input.id);
+      return KanbanBoardsService.getBoard(supabase, orgId, input.id, userId);
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : "Unexpected error" };
     }
@@ -388,6 +413,7 @@ export const KanbanBoardsService = {
   async createColumn(
     supabase: SupabaseClient,
     orgId: string,
+    userId: string,
     input: CreateKanbanColumnInput
   ): Promise<ServiceResult<KanbanBoardDetail>> {
     try {
@@ -406,7 +432,7 @@ export const KanbanBoardsService = {
         position,
       });
       if (error) return { success: false, error: error.message };
-      return KanbanBoardsService.getBoard(supabase, orgId, input.board_id);
+      return KanbanBoardsService.getBoard(supabase, orgId, input.board_id, userId);
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : "Unexpected error" };
     }
@@ -415,6 +441,7 @@ export const KanbanBoardsService = {
   async updateColumn(
     supabase: SupabaseClient,
     orgId: string,
+    userId: string,
     input: UpdateKanbanColumnInput
   ): Promise<ServiceResult<KanbanBoardDetail>> {
     try {
@@ -430,7 +457,7 @@ export const KanbanBoardsService = {
         .eq("id", input.id)
         .is("deleted_at", null);
       if (error) return { success: false, error: error.message };
-      return KanbanBoardsService.getBoard(supabase, orgId, input.board_id);
+      return KanbanBoardsService.getBoard(supabase, orgId, input.board_id, userId);
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : "Unexpected error" };
     }
@@ -462,7 +489,7 @@ export const KanbanBoardsService = {
         .eq("column_id", input.id)
         .is("deleted_at", null);
 
-      return KanbanBoardsService.getBoard(supabase, orgId, input.board_id);
+      return KanbanBoardsService.getBoard(supabase, orgId, input.board_id, userId);
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : "Unexpected error" };
     }
@@ -509,7 +536,7 @@ export const KanbanBoardsService = {
         userId,
         "card_created"
       );
-      return KanbanBoardsService.getBoard(supabase, orgId, input.board_id);
+      return KanbanBoardsService.getBoard(supabase, orgId, input.board_id, userId);
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : "Unexpected error" };
     }
@@ -547,7 +574,7 @@ export const KanbanBoardsService = {
         userId,
         "card_updated"
       );
-      return KanbanBoardsService.getBoard(supabase, orgId, input.board_id);
+      return KanbanBoardsService.getBoard(supabase, orgId, input.board_id, userId);
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : "Unexpected error" };
     }
@@ -624,7 +651,7 @@ export const KanbanBoardsService = {
         { from_column_id: fromColumnId, to_column_id: input.to_column_id }
       );
 
-      return KanbanBoardsService.getBoard(supabase, orgId, input.board_id);
+      return KanbanBoardsService.getBoard(supabase, orgId, input.board_id, userId);
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : "Unexpected error" };
     }
@@ -687,7 +714,7 @@ export const KanbanBoardsService = {
       );
 
       const [boardResult, inboxResult] = await Promise.all([
-        KanbanBoardsService.getBoard(supabase, orgId, input.board_id),
+        KanbanBoardsService.getBoard(supabase, orgId, input.board_id, userId),
         KanbanBoardsService.listInboxCards(supabase, orgId),
       ]);
       if (!boardResult.success) {
@@ -783,7 +810,7 @@ export const KanbanBoardsService = {
       );
 
       const [boardResult, inboxResult] = await Promise.all([
-        KanbanBoardsService.getBoard(supabase, orgId, input.board_id),
+        KanbanBoardsService.getBoard(supabase, orgId, input.board_id, userId),
         KanbanBoardsService.listInboxCards(supabase, orgId),
       ]);
       if (!boardResult.success) {
@@ -807,6 +834,7 @@ export const KanbanBoardsService = {
   async reorderColumns(
     supabase: SupabaseClient,
     orgId: string,
+    userId: string,
     input: ReorderKanbanColumnsInput
   ): Promise<ServiceResult<KanbanBoardDetail>> {
     try {
@@ -823,7 +851,7 @@ export const KanbanBoardsService = {
       );
       const failed = results.find((result) => result.error);
       if (failed?.error) return { success: false, error: failed.error.message };
-      return KanbanBoardsService.getBoard(supabase, orgId, input.board_id);
+      return KanbanBoardsService.getBoard(supabase, orgId, input.board_id, userId);
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : "Unexpected error" };
     }
@@ -853,7 +881,7 @@ export const KanbanBoardsService = {
         userId,
         "card_archived"
       );
-      return KanbanBoardsService.getBoard(supabase, orgId, boardId);
+      return KanbanBoardsService.getBoard(supabase, orgId, boardId, userId);
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : "Unexpected error" };
     }
@@ -863,17 +891,71 @@ export const KanbanBoardsService = {
 
   async listCardsForCalendar(
     supabase: SupabaseClient,
-    orgId: string
-  ): Promise<ServiceResult<CardCalendarRow[]>> {
+    orgId: string,
+    params: CardCalendarListParams
+  ): Promise<ServiceResult<CardCalendarListResult>> {
     try {
-      const { data, error } = await supabase
-        .from("planning_kanban_cards")
-        .select("id, board_id, title, due_at, label, label_color, is_inbox")
-        .eq("organization_id", orgId)
-        .is("deleted_at", null);
+      if (params.boardIds && params.boardIds.length === 0) {
+        return {
+          success: true,
+          data: { scheduled: [], unscheduled: [], hasMoreUnscheduled: false },
+        };
+      }
 
-      if (error) return { success: false, error: error.message };
-      return { success: true, data: (data ?? []) as CardCalendarRow[] };
+      let scheduledQuery = supabase
+        .from("planning_kanban_cards")
+        .select("id, board_id, title, due_date, label, label_color, is_inbox")
+        .eq("organization_id", orgId)
+        .eq("is_inbox", false)
+        .is("deleted_at", null)
+        .not("due_date", "is", null)
+        .gte("due_date", params.rangeStart)
+        .lte("due_date", params.rangeEnd)
+        .order("due_date", { ascending: true });
+
+      if (params.boardIds) {
+        scheduledQuery = scheduledQuery.in("board_id", params.boardIds);
+      }
+
+      const { data: scheduledData, error: scheduledError } = await scheduledQuery;
+      if (scheduledError) return { success: false, error: scheduledError.message };
+
+      let unscheduled: CardCalendarRow[] = [];
+      let hasMoreUnscheduled = false;
+      if (params.includeUnscheduled && params.unscheduledLimit > 0) {
+        let unscheduledQuery = supabase
+          .from("planning_kanban_cards")
+          .select("id, board_id, title, due_date, label, label_color, is_inbox")
+          .eq("organization_id", orgId)
+          .eq("is_inbox", false)
+          .is("deleted_at", null)
+          .is("due_date", null)
+          .order("updated_at", { ascending: false })
+          .limit(params.unscheduledLimit + 1);
+
+        if (params.unscheduledSearch) {
+          unscheduledQuery = unscheduledQuery.ilike("title", `%${params.unscheduledSearch}%`);
+        }
+
+        if (params.boardIds) {
+          unscheduledQuery = unscheduledQuery.in("board_id", params.boardIds);
+        }
+
+        const { data: unscheduledData, error: unscheduledError } = await unscheduledQuery;
+        if (unscheduledError) return { success: false, error: unscheduledError.message };
+        const rows = (unscheduledData ?? []) as CardCalendarRow[];
+        hasMoreUnscheduled = rows.length > params.unscheduledLimit;
+        unscheduled = rows.slice(0, params.unscheduledLimit);
+      }
+
+      return {
+        success: true,
+        data: {
+          scheduled: (scheduledData ?? []) as CardCalendarRow[],
+          unscheduled,
+          hasMoreUnscheduled,
+        },
+      };
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : "Unexpected error" };
     }
@@ -885,12 +967,16 @@ export const KanbanBoardsService = {
     userId: string,
     cardId: string,
     boardId: string,
-    dueAt: string | null
+    dueAt: string | null,
+    dueDate?: string | null
   ): Promise<ServiceResult<void>> {
     try {
+      const boardResult = await KanbanBoardsService.getBoard(supabase, orgId, boardId, userId);
+      if (!boardResult.success) return { success: false, error: "Board not found" };
+
       const { error } = await supabase
         .from("planning_kanban_cards")
-        .update({ due_at: dueAt, updated_by: userId })
+        .update({ due_at: dueAt, due_date: dueDate ?? null, updated_by: userId })
         .eq("organization_id", orgId)
         .eq("board_id", boardId)
         .eq("id", cardId)
@@ -905,7 +991,7 @@ export const KanbanBoardsService = {
         cardId,
         userId,
         "card_updated",
-        { due_at: dueAt }
+        { due_at: dueAt, due_date: dueDate ?? null }
       );
 
       return { success: true, data: undefined };

@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "react-toastify";
-import { format, startOfDay } from "date-fns";
+import { endOfMonth, format, startOfMonth, startOfWeek, endOfWeek } from "date-fns";
 import { ExternalLink } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +31,7 @@ import {
 } from "@/app/actions/planning/calendar";
 import { updateModuleSettingsAction } from "@/app/actions/user-preferences";
 import { useDebounce } from "@/hooks/use-debounce";
+import { dateOnlyToLocalDate, dateToDateOnly } from "@/lib/planning/calendar-dates";
 import { useUiStoreV2 } from "@/lib/stores/v2/ui-store";
 import {
   HELPDESK_TICKETS_SOURCE_ID,
@@ -41,6 +43,7 @@ import type {
   PlanningCalendarData,
   UnscheduledItemDTO,
 } from "@/lib/types/planning-calendar";
+import type { GetPlanningCalendarDataInput } from "@/lib/validations/planning-calendar";
 import type { PlanningTaskDetail } from "@/server/services/planning-tasks.service";
 import type { PlanningPriorityBadgeConfig } from "@/components/planning/planning-task-priority-badge";
 import { PlanningTaskCreateDialog } from "../tasks/_components/planning-task-create-dialog";
@@ -84,7 +87,7 @@ function boardIdFromCalendarSource(calendarSourceId?: string): string | undefine
 }
 
 function dtoToCalendarEvent(dto: CalendarEventDTO): CalendarEvent {
-  const date = startOfDay(new Date(dto.dueAt));
+  const date = dateOnlyToLocalDate(dto.dueDate);
   return {
     id: dto.id,
     title: dto.title,
@@ -122,6 +125,28 @@ function actionErrorMessage(
   return (result as { success: false; error: string }).error;
 }
 
+const planningCalendarKeys = {
+  all: ["planning-calendar"] as const,
+  range: (input: GetPlanningCalendarDataInput) =>
+    [
+      ...planningCalendarKeys.all,
+      input.rangeStart,
+      input.rangeEnd,
+      input.includeUnscheduled,
+      input.unscheduledLimit,
+      input.unscheduledSearch ?? "",
+      ...(input.visibleSourceIds ?? []),
+    ] as const,
+};
+
+function makeInitialRange() {
+  const today = new Date();
+  return {
+    rangeStart: dateToDateOnly(startOfWeek(startOfMonth(today), { weekStartsOn: 1 })),
+    rangeEnd: dateToDateOnly(endOfWeek(endOfMonth(today), { weekStartsOn: 1 })),
+  };
+}
+
 export function PlanningCalendarClient({
   members,
   currentUserId,
@@ -134,6 +159,7 @@ export function PlanningCalendarClient({
   const t = useTranslations("modules.planning");
   const tTasks = useTranslations("modules.planning.tasks");
   const labels = LABELS_MAP[locale];
+  const queryClient = useQueryClient();
 
   const setFlushContent = useUiStoreV2((state) => state.setFlushContent);
   useEffect(() => {
@@ -141,43 +167,19 @@ export function PlanningCalendarClient({
     return () => setFlushContent(false);
   }, [setFlushContent]);
 
-  const [calendarData, setCalendarData] = useState<PlanningCalendarData | null>(null);
-  const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
   const [visibleSources, setVisibleSources] =
     useState<Record<string, boolean>>(initialVisibleSources);
+  const [visibleRange, setVisibleRange] = useState(makeInitialRange);
+  const [knownSources, setKnownSources] = useState<CalendarSource[]>([]);
+  const [unscheduledLimit, setUnscheduledLimit] = useState(50);
+  const [unscheduledSearch, setUnscheduledSearch] = useState("");
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [createDueAt, setCreateDueAt] = useState<string | undefined>(undefined);
 
   const debouncedVisibleSources = useDebounce(visibleSources, 800);
-
-  const loadCalendarData = useCallback(async () => {
-    const result = await getPlanningCalendarDataAction();
-    if (result.success) {
-      setCalendarData(result.data);
-    } else {
-      toast.error(actionErrorMessage(result));
-    }
-  }, []);
-
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      setLoading(true);
-      const result = await getPlanningCalendarDataAction();
-      if (!active) return;
-      if (result.success) {
-        setCalendarData(result.data);
-      } else {
-        toast.error(actionErrorMessage(result));
-      }
-      setLoading(false);
-    })();
-    return () => {
-      active = false;
-    };
-  }, []);
+  const debouncedUnscheduledSearch = useDebounce(unscheduledSearch.trim(), 350);
 
   useEffect(() => {
     if (debouncedVisibleSources === initialVisibleSources) return;
@@ -185,10 +187,118 @@ export function PlanningCalendarClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedVisibleSources]);
 
+  const visibleSourceIds = useMemo(() => {
+    const hasHiddenSources = Object.values(debouncedVisibleSources).some(
+      (visible) => visible === false
+    );
+    if (!hasHiddenSources || knownSources.length === 0) return undefined;
+    return knownSources
+      .filter((source) => debouncedVisibleSources[source.id] !== false)
+      .map((source) => source.id)
+      .sort();
+  }, [debouncedVisibleSources, knownSources]);
+
+  useEffect(() => {
+    setUnscheduledLimit(50);
+  }, [debouncedUnscheduledSearch, visibleSourceIds]);
+
+  const calendarQueryInput = useMemo<GetPlanningCalendarDataInput>(
+    () => ({
+      rangeStart: visibleRange.rangeStart,
+      rangeEnd: visibleRange.rangeEnd,
+      visibleSourceIds,
+      includeUnscheduled: true,
+      unscheduledLimit,
+      unscheduledSearch: debouncedUnscheduledSearch || undefined,
+    }),
+    [visibleRange, visibleSourceIds, unscheduledLimit, debouncedUnscheduledSearch]
+  );
+
+  const calendarQuery = useQuery({
+    queryKey: planningCalendarKeys.range(calendarQueryInput),
+    queryFn: async () => {
+      const result = await getPlanningCalendarDataAction(calendarQueryInput);
+      if (!result.success) throw new Error(actionErrorMessage(result));
+      return result.data;
+    },
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+  });
+
+  const calendarData = calendarQuery.data ?? null;
+
+  useEffect(() => {
+    if (calendarQuery.error) {
+      toast.error(calendarQuery.error.message);
+    }
+  }, [calendarQuery.error]);
+
+  useEffect(() => {
+    if (calendarData?.sources) {
+      setKnownSources(calendarData.sources);
+    }
+  }, [calendarData?.sources]);
+
   const reloadCalendarData = useCallback(async () => {
-    await loadCalendarData();
+    await queryClient.invalidateQueries({ queryKey: planningCalendarKeys.all });
     setRefreshKey((key) => key + 1);
-  }, [loadCalendarData]);
+  }, [queryClient]);
+
+  const updateDueDateMutation = useMutation({
+    mutationFn: async (input: {
+      eventId: string;
+      sourceType: CalendarItemSourceType;
+      sourceId: string;
+      boardId?: string;
+      dueDate: string | null;
+    }) => {
+      const result = await updateCalendarItemDueDateAction({
+        sourceType: input.sourceType,
+        sourceId: input.sourceId,
+        boardId: input.boardId,
+        dueDate: input.dueDate,
+      });
+      if (!result.success) throw new Error(actionErrorMessage(result));
+    },
+    onMutate: async (input) => {
+      await queryClient.cancelQueries({ queryKey: planningCalendarKeys.all });
+      const snapshots = queryClient.getQueriesData<PlanningCalendarData>({
+        queryKey: planningCalendarKeys.all,
+      });
+
+      queryClient.setQueriesData<PlanningCalendarData>(
+        { queryKey: planningCalendarKeys.all },
+        (current) => {
+          if (!current) return current;
+          return {
+            ...current,
+            events: current.events.map((event) =>
+              event.id === input.eventId && input.dueDate
+                ? { ...event, dueDate: input.dueDate }
+                : event
+            ),
+            unscheduled:
+              input.dueDate === null
+                ? current.unscheduled
+                : current.unscheduled.filter((item) => item.id !== input.eventId),
+          };
+        }
+      );
+
+      return { snapshots };
+    },
+    onError: (error, _input, context) => {
+      for (const [queryKey, data] of context?.snapshots ?? []) {
+        queryClient.setQueryData(queryKey, data);
+      }
+      toast.error(error.message);
+      void queryClient.invalidateQueries({ queryKey: planningCalendarKeys.all });
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: planningCalendarKeys.all });
+    },
+  });
 
   const calendarSources = useMemo<CalendarSource[]>(() => {
     if (!calendarData) return [];
@@ -242,19 +352,15 @@ export function PlanningCalendarClient({
           ? boardIdFromCalendarSource(event.calendarSourceId)
           : undefined;
 
-      const result = await updateCalendarItemDueDateAction({
+      updateDueDateMutation.mutate({
+        eventId: event.id,
         sourceType: event.sourceType as CalendarItemSourceType,
         sourceId: event.sourceId,
         boardId,
-        dueAt: newDate.toISOString(),
+        dueDate: dateToDateOnly(newDate),
       });
-
-      if (!result.success) {
-        toast.error(actionErrorMessage(result));
-        await reloadCalendarData();
-      }
     },
-    [reloadCalendarData]
+    [updateDueDateMutation]
   );
 
   const handleScheduleRealTask = useCallback(
@@ -263,20 +369,20 @@ export function PlanningCalendarClient({
       const boardId =
         sourceType === "kanban_card" ? boardIdFromCalendarSource(task.calendarSourceId) : undefined;
 
-      const result = await updateCalendarItemDueDateAction({
+      updateDueDateMutation.mutate({
+        eventId: task.id,
         sourceType,
         sourceId,
         boardId,
-        dueAt: date.toISOString(),
+        dueDate: dateToDateOnly(date),
       });
-
-      if (!result.success) {
-        toast.error(actionErrorMessage(result));
-      }
-      await reloadCalendarData();
     },
-    [reloadCalendarData]
+    [updateDueDateMutation]
   );
+
+  const handleLoadMoreUnscheduled = useCallback(() => {
+    setUnscheduledLimit((current) => Math.min(current + 50, 200));
+  }, []);
 
   const handleTaskCreated = useCallback(
     (_task: PlanningTaskDetail) => {
@@ -291,7 +397,9 @@ export function PlanningCalendarClient({
       case "planning_task":
         return {
           pathname: "/dashboard/planning/tasks/[taskId]" as const,
-          params: { taskId: selectedEvent.sourceId ?? "" },
+          params: {
+            taskId: String(selectedEvent.metadata?.taskNumber ?? selectedEvent.sourceId ?? ""),
+          },
         };
       case "helpdesk_ticket":
         return {
@@ -325,7 +433,19 @@ export function PlanningCalendarClient({
         ? capitalize(priority)
         : undefined;
 
-  if (loading) {
+  const handleVisibleRangeChange = useCallback((range: { start: Date; end: Date }) => {
+    const nextRange = {
+      rangeStart: dateToDateOnly(range.start),
+      rangeEnd: dateToDateOnly(range.end),
+    };
+    setVisibleRange((current) =>
+      current.rangeStart === nextRange.rangeStart && current.rangeEnd === nextRange.rangeEnd
+        ? current
+        : nextRange
+    );
+  }, []);
+
+  if (calendarQuery.isLoading && !calendarData) {
     return <PageLoader />;
   }
 
@@ -338,12 +458,18 @@ export function PlanningCalendarClient({
           calendarSources={calendarSources}
           initialEvents={initialEvents}
           initialUnscheduledTasks={initialUnscheduledTasks}
+          hasMoreUnscheduled={calendarData?.hasMoreUnscheduled ?? false}
           initialSettings={initialSettings}
           onSelectRealEvent={handleSelectRealEvent}
           onCreateAt={handleCreateAt}
           onMoveRealEvent={handleMoveRealEvent}
           onScheduleRealTask={handleScheduleRealTask}
           onSettingsChange={handleSettingsChange}
+          onVisibleRangeChange={handleVisibleRangeChange}
+          unscheduledSearch={unscheduledSearch}
+          onUnscheduledSearchChange={setUnscheduledSearch}
+          onLoadMoreUnscheduled={handleLoadMoreUnscheduled}
+          isLoadingMoreUnscheduled={calendarQuery.isFetching && Boolean(calendarData)}
         />
       </div>
 
