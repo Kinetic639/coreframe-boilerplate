@@ -2,6 +2,7 @@
 
 import React, { useRef, useState, useEffect } from "react";
 import { isToday, isSameDay, format, startOfDay, addMinutes, differenceInMinutes } from "date-fns";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   CalendarEvent,
   BackgroundEvent,
@@ -16,6 +17,10 @@ import {
   formatInTimezone,
   formatGridHour,
   LABELS_MAP,
+  eventIntersectsDay,
+  eventSpansMultipleDays,
+  getTimedEventSegmentForDay,
+  isHexColor,
 } from "./scheduler-utils";
 
 interface SchedulerWeekViewProps {
@@ -39,6 +44,57 @@ interface SchedulerWeekViewProps {
 }
 
 const HOUR_HEIGHT = 60; // 60px per hour means 1px = 1 minute! Incredible layout fluid math!
+const WEEK_SHELF_COLLAPSED_ROW_LIMIT = 3;
+const WEEK_SHELF_CONTINUATION_POINT_SIZE = 8;
+
+type WeekShelfSegment = {
+  event: CalendarEvent;
+  startCol: number;
+  endCol: number;
+  lane: number;
+};
+
+function getWeekEventColorStyle(color: string | undefined): React.CSSProperties | undefined {
+  if (!isHexColor(color)) return undefined;
+
+  const red = parseInt(color.slice(1, 3), 16);
+  const green = parseInt(color.slice(3, 5), 16);
+  const blue = parseInt(color.slice(5, 7), 16);
+  const luminance = (0.299 * red + 0.587 * green + 0.114 * blue) / 255;
+
+  return {
+    backgroundColor: color,
+    borderColor: color,
+    color: luminance > 0.62 ? "#1f2937" : "#ffffff",
+  };
+}
+
+function getWeekShelfContinuationStyle(
+  segment: WeekShelfSegment,
+  weekDays: Date[]
+): React.CSSProperties {
+  const firstVisibleDay = weekDays[segment.startCol];
+  const lastVisibleDay = weekDays[segment.endCol];
+  const continuesBefore =
+    startOfDay(new Date(segment.event.start)).getTime() < startOfDay(firstVisibleDay).getTime();
+  const continuesAfter =
+    startOfDay(new Date(segment.event.end)).getTime() > startOfDay(lastVisibleDay).getTime();
+
+  if (!continuesBefore && !continuesAfter) return {};
+
+  const point = `${WEEK_SHELF_CONTINUATION_POINT_SIZE}px`;
+  const left = continuesBefore ? `${point} 0, ` : "0 0, ";
+  const right = continuesAfter
+    ? `calc(100% - ${point}) 0, 100% 50%, calc(100% - ${point}) 100%, `
+    : "100% 0, 100% 100%, ";
+  const bottomLeft = continuesBefore ? `${point} 100%, 0 50%` : "0 100%";
+
+  return {
+    clipPath: `polygon(${left}${right}${bottomLeft})`,
+    paddingLeft: continuesBefore ? `${WEEK_SHELF_CONTINUATION_POINT_SIZE + 8}px` : undefined,
+    paddingRight: continuesAfter ? `${WEEK_SHELF_CONTINUATION_POINT_SIZE + 8}px` : undefined,
+  };
+}
 
 export const SchedulerWeekView: React.FC<SchedulerWeekViewProps> = ({
   currentDate,
@@ -66,6 +122,7 @@ export const SchedulerWeekView: React.FC<SchedulerWeekViewProps> = ({
   const [selectionStart, setSelectionStart] = useState<{ day: Date; minutes: number } | null>(null);
   const [selectionEnd, setSelectionEnd] = useState<{ day: Date; minutes: number } | null>(null);
   const [hoveredTime, setHoveredTime] = useState<{ day: Date; minutes: number } | null>(null);
+  const [isWeekShelfExpanded, setIsWeekShelfExpanded] = useState(false);
 
   // Vertical time line tracker
   const [nowDate, setNowDate] = useState<Date>(new Date());
@@ -137,8 +194,14 @@ export const SchedulerWeekView: React.FC<SchedulerWeekViewProps> = ({
     const overlapStart = start > dayStart ? start : dayStart;
     const overlapEnd = end < dayEnd ? end : dayEnd;
 
-    const startMins = overlapStart.getHours() * 60 + overlapStart.getMinutes();
-    const endMins = overlapEnd.getHours() * 60 + overlapEnd.getMinutes();
+    const startMins =
+      overlapStart.getTime() <= dayStart.getTime()
+        ? 0
+        : overlapStart.getHours() * 60 + overlapStart.getMinutes();
+    const endMins =
+      overlapEnd.getTime() >= dayEnd.getTime()
+        ? 24 * 60
+        : overlapEnd.getHours() * 60 + overlapEnd.getMinutes();
 
     const gridStartMins = dayStartHour * 60;
     const gridEndMins = dayEndHour * 60;
@@ -224,10 +287,83 @@ export const SchedulerWeekView: React.FC<SchedulerWeekViewProps> = ({
     return event;
   });
 
-  // All-day vs Timed events filtering
-  const weekAllDayEvents = displayedEvents.filter((ev) => {
-    return ev.allDay && weekDays.some((day) => isSameDay(day, new Date(ev.start)));
+  const weekShelfEvents = displayedEvents.filter((ev) => {
+    return (
+      (ev.allDay || eventSpansMultipleDays(ev)) &&
+      weekDays.some((day) => eventIntersectsDay(ev, day))
+    );
   });
+
+  const weekShelfLayout = React.useMemo(() => {
+    const segments = weekShelfEvents
+      .map((event) => {
+        const startCol = weekDays.findIndex((day) => eventIntersectsDay(event, day));
+        const reverseEndCol = [...weekDays]
+          .reverse()
+          .findIndex((day) => eventIntersectsDay(event, day));
+        const endCol = weekDays.length - 1 - reverseEndCol;
+
+        if (startCol < 0 || endCol < startCol) return null;
+
+        return {
+          event,
+          startCol,
+          endCol,
+        };
+      })
+      .filter((segment): segment is Omit<WeekShelfSegment, "lane"> => Boolean(segment))
+      .sort((a, b) => {
+        if (a.startCol !== b.startCol) return a.startCol - b.startCol;
+        const aSpan = a.endCol - a.startCol;
+        const bSpan = b.endCol - b.startCol;
+        if (aSpan !== bSpan) return bSpan - aSpan;
+
+        const startDelta = new Date(a.event.start).getTime() - new Date(b.event.start).getTime();
+        if (startDelta !== 0) return startDelta;
+        return a.event.id.localeCompare(b.event.id);
+      });
+
+    const lanes: WeekShelfSegment[][] = [];
+    const packedSegments: WeekShelfSegment[] = [];
+
+    for (const segment of segments) {
+      const laneIndex = lanes.findIndex((lane) =>
+        lane.every(
+          (laneSegment) =>
+            segment.endCol < laneSegment.startCol || segment.startCol > laneSegment.endCol
+        )
+      );
+      const targetLaneIndex = laneIndex >= 0 ? laneIndex : lanes.length;
+      const packedSegment = { ...segment, lane: targetLaneIndex };
+      lanes[targetLaneIndex] = lanes[targetLaneIndex] ?? [];
+      lanes[targetLaneIndex].push(packedSegment);
+      packedSegments.push(packedSegment);
+    }
+
+    return {
+      segments: packedSegments,
+      laneCount: lanes.length,
+    };
+  }, [weekDays, weekShelfEvents]);
+
+  const hasCollapsedWeekShelfOverflow = weekShelfLayout.laneCount > WEEK_SHELF_COLLAPSED_ROW_LIMIT;
+  const visibleWeekShelfLaneCount =
+    !isWeekShelfExpanded && hasCollapsedWeekShelfOverflow
+      ? WEEK_SHELF_COLLAPSED_ROW_LIMIT - 1
+      : weekShelfLayout.laneCount;
+  const visibleWeekShelfSegments = weekShelfLayout.segments.filter(
+    (segment) => segment.lane < visibleWeekShelfLaneCount
+  );
+  const hiddenWeekShelfCount = weekShelfLayout.segments.length - visibleWeekShelfSegments.length;
+  const weekShelfRenderedRows =
+    visibleWeekShelfLaneCount +
+    (hiddenWeekShelfCount > 0 || (isWeekShelfExpanded && hasCollapsedWeekShelfOverflow) ? 1 : 0);
+
+  useEffect(() => {
+    if (!hasCollapsedWeekShelfOverflow) {
+      setIsWeekShelfExpanded(false);
+    }
+  }, [hasCollapsedWeekShelfOverflow]);
 
   // Category Styling Map
   const categoryStyles: Record<
@@ -340,11 +476,6 @@ export const SchedulerWeekView: React.FC<SchedulerWeekViewProps> = ({
     setTaskDragMinutes(null);
   };
 
-  // Drag over handler
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-  };
-
   // Calculate coordinates where dropped vertically inside the grid column
   const handleDropOnColumn = (e: React.DragEvent, cellDate: Date) => {
     e.preventDefault();
@@ -388,7 +519,7 @@ export const SchedulerWeekView: React.FC<SchedulerWeekViewProps> = ({
         finalDateTime.setHours(Math.floor(finalMinutes / 60), finalMinutes % 60, 0, 0);
         onScheduleTask(data.id, finalDateTime);
       }
-    } catch (err) {
+    } catch {
       // Catch format warnings
     } finally {
       handleDragEnd();
@@ -466,7 +597,7 @@ export const SchedulerWeekView: React.FC<SchedulerWeekViewProps> = ({
           {/* Week Shelf header row */}
           <div
             className={`grid bg-muted/50 ${
-              weekAllDayEvents.length > 0 ? "border-b border-border" : ""
+              weekShelfEvents.length > 0 ? "border-b border-border" : ""
             }`}
             style={{ gridTemplateColumns: `56px repeat(${weekDays.length}, minmax(0, 1fr))` }}
           >
@@ -497,43 +628,106 @@ export const SchedulerWeekView: React.FC<SchedulerWeekViewProps> = ({
           </div>
 
           {/* All-Day events shelf */}
-          {weekAllDayEvents.length > 0 && (
-            <div
-              className="grid bg-amber-50/10 dark:bg-amber-950/5 py-1.5"
+          {weekShelfLayout.segments.length > 0 && (
+            <motion.div
+              layout
+              transition={{ type: "spring", stiffness: 420, damping: 36, mass: 0.7 }}
+              className="grid gap-y-1 bg-muted/20 py-1.5"
               style={{ gridTemplateColumns: `56px repeat(${weekDays.length}, minmax(0, 1fr))` }}
             >
-              <div className="flex items-center justify-center">
-                <span className="text-[9px] font-extrabold uppercase font-mono tracking-wide text-amber-600 bg-amber-50 dark:bg-amber-950/40 border border-amber-100 dark:border-amber-900/40 px-1 py-0.5 rounded">
-                  All Day
+              <div
+                className="flex items-center justify-center"
+                style={{ gridColumn: "1 / 2", gridRow: `1 / ${weekShelfRenderedRows + 1}` }}
+              >
+                <span className="text-[9px] font-extrabold uppercase font-mono tracking-wide text-muted-foreground bg-background border border-border px-1 py-0.5 rounded">
+                  {LABELS_MAP[locale]?.allDayLabel || "All Day"}
                 </span>
               </div>
-              {weekDays.map((day) => {
-                const dayAllDayEvents = weekAllDayEvents.filter((ev) =>
-                  isSameDay(new Date(ev.start), day)
-                );
-                return (
-                  <div
-                    key={day.toString()}
-                    className="border-l border-border px-2 space-y-1 min-w-0 overflow-hidden"
+              <AnimatePresence initial={false}>
+                {visibleWeekShelfSegments.map((segment) => {
+                  const ev = segment.event;
+                  const style = categoryStyles[ev.color || ev.category] || categoryStyles.meeting;
+                  const customStyle = getWeekEventColorStyle(ev.color);
+                  const shapeStyle = getWeekShelfContinuationStyle(segment, weekDays);
+                  const timeLabel = ev.allDay
+                    ? null
+                    : `${formatInTimezone(
+                        new Date(ev.start),
+                        timeFormat === "24h" ? "HH:mm" : "h:mm a",
+                        timezone,
+                        locale
+                      )} - ${formatInTimezone(
+                        new Date(ev.end),
+                        timeFormat === "24h" ? "HH:mm" : "h:mm a",
+                        timezone,
+                        locale
+                      )}`;
+
+                  return (
+                    <motion.div
+                      layout
+                      key={`${ev.id}-${segment.startCol}-${segment.endCol}`}
+                      initial={{ opacity: 0, y: -4, scaleY: 0.92 }}
+                      animate={{ opacity: 1, y: 0, scaleY: 1 }}
+                      exit={{ opacity: 0, y: -4, scaleY: 0.92 }}
+                      transition={{ duration: 0.16, ease: "easeOut" }}
+                      onClick={() => onSelectEvent(ev)}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      title={timeLabel ? `${ev.title} ${timeLabel}` : ev.title}
+                      className={`mx-1 min-h-6 rounded-md border px-2 py-1 text-[10px] font-semibold leading-tight transition duration-150 shadow-xs truncate shrink-0 hover:z-50 hover:brightness-105 hover:ring-1 hover:ring-foreground/10 hover:shadow-sm ${style.bg} ${style.text} cursor-pointer active:cursor-grabbing`}
+                      style={{
+                        gridColumn: `${segment.startCol + 2} / ${segment.endCol + 3}`,
+                        gridRow: segment.lane + 1,
+                        ...customStyle,
+                        ...shapeStyle,
+                      }}
+                    >
+                      <span className="block truncate">{ev.title}</span>
+                    </motion.div>
+                  );
+                })}
+                {hiddenWeekShelfCount > 0 && (
+                  <motion.button
+                    layout
+                    key="week-shelf-expand"
+                    type="button"
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.16, ease: "easeOut" }}
+                    onClick={() => setIsWeekShelfExpanded(true)}
+                    className="mx-1 min-h-6 rounded-md bg-muted px-2 py-1 text-left text-[10px] font-semibold text-muted-foreground transition hover:bg-border hover:text-foreground"
+                    style={{
+                      gridColumn: `2 / ${weekDays.length + 2}`,
+                      gridRow: visibleWeekShelfLaneCount + 1,
+                    }}
                   >
-                    {dayAllDayEvents.map((ev) => {
-                      const style =
-                        categoryStyles[ev.color || ev.category] || categoryStyles.meeting;
-                      return (
-                        <div
-                          key={ev.id}
-                          onClick={() => onSelectEvent(ev)}
-                          title={ev.title}
-                          className={`px-2 py-0.5 border text-[10px] font-semibold rounded-md truncate cursor-pointer transition w-full block whitespace-nowrap overflow-hidden ${style.bg} ${style.text} ${style.border}`}
-                        >
-                          {ev.title}
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })}
-            </div>
+                    +{hiddenWeekShelfCount} {LABELS_MAP[locale]?.moreEvents || "more"}
+                  </motion.button>
+                )}
+                {hiddenWeekShelfCount === 0 &&
+                  isWeekShelfExpanded &&
+                  hasCollapsedWeekShelfOverflow && (
+                    <motion.button
+                      layout
+                      key="week-shelf-collapse"
+                      type="button"
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -4 }}
+                      transition={{ duration: 0.16, ease: "easeOut" }}
+                      onClick={() => setIsWeekShelfExpanded(false)}
+                      className="mx-1 min-h-6 rounded-md bg-muted/70 px-2 py-1 text-left text-[10px] font-semibold text-muted-foreground transition hover:bg-border hover:text-foreground"
+                      style={{
+                        gridColumn: `2 / ${weekDays.length + 2}`,
+                        gridRow: visibleWeekShelfLaneCount + 1,
+                      }}
+                    >
+                      {LABELS_MAP[locale]?.showLess || "Show less"}
+                    </motion.button>
+                  )}
+              </AnimatePresence>
+            </motion.div>
           )}
         </div>
 
@@ -610,9 +804,10 @@ export const SchedulerWeekView: React.FC<SchedulerWeekViewProps> = ({
               const isTodayColumn = isToday(day);
 
               // Filter to timed events active on this specific date
-              const baseEvents = displayedEvents.filter(
-                (ev) => !ev.allDay && isSameDay(day, new Date(ev.start))
-              );
+              const baseEvents = displayedEvents
+                .filter((ev) => !eventSpansMultipleDays(ev))
+                .map((ev) => getTimedEventSegmentForDay(ev, day))
+                .filter((ev): ev is CalendarEvent => Boolean(ev));
 
               const dayEvents = (() => {
                 if (
@@ -873,6 +1068,7 @@ export const SchedulerWeekView: React.FC<SchedulerWeekViewProps> = ({
                       event.isResizable !== false && !isProvisional && !isDragging;
                     const style =
                       categoryStyles[event.color || event.category] || categoryStyles.meeting;
+                    const customStyle = getWeekEventColorStyle(event.color);
 
                     // Retrieve overlap positioning indices
                     const layoutData = overlapLayoutMap.get(event.id) || {
@@ -892,6 +1088,7 @@ export const SchedulerWeekView: React.FC<SchedulerWeekViewProps> = ({
                           handleDragEventStart(e, event.id, new Date(event.start))
                         }
                         onDragEnd={handleDragEnd}
+                        onMouseDown={(e) => e.stopPropagation()}
                         onClick={(e) => {
                           e.stopPropagation();
                           if (isResizingRef.current || isProvisional || isDragging) {
@@ -899,18 +1096,19 @@ export const SchedulerWeekView: React.FC<SchedulerWeekViewProps> = ({
                           }
                           onSelectEvent(event);
                         }}
-                        className={`absolute rounded-r-xl rounded-l-none p-2.5 text-[10px] leading-tight select-none transition-all duration-150 overflow-hidden ${
+                        className={`absolute rounded-md border p-2.5 text-[10px] leading-tight select-none transition-all duration-150 overflow-hidden ${
                           isProvisional
                             ? "pointer-events-none z-30 shadow-none"
                             : isDragging
                               ? "cursor-grabbing z-40 shadow-md ring-1 ring-foreground/5 dark:ring-foreground/10"
                               : "cursor-pointer active:cursor-grabbing hover:shadow-sm hover:shadow-border/50 group/card z-20"
-                        } ${style.bg} ${style.text} ${style.border}`}
+                        } hover:brightness-105 hover:ring-1 hover:ring-foreground/10 ${style.bg} ${style.text}`}
                         style={{
                           top: pos.top,
                           height: pos.height,
                           left: `${colLeft}%`,
                           width: `${colWidth - 1}%`, // small gap spacing
+                          ...customStyle,
                         }}
                         id={`week-event-card-${event.id}`}
                       >
@@ -923,7 +1121,7 @@ export const SchedulerWeekView: React.FC<SchedulerWeekViewProps> = ({
                           </div>
 
                           {/* Time display */}
-                          <p className="font-mono text-[9px] opacity-75 font-semibold leading-none shrink-0">
+                          <p className="font-mono text-[9px] opacity-80 font-semibold leading-none shrink-0">
                             {formatInTimezone(
                               new Date(event.start),
                               timeFormat === "24h" ? "HH:mm" : "h:mm a",
@@ -941,14 +1139,14 @@ export const SchedulerWeekView: React.FC<SchedulerWeekViewProps> = ({
 
                           {/* Location details */}
                           {showDetails && event.location && (
-                            <p className="text-[9px] text-muted-foreground font-semibold truncate leading-none shrink-0 pt-0.5">
+                            <p className="text-[9px] opacity-80 font-semibold truncate leading-none shrink-0 pt-0.5">
                               📍 {event.location}
                             </p>
                           )}
 
                           {/* Description details */}
                           {showDetails && event.description && (
-                            <p className="text-[9.5px] text-muted-foreground line-clamp-2 leading-normal mt-0.5 font-medium overflow-hidden">
+                            <p className="text-[9.5px] opacity-80 line-clamp-2 leading-normal mt-0.5 font-medium overflow-hidden">
                               {event.description}
                             </p>
                           )}

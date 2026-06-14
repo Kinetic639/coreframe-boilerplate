@@ -32,6 +32,12 @@ export interface CardCalendarRow {
   board_id: string;
   title: string;
   due_date: string | null;
+  calendar_all_day: boolean | null;
+  calendar_start_date: string | null;
+  calendar_end_date: string | null;
+  calendar_start_at: string | null;
+  calendar_end_at: string | null;
+  calendar_timezone: string | null;
   label: string | null;
   label_color: string | null;
   is_inbox: boolean;
@@ -70,6 +76,7 @@ function mapBoard(row: any): KanbanBoardSummary {
     organization_id: row.organization_id,
     title: row.title,
     description: row.description ?? null,
+    color: row.color ?? null,
     visibility: row.visibility as KanbanVisibility,
     created_by: row.created_by,
     creator_name: creator
@@ -221,7 +228,7 @@ export const KanbanBoardsService = {
       const { data, error } = await supabase
         .from("planning_kanban_boards")
         .select(
-          `id, organization_id, title, description, visibility, created_by, created_at, updated_at,
+          `id, organization_id, title, description, color, visibility, created_by, created_at, updated_at,
            creator:users!created_by(first_name, last_name, email)`
         )
         .eq("organization_id", orgId)
@@ -246,7 +253,7 @@ export const KanbanBoardsService = {
       let boardQuery = supabase
         .from("planning_kanban_boards")
         .select(
-          `id, organization_id, title, description, visibility, created_by, created_at, updated_at,
+          `id, organization_id, title, description, color, visibility, created_by, created_at, updated_at,
            creator:users!created_by(first_name, last_name, email)`
         )
         .eq("organization_id", orgId)
@@ -330,6 +337,7 @@ export const KanbanBoardsService = {
           organization_id: orgId,
           title: input.title,
           description: input.description || null,
+          color: input.color || null,
           visibility: input.visibility,
           created_by: userId,
           updated_by: userId,
@@ -391,14 +399,19 @@ export const KanbanBoardsService = {
     input: UpdateKanbanBoardInput
   ): Promise<ServiceResult<KanbanBoardDetail>> {
     try {
+      const updatePayload: Record<string, unknown> = {
+        title: input.title,
+        description: input.description || null,
+        visibility: input.visibility,
+        updated_by: userId,
+      };
+      if (input.color !== undefined) {
+        updatePayload.color = input.color || null;
+      }
+
       const { error } = await supabase
         .from("planning_kanban_boards")
-        .update({
-          title: input.title,
-          description: input.description || null,
-          visibility: input.visibility,
-          updated_by: userId,
-        })
+        .update(updatePayload)
         .eq("organization_id", orgId)
         .eq("id", input.id)
         .is("deleted_at", null);
@@ -904,13 +917,19 @@ export const KanbanBoardsService = {
 
       let scheduledQuery = supabase
         .from("planning_kanban_cards")
-        .select("id, board_id, title, due_date, label, label_color, is_inbox")
+        .select(
+          "id, board_id, title, due_date, calendar_all_day, calendar_start_date, calendar_end_date, calendar_start_at, calendar_end_at, calendar_timezone, label, label_color, is_inbox"
+        )
         .eq("organization_id", orgId)
         .eq("is_inbox", false)
         .is("deleted_at", null)
-        .not("due_date", "is", null)
-        .gte("due_date", params.rangeStart)
-        .lte("due_date", params.rangeEnd)
+        .or(
+          [
+            `and(calendar_all_day.eq.true,calendar_start_date.lte.${params.rangeEnd},calendar_end_date.gte.${params.rangeStart})`,
+            `and(calendar_all_day.eq.false,calendar_start_at.lte.${params.rangeEndIso},calendar_end_at.gte.${params.rangeStartIso})`,
+            `and(calendar_all_day.is.null,due_date.gte.${params.rangeStart},due_date.lte.${params.rangeEnd})`,
+          ].join(",")
+        )
         .order("due_date", { ascending: true });
 
       if (params.boardIds) {
@@ -925,11 +944,14 @@ export const KanbanBoardsService = {
       if (params.includeUnscheduled && params.unscheduledLimit > 0) {
         let unscheduledQuery = supabase
           .from("planning_kanban_cards")
-          .select("id, board_id, title, due_date, label, label_color, is_inbox")
+          .select(
+            "id, board_id, title, due_date, calendar_all_day, calendar_start_date, calendar_end_date, calendar_start_at, calendar_end_at, calendar_timezone, label, label_color, is_inbox"
+          )
           .eq("organization_id", orgId)
           .eq("is_inbox", false)
           .is("deleted_at", null)
           .is("due_date", null)
+          .is("calendar_all_day", null)
           .order("updated_at", { ascending: false })
           .limit(params.unscheduledLimit + 1);
 
@@ -992,6 +1014,109 @@ export const KanbanBoardsService = {
         userId,
         "card_updated",
         { due_at: dueAt, due_date: dueDate ?? null }
+      );
+
+      return { success: true, data: undefined };
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : "Unexpected error" };
+    }
+  },
+
+  async updateCardCalendarSchedule(
+    supabase: SupabaseClient,
+    orgId: string,
+    userId: string,
+    cardId: string,
+    boardId: string,
+    schedule:
+      | {
+          allDay: true;
+          startDate: string;
+          endDate: string;
+          timezone: string;
+        }
+      | {
+          allDay: false;
+          startAt: string;
+          endAt: string;
+          timezone: string;
+        }
+      | null
+  ): Promise<ServiceResult<void>> {
+    try {
+      const boardResult = await KanbanBoardsService.getBoard(supabase, orgId, boardId, userId);
+      if (!boardResult.success) return { success: false, error: "Board not found" };
+
+      let update:
+        | {
+            calendar_all_day: null;
+            calendar_start_date: null;
+            calendar_end_date: null;
+            calendar_start_at: null;
+            calendar_end_at: null;
+            calendar_timezone: null;
+            updated_by: string;
+          }
+        | {
+            calendar_all_day: boolean;
+            calendar_start_date: string | null;
+            calendar_end_date: string | null;
+            calendar_start_at: string | null;
+            calendar_end_at: string | null;
+            calendar_timezone: string;
+            updated_by: string;
+          };
+
+      if (schedule === null) {
+        update = {
+          calendar_all_day: null,
+          calendar_start_date: null,
+          calendar_end_date: null,
+          calendar_start_at: null,
+          calendar_end_at: null,
+          calendar_timezone: null,
+          updated_by: userId,
+        };
+      } else if (schedule.allDay === true) {
+        update = {
+          calendar_all_day: true,
+          calendar_start_date: schedule.startDate,
+          calendar_end_date: schedule.endDate,
+          calendar_start_at: null,
+          calendar_end_at: null,
+          calendar_timezone: schedule.timezone,
+          updated_by: userId,
+        };
+      } else {
+        update = {
+          calendar_all_day: false,
+          calendar_start_date: null,
+          calendar_end_date: null,
+          calendar_start_at: schedule.startAt,
+          calendar_end_at: schedule.endAt,
+          calendar_timezone: schedule.timezone,
+          updated_by: userId,
+        };
+      }
+
+      const { error } = await supabase
+        .from("planning_kanban_cards")
+        .update(update)
+        .eq("organization_id", orgId)
+        .eq("board_id", boardId)
+        .eq("id", cardId)
+        .is("deleted_at", null);
+
+      if (error) return { success: false, error: error.message };
+
+      await KanbanBoardsService.recordCardActivity(
+        supabase,
+        orgId,
+        boardId,
+        cardId,
+        userId,
+        "card_updated",
+        { calendar_schedule: schedule }
       );
 
       return { success: true, data: undefined };

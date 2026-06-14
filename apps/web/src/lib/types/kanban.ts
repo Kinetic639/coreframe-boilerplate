@@ -7,6 +7,7 @@ export interface KanbanBoardSummary {
   organization_id: string;
   title: string;
   description: string | null;
+  color: string | null;
   visibility: KanbanVisibility;
   created_by: string;
   creator_name: string | null;

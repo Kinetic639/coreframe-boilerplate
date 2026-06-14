@@ -3261,6 +3261,25 @@
         "tasks": "Tasks",
         "boards": "Kanban Boards"
       },
+      "calendar": {
+        "createCalendarFirst": "Create a calendar first.",
+        "createEvent": "Create event",
+        "editEvent": "Edit event",
+        "calendar": "Calendar",
+        "selectCalendar": "Select calendar",
+        "title": "Title",
+        "titlePlaceholder": "Event title...",
+        "description": "Description",
+        "descriptionPlaceholder": "Add details...",
+        "allDay": "All-day event",
+        "start": "Start",
+        "end": "End",
+        "save": "Save",
+        "saving": "Saving...",
+        "syncing": "Syncing...",
+        "cancel": "Cancel",
+        "deleteEvent": "Delete"
+      },
       "tasks": {
         "createTask": "Create task",
         "newTask": "New task",

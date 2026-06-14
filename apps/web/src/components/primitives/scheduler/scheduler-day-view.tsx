@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useState, useEffect } from "react";
-import { isToday, isSameDay, format, startOfDay, addMinutes, differenceInMinutes } from "date-fns";
+import { isToday, isSameDay, format, addMinutes, differenceInMinutes, startOfDay } from "date-fns";
 import {
   CalendarEvent,
   BackgroundEvent,
@@ -15,6 +15,9 @@ import {
   formatInTimezone,
   formatGridHour,
   LABELS_MAP,
+  calendarHexStyle,
+  eventIntersectsDay,
+  eventSpansMultipleDays,
 } from "./scheduler-utils";
 
 interface SchedulerDayViewProps {
@@ -162,9 +165,11 @@ export const SchedulerDayView: React.FC<SchedulerDayViewProps> = ({
   }, []);
 
   // Filter all events landing on today
-  const dayEvents = events.filter((ev) => !ev.allDay && isSameDay(currentDate, new Date(ev.start)));
+  const dayEvents = events.filter(
+    (ev) => !ev.allDay && !eventSpansMultipleDays(ev) && isSameDay(currentDate, new Date(ev.start))
+  );
   const dayAllDayEvents = events.filter(
-    (ev) => ev.allDay && isSameDay(currentDate, new Date(ev.start))
+    (ev) => (ev.allDay || eventSpansMultipleDays(ev)) && eventIntersectsDay(ev, currentDate)
   );
 
   const baseDayEvents = dayEvents.map((event) => {
@@ -373,7 +378,7 @@ export const SchedulerDayView: React.FC<SchedulerDayViewProps> = ({
         finalDateTime.setHours(Math.floor(finalMinutes / 60), finalMinutes % 60, 0, 0);
         onScheduleTask(data.id, finalDateTime);
       }
-    } catch (err) {
+    } catch {
       // Ignore parse validation errors
     } finally {
       handleDragEnd();
@@ -465,13 +470,22 @@ export const SchedulerDayView: React.FC<SchedulerDayViewProps> = ({
           <div className="px-4 space-y-1">
             {dayAllDayEvents.map((ev) => {
               const style = categoryStyles[ev.color || ev.category] || categoryStyles.meeting;
+              const customStyle = calendarHexStyle(ev.color);
+              const continuesBefore =
+                startOfDay(new Date(ev.start)).getTime() < startOfDay(currentDate).getTime();
+              const continuesAfter =
+                startOfDay(new Date(ev.end)).getTime() > startOfDay(currentDate).getTime();
               return (
                 <div
                   key={ev.id}
                   onClick={() => onSelectEvent(ev)}
-                  className={`px-3 py-1.5 border text-xs font-semibold rounded-lg truncate cursor-pointer hover:shadow-sm transition ${style.bg} ${style.text} ${style.border}`}
+                  onMouseDown={(event) => event.stopPropagation()}
+                  className={`px-3 py-1.5 border text-xs font-semibold rounded-lg truncate cursor-pointer hover:brightness-105 hover:ring-1 hover:ring-foreground/10 hover:shadow-sm transition ${style.bg} ${style.text} ${style.border}`}
+                  style={customStyle}
                 >
+                  {continuesBefore ? "← " : ""}
                   {ev.title}
+                  {continuesAfter ? " →" : ""}
                 </div>
               );
             })}
@@ -750,6 +764,7 @@ export const SchedulerDayView: React.FC<SchedulerDayViewProps> = ({
               const isDragging = event.id === draggingEventId;
               const isResizableEvent = event.isResizable !== false && !isProvisional && !isDragging;
               const style = categoryStyles[event.color || event.category] || categoryStyles.meeting;
+              const customStyle = calendarHexStyle(event.color);
 
               const layoutData = overlapLayoutMap.get(event.id) || { colIndex: 0, totalCols: 1 };
               const colWidth = 100 / layoutData.totalCols;
@@ -763,6 +778,7 @@ export const SchedulerDayView: React.FC<SchedulerDayViewProps> = ({
                   draggable={event.isDraggable !== false && !isResizeHandleActive}
                   onDragStart={(e) => handleDragEventStart(e, event.id, new Date(event.start))}
                   onDragEnd={handleDragEnd}
+                  onMouseDown={(e) => e.stopPropagation()}
                   onClick={(e) => {
                     e.stopPropagation();
                     if (isResizingRef.current || isProvisional || isDragging) {
@@ -776,12 +792,13 @@ export const SchedulerDayView: React.FC<SchedulerDayViewProps> = ({
                       : isDragging
                         ? "cursor-grabbing z-40 shadow-md ring-1 ring-foreground/5 dark:ring-foreground/10"
                         : "cursor-pointer active:cursor-grabbing hover:shadow-md hover:shadow-border/50 group/card z-20"
-                  } ${style.bg} ${style.text} ${style.border}`}
+                  } hover:brightness-105 hover:ring-1 hover:ring-foreground/10 ${style.bg} ${style.text} ${style.border}`}
                   style={{
                     top: pos.top,
                     height: pos.height,
                     left: `${colLeft}%`,
                     width: `${colWidth - 1}%`,
+                    ...customStyle,
                   }}
                   id={`day-event-card-${event.id}`}
                 >

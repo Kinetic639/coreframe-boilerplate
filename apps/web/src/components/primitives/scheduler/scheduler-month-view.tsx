@@ -8,7 +8,15 @@ import {
   UnscheduledTask,
   SchedulerLocale,
 } from "./scheduler-types";
-import { getMonthGridDays, formatInTimezone, LABELS_MAP } from "./scheduler-utils";
+import {
+  eventIntersectsDay,
+  eventSpansMultipleDays,
+  getMonthGridDays,
+  formatInTimezone,
+  isHexColor,
+  LABELS_MAP,
+  moveEventToDate,
+} from "./scheduler-utils";
 
 interface SchedulerMonthViewProps {
   currentDate: Date;
@@ -25,6 +33,77 @@ interface SchedulerMonthViewProps {
   onNavigateToDay?: (date: Date) => void;
   onMoveEvent: (eventId: string, newDate: Date) => void;
   onScheduleTask: (taskId: string, date: Date) => void;
+}
+
+const MONTH_EVENT_ROW_LIMIT = 4;
+const MONTH_EVENT_ROW_MIN_HEIGHT = 158;
+const MONTH_EVENT_SLOT_HEIGHT = 22;
+const MONTH_MULTI_DAY_TOP_OFFSET = 34;
+const OVERFLOW_EVENT_POINT_SIZE = 8;
+
+type MonthSegment = {
+  event: CalendarEvent;
+  rowIndex: number;
+  startCol: number;
+  endCol: number;
+  continuesBefore: boolean;
+  continuesAfter: boolean;
+};
+
+type VisibleMonthSegment = MonthSegment & { lane: number };
+
+type EventDragState = {
+  eventId: string;
+  startX: number;
+  startY: number;
+  isDragging: boolean;
+  originEvent: CalendarEvent;
+  originSegments: VisibleMonthSegment[];
+};
+
+type CommittedDragPreview = {
+  eventId: string;
+  targetDay: Date;
+  originEvent: CalendarEvent;
+  originSegments: VisibleMonthSegment[];
+};
+
+const getDayKey = (day: Date) => format(day, "yyyy-MM-dd");
+
+function getOverflowEventShapeStyle(event: CalendarEvent, day: Date): React.CSSProperties {
+  const dayStart = startOfDay(day).getTime();
+  const continuesBefore = startOfDay(new Date(event.start)).getTime() < dayStart;
+  const continuesAfter = startOfDay(new Date(event.end)).getTime() > dayStart;
+
+  if (!continuesBefore && !continuesAfter) return {};
+
+  const point = `${OVERFLOW_EVENT_POINT_SIZE}px`;
+  const left = continuesBefore ? `${point} 0, ` : "0 0, ";
+  const right = continuesAfter
+    ? `calc(100% - ${point}) 0, 100% 50%, calc(100% - ${point}) 100%, `
+    : "100% 0, 100% 100%, ";
+  const bottomLeft = continuesBefore ? `${point} 100%, 0 50%` : "0 100%";
+
+  return {
+    clipPath: `polygon(${left}${right}${bottomLeft})`,
+    paddingLeft: continuesBefore ? `${OVERFLOW_EVENT_POINT_SIZE + 8}px` : undefined,
+    paddingRight: continuesAfter ? `${OVERFLOW_EVENT_POINT_SIZE + 8}px` : undefined,
+  };
+}
+
+function getMonthEventColorStyle(color: string | undefined): React.CSSProperties | undefined {
+  if (!isHexColor(color)) return undefined;
+
+  const red = parseInt(color.slice(1, 3), 16);
+  const green = parseInt(color.slice(3, 5), 16);
+  const blue = parseInt(color.slice(5, 7), 16);
+  const luminance = (0.299 * red + 0.587 * green + 0.114 * blue) / 255;
+
+  return {
+    backgroundColor: color,
+    borderColor: color,
+    color: luminance > 0.62 ? "#1f2937" : "#ffffff",
+  };
 }
 
 export const getEventStyles = (categoryOrColor: string) => {
@@ -88,7 +167,12 @@ export const SchedulerMonthView: React.FC<SchedulerMonthViewProps> = ({
   const days = getMonthGridDays(currentDate, showWeekends);
   const [activeDragOverDay, setActiveDragOverDay] = React.useState<Date | null>(null);
   const [draggedEventId, setDraggedEventId] = React.useState<string | null>(null);
+  const [committedDragPreview, setCommittedDragPreview] =
+    React.useState<CommittedDragPreview | null>(null);
   const [openTooltipDay, setOpenTooltipDay] = React.useState<string | null>(null);
+  const monthGridRef = React.useRef<HTMLDivElement | null>(null);
+  const eventDragRef = React.useRef<EventDragState | null>(null);
+  const suppressNextEventClickRef = React.useRef(false);
 
   // States for click & drag selection
   const [selectionStart, setSelectionStart] = React.useState<Date | null>(null);
@@ -138,18 +222,47 @@ export const SchedulerMonthView: React.FC<SchedulerMonthViewProps> = ({
     };
   }, [selectionStart, selectionEnd, onCellClick]);
 
-  // Compute displayed events, mapping dragged event to its provisional day cell
+  // Compute displayed events, mapping dragged/dropped events to their provisional day cell.
   const displayedEvents = React.useMemo(() => {
+    const preview =
+      draggedEventId && activeDragOverDay
+        ? { eventId: draggedEventId, targetDay: activeDragOverDay }
+        : committedDragPreview;
+
     return events.map((event) => {
-      if (draggedEventId === event.id && activeDragOverDay) {
-        return {
-          ...event,
-          start: activeDragOverDay,
-        };
+      if (preview?.eventId === event.id) {
+        return moveEventToDate(event, preview.targetDay);
       }
       return event;
     });
-  }, [events, draggedEventId, activeDragOverDay]);
+  }, [events, draggedEventId, activeDragOverDay, committedDragPreview]);
+
+  React.useEffect(() => {
+    if (!committedDragPreview) return;
+
+    const updatedEvent = events.find((event) => event.id === committedDragPreview.eventId);
+    if (!updatedEvent) {
+      setCommittedDragPreview(null);
+      return;
+    }
+
+    if (
+      startOfDay(new Date(updatedEvent.start)).getTime() ===
+      startOfDay(committedDragPreview.targetDay).getTime()
+    ) {
+      setCommittedDragPreview(null);
+    }
+  }, [events, committedDragPreview]);
+
+  React.useEffect(() => {
+    if (!committedDragPreview) return;
+
+    const timeout = window.setTimeout(() => {
+      setCommittedDragPreview(null);
+    }, 3000);
+
+    return () => window.clearTimeout(timeout);
+  }, [committedDragPreview]);
 
   // Weekday column headings
   const baseWeekStartDate = new Date(2024, 0, 1);
@@ -162,6 +275,161 @@ export const SchedulerMonthView: React.FC<SchedulerMonthViewProps> = ({
   const filteredHeadings = showWeekends
     ? weekDayHeadings
     : weekDayHeadings.filter((d) => d.getDay() !== 0 && d.getDay() !== 6);
+  const monthColumnCount = filteredHeadings.length;
+  const monthRowCount = Math.ceil(days.length / monthColumnCount);
+
+  const monthMultiDayLayout = React.useMemo(() => {
+    const visibleSegments: VisibleMonthSegment[] = [];
+    const segmentsByRow = new Map<number, MonthSegment[]>();
+    const hiddenEventsByDay = new Map<string, CalendarEvent[]>();
+    const visibleEventCountsByDay = new Map<string, number>();
+
+    for (const day of days) {
+      const key = getDayKey(day);
+      hiddenEventsByDay.set(key, []);
+      visibleEventCountsByDay.set(key, 0);
+    }
+
+    const sortEventsForMonth = (a: CalendarEvent, b: CalendarEvent) => {
+      if (draggedEventId) {
+        if (a.id === draggedEventId && b.id !== draggedEventId) return -1;
+        if (b.id === draggedEventId && a.id !== draggedEventId) return 1;
+      }
+
+      const aStart = new Date(a.start).getTime();
+      const bStart = new Date(b.start).getTime();
+      if (aStart !== bStart) return aStart - bStart;
+
+      const aDuration = new Date(a.end).getTime() - aStart;
+      const bDuration = new Date(b.end).getTime() - bStart;
+      if (aDuration !== bDuration) return bDuration - aDuration;
+
+      return a.id.localeCompare(b.id);
+    };
+
+    const eventsByDay = new Map<string, CalendarEvent[]>();
+    for (const day of days) {
+      eventsByDay.set(
+        getDayKey(day),
+        displayedEvents.filter((event) => eventIntersectsDay(event, day)).sort(sortEventsForMonth)
+      );
+    }
+
+    const getVisibleBudgetForDay = (day: Date) => {
+      const total = eventsByDay.get(getDayKey(day))?.length ?? 0;
+      return total > MONTH_EVENT_ROW_LIMIT
+        ? Math.max(0, MONTH_EVENT_ROW_LIMIT - 1)
+        : MONTH_EVENT_ROW_LIMIT;
+    };
+
+    const addHiddenEventForDay = (day: Date, event: CalendarEvent) => {
+      const key = getDayKey(day);
+      const hiddenEvents = hiddenEventsByDay.get(key) ?? [];
+      if (!hiddenEvents.some((hiddenEvent) => hiddenEvent.id === event.id)) {
+        hiddenEvents.push(event);
+      }
+      hiddenEventsByDay.set(key, hiddenEvents);
+    };
+
+    const getSegmentDays = (segment: Pick<MonthSegment, "rowIndex" | "startCol" | "endCol">) => {
+      const rowDays = days.slice(
+        segment.rowIndex * monthColumnCount,
+        segment.rowIndex * monthColumnCount + monthColumnCount
+      );
+      return rowDays.slice(segment.startCol, segment.endCol + 1);
+    };
+
+    for (const event of [...displayedEvents].sort(sortEventsForMonth)) {
+      for (let rowIndex = 0; rowIndex < monthRowCount; rowIndex += 1) {
+        const rowDays = days.slice(
+          rowIndex * monthColumnCount,
+          rowIndex * monthColumnCount + monthColumnCount
+        );
+        const startCol = rowDays.findIndex((day) => eventIntersectsDay(event, day));
+        if (startCol < 0) continue;
+        const reverseEndCol = [...rowDays]
+          .reverse()
+          .findIndex((day) => eventIntersectsDay(event, day));
+        const endCol = rowDays.length - 1 - reverseEndCol;
+        const firstSegmentDay = rowDays[startCol];
+        const lastSegmentDay = rowDays[endCol];
+
+        const segment = {
+          event,
+          rowIndex,
+          startCol,
+          endCol,
+          continuesBefore:
+            startOfDay(new Date(event.start)).getTime() < startOfDay(firstSegmentDay).getTime(),
+          continuesAfter:
+            startOfDay(new Date(event.end)).getTime() > startOfDay(lastSegmentDay).getTime(),
+        };
+        const rowSegments = segmentsByRow.get(rowIndex) ?? [];
+        rowSegments.push(segment);
+        segmentsByRow.set(rowIndex, rowSegments);
+      }
+    }
+
+    for (let rowIndex = 0; rowIndex < monthRowCount; rowIndex += 1) {
+      const rowSegments = segmentsByRow.get(rowIndex) ?? [];
+      const packedLanes: MonthSegment[][] = [];
+
+      rowSegments
+        .sort((a, b) => {
+          if (draggedEventId) {
+            if (a.event.id === draggedEventId && b.event.id !== draggedEventId) return -1;
+            if (b.event.id === draggedEventId && a.event.id !== draggedEventId) return 1;
+          }
+          if (a.startCol !== b.startCol) return a.startCol - b.startCol;
+          const aSpan = a.endCol - a.startCol;
+          const bSpan = b.endCol - b.startCol;
+          if (aSpan !== bSpan) return bSpan - aSpan;
+          return sortEventsForMonth(a.event, b.event);
+        })
+        .forEach((segment) => {
+          const laneIndex = packedLanes.findIndex((lane) =>
+            lane.every(
+              (laneSegment) =>
+                segment.endCol < laneSegment.startCol || segment.startCol > laneSegment.endCol
+            )
+          );
+          const targetLaneIndex = laneIndex >= 0 ? laneIndex : packedLanes.length;
+          packedLanes[targetLaneIndex] = packedLanes[targetLaneIndex] ?? [];
+          packedLanes[targetLaneIndex].push(segment);
+        });
+
+      packedLanes.forEach((lane, laneIndex) => {
+        for (const segment of lane) {
+          const segmentDays = getSegmentDays(segment);
+          const segmentBudget = Math.min(...segmentDays.map(getVisibleBudgetForDay));
+          const canShowWholeSegment =
+            laneIndex < segmentBudget ||
+            (draggedEventId !== null && segment.event.id === draggedEventId);
+
+          if (canShowWholeSegment) {
+            visibleSegments.push({
+              ...segment,
+              lane: Math.min(laneIndex, MONTH_EVENT_ROW_LIMIT - 1),
+            });
+            for (const day of segmentDays) {
+              const key = getDayKey(day);
+              visibleEventCountsByDay.set(key, (visibleEventCountsByDay.get(key) ?? 0) + 1);
+            }
+          } else {
+            for (const day of segmentDays) {
+              addHiddenEventForDay(day, segment.event);
+            }
+          }
+        }
+      });
+    }
+
+    return {
+      segments: visibleSegments,
+      hiddenEventsByDay,
+      visibleEventCountsByDay,
+    };
+  }, [displayedEvents, days, monthColumnCount, monthRowCount, draggedEventId]);
 
   // Drag handles
   const handleDragOver = (e: React.DragEvent, cellDate: Date) => {
@@ -175,6 +443,7 @@ export const SchedulerMonthView: React.FC<SchedulerMonthViewProps> = ({
 
   const handleDrop = (e: React.DragEvent, cellDate: Date) => {
     e.preventDefault();
+    e.stopPropagation();
     setActiveDragOverDay(null);
     setDraggedEventId(null);
     try {
@@ -187,27 +456,139 @@ export const SchedulerMonthView: React.FC<SchedulerMonthViewProps> = ({
       } else if (data.type === "task" && data.id) {
         onScheduleTask(data.id, cellDate);
       }
-    } catch (err) {
+    } catch {
       // Ignore parser errors for other browser highlights
     }
   };
 
-  const handleDragEventStart = (e: React.DragEvent, eventId: string) => {
-    e.dataTransfer.setData("text/plain", JSON.stringify({ type: "event", id: eventId }));
-    e.dataTransfer.effectAllowed = "move";
+  const getDayFromGridPoint = React.useCallback(
+    (clientX: number, clientY: number) => {
+      const grid = monthGridRef.current;
+      if (!grid) return null;
 
-    // Suppress default ghost image by setting a custom 1x1px transparent GIF
-    const img = new Image();
-    img.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
-    e.dataTransfer.setDragImage(img, 0, 0);
+      const rect = grid.getBoundingClientRect();
+      if (
+        clientX < rect.left ||
+        clientX > rect.right ||
+        clientY < rect.top ||
+        clientY > rect.bottom
+      ) {
+        return null;
+      }
 
-    setDraggedEventId(eventId);
+      const columnWidth = rect.width / monthColumnCount;
+      const rowHeight = rect.height / monthRowCount;
+      const columnIndex = Math.min(
+        monthColumnCount - 1,
+        Math.max(0, Math.floor((clientX - rect.left) / columnWidth))
+      );
+      const rowIndex = Math.min(
+        monthRowCount - 1,
+        Math.max(0, Math.floor((clientY - rect.top) / rowHeight))
+      );
+
+      return days[rowIndex * monthColumnCount + columnIndex] ?? null;
+    },
+    [days, monthColumnCount, monthRowCount]
+  );
+
+  const handleGridDragOver = (e: React.DragEvent) => {
+    if (!draggedTask) return;
+    const day = getDayFromGridPoint(e.clientX, e.clientY);
+    if (!day) return;
+    e.preventDefault();
+    if (!activeDragOverDay || activeDragOverDay.getTime() !== day.getTime()) {
+      setActiveDragOverDay(day);
+    }
   };
 
-  const handleDragEnd = () => {
-    setActiveDragOverDay(null);
-    setDraggedEventId(null);
+  const handleGridDrop = (e: React.DragEvent) => {
+    if (!draggedTask) return;
+    const day = getDayFromGridPoint(e.clientX, e.clientY);
+    if (!day) return;
+    handleDrop(e, day);
   };
+
+  const startEventPointerDrag = (e: React.MouseEvent, eventId: string) => {
+    if (e.button !== 0) return;
+    const originEvent = events.find((event) => event.id === eventId);
+    if (!originEvent) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    suppressNextEventClickRef.current = false;
+    setCommittedDragPreview(null);
+    eventDragRef.current = {
+      eventId,
+      startX: e.clientX,
+      startY: e.clientY,
+      isDragging: false,
+      originEvent,
+      originSegments: monthMultiDayLayout.segments.filter(
+        (segment) => segment.event.id === eventId
+      ),
+    };
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const drag = eventDragRef.current;
+      if (!drag) return;
+
+      const distance = Math.hypot(moveEvent.clientX - drag.startX, moveEvent.clientY - drag.startY);
+      if (!drag.isDragging && distance > 4) {
+        drag.isDragging = true;
+        setDraggedEventId(drag.eventId);
+      }
+
+      if (!drag.isDragging) return;
+      const day = getDayFromGridPoint(moveEvent.clientX, moveEvent.clientY);
+      if (day && (!activeDragOverDay || activeDragOverDay.getTime() !== day.getTime())) {
+        setActiveDragOverDay(day);
+      }
+    };
+
+    const handleMouseUp = (upEvent: MouseEvent) => {
+      const drag = eventDragRef.current;
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+
+      if (!drag?.isDragging) {
+        eventDragRef.current = null;
+        setDraggedEventId(null);
+        setActiveDragOverDay(null);
+        return;
+      }
+      suppressNextEventClickRef.current = true;
+
+      const targetDay = getDayFromGridPoint(upEvent.clientX, upEvent.clientY);
+      if (targetDay) {
+        const originDay = startOfDay(new Date(drag.originEvent.start)).getTime();
+        const targetTime = startOfDay(targetDay).getTime();
+
+        if (originDay !== targetTime) {
+          setCommittedDragPreview({
+            eventId: drag.eventId,
+            targetDay,
+            originEvent: drag.originEvent,
+            originSegments: drag.originSegments,
+          });
+          onMoveEvent(drag.eventId, targetDay);
+        }
+      }
+
+      eventDragRef.current = null;
+      setDraggedEventId(null);
+      setActiveDragOverDay(null);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+  };
+
+  const originGhostSegments =
+    draggedEventId && eventDragRef.current?.originSegments
+      ? eventDragRef.current.originSegments
+      : (committedDragPreview?.originSegments ?? []);
 
   return (
     <div className="flex flex-col h-full bg-background transition-colors duration-200">
@@ -227,14 +608,23 @@ export const SchedulerMonthView: React.FC<SchedulerMonthViewProps> = ({
 
       {/* Month Days viewport representation */}
       <div
-        className={`grid ${filteredHeadings.length === 5 ? "grid-cols-5" : "grid-cols-7"} grid-rows-6 flex-1 min-h-[500px]`}
+        ref={monthGridRef}
+        onDragOver={handleGridDragOver}
+        onDrop={handleGridDrop}
+        className={`grid ${filteredHeadings.length === 5 ? "grid-cols-5" : "grid-cols-7"} flex-1`}
+        style={{
+          gridTemplateRows: `repeat(${monthRowCount}, minmax(${MONTH_EVENT_ROW_MIN_HEIGHT}px, 1fr))`,
+          minHeight: `${monthRowCount * MONTH_EVENT_ROW_MIN_HEIGHT}px`,
+        }}
       >
         {days.map((day, idx) => {
+          const rowIndex = Math.floor(idx / monthColumnCount);
+          const columnIndex = idx % monthColumnCount;
           const isCurrentMonth = isSameMonth(day, currentDate);
           const isTodayDate = isToday(day);
 
           // Events active on this cell date (ignoring times)
-          const cellEvents = displayedEvents.filter((ev) => isSameDay(new Date(ev.start), day));
+          const dayKey = getDayKey(day);
 
           // Background events tint check
           const cellBackgroundEvents = showBackgroundEvents
@@ -263,14 +653,29 @@ export const SchedulerMonthView: React.FC<SchedulerMonthViewProps> = ({
               return cellTime >= minTime && cellTime <= maxTime;
             })();
 
-          // Layout limits
-          const limit = 2;
-          let visibleEvents = cellEvents;
-          let overflowCount = 0;
-          if (cellEvents.length > limit) {
-            visibleEvents = cellEvents.slice(0, 1);
-            overflowCount = cellEvents.length - 1;
-          }
+          const overflowEvents = monthMultiDayLayout.hiddenEventsByDay.get(dayKey) ?? [];
+          const overflowCount = overflowEvents.length;
+          const isTooltipOpen = openTooltipDay === dayKey;
+          const visibleEventCount = monthMultiDayLayout.visibleEventCountsByDay.get(dayKey) ?? 0;
+          const overflowTop =
+            MONTH_MULTI_DAY_TOP_OFFSET +
+            Math.min(visibleEventCount, MONTH_EVENT_ROW_LIMIT - 1) * MONTH_EVENT_SLOT_HEIGHT;
+          const popupEvents = displayedEvents
+            .filter((event) => eventIntersectsDay(event, day))
+            .sort((a, b) => {
+              const aMultiDay = eventSpansMultipleDays(a) ? 0 : 1;
+              const bMultiDay = eventSpansMultipleDays(b) ? 0 : 1;
+              if (aMultiDay !== bMultiDay) return aMultiDay - bMultiDay;
+
+              const startDelta = new Date(a.start).getTime() - new Date(b.start).getTime();
+              if (startDelta !== 0) return startDelta;
+
+              const aDuration = new Date(a.end).getTime() - new Date(a.start).getTime();
+              const bDuration = new Date(b.end).getTime() - new Date(b.start).getTime();
+              if (aDuration !== bDuration) return bDuration - aDuration;
+
+              return a.id.localeCompare(b.id);
+            });
 
           return (
             <div
@@ -292,10 +697,12 @@ export const SchedulerMonthView: React.FC<SchedulerMonthViewProps> = ({
                   setSelectionEnd(day);
                 }
               }}
-              className={`relative border-r border-b border-border p-1.5 flex flex-col min-h-16 h-full transition duration-150 group select-none cursor-pointer ${
-                isSelected
-                  ? "bg-primary/10 ring-2 ring-inset ring-primary/40 z-30"
-                  : "hover:bg-primary/[0.04] hover:ring-1 hover:ring-inset hover:ring-primary/15 hover:z-40"
+              className={`relative border-r border-b border-border p-1.5 flex flex-col min-h-16 h-full transition duration-150 group select-none cursor-pointer ${isTooltipOpen ? "overflow-visible" : "overflow-hidden"} ${
+                isTooltipOpen
+                  ? "z-[200]"
+                  : isSelected
+                    ? "bg-primary/10 ring-2 ring-inset ring-primary/40 z-10"
+                    : "hover:bg-primary/[0.04] hover:ring-1 hover:ring-inset hover:ring-primary/15 hover:z-10"
               } ${
                 isCurrentMonth
                   ? "bg-transparent"
@@ -303,6 +710,10 @@ export const SchedulerMonthView: React.FC<SchedulerMonthViewProps> = ({
                     ? ""
                     : "bg-muted/40 text-muted-foreground/50"
               } ${hasBackgroundBlocked && showBackgroundEvents ? "bg-rose-50/10 hover:bg-rose-50/20 dark:bg-rose-950/5 dark:hover:bg-rose-950/10" : ""}`}
+              style={{
+                gridColumn: columnIndex + 1,
+                gridRow: rowIndex + 1,
+              }}
               id={`month-cell-${format(day, "yyyy-MM-dd")}`}
             >
               {/* Day Badge Number */}
@@ -358,124 +769,163 @@ export const SchedulerMonthView: React.FC<SchedulerMonthViewProps> = ({
                 </div>
               )}
 
-              {/* Event Cards inside cell */}
-              <div className="space-y-1 overflow-visible flex-1 flex flex-col">
-                {visibleEvents.map((event) => {
-                  const style = getEventStyles(event.color || event.category);
-                  const isAllDay = !!event.allDay;
-                  const isDragging = event.id === draggedEventId;
-
+              {draggedTask &&
+                activeDragOverDay &&
+                isSameDay(day, activeDragOverDay) &&
+                (() => {
+                  const style = getEventStyles(draggedTask.color || draggedTask.category);
+                  const customStyle = getMonthEventColorStyle(draggedTask.color);
                   return (
                     <div
-                      key={event.id}
-                      draggable={event.isDraggable !== false}
-                      onDragStart={(e) => handleDragEventStart(e, event.id)}
-                      onDragEnd={handleDragEnd}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (isDragging) return;
-                        onSelectEvent(event);
+                      className={`pointer-events-none absolute left-1.5 right-1.5 z-40 h-5 rounded-md border px-2 py-0.5 text-[10px] font-semibold leading-4 truncate ${style.bg} ${style.text}`}
+                      style={{
+                        top: `${overflowTop}px`,
+                        ...customStyle,
                       }}
-                      className={`px-2 py-1 rounded-r-lg rounded-l-none text-[10px] flex items-center gap-1.5 transition duration-150 shadow-xs leading-tight truncate shrink-0 ${style.bg} ${style.text} ${style.border} ${isDragging ? "cursor-grabbing z-50 shadow-sm opacity-80" : "cursor-pointer active:cursor-grabbing"}`}
-                      id={`month-event-card-${event.id}`}
                     >
-                      {/* Left category visual indicator dot */}
-                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${style.indicator}`} />
-
-                      {/* Short Hour badge */}
-                      {!isAllDay && (
-                        <span className="font-mono text-[9px] opacity-75 mr-0.5 shrink-0">
-                          {formatInTimezone(
-                            new Date(event.start),
-                            timeFormat === "24h" ? "HH:mm" : "h:mm a",
-                            timezone,
-                            locale
-                          )}
-                        </span>
-                      )}
-
-                      <span className="truncate">{event.title}</span>
+                      <span className="truncate">{draggedTask.title}</span>
                     </div>
                   );
-                })}
+                })()}
 
-                {draggedTask &&
-                  activeDragOverDay &&
-                  isSameDay(day, activeDragOverDay) &&
-                  (() => {
-                    const style = getEventStyles(draggedTask.color || draggedTask.category);
-                    return (
-                      <div
-                        className={`px-2 py-1 rounded-r-lg rounded-l-none text-[10px] flex items-center gap-1.5 leading-tight truncate shrink-0 pointer-events-none mt-0.5 ${style.bg} ${style.text} ${style.border}`}
-                      >
-                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${style.indicator}`} />
-                        <span className="truncate">{draggedTask.title}</span>
-                      </div>
-                    );
-                  })()}
+              {/* Overflow indicator toggle */}
+              {overflowCount > 0 && (
+                <div
+                  className="absolute left-1.5 right-1.5 z-30"
+                  style={{ top: `${overflowTop}px` }}
+                >
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const dayStr = dayKey;
+                      setOpenTooltipDay((prev) => (prev === dayStr ? null : dayStr));
+                    }}
+                    className="h-5 w-full text-left px-2 py-0.5 rounded-md bg-muted hover:bg-border text-[10px] font-medium text-muted-foreground transition duration-150 flex items-center gap-1.5 mt-0.5 cursor-pointer leading-4"
+                  >
+                    <span>+{overflowCount} more</span>
+                  </button>
 
-                {/* Overflow indicatory toggle */}
-                {overflowCount > 0 && (
-                  <div className="relative">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const dayStr = format(day, "yyyy-MM-dd");
-                        setOpenTooltipDay((prev) => (prev === dayStr ? null : dayStr));
-                      }}
-                      className="w-full text-left px-2 py-1 rounded-md bg-muted hover:bg-border text-[10px] font-medium text-muted-foreground transition duration-150 flex items-center gap-1.5 mt-0.5 cursor-pointer"
-                    >
-                      <span>+{overflowCount} more</span>
-                    </button>
-
-                    {/* Tooltip Popup - shown on click instead of hover */}
-                    {openTooltipDay === format(day, "yyyy-MM-dd") && (
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 pb-1.5 flex flex-col z-[100] w-48 pointer-events-auto">
-                        <div className="bg-popover border border-border shadow-xl rounded-xl p-3 flex flex-col">
-                          <div className="font-bold text-xs mb-2 border-b border-border pb-2 text-foreground">
-                            {formatInTimezone(day, "MMM d, yyyy", timezone, locale)}
-                          </div>
-                          <div className="flex flex-col gap-1 max-h-[150px] overflow-auto mb-2 custom-scrollbar">
-                            {cellEvents.slice(1).map((ev) => {
-                              const style = getEventStyles(ev.color || ev.category);
-                              return (
-                                <div
-                                  key={ev.id}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setOpenTooltipDay(null);
-                                    onSelectEvent(ev);
-                                  }}
-                                  className={`px-2 py-1 rounded text-[9px] flex items-center gap-1.5 align-middle font-medium truncate cursor-pointer hover:opacity-80 transition ${style.bg} ${style.text}`}
-                                >
-                                  <span
-                                    className={`w-1 h-1 rounded-full shrink-0 ${style.indicator}`}
-                                  />
-                                  <span className="truncate">{ev.title}</span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                          <button
-                            className="bg-primary hover:bg-primary/90 text-primary-foreground text-[10px] py-1.5 px-3 rounded-lg font-bold w-full transition-colors cursor-pointer mt-1"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setOpenTooltipDay(null);
-                              if (onNavigateToDay) {
-                                onNavigateToDay(day);
-                              } else {
-                                onCellClick(day);
-                              }
-                            }}
-                          >
-                            See day view
-                          </button>
+                  {/* Tooltip Popup - shown on click instead of hover */}
+                  {isTooltipOpen && (
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 pb-1.5 flex flex-col z-[300] w-72 pointer-events-auto">
+                      <div className="bg-popover border border-border shadow-xl rounded-xl p-3 flex flex-col">
+                        <div className="font-bold text-xs mb-2 border-b border-border pb-2 text-foreground">
+                          {formatInTimezone(day, "MMM d, yyyy", timezone, locale)}
                         </div>
+                        <div className="flex flex-col gap-1 max-h-72 overflow-auto mb-2 custom-scrollbar">
+                          {popupEvents.map((ev) => {
+                            const style = getEventStyles(ev.color || ev.category);
+                            const customStyle = getMonthEventColorStyle(ev.color);
+                            const shapeStyle = getOverflowEventShapeStyle(ev, day);
+                            return (
+                              <div
+                                key={ev.id}
+                                onMouseDown={(e) => {
+                                  if (ev.isDraggable === false) {
+                                    e.stopPropagation();
+                                    return;
+                                  }
+                                  setOpenTooltipDay(null);
+                                  startEventPointerDrag(e, ev.id);
+                                }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (suppressNextEventClickRef.current) {
+                                    suppressNextEventClickRef.current = false;
+                                    return;
+                                  }
+                                  setOpenTooltipDay(null);
+                                  onSelectEvent(ev);
+                                }}
+                                className={`min-h-6 rounded-md border px-3 py-1 text-[11px] font-semibold leading-4 hover:brightness-105 hover:ring-1 hover:ring-foreground/10 transition ${style.bg} ${style.text} ${ev.isDraggable === false ? "cursor-pointer" : "cursor-grab active:cursor-grabbing"}`}
+                                style={{
+                                  ...customStyle,
+                                  ...shapeStyle,
+                                }}
+                              >
+                                <span className="block truncate">{ev.title}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <button
+                          className="bg-primary hover:bg-primary/90 text-primary-foreground text-[10px] py-1.5 px-3 rounded-lg font-bold w-full transition-colors cursor-pointer mt-1"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenTooltipDay(null);
+                            if (onNavigateToDay) {
+                              onNavigateToDay(day);
+                            } else {
+                              onCellClick(day);
+                            }
+                          }}
+                        >
+                          See day view
+                        </button>
                       </div>
-                    )}
-                  </div>
-                )}
-              </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+        {originGhostSegments.map((segment) => {
+          const style = getEventStyles(segment.event.color || segment.event.category);
+          const customStyle = getMonthEventColorStyle(segment.event.color);
+
+          return (
+            <div
+              key={`origin-ghost-${segment.event.id}-${segment.rowIndex}`}
+              className={`pointer-events-none z-30 mx-1 h-5 rounded-md border border-dashed px-2 py-0.5 text-[10px] font-semibold leading-4 truncate opacity-35 shadow-xs ${style.bg} ${style.text}`}
+              style={{
+                gridColumn: `${segment.startCol + 1} / ${segment.endCol + 2}`,
+                gridRow: segment.rowIndex + 1,
+                alignSelf: "start",
+                marginTop: `${MONTH_MULTI_DAY_TOP_OFFSET + segment.lane * MONTH_EVENT_SLOT_HEIGHT}px`,
+                ...customStyle,
+              }}
+              aria-hidden="true"
+            >
+              <span className="truncate">{segment.event.title}</span>
+            </div>
+          );
+        })}
+        {monthMultiDayLayout.segments.map((segment) => {
+          const style = getEventStyles(segment.event.color || segment.event.category);
+          const customStyle = getMonthEventColorStyle(segment.event.color);
+          const isDragging = segment.event.id === draggedEventId;
+
+          return (
+            <div
+              key={`${segment.event.id}-${segment.rowIndex}`}
+              onMouseDown={(e) => {
+                if (segment.event.isDraggable === false) {
+                  e.stopPropagation();
+                  return;
+                }
+                startEventPointerDrag(e, segment.event.id);
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (isDragging || suppressNextEventClickRef.current) {
+                  suppressNextEventClickRef.current = false;
+                  return;
+                }
+                onSelectEvent(segment.event);
+              }}
+              className={`z-40 mx-1 h-5 rounded-md border px-2 py-0.5 text-[10px] font-semibold transition duration-150 shadow-xs leading-4 truncate shrink-0 hover:z-50 hover:brightness-105 hover:ring-1 hover:ring-foreground/10 hover:shadow-sm ${style.bg} ${style.text} ${segment.event.isDraggable === false ? "cursor-pointer" : isDragging ? "cursor-grabbing opacity-80" : "cursor-grab active:cursor-grabbing"}`}
+              style={{
+                gridColumn: `${segment.startCol + 1} / ${segment.endCol + 2}`,
+                gridRow: segment.rowIndex + 1,
+                alignSelf: "start",
+                marginTop: `${MONTH_MULTI_DAY_TOP_OFFSET + segment.lane * MONTH_EVENT_SLOT_HEIGHT}px`,
+                ...customStyle,
+              }}
+              id={`month-event-card-${segment.event.id}`}
+              title={segment.event.title}
+            >
+              <span className="truncate">{segment.event.title}</span>
             </div>
           );
         })}

@@ -9,7 +9,12 @@ import {
   SchedulerLocale,
   SchedulerTimezone,
 } from "./scheduler-types";
-import { getMonthGridDays, formatInTimezone, LABELS_MAP } from "./scheduler-utils";
+import {
+  eventIntersectsDay,
+  getMonthGridDays,
+  formatInTimezone,
+  LABELS_MAP,
+} from "./scheduler-utils";
 import { getEventStyles } from "./scheduler-month-view";
 
 interface SchedulerYearViewProps {
@@ -108,8 +113,9 @@ export const SchedulerYearView: React.FC<SchedulerYearViewProps> = ({
     const endOfYear = new Date(targetYear, 11, 31, 23, 59, 59);
 
     let active = events.filter((ev) => {
-      const s = new Date(ev.start);
-      return s >= startOfYear && s <= endOfYear;
+      const start = new Date(ev.start);
+      const end = new Date(ev.end);
+      return start <= endOfYear && end >= startOfYear;
     });
 
     if (draggedEventId) {
@@ -167,7 +173,7 @@ export const SchedulerYearView: React.FC<SchedulerYearViewProps> = ({
       } else if (data.type === "task" && data.id) {
         onScheduleTask(data.id, cellDate);
       }
-    } catch (err) {
+    } catch {
       // Ignored
     }
   };
@@ -244,9 +250,7 @@ export const SchedulerYearView: React.FC<SchedulerYearViewProps> = ({
                   const isTodayDate = isToday(day);
 
                   // Filter active events
-                  const cellEvents = displayedEvents.filter((ev) =>
-                    isSameDay(new Date(ev.start), day)
-                  );
+                  const cellEvents = displayedEvents.filter((ev) => eventIntersectsDay(ev, day));
 
                   // Extract background blocks details
                   const cellBgEvents = showBackgroundEvents

@@ -5,11 +5,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   HELPDESK_TICKETS_MANAGE,
+  PLANNING_BOARDS_READ,
   PLANNING_BOARDS_UPDATE,
   PLANNING_READ,
+  PLANNING_TASKS_READ,
   PLANNING_TASKS_UPDATE,
 } from "@/lib/constants/permissions";
 import { MODULE_HELPDESK } from "@/lib/constants/modules";
+import {
+  HELPDESK_TICKETS_SOURCE_ID,
+  PLANNING_TASKS_SOURCE_ID,
+} from "@/lib/constants/planning-calendar";
 
 const {
   mockCreateClient,
@@ -19,8 +25,14 @@ const {
   mockUpdateTaskDueAt,
   mockUpdateTicketDueAt,
   mockUpdateCardDueAt,
+  mockGetBoard,
   mockHasModuleAccess,
   mockGetOrCreatePreferences,
+  mockListNativeCalendars,
+  mockCreateNativeCalendar,
+  mockSoftDeleteNativeCalendar,
+  mockUpsertUserSettings,
+  mockResetUserColor,
   mockRevalidatePath,
 } = vi.hoisted(() => ({
   mockCreateClient: vi.fn(),
@@ -30,8 +42,14 @@ const {
   mockUpdateTaskDueAt: vi.fn(),
   mockUpdateTicketDueAt: vi.fn(),
   mockUpdateCardDueAt: vi.fn(),
+  mockGetBoard: vi.fn(),
   mockHasModuleAccess: vi.fn(),
   mockGetOrCreatePreferences: vi.fn(),
+  mockListNativeCalendars: vi.fn(),
+  mockCreateNativeCalendar: vi.fn(),
+  mockSoftDeleteNativeCalendar: vi.fn(),
+  mockUpsertUserSettings: vi.fn(),
+  mockResetUserColor: vi.fn(),
   mockRevalidatePath: vi.fn(),
 }));
 
@@ -64,6 +82,17 @@ vi.mock("@/server/services/helpdesk-tickets.service", () => ({
 vi.mock("@/server/services/kanban-boards.service", () => ({
   KanbanBoardsService: {
     updateCardDueAt: mockUpdateCardDueAt,
+    getBoard: mockGetBoard,
+  },
+}));
+
+vi.mock("@/server/services/app-calendar.service", () => ({
+  AppCalendarService: {
+    listNativeCalendars: mockListNativeCalendars,
+    createNativeCalendar: mockCreateNativeCalendar,
+    softDeleteNativeCalendar: mockSoftDeleteNativeCalendar,
+    upsertUserSettings: mockUpsertUserSettings,
+    resetUserColor: mockResetUserColor,
   },
 }));
 
@@ -83,7 +112,14 @@ vi.mock("next/cache", () => ({
   revalidatePath: mockRevalidatePath,
 }));
 
-import { getPlanningCalendarDataAction, updateCalendarItemDueDateAction } from "../calendar";
+import {
+  createNativeCalendarAction,
+  deleteNativeCalendarAction,
+  getPlanningCalendarDataAction,
+  resetCalendarSourceColorAction,
+  updateCalendarItemDueDateAction,
+  updateCalendarSourceSettingsAction,
+} from "../calendar";
 
 const ORG_ID = "11111111-1111-4111-8111-111111111111";
 const USER_ID = "22222222-2222-4222-8222-222222222222";
@@ -118,7 +154,13 @@ function resetAuthorizedContext(allow: string[] = [PLANNING_READ]) {
   mockUpdateTaskDueAt.mockResolvedValue({ success: true, data: undefined });
   mockUpdateTicketDueAt.mockResolvedValue({ success: true, data: undefined });
   mockUpdateCardDueAt.mockResolvedValue({ success: true, data: undefined });
+  mockGetBoard.mockResolvedValue({ success: true, data: { id: BOARD_ID } });
   mockHasModuleAccess.mockResolvedValue(true);
+  mockListNativeCalendars.mockResolvedValue({ success: true, data: [] });
+  mockCreateNativeCalendar.mockResolvedValue({ success: true, data: { id: BOARD_ID } });
+  mockSoftDeleteNativeCalendar.mockResolvedValue({ success: true, data: undefined });
+  mockUpsertUserSettings.mockResolvedValue({ success: true, data: undefined });
+  mockResetUserColor.mockResolvedValue({ success: true, data: undefined });
 }
 
 beforeEach(() => {
@@ -311,5 +353,106 @@ describe("updateCalendarItemDueDateAction", () => {
     );
     expect(mockRevalidatePath).toHaveBeenCalledWith("/dashboard/planning/boards");
     expect(mockRevalidatePath).toHaveBeenCalledWith("/dashboard/planowanie/tablice");
+  });
+});
+
+describe("calendar source settings actions", () => {
+  it("updates settings only for accessible task calendars", async () => {
+    resetAuthorizedContext([PLANNING_READ, PLANNING_TASKS_READ]);
+
+    const result = await updateCalendarSourceSettingsAction({
+      calendarKey: PLANNING_TASKS_SOURCE_ID,
+      color: "#a855f7",
+      visible: true,
+    });
+
+    expect(result.success).toBe(true);
+    expect(mockUpsertUserSettings).toHaveBeenCalledWith(
+      expect.anything(),
+      ORG_ID,
+      USER_ID,
+      PLANNING_TASKS_SOURCE_ID,
+      expect.objectContaining({ color: "#a855f7", visible: true })
+    );
+  });
+
+  it("rejects settings for inaccessible ticket calendars", async () => {
+    resetAuthorizedContext([PLANNING_READ]);
+
+    const result = await updateCalendarSourceSettingsAction({
+      calendarKey: HELPDESK_TICKETS_SOURCE_ID,
+      color: "#f97316",
+    });
+
+    expect(result.success).toBe(false);
+    expect(mockUpsertUserSettings).not.toHaveBeenCalled();
+  });
+
+  it("validates private kanban board access before saving settings", async () => {
+    resetAuthorizedContext([PLANNING_READ, PLANNING_BOARDS_READ]);
+
+    const result = await updateCalendarSourceSettingsAction({
+      calendarKey: `source:kanban-board:${BOARD_ID}`,
+      color: "#22c55e",
+    });
+
+    expect(result.success).toBe(true);
+    expect(mockGetBoard).toHaveBeenCalledWith(expect.anything(), ORG_ID, BOARD_ID, USER_ID);
+    expect(mockUpsertUserSettings).toHaveBeenCalledWith(
+      expect.anything(),
+      ORG_ID,
+      USER_ID,
+      `source:kanban-board:${BOARD_ID}`,
+      expect.objectContaining({ color: "#22c55e" })
+    );
+  });
+
+  it("resets user source color without changing source defaults", async () => {
+    resetAuthorizedContext([PLANNING_READ, PLANNING_TASKS_READ]);
+
+    const result = await resetCalendarSourceColorAction({
+      calendarKey: PLANNING_TASKS_SOURCE_ID,
+    });
+
+    expect(result.success).toBe(true);
+    expect(mockResetUserColor).toHaveBeenCalledWith(
+      expect.anything(),
+      ORG_ID,
+      USER_ID,
+      PLANNING_TASKS_SOURCE_ID
+    );
+  });
+});
+
+describe("native calendar actions", () => {
+  it("creates native calendars for planning users", async () => {
+    resetAuthorizedContext([PLANNING_READ]);
+
+    const result = await createNativeCalendarAction({
+      name: "Team schedule",
+      defaultColor: "#14b8a6",
+    });
+
+    expect(result.success).toBe(true);
+    expect(mockCreateNativeCalendar).toHaveBeenCalledWith(
+      expect.anything(),
+      ORG_ID,
+      USER_ID,
+      expect.objectContaining({ name: "Team schedule", defaultColor: "#14b8a6" })
+    );
+  });
+
+  it("soft-deletes native calendars through the calendar service", async () => {
+    resetAuthorizedContext([PLANNING_READ]);
+
+    const result = await deleteNativeCalendarAction({ calendarId: BOARD_ID });
+
+    expect(result.success).toBe(true);
+    expect(mockSoftDeleteNativeCalendar).toHaveBeenCalledWith(
+      expect.anything(),
+      ORG_ID,
+      USER_ID,
+      BOARD_ID
+    );
   });
 });

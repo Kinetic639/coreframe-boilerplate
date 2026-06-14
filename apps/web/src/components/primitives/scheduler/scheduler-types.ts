@@ -5,6 +5,8 @@ export type EventCategory = "meeting" | "task" | "workshop" | "warehouse" | "rem
 export interface CalendarEvent {
   id: string;
   title: string;
+  dueDate?: string;
+  displayMode?: "deadline" | "scheduled";
   description?: string;
   start: Date;
   end: Date;
@@ -78,9 +80,17 @@ export interface SchedulerSettings {
 
 export interface CalendarSource {
   id: string;
+  key?: string;
   label: string;
   category: EventCategory;
-  module: "planning" | "helpdesk" | "kanban";
+  module: "planning" | "helpdesk" | "kanban" | "calendar";
+  kind?: "source" | "native";
+  color?: string;
+  defaultColor?: string;
+  visible?: boolean;
+  position?: number | null;
+  sourceType?: "planning_tasks" | "helpdesk_tickets" | "kanban_board" | "native_calendar";
+  sourceId?: string;
   boardId?: string;
 }
 

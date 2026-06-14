@@ -351,6 +351,7 @@ export function PlanningBoardsClient({
             organization_id: board.organization_id,
             title: board.title,
             description: board.description,
+            color: board.color,
             visibility: board.visibility,
             created_by: board.created_by,
             creator_name: board.creator_name,

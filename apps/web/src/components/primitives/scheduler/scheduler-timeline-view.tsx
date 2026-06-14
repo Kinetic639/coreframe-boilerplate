@@ -43,6 +43,7 @@ import {
 import {
   LABELS_MAP,
   detectAndLayoutGridEvents,
+  eventIntersectsDay,
   getDisplayTime,
   formatGridHour,
 } from "./scheduler-utils";
@@ -413,7 +414,7 @@ export const SchedulerTimelineView: React.FC<SchedulerTimelineViewProps> = ({
 
   // Filter scheduled calendar events belonging to active timeline day
   const timelineEvents = useMemo(() => {
-    return events.filter((ev) => isSameDay(new Date(ev.start), currentDate));
+    return events.filter((ev) => eventIntersectsDay(ev, currentDate));
   }, [events, currentDate]);
 
   // Calculate dynamic start/end hour if autoTimeScale is true, based on visible resources' events on this day
@@ -847,7 +848,7 @@ export const SchedulerTimelineView: React.FC<SchedulerTimelineViewProps> = ({
 
     try {
       (e.target as HTMLElement).releasePointerCapture(e.pointerId);
-    } catch (ignore) {}
+    } catch {}
   };
 
   // Convert dates boundaries to slot coordinates for Timeline view

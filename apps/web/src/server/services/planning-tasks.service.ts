@@ -64,6 +64,12 @@ export interface TaskCalendarRow {
   task_number: string;
   title: string;
   due_date: string | null;
+  calendar_all_day: boolean | null;
+  calendar_start_date: string | null;
+  calendar_end_date: string | null;
+  calendar_start_at: string | null;
+  calendar_end_at: string | null;
+  calendar_timezone: string | null;
   status: TaskStatus;
   priority: TaskPriority;
   assigned_to: string | null;
@@ -843,13 +849,19 @@ export const PlanningTasksService = {
     try {
       const scheduledQuery = supabase
         .from("planning_tasks")
-        .select("id, task_number, title, due_date, status, priority, assigned_to")
+        .select(
+          "id, task_number, title, due_date, calendar_all_day, calendar_start_date, calendar_end_date, calendar_start_at, calendar_end_at, calendar_timezone, status, priority, assigned_to"
+        )
         .eq("organization_id", orgId)
         .is("deleted_at", null)
         .neq("status", "cancelled")
-        .not("due_date", "is", null)
-        .gte("due_date", params.rangeStart)
-        .lte("due_date", params.rangeEnd)
+        .or(
+          [
+            `and(calendar_all_day.eq.true,calendar_start_date.lte.${params.rangeEnd},calendar_end_date.gte.${params.rangeStart})`,
+            `and(calendar_all_day.eq.false,calendar_start_at.lte.${params.rangeEndIso},calendar_end_at.gte.${params.rangeStartIso})`,
+            `and(calendar_all_day.is.null,due_date.gte.${params.rangeStart},due_date.lte.${params.rangeEnd})`,
+          ].join(",")
+        )
         .order("due_date", { ascending: true });
 
       const { data: scheduledData, error: scheduledError } = await scheduledQuery;
@@ -860,10 +872,13 @@ export const PlanningTasksService = {
       if (params.includeUnscheduled && params.unscheduledLimit > 0) {
         let unscheduledQuery = supabase
           .from("planning_tasks")
-          .select("id, task_number, title, due_date, status, priority, assigned_to")
+          .select(
+            "id, task_number, title, due_date, calendar_all_day, calendar_start_date, calendar_end_date, calendar_start_at, calendar_end_at, calendar_timezone, status, priority, assigned_to"
+          )
           .eq("organization_id", orgId)
           .is("deleted_at", null)
           .is("due_date", null)
+          .is("calendar_all_day", null)
           .neq("status", "cancelled")
           .neq("status", "completed")
           .order("updated_at", { ascending: false })
@@ -938,6 +953,104 @@ export const PlanningTasksService = {
           }
         );
       }
+
+      return { success: true, data: undefined };
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : "Unexpected error" };
+    }
+  },
+
+  async updateCalendarSchedule(
+    supabase: SupabaseClient,
+    orgId: string,
+    userId: string,
+    taskId: string,
+    schedule:
+      | {
+          allDay: true;
+          startDate: string;
+          endDate: string;
+          timezone: string;
+        }
+      | {
+          allDay: false;
+          startAt: string;
+          endAt: string;
+          timezone: string;
+        }
+      | null
+  ): Promise<ServiceResult<void>> {
+    try {
+      let update:
+        | {
+            calendar_all_day: null;
+            calendar_start_date: null;
+            calendar_end_date: null;
+            calendar_start_at: null;
+            calendar_end_at: null;
+            calendar_timezone: null;
+            updated_by: string;
+          }
+        | {
+            calendar_all_day: boolean;
+            calendar_start_date: string | null;
+            calendar_end_date: string | null;
+            calendar_start_at: string | null;
+            calendar_end_at: string | null;
+            calendar_timezone: string;
+            updated_by: string;
+          };
+
+      if (schedule === null) {
+        update = {
+          calendar_all_day: null,
+          calendar_start_date: null,
+          calendar_end_date: null,
+          calendar_start_at: null,
+          calendar_end_at: null,
+          calendar_timezone: null,
+          updated_by: userId,
+        };
+      } else if (schedule.allDay === true) {
+        update = {
+          calendar_all_day: true,
+          calendar_start_date: schedule.startDate,
+          calendar_end_date: schedule.endDate,
+          calendar_start_at: null,
+          calendar_end_at: null,
+          calendar_timezone: schedule.timezone,
+          updated_by: userId,
+        };
+      } else {
+        update = {
+          calendar_all_day: false,
+          calendar_start_date: null,
+          calendar_end_date: null,
+          calendar_start_at: schedule.startAt,
+          calendar_end_at: schedule.endAt,
+          calendar_timezone: schedule.timezone,
+          updated_by: userId,
+        };
+      }
+
+      const { error } = await supabase
+        .from("planning_tasks")
+        .update(update)
+        .eq("id", taskId)
+        .eq("organization_id", orgId)
+        .is("deleted_at", null);
+
+      if (error) return { success: false, error: error.message };
+
+      await insertActivity(
+        supabase,
+        orgId,
+        taskId,
+        userId,
+        "calendar_schedule_changed",
+        "Calendar schedule updated",
+        { schedule }
+      );
 
       return { success: true, data: undefined };
     } catch (e) {

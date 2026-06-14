@@ -1,10 +1,9 @@
 "use client";
 
 import React from "react";
-import { format, isSameDay } from "date-fns";
 import { CalendarEvent, SchedulerLocale } from "./scheduler-types";
-import { formatInTimezone, formatEventTime, LABELS_MAP } from "./scheduler-utils";
-import { Calendar, MapPin, Clock, AlertCircle } from "lucide-react";
+import { formatInTimezone, formatEventTime, LABELS_MAP, isHexColor } from "./scheduler-utils";
+import { Calendar, MapPin, Clock } from "lucide-react";
 
 interface SchedulerListViewProps {
   events: CalendarEvent[];
@@ -124,6 +123,7 @@ export const SchedulerListView: React.FC<SchedulerListViewProps> = ({
                   {dayEvents.map((event) => {
                     const style =
                       categoryStyles[event.color || event.category] || categoryStyles.meeting;
+                    const customColor = isHexColor(event.color) ? event.color : undefined;
 
                     return (
                       <div
@@ -137,18 +137,21 @@ export const SchedulerListView: React.FC<SchedulerListViewProps> = ({
                           {/* Colored vertical category accent bar */}
                           <div
                             className={`w-1 h-11 rounded-full shrink-0 ${
-                              event.category === "meeting"
-                                ? "bg-indigo-500"
-                                : event.category === "task"
-                                  ? "bg-emerald-500"
-                                  : event.category === "workshop"
-                                    ? "bg-amber-500"
-                                    : event.category === "warehouse"
-                                      ? "bg-cyan-500"
-                                      : event.category === "reminder"
-                                        ? "bg-purple-500"
-                                        : "bg-fuchsia-500"
+                              customColor
+                                ? ""
+                                : event.category === "meeting"
+                                  ? "bg-indigo-500"
+                                  : event.category === "task"
+                                    ? "bg-emerald-500"
+                                    : event.category === "workshop"
+                                      ? "bg-amber-500"
+                                      : event.category === "warehouse"
+                                        ? "bg-cyan-500"
+                                        : event.category === "reminder"
+                                          ? "bg-purple-500"
+                                          : "bg-fuchsia-500"
                             }`}
+                            style={customColor ? { backgroundColor: customColor } : undefined}
                           />
 
                           <div className="space-y-1">

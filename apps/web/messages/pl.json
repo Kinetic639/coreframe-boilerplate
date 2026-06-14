@@ -3232,6 +3232,25 @@
         "tasks": "Zadania",
         "boards": "Tablice Kanban"
       },
+      "calendar": {
+        "createCalendarFirst": "Najpierw utwórz kalendarz.",
+        "createEvent": "Utwórz wydarzenie",
+        "editEvent": "Edytuj wydarzenie",
+        "calendar": "Kalendarz",
+        "selectCalendar": "Wybierz kalendarz",
+        "title": "Tytuł",
+        "titlePlaceholder": "Tytuł wydarzenia...",
+        "description": "Opis",
+        "descriptionPlaceholder": "Dodaj szczegóły...",
+        "allDay": "Wydarzenie całodniowe",
+        "start": "Początek",
+        "end": "Koniec",
+        "save": "Zapisz",
+        "saving": "Zapisywanie...",
+        "syncing": "Synchronizacja...",
+        "cancel": "Anuluj",
+        "deleteEvent": "Usuń"
+      },
       "tasks": {
         "createTask": "Utwórz zadanie",
         "newTask": "Nowe zadanie",
