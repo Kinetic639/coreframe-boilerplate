@@ -59,6 +59,9 @@ type EventDragState = {
   isDragging: boolean;
   originEvent: CalendarEvent;
   originSegments: VisibleMonthSegment[];
+  pointerOffsetX: number;
+  pointerOffsetY: number;
+  dragWidth: number;
 };
 
 type CommittedDragPreview = {
@@ -103,6 +106,16 @@ function getMonthEventColorStyle(color: string | undefined): React.CSSProperties
     backgroundColor: color,
     borderColor: color,
     color: luminance > 0.62 ? "#1f2937" : "#ffffff",
+  };
+}
+
+function getMonthEventGhostStyle(color: string | undefined): React.CSSProperties | undefined {
+  if (!isHexColor(color)) return undefined;
+
+  return {
+    backgroundColor: `${color}24`,
+    borderColor: color,
+    boxShadow: `0 0 0 1px ${color}66, 0 8px 20px ${color}24`,
   };
 }
 
@@ -167,11 +180,14 @@ export const SchedulerMonthView: React.FC<SchedulerMonthViewProps> = ({
   const days = getMonthGridDays(currentDate, showWeekends);
   const [activeDragOverDay, setActiveDragOverDay] = React.useState<Date | null>(null);
   const [draggedEventId, setDraggedEventId] = React.useState<string | null>(null);
+  const [dragPointer, setDragPointer] = React.useState<{ x: number; y: number } | null>(null);
   const [committedDragPreview, setCommittedDragPreview] =
     React.useState<CommittedDragPreview | null>(null);
   const [openTooltipDay, setOpenTooltipDay] = React.useState<string | null>(null);
   const monthGridRef = React.useRef<HTMLDivElement | null>(null);
   const eventDragRef = React.useRef<EventDragState | null>(null);
+  const pendingDragPointerRef = React.useRef<{ x: number; y: number } | null>(null);
+  const dragPointerFrameRef = React.useRef<number | null>(null);
   const suppressNextEventClickRef = React.useRef(false);
 
   // States for click & drag selection
@@ -186,6 +202,36 @@ export const SchedulerMonthView: React.FC<SchedulerMonthViewProps> = ({
     return () => {
       window.removeEventListener("click", handleGlobalClick);
     };
+  }, []);
+
+  React.useEffect(() => {
+    return () => {
+      if (dragPointerFrameRef.current !== null) {
+        window.cancelAnimationFrame(dragPointerFrameRef.current);
+      }
+    };
+  }, []);
+
+  const queueDragPointer = React.useCallback((x: number, y: number) => {
+    pendingDragPointerRef.current = { x, y };
+
+    if (dragPointerFrameRef.current !== null) return;
+
+    dragPointerFrameRef.current = window.requestAnimationFrame(() => {
+      dragPointerFrameRef.current = null;
+      if (pendingDragPointerRef.current) {
+        setDragPointer(pendingDragPointerRef.current);
+      }
+    });
+  }, []);
+
+  const clearDragPointer = React.useCallback(() => {
+    pendingDragPointerRef.current = null;
+    if (dragPointerFrameRef.current !== null) {
+      window.cancelAnimationFrame(dragPointerFrameRef.current);
+      dragPointerFrameRef.current = null;
+    }
+    setDragPointer(null);
   }, []);
 
   // Effect to handle global mouse up for Month drag select
@@ -222,12 +268,14 @@ export const SchedulerMonthView: React.FC<SchedulerMonthViewProps> = ({
     };
   }, [selectionStart, selectionEnd, onCellClick]);
 
-  // Compute displayed events, mapping dragged/dropped events to their provisional day cell.
+  // Compute displayed events. During active drag the moving event leaves normal layout and is
+  // rendered as an overlay, then after drop it briefly rejoins through the committed preview.
   const displayedEvents = React.useMemo(() => {
-    const preview =
-      draggedEventId && activeDragOverDay
-        ? { eventId: draggedEventId, targetDay: activeDragOverDay }
-        : committedDragPreview;
+    if (draggedEventId && activeDragOverDay) {
+      return events.filter((event) => event.id !== draggedEventId);
+    }
+
+    const preview = committedDragPreview;
 
     return events.map((event) => {
       if (preview?.eventId === event.id) {
@@ -513,6 +561,7 @@ export const SchedulerMonthView: React.FC<SchedulerMonthViewProps> = ({
     if (e.button !== 0) return;
     const originEvent = events.find((event) => event.id === eventId);
     if (!originEvent) return;
+    const eventRect = e.currentTarget.getBoundingClientRect();
 
     e.preventDefault();
     e.stopPropagation();
@@ -528,6 +577,9 @@ export const SchedulerMonthView: React.FC<SchedulerMonthViewProps> = ({
       originSegments: monthMultiDayLayout.segments.filter(
         (segment) => segment.event.id === eventId
       ),
+      pointerOffsetX: e.clientX - eventRect.left,
+      pointerOffsetY: e.clientY - eventRect.top,
+      dragWidth: Math.min(Math.max(eventRect.width, 160), 420),
     };
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
@@ -541,9 +593,12 @@ export const SchedulerMonthView: React.FC<SchedulerMonthViewProps> = ({
       }
 
       if (!drag.isDragging) return;
+      queueDragPointer(moveEvent.clientX, moveEvent.clientY);
       const day = getDayFromGridPoint(moveEvent.clientX, moveEvent.clientY);
-      if (day && (!activeDragOverDay || activeDragOverDay.getTime() !== day.getTime())) {
-        setActiveDragOverDay(day);
+      if (day) {
+        setActiveDragOverDay((currentDay) =>
+          currentDay?.getTime() === day.getTime() ? currentDay : day
+        );
       }
     };
 
@@ -556,6 +611,7 @@ export const SchedulerMonthView: React.FC<SchedulerMonthViewProps> = ({
         eventDragRef.current = null;
         setDraggedEventId(null);
         setActiveDragOverDay(null);
+        clearDragPointer();
         return;
       }
       suppressNextEventClickRef.current = true;
@@ -579,6 +635,7 @@ export const SchedulerMonthView: React.FC<SchedulerMonthViewProps> = ({
       eventDragRef.current = null;
       setDraggedEventId(null);
       setActiveDragOverDay(null);
+      clearDragPointer();
     };
 
     window.addEventListener("mousemove", handleMouseMove);
@@ -589,6 +646,11 @@ export const SchedulerMonthView: React.FC<SchedulerMonthViewProps> = ({
     draggedEventId && eventDragRef.current?.originSegments
       ? eventDragRef.current.originSegments
       : (committedDragPreview?.originSegments ?? []);
+  const dragOverlayEvent =
+    draggedEventId && dragPointer
+      ? (eventDragRef.current?.originEvent ?? events.find((event) => event.id === draggedEventId))
+      : null;
+  const isMonthEventDragActive = draggedEventId !== null;
 
   return (
     <div className="flex flex-col h-full bg-background transition-colors duration-200">
@@ -652,6 +714,10 @@ export const SchedulerMonthView: React.FC<SchedulerMonthViewProps> = ({
               const cellTime = startOfDay(day).getTime();
               return cellTime >= minTime && cellTime <= maxTime;
             })();
+          const isEventDropTarget =
+            isMonthEventDragActive &&
+            activeDragOverDay !== null &&
+            isSameDay(day, activeDragOverDay);
 
           const overflowEvents = monthMultiDayLayout.hiddenEventsByDay.get(dayKey) ?? [];
           const overflowCount = overflowEvents.length;
@@ -700,9 +766,11 @@ export const SchedulerMonthView: React.FC<SchedulerMonthViewProps> = ({
               className={`relative border-r border-b border-border p-1.5 flex flex-col min-h-16 h-full transition duration-150 group select-none cursor-pointer ${isTooltipOpen ? "overflow-visible" : "overflow-hidden"} ${
                 isTooltipOpen
                   ? "z-[200]"
-                  : isSelected
-                    ? "bg-primary/10 ring-2 ring-inset ring-primary/40 z-10"
-                    : "hover:bg-primary/[0.04] hover:ring-1 hover:ring-inset hover:ring-primary/15 hover:z-10"
+                  : isEventDropTarget
+                    ? "bg-primary/10 ring-2 ring-inset ring-primary/30 z-10"
+                    : isSelected
+                      ? "bg-primary/10 ring-2 ring-inset ring-primary/40 z-10"
+                      : "hover:bg-primary/[0.04] hover:ring-1 hover:ring-inset hover:ring-primary/15 hover:z-10"
               } ${
                 isCurrentMonth
                   ? "bg-transparent"
@@ -800,7 +868,7 @@ export const SchedulerMonthView: React.FC<SchedulerMonthViewProps> = ({
                       const dayStr = dayKey;
                       setOpenTooltipDay((prev) => (prev === dayStr ? null : dayStr));
                     }}
-                    className="h-5 w-full text-left px-2 py-0.5 rounded-md bg-muted hover:bg-border text-[10px] font-medium text-muted-foreground transition duration-150 flex items-center gap-1.5 mt-0.5 cursor-pointer leading-4"
+                    className={`h-5 w-full text-left px-2 py-0.5 rounded-md bg-muted hover:bg-border text-[10px] font-medium text-muted-foreground transition duration-150 flex items-center gap-1.5 mt-0.5 cursor-pointer leading-4 ${isMonthEventDragActive ? "pointer-events-none opacity-30 saturate-50" : ""}`}
                   >
                     <span>+{overflowCount} more</span>
                   </button>
@@ -871,19 +939,18 @@ export const SchedulerMonthView: React.FC<SchedulerMonthViewProps> = ({
           );
         })}
         {originGhostSegments.map((segment) => {
-          const style = getEventStyles(segment.event.color || segment.event.category);
-          const customStyle = getMonthEventColorStyle(segment.event.color);
+          const ghostStyle = getMonthEventGhostStyle(segment.event.color);
 
           return (
             <div
               key={`origin-ghost-${segment.event.id}-${segment.rowIndex}`}
-              className={`pointer-events-none z-30 mx-1 h-5 rounded-md border border-dashed px-2 py-0.5 text-[10px] font-semibold leading-4 truncate opacity-35 shadow-xs ${style.bg} ${style.text}`}
+              className="pointer-events-none z-[55] mx-1 h-5 rounded-md border-2 border-dashed bg-background/90 px-2 py-0.5 text-[10px] font-bold leading-4 text-foreground shadow-md ring-2 ring-background/80 backdrop-blur-[1px]"
               style={{
                 gridColumn: `${segment.startCol + 1} / ${segment.endCol + 2}`,
                 gridRow: segment.rowIndex + 1,
                 alignSelf: "start",
                 marginTop: `${MONTH_MULTI_DAY_TOP_OFFSET + segment.lane * MONTH_EVENT_SLOT_HEIGHT}px`,
-                ...customStyle,
+                ...ghostStyle,
               }}
               aria-hidden="true"
             >
@@ -891,10 +958,34 @@ export const SchedulerMonthView: React.FC<SchedulerMonthViewProps> = ({
             </div>
           );
         })}
+        {dragOverlayEvent &&
+          dragPointer &&
+          (() => {
+            const drag = eventDragRef.current;
+            const style = getEventStyles(dragOverlayEvent.color || dragOverlayEvent.category);
+            const customStyle = getMonthEventColorStyle(dragOverlayEvent.color);
+            const left = dragPointer.x - (drag?.pointerOffsetX ?? 16);
+            const top = dragPointer.y - (drag?.pointerOffsetY ?? 10);
+
+            return (
+              <div
+                className={`pointer-events-none fixed left-0 top-0 z-[1000] h-5 rounded-md border px-2 py-0.5 text-[10px] font-semibold leading-4 truncate shadow-xl ring-2 ring-foreground/20 will-change-transform ${style.bg} ${style.text}`}
+                style={{
+                  width: `${drag?.dragWidth ?? 220}px`,
+                  transform: `translate3d(${left}px, ${top}px, 0)`,
+                  ...customStyle,
+                }}
+                aria-hidden="true"
+              >
+                <span className="truncate">{dragOverlayEvent.title}</span>
+              </div>
+            );
+          })()}
         {monthMultiDayLayout.segments.map((segment) => {
           const style = getEventStyles(segment.event.color || segment.event.category);
           const customStyle = getMonthEventColorStyle(segment.event.color);
           const isDragging = segment.event.id === draggedEventId;
+          const isBackgroundDuringDrag = isMonthEventDragActive && !isDragging;
 
           return (
             <div
@@ -914,7 +1005,7 @@ export const SchedulerMonthView: React.FC<SchedulerMonthViewProps> = ({
                 }
                 onSelectEvent(segment.event);
               }}
-              className={`z-40 mx-1 h-5 rounded-md border px-2 py-0.5 text-[10px] font-semibold transition duration-150 shadow-xs leading-4 truncate shrink-0 hover:z-50 hover:brightness-105 hover:ring-1 hover:ring-foreground/10 hover:shadow-sm ${style.bg} ${style.text} ${segment.event.isDraggable === false ? "cursor-pointer" : isDragging ? "cursor-grabbing opacity-80" : "cursor-grab active:cursor-grabbing"}`}
+              className={`z-40 mx-1 h-5 rounded-md border px-2 py-0.5 text-[10px] font-semibold transition duration-150 shadow-xs leading-4 truncate shrink-0 hover:z-50 hover:brightness-105 hover:ring-1 hover:ring-foreground/10 hover:shadow-sm ${style.bg} ${style.text} ${segment.event.isDraggable === false ? "cursor-pointer" : isDragging ? "cursor-grabbing opacity-80" : "cursor-grab active:cursor-grabbing"} ${isBackgroundDuringDrag ? "pointer-events-none opacity-[0.18] saturate-50 blur-[0.3px]" : ""}`}
               style={{
                 gridColumn: `${segment.startCol + 1} / ${segment.endCol + 2}`,
                 gridRow: segment.rowIndex + 1,
