@@ -53,6 +53,7 @@ export interface CreateLocationInput {
   map_role?: WarehouseLocation["map_role"];
   storage_mode?: string;
   allow_top_storage?: boolean;
+  can_store_inventory?: boolean;
   sort_order?: number;
 }
 
@@ -74,13 +75,14 @@ export interface UpdateLocationInput {
   map_role?: WarehouseLocation["map_role"];
   storage_mode?: string;
   allow_top_storage?: boolean;
+  can_store_inventory?: boolean;
   sort_order?: number;
 }
 
 // ─── Column select ────────────────────────────────────────────────────────────
 
 const LOCATION_COLUMNS =
-  "id, organization_id, branch_id, name, code, description, icon_name, color, parent_id, group_id, inherit_group_color, inherit_parent_color, physical_width_m, physical_depth_m, physical_height_m, physical_elevation_start_m, elevation_level, map_role, storage_mode, allow_top_storage, level, sort_order, qr_code, created_by, updated_by, created_at, updated_at, deleted_at" as const;
+  "id, organization_id, branch_id, name, code, description, icon_name, color, parent_id, group_id, inherit_group_color, inherit_parent_color, physical_width_m, physical_depth_m, physical_height_m, physical_elevation_start_m, elevation_level, map_role, storage_mode, allow_top_storage, can_store_inventory, level, sort_order, qr_code, created_by, updated_by, created_at, updated_at, deleted_at" as const;
 
 const GROUP_SCOPE_COLUMNS =
   "id, organization_id, branch_id, parent_location_id, deleted_at" as const;
@@ -258,6 +260,7 @@ export class WarehouseLocationsService {
         map_role: input.map_role ?? "logical",
         storage_mode: input.storage_mode ?? "standard",
         allow_top_storage: input.allow_top_storage ?? false,
+        can_store_inventory: input.can_store_inventory ?? false,
         level,
         sort_order: input.sort_order ?? 0,
         created_by: userId,
@@ -339,6 +342,9 @@ export class WarehouseLocationsService {
     }
     if (input.allow_top_storage !== undefined) {
       updatePayload.allow_top_storage = input.allow_top_storage;
+    }
+    if (input.can_store_inventory !== undefined) {
+      updatePayload.can_store_inventory = input.can_store_inventory;
     }
 
     let newLevel: number | undefined;

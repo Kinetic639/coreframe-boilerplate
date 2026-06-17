@@ -5933,6 +5933,39 @@
       "inventory": "Inventory",
       "history": "History"
     },
+    "physicalKinds": {
+      "warehouse": "Warehouse",
+      "zone": "Zone",
+      "aisle": "Aisle",
+      "rack": "Rack",
+      "shelf": "Shelf",
+      "bin": "Bin"
+    },
+    "physicalKindDescriptions": {
+      "warehouse": "Top-level branch warehouse node used to organize locations.",
+      "zone": "A broad operational area that aggregates child locations.",
+      "aisle": "A navigation aisle that groups racks, shelves, or bins.",
+      "rack": "A rack structure that usually contains shelves or bins.",
+      "shelf": "A shelf structure that can group stockable bins.",
+      "bin": "A stockable placement point where inventory balances can live."
+    },
+    "stockPolicies": {
+      "none": "No direct stock",
+      "stockable": "Stockable bin"
+    },
+    "stockPolicyDescriptions": {
+      "none": "Shows child-bin inventory only and cannot receive stock directly.",
+      "stockable": "Can hold stock balances and be used for receiving, issuing, and relocation."
+    },
+    "operationProfiles": {
+      "standard": "Standard",
+      "receiving": "Receiving",
+      "shipping": "Shipping",
+      "returns": "Returns",
+      "quarantine": "Quarantine",
+      "staging": "Staging",
+      "transit": "Transit"
+    },
     "actions": {
       "addEntity": "Add new entity",
       "dragToMove": "Drag to move",
@@ -5970,6 +6003,12 @@
     },
     "detail": {
       "locationRole": "Location role",
+      "structureStockPolicy": "Structure & stock policy",
+      "physicalKind": "Physical kind",
+      "stockPolicy": "Stock policy",
+      "operationProfile": "Operation profile",
+      "binCanHoldStock": "This bin can directly hold inventory balances.",
+      "aggregatesChildStock": "This node aggregates inventory from stockable child bins.",
       "description": "Description",
       "noDescription": "No description has been added for this location.",
       "fullPathCode": "Full path code",
@@ -6005,6 +6044,40 @@
       "unique": "Unique",
       "viewDetailedLedger": "View detailed ledger",
       "rules": "Location inventory rules",
+      "directBinStock": "Direct bin stock",
+      "aggregatedChildStock": "Aggregated child-bin stock",
+      "branchStockBoundary": "Branch stock totals change only through inventory operations. Relocating stock between bins in this branch writes history but keeps the branch total unchanged.",
+      "receiveIntoBin": "Receive into this bin",
+      "relocateFromBin": "Relocate from this bin",
+      "postReceipt": "Post receipt",
+      "postRelocation": "Post relocation",
+      "destinationBin": "Destination bin",
+      "selectStockableBin": "Select a stockable bin for actions",
+      "nonBinCannotReceive": "Warehouse, zone, aisle, rack, and shelf nodes show aggregated stock only.",
+      "actionPosted": "Inventory movement posted.",
+      "actionFailed": "Action failed.",
+      "placementSaved": "Placement setting saved.",
+      "stockLines": "Stock lines",
+      "location": "Location",
+      "onHand": "On hand",
+      "available": "Available",
+      "containers": "Containers",
+      "putawayRules": "Putaway rules",
+      "containerizedStock": "Containerized stock",
+      "preferredStorage": "Preferred storage",
+      "createContainer": "Create container",
+      "containerCode": "Container code",
+      "assignPreferredStorage": "Assign preferred storage",
+      "savePreferredStorage": "Save preferred storage",
+      "variant": "Variant",
+      "unit": "Unit",
+      "quantity": "Quantity",
+      "note": "Note",
+      "priority": "Priority",
+      "defaultRule": "Default rule",
+      "noStockLines": "No stock lines in this scope.",
+      "noContainers": "No containers in this scope.",
+      "noPutawayRules": "No preferred storage rules point here.",
       "defaultSku": "Default SKU",
       "noDefaultSku": "No default SKU assigned.",
       "allowedCategories": "Allowed categories",
@@ -6012,7 +6085,9 @@
     },
     "history": {
       "recentMovements": "Recent movements",
-      "noActivity": "No activity recorded"
+      "noActivity": "No activity recorded",
+      "internalRelocation": "Internal relocation",
+      "external": "External"
     },
     "export": {
       "title": "Location data export",
@@ -6089,6 +6164,10 @@
       "pathPreview": "Path preview",
       "noneRoot": "None (system root)",
       "richCategories": "Rich categories",
+      "physicalKind": "Physical kind",
+      "stockPolicy": "Stock policy",
+      "operationProfile": "Operation profile",
+      "stockPolicyExplanation": "Bins hold stock by default. Higher-level nodes organize the tree and show aggregated child-bin inventory.",
       "capabilitiesDerived": "Capabilities derived from",
       "manualOverrides": "Manual overrides allowed",
       "iconColorOverrides": "Icon & color overrides",
@@ -6098,7 +6177,9 @@
       "steps": {
         "identity": "Identity",
         "type": "Type & capability",
-        "operational": "Operational logic"
+        "operational": "Operational logic",
+        "structureStock": "Structure & stock",
+        "physical": "Physical"
       },
       "fields": {
         "code": "Location code",

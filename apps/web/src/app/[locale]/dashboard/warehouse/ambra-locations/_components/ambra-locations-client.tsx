@@ -10,7 +10,14 @@ import {
 } from "@/hooks/queries/warehouse";
 import { MOCK_BRANCHES, MOCK_LAYOUTS, MOCK_LOCATIONS, MOCK_VISUALS } from "../_ambra/constants";
 import LocationsPage from "../_ambra/components/locations/LocationsPage";
-import type { Branch, Layout, LogicalLocation, VisualNode } from "../_ambra/types";
+import type {
+  AmbraLocationInventorySnapshot,
+  Branch,
+  Layout,
+  LogicalLocation,
+  VisualNode,
+} from "../_ambra/types";
+import type { InventoryVariantOption } from "@/lib/warehouse/inventory-types";
 import {
   ambraLocationToCreateInput,
   ambraLocationToUpdateInput,
@@ -20,11 +27,15 @@ import {
 type AmbraLocationsClientProps = {
   activeBranch: Branch;
   initialLocations: LogicalLocation[];
+  initialInventorySnapshot: AmbraLocationInventorySnapshot;
+  variantOptions: InventoryVariantOption[];
 };
 
 export function AmbraLocationsClient({
   activeBranch,
   initialLocations,
+  initialInventorySnapshot,
+  variantOptions,
 }: AmbraLocationsClientProps) {
   const useDemoData = initialLocations.length === 0;
   const [locations, setLocations] = useState<LogicalLocation[]>(
@@ -111,6 +122,8 @@ export function AmbraLocationsClient({
             locations={branchLocations}
             visuals={branchVisuals}
             layouts={branchLayouts}
+            inventorySnapshot={initialInventorySnapshot}
+            variantOptions={variantOptions}
             onCreateLocation={handleCreateLocation}
             onUpdateLocation={handleUpdateLocation}
             onDeleteLocation={handleDeleteLocation}

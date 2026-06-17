@@ -1,4 +1,9 @@
-import { LocationRole } from "../types";
+import {
+  LocationRole,
+  type LocationOperationProfile,
+  type LocationStockPolicy,
+  type PhysicalLocationKind,
+} from "../types";
 
 export type LocationCategoryDefinition = {
   id: LocationRole;
@@ -14,6 +19,126 @@ export type LocationCategoryDefinition = {
     canShip?: boolean;
     canReserve?: boolean;
   };
+};
+
+export type PhysicalLocationDefinition = {
+  id: PhysicalLocationKind;
+  label: string;
+  description: string;
+  iconName: string;
+  color?: string;
+  defaultStockPolicy: LocationStockPolicy;
+};
+
+export type OperationProfileDefinition = {
+  id: LocationOperationProfile;
+  label: string;
+  description: string;
+  iconName: string;
+  color?: string;
+};
+
+export const PHYSICAL_LOCATION_KINDS: Record<PhysicalLocationKind, PhysicalLocationDefinition> = {
+  warehouse: {
+    id: "warehouse",
+    label: "Warehouse",
+    description: "Branch warehouse root. Organizes stock areas but does not hold stock directly.",
+    iconName: "Database",
+    color: "text-primary",
+    defaultStockPolicy: "none",
+  },
+  zone: {
+    id: "zone",
+    label: "Zone",
+    description: "Large internal warehouse area used to group aisles, racks, or bins.",
+    iconName: "Layers",
+    color: "text-indigo-400",
+    defaultStockPolicy: "none",
+  },
+  aisle: {
+    id: "aisle",
+    label: "Aisle",
+    description: "Warehouse passageway or row used for navigation.",
+    iconName: "ArrowRightLeft",
+    color: "text-muted-foreground",
+    defaultStockPolicy: "none",
+  },
+  rack: {
+    id: "rack",
+    label: "Rack",
+    description: "Vertical storage structure containing shelves or bins.",
+    iconName: "Server",
+    color: "text-blue-400",
+    defaultStockPolicy: "none",
+  },
+  shelf: {
+    id: "shelf",
+    label: "Shelf",
+    description: "Physical shelf or level. Organizes bins and can aggregate their stock.",
+    iconName: "Layout",
+    color: "text-emerald-400",
+    defaultStockPolicy: "none",
+  },
+  bin: {
+    id: "bin",
+    label: "Bin",
+    description: "Stock-holding storage point where inventory balances are recorded.",
+    iconName: "Box",
+    color: "text-amber-400",
+    defaultStockPolicy: "stockable",
+  },
+};
+
+export const OPERATION_PROFILES: Record<LocationOperationProfile, OperationProfileDefinition> = {
+  standard: {
+    id: "standard",
+    label: "Standard",
+    description: "General-purpose internal storage behavior.",
+    iconName: "Box",
+    color: "text-muted-foreground",
+  },
+  receiving: {
+    id: "receiving",
+    label: "Receiving",
+    description: "Inbound staging or receiving workflow hint.",
+    iconName: "Inbox",
+    color: "text-emerald-700 dark:text-emerald-300",
+  },
+  shipping: {
+    id: "shipping",
+    label: "Shipping",
+    description: "Outbound staging or dispatch workflow hint.",
+    iconName: "Truck",
+    color: "text-blue-500",
+  },
+  returns: {
+    id: "returns",
+    label: "Returns",
+    description: "Returned goods processing workflow hint.",
+    iconName: "RotateCcw",
+    color: "text-purple-400",
+  },
+  quarantine: {
+    id: "quarantine",
+    label: "Quarantine",
+    description: "Restricted or non-conforming stock workflow hint.",
+    iconName: "ShieldAlert",
+    color: "text-red-500",
+  },
+  staging: {
+    id: "staging",
+    label: "Staging",
+    description: "Temporary staging, prep, or cross-docking workflow hint.",
+    iconName: "Flag",
+    color: "text-lime-400",
+  },
+  transit: {
+    id: "transit",
+    label: "Transit",
+    description: "In-motion or transport workflow hint inside the branch.",
+    iconName: "Car",
+    color: "text-amber-500",
+  },
 };
 
 export const LOCATION_CATEGORIES: Record<LocationRole, LocationCategoryDefinition> = {

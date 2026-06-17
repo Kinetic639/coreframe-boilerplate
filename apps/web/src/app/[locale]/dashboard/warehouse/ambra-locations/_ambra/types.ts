@@ -92,6 +92,19 @@ export enum LocationRole {
   OTHER = "OTHER",
 }
 
+export type PhysicalLocationKind = "warehouse" | "zone" | "aisle" | "rack" | "shelf" | "bin";
+
+export type LocationStockPolicy = "none" | "stockable";
+
+export type LocationOperationProfile =
+  | "standard"
+  | "receiving"
+  | "shipping"
+  | "returns"
+  | "quarantine"
+  | "staging"
+  | "transit";
+
 export interface LocationCapabilities {
   canStoreInventory: boolean;
   canReceive: boolean;
@@ -113,6 +126,9 @@ export interface LogicalLocation {
   pathName?: string;
   status?: "active" | "inactive" | "archived" | "locked";
   role?: LocationRole;
+  physicalKind?: PhysicalLocationKind;
+  stockPolicy?: LocationStockPolicy;
+  operationProfile?: LocationOperationProfile;
   capabilities?: LocationCapabilities;
   physical?: {
     qrCode?: string;
@@ -127,6 +143,8 @@ export interface LogicalLocation {
   assignment?: LocationAssignment;
   stockCount?: number;
   skuCount?: number;
+  aggregatedStockCount?: number;
+  aggregatedSkuCount?: number;
   warnings?: LocationWarning[];
   createdAt?: string;
   updatedAt?: string;
@@ -137,6 +155,74 @@ export interface LogicalLocation {
   isReceivable?: boolean;
   isPickable?: boolean;
 }
+
+export interface LocationInventoryLine {
+  id: string;
+  locationId: string;
+  variantId: string;
+  sku: string;
+  productName: string;
+  unitCode: string;
+  onHandQuantity: number;
+  availableQuantity: number;
+  reservedQuantity: number;
+  allocatedQuantity: number;
+  lastMovementNumber?: string | null;
+  containerId?: string | null;
+  containerCode?: string | null;
+}
+
+export interface LocationMovementLine {
+  id: string;
+  movementId: string;
+  movementNumber: string;
+  movementKind: "receipt" | "issue" | "transfer" | "adjustment" | "opening_balance" | string;
+  status: string;
+  variantId: string;
+  sku: string;
+  productName: string;
+  unitCode: string;
+  quantity: number;
+  sourceLocationId: string | null;
+  sourceLocationName: string | null;
+  destinationLocationId: string | null;
+  destinationLocationName: string | null;
+  containerId?: string | null;
+  containerCode?: string | null;
+  createdAt: string;
+  postedAt: string | null;
+}
+
+export interface LocationContainer {
+  id: string;
+  code: string;
+  type: string;
+  status: string;
+  currentLocationId: string;
+  currentLocationName?: string | null;
+  referenceType?: string | null;
+  referenceId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LocationPutawayRule {
+  id: string;
+  branchId: string;
+  productId?: string | null;
+  variantId?: string | null;
+  productCategory?: string | null;
+  destinationLocationId: string;
+  priority: number;
+  isActive: boolean;
+}
+
+export type AmbraLocationInventorySnapshot = {
+  balances: LocationInventoryLine[];
+  movements: LocationMovementLine[];
+  containers: LocationContainer[];
+  putawayRules: LocationPutawayRule[];
+};
 
 export interface LayoutSplitDivider {
   id: string;

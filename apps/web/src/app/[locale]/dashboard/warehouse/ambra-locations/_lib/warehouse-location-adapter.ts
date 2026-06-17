@@ -1,45 +1,54 @@
 import type { WarehouseLocation } from "@/lib/warehouse/location-tree";
 import type { CreateLocationInput, UpdateLocationInput } from "@/app/actions/warehouse/schemas";
 
-import { LOCATION_CATEGORIES } from "../_ambra/constants/locationCategories";
-import { LocationRole, type Branch, type LogicalLocation } from "../_ambra/types";
+import {
+  OPERATION_PROFILES,
+  PHYSICAL_LOCATION_KINDS,
+} from "../_ambra/constants/locationCategories";
+import {
+  LocationRole,
+  type Branch,
+  type LocationOperationProfile,
+  type LocationStockPolicy,
+  type LogicalLocation,
+  type PhysicalLocationKind,
+} from "../_ambra/types";
 
-const STORAGE_MODE_ROLE: Record<string, LocationRole> = {
+const STORAGE_MODE_PHYSICAL_KIND: Record<string, PhysicalLocationKind> = {
+  standard: "bin",
+  storage: "bin",
+  warehouse: "warehouse",
+  zone: "zone",
+  aisle: "aisle",
+  rack: "rack",
+  shelf: "shelf",
+  bin: "bin",
+  receiving: "bin",
+  shipping: "bin",
+  staging: "bin",
+  returns: "bin",
+  quarantine: "bin",
+  transit: "bin",
+  adjustment: "bin",
+  virtual: "zone",
+};
+
+const STORAGE_MODE_OPERATION_PROFILE: Record<string, LocationOperationProfile> = {
+  receiving: "receiving",
+  shipping: "shipping",
+  staging: "staging",
+  returns: "returns",
+  quarantine: "quarantine",
+  transit: "transit",
+};
+
+const PHYSICAL_KIND_ROLE: Record<PhysicalLocationKind, LocationRole> = {
   warehouse: LocationRole.WAREHOUSE,
   zone: LocationRole.ZONE,
   aisle: LocationRole.AISLE,
   rack: LocationRole.RACK,
   shelf: LocationRole.SHELF,
   bin: LocationRole.BIN,
-  receiving: LocationRole.RECEIVING,
-  shipping: LocationRole.SHIPPING,
-  staging: LocationRole.STAGING,
-  returns: LocationRole.RETURNS,
-  quarantine: LocationRole.QUARANTINE,
-  transit: LocationRole.TRANSIT,
-  adjustment: LocationRole.ADJUSTMENT,
-  virtual: LocationRole.VIRTUAL,
-  storage: LocationRole.STORAGE,
-  standard: LocationRole.STORAGE,
-};
-
-const ROLE_STORAGE_MODE: Record<LocationRole, string> = {
-  [LocationRole.WAREHOUSE]: "warehouse",
-  [LocationRole.ZONE]: "zone",
-  [LocationRole.AISLE]: "aisle",
-  [LocationRole.RACK]: "rack",
-  [LocationRole.SHELF]: "shelf",
-  [LocationRole.BIN]: "bin",
-  [LocationRole.STAGING]: "staging",
-  [LocationRole.RECEIVING]: "receiving",
-  [LocationRole.SHIPPING]: "shipping",
-  [LocationRole.RETURNS]: "returns",
-  [LocationRole.QUARANTINE]: "quarantine",
-  [LocationRole.TRANSIT]: "transit",
-  [LocationRole.ADJUSTMENT]: "adjustment",
-  [LocationRole.VIRTUAL]: "virtual",
-  [LocationRole.STORAGE]: "storage",
-  [LocationRole.OTHER]: "storage",
 };
 
 const TAILWIND_COLOR_TO_HEX: Record<string, string> = {
@@ -60,12 +69,26 @@ const TAILWIND_COLOR_TO_HEX: Record<string, string> = {
   "text-muted-foreground": "#94A3B8",
 };
 
-function resolveRole(location: WarehouseLocation) {
+function resolvePhysicalKind(location: WarehouseLocation): PhysicalLocationKind {
   const storageMode = location.storage_mode?.toLowerCase();
-  if (storageMode && STORAGE_MODE_ROLE[storageMode]) return STORAGE_MODE_ROLE[storageMode];
-  if (location.map_role === "layout_root") return LocationRole.WAREHOUSE;
-  if (location.parent_id === null) return LocationRole.WAREHOUSE;
-  return LocationRole.STORAGE;
+  if (storageMode && STORAGE_MODE_PHYSICAL_KIND[storageMode]) {
+    return STORAGE_MODE_PHYSICAL_KIND[storageMode];
+  }
+  if (location.map_role === "layout_root") return "warehouse";
+  if (location.parent_id === null) return "warehouse";
+  return location.can_store_inventory ? "bin" : "zone";
+}
+
+function resolveOperationProfile(location: WarehouseLocation): LocationOperationProfile {
+  const storageMode = location.storage_mode?.toLowerCase();
+  if (storageMode && STORAGE_MODE_OPERATION_PROFILE[storageMode]) {
+    return STORAGE_MODE_OPERATION_PROFILE[storageMode];
+  }
+  return "standard";
+}
+
+function resolveStockPolicy(location: WarehouseLocation): LocationStockPolicy {
+  return location.can_store_inventory ? "stockable" : "none";
 }
 
 function metersToCentimeters(value: number | null | undefined) {
@@ -123,9 +146,14 @@ export function warehouseLocationsToAmbra(locations: WarehouseLocation[]): Logic
   const byId = new Map(locations.map((location) => [location.id, location]));
 
   return locations.map((location) => {
-    const role = resolveRole(location);
-    const category = LOCATION_CATEGORIES[role] ?? LOCATION_CATEGORIES[LocationRole.STORAGE];
+    const physicalKind = resolvePhysicalKind(location);
+    const operationProfile = resolveOperationProfile(location);
+    const stockPolicy = resolveStockPolicy(location);
+    const role = PHYSICAL_KIND_ROLE[physicalKind];
+    const physicalDefinition = PHYSICAL_LOCATION_KINDS[physicalKind];
+    const operationDefinition = OPERATION_PROFILES[operationProfile];
     const path = buildPath(location, byId);
+    const canStoreInventory = stockPolicy === "stockable";
 
     return {
       id: location.id,
@@ -138,17 +166,20 @@ export function warehouseLocationsToAmbra(locations: WarehouseLocation[]): Logic
       pathName: path.map((item) => item.name).join(" / "),
       status: "active",
       role,
+      physicalKind,
+      stockPolicy,
+      operationProfile,
       capabilities: {
-        canStoreInventory: category.defaults.canStoreInventory ?? true,
-        canReceive: category.defaults.canReceive ?? true,
-        canPick: category.defaults.canPick ?? true,
-        canShip: category.defaults.canShip ?? false,
-        canReserve: category.defaults.canReserve ?? true,
-        isVirtual: category.defaults.isVirtual ?? false,
+        canStoreInventory,
+        canReceive: canStoreInventory,
+        canPick: canStoreInventory,
+        canShip: operationProfile === "shipping",
+        canReserve: canStoreInventory,
+        isVirtual: false,
         isTemporary: false,
       },
-      icon: location.icon_name ?? category.iconName,
-      color: category.color,
+      icon: location.icon_name ?? physicalDefinition.iconName,
+      color: operationProfile === "standard" ? physicalDefinition.color : operationDefinition.color,
       sortOrder: location.sort_order,
       physical: {
         qrCode: location.qr_code,
@@ -173,18 +204,23 @@ export function warehouseLocationsToAmbra(locations: WarehouseLocation[]): Logic
 }
 
 export function ambraLocationToCreateInput(location: LogicalLocation): CreateLocationInput {
-  const role = location.role ?? LocationRole.STORAGE;
-  const category = LOCATION_CATEGORIES[role] ?? LOCATION_CATEGORIES[LocationRole.STORAGE];
+  const physicalKind = location.physicalKind ?? "bin";
+  const stockPolicy =
+    location.stockPolicy ?? PHYSICAL_LOCATION_KINDS[physicalKind]?.defaultStockPolicy ?? "none";
+  const physicalDefinition = PHYSICAL_LOCATION_KINDS[physicalKind] ?? PHYSICAL_LOCATION_KINDS.bin;
+  const operationProfile = location.operationProfile ?? "standard";
 
   return {
     name: location.name.trim(),
     code: normalizeLocationCode(location.code),
     description: location.description?.trim() || null,
     parent_id: normalizeParentId(location.parentId),
-    icon_name: location.icon || category.iconName,
-    color: normalizeColor(location.color ?? category.color),
-    storage_mode: ROLE_STORAGE_MODE[role],
-    map_role: role === LocationRole.WAREHOUSE ? "layout_root" : "logical",
+    icon_name: location.icon || physicalDefinition.iconName,
+    color: normalizeColor(location.color ?? physicalDefinition.color),
+    storage_mode: physicalKind,
+    allow_top_storage: stockPolicy === "stockable",
+    can_store_inventory: stockPolicy === "stockable",
+    map_role: physicalKind === "warehouse" ? "layout_root" : "logical",
     physical_width_m: centimetersToMeters(location.physicalMetadata?.width),
     physical_height_m: centimetersToMeters(location.physicalMetadata?.height),
     physical_depth_m: centimetersToMeters(location.physicalMetadata?.depth),
@@ -195,8 +231,8 @@ export function ambraLocationToCreateInput(location: LogicalLocation): CreateLoc
 export function ambraLocationToUpdateInput(
   location: Partial<LogicalLocation> & { id: string }
 ): UpdateLocationInput & { id: string } {
-  const role = location.role;
-  const category = role ? LOCATION_CATEGORIES[role] : null;
+  const physicalKind = location.physicalKind;
+  const physicalDefinition = physicalKind ? PHYSICAL_LOCATION_KINDS[physicalKind] : null;
 
   return {
     id: location.id,
@@ -207,11 +243,17 @@ export function ambraLocationToUpdateInput(
       : {}),
     ...(location.parentId !== undefined ? { parent_id: normalizeParentId(location.parentId) } : {}),
     ...(location.icon !== undefined
-      ? { icon_name: location.icon || category?.iconName || null }
+      ? { icon_name: location.icon || physicalDefinition?.iconName || null }
       : {}),
     ...(location.color !== undefined ? { color: normalizeColor(location.color) } : {}),
-    ...(role ? { storage_mode: ROLE_STORAGE_MODE[role] } : {}),
-    ...(role ? { map_role: role === LocationRole.WAREHOUSE ? "layout_root" : "logical" } : {}),
+    ...(physicalKind ? { storage_mode: physicalKind } : {}),
+    ...(location.stockPolicy !== undefined
+      ? { allow_top_storage: location.stockPolicy === "stockable" }
+      : {}),
+    ...(location.stockPolicy !== undefined
+      ? { can_store_inventory: location.stockPolicy === "stockable" }
+      : {}),
+    ...(physicalKind ? { map_role: physicalKind === "warehouse" ? "layout_root" : "logical" } : {}),
     ...(location.physicalMetadata?.width !== undefined
       ? { physical_width_m: centimetersToMeters(location.physicalMetadata.width) }
       : {}),
