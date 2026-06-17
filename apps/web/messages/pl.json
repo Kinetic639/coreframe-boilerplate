@@ -2234,6 +2234,7 @@
           }
         },
         "locations": "Lokalizacje",
+        "ambraLocations": "Ambra lokalizacje",
         "audits": {
           "title": "Audyty",
           "overview": "Audyty magazynowe",
@@ -5886,6 +5887,296 @@
       "sampleVariantTag": "koszulki",
       "sampleVariantDescription": "Niebieska koszulka rozmiar M",
       "sampleSheetName": "Produkty"
+    }
+  },
+  "ambraLocations": {
+    "defaults": {
+      "newLocation": "Nowa lokalizacja"
+    },
+    "tree": {
+      "searchPlaceholder": "Szukaj węzłów...",
+      "mappedTitle": "Przypisano do {count} układów",
+      "stockTitle": "{count} pozycji na stanie",
+      "warningTitle": "{count} aktywnych ostrzeżeń",
+      "noLocations": "Brak lokalizacji",
+      "locked": "Zablokowane",
+      "editMode": "Tryb edycji"
+    },
+    "tabs": {
+      "information": "Informacje",
+      "inventory": "Zapasy",
+      "history": "Historia"
+    },
+    "actions": {
+      "addEntity": "Dodaj nową jednostkę",
+      "dragToMove": "Przeciągnij, aby przenieść",
+      "expandAll": "Rozwiń wszystko",
+      "collapseAll": "Zwiń wszystko",
+      "enableReordering": "Włącz zmianę kolejności",
+      "lockReordering": "Zablokuj zmianę kolejności",
+      "filterByType": "Filtruj po typie",
+      "smartLayout": "Inteligentny układ",
+      "standardView": "Widok standardowy",
+      "compactView": "Widok kompaktowy",
+      "analyzeMapping": "Analizuj mapowanie przestrzeni",
+      "exportData": "Eksportuj dane lokalizacji",
+      "copyPath": "Kopiuj ścieżkę",
+      "bentoView": "Widok siatki bento",
+      "streamlinedView": "Widok uproszczony",
+      "edit": "Edytuj",
+      "quickAddChild": "Szybko dodaj dziecko",
+      "duplicate": "Duplikuj",
+      "locateOnMap": "Znajdź na mapie",
+      "analyzeMappingHealth": "Analizuj stan mapowania",
+      "moveLocation": "Przenieś lokalizację",
+      "archive": "Archiwizuj",
+      "comfortable": "Wygodny",
+      "compact": "Kompaktowy",
+      "addChildLocation": "Dodaj lokalizację podrzędną",
+      "initialSeed": "Dodaj pierwszą",
+      "cancel": "Anuluj",
+      "close": "Zamknij",
+      "previous": "Wstecz",
+      "discard": "Odrzuć",
+      "continue": "Kontynuuj",
+      "updateEntity": "Aktualizuj jednostkę",
+      "finalizeCreation": "Utwórz"
+    },
+    "detail": {
+      "locationRole": "Rola lokalizacji",
+      "description": "Opis",
+      "noDescription": "Nie dodano opisu dla tej lokalizacji.",
+      "fullPathCode": "Pełny kod ścieżki",
+      "operationalBehavior": "Zachowanie operacyjne",
+      "functionalCapabilities": "Możliwości funkcjonalne",
+      "physicalMetadata": "Dane fizyczne",
+      "width": "Szerokość",
+      "height": "Wysokość",
+      "depth": "Głębokość",
+      "weightCapacity": "Udźwig",
+      "noPhysicalMetadata": "Nie zdefiniowano danych fizycznych.",
+      "childInventoryStructure": "Podrzędna struktura zapasów",
+      "entities": "Jednostki",
+      "stockCount": "{count} na stanie",
+      "structureEmpty": "Struktura pusta",
+      "noChildLocations": "Nie znaleziono podrzędnych lokalizacji dla tej jednostki.",
+      "mapped": "Zmapowane",
+      "unmapped": "Niezmapowane"
+    },
+    "capabilities": {
+      "storesInventory": "Przechowuje zapasy",
+      "allowsStock": "Pozwala na zapas",
+      "pickable": "Do kompletacji",
+      "receivable": "Do przyjęć",
+      "virtual": "Wirtualna",
+      "operationalOnly": "Tylko operacyjna (wirtualna)"
+    },
+    "inventory": {
+      "presence": "Obecność zapasów",
+      "activeStock": "Aktywny zapas",
+      "activeSkus": "Aktywne SKU",
+      "units": "Sztuki",
+      "unique": "Unikalne",
+      "viewDetailedLedger": "Pokaż szczegółowy rejestr",
+      "rules": "Reguły zapasów lokalizacji",
+      "defaultSku": "Domyślne SKU",
+      "noDefaultSku": "Nie przypisano domyślnego SKU.",
+      "allowedCategories": "Dozwolone kategorie",
+      "allCategories": "Wszystkie kategorie"
+    },
+    "history": {
+      "recentMovements": "Ostatnie ruchy",
+      "noActivity": "Brak zarejestrowanej aktywności"
+    },
+    "export": {
+      "title": "Eksport danych lokalizacji",
+      "schemaVersion": "Wersja schematu: {version}",
+      "summary": "Podsumowanie eksportu",
+      "totalNodes": "Wszystkie węzły",
+      "leafNodes": "Węzły końcowe",
+      "maxDepth": "Maks. głębokość",
+      "rootNodes": "Węzły główne",
+      "diagnostics": "Diagnostyka",
+      "duplicateCodes": "Duplikaty kodów",
+      "missingParents": "Brakujące nadrzędne",
+      "invalidCodes": "Nieprawidłowe kody",
+      "mappingEligibility": "Gotowość mapowania",
+      "visualEligible": "Do wizualizacji",
+      "storageReady": "Gotowe do składowania",
+      "workspaceRoots": "Rooty przestrzeni",
+      "noticeLabel": "Uwaga",
+      "notice": "Ten eksport przedstawia aktualną prawdę operacyjną systemu lokalizacji. Służy do audytu stanu struktury i synchronizacji z wizualizacjami przestrzeni.",
+      "liveJsonPayload": "Aktualny payload JSON",
+      "copied": "Skopiowano!",
+      "copyJson": "Kopiuj JSON",
+      "download": "Pobierz",
+      "readOnly": "Tylko odczyt. Żadne zmiany nie zostaną zapisane w bazie danych.",
+      "finishedInspection": "Zakończ inspekcję"
+    },
+    "preview": {
+      "title": "Interaktywny podgląd mapy",
+      "openEditor": "Otwórz edytor",
+      "searchPlaceholder": "Szukaj lokalizacji...",
+      "locationTree": "Drzewo lokalizacji",
+      "contextObjects": "Obiekty kontekstu podglądu",
+      "zoomIn": "Powiększ",
+      "zoomOut": "Pomniejsz",
+      "fitToView": "Dopasuj do widoku",
+      "enterFrontView": "Otwórz widok frontowy",
+      "mainFrontView": "Główny widok frontowy",
+      "backToMap": "Wróć do mapy",
+      "frontViewMinimap": "Minimapa widoku frontowego",
+      "topMapMinimap": "Minimapa z góry",
+      "resetView": "Resetuj widok",
+      "locationDetails": "Szczegóły lokalizacji",
+      "physicalPath": "Ścieżka fizyczna",
+      "currentView": "Aktualny widok",
+      "viewingTopMap": "Widok mapy z góry",
+      "viewingFrontView": "Widok frontowy",
+      "workspace": "Przestrzeń",
+      "mappedToPhysicalObject": "Przypisano do obiektu fizycznego",
+      "onTopDownView": "w widoku z góry.",
+      "mappedTo": "Przypisano do",
+      "inside": "wewnątrz",
+      "unmappedDescription": "Ta lokalizacja logiczna nie ma jeszcze fizycznej reprezentacji na mapie.",
+      "duplicateDescription": "Ostrzeżenie: ten kod lokalizacji jest przypisany do wielu węzłów fizycznych.",
+      "capabilities": "Możliwości",
+      "viewInventory": "Pokaż zapasy",
+      "selectLocation": "Wybierz lokalizację z eksploratora, aby zobaczyć szczegóły mapowania fizycznego."
+    },
+    "empty": {
+      "selectLocation": "Wybierz lokalizację, aby zobaczyć szczegóły"
+    },
+    "move": {
+      "title": "Przenieś lokalizację",
+      "subtitle": "Potwierdź reorganizację hierarchii",
+      "description": "Zamierzasz przenieść lokalizację. Zmienia to logiczną hierarchię, ale nie odmapowuje automatycznie przestrzeni ani fizycznie nie przenosi zapasów.",
+      "oldPath": "Stara ścieżka hierarchii",
+      "newPath": "Nowa ścieżka hierarchii",
+      "unknown": "Nieznane",
+      "confirm": "Potwierdź przeniesienie"
+    },
+    "modal": {
+      "root": "ROOT",
+      "editTitle": "Edytuj lokalizację",
+      "createTitle": "Utwórz lokalizację logiczną",
+      "pathPreview": "Podgląd ścieżki",
+      "noneRoot": "Brak (root systemu)",
+      "richCategories": "Kategorie",
+      "capabilitiesDerived": "Możliwości wynikają z",
+      "manualOverrides": "Można je nadpisać ręcznie",
+      "iconColorOverrides": "Nadpisanie ikony i koloru",
+      "physicalSpecification": "Specyfikacja fizyczna",
+      "operationalAssignments": "Przypisania operacyjne",
+      "advancedSkuComingSoon": "Wkrótce: zaawansowane dopasowanie SKU",
+      "steps": {
+        "identity": "Tożsamość",
+        "type": "Typ i możliwości",
+        "operational": "Logika operacyjna"
+      },
+      "fields": {
+        "code": "Kod lokalizacji",
+        "name": "Nazwa wyświetlana",
+        "parent": "Lokalizacja nadrzędna",
+        "description": "Opis",
+        "width": "Szerokość (mm)",
+        "height": "Wysokość (mm)",
+        "depth": "Głębokość (mm)",
+        "weightCapacity": "Udźwig (kg)",
+        "defaultSku": "Domyślne przypisanie SKU",
+        "allowedCategories": "Dozwolone kategorie"
+      },
+      "placeholders": {
+        "code": "np. WH-A-01",
+        "name": "np. Magazyn główny",
+        "description": "Opisz przeznaczenie operacyjne...",
+        "defaultSku": "np. SKU-1234-AX"
+      },
+      "sampleCategories": {
+        "perishables": "Łatwo psujące",
+        "hazmat": "Niebezpieczne",
+        "standard": "Standardowe"
+      },
+      "icons": {
+        "Archive": "Archiwum",
+        "Shield": "Tarcza",
+        "Tag": "Etykieta",
+        "Flag": "Flaga",
+        "Zap": "Impuls",
+        "Star": "Gwiazda",
+        "Heart": "Serce",
+        "MapPin": "Punkt mapy",
+        "Coffee": "Kawa",
+        "Briefcase": "Teczka",
+        "Key": "Klucz",
+        "Hammer": "Młotek"
+      }
+    },
+    "categories": {
+      "WAREHOUSE": {
+        "label": "Magazyn",
+        "description": "Główny obiekt"
+      },
+      "ZONE": {
+        "label": "Strefa",
+        "description": "Obszar lub strefa składowania"
+      },
+      "AISLE": {
+        "label": "Alejka",
+        "description": "Przejście magazynowe"
+      },
+      "RACK": {
+        "label": "Regał",
+        "description": "Pionowa struktura składowania"
+      },
+      "SHELF": {
+        "label": "Półka",
+        "description": "Poziom składowania"
+      },
+      "BIN": {
+        "label": "Pojemnik",
+        "description": "Konkretny pojemnik lub bin"
+      },
+      "STAGING": {
+        "label": "Staging",
+        "description": "Tymczasowa lokalizacja do cross-dockingu lub przygotowania"
+      },
+      "RECEIVING": {
+        "label": "Przyjęcia",
+        "description": "Strefa przyjęć"
+      },
+      "SHIPPING": {
+        "label": "Wysyłki",
+        "description": "Strefa wydań"
+      },
+      "RETURNS": {
+        "label": "Zwroty",
+        "description": "Obszar przetwarzania zwrotów"
+      },
+      "QUARANTINE": {
+        "label": "Kwarantanna",
+        "description": "Ograniczony obszar dla towarów niezgodnych"
+      },
+      "TRANSIT": {
+        "label": "Tranzyt",
+        "description": "Lokalizacja w ruchu lub transporcie"
+      },
+      "ADJUSTMENT": {
+        "label": "Korekta",
+        "description": "Punkt korekty lub regulacji zapasów"
+      },
+      "VIRTUAL": {
+        "label": "Wirtualna",
+        "description": "Logiczny punkt organizacyjny"
+      },
+      "STORAGE": {
+        "label": "Składowanie",
+        "description": "Standardowa lokalizacja składowania"
+      },
+      "OTHER": {
+        "label": "Inna",
+        "description": "Lokalizacja ogólnego przeznaczenia"
+      }
     }
   },
   "publicOrgProfile": {

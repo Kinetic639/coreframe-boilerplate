@@ -153,6 +153,17 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
         },
       },
       {
+        id: "warehouse.ambraLocations",
+        title: "Ambra Locations",
+        titleKey: "modules.warehouse.items.ambraLocations",
+        iconKey: "locations",
+        href: "/dashboard/warehouse/ambra-locations",
+        match: { startsWith: "/dashboard/warehouse/ambra-locations" },
+        visibility: {
+          requiresPermissions: [WAREHOUSE_LOCATIONS_READ],
+        },
+      },
+      {
         id: "warehouse.settings",
         title: "Settings",
         titleKey: "modules.warehouse.items.settings.title",

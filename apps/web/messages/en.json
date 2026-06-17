@@ -2279,6 +2279,7 @@
           }
         },
         "locations": "Locations",
+        "ambraLocations": "Ambra Locations",
         "audits": {
           "title": "Audits",
           "overview": "Warehouse Audits",
@@ -5912,6 +5913,296 @@
       "sampleVariantTag": "shirts",
       "sampleVariantDescription": "Blue medium shirt",
       "sampleSheetName": "Items"
+    }
+  },
+  "ambraLocations": {
+    "defaults": {
+      "newLocation": "New Location"
+    },
+    "tree": {
+      "searchPlaceholder": "Search nodes...",
+      "mappedTitle": "Mapped to {count} layout(s)",
+      "stockTitle": "{count} items in stock",
+      "warningTitle": "{count} active warnings",
+      "noLocations": "No locations",
+      "locked": "Locked",
+      "editMode": "Edit mode"
+    },
+    "tabs": {
+      "information": "Information",
+      "inventory": "Inventory",
+      "history": "History"
+    },
+    "actions": {
+      "addEntity": "Add new entity",
+      "dragToMove": "Drag to move",
+      "expandAll": "Expand all",
+      "collapseAll": "Collapse all",
+      "enableReordering": "Enable reordering",
+      "lockReordering": "Lock reordering",
+      "filterByType": "Filter by type",
+      "smartLayout": "Smart layout",
+      "standardView": "Standard view",
+      "compactView": "Compact view",
+      "analyzeMapping": "Analyze workspace mapping",
+      "exportData": "Export location data",
+      "copyPath": "Copy path",
+      "bentoView": "Bento grid view",
+      "streamlinedView": "Streamlined view",
+      "edit": "Edit",
+      "quickAddChild": "Quick add child",
+      "duplicate": "Duplicate",
+      "locateOnMap": "Locate on map",
+      "analyzeMappingHealth": "Analyze mapping health",
+      "moveLocation": "Move location",
+      "archive": "Archive",
+      "comfortable": "Comfortable",
+      "compact": "Compact",
+      "addChildLocation": "Add child location",
+      "initialSeed": "Initial seed",
+      "cancel": "Cancel",
+      "close": "Close",
+      "previous": "Previous",
+      "discard": "Discard",
+      "continue": "Continue steps",
+      "updateEntity": "Update entity",
+      "finalizeCreation": "Finalize creation"
+    },
+    "detail": {
+      "locationRole": "Location role",
+      "description": "Description",
+      "noDescription": "No description has been added for this location.",
+      "fullPathCode": "Full path code",
+      "operationalBehavior": "Operational behavior",
+      "functionalCapabilities": "Functional capabilities",
+      "physicalMetadata": "Physical metadata",
+      "width": "Width",
+      "height": "Height",
+      "depth": "Depth",
+      "weightCapacity": "Weight cap.",
+      "noPhysicalMetadata": "No physical metadata defined.",
+      "childInventoryStructure": "Child inventory structure",
+      "entities": "Entities",
+      "stockCount": "{count} stocks",
+      "structureEmpty": "Structure empty",
+      "noChildLocations": "No nested child locations found for this entity.",
+      "mapped": "Mapped",
+      "unmapped": "Unmapped"
+    },
+    "capabilities": {
+      "storesInventory": "Stores inventory",
+      "allowsStock": "Allows stock",
+      "pickable": "Pickable",
+      "receivable": "Receivable",
+      "virtual": "Virtual",
+      "operationalOnly": "Operational only (virtual)"
+    },
+    "inventory": {
+      "presence": "Inventory presence",
+      "activeStock": "Active stock",
+      "activeSkus": "Active SKUs",
+      "units": "Units",
+      "unique": "Unique",
+      "viewDetailedLedger": "View detailed ledger",
+      "rules": "Location inventory rules",
+      "defaultSku": "Default SKU",
+      "noDefaultSku": "No default SKU assigned.",
+      "allowedCategories": "Allowed categories",
+      "allCategories": "All categories"
+    },
+    "history": {
+      "recentMovements": "Recent movements",
+      "noActivity": "No activity recorded"
+    },
+    "export": {
+      "title": "Location data export",
+      "schemaVersion": "Schema version: {version}",
+      "summary": "Export summary",
+      "totalNodes": "Total nodes",
+      "leafNodes": "Leaf nodes",
+      "maxDepth": "Max depth",
+      "rootNodes": "Root nodes",
+      "diagnostics": "Diagnostics",
+      "duplicateCodes": "Duplicate codes",
+      "missingParents": "Missing parents",
+      "invalidCodes": "Invalid codes",
+      "mappingEligibility": "Mapping eligibility",
+      "visualEligible": "Visual eligible",
+      "storageReady": "Storage ready",
+      "workspaceRoots": "Workspace roots",
+      "noticeLabel": "Notice",
+      "notice": "This export represents the current operational truth of the Location system. It is used to audit structural health and sync with workspace visualizations.",
+      "liveJsonPayload": "Live JSON payload",
+      "copied": "Copied!",
+      "copyJson": "Copy JSON",
+      "download": "Download",
+      "readOnly": "Read-only. No modifications will be applied to the database.",
+      "finishedInspection": "Finished inspection"
+    },
+    "preview": {
+      "title": "Interactive map preview",
+      "openEditor": "Open editor",
+      "searchPlaceholder": "Search locations...",
+      "locationTree": "Location tree",
+      "contextObjects": "Preview context objects",
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out",
+      "fitToView": "Fit to view",
+      "enterFrontView": "Enter front view",
+      "mainFrontView": "Main front view",
+      "backToMap": "Back to map",
+      "frontViewMinimap": "Front view minimap",
+      "topMapMinimap": "Top map minimap",
+      "resetView": "Reset view",
+      "locationDetails": "Location details",
+      "physicalPath": "Physical path",
+      "currentView": "Current view",
+      "viewingTopMap": "Viewing top map",
+      "viewingFrontView": "Viewing front view",
+      "workspace": "Workspace",
+      "mappedToPhysicalObject": "Mapped to physical object",
+      "onTopDownView": "on top-down view.",
+      "mappedTo": "Mapped to",
+      "inside": "inside",
+      "unmappedDescription": "This logical location has no physical representation on the map yet.",
+      "duplicateDescription": "Warning: This location code is mapped to multiple physical nodes.",
+      "capabilities": "Capabilities",
+      "viewInventory": "View inventory",
+      "selectLocation": "Select a location from the explorer to view physical mapping details."
+    },
+    "empty": {
+      "selectLocation": "Select a location to view details"
+    },
+    "move": {
+      "title": "Move location",
+      "subtitle": "Confirm hierarchy reorganization",
+      "description": "You are about to move a location. This logically reorganizes the hierarchy but does not automatically un-map workspaces or physically move stock.",
+      "oldPath": "Old hierarchy path",
+      "newPath": "New hierarchy path",
+      "unknown": "Unknown",
+      "confirm": "Confirm move"
+    },
+    "modal": {
+      "root": "ROOT",
+      "editTitle": "Edit location",
+      "createTitle": "Create logical location",
+      "pathPreview": "Path preview",
+      "noneRoot": "None (system root)",
+      "richCategories": "Rich categories",
+      "capabilitiesDerived": "Capabilities derived from",
+      "manualOverrides": "Manual overrides allowed",
+      "iconColorOverrides": "Icon & color overrides",
+      "physicalSpecification": "Physical specification",
+      "operationalAssignments": "Operational assignments",
+      "advancedSkuComingSoon": "Coming soon: Advanced SKU matching",
+      "steps": {
+        "identity": "Identity",
+        "type": "Type & capability",
+        "operational": "Operational logic"
+      },
+      "fields": {
+        "code": "Location code",
+        "name": "Display name",
+        "parent": "Parent selection",
+        "description": "Description",
+        "width": "Width (mm)",
+        "height": "Height (mm)",
+        "depth": "Depth (mm)",
+        "weightCapacity": "Weight cap (kg)",
+        "defaultSku": "Default SKU assignment",
+        "allowedCategories": "Allowed categories"
+      },
+      "placeholders": {
+        "code": "e.g. WH-A-01",
+        "name": "e.g. Main Warehouse",
+        "description": "Define the operational purpose...",
+        "defaultSku": "e.g. SKU-1234-AX"
+      },
+      "sampleCategories": {
+        "perishables": "Perishables",
+        "hazmat": "Hazmat",
+        "standard": "Standard"
+      },
+      "icons": {
+        "Archive": "Archive",
+        "Shield": "Shield",
+        "Tag": "Tag",
+        "Flag": "Flag",
+        "Zap": "Zap",
+        "Star": "Star",
+        "Heart": "Heart",
+        "MapPin": "Map pin",
+        "Coffee": "Coffee",
+        "Briefcase": "Briefcase",
+        "Key": "Key",
+        "Hammer": "Hammer"
+      }
+    },
+    "categories": {
+      "WAREHOUSE": {
+        "label": "Warehouse",
+        "description": "Primary facility root"
+      },
+      "ZONE": {
+        "label": "Zone",
+        "description": "Storage area or zone"
+      },
+      "AISLE": {
+        "label": "Aisle",
+        "description": "Warehouse passageway"
+      },
+      "RACK": {
+        "label": "Rack",
+        "description": "Vertical storage structure"
+      },
+      "SHELF": {
+        "label": "Shelf",
+        "description": "Horizontal storage level"
+      },
+      "BIN": {
+        "label": "Bin",
+        "description": "Specific storage container or bin"
+      },
+      "STAGING": {
+        "label": "Staging",
+        "description": "Temporary location for cross-docking or prep"
+      },
+      "RECEIVING": {
+        "label": "Receiving",
+        "description": "Inbound staging area"
+      },
+      "SHIPPING": {
+        "label": "Shipping",
+        "description": "Outbound staging area"
+      },
+      "RETURNS": {
+        "label": "Returns",
+        "description": "Area for returned goods processing"
+      },
+      "QUARANTINE": {
+        "label": "Quarantine",
+        "description": "Restricted area for non-conforming goods"
+      },
+      "TRANSIT": {
+        "label": "Transit",
+        "description": "In-motion or transport location"
+      },
+      "ADJUSTMENT": {
+        "label": "Adjustment",
+        "description": "Correction or inventory adjustment point"
+      },
+      "VIRTUAL": {
+        "label": "Virtual",
+        "description": "Logical organizational point"
+      },
+      "STORAGE": {
+        "label": "Storage",
+        "description": "Standard stock storage location"
+      },
+      "OTHER": {
+        "label": "Other",
+        "description": "General purpose location"
+      }
     }
   },
   "publicOrgProfile": {
