@@ -1,0 +1,95 @@
+"use client";
+
+import type { ComponentType } from "react";
+import {
+  AlertCircle,
+  Archive,
+  Box,
+  Briefcase,
+  Car,
+  CheckSquare,
+  Circle,
+  Clock,
+  Coffee,
+  Copy,
+  Database,
+  ExternalLink,
+  Fingerprint,
+  Flag,
+  Hammer,
+  Heart,
+  Inbox,
+  Key,
+  Layers,
+  Layout as LayoutIcon,
+  MapPin,
+  Maximize2,
+  Move,
+  Package,
+  RotateCcw,
+  Search as SearchIcon,
+  Server,
+  Shield,
+  ShieldAlert,
+  ShieldCheck,
+  Star,
+  Tag,
+  Trash2,
+  Triangle,
+  Truck,
+  Zap,
+  Construction,
+} from "lucide-react";
+
+const ALL_ICONS: Record<string, ComponentType<{ className?: string; color?: string }>> = {
+  Database,
+  Layers,
+  MapPin,
+  Box,
+  Inbox,
+  Truck,
+  RotateCcw,
+  ShieldAlert,
+  CheckSquare,
+  Server,
+  Construction,
+  Briefcase,
+  Layout: LayoutIcon,
+  Car,
+  Flag,
+  ArrowRightLeft: Move,
+  Archive,
+  Shield,
+  Tag,
+  Zap,
+  Star,
+  Heart,
+  Coffee,
+  Key,
+  Hammer,
+  Maximize2,
+  AlertCircle,
+  Clock,
+  ExternalLink,
+  Copy,
+  Trash2,
+  Search: SearchIcon,
+  Fingerprint,
+  ShieldCheck,
+  Triangle,
+  Package,
+  Circle,
+};
+
+export function IconRenderer({
+  name,
+  className,
+  color,
+}: {
+  name: string;
+  className?: string;
+  color?: string;
+}) {
+  const IconComponent = ALL_ICONS[name] || Box;
+  return <IconComponent className={className} color={color} />;
+}

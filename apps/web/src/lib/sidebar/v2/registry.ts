@@ -153,6 +153,17 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
         },
       },
       {
+        id: "warehouse.ambraLocations",
+        title: "Ambra Locations",
+        titleKey: "modules.warehouse.items.ambraLocations",
+        iconKey: "locations",
+        href: "/dashboard/warehouse/ambra-locations",
+        match: { startsWith: "/dashboard/warehouse/ambra-locations" },
+        visibility: {
+          requiresPermissions: [WAREHOUSE_LOCATIONS_READ],
+        },
+      },
+      {
         id: "warehouse.settings",
         title: "Settings",
         titleKey: "modules.warehouse.items.settings.title",
@@ -323,7 +334,7 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
     group: "planning",
     title: "Planning",
     titleKey: "modules.planning.titleSidebar",
-    iconKey: "checkSquare",
+    iconKey: "listTodo",
     visibility: {
       requiresModules: [MODULE_PLANNING],
       requiresPermissions: [MODULE_PLANNING_ACCESS],
@@ -333,7 +344,7 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
         id: "planning.overview",
         title: "Overview",
         titleKey: "modules.planning.items.overview",
-        iconKey: "layoutGrid",
+        iconKey: "calendar",
         href: "/dashboard/planning",
         match: { exact: "/dashboard/planning" },
         visibility: {
@@ -355,7 +366,7 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
         id: "planning.boards",
         title: "Boards",
         titleKey: "modules.planning.items.boards",
-        iconKey: "layoutGrid",
+        iconKey: "kanban",
         href: "/dashboard/planning/boards",
         match: { exact: "/dashboard/planning/boards" },
         visibility: {

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   addMonths,
   subMonths,
@@ -11,6 +11,13 @@ import {
   addYears,
   subYears,
   startOfDay,
+  endOfDay,
+  startOfMonth,
+  endOfMonth,
+  startOfWeek,
+  endOfWeek,
+  startOfYear,
+  endOfYear,
   isSameDay,
 } from "date-fns";
 import {
@@ -21,12 +28,7 @@ import {
   SchedulerSettings,
   CalendarSource,
 } from "./scheduler-types";
-import {
-  INITIAL_SETTINGS,
-  INITIAL_EVENTS,
-  INITIAL_BACKGROUND_EVENTS,
-  INITIAL_UNSCHEDULED_TASKS,
-} from "./scheduler-demo-data";
+import { INITIAL_SETTINGS } from "./scheduler-demo-data";
 
 // Components
 import { SchedulerToolbar } from "./scheduler-toolbar";
@@ -41,11 +43,71 @@ import { SchedulerEventDialog } from "./scheduler-event-dialog";
 import { SchedulerEventPopover } from "./scheduler-event-popover";
 import {
   convertTaskToEvent,
+  eventIntersectsDay,
   moveEventToDate,
   getLocalizedEvent,
   getWeekDays,
 } from "./scheduler-utils";
 import { Menu, X, CalendarRange } from "lucide-react";
+
+function areCalendarEventsEqual(current: CalendarEvent[], next: CalendarEvent[]) {
+  if (current === next) return true;
+  if (current.length !== next.length) return false;
+
+  return current.every((event, index) => {
+    const nextEvent = next[index];
+    return (
+      nextEvent &&
+      event.id === nextEvent.id &&
+      event.title === nextEvent.title &&
+      event.start.getTime() === nextEvent.start.getTime() &&
+      event.end.getTime() === nextEvent.end.getTime() &&
+      event.allDay === nextEvent.allDay &&
+      event.color === nextEvent.color &&
+      event.calendarSourceId === nextEvent.calendarSourceId &&
+      event.sourceModule === nextEvent.sourceModule &&
+      event.sourceType === nextEvent.sourceType &&
+      event.sourceId === nextEvent.sourceId &&
+      event.dueDate === nextEvent.dueDate &&
+      event.displayMode === nextEvent.displayMode &&
+      JSON.stringify(event.metadata ?? {}) === JSON.stringify(nextEvent.metadata ?? {})
+    );
+  });
+}
+
+function areBackgroundEventsEqual(current: BackgroundEvent[], next: BackgroundEvent[]) {
+  if (current === next) return true;
+  if (current.length !== next.length) return false;
+
+  return current.every((event, index) => {
+    const nextEvent = next[index];
+    return (
+      nextEvent &&
+      event.id === nextEvent.id &&
+      event.title === nextEvent.title &&
+      event.start.getTime() === nextEvent.start.getTime() &&
+      event.end.getTime() === nextEvent.end.getTime()
+    );
+  });
+}
+
+function areUnscheduledTasksEqual(current: UnscheduledTask[], next: UnscheduledTask[]) {
+  if (current === next) return true;
+  if (current.length !== next.length) return false;
+
+  return current.every((task, index) => {
+    const nextTask = next[index];
+    return (
+      nextTask &&
+      task.id === nextTask.id &&
+      task.title === nextTask.title &&
+      task.category === nextTask.category &&
+      task.calendarSourceId === nextTask.calendarSourceId &&
+      task.description === nextTask.description &&
+      task.color === nextTask.color
+    );
+  });
+}
 
 export interface SchedulerWorkspaceProps {
   mode: "calendar" | "planner";
@@ -53,15 +115,29 @@ export interface SchedulerWorkspaceProps {
   initialView?: Exclude<CalendarView, "timeline">;
   initialSettings?: Partial<SchedulerSettings>;
   initialEvents?: CalendarEvent[];
+  events?: CalendarEvent[];
   initialBackgroundEvents?: BackgroundEvent[];
+  backgroundEvents?: BackgroundEvent[];
   initialUnscheduledTasks?: UnscheduledTask[];
+  unscheduledTasks?: UnscheduledTask[];
+  hasMoreUnscheduled?: boolean;
+  unscheduledSearch?: string;
+  onUnscheduledSearchChange?: (value: string) => void;
+  onLoadMoreUnscheduled?: () => void;
+  isLoadingMoreUnscheduled?: boolean;
   title?: string;
   calendarSources?: CalendarSource[];
   onSelectRealEvent?: (event: CalendarEvent) => void;
-  onCreateAt?: (date: Date) => void;
+  onCreateAt?: (date: Date, endDate?: Date, allDay?: boolean) => void;
   onMoveRealEvent?: (event: CalendarEvent, newDate: Date) => void;
   onScheduleRealTask?: (task: UnscheduledTask, date: Date) => void;
   onSettingsChange?: (settings: SchedulerSettings) => void;
+  onCalendarSourceSettingsChange?: (
+    sourceId: string,
+    settings: { color?: string | null; visible?: boolean | null; position?: number | null }
+  ) => void;
+  onCreateCalendar?: (name: string) => void;
+  onVisibleRangeChange?: (range: { start: Date; end: Date; view: CalendarView }) => void;
 }
 
 export const SchedulerWorkspace: React.FC<SchedulerWorkspaceProps> = ({
@@ -69,9 +145,17 @@ export const SchedulerWorkspace: React.FC<SchedulerWorkspaceProps> = ({
   initialDate,
   initialView = "month",
   initialSettings,
-  initialEvents = INITIAL_EVENTS,
-  initialBackgroundEvents = INITIAL_BACKGROUND_EVENTS,
-  initialUnscheduledTasks = INITIAL_UNSCHEDULED_TASKS,
+  initialEvents = [],
+  events: controlledEvents,
+  initialBackgroundEvents = [],
+  backgroundEvents: controlledBackgroundEvents,
+  initialUnscheduledTasks = [],
+  unscheduledTasks: controlledUnscheduledTasks,
+  hasMoreUnscheduled = false,
+  unscheduledSearch = "",
+  onUnscheduledSearchChange,
+  onLoadMoreUnscheduled,
+  isLoadingMoreUnscheduled = false,
   title = "Scheduler",
   calendarSources,
   onSelectRealEvent,
@@ -79,6 +163,9 @@ export const SchedulerWorkspace: React.FC<SchedulerWorkspaceProps> = ({
   onMoveRealEvent,
   onScheduleRealTask,
   onSettingsChange,
+  onCalendarSourceSettingsChange,
+  onCreateCalendar,
+  onVisibleRangeChange,
 }) => {
   const today = useMemo(() => startOfDay(new Date()), []);
   const mergedInitialSettings = useMemo<SchedulerSettings>(
@@ -95,11 +182,38 @@ export const SchedulerWorkspace: React.FC<SchedulerWorkspaceProps> = ({
 
   // Datastore States
   const [settings, setSettings] = useState<SchedulerSettings>(mergedInitialSettings);
-  const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
-  const [backgroundEvents, setBackgroundEvents] =
+  const [internalEvents, setInternalEvents] = useState<CalendarEvent[]>(initialEvents);
+  const [internalBackgroundEvents, setInternalBackgroundEvents] =
     useState<BackgroundEvent[]>(initialBackgroundEvents);
-  const [unscheduledTasks, setUnscheduledTasks] =
+  const [internalUnscheduledTasks, setInternalUnscheduledTasks] =
     useState<UnscheduledTask[]>(initialUnscheduledTasks);
+  const isEventsControlled = controlledEvents !== undefined;
+  const isBackgroundEventsControlled = controlledBackgroundEvents !== undefined;
+  const isUnscheduledTasksControlled = controlledUnscheduledTasks !== undefined;
+  const events = controlledEvents ?? internalEvents;
+  const backgroundEvents = controlledBackgroundEvents ?? internalBackgroundEvents;
+  const unscheduledTasks = controlledUnscheduledTasks ?? internalUnscheduledTasks;
+
+  useEffect(() => {
+    if (isEventsControlled) return;
+    setInternalEvents((current) =>
+      areCalendarEventsEqual(current, initialEvents) ? current : initialEvents
+    );
+  }, [initialEvents, isEventsControlled]);
+
+  useEffect(() => {
+    if (isBackgroundEventsControlled) return;
+    setInternalBackgroundEvents((current) =>
+      areBackgroundEventsEqual(current, initialBackgroundEvents) ? current : initialBackgroundEvents
+    );
+  }, [initialBackgroundEvents, isBackgroundEventsControlled]);
+
+  useEffect(() => {
+    if (isUnscheduledTasksControlled) return;
+    setInternalUnscheduledTasks((current) =>
+      areUnscheduledTasksEqual(current, initialUnscheduledTasks) ? current : initialUnscheduledTasks
+    );
+  }, [initialUnscheduledTasks, isUnscheduledTasksControlled]);
 
   // Drag-and-drop live preview tracker state
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
@@ -115,6 +229,49 @@ export const SchedulerWorkspace: React.FC<SchedulerWorkspaceProps> = ({
 
   // Desktop sidebar collapse control
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+  useEffect(() => {
+    if (!onVisibleRangeChange) return;
+
+    switch (activeView) {
+      case "year":
+        onVisibleRangeChange({
+          start: startOfYear(currentDate),
+          end: endOfYear(currentDate),
+          view: activeView,
+        });
+        break;
+      case "month":
+        onVisibleRangeChange({
+          start: startOfWeek(startOfMonth(currentDate), { weekStartsOn: 1 }),
+          end: endOfWeek(endOfMonth(currentDate), { weekStartsOn: 1 }),
+          view: activeView,
+        });
+        break;
+      case "week":
+        onVisibleRangeChange({
+          start: startOfWeek(currentDate, { weekStartsOn: 1 }),
+          end: endOfWeek(currentDate, { weekStartsOn: 1 }),
+          view: activeView,
+        });
+        break;
+      case "day":
+      case "timeline":
+        onVisibleRangeChange({
+          start: startOfDay(currentDate),
+          end: endOfDay(currentDate),
+          view: activeView,
+        });
+        break;
+      case "list":
+        onVisibleRangeChange({
+          start: startOfMonth(currentDate),
+          end: endOfMonth(currentDate),
+          view: activeView,
+        });
+        break;
+    }
+  }, [activeView, currentDate, onVisibleRangeChange]);
 
   // Navigate dates step-wise corresponding to active range constraints
   const handleNavigate = (direction: "prev" | "next" | "today") => {
@@ -155,6 +312,8 @@ export const SchedulerWorkspace: React.FC<SchedulerWorkspaceProps> = ({
     )
     .map((ev) => getLocalizedEvent(ev, settings.locale));
 
+  const localizedEvents = events.map((ev) => getLocalizedEvent(ev, settings.locale));
+
   const localizedBackgroundEvents = backgroundEvents.map((bg) =>
     getLocalizedEvent(bg, settings.locale)
   );
@@ -164,14 +323,12 @@ export const SchedulerWorkspace: React.FC<SchedulerWorkspaceProps> = ({
   );
 
   const handleUpdateSettings = (newSettings: Partial<SchedulerSettings>) => {
-    setSettings((prev) => {
-      const updated = { ...prev, ...newSettings };
-      if (newSettings.locale && newSettings.locale !== prev.locale) {
-        updated.timeFormat = newSettings.locale === "en" ? "12h" : "24h";
-      }
-      onSettingsChange?.(updated);
-      return updated;
-    });
+    const updated = { ...settings, ...newSettings };
+    if (newSettings.locale && newSettings.locale !== settings.locale) {
+      updated.timeFormat = newSettings.locale === "en" ? "12h" : "24h";
+    }
+    setSettings(updated);
+    onSettingsChange?.(updated);
   };
 
   // Trigger creating modal prefilled on visual click cell slot
@@ -182,7 +339,7 @@ export const SchedulerWorkspace: React.FC<SchedulerWorkspaceProps> = ({
     endDate?: Date
   ) => {
     if (onCreateAt) {
-      onCreateAt(date);
+      onCreateAt(date, endDate, !keepExactTime);
       return;
     }
 
@@ -201,16 +358,6 @@ export const SchedulerWorkspace: React.FC<SchedulerWorkspaceProps> = ({
       isDraggable: true,
       isResizable: true,
     });
-    setIsDialogModelOpen(true);
-  };
-
-  const handleCreateNewClick = () => {
-    if (onCreateAt) {
-      onCreateAt(currentDate);
-      return;
-    }
-
-    setDialogPrefillEvent(null);
     setIsDialogModelOpen(true);
   };
 
@@ -241,17 +388,23 @@ export const SchedulerWorkspace: React.FC<SchedulerWorkspaceProps> = ({
       };
 
       // Remove from normal events
-      setEvents((prev) => prev.filter((e) => e.id !== savedEvent.id && e.id !== bgEvent.id));
+      if (!isEventsControlled) {
+        setInternalEvents((prev) =>
+          prev.filter((e) => e.id !== savedEvent.id && e.id !== bgEvent.id)
+        );
+      }
 
       // Save to backgroundEvents
-      setBackgroundEvents((prev) => {
-        const exists = prev.some((e) => e.id === bgEvent.id);
-        if (exists) {
-          return prev.map((e) => (e.id === bgEvent.id ? bgEvent : e));
-        } else {
-          return [...prev, bgEvent];
-        }
-      });
+      if (!isBackgroundEventsControlled) {
+        setInternalBackgroundEvents((prev) => {
+          const exists = prev.some((e) => e.id === bgEvent.id);
+          if (exists) {
+            return prev.map((e) => (e.id === bgEvent.id ? bgEvent : e));
+          } else {
+            return [...prev, bgEvent];
+          }
+        });
+      }
     } else {
       const cleanId = savedEvent.id;
       const bgId = cleanId.startsWith("ev-")
@@ -266,18 +419,22 @@ export const SchedulerWorkspace: React.FC<SchedulerWorkspaceProps> = ({
       };
 
       // Remove from backgroundEvents if it was previously one
-      setBackgroundEvents((prev) =>
-        prev.filter((e) => e.id !== cleanEvent.id && e.id !== cleanId && e.id !== bgId)
-      );
+      if (!isBackgroundEventsControlled) {
+        setInternalBackgroundEvents((prev) =>
+          prev.filter((e) => e.id !== cleanEvent.id && e.id !== cleanId && e.id !== bgId)
+        );
+      }
 
-      setEvents((prev) => {
-        const exists = prev.some((e) => e.id === cleanEvent.id);
-        if (exists) {
-          return prev.map((e) => (e.id === cleanEvent.id ? cleanEvent : e));
-        } else {
-          return [...prev, cleanEvent];
-        }
-      });
+      if (!isEventsControlled) {
+        setInternalEvents((prev) => {
+          const exists = prev.some((e) => e.id === cleanEvent.id);
+          if (exists) {
+            return prev.map((e) => (e.id === cleanEvent.id ? cleanEvent : e));
+          } else {
+            return [...prev, cleanEvent];
+          }
+        });
+      }
     }
     setIsDialogModelOpen(false);
     setDialogPrefillEvent(null);
@@ -291,8 +448,12 @@ export const SchedulerWorkspace: React.FC<SchedulerWorkspaceProps> = ({
       : eventId.startsWith("bg-")
         ? `ev-${eventId.slice(3)}`
         : eventId;
-    setEvents((prev) => prev.filter((e) => e.id !== eventId && e.id !== altId));
-    setBackgroundEvents((prev) => prev.filter((e) => e.id !== eventId && e.id !== altId));
+    if (!isEventsControlled) {
+      setInternalEvents((prev) => prev.filter((e) => e.id !== eventId && e.id !== altId));
+    }
+    if (!isBackgroundEventsControlled) {
+      setInternalBackgroundEvents((prev) => prev.filter((e) => e.id !== eventId && e.id !== altId));
+    }
     setSelectedEvent(null);
   };
 
@@ -300,18 +461,20 @@ export const SchedulerWorkspace: React.FC<SchedulerWorkspaceProps> = ({
   const handleMoveEvent = (eventId: string, newStartDate: Date, newResourceId?: string) => {
     const sourceEvent = events.find((ev) => ev.id === eventId);
 
-    setEvents((prev) =>
-      prev.map((ev) => {
-        if (ev.id === eventId) {
-          const moved = moveEventToDate(ev, newStartDate);
-          if (newResourceId !== undefined) {
-            moved.resourceId = newResourceId;
+    if (!isEventsControlled) {
+      setInternalEvents((prev) =>
+        prev.map((ev) => {
+          if (ev.id === eventId) {
+            const moved = moveEventToDate(ev, newStartDate);
+            if (newResourceId !== undefined) {
+              moved.resourceId = newResourceId;
+            }
+            return moved;
           }
-          return moved;
-        }
-        return ev;
-      })
-    );
+          return ev;
+        })
+      );
+    }
 
     if (sourceEvent?.sourceModule && onMoveRealEvent) {
       onMoveRealEvent(sourceEvent, newStartDate);
@@ -320,18 +483,20 @@ export const SchedulerWorkspace: React.FC<SchedulerWorkspaceProps> = ({
 
   // Resizing event card boundaries handler
   const handleResizeEvent = (eventId: string, newEndDateTime: Date, newStartDateTime?: Date) => {
-    setEvents((prev) =>
-      prev.map((ev) => {
-        if (ev.id === eventId) {
-          return {
-            ...ev,
-            end: newEndDateTime,
-            start: newStartDateTime !== undefined ? newStartDateTime : ev.start,
-          };
-        }
-        return ev;
-      })
-    );
+    if (!isEventsControlled) {
+      setInternalEvents((prev) =>
+        prev.map((ev) => {
+          if (ev.id === eventId) {
+            return {
+              ...ev,
+              end: newEndDateTime,
+              start: newStartDateTime !== undefined ? newStartDateTime : ev.start,
+            };
+          }
+          return ev;
+        })
+      );
+    }
   };
 
   // Drag tasks into active columns handler
@@ -343,8 +508,12 @@ export const SchedulerWorkspace: React.FC<SchedulerWorkspaceProps> = ({
     if (resourceId) {
       newEvent.resourceId = resourceId;
     }
-    setEvents((prev) => [...prev, newEvent]);
-    setUnscheduledTasks((prev) => prev.filter((t) => t.id !== taskId));
+    if (!isEventsControlled) {
+      setInternalEvents((prev) => [...prev, newEvent]);
+    }
+    if (!isUnscheduledTasksControlled) {
+      setInternalUnscheduledTasks((prev) => prev.filter((t) => t.id !== taskId));
+    }
 
     if (task.calendarSourceId && onScheduleRealTask) {
       onScheduleRealTask(task, targetDate);
@@ -357,7 +526,7 @@ export const SchedulerWorkspace: React.FC<SchedulerWorkspaceProps> = ({
   if (settings.autoTimeScale) {
     if (activeView === "day" || activeView === "timeline") {
       const dayEvents = activeEvents.filter(
-        (ev) => !ev.allDay && isSameDay(new Date(ev.start), currentDate)
+        (ev) => !ev.allDay && eventIntersectsDay(ev, currentDate)
       );
       if (dayEvents.length > 0) {
         const minStart = Math.min(...dayEvents.map((ev) => new Date(ev.start).getHours()));
@@ -373,7 +542,7 @@ export const SchedulerWorkspace: React.FC<SchedulerWorkspaceProps> = ({
     } else if (activeView === "week") {
       const weekDays = getWeekDays(currentDate, settings.showWeekends);
       const weekEvents = activeEvents.filter(
-        (ev) => !ev.allDay && weekDays.some((d) => isSameDay(new Date(ev.start), d))
+        (ev) => !ev.allDay && weekDays.some((d) => eventIntersectsDay(ev, d))
       );
       if (weekEvents.length > 0) {
         const minStart = Math.min(...weekEvents.map((ev) => new Date(ev.start).getHours()));
@@ -431,7 +600,14 @@ export const SchedulerWorkspace: React.FC<SchedulerWorkspaceProps> = ({
             currentDate={currentDate}
             onNavigateDate={setCurrentDate}
             calendarSources={calendarSources}
-            events={activeEvents}
+            events={localizedEvents}
+            hasMoreUnscheduled={hasMoreUnscheduled}
+            unscheduledSearch={unscheduledSearch}
+            onUnscheduledSearchChange={onUnscheduledSearchChange}
+            onLoadMoreUnscheduled={onLoadMoreUnscheduled}
+            isLoadingMoreUnscheduled={isLoadingMoreUnscheduled}
+            onCalendarSourceSettingsChange={onCalendarSourceSettingsChange}
+            onCreateCalendar={onCreateCalendar}
           />
         </div>
       </div>
@@ -442,6 +618,7 @@ export const SchedulerWorkspace: React.FC<SchedulerWorkspaceProps> = ({
         <SchedulerToolbar
           currentDate={currentDate}
           view={activeView}
+          settings={settings}
           locale={settings.locale}
           timezone={settings.timezone}
           mode={mode}
@@ -459,7 +636,6 @@ export const SchedulerWorkspace: React.FC<SchedulerWorkspaceProps> = ({
               setCalendarView(v as Exclude<CalendarView, "timeline">);
             }
           }}
-          onCreateEventClick={handleCreateNewClick}
         />
 
         {/* Dynamic active calendar views mapping */}

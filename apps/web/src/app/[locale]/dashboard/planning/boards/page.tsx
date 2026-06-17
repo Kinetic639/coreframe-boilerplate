@@ -34,7 +34,12 @@ export default async function PlanningBoardsPage({ searchParams }: PlanningBoard
   }
 
   const supabase = await createClient();
-  const boardsResult = await KanbanBoardsService.listBoards(supabase, context.app.activeOrgId);
+  const userId = context.user.user?.id ?? "";
+  const boardsResult = await KanbanBoardsService.listBoards(
+    supabase,
+    context.app.activeOrgId,
+    userId
+  );
   const boards = boardsResult.success ? boardsResult.data : [];
   const requestedBoardId = resolvedSearchParams?.board;
   const initialBoardId =
@@ -42,7 +47,7 @@ export default async function PlanningBoardsPage({ searchParams }: PlanningBoard
       ? requestedBoardId
       : boards[0]?.id;
   const firstBoardResult = initialBoardId
-    ? await KanbanBoardsService.getBoard(supabase, context.app.activeOrgId, initialBoardId)
+    ? await KanbanBoardsService.getBoard(supabase, context.app.activeOrgId, initialBoardId, userId)
     : null;
   const firstBoard = firstBoardResult?.success ? firstBoardResult.data : null;
   const snap = context.user.permissionSnapshot;

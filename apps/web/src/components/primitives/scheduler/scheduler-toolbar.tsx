@@ -1,11 +1,12 @@
 "use client";
 
-import React from "react";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import React, { useState } from "react";
+import { ChevronLeft, ChevronRight, Settings } from "lucide-react";
 import {
   CalendarView,
   SchedulerLocale,
   SchedulerTimezone,
+  SchedulerTheme,
   SchedulerSettings,
 } from "./scheduler-types";
 import { formatDateRangeTitle, LABELS_MAP } from "./scheduler-utils";
@@ -13,6 +14,7 @@ import { formatDateRangeTitle, LABELS_MAP } from "./scheduler-utils";
 interface SchedulerToolbarProps {
   currentDate: Date;
   view: CalendarView;
+  settings: SchedulerSettings;
   locale: SchedulerLocale;
   timezone: SchedulerTimezone;
   mode: "calendar" | "planner";
@@ -26,12 +28,12 @@ interface SchedulerToolbarProps {
   onUpdateSettings: (settings: Partial<SchedulerSettings>) => void;
   onNavigate: (direction: "prev" | "next" | "today") => void;
   onViewChange: (view: CalendarView) => void;
-  onCreateEventClick: () => void;
 }
 
 export const SchedulerToolbar: React.FC<SchedulerToolbarProps> = ({
   currentDate,
   view,
+  settings,
   locale,
   timezone,
   mode,
@@ -45,7 +47,6 @@ export const SchedulerToolbar: React.FC<SchedulerToolbarProps> = ({
   onUpdateSettings,
   onNavigate,
   onViewChange,
-  onCreateEventClick,
 }) => {
   const label = LABELS_MAP[locale];
 
@@ -53,6 +54,20 @@ export const SchedulerToolbar: React.FC<SchedulerToolbarProps> = ({
   const title = formatDateRangeTitle(currentDate, view, locale, timezone);
 
   const displayCalendarViews: CalendarView[] = ["year", "month", "week", "day", "list"];
+
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  const handleThemeChange = (theme: SchedulerTheme) => {
+    onUpdateSettings({ theme });
+  };
+
+  const handleLocaleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    onUpdateSettings({ locale: e.target.value as SchedulerLocale });
+  };
+
+  const handleTimezoneChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    onUpdateSettings({ timezone: e.target.value as SchedulerTimezone });
+  };
 
   return (
     <header className="bg-card border-border flex shrink-0 flex-col border-b transition-colors duration-200">
@@ -143,16 +158,121 @@ export const SchedulerToolbar: React.FC<SchedulerToolbarProps> = ({
             </div>
           )}
 
-          {/* Create Event CTA */}
-          <button
-            onClick={onCreateEventClick}
-            className="bg-primary text-primary-foreground hover:bg-primary/90 flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-3 py-2 text-xs font-semibold shadow-xs transition-all sm:px-4"
-            id="btn-create-event-top"
-          >
-            <Plus size={15} />
-            <span className="hidden sm:inline">{label.createEvent}</span>
-            <span className="sm:hidden">New</span>
-          </button>
+          {/* Settings dropdown */}
+          <div className="relative shrink-0">
+            <button
+              onClick={() => setIsSettingsOpen((prev) => !prev)}
+              title={label.configTitle || "System Config"}
+              aria-label={label.configTitle || "System Config"}
+              className={`flex cursor-pointer items-center justify-center rounded-md border p-2 transition ${
+                isSettingsOpen
+                  ? "bg-muted text-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+              id="btn-toolbar-settings"
+            >
+              <Settings size={15} />
+            </button>
+
+            {isSettingsOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setIsSettingsOpen(false)} />
+                <div
+                  className="bg-card border-border absolute right-0 top-full z-50 mt-2 w-72 space-y-3.5 rounded-lg border p-4 shadow-lg"
+                  id="toolbar-settings-dropdown"
+                >
+                  <label className="block text-[9px] font-bold text-muted-foreground uppercase tracking-wider font-mono mb-1">
+                    {label.configTitle || "System Config"}
+                  </label>
+
+                  <div className="space-y-3.5">
+                    {/* Theme & Locale Row */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="flex flex-col gap-1 select-none">
+                        <span className="text-[10px] text-muted-foreground font-medium">
+                          {label.localeLabel || "Locale"}
+                        </span>
+                        <select
+                          value={settings.locale}
+                          onChange={handleLocaleChange}
+                          className="w-full text-[10px] bg-background cursor-pointer text-foreground border border-border rounded-md p-1.5 outline-none font-semibold"
+                          id="select-locale"
+                        >
+                          <option value="en">English (EN)</option>
+                          <option value="pl">Polski (PL)</option>
+                          <option value="de">Deutsch (DE)</option>
+                        </select>
+                      </div>
+
+                      <div className="flex flex-col gap-1 select-none">
+                        <span className="text-[10px] text-muted-foreground font-medium">
+                          {label.theme || "Theme"}
+                        </span>
+                        <select
+                          value={settings.theme}
+                          onChange={(e) => handleThemeChange(e.target.value as SchedulerTheme)}
+                          className="w-full text-[10px] bg-background cursor-pointer text-foreground border border-border rounded-md p-1.5 outline-none font-semibold"
+                          id="select-theme"
+                        >
+                          <option value="light">Light</option>
+                          <option value="dark">Dark</option>
+                          <option value="system">System</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Timezone & Clock format Row */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="flex flex-col gap-1 select-none">
+                        <span className="text-[10px] text-muted-foreground font-medium">
+                          {label.timeFormatLabel || "Time Format"}
+                        </span>
+                        <select
+                          value={settings.timeFormat || "12h"}
+                          onChange={(e) =>
+                            onUpdateSettings({ timeFormat: e.target.value as "12h" | "24h" })
+                          }
+                          className="w-full text-[10px] bg-background cursor-pointer text-foreground border border-border rounded-md p-1.5 outline-none font-semibold"
+                          id="select-timeformat"
+                        >
+                          <option value="12h">12-hour (12h)</option>
+                          <option value="24h">24-hour (24h)</option>
+                        </select>
+                      </div>
+
+                      <div className="flex flex-col gap-1 select-none">
+                        <span className="text-[10px] text-muted-foreground font-medium">
+                          {label.timeZoneLabel || "Time Zone"}
+                        </span>
+                        <select
+                          value={settings.timezone}
+                          onChange={handleTimezoneChange}
+                          className="w-full text-[10px] bg-background cursor-pointer text-foreground border border-border rounded-md p-1.5 outline-none font-semibold truncate"
+                          id="select-timezone"
+                        >
+                          <option value="Local">Local</option>
+                          <option value="UTC">UTC</option>
+                          <option value="Europe/Warsaw">Warsaw</option>
+                          <option value="Europe/Berlin">Berlin</option>
+                          <option value="America/New_York">New York</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Global info and timezone footer details */}
+                  <div className="flex items-center justify-between text-[9px] text-muted-foreground font-mono pt-2">
+                    <span className="truncate max-w-[150px]" title={settings.timezone}>
+                      {settings.timezone}
+                    </span>
+                    <span className="font-extrabold uppercase">
+                      {settings.locale} / {settings.timeFormat}
+                    </span>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 

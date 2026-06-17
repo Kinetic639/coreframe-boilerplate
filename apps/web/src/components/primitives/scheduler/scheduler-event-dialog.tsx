@@ -192,20 +192,20 @@ export const SchedulerEventDialog: React.FC<SchedulerEventDialogProps> = ({
 
       {/* dialog window container */}
       <div
-        className="relative bg-white dark:bg-neutral-900 rounded-2xl border border-gray-150 dark:border-neutral-800 shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto flex flex-col transition scale-100"
+        className="relative bg-card rounded-2xl border border-border shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto flex flex-col transition scale-100"
         id="scheduler-event-dialog"
       >
         {/* Header toolbar */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-neutral-800">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div className="flex items-center gap-2">
             <Calendar className="text-primary" size={18} />
-            <span className="font-sans font-bold text-gray-900 dark:text-white">
+            <span className="font-sans font-bold text-foreground">
               {event?.id ? `Edit: ${event.title}` : label.createEvent}
             </span>
           </div>
           <button
             onClick={onClose}
-            className="p-1 text-gray-400 dark:text-neutral-500 hover:text-gray-600 dark:hover:text-neutral-300 rounded-full hover:bg-gray-100 dark:hover:bg-neutral-800 transition active:scale-90"
+            className="p-1 text-muted-foreground hover:text-foreground rounded-full hover:bg-muted transition active:scale-90"
             aria-label="Close modal dialog"
           >
             <X size={18} />
@@ -224,7 +224,7 @@ export const SchedulerEventDialog: React.FC<SchedulerEventDialogProps> = ({
 
           {/* Title Field Input */}
           <div className="space-y-1">
-            <label className="block text-xs font-bold text-gray-500 dark:text-neutral-400 uppercase tracking-wider">
+            <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider">
               {label.titleLabel || "Title"}
             </label>
             <input
@@ -233,7 +233,7 @@ export const SchedulerEventDialog: React.FC<SchedulerEventDialogProps> = ({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder={label.titlePlaceholder}
-              className="w-full text-sm bg-gray-50 dark:bg-neutral-800 text-gray-900 dark:text-white border border-gray-200 dark:border-neutral-700 rounded-xl p-3 focus:ring-1 focus:ring-primary outline-none placeholder-gray-400 dark:placeholder-neutral-500 font-semibold"
+              className="w-full text-sm bg-muted text-foreground border border-border rounded-xl p-3 focus:ring-1 focus:ring-primary outline-none placeholder-muted-foreground font-semibold"
               id="input-event-title"
             />
           </div>
@@ -242,7 +242,7 @@ export const SchedulerEventDialog: React.FC<SchedulerEventDialogProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Start date string */}
             <div className="space-y-1">
-              <label className="block text-xs font-bold text-gray-500 dark:text-neutral-400 uppercase tracking-wider">
+              <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider">
                 {label.startDateLabel || "Start Date / Time"}
               </label>
               <input
@@ -250,14 +250,14 @@ export const SchedulerEventDialog: React.FC<SchedulerEventDialogProps> = ({
                 required
                 value={startDateStr}
                 onChange={(e) => setStartDateStr(e.target.value)}
-                className="w-full text-xs bg-gray-50 dark:bg-neutral-800 text-gray-900 dark:text-white border border-gray-200 dark:border-neutral-700 rounded-xl p-3 focus:ring-1 focus:ring-primary outline-none font-mono"
+                className="w-full text-xs bg-muted text-foreground border border-border rounded-xl p-3 focus:ring-1 focus:ring-primary outline-none font-mono"
                 id="input-event-start"
               />
             </div>
 
             {/* End date string */}
             <div className="space-y-1">
-              <label className="block text-xs font-bold text-gray-500 dark:text-neutral-400 uppercase tracking-wider">
+              <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider">
                 {label.endDateLabel || "End Date / Time"}{" "}
                 {allDay && `(${label.disabled || "Disabled"})`}
               </label>
@@ -269,8 +269,8 @@ export const SchedulerEventDialog: React.FC<SchedulerEventDialogProps> = ({
                 onChange={(e) => setEndDateStr(e.target.value)}
                 className={`w-full text-xs border rounded-xl p-3 focus:ring-1 focus:ring-primary outline-none font-mono ${
                   allDay
-                    ? "bg-gray-100 dark:bg-neutral-850/40 text-gray-400 dark:text-neutral-600 border-gray-200 dark:border-neutral-800 cursor-not-allowed"
-                    : "bg-gray-50 dark:bg-neutral-800 text-gray-900 dark:text-white border-gray-200 dark:border-neutral-700"
+                    ? "bg-muted/60 text-muted-foreground border-border cursor-not-allowed"
+                    : "bg-muted text-foreground border-border"
                 }`}
                 id="input-event-end"
               />
@@ -278,12 +278,12 @@ export const SchedulerEventDialog: React.FC<SchedulerEventDialogProps> = ({
           </div>
 
           {/* All Day Switch */}
-          <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-neutral-800/40 border dark:border-neutral-800/50 rounded-xl">
+          <div className="flex items-center justify-between p-3 bg-muted border border-border rounded-xl">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-gray-700 dark:text-neutral-300">
+              <span className="text-xs font-semibold text-foreground">
                 {label.allDayLabel || `${label.allDay} Event`}
               </span>
-              <span className="text-[10px] text-gray-400 font-sans tracking-wide">
+              <span className="text-[10px] text-muted-foreground font-sans tracking-wide">
                 {label.noHourlyWarning || "(No hourly values needed)"}
               </span>
             </div>
@@ -297,13 +297,13 @@ export const SchedulerEventDialog: React.FC<SchedulerEventDialogProps> = ({
           </div>
 
           {/* Background Block Toggle and Selector */}
-          <div className="p-3 bg-neutral-50 dark:bg-neutral-800/20 border border-slate-200/50 dark:border-neutral-800/80 rounded-xl space-y-3">
+          <div className="p-3 bg-muted/50 border border-border rounded-xl space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex flex-col">
-                <span className="text-xs font-bold text-slate-700 dark:text-neutral-200">
+                <span className="text-xs font-bold text-foreground">
                   Background Event Block / Shading
                 </span>
-                <span className="text-[10px] text-slate-400">
+                <span className="text-[10px] text-muted-foreground">
                   Mark unavailable slots (Lunch breaks, rest hours, branch closed times etc.)
                 </span>
               </div>
@@ -317,14 +317,14 @@ export const SchedulerEventDialog: React.FC<SchedulerEventDialogProps> = ({
             </div>
 
             {isBackground && (
-              <div className="pt-2 border-t border-slate-200/35 dark:border-neutral-800/40 space-y-1">
-                <label className="block text-[10px] font-bold text-gray-500 dark:text-neutral-400 uppercase tracking-wider">
+              <div className="pt-2 border-t border-border/40 space-y-1">
+                <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
                   Select Shading Sub-Type
                 </label>
                 <select
                   value={bgType}
                   onChange={(e) => setBgType(e.target.value as any)}
-                  className="w-full text-xs bg-white dark:bg-neutral-800 text-gray-900 dark:text-white border border-gray-200 dark:border-neutral-700 rounded-lg p-2 outline-none focus:ring-1 focus:ring-primary font-semibold cursor-pointer"
+                  className="w-full text-xs bg-background text-foreground border border-border rounded-lg p-2 outline-none focus:ring-1 focus:ring-primary font-semibold cursor-pointer"
                   id="select-bg-type"
                 >
                   <option value="break">🥪 Lunch Break / Rest Hour {"(break)"}</option>
@@ -344,7 +344,7 @@ export const SchedulerEventDialog: React.FC<SchedulerEventDialogProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {/* Category Select */}
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-gray-500 dark:text-neutral-400 uppercase tracking-wider">
+                <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider">
                   {label.category}
                 </label>
                 <select
@@ -354,7 +354,7 @@ export const SchedulerEventDialog: React.FC<SchedulerEventDialogProps> = ({
                     // Auto color match on category selection
                     if (!color) setColor(e.target.value);
                   }}
-                  className="w-full text-xs bg-gray-50 dark:bg-neutral-800 text-gray-900 dark:text-white border border-gray-200 dark:border-neutral-700 rounded-xl p-2.5 outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full text-xs bg-muted text-foreground border border-border rounded-xl p-2.5 outline-none focus:ring-1 focus:ring-primary"
                   id="select-event-category"
                 >
                   <option value="meeting">{label.catMeeting || "Meeting"}</option>
@@ -368,13 +368,13 @@ export const SchedulerEventDialog: React.FC<SchedulerEventDialogProps> = ({
 
               {/* Priority Select */}
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-gray-500 dark:text-neutral-400 uppercase tracking-wider">
+                <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider">
                   {label.priority}
                 </label>
                 <select
                   value={priority}
                   onChange={(e) => setPriority(e.target.value as "low" | "medium" | "high")}
-                  className="w-full text-xs bg-gray-50 dark:bg-neutral-800 text-gray-900 dark:text-white border border-gray-200 dark:border-neutral-700 rounded-xl p-2.5 outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full text-xs bg-muted text-foreground border border-border rounded-xl p-2.5 outline-none focus:ring-1 focus:ring-primary"
                   id="select-event-priority"
                 >
                   <option value="low">{label.priorityLow || "Low"}</option>
@@ -385,13 +385,13 @@ export const SchedulerEventDialog: React.FC<SchedulerEventDialogProps> = ({
 
               {/* Status Select */}
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-gray-500 dark:text-neutral-400 uppercase tracking-wider">
+                <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider">
                   {label.status}
                 </label>
                 <select
                   value={status}
                   onChange={(e) => setStatus(e.target.value as any)}
-                  className="w-full text-xs bg-gray-50 dark:bg-neutral-800 text-gray-900 dark:text-white border border-gray-200 dark:border-neutral-700 rounded-xl p-2.5 outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full text-xs bg-muted text-foreground border border-border rounded-xl p-2.5 outline-none focus:ring-1 focus:ring-primary"
                   id="select-event-status"
                 >
                   <option value="confirmed">{label.statusConfirmed || "Confirmed"}</option>
@@ -404,13 +404,13 @@ export const SchedulerEventDialog: React.FC<SchedulerEventDialogProps> = ({
 
           {/* Assigned Resource Selection Option */}
           <div className="space-y-1.5">
-            <label className="block text-xs font-bold text-gray-500 dark:text-neutral-400 uppercase tracking-wider">
+            <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider">
               Assigned Resource
             </label>
             <select
               value={resourceId}
               onChange={(e) => setResourceId(e.target.value)}
-              className="w-full text-xs bg-gray-50 dark:bg-neutral-800 text-gray-900 dark:text-white border border-gray-200 dark:border-neutral-700 rounded-xl p-3 outline-none focus:ring-1 focus:ring-primary font-semibold"
+              className="w-full text-xs bg-muted text-foreground border border-border rounded-xl p-3 outline-none focus:ring-1 focus:ring-primary font-semibold"
               id="select-event-resource"
             >
               <option value="">-- No Assigned Resource (Unassigned Event) --</option>
@@ -421,7 +421,7 @@ export const SchedulerEventDialog: React.FC<SchedulerEventDialogProps> = ({
                     key={res.id}
                     value={res.id}
                     disabled={isGroupHeader}
-                    className={isGroupHeader ? "font-bold bg-slate-100 dark:bg-neutral-800/50" : ""}
+                    className={isGroupHeader ? "font-bold bg-muted" : ""}
                   >
                     {!res.parentId ? `📁 ${res.name}` : `  ↳ ${res.name}`}
                   </option>
@@ -434,7 +434,7 @@ export const SchedulerEventDialog: React.FC<SchedulerEventDialogProps> = ({
             <>
               {/* Color Presets */}
               <div className="space-y-1.5">
-                <span className="block text-xs font-bold text-gray-500 dark:text-neutral-400 uppercase tracking-wider">
+                <span className="block text-xs font-bold text-muted-foreground uppercase tracking-wider">
                   {label.colorPresetLabel || "Color Preset"}
                 </span>
                 <div className="flex gap-2.5 flex-wrap">
@@ -445,7 +445,7 @@ export const SchedulerEventDialog: React.FC<SchedulerEventDialogProps> = ({
                       onClick={() => setColor(p.value)}
                       className={`w-5 h-5 rounded-full flex items-center justify-center transition border ${p.class} ${
                         color === p.value
-                          ? "ring-2 ring-primary ring-offset-2 scale-110 border-white"
+                          ? "ring-2 ring-primary ring-offset-2 scale-110 border-background"
                           : "border-transparent opacity-80 hover:opacity-100 hover:scale-105"
                       }`}
                       title={p.name}
@@ -458,11 +458,11 @@ export const SchedulerEventDialog: React.FC<SchedulerEventDialogProps> = ({
 
               {/* Location details */}
               <div className="space-y-1">
-                <label className="block text-xs font-bold text-gray-500 dark:text-neutral-400 uppercase tracking-wider">
+                <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider">
                   {label.location}
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3 top-3.5 text-gray-400 dark:text-neutral-500">
+                  <span className="absolute left-3 top-3.5 text-muted-foreground">
                     <MapPin size={14} />
                   </span>
                   <input
@@ -470,7 +470,7 @@ export const SchedulerEventDialog: React.FC<SchedulerEventDialogProps> = ({
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
                     placeholder={label.locationPlaceholder || "Google Meet, Conference Room A..."}
-                    className="w-full text-xs bg-gray-50 dark:bg-neutral-800 text-gray-900 dark:text-white border border-gray-200 dark:border-neutral-700 rounded-xl p-3 pl-9 focus:ring-1 focus:ring-primary outline-none placeholder-gray-400"
+                    className="w-full text-xs bg-muted text-foreground border border-border rounded-xl p-3 pl-9 focus:ring-1 focus:ring-primary outline-none placeholder-muted-foreground"
                     id="input-event-location"
                   />
                 </div>
@@ -478,7 +478,7 @@ export const SchedulerEventDialog: React.FC<SchedulerEventDialogProps> = ({
 
               {/* Description elements */}
               <div className="space-y-1">
-                <label className="block text-xs font-bold text-gray-500 dark:text-neutral-400 uppercase tracking-wider">
+                <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider">
                   {label.description}
                 </label>
                 <textarea
@@ -488,14 +488,14 @@ export const SchedulerEventDialog: React.FC<SchedulerEventDialogProps> = ({
                     label.descriptionPlaceholder || "Provide a core outline, links, checklist..."
                   }
                   rows={3}
-                  className="w-full text-xs bg-gray-50 dark:bg-neutral-800 text-gray-900 dark:text-white border border-gray-200 dark:border-neutral-700 rounded-xl p-3 focus:ring-1 focus:ring-primary outline-none placeholder-gray-400 dark:placeholder-neutral-500 text-left resize-none font-sans"
+                  className="w-full text-xs bg-muted text-foreground border border-border rounded-xl p-3 focus:ring-1 focus:ring-primary outline-none placeholder-muted-foreground text-left resize-none font-sans"
                   id="input-event-description"
                 />
               </div>
 
               {/* Attendees comma parsed */}
               <div className="space-y-1">
-                <label className="block text-xs font-bold text-gray-500 dark:text-neutral-400 uppercase tracking-wider flex items-center gap-1">
+                <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
                   <Users size={12} />
                   <span>{label.attendeesLabel || "Attendees (Comma-separated list)"}</span>
                 </label>
@@ -504,13 +504,13 @@ export const SchedulerEventDialog: React.FC<SchedulerEventDialogProps> = ({
                   value={attendeesStr}
                   onChange={(e) => setAttendeesStr(e.target.value)}
                   placeholder={label.attendeesPlaceholder || "Ariadne V., Juliet S., Caleb P."}
-                  className="w-full text-xs bg-gray-50 dark:bg-neutral-800 text-gray-900 dark:text-white border border-gray-200 dark:border-neutral-750 rounded-xl p-3 focus:ring-1 focus:ring-primary outline-none placeholder-gray-400"
+                  className="w-full text-xs bg-muted text-foreground border border-border rounded-xl p-3 focus:ring-1 focus:ring-primary outline-none placeholder-muted-foreground"
                   id="input-event-attendees"
                 />
               </div>
 
               {/* Settings / Draggable & Resizable check toggles */}
-              <div className="flex gap-4 p-3 bg-gray-50 dark:bg-neutral-800/40 rounded-xl border dark:border-neutral-800/50 text-[11px]">
+              <div className="flex gap-4 p-3 bg-muted rounded-xl border border-border text-[11px]">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
@@ -519,7 +519,7 @@ export const SchedulerEventDialog: React.FC<SchedulerEventDialogProps> = ({
                     className="accent-primary cursor-pointer"
                     id="chk-event-draggable"
                   />
-                  <span className="text-gray-600 dark:text-neutral-300 font-semibold">
+                  <span className="text-foreground font-semibold">
                     {label.enableDraggingLabel || "Enable dragging"}
                   </span>
                 </label>
@@ -535,7 +535,7 @@ export const SchedulerEventDialog: React.FC<SchedulerEventDialogProps> = ({
                     className="accent-primary cursor-pointer"
                     id="chk-event-resizable"
                   />
-                  <span className="text-gray-600 dark:text-neutral-300 font-semibold">
+                  <span className="text-foreground font-semibold">
                     {label.enableResizingLabel || "Enable horizontal/vertical resizing"}
                   </span>
                 </label>
@@ -544,11 +544,11 @@ export const SchedulerEventDialog: React.FC<SchedulerEventDialogProps> = ({
           )}
 
           {/* Buttons footer */}
-          <div className="pt-4 border-t border-gray-100 dark:border-neutral-850 flex items-center justify-end gap-2">
+          <div className="pt-4 border-t border-border flex items-center justify-end gap-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 text-xs font-bold text-gray-500 hover:text-gray-700 dark:text-neutral-400 dark:hover:text-neutral-200 rounded-xl transition cursor-pointer active:scale-95"
+              className="px-4 py-2.5 text-xs font-bold text-muted-foreground hover:text-foreground rounded-xl transition cursor-pointer active:scale-95"
             >
               {label.cancel}
             </button>

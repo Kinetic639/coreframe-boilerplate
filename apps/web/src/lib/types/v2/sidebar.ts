@@ -61,7 +61,9 @@ export type IconKey =
   | "transfers"
   | "shieldCheck"
   | "checkSquare"
-  | "layoutGrid";
+  | "layoutGrid"
+  | "kanban"
+  | "listTodo";
 
 /**
  * Active route matching rules (strict discriminated union)

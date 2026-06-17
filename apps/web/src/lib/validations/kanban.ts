@@ -6,6 +6,11 @@ export type KanbanVisibility = (typeof KANBAN_VISIBILITIES)[number];
 export const createKanbanBoardSchema = z.object({
   title: z.string().trim().min(1).max(160),
   description: z.string().trim().max(2000).nullable().optional(),
+  color: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .nullable()
+    .optional(),
   visibility: z.enum(KANBAN_VISIBILITIES).default("private"),
 });
 

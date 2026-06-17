@@ -43,6 +43,7 @@ import {
 import {
   LABELS_MAP,
   detectAndLayoutGridEvents,
+  eventIntersectsDay,
   getDisplayTime,
   formatGridHour,
 } from "./scheduler-utils";
@@ -118,7 +119,7 @@ const CATEGORY_STYLES: Record<
 const getResourceBgStyle = (isActive: boolean) => (isActive ? "bg-primary/10" : "");
 
 const getResourceHeaderStyle = (isActive: boolean, borderPos: "r" | "b") => {
-  if (!isActive) return "bg-white dark:bg-neutral-900";
+  if (!isActive) return "bg-card";
   const borderClass =
     borderPos === "r"
       ? "border-r-[1.5px] border-r-primary/70"
@@ -413,7 +414,7 @@ export const SchedulerTimelineView: React.FC<SchedulerTimelineViewProps> = ({
 
   // Filter scheduled calendar events belonging to active timeline day
   const timelineEvents = useMemo(() => {
-    return events.filter((ev) => isSameDay(new Date(ev.start), currentDate));
+    return events.filter((ev) => eventIntersectsDay(ev, currentDate));
   }, [events, currentDate]);
 
   // Calculate dynamic start/end hour if autoTimeScale is true, based on visible resources' events on this day
@@ -847,7 +848,7 @@ export const SchedulerTimelineView: React.FC<SchedulerTimelineViewProps> = ({
 
     try {
       (e.target as HTMLElement).releasePointerCapture(e.pointerId);
-    } catch (ignore) {}
+    } catch {}
   };
 
   // Convert dates boundaries to slot coordinates for Timeline view
@@ -946,19 +947,19 @@ export const SchedulerTimelineView: React.FC<SchedulerTimelineViewProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full bg-slate-50 dark:bg-neutral-950 transition-all text-slate-700 dark:text-neutral-300">
+    <div className="flex flex-col h-full bg-muted/30 transition-all text-foreground">
       {/* Search and Filters Header */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-b border-slate-100 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-3xs shrink-0">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-b border-border bg-card shadow-3xs shrink-0">
         <div className="flex items-center gap-2.5 w-full sm:w-auto">
           <Boxes className="text-primary" size={18} />
-          <h3 className="font-bold text-sm text-slate-800 dark:text-white leading-none">
+          <h3 className="font-bold text-sm text-foreground leading-none">
             {label.resourcePlanner || "Resource Planner"}
           </h3>
         </div>
 
         <div className="flex items-center flex-wrap gap-3 w-full sm:w-auto justify-end">
           {/* Switcher: Timeline View vs Grid View */}
-          <div className="flex p-0.5 bg-slate-100 dark:bg-neutral-800 rounded-lg border border-slate-200/40 dark:border-neutral-700 text-xs font-semibold">
+          <div className="flex p-0.5 bg-muted rounded-lg border border-border text-xs font-semibold">
             {(["timeline", "grid"] as const).map((mode) => (
               <button
                 key={mode}
@@ -969,8 +970,8 @@ export const SchedulerTimelineView: React.FC<SchedulerTimelineViewProps> = ({
                 }}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all cursor-pointer capitalize text-[11px] font-bold ${
                   plannerViewMode === mode
-                    ? "bg-white dark:bg-neutral-700 text-slate-800 dark:text-white shadow-xs font-extrabold"
-                    : "text-slate-500 dark:text-neutral-400 hover:text-slate-700 dark:hover:text-neutral-300"
+                    ? "bg-background text-foreground shadow-xs font-extrabold"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {mode === "timeline" ? (
@@ -988,12 +989,12 @@ export const SchedulerTimelineView: React.FC<SchedulerTimelineViewProps> = ({
             ))}
           </div>
 
-          <div className="h-4 w-px bg-slate-200 dark:bg-neutral-800 mx-0.5 hidden md:block"></div>
+          <div className="h-4 w-px bg-border mx-0.5 hidden md:block"></div>
 
           {/* Realtime Search Field */}
           <div className="relative w-full sm:w-48">
             <Search
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-neutral-500"
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
               size={13}
             />
             <input
@@ -1001,16 +1002,16 @@ export const SchedulerTimelineView: React.FC<SchedulerTimelineViewProps> = ({
               placeholder={label.searchResources || "Search resources..."}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-neutral-800/60 border border-slate-200 dark:border-neutral-700 rounded-lg placeholder-slate-400 dark:placeholder-neutral-500 text-slate-800 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-primary transition-all font-medium"
+              className="w-full pl-8 pr-3 py-1.5 text-xs bg-muted border border-border rounded-lg placeholder-muted-foreground text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary transition-all font-medium"
             />
           </div>
         </div>
       </div>
 
-      <div className="flex-1 flex overflow-hidden bg-white dark:bg-neutral-900 select-none relative">
+      <div className="flex-1 flex overflow-hidden bg-background select-none relative">
         {/* Collapsible Left Sidebar for Resource Tree Selection */}
         <div
-          className="shrink-0 flex bg-slate-50/45 dark:bg-neutral-900/45 h-full select-none transition-all duration-300 ease-in-out border-r border-slate-200/60 dark:border-neutral-800/80 z-20 overflow-hidden"
+          className="shrink-0 flex bg-muted/30 h-full select-none transition-all duration-300 ease-in-out border-r border-border/60 z-20 overflow-hidden"
           style={{ width: gridSidebarOpen ? "274px" : "22px" }}
         >
           {/* Sidebar Content Tree */}
@@ -1022,8 +1023,8 @@ export const SchedulerTimelineView: React.FC<SchedulerTimelineViewProps> = ({
             }}
           >
             {/* Sidebar Header */}
-            <div className="p-3.5 border-b border-slate-100 dark:border-neutral-800 flex items-center justify-between">
-              <span className="font-bold text-[10px] uppercase tracking-wider text-slate-450 dark:text-neutral-400">
+            <div className="p-3.5 border-b border-border flex items-center justify-between">
+              <span className="font-bold text-[10px] uppercase tracking-wider text-muted-foreground">
                 Resources
               </span>
 
@@ -1042,7 +1043,7 @@ export const SchedulerTimelineView: React.FC<SchedulerTimelineViewProps> = ({
                 >
                   All
                 </button>
-                <span className="text-[10px] text-slate-300 dark:text-neutral-700">|</span>
+                <span className="text-[10px] text-border">|</span>
                 <button
                   onClick={() => setGridSelectedIds(new Set())}
                   className="text-[10px] font-bold text-primary hover:underline cursor-pointer"
@@ -1059,7 +1060,7 @@ export const SchedulerTimelineView: React.FC<SchedulerTimelineViewProps> = ({
 
                 if (treeNodes.length === 0) {
                   return (
-                    <div className="text-center text-xs text-slate-400 dark:text-neutral-500 py-8 font-medium">
+                    <div className="text-center text-xs text-muted-foreground py-8 font-medium">
                       No resources found
                     </div>
                   );
@@ -1086,7 +1087,7 @@ export const SchedulerTimelineView: React.FC<SchedulerTimelineViewProps> = ({
                         className={`flex items-center group py-1 rounded-lg transition-all cursor-pointer ${
                           hoveredResourceId === rId
                             ? "bg-primary/10 border-l-[1.5px] border-l-primary/70 font-semibold text-foreground shadow-3xs"
-                            : "hover:bg-slate-100/60 dark:hover:bg-neutral-800/40"
+                            : "hover:bg-muted/60"
                         }`}
                         style={{ paddingLeft: `${node.depth * 14 + 6}px` }}
                       >
@@ -1104,7 +1105,7 @@ export const SchedulerTimelineView: React.FC<SchedulerTimelineViewProps> = ({
                                 return next;
                               });
                             }}
-                            className="p-0.5 text-slate-400 hover:text-slate-650 dark:hover:text-neutral-200 hover:bg-slate-200/60 dark:hover:bg-neutral-700 rounded transition shrink-0 cursor-pointer mr-0.5"
+                            className="p-0.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded transition shrink-0 cursor-pointer mr-0.5"
                           >
                             {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                           </button>
@@ -1123,7 +1124,7 @@ export const SchedulerTimelineView: React.FC<SchedulerTimelineViewProps> = ({
                               }
                             }}
                             onChange={() => handleToggleGridCheck(rId, node.hasChildren)}
-                            className="h-3.5 w-3.5 rounded border-slate-300 dark:border-neutral-700 text-primary focus:ring-primary cursor-pointer accent-primary transition"
+                            className="h-3.5 w-3.5 rounded border-border text-primary focus:ring-primary cursor-pointer accent-primary transition"
                           />
                         </div>
 
@@ -1141,8 +1142,8 @@ export const SchedulerTimelineView: React.FC<SchedulerTimelineViewProps> = ({
                           <span
                             className={`text-[11px] font-medium leading-tight truncate ${
                               isChecked || isIndeterminate
-                                ? "text-slate-800 dark:text-neutral-150 font-semibold"
-                                : "text-slate-450 dark:text-neutral-500"
+                                ? "text-foreground font-semibold"
+                                : "text-muted-foreground"
                             }`}
                           >
                             {rName}
@@ -1180,7 +1181,7 @@ export const SchedulerTimelineView: React.FC<SchedulerTimelineViewProps> = ({
                                 className={`flex items-center py-1 px-2.5 rounded-md text-xs cursor-pointer transition-all border border-transparent ${
                                   isSelectedEvent
                                     ? "border-l-2 shadow-xs font-semibold"
-                                    : "text-slate-500/90 dark:text-neutral-450 hover:bg-slate-100/35 dark:hover:bg-neutral-800/15"
+                                    : "text-muted-foreground hover:bg-muted/35"
                                 }`}
                               >
                                 <span className="truncate flex-1 font-medium leading-none">
@@ -1198,7 +1199,7 @@ export const SchedulerTimelineView: React.FC<SchedulerTimelineViewProps> = ({
             </div>
 
             {/* Sidebar Footer Info */}
-            <div className="p-3 border-t border-slate-100 dark:border-neutral-800 text-[9px] font-bold text-slate-400 dark:text-neutral-500 uppercase tracking-widest text-center shrink-0">
+            <div className="p-3 border-t border-border text-[9px] font-bold text-muted-foreground uppercase tracking-widest text-center shrink-0">
               {gridColumns.length} active resources
             </div>
           </div>
@@ -1206,14 +1207,14 @@ export const SchedulerTimelineView: React.FC<SchedulerTimelineViewProps> = ({
           {/* Sleek Vertical Stripped Collapse Handle */}
           <div
             onClick={() => setGridSidebarOpen(!gridSidebarOpen)}
-            className="w-[21px] flex flex-col items-center justify-center cursor-pointer bg-slate-100/30 hover:bg-slate-200/40 dark:bg-neutral-800/5 dark:hover:bg-neutral-800/15 border-l border-slate-200/45 dark:border-neutral-800/40 transition-colors select-none h-full shrink-0 relative group/strip"
+            className="w-[21px] flex flex-col items-center justify-center cursor-pointer bg-muted/30 hover:bg-muted/50 border-l border-border/45 transition-colors select-none h-full shrink-0 relative group/strip"
             title={gridSidebarOpen ? "Collapse Resources" : "Expand Resources"}
           >
             {/* Minimal vertical line hover highlight */}
             <div className="absolute inset-y-0 left-0 w-[1.5px] bg-primary/0 group-hover/strip:bg-primary/20 transition-all rounded-r" />
 
             {/* Subtle center capsule toggle element - perfectly centered, inside strip with comfortable clearance */}
-            <div className="w-4 h-9 flex items-center justify-center bg-white dark:bg-neutral-800 border border-slate-200 dark:border-neutral-700/80 rounded-md shadow-3xs text-slate-400 group-hover/strip:text-primary transition-all font-bold pointer-events-none shrink-0 z-35 relative">
+            <div className="w-4 h-9 flex items-center justify-center bg-card border border-border rounded-md shadow-3xs text-muted-foreground group-hover/strip:text-primary transition-all font-bold pointer-events-none shrink-0 z-35 relative">
               {gridSidebarOpen ? <ChevronLeft size={10} /> : <ChevronRight size={10} />}
             </div>
           </div>
@@ -1230,18 +1231,18 @@ export const SchedulerTimelineView: React.FC<SchedulerTimelineViewProps> = ({
             >
               <div className="min-w-max flex flex-col">
                 {/* Timeline header: Resource on left, Hours ruler scale on right */}
-                <div className="flex sticky top-0 z-30 bg-white dark:bg-neutral-900 border-b border-slate-100 dark:border-neutral-800 min-w-max">
+                <div className="flex sticky top-0 z-30 bg-background border-b border-border min-w-max">
                   {/* Left Header */}
-                  <div className="w-[220px] shrink-0 p-4 border-r border-slate-100 dark:border-neutral-800 flex items-center justify-between font-extrabold text-[11px] text-slate-400 dark:text-neutral-500 uppercase tracking-widest bg-slate-50/50 dark:bg-neutral-900/50 sticky left-0 z-40">
+                  <div className="w-[220px] shrink-0 p-4 border-r border-border flex items-center justify-between font-extrabold text-[11px] text-muted-foreground uppercase tracking-widest bg-muted/50 sticky left-0 z-40">
                     <span>Resources</span>
-                    <span className="text-[10px] font-medium text-slate-350">
+                    <span className="text-[10px] font-medium text-muted-foreground">
                       ({gridColumns.length})
                     </span>
                   </div>
 
                   {/* Right Hours Ruler */}
                   <div
-                    className="flex bg-slate-50/50 dark:bg-neutral-900/50 relative flex-none"
+                    className="flex bg-muted/50 relative flex-none"
                     style={{ width: `${hoursScale.length * SLOT_WIDTH}px` }}
                   >
                     {hoursScale.map(({ hourIndex, label: hourText }) => (
@@ -1252,7 +1253,7 @@ export const SchedulerTimelineView: React.FC<SchedulerTimelineViewProps> = ({
                           slottedDate.setHours(hourIndex);
                           onCellClick(slottedDate, true);
                         }}
-                        className="w-[90px] h-12 p-3 font-mono text-[11px] text-slate-400 dark:text-neutral-500 border-r border-slate-100 dark:border-neutral-800 flex items-center justify-center font-bold hover:bg-primary/10 cursor-pointer transition select-none"
+                        className="w-[90px] h-12 p-3 font-mono text-[11px] text-muted-foreground border-r border-border flex items-center justify-center font-bold hover:bg-primary/10 cursor-pointer transition select-none"
                         style={{ width: `${SLOT_WIDTH}px` }}
                       >
                         {hourText}
@@ -1285,7 +1286,7 @@ export const SchedulerTimelineView: React.FC<SchedulerTimelineViewProps> = ({
                 </div>
 
                 {/* Timeline Body Rows */}
-                <div className="flex flex-col min-w-max divide-y divide-slate-100 dark:divide-neutral-800/60 relative">
+                <div className="flex flex-col min-w-max divide-y divide-border relative">
                   {/* Global vertical dashed line across all resource rows */}
                   {timelineHover && !timelineSelection && (
                     <div
@@ -1296,15 +1297,13 @@ export const SchedulerTimelineView: React.FC<SchedulerTimelineViewProps> = ({
                     />
                   )}
                   {gridColumns.length === 0 ? (
-                    <div className="flex-grow flex flex-col items-center justify-center p-12 py-24 text-slate-400 dark:text-neutral-500 font-sans bg-white dark:bg-neutral-900/40">
+                    <div className="flex-grow flex flex-col items-center justify-center p-12 py-24 text-muted-foreground font-sans bg-background">
                       <CalendarRange
                         size={32}
-                        className="text-slate-300 dark:text-neutral-700 mb-3 animate-pulse shrink-0"
+                        className="text-muted-foreground/50 mb-3 animate-pulse shrink-0"
                       />
-                      <p className="text-xs font-bold text-slate-705 dark:text-neutral-200">
-                        No Resources Selected
-                      </p>
-                      <p className="text-[11px] text-slate-400 dark:text-neutral-500 mt-1 text-center max-w-xs leading-normal font-medium">
+                      <p className="text-xs font-bold text-foreground">No Resources Selected</p>
+                      <p className="text-[11px] text-muted-foreground mt-1 text-center max-w-xs leading-normal font-medium">
                         Select resources from the left Resources panel to show their timeline.
                       </p>
                     </div>
@@ -1327,7 +1326,7 @@ export const SchedulerTimelineView: React.FC<SchedulerTimelineViewProps> = ({
                           key={resource.id}
                           onMouseEnter={() => setHoveredResourceId(resource.id)}
                           onMouseLeave={() => setHoveredResourceId(null)}
-                          className={`flex items-stretch bg-white dark:bg-neutral-900 border-b border-dashed border-slate-100 dark:border-neutral-800/40 transition-colors min-h-[76px] hover:bg-slate-50/35 dark:hover:bg-neutral-900/15 group/row ${
+                          className={`flex items-stretch bg-background border-b border-dashed border-border/40 transition-colors min-h-[76px] hover:bg-muted/35 group/row ${
                             dragOverRowId === resource.id
                               ? "bg-primary/10 ring-2 ring-primary/20 ring-inset"
                               : ""
@@ -1336,7 +1335,7 @@ export const SchedulerTimelineView: React.FC<SchedulerTimelineViewProps> = ({
                         >
                           {/* Sticky Left Resource Panel */}
                           <div
-                            className={`w-[220px] shrink-0 px-4 border-r border-slate-150/45 dark:border-neutral-800 sticky left-0 z-35 flex gap-2 select-none shadow-[2px_0_5px_-3px_rgba(0,0,0,0.03)] py-3 items-center transition-colors ${getResourceHeaderStyle(
+                            className={`w-[220px] shrink-0 px-4 border-r border-border/45 sticky left-0 z-35 flex gap-2 select-none shadow-[2px_0_5px_-3px_rgba(0,0,0,0.03)] py-3 items-center transition-colors ${getResourceHeaderStyle(
                               isResourceHovered,
                               "r"
                             )}`}
@@ -1349,12 +1348,12 @@ export const SchedulerTimelineView: React.FC<SchedulerTimelineViewProps> = ({
                                     style={{ backgroundColor: resource.color }}
                                   />
                                 )}
-                                <span className="text-xs font-bold font-sans text-slate-900 dark:text-neutral-100">
+                                <span className="text-xs font-bold font-sans text-foreground">
                                   {resource.name}
                                 </span>
                               </div>
                               {resource.description && (
-                                <span className="text-[10px] text-slate-500 dark:text-neutral-400 font-medium leading-tight truncate mt-0.5 animate-fade-in font-sans">
+                                <span className="text-[10px] text-muted-foreground font-medium leading-tight truncate mt-0.5 animate-fade-in font-sans">
                                   {resource.description}
                                 </span>
                               )}
@@ -1364,9 +1363,7 @@ export const SchedulerTimelineView: React.FC<SchedulerTimelineViewProps> = ({
                           {/* Right Timeline Lane Content */}
                           <div
                             className={`shrink-0 flex-none relative overflow-hidden h-full cursor-pointer transition-colors ${
-                              isResourceHovered
-                                ? "bg-primary/10"
-                                : "hover:bg-slate-50/20 dark:hover:bg-neutral-800/10"
+                              isResourceHovered ? "bg-primary/10" : "hover:bg-muted/20"
                             }`}
                             style={{ width: `${hoursScale.length * SLOT_WIDTH}px` }}
                             onDragOver={(e) => handleDragOverRow(e, resource.id)}
@@ -1460,7 +1457,7 @@ export const SchedulerTimelineView: React.FC<SchedulerTimelineViewProps> = ({
                               {hoursScale.map(({ hourIndex }) => (
                                 <div
                                   key={hourIndex}
-                                  className="h-full border-r border-gray-100 dark:border-neutral-800/40"
+                                  className="h-full border-r border-border/40"
                                   style={{ width: `${SLOT_WIDTH}px` }}
                                 />
                               ))}
@@ -1508,7 +1505,7 @@ export const SchedulerTimelineView: React.FC<SchedulerTimelineViewProps> = ({
                                   return (
                                     <div
                                       key={bg.id}
-                                      className="absolute h-full bg-slate-100/50 dark:bg-neutral-800/40 pointer-events-none opacity-40"
+                                      className="absolute h-full bg-muted/50 pointer-events-none opacity-40"
                                       style={{
                                         left: `${lPercent}%`,
                                         width: `${wPercent}%`,
@@ -1688,17 +1685,12 @@ export const SchedulerTimelineView: React.FC<SchedulerTimelineViewProps> = ({
             </div>
           ) : (
             /* ======================== GRID COLUMN VIEW ======================== */
-            <div className="flex-1 flex flex-col overflow-auto bg-white dark:bg-neutral-900 select-none pl-1 font-sans">
+            <div className="flex-1 flex flex-col overflow-auto bg-background select-none pl-1 font-sans">
               {gridColumns.length === 0 ? (
-                <div className="flex-1 flex flex-col items-center justify-center p-12 text-slate-400 dark:text-neutral-500">
-                  <LayoutGrid
-                    size={32}
-                    className="text-slate-300 dark:text-neutral-700 mb-3 animate-pulse"
-                  />
-                  <p className="text-xs font-bold text-slate-700 dark:text-neutral-300">
-                    No Columns Selected
-                  </p>
-                  <p className="text-[11px] text-slate-400 dark:text-neutral-500 mt-1 text-center max-w-xs leading-normal font-medium">
+                <div className="flex-1 flex flex-col items-center justify-center p-12 text-muted-foreground">
+                  <LayoutGrid size={32} className="text-muted-foreground/50 mb-3 animate-pulse" />
+                  <p className="text-xs font-bold text-foreground">No Columns Selected</p>
+                  <p className="text-[11px] text-muted-foreground mt-1 text-center max-w-xs leading-normal font-medium">
                     Select resources or folder groups from the left Select Columns panel to see
                     columns.
                   </p>
@@ -1719,13 +1711,13 @@ export const SchedulerTimelineView: React.FC<SchedulerTimelineViewProps> = ({
                   )}
 
                   {/* Sticky Left time ruler column */}
-                  <div className="w-14 shrink-0 border-r border-gray-150 dark:border-neutral-800 bg-white/95 dark:bg-neutral-900/95 font-mono text-[10px] text-gray-400/90 flex flex-col sticky left-0 z-30 font-mono">
+                  <div className="w-14 shrink-0 border-r border-border bg-background/95 font-mono text-[10px] text-muted-foreground flex flex-col sticky left-0 z-30 font-mono">
                     {/* Gap at the top left corner */}
-                    <div className="h-14 border-b border-gray-150 dark:border-neutral-800 bg-white dark:bg-neutral-900 sticky top-0 z-40 shrink-0" />
+                    <div className="h-14 border-b border-border bg-background sticky top-0 z-40 shrink-0" />
 
                     {/* All-Day header gap spacer for left time ruler */}
                     {hasAnyAllDayEvents && (
-                      <div className="h-14 border-b border-gray-150 dark:border-neutral-800 bg-amber-50/10 dark:bg-amber-950/5 sticky top-14 z-30 shrink-0 flex items-center justify-center">
+                      <div className="h-14 border-b border-border bg-amber-50/10 dark:bg-amber-950/5 sticky top-14 z-30 shrink-0 flex items-center justify-center">
                         <span className="text-[9px] font-extrabold uppercase font-mono tracking-wide text-amber-600 bg-amber-50/50 dark:bg-amber-950/30 border border-amber-100/40 dark:border-amber-900/10 px-1 py-0.5 rounded">
                           All Day
                         </span>
@@ -1800,7 +1792,7 @@ export const SchedulerTimelineView: React.FC<SchedulerTimelineViewProps> = ({
                           key={col.resource.id}
                           onMouseEnter={() => setHoveredResourceId(col.resource.id)}
                           onMouseLeave={() => setHoveredResourceId(null)}
-                          className={`w-[210px] shrink-0 border-r border-slate-100/85 dark:border-neutral-800/80 flex flex-col relative transition-colors ${
+                          className={`w-[210px] shrink-0 border-r border-border flex flex-col relative transition-colors ${
                             dragOverRowId === col.resource.id
                               ? "bg-primary/10 ring-1 ring-primary/20 ring-inset"
                               : ""
@@ -1808,7 +1800,7 @@ export const SchedulerTimelineView: React.FC<SchedulerTimelineViewProps> = ({
                         >
                           {/* Sticky Table Column Header representing resource */}
                           <div
-                            className={`h-14 px-3 py-2 border-b border-slate-100 dark:border-neutral-800 sticky top-0 z-25 flex flex-col justify-center select-none shadow-3xs w-full font-sans transition-colors ${getResourceHeaderStyle(
+                            className={`h-14 px-3 py-2 border-b border-border sticky top-0 z-25 flex flex-col justify-center select-none shadow-3xs w-full font-sans transition-colors ${getResourceHeaderStyle(
                               isColHovered,
                               "b"
                             )}`}
@@ -1820,12 +1812,12 @@ export const SchedulerTimelineView: React.FC<SchedulerTimelineViewProps> = ({
                                   style={{ backgroundColor: col.resource.color }}
                                 />
                               )}
-                              <span className="text-xs font-bold font-sans text-slate-800 dark:text-neutral-100 leading-none truncate">
+                              <span className="text-xs font-bold font-sans text-foreground leading-none truncate">
                                 {col.resource.name}
                               </span>
                             </div>
                             {col.resource.description && (
-                              <span className="text-[10px] text-slate-400 dark:text-neutral-500 font-medium leading-normal truncate mt-0.5">
+                              <span className="text-[10px] text-muted-foreground font-medium leading-normal truncate mt-0.5">
                                 {col.resource.description}
                               </span>
                             )}
@@ -1833,7 +1825,7 @@ export const SchedulerTimelineView: React.FC<SchedulerTimelineViewProps> = ({
 
                           {/* All-Day Events block for this column */}
                           {hasAnyAllDayEvents && (
-                            <div className="h-14 shrink-0 border-b border-slate-100 dark:border-neutral-800 bg-amber-50/5 dark:bg-amber-950/5 sticky top-14 z-20 px-2.5 py-1.5 flex flex-col justify-center space-y-1 overflow-y-auto">
+                            <div className="h-14 shrink-0 border-b border-border bg-amber-50/5 dark:bg-amber-950/5 sticky top-14 z-20 px-2.5 py-1.5 flex flex-col justify-center space-y-1 overflow-y-auto">
                               {colAllDayEvents.map((ev) => {
                                 const stylePreset =
                                   CATEGORY_STYLES[ev.color || ev.category] ||
@@ -1979,7 +1971,7 @@ export const SchedulerTimelineView: React.FC<SchedulerTimelineViewProps> = ({
                             {hoursScale.map((_, index) => (
                               <div
                                 key={index}
-                                className="absolute left-0 right-0 border-b border-gray-100 dark:border-neutral-800/40 pointer-events-none"
+                                className="absolute left-0 right-0 border-b border-border/40 pointer-events-none"
                                 style={{
                                   top: `${index * GRID_HOUR_HEIGHT}px`,
                                   height: `${GRID_HOUR_HEIGHT}px`,

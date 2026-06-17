@@ -5,15 +5,13 @@ import {
   endOfWeek,
   eachDayOfInterval,
   addDays,
-  subDays,
-  isSameDay,
   format,
   differenceInMinutes,
   addMinutes,
   startOfDay,
-  endOfDay,
 } from "date-fns";
 import { enUS, pl, de } from "date-fns/locale";
+import type { CSSProperties } from "react";
 import { CalendarEvent, EventCategory, UnscheduledTask, CalendarView } from "./scheduler-types";
 
 // Map locale keys to date-fns locale objects
@@ -32,6 +30,18 @@ export const CALENDAR_SOURCE_CATEGORY_CYCLE: EventCategory[] = [
   "personal",
   "workshop",
 ];
+
+export function isHexColor(value: string | undefined): value is string {
+  return /^#[0-9a-fA-F]{6}$/.test(value ?? "");
+}
+
+export function calendarHexStyle(color: string | undefined): CSSProperties | undefined {
+  if (!isHexColor(color)) return undefined;
+  return {
+    borderLeftColor: color,
+    backgroundColor: `${color}1f`,
+  };
+}
 
 // Map locale to common labels
 export const LABELS_MAP = {
@@ -120,8 +130,33 @@ export const LABELS_MAP = {
     searchResources: "Search resources...",
     calendarsTitle: "Calendars",
     noDueDateTitle: "No due date",
+    moreUnscheduledAvailable:
+      "More unscheduled items are available. Narrow calendars or search support can load the rest.",
+    searchNoDueDate: "Search no due date...",
+    loadMoreUnscheduled: "Load more",
+    loadingMoreUnscheduled: "Loading...",
     ticketsSource: "Tickets",
     openItem: "Open",
+    addCalendar: "Add calendar",
+    calendarNamePlaceholder: "Calendar name...",
+    createCalendar: "Create",
+    calendarSettings: "Calendar settings",
+    calendarColor: "Calendar color",
+    resetColor: "Reset color",
+    done: "Done",
+    systemCalendars: "System",
+    kanbanCalendars: "Kanban boards",
+    customCalendars: "Mine",
+    showAll: "Show all",
+    hideAll: "Hide all",
+    showOnlyThis: "Display only this",
+    settingsAndSharing: "Settings and sharing",
+    chooseCustomColor: "Choose custom color",
+    chooseCustomColorDescription:
+      "Choose this calendar background color. Text color is adjusted automatically.",
+    hexCode: "Hex code",
+    moreEvents: "more",
+    showLess: "Show less",
   },
   pl: {
     today: "Dzisiaj",
@@ -208,8 +243,33 @@ export const LABELS_MAP = {
     searchResources: "Szukaj zasobów...",
     calendarsTitle: "Kalendarze",
     noDueDateTitle: "Bez terminu",
+    moreUnscheduledAvailable:
+      "Dostępne są kolejne elementy bez terminu. Zawęź kalendarze albo użyj wyszukiwania po jego dodaniu.",
+    searchNoDueDate: "Szukaj bez terminu...",
+    loadMoreUnscheduled: "Pokaż więcej",
+    loadingMoreUnscheduled: "Ładowanie...",
     ticketsSource: "Zgłoszenia",
     openItem: "Otwórz",
+    addCalendar: "Dodaj kalendarz",
+    calendarNamePlaceholder: "Nazwa kalendarza...",
+    createCalendar: "Utwórz",
+    calendarSettings: "Ustawienia kalendarza",
+    calendarColor: "Kolor kalendarza",
+    resetColor: "Resetuj kolor",
+    done: "Gotowe",
+    systemCalendars: "Systemowe",
+    kanbanCalendars: "Tablice Kanban",
+    customCalendars: "Moje",
+    showAll: "Pokaż wszystko",
+    hideAll: "Ukryj wszystko",
+    showOnlyThis: "Wyświetl tylko ten",
+    settingsAndSharing: "Ustawienia i udostępnianie",
+    chooseCustomColor: "Wybierz własny kolor",
+    chooseCustomColorDescription:
+      "Wybierz kolor tła tego kalendarza. Kolor tekstu zostanie dopasowany automatycznie.",
+    hexCode: "Kod szesnastkowy",
+    moreEvents: "więcej",
+    showLess: "Pokaż mniej",
   },
   de: {
     today: "Heute",
@@ -297,8 +357,33 @@ export const LABELS_MAP = {
     searchResources: "Ressourcen suchen...",
     calendarsTitle: "Kalender",
     noDueDateTitle: "Ohne Termin",
+    moreUnscheduledAvailable:
+      "Weitere ungeplante Elemente sind verfügbar. Grenzen Sie Kalender ein oder nutzen Sie später die Suche.",
+    searchNoDueDate: "Ohne Termin suchen...",
+    loadMoreUnscheduled: "Mehr laden",
+    loadingMoreUnscheduled: "Lädt...",
     ticketsSource: "Tickets",
     openItem: "Öffnen",
+    addCalendar: "Kalender hinzufügen",
+    calendarNamePlaceholder: "Kalendername...",
+    createCalendar: "Erstellen",
+    calendarSettings: "Kalendereinstellungen",
+    calendarColor: "Kalenderfarbe",
+    resetColor: "Farbe zurücksetzen",
+    done: "Fertig",
+    systemCalendars: "System",
+    kanbanCalendars: "Kanban-Boards",
+    customCalendars: "Meine",
+    showAll: "Alle anzeigen",
+    hideAll: "Alle ausblenden",
+    showOnlyThis: "Nur diesen anzeigen",
+    settingsAndSharing: "Einstellungen und Freigabe",
+    chooseCustomColor: "Eigene Farbe wählen",
+    chooseCustomColorDescription:
+      "Wählen Sie die Hintergrundfarbe dieses Kalenders. Die Textfarbe wird automatisch angepasst.",
+    hexCode: "Hex-Code",
+    moreEvents: "weitere",
+    showLess: "Weniger anzeigen",
   },
 };
 
@@ -343,7 +428,7 @@ export function formatInTimezone(
 
     const virtualZonedDate = new Date(year, month, day, hour, minute, second);
     return format(virtualZonedDate, formatStr, { locale });
-  } catch (err) {
+  } catch {
     // Fallback if browser doesn't recognize timezone or running SSR
     return format(date, formatStr, { locale });
   }
@@ -412,8 +497,6 @@ export function formatDateRangeTitle(
   localeKey: "en" | "pl" | "de",
   timezone: string
 ) {
-  const locale = LOCALE_MAP[localeKey];
-
   if (view === "year") {
     return formatInTimezone(date, "yyyy", timezone, localeKey);
   }
@@ -520,6 +603,56 @@ export function calculateEventPositionInTimeGrid(
   };
 }
 
+export function eventIntersectsDay(event: CalendarEvent, day: Date) {
+  const dayStart = startOfDay(day);
+  const nextDayStart = addDays(dayStart, 1);
+  const eventStart = new Date(event.start);
+  const eventEnd = new Date(event.end);
+
+  if (event.allDay) {
+    return (
+      startOfDay(eventStart).getTime() <= dayStart.getTime() &&
+      startOfDay(eventEnd).getTime() >= dayStart.getTime()
+    );
+  }
+
+  return eventStart.getTime() < nextDayStart.getTime() && eventEnd.getTime() > dayStart.getTime();
+}
+
+export function eventSpansMultipleDays(event: CalendarEvent) {
+  return startOfDay(new Date(event.start)).getTime() !== startOfDay(new Date(event.end)).getTime();
+}
+
+export function getTimedEventSegmentForDay(event: CalendarEvent, day: Date): CalendarEvent | null {
+  if (event.allDay || !eventIntersectsDay(event, day)) return null;
+
+  const dayStart = startOfDay(day);
+  const nextDayStart = addDays(dayStart, 1);
+  const eventStart = new Date(event.start);
+  const eventEnd = new Date(event.end);
+
+  return {
+    ...event,
+    start: eventStart.getTime() > dayStart.getTime() ? eventStart : dayStart,
+    end: eventEnd.getTime() < nextDayStart.getTime() ? eventEnd : nextDayStart,
+  };
+}
+
+export function getEventDisplayDays(event: CalendarEvent) {
+  const days: Date[] = [];
+  const endDay = startOfDay(new Date(event.end));
+  let cursor = startOfDay(new Date(event.start));
+
+  while (cursor.getTime() <= endDay.getTime()) {
+    if (eventIntersectsDay(event, cursor)) {
+      days.push(new Date(cursor));
+    }
+    cursor = addDays(cursor, 1);
+  }
+
+  return days.length > 0 ? days : [startOfDay(new Date(event.start))];
+}
+
 /**
  * Core timezone translation utility. Given a virtual timezone, adjust a date's internal hour offsets so
  * that it lines up on the display's timezone grids perfectly.
@@ -545,7 +678,7 @@ export function getDisplayTime(date: Date, timezone: string): { hour: number; mi
     const minute = minVal ? Number(minVal) : date.getMinutes();
 
     return { hour, minute };
-  } catch (e) {
+  } catch {
     return { hour: date.getHours(), minute: date.getMinutes() };
   }
 }

@@ -110,9 +110,25 @@ export interface TicketCalendarRow {
   id: string;
   ticket_number: string;
   title: string;
-  due_at: string | null;
+  due_date: string | null;
   status: TicketStatus;
   priority: TicketPriority;
+}
+
+export interface TicketCalendarListParams {
+  rangeStart: string;
+  rangeEnd: string;
+  rangeStartIso: string;
+  rangeEndIso: string;
+  includeUnscheduled: boolean;
+  unscheduledLimit: number;
+  unscheduledSearch?: string;
+}
+
+export interface TicketCalendarListResult {
+  scheduled: TicketCalendarRow[];
+  unscheduled: TicketCalendarRow[];
+  hasMoreUnscheduled: boolean;
 }
 
 // Legacy type kept for backward compat with existing action imports
@@ -954,35 +970,68 @@ export class HelpdeskTicketsService {
 
   static async listForCalendar(
     supabase: SupabaseClient,
-    orgId: string
-  ): Promise<ServiceResult<{ scheduled: TicketCalendarRow[]; unscheduled: TicketCalendarRow[] }>> {
-    const { data, error } = await supabase
+    orgId: string,
+    params: TicketCalendarListParams
+  ): Promise<ServiceResult<TicketCalendarListResult>> {
+    const { data: scheduledData, error: scheduledError } = await supabase
       .from("helpdesk_tickets")
-      .select("id, ticket_number, title, due_at, status, priority")
+      .select("id, ticket_number, title, due_date, status, priority")
       .eq("org_id", orgId)
       .is("deleted_at", null)
-      .neq("status", "cancelled");
+      .neq("status", "cancelled")
+      .not("due_date", "is", null)
+      .gte("due_date", params.rangeStart)
+      .lte("due_date", params.rangeEnd)
+      .order("due_date", { ascending: true });
 
-    if (error) return { success: false, error: error.message };
+    if (scheduledError) return { success: false, error: scheduledError.message };
 
-    const rows = (data ?? []) as TicketCalendarRow[];
-    const scheduled = rows.filter((row) => row.due_at !== null);
-    const unscheduled = rows.filter(
-      (row) => row.due_at === null && row.status !== "closed" && row.status !== "resolved"
-    );
+    let unscheduled: TicketCalendarRow[] = [];
+    let hasMoreUnscheduled = false;
+    if (params.includeUnscheduled && params.unscheduledLimit > 0) {
+      let unscheduledQuery = supabase
+        .from("helpdesk_tickets")
+        .select("id, ticket_number, title, due_date, status, priority")
+        .eq("org_id", orgId)
+        .is("deleted_at", null)
+        .is("due_date", null)
+        .neq("status", "cancelled")
+        .neq("status", "closed")
+        .neq("status", "resolved")
+        .order("updated_at", { ascending: false })
+        .limit(params.unscheduledLimit + 1);
 
-    return { success: true, data: { scheduled, unscheduled } };
+      if (params.unscheduledSearch) {
+        unscheduledQuery = unscheduledQuery.ilike("title", `%${params.unscheduledSearch}%`);
+      }
+
+      const { data: unscheduledData, error: unscheduledError } = await unscheduledQuery;
+      if (unscheduledError) return { success: false, error: unscheduledError.message };
+      const rows = (unscheduledData ?? []) as TicketCalendarRow[];
+      hasMoreUnscheduled = rows.length > params.unscheduledLimit;
+      unscheduled = rows.slice(0, params.unscheduledLimit);
+    }
+
+    return {
+      success: true,
+      data: {
+        scheduled: (scheduledData ?? []) as TicketCalendarRow[],
+        unscheduled,
+        hasMoreUnscheduled,
+      },
+    };
   }
 
   static async updateDueAt(
     supabase: SupabaseClient,
     orgId: string,
     ticketId: string,
-    dueAt: string | null
+    dueAt: string | null,
+    dueDate?: string | null
   ): Promise<ServiceResult<void>> {
     const { error } = await supabase
       .from("helpdesk_tickets")
-      .update({ due_at: dueAt, updated_at: new Date().toISOString() })
+      .update({ due_at: dueAt, due_date: dueDate ?? null, updated_at: new Date().toISOString() })
       .eq("id", ticketId)
       .eq("org_id", orgId)
       .is("deleted_at", null);

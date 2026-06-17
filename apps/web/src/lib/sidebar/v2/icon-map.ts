@@ -36,6 +36,8 @@ import {
   ShieldCheck,
   CheckSquare,
   LayoutGrid,
+  KanbanSquare,
+  ListTodo,
 } from "lucide-react";
 import type { IconKey } from "@/lib/types/v2/sidebar";
 
@@ -81,6 +83,8 @@ export const ICON_MAP: Record<IconKey, React.ComponentType<{ className?: string 
   shieldCheck: ShieldCheck,
   checkSquare: CheckSquare,
   layoutGrid: LayoutGrid,
+  kanban: KanbanSquare,
+  listTodo: ListTodo,
 };
 
 /**
