@@ -52,6 +52,12 @@ export default async function WarehouseInventoryMovementDetailPage({ params }: P
 
   if (!movementResult.success || !movementResult.data) notFound();
 
+  const stockableLocations = locationsResult.success
+    ? locationsResult.data
+        .filter((loc) => loc.can_store_inventory)
+        .map((loc) => ({ id: loc.id, name: loc.name, code: loc.code }))
+    : [];
+
   return (
     <div className="mx-auto grid w-full max-w-7xl gap-6 p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -62,12 +68,10 @@ export default async function WarehouseInventoryMovementDetailPage({ params }: P
               {t("backToMovements")}
             </Link>
           </Button>
-          <h1 className="text-2xl font-semibold">{movementResult.data.movement_number}</h1>
-          <p className="text-sm text-muted-foreground">
-            {movementResult.data.movement_kind === "branch_transfer"
-              ? t("branchTransfer")
-              : movementResult.data.movement_kind}
-          </p>
+          <h1 className="text-2xl font-semibold">
+            {movementResult.data.document_number ?? movementResult.data.draft_number}
+          </h1>
+          <p className="text-sm text-muted-foreground">{movementResult.data.movement_type_name}</p>
         </div>
       </div>
 
@@ -75,15 +79,7 @@ export default async function WarehouseInventoryMovementDetailPage({ params }: P
         <InventoryMovementDetailPanel
           detail={movementResult.data}
           activeBranchId={branchId}
-          locations={
-            locationsResult.success
-              ? locationsResult.data.map((location) => ({
-                  id: location.id,
-                  name: location.name,
-                  code: location.code,
-                }))
-              : []
-          }
+          locations={stockableLocations}
           canOperate={checkPermission(context.user.permissionSnapshot, WAREHOUSE_INVENTORY_OPERATE)}
           showOpenPageAction={false}
           showPrintAction

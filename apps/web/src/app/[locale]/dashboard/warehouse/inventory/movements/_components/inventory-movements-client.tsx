@@ -72,21 +72,18 @@ export function InventoryMovementsClient({
   const columns = useMemo<DataViewColumnDef<InventoryMovementListRow>[]>(
     () => [
       {
-        key: "movement_number",
+        key: "document_number",
         header: t("movement"),
-        accessor: (row) => <span className="font-medium">{row.movement_number}</span>,
+        accessor: (row) => (
+          <span className="font-medium">{row.document_number ?? row.draft_number}</span>
+        ),
         sortable: true,
         defaultVisible: true,
       },
       {
-        key: "movement_kind",
+        key: "movement_type_name",
         header: t("kind"),
-        accessor: (row) =>
-          row.movement_kind === "branch_transfer"
-            ? t("branchTransfer")
-            : row.adjustment_direction
-              ? `${row.movement_kind} / ${row.adjustment_direction}`
-              : row.movement_kind,
+        accessor: (row) => row.movement_type_name,
         sortable: true,
         defaultVisible: true,
       },
@@ -100,9 +97,9 @@ export function InventoryMovementsClient({
         defaultVisible: true,
       },
       {
-        key: "reference",
+        key: "external_reference",
         header: t("reference"),
-        accessor: (row) => row.reference ?? "",
+        accessor: (row) => row.external_reference ?? "",
         defaultVisible: true,
       },
       {
@@ -138,17 +135,10 @@ export function InventoryMovementsClient({
   const filters: DataViewFilterDef[] = [
     {
       type: "select",
-      key: "movement_kind",
+      key: "movement_type_code",
       label: t("kind"),
-      options: [
-        "receipt",
-        "issue",
-        "transfer",
-        "adjustment",
-        "opening_balance",
-        "branch_transfer",
-      ].map((value) => ({
-        label: value === "branch_transfer" ? t("branchTransfer") : value,
+      options: ["101", "201", "301", "401", "801"].map((value) => ({
+        label: value,
         value,
       })),
     },

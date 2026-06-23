@@ -201,13 +201,13 @@ const movementLineSchema = z.object({
 });
 
 export const createDraftMovementSchema = z.object({
-  movement_kind: z.enum(["receipt", "issue", "transfer", "adjustment", "opening_balance"]),
-  adjustment_direction: z.enum(["increase", "decrease"]).nullable().optional(),
+  movement_type_code: z.string().min(1).max(20),
   lines: z.array(movementLineSchema).min(1),
-  reason_id: nullableUuidSchema,
+  operation_date: z.string().nullable().optional(),
+  document_date: z.string().nullable().optional(),
+  counterparty_name: z.string().max(200).nullable().optional(),
+  external_reference: z.string().max(200).nullable().optional(),
   note: z.string().max(1000).nullable().optional(),
-  reference_type: z.string().max(100).nullable().optional(),
-  reference_id: z.string().max(200).nullable().optional(),
   idempotency_key: z.string().max(200).nullable().optional(),
 });
 

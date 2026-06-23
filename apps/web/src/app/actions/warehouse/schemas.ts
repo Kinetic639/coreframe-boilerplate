@@ -67,6 +67,7 @@ export const createLocationSchema = z.object({
   map_role: locationMapRoleSchema,
   storage_mode: z.string().max(50).optional(),
   allow_top_storage: z.boolean().optional(),
+  can_store_inventory: z.boolean().optional(),
   sort_order: z.number().int().min(0).optional(),
 });
 
@@ -89,6 +90,7 @@ export const updateLocationSchema = z.object({
   map_role: locationMapRoleSchema,
   storage_mode: z.string().max(50).optional(),
   allow_top_storage: z.boolean().optional(),
+  can_store_inventory: z.boolean().optional(),
   sort_order: z.number().int().min(0).optional(),
 });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
 import {
@@ -10,7 +10,14 @@ import {
   VisualNode,
   MappingStatus,
   Layout,
+  type AmbraLocationInventorySnapshot,
+  type ContainerLine,
+  type LocationContainer,
+  type LocationInventoryLine,
+  type LocationMovementLine,
+  type LocationPutawayRule,
 } from "../../types";
+import type { InventoryVariantOption } from "@/lib/warehouse/inventory-types";
 import {
   Search,
   Plus,
@@ -104,16 +111,312 @@ interface LocationsPageProps {
   locations: LogicalLocation[];
   visuals: VisualNode[];
   layouts: Layout[];
+  inventorySnapshot: AmbraLocationInventorySnapshot;
+  variantOptions: InventoryVariantOption[];
   onCreateLocation: (loc: LogicalLocation) => void | Promise<void>;
   onUpdateLocation?: (loc: Partial<LogicalLocation> & { id: string }) => void | Promise<void>;
   onDeleteLocation?: (locationId: string) => void | Promise<void>;
   onNavigateToWorkspace: (layoutId: string) => void;
 }
 
+function InventoryMetric({
+  label,
+  value,
+  icon,
+}: {
+  label: string;
+  value: number;
+  icon: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-lg border border-border bg-card p-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          {label}
+        </p>
+        <div className="rounded-md border border-border bg-muted p-2 text-muted-foreground">
+          {icon}
+        </div>
+      </div>
+      <p className="mt-3 text-2xl font-semibold tabular-nums text-foreground">{value}</p>
+    </div>
+  );
+}
+
+function InventoryLinesTable({
+  lines,
+  locationNameById,
+  showLocation,
+  emptyLabel,
+  t,
+}: {
+  lines: LocationInventoryLine[];
+  locationNameById: Map<string, string>;
+  showLocation: boolean;
+  emptyLabel: string;
+  t: any;
+}) {
+  return (
+    <div className="overflow-hidden rounded-lg border border-border bg-card">
+      <div className="flex items-center justify-between border-b border-border bg-muted/40 px-5 py-4">
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          {t("inventory.stockLines")}
+        </span>
+        <Package className="h-4 w-4 text-muted-foreground" />
+      </div>
+      {lines.length === 0 ? (
+        <div className="p-10 text-center text-xs font-medium text-muted-foreground">
+          {emptyLabel}
+        </div>
+      ) : (
+        <div className="divide-y divide-border">
+          {lines.map((line) => (
+            <div
+              key={line.id}
+              className="grid gap-3 px-5 py-3 text-xs md:grid-cols-[1.4fr_1fr_0.8fr_0.8fr]"
+            >
+              <div>
+                <p className="font-semibold text-foreground">{line.productName || line.sku}</p>
+                <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">{line.sku}</p>
+              </div>
+              <div className={showLocation ? "" : "hidden md:block"}>
+                {showLocation ? (
+                  <>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      {t("inventory.location")}
+                    </p>
+                    <p className="mt-0.5 text-foreground">
+                      {locationNameById.get(line.locationId) ?? line.locationId}
+                    </p>
+                  </>
+                ) : null}
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  {t("inventory.onHand")}
+                </p>
+                <p className="mt-0.5 font-mono text-foreground">
+                  {line.onHandQuantity} {line.unitCode}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  {t("inventory.available")}
+                </p>
+                <p className="mt-0.5 font-mono text-foreground">
+                  {line.availableQuantity} {line.unitCode}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ContainerList({
+  containers,
+  locationNameById,
+  emptyLabel,
+  t,
+}: {
+  containers: LocationContainer[];
+  locationNameById: Map<string, string>;
+  emptyLabel: string;
+  t: any;
+}) {
+  const [expandedId, setExpandedId] = React.useState<string | null>(null);
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-border bg-card">
+      <div className="flex items-center justify-between border-b border-border bg-muted/40 px-5 py-4">
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          {t("inventory.containerizedStock")}
+        </span>
+        <Archive className="h-4 w-4 text-muted-foreground" />
+      </div>
+      {containers.length === 0 ? (
+        <div className="p-8 text-center text-xs font-medium text-muted-foreground">
+          {emptyLabel}
+        </div>
+      ) : (
+        <div className="divide-y divide-border">
+          {containers.map((container) => (
+            <div key={container.id} className="px-5 py-3 text-xs">
+              <div className="flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => setExpandedId(expandedId === container.id ? null : container.id)}
+                  className="flex items-center gap-2 font-mono font-semibold text-foreground hover:text-primary"
+                >
+                  {expandedId === container.id ? (
+                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                  )}
+                  {container.code}
+                  {container.referenceId && (
+                    <span className="ml-1 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-normal text-primary">
+                      {container.referenceId}
+                    </span>
+                  )}
+                </button>
+                <div className="flex items-center gap-2">
+                  <span className="rounded-md border border-border bg-muted px-2 py-0.5 text-[10px] uppercase text-muted-foreground">
+                    {container.status}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {container.lines.length} {t("inventory.items")}
+                  </span>
+                </div>
+              </div>
+              <p className="mt-1 pl-5 text-muted-foreground">
+                {locationNameById.get(container.currentLocationId) ?? container.currentLocationId}
+              </p>
+
+              {expandedId === container.id && (
+                <div className="mt-3 pl-5 space-y-1">
+                  {container.lines.length > 0 ? (
+                    container.lines.map((line: ContainerLine) => (
+                      <div
+                        key={line.id}
+                        className="flex items-center justify-between gap-2 rounded bg-muted/40 px-2 py-1.5"
+                      >
+                        <div>
+                          <span className="font-medium text-foreground">
+                            {line.productName || line.sku}
+                          </span>
+                          <span className="ml-2 font-mono text-muted-foreground">
+                            {line.quantity} {line.unitCode}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-[10px] text-muted-foreground">{t("inventory.noItems")}</p>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PutawayRuleList({
+  rules,
+  variants,
+  emptyLabel,
+  t,
+}: {
+  rules: LocationPutawayRule[];
+  variants: InventoryVariantOption[];
+  emptyLabel: string;
+  t: any;
+}) {
+  const variantById = new Map(variants.map((variant) => [variant.id, variant]));
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-border bg-card">
+      <div className="flex items-center justify-between border-b border-border bg-muted/40 px-5 py-4">
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          {t("inventory.preferredStorage")}
+        </span>
+        <Tag className="h-4 w-4 text-muted-foreground" />
+      </div>
+      {rules.length === 0 ? (
+        <div className="p-8 text-center text-xs font-medium text-muted-foreground">
+          {emptyLabel}
+        </div>
+      ) : (
+        <div className="divide-y divide-border">
+          {rules.map((rule) => (
+            <div key={rule.id} className="px-5 py-3 text-xs">
+              <p className="font-semibold text-foreground">
+                {rule.variantId
+                  ? (variantById.get(rule.variantId)?.label ?? rule.variantId)
+                  : rule.productCategory || rule.productId || t("inventory.defaultRule")}
+              </p>
+              <p className="mt-1 text-muted-foreground">
+                {t("inventory.priority")}: {rule.priority}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MovementHistoryList({ movements, t }: { movements: LocationMovementLine[]; t: any }) {
+  if (movements.length === 0) {
+    return (
+      <div className="p-12 text-center flex flex-col items-center justify-center">
+        <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4 opacity-60">
+          <Layers className="w-5 h-5 text-muted-foreground" />
+        </div>
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+          {t("history.noActivity")}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="divide-y divide-border">
+      {movements.map((movement) => {
+        const isRelocation =
+          movement.movementKind === "transfer" &&
+          movement.sourceLocationId &&
+          movement.destinationLocationId;
+        return (
+          <div
+            key={movement.id}
+            className="grid gap-3 px-5 py-4 text-xs md:grid-cols-[1fr_1fr_1fr_0.7fr]"
+          >
+            <div>
+              <p className="font-semibold text-foreground">
+                {isRelocation ? t("history.internalRelocation") : movement.movementKind}
+              </p>
+              <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">
+                {movement.movementNumber}
+              </p>
+            </div>
+            <div>
+              <p className="font-semibold text-foreground">
+                {movement.productName || movement.sku}
+              </p>
+              <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">{movement.sku}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">
+                {movement.sourceLocationName ?? t("history.external")}
+                {" -> "}
+                {movement.destinationLocationName ?? t("history.external")}
+              </p>
+              <p className="mt-0.5 text-muted-foreground">
+                {new Date(movement.postedAt ?? movement.createdAt).toLocaleString()}
+              </p>
+            </div>
+            <p className="font-mono text-foreground">
+              {movement.quantity} {movement.unitCode}
+            </p>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function LocationsPage({
   locations,
   visuals,
   layouts,
+  inventorySnapshot,
+  variantOptions,
   onCreateLocation,
   onUpdateLocation,
   onDeleteLocation,
@@ -132,7 +435,6 @@ export default function LocationsPage({
   const [copiedPath, setCopiedPath] = useState(false);
   const [isTreeLocked, setIsTreeLocked] = useState(true);
   const [isTreeActionsOpen, setIsTreeActionsOpen] = useState(false);
-
   const [activeTab, setActiveTab] = useState<"info" | "inventory" | "history">("info");
 
   // Reset selected location when the locations list changes (e.g. branch switch)
@@ -157,6 +459,128 @@ export default function LocationsPage({
 
   const selectedLocation = locations.find((l) => l.id === selectedLocationId) || null;
 
+  const childrenByParent = useMemo(() => {
+    const byParent = new Map<string | null, LogicalLocation[]>();
+    for (const location of locations) {
+      const bucket = byParent.get(location.parentId) ?? [];
+      bucket.push(location);
+      byParent.set(location.parentId, bucket);
+    }
+    return byParent;
+  }, [locations]);
+
+  const stockableLocations = useMemo(
+    () =>
+      locations.filter(
+        (location) =>
+          location.stockPolicy === "stockable" || location.capabilities?.canStoreInventory
+      ),
+    [locations]
+  );
+
+  const getDescendantIds = useCallback(
+    (locationId: string): string[] => {
+      const children = childrenByParent.get(locationId) ?? [];
+      return children.flatMap((child) => [child.id, ...getDescendantIds(child.id)]);
+    },
+    [childrenByParent]
+  );
+
+  const locationStockSummaryById = useMemo(() => {
+    const direct = new Map<string, { quantity: number; skuIds: Set<string> }>();
+    for (const line of inventorySnapshot.balances) {
+      const summary = direct.get(line.locationId) ?? { quantity: 0, skuIds: new Set<string>() };
+      summary.quantity += line.onHandQuantity;
+      summary.skuIds.add(line.variantId);
+      direct.set(line.locationId, summary);
+    }
+
+    const summary = new Map<
+      string,
+      {
+        directQuantity: number;
+        directSkus: number;
+        aggregateQuantity: number;
+        aggregateSkus: number;
+      }
+    >();
+    for (const location of locations) {
+      const scopeIds = [location.id, ...getDescendantIds(location.id)];
+      const skuIds = new Set<string>();
+      let aggregateQuantity = 0;
+      for (const id of scopeIds) {
+        const item = direct.get(id);
+        if (!item) continue;
+        aggregateQuantity += item.quantity;
+        item.skuIds.forEach((skuId) => skuIds.add(skuId));
+      }
+      const directItem = direct.get(location.id);
+      summary.set(location.id, {
+        directQuantity: directItem?.quantity ?? 0,
+        directSkus: directItem?.skuIds.size ?? 0,
+        aggregateQuantity,
+        aggregateSkus: skuIds.size,
+      });
+    }
+    return summary;
+  }, [getDescendantIds, inventorySnapshot.balances, locations]);
+
+  const selectedInventoryScopeIds = useMemo(() => {
+    if (!selectedLocation) return new Set<string>();
+    const includeChildren =
+      selectedLocation.stockPolicy !== "stockable" &&
+      !selectedLocation.capabilities?.canStoreInventory;
+    return new Set([
+      selectedLocation.id,
+      ...(includeChildren ? getDescendantIds(selectedLocation.id) : []),
+    ]);
+  }, [getDescendantIds, selectedLocation]);
+
+  const selectedInventoryLines = useMemo(
+    () =>
+      inventorySnapshot.balances.filter((line) => selectedInventoryScopeIds.has(line.locationId)),
+    [inventorySnapshot.balances, selectedInventoryScopeIds]
+  );
+
+  const selectedMovementLines = useMemo(
+    () =>
+      inventorySnapshot.movements.filter(
+        (line) =>
+          (line.sourceLocationId && selectedInventoryScopeIds.has(line.sourceLocationId)) ||
+          (line.destinationLocationId && selectedInventoryScopeIds.has(line.destinationLocationId))
+      ),
+    [inventorySnapshot.movements, selectedInventoryScopeIds]
+  );
+
+  const selectedContainers = useMemo(
+    () =>
+      inventorySnapshot.containers.filter((container) =>
+        selectedInventoryScopeIds.has(container.currentLocationId)
+      ),
+    [inventorySnapshot.containers, selectedInventoryScopeIds]
+  );
+
+  const selectedPutawayRules = useMemo(
+    () =>
+      inventorySnapshot.putawayRules.filter((rule) =>
+        selectedInventoryScopeIds.has(rule.destinationLocationId)
+      ),
+    [inventorySnapshot.putawayRules, selectedInventoryScopeIds]
+  );
+
+  const selectedSummary = selectedLocation
+    ? locationStockSummaryById.get(selectedLocation.id)
+    : null;
+
+  const selectedCanHoldStock =
+    selectedLocation?.stockPolicy === "stockable" ||
+    selectedLocation?.capabilities?.canStoreInventory;
+
+  const locationNameById = useMemo(
+    () => new Map(locations.map((location) => [location.id, location.name])),
+    [locations]
+  );
+
   const getCategoryLabel = (role: LocationRole) =>
     t(`categories.${role}.label`, { fallback: LOCATION_CATEGORIES[role]?.label || role });
 
@@ -164,6 +588,15 @@ export default function LocationsPage({
     t(`categories.${role}.description`, {
       fallback: LOCATION_CATEGORIES[role]?.description || "",
     });
+
+  const getPhysicalKindLabel = (kind: string | undefined) =>
+    t(`physicalKinds.${kind ?? "bin"}`, { fallback: kind ?? "bin" });
+
+  const getStockPolicyLabel = (policy: string | undefined) =>
+    t(`stockPolicies.${policy ?? "none"}`, { fallback: policy ?? "none" });
+
+  const getOperationProfileLabel = (profile: string | undefined) =>
+    t(`operationProfiles.${profile ?? "standard"}`, { fallback: profile ?? "standard" });
 
   const handleCopyPath = () => {
     if (!selectedLocation) return;
@@ -373,7 +806,9 @@ export default function LocationsPage({
 
     // Operational signals for tree
     const mappedCount = visuals.filter((v) => v.locationId === location.id).length;
-    const hasStock = (location.stockCount || 0) > 0;
+    const stockSummary = locationStockSummaryById.get(location.id);
+    const treeStockCount = stockSummary?.aggregateQuantity ?? 0;
+    const hasStock = treeStockCount > 0;
     const warningCount = (location.warnings || []).filter(
       (w) => w.severity === "warning" || w.severity === "critical"
     ).length;
@@ -437,11 +872,11 @@ export default function LocationsPage({
               {hasStock && (
                 <div
                   className="flex items-center gap-0.5"
-                  title={t("tree.stockTitle", { count: location.stockCount || 0 })}
+                  title={t("tree.stockTitle", { count: treeStockCount })}
                 >
                   <Package className="w-2.5 h-2.5 text-emerald-400" />
                   <span className="text-[8px] font-mono font-bold text-emerald-700 dark:text-emerald-300/80">
-                    {location.stockCount}
+                    {treeStockCount}
                   </span>
                 </div>
               )}
@@ -895,7 +1330,7 @@ export default function LocationsPage({
                         <section className="bg-card/70 rounded-lg border border-border shadow-sm overflow-hidden">
                           <div className="px-5 py-4 border-b border-border bg-muted/40 flex items-center justify-between">
                             <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                              {t("detail.locationRole")}
+                              {t("detail.structureStockPolicy")}
                             </span>
                             <Fingerprint className="w-4 h-4 text-muted-foreground" />
                           </div>
@@ -914,12 +1349,28 @@ export default function LocationsPage({
                               </div>
                               <div>
                                 <h3 className="text-lg font-semibold text-foreground tracking-normal">
-                                  {getCategoryLabel(selectedLocation.role)}
+                                  {getPhysicalKindLabel(selectedLocation.physicalKind)}
                                 </h3>
                                 <p className="text-xs text-muted-foreground font-medium leading-relaxed mt-1">
-                                  {getCategoryDescription(selectedLocation.role)}
+                                  {selectedCanHoldStock
+                                    ? t("detail.binCanHoldStock")
+                                    : t("detail.aggregatesChildStock")}
                                 </p>
                               </div>
+                            </div>
+                            <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                              <DetailItem
+                                label={t("detail.physicalKind")}
+                                value={getPhysicalKindLabel(selectedLocation.physicalKind)}
+                              />
+                              <DetailItem
+                                label={t("detail.stockPolicy")}
+                                value={getStockPolicyLabel(selectedLocation.stockPolicy)}
+                              />
+                              <DetailItem
+                                label={t("detail.operationProfile")}
+                                value={getOperationProfileLabel(selectedLocation.operationProfile)}
+                              />
                             </div>
                             <DetailItem
                               label={t("detail.fullPathCode")}
@@ -1111,7 +1562,9 @@ export default function LocationsPage({
                                           <div className="flex items-center gap-3 mt-1.5">
                                             <span className="text-[9px] font-mono text-emerald-700 dark:text-emerald-300 bg-emerald-500/5 px-1.5 py-0.5 rounded border border-emerald-500/10">
                                               {t("detail.stockCount", {
-                                                count: child.stockCount || 0,
+                                                count:
+                                                  locationStockSummaryById.get(child.id)
+                                                    ?.aggregateQuantity ?? 0,
                                               })}
                                             </span>
                                             <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wide">
@@ -1151,7 +1604,8 @@ export default function LocationsPage({
                                         <div className="flex items-center gap-1.5 w-24">
                                           <Package className="w-3 h-3 text-muted-foreground" />
                                           <span className="text-[10px] font-mono text-muted-foreground">
-                                            {child.stockCount || 0}
+                                            {locationStockSummaryById.get(child.id)
+                                              ?.aggregateQuantity ?? 0}
                                           </span>
                                         </div>
                                         <div className="flex items-center gap-2 flex-1 justify-end opacity-40 group-hover:opacity-100 transition-opacity">
@@ -1206,154 +1660,76 @@ export default function LocationsPage({
                       transition={{ duration: 0.2 }}
                       className="space-y-6"
                     >
-                      {/* INVENTORY TAB CONTENT */}
-                      <div
-                        className={`grid gap-6 ${isCompactMode ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-2"}`}
-                      >
-                        {/* Inventory Stats Card */}
-                        <div
-                          className={`${isCompactMode ? "bg-card/50 border border-border flex items-center justify-between p-4 rounded-xl" : "bg-card/70 rounded-lg border border-border shadow-sm overflow-hidden"}`}
-                        >
-                          {!isCompactMode && (
-                            <div className="px-5 py-4 border-b border-border bg-muted/40 flex items-center justify-between">
-                              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                {t("inventory.presence")}
-                              </span>
-                              <Package className="w-4 h-4 text-muted-foreground" />
-                            </div>
-                          )}
-                          <div
-                            className={
-                              isCompactMode
-                                ? "flex items-center gap-12 w-full"
-                                : "p-8 grid grid-cols-2 gap-6"
-                            }
-                          >
-                            <div
-                              className={
-                                isCompactMode ? "flex items-center gap-4 flex-1" : "space-y-2"
-                              }
-                            >
-                              <div
-                                className={
-                                  isCompactMode
-                                    ? "w-10 h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-700 dark:text-emerald-300"
-                                    : ""
-                                }
-                              >
-                                {isCompactMode && <Package className="w-5 h-5" />}
-                              </div>
-                              <div>
-                                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                  {t("inventory.activeStock")}
-                                </p>
-                                <div className="flex items-baseline gap-2">
-                                  <p
-                                    className={
-                                      isCompactMode
-                                        ? "text-lg font-semibold text-foreground"
-                                        : "text-4xl font-semibold text-foreground"
-                                    }
-                                  >
-                                    {selectedLocation.stockCount?.toString() || "0"}
-                                  </p>
-                                  {isCompactMode && (
-                                    <span className="text-[9px] font-bold text-muted-foreground uppercase">
-                                      {t("inventory.units")}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                            <div
-                              className={
-                                isCompactMode ? "flex items-center gap-4 flex-1" : "space-y-2"
-                              }
-                            >
-                              <div
-                                className={
-                                  isCompactMode
-                                    ? "w-10 h-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary"
-                                    : ""
-                                }
-                              >
-                                {isCompactMode && <Layers className="w-5 h-5" />}
-                              </div>
-                              <div>
-                                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                  {t("inventory.activeSkus")}
-                                </p>
-                                <div className="flex items-baseline gap-2">
-                                  <p
-                                    className={
-                                      isCompactMode
-                                        ? "text-lg font-semibold text-primary"
-                                        : "text-4xl font-semibold text-primary"
-                                    }
-                                  >
-                                    {selectedLocation.skuCount?.toString() || "0"}
-                                  </p>
-                                  {isCompactMode && (
-                                    <span className="text-[9px] font-bold text-muted-foreground uppercase">
-                                      {t("inventory.unique")}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                            {isCompactMode && (
-                              <div className="flex-1 flex justify-end">
-                                <button className="px-4 py-1.5 rounded-lg border border-border bg-muted text-[10px] font-semibold text-foreground/80 hover:text-foreground transition-all uppercase tracking-wide">
-                                  {t("inventory.viewDetailedLedger")}
-                                </button>
-                              </div>
-                            )}
+                      <div className="grid gap-4 lg:grid-cols-4">
+                        <InventoryMetric
+                          label={t("inventory.activeStock")}
+                          value={
+                            selectedCanHoldStock
+                              ? (selectedSummary?.directQuantity ?? 0)
+                              : (selectedSummary?.aggregateQuantity ?? 0)
+                          }
+                          icon={<Package className="h-4 w-4" />}
+                        />
+                        <InventoryMetric
+                          label={t("inventory.activeSkus")}
+                          value={
+                            selectedCanHoldStock
+                              ? (selectedSummary?.directSkus ?? 0)
+                              : (selectedSummary?.aggregateSkus ?? 0)
+                          }
+                          icon={<Layers className="h-4 w-4" />}
+                        />
+                        <InventoryMetric
+                          label={t("inventory.containers")}
+                          value={selectedContainers.length}
+                          icon={<Archive className="h-4 w-4" />}
+                        />
+                        <InventoryMetric
+                          label={t("inventory.putawayRules")}
+                          value={selectedPutawayRules.length}
+                          icon={<Tag className="h-4 w-4" />}
+                        />
+                      </div>
+
+                      <div className="rounded-lg border border-border bg-card p-4">
+                        <div className="flex items-start gap-3">
+                          <div className="mt-0.5 rounded-md border border-primary/20 bg-primary/10 p-2 text-primary">
+                            <ShieldCheck className="h-4 w-4" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-foreground">
+                              {selectedCanHoldStock
+                                ? t("inventory.directBinStock")
+                                : t("inventory.aggregatedChildStock")}
+                            </p>
+                            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                              {t("inventory.branchStockBoundary")}
+                            </p>
                           </div>
                         </div>
+                      </div>
 
-                        {/* Inventory Rules Card */}
-                        {!isCompactMode ? (
-                          <div className="bg-card/70 rounded-lg border border-border shadow-sm overflow-hidden">
-                            <div className="px-5 py-4 border-b border-border bg-muted/40 flex items-center justify-between">
-                              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                {t("inventory.rules")}
-                              </span>
-                              <Tag className="w-4 h-4 text-muted-foreground" />
-                            </div>
-                            <div className="p-8 grid grid-cols-1 gap-6 sm:grid-cols-2">
-                              <DetailItem
-                                label={t("inventory.defaultSku")}
-                                value={
-                                  selectedLocation.assignment?.defaultSKU ||
-                                  t("inventory.noDefaultSku")
-                                }
-                                isMono={!!selectedLocation.assignment?.defaultSKU}
-                              />
-                              <DetailItem
-                                label={t("inventory.allowedCategories")}
-                                value={
-                                  selectedLocation.assignment?.allowedCategories?.join(", ") ||
-                                  t("inventory.allCategories")
-                                }
-                              />
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="bg-card/50 border border-border rounded-xl p-3 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className="p-2 rounded-lg bg-muted border border-border text-muted-foreground">
-                                <Tag className="w-4 h-4" />
-                              </div>
-                              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                {t("inventory.rules")}
-                              </span>
-                            </div>
-                            <span className="text-[10px] font-bold text-muted-foreground italic">
-                              {selectedLocation.assignment?.defaultSKU ||
-                                t("inventory.allCategories")}
-                            </span>
-                          </div>
-                        )}
+                      <InventoryLinesTable
+                        lines={selectedInventoryLines}
+                        locationNameById={locationNameById}
+                        showLocation={!selectedCanHoldStock}
+                        emptyLabel={t("inventory.noStockLines")}
+                        t={t}
+                      />
+
+                      <div className="grid gap-4 lg:grid-cols-2">
+                        <ContainerList
+                          containers={selectedContainers}
+                          locationNameById={locationNameById}
+                          emptyLabel={t("inventory.noContainers")}
+                          t={t}
+                        />
+                        <PutawayRuleList
+                          rules={selectedPutawayRules}
+                          variants={variantOptions}
+                          emptyLabel={t("inventory.noPutawayRules")}
+                          t={t}
+                        />
                       </div>
                     </motion.div>
                   ) : (
@@ -1372,14 +1748,7 @@ export default function LocationsPage({
                           </span>
                           <Clock className="w-4 h-4 text-muted-foreground" />
                         </div>
-                        <div className="p-12 text-center flex flex-col items-center justify-center">
-                          <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4 opacity-60">
-                            <Layers className="w-5 h-5 text-muted-foreground" />
-                          </div>
-                          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
-                            {t("history.noActivity")}
-                          </p>
-                        </div>
+                        <MovementHistoryList movements={selectedMovementLines} t={t} />
                       </div>
                     </motion.div>
                   )}

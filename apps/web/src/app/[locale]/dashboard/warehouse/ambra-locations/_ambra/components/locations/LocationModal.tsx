@@ -55,10 +55,7 @@ import {
   Copy,
   Shield,
 } from "lucide-react";
-import {
-  LOCATION_CATEGORIES,
-  LocationCategoryDefinition,
-} from "../../constants/locationCategories";
+import { OPERATION_PROFILES, PHYSICAL_LOCATION_KINDS } from "../../constants/locationCategories";
 
 const ALL_ICONS: Record<string, any> = {
   Database,
@@ -125,7 +122,41 @@ const CUSTOM_COLORS = [
   { name: "Slate", value: "text-muted-foreground", bg: "bg-muted-foreground" },
 ];
 import { motion, AnimatePresence } from "motion/react";
-import { LogicalLocation, LocationRole } from "../../types";
+import {
+  LogicalLocation,
+  LocationRole,
+  type LocationCapabilities,
+  type LocationOperationProfile,
+  type LocationStockPolicy,
+  type PhysicalMetadata,
+  type PhysicalLocationKind,
+} from "../../types";
+
+const PHYSICAL_KIND_ROLE: Record<PhysicalLocationKind, LocationRole> = {
+  warehouse: LocationRole.WAREHOUSE,
+  zone: LocationRole.ZONE,
+  aisle: LocationRole.AISLE,
+  rack: LocationRole.RACK,
+  shelf: LocationRole.SHELF,
+  bin: LocationRole.BIN,
+};
+
+type LocationFormData = {
+  code: string;
+  name: string;
+  description: string;
+  parentId: string;
+  role: LocationRole;
+  physicalKind: PhysicalLocationKind;
+  stockPolicy: LocationStockPolicy;
+  operationProfile: LocationOperationProfile;
+  capabilities: LocationCapabilities;
+  status: "active" | "inactive" | "archived" | "locked";
+  icon: string;
+  color: string;
+  physicalMetadata: PhysicalMetadata & { weightCapacity?: number };
+  assignment: NonNullable<LogicalLocation["assignment"]>;
+};
 
 interface LocationModalProps {
   onClose: () => void;
@@ -141,12 +172,15 @@ export default function LocationModal({
   initialData,
 }: LocationModalProps) {
   const t = useTranslations("ambraLocations");
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<LocationFormData>({
     code: initialData?.code || "",
     name: initialData?.name || "",
     description: initialData?.description || "",
     parentId: initialData?.parentId || "",
     role: initialData?.role || LocationRole.STORAGE,
+    physicalKind: initialData?.physicalKind || "bin",
+    stockPolicy: initialData?.stockPolicy || "stockable",
+    operationProfile: initialData?.operationProfile || "standard",
     capabilities: initialData?.capabilities || {
       canStoreInventory: true,
       canReceive: true,
@@ -173,21 +207,54 @@ export default function LocationModal({
 
   const [currentStep, setCurrentStep] = useState<"BASIC" | "TYPE" | "PHYSICAL">("BASIC");
 
-  const handleRoleSelect = (role: LocationRole) => {
-    const category = LOCATION_CATEGORIES[role];
-    if (!category) return;
+  const handlePhysicalKindSelect = (physicalKind: PhysicalLocationKind) => {
+    const definition = PHYSICAL_LOCATION_KINDS[physicalKind];
+    const stockPolicy = definition.defaultStockPolicy;
+    const canStoreInventory = stockPolicy === "stockable";
 
     setFormData((prev) => ({
       ...prev,
-      role: role,
+      physicalKind,
+      stockPolicy,
+      role: PHYSICAL_KIND_ROLE[physicalKind],
+      icon: prev.icon || definition.iconName,
+      color: prev.color || definition.color,
       capabilities: {
         ...prev.capabilities,
-        canStoreInventory: category.defaults.canStoreInventory ?? true,
-        canReceive: category.defaults.canReceive ?? true,
-        canPick: category.defaults.canPick ?? true,
-        canShip: category.defaults.canShip ?? false,
-        canReserve: category.defaults.canReserve ?? true,
-        isVirtual: category.defaults.isVirtual ?? false,
+        canStoreInventory,
+        canReceive: canStoreInventory,
+        canPick: canStoreInventory,
+        canShip: prev.operationProfile === "shipping",
+        canReserve: canStoreInventory,
+        isVirtual: false,
+      },
+    }));
+  };
+
+  const handleStockPolicySelect = (stockPolicy: LocationStockPolicy) => {
+    const canStoreInventory = stockPolicy === "stockable";
+    setFormData((prev) => ({
+      ...prev,
+      stockPolicy,
+      capabilities: {
+        ...prev.capabilities,
+        canStoreInventory,
+        canReceive: canStoreInventory,
+        canPick: canStoreInventory,
+        canReserve: canStoreInventory,
+      },
+    }));
+  };
+
+  const handleOperationProfileSelect = (operationProfile: LocationOperationProfile) => {
+    const definition = OPERATION_PROFILES[operationProfile];
+    setFormData((prev) => ({
+      ...prev,
+      operationProfile,
+      color: prev.color || definition.color,
+      capabilities: {
+        ...prev.capabilities,
+        canShip: operationProfile === "shipping",
       },
     }));
   };
@@ -203,13 +270,14 @@ export default function LocationModal({
     return `${t("modal.root")} / ${path.join(" / ")}`;
   };
 
-  const getCategoryLabel = (role: LocationRole) =>
-    t(`categories.${role}.label`, { fallback: LOCATION_CATEGORIES[role]?.label || role });
+  const getPhysicalKindLabel = (kind: PhysicalLocationKind) =>
+    t(`physicalKinds.${kind}`, { fallback: kind });
 
-  const getCategoryDescription = (role: LocationRole) =>
-    t(`categories.${role}.description`, {
-      fallback: LOCATION_CATEGORIES[role]?.description || "",
-    });
+  const getPhysicalKindDescription = (kind: PhysicalLocationKind) =>
+    t(`physicalKindDescriptions.${kind}`, { fallback: PHYSICAL_LOCATION_KINDS[kind].description });
+
+  const getOperationProfileLabel = (profile: LocationOperationProfile) =>
+    t(`operationProfiles.${profile}`, { fallback: profile });
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-background/80 backdrop-blur-md">
@@ -271,7 +339,7 @@ export default function LocationModal({
               >
                 2
               </div>
-              {t("modal.steps.type")}
+              {t("modal.steps.structureStock")}
             </button>
             <button
               onClick={() => setCurrentStep("PHYSICAL")}
@@ -282,7 +350,7 @@ export default function LocationModal({
               >
                 3
               </div>
-              {t("modal.steps.operational")}
+              {t("modal.steps.physical")}
             </button>
           </div>
 
@@ -341,108 +409,108 @@ export default function LocationModal({
                   exit={{ opacity: 0, y: -20 }}
                   className="grid grid-cols-1 gap-5 lg:grid-cols-12"
                 >
-                  {/* Left: Type Tiles */}
                   <div className="space-y-3 lg:col-span-7">
                     <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground ml-1">
-                      {t("modal.richCategories")}
+                      {t("modal.physicalKind")}
                     </label>
                     <div className="grid grid-cols-1 gap-3 max-h-[430px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-muted sm:grid-cols-2">
-                      {(Object.values(LOCATION_CATEGORIES) as LocationCategoryDefinition[]).map(
-                        (cat) => {
-                          const active = formData.role === cat.id;
-                          return (
-                            <div
-                              key={cat.id}
-                              onClick={() => handleRoleSelect(cat.id)}
-                              className={`flex flex-col gap-3 p-4 rounded-lg border cursor-pointer transition-colors ${
-                                active
-                                  ? "bg-primary/10 border-primary shadow-sm"
-                                  : "bg-muted/40 border-border/50 hover:border-muted-foreground/40 hover:bg-muted"
-                              }`}
-                            >
-                              <div className="flex items-center justify-between">
-                                <div
-                                  className={`p-2 rounded-md shrink-0 ${active ? "bg-primary text-primary-foreground shadow-sm" : "bg-card text-muted-foreground"}`}
-                                >
-                                  <IconRenderer name={cat.iconName} className="w-5 h-5" />
-                                </div>
-                                {active && <Check className="w-4 h-4 text-primary" />}
+                      {Object.values(PHYSICAL_LOCATION_KINDS).map((kind) => {
+                        const active = formData.physicalKind === kind.id;
+                        return (
+                          <div
+                            key={kind.id}
+                            onClick={() => handlePhysicalKindSelect(kind.id)}
+                            className={`flex flex-col gap-3 p-4 rounded-lg border cursor-pointer transition-colors ${
+                              active
+                                ? "bg-primary/10 border-primary shadow-sm"
+                                : "bg-muted/40 border-border/50 hover:border-muted-foreground/40 hover:bg-muted"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div
+                                className={`p-2 rounded-md shrink-0 ${active ? "bg-primary text-primary-foreground shadow-sm" : "bg-card text-muted-foreground"}`}
+                              >
+                                <IconRenderer name={kind.iconName} className="w-5 h-5" />
                               </div>
-                              <div>
-                                <span
-                                  className={`text-[11px] font-semibold uppercase tracking-wide block mb-0.5 ${active ? "text-foreground" : "text-foreground/80"}`}
-                                >
-                                  {getCategoryLabel(cat.id)}
-                                </span>
-                                <span className="text-[9.5px] text-muted-foreground font-medium leading-relaxed block h-8 overflow-hidden line-clamp-2">
-                                  {getCategoryDescription(cat.id)}
-                                </span>
-                              </div>
+                              {active && <Check className="w-4 h-4 text-primary" />}
                             </div>
-                          );
-                        }
-                      )}
+                            <div>
+                              <span
+                                className={`text-[11px] font-semibold uppercase tracking-wide block mb-0.5 ${active ? "text-foreground" : "text-foreground/80"}`}
+                              >
+                                {getPhysicalKindLabel(kind.id)}
+                              </span>
+                              <span className="text-[9.5px] text-muted-foreground font-medium leading-relaxed block h-8 overflow-hidden line-clamp-2">
+                                {getPhysicalKindDescription(kind.id)}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
 
-                  {/* Right: Capability Overrides */}
                   <div className="space-y-5 lg:col-span-5">
                     <div className="p-4 rounded-lg bg-primary/5 border border-primary/10 flex gap-3">
                       <div className="w-8 h-8 rounded-md bg-primary/20 flex items-center justify-center shrink-0">
                         <Zap className="w-4 h-4 text-primary" />
                       </div>
                       <p className="text-[10px] text-primary leading-relaxed font-semibold uppercase tracking-wide">
-                        {t("modal.capabilitiesDerived")}{" "}
-                        <span className="text-primary">{getCategoryLabel(formData.role)}</span>.{" "}
-                        {t("modal.manualOverrides")}
+                        {t("modal.stockPolicyExplanation")}
                       </p>
                     </div>
 
-                    <div className="grid grid-cols-1 gap-3">
-                      <BehaviorToggle
-                        icon={<Database className="w-4 h-4" />}
-                        label={t("capabilities.allowsStock")}
-                        checked={formData.capabilities.canStoreInventory}
-                        onChange={(v) =>
-                          setFormData({
-                            ...formData,
-                            capabilities: { ...formData.capabilities, canStoreInventory: v },
-                          })
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground ml-1">
+                        {t("modal.stockPolicy")}
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {(["none", "stockable"] as LocationStockPolicy[]).map((policy) => {
+                          const disabled =
+                            policy === "stockable" && formData.physicalKind !== "bin";
+                          return (
+                            <button
+                              key={policy}
+                              type="button"
+                              disabled={disabled}
+                              onClick={() => handleStockPolicySelect(policy)}
+                              className={`rounded-lg border px-3 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                                formData.stockPolicy === policy
+                                  ? "border-primary bg-primary/10 text-primary"
+                                  : "border-border bg-background text-muted-foreground hover:text-foreground"
+                              }`}
+                            >
+                              <span className="block text-[11px] font-semibold uppercase tracking-wide">
+                                {t(`stockPolicies.${policy}`)}
+                              </span>
+                              <span className="mt-1 block text-[10px] leading-4">
+                                {t(`stockPolicyDescriptions.${policy}`)}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground ml-1">
+                        {t("modal.operationProfile")}
+                      </label>
+                      <select
+                        value={formData.operationProfile}
+                        onChange={(event) =>
+                          handleOperationProfileSelect(
+                            event.target.value as LocationOperationProfile
+                          )
                         }
-                      />
-                      <BehaviorToggle
-                        icon={<Inbox className="w-4 h-4" />}
-                        label={t("capabilities.receivable")}
-                        checked={formData.capabilities.canReceive}
-                        onChange={(v) =>
-                          setFormData({
-                            ...formData,
-                            capabilities: { ...formData.capabilities, canReceive: v },
-                          })
-                        }
-                      />
-                      <BehaviorToggle
-                        icon={<RotateCcw className="w-4 h-4" />}
-                        label={t("capabilities.pickable")}
-                        checked={formData.capabilities.canPick}
-                        onChange={(v) =>
-                          setFormData({
-                            ...formData,
-                            capabilities: { ...formData.capabilities, canPick: v },
-                          })
-                        }
-                      />
-                      <BehaviorToggle
-                        icon={<ShieldCheckIcon className="w-4 h-4" />}
-                        label={t("capabilities.operationalOnly")}
-                        checked={formData.capabilities.isVirtual}
-                        onChange={(v) =>
-                          setFormData({
-                            ...formData,
-                            capabilities: { ...formData.capabilities, isVirtual: v },
-                          })
-                        }
-                      />
+                        className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm font-medium text-foreground"
+                      >
+                        {Object.values(OPERATION_PROFILES).map((profile) => (
+                          <option key={profile.id} value={profile.id}>
+                            {getOperationProfileLabel(profile.id)}
+                          </option>
+                        ))}
+                      </select>
                     </div>
 
                     <div className="space-y-4 pt-6 mt-6 border-t border-border">
@@ -514,9 +582,8 @@ export default function LocationModal({
                   initial={{ opacity: 0, scale: 0.98 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.98 }}
-                  className="grid grid-cols-1 gap-5 mx-auto lg:grid-cols-2"
+                  className="mx-auto max-w-xl"
                 >
-                  {/* Physical Specs */}
                   <div className="space-y-4">
                     <div className="flex items-center gap-3 mb-2">
                       <Maximize2 className="w-4 h-4 text-primary" />
@@ -582,48 +649,6 @@ export default function LocationModal({
                           }
                           isNumber
                         />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Logical Assignments */}
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-3 mb-2">
-                      <CheckSquare className="w-4 h-4 text-emerald-700 dark:text-emerald-300" />
-                      <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground/80">
-                        {t("modal.operationalAssignments")}
-                      </h3>
-                    </div>
-                    <div className="bg-background p-5 rounded-lg border border-border space-y-5">
-                      <Input
-                        label={t("modal.fields.defaultSku")}
-                        placeholder={t("modal.placeholders.defaultSku")}
-                        value={formData.assignment.defaultSKU || ""}
-                        onChange={(v) =>
-                          setFormData({
-                            ...formData,
-                            assignment: { ...formData.assignment, defaultSKU: v },
-                          })
-                        }
-                      />
-                      <div>
-                        <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground ml-1">
-                          {t("modal.fields.allowedCategories")}
-                        </label>
-                        <p className="text-[9px] text-muted-foreground font-medium uppercase tracking-wide mt-1 mb-3 italic">
-                          {t("modal.advancedSkuComingSoon")}
-                        </p>
-                        <div className="flex flex-wrap gap-2 opacity-50 pointer-events-none">
-                          <div className="px-3 py-1.5 rounded-lg bg-muted border border-border text-[10px] font-semibold text-muted-foreground uppercase">
-                            {t("modal.sampleCategories.perishables")}
-                          </div>
-                          <div className="px-3 py-1.5 rounded-lg bg-muted border border-border text-[10px] font-semibold text-muted-foreground uppercase">
-                            {t("modal.sampleCategories.hazmat")}
-                          </div>
-                          <div className="px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 uppercase">
-                            {t("modal.sampleCategories.standard")}
-                          </div>
-                        </div>
                       </div>
                     </div>
                   </div>

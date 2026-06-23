@@ -59,6 +59,8 @@ export interface WarehouseLocation {
   map_role?: WarehouseLocationMapRole;
   /** Optional semantic storage classification for future workflows. */
   storage_mode?: string;
+  /** Whether this node can directly hold branch inventory balances. */
+  can_store_inventory?: boolean;
   /** Whether storage above the nominal unit height is allowed. */
   allow_top_storage?: boolean;
   level: number;

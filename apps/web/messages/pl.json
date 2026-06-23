@@ -5907,6 +5907,39 @@
       "inventory": "Zapasy",
       "history": "Historia"
     },
+    "physicalKinds": {
+      "warehouse": "Magazyn",
+      "zone": "Strefa",
+      "aisle": "Alejka",
+      "rack": "Regał",
+      "shelf": "Półka",
+      "bin": "Bin"
+    },
+    "physicalKindDescriptions": {
+      "warehouse": "Najwyższy węzeł magazynu oddziału używany do organizacji lokalizacji.",
+      "zone": "Szeroki obszar operacyjny agregujący lokalizacje podrzędne.",
+      "aisle": "Alejka nawigacyjna grupująca regały, półki lub biny.",
+      "rack": "Struktura regału, która zwykle zawiera półki lub biny.",
+      "shelf": "Struktura półki, która może grupować biny składowania.",
+      "bin": "Punkt składowania, w którym mogą istnieć salda zapasów."
+    },
+    "stockPolicies": {
+      "none": "Bez bezpośredniego zapasu",
+      "stockable": "Bin składowania"
+    },
+    "stockPolicyDescriptions": {
+      "none": "Pokazuje tylko zapas binów podrzędnych i nie przyjmuje zapasu bezpośrednio.",
+      "stockable": "Może przechowywać salda zapasów oraz obsługiwać przyjęcia, wydania i relokacje."
+    },
+    "operationProfiles": {
+      "standard": "Standardowy",
+      "receiving": "Przyjęcia",
+      "shipping": "Wysyłka",
+      "returns": "Zwroty",
+      "quarantine": "Kwarantanna",
+      "staging": "Bufor",
+      "transit": "Tranzyt"
+    },
     "actions": {
       "addEntity": "Dodaj nową jednostkę",
       "dragToMove": "Przeciągnij, aby przenieść",
@@ -5944,6 +5977,12 @@
     },
     "detail": {
       "locationRole": "Rola lokalizacji",
+      "structureStockPolicy": "Struktura i polityka zapasu",
+      "physicalKind": "Typ fizyczny",
+      "stockPolicy": "Polityka zapasu",
+      "operationProfile": "Profil operacyjny",
+      "binCanHoldStock": "Ten bin może bezpośrednio przechowywać salda zapasów.",
+      "aggregatesChildStock": "Ten węzeł agreguje zapas z podrzędnych binów składowania.",
       "description": "Opis",
       "noDescription": "Nie dodano opisu dla tej lokalizacji.",
       "fullPathCode": "Pełny kod ścieżki",
@@ -5979,14 +6018,65 @@
       "unique": "Unikalne",
       "viewDetailedLedger": "Pokaż szczegółowy rejestr",
       "rules": "Reguły zapasów lokalizacji",
+      "directBinStock": "Bezpośredni zapas binu",
+      "aggregatedChildStock": "Zagregowany zapas binów podrzędnych",
+      "branchStockBoundary": "Łączny zapas oddziału zmieniają tylko operacje magazynowe. Relokacja między binami w tym oddziale zapisuje historię, ale nie zmienia sumy oddziału.",
+      "receiveIntoBin": "Przyjmij do tego binu",
+      "relocateFromBin": "Przenieś z tego binu",
+      "postReceipt": "Zaksięguj przyjęcie",
+      "postRelocation": "Zaksięguj relokację",
+      "destinationBin": "Bin docelowy",
+      "selectStockableBin": "Wybierz bin składowania dla akcji",
+      "nonBinCannotReceive": "Magazyn, strefa, alejka, regał i półka pokazują tylko zagregowany zapas.",
+      "actionPosted": "Ruch magazynowy zaksięgowany.",
+      "actionFailed": "Akcja nie powiodła się.",
+      "placementSaved": "Ustawienie składowania zapisane.",
+      "stockLines": "Linie zapasu",
+      "location": "Lokalizacja",
+      "onHand": "Na stanie",
+      "available": "Dostępne",
+      "containers": "Kontenery",
+      "putawayRules": "Reguły odkładania",
+      "containerizedStock": "Zapas w kontenerach",
+      "preferredStorage": "Preferowane składowanie",
+      "createContainer": "Utwórz kontener",
+      "containerCode": "Kod kontenera",
+      "assignPreferredStorage": "Przypisz preferowane składowanie",
+      "savePreferredStorage": "Zapisz preferowane składowanie",
+      "variant": "Wariant",
+      "unit": "Jednostka",
+      "quantity": "Ilość",
+      "note": "Notatka",
+      "priority": "Priorytet",
+      "defaultRule": "Reguła domyślna",
+      "noStockLines": "Brak linii zapasu w tym zakresie.",
+      "noContainers": "Brak kontenerów w tym zakresie.",
+      "noPutawayRules": "Brak reguł preferowanego składowania wskazujących tutaj.",
       "defaultSku": "Domyślne SKU",
       "noDefaultSku": "Nie przypisano domyślnego SKU.",
       "allowedCategories": "Dozwolone kategorie",
-      "allCategories": "Wszystkie kategorie"
+      "allCategories": "Wszystkie kategorie",
+      "items": "pozycji",
+      "noItems": "Brak pozycji w tym kontenerze.",
+      "addItems": "Dodaj pozycje",
+      "addItemsToContainer": "Dodaj pozycje do kontenera",
+      "addLine": "Dodaj kolejną pozycję",
+      "removeItem": "Usuń pozycję",
+      "moveContainer": "Przenieś kontener",
+      "move": "Przenieś",
+      "save": "Zapisz",
+      "qty": "Ilość",
+      "itemsAdded": "Pozycje dodane do kontenera.",
+      "itemRemoved": "Pozycja usunięta z kontenera.",
+      "containerMoved": "Kontener przeniesiony do nowej lokalizacji.",
+      "ruleDeleted": "Reguła składowania usunięta.",
+      "deleteRule": "Usuń regułę"
     },
     "history": {
       "recentMovements": "Ostatnie ruchy",
-      "noActivity": "Brak zarejestrowanej aktywności"
+      "noActivity": "Brak zarejestrowanej aktywności",
+      "internalRelocation": "Relokacja wewnętrzna",
+      "external": "Zewnętrzne"
     },
     "export": {
       "title": "Eksport danych lokalizacji",
@@ -6063,6 +6153,10 @@
       "pathPreview": "Podgląd ścieżki",
       "noneRoot": "Brak (root systemu)",
       "richCategories": "Kategorie",
+      "physicalKind": "Typ fizyczny",
+      "stockPolicy": "Polityka zapasu",
+      "operationProfile": "Profil operacyjny",
+      "stockPolicyExplanation": "Biny domyślnie przechowują zapas. Wyższe węzły organizują drzewo i pokazują zagregowany zapas binów podrzędnych.",
       "capabilitiesDerived": "Możliwości wynikają z",
       "manualOverrides": "Można je nadpisać ręcznie",
       "iconColorOverrides": "Nadpisanie ikony i koloru",
@@ -6072,7 +6166,9 @@
       "steps": {
         "identity": "Tożsamość",
         "type": "Typ i możliwości",
-        "operational": "Logika operacyjna"
+        "operational": "Logika operacyjna",
+        "structureStock": "Struktura i zapas",
+        "physical": "Fizyczne"
       },
       "fields": {
         "code": "Kod lokalizacji",
