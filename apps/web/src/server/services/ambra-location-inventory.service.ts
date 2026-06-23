@@ -3,6 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   AmbraLocationInventorySnapshot,
+  ContainerLine,
   LocationContainer,
   LocationInventoryLine,
   LocationMovementLine,
@@ -343,21 +344,120 @@ export class AmbraLocationInventoryService {
     if (isMissingRelationError(error)) return { success: true, data: [] };
     if (error) return { success: false, error: error.message };
 
+    const containers = (data ?? []) as Array<{
+      id: string;
+      code: string;
+      type: string;
+      status: string;
+      current_location_id: string;
+      reference_type: string | null;
+      reference_id: string | null;
+      created_at: string;
+      updated_at: string;
+    }>;
+
+    if (containers.length === 0) return { success: true, data: [] };
+
+    const containerIds = containers.map((c) => c.id);
+    const { data: linesData, error: linesError } = await client
+      .from("inventory_container_lines")
+      .select("id, container_id, variant_id, unit_id, quantity")
+      .eq("organization_id", orgId)
+      .eq("branch_id", branchId)
+      .is("deleted_at", null)
+      .in("container_id", containerIds);
+
+    if (isMissingRelationError(linesError)) {
+      return {
+        success: true,
+        data: containers.map((row) => ({
+          id: row.id,
+          code: row.code,
+          type: row.type,
+          status: row.status,
+          currentLocationId: row.current_location_id,
+          referenceType: row.reference_type,
+          referenceId: row.reference_id,
+          lines: [],
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+        })),
+      };
+    }
+    if (linesError) return { success: false, error: linesError.message };
+
+    const rawLines = (linesData ?? []) as Array<{
+      id: string;
+      container_id: string;
+      variant_id: string;
+      unit_id: string;
+      quantity: number | string;
+    }>;
+
+    const variantIds = [...new Set(rawLines.map((l) => l.variant_id))];
+    const unitIds = [...new Set(rawLines.map((l) => l.unit_id))];
+
+    const [variantsRes, unitsRes] = await Promise.all([
+      variantIds.length
+        ? supabase
+            .from("inventory_variants")
+            .select("id, product_id, sku")
+            .eq("organization_id", orgId)
+            .in("id", variantIds)
+        : Promise.resolve({ data: [], error: null }),
+      unitIds.length
+        ? supabase
+            .from("inventory_units")
+            .select("id, code")
+            .eq("organization_id", orgId)
+            .in("id", unitIds)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+
+    const variants = (variantsRes.data ?? []) as Array<{
+      id: string;
+      product_id: string;
+      sku: string;
+    }>;
+    const productIds = [...new Set(variants.map((v) => v.product_id))];
+    const { data: productsData } = productIds.length
+      ? await supabase
+          .from("inventory_products")
+          .select("id, name")
+          .eq("organization_id", orgId)
+          .in("id", productIds)
+      : { data: [] };
+
+    const variantsById = new Map(variants.map((v) => [v.id, v]));
+    const productsById = new Map(
+      ((productsData ?? []) as Array<{ id: string; name: string }>).map((p) => [p.id, p])
+    );
+    const unitsById = new Map(
+      ((unitsRes.data ?? []) as Array<{ id: string; code: string }>).map((u) => [u.id, u])
+    );
+
+    const linesByContainer = new Map<string, ContainerLine[]>();
+    for (const line of rawLines) {
+      const variant = variantsById.get(line.variant_id);
+      const product = variant ? productsById.get(variant.product_id) : undefined;
+      const unit = unitsById.get(line.unit_id);
+      const bucket = linesByContainer.get(line.container_id) ?? [];
+      bucket.push({
+        id: line.id,
+        containerId: line.container_id,
+        variantId: line.variant_id,
+        unitId: line.unit_id,
+        quantity: toNumber(line.quantity),
+        sku: variant?.sku ?? "",
+        productName: product?.name ?? "",
+        unitCode: unit?.code ?? "",
+      });
+      linesByContainer.set(line.container_id, bucket);
+    }
+
     return {
       success: true,
-      data: (
-        (data ?? []) as Array<{
-          id: string;
-          code: string;
-          type: string;
-          status: string;
-          current_location_id: string;
-          reference_type: string | null;
-          reference_id: string | null;
-          created_at: string;
-          updated_at: string;
-        }>
-      ).map((row) => ({
+      data: containers.map((row) => ({
         id: row.id,
         code: row.code,
         type: row.type,
@@ -365,6 +465,7 @@ export class AmbraLocationInventoryService {
         currentLocationId: row.current_location_id,
         referenceType: row.reference_type,
         referenceId: row.reference_id,
+        lines: linesByContainer.get(row.id) ?? [],
         createdAt: row.created_at,
         updatedAt: row.updated_at,
       })),

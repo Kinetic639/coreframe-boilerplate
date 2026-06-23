@@ -6081,7 +6081,22 @@
       "defaultSku": "Default SKU",
       "noDefaultSku": "No default SKU assigned.",
       "allowedCategories": "Allowed categories",
-      "allCategories": "All categories"
+      "allCategories": "All categories",
+      "items": "items",
+      "noItems": "No items in this container.",
+      "addItems": "Add items",
+      "addItemsToContainer": "Add items to container",
+      "addLine": "Add another item",
+      "removeItem": "Remove item",
+      "moveContainer": "Move container",
+      "move": "Move",
+      "save": "Save",
+      "qty": "Qty",
+      "itemsAdded": "Items added to container.",
+      "itemRemoved": "Item removed from container.",
+      "containerMoved": "Container moved to new location.",
+      "ruleDeleted": "Putaway rule deleted.",
+      "deleteRule": "Delete rule"
     },
     "history": {
       "recentMovements": "Recent movements",

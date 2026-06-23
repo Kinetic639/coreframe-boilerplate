@@ -57,7 +57,11 @@ export default async function AmbraWarehouseLocationsPage() {
           ? inventorySnapshotResult.data
           : { balances: [], movements: [], containers: [], putawayRules: [] }
       }
-      variantOptions={variantOptionsResult.success ? variantOptionsResult.data : []}
+      variantOptions={
+        variantOptionsResult.success
+          ? variantOptionsResult.data.filter((v) => (v.on_hand_quantity ?? 0) > 0)
+          : []
+      }
     />
   );
 }

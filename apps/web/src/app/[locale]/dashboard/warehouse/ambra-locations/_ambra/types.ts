@@ -193,6 +193,17 @@ export interface LocationMovementLine {
   postedAt: string | null;
 }
 
+export interface ContainerLine {
+  id: string;
+  containerId: string;
+  variantId: string;
+  unitId: string;
+  quantity: number;
+  sku: string;
+  productName: string;
+  unitCode: string;
+}
+
 export interface LocationContainer {
   id: string;
   code: string;
@@ -202,6 +213,7 @@ export interface LocationContainer {
   currentLocationName?: string | null;
   referenceType?: string | null;
   referenceId?: string | null;
+  lines: ContainerLine[];
   createdAt: string;
   updatedAt: string;
 }

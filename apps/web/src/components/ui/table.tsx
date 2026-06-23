@@ -5,14 +5,22 @@ import { cn } from "@/utils/index";
 
 type TableProps = React.HTMLAttributes<HTMLTableElement> & {
   containerClassName?: string;
+  noWrapper?: boolean;
 };
 
 const Table = React.forwardRef<HTMLTableElement, TableProps>(
-  ({ className, containerClassName, ...props }, ref) => (
-    <div className={cn("relative w-full overflow-auto", containerClassName)}>
-      <table ref={ref} className={cn("w-full caption-bottom text-sm", className)} {...props} />
-    </div>
-  )
+  ({ className, containerClassName, noWrapper, ...props }, ref) => {
+    if (noWrapper) {
+      return (
+        <table ref={ref} className={cn("w-full caption-bottom text-sm", className)} {...props} />
+      );
+    }
+    return (
+      <div className={cn("relative w-full overflow-auto", containerClassName)}>
+        <table ref={ref} className={cn("w-full caption-bottom text-sm", className)} {...props} />
+      </div>
+    );
+  }
 );
 Table.displayName = "Table";
 

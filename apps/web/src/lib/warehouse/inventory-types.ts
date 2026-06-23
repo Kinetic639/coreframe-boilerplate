@@ -355,53 +355,108 @@ export type InventoryMovementLineInput = {
 };
 
 export type CreateDraftMovementInput = {
-  movement_kind: "receipt" | "issue" | "transfer" | "adjustment" | "opening_balance";
-  adjustment_direction?: "increase" | "decrease" | null;
+  movement_type_code: string;
   lines: InventoryMovementLineInput[];
-  reason_id?: string | null;
+  operation_date?: string | null;
+  document_date?: string | null;
+  counterparty_name?: string | null;
+  external_reference?: string | null;
   note?: string | null;
-  reference_type?: string | null;
-  reference_id?: string | null;
   idempotency_key?: string | null;
+};
+
+export type InventoryDocumentType = {
+  id: string;
+  code: string;
+  name: string;
+  name_pl: string | null;
+  name_en: string | null;
+  category: string;
+};
+
+export type InventoryMovementType = {
+  id: string;
+  code: string;
+  name: string;
+  name_pl: string | null;
+  name_en: string | null;
+  document_type_code: string;
+  category: string;
+  requires_source_location: boolean;
+  requires_destination_location: boolean;
+  requires_reference: boolean;
+  requires_note: boolean;
+  cost_impact: string;
 };
 
 export type InventoryMovementListRow = {
   id: string;
-  operation_type?: "movement" | "branch_transfer";
-  movement_number: string;
-  movement_kind: string;
-  adjustment_direction: string | null;
+  draft_number: string | null;
+  document_number: string | null;
+  document_type_code: string | null;
+  movement_type_code: string;
+  movement_type_name: string;
   status: string;
-  reference: string | null;
   line_count: number;
   product_names: string;
+  counterparty_name: string | null;
+  external_reference: string | null;
   created_by: string | null;
   created_at: string;
   posted_at: string | null;
-  source_branch_id?: string | null;
-  source_branch_name?: string | null;
-  destination_branch_id?: string | null;
-  destination_branch_name?: string | null;
+};
+
+export type InventoryPickerItem = {
+  variant_id: string;
+  product_id: string;
+  sku: string;
+  barcode: string | null;
+  product_name: string;
+  brand_name: string | null;
+  manufacturer_name: string | null;
+  unit_id: string;
+  unit_code: string;
+  total_on_hand: number | null;
+  source_location_on_hand: number | null;
+};
+
+export type LocationVariantStock = {
+  variant_id: string;
+  product_name: string;
+  sku: string;
+  unit_id: string;
+  unit_code: string;
+  on_hand_quantity: number;
+};
+
+export type InventoryMovementAuditEntry = {
+  id: string;
+  action: string;
+  old_status: string | null;
+  new_status: string | null;
+  actor_user_name: string | null;
+  created_at: string;
 };
 
 export type InventoryMovementDetail = InventoryMovementListRow & {
   note: string | null;
-  reason_code: string | null;
-  decline_reason?: string | null;
-  related_documents?: Array<
-    InventoryMovementListRow & {
-      document_role: "source_issue" | "destination_receipt" | "return_receipt" | "movement";
-    }
-  >;
+  operation_date: string | null;
+  document_date: string | null;
   lines: Array<{
     id: string;
+    line_number: number;
+    variant_id: string;
     sku: string;
     product_name: string;
     quantity: number;
     unit_code: string;
+    unit_cost: number | null;
+    source_location_id: string | null;
     source_location_name: string | null;
+    destination_location_id: string | null;
     destination_location_name: string | null;
   }>;
+  audit_log: InventoryMovementAuditEntry[];
 };
 
 export type CreateOptionGroupInput = {

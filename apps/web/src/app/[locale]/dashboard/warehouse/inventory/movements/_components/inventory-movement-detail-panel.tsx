@@ -2,15 +2,17 @@
 
 import { useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
-import { Check, ExternalLink, Printer, X } from "lucide-react";
+import { Check, ExternalLink, Loader2, Pencil, Printer, Send, X, XCircle } from "lucide-react";
+import { toast } from "react-toastify";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Link, useRouter } from "@/i18n/navigation";
 import type { InventoryMovementDetail } from "@/lib/warehouse/inventory-types";
 import {
   acceptInventoryBranchTransferAction,
+  cancelMovementAction,
   declineInventoryBranchTransferAction,
+  finalizePostingAction,
 } from "@/app/actions/warehouse/inventory";
 
 type LocationOption = {
@@ -56,12 +58,8 @@ export function InventoryMovementDetailPanel({
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const relatedDocuments = detail.related_documents ?? [];
-  const canRespondToTransfer =
-    detail.operation_type === "branch_transfer" &&
-    canOperate &&
-    detail.destination_branch_id === activeBranchId &&
-    detail.status === "in_transit";
+  const canRespondToTransfer = canOperate && detail.status === "in_transit";
+  const isDraft = detail.status === "draft";
 
   const acceptTransfer = (formData: FormData) => {
     setMessage(null);
@@ -96,16 +94,14 @@ export function InventoryMovementDetailPanel({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-lg font-semibold">{detail.movement_number}</h2>
+            <h2 className="text-lg font-semibold">
+              {detail.document_number ?? detail.draft_number}
+            </h2>
             <Badge variant={statusVariant[detail.status] ?? "outline"}>{detail.status}</Badge>
           </div>
           <p className="text-sm text-muted-foreground">
-            {detail.movement_kind === "branch_transfer"
-              ? t("branchTransfer")
-              : detail.adjustment_direction
-                ? `${detail.movement_kind} / ${detail.adjustment_direction}`
-                : detail.movement_kind}
-            {detail.reference ? ` · ${detail.reference}` : ""}
+            {detail.movement_type_name}
+            {detail.external_reference ? ` · ${detail.external_reference}` : ""}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -131,106 +127,166 @@ export function InventoryMovementDetailPanel({
         </div>
       </div>
 
-      <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="overview">{t("overview")}</TabsTrigger>
-          <TabsTrigger value="documents">
-            {t("relatedDocuments")} ({relatedDocuments.length})
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="overview" className="space-y-4">
-          {detail.note ? <p className="text-sm">{detail.note}</p> : null}
-          {detail.decline_reason ? (
-            <p className="text-sm text-destructive">{detail.decline_reason}</p>
-          ) : null}
-          <div className="space-y-2">
-            {detail.lines.map((line) => (
-              <div key={line.id} className="rounded-md border p-2 text-sm">
-                <div className="font-medium">
-                  {line.sku} - {line.product_name}
-                </div>
-                <div className="text-muted-foreground">
-                  {line.quantity} {line.unit_code}
-                  {line.source_location_name
-                    ? ` ${t("from", { location: line.source_location_name })}`
-                    : ""}
-                  {line.destination_location_name
-                    ? ` ${t("to", { location: line.destination_location_name })}`
-                    : ""}
-                </div>
-              </div>
-            ))}
+      <div className="space-y-4">
+        {/* Draft actions: Edit / Post / Cancel */}
+        {isDraft && canOperate && (
+          <div className="flex gap-2 border-b pb-4">
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/dashboard/warehouse/inventory/movements/${detail.id}/edit` as any}>
+                <Pencil className="mr-2 h-3.5 w-3.5" />
+                Edit Draft
+              </Link>
+            </Button>
+            <Button
+              size="sm"
+              disabled={isPending}
+              onClick={() => {
+                startTransition(async () => {
+                  const result = (await finalizePostingAction({ id: detail.id })) as any;
+                  if (result.success) {
+                    toast.success(`Document ${result.data?.document_number ?? ""} posted.`);
+                    router.refresh();
+                  } else {
+                    toast.error(result.error ?? "Failed to post");
+                  }
+                });
+              }}
+            >
+              {isPending ? (
+                <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Send className="mr-2 h-3.5 w-3.5" />
+              )}
+              Post Movement
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isPending}
+              onClick={() => {
+                startTransition(async () => {
+                  const result = (await cancelMovementAction({ id: detail.id })) as any;
+                  if (result.success) {
+                    toast.info("Movement cancelled.");
+                    router.refresh();
+                  } else {
+                    toast.error(result.error ?? "Failed to cancel");
+                  }
+                });
+              }}
+            >
+              {isPending ? (
+                <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <XCircle className="mr-2 h-3.5 w-3.5" />
+              )}
+              Cancel
+            </Button>
           </div>
+        )}
 
-          {canRespondToTransfer ? (
-            <div className="grid gap-2 border-t pt-4 md:grid-cols-2">
-              <form action={acceptTransfer} className="flex gap-2">
-                <input type="hidden" name="id" value={detail.id} />
-                <select
-                  name="destination_location_id"
-                  className="h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm"
-                  required
-                >
-                  <option value="">{tt("receiveToLocation")}</option>
-                  {locations.map((location) => (
-                    <option key={location.id} value={location.id}>
-                      {formatLocation(location)}
-                    </option>
-                  ))}
-                </select>
-                <Button type="submit" disabled={isPending}>
-                  <Check className="mr-2 h-4 w-4" />
-                  {tt("accept")}
-                </Button>
-              </form>
-              <form action={declineTransfer} className="flex gap-2">
-                <input type="hidden" name="id" value={detail.id} />
-                <input
-                  name="decline_reason"
-                  className="h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm"
-                  placeholder={tc("reason")}
-                />
-                <Button type="submit" variant="outline" disabled={isPending}>
-                  <X className="mr-2 h-4 w-4" />
-                  {tt("decline")}
-                </Button>
-              </form>
-            </div>
-          ) : null}
-          {message ? <p className="text-sm text-muted-foreground">{message}</p> : null}
-        </TabsContent>
+        {/* Header info */}
+        {detail.note ? <p className="text-sm">{detail.note}</p> : null}
+        {(detail.counterparty_name || detail.operation_date || detail.document_date) && (
+          <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+            {detail.counterparty_name && (
+              <span>
+                Counterparty:{" "}
+                <strong className="text-foreground">{detail.counterparty_name}</strong>
+              </span>
+            )}
+            {detail.operation_date && <span>Operation: {detail.operation_date}</span>}
+            {detail.document_date && <span>Document: {detail.document_date}</span>}
+          </div>
+        )}
 
-        <TabsContent value="documents" className="space-y-2">
-          {relatedDocuments.length ? (
-            relatedDocuments.map((document) => (
-              <div
-                key={document.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3 text-sm"
-              >
-                <div>
-                  <div className="font-medium">{document.movement_number}</div>
-                  <div className="text-muted-foreground">
-                    {t(document.document_role)} · {document.movement_kind}
-                  </div>
-                </div>
-                <div className="text-right text-muted-foreground">
-                  <Badge variant={statusVariant[document.status] ?? "outline"}>
-                    {document.status}
-                  </Badge>
-                  <div>
-                    {document.posted_at ? new Date(document.posted_at).toLocaleString() : ""}
-                  </div>
-                </div>
+        {/* Lines */}
+        <div className="space-y-2">
+          {detail.lines.map((line) => (
+            <div key={line.id} className="rounded-md border p-2 text-sm">
+              <div className="font-medium">
+                {line.sku} - {line.product_name}
               </div>
-            ))
-          ) : (
-            <div className="rounded-md border p-6 text-center text-sm text-muted-foreground">
-              {t("noRelatedDocuments")}
+              <div className="text-muted-foreground">
+                {line.quantity} {line.unit_code}
+                {line.source_location_name
+                  ? ` ${t("from", { location: line.source_location_name })}`
+                  : ""}
+                {line.destination_location_name
+                  ? ` ${t("to", { location: line.destination_location_name })}`
+                  : ""}
+              </div>
             </div>
-          )}
-        </TabsContent>
-      </Tabs>
+          ))}
+        </div>
+
+        {/* Audit log */}
+        {detail.audit_log && detail.audit_log.length > 0 && (
+          <div className="border-t pt-4">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Audit Log
+            </p>
+            <div className="space-y-1">
+              {detail.audit_log.map((entry) => (
+                <div
+                  key={entry.id}
+                  className="flex items-center justify-between rounded bg-muted/40 px-2 py-1.5 text-xs"
+                >
+                  <span>
+                    <Badge variant="outline" className="mr-2 text-[10px]">
+                      {entry.action}
+                    </Badge>
+                    {entry.old_status && entry.new_status
+                      ? `${entry.old_status} → ${entry.new_status}`
+                      : ""}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {entry.actor_user_name ?? "system"} ·{" "}
+                    {new Date(entry.created_at).toLocaleString()}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {canRespondToTransfer ? (
+          <div className="grid gap-2 border-t pt-4 md:grid-cols-2">
+            <form action={acceptTransfer} className="flex gap-2">
+              <input type="hidden" name="id" value={detail.id} />
+              <select
+                name="destination_location_id"
+                className="h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm"
+                required
+              >
+                <option value="">{tt("receiveToLocation")}</option>
+                {locations.map((location) => (
+                  <option key={location.id} value={location.id}>
+                    {formatLocation(location)}
+                  </option>
+                ))}
+              </select>
+              <Button type="submit" disabled={isPending}>
+                <Check className="mr-2 h-4 w-4" />
+                {tt("accept")}
+              </Button>
+            </form>
+            <form action={declineTransfer} className="flex gap-2">
+              <input type="hidden" name="id" value={detail.id} />
+              <input
+                name="decline_reason"
+                className="h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm"
+                placeholder={tc("reason")}
+              />
+              <Button type="submit" variant="outline" disabled={isPending}>
+                <X className="mr-2 h-4 w-4" />
+                {tt("decline")}
+              </Button>
+            </form>
+          </div>
+        ) : null}
+        {message ? <p className="text-sm text-muted-foreground">{message}</p> : null}
+      </div>
     </div>
   );
 }

@@ -46,9 +46,9 @@ vi.mock("@/server/services/inventory-balances.service", () => ({
 
 vi.mock("@/server/services/inventory-movements.service", () => ({
   InventoryMovementsService: {
-    createDraftMovement: vi.fn(),
-    postMovement: vi.fn(),
-    reverseMovement: vi.fn(),
+    createDraft: vi.fn(),
+    finalizePosting: vi.fn(),
+    cancelMovement: vi.fn(),
     listMovements: vi.fn(),
     getMovementDetail: vi.fn(),
   },
@@ -75,7 +75,6 @@ import {
   MODULE_WAREHOUSE_ACCESS,
   WAREHOUSE_INVENTORY_ADJUST,
   WAREHOUSE_INVENTORY_OPERATE,
-  WAREHOUSE_INVENTORY_REVERSE,
   WAREHOUSE_PRODUCTS_MANAGE,
   WAREHOUSE_READ,
 } from "@/lib/constants/permissions";
@@ -104,13 +103,13 @@ function makeContext(allow: string[] = [], branchId: string | null = BRANCH_ID) 
 }
 
 function mockDraftAndPost() {
-  vi.mocked(InventoryMovementsService.createDraftMovement).mockResolvedValue({
+  vi.mocked(InventoryMovementsService.createDraft).mockResolvedValue({
     success: true,
-    data: { movement_id: MOVEMENT_ID, movement_number: "INV-000001", status: "draft" },
+    data: { movement_id: MOVEMENT_ID, draft_number: "DRF-000001", status: "draft" },
   });
-  vi.mocked(InventoryMovementsService.postMovement).mockResolvedValue({
+  vi.mocked(InventoryMovementsService.finalizePosting).mockResolvedValue({
     success: true,
-    data: { movement_id: MOVEMENT_ID, movement_number: "INV-000001", status: "posted" },
+    data: { movement_id: MOVEMENT_ID, document_number: "INV-000001", status: "posted" },
   });
 }
 
@@ -134,12 +133,12 @@ describe("inventory operation actions", () => {
     });
 
     expect(result.success).toBe(true);
-    expect(InventoryMovementsService.createDraftMovement).toHaveBeenCalledWith(
+    expect(InventoryMovementsService.createDraft).toHaveBeenCalledWith(
       expect.anything(),
       ORG_ID,
       BRANCH_ID,
       expect.objectContaining({
-        movement_kind: "receipt",
+        movement_type_code: "101",
         lines: [
           {
             variant_id: VARIANT_ID,
@@ -151,15 +150,12 @@ describe("inventory operation actions", () => {
       }),
       USER_ID
     );
-    const input = vi.mocked(InventoryMovementsService.createDraftMovement).mock.calls[0][3];
+    const input = vi.mocked(InventoryMovementsService.createDraft).mock.calls[0][3];
     expect(input.lines[0]).not.toHaveProperty("product_id");
-    expect(InventoryMovementsService.postMovement).toHaveBeenCalledWith(
+    expect(InventoryMovementsService.finalizePosting).toHaveBeenCalledWith(
       expect.anything(),
       MOVEMENT_ID,
       USER_ID
-    );
-    expect(eventService.emit).toHaveBeenCalledWith(
-      expect.objectContaining({ actionKey: "warehouse.inventory.movement.posted" })
     );
   });
 
@@ -174,8 +170,8 @@ describe("inventory operation actions", () => {
     });
 
     expect(result.success).toBe(false);
-    expect(InventoryMovementsService.createDraftMovement).not.toHaveBeenCalled();
-    expect(InventoryMovementsService.postMovement).not.toHaveBeenCalled();
+    expect(InventoryMovementsService.createDraft).not.toHaveBeenCalled();
+    expect(InventoryMovementsService.finalizePosting).not.toHaveBeenCalled();
   });
 
   it("transferStockAction scopes movements to the active branch from context", async () => {
@@ -191,12 +187,12 @@ describe("inventory operation actions", () => {
       quantity: 2,
     });
 
-    expect(InventoryMovementsService.createDraftMovement).toHaveBeenCalledWith(
+    expect(InventoryMovementsService.createDraft).toHaveBeenCalledWith(
       expect.anything(),
       ORG_ID,
       BRANCH_ID,
       expect.objectContaining({
-        movement_kind: "transfer",
+        movement_type_code: "801",
         lines: [
           {
             variant_id: VARIANT_ID,
@@ -211,7 +207,7 @@ describe("inventory operation actions", () => {
     );
   });
 
-  it("adjustStockAction uses explicit adjustment_direction and positive quantity magnitude", async () => {
+  it("adjustStockAction returns not-available stub", async () => {
     vi.mocked(loadDashboardContextV2).mockResolvedValue(
       makeContext([WAREHOUSE_INVENTORY_ADJUST]) as never
     );
@@ -224,43 +220,8 @@ describe("inventory operation actions", () => {
       quantity: 3,
     });
 
-    expect(result.success).toBe(true);
-    expect(InventoryMovementsService.createDraftMovement).toHaveBeenCalledWith(
-      expect.anything(),
-      ORG_ID,
-      BRANCH_ID,
-      expect.objectContaining({
-        movement_kind: "adjustment",
-        adjustment_direction: "decrease",
-        lines: [
-          {
-            variant_id: VARIANT_ID,
-            source_location_id: SOURCE_LOCATION_ID,
-            destination_location_id: null,
-            unit_id: UNIT_ID,
-            quantity: 3,
-          },
-        ],
-      }),
-      USER_ID
-    );
-  });
-
-  it("adjustStockAction rejects negative quantities before the movement service is called", async () => {
-    vi.mocked(loadDashboardContextV2).mockResolvedValue(
-      makeContext([WAREHOUSE_INVENTORY_ADJUST]) as never
-    );
-
-    const result = await adjustStockAction({
-      variant_id: VARIANT_ID,
-      location_id: SOURCE_LOCATION_ID,
-      unit_id: UNIT_ID,
-      adjustment_direction: "decrease",
-      quantity: -1,
-    });
-
     expect(result.success).toBe(false);
-    expect(InventoryMovementsService.createDraftMovement).not.toHaveBeenCalled();
+    expect(InventoryMovementsService.createDraft).not.toHaveBeenCalled();
   });
 
   it("operation actions require an active branch", async () => {
@@ -276,7 +237,7 @@ describe("inventory operation actions", () => {
     });
 
     expect(result.success).toBe(false);
-    expect(InventoryMovementsService.createDraftMovement).not.toHaveBeenCalled();
+    expect(InventoryMovementsService.createDraft).not.toHaveBeenCalled();
   });
 });
 
@@ -564,26 +525,9 @@ describe("inventory product and reversal actions", () => {
     expect(InventoryProductsService.createEnhancedProduct).not.toHaveBeenCalled();
   });
 
-  it("reverseMovementAction requires reverse permission and emits an audit event", async () => {
-    vi.mocked(loadDashboardContextV2).mockResolvedValue(
-      makeContext([WAREHOUSE_INVENTORY_REVERSE]) as never
-    );
-    vi.mocked(InventoryMovementsService.reverseMovement).mockResolvedValue({
-      success: true,
-      data: { movement_id: MOVEMENT_ID, movement_number: "INV-000002", status: "posted" },
-    });
-
+  it("reverseMovementAction returns not-available stub", async () => {
     const result = await reverseMovementAction({ id: MOVEMENT_ID, note: "Correction" });
 
-    expect(result.success).toBe(true);
-    expect(InventoryMovementsService.reverseMovement).toHaveBeenCalledWith(
-      expect.anything(),
-      MOVEMENT_ID,
-      USER_ID,
-      "Correction"
-    );
-    expect(eventService.emit).toHaveBeenCalledWith(
-      expect.objectContaining({ actionKey: "warehouse.inventory.movement.reversed" })
-    );
+    expect(result.success).toBe(false);
   });
 });

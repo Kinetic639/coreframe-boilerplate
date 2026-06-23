@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useMemo, useState, useTransition } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
 import {
@@ -11,17 +11,13 @@ import {
   MappingStatus,
   Layout,
   type AmbraLocationInventorySnapshot,
+  type ContainerLine,
   type LocationContainer,
   type LocationInventoryLine,
   type LocationMovementLine,
   type LocationPutawayRule,
 } from "../../types";
 import type { InventoryVariantOption } from "@/lib/warehouse/inventory-types";
-import { receiveStockAction, transferStockAction } from "@/app/actions/warehouse/inventory";
-import {
-  createLocationContainerAction,
-  createLocationPutawayRuleAction,
-} from "@/app/actions/warehouse/ambra-location-inventory";
 import {
   Search,
   Plus,
@@ -147,51 +143,6 @@ function InventoryMetric({
   );
 }
 
-function VariantMovementFields({ variants, t }: { variants: InventoryVariantOption[]; t: any }) {
-  return (
-    <div className="grid gap-2">
-      <select
-        name="variant_id"
-        className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground"
-        required
-      >
-        <option value="">{t("inventory.variant")}</option>
-        {variants.map((variant) => (
-          <option key={variant.id} value={variant.id}>
-            {variant.label}
-          </option>
-        ))}
-      </select>
-      <select
-        name="unit_id"
-        className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground"
-        required
-      >
-        <option value="">{t("inventory.unit")}</option>
-        {variants.map((variant) => (
-          <option key={variant.id} value={variant.unit_id}>
-            {variant.sku} / {variant.unit_code}
-          </option>
-        ))}
-      </select>
-      <input
-        name="quantity"
-        type="number"
-        min="0.000001"
-        step="0.000001"
-        placeholder={t("inventory.quantity")}
-        className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground"
-        required
-      />
-      <input
-        name="note"
-        placeholder={t("inventory.note")}
-        className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground"
-      />
-    </div>
-  );
-}
-
 function InventoryLinesTable({
   lines,
   locationNameById,
@@ -275,6 +226,8 @@ function ContainerList({
   emptyLabel: string;
   t: any;
 }) {
+  const [expandedId, setExpandedId] = React.useState<string | null>(null);
+
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-card">
       <div className="flex items-center justify-between border-b border-border bg-muted/40 px-5 py-4">
@@ -292,14 +245,59 @@ function ContainerList({
           {containers.map((container) => (
             <div key={container.id} className="px-5 py-3 text-xs">
               <div className="flex items-center justify-between gap-3">
-                <p className="font-mono font-semibold text-foreground">{container.code}</p>
-                <span className="rounded-md border border-border bg-muted px-2 py-0.5 text-[10px] uppercase text-muted-foreground">
-                  {container.status}
-                </span>
+                <button
+                  type="button"
+                  onClick={() => setExpandedId(expandedId === container.id ? null : container.id)}
+                  className="flex items-center gap-2 font-mono font-semibold text-foreground hover:text-primary"
+                >
+                  {expandedId === container.id ? (
+                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                  )}
+                  {container.code}
+                  {container.referenceId && (
+                    <span className="ml-1 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-normal text-primary">
+                      {container.referenceId}
+                    </span>
+                  )}
+                </button>
+                <div className="flex items-center gap-2">
+                  <span className="rounded-md border border-border bg-muted px-2 py-0.5 text-[10px] uppercase text-muted-foreground">
+                    {container.status}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {container.lines.length} {t("inventory.items")}
+                  </span>
+                </div>
               </div>
-              <p className="mt-1 text-muted-foreground">
+              <p className="mt-1 pl-5 text-muted-foreground">
                 {locationNameById.get(container.currentLocationId) ?? container.currentLocationId}
               </p>
+
+              {expandedId === container.id && (
+                <div className="mt-3 pl-5 space-y-1">
+                  {container.lines.length > 0 ? (
+                    container.lines.map((line: ContainerLine) => (
+                      <div
+                        key={line.id}
+                        className="flex items-center justify-between gap-2 rounded bg-muted/40 px-2 py-1.5"
+                      >
+                        <div>
+                          <span className="font-medium text-foreground">
+                            {line.productName || line.sku}
+                          </span>
+                          <span className="ml-2 font-mono text-muted-foreground">
+                            {line.quantity} {line.unitCode}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-[10px] text-muted-foreground">{t("inventory.noItems")}</p>
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -320,6 +318,7 @@ function PutawayRuleList({
   t: any;
 }) {
   const variantById = new Map(variants.map((variant) => [variant.id, variant]));
+
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-card">
       <div className="flex items-center justify-between border-b border-border bg-muted/40 px-5 py-4">
@@ -436,9 +435,6 @@ export default function LocationsPage({
   const [copiedPath, setCopiedPath] = useState(false);
   const [isTreeLocked, setIsTreeLocked] = useState(true);
   const [isTreeActionsOpen, setIsTreeActionsOpen] = useState(false);
-  const [isMovementPending, startMovementTransition] = useTransition();
-  const [movementMessage, setMovementMessage] = useState<string | null>(null);
-
   const [activeTab, setActiveTab] = useState<"info" | "inventory" | "history">("info");
 
   // Reset selected location when the locations list changes (e.g. branch switch)
@@ -584,42 +580,6 @@ export default function LocationsPage({
     () => new Map(locations.map((location) => [location.id, location.name])),
     [locations]
   );
-
-  const submitMovementAction = (action: (payload: unknown) => Promise<any>) => {
-    return (formData: FormData) => {
-      setMovementMessage(null);
-      startMovementTransition(async () => {
-        const payload = Object.fromEntries(formData.entries());
-        const result = await action({
-          ...payload,
-          quantity: Number(payload.quantity),
-        });
-        setMovementMessage(
-          result.success
-            ? t("inventory.actionPosted")
-            : (result.error ?? t("inventory.actionFailed"))
-        );
-      });
-    };
-  };
-
-  const submitPlacementAction = (action: (payload: unknown) => Promise<any>) => {
-    return (formData: FormData) => {
-      setMovementMessage(null);
-      startMovementTransition(async () => {
-        const payload = Object.fromEntries(formData.entries());
-        const result = await action({
-          ...payload,
-          priority: payload.priority ? Number(payload.priority) : undefined,
-        });
-        setMovementMessage(
-          result.success
-            ? t("inventory.placementSaved")
-            : (result.error ?? t("inventory.actionFailed"))
-        );
-      });
-    };
-  };
 
   const getCategoryLabel = (role: LocationRole) =>
     t(`categories.${role}.label`, { fallback: LOCATION_CATEGORIES[role]?.label || role });
@@ -1748,152 +1708,6 @@ export default function LocationsPage({
                           </div>
                         </div>
                       </div>
-
-                      {selectedCanHoldStock ? (
-                        <div className="grid gap-4 lg:grid-cols-2">
-                          <form
-                            action={submitMovementAction(receiveStockAction)}
-                            className="rounded-lg border border-border bg-card p-4"
-                          >
-                            <div className="mb-4 flex items-center gap-2 text-sm font-semibold">
-                              <Inbox className="h-4 w-4 text-primary" />
-                              {t("inventory.receiveIntoBin")}
-                            </div>
-                            <VariantMovementFields variants={variantOptions} t={t} />
-                            <input
-                              type="hidden"
-                              name="destination_location_id"
-                              value={selectedLocation.id}
-                            />
-                            <button
-                              type="submit"
-                              disabled={isMovementPending || variantOptions.length === 0}
-                              className="mt-3 rounded-md bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                              {t("inventory.postReceipt")}
-                            </button>
-                          </form>
-
-                          <form
-                            action={submitMovementAction(transferStockAction)}
-                            className="rounded-lg border border-border bg-card p-4"
-                          >
-                            <div className="mb-4 flex items-center gap-2 text-sm font-semibold">
-                              <Move className="h-4 w-4 text-primary" />
-                              {t("inventory.relocateFromBin")}
-                            </div>
-                            <VariantMovementFields variants={variantOptions} t={t} />
-                            <input
-                              type="hidden"
-                              name="source_location_id"
-                              value={selectedLocation.id}
-                            />
-                            <select
-                              name="destination_location_id"
-                              required
-                              className="mt-2 h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                            >
-                              <option value="">{t("inventory.destinationBin")}</option>
-                              {stockableLocations
-                                .filter((location) => location.id !== selectedLocation.id)
-                                .map((location) => (
-                                  <option key={location.id} value={location.id}>
-                                    {location.code} - {location.name}
-                                  </option>
-                                ))}
-                            </select>
-                            <button
-                              type="submit"
-                              disabled={isMovementPending || variantOptions.length === 0}
-                              className="mt-3 rounded-md bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                              {t("inventory.postRelocation")}
-                            </button>
-                          </form>
-
-                          <form
-                            action={submitPlacementAction(createLocationContainerAction)}
-                            className="rounded-lg border border-border bg-card p-4"
-                          >
-                            <div className="mb-4 flex items-center gap-2 text-sm font-semibold">
-                              <Archive className="h-4 w-4 text-primary" />
-                              {t("inventory.createContainer")}
-                            </div>
-                            <input
-                              type="hidden"
-                              name="current_location_id"
-                              value={selectedLocation.id}
-                            />
-                            <input
-                              name="code"
-                              placeholder={t("inventory.containerCode")}
-                              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground"
-                              required
-                            />
-                            <button
-                              type="submit"
-                              disabled={isMovementPending}
-                              className="mt-3 rounded-md bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                              {t("inventory.createContainer")}
-                            </button>
-                          </form>
-
-                          <form
-                            action={submitPlacementAction(createLocationPutawayRuleAction)}
-                            className="rounded-lg border border-border bg-card p-4"
-                          >
-                            <div className="mb-4 flex items-center gap-2 text-sm font-semibold">
-                              <Tag className="h-4 w-4 text-primary" />
-                              {t("inventory.assignPreferredStorage")}
-                            </div>
-                            <input
-                              type="hidden"
-                              name="destination_location_id"
-                              value={selectedLocation.id}
-                            />
-                            <select
-                              name="variant_id"
-                              required
-                              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                            >
-                              <option value="">{t("inventory.variant")}</option>
-                              {variantOptions.map((variant) => (
-                                <option key={variant.id} value={variant.id}>
-                                  {variant.label}
-                                </option>
-                              ))}
-                            </select>
-                            <input
-                              name="priority"
-                              type="number"
-                              min="0"
-                              placeholder={t("inventory.priority")}
-                              className="mt-2 h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground"
-                            />
-                            <button
-                              type="submit"
-                              disabled={isMovementPending || variantOptions.length === 0}
-                              className="mt-3 rounded-md bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                              {t("inventory.savePreferredStorage")}
-                            </button>
-                          </form>
-                        </div>
-                      ) : (
-                        <div className="rounded-lg border border-dashed border-border bg-card p-6 text-center">
-                          <p className="text-sm font-semibold text-foreground">
-                            {t("inventory.selectStockableBin")}
-                          </p>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            {t("inventory.nonBinCannotReceive")}
-                          </p>
-                        </div>
-                      )}
-
-                      {movementMessage ? (
-                        <p className="text-sm text-muted-foreground">{movementMessage}</p>
-                      ) : null}
 
                       <InventoryLinesTable
                         lines={selectedInventoryLines}

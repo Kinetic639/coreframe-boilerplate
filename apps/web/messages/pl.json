@@ -6055,7 +6055,22 @@
       "defaultSku": "Domyślne SKU",
       "noDefaultSku": "Nie przypisano domyślnego SKU.",
       "allowedCategories": "Dozwolone kategorie",
-      "allCategories": "Wszystkie kategorie"
+      "allCategories": "Wszystkie kategorie",
+      "items": "pozycji",
+      "noItems": "Brak pozycji w tym kontenerze.",
+      "addItems": "Dodaj pozycje",
+      "addItemsToContainer": "Dodaj pozycje do kontenera",
+      "addLine": "Dodaj kolejną pozycję",
+      "removeItem": "Usuń pozycję",
+      "moveContainer": "Przenieś kontener",
+      "move": "Przenieś",
+      "save": "Zapisz",
+      "qty": "Ilość",
+      "itemsAdded": "Pozycje dodane do kontenera.",
+      "itemRemoved": "Pozycja usunięta z kontenera.",
+      "containerMoved": "Kontener przeniesiony do nowej lokalizacji.",
+      "ruleDeleted": "Reguła składowania usunięta.",
+      "deleteRule": "Usuń regułę"
     },
     "history": {
       "recentMovements": "Ostatnie ruchy",
