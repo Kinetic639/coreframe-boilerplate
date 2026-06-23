@@ -104,6 +104,11 @@ export default async function EditDraftMovementPage({ params }: PageProps) {
     <MovementDocumentForm
       mode="edit"
       branchName={context.app.activeBranch?.name ?? ""}
+      createdByName={
+        [context.user.user?.first_name, context.user.user?.last_name].filter(Boolean).join(" ") ||
+        context.user.user?.email ||
+        ""
+      }
       movementTypes={typesResult.success ? typesResult.data : []}
       stockableLocations={stockableLocations}
       variants={allVariants}

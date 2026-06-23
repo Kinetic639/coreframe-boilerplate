@@ -670,6 +670,115 @@ END IF;
 - [x] Read-only mode for draft editing (type locked)
 - [x] Scales to many types (not hardcoded to 101/801)
 
+#### Movement Form Tabs
+
+- [x] Split MovementDocumentForm into Document Data and Positions tabs
+- [x] Document Data tab: movement type, dates, references, locations, effect preview
+- [x] Positions tab: movement lines grid, item picker, quantity editing
+- [x] Tab badges: line count on Positions, warning icons on validation errors
+- [x] Save Draft / Save & Post validate full form across tabs
+- [x] Submit switches to tab containing validation errors
+- [x] Tabs share one form state (no duplication)
+- [x] Tabs work in create mode and edit draft mode
+- [x] Switching tabs preserves all unsaved data
+
+#### Movement Form Compact Redesign
+
+- [x] All document fields in a compact strip below toolbar (not in tab content)
+- [x] Movement type, dates, ref, supplier, locations, note in one dense grid
+- [x] No big stacked card sections
+- [x] Document tab shows read-only summary + validation issues
+- [x] Positions tab is default active tab (operational center)
+- [x] Positions tab uses full available height
+- [x] Tab badges show error counts (red) and line counts
+- [x] 28px inputs, 10px labels, tight gaps
+- [x] Effect preview integrated next to movement type picker
+- [x] Form fills available width, no narrow centered layout
+
+#### Movement Form Layout / Status Bar Fix
+
+- [x] Unified MovementFormStatusBar aggregates all errors across tabs
+- [x] Status bar shows "N issues: error1 · error2 · ..." in one line
+- [x] Errors only shown after first submit attempt (not while editing)
+- [x] Tab badges show counts only after submit, secondary to status bar
+- [x] Consistent px-4 padding across toolbar, header, tabs, table, status bar
+- [x] Borders/dividers span full width edge-to-edge
+- [x] Readable typography: text-sm for values/table, text-xs for labels/metadata
+- [x] Inputs h-8, table rows with py-2, proper clickable targets
+- [x] Document tab: clean key-value grid, no duplicate bloated summary card
+- [x] Positions tab: full-height table with sticky header, text-sm content
+- [x] Header grid uses CSS grid with auto-fill responsive columns
+
+#### Movement Form Readability / Layout Correction
+
+- [x] Two-row document header with intentional column widths
+- [x] Row 1: Movement type (320px min), dates (160px), reference (180px min)
+- [x] Row 2: Counterparty/source (240-280px), destination (280px), note (200px)
+- [x] Inputs h-9, text-sm, readable select values
+- [x] Status bar shows grouped bullet list (Document / Positions sections)
+- [x] Errors only shown after first submit attempt
+- [x] Document tab: clean key-value grid, no bloated summary card
+- [x] Positions tab: text-sm table, py-2.5 rows, px-4 cells
+- [x] Effect preview as subtle text line below header grid
+
+#### Movement Form Document Layout Redesign
+
+- [x] Business-section layout: Movement Type, Document Details, Warehouse Routing, Note, Positions
+- [x] Movement Type section has effect preview directly underneath
+- [x] Document Details: dates + reference + counterparty grouped
+- [x] Warehouse Routing: source + destination locations with routing explanation
+- [x] Positions as main document body (not hidden in tab)
+- [x] Right side panel: Status, Validation (grouped by doc/positions), Summary
+- [x] Validation only shown after first submit attempt
+- [x] "Ready to save or post" green state when valid
+- [x] Tabs removed — single-page section-based document editor
+- [x] Two-column desktop layout (main 75% + side 25%)
+- [x] All inputs h-9 text-sm, readable labels, proper spacing
+
+#### Movement Form Tabs + Global Status Bar
+
+- [x] Restored Document Data / Positions tabs as primary workflow
+- [x] Removed right-side validation/status/summary panel
+- [x] Full-width global status bar above tabs (grouped by Document/Positions)
+- [x] Green "Ready to save or post" bar when valid
+- [x] Tab badges show error counts only
+- [x] Document Data tab: Movement Type, Document Details, Warehouse Routing, Note sections
+- [x] Positions tab: item grid, picker, full-height table
+- [x] Effect preview directly under movement type picker
+- [x] Action bar shows lines/qty summary
+- [x] Status bar visible from either tab
+
+#### Movement Form Single-Page Document Layout
+
+- [x] Removed tabs — single scrollable document page
+- [x] Removed right-side panel
+- [x] Action bar with back, title, branch, badges, Save/Post
+- [x] Document header: movement type (full width), effect preview, dates row, fields row
+- [x] Full-width validation strip with bullet-point errors
+- [x] Positions section with header, Add Items, table grid
+- [x] Default to first movement type (101 PZ) on create
+- [x] All fields visible on page load — no hidden content
+- [x] Compact empty state near top of positions section
+
+#### Component Architecture Refactor
+
+- [x] Split 3500-line form into modular component architecture
+- [x] types.ts — shared types (LineDraft, LocationOption, ValidationResult, etc.)
+- [x] use-movement-form-state.ts — form state hook with useCallback handlers
+- [x] use-movement-validation.ts — useMemo-based validation computation
+- [x] use-movement-submission.ts — submit logic with useTransition
+- [x] movement-action-bar.tsx — React.memo'd action bar component
+- [x] movement-validation-strip.tsx — React.memo'd validation strip
+- [x] movement-document-data-tab.tsx — React.memo'd document header tab
+- [x] movement-positions-tab.tsx — React.memo'd positions tab with memoized MovementLineRow
+- [x] index.tsx — main orchestrator connecting hooks + sub-components
+- [x] movement-document-form.tsx — re-export for backward compatibility
+- [x] All theme-aware (bg-card, text-foreground, border-border, etc.)
+- [x] No hardcoded colors
+- [x] No mock data — uses real Ambra actions
+- [x] Reuses existing MovementTypePicker and InventoryItemPickerDialog
+- [x] Type-check passes
+
 #### Batch Item Picker
 
 - [x] Picker supports selecting multiple items before closing

@@ -1,0 +1,219 @@
+"use client";
+
+import React from "react";
+import { AlertTriangle, Inbox, Plus, Search, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+import type { InventoryMovementType } from "@/lib/warehouse/inventory-types";
+import type { LineDraft } from "./types";
+
+type Props = {
+  selType: InventoryMovementType | null;
+  is801: boolean;
+  srcLoc: string;
+  lines: LineDraft[];
+  pickerDisabled: boolean;
+  onOpenPicker: () => void;
+  onRemoveLine: (key: string) => void;
+  onUpdateLineQty: (key: string, val: string) => void;
+};
+
+const MovementLineRow = React.memo(function MovementLineRow({
+  line,
+  idx,
+  is801,
+  onUpdateQty,
+  onRemove,
+}: {
+  line: LineDraft;
+  idx: number;
+  is801: boolean;
+  onUpdateQty: (key: string, val: string) => void;
+  onRemove: (key: string) => void;
+}) {
+  const q = Number(line.quantity) || 0;
+  const overLimit = is801 && line.on_hand_at_source !== null && q > line.on_hand_at_source;
+  const hasError = q <= 0 || overLimit;
+  return (
+    <tr className={cn("group hover:bg-muted/30 transition-colors", hasError && "bg-destructive/5")}>
+      <td className="py-2 px-3 text-center text-muted-foreground font-mono text-xs">{idx + 1}</td>
+      <td className="py-2 px-3 font-mono font-bold text-foreground">{line.sku}</td>
+      <td className="py-2 px-3">
+        <div className="font-medium text-foreground truncate max-w-[220px]">
+          {line.product_name}
+        </div>
+        {line.brand_name && (
+          <span className="text-xs text-muted-foreground">{line.brand_name}</span>
+        )}
+      </td>
+      <td className="py-2 px-3 text-center">
+        <Badge variant="outline" className="text-[10px] rounded-sm font-mono">
+          {line.unit_code}
+        </Badge>
+      </td>
+      {is801 && (
+        <td className="py-2 px-3 text-center font-mono text-muted-foreground">
+          {line.on_hand_at_source ?? "—"}
+        </td>
+      )}
+      <td className="py-2 px-3">
+        <div className="flex items-center justify-center gap-1">
+          <button
+            type="button"
+            onClick={() => onUpdateQty(line.key, String(q - 1))}
+            className="h-6 w-6 rounded-sm border bg-card hover:bg-muted flex items-center justify-center text-xs font-bold transition"
+          >
+            −
+          </button>
+          <Input
+            type="number"
+            min="1"
+            max={line.on_hand_at_source ?? undefined}
+            value={line.quantity}
+            onChange={(e) => onUpdateQty(line.key, e.target.value)}
+            className={cn(
+              "h-7 w-16 text-center text-sm font-mono font-bold rounded-sm",
+              hasError && "border-destructive"
+            )}
+          />
+          <button
+            type="button"
+            onClick={() => onUpdateQty(line.key, String(q + 1))}
+            className="h-6 w-6 rounded-sm border bg-card hover:bg-muted flex items-center justify-center text-xs font-bold transition"
+          >
+            +
+          </button>
+        </div>
+        {overLimit && (
+          <span className="text-xs text-destructive font-semibold block text-center mt-0.5">
+            Exceeds available!
+          </span>
+        )}
+        {q <= 0 && (
+          <span className="text-xs text-destructive font-semibold block text-center mt-0.5">
+            Qty must be &gt; 0
+          </span>
+        )}
+      </td>
+      <td className="py-2 px-3 text-center">
+        <button
+          onClick={() => onRemove(line.key)}
+          className="p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-sm transition opacity-0 group-hover:opacity-100"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </td>
+    </tr>
+  );
+});
+
+export const MovementPositionsTab = React.memo(function MovementPositionsTab({
+  selType,
+  is801,
+  srcLoc,
+  lines,
+  pickerDisabled,
+  onOpenPicker,
+  onRemoveLine,
+  onUpdateLineQty,
+}: Props) {
+  return (
+    <div className="space-y-4">
+      <section className="rounded-sm border bg-card">
+        <div className="flex items-center justify-between border-b px-4 py-3">
+          <div className="flex items-center gap-2">
+            <h2 className="text-xs uppercase tracking-wider font-bold text-foreground">
+              B. Positions
+            </h2>
+            <Badge variant="secondary" className="text-[10px] rounded-sm">
+              {lines.length}
+            </Badge>
+          </div>
+          <Button
+            size="sm"
+            className="h-8 text-xs gap-1.5"
+            disabled={pickerDisabled || !selType}
+            onClick={onOpenPicker}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add Items
+          </Button>
+        </div>
+
+        {is801 && !srcLoc && (
+          <div className="mx-4 mt-3 p-2.5 rounded-sm border border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300 text-xs flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-bold block text-[10px] uppercase">Item picker disabled</span>
+              Select a <strong>Source Location</strong> in Document Header first.
+            </div>
+          </div>
+        )}
+
+        <div className="overflow-x-auto">
+          {lines.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-14 px-4 text-center">
+              <div className="w-10 h-10 rounded-sm border bg-muted flex items-center justify-center mb-3">
+                <Inbox className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">
+                No positions added
+              </h3>
+              <p className="text-muted-foreground text-xs max-w-xs mt-1 mb-4">
+                Add items from the inventory catalog using the picker.
+              </p>
+              {!pickerDisabled && selType && (
+                <Button variant="default" size="sm" className="gap-1.5" onClick={onOpenPicker}>
+                  <Plus className="h-3.5 w-3.5" />
+                  Add First Item
+                </Button>
+              )}
+            </div>
+          ) : (
+            <table className="w-full text-sm min-w-[700px]">
+              <thead>
+                <tr className="border-b text-[10px] uppercase font-semibold text-muted-foreground select-none bg-muted/30">
+                  <th className="py-2.5 px-3 text-center w-10">#</th>
+                  <th className="py-2.5 px-3 w-32 font-mono">SKU</th>
+                  <th className="py-2.5 px-3">Product / Brand</th>
+                  <th className="py-2.5 px-3 text-center w-16">Unit</th>
+                  {is801 && <th className="py-2.5 px-3 text-center w-20">Avail.</th>}
+                  <th className="py-2.5 px-3 text-center w-28">Quantity</th>
+                  <th className="py-2.5 px-3 text-center w-12" />
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {lines.map((line, idx) => (
+                  <MovementLineRow
+                    key={line.key}
+                    line={line}
+                    idx={idx}
+                    is801={is801}
+                    onUpdateQty={onUpdateLineQty}
+                    onRemove={onRemoveLine}
+                  />
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {lines.length > 0 && !pickerDisabled && selType && (
+          <div className="border-t px-4 py-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full h-8 text-sm text-muted-foreground gap-1.5"
+              onClick={onOpenPicker}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add more items
+            </Button>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+});

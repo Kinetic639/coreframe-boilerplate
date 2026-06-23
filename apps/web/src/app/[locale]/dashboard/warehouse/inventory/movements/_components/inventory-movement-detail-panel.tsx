@@ -15,11 +15,7 @@ import {
   finalizePostingAction,
 } from "@/app/actions/warehouse/inventory";
 
-type LocationOption = {
-  id: string;
-  name: string;
-  code: string | null;
-};
+type LocationOption = { id: string; name: string; code: string | null };
 
 type InventoryMovementDetailPanelProps = {
   detail: InventoryMovementDetail;
@@ -40,10 +36,6 @@ const statusVariant: Record<string, "default" | "secondary" | "destructive" | "o
   declined: "destructive",
 };
 
-function formatLocation(location: LocationOption) {
-  return location.code ? `${location.code} - ${location.name}` : location.name;
-}
-
 export function InventoryMovementDetailPanel({
   detail,
   activeBranchId,
@@ -58,8 +50,17 @@ export function InventoryMovementDetailPanel({
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const canRespondToTransfer = canOperate && detail.status === "in_transit";
   const isDraft = detail.status === "draft";
+  const canRespondToTransfer = canOperate && detail.status === "in_transit";
+  const totalQty = detail.lines.reduce((s, l) => s + l.quantity, 0);
+
+  // Derive common locations from lines
+  const allDestinations = detail.lines.map((l) => l.destination_location_name).filter(Boolean);
+  const allSources = detail.lines.map((l) => l.source_location_name).filter(Boolean);
+  const commonDestination =
+    allDestinations.length > 0 && new Set(allDestinations).size === 1 ? allDestinations[0] : null;
+  const commonSource =
+    allSources.length > 0 && new Set(allSources).size === 1 ? allSources[0] : null;
 
   const acceptTransfer = (formData: FormData) => {
     setMessage(null);
@@ -74,7 +75,6 @@ export function InventoryMovementDetailPanel({
       if (result.success) router.refresh();
     });
   };
-
   const declineTransfer = (formData: FormData) => {
     setMessage(null);
     startTransition(async () => {
@@ -91,6 +91,7 @@ export function InventoryMovementDetailPanel({
 
   return (
     <div className="space-y-4">
+      {/* Title + Actions */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex flex-wrap items-center gap-2">
@@ -98,195 +99,313 @@ export function InventoryMovementDetailPanel({
               {detail.document_number ?? detail.draft_number}
             </h2>
             <Badge variant={statusVariant[detail.status] ?? "outline"}>{detail.status}</Badge>
+            {detail.document_type_code && (
+              <Badge variant="outline" className="text-xs">
+                {detail.document_type_code}
+              </Badge>
+            )}
           </div>
-          <p className="text-sm text-muted-foreground">
-            {detail.movement_type_name}
-            {detail.external_reference ? ` · ${detail.external_reference}` : ""}
-          </p>
+          <p className="text-sm text-muted-foreground">{detail.movement_type_name}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {showPrintAction ? (
-            <Button type="button" variant="outline" onClick={() => window.print()}>
-              <Printer className="mr-2 h-4 w-4" />
+          {showPrintAction && (
+            <Button type="button" variant="outline" size="sm" onClick={() => window.print()}>
+              <Printer className="mr-1.5 h-3.5 w-3.5" />
               {t("pdfPrint")}
             </Button>
-          ) : null}
-          {showOpenPageAction ? (
-            <Button asChild type="button" variant="outline">
+          )}
+          {showOpenPageAction && (
+            <Button asChild type="button" variant="outline" size="sm">
               <Link
                 href={{
                   pathname: "/dashboard/warehouse/inventory/movements/[movementId]",
                   params: { movementId: detail.id },
                 }}
               >
-                <ExternalLink className="mr-2 h-4 w-4" />
+                <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
                 {t("openMovement")}
               </Link>
             </Button>
-          ) : null}
+          )}
         </div>
       </div>
 
-      <div className="space-y-4">
-        {/* Draft actions: Edit / Post / Cancel */}
-        {isDraft && canOperate && (
-          <div className="flex gap-2 border-b pb-4">
-            <Button asChild variant="outline" size="sm">
-              <Link href={`/dashboard/warehouse/inventory/movements/${detail.id}/edit` as any}>
-                <Pencil className="mr-2 h-3.5 w-3.5" />
-                Edit Draft
-              </Link>
-            </Button>
-            <Button
-              size="sm"
-              disabled={isPending}
-              onClick={() => {
-                startTransition(async () => {
-                  const result = (await finalizePostingAction({ id: detail.id })) as any;
-                  if (result.success) {
-                    toast.success(`Document ${result.data?.document_number ?? ""} posted.`);
-                    router.refresh();
-                  } else {
-                    toast.error(result.error ?? "Failed to post");
-                  }
-                });
-              }}
-            >
-              {isPending ? (
-                <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Send className="mr-2 h-3.5 w-3.5" />
-              )}
-              Post Movement
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={isPending}
-              onClick={() => {
-                startTransition(async () => {
-                  const result = (await cancelMovementAction({ id: detail.id })) as any;
-                  if (result.success) {
-                    toast.info("Movement cancelled.");
-                    router.refresh();
-                  } else {
-                    toast.error(result.error ?? "Failed to cancel");
-                  }
-                });
-              }}
-            >
-              {isPending ? (
-                <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <XCircle className="mr-2 h-3.5 w-3.5" />
-              )}
-              Cancel
-            </Button>
-          </div>
-        )}
-
-        {/* Header info */}
-        {detail.note ? <p className="text-sm">{detail.note}</p> : null}
-        {(detail.counterparty_name || detail.operation_date || detail.document_date) && (
-          <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-            {detail.counterparty_name && (
-              <span>
-                Counterparty:{" "}
-                <strong className="text-foreground">{detail.counterparty_name}</strong>
-              </span>
+      {/* Draft Actions */}
+      {isDraft && canOperate && (
+        <div className="flex gap-2 border-b pb-3">
+          <Button asChild variant="outline" size="sm">
+            <Link href={`/dashboard/warehouse/inventory/movements/${detail.id}/edit` as any}>
+              <Pencil className="mr-1.5 h-3.5 w-3.5" />
+              Edit Draft
+            </Link>
+          </Button>
+          <Button
+            size="sm"
+            disabled={isPending}
+            onClick={() => {
+              startTransition(async () => {
+                const result = (await finalizePostingAction({ id: detail.id })) as any;
+                if (result.success) {
+                  toast.success(`Document ${result.data?.document_number ?? ""} posted.`);
+                  router.refresh();
+                } else {
+                  toast.error(result.error ?? "Failed to post");
+                }
+              });
+            }}
+          >
+            {isPending ? (
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Send className="mr-1.5 h-3.5 w-3.5" />
             )}
-            {detail.operation_date && <span>Operation: {detail.operation_date}</span>}
-            {detail.document_date && <span>Document: {detail.document_date}</span>}
-          </div>
-        )}
+            Post
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={isPending}
+            onClick={() => {
+              startTransition(async () => {
+                const result = (await cancelMovementAction({ id: detail.id })) as any;
+                if (result.success) {
+                  toast.info("Movement cancelled.");
+                  router.refresh();
+                } else {
+                  toast.error(result.error ?? "Failed to cancel");
+                }
+              });
+            }}
+          >
+            {isPending ? (
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <XCircle className="mr-1.5 h-3.5 w-3.5" />
+            )}
+            Cancel
+          </Button>
+        </div>
+      )}
 
-        {/* Lines */}
-        <div className="space-y-2">
-          {detail.lines.map((line) => (
-            <div key={line.id} className="rounded-md border p-2 text-sm">
-              <div className="font-medium">
-                {line.sku} - {line.product_name}
-              </div>
-              <div className="text-muted-foreground">
-                {line.quantity} {line.unit_code}
-                {line.source_location_name
-                  ? ` ${t("from", { location: line.source_location_name })}`
-                  : ""}
-                {line.destination_location_name
-                  ? ` ${t("to", { location: line.destination_location_name })}`
-                  : ""}
-              </div>
-            </div>
-          ))}
+      {/* Document Header Info */}
+      <div className="rounded-sm border bg-muted/20 p-3">
+        <div className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5 text-sm">
+          <span className="text-muted-foreground">Type</span>
+          <span className="font-medium">
+            {detail.movement_type_code} · {detail.movement_type_name}
+          </span>
+
+          <span className="text-muted-foreground">Document</span>
+          <span>{detail.document_type_code ?? "—"}</span>
+
+          <span className="text-muted-foreground">Status</span>
+          <span>
+            <Badge variant={statusVariant[detail.status] ?? "outline"} className="text-xs">
+              {detail.status}
+            </Badge>
+          </span>
+
+          {detail.document_number && (
+            <>
+              <span className="text-muted-foreground">Document #</span>
+              <span className="font-mono font-semibold">{detail.document_number}</span>
+            </>
+          )}
+
+          {detail.draft_number && (
+            <>
+              <span className="text-muted-foreground">Draft #</span>
+              <span className="font-mono">{detail.draft_number}</span>
+            </>
+          )}
+
+          {detail.operation_date && (
+            <>
+              <span className="text-muted-foreground">Operation Date</span>
+              <span className="font-mono">{detail.operation_date}</span>
+            </>
+          )}
+
+          {detail.document_date && (
+            <>
+              <span className="text-muted-foreground">Document Date</span>
+              <span className="font-mono">{detail.document_date}</span>
+            </>
+          )}
+
+          {detail.posted_at && (
+            <>
+              <span className="text-muted-foreground">Posted At</span>
+              <span className="font-mono">{new Date(detail.posted_at).toLocaleString()}</span>
+            </>
+          )}
+
+          {detail.counterparty_name && (
+            <>
+              <span className="text-muted-foreground">Counterparty</span>
+              <span className="font-semibold">{detail.counterparty_name}</span>
+            </>
+          )}
+
+          {detail.external_reference && (
+            <>
+              <span className="text-muted-foreground">Reference</span>
+              <span>{detail.external_reference}</span>
+            </>
+          )}
+
+          {commonSource && (
+            <>
+              <span className="text-muted-foreground">Source Location</span>
+              <span>{commonSource}</span>
+            </>
+          )}
+
+          {commonDestination && (
+            <>
+              <span className="text-muted-foreground">Destination Location</span>
+              <span>{commonDestination}</span>
+            </>
+          )}
+
+          <span className="text-muted-foreground">Positions</span>
+          <span>
+            {detail.lines.length} items · {totalQty} qty
+          </span>
         </div>
 
-        {/* Audit log */}
-        {detail.audit_log && detail.audit_log.length > 0 && (
-          <div className="border-t pt-4">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Audit Log
-            </p>
-            <div className="space-y-1">
-              {detail.audit_log.map((entry) => (
-                <div
-                  key={entry.id}
-                  className="flex items-center justify-between rounded bg-muted/40 px-2 py-1.5 text-xs"
-                >
-                  <span>
-                    <Badge variant="outline" className="mr-2 text-[10px]">
-                      {entry.action}
-                    </Badge>
-                    {entry.old_status && entry.new_status
-                      ? `${entry.old_status} → ${entry.new_status}`
-                      : ""}
-                  </span>
-                  <span className="text-muted-foreground">
-                    {entry.actor_user_name ?? "system"} ·{" "}
-                    {new Date(entry.created_at).toLocaleString()}
-                  </span>
-                </div>
-              ))}
-            </div>
+        {detail.note && (
+          <div className="mt-3 pt-3 border-t">
+            <span className="text-xs text-muted-foreground font-semibold uppercase">Note</span>
+            <p className="text-sm mt-0.5">{detail.note}</p>
           </div>
         )}
-
-        {canRespondToTransfer ? (
-          <div className="grid gap-2 border-t pt-4 md:grid-cols-2">
-            <form action={acceptTransfer} className="flex gap-2">
-              <input type="hidden" name="id" value={detail.id} />
-              <select
-                name="destination_location_id"
-                className="h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm"
-                required
-              >
-                <option value="">{tt("receiveToLocation")}</option>
-                {locations.map((location) => (
-                  <option key={location.id} value={location.id}>
-                    {formatLocation(location)}
-                  </option>
-                ))}
-              </select>
-              <Button type="submit" disabled={isPending}>
-                <Check className="mr-2 h-4 w-4" />
-                {tt("accept")}
-              </Button>
-            </form>
-            <form action={declineTransfer} className="flex gap-2">
-              <input type="hidden" name="id" value={detail.id} />
-              <input
-                name="decline_reason"
-                className="h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm"
-                placeholder={tc("reason")}
-              />
-              <Button type="submit" variant="outline" disabled={isPending}>
-                <X className="mr-2 h-4 w-4" />
-                {tt("decline")}
-              </Button>
-            </form>
-          </div>
-        ) : null}
-        {message ? <p className="text-sm text-muted-foreground">{message}</p> : null}
       </div>
+
+      {/* Compact Items Table */}
+      {detail.lines.length > 0 && (
+        <div className="rounded-sm border">
+          <div className="px-3 py-2 border-b bg-muted/30">
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Items ({detail.lines.length})
+            </span>
+          </div>
+          <table className="w-full text-sm">
+            <thead className="text-xs text-muted-foreground bg-muted/20">
+              <tr className="border-b">
+                <th className="px-3 py-1.5 text-center w-8">#</th>
+                <th className="px-3 py-1.5 text-left">SKU</th>
+                <th className="px-3 py-1.5 text-left">Product</th>
+                <th className="px-3 py-1.5 text-center w-14">Unit</th>
+                <th className="px-3 py-1.5 text-right w-16">Qty</th>
+                {!commonSource && allSources.length > 0 && (
+                  <th className="px-3 py-1.5 text-left">Source</th>
+                )}
+                {!commonDestination && allDestinations.length > 0 && (
+                  <th className="px-3 py-1.5 text-left">Destination</th>
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {detail.lines.map((line, idx) => (
+                <tr key={line.id} className="border-b last:border-0 hover:bg-muted/20">
+                  <td className="px-3 py-1.5 text-center text-muted-foreground text-xs">
+                    {idx + 1}
+                  </td>
+                  <td className="px-3 py-1.5 font-mono font-medium">{line.sku}</td>
+                  <td className="px-3 py-1.5">{line.product_name}</td>
+                  <td className="px-3 py-1.5 text-center">
+                    <Badge variant="outline" className="text-[10px] font-mono">
+                      {line.unit_code}
+                    </Badge>
+                  </td>
+                  <td className="px-3 py-1.5 text-right font-mono font-semibold">
+                    {line.quantity}
+                  </td>
+                  {!commonSource && allSources.length > 0 && (
+                    <td className="px-3 py-1.5 text-xs text-muted-foreground">
+                      {line.source_location_name ?? "—"}
+                    </td>
+                  )}
+                  {!commonDestination && allDestinations.length > 0 && (
+                    <td className="px-3 py-1.5 text-xs text-muted-foreground">
+                      {line.destination_location_name ?? "—"}
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Audit Log */}
+      {detail.audit_log && detail.audit_log.length > 0 && (
+        <div className="border-t pt-3">
+          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Audit Log
+          </span>
+          <div className="mt-2 space-y-1">
+            {detail.audit_log.map((entry) => (
+              <div
+                key={entry.id}
+                className="flex items-center justify-between rounded-sm bg-muted/30 px-2.5 py-1.5 text-xs"
+              >
+                <span>
+                  <Badge variant="outline" className="mr-2 text-[10px]">
+                    {entry.action}
+                  </Badge>
+                  {entry.old_status && entry.new_status
+                    ? `${entry.old_status} → ${entry.new_status}`
+                    : ""}
+                </span>
+                <span className="text-muted-foreground">
+                  {entry.actor_user_name ?? "system"} ·{" "}
+                  {new Date(entry.created_at).toLocaleString()}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Branch Transfer */}
+      {canRespondToTransfer && (
+        <div className="grid gap-2 border-t pt-4 md:grid-cols-2">
+          <form action={acceptTransfer} className="flex gap-2">
+            <input type="hidden" name="id" value={detail.id} />
+            <select
+              name="destination_location_id"
+              className="h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm"
+              required
+            >
+              <option value="">{tt("receiveToLocation")}</option>
+              {locations.map((loc) => (
+                <option key={loc.id} value={loc.id}>
+                  {loc.code ? `${loc.code} - ${loc.name}` : loc.name}
+                </option>
+              ))}
+            </select>
+            <Button type="submit" disabled={isPending}>
+              <Check className="mr-2 h-4 w-4" />
+              {tt("accept")}
+            </Button>
+          </form>
+          <form action={declineTransfer} className="flex gap-2">
+            <input type="hidden" name="id" value={detail.id} />
+            <input
+              name="decline_reason"
+              className="h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm"
+              placeholder={tc("reason")}
+            />
+            <Button type="submit" variant="outline" disabled={isPending}>
+              <X className="mr-2 h-4 w-4" />
+              {tt("decline")}
+            </Button>
+          </form>
+        </div>
+      )}
+      {message && <p className="text-sm text-muted-foreground">{message}</p>}
     </div>
   );
 }
