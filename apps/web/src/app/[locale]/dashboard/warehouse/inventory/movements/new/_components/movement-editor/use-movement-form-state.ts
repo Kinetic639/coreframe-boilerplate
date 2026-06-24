@@ -34,6 +34,10 @@ export function useMovementFormState(
     initNoteValue(initialValues?.note)
   );
   const notePlainText = useMemo(() => extractPlainText(noteRichText), [noteRichText]);
+  const noteForSave = useMemo(
+    () => (noteRichText ? JSON.stringify(noteRichText) : ""),
+    [noteRichText]
+  );
   const [srcLoc, setSrcLoc] = useState(() => initialValues?.lines?.[0]?.source_location_id ?? "");
   const [dstLoc, setDstLoc] = useState(
     () => initialValues?.lines?.[0]?.destination_location_id ?? ""
@@ -161,6 +165,7 @@ export function useMovementFormState(
     noteRichText,
     setNoteRichText,
     notePlainText,
+    noteForSave,
     srcLoc,
     dstLoc,
     setDstLoc,

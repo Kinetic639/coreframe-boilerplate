@@ -45,7 +45,7 @@ export function MovementDocumentForm({
     form.is801,
     form.counterpartyName,
     form.externalReference,
-    form.notePlainText,
+    form.noteForSave,
     form.srcLoc,
     form.dstLoc,
     form.lines,

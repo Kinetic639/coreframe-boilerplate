@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Link, useRouter } from "@/i18n/navigation";
 import type { InventoryMovementDetail } from "@/lib/warehouse/inventory-types";
+import { RichTextRenderer } from "@/components/primitives/rich-text/rich-text-renderer";
+import { normalizeRichText } from "@/components/primitives/rich-text/rich-text-utils";
 import {
   acceptInventoryBranchTransferAction,
   cancelMovementAction,
@@ -187,97 +189,132 @@ export function InventoryMovementDetailPanel({
         </div>
       )}
 
-      {/* Document Header Info */}
+      {/* Document Header Info — two-column: details left, counterparty right */}
       <div className="rounded-sm border bg-muted/20 p-3">
-        <div className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5 text-sm">
-          <span className="text-muted-foreground">Type</span>
-          <span className="font-medium">
-            {detail.movement_type_code} · {detail.movement_type_name}
-          </span>
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4">
+          {/* Left: Document details */}
+          <div className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5 text-sm">
+            <span className="text-muted-foreground">Type</span>
+            <span className="font-medium">
+              {detail.movement_type_code} · {detail.movement_type_name}
+            </span>
 
-          <span className="text-muted-foreground">Document</span>
-          <span>{detail.document_type_code ?? "—"}</span>
+            <span className="text-muted-foreground">Document</span>
+            <span>{detail.document_type_code ?? "—"}</span>
 
-          <span className="text-muted-foreground">Status</span>
-          <span>
-            <Badge variant={statusVariant[detail.status] ?? "outline"} className="text-xs">
-              {detail.status}
-            </Badge>
-          </span>
+            {detail.branch_name && (
+              <>
+                <span className="text-muted-foreground">Branch</span>
+                <span className="font-semibold">{detail.branch_name}</span>
+              </>
+            )}
+            {detail.created_by_name && (
+              <>
+                <span className="text-muted-foreground">Created By</span>
+                <span>{detail.created_by_name}</span>
+              </>
+            )}
 
-          {detail.document_number && (
-            <>
-              <span className="text-muted-foreground">Document #</span>
-              <span className="font-mono font-semibold">{detail.document_number}</span>
-            </>
-          )}
+            <span className="text-muted-foreground">Status</span>
+            <span>
+              <Badge variant={statusVariant[detail.status] ?? "outline"} className="text-xs">
+                {detail.status}
+              </Badge>
+            </span>
 
-          {detail.draft_number && (
-            <>
-              <span className="text-muted-foreground">Draft #</span>
-              <span className="font-mono">{detail.draft_number}</span>
-            </>
-          )}
+            {detail.document_number && (
+              <>
+                <span className="text-muted-foreground">Document #</span>
+                <span className="font-mono font-semibold">{detail.document_number}</span>
+              </>
+            )}
+            {detail.draft_number && (
+              <>
+                <span className="text-muted-foreground">Draft #</span>
+                <span className="font-mono">{detail.draft_number}</span>
+              </>
+            )}
+            {detail.operation_date && (
+              <>
+                <span className="text-muted-foreground">Operation Date</span>
+                <span className="font-mono">{detail.operation_date}</span>
+              </>
+            )}
+            {detail.document_date && (
+              <>
+                <span className="text-muted-foreground">Document Date</span>
+                <span className="font-mono">{detail.document_date}</span>
+              </>
+            )}
+            {detail.posted_at && (
+              <>
+                <span className="text-muted-foreground">Posted At</span>
+                <span className="font-mono">{new Date(detail.posted_at).toLocaleString()}</span>
+              </>
+            )}
+            {detail.external_reference && (
+              <>
+                <span className="text-muted-foreground">Reference</span>
+                <span>{detail.external_reference}</span>
+              </>
+            )}
 
-          {detail.operation_date && (
-            <>
-              <span className="text-muted-foreground">Operation Date</span>
-              <span className="font-mono">{detail.operation_date}</span>
-            </>
-          )}
+            {commonSource && (
+              <>
+                <span className="text-muted-foreground">Source Location</span>
+                <span>{commonSource}</span>
+              </>
+            )}
 
-          {detail.document_date && (
-            <>
-              <span className="text-muted-foreground">Document Date</span>
-              <span className="font-mono">{detail.document_date}</span>
-            </>
-          )}
+            {commonDestination && (
+              <>
+                <span className="text-muted-foreground">Destination Location</span>
+                <span>{commonDestination}</span>
+              </>
+            )}
 
-          {detail.posted_at && (
-            <>
-              <span className="text-muted-foreground">Posted At</span>
-              <span className="font-mono">{new Date(detail.posted_at).toLocaleString()}</span>
-            </>
-          )}
+            <span className="text-muted-foreground">Positions</span>
+            <span>
+              {detail.lines.length} items · {totalQty} qty
+            </span>
+          </div>
 
+          {/* Right: Counterparty / Supplier */}
           {detail.counterparty_name && (
-            <>
-              <span className="text-muted-foreground">Counterparty</span>
-              <span className="font-semibold">{detail.counterparty_name}</span>
-            </>
+            <div className="md:w-64 md:border-l md:pl-4">
+              <div className="rounded-sm border bg-card p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Counterparty
+                  </span>
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] uppercase font-bold bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
+                  >
+                    Supplier
+                  </Badge>
+                </div>
+                <h4 className="text-sm font-bold text-foreground">{detail.counterparty_name}</h4>
+              </div>
+            </div>
           )}
-
-          {detail.external_reference && (
-            <>
-              <span className="text-muted-foreground">Reference</span>
-              <span>{detail.external_reference}</span>
-            </>
-          )}
-
-          {commonSource && (
-            <>
-              <span className="text-muted-foreground">Source Location</span>
-              <span>{commonSource}</span>
-            </>
-          )}
-
-          {commonDestination && (
-            <>
-              <span className="text-muted-foreground">Destination Location</span>
-              <span>{commonDestination}</span>
-            </>
-          )}
-
-          <span className="text-muted-foreground">Positions</span>
-          <span>
-            {detail.lines.length} items · {totalQty} qty
-          </span>
         </div>
 
         {detail.note && (
           <div className="mt-3 pt-3 border-t">
             <span className="text-xs text-muted-foreground font-semibold uppercase">Note</span>
-            <p className="text-sm mt-0.5">{detail.note}</p>
+            <div className="mt-1">
+              {(() => {
+                try {
+                  const parsed = JSON.parse(detail.note);
+                  const richText = normalizeRichText(parsed);
+                  if (richText) return <RichTextRenderer value={richText} />;
+                } catch {
+                  /* not JSON, render as plain text */
+                }
+                return <p className="text-sm">{detail.note}</p>;
+              })()}
+            </div>
           </div>
         )}
       </div>

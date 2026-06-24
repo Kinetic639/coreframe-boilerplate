@@ -28,9 +28,27 @@ export const MovementSupplierSection = React.memo(function MovementSupplierSecti
   const [manualCity, setManualCity] = useState("");
   const [manualPhone, setManualPhone] = useState("");
 
+  const [savedDetails, setSavedDetails] = useState<{
+    name: string;
+    nip: string;
+    street: string;
+    postalCode: string;
+    city: string;
+    phone: string;
+  } | null>(null);
+
   const handleSaveManual = () => {
     if (!manualName || !manualNip || !manualStreet || !manualPostalCode || !manualCity) return;
-    onCounterpartyChange(manualName.trim());
+    const details = {
+      name: manualName.trim(),
+      nip: manualNip.trim(),
+      street: manualStreet.trim(),
+      postalCode: manualPostalCode.trim(),
+      city: manualCity.trim(),
+      phone: manualPhone.trim(),
+    };
+    setSavedDetails(details);
+    onCounterpartyChange(details.name);
     setMode("select");
     setManualName("");
     setManualNip("");
@@ -218,19 +236,34 @@ export const MovementSupplierSection = React.memo(function MovementSupplierSecti
 
       {/* Selected supplier card */}
       {counterpartyName && mode === "select" && (
-        <div className="mt-2 p-3 rounded-sm border bg-muted/30 flex items-center justify-between gap-3">
-          <div>
-            <h4 className="text-sm font-bold text-foreground">{counterpartyName}</h4>
-            <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
-              Selected as counterparty for this document
-            </p>
+        <div className="mt-2 p-3 rounded-sm border bg-muted/30">
+          <div className="flex items-start justify-between gap-3">
+            <div className="space-y-1">
+              <h4 className="text-sm font-bold text-foreground">{counterpartyName}</h4>
+              {savedDetails && (
+                <div className="text-xs text-muted-foreground font-mono space-y-0.5">
+                  <p>
+                    NIP: <strong className="text-foreground">{savedDetails.nip}</strong>
+                  </p>
+                  <p>
+                    {savedDetails.street}, {savedDetails.postalCode} {savedDetails.city}
+                  </p>
+                  {savedDetails.phone && <p>Tel: {savedDetails.phone}</p>}
+                </div>
+              )}
+              {!savedDetails && (
+                <p className="text-xs text-muted-foreground">
+                  Selected as counterparty for this document
+                </p>
+              )}
+            </div>
+            <Badge
+              variant="outline"
+              className="text-[10px] uppercase font-bold shrink-0 bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
+            >
+              Counterparty
+            </Badge>
           </div>
-          <Badge
-            variant="outline"
-            className="text-[10px] uppercase font-bold shrink-0 bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
-          >
-            Counterparty
-          </Badge>
         </div>
       )}
     </section>
