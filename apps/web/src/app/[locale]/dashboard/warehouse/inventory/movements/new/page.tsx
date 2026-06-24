@@ -63,6 +63,11 @@ export default async function WarehouseInventoryNewMovementPage() {
     <MovementDocumentForm
       mode="create"
       branchName={context.app.activeBranch?.name ?? ""}
+      createdByName={
+        [context.user.user?.first_name, context.user.user?.last_name].filter(Boolean).join(" ") ||
+        context.user.user?.email ||
+        ""
+      }
       movementTypes={typesResult.success ? typesResult.data : []}
       stockableLocations={stockableLocations}
       variants={variantsResult.success ? variantsResult.data : []}

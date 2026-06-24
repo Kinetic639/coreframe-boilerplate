@@ -238,6 +238,25 @@ export class InventoryMovementsService {
 
     const h = header as any;
 
+    // Resolve branch name and created_by user name
+    const [branchRes, creatorRes] = await Promise.all([
+      supabase.from("branches").select("id, name").eq("id", h.branch_id).maybeSingle(),
+      h.created_by
+        ? supabase
+            .from("users")
+            .select("id, first_name, last_name, email")
+            .eq("id", h.created_by)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
+    const branchName = (branchRes.data as any)?.name ?? null;
+    const creatorData = creatorRes.data as any;
+    const createdByName = creatorData
+      ? [creatorData.first_name, creatorData.last_name].filter(Boolean).join(" ") ||
+        creatorData.email ||
+        null
+      : null;
+
     const [linesRes, typeRes, auditRes] = await Promise.all([
       supabase
         .from("inventory_movement_lines")
@@ -362,6 +381,8 @@ export class InventoryMovementsService {
         note: h.note,
         operation_date: h.operation_date,
         document_date: h.document_date,
+        branch_name: branchName,
+        created_by_name: createdByName,
         lines: enrichedLines,
         audit_log: auditEntries.map((e: any) => ({
           id: e.id,

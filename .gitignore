@@ -16,7 +16,7 @@ node_modules/
 .env.production
 .env.*.production
 .mcp.json
-apps/web/temp/ambra-locations
+apps/web/temp
 # Testing
 coverage/
 test-results/

@@ -103,7 +103,7 @@ export function MovementTypePicker({
     return (
       <div className="flex items-center gap-2 h-8 px-2 rounded-md border border-input bg-muted/30 text-xs">
         <span className="font-mono font-semibold">{selected.code}</span>
-        <Badge variant="outline" className="text-[9px]">
+        <Badge variant="outline" className="text-[10px]">
           {selected.document_type_code}
         </Badge>
         <span className="text-foreground truncate">{selected.name_pl ?? selected.name}</span>
@@ -126,7 +126,7 @@ export function MovementTypePicker({
           {selected ? (
             <>
               <span className="font-mono font-semibold">{selected.code}</span>
-              <Badge variant="outline" className="text-[9px]">
+              <Badge variant="outline" className="text-[10px]">
                 {selected.document_type_code}
               </Badge>
               <span className="text-foreground truncate">{selected.name_pl ?? selected.name}</span>
@@ -186,7 +186,7 @@ export function MovementTypePicker({
                       <span className="font-mono font-semibold text-xs w-8 shrink-0">
                         {mt.code}
                       </span>
-                      <Badge variant="outline" className="text-[9px] shrink-0">
+                      <Badge variant="outline" className="text-[10px] shrink-0">
                         {mt.document_type_code}
                       </Badge>
                       <span className="text-xs text-foreground truncate">

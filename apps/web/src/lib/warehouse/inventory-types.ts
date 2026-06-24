@@ -442,6 +442,8 @@ export type InventoryMovementDetail = InventoryMovementListRow & {
   note: string | null;
   operation_date: string | null;
   document_date: string | null;
+  branch_name: string | null;
+  created_by_name: string | null;
   lines: Array<{
     id: string;
     line_number: number;
