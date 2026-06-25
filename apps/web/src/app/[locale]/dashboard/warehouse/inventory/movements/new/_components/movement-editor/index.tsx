@@ -144,7 +144,6 @@ export function MovementDocumentForm({
               typeCode={form.typeCode}
               selType={form.selType}
               isPZ={form.isPZ}
-              is801={form.is801}
               isEdit={isEdit}
               movementTypes={movementTypes}
               counterpartyName={form.counterpartyName}

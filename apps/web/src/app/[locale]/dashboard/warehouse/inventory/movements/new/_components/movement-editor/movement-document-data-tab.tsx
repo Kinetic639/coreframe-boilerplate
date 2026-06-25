@@ -4,7 +4,6 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import { FileText } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
 import type { InventoryMovementType } from "@/lib/warehouse/inventory-types";
 import type { RichTextValue } from "@/components/primitives/rich-text/rich-text-types";
 import { RichTextEditorField } from "@/components/primitives/rich-text/rich-text-editor-field";
@@ -15,7 +14,6 @@ type Props = {
   typeCode: string;
   selType: InventoryMovementType | null;
   isPZ: boolean;
-  is801: boolean;
   isEdit: boolean;
   movementTypes: InventoryMovementType[];
   counterpartyName: string;
@@ -60,7 +58,6 @@ export const MovementDocumentDataTab = React.memo(function MovementDocumentDataT
   typeCode,
   selType,
   isPZ,
-  is801,
   isEdit,
   movementTypes,
   counterpartyName,
@@ -101,22 +98,6 @@ export const MovementDocumentDataTab = React.memo(function MovementDocumentDataT
           movementTypes={movementTypes}
           readonly={isEdit}
         />
-        {selType && (
-          <div
-            className={cn(
-              "mt-3 p-2.5 rounded-sm border text-xs font-mono",
-              isPZ
-                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400"
-                : "bg-muted border-border text-muted-foreground"
-            )}
-          >
-            <span className="block text-[10px] uppercase tracking-widest opacity-60 mb-0.5 font-semibold">
-              {t("wmsEffect")}
-            </span>
-            {selType.document_type_code} · {isPZ && t("wmsEffectPzDesc")}
-            {is801 && t("wmsEffect801Desc")} · {t("wmsDocNumberAtPosting")}
-          </div>
-        )}
       </section>
 
       {/* Document Details */}
