@@ -1,4 +1,5 @@
 import { useCallback, useTransition } from "react";
+import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { toast } from "react-toastify";
 import {
@@ -22,6 +23,7 @@ export function useMovementSubmission(
   validation: ValidationResult,
   initialValues?: MovementFormInitialValues
 ) {
+  const t = useTranslations("warehouseInventory.movementEditor");
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const isEdit = mode === "edit";
@@ -42,11 +44,11 @@ export function useMovementSubmission(
   const submit = useCallback(
     (andPost: boolean) => {
       if (andPost && !validation.isValid) {
-        toast.error(`Cannot post: ${validation.allErrors.length} validation issue(s).`);
+        toast.error(t("cannotPost", { count: validation.allErrors.length }));
         return;
       }
       if (!andPost && !typeCode) {
-        toast.error("Select a movement type first.");
+        toast.error(t("selectTypeFirstToast"));
         return;
       }
 
@@ -69,11 +71,13 @@ export function useMovementSubmission(
             ? ((await saveAndPostDraftMovementAction(payload)) as any)
             : ((await saveDraftMovementAction(payload)) as any);
           if (!r.success) {
-            toast.error(r.error ?? "Failed");
+            toast.error(r.error ?? t("failed"));
             return;
           }
           toast.success(
-            andPost ? `Document ${r.data?.document_number ?? ""} posted.` : "Draft saved."
+            andPost
+              ? t("documentPosted", { number: r.data?.document_number ?? "" })
+              : t("draftSaved")
           );
           router.push(detailPath(initialValues.movementId));
         } else {
@@ -88,18 +92,18 @@ export function useMovementSubmission(
           if (andPost) {
             const r = (await createAndPostMovementAction(bp)) as any;
             if (!r.success) {
-              toast.error(r.error ?? "Failed");
+              toast.error(r.error ?? t("failed"));
               return;
             }
-            toast.success(`Document ${r.data?.document_number ?? ""} posted.`);
+            toast.success(t("documentPosted", { number: r.data?.document_number ?? "" }));
             router.push(detailPath(r.data?.movement_id));
           } else {
             const r = (await createDraftMovementAction(bp)) as any;
             if (!r.success) {
-              toast.error(r.error ?? "Failed");
+              toast.error(r.error ?? t("failed"));
               return;
             }
-            toast.success(`Draft ${r.data?.draft_number ?? ""} created.`);
+            toast.success(t("draftCreated", { number: r.data?.draft_number ?? "" }));
             router.push(detailPath(r.data?.movement_id));
           }
         }
@@ -113,6 +117,7 @@ export function useMovementSubmission(
       isEdit,
       note,
       router,
+      t,
       typeCode,
       validation,
     ]

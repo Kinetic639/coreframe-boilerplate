@@ -47,6 +47,7 @@ export function InventoryMovementDetailPanel({
   showPrintAction = false,
 }: InventoryMovementDetailPanelProps) {
   const t = useTranslations("warehouseInventory.movements");
+  const td = useTranslations("warehouseInventory.movementDetail");
   const tt = useTranslations("warehouseInventory.transfers");
   const tc = useTranslations("warehouseInventory.common");
   const router = useRouter();
@@ -54,6 +55,28 @@ export function InventoryMovementDetailPanel({
   const [isPending, startTransition] = useTransition();
   const isDraft = detail.status === "draft";
   const canRespondToTransfer = canOperate && detail.status === "in_transit";
+
+  const STATUS_KEYS: Record<string, string> = {
+    draft: "statusDraft",
+    posted: "statusPosted",
+    reversed: "statusReversed",
+    cancelled: "statusCancelled",
+    in_transit: "statusInTransit",
+    accepted: "statusAccepted",
+    declined: "statusDeclined",
+  };
+  const ACTION_KEYS: Record<string, string> = {
+    created: "actionCreated",
+    posted: "actionPosted",
+    cancelled: "actionCancelled",
+    reversed: "actionReversed",
+    sent: "actionSent",
+    accepted: "actionAccepted",
+    declined: "actionDeclined",
+    updated: "actionUpdated",
+  };
+  const tStatus = (s: string) => td((STATUS_KEYS[s] ?? s) as any);
+  const tAction = (a: string) => td((ACTION_KEYS[a] ?? a) as any);
   const totalQty = detail.lines.reduce((s, l) => s + l.quantity, 0);
 
   // Derive common locations from lines
@@ -100,7 +123,9 @@ export function InventoryMovementDetailPanel({
             <h2 className="text-lg font-semibold">
               {detail.document_number ?? detail.draft_number}
             </h2>
-            <Badge variant={statusVariant[detail.status] ?? "outline"}>{detail.status}</Badge>
+            <Badge variant={statusVariant[detail.status] ?? "outline"}>
+              {tStatus(detail.status)}
+            </Badge>
             {detail.document_type_code && (
               <Badge variant="outline" className="text-xs">
                 {detail.document_type_code}
@@ -138,7 +163,7 @@ export function InventoryMovementDetailPanel({
           <Button asChild variant="outline" size="sm">
             <Link href={`/dashboard/warehouse/inventory/movements/${detail.id}/edit` as any}>
               <Pencil className="mr-1.5 h-3.5 w-3.5" />
-              Edit Draft
+              {td("editDraft")}
             </Link>
           </Button>
           <Button
@@ -148,10 +173,12 @@ export function InventoryMovementDetailPanel({
               startTransition(async () => {
                 const result = (await finalizePostingAction({ id: detail.id })) as any;
                 if (result.success) {
-                  toast.success(`Document ${result.data?.document_number ?? ""} posted.`);
+                  toast.success(
+                    td("documentPosted", { number: result.data?.document_number ?? "" })
+                  );
                   router.refresh();
                 } else {
-                  toast.error(result.error ?? "Failed to post");
+                  toast.error(result.error ?? td("failedToPost"));
                 }
               });
             }}
@@ -161,7 +188,7 @@ export function InventoryMovementDetailPanel({
             ) : (
               <Send className="mr-1.5 h-3.5 w-3.5" />
             )}
-            Post
+            {td("post")}
           </Button>
           <Button
             variant="outline"
@@ -171,10 +198,10 @@ export function InventoryMovementDetailPanel({
               startTransition(async () => {
                 const result = (await cancelMovementAction({ id: detail.id })) as any;
                 if (result.success) {
-                  toast.info("Movement cancelled.");
+                  toast.info(td("movementCancelled"));
                   router.refresh();
                 } else {
-                  toast.error(result.error ?? "Failed to cancel");
+                  toast.error(result.error ?? td("failedToCancel"));
                 }
               });
             }}
@@ -184,7 +211,7 @@ export function InventoryMovementDetailPanel({
             ) : (
               <XCircle className="mr-1.5 h-3.5 w-3.5" />
             )}
-            Cancel
+            {td("cancel")}
           </Button>
         </div>
       )}
@@ -194,89 +221,87 @@ export function InventoryMovementDetailPanel({
         <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4">
           {/* Left: Document details */}
           <div className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5 text-sm">
-            <span className="text-muted-foreground">Type</span>
+            <span className="text-muted-foreground">{td("type")}</span>
             <span className="font-medium">
               {detail.movement_type_code} · {detail.movement_type_name}
             </span>
 
-            <span className="text-muted-foreground">Document</span>
+            <span className="text-muted-foreground">{td("document")}</span>
             <span>{detail.document_type_code ?? "—"}</span>
 
             {detail.branch_name && (
               <>
-                <span className="text-muted-foreground">Branch</span>
+                <span className="text-muted-foreground">{td("branch")}</span>
                 <span className="font-semibold">{detail.branch_name}</span>
               </>
             )}
             {detail.created_by_name && (
               <>
-                <span className="text-muted-foreground">Created By</span>
+                <span className="text-muted-foreground">{td("createdBy")}</span>
                 <span>{detail.created_by_name}</span>
               </>
             )}
 
-            <span className="text-muted-foreground">Status</span>
+            <span className="text-muted-foreground">{td("status")}</span>
             <span>
               <Badge variant={statusVariant[detail.status] ?? "outline"} className="text-xs">
-                {detail.status}
+                {tStatus(detail.status)}
               </Badge>
             </span>
 
             {detail.document_number && (
               <>
-                <span className="text-muted-foreground">Document #</span>
+                <span className="text-muted-foreground">{td("documentNumber")}</span>
                 <span className="font-mono font-semibold">{detail.document_number}</span>
               </>
             )}
             {detail.draft_number && (
               <>
-                <span className="text-muted-foreground">Draft #</span>
+                <span className="text-muted-foreground">{td("draftNumber")}</span>
                 <span className="font-mono">{detail.draft_number}</span>
               </>
             )}
             {detail.operation_date && (
               <>
-                <span className="text-muted-foreground">Operation Date</span>
+                <span className="text-muted-foreground">{td("operationDate")}</span>
                 <span className="font-mono">{detail.operation_date}</span>
               </>
             )}
             {detail.document_date && (
               <>
-                <span className="text-muted-foreground">Document Date</span>
+                <span className="text-muted-foreground">{td("documentDate")}</span>
                 <span className="font-mono">{detail.document_date}</span>
               </>
             )}
             {detail.posted_at && (
               <>
-                <span className="text-muted-foreground">Posted At</span>
+                <span className="text-muted-foreground">{td("postedAt")}</span>
                 <span className="font-mono">{new Date(detail.posted_at).toLocaleString()}</span>
               </>
             )}
             {detail.external_reference && (
               <>
-                <span className="text-muted-foreground">Reference</span>
+                <span className="text-muted-foreground">{td("reference")}</span>
                 <span>{detail.external_reference}</span>
               </>
             )}
 
             {commonSource && (
               <>
-                <span className="text-muted-foreground">Source Location</span>
+                <span className="text-muted-foreground">{td("sourceLocation")}</span>
                 <span>{commonSource}</span>
               </>
             )}
 
             {commonDestination && (
               <>
-                <span className="text-muted-foreground">Destination Location</span>
+                <span className="text-muted-foreground">{td("destinationLocation")}</span>
                 <span>{commonDestination}</span>
               </>
             )}
 
-            <span className="text-muted-foreground">Positions</span>
-            <span>
-              {detail.lines.length} items · {totalQty} qty
-            </span>
+            <span className="text-muted-foreground">{td("positions")}</span>
+            <span>{td("positionsSummary", { count: detail.lines.length, qty: totalQty })}</span>
           </div>
 
           {/* Right: Counterparty / Supplier */}
@@ -285,13 +310,13 @@ export function InventoryMovementDetailPanel({
               <div className="rounded-sm border bg-card p-3">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Counterparty
+                    {td("counterparty")}
                   </span>
                   <Badge
                     variant="outline"
                     className="text-[10px] uppercase font-bold bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
                   >
-                    Supplier
+                    {td("supplier")}
                   </Badge>
                 </div>
                 <h4 className="text-sm font-bold text-foreground">{detail.counterparty_name}</h4>
@@ -302,7 +327,9 @@ export function InventoryMovementDetailPanel({
 
         {detail.note && (
           <div className="mt-3 pt-3 border-t">
-            <span className="text-xs text-muted-foreground font-semibold uppercase">Note</span>
+            <span className="text-xs text-muted-foreground font-semibold uppercase">
+              {td("note")}
+            </span>
             <div className="mt-1">
               {(() => {
                 try {
@@ -324,22 +351,22 @@ export function InventoryMovementDetailPanel({
         <div className="rounded-sm border">
           <div className="px-3 py-2 border-b bg-muted/30">
             <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Items ({detail.lines.length})
+              {td("items", { count: detail.lines.length })}
             </span>
           </div>
           <table className="w-full text-sm">
             <thead className="text-xs text-muted-foreground bg-muted/20">
               <tr className="border-b">
-                <th className="px-3 py-1.5 text-center w-8">#</th>
-                <th className="px-3 py-1.5 text-left">SKU</th>
-                <th className="px-3 py-1.5 text-left">Product</th>
-                <th className="px-3 py-1.5 text-center w-14">Unit</th>
-                <th className="px-3 py-1.5 text-right w-16">Qty</th>
+                <th className="px-3 py-1.5 text-center w-8">{td("colNumber")}</th>
+                <th className="px-3 py-1.5 text-left">{td("colSku")}</th>
+                <th className="px-3 py-1.5 text-left">{td("colProduct")}</th>
+                <th className="px-3 py-1.5 text-center w-14">{td("colUnit")}</th>
+                <th className="px-3 py-1.5 text-right w-16">{td("colQty")}</th>
                 {!commonSource && allSources.length > 0 && (
-                  <th className="px-3 py-1.5 text-left">Source</th>
+                  <th className="px-3 py-1.5 text-left">{td("colSource")}</th>
                 )}
                 {!commonDestination && allDestinations.length > 0 && (
-                  <th className="px-3 py-1.5 text-left">Destination</th>
+                  <th className="px-3 py-1.5 text-left">{td("colDestination")}</th>
                 )}
               </tr>
             </thead>
@@ -380,7 +407,7 @@ export function InventoryMovementDetailPanel({
       {detail.audit_log && detail.audit_log.length > 0 && (
         <div className="border-t pt-3">
           <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Audit Log
+            {td("auditLog")}
           </span>
           <div className="mt-2 space-y-1">
             {detail.audit_log.map((entry) => (
@@ -390,14 +417,14 @@ export function InventoryMovementDetailPanel({
               >
                 <span>
                   <Badge variant="outline" className="mr-2 text-[10px]">
-                    {entry.action}
+                    {tAction(entry.action)}
                   </Badge>
                   {entry.old_status && entry.new_status
-                    ? `${entry.old_status} → ${entry.new_status}`
+                    ? `${tStatus(entry.old_status)} → ${tStatus(entry.new_status)}`
                     : ""}
                 </span>
                 <span className="text-muted-foreground">
-                  {entry.actor_user_name ?? "system"} ·{" "}
+                  {entry.actor_user_name ?? td("system")} ·{" "}
                   {new Date(entry.created_at).toLocaleString()}
                 </span>
               </div>

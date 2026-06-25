@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { ArrowLeft, CheckCircle, Layers, Loader2, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,19 +33,20 @@ export const MovementActionBar = React.memo(function MovementActionBar({
   onSaveDraft,
   onSaveAndPost,
 }: Props) {
+  const t = useTranslations("warehouseInventory.movementEditor");
   const router = useRouter();
   return (
     <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center justify-between border-b bg-card px-4">
       <div className="flex items-center gap-3 min-w-0">
         <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => router.back()}>
           <ArrowLeft className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline text-xs">Back</span>
+          <span className="hidden sm:inline text-xs">{t("back")}</span>
         </Button>
         <div className="h-5 w-px bg-border hidden sm:block" />
         <div className="flex items-center gap-2 min-w-0">
           <Layers className="h-4 w-4 text-muted-foreground shrink-0" />
           <span className="font-semibold text-sm truncate">
-            {isEdit ? (draftNumber ?? "Edit Draft") : "New Movement"}
+            {isEdit ? (draftNumber ?? t("editDraft")) : t("newMovement")}
           </span>
         </div>
         <div className="flex items-center gap-1.5">
@@ -57,17 +59,17 @@ export const MovementActionBar = React.memo(function MovementActionBar({
             variant="outline"
             className="text-[10px] font-bold rounded-sm bg-yellow-500/10 text-yellow-600 border-yellow-500/30 dark:text-yellow-400"
           >
-            {isEdit ? "Draft" : "New"}
+            {isEdit ? t("draft") : t("new")}
           </Badge>
         </div>
       </div>
       <div className="flex items-center gap-3">
         <div className="hidden md:flex items-center gap-1.5 rounded-sm border px-2.5 py-1 text-right bg-card">
           <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
-            Summary
+            {t("summary")}
           </span>
           <span className="text-xs font-mono font-bold">
-            {lineCount} pos. · {totalQty} qty
+            {t("positions", { count: lineCount, qty: totalQty })}
           </span>
         </div>
         <Button
@@ -82,7 +84,7 @@ export const MovementActionBar = React.memo(function MovementActionBar({
           ) : (
             <Save className="mr-1.5 h-3 w-3" />
           )}
-          Save Draft
+          {t("saveDraft")}
         </Button>
         <Button
           size="sm"
@@ -95,7 +97,7 @@ export const MovementActionBar = React.memo(function MovementActionBar({
           ) : (
             <CheckCircle className="mr-1.5 h-3 w-3" />
           )}
-          Save & Post
+          {t("saveAndPost")}
         </Button>
       </div>
     </header>

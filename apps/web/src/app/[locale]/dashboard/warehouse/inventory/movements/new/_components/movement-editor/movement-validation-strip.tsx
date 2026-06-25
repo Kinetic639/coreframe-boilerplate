@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { AlertTriangle, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ValidationResult } from "./types";
@@ -14,6 +15,7 @@ export const MovementValidationStrip = React.memo(function MovementValidationStr
   validation,
   documentTypeCode,
 }: Props) {
+  const t = useTranslations("warehouseInventory.movementEditor");
   const { isValid, documentErrors, positionErrors, allErrors } = validation;
   return (
     <div
@@ -33,8 +35,8 @@ export const MovementValidationStrip = React.memo(function MovementValidationStr
         <div className="flex-1">
           <p className="font-semibold text-xs uppercase tracking-wider">
             {isValid
-              ? `Document valid and ready to post${documentTypeCode ? ` (${documentTypeCode})` : ""}`
-              : `${allErrors.length} issue${allErrors.length > 1 ? "s" : ""} preventing posting`}
+              ? t("validReady", { docType: documentTypeCode ?? "" })
+              : t("issuesPreventing", { count: allErrors.length })}
           </p>
           {!isValid ? (
             <ul className="mt-1 space-y-0.5 text-xs">
@@ -46,9 +48,7 @@ export const MovementValidationStrip = React.memo(function MovementValidationStr
               ))}
             </ul>
           ) : (
-            <p className="text-xs mt-0.5 opacity-70">
-              All fields complete. Save as draft or post to finalize.
-            </p>
+            <p className="text-xs mt-0.5 opacity-70">{t("validReadyDesc")}</p>
           )}
         </div>
       </div>

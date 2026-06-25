@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import { useTranslations } from "next-intl";
 import { Building, ChevronDown, Search, User } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ export const MovementSupplierSection = React.memo(function MovementSupplierSecti
   counterpartyName,
   onCounterpartyChange,
 }: Props) {
+  const t = useTranslations("warehouseInventory.movementEditor");
   const [mode, setMode] = useState<"select" | "manual">("select");
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -63,7 +65,7 @@ export const MovementSupplierSection = React.memo(function MovementSupplierSecti
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2 text-xs uppercase font-bold tracking-wider text-muted-foreground">
           <User className="h-4 w-4" />
-          Counterparty / Supplier
+          {t("counterpartySupplier")}
         </div>
         <div className="flex items-center gap-0.5 rounded-sm border bg-muted p-0.5 select-none">
           <button
@@ -76,7 +78,7 @@ export const MovementSupplierSection = React.memo(function MovementSupplierSecti
                 : "text-muted-foreground hover:text-foreground"
             )}
           >
-            Select from list
+            {t("selectFromList")}
           </button>
           <button
             type="button"
@@ -88,7 +90,7 @@ export const MovementSupplierSection = React.memo(function MovementSupplierSecti
                 : "text-muted-foreground hover:text-foreground"
             )}
           >
-            + Enter manually
+            {t("enterManually")}
           </button>
         </div>
       </div>
@@ -98,19 +100,19 @@ export const MovementSupplierSection = React.memo(function MovementSupplierSecti
           <div className="flex items-center justify-between border-b pb-2">
             <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
               <Building className="h-3.5 w-3.5" />
-              New Counterparty Details
+              {t("newCounterpartyDetails")}
             </span>
             <Badge variant="outline" className="text-[10px] uppercase">
-              Manual entry
+              {t("manualEntry")}
             </Badge>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             <div className="sm:col-span-2">
               <label className="block text-xs uppercase font-semibold text-muted-foreground mb-0.5">
-                Company Name <span className="text-destructive">*</span>
+                {t("companyName")} <span className="text-destructive">*</span>
               </label>
               <Input
-                placeholder="e.g. AUTO-PARTS HURTOWNIA S.C."
+                placeholder={t("companyNamePlaceholder")}
                 value={manualName}
                 onChange={(e) => {
                   setManualName(e.target.value);
@@ -121,10 +123,10 @@ export const MovementSupplierSection = React.memo(function MovementSupplierSecti
             </div>
             <div>
               <label className="block text-xs uppercase font-semibold text-muted-foreground mb-0.5">
-                NIP <span className="text-destructive">*</span>
+                {t("nip")} <span className="text-destructive">*</span>
               </label>
               <Input
-                placeholder="e.g. 5210001234"
+                placeholder={t("nipPlaceholder")}
                 maxLength={10}
                 value={manualNip}
                 onChange={(e) => setManualNip(e.target.value.replace(/\D/g, ""))}
@@ -133,10 +135,10 @@ export const MovementSupplierSection = React.memo(function MovementSupplierSecti
             </div>
             <div>
               <label className="block text-xs uppercase font-semibold text-muted-foreground mb-0.5">
-                Phone
+                {t("phone")}
               </label>
               <Input
-                placeholder="e.g. +48 601 200 300"
+                placeholder={t("phonePlaceholder")}
                 value={manualPhone}
                 onChange={(e) => setManualPhone(e.target.value)}
                 className="h-8 text-sm font-mono"
@@ -144,10 +146,10 @@ export const MovementSupplierSection = React.memo(function MovementSupplierSecti
             </div>
             <div className="sm:col-span-2">
               <label className="block text-xs uppercase font-semibold text-muted-foreground mb-0.5">
-                Street <span className="text-destructive">*</span>
+                {t("street")} <span className="text-destructive">*</span>
               </label>
               <Input
-                placeholder="e.g. ul. Grzybowska 4A"
+                placeholder={t("streetPlaceholder")}
                 value={manualStreet}
                 onChange={(e) => setManualStreet(e.target.value)}
                 className="h-8 text-sm"
@@ -155,10 +157,10 @@ export const MovementSupplierSection = React.memo(function MovementSupplierSecti
             </div>
             <div>
               <label className="block text-xs uppercase font-semibold text-muted-foreground mb-0.5">
-                Postal Code <span className="text-destructive">*</span>
+                {t("postalCode")} <span className="text-destructive">*</span>
               </label>
               <Input
-                placeholder="e.g. 00-100"
+                placeholder={t("postalCodePlaceholder")}
                 maxLength={6}
                 value={manualPostalCode}
                 onChange={(e) => setManualPostalCode(e.target.value)}
@@ -167,10 +169,10 @@ export const MovementSupplierSection = React.memo(function MovementSupplierSecti
             </div>
             <div>
               <label className="block text-xs uppercase font-semibold text-muted-foreground mb-0.5">
-                City <span className="text-destructive">*</span>
+                {t("city")} <span className="text-destructive">*</span>
               </label>
               <Input
-                placeholder="e.g. Warszawa"
+                placeholder={t("cityPlaceholder")}
                 value={manualCity}
                 onChange={(e) => setManualCity(e.target.value)}
                 className="h-8 text-sm"
@@ -178,7 +180,7 @@ export const MovementSupplierSection = React.memo(function MovementSupplierSecti
             </div>
           </div>
           <div className="pt-2.5 border-t flex items-center justify-between">
-            <span className="text-[10px] text-muted-foreground">* required fields</span>
+            <span className="text-[10px] text-muted-foreground">{t("requiredFields")}</span>
             <Button
               size="sm"
               className="h-8 text-xs uppercase font-bold"
@@ -187,7 +189,7 @@ export const MovementSupplierSection = React.memo(function MovementSupplierSecti
               }
               onClick={handleSaveManual}
             >
-              Confirm & select
+              {t("confirmAndSelect")}
             </Button>
           </div>
         </div>
@@ -206,7 +208,7 @@ export const MovementSupplierSection = React.memo(function MovementSupplierSecti
                   counterpartyName ? "font-semibold text-foreground" : "text-muted-foreground"
                 )}
               >
-                {counterpartyName || "Select supplier..."}
+                {counterpartyName || t("selectSupplier")}
               </span>
             </div>
             <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -219,14 +221,14 @@ export const MovementSupplierSection = React.memo(function MovementSupplierSecti
                 <div className="relative">
                   <Search className="h-3 w-3 text-muted-foreground absolute left-2.5 top-2.5" />
                   <Input
-                    placeholder="Search by name..."
+                    placeholder={t("searchByName")}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="h-8 pl-8 text-xs"
                   />
                 </div>
                 <div className="text-xs text-muted-foreground py-3 text-center italic">
-                  Type supplier name directly or use manual entry.
+                  {t("typeSupplierHint")}
                 </div>
               </div>
             </>
@@ -252,16 +254,14 @@ export const MovementSupplierSection = React.memo(function MovementSupplierSecti
                 </div>
               )}
               {!savedDetails && (
-                <p className="text-xs text-muted-foreground">
-                  Selected as counterparty for this document
-                </p>
+                <p className="text-xs text-muted-foreground">{t("selectedCounterparty")}</p>
               )}
             </div>
             <Badge
               variant="outline"
               className="text-[10px] uppercase font-bold shrink-0 bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
             >
-              Counterparty
+              {t("counterpartyBadge")}
             </Badge>
           </div>
         </div>

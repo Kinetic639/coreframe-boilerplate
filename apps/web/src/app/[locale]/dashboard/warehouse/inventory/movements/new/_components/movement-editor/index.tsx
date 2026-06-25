@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useState } from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "react-toastify";
 import { FileText, Layers } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +28,7 @@ export function MovementDocumentForm({
   variants,
   initialValues,
 }: MovementFormProps) {
+  const t = useTranslations("warehouseInventory.movementEditor");
   const today = new Date().toISOString().split("T")[0];
   const isEdit = mode === "edit";
 
@@ -59,7 +61,7 @@ export function MovementDocumentForm({
 
   const handleOpenPicker = useCallback(() => {
     if (form.is801 && !form.srcLoc) {
-      toast.error("Select a source location first.");
+      toast.error(t("selectSourceFirst"));
       return;
     }
     setPickerOpen(true);
@@ -102,7 +104,7 @@ export function MovementDocumentForm({
             )}
           >
             <FileText className="h-4 w-4" />
-            <span className="hidden sm:inline">A.</span> Document Header
+            <span className="hidden sm:inline">A.</span> {t("documentHeader")}
             {validation.documentErrors.length > 0 && (
               <Badge variant="destructive" className="ml-1 text-[10px] h-4 min-w-4 px-1 rounded-sm">
                 {validation.documentErrors.length}
@@ -120,7 +122,7 @@ export function MovementDocumentForm({
             )}
           >
             <Layers className="h-4 w-4" />
-            <span className="hidden sm:inline">B.</span> Positions
+            <span className="hidden sm:inline">B.</span> {t("positionsTab")}
             <Badge variant="secondary" className="ml-1 text-[10px] h-5 min-w-5 px-1.5 rounded-sm">
               {form.lines.length}
             </Badge>
@@ -151,7 +153,9 @@ export function MovementDocumentForm({
               srcLoc={form.srcLoc}
               dstLoc={form.dstLoc}
               operationDate={initialValues?.operationDate ?? today}
-              documentDate={isEdit ? (initialValues?.documentDate ?? "At posting") : "At posting"}
+              documentDate={
+                isEdit ? (initialValues?.documentDate ?? t("atPosting")) : t("atPosting")
+              }
               branchName={branchName}
               createdByName={createdByName ?? ""}
               onTypeChange={form.handleTypeChange}

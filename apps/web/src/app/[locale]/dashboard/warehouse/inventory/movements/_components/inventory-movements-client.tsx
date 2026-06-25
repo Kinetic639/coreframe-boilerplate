@@ -67,7 +67,19 @@ export function InventoryMovementsClient({
   canOperate,
 }: InventoryMovementsClientProps) {
   const t = useTranslations("warehouseInventory.movements");
+  const td = useTranslations("warehouseInventory.movementDetail");
   const tc = useTranslations("warehouseInventory.common");
+
+  const STATUS_KEYS: Record<string, string> = {
+    draft: "statusDraft",
+    posted: "statusPosted",
+    reversed: "statusReversed",
+    cancelled: "statusCancelled",
+    in_transit: "statusInTransit",
+    accepted: "statusAccepted",
+    declined: "statusDeclined",
+  };
+  const tStatus = (s: string) => td((STATUS_KEYS[s] ?? s) as any);
 
   const columns = useMemo<DataViewColumnDef<InventoryMovementListRow>[]>(
     () => [
@@ -91,7 +103,7 @@ export function InventoryMovementsClient({
         key: "status",
         header: tc("status"),
         accessor: (row) => (
-          <Badge variant={statusVariant[row.status] ?? "outline"}>{row.status}</Badge>
+          <Badge variant={statusVariant[row.status] ?? "outline"}>{tStatus(row.status)}</Badge>
         ),
         sortable: true,
         defaultVisible: true,
@@ -129,7 +141,7 @@ export function InventoryMovementsClient({
         defaultVisible: true,
       },
     ],
-    [t, tc]
+    [t, tc, td]
   );
 
   const filters: DataViewFilterDef[] = [
@@ -155,7 +167,7 @@ export function InventoryMovementsClient({
         "accepted",
         "declined",
       ].map((value) => ({
-        label: value,
+        label: tStatus(value),
         value,
       })),
     },
