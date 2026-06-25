@@ -11,6 +11,7 @@ import type {
   InventoryPickerItem,
   LocationVariantStock,
 } from "@/lib/warehouse/inventory-types";
+import { toMovementRouteKey } from "@/lib/warehouse/movement-route-key";
 export type {
   CreateDraftMovementInput,
   InventoryMovementDetail,
@@ -20,6 +21,19 @@ export type {
 export type ServiceResult<T> = { success: true; data: T } | { success: false; error: string };
 
 export class InventoryMovementsService {
+  private static async _saveRouteKey(
+    supabase: SupabaseClient,
+    movementId: string,
+    displayNumber: string
+  ) {
+    const routeKey = toMovementRouteKey(displayNumber);
+    await supabase
+      .from("inventory_movement_headers")
+      .update({ route_key: routeKey } as any)
+      .eq("id", movementId);
+    return routeKey;
+  }
+
   private static async _saveCounterpartyDetails(
     supabase: SupabaseClient,
     movementId: string,
@@ -54,8 +68,9 @@ export class InventoryMovementsService {
     });
     if (error) return { success: false, error: error.message };
     const result = data as any;
+    const routeKey = await this._saveRouteKey(supabase, result.movement_id, result.draft_number);
     await this._saveCounterpartyDetails(supabase, result.movement_id, input.counterparty_details);
-    return { success: true, data: result };
+    return { success: true, data: { ...result, route_key: routeKey } };
   }
 
   static async finalizePosting(
@@ -68,7 +83,16 @@ export class InventoryMovementsService {
       p_actor_user_id: userId,
     });
     if (error) return { success: false, error: error.message };
-    return { success: true, data: data as any };
+    const result = data as any;
+    if (result.document_number) {
+      const routeKey = await this._saveRouteKey(
+        supabase,
+        result.movement_id,
+        result.document_number
+      );
+      return { success: true, data: { ...result, route_key: routeKey } };
+    }
+    return { success: true, data: result };
   }
 
   static async createAndFinalize(
@@ -93,8 +117,13 @@ export class InventoryMovementsService {
     });
     if (error) return { success: false, error: error.message };
     const result = data as any;
+    const routeKey = await this._saveRouteKey(
+      supabase,
+      result.movement_id,
+      result.document_number ?? result.draft_number
+    );
     await this._saveCounterpartyDetails(supabase, result.movement_id, input.counterparty_details);
-    return { success: true, data: result };
+    return { success: true, data: { ...result, route_key: routeKey } };
   }
 
   static async saveDraft(
@@ -219,6 +248,7 @@ export class InventoryMovementsService {
         id: h.id,
         draft_number: h.draft_number,
         document_number: h.document_number,
+        route_key: h.route_key ?? toMovementRouteKey(h.document_number ?? h.draft_number ?? h.id),
         document_type_code: h.document_type_code,
         movement_type_code: h.movement_type_code ?? "",
         movement_type_name: mvtType?.name_pl ?? mvtType?.name ?? h.movement_type_code ?? "",
@@ -254,9 +284,7 @@ export class InventoryMovementsService {
     if (isUuid) {
       query = query.eq("id", movementIdentifier);
     } else {
-      query = query.or(
-        `draft_number.eq.${movementIdentifier},document_number.eq.${movementIdentifier}`
-      );
+      query = query.or(`route_key.eq.${movementIdentifier},draft_number.eq.${movementIdentifier}`);
     }
     const { data: header, error: headerError } = await query.maybeSingle();
 
@@ -404,6 +432,7 @@ export class InventoryMovementsService {
         id: h.id,
         draft_number: h.draft_number,
         document_number: h.document_number,
+        route_key: h.route_key ?? toMovementRouteKey(h.document_number ?? h.draft_number ?? h.id),
         document_type_code: h.document_type_code,
         movement_type_code: h.movement_type_code ?? "",
         movement_type_name: mvtType?.name_pl ?? mvtType?.name ?? h.movement_type_code ?? "",

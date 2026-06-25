@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Link, useRouter } from "@/i18n/navigation";
 import type { InventoryMovementDetail } from "@/lib/warehouse/inventory-types";
+import { getMovementDetailHref, getMovementRouteKey } from "@/lib/warehouse/movement-route-key";
 import { RichTextRenderer } from "@/components/primitives/rich-text/rich-text-renderer";
 import { normalizeRichText } from "@/components/primitives/rich-text/rich-text-utils";
 import {
@@ -145,14 +146,7 @@ export function InventoryMovementDetailPanel({
           )}
           {showOpenPageAction && (
             <Button asChild type="button" variant="outline" size="sm">
-              <Link
-                href={{
-                  pathname: "/dashboard/warehouse/inventory/movements/[movementId]",
-                  params: {
-                    movementId: detail.document_number ?? detail.draft_number ?? detail.id,
-                  },
-                }}
-              >
+              <Link href={getMovementDetailHref(detail)}>
                 <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
                 {t("openMovement")}
               </Link>
@@ -167,7 +161,7 @@ export function InventoryMovementDetailPanel({
           <Button asChild variant="outline" size="sm">
             <Link
               href={
-                `/dashboard/warehouse/inventory/movements/${detail.document_number ?? detail.draft_number ?? detail.id}/edit` as any
+                `/dashboard/warehouse/inventory/movements/${getMovementRouteKey(detail)}/edit` as any
               }
             >
               <Pencil className="mr-1.5 h-3.5 w-3.5" />
