@@ -354,12 +354,22 @@ export type InventoryMovementLineInput = {
   note?: string | null;
 };
 
+export type CounterpartyDetails = {
+  name: string;
+  nip?: string;
+  phone?: string;
+  street?: string;
+  postalCode?: string;
+  city?: string;
+};
+
 export type CreateDraftMovementInput = {
   movement_type_code: string;
   lines: InventoryMovementLineInput[];
   operation_date?: string | null;
   document_date?: string | null;
   counterparty_name?: string | null;
+  counterparty_details?: CounterpartyDetails | null;
   external_reference?: string | null;
   note?: string | null;
   idempotency_key?: string | null;
@@ -434,6 +444,7 @@ export type InventoryMovementAuditEntry = {
   action: string;
   old_status: string | null;
   new_status: string | null;
+  actor_user_id: string | null;
   actor_user_name: string | null;
   created_at: string;
 };
@@ -444,6 +455,7 @@ export type InventoryMovementDetail = InventoryMovementListRow & {
   document_date: string | null;
   branch_name: string | null;
   created_by_name: string | null;
+  counterparty_details: CounterpartyDetails | null;
   lines: Array<{
     id: string;
     line_number: number;

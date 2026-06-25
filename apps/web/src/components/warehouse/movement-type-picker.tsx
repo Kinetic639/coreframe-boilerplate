@@ -211,25 +211,3 @@ export function MovementTypePicker({
     </Popover>
   );
 }
-
-export function MovementTypeEffectPreview({ type }: { type: InventoryMovementType | null }) {
-  const t = useTranslations("warehouseInventory.movementEditor");
-  if (!type) return null;
-
-  function effectSummaryText(mt: InventoryMovementType): string {
-    if (mt.requires_source_location && mt.requires_destination_location) {
-      return t("effectSrcDest");
-    } else if (mt.requires_destination_location) {
-      return t("effectDestOnHand");
-    } else if (mt.requires_source_location) {
-      return t("effectSrcOnHand");
-    }
-    return t("effectMetadataOnly");
-  }
-
-  return (
-    <span className="text-[10px] text-muted-foreground">
-      {type.document_type_code} · {effectSummaryText(type)} · {t("docNumberAtPosting")}
-    </span>
-  );
-}

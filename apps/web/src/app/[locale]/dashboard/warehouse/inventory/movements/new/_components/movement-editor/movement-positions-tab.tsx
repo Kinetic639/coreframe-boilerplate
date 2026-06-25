@@ -8,17 +8,22 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { InventoryMovementType } from "@/lib/warehouse/inventory-types";
-import type { LineDraft } from "./types";
+import type { LineDraft, LocationOption } from "./types";
 
 type Props = {
   selType: InventoryMovementType | null;
+  isPZ: boolean;
   is801: boolean;
   srcLoc: string;
+  dstLoc: string;
+  stockableLocations: LocationOption[];
   lines: LineDraft[];
   pickerDisabled: boolean;
   onOpenPicker: () => void;
   onRemoveLine: (key: string) => void;
   onUpdateLineQty: (key: string, val: string) => void;
+  onSrcLocChange: (val: string) => void;
+  onDstLocChange: (val: string) => void;
 };
 
 const MovementLineRow = React.memo(function MovementLineRow({
@@ -113,17 +118,81 @@ const MovementLineRow = React.memo(function MovementLineRow({
 
 export const MovementPositionsTab = React.memo(function MovementPositionsTab({
   selType,
+  isPZ,
   is801,
   srcLoc,
+  dstLoc,
+  stockableLocations,
   lines,
   pickerDisabled,
   onOpenPicker,
   onRemoveLine,
   onUpdateLineQty,
+  onSrcLocChange,
+  onDstLocChange,
 }: Props) {
   const t = useTranslations("warehouseInventory.movementEditor");
+  const locLabel = (loc: LocationOption) => (loc.code ? `${loc.code} — ${loc.name}` : loc.name);
+
   return (
     <div className="space-y-4">
+      {/* Warehouse Routing */}
+      <section className="rounded-sm border border-dashed bg-muted/30 p-4">
+        <div className="text-xs uppercase font-bold tracking-wider text-muted-foreground mb-3">
+          {t("warehouseRouting")}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {is801 ? (
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+                {t("sourceLocation")} <span className="text-destructive ml-0.5">*</span>
+              </label>
+              <select
+                value={srcLoc}
+                onChange={(e) => onSrcLocChange(e.target.value)}
+                className="h-9 w-full rounded-sm border border-input bg-background px-3 text-sm"
+              >
+                <option value="">{t("selectSourceBin")}</option>
+                {stockableLocations.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {locLabel(l)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div className="rounded-sm border border-dashed bg-muted/50 p-3 flex flex-col justify-center opacity-60">
+              <span className="text-[10px] font-mono uppercase text-muted-foreground">
+                {t("sourceNotApplicable")}
+              </span>
+              <span className="text-xs text-muted-foreground mt-0.5">
+                {t("sourceNotApplicableDesc")}
+              </span>
+            </div>
+          )}
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+              {t("destinationLocation")} <span className="text-destructive ml-0.5">*</span>
+            </label>
+            <select
+              value={dstLoc}
+              onChange={(e) => onDstLocChange(e.target.value)}
+              className="h-9 w-full rounded-sm border border-input bg-background px-3 text-sm"
+            >
+              <option value="">{t("selectDestBin")}</option>
+              {stockableLocations
+                .filter((l) => l.id !== srcLoc)
+                .map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {locLabel(l)}
+                  </option>
+                ))}
+            </select>
+          </div>
+        </div>
+      </section>
+
+      {/* Positions Table */}
       <section className="rounded-sm border bg-card">
         <div className="flex items-center justify-between border-b px-4 py-3">
           <div className="flex items-center gap-2">

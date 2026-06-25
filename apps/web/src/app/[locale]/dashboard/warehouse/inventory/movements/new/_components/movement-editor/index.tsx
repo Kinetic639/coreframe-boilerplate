@@ -46,6 +46,7 @@ export function MovementDocumentForm({
     form.typeCode,
     form.is801,
     form.counterpartyName,
+    form.counterpartyDetails,
     form.externalReference,
     form.noteForSave,
     form.srcLoc,
@@ -143,15 +144,13 @@ export function MovementDocumentForm({
               typeCode={form.typeCode}
               selType={form.selType}
               isPZ={form.isPZ}
-              is801={form.is801}
               isEdit={isEdit}
               movementTypes={movementTypes}
-              stockableLocations={stockableLocations}
               counterpartyName={form.counterpartyName}
+              supplierFields={form.supplierFields}
+              supplierLocked={form.supplierLocked}
               externalReference={form.externalReference}
               noteRichText={form.noteRichText}
-              srcLoc={form.srcLoc}
-              dstLoc={form.dstLoc}
               operationDate={initialValues?.operationDate ?? today}
               documentDate={
                 isEdit ? (initialValues?.documentDate ?? t("atPosting")) : t("atPosting")
@@ -160,22 +159,28 @@ export function MovementDocumentForm({
               createdByName={createdByName ?? ""}
               onTypeChange={form.handleTypeChange}
               onCounterpartyChange={form.setCounterpartyName}
+              onCounterpartyDetailsChange={form.setCounterpartyDetails}
+              onSupplierFieldsChange={form.setSupplierFields}
+              onSupplierLockedChange={form.setSupplierLocked}
               onExternalRefChange={form.setExternalReference}
               onNoteRichTextChange={form.setNoteRichText}
-              onSrcLocChange={form.handleSrcChange}
-              onDstLocChange={form.setDstLoc}
             />
           )}
           {form.activeTab === "lines" && (
             <MovementPositionsTab
               selType={form.selType}
+              isPZ={form.isPZ}
               is801={form.is801}
               srcLoc={form.srcLoc}
+              dstLoc={form.dstLoc}
+              stockableLocations={stockableLocations}
               lines={form.lines}
               pickerDisabled={pickerDisabled}
               onOpenPicker={handleOpenPicker}
               onRemoveLine={form.removeLine}
               onUpdateLineQty={form.updateLineQty}
+              onSrcLocChange={form.handleSrcChange}
+              onDstLocChange={form.setDstLoc}
             />
           )}
         </div>

@@ -8,6 +8,7 @@ import {
   saveDraftMovementAction,
   saveAndPostDraftMovementAction,
 } from "@/app/actions/warehouse/inventory";
+import type { CounterpartyDetails } from "@/lib/warehouse/inventory-types";
 import type { LineDraft, MovementFormInitialValues, ValidationResult } from "./types";
 
 export function useMovementSubmission(
@@ -15,6 +16,7 @@ export function useMovementSubmission(
   typeCode: string,
   is801: boolean,
   counterpartyName: string,
+  counterpartyDetails: CounterpartyDetails | null,
   externalReference: string,
   note: string,
   srcLoc: string,
@@ -63,6 +65,7 @@ export function useMovementSubmission(
           const payload = {
             movement_id: initialValues.movementId,
             counterparty_name: counterpartyName || null,
+            counterparty_details: counterpartyDetails,
             external_reference: externalReference || null,
             note: note || null,
             lines: ls,
@@ -84,6 +87,7 @@ export function useMovementSubmission(
           const bp = {
             movement_type_code: typeCode,
             counterparty_name: counterpartyName || null,
+            counterparty_details: counterpartyDetails,
             external_reference: externalReference || null,
             note: note || null,
             idempotency_key: crypto.randomUUID(),
@@ -111,6 +115,7 @@ export function useMovementSubmission(
     },
     [
       buildLines,
+      counterpartyDetails,
       counterpartyName,
       externalReference,
       initialValues,

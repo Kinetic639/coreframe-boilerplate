@@ -1313,6 +1313,7 @@ export async function createDraftMovementAction(rawInput: unknown) {
         operation_date: parsed.data.operation_date ?? null,
         document_date: parsed.data.document_date ?? null,
         counterparty_name: parsed.data.counterparty_name ?? null,
+        counterparty_details: (parsed.data.counterparty_details as any) ?? null,
         external_reference: parsed.data.external_reference ?? null,
         note: parsed.data.note ?? null,
         idempotency_key: parsed.data.idempotency_key ?? null,
@@ -1516,6 +1517,17 @@ export async function saveDraftMovementAction(rawInput: unknown) {
         document_date: z.string().nullable().optional(),
         operation_date: z.string().nullable().optional(),
         counterparty_name: z.string().max(200).nullable().optional(),
+        counterparty_details: z
+          .object({
+            name: z.string(),
+            nip: z.string().optional(),
+            phone: z.string().optional(),
+            street: z.string().optional(),
+            postalCode: z.string().optional(),
+            city: z.string().optional(),
+          })
+          .nullable()
+          .optional(),
         external_reference: z.string().max(200).nullable().optional(),
         note: z.string().max(1000).nullable().optional(),
         lines: z
@@ -1542,6 +1554,7 @@ export async function saveDraftMovementAction(rawInput: unknown) {
         document_date: parsed.data.document_date,
         operation_date: parsed.data.operation_date,
         counterparty_name: parsed.data.counterparty_name,
+        counterparty_details: parsed.data.counterparty_details,
         external_reference: parsed.data.external_reference,
         note: parsed.data.note,
         lines: parsed.data.lines.map((l) => ({
@@ -1603,6 +1616,7 @@ export async function createAndPostMovementAction(rawInput: unknown) {
         operation_date: parsed.data.operation_date ?? null,
         document_date: parsed.data.document_date ?? null,
         counterparty_name: parsed.data.counterparty_name ?? null,
+        counterparty_details: (parsed.data.counterparty_details as any) ?? null,
         external_reference: parsed.data.external_reference ?? null,
         note: parsed.data.note ?? null,
         idempotency_key: parsed.data.idempotency_key ?? null,
@@ -2145,6 +2159,28 @@ export async function createInventorySupplierAction(rawInput: unknown) {
       phone: parsed.data.phone,
       actor_user_id: userId,
     });
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function searchSuppliersAction(input: { query?: string; limit?: number }) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    const supabase = await createClient();
+    let q = supabase
+      .from("inventory_suppliers")
+      .select("id, name, phone")
+      .eq("organization_id", auth.context.app.activeOrgId)
+      .eq("status", "active")
+      .is("deleted_at", null)
+      .order("name", { ascending: true })
+      .limit(input.limit ?? 20);
+    if (input.query) q = q.ilike("name", `%${input.query}%`);
+    const { data, error } = await q;
+    if (error) return { success: false, error: error.message };
+    return { success: true, data: data ?? [] };
   } catch (error) {
     return mapUnexpected(error);
   }
