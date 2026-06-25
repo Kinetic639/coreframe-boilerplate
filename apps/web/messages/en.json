@@ -5522,6 +5522,16 @@
       "streetPlaceholder": "e.g. ul. Grzybowska 4A",
       "postalCodePlaceholder": "e.g. 00-100",
       "cityPlaceholder": "e.g. Warszawa",
+      "searchSupplierBtn": "Search suppliers",
+      "searchSupplierTitle": "Search Suppliers",
+      "searchSupplierPlaceholder": "Search by supplier name...",
+      "searchSupplierEmpty": "No suppliers found.",
+      "searchSupplierHint": "Start typing to search existing suppliers.",
+      "selectAndFill": "Select",
+      "counterpartyDetails": "Counterparty Details",
+      "lockSupplier": "Lock",
+      "editSupplier": "Edit",
+      "supplierLocked": "Locked",
       "wmsEffectPzDesc": "+ on_hand at destination",
       "wmsEffect801Desc": "- on_hand source, + on_hand destination",
       "wmsDocNumberAtPosting": "document number assigned after posting",
@@ -5627,7 +5637,9 @@
       "actionSent": "Sent",
       "actionAccepted": "Accepted",
       "actionDeclined": "Declined",
-      "actionUpdated": "Updated"
+      "actionUpdated": "Updated",
+      "actionDraftUpdated": "Draft Updated",
+      "actionDraftSaved": "Draft Saved"
     },
     "transfers": {
       "title": "Branch transfers",

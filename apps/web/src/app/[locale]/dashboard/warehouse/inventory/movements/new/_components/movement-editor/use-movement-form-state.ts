@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from "react";
 import { useTranslations } from "next-intl";
-import type { InventoryMovementType } from "@/lib/warehouse/inventory-types";
+import type { CounterpartyDetails, InventoryMovementType } from "@/lib/warehouse/inventory-types";
 import type { RichTextValue } from "@/components/primitives/rich-text/rich-text-types";
 import {
   normalizeRichText,
@@ -29,6 +29,16 @@ export function useMovementFormState(
     initialValues?.movementTypeCode ?? movementTypes[0]?.code ?? ""
   );
   const [counterpartyName, setCounterpartyName] = useState(initialValues?.counterpartyName ?? "");
+  const [counterpartyDetails, setCounterpartyDetails] = useState<CounterpartyDetails | null>(null);
+  const [supplierFields, setSupplierFields] = useState({
+    name: initialValues?.counterpartyName ?? "",
+    nip: "",
+    phone: "",
+    street: "",
+    postalCode: "",
+    city: "",
+  });
+  const [supplierLocked, setSupplierLocked] = useState(false);
   const [externalReference, setExternalReference] = useState(
     initialValues?.externalReference ?? ""
   );
@@ -162,6 +172,12 @@ export function useMovementFormState(
     is801,
     counterpartyName,
     setCounterpartyName,
+    counterpartyDetails,
+    setCounterpartyDetails,
+    supplierFields,
+    setSupplierFields,
+    supplierLocked,
+    setSupplierLocked,
     externalReference,
     setExternalReference,
     noteRichText,

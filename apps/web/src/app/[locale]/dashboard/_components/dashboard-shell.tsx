@@ -395,7 +395,7 @@ function FlyoutRow({
   const routeActive = item.disabledReason ? false : isItemActive(item, pathname);
 
   const className = cn(
-    "group relative z-20 flex items-center gap-1.5 px-2.5 text-[13px] leading-normal select-none overflow-visible",
+    "group relative flex items-center gap-1.5 px-2.5 text-[13px] leading-normal select-none overflow-visible",
     "transition-[width,background-color,color,border-radius,box-shadow] duration-150 ease-out",
     stretched ? "" : "w-full",
     getFlyoutRowRadius({ role: stretched ? "title" : "item", index, total }),
@@ -477,7 +477,7 @@ function CollapsedFlyoutLayer({
             initial="initial"
             animate="animate"
             exit="exit"
-            className="pointer-events-auto fixed z-[89] overflow-visible bg-sidebar "
+            className="pointer-events-auto fixed z-[9998] overflow-visible bg-sidebar "
             style={{ left: l1ColumnLeft, top: l1ColumnTop, width: FLYOUT_W }}
             onMouseEnter={keepOpen}
             onMouseLeave={() => closeLater(onClose)}
@@ -525,7 +525,7 @@ function CollapsedFlyoutLayer({
                   top: l1ColumnTop + (activeL2Index + 1) * FLYOUT_ROW_H,
                   width: FLYOUT_W,
                 }}
-                className="pointer-events-auto z-[88] bg-sidebar "
+                className="pointer-events-auto z-[9997] bg-sidebar "
                 onMouseEnter={keepOpen}
                 onMouseLeave={() => closeLater(onClose)}
               >
@@ -639,7 +639,7 @@ function NavL1Flyout({
         onFocus={openFlyout}
         onBlur={() => closeLater(closeFlyout)}
         className={cn(
-          "z-[90] flex items-center justify-center overflow-hidden outline-none",
+          "z-[9999] flex items-center justify-center overflow-hidden outline-none",
           "text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
           "transition-[width,background-color,color,border-radius,box-shadow] duration-150 ease-out",
           isOpenish

@@ -20,6 +20,18 @@ export type {
 export type ServiceResult<T> = { success: true; data: T } | { success: false; error: string };
 
 export class InventoryMovementsService {
+  private static async _saveCounterpartyDetails(
+    supabase: SupabaseClient,
+    movementId: string,
+    details: Record<string, unknown> | null | undefined
+  ) {
+    if (!details) return;
+    await supabase
+      .from("inventory_movement_headers")
+      .update({ counterparty_details: details } as any)
+      .eq("id", movementId);
+  }
+
   static async createDraft(
     supabase: SupabaseClient,
     orgId: string,
@@ -41,7 +53,9 @@ export class InventoryMovementsService {
       p_actor_user_id: userId,
     });
     if (error) return { success: false, error: error.message };
-    return { success: true, data: data as any };
+    const result = data as any;
+    await this._saveCounterpartyDetails(supabase, result.movement_id, input.counterparty_details);
+    return { success: true, data: result };
   }
 
   static async finalizePosting(
@@ -78,7 +92,9 @@ export class InventoryMovementsService {
       p_actor_user_id: userId,
     });
     if (error) return { success: false, error: error.message };
-    return { success: true, data: data as any };
+    const result = data as any;
+    await this._saveCounterpartyDetails(supabase, result.movement_id, input.counterparty_details);
+    return { success: true, data: result };
   }
 
   static async saveDraft(
@@ -88,6 +104,7 @@ export class InventoryMovementsService {
       document_date?: string | null;
       operation_date?: string | null;
       counterparty_name?: string | null;
+      counterparty_details?: Record<string, unknown> | null;
       external_reference?: string | null;
       note?: string | null;
       lines: Array<{
@@ -112,6 +129,7 @@ export class InventoryMovementsService {
       p_actor_user_id: userId,
     });
     if (error) return { success: false, error: error.message };
+    await this._saveCounterpartyDetails(supabase, movementId, opts.counterparty_details);
     return { success: true, data: data as any };
   }
 
@@ -275,7 +293,7 @@ export class InventoryMovementsService {
         : Promise.resolve({ data: null, error: null }),
       (supabase as any)
         .from("inventory_movement_audit_log")
-        .select("id, action, old_status, new_status, actor_user_name, created_at")
+        .select("id, action, old_status, new_status, actor_user_id, actor_user_name, created_at")
         .eq("movement_id", movementId)
         .order("created_at", { ascending: true }),
     ]);
@@ -311,6 +329,19 @@ export class InventoryMovementsService {
         ? supabase.from("warehouse_locations").select("id, name").in("id", locationIds)
         : Promise.resolve({ data: [] }),
     ]);
+
+    const auditActorIds = [
+      ...new Set(auditEntries.map((e: any) => e.actor_user_id).filter(Boolean)),
+    ] as string[];
+    const auditActorsRes = auditActorIds.length
+      ? await supabase
+          .from("users")
+          .select("id, first_name, last_name, email")
+          .in("id", auditActorIds)
+      : { data: [] };
+    const auditActorsById = new Map(
+      ((auditActorsRes.data ?? []) as any[]).map((u: any) => [u.id, u])
+    );
 
     const variants = (variantsRes.data ?? []) as any[];
     const productIds = [...new Set(variants.map((v: any) => v.product_id))];
@@ -374,6 +405,7 @@ export class InventoryMovementsService {
           .filter(Boolean)
           .join(", "),
         counterparty_name: h.counterparty_name,
+        counterparty_details: (h as any).counterparty_details ?? null,
         external_reference: h.external_reference,
         created_by: h.created_by,
         created_at: h.created_at,
@@ -384,14 +416,21 @@ export class InventoryMovementsService {
         branch_name: branchName,
         created_by_name: createdByName,
         lines: enrichedLines,
-        audit_log: auditEntries.map((e: any) => ({
-          id: e.id,
-          action: e.action,
-          old_status: e.old_status,
-          new_status: e.new_status,
-          actor_user_name: e.actor_user_name,
-          created_at: e.created_at,
-        })),
+        audit_log: auditEntries.map((e: any) => {
+          const actor = e.actor_user_id ? auditActorsById.get(e.actor_user_id) : null;
+          const actorName = actor
+            ? [actor.first_name, actor.last_name].filter(Boolean).join(" ") || actor.email
+            : e.actor_user_name;
+          return {
+            id: e.id,
+            action: e.action,
+            old_status: e.old_status,
+            new_status: e.new_status,
+            actor_user_id: e.actor_user_id ?? null,
+            actor_user_name: actorName ?? null,
+            created_at: e.created_at,
+          };
+        }),
       },
     };
   }

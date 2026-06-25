@@ -16,11 +16,11 @@ export function useMovementValidation(
     const positionErrors: string[] = [];
 
     if (!typeCode) documentErrors.push(t("movementTypeRequired"));
-    if (isPZ && !dstLoc) documentErrors.push(t("destLocationRequired"));
-    if (is801 && !srcLoc) documentErrors.push(t("srcLocationRequired"));
-    if (is801 && !dstLoc) documentErrors.push(t("destLocationRequired"));
-    if (is801 && srcLoc && srcLoc === dstLoc) documentErrors.push(t("srcDestSame"));
 
+    if (isPZ && !dstLoc) positionErrors.push(t("destLocationRequired"));
+    if (is801 && !srcLoc) positionErrors.push(t("srcLocationRequired"));
+    if (is801 && !dstLoc) positionErrors.push(t("destLocationRequired"));
+    if (is801 && srcLoc && srcLoc === dstLoc) positionErrors.push(t("srcDestSame"));
     if (lines.length === 0) positionErrors.push(t("addAtLeastOneItem"));
     lines.forEach((l, i) => {
       const q = Number(l.quantity);

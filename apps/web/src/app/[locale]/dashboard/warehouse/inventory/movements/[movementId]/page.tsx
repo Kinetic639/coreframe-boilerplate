@@ -60,20 +60,12 @@ export default async function WarehouseInventoryMovementDetailPage({ params }: P
 
   return (
     <div className="mx-auto grid w-full max-w-7xl gap-6 p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <Button asChild type="button" variant="ghost" size="sm" className="mb-2">
-            <Link href="/dashboard/warehouse/inventory/movements">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              {t("backToMovements")}
-            </Link>
-          </Button>
-          <h1 className="text-2xl font-semibold">
-            {movementResult.data.document_number ?? movementResult.data.draft_number}
-          </h1>
-          <p className="text-sm text-muted-foreground">{movementResult.data.movement_type_name}</p>
-        </div>
-      </div>
+      <Button asChild type="button" variant="ghost" size="sm" className="w-fit">
+        <Link href="/dashboard/warehouse/inventory/movements">
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          {t("backToMovements")}
+        </Link>
+      </Button>
 
       <section className="rounded-md border p-4 print:border-0">
         <InventoryMovementDetailPanel

@@ -200,12 +200,25 @@ const movementLineSchema = z.object({
   note: z.string().max(500).nullable().optional(),
 });
 
+const counterpartyDetailsSchema = z
+  .object({
+    name: z.string().max(200),
+    nip: z.string().max(20).optional(),
+    phone: z.string().max(50).optional(),
+    street: z.string().max(200).optional(),
+    postalCode: z.string().max(10).optional(),
+    city: z.string().max(100).optional(),
+  })
+  .nullable()
+  .optional();
+
 export const createDraftMovementSchema = z.object({
   movement_type_code: z.string().min(1).max(20),
   lines: z.array(movementLineSchema).min(1),
   operation_date: z.string().nullable().optional(),
   document_date: z.string().nullable().optional(),
   counterparty_name: z.string().max(200).nullable().optional(),
+  counterparty_details: counterpartyDetailsSchema,
   external_reference: z.string().max(200).nullable().optional(),
   note: z.string().max(1000).nullable().optional(),
   idempotency_key: z.string().max(200).nullable().optional(),

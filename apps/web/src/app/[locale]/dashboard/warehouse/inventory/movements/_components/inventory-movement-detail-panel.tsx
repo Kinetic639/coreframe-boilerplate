@@ -74,6 +74,8 @@ export function InventoryMovementDetailPanel({
     accepted: "actionAccepted",
     declined: "actionDeclined",
     updated: "actionUpdated",
+    draft_updated: "actionDraftUpdated",
+    draft_saved: "actionDraftSaved",
   };
   const tStatus = (s: string) => td((STATUS_KEYS[s] ?? s) as any);
   const tAction = (a: string) => td((ACTION_KEYS[a] ?? a) as any);
@@ -320,6 +322,29 @@ export function InventoryMovementDetailPanel({
                   </Badge>
                 </div>
                 <h4 className="text-sm font-bold text-foreground">{detail.counterparty_name}</h4>
+                {detail.counterparty_details && (
+                  <div className="text-xs text-muted-foreground font-mono space-y-0.5 mt-2">
+                    {detail.counterparty_details.nip && (
+                      <p>
+                        NIP:{" "}
+                        <strong className="text-foreground">
+                          {detail.counterparty_details.nip}
+                        </strong>
+                      </p>
+                    )}
+                    {detail.counterparty_details.street && (
+                      <p>
+                        {detail.counterparty_details.street}
+                        {detail.counterparty_details.postalCode &&
+                          `, ${detail.counterparty_details.postalCode}`}
+                        {detail.counterparty_details.city && ` ${detail.counterparty_details.city}`}
+                      </p>
+                    )}
+                    {detail.counterparty_details.phone && (
+                      <p>Tel: {detail.counterparty_details.phone}</p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -415,16 +440,24 @@ export function InventoryMovementDetailPanel({
                 key={entry.id}
                 className="flex items-center justify-between rounded-sm bg-muted/30 px-2.5 py-1.5 text-xs"
               >
-                <span>
-                  <Badge variant="outline" className="mr-2 text-[10px]">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-[10px]">
                     {tAction(entry.action)}
                   </Badge>
-                  {entry.old_status && entry.new_status
-                    ? `${tStatus(entry.old_status)} → ${tStatus(entry.new_status)}`
-                    : ""}
-                </span>
+                  {entry.actor_user_id ? (
+                    <Link
+                      href="/dashboard/organization/users/members"
+                      className="text-xs font-medium text-primary hover:underline"
+                    >
+                      {entry.actor_user_name}
+                    </Link>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">
+                      {entry.actor_user_name ?? td("system")}
+                    </span>
+                  )}
+                </div>
                 <span className="text-muted-foreground">
-                  {entry.actor_user_name ?? td("system")} ·{" "}
                   {new Date(entry.created_at).toLocaleString()}
                 </span>
               </div>

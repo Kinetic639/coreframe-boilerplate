@@ -9,8 +9,7 @@ import type { InventoryMovementType } from "@/lib/warehouse/inventory-types";
 import type { RichTextValue } from "@/components/primitives/rich-text/rich-text-types";
 import { RichTextEditorField } from "@/components/primitives/rich-text/rich-text-editor-field";
 import { MovementTypePicker } from "@/components/warehouse/movement-type-picker";
-import { MovementSupplierSection } from "./movement-supplier-section";
-import type { LocationOption } from "./types";
+import { MovementSupplierSection, type SupplierFields } from "./movement-supplier-section";
 
 type Props = {
   typeCode: string;
@@ -19,22 +18,22 @@ type Props = {
   is801: boolean;
   isEdit: boolean;
   movementTypes: InventoryMovementType[];
-  stockableLocations: LocationOption[];
   counterpartyName: string;
+  supplierFields: SupplierFields;
+  supplierLocked: boolean;
   externalReference: string;
   noteRichText: RichTextValue | null;
-  srcLoc: string;
-  dstLoc: string;
   operationDate: string;
   documentDate: string;
   branchName: string;
   createdByName: string;
   onTypeChange: (code: string) => void;
   onCounterpartyChange: (val: string) => void;
+  onCounterpartyDetailsChange: (details: SupplierFields) => void;
+  onSupplierFieldsChange: (fields: SupplierFields) => void;
+  onSupplierLockedChange: (locked: boolean) => void;
   onExternalRefChange: (val: string) => void;
   onNoteRichTextChange: (val: RichTextValue) => void;
-  onSrcLocChange: (val: string) => void;
-  onDstLocChange: (val: string) => void;
 };
 
 function LBL({
@@ -64,25 +63,24 @@ export const MovementDocumentDataTab = React.memo(function MovementDocumentDataT
   is801,
   isEdit,
   movementTypes,
-  stockableLocations,
   counterpartyName,
+  supplierFields,
+  supplierLocked,
   externalReference,
   noteRichText,
-  srcLoc,
-  dstLoc,
   operationDate,
   documentDate,
   branchName,
   createdByName,
   onTypeChange,
   onCounterpartyChange,
+  onCounterpartyDetailsChange,
+  onSupplierFieldsChange,
+  onSupplierLockedChange,
   onExternalRefChange,
   onNoteRichTextChange,
-  onSrcLocChange,
-  onDstLocChange,
 }: Props) {
   const t = useTranslations("warehouseInventory.movementEditor");
-  const locLabel = (loc: LocationOption) => (loc.code ? `${loc.code} — ${loc.name}` : loc.name);
 
   return (
     <div className="space-y-4">
@@ -154,7 +152,7 @@ export const MovementDocumentDataTab = React.memo(function MovementDocumentDataT
                 placeholder={t("externalRefPlaceholder")}
                 value={externalReference}
                 onChange={(e) => onExternalRefChange(e.target.value)}
-                className="h-9 text-sm font-mono"
+                className="h-9 text-sm font-mono placeholder:font-normal placeholder:italic placeholder:text-muted-foreground/60"
               />
             </LBL>
           </div>
@@ -164,61 +162,13 @@ export const MovementDocumentDataTab = React.memo(function MovementDocumentDataT
       {/* Supplier Section (PZ only) */}
       {selType && isPZ && (
         <MovementSupplierSection
-          counterpartyName={counterpartyName}
+          fields={supplierFields}
+          locked={supplierLocked}
+          onFieldsChange={onSupplierFieldsChange}
+          onLockedChange={onSupplierLockedChange}
           onCounterpartyChange={onCounterpartyChange}
+          onDetailsChange={onCounterpartyDetailsChange}
         />
-      )}
-
-      {/* Warehouse Routing */}
-      {selType && (
-        <section className="rounded-sm border border-dashed bg-muted/30 p-4">
-          <div className="text-xs uppercase font-bold tracking-wider text-muted-foreground mb-3">
-            {t("warehouseRouting")}
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {is801 ? (
-              <LBL label={t("sourceLocation")} required>
-                <select
-                  value={srcLoc}
-                  onChange={(e) => onSrcLocChange(e.target.value)}
-                  className="h-9 w-full rounded-sm border border-input bg-background px-3 text-sm"
-                >
-                  <option value="">{t("selectSourceBin")}</option>
-                  {stockableLocations.map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {locLabel(l)}
-                    </option>
-                  ))}
-                </select>
-              </LBL>
-            ) : (
-              <div className="rounded-sm border border-dashed bg-muted/50 p-3 flex flex-col justify-center opacity-60">
-                <span className="text-[10px] font-mono uppercase text-muted-foreground">
-                  {t("sourceNotApplicable")}
-                </span>
-                <span className="text-xs text-muted-foreground mt-0.5">
-                  {t("sourceNotApplicableDesc")}
-                </span>
-              </div>
-            )}
-            <LBL label={t("destinationLocation")} required>
-              <select
-                value={dstLoc}
-                onChange={(e) => onDstLocChange(e.target.value)}
-                className="h-9 w-full rounded-sm border border-input bg-background px-3 text-sm"
-              >
-                <option value="">{t("selectDestBin")}</option>
-                {stockableLocations
-                  .filter((l) => l.id !== srcLoc)
-                  .map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {locLabel(l)}
-                    </option>
-                  ))}
-              </select>
-            </LBL>
-          </div>
-        </section>
       )}
 
       {/* Note */}

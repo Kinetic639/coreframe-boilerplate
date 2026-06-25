@@ -162,7 +162,7 @@ export function InventoryItemPickerDialog({
               placeholder={t("searchPlaceholder")}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="h-9 pl-10 text-sm font-mono"
+              className="h-9 pl-10 text-sm font-mono placeholder:font-normal placeholder:italic placeholder:text-muted-foreground/60"
               autoFocus
             />
             {query && (
@@ -266,7 +266,7 @@ export function InventoryItemPickerDialog({
                           }
                           placeholder={t("qty")}
                           className={cn(
-                            "h-8 w-14 text-center text-sm font-mono font-bold rounded-sm",
+                            "h-8 w-14 text-center text-sm font-mono font-bold rounded-sm placeholder:font-normal placeholder:italic placeholder:text-muted-foreground/60",
                             isInCart ? "border-primary" : "border-input"
                           )}
                           value={rowQty.get(item.variant_id) ?? ""}

@@ -1,64 +1,77 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useCallback, useEffect, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
-import { Building, ChevronDown, Search, User } from "lucide-react";
+import { Building, Check, Loader2, Pencil, Search, User } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { searchSuppliersAction } from "@/app/actions/warehouse/inventory";
 
-type Props = {
-  counterpartyName: string;
-  onCounterpartyChange: (val: string) => void;
+export type SupplierFields = {
+  name: string;
+  nip: string;
+  phone: string;
+  street: string;
+  postalCode: string;
+  city: string;
 };
 
+type Props = {
+  fields: SupplierFields;
+  locked: boolean;
+  onFieldsChange: (fields: SupplierFields) => void;
+  onLockedChange: (locked: boolean) => void;
+  onCounterpartyChange: (val: string) => void;
+  onDetailsChange: (details: SupplierFields) => void;
+};
+
+type SupplierResult = { id: string; name: string; phone: string | null };
+
 export const MovementSupplierSection = React.memo(function MovementSupplierSection({
-  counterpartyName,
+  fields,
+  locked,
+  onFieldsChange,
+  onLockedChange,
   onCounterpartyChange,
+  onDetailsChange,
 }: Props) {
   const t = useTranslations("warehouseInventory.movementEditor");
-  const [mode, setMode] = useState<"select" | "manual">("select");
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [dialogOpen, setDialogOpen] = useState(false);
 
-  // Manual entry fields
-  const [manualName, setManualName] = useState("");
-  const [manualNip, setManualNip] = useState("");
-  const [manualStreet, setManualStreet] = useState("");
-  const [manualPostalCode, setManualPostalCode] = useState("");
-  const [manualCity, setManualCity] = useState("");
-  const [manualPhone, setManualPhone] = useState("");
+  const updateField = useCallback(
+    (key: keyof SupplierFields, value: string) => {
+      const next = { ...fields, [key]: value };
+      onFieldsChange(next);
+      if (key === "name") onCounterpartyChange(value);
+      onDetailsChange(next);
+    },
+    [fields, onFieldsChange, onCounterpartyChange, onDetailsChange]
+  );
 
-  const [savedDetails, setSavedDetails] = useState<{
-    name: string;
-    nip: string;
-    street: string;
-    postalCode: string;
-    city: string;
-    phone: string;
-  } | null>(null);
+  const handleLock = useCallback(() => {
+    onLockedChange(true);
+  }, [onLockedChange]);
 
-  const handleSaveManual = () => {
-    if (!manualName || !manualNip || !manualStreet || !manualPostalCode || !manualCity) return;
-    const details = {
-      name: manualName.trim(),
-      nip: manualNip.trim(),
-      street: manualStreet.trim(),
-      postalCode: manualPostalCode.trim(),
-      city: manualCity.trim(),
-      phone: manualPhone.trim(),
-    };
-    setSavedDetails(details);
-    onCounterpartyChange(details.name);
-    setMode("select");
-    setManualName("");
-    setManualNip("");
-    setManualStreet("");
-    setManualPostalCode("");
-    setManualCity("");
-    setManualPhone("");
-  };
+  const handleUnlock = useCallback(() => {
+    onLockedChange(false);
+  }, [onLockedChange]);
+
+  const fillFromSupplier = useCallback(
+    (supplier: SupplierResult) => {
+      const next: SupplierFields = {
+        ...fields,
+        name: supplier.name,
+        phone: supplier.phone ?? fields.phone,
+      };
+      onFieldsChange(next);
+      onCounterpartyChange(supplier.name);
+      onDetailsChange(next);
+      setDialogOpen(false);
+    },
+    [fields, onFieldsChange, onCounterpartyChange, onDetailsChange]
+  );
 
   return (
     <section className="rounded-sm border bg-card p-4">
@@ -67,44 +80,86 @@ export const MovementSupplierSection = React.memo(function MovementSupplierSecti
           <User className="h-4 w-4" />
           {t("counterpartySupplier")}
         </div>
-        <div className="flex items-center gap-0.5 rounded-sm border bg-muted p-0.5 select-none">
-          <button
-            type="button"
-            onClick={() => setMode("select")}
-            className={cn(
-              "px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-sm transition",
-              mode === "select"
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {t("selectFromList")}
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("manual")}
-            className={cn(
-              "px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-sm transition",
-              mode === "manual"
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {t("enterManually")}
-          </button>
+        <div className="flex items-center gap-1.5">
+          {locked ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs gap-1.5"
+              onClick={handleUnlock}
+            >
+              <Pencil className="h-3 w-3" />
+              {t("editSupplier")}
+            </Button>
+          ) : (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs gap-1.5"
+                onClick={() => setDialogOpen(true)}
+              >
+                <Search className="h-3 w-3" />
+                {t("searchSupplierBtn")}
+              </Button>
+              {fields.name && (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-7 text-xs gap-1.5"
+                  onClick={handleLock}
+                >
+                  <Check className="h-3 w-3" />
+                  {t("lockSupplier")}
+                </Button>
+              )}
+            </>
+          )}
         </div>
       </div>
 
-      {mode === "manual" ? (
-        <div className="border rounded-sm bg-card p-3 space-y-3">
-          <div className="flex items-center justify-between border-b pb-2">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
-              <Building className="h-3.5 w-3.5" />
-              {t("newCounterpartyDetails")}
-            </span>
-            <Badge variant="outline" className="text-[10px] uppercase">
-              {t("manualEntry")}
+      {locked ? (
+        <div className="border rounded-sm bg-muted/30 p-3">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-1.5">
+              <Building className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                {t("counterpartyDetails")}
+              </span>
+            </div>
+            <Badge
+              variant="outline"
+              className="text-[10px] uppercase font-bold bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
+            >
+              {t("supplierLocked")}
             </Badge>
+          </div>
+          <h4 className="text-sm font-bold text-foreground">{fields.name}</h4>
+          <div className="text-xs text-muted-foreground font-mono space-y-0.5 mt-1.5">
+            {fields.nip && (
+              <p>
+                NIP: <strong className="text-foreground">{fields.nip}</strong>
+              </p>
+            )}
+            {fields.street && (
+              <p>
+                {fields.street}
+                {fields.postalCode && `, ${fields.postalCode}`}
+                {fields.city && ` ${fields.city}`}
+              </p>
+            )}
+            {fields.phone && <p>Tel: {fields.phone}</p>}
+          </div>
+        </div>
+      ) : (
+        <div className="border rounded-sm bg-card p-3 space-y-3">
+          <div className="flex items-center gap-1.5 border-b pb-2">
+            <Building className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+              {t("counterpartyDetails")}
+            </span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             <div className="sm:col-span-2">
@@ -113,24 +168,21 @@ export const MovementSupplierSection = React.memo(function MovementSupplierSecti
               </label>
               <Input
                 placeholder={t("companyNamePlaceholder")}
-                value={manualName}
-                onChange={(e) => {
-                  setManualName(e.target.value);
-                  onCounterpartyChange(e.target.value);
-                }}
-                className="h-8 text-sm font-semibold"
+                value={fields.name}
+                onChange={(e) => updateField("name", e.target.value)}
+                className="h-8 text-sm font-semibold placeholder:font-normal placeholder:italic placeholder:text-muted-foreground/60"
               />
             </div>
             <div>
               <label className="block text-xs uppercase font-semibold text-muted-foreground mb-0.5">
-                {t("nip")} <span className="text-destructive">*</span>
+                {t("nip")}
               </label>
               <Input
                 placeholder={t("nipPlaceholder")}
                 maxLength={10}
-                value={manualNip}
-                onChange={(e) => setManualNip(e.target.value.replace(/\D/g, ""))}
-                className="h-8 text-sm font-mono"
+                value={fields.nip}
+                onChange={(e) => updateField("nip", e.target.value.replace(/\D/g, ""))}
+                className="h-8 text-sm font-mono placeholder:font-normal placeholder:italic placeholder:text-muted-foreground/60"
               />
             </div>
             <div>
@@ -139,133 +191,151 @@ export const MovementSupplierSection = React.memo(function MovementSupplierSecti
               </label>
               <Input
                 placeholder={t("phonePlaceholder")}
-                value={manualPhone}
-                onChange={(e) => setManualPhone(e.target.value)}
-                className="h-8 text-sm font-mono"
+                value={fields.phone}
+                onChange={(e) => updateField("phone", e.target.value)}
+                className="h-8 text-sm font-mono placeholder:font-normal placeholder:italic placeholder:text-muted-foreground/60"
               />
             </div>
             <div className="sm:col-span-2">
               <label className="block text-xs uppercase font-semibold text-muted-foreground mb-0.5">
-                {t("street")} <span className="text-destructive">*</span>
+                {t("street")}
               </label>
               <Input
                 placeholder={t("streetPlaceholder")}
-                value={manualStreet}
-                onChange={(e) => setManualStreet(e.target.value)}
-                className="h-8 text-sm"
+                value={fields.street}
+                onChange={(e) => updateField("street", e.target.value)}
+                className="h-8 text-sm placeholder:italic placeholder:text-muted-foreground/60"
               />
             </div>
             <div>
               <label className="block text-xs uppercase font-semibold text-muted-foreground mb-0.5">
-                {t("postalCode")} <span className="text-destructive">*</span>
+                {t("postalCode")}
               </label>
               <Input
                 placeholder={t("postalCodePlaceholder")}
                 maxLength={6}
-                value={manualPostalCode}
-                onChange={(e) => setManualPostalCode(e.target.value)}
-                className="h-8 text-sm font-mono"
+                value={fields.postalCode}
+                onChange={(e) => updateField("postalCode", e.target.value)}
+                className="h-8 text-sm font-mono placeholder:font-normal placeholder:italic placeholder:text-muted-foreground/60"
               />
             </div>
             <div>
               <label className="block text-xs uppercase font-semibold text-muted-foreground mb-0.5">
-                {t("city")} <span className="text-destructive">*</span>
+                {t("city")}
               </label>
               <Input
                 placeholder={t("cityPlaceholder")}
-                value={manualCity}
-                onChange={(e) => setManualCity(e.target.value)}
-                className="h-8 text-sm"
+                value={fields.city}
+                onChange={(e) => updateField("city", e.target.value)}
+                className="h-8 text-sm placeholder:italic placeholder:text-muted-foreground/60"
               />
             </div>
           </div>
-          <div className="pt-2.5 border-t flex items-center justify-between">
-            <span className="text-[10px] text-muted-foreground">{t("requiredFields")}</span>
-            <Button
-              size="sm"
-              className="h-8 text-xs uppercase font-bold"
-              disabled={
-                !manualName || !manualNip || !manualStreet || !manualPostalCode || !manualCity
-              }
-              onClick={handleSaveManual}
-            >
-              {t("confirmAndSelect")}
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="w-full h-9 px-3 text-sm text-left rounded-sm border border-input bg-background flex items-center justify-between hover:bg-muted/50 transition"
-          >
-            <div className="flex items-center gap-2 truncate">
-              <User className="h-3.5 w-3.5 text-muted-foreground" />
-              <span
-                className={cn(
-                  "truncate",
-                  counterpartyName ? "font-semibold text-foreground" : "text-muted-foreground"
-                )}
-              >
-                {counterpartyName || t("selectSupplier")}
-              </span>
-            </div>
-            <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
-          </button>
-
-          {dropdownOpen && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setDropdownOpen(false)} />
-              <div className="absolute left-0 right-0 mt-1 rounded-sm border bg-popover shadow-lg z-50 p-2 space-y-2 max-h-52 overflow-y-auto">
-                <div className="relative">
-                  <Search className="h-3 w-3 text-muted-foreground absolute left-2.5 top-2.5" />
-                  <Input
-                    placeholder={t("searchByName")}
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="h-8 pl-8 text-xs"
-                  />
-                </div>
-                <div className="text-xs text-muted-foreground py-3 text-center italic">
-                  {t("typeSupplierHint")}
-                </div>
-              </div>
-            </>
-          )}
         </div>
       )}
 
-      {/* Selected supplier card */}
-      {counterpartyName && mode === "select" && (
-        <div className="mt-2 p-3 rounded-sm border bg-muted/30">
-          <div className="flex items-start justify-between gap-3">
-            <div className="space-y-1">
-              <h4 className="text-sm font-bold text-foreground">{counterpartyName}</h4>
-              {savedDetails && (
-                <div className="text-xs text-muted-foreground font-mono space-y-0.5">
-                  <p>
-                    NIP: <strong className="text-foreground">{savedDetails.nip}</strong>
-                  </p>
-                  <p>
-                    {savedDetails.street}, {savedDetails.postalCode} {savedDetails.city}
-                  </p>
-                  {savedDetails.phone && <p>Tel: {savedDetails.phone}</p>}
-                </div>
-              )}
-              {!savedDetails && (
-                <p className="text-xs text-muted-foreground">{t("selectedCounterparty")}</p>
-              )}
-            </div>
-            <Badge
-              variant="outline"
-              className="text-[10px] uppercase font-bold shrink-0 bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
-            >
-              {t("counterpartyBadge")}
-            </Badge>
-          </div>
-        </div>
-      )}
+      <SupplierSearchDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        onSelect={fillFromSupplier}
+      />
     </section>
   );
 });
+
+function SupplierSearchDialog({
+  open,
+  onOpenChange,
+  onSelect,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSelect: (supplier: SupplierResult) => void;
+}) {
+  const t = useTranslations("warehouseInventory.movementEditor");
+  const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [results, setResults] = useState<SupplierResult[]>([]);
+  const [isLoading, startTransition] = useTransition();
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(query), 300);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  useEffect(() => {
+    if (!open) {
+      setQuery("");
+      setDebouncedQuery("");
+      setResults([]);
+      return;
+    }
+    startTransition(async () => {
+      const r = (await searchSuppliersAction({
+        query: debouncedQuery || undefined,
+        limit: 30,
+      })) as any;
+      if (r.success) setResults(r.data ?? []);
+      else setResults([]);
+    });
+  }, [open, debouncedQuery]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md p-0 gap-0">
+        <div className="px-4 py-3 border-b">
+          <DialogTitle className="text-xs uppercase font-bold tracking-widest flex items-center gap-2">
+            <Search className="h-4 w-4" />
+            {t("searchSupplierTitle")}
+          </DialogTitle>
+        </div>
+        <div className="p-3 border-b">
+          <div className="relative">
+            <Search className="h-4 w-4 text-muted-foreground absolute left-3 top-2.5" />
+            <Input
+              placeholder={t("searchSupplierPlaceholder")}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="h-9 pl-10 text-sm"
+              autoFocus
+            />
+          </div>
+        </div>
+        <div className="max-h-[300px] overflow-y-auto">
+          {isLoading ? (
+            <div className="py-8 flex items-center justify-center">
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            </div>
+          ) : results.length === 0 ? (
+            <div className="py-8 text-center text-xs text-muted-foreground">
+              {debouncedQuery ? t("searchSupplierEmpty") : t("searchSupplierHint")}
+            </div>
+          ) : (
+            <div className="divide-y">
+              {results.map((supplier) => (
+                <button
+                  key={supplier.id}
+                  type="button"
+                  className="w-full px-4 py-2.5 text-left hover:bg-muted/50 transition flex items-center justify-between gap-3"
+                  onClick={() => onSelect(supplier)}
+                >
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold truncate">{supplier.name}</div>
+                    {supplier.phone && (
+                      <div className="text-xs text-muted-foreground font-mono">
+                        {supplier.phone}
+                      </div>
+                    )}
+                  </div>
+                  <span className="text-xs text-primary font-semibold shrink-0">
+                    {t("selectAndFill")}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

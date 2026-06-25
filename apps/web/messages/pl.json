@@ -5496,6 +5496,16 @@
       "streetPlaceholder": "np. ul. Grzybowska 4A",
       "postalCodePlaceholder": "np. 00-100",
       "cityPlaceholder": "np. Warszawa",
+      "searchSupplierBtn": "Szukaj dostawców",
+      "searchSupplierTitle": "Szukaj dostawców",
+      "searchSupplierPlaceholder": "Szukaj po nazwie dostawcy...",
+      "searchSupplierEmpty": "Nie znaleziono dostawców.",
+      "searchSupplierHint": "Zacznij wpisywać, aby wyszukać istniejących dostawców.",
+      "selectAndFill": "Wybierz",
+      "counterpartyDetails": "Dane kontrahenta",
+      "lockSupplier": "Zatwierdź",
+      "editSupplier": "Edytuj",
+      "supplierLocked": "Zatwierdzone",
       "wmsEffectPzDesc": "+ on_hand w lokalizacji docelowej",
       "wmsEffect801Desc": "- on_hand źródło, + on_hand cel",
       "wmsDocNumberAtPosting": "numer dokumentu nadawany po zaksięgowaniu",
@@ -5601,7 +5611,9 @@
       "actionSent": "Wysłano",
       "actionAccepted": "Zaakceptowano",
       "actionDeclined": "Odrzucono",
-      "actionUpdated": "Zaktualizowano"
+      "actionUpdated": "Zaktualizowano",
+      "actionDraftUpdated": "Szkic zaktualizowany",
+      "actionDraftSaved": "Szkic zapisany"
     },
     "transfers": {
       "title": "Przesunięcia między oddziałami",
