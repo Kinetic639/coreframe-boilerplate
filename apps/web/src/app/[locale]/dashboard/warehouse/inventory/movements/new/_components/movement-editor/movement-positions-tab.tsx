@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { AlertTriangle, Inbox, Plus, Search, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +34,7 @@ const MovementLineRow = React.memo(function MovementLineRow({
   onUpdateQty: (key: string, val: string) => void;
   onRemove: (key: string) => void;
 }) {
+  const t = useTranslations("warehouseInventory.movementEditor");
   const q = Number(line.quantity) || 0;
   const overLimit = is801 && line.on_hand_at_source !== null && q > line.on_hand_at_source;
   const hasError = q <= 0 || overLimit;
@@ -88,12 +90,12 @@ const MovementLineRow = React.memo(function MovementLineRow({
         </div>
         {overLimit && (
           <span className="text-xs text-destructive font-semibold block text-center mt-0.5">
-            Exceeds available!
+            {t("exceedsAvailable")}
           </span>
         )}
         {q <= 0 && (
           <span className="text-xs text-destructive font-semibold block text-center mt-0.5">
-            Qty must be &gt; 0
+            {t("qtyMustBePositive")}
           </span>
         )}
       </td>
@@ -119,13 +121,14 @@ export const MovementPositionsTab = React.memo(function MovementPositionsTab({
   onRemoveLine,
   onUpdateLineQty,
 }: Props) {
+  const t = useTranslations("warehouseInventory.movementEditor");
   return (
     <div className="space-y-4">
       <section className="rounded-sm border bg-card">
         <div className="flex items-center justify-between border-b px-4 py-3">
           <div className="flex items-center gap-2">
             <h2 className="text-xs uppercase tracking-wider font-bold text-foreground">
-              B. Positions
+              B. {t("positionsTab")}
             </h2>
             <Badge variant="secondary" className="text-[10px] rounded-sm">
               {lines.length}
@@ -138,7 +141,7 @@ export const MovementPositionsTab = React.memo(function MovementPositionsTab({
             onClick={onOpenPicker}
           >
             <Plus className="h-3.5 w-3.5" />
-            Add Items
+            {t("addItems")}
           </Button>
         </div>
 
@@ -146,8 +149,10 @@ export const MovementPositionsTab = React.memo(function MovementPositionsTab({
           <div className="mx-4 mt-3 p-2.5 rounded-sm border border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300 text-xs flex items-start gap-2">
             <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
             <div>
-              <span className="font-bold block text-[10px] uppercase">Item picker disabled</span>
-              Select a <strong>Source Location</strong> in Document Header first.
+              <span className="font-bold block text-[10px] uppercase">
+                {t("itemPickerDisabled")}
+              </span>
+              {t("itemPickerDisabledDesc")}
             </div>
           </div>
         )}
@@ -159,15 +164,15 @@ export const MovementPositionsTab = React.memo(function MovementPositionsTab({
                 <Inbox className="h-5 w-5 text-muted-foreground" />
               </div>
               <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">
-                No positions added
+                {t("noPositionsAdded")}
               </h3>
               <p className="text-muted-foreground text-xs max-w-xs mt-1 mb-4">
-                Add items from the inventory catalog using the picker.
+                {t("noPositionsAddedDesc")}
               </p>
               {!pickerDisabled && selType && (
                 <Button variant="default" size="sm" className="gap-1.5" onClick={onOpenPicker}>
                   <Plus className="h-3.5 w-3.5" />
-                  Add First Item
+                  {t("addFirstItem")}
                 </Button>
               )}
             </div>
@@ -175,12 +180,12 @@ export const MovementPositionsTab = React.memo(function MovementPositionsTab({
             <table className="w-full text-sm min-w-[700px]">
               <thead>
                 <tr className="border-b text-[10px] uppercase font-semibold text-muted-foreground select-none bg-muted/30">
-                  <th className="py-2.5 px-3 text-center w-10">#</th>
-                  <th className="py-2.5 px-3 w-32 font-mono">SKU</th>
-                  <th className="py-2.5 px-3">Product / Brand</th>
-                  <th className="py-2.5 px-3 text-center w-16">Unit</th>
-                  {is801 && <th className="py-2.5 px-3 text-center w-20">Avail.</th>}
-                  <th className="py-2.5 px-3 text-center w-28">Quantity</th>
+                  <th className="py-2.5 px-3 text-center w-10">{t("colNumber")}</th>
+                  <th className="py-2.5 px-3 w-32 font-mono">{t("colSku")}</th>
+                  <th className="py-2.5 px-3">{t("colProductBrand")}</th>
+                  <th className="py-2.5 px-3 text-center w-16">{t("colUnit")}</th>
+                  {is801 && <th className="py-2.5 px-3 text-center w-20">{t("colAvail")}</th>}
+                  <th className="py-2.5 px-3 text-center w-28">{t("colQuantity")}</th>
                   <th className="py-2.5 px-3 text-center w-12" />
                 </tr>
               </thead>
@@ -209,7 +214,7 @@ export const MovementPositionsTab = React.memo(function MovementPositionsTab({
               onClick={onOpenPicker}
             >
               <Plus className="h-3.5 w-3.5" />
-              Add more items
+              {t("addMoreItems")}
             </Button>
           </div>
         )}

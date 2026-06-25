@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useState, useTransition } from "react";
+import { useTranslations } from "next-intl";
 import { Database, Loader2, Package, Search, X } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -38,6 +39,7 @@ export function InventoryItemPickerDialog({
   sourceLocationId,
   onAddItems,
 }: Props) {
+  const t = useTranslations("warehouseInventory.itemPicker");
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [items, setItems] = useState<InventoryPickerItem[]>([]);
@@ -62,7 +64,7 @@ export function InventoryItemPickerDialog({
       })) as any;
       if (r.success) setItems(r.data ?? []);
       else {
-        setError(r.error ?? "Failed");
+        setError(r.error ?? t("retry"));
         setItems([]);
       }
     });
@@ -142,11 +144,11 @@ export function InventoryItemPickerDialog({
           <div>
             <DialogTitle className="text-xs uppercase font-bold tracking-widest flex items-center gap-2">
               <Database className="h-4 w-4" />
-              WMS Item Picker
+              {t("title")}
             </DialogTitle>
             {isStockMode && sourceLocationId && (
               <span className="text-[10px] font-mono text-muted-foreground mt-0.5 block">
-                Filtered by source location stock
+                {t("filteredBySource")}
               </span>
             )}
           </div>
@@ -157,7 +159,7 @@ export function InventoryItemPickerDialog({
           <div className="relative">
             <Search className="h-4 w-4 text-muted-foreground absolute left-3 top-2.5" />
             <Input
-              placeholder="Search by SKU, product name, brand, barcode..."
+              placeholder={t("searchPlaceholder")}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="h-9 pl-10 text-sm font-mono"
@@ -179,13 +181,13 @@ export function InventoryItemPickerDialog({
           {/* Left: Search Results as Cards */}
           <div className="md:col-span-7 overflow-y-auto p-3 border-r max-h-[380px] md:max-h-full bg-card">
             <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider mb-2 select-none">
-              Search Results ({isLoading ? "..." : visibleItems.length} items)
+              {t("searchResults", { count: isLoading ? "..." : visibleItems.length })}
             </div>
 
             {isLoading ? (
               <div className="py-12 flex items-center justify-center">
                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                <span className="ml-2 text-xs text-muted-foreground">Searching...</span>
+                <span className="ml-2 text-xs text-muted-foreground">{t("searching")}</span>
               </div>
             ) : error ? (
               <div className="py-12 text-center">
@@ -196,21 +198,21 @@ export function InventoryItemPickerDialog({
                   onClick={fetchItems}
                   className="mt-2 h-7 text-xs"
                 >
-                  Retry
+                  {t("retry")}
                 </Button>
               </div>
             ) : visibleItems.length === 0 ? (
               <div className="py-12 text-center text-muted-foreground text-xs italic">
                 {items.length > 0
-                  ? "All available items already selected."
+                  ? t("allAlreadySelected")
                   : debouncedQuery
-                    ? "No items match your search."
+                    ? t("noItemsMatch")
                     : isStockMode
-                      ? "No stock in this source location."
-                      : "No items found."}
+                      ? t("noStockInSource")
+                      : t("noItemsFound")}
                 {isStockMode && items.length === 0 && (
                   <span className="block mt-1.5 text-amber-600 dark:text-amber-400 text-[10px]">
-                    Bin-to-bin movements only show items with stock at the source location.
+                    {t("binToBinHint")}
                   </span>
                 )}
               </div>
@@ -246,7 +248,7 @@ export function InventoryItemPickerDialog({
                           {item.product_name}
                         </h4>
                         <span className="text-[10px] text-muted-foreground font-mono mt-1 block font-semibold">
-                          Available:{" "}
+                          {t("available")}:{" "}
                           <strong className="text-foreground bg-muted border px-1 rounded-sm">
                             {avail ?? 0} {item.unit_code}
                           </strong>
@@ -262,7 +264,7 @@ export function InventoryItemPickerDialog({
                               ? item.source_location_on_hand
                               : undefined
                           }
-                          placeholder="Qty"
+                          placeholder={t("qty")}
                           className={cn(
                             "h-8 w-14 text-center text-sm font-mono font-bold rounded-sm",
                             isInCart ? "border-primary" : "border-input"
@@ -280,7 +282,7 @@ export function InventoryItemPickerDialog({
                           )}
                           onClick={() => addToSelected(item)}
                         >
-                          {isInCart ? "OK" : "Add"}
+                          {isInCart ? t("ok") : t("add")}
                         </Button>
                       </div>
                     </div>
@@ -295,21 +297,21 @@ export function InventoryItemPickerDialog({
             <div>
               <div className="flex justify-between items-center pb-2 border-b mb-2.5">
                 <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">
-                  Selected ({selectedCount})
+                  {t("selected", { count: selectedCount })}
                 </span>
                 {selectedCount > 0 && (
                   <button
                     onClick={() => setSelected(new Map())}
                     className="text-[10px] text-destructive font-bold uppercase hover:underline font-mono"
                   >
-                    Clear all
+                    {t("clearAll")}
                   </button>
                 )}
               </div>
 
               {selectedCount === 0 ? (
                 <div className="py-14 text-center text-muted-foreground text-xs italic px-2">
-                  Select items from the list on the left by entering quantity and clicking Add.
+                  {t("selectItemsHint")}
                 </div>
               ) : (
                 <div className="space-y-1.5 max-h-[290px] overflow-y-auto">
@@ -346,9 +348,9 @@ export function InventoryItemPickerDialog({
             {/* Cart footer */}
             <div className="border-t pt-3 mt-4 space-y-2.5">
               <div className="flex justify-between items-center text-xs">
-                <span className="text-muted-foreground font-mono">Total items:</span>
+                <span className="text-muted-foreground font-mono">{t("totalItems")}</span>
                 <strong className="text-foreground text-sm font-mono font-bold">
-                  {selectedTotalQty} qty
+                  {selectedTotalQty} {t("qty")}
                 </strong>
               </div>
               <div className="grid grid-cols-2 gap-2">
@@ -358,7 +360,7 @@ export function InventoryItemPickerDialog({
                   className="h-9 text-xs uppercase font-bold"
                   onClick={() => onOpenChange(false)}
                 >
-                  Cancel
+                  {t("cancelBtn")}
                 </Button>
                 <Button
                   size="sm"
@@ -369,7 +371,7 @@ export function InventoryItemPickerDialog({
                     onOpenChange(false);
                   }}
                 >
-                  Confirm ({selectedCount})
+                  {t("confirm", { count: selectedCount })}
                 </Button>
               </div>
             </div>

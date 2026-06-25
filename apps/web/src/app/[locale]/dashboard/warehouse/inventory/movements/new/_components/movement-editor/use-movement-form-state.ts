@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import type { InventoryMovementType } from "@/lib/warehouse/inventory-types";
 import type { RichTextValue } from "@/components/primitives/rich-text/rich-text-types";
 import {
@@ -23,6 +24,7 @@ export function useMovementFormState(
   movementTypes: InventoryMovementType[],
   initialValues?: MovementFormInitialValues
 ) {
+  const t = useTranslations("warehouseInventory.movementEditor");
   const [typeCode, setTypeCode] = useState(
     initialValues?.movementTypeCode ?? movementTypes[0]?.code ?? ""
   );
@@ -74,26 +76,26 @@ export function useMovementFormState(
     (code: string) => {
       if (code === typeCode) return;
       if (lines.length > 0) {
-        if (!window.confirm("Changing type clears items. Continue?")) return;
+        if (!window.confirm(t("changingTypeClears"))) return;
         setLines([]);
       }
       setTypeCode(code);
       setSrcLoc("");
       setDstLoc("");
     },
-    [typeCode, lines.length]
+    [typeCode, lines.length, t]
   );
 
   const handleSrcChange = useCallback(
     (v: string) => {
       if (v === srcLoc) return;
       if (lines.length > 0 && srcLoc) {
-        if (!window.confirm("Changing source clears items. Continue?")) return;
+        if (!window.confirm(t("changingSourceClears"))) return;
         setLines([]);
       }
       setSrcLoc(v);
     },
-    [srcLoc, lines.length]
+    [srcLoc, lines.length, t]
   );
 
   const removeLine = useCallback((key: string) => {
