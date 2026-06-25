@@ -1261,15 +1261,18 @@ export async function getInventoryMovementAction(rawInput: unknown) {
     const branch = requireActiveBranch(auth);
     if (!branch.success) return branch;
 
-    const parsed = getByIdSchema.safeParse(rawInput);
-    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    const input = rawInput as { id?: string; identifier?: string };
+    const identifier = input?.identifier || input?.id;
+    if (!identifier || typeof identifier !== "string") {
+      return { success: false, error: "Movement identifier is required" };
+    }
 
     const supabase = await createClient();
     return InventoryMovementsService.getMovementDetail(
       supabase,
       auth.context.app.activeOrgId,
       branch.branchId,
-      parsed.data.id
+      identifier
     );
   } catch (error) {
     return mapUnexpected(error);

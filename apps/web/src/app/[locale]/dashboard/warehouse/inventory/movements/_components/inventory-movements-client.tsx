@@ -43,8 +43,8 @@ async function listFetcher(params: DataViewListParams) {
   return result.data;
 }
 
-async function detailFetcher(id: string) {
-  const result = await getInventoryMovementAction({ id: id.replace("branch-transfer:", "") });
+async function detailFetcher(identifier: string) {
+  const result = await getInventoryMovementAction({ identifier });
   if (!result.success || !("data" in result))
     throw new Error("error" in result ? result.error : "unauthorized");
   return result.data;
@@ -191,7 +191,7 @@ export function InventoryMovementsClient({
         queryKey={["inventory-movements"]}
         listFetcher={listFetcher}
         detailFetcher={detailFetcher}
-        getRowId={(row) => row.id}
+        getRowId={(row) => row.document_number ?? row.draft_number ?? row.id}
         renderDetail={(detail) => (
           <InventoryMovementDetailPanel
             detail={detail}
