@@ -240,16 +240,25 @@ export class InventoryMovementsService {
     supabase: SupabaseClient,
     orgId: string,
     branchId: string,
-    movementId: string
+    movementIdentifier: string
   ): Promise<ServiceResult<InventoryMovementDetail>> {
-    const { data: header, error: headerError } = await supabase
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      movementIdentifier
+    );
+    let query = supabase
       .from("inventory_movement_headers")
       .select("*")
-      .eq("id", movementId)
       .eq("organization_id", orgId)
       .eq("branch_id", branchId)
-      .is("deleted_at", null)
-      .maybeSingle();
+      .is("deleted_at", null);
+    if (isUuid) {
+      query = query.eq("id", movementIdentifier);
+    } else {
+      query = query.or(
+        `draft_number.eq.${movementIdentifier},document_number.eq.${movementIdentifier}`
+      );
+    }
+    const { data: header, error: headerError } = await query.maybeSingle();
 
     if (headerError) return { success: false, error: headerError.message };
     if (!header) return { success: false, error: "Movement not found" };
@@ -281,7 +290,7 @@ export class InventoryMovementsService {
         .select(
           "id, line_number, variant_id, unit_id, quantity, unit_cost, source_location_id, destination_location_id, snapshot_product_name, snapshot_sku, snapshot_unit_code, snapshot_source_location_name, snapshot_destination_location_name"
         )
-        .eq("movement_id", movementId)
+        .eq("movement_id", h.id)
         .is("deleted_at", null)
         .order("line_number"),
       h.movement_type_id
@@ -294,7 +303,7 @@ export class InventoryMovementsService {
       (supabase as any)
         .from("inventory_movement_audit_log")
         .select("id, action, old_status, new_status, actor_user_id, actor_user_name, created_at")
-        .eq("movement_id", movementId)
+        .eq("movement_id", h.id)
         .order("created_at", { ascending: true }),
     ]);
 

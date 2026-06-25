@@ -148,7 +148,9 @@ export function InventoryMovementDetailPanel({
               <Link
                 href={{
                   pathname: "/dashboard/warehouse/inventory/movements/[movementId]",
-                  params: { movementId: detail.id },
+                  params: {
+                    movementId: detail.document_number ?? detail.draft_number ?? detail.id,
+                  },
                 }}
               >
                 <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
@@ -163,7 +165,11 @@ export function InventoryMovementDetailPanel({
       {isDraft && canOperate && (
         <div className="flex gap-2 border-b pb-3">
           <Button asChild variant="outline" size="sm">
-            <Link href={`/dashboard/warehouse/inventory/movements/${detail.id}/edit` as any}>
+            <Link
+              href={
+                `/dashboard/warehouse/inventory/movements/${detail.document_number ?? detail.draft_number ?? detail.id}/edit` as any
+              }
+            >
               <Pencil className="mr-1.5 h-3.5 w-3.5" />
               {td("editDraft")}
             </Link>
