@@ -403,6 +403,7 @@ export type InventoryMovementListRow = {
   id: string;
   draft_number: string | null;
   document_number: string | null;
+  route_key: string;
   document_type_code: string | null;
   movement_type_code: string;
   movement_type_name: string;

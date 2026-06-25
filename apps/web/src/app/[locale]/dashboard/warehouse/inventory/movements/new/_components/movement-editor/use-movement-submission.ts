@@ -9,6 +9,7 @@ import {
   saveAndPostDraftMovementAction,
 } from "@/app/actions/warehouse/inventory";
 import type { CounterpartyDetails } from "@/lib/warehouse/inventory-types";
+import { toMovementRouteKey } from "@/lib/warehouse/movement-route-key";
 import type { LineDraft, MovementFormInitialValues, ValidationResult } from "./types";
 
 export function useMovementSubmission(
@@ -56,9 +57,9 @@ export function useMovementSubmission(
 
       startTransition(async () => {
         const ls = buildLines();
-        const detailPath = (displayId: string) => ({
+        const detailPath = (routeKey: string) => ({
           pathname: "/dashboard/warehouse/inventory/movements/[movementId]" as const,
-          params: { movementId: displayId },
+          params: { movementId: routeKey },
         });
 
         if (isEdit && initialValues) {
@@ -77,14 +78,17 @@ export function useMovementSubmission(
             toast.error(r.error ?? t("failed"));
             return;
           }
-          const displayNumber =
-            r.data?.document_number ?? r.data?.draft_number ?? initialValues.draftNumber;
+          const routeKey =
+            r.data?.route_key ??
+            toMovementRouteKey(
+              r.data?.document_number ?? r.data?.draft_number ?? initialValues.draftNumber
+            );
           toast.success(
             andPost
               ? t("documentPosted", { number: r.data?.document_number ?? "" })
               : t("draftSaved")
           );
-          router.push(detailPath(displayNumber));
+          router.push(detailPath(routeKey));
         } else {
           const bp = {
             movement_type_code: typeCode,
@@ -102,7 +106,9 @@ export function useMovementSubmission(
               return;
             }
             toast.success(t("documentPosted", { number: r.data?.document_number ?? "" }));
-            router.push(detailPath(r.data?.document_number ?? r.data?.draft_number));
+            router.push(
+              detailPath(r.data?.route_key ?? toMovementRouteKey(r.data?.document_number))
+            );
           } else {
             const r = (await createDraftMovementAction(bp)) as any;
             if (!r.success) {
@@ -110,7 +116,7 @@ export function useMovementSubmission(
               return;
             }
             toast.success(t("draftCreated", { number: r.data?.draft_number ?? "" }));
-            router.push(detailPath(r.data?.draft_number));
+            router.push(detailPath(r.data?.route_key ?? toMovementRouteKey(r.data?.draft_number)));
           }
         }
       });
