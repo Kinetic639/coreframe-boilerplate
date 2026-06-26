@@ -9,8 +9,13 @@ import { InventoryProductsService } from "@/server/services/inventory-products.s
 import { createClient } from "@/utils/supabase/server";
 import { AmbraLocationsClient } from "./_components/ambra-locations-client";
 import { createAmbraBranch, warehouseLocationsToAmbra } from "./_lib/warehouse-location-adapter";
+import { parseDataViewSearchParams } from "@/components/data-view/data-view-search-params";
 
-export default async function AmbraWarehouseLocationsPage() {
+type PageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function AmbraWarehouseLocationsPage({ searchParams }: PageProps) {
   const locale = await getLocale();
   const context = await loadDashboardContextV2();
 
@@ -46,12 +51,31 @@ export default async function AmbraWarehouseLocationsPage() {
     ? await InventoryProductsService.listVariantOptions(supabase, context.app.activeOrgId, branchId)
     : { success: true as const, data: [] };
 
+  const dvParams = parseDataViewSearchParams(searchParams ? await searchParams : {});
+  const listResult = branchId
+    ? await WarehouseLocationsService.listPaginated(
+        supabase,
+        context.app.activeOrgId,
+        branchId,
+        dvParams
+      )
+    : {
+        success: true as const,
+        data: {
+          rows: [] as import("@/server/services/warehouse-locations.service").LocationListRow[],
+          totalCount: 0,
+          page: dvParams.page,
+          pageSize: dvParams.pageSize,
+        },
+      };
+
   return (
     <AmbraLocationsClient
       activeBranch={createAmbraBranch(branchId, context.app.activeBranch?.name)}
       initialLocations={
         locationsResult.success ? warehouseLocationsToAmbra(locationsResult.data) : []
       }
+      rawLocations={locationsResult.success ? locationsResult.data : []}
       initialInventorySnapshot={
         inventorySnapshotResult.success
           ? inventorySnapshotResult.data
@@ -61,6 +85,9 @@ export default async function AmbraWarehouseLocationsPage() {
         variantOptionsResult.success
           ? variantOptionsResult.data.filter((v) => (v.on_hand_quantity ?? 0) > 0)
           : []
+      }
+      initialListData={
+        listResult.success ? listResult.data : { rows: [], totalCount: 0, page: 1, pageSize: 25 }
       }
     />
   );

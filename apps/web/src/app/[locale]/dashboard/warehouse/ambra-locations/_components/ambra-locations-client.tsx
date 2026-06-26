@@ -1,7 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
+import { useQueryState, parseAsString } from "nuqs";
 import { AnimatePresence, motion } from "motion/react";
+import { List, TreePine } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 import {
   useCreateLocationMutation,
@@ -18,25 +23,63 @@ import type {
   VisualNode,
 } from "../_ambra/types";
 import type { InventoryVariantOption } from "@/lib/warehouse/inventory-types";
+import type { PaginatedResult } from "@/lib/data-view/types";
+import type { LocationListRow } from "@/server/services/warehouse-locations.service";
+import type { WarehouseLocation } from "@/lib/warehouse/location-tree";
 import {
   ambraLocationToCreateInput,
   ambraLocationToUpdateInput,
   warehouseLocationsToAmbra,
 } from "../_lib/warehouse-location-adapter";
+import { LocationsDataView } from "./locations-data-view";
 
 type AmbraLocationsClientProps = {
   activeBranch: Branch;
   initialLocations: LogicalLocation[];
+  rawLocations: WarehouseLocation[];
   initialInventorySnapshot: AmbraLocationInventorySnapshot;
   variantOptions: InventoryVariantOption[];
+  initialListData: PaginatedResult<LocationListRow>;
 };
 
 export function AmbraLocationsClient({
   activeBranch,
   initialLocations,
+  rawLocations,
   initialInventorySnapshot,
   variantOptions,
+  initialListData,
 }: AmbraLocationsClientProps) {
+  const t = useTranslations("warehouseLocations.listView");
+  const [viewParam, setViewParam] = useQueryState("view", parseAsString.withDefault("tree"));
+  const viewMode = (viewParam === "list" ? "list" : "tree") as "tree" | "list";
+  const [locParam, setLocParam] = useQueryState("loc", parseAsString.withDefault(""));
+
+  const setViewMode = useCallback(
+    (mode: "tree" | "list") => {
+      const url = new URL(window.location.href);
+      if (mode === "list") {
+        const loc = url.searchParams.get("loc");
+        if (loc) url.searchParams.set("selected", loc);
+      } else {
+        const sel = url.searchParams.get("selected");
+        if (sel) url.searchParams.set("loc", sel);
+        url.searchParams.delete("selected");
+      }
+      url.searchParams.set("view", mode);
+      window.history.replaceState(null, "", url.toString());
+      void setViewParam(mode, { history: "replace" });
+    },
+    [setViewParam]
+  );
+
+  const selectedLocationId = locParam || null;
+  const setSelectedLocationId = useCallback(
+    (id: string | null) => {
+      void setLocParam(id ?? "", { history: "push" });
+    },
+    [setLocParam]
+  );
   const useDemoData = initialLocations.length === 0;
   const [locations, setLocations] = useState<LogicalLocation[]>(
     useDemoData ? MOCK_LOCATIONS : initialLocations
@@ -108,29 +151,63 @@ export function AmbraLocationsClient({
   };
 
   return (
-    <div className="h-[calc(100vh-4rem)] overflow-hidden bg-background text-foreground selection:bg-primary/30">
-      <AnimatePresence mode="wait">
-        <motion.div
-          key="locations"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
-          transition={{ duration: 0.2 }}
-          className="h-full"
+    <div className="h-[calc(100vh-4rem)] overflow-hidden bg-background text-foreground selection:bg-primary/30 flex flex-col">
+      <div className="flex items-center gap-1 px-4 pt-2 pb-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          className={cn("gap-1.5", viewMode === "tree" && "bg-muted")}
+          onClick={() => setViewMode("tree")}
         >
-          <LocationsPage
-            locations={branchLocations}
-            visuals={branchVisuals}
-            layouts={branchLayouts}
+          <TreePine className="h-4 w-4" />
+          {t("treeView")}
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className={cn("gap-1.5", viewMode === "list" && "bg-muted")}
+          onClick={() => setViewMode("list")}
+        >
+          <List className="h-4 w-4" />
+          {t("listView")}
+        </Button>
+      </div>
+      <div className="flex-1 min-h-0">
+        {viewMode === "list" ? (
+          <LocationsDataView
+            initialData={initialListData}
+            allLocations={rawLocations}
+            ambraLocations={branchLocations}
             inventorySnapshot={initialInventorySnapshot}
             variantOptions={variantOptions}
-            onCreateLocation={handleCreateLocation}
-            onUpdateLocation={handleUpdateLocation}
-            onDeleteLocation={handleDeleteLocation}
-            onNavigateToWorkspace={() => undefined}
           />
-        </motion.div>
-      </AnimatePresence>
+        ) : (
+          <AnimatePresence mode="wait">
+            <motion.div
+              key="locations"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="h-full"
+            >
+              <LocationsPage
+                locations={branchLocations}
+                visuals={branchVisuals}
+                layouts={branchLayouts}
+                inventorySnapshot={initialInventorySnapshot}
+                variantOptions={variantOptions}
+                selectedLocationId={selectedLocationId}
+                onSelectLocation={setSelectedLocationId}
+                onCreateLocation={handleCreateLocation}
+                onUpdateLocation={handleUpdateLocation}
+                onDeleteLocation={handleDeleteLocation}
+                onNavigateToWorkspace={() => undefined}
+              />
+            </motion.div>
+          </AnimatePresence>
+        )}
+      </div>
     </div>
   );
 }

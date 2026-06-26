@@ -1043,6 +1043,31 @@
       }
     }
   },
+  "warehouseLocations": {
+    "listView": {
+      "treeView": "Tree View",
+      "listView": "List View",
+      "code": "Code",
+      "name": "Name",
+      "path": "Path",
+      "level": "Level",
+      "storageMode": "Storage Mode",
+      "canStoreInventory": "Stockable",
+      "yes": "Yes",
+      "description": "Description",
+      "dimensions": "Dimensions",
+      "created": "Created",
+      "updated": "Updated",
+      "structureStockPolicy": "Structure & Stock Policy",
+      "capabilities": "Capabilities",
+      "capStoresInventory": "Stores Inventory",
+      "capReceivable": "Receivable",
+      "capPickable": "Pickable",
+      "width": "Width",
+      "depth": "Depth",
+      "height": "Height"
+    }
+  },
   "publicWarehouseMapsPage": {
     "title": "Warehouse maps",
     "description": "Browse published warehouse layouts for this branch.",
@@ -6367,7 +6392,10 @@
       "selectLocation": "Select a location from the explorer to view physical mapping details."
     },
     "empty": {
-      "selectLocation": "Select a location to view details"
+      "selectLocation": "Select a location to view details",
+      "locationNotFound": "Location not found",
+      "locationNotFoundDesc": "The selected location does not exist or has been removed.",
+      "selectFirst": "Select first available location"
     },
     "move": {
       "title": "Move location",

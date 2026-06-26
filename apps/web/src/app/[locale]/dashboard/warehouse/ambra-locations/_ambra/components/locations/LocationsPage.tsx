@@ -85,6 +85,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import type { InteractiveLocationMapPreviewProps } from "./InteractiveLocationMapPreview";
 import { IconRenderer } from "./location-icons";
+import { LocationDetailPanel } from "../../../_components/location-detail-panel";
 import {
   BehaviorIndicator,
   CompactIndicator,
@@ -113,6 +114,8 @@ interface LocationsPageProps {
   layouts: Layout[];
   inventorySnapshot: AmbraLocationInventorySnapshot;
   variantOptions: InventoryVariantOption[];
+  selectedLocationId?: string | null;
+  onSelectLocation?: (id: string | null) => void;
   onCreateLocation: (loc: LogicalLocation) => void | Promise<void>;
   onUpdateLocation?: (loc: Partial<LogicalLocation> & { id: string }) => void | Promise<void>;
   onDeleteLocation?: (locationId: string) => void | Promise<void>;
@@ -417,15 +420,20 @@ export default function LocationsPage({
   layouts,
   inventorySnapshot,
   variantOptions,
+  selectedLocationId: controlledSelectedId,
+  onSelectLocation: controlledOnSelect,
   onCreateLocation,
   onUpdateLocation,
   onDeleteLocation,
   onNavigateToWorkspace,
 }: LocationsPageProps) {
   const t = useTranslations("ambraLocations");
-  const [selectedLocationId, setSelectedLocationId] = useState<string | null>(
-    locations[0]?.id || null
+  const [internalSelectedId, setInternalSelectedId] = useState<string | null>(
+    controlledSelectedId ?? (locations[0]?.id || null)
   );
+  const selectedLocationId =
+    controlledSelectedId !== undefined ? controlledSelectedId : internalSelectedId;
+  const setSelectedLocationId = controlledOnSelect ?? setInternalSelectedId;
   const [expandedIds, setExpandedIds] = useState<string[]>(["l1", "l2"]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -1159,63 +1167,20 @@ export default function LocationsPage({
               transition={{ duration: 0.2 }}
               className="flex-1 flex flex-col h-full relative z-10"
             >
-              {/* Detail Header */}
-              <div className="relative z-10 shrink-0 border-b border-border bg-card px-5 py-4">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="flex items-center gap-3">
-                      <h1 className="text-2xl font-semibold text-foreground tracking-normal flex items-center gap-3">
-                        <IconRenderer
-                          name={
-                            selectedLocation.icon ||
-                            LOCATION_CATEGORIES[selectedLocation.role]?.iconName ||
-                            "Database"
-                          }
-                          className={`w-6 h-6 ${selectedLocation.color || "text-primary"}`}
-                        />
-                        {selectedLocation.name}
-                      </h1>
-                      <div className="px-2 py-0.5 rounded items-center justify-center bg-muted border border-border text-[9px] font-semibold text-muted-foreground uppercase tracking-wide flex gap-1.5 mt-1">
-                        <IconRenderer
-                          name={LOCATION_CATEGORIES[selectedLocation.role]?.iconName || "Box"}
-                          className={`w-3 h-3 ${selectedLocation.color || "text-muted-foreground"}`}
-                        />
-                        {getCategoryLabel(selectedLocation.role)}
-                      </div>
-                    </div>
-                    <div className="flex items-center mt-2 inline-flex">
-                      {getLocationPath(selectedLocation.id).map((pathLoc, i, arr) => (
-                        <React.Fragment key={pathLoc.id}>
-                          <span
-                            onClick={() => setSelectedLocationId(pathLoc.id)}
-                            className={`text-[10px] font-semibold uppercase tracking-wide cursor-pointer transition-colors ${
-                              i === arr.length - 1
-                                ? "text-primary"
-                                : "text-muted-foreground hover:text-foreground/80"
-                            }`}
-                          >
-                            {pathLoc.code}
-                          </span>
-                          {i < arr.length - 1 && (
-                            <span className="text-muted-foreground text-[10px] font-bold">/</span>
-                          )}
-                        </React.Fragment>
-                      ))}
-                      <button
-                        onClick={handleCopyPath}
-                        className="ml-2 p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-primary transition-colors"
-                        title={t("actions.copyPath")}
-                      >
-                        {copiedPath ? (
-                          <Check className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-300" />
-                        ) : (
-                          <Copy className="w-3.5 h-3.5" />
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <div className="flex items-center gap-1 bg-background/80 rounded-xl p-1 border border-border mr-2">
+              {/* Shared Detail Panel */}
+              <LocationDetailPanel
+                location={selectedLocation}
+                allLocations={locations}
+                inventorySnapshot={inventorySnapshot}
+                variantOptions={variantOptions}
+                pathCode={getLocationPath(selectedLocation.id)
+                  .map((p) => p.code)
+                  .join(" / ")}
+                compact={isCompactMode}
+                onSelectLocation={(id) => setSelectedLocationId(id)}
+                headerActions={
+                  <>
+                    <div className="flex items-center gap-1 bg-background/80 rounded-xl p-1 border border-border">
                       <button
                         onClick={() => setIsCompactMode(false)}
                         className={`p-2 rounded-lg transition-all ${!isCompactMode ? "bg-primary/10 text-primary shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)] border border-primary/20" : "text-muted-foreground hover:text-foreground/80 border border-transparent"}`}
@@ -1238,522 +1203,49 @@ export default function LocationsPage({
                       <Pencil className="w-4 h-4" />
                       {t("actions.edit")}
                     </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* SUB-HEADER: TABS & QUICK ACTIONS RIBBON (Moved outside) */}
-              <div className="relative z-20 flex shrink-0 flex-col items-center justify-between gap-3 border-b border-border bg-background px-5 py-2.5 sm:flex-row">
-                {/* Tabs */}
-                <div className="flex bg-background/80 p-1 rounded-xl border border-border/50 backdrop-blur shrink-0">
-                  <button
-                    onClick={() => setActiveTab("info")}
-                    className={`px-5 py-2 rounded-lg text-[10px] font-semibold uppercase tracking-wide transition-all gap-2 flex items-center ${activeTab === "info" ? "bg-muted text-primary shadow-sm" : "text-muted-foreground hover:text-foreground/80"}`}
-                  >
-                    <Info className="w-3.5 h-3.5" />
-                    {t("tabs.information")}
-                  </button>
-                  <button
-                    onClick={() => setActiveTab("inventory")}
-                    className={`px-5 py-2 rounded-lg text-[10px] font-semibold uppercase tracking-wide transition-all gap-2 flex items-center ${activeTab === "inventory" ? "bg-muted text-emerald-400 shadow-sm" : "text-muted-foreground hover:text-foreground/80"}`}
-                  >
-                    <Package className="w-3.5 h-3.5" />
-                    {t("tabs.inventory")}
-                  </button>
-                  <button
-                    onClick={() => setActiveTab("history")}
-                    className={`px-5 py-2 rounded-lg text-[10px] font-semibold uppercase tracking-wide transition-all gap-2 flex items-center ${activeTab === "history" ? "bg-muted text-primary shadow-sm" : "text-muted-foreground hover:text-foreground/80"}`}
-                  >
-                    <Clock className="w-3.5 h-3.5" />
-                    {t("tabs.history")}
-                  </button>
-                </div>
-
-                {/* Ribbon Actions */}
-                <div className="flex items-center gap-1.5 bg-background/50 p-1 rounded-xl border border-border/40">
-                  <RibbonAction
-                    icon={<Plus className="w-3 h-3" />}
-                    onClick={() => setIsAddModalOpen(true)}
-                    title={t("actions.quickAddChild")}
-                  />
-                  <RibbonAction
-                    icon={<Copy className="w-3 h-3" />}
-                    onClick={() => console.log("Duplicate")}
-                    title={t("actions.duplicate")}
-                  />
-                  <RibbonAction
-                    icon={<SearchIcon className="w-3 h-3" />}
-                    onClick={handleLocateOnMap}
-                    title={t("actions.locateOnMap")}
-                  />
-                  <RibbonAction
-                    icon={<Activity className="w-3 h-3" />}
-                    onClick={handleAnalyzeMapping}
-                    title={t("actions.analyzeMappingHealth")}
-                  />
-                  <RibbonAction
-                    icon={<MoveUpRight className="w-3 h-3" />}
-                    onClick={() => {
-                      setLocationToMove(selectedLocation.id);
-                      setIsMoveModalOpen(true);
-                    }}
-                    title={t("actions.moveLocation")}
-                  />
-                  <div className="w-px h-4 bg-muted mx-1" />
-                  <RibbonAction
-                    icon={<Trash2 className="w-3 h-3" />}
-                    onClick={() => {
-                      if (!onDeleteLocation || !selectedLocation) return;
-                      void onDeleteLocation(selectedLocation.id);
-                    }}
-                    title={t("actions.archive")}
-                    variant="danger"
-                  />
-                </div>
-              </div>
-
-              {/* Detail Content */}
-              <div className="flex-1 overflow-y-auto p-4 pb-10 scrollbar-thin scrollbar-thumb-muted md:p-5">
-                <AnimatePresence mode="wait">
-                  {activeTab === "info" ? (
-                    <motion.div
-                      key="info-tab"
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 10 }}
-                      transition={{ duration: 0.2 }}
-                      className="space-y-8"
-                    >
-                      <div
-                        className={`grid gap-6 ${isCompactMode ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-2"}`}
-                      >
-                        <section className="bg-card/70 rounded-lg border border-border shadow-sm overflow-hidden">
-                          <div className="px-5 py-4 border-b border-border bg-muted/40 flex items-center justify-between">
-                            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                              {t("detail.structureStockPolicy")}
-                            </span>
-                            <Fingerprint className="w-4 h-4 text-muted-foreground" />
-                          </div>
-                          <div className="p-6">
-                            <div className="flex items-start gap-4 mb-5">
-                              <div
-                                className={`p-4 rounded-lg bg-muted border border-border ${LOCATION_CATEGORIES[selectedLocation.role]?.color || "text-primary"}`}
-                              >
-                                <IconRenderer
-                                  name={
-                                    LOCATION_CATEGORIES[selectedLocation.role]?.iconName ||
-                                    "Database"
-                                  }
-                                  className="w-6 h-6"
-                                />
-                              </div>
-                              <div>
-                                <h3 className="text-lg font-semibold text-foreground tracking-normal">
-                                  {getPhysicalKindLabel(selectedLocation.physicalKind)}
-                                </h3>
-                                <p className="text-xs text-muted-foreground font-medium leading-relaxed mt-1">
-                                  {selectedCanHoldStock
-                                    ? t("detail.binCanHoldStock")
-                                    : t("detail.aggregatesChildStock")}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
-                              <DetailItem
-                                label={t("detail.physicalKind")}
-                                value={getPhysicalKindLabel(selectedLocation.physicalKind)}
-                              />
-                              <DetailItem
-                                label={t("detail.stockPolicy")}
-                                value={getStockPolicyLabel(selectedLocation.stockPolicy)}
-                              />
-                              <DetailItem
-                                label={t("detail.operationProfile")}
-                                value={getOperationProfileLabel(selectedLocation.operationProfile)}
-                              />
-                            </div>
-                            <DetailItem
-                              label={t("detail.fullPathCode")}
-                              value={getLocationPath(selectedLocation.id)
-                                .map((p) => p.code)
-                                .join(" / ")}
-                              isMono
-                            />
-                          </div>
-                        </section>
-
-                        <section className="bg-card/70 rounded-lg border border-border shadow-sm overflow-hidden">
-                          <div className="px-5 py-4 border-b border-border bg-muted/40 flex items-center justify-between">
-                            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                              {t("detail.description")}
-                            </span>
-                            <Info className="w-4 h-4 text-muted-foreground" />
-                          </div>
-                          <div className="p-6">
-                            <p className="min-h-20 text-sm leading-6 text-foreground">
-                              {selectedLocation.description?.trim() || t("detail.noDescription")}
-                            </p>
-                          </div>
-                        </section>
-
-                        <section className="bg-card/70 rounded-lg border border-border shadow-sm overflow-hidden">
-                          <div className="px-5 py-4 border-b border-border bg-muted/40 flex items-center justify-between">
-                            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                              {t("detail.operationalBehavior")}
-                            </span>
-                            <Construction className="w-4 h-4 text-muted-foreground" />
-                          </div>
-                          <div className="p-6">
-                            <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wide mb-4">
-                              {t("detail.functionalCapabilities")}
-                            </p>
-                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                              <BehaviorIndicator
-                                label={t("capabilities.storesInventory")}
-                                active={selectedLocation.capabilities.canStoreInventory}
-                                icon={<Database className="w-3.5 h-3.5" />}
-                              />
-                              <BehaviorIndicator
-                                label={t("capabilities.pickable")}
-                                active={selectedLocation.capabilities.canPick}
-                                icon={<RotateCcw className="w-3.5 h-3.5" />}
-                              />
-                              <BehaviorIndicator
-                                label={t("capabilities.receivable")}
-                                active={selectedLocation.capabilities.canReceive}
-                                icon={<Inbox className="w-3.5 h-3.5" />}
-                              />
-                              <BehaviorIndicator
-                                label={t("capabilities.virtual")}
-                                active={selectedLocation.capabilities.isVirtual}
-                                icon={<Zap className="w-3.5 h-3.5" />}
-                              />
-                            </div>
-                          </div>
-                        </section>
-
-                        <section className="bg-card/70 rounded-lg border border-border shadow-sm overflow-hidden">
-                          <div className="px-5 py-4 border-b border-border bg-muted/40 flex items-center justify-between">
-                            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                              {t("detail.physicalMetadata")}
-                            </span>
-                            <Maximize2 className="w-4 h-4 text-muted-foreground" />
-                          </div>
-                          <div className="p-6">
-                            {selectedLocation.physicalMetadata ? (
-                              <div className="grid grid-cols-2 gap-y-6 gap-x-4">
-                                <DetailItem
-                                  label={t("detail.width")}
-                                  value={`${selectedLocation.physicalMetadata.width} mm`}
-                                  isMono
-                                />
-                                <DetailItem
-                                  label={t("detail.height")}
-                                  value={`${selectedLocation.physicalMetadata.height} mm`}
-                                  isMono
-                                />
-                                <DetailItem
-                                  label={t("detail.depth")}
-                                  value={`${selectedLocation.physicalMetadata.depth} mm`}
-                                  isMono
-                                />
-                                <DetailItem
-                                  label={t("detail.weightCapacity")}
-                                  value={`${selectedLocation.physicalMetadata.weightCapacity} kg`}
-                                  isMono
-                                />
-                              </div>
-                            ) : (
-                              <div className="py-4 text-center">
-                                <p className="text-[11px] text-muted-foreground font-medium italic">
-                                  {t("detail.noPhysicalMetadata")}
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        </section>
-                      </div>
-
-                      {/* FULL WIDTH COLUMN: CHILD LOCATIONS */}
-                      <div className="relative mt-5 block w-full overflow-hidden rounded-lg border border-border bg-card">
-                        <div className="px-8 py-5 border-b border-border bg-muted/40 flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide flex items-center gap-3">
-                              <LayoutList className="w-4 h-4 text-primary" />
-                              {t("detail.childInventoryStructure")}
-                            </h3>
-                            <span className="text-[10px] bg-background text-muted-foreground px-3 py-1 rounded-full border border-border font-mono font-bold">
-                              {locations.filter((l) => l.parentId === selectedLocation.id).length}{" "}
-                              {t("detail.entities")}
-                            </span>
-                          </div>
-
-                          <div className="flex items-center gap-4">
-                            <div className="flex bg-background p-1 rounded-xl border border-border">
-                              <button
-                                onClick={() => setChildListDensity("COMFORTABLE")}
-                                className={`px-3 py-1.5 rounded-lg text-[9px] font-semibold uppercase tracking-wide transition-all ${childListDensity === "COMFORTABLE" ? "bg-muted text-primary" : "text-muted-foreground hover:text-muted-foreground"}`}
-                              >
-                                {t("actions.comfortable")}
-                              </button>
-                              <button
-                                onClick={() => setChildListDensity("COMPACT")}
-                                className={`px-3 py-1.5 rounded-lg text-[9px] font-semibold uppercase tracking-wide transition-all ${childListDensity === "COMPACT" ? "bg-muted text-primary" : "text-muted-foreground hover:text-muted-foreground"}`}
-                              >
-                                {t("actions.compact")}
-                              </button>
-                            </div>
-                            <div className="w-px h-6 bg-muted" />
-                            <button
-                              onClick={() => setIsAddModalOpen(true)}
-                              className="w-8 h-8 rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground flex items-center justify-center transition-all cursor-pointer border border-primary/20"
-                              title={t("actions.addChildLocation")}
-                            >
-                              <Plus className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-
-                        <div className="p-4 bg-card/70">
-                          {locations.filter((l) => l.parentId === selectedLocation.id).length >
-                          0 ? (
-                            <div
-                              className={
-                                childListDensity === "COMFORTABLE"
-                                  ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
-                                  : "space-y-1"
-                              }
-                            >
-                              {locations
-                                .filter((l) => l.parentId === selectedLocation.id)
-                                .map((child) =>
-                                  childListDensity === "COMFORTABLE" ? (
-                                    <div
-                                      key={child.id}
-                                      onClick={() => setSelectedLocationId(child.id)}
-                                      className="flex items-center justify-between p-4 rounded-lg bg-muted/20 border border-border hover:border-primary/50 hover:bg-muted/40 transition-all cursor-pointer group shadow-sm"
-                                    >
-                                      <div className="flex items-center gap-4">
-                                        <div
-                                          className={`w-12 h-12 rounded-xl bg-card border border-border flex items-center justify-center shrink-0 ${LOCATION_CATEGORIES[child.role]?.color || "text-muted-foreground"}`}
-                                        >
-                                          <IconRenderer
-                                            name={
-                                              child.icon ||
-                                              LOCATION_CATEGORIES[child.role]?.iconName ||
-                                              "Box"
-                                            }
-                                            className="w-6 h-6"
-                                          />
-                                        </div>
-                                        <div className="overflow-hidden">
-                                          <p className="text-xs font-semibold text-foreground truncate">
-                                            {child.name}
-                                          </p>
-                                          <div className="flex items-center gap-2 mt-0.5">
-                                            <p className="text-[10px] font-mono font-bold text-primary/80 uppercase truncate">
-                                              {child.code}
-                                            </p>
-                                            {getMappingStatus(child.id) ===
-                                              MappingStatus.MAPPED && (
-                                              <LayoutGrid className="w-2.5 h-2.5 text-primary/40" />
-                                            )}
-                                          </div>
-                                          <div className="flex items-center gap-3 mt-1.5">
-                                            <span className="text-[9px] font-mono text-emerald-700 dark:text-emerald-300 bg-emerald-500/5 px-1.5 py-0.5 rounded border border-emerald-500/10">
-                                              {t("detail.stockCount", {
-                                                count:
-                                                  locationStockSummaryById.get(child.id)
-                                                    ?.aggregateQuantity ?? 0,
-                                              })}
-                                            </span>
-                                            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wide">
-                                              {getCategoryLabel(child.role)}
-                                            </span>
-                                          </div>
-                                        </div>
-                                      </div>
-                                      <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
-                                    </div>
-                                  ) : (
-                                    <div
-                                      key={child.id}
-                                      onClick={() => setSelectedLocationId(child.id)}
-                                      className="flex items-center justify-between py-1.5 px-4 rounded-lg bg-background/50 border border-transparent hover:border-border hover:bg-muted/40 transition-all cursor-pointer group"
-                                    >
-                                      <div className="flex items-center gap-4 flex-1">
-                                        <div className="flex items-center gap-2 w-48 shrink-0">
-                                          <IconRenderer
-                                            name={
-                                              child.icon ||
-                                              LOCATION_CATEGORIES[child.role]?.iconName ||
-                                              "Box"
-                                            }
-                                            className={`w-3.5 h-3.5 ${LOCATION_CATEGORIES[child.role]?.color || "text-muted-foreground"}`}
-                                          />
-                                          <span className="text-[11px] font-bold text-foreground truncate group-hover:text-foreground transition-colors">
-                                            {child.name}
-                                          </span>
-                                        </div>
-                                        <span className="w-24 text-[10px] font-mono font-bold text-primary/70 group-hover:text-primary transition-colors uppercase truncate">
-                                          {child.code}
-                                        </span>
-                                        <span className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground w-32">
-                                          {getCategoryLabel(child.role)}
-                                        </span>
-                                        <div className="flex items-center gap-1.5 w-24">
-                                          <Package className="w-3 h-3 text-muted-foreground" />
-                                          <span className="text-[10px] font-mono text-muted-foreground">
-                                            {locationStockSummaryById.get(child.id)
-                                              ?.aggregateQuantity ?? 0}
-                                          </span>
-                                        </div>
-                                        <div className="flex items-center gap-2 flex-1 justify-end opacity-40 group-hover:opacity-100 transition-opacity">
-                                          {getMappingStatus(child.id) === MappingStatus.MAPPED ? (
-                                            <LayoutGrid className="w-3.5 h-3.5 text-primary" />
-                                          ) : (
-                                            <Triangle className="w-3.5 h-3.5 text-muted-foreground" />
-                                          )}
-                                          {(child.warnings?.length || 0) > 0 && (
-                                            <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
-                                          )}
-                                        </div>
-                                      </div>
-                                      <div className="ml-4 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
-                                        <button className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground">
-                                          <Pencil className="w-3 h-3" />
-                                        </button>
-                                        <button className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground">
-                                          <Copy className="w-3 h-3" />
-                                        </button>
-                                      </div>
-                                    </div>
-                                  )
-                                )}
-                            </div>
-                          ) : (
-                            <div className="py-20 flex flex-col items-center justify-center text-center">
-                              <Box className="w-12 h-12 text-muted-foreground mb-4" />
-                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                                {t("detail.structureEmpty")}
-                              </p>
-                              <p className="text-[10px] text-muted-foreground font-medium mt-2">
-                                {t("detail.noChildLocations")}
-                              </p>
-                              <button
-                                onClick={() => setIsAddModalOpen(true)}
-                                className="mt-6 px-6 py-2 rounded-xl border border-border text-[10px] font-semibold uppercase tracking-wide text-muted-foreground hover:border-primary/50 hover:text-primary transition-all"
-                              >
-                                {t("actions.initialSeed")}
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </motion.div>
-                  ) : activeTab === "inventory" ? (
-                    <motion.div
-                      key="inventory-tab"
-                      initial={{ opacity: 0, x: 10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -10 }}
-                      transition={{ duration: 0.2 }}
-                      className="space-y-6"
-                    >
-                      <div className="grid gap-4 lg:grid-cols-4">
-                        <InventoryMetric
-                          label={t("inventory.activeStock")}
-                          value={
-                            selectedCanHoldStock
-                              ? (selectedSummary?.directQuantity ?? 0)
-                              : (selectedSummary?.aggregateQuantity ?? 0)
-                          }
-                          icon={<Package className="h-4 w-4" />}
-                        />
-                        <InventoryMetric
-                          label={t("inventory.activeSkus")}
-                          value={
-                            selectedCanHoldStock
-                              ? (selectedSummary?.directSkus ?? 0)
-                              : (selectedSummary?.aggregateSkus ?? 0)
-                          }
-                          icon={<Layers className="h-4 w-4" />}
-                        />
-                        <InventoryMetric
-                          label={t("inventory.containers")}
-                          value={selectedContainers.length}
-                          icon={<Archive className="h-4 w-4" />}
-                        />
-                        <InventoryMetric
-                          label={t("inventory.putawayRules")}
-                          value={selectedPutawayRules.length}
-                          icon={<Tag className="h-4 w-4" />}
-                        />
-                      </div>
-
-                      <div className="rounded-lg border border-border bg-card p-4">
-                        <div className="flex items-start gap-3">
-                          <div className="mt-0.5 rounded-md border border-primary/20 bg-primary/10 p-2 text-primary">
-                            <ShieldCheck className="h-4 w-4" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-semibold text-foreground">
-                              {selectedCanHoldStock
-                                ? t("inventory.directBinStock")
-                                : t("inventory.aggregatedChildStock")}
-                            </p>
-                            <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                              {t("inventory.branchStockBoundary")}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      <InventoryLinesTable
-                        lines={selectedInventoryLines}
-                        locationNameById={locationNameById}
-                        showLocation={!selectedCanHoldStock}
-                        emptyLabel={t("inventory.noStockLines")}
-                        t={t}
+                    <div className="flex items-center gap-1.5 bg-background/50 p-1 rounded-xl border border-border/40">
+                      <RibbonAction
+                        icon={<Plus className="w-3 h-3" />}
+                        onClick={() => setIsAddModalOpen(true)}
+                        title={t("actions.quickAddChild")}
                       />
-
-                      <div className="grid gap-4 lg:grid-cols-2">
-                        <ContainerList
-                          containers={selectedContainers}
-                          locationNameById={locationNameById}
-                          emptyLabel={t("inventory.noContainers")}
-                          t={t}
-                        />
-                        <PutawayRuleList
-                          rules={selectedPutawayRules}
-                          variants={variantOptions}
-                          emptyLabel={t("inventory.noPutawayRules")}
-                          t={t}
-                        />
-                      </div>
-                    </motion.div>
-                  ) : (
-                    <motion.div
-                      key="history-tab"
-                      initial={{ opacity: 0, x: 10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -10 }}
-                      transition={{ duration: 0.2 }}
-                      className="space-y-6"
-                    >
-                      <div className="bg-card/70 rounded-lg border border-border shadow-sm overflow-hidden">
-                        <div className="px-5 py-4 border-b border-border bg-muted/40 flex items-center justify-between">
-                          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                            {t("history.recentMovements")}
-                          </span>
-                          <Clock className="w-4 h-4 text-muted-foreground" />
-                        </div>
-                        <MovementHistoryList movements={selectedMovementLines} t={t} />
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+                      <RibbonAction
+                        icon={<Copy className="w-3 h-3" />}
+                        onClick={() => console.log("Duplicate")}
+                        title={t("actions.duplicate")}
+                      />
+                      <RibbonAction
+                        icon={<SearchIcon className="w-3 h-3" />}
+                        onClick={handleLocateOnMap}
+                        title={t("actions.locateOnMap")}
+                      />
+                      <RibbonAction
+                        icon={<Activity className="w-3 h-3" />}
+                        onClick={handleAnalyzeMapping}
+                        title={t("actions.analyzeMappingHealth")}
+                      />
+                      <RibbonAction
+                        icon={<MoveUpRight className="w-3 h-3" />}
+                        onClick={() => {
+                          setLocationToMove(selectedLocation.id);
+                          setIsMoveModalOpen(true);
+                        }}
+                        title={t("actions.moveLocation")}
+                      />
+                      <div className="w-px h-4 bg-muted mx-1" />
+                      <RibbonAction
+                        icon={<Trash2 className="w-3 h-3" />}
+                        onClick={() => {
+                          if (!onDeleteLocation || !selectedLocation) return;
+                          void onDeleteLocation(selectedLocation.id);
+                        }}
+                        title={t("actions.archive")}
+                        variant="danger"
+                      />
+                    </div>
+                  </>
+                }
+              />
             </motion.div>
           ) : (
             <motion.div

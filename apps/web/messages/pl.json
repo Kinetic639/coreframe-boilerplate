@@ -1092,6 +1092,31 @@
       }
     }
   },
+  "warehouseLocations": {
+    "listView": {
+      "treeView": "Widok drzewa",
+      "listView": "Widok listy",
+      "code": "Kod",
+      "name": "Nazwa",
+      "path": "Ścieżka",
+      "level": "Poziom",
+      "storageMode": "Tryb magazynowania",
+      "canStoreInventory": "Magazynowalny",
+      "yes": "Tak",
+      "description": "Opis",
+      "dimensions": "Wymiary",
+      "created": "Utworzono",
+      "updated": "Zaktualizowano",
+      "structureStockPolicy": "Struktura i polityka zapasów",
+      "capabilities": "Funkcjonalności",
+      "capStoresInventory": "Przechowuje zapasy",
+      "capReceivable": "Przyjęcia",
+      "capPickable": "Kompletacja",
+      "width": "Szerokość",
+      "depth": "Głębokość",
+      "height": "Wysokość"
+    }
+  },
   "publicWarehouseMapsPage": {
     "title": "Mapy magazynu",
     "description": "Przeglądaj opublikowane układy magazynu dla tego oddziału.",
@@ -6341,7 +6366,10 @@
       "selectLocation": "Wybierz lokalizację z eksploratora, aby zobaczyć szczegóły mapowania fizycznego."
     },
     "empty": {
-      "selectLocation": "Wybierz lokalizację, aby zobaczyć szczegóły"
+      "selectLocation": "Wybierz lokalizację, aby zobaczyć szczegóły",
+      "locationNotFound": "Lokalizacja nie znaleziona",
+      "locationNotFoundDesc": "Wybrana lokalizacja nie istnieje lub została usunięta.",
+      "selectFirst": "Wybierz pierwszą dostępną lokalizację"
     },
     "move": {
       "title": "Przenieś lokalizację",

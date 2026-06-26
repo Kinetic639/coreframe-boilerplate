@@ -25,6 +25,7 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { DataViewListParams, PaginatedResult } from "@/lib/data-view/types";
 
 // ─── Types (re-exported from shared lib so client components can import safely) ──
 
@@ -34,6 +35,20 @@ export { buildLocationTree } from "@/lib/warehouse/location-tree";
 import type { WarehouseLocation } from "@/lib/warehouse/location-tree";
 
 export type ServiceResult<T> = { success: true; data: T } | { success: false; error: string };
+
+export type LocationListRow = {
+  id: string;
+  name: string;
+  code: string | null;
+  path: string;
+  level: number;
+  storage_mode: string | null;
+  can_store_inventory: boolean;
+  icon_name: string | null;
+  color: string | null;
+  parent_id: string | null;
+  created_at: string;
+};
 
 export interface CreateLocationInput {
   name: string;
@@ -705,5 +720,103 @@ export class WarehouseLocationsService {
     }
 
     return { success: true, data: undefined };
+  }
+
+  static async listPaginated(
+    supabase: SupabaseClient,
+    orgId: string,
+    branchId: string,
+    params: DataViewListParams
+  ): Promise<ServiceResult<PaginatedResult<LocationListRow>>> {
+    const page = params.page ?? 1;
+    const pageSize = params.pageSize ?? 25;
+    const offset = (page - 1) * pageSize;
+
+    // First fetch ALL locations for path computation
+    const allRes = await supabase
+      .from("warehouse_locations")
+      .select("id, name, parent_id")
+      .eq("organization_id", orgId)
+      .eq("branch_id", branchId)
+      .is("deleted_at", null);
+    const allLocs = (allRes.data ?? []) as Array<{
+      id: string;
+      name: string;
+      parent_id: string | null;
+    }>;
+    const nameById = new Map(allLocs.map((l) => [l.id, l.name]));
+    const parentById = new Map(allLocs.map((l) => [l.id, l.parent_id]));
+
+    function buildPath(id: string): string {
+      const parts: string[] = [];
+      let current: string | null = id;
+      while (current) {
+        const name = nameById.get(current);
+        if (name) parts.unshift(name);
+        current = parentById.get(current) ?? null;
+      }
+      return parts.join(" > ");
+    }
+
+    // Now fetch paginated results
+    let query = supabase
+      .from("warehouse_locations")
+      .select(LOCATION_COLUMNS, { count: "exact" })
+      .eq("organization_id", orgId)
+      .eq("branch_id", branchId)
+      .is("deleted_at", null)
+      .range(offset, offset + pageSize - 1);
+
+    if (params.search) {
+      query = query.or(`name.ilike.%${params.search}%,code.ilike.%${params.search}%`);
+    }
+
+    const canStoreFilter = params.filters?.can_store_inventory;
+    if (canStoreFilter === "true" || canStoreFilter === true) {
+      query = query.eq("can_store_inventory", true);
+    }
+    const storageModeFilter = params.filters?.storage_mode;
+    if (storageModeFilter && typeof storageModeFilter === "string") {
+      query = query.eq("storage_mode", storageModeFilter);
+    }
+    const levelFilter = params.filters?.level;
+    if (levelFilter && typeof levelFilter === "string") {
+      query = query.eq("level", Number(levelFilter));
+    }
+
+    const sortField = params.sort?.field;
+    const sortDir = params.sort?.direction === "desc" ? false : true;
+    if (
+      sortField === "name" ||
+      sortField === "code" ||
+      sortField === "level" ||
+      sortField === "created_at"
+    ) {
+      query = query.order(sortField, { ascending: sortDir });
+    } else {
+      query = query
+        .order("level", { ascending: true })
+        .order("sort_order", { ascending: true })
+        .order("name", { ascending: true });
+    }
+
+    const { data, error, count } = await query;
+    if (error) return { success: false, error: error.message };
+
+    const rows: LocationListRow[] = ((data ?? []) as any[]).map((l) => ({
+      id: l.id,
+      name: l.name,
+      code: l.code,
+      path: buildPath(l.id),
+      level: l.level,
+      storage_mode: l.storage_mode ?? null,
+      can_store_inventory: l.can_store_inventory ?? false,
+      icon_name: l.icon_name,
+      color: l.color,
+      parent_id: l.parent_id,
+      created_at: l.created_at,
+    }));
+
+    return { success: true, data: { rows, totalCount: count ?? 0, page, pageSize } };
   }
 }
