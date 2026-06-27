@@ -12,6 +12,7 @@ import type {
   LocationVariantStock,
 } from "@/lib/warehouse/inventory-types";
 import { toMovementRouteKey } from "@/lib/warehouse/movement-route-key";
+import { InventoryMovementFieldPoliciesService } from "./inventory-movement-field-policies.service";
 export type {
   CreateDraftMovementInput,
   InventoryMovementDetail,
@@ -34,15 +35,27 @@ export class InventoryMovementsService {
     return routeKey;
   }
 
-  private static async _saveCounterpartyDetails(
+  private static async _savePartyDetails(
     supabase: SupabaseClient,
     movementId: string,
-    details: Record<string, unknown> | null | undefined
+    input: {
+      sender_name?: string | null;
+      sender_details?: Record<string, unknown> | null;
+      recipient_name?: string | null;
+      recipient_details?: Record<string, unknown> | null;
+    }
   ) {
-    if (!details) return;
+    const updates: Record<string, unknown> = {
+      sender_name: input.sender_name ?? null,
+      sender_details: input.sender_details ?? null,
+      recipient_name: input.recipient_name ?? null,
+      recipient_details: input.recipient_details ?? null,
+    };
+
+    if (input.sender_details) updates.counterparty_details = input.sender_details;
     await supabase
       .from("inventory_movement_headers")
-      .update({ counterparty_details: details } as any)
+      .update(updates as any)
       .eq("id", movementId);
   }
 
@@ -53,6 +66,14 @@ export class InventoryMovementsService {
     input: CreateDraftMovementInput,
     userId: string
   ): Promise<ServiceResult<{ movement_id: string; draft_number: string; status: string }>> {
+    const validation = await InventoryMovementFieldPoliciesService.validateDraftInput(
+      supabase,
+      orgId,
+      branchId,
+      input
+    );
+    if (!validation.success) return validation as ServiceResult<any>;
+
     const { data, error } = await supabase.rpc("inventory_create_draft", {
       p_organization_id: orgId,
       p_branch_id: branchId,
@@ -60,7 +81,7 @@ export class InventoryMovementsService {
       p_lines: input.lines,
       p_operation_date: input.operation_date ?? null,
       p_document_date: input.document_date ?? null,
-      p_counterparty_name: input.counterparty_name ?? null,
+      p_counterparty_name: input.sender_name ?? null,
       p_external_reference: input.external_reference ?? null,
       p_note: input.note ?? null,
       p_idempotency_key: input.idempotency_key ?? null,
@@ -69,7 +90,7 @@ export class InventoryMovementsService {
     if (error) return { success: false, error: error.message };
     const result = data as any;
     const routeKey = await this._saveRouteKey(supabase, result.movement_id, result.draft_number);
-    await this._saveCounterpartyDetails(supabase, result.movement_id, input.counterparty_details);
+    await this._savePartyDetails(supabase, result.movement_id, input);
     return { success: true, data: { ...result, route_key: routeKey } };
   }
 
@@ -102,6 +123,14 @@ export class InventoryMovementsService {
     input: CreateDraftMovementInput,
     userId: string
   ): Promise<ServiceResult<{ movement_id: string; document_number: string; status: string }>> {
+    const validation = await InventoryMovementFieldPoliciesService.validateDraftInput(
+      supabase,
+      orgId,
+      branchId,
+      input
+    );
+    if (!validation.success) return validation as ServiceResult<any>;
+
     const { data, error } = await supabase.rpc("inventory_create_and_finalize", {
       p_organization_id: orgId,
       p_branch_id: branchId,
@@ -109,7 +138,7 @@ export class InventoryMovementsService {
       p_lines: input.lines,
       p_operation_date: input.operation_date ?? null,
       p_document_date: input.document_date ?? null,
-      p_counterparty_name: input.counterparty_name ?? null,
+      p_counterparty_name: input.sender_name ?? null,
       p_external_reference: input.external_reference ?? null,
       p_note: input.note ?? null,
       p_idempotency_key: input.idempotency_key ?? null,
@@ -122,7 +151,7 @@ export class InventoryMovementsService {
       result.movement_id,
       result.document_number ?? result.draft_number
     );
-    await this._saveCounterpartyDetails(supabase, result.movement_id, input.counterparty_details);
+    await this._savePartyDetails(supabase, result.movement_id, input);
     return { success: true, data: { ...result, route_key: routeKey } };
   }
 
@@ -132,8 +161,10 @@ export class InventoryMovementsService {
     opts: {
       document_date?: string | null;
       operation_date?: string | null;
-      counterparty_name?: string | null;
-      counterparty_details?: Record<string, unknown> | null;
+      sender_name?: string | null;
+      sender_details?: Record<string, unknown> | null;
+      recipient_name?: string | null;
+      recipient_details?: Record<string, unknown> | null;
       external_reference?: string | null;
       note?: string | null;
       lines: Array<{
@@ -147,18 +178,46 @@ export class InventoryMovementsService {
     },
     userId: string
   ): Promise<ServiceResult<{ movement_id: string; status: string }>> {
+    const { data: header, error: headerError } = await supabase
+      .from("inventory_movement_headers")
+      .select("organization_id, branch_id, movement_type_code")
+      .eq("id", movementId)
+      .maybeSingle();
+    if (headerError) return { success: false, error: headerError.message };
+    if (!header) return { success: false, error: "Movement not found" };
+
+    const h = header as any;
+    const validation = await InventoryMovementFieldPoliciesService.validateDraftInput(
+      supabase,
+      h.organization_id,
+      h.branch_id,
+      {
+        movement_type_code: h.movement_type_code,
+        document_date: opts.document_date,
+        operation_date: opts.operation_date,
+        sender_name: opts.sender_name,
+        sender_details: opts.sender_details as any,
+        recipient_name: opts.recipient_name,
+        recipient_details: opts.recipient_details as any,
+        external_reference: opts.external_reference,
+        note: opts.note,
+        lines: opts.lines,
+      }
+    );
+    if (!validation.success) return validation as ServiceResult<any>;
+
     const { data, error } = await supabase.rpc("inventory_save_draft", {
       p_movement_id: movementId,
       p_document_date: opts.document_date ?? null,
       p_operation_date: opts.operation_date ?? null,
-      p_counterparty_name: opts.counterparty_name ?? null,
+      p_counterparty_name: opts.sender_name ?? null,
       p_external_reference: opts.external_reference ?? null,
       p_note: opts.note ?? null,
       p_lines: opts.lines,
       p_actor_user_id: userId,
     });
     if (error) return { success: false, error: error.message };
-    await this._saveCounterpartyDetails(supabase, movementId, opts.counterparty_details);
+    await this._savePartyDetails(supabase, movementId, opts);
     return { success: true, data: data as any };
   }
 
@@ -198,7 +257,7 @@ export class InventoryMovementsService {
 
     if (params.search) {
       query = query.or(
-        `draft_number.ilike.%${params.search}%,document_number.ilike.%${params.search}%,counterparty_name.ilike.%${params.search}%`
+        `draft_number.ilike.%${params.search}%,document_number.ilike.%${params.search}%,sender_name.ilike.%${params.search}%,recipient_name.ilike.%${params.search}%,counterparty_name.ilike.%${params.search}%`
       );
     }
 
@@ -255,7 +314,8 @@ export class InventoryMovementsService {
         status: h.status,
         line_count: lineCountByMovement.get(h.id) ?? 0,
         product_names: "",
-        counterparty_name: h.counterparty_name,
+        sender_name: h.sender_name ?? h.counterparty_name ?? null,
+        recipient_name: h.recipient_name ?? null,
         external_reference: h.external_reference,
         created_by: h.created_by,
         created_at: h.created_at,
@@ -442,8 +502,10 @@ export class InventoryMovementsService {
           .map((l) => l.product_name)
           .filter(Boolean)
           .join(", "),
-        counterparty_name: h.counterparty_name,
-        counterparty_details: (h as any).counterparty_details ?? null,
+        sender_name: h.sender_name ?? h.counterparty_name ?? null,
+        recipient_name: h.recipient_name ?? null,
+        sender_details: (h as any).sender_details ?? (h as any).counterparty_details ?? null,
+        recipient_details: (h as any).recipient_details ?? null,
         external_reference: h.external_reference,
         created_by: h.created_by,
         created_at: h.created_at,
