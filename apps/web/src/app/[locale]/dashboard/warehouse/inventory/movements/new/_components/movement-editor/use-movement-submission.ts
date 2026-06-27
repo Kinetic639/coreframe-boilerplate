@@ -8,16 +8,18 @@ import {
   saveDraftMovementAction,
   saveAndPostDraftMovementAction,
 } from "@/app/actions/warehouse/inventory";
-import type { CounterpartyDetails } from "@/lib/warehouse/inventory-types";
+import type { MovementPartyDetails } from "@/lib/warehouse/inventory-types";
 import { toMovementRouteKey } from "@/lib/warehouse/movement-route-key";
 import type { LineDraft, MovementFormInitialValues, ValidationResult } from "./types";
 
 export function useMovementSubmission(
   mode: "create" | "edit",
   typeCode: string,
-  is801: boolean,
-  counterpartyName: string,
-  counterpartyDetails: CounterpartyDetails | null,
+  requiresSourceLocation: boolean,
+  senderName: string,
+  senderDetails: MovementPartyDetails | null,
+  recipientName: string,
+  recipientDetails: MovementPartyDetails | null,
   externalReference: string,
   note: string,
   srcLoc: string,
@@ -37,11 +39,11 @@ export function useMovementSubmission(
         variant_id: l.variant_id,
         unit_id: l.unit_id,
         quantity: Number(l.quantity),
-        source_location_id: is801 ? l.source_location_id || srcLoc || null : null,
+        source_location_id: requiresSourceLocation ? l.source_location_id || srcLoc || null : null,
         destination_location_id: l.destination_location_id || dstLoc || null,
         note: null,
       })),
-    [lines, is801, srcLoc, dstLoc]
+    [lines, requiresSourceLocation, srcLoc, dstLoc]
   );
 
   const submit = useCallback(
@@ -65,8 +67,10 @@ export function useMovementSubmission(
         if (isEdit && initialValues) {
           const payload = {
             movement_id: initialValues.movementId,
-            counterparty_name: counterpartyName || null,
-            counterparty_details: counterpartyDetails,
+            sender_name: senderName || null,
+            sender_details: senderDetails,
+            recipient_name: recipientName || null,
+            recipient_details: recipientDetails,
             external_reference: externalReference || null,
             note: note || null,
             lines: ls,
@@ -92,8 +96,10 @@ export function useMovementSubmission(
         } else {
           const bp = {
             movement_type_code: typeCode,
-            counterparty_name: counterpartyName || null,
-            counterparty_details: counterpartyDetails,
+            sender_name: senderName || null,
+            sender_details: senderDetails,
+            recipient_name: recipientName || null,
+            recipient_details: recipientDetails,
             external_reference: externalReference || null,
             note: note || null,
             idempotency_key: crypto.randomUUID(),
@@ -123,13 +129,15 @@ export function useMovementSubmission(
     },
     [
       buildLines,
-      counterpartyDetails,
-      counterpartyName,
       externalReference,
       initialValues,
       isEdit,
       note,
+      recipientDetails,
+      recipientName,
       router,
+      senderDetails,
+      senderName,
       t,
       typeCode,
       validation,

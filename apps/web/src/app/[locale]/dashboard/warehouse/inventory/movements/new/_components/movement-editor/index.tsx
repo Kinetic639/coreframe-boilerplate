@@ -11,6 +11,7 @@ import { InventoryItemPickerDialog } from "@/components/warehouse/inventory-item
 import { MovementActionBar } from "./movement-action-bar";
 import { MovementValidationStrip } from "./movement-validation-strip";
 import { MovementDocumentDataTab } from "./movement-document-data-tab";
+import { MovementImportDialog } from "./movement-import-dialog";
 import { MovementPositionsTab } from "./movement-positions-tab";
 import { useMovementFormState } from "./use-movement-form-state";
 import { useMovementValidation } from "./use-movement-validation";
@@ -24,19 +25,23 @@ export function MovementDocumentForm({
   branchName,
   createdByName,
   movementTypes,
+  fieldPolicies,
   stockableLocations,
   variants,
+  units,
   initialValues,
 }: MovementFormProps) {
   const t = useTranslations("warehouseInventory.movementEditor");
   const today = new Date().toISOString().split("T")[0];
   const isEdit = mode === "edit";
 
-  const form = useMovementFormState(movementTypes, initialValues);
+  const form = useMovementFormState(movementTypes, fieldPolicies, variants, units, initialValues);
   const validation = useMovementValidation(
     form.typeCode,
-    form.isPZ,
-    form.is801,
+    form.requiresSourceLocation,
+    form.requiresDestinationLocation,
+    form.allowsSender ? form.senderName : "",
+    form.allowsRecipient ? form.recipientName : "",
     form.srcLoc,
     form.dstLoc,
     form.lines
@@ -44,9 +49,11 @@ export function MovementDocumentForm({
   const { isPending, submit } = useMovementSubmission(
     mode,
     form.typeCode,
-    form.is801,
-    form.counterpartyName,
-    form.counterpartyDetails,
+    form.requiresSourceLocation,
+    form.senderName,
+    form.senderDetails,
+    form.recipientName,
+    form.recipientDetails,
     form.externalReference,
     form.noteForSave,
     form.srcLoc,
@@ -57,6 +64,7 @@ export function MovementDocumentForm({
   );
 
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const pickerMode: InventoryItemPickerMode = form.is801 ? "stockInLocation" : "allItems";
   const pickerDisabled = form.is801 && !form.srcLoc;
 
@@ -82,6 +90,7 @@ export function MovementDocumentForm({
         totalQty={form.totalQty}
         isPending={isPending}
         isValid={validation.isValid}
+        onImport={!isEdit ? () => setImportOpen(true) : undefined}
         onSaveDraft={handleSaveDraft}
         onSaveAndPost={handleSaveAndPost}
       />
@@ -143,10 +152,12 @@ export function MovementDocumentForm({
             <MovementDocumentDataTab
               typeCode={form.typeCode}
               selType={form.selType}
-              isPZ={form.isPZ}
               isEdit={isEdit}
               movementTypes={movementTypes}
-              counterpartyName={form.counterpartyName}
+              allowsSender={form.allowsSender}
+              allowsRecipient={form.allowsRecipient}
+              senderName={form.senderName}
+              recipientName={form.recipientName}
               supplierFields={form.supplierFields}
               supplierLocked={form.supplierLocked}
               externalReference={form.externalReference}
@@ -158,8 +169,9 @@ export function MovementDocumentForm({
               branchName={branchName}
               createdByName={createdByName ?? ""}
               onTypeChange={form.handleTypeChange}
-              onCounterpartyChange={form.setCounterpartyName}
-              onCounterpartyDetailsChange={form.setCounterpartyDetails}
+              onSenderChange={form.setSenderName}
+              onSenderDetailsChange={form.setSenderDetails}
+              onRecipientChange={form.setRecipientName}
               onSupplierFieldsChange={form.setSupplierFields}
               onSupplierLockedChange={form.setSupplierLocked}
               onExternalRefChange={form.setExternalReference}
@@ -193,6 +205,19 @@ export function MovementDocumentForm({
         sourceLocationId={form.is801 ? form.srcLoc : undefined}
         onAddItems={form.addPickedItems}
       />
+      {!isEdit && (
+        <MovementImportDialog
+          open={importOpen}
+          onOpenChange={setImportOpen}
+          movementTypes={movementTypes}
+          currentMovementTypeCode={form.typeCode}
+          variants={variants}
+          units={units}
+          stockableLocations={stockableLocations}
+          fieldPolicies={fieldPolicies}
+          onApply={form.applyImportedDocument}
+        />
+      )}
     </div>
   );
 }

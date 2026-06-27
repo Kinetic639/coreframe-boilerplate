@@ -13,10 +13,12 @@ import { MovementSupplierSection, type SupplierFields } from "./movement-supplie
 type Props = {
   typeCode: string;
   selType: InventoryMovementType | null;
-  isPZ: boolean;
   isEdit: boolean;
   movementTypes: InventoryMovementType[];
-  counterpartyName: string;
+  allowsSender: boolean;
+  allowsRecipient: boolean;
+  senderName: string;
+  recipientName: string;
   supplierFields: SupplierFields;
   supplierLocked: boolean;
   externalReference: string;
@@ -26,8 +28,9 @@ type Props = {
   branchName: string;
   createdByName: string;
   onTypeChange: (code: string) => void;
-  onCounterpartyChange: (val: string) => void;
-  onCounterpartyDetailsChange: (details: SupplierFields) => void;
+  onSenderChange: (val: string) => void;
+  onSenderDetailsChange: (details: SupplierFields) => void;
+  onRecipientChange: (val: string) => void;
   onSupplierFieldsChange: (fields: SupplierFields) => void;
   onSupplierLockedChange: (locked: boolean) => void;
   onExternalRefChange: (val: string) => void;
@@ -57,10 +60,12 @@ function LBL({
 export const MovementDocumentDataTab = React.memo(function MovementDocumentDataTab({
   typeCode,
   selType,
-  isPZ,
   isEdit,
   movementTypes,
-  counterpartyName,
+  allowsSender,
+  allowsRecipient,
+  senderName,
+  recipientName,
   supplierFields,
   supplierLocked,
   externalReference,
@@ -70,8 +75,9 @@ export const MovementDocumentDataTab = React.memo(function MovementDocumentDataT
   branchName,
   createdByName,
   onTypeChange,
-  onCounterpartyChange,
-  onCounterpartyDetailsChange,
+  onSenderChange,
+  onSenderDetailsChange,
+  onRecipientChange,
   onSupplierFieldsChange,
   onSupplierLockedChange,
   onExternalRefChange,
@@ -140,16 +146,32 @@ export const MovementDocumentDataTab = React.memo(function MovementDocumentDataT
         </section>
       )}
 
-      {/* Supplier Section (PZ only) */}
-      {selType && isPZ && (
+      {/* Sender / recipient fields are controlled by movement field policy. */}
+      {selType && allowsSender && (
         <MovementSupplierSection
           fields={supplierFields}
           locked={supplierLocked}
           onFieldsChange={onSupplierFieldsChange}
           onLockedChange={onSupplierLockedChange}
-          onCounterpartyChange={onCounterpartyChange}
-          onDetailsChange={onCounterpartyDetailsChange}
+          onSenderChange={onSenderChange}
+          onDetailsChange={onSenderDetailsChange}
         />
+      )}
+
+      {selType && allowsRecipient && (
+        <section className="rounded-sm border bg-card p-4">
+          <div className="text-xs uppercase font-bold tracking-wider text-muted-foreground border-b pb-2 mb-3">
+            {t("recipient")}
+          </div>
+          <LBL label={t("recipient")}>
+            <Input
+              placeholder={t("recipientPlaceholder")}
+              value={recipientName}
+              onChange={(event) => onRecipientChange(event.target.value)}
+              className="h-9 text-sm"
+            />
+          </LBL>
+        </section>
       )}
 
       {/* Note */}

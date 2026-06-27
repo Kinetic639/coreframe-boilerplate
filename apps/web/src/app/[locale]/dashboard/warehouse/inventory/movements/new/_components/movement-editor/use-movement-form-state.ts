@@ -1,13 +1,20 @@
 import { useState, useMemo, useCallback } from "react";
 import { useTranslations } from "next-intl";
-import type { CounterpartyDetails, InventoryMovementType } from "@/lib/warehouse/inventory-types";
+import type {
+  InventoryMovementType,
+  InventoryUnitRow,
+  InventoryVariantOption,
+  MovementFieldPolicyBundle,
+  MovementPartyDetails,
+} from "@/lib/warehouse/inventory-types";
+import { movementPolicyCapabilities } from "@/lib/warehouse/movement-field-policy";
 import type { RichTextValue } from "@/components/primitives/rich-text/rich-text-types";
 import {
   normalizeRichText,
   extractPlainText,
 } from "@/components/primitives/rich-text/rich-text-utils";
 import type { PickedMovementItem } from "@/components/warehouse/inventory-item-picker-dialog";
-import type { LineDraft, LocationOption, MovementFormInitialValues } from "./types";
+import type { ImportedMovementDocumentDraft, LineDraft, MovementFormInitialValues } from "./types";
 
 function initNoteValue(note?: string): RichTextValue | null {
   if (!note) return null;
@@ -22,16 +29,21 @@ function initNoteValue(note?: string): RichTextValue | null {
 
 export function useMovementFormState(
   movementTypes: InventoryMovementType[],
+  fieldPolicies: MovementFieldPolicyBundle,
+  variants: InventoryVariantOption[],
+  units: InventoryUnitRow[],
   initialValues?: MovementFormInitialValues
 ) {
   const t = useTranslations("warehouseInventory.movementEditor");
   const [typeCode, setTypeCode] = useState(
     initialValues?.movementTypeCode ?? movementTypes[0]?.code ?? ""
   );
-  const [counterpartyName, setCounterpartyName] = useState(initialValues?.counterpartyName ?? "");
-  const [counterpartyDetails, setCounterpartyDetails] = useState<CounterpartyDetails | null>(null);
+  const [senderName, setSenderName] = useState(initialValues?.senderName ?? "");
+  const [senderDetails, setSenderDetails] = useState<MovementPartyDetails | null>(null);
+  const [recipientName, setRecipientName] = useState(initialValues?.recipientName ?? "");
+  const [recipientDetails, setRecipientDetails] = useState<MovementPartyDetails | null>(null);
   const [supplierFields, setSupplierFields] = useState({
-    name: initialValues?.counterpartyName ?? "",
+    name: initialValues?.senderName ?? "",
     nip: "",
     phone: "",
     street: "",
@@ -78,8 +90,16 @@ export function useMovementFormState(
     () => movementTypes.find((t) => t.code === typeCode) ?? null,
     [movementTypes, typeCode]
   );
-  const isPZ = typeCode === "101";
-  const is801 = typeCode === "801";
+  const capabilities = useMemo(
+    () => movementPolicyCapabilities(fieldPolicies, typeCode),
+    [fieldPolicies, typeCode]
+  );
+  const requiresSourceLocation = capabilities.requiresSourceLocation;
+  const requiresDestinationLocation = capabilities.requiresDestinationLocation;
+  const allowsSender = capabilities.allowsSender;
+  const allowsRecipient = capabilities.allowsRecipient;
+  const isPZ = selType?.document_type_code === "PZ";
+  const is801 = requiresSourceLocation && requiresDestinationLocation;
   const totalQty = useMemo(() => lines.reduce((s, l) => s + (Number(l.quantity) || 0), 0), [lines]);
 
   const handleTypeChange = useCallback(
@@ -165,15 +185,84 @@ export function useMovementFormState(
     [is801, srcLoc, dstLoc]
   );
 
+  const applyImportedDocument = useCallback(
+    (document: ImportedMovementDocumentDraft) => {
+      if (
+        lines.length > 0 &&
+        !window.confirm("Importing data will replace the current unsaved movement lines.")
+      ) {
+        return;
+      }
+      const nextType = movementTypes.find((type) => type.code === document.movementTypeCode);
+      const nextRequiresSource = !!nextType?.requires_source_location;
+      const nextRequiresDestination = !!nextType?.requires_destination_location;
+      const variantById = new Map(variants.map((variant) => [variant.id, variant]));
+      const unitById = new Map(units.map((unit) => [unit.id, unit]));
+      const importedLines: LineDraft[] = document.lines.map((line) => {
+        const variant = variantById.get(line.variant_id);
+        const unit = unitById.get(line.unit_id);
+        return {
+          key: crypto.randomUUID(),
+          variant_id: line.variant_id,
+          unit_id: line.unit_id,
+          sku: variant?.sku ?? "",
+          product_name: variant?.product_name ?? "",
+          unit_code: unit?.code ?? variant?.unit_code ?? "",
+          brand_name: null,
+          barcode: null,
+          quantity: String(line.quantity),
+          on_hand_at_source:
+            variant?.location_summaries?.find(
+              (summary) => summary.location_id === line.source_location_id
+            )?.available_quantity ?? null,
+          source_location_id: line.source_location_id ?? "",
+          destination_location_id: line.destination_location_id ?? "",
+        };
+      });
+
+      setTypeCode(document.movementTypeCode);
+      setSenderName(document.senderName ?? "");
+      setRecipientName(document.recipientName ?? "");
+      setSupplierFields((current) => ({
+        ...current,
+        name: document.senderName ?? "",
+      }));
+      setExternalReference(document.externalReference ?? "");
+      setNoteRichText(initNoteValue(document.note ?? undefined));
+      setSrcLoc(
+        nextRequiresSource
+          ? (document.lines.find((line) => line.source_location_id)?.source_location_id ?? "")
+          : ""
+      );
+      setDstLoc(
+        nextRequiresDestination
+          ? (document.lines.find((line) => line.destination_location_id)?.destination_location_id ??
+              "")
+          : ""
+      );
+      setLines(importedLines);
+      setActiveTab("lines");
+    },
+    [lines.length, movementTypes, t, units, variants]
+  );
+
   return {
     typeCode,
     selType,
     isPZ,
     is801,
-    counterpartyName,
-    setCounterpartyName,
-    counterpartyDetails,
-    setCounterpartyDetails,
+    requiresSourceLocation,
+    requiresDestinationLocation,
+    allowsSender,
+    allowsRecipient,
+    senderName,
+    setSenderName,
+    senderDetails,
+    setSenderDetails,
+    recipientName,
+    setRecipientName,
+    recipientDetails,
+    setRecipientDetails,
     supplierFields,
     setSupplierFields,
     supplierLocked,
@@ -196,5 +285,6 @@ export function useMovementFormState(
     removeLine,
     updateLineQty,
     addPickedItems,
+    applyImportedDocument,
   };
 }

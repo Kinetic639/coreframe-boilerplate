@@ -23,7 +23,7 @@ type Props = {
   locked: boolean;
   onFieldsChange: (fields: SupplierFields) => void;
   onLockedChange: (locked: boolean) => void;
-  onCounterpartyChange: (val: string) => void;
+  onSenderChange: (val: string) => void;
   onDetailsChange: (details: SupplierFields) => void;
 };
 
@@ -34,7 +34,7 @@ export const MovementSupplierSection = React.memo(function MovementSupplierSecti
   locked,
   onFieldsChange,
   onLockedChange,
-  onCounterpartyChange,
+  onSenderChange,
   onDetailsChange,
 }: Props) {
   const t = useTranslations("warehouseInventory.movementEditor");
@@ -44,10 +44,10 @@ export const MovementSupplierSection = React.memo(function MovementSupplierSecti
     (key: keyof SupplierFields, value: string) => {
       const next = { ...fields, [key]: value };
       onFieldsChange(next);
-      if (key === "name") onCounterpartyChange(value);
+      if (key === "name") onSenderChange(value);
       onDetailsChange(next);
     },
-    [fields, onFieldsChange, onCounterpartyChange, onDetailsChange]
+    [fields, onFieldsChange, onSenderChange, onDetailsChange]
   );
 
   const handleLock = useCallback(() => {
@@ -66,11 +66,11 @@ export const MovementSupplierSection = React.memo(function MovementSupplierSecti
         phone: supplier.phone ?? fields.phone,
       };
       onFieldsChange(next);
-      onCounterpartyChange(supplier.name);
+      onSenderChange(supplier.name);
       onDetailsChange(next);
       setDialogOpen(false);
     },
-    [fields, onFieldsChange, onCounterpartyChange, onDetailsChange]
+    [fields, onFieldsChange, onSenderChange, onDetailsChange]
   );
 
   return (
@@ -78,7 +78,7 @@ export const MovementSupplierSection = React.memo(function MovementSupplierSecti
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2 text-xs uppercase font-bold tracking-wider text-muted-foreground">
           <User className="h-4 w-4" />
-          {t("counterpartySupplier")}
+          {t("sender")}
         </div>
         <div className="flex items-center gap-1.5">
           {locked ? (
@@ -126,7 +126,7 @@ export const MovementSupplierSection = React.memo(function MovementSupplierSecti
             <div className="flex items-center gap-1.5">
               <Building className="h-3.5 w-3.5 text-muted-foreground" />
               <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                {t("counterpartyDetails")}
+                {t("senderDetails")}
               </span>
             </div>
             <Badge
@@ -158,7 +158,7 @@ export const MovementSupplierSection = React.memo(function MovementSupplierSecti
           <div className="flex items-center gap-1.5 border-b pb-2">
             <Building className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-              {t("counterpartyDetails")}
+              {t("senderDetails")}
             </span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">

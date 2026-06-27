@@ -20,6 +20,7 @@ import { InventoryProductsService } from "@/server/services/inventory-products.s
 import { InventoryProductImportsService } from "@/server/services/inventory-product-imports.service";
 import { InventoryBalancesService } from "@/server/services/inventory-balances.service";
 import { InventoryMovementsService } from "@/server/services/inventory-movements.service";
+import { InventoryMovementImportsService } from "@/server/services/inventory-movement-imports.service";
 import { InventoryEnterpriseService } from "@/server/services/inventory-enterprise.service";
 import type { CreateDraftMovementInput } from "@/lib/warehouse/inventory-types";
 import {
@@ -53,6 +54,7 @@ import {
   createEnhancedInventoryProductSchema,
   createInventoryExportJobSchema,
   createInventoryImportJobSchema,
+  listMovementImportSourcesSchema,
   createInventoryMasterDataSchema,
   createInventoryProductSchema,
   createInventorySkuTemplateSchema,
@@ -88,6 +90,7 @@ import {
   setCustomFieldValueSchema,
   transferStockSchema,
   updateCountLineSchema,
+  previewMovementImportFromSourceSchema,
   updateVariantPricingSchema,
   updateInventoryVariantSchema,
   updateInventoryVariantOptionsSchema,
@@ -1315,8 +1318,10 @@ export async function createDraftMovementAction(rawInput: unknown) {
         })),
         operation_date: parsed.data.operation_date ?? null,
         document_date: parsed.data.document_date ?? null,
-        counterparty_name: parsed.data.counterparty_name ?? null,
-        counterparty_details: (parsed.data.counterparty_details as any) ?? null,
+        sender_name: parsed.data.sender_name ?? null,
+        sender_details: (parsed.data.sender_details as any) ?? null,
+        recipient_name: parsed.data.recipient_name ?? null,
+        recipient_details: (parsed.data.recipient_details as any) ?? null,
         external_reference: parsed.data.external_reference ?? null,
         note: parsed.data.note ?? null,
         idempotency_key: parsed.data.idempotency_key ?? null,
@@ -1519,8 +1524,20 @@ export async function saveDraftMovementAction(rawInput: unknown) {
         movement_id: z.string().uuid(),
         document_date: z.string().nullable().optional(),
         operation_date: z.string().nullable().optional(),
-        counterparty_name: z.string().max(200).nullable().optional(),
-        counterparty_details: z
+        sender_name: z.string().max(200).nullable().optional(),
+        sender_details: z
+          .object({
+            name: z.string(),
+            nip: z.string().optional(),
+            phone: z.string().optional(),
+            street: z.string().optional(),
+            postalCode: z.string().optional(),
+            city: z.string().optional(),
+          })
+          .nullable()
+          .optional(),
+        recipient_name: z.string().max(200).nullable().optional(),
+        recipient_details: z
           .object({
             name: z.string(),
             nip: z.string().optional(),
@@ -1556,8 +1573,10 @@ export async function saveDraftMovementAction(rawInput: unknown) {
       {
         document_date: parsed.data.document_date,
         operation_date: parsed.data.operation_date,
-        counterparty_name: parsed.data.counterparty_name,
-        counterparty_details: parsed.data.counterparty_details,
+        sender_name: parsed.data.sender_name,
+        sender_details: parsed.data.sender_details,
+        recipient_name: parsed.data.recipient_name,
+        recipient_details: parsed.data.recipient_details,
         external_reference: parsed.data.external_reference,
         note: parsed.data.note,
         lines: parsed.data.lines.map((l) => ({
@@ -1618,8 +1637,10 @@ export async function createAndPostMovementAction(rawInput: unknown) {
         })),
         operation_date: parsed.data.operation_date ?? null,
         document_date: parsed.data.document_date ?? null,
-        counterparty_name: parsed.data.counterparty_name ?? null,
-        counterparty_details: (parsed.data.counterparty_details as any) ?? null,
+        sender_name: parsed.data.sender_name ?? null,
+        sender_details: (parsed.data.sender_details as any) ?? null,
+        recipient_name: parsed.data.recipient_name ?? null,
+        recipient_details: (parsed.data.recipient_details as any) ?? null,
         external_reference: parsed.data.external_reference ?? null,
         note: parsed.data.note ?? null,
         idempotency_key: parsed.data.idempotency_key ?? null,
@@ -2589,6 +2610,65 @@ export async function createInventoryImportJobAction(rawInput: unknown) {
         storage_path: parsed.data.storage_path,
         mapping: parsed.data.mapping,
         actor_user_id: userIdFrom(auth),
+      }
+    );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function listMovementImportSourcesAction(rawInput?: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (
+      !hasPermission(auth, WAREHOUSE_IMPORTS_MANAGE) ||
+      !hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE)
+    ) {
+      return { success: false, error: "Unauthorized" };
+    }
+    const branch = requireActiveBranch(auth);
+    if (!branch.success) return branch;
+    const parsed = listMovementImportSourcesSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const supabase = await createClient();
+    return InventoryMovementImportsService.listSources(
+      supabase,
+      auth.context.app.activeOrgId,
+      branch.branchId,
+      parsed.data.movement_type_code
+    );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function previewMovementImportFromSourceAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (
+      !hasPermission(auth, WAREHOUSE_IMPORTS_MANAGE) ||
+      !hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE)
+    ) {
+      return { success: false, error: "Unauthorized" };
+    }
+    const branch = requireActiveBranch(auth);
+    if (!branch.success) return branch;
+
+    const parsed = previewMovementImportFromSourceSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const supabase = await createClient();
+    return InventoryMovementImportsService.previewFromSource(
+      supabase,
+      auth.context.app.activeOrgId,
+      branch.branchId,
+      {
+        source_type: parsed.data.source_type,
+        source_input: parsed.data.source_input,
+        movement_type_code: parsed.data.movement_type_code,
       }
     );
   } catch (error) {

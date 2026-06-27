@@ -1,6 +1,8 @@
 import type {
   InventoryMovementType,
+  InventoryUnitRow,
   InventoryVariantOption,
+  MovementFieldPolicyBundle,
 } from "@/lib/warehouse/inventory-types";
 import type { RichTextValue } from "@/components/primitives/rich-text/rich-text-types";
 
@@ -31,7 +33,8 @@ export type MovementFormInitialValues = {
   draftNumber: string;
   documentDate: string;
   operationDate: string;
-  counterpartyName: string;
+  senderName: string;
+  recipientName: string;
   externalReference: string;
   note: string;
   lines: Array<{
@@ -46,13 +49,30 @@ export type MovementFormInitialValues = {
   }>;
 };
 
+export type ImportedMovementDocumentDraft = {
+  movementTypeCode: string;
+  senderName: string | null;
+  recipientName: string | null;
+  externalReference: string | null;
+  note: string | null;
+  lines: Array<{
+    variant_id: string;
+    unit_id: string;
+    quantity: number;
+    source_location_id: string | null;
+    destination_location_id: string | null;
+  }>;
+};
+
 export type MovementFormProps = {
   mode: "create" | "edit";
   branchName: string;
   createdByName?: string;
   movementTypes: InventoryMovementType[];
+  fieldPolicies: MovementFieldPolicyBundle;
   stockableLocations: LocationOption[];
   variants: InventoryVariantOption[];
+  units: InventoryUnitRow[];
   initialValues?: MovementFormInitialValues;
 };
 
