@@ -57,6 +57,43 @@ describe("InventoryMovementImportsService preview imports", () => {
     expect(result.data.map((source) => source.source_type)).not.toContain("svwms_wdd_matcher");
   });
 
+  it("lists SVWMS matcher sessions without leaking status text into option labels", async () => {
+    vi.spyOn(WddMatcherService, "listImportableSessionsForBranch").mockResolvedValue({
+      success: true,
+      data: [
+        {
+          id: "session-1",
+          organization_id: "org-1",
+          branch_id: "branch-1",
+          name: "Dostawa 26.06.2026 22:09",
+          status: "ready_for_review",
+          match_summary: null,
+          created_by: "user-1",
+          approved_by: null,
+          approved_at: null,
+          created_at: "2026-06-26T20:09:00.000Z",
+          updated_at: "2026-06-26T20:09:00.000Z",
+        },
+      ],
+    });
+
+    const result = await svwmsWddMatcherMovementImportAdapter.loadSourceFields?.(
+      {} as never,
+      "org-1",
+      "branch-1",
+      "101"
+    );
+
+    expect(result?.success).toBe(true);
+    if (!result?.success) return;
+    expect(result.data[0].options?.[0]).toMatchObject({
+      value: "session-1",
+      label: "Dostawa 26.06.2026 22:09",
+      description: "2026-06-26T20:09:00.000Z",
+    });
+    expect(result.data[0].options?.[0].label).not.toContain("ready_for_review");
+  });
+
   it("rejects unsupported source types before touching database dependencies", async () => {
     const result = await InventoryMovementImportsService.previewFromSource(
       {} as never,

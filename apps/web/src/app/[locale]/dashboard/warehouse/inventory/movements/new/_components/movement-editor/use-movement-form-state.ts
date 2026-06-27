@@ -83,6 +83,7 @@ export function useMovementFormState(
       on_hand_at_source: null,
       source_location_id: l.source_location_id ?? "",
       destination_location_id: l.destination_location_id ?? "",
+      note: l.note ?? null,
     }));
   });
 
@@ -176,6 +177,7 @@ export function useMovementFormState(
               on_hand_at_source: item.available_quantity,
               source_location_id: srcLoc,
               destination_location_id: dstLoc,
+              note: null,
             });
           }
         }
@@ -217,6 +219,7 @@ export function useMovementFormState(
             )?.available_quantity ?? null,
           source_location_id: line.source_location_id ?? "",
           destination_location_id: line.destination_location_id ?? "",
+          note: line.note ?? null,
         };
       });
 

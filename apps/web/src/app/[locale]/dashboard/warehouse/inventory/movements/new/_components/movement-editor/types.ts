@@ -25,6 +25,7 @@ export type LineDraft = {
   on_hand_at_source: number | null;
   source_location_id: string;
   destination_location_id: string;
+  note: string | null;
 };
 
 export type MovementFormInitialValues = {
@@ -46,6 +47,7 @@ export type MovementFormInitialValues = {
     quantity: number;
     source_location_id: string | null;
     destination_location_id: string | null;
+    note?: string | null;
   }>;
 };
 
@@ -64,6 +66,7 @@ export type ImportedMovementDocumentDraft = {
     quantity: number;
     source_location_id: string | null;
     destination_location_id: string | null;
+    note?: string | null;
   }>;
 };
 

@@ -118,6 +118,30 @@ function rawMetadataString(line: EditableLine, key: string) {
   return typeof value === "string" && value.trim() ? value : null;
 }
 
+function lineOrderNumber(line: EditableLine) {
+  return rawMetadataString(line, "order_number");
+}
+
+function lineWddNumber(line: EditableLine) {
+  return rawMetadataString(line, "wdd_number");
+}
+
+function lineContextNote(line: EditableLine) {
+  const parts = [
+    lineOrderNumber(line) ? `Order: ${lineOrderNumber(line)}` : null,
+    lineWddNumber(line) ? `WDD: ${lineWddNumber(line)}` : null,
+  ].filter(Boolean);
+  return parts.length ? parts.join(" | ") : null;
+}
+
+function rawProductKey(line: EditableLine) {
+  return skuCollisionFingerprint(line.raw_product_code);
+}
+
+function rawUnitKey(line: EditableLine) {
+  return skuCollisionFingerprint(line.raw_unit);
+}
+
 export function MovementImportDialog({
   open,
   onOpenChange,
@@ -274,89 +298,147 @@ export function MovementImportDialog({
     );
   };
 
-  const handleCreateUnit = async (line: EditableLine) => {
-    if (!canManageProducts) return;
-    const code = normalizeImportedSku(line.raw_unit);
-    if (!code) {
-      toast.error("Imported unit code is missing");
-      return;
-    }
-    setQuickCreatePendingKey(`unit:${line.source_line_id}`);
-    const result = await createInventoryUnitAction({
-      code,
-      name: code,
-      unit_kind: "count",
-      precision: 0,
+  const handleMapUnitGroup = (groupKey: string, unitId: string) => {
+    updateMatchingLines((candidate) => !candidate.unit_id && rawUnitKey(candidate) === groupKey, {
+      unit_id: unitId || null,
     });
-    setQuickCreatePendingKey(null);
-    if (!result.success || !("data" in result)) {
-      toast.error("Could not create unit");
-      return;
-    }
-    setUnitOptions((current) => [...current, result.data]);
-    updateMatchingLines(
-      (candidate) =>
-        !candidate.unit_id &&
-        skuCollisionFingerprint(candidate.raw_unit) === skuCollisionFingerprint(line.raw_unit),
-      { unit_id: result.data.id }
-    );
-    toast.success(`Created unit ${result.data.code}`);
   };
 
-  const handleCreateProduct = async (line: EditableLine) => {
-    if (!canManageProducts) return;
-    const sku = normalizeImportedSku(line.raw_product_code);
-    if (!sku) {
-      toast.error("Imported product code is required");
-      return;
-    }
-    if (!line.unit_id) {
-      toast.error("Resolve or create the unit before creating the product");
-      return;
-    }
-    const unit = unitOptions.find((item) => item.id === line.unit_id);
-    const name = line.raw_product_name?.trim() || sku;
-    setQuickCreatePendingKey(`product:${line.source_line_id}`);
-    const result = await createEnhancedInventoryProductAction({
-      name,
-      product_type: "stocked",
-      base_unit_id: line.unit_id,
-      sku,
-      returnable: true,
-      track_inventory: false,
-      variants: [{ sku, name }],
-      attributes: [],
-      tags: [],
-      custom_fields: [],
-      unit_conversions: [],
-    });
-    setQuickCreatePendingKey(null);
-    if (!result.success || !("data" in result)) {
-      toast.error("Could not create product");
-      return;
-    }
-    const variantId = result.data.variant_ids[0];
-    if (!variantId) {
-      toast.error("Created product did not return a variant");
-      return;
-    }
-    const option: InventoryVariantOption = {
-      id: variantId,
-      sku: result.data.sku ?? sku,
-      label: `${sku} - ${name}`,
-      product_name: name,
-      unit_id: line.unit_id,
-      unit_code: unit?.code ?? line.raw_unit ?? "",
-    };
-    setVariantOptions((current) => [...current, option]);
+  const handleMapProductGroup = (groupKey: string, variantId: string) => {
+    const variant = variantOptions.find((item) => item.id === variantId);
     updateMatchingLines(
-      (candidate) =>
-        !candidate.variant_id &&
-        skuCollisionFingerprint(candidate.raw_product_code) ===
-          skuCollisionFingerprint(line.raw_product_code),
-      { variant_id: variantId, unit_id: line.unit_id }
+      (candidate) => !candidate.variant_id && rawProductKey(candidate) === groupKey,
+      variant ? { variant_id: variant.id, unit_id: variant.unit_id } : { variant_id: null }
     );
-    toast.success(`Created product ${sku}`);
+  };
+
+  const handleCreateMissingUnits = async () => {
+    if (!canManageProducts) return;
+    if (svwmsMissingUnitGroups.length === 0) return;
+    setQuickCreatePendingKey("bulk-units");
+    const created = new Map<string, InventoryUnitRow>();
+    for (const group of svwmsMissingUnitGroups) {
+      const code = normalizeImportedSku(group.rawUnit);
+      if (!code) continue;
+      const result = await createInventoryUnitAction({
+        code,
+        name: code,
+        unit_kind: "count",
+        precision: 0,
+      });
+      if (!result.success || !("data" in result)) {
+        setQuickCreatePendingKey(null);
+        toast.error(`Could not create unit ${code}`);
+        return;
+      }
+      created.set(group.key, result.data);
+    }
+    setQuickCreatePendingKey(null);
+    if (created.size === 0) {
+      toast.error("No missing units could be created");
+      return;
+    }
+    setUnitOptions((current) =>
+      [...current, ...Array.from(created.values())].sort((a, b) => a.code.localeCompare(b.code))
+    );
+    setDocuments((current) =>
+      current.map((document) =>
+        documentWithRevalidatedLines(
+          {
+            ...document,
+            lines: document.lines.map((line) => {
+              if (line.unit_id) return line;
+              const unit = created.get(rawUnitKey(line));
+              return unit ? { ...line, unit_id: unit.id } : line;
+            }),
+          },
+          fieldPolicies,
+          movementTypeCode,
+          { deferLocationValidation }
+        )
+      )
+    );
+    toast.success(`Created ${created.size} unit${created.size === 1 ? "" : "s"}`);
+  };
+
+  const handleCreateMissingProducts = async () => {
+    if (!canManageProducts) return;
+    if (svwmsMissingProductGroups.length === 0) return;
+    const missingUnitGroup = svwmsMissingProductGroups.find((group) =>
+      group.lines.some((line) => !line.unit_id)
+    );
+    if (missingUnitGroup) {
+      toast.error("Resolve units before creating missing products");
+      return;
+    }
+    setQuickCreatePendingKey("bulk-products");
+    const created = new Map<string, InventoryVariantOption>();
+    for (const group of svwmsMissingProductGroups) {
+      const first = group.lines[0];
+      const sku = normalizeImportedSku(group.rawCode);
+      const unitId = first.unit_id;
+      if (!sku || !unitId) continue;
+      const unit = unitOptions.find((item) => item.id === unitId);
+      const name = group.rawName?.trim() || sku;
+      const result = await createEnhancedInventoryProductAction({
+        name,
+        product_type: "stocked",
+        base_unit_id: unitId,
+        sku,
+        returnable: true,
+        track_inventory: false,
+        variants: [{ sku, name }],
+        attributes: [],
+        tags: [],
+        custom_fields: [],
+        unit_conversions: [],
+      });
+      if (!result.success || !("data" in result)) {
+        setQuickCreatePendingKey(null);
+        toast.error(`Could not create product ${sku}`);
+        return;
+      }
+      const variantId = result.data.variant_ids[0];
+      if (!variantId) {
+        setQuickCreatePendingKey(null);
+        toast.error(`Created product ${sku} did not return a variant`);
+        return;
+      }
+      created.set(group.key, {
+        id: variantId,
+        sku: result.data.sku ?? sku,
+        label: `${sku} - ${name}`,
+        product_name: name,
+        unit_id: unitId,
+        unit_code: unit?.code ?? first.raw_unit ?? "",
+      });
+    }
+    setQuickCreatePendingKey(null);
+    if (created.size === 0) {
+      toast.error("No missing products could be created");
+      return;
+    }
+    setVariantOptions((current) =>
+      [...current, ...Array.from(created.values())].sort((a, b) => a.sku.localeCompare(b.sku))
+    );
+    setDocuments((current) =>
+      current.map((document) =>
+        documentWithRevalidatedLines(
+          {
+            ...document,
+            lines: document.lines.map((line) => {
+              if (line.variant_id) return line;
+              const variant = created.get(rawProductKey(line));
+              return variant ? { ...line, variant_id: variant.id, unit_id: variant.unit_id } : line;
+            }),
+          },
+          fieldPolicies,
+          movementTypeCode,
+          { deferLocationValidation }
+        )
+      )
+    );
+    toast.success(`Created ${created.size} product${created.size === 1 ? "" : "s"}`);
   };
 
   const handleApply = () => {
@@ -385,6 +467,7 @@ export function MovementImportDialog({
           destination_location_id: isSvwmsSessionImport
             ? currentDestinationLocationId || null
             : line.destination_location_id,
+          note: isSvwmsSessionImport ? lineContextNote(line) : null,
         };
       }),
     });
@@ -395,6 +478,82 @@ export function MovementImportDialog({
   const unitById = useMemo(
     () => new Map(unitOptions.map((unit) => [unit.id, unit])),
     [unitOptions]
+  );
+  const svwmsGroups = useMemo(() => {
+    if (!selectedDocument || !isSvwmsSessionImport) return [];
+    const grouped = new Map<
+      string,
+      { key: string; label: string; wddNumbers: string[]; lines: EditableLine[] }
+    >();
+    for (const line of selectedDocument.lines) {
+      const orderNumber = lineOrderNumber(line);
+      const key = orderNumber ? `order:${orderNumber}` : "direct:no-order";
+      const current = grouped.get(key) ?? {
+        key,
+        label: orderNumber ?? "No order / direct warehouse",
+        wddNumbers: [],
+        lines: [],
+      };
+      const wdd = lineWddNumber(line);
+      if (wdd && !current.wddNumbers.includes(wdd)) current.wddNumbers.push(wdd);
+      current.lines.push(line);
+      grouped.set(key, current);
+    }
+    return Array.from(grouped.values());
+  }, [isSvwmsSessionImport, selectedDocument]);
+  const svwmsMissingUnitGroups = useMemo(() => {
+    if (!selectedDocument || !isSvwmsSessionImport) return [];
+    const groups = new Map<string, { key: string; rawUnit: string; lines: EditableLine[] }>();
+    for (const line of selectedDocument.lines) {
+      if (line.unit_id || !line.raw_unit) continue;
+      const key = rawUnitKey(line);
+      if (!key) continue;
+      const current = groups.get(key) ?? { key, rawUnit: line.raw_unit, lines: [] };
+      current.lines.push(line);
+      groups.set(key, current);
+    }
+    return Array.from(groups.values());
+  }, [isSvwmsSessionImport, selectedDocument]);
+  const svwmsProductExceptionGroups = useMemo(() => {
+    if (!selectedDocument || !isSvwmsSessionImport) return [];
+    const groups = new Map<
+      string,
+      {
+        key: string;
+        rawCode: string;
+        rawName: string;
+        lines: EditableLine[];
+        ambiguous: boolean;
+      }
+    >();
+    for (const line of selectedDocument.lines) {
+      if (line.variant_id || !line.raw_product_code) continue;
+      const key = rawProductKey(line);
+      if (!key) continue;
+      const current = groups.get(key) ?? {
+        key,
+        rawCode: line.raw_product_code,
+        rawName: line.raw_product_name ?? line.raw_product_code,
+        lines: [],
+        ambiguous: false,
+      };
+      current.lines.push(line);
+      current.ambiguous ||= line.validation_errors.some((error) =>
+        error.toLowerCase().includes("multiple")
+      );
+      groups.set(key, current);
+    }
+    return Array.from(groups.values());
+  }, [isSvwmsSessionImport, selectedDocument]);
+  const svwmsMissingProductGroups = useMemo(
+    () => svwmsProductExceptionGroups.filter((group) => !group.ambiguous),
+    [svwmsProductExceptionGroups]
+  );
+  const svwmsResolvedLineCount = useMemo(
+    () =>
+      selectedDocument?.lines.filter((line) => line.variant_id && line.unit_id && line.quantity)
+        .length ?? 0,
+    [selectedDocument]
   );
 
   return (
@@ -532,205 +691,349 @@ export function MovementImportDialog({
                 </div>
               )}
 
-              <div className="overflow-x-auto rounded-md border">
-                <table className="w-full min-w-[1180px] text-sm">
-                  <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
-                    <tr>
-                      <th className="px-3 py-2 text-left">Imported item</th>
-                      {isSvwmsSessionImport && (
-                        <>
-                          <th className="px-3 py-2 text-left">WDD</th>
-                          <th className="px-3 py-2 text-left">Order</th>
-                          <th className="px-3 py-2 text-left">Parsed location</th>
-                        </>
-                      )}
-                      <th className="px-3 py-2 text-left">Product</th>
-                      <th className="px-3 py-2 text-left">Unit</th>
-                      <th className="px-3 py-2 text-left">Qty</th>
-                      {!isSvwmsSessionImport && (
-                        <>
-                          <th className="px-3 py-2 text-left">Source</th>
-                          <th className="px-3 py-2 text-left">Destination</th>
-                        </>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {(selectedDocument?.lines ?? []).map((line) => {
-                      const selectedUnit = line.unit_id ? unitById.get(line.unit_id) : null;
-                      return (
-                        <tr key={line.source_line_id}>
-                          <td className="px-3 py-2 align-top">
-                            <div className="font-mono text-xs">{line.raw_product_code ?? "-"}</div>
-                            <div className="max-w-[180px] truncate text-xs text-muted-foreground">
-                              {line.raw_product_name ?? "-"}
-                            </div>
-                            {line.validation_errors.length > 0 && (
-                              <div className="mt-1 text-xs text-destructive">
-                                {line.validation_errors.join(", ")}
-                              </div>
-                            )}
-                          </td>
-                          {isSvwmsSessionImport && (
-                            <>
-                              <td className="px-3 py-2 align-top text-xs">
-                                {rawMetadataString(line, "wdd_number") ?? "-"}
-                              </td>
-                              <td className="px-3 py-2 align-top text-xs">
-                                {rawMetadataString(line, "order_number") ?? "-"}
-                              </td>
-                              <td className="px-3 py-2 align-top text-xs">
-                                {rawMetadataString(line, "parsed_location") ??
-                                  line.raw_destination_location ??
-                                  line.raw_source_location ??
-                                  "-"}
-                              </td>
-                            </>
-                          )}
-                          <td className="px-3 py-2 align-top">
-                            <select
-                              value={line.variant_id ?? ""}
-                              onChange={(event) =>
-                                updateLine(line.source_line_id, {
-                                  variant_id: event.target.value || null,
-                                })
-                              }
-                              className="h-8 w-full rounded-md border bg-background px-2 text-xs"
+              {isSvwmsSessionImport ? (
+                <div className="space-y-4">
+                  <div className="grid gap-2 sm:grid-cols-4">
+                    <ImportSummaryTile
+                      label="Imported lines"
+                      value={selectedDocument?.lines.length ?? 0}
+                    />
+                    <ImportSummaryTile label="Ready" value={svwmsResolvedLineCount} good />
+                    <ImportSummaryTile
+                      label="Missing units"
+                      value={svwmsMissingUnitGroups.length}
+                      muted={svwmsMissingUnitGroups.length === 0}
+                    />
+                    <ImportSummaryTile
+                      label="Product exceptions"
+                      value={svwmsProductExceptionGroups.length}
+                      muted={svwmsProductExceptionGroups.length === 0}
+                    />
+                  </div>
+
+                  {(svwmsMissingUnitGroups.length > 0 ||
+                    svwmsProductExceptionGroups.length > 0) && (
+                    <div className="rounded-md border bg-muted/20">
+                      <div className="flex flex-wrap items-center justify-between gap-3 border-b px-3 py-2">
+                        <div>
+                          <p className="font-medium">Resolve import exceptions</p>
+                          <p className="text-xs text-muted-foreground">
+                            Resolve each imported code once; matching rows update together.
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {canManageProducts && svwmsMissingUnitGroups.length > 0 && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={handleCreateMissingUnits}
+                              disabled={quickCreatePendingKey !== null}
                             >
-                              <option value="">Select product</option>
-                              {variantOptions.map((variant) => (
-                                <option key={variant.id} value={variant.id}>
-                                  {variantLabel(variant)}
-                                </option>
-                              ))}
-                            </select>
-                            {isSvwmsSessionImport &&
-                              canManageProducts &&
-                              !line.variant_id &&
-                              line.raw_product_code && (
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  className="mt-2 h-7 gap-1 px-2 text-xs"
-                                  onClick={() => handleCreateProduct(line)}
-                                  disabled={
-                                    quickCreatePendingKey !== null ||
-                                    !line.unit_id ||
-                                    !line.raw_product_code
-                                  }
-                                >
-                                  {quickCreatePendingKey === `product:${line.source_line_id}` ? (
-                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                  ) : (
-                                    <PlusCircle className="h-3.5 w-3.5" />
-                                  )}
-                                  Create product
-                                </Button>
+                              {quickCreatePendingKey === "bulk-units" ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              ) : (
+                                <PlusCircle className="mr-2 h-4 w-4" />
                               )}
-                          </td>
-                          <td className="px-3 py-2 align-top">
-                            <select
-                              value={line.unit_id ?? ""}
-                              onChange={(event) =>
-                                updateLine(line.source_line_id, {
-                                  unit_id: event.target.value || null,
-                                })
+                              Create missing units
+                            </Button>
+                          )}
+                          {canManageProducts && svwmsMissingProductGroups.length > 0 && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={handleCreateMissingProducts}
+                              disabled={
+                                quickCreatePendingKey !== null ||
+                                svwmsMissingProductGroups.some((group) =>
+                                  group.lines.some((line) => !line.unit_id)
+                                )
                               }
-                              className="h-8 w-full rounded-md border bg-background px-2 text-xs"
                             >
-                              <option value="">Select unit</option>
+                              {quickCreatePendingKey === "bulk-products" ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              ) : (
+                                <PlusCircle className="mr-2 h-4 w-4" />
+                              )}
+                              Create missing products
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="grid gap-3 p-3">
+                        {svwmsMissingUnitGroups.map((group) => (
+                          <div
+                            key={group.key}
+                            className="grid items-center gap-2 rounded-md border bg-background p-2 md:grid-cols-[1fr_220px]"
+                          >
+                            <div>
+                              <div className="font-mono text-sm font-medium">{group.rawUnit}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {group.lines.length} row{group.lines.length === 1 ? "" : "s"}
+                              </div>
+                            </div>
+                            <select
+                              value=""
+                              onChange={(event) =>
+                                handleMapUnitGroup(group.key, event.target.value)
+                              }
+                              className="h-9 rounded-md border bg-background px-2 text-sm"
+                            >
+                              <option value="">Map to existing unit</option>
                               {unitOptions.map((unit) => (
                                 <option key={unit.id} value={unit.id}>
                                   {unit.code} - {unit.name}
                                 </option>
                               ))}
                             </select>
-                            {isSvwmsSessionImport &&
-                              canManageProducts &&
-                              !line.unit_id &&
-                              line.raw_unit && (
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  className="mt-2 h-7 gap-1 px-2 text-xs"
-                                  onClick={() => handleCreateUnit(line)}
-                                  disabled={quickCreatePendingKey !== null || !line.raw_unit}
-                                >
-                                  {quickCreatePendingKey === `unit:${line.source_line_id}` ? (
-                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                  ) : (
-                                    <PlusCircle className="h-3.5 w-3.5" />
-                                  )}
-                                  Create unit
-                                </Button>
-                              )}
-                            {selectedUnit && (
-                              <div className="mt-1 text-[11px] text-muted-foreground">
-                                Imported: {line.raw_unit ?? "-"}
+                          </div>
+                        ))}
+
+                        {svwmsProductExceptionGroups.map((group) => (
+                          <div
+                            key={group.key}
+                            className="grid items-center gap-2 rounded-md border bg-background p-2 md:grid-cols-[1fr_280px]"
+                          >
+                            <div>
+                              <div className="font-mono text-sm font-medium">{group.rawCode}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {group.rawName} · {group.lines.length} row
+                                {group.lines.length === 1 ? "" : "s"}
+                                {group.ambiguous ? " · multiple matches" : ""}
                               </div>
-                            )}
-                          </td>
-                          <td className="px-3 py-2 align-top">
-                            <Input
-                              type="number"
-                              min="0.000001"
-                              value={line.quantity ?? ""}
+                            </div>
+                            <select
+                              value=""
                               onChange={(event) =>
-                                updateLine(line.source_line_id, {
-                                  quantity: event.target.value ? Number(event.target.value) : null,
-                                })
+                                handleMapProductGroup(group.key, event.target.value)
                               }
-                              className="h-8 text-xs"
-                            />
-                          </td>
-                          {!isSvwmsSessionImport && (
-                            <>
-                              <td className="px-3 py-2 align-top">
-                                <select
-                                  value={line.source_location_id ?? ""}
-                                  onChange={(event) =>
-                                    updateLine(line.source_line_id, {
-                                      source_location_id: event.target.value || null,
-                                    })
-                                  }
-                                  className="h-8 w-full rounded-md border bg-background px-2 text-xs"
-                                >
-                                  <option value="">No source</option>
-                                  {stockableLocations.map((location) => (
-                                    <option key={location.id} value={location.id}>
-                                      {locationLabel(location)}
-                                    </option>
-                                  ))}
-                                </select>
-                              </td>
-                              <td className="px-3 py-2 align-top">
-                                <select
-                                  value={line.destination_location_id ?? ""}
-                                  onChange={(event) =>
-                                    updateLine(line.source_line_id, {
-                                      destination_location_id: event.target.value || null,
-                                    })
-                                  }
-                                  className="h-8 w-full rounded-md border bg-background px-2 text-xs"
-                                >
-                                  <option value="">No destination</option>
-                                  {stockableLocations.map((location) => (
-                                    <option key={location.id} value={location.id}>
-                                      {locationLabel(location)}
-                                    </option>
-                                  ))}
-                                </select>
-                              </td>
-                            </>
-                          )}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                              className="h-9 rounded-md border bg-background px-2 text-sm"
+                            >
+                              <option value="">Map to existing product</option>
+                              {variantOptions.map((variant) => (
+                                <option key={variant.id} value={variant.id}>
+                                  {variantLabel(variant)}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-3">
+                    {svwmsGroups.map((group) => (
+                      <div key={group.key} className="overflow-hidden rounded-md border">
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/40 px-3 py-2">
+                          <div>
+                            <div className="text-sm font-semibold">{group.label}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {group.lines.length} item{group.lines.length === 1 ? "" : "s"}
+                              {group.wddNumbers.length
+                                ? ` · WDD: ${group.wddNumbers.join(", ")}`
+                                : ""}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full min-w-[980px] text-sm">
+                            <thead className="bg-muted/20 text-xs uppercase text-muted-foreground">
+                              <tr>
+                                <th className="px-3 py-2 text-left">Order</th>
+                                <th className="px-3 py-2 text-left">WDD</th>
+                                <th className="px-3 py-2 text-left">Product code</th>
+                                <th className="px-3 py-2 text-left">Product name</th>
+                                <th className="px-3 py-2 text-right">Qty</th>
+                                <th className="px-3 py-2 text-left">Unit</th>
+                                <th className="px-3 py-2 text-left">Product match</th>
+                                <th className="px-3 py-2 text-left">Unit match</th>
+                                <th className="px-3 py-2 text-left">Status</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y">
+                              {group.lines.map((line) => {
+                                const variant = variantOptions.find(
+                                  (item) => item.id === line.variant_id
+                                );
+                                const unit = line.unit_id ? unitById.get(line.unit_id) : null;
+                                const ready =
+                                  !!line.variant_id && !!line.unit_id && !!line.quantity;
+                                return (
+                                  <tr key={line.source_line_id}>
+                                    <td className="px-3 py-2 text-xs">
+                                      {lineOrderNumber(line) ?? "-"}
+                                    </td>
+                                    <td className="px-3 py-2 text-xs">
+                                      {lineWddNumber(line) ?? "-"}
+                                    </td>
+                                    <td className="px-3 py-2 font-mono text-xs">
+                                      {line.raw_product_code ?? "-"}
+                                    </td>
+                                    <td className="px-3 py-2">{line.raw_product_name ?? "-"}</td>
+                                    <td className="px-3 py-2 text-right font-mono">
+                                      {line.quantity ?? "-"}
+                                    </td>
+                                    <td className="px-3 py-2 font-mono text-xs">
+                                      {line.raw_unit ?? "-"}
+                                    </td>
+                                    <td className="px-3 py-2 text-xs">
+                                      {variant ? variantLabel(variant) : "Missing"}
+                                    </td>
+                                    <td className="px-3 py-2 text-xs">
+                                      {unit ? `${unit.code} - ${unit.name}` : "Missing"}
+                                    </td>
+                                    <td className="px-3 py-2 text-xs">
+                                      {ready ? (
+                                        <span className="text-emerald-700">Ready</span>
+                                      ) : (
+                                        <span className="text-destructive">
+                                          {line.validation_errors.join(", ") || "Needs resolution"}
+                                        </span>
+                                      )}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-md border">
+                  <table className="w-full min-w-[1180px] text-sm">
+                    <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
+                      <tr>
+                        <th className="px-3 py-2 text-left">Imported item</th>
+                        <th className="px-3 py-2 text-left">Product</th>
+                        <th className="px-3 py-2 text-left">Unit</th>
+                        <th className="px-3 py-2 text-left">Qty</th>
+                        <th className="px-3 py-2 text-left">Source</th>
+                        <th className="px-3 py-2 text-left">Destination</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {(selectedDocument?.lines ?? []).map((line) => {
+                        const selectedUnit = line.unit_id ? unitById.get(line.unit_id) : null;
+                        return (
+                          <tr key={line.source_line_id}>
+                            <td className="px-3 py-2 align-top">
+                              <div className="font-mono text-xs">
+                                {line.raw_product_code ?? "-"}
+                              </div>
+                              <div className="max-w-[180px] truncate text-xs text-muted-foreground">
+                                {line.raw_product_name ?? "-"}
+                              </div>
+                              {line.validation_errors.length > 0 && (
+                                <div className="mt-1 text-xs text-destructive">
+                                  {line.validation_errors.join(", ")}
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 align-top">
+                              <select
+                                value={line.variant_id ?? ""}
+                                onChange={(event) =>
+                                  updateLine(line.source_line_id, {
+                                    variant_id: event.target.value || null,
+                                  })
+                                }
+                                className="h-8 w-full rounded-md border bg-background px-2 text-xs"
+                              >
+                                <option value="">Select product</option>
+                                {variantOptions.map((variant) => (
+                                  <option key={variant.id} value={variant.id}>
+                                    {variantLabel(variant)}
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
+                            <td className="px-3 py-2 align-top">
+                              <select
+                                value={line.unit_id ?? ""}
+                                onChange={(event) =>
+                                  updateLine(line.source_line_id, {
+                                    unit_id: event.target.value || null,
+                                  })
+                                }
+                                className="h-8 w-full rounded-md border bg-background px-2 text-xs"
+                              >
+                                <option value="">Select unit</option>
+                                {unitOptions.map((unit) => (
+                                  <option key={unit.id} value={unit.id}>
+                                    {unit.code} - {unit.name}
+                                  </option>
+                                ))}
+                              </select>
+                              {selectedUnit && (
+                                <div className="mt-1 text-[11px] text-muted-foreground">
+                                  Imported: {line.raw_unit ?? "-"}
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 align-top">
+                              <Input
+                                type="number"
+                                min="0.000001"
+                                value={line.quantity ?? ""}
+                                onChange={(event) =>
+                                  updateLine(line.source_line_id, {
+                                    quantity: event.target.value
+                                      ? Number(event.target.value)
+                                      : null,
+                                  })
+                                }
+                                className="h-8 text-xs"
+                              />
+                            </td>
+                            <td className="px-3 py-2 align-top">
+                              <select
+                                value={line.source_location_id ?? ""}
+                                onChange={(event) =>
+                                  updateLine(line.source_line_id, {
+                                    source_location_id: event.target.value || null,
+                                  })
+                                }
+                                className="h-8 w-full rounded-md border bg-background px-2 text-xs"
+                              >
+                                <option value="">No source</option>
+                                {stockableLocations.map((location) => (
+                                  <option key={location.id} value={location.id}>
+                                    {locationLabel(location)}
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
+                            <td className="px-3 py-2 align-top">
+                              <select
+                                value={line.destination_location_id ?? ""}
+                                onChange={(event) =>
+                                  updateLine(line.source_line_id, {
+                                    destination_location_id: event.target.value || null,
+                                  })
+                                }
+                                className="h-8 w-full rounded-md border bg-background px-2 text-xs"
+                              >
+                                <option value="">No destination</option>
+                                {stockableLocations.map((location) => (
+                                  <option key={location.id} value={location.id}>
+                                    {locationLabel(location)}
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -745,5 +1048,34 @@ export function MovementImportDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function ImportSummaryTile({
+  label,
+  value,
+  good = false,
+  muted = false,
+}: {
+  label: string;
+  value: number;
+  good?: boolean;
+  muted?: boolean;
+}) {
+  return (
+    <div className="rounded-md border bg-background p-3">
+      <div className="text-xs uppercase text-muted-foreground">{label}</div>
+      <div
+        className={
+          good
+            ? "mt-1 text-2xl font-semibold text-emerald-700"
+            : muted
+              ? "mt-1 text-2xl font-semibold text-muted-foreground"
+              : "mt-1 text-2xl font-semibold"
+        }
+      >
+        {value}
+      </div>
+    </div>
   );
 }

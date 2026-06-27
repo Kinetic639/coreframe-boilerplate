@@ -108,6 +108,7 @@ export default async function EditDraftMovementPage({ params }: PageProps) {
         quantity: l.quantity,
         source_location_id: l.source_location_id ?? null,
         destination_location_id: l.destination_location_id ?? null,
+        note: l.note ?? null,
       };
     }),
   };

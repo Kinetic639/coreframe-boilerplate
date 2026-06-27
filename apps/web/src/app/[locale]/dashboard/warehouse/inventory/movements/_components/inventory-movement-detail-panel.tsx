@@ -409,7 +409,12 @@ export function InventoryMovementDetailPanel({
                     {idx + 1}
                   </td>
                   <td className="px-3 py-1.5 font-mono font-medium">{line.sku}</td>
-                  <td className="px-3 py-1.5">{line.product_name}</td>
+                  <td className="px-3 py-1.5">
+                    <div>{line.product_name}</div>
+                    {line.note && (
+                      <div className="mt-0.5 text-xs text-muted-foreground">{line.note}</div>
+                    )}
+                  </td>
                   <td className="px-3 py-1.5 text-center">
                     <Badge variant="outline" className="text-[10px] font-mono">
                       {line.unit_code}

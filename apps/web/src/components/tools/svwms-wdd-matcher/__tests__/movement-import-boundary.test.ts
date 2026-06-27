@@ -84,8 +84,41 @@ describe("SVWMS matcher movement import boundary", () => {
     expect(dialogSource).toContain("createEnhancedInventoryProductAction");
     expect(dialogSource).toContain("createInventoryUnitAction");
     expect(dialogSource).toContain("currentDestinationLocationId");
+    expect(dialogSource).toContain("svwmsGroups");
+    expect(dialogSource).toContain("No order / direct warehouse");
+    expect(dialogSource).toContain("Create missing units");
+    expect(dialogSource).toContain("Create missing products");
+    expect(dialogSource).toContain("lineContextNote");
+    expect(dialogSource).toContain("Order:");
+    expect(dialogSource).toContain("WDD:");
     expect(dialogSource).toContain("wdd_number");
     expect(dialogSource).toContain("order_number");
-    expect(dialogSource).toContain("parsed_location");
+    expect(dialogSource).not.toContain("parsed_location");
+  });
+
+  it("preserves imported order context as movement line notes", () => {
+    const submissionSource = readFileSync(
+      resolve(
+        __dirname,
+        "../../../../app/[locale]/dashboard/warehouse/inventory/movements/new/_components/movement-editor/use-movement-submission.ts"
+      ),
+      "utf8"
+    );
+    const detailSource = readFileSync(
+      resolve(
+        __dirname,
+        "../../../../app/[locale]/dashboard/warehouse/inventory/movements/_components/inventory-movement-detail-panel.tsx"
+      ),
+      "utf8"
+    );
+    const serviceSource = readFileSync(
+      resolve(__dirname, "../../../../server/services/inventory-movements.service.ts"),
+      "utf8"
+    );
+
+    expect(submissionSource).toContain("note: l.note ?? null");
+    expect(submissionSource).not.toContain("note: null");
+    expect(serviceSource).toContain("destination_location_id, note, snapshot_product_name");
+    expect(detailSource).toContain("line.note");
   });
 });

@@ -376,7 +376,7 @@ export class InventoryMovementsService {
       supabase
         .from("inventory_movement_lines")
         .select(
-          "id, line_number, variant_id, unit_id, quantity, unit_cost, source_location_id, destination_location_id, snapshot_product_name, snapshot_sku, snapshot_unit_code, snapshot_source_location_name, snapshot_destination_location_name"
+          "id, line_number, variant_id, unit_id, quantity, unit_cost, source_location_id, destination_location_id, note, snapshot_product_name, snapshot_sku, snapshot_unit_code, snapshot_source_location_name, snapshot_destination_location_name"
         )
         .eq("movement_id", h.id)
         .is("deleted_at", null)
@@ -483,6 +483,7 @@ export class InventoryMovementsService {
             locationsById.get(l.destination_location_id)?.name ??
             null)
           : (locationsById.get(l.destination_location_id)?.name ?? null),
+        note: l.note ?? null,
       };
     });
 

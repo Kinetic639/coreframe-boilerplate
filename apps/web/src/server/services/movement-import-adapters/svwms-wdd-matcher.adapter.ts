@@ -126,7 +126,7 @@ export const svwmsWddMatcherMovementImportAdapter: MovementImportSourceAdapter =
           required: true,
           options: sessions.data.map((session) => ({
             value: session.id,
-            label: `${session.name} (${session.status})`,
+            label: session.name || new Date(session.created_at).toLocaleString("pl-PL"),
             description: session.created_at,
           })),
         },

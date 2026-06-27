@@ -555,6 +555,7 @@ export type InventoryMovementDetail = InventoryMovementListRow & {
     source_location_name: string | null;
     destination_location_id: string | null;
     destination_location_name: string | null;
+    note: string | null;
   }>;
   audit_log: InventoryMovementAuditEntry[];
 };

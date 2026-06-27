@@ -54,6 +54,7 @@ const MovementLineRow = React.memo(function MovementLineRow({
         {line.brand_name && (
           <span className="text-xs text-muted-foreground">{line.brand_name}</span>
         )}
+        {line.note && <div className="mt-0.5 text-xs text-muted-foreground">{line.note}</div>}
       </td>
       <td className="py-2 px-3 text-center">
         <Badge variant="outline" className="text-[10px] rounded-sm font-mono">
