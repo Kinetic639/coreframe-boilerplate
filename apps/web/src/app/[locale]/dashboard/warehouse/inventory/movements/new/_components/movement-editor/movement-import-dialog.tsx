@@ -119,19 +119,17 @@ function rawMetadataString(line: EditableLine, key: string) {
 }
 
 function lineOrderNumber(line: EditableLine) {
-  return rawMetadataString(line, "order_number");
-}
-
-function lineWddNumber(line: EditableLine) {
-  return rawMetadataString(line, "wdd_number");
+  return (
+    rawMetadataString(line, "movement_order_number") ??
+    rawMetadataString(line, "zl_number") ??
+    rawMetadataString(line, "order_number") ??
+    rawMetadataString(line, "zw_number")
+  );
 }
 
 function lineContextNote(line: EditableLine) {
-  const parts = [
-    lineOrderNumber(line) ? `Order: ${lineOrderNumber(line)}` : null,
-    lineWddNumber(line) ? `WDD: ${lineWddNumber(line)}` : null,
-  ].filter(Boolean);
-  return parts.length ? parts.join(" | ") : null;
+  const orderNumber = lineOrderNumber(line);
+  return orderNumber ? `Zlecenie: ${orderNumber}` : null;
 }
 
 function rawProductKey(line: EditableLine) {
@@ -479,27 +477,21 @@ export function MovementImportDialog({
     () => new Map(unitOptions.map((unit) => [unit.id, unit])),
     [unitOptions]
   );
-  const svwmsGroups = useMemo(() => {
+  const svwmsLines = useMemo(() => {
     if (!selectedDocument || !isSvwmsSessionImport) return [];
-    const grouped = new Map<
-      string,
-      { key: string; label: string; wddNumbers: string[]; lines: EditableLine[] }
-    >();
-    for (const line of selectedDocument.lines) {
-      const orderNumber = lineOrderNumber(line);
-      const key = orderNumber ? `order:${orderNumber}` : "direct:no-order";
-      const current = grouped.get(key) ?? {
-        key,
-        label: orderNumber ?? "No order / direct warehouse",
-        wddNumbers: [],
-        lines: [],
-      };
-      const wdd = lineWddNumber(line);
-      if (wdd && !current.wddNumbers.includes(wdd)) current.wddNumbers.push(wdd);
-      current.lines.push(line);
-      grouped.set(key, current);
-    }
-    return Array.from(grouped.values());
+    return [...selectedDocument.lines].sort((left, right) => {
+      const leftOrder = lineOrderNumber(left) ?? "\uffff";
+      const rightOrder = lineOrderNumber(right) ?? "\uffff";
+      const orderCompare = leftOrder.localeCompare(rightOrder, "pl", {
+        numeric: true,
+        sensitivity: "base",
+      });
+      if (orderCompare !== 0) return orderCompare;
+      return (
+        left.line_number - right.line_number ||
+        left.source_line_id.localeCompare(right.source_line_id)
+      );
+    });
   }, [isSvwmsSessionImport, selectedDocument]);
   const svwmsMissingUnitGroups = useMemo(() => {
     if (!selectedDocument || !isSvwmsSessionImport) return [];
@@ -824,84 +816,62 @@ export function MovementImportDialog({
                     </div>
                   )}
 
-                  <div className="space-y-3">
-                    {svwmsGroups.map((group) => (
-                      <div key={group.key} className="overflow-hidden rounded-md border">
-                        <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/40 px-3 py-2">
-                          <div>
-                            <div className="text-sm font-semibold">{group.label}</div>
-                            <div className="text-xs text-muted-foreground">
-                              {group.lines.length} item{group.lines.length === 1 ? "" : "s"}
-                              {group.wddNumbers.length
-                                ? ` · WDD: ${group.wddNumbers.join(", ")}`
-                                : ""}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="overflow-x-auto">
-                          <table className="w-full min-w-[980px] text-sm">
-                            <thead className="bg-muted/20 text-xs uppercase text-muted-foreground">
-                              <tr>
-                                <th className="px-3 py-2 text-left">Order</th>
-                                <th className="px-3 py-2 text-left">WDD</th>
-                                <th className="px-3 py-2 text-left">Product code</th>
-                                <th className="px-3 py-2 text-left">Product name</th>
-                                <th className="px-3 py-2 text-right">Qty</th>
-                                <th className="px-3 py-2 text-left">Unit</th>
-                                <th className="px-3 py-2 text-left">Product match</th>
-                                <th className="px-3 py-2 text-left">Unit match</th>
-                                <th className="px-3 py-2 text-left">Status</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y">
-                              {group.lines.map((line) => {
-                                const variant = variantOptions.find(
-                                  (item) => item.id === line.variant_id
-                                );
-                                const unit = line.unit_id ? unitById.get(line.unit_id) : null;
-                                const ready =
-                                  !!line.variant_id && !!line.unit_id && !!line.quantity;
-                                return (
-                                  <tr key={line.source_line_id}>
-                                    <td className="px-3 py-2 text-xs">
-                                      {lineOrderNumber(line) ?? "-"}
-                                    </td>
-                                    <td className="px-3 py-2 text-xs">
-                                      {lineWddNumber(line) ?? "-"}
-                                    </td>
-                                    <td className="px-3 py-2 font-mono text-xs">
-                                      {line.raw_product_code ?? "-"}
-                                    </td>
-                                    <td className="px-3 py-2">{line.raw_product_name ?? "-"}</td>
-                                    <td className="px-3 py-2 text-right font-mono">
-                                      {line.quantity ?? "-"}
-                                    </td>
-                                    <td className="px-3 py-2 font-mono text-xs">
-                                      {line.raw_unit ?? "-"}
-                                    </td>
-                                    <td className="px-3 py-2 text-xs">
-                                      {variant ? variantLabel(variant) : "Missing"}
-                                    </td>
-                                    <td className="px-3 py-2 text-xs">
-                                      {unit ? `${unit.code} - ${unit.name}` : "Missing"}
-                                    </td>
-                                    <td className="px-3 py-2 text-xs">
-                                      {ready ? (
-                                        <span className="text-emerald-700">Ready</span>
-                                      ) : (
-                                        <span className="text-destructive">
-                                          {line.validation_errors.join(", ") || "Needs resolution"}
-                                        </span>
-                                      )}
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    ))}
+                  <div className="overflow-x-auto rounded-md border">
+                    <table className="w-full min-w-[980px] text-sm">
+                      <thead className="bg-muted/20 text-xs uppercase text-muted-foreground">
+                        <tr>
+                          <th className="px-3 py-2 text-left">Zlecenie / Order</th>
+                          <th className="px-3 py-2 text-left">Product code</th>
+                          <th className="px-3 py-2 text-left">Product name</th>
+                          <th className="px-3 py-2 text-right">Qty</th>
+                          <th className="px-3 py-2 text-left">Unit</th>
+                          <th className="px-3 py-2 text-left">Product match</th>
+                          <th className="px-3 py-2 text-left">Unit match</th>
+                          <th className="px-3 py-2 text-left">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {svwmsLines.map((line) => {
+                          const variant = variantOptions.find(
+                            (item) => item.id === line.variant_id
+                          );
+                          const unit = line.unit_id ? unitById.get(line.unit_id) : null;
+                          const ready = !!line.variant_id && !!line.unit_id && !!line.quantity;
+                          return (
+                            <tr key={line.source_line_id}>
+                              <td className="px-3 py-2 font-mono text-xs">
+                                {lineOrderNumber(line) ?? "-"}
+                              </td>
+                              <td className="px-3 py-2 font-mono text-xs">
+                                {line.raw_product_code ?? "-"}
+                              </td>
+                              <td className="px-3 py-2">{line.raw_product_name ?? "-"}</td>
+                              <td className="px-3 py-2 text-right font-mono">
+                                {line.quantity ?? "-"}
+                              </td>
+                              <td className="px-3 py-2 font-mono text-xs">
+                                {line.raw_unit ?? "-"}
+                              </td>
+                              <td className="px-3 py-2 text-xs">
+                                {variant ? variantLabel(variant) : "Missing"}
+                              </td>
+                              <td className="px-3 py-2 text-xs">
+                                {unit ? `${unit.code} - ${unit.name}` : "Missing"}
+                              </td>
+                              <td className="px-3 py-2 text-xs">
+                                {ready ? (
+                                  <span className="text-emerald-700">Ready</span>
+                                ) : (
+                                  <span className="text-destructive">
+                                    {line.validation_errors.join(", ") || "Needs resolution"}
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               ) : (

@@ -160,7 +160,7 @@ describe("InventoryMovementImportsService preview imports", () => {
             parsedLocation: "PRZY A1",
             wddNumber: "WDD/1488/26/3142",
             orderNumber: "BLWK/6",
-            zlNumber: null,
+            zlNumber: "ZL/100",
             zwNumber: null,
             clientName: null,
             groupName: "BRA_SKO",
@@ -171,6 +171,30 @@ describe("InventoryMovementImportsService preview imports", () => {
             matchConfidence: 99,
             blockMetadata: {},
             lineMetadata: { idp_raw: "1" },
+          },
+          {
+            sourceBlockId: "wdd-block-2",
+            sourceLineId: "line-3",
+            sourceBlockType: "wdd_reconciliation",
+            lineNumber: 3,
+            productCode: "57H999999",
+            productName: "Second delivery item",
+            quantity: 3,
+            unit: "SZT",
+            parsedLocation: "PRZY A2",
+            wddNumber: "WDD/1500/26/3142",
+            orderNumber: "BLWK/6",
+            zlNumber: "ZL/100",
+            zwNumber: null,
+            clientName: null,
+            groupName: "BRA_SKO",
+            warehouseCode: "115",
+            warehouseLabel: "Magazyn",
+            documentBrand: "skoda",
+            matchType: "exact",
+            matchConfidence: 99,
+            blockMetadata: {},
+            lineMetadata: {},
           },
           {
             sourceBlockId: "direct-block-1",
@@ -185,7 +209,7 @@ describe("InventoryMovementImportsService preview imports", () => {
             wddNumber: null,
             orderNumber: null,
             zlNumber: null,
-            zwNumber: null,
+            zwNumber: "ZW/200",
             clientName: null,
             groupName: null,
             warehouseCode: null,
@@ -213,18 +237,34 @@ describe("InventoryMovementImportsService preview imports", () => {
     expect(result.data[0]).toMatchObject({
       sourceDocumentId: "svwms-session:session-1",
       sourceDocumentNumber: "Dostawa 26.06.2026 22:09",
+      externalReference: "Dostawa 26.06.2026 22:09 / Zlecenia: ZL/100, ZW/200",
       senderName: null,
       recipientName: null,
     });
-    expect(result.data[0].lines).toHaveLength(2);
+    expect(result.data[0].externalReference).not.toContain("WDD");
+    expect(result.data[0].sourceMetadata).toMatchObject({
+      movement_order_numbers: ["ZL/100", "ZW/200"],
+    });
+    expect(result.data[0].lines).toHaveLength(3);
     expect(result.data[0].lines[0].rawMetadata).toMatchObject({
       wdd_number: "WDD/1488/26/3142",
       order_number: "BLWK/6",
+      zl_number: "ZL/100",
+      movement_order_number: "ZL/100",
       parsed_location: "PRZY A1",
       source_block_type: "wdd_reconciliation",
     });
     expect(result.data[0].lines[1].rawMetadata).toMatchObject({
+      wdd_number: "WDD/1500/26/3142",
+      order_number: "BLWK/6",
+      zl_number: "ZL/100",
+      movement_order_number: "ZL/100",
+      source_block_type: "wdd_reconciliation",
+    });
+    expect(result.data[0].lines[2].rawMetadata).toMatchObject({
       order_number: null,
+      zw_number: "ZW/200",
+      movement_order_number: "ZW/200",
       source_block_type: "direct_order",
     });
   });

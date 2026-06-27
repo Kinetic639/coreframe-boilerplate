@@ -20,6 +20,10 @@ function uniqueValues(values: Array<string | null>) {
   return [...new Set(values.filter((value): value is string => Boolean(value)))];
 }
 
+function movementOrderNumber(line: WddMovementImportCandidateLine) {
+  return line.zlNumber ?? line.orderNumber ?? line.zwNumber ?? null;
+}
+
 function lineToCanonicalLine(line: WddMovementImportCandidateLine): CanonicalMovementImportLine {
   return {
     sourceLineId: line.sourceLineId,
@@ -36,6 +40,7 @@ function lineToCanonicalLine(line: WddMovementImportCandidateLine): CanonicalMov
       order_number: line.orderNumber,
       zl_number: line.zlNumber,
       zw_number: line.zwNumber,
+      movement_order_number: movementOrderNumber(line),
       client_name: line.clientName,
       group_name: line.groupName,
       warehouse_code: line.warehouseCode,
@@ -54,12 +59,10 @@ function candidatesToCanonicalDocument(
   session: { id: string; name: string; created_at: string; status: string },
   lines: WddMovementImportCandidateLine[]
 ): CanonicalMovementImportDocument {
-  const wddNumbers = uniqueValues(lines.map((line) => line.wddNumber));
-  const orderNumbers = uniqueValues(lines.map((line) => line.orderNumber));
+  const movementOrderNumbers = uniqueValues(lines.map(movementOrderNumber));
   const externalParts = [
     session.name,
-    wddNumbers.length ? `WDD: ${wddNumbers.slice(0, 6).join(", ")}` : null,
-    orderNumbers.length ? `Orders: ${orderNumbers.slice(0, 6).join(", ")}` : null,
+    movementOrderNumbers.length ? `Zlecenia: ${movementOrderNumbers.slice(0, 6).join(", ")}` : null,
   ].filter(Boolean);
 
   return {
@@ -77,8 +80,7 @@ function candidatesToCanonicalDocument(
       session_created_at: session.created_at,
       import_scope: "session_incoming_items",
       line_count: lines.length,
-      wdd_numbers: wddNumbers,
-      order_numbers: orderNumbers,
+      movement_order_numbers: movementOrderNumbers,
     },
     lines: lines.map(lineToCanonicalLine),
   };
@@ -87,7 +89,7 @@ function candidatesToCanonicalDocument(
 export const svwmsWddMatcherMovementImportAdapter: MovementImportSourceAdapter = {
   sourceType: "svwms_wdd_matcher",
   label: "SVWMS WDD matcher",
-  description: "Import parsed WDD/order blocks from an authenticated SVWMS matcher session.",
+  description: "Import incoming items from an authenticated SVWMS matcher session.",
   supportedMovementTypeCodes: ["101"],
   inputFields: [
     {
