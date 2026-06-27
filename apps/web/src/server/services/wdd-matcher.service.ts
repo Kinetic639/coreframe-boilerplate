@@ -195,6 +195,36 @@ export interface PdfBlockData {
   lines: PdfLineData[];
 }
 
+export interface WddMovementImportCandidateLine {
+  sourceBlockId: string;
+  sourceLineId: string;
+  sourceBlockType: WddMatcherBlock["block_type"];
+  lineNumber: number;
+  productCode: string | null;
+  productName: string | null;
+  quantity: number | null;
+  unit: string | null;
+  parsedLocation: string | null;
+  wddNumber: string | null;
+  orderNumber: string | null;
+  zlNumber: string | null;
+  zwNumber: string | null;
+  clientName: string | null;
+  groupName: string | null;
+  warehouseCode: string | null;
+  warehouseLabel: string | null;
+  documentBrand: string | null;
+  matchType: BlockMatchType | null;
+  matchConfidence: number | null;
+  blockMetadata: Record<string, unknown>;
+  lineMetadata: Record<string, unknown>;
+}
+
+export interface WddMovementImportCandidates {
+  session: WddMatcherSession;
+  lines: WddMovementImportCandidateLine[];
+}
+
 export interface ExportRow {
   session_name: string;
   session_status: string;
@@ -290,6 +320,17 @@ function normalizeDbError(error: { code?: string; message: string }): string {
   return error.message;
 }
 
+function metadataString(metadata: Record<string, unknown>, key: string): string | null {
+  const value = metadata[key];
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function wddSortNumber(value: string | null): number {
+  if (!value) return Number.POSITIVE_INFINITY;
+  const match = value.match(/\/(\d+)/);
+  return match ? Number(match[1]) : Number.POSITIVE_INFINITY;
+}
+
 // ---------------------------------------------------------------------------
 // WddMatcherService
 // ---------------------------------------------------------------------------
@@ -354,13 +395,34 @@ export class WddMatcherService {
 
   static async listSessions(
     supabase: SupabaseClient,
-    orgId: string
+    orgId: string,
+    branchId?: string | null
+  ): Promise<ServiceResult<WddMatcherSession[]>> {
+    let query = supabase
+      .from("wdd_matcher_sessions")
+      .select("*")
+      .eq("organization_id", orgId)
+      .order("created_at", { ascending: false });
+    if (branchId) query = query.eq("branch_id", branchId);
+    const { data, error } = await query;
+    if (error) return { success: false, error: normalizeDbError(error) };
+    return { success: true, data: (data ?? []) as WddMatcherSession[] };
+  }
+
+  static async listImportableSessionsForBranch(
+    supabase: SupabaseClient,
+    orgId: string,
+    branchId: string
   ): Promise<ServiceResult<WddMatcherSession[]>> {
     const { data, error } = await supabase
       .from("wdd_matcher_sessions")
       .select("*")
       .eq("organization_id", orgId)
-      .order("created_at", { ascending: false });
+      .eq("branch_id", branchId)
+      .not("created_by", "is", null)
+      .in("status", ["ready_for_review", "approved"])
+      .order("created_at", { ascending: false })
+      .limit(50);
     if (error) return { success: false, error: normalizeDbError(error) };
     return { success: true, data: (data ?? []) as WddMatcherSession[] };
   }
@@ -378,6 +440,145 @@ export class WddMatcherService {
       .maybeSingle();
     if (error) return { success: false, error: normalizeDbError(error) };
     return { success: true, data: data as WddMatcherSession | null };
+  }
+
+  static async getMovementImportCandidates(
+    supabase: SupabaseClient,
+    sessionId: string,
+    orgId: string,
+    branchId: string
+  ): Promise<ServiceResult<WddMovementImportCandidates>> {
+    const sessionResult = await WddMatcherService.getSession(supabase, sessionId, orgId);
+    if (!sessionResult.success) return sessionResult as ServiceResult<WddMovementImportCandidates>;
+    if (!sessionResult.data) return { success: false, error: "SVWMS matcher session not found" };
+    if (!sessionResult.data.created_by) {
+      return {
+        success: false,
+        error: "Only authenticated dashboard matcher sessions can import movements",
+      };
+    }
+    if (sessionResult.data.branch_id !== branchId) {
+      return { success: false, error: "Matcher session belongs to another branch" };
+    }
+    if (!["ready_for_review", "approved"].includes(sessionResult.data.status)) {
+      return { success: false, error: "Matcher session is not ready to import" };
+    }
+
+    const [blocksRes, matchesRes] = await Promise.all([
+      supabase
+        .from("wdd_matcher_blocks")
+        .select("*")
+        .eq("session_id", sessionId)
+        .eq("organization_id", orgId),
+      supabase
+        .from("wdd_matcher_block_matches")
+        .select("*")
+        .eq("session_id", sessionId)
+        .eq("organization_id", orgId),
+    ]);
+    if (blocksRes.error) return { success: false, error: normalizeDbError(blocksRes.error) };
+    if (matchesRes.error) return { success: false, error: normalizeDbError(matchesRes.error) };
+
+    const blocks = (blocksRes.data ?? []) as WddMatcherBlock[];
+    const blockMap = new Map(blocks.map((block) => [block.id, block]));
+    const importableBlocks = blocks.filter(
+      (block) =>
+        !block.is_excluded &&
+        (block.block_type === "wdd_reconciliation" || block.block_type === "direct_order")
+    );
+    if (importableBlocks.length === 0) {
+      return { success: true, data: { session: sessionResult.data, lines: [] } };
+    }
+
+    const matchByWddBlockId = new Map<string, WddMatcherBlockMatch>();
+    for (const match of (matchesRes.data ?? []) as WddMatcherBlockMatch[]) {
+      const blockId = match.bc_block_id ?? match.wdd_block_id;
+      if (!blockId) continue;
+      const current = matchByWddBlockId.get(blockId);
+      if (!current || match.block_confidence > current.block_confidence) {
+        matchByWddBlockId.set(blockId, match);
+      }
+    }
+
+    const { data: lineRows, error: linesError } = await supabase
+      .from("wdd_matcher_lines")
+      .select("*")
+      .in(
+        "block_id",
+        importableBlocks.map((block) => block.id)
+      )
+      .eq("organization_id", orgId)
+      .order("line_number", { ascending: true });
+    if (linesError) return { success: false, error: normalizeDbError(linesError) };
+
+    const importableBlockIds = new Set(importableBlocks.map((block) => block.id));
+    const lines = ((lineRows ?? []) as WddMatcherLine[])
+      .filter((line) => {
+        if (!importableBlockIds.has(line.block_id)) return false;
+        return Boolean(line.product_code || line.product_name || line.quantity);
+      })
+      .map((line): WddMovementImportCandidateLine | null => {
+        const block = blockMap.get(line.block_id);
+        if (!block) return null;
+        const blockMetadata = block.metadata ?? {};
+        const match = matchByWddBlockId.get(block.id) ?? null;
+        const orderBlock = match?.brand_block_id ? blockMap.get(match.brand_block_id) : null;
+        const orderMetadata = orderBlock?.metadata ?? {};
+        const orderNumber =
+          block.block_type === "wdd_reconciliation"
+            ? metadataString(orderMetadata, "order_number")
+            : metadataString(blockMetadata, "order_number");
+
+        return {
+          sourceBlockId: block.id,
+          sourceLineId: line.id,
+          sourceBlockType: block.block_type,
+          lineNumber: line.line_number,
+          productCode: line.product_code,
+          productName: line.product_name,
+          quantity: line.quantity,
+          unit: line.unit,
+          parsedLocation: line.location,
+          wddNumber: metadataString(blockMetadata, "wdd_number"),
+          orderNumber,
+          zlNumber:
+            metadataString(orderMetadata, "zl_number") ??
+            metadataString(blockMetadata, "zl_number"),
+          zwNumber:
+            metadataString(orderMetadata, "zw_number") ??
+            metadataString(blockMetadata, "zw_number"),
+          clientName:
+            metadataString(orderMetadata, "client_name") ??
+            metadataString(blockMetadata, "client_name"),
+          groupName: metadataString(blockMetadata, "group_name"),
+          warehouseCode:
+            metadataString(orderMetadata, "warehouse_code") ??
+            metadataString(blockMetadata, "warehouse_code"),
+          warehouseLabel:
+            metadataString(orderMetadata, "warehouse_section_label") ??
+            metadataString(blockMetadata, "warehouse_section_label"),
+          documentBrand:
+            metadataString(orderMetadata, "document_brand") ??
+            metadataString(blockMetadata, "document_brand"),
+          matchType: match?.block_match_type ?? null,
+          matchConfidence: match?.block_confidence ?? null,
+          blockMetadata,
+          lineMetadata: line.metadata ?? {},
+        };
+      })
+      .filter((line): line is WddMovementImportCandidateLine => Boolean(line))
+      .sort((a, b) => {
+        const orderCompare = (a.orderNumber ?? "\uffff").localeCompare(b.orderNumber ?? "\uffff");
+        if (orderCompare !== 0) return orderCompare;
+        const wddCompare = wddSortNumber(a.wddNumber) - wddSortNumber(b.wddNumber);
+        if (wddCompare !== 0) return wddCompare;
+        if (a.sourceBlockId !== b.sourceBlockId) {
+          return a.sourceBlockId.localeCompare(b.sourceBlockId);
+        }
+        return a.lineNumber - b.lineNumber;
+      });
+
+    return { success: true, data: { session: sessionResult.data, lines } };
   }
 
   static async approveSession(
