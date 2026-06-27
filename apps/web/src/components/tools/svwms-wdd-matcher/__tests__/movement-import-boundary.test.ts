@@ -69,7 +69,7 @@ describe("SVWMS matcher movement import boundary", () => {
     expect(indexMigration).toContain("wdd_matcher_sessions_org_branch_status_created_idx");
   });
 
-  it("renders SVWMS movement import as a session-level list with destination repair", () => {
+  it("renders SVWMS movement import as a session-level list with product/unit repair", () => {
     const dialogSource = readFileSync(
       resolve(
         __dirname,
@@ -80,7 +80,10 @@ describe("SVWMS matcher movement import boundary", () => {
 
     expect(dialogSource).toContain('preview?.source_type === "svwms_wdd_matcher"');
     expect(dialogSource).toContain("showDocumentSelector");
-    expect(dialogSource).toContain("Default destination");
+    expect(dialogSource).not.toContain("Default destination");
+    expect(dialogSource).toContain("createEnhancedInventoryProductAction");
+    expect(dialogSource).toContain("createInventoryUnitAction");
+    expect(dialogSource).toContain("currentDestinationLocationId");
     expect(dialogSource).toContain("wdd_number");
     expect(dialogSource).toContain("order_number");
     expect(dialogSource).toContain("parsed_location");

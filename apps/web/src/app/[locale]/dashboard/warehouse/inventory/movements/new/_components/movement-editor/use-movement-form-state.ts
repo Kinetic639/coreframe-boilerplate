@@ -205,9 +205,9 @@ export function useMovementFormState(
           key: crypto.randomUUID(),
           variant_id: line.variant_id,
           unit_id: line.unit_id,
-          sku: variant?.sku ?? "",
-          product_name: variant?.product_name ?? "",
-          unit_code: unit?.code ?? variant?.unit_code ?? "",
+          sku: variant?.sku ?? line.sku ?? "",
+          product_name: variant?.product_name ?? line.product_name ?? "",
+          unit_code: unit?.code ?? variant?.unit_code ?? line.unit_code ?? "",
           brand_name: null,
           barcode: null,
           quantity: String(line.quantity),
@@ -237,13 +237,13 @@ export function useMovementFormState(
       setDstLoc(
         nextRequiresDestination
           ? (document.lines.find((line) => line.destination_location_id)?.destination_location_id ??
-              "")
+              dstLoc)
           : ""
       );
       setLines(importedLines);
       setActiveTab("lines");
     },
-    [lines.length, movementTypes, t, units, variants]
+    [dstLoc, lines.length, movementTypes, t, units, variants]
   );
 
   return {

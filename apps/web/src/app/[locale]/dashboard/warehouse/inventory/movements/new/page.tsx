@@ -4,6 +4,7 @@ import { checkPermission } from "@/lib/utils/permissions";
 import {
   WAREHOUSE_INVENTORY_OPERATE,
   WAREHOUSE_INVENTORY_READ,
+  WAREHOUSE_PRODUCTS_MANAGE,
   WAREHOUSE_PRODUCTS_READ,
   WAREHOUSE_READ,
 } from "@/lib/constants/permissions";
@@ -77,6 +78,10 @@ export default async function WarehouseInventoryNewMovementPage() {
       stockableLocations={stockableLocations}
       variants={variantsResult.success ? variantsResult.data : []}
       units={unitsResult.success ? unitsResult.data : []}
+      canManageProducts={checkPermission(
+        context.user.permissionSnapshot,
+        WAREHOUSE_PRODUCTS_MANAGE
+      )}
     />
   );
 }

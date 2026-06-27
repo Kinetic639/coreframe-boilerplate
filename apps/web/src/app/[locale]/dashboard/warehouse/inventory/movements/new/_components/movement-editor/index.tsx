@@ -29,6 +29,7 @@ export function MovementDocumentForm({
   stockableLocations,
   variants,
   units,
+  canManageProducts,
   initialValues,
 }: MovementFormProps) {
   const t = useTranslations("warehouseInventory.movementEditor");
@@ -214,6 +215,8 @@ export function MovementDocumentForm({
           variants={variants}
           units={units}
           stockableLocations={stockableLocations}
+          currentDestinationLocationId={form.dstLoc}
+          canManageProducts={canManageProducts}
           fieldPolicies={fieldPolicies}
           onApply={form.applyImportedDocument}
         />

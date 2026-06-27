@@ -58,6 +58,9 @@ export type ImportedMovementDocumentDraft = {
   lines: Array<{
     variant_id: string;
     unit_id: string;
+    sku?: string;
+    product_name?: string;
+    unit_code?: string;
     quantity: number;
     source_location_id: string | null;
     destination_location_id: string | null;
@@ -73,6 +76,7 @@ export type MovementFormProps = {
   stockableLocations: LocationOption[];
   variants: InventoryVariantOption[];
   units: InventoryUnitRow[];
+  canManageProducts: boolean;
   initialValues?: MovementFormInitialValues;
 };
 

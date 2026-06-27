@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "react-toastify";
-import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, Loader2, PlusCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -14,9 +14,12 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
+  createEnhancedInventoryProductAction,
+  createInventoryUnitAction,
   listMovementImportSourcesAction,
   previewMovementImportFromSourceAction,
 } from "@/app/actions/warehouse/inventory";
+import { normalizeImportedSku, skuCollisionFingerprint } from "@/lib/warehouse/import-utils";
 import type {
   InventoryMovementType,
   InventoryUnitRow,
@@ -46,27 +49,36 @@ type Props = {
   variants: InventoryVariantOption[];
   units: InventoryUnitRow[];
   stockableLocations: LocationOption[];
+  currentDestinationLocationId?: string;
+  canManageProducts: boolean;
   onApply: (document: ImportedMovementDocumentDraft) => void;
 };
 
 function errorsForLine(
   line: EditableLine,
   fieldPolicies: MovementFieldPolicyBundle,
-  movementTypeCode: string
+  movementTypeCode: string,
+  options: { deferLocationValidation?: boolean } = {}
 ) {
   const errors: string[] = [];
   const policies = policiesForType(fieldPolicies, movementTypeCode);
   if (!line.variant_id) errors.push("Product is required");
   if (!line.unit_id) errors.push("Unit is required");
   if (!line.quantity || line.quantity <= 0) errors.push("Quantity is required");
-  if (isFieldRequired(policies, MOVEMENT_FIELD_KEYS.sourceLocationId) && !line.source_location_id)
+  if (
+    !options.deferLocationValidation &&
+    isFieldRequired(policies, MOVEMENT_FIELD_KEYS.sourceLocationId) &&
+    !line.source_location_id
+  )
     errors.push("Source location is required");
   if (
+    !options.deferLocationValidation &&
     isFieldRequired(policies, MOVEMENT_FIELD_KEYS.destinationLocationId) &&
     !line.destination_location_id
   )
     errors.push("Destination location is required");
   if (
+    !options.deferLocationValidation &&
     line.source_location_id &&
     line.destination_location_id &&
     line.source_location_id === line.destination_location_id
@@ -79,11 +91,12 @@ function errorsForLine(
 function documentWithRevalidatedLines(
   document: EditableDocument,
   fieldPolicies: MovementFieldPolicyBundle,
-  movementTypeCode: string
+  movementTypeCode: string,
+  options: { deferLocationValidation?: boolean } = {}
 ): EditableDocument {
   const lines = document.lines.map((line) => ({
     ...line,
-    validation_errors: errorsForLine(line, fieldPolicies, movementTypeCode),
+    validation_errors: errorsForLine(line, fieldPolicies, movementTypeCode, options),
   }));
   return {
     ...document,
@@ -114,6 +127,8 @@ export function MovementImportDialog({
   variants,
   units,
   stockableLocations,
+  currentDestinationLocationId,
+  canManageProducts,
   onApply,
 }: Props) {
   const [sources, setSources] = useState<MovementImportSource[]>([]);
@@ -123,7 +138,9 @@ export function MovementImportDialog({
   const [preview, setPreview] = useState<MovementImportPreview | null>(null);
   const [documents, setDocuments] = useState<EditableDocument[]>([]);
   const [selectedDocumentId, setSelectedDocumentId] = useState("");
-  const [defaultDestinationId, setDefaultDestinationId] = useState("");
+  const [variantOptions, setVariantOptions] = useState(variants);
+  const [unitOptions, setUnitOptions] = useState(units);
+  const [quickCreatePendingKey, setQuickCreatePendingKey] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const selectedSource = sources.find((source) => source.source_type === sourceType) ?? null;
@@ -132,6 +149,7 @@ export function MovementImportDialog({
   const selectedDocumentErrors = selectedDocument?.validation_errors ?? [];
   const isSvwmsSessionImport = preview?.source_type === "svwms_wdd_matcher";
   const showDocumentSelector = documents.length > 1 && !isSvwmsSessionImport;
+  const deferLocationValidation = isSvwmsSessionImport;
   const canApply =
     Boolean(selectedDocument) &&
     selectedDocumentErrors.length === 0 &&
@@ -162,9 +180,11 @@ export function MovementImportDialog({
       setPreview(null);
       setDocuments([]);
       setSelectedDocumentId("");
-      setDefaultDestinationId("");
     });
   }, [movementTypeCode, open]);
+
+  useEffect(() => setVariantOptions(variants), [variants]);
+  useEffect(() => setUnitOptions(units), [units]);
 
   const handlePreview = () => {
     if (!sourceType || !movementTypeCode) return;
@@ -187,13 +207,15 @@ export function MovementImportDialog({
         toast.error("Could not preview movement import");
         return;
       }
+      const nextDeferLocationValidation = result.data.source_type === "svwms_wdd_matcher";
       const nextDocuments = result.data.documents.map((document) =>
-        documentWithRevalidatedLines(document, fieldPolicies, movementTypeCode)
+        documentWithRevalidatedLines(document, fieldPolicies, movementTypeCode, {
+          deferLocationValidation: nextDeferLocationValidation,
+        })
       );
       setPreview(result.data);
       setDocuments(nextDocuments);
       setSelectedDocumentId(nextDocuments[0]?.source_document_id ?? "");
-      setDefaultDestinationId("");
     });
   };
 
@@ -215,34 +237,126 @@ export function MovementImportDialog({
             if (line.source_line_id !== sourceLineId) return line;
             const nextLine = { ...line, ...updates };
             if (updates.variant_id) {
-              const variant = variants.find((item) => item.id === updates.variant_id);
+              const variant = variantOptions.find((item) => item.id === updates.variant_id);
               if (variant) nextLine.unit_id = variant.unit_id;
             }
             return nextLine;
           }),
         };
-        return documentWithRevalidatedLines(nextDocument, fieldPolicies, movementTypeCode);
+        return documentWithRevalidatedLines(nextDocument, fieldPolicies, movementTypeCode, {
+          deferLocationValidation,
+        });
       })
     );
   };
 
-  const applyDefaultDestination = (destinationId: string) => {
-    setDefaultDestinationId(destinationId);
+  const updateMatchingLines = (
+    predicate: (line: EditableLine) => boolean,
+    updates: Partial<
+      Pick<
+        EditableLine,
+        "variant_id" | "unit_id" | "source_location_id" | "destination_location_id"
+      >
+    >
+  ) => {
     setDocuments((current) =>
       current.map((document) =>
         documentWithRevalidatedLines(
           {
             ...document,
-            lines: document.lines.map((line) => ({
-              ...line,
-              destination_location_id: destinationId || null,
-            })),
+            lines: document.lines.map((line) => (predicate(line) ? { ...line, ...updates } : line)),
           },
           fieldPolicies,
-          movementTypeCode
+          movementTypeCode,
+          { deferLocationValidation }
         )
       )
     );
+  };
+
+  const handleCreateUnit = async (line: EditableLine) => {
+    if (!canManageProducts) return;
+    const code = normalizeImportedSku(line.raw_unit);
+    if (!code) {
+      toast.error("Imported unit code is missing");
+      return;
+    }
+    setQuickCreatePendingKey(`unit:${line.source_line_id}`);
+    const result = await createInventoryUnitAction({
+      code,
+      name: code,
+      unit_kind: "count",
+      precision: 0,
+    });
+    setQuickCreatePendingKey(null);
+    if (!result.success || !("data" in result)) {
+      toast.error("Could not create unit");
+      return;
+    }
+    setUnitOptions((current) => [...current, result.data]);
+    updateMatchingLines(
+      (candidate) =>
+        !candidate.unit_id &&
+        skuCollisionFingerprint(candidate.raw_unit) === skuCollisionFingerprint(line.raw_unit),
+      { unit_id: result.data.id }
+    );
+    toast.success(`Created unit ${result.data.code}`);
+  };
+
+  const handleCreateProduct = async (line: EditableLine) => {
+    if (!canManageProducts) return;
+    const sku = normalizeImportedSku(line.raw_product_code);
+    if (!sku) {
+      toast.error("Imported product code is required");
+      return;
+    }
+    if (!line.unit_id) {
+      toast.error("Resolve or create the unit before creating the product");
+      return;
+    }
+    const unit = unitOptions.find((item) => item.id === line.unit_id);
+    const name = line.raw_product_name?.trim() || sku;
+    setQuickCreatePendingKey(`product:${line.source_line_id}`);
+    const result = await createEnhancedInventoryProductAction({
+      name,
+      product_type: "stocked",
+      base_unit_id: line.unit_id,
+      sku,
+      returnable: true,
+      track_inventory: false,
+      variants: [{ sku, name }],
+      attributes: [],
+      tags: [],
+      custom_fields: [],
+      unit_conversions: [],
+    });
+    setQuickCreatePendingKey(null);
+    if (!result.success || !("data" in result)) {
+      toast.error("Could not create product");
+      return;
+    }
+    const variantId = result.data.variant_ids[0];
+    if (!variantId) {
+      toast.error("Created product did not return a variant");
+      return;
+    }
+    const option: InventoryVariantOption = {
+      id: variantId,
+      sku: result.data.sku ?? sku,
+      label: `${sku} - ${name}`,
+      product_name: name,
+      unit_id: line.unit_id,
+      unit_code: unit?.code ?? line.raw_unit ?? "",
+    };
+    setVariantOptions((current) => [...current, option]);
+    updateMatchingLines(
+      (candidate) =>
+        !candidate.variant_id &&
+        skuCollisionFingerprint(candidate.raw_product_code) ===
+          skuCollisionFingerprint(line.raw_product_code),
+      { variant_id: variantId, unit_id: line.unit_id }
+    );
+    toast.success(`Created product ${sku}`);
   };
 
   const handleApply = () => {
@@ -257,19 +371,31 @@ export function MovementImportDialog({
             selectedDocument.source_document_number ?? selectedDocument.source_document_id
           }`
         : null,
-      lines: selectedDocument.lines.map((line) => ({
-        variant_id: line.variant_id!,
-        unit_id: line.unit_id!,
-        quantity: line.quantity!,
-        source_location_id: line.source_location_id,
-        destination_location_id: line.destination_location_id,
-      })),
+      lines: selectedDocument.lines.map((line) => {
+        const variant = variantOptions.find((item) => item.id === line.variant_id);
+        const unit = unitOptions.find((item) => item.id === line.unit_id);
+        return {
+          variant_id: line.variant_id!,
+          unit_id: line.unit_id!,
+          sku: variant?.sku,
+          product_name: variant?.product_name,
+          unit_code: unit?.code ?? variant?.unit_code,
+          quantity: line.quantity!,
+          source_location_id: line.source_location_id,
+          destination_location_id: isSvwmsSessionImport
+            ? currentDestinationLocationId || null
+            : line.destination_location_id,
+        };
+      }),
     });
     onOpenChange(false);
     toast.success("Imported data filled the movement form");
   };
 
-  const unitById = useMemo(() => new Map(units.map((unit) => [unit.id, unit])), [units]);
+  const unitById = useMemo(
+    () => new Map(unitOptions.map((unit) => [unit.id, unit])),
+    [unitOptions]
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -308,7 +434,6 @@ export function MovementImportDialog({
                   setPreview(null);
                   setDocuments([]);
                   setSelectedDocumentId("");
-                  setDefaultDestinationId("");
                 }}
                 className="h-9 rounded-md border bg-background px-2 text-sm"
               >
@@ -395,24 +520,6 @@ export function MovementImportDialog({
                 </div>
               )}
 
-              {isSvwmsSessionImport && (
-                <div className="grid gap-1 text-sm font-medium md:max-w-md">
-                  Default destination
-                  <select
-                    value={defaultDestinationId}
-                    onChange={(event) => applyDefaultDestination(event.target.value)}
-                    className="h-9 rounded-md border bg-background px-2 text-sm"
-                  >
-                    <option value="">Select destination for imported items</option>
-                    {stockableLocations.map((location) => (
-                      <option key={location.id} value={location.id}>
-                        {locationLabel(location)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
               {selectedDocumentErrors.length > 0 ? (
                 <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
                   <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -440,8 +547,12 @@ export function MovementImportDialog({
                       <th className="px-3 py-2 text-left">Product</th>
                       <th className="px-3 py-2 text-left">Unit</th>
                       <th className="px-3 py-2 text-left">Qty</th>
-                      <th className="px-3 py-2 text-left">Source</th>
-                      <th className="px-3 py-2 text-left">Destination</th>
+                      {!isSvwmsSessionImport && (
+                        <>
+                          <th className="px-3 py-2 text-left">Source</th>
+                          <th className="px-3 py-2 text-left">Destination</th>
+                        </>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -487,12 +598,36 @@ export function MovementImportDialog({
                               className="h-8 w-full rounded-md border bg-background px-2 text-xs"
                             >
                               <option value="">Select product</option>
-                              {variants.map((variant) => (
+                              {variantOptions.map((variant) => (
                                 <option key={variant.id} value={variant.id}>
                                   {variantLabel(variant)}
                                 </option>
                               ))}
                             </select>
+                            {isSvwmsSessionImport &&
+                              canManageProducts &&
+                              !line.variant_id &&
+                              line.raw_product_code && (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="mt-2 h-7 gap-1 px-2 text-xs"
+                                  onClick={() => handleCreateProduct(line)}
+                                  disabled={
+                                    quickCreatePendingKey !== null ||
+                                    !line.unit_id ||
+                                    !line.raw_product_code
+                                  }
+                                >
+                                  {quickCreatePendingKey === `product:${line.source_line_id}` ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <PlusCircle className="h-3.5 w-3.5" />
+                                  )}
+                                  Create product
+                                </Button>
+                              )}
                           </td>
                           <td className="px-3 py-2 align-top">
                             <select
@@ -505,12 +640,32 @@ export function MovementImportDialog({
                               className="h-8 w-full rounded-md border bg-background px-2 text-xs"
                             >
                               <option value="">Select unit</option>
-                              {units.map((unit) => (
+                              {unitOptions.map((unit) => (
                                 <option key={unit.id} value={unit.id}>
                                   {unit.code} - {unit.name}
                                 </option>
                               ))}
                             </select>
+                            {isSvwmsSessionImport &&
+                              canManageProducts &&
+                              !line.unit_id &&
+                              line.raw_unit && (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="mt-2 h-7 gap-1 px-2 text-xs"
+                                  onClick={() => handleCreateUnit(line)}
+                                  disabled={quickCreatePendingKey !== null || !line.raw_unit}
+                                >
+                                  {quickCreatePendingKey === `unit:${line.source_line_id}` ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <PlusCircle className="h-3.5 w-3.5" />
+                                  )}
+                                  Create unit
+                                </Button>
+                              )}
                             {selectedUnit && (
                               <div className="mt-1 text-[11px] text-muted-foreground">
                                 Imported: {line.raw_unit ?? "-"}
@@ -530,42 +685,46 @@ export function MovementImportDialog({
                               className="h-8 text-xs"
                             />
                           </td>
-                          <td className="px-3 py-2 align-top">
-                            <select
-                              value={line.source_location_id ?? ""}
-                              onChange={(event) =>
-                                updateLine(line.source_line_id, {
-                                  source_location_id: event.target.value || null,
-                                })
-                              }
-                              className="h-8 w-full rounded-md border bg-background px-2 text-xs"
-                            >
-                              <option value="">No source</option>
-                              {stockableLocations.map((location) => (
-                                <option key={location.id} value={location.id}>
-                                  {locationLabel(location)}
-                                </option>
-                              ))}
-                            </select>
-                          </td>
-                          <td className="px-3 py-2 align-top">
-                            <select
-                              value={line.destination_location_id ?? ""}
-                              onChange={(event) =>
-                                updateLine(line.source_line_id, {
-                                  destination_location_id: event.target.value || null,
-                                })
-                              }
-                              className="h-8 w-full rounded-md border bg-background px-2 text-xs"
-                            >
-                              <option value="">No destination</option>
-                              {stockableLocations.map((location) => (
-                                <option key={location.id} value={location.id}>
-                                  {locationLabel(location)}
-                                </option>
-                              ))}
-                            </select>
-                          </td>
+                          {!isSvwmsSessionImport && (
+                            <>
+                              <td className="px-3 py-2 align-top">
+                                <select
+                                  value={line.source_location_id ?? ""}
+                                  onChange={(event) =>
+                                    updateLine(line.source_line_id, {
+                                      source_location_id: event.target.value || null,
+                                    })
+                                  }
+                                  className="h-8 w-full rounded-md border bg-background px-2 text-xs"
+                                >
+                                  <option value="">No source</option>
+                                  {stockableLocations.map((location) => (
+                                    <option key={location.id} value={location.id}>
+                                      {locationLabel(location)}
+                                    </option>
+                                  ))}
+                                </select>
+                              </td>
+                              <td className="px-3 py-2 align-top">
+                                <select
+                                  value={line.destination_location_id ?? ""}
+                                  onChange={(event) =>
+                                    updateLine(line.source_line_id, {
+                                      destination_location_id: event.target.value || null,
+                                    })
+                                  }
+                                  className="h-8 w-full rounded-md border bg-background px-2 text-xs"
+                                >
+                                  <option value="">No destination</option>
+                                  {stockableLocations.map((location) => (
+                                    <option key={location.id} value={location.id}>
+                                      {locationLabel(location)}
+                                    </option>
+                                  ))}
+                                </select>
+                              </td>
+                            </>
+                          )}
                         </tr>
                       );
                     })}

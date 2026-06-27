@@ -9,10 +9,15 @@ import type {
   MovementFieldPolicy,
 } from "@/lib/warehouse/inventory-types";
 import { isFieldRequired, MOVEMENT_FIELD_KEYS } from "@/lib/warehouse/movement-field-policy";
+import { normalizeImportToken } from "@/lib/warehouse/import-utils";
 import { InventoryMovementsService, type ServiceResult } from "./inventory-movements.service";
 import { InventoryMovementFieldPoliciesService } from "./inventory-movement-field-policies.service";
 import { MovementImportSourceRegistry } from "./movement-import-adapters/registry";
 import type { CanonicalMovementImportLine } from "./movement-import-adapters/types";
+import {
+  WarehouseImportResolverService,
+  type WarehouseImportResolverContext,
+} from "./warehouse-import-resolver.service";
 
 type MovementTypeRow = InventoryMovementType & {
   requires_source_location: boolean;
@@ -20,24 +25,12 @@ type MovementTypeRow = InventoryMovementType & {
 };
 
 type ResolverContext = {
-  variantsByToken: Map<string, Array<{ id: string; sku: string | null }>>;
-  unitsByToken: Map<string, { id: string; code: string | null }>;
+  warehouse: WarehouseImportResolverContext;
   locationsByToken: Map<string, Array<{ id: string; code: string | null; name: string | null }>>;
 };
 
 function serviceError(result: ServiceResult<unknown>) {
   return (result as { success: false; error: string }).error;
-}
-
-function normalizeToken(value: string | null | undefined) {
-  return (value ?? "").trim().toLowerCase();
-}
-
-function fingerprint(value: string | null | undefined) {
-  return (value ?? "")
-    .trim()
-    .toUpperCase()
-    .replace(/[^\p{L}\p{N}]/gu, "");
 }
 
 function validationErrors(
@@ -69,18 +62,6 @@ function validationErrors(
     errors.push("Source and destination locations must differ");
   }
   return errors;
-}
-
-function resolveUnique<T extends { id: string }>(
-  candidates: Map<string, T[]>,
-  rawValue: string | null | undefined
-): { id: string | null; error: string | null } {
-  const key = fingerprint(rawValue);
-  if (!key) return { id: null, error: null };
-  const matches = candidates.get(key) ?? [];
-  if (matches.length === 1) return { id: matches[0].id, error: null };
-  if (matches.length > 1) return { id: null, error: "Matched multiple records" };
-  return { id: null, error: null };
 }
 
 export class InventoryMovementImportsService {
@@ -129,18 +110,8 @@ export class InventoryMovementImportsService {
     orgId: string,
     branchId: string
   ): Promise<ServiceResult<ResolverContext>> {
-    const [variantsRes, unitsRes, locationsRes] = await Promise.all([
-      (supabase as any)
-        .from("inventory_variants")
-        .select("id, sku, barcode")
-        .eq("organization_id", orgId)
-        .eq("status", "active")
-        .is("deleted_at", null),
-      (supabase as any)
-        .from("inventory_units")
-        .select("id, code")
-        .eq("organization_id", orgId)
-        .is("deleted_at", null),
+    const [warehouseResolver, locationsRes] = await Promise.all([
+      WarehouseImportResolverService.buildContext(supabase, orgId),
       (supabase as any)
         .from("warehouse_locations")
         .select("id, code, name")
@@ -149,26 +120,8 @@ export class InventoryMovementImportsService {
         .eq("can_store_inventory", true)
         .is("deleted_at", null),
     ]);
-    if (variantsRes.error) return { success: false, error: variantsRes.error.message };
-    if (unitsRes.error) return { success: false, error: unitsRes.error.message };
+    if (!warehouseResolver.success) return warehouseResolver as ServiceResult<ResolverContext>;
     if (locationsRes.error) return { success: false, error: locationsRes.error.message };
-
-    const variantsByToken = new Map<string, Array<{ id: string; sku: string | null }>>();
-    for (const variant of variantsRes.data ?? []) {
-      for (const raw of [variant.sku, variant.barcode]) {
-        const key = fingerprint(raw);
-        if (!key) continue;
-        const items = variantsByToken.get(key) ?? [];
-        items.push({ id: variant.id, sku: variant.sku });
-        variantsByToken.set(key, items);
-      }
-    }
-
-    const unitsByToken = new Map<string, { id: string; code: string | null }>();
-    for (const unit of unitsRes.data ?? []) {
-      const key = normalizeToken(unit.code);
-      if (key) unitsByToken.set(key, { id: unit.id, code: unit.code });
-    }
 
     const locationsByToken = new Map<
       string,
@@ -176,7 +129,7 @@ export class InventoryMovementImportsService {
     >();
     for (const location of locationsRes.data ?? []) {
       for (const raw of [location.code, location.name]) {
-        const key = normalizeToken(raw);
+        const key = normalizeImportToken(raw);
         if (!key) continue;
         const items = locationsByToken.get(key) ?? [];
         items.push({ id: location.id, code: location.code, name: location.name });
@@ -184,11 +137,14 @@ export class InventoryMovementImportsService {
       }
     }
 
-    return { success: true, data: { variantsByToken, unitsByToken, locationsByToken } };
+    return {
+      success: true,
+      data: { warehouse: warehouseResolver.data, locationsByToken },
+    };
   }
 
   private static resolveLocation(rawValue: string | null, resolver: ResolverContext) {
-    const normalized = normalizeToken(rawValue);
+    const normalized = normalizeImportToken(rawValue);
     if (!normalized) return { id: null, error: null };
     const matches = resolver.locationsByToken.get(normalized) ?? [];
     if (matches.length === 1) return { id: matches[0].id, error: null };
@@ -202,10 +158,14 @@ export class InventoryMovementImportsService {
     resolver: ResolverContext
   ): MovementImportPreviewLine {
     const errors: string[] = [];
-    const variant = resolveUnique(resolver.variantsByToken, line.rawProductCode);
-    if (variant.error) errors.push(`Product ${variant.error.toLowerCase()}`);
+    const variant = WarehouseImportResolverService.resolveVariant(
+      resolver.warehouse,
+      line.rawProductCode
+    );
+    if (variant.status === "ambiguous") errors.push("Product matched multiple records");
 
-    const unitId = resolver.unitsByToken.get(normalizeToken(line.rawUnit))?.id ?? null;
+    const unit = WarehouseImportResolverService.resolveUnit(resolver.warehouse, line.rawUnit);
+    if (unit.status === "ambiguous") errors.push("Unit matched multiple records");
     const rawSourceLocation =
       line.rawSourceLocation ??
       (isFieldRequired(policies, MOVEMENT_FIELD_KEYS.sourceLocationId) &&
@@ -224,8 +184,8 @@ export class InventoryMovementImportsService {
       errors.push(`Destination ${destinationLocation.error.toLowerCase()}`);
 
     const resolved = {
-      variant_id: variant.id,
-      unit_id: unitId,
+      variant_id: variant.value?.id ?? null,
+      unit_id: unit.value?.id ?? null,
       source_location_id: sourceLocation.id,
       destination_location_id: destinationLocation.id,
       quantity: line.rawQuantity,
