@@ -6533,6 +6533,23 @@
         "label": "Other",
         "description": "General purpose location"
       }
+    },
+    "qr": {
+      "assignQr": "Assign QR Code",
+      "unassignQr": "Unlink QR Code",
+      "scanWithCamera": "Scan with Camera",
+      "selectFromList": "Select from List",
+      "assignedToken": "Assigned QR Token",
+      "noQrAssigned": "No QR code assigned to this location",
+      "assignSuccess": "QR code assigned successfully",
+      "unassignSuccess": "QR code unlinked",
+      "searchQr": "Search by token or label...",
+      "scanning": "Scanning...",
+      "scanHint": "Point your camera at a QR code label",
+      "noUnassignedCodes": "No unassigned QR codes available",
+      "alreadyAssigned": "This QR code is already assigned to another target",
+      "codeRevoked": "This QR code has been revoked",
+      "qrCode": "QR Code"
     }
   },
   "publicOrgProfile": {

@@ -20,7 +20,16 @@ import {
   listLocationsPaginatedAction,
   getLocationDetailAction,
 } from "@/app/actions/warehouse/locations";
+import { getQrAssignmentForLocationAction } from "@/app/actions/qr/assign-location";
 import { LocationDetailPanel } from "./location-detail-panel";
+
+type QrAssignmentInfo = {
+  assignmentId: string;
+  qrCodeId: string;
+  token: string;
+  label: string | null;
+  status: string;
+};
 
 type LocationDetailData = {
   location: LogicalLocation;
@@ -28,6 +37,7 @@ type LocationDetailData = {
   allLocations: LogicalLocation[];
   inventorySnapshot: AmbraLocationInventorySnapshot;
   variantOptions: InventoryVariantOption[];
+  qrAssignment: QrAssignmentInfo | null;
 };
 
 type Props = {
@@ -36,6 +46,7 @@ type Props = {
   ambraLocations: LogicalLocation[];
   inventorySnapshot: AmbraLocationInventorySnapshot;
   variantOptions: InventoryVariantOption[];
+  qrCache: Map<string, QrAssignmentInfo | null>;
 };
 
 async function listFetcher(params: DataViewListParams) {
@@ -51,6 +62,7 @@ export function LocationsDataView({
   ambraLocations,
   inventorySnapshot,
   variantOptions,
+  qrCache,
 }: Props) {
   const t = useTranslations("warehouseLocations.listView");
   const tAmbra = useTranslations("ambraLocations");
@@ -94,8 +106,19 @@ export function LocationsDataView({
   inventorySnapshotRef.current = inventorySnapshot;
   const variantOptionsRef = useRef(variantOptions);
   variantOptionsRef.current = variantOptions;
+  const qrCacheRef = useRef(qrCache);
+  qrCacheRef.current = qrCache;
 
   const detailFetcher = useCallback(async (id: string): Promise<LocationDetailData | null> => {
+    let qrAssignment: QrAssignmentInfo | null = null;
+    if (qrCacheRef.current.has(id)) {
+      qrAssignment = qrCacheRef.current.get(id) ?? null;
+    } else {
+      const qrResult = await getQrAssignmentForLocationAction(id).catch(() => null);
+      qrAssignment =
+        qrResult && qrResult.success && qrResult.data ? (qrResult.data as QrAssignmentInfo) : null;
+    }
+
     const cached = locationByIdRef.current.get(id);
     if (cached) {
       return {
@@ -104,6 +127,7 @@ export function LocationsDataView({
         allLocations: ambraLocationsRef.current,
         inventorySnapshot: inventorySnapshotRef.current,
         variantOptions: variantOptionsRef.current,
+        qrAssignment,
       };
     }
     try {
@@ -117,6 +141,7 @@ export function LocationsDataView({
         allLocations: ambraLocationsRef.current,
         inventorySnapshot: inventorySnapshotRef.current,
         variantOptions: variantOptionsRef.current,
+        qrAssignment,
       };
     } catch {
       return null;
@@ -243,6 +268,7 @@ export function LocationsDataView({
           variantOptions={detail.variantOptions}
           pathCode={detail.pathCode}
           compact={isCompactMode}
+          qrAssignment={detail.qrAssignment}
           headerActions={
             <div className="flex items-center gap-1 bg-background/80 rounded-xl p-1 border border-border">
               <button

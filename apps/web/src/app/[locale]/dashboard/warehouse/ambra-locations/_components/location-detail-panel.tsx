@@ -20,11 +20,18 @@ import {
   LayoutList,
   Maximize2,
   Package,
+  QrCode,
   RotateCcw,
   ShieldCheck,
   Tag,
+  Unlink,
   Zap,
 } from "lucide-react";
+import { toast } from "react-toastify";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { unassignQrFromLocationAction } from "@/app/actions/qr/assign-location";
+import { AssignQrLocationDialog } from "./assign-qr-location-dialog";
 import type {
   AmbraLocationInventorySnapshot,
   ContainerLine,
@@ -346,6 +353,14 @@ function MovementHistoryList({
 // Main Component
 // ---------------------------------------------------------------------------
 
+type QrAssignmentInfo = {
+  assignmentId: string;
+  qrCodeId: string;
+  token: string;
+  label: string | null;
+  status: string;
+};
+
 type Props = {
   location: LogicalLocation;
   allLocations: LogicalLocation[];
@@ -355,6 +370,9 @@ type Props = {
   compact?: boolean;
   onSelectLocation?: (id: string) => void;
   headerActions?: React.ReactNode;
+  qrAssignment?: QrAssignmentInfo | null;
+  onQrAssigned?: (assignment: QrAssignmentInfo) => void;
+  onQrUnassigned?: () => void;
 };
 
 export function LocationDetailPanel({
@@ -366,10 +384,16 @@ export function LocationDetailPanel({
   compact,
   onSelectLocation,
   headerActions,
+  qrAssignment,
+  onQrAssigned,
+  onQrUnassigned,
 }: Props) {
   const t = useTranslations("ambraLocations");
+  const tQr = useTranslations("ambraLocations.qr");
   const [activeTab, setActiveTab] = useState<"info" | "inventory" | "history">("info");
   const [copiedPath, setCopiedPath] = useState(false);
+  const [qrDialogOpen, setQrDialogOpen] = useState(false);
+  const [unlinking, setUnlinking] = useState(false);
 
   // --- helpers ---
 
@@ -510,6 +534,22 @@ export function LocationDetailPanel({
     navigator.clipboard.writeText(pathString);
     setCopiedPath(true);
     setTimeout(() => setCopiedPath(false), 2000);
+  };
+
+  const handleUnlinkQr = async () => {
+    if (!qrAssignment) return;
+    setUnlinking(true);
+    try {
+      const result = await unassignQrFromLocationAction(qrAssignment.assignmentId);
+      if (!result.success) {
+        toast.error((result as { success: false; error: string }).error);
+        return;
+      }
+      toast.success(tQr("unassignSuccess"));
+      onQrUnassigned?.();
+    } finally {
+      setUnlinking(false);
+    }
   };
 
   // --- child locations ---
@@ -839,6 +879,72 @@ export function LocationDetailPanel({
                   )}
                 </div>
               </div>
+
+              {/* QR Code Section */}
+              <section className="overflow-hidden rounded-lg border border-border bg-card/70 shadow-sm">
+                <div className="flex items-center justify-between border-b border-border bg-muted/40 px-5 py-4">
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {tQr("qrCode")}
+                  </span>
+                  <QrCode className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div className="p-6">
+                  {qrAssignment ? (
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <QrCode className="h-5 w-5 text-primary" />
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            {tQr("assignedToken")}
+                          </p>
+                          <Badge variant="secondary" className="mt-1 font-mono text-xs">
+                            {qrAssignment.token}
+                          </Badge>
+                          {qrAssignment.label && (
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {qrAssignment.label}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleUnlinkQr}
+                        disabled={unlinking}
+                        className="gap-1.5 text-destructive hover:text-destructive"
+                      >
+                        <Unlink className="h-3.5 w-3.5" />
+                        {tQr("unassignQr")}
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-3 py-4">
+                      <p className="text-xs text-muted-foreground">{tQr("noQrAssigned")}</p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setQrDialogOpen(true)}
+                        className="gap-1.5"
+                      >
+                        <QrCode className="h-3.5 w-3.5" />
+                        {tQr("assignQr")}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </section>
+
+              <AssignQrLocationDialog
+                open={qrDialogOpen}
+                onOpenChange={setQrDialogOpen}
+                locationId={location.id}
+                locationName={location.name}
+                onAssigned={(assignment) => {
+                  onQrAssigned?.(assignment);
+                  setQrDialogOpen(false);
+                }}
+              />
             </motion.div>
           ) : activeTab === "inventory" ? (
             <motion.div

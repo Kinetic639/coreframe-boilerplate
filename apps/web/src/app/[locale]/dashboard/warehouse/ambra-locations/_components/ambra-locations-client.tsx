@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryState, parseAsString } from "nuqs";
+import { getQrAssignmentForLocationAction } from "@/app/actions/qr/assign-location";
 import { AnimatePresence, motion } from "motion/react";
 import { List, TreePine } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -53,33 +54,66 @@ export function AmbraLocationsClient({
   const t = useTranslations("warehouseLocations.listView");
   const [viewParam, setViewParam] = useQueryState("view", parseAsString.withDefault("tree"));
   const viewMode = (viewParam === "list" ? "list" : "tree") as "tree" | "list";
-  const [locParam, setLocParam] = useQueryState("loc", parseAsString.withDefault(""));
+
+  const [treeSelectedId, setTreeSelectedId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return new URL(window.location.href).searchParams.get("selected") || null;
+  });
+
+  const selectedLocationId = viewMode === "tree" ? treeSelectedId : null;
+
+  const setSelectedLocationId = useCallback((id: string | null) => setTreeSelectedId(id), []);
 
   const setViewMode = useCallback(
     (mode: "tree" | "list") => {
-      const url = new URL(window.location.href);
-      if (mode === "list") {
-        const loc = url.searchParams.get("loc");
-        if (loc) url.searchParams.set("selected", loc);
-      } else {
+      if (mode === "list" && treeSelectedId) {
+        const url = new URL(window.location.href);
+        url.searchParams.set("selected", treeSelectedId);
+        url.searchParams.set("view", "list");
+        window.history.replaceState(null, "", url.toString());
+      } else if (mode === "tree") {
+        const url = new URL(window.location.href);
         const sel = url.searchParams.get("selected");
-        if (sel) url.searchParams.set("loc", sel);
+        if (sel) setTreeSelectedId(sel);
         url.searchParams.delete("selected");
+        url.searchParams.set("view", "tree");
+        window.history.replaceState(null, "", url.toString());
       }
-      url.searchParams.set("view", mode);
-      window.history.replaceState(null, "", url.toString());
       void setViewParam(mode, { history: "replace" });
     },
-    [setViewParam]
+    [setViewParam, treeSelectedId]
   );
+  type QrAssignmentInfo = {
+    assignmentId: string;
+    qrCodeId: string;
+    token: string;
+    label: string | null;
+    status: string;
+  };
+  const [qrCache, setQrCache] = useState<Map<string, QrAssignmentInfo | null>>(new Map());
+  const [qrAssignment, setQrAssignment] = useState<QrAssignmentInfo | null>(null);
 
-  const selectedLocationId = locParam || null;
-  const setSelectedLocationId = useCallback(
-    (id: string | null) => {
-      void setLocParam(id ?? "", { history: "push" });
-    },
-    [setLocParam]
-  );
+  useEffect(() => {
+    if (!selectedLocationId) {
+      setQrAssignment(null);
+      return;
+    }
+    if (qrCache.has(selectedLocationId)) {
+      setQrAssignment(qrCache.get(selectedLocationId) ?? null);
+      return;
+    }
+    getQrAssignmentForLocationAction(selectedLocationId)
+      .then((r) => {
+        const val = r.success && r.data ? (r.data as QrAssignmentInfo) : null;
+        setQrAssignment(val);
+        setQrCache((prev) => new Map(prev).set(selectedLocationId, val));
+      })
+      .catch(() => {
+        setQrAssignment(null);
+        setQrCache((prev) => new Map(prev).set(selectedLocationId, null));
+      });
+  }, [selectedLocationId, qrCache]);
+
   const useDemoData = initialLocations.length === 0;
   const [locations, setLocations] = useState<LogicalLocation[]>(
     useDemoData ? MOCK_LOCATIONS : initialLocations
@@ -180,6 +214,7 @@ export function AmbraLocationsClient({
             ambraLocations={branchLocations}
             inventorySnapshot={initialInventorySnapshot}
             variantOptions={variantOptions}
+            qrCache={qrCache}
           />
         ) : (
           <AnimatePresence mode="wait">
@@ -203,6 +238,17 @@ export function AmbraLocationsClient({
                 onUpdateLocation={handleUpdateLocation}
                 onDeleteLocation={handleDeleteLocation}
                 onNavigateToWorkspace={() => undefined}
+                qrAssignment={qrAssignment}
+                onQrAssigned={(a) => {
+                  setQrAssignment(a);
+                  if (selectedLocationId)
+                    setQrCache((prev) => new Map(prev).set(selectedLocationId, a));
+                }}
+                onQrUnassigned={() => {
+                  setQrAssignment(null);
+                  if (selectedLocationId)
+                    setQrCache((prev) => new Map(prev).set(selectedLocationId, null));
+                }}
               />
             </motion.div>
           </AnimatePresence>

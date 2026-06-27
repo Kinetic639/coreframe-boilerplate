@@ -6507,6 +6507,23 @@
         "label": "Inna",
         "description": "Lokalizacja ogólnego przeznaczenia"
       }
+    },
+    "qr": {
+      "assignQr": "Przypisz kod QR",
+      "unassignQr": "Odłącz kod QR",
+      "scanWithCamera": "Skanuj kamerą",
+      "selectFromList": "Wybierz z listy",
+      "assignedToken": "Przypisany token QR",
+      "noQrAssigned": "Brak przypisanego kodu QR do tej lokalizacji",
+      "assignSuccess": "Kod QR przypisany pomyślnie",
+      "unassignSuccess": "Kod QR odłączony",
+      "searchQr": "Szukaj po tokenie lub etykiecie...",
+      "scanning": "Skanowanie...",
+      "scanHint": "Skieruj kamerę na etykietę z kodem QR",
+      "noUnassignedCodes": "Brak dostępnych nieprzypisanych kodów QR",
+      "alreadyAssigned": "Ten kod QR jest już przypisany do innego elementu",
+      "codeRevoked": "Ten kod QR został unieważniony",
+      "qrCode": "Kod QR"
     }
   },
   "publicOrgProfile": {

@@ -120,6 +120,21 @@ interface LocationsPageProps {
   onUpdateLocation?: (loc: Partial<LogicalLocation> & { id: string }) => void | Promise<void>;
   onDeleteLocation?: (locationId: string) => void | Promise<void>;
   onNavigateToWorkspace: (layoutId: string) => void;
+  qrAssignment?: {
+    assignmentId: string;
+    qrCodeId: string;
+    token: string;
+    label: string | null;
+    status: string;
+  } | null;
+  onQrAssigned?: (assignment: {
+    assignmentId: string;
+    qrCodeId: string;
+    token: string;
+    label: string | null;
+    status: string;
+  }) => void;
+  onQrUnassigned?: () => void;
 }
 
 function InventoryMetric({
@@ -426,6 +441,9 @@ export default function LocationsPage({
   onUpdateLocation,
   onDeleteLocation,
   onNavigateToWorkspace,
+  qrAssignment,
+  onQrAssigned,
+  onQrUnassigned,
 }: LocationsPageProps) {
   const t = useTranslations("ambraLocations");
   const [internalSelectedId, setInternalSelectedId] = useState<string | null>(
@@ -1178,6 +1196,9 @@ export default function LocationsPage({
                   .join(" / ")}
                 compact={isCompactMode}
                 onSelectLocation={(id) => setSelectedLocationId(id)}
+                qrAssignment={qrAssignment}
+                onQrAssigned={onQrAssigned}
+                onQrUnassigned={onQrUnassigned}
                 headerActions={
                   <>
                     <div className="flex items-center gap-1 bg-background/80 rounded-xl p-1 border border-border">
