@@ -1,3 +1,7 @@
+// TODO(locations-v2): Legacy map context computation path.
+// Resolves top-down and front anchors from map_role chain (layout_root, top_down_unit, front_segment).
+// V2 rendering derives context from warehouse_location_visual_nodes.view_context_location_id instead.
+// Planned removal in Phase 8 once the V2 top-down editor is complete.
 import type { WarehouseLocation } from "./location-tree";
 
 export interface WarehouseLocationMapContext {

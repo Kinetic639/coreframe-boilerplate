@@ -5,6 +5,12 @@
  * Shapes are the visual building blocks: location markers, walls, doors,
  * aisles, zones, obstacles, and text labels.
  *
+ * TODO(locations-v2): shape_type='location' usage is a legacy pattern.
+ * V2 location visual placement uses warehouse_location_visual_nodes instead.
+ * This service remains valid for decorative shapes (walls, doors, aisles, labels).
+ * The shape_type='location' path and whole-layout replace RPC are candidates for
+ * removal in Phase 8 once the V2 editor is complete.
+ *
  * Constraints:
  * - server-only (never import from client components)
  * - uses authenticated Supabase client only (no service role)
