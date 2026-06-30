@@ -5,11 +5,14 @@ import {
   WAREHOUSE_PRODUCTS_MANAGE,
   WAREHOUSE_PRODUCTS_READ,
   WAREHOUSE_READ,
+  WAREHOUSE_LOCATIONS_MANAGE,
 } from "@/lib/constants/permissions";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { createClient } from "@/utils/supabase/server";
 import { InventoryProductsService } from "@/server/services/inventory-products.service";
+import { WarehouseLocationLabelSettingsService } from "@/server/services/warehouse-location-label-settings.service";
 import { WarehouseInventorySettingsClient } from "./warehouse-inventory-settings-client";
+import { LocationLabelDefaultsSettings } from "./_components/location-label-defaults-settings";
 
 export default async function WarehouseSettingsPage() {
   const locale = await getLocale();
@@ -27,23 +30,38 @@ export default async function WarehouseSettingsPage() {
   }
 
   const supabase = await createClient();
-  const [unitsResult, conversionsResult, customFieldsResult, taxRatesResult, tagsResult] =
-    await Promise.all([
-      InventoryProductsService.listUnits(supabase, context.app.activeOrgId),
-      InventoryProductsService.listUnitConversions(supabase, context.app.activeOrgId),
-      InventoryProductsService.listCustomFields(supabase, context.app.activeOrgId),
-      InventoryProductsService.listTaxRates(supabase, context.app.activeOrgId),
-      InventoryProductsService.listTags(supabase, context.app.activeOrgId),
-    ]);
+  const [
+    unitsResult,
+    conversionsResult,
+    customFieldsResult,
+    taxRatesResult,
+    tagsResult,
+    labelSettingsResult,
+  ] = await Promise.all([
+    InventoryProductsService.listUnits(supabase, context.app.activeOrgId),
+    InventoryProductsService.listUnitConversions(supabase, context.app.activeOrgId),
+    InventoryProductsService.listCustomFields(supabase, context.app.activeOrgId),
+    InventoryProductsService.listTaxRates(supabase, context.app.activeOrgId),
+    InventoryProductsService.listTags(supabase, context.app.activeOrgId),
+    WarehouseLocationLabelSettingsService.get(supabase, context.app.activeOrgId),
+  ]);
 
   return (
-    <WarehouseInventorySettingsClient
-      units={unitsResult.success ? unitsResult.data : []}
-      unitConversions={conversionsResult.success ? conversionsResult.data : []}
-      customFields={customFieldsResult.success ? customFieldsResult.data : []}
-      taxRates={taxRatesResult.success ? taxRatesResult.data : []}
-      tags={tagsResult.success ? tagsResult.data : []}
-      canManage={checkPermission(context.user.permissionSnapshot, WAREHOUSE_PRODUCTS_MANAGE)}
-    />
+    <div className="grid gap-6">
+      <WarehouseInventorySettingsClient
+        units={unitsResult.success ? unitsResult.data : []}
+        unitConversions={conversionsResult.success ? conversionsResult.data : []}
+        customFields={customFieldsResult.success ? customFieldsResult.data : []}
+        taxRates={taxRatesResult.success ? taxRatesResult.data : []}
+        tags={tagsResult.success ? tagsResult.data : []}
+        canManage={checkPermission(context.user.permissionSnapshot, WAREHOUSE_PRODUCTS_MANAGE)}
+      />
+      <LocationLabelDefaultsSettings
+        initialConfig={
+          labelSettingsResult.success ? (labelSettingsResult.data?.label_config ?? null) : null
+        }
+        canManage={checkPermission(context.user.permissionSnapshot, WAREHOUSE_LOCATIONS_MANAGE)}
+      />
+    </div>
   );
 }

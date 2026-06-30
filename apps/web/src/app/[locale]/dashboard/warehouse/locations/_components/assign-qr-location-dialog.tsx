@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { QrCode, Camera, ArrowLeft, Loader2, AlertCircle, Sparkles } from "lucide-react";
 import { toast } from "react-toastify";
+import { useTranslations } from "next-intl";
 import {
   Dialog,
   DialogContent,
@@ -12,21 +13,21 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { getQrCodeByTokenAction } from "@/app/actions/qr/assign";
 import {
-  assignQrToTicketAction,
-  createAndAssignQrToTicketAction,
-  getQrCodeByTokenAction,
-} from "@/app/actions/qr/assign";
+  assignQrToLocationAction,
+  createAndAssignQrToLocationAction,
+} from "@/app/actions/qr/assign-location";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-interface AssignQrDialogProps {
+type AssignQrLocationDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  ticketId: string;
-  ticketNumber: string;
+  locationId: string;
+  locationName: string;
   onAssigned: (assignment: {
     assignmentId: string;
     qrCodeId: string;
@@ -34,7 +35,7 @@ interface AssignQrDialogProps {
     label: string | null;
     status: string;
   }) => void;
-}
+};
 
 // ---------------------------------------------------------------------------
 // Token extraction helper
@@ -58,7 +59,7 @@ function extractToken(scannedText: string): string | null {
 // ---------------------------------------------------------------------------
 
 interface QrCameraScannerProps {
-  ticketId: string;
+  locationId: string;
   onSuccess: (assignment: {
     assignmentId: string;
     qrCodeId: string;
@@ -67,9 +68,10 @@ interface QrCameraScannerProps {
     status: string;
   }) => void;
   onBack: () => void;
+  t: ReturnType<typeof useTranslations<"ambraLocations.qr">>;
 }
 
-function QrCameraScanner({ ticketId, onSuccess, onBack }: QrCameraScannerProps) {
+function QrCameraScanner({ locationId, onSuccess, onBack, t }: QrCameraScannerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -83,7 +85,7 @@ function QrCameraScanner({ ticketId, onSuccess, onBack }: QrCameraScannerProps) 
   const stopCamera = useCallback(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current.getTracks().forEach((tr) => tr.stop());
       streamRef.current = null;
     }
   }, []);
@@ -96,16 +98,16 @@ function QrCameraScanner({ ticketId, onSuccess, onBack }: QrCameraScannerProps) 
 
       const token = extractToken(scannedText);
       if (!token) {
-        setScanStatus("Could not read a valid QR token. Try again.");
+        setScanStatus(t("scanHint"));
         processingRef.current = false;
         return;
       }
 
-      setScanStatus("Looking up QR code…");
+      setScanStatus(t("scanning"));
       const lookup = await getQrCodeByTokenAction(token);
 
       if (!lookup.success || !lookup.data) {
-        setScanStatus("QR code not found in this organisation.");
+        setScanStatus(t("noUnassignedCodes"));
         processingRef.current = false;
         return;
       }
@@ -113,26 +115,21 @@ function QrCameraScanner({ ticketId, onSuccess, onBack }: QrCameraScannerProps) 
       const { id, label, status, assignment } = lookup.data;
 
       if (status !== "active") {
-        setScanStatus("This QR code has been revoked.");
+        setScanStatus(t("codeRevoked"));
         processingRef.current = false;
         return;
       }
 
       if (assignment) {
-        if (assignment.target_type === "helpdesk.ticket" && assignment.target_id === ticketId) {
-          setScanStatus("This QR code is already linked to this ticket.");
-          processingRef.current = false;
-          return;
-        }
-        setScanStatus("This QR code is already assigned to something else.");
+        setScanStatus(t("alreadyAssigned"));
         processingRef.current = false;
         return;
       }
 
       // Unassigned and active — assign it
-      setScanStatus("Assigning QR code…");
+      setScanStatus(t("scanning"));
       setAssigning(true);
-      const result = await assignQrToTicketAction({ qrCodeId: id, ticketId });
+      const result = await assignQrToLocationAction({ qrCodeId: id, locationId });
       setAssigning(false);
 
       if (!result.success) {
@@ -141,7 +138,7 @@ function QrCameraScanner({ ticketId, onSuccess, onBack }: QrCameraScannerProps) 
         return;
       }
 
-      toast.success("QR code assigned to ticket.");
+      toast.success(t("assignSuccess"));
       onSuccess({
         assignmentId: (result as { success: true; data: { id: string } }).data.id,
         qrCodeId: id,
@@ -150,7 +147,7 @@ function QrCameraScanner({ ticketId, onSuccess, onBack }: QrCameraScannerProps) 
         status: "active",
       });
     },
-    [ticketId, onSuccess, stopCamera]
+    [locationId, onSuccess, stopCamera, t]
   );
 
   useEffect(() => {
@@ -162,7 +159,7 @@ function QrCameraScanner({ ticketId, onSuccess, onBack }: QrCameraScannerProps) 
           video: { facingMode: "environment" },
         });
         if (cancelled) {
-          stream.getTracks().forEach((t) => t.stop());
+          stream.getTracks().forEach((tr) => tr.stop());
           return;
         }
         streamRef.current = stream;
@@ -219,7 +216,7 @@ function QrCameraScanner({ ticketId, onSuccess, onBack }: QrCameraScannerProps) 
     <div className="flex flex-col gap-3">
       <Button variant="ghost" size="sm" className="self-start -ml-1" onClick={onBack}>
         <ArrowLeft className="mr-1.5 h-4 w-4" />
-        Generate new instead
+        {t("generateNew")}
       </Button>
 
       {cameraError ? (
@@ -248,14 +245,12 @@ function QrCameraScanner({ ticketId, onSuccess, onBack }: QrCameraScannerProps) 
 
       {scanStatus && !assigning && (
         <Button variant="outline" size="sm" onClick={onBack}>
-          Try again
+          {t("generateNew")}
         </Button>
       )}
 
       {!scanStatus && !cameraError && (
-        <p className="text-center text-xs text-muted-foreground">
-          Point the camera at a QR label to scan it automatically.
-        </p>
+        <p className="text-center text-xs text-muted-foreground">{t("scanHint")}</p>
       )}
     </div>
   );
@@ -265,13 +260,14 @@ function QrCameraScanner({ ticketId, onSuccess, onBack }: QrCameraScannerProps) 
 // Main dialog
 // ---------------------------------------------------------------------------
 
-export function AssignQrDialog({
+export function AssignQrLocationDialog({
   open,
   onOpenChange,
-  ticketId,
-  ticketNumber,
+  locationId,
+  locationName,
   onAssigned,
-}: AssignQrDialogProps) {
+}: AssignQrLocationDialogProps) {
+  const t = useTranslations("ambraLocations.qr");
   const [label, setLabel] = useState("");
   const [generating, setGenerating] = useState(false);
   const [scanning, setScanning] = useState(false);
@@ -287,15 +283,15 @@ export function AssignQrDialog({
   const handleGenerate = async () => {
     setGenerating(true);
     try {
-      const result = await createAndAssignQrToTicketAction({
-        ticketId,
+      const result = await createAndAssignQrToLocationAction({
+        locationId,
         label: label.trim() || null,
       });
       if (!result.success) {
         toast.error((result as { success: false; error: string }).error);
         return;
       }
-      toast.success("QR code generated and assigned to ticket.");
+      toast.success(t("assignSuccess"));
       onAssigned(
         (
           result as {
@@ -317,7 +313,7 @@ export function AssignQrDialog({
   };
 
   const handleScannerBack = () => {
-    setScannerKey((k) => k + 1); // remount scanner if user comes back
+    setScannerKey((k) => k + 1);
     setScanning(false);
   };
 
@@ -325,35 +321,36 @@ export function AssignQrDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[min(420px,calc(100vw-2rem))]" style={{ maxWidth: "none" }}>
         <DialogHeader>
-          <DialogTitle>Assign QR Code to {ticketNumber}</DialogTitle>
+          <DialogTitle>
+            {t("assignQr")} — {locationName}
+          </DialogTitle>
         </DialogHeader>
 
         {scanning ? (
           <QrCameraScanner
             key={scannerKey}
-            ticketId={ticketId}
+            locationId={locationId}
             onSuccess={(a) => {
               onAssigned(a);
               onOpenChange(false);
             }}
             onBack={handleScannerBack}
+            t={t}
           />
         ) : (
           <>
             <div className="space-y-4">
               <div className="rounded-md border bg-muted/30 p-4 text-center">
                 <QrCode className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">
-                  A brand new QR code will be generated and assigned to this ticket.
-                </p>
+                <p className="text-sm text-muted-foreground">{t("generateHint")}</p>
               </div>
 
               <div>
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                  Label (optional)
+                  {t("labelOptional")}
                 </label>
                 <Input
-                  placeholder="e.g. Ticket label"
+                  placeholder={t("labelPlaceholder")}
                   value={label}
                   onChange={(e) => setLabel(e.target.value)}
                   maxLength={200}
@@ -362,7 +359,7 @@ export function AssignQrDialog({
 
               <div className="relative flex items-center gap-2 text-xs text-muted-foreground">
                 <div className="flex-1 border-t" />
-                <span>or use an existing printed label</span>
+                <span>{t("orScanExisting")}</span>
                 <div className="flex-1 border-t" />
               </div>
 
@@ -373,13 +370,13 @@ export function AssignQrDialog({
                 disabled={generating}
               >
                 <Camera className="h-4 w-4" />
-                Scan QR Label with Camera
+                {t("scanWithCamera")}
               </Button>
             </div>
 
             <DialogFooter>
               <Button variant="outline" onClick={() => onOpenChange(false)} disabled={generating}>
-                Cancel
+                {t("cancel")}
               </Button>
               <Button onClick={handleGenerate} disabled={generating} className="gap-1.5">
                 {generating ? (
@@ -387,7 +384,7 @@ export function AssignQrDialog({
                 ) : (
                   <Sparkles className="h-3.5 w-3.5" />
                 )}
-                {generating ? "Generating…" : "Generate & Assign"}
+                {generating ? t("generating") : t("generateAndAssign")}
               </Button>
             </DialogFooter>
           </>

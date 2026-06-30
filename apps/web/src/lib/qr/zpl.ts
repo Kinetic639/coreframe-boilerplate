@@ -1,6 +1,7 @@
 import type { CanvasRenderingContext2D } from "canvas";
+import path from "path";
 import type { LabelConfig } from "@/lib/qr/label-config";
-import { getOrderedTextLayerKeys } from "@/lib/qr/label-config";
+import { applyCaseTransform } from "@/lib/qr/label-config";
 import { generateStyledQrPngDataUrl } from "@/lib/qr/generate";
 
 /**
@@ -12,13 +13,38 @@ import { generateStyledQrPngDataUrl } from "@/lib/qr/generate";
  * respecting fixed thermal label sizes.
  */
 
+const LABEL_FONT_FAMILY = "LabelRoboto";
+let fontsRegisteredPromise: Promise<void> | null = null;
+
+/**
+ * "Arial" isn't installed on this server — node-canvas silently falls back
+ * to a default font lacking Polish diacritics (ł, ą, ę, ó, ś, ...), which
+ * renders mangled glyphs. Register a bundled Unicode-coverage font instead.
+ */
+function ensureFontsRegistered(): Promise<void> {
+  if (!fontsRegisteredPromise) {
+    fontsRegisteredPromise = (async () => {
+      const { registerFont } = await import("canvas");
+      const fontsDir = path.join(process.cwd(), "public", "fonts");
+      registerFont(path.join(fontsDir, "Roboto-Regular.ttf"), {
+        family: LABEL_FONT_FAMILY,
+        weight: "500",
+      });
+      registerFont(path.join(fontsDir, "Roboto-Bold.ttf"), {
+        family: LABEL_FONT_FAMILY,
+        weight: "700",
+      });
+    })();
+  }
+  return fontsRegisteredPromise;
+}
+
 export type ZplLabelSize = "50x30" | "70x40";
 
 export interface ZplLabelItem {
   token: string;
-  primaryText?: string | null;
-  secondaryText?: string | null;
-  tertiaryText?: string | null;
+  /** Resolvable data fields for config-driven text lines. Keys are caller-defined. */
+  fields?: Record<string, string>;
 }
 
 const DOTS_PER_MM = 8;
@@ -37,12 +63,7 @@ function pt(value: number): number {
 }
 
 function hasVisibleText(item: ZplLabelItem, config: LabelConfig) {
-  return (
-    (config.primaryText.show && !!item.primaryText) ||
-    (config.secondaryText.show && !!item.secondaryText) ||
-    (config.tertiaryText.show && !!item.tertiaryText) ||
-    config.tokenText.show
-  );
+  return getVisibleTextLines(item, config).length > 0;
 }
 
 function estimateTextHeight(lines: Array<{ size: number }>) {
@@ -61,42 +82,17 @@ function getVisibleTextLines(item: ZplLabelItem, config: LabelConfig) {
     align: "left" | "center" | "right";
   }> = [];
 
-  for (const layerKey of getOrderedTextLayerKeys(config)) {
-    if (layerKey === "primaryText" && config.primaryText.show && item.primaryText) {
-      lines.push({
-        text: item.primaryText,
-        size: config.primaryText.size,
-        bold: config.primaryText.bold,
-        align: config.primaryText.align,
-      });
-    }
+  for (const line of config.textLines) {
+    const raw = line.source === "custom" ? line.customText : (item.fields?.[line.fieldKey] ?? "");
+    const text = applyCaseTransform(raw.trim(), line.caseTransform);
+    if (!text) continue;
 
-    if (layerKey === "secondaryText" && config.secondaryText.show && item.secondaryText) {
-      lines.push({
-        text: item.secondaryText,
-        size: config.secondaryText.size,
-        bold: config.secondaryText.bold,
-        align: config.secondaryText.align,
-      });
-    }
-
-    if (layerKey === "tertiaryText" && config.tertiaryText.show && item.tertiaryText) {
-      lines.push({
-        text: item.tertiaryText,
-        size: config.tertiaryText.size,
-        bold: config.tertiaryText.bold,
-        align: config.tertiaryText.align,
-      });
-    }
-
-    if (layerKey === "tokenText" && config.tokenText.show) {
-      lines.push({
-        text: item.token.slice(0, 10),
-        size: config.tokenText.size,
-        bold: config.tokenText.bold,
-        align: config.tokenText.align,
-      });
-    }
+    lines.push({
+      text,
+      size: line.size,
+      bold: line.bold,
+      align: line.align,
+    });
   }
 
   return lines;
@@ -195,7 +191,7 @@ function drawFooterUrl(
 ) {
   ctx.save();
   ctx.fillStyle = "#666666";
-  ctx.font = `${Math.max(9, Math.round(height * 0.46))}px Arial`;
+  ctx.font = `${Math.max(9, Math.round(height * 0.46))}px ${LABEL_FONT_FAMILY}`;
   ctx.textBaseline = "middle";
   const text = "www.ambra-system.com";
   const measured = ctx.measureText(text).width;
@@ -325,6 +321,7 @@ function toMonochromeHex(
 }
 
 async function renderLabelGraphic(item: ZplLabelItem, size: ZplLabelSize, config: LabelConfig) {
+  await ensureFontsRegistered();
   const { createCanvas, loadImage } = await import("canvas");
   const { widthMm, heightMm } = SIZE_CONFIG[size];
   const width = mm(widthMm);
@@ -384,7 +381,7 @@ async function renderLabelGraphic(item: ZplLabelItem, size: ZplLabelSize, config
     let y = layout.textY + yOffset;
 
     for (const line of lineDefs) {
-      workCtx.font = `${line.bold ? "700" : "500"} ${line.fontSize}px Arial`;
+      workCtx.font = `${line.bold ? "700" : "500"} ${line.fontSize}px ${LABEL_FONT_FAMILY}`;
       workCtx.fillStyle = "#000000";
       workCtx.textBaseline = "top";
       const displayText = truncateToWidth(workCtx, line.text, layout.textW);

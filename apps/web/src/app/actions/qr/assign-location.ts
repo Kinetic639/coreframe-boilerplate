@@ -4,20 +4,20 @@ import { z } from "zod";
 import { createClient } from "@/utils/supabase/server";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { checkPermission } from "@/lib/utils/permissions";
-import { QR_ASSIGN, HELPDESK_TICKETS_MANAGE } from "@/lib/constants/permissions";
-import { QrAssignmentsService } from "@/server/services/qr.service";
+import { QR_ASSIGN, WAREHOUSE_LOCATIONS_MANAGE } from "@/lib/constants/permissions";
+import { QrAssignmentsService, QrCodesService } from "@/server/services/qr.service";
 
 const assignSchema = z.object({
   qrCodeId: z.string().uuid(),
-  ticketId: z.string().uuid(),
+  locationId: z.string().uuid(),
 });
 
 const createAndAssignSchema = z.object({
-  ticketId: z.string().uuid(),
+  locationId: z.string().uuid(),
   label: z.string().max(200).nullable().optional(),
 });
 
-export async function assignQrToTicketAction(rawInput: unknown) {
+export async function assignQrToLocationAction(rawInput: unknown) {
   try {
     const context = await loadDashboardContextV2();
     if (!context?.app.activeOrgId)
@@ -25,7 +25,7 @@ export async function assignQrToTicketAction(rawInput: unknown) {
 
     if (
       !checkPermission(context.user.permissionSnapshot, QR_ASSIGN) ||
-      !checkPermission(context.user.permissionSnapshot, HELPDESK_TICKETS_MANAGE)
+      !checkPermission(context.user.permissionSnapshot, WAREHOUSE_LOCATIONS_MANAGE)
     ) {
       return { success: false as const, error: "Unauthorized" };
     }
@@ -36,8 +36,8 @@ export async function assignQrToTicketAction(rawInput: unknown) {
     const supabase = await createClient();
     return QrAssignmentsService.assignToTarget(supabase, {
       qrCodeId: parsed.data.qrCodeId,
-      targetType: "helpdesk.ticket",
-      targetId: parsed.data.ticketId,
+      targetType: "warehouse.location",
+      targetId: parsed.data.locationId,
       assignedBy: context.user.user?.id ?? "",
       permissionSnapshot: context.user.permissionSnapshot,
     });
@@ -46,7 +46,7 @@ export async function assignQrToTicketAction(rawInput: unknown) {
   }
 }
 
-export async function createAndAssignQrToTicketAction(rawInput: unknown) {
+export async function createAndAssignQrToLocationAction(rawInput: unknown) {
   try {
     const context = await loadDashboardContextV2();
     if (!context?.app.activeOrgId)
@@ -54,7 +54,7 @@ export async function createAndAssignQrToTicketAction(rawInput: unknown) {
 
     if (
       !checkPermission(context.user.permissionSnapshot, QR_ASSIGN) ||
-      !checkPermission(context.user.permissionSnapshot, HELPDESK_TICKETS_MANAGE)
+      !checkPermission(context.user.permissionSnapshot, WAREHOUSE_LOCATIONS_MANAGE)
     ) {
       return { success: false as const, error: "Unauthorized" };
     }
@@ -64,8 +64,8 @@ export async function createAndAssignQrToTicketAction(rawInput: unknown) {
 
     const supabase = await createClient();
     const result = await QrAssignmentsService.createAndAssign(supabase, context.app.activeOrgId, {
-      targetType: "helpdesk.ticket",
-      targetId: parsed.data.ticketId,
+      targetType: "warehouse.location",
+      targetId: parsed.data.locationId,
       assignedBy: context.user.user?.id ?? "",
       permissionSnapshot: context.user.permissionSnapshot,
       label: parsed.data.label ?? null,
@@ -87,52 +87,8 @@ export async function createAndAssignQrToTicketAction(rawInput: unknown) {
   }
 }
 
-export async function getQrCodeByTokenAction(token: string) {
+export async function getQrAssignmentForLocationAction(locationId: string) {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return { success: false as const, error: "Unauthorized" };
-
-    const { data, error } = await supabase
-      .from("qr_codes")
-      .select(
-        "id, token, label, status, qr_assignments!qr_assignments_qr_code_id_fkey(target_type, target_id, revoked_at)"
-      )
-      .eq("token", token)
-      .is("deleted_at", null)
-      .maybeSingle();
-
-    if (error) return { success: false as const, error: error.message };
-    if (!data) return { success: true as const, data: null };
-
-    const assignments =
-      (data.qr_assignments as
-        | { target_type: string; target_id: string; revoked_at: string | null }[]
-        | null) ?? [];
-    const activeAssignment = assignments.find((a) => a.revoked_at === null) ?? null;
-
-    return {
-      success: true as const,
-      data: {
-        id: data.id as string,
-        token: data.token as string,
-        label: (data.label as string | null) ?? null,
-        status: data.status as string,
-        assignment: activeAssignment
-          ? { target_type: activeAssignment.target_type, target_id: activeAssignment.target_id }
-          : null,
-      },
-    };
-  } catch {
-    return { success: false as const, error: "Unexpected error" };
-  }
-}
-
-export async function getQrAssignmentForTicketAction(ticketId: string) {
-  try {
-    // Lightweight auth — RLS enforces org scope
     const supabase = await createClient();
     const {
       data: { user },
@@ -142,8 +98,8 @@ export async function getQrAssignmentForTicketAction(ticketId: string) {
     const { data, error } = await supabase
       .from("qr_assignments")
       .select("id, qr_code_id, qr_codes!qr_assignments_qr_code_id_fkey(token, label, status)")
-      .eq("target_type", "helpdesk.ticket")
-      .eq("target_id", ticketId)
+      .eq("target_type", "warehouse.location")
+      .eq("target_id", locationId)
       .is("revoked_at", null)
       .maybeSingle();
 
@@ -165,6 +121,28 @@ export async function getQrAssignmentForTicketAction(ticketId: string) {
         status: qrCode?.status ?? "active",
       },
     };
+  } catch {
+    return { success: false as const, error: "Unexpected error" };
+  }
+}
+
+export async function unassignQrFromLocationAction(assignmentId: string) {
+  try {
+    const context = await loadDashboardContextV2();
+    if (!context?.app.activeOrgId)
+      return { success: false as const, error: "No active organization" };
+
+    if (
+      !checkPermission(context.user.permissionSnapshot, QR_ASSIGN) ||
+      !checkPermission(context.user.permissionSnapshot, WAREHOUSE_LOCATIONS_MANAGE)
+    ) {
+      return { success: false as const, error: "Unauthorized" };
+    }
+
+    const supabase = await createClient();
+    return QrAssignmentsService.revokeAssignment(supabase, context.app.activeOrgId, assignmentId, {
+      revokedBy: context.user.user?.id ?? "",
+    });
   } catch {
     return { success: false as const, error: "Unexpected error" };
   }

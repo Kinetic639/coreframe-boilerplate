@@ -13,6 +13,7 @@ import {
   WAREHOUSE_LOCATIONS_READ,
   WAREHOUSE_LOCATIONS_MANAGE,
 } from "@/lib/constants/permissions";
+import type { DataViewListParams } from "@/lib/data-view/types";
 import {
   createLocationSchema,
   updateLocationSchema,
@@ -351,6 +352,50 @@ export async function reorderLocationsAction(rawInput: unknown) {
       auth.context.app.activeBranchId,
       parsed.data.items as { id: string; sort_order: number }[]
     );
+  } catch (error) {
+    const mapped = mapEntitlementError(error);
+    if (mapped) return { success: false, error: mapped.message };
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
+export async function listLocationsPaginatedAction(params: DataViewListParams) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+
+    if (!checkPermission(auth.context.user.permissionSnapshot, WAREHOUSE_LOCATIONS_READ)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const branchId = auth.context.app.activeBranchId;
+    if (!branchId) return { success: false, error: "No active branch" };
+
+    const supabase = await createClient();
+    return WarehouseLocationsService.listPaginated(
+      supabase,
+      auth.context.app.activeOrgId,
+      branchId,
+      params
+    );
+  } catch (error) {
+    const mapped = mapEntitlementError(error);
+    if (mapped) return { success: false, error: mapped.message };
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
+export async function getLocationDetailAction(id: string) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+
+    if (!checkPermission(auth.context.user.permissionSnapshot, WAREHOUSE_LOCATIONS_READ)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const supabase = await createClient();
+    return WarehouseLocationsService.getById(supabase, auth.context.app.activeOrgId, id);
   } catch (error) {
     const mapped = mapEntitlementError(error);
     if (mapped) return { success: false, error: mapped.message };

@@ -1,6 +1,7 @@
 import "server-only";
 
 import React from "react";
+import path from "path";
 import {
   Document,
   Page,
@@ -13,15 +14,56 @@ import {
   Rect,
   Line,
   StyleSheet,
+  Font,
   renderToBuffer,
 } from "@react-pdf/renderer";
 import type { LabelConfig } from "@/lib/qr/label-config";
 import {
   computeGrid,
   getEffectiveLabelDimension,
-  getOrderedTextLayerKeys,
+  applyCaseTransform,
   GRID_MARGIN_MM,
 } from "@/lib/qr/label-config";
+
+// ---------------------------------------------------------------------------
+// Font registration — the default PDF standard fonts (Helvetica) only cover
+// WinAnsi encoding and silently mangle Polish diacritics (ł, ą, ę, ó, ś, ...).
+// Register a real Unicode-coverage font so label text renders correctly.
+// ---------------------------------------------------------------------------
+
+let fontsRegisteredPromise: Promise<void> | null = null;
+
+function ensureFontsRegistered(): Promise<void> {
+  if (!fontsRegisteredPromise) {
+    fontsRegisteredPromise = (async () => {
+      if (process.env.NODE_ENV === "test") return;
+      // Node.js's built-in fetch (undici) does not support file:// URLs, so we
+      // read the TTFs ourselves and pass them as base64 data URLs instead.
+      const { readFile } = await import("fs/promises");
+      const fontsDir = path.join(process.cwd(), "public", "fonts");
+      const [regular, bold] = await Promise.all([
+        readFile(path.join(fontsDir, "Roboto-Regular.ttf")),
+        readFile(path.join(fontsDir, "Roboto-Bold.ttf")),
+      ]);
+      Font.register({
+        family: "Roboto",
+        fonts: [
+          { src: `data:font/truetype;base64,${regular.toString("base64")}`, fontWeight: "normal" },
+          { src: `data:font/truetype;base64,${bold.toString("base64")}`, fontWeight: "bold" },
+        ],
+      });
+      Font.registerHyphenationCallback((word) => [word]);
+    })();
+  }
+  return fontsRegisteredPromise;
+}
+
+// ---------------------------------------------------------------------------
+// Font helpers
+// ---------------------------------------------------------------------------
+
+/** undefined in test env so react-pdf never issues a font fetch that MSW would block */
+const ROBOTO = process.env.NODE_ENV === "test" ? undefined : "Roboto";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -34,12 +76,17 @@ export interface QrLabelPdfItem {
   token: string;
   /** Pre-generated QR image data URL (PNG or SVG) */
   qrDataUrl: string;
-  /** Main label line — typically the location name */
+  /** Main label line — typically the location name. Used by the legacy fixed-template generator (generateQrLabelsPdf). */
   primaryText: string;
-  /** Second line — e.g. location code */
+  /** Second line — e.g. location code. Used by the legacy fixed-template generator. */
   secondaryText?: string;
-  /** Third line — e.g. module/type context */
+  /** Third line — e.g. module/type context. Used by the legacy fixed-template generator. */
   tertiaryText?: string;
+  /**
+   * Resolvable data fields for config-driven text lines (generateQrLabelsPdfWithConfig).
+   * Keys are caller-defined (e.g. "primary", "secondary", "token", "scanUrl").
+   */
+  fields?: Record<string, string>;
 }
 
 export interface GenerateQrLabelsPdfInput {
@@ -183,17 +230,20 @@ const S = StyleSheet.create({
     justifyContent: "center",
   },
   primary: {
+    fontFamily: ROBOTO,
     fontSize: 7,
     fontWeight: "bold",
     color: "#111111",
     marginBottom: mm(0.5),
   },
   secondary: {
+    fontFamily: ROBOTO,
     fontSize: 6,
     color: "#444444",
     marginBottom: mm(0.3),
   },
   tertiary: {
+    fontFamily: ROBOTO,
     fontSize: 5,
     color: "#888888",
   },
@@ -321,6 +371,8 @@ export async function generateQrLabelsPdf(input: GenerateQrLabelsPdfInput): Prom
     throw new Error("Cannot generate a PDF with no labels.");
   }
 
+  await ensureFontsRegistered();
+
   let document: React.ReactElement;
 
   switch (input.size) {
@@ -353,6 +405,8 @@ interface LabelCellV2Props {
   cellHPt: number;
 }
 
+const LINE_COLORS = ["#111111", "#444444", "#888888", "#aaaaaa"];
+
 function getVisibleTextLines(item: QrLabelPdfItem, config: LabelConfig) {
   const lines: Array<{
     key: string;
@@ -364,55 +418,21 @@ function getVisibleTextLines(item: QrLabelPdfItem, config: LabelConfig) {
     marginBottom: number;
   }> = [];
 
-  for (const layerKey of getOrderedTextLayerKeys(config)) {
-    if (layerKey === "primaryText" && config.primaryText.show && item.primaryText) {
-      lines.push({
-        key: "primary",
-        text: item.primaryText,
-        size: config.primaryText.size,
-        weight: config.primaryText.bold ? "bold" : "normal",
-        color: "#111111",
-        align: config.primaryText.align,
-        marginBottom: mm(0.4),
-      });
-    }
+  config.textLines.forEach((line, index) => {
+    const raw = line.source === "custom" ? line.customText : (item.fields?.[line.fieldKey] ?? "");
+    const text = applyCaseTransform(raw.trim(), line.caseTransform);
+    if (!text) return;
 
-    if (layerKey === "secondaryText" && config.secondaryText.show && item.secondaryText) {
-      lines.push({
-        key: "secondary",
-        text: item.secondaryText,
-        size: config.secondaryText.size,
-        weight: config.secondaryText.bold ? "bold" : "normal",
-        color: "#444444",
-        align: config.secondaryText.align,
-        marginBottom: mm(0.3),
-      });
-    }
-
-    if (layerKey === "tertiaryText" && config.tertiaryText.show && item.tertiaryText) {
-      lines.push({
-        key: "tertiary",
-        text: item.tertiaryText,
-        size: config.tertiaryText.size,
-        weight: config.tertiaryText.bold ? "bold" : "normal",
-        color: "#888888",
-        align: config.tertiaryText.align,
-        marginBottom: mm(0.2),
-      });
-    }
-
-    if (layerKey === "tokenText" && config.tokenText.show) {
-      lines.push({
-        key: "token",
-        text: item.token.slice(0, 10),
-        size: config.tokenText.size,
-        weight: config.tokenText.bold ? "bold" : "normal",
-        color: "#aaaaaa",
-        align: config.tokenText.align,
-        marginBottom: 0,
-      });
-    }
-  }
+    lines.push({
+      key: line.id,
+      text,
+      size: line.size,
+      weight: line.bold ? "bold" : "normal",
+      color: LINE_COLORS[Math.min(index, LINE_COLORS.length - 1)],
+      align: line.align,
+      marginBottom: mm(0.3),
+    });
+  });
 
   return lines;
 }
@@ -433,7 +453,12 @@ function LabelFooterUrl({ widthPt, heightPt }: { widthPt: number; heightPt: numb
   return (
     <View style={{ width: widthPt, height: heightPt, justifyContent: "center" }}>
       <Text
-        style={{ fontSize: Math.max(4.3, heightPt * 0.46), color: "#666666", textAlign: "center" }}
+        style={{
+          fontFamily: ROBOTO,
+          fontSize: Math.max(4.3, heightPt * 0.46),
+          color: "#666666",
+          textAlign: "center",
+        }}
       >
         www.ambra-system.com
       </Text>
@@ -528,6 +553,7 @@ function LabelCellV2({ item, config, cellWPt, cellHPt }: LabelCellV2Props) {
         <Text
           key={line.key}
           style={{
+            fontFamily: ROBOTO,
             fontSize: line.size,
             fontWeight: line.weight,
             color: line.color,
@@ -731,5 +757,6 @@ export async function generateQrLabelsPdfWithConfig(
   if (items.length === 0) {
     throw new Error("Cannot generate a PDF with no labels.");
   }
+  await ensureFontsRegistered();
   return renderToBuffer(<ConfigA4Document items={items} config={config} />);
 }

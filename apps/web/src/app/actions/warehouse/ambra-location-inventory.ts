@@ -99,7 +99,7 @@ export async function createLocationContainerAction(rawInput: unknown) {
       .single();
 
     if (error) return { success: false as const, error: error.message };
-    revalidatePath("/dashboard/warehouse/ambra-locations");
+    revalidatePath("/dashboard/warehouse/locations");
     return { success: true as const, data };
   } catch (error) {
     return mapUnexpected(error);
@@ -130,7 +130,7 @@ export async function deletePutawayRuleAction(rawInput: unknown) {
       .eq("branch_id", branch.branchId);
 
     if (error) return { success: false as const, error: error.message };
-    revalidatePath("/dashboard/warehouse/ambra-locations");
+    revalidatePath("/dashboard/warehouse/locations");
     return { success: true as const };
   } catch (error) {
     return mapUnexpected(error);
@@ -229,7 +229,7 @@ export async function addItemsToContainerAction(rawInput: unknown) {
     const { error } = await client.from("inventory_container_lines").insert(rows);
     if (error) return { success: false as const, error: error.message };
 
-    revalidatePath("/dashboard/warehouse/ambra-locations");
+    revalidatePath("/dashboard/warehouse/locations");
     return { success: true as const };
   } catch (error) {
     return mapUnexpected(error);
@@ -313,7 +313,7 @@ export async function removeItemFromContainerAction(rawInput: unknown) {
       .eq("organization_id", orgId)
       .eq("branch_id", branch.branchId);
 
-    revalidatePath("/dashboard/warehouse/ambra-locations");
+    revalidatePath("/dashboard/warehouse/locations");
     return { success: true as const };
   } catch (error) {
     return mapUnexpected(error);
@@ -475,7 +475,7 @@ export async function relocateContainerAction(rawInput: unknown) {
 
     if (updateError) return { success: false as const, error: updateError.message };
 
-    revalidatePath("/dashboard/warehouse/ambra-locations");
+    revalidatePath("/dashboard/warehouse/locations");
     return { success: true as const };
   } catch (error) {
     return mapUnexpected(error);
@@ -610,7 +610,7 @@ export async function createLocationPutawayRuleAction(rawInput: unknown) {
       .single();
 
     if (error) return { success: false as const, error: error.message };
-    revalidatePath("/dashboard/warehouse/ambra-locations");
+    revalidatePath("/dashboard/warehouse/locations");
     return { success: true as const, data };
   } catch (error) {
     return mapUnexpected(error);

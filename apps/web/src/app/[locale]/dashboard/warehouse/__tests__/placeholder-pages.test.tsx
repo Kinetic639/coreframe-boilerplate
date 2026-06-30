@@ -22,7 +22,6 @@ import WarehouseClientsPage from "../clients/page";
 import WarehouseDeliveriesPage from "../deliveries/page";
 import WarehouseInventoryPage from "../inventory/page";
 import WarehouseItemsPage from "../items/page";
-import WarehouseLocationsPage from "../locations/page";
 import WarehousePurchasesPage from "../purchases/page";
 import WarehouseSettingsPage from "../settings/page";
 import WarehouseSuppliersPage from "../suppliers/page";
@@ -34,7 +33,6 @@ const cases = [
   ["deliveries", WarehouseDeliveriesPage, "items.deliveries.title"],
   ["inventory", WarehouseInventoryPage, "items.inventory.title"],
   ["items", WarehouseItemsPage, "items.products.title"],
-  ["locations", WarehouseLocationsPage, "items.locations"],
   ["purchases", WarehousePurchasesPage, "items.purchases.title"],
   ["settings", WarehouseSettingsPage, "items.settings.title"],
   ["suppliers", WarehouseSuppliersPage, "items.suppliers.title"],

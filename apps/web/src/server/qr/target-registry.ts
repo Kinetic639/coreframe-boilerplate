@@ -116,9 +116,7 @@ export const QR_TARGET_REGISTRY: Readonly<Record<string, QrTargetDescriptor>> = 
     requiredReadPermission: WAREHOUSE_LOCATIONS_READ,
 
     resolverPath({ targetId }) {
-      // Phase 2 will implement a proper detail/highlight path.
-      // Kept deliberately vague to avoid premature URL commitment.
-      return `/dashboard/warehouse/locations?highlight=${targetId}`;
+      return `/dashboard/warehouse/locations?selected=${targetId}&view=tree`;
     },
 
     async getLabelContext({ supabase, targetId }) {

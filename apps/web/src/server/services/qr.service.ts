@@ -88,6 +88,15 @@ export interface AssignQrInput {
   permissionSnapshot: PermissionSnapshot;
 }
 
+export interface CreateAndAssignQrInput {
+  targetType: string;
+  targetId: string;
+  assignedBy: string;
+  permissionSnapshot: PermissionSnapshot;
+  label?: string | null;
+  notes?: string | null;
+}
+
 export interface RevokeQrInput {
   revokedBy: string;
   reason?: string | null;
@@ -392,6 +401,49 @@ export class QrAssignmentsService {
   }
 
   /**
+   * Generate a brand-new QR code and assign it to a target in one step.
+   *
+   * UX rationale: forcing users to pick from a pool of pre-generated,
+   * unassigned codes is an unintuitive extra step. This composes
+   * QrCodesService.create + assignToTarget so the caller gets one button
+   * that "just works" — generate, then assign, return both.
+   *
+   * If assignment fails after the code was created, the orphaned code is
+   * revoked so it doesn't linger as unassigned clutter.
+   */
+  static async createAndAssign(
+    supabase: SupabaseClient,
+    orgId: string,
+    input: CreateAndAssignQrInput
+  ): Promise<ServiceResult<{ qr: QrCode; assignment: QrAssignment }>> {
+    const createResult = await QrCodesService.create(supabase, orgId, {
+      label: input.label ?? null,
+      notes: input.notes ?? null,
+      createdBy: input.assignedBy,
+    });
+    if (!createResult.success) return createResult as { success: false; error: string };
+
+    const assignResult = await QrAssignmentsService.assignToTarget(supabase, {
+      qrCodeId: createResult.data.id,
+      targetType: input.targetType,
+      targetId: input.targetId,
+      assignedBy: input.assignedBy,
+      permissionSnapshot: input.permissionSnapshot,
+    });
+
+    if (!assignResult.success) {
+      // Roll back the orphaned code — best-effort, don't mask the original error.
+      await QrCodesService.revoke(supabase, orgId, createResult.data.id, {
+        revokedBy: input.assignedBy,
+        reason: "Auto-revoked: assignment failed during create-and-assign",
+      });
+      return assignResult as { success: false; error: string };
+    }
+
+    return { success: true, data: { qr: createResult.data, assignment: assignResult.data } };
+  }
+
+  /**
    * Get the single active assignment for a QR code, or null if unassigned.
    */
   static async getActiveForQr(
@@ -427,6 +479,32 @@ export class QrAssignmentsService {
 
     if (error) return { success: false, error: normalizeDbError(error) };
     return { success: true, data: data as QrAssignment | null };
+  }
+
+  /**
+   * Batch-load the active assignment for many targets of the same type.
+   * Used by label printing to resolve QR tokens for a multi-selection
+   * without N+1 queries. Targets with no active assignment are simply
+   * absent from the returned map.
+   */
+  static async getActiveForTargets(
+    supabase: SupabaseClient,
+    targetType: string,
+    targetIds: string[]
+  ): Promise<ServiceResult<Map<string, QrAssignment>>> {
+    if (targetIds.length === 0) return { success: true, data: new Map() };
+
+    const { data, error } = await supabase
+      .from("qr_assignments")
+      .select("*")
+      .eq("target_type", targetType)
+      .in("target_id", targetIds)
+      .is("revoked_at", null);
+
+    if (error) return { success: false, error: normalizeDbError(error) };
+
+    const rows = (data ?? []) as QrAssignment[];
+    return { success: true, data: new Map(rows.map((row) => [row.target_id, row])) };
   }
 
   /**

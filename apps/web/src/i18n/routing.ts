@@ -139,10 +139,6 @@ export const routing = defineRouting({
       en: "/dashboard/warehouse/locations",
       pl: "/dashboard/magazyn/lokalizacje",
     },
-    "/dashboard/warehouse/ambra-locations": {
-      en: "/dashboard/warehouse/ambra-locations",
-      pl: "/dashboard/magazyn/ambra-lokalizacje",
-    },
     "/dashboard/warehouse/map": {
       en: "/dashboard/warehouse/map",
       pl: "/dashboard/magazyn/mapa",

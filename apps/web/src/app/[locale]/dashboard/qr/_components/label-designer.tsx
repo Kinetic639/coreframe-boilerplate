@@ -13,6 +13,7 @@ import {
   GripVertical,
   Minus,
   Plus,
+  X,
 } from "lucide-react";
 import {
   DndContext,
@@ -37,6 +38,13 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -44,7 +52,8 @@ import {
   computeGrid,
   getAllowedTextPositions,
   getEffectiveLabelDimension,
-  getOrderedTextLayerKeys,
+  createTextLine,
+  MAX_TEXT_LINES,
   A4_W_MM,
   A4_H_MM,
   GRID_MARGIN_MM,
@@ -53,17 +62,15 @@ import type {
   EdgeLineStyle,
   LabelConfig,
   LabelOrientation,
-  LabelTextContentConfig,
   LogoBackgroundStyle,
   QrCornerDotStyle,
   QrCornerSquareStyle,
   QrDotStyle,
   QrFrameShape,
   TextAlign,
-  TextLayerConfig,
-  TextLayerKey,
+  TextCaseTransform,
+  TextLineConfig,
   TextVerticalAlign,
-  TextPosition,
 } from "@/lib/qr/label-config";
 import { QrPdfPreviewDialog } from "@/app/[locale]/dashboard/qr/_components/qr-pdf-preview-dialog";
 
@@ -108,43 +115,12 @@ const TEXT_ALIGN_ICONS: Record<TextAlign, typeof AlignLeft> = {
   right: AlignRight,
 };
 const TEXT_VERTICAL_ALIGN_OPTIONS: readonly TextVerticalAlign[] = ["start", "center", "end"];
-const TEXT_LAYER_META: Record<
-  TextLayerKey,
-  { key: string; label: string; wFrac: number; sizeMul: number; dark: string; dim: string }
-> = {
-  primaryText: {
-    key: "p",
-    label: "Primary",
-    wFrac: 0.82,
-    sizeMul: 0.45,
-    dark: "#0f172a",
-    dim: "#475569",
-  },
-  secondaryText: {
-    key: "s",
-    label: "Secondary",
-    wFrac: 0.62,
-    sizeMul: 0.4,
-    dark: "#475569",
-    dim: "#64748b",
-  },
-  tertiaryText: {
-    key: "t",
-    label: "Tertiary",
-    wFrac: 0.48,
-    sizeMul: 0.38,
-    dark: "#64748b",
-    dim: "#94a3b8",
-  },
-  tokenText: {
-    key: "tok",
-    label: "Token",
-    wFrac: 0.9,
-    sizeMul: 0.32,
-    dark: "#64748b",
-    dim: "#94a3b8",
-  },
-};
+const CASE_TRANSFORM_OPTIONS: readonly TextCaseTransform[] = ["none", "upper", "lower", "title"];
+/** Visual hierarchy colors for preview lines, darkest first — mirrors PDF/ZPL rendering. */
+const LINE_PREVIEW_COLORS = ["#0f172a", "#475569", "#64748b", "#94a3b8"];
+function previewLineColor(index: number) {
+  return LINE_PREVIEW_COLORS[Math.min(index, LINE_PREVIEW_COLORS.length - 1)];
+}
 const ZPL_DIMENSIONS = {
   "50x30": { width: 50, height: 30 },
   "70x40": { width: 70, height: 40 },
@@ -231,26 +207,16 @@ function renderFooterPreview(
 }
 
 function hasVisibleText(config: LabelConfig) {
-  return (
-    config.primaryText.show ||
-    config.secondaryText.show ||
-    config.tertiaryText.show ||
-    config.tokenText.show
-  );
+  return config.textLines.length > 0;
 }
 
 function estimatePreviewTextHeight(config: LabelConfig, scale: number) {
-  const visibleLayers = [
-    config.primaryText.show ? config.primaryText.size * scale * 0.45 : 0,
-    config.secondaryText.show ? config.secondaryText.size * scale * 0.4 : 0,
-    config.tertiaryText.show ? config.tertiaryText.size * scale * 0.38 : 0,
-    config.tokenText.show ? config.tokenText.size * scale * 0.32 : 0,
-  ].filter(Boolean);
+  const lineHeights = config.textLines.map((line) => Math.max(0.8, line.size * scale * 0.4));
 
   const gap = Math.max(0.6, scale * 1.2);
-  const gapsCount = Math.max(0, visibleLayers.length - 1);
+  const gapsCount = Math.max(0, lineHeights.length - 1);
 
-  return visibleLayers.reduce((sum, height) => sum + Math.max(0.8, height), 0) + gapsCount * gap;
+  return lineHeights.reduce((sum, height) => sum + height, 0) + gapsCount * gap;
 }
 
 function getPreviewLayout(
@@ -615,21 +581,10 @@ function buildTextStubs(
   const elems: React.ReactElement[] = [];
   if (textW <= 0 || textH <= 0) return elems;
 
-  const allLayers = getOrderedTextLayerKeys(config)
-    .map((layerKey) => {
-      const meta = TEXT_LAYER_META[layerKey];
-      return {
-        ...meta,
-        cfg: config[layerKey],
-      };
-    })
-    .filter(({ cfg }) => cfg.show);
-  const layerHeights = allLayers.map(({ cfg, sizeMul }) =>
-    Math.max(0.8, cfg.size * scale * sizeMul)
-  );
-  const gapsCount = Math.max(0, allLayers.length - 1);
+  const lineHeights = config.textLines.map((line) => Math.max(0.8, line.size * scale * 0.4));
+  const gapsCount = Math.max(0, config.textLines.length - 1);
   const gap = Math.max(0.6, scale * 1.2);
-  const contentH = layerHeights.reduce((sum, height) => sum + height, 0) + gapsCount * gap;
+  const contentH = lineHeights.reduce((sum, height) => sum + height, 0) + gapsCount * gap;
   const offsetY =
     config.textVerticalAlign === "start"
       ? 0
@@ -638,22 +593,23 @@ function buildTextStubs(
         : Math.max(0, (textH - contentH) / 2);
   let y = textY + offsetY;
 
-  for (const [index, layer] of allLayers.entries()) {
-    const h = layerHeights[index];
-    const lineW = getStubWidth(textW, layer.wFrac);
+  config.textLines.forEach((line, index) => {
+    const h = lineHeights[index];
+    const wFrac = Math.max(0.3, 0.85 - index * 0.12);
+    const lineW = getStubWidth(textW, wFrac);
     elems.push(
       <rect
-        key={layer.key}
-        x={getAlignedX(layer.cfg.align, textX, textW, lineW)}
+        key={line.id}
+        x={getAlignedX(line.align, textX, textW, lineW)}
         y={y}
         width={lineW}
         height={h}
-        fill={active ? layer.dark : layer.dim}
+        fill={active ? previewLineColor(index) : "#cbd5e1"}
         rx={0.4}
       />
     );
     y += h + gap;
-  }
+  });
 
   return elems;
 }
@@ -937,15 +893,11 @@ function EdgeLineStyleIcon({ style }: { style: EdgeLineStyle }) {
   );
 }
 
-function isCustomTextLayer(layer: TextLayerKey): layer is "secondaryText" | "tertiaryText" {
-  return layer === "secondaryText" || layer === "tertiaryText";
-}
-
 function SortableTextLayerRow({
   id,
   children,
 }: {
-  id: TextLayerKey;
+  id: string;
   children: (dragHandleProps: React.HTMLAttributes<HTMLButtonElement>) => React.ReactNode;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -975,10 +927,34 @@ function SortableTextLayerRow({
 // Props
 // ---------------------------------------------------------------------------
 
+export interface LabelDesignerItem {
+  id: string;
+  primaryText: string;
+}
+
+export interface LabelDesignerField {
+  key: string;
+  label: string;
+}
+
 interface LabelDesignerProps {
-  selectedIds: string[];
+  items: LabelDesignerItem[];
   canExport: boolean;
   format: "pdf" | "zpl";
+  /** Data fields the user can bind a text line to (e.g. location name, QR token). */
+  availableFields: LabelDesignerField[];
+  /** POST endpoint to call on export. Defaults to the QR-platform export route. */
+  exportEndpoint?: string;
+  /** Key used for the id array in the export request body. */
+  idsBodyKey?: string;
+  /** Filename prefix for ZPL downloads / PDF preview title. */
+  fileNamePrefix?: string;
+  /** "export" prints/downloads labels; "template-editor" only edits + saves a default config. */
+  mode?: "export" | "template-editor";
+  /** Seeds the initial config instead of DEFAULT_LABEL_CONFIG. */
+  initialConfig?: LabelConfig;
+  /** Called in template-editor mode when the user saves the current config as the default. */
+  onSaveTemplate?: (config: LabelConfig) => Promise<void>;
 }
 
 type PreviewZoom = "fit" | number;
@@ -991,16 +967,32 @@ const MAX_PREVIEW_ZOOM = 2;
 // Component
 // ---------------------------------------------------------------------------
 
-export function LabelDesigner({ selectedIds, canExport, format }: LabelDesignerProps) {
+export function LabelDesigner({
+  items,
+  canExport,
+  format,
+  availableFields,
+  exportEndpoint = "/api/qr/export",
+  idsBodyKey = "qrCodeIds",
+  fileNamePrefix = "qr-labels",
+  mode = "export",
+  initialConfig,
+  onSaveTemplate,
+}: LabelDesignerProps) {
   const t = useTranslations("modules.qr.designer");
-  const [pdfConfig, setPdfConfig] = useState<LabelConfig>(DEFAULT_LABEL_CONFIG);
+  const selectedIds = useMemo(() => items.map((item) => item.id), [items]);
+  const [pdfConfig, setPdfConfig] = useState<LabelConfig>(initialConfig ?? DEFAULT_LABEL_CONFIG);
   const [zplConfig, setZplConfig] = useState<LabelConfig>({
-    ...DEFAULT_LABEL_CONFIG,
+    ...(initialConfig ?? DEFAULT_LABEL_CONFIG),
     includeLogo: false,
     showBorder: false,
     textPosition: "right",
-    dimension: orientDimension(ZPL_DIMENSIONS["50x30"], DEFAULT_LABEL_CONFIG.orientation),
+    dimension: orientDimension(
+      ZPL_DIMENSIONS["50x30"],
+      (initialConfig ?? DEFAULT_LABEL_CONFIG).orientation
+    ),
   });
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
   const [optionsTab, setOptionsTab] = useState<"layout" | "qr" | "text">("layout");
   const [zplSize, setZplSize] = useState<"50x30" | "70x40">("50x30");
   const [isExporting, setIsExporting] = useState(false);
@@ -1078,29 +1070,45 @@ export function LabelDesigner({ selectedIds, canExport, format }: LabelDesignerP
     updateDraftConfig((prev) => ({ ...prev, [key]: value }));
   }
 
-  function setTextLayer(
-    layer: "primaryText" | "secondaryText" | "tertiaryText" | "tokenText",
-    key: keyof TextLayerConfig,
-    value: boolean | number | TextAlign
-  ) {
+  function updateTextLine(id: string, patch: Partial<TextLineConfig>) {
     updateDraftConfig((prev) => ({
       ...prev,
-      [layer]: { ...prev[layer], [key]: value },
+      textLines: prev.textLines.map((line) => (line.id === id ? { ...line, ...patch } : line)),
     }));
   }
 
-  function setTextContent(key: keyof LabelTextContentConfig, value: string) {
+  function addTextLine() {
+    updateDraftConfig((prev) => {
+      if (prev.textLines.length >= MAX_TEXT_LINES) return prev;
+      const firstUnusedField = availableFields.find(
+        (f) => !prev.textLines.some((line) => line.source === "field" && line.fieldKey === f.key)
+      );
+      return {
+        ...prev,
+        textLines: [
+          ...prev.textLines,
+          createTextLine(
+            firstUnusedField
+              ? { source: "field", fieldKey: firstUnusedField.key }
+              : { source: "custom", customText: "" }
+          ),
+        ],
+      };
+    });
+  }
+
+  function removeTextLine(id: string) {
     updateDraftConfig((prev) => ({
       ...prev,
-      textContent: { ...prev.textContent, [key]: value },
+      textLines: prev.textLines.filter((line) => line.id !== id),
     }));
   }
 
-  function setTextLayerOrder(order: TextLayerKey[]) {
-    updateDraftConfig((prev) => ({
-      ...prev,
-      textLayerOrder: order,
-    }));
+  function setTextLineOrder(order: string[]) {
+    updateDraftConfig((prev) => {
+      const byId = new Map(prev.textLines.map((line) => [line.id, line]));
+      return { ...prev, textLines: order.map((id) => byId.get(id)!).filter(Boolean) };
+    });
   }
 
   function setQrStyle<K extends keyof LabelConfig["qrStyle"]>(
@@ -1149,11 +1157,11 @@ export function LabelDesigner({ selectedIds, canExport, format }: LabelDesignerP
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
-    const currentOrder = getOrderedTextLayerKeys(activeConfig);
-    const oldIndex = currentOrder.indexOf(active.id as TextLayerKey);
-    const newIndex = currentOrder.indexOf(over.id as TextLayerKey);
+    const currentOrder = activeConfig.textLines.map((line) => line.id);
+    const oldIndex = currentOrder.indexOf(active.id as string);
+    const newIndex = currentOrder.indexOf(over.id as string);
     if (oldIndex === -1 || newIndex === -1) return;
-    setTextLayerOrder(arrayMove(currentOrder, oldIndex, newIndex));
+    setTextLineOrder(arrayMove(currentOrder, oldIndex, newIndex));
   }
 
   // ── export ────────────────────────────────────────────────────────────────
@@ -1171,10 +1179,10 @@ export function LabelDesigner({ selectedIds, canExport, format }: LabelDesignerP
       const labelConfig = format === "zpl" ? zplConfig : pdfConfig;
       const body =
         format === "pdf"
-          ? { qrCodeIds: selectedIds, format: "pdf", labelConfig }
-          : { qrCodeIds: selectedIds, format: "zpl", labelConfig, zplSize };
+          ? { [idsBodyKey]: selectedIds, format: "pdf", labelConfig }
+          : { [idsBodyKey]: selectedIds, format: "zpl", labelConfig, zplSize };
 
-      const res = await fetch("/api/qr/export", {
+      const res = await fetch(exportEndpoint, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
@@ -1200,7 +1208,7 @@ export function LabelDesigner({ selectedIds, canExport, format }: LabelDesignerP
 
       const a = document.createElement("a");
       a.href = url;
-      a.download = "qr-labels.zpl";
+      a.download = `${fileNamePrefix}.zpl`;
       a.click();
       URL.revokeObjectURL(url);
       toast.success(t("toasts.exported", { count: selectedIds.length }));
@@ -1871,21 +1879,14 @@ export function LabelDesigner({ selectedIds, canExport, format }: LabelDesignerP
                         onDragEnd={handleTextLayerDragEnd}
                       >
                         <SortableContext
-                          items={getOrderedTextLayerKeys(activeConfig)}
+                          items={activeConfig.textLines.map((line) => line.id)}
                           strategy={verticalListSortingStrategy}
                         >
                           <div className="space-y-3">
-                            {getOrderedTextLayerKeys(activeConfig).map((layer) => {
-                              const cfg = activeConfig[layer];
-                              const name = t(`text.layerNames.${layer}`);
-                              const customTextValue =
-                                layer === "secondaryText"
-                                  ? activeConfig.textContent.secondaryText
-                                  : layer === "tertiaryText"
-                                    ? activeConfig.textContent.tertiaryText
-                                    : "";
+                            {activeConfig.textLines.map((line, index) => {
+                              const name = t("text.lineNumber", { index: index + 1 });
                               return (
-                                <SortableTextLayerRow key={layer} id={layer}>
+                                <SortableTextLayerRow key={line.id} id={line.id}>
                                   {(dragHandleProps) => (
                                     <div className="rounded-lg border p-3 space-y-3">
                                       <div className="flex flex-wrap items-center gap-2">
@@ -1894,88 +1895,159 @@ export function LabelDesigner({ selectedIds, canExport, format }: LabelDesignerP
                                           size="sm"
                                           variant="ghost"
                                           className="h-8 w-8 cursor-grab p-0 active:cursor-grabbing"
-                                          aria-label={t("text.reorderLayer", { layer: name })}
-                                          title={t("text.reorderLayer", { layer: name })}
+                                          aria-label={t("text.reorderLine", { line: name })}
+                                          title={t("text.reorderLine", { line: name })}
                                           {...dragHandleProps}
                                         >
                                           <GripVertical className="h-4 w-4" />
                                         </Button>
-                                        <Checkbox
-                                          id={`${format}-show-${layer}`}
-                                          checked={cfg.show}
-                                          onCheckedChange={(v) => setTextLayer(layer, "show", !!v)}
-                                        />
-                                        <Label
-                                          htmlFor={`${format}-show-${layer}`}
-                                          className={`min-w-0 flex-1 cursor-pointer text-sm font-medium ${!cfg.show ? "text-muted-foreground" : ""}`}
-                                        >
+                                        <Label className="min-w-0 flex-1 text-sm font-medium">
                                           {name}
                                         </Label>
-                                        <span className="text-xs text-muted-foreground">
-                                          {layer === "primaryText"
-                                            ? t("text.sourceQrLabel")
-                                            : layer === "tokenText"
-                                              ? t("text.sourceQrToken")
-                                              : t("text.sourceCustom")}
-                                        </span>
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          variant="ghost"
+                                          className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                                          aria-label={t("text.removeLine", { line: name })}
+                                          title={t("text.removeLine", { line: name })}
+                                          onClick={() => removeTextLine(line.id)}
+                                        >
+                                          <X className="h-4 w-4" />
+                                        </Button>
                                       </div>
 
-                                      {isCustomTextLayer(layer) ? (
+                                      <div className="grid grid-cols-2 gap-2">
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          variant={line.source === "custom" ? "default" : "outline"}
+                                          className="h-8 text-xs"
+                                          onClick={() =>
+                                            updateTextLine(line.id, { source: "custom" })
+                                          }
+                                        >
+                                          {t("text.sourceCustom")}
+                                        </Button>
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          variant={line.source === "field" ? "default" : "outline"}
+                                          className="h-8 text-xs"
+                                          disabled={availableFields.length === 0}
+                                          onClick={() =>
+                                            updateTextLine(line.id, {
+                                              source: "field",
+                                              fieldKey:
+                                                line.fieldKey || availableFields[0]?.key || "",
+                                            })
+                                          }
+                                        >
+                                          {t("text.sourceField")}
+                                        </Button>
+                                      </div>
+
+                                      {line.source === "custom" ? (
                                         <div className="space-y-1">
                                           <Label
-                                            htmlFor={`${format}-${layer}-content`}
+                                            htmlFor={`${format}-${line.id}-content`}
                                             className="text-xs text-muted-foreground"
                                           >
                                             {t("text.customLineLabel")}
                                           </Label>
                                           <Input
-                                            id={`${format}-${layer}-content`}
-                                            value={customTextValue}
+                                            id={`${format}-${line.id}-content`}
+                                            value={line.customText}
                                             onChange={(e) =>
-                                              setTextContent(
-                                                layer === "secondaryText"
-                                                  ? "secondaryText"
-                                                  : "tertiaryText",
-                                                e.target.value
-                                              )
+                                              updateTextLine(line.id, {
+                                                customText: e.target.value,
+                                              })
                                             }
-                                            placeholder={t(`text.customLinePlaceholder.${layer}`)}
+                                            placeholder={t("text.customLinePlaceholder")}
                                             className="h-9"
                                           />
                                         </div>
-                                      ) : null}
+                                      ) : (
+                                        <div className="grid grid-cols-2 gap-2">
+                                          <div className="space-y-1">
+                                            <Label className="text-xs text-muted-foreground">
+                                              {t("text.fieldLabel")}
+                                            </Label>
+                                            <Select
+                                              value={line.fieldKey}
+                                              onValueChange={(v) =>
+                                                updateTextLine(line.id, { fieldKey: v })
+                                              }
+                                            >
+                                              <SelectTrigger className="h-9">
+                                                <SelectValue placeholder={t("text.fieldLabel")} />
+                                              </SelectTrigger>
+                                              <SelectContent>
+                                                {availableFields.map((field) => (
+                                                  <SelectItem key={field.key} value={field.key}>
+                                                    {field.label}
+                                                  </SelectItem>
+                                                ))}
+                                              </SelectContent>
+                                            </Select>
+                                          </div>
+                                          <div className="space-y-1">
+                                            <Label className="text-xs text-muted-foreground">
+                                              {t("text.caseTransform")}
+                                            </Label>
+                                            <Select
+                                              value={line.caseTransform}
+                                              onValueChange={(v) =>
+                                                updateTextLine(line.id, {
+                                                  caseTransform: v as TextCaseTransform,
+                                                })
+                                              }
+                                            >
+                                              <SelectTrigger className="h-9">
+                                                <SelectValue />
+                                              </SelectTrigger>
+                                              <SelectContent>
+                                                {CASE_TRANSFORM_OPTIONS.map((option) => (
+                                                  <SelectItem key={option} value={option}>
+                                                    {t(`text.caseTransformOptions.${option}`)}
+                                                  </SelectItem>
+                                                ))}
+                                              </SelectContent>
+                                            </Select>
+                                          </div>
+                                        </div>
+                                      )}
 
                                       <div className="flex flex-wrap items-center gap-2">
                                         <Input
                                           type="number"
                                           min={4}
                                           max={24}
-                                          value={cfg.size}
+                                          value={line.size}
                                           onChange={(e) =>
-                                            setTextLayer(
-                                              layer,
-                                              "size",
-                                              Math.max(4, Math.min(24, Number(e.target.value)))
-                                            )
+                                            updateTextLine(line.id, {
+                                              size: Math.max(
+                                                4,
+                                                Math.min(24, Number(e.target.value))
+                                              ),
+                                            })
                                           }
                                           className="h-8 w-16 text-xs"
-                                          disabled={!cfg.show}
                                         />
                                         <span className="text-xs text-muted-foreground">
                                           {t("text.pt")}
                                         </span>
                                         <div className="flex items-center gap-2">
                                           <Checkbox
-                                            id={`${format}-bold-${layer}`}
-                                            checked={cfg.bold}
+                                            id={`${format}-bold-${line.id}`}
+                                            checked={line.bold}
                                             onCheckedChange={(v) =>
-                                              setTextLayer(layer, "bold", !!v)
+                                              updateTextLine(line.id, { bold: !!v })
                                             }
-                                            disabled={!cfg.show}
                                           />
                                           <Label
-                                            htmlFor={`${format}-bold-${layer}`}
-                                            className={`cursor-pointer text-xs ${!cfg.show ? "text-muted-foreground" : ""}`}
+                                            htmlFor={`${format}-bold-${line.id}`}
+                                            className="cursor-pointer text-xs"
                                           >
                                             {t("text.bold")}
                                           </Label>
@@ -1985,20 +2057,19 @@ export function LabelDesigner({ selectedIds, canExport, format }: LabelDesignerP
                                             const Icon = TEXT_ALIGN_ICONS[align];
                                             return (
                                               <Button
-                                                key={`${format}-${layer}-${align}`}
+                                                key={`${format}-${line.id}-${align}`}
                                                 size="sm"
                                                 variant={
-                                                  cfg.align === align ? "default" : "outline"
+                                                  line.align === align ? "default" : "outline"
                                                 }
-                                                onClick={() => setTextLayer(layer, "align", align)}
+                                                onClick={() => updateTextLine(line.id, { align })}
                                                 className="h-8 w-8 p-0"
-                                                disabled={!cfg.show}
-                                                aria-label={t("text.alignLayer", {
-                                                  layer: name,
+                                                aria-label={t("text.alignLine", {
+                                                  line: name,
                                                   align: t(`text.alignOptions.${align}`),
                                                 })}
-                                                title={t("text.alignLayer", {
-                                                  layer: name,
+                                                title={t("text.alignLine", {
+                                                  line: name,
                                                   align: t(`text.alignOptions.${align}`),
                                                 })}
                                               >
@@ -2016,6 +2087,18 @@ export function LabelDesigner({ selectedIds, canExport, format }: LabelDesignerP
                           </div>
                         </SortableContext>
                       </DndContext>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="w-full gap-1.5"
+                        disabled={activeConfig.textLines.length >= MAX_TEXT_LINES}
+                        onClick={addTextLine}
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        {t("text.addLine")}
+                      </Button>
                     </div>
                   </Section>
                 </TabsContent>
@@ -2075,34 +2158,56 @@ export function LabelDesigner({ selectedIds, canExport, format }: LabelDesignerP
         </div>
 
         <div className="rounded-xl border bg-card p-4">
-          <div className="flex flex-col gap-3">
-            <p className="text-sm text-muted-foreground">
-              {format === "pdf"
-                ? t("exportBar.pdfSummary", { count: grid.perPage })
-                : t("exportBar.zplSummary", { size: zplSize })}
-            </p>
-            <Button
-              onClick={handleExport}
-              disabled={
-                isExporting ||
-                !canExport ||
-                selectedIds.length === 0 ||
-                (format === "pdf" && (pdfWidthInvalid || pdfHeightInvalid))
-              }
-              className="w-full gap-2"
-            >
-              {format === "pdf" ? <Eye className="h-4 w-4" /> : <Download className="h-4 w-4" />}
-              {isExporting
-                ? format === "pdf"
-                  ? t("exportBar.generatingPreview")
-                  : t("exportBar.exporting")
-                : selectedIds.length > 0
+          {mode === "template-editor" ? (
+            <div className="flex flex-col gap-3">
+              <p className="text-sm text-muted-foreground">{t("exportBar.templateSummary")}</p>
+              <Button
+                onClick={async () => {
+                  if (!onSaveTemplate) return;
+                  setIsSavingTemplate(true);
+                  try {
+                    await onSaveTemplate(format === "zpl" ? zplConfig : pdfConfig);
+                  } finally {
+                    setIsSavingTemplate(false);
+                  }
+                }}
+                disabled={isSavingTemplate || !canExport}
+                className="w-full gap-2"
+              >
+                <Download className="h-4 w-4" />
+                {isSavingTemplate ? t("exportBar.savingTemplate") : t("exportBar.saveTemplate")}
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              <p className="text-sm text-muted-foreground">
+                {format === "pdf"
+                  ? t("exportBar.pdfSummary", { count: grid.perPage })
+                  : t("exportBar.zplSummary", { size: zplSize })}
+              </p>
+              <Button
+                onClick={handleExport}
+                disabled={
+                  isExporting ||
+                  !canExport ||
+                  selectedIds.length === 0 ||
+                  (format === "pdf" && (pdfWidthInvalid || pdfHeightInvalid))
+                }
+                className="w-full gap-2"
+              >
+                {format === "pdf" ? <Eye className="h-4 w-4" /> : <Download className="h-4 w-4" />}
+                {isExporting
                   ? format === "pdf"
-                    ? t("exportBar.previewLabels", { count: selectedIds.length })
-                    : t("exportBar.exportLabels", { count: selectedIds.length })
-                  : t("exportBar.selectCodes")}
-            </Button>
-          </div>
+                    ? t("exportBar.generatingPreview")
+                    : t("exportBar.exporting")
+                  : selectedIds.length > 0
+                    ? format === "pdf"
+                      ? t("exportBar.previewLabels", { count: selectedIds.length })
+                      : t("exportBar.exportLabels", { count: selectedIds.length })
+                    : t("exportBar.selectCodes")}
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -2111,7 +2216,7 @@ export function LabelDesigner({ selectedIds, canExport, format }: LabelDesignerP
         onOpenChange={setPreviewOpen}
         blobUrl={previewUrl}
         generating={isExporting && format === "pdf"}
-        fileName="qr-labels.pdf"
+        fileName={`${fileNamePrefix}.pdf`}
         title={t("previewDialogTitle", { count: selectedIds.length })}
       />
 

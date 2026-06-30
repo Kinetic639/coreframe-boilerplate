@@ -26,6 +26,7 @@ import { QR_CREATE, QR_REVOKE, QR_EXPORT } from "@/lib/constants/permissions";
 import { listQrCodesAction } from "@/app/actions/qr/list";
 import { createQrBatchAction } from "@/app/actions/qr/create-batch";
 import { revokeQrAction } from "@/app/actions/qr/revoke";
+import { PRIMARY_FIELD_KEY, TOKEN_FIELD_KEY, SCAN_URL_FIELD_KEY } from "@/lib/qr/label-config";
 import { DataView } from "@/components/data-view/data-view";
 import type {
   DataViewColumnDef,
@@ -149,6 +150,7 @@ interface Props {
 
 export function QrManagementClient({ initialData, allCodes: initialAllCodes }: Props) {
   const t = useTranslations("modules.qr.management");
+  const tDesigner = useTranslations("modules.qr.designer");
   const { can } = usePermissions();
 
   const canCreate = can(QR_CREATE);
@@ -527,7 +529,16 @@ export function QrManagementClient({ initialData, allCodes: initialAllCodes }: P
                 </div>
               </div>
               <div className="min-h-0 flex-1 overflow-hidden pt-4">
-                <LabelDesigner selectedIds={designIds} canExport={canExport} format={labelFormat} />
+                <LabelDesigner
+                  items={designIds.map((id) => ({ id, primaryText: "" }))}
+                  canExport={canExport}
+                  format={labelFormat}
+                  availableFields={[
+                    { key: PRIMARY_FIELD_KEY, label: tDesigner("fields.qrLabel") },
+                    { key: TOKEN_FIELD_KEY, label: tDesigner("fields.qrToken") },
+                    { key: SCAN_URL_FIELD_KEY, label: tDesigner("fields.scanUrl") },
+                  ]}
+                />
               </div>
             </div>
           ) : null}
