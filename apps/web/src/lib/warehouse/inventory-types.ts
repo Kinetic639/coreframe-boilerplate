@@ -354,7 +354,7 @@ export type InventoryMovementLineInput = {
   note?: string | null;
 };
 
-export type CounterpartyDetails = {
+export type MovementPartyDetails = {
   name: string;
   nip?: string;
   phone?: string;
@@ -368,8 +368,10 @@ export type CreateDraftMovementInput = {
   lines: InventoryMovementLineInput[];
   operation_date?: string | null;
   document_date?: string | null;
-  counterparty_name?: string | null;
-  counterparty_details?: CounterpartyDetails | null;
+  sender_name?: string | null;
+  sender_details?: MovementPartyDetails | null;
+  recipient_name?: string | null;
+  recipient_details?: MovementPartyDetails | null;
   external_reference?: string | null;
   note?: string | null;
   idempotency_key?: string | null;
@@ -399,6 +401,102 @@ export type InventoryMovementType = {
   cost_impact: string;
 };
 
+export type MovementFieldScope = "header" | "line";
+export type MovementFieldPolicyState = "required" | "optional" | "system" | "forbidden" | "hidden";
+
+export type MovementFieldPolicy = {
+  field_key: string;
+  field_scope: MovementFieldScope;
+  value_type: string;
+  resolver_kind: string | null;
+  label: string;
+  label_pl: string | null;
+  is_importable: boolean;
+  policy: MovementFieldPolicyState;
+  default_strategy: string | null;
+  default_value: Record<string, unknown>;
+  validation: Record<string, unknown>;
+  display_order: number;
+};
+
+export type MovementFieldPolicyBundle = Record<string, MovementFieldPolicy[]>;
+
+export type MovementImportSourceField = {
+  key: string;
+  label: string;
+  type?: "text" | "select";
+  placeholder?: string;
+  required?: boolean;
+  options?: Array<{
+    value: string;
+    label: string;
+    description?: string | null;
+    disabled?: boolean;
+  }>;
+};
+
+export type MovementImportSource = {
+  source_type: string;
+  label: string;
+  description: string | null;
+  supported_movement_type_codes: string[];
+  input_fields: MovementImportSourceField[];
+};
+
+export type MovementImportPreviewLine = {
+  line_number: number;
+  source_line_id: string;
+  raw_product_code: string | null;
+  raw_product_name: string | null;
+  raw_unit: string | null;
+  raw_quantity: number | null;
+  normalized_product_code: string | null;
+  normalized_product_name: string | null;
+  normalized_unit_code: string | null;
+  raw_source_location: string | null;
+  raw_destination_location: string | null;
+  raw_metadata: Record<string, unknown>;
+  variant_id: string | null;
+  unit_id: string | null;
+  source_location_id: string | null;
+  destination_location_id: string | null;
+  quantity: number | null;
+  product_resolution_status: "resolved" | "missing" | "ambiguous";
+  unit_resolution_status: "resolved" | "missing" | "ambiguous";
+  validation_errors: string[];
+};
+
+export type MovementImportExceptionGroup = {
+  type: "missing_product" | "ambiguous_product" | "missing_unit" | "ambiguous_unit";
+  key: string;
+  raw_value: string | null;
+  normalized_value: string | null;
+  row_count: number;
+  line_ids: string[];
+};
+
+export type MovementImportPreviewDocument = {
+  source_document_id: string;
+  source_document_number: string | null;
+  source_metadata: Record<string, unknown>;
+  movement_type_code: string;
+  external_reference: string | null;
+  sender_name: string | null;
+  sender_details: MovementPartyDetails | null;
+  recipient_name: string | null;
+  recipient_details: MovementPartyDetails | null;
+  validation_errors: string[];
+  exception_groups: MovementImportExceptionGroup[];
+  lines: MovementImportPreviewLine[];
+};
+
+export type MovementImportPreview = {
+  source_type: string;
+  source_label: string;
+  movement_type_code: string;
+  documents: MovementImportPreviewDocument[];
+};
+
 export type InventoryMovementListRow = {
   id: string;
   draft_number: string | null;
@@ -410,7 +508,8 @@ export type InventoryMovementListRow = {
   status: string;
   line_count: number;
   product_names: string;
-  counterparty_name: string | null;
+  sender_name: string | null;
+  recipient_name: string | null;
   external_reference: string | null;
   created_by: string | null;
   created_at: string;
@@ -456,7 +555,8 @@ export type InventoryMovementDetail = InventoryMovementListRow & {
   document_date: string | null;
   branch_name: string | null;
   created_by_name: string | null;
-  counterparty_details: CounterpartyDetails | null;
+  sender_details: MovementPartyDetails | null;
+  recipient_details: MovementPartyDetails | null;
   lines: Array<{
     id: string;
     line_number: number;
@@ -470,6 +570,7 @@ export type InventoryMovementDetail = InventoryMovementListRow & {
     source_location_name: string | null;
     destination_location_id: string | null;
     destination_location_name: string | null;
+    note: string | null;
   }>;
   audit_log: InventoryMovementAuditEntry[];
 };

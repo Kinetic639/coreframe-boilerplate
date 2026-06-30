@@ -8,17 +8,25 @@ import type { InventoryMovementType } from "@/lib/warehouse/inventory-types";
 import type { RichTextValue } from "@/components/primitives/rich-text/rich-text-types";
 import { RichTextEditorField } from "@/components/primitives/rich-text/rich-text-editor-field";
 import { MovementTypePicker } from "@/components/warehouse/movement-type-picker";
-import { MovementSupplierSection, type SupplierFields } from "./movement-supplier-section";
+import {
+  MovementPartySection,
+  MovementSupplierSection,
+  type SupplierFields,
+} from "./movement-supplier-section";
 
 type Props = {
   typeCode: string;
   selType: InventoryMovementType | null;
-  isPZ: boolean;
   isEdit: boolean;
   movementTypes: InventoryMovementType[];
-  counterpartyName: string;
+  allowsSender: boolean;
+  allowsRecipient: boolean;
+  senderName: string;
+  recipientName: string;
   supplierFields: SupplierFields;
   supplierLocked: boolean;
+  recipientFields: SupplierFields;
+  recipientLocked: boolean;
   externalReference: string;
   noteRichText: RichTextValue | null;
   operationDate: string;
@@ -26,10 +34,14 @@ type Props = {
   branchName: string;
   createdByName: string;
   onTypeChange: (code: string) => void;
-  onCounterpartyChange: (val: string) => void;
-  onCounterpartyDetailsChange: (details: SupplierFields) => void;
+  onSenderChange: (val: string) => void;
+  onSenderDetailsChange: (details: SupplierFields) => void;
+  onRecipientChange: (val: string) => void;
+  onRecipientDetailsChange: (details: SupplierFields) => void;
   onSupplierFieldsChange: (fields: SupplierFields) => void;
   onSupplierLockedChange: (locked: boolean) => void;
+  onRecipientFieldsChange: (fields: SupplierFields) => void;
+  onRecipientLockedChange: (locked: boolean) => void;
   onExternalRefChange: (val: string) => void;
   onNoteRichTextChange: (val: RichTextValue) => void;
 };
@@ -57,12 +69,16 @@ function LBL({
 export const MovementDocumentDataTab = React.memo(function MovementDocumentDataTab({
   typeCode,
   selType,
-  isPZ,
   isEdit,
   movementTypes,
-  counterpartyName,
+  allowsSender,
+  allowsRecipient,
+  senderName,
+  recipientName,
   supplierFields,
   supplierLocked,
+  recipientFields,
+  recipientLocked,
   externalReference,
   noteRichText,
   operationDate,
@@ -70,10 +86,14 @@ export const MovementDocumentDataTab = React.memo(function MovementDocumentDataT
   branchName,
   createdByName,
   onTypeChange,
-  onCounterpartyChange,
-  onCounterpartyDetailsChange,
+  onSenderChange,
+  onSenderDetailsChange,
+  onRecipientChange,
+  onRecipientDetailsChange,
   onSupplierFieldsChange,
   onSupplierLockedChange,
+  onRecipientFieldsChange,
+  onRecipientLockedChange,
   onExternalRefChange,
   onNoteRichTextChange,
 }: Props) {
@@ -140,15 +160,29 @@ export const MovementDocumentDataTab = React.memo(function MovementDocumentDataT
         </section>
       )}
 
-      {/* Supplier Section (PZ only) */}
-      {selType && isPZ && (
+      {/* Sender / recipient fields are controlled by movement field policy. */}
+      {selType && allowsSender && (
         <MovementSupplierSection
           fields={supplierFields}
           locked={supplierLocked}
           onFieldsChange={onSupplierFieldsChange}
           onLockedChange={onSupplierLockedChange}
-          onCounterpartyChange={onCounterpartyChange}
-          onDetailsChange={onCounterpartyDetailsChange}
+          onSenderChange={onSenderChange}
+          onDetailsChange={onSenderDetailsChange}
+        />
+      )}
+
+      {selType && allowsRecipient && (
+        <MovementPartySection
+          title={t("recipient")}
+          detailsTitle={t("recipient")}
+          fields={recipientFields}
+          locked={recipientLocked}
+          lockedBadgeLabel={t("recipient")}
+          onFieldsChange={onRecipientFieldsChange}
+          onLockedChange={onRecipientLockedChange}
+          onNameChange={onRecipientChange}
+          onDetailsChange={onRecipientDetailsChange}
         />
       )}
 

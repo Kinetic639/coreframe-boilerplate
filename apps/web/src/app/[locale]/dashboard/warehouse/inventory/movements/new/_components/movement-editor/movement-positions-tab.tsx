@@ -19,6 +19,9 @@ type Props = {
   stockableLocations: LocationOption[];
   lines: LineDraft[];
   pickerDisabled: boolean;
+  importedLinesLocked: boolean;
+  manualCorrectionMode: boolean;
+  onEnableManualCorrections: () => void;
   onOpenPicker: () => void;
   onRemoveLine: (key: string) => void;
   onUpdateLineQty: (key: string, val: string) => void;
@@ -32,23 +35,27 @@ const MovementLineRow = React.memo(function MovementLineRow({
   is801,
   onUpdateQty,
   onRemove,
+  importedLinesLocked,
 }: {
   line: LineDraft;
   idx: number;
   is801: boolean;
   onUpdateQty: (key: string, val: string) => void;
   onRemove: (key: string) => void;
+  importedLinesLocked: boolean;
 }) {
   const t = useTranslations("warehouseInventory.movementEditor");
   const q = Number(line.quantity) || 0;
   const overLimit = is801 && line.on_hand_at_source !== null && q > line.on_hand_at_source;
   const hasError = q <= 0 || overLimit;
+  const orderNumber = line.note?.replace(/^Zlecenie:\s*/i, "") ?? "";
+  const lineLocked = line.origin === "imported" && importedLinesLocked;
   return (
     <tr className={cn("group hover:bg-muted/30 transition-colors", hasError && "bg-destructive/5")}>
       <td className="py-2 px-3 text-center text-muted-foreground font-mono text-xs">{idx + 1}</td>
-      <td className="py-2 px-3 font-mono font-bold text-foreground">{line.sku}</td>
-      <td className="py-2 px-3">
-        <div className="font-medium text-foreground truncate max-w-[220px]">
+      <td className="py-2 px-3 font-mono text-foreground">{line.sku}</td>
+      <td className="min-w-0 py-2 px-3">
+        <div className="w-full min-w-0 truncate font-medium text-foreground">
           {line.product_name}
         </div>
         {line.brand_name && (
@@ -70,7 +77,8 @@ const MovementLineRow = React.memo(function MovementLineRow({
           <button
             type="button"
             onClick={() => onUpdateQty(line.key, String(q - 1))}
-            className="h-6 w-6 rounded-sm border bg-card hover:bg-muted flex items-center justify-center text-xs font-bold transition"
+            disabled={lineLocked}
+            className="h-6 w-6 rounded-sm border bg-card hover:bg-muted flex items-center justify-center text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-40"
           >
             −
           </button>
@@ -80,6 +88,7 @@ const MovementLineRow = React.memo(function MovementLineRow({
             max={line.on_hand_at_source ?? undefined}
             value={line.quantity}
             onChange={(e) => onUpdateQty(line.key, e.target.value)}
+            disabled={lineLocked}
             className={cn(
               "h-7 w-16 text-center text-sm font-mono font-bold rounded-sm",
               hasError && "border-destructive"
@@ -88,7 +97,8 @@ const MovementLineRow = React.memo(function MovementLineRow({
           <button
             type="button"
             onClick={() => onUpdateQty(line.key, String(q + 1))}
-            className="h-6 w-6 rounded-sm border bg-card hover:bg-muted flex items-center justify-center text-xs font-bold transition"
+            disabled={lineLocked}
+            className="h-6 w-6 rounded-sm border bg-card hover:bg-muted flex items-center justify-center text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-40"
           >
             +
           </button>
@@ -104,10 +114,13 @@ const MovementLineRow = React.memo(function MovementLineRow({
           </span>
         )}
       </td>
+      <td className="py-2 px-3 font-mono text-xs text-muted-foreground">{orderNumber || "—"}</td>
       <td className="py-2 px-3 text-center">
         <button
+          type="button"
           onClick={() => onRemove(line.key)}
-          className="p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-sm transition opacity-0 group-hover:opacity-100"
+          disabled={lineLocked}
+          className="p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-sm transition opacity-0 group-hover:opacity-100 disabled:pointer-events-none disabled:opacity-20"
         >
           <Trash2 className="h-3.5 w-3.5" />
         </button>
@@ -125,6 +138,9 @@ export const MovementPositionsTab = React.memo(function MovementPositionsTab({
   stockableLocations,
   lines,
   pickerDisabled,
+  importedLinesLocked,
+  manualCorrectionMode,
+  onEnableManualCorrections,
   onOpenPicker,
   onRemoveLine,
   onUpdateLineQty,
@@ -202,16 +218,45 @@ export const MovementPositionsTab = React.memo(function MovementPositionsTab({
             <Badge variant="secondary" className="text-[10px] rounded-sm">
               {lines.length}
             </Badge>
+            {importedLinesLocked && (
+              <Badge
+                variant="outline"
+                className="text-[10px] rounded-sm border-amber-500/40 text-amber-700"
+              >
+                Imported
+              </Badge>
+            )}
+            {manualCorrectionMode && (
+              <Badge
+                variant="outline"
+                className="text-[10px] rounded-sm border-primary/40 text-primary"
+              >
+                Manual corrections enabled
+              </Badge>
+            )}
           </div>
-          <Button
-            size="sm"
-            className="h-8 text-xs gap-1.5"
-            disabled={pickerDisabled || !selType}
-            onClick={onOpenPicker}
-          >
-            <Plus className="h-3.5 w-3.5" />
-            {t("addItems")}
-          </Button>
+          {importedLinesLocked ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs gap-1.5"
+              onClick={onEnableManualCorrections}
+            >
+              <AlertTriangle className="h-3.5 w-3.5" />
+              Enable manual corrections
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              className="h-8 text-xs gap-1.5"
+              disabled={pickerDisabled || !selType}
+              onClick={onOpenPicker}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {t("addItems")}
+            </Button>
+          )}
         </div>
 
         {is801 && !srcLoc && (
@@ -238,7 +283,7 @@ export const MovementPositionsTab = React.memo(function MovementPositionsTab({
               <p className="text-muted-foreground text-xs max-w-xs mt-1 mb-4">
                 {t("noPositionsAddedDesc")}
               </p>
-              {!pickerDisabled && selType && (
+              {!pickerDisabled && !importedLinesLocked && selType && (
                 <Button variant="default" size="sm" className="gap-1.5" onClick={onOpenPicker}>
                   <Plus className="h-3.5 w-3.5" />
                   {t("addFirstItem")}
@@ -255,6 +300,7 @@ export const MovementPositionsTab = React.memo(function MovementPositionsTab({
                   <th className="py-2.5 px-3 text-center w-16">{t("colUnit")}</th>
                   {is801 && <th className="py-2.5 px-3 text-center w-20">{t("colAvail")}</th>}
                   <th className="py-2.5 px-3 text-center w-28">{t("colQuantity")}</th>
+                  <th className="py-2.5 px-3 w-44 font-mono text-left">Zlecenie / Order</th>
                   <th className="py-2.5 px-3 text-center w-12" />
                 </tr>
               </thead>
@@ -267,6 +313,7 @@ export const MovementPositionsTab = React.memo(function MovementPositionsTab({
                     is801={is801}
                     onUpdateQty={onUpdateLineQty}
                     onRemove={onRemoveLine}
+                    importedLinesLocked={importedLinesLocked}
                   />
                 ))}
               </tbody>
@@ -274,7 +321,7 @@ export const MovementPositionsTab = React.memo(function MovementPositionsTab({
           )}
         </div>
 
-        {lines.length > 0 && !pickerDisabled && selType && (
+        {lines.length > 0 && !pickerDisabled && !importedLinesLocked && selType && (
           <div className="border-t px-4 py-2">
             <Button
               variant="ghost"

@@ -218,7 +218,7 @@ export function InventoryMovementDetailPanel({
         </div>
       )}
 
-      {/* Document Header Info — two-column: details left, counterparty right */}
+      {/* Document Header Info — two-column: details left, parties right */}
       <div className="rounded-sm border bg-muted/20 p-3">
         <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4">
           {/* Left: Document details */}
@@ -306,13 +306,12 @@ export function InventoryMovementDetailPanel({
             <span>{td("positionsSummary", { count: detail.lines.length, qty: totalQty })}</span>
           </div>
 
-          {/* Right: Counterparty / Supplier */}
-          {detail.counterparty_name && (
+          {(detail.sender_name || detail.recipient_name) && (
             <div className="md:w-64 md:border-l md:pl-4">
-              <div className="rounded-sm border bg-card p-3">
+              <div className="space-y-3 rounded-sm border bg-card p-3">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    {td("counterparty")}
+                    {td("sender")}
                   </span>
                   <Badge
                     variant="outline"
@@ -321,27 +320,58 @@ export function InventoryMovementDetailPanel({
                     {td("supplier")}
                   </Badge>
                 </div>
-                <h4 className="text-sm font-bold text-foreground">{detail.counterparty_name}</h4>
-                {detail.counterparty_details && (
+                {detail.sender_name && (
+                  <h4 className="text-sm font-bold text-foreground">{detail.sender_name}</h4>
+                )}
+                {detail.sender_details && (
                   <div className="text-xs text-muted-foreground font-mono space-y-0.5 mt-2">
-                    {detail.counterparty_details.nip && (
+                    {detail.sender_details.nip && (
                       <p>
                         NIP:{" "}
-                        <strong className="text-foreground">
-                          {detail.counterparty_details.nip}
-                        </strong>
+                        <strong className="text-foreground">{detail.sender_details.nip}</strong>
                       </p>
                     )}
-                    {detail.counterparty_details.street && (
+                    {detail.sender_details.street && (
                       <p>
-                        {detail.counterparty_details.street}
-                        {detail.counterparty_details.postalCode &&
-                          `, ${detail.counterparty_details.postalCode}`}
-                        {detail.counterparty_details.city && ` ${detail.counterparty_details.city}`}
+                        {detail.sender_details.street}
+                        {detail.sender_details.postalCode &&
+                          `, ${detail.sender_details.postalCode}`}
+                        {detail.sender_details.city && ` ${detail.sender_details.city}`}
                       </p>
                     )}
-                    {detail.counterparty_details.phone && (
-                      <p>Tel: {detail.counterparty_details.phone}</p>
+                    {detail.sender_details.phone && <p>Tel: {detail.sender_details.phone}</p>}
+                  </div>
+                )}
+                {detail.recipient_name && (
+                  <div className="border-t pt-2">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      {td("recipient")}
+                    </span>
+                    <h4 className="mt-1 text-sm font-bold text-foreground">
+                      {detail.recipient_name}
+                    </h4>
+                    {detail.recipient_details && (
+                      <div className="text-xs text-muted-foreground font-mono space-y-0.5 mt-2">
+                        {detail.recipient_details.nip && (
+                          <p>
+                            NIP:{" "}
+                            <strong className="text-foreground">
+                              {detail.recipient_details.nip}
+                            </strong>
+                          </p>
+                        )}
+                        {detail.recipient_details.street && (
+                          <p>
+                            {detail.recipient_details.street}
+                            {detail.recipient_details.postalCode &&
+                              `, ${detail.recipient_details.postalCode}`}
+                            {detail.recipient_details.city && ` ${detail.recipient_details.city}`}
+                          </p>
+                        )}
+                        {detail.recipient_details.phone && (
+                          <p>Tel: {detail.recipient_details.phone}</p>
+                        )}
+                      </div>
                     )}
                   </div>
                 )}
@@ -402,7 +432,12 @@ export function InventoryMovementDetailPanel({
                     {idx + 1}
                   </td>
                   <td className="px-3 py-1.5 font-mono font-medium">{line.sku}</td>
-                  <td className="px-3 py-1.5">{line.product_name}</td>
+                  <td className="px-3 py-1.5">
+                    <div>{line.product_name}</div>
+                    {line.note && (
+                      <div className="mt-0.5 text-xs text-muted-foreground">{line.note}</div>
+                    )}
+                  </td>
                   <td className="px-3 py-1.5 text-center">
                     <Badge variant="outline" className="text-[10px] font-mono">
                       {line.unit_code}
