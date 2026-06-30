@@ -37,12 +37,19 @@ function ensureFontsRegistered(): Promise<void> {
   if (!fontsRegisteredPromise) {
     fontsRegisteredPromise = (async () => {
       if (process.env.NODE_ENV === "test") return;
+      // Node.js's built-in fetch (undici) does not support file:// URLs, so we
+      // read the TTFs ourselves and pass them as base64 data URLs instead.
+      const { readFile } = await import("fs/promises");
       const fontsDir = path.join(process.cwd(), "public", "fonts");
+      const [regular, bold] = await Promise.all([
+        readFile(path.join(fontsDir, "Roboto-Regular.ttf")),
+        readFile(path.join(fontsDir, "Roboto-Bold.ttf")),
+      ]);
       Font.register({
         family: "Roboto",
         fonts: [
-          { src: `file://${path.join(fontsDir, "Roboto-Regular.ttf")}`, fontWeight: "normal" },
-          { src: `file://${path.join(fontsDir, "Roboto-Bold.ttf")}`, fontWeight: "bold" },
+          { src: `data:font/truetype;base64,${regular.toString("base64")}`, fontWeight: "normal" },
+          { src: `data:font/truetype;base64,${bold.toString("base64")}`, fontWeight: "bold" },
         ],
       });
       Font.registerHyphenationCallback((word) => [word]);
