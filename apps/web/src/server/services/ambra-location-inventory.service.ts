@@ -35,8 +35,9 @@ type MovementLineRow = {
 
 type MovementHeaderRow = {
   id: string;
-  movement_number: string;
-  movement_kind: string;
+  document_number: string | null;
+  draft_number: string | null;
+  movement_type_code: string;
   status: string;
   created_at: string;
   posted_at: string | null;
@@ -145,7 +146,7 @@ export class AmbraLocationInventoryService {
     const { data: movementsData, error: movementsError } = movementIds.length
       ? await supabase
           .from("inventory_movement_headers")
-          .select("id, movement_number")
+          .select("id, document_number, draft_number")
           .eq("organization_id", orgId)
           .eq("branch_id", branchId)
           .in("id", movementIds)
@@ -158,10 +159,13 @@ export class AmbraLocationInventoryService {
       ((unitsData ?? []) as Array<{ id: string; code: string }>).map((unit) => [unit.id, unit])
     );
     const movementsById = new Map(
-      ((movementsData ?? []) as Array<{ id: string; movement_number: string }>).map((movement) => [
-        movement.id,
-        movement,
-      ])
+      (
+        (movementsData ?? []) as Array<{
+          id: string;
+          document_number: string | null;
+          draft_number: string | null;
+        }>
+      ).map((movement) => [movement.id, movement])
     );
 
     return {
@@ -185,7 +189,7 @@ export class AmbraLocationInventoryService {
           availableQuantity: toNumber(balance.available_quantity),
           reservedQuantity: toNumber(balance.reserved_quantity),
           allocatedQuantity: toNumber(balance.allocated_quantity),
-          lastMovementNumber: movement?.movement_number ?? null,
+          lastMovementNumber: movement?.document_number ?? movement?.draft_number ?? null,
           containerId: null,
           containerCode: null,
         };
@@ -226,7 +230,9 @@ export class AmbraLocationInventoryService {
 
     const { data: headersData, error: headersError } = await supabase
       .from("inventory_movement_headers")
-      .select("id, movement_number, movement_kind, status, created_at, posted_at")
+      .select(
+        "id, document_number, draft_number, movement_type_code, status, created_at, posted_at"
+      )
       .eq("organization_id", orgId)
       .eq("branch_id", branchId)
       .in("id", movementIds);
@@ -298,8 +304,8 @@ export class AmbraLocationInventoryService {
           return {
             id: line.id,
             movementId: line.movement_id,
-            movementNumber: header.movement_number,
-            movementKind: header.movement_kind,
+            movementNumber: header.document_number ?? header.draft_number ?? "",
+            movementKind: header.movement_type_code,
             status: header.status,
             variantId: line.variant_id,
             sku: variant?.sku ?? "",

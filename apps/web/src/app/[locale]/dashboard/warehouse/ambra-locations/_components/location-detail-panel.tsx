@@ -560,7 +560,7 @@ export function LocationDetailPanel({
   );
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col h-full min-h-0">
       {/* HEADER */}
       <div className="shrink-0 border-b border-border bg-card px-5 py-4">
         <div className="flex items-start justify-between gap-3">
