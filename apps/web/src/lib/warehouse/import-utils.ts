@@ -141,6 +141,14 @@ export function normalizeImportedSku(value: string | null | undefined) {
   return normalizeSkuValue(value ?? "", "upper", "remove", "-", "keep", "");
 }
 
+export function normalizeImportedProductName(value: string | null | undefined) {
+  return (value ?? "").trim().replace(/\s+/g, " ");
+}
+
+export function normalizeImportedUnitCode(value: string | null | undefined) {
+  return normalizeImportedSku(value).slice(0, 20);
+}
+
 export function parseTokenString(value: string) {
   return value
     .split(",")

@@ -22,6 +22,7 @@ export type { MovementFormInitialValues } from "./types";
 
 export function MovementDocumentForm({
   mode,
+  organizationName,
   branchName,
   createdByName,
   movementTypes,
@@ -35,8 +36,16 @@ export function MovementDocumentForm({
   const t = useTranslations("warehouseInventory.movementEditor");
   const today = new Date().toISOString().split("T")[0];
   const isEdit = mode === "edit";
+  const defaultRecipientName = [organizationName, branchName].filter(Boolean).join(" / ");
 
-  const form = useMovementFormState(movementTypes, fieldPolicies, variants, units, initialValues);
+  const form = useMovementFormState(
+    movementTypes,
+    fieldPolicies,
+    variants,
+    units,
+    initialValues,
+    defaultRecipientName
+  );
   const validation = useMovementValidation(
     form.typeCode,
     form.requiresSourceLocation,
@@ -70,12 +79,16 @@ export function MovementDocumentForm({
   const pickerDisabled = form.is801 && !form.srcLoc;
 
   const handleOpenPicker = useCallback(() => {
+    if (form.importedLinesLocked) {
+      toast.error("Enable manual corrections before changing imported positions.");
+      return;
+    }
     if (form.is801 && !form.srcLoc) {
       toast.error(t("selectSourceFirst"));
       return;
     }
     setPickerOpen(true);
-  }, [form.is801, form.srcLoc]);
+  }, [form.importedLinesLocked, form.is801, form.srcLoc, t]);
 
   const handleSaveDraft = useCallback(() => submit(false), [submit]);
   const handleSaveAndPost = useCallback(() => submit(true), [submit]);
@@ -161,6 +174,8 @@ export function MovementDocumentForm({
               recipientName={form.recipientName}
               supplierFields={form.supplierFields}
               supplierLocked={form.supplierLocked}
+              recipientFields={form.recipientFields}
+              recipientLocked={form.recipientLocked}
               externalReference={form.externalReference}
               noteRichText={form.noteRichText}
               operationDate={initialValues?.operationDate ?? today}
@@ -173,8 +188,11 @@ export function MovementDocumentForm({
               onSenderChange={form.setSenderName}
               onSenderDetailsChange={form.setSenderDetails}
               onRecipientChange={form.setRecipientName}
+              onRecipientDetailsChange={form.setRecipientDetails}
               onSupplierFieldsChange={form.setSupplierFields}
               onSupplierLockedChange={form.setSupplierLocked}
+              onRecipientFieldsChange={form.setRecipientFields}
+              onRecipientLockedChange={form.setRecipientLocked}
               onExternalRefChange={form.setExternalReference}
               onNoteRichTextChange={form.setNoteRichText}
             />
@@ -189,6 +207,9 @@ export function MovementDocumentForm({
               stockableLocations={stockableLocations}
               lines={form.lines}
               pickerDisabled={pickerDisabled}
+              importedLinesLocked={form.importedLinesLocked}
+              manualCorrectionMode={form.manualCorrectionMode}
+              onEnableManualCorrections={form.enableManualCorrections}
               onOpenPicker={handleOpenPicker}
               onRemoveLine={form.removeLine}
               onUpdateLineQty={form.updateLineQty}

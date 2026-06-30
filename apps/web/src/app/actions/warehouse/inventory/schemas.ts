@@ -611,6 +611,34 @@ export const previewMovementImportFromSourceSchema = z.object({
   movement_type_code: z.string().min(1).max(20),
 });
 
+export const createMovementImportUnitsSchema = z.object({
+  units: z
+    .array(
+      z.object({
+        key: z.string().trim().min(1).max(120),
+        code: z.string().trim().min(1).max(20),
+        name: z.string().trim().min(1).max(100),
+      })
+    )
+    .min(1)
+    .max(200),
+});
+
+export const createMovementImportProductsSchema = z.object({
+  products: z
+    .array(
+      z.object({
+        key: z.string().trim().min(1).max(120),
+        sku: z.string().trim().min(1).max(100),
+        name: z.string().trim().min(1).max(200),
+        unit_id: uuidSchema,
+        unit_code: z.string().trim().max(20).optional().default(""),
+      })
+    )
+    .min(1)
+    .max(200),
+});
+
 export const createInventoryExportJobSchema = z.object({
   export_type: z.enum(["products", "inventory", "movements", "valuation", "counts"]),
   filters: z.record(z.unknown()).optional().default({}),

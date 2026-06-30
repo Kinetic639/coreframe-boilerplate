@@ -27,6 +27,19 @@ type Props = {
   onDetailsChange: (details: SupplierFields) => void;
 };
 
+type PartySectionProps = {
+  title: string;
+  detailsTitle: string;
+  fields: SupplierFields;
+  locked: boolean;
+  showSupplierSearch?: boolean;
+  lockedBadgeLabel?: string;
+  onFieldsChange: (fields: SupplierFields) => void;
+  onLockedChange: (locked: boolean) => void;
+  onNameChange: (val: string) => void;
+  onDetailsChange: (details: SupplierFields) => void;
+};
+
 type SupplierResult = { id: string; name: string; phone: string | null };
 
 export const MovementSupplierSection = React.memo(function MovementSupplierSection({
@@ -38,16 +51,46 @@ export const MovementSupplierSection = React.memo(function MovementSupplierSecti
   onDetailsChange,
 }: Props) {
   const t = useTranslations("warehouseInventory.movementEditor");
+
+  return (
+    <MovementPartySection
+      title={t("sender")}
+      detailsTitle={t("senderDetails")}
+      fields={fields}
+      locked={locked}
+      showSupplierSearch
+      lockedBadgeLabel={t("supplierLocked")}
+      onFieldsChange={onFieldsChange}
+      onLockedChange={onLockedChange}
+      onNameChange={onSenderChange}
+      onDetailsChange={onDetailsChange}
+    />
+  );
+});
+
+export const MovementPartySection = React.memo(function MovementPartySection({
+  title,
+  detailsTitle,
+  fields,
+  locked,
+  showSupplierSearch = false,
+  lockedBadgeLabel,
+  onFieldsChange,
+  onLockedChange,
+  onNameChange,
+  onDetailsChange,
+}: PartySectionProps) {
+  const t = useTranslations("warehouseInventory.movementEditor");
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const updateField = useCallback(
     (key: keyof SupplierFields, value: string) => {
       const next = { ...fields, [key]: value };
       onFieldsChange(next);
-      if (key === "name") onSenderChange(value);
+      if (key === "name") onNameChange(value);
       onDetailsChange(next);
     },
-    [fields, onFieldsChange, onSenderChange, onDetailsChange]
+    [fields, onFieldsChange, onNameChange, onDetailsChange]
   );
 
   const handleLock = useCallback(() => {
@@ -66,11 +109,11 @@ export const MovementSupplierSection = React.memo(function MovementSupplierSecti
         phone: supplier.phone ?? fields.phone,
       };
       onFieldsChange(next);
-      onSenderChange(supplier.name);
+      onNameChange(supplier.name);
       onDetailsChange(next);
       setDialogOpen(false);
     },
-    [fields, onFieldsChange, onSenderChange, onDetailsChange]
+    [fields, onFieldsChange, onNameChange, onDetailsChange]
   );
 
   return (
@@ -78,7 +121,7 @@ export const MovementSupplierSection = React.memo(function MovementSupplierSecti
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2 text-xs uppercase font-bold tracking-wider text-muted-foreground">
           <User className="h-4 w-4" />
-          {t("sender")}
+          {title}
         </div>
         <div className="flex items-center gap-1.5">
           {locked ? (
@@ -94,16 +137,18 @@ export const MovementSupplierSection = React.memo(function MovementSupplierSecti
             </Button>
           ) : (
             <>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs gap-1.5"
-                onClick={() => setDialogOpen(true)}
-              >
-                <Search className="h-3 w-3" />
-                {t("searchSupplierBtn")}
-              </Button>
+              {showSupplierSearch && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs gap-1.5"
+                  onClick={() => setDialogOpen(true)}
+                >
+                  <Search className="h-3 w-3" />
+                  {t("searchSupplierBtn")}
+                </Button>
+              )}
               {fields.name && (
                 <Button
                   type="button"
@@ -126,14 +171,14 @@ export const MovementSupplierSection = React.memo(function MovementSupplierSecti
             <div className="flex items-center gap-1.5">
               <Building className="h-3.5 w-3.5 text-muted-foreground" />
               <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                {t("senderDetails")}
+                {detailsTitle}
               </span>
             </div>
             <Badge
               variant="outline"
               className="text-[10px] uppercase font-bold bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
             >
-              {t("supplierLocked")}
+              {lockedBadgeLabel ?? t("supplierLocked")}
             </Badge>
           </div>
           <h4 className="text-sm font-bold text-foreground">{fields.name}</h4>
@@ -158,7 +203,7 @@ export const MovementSupplierSection = React.memo(function MovementSupplierSecti
           <div className="flex items-center gap-1.5 border-b pb-2">
             <Building className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-              {t("senderDetails")}
+              {detailsTitle}
             </span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -234,11 +279,13 @@ export const MovementSupplierSection = React.memo(function MovementSupplierSecti
         </div>
       )}
 
-      <SupplierSearchDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        onSelect={fillFromSupplier}
-      />
+      {showSupplierSearch && (
+        <SupplierSearchDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          onSelect={fillFromSupplier}
+        />
+      )}
     </section>
   );
 });

@@ -94,7 +94,9 @@ export default async function EditDraftMovementPage({ params }: PageProps) {
     documentDate: detail.document_date ?? new Date().toISOString().split("T")[0],
     operationDate: detail.operation_date ?? new Date().toISOString().split("T")[0],
     senderName: detail.sender_name ?? "",
+    senderDetails: detail.sender_details ?? null,
     recipientName: detail.recipient_name ?? "",
+    recipientDetails: detail.recipient_details ?? null,
     externalReference: detail.external_reference ?? "",
     note: detail.note ?? "",
     lines: detail.lines.map((l) => {
@@ -116,6 +118,7 @@ export default async function EditDraftMovementPage({ params }: PageProps) {
   return (
     <MovementDocumentForm
       mode="edit"
+      organizationName={context.app.activeOrg?.name ?? ""}
       branchName={context.app.activeBranch?.name ?? ""}
       createdByName={
         [context.user.user?.first_name, context.user.user?.last_name].filter(Boolean).join(" ") ||

@@ -67,6 +67,7 @@ export default async function WarehouseInventoryNewMovementPage() {
   return (
     <MovementDocumentForm
       mode="create"
+      organizationName={context.app.activeOrg?.name ?? ""}
       branchName={context.app.activeBranch?.name ?? ""}
       createdByName={
         [context.user.user?.first_name, context.user.user?.last_name].filter(Boolean).join(" ") ||

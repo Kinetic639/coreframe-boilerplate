@@ -350,6 +350,29 @@ export function InventoryMovementDetailPanel({
                     <h4 className="mt-1 text-sm font-bold text-foreground">
                       {detail.recipient_name}
                     </h4>
+                    {detail.recipient_details && (
+                      <div className="text-xs text-muted-foreground font-mono space-y-0.5 mt-2">
+                        {detail.recipient_details.nip && (
+                          <p>
+                            NIP:{" "}
+                            <strong className="text-foreground">
+                              {detail.recipient_details.nip}
+                            </strong>
+                          </p>
+                        )}
+                        {detail.recipient_details.street && (
+                          <p>
+                            {detail.recipient_details.street}
+                            {detail.recipient_details.postalCode &&
+                              `, ${detail.recipient_details.postalCode}`}
+                            {detail.recipient_details.city && ` ${detail.recipient_details.city}`}
+                          </p>
+                        )}
+                        {detail.recipient_details.phone && (
+                          <p>Tel: {detail.recipient_details.phone}</p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

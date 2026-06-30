@@ -20,9 +20,22 @@ function uniqueValues(values: Array<string | null>) {
   return [...new Set(values.filter((value): value is string => Boolean(value)))];
 }
 
+function compactSessionReference(session: {
+  id: string;
+  created_at: string;
+  session_number?: string | null;
+}) {
+  const existing = session.session_number?.trim();
+  if (existing) return existing;
+  const datePart = session.created_at.slice(0, 10).replaceAll("-", "");
+  return `SVWMS-${datePart}-${session.id.slice(0, 8).toUpperCase()}`;
+}
+
 function movementOrderNumber(line: WddMovementImportCandidateLine) {
   return line.zlNumber ?? line.orderNumber ?? line.zwNumber ?? null;
 }
+
+const SVWMS_SENDER_NAME = "SVWMS realokacja";
 
 function lineToCanonicalLine(line: WddMovementImportCandidateLine): CanonicalMovementImportLine {
   return {
@@ -56,26 +69,30 @@ function lineToCanonicalLine(line: WddMovementImportCandidateLine): CanonicalMov
 }
 
 function candidatesToCanonicalDocument(
-  session: { id: string; name: string; created_at: string; status: string },
+  session: {
+    id: string;
+    name: string;
+    created_at: string;
+    status: string;
+    session_number?: string | null;
+  },
   lines: WddMovementImportCandidateLine[]
 ): CanonicalMovementImportDocument {
   const movementOrderNumbers = uniqueValues(lines.map(movementOrderNumber));
-  const externalParts = [
-    session.name,
-    movementOrderNumbers.length ? `Zlecenia: ${movementOrderNumbers.slice(0, 6).join(", ")}` : null,
-  ].filter(Boolean);
+  const sessionReference = compactSessionReference(session);
 
   return {
     sourceDocumentId: `svwms-session:${session.id}`,
-    sourceDocumentNumber: session.name,
-    externalReference: externalParts.join(" / ") || session.name,
-    senderName: null,
-    senderDetails: null,
+    sourceDocumentNumber: sessionReference,
+    externalReference: sessionReference,
+    senderName: SVWMS_SENDER_NAME,
+    senderDetails: { name: SVWMS_SENDER_NAME },
     recipientName: null,
     recipientDetails: null,
     sourceMetadata: {
       session_id: session.id,
       session_name: session.name,
+      session_reference_number: sessionReference,
       session_status: session.status,
       session_created_at: session.created_at,
       import_scope: "session_incoming_items",

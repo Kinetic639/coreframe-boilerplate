@@ -44,6 +44,7 @@ export interface WddMatcherSession {
   id: string;
   organization_id: string;
   branch_id: string | null;
+  session_number?: string | null;
   name: string;
   status: SessionStatus;
   match_summary: Record<string, unknown> | null;
@@ -347,15 +348,31 @@ export class WddMatcherService {
     name: string,
     userId: string
   ): Promise<ServiceResult<WddMatcherSession>> {
+    const { data: allocatedSessionNumber, error: allocationError } = await supabase.rpc(
+      "wdd_matcher_allocate_session_number",
+      {
+        p_organization_id: orgId,
+        p_actor_user_id: userId,
+      }
+    );
+    const sessionNumber =
+      !allocationError && typeof allocatedSessionNumber === "string"
+        ? allocatedSessionNumber
+        : null;
+    const insertPayload: Record<string, unknown> = {
+      organization_id: orgId,
+      branch_id: branchId,
+      name,
+      created_by: userId,
+      status: "pending",
+    };
+    if (sessionNumber) {
+      insertPayload.session_number = sessionNumber;
+    }
+
     const { data, error } = await supabase
       .from("wdd_matcher_sessions")
-      .insert({
-        organization_id: orgId,
-        branch_id: branchId,
-        name,
-        created_by: userId,
-        status: "pending",
-      })
+      .insert(insertPayload)
       .select("*")
       .single();
     if (error) return { success: false, error: normalizeDbError(error) };

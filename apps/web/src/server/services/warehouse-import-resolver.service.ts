@@ -1,7 +1,12 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { normalizeImportToken, skuCollisionFingerprint } from "@/lib/warehouse/import-utils";
+import {
+  normalizeImportedSku,
+  normalizeImportedUnitCode,
+  normalizeImportToken,
+  skuCollisionFingerprint,
+} from "@/lib/warehouse/import-utils";
 import type { ServiceResult } from "./inventory-products.service";
 
 export type ImportResolution<T> =
@@ -11,8 +16,10 @@ export type ImportResolution<T> =
 
 export type VariantImportCandidate = {
   id: string;
+  product_id: string;
   sku: string | null;
   barcode: string | null;
+  unit_id: string | null;
 };
 
 export type UnitImportCandidate = {
@@ -56,7 +63,7 @@ export class WarehouseImportResolverService {
     const [variantsRes, unitsRes] = await Promise.all([
       (supabase as any)
         .from("inventory_variants")
-        .select("id, sku, barcode")
+        .select("id, product_id, sku, barcode")
         .eq("organization_id", orgId)
         .eq("status", "active")
         .is("deleted_at", null),
@@ -70,6 +77,29 @@ export class WarehouseImportResolverService {
     if (variantsRes.error) return { success: false, error: variantsRes.error.message };
     if (unitsRes.error) return { success: false, error: unitsRes.error.message };
 
+    const variants = (variantsRes.data ?? []) as Array<{
+      id: string;
+      product_id: string;
+      sku: string | null;
+      barcode: string | null;
+    }>;
+    const units = (unitsRes.data ?? []) as UnitImportCandidate[];
+    const validUnitIds = new Set(units.map((unit) => unit.id));
+    const productIds = [...new Set(variants.map((row) => row.product_id).filter(Boolean))];
+    const productsById = new Map<string, { base_unit_id: string | null }>();
+    if (productIds.length > 0) {
+      const productsRes = await (supabase as any)
+        .from("inventory_products")
+        .select("id, base_unit_id")
+        .eq("organization_id", orgId)
+        .is("deleted_at", null)
+        .in("id", productIds);
+      if (productsRes.error) return { success: false, error: productsRes.error.message };
+      for (const product of productsRes.data ?? []) {
+        productsById.set(product.id, { base_unit_id: product.base_unit_id ?? null });
+      }
+    }
+
     const context: WarehouseImportResolverContext = {
       variantsByExactToken: new Map(),
       variantsByFingerprint: new Map(),
@@ -77,14 +107,25 @@ export class WarehouseImportResolverService {
       unitsByFingerprint: new Map(),
     };
 
-    for (const row of (variantsRes.data ?? []) as VariantImportCandidate[]) {
+    for (const row of variants) {
+      const product = productsById.get(row.product_id);
+      const candidate: VariantImportCandidate = {
+        id: row.id,
+        product_id: row.product_id,
+        sku: row.sku,
+        barcode: row.barcode,
+        unit_id:
+          product?.base_unit_id && validUnitIds.has(product.base_unit_id)
+            ? product.base_unit_id
+            : null,
+      };
       for (const raw of [row.sku, row.barcode]) {
-        pushCandidate(context.variantsByExactToken, normalizeImportToken(raw), row);
-        pushCandidate(context.variantsByFingerprint, skuCollisionFingerprint(raw), row);
+        pushCandidate(context.variantsByExactToken, normalizeImportToken(raw), candidate);
+        pushCandidate(context.variantsByFingerprint, skuCollisionFingerprint(raw), candidate);
       }
     }
 
-    for (const row of (unitsRes.data ?? []) as UnitImportCandidate[]) {
+    for (const row of units) {
       for (const raw of [row.code, row.name]) {
         pushCandidate(context.unitsByExactToken, normalizeImportToken(raw), row);
         pushCandidate(context.unitsByFingerprint, skuCollisionFingerprint(raw), row);
@@ -98,12 +139,13 @@ export class WarehouseImportResolverService {
     context: WarehouseImportResolverContext,
     rawValue: string | null | undefined
   ): ImportResolution<VariantImportCandidate> {
-    const exact = normalizeImportToken(rawValue);
+    const normalizedSku = normalizeImportedSku(rawValue);
+    const exact = normalizeImportToken(normalizedSku || rawValue);
     if (!exact) return { status: "missing", value: null, matches: [] };
     const exactResolution = resolutionFromMatches(context.variantsByExactToken.get(exact) ?? []);
     if (exactResolution.status !== "missing") return exactResolution;
 
-    const fingerprint = skuCollisionFingerprint(rawValue);
+    const fingerprint = skuCollisionFingerprint(normalizedSku || rawValue);
     if (!fingerprint) return exactResolution;
     return resolutionFromMatches(context.variantsByFingerprint.get(fingerprint) ?? []);
   }
@@ -112,12 +154,13 @@ export class WarehouseImportResolverService {
     context: WarehouseImportResolverContext,
     rawValue: string | null | undefined
   ): ImportResolution<UnitImportCandidate> {
-    const exact = normalizeImportToken(rawValue);
+    const normalizedUnit = normalizeImportedUnitCode(rawValue);
+    const exact = normalizeImportToken(normalizedUnit || rawValue);
     if (!exact) return { status: "missing", value: null, matches: [] };
     const exactResolution = resolutionFromMatches(context.unitsByExactToken.get(exact) ?? []);
     if (exactResolution.status !== "missing") return exactResolution;
 
-    const fingerprint = skuCollisionFingerprint(rawValue);
+    const fingerprint = skuCollisionFingerprint(normalizedUnit || rawValue);
     if (!fingerprint) return exactResolution;
     return resolutionFromMatches(context.unitsByFingerprint.get(fingerprint) ?? []);
   }

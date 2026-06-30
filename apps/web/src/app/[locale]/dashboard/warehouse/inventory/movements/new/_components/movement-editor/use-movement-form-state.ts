@@ -14,6 +14,7 @@ import {
   extractPlainText,
 } from "@/components/primitives/rich-text/rich-text-utils";
 import type { PickedMovementItem } from "@/components/warehouse/inventory-item-picker-dialog";
+import type { SupplierFields } from "./movement-supplier-section";
 import type { ImportedMovementDocumentDraft, LineDraft, MovementFormInitialValues } from "./types";
 
 function initNoteValue(note?: string): RichTextValue | null {
@@ -27,30 +28,72 @@ function initNoteValue(note?: string): RichTextValue | null {
   return { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: note }] }] };
 }
 
-export function useMovementFormState(
-  movementTypes: InventoryMovementType[],
-  fieldPolicies: MovementFieldPolicyBundle,
-  variants: InventoryVariantOption[],
-  units: InventoryUnitRow[],
-  initialValues?: MovementFormInitialValues
-) {
-  const t = useTranslations("warehouseInventory.movementEditor");
-  const [typeCode, setTypeCode] = useState(
-    initialValues?.movementTypeCode ?? movementTypes[0]?.code ?? ""
-  );
-  const [senderName, setSenderName] = useState(initialValues?.senderName ?? "");
-  const [senderDetails, setSenderDetails] = useState<MovementPartyDetails | null>(null);
-  const [recipientName, setRecipientName] = useState(initialValues?.recipientName ?? "");
-  const [recipientDetails, setRecipientDetails] = useState<MovementPartyDetails | null>(null);
-  const [supplierFields, setSupplierFields] = useState({
-    name: initialValues?.senderName ?? "",
+function emptyPartyFields(name = ""): SupplierFields {
+  return {
+    name,
     nip: "",
     phone: "",
     street: "",
     postalCode: "",
     city: "",
-  });
+  };
+}
+
+function partyFieldsFromDetails(
+  details: MovementPartyDetails | null | undefined,
+  fallbackName = ""
+): SupplierFields {
+  return {
+    name: details?.name ?? fallbackName,
+    nip: details?.nip ?? "",
+    phone: details?.phone ?? "",
+    street: details?.street ?? "",
+    postalCode: details?.postalCode ?? "",
+    city: details?.city ?? "",
+  };
+}
+
+export function useMovementFormState(
+  movementTypes: InventoryMovementType[],
+  fieldPolicies: MovementFieldPolicyBundle,
+  variants: InventoryVariantOption[],
+  units: InventoryUnitRow[],
+  initialValues?: MovementFormInitialValues,
+  defaultRecipientName = ""
+) {
+  const t = useTranslations("warehouseInventory.movementEditor");
+  const initialTypeCode = initialValues?.movementTypeCode ?? movementTypes[0]?.code ?? "";
+  const initialType = movementTypes.find((type) => type.code === initialTypeCode) ?? null;
+  const isInitialIncomingReceipt = initialType?.document_type_code === "PZ";
+  const defaultRecipientFields = useMemo(
+    () => emptyPartyFields(defaultRecipientName),
+    [defaultRecipientName]
+  );
+  const [typeCode, setTypeCode] = useState(initialTypeCode);
+  const [senderName, setSenderName] = useState(initialValues?.senderName ?? "");
+  const [senderDetails, setSenderDetails] = useState<MovementPartyDetails | null>(
+    initialValues?.senderDetails ?? null
+  );
+  const [recipientName, setRecipientName] = useState(
+    initialValues?.recipientName ?? (isInitialIncomingReceipt ? defaultRecipientName : "")
+  );
+  const [recipientDetails, setRecipientDetails] = useState<MovementPartyDetails | null>(
+    initialValues?.recipientDetails ??
+      (isInitialIncomingReceipt && defaultRecipientName ? defaultRecipientFields : null)
+  );
+  const [supplierFields, setSupplierFields] = useState(
+    partyFieldsFromDetails(initialValues?.senderDetails, initialValues?.senderName ?? "")
+  );
   const [supplierLocked, setSupplierLocked] = useState(false);
+  const [recipientFields, setRecipientFields] = useState(
+    partyFieldsFromDetails(
+      initialValues?.recipientDetails,
+      initialValues?.recipientName ?? (isInitialIncomingReceipt ? defaultRecipientName : "")
+    )
+  );
+  const [recipientLocked, setRecipientLocked] = useState(
+    isInitialIncomingReceipt && !!defaultRecipientName
+  );
   const [externalReference, setExternalReference] = useState(
     initialValues?.externalReference ?? ""
   );
@@ -67,11 +110,13 @@ export function useMovementFormState(
     () => initialValues?.lines?.[0]?.destination_location_id ?? ""
   );
   const [activeTab, setActiveTab] = useState<"header" | "lines">("header");
+  const [manualCorrectionMode, setManualCorrectionMode] = useState(false);
 
   const [lines, setLines] = useState<LineDraft[]>(() => {
     if (!initialValues?.lines?.length) return [];
     return initialValues.lines.map((l) => ({
       key: crypto.randomUUID(),
+      origin: "manual",
       variant_id: l.variant_id,
       unit_id: l.unit_id,
       sku: l.sku,
@@ -111,10 +156,26 @@ export function useMovementFormState(
         setLines([]);
       }
       setTypeCode(code);
+      const nextType = movementTypes.find((type) => type.code === code) ?? null;
+      if (nextType?.document_type_code === "PZ" && !recipientName.trim()) {
+        setRecipientName(defaultRecipientName);
+        setRecipientDetails(defaultRecipientFields);
+        setRecipientFields(defaultRecipientFields);
+        setRecipientLocked(!!defaultRecipientName);
+      }
+      setManualCorrectionMode(false);
       setSrcLoc("");
       setDstLoc("");
     },
-    [typeCode, lines.length, t]
+    [
+      defaultRecipientFields,
+      defaultRecipientName,
+      movementTypes,
+      recipientName,
+      typeCode,
+      lines.length,
+      t,
+    ]
   );
 
   const handleSrcChange = useCallback(
@@ -123,21 +184,28 @@ export function useMovementFormState(
       if (lines.length > 0 && srcLoc) {
         if (!window.confirm(t("changingSourceClears"))) return;
         setLines([]);
+        setManualCorrectionMode(false);
       }
       setSrcLoc(v);
     },
     [srcLoc, lines.length, t]
   );
 
-  const removeLine = useCallback((key: string) => {
-    setLines((p) => p.filter((l) => l.key !== key));
-  }, []);
+  const removeLine = useCallback(
+    (key: string) => {
+      setLines((p) =>
+        p.filter((l) => l.key !== key || (l.origin === "imported" && !manualCorrectionMode))
+      );
+    },
+    [manualCorrectionMode]
+  );
 
   const updateLineQty = useCallback(
     (key: string, val: string) => {
       setLines((p) =>
         p.map((l) => {
           if (l.key !== key) return l;
+          if (l.origin === "imported" && !manualCorrectionMode) return l;
           let q = Number(val);
           if (is801 && l.on_hand_at_source !== null && q > l.on_hand_at_source)
             q = l.on_hand_at_source;
@@ -151,6 +219,7 @@ export function useMovementFormState(
   const addPickedItems = useCallback(
     (items: PickedMovementItem[]) => {
       setLines((prev) => {
+        if (prev.some((line) => line.origin === "imported") && !manualCorrectionMode) return prev;
         const next = [...prev];
         for (const item of items) {
           const idx = next.findIndex((l) => l.variant_id === item.variant_id);
@@ -166,6 +235,7 @@ export function useMovementFormState(
           } else {
             next.push({
               key: crypto.randomUUID(),
+              origin: "manual",
               variant_id: item.variant_id,
               unit_id: item.unit_id,
               sku: item.sku,
@@ -184,8 +254,26 @@ export function useMovementFormState(
         return next;
       });
     },
-    [is801, srcLoc, dstLoc]
+    [is801, manualCorrectionMode, srcLoc, dstLoc]
   );
+
+  const isImportedMovement = useMemo(
+    () => lines.some((line) => line.origin === "imported"),
+    [lines]
+  );
+  const importedLinesLocked = isImportedMovement && !manualCorrectionMode;
+
+  const enableManualCorrections = useCallback(() => {
+    if (!isImportedMovement) return;
+    if (
+      !window.confirm(
+        "Manual corrections may break alignment with the imported SVWMS source data. Continue?"
+      )
+    ) {
+      return;
+    }
+    setManualCorrectionMode(true);
+  }, [isImportedMovement]);
 
   const applyImportedDocument = useCallback(
     (document: ImportedMovementDocumentDraft) => {
@@ -205,10 +293,15 @@ export function useMovementFormState(
         const unit = unitById.get(line.unit_id);
         return {
           key: crypto.randomUUID(),
+          origin: "imported",
+          source_type: line.source_type ?? null,
+          source_label: line.source_label ?? null,
+          source_line_id: line.source_line_id ?? null,
+          source_order_number: line.source_order_number ?? null,
           variant_id: line.variant_id,
           unit_id: line.unit_id,
-          sku: variant?.sku ?? line.sku ?? "",
-          product_name: variant?.product_name ?? line.product_name ?? "",
+          sku: variant?.sku ?? line.sku ?? line.variant_id,
+          product_name: variant?.product_name ?? line.product_name ?? line.sku ?? line.variant_id,
           unit_code: unit?.code ?? variant?.unit_code ?? line.unit_code ?? "",
           brand_name: null,
           barcode: null,
@@ -225,11 +318,24 @@ export function useMovementFormState(
 
       setTypeCode(document.movementTypeCode);
       setSenderName(document.senderName ?? "");
-      setRecipientName(document.recipientName ?? "");
-      setSupplierFields((current) => ({
-        ...current,
-        name: document.senderName ?? "",
-      }));
+      setSenderDetails(document.senderDetails ?? null);
+      setRecipientName(
+        document.recipientName ??
+          (nextType?.document_type_code === "PZ" ? defaultRecipientName : "")
+      );
+      setRecipientDetails(
+        document.recipientDetails ??
+          (nextType?.document_type_code === "PZ" ? defaultRecipientFields : null)
+      );
+      setSupplierFields(partyFieldsFromDetails(document.senderDetails, document.senderName ?? ""));
+      setRecipientFields(
+        partyFieldsFromDetails(
+          document.recipientDetails,
+          document.recipientName ??
+            (nextType?.document_type_code === "PZ" ? defaultRecipientName : "")
+        )
+      );
+      setRecipientLocked(nextType?.document_type_code === "PZ" && !!defaultRecipientName);
       setExternalReference(document.externalReference ?? "");
       setNoteRichText(initNoteValue(document.note ?? undefined));
       setSrcLoc(
@@ -244,9 +350,19 @@ export function useMovementFormState(
           : ""
       );
       setLines(importedLines);
+      setManualCorrectionMode(false);
       setActiveTab("lines");
     },
-    [dstLoc, lines.length, movementTypes, t, units, variants]
+    [
+      defaultRecipientFields,
+      defaultRecipientName,
+      dstLoc,
+      lines.length,
+      movementTypes,
+      t,
+      units,
+      variants,
+    ]
   );
 
   return {
@@ -266,6 +382,10 @@ export function useMovementFormState(
     setRecipientName,
     recipientDetails,
     setRecipientDetails,
+    recipientFields,
+    setRecipientFields,
+    recipientLocked,
+    setRecipientLocked,
     supplierFields,
     setSupplierFields,
     supplierLocked,
@@ -281,6 +401,10 @@ export function useMovementFormState(
     setDstLoc,
     lines,
     totalQty,
+    isImportedMovement,
+    importedLinesLocked,
+    manualCorrectionMode,
+    enableManualCorrections,
     activeTab,
     setActiveTab,
     handleTypeChange,

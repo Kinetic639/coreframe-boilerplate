@@ -54,6 +54,8 @@ import {
   createEnhancedInventoryProductSchema,
   createInventoryExportJobSchema,
   createInventoryImportJobSchema,
+  createMovementImportProductsSchema,
+  createMovementImportUnitsSchema,
   listMovementImportSourcesSchema,
   createInventoryMasterDataSchema,
   createInventoryProductSchema,
@@ -2671,6 +2673,143 @@ export async function previewMovementImportFromSourceAction(rawInput: unknown) {
         movement_type_code: parsed.data.movement_type_code,
       }
     );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function createMovementImportUnitsAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (
+      !hasPermission(auth, WAREHOUSE_IMPORTS_MANAGE) ||
+      !hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE)
+    ) {
+      return { success: false, error: "Unauthorized" };
+    }
+    const branch = requireActiveBranch(auth);
+    if (!branch.success) return branch;
+
+    const parsed = createMovementImportUnitsSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    const userId = userIdFrom(auth);
+    if (!userId) return { success: false, error: "User identity unavailable" };
+
+    const supabase = await createClient();
+    const created: Array<{
+      key: string;
+      unit: {
+        id: string;
+        code: string;
+        name: string;
+      };
+    }> = [];
+
+    for (const unit of parsed.data.units) {
+      const result = await InventoryProductsService.createUnit(
+        supabase,
+        auth.context.app.activeOrgId,
+        {
+          code: unit.code,
+          name: unit.name,
+          unit_kind: "count",
+          precision: 0,
+        },
+        userId
+      );
+      if (!result.success) {
+        return {
+          success: false,
+          error: "error" in result ? result.error : "Could not create import unit",
+        };
+      }
+      created.push({ key: unit.key, unit: result.data });
+    }
+
+    return { success: true, data: { created } };
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function createMovementImportProductsAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (
+      !hasPermission(auth, WAREHOUSE_IMPORTS_MANAGE) ||
+      !hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE)
+    ) {
+      return { success: false, error: "Unauthorized" };
+    }
+    const branch = requireActiveBranch(auth);
+    if (!branch.success) return branch;
+
+    const parsed = createMovementImportProductsSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    const userId = userIdFrom(auth);
+    if (!userId) return { success: false, error: "User identity unavailable" };
+
+    const supabase = await createClient();
+    const created: Array<{
+      key: string;
+      variant: {
+        id: string;
+        sku: string;
+        label: string;
+        product_name: string;
+        unit_id: string;
+        unit_code: string;
+      };
+    }> = [];
+
+    for (const product of parsed.data.products) {
+      const result = await InventoryProductsService.createEnhancedProduct(
+        supabase,
+        auth.context.app.activeOrgId,
+        {
+          name: product.name,
+          product_type: "stocked",
+          base_unit_id: product.unit_id,
+          sku: product.sku,
+          returnable: true,
+          track_inventory: false,
+          variants: [{ sku: product.sku, name: product.name }],
+          attributes: [],
+          tags: [],
+          custom_fields: [],
+          unit_conversions: [],
+        },
+        userId
+      );
+      if (!result.success) {
+        return {
+          success: false,
+          error: "error" in result ? result.error : "Could not create import product",
+        };
+      }
+      const variantId = result.data.variant_ids[0];
+      if (!variantId) {
+        return {
+          success: false,
+          error: `Created product ${product.sku} did not return a variant`,
+        };
+      }
+      created.push({
+        key: product.key,
+        variant: {
+          id: variantId,
+          sku: result.data.sku ?? product.sku,
+          label: `${product.sku} - ${product.name}`,
+          product_name: product.name,
+          unit_id: product.unit_id,
+          unit_code: product.unit_code,
+        },
+      });
+    }
+
+    return { success: true, data: { created } };
   } catch (error) {
     return mapUnexpected(error);
   }

@@ -8,7 +8,11 @@ import type { InventoryMovementType } from "@/lib/warehouse/inventory-types";
 import type { RichTextValue } from "@/components/primitives/rich-text/rich-text-types";
 import { RichTextEditorField } from "@/components/primitives/rich-text/rich-text-editor-field";
 import { MovementTypePicker } from "@/components/warehouse/movement-type-picker";
-import { MovementSupplierSection, type SupplierFields } from "./movement-supplier-section";
+import {
+  MovementPartySection,
+  MovementSupplierSection,
+  type SupplierFields,
+} from "./movement-supplier-section";
 
 type Props = {
   typeCode: string;
@@ -21,6 +25,8 @@ type Props = {
   recipientName: string;
   supplierFields: SupplierFields;
   supplierLocked: boolean;
+  recipientFields: SupplierFields;
+  recipientLocked: boolean;
   externalReference: string;
   noteRichText: RichTextValue | null;
   operationDate: string;
@@ -31,8 +37,11 @@ type Props = {
   onSenderChange: (val: string) => void;
   onSenderDetailsChange: (details: SupplierFields) => void;
   onRecipientChange: (val: string) => void;
+  onRecipientDetailsChange: (details: SupplierFields) => void;
   onSupplierFieldsChange: (fields: SupplierFields) => void;
   onSupplierLockedChange: (locked: boolean) => void;
+  onRecipientFieldsChange: (fields: SupplierFields) => void;
+  onRecipientLockedChange: (locked: boolean) => void;
   onExternalRefChange: (val: string) => void;
   onNoteRichTextChange: (val: RichTextValue) => void;
 };
@@ -68,6 +77,8 @@ export const MovementDocumentDataTab = React.memo(function MovementDocumentDataT
   recipientName,
   supplierFields,
   supplierLocked,
+  recipientFields,
+  recipientLocked,
   externalReference,
   noteRichText,
   operationDate,
@@ -78,8 +89,11 @@ export const MovementDocumentDataTab = React.memo(function MovementDocumentDataT
   onSenderChange,
   onSenderDetailsChange,
   onRecipientChange,
+  onRecipientDetailsChange,
   onSupplierFieldsChange,
   onSupplierLockedChange,
+  onRecipientFieldsChange,
+  onRecipientLockedChange,
   onExternalRefChange,
   onNoteRichTextChange,
 }: Props) {
@@ -159,19 +173,17 @@ export const MovementDocumentDataTab = React.memo(function MovementDocumentDataT
       )}
 
       {selType && allowsRecipient && (
-        <section className="rounded-sm border bg-card p-4">
-          <div className="text-xs uppercase font-bold tracking-wider text-muted-foreground border-b pb-2 mb-3">
-            {t("recipient")}
-          </div>
-          <LBL label={t("recipient")}>
-            <Input
-              placeholder={t("recipientPlaceholder")}
-              value={recipientName}
-              onChange={(event) => onRecipientChange(event.target.value)}
-              className="h-9 text-sm"
-            />
-          </LBL>
-        </section>
+        <MovementPartySection
+          title={t("recipient")}
+          detailsTitle={t("recipient")}
+          fields={recipientFields}
+          locked={recipientLocked}
+          lockedBadgeLabel={t("recipient")}
+          onFieldsChange={onRecipientFieldsChange}
+          onLockedChange={onRecipientLockedChange}
+          onNameChange={onRecipientChange}
+          onDetailsChange={onRecipientDetailsChange}
+        />
       )}
 
       {/* Note */}

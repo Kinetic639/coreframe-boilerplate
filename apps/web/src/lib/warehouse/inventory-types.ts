@@ -450,6 +450,9 @@ export type MovementImportPreviewLine = {
   raw_product_name: string | null;
   raw_unit: string | null;
   raw_quantity: number | null;
+  normalized_product_code: string | null;
+  normalized_product_name: string | null;
+  normalized_unit_code: string | null;
   raw_source_location: string | null;
   raw_destination_location: string | null;
   raw_metadata: Record<string, unknown>;
@@ -458,7 +461,18 @@ export type MovementImportPreviewLine = {
   source_location_id: string | null;
   destination_location_id: string | null;
   quantity: number | null;
+  product_resolution_status: "resolved" | "missing" | "ambiguous";
+  unit_resolution_status: "resolved" | "missing" | "ambiguous";
   validation_errors: string[];
+};
+
+export type MovementImportExceptionGroup = {
+  type: "missing_product" | "ambiguous_product" | "missing_unit" | "ambiguous_unit";
+  key: string;
+  raw_value: string | null;
+  normalized_value: string | null;
+  row_count: number;
+  line_ids: string[];
 };
 
 export type MovementImportPreviewDocument = {
@@ -472,6 +486,7 @@ export type MovementImportPreviewDocument = {
   recipient_name: string | null;
   recipient_details: MovementPartyDetails | null;
   validation_errors: string[];
+  exception_groups: MovementImportExceptionGroup[];
   lines: MovementImportPreviewLine[];
 };
 

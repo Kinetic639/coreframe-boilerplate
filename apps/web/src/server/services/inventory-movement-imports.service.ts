@@ -3,13 +3,19 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   InventoryMovementType,
+  MovementImportExceptionGroup,
   MovementImportPreview,
   MovementImportPreviewLine,
   MovementImportSource,
   MovementFieldPolicy,
 } from "@/lib/warehouse/inventory-types";
 import { isFieldRequired, MOVEMENT_FIELD_KEYS } from "@/lib/warehouse/movement-field-policy";
-import { normalizeImportToken } from "@/lib/warehouse/import-utils";
+import {
+  normalizeImportedProductName,
+  normalizeImportedSku,
+  normalizeImportedUnitCode,
+  normalizeImportToken,
+} from "@/lib/warehouse/import-utils";
 import { InventoryMovementsService, type ServiceResult } from "./inventory-movements.service";
 import { InventoryMovementFieldPoliciesService } from "./inventory-movement-field-policies.service";
 import { MovementImportSourceRegistry } from "./movement-import-adapters/registry";
@@ -62,6 +68,82 @@ function validationErrors(
     errors.push("Source and destination locations must differ");
   }
   return errors;
+}
+
+function exceptionGroupKey(type: MovementImportExceptionGroup["type"], value: string | null) {
+  return `${type}:${value ?? ""}`;
+}
+
+function buildExceptionGroups(lines: MovementImportPreviewLine[]): MovementImportExceptionGroup[] {
+  const groups = new Map<string, MovementImportExceptionGroup>();
+
+  for (const line of lines) {
+    if (line.product_resolution_status === "missing") {
+      const key = exceptionGroupKey("missing_product", line.normalized_product_code);
+      const current = groups.get(key) ?? {
+        type: "missing_product" as const,
+        key: line.normalized_product_code ?? "",
+        raw_value: line.raw_product_code,
+        normalized_value: line.normalized_product_code,
+        row_count: 0,
+        line_ids: [],
+      };
+      current.row_count += 1;
+      current.line_ids.push(line.source_line_id);
+      groups.set(key, current);
+    }
+    if (line.product_resolution_status === "ambiguous") {
+      const key = exceptionGroupKey("ambiguous_product", line.normalized_product_code);
+      const current = groups.get(key) ?? {
+        type: "ambiguous_product" as const,
+        key: line.normalized_product_code ?? "",
+        raw_value: line.raw_product_code,
+        normalized_value: line.normalized_product_code,
+        row_count: 0,
+        line_ids: [],
+      };
+      current.row_count += 1;
+      current.line_ids.push(line.source_line_id);
+      groups.set(key, current);
+    }
+    if (line.unit_resolution_status === "missing") {
+      const key = exceptionGroupKey("missing_unit", line.normalized_unit_code);
+      const current = groups.get(key) ?? {
+        type: "missing_unit" as const,
+        key: line.normalized_unit_code ?? "",
+        raw_value: line.raw_unit,
+        normalized_value: line.normalized_unit_code,
+        row_count: 0,
+        line_ids: [],
+      };
+      current.row_count += 1;
+      current.line_ids.push(line.source_line_id);
+      groups.set(key, current);
+    }
+    if (line.unit_resolution_status === "ambiguous") {
+      const key = exceptionGroupKey("ambiguous_unit", line.normalized_unit_code);
+      const current = groups.get(key) ?? {
+        type: "ambiguous_unit" as const,
+        key: line.normalized_unit_code ?? "",
+        raw_value: line.raw_unit,
+        normalized_value: line.normalized_unit_code,
+        row_count: 0,
+        line_ids: [],
+      };
+      current.row_count += 1;
+      current.line_ids.push(line.source_line_id);
+      groups.set(key, current);
+    }
+  }
+
+  return Array.from(groups.values()).sort(
+    (left, right) =>
+      left.type.localeCompare(right.type) ||
+      (left.normalized_value ?? "").localeCompare(right.normalized_value ?? "", "pl", {
+        numeric: true,
+        sensitivity: "base",
+      })
+  );
 }
 
 export class InventoryMovementImportsService {
@@ -158,14 +240,20 @@ export class InventoryMovementImportsService {
     resolver: ResolverContext
   ): MovementImportPreviewLine {
     const errors: string[] = [];
+    const normalizedProductCode = normalizeImportedSku(line.rawProductCode) || null;
+    const normalizedProductName = normalizeImportedProductName(line.rawProductName) || null;
+    const normalizedUnitCode = normalizeImportedUnitCode(line.rawUnit) || null;
     const variant = WarehouseImportResolverService.resolveVariant(
       resolver.warehouse,
-      line.rawProductCode
+      normalizedProductCode
     );
     if (variant.status === "ambiguous") errors.push("Product matched multiple records");
 
-    const unit = WarehouseImportResolverService.resolveUnit(resolver.warehouse, line.rawUnit);
-    if (unit.status === "ambiguous") errors.push("Unit matched multiple records");
+    const unit = WarehouseImportResolverService.resolveUnit(resolver.warehouse, normalizedUnitCode);
+    if (!variant.value?.unit_id && unit.status === "ambiguous")
+      errors.push("Unit matched multiple records");
+    const resolvedUnitId = variant.value?.unit_id ?? unit.value?.id ?? null;
+    const unitResolutionStatus = variant.value?.unit_id ? "resolved" : unit.status;
     const rawSourceLocation =
       line.rawSourceLocation ??
       (isFieldRequired(policies, MOVEMENT_FIELD_KEYS.sourceLocationId) &&
@@ -185,7 +273,7 @@ export class InventoryMovementImportsService {
 
     const resolved = {
       variant_id: variant.value?.id ?? null,
-      unit_id: unit.value?.id ?? null,
+      unit_id: resolvedUnitId,
       source_location_id: sourceLocation.id,
       destination_location_id: destinationLocation.id,
       quantity: line.rawQuantity,
@@ -199,10 +287,15 @@ export class InventoryMovementImportsService {
       raw_product_name: line.rawProductName,
       raw_unit: line.rawUnit,
       raw_quantity: line.rawQuantity,
+      normalized_product_code: normalizedProductCode,
+      normalized_product_name: normalizedProductName,
+      normalized_unit_code: normalizedUnitCode,
       raw_source_location: rawSourceLocation ?? null,
       raw_destination_location: rawDestinationLocation ?? null,
       raw_metadata: line.rawMetadata,
       ...resolved,
+      product_resolution_status: variant.status,
+      unit_resolution_status: unitResolutionStatus,
       validation_errors: [...new Set(errors)],
     };
   }
@@ -260,6 +353,7 @@ export class InventoryMovementImportsService {
             this.resolveLine(line, policies, resolver.data)
           );
           const errors = [...new Set(lines.flatMap((line) => line.validation_errors))];
+          const exceptionGroups = buildExceptionGroups(lines);
           return {
             source_document_id: document.sourceDocumentId,
             source_document_number: document.sourceDocumentNumber,
@@ -271,6 +365,7 @@ export class InventoryMovementImportsService {
             recipient_name: document.recipientName,
             recipient_details: (document.recipientDetails as any) ?? null,
             validation_errors: errors,
+            exception_groups: exceptionGroups,
             lines,
           };
         }),
