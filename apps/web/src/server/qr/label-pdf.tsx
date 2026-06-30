@@ -1,6 +1,7 @@
 import "server-only";
 
 import React from "react";
+import path from "path";
 import {
   Document,
   Page,
@@ -13,6 +14,7 @@ import {
   Rect,
   Line,
   StyleSheet,
+  Font,
   renderToBuffer,
 } from "@react-pdf/renderer";
 import type { LabelConfig } from "@/lib/qr/label-config";
@@ -22,6 +24,39 @@ import {
   applyCaseTransform,
   GRID_MARGIN_MM,
 } from "@/lib/qr/label-config";
+
+// ---------------------------------------------------------------------------
+// Font registration — the default PDF standard fonts (Helvetica) only cover
+// WinAnsi encoding and silently mangle Polish diacritics (ł, ą, ę, ó, ś, ...).
+// Register a real Unicode-coverage font so label text renders correctly.
+// ---------------------------------------------------------------------------
+
+let fontsRegisteredPromise: Promise<void> | null = null;
+
+function ensureFontsRegistered(): Promise<void> {
+  if (!fontsRegisteredPromise) {
+    fontsRegisteredPromise = (async () => {
+      if (process.env.NODE_ENV === "test") return;
+      const fontsDir = path.join(process.cwd(), "public", "fonts");
+      Font.register({
+        family: "Roboto",
+        fonts: [
+          { src: `file://${path.join(fontsDir, "Roboto-Regular.ttf")}`, fontWeight: "normal" },
+          { src: `file://${path.join(fontsDir, "Roboto-Bold.ttf")}`, fontWeight: "bold" },
+        ],
+      });
+      Font.registerHyphenationCallback((word) => [word]);
+    })();
+  }
+  return fontsRegisteredPromise;
+}
+
+// ---------------------------------------------------------------------------
+// Font helpers
+// ---------------------------------------------------------------------------
+
+/** undefined in test env so react-pdf never issues a font fetch that MSW would block */
+const ROBOTO = process.env.NODE_ENV === "test" ? undefined : "Roboto";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -188,17 +223,20 @@ const S = StyleSheet.create({
     justifyContent: "center",
   },
   primary: {
+    fontFamily: ROBOTO,
     fontSize: 7,
     fontWeight: "bold",
     color: "#111111",
     marginBottom: mm(0.5),
   },
   secondary: {
+    fontFamily: ROBOTO,
     fontSize: 6,
     color: "#444444",
     marginBottom: mm(0.3),
   },
   tertiary: {
+    fontFamily: ROBOTO,
     fontSize: 5,
     color: "#888888",
   },
@@ -326,6 +364,8 @@ export async function generateQrLabelsPdf(input: GenerateQrLabelsPdfInput): Prom
     throw new Error("Cannot generate a PDF with no labels.");
   }
 
+  await ensureFontsRegistered();
+
   let document: React.ReactElement;
 
   switch (input.size) {
@@ -406,7 +446,12 @@ function LabelFooterUrl({ widthPt, heightPt }: { widthPt: number; heightPt: numb
   return (
     <View style={{ width: widthPt, height: heightPt, justifyContent: "center" }}>
       <Text
-        style={{ fontSize: Math.max(4.3, heightPt * 0.46), color: "#666666", textAlign: "center" }}
+        style={{
+          fontFamily: ROBOTO,
+          fontSize: Math.max(4.3, heightPt * 0.46),
+          color: "#666666",
+          textAlign: "center",
+        }}
       >
         www.ambra-system.com
       </Text>
@@ -501,6 +546,7 @@ function LabelCellV2({ item, config, cellWPt, cellHPt }: LabelCellV2Props) {
         <Text
           key={line.key}
           style={{
+            fontFamily: ROBOTO,
             fontSize: line.size,
             fontWeight: line.weight,
             color: line.color,
@@ -704,5 +750,6 @@ export async function generateQrLabelsPdfWithConfig(
   if (items.length === 0) {
     throw new Error("Cannot generate a PDF with no labels.");
   }
+  await ensureFontsRegistered();
   return renderToBuffer(<ConfigA4Document items={items} config={config} />);
 }

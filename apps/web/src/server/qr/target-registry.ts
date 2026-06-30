@@ -116,7 +116,7 @@ export const QR_TARGET_REGISTRY: Readonly<Record<string, QrTargetDescriptor>> = 
     requiredReadPermission: WAREHOUSE_LOCATIONS_READ,
 
     resolverPath({ targetId }) {
-      return `/dashboard/warehouse/ambra-locations?selected=${targetId}&view=tree`;
+      return `/dashboard/warehouse/locations?selected=${targetId}&view=tree`;
     },
 
     async getLabelContext({ supabase, targetId }) {

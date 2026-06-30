@@ -2323,7 +2323,6 @@
           }
         },
         "locations": "Locations",
-        "ambraLocations": "Ambra Locations",
         "audits": {
           "title": "Audits",
           "overview": "Warehouse Audits",

@@ -6,7 +6,7 @@ import { toast } from "react-toastify";
 import { Tag } from "lucide-react";
 import { saveLocationLabelSettingsAction } from "@/app/actions/warehouse/location-label-settings";
 import type { LabelConfig } from "@/lib/qr/label-config";
-import { getLocationLabelFields } from "@/app/[locale]/dashboard/warehouse/ambra-locations/_lib/label-fields";
+import { getLocationLabelFields } from "@/app/[locale]/dashboard/warehouse/locations/_lib/label-fields";
 
 const LabelDesigner = dynamic(
   () =>

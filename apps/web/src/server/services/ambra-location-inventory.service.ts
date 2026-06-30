@@ -8,7 +8,7 @@ import type {
   LocationInventoryLine,
   LocationMovementLine,
   LocationPutawayRule,
-} from "@/app/[locale]/dashboard/warehouse/ambra-locations/_ambra/types";
+} from "@/app/[locale]/dashboard/warehouse/locations/_ambra/types";
 
 export type ServiceResult<T> = { success: true; data: T } | { success: false; error: string };
 
