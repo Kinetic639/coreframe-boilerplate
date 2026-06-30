@@ -2,8 +2,9 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Check, LayoutGrid, LayoutList, X } from "lucide-react";
+import { Check, LayoutGrid, LayoutList, Printer, X } from "lucide-react";
 import { DataView } from "@/components/data-view/data-view";
+import { Button } from "@/components/ui/button";
 import type {
   DataViewColumnDef,
   DataViewFilterDef,
@@ -22,6 +23,7 @@ import {
 } from "@/app/actions/warehouse/locations";
 import { getQrAssignmentForLocationAction } from "@/app/actions/qr/assign-location";
 import { LocationDetailPanel } from "./location-detail-panel";
+import { PrintLocationLabelsDialog } from "./print-location-labels-dialog";
 
 type QrAssignmentInfo = {
   assignmentId: string;
@@ -67,6 +69,8 @@ export function LocationsDataView({
   const t = useTranslations("warehouseLocations.listView");
   const tAmbra = useTranslations("ambraLocations");
   const [isCompactMode, setIsCompactMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
 
   const locationById = useMemo(() => {
     const map = new Map<string, LogicalLocation>();
@@ -147,6 +151,22 @@ export function LocationsDataView({
       return null;
     }
   }, []);
+
+  const renderToolbarControls = useCallback(
+    () =>
+      selectedIds.length > 0 ? (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setPrintDialogOpen(true)}
+          className="gap-1.5"
+        >
+          <Printer className="h-3.5 w-3.5" />
+          {t("printLabels", { count: selectedIds.length })}
+        </Button>
+      ) : null,
+    [selectedIds, t]
+  );
 
   const columns = useMemo<DataViewColumnDef<LocationListRow>[]>(
     () => [
@@ -251,45 +271,55 @@ export function LocationsDataView({
   ];
 
   return (
-    <DataView<LocationListRow, LocationDetailData>
-      entity="locations"
-      columns={columns}
-      filters={filters}
-      initialData={initialData}
-      queryKey={["locations"]}
-      listFetcher={listFetcher}
-      detailFetcher={detailFetcher}
-      getRowId={(row) => row.id}
-      renderDetail={(detail) => (
-        <LocationDetailPanel
-          location={detail.location}
-          allLocations={detail.allLocations}
-          inventorySnapshot={detail.inventorySnapshot}
-          variantOptions={detail.variantOptions}
-          pathCode={detail.pathCode}
-          compact={isCompactMode}
-          qrAssignment={detail.qrAssignment}
-          headerActions={
-            <div className="flex items-center gap-1 bg-background/80 rounded-xl p-1 border border-border">
-              <button
-                onClick={() => setIsCompactMode(false)}
-                className={`p-2 rounded-lg transition-all ${!isCompactMode ? "bg-primary/10 text-primary shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)] border border-primary/20" : "text-muted-foreground hover:text-foreground/80 border border-transparent"}`}
-                title={tAmbra("actions.bentoView")}
-              >
-                <LayoutGrid className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setIsCompactMode(true)}
-                className={`p-2 rounded-lg transition-all ${isCompactMode ? "bg-primary/10 text-primary shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)] border border-primary/20" : "text-muted-foreground hover:text-foreground/80 border border-transparent"}`}
-                title={tAmbra("actions.streamlinedView")}
-              >
-                <LayoutList className="w-4 h-4" />
-              </button>
-            </div>
-          }
-        />
-      )}
-      className="h-full"
-    />
+    <>
+      <DataView<LocationListRow, LocationDetailData>
+        entity="locations"
+        columns={columns}
+        filters={filters}
+        initialData={initialData}
+        queryKey={["locations"]}
+        listFetcher={listFetcher}
+        detailFetcher={detailFetcher}
+        getRowId={(row) => row.id}
+        onSelectionChange={setSelectedIds}
+        renderToolbarControls={renderToolbarControls}
+        renderDetail={(detail) => (
+          <LocationDetailPanel
+            location={detail.location}
+            allLocations={detail.allLocations}
+            inventorySnapshot={detail.inventorySnapshot}
+            variantOptions={detail.variantOptions}
+            pathCode={detail.pathCode}
+            compact={isCompactMode}
+            qrAssignment={detail.qrAssignment}
+            headerActions={
+              <div className="flex items-center gap-1 bg-background/80 rounded-xl p-1 border border-border">
+                <button
+                  onClick={() => setIsCompactMode(false)}
+                  className={`p-2 rounded-lg transition-all ${!isCompactMode ? "bg-primary/10 text-primary shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)] border border-primary/20" : "text-muted-foreground hover:text-foreground/80 border border-transparent"}`}
+                  title={tAmbra("actions.bentoView")}
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setIsCompactMode(true)}
+                  className={`p-2 rounded-lg transition-all ${isCompactMode ? "bg-primary/10 text-primary shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)] border border-primary/20" : "text-muted-foreground hover:text-foreground/80 border border-transparent"}`}
+                  title={tAmbra("actions.streamlinedView")}
+                >
+                  <LayoutList className="w-4 h-4" />
+                </button>
+              </div>
+            }
+          />
+        )}
+        className="h-full"
+      />
+      <PrintLocationLabelsDialog
+        open={printDialogOpen}
+        onOpenChange={setPrintDialogOpen}
+        locationIds={selectedIds}
+        locationsById={locationById}
+      />
+    </>
   );
 }

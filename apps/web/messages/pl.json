@@ -1114,7 +1114,17 @@
       "capPickable": "Kompletacja",
       "width": "Szerokość",
       "depth": "Głębokość",
-      "height": "Wysokość"
+      "height": "Wysokość",
+      "printLabels": "Drukuj {count} etykiet",
+      "printDialogTitle": "Drukuj etykiety lokalizacji"
+    },
+    "labelSettings": {
+      "title": "Domyślne etykiety lokalizacji",
+      "description": "Ustaw domyślny projekt etykiety używany przy drukowaniu kodów QR dla lokalizacji magazynowych.",
+      "saveButton": "Zapisz jako domyślny",
+      "saveSuccess": "Domyślny szablon etykiety zapisany",
+      "saveFailed": "Nie udało się zapisać szablonu etykiety",
+      "loadFailed": "Nie udało się wczytać zapisanego szablonu etykiety"
     }
   },
   "publicWarehouseMapsPage": {
@@ -2027,29 +2037,35 @@
             "center": "Środek",
             "end": "Koniec"
           },
-          "layerNames": {
-            "primaryText": "Nazwa etykiety",
-            "secondaryText": "Dodatkowa linia 1",
-            "tertiaryText": "Dodatkowa linia 2",
-            "tokenText": "Token"
-          },
-          "sourceQrLabel": "Z nazwy kodu QR",
-          "sourceQrToken": "Z tokenu QR",
+          "lineNumber": "Linia {index}",
           "sourceCustom": "Tekst własny",
-          "customLineLabel": "Treść tekstu",
-          "customLinePlaceholder": {
-            "secondaryText": "Wpisz dodatkową linię 1",
-            "tertiaryText": "Wpisz dodatkową linię 2"
+          "sourceField": "Z danych",
+          "fieldLabel": "Pole",
+          "caseTransform": "Wielkość liter",
+          "caseTransformOptions": {
+            "none": "Jak wpisano",
+            "upper": "WIELKIE LITERY",
+            "lower": "małe litery",
+            "title": "Każdy Wyraz Wielką Literą"
           },
+          "customLineLabel": "Treść tekstu",
+          "customLinePlaceholder": "Wpisz tekst",
           "pt": "pt",
           "bold": "pogrubienie",
-          "reorderLayer": "Zmień kolejność: {layer}",
-          "alignLayer": "Wyrównaj {layer}: {align}",
+          "addLine": "Dodaj linię",
+          "removeLine": "Usuń {line}",
+          "reorderLine": "Zmień kolejność: {line}",
+          "alignLine": "Wyrównaj {line}: {align}",
           "alignOptions": {
             "left": "do lewej",
             "center": "do środka",
             "right": "do prawej"
           }
+        },
+        "fields": {
+          "qrLabel": "Nazwa kodu QR",
+          "qrToken": "Token QR",
+          "scanUrl": "Adres URL skanowania"
         },
         "preview": {
           "title": "Podgląd",
@@ -2066,7 +2082,10 @@
           "exporting": "Eksportowanie...",
           "previewLabels": "Podgląd {count} etykiet",
           "exportLabels": "Eksportuj {count} etykiet",
-          "selectCodes": "Wybierz kody, aby kontynuować"
+          "selectCodes": "Wybierz kody, aby kontynuować",
+          "templateSummary": "Ten projekt zostanie zapisany jako domyślny szablon etykiety.",
+          "saveTemplate": "Zapisz jako domyślny",
+          "savingTemplate": "Zapisywanie..."
         },
         "previewDialogTitle": "Podgląd etykiet QR ({count})",
         "singleDialog": {
@@ -6523,7 +6542,23 @@
       "noUnassignedCodes": "Brak dostępnych nieprzypisanych kodów QR",
       "alreadyAssigned": "Ten kod QR jest już przypisany do innego elementu",
       "codeRevoked": "Ten kod QR został unieważniony",
-      "qrCode": "Kod QR"
+      "qrCode": "Kod QR",
+      "generateNew": "Generuj nowy",
+      "generateHint": "Zostanie wygenerowany nowy kod QR i przypisany do tej lokalizacji.",
+      "labelOptional": "Etykieta (opcjonalnie)",
+      "labelPlaceholder": "np. Bin A1, Regał 3",
+      "orScanExisting": "lub użyj istniejącej wydrukowanej etykiety",
+      "generateAndAssign": "Generuj i przypisz",
+      "generating": "Generowanie...",
+      "cancel": "Anuluj",
+      "printLabel": "Drukuj etykietę",
+      "printDialogTitle": "Drukuj etykietę lokalizacji",
+      "fields": {
+        "locationName": "Nazwa lokalizacji",
+        "locationCode": "Kod lokalizacji",
+        "qrToken": "Token QR",
+        "scanUrl": "Adres URL skanowania"
+      }
     }
   },
   "publicOrgProfile": {

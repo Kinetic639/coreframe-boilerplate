@@ -12,9 +12,7 @@ const TOKEN = "AbCdEfGhIjKlMnOpQrSt12";
 function makeItem(overrides: Partial<ZplLabelItem> = {}): ZplLabelItem {
   return {
     token: TOKEN,
-    primaryText: "Rack A1",
-    secondaryText: undefined,
-    tertiaryText: undefined,
+    fields: { primary: "Rack A1" },
     ...overrides,
   };
 }
@@ -61,20 +59,24 @@ describe("generateZplLabels", () => {
 
   it("changes output when thermal label styling changes", async () => {
     const a = await generateZplLabels(
-      [makeItem({ secondaryText: TOKEN.slice(0, 8) })],
+      [makeItem({ fields: { primary: "Rack A1", secondary: TOKEN.slice(0, 8) } })],
       "70x40",
       DEFAULT_LABEL_CONFIG
     );
-    const b = await generateZplLabels([makeItem({ secondaryText: TOKEN.slice(0, 8) })], "70x40", {
-      ...DEFAULT_LABEL_CONFIG,
-      includeLogo: false,
-      qrStyle: {
-        frameShape: "circle",
-        dotStyle: "dots",
-        cornerSquareStyle: "square",
-        cornerDotStyle: "square",
-      },
-    });
+    const b = await generateZplLabels(
+      [makeItem({ fields: { primary: "Rack A1", secondary: TOKEN.slice(0, 8) } })],
+      "70x40",
+      {
+        ...DEFAULT_LABEL_CONFIG,
+        includeLogo: false,
+        qrStyle: {
+          frameShape: "circle",
+          dotStyle: "dots",
+          cornerSquareStyle: "square",
+          cornerDotStyle: "square",
+        },
+      }
+    );
     expect(a).not.toBe(b);
   });
 
@@ -82,7 +84,7 @@ describe("generateZplLabels", () => {
     const items = Array.from({ length: 12 }, (_, i) =>
       makeItem({
         token: `token${String(i).padStart(20, "0")}`,
-        primaryText: `Rack ${i}`,
+        fields: { primary: `Rack ${i}` },
       })
     );
     const zpl = await generateZplLabels(items, "70x40", DEFAULT_LABEL_CONFIG);

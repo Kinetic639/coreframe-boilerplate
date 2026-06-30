@@ -19,7 +19,7 @@ import type { LabelConfig } from "@/lib/qr/label-config";
 import {
   computeGrid,
   getEffectiveLabelDimension,
-  getOrderedTextLayerKeys,
+  applyCaseTransform,
   GRID_MARGIN_MM,
 } from "@/lib/qr/label-config";
 
@@ -34,12 +34,17 @@ export interface QrLabelPdfItem {
   token: string;
   /** Pre-generated QR image data URL (PNG or SVG) */
   qrDataUrl: string;
-  /** Main label line — typically the location name */
+  /** Main label line — typically the location name. Used by the legacy fixed-template generator (generateQrLabelsPdf). */
   primaryText: string;
-  /** Second line — e.g. location code */
+  /** Second line — e.g. location code. Used by the legacy fixed-template generator. */
   secondaryText?: string;
-  /** Third line — e.g. module/type context */
+  /** Third line — e.g. module/type context. Used by the legacy fixed-template generator. */
   tertiaryText?: string;
+  /**
+   * Resolvable data fields for config-driven text lines (generateQrLabelsPdfWithConfig).
+   * Keys are caller-defined (e.g. "primary", "secondary", "token", "scanUrl").
+   */
+  fields?: Record<string, string>;
 }
 
 export interface GenerateQrLabelsPdfInput {
@@ -353,6 +358,8 @@ interface LabelCellV2Props {
   cellHPt: number;
 }
 
+const LINE_COLORS = ["#111111", "#444444", "#888888", "#aaaaaa"];
+
 function getVisibleTextLines(item: QrLabelPdfItem, config: LabelConfig) {
   const lines: Array<{
     key: string;
@@ -364,55 +371,21 @@ function getVisibleTextLines(item: QrLabelPdfItem, config: LabelConfig) {
     marginBottom: number;
   }> = [];
 
-  for (const layerKey of getOrderedTextLayerKeys(config)) {
-    if (layerKey === "primaryText" && config.primaryText.show && item.primaryText) {
-      lines.push({
-        key: "primary",
-        text: item.primaryText,
-        size: config.primaryText.size,
-        weight: config.primaryText.bold ? "bold" : "normal",
-        color: "#111111",
-        align: config.primaryText.align,
-        marginBottom: mm(0.4),
-      });
-    }
+  config.textLines.forEach((line, index) => {
+    const raw = line.source === "custom" ? line.customText : (item.fields?.[line.fieldKey] ?? "");
+    const text = applyCaseTransform(raw.trim(), line.caseTransform);
+    if (!text) return;
 
-    if (layerKey === "secondaryText" && config.secondaryText.show && item.secondaryText) {
-      lines.push({
-        key: "secondary",
-        text: item.secondaryText,
-        size: config.secondaryText.size,
-        weight: config.secondaryText.bold ? "bold" : "normal",
-        color: "#444444",
-        align: config.secondaryText.align,
-        marginBottom: mm(0.3),
-      });
-    }
-
-    if (layerKey === "tertiaryText" && config.tertiaryText.show && item.tertiaryText) {
-      lines.push({
-        key: "tertiary",
-        text: item.tertiaryText,
-        size: config.tertiaryText.size,
-        weight: config.tertiaryText.bold ? "bold" : "normal",
-        color: "#888888",
-        align: config.tertiaryText.align,
-        marginBottom: mm(0.2),
-      });
-    }
-
-    if (layerKey === "tokenText" && config.tokenText.show) {
-      lines.push({
-        key: "token",
-        text: item.token.slice(0, 10),
-        size: config.tokenText.size,
-        weight: config.tokenText.bold ? "bold" : "normal",
-        color: "#aaaaaa",
-        align: config.tokenText.align,
-        marginBottom: 0,
-      });
-    }
-  }
+    lines.push({
+      key: line.id,
+      text,
+      size: line.size,
+      weight: line.bold ? "bold" : "normal",
+      color: LINE_COLORS[Math.min(index, LINE_COLORS.length - 1)],
+      align: line.align,
+      marginBottom: mm(0.3),
+    });
+  });
 
   return lines;
 }

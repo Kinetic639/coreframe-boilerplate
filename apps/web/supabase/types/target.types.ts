@@ -8259,6 +8259,38 @@ export type Database = {
           },
         ];
       };
+      warehouse_location_label_settings: {
+        Row: {
+          created_at: string;
+          id: string;
+          label_config: Json;
+          organization_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          label_config?: Json;
+          organization_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          label_config?: Json;
+          organization_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "warehouse_location_label_settings_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: true;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       warehouse_location_visual_nodes: {
         Row: {
           branch_id: string;

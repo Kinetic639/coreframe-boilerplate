@@ -12,6 +12,11 @@ const assignSchema = z.object({
   ticketId: z.string().uuid(),
 });
 
+const createAndAssignSchema = z.object({
+  ticketId: z.string().uuid(),
+  label: z.string().max(200).nullable().optional(),
+});
+
 export async function assignQrToTicketAction(rawInput: unknown) {
   try {
     const context = await loadDashboardContextV2();
@@ -36,6 +41,47 @@ export async function assignQrToTicketAction(rawInput: unknown) {
       assignedBy: context.user.user?.id ?? "",
       permissionSnapshot: context.user.permissionSnapshot,
     });
+  } catch {
+    return { success: false as const, error: "Unexpected error" };
+  }
+}
+
+export async function createAndAssignQrToTicketAction(rawInput: unknown) {
+  try {
+    const context = await loadDashboardContextV2();
+    if (!context?.app.activeOrgId)
+      return { success: false as const, error: "No active organization" };
+
+    if (
+      !checkPermission(context.user.permissionSnapshot, QR_ASSIGN) ||
+      !checkPermission(context.user.permissionSnapshot, HELPDESK_TICKETS_MANAGE)
+    ) {
+      return { success: false as const, error: "Unauthorized" };
+    }
+
+    const parsed = createAndAssignSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false as const, error: "Invalid input" };
+
+    const supabase = await createClient();
+    const result = await QrAssignmentsService.createAndAssign(supabase, context.app.activeOrgId, {
+      targetType: "helpdesk.ticket",
+      targetId: parsed.data.ticketId,
+      assignedBy: context.user.user?.id ?? "",
+      permissionSnapshot: context.user.permissionSnapshot,
+      label: parsed.data.label ?? null,
+    });
+    if (!result.success) return result;
+
+    return {
+      success: true as const,
+      data: {
+        assignmentId: result.data.assignment.id,
+        qrCodeId: result.data.qr.id,
+        token: result.data.qr.token,
+        label: result.data.qr.label,
+        status: result.data.qr.status,
+      },
+    };
   } catch {
     return { success: false as const, error: "Unexpected error" };
   }

@@ -1065,7 +1065,17 @@
       "capPickable": "Pickable",
       "width": "Width",
       "depth": "Depth",
-      "height": "Height"
+      "height": "Height",
+      "printLabels": "Print {count} Labels",
+      "printDialogTitle": "Print location labels"
+    },
+    "labelSettings": {
+      "title": "Location Label Defaults",
+      "description": "Set the default label design used when printing QR labels for warehouse locations.",
+      "saveButton": "Save as default",
+      "saveSuccess": "Default label template saved",
+      "saveFailed": "Failed to save the label template",
+      "loadFailed": "Failed to load the saved label template"
     }
   },
   "publicWarehouseMapsPage": {
@@ -2072,29 +2082,35 @@
             "center": "Center",
             "end": "End"
           },
-          "layerNames": {
-            "primaryText": "Label name",
-            "secondaryText": "Additional line 1",
-            "tertiaryText": "Additional line 2",
-            "tokenText": "Token"
-          },
-          "sourceQrLabel": "From QR label",
-          "sourceQrToken": "From QR token",
+          "lineNumber": "Line {index}",
           "sourceCustom": "Custom text",
-          "customLineLabel": "Text content",
-          "customLinePlaceholder": {
-            "secondaryText": "Enter additional line 1",
-            "tertiaryText": "Enter additional line 2"
+          "sourceField": "From data",
+          "fieldLabel": "Field",
+          "caseTransform": "Letter case",
+          "caseTransformOptions": {
+            "none": "As entered",
+            "upper": "UPPERCASE",
+            "lower": "lowercase",
+            "title": "Title Case"
           },
+          "customLineLabel": "Text content",
+          "customLinePlaceholder": "Enter text",
           "pt": "pt",
           "bold": "bold",
-          "reorderLayer": "Reorder {layer}",
-          "alignLayer": "Align {layer}: {align}",
+          "addLine": "Add line",
+          "removeLine": "Remove {line}",
+          "reorderLine": "Reorder {line}",
+          "alignLine": "Align {line}: {align}",
           "alignOptions": {
             "left": "Left",
             "center": "Center",
             "right": "Right"
           }
+        },
+        "fields": {
+          "qrLabel": "QR Label",
+          "qrToken": "QR Token",
+          "scanUrl": "Scan URL"
         },
         "preview": {
           "title": "Preview",
@@ -2111,7 +2127,10 @@
           "exporting": "Exporting...",
           "previewLabels": "Preview {count} labels",
           "exportLabels": "Export {count} labels",
-          "selectCodes": "Select codes to continue"
+          "selectCodes": "Select codes to continue",
+          "templateSummary": "This design will be saved as the default label template.",
+          "saveTemplate": "Save as default",
+          "savingTemplate": "Saving..."
         },
         "previewDialogTitle": "QR label preview ({count})",
         "singleDialog": {
@@ -6549,7 +6568,23 @@
       "noUnassignedCodes": "No unassigned QR codes available",
       "alreadyAssigned": "This QR code is already assigned to another target",
       "codeRevoked": "This QR code has been revoked",
-      "qrCode": "QR Code"
+      "qrCode": "QR Code",
+      "generateNew": "Generate New",
+      "generateHint": "A brand new QR code will be generated and assigned to this location.",
+      "labelOptional": "Label (optional)",
+      "labelPlaceholder": "e.g. Bin A1, Shelf 3",
+      "orScanExisting": "or use an existing printed label",
+      "generateAndAssign": "Generate & Assign",
+      "generating": "Generating...",
+      "cancel": "Cancel",
+      "printLabel": "Print Label",
+      "printDialogTitle": "Print location label",
+      "fields": {
+        "locationName": "Location Name",
+        "locationCode": "Location Code",
+        "qrToken": "QR Token",
+        "scanUrl": "Scan URL"
+      }
     }
   },
   "publicOrgProfile": {

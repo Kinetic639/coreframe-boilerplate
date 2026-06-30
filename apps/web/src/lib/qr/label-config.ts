@@ -13,7 +13,8 @@ export type TextVerticalAlign = "start" | "center" | "end";
 export type TextPosition = "right" | "left" | "above" | "below";
 export type LabelOrientation = "landscape" | "portrait";
 export type LogoBackgroundStyle = "brand" | "circle" | "square";
-export type TextLayerKey = "primaryText" | "secondaryText" | "tertiaryText" | "tokenText";
+export type TextLineSource = "custom" | "field";
+export type TextCaseTransform = "none" | "upper" | "lower" | "title";
 export type QrFrameShape = "square" | "circle";
 export type QrDotStyle =
   | "square"
@@ -40,17 +41,26 @@ export type QrCornerDotStyle =
   | "extra-rounded";
 export type EdgeLineStyle = "solid" | "dotted" | "dashed";
 
-export interface TextLayerConfig {
-  show: boolean;
+/**
+ * A single printable line on the label.
+ *
+ * `source: "custom"` — the user types arbitrary text (customText), case is
+ * exactly what they typed.
+ * `source: "field"` — the line is bound to a data field supplied by the
+ * caller (e.g. location name, location code, QR token, scan URL); the
+ * caseTransform controls how that field's value is rendered, since the
+ * underlying data may not already be in the desired case.
+ */
+export interface TextLineConfig {
+  id: string;
+  source: TextLineSource;
+  customText: string;
+  fieldKey: string;
+  caseTransform: TextCaseTransform;
   /** Font size in PDF points */
   size: number;
   bold: boolean;
   align: TextAlign;
-}
-
-export interface LabelTextContentConfig {
-  secondaryText: string;
-  tertiaryText: string;
 }
 
 export interface QrStyleConfig {
@@ -87,12 +97,7 @@ export interface LabelConfig {
   innerPaddingMm: number;
   textPosition: TextPosition;
   textVerticalAlign: TextVerticalAlign;
-  textLayerOrder: TextLayerKey[];
-  primaryText: TextLayerConfig;
-  secondaryText: TextLayerConfig;
-  tertiaryText: TextLayerConfig;
-  tokenText: TextLayerConfig;
-  textContent: LabelTextContentConfig;
+  textLines: TextLineConfig[];
   edgeGuides: EdgeGuideConfig;
   footer: LabelFooterConfig;
 }
@@ -106,31 +111,51 @@ export interface GridSpec {
 export const A4_W_MM = 210;
 export const A4_H_MM = 297;
 export const GRID_MARGIN_MM = 5;
-export const TEXT_LAYER_KEYS: readonly TextLayerKey[] = [
-  "primaryText",
-  "secondaryText",
-  "tertiaryText",
-  "tokenText",
-];
+export const MAX_TEXT_LINES = 8;
 
-export function getOrderedTextLayerKeys(
-  config: Pick<LabelConfig, "textLayerOrder">
-): TextLayerKey[] {
-  const seen = new Set<TextLayerKey>();
-  const ordered: TextLayerKey[] = [];
+/**
+ * Canonical field keys callers can bind a text line to. Every LabelDesigner
+ * caller maps its own data onto these keys when building export items
+ * (e.g. QR codes use their `.label` for "primary"; locations use their
+ * `.name`). Keeps DEFAULT_LABEL_CONFIG meaningful across all label contexts.
+ */
+export const PRIMARY_FIELD_KEY = "primary";
+export const SECONDARY_FIELD_KEY = "secondary";
+export const TOKEN_FIELD_KEY = "token";
+export const SCAN_URL_FIELD_KEY = "scanUrl";
 
-  for (const key of config.textLayerOrder) {
-    if (!seen.has(key) && TEXT_LAYER_KEYS.includes(key)) {
-      seen.add(key);
-      ordered.push(key);
-    }
+export function applyCaseTransform(text: string, transform: TextCaseTransform): string {
+  switch (transform) {
+    case "upper":
+      return text.toUpperCase();
+    case "lower":
+      return text.toLowerCase();
+    case "title":
+      return text.replace(/\w\S*/g, (word) => word[0].toUpperCase() + word.slice(1).toLowerCase());
+    default:
+      return text;
   }
+}
 
-  for (const key of TEXT_LAYER_KEYS) {
-    if (!seen.has(key)) ordered.push(key);
-  }
+function makeTextLine(
+  partial: Partial<TextLineConfig> & Pick<TextLineConfig, "id">
+): TextLineConfig {
+  return {
+    source: "custom",
+    customText: "",
+    fieldKey: "",
+    caseTransform: "none",
+    size: 6,
+    bold: false,
+    align: "left",
+    ...partial,
+  };
+}
 
-  return ordered;
+export function createTextLine(
+  overrides: Partial<Omit<TextLineConfig, "id">> = {}
+): TextLineConfig {
+  return makeTextLine({ id: crypto.randomUUID(), ...overrides });
 }
 
 export interface LabelPreset {
@@ -174,15 +199,21 @@ export const DEFAULT_LABEL_CONFIG: LabelConfig = {
   innerPaddingMm: 1.5,
   textPosition: "right",
   textVerticalAlign: "center",
-  textLayerOrder: [...TEXT_LAYER_KEYS],
-  primaryText: { show: true, size: 7, bold: true, align: "left" },
-  secondaryText: { show: true, size: 6, bold: false, align: "left" },
-  tertiaryText: { show: false, size: 5, bold: false, align: "left" },
-  tokenText: { show: false, size: 5, bold: false, align: "left" },
-  textContent: {
-    secondaryText: "",
-    tertiaryText: "",
-  },
+  textLines: [
+    makeTextLine({
+      id: "default-primary",
+      source: "field",
+      fieldKey: PRIMARY_FIELD_KEY,
+      size: 7,
+      bold: true,
+    }),
+    makeTextLine({
+      id: "default-secondary",
+      source: "field",
+      fieldKey: SECONDARY_FIELD_KEY,
+      size: 6,
+    }),
+  ],
   edgeGuides: {
     show: true,
     thickness: 0.5,

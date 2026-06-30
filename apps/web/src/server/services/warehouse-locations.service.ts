@@ -130,6 +130,31 @@ export class WarehouseLocationsService {
   }
 
   /**
+   * Batch-load locations by id, scoped to the org. Used by label printing to
+   * resolve name/code for a multi-selection without N+1 queries.
+   */
+  static async getByIds(
+    supabase: SupabaseClient,
+    orgId: string,
+    ids: string[]
+  ): Promise<ServiceResult<Pick<WarehouseLocation, "id" | "name" | "code">[]>> {
+    if (ids.length === 0) return { success: true, data: [] };
+
+    const { data, error } = await supabase
+      .from("warehouse_locations")
+      .select("id, name, code")
+      .eq("organization_id", orgId)
+      .is("deleted_at", null)
+      .in("id", ids);
+
+    if (error) return { success: false, error: error.message };
+    return {
+      success: true,
+      data: (data ?? []) as Pick<WarehouseLocation, "id" | "name" | "code">[],
+    };
+  }
+
+  /**
    * Returns distinct location IDs that have a shape on any layout for the branch.
    * Used by the locations page to mark/sort placed vs. unplaced locations.
    */

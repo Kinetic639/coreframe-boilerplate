@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { QrCode, Search, Camera, ArrowLeft, Loader2, AlertCircle } from "lucide-react";
+import { QrCode, Camera, ArrowLeft, Loader2, AlertCircle, Sparkles } from "lucide-react";
 import { toast } from "react-toastify";
 import {
   Dialog,
@@ -12,11 +12,11 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { listQrCodesAction } from "@/app/actions/qr/list";
-import { assignQrToTicketAction, getQrCodeByTokenAction } from "@/app/actions/qr/assign";
-import type { QrCodeWithStatus } from "@/server/services/qr.service";
+import {
+  assignQrToTicketAction,
+  createAndAssignQrToTicketAction,
+  getQrCodeByTokenAction,
+} from "@/app/actions/qr/assign";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -54,7 +54,7 @@ function extractToken(scannedText: string): string | null {
 }
 
 // ---------------------------------------------------------------------------
-// Camera scanner component
+// Camera scanner component (for re-using an existing printed label)
 // ---------------------------------------------------------------------------
 
 interface QrCameraScannerProps {
@@ -219,7 +219,7 @@ function QrCameraScanner({ ticketId, onSuccess, onBack }: QrCameraScannerProps) 
     <div className="flex flex-col gap-3">
       <Button variant="ghost" size="sm" className="self-start -ml-1" onClick={onBack}>
         <ArrowLeft className="mr-1.5 h-4 w-4" />
-        Back to list
+        Generate new instead
       </Button>
 
       {cameraError ? (
@@ -272,65 +272,47 @@ export function AssignQrDialog({
   ticketNumber,
   onAssigned,
 }: AssignQrDialogProps) {
-  const [codes, setCodes] = useState<QrCodeWithStatus[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [assigning, setAssigning] = useState(false);
-  const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<string | null>(null);
+  const [label, setLabel] = useState("");
+  const [generating, setGenerating] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scannerKey, setScannerKey] = useState(0);
 
   useEffect(() => {
     if (!open) {
-      setSearch("");
-      setSelected(null);
+      setLabel("");
       setScanning(false);
-      return;
     }
-    setLoading(true);
-    listQrCodesAction().then((result) => {
-      if (result.success) {
-        setCodes(
-          (result as { success: true; data: QrCodeWithStatus[] }).data.filter((c) => {
-            if (c.status !== "active") return false;
-            if (!c.assignment) return true;
-            return !(
-              c.assignment.target_type === "helpdesk.ticket" && c.assignment.target_id === ticketId
-            );
-          })
-        );
-      }
-      setLoading(false);
-    });
-  }, [open, ticketId]);
+  }, [open]);
 
-  const filtered = codes.filter((c) => {
-    if (!search.trim()) return true;
-    const q = search.toLowerCase();
-    return c.token.toLowerCase().includes(q) || (c.label ?? "").toLowerCase().includes(q);
-  });
-
-  const handleAssign = async () => {
-    if (!selected) return;
-    setAssigning(true);
+  const handleGenerate = async () => {
+    setGenerating(true);
     try {
-      const result = await assignQrToTicketAction({ qrCodeId: selected, ticketId });
+      const result = await createAndAssignQrToTicketAction({
+        ticketId,
+        label: label.trim() || null,
+      });
       if (!result.success) {
         toast.error((result as { success: false; error: string }).error);
         return;
       }
-      const code = codes.find((c) => c.id === selected);
-      toast.success("QR code assigned to ticket.");
-      onAssigned({
-        assignmentId: (result as { success: true; data: { id: string } }).data.id,
-        qrCodeId: selected,
-        token: code?.token ?? "",
-        label: code?.label ?? null,
-        status: "active",
-      });
+      toast.success("QR code generated and assigned to ticket.");
+      onAssigned(
+        (
+          result as {
+            success: true;
+            data: {
+              assignmentId: string;
+              qrCodeId: string;
+              token: string;
+              label: string | null;
+              status: string;
+            };
+          }
+        ).data
+      );
       onOpenChange(false);
     } finally {
-      setAssigning(false);
+      setGenerating(false);
     }
   };
 
@@ -341,7 +323,7 @@ export function AssignQrDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[min(480px,calc(100vw-2rem))]" style={{ maxWidth: "none" }}>
+      <DialogContent className="w-[min(420px,calc(100vw-2rem))]" style={{ maxWidth: "none" }}>
         <DialogHeader>
           <DialogTitle>Assign QR Code to {ticketNumber}</DialogTitle>
         </DialogHeader>
@@ -358,82 +340,54 @@ export function AssignQrDialog({
           />
         ) : (
           <>
-            <div className="space-y-3">
-              {/* Scan button */}
-              <Button variant="outline" className="w-full gap-2" onClick={() => setScanning(true)}>
-                <Camera className="h-4 w-4" />
-                Scan QR Label with Camera
-              </Button>
-
-              <div className="relative flex items-center gap-2 text-xs text-muted-foreground">
-                <div className="flex-1 border-t" />
-                <span>or pick from list</span>
-                <div className="flex-1 border-t" />
+            <div className="space-y-4">
+              <div className="rounded-md border bg-muted/30 p-4 text-center">
+                <QrCode className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">
+                  A brand new QR code will be generated and assigned to this ticket.
+                </p>
               </div>
 
-              {/* Search */}
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                  Label (optional)
+                </label>
                 <Input
-                  placeholder="Search by label or token…"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-8"
+                  placeholder="e.g. Ticket label"
+                  value={label}
+                  onChange={(e) => setLabel(e.target.value)}
+                  maxLength={200}
                 />
               </div>
 
-              {/* List */}
-              <div className="max-h-56 space-y-1 overflow-y-auto rounded-md border p-1">
-                {loading ? (
-                  Array.from({ length: 4 }).map((_, i) => (
-                    <Skeleton key={i} className="h-10 w-full rounded-md" />
-                  ))
-                ) : filtered.length === 0 ? (
-                  <p className="py-6 text-center text-sm text-muted-foreground">
-                    {search ? "No matching unassigned codes." : "No unassigned QR codes available."}
-                  </p>
-                ) : (
-                  filtered.map((code) => (
-                    <button
-                      key={code.id}
-                      onClick={() => setSelected(code.id === selected ? null : code.id)}
-                      className={`flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-sm transition-colors ${
-                        selected === code.id
-                          ? "bg-primary text-primary-foreground"
-                          : "hover:bg-muted"
-                      }`}
-                    >
-                      <QrCode className="h-4 w-4 shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-medium">
-                          {code.label ?? (
-                            <span className="italic text-muted-foreground">Unlabelled</span>
-                          )}
-                        </p>
-                        <p
-                          className={`truncate text-xs ${selected === code.id ? "text-primary-foreground/70" : "text-muted-foreground"}`}
-                        >
-                          {code.token}
-                        </p>
-                      </div>
-                      <Badge
-                        variant="secondary"
-                        className={`shrink-0 text-xs ${selected === code.id ? "bg-primary-foreground/20 text-primary-foreground" : ""}`}
-                      >
-                        unassigned
-                      </Badge>
-                    </button>
-                  ))
-                )}
+              <div className="relative flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="flex-1 border-t" />
+                <span>or use an existing printed label</span>
+                <div className="flex-1 border-t" />
               </div>
+
+              <Button
+                variant="outline"
+                className="w-full gap-2"
+                onClick={() => setScanning(true)}
+                disabled={generating}
+              >
+                <Camera className="h-4 w-4" />
+                Scan QR Label with Camera
+              </Button>
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => onOpenChange(false)} disabled={assigning}>
+              <Button variant="outline" onClick={() => onOpenChange(false)} disabled={generating}>
                 Cancel
               </Button>
-              <Button onClick={handleAssign} disabled={!selected || assigning}>
-                {assigning ? "Assigning…" : "Assign QR Code"}
+              <Button onClick={handleGenerate} disabled={generating} className="gap-1.5">
+                {generating ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="h-3.5 w-3.5" />
+                )}
+                {generating ? "Generating…" : "Generate & Assign"}
               </Button>
             </DialogFooter>
           </>

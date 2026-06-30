@@ -20,6 +20,7 @@ import {
   LayoutList,
   Maximize2,
   Package,
+  Printer,
   QrCode,
   RotateCcw,
   ShieldCheck,
@@ -32,6 +33,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { unassignQrFromLocationAction } from "@/app/actions/qr/assign-location";
 import { AssignQrLocationDialog } from "./assign-qr-location-dialog";
+import { PrintLocationLabelDialog } from "./print-location-label-dialog";
 import type {
   AmbraLocationInventorySnapshot,
   ContainerLine,
@@ -393,6 +395,7 @@ export function LocationDetailPanel({
   const [activeTab, setActiveTab] = useState<"info" | "inventory" | "history">("info");
   const [copiedPath, setCopiedPath] = useState(false);
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
   const [unlinking, setUnlinking] = useState(false);
 
   // --- helpers ---
@@ -907,16 +910,27 @@ export function LocationDetailPanel({
                           )}
                         </div>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleUnlinkQr}
-                        disabled={unlinking}
-                        className="gap-1.5 text-destructive hover:text-destructive"
-                      >
-                        <Unlink className="h-3.5 w-3.5" />
-                        {tQr("unassignQr")}
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setPrintDialogOpen(true)}
+                          className="gap-1.5"
+                        >
+                          <Printer className="h-3.5 w-3.5" />
+                          {tQr("printLabel")}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleUnlinkQr}
+                          disabled={unlinking}
+                          className="gap-1.5 text-destructive hover:text-destructive"
+                        >
+                          <Unlink className="h-3.5 w-3.5" />
+                          {tQr("unassignQr")}
+                        </Button>
+                      </div>
                     </div>
                   ) : (
                     <div className="flex flex-col items-center gap-3 py-4">
@@ -944,6 +958,14 @@ export function LocationDetailPanel({
                   onQrAssigned?.(assignment);
                   setQrDialogOpen(false);
                 }}
+              />
+
+              <PrintLocationLabelDialog
+                open={printDialogOpen}
+                onOpenChange={setPrintDialogOpen}
+                locationId={location.id}
+                locationName={location.name}
+                locationCode={location.code || null}
               />
             </motion.div>
           ) : activeTab === "inventory" ? (

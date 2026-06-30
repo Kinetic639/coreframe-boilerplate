@@ -6,86 +6,20 @@ import { checkPermission } from "@/lib/utils/permissions";
 import { QR_EXPORT } from "@/lib/constants/permissions";
 import { QrCodesService } from "@/server/services/qr.service";
 import type { QrCode } from "@/server/services/qr.service";
-import { generateStyledQrPngDataUrl } from "@/lib/qr/generate";
+import { generateStyledQrPngDataUrl, buildQrScanUrl } from "@/lib/qr/generate";
 import type { LabelConfig } from "@/lib/qr/label-config";
+import { PRIMARY_FIELD_KEY, TOKEN_FIELD_KEY, SCAN_URL_FIELD_KEY } from "@/lib/qr/label-config";
 import { generateQrLabelsPdfWithConfig } from "@/server/qr/label-pdf";
 import type { QrLabelPdfItem } from "@/server/qr/label-pdf";
 import { generateZplLabels } from "@/lib/qr/zpl";
 import type { ZplLabelItem, ZplLabelSize } from "@/lib/qr/zpl";
 import { eventService } from "@/server/services/event.service";
+import { labelConfigSchema } from "@/lib/qr/label-config-schema";
 
 export const dynamic = "force-dynamic";
 
 const MAX_IDS = 200;
 const QR_PREVIEW_CONCURRENCY = 8;
-
-const textLayerSchema = z.object({
-  show: z.boolean(),
-  size: z.number().min(4).max(24),
-  bold: z.boolean(),
-  align: z.enum(["left", "center", "right"]),
-});
-
-const textContentSchema = z.object({
-  secondaryText: z.string().max(120),
-  tertiaryText: z.string().max(120),
-});
-
-const labelConfigSchema = z.object({
-  dimension: z.object({
-    width: z.number().min(10).max(210),
-    height: z.number().min(10).max(297),
-  }),
-  orientation: z.enum(["landscape", "portrait"]),
-  includeLogo: z.boolean(),
-  logoBackgroundStyle: z.enum(["brand", "circle", "square"]),
-  qrHeightRatio: z.number().min(0.4).max(1),
-  qrStyle: z.object({
-    frameShape: z.enum(["square", "circle"]),
-    dotStyle: z.enum(["square", "dots", "rounded", "classy", "classy-rounded", "extra-rounded"]),
-    cornerSquareStyle: z.enum([
-      "square",
-      "dot",
-      "extra-rounded",
-      "dots",
-      "rounded",
-      "classy",
-      "classy-rounded",
-    ]),
-    cornerDotStyle: z.enum([
-      "dot",
-      "square",
-      "dots",
-      "rounded",
-      "classy",
-      "classy-rounded",
-      "extra-rounded",
-    ]),
-  }),
-  showBorder: z.boolean(),
-  outerPaddingMm: z.number().min(0).max(20),
-  innerPaddingMm: z.number().min(0).max(20),
-  textPosition: z.enum(["right", "left", "above", "below"]),
-  textVerticalAlign: z.enum(["start", "center", "end"]),
-  textLayerOrder: z
-    .array(z.enum(["primaryText", "secondaryText", "tertiaryText", "tokenText"]))
-    .length(4),
-  primaryText: textLayerSchema,
-  secondaryText: textLayerSchema,
-  tertiaryText: textLayerSchema,
-  tokenText: textLayerSchema,
-  textContent: textContentSchema,
-  edgeGuides: z.object({
-    show: z.boolean(),
-    thickness: z.number().min(0.1).max(4),
-    style: z.enum(["solid", "dotted", "dashed"]),
-    color: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
-    opacity: z.number().min(0).max(1),
-  }),
-  footer: z.object({
-    show: z.boolean(),
-  }),
-});
 
 const requestSchema = z.object({
   qrCodeIds: z
@@ -150,66 +84,7 @@ export async function POST(request: NextRequest) {
   }
 
   const { qrCodeIds, format, zplSize } = parsed.data;
-  const labelConfig: LabelConfig = {
-    dimension: {
-      width: parsed.data.labelConfig.dimension.width,
-      height: parsed.data.labelConfig.dimension.height,
-    },
-    orientation: parsed.data.labelConfig.orientation,
-    includeLogo: parsed.data.labelConfig.includeLogo,
-    logoBackgroundStyle: parsed.data.labelConfig.logoBackgroundStyle,
-    qrHeightRatio: parsed.data.labelConfig.qrHeightRatio,
-    qrStyle: {
-      frameShape: parsed.data.labelConfig.qrStyle.frameShape,
-      dotStyle: parsed.data.labelConfig.qrStyle.dotStyle,
-      cornerSquareStyle: parsed.data.labelConfig.qrStyle.cornerSquareStyle,
-      cornerDotStyle: parsed.data.labelConfig.qrStyle.cornerDotStyle,
-    },
-    showBorder: parsed.data.labelConfig.showBorder,
-    outerPaddingMm: parsed.data.labelConfig.outerPaddingMm,
-    innerPaddingMm: parsed.data.labelConfig.innerPaddingMm,
-    textPosition: parsed.data.labelConfig.textPosition,
-    textVerticalAlign: parsed.data.labelConfig.textVerticalAlign,
-    textLayerOrder: parsed.data.labelConfig.textLayerOrder,
-    primaryText: {
-      show: parsed.data.labelConfig.primaryText.show,
-      size: parsed.data.labelConfig.primaryText.size,
-      bold: parsed.data.labelConfig.primaryText.bold,
-      align: parsed.data.labelConfig.primaryText.align,
-    },
-    secondaryText: {
-      show: parsed.data.labelConfig.secondaryText.show,
-      size: parsed.data.labelConfig.secondaryText.size,
-      bold: parsed.data.labelConfig.secondaryText.bold,
-      align: parsed.data.labelConfig.secondaryText.align,
-    },
-    tertiaryText: {
-      show: parsed.data.labelConfig.tertiaryText.show,
-      size: parsed.data.labelConfig.tertiaryText.size,
-      bold: parsed.data.labelConfig.tertiaryText.bold,
-      align: parsed.data.labelConfig.tertiaryText.align,
-    },
-    tokenText: {
-      show: parsed.data.labelConfig.tokenText.show,
-      size: parsed.data.labelConfig.tokenText.size,
-      bold: parsed.data.labelConfig.tokenText.bold,
-      align: parsed.data.labelConfig.tokenText.align,
-    },
-    textContent: {
-      secondaryText: parsed.data.labelConfig.textContent.secondaryText,
-      tertiaryText: parsed.data.labelConfig.textContent.tertiaryText,
-    },
-    edgeGuides: {
-      show: parsed.data.labelConfig.edgeGuides.show,
-      thickness: parsed.data.labelConfig.edgeGuides.thickness,
-      style: parsed.data.labelConfig.edgeGuides.style,
-      color: parsed.data.labelConfig.edgeGuides.color,
-      opacity: parsed.data.labelConfig.edgeGuides.opacity,
-    },
-    footer: {
-      show: parsed.data.labelConfig.footer.show,
-    },
-  };
+  const labelConfig = parsed.data.labelConfig as LabelConfig;
 
   // ─── 2. Auth ───────────────────────────────────────────────────────────────
   const context = await loadDashboardContextV2();
@@ -256,21 +131,17 @@ export async function POST(request: NextRequest) {
           token: qr.token,
           qrDataUrl: await generateStyledQrPngDataUrl(qr.token, labelConfig.qrStyle),
           primaryText: qr.label ?? "QR Code",
-          secondaryText: labelConfig.textContent.secondaryText.trim() || undefined,
-          tertiaryText: labelConfig.textContent.tertiaryText.trim() || undefined,
+          fields: {
+            [PRIMARY_FIELD_KEY]: qr.label ?? "QR Code",
+            [TOKEN_FIELD_KEY]: qr.token.slice(0, 10),
+            [SCAN_URL_FIELD_KEY]: buildQrScanUrl(qr.token),
+          },
         })
       );
 
       const buffer = await generateQrLabelsPdfWithConfig(items, labelConfig);
 
-      emitExportEvent(
-        userId,
-        orgId,
-        qrCodes,
-        format,
-        labelConfig.dimension,
-        labelConfig.tokenText.show
-      );
+      emitExportEvent(userId, orgId, qrCodes, format, labelConfig.dimension, labelConfig);
 
       return new Response(new Uint8Array(buffer), {
         status: 200,
@@ -285,9 +156,11 @@ export async function POST(request: NextRequest) {
     // format === "zpl"
     const items: ZplLabelItem[] = qrCodes.map((qr) => ({
       token: qr.token,
-      primaryText: qr.label ?? "QR Code",
-      secondaryText: labelConfig.textContent.secondaryText.trim() || undefined,
-      tertiaryText: labelConfig.textContent.tertiaryText.trim() || undefined,
+      fields: {
+        [PRIMARY_FIELD_KEY]: qr.label ?? "QR Code",
+        [TOKEN_FIELD_KEY]: qr.token.slice(0, 10),
+        [SCAN_URL_FIELD_KEY]: buildQrScanUrl(qr.token),
+      },
     }));
 
     const thermalBaseDimension =
@@ -307,14 +180,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    emitExportEvent(
-      userId,
-      orgId,
-      qrCodes,
-      format,
-      labelConfig.dimension,
-      labelConfig.tokenText.show
-    );
+    emitExportEvent(userId, orgId, qrCodes, format, labelConfig.dimension, labelConfig);
 
     return new Response(new TextEncoder().encode(zpl), {
       status: 200,
@@ -336,8 +202,11 @@ function emitExportEvent(
   qrCodes: QrCode[],
   format: string,
   dimension: { width: number; height: number },
-  hasTokenText: boolean
+  labelConfig: LabelConfig
 ) {
+  const hasTokenLine = labelConfig.textLines.some(
+    (line) => line.source === "field" && line.fieldKey === TOKEN_FIELD_KEY
+  );
   eventService
     .emit({
       actionKey: "qr.labels.exported",
@@ -350,7 +219,7 @@ function emitExportEvent(
         qr_code_ids: qrCodes.map((q) => q.id),
         label_count: qrCodes.length,
         label_size: `${format}:${dimension.width}x${dimension.height}mm`,
-        token_text_enabled: hasTokenText,
+        token_text_enabled: hasTokenLine,
         branch_id: null,
       },
       eventTier: "baseline",
