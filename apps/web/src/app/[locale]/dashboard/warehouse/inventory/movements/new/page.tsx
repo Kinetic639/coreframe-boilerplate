@@ -4,6 +4,7 @@ import { checkPermission } from "@/lib/utils/permissions";
 import {
   WAREHOUSE_INVENTORY_OPERATE,
   WAREHOUSE_INVENTORY_READ,
+  WAREHOUSE_PRODUCTS_MANAGE,
   WAREHOUSE_PRODUCTS_READ,
   WAREHOUSE_READ,
 } from "@/lib/constants/permissions";
@@ -11,6 +12,7 @@ import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-conte
 import { createClient } from "@/utils/supabase/server";
 import { InventoryProductsService } from "@/server/services/inventory-products.service";
 import { InventoryMovementsService } from "@/server/services/inventory-movements.service";
+import { InventoryMovementFieldPoliciesService } from "@/server/services/inventory-movement-field-policies.service";
 import { WarehouseLocationsService } from "@/server/services/warehouse-locations.service";
 import { MovementDocumentForm } from "./_components/movement-document-form";
 
@@ -45,13 +47,16 @@ export default async function WarehouseInventoryNewMovementPage() {
   }
 
   const supabase = await createClient();
-  const [variantsResult, locationsResult, typesResult] = await Promise.all([
-    checkPermission(context.user.permissionSnapshot, WAREHOUSE_PRODUCTS_READ)
-      ? InventoryProductsService.listVariantOptions(supabase, context.app.activeOrgId, branchId)
-      : Promise.resolve({ success: true as const, data: [] }),
-    WarehouseLocationsService.listByBranch(supabase, context.app.activeOrgId, branchId),
-    InventoryMovementsService.listMovementTypes(supabase, context.app.activeOrgId),
-  ]);
+  const [variantsResult, locationsResult, typesResult, unitsResult, policiesResult] =
+    await Promise.all([
+      checkPermission(context.user.permissionSnapshot, WAREHOUSE_PRODUCTS_READ)
+        ? InventoryProductsService.listVariantOptions(supabase, context.app.activeOrgId, branchId)
+        : Promise.resolve({ success: true as const, data: [] }),
+      WarehouseLocationsService.listByBranch(supabase, context.app.activeOrgId, branchId),
+      InventoryMovementsService.listMovementTypes(supabase, context.app.activeOrgId),
+      InventoryProductsService.listUnits(supabase, context.app.activeOrgId),
+      InventoryMovementFieldPoliciesService.listForOrganization(supabase, context.app.activeOrgId),
+    ]);
 
   const stockableLocations = locationsResult.success
     ? locationsResult.data
@@ -62,6 +67,7 @@ export default async function WarehouseInventoryNewMovementPage() {
   return (
     <MovementDocumentForm
       mode="create"
+      organizationName={context.app.activeOrg?.name ?? ""}
       branchName={context.app.activeBranch?.name ?? ""}
       createdByName={
         [context.user.user?.first_name, context.user.user?.last_name].filter(Boolean).join(" ") ||
@@ -69,8 +75,14 @@ export default async function WarehouseInventoryNewMovementPage() {
         ""
       }
       movementTypes={typesResult.success ? typesResult.data : []}
+      fieldPolicies={policiesResult.success ? policiesResult.data : {}}
       stockableLocations={stockableLocations}
       variants={variantsResult.success ? variantsResult.data : []}
+      units={unitsResult.success ? unitsResult.data : []}
+      canManageProducts={checkPermission(
+        context.user.permissionSnapshot,
+        WAREHOUSE_PRODUCTS_MANAGE
+      )}
     />
   );
 }

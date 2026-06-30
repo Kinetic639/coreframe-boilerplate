@@ -340,9 +340,11 @@ export async function listSessionsAction(): Promise<ActionResult<WddMatcherSessi
     if (!user) return { success: false, error: "Unauthenticated" };
     const orgId = context?.app.activeOrgId;
     if (!orgId) return { success: false, error: "No active organisation" };
+    const branchId = context?.app.activeBranchId;
+    if (!branchId) return { success: false, error: "No active branch" };
     if (!checkPermission(context.user.permissionSnapshot, PERMISSION_WDD_MATCHER_READ))
       return { success: false, error: "Unauthorized" };
-    return WddMatcherService.listSessions(supabase, orgId);
+    return WddMatcherService.listSessions(supabase, orgId, branchId);
   } catch {
     return { success: false, error: "Unexpected error" };
   }
@@ -418,13 +420,15 @@ export async function createAutoSessionAction(): Promise<ActionResult<WddMatcher
     if (!user) return { success: false, error: "Unauthenticated" };
     const orgId = context?.app.activeOrgId;
     if (!orgId) return { success: false, error: "No active organisation" };
+    const branchId = context?.app.activeBranchId;
+    if (!branchId) return { success: false, error: "No active branch" };
     if (!checkPermission(context.user.permissionSnapshot, PERMISSION_WDD_MATCHER_UPLOAD))
       return { success: false, error: "Unauthorized" };
 
     const now = new Date();
     const sessionName = `Dostawa ${now.toLocaleDateString("pl-PL")} ${now.toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" })}`;
 
-    return WddMatcherService.createSession(supabase, orgId, null, sessionName, user.id);
+    return WddMatcherService.createSession(supabase, orgId, branchId, sessionName, user.id);
   } catch {
     return { success: false, error: "Unexpected error" };
   }
@@ -438,6 +442,8 @@ export async function prepareFastSessionAction(
     if (!user) return { success: false, error: "Unauthenticated" };
     const orgId = context?.app.activeOrgId;
     if (!orgId) return { success: false, error: "No active organisation" };
+    const branchId = context?.app.activeBranchId;
+    if (!branchId) return { success: false, error: "No active branch" };
     if (!checkPermission(context.user.permissionSnapshot, PERMISSION_WDD_MATCHER_UPLOAD))
       return { success: false, error: "Unauthorized" };
 
@@ -455,7 +461,7 @@ export async function prepareFastSessionAction(
     const sessionResult = await WddMatcherService.createSession(
       supabase,
       orgId,
-      null,
+      branchId,
       sessionName,
       user.id
     );

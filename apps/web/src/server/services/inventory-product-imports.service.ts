@@ -8,6 +8,13 @@ import type {
   InventoryProductImportPreview,
   ProductCsvImportMode,
 } from "@/lib/warehouse/inventory-types";
+import {
+  csvEscape,
+  numberOrNull,
+  parseCsvText,
+  safeSplitTokens,
+  skuCollisionFingerprint,
+} from "@/lib/warehouse/import-utils";
 import { InventoryProductsService, type ServiceResult } from "./inventory-products.service";
 
 const EXPORT_PAGE_SIZE = 500;
@@ -15,70 +22,6 @@ const EXPORT_MAX_ROWS = 50_000;
 
 function serviceError(result: ServiceResult<unknown>) {
   return (result as { success: false; error: string }).error;
-}
-
-function parseCsv(text: string): string[][] {
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let cell = "";
-  let inQuotes = false;
-
-  for (let index = 0; index < text.length; index += 1) {
-    const char = text[index];
-    const next = text[index + 1];
-    if (char === '"' && inQuotes && next === '"') {
-      cell += '"';
-      index += 1;
-      continue;
-    }
-    if (char === '"') {
-      inQuotes = !inQuotes;
-      continue;
-    }
-    if (char === "," && !inQuotes) {
-      row.push(cell);
-      cell = "";
-      continue;
-    }
-    if ((char === "\n" || char === "\r") && !inQuotes) {
-      if (char === "\r" && next === "\n") index += 1;
-      row.push(cell);
-      rows.push(row);
-      row = [];
-      cell = "";
-      continue;
-    }
-    cell += char;
-  }
-
-  row.push(cell);
-  if (row.some((value) => value.trim())) rows.push(row);
-  return rows;
-}
-
-function csvEscape(value: unknown) {
-  const text = String(value ?? "");
-  return /[",\n\r]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
-}
-
-function numberOrNull(value: string | undefined) {
-  if (!value?.trim()) return null;
-  const number = Number(value.replace(",", "."));
-  return Number.isFinite(number) ? number : null;
-}
-
-function safeSplitTokens(value: string) {
-  return value
-    .split(/[|,\n]/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-function skuCollisionFingerprint(value: string | null | undefined) {
-  return (value ?? "")
-    .trim()
-    .toUpperCase()
-    .replace(/[^\p{L}\p{N}]/gu, "");
 }
 
 function customFieldInputFromCsv(
@@ -121,7 +64,7 @@ export class InventoryProductImportsService {
     orgId: string,
     csvText: string
   ): Promise<ServiceResult<InventoryProductImportPreview>> {
-    const rows = parseCsv(csvText);
+    const rows = parseCsvText(csvText);
     if (rows.length === 0) {
       return { success: false, error: "Import file is empty" };
     }
@@ -250,7 +193,7 @@ export class InventoryProductImportsService {
     }
 
     const client = supabase as any;
-    const rows = parseCsv(csvText);
+    const rows = parseCsvText(csvText);
     const [header, ...records] = rows;
     const headers = header.map((value) => value.trim().toLowerCase());
     const units = await InventoryProductsService.listUnits(supabase, orgId);

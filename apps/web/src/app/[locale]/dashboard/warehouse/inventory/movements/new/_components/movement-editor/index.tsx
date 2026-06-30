@@ -11,6 +11,7 @@ import { InventoryItemPickerDialog } from "@/components/warehouse/inventory-item
 import { MovementActionBar } from "./movement-action-bar";
 import { MovementValidationStrip } from "./movement-validation-strip";
 import { MovementDocumentDataTab } from "./movement-document-data-tab";
+import { MovementImportDialog } from "./movement-import-dialog";
 import { MovementPositionsTab } from "./movement-positions-tab";
 import { useMovementFormState } from "./use-movement-form-state";
 import { useMovementValidation } from "./use-movement-validation";
@@ -21,22 +22,36 @@ export type { MovementFormInitialValues } from "./types";
 
 export function MovementDocumentForm({
   mode,
+  organizationName,
   branchName,
   createdByName,
   movementTypes,
+  fieldPolicies,
   stockableLocations,
   variants,
+  units,
+  canManageProducts,
   initialValues,
 }: MovementFormProps) {
   const t = useTranslations("warehouseInventory.movementEditor");
   const today = new Date().toISOString().split("T")[0];
   const isEdit = mode === "edit";
+  const defaultRecipientName = [organizationName, branchName].filter(Boolean).join(" / ");
 
-  const form = useMovementFormState(movementTypes, initialValues);
+  const form = useMovementFormState(
+    movementTypes,
+    fieldPolicies,
+    variants,
+    units,
+    initialValues,
+    defaultRecipientName
+  );
   const validation = useMovementValidation(
     form.typeCode,
-    form.isPZ,
-    form.is801,
+    form.requiresSourceLocation,
+    form.requiresDestinationLocation,
+    form.allowsSender ? form.senderName : "",
+    form.allowsRecipient ? form.recipientName : "",
     form.srcLoc,
     form.dstLoc,
     form.lines
@@ -44,9 +59,11 @@ export function MovementDocumentForm({
   const { isPending, submit } = useMovementSubmission(
     mode,
     form.typeCode,
-    form.is801,
-    form.counterpartyName,
-    form.counterpartyDetails,
+    form.requiresSourceLocation,
+    form.senderName,
+    form.senderDetails,
+    form.recipientName,
+    form.recipientDetails,
     form.externalReference,
     form.noteForSave,
     form.srcLoc,
@@ -57,16 +74,21 @@ export function MovementDocumentForm({
   );
 
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const pickerMode: InventoryItemPickerMode = form.is801 ? "stockInLocation" : "allItems";
   const pickerDisabled = form.is801 && !form.srcLoc;
 
   const handleOpenPicker = useCallback(() => {
+    if (form.importedLinesLocked) {
+      toast.error("Enable manual corrections before changing imported positions.");
+      return;
+    }
     if (form.is801 && !form.srcLoc) {
       toast.error(t("selectSourceFirst"));
       return;
     }
     setPickerOpen(true);
-  }, [form.is801, form.srcLoc]);
+  }, [form.importedLinesLocked, form.is801, form.srcLoc, t]);
 
   const handleSaveDraft = useCallback(() => submit(false), [submit]);
   const handleSaveAndPost = useCallback(() => submit(true), [submit]);
@@ -82,6 +104,7 @@ export function MovementDocumentForm({
         totalQty={form.totalQty}
         isPending={isPending}
         isValid={validation.isValid}
+        onImport={!isEdit ? () => setImportOpen(true) : undefined}
         onSaveDraft={handleSaveDraft}
         onSaveAndPost={handleSaveAndPost}
       />
@@ -143,12 +166,16 @@ export function MovementDocumentForm({
             <MovementDocumentDataTab
               typeCode={form.typeCode}
               selType={form.selType}
-              isPZ={form.isPZ}
               isEdit={isEdit}
               movementTypes={movementTypes}
-              counterpartyName={form.counterpartyName}
+              allowsSender={form.allowsSender}
+              allowsRecipient={form.allowsRecipient}
+              senderName={form.senderName}
+              recipientName={form.recipientName}
               supplierFields={form.supplierFields}
               supplierLocked={form.supplierLocked}
+              recipientFields={form.recipientFields}
+              recipientLocked={form.recipientLocked}
               externalReference={form.externalReference}
               noteRichText={form.noteRichText}
               operationDate={initialValues?.operationDate ?? today}
@@ -158,10 +185,14 @@ export function MovementDocumentForm({
               branchName={branchName}
               createdByName={createdByName ?? ""}
               onTypeChange={form.handleTypeChange}
-              onCounterpartyChange={form.setCounterpartyName}
-              onCounterpartyDetailsChange={form.setCounterpartyDetails}
+              onSenderChange={form.setSenderName}
+              onSenderDetailsChange={form.setSenderDetails}
+              onRecipientChange={form.setRecipientName}
+              onRecipientDetailsChange={form.setRecipientDetails}
               onSupplierFieldsChange={form.setSupplierFields}
               onSupplierLockedChange={form.setSupplierLocked}
+              onRecipientFieldsChange={form.setRecipientFields}
+              onRecipientLockedChange={form.setRecipientLocked}
               onExternalRefChange={form.setExternalReference}
               onNoteRichTextChange={form.setNoteRichText}
             />
@@ -176,6 +207,9 @@ export function MovementDocumentForm({
               stockableLocations={stockableLocations}
               lines={form.lines}
               pickerDisabled={pickerDisabled}
+              importedLinesLocked={form.importedLinesLocked}
+              manualCorrectionMode={form.manualCorrectionMode}
+              onEnableManualCorrections={form.enableManualCorrections}
               onOpenPicker={handleOpenPicker}
               onRemoveLine={form.removeLine}
               onUpdateLineQty={form.updateLineQty}
@@ -193,6 +227,21 @@ export function MovementDocumentForm({
         sourceLocationId={form.is801 ? form.srcLoc : undefined}
         onAddItems={form.addPickedItems}
       />
+      {!isEdit && (
+        <MovementImportDialog
+          open={importOpen}
+          onOpenChange={setImportOpen}
+          movementTypes={movementTypes}
+          currentMovementTypeCode={form.typeCode}
+          variants={variants}
+          units={units}
+          stockableLocations={stockableLocations}
+          currentDestinationLocationId={form.dstLoc}
+          canManageProducts={canManageProducts}
+          fieldPolicies={fieldPolicies}
+          onApply={form.applyImportedDocument}
+        />
+      )}
     </div>
   );
 }

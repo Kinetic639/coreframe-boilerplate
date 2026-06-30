@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { ArrowLeft, CheckCircle, Layers, Loader2, Save } from "lucide-react";
+import { ArrowLeft, CheckCircle, Download, Layers, Loader2, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useRouter } from "@/i18n/navigation";
@@ -17,6 +17,7 @@ type Props = {
   totalQty: number;
   isPending: boolean;
   isValid: boolean;
+  onImport?: () => void;
   onSaveDraft: () => void;
   onSaveAndPost: () => void;
 };
@@ -30,6 +31,7 @@ export const MovementActionBar = React.memo(function MovementActionBar({
   totalQty,
   isPending,
   isValid,
+  onImport,
   onSaveDraft,
   onSaveAndPost,
 }: Props) {
@@ -72,6 +74,18 @@ export const MovementActionBar = React.memo(function MovementActionBar({
             {t("positions", { count: lineCount, qty: totalQty })}
           </span>
         </div>
+        {!isEdit && onImport && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs"
+            onClick={onImport}
+            disabled={isPending}
+          >
+            <Download className="mr-1.5 h-3 w-3" />
+            Import
+          </Button>
+        )}
         <Button
           variant="outline"
           size="sm"

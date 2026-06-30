@@ -200,7 +200,7 @@ const movementLineSchema = z.object({
   note: z.string().max(500).nullable().optional(),
 });
 
-const counterpartyDetailsSchema = z
+const partyDetailsSchema = z
   .object({
     name: z.string().max(200),
     nip: z.string().max(20).optional(),
@@ -217,8 +217,10 @@ export const createDraftMovementSchema = z.object({
   lines: z.array(movementLineSchema).min(1),
   operation_date: z.string().nullable().optional(),
   document_date: z.string().nullable().optional(),
-  counterparty_name: z.string().max(200).nullable().optional(),
-  counterparty_details: counterpartyDetailsSchema,
+  sender_name: z.string().max(200).nullable().optional(),
+  sender_details: partyDetailsSchema,
+  recipient_name: z.string().max(200).nullable().optional(),
+  recipient_details: partyDetailsSchema,
   external_reference: z.string().max(200).nullable().optional(),
   note: z.string().max(1000).nullable().optional(),
   idempotency_key: z.string().max(200).nullable().optional(),
@@ -594,6 +596,47 @@ export const createInventoryImportJobSchema = z.object({
   file_name: z.string().max(240).nullable().optional(),
   storage_path: z.string().max(500).nullable().optional(),
   mapping: z.record(z.unknown()).optional().default({}),
+});
+
+export const listMovementImportSourcesSchema = z
+  .object({
+    movement_type_code: z.string().min(1).max(20).optional(),
+  })
+  .optional()
+  .default({});
+
+export const previewMovementImportFromSourceSchema = z.object({
+  source_type: z.string().trim().min(1).max(120),
+  source_input: z.record(z.unknown()).optional().default({}),
+  movement_type_code: z.string().min(1).max(20),
+});
+
+export const createMovementImportUnitsSchema = z.object({
+  units: z
+    .array(
+      z.object({
+        key: z.string().trim().min(1).max(120),
+        code: z.string().trim().min(1).max(20),
+        name: z.string().trim().min(1).max(100),
+      })
+    )
+    .min(1)
+    .max(200),
+});
+
+export const createMovementImportProductsSchema = z.object({
+  products: z
+    .array(
+      z.object({
+        key: z.string().trim().min(1).max(120),
+        sku: z.string().trim().min(1).max(100),
+        name: z.string().trim().min(1).max(200),
+        unit_id: uuidSchema,
+        unit_code: z.string().trim().max(20).optional().default(""),
+      })
+    )
+    .min(1)
+    .max(200),
 });
 
 export const createInventoryExportJobSchema = z.object({

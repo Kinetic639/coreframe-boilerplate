@@ -5,12 +5,14 @@ import { checkPermission } from "@/lib/utils/permissions";
 import {
   WAREHOUSE_INVENTORY_OPERATE,
   WAREHOUSE_INVENTORY_READ,
+  WAREHOUSE_PRODUCTS_MANAGE,
   WAREHOUSE_PRODUCTS_READ,
   WAREHOUSE_READ,
 } from "@/lib/constants/permissions";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { createClient } from "@/utils/supabase/server";
 import { InventoryMovementsService } from "@/server/services/inventory-movements.service";
+import { InventoryMovementFieldPoliciesService } from "@/server/services/inventory-movement-field-policies.service";
 import { InventoryProductsService } from "@/server/services/inventory-products.service";
 import { WarehouseLocationsService } from "@/server/services/warehouse-locations.service";
 import {
@@ -46,7 +48,14 @@ export default async function EditDraftMovementPage({ params }: PageProps) {
   if (!branchId) return notFound();
 
   const supabase = await createClient();
-  const [movementResult, locationsResult, variantsResult, typesResult] = await Promise.all([
+  const [
+    movementResult,
+    locationsResult,
+    variantsResult,
+    typesResult,
+    unitsResult,
+    policiesResult,
+  ] = await Promise.all([
     InventoryMovementsService.getMovementDetail(
       supabase,
       context.app.activeOrgId,
@@ -58,6 +67,8 @@ export default async function EditDraftMovementPage({ params }: PageProps) {
       ? InventoryProductsService.listVariantOptions(supabase, context.app.activeOrgId, branchId)
       : Promise.resolve({ success: true as const, data: [] }),
     InventoryMovementsService.listMovementTypes(supabase, context.app.activeOrgId),
+    InventoryProductsService.listUnits(supabase, context.app.activeOrgId),
+    InventoryMovementFieldPoliciesService.listForOrganization(supabase, context.app.activeOrgId),
   ]);
 
   if (!movementResult.success || !movementResult.data) return notFound();
@@ -82,7 +93,10 @@ export default async function EditDraftMovementPage({ params }: PageProps) {
     draftNumber: detail.draft_number ?? "",
     documentDate: detail.document_date ?? new Date().toISOString().split("T")[0],
     operationDate: detail.operation_date ?? new Date().toISOString().split("T")[0],
-    counterpartyName: detail.counterparty_name ?? "",
+    senderName: detail.sender_name ?? "",
+    senderDetails: detail.sender_details ?? null,
+    recipientName: detail.recipient_name ?? "",
+    recipientDetails: detail.recipient_details ?? null,
     externalReference: detail.external_reference ?? "",
     note: detail.note ?? "",
     lines: detail.lines.map((l) => {
@@ -96,6 +110,7 @@ export default async function EditDraftMovementPage({ params }: PageProps) {
         quantity: l.quantity,
         source_location_id: l.source_location_id ?? null,
         destination_location_id: l.destination_location_id ?? null,
+        note: l.note ?? null,
       };
     }),
   };
@@ -103,6 +118,7 @@ export default async function EditDraftMovementPage({ params }: PageProps) {
   return (
     <MovementDocumentForm
       mode="edit"
+      organizationName={context.app.activeOrg?.name ?? ""}
       branchName={context.app.activeBranch?.name ?? ""}
       createdByName={
         [context.user.user?.first_name, context.user.user?.last_name].filter(Boolean).join(" ") ||
@@ -110,8 +126,14 @@ export default async function EditDraftMovementPage({ params }: PageProps) {
         ""
       }
       movementTypes={typesResult.success ? typesResult.data : []}
+      fieldPolicies={policiesResult.success ? policiesResult.data : {}}
       stockableLocations={stockableLocations}
       variants={allVariants}
+      units={unitsResult.success ? unitsResult.data : []}
+      canManageProducts={checkPermission(
+        context.user.permissionSnapshot,
+        WAREHOUSE_PRODUCTS_MANAGE
+      )}
       initialValues={initialValues}
     />
   );

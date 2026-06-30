@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
-import { Check, ChevronRight, Copy, Edit, FileText, Trash2, X } from "lucide-react";
+import { Check, ChevronRight, Edit, FileText, Trash2, X } from "lucide-react";
 import { useRouter } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
+import { ImportCopyButton } from "@/components/warehouse/import-copy-button";
+import { WarehouseImportReviewTable } from "@/components/warehouse/import-review-table";
 import { cn } from "@/lib/utils";
 import { useUiStoreV2 } from "@/lib/stores/v2/ui-store";
 import type {
@@ -1581,12 +1583,13 @@ export function InventoryProductImportWizard({
                   />
                 </div>
 
-                <div className="overflow-hidden rounded-md border bg-background">
-                  <div className="flex flex-wrap items-center justify-between gap-3 border-b px-3 py-2">
-                    <div>
-                      <p className="font-medium">{t("finalChanges")}</p>
-                      <p className="text-xs text-muted-foreground">{t("finalChangesHelp")}</p>
-                    </div>
+                <WarehouseImportReviewTable
+                  title={t("finalChanges")}
+                  description={t("finalChangesHelp")}
+                  rows={importRows}
+                  rowKey={(row) => row.id}
+                  minWidth="min-w-[1900px]"
+                  toolbar={
                     <Button
                       type="button"
                       variant="outline"
@@ -1596,95 +1599,85 @@ export function InventoryProductImportWizard({
                     >
                       {t("refreshValidation")}
                     </Button>
-                  </div>
-                  <div className="overflow-auto">
-                    <table className="min-w-[1900px] text-sm">
-                      <thead className="bg-muted text-xs uppercase text-muted-foreground">
-                        <tr>
-                          <th className="w-16 px-3 py-2 text-left">{t("row")}</th>
-                          {editableImportFields.map((field) => (
-                            <th key={field.key} className="px-3 py-2 text-left">
-                              <span className="flex items-center gap-1.5">
-                                {field.label}
-                                {field.copy ? (
-                                  <ImportCopyButton
-                                    label={field.label}
-                                    onClick={() => {
-                                      const source =
-                                        importRows.find((row) => row[field.key])?.[field.key] ?? "";
-                                      updateImportRows(
-                                        importRows.map((row) => ({ ...row, [field.key]: source }))
-                                      );
-                                    }}
-                                  />
-                                ) : null}
-                              </span>
-                            </th>
-                          ))}
-                          {mappedCustomFields.map((field) => (
-                            <th key={field.id} className="px-3 py-2 text-left">
-                              <span className="flex items-center gap-1.5">
-                                {field.name}
-                                <span className="rounded bg-background px-1.5 py-0.5 text-[10px] capitalize text-muted-foreground">
-                                  {field.entity_type}
-                                </span>
-                              </span>
-                            </th>
-                          ))}
-                          <th className="min-w-56 px-3 py-2 text-left">{t("status")}</th>
-                          <th className="w-12 px-3 py-2" />
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {importRows.map((row, index) => {
-                          const previewRow = importPreview?.rows[index];
-                          return (
-                            <tr key={row.id} className="border-t">
-                              <td className="px-3 py-2 text-muted-foreground">{row.source_row}</td>
-                              {editableImportFields.map((field) => (
-                                <td key={field.key} className="px-3 py-2">
-                                  {renderImportCell(row, field.key)}
-                                </td>
-                              ))}
-                              {mappedCustomFields.map((field) => (
-                                <td key={field.id} className="px-3 py-2">
-                                  {renderCustomImportCell(row, field)}
-                                </td>
-                              ))}
-                              <td className="px-3 py-2">
-                                {previewRow?.errors.length ? (
-                                  <span className="text-xs text-destructive">
-                                    {previewRow.errors.join(", ")}
-                                  </span>
-                                ) : previewRow ? (
-                                  <span className="text-xs text-emerald-600">{t("ready")}</span>
-                                ) : (
-                                  <span className="text-xs text-muted-foreground">
-                                    {t("needsValidation")}
-                                  </span>
-                                )}
-                              </td>
-                              <td className="px-3 py-2 text-right">
-                                <button
-                                  type="button"
-                                  className="grid h-8 w-8 place-items-center rounded text-destructive hover:bg-destructive/10"
-                                  aria-label={t("removeRow")}
-                                  onClick={() =>
-                                    updateImportRows(
-                                      importRows.filter((current) => current.id !== row.id)
-                                    )
-                                  }
-                                >
-                                  <X className="h-4 w-4" />
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+                  }
+                  columns={[
+                    {
+                      key: "row",
+                      header: t("row"),
+                      className: "w-16 text-muted-foreground",
+                      render: (row) => row.source_row,
+                    },
+                    ...editableImportFields.map((field) => ({
+                      key: field.key,
+                      header: (
+                        <span className="flex items-center gap-1.5">
+                          {field.label}
+                          {field.copy ? (
+                            <ImportCopyButton
+                              label={field.label}
+                              onClick={() => {
+                                const source =
+                                  importRows.find((row) => row[field.key])?.[field.key] ?? "";
+                                updateImportRows(
+                                  importRows.map((row) => ({ ...row, [field.key]: source }))
+                                );
+                              }}
+                            />
+                          ) : null}
+                        </span>
+                      ),
+                      render: (row: ImportDraftRow) => renderImportCell(row, field.key),
+                    })),
+                    ...mappedCustomFields.map((field) => ({
+                      key: field.id,
+                      header: (
+                        <span className="flex items-center gap-1.5">
+                          {field.name}
+                          <span className="rounded bg-background px-1.5 py-0.5 text-[10px] capitalize text-muted-foreground">
+                            {field.entity_type}
+                          </span>
+                        </span>
+                      ),
+                      render: (row: ImportDraftRow) => renderCustomImportCell(row, field),
+                    })),
+                    {
+                      key: "status",
+                      header: t("status"),
+                      className: "min-w-56",
+                      render: (_row, index) => {
+                        const previewRow = importPreview?.rows[index];
+                        return previewRow?.errors.length ? (
+                          <span className="text-xs text-destructive">
+                            {previewRow.errors.join(", ")}
+                          </span>
+                        ) : previewRow ? (
+                          <span className="text-xs text-emerald-600">{t("ready")}</span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">
+                            {t("needsValidation")}
+                          </span>
+                        );
+                      },
+                    },
+                    {
+                      key: "remove",
+                      header: "",
+                      className: "w-12 text-right",
+                      render: (row) => (
+                        <button
+                          type="button"
+                          className="grid h-8 w-8 place-items-center rounded text-destructive hover:bg-destructive/10"
+                          aria-label={t("removeRow")}
+                          onClick={() =>
+                            updateImportRows(importRows.filter((current) => current.id !== row.id))
+                          }
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      ),
+                    },
+                  ]}
+                />
 
                 <div className="flex justify-between border-t pt-4">
                   <Button type="button" variant="outline" onClick={() => setImportStep(2)}>
@@ -1806,19 +1799,5 @@ function ImportSummaryRow({
         {value}
       </span>
     </div>
-  );
-}
-
-function ImportCopyButton({ label, onClick }: { label: string; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      className="grid h-6 w-6 place-items-center rounded hover:bg-background"
-      aria-label={`Copy first ${label} value to all rows`}
-      title={`Copy first ${label} value to all rows`}
-      onClick={onClick}
-    >
-      <Copy className="h-3.5 w-3.5" />
-    </button>
   );
 }

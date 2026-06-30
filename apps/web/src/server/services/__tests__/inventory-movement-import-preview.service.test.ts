@@ -1,0 +1,465 @@
+/**
+ * @vitest-environment node
+ */
+
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { MOVEMENT_FIELD_KEYS } from "@/lib/warehouse/movement-field-policy";
+import type { MovementFieldPolicy } from "@/lib/warehouse/inventory-types";
+import { InventoryMovementFieldPoliciesService } from "../inventory-movement-field-policies.service";
+import { InventoryMovementImportsService } from "../inventory-movement-imports.service";
+import { InventoryMovementsService } from "../inventory-movements.service";
+import { svwmsWddMatcherMovementImportAdapter } from "../movement-import-adapters/svwms-wdd-matcher.adapter";
+import { WarehouseImportResolverService } from "../warehouse-import-resolver.service";
+import { WddMatcherService } from "../wdd-matcher.service";
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+const optionalPolicy = (fieldKey: string): MovementFieldPolicy => ({
+  field_key: fieldKey,
+  field_scope: fieldKey.startsWith("line.") ? "line" : "header",
+  value_type: "text",
+  resolver_kind: null,
+  label: fieldKey,
+  label_pl: null,
+  is_importable: true,
+  policy: "optional",
+  default_strategy: null,
+  default_value: {},
+  validation: {},
+  display_order: 1,
+});
+
+describe("InventoryMovementImportsService preview imports", () => {
+  it("keeps the core movement import service independent from SVWMS", () => {
+    const serviceSource = readFileSync(
+      resolve(__dirname, "../inventory-movement-imports.service.ts"),
+      "utf8"
+    );
+
+    expect(serviceSource).not.toContain("WddMatcherService");
+    expect(serviceSource).not.toContain("wdd-matcher.service");
+  });
+
+  it("lists registered movement import sources for supported movement types", async () => {
+    const result = await InventoryMovementImportsService.listSources(
+      undefined,
+      undefined,
+      undefined,
+      "101"
+    );
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          source_type: "svwms_wdd_matcher",
+          label: "SVWMS WDD matcher",
+        }),
+      ])
+    );
+  });
+
+  it("does not list SVWMS WDD matcher for MM 801 imports", async () => {
+    const result = await InventoryMovementImportsService.listSources(
+      undefined,
+      undefined,
+      undefined,
+      "801"
+    );
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.map((source) => source.source_type)).not.toContain("svwms_wdd_matcher");
+  });
+
+  it("lists SVWMS matcher sessions without leaking status text into option labels", async () => {
+    vi.spyOn(WddMatcherService, "listImportableSessionsForBranch").mockResolvedValue({
+      success: true,
+      data: [
+        {
+          id: "session-1",
+          organization_id: "org-1",
+          branch_id: "branch-1",
+          session_number: "SVWMS-000123",
+          name: "Dostawa 26.06.2026 22:09",
+          status: "ready_for_review",
+          match_summary: null,
+          created_by: "user-1",
+          approved_by: null,
+          approved_at: null,
+          created_at: "2026-06-26T20:09:00.000Z",
+          updated_at: "2026-06-26T20:09:00.000Z",
+        },
+      ],
+    });
+
+    const result = await svwmsWddMatcherMovementImportAdapter.loadSourceFields?.(
+      {} as never,
+      "org-1",
+      "branch-1",
+      "101"
+    );
+
+    expect(result?.success).toBe(true);
+    if (!result?.success) return;
+    expect(result.data[0].options?.[0]).toMatchObject({
+      value: "session-1",
+      label: "Dostawa 26.06.2026 22:09",
+      description: "2026-06-26T20:09:00.000Z",
+    });
+    expect(result.data[0].options?.[0].label).not.toContain("ready_for_review");
+  });
+
+  it("rejects unsupported source types before touching database dependencies", async () => {
+    const result = await InventoryMovementImportsService.previewFromSource(
+      {} as never,
+      "org-1",
+      "branch-1",
+      {
+        source_type: "unknown_source",
+        source_input: {},
+        movement_type_code: "101",
+      }
+    );
+
+    expect(result).toEqual({
+      success: false,
+      error: "Unsupported movement import source",
+    });
+  });
+
+  it("rejects source and movement type combinations not supported by the adapter", async () => {
+    const result = await InventoryMovementImportsService.previewFromSource(
+      {} as never,
+      "org-1",
+      "branch-1",
+      {
+        source_type: "svwms_wdd_matcher",
+        source_input: {},
+        movement_type_code: "801",
+      }
+    );
+
+    expect(result).toEqual({
+      success: false,
+      error: "Selected import source does not support this movement type",
+    });
+  });
+
+  it("maps one SVWMS matcher session to one canonical import document", async () => {
+    vi.spyOn(WddMatcherService, "getMovementImportCandidates").mockResolvedValue({
+      success: true,
+      data: {
+        session: {
+          id: "session-1",
+          organization_id: "org-1",
+          branch_id: "branch-1",
+          session_number: "SVWMS-000123",
+          name: "Dostawa 26.06.2026 22:09",
+          status: "ready_for_review",
+          match_summary: null,
+          created_by: "user-1",
+          approved_by: null,
+          approved_at: null,
+          created_at: "2026-06-26T20:09:00.000Z",
+          updated_at: "2026-06-26T20:09:00.000Z",
+        },
+        lines: [
+          {
+            sourceBlockId: "wdd-block-1",
+            sourceLineId: "line-1",
+            sourceBlockType: "wdd_reconciliation",
+            lineNumber: 1,
+            productCode: "57H823031",
+            productName: "Pokrywa przednia",
+            quantity: 1,
+            unit: "SZT",
+            parsedLocation: "PRZY A1",
+            wddNumber: "WDD/1488/26/3142",
+            orderNumber: "BLWK/6",
+            zlNumber: "ZL/100",
+            zwNumber: null,
+            clientName: null,
+            groupName: "BRA_SKO",
+            warehouseCode: "115",
+            warehouseLabel: "Magazyn",
+            documentBrand: "skoda",
+            matchType: "exact",
+            matchConfidence: 99,
+            blockMetadata: {},
+            lineMetadata: { idp_raw: "1" },
+          },
+          {
+            sourceBlockId: "wdd-block-2",
+            sourceLineId: "line-3",
+            sourceBlockType: "wdd_reconciliation",
+            lineNumber: 3,
+            productCode: "57H999999",
+            productName: "Second delivery item",
+            quantity: 3,
+            unit: "SZT",
+            parsedLocation: "PRZY A2",
+            wddNumber: "WDD/1500/26/3142",
+            orderNumber: "BLWK/6",
+            zlNumber: "ZL/100",
+            zwNumber: null,
+            clientName: null,
+            groupName: "BRA_SKO",
+            warehouseCode: "115",
+            warehouseLabel: "Magazyn",
+            documentBrand: "skoda",
+            matchType: "exact",
+            matchConfidence: 99,
+            blockMetadata: {},
+            lineMetadata: {},
+          },
+          {
+            sourceBlockId: "direct-block-1",
+            sourceLineId: "line-2",
+            sourceBlockType: "direct_order",
+            lineNumber: 2,
+            productCode: "ABC123",
+            productName: "Direct item",
+            quantity: 2,
+            unit: "SZT",
+            parsedLocation: null,
+            wddNumber: null,
+            orderNumber: null,
+            zlNumber: null,
+            zwNumber: "ZW/200",
+            clientName: null,
+            groupName: null,
+            warehouseCode: null,
+            warehouseLabel: null,
+            documentBrand: null,
+            matchType: null,
+            matchConfidence: null,
+            blockMetadata: {},
+            lineMetadata: {},
+          },
+        ],
+      },
+    });
+
+    const result = await svwmsWddMatcherMovementImportAdapter.loadCanonicalDocuments(
+      {} as never,
+      "org-1",
+      "branch-1",
+      { session_id: "session-1" }
+    );
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0]).toMatchObject({
+      sourceDocumentId: "svwms-session:session-1",
+      sourceDocumentNumber: "SVWMS-000123",
+      externalReference: "SVWMS-000123",
+      senderName: "SVWMS realokacja",
+      senderDetails: { name: "SVWMS realokacja" },
+      recipientName: null,
+    });
+    expect(result.data[0].externalReference).not.toContain("WDD");
+    expect(result.data[0].externalReference).not.toContain("Zlecenia");
+    expect(result.data[0].sourceMetadata).toMatchObject({
+      session_reference_number: "SVWMS-000123",
+      movement_order_numbers: ["ZL/100", "ZW/200"],
+    });
+    expect(result.data[0].lines).toHaveLength(3);
+    expect(result.data[0].lines[0].rawMetadata).toMatchObject({
+      wdd_number: "WDD/1488/26/3142",
+      order_number: "BLWK/6",
+      zl_number: "ZL/100",
+      movement_order_number: "ZL/100",
+      parsed_location: "PRZY A1",
+      source_block_type: "wdd_reconciliation",
+    });
+    expect(result.data[0].lines[1].rawMetadata).toMatchObject({
+      wdd_number: "WDD/1500/26/3142",
+      order_number: "BLWK/6",
+      zl_number: "ZL/100",
+      movement_order_number: "ZL/100",
+      source_block_type: "wdd_reconciliation",
+    });
+    expect(result.data[0].lines[2].rawMetadata).toMatchObject({
+      order_number: null,
+      zw_number: "ZW/200",
+      movement_order_number: "ZW/200",
+      source_block_type: "direct_order",
+    });
+  });
+
+  it("normalizes SVWMS preview rows and groups unresolved product/unit exceptions", async () => {
+    vi.spyOn(InventoryMovementsService, "listMovementTypes").mockResolvedValue({
+      success: true,
+      data: [
+        {
+          code: "101",
+          name: "Receipt",
+          name_pl: "PZ",
+          requires_source_location: false,
+          requires_destination_location: true,
+        },
+      ] as never,
+    });
+    vi.spyOn(InventoryMovementFieldPoliciesService, "listForOrganization").mockResolvedValue({
+      success: true,
+      data: {
+        "101": [
+          optionalPolicy(MOVEMENT_FIELD_KEYS.variantId),
+          optionalPolicy(MOVEMENT_FIELD_KEYS.unitId),
+          optionalPolicy(MOVEMENT_FIELD_KEYS.quantity),
+        ],
+      },
+    });
+    vi.spyOn(WarehouseImportResolverService, "buildContext").mockResolvedValue({
+      success: true,
+      data: {
+        variantsByExactToken: new Map([
+          [
+            "57h823031",
+            [
+              {
+                id: "variant-1",
+                product_id: "product-1",
+                sku: "57H823031",
+                barcode: null,
+                unit_id: "unit-szt",
+              },
+            ],
+          ],
+        ]),
+        variantsByFingerprint: new Map(),
+        unitsByExactToken: new Map([["szt", [{ id: "unit-szt", code: "SZT", name: "sztuka" }]]]),
+        unitsByFingerprint: new Map(),
+      },
+    });
+    vi.spyOn(WddMatcherService, "getMovementImportCandidates").mockResolvedValue({
+      success: true,
+      data: {
+        session: {
+          id: "session-1",
+          organization_id: "org-1",
+          branch_id: "branch-1",
+          name: "Dostawa 26.06.2026 22:09",
+          status: "ready_for_review",
+          match_summary: null,
+          created_by: "user-1",
+          approved_by: null,
+          approved_at: null,
+          created_at: "2026-06-26T20:09:00.000Z",
+          updated_at: "2026-06-26T20:09:00.000Z",
+        },
+        lines: [
+          {
+            sourceBlockId: "block-1",
+            sourceLineId: "line-1",
+            sourceBlockType: "wdd_reconciliation",
+            lineNumber: 1,
+            productCode: "57H 823 031",
+            productName: "  Pokrywa   przednia ",
+            quantity: 1,
+            unit: "opk",
+            parsedLocation: null,
+            wddNumber: "WDD/1488/26/3142",
+            orderNumber: "BLWK/6",
+            zlNumber: "ZL/100",
+            zwNumber: null,
+            clientName: null,
+            groupName: null,
+            warehouseCode: null,
+            warehouseLabel: null,
+            documentBrand: null,
+            matchType: null,
+            matchConfidence: null,
+            blockMetadata: {},
+            lineMetadata: {},
+          },
+          {
+            sourceBlockId: "block-2",
+            sourceLineId: "line-2",
+            sourceBlockType: "direct_order",
+            lineNumber: 2,
+            productCode: "missing 1",
+            productName: "  Missing   product ",
+            quantity: 2,
+            unit: "kg.",
+            parsedLocation: null,
+            wddNumber: null,
+            orderNumber: null,
+            zlNumber: null,
+            zwNumber: "ZW/200",
+            clientName: null,
+            groupName: null,
+            warehouseCode: null,
+            warehouseLabel: null,
+            documentBrand: null,
+            matchType: null,
+            matchConfidence: null,
+            blockMetadata: {},
+            lineMetadata: {},
+          },
+        ],
+      },
+    });
+    const locationsQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      is: vi.fn().mockResolvedValue({ data: [], error: null }),
+    };
+    const supabase = {
+      from: vi.fn(() => locationsQuery),
+    };
+
+    const result = await InventoryMovementImportsService.previewFromSource(
+      supabase as never,
+      "org-1",
+      "branch-1",
+      {
+        source_type: "svwms_wdd_matcher",
+        source_input: { session_id: "session-1" },
+        movement_type_code: "101",
+      }
+    );
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    const document = result.data.documents[0];
+    expect(document.external_reference).not.toContain("WDD");
+    expect(document.lines[0]).toMatchObject({
+      normalized_product_code: "57H823031",
+      normalized_product_name: "Pokrywa przednia",
+      normalized_unit_code: "OPK",
+      variant_id: "variant-1",
+      unit_id: "unit-szt",
+      product_resolution_status: "resolved",
+      unit_resolution_status: "resolved",
+    });
+    expect(document.lines[1]).toMatchObject({
+      normalized_product_code: "MISSING1",
+      normalized_product_name: "Missing product",
+      normalized_unit_code: "KG.",
+      product_resolution_status: "missing",
+      unit_resolution_status: "missing",
+    });
+    expect(document.exception_groups).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "missing_product",
+          normalized_value: "MISSING1",
+          line_ids: ["line-2"],
+        }),
+        expect.objectContaining({
+          type: "missing_unit",
+          normalized_value: "KG.",
+          line_ids: ["line-2"],
+        }),
+      ])
+    );
+  });
+});
