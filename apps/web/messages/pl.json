@@ -6140,6 +6140,21 @@
       "sampleVariantTag": "koszulki",
       "sampleVariantDescription": "Niebieska koszulka rozmiar M",
       "sampleSheetName": "Produkty"
+    },
+    "audits": {
+      "feedback": {
+        "sessionCreated": "Sesja inwentaryzacji utworzona",
+        "sessionCreateFailed": "Nie udało się utworzyć sesji inwentaryzacji",
+        "sessionApproved": "Inwentaryzacja zaksięgowana — stany skorygowane",
+        "sessionApproveFailed": "Nie udało się zaksięgować inwentaryzacji",
+        "lineUpdated": "Pozycja zapisana",
+        "lineUpdateFailed": "Nie udało się zapisać pozycji",
+        "unexpectedLineAdded": "Dodano pozycję do inwentaryzacji",
+        "unexpectedLineAddFailed": "Nie udało się dodać pozycji",
+        "bulkApproved": "Pozycje zatwierdzone",
+        "bulkApproveFailed": "Nie udało się zatwierdzić pozycji",
+        "reorderReportFailed": "Nie udało się wczytać raportu uzupełnień"
+      }
     }
   },
   "ambraLocations": {

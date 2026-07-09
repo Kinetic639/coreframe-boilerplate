@@ -6166,6 +6166,21 @@
       "sampleVariantTag": "shirts",
       "sampleVariantDescription": "Blue medium shirt",
       "sampleSheetName": "Items"
+    },
+    "audits": {
+      "feedback": {
+        "sessionCreated": "Audit session created",
+        "sessionCreateFailed": "Failed to create audit session",
+        "sessionApproved": "Audit posted — stock corrected",
+        "sessionApproveFailed": "Failed to post audit",
+        "lineUpdated": "Line saved",
+        "lineUpdateFailed": "Failed to save line",
+        "unexpectedLineAdded": "Item added to audit",
+        "unexpectedLineAddFailed": "Failed to add item",
+        "bulkApproved": "Lines approved",
+        "bulkApproveFailed": "Failed to approve lines",
+        "reorderReportFailed": "Failed to load reorder report"
+      }
     }
   },
   "ambraLocations": {
