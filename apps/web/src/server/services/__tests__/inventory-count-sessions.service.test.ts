@@ -513,6 +513,38 @@ describe("approveCountSession", () => {
   });
 });
 
+describe("updateSessionStatus", () => {
+  it("updates the session status to counting", async () => {
+    const supabase = makeSupabaseMock([{ data: { id: "s1", status: "counting" }, error: null }]);
+    const result = await InventoryCountSessionsService.updateSessionStatus(
+      supabase as any,
+      "s1",
+      "counting"
+    );
+    expect(result).toEqual({ success: true, data: { id: "s1", status: "counting" } });
+  });
+
+  it("updates the session status to submitted", async () => {
+    const supabase = makeSupabaseMock([{ data: { id: "s1", status: "submitted" }, error: null }]);
+    const result = await InventoryCountSessionsService.updateSessionStatus(
+      supabase as any,
+      "s1",
+      "submitted"
+    );
+    expect(result).toEqual({ success: true, data: { id: "s1", status: "submitted" } });
+  });
+
+  it("propagates a DB error", async () => {
+    const supabase = makeSupabaseMock([{ data: null, error: { message: "not found" } }]);
+    const result = await InventoryCountSessionsService.updateSessionStatus(
+      supabase as any,
+      "s1",
+      "counting"
+    );
+    expect(result).toEqual({ success: false, error: "not found" });
+  });
+});
+
 // ─── getReorderReport ───────────────────────────────────────────────────────────
 
 describe("getReorderReport", () => {

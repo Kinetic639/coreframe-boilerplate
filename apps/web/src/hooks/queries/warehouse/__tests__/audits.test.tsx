@@ -21,6 +21,7 @@ vi.mock("@/app/actions/warehouse/inventory/count-sessions", () => ({
   addUnexpectedCountLineAction: vi.fn(),
   bulkApproveCountLinesAction: vi.fn(),
   approveInventoryCountSessionAction: vi.fn(),
+  updateInventoryCountSessionStatusAction: vi.fn(),
   getReorderReportAction: vi.fn(),
 }));
 
@@ -38,6 +39,7 @@ import {
   createInventoryCountSessionAction,
   updateInventoryCountLineAction,
   approveInventoryCountSessionAction,
+  updateInventoryCountSessionStatusAction,
 } from "@/app/actions/warehouse/inventory/count-sessions";
 import { toast } from "react-toastify";
 
@@ -48,6 +50,7 @@ import {
   useCreateCountSessionMutation,
   useUpdateCountLineMutation,
   useApproveCountSessionMutation,
+  useUpdateCountSessionStatusMutation,
   type CountSessionDetail,
 } from "../audits";
 
@@ -312,5 +315,45 @@ describe("useApproveCountSessionMutation", () => {
     });
 
     expect(toast.error).toHaveBeenCalledWith("Missing warehouse.inventory.adjust permission");
+  });
+});
+
+// ─── useUpdateCountSessionStatusMutation ──────────────────────────────────────
+
+describe("useUpdateCountSessionStatusMutation", () => {
+  it("invalidates both the detail and list caches on success", async () => {
+    vi.mocked(updateInventoryCountSessionStatusAction).mockResolvedValue({
+      success: true,
+      data: { id: SESSION_ID, status: "counting" },
+    });
+    const { queryClient, wrapper } = makeWrapper();
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+    const { result } = renderHook(() => useUpdateCountSessionStatusMutation(), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({ id: SESSION_ID, status: "counting" });
+    });
+
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: auditKeys.detail(SESSION_ID) });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: auditKeys.lists() });
+  });
+
+  it("shows an error toast on failure", async () => {
+    vi.mocked(updateInventoryCountSessionStatusAction).mockResolvedValue({
+      success: false,
+      error: "not found",
+    });
+    const { wrapper } = makeWrapper();
+    const { result } = renderHook(() => useUpdateCountSessionStatusMutation(), { wrapper });
+
+    await act(async () => {
+      try {
+        await result.current.mutateAsync({ id: SESSION_ID, status: "submitted" });
+      } catch {
+        // expected
+      }
+    });
+
+    expect(toast.error).toHaveBeenCalledWith("not found");
   });
 });

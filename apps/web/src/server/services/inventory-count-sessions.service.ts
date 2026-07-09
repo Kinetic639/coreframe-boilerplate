@@ -369,6 +369,31 @@ export class InventoryCountSessionsService {
   }
 
   /**
+   * Advances a session's workflow status forward — "counting" (entering the
+   * guided-count screen) or "submitted" (finishing counting, entering
+   * review). This is a plain RLS-gated UPDATE, not a business-rule RPC: the
+   * only status transition with real integrity rules is submitted->approved
+   * (inventory_approve_count_session's all-or-nothing gate). Only forward
+   * transitions from the count-session status enum are accepted; approved
+   * and cancelled are handled by their own dedicated flows, not this method.
+   */
+  static async updateSessionStatus(
+    supabase: SupabaseClient,
+    sessionId: string,
+    status: "counting" | "submitted"
+  ): Promise<ServiceResult<{ id: string; status: string }>> {
+    const { data, error } = await supabase
+      .from("inventory_count_sessions")
+      .update({ status })
+      .eq("id", sessionId)
+      .select("id, status")
+      .single();
+
+    if (error) return { success: false, error: errorMessage(error) };
+    return { success: true, data: data as { id: string; status: string } };
+  }
+
+  /**
    * Live low-stock report: joins active inventory_reorder_rules against
    * current inventory_balances. Numbers are always computed fresh here —
    * nothing about "what's currently low" is persisted (plan §7); only the

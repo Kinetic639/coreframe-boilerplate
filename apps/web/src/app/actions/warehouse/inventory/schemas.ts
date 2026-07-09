@@ -708,6 +708,11 @@ export const approveCountSessionSchema = z.object({
   id: uuidSchema,
 });
 
+export const updateCountSessionStatusSchema = z.object({
+  id: uuidSchema,
+  status: z.enum(["counting", "submitted"]),
+});
+
 export const addUnexpectedCountLineSchema = z.object({
   count_session_id: uuidSchema,
   variant_id: uuidSchema,

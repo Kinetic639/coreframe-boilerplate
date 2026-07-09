@@ -6175,6 +6175,7 @@
         "sessionCreateFailed": "Failed to create audit session",
         "sessionApproved": "Audit posted — stock corrected",
         "sessionApproveFailed": "Failed to post audit",
+        "sessionStatusUpdateFailed": "Failed to update audit status",
         "lineUpdated": "Line saved",
         "lineUpdateFailed": "Failed to save line",
         "unexpectedLineAdded": "Item added to audit",

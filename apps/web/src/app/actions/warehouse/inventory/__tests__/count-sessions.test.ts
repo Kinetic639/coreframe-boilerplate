@@ -39,6 +39,7 @@ vi.mock("@/server/services/inventory-count-sessions.service", () => ({
     addUnexpectedLine: vi.fn(),
     bulkApproveLines: vi.fn(),
     approveCountSession: vi.fn(),
+    updateSessionStatus: vi.fn(),
     getReorderReport: vi.fn(),
   },
 }));
@@ -68,6 +69,7 @@ import {
   getReorderReportAction,
   listInventoryCountSessionsAction,
   updateInventoryCountLineAction,
+  updateInventoryCountSessionStatusAction,
 } from "../count-sessions";
 
 const ORG_ID = "org-aaa";
@@ -355,6 +357,68 @@ describe("bulkApproveCountLinesAction", () => {
 
     const result = await bulkApproveCountLinesAction({ line_ids: [LOCATION_ID] });
     expect(result.success).toBe(true);
+    expect(eventService.emit).not.toHaveBeenCalled();
+  });
+});
+
+// ─── updateInventoryCountSessionStatusAction ───────────────────────────────────
+
+describe("updateInventoryCountSessionStatusAction", () => {
+  it("denies when warehouse.audits.manage is missing", async () => {
+    vi.mocked(loadDashboardContextV2).mockResolvedValue(makeContext(READ_PERMS) as never);
+    const result = await updateInventoryCountSessionStatusAction({
+      id: LOCATION_ID,
+      status: "counting",
+    });
+    expect(result.success).toBe(false);
+    expect(InventoryCountSessionsService.updateSessionStatus).not.toHaveBeenCalled();
+  });
+
+  it("rejects an invalid status value", async () => {
+    vi.mocked(loadDashboardContextV2).mockResolvedValue(makeContext(MANAGE_PERMS) as never);
+    const result = await updateInventoryCountSessionStatusAction({
+      id: LOCATION_ID,
+      status: "approved",
+    });
+    expect(result.success).toBe(false);
+    expect(InventoryCountSessionsService.updateSessionStatus).not.toHaveBeenCalled();
+  });
+
+  it("delegates to the service and emits an event on success", async () => {
+    vi.mocked(loadDashboardContextV2).mockResolvedValue(makeContext(MANAGE_PERMS) as never);
+    vi.mocked(InventoryCountSessionsService.updateSessionStatus).mockResolvedValue({
+      success: true,
+      data: { id: LOCATION_ID, status: "counting" },
+    });
+
+    const result = await updateInventoryCountSessionStatusAction({
+      id: LOCATION_ID,
+      status: "counting",
+    });
+
+    expect(result.success).toBe(true);
+    expect(InventoryCountSessionsService.updateSessionStatus).toHaveBeenCalledWith(
+      expect.anything(),
+      LOCATION_ID,
+      "counting"
+    );
+    expect(eventService.emit).toHaveBeenCalledWith(
+      expect.objectContaining({ actionKey: "warehouse.inventory.count_session.status_updated" })
+    );
+  });
+
+  it("does not emit an event when the service call fails", async () => {
+    vi.mocked(loadDashboardContextV2).mockResolvedValue(makeContext(MANAGE_PERMS) as never);
+    vi.mocked(InventoryCountSessionsService.updateSessionStatus).mockResolvedValue({
+      success: false,
+      error: "not found",
+    });
+
+    const result = await updateInventoryCountSessionStatusAction({
+      id: LOCATION_ID,
+      status: "submitted",
+    });
+    expect(result.success).toBe(false);
     expect(eventService.emit).not.toHaveBeenCalled();
   });
 });

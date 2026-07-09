@@ -6149,6 +6149,7 @@
         "sessionCreateFailed": "Nie udało się utworzyć sesji inwentaryzacji",
         "sessionApproved": "Inwentaryzacja zaksięgowana — stany skorygowane",
         "sessionApproveFailed": "Nie udało się zaksięgować inwentaryzacji",
+        "sessionStatusUpdateFailed": "Nie udało się zaktualizować statusu inwentaryzacji",
         "lineUpdated": "Pozycja zapisana",
         "lineUpdateFailed": "Nie udało się zapisać pozycji",
         "unexpectedLineAdded": "Dodano pozycję do inwentaryzacji",

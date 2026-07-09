@@ -25,6 +25,7 @@ import {
   getReorderReportSchema,
   listCountSessionsSchema,
   updateCountLineSchema,
+  updateCountSessionStatusSchema,
 } from "./schemas";
 
 // All reads below require WAREHOUSE_AUDITS_READ, all writes require
@@ -172,6 +173,37 @@ export async function updateInventoryCountLineAction(rawInput: unknown) {
           counted_quantity: parsed.data.counted_quantity,
           status: parsed.data.status,
         },
+      });
+    }
+    return result;
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function updateInventoryCountSessionStatusAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_AUDITS_MANAGE))
+      return { success: false, error: "Unauthorized" };
+    const parsed = updateCountSessionStatusSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const userId = userIdFrom(auth);
+    const supabase = await createClient();
+    const result = await InventoryCountSessionsService.updateSessionStatus(
+      supabase,
+      parsed.data.id,
+      parsed.data.status
+    );
+
+    if (result.success) {
+      await emitInventoryEvent(auth, userId, {
+        actionKey: "warehouse.inventory.count_session.status_updated",
+        entityType: "inventory_count_session",
+        entityId: parsed.data.id,
+        metadata: { count_session_id: parsed.data.id, status: parsed.data.status },
       });
     }
     return result;

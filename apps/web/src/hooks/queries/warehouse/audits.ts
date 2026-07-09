@@ -13,6 +13,7 @@ import {
   getReorderReportAction,
   listInventoryCountSessionsAction,
   updateInventoryCountLineAction,
+  updateInventoryCountSessionStatusAction,
 } from "@/app/actions/warehouse/inventory/count-sessions";
 import type {
   CountLineRow,
@@ -147,6 +148,30 @@ export function useUpdateCountLineMutation(sessionId: string | null | undefined)
       if (sessionId) {
         queryClient.invalidateQueries({ queryKey: auditKeys.detail(sessionId) });
       }
+    },
+  });
+}
+
+// ─── Update session status (draft->counting, counting->submitted) ──────────────
+
+export function useUpdateCountSessionStatusMutation() {
+  const queryClient = useQueryClient();
+  const t = useTranslations("warehouseInventory.audits.feedback");
+
+  return useMutation({
+    mutationFn: async (input: { id: string; status: "counting" | "submitted" }) =>
+      unwrapSR(
+        (await updateInventoryCountSessionStatusAction(input)) as SR<{
+          id: string;
+          status: string;
+        }>
+      ),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: auditKeys.detail(variables.id) });
+      queryClient.invalidateQueries({ queryKey: auditKeys.lists() });
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || t("sessionStatusUpdateFailed"));
     },
   });
 }

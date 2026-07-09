@@ -57,8 +57,9 @@ These override any convenience shortcut, any "while I'm here" cleanup, and any a
 - [x] `addUnexpectedLine` (single-counter assumption documented, §6; sequence_no computed server-side)
 - [x] `bulkApproveLines`
 - [x] `approveCountSession` (moved; enforces all-or-nothing posting gate via the RPC, §5)
+- [x] `updateSessionStatus` (added mid-implementation, not in the original plan — small necessary gap fill: a plain RLS-gated `draft→counting`/`counting→submitted` UPDATE the guided-count screen's "finish counting" action needs; `submitted→approved` remains exclusively via `approveCountSession`'s RPC, which is the only transition with real integrity rules)
 - [x] `getReorderReport`
-- [x] `inventory-count-sessions.service.test.ts` — 34 tests, all green (incl. T-RLS and T-BRANCH/T-ORG groups)
+- [x] `inventory-count-sessions.service.test.ts` — 42 tests, all green (incl. T-RLS and T-BRANCH/T-ORG groups, plus 3 new `updateSessionStatus` tests)
 - [x] Pure logic extracted + unit-tested: `count-session-scope.ts` (`expandLocationIds`, 8 tests), `reorder-math.ts` (`calculateSuggestedOrderQuantity`/`isBelowReorderPoint`, 6 tests), `count-line-grouping.ts` (`groupCountLines`, 8 tests), `count-session-types.ts` (`isValidCountLineTransition`, 11 tests)
 
 ### 3. Server actions & schemas
@@ -68,9 +69,10 @@ These override any convenience shortcut, any "while I'm here" cleanup, and any a
 - [x] `createInventoryCountSessionAction`, `updateInventoryCountLineAction` (extended)
 - [x] `addUnexpectedCountLineAction`, `bulkApproveCountLinesAction`
 - [x] `approveInventoryCountSessionAction` (permission swap; posting still separately enforces `warehouse.inventory.adjust` inside the RPC, not duplicated at the action layer)
+- [x] `updateInventoryCountSessionStatusAction` (added mid-implementation alongside the service method above; `WAREHOUSE_AUDITS_MANAGE`-gated, `status` restricted to `"counting"|"submitted"` via `updateCountSessionStatusSchema`)
 - [x] `getReorderReportAction`
-- [x] Schema extensions in `schemas.ts` (`countSessionScopeSchema.strict()`, extended `updateCountLineSchema`, `addUnexpectedCountLineSchema`, `bulkApproveCountLinesSchema`, `listCountSessionsSchema`, `getReorderReportSchema`)
-- [x] `count-sessions.test.ts` — 25 tests, all green (permission-deny, strict-schema rejection incl. unknown-key, happy-path + event emission, no-duplicate-adjust-check proof)
+- [x] Schema extensions in `schemas.ts` (`countSessionScopeSchema.strict()`, extended `updateCountLineSchema`, `addUnexpectedCountLineSchema`, `bulkApproveCountLinesSchema`, `listCountSessionsSchema`, `getReorderReportSchema`, `updateCountSessionStatusSchema`)
+- [x] `count-sessions.test.ts` — 29 tests, all green (permission-deny, strict-schema rejection incl. unknown-key, happy-path + event emission, no-duplicate-adjust-check proof, plus 4 new `updateInventoryCountSessionStatusAction` tests)
 - [x] `emitInventoryEvent`/`textFromRecord` relocated from `index.ts` to the shared `action-context.ts` (behavior unchanged) so both `index.ts` and `count-sessions.ts` reuse them without duplication
 
 ### 4. React Query hooks
@@ -81,7 +83,9 @@ These override any convenience shortcut, any "while I'm here" cleanup, and any a
 - [x] `useUpdateCountLineMutation` (optimistic, with tested/verified rollback — 14 hook tests incl. the optimistic-patch + rollback pair)
 - [x] `useAddUnexpectedLineMutation`, `useBulkApproveLinesMutation`
 - [x] `useApproveCountSessionMutation`
+- [x] `useUpdateCountSessionStatusMutation` (added mid-implementation alongside the action above; invalidates detail + list caches on success)
 - [x] `useReorderReportQuery`
+- [x] `audits.test.tsx` hook test file — 16 tests, all green (incl. 2 new `useUpdateCountSessionStatusMutation` tests)
 
 ### 5. Routes & components
 
