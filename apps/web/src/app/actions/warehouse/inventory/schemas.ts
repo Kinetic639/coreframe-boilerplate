@@ -738,3 +738,10 @@ export const getReorderReportSchema = z.object({
   locationId: uuidSchema.optional(),
   supplierId: uuidSchema.optional(),
 });
+
+export const setReorderSuggestionActionSchema = z.object({
+  variant_id: uuidSchema,
+  location_id: uuidSchema.nullable(),
+  status: z.enum(["accepted", "ignored"]),
+  count_session_id: uuidSchema.nullable().optional(),
+});

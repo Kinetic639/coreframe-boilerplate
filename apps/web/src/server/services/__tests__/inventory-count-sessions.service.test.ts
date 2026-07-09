@@ -790,3 +790,68 @@ describe("T-BRANCH/T-ORG: isolation invariants", () => {
     expect(supabase.from).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("getReorderSuggestionActions", () => {
+  it("keeps only the latest status per variant/location key", async () => {
+    const supabase = makeSupabaseMock([
+      {
+        data: [
+          { variant_id: "v1", location_id: "loc-1", status: "accepted", created_at: "2026-01-01" },
+          { variant_id: "v1", location_id: "loc-1", status: "ignored", created_at: "2026-01-02" },
+          { variant_id: "v2", location_id: null, status: "accepted", created_at: "2026-01-01" },
+        ],
+        error: null,
+      },
+    ]);
+    const result = await InventoryCountSessionsService.getReorderSuggestionActions(
+      supabase as any,
+      "org-A",
+      "branch-A"
+    );
+    expect(result).toEqual({
+      success: true,
+      data: new Map([
+        ["v1:loc-1", "ignored"],
+        ["v2:", "accepted"],
+      ]),
+    });
+  });
+
+  it("propagates a DB error", async () => {
+    const supabase = makeSupabaseMock([{ data: null, error: { message: "boom" } }]);
+    const result = await InventoryCountSessionsService.getReorderSuggestionActions(
+      supabase as any,
+      "org-A",
+      "branch-A"
+    );
+    expect(result).toEqual({ success: false, error: "boom" });
+  });
+});
+
+describe("setReorderSuggestionAction", () => {
+  it("inserts a new decision row", async () => {
+    const supabase = makeSupabaseMock([{ data: { id: "action-1" }, error: null }]);
+    const result = await InventoryCountSessionsService.setReorderSuggestionAction(supabase as any, {
+      organization_id: "org-A",
+      branch_id: "branch-A",
+      variant_id: "v1",
+      location_id: "loc-1",
+      status: "accepted",
+      actor_user_id: "user-1",
+    });
+    expect(result).toEqual({ success: true, data: { id: "action-1" } });
+  });
+
+  it("propagates a DB error", async () => {
+    const supabase = makeSupabaseMock([{ data: null, error: { message: "boom" } }]);
+    const result = await InventoryCountSessionsService.setReorderSuggestionAction(supabase as any, {
+      organization_id: "org-A",
+      branch_id: "branch-A",
+      variant_id: "v1",
+      location_id: null,
+      status: "ignored",
+      actor_user_id: null,
+    });
+    expect(result).toEqual({ success: false, error: "boom" });
+  });
+});

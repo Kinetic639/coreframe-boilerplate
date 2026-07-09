@@ -23,6 +23,7 @@ vi.mock("@/app/actions/warehouse/inventory/count-sessions", () => ({
   approveInventoryCountSessionAction: vi.fn(),
   updateInventoryCountSessionStatusAction: vi.fn(),
   getReorderReportAction: vi.fn(),
+  setReorderSuggestionActionAction: vi.fn(),
 }));
 
 vi.mock("react-toastify", () => ({
@@ -40,6 +41,7 @@ import {
   updateInventoryCountLineAction,
   approveInventoryCountSessionAction,
   updateInventoryCountSessionStatusAction,
+  setReorderSuggestionActionAction,
 } from "@/app/actions/warehouse/inventory/count-sessions";
 import { toast } from "react-toastify";
 
@@ -51,6 +53,7 @@ import {
   useUpdateCountLineMutation,
   useApproveCountSessionMutation,
   useUpdateCountSessionStatusMutation,
+  useSetReorderSuggestionActionMutation,
   type CountSessionDetail,
 } from "../audits";
 
@@ -355,5 +358,54 @@ describe("useUpdateCountSessionStatusMutation", () => {
     });
 
     expect(toast.error).toHaveBeenCalledWith("not found");
+  });
+});
+
+// ─── useSetReorderSuggestionActionMutation ────────────────────────────────────
+
+describe("useSetReorderSuggestionActionMutation", () => {
+  it("invalidates the reorder-report cache for the branch on success", async () => {
+    vi.mocked(setReorderSuggestionActionAction).mockResolvedValue({
+      success: true,
+      data: { id: "action-1" },
+    });
+    const { queryClient, wrapper } = makeWrapper();
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+    const { result } = renderHook(() => useSetReorderSuggestionActionMutation(BRANCH_ID), {
+      wrapper,
+    });
+
+    await act(async () => {
+      await result.current.mutateAsync({ variant_id: "v1", location_id: null, status: "accepted" });
+    });
+
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ["warehouse", "audits", "reorder-report", BRANCH_ID],
+    });
+  });
+
+  it("shows an error toast on failure", async () => {
+    vi.mocked(setReorderSuggestionActionAction).mockResolvedValue({
+      success: false,
+      error: "boom",
+    });
+    const { wrapper } = makeWrapper();
+    const { result } = renderHook(() => useSetReorderSuggestionActionMutation(BRANCH_ID), {
+      wrapper,
+    });
+
+    await act(async () => {
+      try {
+        await result.current.mutateAsync({
+          variant_id: "v1",
+          location_id: null,
+          status: "ignored",
+        });
+      } catch {
+        // expected
+      }
+    });
+
+    expect(toast.error).toHaveBeenCalledWith("boom");
   });
 });

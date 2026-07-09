@@ -7,6 +7,7 @@ import {
   MODULE_ORGANIZATION_MANAGEMENT_ACCESS,
   PERMISSION_TOOLS_READ,
   MODULE_WAREHOUSE_ACCESS,
+  WAREHOUSE_AUDITS_READ,
   WAREHOUSE_INVENTORY_READ,
   WAREHOUSE_LOCATIONS_READ,
   WAREHOUSE_PRODUCTS_READ,
@@ -140,6 +141,17 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
             match: { startsWith: "/dashboard/warehouse/suppliers" },
           },
         ],
+      },
+      {
+        id: "warehouse.audits",
+        title: "Stock Audits",
+        titleKey: "modules.warehouse.items.audits",
+        iconKey: "checkSquare",
+        href: "/dashboard/warehouse/audits",
+        match: { startsWith: "/dashboard/warehouse/audits" },
+        visibility: {
+          requiresPermissions: [WAREHOUSE_AUDITS_READ],
+        },
       },
       {
         id: "warehouse.locations",

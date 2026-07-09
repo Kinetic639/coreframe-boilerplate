@@ -12,6 +12,7 @@ import {
   getInventoryCountSessionAction,
   getReorderReportAction,
   listInventoryCountSessionsAction,
+  setReorderSuggestionActionAction,
   updateInventoryCountLineAction,
   updateInventoryCountSessionStatusAction,
 } from "@/app/actions/warehouse/inventory/count-sessions";
@@ -268,5 +269,31 @@ export function useReorderReportQuery(
     enabled: !!branchId,
     staleTime: 60 * 1000,
     refetchOnWindowFocus: false,
+  });
+}
+
+// ─── Accept/ignore a reorder suggestion ─────────────────────────────────────────
+
+export function useSetReorderSuggestionActionMutation(branchId: string | null | undefined) {
+  const queryClient = useQueryClient();
+  const t = useTranslations("warehouseInventory.audits.feedback");
+
+  return useMutation({
+    mutationFn: async (input: {
+      variant_id: string;
+      location_id: string | null;
+      status: "accepted" | "ignored";
+      count_session_id?: string | null;
+    }) => unwrapSR((await setReorderSuggestionActionAction(input)) as SR<{ id: string }>),
+    onSuccess: () => {
+      if (branchId) {
+        // Shorter prefix (no params) so this invalidates every params variant
+        // of the reorder-report query for this branch, not just the {} case.
+        queryClient.invalidateQueries({ queryKey: [...auditKeys.all, "reorder-report", branchId] });
+      }
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || t("reorderReportFailed"));
+    },
   });
 }

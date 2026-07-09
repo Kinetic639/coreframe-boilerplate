@@ -41,6 +41,7 @@ vi.mock("@/server/services/inventory-count-sessions.service", () => ({
     approveCountSession: vi.fn(),
     updateSessionStatus: vi.fn(),
     getReorderReport: vi.fn(),
+    setReorderSuggestionAction: vi.fn(),
   },
 }));
 
@@ -68,6 +69,7 @@ import {
   getInventoryCountSessionAction,
   getReorderReportAction,
   listInventoryCountSessionsAction,
+  setReorderSuggestionActionAction,
   updateInventoryCountLineAction,
   updateInventoryCountSessionStatusAction,
 } from "../count-sessions";
@@ -489,6 +491,47 @@ describe("getReorderReportAction", () => {
       ORG_ID,
       BRANCH_ID,
       expect.any(Object)
+    );
+  });
+});
+
+// ─── setReorderSuggestionActionAction ──────────────────────────────────────────
+
+describe("setReorderSuggestionActionAction", () => {
+  it("denies when warehouse.audits.manage is missing", async () => {
+    vi.mocked(loadDashboardContextV2).mockResolvedValue(makeContext(READ_PERMS) as never);
+    const result = await setReorderSuggestionActionAction({
+      variant_id: LOCATION_ID,
+      location_id: null,
+      status: "accepted",
+    });
+    expect(result.success).toBe(false);
+    expect(InventoryCountSessionsService.setReorderSuggestionAction).not.toHaveBeenCalled();
+  });
+
+  it("delegates to the service with the active org/branch from context", async () => {
+    vi.mocked(loadDashboardContextV2).mockResolvedValue(makeContext(MANAGE_PERMS) as never);
+    vi.mocked(InventoryCountSessionsService.setReorderSuggestionAction).mockResolvedValue({
+      success: true,
+      data: { id: "action-1" },
+    });
+
+    const result = await setReorderSuggestionActionAction({
+      variant_id: LOCATION_ID,
+      location_id: null,
+      status: "ignored",
+    });
+
+    expect(result.success).toBe(true);
+    expect(InventoryCountSessionsService.setReorderSuggestionAction).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        organization_id: ORG_ID,
+        branch_id: BRANCH_ID,
+        variant_id: LOCATION_ID,
+        status: "ignored",
+        actor_user_id: USER_ID,
+      })
     );
   });
 });

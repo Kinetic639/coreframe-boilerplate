@@ -1,0 +1,225 @@
+"use client";
+
+import { useMemo } from "react";
+import { AlertCircle, CheckCircle2, CornerDownRight, TrendingDown, TrendingUp } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { useRouter } from "@/i18n/navigation";
+import {
+  useApproveCountSessionMutation,
+  useBulkApproveLinesMutation,
+  useUpdateCountLineMutation,
+} from "@/hooks/queries/warehouse/audits";
+import { useVarianceGrouping } from "./use-variance-grouping";
+import { VarianceGroupSection } from "./variance-group-section";
+import { VarianceBulkApproveBar } from "./variance-bulk-approve-bar";
+import { VarianceApproveSessionButton } from "./variance-approve-session-button";
+import type { EnrichedCountLine, ReviewSessionInfo } from "./types";
+
+interface VarianceReviewScreenProps {
+  session: ReviewSessionInfo;
+  lines: EnrichedCountLine[];
+}
+
+export function VarianceReviewScreen({ session, lines }: VarianceReviewScreenProps) {
+  const t = useTranslations("warehouseInventory.audits.review");
+  const router = useRouter();
+
+  const requireReasonForVariance = session.scope.require_reason_for_variance !== false;
+
+  const groups = useVarianceGrouping(lines);
+  const updateLine = useUpdateCountLineMutation(session.id);
+  const bulkApprove = useBulkApproveLinesMutation(session.id);
+  const approveSession = useApproveCountSessionMutation();
+
+  const unapprovedCount = useMemo(
+    () => lines.filter((l) => l.status !== "approved" && l.status !== "pending").length,
+    [lines]
+  );
+
+  const blocked =
+    groups.pending.length > 0 ||
+    groups.needsRecount.length > 0 ||
+    groups.shortages.some((l) => l.status !== "approved") ||
+    groups.surpluses.some((l) => l.status !== "approved") ||
+    groups.matches.some((l) => l.status !== "approved");
+
+  function approveLine(lineId: string) {
+    const line = lines.find((l) => l.id === lineId);
+    if (!line) return;
+    updateLine.mutate({
+      id: lineId,
+      current_status: line.status,
+      status: "approved",
+      require_reason_for_variance: requireReasonForVariance,
+    });
+  }
+
+  function unapproveLine(lineId: string) {
+    const line = lines.find((l) => l.id === lineId);
+    if (!line) return;
+    updateLine.mutate({ id: lineId, current_status: line.status, status: "counted" });
+  }
+
+  function updateReasonAndNote(lineId: string, reasonCode: string | null, note: string | null) {
+    const line = lines.find((l) => l.id === lineId);
+    if (!line) return;
+    updateLine.mutate({
+      id: lineId,
+      current_status: line.status,
+      reason_code: reasonCode,
+      note,
+    });
+  }
+
+  function enterQuantity(lineId: string, quantity: number) {
+    const line = lines.find((l) => l.id === lineId);
+    if (!line) return;
+    updateLine.mutate({
+      id: lineId,
+      current_status: line.status,
+      counted_quantity: quantity,
+      status: "counted",
+    });
+  }
+
+  function handleApproveAll() {
+    const eligibleIds = [...groups.shortages, ...groups.surpluses, ...groups.matches]
+      .filter((l) => l.status === "counted")
+      .map((l) => l.id);
+    bulkApprove.mutate({
+      line_ids: eligibleIds,
+      require_reason_for_variance: requireReasonForVariance,
+    });
+  }
+
+  function handlePost() {
+    approveSession.mutate(
+      { id: session.id },
+      {
+        onSuccess: () => {
+          router.push({
+            pathname: "/dashboard/warehouse/audits/[id]/report",
+            params: { id: session.id },
+          });
+        },
+      }
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-transparent pb-24">
+      <div className="sticky top-0 z-40 flex min-h-[56px] items-center justify-between gap-2 border-b border-border bg-card px-4 py-2 shadow-md">
+        <div className="w-9 shrink-0" />
+        <div className="min-w-0 flex-1 text-center">
+          <h1 className="block text-xs font-black uppercase tracking-widest leading-tight text-primary">
+            {t("title")}
+          </h1>
+          <span className="mt-0.5 block truncate font-mono text-[10px] font-bold leading-none text-muted-foreground">
+            {session.count_number}
+          </span>
+        </div>
+        <div className="w-9 shrink-0" />
+      </div>
+
+      <div className="relative z-10 mx-auto max-w-md space-y-4 py-4">
+        {groups.pending.length > 0 && (
+          <div className="flex gap-2.5 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
+            <AlertCircle size={16} className="mt-0.5 shrink-0" />
+            <div>
+              <span className="font-bold">{t("pendingWarningTitle")}</span>
+              <p className="mt-0.5 leading-relaxed text-destructive/90">
+                {t("pendingWarningDescription", { count: groups.pending.length })}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {lines.length === 0 && (
+          <div className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
+            {t("emptyState")}
+          </div>
+        )}
+
+        <VarianceGroupSection
+          title={t("groupShortages", { count: groups.shortages.length })}
+          icon={<TrendingDown size={14} />}
+          titleClassName="text-red-500"
+          lines={groups.shortages}
+          kind="shortage"
+          requireReasonForVariance={requireReasonForVariance}
+          onApprove={approveLine}
+          onUnapprove={unapproveLine}
+          onUpdateReasonAndNote={updateReasonAndNote}
+          onEnterQuantity={enterQuantity}
+        />
+
+        <VarianceGroupSection
+          title={t("groupSurpluses", { count: groups.surpluses.length })}
+          icon={<TrendingUp size={14} />}
+          titleClassName="text-blue-500"
+          lines={groups.surpluses}
+          kind="surplus"
+          requireReasonForVariance={requireReasonForVariance}
+          onApprove={approveLine}
+          onUnapprove={unapproveLine}
+          onUpdateReasonAndNote={updateReasonAndNote}
+          onEnterQuantity={enterQuantity}
+        />
+
+        <VarianceGroupSection
+          title={t("groupNeedsRecount", { count: groups.needsRecount.length })}
+          icon={<AlertCircle size={14} />}
+          titleClassName="text-amber-500"
+          lines={groups.needsRecount}
+          kind="needsRecount"
+          requireReasonForVariance={requireReasonForVariance}
+          onApprove={approveLine}
+          onUnapprove={unapproveLine}
+          onUpdateReasonAndNote={updateReasonAndNote}
+          onEnterQuantity={enterQuantity}
+        />
+
+        <VarianceGroupSection
+          title={t("groupSkipped", { count: groups.skipped.length })}
+          icon={<CornerDownRight size={14} />}
+          titleClassName="text-muted-foreground"
+          lines={groups.skipped}
+          kind="skipped"
+          requireReasonForVariance={requireReasonForVariance}
+          onApprove={approveLine}
+          onUnapprove={unapproveLine}
+          onUpdateReasonAndNote={updateReasonAndNote}
+          onEnterQuantity={enterQuantity}
+        />
+
+        <VarianceGroupSection
+          title={t("groupMatches", { count: groups.matches.length })}
+          icon={<CheckCircle2 size={14} />}
+          titleClassName="text-emerald-500"
+          lines={groups.matches}
+          kind="match"
+          requireReasonForVariance={requireReasonForVariance}
+          onApprove={approveLine}
+          onUnapprove={unapproveLine}
+          onUpdateReasonAndNote={updateReasonAndNote}
+          onEnterQuantity={enterQuantity}
+        />
+
+        {lines.length > 0 && (
+          <VarianceBulkApproveBar
+            totalLines={lines.length}
+            unapprovedCount={unapprovedCount}
+            onApproveAll={handleApproveAll}
+          />
+        )}
+      </div>
+
+      <VarianceApproveSessionButton
+        countNumber={session.count_number}
+        blocked={blocked}
+        unresolvedCount={unapprovedCount}
+        onConfirm={handlePost}
+      />
+    </div>
+  );
+}

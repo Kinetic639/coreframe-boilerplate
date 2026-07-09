@@ -98,33 +98,41 @@ These override any convenience shortcut, any "while I'm here" cleanup, and any a
 - [x] `wizard-step-preview.tsx` — scope summary only, no live per-line count (the RPC has no dry-run mode; a real preview would need a new endpoint — flagged as a known simplification vs. the prototype's in-memory live preview, not built here)
 - [x] `wizard-step-indicator.tsx`
 - [x] `use-wizard-state.ts`, `use-wizard-scope-preview.ts` (local scope summary, no server round-trip), `use-wizard-submission.ts` (redirects to `/audits/[id]/count` on success) — 4 component tests (step-gating for both location and supplier paths, blind-mode dependent toggle) + `isDescendantOf` unit tests (5)
-- [ ] `/audits/[id]/count` guided-count: `index.tsx` orchestrator
-- [ ] `count-progress-header.tsx` (sticky, non-content-covering — mobile QA §3)
-- [ ] `count-position-tracker.tsx` (horizontal scroll, auto-center active item)
-- [ ] `count-item-card.tsx`, `count-tactile-counter.tsx` (large tap targets), `count-not-found-action.tsx`
-- [ ] `count-reason-modal.tsx`, `count-notes-modal.tsx` (note badge stays visible), `count-interrupt-dialog.tsx`, `count-location-jump-sheet.tsx`
-- [ ] `count-scan-trigger.tsx` (uses shared real scanner, not fake overlay)
-- [ ] `use-count-session-state.ts`, `use-count-navigation.ts`, `use-count-submission.ts`
-- [ ] `/audits/[id]/review` variance review: `index.tsx` orchestrator
-- [ ] `variance-group-section.tsx`, `variance-line-row.tsx`, `variance-bulk-approve-bar.tsx`, `variance-approve-session-button.tsx` (disabled/blocked until all-or-nothing gate satisfied)
-- [ ] `use-variance-grouping.ts`
-- [ ] `/audits/[id]/report` final report: `index.tsx` orchestrator
-- [ ] `report-kpi-tiles.tsx`, `report-audit-trail.tsx`, `report-adjustments-list.tsx`, `report-reorder-panel.tsx`
+- [x] `/audits/[id]/count` guided-count: `index.tsx` orchestrator (SSR `page.tsx` gates `WAREHOUSE_AUDITS_MANAGE`, fetches session detail + ad-hoc variant/product/location/unit enrichment selects — mirrors `InventoryBalancesService`'s separate-selects-then-join pattern; redirects to `/review` or `/report` if the session is already `submitted`/`approved`/`cancelled`; auto-transitions `draft`→`counting` on mount via `updateSessionStatus`)
+- [x] `count-progress-header.tsx` (sticky progress bar + location button + scan triggers)
+- [x] `count-position-tracker.tsx` (horizontal scroll, auto-center active item via `scrollIntoView`, reuses `count-status-colors.ts`)
+- [x] `count-item-card.tsx`, `count-tactile-counter.tsx` (large tap targets, ±1/5/10/50/100 step selector), `count-not-found-action.tsx` (also houses `CountPrimaryActions` — notes/skip/save-next)
+- [x] `count-reason-modal.tsx` (reuses `count-reason-codes.ts`'s dynamic shortage/surplus ordering), `count-notes-modal.tsx` (note badge stays visible on the primary-actions row), `count-interrupt-dialog.tsx`, `count-location-jump-sheet.tsx`
+- [x] `count-scan-trigger.tsx` (uses shared real `QrCameraScanner`, not a fake overlay — verifies scanned location/SKU against the current line via the same direct decode+lookup pattern as the wizard)
+- [x] `use-count-session-state.ts` (sort/filter/current-index state), `count-navigation.ts` (pure sort/filter/next-unresolved/prev-unresolved/progress-stats logic, 9 unit tests), `use-count-submission.ts` (save/skip/not-found/finish-counting wired to the mutations; `variance_quantity` is never sent to the server — it's a DB-generated stored column)
+- [x] Disclosed simplifications vs. the prototype: no 3-way item image view-mode toggle / fullscreen image zoom (no product-image asset wired into this feature); location display is code/name only, not a full ancestor breadcrumb; "exit without saving" simply navigates away since lines are persisted immediately on save (no client-only draft to roll back)
+- [x] `index.test.tsx` — 4 component tests (SKU/name render, empty state, reason-modal gating on variance, direct save when quantity matches expected)
+- [x] `/audits/[id]/review` variance review: `index.tsx` orchestrator (SSR `page.tsx` gates `WAREHOUSE_AUDITS_MANAGE`; redirects to `/count` if still `draft`/`counting`, to `/report` if already `approved`/`cancelled`)
+- [x] `variance-group-section.tsx`, `variance-line-row.tsx`, `variance-bulk-approve-bar.tsx`, `variance-approve-session-button.tsx` (client-side `blocked` flag mirrors the RPC's all-or-nothing gate as a UX convenience only — the RPC itself remains the authoritative check, not duplicated/trusted blindly)
+- [x] `use-variance-grouping.ts` (wraps the already-existing pure `groupCountLines` from `count-line-grouping.ts` in `useMemo`)
+- [x] Shared `_lib/enrich-count-lines.server.ts` extracted (moved out of the guided-count page, now reused by both `/count` and `/review` SSR pages — single source for the variant/product/location/unit ad-hoc-select enrichment, including its disclosed simplifications)
+- [x] Sidebar registration: `warehouse.audits` added to `src/lib/sidebar/v2/registry.ts` (gated `WAREHOUSE_AUDITS_READ`, icon `checkSquare`); legacy unused placeholder i18n object `modules.warehouse.items.audits.{title,overview,schedule,history}` collapsed to a single string (verified unreferenced elsewhere before removing)
+- [x] Verified in production DB: `lovable639@gmail.com` (org_owner) already had `warehouse.audits.read`/`.manage` correctly compiled into `user_effective_permissions` via the `warehouse.*` wildcard — the sidebar item was simply never registered until now; permissions layer was correct all along
+- [x] `/audits/[id]/report` final report: `index.tsx` orchestrator (SSR `page.tsx` gates `WAREHOUSE_AUDITS_READ`; redirects to `/count` or `/review` if not yet `approved`/`cancelled`; loads adjustment movements via `reference_type='inventory_count'`/`reference_id=<session id>` — the only documented link between a posted audit and the movements it created)
+- [x] `report-kpi-tiles.tsx` (locations checked, processed/total, surplus/shortage totals — computed client-side from real enriched lines, no fabricated numbers), `report-audit-trail.tsx` (built from real `created_at`/`updated_at`/`approved_at` only, never mocked like the prototype's timeline; disclosed simplification: no dedicated `submitted_at` column exists, so `updated_at` approximates the submit event), `report-adjustments-list.tsx` (real posted movement lines, not simulated), `report-reorder-panel.tsx` (pre-filtered to the session's variant ids, links out to the full standalone report)
+- [x] `index.test.tsx` — 3 component tests (count number/badge render, empty-adjustments state, empty-reorder state)
 - [x] Shared `src/components/qr/qr-camera-scanner.tsx` extracted from duplicated dialogs (`onDecode` callback API + `extractQrToken`, 8 tests; the two existing dialogs left as-is, not retrofitted — see implementation report)
 
 ### 6. Design tokens & i18n
 
-- [ ] `src/lib/warehouse/count-status-colors.ts` (single source for status color classes)
-- [ ] All ported components use `bg-background`/`bg-card`/`border-border`/`text-foreground`/`text-muted-foreground`/`bg-primary` etc. instead of hardcoded hex/orange
-- [ ] Status-semantic colors (red/emerald/blue/amber) kept literal per documented exception
-- [ ] Copy extracted to `messages/en.json` / `messages/pl.json` under `warehouseInventory.audits` (per-component, as built)
+- [x] `src/lib/warehouse/count-status-colors.ts` (single source for status color classes, built during §5 guided-count work)
+- [x] All ported components use `bg-background`/`bg-card`/`border-border`/`text-foreground`/`text-muted-foreground`/`bg-primary` etc. instead of hardcoded hex/orange
+- [x] Status-semantic colors (red/emerald/blue/amber) kept literal per documented exception
+- [x] Copy extracted to `messages/en.json` / `messages/pl.json` under `warehouseInventory.audits` (`.count`, `.review`, `.report` namespaces) and top-level `warehouseReports.reorder` for the standalone report
 
 ### 7. Reorder / low-stock report
 
 - [x] Reorder-math pure function (`reorder_quantity` vs. fallback) extracted + tested (`src/lib/warehouse/reorder-math.ts`, 6 tests)
 - [x] `getReorderReport` service method + `getReorderReportAction` + `useReorderReportQuery`
-- [ ] Standalone `/dashboard/warehouse/reports/reorder` page
-- [ ] Audit final-report → reorder-report deep link (pre-filtered)
+- [x] `InventoryCountSessionsService.getReorderSuggestionActions`/`setReorderSuggestionAction` (append-only accept/ignore decision log against `inventory_reorder_suggestion_actions`; "current" status = latest row per variant/location key) + `setReorderSuggestionActionAction` + `updateCountSessionStatusSchema`-sibling `setReorderSuggestionActionSchema` + `useSetReorderSuggestionActionMutation` — 4 service tests, 2 action tests, 2 hook tests
+- [x] Shared `_lib/enrich-reorder-report.server.ts` (warehouse-level, not audits-level — reused by both the standalone report and the audit final-report panel) + shared `_components/reorder-suggestions-panel.tsx` display component
+- [x] Standalone `/dashboard/warehouse/reports/reorder` page (`WAREHOUSE_REPORTS_READ`-gated)
+- [x] Audit final-report → reorder-report deep link (pre-filtered to the session's variant ids client-side, not a new RPC filter param; "View full report" link to the unfiltered standalone page)
 
 ### 8. Product/variant edit form
 
@@ -132,15 +140,15 @@ These override any convenience shortcut, any "while I'm here" cleanup, and any a
 
 ### 9. Sidebar & wiring
 
-- [ ] `warehouse.audits` sidebar child added to `src/lib/sidebar/v2/registry.ts`, gated on `WAREHOUSE_AUDITS_READ`
-- [ ] Placeholder `dashboard/warehouse/audits/page.tsx` replaced
+- [x] `warehouse.audits` sidebar child added to `src/lib/sidebar/v2/registry.ts`, gated on `WAREHOUSE_AUDITS_READ`
+- [x] Placeholder `dashboard/warehouse/audits/page.tsx` replaced
 
 ### 10. Verification
 
-- [ ] `pnpm type-check` clean
-- [ ] `pnpm lint` clean
-- [ ] All new/changed tests green (`pnpm vitest run`) — full checklist in §11
-- [ ] RLS/permission boundary tests green, including the "audits.manage without inventory.adjust is blocked from posting" case
+- [x] `pnpm type-check` clean
+- [x] `pnpm lint` clean (0 errors repo-wide; all warnings pre-existing, none in touched files)
+- [x] All new/changed tests green — full targeted run (services, actions, hooks, sidebar, all `audits`/`reports` routes) = 911/911 passing. Full-repo `pnpm vitest run` also done: 30 pre-existing failing files (signup/org-members/QR-labels/zpl/admin-sidebar/etc.), none overlapping this feature's files — confirmed via the `rls-permission-invariants` failure diff (missing `analytics.*`/`helpdesk.*`/`planning.*`/`workshop.*`, unrelated to `warehouse.*`) and by cross-checking every failing path against the file list touched this session
+- [x] RLS/permission boundary tests green, including the "audits.manage without inventory.adjust is blocked from posting" case (`approveInventoryCountSessionAction` tests + service tests)
 - [ ] Manual end-to-end walkthrough: by-location audit (create → count incl. QR scan + unexpected item → review incl. blocked-posting case → post → verify movement + balance)
 - [ ] Manual end-to-end walkthrough: by-supplier audit (same flow)
 - [ ] Manual walkthrough: blind audit, skipped-item audit, needs-recount audit

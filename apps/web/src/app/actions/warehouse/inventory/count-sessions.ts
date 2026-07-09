@@ -24,6 +24,7 @@ import {
   createCountSessionSchema,
   getReorderReportSchema,
   listCountSessionsSchema,
+  setReorderSuggestionActionSchema,
   updateCountLineSchema,
   updateCountSessionStatusSchema,
 } from "./schemas";
@@ -325,6 +326,33 @@ export async function approveInventoryCountSessionAction(rawInput: unknown) {
       });
     }
     return result;
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function setReorderSuggestionActionAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_AUDITS_MANAGE))
+      return { success: false, error: "Unauthorized" };
+    const branch = requireActiveBranch(auth);
+    if (!branch.success) return branch;
+    const parsed = setReorderSuggestionActionSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const userId = userIdFrom(auth);
+    const supabase = await createClient();
+    return await InventoryCountSessionsService.setReorderSuggestionAction(supabase, {
+      organization_id: auth.context.app.activeOrgId,
+      branch_id: branch.branchId,
+      variant_id: parsed.data.variant_id,
+      location_id: parsed.data.location_id,
+      status: parsed.data.status,
+      actor_user_id: userId,
+      count_session_id: parsed.data.count_session_id ?? null,
+    });
   } catch (error) {
     return mapUnexpected(error);
   }

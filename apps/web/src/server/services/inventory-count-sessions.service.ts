@@ -474,4 +474,64 @@ export class InventoryCountSessionsService {
 
     return { success: true, data: rows };
   }
+
+  /**
+   * Latest accept/ignore decision per (variant_id, location_id) — the
+   * actions table is an append-only decision log (plan §7: only the human
+   * decision is persisted, never the live numbers), so "current" status is
+   * whichever row for that key has the newest created_at.
+   */
+  static async getReorderSuggestionActions(
+    supabase: SupabaseClient,
+    orgId: string,
+    branchId: string
+  ): Promise<ServiceResult<Map<string, "accepted" | "ignored">>> {
+    const { data, error } = await supabase
+      .from("inventory_reorder_suggestion_actions")
+      .select("variant_id, location_id, status, created_at")
+      .eq("organization_id", orgId)
+      .eq("branch_id", branchId)
+      .order("created_at", { ascending: true });
+    if (error) return { success: false, error: errorMessage(error) };
+
+    const rows = (data ?? []) as Array<{
+      variant_id: string;
+      location_id: string | null;
+      status: "accepted" | "ignored";
+    }>;
+    const byKey = new Map<string, "accepted" | "ignored">();
+    for (const row of rows) {
+      byKey.set(`${row.variant_id}:${row.location_id ?? ""}`, row.status);
+    }
+    return { success: true, data: byKey };
+  }
+
+  static async setReorderSuggestionAction(
+    supabase: SupabaseClient,
+    input: {
+      organization_id: string;
+      branch_id: string;
+      variant_id: string;
+      location_id: string | null;
+      status: "accepted" | "ignored";
+      actor_user_id: string | null;
+      count_session_id?: string | null;
+    }
+  ): Promise<ServiceResult<{ id: string }>> {
+    const { data, error } = await supabase
+      .from("inventory_reorder_suggestion_actions")
+      .insert({
+        organization_id: input.organization_id,
+        branch_id: input.branch_id,
+        variant_id: input.variant_id,
+        location_id: input.location_id,
+        status: input.status,
+        actor_user_id: input.actor_user_id,
+        count_session_id: input.count_session_id ?? null,
+      })
+      .select("id")
+      .single();
+    if (error) return { success: false, error: errorMessage(error) };
+    return { success: true, data: data as { id: string } };
+  }
 }
