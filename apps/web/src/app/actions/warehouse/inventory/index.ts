@@ -24,11 +24,13 @@ import { InventoryMovementImportsService } from "@/server/services/inventory-mov
 import { InventoryEnterpriseService } from "@/server/services/inventory-enterprise.service";
 import type { CreateDraftMovementInput } from "@/lib/warehouse/inventory-types";
 import {
+  emitInventoryEvent,
   hasPermission,
   mapUnexpected,
   normalizeListParams,
   requireActiveBranch,
   requireWarehouseContext,
+  textFromRecord,
   userIdFrom,
   type WarehouseAuth,
 } from "./action-context";
@@ -41,13 +43,11 @@ import {
   addCollectionItemSchema,
   acceptBranchTransferSchema,
   assignInventoryVariantGalleryImageSchema,
-  approveCountSessionSchema,
   adjustStockSchema,
   checkInventorySkuCollisionsSchema,
   createBranchTransferSchema,
   createAllocationSchema,
   createCollectionSchema,
-  createCountSessionSchema,
   createCustomFieldSchema,
   archiveCustomFieldSchema,
   createDraftMovementSchema,
@@ -91,7 +91,6 @@ import {
   saveInventoryViewSchema,
   setCustomFieldValueSchema,
   transferStockSchema,
-  updateCountLineSchema,
   previewMovementImportFromSourceSchema,
   updateVariantPricingSchema,
   updateInventoryVariantSchema,
@@ -2999,146 +2998,9 @@ export async function declineInventoryBranchTransferAction(rawInput: unknown) {
   }
 }
 
-export async function createInventoryCountSessionAction(rawInput: unknown) {
-  try {
-    const auth = await requireWarehouseContext();
-    if (!auth.success) return auth;
-    if (!hasPermission(auth, WAREHOUSE_INVENTORY_ADJUST))
-      return { success: false, error: "Unauthorized" };
-    const branch = requireActiveBranch(auth);
-    if (!branch.success) return branch;
-    const parsed = createCountSessionSchema.safeParse(rawInput);
-    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
-    const userId = userIdFrom(auth);
-    const supabase = await createClient();
-    const result = await InventoryEnterpriseService.createCountSession(
-      supabase,
-      auth.context.app.activeOrgId,
-      branch.branchId,
-      {
-        scope: parsed.data.scope,
-        notes: parsed.data.notes,
-        actor_user_id: userId,
-      }
-    );
-    const countSessionId = textFromRecord(result.success ? result.data : null, [
-      "count_session_id",
-      "id",
-    ]);
-    if (result.success && countSessionId) {
-      await emitInventoryEvent(auth, userId, {
-        actionKey: "warehouse.inventory.count_session.created",
-        entityType: "inventory_count_session",
-        entityId: countSessionId,
-        branchId: branch.branchId,
-        metadata: {
-          count_session_id: countSessionId,
-          scope: parsed.data.scope,
-        },
-      });
-    }
-    return result;
-  } catch (error) {
-    return mapUnexpected(error);
-  }
-}
-
-export async function updateInventoryCountLineAction(rawInput: unknown) {
-  try {
-    const auth = await requireWarehouseContext();
-    if (!auth.success) return auth;
-    if (!hasPermission(auth, WAREHOUSE_INVENTORY_ADJUST))
-      return { success: false, error: "Unauthorized" };
-    const parsed = updateCountLineSchema.safeParse(rawInput);
-    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
-    const userId = userIdFrom(auth);
-    const supabase = await createClient();
-    const result = await InventoryEnterpriseService.updateCountLine(supabase, parsed.data.id!, {
-      counted_quantity: parsed.data.counted_quantity!,
-      note: parsed.data.note,
-      actor_user_id: userId,
-    });
-    if (result.success) {
-      await emitInventoryEvent(auth, userId, {
-        actionKey: "warehouse.inventory.count_line.updated",
-        entityType: "inventory_count_line",
-        entityId: parsed.data.id!,
-        metadata: {
-          count_line_id: parsed.data.id!,
-          counted_quantity: parsed.data.counted_quantity!,
-        },
-      });
-    }
-    return result;
-  } catch (error) {
-    return mapUnexpected(error);
-  }
-}
-
-export async function approveInventoryCountSessionAction(rawInput: unknown) {
-  try {
-    const auth = await requireWarehouseContext();
-    if (!auth.success) return auth;
-    if (!hasPermission(auth, WAREHOUSE_INVENTORY_ADJUST))
-      return { success: false, error: "Unauthorized" };
-    const parsed = approveCountSessionSchema.safeParse(rawInput);
-    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
-    const userId = userIdFrom(auth);
-    const supabase = await createClient();
-    const result = await InventoryEnterpriseService.approveCountSession(
-      supabase,
-      parsed.data.id!,
-      userId
-    );
-    if (result.success) {
-      await emitInventoryEvent(auth, userId, {
-        actionKey: "warehouse.inventory.count_session.approved",
-        entityType: "inventory_count_session",
-        entityId: parsed.data.id!,
-        metadata: { count_session_id: parsed.data.id! },
-      });
-    }
-    return result;
-  } catch (error) {
-    return mapUnexpected(error);
-  }
-}
-
-async function emitInventoryEvent(
-  auth: Extract<Awaited<ReturnType<typeof requireWarehouseContext>>, { success: true }>,
-  userId: string | null | undefined,
-  input: {
-    actionKey: string;
-    entityType: string;
-    entityId: string;
-    eventTier?: "baseline" | "enhanced" | "forensic";
-    metadata?: Record<string, unknown>;
-    branchId?: string | null;
-  }
-) {
-  if (!userId) return;
-  await eventService.emit({
-    actionKey: input.actionKey,
-    actorType: "user",
-    actorUserId: userId,
-    organizationId: auth.context.app.activeOrgId,
-    branchId: input.branchId ?? auth.context.app.activeBranchId ?? null,
-    entityType: input.entityType,
-    entityId: input.entityId,
-    eventTier: input.eventTier ?? "enhanced",
-    metadata: input.metadata ?? {},
-  });
-}
-
-function textFromRecord(value: unknown, keys: string[]) {
-  if (!value || typeof value !== "object") return null;
-  const record = value as Record<string, unknown>;
-  for (const key of keys) {
-    const candidate = record[key];
-    if (typeof candidate === "string" && candidate.trim()) return candidate;
-  }
-  return null;
-}
+// createInventoryCountSessionAction / updateInventoryCountLineAction /
+// approveInventoryCountSessionAction moved to ./count-sessions.ts as part of
+// the Stock Audit feature — see apps/web/docs/stock-audit-implementation-plan.md §3.
 
 async function emitMovementEvent(
   auth: Extract<Awaited<ReturnType<typeof requireWarehouseContext>>, { success: true }>,
