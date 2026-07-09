@@ -5849,7 +5849,8 @@
       "skuPreview": "Podgląd SKU",
       "generateSkuAction": "Generuj SKU",
       "templateDefaultSuffix": " (domyślny)",
-      "sequence": "Sekwencja"
+      "sequence": "Sekwencja",
+      "defaultSupplier": "Domyślny dostawca"
     },
     "fieldTypes": {
       "text": "Tekst",
@@ -6001,7 +6002,8 @@
       "service": "Usługa",
       "serialized": "Numerowany",
       "lot_tracked": "Śledzony partiami",
-      "bundle": "Zestaw"
+      "bundle": "Zestaw",
+      "defaultSupplier": "Domyślny dostawca"
     },
     "import": {
       "selectFileTitle": "Produkty - wybierz plik",

@@ -9,8 +9,6 @@ import {
   WAREHOUSE_PRODUCTS_ARCHIVE,
   WAREHOUSE_INVENTORY_READ,
   WAREHOUSE_INVENTORY_OPERATE,
-  WAREHOUSE_INVENTORY_ADJUST,
-  WAREHOUSE_INVENTORY_REVERSE,
   WAREHOUSE_PROCUREMENT_MANAGE,
   WAREHOUSE_PRICING_MANAGE,
   WAREHOUSE_REPORTS_READ,
@@ -22,7 +20,6 @@ import { InventoryBalancesService } from "@/server/services/inventory-balances.s
 import { InventoryMovementsService } from "@/server/services/inventory-movements.service";
 import { InventoryMovementImportsService } from "@/server/services/inventory-movement-imports.service";
 import { InventoryEnterpriseService } from "@/server/services/inventory-enterprise.service";
-import type { CreateDraftMovementInput } from "@/lib/warehouse/inventory-types";
 import {
   emitInventoryEvent,
   hasPermission,
@@ -32,7 +29,6 @@ import {
   requireWarehouseContext,
   textFromRecord,
   userIdFrom,
-  type WarehouseAuth,
 } from "./action-context";
 import {
   archiveInventoryProductSchema,
@@ -288,6 +284,7 @@ export async function createEnhancedInventoryProductAction(rawInput: unknown) {
           reorder_point: variant.reorder_point,
           opening_quantity: variant.opening_quantity,
           opening_unit_cost: variant.opening_unit_cost,
+          default_supplier_id: variant.default_supplier_id,
         })),
         track_inventory: parsed.data.track_inventory,
         opening_location_id: parsed.data.opening_location_id,
@@ -1972,6 +1969,7 @@ export async function updateInventoryVariantAction(rawInput: unknown) {
         price_currency: parsed.data.price_currency,
         reorder_point: parsed.data.reorder_point,
         preferred_supplier_id: parsed.data.preferred_supplier_id,
+        default_supplier_id: parsed.data.default_supplier_id,
         actor_user_id: userId,
       }
     );

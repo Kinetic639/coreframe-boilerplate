@@ -5875,7 +5875,8 @@
       "skuPreview": "SKU Preview",
       "generateSkuAction": "Generate SKU",
       "templateDefaultSuffix": " (default)",
-      "sequence": "Sequence"
+      "sequence": "Sequence",
+      "defaultSupplier": "Default supplier"
     },
     "fieldTypes": {
       "text": "Text",
@@ -6027,7 +6028,8 @@
       "service": "Service",
       "serialized": "Serialized",
       "lot_tracked": "Lot tracked",
-      "bundle": "Bundle"
+      "bundle": "Bundle",
+      "defaultSupplier": "Default supplier"
     },
     "import": {
       "selectFileTitle": "Items - Select File",

@@ -424,6 +424,7 @@ export function InventoryProductCreateClient({
           purchase_price: existing?.purchase_price ?? "",
           sales_price: existing?.sales_price ?? "",
           reorder_point: existing?.reorder_point ?? "",
+          default_supplier_id: existing?.default_supplier_id ?? "",
           opening_quantity: existing?.opening_quantity ?? "",
           opening_unit_cost: existing?.opening_unit_cost ?? "",
           customFields: existing?.customFields ?? {},
@@ -660,6 +661,7 @@ export function InventoryProductCreateClient({
         purchase_price: String(formData.get("purchase_price") ?? ""),
         sales_price: String(formData.get("sales_price") ?? ""),
         reorder_point: String(formData.get("reorder_point") ?? ""),
+        default_supplier_id: String(formData.get("default_supplier_id") ?? ""),
         opening_quantity: String(formData.get("opening_quantity") ?? ""),
         opening_unit_cost: String(formData.get("opening_unit_cost") ?? ""),
         customFields: {},
@@ -833,6 +835,7 @@ export function InventoryProductCreateClient({
           sales_price: moneyOrNull(row.sales_price),
           price_currency: "PLN",
           reorder_point: moneyOrNull(row.reorder_point),
+          default_supplier_id: row.default_supplier_id || null,
           opening_quantity: includeOpeningStock ? moneyOrNull(row.opening_quantity) : null,
           opening_unit_cost: includeOpeningStock ? moneyOrNull(row.opening_unit_cost) : null,
         })),
@@ -1364,6 +1367,19 @@ export function InventoryProductCreateClient({
             </label>
             <div className="grid gap-4 lg:grid-cols-2">
               <Field label={t("reorderPoint")} name="reorder_point" type="number" />
+              {mode !== "variants" && (
+                <div className="grid items-center gap-3 md:grid-cols-[170px_1fr]">
+                  <label className="text-sm">{t("defaultSupplier")}</label>
+                  <select name="default_supplier_id" className={selectClass}>
+                    <option value="">{t("selectVendor")}</option>
+                    {suppliers.map((supplier) => (
+                      <option key={supplier.id} value={supplier.id}>
+                        {supplier.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className="grid items-center gap-3 md:grid-cols-[170px_1fr]">
                 <label className="text-sm">{t("openingStock")}</label>
                 <label className="flex items-center gap-2 text-sm">
@@ -1784,6 +1800,7 @@ export function InventoryProductCreateClient({
                             onCopy={() => fillDown("reorder_point")}
                           />
                         </th>
+                        <th className="px-2 py-2 text-left">{t("defaultSupplier")}</th>
                         {includeOpeningStock ? (
                           <th className="px-2 py-2 text-left">{t("openingStock")}</th>
                         ) : null}
@@ -1876,6 +1893,22 @@ export function InventoryProductCreateClient({
                             type="number"
                             onChange={(value) => updateVariant(row.id, { reorder_point: value })}
                           />
+                          <td className="px-2 py-2">
+                            <select
+                              value={row.default_supplier_id}
+                              className={cn(selectClass, "h-9 min-w-40 pr-9")}
+                              onChange={(event) =>
+                                updateVariant(row.id, { default_supplier_id: event.target.value })
+                              }
+                            >
+                              <option value="">{t("selectVendor")}</option>
+                              {suppliers.map((supplier) => (
+                                <option key={supplier.id} value={supplier.id}>
+                                  {supplier.name}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
                           {includeOpeningStock ? (
                             <Cell
                               value={row.opening_quantity}

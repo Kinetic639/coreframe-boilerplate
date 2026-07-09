@@ -213,21 +213,31 @@ export class InventoryEnterpriseService {
       price_currency?: string | null;
       reorder_point?: number | null;
       preferred_supplier_id?: string | null;
+      /** Source of truth for audit-by-supplier scoping — lives directly on
+       * inventory_variants (unlike preferred_supplier_id, which is stored on
+       * the separate inventory_reorder_rules table below). See
+       * apps/web/docs/stock-audit-implementation-plan.md §10. */
+      default_supplier_id?: string | null;
       actor_user_id?: string | null;
     }
   ): Promise<ServiceResult<{ id: string }>> {
+    const updates: Record<string, unknown> = {
+      sku: input.sku.trim(),
+      name: input.name.trim(),
+      status: input.status,
+      barcode: input.barcode?.trim() || null,
+      purchase_price: input.purchase_price,
+      sales_price: input.sales_price,
+      price_currency: input.price_currency,
+      updated_by: input.actor_user_id ?? null,
+    };
+    if (input.default_supplier_id !== undefined) {
+      updates.default_supplier_id = input.default_supplier_id;
+    }
+
     const { data, error } = await supabase
       .from("inventory_variants")
-      .update({
-        sku: input.sku.trim(),
-        name: input.name.trim(),
-        status: input.status,
-        barcode: input.barcode?.trim() || null,
-        purchase_price: input.purchase_price,
-        sales_price: input.sales_price,
-        price_currency: input.price_currency,
-        updated_by: input.actor_user_id ?? null,
-      })
+      .update(updates)
       .eq("organization_id", orgId)
       .eq("id", variantId)
       .select("id")

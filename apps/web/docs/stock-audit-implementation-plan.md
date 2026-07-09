@@ -75,13 +75,13 @@ These override any convenience shortcut, any "while I'm here" cleanup, and any a
 
 ### 4. React Query hooks
 
-- [ ] New `src/hooks/queries/warehouse/audits.ts` + `auditKeys` factory
-- [ ] `useCountSessionsQuery`, `useCountSessionDetailQuery`
-- [ ] `useCreateCountSessionMutation`
-- [ ] `useUpdateCountLineMutation` (optimistic, with tested/verified rollback)
-- [ ] `useAddUnexpectedLineMutation`, `useBulkApproveLinesMutation`
-- [ ] `useApproveCountSessionMutation`
-- [ ] `useReorderReportQuery`
+- [x] New `src/hooks/queries/warehouse/audits.ts` + `auditKeys` factory
+- [x] `useCountSessionsQuery`, `useCountSessionDetailQuery`
+- [x] `useCreateCountSessionMutation`
+- [x] `useUpdateCountLineMutation` (optimistic, with tested/verified rollback — 14 hook tests incl. the optimistic-patch + rollback pair)
+- [x] `useAddUnexpectedLineMutation`, `useBulkApproveLinesMutation`
+- [x] `useApproveCountSessionMutation`
+- [x] `useReorderReportQuery`
 
 ### 5. Routes & components
 
@@ -106,7 +106,7 @@ These override any convenience shortcut, any "while I'm here" cleanup, and any a
 - [ ] `use-variance-grouping.ts`
 - [ ] `/audits/[id]/report` final report: `index.tsx` orchestrator
 - [ ] `report-kpi-tiles.tsx`, `report-audit-trail.tsx`, `report-adjustments-list.tsx`, `report-reorder-panel.tsx`
-- [ ] Shared `src/components/qr/qr-camera-scanner.tsx` extracted from duplicated dialogs
+- [x] Shared `src/components/qr/qr-camera-scanner.tsx` extracted from duplicated dialogs (`onDecode` callback API + `extractQrToken`, 8 tests; the two existing dialogs left as-is, not retrofitted — see implementation report)
 
 ### 6. Design tokens & i18n
 
@@ -117,14 +117,14 @@ These override any convenience shortcut, any "while I'm here" cleanup, and any a
 
 ### 7. Reorder / low-stock report
 
-- [ ] Reorder-math pure function (`reorder_quantity` vs. fallback) extracted + tested
-- [ ] `getReorderReport` service method
+- [x] Reorder-math pure function (`reorder_quantity` vs. fallback) extracted + tested (`src/lib/warehouse/reorder-math.ts`, 6 tests)
+- [x] `getReorderReport` service method + `getReorderReportAction` + `useReorderReportQuery`
 - [ ] Standalone `/dashboard/warehouse/reports/reorder` page
 - [ ] Audit final-report → reorder-report deep link (pre-filtered)
 
 ### 8. Product/variant edit form
 
-- [ ] "Default supplier" field added to product/variant create+edit form, wired to `default_supplier_id`
+- [x] "Default supplier" field added to product/variant create+edit form, wired to `default_supplier_id` — create form (simple single-variant mode + attribute-based variant table) and edit form (variant table); schema/service/action layer extended (`enhancedVariantSchema`, `updateInventoryVariantSchema`, `updateVariantDetails`, `createEnhancedProduct` follow-up UPDATE loop since the RPC payload doesn't persist it directly); 22 new/updated tests green
 
 ### 9. Sidebar & wiring
 

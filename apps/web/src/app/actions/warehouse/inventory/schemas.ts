@@ -76,6 +76,10 @@ const enhancedVariantSchema = z.object({
   reorder_point: z.number().min(0).nullable().optional(),
   opening_quantity: z.number().min(0).nullable().optional(),
   opening_unit_cost: moneySchema,
+  // Source of truth for "which supplier delivers this item" — used by
+  // audit-by-supplier scoping (stock-audit implementation plan §10). MVP:
+  // single supplier per variant, no many-to-many sourcing.
+  default_supplier_id: nullableUuidSchema,
 });
 
 const enhancedCustomFieldValueSchema = z.object({
@@ -352,6 +356,7 @@ export const updateInventoryVariantSchema = z.object({
     .optional(),
   reorder_point: z.number().min(0).nullable().optional(),
   preferred_supplier_id: nullableUuidSchema,
+  default_supplier_id: nullableUuidSchema,
 });
 
 export const updateInventoryVariantOptionsSchema = z.object({

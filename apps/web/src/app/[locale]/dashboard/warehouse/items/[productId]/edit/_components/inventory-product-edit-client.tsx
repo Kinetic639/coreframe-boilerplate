@@ -40,6 +40,7 @@ type VariantDraft = {
   sales_price: string;
   price_currency: string;
   reorder_point: string;
+  default_supplier_id: string;
   options_text: string;
 };
 
@@ -231,6 +232,7 @@ export function InventoryProductEditClient({
           sales_price: n(variant.sales_price),
           price_currency: variant.price_currency ?? "PLN",
           reorder_point: n(variant.reorder_point),
+          default_supplier_id: variant.default_supplier_id ?? "",
           options_text: formatVariantOptions(variant.option_values),
         },
       ])
@@ -387,6 +389,7 @@ export function InventoryProductEditClient({
         price_currency: draft.price_currency.trim().toUpperCase() || "PLN",
         reorder_point: numberOrNull(draft.reorder_point),
         preferred_supplier_id: null,
+        default_supplier_id: draft.default_supplier_id || null,
       });
       setMessage(
         result.success
@@ -875,7 +878,7 @@ export function InventoryProductEditClient({
               <p className="text-sm text-muted-foreground">{t("variantsHelp")}</p>
             </div>
             <div className="overflow-x-auto rounded-md border border-border">
-              <table className="min-w-[1340px] text-sm">
+              <table className="min-w-[1520px] text-sm">
                 <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
                   <tr>
                     <th className="px-3 py-2 text-left">{tc("name")}</th>
@@ -887,6 +890,7 @@ export function InventoryProductEditClient({
                     <th className="px-3 py-2 text-left">{tCreate("salesInformation")}</th>
                     <th className="px-3 py-2 text-left">{t("currency")}</th>
                     <th className="px-3 py-2 text-left">{t("reorder")}</th>
+                    <th className="px-3 py-2 text-left">{t("defaultSupplier")}</th>
                     <th className="px-3 py-2 text-right">{t("action")}</th>
                   </tr>
                 </thead>
@@ -999,6 +1003,24 @@ export function InventoryProductEditClient({
                               updateVariantDraft(variant.id, { reorder_point: event.target.value })
                             }
                           />
+                        </td>
+                        <td className="px-3 py-2">
+                          <select
+                            value={draft.default_supplier_id}
+                            className={cn(selectClass, "min-w-40 pr-9")}
+                            onChange={(event) =>
+                              updateVariantDraft(variant.id, {
+                                default_supplier_id: event.target.value,
+                              })
+                            }
+                          >
+                            <option value="">{t("selectVendor")}</option>
+                            {suppliers.map((supplier) => (
+                              <option key={supplier.id} value={supplier.id}>
+                                {supplier.name}
+                              </option>
+                            ))}
+                          </select>
                         </td>
                         <td className="px-3 py-2 text-right">
                           <Button

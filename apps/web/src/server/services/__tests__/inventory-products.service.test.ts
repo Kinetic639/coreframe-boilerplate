@@ -127,6 +127,68 @@ describe("InventoryProductsService.createEnhancedProduct", () => {
       })
     );
   });
+
+  it("applies default_supplier_id via a follow-up UPDATE per variant (not sent through the RPC payload)", async () => {
+    const supabase = createSupabaseMock();
+    const SUPPLIER_ID = "66666666-6666-4666-8666-666666666666";
+    supabase.client.rpc = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [], error: null })
+      .mockResolvedValueOnce({
+        data: { product_id: PRODUCT_ID, variant_ids: [VARIANT_ID], sku: "SKU-1" },
+        error: null,
+      });
+
+    const result = await InventoryProductsService.createEnhancedProduct(
+      supabase.client as never,
+      ORG_ID,
+      {
+        name: "Brake pad",
+        product_type: "stocked",
+        base_unit_id: UNIT_ID,
+        sku: "SKU-1",
+        variants: [{ name: "Brake pad", sku: "SKU-1", default_supplier_id: SUPPLIER_ID }],
+      },
+      USER_ID
+    );
+
+    expect(result.success).toBe(true);
+    const variantUpdate = supabase.operations.find(
+      (op) => op.table === "inventory_variants" && op.action === "update"
+    );
+    expect(variantUpdate?.payload).toEqual(
+      expect.objectContaining({ default_supplier_id: SUPPLIER_ID })
+    );
+  });
+
+  it("skips the follow-up UPDATE when no variant sets a default_supplier_id", async () => {
+    const supabase = createSupabaseMock();
+    supabase.client.rpc = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [], error: null })
+      .mockResolvedValueOnce({
+        data: { product_id: PRODUCT_ID, variant_ids: [VARIANT_ID], sku: "SKU-1" },
+        error: null,
+      });
+
+    await InventoryProductsService.createEnhancedProduct(
+      supabase.client as never,
+      ORG_ID,
+      {
+        name: "Brake pad",
+        product_type: "stocked",
+        base_unit_id: UNIT_ID,
+        sku: "SKU-1",
+        variants: [{ name: "Brake pad", sku: "SKU-1" }],
+      },
+      USER_ID
+    );
+
+    const variantUpdate = supabase.operations.find(
+      (op) => op.table === "inventory_variants" && op.action === "update"
+    );
+    expect(variantUpdate).toBeUndefined();
+  });
 });
 
 describe("InventoryProductsService.checkSkuCollisions", () => {

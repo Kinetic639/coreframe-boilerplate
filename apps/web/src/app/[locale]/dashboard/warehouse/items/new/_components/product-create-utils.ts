@@ -62,6 +62,9 @@ export type VariantDraftRow = {
   purchase_price: string;
   sales_price: string;
   reorder_point: string;
+  /** Source of truth for audit-by-supplier scoping — see
+   * apps/web/docs/stock-audit-implementation-plan.md §10. Empty string = unset. */
+  default_supplier_id: string;
   opening_quantity: string;
   opening_unit_cost: string;
   customFields: Record<string, string>;

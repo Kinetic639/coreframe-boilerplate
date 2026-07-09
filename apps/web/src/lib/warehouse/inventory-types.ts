@@ -64,6 +64,9 @@ export type InventoryProductVariantListRow = {
   on_hand_quantity: number;
   available_quantity: number;
   reorder_point: number | null;
+  /** Source of truth for audit-by-supplier scoping — see
+   * apps/web/docs/stock-audit-implementation-plan.md §10. */
+  default_supplier_id: string | null;
   option_values: InventoryVariantOptionValue[];
   custom_field_values: Record<string, string>;
 };
@@ -222,6 +225,9 @@ export type EnhancedVariantInput = {
   reorder_point?: number | null;
   opening_quantity?: number | null;
   opening_unit_cost?: number | null;
+  /** Source of truth for audit-by-supplier scoping — see
+   * apps/web/docs/stock-audit-implementation-plan.md §10. */
+  default_supplier_id?: string | null;
 };
 
 export type EnhancedCustomFieldValueInput = {
