@@ -47,3 +47,23 @@ export function expandLocationIds(
 
   return Array.from(result);
 }
+
+/**
+ * True when `locationId` is a descendant (at any depth) of `ancestorId`.
+ * Used by the wizard's location tree to visually dim locations that are
+ * already implicitly selected via an ancestor + includeChildren, without
+ * duplicating them in the explicit selection array.
+ */
+export function isDescendantOf(
+  locations: Pick<WarehouseLocation, "id" | "parent_id">[],
+  locationId: string,
+  ancestorId: string
+): boolean {
+  const byId = new Map(locations.map((loc) => [loc.id, loc]));
+  let current = byId.get(locationId);
+  while (current?.parent_id) {
+    if (current.parent_id === ancestorId) return true;
+    current = byId.get(current.parent_id);
+  }
+  return false;
+}

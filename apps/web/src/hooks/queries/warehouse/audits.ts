@@ -14,6 +14,19 @@ import {
   listInventoryCountSessionsAction,
   updateInventoryCountLineAction,
 } from "@/app/actions/warehouse/inventory/count-sessions";
+import type {
+  CountLineRow,
+  CountSessionDetail,
+  CountSessionListResult,
+  ReorderReportRow,
+} from "@/lib/warehouse/count-session-types";
+
+export type {
+  CountLineRow,
+  CountSessionDetail,
+  CountSessionListResult,
+  ReorderReportRow,
+} from "@/lib/warehouse/count-session-types";
 
 // ─── Discriminated result helper (mirrors src/hooks/queries/warehouse/index.ts) ─
 
@@ -22,66 +35,6 @@ type SR<T> = { success: true; data: T } | { success: false; error: string };
 function unwrapSR<T>(result: SR<T>): T {
   if (result.success) return result.data;
   throw new Error((result as { error: string }).error);
-}
-
-// ─── Types ──────────────────────────────────────────────────────────────────────
-
-export interface CountSessionListRow {
-  id: string;
-  count_number: string;
-  status: "draft" | "counting" | "submitted" | "approved" | "cancelled";
-  scope: Record<string, unknown>;
-  notes: string | null;
-  created_by: string | null;
-  approved_by: string | null;
-  created_at: string;
-  updated_at: string;
-  approved_at: string | null;
-  total_lines: number;
-  counted_lines: number;
-  variance_lines: number;
-}
-
-export interface CountSessionListResult {
-  rows: CountSessionListRow[];
-  totalCount: number;
-  page: number;
-  pageSize: number;
-}
-
-export interface CountLineRow {
-  id: string;
-  count_session_id: string;
-  sequence_no: number | null;
-  variant_id: string;
-  location_id: string;
-  lot_id: string | null;
-  serial_id: string | null;
-  expected_quantity: number;
-  counted_quantity: number | null;
-  variance_quantity: number | null;
-  unit_id: string;
-  status: "pending" | "counted" | "skipped" | "needs_recount" | "approved";
-  source: "generated" | "unexpected_found";
-  reason_code: string | null;
-  note: string | null;
-  counted_by: string | null;
-  counted_at: string | null;
-}
-
-export interface CountSessionDetail {
-  session: Record<string, unknown>;
-  lines: CountLineRow[];
-}
-
-export interface ReorderReportRow {
-  variant_id: string;
-  location_id: string | null;
-  on_hand_quantity: number;
-  reorder_point: number;
-  min_quantity: number | null;
-  suggested_order_quantity: number;
-  preferred_supplier_id: string | null;
 }
 
 // ─── Query key factory ────────────────────────────────────────────────────────

@@ -6,8 +6,19 @@ import { calculateSuggestedOrderQuantity, isBelowReorderPoint } from "@/lib/ware
 import { isValidCountLineTransition } from "@/lib/warehouse/count-session-types";
 import type {
   CountLineStatus,
+  CountLineRow,
+  CountSessionDetail,
+  CountSessionListResult,
   CountSessionScope,
   CountSessionType,
+  ReorderReportRow,
+} from "@/lib/warehouse/count-session-types";
+
+export type {
+  CountLineRow,
+  CountSessionDetail,
+  CountSessionListResult,
+  ReorderReportRow,
 } from "@/lib/warehouse/count-session-types";
 
 export type ServiceResult<T> = { success: true; data: T } | { success: false; error: string };
@@ -62,16 +73,6 @@ export interface AddUnexpectedLineInput {
   actor_user_id?: string | null;
 }
 
-export interface ReorderReportRow {
-  variant_id: string;
-  location_id: string | null;
-  on_hand_quantity: number;
-  reorder_point: number;
-  min_quantity: number | null;
-  suggested_order_quantity: number;
-  preferred_supplier_id: string | null;
-}
-
 export class InventoryCountSessionsService {
   // MVP assumption (plan §6): a count session is operated by a single active
   // counter at a time. No presence/locking/assignment concept exists here by
@@ -82,14 +83,7 @@ export class InventoryCountSessionsService {
     orgId: string,
     branchId: string,
     params: { search?: string; status?: string; page?: number; pageSize?: number } = {}
-  ): Promise<
-    ServiceResult<{
-      rows: Record<string, unknown>[];
-      totalCount: number;
-      page: number;
-      pageSize: number;
-    }>
-  > {
+  ): Promise<ServiceResult<CountSessionListResult>> {
     const { data, error } = await supabase.rpc("inventory_count_session_list", {
       p_organization_id: orgId,
       p_branch_id: branchId,
@@ -101,7 +95,7 @@ export class InventoryCountSessionsService {
 
     if (error) return { success: false, error: errorMessage(error) };
     const result = data as {
-      rows: Record<string, unknown>[];
+      rows: CountSessionListResult["rows"];
       total_count: number;
       page: number;
       page_size: number;
@@ -120,9 +114,7 @@ export class InventoryCountSessionsService {
   static async getSessionDetail(
     supabase: SupabaseClient,
     sessionId: string
-  ): Promise<
-    ServiceResult<{ session: Record<string, unknown>; lines: Record<string, unknown>[] }>
-  > {
+  ): Promise<ServiceResult<CountSessionDetail>> {
     const { data: session, error: sessionError } = await supabase
       .from("inventory_count_sessions")
       .select("*")
@@ -141,7 +133,7 @@ export class InventoryCountSessionsService {
       success: true,
       data: {
         session: session as Record<string, unknown>,
-        lines: (lines ?? []) as Record<string, unknown>[],
+        lines: (lines ?? []) as CountLineRow[],
       },
     };
   }

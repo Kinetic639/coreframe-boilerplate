@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { expandLocationIds } from "../count-session-scope";
+import { expandLocationIds, isDescendantOf } from "../count-session-scope";
 
 type Loc = { id: string; parent_id: string | null };
 
@@ -61,5 +61,27 @@ describe("expandLocationIds", () => {
     const before = JSON.stringify(LOCATIONS);
     expandLocationIds(LOCATIONS, ["warehouse-a"], true);
     expect(JSON.stringify(LOCATIONS)).toBe(before);
+  });
+});
+
+describe("isDescendantOf", () => {
+  it("is true for a direct child", () => {
+    expect(isDescendantOf(LOCATIONS, "rack-a1", "warehouse-a")).toBe(true);
+  });
+
+  it("is true for a deep descendant", () => {
+    expect(isDescendantOf(LOCATIONS, "bin-a1-1-1", "warehouse-a")).toBe(true);
+  });
+
+  it("is false for the node itself", () => {
+    expect(isDescendantOf(LOCATIONS, "warehouse-a", "warehouse-a")).toBe(false);
+  });
+
+  it("is false for an unrelated location", () => {
+    expect(isDescendantOf(LOCATIONS, "rack-b1", "warehouse-a")).toBe(false);
+  });
+
+  it("is false for an ancestor relative to its own descendant (direction matters)", () => {
+    expect(isDescendantOf(LOCATIONS, "warehouse-a", "rack-a1")).toBe(false);
   });
 });

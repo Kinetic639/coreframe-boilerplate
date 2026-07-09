@@ -85,15 +85,15 @@ These override any convenience shortcut, any "while I'm here" cleanup, and any a
 
 ### 5. Routes & components
 
-- [ ] `/audits` dashboard page + `audits-dashboard-client.tsx` + `audit-status-badge.tsx`
-- [ ] `/audits/new` wizard: `index.tsx` orchestrator
-- [ ] `wizard-step-type-branch.tsx`
-- [ ] `wizard-step-scope-location-tree.tsx`
-- [ ] `wizard-step-scope-supplier.tsx`
-- [ ] `wizard-step-protocol.tsx`
-- [ ] `wizard-step-preview.tsx`
-- [ ] `wizard-step-indicator.tsx`
-- [ ] `use-wizard-state.ts`, `use-wizard-scope-preview.ts`, `use-wizard-submission.ts`
+- [x] `/audits` dashboard page + `audits-dashboard-client.tsx` + `audit-status-badge.tsx` — SSR gate (`WAREHOUSE_AUDITS_READ`), stat cards, searchable session list, status-aware action buttons (resume/review/report); `count-status-colors.ts` (session + line-position status derivation, matches prototype's tracker exactly) and `count-reason-codes.ts` (dynamic shortage/surplus reason ordering) also landed here since both are shared across screens; typed routing entries added to `src/i18n/routing.ts`; `CountSessionListRow`/`CountSessionDetail`/etc. types consolidated into `count-session-types.ts` (single source, service + hooks both import); 12 new tests (5 component + 7 status-derivation), pre-existing `placeholder-pages.test.tsx` updated to drop the now-real audits route (confirmed unrelated to this feature: that file also fails on a clean HEAD checkout due to a pre-existing pnpm/next-intl module-resolution issue, not something introduced here)
+- [x] `/audits/new` wizard: `index.tsx` orchestrator — 4-step flow (type → scope → protocol → preview), real QR scanning via the shared scanner (not simulated), `alert()` avoided in favor of `toast.error` per §12
+- [x] `wizard-step-type-branch.tsx` (branch selector dropped — this app scopes sessions to the already-active branch via global context, unlike the prototype's multi-branch demo dropdown)
+- [x] `wizard-step-scope-location-tree.tsx` (inherited-selection dimming via new `isDescendantOf` helper, QR scan-to-select)
+- [x] `wizard-step-scope-supplier.tsx`
+- [x] `wizard-step-protocol.tsx` (blind mode forces require-reason off, matching prototype's dependent-toggle exactly)
+- [x] `wizard-step-preview.tsx` — scope summary only, no live per-line count (the RPC has no dry-run mode; a real preview would need a new endpoint — flagged as a known simplification vs. the prototype's in-memory live preview, not built here)
+- [x] `wizard-step-indicator.tsx`
+- [x] `use-wizard-state.ts`, `use-wizard-scope-preview.ts` (local scope summary, no server round-trip), `use-wizard-submission.ts` (redirects to `/audits/[id]/count` on success) — 4 component tests (step-gating for both location and supplier paths, blind-mode dependent toggle) + `isDescendantOf` unit tests (5)
 - [ ] `/audits/[id]/count` guided-count: `index.tsx` orchestrator
 - [ ] `count-progress-header.tsx` (sticky, non-content-covering — mobile QA §3)
 - [ ] `count-position-tracker.tsx` (horizontal scroll, auto-center active item)
