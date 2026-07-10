@@ -286,7 +286,6 @@ export function VarianceReviewScreen({ session, initialLines }: VarianceReviewSc
         onCancel={() => setLeaveDialogOpen(false)}
       />
 
-      <LoadingOverlay visible={bulkApprove.isPending} label={t("approvingAll")} />
       <LoadingOverlay visible={isPosting || approveSession.isPending} label={t("posting")} />
     </div>
   );
