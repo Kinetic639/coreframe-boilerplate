@@ -6328,6 +6328,7 @@
         "leaveAudit": "Wyjdź",
         "leaveTitle": "Opuścić weryfikację?",
         "leaveDescription": "Wszystkie dotychczasowe zmiany są już zapisane. Możesz wrócić do tej inwentaryzacji później z poziomu pulpitu.",
+        "saveAndExit": "Opuść",
         "pendingWarningTitle": "Istnieją niepoliczone pozycje:",
         "pendingWarningDescription": "{count} pozycji nie zostało jeszcze policzonych. Muszą zostać policzone lub pominięte, zanim inwentaryzacja będzie mogła zostać zaksięgowana.",
         "groupShortages": "Niedobory ({count})",

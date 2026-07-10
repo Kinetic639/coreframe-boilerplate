@@ -6354,6 +6354,7 @@
         "leaveAudit": "Leave",
         "leaveTitle": "Leave the review?",
         "leaveDescription": "All changes made so far are already saved. You can come back to this audit later from the dashboard.",
+        "saveAndExit": "Leave",
         "pendingWarningTitle": "Uncounted items remain:",
         "pendingWarningDescription": "{count} item(s) have not been counted yet. They must be counted or skipped before this audit can be posted.",
         "groupShortages": "Shortages ({count})",
