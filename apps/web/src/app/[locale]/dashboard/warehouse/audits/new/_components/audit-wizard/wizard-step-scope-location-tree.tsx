@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { CheckSquare, QrCode, Square, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "react-toastify";
@@ -59,12 +59,20 @@ export function WizardStepScopeLocationTree({
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scanStatus, setScanStatus] = useState<string | null>(null);
   const [resolving, setResolving] = useState(false);
+  // The camera's decode loop runs on every animation frame and keeps firing
+  // onDecode for as long as the same QR code stays in view — `resolving`
+  // state alone isn't enough of a guard because the loop can queue another
+  // decode before React has re-rendered with the updated state. This ref is
+  // synchronous, so a second decode arriving in the same tick is dropped
+  // immediately instead of racing the first one into duplicate toasts.
+  const handledRef = useRef(false);
 
   const handleDecode = async (scannedText: string) => {
-    if (resolving) return;
+    if (handledRef.current || resolving) return;
     const token = extractQrToken(scannedText);
     if (!token) return;
 
+    handledRef.current = true;
     setResolving(true);
     setScanStatus(t("scanQrResolving"));
 
@@ -77,6 +85,7 @@ export function WizardStepScopeLocationTree({
       lookup.data.assignment?.target_type !== "warehouse.location"
     ) {
       setScanStatus(t("scanQrNotFound"));
+      handledRef.current = false;
       return;
     }
 
@@ -84,14 +93,25 @@ export function WizardStepScopeLocationTree({
     const location = locations.find((l) => l.id === locationId);
     if (!location) {
       setScanStatus(t("scanQrNotFound"));
+      handledRef.current = false;
       return;
     }
 
-    if (!selectedLocationIds.includes(locationId)) {
-      onToggleLocation(locationId);
-    }
-    setScanStatus(t("scanQrAdded", { code: location.code ?? location.name }));
-    toast.success(t("scanQrAdded", { code: location.code ?? location.name }));
+    const label = location.code ?? location.name;
+    const wasSelected = selectedLocationIds.includes(locationId);
+    onToggleLocation(locationId);
+
+    const message = wasSelected
+      ? t("scanQrRemoved", { code: label })
+      : t("scanQrAdded", { code: label });
+    toast.success(message);
+    // Close the scanner on any successful scan — it both stops the camera
+    // (unmounting it) so it can't immediately re-decode the same still-
+    // visible code, and matches a single scan = a single action = a single
+    // toast, rather than leaving the loop running to double-fire on it.
+    setScannerOpen(false);
+    setScanStatus(null);
+    handledRef.current = false;
   };
 
   return (
