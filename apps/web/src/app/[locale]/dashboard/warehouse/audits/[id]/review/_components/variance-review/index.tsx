@@ -81,6 +81,13 @@ export function VarianceReviewScreen({ session, initialLines }: VarianceReviewSc
   const [isPosting, setIsPosting] = useState(false);
 
   const blocked =
+    // Bulk-approve's optimistic patch flips the targeted lines to
+    // "approved" in the cache the instant mutate() is called, so
+    // eligibleCount/groups can look fully resolved before the request has
+    // actually succeeded server-side. Keep post/approve locked for the
+    // whole span the bulk-approve call is in flight, not just until the
+    // (possibly premature) derived state says everything's approved.
+    bulkApprove.isPending ||
     groups.pending.length > 0 ||
     groups.needsRecount.length > 0 ||
     groups.shortages.some((l) => l.status !== "approved") ||
