@@ -23,6 +23,7 @@ interface WizardStepScopeLocationTreeProps {
    * count is only meaningful (and only shown) when this is on — otherwise
    * it doesn't affect what gets audited, so showing it would just be noise. */
   includeZeroStock: boolean;
+  onIncludeZeroStockChange: (value: boolean) => void;
   onToggleLocation: (id: string) => void;
   onIncludeChildrenChange: (value: boolean) => void;
   onSelectAllTop: () => void;
@@ -35,6 +36,7 @@ export function WizardStepScopeLocationTree({
   includeChildren,
   expandedLocationIds,
   includeZeroStock,
+  onIncludeZeroStockChange,
   onToggleLocation,
   onIncludeChildrenChange,
   onSelectAllTop,
@@ -119,6 +121,34 @@ export function WizardStepScopeLocationTree({
             className={cn(
               "pointer-events-none inline-block h-4 w-4 transform rounded-full bg-background shadow transition duration-200",
               includeChildren ? "translate-x-5" : "translate-x-0"
+            )}
+          />
+        </button>
+      </div>
+
+      {/* Include-zero-stock toggle */}
+      <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 p-3 text-xs">
+        <div className="space-y-0.5">
+          <span className="block font-semibold text-foreground">{t("includeZeroStockItems")}</span>
+          <span className="block text-[10px] text-muted-foreground">
+            {t("includeZeroStockItemsDesc")}
+          </span>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={includeZeroStock}
+          aria-label={t("includeZeroStockItems")}
+          onClick={() => onIncludeZeroStockChange(!includeZeroStock)}
+          className={cn(
+            "relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
+            includeZeroStock ? "bg-primary" : "bg-muted"
+          )}
+        >
+          <span
+            className={cn(
+              "pointer-events-none inline-block h-4 w-4 transform rounded-full bg-background shadow transition duration-200",
+              includeZeroStock ? "translate-x-5" : "translate-x-0"
             )}
           />
         </button>

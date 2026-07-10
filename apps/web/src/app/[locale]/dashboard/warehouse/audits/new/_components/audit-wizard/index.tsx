@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect } from "react";
-import { ChevronRight, Info } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "react-toastify";
 import { useRouter } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
+import { LoadingOverlay } from "@/components/branding";
 import { useUiStoreV2 } from "@/lib/stores/v2/ui-store";
 import { useWizardState } from "./use-wizard-state";
 import { useWizardScopePreview } from "./use-wizard-scope-preview";
@@ -14,7 +15,7 @@ import { WizardStepIndicator } from "./wizard-step-indicator";
 import { WizardStepTypeBranch } from "./wizard-step-type-branch";
 import { WizardStepScopeLocationTree } from "./wizard-step-scope-location-tree";
 import { WizardStepScopeSupplier } from "./wizard-step-scope-supplier";
-import { WizardStepProtocol, ToggleRow } from "./wizard-step-protocol";
+import { WizardStepProtocol } from "./wizard-step-protocol";
 import { WizardStepPreview } from "./wizard-step-preview";
 import type { WizardLocationOption, WizardStockIndexRow, WizardSupplierOption } from "./types";
 
@@ -84,19 +85,6 @@ export function AuditWizard({ branchId, locations, suppliers, stockIndex = [] }:
 
         {state.step === 2 && (
           <div className="space-y-4">
-            <ToggleRow
-              icon={<Info size={14} className="text-primary" />}
-              title={t("includeZeroStockItems")}
-              description={t("includeZeroStockItemsDesc")}
-              note={
-                state.includeZeroStock
-                  ? t("zeroStockCountBadge", { count: preview.zeroStockCount })
-                  : undefined
-              }
-              checked={state.includeZeroStock}
-              onChange={state.setIncludeZeroStock}
-            />
-
             {state.countType === "location" ? (
               <WizardStepScopeLocationTree
                 locations={locations}
@@ -104,6 +92,7 @@ export function AuditWizard({ branchId, locations, suppliers, stockIndex = [] }:
                 includeChildren={state.includeChildren}
                 expandedLocationIds={state.expandedLocationIds}
                 includeZeroStock={state.includeZeroStock}
+                onIncludeZeroStockChange={state.setIncludeZeroStock}
                 onToggleLocation={state.toggleLocation}
                 onIncludeChildrenChange={state.setIncludeChildren}
                 onSelectAllTop={state.selectAllTopLocations}
@@ -117,6 +106,8 @@ export function AuditWizard({ branchId, locations, suppliers, stockIndex = [] }:
                 onSelectSupplier={state.setSelectedSupplierId}
                 supplierLocationFilterId={state.supplierLocationFilterId}
                 onSupplierLocationFilterChange={state.setSupplierLocationFilterId}
+                includeZeroStock={state.includeZeroStock}
+                onIncludeZeroStockChange={state.setIncludeZeroStock}
               />
             )}
 
@@ -193,6 +184,8 @@ export function AuditWizard({ branchId, locations, suppliers, stockIndex = [] }:
           </div>
         )}
       </div>
+
+      <LoadingOverlay visible={isPending} label={t("launching")} />
     </div>
   );
 }

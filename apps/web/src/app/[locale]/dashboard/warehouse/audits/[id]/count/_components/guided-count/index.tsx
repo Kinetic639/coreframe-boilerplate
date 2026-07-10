@@ -8,6 +8,7 @@ import {
   useCountSessionDetailQuery,
   useUpdateCountSessionStatusMutation,
 } from "@/hooks/queries/warehouse/audits";
+import { LoadingOverlay } from "@/components/branding";
 import { useUiStoreV2 } from "@/lib/stores/v2/ui-store";
 import { useCountSessionState } from "./use-count-session-state";
 import { useCountSubmission } from "./use-count-submission";
@@ -323,6 +324,8 @@ export function GuidedCountScreen({ session, initialLines, locations }: GuidedCo
         }}
         onItemVerified={() => setScanMode(null)}
       />
+
+      <LoadingOverlay visible={isFinishing} label={t("finishingAndSubmitting")} />
     </div>
   );
 }
