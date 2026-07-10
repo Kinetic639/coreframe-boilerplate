@@ -282,7 +282,9 @@ export function useApproveCountSessionMutation() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: auditKeys.detail(variables.id) });
       queryClient.invalidateQueries({ queryKey: auditKeys.lists() });
-      toast.success(t("sessionApproved"));
+      // No success toast — navigating to the report screen already confirms
+      // the post succeeded; a toast the user has to dismiss on top of a
+      // full screen change is redundant.
     },
     onError: (err: Error) => {
       // Surfaces the RPC's own rejection reason unchanged (all-or-nothing
