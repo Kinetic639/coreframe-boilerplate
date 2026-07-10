@@ -35,14 +35,12 @@ export default async function WarehouseAuditsPage() {
     : { success: true as const, data: { rows: [], totalCount: 0, page: 1, pageSize: 50 } };
 
   return (
-    <div className="p-4 md:p-6">
-      <AuditsDashboardClient
-        branchId={branchId}
-        initialData={
-          listResult.success ? listResult.data : { rows: [], totalCount: 0, page: 1, pageSize: 50 }
-        }
-        canManage={checkPermission(context.user.permissionSnapshot, WAREHOUSE_AUDITS_MANAGE)}
-      />
-    </div>
+    <AuditsDashboardClient
+      branchId={branchId}
+      initialData={
+        listResult.success ? listResult.data : { rows: [], totalCount: 0, page: 1, pageSize: 50 }
+      }
+      canManage={checkPermission(context.user.permissionSnapshot, WAREHOUSE_AUDITS_MANAGE)}
+    />
   );
 }
