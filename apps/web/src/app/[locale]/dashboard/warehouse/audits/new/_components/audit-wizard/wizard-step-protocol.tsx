@@ -11,12 +11,17 @@ interface WizardStepProtocolProps {
   onIncludeZeroStockChange: (value: boolean) => void;
   requireReasonForVariance: boolean;
   onRequireReasonForVarianceChange: (value: boolean) => void;
+  /** How many catalog variants are currently at zero stock within the
+   * configured scope — shown next to the toggle so the counter knows how
+   * many extra lines enabling it will add. */
+  zeroStockCount: number;
 }
 
 function ToggleRow({
   icon,
   title,
   description,
+  note,
   checked,
   disabled,
   onChange,
@@ -24,6 +29,7 @@ function ToggleRow({
   icon: React.ReactNode;
   title: string;
   description: string;
+  note?: string;
   checked: boolean;
   disabled?: boolean;
   onChange: (value: boolean) => void;
@@ -44,6 +50,9 @@ function ToggleRow({
           <span className="block text-[10px] leading-relaxed text-muted-foreground">
             {description}
           </span>
+          {note && (
+            <span className="block text-[10px] leading-relaxed text-muted-foreground">{note}</span>
+          )}
         </div>
         <button
           type="button"
@@ -77,6 +86,7 @@ export function WizardStepProtocol({
   onIncludeZeroStockChange,
   requireReasonForVariance,
   onRequireReasonForVarianceChange,
+  zeroStockCount,
 }: WizardStepProtocolProps) {
   const t = useTranslations("warehouseInventory.audits.wizard");
 
@@ -107,6 +117,7 @@ export function WizardStepProtocol({
         icon={<Info size={14} className="text-primary" />}
         title={t("includeZeroStockItems")}
         description={t("includeZeroStockItemsDesc")}
+        note={t("zeroStockCountBadge", { count: zeroStockCount })}
         checked={includeZeroStock}
         onChange={onIncludeZeroStockChange}
       />

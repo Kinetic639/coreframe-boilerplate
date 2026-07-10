@@ -107,7 +107,6 @@ export function useCreateCountSessionMutation(branchId: string | null | undefine
       if (branchId) {
         queryClient.invalidateQueries({ queryKey: auditKeys.lists() });
       }
-      toast.success(t("sessionCreated"));
     },
     onError: (err: Error) => {
       toast.error(err.message || t("sessionCreateFailed"));
@@ -134,9 +133,23 @@ export function useUpdateCountLineMutation(sessionId: string | null | undefined)
         if (!old) return old;
         return {
           ...old,
-          lines: old.lines.map((line) =>
-            line.id === input.id ? ({ ...line, ...input } as EnrichedCountLine) : line
-          ),
+          lines: old.lines.map((line) => {
+            if (line.id !== input.id) return line;
+            // variance_quantity is a DB-generated stored column, never sent
+            // in the mutation input — without recomputing it here the
+            // optimistic patch left the *old* variance in place for a beat
+            // (e.g. flashing "no difference" green before the real
+            // shortage/surplus color landed on refetch).
+            const nextCountedQuantity =
+              "counted_quantity" in input
+                ? (input.counted_quantity as number | null)
+                : line.counted_quantity;
+            const variance_quantity =
+              nextCountedQuantity == null
+                ? line.variance_quantity
+                : nextCountedQuantity - line.expected_quantity;
+            return { ...line, ...input, variance_quantity } as EnrichedCountLine;
+          }),
         };
       });
 

@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { CheckCircle2, FileText } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import { Link } from "@/i18n/navigation";
+import { useUiStoreV2 } from "@/lib/stores/v2/ui-store";
 import { ReportKpiTiles } from "./report-kpi-tiles";
 import { ReportAdjustmentsList } from "./report-adjustments-list";
 import { ReportAuditTrail } from "./report-audit-trail";
@@ -40,6 +41,13 @@ export function FinalReportScreen({
   const t = useTranslations("warehouseInventory.audits.report");
   const locale = useLocale();
 
+  // Full-bleed mobile-first screen — no dashboard-shell padding around it.
+  const setFlushContent = useUiStoreV2((s) => s.setFlushContent);
+  useEffect(() => {
+    setFlushContent(true);
+    return () => setFlushContent(false);
+  }, [setFlushContent]);
+
   const stats = useMemo(() => {
     const processed = lines.filter(
       (l) => l.status === "counted" || l.status === "approved" || l.status === "skipped"
@@ -71,7 +79,7 @@ export function FinalReportScreen({
   }, [lines]);
 
   return (
-    <div className="min-h-screen bg-transparent pb-16">
+    <div className="h-full overflow-y-auto bg-transparent pb-16">
       <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-card/90 px-4 py-3 shadow-md backdrop-blur-md">
         <Link
           href="/dashboard/warehouse/audits"
@@ -85,7 +93,7 @@ export function FinalReportScreen({
         <div className="w-16" />
       </div>
 
-      <div className="relative z-10 mx-auto max-w-md space-y-5 py-4">
+      <div className="relative z-10 mx-auto max-w-md space-y-5 px-4 py-4">
         <div className="relative space-y-3.5 overflow-hidden rounded-2xl border border-border bg-card p-5 text-center shadow-lg">
           <div className="pointer-events-none absolute bottom-[-20px] right-[-20px] select-none text-primary/10">
             <FileText size={120} />

@@ -40,8 +40,24 @@ function makeWrapper() {
 }
 
 const LOCATIONS = [
-  { id: "loc-1", name: "Magazyn A", code: "MAG-A", parent_id: null, level: 0 },
-  { id: "loc-2", name: "Regał A1", code: "A1", parent_id: "loc-1", level: 1 },
+  {
+    id: "loc-1",
+    name: "Magazyn A",
+    code: "MAG-A",
+    parent_id: null,
+    level: 0,
+    inStockCount: 0,
+    zeroStockCount: 0,
+  },
+  {
+    id: "loc-2",
+    name: "Regał A1",
+    code: "A1",
+    parent_id: "loc-1",
+    level: 1,
+    inStockCount: 0,
+    zeroStockCount: 0,
+  },
 ];
 const SUPPLIERS = [{ id: "sup-1", name: "Bosch" }];
 
@@ -49,28 +65,16 @@ beforeEach(() => vi.clearAllMocks());
 
 describe("AuditWizard", () => {
   it("renders step 1 (type selection) initially", () => {
-    render(
-      <AuditWizard
-        branchId="branch-1"
-        locations={LOCATIONS}
-        suppliers={SUPPLIERS}
-        countNumberHint="CNT-NEW"
-      />,
-      { wrapper: makeWrapper() }
-    );
+    render(<AuditWizard branchId="branch-1" locations={LOCATIONS} suppliers={SUPPLIERS} />, {
+      wrapper: makeWrapper(),
+    });
     expect(screen.getByText("selectAuditType")).toBeInTheDocument();
   });
 
   it("blocks advancing past the location scope step until at least one location is selected", async () => {
-    render(
-      <AuditWizard
-        branchId="branch-1"
-        locations={LOCATIONS}
-        suppliers={SUPPLIERS}
-        countNumberHint="CNT-NEW"
-      />,
-      { wrapper: makeWrapper() }
-    );
+    render(<AuditWizard branchId="branch-1" locations={LOCATIONS} suppliers={SUPPLIERS} />, {
+      wrapper: makeWrapper(),
+    });
 
     // Step 1 -> step 2 (location is the default type)
     await userEvent.click(screen.getByText("next"));
@@ -88,15 +92,9 @@ describe("AuditWizard", () => {
   });
 
   it("blocks advancing past the supplier scope step until a supplier is selected", async () => {
-    render(
-      <AuditWizard
-        branchId="branch-1"
-        locations={LOCATIONS}
-        suppliers={SUPPLIERS}
-        countNumberHint="CNT-NEW"
-      />,
-      { wrapper: makeWrapper() }
-    );
+    render(<AuditWizard branchId="branch-1" locations={LOCATIONS} suppliers={SUPPLIERS} />, {
+      wrapper: makeWrapper(),
+    });
 
     await userEvent.click(screen.getByText("typeSupplierTitle"));
     await userEvent.click(screen.getByText("next"));
@@ -113,15 +111,9 @@ describe("AuditWizard", () => {
   });
 
   it("forces require-reason off when blind mode is enabled, and disables its toggle", async () => {
-    render(
-      <AuditWizard
-        branchId="branch-1"
-        locations={LOCATIONS}
-        suppliers={SUPPLIERS}
-        countNumberHint="CNT-NEW"
-      />,
-      { wrapper: makeWrapper() }
-    );
+    render(<AuditWizard branchId="branch-1" locations={LOCATIONS} suppliers={SUPPLIERS} />, {
+      wrapper: makeWrapper(),
+    });
 
     await userEvent.click(screen.getByText("next")); // step 1 -> 2
     await userEvent.click(screen.getByText("MAG-A"));

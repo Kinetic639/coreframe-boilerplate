@@ -8,6 +8,7 @@ import {
   useCountSessionDetailQuery,
   useUpdateCountSessionStatusMutation,
 } from "@/hooks/queries/warehouse/audits";
+import { useUiStoreV2 } from "@/lib/stores/v2/ui-store";
 import { useCountSessionState } from "./use-count-session-state";
 import { useCountSubmission } from "./use-count-submission";
 import { CountProgressHeader } from "./count-progress-header";
@@ -51,6 +52,13 @@ export function GuidedCountScreen({ session, initialLines, locations }: GuidedCo
     lines: initialLines,
   });
   const lines = data?.lines ?? initialLines;
+
+  // Full-bleed mobile-first screen — no dashboard-shell padding around it.
+  const setFlushContent = useUiStoreV2((s) => s.setFlushContent);
+  useEffect(() => {
+    setFlushContent(true);
+    return () => setFlushContent(false);
+  }, [setFlushContent]);
 
   const {
     allSortedLines,
@@ -114,10 +122,15 @@ export function GuidedCountScreen({ session, initialLines, locations }: GuidedCo
     }
   }
 
-  async function executeSaveAndNext(finalReasonCode?: string) {
+  function executeSaveAndNext(finalReasonCode?: string) {
     if (!currentLine) return;
     const countedQty = inputVal.trim() === "" ? 0 : parseInt(inputVal, 10);
-    await saveLine(currentLine, {
+    // Fire-and-forget: the optimistic cache patch (which the progress
+    // tracker reactively observes) already lands synchronously on
+    // `mutate()`. Awaiting the full network round-trip here before
+    // advancing made the main card visibly lag a couple seconds behind
+    // the progress tracker on every save.
+    void saveLine(currentLine, {
       countedQuantity: countedQty,
       reasonCode: (finalReasonCode ?? reasonCode) || null,
       note: note.trim() === "" ? null : note,
@@ -137,9 +150,9 @@ export function GuidedCountScreen({ session, initialLines, locations }: GuidedCo
     void executeSaveAndNext();
   }
 
-  async function handleSkip() {
+  function handleSkip() {
     if (!currentLine) return;
-    await skipLine(currentLine);
+    void skipLine(currentLine);
     const next = goToNextUnresolved();
     if (next === -1) toast.info(t("noOtherUnresolved"));
   }
@@ -174,14 +187,13 @@ export function GuidedCountScreen({ session, initialLines, locations }: GuidedCo
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-transparent">
+    <div className="flex h-full flex-col overflow-y-auto bg-transparent">
       <CountProgressHeader
         overallStats={overallStats}
         currentLine={currentLine}
         locationFilterActive={!!locationFilterId}
         onClearLocationFilter={() => setLocationFilter(null)}
         onOpenLocationSheet={() => setLocationSheetOpen(true)}
-        onScanLocation={() => setScanMode("location")}
         onScanItem={() => setScanMode("item")}
         lines={filteredLines}
         currentIndex={currentIndex}

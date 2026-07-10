@@ -1,6 +1,6 @@
 "use client";
 
-import { Barcode, FilterX, FolderOpen, QrCode } from "lucide-react";
+import { Barcode, FilterX, FolderOpen } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { EnrichedCountLine } from "./types";
 import { CountPositionTracker } from "./count-position-tracker";
@@ -12,7 +12,6 @@ interface CountProgressHeaderProps {
   locationFilterActive: boolean;
   onClearLocationFilter: () => void;
   onOpenLocationSheet: () => void;
-  onScanLocation: () => void;
   onScanItem: () => void;
   lines: EnrichedCountLine[];
   currentIndex: number;
@@ -24,14 +23,16 @@ interface CountProgressHeaderProps {
 
 /** Sticky progress + location header, ported from the prototype's fixed-top
  * bar. Structural colors converted to Ambra tokens; the progress bar itself
- * stays `bg-primary` (this app's --primary is already amber/orange). */
+ * stays `bg-primary` (this app's --primary is already amber/orange). Only
+ * one scan trigger lives here (item/barcode) — matching the prototype
+ * exactly; the location QR scan trigger lives in the location jump sheet,
+ * not duplicated here. */
 export function CountProgressHeader({
   overallStats,
   currentLine,
   locationFilterActive,
   onClearLocationFilter,
   onOpenLocationSheet,
-  onScanLocation,
   onScanItem,
   lines,
   currentIndex,
@@ -91,14 +92,6 @@ export function CountProgressHeader({
           </div>
 
           <div className="flex shrink-0 items-center gap-1.5">
-            <button
-              type="button"
-              onClick={onScanLocation}
-              title={t("scanLocation")}
-              className="flex cursor-pointer items-center justify-center rounded-lg bg-primary p-2 text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
-            >
-              <QrCode size={14} className="stroke-[2.5]" />
-            </button>
             <button
               type="button"
               onClick={onScanItem}

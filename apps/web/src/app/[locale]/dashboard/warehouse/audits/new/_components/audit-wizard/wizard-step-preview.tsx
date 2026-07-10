@@ -1,6 +1,6 @@
 "use client";
 
-import { Play } from "lucide-react";
+import { Loader2, Play } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import type { CountSessionType } from "@/lib/warehouse/count-session-types";
@@ -69,7 +69,11 @@ export function WizardStepPreview({
         disabled={!canLaunch || isPending}
         onClick={onLaunch}
       >
-        <Play size={14} className="mr-1.5" />
+        {isPending ? (
+          <Loader2 size={14} className="mr-1.5 animate-spin" />
+        ) : (
+          <Play size={14} className="mr-1.5" />
+        )}
         {isPending ? t("launching") : t("launch")}
       </Button>
     </div>
