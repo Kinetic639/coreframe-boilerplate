@@ -228,14 +228,44 @@ export function useBulkApproveLinesMutation(sessionId: string | null | undefined
           skippedIds: string[];
         }>
       ),
+    // Optimistically flip the targeted lines to "approved" immediately —
+    // without this, `mutation.isPending` (and the button it drives) resets
+    // to false the instant the network call settles, but the invalidated
+    // query's refetch (which is what actually makes eligibleCount hit 0 and
+    // disable the button) lands a beat later. That gap let a fast second
+    // click through to the server before the button visually caught up.
+    onMutate: async (input) => {
+      if (!sessionId) return;
+      const detailKey = auditKeys.detail(sessionId);
+      await queryClient.cancelQueries({ queryKey: detailKey });
+
+      const previousDetail = queryClient.getQueryData<EnrichedCountSessionDetail>(detailKey);
+      const targetIds = new Set(input.line_ids);
+      queryClient.setQueryData<EnrichedCountSessionDetail | undefined>(detailKey, (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          lines: old.lines.map((line) =>
+            targetIds.has(line.id) ? { ...line, status: "approved" as const } : line
+          ),
+        };
+      });
+
+      return { previousDetail };
+    },
+    onError: (err: Error, _input, context) => {
+      if (sessionId && context?.previousDetail) {
+        queryClient.setQueryData(auditKeys.detail(sessionId), context.previousDetail);
+      }
+      toast.error(err.message || t("bulkApproveFailed"));
+    },
     onSuccess: () => {
+      toast.success(t("bulkApproved"));
+    },
+    onSettled: () => {
       if (sessionId) {
         queryClient.invalidateQueries({ queryKey: auditKeys.detail(sessionId) });
       }
-      toast.success(t("bulkApproved"));
-    },
-    onError: (err: Error) => {
-      toast.error(err.message || t("bulkApproveFailed"));
     },
   });
 }

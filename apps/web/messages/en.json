@@ -6262,7 +6262,7 @@
         "showSystemQuantitiesOnDesc": "The counter sees the system stock as a target (standard audit).",
         "showSystemQuantitiesOffDesc": "The counter performs a blind count. System quantities are hidden.",
         "includeZeroStockItems": "Include zero-stock items",
-        "includeZeroStockItemsDesc": "Add all catalog items in the selected scope, even if the system shows zero stock.",
+        "includeZeroStockItemsDesc": "Include items already tracked at the selected locations/supplier whose system quantity is zero.",
         "zeroStockCountBadge": "{count} zero-stock items currently in scope.",
         "requireReason": "Require a reason for quantity variances",
         "requireReasonOnDesc": "Forces a reason to be given when the counted quantity differs from expected.",

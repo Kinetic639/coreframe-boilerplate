@@ -19,6 +19,10 @@ interface WizardStepScopeLocationTreeProps {
    * compute the totals footer, so it reflects the actual audit scope, not
    * just the raw checkbox selection. */
   expandedLocationIds: string[];
+  /** Whether the audit will include already-zero balance rows. The zero
+   * count is only meaningful (and only shown) when this is on — otherwise
+   * it doesn't affect what gets audited, so showing it would just be noise. */
+  includeZeroStock: boolean;
   onToggleLocation: (id: string) => void;
   onIncludeChildrenChange: (value: boolean) => void;
   onSelectAllTop: () => void;
@@ -30,6 +34,7 @@ export function WizardStepScopeLocationTree({
   selectedLocationIds,
   includeChildren,
   expandedLocationIds,
+  includeZeroStock,
   onToggleLocation,
   onIncludeChildrenChange,
   onSelectAllTop,
@@ -203,13 +208,17 @@ export function WizardStepScopeLocationTree({
                   >
                     {loc.inStockCount}
                   </span>
-                  <span className="text-muted-foreground/40">/</span>
-                  <span
-                    className="text-amber-600 dark:text-amber-400"
-                    title={t("zeroStockCountLabel")}
-                  >
-                    {loc.zeroStockCount}
-                  </span>
+                  {includeZeroStock && (
+                    <>
+                      <span className="text-muted-foreground/40">/</span>
+                      <span
+                        className="text-amber-600 dark:text-amber-400"
+                        title={t("zeroStockCountLabel")}
+                      >
+                        {loc.zeroStockCount}
+                      </span>
+                    </>
+                  )}
                 </div>
               </div>
             );
@@ -218,14 +227,20 @@ export function WizardStepScopeLocationTree({
 
         <div className="flex items-center justify-between rounded-lg border border-border bg-muted/20 px-3 py-2 font-mono text-[10px] text-muted-foreground">
           <span>{t("locationTotalsLabel")}</span>
-          <span>
-            <span className="text-emerald-600 dark:text-emerald-400">{totals.inStockTotal}</span>
-            <span className="mx-1 text-muted-foreground/40">/</span>
-            <span className="text-amber-600 dark:text-amber-400">{totals.zeroStockTotal}</span>
-            <span className="ml-2 font-bold text-foreground">
-              {t("locationTotalsCombined", { count: totals.combinedTotal })}
+          {includeZeroStock ? (
+            <span>
+              <span className="text-emerald-600 dark:text-emerald-400">{totals.inStockTotal}</span>
+              <span className="mx-1 text-muted-foreground/40">/</span>
+              <span className="text-amber-600 dark:text-amber-400">{totals.zeroStockTotal}</span>
+              <span className="ml-2 font-bold text-foreground">
+                {t("locationTotalsCombined", { count: totals.combinedTotal })}
+              </span>
             </span>
-          </span>
+          ) : (
+            <span className="font-bold text-foreground">
+              {t("locationTotalsCombined", { count: totals.inStockTotal })}
+            </span>
+          )}
         </div>
       </div>
 

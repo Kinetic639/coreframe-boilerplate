@@ -22,7 +22,7 @@ export function useWizardState(allLocations: WizardLocationOption[]) {
   const [supplierLocationFilterId, setSupplierLocationFilterId] = useState<string>("all");
 
   const [showExpectedQuantity, setShowExpectedQuantityState] = useState(true);
-  const [includeZeroStock, setIncludeZeroStock] = useState(false);
+  const [includeZeroStock, setIncludeZeroStock] = useState(true);
   const [requireReasonForVariance, setRequireReasonForVariance] = useState(true);
 
   const toggleLocation = (id: string) => {

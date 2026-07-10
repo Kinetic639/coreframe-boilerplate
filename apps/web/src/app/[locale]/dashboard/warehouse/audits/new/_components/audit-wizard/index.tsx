@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Info } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "react-toastify";
 import { useRouter } from "@/i18n/navigation";
@@ -14,7 +14,7 @@ import { WizardStepIndicator } from "./wizard-step-indicator";
 import { WizardStepTypeBranch } from "./wizard-step-type-branch";
 import { WizardStepScopeLocationTree } from "./wizard-step-scope-location-tree";
 import { WizardStepScopeSupplier } from "./wizard-step-scope-supplier";
-import { WizardStepProtocol } from "./wizard-step-protocol";
+import { WizardStepProtocol, ToggleRow } from "./wizard-step-protocol";
 import { WizardStepPreview } from "./wizard-step-preview";
 import type { WizardLocationOption, WizardStockIndexRow, WizardSupplierOption } from "./types";
 
@@ -22,29 +22,14 @@ interface AuditWizardProps {
   branchId: string | null;
   locations: WizardLocationOption[];
   suppliers: WizardSupplierOption[];
-  variantsTotalCount?: number;
-  variantsBySupplierCount?: Record<string, number>;
   stockIndex?: WizardStockIndexRow[];
 }
 
-export function AuditWizard({
-  branchId,
-  locations,
-  suppliers,
-  variantsTotalCount = 0,
-  variantsBySupplierCount = {},
-  stockIndex = [],
-}: AuditWizardProps) {
+export function AuditWizard({ branchId, locations, suppliers, stockIndex = [] }: AuditWizardProps) {
   const t = useTranslations("warehouseInventory.audits.wizard");
   const router = useRouter();
   const state = useWizardState(locations);
-  const preview = useWizardScopePreview(
-    state,
-    suppliers,
-    variantsTotalCount,
-    variantsBySupplierCount,
-    stockIndex
-  );
+  const preview = useWizardScopePreview(state, suppliers, stockIndex);
   const { launch, isPending } = useWizardSubmission(branchId);
 
   // Full-bleed mobile-first screen — no dashboard-shell padding around it.
@@ -99,12 +84,26 @@ export function AuditWizard({
 
         {state.step === 2 && (
           <div className="space-y-4">
+            <ToggleRow
+              icon={<Info size={14} className="text-primary" />}
+              title={t("includeZeroStockItems")}
+              description={t("includeZeroStockItemsDesc")}
+              note={
+                state.includeZeroStock
+                  ? t("zeroStockCountBadge", { count: preview.zeroStockCount })
+                  : undefined
+              }
+              checked={state.includeZeroStock}
+              onChange={state.setIncludeZeroStock}
+            />
+
             {state.countType === "location" ? (
               <WizardStepScopeLocationTree
                 locations={locations}
                 selectedLocationIds={state.selectedLocationIds}
                 includeChildren={state.includeChildren}
                 expandedLocationIds={state.expandedLocationIds}
+                includeZeroStock={state.includeZeroStock}
                 onToggleLocation={state.toggleLocation}
                 onIncludeChildrenChange={state.setIncludeChildren}
                 onSelectAllTop={state.selectAllTopLocations}
@@ -120,6 +119,7 @@ export function AuditWizard({
                 onSupplierLocationFilterChange={state.setSupplierLocationFilterId}
               />
             )}
+
             <div className="grid grid-cols-2 gap-3">
               <Button
                 variant="secondary"
@@ -150,11 +150,8 @@ export function AuditWizard({
             <WizardStepProtocol
               showExpectedQuantity={state.showExpectedQuantity}
               onShowExpectedQuantityChange={state.setShowExpectedQuantity}
-              includeZeroStock={state.includeZeroStock}
-              onIncludeZeroStockChange={state.setIncludeZeroStock}
               requireReasonForVariance={state.requireReasonForVariance}
               onRequireReasonForVarianceChange={state.setRequireReasonForVariance}
-              zeroStockCount={preview.zeroStockCount}
             />
             <div className="grid grid-cols-2 gap-3">
               <Button

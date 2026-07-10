@@ -46,8 +46,8 @@ const LOCATIONS = [
     code: "MAG-A",
     parent_id: null,
     level: 0,
-    inStockCount: 0,
-    zeroStockCount: 0,
+    inStockCount: 3,
+    zeroStockCount: 5,
   },
   {
     id: "loc-2",
@@ -125,5 +125,38 @@ describe("AuditWizard", () => {
     // Advance to preview and confirm blind protocol is reflected.
     await userEvent.click(screen.getByText("next"));
     expect(screen.getByText(/blindHidden/)).toBeInTheDocument();
+  });
+
+  it("shows the zero-stock toggle on step 2 (on by default) and not on step 3", async () => {
+    render(<AuditWizard branchId="branch-1" locations={LOCATIONS} suppliers={SUPPLIERS} />, {
+      wrapper: makeWrapper(),
+    });
+
+    await userEvent.click(screen.getByText("next")); // step 1 -> 2
+    expect(screen.getByText("selectLocations")).toBeInTheDocument();
+
+    const zeroStockToggle = screen.getByRole("switch", { name: "includeZeroStockItems" });
+    expect(zeroStockToggle).toHaveAttribute("aria-checked", "true");
+
+    await userEvent.click(screen.getByText("MAG-A"));
+    await userEvent.click(screen.getByText("next")); // step 2 -> 3
+
+    expect(screen.getByText("protocolConfigTitle")).toBeInTheDocument();
+    expect(screen.queryByRole("switch", { name: "includeZeroStockItems" })).not.toBeInTheDocument();
+  });
+
+  it("hides per-location zero-stock counts once the toggle is switched off", async () => {
+    render(<AuditWizard branchId="branch-1" locations={LOCATIONS} suppliers={SUPPLIERS} />, {
+      wrapper: makeWrapper(),
+    });
+
+    await userEvent.click(screen.getByText("next")); // step 1 -> 2
+
+    // On by default: loc-1's zeroStockCount (5) is visible.
+    expect(screen.getByText("5")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("switch", { name: "includeZeroStockItems" }));
+
+    expect(screen.queryByText("5")).not.toBeInTheDocument();
   });
 });

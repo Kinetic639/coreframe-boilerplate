@@ -6236,7 +6236,7 @@
         "showSystemQuantitiesOnDesc": "Pracownik widzi stan magazynowy z systemu jako cel (spis standardowy).",
         "showSystemQuantitiesOffDesc": "Pracownik przeprowadza spis w ciemno. Stany systemowe są ukryte.",
         "includeZeroStockItems": "Uwzględnij pozycje z zerowym stanem",
-        "includeZeroStockItemsDesc": "Dodaj wszystkie produkty z katalogu w wybranym zakresie, nawet jeśli system wskazuje zero na stanie.",
+        "includeZeroStockItemsDesc": "Uwzględnij pozycje już przypisane do wybranych lokalizacji/dostawcy, których stan systemowy wynosi zero.",
         "zeroStockCountBadge": "{count} pozycji o zerowym stanie w obecnym zakresie.",
         "requireReason": "Wymagaj przyczyny różnic ilościowych",
         "requireReasonOnDesc": "Zmusza do podania przyczyny, jeśli wpisana ilość różni się od stanu oczekiwanego.",

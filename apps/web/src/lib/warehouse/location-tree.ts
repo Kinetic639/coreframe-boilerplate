@@ -154,3 +154,38 @@ export function buildLocationTree(locations: WarehouseLocation[]): WarehouseLoca
 
   return roots;
 }
+
+/**
+ * Flattens a location list into proper depth-first (pre-order) visual
+ * order — each parent immediately followed by its own children, recursively
+ * — instead of the raw DB query order (level ASC, sort_order ASC), which is
+ * breadth-first: all level-0 rows first, then every level-1 row across every
+ * parent mixed together, then every level-2 row, etc. Rendering that
+ * breadth-first order with indentation-by-level (as a flat list UI does)
+ * makes children appear detached from their own parent, interleaved with
+ * unrelated siblings. Building the tree first and walking it pre-order fixes
+ * that without changing the DB query or the caller's flat-list rendering.
+ */
+export function flattenLocationTreeDepthFirst<T extends { id: string; parent_id: string | null }>(
+  locations: T[]
+): T[] {
+  const byId = new Map(locations.map((loc) => [loc.id, loc]));
+  const childrenByParent = new Map<string | null, T[]>();
+  for (const loc of locations) {
+    const key = loc.parent_id && byId.has(loc.parent_id) ? loc.parent_id : null;
+    const bucket = childrenByParent.get(key);
+    if (bucket) bucket.push(loc);
+    else childrenByParent.set(key, [loc]);
+  }
+
+  const result: T[] = [];
+  const visit = (parentId: string | null) => {
+    for (const loc of childrenByParent.get(parentId) ?? []) {
+      result.push(loc);
+      visit(loc.id);
+    }
+  };
+  visit(null);
+
+  return result;
+}

@@ -72,6 +72,12 @@ export function VarianceReviewScreen({ session, initialLines }: VarianceReviewSc
   );
 
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
+  // approveSession.isPending resets as soon as the network call settles, but
+  // router.push() + the report screen's own data fetch still take a beat
+  // after that — leaving a window where the button looks idle and clickable
+  // again before the navigation actually lands. This stays true across that
+  // whole span and is only cleared on failure.
+  const [isPosting, setIsPosting] = useState(false);
 
   const blocked =
     groups.pending.length > 0 ||
@@ -133,6 +139,7 @@ export function VarianceReviewScreen({ session, initialLines }: VarianceReviewSc
   }
 
   function handlePost() {
+    setIsPosting(true);
     approveSession.mutate(
       { id: session.id },
       {
@@ -142,6 +149,7 @@ export function VarianceReviewScreen({ session, initialLines }: VarianceReviewSc
             params: { id: session.id },
           });
         },
+        onError: () => setIsPosting(false),
       }
     );
   }
@@ -267,7 +275,7 @@ export function VarianceReviewScreen({ session, initialLines }: VarianceReviewSc
         countNumber={session.count_number}
         blocked={blocked}
         unresolvedCount={unapprovedCount}
-        isPosting={approveSession.isPending}
+        isPosting={isPosting || approveSession.isPending}
         onConfirm={handlePost}
       />
 
