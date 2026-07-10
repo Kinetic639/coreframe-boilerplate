@@ -3,26 +3,49 @@
 import { useMemo, useState } from "react";
 import { CheckCircle, Copy, TrendingDown } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useSetReorderSuggestionActionMutation } from "@/hooks/queries/warehouse/audits";
-import type { EnrichedReorderReportRow } from "../_lib/enrich-reorder-report.server";
+import {
+  useReorderReportQuery,
+  useSetReorderSuggestionActionMutation,
+} from "@/hooks/queries/warehouse/audits";
+import type { EnrichedReorderReportRow } from "@/lib/warehouse/count-session-types";
 
 interface ReorderSuggestionsPanelProps {
-  rows: EnrichedReorderReportRow[];
+  initialRows: EnrichedReorderReportRow[];
   branchId: string;
   countSessionId?: string | null;
+  /** Params forwarded to useReorderReportQuery — must match whatever the
+   * caller used to produce initialRows so the query key lines up. */
+  params?: { locationId?: string; supplierId?: string };
+  /** Restricts the live rows to this variant set — used by the audit
+   * final-report's embedded panel to stay pre-filtered to that session's
+   * affected variants across refetches, not just on first paint. */
+  filterVariantIds?: Set<string>;
 }
 
 /** Shared display component for reorder suggestions — used by both the
  * standalone /reports/reorder page and the audit final-report's embedded
- * panel (pre-filtered to that session's affected variants by the caller). */
+ * panel (pre-filtered to that session's affected variants by the caller).
+ * Subscribes to the same React Query cache useSetReorderSuggestionActionMutation
+ * invalidates — without this, accept/ignore buttons stayed frozen at the SSR
+ * snapshot until a full page reload. */
 export function ReorderSuggestionsPanel({
-  rows,
+  initialRows,
   branchId,
   countSessionId,
+  params = {},
+  filterVariantIds,
 }: ReorderSuggestionsPanelProps) {
   const t = useTranslations("warehouseReports.reorder");
   const [copied, setCopied] = useState(false);
   const setAction = useSetReorderSuggestionActionMutation(branchId);
+
+  const { data } = useReorderReportQuery(branchId, params, initialRows);
+  const liveRows = data ?? initialRows;
+  const rows = useMemo(
+    () =>
+      filterVariantIds ? liveRows.filter((r) => filterVariantIds.has(r.variant_id)) : liveRows,
+    [liveRows, filterVariantIds]
+  );
 
   const groups = useMemo(() => {
     const bySupplier = new Map<string, EnrichedReorderReportRow[]>();

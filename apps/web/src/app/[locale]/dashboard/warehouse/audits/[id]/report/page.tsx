@@ -5,8 +5,10 @@ import { WAREHOUSE_AUDITS_READ } from "@/lib/constants/permissions";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { createClient } from "@/utils/supabase/server";
 import { InventoryCountSessionsService } from "@/server/services/inventory-count-sessions.service";
-import { enrichCountLines } from "../../_lib/enrich-count-lines.server";
-import { enrichReorderReportRows } from "../../../_lib/enrich-reorder-report.server";
+import {
+  enrichCountLines,
+  enrichReorderReportRows,
+} from "@/server/services/warehouse-audit-enrichment.service";
 import { FinalReportScreen } from "./_components/final-report";
 import type { AdjustmentLine, FinalReportSessionInfo } from "./_components/final-report/types";
 import type { CountSessionScope } from "@/lib/warehouse/count-session-types";
@@ -72,7 +74,6 @@ export default async function AuditFinalReportPage({ params }: PageProps) {
   const reorderRowsAll = reorderResult.success
     ? await enrichReorderReportRows(supabase, context.app.activeOrgId, branchId, reorderResult.data)
     : [];
-  const reorderRows = reorderRowsAll.filter((r) => variantIdsInScope.has(r.variant_id));
 
   const branchName = context.app.availableBranches.find((b) => b.id === branchId)?.name ?? null;
 
@@ -101,7 +102,8 @@ export default async function AuditFinalReportPage({ params }: PageProps) {
       session={sessionInfo}
       lines={enrichedLines}
       adjustments={adjustments}
-      reorderRows={reorderRows}
+      initialReorderRows={reorderRowsAll}
+      reorderFilterVariantIds={variantIdsInScope}
       branchId={branchId}
       branchName={branchName}
       supplierName={supplierName}

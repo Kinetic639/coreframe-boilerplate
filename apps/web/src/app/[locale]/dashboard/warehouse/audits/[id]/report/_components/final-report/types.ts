@@ -1,7 +1,9 @@
 import type { CountSessionScope } from "@/lib/warehouse/count-session-types";
 
-export type { EnrichedCountLine } from "../../../../_lib/enrich-count-lines.server";
-export type { EnrichedReorderReportRow } from "../../../../../_lib/enrich-reorder-report.server";
+export type {
+  EnrichedCountLine,
+  EnrichedReorderReportRow,
+} from "@/lib/warehouse/count-session-types";
 
 export interface FinalReportSessionInfo {
   id: string;

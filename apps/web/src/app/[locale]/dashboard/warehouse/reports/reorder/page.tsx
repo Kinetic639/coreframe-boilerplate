@@ -5,7 +5,7 @@ import { WAREHOUSE_REPORTS_READ } from "@/lib/constants/permissions";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { createClient } from "@/utils/supabase/server";
 import { InventoryCountSessionsService } from "@/server/services/inventory-count-sessions.service";
-import { enrichReorderReportRows } from "../../_lib/enrich-reorder-report.server";
+import { enrichReorderReportRows } from "@/server/services/warehouse-audit-enrichment.service";
 import { ReorderSuggestionsPanel } from "../../_components/reorder-suggestions-panel";
 
 export default async function ReorderReportPage() {
@@ -25,7 +25,7 @@ export default async function ReorderReportPage() {
   if (!branchId) {
     return (
       <div className="p-4 md:p-6">
-        <ReorderSuggestionsPanel rows={[]} branchId="" />
+        <ReorderSuggestionsPanel initialRows={[]} branchId="" />
       </div>
     );
   }
@@ -46,7 +46,7 @@ export default async function ReorderReportPage() {
         <h1 className="text-lg font-bold text-foreground">{t("title")}</h1>
         <p className="text-sm text-muted-foreground">{t("description")}</p>
       </div>
-      <ReorderSuggestionsPanel rows={rows} branchId={branchId} />
+      <ReorderSuggestionsPanel initialRows={rows} branchId={branchId} />
     </div>
   );
 }

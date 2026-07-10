@@ -1,14 +1,44 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { ChevronLeft, ChevronRight, MessageSquare } from "lucide-react";
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Minus,
+  MessageSquare,
+  Plus,
+  RotateCcw,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/utils";
 import {
   COUNT_LINE_POSITION_STATUS_COLOR_CLASSES,
   getCountLinePositionStatus,
+  type CountLinePositionStatus,
 } from "@/lib/warehouse/count-status-colors";
 import type { EnrichedCountLine } from "./types";
+
+/** Matches the prototype's PositionStatusTracker.tsx icon choice per status
+ * exactly — real sized lucide icons, not text glyphs (a glyph rendered at
+ * text-sm looked inconsistent/oversized next to the icon-based header). */
+function PositionIcon({ status }: { status: CountLinePositionStatus }) {
+  switch (status) {
+    case "counted_ok":
+      return <Check size={11} className="stroke-[3]" />;
+    case "surplus":
+      return <Plus size={11} className="stroke-[3]" />;
+    case "shortage":
+      return <Minus size={11} className="stroke-[3]" />;
+    case "skipped":
+      return <RotateCcw size={11} className="stroke-[2.5]" />;
+    case "needs_recount":
+      return <RotateCcw size={11} />;
+    case "not_started":
+    default:
+      return <span className="h-1 w-1 rounded-full bg-muted-foreground" />;
+  }
+}
 
 interface CountPositionTrackerProps {
   lines: EnrichedCountLine[];
@@ -71,14 +101,16 @@ export function CountPositionTracker({
                   "relative flex h-11 w-11 shrink-0 touch-manipulation flex-col items-center justify-center rounded-lg border outline-none transition-all",
                   config.text,
                   isActive
-                    ? "z-10 scale-105 border-primary bg-primary/10 shadow-md"
-                    : cn(config.bg, config.border, "hover:scale-105")
+                    ? "z-10 scale-105 border-primary bg-primary/10 shadow-lg shadow-primary/40"
+                    : cn(config.bg, config.border, "hover:scale-102")
                 )}
               >
                 <span className="mb-0.5 font-mono text-[9px] font-bold leading-none opacity-80">
                   {index + 1}
                 </span>
-                <span className="text-sm font-bold leading-none">{config.symbol}</span>
+                <div className="flex h-4 w-4 items-center justify-center">
+                  <PositionIcon status={status} />
+                </div>
                 {hasNote && (
                   <span
                     className="absolute -right-1 -top-1 flex h-[13px] w-[13px] items-center justify-center rounded-full border border-card bg-primary p-0.5 text-primary-foreground shadow-sm"

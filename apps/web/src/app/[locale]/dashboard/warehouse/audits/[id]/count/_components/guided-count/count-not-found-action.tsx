@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle, FileText, RotateCcw, Search } from "lucide-react";
+import { CheckCircle, FileText, RotateCcw } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/utils";
 
@@ -67,27 +67,5 @@ export function CountPrimaryActions({
         <span>{t("saveAndNext")}</span>
       </button>
     </div>
-  );
-}
-
-interface CountNotFoundActionProps {
-  onMarkNotFound: () => void;
-}
-
-/** Secondary action to instantly mark the current item as physically
- * missing (counted=0, reason=damaged, note pre-filled) — mirrors the
- * prototype's handleNotFound. */
-export function CountNotFoundAction({ onMarkNotFound }: CountNotFoundActionProps) {
-  const t = useTranslations("warehouseInventory.audits.count");
-
-  return (
-    <button
-      type="button"
-      onClick={onMarkNotFound}
-      className="flex w-full touch-manipulation cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-destructive/30 bg-destructive/10 py-2.5 text-[11px] font-bold uppercase tracking-wider text-destructive transition-colors hover:bg-destructive/20"
-    >
-      <Search size={13} />
-      <span>{t("markNotFound")}</span>
-    </button>
   );
 }

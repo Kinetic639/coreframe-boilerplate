@@ -12,6 +12,7 @@ import type {
 
 vi.mock("@/app/actions/warehouse/inventory/count-sessions", () => ({
   setReorderSuggestionActionAction: vi.fn(),
+  getReorderReportAction: vi.fn(),
 }));
 
 vi.mock("react-toastify", () => ({
@@ -78,6 +79,7 @@ const SESSION: FinalReportSessionInfo = {
 
 const ADJUSTMENTS: AdjustmentLine[] = [];
 const REORDER_ROWS: EnrichedReorderReportRow[] = [];
+const REORDER_FILTER_VARIANT_IDS = new Set<string>(["variant-1"]);
 
 beforeEach(() => vi.clearAllMocks());
 
@@ -88,7 +90,8 @@ describe("FinalReportScreen", () => {
         session={SESSION}
         lines={[makeLine()]}
         adjustments={ADJUSTMENTS}
-        reorderRows={REORDER_ROWS}
+        initialReorderRows={REORDER_ROWS}
+        reorderFilterVariantIds={REORDER_FILTER_VARIANT_IDS}
         branchId="branch-1"
         branchName="Main Warehouse"
         supplierName={null}
@@ -105,7 +108,8 @@ describe("FinalReportScreen", () => {
         session={SESSION}
         lines={[makeLine()]}
         adjustments={ADJUSTMENTS}
-        reorderRows={REORDER_ROWS}
+        initialReorderRows={REORDER_ROWS}
+        reorderFilterVariantIds={REORDER_FILTER_VARIANT_IDS}
         branchId="branch-1"
         branchName={null}
         supplierName={null}
@@ -121,7 +125,8 @@ describe("FinalReportScreen", () => {
         session={SESSION}
         lines={[makeLine()]}
         adjustments={ADJUSTMENTS}
-        reorderRows={REORDER_ROWS}
+        initialReorderRows={REORDER_ROWS}
+        reorderFilterVariantIds={REORDER_FILTER_VARIANT_IDS}
         branchId="branch-1"
         branchName={null}
         supplierName={null}

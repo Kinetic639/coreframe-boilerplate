@@ -19,7 +19,9 @@ interface FinalReportScreenProps {
   session: FinalReportSessionInfo;
   lines: EnrichedCountLine[];
   adjustments: AdjustmentLine[];
-  reorderRows: EnrichedReorderReportRow[];
+  /** Full, unfiltered branch reorder report (see ReportReorderPanel). */
+  initialReorderRows: EnrichedReorderReportRow[];
+  reorderFilterVariantIds: Set<string>;
   branchId: string;
   branchName: string | null;
   supplierName: string | null;
@@ -29,7 +31,8 @@ export function FinalReportScreen({
   session,
   lines,
   adjustments,
-  reorderRows,
+  initialReorderRows,
+  reorderFilterVariantIds,
   branchId,
   branchName,
   supplierName,
@@ -140,7 +143,12 @@ export function FinalReportScreen({
           shortageTotal={stats.shortageTotal}
         />
 
-        <ReportReorderPanel rows={reorderRows} branchId={branchId} countSessionId={session.id} />
+        <ReportReorderPanel
+          initialRows={initialReorderRows}
+          filterVariantIds={reorderFilterVariantIds}
+          branchId={branchId}
+          countSessionId={session.id}
+        />
 
         <ReportAdjustmentsList adjustments={adjustments} />
 

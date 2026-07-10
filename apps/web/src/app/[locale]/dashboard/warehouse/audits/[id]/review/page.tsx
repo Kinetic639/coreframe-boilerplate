@@ -5,7 +5,7 @@ import { WAREHOUSE_AUDITS_MANAGE } from "@/lib/constants/permissions";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { createClient } from "@/utils/supabase/server";
 import { InventoryCountSessionsService } from "@/server/services/inventory-count-sessions.service";
-import { enrichCountLines } from "../../_lib/enrich-count-lines.server";
+import { enrichCountLines } from "@/server/services/warehouse-audit-enrichment.service";
 import { VarianceReviewScreen } from "./_components/variance-review";
 import type { ReviewSessionInfo } from "./_components/variance-review/types";
 import type { CountSessionScope } from "@/lib/warehouse/count-session-types";
@@ -64,5 +64,5 @@ export default async function VarianceReviewPage({ params }: PageProps) {
     scope: session.scope as CountSessionScope,
   };
 
-  return <VarianceReviewScreen session={sessionInfo} lines={enrichedLines} />;
+  return <VarianceReviewScreen session={sessionInfo} initialLines={enrichedLines} />;
 }

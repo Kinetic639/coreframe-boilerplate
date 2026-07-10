@@ -149,6 +149,7 @@ These override any convenience shortcut, any "while I'm here" cleanup, and any a
 - [x] `pnpm lint` clean (0 errors repo-wide; all warnings pre-existing, none in touched files)
 - [x] All new/changed tests green — full targeted run (services, actions, hooks, sidebar, all `audits`/`reports` routes) = 911/911 passing. Full-repo `pnpm vitest run` also done: 30 pre-existing failing files (signup/org-members/QR-labels/zpl/admin-sidebar/etc.), none overlapping this feature's files — confirmed via the `rls-permission-invariants` failure diff (missing `analytics.*`/`helpdesk.*`/`planning.*`/`workshop.*`, unrelated to `warehouse.*`) and by cross-checking every failing path against the file list touched this session
 - [x] RLS/permission boundary tests green, including the "audits.manage without inventory.adjust is blocked from posting" case (`approveInventoryCountSessionAction` tests + service tests)
+- [x] `pnpm build` (production, Turbopack) succeeds cleanly — all 6 new routes present in the route manifest: `/dashboard/warehouse/audits`, `/dashboard/warehouse/audits/new`, `/dashboard/warehouse/audits/[id]/count`, `/dashboard/warehouse/audits/[id]/review`, `/dashboard/warehouse/audits/[id]/report`, `/dashboard/warehouse/reports/reorder`
 - [ ] Manual end-to-end walkthrough: by-location audit (create → count incl. QR scan + unexpected item → review incl. blocked-posting case → post → verify movement + balance)
 - [ ] Manual end-to-end walkthrough: by-supplier audit (same flow)
 - [ ] Manual walkthrough: blind audit, skipped-item audit, needs-recount audit

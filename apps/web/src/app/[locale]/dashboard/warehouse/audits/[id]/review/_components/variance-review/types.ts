@@ -1,6 +1,6 @@
 import type { CountSessionScope } from "@/lib/warehouse/count-session-types";
 
-export type { EnrichedCountLine } from "../../../../_lib/enrich-count-lines.server";
+export type { EnrichedCountLine } from "@/lib/warehouse/count-session-types";
 
 export interface ReviewSessionInfo {
   id: string;

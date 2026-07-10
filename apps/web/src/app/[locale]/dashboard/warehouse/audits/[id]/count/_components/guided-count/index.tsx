@@ -4,12 +4,15 @@ import { useEffect, useMemo, useState } from "react";
 import { Info } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "react-toastify";
-import { useUpdateCountSessionStatusMutation } from "@/hooks/queries/warehouse/audits";
+import {
+  useCountSessionDetailQuery,
+  useUpdateCountSessionStatusMutation,
+} from "@/hooks/queries/warehouse/audits";
 import { useCountSessionState } from "./use-count-session-state";
 import { useCountSubmission } from "./use-count-submission";
 import { CountProgressHeader } from "./count-progress-header";
-import { CountItemCard } from "./count-item-card";
-import { CountPrimaryActions, CountNotFoundAction } from "./count-not-found-action";
+import { CountItemCard, type CountItemViewMode } from "./count-item-card";
+import { CountPrimaryActions } from "./count-not-found-action";
 import { CountReasonModal } from "./count-reason-modal";
 import { CountNotesModal } from "./count-notes-modal";
 import { CountInterruptDialog } from "./count-interrupt-dialog";
@@ -25,16 +28,29 @@ interface LocationSummary {
 
 interface GuidedCountScreenProps {
   session: GuidedCountSessionInfo;
-  lines: EnrichedCountLine[];
+  initialLines: EnrichedCountLine[];
   locations: LocationSummary[];
 }
 
-export function GuidedCountScreen({ session, lines, locations }: GuidedCountScreenProps) {
+export function GuidedCountScreen({ session, initialLines, locations }: GuidedCountScreenProps) {
   const t = useTranslations("warehouseInventory.audits.count");
 
   const showExpectedQuantity = session.scope.show_expected_quantity !== false;
   const requireReasonForVariance =
     session.scope.require_reason_for_variance !== false && showExpectedQuantity;
+
+  // Subscribes to the same React Query cache every mutation on this screen
+  // writes to (optimistic patch + invalidate) — without this, the progress
+  // bar/position tracker would stay frozen at the SSR snapshot until a full
+  // page reload. `session` itself (status/scope) intentionally stays a
+  // static prop: every place its status changes on this screen is followed
+  // immediately by either the mutation this effect issues (draft->counting)
+  // or a router.push away (finishCounting), so it never needs live wiring.
+  const { data } = useCountSessionDetailQuery(session.id, {
+    session: session as unknown as Record<string, unknown>,
+    lines: initialLines,
+  });
+  const lines = data?.lines ?? initialLines;
 
   const {
     allSortedLines,
@@ -50,8 +66,9 @@ export function GuidedCountScreen({ session, lines, locations }: GuidedCountScre
     setLocationFilter,
   } = useCountSessionState(lines);
 
-  const { saveLine, markNotFound, skipLine, saveNote, finishCounting, pauseSession } =
-    useCountSubmission(session.id);
+  const { saveLine, skipLine, saveNote, finishCounting, pauseSession } = useCountSubmission(
+    session.id
+  );
   const updateSessionStatus = useUpdateCountSessionStatusMutation();
 
   // Mark the session as "counting" the first time someone enters this screen.
@@ -82,6 +99,7 @@ export function GuidedCountScreen({ session, lines, locations }: GuidedCountScre
   const [notesDialogOpen, setNotesDialogOpen] = useState(false);
   const [locationSheetOpen, setLocationSheetOpen] = useState(false);
   const [scanMode, setScanMode] = useState<"location" | "item" | null>(null);
+  const [viewMode, setViewMode] = useState<CountItemViewMode>("compact");
 
   const liveVariance = useMemo(() => {
     if (inputVal.trim() === "" || !currentLine) return null;
@@ -117,12 +135,6 @@ export function GuidedCountScreen({ session, lines, locations }: GuidedCountScre
       return;
     }
     void executeSaveAndNext();
-  }
-
-  async function handleMarkNotFound() {
-    if (!currentLine) return;
-    await markNotFound(currentLine);
-    advanceAfterResolution();
   }
 
   async function handleSkip() {
@@ -190,6 +202,8 @@ export function GuidedCountScreen({ session, lines, locations }: GuidedCountScre
               incrementStep={incrementStep}
               onIncrementStepChange={setIncrementStep}
               liveVariance={liveVariance}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
             />
 
             <CountPrimaryActions
@@ -199,8 +213,6 @@ export function GuidedCountScreen({ session, lines, locations }: GuidedCountScre
               onSave={handleSaveAndNext}
               saveDisabled={inputVal.trim() === ""}
             />
-
-            <CountNotFoundAction onMarkNotFound={() => void handleMarkNotFound()} />
           </>
         ) : (
           <div className="flex flex-col items-center justify-center rounded-xl border border-border bg-card p-8 text-center text-muted-foreground shadow-sm">

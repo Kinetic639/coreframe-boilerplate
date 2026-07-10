@@ -42,6 +42,7 @@ import {
   approveInventoryCountSessionAction,
   updateInventoryCountSessionStatusAction,
   setReorderSuggestionActionAction,
+  getReorderReportAction,
 } from "@/app/actions/warehouse/inventory/count-sessions";
 import { toast } from "react-toastify";
 
@@ -54,7 +55,9 @@ import {
   useApproveCountSessionMutation,
   useUpdateCountSessionStatusMutation,
   useSetReorderSuggestionActionMutation,
-  type CountSessionDetail,
+  useReorderReportQuery,
+  type EnrichedCountSessionDetail,
+  type EnrichedReorderReportRow,
 } from "../audits";
 
 function makeWrapper() {
@@ -69,7 +72,7 @@ function makeWrapper() {
 const BRANCH_ID = "branch-1";
 const SESSION_ID = "session-1";
 
-const DETAIL: CountSessionDetail = {
+const DETAIL: EnrichedCountSessionDetail = {
   session: { id: SESSION_ID, status: "counting" },
   lines: [
     {
@@ -90,6 +93,11 @@ const DETAIL: CountSessionDetail = {
       note: null,
       counted_by: null,
       counted_at: null,
+      sku: "SKU-1",
+      productName: "Widget",
+      unitCode: "pcs",
+      locationCode: "A-01",
+      locationName: "Aisle A",
     },
   ],
 };
@@ -241,7 +249,9 @@ describe("useUpdateCountLineMutation", () => {
     });
 
     await waitFor(() => {
-      const cached = queryClient.getQueryData<CountSessionDetail>(auditKeys.detail(SESSION_ID));
+      const cached = queryClient.getQueryData<EnrichedCountSessionDetail>(
+        auditKeys.detail(SESSION_ID)
+      );
       expect(cached?.lines[0].counted_quantity).toBe(10);
       expect(cached?.lines[0].status).toBe("counted");
     });
@@ -272,7 +282,9 @@ describe("useUpdateCountLineMutation", () => {
       }
     });
 
-    const cached = queryClient.getQueryData<CountSessionDetail>(auditKeys.detail(SESSION_ID));
+    const cached = queryClient.getQueryData<EnrichedCountSessionDetail>(
+      auditKeys.detail(SESSION_ID)
+    );
     // Rolled back to the original pending/unset state, not left as "approved".
     expect(cached?.lines[0].status).toBe("pending");
     expect(toast.error).toHaveBeenCalledWith(
@@ -358,6 +370,44 @@ describe("useUpdateCountSessionStatusMutation", () => {
     });
 
     expect(toast.error).toHaveBeenCalledWith("not found");
+  });
+});
+
+// ─── useReorderReportQuery ─────────────────────────────────────────────────────
+
+const REORDER_ROW: EnrichedReorderReportRow = {
+  variant_id: "v1",
+  location_id: null,
+  on_hand_quantity: 2,
+  reorder_point: 5,
+  min_quantity: 1,
+  suggested_order_quantity: 10,
+  preferred_supplier_id: null,
+  sku: "SKU-1",
+  productName: "Widget",
+  unitCode: "pcs",
+  locationCode: null,
+  locationName: null,
+  supplierName: null,
+  actionStatus: null,
+};
+
+describe("useReorderReportQuery", () => {
+  it("uses initialData when provided, without calling the action", () => {
+    const { wrapper } = makeWrapper();
+    const { result } = renderHook(() => useReorderReportQuery(BRANCH_ID, {}, [REORDER_ROW]), {
+      wrapper,
+    });
+    expect(result.current.data).toEqual([REORDER_ROW]);
+    expect(getReorderReportAction).not.toHaveBeenCalled();
+  });
+
+  it("fetches when no initialData is provided", async () => {
+    vi.mocked(getReorderReportAction).mockResolvedValue({ success: true, data: [REORDER_ROW] });
+    const { wrapper } = makeWrapper();
+    const { result } = renderHook(() => useReorderReportQuery(BRANCH_ID), { wrapper });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual([REORDER_ROW]);
   });
 });
 

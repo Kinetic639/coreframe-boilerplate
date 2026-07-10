@@ -6,18 +6,30 @@ import { ReorderSuggestionsPanel } from "../../../../../_components/reorder-sugg
 import type { EnrichedReorderReportRow } from "./types";
 
 interface ReportReorderPanelProps {
-  rows: EnrichedReorderReportRow[];
+  /** Full, unfiltered branch reorder report — must match what the standalone
+   * report page would fetch, so it seeds the same React Query cache key
+   * (`useReorderReportQuery(branchId, {})`) rather than truncating it. */
+  initialRows: EnrichedReorderReportRow[];
+  /** Restricts display to this session's affected variants — applied
+   * client-side by ReorderSuggestionsPanel so it stays correct across
+   * refetches, not just on first paint. */
+  filterVariantIds: Set<string>;
   branchId: string;
   countSessionId: string;
 }
 
-/** Pre-filtered to this session's affected variants (by the SSR page, not a
- * separate RPC filter param) — links out to the full standalone reorder
- * report instead of duplicating the unfiltered query. */
-export function ReportReorderPanel({ rows, branchId, countSessionId }: ReportReorderPanelProps) {
+/** Pre-filtered to this session's affected variants — links out to the full
+ * standalone reorder report instead of duplicating the unfiltered query. */
+export function ReportReorderPanel({
+  initialRows,
+  filterVariantIds,
+  branchId,
+  countSessionId,
+}: ReportReorderPanelProps) {
   const t = useTranslations("warehouseInventory.audits.report");
 
-  if (rows.length === 0) {
+  const hasAnyInScope = initialRows.some((r) => filterVariantIds.has(r.variant_id));
+  if (!hasAnyInScope) {
     return (
       <div className="rounded-xl border border-border bg-card p-4 text-center text-xs text-muted-foreground shadow-md">
         {t("reorderEmpty")}
@@ -38,7 +50,12 @@ export function ReportReorderPanel({ rows, branchId, countSessionId }: ReportReo
           {t("reorderViewAll")}
         </Link>
       </div>
-      <ReorderSuggestionsPanel rows={rows} branchId={branchId} countSessionId={countSessionId} />
+      <ReorderSuggestionsPanel
+        initialRows={initialRows}
+        filterVariantIds={filterVariantIds}
+        branchId={branchId}
+        countSessionId={countSessionId}
+      />
     </div>
   );
 }

@@ -17,17 +17,18 @@ import {
   updateInventoryCountSessionStatusAction,
 } from "@/app/actions/warehouse/inventory/count-sessions";
 import type {
-  CountLineRow,
-  CountSessionDetail,
   CountSessionListResult,
-  ReorderReportRow,
+  EnrichedCountLine,
+  EnrichedCountSessionDetail,
+  EnrichedReorderReportRow,
 } from "@/lib/warehouse/count-session-types";
 
 export type {
   CountLineRow,
-  CountSessionDetail,
   CountSessionListResult,
-  ReorderReportRow,
+  EnrichedCountLine,
+  EnrichedCountSessionDetail,
+  EnrichedReorderReportRow,
 } from "@/lib/warehouse/count-session-types";
 
 // ─── Discriminated result helper (mirrors src/hooks/queries/warehouse/index.ts) ─
@@ -76,13 +77,15 @@ export function useCountSessionsQuery(
 
 export function useCountSessionDetailQuery(
   sessionId: string | null | undefined,
-  initialData?: CountSessionDetail
+  initialData?: EnrichedCountSessionDetail
 ) {
   return useQuery({
     queryKey: sessionId ? auditKeys.detail(sessionId) : auditKeys.details(),
     queryFn: async () =>
       unwrapSR(
-        (await getInventoryCountSessionAction({ id: sessionId! })) as SR<CountSessionDetail>
+        (await getInventoryCountSessionAction({
+          id: sessionId!,
+        })) as SR<EnrichedCountSessionDetail>
       ),
     enabled: !!sessionId,
     initialData,
@@ -126,13 +129,13 @@ export function useUpdateCountLineMutation(sessionId: string | null | undefined)
       const detailKey = auditKeys.detail(sessionId);
       await queryClient.cancelQueries({ queryKey: detailKey });
 
-      const previousDetail = queryClient.getQueryData<CountSessionDetail>(detailKey);
-      queryClient.setQueryData<CountSessionDetail | undefined>(detailKey, (old) => {
+      const previousDetail = queryClient.getQueryData<EnrichedCountSessionDetail>(detailKey);
+      queryClient.setQueryData<EnrichedCountSessionDetail | undefined>(detailKey, (old) => {
         if (!old) return old;
         return {
           ...old,
           lines: old.lines.map((line) =>
-            line.id === input.id ? ({ ...line, ...input } as CountLineRow) : line
+            line.id === input.id ? ({ ...line, ...input } as EnrichedCountLine) : line
           ),
         };
       });
@@ -251,14 +254,15 @@ export function useApproveCountSessionMutation() {
 
 export function useReorderReportQuery(
   branchId: string | null | undefined,
-  params: { locationId?: string; supplierId?: string } = {}
+  params: { locationId?: string; supplierId?: string } = {},
+  initialData?: EnrichedReorderReportRow[]
 ) {
   const t = useTranslations("warehouseInventory.audits.feedback");
 
   return useQuery({
     queryKey: branchId ? auditKeys.reorderReport(branchId, params) : auditKeys.all,
     queryFn: async () => {
-      const result = (await getReorderReportAction(params)) as SR<ReorderReportRow[]>;
+      const result = (await getReorderReportAction(params)) as SR<EnrichedReorderReportRow[]>;
       if (!result.success) {
         toast.error(
           (result as { success: false; error: string }).error || t("reorderReportFailed")
@@ -267,6 +271,7 @@ export function useReorderReportQuery(
       return unwrapSR(result);
     },
     enabled: !!branchId,
+    initialData,
     staleTime: 60 * 1000,
     refetchOnWindowFocus: false,
   });

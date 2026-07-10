@@ -98,6 +98,51 @@ export interface ReorderReportRow {
   preferred_supplier_id: string | null;
 }
 
+/**
+ * A count line enriched with display data (SKU, product name, unit,
+ * location) — inventory_count_lines itself only stores
+ * variant_id/location_id/unit_id foreign keys. Produced by
+ * `enrichCountLines` (src/server/services/warehouse-audit-enrichment.service.ts).
+ * Location display is deliberately simplified to code/name only, not a full
+ * ancestor breadcrumb — a disclosed simplification vs. the read-only
+ * prototype reference, since this app has no ready-made full-path helper.
+ */
+export interface EnrichedCountLine extends CountLineRow {
+  sku: string;
+  productName: string;
+  unitCode: string;
+  locationCode: string;
+  locationName: string;
+}
+
+/**
+ * Session detail with enriched lines — the shape both the SSR pages and the
+ * `useCountSessionDetailQuery` React Query hook return, so a post-mutation
+ * client-side refetch produces the same display-ready shape as the initial
+ * server-rendered paint.
+ */
+export interface EnrichedCountSessionDetail {
+  session: Record<string, unknown>;
+  lines: EnrichedCountLine[];
+}
+
+/**
+ * A reorder-report row enriched with display data plus the latest human
+ * accept/ignore decision (from `inventory_reorder_suggestion_actions`, an
+ * append-only decision log — `actionStatus` is whichever row for that
+ * variant/location key has the newest `created_at`). Produced by
+ * `enrichReorderReportRows` (src/server/services/warehouse-audit-enrichment.service.ts).
+ */
+export interface EnrichedReorderReportRow extends ReorderReportRow {
+  sku: string;
+  productName: string;
+  unitCode: string;
+  locationCode: string | null;
+  locationName: string | null;
+  supplierName: string | null;
+  actionStatus: "accepted" | "ignored" | null;
+}
+
 export const COUNT_LINE_STATUSES: readonly CountLineStatus[] = [
   "pending",
   "counted",

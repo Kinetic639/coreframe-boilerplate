@@ -9,6 +9,10 @@ import {
 import { InventoryCountSessionsService } from "@/server/services/inventory-count-sessions.service";
 import { WarehouseLocationsService } from "@/server/services/warehouse-locations.service";
 import {
+  enrichCountLines,
+  enrichReorderReportRows,
+} from "@/server/services/warehouse-audit-enrichment.service";
+import {
   emitInventoryEvent,
   hasPermission,
   mapUnexpected,
@@ -69,7 +73,11 @@ export async function getInventoryCountSessionAction(rawInput: unknown) {
     if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
 
     const supabase = await createClient();
-    return await InventoryCountSessionsService.getSessionDetail(supabase, parsed.data.id);
+    const detail = await InventoryCountSessionsService.getSessionDetail(supabase, parsed.data.id);
+    if (!detail.success) return detail;
+
+    const enrichedLines = await enrichCountLines(supabase, detail.data.lines);
+    return { success: true, data: { session: detail.data.session, lines: enrichedLines } };
   } catch (error) {
     return mapUnexpected(error);
   }
@@ -370,12 +378,21 @@ export async function getReorderReportAction(rawInput: unknown) {
     if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
 
     const supabase = await createClient();
-    return await InventoryCountSessionsService.getReorderReport(
+    const result = await InventoryCountSessionsService.getReorderReport(
       supabase,
       auth.context.app.activeOrgId,
       branch.branchId,
       parsed.data
     );
+    if (!result.success) return result;
+
+    const enrichedRows = await enrichReorderReportRows(
+      supabase,
+      auth.context.app.activeOrgId,
+      branch.branchId,
+      result.data
+    );
+    return { success: true, data: enrichedRows };
   } catch (error) {
     return mapUnexpected(error);
   }

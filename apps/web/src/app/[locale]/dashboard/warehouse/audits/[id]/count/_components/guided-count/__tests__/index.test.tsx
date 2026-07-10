@@ -9,6 +9,7 @@ import type { EnrichedCountLine, GuidedCountSessionInfo } from "../types";
 vi.mock("@/app/actions/warehouse/inventory/count-sessions", () => ({
   updateInventoryCountLineAction: vi.fn(),
   updateInventoryCountSessionStatusAction: vi.fn(),
+  getInventoryCountSessionAction: vi.fn(),
 }));
 
 vi.mock("@/app/actions/qr/assign", () => ({
@@ -85,24 +86,26 @@ beforeEach(() => vi.clearAllMocks());
 
 describe("GuidedCountScreen", () => {
   it("renders the current line's SKU and name", () => {
-    render(<GuidedCountScreen session={SESSION} lines={[makeLine()]} locations={LOCATIONS} />, {
-      wrapper: makeWrapper(),
-    });
+    render(
+      <GuidedCountScreen session={SESSION} initialLines={[makeLine()]} locations={LOCATIONS} />,
+      { wrapper: makeWrapper() }
+    );
     expect(screen.getByText("SKU-1")).toBeInTheDocument();
     expect(screen.getByText("Widget")).toBeInTheDocument();
   });
 
   it("renders the empty state when there are no lines", () => {
-    render(<GuidedCountScreen session={SESSION} lines={[]} locations={LOCATIONS} />, {
+    render(<GuidedCountScreen session={SESSION} initialLines={[]} locations={LOCATIONS} />, {
       wrapper: makeWrapper(),
     });
     expect(screen.getByText("emptySessionTitle")).toBeInTheDocument();
   });
 
   it("opens the reason modal when saving a variance without a reason (require_reason_for_variance)", async () => {
-    render(<GuidedCountScreen session={SESSION} lines={[makeLine()]} locations={LOCATIONS} />, {
-      wrapper: makeWrapper(),
-    });
+    render(
+      <GuidedCountScreen session={SESSION} initialLines={[makeLine()]} locations={LOCATIONS} />,
+      { wrapper: makeWrapper() }
+    );
 
     const input = screen.getByPlaceholderText("quantityPlaceholder");
     await userEvent.clear(input);
@@ -120,9 +123,10 @@ describe("GuidedCountScreen", () => {
       data: { id: "line-1" },
     });
 
-    render(<GuidedCountScreen session={SESSION} lines={[makeLine()]} locations={LOCATIONS} />, {
-      wrapper: makeWrapper(),
-    });
+    render(
+      <GuidedCountScreen session={SESSION} initialLines={[makeLine()]} locations={LOCATIONS} />,
+      { wrapper: makeWrapper() }
+    );
 
     const input = screen.getByPlaceholderText("quantityPlaceholder");
     await userEvent.clear(input);
@@ -134,6 +138,35 @@ describe("GuidedCountScreen", () => {
       expect(updateInventoryCountLineAction).toHaveBeenCalledWith(
         expect.objectContaining({ id: "line-1", counted_quantity: 10, status: "counted" })
       );
+    });
+  });
+
+  it("regression: progress tracker updates immediately after a save, without remounting", async () => {
+    vi.mocked(updateInventoryCountLineAction).mockResolvedValue({
+      success: true,
+      data: { id: "line-1" },
+    });
+
+    render(
+      <GuidedCountScreen session={SESSION} initialLines={[makeLine()]} locations={LOCATIONS} />,
+      { wrapper: makeWrapper() }
+    );
+
+    // Before saving: 0/1 counted.
+    expect(screen.getByText('progress:{"percent":0,"counted":0,"total":1}')).toBeInTheDocument();
+
+    const input = screen.getByPlaceholderText("quantityPlaceholder");
+    await userEvent.clear(input);
+    await userEvent.type(input, "10");
+    await userEvent.click(screen.getByText("saveAndNext"));
+
+    // After the mutation's optimistic patch lands in the query cache this
+    // screen subscribes to, the progress bar reflects it without a reload —
+    // this is the regression test for the "doesn't update until refresh" bug.
+    await waitFor(() => {
+      expect(
+        screen.getByText('progress:{"percent":100,"counted":1,"total":1}')
+      ).toBeInTheDocument();
     });
   });
 });

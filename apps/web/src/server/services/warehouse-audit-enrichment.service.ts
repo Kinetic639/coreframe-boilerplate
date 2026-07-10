@@ -1,15 +1,81 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { ReorderReportRow } from "@/lib/warehouse/count-session-types";
+import type {
+  CountLineRow,
+  EnrichedCountLine,
+  EnrichedReorderReportRow,
+  ReorderReportRow,
+} from "@/lib/warehouse/count-session-types";
 
-export interface EnrichedReorderReportRow extends ReorderReportRow {
-  sku: string;
-  productName: string;
-  unitCode: string;
-  locationCode: string | null;
-  locationName: string | null;
-  supplierName: string | null;
-  actionStatus: "accepted" | "ignored" | null;
+/**
+ * Shared enrichment helpers for the stock-audit feature. Both the SSR pages
+ * (guided-count, variance-review, final-report, standalone reorder report)
+ * and the server actions the client-side React Query hooks call through
+ * (getInventoryCountSessionAction, getReorderReportAction) import from here,
+ * so a post-mutation client-side refetch always returns the same
+ * display-ready shape as the initial server-rendered paint — not a raw,
+ * unenriched DB row.
+ */
+
+/**
+ * Mirrors the pattern in InventoryBalancesService: separate selects +
+ * in-memory join, not a single deep nested query.
+ */
+export async function enrichCountLines(
+  supabase: SupabaseClient,
+  lines: CountLineRow[]
+): Promise<EnrichedCountLine[]> {
+  if (lines.length === 0) return [];
+
+  const variantIds = [...new Set(lines.map((l) => l.variant_id))];
+  const locationIds = [...new Set(lines.map((l) => l.location_id))];
+  const unitIds = [...new Set(lines.map((l) => l.unit_id))];
+
+  const [variantsRes, locationsRes, unitsRes] = await Promise.all([
+    supabase.from("inventory_variants").select("id, product_id, sku, name").in("id", variantIds),
+    supabase.from("warehouse_locations").select("id, code, name").in("id", locationIds),
+    supabase.from("inventory_units").select("id, code").in("id", unitIds),
+  ]);
+
+  const variants = (variantsRes.data ?? []) as {
+    id: string;
+    product_id: string;
+    sku: string;
+    name: string | null;
+  }[];
+  const productIds = [...new Set(variants.map((v) => v.product_id))];
+  const productsRes = productIds.length
+    ? await supabase.from("inventory_products").select("id, name").in("id", productIds)
+    : { data: [] };
+  const products = (productsRes.data ?? []) as { id: string; name: string }[];
+
+  const variantsById = new Map(variants.map((v) => [v.id, v]));
+  const productsById = new Map(products.map((p) => [p.id, p]));
+  const locationsById = new Map(
+    ((locationsRes.data ?? []) as { id: string; code: string | null; name: string }[]).map((l) => [
+      l.id,
+      l,
+    ])
+  );
+  const unitsById = new Map(
+    ((unitsRes.data ?? []) as { id: string; code: string }[]).map((u) => [u.id, u])
+  );
+
+  return lines.map((line) => {
+    const variant = variantsById.get(line.variant_id);
+    const product = variant ? productsById.get(variant.product_id) : undefined;
+    const location = locationsById.get(line.location_id);
+    const unit = unitsById.get(line.unit_id);
+
+    return {
+      ...line,
+      sku: variant?.sku ?? "—",
+      productName: product?.name ?? variant?.name ?? "—",
+      unitCode: unit?.code ?? "",
+      locationCode: location?.code ?? location?.name ?? "—",
+      locationName: location?.name ?? "—",
+    };
+  });
 }
 
 /**
@@ -17,8 +83,7 @@ export interface EnrichedReorderReportRow extends ReorderReportRow {
  * foreign-key-only rows from InventoryCountSessionsService.getReorderReport)
  * with display data, plus the latest accept/ignore decision from
  * inventory_reorder_suggestion_actions. Same separate-selects-then-join
- * pattern as enrich-count-lines.server.ts. Shared by the standalone
- * /reports/reorder page and the audit final-report's reorder panel.
+ * pattern as enrichCountLines.
  */
 export async function enrichReorderReportRows(
   supabase: SupabaseClient,

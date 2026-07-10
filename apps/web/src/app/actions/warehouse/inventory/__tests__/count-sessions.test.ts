@@ -45,6 +45,11 @@ vi.mock("@/server/services/inventory-count-sessions.service", () => ({
   },
 }));
 
+vi.mock("@/server/services/warehouse-audit-enrichment.service", () => ({
+  enrichCountLines: vi.fn(),
+  enrichReorderReportRows: vi.fn(),
+}));
+
 vi.mock("@/server/services/warehouse-locations.service", () => ({
   WarehouseLocationsService: {
     listByBranch: vi.fn(),
@@ -60,6 +65,10 @@ vi.mock("@/server/services/event.service", () => ({
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { InventoryCountSessionsService } from "@/server/services/inventory-count-sessions.service";
 import { WarehouseLocationsService } from "@/server/services/warehouse-locations.service";
+import {
+  enrichCountLines,
+  enrichReorderReportRows,
+} from "@/server/services/warehouse-audit-enrichment.service";
 import { eventService } from "@/server/services/event.service";
 import {
   addUnexpectedCountLineAction,
@@ -149,6 +158,27 @@ describe("getInventoryCountSessionAction", () => {
     vi.mocked(loadDashboardContextV2).mockResolvedValue(makeContext(READ_PERMS) as never);
     const result = await getInventoryCountSessionAction({ id: "not-a-uuid" });
     expect(result.success).toBe(false);
+  });
+
+  it("enriches the raw lines before returning, so a client refetch matches the SSR shape", async () => {
+    vi.mocked(loadDashboardContextV2).mockResolvedValue(makeContext(READ_PERMS) as never);
+    const rawLine = { id: "line-1", variant_id: "v1", location_id: "loc-1", unit_id: "u1" };
+    const enrichedLine = { ...rawLine, sku: "SKU-1", productName: "Widget", unitCode: "pcs" };
+    vi.mocked(InventoryCountSessionsService.getSessionDetail).mockResolvedValue({
+      success: true,
+      data: { session: { id: "session-1" }, lines: [rawLine] },
+    } as never);
+    vi.mocked(enrichCountLines).mockResolvedValue([enrichedLine] as never);
+
+    const result = await getInventoryCountSessionAction({
+      id: "11111111-1111-1111-1111-111111111111",
+    });
+
+    expect(enrichCountLines).toHaveBeenCalledWith(expect.anything(), [rawLine]);
+    expect(result).toEqual({
+      success: true,
+      data: { session: { id: "session-1" }, lines: [enrichedLine] },
+    });
   });
 });
 
@@ -492,6 +522,32 @@ describe("getReorderReportAction", () => {
       BRANCH_ID,
       expect.any(Object)
     );
+  });
+
+  it("enriches the raw rows before returning, so a client refetch matches the SSR shape", async () => {
+    vi.mocked(loadDashboardContextV2).mockResolvedValue(makeContext(REPORTS_PERMS) as never);
+    const rawRow = {
+      variant_id: "v1",
+      location_id: null,
+      on_hand_quantity: 2,
+      reorder_point: 5,
+      min_quantity: 1,
+      suggested_order_quantity: 10,
+      preferred_supplier_id: null,
+    };
+    const enrichedRow = { ...rawRow, sku: "SKU-1", productName: "Widget", actionStatus: null };
+    vi.mocked(InventoryCountSessionsService.getReorderReport).mockResolvedValue({
+      success: true,
+      data: [rawRow],
+    });
+    vi.mocked(enrichReorderReportRows).mockResolvedValue([enrichedRow] as never);
+
+    const result = await getReorderReportAction({});
+
+    expect(enrichReorderReportRows).toHaveBeenCalledWith(expect.anything(), ORG_ID, BRANCH_ID, [
+      rawRow,
+    ]);
+    expect(result).toEqual({ success: true, data: [enrichedRow] });
   });
 });
 

@@ -7,6 +7,7 @@ import { useRouter } from "@/i18n/navigation";
 import {
   useApproveCountSessionMutation,
   useBulkApproveLinesMutation,
+  useCountSessionDetailQuery,
   useUpdateCountLineMutation,
 } from "@/hooks/queries/warehouse/audits";
 import { useVarianceGrouping } from "./use-variance-grouping";
@@ -17,14 +18,24 @@ import type { EnrichedCountLine, ReviewSessionInfo } from "./types";
 
 interface VarianceReviewScreenProps {
   session: ReviewSessionInfo;
-  lines: EnrichedCountLine[];
+  initialLines: EnrichedCountLine[];
 }
 
-export function VarianceReviewScreen({ session, lines }: VarianceReviewScreenProps) {
+export function VarianceReviewScreen({ session, initialLines }: VarianceReviewScreenProps) {
   const t = useTranslations("warehouseInventory.audits.review");
   const router = useRouter();
 
   const requireReasonForVariance = session.scope.require_reason_for_variance !== false;
+
+  // Same live-query wiring as GuidedCountScreen — approve/unapprove/
+  // bulk-approve all invalidate this cache key already; without subscribing
+  // here, the approve buttons and group counts stayed frozen at the SSR
+  // snapshot until a full reload.
+  const { data } = useCountSessionDetailQuery(session.id, {
+    session: session as unknown as Record<string, unknown>,
+    lines: initialLines,
+  });
+  const lines = data?.lines ?? initialLines;
 
   const groups = useVarianceGrouping(lines);
   const updateLine = useUpdateCountLineMutation(session.id);

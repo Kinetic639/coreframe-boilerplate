@@ -6,7 +6,7 @@ import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-conte
 import { createClient } from "@/utils/supabase/server";
 import { InventoryCountSessionsService } from "@/server/services/inventory-count-sessions.service";
 import { WarehouseLocationsService } from "@/server/services/warehouse-locations.service";
-import { enrichCountLines } from "../../_lib/enrich-count-lines.server";
+import { enrichCountLines } from "@/server/services/warehouse-audit-enrichment.service";
 import { GuidedCountScreen } from "./_components/guided-count";
 import type { GuidedCountSessionInfo } from "./_components/guided-count/types";
 import type { CountSessionScope } from "@/lib/warehouse/count-session-types";
@@ -72,5 +72,7 @@ export default async function GuidedCountPage({ params }: PageProps) {
     scope: session.scope as CountSessionScope,
   };
 
-  return <GuidedCountScreen session={sessionInfo} lines={enrichedLines} locations={locations} />;
+  return (
+    <GuidedCountScreen session={sessionInfo} initialLines={enrichedLines} locations={locations} />
+  );
 }
