@@ -33,7 +33,13 @@ export function LoadingOverlay({ visible, label }: LoadingOverlayProps) {
       aria-live="polite"
       className="fixed inset-0 z-[9990] flex items-center justify-center bg-background/70 backdrop-blur-md"
     >
-      <BrandLoader variant="beacon_swap" label={label} showWordmark logoClassName="h-20 w-20" />
+      <BrandLoader
+        variant="beacon_swap"
+        label={label}
+        showWordmark
+        className="scale-150"
+        logoClassName="h-20 w-20"
+      />
     </div>,
     document.body
   );
