@@ -17,6 +17,7 @@ import {
   useCountSessionDetailQuery,
   useUpdateCountLineMutation,
 } from "@/hooks/queries/warehouse/audits";
+import { LoadingOverlay } from "@/components/branding";
 import { useUiStoreV2 } from "@/lib/stores/v2/ui-store";
 import { useVarianceGrouping } from "./use-variance-grouping";
 import { VarianceGroupSection } from "./variance-group-section";
@@ -284,6 +285,8 @@ export function VarianceReviewScreen({ session, initialLines }: VarianceReviewSc
         onConfirm={handleLeave}
         onCancel={() => setLeaveDialogOpen(false)}
       />
+
+      <LoadingOverlay visible={isPosting || approveSession.isPending} label={t("posting")} />
     </div>
   );
 }

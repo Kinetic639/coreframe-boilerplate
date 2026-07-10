@@ -344,6 +344,9 @@ describe("useApproveCountSessionMutation", () => {
 
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: auditKeys.detail(SESSION_ID) });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: auditKeys.lists() });
+    // No success toast — the navigation to the report screen is itself the
+    // confirmation; a toast on top would be redundant.
+    expect(toast.success).not.toHaveBeenCalled();
   });
 
   it("surfaces the RPC's own rejection reason unchanged (e.g. missing inventory.adjust)", async () => {

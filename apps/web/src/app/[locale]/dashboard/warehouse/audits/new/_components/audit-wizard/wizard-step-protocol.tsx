@@ -11,7 +11,7 @@ interface WizardStepProtocolProps {
   onRequireReasonForVarianceChange: (value: boolean) => void;
 }
 
-export function ToggleRow({
+function ToggleRow({
   icon,
   title,
   description,
