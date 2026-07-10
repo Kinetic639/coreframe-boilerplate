@@ -352,7 +352,7 @@ function FlyoutRootRowContent({
       </span>
       <span
         className={cn(
-          "flex min-w-0 flex-1 items-center gap-1.5 pr-7 text-[13px] leading-none transition-opacity duration-100 ease-out",
+          "flex min-w-0 flex-1 items-center gap-1.5 pr-7 text-[13px] leading-normal transition-opacity duration-100 ease-out",
           expanded ? "opacity-100" : "opacity-0"
         )}
       >
@@ -477,7 +477,7 @@ function CollapsedFlyoutLayer({
             initial="initial"
             animate="animate"
             exit="exit"
-            className="pointer-events-auto fixed z-[9998] overflow-visible bg-sidebar "
+            className="pointer-events-auto fixed z-[999998] overflow-visible bg-sidebar "
             style={{ left: l1ColumnLeft, top: l1ColumnTop, width: FLYOUT_W }}
             onMouseEnter={keepOpen}
             onMouseLeave={() => closeLater(onClose)}
@@ -525,7 +525,7 @@ function CollapsedFlyoutLayer({
                   top: l1ColumnTop + (activeL2Index + 1) * FLYOUT_ROW_H,
                   width: FLYOUT_W,
                 }}
-                className="pointer-events-auto z-[9997] bg-sidebar "
+                className="pointer-events-auto z-[999997] bg-sidebar "
                 onMouseEnter={keepOpen}
                 onMouseLeave={() => closeLater(onClose)}
               >
@@ -639,7 +639,7 @@ function NavL1Flyout({
         onFocus={openFlyout}
         onBlur={() => closeLater(closeFlyout)}
         className={cn(
-          "z-[9999] flex items-center justify-center overflow-hidden outline-none",
+          "z-[999999] flex items-center justify-center overflow-hidden outline-none",
           "text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
           "transition-[width,background-color,color,border-radius,box-shadow] duration-150 ease-out",
           isOpenish
