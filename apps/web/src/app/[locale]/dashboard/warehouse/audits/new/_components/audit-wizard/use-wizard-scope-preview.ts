@@ -22,30 +22,42 @@ export function useWizardScopePreview(
   return useMemo(() => {
     const selectedSupplier = suppliers.find((s) => s.id === state.selectedSupplierId) ?? null;
 
-    // How many catalog variants have zero on-hand stock across the
-    // currently-configured scope — i.e. how many lines "include zero-stock
-    // items" would add to the audit. A variant absent from stockIndex
-    // (which only carries positive-stock rows) is zero-stock by definition.
+    // How many extra zero-stock catalog lines "include zero-stock items"
+    // would add to the audit. This mirrors the count-session RPC's seeding
+    // step exactly: for EACH selected location, every active catalog
+    // variant that doesn't already have a balance row (positive or zero) at
+    // that specific location gets its own line — it's a per-location sum,
+    // not a single dedup across the whole scope, since the same
+    // out-of-stock variant produces one line per location it's missing
+    // from.
     let zeroStockCount = 0;
     if (state.countType === "location") {
-      const expandedSet = new Set(state.expandedLocationIds);
-      const stockedVariantIds = new Set(
-        stockIndex.filter((r) => expandedSet.has(r.locationId)).map((r) => r.variantId)
-      );
-      zeroStockCount = Math.max(0, variantsTotalCount - stockedVariantIds.size);
+      const existingCountByLocation = new Map<string, number>();
+      for (const row of stockIndex) {
+        existingCountByLocation.set(
+          row.locationId,
+          (existingCountByLocation.get(row.locationId) ?? 0) + 1
+        );
+      }
+      for (const locationId of state.expandedLocationIds) {
+        const existing = existingCountByLocation.get(locationId) ?? 0;
+        zeroStockCount += Math.max(0, variantsTotalCount - existing);
+      }
     } else if (state.selectedSupplierId) {
-      const baseline = variantsBySupplierCount[state.selectedSupplierId] ?? 0;
-      const locationFilterActive = state.supplierLocationFilterId !== "all";
-      const stockedVariantIds = new Set(
-        stockIndex
-          .filter(
-            (r) =>
-              r.supplierId === state.selectedSupplierId &&
-              (!locationFilterActive || r.locationId === state.supplierLocationFilterId)
-          )
-          .map((r) => r.variantId)
-      );
-      zeroStockCount = Math.max(0, baseline - stockedVariantIds.size);
+      // The RPC cross-joins over location_filter_ids for supplier-scoped
+      // sessions — if no specific location is chosen ("all locations"),
+      // that array is empty and the RPC's unnest() yields zero rows, i.e.
+      // it adds nothing. Only a single explicit location filter actually
+      // seeds zero-stock lines.
+      if (state.supplierLocationFilterId !== "all") {
+        const baseline = variantsBySupplierCount[state.selectedSupplierId] ?? 0;
+        const existing = stockIndex.filter(
+          (r) =>
+            r.supplierId === state.selectedSupplierId &&
+            r.locationId === state.supplierLocationFilterId
+        ).length;
+        zeroStockCount = Math.max(0, baseline - existing);
+      }
     }
 
     return {

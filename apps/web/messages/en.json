@@ -6386,6 +6386,7 @@
         "approveAllSuccess": "Approved {count} line(s)",
         "approveAllPartial": "Approved {approved} line(s); {skipped} still need a reason before they can be approved",
         "postAndApprove": "Approve & post",
+        "posting": "Posting...",
         "postConfirmTitle": "Confirmation",
         "postConfirmDescription": "Read the following before confirming:",
         "postConfirmBody": "Approving these readings will generate a formal stock correction based on audit {number}. Current database quantities will be corrected immediately.",

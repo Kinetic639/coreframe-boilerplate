@@ -257,6 +257,7 @@ export function VarianceReviewScreen({ session, initialLines }: VarianceReviewSc
             totalLines={lines.length}
             unapprovedCount={unapprovedCount}
             eligibleCount={eligibleIds.length}
+            isApproving={bulkApprove.isPending}
             onApproveAll={handleApproveAll}
           />
         )}
@@ -266,6 +267,7 @@ export function VarianceReviewScreen({ session, initialLines }: VarianceReviewSc
         countNumber={session.count_number}
         blocked={blocked}
         unresolvedCount={unapprovedCount}
+        isPosting={approveSession.isPending}
         onConfirm={handlePost}
       />
 

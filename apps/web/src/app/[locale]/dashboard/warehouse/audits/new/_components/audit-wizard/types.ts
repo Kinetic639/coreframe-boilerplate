@@ -18,11 +18,15 @@ export interface WizardSupplierOption {
   name: string;
 }
 
-/** One row per (variant, location) with positive on-hand stock — the raw
- * material used to compute the live "zero-stock items in scope" count as
- * the counter changes their location/supplier selection, without a network
- * round trip per keystroke. Zero/absent balances are never included, so
- * "not present here" already means zero stock. */
+/** One row per (variant, location) that already has a tracked balance row —
+ * positive OR zero on-hand — the raw material used to compute the live
+ * "zero-stock items in scope" count as the counter changes their
+ * location/supplier selection, without a network round trip per keystroke.
+ * A (variant, location) pair absent here has no balance row at all, which is
+ * exactly the set the count-session RPC's zero-stock seeding step targets;
+ * a pair that already has a zero-quantity row must NOT be double-counted as
+ * "would add a new zero-stock line" since it's already seeded unconditionally
+ * by the RPC's primary balance-based branch. */
 export interface WizardStockIndexRow {
   variantId: string;
   locationId: string;

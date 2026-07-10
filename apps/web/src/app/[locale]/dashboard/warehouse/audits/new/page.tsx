@@ -93,7 +93,13 @@ export default async function NewWarehouseAuditPage() {
 
   const suppliers = suppliersResult.success ? suppliersResult.data : [];
 
-  const stockIndex = positiveBalances.map((b) => ({
+  // Every existing balance row (positive AND zero) — this mirrors exactly
+  // what the count-session RPC's "already has a line" NOT EXISTS check
+  // looks at when deciding whether to seed an extra zero-stock catalog line
+  // for a (variant, location) pair. A row that already reads zero still
+  // counts as "exists" there, so it must NOT be treated as stock-less by
+  // the zero-stock preview math below.
+  const stockIndex = allBalances.map((b) => ({
     variantId: b.variant_id,
     locationId: b.location_id,
     supplierId: variantSupplierById.get(b.variant_id) ?? null,

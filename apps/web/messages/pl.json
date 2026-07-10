@@ -6360,6 +6360,7 @@
         "approveAllSuccess": "Zatwierdzono {count} pozycji",
         "approveAllPartial": "Zatwierdzono {approved} pozycji; {skipped} nadal wymaga przyczyny przed zatwierdzeniem",
         "postAndApprove": "Zatwierdź i zaksięguj",
+        "posting": "Księgowanie...",
         "postConfirmTitle": "Potwierdzenie",
         "postConfirmDescription": "Przeczytaj poniższy komunikat przed zatwierdzeniem:",
         "postConfirmBody": "Zatwierdzenie tych odczytów wygeneruje formalną korektę stanów magazynowych na podstawie inwentaryzacji {number}. Bieżące ilości w bazie danych zostaną skorygowane natychmiastowo.",
