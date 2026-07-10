@@ -213,21 +213,31 @@ export class InventoryEnterpriseService {
       price_currency?: string | null;
       reorder_point?: number | null;
       preferred_supplier_id?: string | null;
+      /** Source of truth for audit-by-supplier scoping — lives directly on
+       * inventory_variants (unlike preferred_supplier_id, which is stored on
+       * the separate inventory_reorder_rules table below). See
+       * apps/web/docs/stock-audit-implementation-plan.md §10. */
+      default_supplier_id?: string | null;
       actor_user_id?: string | null;
     }
   ): Promise<ServiceResult<{ id: string }>> {
+    const updates: Record<string, unknown> = {
+      sku: input.sku.trim(),
+      name: input.name.trim(),
+      status: input.status,
+      barcode: input.barcode?.trim() || null,
+      purchase_price: input.purchase_price,
+      sales_price: input.sales_price,
+      price_currency: input.price_currency,
+      updated_by: input.actor_user_id ?? null,
+    };
+    if (input.default_supplier_id !== undefined) {
+      updates.default_supplier_id = input.default_supplier_id;
+    }
+
     const { data, error } = await supabase
       .from("inventory_variants")
-      .update({
-        sku: input.sku.trim(),
-        name: input.name.trim(),
-        status: input.status,
-        barcode: input.barcode?.trim() || null,
-        purchase_price: input.purchase_price,
-        sales_price: input.sales_price,
-        price_currency: input.price_currency,
-        updated_by: input.actor_user_id ?? null,
-      })
+      .update(updates)
       .eq("organization_id", orgId)
       .eq("id", variantId)
       .select("id")
@@ -815,58 +825,10 @@ export class InventoryEnterpriseService {
     return { success: true, data: data as Record<string, unknown> };
   }
 
-  static async createCountSession(
-    supabase: SupabaseClient,
-    orgId: string,
-    branchId: string,
-    input: { scope?: Record<string, unknown>; notes?: string | null; actor_user_id?: string | null }
-  ): Promise<ServiceResult<Record<string, unknown>>> {
-    const { data, error } = await supabase.rpc("inventory_create_count_session", {
-      p_organization_id: orgId,
-      p_branch_id: branchId,
-      p_scope: input.scope ?? {},
-      p_notes: input.notes ?? null,
-      p_actor_user_id: input.actor_user_id ?? null,
-    });
-
-    if (error) return { success: false, error: errorMessage(error) };
-    return { success: true, data: data as Record<string, unknown> };
-  }
-
-  static async updateCountLine(
-    supabase: SupabaseClient,
-    lineId: string,
-    input: { counted_quantity: number; note?: string | null; actor_user_id?: string | null }
-  ): Promise<ServiceResult<{ id: string }>> {
-    const { data, error } = await supabase
-      .from("inventory_count_lines")
-      .update({
-        counted_quantity: input.counted_quantity,
-        note: input.note ?? null,
-        counted_by: input.actor_user_id ?? null,
-        counted_at: new Date().toISOString(),
-      })
-      .eq("id", lineId)
-      .select("id")
-      .single();
-
-    if (error) return { success: false, error: errorMessage(error) };
-    return { success: true, data: data as { id: string } };
-  }
-
-  static async approveCountSession(
-    supabase: SupabaseClient,
-    countSessionId: string,
-    actorUserId: string | null
-  ): Promise<ServiceResult<Record<string, unknown>>> {
-    const { data, error } = await supabase.rpc("inventory_approve_count_session", {
-      p_count_session_id: countSessionId,
-      p_actor_user_id: actorUserId,
-    });
-
-    if (error) return { success: false, error: errorMessage(error) };
-    return { success: true, data: data as Record<string, unknown> };
-  }
+  // createCountSession / updateCountLine / approveCountSession moved to
+  // InventoryCountSessionsService (src/server/services/inventory-count-sessions.service.ts)
+  // as part of the Stock Audit feature — see
+  // apps/web/docs/stock-audit-implementation-plan.md §2.
 
   static async listBranchTransfers(
     supabase: SupabaseClient,

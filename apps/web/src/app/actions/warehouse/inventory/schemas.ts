@@ -76,6 +76,10 @@ const enhancedVariantSchema = z.object({
   reorder_point: z.number().min(0).nullable().optional(),
   opening_quantity: z.number().min(0).nullable().optional(),
   opening_unit_cost: moneySchema,
+  // Source of truth for "which supplier delivers this item" — used by
+  // audit-by-supplier scoping (stock-audit implementation plan §10). MVP:
+  // single supplier per variant, no many-to-many sourcing.
+  default_supplier_id: nullableUuidSchema,
 });
 
 const enhancedCustomFieldValueSchema = z.object({
@@ -352,6 +356,7 @@ export const updateInventoryVariantSchema = z.object({
     .optional(),
   reorder_point: z.number().min(0).nullable().optional(),
   preferred_supplier_id: nullableUuidSchema,
+  default_supplier_id: nullableUuidSchema,
 });
 
 export const updateInventoryVariantOptionsSchema = z.object({
@@ -648,17 +653,95 @@ export const createValuationSnapshotSchema = z.object({
   snapshot_date: z.string().date().nullable().optional(),
 });
 
+// Closed, exhaustive shape of inventory_count_sessions.scope — see
+// apps/web/docs/stock-audit-implementation-plan.md §1c/§5. `.strict()` is
+// required: an unknown key (e.g. a hypothetical allow_partial_posting) must
+// fail validation here rather than being silently passed through to the RPC.
+// Partial posting does not exist in this feature and must never be
+// introduced as a hidden/undocumented scope key.
+export const countSessionScopeSchema = z
+  .object({
+    count_type: z.enum(["location", "supplier"]),
+    location_ids: z.array(uuidSchema).optional().default([]),
+    include_children: z.boolean().optional().default(false),
+    supplier_id: uuidSchema.optional(),
+    location_filter_ids: z.array(uuidSchema).optional().default([]),
+    include_zero_stock: z.boolean().optional().default(false),
+    show_expected_quantity: z.boolean().optional().default(true),
+    require_reason_for_variance: z.boolean().optional().default(true),
+  })
+  .strict()
+  .refine((val) => (val.count_type === "location" ? val.location_ids.length > 0 : true), {
+    message: "At least one location must be selected for a location-scoped audit",
+    path: ["location_ids"],
+  })
+  .refine((val) => (val.count_type === "supplier" ? Boolean(val.supplier_id) : true), {
+    message: "A supplier must be selected for a supplier-scoped audit",
+    path: ["supplier_id"],
+  });
+
 export const createCountSessionSchema = z.object({
-  scope: z.record(z.unknown()).optional().default({}),
+  scope: countSessionScopeSchema,
   notes: z.string().max(1000).nullable().optional(),
 });
 
+export const countLineStatusSchema = z.enum([
+  "pending",
+  "counted",
+  "skipped",
+  "needs_recount",
+  "approved",
+]);
+
 export const updateCountLineSchema = z.object({
   id: uuidSchema,
-  counted_quantity: z.number().min(0),
+  counted_quantity: z.number().min(0).nullable().optional(),
+  variance_quantity: z.number().nullable().optional(),
+  status: countLineStatusSchema.optional(),
+  current_status: countLineStatusSchema.optional(),
+  reason_code: z.string().max(50).nullable().optional(),
   note: z.string().max(1000).nullable().optional(),
+  require_reason_for_variance: z.boolean().optional(),
 });
 
 export const approveCountSessionSchema = z.object({
   id: uuidSchema,
+});
+
+export const updateCountSessionStatusSchema = z.object({
+  id: uuidSchema,
+  status: z.enum(["counting", "submitted"]),
+});
+
+export const addUnexpectedCountLineSchema = z.object({
+  count_session_id: uuidSchema,
+  variant_id: uuidSchema,
+  location_id: uuidSchema,
+  unit_id: uuidSchema,
+  counted_quantity: z.number().min(0),
+  note: z.string().max(1000).nullable().optional(),
+});
+
+export const bulkApproveCountLinesSchema = z.object({
+  line_ids: z.array(uuidSchema).min(1).max(500),
+  require_reason_for_variance: z.boolean().optional().default(true),
+});
+
+export const listCountSessionsSchema = z.object({
+  search: z.string().max(200).optional(),
+  status: z.enum(["draft", "counting", "submitted", "approved", "cancelled"]).optional(),
+  page: z.number().int().min(1).optional().default(1),
+  pageSize: z.number().int().min(1).max(100).optional().default(20),
+});
+
+export const getReorderReportSchema = z.object({
+  locationId: uuidSchema.optional(),
+  supplierId: uuidSchema.optional(),
+});
+
+export const setReorderSuggestionActionSchema = z.object({
+  variant_id: uuidSchema,
+  location_id: uuidSchema.nullable(),
+  status: z.enum(["accepted", "ignored"]),
+  count_session_id: uuidSchema.nullable().optional(),
 });

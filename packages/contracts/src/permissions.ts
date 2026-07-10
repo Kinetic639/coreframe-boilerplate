@@ -122,6 +122,16 @@ export const WAREHOUSE_PRICING_READ = "warehouse.pricing.read" as const;
 export const WAREHOUSE_PRICING_MANAGE = "warehouse.pricing.manage" as const;
 export const WAREHOUSE_REPORTS_READ = "warehouse.reports.read" as const;
 export const WAREHOUSE_IMPORTS_MANAGE = "warehouse.imports.manage" as const;
+// warehouse.audits.read   — view stock-audit sessions, lines, and results
+// warehouse.audits.manage — create/count/review stock-audit sessions
+// Seeded in migration 20260701090000_inventory_audits_workflow.
+// Final posting (approving a count session) still separately requires
+// warehouse.inventory.adjust inside inventory_approve_count_session — a user
+// with only warehouse.audits.manage can create/count/review but is blocked
+// from posting (separation of duties). org_owner is covered by warehouse.*
+// wildcard — do NOT add explicit grants. org_member receives audits.read only.
+export const WAREHOUSE_AUDITS_READ = "warehouse.audits.read" as const;
+export const WAREHOUSE_AUDITS_MANAGE = "warehouse.audits.manage" as const;
 
 // Audit Permissions (org-scoped)
 // audit.events.read — view the full organization audit event log (IP, UA, all metadata)
@@ -305,6 +315,8 @@ export type PermissionSlug =
   | typeof WAREHOUSE_PRICING_MANAGE
   | typeof WAREHOUSE_REPORTS_READ
   | typeof WAREHOUSE_IMPORTS_MANAGE
+  | typeof WAREHOUSE_AUDITS_READ
+  | typeof WAREHOUSE_AUDITS_MANAGE
   | typeof AUDIT_EVENTS_READ
   | typeof EVENTS_ORG_ACTIVITY_READ
   | typeof EVENTS_ORG_SENSITIVE_READ
@@ -411,6 +423,8 @@ export const ALL_PERMISSION_SLUGS: PermissionSlug[] = [
   WAREHOUSE_PRICING_MANAGE,
   WAREHOUSE_REPORTS_READ,
   WAREHOUSE_IMPORTS_MANAGE,
+  WAREHOUSE_AUDITS_READ,
+  WAREHOUSE_AUDITS_MANAGE,
   AUDIT_EVENTS_READ,
   EVENTS_ORG_ACTIVITY_READ,
   EVENTS_ORG_SENSITIVE_READ,

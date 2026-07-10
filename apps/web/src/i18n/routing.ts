@@ -155,6 +155,26 @@ export const routing = defineRouting({
       en: "/dashboard/warehouse/audits",
       pl: "/dashboard/magazyn/audyty",
     },
+    "/dashboard/warehouse/audits/new": {
+      en: "/dashboard/warehouse/audits/new",
+      pl: "/dashboard/magazyn/audyty/nowy",
+    },
+    "/dashboard/warehouse/audits/[id]/count": {
+      en: "/dashboard/warehouse/audits/[id]/count",
+      pl: "/dashboard/magazyn/audyty/[id]/liczenie",
+    },
+    "/dashboard/warehouse/audits/[id]/review": {
+      en: "/dashboard/warehouse/audits/[id]/review",
+      pl: "/dashboard/magazyn/audyty/[id]/weryfikacja",
+    },
+    "/dashboard/warehouse/audits/[id]/report": {
+      en: "/dashboard/warehouse/audits/[id]/report",
+      pl: "/dashboard/magazyn/audyty/[id]/raport",
+    },
+    "/dashboard/warehouse/reports/reorder": {
+      en: "/dashboard/warehouse/reports/reorder",
+      pl: "/dashboard/magazyn/raporty/uzupelnienia",
+    },
     "/dashboard/warehouse/sales": {
       en: "/dashboard/warehouse/sales",
       pl: "/dashboard/magazyn/sprzedaz",

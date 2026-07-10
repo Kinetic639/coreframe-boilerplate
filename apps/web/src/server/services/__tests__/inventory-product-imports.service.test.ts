@@ -253,6 +253,7 @@ describe("InventoryProductImportsService.exportProductsCsv", () => {
           on_hand_quantity: 0,
           available_quantity: 0,
           reorder_point: null,
+          default_supplier_id: null,
           option_values: [],
           custom_field_values: {},
         },

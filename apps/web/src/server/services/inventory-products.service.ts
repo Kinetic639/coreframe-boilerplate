@@ -91,6 +91,7 @@ type VariantRow = {
   purchase_price: number | null;
   sales_price: number | null;
   price_currency: string | null;
+  default_supplier_id: string | null;
 };
 
 type BalanceRow = {
@@ -116,7 +117,7 @@ type ProductListIndexRow = {
 const PRODUCT_COLUMNS =
   "id, name, description, product_type, status, base_unit_id, default_variant_id, returnable, brand_name, manufacturer_name, length_value, width_value, height_value, dimension_unit, weight_value, weight_unit, sales_description, purchase_description, preferred_supplier_id, sales_account_code, purchase_account_code, tax_code, tax_rate_percent, updated_at" as const;
 const VARIANT_COLUMNS =
-  "id, product_id, sku, name, status, is_default, barcode, purchase_price, sales_price, price_currency" as const;
+  "id, product_id, sku, name, status, is_default, barcode, purchase_price, sales_price, price_currency, default_supplier_id" as const;
 const UNIT_COLUMNS = "id, code, name" as const;
 
 function applyProductSort(query: any, sort: DataViewListParams["sort"]) {
@@ -536,6 +537,34 @@ export class InventoryProductsService {
     if (error) return { success: false, error: error.message };
     const created = data as { product_id: string; variant_ids: string[]; sku: string };
     const createdVariantIds = Array.isArray(created.variant_ids) ? created.variant_ids : [];
+
+    // inventory_create_enhanced_product does not accept default_supplier_id
+    // (it wasn't part of that RPC's payload contract) — apply it with a
+    // follow-up plain UPDATE per variant that set one, matched positionally
+    // to the variants input array, mirroring the accounting-fields/opening-
+    // stock follow-up pattern already used in this method rather than
+    // modifying the RPC itself.
+    if (variants.length > 0) {
+      for (let i = 0; i < variants.length; i++) {
+        const variantId = createdVariantIds[i];
+        const defaultSupplierId = variants[i].default_supplier_id;
+        if (!variantId || defaultSupplierId === undefined) continue;
+        const { error: supplierError } = await supabase
+          .from("inventory_variants")
+          .update({ default_supplier_id: defaultSupplierId, updated_by: userId })
+          .eq("organization_id", orgId)
+          .eq("id", variantId);
+        if (supplierError) {
+          await InventoryProductsService.cleanupFailedEnhancedProductCreate(
+            supabase,
+            orgId,
+            created.product_id,
+            userId
+          );
+          return { success: false, error: supplierError.message };
+        }
+      }
+    }
 
     if (
       input.sales_account_code ||

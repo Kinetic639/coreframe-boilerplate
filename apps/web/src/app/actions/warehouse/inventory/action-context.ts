@@ -2,6 +2,7 @@ import "server-only";
 
 import { entitlements, mapEntitlementError } from "@/server/guards/entitlements-guards";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
+import { eventService } from "@/server/services/event.service";
 import { MODULE_WAREHOUSE } from "@/lib/constants/modules";
 import { MODULE_WAREHOUSE_ACCESS, WAREHOUSE_READ } from "@/lib/constants/permissions";
 import type { DataViewListParams } from "@/lib/data-view/types";
@@ -68,4 +69,46 @@ export function mapUnexpected(error: unknown) {
   const mapped = mapEntitlementError(error);
   if (mapped) return { success: false as const, error: mapped.message };
   return { success: false as const, error: "Unexpected error" };
+}
+
+/**
+ * Relocated from src/app/actions/warehouse/inventory/index.ts (unchanged
+ * behavior) so it can be shared with the split-out count-sessions action
+ * module without duplication — index.ts still uses this via re-export.
+ */
+export async function emitInventoryEvent(
+  auth: WarehouseAuth,
+  userId: string | null | undefined,
+  input: {
+    actionKey: string;
+    entityType: string;
+    entityId: string;
+    eventTier?: "baseline" | "enhanced" | "forensic";
+    metadata?: Record<string, unknown>;
+    branchId?: string | null;
+  }
+) {
+  if (!userId) return;
+  await eventService.emit({
+    actionKey: input.actionKey,
+    actorType: "user",
+    actorUserId: userId,
+    organizationId: auth.context.app.activeOrgId,
+    branchId: input.branchId ?? auth.context.app.activeBranchId ?? null,
+    entityType: input.entityType,
+    entityId: input.entityId,
+    eventTier: input.eventTier ?? "enhanced",
+    metadata: input.metadata ?? {},
+  });
+}
+
+/** Relocated from index.ts (unchanged behavior) — see emitInventoryEvent. */
+export function textFromRecord(value: unknown, keys: string[]) {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  for (const key of keys) {
+    const candidate = record[key];
+    if (typeof candidate === "string" && candidate.trim()) return candidate;
+  }
+  return null;
 }
