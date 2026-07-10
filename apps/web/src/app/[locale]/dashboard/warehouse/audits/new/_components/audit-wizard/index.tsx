@@ -1,10 +1,12 @@
 "use client";
 
-import { ArrowLeft, ChevronRight } from "lucide-react";
+import { useEffect } from "react";
+import { ChevronRight } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "react-toastify";
 import { useRouter } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
+import { useUiStoreV2 } from "@/lib/stores/v2/ui-store";
 import { useWizardState } from "./use-wizard-state";
 import { useWizardScopePreview } from "./use-wizard-scope-preview";
 import { useWizardSubmission } from "./use-wizard-submission";
@@ -14,21 +16,43 @@ import { WizardStepScopeLocationTree } from "./wizard-step-scope-location-tree";
 import { WizardStepScopeSupplier } from "./wizard-step-scope-supplier";
 import { WizardStepProtocol } from "./wizard-step-protocol";
 import { WizardStepPreview } from "./wizard-step-preview";
-import type { WizardLocationOption, WizardSupplierOption } from "./types";
+import type { WizardLocationOption, WizardStockIndexRow, WizardSupplierOption } from "./types";
 
 interface AuditWizardProps {
   branchId: string | null;
   locations: WizardLocationOption[];
   suppliers: WizardSupplierOption[];
-  countNumberHint: string;
+  variantsTotalCount?: number;
+  variantsBySupplierCount?: Record<string, number>;
+  stockIndex?: WizardStockIndexRow[];
 }
 
-export function AuditWizard({ branchId, locations, suppliers, countNumberHint }: AuditWizardProps) {
+export function AuditWizard({
+  branchId,
+  locations,
+  suppliers,
+  variantsTotalCount = 0,
+  variantsBySupplierCount = {},
+  stockIndex = [],
+}: AuditWizardProps) {
   const t = useTranslations("warehouseInventory.audits.wizard");
   const router = useRouter();
   const state = useWizardState(locations);
-  const preview = useWizardScopePreview(state, suppliers);
+  const preview = useWizardScopePreview(
+    state,
+    suppliers,
+    variantsTotalCount,
+    variantsBySupplierCount,
+    stockIndex
+  );
   const { launch, isPending } = useWizardSubmission(branchId);
+
+  // Full-bleed mobile-first screen — no dashboard-shell padding around it.
+  const setFlushContent = useUiStoreV2((s) => s.setFlushContent);
+  useEffect(() => {
+    setFlushContent(true);
+    return () => setFlushContent(false);
+  }, [setFlushContent]);
 
   const topLevelLocations = locations.filter((l) => !l.parent_id);
   const supplierLocationFilterLabel =
@@ -53,29 +77,13 @@ export function AuditWizard({ branchId, locations, suppliers, countNumberHint }:
   };
 
   return (
-    <div className="min-h-screen bg-transparent">
-      <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-card/90 px-4 py-3 shadow-lg backdrop-blur-md">
-        <button
-          type="button"
-          onClick={() => router.push("/dashboard/warehouse/audits")}
-          className="cursor-pointer rounded-lg p-1.5 text-muted-foreground transition-colors hover:text-primary"
-        >
-          <ArrowLeft size={18} />
-        </button>
-        <div className="text-center">
-          <span className="block text-[9px] font-bold uppercase tracking-wider text-primary">
-            {t("stepType")}
-          </span>
-          <span className="rounded border border-border bg-muted px-2 py-0.5 font-mono text-xs font-bold text-foreground">
-            {countNumberHint}
-          </span>
-        </div>
-        <div className="w-8" />
-      </div>
+    <div className="h-full overflow-y-auto bg-transparent">
+      <WizardStepIndicator
+        step={state.step}
+        onBack={() => router.push("/dashboard/warehouse/audits")}
+      />
 
-      <div className="mx-auto max-w-md space-y-4 py-4">
-        <WizardStepIndicator step={state.step} />
-
+      <div className="mx-auto max-w-md space-y-4 px-4 py-4">
         {state.step === 1 && (
           <div className="space-y-4">
             <WizardStepTypeBranch
@@ -96,6 +104,7 @@ export function AuditWizard({ branchId, locations, suppliers, countNumberHint }:
                 locations={locations}
                 selectedLocationIds={state.selectedLocationIds}
                 includeChildren={state.includeChildren}
+                expandedLocationIds={state.expandedLocationIds}
                 onToggleLocation={state.toggleLocation}
                 onIncludeChildrenChange={state.setIncludeChildren}
                 onSelectAllTop={state.selectAllTopLocations}
@@ -145,6 +154,7 @@ export function AuditWizard({ branchId, locations, suppliers, countNumberHint }:
               onIncludeZeroStockChange={state.setIncludeZeroStock}
               requireReasonForVariance={state.requireReasonForVariance}
               onRequireReasonForVarianceChange={state.setRequireReasonForVariance}
+              zeroStockCount={preview.zeroStockCount}
             />
             <div className="grid grid-cols-2 gap-3">
               <Button

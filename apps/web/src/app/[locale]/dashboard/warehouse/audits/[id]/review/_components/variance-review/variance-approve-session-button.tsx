@@ -37,7 +37,10 @@ export function VarianceApproveSessionButton({
 
   return (
     <>
-      <div className="fixed bottom-0 left-0 right-0 z-20 border-t border-border bg-card p-3 shadow-2xl">
+      {/* sticky (not fixed) so this stays within the dashboard content
+       * column instead of overlapping the sidebar; safe-area padding keeps
+       * it clear of the device's bottom system bar/home indicator. */}
+      <div className="sticky bottom-0 z-20 w-full border-t border-border bg-card p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-2xl">
         <div className="mx-auto max-w-md space-y-2">
           {showWarning && (
             <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-3.5 py-2.5 text-center font-mono text-[11px] leading-relaxed text-destructive shadow-xl">

@@ -1,7 +1,14 @@
 "use client";
 
-import { useMemo } from "react";
-import { AlertCircle, CheckCircle2, CornerDownRight, TrendingDown, TrendingUp } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  ChevronLeft,
+  CornerDownRight,
+  TrendingDown,
+  TrendingUp,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import {
@@ -10,10 +17,12 @@ import {
   useCountSessionDetailQuery,
   useUpdateCountLineMutation,
 } from "@/hooks/queries/warehouse/audits";
+import { useUiStoreV2 } from "@/lib/stores/v2/ui-store";
 import { useVarianceGrouping } from "./use-variance-grouping";
 import { VarianceGroupSection } from "./variance-group-section";
 import { VarianceBulkApproveBar } from "./variance-bulk-approve-bar";
 import { VarianceApproveSessionButton } from "./variance-approve-session-button";
+import { VarianceLeaveDialog } from "./variance-leave-dialog";
 import type { EnrichedCountLine, ReviewSessionInfo } from "./types";
 
 interface VarianceReviewScreenProps {
@@ -37,6 +46,13 @@ export function VarianceReviewScreen({ session, initialLines }: VarianceReviewSc
   });
   const lines = data?.lines ?? initialLines;
 
+  // Full-bleed mobile-first screen — no dashboard-shell padding around it.
+  const setFlushContent = useUiStoreV2((s) => s.setFlushContent);
+  useEffect(() => {
+    setFlushContent(true);
+    return () => setFlushContent(false);
+  }, [setFlushContent]);
+
   const groups = useVarianceGrouping(lines);
   const updateLine = useUpdateCountLineMutation(session.id);
   const bulkApprove = useBulkApproveLinesMutation(session.id);
@@ -46,6 +62,16 @@ export function VarianceReviewScreen({ session, initialLines }: VarianceReviewSc
     () => lines.filter((l) => l.status !== "approved" && l.status !== "pending").length,
     [lines]
   );
+
+  const eligibleIds = useMemo(
+    () =>
+      [...groups.shortages, ...groups.surpluses, ...groups.matches]
+        .filter((l) => l.status === "counted")
+        .map((l) => l.id),
+    [groups]
+  );
+
+  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
 
   const blocked =
     groups.pending.length > 0 ||
@@ -94,13 +120,16 @@ export function VarianceReviewScreen({ session, initialLines }: VarianceReviewSc
   }
 
   function handleApproveAll() {
-    const eligibleIds = [...groups.shortages, ...groups.surpluses, ...groups.matches]
-      .filter((l) => l.status === "counted")
-      .map((l) => l.id);
+    if (eligibleIds.length === 0) return;
     bulkApprove.mutate({
       line_ids: eligibleIds,
       require_reason_for_variance: requireReasonForVariance,
     });
+  }
+
+  function handleLeave() {
+    setLeaveDialogOpen(false);
+    router.push({ pathname: "/dashboard/warehouse/audits" });
   }
 
   function handlePost() {
@@ -118,9 +147,16 @@ export function VarianceReviewScreen({ session, initialLines }: VarianceReviewSc
   }
 
   return (
-    <div className="min-h-screen bg-transparent pb-24">
+    <div className="h-full overflow-y-auto bg-transparent">
       <div className="sticky top-0 z-40 flex min-h-[56px] items-center justify-between gap-2 border-b border-border bg-card px-4 py-2 shadow-md">
-        <div className="w-9 shrink-0" />
+        <button
+          type="button"
+          onClick={() => setLeaveDialogOpen(true)}
+          title={t("leaveAudit")}
+          className="flex w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border bg-muted/20 p-1.5 text-muted-foreground transition-all hover:bg-muted hover:text-primary"
+        >
+          <ChevronLeft size={16} className="stroke-[3]" />
+        </button>
         <div className="min-w-0 flex-1 text-center">
           <h1 className="block text-xs font-black uppercase tracking-widest leading-tight text-primary">
             {t("title")}
@@ -132,7 +168,7 @@ export function VarianceReviewScreen({ session, initialLines }: VarianceReviewSc
         <div className="w-9 shrink-0" />
       </div>
 
-      <div className="relative z-10 mx-auto max-w-md space-y-4 py-4">
+      <div className="relative z-10 mx-auto max-w-md space-y-4 px-4 py-4">
         {groups.pending.length > 0 && (
           <div className="flex gap-2.5 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
             <AlertCircle size={16} className="mt-0.5 shrink-0" />
@@ -220,6 +256,7 @@ export function VarianceReviewScreen({ session, initialLines }: VarianceReviewSc
           <VarianceBulkApproveBar
             totalLines={lines.length}
             unapprovedCount={unapprovedCount}
+            eligibleCount={eligibleIds.length}
             onApproveAll={handleApproveAll}
           />
         )}
@@ -230,6 +267,12 @@ export function VarianceReviewScreen({ session, initialLines }: VarianceReviewSc
         blocked={blocked}
         unresolvedCount={unapprovedCount}
         onConfirm={handlePost}
+      />
+
+      <VarianceLeaveDialog
+        open={leaveDialogOpen}
+        onConfirm={handleLeave}
+        onCancel={() => setLeaveDialogOpen(false)}
       />
     </div>
   );

@@ -16,13 +16,28 @@ export interface StatusColorClasses {
   border: string;
 }
 
-/** Session-level status badge colors (dashboard list, headers). */
+/** Session-level status badge colors (dashboard list, headers). Each
+ * semantic color pairs a light-mode shade with a `dark:` override — the
+ * original dark-only `-950/40`-style backgrounds read as near-black mud on
+ * a light background, so they're not just reused across themes. */
 export const COUNT_SESSION_STATUS_COLOR_CLASSES: Record<CountSessionStatus, StatusColorClasses> = {
   draft: { text: "text-muted-foreground", bg: "bg-muted", border: "border-border" },
   counting: { text: "text-primary", bg: "bg-primary/10", border: "border-primary/30" },
-  submitted: { text: "text-amber-400", bg: "bg-amber-950/30", border: "border-amber-900/40" },
-  approved: { text: "text-emerald-400", bg: "bg-emerald-950/30", border: "border-emerald-900/40" },
-  cancelled: { text: "text-red-400", bg: "bg-red-950/30", border: "border-red-900/40" },
+  submitted: {
+    text: "text-amber-600 dark:text-amber-400",
+    bg: "bg-amber-100 dark:bg-amber-950/30",
+    border: "border-amber-400/60 dark:border-amber-900/40",
+  },
+  approved: {
+    text: "text-emerald-600 dark:text-emerald-400",
+    bg: "bg-emerald-100 dark:bg-emerald-950/30",
+    border: "border-emerald-400/60 dark:border-emerald-900/40",
+  },
+  cancelled: {
+    text: "text-red-600 dark:text-red-400",
+    bg: "bg-red-100 dark:bg-red-950/30",
+    border: "border-red-400/60 dark:border-red-900/40",
+  },
 };
 
 /**
@@ -60,39 +75,39 @@ export const COUNT_LINE_POSITION_STATUS_COLOR_CLASSES: Record<
   StatusColorClasses & { symbol: string }
 > = {
   not_started: {
-    text: "text-zinc-500",
+    text: "text-muted-foreground",
     bg: "bg-muted/60",
     border: "border-border",
     symbol: "○",
   },
   counted_ok: {
-    text: "text-emerald-400",
-    bg: "bg-emerald-950/40",
-    border: "border-emerald-600/50",
+    text: "text-emerald-600 dark:text-emerald-400",
+    bg: "bg-emerald-100 dark:bg-emerald-950/40",
+    border: "border-emerald-400/60 dark:border-emerald-600/50",
     symbol: "✓",
   },
   surplus: {
-    text: "text-blue-400",
-    bg: "bg-blue-950/40",
-    border: "border-blue-500/50",
+    text: "text-blue-600 dark:text-blue-400",
+    bg: "bg-blue-100 dark:bg-blue-950/40",
+    border: "border-blue-400/60 dark:border-blue-500/50",
     symbol: "+",
   },
   shortage: {
-    text: "text-red-400",
-    bg: "bg-red-950/40",
-    border: "border-red-600/50",
+    text: "text-red-600 dark:text-red-400",
+    bg: "bg-red-100 dark:bg-red-950/40",
+    border: "border-red-400/60 dark:border-red-600/50",
     symbol: "−",
   },
   skipped: {
-    text: "text-amber-400",
-    bg: "bg-amber-950/40",
-    border: "border-amber-500/50",
+    text: "text-amber-600 dark:text-amber-400",
+    bg: "bg-amber-100 dark:bg-amber-950/40",
+    border: "border-amber-400/60 dark:border-amber-500/50",
     symbol: "↷",
   },
   needs_recount: {
-    text: "text-amber-400",
-    bg: "bg-amber-950/40",
-    border: "border-amber-500/50",
+    text: "text-amber-600 dark:text-amber-400",
+    bg: "bg-amber-100 dark:bg-amber-950/40",
+    border: "border-amber-400/60 dark:border-amber-500/50",
     symbol: "↷",
   },
 };

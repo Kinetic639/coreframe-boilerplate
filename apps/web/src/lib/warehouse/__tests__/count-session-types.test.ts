@@ -32,7 +32,13 @@ describe("isValidCountLineTransition", () => {
   it("rejects pending -> approved (must be counted first)", () => {
     expect(isValidCountLineTransition("pending", "approved")).toBe(false);
   });
-  it("rejects approved -> counted", () => {
-    expect(isValidCountLineTransition("approved", "counted")).toBe(false);
+  it("allows approved -> counted (unapprove/edit from review)", () => {
+    expect(isValidCountLineTransition("approved", "counted")).toBe(true);
+  });
+  it("allows skipped -> counted (return to a skipped item and count it)", () => {
+    expect(isValidCountLineTransition("skipped", "counted")).toBe(true);
+  });
+  it("rejects skipped -> pending", () => {
+    expect(isValidCountLineTransition("skipped", "pending")).toBe(false);
   });
 });

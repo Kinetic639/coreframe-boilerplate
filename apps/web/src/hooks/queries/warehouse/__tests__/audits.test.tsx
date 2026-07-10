@@ -191,19 +191,21 @@ describe("useCountSessionDetailQuery", () => {
 // ─── useCreateCountSessionMutation ────────────────────────────────────────────
 
 describe("useCreateCountSessionMutation", () => {
-  it("shows a success toast and invalidates the list on success", async () => {
+  it("invalidates the list on success without showing a toast", async () => {
     vi.mocked(createInventoryCountSessionAction).mockResolvedValue({
       success: true,
       data: { count_session_id: SESSION_ID },
     });
-    const { wrapper } = makeWrapper();
+    const { wrapper, queryClient } = makeWrapper();
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
     const { result } = renderHook(() => useCreateCountSessionMutation(BRANCH_ID), { wrapper });
 
     await act(async () => {
       await result.current.mutateAsync({ scope: { count_type: "location", location_ids: ["l1"] } });
     });
 
-    expect(toast.success).toHaveBeenCalled();
+    expect(invalidateSpy).toHaveBeenCalled();
+    expect(toast.success).not.toHaveBeenCalled();
   });
 
   it("shows an error toast with the action's own message on failure", async () => {
@@ -254,6 +256,37 @@ describe("useUpdateCountLineMutation", () => {
       );
       expect(cached?.lines[0].counted_quantity).toBe(10);
       expect(cached?.lines[0].status).toBe("counted");
+    });
+
+    resolveAction({ success: true, data: { id: "line-1" } });
+  });
+
+  it("recomputes variance_quantity from counted_quantity on optimistic patch, not just the raw fields sent", async () => {
+    const { queryClient, wrapper } = makeWrapper();
+    queryClient.setQueryData(auditKeys.detail(SESSION_ID), DETAIL);
+
+    let resolveAction!: (v: unknown) => void;
+    vi.mocked(updateInventoryCountLineAction).mockReturnValue(
+      new Promise((resolve) => {
+        resolveAction = resolve;
+      }) as never
+    );
+
+    const { result } = renderHook(() => useUpdateCountLineMutation(SESSION_ID), { wrapper });
+
+    // DETAIL's line-1 has expected_quantity: 10 — a surplus of 3 should be
+    // reflected immediately, not stay at the old (null) variance until the
+    // real refetch lands a beat later (the reported "flashes green then
+    // corrects" bug).
+    act(() => {
+      result.current.mutate({ id: "line-1", counted_quantity: 13, status: "counted" });
+    });
+
+    await waitFor(() => {
+      const cached = queryClient.getQueryData<EnrichedCountSessionDetail>(
+        auditKeys.detail(SESSION_ID)
+      );
+      expect(cached?.lines[0].variance_quantity).toBe(3);
     });
 
     resolveAction({ success: true, data: { id: "line-1" } });

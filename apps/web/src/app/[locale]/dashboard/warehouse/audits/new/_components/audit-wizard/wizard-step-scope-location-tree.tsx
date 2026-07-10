@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { CheckSquare, QrCode, Square, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "react-toastify";
@@ -15,6 +15,10 @@ interface WizardStepScopeLocationTreeProps {
   locations: WizardLocationOption[];
   selectedLocationIds: string[];
   includeChildren: boolean;
+  /** Final, already-expanded location ids (subtree included) — used to
+   * compute the totals footer, so it reflects the actual audit scope, not
+   * just the raw checkbox selection. */
+  expandedLocationIds: string[];
   onToggleLocation: (id: string) => void;
   onIncludeChildrenChange: (value: boolean) => void;
   onSelectAllTop: () => void;
@@ -25,12 +29,26 @@ export function WizardStepScopeLocationTree({
   locations,
   selectedLocationIds,
   includeChildren,
+  expandedLocationIds,
   onToggleLocation,
   onIncludeChildrenChange,
   onSelectAllTop,
   onClear,
 }: WizardStepScopeLocationTreeProps) {
   const t = useTranslations("warehouseInventory.audits.wizard");
+
+  const totals = useMemo(() => {
+    const expandedSet = new Set(expandedLocationIds);
+    let inStockTotal = 0;
+    let zeroStockTotal = 0;
+    for (const loc of locations) {
+      if (!expandedSet.has(loc.id)) continue;
+      inStockTotal += loc.inStockCount;
+      zeroStockTotal += loc.zeroStockCount;
+    }
+    return { inStockTotal, zeroStockTotal, combinedTotal: inStockTotal + zeroStockTotal };
+  }, [locations, expandedLocationIds]);
+
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scanStatus, setScanStatus] = useState<string | null>(null);
   const [resolving, setResolving] = useState(false);
@@ -126,7 +144,9 @@ export function WizardStepScopeLocationTree({
       {/* Location list */}
       <div className="space-y-2">
         <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-          <span>{t("selectedCount", { count: selectedLocationIds.length })}</span>
+          <span>
+            {t("selectedCount", { count: selectedLocationIds.length, total: locations.length })}
+          </span>
           <div className="flex gap-2">
             <button
               type="button"
@@ -176,9 +196,36 @@ export function WizardStepScopeLocationTree({
                   </span>
                   <span className="block truncate text-xs text-muted-foreground">{loc.name}</span>
                 </div>
+                <div className="flex shrink-0 items-center gap-2 whitespace-nowrap font-mono text-[10px]">
+                  <span
+                    className="text-emerald-600 dark:text-emerald-400"
+                    title={t("inStockCountLabel")}
+                  >
+                    {loc.inStockCount}
+                  </span>
+                  <span className="text-muted-foreground/40">/</span>
+                  <span
+                    className="text-amber-600 dark:text-amber-400"
+                    title={t("zeroStockCountLabel")}
+                  >
+                    {loc.zeroStockCount}
+                  </span>
+                </div>
               </div>
             );
           })}
+        </div>
+
+        <div className="flex items-center justify-between rounded-lg border border-border bg-muted/20 px-3 py-2 font-mono text-[10px] text-muted-foreground">
+          <span>{t("locationTotalsLabel")}</span>
+          <span>
+            <span className="text-emerald-600 dark:text-emerald-400">{totals.inStockTotal}</span>
+            <span className="mx-1 text-muted-foreground/40">/</span>
+            <span className="text-amber-600 dark:text-amber-400">{totals.zeroStockTotal}</span>
+            <span className="ml-2 font-bold text-foreground">
+              {t("locationTotalsCombined", { count: totals.combinedTotal })}
+            </span>
+          </span>
         </div>
       </div>
 

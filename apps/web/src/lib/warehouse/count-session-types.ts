@@ -155,8 +155,13 @@ const VALID_COUNT_LINE_TRANSITIONS: Record<CountLineStatus, readonly CountLineSt
   pending: ["counted", "skipped"],
   counted: ["needs_recount", "approved", "counted"],
   needs_recount: ["counted", "skipped"],
-  skipped: [],
-  approved: [],
+  // A skipped line can still be returned to and counted later in the same
+  // guided-count walk-through ("skip and return" is not terminal).
+  skipped: ["counted"],
+  // An approved line can be unapproved/edited from the review screen back
+  // to counted (re-opens it for a reason-code/quantity change before
+  // re-approving) — not terminal either.
+  approved: ["counted"],
 };
 
 /**

@@ -188,7 +188,7 @@ export function AuditsDashboardClient({
                         </div>
                       </div>
                       {session.variance_lines > 0 && session.status !== "approved" && (
-                        <div className="flex items-center gap-1 rounded-lg border border-amber-900/40 bg-amber-950/30 px-2 py-0.5 text-[10px] font-bold text-amber-400">
+                        <div className="flex items-center gap-1 rounded-lg border border-amber-400/60 bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-600 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-400">
                           <AlertTriangle size={10} />
                           {t("varianceDetected", { count: session.variance_lines })}
                         </div>
@@ -257,9 +257,11 @@ function StatCard({
   tone: "blue" | "amber" | "emerald" | "primary";
 }) {
   const toneClasses: Record<typeof tone, string> = {
-    blue: "bg-blue-950/40 text-blue-400 border-blue-900/30",
-    amber: "bg-amber-950/40 text-amber-400 border-amber-900/30",
-    emerald: "bg-emerald-950/40 text-emerald-400 border-emerald-900/30",
+    blue: "bg-blue-100 text-blue-600 border-blue-400/60 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900/30",
+    amber:
+      "bg-amber-100 text-amber-600 border-amber-400/60 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900/30",
+    emerald:
+      "bg-emerald-100 text-emerald-600 border-emerald-400/60 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/30",
     primary: "bg-primary/10 text-primary border-primary/20",
   };
 
