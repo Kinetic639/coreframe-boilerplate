@@ -22,29 +22,14 @@ interface AuditWizardProps {
   branchId: string | null;
   locations: WizardLocationOption[];
   suppliers: WizardSupplierOption[];
-  variantsTotalCount?: number;
-  variantsBySupplierCount?: Record<string, number>;
   stockIndex?: WizardStockIndexRow[];
 }
 
-export function AuditWizard({
-  branchId,
-  locations,
-  suppliers,
-  variantsTotalCount = 0,
-  variantsBySupplierCount = {},
-  stockIndex = [],
-}: AuditWizardProps) {
+export function AuditWizard({ branchId, locations, suppliers, stockIndex = [] }: AuditWizardProps) {
   const t = useTranslations("warehouseInventory.audits.wizard");
   const router = useRouter();
   const state = useWizardState(locations);
-  const preview = useWizardScopePreview(
-    state,
-    suppliers,
-    variantsTotalCount,
-    variantsBySupplierCount,
-    stockIndex
-  );
+  const preview = useWizardScopePreview(state, suppliers, stockIndex);
   const { launch, isPending } = useWizardSubmission(branchId);
 
   // Full-bleed mobile-first screen — no dashboard-shell padding around it.

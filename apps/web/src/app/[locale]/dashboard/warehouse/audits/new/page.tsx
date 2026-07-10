@@ -45,14 +45,7 @@ export default async function NewWarehouseAuditPage() {
     id: string;
     default_supplier_id: string | null;
   }[];
-  const variantsTotalCount = allVariants.length;
   const variantSupplierById = new Map(allVariants.map((v) => [v.id, v.default_supplier_id]));
-  const variantsBySupplierCount: Record<string, number> = {};
-  for (const v of allVariants) {
-    if (!v.default_supplier_id) continue;
-    variantsBySupplierCount[v.default_supplier_id] =
-      (variantsBySupplierCount[v.default_supplier_id] ?? 0) + 1;
-  }
 
   const allBalances = (balancesResult.data ?? []) as {
     variant_id: string;
@@ -93,16 +86,15 @@ export default async function NewWarehouseAuditPage() {
 
   const suppliers = suppliersResult.success ? suppliersResult.data : [];
 
-  // Every existing balance row (positive AND zero) — this mirrors exactly
-  // what the count-session RPC's "already has a line" NOT EXISTS check
-  // looks at when deciding whether to seed an extra zero-stock catalog line
-  // for a (variant, location) pair. A row that already reads zero still
-  // counts as "exists" there, so it must NOT be treated as stock-less by
-  // the zero-stock preview math below.
+  // Every existing balance row (positive AND zero) — the count-session RPC
+  // only ever seeds lines from rows that already exist here, so this is the
+  // exact source of truth the zero-stock preview math needs: how many of
+  // these rows already read zero within the selected scope.
   const stockIndex = allBalances.map((b) => ({
     variantId: b.variant_id,
     locationId: b.location_id,
     supplierId: variantSupplierById.get(b.variant_id) ?? null,
+    isZero: b.on_hand_quantity <= 0,
   }));
 
   return (
@@ -110,8 +102,6 @@ export default async function NewWarehouseAuditPage() {
       branchId={branchId}
       locations={locations}
       suppliers={suppliers}
-      variantsTotalCount={variantsTotalCount}
-      variantsBySupplierCount={variantsBySupplierCount}
       stockIndex={stockIndex}
     />
   );
