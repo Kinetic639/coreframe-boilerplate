@@ -1,5 +1,6 @@
 "use client";
 
+import { Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/utils";
 
@@ -12,6 +13,7 @@ interface VarianceBulkApproveBarProps {
    * approve can never touch. Disables the button once this reaches 0 so it
    * can't fire the "line_ids must contain at least 1 element" server error. */
   eligibleCount: number;
+  isApproving?: boolean;
   onApproveAll: () => void;
 }
 
@@ -19,10 +21,11 @@ export function VarianceBulkApproveBar({
   totalLines,
   unapprovedCount,
   eligibleCount,
+  isApproving,
   onApproveAll,
 }: VarianceBulkApproveBarProps) {
   const t = useTranslations("warehouseInventory.audits.review");
-  const disabled = eligibleCount === 0;
+  const disabled = eligibleCount === 0 || isApproving;
 
   return (
     <div className="mt-4 flex items-center justify-between rounded-xl border border-border bg-card p-3 text-xs shadow-md">
@@ -40,12 +43,13 @@ export function VarianceBulkApproveBar({
         onClick={onApproveAll}
         disabled={disabled}
         className={cn(
-          "rounded-lg border px-3 py-1.5 font-mono text-[10px] font-bold uppercase transition-colors",
+          "flex items-center gap-1.5 rounded-lg border px-3 py-1.5 font-mono text-[10px] font-bold uppercase transition-colors",
           disabled
             ? "cursor-not-allowed border-border bg-muted text-muted-foreground"
             : "cursor-pointer border-emerald-500/20 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20"
         )}
       >
+        {isApproving && <Loader2 size={11} className="animate-spin" />}
         {t("approveAll")}
       </button>
     </div>

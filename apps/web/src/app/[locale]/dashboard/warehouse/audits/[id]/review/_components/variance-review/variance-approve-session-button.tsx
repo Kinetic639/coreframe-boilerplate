@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, Info } from "lucide-react";
+import { CheckCircle2, Info, Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/utils";
 
@@ -9,6 +9,7 @@ interface VarianceApproveSessionButtonProps {
   countNumber: string;
   blocked: boolean;
   unresolvedCount: number;
+  isPosting?: boolean;
   onConfirm: () => void;
 }
 
@@ -20,6 +21,7 @@ export function VarianceApproveSessionButton({
   countNumber,
   blocked,
   unresolvedCount,
+  isPosting,
   onConfirm,
 }: VarianceApproveSessionButtonProps) {
   const t = useTranslations("warehouseInventory.audits.review");
@@ -50,15 +52,21 @@ export function VarianceApproveSessionButton({
           <button
             type="button"
             onClick={handleClick}
+            disabled={isPosting}
             className={cn(
               "flex w-full touch-manipulation cursor-pointer items-center justify-center gap-2 rounded-xl py-3.5 text-xs font-bold uppercase tracking-wider transition-all",
               blocked
                 ? "border border-border bg-muted text-muted-foreground"
-                : "bg-primary text-primary-foreground shadow-lg hover:bg-primary/90"
+                : "bg-primary text-primary-foreground shadow-lg hover:bg-primary/90",
+              isPosting && "cursor-not-allowed opacity-70"
             )}
           >
-            <CheckCircle2 size={16} />
-            <span>{t("postAndApprove")}</span>
+            {isPosting ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <CheckCircle2 size={16} />
+            )}
+            <span>{isPosting ? t("posting") : t("postAndApprove")}</span>
           </button>
         </div>
       </div>

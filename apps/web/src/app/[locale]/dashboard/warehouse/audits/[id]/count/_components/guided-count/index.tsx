@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Info } from "lucide-react";
+import { Info, Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "react-toastify";
 import {
@@ -74,9 +74,8 @@ export function GuidedCountScreen({ session, initialLines, locations }: GuidedCo
     setLocationFilter,
   } = useCountSessionState(lines);
 
-  const { saveLine, skipLine, saveNote, finishCounting, pauseSession } = useCountSubmission(
-    session.id
-  );
+  const { saveLine, skipLine, saveNote, finishCounting, pauseSession, isFinishing } =
+    useCountSubmission(session.id);
   const updateSessionStatus = useUpdateCountSessionStatusMutation();
 
   // Mark the session as "counting" the first time someone enters this screen.
@@ -130,7 +129,7 @@ export function GuidedCountScreen({ session, initialLines, locations }: GuidedCo
     // `mutate()`. Awaiting the full network round-trip here before
     // advancing made the main card visibly lag a couple seconds behind
     // the progress tracker on every save.
-    void saveLine(currentLine, {
+    saveLine(currentLine, {
       countedQuantity: countedQty,
       reasonCode: (finalReasonCode ?? reasonCode) || null,
       note: note.trim() === "" ? null : note,
@@ -147,18 +146,18 @@ export function GuidedCountScreen({ session, initialLines, locations }: GuidedCo
       setReasonModalOpen(true);
       return;
     }
-    void executeSaveAndNext();
+    executeSaveAndNext();
   }
 
   function handleSkip() {
     if (!currentLine) return;
-    void skipLine(currentLine);
+    skipLine(currentLine);
     const next = goToNextUnresolved();
     if (next === -1) toast.info(t("noOtherUnresolved"));
   }
 
-  async function handleSaveNote() {
-    if (currentLine) await saveNote(currentLine, note);
+  function handleSaveNote() {
+    if (currentLine) saveNote(currentLine, note);
     setNotesDialogOpen(false);
   }
 
@@ -238,9 +237,11 @@ export function GuidedCountScreen({ session, initialLines, locations }: GuidedCo
             {filteredStats.percent === 100 ? (
               <button
                 type="button"
+                disabled={isFinishing}
                 onClick={() => void handleFinishCounting()}
-                className="flex w-full cursor-pointer touch-manipulation items-center justify-center gap-1.5 rounded-lg bg-primary py-2.5 text-[11px] font-bold uppercase tracking-wider text-primary-foreground shadow-md transition-all hover:bg-primary/90"
+                className="flex w-full cursor-pointer touch-manipulation items-center justify-center gap-1.5 rounded-lg bg-primary py-2.5 text-[11px] font-bold uppercase tracking-wider text-primary-foreground shadow-md transition-all hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
               >
+                {isFinishing && <Loader2 size={12} className="animate-spin" />}
                 {t("finishAndSubmit")}
               </button>
             ) : (

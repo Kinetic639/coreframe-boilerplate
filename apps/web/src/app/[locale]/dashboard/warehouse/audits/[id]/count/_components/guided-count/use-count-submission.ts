@@ -22,6 +22,15 @@ export interface SaveLineInput {
  * prototype's executeSaveAndNext / handleSkipAndReturn / handleNotFound /
  * onFinishCounting. variance_quantity is never sent to the server — it's a
  * DB-generated stored column derived from counted_quantity.
+ *
+ * Line mutations are fire-and-forget (`.mutate`, not `.mutateAsync`) and the
+ * feedback toast fires immediately at call time rather than after the
+ * network round-trip resolves — the optimistic cache patch already updates
+ * the UI instantly, so waiting for the server before toasting only adds a
+ * visible lag, and on a backgrounded tab (throttled fetch/timers) it made
+ * toasts queue up and burst all at once when the tab regained focus.
+ * `onError` (wired in the mutation itself) still surfaces failures and rolls
+ * the optimistic patch back.
  */
 export function useCountSubmission(sessionId: string) {
   const t = useTranslations("warehouseInventory.audits.feedback");
@@ -31,8 +40,8 @@ export function useCountSubmission(sessionId: string) {
   const updateSessionStatus = useUpdateCountSessionStatusMutation();
 
   const saveLine = useCallback(
-    async (line: EnrichedCountLine, input: SaveLineInput) => {
-      await updateLine.mutateAsync({
+    (line: EnrichedCountLine, input: SaveLineInput) => {
+      updateLine.mutate({
         id: line.id,
         current_status: line.status,
         counted_quantity: input.countedQuantity,
@@ -46,8 +55,8 @@ export function useCountSubmission(sessionId: string) {
   );
 
   const markNotFound = useCallback(
-    async (line: EnrichedCountLine) => {
-      await updateLine.mutateAsync({
+    (line: EnrichedCountLine) => {
+      updateLine.mutate({
         id: line.id,
         current_status: line.status,
         counted_quantity: 0,
@@ -61,8 +70,8 @@ export function useCountSubmission(sessionId: string) {
   );
 
   const skipLine = useCallback(
-    async (line: EnrichedCountLine) => {
-      await updateLine.mutateAsync({
+    (line: EnrichedCountLine) => {
+      updateLine.mutate({
         id: line.id,
         current_status: line.status,
         status: "skipped",
@@ -73,8 +82,8 @@ export function useCountSubmission(sessionId: string) {
   );
 
   const saveNote = useCallback(
-    async (line: EnrichedCountLine, note: string) => {
-      await updateLine.mutateAsync({
+    (line: EnrichedCountLine, note: string) => {
+      updateLine.mutate({
         id: line.id,
         current_status: line.status,
         note: note.trim() === "" ? null : note,
@@ -104,5 +113,6 @@ export function useCountSubmission(sessionId: string) {
     finishCounting,
     pauseSession,
     isSaving: updateLine.isPending,
+    isFinishing: updateSessionStatus.isPending,
   };
 }
