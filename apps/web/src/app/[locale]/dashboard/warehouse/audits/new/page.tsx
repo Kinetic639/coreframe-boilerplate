@@ -6,6 +6,7 @@ import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-conte
 import { createClient } from "@/utils/supabase/server";
 import { WarehouseLocationsService } from "@/server/services/warehouse-locations.service";
 import { InventoryProductsService } from "@/server/services/inventory-products.service";
+import { flattenLocationTreeDepthFirst } from "@/lib/warehouse/location-tree";
 import { AuditWizard } from "./_components/audit-wizard";
 
 export default async function NewWarehouseAuditPage() {
@@ -69,20 +70,26 @@ export default async function NewWarehouseAuditPage() {
   for (const b of positiveBalances) getEntry(b.location_id).inStock.add(b.variant_id);
   for (const b of zeroBalances) getEntry(b.location_id).zeroStock.add(b.variant_id);
 
-  const locations = locationsResult.success
-    ? locationsResult.data.map((loc) => {
-        const stats = statsByLocation.get(loc.id);
-        return {
-          id: loc.id,
-          name: loc.name,
-          code: loc.code,
-          parent_id: loc.parent_id,
-          level: loc.level,
-          inStockCount: stats?.inStock.size ?? 0,
-          zeroStockCount: stats?.zeroStock.size ?? 0,
-        };
-      })
+  // The service returns a breadth-first order (level ASC, sort_order ASC) —
+  // fine for building a nested tree, but wrong for the wizard's flat,
+  // indented list, which needs each parent immediately followed by its own
+  // children (depth-first) or siblings from unrelated branches interleave.
+  const orderedLocations = locationsResult.success
+    ? flattenLocationTreeDepthFirst(locationsResult.data)
     : [];
+
+  const locations = orderedLocations.map((loc) => {
+    const stats = statsByLocation.get(loc.id);
+    return {
+      id: loc.id,
+      name: loc.name,
+      code: loc.code,
+      parent_id: loc.parent_id,
+      level: loc.level,
+      inStockCount: stats?.inStock.size ?? 0,
+      zeroStockCount: stats?.zeroStock.size ?? 0,
+    };
+  });
 
   const suppliers = suppliersResult.success ? suppliersResult.data : [];
 

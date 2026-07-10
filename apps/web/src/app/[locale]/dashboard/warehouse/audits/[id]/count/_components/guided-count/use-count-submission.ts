@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { toast } from "react-toastify";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
@@ -38,6 +38,13 @@ export function useCountSubmission(sessionId: string) {
   const router = useRouter();
   const updateLine = useUpdateCountLineMutation(sessionId);
   const updateSessionStatus = useUpdateCountSessionStatusMutation();
+  // updateSessionStatus.isPending resets as soon as the network call settles,
+  // but router.push() + the review screen's own data fetch still take a beat
+  // after that — leaving a window where the button looks idle and clickable
+  // again before the navigation actually lands. This stays true across that
+  // whole span and is only cleared on failure (success navigates away and
+  // unmounts this screen, so there's nothing left to reset it for).
+  const [isNavigating, setIsNavigating] = useState(false);
 
   const saveLine = useCallback(
     (line: EnrichedCountLine, input: SaveLineInput) => {
@@ -94,11 +101,16 @@ export function useCountSubmission(sessionId: string) {
   );
 
   const finishCounting = useCallback(async () => {
-    await updateSessionStatus.mutateAsync({ id: sessionId, status: "submitted" });
-    router.push({
-      pathname: "/dashboard/warehouse/audits/[id]/review",
-      params: { id: sessionId },
-    });
+    setIsNavigating(true);
+    try {
+      await updateSessionStatus.mutateAsync({ id: sessionId, status: "submitted" });
+      router.push({
+        pathname: "/dashboard/warehouse/audits/[id]/review",
+        params: { id: sessionId },
+      });
+    } catch {
+      setIsNavigating(false);
+    }
   }, [updateSessionStatus, sessionId, router]);
 
   const pauseSession = useCallback(() => {
@@ -113,6 +125,6 @@ export function useCountSubmission(sessionId: string) {
     finishCounting,
     pauseSession,
     isSaving: updateLine.isPending,
-    isFinishing: updateSessionStatus.isPending,
+    isFinishing: isNavigating || updateSessionStatus.isPending,
   };
 }

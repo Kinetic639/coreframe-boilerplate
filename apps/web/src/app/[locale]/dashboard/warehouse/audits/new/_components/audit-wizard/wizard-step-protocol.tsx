@@ -1,23 +1,17 @@
 "use client";
 
-import { AlertCircle, Eye, EyeOff, Info } from "lucide-react";
+import { AlertCircle, Eye, EyeOff } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/utils";
 
 interface WizardStepProtocolProps {
   showExpectedQuantity: boolean;
   onShowExpectedQuantityChange: (value: boolean) => void;
-  includeZeroStock: boolean;
-  onIncludeZeroStockChange: (value: boolean) => void;
   requireReasonForVariance: boolean;
   onRequireReasonForVarianceChange: (value: boolean) => void;
-  /** How many catalog variants are currently at zero stock within the
-   * configured scope — shown next to the toggle so the counter knows how
-   * many extra lines enabling it will add. */
-  zeroStockCount: number;
 }
 
-function ToggleRow({
+export function ToggleRow({
   icon,
   title,
   description,
@@ -82,11 +76,8 @@ function ToggleRow({
 export function WizardStepProtocol({
   showExpectedQuantity,
   onShowExpectedQuantityChange,
-  includeZeroStock,
-  onIncludeZeroStockChange,
   requireReasonForVariance,
   onRequireReasonForVarianceChange,
-  zeroStockCount,
 }: WizardStepProtocolProps) {
   const t = useTranslations("warehouseInventory.audits.wizard");
 
@@ -111,15 +102,6 @@ export function WizardStepProtocol({
         }
         checked={showExpectedQuantity}
         onChange={onShowExpectedQuantityChange}
-      />
-
-      <ToggleRow
-        icon={<Info size={14} className="text-primary" />}
-        title={t("includeZeroStockItems")}
-        description={t("includeZeroStockItemsDesc")}
-        note={t("zeroStockCountBadge", { count: zeroStockCount })}
-        checked={includeZeroStock}
-        onChange={onIncludeZeroStockChange}
       />
 
       <ToggleRow
