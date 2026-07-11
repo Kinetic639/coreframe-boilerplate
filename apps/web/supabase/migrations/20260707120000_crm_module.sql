@@ -189,6 +189,8 @@ CREATE INDEX IF NOT EXISTS crm_parties_org_deleted_idx ON public.crm_parties (or
 CREATE INDEX IF NOT EXISTS crm_parties_org_status_idx ON public.crm_parties (organization_id, status) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS crm_parties_org_display_idx ON public.crm_parties (organization_id, display_name) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS crm_parties_org_number_idx ON public.crm_parties (organization_id, counterparty_number) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS crm_parties_created_by_idx ON public.crm_parties (created_by) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS crm_parties_updated_by_idx ON public.crm_parties (updated_by) WHERE updated_by IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS crm_party_roles_org_role_idx ON public.crm_party_roles (organization_id, role);
 CREATE INDEX IF NOT EXISTS crm_party_roles_party_idx ON public.crm_party_roles (party_id);
@@ -198,13 +200,17 @@ CREATE INDEX IF NOT EXISTS crm_contacts_owner_idx ON public.crm_contacts (owner_
 CREATE INDEX IF NOT EXISTS crm_contacts_branch_idx ON public.crm_contacts (branch_id) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS crm_contacts_linked_user_idx ON public.crm_contacts (linked_user_id) WHERE linked_user_id IS NOT NULL AND deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS crm_contacts_org_display_idx ON public.crm_contacts (organization_id, display_name) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS crm_contacts_created_by_idx ON public.crm_contacts (created_by) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS crm_contacts_updated_by_idx ON public.crm_contacts (updated_by) WHERE updated_by IS NOT NULL;
 
+CREATE INDEX IF NOT EXISTS crm_party_contacts_org_idx ON public.crm_party_contacts (organization_id) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS crm_party_contacts_party_idx ON public.crm_party_contacts (party_id) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS crm_party_contacts_contact_idx ON public.crm_party_contacts (contact_id) WHERE deleted_at IS NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS crm_party_contacts_one_primary_idx
   ON public.crm_party_contacts (party_id)
   WHERE is_primary = true AND deleted_at IS NULL;
 
+CREATE INDEX IF NOT EXISTS crm_party_addresses_org_idx ON public.crm_party_addresses (organization_id) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS crm_party_addresses_party_idx ON public.crm_party_addresses (party_id) WHERE deleted_at IS NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS crm_party_addresses_one_default_idx
   ON public.crm_party_addresses (party_id, address_type)
@@ -549,6 +555,13 @@ CREATE POLICY crm_contacts_update ON public.crm_contacts
       visibility_scope <> 'private'
       OR owner_user_id = (select auth.uid())
     )
+    AND (
+      visibility_scope <> 'branch'
+      OR (
+        branch_id IS NOT NULL
+        AND public.has_branch_permission(organization_id, branch_id, 'crm.contacts.update')
+      )
+    )
   )
   WITH CHECK (
     public.is_org_member(organization_id)
@@ -559,6 +572,13 @@ CREATE POLICY crm_contacts_update ON public.crm_contacts
     AND (
       visibility_scope <> 'private'
       OR owner_user_id = (select auth.uid())
+    )
+    AND (
+      visibility_scope <> 'branch'
+      OR (
+        branch_id IS NOT NULL
+        AND public.has_branch_permission(organization_id, branch_id, 'crm.contacts.update')
+      )
     )
   );
 
@@ -572,6 +592,14 @@ CREATE POLICY crm_party_contacts_select ON public.crm_party_contacts
     deleted_at IS NULL
     AND public.is_org_member(organization_id)
     AND public.has_permission(organization_id, 'crm.parties.read')
+    AND EXISTS (
+      SELECT 1 FROM public.crm_parties p
+      WHERE p.id = party_id AND p.organization_id = crm_party_contacts.organization_id AND p.deleted_at IS NULL
+    )
+    AND EXISTS (
+      SELECT 1 FROM public.crm_contacts c
+      WHERE c.id = contact_id AND c.organization_id = crm_party_contacts.organization_id AND c.deleted_at IS NULL
+    )
   );
 
 CREATE POLICY crm_party_contacts_insert ON public.crm_party_contacts
@@ -594,10 +622,26 @@ CREATE POLICY crm_party_contacts_update ON public.crm_party_contacts
   USING (
     public.is_org_member(organization_id)
     AND public.has_permission(organization_id, 'crm.parties.update')
+    AND EXISTS (
+      SELECT 1 FROM public.crm_parties p
+      WHERE p.id = party_id AND p.organization_id = crm_party_contacts.organization_id AND p.deleted_at IS NULL
+    )
+    AND EXISTS (
+      SELECT 1 FROM public.crm_contacts c
+      WHERE c.id = contact_id AND c.organization_id = crm_party_contacts.organization_id AND c.deleted_at IS NULL
+    )
   )
   WITH CHECK (
     public.is_org_member(organization_id)
     AND public.has_permission(organization_id, 'crm.parties.update')
+    AND EXISTS (
+      SELECT 1 FROM public.crm_parties p
+      WHERE p.id = party_id AND p.organization_id = crm_party_contacts.organization_id AND p.deleted_at IS NULL
+    )
+    AND EXISTS (
+      SELECT 1 FROM public.crm_contacts c
+      WHERE c.id = contact_id AND c.organization_id = crm_party_contacts.organization_id AND c.deleted_at IS NULL
+    )
   );
 
 CREATE POLICY crm_party_contacts_delete_deny ON public.crm_party_contacts
@@ -610,6 +654,10 @@ CREATE POLICY crm_party_addresses_select ON public.crm_party_addresses
     deleted_at IS NULL
     AND public.is_org_member(organization_id)
     AND public.has_permission(organization_id, 'crm.parties.read')
+    AND EXISTS (
+      SELECT 1 FROM public.crm_parties p
+      WHERE p.id = party_id AND p.organization_id = crm_party_addresses.organization_id AND p.deleted_at IS NULL
+    )
   );
 
 CREATE POLICY crm_party_addresses_insert ON public.crm_party_addresses
@@ -617,6 +665,10 @@ CREATE POLICY crm_party_addresses_insert ON public.crm_party_addresses
   WITH CHECK (
     public.is_org_member(organization_id)
     AND public.has_permission(organization_id, 'crm.parties.update')
+    AND EXISTS (
+      SELECT 1 FROM public.crm_parties p
+      WHERE p.id = party_id AND p.organization_id = crm_party_addresses.organization_id AND p.deleted_at IS NULL
+    )
   );
 
 CREATE POLICY crm_party_addresses_update ON public.crm_party_addresses
@@ -624,10 +676,18 @@ CREATE POLICY crm_party_addresses_update ON public.crm_party_addresses
   USING (
     public.is_org_member(organization_id)
     AND public.has_permission(organization_id, 'crm.parties.update')
+    AND EXISTS (
+      SELECT 1 FROM public.crm_parties p
+      WHERE p.id = party_id AND p.organization_id = crm_party_addresses.organization_id AND p.deleted_at IS NULL
+    )
   )
   WITH CHECK (
     public.is_org_member(organization_id)
     AND public.has_permission(organization_id, 'crm.parties.update')
+    AND EXISTS (
+      SELECT 1 FROM public.crm_parties p
+      WHERE p.id = party_id AND p.organization_id = crm_party_addresses.organization_id AND p.deleted_at IS NULL
+    )
   );
 
 CREATE POLICY crm_party_addresses_delete_deny ON public.crm_party_addresses

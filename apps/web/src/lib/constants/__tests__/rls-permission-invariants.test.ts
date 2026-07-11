@@ -71,6 +71,13 @@ import {
   WAREHOUSE_PRICING_MANAGE,
   WAREHOUSE_REPORTS_READ,
   WAREHOUSE_IMPORTS_MANAGE,
+  // CRM
+  CRM_PARTIES_READ,
+  CRM_PARTIES_CREATE,
+  CRM_PARTIES_UPDATE,
+  CRM_CONTACTS_READ,
+  CRM_CONTACTS_CREATE,
+  CRM_CONTACTS_UPDATE,
   // DB RPC gate slugs
   BRANCHES_VIEW_ANY,
   BRANCHES_VIEW_UPDATE_ANY,
@@ -113,6 +120,12 @@ const RLS_GATE_SLUGS = [
   WAREHOUSE_PRICING_MANAGE, // Phase 2 pricing/cost write policies
   WAREHOUSE_REPORTS_READ, // Phase 3 report, saved export, valuation snapshot policies
   WAREHOUSE_IMPORTS_MANAGE, // Phase 3 import/export job policies
+  CRM_PARTIES_READ, // crm_parties and party child table SELECT policies
+  CRM_PARTIES_CREATE, // crm_parties and party child table INSERT policies
+  CRM_PARTIES_UPDATE, // crm_parties and party child table UPDATE policies
+  CRM_CONTACTS_READ, // crm_contacts and party contact SELECT policies
+  CRM_CONTACTS_CREATE, // crm_contacts and party contact INSERT policies
+  CRM_CONTACTS_UPDATE, // crm_contacts and party contact UPDATE policies
 ] as const;
 
 /**
@@ -221,10 +234,15 @@ describe("ALL_PERMISSION_SLUGS registry", () => {
     // Only expected wildcard slugs — if a new wildcard sneaks in, this test fails
     expect(wildcardSlugs.sort()).toEqual([
       "account.*",
+      "analytics.*",
+      "crm.*",
+      "helpdesk.*",
       "module.*",
+      "planning.*",
       "qr.*",
       "superadmin.*",
       "warehouse.*",
+      "workshop.*",
     ]);
   });
 
