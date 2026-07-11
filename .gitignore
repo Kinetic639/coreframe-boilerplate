@@ -60,6 +60,9 @@ yarn-debug.*
 yarn-error.log*
 yarn-error.*
 
+# Package manager caches
+.pnpm-store/
+
 # Misc
 .DS_Store
 *.pem
