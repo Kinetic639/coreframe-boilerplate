@@ -3,10 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev --webpack",
-    "dev:turbo": "next dev --turbo",
+    "dev": "node --use-system-ca ./node_modules/next/dist/bin/next dev --webpack",
+    "dev:turbo": "node --use-system-ca ./node_modules/next/dist/bin/next dev --turbo",
     "build": "next build",
-    "start": "next start",
+    "start": "node --use-system-ca ./node_modules/next/dist/bin/next start",
     "type-check": "tsc --noEmit",
     "check-types": "tsc --noEmit",
     "lint": "eslint . --ext .ts,.tsx",
