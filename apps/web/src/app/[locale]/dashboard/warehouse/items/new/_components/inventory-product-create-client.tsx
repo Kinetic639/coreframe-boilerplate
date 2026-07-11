@@ -9,6 +9,7 @@ import {
   ImageIcon,
   PackagePlus,
   Plus,
+  Search,
   Star,
   Trash2,
   Wand2,
@@ -27,6 +28,10 @@ import {
   updateInventorySkuTemplateAction,
   uploadInventoryItemImageAction,
 } from "@/app/actions/warehouse/inventory";
+import {
+  createWarehouseItemSupplierAction,
+  searchCrmWarehouseSupplierPartiesAction,
+} from "@/app/actions/warehouse/item-suppliers";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -70,6 +75,7 @@ import {
   type UploadedImageRecord,
   type VariantDraftRow,
 } from "./product-create-utils";
+import type { CrmSupplierOption } from "@/server/services/crm-parties.service";
 
 type UnitOption = {
   id: string;
@@ -121,6 +127,19 @@ type TaxRateOption = {
   is_default: boolean;
 };
 
+type InitialCrmSupplierDraft = {
+  draftId: string;
+  partyId: string;
+  counterpartyNumber: number;
+  displayName: string;
+  supplierSku: string;
+  leadTimeDays: string;
+  minimumOrderQuantity: string;
+  purchasePrice: string;
+  currencyCode: string;
+  isPrimary: boolean;
+};
+
 type InventoryProductCreateClientProps = {
   units: UnitOption[];
   suppliers: SupplierOption[];
@@ -148,6 +167,7 @@ export function InventoryProductCreateClient({
 }: InventoryProductCreateClientProps) {
   const t = useTranslations("warehouseInventory.create");
   const tc = useTranslations("warehouseInventory.common");
+  const tCrmSuppliers = useTranslations("warehouseInventory.edit.crmSuppliers");
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
   const [validationIssues, setValidationIssues] = useState<string[]>([]);
@@ -197,6 +217,16 @@ export function InventoryProductCreateClient({
   const [productCustomTokens, setProductCustomTokens] = useState<Record<string, string[]>>({});
   const [selectedProductCustomFieldIds, setSelectedProductCustomFieldIds] = useState<string[]>([]);
   const [selectedVariantCustomFieldIds, setSelectedVariantCustomFieldIds] = useState<string[]>([]);
+  const [crmSupplierQuery, setCrmSupplierQuery] = useState("");
+  const [crmSupplierResults, setCrmSupplierResults] = useState<CrmSupplierOption[]>([]);
+  const [selectedCrmSupplierId, setSelectedCrmSupplierId] = useState("");
+  const [crmSupplierSku, setCrmSupplierSku] = useState("");
+  const [crmLeadTimeDays, setCrmLeadTimeDays] = useState("");
+  const [crmMinimumOrderQuantity, setCrmMinimumOrderQuantity] = useState("");
+  const [crmPurchasePrice, setCrmPurchasePrice] = useState("");
+  const [crmCurrencyCode, setCrmCurrencyCode] = useState("");
+  const [crmIsPrimary, setCrmIsPrimary] = useState(false);
+  const [initialCrmSuppliers, setInitialCrmSuppliers] = useState<InitialCrmSupplierDraft[]>([]);
   const allProductCustomFields = useMemo(
     () => customFieldOptions.filter((field) => field.entity_type === "product"),
     [customFieldOptions]
@@ -640,6 +670,76 @@ export function InventoryProductCreateClient({
     }
   };
 
+  const numericValue = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return undefined;
+    const parsed = Number(trimmed.replace(",", "."));
+    return Number.isFinite(parsed) ? parsed : undefined;
+  };
+
+  const searchCrmSuppliers = async () => {
+    const result = await searchCrmWarehouseSupplierPartiesAction({
+      query: crmSupplierQuery,
+      limit: 12,
+    });
+    if ("error" in result) {
+      setMessage(result.error);
+      return;
+    }
+    setCrmSupplierResults(result.data);
+    setSelectedCrmSupplierId(result.data[0]?.id ?? "");
+    setMessage(null);
+  };
+
+  const addInitialCrmSupplier = () => {
+    const supplier = crmSupplierResults.find((item) => item.id === selectedCrmSupplierId);
+    if (!supplier) return;
+    setInitialCrmSuppliers((current) => {
+      const withoutDuplicate = current.filter((item) => item.partyId !== supplier.id);
+      const nextIsPrimary = crmIsPrimary || withoutDuplicate.length === 0;
+      const next = {
+        draftId: crypto.randomUUID(),
+        partyId: supplier.id,
+        counterpartyNumber: supplier.counterparty_number,
+        displayName: supplier.display_name,
+        supplierSku: crmSupplierSku,
+        leadTimeDays: crmLeadTimeDays,
+        minimumOrderQuantity: crmMinimumOrderQuantity,
+        purchasePrice: crmPurchasePrice,
+        currencyCode: crmCurrencyCode.toUpperCase(),
+        isPrimary: nextIsPrimary,
+      };
+      if (nextIsPrimary) {
+        return [...withoutDuplicate.map((item) => ({ ...item, isPrimary: false })), next];
+      }
+      return [...withoutDuplicate, next];
+    });
+    setCrmSupplierSku("");
+    setCrmLeadTimeDays("");
+    setCrmMinimumOrderQuantity("");
+    setCrmPurchasePrice("");
+    setCrmCurrencyCode("");
+    setCrmIsPrimary(false);
+  };
+
+  const attachInitialCrmSuppliers = async (productId: string) => {
+    for (const supplier of initialCrmSuppliers) {
+      const result = await createWarehouseItemSupplierAction({
+        item_id: productId,
+        party_id: supplier.partyId,
+        is_primary: supplier.isPrimary,
+        supplier_sku: supplier.supplierSku || undefined,
+        lead_time_days: numericValue(supplier.leadTimeDays),
+        minimum_order_quantity: numericValue(supplier.minimumOrderQuantity),
+        purchase_price: numericValue(supplier.purchasePrice),
+        currency_code: supplier.currencyCode.trim().toUpperCase() || undefined,
+      });
+      if ("error" in result) {
+        throw new Error(result.error);
+      }
+    }
+  };
+
   const createProduct = (formData: FormData) => {
     setMessage(null);
     setValidationIssues([]);
@@ -855,6 +955,13 @@ export function InventoryProductCreateClient({
         await uploadImages(result.data.product_id, result.data.variant_ids);
       } catch (error) {
         setMessage(error instanceof Error ? error.message : t("imageSaveFailed"));
+        return;
+      }
+
+      try {
+        await attachInitialCrmSuppliers(result.data.product_id);
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : t("crmSuppliersSaveFailed"));
         return;
       }
       router.push("/dashboard/warehouse/items");
@@ -1308,6 +1415,142 @@ export function InventoryProductCreateClient({
                 </select>
               </div>
               <InventoryRichTextFormField name="purchase_description" label={tc("description")} />
+              <section className="rounded-lg border border-border/70 p-4">
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground">
+                    {tCrmSuppliers("title")}
+                  </h3>
+                  <p className="text-xs text-muted-foreground">{tCrmSuppliers("description")}</p>
+                </div>
+                <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+                  <Input
+                    value={crmSupplierQuery}
+                    onChange={(event) => setCrmSupplierQuery(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        void searchCrmSuppliers();
+                      }
+                    }}
+                    placeholder={tCrmSuppliers("searchPlaceholder")}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => void searchCrmSuppliers()}
+                    disabled={isPending}
+                  >
+                    <Search className="mr-2 h-4 w-4" />
+                    {tCrmSuppliers("search")}
+                  </Button>
+                </div>
+                <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_160px_120px_auto]">
+                  <select
+                    className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                    value={selectedCrmSupplierId}
+                    onChange={(event) => setSelectedCrmSupplierId(event.target.value)}
+                  >
+                    <option value="">{tCrmSuppliers("selectSupplier")}</option>
+                    {crmSupplierResults.map((supplier) => (
+                      <option key={supplier.id} value={supplier.id}>
+                        {supplier.counterparty_number} - {supplier.display_name}
+                      </option>
+                    ))}
+                  </select>
+                  <Input
+                    value={crmSupplierSku}
+                    onChange={(event) => setCrmSupplierSku(event.target.value)}
+                    placeholder={tCrmSuppliers("supplierSku")}
+                  />
+                  <label className="flex h-10 items-center gap-2 rounded-md border border-input px-3 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={crmIsPrimary}
+                      onChange={(event) => setCrmIsPrimary(event.target.checked)}
+                    />
+                    {tCrmSuppliers("primary")}
+                  </label>
+                  <Button
+                    type="button"
+                    onClick={addInitialCrmSupplier}
+                    disabled={isPending || !selectedCrmSupplierId}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    {tCrmSuppliers("add")}
+                  </Button>
+                </div>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <Input
+                    inputMode="numeric"
+                    value={crmLeadTimeDays}
+                    onChange={(event) =>
+                      setCrmLeadTimeDays(event.target.value.replace(/[^\d]/g, ""))
+                    }
+                    placeholder={tCrmSuppliers("leadTimeDays")}
+                  />
+                  <Input
+                    inputMode="decimal"
+                    value={crmMinimumOrderQuantity}
+                    onChange={(event) => setCrmMinimumOrderQuantity(event.target.value)}
+                    placeholder={tCrmSuppliers("minimumOrderQuantity")}
+                  />
+                  <Input
+                    inputMode="decimal"
+                    value={crmPurchasePrice}
+                    onChange={(event) => setCrmPurchasePrice(event.target.value)}
+                    placeholder={tCrmSuppliers("purchasePrice")}
+                  />
+                  <Input
+                    maxLength={3}
+                    value={crmCurrencyCode}
+                    onChange={(event) => setCrmCurrencyCode(event.target.value.toUpperCase())}
+                    placeholder={tCrmSuppliers("currencyCode")}
+                  />
+                </div>
+                <div className="mt-4 space-y-2">
+                  {initialCrmSuppliers.length === 0 ? (
+                    <p className="rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground">
+                      {tCrmSuppliers("empty")}
+                    </p>
+                  ) : (
+                    initialCrmSuppliers.map((supplier) => (
+                      <div
+                        key={supplier.draftId}
+                        className="flex flex-col gap-3 rounded-md border border-border p-3 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="truncate text-sm font-medium text-foreground">
+                              {supplier.counterpartyNumber} - {supplier.displayName}
+                            </p>
+                            {supplier.isPrimary ? (
+                              <span className="rounded-md bg-primary px-2 py-0.5 text-xs text-primary-foreground">
+                                {tCrmSuppliers("primary")}
+                              </span>
+                            ) : null}
+                          </div>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {supplier.supplierSku || tCrmSuppliers("noSku")}
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() =>
+                            setInitialCrmSuppliers((current) =>
+                              current.filter((item) => item.draftId !== supplier.draftId)
+                            )
+                          }
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          {tCrmSuppliers("remove")}
+                        </Button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </section>
             </div>
           </section>
 
