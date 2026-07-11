@@ -650,6 +650,139 @@ describe("Sidebar SSR Integration", () => {
     expect(findItemById(model, "planning.boards")).toBeUndefined();
   });
 
+  // ── CRM Module ────────────────────────────────────────────────────────────
+
+  it("should show crm group when crm is entitled and user has module access", () => {
+    const userContext = {
+      user: {
+        id: "user-123",
+        email: "test@example.com",
+        first_name: null,
+        last_name: null,
+        avatar_url: null,
+        avatar_signed_url: null,
+      },
+      roles: [],
+      permissionSnapshot: {
+        allow: ["module.crm.access", "crm.read", "crm.parties.read", "crm.contacts.read"],
+        deny: [],
+      },
+    };
+
+    const crmEntitlements = {
+      organization_id: "org-123",
+      plan_id: "plan-professional",
+      enabled_modules: ["crm"],
+      contexts: [],
+      limits: {},
+      updated_at: "2026-07-07T00:00:00.000Z",
+    };
+
+    const model = buildSidebarModelUncached(BASE_APP_CONTEXT, userContext, crmEntitlements, "en");
+
+    expect(findItemById(model, "crm")).toBeDefined();
+    expect(findItemById(model, "crm.overview")).toBeDefined();
+    expect(findItemById(model, "crm.parties")).toBeDefined();
+    expect(findItemById(model, "crm.contacts")).toBeDefined();
+    expect(findItemById(model, "crm.settings")).toBeDefined();
+  });
+
+  it("should hide crm group when crm is not entitled", () => {
+    const userContext = {
+      user: {
+        id: "user-123",
+        email: "test@example.com",
+        first_name: null,
+        last_name: null,
+        avatar_url: null,
+        avatar_signed_url: null,
+      },
+      roles: [],
+      permissionSnapshot: {
+        allow: ["module.crm.access", "crm.read", "crm.parties.read", "crm.contacts.read"],
+        deny: [],
+      },
+    };
+
+    const noCrmEntitlements = {
+      organization_id: "org-123",
+      plan_id: "plan-free",
+      enabled_modules: ["organization-management"],
+      contexts: [],
+      limits: {},
+      updated_at: "2026-07-07T00:00:00.000Z",
+    };
+
+    const model = buildSidebarModelUncached(BASE_APP_CONTEXT, userContext, noCrmEntitlements, "en");
+
+    expect(findItemById(model, "crm")).toBeUndefined();
+  });
+
+  it("should hide crm group when user lacks module.crm.access", () => {
+    const userContext = {
+      user: {
+        id: "user-123",
+        email: "test@example.com",
+        first_name: null,
+        last_name: null,
+        avatar_url: null,
+        avatar_signed_url: null,
+      },
+      roles: [],
+      permissionSnapshot: {
+        allow: ["crm.read", "crm.parties.read", "crm.contacts.read"],
+        deny: [],
+      },
+    };
+
+    const crmEntitlements = {
+      organization_id: "org-123",
+      plan_id: "plan-professional",
+      enabled_modules: ["crm"],
+      contexts: [],
+      limits: {},
+      updated_at: "2026-07-07T00:00:00.000Z",
+    };
+
+    const model = buildSidebarModelUncached(BASE_APP_CONTEXT, userContext, crmEntitlements, "en");
+
+    expect(findItemById(model, "crm")).toBeUndefined();
+  });
+
+  it("should hide crm child items when child read permissions are missing", () => {
+    const userContext = {
+      user: {
+        id: "user-123",
+        email: "test@example.com",
+        first_name: null,
+        last_name: null,
+        avatar_url: null,
+        avatar_signed_url: null,
+      },
+      roles: [],
+      permissionSnapshot: {
+        allow: ["module.crm.access", "crm.read", "crm.parties.read"],
+        deny: [],
+      },
+    };
+
+    const crmEntitlements = {
+      organization_id: "org-123",
+      plan_id: "plan-professional",
+      enabled_modules: ["crm"],
+      contexts: [],
+      limits: {},
+      updated_at: "2026-07-07T00:00:00.000Z",
+    };
+
+    const model = buildSidebarModelUncached(BASE_APP_CONTEXT, userContext, crmEntitlements, "en");
+
+    expect(findItemById(model, "crm")).toBeDefined();
+    expect(findItemById(model, "crm.parties")).toBeDefined();
+    expect(findItemById(model, "crm.contacts")).toBeUndefined();
+    expect(findItemById(model, "crm.settings")).toBeDefined();
+  });
+
   // ── Analytics & Reports Module ─────────────────────────────────────────────
 
   // an-1: analytics group visible when module entitled + user has access + analytics.read
