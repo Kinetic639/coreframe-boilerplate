@@ -186,14 +186,13 @@ The schema and service/action foundation for item suppliers exists through `ware
 
 CRM supplier search is available through a warehouse action that reads active CRM parties with the `supplier` role and requires both warehouse product read access and CRM party read access.
 
-Warehouse item edit now includes a CRM supplier panel in the purchase section. It can search supplier parties, attach them to the item, save supplier SKU, mark a primary supplier, list existing item suppliers, and remove links via soft delete.
+Warehouse item edit now includes a CRM supplier panel in the purchase section. It can search supplier parties, attach them to the item, save supplier SKU, lead time, MOQ, purchase price, currency, mark a primary supplier, list existing item suppliers, and remove links via soft delete.
 
 Warehouse movement party fields now support plain integer kontrahent lookup. Entering a CRM counterparty number resolves the party, fills name/tax/phone/address data, and stores CRM party id, counterparty number, and a compact snapshot in the existing `sender_details` / `recipient_details` JSON payload.
 
 Still required:
 
 - Extend the Suppliers section/tab to warehouse item create/detail flows.
-- Add UI fields for price, currency, MOQ, and lead time.
 - Decide whether movement headers need dedicated physical snapshot columns in addition to the JSON party details.
 
 ## Verification Status

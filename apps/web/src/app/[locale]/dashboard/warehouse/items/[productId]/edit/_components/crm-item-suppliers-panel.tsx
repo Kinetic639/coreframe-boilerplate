@@ -27,6 +27,10 @@ export function CrmItemSuppliersPanel({ itemId }: CrmItemSuppliersPanelProps) {
   const [results, setResults] = useState<CrmSupplierOption[]>([]);
   const [selectedPartyId, setSelectedPartyId] = useState("");
   const [supplierSku, setSupplierSku] = useState("");
+  const [leadTimeDays, setLeadTimeDays] = useState("");
+  const [minimumOrderQuantity, setMinimumOrderQuantity] = useState("");
+  const [purchasePrice, setPurchasePrice] = useState("");
+  const [currencyCode, setCurrencyCode] = useState("");
   const [isPrimary, setIsPrimary] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -76,12 +80,23 @@ export function CrmItemSuppliersPanel({ itemId }: CrmItemSuppliersPanelProps) {
       return;
     }
 
+    const numericValue = (value: string) => {
+      const trimmed = value.trim();
+      if (!trimmed) return undefined;
+      const parsed = Number(trimmed.replace(",", "."));
+      return Number.isFinite(parsed) ? parsed : undefined;
+    };
+
     startTransition(async () => {
       const result = await createWarehouseItemSupplierAction({
         item_id: itemId,
         party_id: selectedPartyId,
         is_primary: isPrimary,
         supplier_sku: supplierSku || undefined,
+        lead_time_days: numericValue(leadTimeDays),
+        minimum_order_quantity: numericValue(minimumOrderQuantity),
+        purchase_price: numericValue(purchasePrice),
+        currency_code: currencyCode.trim().toUpperCase() || undefined,
       });
 
       if ("error" in result) {
@@ -91,6 +106,10 @@ export function CrmItemSuppliersPanel({ itemId }: CrmItemSuppliersPanelProps) {
 
       setRows(result.data);
       setSupplierSku("");
+      setLeadTimeDays("");
+      setMinimumOrderQuantity("");
+      setPurchasePrice("");
+      setCurrencyCode("");
       setIsPrimary(false);
       setMessage(null);
     });
@@ -186,6 +205,33 @@ export function CrmItemSuppliersPanel({ itemId }: CrmItemSuppliersPanelProps) {
         </Button>
       </div>
 
+      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Input
+          inputMode="numeric"
+          value={leadTimeDays}
+          onChange={(event) => setLeadTimeDays(event.target.value.replace(/[^\d]/g, ""))}
+          placeholder={t("leadTimeDays")}
+        />
+        <Input
+          inputMode="decimal"
+          value={minimumOrderQuantity}
+          onChange={(event) => setMinimumOrderQuantity(event.target.value)}
+          placeholder={t("minimumOrderQuantity")}
+        />
+        <Input
+          inputMode="decimal"
+          value={purchasePrice}
+          onChange={(event) => setPurchasePrice(event.target.value)}
+          placeholder={t("purchasePrice")}
+        />
+        <Input
+          maxLength={3}
+          value={currencyCode}
+          onChange={(event) => setCurrencyCode(event.target.value.toUpperCase())}
+          placeholder={t("currencyCode")}
+        />
+      </div>
+
       {selectedSupplier ? (
         <p className="mt-2 text-xs text-muted-foreground">
           {selectedSupplier.email || selectedSupplier.phone || t("noContactData")}
@@ -218,6 +264,22 @@ export function CrmItemSuppliersPanel({ itemId }: CrmItemSuppliersPanelProps) {
                 <p className="mt-1 text-xs text-muted-foreground">
                   {row.supplier_sku || t("noSku")}
                 </p>
+                <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                  {row.lead_time_days !== null ? (
+                    <span>{t("leadTimeValue", { count: row.lead_time_days })}</span>
+                  ) : null}
+                  {row.minimum_order_quantity !== null ? (
+                    <span>{t("moqValue", { value: row.minimum_order_quantity })}</span>
+                  ) : null}
+                  {row.purchase_price !== null ? (
+                    <span>
+                      {t("priceValue", {
+                        value: row.purchase_price,
+                        currency: row.currency_code ?? "",
+                      })}
+                    </span>
+                  ) : null}
+                </div>
               </div>
               <Button
                 type="button"

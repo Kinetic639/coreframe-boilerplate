@@ -35,6 +35,7 @@
 - [x] Add party/contact archive affordances backed by soft-delete actions.
 - [x] Add CRM counterparty-number lookup to warehouse movement party fields.
 - [x] Store CRM party id, counterparty number, and snapshot in movement party details JSON.
+- [x] Add lead time, MOQ, purchase price, and currency fields to warehouse item edit CRM supplier panel.
 - [ ] Reconcile CRM work with the new warehouse audit feature pulled from `main`.
 - [ ] Add RLS integration tests.
 - [ ] Complete party create/edit/detail UI polish.
@@ -264,14 +265,13 @@ Completed:
 - Added `searchCrmWarehouseSupplierPartiesAction` guarded by `warehouse.products.read` and `crm.parties.read`.
 - Added action tests for warehouse item supplier permissions, CRM supplier search, and item supplier creation context.
 - Added `CrmItemSuppliersPanel` to the warehouse item edit purchase section.
-- The edit panel can search CRM supplier parties, attach a party to the item, store supplier SKU, mark primary supplier, list existing CRM suppliers, and soft-delete supplier links.
+- The edit panel can search CRM supplier parties, attach a party to the item, store supplier SKU, lead time, MOQ, purchase price, currency, mark primary supplier, list existing CRM suppliers, and soft-delete supplier links.
 - Added CRM party lookup by plain integer counterparty number for warehouse movement party fields.
 - Movement party details now carry CRM party id, counterparty number, and a compact immutable snapshot in existing sender/recipient details JSON.
 
 Remaining work:
 
 - Extend the CRM Suppliers section to warehouse item create/detail pages.
-- Add remaining supplier terms to the UI: price, currency, MOQ, and lead time.
 - Show richer supplier contact data once signed URLs/contact links are available in the item context.
 - Decide how legacy supplier/business account data migrates or coexists during transition.
 - Decide whether movement headers also need physical `party_id`, `counterparty_number_snapshot`, and `counterparty_snapshot` columns for reporting, or whether JSON party details are sufficient for v1.

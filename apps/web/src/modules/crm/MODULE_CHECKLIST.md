@@ -23,6 +23,7 @@
 - [x] CRM logo/avatar upload controls exist in party/contact detail panels
 - [x] CRM supplier search action exists for warehouse item supplier pickers
 - [x] CRM supplier management panel exists on warehouse item edit page
+- [x] Warehouse item edit CRM supplier panel captures supplier SKU, lead time, MOQ, purchase price, and currency
 - [x] Party detail supports basic editing and role editing
 - [x] Party detail supports linking existing contacts as contact people
 - [x] Party detail supports adding addresses
