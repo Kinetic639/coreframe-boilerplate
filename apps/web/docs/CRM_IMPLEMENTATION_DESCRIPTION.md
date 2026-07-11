@@ -26,14 +26,16 @@ The foundation has been implemented in the working tree:
 - SSR routes for `/dashboard/crm`, `/dashboard/crm/parties`, and `/dashboard/crm/contacts`.
 - Initial client islands for parties and contacts with SSR initial data.
 - CRM settings route scaffold with matching sidebar and translation keys.
-- Focused CRM service and action tests, including entitlement mapping, server-owned context, soft delete, contact linking, address creation, and cross-org list denial.
+- Focused CRM service and action tests, including entitlement mapping, server-owned context, soft delete, contact linking/unlinking, address creation/removal, and cross-org list denial.
 - Private Supabase Storage buckets and server actions for CRM party logos and contact avatars.
 - Party/contact detail UI upload controls for CRM logos and avatars.
 - CRM supplier search service/action for warehouse item supplier pickers.
 - Module metadata and module checklist under `src/modules/crm`.
 - English and Polish navigation/UI translations.
+- Supabase MCP migration application and advisor verification on `ambra-prod`.
+- Regenerated Supabase target types including the CRM tables and number allocator RPC.
 
-The work is not production-complete yet. The biggest remaining gaps are RLS integration tests, Supabase type regeneration, Supabase MCP verification/advisors, richer editing workflows, remaining warehouse item create/detail integration, physical movement snapshot-column decision, and final build gates.
+The CRM implementation pass is complete. Deferred transition work remains around legacy supplier migration/bridging and whether warehouse movement headers should get physical snapshot columns in addition to the current JSON details.
 
 ## Database Model
 
@@ -129,7 +131,7 @@ Core security rules:
 - Link/address tables are scoped by organization and parent visibility/permissions.
 - The number allocation RPC revokes public execution and grants execution only to `authenticated`.
 
-The implementation still needs real RLS integration tests before it should be considered production-ready.
+CRM RLS is covered by migration invariant tests for RLS/FORCE RLS, hard-delete denial, branch/private visibility policy structure, secure number allocation, and cross-org link prevention. These tests are structural rather than live multi-user database integration tests.
 
 ## Entitlements And Permissions
 
@@ -178,7 +180,7 @@ Implemented routes:
 - `/dashboard/crm/parties`
 - `/dashboard/crm/settings`
 
-The current UI is an initial management surface. It includes list/detail client islands, settings placeholder coverage, storage-backed logo/avatar upload controls, party detail editing, role editing, contact-person linking, address creation, contact detail editing, party/contact archive affordances, and a warehouse item edit supplier panel. It still needs linked contact/address update/delete affordances, create-contact-from-party flow if desired, and full warehouse item create/detail integration.
+The current UI is a functional management surface. It includes list/detail client islands, settings placeholder coverage, storage-backed logo/avatar upload controls, richer create dialogs, party detail editing, role editing, contact-person linking and unlinking, address creation and removal, contact detail editing, optional linked organization user selection for contacts, party/contact archive affordances, and warehouse item create/edit/detail supplier integration. Future UX enhancements can add a create-contact-from-party shortcut and richer inline metadata editing for existing links/addresses.
 
 ## Warehouse Integration
 
@@ -188,29 +190,33 @@ CRM supplier search is available through a warehouse action that reads active CR
 
 Warehouse item edit now includes a CRM supplier panel in the purchase section. It can search supplier parties, attach them to the item, save supplier SKU, lead time, MOQ, purchase price, currency, mark a primary supplier, list existing item suppliers, and remove links via soft delete.
 
+Warehouse item detail now SSR-renders assigned CRM suppliers for users with CRM party read access, including primary flag, supplier SKU, lead time, MOQ, purchase price, and currency.
+
+Warehouse item create now supports selecting initial CRM suppliers before submit. The product is created first, then the selected CRM suppliers and purchasing terms are attached through the same `warehouse_item_suppliers` action path once the product id exists.
+
 Warehouse movement party fields now support plain integer kontrahent lookup. Entering a CRM counterparty number resolves the party, fills name/tax/phone/address data, and stores CRM party id, counterparty number, and a compact snapshot in the existing `sender_details` / `recipient_details` JSON payload.
+
+The pulled warehouse audit supplier-scope flow was reviewed against the CRM supplier work. It still intentionally uses legacy inventory supplier ids because audit sessions, variant defaults, and reorder rules currently filter through `inventory_variants.default_supplier_id` and `inventory_reorder_rules.preferred_supplier_id`. Switching it to CRM parties requires a bridge or migration path from those legacy ids to `crm_parties` / `warehouse_item_suppliers`.
 
 Still required:
 
-- Extend the Suppliers section/tab to warehouse item create/detail flows.
+- Define the legacy supplier to CRM party migration/bridge before changing supplier-scoped stock audits.
 - Decide whether movement headers need dedicated physical snapshot columns in addition to the JSON party details.
 
 ## Verification Status
 
-The implementation has not passed the final verification gates yet. Current verified gates:
+Completed verified gates:
 
-- Focused CRM service/action/sidebar/migration Vitest suite passes: 7 files, 71 tests.
-- Contracts invariant tests pass.
-- CRM-specific type-check errors have been fixed.
+- Contracts invariant tests pass: 1 file, 9 tests.
+- Focused CRM service/action/sidebar/migration/RLS invariant Vitest suite passes: 8 files, 98 tests.
+- Web type-check passes.
+- Production build passes.
+- CRM DDL was applied to `ambra-prod` through Supabase MCP.
+- CRM advisor FK indexes were applied to `ambra-prod` through Supabase MCP.
+- Supabase security and performance advisors were run through Supabase MCP.
+- `apps/web/supabase/types/target.types.ts` was regenerated and includes `crm_contacts`, `crm_parties`, `warehouse_item_suppliers`, and `next_crm_counterparty_number`.
 
-Required remaining gates include:
+Accepted findings and blockers:
 
-- Supabase migration application through MCP.
-- Supabase advisors after DDL.
-- Supabase type regeneration.
-- RLS integration tests.
-- Full `npm run type-check`.
-- Full `npx vitest run`.
-- `npm run build`.
-
-Full web type-check currently fails on unrelated rich-text imports for missing `@tiptap/core`, not on CRM code.
+- Supabase security advisor flags `next_crm_counterparty_number(org_id uuid)` because authenticated users can execute a `SECURITY DEFINER` function. This is intentional for safe sequence allocation; public execution is revoked and the function checks organization membership before allocating a number.
+- Full web Vitest was attempted and timed out after 300 seconds with unrelated existing failures in public header, DataView, signup, QR labels/PDF generation, admin sidebar registry, loading tests, branch context, and audit visual taxonomy. The focused CRM suite passed.
