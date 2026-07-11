@@ -34,14 +34,28 @@ The foundation has been implemented in the working tree:
 - English and Polish navigation/UI translations.
 - Supabase MCP migration application and advisor verification on `ambra-prod`.
 - Regenerated Supabase target types including the CRM tables and number allocator RPC.
+- Shared organization entity numbering for CRM parties and branches, including branch-number backfill for existing branches.
 
 The CRM implementation pass is complete. Deferred transition work remains around legacy supplier migration/bridging and whether warehouse movement headers should get physical snapshot columns in addition to the current JSON details.
 
 ## Database Model
 
+### `organization_entity_number_sequences`
+
+Stores the next visible organization entity number for each organization. This is the shared sequence for entities users can identify by a short plain integer in operational forms.
+
+### `organization_entity_numbers`
+
+Stores the registry that prevents collisions between different numbered entity types. The registry currently covers:
+
+- `crm_party`: CRM kontrahenci through `crm_parties.counterparty_number`.
+- `branch`: internal organization branches through `branches.branch_number`.
+
+This means one organization cannot have both kontrahent number `6` and branch number `6`. The entities remain separate domain objects, but their user-facing numeric identifiers share one collision-safe number space.
+
 ### `crm_number_sequences`
 
-Stores per-organization integer sequences. The current sequence key is `counterparty`.
+Legacy compatibility table for CRM-only counterparty allocation. New create paths reserve numbers through the shared organization entity-number registry.
 
 Kontrahent numbers are plain integers such as `6`, `12`, and `81`. They are unique inside an organization and are assigned by the server/database path, not by normal client input.
 
@@ -59,6 +73,10 @@ Stores all invoice-capable parties. This includes business entities and individu
 - lifecycle fields such as `status`, `created_by`, `updated_by`, `deleted_at`
 
 The table has a unique constraint on `(organization_id, counterparty_number)`.
+
+### `branches.branch_number`
+
+Branches now have a required plain integer `branch_number`. Existing branches were backfilled through Supabase MCP so they do not collide with already existing CRM party numbers. New branch creation reserves a number from the same shared organization entity-number registry used by CRM parties.
 
 ### `crm_party_roles`
 
@@ -99,16 +117,20 @@ Connects warehouse inventory items to CRM parties that have supplier behavior. I
 
 ## Numbering
 
-The `next_crm_counterparty_number(org_id uuid)` RPC allocates plain integer kontrahent numbers per organization. It:
+The primary allocator is `reserve_organization_entity_number(org_id uuid, entity_type text, entity_id uuid)`. It reserves a plain integer per organization for a concrete entity id and entity type. It:
 
 - validates that an organization id was provided,
+- validates the entity type,
 - checks organization membership,
 - creates the sequence row if missing,
 - locks the sequence row with `FOR UPDATE`,
-- returns the current value,
-- increments `next_value`.
+- skips already-used values,
+- writes the registry row,
+- returns the reserved number.
 
-This is the mechanism that lets warehouse or document forms accept a simple kontrahent number and resolve the full party record. Branch numbers remain a separate namespace and are not mixed with CRM party numbering.
+This is the mechanism that lets warehouse or document forms accept a simple number and resolve the correct entity record. CRM parties and branches are not mixed as business objects, but their visible numbers are intentionally shared so users never have to wonder whether number `6` means two different things.
+
+The older `next_crm_counterparty_number(org_id uuid)` RPC remains for compatibility, but the application create paths now use the shared reservation RPC.
 
 ## Security And RLS
 
@@ -194,7 +216,7 @@ Warehouse item detail now SSR-renders assigned CRM suppliers for users with CRM 
 
 Warehouse item create now supports selecting initial CRM suppliers before submit. The product is created first, then the selected CRM suppliers and purchasing terms are attached through the same `warehouse_item_suppliers` action path once the product id exists.
 
-Warehouse movement party fields now support plain integer kontrahent lookup. Entering a CRM counterparty number resolves the party, fills name/tax/phone/address data, and stores CRM party id, counterparty number, and a compact snapshot in the existing `sender_details` / `recipient_details` JSON payload.
+Warehouse movement party fields now support plain integer entity lookup. Entering a CRM counterparty number resolves the party, fills name/tax/phone/address data, and stores CRM party id, counterparty number, generic entity number, and a compact snapshot in the existing `sender_details` / `recipient_details` JSON payload. Entering a branch number resolves the branch and stores branch id, branch number, generic entity number, and a compact branch snapshot in the same JSON payload.
 
 The pulled warehouse audit supplier-scope flow was reviewed against the CRM supplier work. It still intentionally uses legacy inventory supplier ids because audit sessions, variant defaults, and reorder rules currently filter through `inventory_variants.default_supplier_id` and `inventory_reorder_rules.preferred_supplier_id`. Switching it to CRM parties requires a bridge or migration path from those legacy ids to `crm_parties` / `warehouse_item_suppliers`.
 
@@ -214,7 +236,10 @@ Completed verified gates:
 - CRM DDL was applied to `ambra-prod` through Supabase MCP.
 - CRM advisor FK indexes were applied to `ambra-prod` through Supabase MCP.
 - Supabase security and performance advisors were run through Supabase MCP.
-- `apps/web/supabase/types/target.types.ts` was regenerated and includes `crm_contacts`, `crm_parties`, `warehouse_item_suppliers`, and `next_crm_counterparty_number`.
+- Shared organization entity-number DDL was applied to `ambra-prod` through Supabase MCP.
+- Existing branches were backfilled with branch numbers through Supabase MCP.
+- Supabase MCP verification confirmed that no organization has duplicate registered entity numbers.
+- `apps/web/supabase/types/target.types.ts` was regenerated and includes `crm_contacts`, `crm_parties`, `warehouse_item_suppliers`, `organization_entity_numbers`, `next_crm_counterparty_number`, and `reserve_organization_entity_number`.
 
 Accepted findings and blockers:
 

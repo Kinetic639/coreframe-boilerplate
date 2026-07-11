@@ -9,11 +9,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
-  lookupCrmCounterpartyForMovementAction,
+  lookupOrganizationEntityNumberForMovementAction,
   searchSuppliersAction,
 } from "@/app/actions/warehouse/inventory";
 import type { MovementPartyDetails } from "@/lib/warehouse/inventory-types";
-import type { CrmCounterpartyLookup } from "@/server/services/crm-parties.service";
+import type { OrganizationEntityNumberLookup } from "@/server/services/organization.service";
 
 export type SupplierFields = {
   name: string;
@@ -22,8 +22,12 @@ export type SupplierFields = {
   street: string;
   postalCode: string;
   city: string;
+  entityNumber?: number;
   crmPartyId?: string;
   counterpartyNumber?: number;
+  branchId?: string;
+  branchNumber?: number;
+  branchSnapshot?: MovementPartyDetails["branchSnapshot"];
   counterpartySnapshot?: MovementPartyDetails["counterpartySnapshot"];
 };
 
@@ -92,7 +96,9 @@ export const MovementPartySection = React.memo(function MovementPartySection({
   const t = useTranslations("warehouseInventory.movementEditor");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [counterpartyInput, setCounterpartyInput] = useState(
-    fields.counterpartyNumber ? String(fields.counterpartyNumber) : ""
+    fields.entityNumber || fields.counterpartyNumber || fields.branchNumber
+      ? String(fields.entityNumber ?? fields.counterpartyNumber ?? fields.branchNumber)
+      : ""
   );
   const [lookupPending, startLookupTransition] = useTransition();
 
@@ -129,8 +135,28 @@ export const MovementPartySection = React.memo(function MovementPartySection({
     [fields, onFieldsChange, onNameChange, onDetailsChange]
   );
 
-  const fillFromCounterparty = useCallback(
-    (counterparty: CrmCounterpartyLookup) => {
+  const fillFromEntityNumber = useCallback(
+    (lookup: OrganizationEntityNumberLookup) => {
+      if (lookup.entity_type === "branch") {
+        const next: SupplierFields = {
+          ...fields,
+          name: lookup.branch.name,
+          entityNumber: lookup.entity_number,
+          branchId: lookup.branch.id,
+          branchNumber: lookup.branch.branch_number,
+          branchSnapshot: lookup.branch,
+          crmPartyId: undefined,
+          counterpartyNumber: undefined,
+          counterpartySnapshot: undefined,
+        };
+        setCounterpartyInput(String(lookup.entity_number));
+        onFieldsChange(next);
+        onNameChange(next.name);
+        onDetailsChange(next);
+        return;
+      }
+
+      const counterparty = lookup.party;
       const address = counterparty.address;
       const street = [address?.street, address?.building_number, address?.unit_number]
         .filter(Boolean)
@@ -143,11 +169,15 @@ export const MovementPartySection = React.memo(function MovementPartySection({
         street: street || fields.street,
         postalCode: address?.postal_code ?? fields.postalCode,
         city: address?.city ?? fields.city,
+        entityNumber: lookup.entity_number,
         crmPartyId: counterparty.id,
         counterpartyNumber: counterparty.counterparty_number,
         counterpartySnapshot: counterparty,
+        branchId: undefined,
+        branchNumber: undefined,
+        branchSnapshot: undefined,
       };
-      setCounterpartyInput(String(counterparty.counterparty_number));
+      setCounterpartyInput(String(lookup.entity_number));
       onFieldsChange(next);
       onNameChange(next.name);
       onDetailsChange(next);
@@ -162,17 +192,17 @@ export const MovementPartySection = React.memo(function MovementPartySection({
       return;
     }
     startLookupTransition(async () => {
-      const result = await lookupCrmCounterpartyForMovementAction({
-        counterparty_number: counterpartyNumber,
+      const result = await lookupOrganizationEntityNumberForMovementAction({
+        number: counterpartyNumber,
       });
       if ("error" in result) {
         toast.error(result.error);
         return;
       }
-      fillFromCounterparty(result.data);
+      fillFromEntityNumber(result.data);
       toast.success(t("counterpartyFilled"));
     });
-  }, [counterpartyInput, fillFromCounterparty, t]);
+  }, [counterpartyInput, fillFromEntityNumber, t]);
 
   return (
     <section className="rounded-sm border bg-card p-4">
@@ -241,10 +271,12 @@ export const MovementPartySection = React.memo(function MovementPartySection({
           </div>
           <h4 className="text-sm font-bold text-foreground">{fields.name}</h4>
           <div className="text-xs text-muted-foreground font-mono space-y-0.5 mt-1.5">
-            {fields.counterpartyNumber && (
+            {(fields.entityNumber || fields.counterpartyNumber || fields.branchNumber) && (
               <p>
                 {t("counterpartyNumber")}:{" "}
-                <strong className="text-foreground">{fields.counterpartyNumber}</strong>
+                <strong className="text-foreground">
+                  {fields.entityNumber ?? fields.counterpartyNumber ?? fields.branchNumber}
+                </strong>
               </p>
             )}
             {fields.nip && (

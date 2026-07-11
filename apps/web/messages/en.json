@@ -2809,6 +2809,7 @@
         "description": "Manage your organization branches",
         "createButton": "Create Branch",
         "columns": {
+          "number": "No.",
           "name": "Name",
           "slug": "Slug",
           "publicMaps": "Public Maps",
@@ -2820,6 +2821,7 @@
           "created": "Created"
         },
         "detail": {
+          "number": "No.",
           "slug": "Slug",
           "publicMaps": "Public Maps",
           "created": "Created",
@@ -5669,10 +5671,10 @@
       "newCounterpartyDetails": "New Counterparty Details",
       "manualEntry": "Manual entry",
       "companyName": "Company Name",
-      "counterpartyNumber": "Counterparty no.",
+      "counterpartyNumber": "Entity no.",
       "counterpartyNumberPlaceholder": "e.g. 81",
-      "counterpartyNumberInvalid": "Enter a valid counterparty number.",
-      "counterpartyFilled": "Counterparty data filled.",
+      "counterpartyNumberInvalid": "Enter a valid entity number.",
+      "counterpartyFilled": "Entity data filled.",
       "fill": "Fill",
       "nip": "NIP",
       "phone": "Phone",

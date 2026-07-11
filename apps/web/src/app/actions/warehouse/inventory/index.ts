@@ -14,6 +14,7 @@ import {
   WAREHOUSE_REPORTS_READ,
   WAREHOUSE_IMPORTS_MANAGE,
   CRM_PARTIES_READ,
+  BRANCHES_READ,
 } from "@/lib/constants/permissions";
 import { InventoryProductsService } from "@/server/services/inventory-products.service";
 import { InventoryProductImportsService } from "@/server/services/inventory-product-imports.service";
@@ -22,6 +23,7 @@ import { InventoryMovementsService } from "@/server/services/inventory-movements
 import { InventoryMovementImportsService } from "@/server/services/inventory-movement-imports.service";
 import { InventoryEnterpriseService } from "@/server/services/inventory-enterprise.service";
 import { CrmPartiesService } from "@/server/services/crm-parties.service";
+import { OrganizationEntityNumbersService } from "@/server/services/organization.service";
 import {
   emitInventoryEvent,
   hasPermission,
@@ -2233,6 +2235,38 @@ export async function lookupCrmCounterpartyForMovementAction(input: {
       auth.context.app.activeOrgId,
       parsed.data.counterparty_number
     );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function lookupOrganizationEntityNumberForMovementAction(input: { number: number }) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return { success: false, error: auth.error };
+    if (!hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const parsed = z.object({ number: z.number().int().positive() }).safeParse(input);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const supabase = await createClient();
+    const result = await OrganizationEntityNumbersService.lookup(
+      supabase,
+      auth.context.app.activeOrgId,
+      parsed.data.number
+    );
+    if (!result.success) return result;
+
+    if (result.data.entity_type === "branch" && !hasPermission(auth, BRANCHES_READ)) {
+      return { success: false, error: "Unauthorized" };
+    }
+    if (result.data.entity_type === "crm_party" && !hasPermission(auth, CRM_PARTIES_READ)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    return result;
   } catch (error) {
     return mapUnexpected(error);
   }

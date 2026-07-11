@@ -121,6 +121,7 @@ const sampleUser = {
 const sampleBranch = {
   id: BRANCH_ID,
   organization_id: ORG_ID,
+  branch_number: 2,
   name: "HQ",
   slug: "hq",
   created_at: "2026-01-01T00:00:00Z",
@@ -1949,6 +1950,7 @@ describe("OrgBranchesService", () => {
   describe("createBranch", () => {
     it("returns success with created branch (with slug)", async () => {
       const supabase = makeSupabase(makeChain({ data: sampleBranch, error: null }));
+      vi.mocked((supabase as any).rpc).mockResolvedValue({ data: 2, error: null });
 
       const result = await OrgBranchesService.createBranch(supabase as any, ORG_ID, {
         name: "HQ",
@@ -1963,6 +1965,7 @@ describe("OrgBranchesService", () => {
       const supabase = makeSupabase(
         makeChain({ data: { ...sampleBranch, slug: null }, error: null })
       );
+      vi.mocked((supabase as any).rpc).mockResolvedValue({ data: 2, error: null });
 
       const result = await OrgBranchesService.createBranch(supabase as any, ORG_ID, {
         name: "Remote Office",
@@ -1973,6 +1976,7 @@ describe("OrgBranchesService", () => {
 
     it("returns failure when insert returns null", async () => {
       const supabase = makeSupabase(makeChain({ data: null, error: null }));
+      vi.mocked((supabase as any).rpc).mockResolvedValue({ data: 2, error: null });
 
       const result = await OrgBranchesService.createBranch(supabase as any, ORG_ID, {
         name: "HQ",
@@ -1986,6 +1990,7 @@ describe("OrgBranchesService", () => {
       const supabase = makeSupabase(
         makeChain({ data: null, error: { message: "Branch insert failed" } })
       );
+      vi.mocked((supabase as any).rpc).mockResolvedValue({ data: 2, error: null });
 
       const result = await OrgBranchesService.createBranch(supabase as any, ORG_ID, {
         name: "HQ",

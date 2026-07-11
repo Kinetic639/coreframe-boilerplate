@@ -36,8 +36,12 @@ function emptyPartyFields(name = ""): SupplierFields {
     street: "",
     postalCode: "",
     city: "",
+    entityNumber: undefined,
     crmPartyId: undefined,
     counterpartyNumber: undefined,
+    branchId: undefined,
+    branchNumber: undefined,
+    branchSnapshot: undefined,
     counterpartySnapshot: undefined,
   };
 }
@@ -53,8 +57,12 @@ function partyFieldsFromDetails(
     street: details?.street ?? "",
     postalCode: details?.postalCode ?? "",
     city: details?.city ?? "",
+    entityNumber: details?.entityNumber ?? details?.counterpartyNumber ?? details?.branchNumber,
     crmPartyId: details?.crmPartyId,
     counterpartyNumber: details?.counterpartyNumber,
+    branchId: details?.branchId,
+    branchNumber: details?.branchNumber,
+    branchSnapshot: details?.branchSnapshot,
     counterpartySnapshot: details?.counterpartySnapshot,
   };
 }

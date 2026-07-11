@@ -1190,6 +1190,7 @@ export class OrgPositionsService {
 export interface OrgBranch {
   id: string;
   organization_id: string;
+  branch_number: number;
   name: string;
   slug: string | null;
   public_warehouse_maps_enabled?: boolean;
@@ -1210,11 +1211,11 @@ export class OrgBranchesService {
     const { data, error } = await supabase
       .from("branches")
       .select(
-        "id, organization_id, name, slug, public_warehouse_maps_enabled, created_at, deleted_at"
+        "id, organization_id, branch_number, name, slug, public_warehouse_maps_enabled, created_at, deleted_at"
       )
       .eq("organization_id", orgId)
       .is("deleted_at", null)
-      .order("created_at", { ascending: true });
+      .order("branch_number", { ascending: true });
 
     if (error) return { success: false, error: error.message };
     return { success: true, data: data ?? [] };
@@ -1225,19 +1226,35 @@ export class OrgBranchesService {
     orgId: string,
     input: CreateBranchInput
   ): Promise<ServiceResult<OrgBranch>> {
+    const branchId = crypto.randomUUID();
+    const { data: numberData, error: numberError } = await supabase.rpc(
+      "reserve_organization_entity_number",
+      { org_id: orgId, entity_type: "branch", entity_id: branchId }
+    );
+    if (numberError) return { success: false, error: numberError.message };
+
     const { data, error } = await supabase
       .from("branches")
       .insert({
+        id: branchId,
         organization_id: orgId,
+        branch_number: numberData as number,
         name: input.name,
         slug: input.slug ?? null,
       })
       .select(
-        "id, organization_id, name, slug, public_warehouse_maps_enabled, created_at, deleted_at"
+        "id, organization_id, branch_number, name, slug, public_warehouse_maps_enabled, created_at, deleted_at"
       )
       .maybeSingle();
 
-    if (error) return { success: false, error: error.message };
+    if (error) {
+      await supabase.rpc("release_organization_entity_number", {
+        org_id: orgId,
+        entity_type: "branch",
+        entity_id: branchId,
+      });
+      return { success: false, error: error.message };
+    }
     if (!data) return { success: false, error: "Branch creation failed" };
     return { success: true, data };
   }
@@ -1276,5 +1293,147 @@ export class OrgBranchesService {
 
     if (error) return { success: false, error: error.message };
     return { success: true, data: undefined };
+  }
+}
+
+// ─── Organization Entity Numbers ──────────────────────────────────────────────
+
+export type OrganizationEntityNumberBranch = {
+  id: string;
+  branch_number: number;
+  name: string;
+  slug: string | null;
+};
+
+export type OrganizationEntityNumberParty = {
+  id: string;
+  counterparty_number: number;
+  display_name: string;
+  legal_name: string | null;
+  tax_id: string | null;
+  email: string | null;
+  phone: string | null;
+  status: string;
+  address: {
+    country: string | null;
+    city: string | null;
+    postal_code: string | null;
+    street: string | null;
+    building_number: string | null;
+    unit_number: string | null;
+    region: string | null;
+  } | null;
+};
+
+export type OrganizationEntityNumberLookup =
+  | {
+      entity_type: "branch";
+      entity_number: number;
+      branch: OrganizationEntityNumberBranch;
+    }
+  | {
+      entity_type: "crm_party";
+      entity_number: number;
+      party: OrganizationEntityNumberParty;
+    };
+
+export class OrganizationEntityNumbersService {
+  static async lookup(
+    supabase: SupabaseClient,
+    orgId: string,
+    number: number
+  ): Promise<ServiceResult<OrganizationEntityNumberLookup>> {
+    const { data: registry, error: registryError } = await supabase
+      .from("organization_entity_numbers")
+      .select("entity_type, entity_id, number")
+      .eq("organization_id", orgId)
+      .eq("number", number)
+      .maybeSingle();
+
+    if (registryError) return { success: false, error: registryError.message };
+    if (!registry) return { success: false, error: "Number not found" };
+
+    const entityType = (registry as { entity_type: string }).entity_type;
+    const entityId = (registry as { entity_id: string }).entity_id;
+    const entityNumber = (registry as { number: number }).number;
+
+    if (entityType === "branch") {
+      const { data: branch, error: branchError } = await supabase
+        .from("branches")
+        .select("id, branch_number, name, slug")
+        .eq("organization_id", orgId)
+        .eq("id", entityId)
+        .is("deleted_at", null)
+        .maybeSingle();
+
+      if (branchError) return { success: false, error: branchError.message };
+      if (!branch) return { success: false, error: "Branch not found" };
+
+      return {
+        success: true,
+        data: {
+          entity_type: "branch",
+          entity_number: entityNumber,
+          branch: branch as OrganizationEntityNumberBranch,
+        },
+      };
+    }
+
+    if (entityType === "crm_party") {
+      const { data: party, error: partyError } = await supabase
+        .from("crm_parties")
+        .select("id, counterparty_number, display_name, legal_name, tax_id, email, phone, status")
+        .eq("organization_id", orgId)
+        .eq("id", entityId)
+        .is("deleted_at", null)
+        .maybeSingle();
+
+      if (partyError) return { success: false, error: partyError.message };
+      if (!party) return { success: false, error: "Counterparty not found" };
+
+      const { data: addresses, error: addressError } = await supabase
+        .from("crm_party_addresses")
+        .select(
+          "address_type, is_default, country, city, postal_code, street, building_number, unit_number, region"
+        )
+        .eq("organization_id", orgId)
+        .eq("party_id", entityId)
+        .is("deleted_at", null);
+
+      if (addressError) return { success: false, error: addressError.message };
+
+      const typedAddresses =
+        (addresses as Array<{
+          address_type: string;
+          is_default: boolean;
+          country: string | null;
+          city: string | null;
+          postal_code: string | null;
+          street: string | null;
+          building_number: string | null;
+          unit_number: string | null;
+          region: string | null;
+        }> | null) ?? [];
+      const address =
+        typedAddresses.find((item) => item.is_default) ??
+        typedAddresses.find((item) => item.address_type === "registered") ??
+        typedAddresses.find((item) => item.address_type === "billing") ??
+        typedAddresses[0] ??
+        null;
+
+      return {
+        success: true,
+        data: {
+          entity_type: "crm_party",
+          entity_number: entityNumber,
+          party: {
+            ...(party as Omit<OrganizationEntityNumberParty, "address">),
+            address,
+          },
+        },
+      };
+    }
+
+    return { success: false, error: "Unsupported entity number type" };
   }
 }

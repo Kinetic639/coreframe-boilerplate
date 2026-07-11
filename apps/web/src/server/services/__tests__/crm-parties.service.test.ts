@@ -184,9 +184,14 @@ describe("CrmPartiesService", () => {
     });
 
     expect(result.success).toBe(true);
-    expect(supabase.client.rpc).toHaveBeenCalledWith("next_crm_counterparty_number", {
-      org_id: ORG_ID,
-    });
+    expect(supabase.client.rpc).toHaveBeenCalledWith(
+      "reserve_organization_entity_number",
+      expect.objectContaining({
+        org_id: ORG_ID,
+        entity_type: "crm_party",
+        entity_id: expect.any(String),
+      })
+    );
     const insert = supabase.operations.find(
       (op) => op.table === "crm_parties" && op.action === "insert"
     );

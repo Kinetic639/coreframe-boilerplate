@@ -2780,6 +2780,7 @@
         "description": "Zarządzaj oddziałami organizacji",
         "createButton": "Utwórz oddział",
         "columns": {
+          "number": "Nr",
           "name": "Nazwa",
           "slug": "Slug",
           "publicMaps": "Publiczne mapy",
@@ -2791,6 +2792,7 @@
           "created": "Utworzono"
         },
         "detail": {
+          "number": "Nr",
           "slug": "Slug",
           "publicMaps": "Publiczne mapy",
           "created": "Utworzono",
@@ -5643,10 +5645,10 @@
       "newCounterpartyDetails": "Dane nowego kontrahenta",
       "manualEntry": "Wpis ręczny",
       "companyName": "Nazwa firmy",
-      "counterpartyNumber": "Nr kontrahenta",
+      "counterpartyNumber": "Nr",
       "counterpartyNumberPlaceholder": "np. 81",
-      "counterpartyNumberInvalid": "Wpisz poprawny numer kontrahenta.",
-      "counterpartyFilled": "Dane kontrahenta zostały uzupełnione.",
+      "counterpartyNumberInvalid": "Wpisz poprawny numer.",
+      "counterpartyFilled": "Dane zostały uzupełnione.",
       "fill": "Uzupełnij",
       "nip": "NIP",
       "phone": "Telefon",

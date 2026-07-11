@@ -358,15 +358,17 @@ export const CrmPartiesService = {
     userId: string,
     input: CreateCrmPartyInput
   ): Promise<ServiceResult<CrmPartyDetail>> {
+    const partyId = crypto.randomUUID();
     const { data: numberData, error: numberError } = await supabase.rpc(
-      "next_crm_counterparty_number",
-      { org_id: orgId }
+      "reserve_organization_entity_number",
+      { org_id: orgId, entity_type: "crm_party", entity_id: partyId }
     );
     if (numberError) return { success: false, error: numberError.message };
 
     const { data, error } = await supabase
       .from("crm_parties")
       .insert({
+        id: partyId,
         organization_id: orgId,
         counterparty_number: numberData as number,
         party_kind: input.party_kind,
@@ -388,20 +390,27 @@ export const CrmPartiesService = {
       .select("id")
       .single();
 
-    if (error) return { success: false, error: error.message };
-    const partyId = (data as { id: string }).id;
+    if (error) {
+      await supabase.rpc("release_organization_entity_number", {
+        org_id: orgId,
+        entity_type: "crm_party",
+        entity_id: partyId,
+      });
+      return { success: false, error: error.message };
+    }
+    const createdPartyId = (data as { id: string }).id;
 
     const roles = Array.from(new Set(input.roles));
     const { error: rolesError } = await supabase.from("crm_party_roles").insert(
       roles.map((role) => ({
         organization_id: orgId,
-        party_id: partyId,
+        party_id: createdPartyId,
         role,
       }))
     );
     if (rolesError) return { success: false, error: rolesError.message };
 
-    return CrmPartiesService.getDetail(supabase, orgId, partyId);
+    return CrmPartiesService.getDetail(supabase, orgId, createdPartyId);
   },
 
   async update(

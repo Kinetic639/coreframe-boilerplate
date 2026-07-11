@@ -470,6 +470,7 @@ export type Database = {
       };
       branches: {
         Row: {
+          branch_number: number;
           created_at: string | null;
           deleted_at: string | null;
           id: string;
@@ -479,6 +480,7 @@ export type Database = {
           slug: string | null;
         };
         Insert: {
+          branch_number: number;
           created_at?: string | null;
           deleted_at?: string | null;
           id?: string;
@@ -488,6 +490,7 @@ export type Database = {
           slug?: string | null;
         };
         Update: {
+          branch_number?: number;
           created_at?: string | null;
           deleted_at?: string | null;
           id?: string;
@@ -6771,6 +6774,70 @@ export type Database = {
           },
         ];
       };
+      organization_entity_number_sequences: {
+        Row: {
+          next_value: number;
+          organization_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          next_value?: number;
+          organization_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          next_value?: number;
+          organization_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "organization_entity_number_sequences_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: true;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      organization_entity_numbers: {
+        Row: {
+          created_at: string;
+          entity_id: string;
+          entity_type: string;
+          id: string;
+          number: number;
+          organization_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          entity_id: string;
+          entity_type: string;
+          id?: string;
+          number: number;
+          organization_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          entity_id?: string;
+          entity_type?: string;
+          id?: string;
+          number?: number;
+          organization_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "organization_entity_numbers_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       organization_limit_overrides: {
         Row: {
           created_at: string | null;
@@ -10223,6 +10290,10 @@ export type Database = {
         Args: { p_org_id: string };
         Returns: undefined;
       };
+      release_organization_entity_number: {
+        Args: { entity_id: string; entity_type: string; org_id: string };
+        Returns: undefined;
+      };
       reorder_warehouse_location_groups: {
         Args: { p_branch_id: string; p_items: Json; p_org_id: string };
         Returns: undefined;
@@ -10235,6 +10306,10 @@ export type Database = {
           p_org_id: string;
         };
         Returns: undefined;
+      };
+      reserve_organization_entity_number: {
+        Args: { entity_id: string; entity_type: string; org_id: string };
+        Returns: number;
       };
       set_branch_public_warehouse_maps: {
         Args: { p_branch_id: string; p_enabled: boolean };

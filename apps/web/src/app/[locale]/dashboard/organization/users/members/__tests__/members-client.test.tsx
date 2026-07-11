@@ -89,6 +89,7 @@ const sampleMember: OrgMember = {
 const sampleBranch: OrgBranch = {
   id: "b-1",
   organization_id: "org-1",
+  branch_number: 2,
   name: "Warsaw",
   slug: "warsaw",
   created_at: null,

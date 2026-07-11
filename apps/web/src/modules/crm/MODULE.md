@@ -58,8 +58,10 @@
 - `crm_party_contacts` — relationship links between people and parties.
 - `crm_party_addresses` — registered, billing, shipping, correspondence addresses.
 - `warehouse_item_suppliers` — warehouse-owned product supplier terms referencing CRM parties.
+- `organization_entity_numbers` — shared org-wide visible number registry for CRM parties and branches.
+- `organization_entity_number_sequences` — shared org-wide sequence backing the registry.
 
-Kontrahent numbers are plain integers, unique per organization.
+Kontrahent numbers are plain integers, unique per organization. Branch numbers are also plain integers. CRM parties and branches share the same organization entity-number registry, so a single organization cannot have both kontrahent number `6` and branch number `6`.
 
 ---
 

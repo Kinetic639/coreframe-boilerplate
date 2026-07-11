@@ -212,8 +212,19 @@ const partyDetailsSchema = z
     street: z.string().max(200).optional(),
     postalCode: z.string().max(10).optional(),
     city: z.string().max(100).optional(),
+    entityNumber: z.number().int().positive().optional(),
     crmPartyId: uuidSchema.optional(),
     counterpartyNumber: z.number().int().positive().optional(),
+    branchId: uuidSchema.optional(),
+    branchNumber: z.number().int().positive().optional(),
+    branchSnapshot: z
+      .object({
+        id: uuidSchema,
+        branch_number: z.number().int().positive(),
+        name: z.string().max(200),
+        slug: z.string().max(100).nullable(),
+      })
+      .optional(),
     counterpartySnapshot: z
       .object({
         id: uuidSchema,

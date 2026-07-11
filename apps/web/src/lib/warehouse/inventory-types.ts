@@ -367,8 +367,17 @@ export type MovementPartyDetails = {
   street?: string;
   postalCode?: string;
   city?: string;
+  entityNumber?: number;
   crmPartyId?: string;
   counterpartyNumber?: number;
+  branchId?: string;
+  branchNumber?: number;
+  branchSnapshot?: {
+    id: string;
+    branch_number: number;
+    name: string;
+    slug: string | null;
+  };
   counterpartySnapshot?: {
     id: string;
     counterparty_number: number;

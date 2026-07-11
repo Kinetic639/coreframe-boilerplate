@@ -49,6 +49,9 @@
 - [x] Integrate CRM suppliers into warehouse item create/edit/detail flows.
 - [x] Integrate initial kontrahent number lookup into warehouse movement forms.
 - [x] Add initial CRM party snapshots to warehouse movement party details JSON.
+- [x] Add shared organization entity number registry for CRM parties and branches.
+- [x] Backfill existing branches with non-colliding branch numbers.
+- [x] Update warehouse movement lookup to resolve either CRM kontrahent numbers or branch numbers.
 - [x] Apply CRM DDL through Supabase MCP against the target database when approved.
 - [x] Run Supabase advisors through MCP after DDL.
 - [x] Regenerate Supabase types.
@@ -105,6 +108,9 @@ Existing migration:
 - Creates indexes and partial unique indexes.
 - Adds updated-at triggers.
 - Adds `next_crm_counterparty_number(org_id uuid)`.
+- Adds shared `organization_entity_numbers` and `organization_entity_number_sequences` tables for org-wide visible numbers.
+- Adds `branches.branch_number` and backfills existing branches without colliding with CRM party `counterparty_number` values.
+- Adds `reserve_organization_entity_number(org_id uuid, entity_type text, entity_id uuid)` for safe number reservation across CRM parties and branches.
 - Enables and forces RLS on CRM PII tables.
 - Denies hard deletes.
 
@@ -114,8 +120,9 @@ Completed verification:
 - Applied follow-up CRM FK advisor indexes through Supabase MCP.
 - Confirmed CRM tables exist on the target project through Supabase MCP.
 - Ran Supabase security and performance advisors through Supabase MCP.
-- Regenerated `apps/web/supabase/types/target.types.ts`; it now includes `crm_contacts`, `crm_parties`, `warehouse_item_suppliers`, and `next_crm_counterparty_number`.
+- Regenerated `apps/web/supabase/types/target.types.ts`; it now includes `crm_contacts`, `crm_parties`, `warehouse_item_suppliers`, `organization_entity_numbers`, `next_crm_counterparty_number`, and `reserve_organization_entity_number`.
 - Accepted advisor finding: `next_crm_counterparty_number(org_id uuid)` is intentionally `SECURITY DEFINER` and executable by `authenticated`; it revokes public execution and performs an organization-membership check before allocating numbers.
+- Verified on `ambra-prod` that `organization_entity_numbers` has no duplicate numbers per organization and that existing branches for the test organization have assigned numbers.
 
 Acceptance criteria:
 
@@ -264,6 +271,8 @@ Completed:
 - Reconciled the pulled warehouse audit supplier-scope flow; it intentionally remains on legacy inventory supplier ids for now because count sessions and reorder rules filter `inventory_variants.default_supplier_id` / `inventory_reorder_rules.preferred_supplier_id`, not `warehouse_item_suppliers.party_id`.
 - Added CRM party lookup by plain integer counterparty number for warehouse movement party fields.
 - Movement party details now carry CRM party id, counterparty number, and a compact immutable snapshot in existing sender/recipient details JSON.
+- Added shared organization entity-number lookup for warehouse movement party fields; the same integer field can resolve a CRM party or an internal branch.
+- Movement party details now also carry branch id, branch number, branch snapshot, and a generic `entityNumber` when the entered number resolves to a branch.
 
 Deferred transition work:
 
@@ -271,13 +280,12 @@ Deferred transition work:
 - Decide how legacy supplier/business account data migrates or coexists during transition.
 - Define the bridge/migration from legacy inventory supplier ids to CRM party ids before changing supplier-scoped stock audits.
 - Decide whether movement headers also need physical `party_id`, `counterparty_number_snapshot`, and `counterparty_snapshot` columns for reporting, or whether JSON party details are sufficient for v1.
-- Keep branch number lookup separate from kontrahent number lookup.
 
 Acceptance criteria:
 
 - Item suppliers come from CRM parties, not duplicated supplier records.
-- Movement forms can resolve supplier/receiver data by plain integer kontrahent number.
-- Branch-number and kontrahent-number lookups cannot collide.
+- Movement forms can resolve supplier/receiver data by a plain integer CRM kontrahent number or branch number.
+- Branch-number and kontrahent-number values cannot collide inside the same organization.
 
 ## Phase 8: Tests And Verification
 
