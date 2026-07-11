@@ -3510,6 +3510,153 @@
         "operationFailed": "Operation failed"
       }
     },
+    "crm": {
+      "title": "CRM / Counterparties",
+      "titleSidebar": "CRM",
+      "description": "Manage counterparties, suppliers, clients, contractors, and contacts",
+      "items": {
+        "overview": "Overview",
+        "parties": "Counterparties",
+        "contacts": "Contacts",
+        "settings": "Settings"
+      },
+      "pages": {
+        "overview": {
+          "title": "CRM / Counterparties",
+          "description": "Your source of truth for invoice-capable entities, people, and supplier relationships."
+        },
+        "parties": {
+          "title": "Counterparties"
+        },
+        "contacts": {
+          "title": "Contacts"
+        },
+        "settings": {
+          "title": "CRM settings",
+          "description": "Configure CRM defaults, numbering, visibility rules, and storage-backed assets."
+        }
+      },
+      "stats": {
+        "parties": "Counterparties",
+        "contacts": "Contacts"
+      },
+      "fields": {
+        "counterpartyNumber": "No.",
+        "role": "Role",
+        "roles": "Roles",
+        "status": "Status",
+        "name": "Name",
+        "firstName": "First name",
+        "lastName": "Last name",
+        "legalName": "Legal name",
+        "taxId": "Tax ID",
+        "email": "Email",
+        "phone": "Phone",
+        "mobile": "Mobile",
+        "website": "Website",
+        "notes": "Notes",
+        "visibility": "Visibility",
+        "jobTitle": "Job title",
+        "primary": "Primary",
+        "addressType": "Address type",
+        "country": "Country",
+        "city": "City",
+        "postalCode": "Postal code",
+        "street": "Street",
+        "buildingNumber": "Building no.",
+        "unitNumber": "Unit no.",
+        "region": "Region",
+        "defaultAddress": "Default address"
+      },
+      "roles": {
+        "supplier": "Supplier",
+        "client": "Client",
+        "contractor": "Contractor",
+        "vendor": "Vendor",
+        "partner": "Partner",
+        "receiver": "Receiver",
+        "payer": "Payer",
+        "other": "Other"
+      },
+      "status": {
+        "active": "Active",
+        "inactive": "Inactive",
+        "archived": "Archived"
+      },
+      "sections": {
+        "partyDetails": "Counterparty details",
+        "contactDetails": "Contact details",
+        "contactPeople": "Contact people",
+        "addresses": "Addresses",
+        "linkedParties": "Linked counterparties"
+      },
+      "empty": {
+        "noContactPeople": "No contact people assigned.",
+        "noAddresses": "No addresses added.",
+        "noLinkedParties": "No linked counterparties."
+      },
+      "permissions": {
+        "canUpdate": "You can edit this record.",
+        "canDelete": "You can archive this record."
+      },
+      "actions": {
+        "newParty": "New counterparty",
+        "newContact": "New contact",
+        "saving": "Saving...",
+        "save": "Save",
+        "edit": "Edit",
+        "cancel": "Cancel",
+        "archive": "Archive",
+        "archiving": "Archiving...",
+        "search": "Search",
+        "searchContacts": "Search contacts by name, email, or phone",
+        "selectContact": "Select contact",
+        "linkContact": "Link contact",
+        "addAddress": "Add address",
+        "uploading": "Uploading...",
+        "uploadLogo": "Upload logo",
+        "uploadAvatar": "Upload avatar"
+      },
+      "messages": {
+        "partyCreated": "Counterparty created.",
+        "contactCreated": "Contact created.",
+        "partyUpdated": "Counterparty updated.",
+        "contactUpdated": "Contact updated.",
+        "partyArchived": "Counterparty archived.",
+        "contactArchived": "Contact archived.",
+        "contactLinked": "Contact linked.",
+        "addressAdded": "Address added.",
+        "logoUploaded": "Logo uploaded.",
+        "avatarUploaded": "Avatar uploaded.",
+        "notesLater": "Notes can be expanded after creation.",
+        "linkedOrgUser": "Linked organization user"
+      },
+      "addressTypes": {
+        "registered": "Registered",
+        "billing": "Billing",
+        "shipping": "Shipping",
+        "correspondence": "Correspondence",
+        "other": "Other"
+      },
+      "relationshipTypes": {
+        "primary": "Primary",
+        "billing": "Billing",
+        "sales": "Sales",
+        "technical": "Technical",
+        "owner": "Owner",
+        "representative": "Representative",
+        "other": "Other"
+      },
+      "visibility": {
+        "private": "Private",
+        "branch": "Branch",
+        "organization": "Organization"
+      },
+      "errors": {
+        "loadRetry": "Failed to load CRM data. Please try again.",
+        "tryAgain": "Try again"
+      }
+    },
     "analytics": {
       "title": "Analytics & Reports",
       "titleSidebar": "Analytics",
@@ -5798,6 +5945,20 @@
       "purchaseAccountPlaceholder": "e.g. 330-1",
       "preferredVendor": "Preferred Vendor",
       "selectVendor": "Select vendor",
+      "crmSuppliers": {
+        "title": "CRM suppliers",
+        "description": "Manage supplier parties and purchasing terms for this item.",
+        "searchPlaceholder": "Search by name, tax ID, or counterparty number",
+        "search": "Search",
+        "selectSupplier": "Select supplier",
+        "supplierSku": "Supplier SKU",
+        "primary": "Primary",
+        "add": "Add",
+        "remove": "Remove",
+        "empty": "No CRM suppliers assigned.",
+        "noSku": "No supplier SKU",
+        "noContactData": "No contact data"
+      },
       "dimensions": "Dimensions",
       "length": "Length",
       "width": "Width",
