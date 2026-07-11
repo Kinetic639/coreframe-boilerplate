@@ -21,11 +21,13 @@ import {
   addCrmPartyAddressAction,
   createCrmPartyAction,
   deleteCrmPartyAction,
+  deleteCrmPartyAddressAction,
   getCrmPartyDetailAction,
   linkCrmPartyContactAction,
   listCrmPartiesForDataViewAction,
   listCrmContactsForDataViewAction,
   updateCrmPartyAction,
+  unlinkCrmPartyContactAction,
   uploadCrmPartyLogoAction,
 } from "@/app/actions/crm";
 import type { CrmPartyDetail, CrmPartyListRow } from "@/server/services/crm-parties.service";
@@ -391,6 +393,31 @@ function CrmPartyDetailPanel({
     toast.success(t("messages.addressAdded"));
   };
 
+  const unlinkContact = async (linkId: string) => {
+    const result = await unlinkCrmPartyContactAction({ party_id: current.id, link_id: linkId });
+    if ("error" in result) {
+      toast.error(result.error);
+      return;
+    }
+    setCurrent(result.data);
+    onChanged();
+    toast.success(t("messages.contactUnlinked"));
+  };
+
+  const deleteAddress = async (addressId: string) => {
+    const result = await deleteCrmPartyAddressAction({
+      party_id: current.id,
+      address_id: addressId,
+    });
+    if ("error" in result) {
+      toast.error(result.error);
+      return;
+    }
+    setCurrent(result.data);
+    onChanged();
+    toast.success(t("messages.addressDeleted"));
+  };
+
   const archiveParty = async () => {
     setArchiving(true);
     const result = await deleteCrmPartyAction(current.id);
@@ -563,9 +590,24 @@ function CrmPartyDetailPanel({
         <div className="mt-2 space-y-2">
           {current.contacts.length ? (
             current.contacts.map((contact) => (
-              <div key={contact.id} className="rounded border border-border p-3 text-sm">
-                <div className="font-medium">{contact.contact_display_name}</div>
-                <div className="text-muted-foreground">{contact.contact_email}</div>
+              <div
+                key={contact.id}
+                className="flex items-start justify-between gap-3 rounded border border-border p-3 text-sm"
+              >
+                <div className="min-w-0">
+                  <div className="font-medium">{contact.contact_display_name}</div>
+                  <div className="text-muted-foreground">{contact.contact_email}</div>
+                </div>
+                {canUpdate ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => unlinkContact(contact.id)}
+                  >
+                    {t("actions.unlink")}
+                  </Button>
+                ) : null}
               </div>
             ))
           ) : (
@@ -640,13 +682,28 @@ function CrmPartyDetailPanel({
         <div className="mt-2 space-y-2">
           {current.addresses.length ? (
             current.addresses.map((address) => (
-              <div key={address.id} className="rounded border border-border p-3 text-sm">
-                <div className="font-medium">{t(`addressTypes.${address.address_type}`)}</div>
-                <div className="text-muted-foreground">
-                  {[address.street, address.building_number, address.postal_code, address.city]
-                    .filter(Boolean)
-                    .join(" ")}
+              <div
+                key={address.id}
+                className="flex items-start justify-between gap-3 rounded border border-border p-3 text-sm"
+              >
+                <div className="min-w-0">
+                  <div className="font-medium">{t(`addressTypes.${address.address_type}`)}</div>
+                  <div className="text-muted-foreground">
+                    {[address.street, address.building_number, address.postal_code, address.city]
+                      .filter(Boolean)
+                      .join(" ")}
+                  </div>
                 </div>
+                {canUpdate ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => deleteAddress(address.id)}
+                  >
+                    {t("actions.remove")}
+                  </Button>
+                ) : null}
               </div>
             ))
           ) : (
@@ -780,20 +837,28 @@ function CreatePartyDialog({
   onCreated: () => void;
 }) {
   const t = useTranslations("modules.crm");
+  const [partyKind, setPartyKind] = useState<"organization" | "individual">("organization");
   const [displayName, setDisplayName] = useState("");
+  const [legalName, setLegalName] = useState("");
   const [taxId, setTaxId] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [website, setWebsite] = useState("");
+  const [notes, setNotes] = useState("");
   const [role, setRole] = useState<CrmPartyRole>("client");
   const [pending, setPending] = useState(false);
 
   const submit = async () => {
     setPending(true);
     const result = await createCrmPartyAction({
-      party_kind: "organization",
+      party_kind: partyKind,
       display_name: displayName,
-      legal_name: displayName,
+      legal_name: legalName || displayName,
       tax_id: taxId || null,
       email: email || null,
+      phone: phone || null,
+      website: website || null,
+      notes: notes || null,
       roles: [role],
       status: "active",
     });
@@ -803,9 +868,14 @@ function CreatePartyDialog({
       return;
     }
     toast.success(t("messages.partyCreated"));
+    setPartyKind("organization");
     setDisplayName("");
+    setLegalName("");
     setTaxId("");
     setEmail("");
+    setPhone("");
+    setWebsite("");
+    setNotes("");
     setRole("client");
     onOpenChange(false);
     onCreated();
@@ -819,16 +889,46 @@ function CreatePartyDialog({
         </DialogHeader>
         <div className="grid gap-4">
           <div className="grid gap-2">
+            <Label>{t("fields.partyKind")}</Label>
+            <select
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+              value={partyKind}
+              onChange={(event) =>
+                setPartyKind(event.target.value as "organization" | "individual")
+              }
+            >
+              {(["organization", "individual"] as const).map((item) => (
+                <option key={item} value={item}>
+                  {t(`partyKinds.${item}`)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="grid gap-2">
             <Label>{t("fields.name")}</Label>
             <Input value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
+          </div>
+          <div className="grid gap-2">
+            <Label>{t("fields.legalName")}</Label>
+            <Input value={legalName} onChange={(event) => setLegalName(event.target.value)} />
           </div>
           <div className="grid gap-2">
             <Label>{t("fields.taxId")}</Label>
             <Input value={taxId} onChange={(event) => setTaxId(event.target.value)} />
           </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <Label>{t("fields.email")}</Label>
+              <Input value={email} onChange={(event) => setEmail(event.target.value)} />
+            </div>
+            <div className="grid gap-2">
+              <Label>{t("fields.phone")}</Label>
+              <Input value={phone} onChange={(event) => setPhone(event.target.value)} />
+            </div>
+          </div>
           <div className="grid gap-2">
-            <Label>{t("fields.email")}</Label>
-            <Input value={email} onChange={(event) => setEmail(event.target.value)} />
+            <Label>{t("fields.website")}</Label>
+            <Input value={website} onChange={(event) => setWebsite(event.target.value)} />
           </div>
           <div className="grid gap-2">
             <Label>{t("fields.role")}</Label>
@@ -848,7 +948,7 @@ function CreatePartyDialog({
           </div>
           <div className="grid gap-2">
             <Label>{t("fields.notes")}</Label>
-            <Textarea disabled placeholder={t("messages.notesLater")} />
+            <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} />
           </div>
           <Button onClick={submit} disabled={pending || !displayName.trim()}>
             {pending ? t("actions.saving") : t("actions.save")}

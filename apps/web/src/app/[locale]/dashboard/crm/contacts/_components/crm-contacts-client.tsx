@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { DataView } from "@/components/data-view/data-view";
 import type {
   DataViewColumnDef,
@@ -30,9 +31,16 @@ import type { CrmContactVisibility } from "@/lib/validations/crm";
 interface CrmContactsClientProps {
   orgId: string;
   initialData: PaginatedResult<CrmContactListRow>;
+  memberOptions: ContactOrgMemberOption[];
   canCreate: boolean;
   canUpdate: boolean;
   canDelete: boolean;
+}
+
+interface ContactOrgMemberOption {
+  userId: string;
+  label: string;
+  email: string | null;
 }
 
 const QUERY_KEY = ["crm-contacts"];
@@ -40,6 +48,7 @@ const QUERY_KEY = ["crm-contacts"];
 export function CrmContactsClient({
   orgId,
   initialData,
+  memberOptions,
   canCreate,
   canUpdate,
   canDelete,
@@ -150,6 +159,7 @@ export function CrmContactsClient({
           renderDetail={(detail) => (
             <CrmContactDetailPanel
               detail={detail}
+              memberOptions={memberOptions}
               canUpdate={canUpdate}
               canDelete={canDelete}
               onChanged={() => setRefreshToken((value) => value + 1)}
@@ -159,6 +169,7 @@ export function CrmContactsClient({
       </div>
       <CreateContactDialog
         open={createOpen}
+        memberOptions={memberOptions}
         onOpenChange={setCreateOpen}
         onCreated={() => setRefreshToken((value) => value + 1)}
       />
@@ -168,11 +179,13 @@ export function CrmContactsClient({
 
 function CrmContactDetailPanel({
   detail,
+  memberOptions,
   canUpdate,
   canDelete,
   onChanged,
 }: {
   detail: CrmContactDetail;
+  memberOptions: ContactOrgMemberOption[];
   canUpdate: boolean;
   canDelete: boolean;
   onChanged: () => void;
@@ -193,6 +206,7 @@ function CrmContactDetailPanel({
     mobile: detail.mobile ?? "",
     job_title: detail.job_title ?? "",
     visibility_scope: detail.visibility_scope,
+    linked_user_id: detail.linked_user_id ?? "",
     notes: detail.notes ?? "",
   });
 
@@ -207,6 +221,7 @@ function CrmContactDetailPanel({
       mobile: detail.mobile ?? "",
       job_title: detail.job_title ?? "",
       visibility_scope: detail.visibility_scope,
+      linked_user_id: detail.linked_user_id ?? "",
       notes: detail.notes ?? "",
     });
     setAvatarUrl(null);
@@ -228,6 +243,7 @@ function CrmContactDetailPanel({
       mobile: form.mobile || null,
       job_title: form.job_title || null,
       visibility_scope: form.visibility_scope,
+      linked_user_id: form.linked_user_id || null,
       notes: form.notes || null,
     });
     setSaving(false);
@@ -269,6 +285,10 @@ function CrmContactDetailPanel({
     toast.success(t("messages.contactArchived"));
   };
 
+  const linkedMember = current.linked_user_id
+    ? memberOptions.find((member) => member.userId === current.linked_user_id)
+    : null;
+
   return (
     <div className="flex h-full flex-col gap-6 overflow-auto p-6">
       <div>
@@ -301,7 +321,10 @@ function CrmContactDetailPanel({
         <Badge variant="outline">{t(`visibility.${current.visibility_scope}`)}</Badge>
         <h2 className="mt-2 text-xl font-semibold">{current.display_name}</h2>
         {current.linked_user_id ? (
-          <p className="mt-1 text-sm text-muted-foreground">{t("messages.linkedOrgUser")}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {t("messages.linkedOrgUser")}
+            {linkedMember ? `: ${linkedMember.label}` : ""}
+          </p>
         ) : null}
       </div>
       {canUpdate ? (
@@ -370,6 +393,23 @@ function CrmContactDetailPanel({
                   ))}
                 </select>
               </div>
+              {memberOptions.length ? (
+                <div className="grid gap-2">
+                  <Label>{t("fields.linkedUser")}</Label>
+                  <select
+                    className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    value={form.linked_user_id}
+                    onChange={(event) => updateForm("linked_user_id", event.target.value)}
+                  >
+                    <option value="">{t("fields.noLinkedUser")}</option>
+                    {memberOptions.map((member) => (
+                      <option key={member.userId} value={member.userId}>
+                        {member.email ? `${member.label} (${member.email})` : member.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
               <div className="grid gap-2">
                 <Label>{t("fields.notes")}</Label>
                 <Input
@@ -461,27 +501,41 @@ function Info({ label, value }: { label: string; value: string | null }) {
 
 function CreateContactDialog({
   open,
+  memberOptions,
   onOpenChange,
   onCreated,
 }: {
   open: boolean;
+  memberOptions: ContactOrgMemberOption[];
   onOpenChange: (open: boolean) => void;
   onCreated: () => void;
 }) {
   const t = useTranslations("modules.crm");
   const [displayName, setDisplayName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [mobile, setMobile] = useState("");
+  const [jobTitle, setJobTitle] = useState("");
+  const [notes, setNotes] = useState("");
   const [visibility, setVisibility] = useState<CrmContactVisibility>("organization");
+  const [linkedUserId, setLinkedUserId] = useState("");
   const [pending, setPending] = useState(false);
 
   const submit = async () => {
     setPending(true);
     const result = await createCrmContactAction({
       display_name: displayName,
+      first_name: firstName || null,
+      last_name: lastName || null,
       email: email || null,
       phone: phone || null,
+      mobile: mobile || null,
+      job_title: jobTitle || null,
+      notes: notes || null,
       visibility_scope: visibility,
+      linked_user_id: linkedUserId || null,
     });
     setPending(false);
     if (result.success === false) {
@@ -490,9 +544,15 @@ function CreateContactDialog({
     }
     toast.success(t("messages.contactCreated"));
     setDisplayName("");
+    setFirstName("");
+    setLastName("");
     setEmail("");
     setPhone("");
+    setMobile("");
+    setJobTitle("");
+    setNotes("");
     setVisibility("organization");
+    setLinkedUserId("");
     onOpenChange(false);
     onCreated();
   };
@@ -508,13 +568,35 @@ function CreateContactDialog({
             <Label>{t("fields.name")}</Label>
             <Input value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
           </div>
-          <div className="grid gap-2">
-            <Label>{t("fields.email")}</Label>
-            <Input value={email} onChange={(event) => setEmail(event.target.value)} />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <Label>{t("fields.firstName")}</Label>
+              <Input value={firstName} onChange={(event) => setFirstName(event.target.value)} />
+            </div>
+            <div className="grid gap-2">
+              <Label>{t("fields.lastName")}</Label>
+              <Input value={lastName} onChange={(event) => setLastName(event.target.value)} />
+            </div>
           </div>
-          <div className="grid gap-2">
-            <Label>{t("fields.phone")}</Label>
-            <Input value={phone} onChange={(event) => setPhone(event.target.value)} />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <Label>{t("fields.email")}</Label>
+              <Input value={email} onChange={(event) => setEmail(event.target.value)} />
+            </div>
+            <div className="grid gap-2">
+              <Label>{t("fields.phone")}</Label>
+              <Input value={phone} onChange={(event) => setPhone(event.target.value)} />
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <Label>{t("fields.mobile")}</Label>
+              <Input value={mobile} onChange={(event) => setMobile(event.target.value)} />
+            </div>
+            <div className="grid gap-2">
+              <Label>{t("fields.jobTitle")}</Label>
+              <Input value={jobTitle} onChange={(event) => setJobTitle(event.target.value)} />
+            </div>
           </div>
           <div className="grid gap-2">
             <Label>{t("fields.visibility")}</Label>
@@ -529,6 +611,33 @@ function CreateContactDialog({
                 </option>
               ))}
             </select>
+          </div>
+          {memberOptions.length ? (
+            <div className="grid gap-2">
+              <Label>{t("fields.linkedUser")}</Label>
+              <select
+                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                value={linkedUserId}
+                onChange={(event) => {
+                  const nextUserId = event.target.value;
+                  setLinkedUserId(nextUserId);
+                  const member = memberOptions.find((item) => item.userId === nextUserId);
+                  if (member && !displayName.trim()) setDisplayName(member.label);
+                  if (member?.email && !email.trim()) setEmail(member.email);
+                }}
+              >
+                <option value="">{t("fields.noLinkedUser")}</option>
+                {memberOptions.map((member) => (
+                  <option key={member.userId} value={member.userId}>
+                    {member.email ? `${member.label} (${member.email})` : member.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
+          <div className="grid gap-2">
+            <Label>{t("fields.notes")}</Label>
+            <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} />
           </div>
           <Button onClick={submit} disabled={pending || !displayName.trim()}>
             {pending ? t("actions.saving") : t("actions.save")}

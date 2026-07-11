@@ -27,7 +27,9 @@ vi.mock("@/server/services/crm-parties.service", () => ({
     update: vi.fn(),
     softDelete: vi.fn(),
     linkContact: vi.fn(),
+    unlinkContact: vi.fn(),
     addAddress: vi.fn(),
+    deleteAddress: vi.fn(),
   },
 }));
 
@@ -51,12 +53,14 @@ import {
   createCrmContactAction,
   createCrmPartyAction,
   deleteCrmContactAction,
+  deleteCrmPartyAddressAction,
   deleteCrmPartyAction,
   getCrmOverviewAction,
   getCrmContactAvatarSignedUrlAction,
   getCrmPartyLogoSignedUrlAction,
   linkCrmPartyContactAction,
   listCrmPartiesForDataViewAction,
+  unlinkCrmPartyContactAction,
   updateCrmContactAction,
   updateCrmPartyAction,
   uploadCrmContactAvatarAction,
@@ -293,6 +297,31 @@ describe("CRM server actions", () => {
     );
   });
 
+  it("unlinks party contacts through the service after validation", async () => {
+    vi.mocked(loadDashboardContextV2).mockResolvedValue(
+      makeContext(["crm.parties.update"]) as never
+    );
+    vi.mocked(CrmPartiesService.unlinkContact).mockResolvedValue({
+      success: true,
+      data: { id: PARTY_ID },
+    } as never);
+
+    const result = await unlinkCrmPartyContactAction({
+      party_id: PARTY_ID,
+      link_id: "66666666-6666-4666-8666-666666666666",
+    });
+
+    expect(result.success).toBe(true);
+    expect(CrmPartiesService.unlinkContact).toHaveBeenCalledWith(
+      expect.anything(),
+      ORG_ID,
+      expect.objectContaining({
+        party_id: PARTY_ID,
+        link_id: "66666666-6666-4666-8666-666666666666",
+      })
+    );
+  });
+
   it("adds party addresses through the service after validation", async () => {
     vi.mocked(loadDashboardContextV2).mockResolvedValue(
       makeContext(["crm.parties.update"]) as never
@@ -318,6 +347,31 @@ describe("CRM server actions", () => {
         address_type: "billing",
         is_default: true,
         city: "Warsaw",
+      })
+    );
+  });
+
+  it("soft-deletes party addresses through the service after validation", async () => {
+    vi.mocked(loadDashboardContextV2).mockResolvedValue(
+      makeContext(["crm.parties.update"]) as never
+    );
+    vi.mocked(CrmPartiesService.deleteAddress).mockResolvedValue({
+      success: true,
+      data: { id: PARTY_ID },
+    } as never);
+
+    const result = await deleteCrmPartyAddressAction({
+      party_id: PARTY_ID,
+      address_id: "77777777-7777-4777-8777-777777777777",
+    });
+
+    expect(result.success).toBe(true);
+    expect(CrmPartiesService.deleteAddress).toHaveBeenCalledWith(
+      expect.anything(),
+      ORG_ID,
+      expect.objectContaining({
+        party_id: PARTY_ID,
+        address_id: "77777777-7777-4777-8777-777777777777",
       })
     );
   });

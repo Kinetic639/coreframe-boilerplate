@@ -90,6 +90,11 @@ export const linkCrmPartyContactSchema = z.object({
   notes: optionalTrimmed,
 });
 
+export const unlinkCrmPartyContactSchema = z.object({
+  party_id: z.string().uuid(),
+  link_id: z.string().uuid(),
+});
+
 export const createCrmPartyAddressSchema = z.object({
   party_id: z.string().uuid(),
   address_type: crmPartyAddressTypeSchema.default("registered"),
@@ -101,6 +106,11 @@ export const createCrmPartyAddressSchema = z.object({
   building_number: optionalTrimmed,
   unit_number: optionalTrimmed,
   region: optionalTrimmed,
+});
+
+export const deleteCrmPartyAddressSchema = z.object({
+  party_id: z.string().uuid(),
+  address_id: z.string().uuid(),
 });
 
 export const createWarehouseItemSupplierSchema = z.object({
@@ -119,7 +129,9 @@ export type UpdateCrmPartyInput = z.infer<typeof updateCrmPartySchema>;
 export type CreateCrmContactInput = z.infer<typeof createCrmContactSchema>;
 export type UpdateCrmContactInput = z.infer<typeof updateCrmContactSchema>;
 export type LinkCrmPartyContactInput = z.infer<typeof linkCrmPartyContactSchema>;
+export type UnlinkCrmPartyContactInput = z.infer<typeof unlinkCrmPartyContactSchema>;
 export type CreateCrmPartyAddressInput = z.infer<typeof createCrmPartyAddressSchema>;
+export type DeleteCrmPartyAddressInput = z.infer<typeof deleteCrmPartyAddressSchema>;
 export type CreateWarehouseItemSupplierInput = z.infer<typeof createWarehouseItemSupplierSchema>;
 export type CrmPartyRole = z.infer<typeof crmPartyRoleSchema>;
 export type CrmContactVisibility = z.infer<typeof crmContactVisibilitySchema>;

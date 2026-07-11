@@ -3545,6 +3545,7 @@
         "role": "Role",
         "roles": "Roles",
         "status": "Status",
+        "partyKind": "Type",
         "name": "Name",
         "firstName": "First name",
         "lastName": "Last name",
@@ -3556,6 +3557,8 @@
         "website": "Website",
         "notes": "Notes",
         "visibility": "Visibility",
+        "linkedUser": "Linked organization user",
+        "noLinkedUser": "No linked user",
         "jobTitle": "Job title",
         "primary": "Primary",
         "addressType": "Address type",
@@ -3582,6 +3585,10 @@
         "active": "Active",
         "inactive": "Inactive",
         "archived": "Archived"
+      },
+      "partyKinds": {
+        "organization": "Organization",
+        "individual": "Individual"
       },
       "sections": {
         "partyDetails": "Counterparty details",
@@ -3612,7 +3619,9 @@
         "searchContacts": "Search contacts by name, email, or phone",
         "selectContact": "Select contact",
         "linkContact": "Link contact",
+        "unlink": "Unlink",
         "addAddress": "Add address",
+        "remove": "Remove",
         "uploading": "Uploading...",
         "uploadLogo": "Upload logo",
         "uploadAvatar": "Upload avatar"
@@ -3625,7 +3634,9 @@
         "partyArchived": "Counterparty archived.",
         "contactArchived": "Contact archived.",
         "contactLinked": "Contact linked.",
+        "contactUnlinked": "Contact unlinked.",
         "addressAdded": "Address added.",
+        "addressDeleted": "Address removed.",
         "logoUploaded": "Logo uploaded.",
         "avatarUploaded": "Avatar uploaded.",
         "notesLater": "Notes can be expanded after creation.",
@@ -5919,6 +5930,7 @@
       "unitConversionInvalid": "Unit conversions require different units and a positive factor.",
       "createFailed": "Unexpected product creation response",
       "imageSaveFailed": "Images could not be saved",
+      "crmSuppliersSaveFailed": "Product was created, but CRM suppliers could not be assigned.",
       "unitCreated": "Unit created",
       "brandCreated": "Brand created",
       "manufacturerCreated": "Manufacturer created",

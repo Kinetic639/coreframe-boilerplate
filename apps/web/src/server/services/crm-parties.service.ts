@@ -7,6 +7,8 @@ import type {
   CrmPartyRole,
   LinkCrmPartyContactInput,
   UpdateCrmPartyInput,
+  UnlinkCrmPartyContactInput,
+  DeleteCrmPartyAddressInput,
 } from "@/lib/validations/crm";
 
 export type ServiceResult<T> = { success: true; data: T } | { success: false; error: string };
@@ -474,6 +476,23 @@ export const CrmPartiesService = {
     return CrmPartiesService.getDetail(supabase, orgId, input.party_id);
   },
 
+  async unlinkContact(
+    supabase: SupabaseClient,
+    orgId: string,
+    input: UnlinkCrmPartyContactInput
+  ): Promise<ServiceResult<CrmPartyDetail>> {
+    const { error } = await supabase
+      .from("crm_party_contacts")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("organization_id", orgId)
+      .eq("party_id", input.party_id)
+      .eq("id", input.link_id)
+      .is("deleted_at", null);
+
+    if (error) return { success: false, error: error.message };
+    return CrmPartiesService.getDetail(supabase, orgId, input.party_id);
+  },
+
   async addAddress(
     supabase: SupabaseClient,
     orgId: string,
@@ -492,6 +511,23 @@ export const CrmPartiesService = {
       unit_number: input.unit_number ?? null,
       region: input.region ?? null,
     });
+
+    if (error) return { success: false, error: error.message };
+    return CrmPartiesService.getDetail(supabase, orgId, input.party_id);
+  },
+
+  async deleteAddress(
+    supabase: SupabaseClient,
+    orgId: string,
+    input: DeleteCrmPartyAddressInput
+  ): Promise<ServiceResult<CrmPartyDetail>> {
+    const { error } = await supabase
+      .from("crm_party_addresses")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("organization_id", orgId)
+      .eq("party_id", input.party_id)
+      .eq("id", input.address_id)
+      .is("deleted_at", null);
 
     if (error) return { success: false, error: error.message };
     return CrmPartiesService.getDetail(supabase, orgId, input.party_id);

@@ -3516,6 +3516,7 @@
         "role": "Rola",
         "roles": "Role",
         "status": "Status",
+        "partyKind": "Typ",
         "name": "Nazwa",
         "firstName": "Imię",
         "lastName": "Nazwisko",
@@ -3527,6 +3528,8 @@
         "website": "Strona www",
         "notes": "Notatki",
         "visibility": "Widoczność",
+        "linkedUser": "Powiązany użytkownik organizacji",
+        "noLinkedUser": "Brak powiązanego użytkownika",
         "jobTitle": "Stanowisko",
         "primary": "Główny",
         "addressType": "Typ adresu",
@@ -3553,6 +3556,10 @@
         "active": "Aktywny",
         "inactive": "Nieaktywny",
         "archived": "Zarchiwizowany"
+      },
+      "partyKinds": {
+        "organization": "Organizacja",
+        "individual": "Osoba"
       },
       "sections": {
         "partyDetails": "Dane kontrahenta",
@@ -3583,7 +3590,9 @@
         "searchContacts": "Szukaj kontaktów po nazwie, emailu lub telefonie",
         "selectContact": "Wybierz kontakt",
         "linkContact": "Połącz kontakt",
+        "unlink": "Odłącz",
         "addAddress": "Dodaj adres",
+        "remove": "Usuń",
         "uploading": "Przesyłanie...",
         "uploadLogo": "Prześlij logo",
         "uploadAvatar": "Prześlij avatar"
@@ -3596,7 +3605,9 @@
         "partyArchived": "Kontrahent został zarchiwizowany.",
         "contactArchived": "Kontakt został zarchiwizowany.",
         "contactLinked": "Kontakt został połączony.",
+        "contactUnlinked": "Kontakt został odłączony.",
         "addressAdded": "Adres został dodany.",
+        "addressDeleted": "Adres został usunięty.",
         "logoUploaded": "Logo przesłane.",
         "avatarUploaded": "Avatar przesłany.",
         "notesLater": "Notatki można rozbudować po utworzeniu.",
@@ -5893,6 +5904,7 @@
       "unitConversionInvalid": "Konwersje jednostek wymagają różnych jednostek i dodatniego współczynnika.",
       "createFailed": "Nieoczekiwana odpowiedź tworzenia produktu",
       "imageSaveFailed": "Nie udało się zapisać obrazów",
+      "crmSuppliersSaveFailed": "Produkt został utworzony, ale nie udało się przypisać dostawców CRM.",
       "unitCreated": "Jednostka utworzona",
       "brandCreated": "Marka utworzona",
       "manufacturerCreated": "Producent utworzony",

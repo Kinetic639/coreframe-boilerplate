@@ -8,6 +8,8 @@ import { CrmPartiesService } from "../crm-parties.service";
 const ORG_ID = "11111111-1111-4111-8111-111111111111";
 const USER_ID = "22222222-2222-4222-8222-222222222222";
 const PARTY_ID = "33333333-3333-4333-8333-333333333333";
+const CONTACT_LINK_ID = "44444444-4444-4444-8444-444444444444";
+const ADDRESS_ID = "55555555-5555-4555-8555-555555555555";
 
 type Operation = {
   table: string;
@@ -218,6 +220,82 @@ describe("CrmPartiesService", () => {
     expect(update?.payload).toEqual(
       expect.objectContaining({ updated_by: USER_ID, status: "archived" })
     );
+  });
+
+  it("unlinks party contacts through a scoped soft delete", async () => {
+    const supabase = createSupabaseMock();
+
+    const result = await CrmPartiesService.unlinkContact(supabase.client as never, ORG_ID, {
+      party_id: PARTY_ID,
+      link_id: CONTACT_LINK_ID,
+    });
+
+    expect(result.success).toBe(true);
+    expect(
+      supabase.operations.some((op) => op.table === "crm_party_contacts" && op.action === "delete")
+    ).toBe(false);
+    const update = supabase.operations.find(
+      (op) => op.table === "crm_party_contacts" && op.action === "update"
+    );
+    expect(update?.payload).toEqual({ deleted_at: expect.any(String) });
+    expect(supabase.operations).toContainEqual({
+      table: "crm_party_contacts",
+      action: "eq",
+      args: ["organization_id", ORG_ID],
+    });
+    expect(supabase.operations).toContainEqual({
+      table: "crm_party_contacts",
+      action: "eq",
+      args: ["party_id", PARTY_ID],
+    });
+    expect(supabase.operations).toContainEqual({
+      table: "crm_party_contacts",
+      action: "eq",
+      args: ["id", CONTACT_LINK_ID],
+    });
+    expect(supabase.operations).toContainEqual({
+      table: "crm_party_contacts",
+      action: "is",
+      args: ["deleted_at", null],
+    });
+  });
+
+  it("removes party addresses through a scoped soft delete", async () => {
+    const supabase = createSupabaseMock();
+
+    const result = await CrmPartiesService.deleteAddress(supabase.client as never, ORG_ID, {
+      party_id: PARTY_ID,
+      address_id: ADDRESS_ID,
+    });
+
+    expect(result.success).toBe(true);
+    expect(
+      supabase.operations.some((op) => op.table === "crm_party_addresses" && op.action === "delete")
+    ).toBe(false);
+    const update = supabase.operations.find(
+      (op) => op.table === "crm_party_addresses" && op.action === "update"
+    );
+    expect(update?.payload).toEqual({ deleted_at: expect.any(String) });
+    expect(supabase.operations).toContainEqual({
+      table: "crm_party_addresses",
+      action: "eq",
+      args: ["organization_id", ORG_ID],
+    });
+    expect(supabase.operations).toContainEqual({
+      table: "crm_party_addresses",
+      action: "eq",
+      args: ["party_id", PARTY_ID],
+    });
+    expect(supabase.operations).toContainEqual({
+      table: "crm_party_addresses",
+      action: "eq",
+      args: ["id", ADDRESS_ID],
+    });
+    expect(supabase.operations).toContainEqual({
+      table: "crm_party_addresses",
+      action: "is",
+      args: ["deleted_at", null],
+    });
   });
 
   it("searches only active CRM parties with the supplier role for warehouse supplier pickers", async () => {

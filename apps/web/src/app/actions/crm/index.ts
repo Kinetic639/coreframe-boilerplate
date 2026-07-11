@@ -30,13 +30,17 @@ import {
   createCrmContactSchema,
   createCrmPartyAddressSchema,
   createCrmPartySchema,
+  deleteCrmPartyAddressSchema,
   linkCrmPartyContactSchema,
+  unlinkCrmPartyContactSchema,
   updateCrmContactSchema,
   updateCrmPartySchema,
   type CreateCrmContactInput,
   type CreateCrmPartyAddressInput,
   type CreateCrmPartyInput,
+  type DeleteCrmPartyAddressInput,
   type LinkCrmPartyContactInput,
+  type UnlinkCrmPartyContactInput,
   type UpdateCrmContactInput,
   type UpdateCrmPartyInput,
 } from "@/lib/validations/crm";
@@ -288,6 +292,22 @@ export async function linkCrmPartyContactAction(
   }
 }
 
+export async function unlinkCrmPartyContactAction(
+  input: UnlinkCrmPartyContactInput
+): Promise<ActionResult<CrmPartyDetail>> {
+  try {
+    const ctx = await getAuthedContext();
+    if (!ctx) return { success: false, error: "Unauthorized" };
+    if (!checkPermission(ctx.context.user.permissionSnapshot, CRM_PARTIES_UPDATE))
+      return permissionDenied();
+    const parsed = unlinkCrmPartyContactSchema.safeParse(input);
+    if (!parsed.success) return { success: false, error: validationError(parsed.error) };
+    return CrmPartiesService.unlinkContact(ctx.supabase, ctx.orgId, parsed.data);
+  } catch (error) {
+    return mapError(error);
+  }
+}
+
 export async function addCrmPartyAddressAction(
   input: CreateCrmPartyAddressInput
 ): Promise<ActionResult<CrmPartyDetail>> {
@@ -299,6 +319,22 @@ export async function addCrmPartyAddressAction(
     const parsed = createCrmPartyAddressSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: validationError(parsed.error) };
     return CrmPartiesService.addAddress(ctx.supabase, ctx.orgId, parsed.data);
+  } catch (error) {
+    return mapError(error);
+  }
+}
+
+export async function deleteCrmPartyAddressAction(
+  input: DeleteCrmPartyAddressInput
+): Promise<ActionResult<CrmPartyDetail>> {
+  try {
+    const ctx = await getAuthedContext();
+    if (!ctx) return { success: false, error: "Unauthorized" };
+    if (!checkPermission(ctx.context.user.permissionSnapshot, CRM_PARTIES_UPDATE))
+      return permissionDenied();
+    const parsed = deleteCrmPartyAddressSchema.safeParse(input);
+    if (!parsed.success) return { success: false, error: validationError(parsed.error) };
+    return CrmPartiesService.deleteAddress(ctx.supabase, ctx.orgId, parsed.data);
   } catch (error) {
     return mapError(error);
   }
