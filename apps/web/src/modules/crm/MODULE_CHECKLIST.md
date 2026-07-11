@@ -28,6 +28,8 @@
 - [x] Party detail supports adding addresses
 - [x] Contact detail supports basic editing and visibility editing
 - [x] Party and contact detail panels expose archive actions when permitted
+- [x] Warehouse movement party fields resolve CRM kontrahenci by plain integer number
+- [x] Warehouse movement party details persist CRM party id, number, and snapshot in JSON
 
 ## Security
 
@@ -48,7 +50,7 @@
 - [x] Add CRM migration invariant tests for storage policies
 - [ ] Add real RLS integration tests
 - [ ] Run `npm run type-check` after unrelated rich-text `@tiptap/core` issue is resolved
-- [x] Run focused CRM `npx vitest run` equivalent through `pnpm --filter web run test:run` — 7 files, 70 tests
+- [x] Run focused CRM `npx vitest run` equivalent through `pnpm --filter web run test:run` — 7 files, 71 tests
 - [ ] Run full `npx vitest run`
 - [ ] Run `npm run build`
 - [ ] Run Supabase advisors through MCP or CLI after DDL is applied

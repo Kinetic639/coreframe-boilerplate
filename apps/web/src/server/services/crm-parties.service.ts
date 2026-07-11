@@ -71,6 +71,18 @@ export interface CrmSupplierOption {
   phone: string | null;
 }
 
+export interface CrmCounterpartyLookup {
+  id: string;
+  counterparty_number: number;
+  display_name: string;
+  legal_name: string | null;
+  tax_id: string | null;
+  email: string | null;
+  phone: string | null;
+  status: string;
+  address: CrmPartyAddress | null;
+}
+
 type RoleRow = { role: CrmPartyRole };
 type PartyRow = Omit<CrmPartyDetail, "roles" | "contacts" | "addresses"> & {
   crm_party_roles?: RoleRow[] | RoleRow | null;
@@ -293,6 +305,48 @@ export const CrmPartiesService = {
         email: row.email,
         phone: row.phone,
       })),
+    };
+  },
+
+  async lookupByCounterpartyNumber(
+    supabase: SupabaseClient,
+    orgId: string,
+    counterpartyNumber: number
+  ): Promise<ServiceResult<CrmCounterpartyLookup>> {
+    const { data, error } = await supabase
+      .from("crm_parties")
+      .select("id")
+      .eq("organization_id", orgId)
+      .eq("counterparty_number", counterpartyNumber)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (error) return { success: false, error: error.message };
+    if (!data) return { success: false, error: "Counterparty not found" };
+
+    const detail = await CrmPartiesService.getDetail(supabase, orgId, (data as { id: string }).id);
+    if ("error" in detail) return { success: false, error: detail.error };
+
+    const address =
+      detail.data.addresses.find((item) => item.is_default) ??
+      detail.data.addresses.find((item) => item.address_type === "registered") ??
+      detail.data.addresses.find((item) => item.address_type === "billing") ??
+      detail.data.addresses[0] ??
+      null;
+
+    return {
+      success: true,
+      data: {
+        id: detail.data.id,
+        counterparty_number: detail.data.counterparty_number,
+        display_name: detail.data.display_name,
+        legal_name: detail.data.legal_name,
+        tax_id: detail.data.tax_id,
+        email: detail.data.email,
+        phone: detail.data.phone,
+        status: detail.data.status,
+        address,
+      },
     };
   },
 

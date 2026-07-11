@@ -33,7 +33,7 @@ The foundation has been implemented in the working tree:
 - Module metadata and module checklist under `src/modules/crm`.
 - English and Polish navigation/UI translations.
 
-The work is not production-complete yet. The biggest remaining gaps are RLS integration tests, Supabase type regeneration, Supabase MCP verification/advisors, richer editing workflows, warehouse item UI integration, warehouse movement lookup by kontrahent number, and final build gates.
+The work is not production-complete yet. The biggest remaining gaps are RLS integration tests, Supabase type regeneration, Supabase MCP verification/advisors, richer editing workflows, remaining warehouse item create/detail integration, physical movement snapshot-column decision, and final build gates.
 
 ## Database Model
 
@@ -188,18 +188,19 @@ CRM supplier search is available through a warehouse action that reads active CR
 
 Warehouse item edit now includes a CRM supplier panel in the purchase section. It can search supplier parties, attach them to the item, save supplier SKU, mark a primary supplier, list existing item suppliers, and remove links via soft delete.
 
+Warehouse movement party fields now support plain integer kontrahent lookup. Entering a CRM counterparty number resolves the party, fills name/tax/phone/address data, and stores CRM party id, counterparty number, and a compact snapshot in the existing `sender_details` / `recipient_details` JSON payload.
+
 Still required:
 
 - Extend the Suppliers section/tab to warehouse item create/detail flows.
 - Add UI fields for price, currency, MOQ, and lead time.
-- Add movement form lookup by kontrahent number.
-- Store CRM party references and snapshots where warehouse movements need immutable document data.
+- Decide whether movement headers need dedicated physical snapshot columns in addition to the JSON party details.
 
 ## Verification Status
 
 The implementation has not passed the final verification gates yet. Current verified gates:
 
-- Focused CRM service/action/sidebar/migration Vitest suite passes: 7 files, 70 tests.
+- Focused CRM service/action/sidebar/migration Vitest suite passes: 7 files, 71 tests.
 - Contracts invariant tests pass.
 - CRM-specific type-check errors have been fixed.
 

@@ -33,6 +33,8 @@
 - [x] Add party detail editing, role editing, contact-person linking, and address add UI.
 - [x] Add contact detail editing UI.
 - [x] Add party/contact archive affordances backed by soft-delete actions.
+- [x] Add CRM counterparty-number lookup to warehouse movement party fields.
+- [x] Store CRM party id, counterparty number, and snapshot in movement party details JSON.
 - [ ] Reconcile CRM work with the new warehouse audit feature pulled from `main`.
 - [ ] Add RLS integration tests.
 - [ ] Complete party create/edit/detail UI polish.
@@ -40,8 +42,8 @@
 - [x] Complete initial party contact-person assignment UI.
 - [x] Complete initial party address add UI.
 - [ ] Integrate CRM suppliers into warehouse item create/edit/detail flows.
-- [ ] Integrate kontrahent number lookup into warehouse movement forms.
-- [ ] Add CRM party snapshots to warehouse movement persistence where required.
+- [x] Integrate initial kontrahent number lookup into warehouse movement forms.
+- [x] Add initial CRM party snapshots to warehouse movement party details JSON.
 - [ ] Apply CRM DDL through Supabase MCP against the target database when approved.
 - [ ] Run Supabase advisors through MCP after DDL.
 - [ ] Regenerate Supabase types.
@@ -254,7 +256,7 @@ Acceptance criteria:
 
 ## Phase 7: Warehouse Integration
 
-Status: schema/service/action foundation exists; CRM supplier search action added; edit-page UI panel added; create/detail and movement integration incomplete.
+Status: schema/service/action foundation exists; CRM supplier search action added; edit-page UI panel added; initial movement kontrahent-number lookup added; create/detail item integration remains incomplete.
 
 Completed:
 
@@ -263,6 +265,8 @@ Completed:
 - Added action tests for warehouse item supplier permissions, CRM supplier search, and item supplier creation context.
 - Added `CrmItemSuppliersPanel` to the warehouse item edit purchase section.
 - The edit panel can search CRM supplier parties, attach a party to the item, store supplier SKU, mark primary supplier, list existing CRM suppliers, and soft-delete supplier links.
+- Added CRM party lookup by plain integer counterparty number for warehouse movement party fields.
+- Movement party details now carry CRM party id, counterparty number, and a compact immutable snapshot in existing sender/recipient details JSON.
 
 Remaining work:
 
@@ -270,8 +274,7 @@ Remaining work:
 - Add remaining supplier terms to the UI: price, currency, MOQ, and lead time.
 - Show richer supplier contact data once signed URLs/contact links are available in the item context.
 - Decide how legacy supplier/business account data migrates or coexists during transition.
-- Add kontrahent number lookup to warehouse movement forms.
-- Store `party_id`, `counterparty_number_snapshot`, and `counterparty_snapshot` where movement documents require immutable party data.
+- Decide whether movement headers also need physical `party_id`, `counterparty_number_snapshot`, and `counterparty_snapshot` columns for reporting, or whether JSON party details are sufficient for v1.
 - Keep branch number lookup separate from kontrahent number lookup.
 
 Acceptance criteria:
@@ -303,7 +306,7 @@ Required commands:
 
 Current blocker:
 
-- Focused CRM tests pass: 7 files, 70 tests.
+- Focused CRM tests pass: 7 files, 71 tests.
 - Web type-check no longer reports CRM errors, but still fails on unrelated rich-text imports for missing `@tiptap/core`.
 
 Acceptance criteria:

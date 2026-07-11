@@ -3,11 +3,17 @@
 import React, { useCallback, useEffect, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { Building, Check, Loader2, Pencil, Search, User } from "lucide-react";
+import { toast } from "react-toastify";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { searchSuppliersAction } from "@/app/actions/warehouse/inventory";
+import {
+  lookupCrmCounterpartyForMovementAction,
+  searchSuppliersAction,
+} from "@/app/actions/warehouse/inventory";
+import type { MovementPartyDetails } from "@/lib/warehouse/inventory-types";
+import type { CrmCounterpartyLookup } from "@/server/services/crm-parties.service";
 
 export type SupplierFields = {
   name: string;
@@ -16,6 +22,9 @@ export type SupplierFields = {
   street: string;
   postalCode: string;
   city: string;
+  crmPartyId?: string;
+  counterpartyNumber?: number;
+  counterpartySnapshot?: MovementPartyDetails["counterpartySnapshot"];
 };
 
 type Props = {
@@ -82,6 +91,10 @@ export const MovementPartySection = React.memo(function MovementPartySection({
 }: PartySectionProps) {
   const t = useTranslations("warehouseInventory.movementEditor");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [counterpartyInput, setCounterpartyInput] = useState(
+    fields.counterpartyNumber ? String(fields.counterpartyNumber) : ""
+  );
+  const [lookupPending, startLookupTransition] = useTransition();
 
   const updateField = useCallback(
     (key: keyof SupplierFields, value: string) => {
@@ -115,6 +128,51 @@ export const MovementPartySection = React.memo(function MovementPartySection({
     },
     [fields, onFieldsChange, onNameChange, onDetailsChange]
   );
+
+  const fillFromCounterparty = useCallback(
+    (counterparty: CrmCounterpartyLookup) => {
+      const address = counterparty.address;
+      const street = [address?.street, address?.building_number, address?.unit_number]
+        .filter(Boolean)
+        .join(" ");
+      const next: SupplierFields = {
+        ...fields,
+        name: counterparty.legal_name ?? counterparty.display_name,
+        nip: counterparty.tax_id ?? fields.nip,
+        phone: counterparty.phone ?? fields.phone,
+        street: street || fields.street,
+        postalCode: address?.postal_code ?? fields.postalCode,
+        city: address?.city ?? fields.city,
+        crmPartyId: counterparty.id,
+        counterpartyNumber: counterparty.counterparty_number,
+        counterpartySnapshot: counterparty,
+      };
+      setCounterpartyInput(String(counterparty.counterparty_number));
+      onFieldsChange(next);
+      onNameChange(next.name);
+      onDetailsChange(next);
+    },
+    [fields, onFieldsChange, onNameChange, onDetailsChange]
+  );
+
+  const lookupCounterparty = useCallback(() => {
+    const counterpartyNumber = Number(counterpartyInput);
+    if (!Number.isInteger(counterpartyNumber) || counterpartyNumber <= 0) {
+      toast.error(t("counterpartyNumberInvalid"));
+      return;
+    }
+    startLookupTransition(async () => {
+      const result = await lookupCrmCounterpartyForMovementAction({
+        counterparty_number: counterpartyNumber,
+      });
+      if ("error" in result) {
+        toast.error(result.error);
+        return;
+      }
+      fillFromCounterparty(result.data);
+      toast.success(t("counterpartyFilled"));
+    });
+  }, [counterpartyInput, fillFromCounterparty, t]);
 
   return (
     <section className="rounded-sm border bg-card p-4">
@@ -183,6 +241,12 @@ export const MovementPartySection = React.memo(function MovementPartySection({
           </div>
           <h4 className="text-sm font-bold text-foreground">{fields.name}</h4>
           <div className="text-xs text-muted-foreground font-mono space-y-0.5 mt-1.5">
+            {fields.counterpartyNumber && (
+              <p>
+                {t("counterpartyNumber")}:{" "}
+                <strong className="text-foreground">{fields.counterpartyNumber}</strong>
+              </p>
+            )}
             {fields.nip && (
               <p>
                 NIP: <strong className="text-foreground">{fields.nip}</strong>
@@ -217,6 +281,36 @@ export const MovementPartySection = React.memo(function MovementPartySection({
                 onChange={(e) => updateField("name", e.target.value)}
                 className="h-8 text-sm font-semibold placeholder:font-normal placeholder:italic placeholder:text-muted-foreground/60"
               />
+            </div>
+            <div>
+              <label className="block text-xs uppercase font-semibold text-muted-foreground mb-0.5">
+                {t("counterpartyNumber")}
+              </label>
+              <div className="flex gap-2">
+                <Input
+                  inputMode="numeric"
+                  placeholder={t("counterpartyNumberPlaceholder")}
+                  value={counterpartyInput}
+                  onChange={(e) => setCounterpartyInput(e.target.value.replace(/\D/g, ""))}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      lookupCounterparty();
+                    }
+                  }}
+                  className="h-8 text-sm font-mono placeholder:font-normal placeholder:italic placeholder:text-muted-foreground/60"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 shrink-0"
+                  onClick={lookupCounterparty}
+                  disabled={lookupPending || !counterpartyInput}
+                >
+                  {lookupPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t("fill")}
+                </Button>
+              </div>
             </div>
             <div>
               <label className="block text-xs uppercase font-semibold text-muted-foreground mb-0.5">

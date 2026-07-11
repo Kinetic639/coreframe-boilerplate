@@ -13,6 +13,7 @@ import {
   WAREHOUSE_PRICING_MANAGE,
   WAREHOUSE_REPORTS_READ,
   WAREHOUSE_IMPORTS_MANAGE,
+  CRM_PARTIES_READ,
 } from "@/lib/constants/permissions";
 import { InventoryProductsService } from "@/server/services/inventory-products.service";
 import { InventoryProductImportsService } from "@/server/services/inventory-product-imports.service";
@@ -20,6 +21,7 @@ import { InventoryBalancesService } from "@/server/services/inventory-balances.s
 import { InventoryMovementsService } from "@/server/services/inventory-movements.service";
 import { InventoryMovementImportsService } from "@/server/services/inventory-movement-imports.service";
 import { InventoryEnterpriseService } from "@/server/services/inventory-enterprise.service";
+import { CrmPartiesService } from "@/server/services/crm-parties.service";
 import {
   emitInventoryEvent,
   hasPermission,
@@ -101,7 +103,7 @@ import { validateInventoryImageFile } from "./image-upload-policy";
 export async function listInventoryProductsAction(rawInput: unknown) {
   try {
     const auth = await requireWarehouseContext();
-    if (!auth.success) return auth;
+    if (!auth.success) return { success: false, error: auth.error };
     if (!hasPermission(auth, WAREHOUSE_PRODUCTS_READ)) {
       return { success: false, error: "Unauthorized" };
     }
@@ -124,7 +126,7 @@ export async function listInventoryProductsAction(rawInput: unknown) {
 export async function getInventoryProductAction(rawInput: unknown) {
   try {
     const auth = await requireWarehouseContext();
-    if (!auth.success) return auth;
+    if (!auth.success) return { success: false, error: auth.error };
     if (!hasPermission(auth, WAREHOUSE_PRODUCTS_READ)) {
       return { success: false, error: "Unauthorized" };
     }
@@ -2204,6 +2206,33 @@ export async function searchSuppliersAction(input: { query?: string; limit?: num
     const { data, error } = await q;
     if (error) return { success: false, error: error.message };
     return { success: true, data: data ?? [] };
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function lookupCrmCounterpartyForMovementAction(input: {
+  counterparty_number: number;
+}) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return { success: false, error: auth.error };
+    if (
+      !hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE) ||
+      !hasPermission(auth, CRM_PARTIES_READ)
+    ) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const parsed = z.object({ counterparty_number: z.number().int().positive() }).safeParse(input);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const supabase = await createClient();
+    return CrmPartiesService.lookupByCounterpartyNumber(
+      supabase,
+      auth.context.app.activeOrgId,
+      parsed.data.counterparty_number
+    );
   } catch (error) {
     return mapUnexpected(error);
   }

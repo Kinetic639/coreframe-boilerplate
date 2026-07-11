@@ -110,6 +110,13 @@ function createChain(table: string, operations: Operation[]) {
       }
       return chain;
     },
+    maybeSingle() {
+      operations.push({ table, action: "maybeSingle" });
+      if (table === "crm_parties") {
+        chain.data = { id: PARTY_ID };
+      }
+      return chain;
+    },
   };
   return chain;
 }
@@ -253,5 +260,36 @@ describe("CrmPartiesService", () => {
           String(op.args?.[0]).includes("counterparty_number.eq.81")
       )
     ).toBe(true);
+  });
+
+  it("looks up a CRM party by plain integer counterparty number", async () => {
+    const supabase = createSupabaseMock();
+
+    const result = await CrmPartiesService.lookupByCounterpartyNumber(
+      supabase.client as never,
+      ORG_ID,
+      81
+    );
+
+    expect(result).toEqual({
+      success: true,
+      data: expect.objectContaining({
+        id: PARTY_ID,
+        counterparty_number: 81,
+        display_name: "Ambra Supplier",
+        legal_name: "Ambra Supplier sp. z o.o.",
+        tax_id: "1234567890",
+      }),
+    });
+    expect(supabase.operations).toContainEqual({
+      table: "crm_parties",
+      action: "eq",
+      args: ["organization_id", ORG_ID],
+    });
+    expect(supabase.operations).toContainEqual({
+      table: "crm_parties",
+      action: "eq",
+      args: ["counterparty_number", 81],
+    });
   });
 });
