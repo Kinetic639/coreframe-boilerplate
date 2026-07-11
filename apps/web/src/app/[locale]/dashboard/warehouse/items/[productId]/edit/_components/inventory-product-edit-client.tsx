@@ -27,6 +27,7 @@ import type {
   InventoryTaxRateRow,
 } from "@/lib/warehouse/inventory-types";
 import { cn } from "@/utils";
+import { CrmItemSuppliersPanel } from "./crm-item-suppliers-panel";
 
 type UnitOption = { id: string; code: string; name: string };
 type SupplierOption = { id: string; name: string };
@@ -1208,6 +1209,7 @@ export function InventoryProductEditClient({
               label={tc("description")}
               defaultValue={product.purchase_description}
             />
+            <CrmItemSuppliersPanel itemId={product.id} />
           </div>
         </section>
 
