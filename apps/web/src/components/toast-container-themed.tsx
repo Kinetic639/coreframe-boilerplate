@@ -2,7 +2,7 @@
 
 import { Check, Copy, X } from "lucide-react";
 import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -98,12 +98,20 @@ export function ToastContainerThemed() {
       pauseOnHover
       theme={mounted ? (activeTheme === "dark" ? "dark" : "light") : "light"}
       closeButton={ToastCloseButton}
-      style={{
-        padding: "10px 14px",
-        minHeight: "auto",
-        fontSize: "14px",
-        borderRadius: "8px",
-      }}
+      style={
+        {
+          padding: "10px 14px",
+          minHeight: "auto",
+          fontSize: "14px",
+          borderRadius: "8px",
+          // react-toastify's own default (9999) collided with several other
+          // global overlays that also reached for arbitrarily huge values —
+          // pin it to the app's documented z-index scale instead (see
+          // globals.css) so it's still above dialogs but doesn't compete
+          // with the sidebar flyout/loading overlay tiers.
+          "--toastify-z-index": "var(--z-toast)",
+        } as CSSProperties
+      }
     />
   );
 }
