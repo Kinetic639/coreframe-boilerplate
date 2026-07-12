@@ -367,6 +367,36 @@ export type MovementPartyDetails = {
   street?: string;
   postalCode?: string;
   city?: string;
+  entityNumber?: number;
+  crmPartyId?: string;
+  counterpartyNumber?: number;
+  branchId?: string;
+  branchNumber?: number;
+  branchSnapshot?: {
+    id: string;
+    branch_number: number;
+    name: string;
+    slug: string | null;
+  };
+  counterpartySnapshot?: {
+    id: string;
+    counterparty_number: number;
+    display_name: string;
+    legal_name: string | null;
+    tax_id: string | null;
+    email: string | null;
+    phone: string | null;
+    status: string;
+    address?: {
+      country: string | null;
+      city: string | null;
+      postal_code: string | null;
+      street: string | null;
+      building_number: string | null;
+      unit_number: string | null;
+      region: string | null;
+    } | null;
+  };
 };
 
 export type CreateDraftMovementInput = {

@@ -470,6 +470,7 @@ export type Database = {
       };
       branches: {
         Row: {
+          branch_number: number;
           created_at: string | null;
           deleted_at: string | null;
           id: string;
@@ -479,6 +480,7 @@ export type Database = {
           slug: string | null;
         };
         Insert: {
+          branch_number: number;
           created_at?: string | null;
           deleted_at?: string | null;
           id?: string;
@@ -488,6 +490,7 @@ export type Database = {
           slug?: string | null;
         };
         Update: {
+          branch_number?: number;
           created_at?: string | null;
           deleted_at?: string | null;
           id?: string;
@@ -502,6 +505,410 @@ export type Database = {
             columns: ["organization_id"];
             isOneToOne: false;
             referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      crm_contacts: {
+        Row: {
+          avatar_storage_path: string | null;
+          branch_id: string | null;
+          created_at: string;
+          created_by: string;
+          deleted_at: string | null;
+          display_name: string;
+          email: string | null;
+          first_name: string | null;
+          id: string;
+          job_title: string | null;
+          last_name: string | null;
+          linked_user_id: string | null;
+          mobile: string | null;
+          notes: string | null;
+          organization_id: string;
+          owner_user_id: string | null;
+          phone: string | null;
+          updated_at: string;
+          updated_by: string | null;
+          visibility_scope: string;
+        };
+        Insert: {
+          avatar_storage_path?: string | null;
+          branch_id?: string | null;
+          created_at?: string;
+          created_by: string;
+          deleted_at?: string | null;
+          display_name: string;
+          email?: string | null;
+          first_name?: string | null;
+          id?: string;
+          job_title?: string | null;
+          last_name?: string | null;
+          linked_user_id?: string | null;
+          mobile?: string | null;
+          notes?: string | null;
+          organization_id: string;
+          owner_user_id?: string | null;
+          phone?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+          visibility_scope?: string;
+        };
+        Update: {
+          avatar_storage_path?: string | null;
+          branch_id?: string | null;
+          created_at?: string;
+          created_by?: string;
+          deleted_at?: string | null;
+          display_name?: string;
+          email?: string | null;
+          first_name?: string | null;
+          id?: string;
+          job_title?: string | null;
+          last_name?: string | null;
+          linked_user_id?: string | null;
+          mobile?: string | null;
+          notes?: string | null;
+          organization_id?: string;
+          owner_user_id?: string | null;
+          phone?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+          visibility_scope?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "crm_contacts_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branches";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "crm_contacts_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "crm_contacts_linked_user_id_fkey";
+            columns: ["linked_user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "crm_contacts_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "crm_contacts_owner_user_id_fkey";
+            columns: ["owner_user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "crm_contacts_updated_by_fkey";
+            columns: ["updated_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      crm_number_sequences: {
+        Row: {
+          next_value: number;
+          organization_id: string;
+          sequence_key: string;
+          updated_at: string;
+        };
+        Insert: {
+          next_value?: number;
+          organization_id: string;
+          sequence_key: string;
+          updated_at?: string;
+        };
+        Update: {
+          next_value?: number;
+          organization_id?: string;
+          sequence_key?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "crm_number_sequences_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      crm_parties: {
+        Row: {
+          counterparty_number: number;
+          created_at: string;
+          created_by: string;
+          deleted_at: string | null;
+          display_name: string;
+          email: string | null;
+          id: string;
+          krs: string | null;
+          legal_name: string | null;
+          logo_storage_path: string | null;
+          notes: string | null;
+          organization_id: string;
+          party_kind: string;
+          phone: string | null;
+          regon: string | null;
+          status: string;
+          tax_id: string | null;
+          updated_at: string;
+          updated_by: string | null;
+          vat_id: string | null;
+          website: string | null;
+        };
+        Insert: {
+          counterparty_number: number;
+          created_at?: string;
+          created_by: string;
+          deleted_at?: string | null;
+          display_name: string;
+          email?: string | null;
+          id?: string;
+          krs?: string | null;
+          legal_name?: string | null;
+          logo_storage_path?: string | null;
+          notes?: string | null;
+          organization_id: string;
+          party_kind?: string;
+          phone?: string | null;
+          regon?: string | null;
+          status?: string;
+          tax_id?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+          vat_id?: string | null;
+          website?: string | null;
+        };
+        Update: {
+          counterparty_number?: number;
+          created_at?: string;
+          created_by?: string;
+          deleted_at?: string | null;
+          display_name?: string;
+          email?: string | null;
+          id?: string;
+          krs?: string | null;
+          legal_name?: string | null;
+          logo_storage_path?: string | null;
+          notes?: string | null;
+          organization_id?: string;
+          party_kind?: string;
+          phone?: string | null;
+          regon?: string | null;
+          status?: string;
+          tax_id?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+          vat_id?: string | null;
+          website?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "crm_parties_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "crm_parties_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "crm_parties_updated_by_fkey";
+            columns: ["updated_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      crm_party_addresses: {
+        Row: {
+          address_type: string;
+          building_number: string | null;
+          city: string | null;
+          country: string | null;
+          created_at: string;
+          deleted_at: string | null;
+          id: string;
+          is_default: boolean;
+          organization_id: string;
+          party_id: string;
+          postal_code: string | null;
+          region: string | null;
+          street: string | null;
+          unit_number: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          address_type?: string;
+          building_number?: string | null;
+          city?: string | null;
+          country?: string | null;
+          created_at?: string;
+          deleted_at?: string | null;
+          id?: string;
+          is_default?: boolean;
+          organization_id: string;
+          party_id: string;
+          postal_code?: string | null;
+          region?: string | null;
+          street?: string | null;
+          unit_number?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          address_type?: string;
+          building_number?: string | null;
+          city?: string | null;
+          country?: string | null;
+          created_at?: string;
+          deleted_at?: string | null;
+          id?: string;
+          is_default?: boolean;
+          organization_id?: string;
+          party_id?: string;
+          postal_code?: string | null;
+          region?: string | null;
+          street?: string | null;
+          unit_number?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "crm_party_addresses_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "crm_party_addresses_party_id_fkey";
+            columns: ["party_id"];
+            isOneToOne: false;
+            referencedRelation: "crm_parties";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      crm_party_contacts: {
+        Row: {
+          contact_id: string;
+          created_at: string;
+          deleted_at: string | null;
+          id: string;
+          is_primary: boolean;
+          notes: string | null;
+          organization_id: string;
+          party_id: string;
+          relationship_type: string;
+          updated_at: string;
+        };
+        Insert: {
+          contact_id: string;
+          created_at?: string;
+          deleted_at?: string | null;
+          id?: string;
+          is_primary?: boolean;
+          notes?: string | null;
+          organization_id: string;
+          party_id: string;
+          relationship_type?: string;
+          updated_at?: string;
+        };
+        Update: {
+          contact_id?: string;
+          created_at?: string;
+          deleted_at?: string | null;
+          id?: string;
+          is_primary?: boolean;
+          notes?: string | null;
+          organization_id?: string;
+          party_id?: string;
+          relationship_type?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "crm_party_contacts_contact_id_fkey";
+            columns: ["contact_id"];
+            isOneToOne: false;
+            referencedRelation: "crm_contacts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "crm_party_contacts_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "crm_party_contacts_party_id_fkey";
+            columns: ["party_id"];
+            isOneToOne: false;
+            referencedRelation: "crm_parties";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      crm_party_roles: {
+        Row: {
+          created_at: string;
+          id: string;
+          organization_id: string;
+          party_id: string;
+          role: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          organization_id: string;
+          party_id: string;
+          role: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          organization_id?: string;
+          party_id?: string;
+          role?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "crm_party_roles_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "crm_party_roles_party_id_fkey";
+            columns: ["party_id"];
+            isOneToOne: false;
+            referencedRelation: "crm_parties";
             referencedColumns: ["id"];
           },
         ];
@@ -2125,7 +2532,11 @@ export type Database = {
           lot_id: string | null;
           note: string | null;
           organization_id: string;
+          reason_code: string | null;
+          sequence_no: number | null;
           serial_id: string | null;
+          source: string;
+          status: string;
           unit_id: string;
           updated_at: string;
           variance_quantity: number | null;
@@ -2144,7 +2555,11 @@ export type Database = {
           lot_id?: string | null;
           note?: string | null;
           organization_id: string;
+          reason_code?: string | null;
+          sequence_no?: number | null;
           serial_id?: string | null;
+          source?: string;
+          status?: string;
           unit_id: string;
           updated_at?: string;
           variance_quantity?: number | null;
@@ -2163,7 +2578,11 @@ export type Database = {
           lot_id?: string | null;
           note?: string | null;
           organization_id?: string;
+          reason_code?: string | null;
+          sequence_no?: number | null;
           serial_id?: string | null;
+          source?: string;
+          status?: string;
           unit_id?: string;
           updated_at?: string;
           variance_quantity?: number | null;
@@ -4701,6 +5120,85 @@ export type Database = {
           },
         ];
       };
+      inventory_reorder_suggestion_actions: {
+        Row: {
+          actor_user_id: string | null;
+          branch_id: string;
+          count_session_id: string | null;
+          created_at: string;
+          id: string;
+          location_id: string | null;
+          organization_id: string;
+          status: string;
+          variant_id: string;
+        };
+        Insert: {
+          actor_user_id?: string | null;
+          branch_id: string;
+          count_session_id?: string | null;
+          created_at?: string;
+          id?: string;
+          location_id?: string | null;
+          organization_id: string;
+          status: string;
+          variant_id: string;
+        };
+        Update: {
+          actor_user_id?: string | null;
+          branch_id?: string;
+          count_session_id?: string | null;
+          created_at?: string;
+          id?: string;
+          location_id?: string | null;
+          organization_id?: string;
+          status?: string;
+          variant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "inventory_reorder_suggestion_actions_actor_user_id_fkey";
+            columns: ["actor_user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "inventory_reorder_suggestion_actions_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branches";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "inventory_reorder_suggestion_actions_count_session_id_fkey";
+            columns: ["count_session_id"];
+            isOneToOne: false;
+            referencedRelation: "inventory_count_sessions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "inventory_reorder_suggestion_actions_location_fk";
+            columns: ["location_id", "organization_id", "branch_id"];
+            isOneToOne: false;
+            referencedRelation: "warehouse_locations";
+            referencedColumns: ["id", "organization_id", "branch_id"];
+          },
+          {
+            foreignKeyName: "inventory_reorder_suggestion_actions_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "inventory_reorder_suggestion_actions_variant_fk";
+            columns: ["variant_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "inventory_variants";
+            referencedColumns: ["id", "organization_id"];
+          },
+        ];
+      };
       inventory_report_runs: {
         Row: {
           branch_id: string | null;
@@ -5908,6 +6406,7 @@ export type Database = {
           barcode: string | null;
           created_at: string;
           created_by: string | null;
+          default_supplier_id: string | null;
           deleted_at: string | null;
           id: string;
           is_default: boolean;
@@ -5929,6 +6428,7 @@ export type Database = {
           barcode?: string | null;
           created_at?: string;
           created_by?: string | null;
+          default_supplier_id?: string | null;
           deleted_at?: string | null;
           id?: string;
           is_default?: boolean;
@@ -5950,6 +6450,7 @@ export type Database = {
           barcode?: string | null;
           created_at?: string;
           created_by?: string | null;
+          default_supplier_id?: string | null;
           deleted_at?: string | null;
           id?: string;
           is_default?: boolean;
@@ -5978,6 +6479,13 @@ export type Database = {
             columns: ["created_by"];
             isOneToOne: false;
             referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "inventory_variants_default_supplier_id_fkey";
+            columns: ["default_supplier_id"];
+            isOneToOne: false;
+            referencedRelation: "inventory_suppliers";
             referencedColumns: ["id"];
           },
           {
@@ -6262,6 +6770,70 @@ export type Database = {
             columns: ["plan_id"];
             isOneToOne: false;
             referencedRelation: "subscription_plans";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      organization_entity_number_sequences: {
+        Row: {
+          next_value: number;
+          organization_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          next_value?: number;
+          organization_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          next_value?: number;
+          organization_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "organization_entity_number_sequences_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: true;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      organization_entity_numbers: {
+        Row: {
+          created_at: string;
+          entity_id: string;
+          entity_type: string;
+          id: string;
+          number: number;
+          organization_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          entity_id: string;
+          entity_type: string;
+          id?: string;
+          number: number;
+          organization_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          entity_id?: string;
+          entity_type?: string;
+          id?: string;
+          number?: number;
+          organization_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "organization_entity_numbers_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
             referencedColumns: ["id"];
           },
         ];
@@ -7832,6 +8404,93 @@ export type Database = {
         };
         Relationships: [];
       };
+      warehouse_item_suppliers: {
+        Row: {
+          created_at: string;
+          created_by: string;
+          currency_code: string | null;
+          deleted_at: string | null;
+          id: string;
+          is_primary: boolean;
+          item_id: string;
+          lead_time_days: number | null;
+          minimum_order_quantity: number | null;
+          organization_id: string;
+          party_id: string;
+          purchase_price: number | null;
+          supplier_sku: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          created_by: string;
+          currency_code?: string | null;
+          deleted_at?: string | null;
+          id?: string;
+          is_primary?: boolean;
+          item_id: string;
+          lead_time_days?: number | null;
+          minimum_order_quantity?: number | null;
+          organization_id: string;
+          party_id: string;
+          purchase_price?: number | null;
+          supplier_sku?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string;
+          currency_code?: string | null;
+          deleted_at?: string | null;
+          id?: string;
+          is_primary?: boolean;
+          item_id?: string;
+          lead_time_days?: number | null;
+          minimum_order_quantity?: number | null;
+          organization_id?: string;
+          party_id?: string;
+          purchase_price?: number | null;
+          supplier_sku?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "warehouse_item_suppliers_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "warehouse_item_suppliers_item_id_fkey";
+            columns: ["item_id"];
+            isOneToOne: false;
+            referencedRelation: "inventory_product_list_rows_v1";
+            referencedColumns: ["product_id"];
+          },
+          {
+            foreignKeyName: "warehouse_item_suppliers_item_id_fkey";
+            columns: ["item_id"];
+            isOneToOne: false;
+            referencedRelation: "inventory_products";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "warehouse_item_suppliers_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "warehouse_item_suppliers_party_id_fkey";
+            columns: ["party_id"];
+            isOneToOne: false;
+            referencedRelation: "crm_parties";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       warehouse_layout_shapes: {
         Row: {
           anchor_location_id: string | null;
@@ -9313,6 +9972,17 @@ export type Database = {
         };
         Returns: number;
       };
+      inventory_count_session_list: {
+        Args: {
+          p_branch_id: string;
+          p_organization_id: string;
+          p_page?: number;
+          p_page_size?: number;
+          p_search?: string;
+          p_status?: string;
+        };
+        Returns: Json;
+      };
       inventory_create_allocation: {
         Args: {
           p_actor_user_id?: string;
@@ -9608,12 +10278,20 @@ export type Database = {
       };
       is_org_member: { Args: { org_id: string }; Returns: boolean };
       is_org_owner: { Args: { p_org_id: string }; Returns: boolean };
+      next_crm_counterparty_number: {
+        Args: { org_id: string };
+        Returns: number;
+      };
       publish_warehouse_layout: {
         Args: { p_layout_id: string; p_user_id: string };
         Returns: undefined;
       };
       recompute_organization_entitlements: {
         Args: { p_org_id: string };
+        Returns: undefined;
+      };
+      release_organization_entity_number: {
+        Args: { entity_id: string; entity_type: string; org_id: string };
         Returns: undefined;
       };
       reorder_warehouse_location_groups: {
@@ -9628,6 +10306,10 @@ export type Database = {
           p_org_id: string;
         };
         Returns: undefined;
+      };
+      reserve_organization_entity_number: {
+        Args: { entity_id: string; entity_type: string; org_id: string };
+        Returns: number;
       };
       set_branch_public_warehouse_maps: {
         Args: { p_branch_id: string; p_enabled: boolean };

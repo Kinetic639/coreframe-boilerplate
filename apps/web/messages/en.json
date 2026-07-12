@@ -2809,6 +2809,7 @@
         "description": "Manage your organization branches",
         "createButton": "Create Branch",
         "columns": {
+          "number": "No.",
           "name": "Name",
           "slug": "Slug",
           "publicMaps": "Public Maps",
@@ -2820,6 +2821,7 @@
           "created": "Created"
         },
         "detail": {
+          "number": "No.",
           "slug": "Slug",
           "publicMaps": "Public Maps",
           "created": "Created",
@@ -3508,6 +3510,177 @@
         "loadPlanningRetry": "Failed to load Planning. Please try again.",
         "tryAgain": "Try again",
         "operationFailed": "Operation failed"
+      }
+    },
+    "crm": {
+      "title": "CRM / Counterparties",
+      "titleSidebar": "CRM",
+      "description": "Manage counterparties, suppliers, clients, contractors, and contacts",
+      "items": {
+        "overview": "Overview",
+        "parties": "Counterparties",
+        "contacts": "Contacts",
+        "settings": "Settings"
+      },
+      "pages": {
+        "overview": {
+          "title": "CRM / Counterparties",
+          "description": "Your source of truth for invoice-capable entities, people, and supplier relationships."
+        },
+        "parties": {
+          "title": "Counterparties"
+        },
+        "contacts": {
+          "title": "Contacts"
+        },
+        "settings": {
+          "title": "CRM settings",
+          "description": "Configure CRM defaults, numbering, visibility rules, and storage-backed assets."
+        }
+      },
+      "stats": {
+        "parties": "Counterparties",
+        "contacts": "Contacts"
+      },
+      "fields": {
+        "counterpartyNumber": "No.",
+        "role": "Role",
+        "roles": "Roles",
+        "status": "Status",
+        "partyKind": "Type",
+        "name": "Name",
+        "firstName": "First name",
+        "lastName": "Last name",
+        "legalName": "Legal name",
+        "taxId": "Tax ID",
+        "email": "Email",
+        "phone": "Phone",
+        "mobile": "Mobile",
+        "website": "Website",
+        "notes": "Notes",
+        "visibility": "Visibility",
+        "linkedUser": "Linked organization user",
+        "noLinkedUser": "No linked user",
+        "jobTitle": "Job title",
+        "primary": "Primary",
+        "addressType": "Address type",
+        "country": "Country",
+        "city": "City",
+        "postalCode": "Postal code",
+        "street": "Street",
+        "buildingNumber": "Building no.",
+        "unitNumber": "Unit no.",
+        "region": "Region",
+        "defaultAddress": "Default address"
+      },
+      "roles": {
+        "supplier": "Supplier",
+        "client": "Client",
+        "contractor": "Contractor",
+        "vendor": "Vendor",
+        "partner": "Partner",
+        "receiver": "Receiver",
+        "payer": "Payer",
+        "other": "Other"
+      },
+      "contractorLookup": {
+        "title": "Find counterparty",
+        "description": "Search CRM counterparties by number, name, tax ID, email, or phone, then pick the correct record.",
+        "query": "Search all fields",
+        "number": "No.",
+        "name": "Name or legal name",
+        "taxId": "Tax ID",
+        "taxIdShort": "Tax ID",
+        "email": "Email",
+        "phone": "Phone",
+        "loading": "Searching counterparties...",
+        "empty": "No matching counterparties found."
+      },
+      "status": {
+        "active": "Active",
+        "inactive": "Inactive",
+        "archived": "Archived"
+      },
+      "partyKinds": {
+        "organization": "Organization",
+        "individual": "Individual"
+      },
+      "sections": {
+        "partyDetails": "Counterparty details",
+        "contactDetails": "Contact details",
+        "contactPeople": "Contact people",
+        "addresses": "Addresses",
+        "linkedParties": "Linked counterparties"
+      },
+      "empty": {
+        "noContactPeople": "No contact people assigned.",
+        "noAddresses": "No addresses added.",
+        "noLinkedParties": "No linked counterparties."
+      },
+      "permissions": {
+        "canUpdate": "You can edit this record.",
+        "canDelete": "You can archive this record."
+      },
+      "actions": {
+        "newParty": "New counterparty",
+        "newContact": "New contact",
+        "saving": "Saving...",
+        "save": "Save",
+        "edit": "Edit",
+        "cancel": "Cancel",
+        "archive": "Archive",
+        "archiving": "Archiving...",
+        "search": "Search",
+        "searchContacts": "Search contacts by name, email, or phone",
+        "selectContact": "Select contact",
+        "linkContact": "Link contact",
+        "unlink": "Unlink",
+        "addAddress": "Add address",
+        "remove": "Remove",
+        "uploading": "Uploading...",
+        "uploadLogo": "Upload logo",
+        "uploadAvatar": "Upload avatar"
+      },
+      "messages": {
+        "partyCreated": "Counterparty created.",
+        "contactCreated": "Contact created.",
+        "partyUpdated": "Counterparty updated.",
+        "contactUpdated": "Contact updated.",
+        "partyArchived": "Counterparty archived.",
+        "contactArchived": "Contact archived.",
+        "contactLinked": "Contact linked.",
+        "contactUnlinked": "Contact unlinked.",
+        "addressAdded": "Address added.",
+        "addressDeleted": "Address removed.",
+        "logoUploaded": "Logo uploaded.",
+        "avatarUploaded": "Avatar uploaded.",
+        "notesLater": "Notes can be expanded after creation.",
+        "linkedOrgUser": "Linked organization user"
+      },
+      "addressTypes": {
+        "registered": "Registered",
+        "billing": "Billing",
+        "shipping": "Shipping",
+        "correspondence": "Correspondence",
+        "other": "Other"
+      },
+      "relationshipTypes": {
+        "primary": "Primary",
+        "billing": "Billing",
+        "sales": "Sales",
+        "technical": "Technical",
+        "owner": "Owner",
+        "representative": "Representative",
+        "other": "Other"
+      },
+      "visibility": {
+        "private": "Private",
+        "branch": "Branch",
+        "organization": "Organization"
+      },
+      "errors": {
+        "loadRetry": "Failed to load CRM data. Please try again.",
+        "tryAgain": "Try again"
       }
     },
     "analytics": {
@@ -5511,6 +5684,11 @@
       "newCounterpartyDetails": "New Counterparty Details",
       "manualEntry": "Manual entry",
       "companyName": "Company Name",
+      "counterpartyNumber": "Entity no.",
+      "counterpartyNumberPlaceholder": "e.g. 81",
+      "counterpartyNumberInvalid": "Enter a valid entity number.",
+      "counterpartyFilled": "Entity data filled.",
+      "fill": "Fill",
       "nip": "NIP",
       "phone": "Phone",
       "street": "Street",
@@ -5569,6 +5747,18 @@
       "searchSupplierPlaceholder": "Search by supplier name...",
       "searchSupplierEmpty": "No suppliers found.",
       "searchSupplierHint": "Start typing to search existing suppliers.",
+      "searchEntityBtn": "Search",
+      "searchEntityTitle": "Search Branches and Contractors",
+      "searchBranchesTitle": "Search Branches",
+      "searchContractorsTitle": "Search Contractors",
+      "searchEntityPlaceholder": "Search by number, name, tax ID, phone...",
+      "searchBranchesPlaceholder": "Search by branch number, name, slug...",
+      "searchContractorsPlaceholder": "Search by contractor number, name, tax ID...",
+      "searchEntityEmpty": "No matching records found.",
+      "searchEntityHint": "Search by number or identifying data.",
+      "entityBranch": "Branch",
+      "entityContractor": "Contractor",
+      "entityTypeNotAllowed": "This record type cannot be used here.",
       "selectAndFill": "Select",
       "counterpartyDetails": "Counterparty Details",
       "lockSupplier": "Lock",
@@ -5767,6 +5957,7 @@
       "unitConversionInvalid": "Unit conversions require different units and a positive factor.",
       "createFailed": "Unexpected product creation response",
       "imageSaveFailed": "Images could not be saved",
+      "crmSuppliersSaveFailed": "Product was created, but CRM suppliers could not be assigned.",
       "unitCreated": "Unit created",
       "brandCreated": "Brand created",
       "manufacturerCreated": "Manufacturer created",
@@ -5798,6 +5989,32 @@
       "purchaseAccountPlaceholder": "e.g. 330-1",
       "preferredVendor": "Preferred Vendor",
       "selectVendor": "Select vendor",
+      "crmSuppliers": {
+        "title": "Suppliers",
+        "description": "Search CRM kontrahenci, assign suppliers, and choose the main supplier for this item.",
+        "searchPlaceholder": "Search by name, tax ID, or counterparty number",
+        "search": "Search",
+        "selectSupplier": "Select supplier",
+        "supplierSku": "Supplier SKU",
+        "findSupplier": "Find supplier",
+        "selectedSupplier": "Selected supplier",
+        "clearSelection": "Clear",
+        "addSelectedSupplier": "Add supplier",
+        "leadTimeDays": "Lead time days",
+        "minimumOrderQuantity": "MOQ",
+        "purchasePrice": "Purchase price",
+        "currencyCode": "Currency",
+        "primary": "Primary",
+        "makePrimary": "Make primary",
+        "add": "Add",
+        "remove": "Remove",
+        "empty": "No CRM suppliers assigned.",
+        "noSku": "No supplier SKU",
+        "noContactData": "No contact data",
+        "leadTimeValue": "{count}d lead time",
+        "moqValue": "MOQ {value}",
+        "priceValue": "{value} {currency}"
+      },
       "dimensions": "Dimensions",
       "length": "Length",
       "width": "Width",
@@ -5830,6 +6047,7 @@
       "customFieldsHelp": "Optional fields for this specific product. Definitions are managed in inventory settings.",
       "manageFields": "Manage fields",
       "noCustomFieldsSelected": "No custom fields selected for this product.",
+      "itemStructure": "Item structure",
       "simpleItem": "Simple item",
       "itemWithVariants": "Item with variants",
       "attributeNamesUnique": "Attribute names must be unique: {names}",
@@ -6000,6 +6218,8 @@
       "removeVariantImage": "Remove variant image",
       "variantGalleryFallback": "Uses product gallery until variant images are added.",
       "variantsHelp": "Edit stock-bearing SKU rows, lifecycle status, prices, and reorder points.",
+      "simpleItemDetails": "Item SKU and stock details",
+      "simpleItemDetailsHelp": "This simple item uses one hidden stock row. Edit SKU, prices, barcode, and reorder settings here.",
       "attributesPlaceholder": "Color: Red | Size: L",
       "currency": "Currency",
       "reorder": "Reorder",

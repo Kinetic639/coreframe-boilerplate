@@ -31,6 +31,32 @@ async function getRequestContext(): Promise<{
   }
 }
 
+function shouldSuppressBestEffortEmitFailure(error: string): boolean {
+  if (process.env.NODE_ENV === "production") return false;
+
+  const normalized = error.toLowerCase();
+  return (
+    normalized.includes("fetch failed") ||
+    normalized.includes("failed to fetch") ||
+    normalized.includes("networkerror") ||
+    normalized.includes("connection refused") ||
+    normalized.includes("econnrefused") ||
+    normalized.includes("enotfound") ||
+    normalized.includes("etimedout")
+  );
+}
+
+function logBestEffortEmitFailure(
+  label: string,
+  details: Record<string, unknown> & { error: string }
+) {
+  if (shouldSuppressBestEffortEmitFailure(details.error)) {
+    return;
+  }
+
+  console.error(label, details);
+}
+
 export const signUpAction = async (formData: FormData) => {
   const email = formData.get("email")?.toString();
   const firstName = formData.get("firstName")?.toString();
@@ -149,7 +175,7 @@ export const signInAction = async (formData: FormData) => {
       userAgent,
     });
     if (!failedLoginResult.success) {
-      console.error("[signInAction] Failed to emit auth.login.failed:", {
+      logBestEffortEmitFailure("[signInAction] Failed to emit auth.login.failed:", {
         actionKey: "auth.login.failed",
         entityId: email,
         error: (failedLoginResult as { success: false; error: string }).error,
@@ -183,7 +209,7 @@ export const signInAction = async (formData: FormData) => {
       userAgent: loginUa,
     });
     if (!loginResult.success) {
-      console.error("[signInAction] Failed to emit auth.login:", {
+      logBestEffortEmitFailure("[signInAction] Failed to emit auth.login:", {
         actionKey: "auth.login",
         actorUserId: signInData.user.id,
         entityId: signInData.user.id,

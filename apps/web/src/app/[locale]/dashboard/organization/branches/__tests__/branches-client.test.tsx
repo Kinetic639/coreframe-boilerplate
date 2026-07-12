@@ -38,7 +38,7 @@ vi.mock("nuqs", () => ({
   ]),
   parseAsString: { withDefault: () => ({}) },
   parseAsInteger: { withDefault: () => ({}) },
-  parseAsJson: { withDefault: () => ({}) },
+  parseAsJson: () => ({ withDefault: () => ({}) }),
 }));
 
 // ─── Imports after mocks ──────────────────────────────────────────────────────
@@ -75,6 +75,7 @@ function setupPermissions(canCreate = true) {
 const sampleBranch: OrgBranch = {
   id: "b-1",
   organization_id: "org-1",
+  branch_number: 2,
   name: "Warsaw",
   slug: "warsaw",
   created_at: null,

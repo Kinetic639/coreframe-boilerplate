@@ -21,6 +21,12 @@ type Props = {
   movementTypes: InventoryMovementType[];
   allowsSender: boolean;
   allowsRecipient: boolean;
+  showSender: boolean;
+  showRecipient: boolean;
+  senderCanUnlock: boolean;
+  recipientCanUnlock: boolean;
+  senderEntityTypes: Array<"branch" | "crm_party">;
+  recipientEntityTypes: Array<"branch" | "crm_party">;
   senderName: string;
   recipientName: string;
   supplierFields: SupplierFields;
@@ -73,6 +79,12 @@ export const MovementDocumentDataTab = React.memo(function MovementDocumentDataT
   movementTypes,
   allowsSender,
   allowsRecipient,
+  showSender,
+  showRecipient,
+  senderCanUnlock,
+  recipientCanUnlock,
+  senderEntityTypes,
+  recipientEntityTypes,
   senderName,
   recipientName,
   supplierFields,
@@ -161,10 +173,12 @@ export const MovementDocumentDataTab = React.memo(function MovementDocumentDataT
       )}
 
       {/* Sender / recipient fields are controlled by movement field policy. */}
-      {selType && allowsSender && (
+      {selType && showSender && (
         <MovementSupplierSection
           fields={supplierFields}
           locked={supplierLocked}
+          canUnlock={senderCanUnlock}
+          allowedEntityTypes={senderEntityTypes}
           onFieldsChange={onSupplierFieldsChange}
           onLockedChange={onSupplierLockedChange}
           onSenderChange={onSenderChange}
@@ -172,12 +186,15 @@ export const MovementDocumentDataTab = React.memo(function MovementDocumentDataT
         />
       )}
 
-      {selType && allowsRecipient && (
+      {selType && showRecipient && (
         <MovementPartySection
           title={t("recipient")}
           detailsTitle={t("recipient")}
           fields={recipientFields}
           locked={recipientLocked}
+          canUnlock={recipientCanUnlock}
+          showEntitySearch={allowsRecipient}
+          allowedEntityTypes={recipientEntityTypes}
           lockedBadgeLabel={t("recipient")}
           onFieldsChange={onRecipientFieldsChange}
           onLockedChange={onRecipientLockedChange}

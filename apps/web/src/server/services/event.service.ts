@@ -37,6 +37,21 @@ export const eventService = {
   validateMetadata,
 };
 
+function shouldSuppressBestEffortEmitFailure(error: string): boolean {
+  if (process.env.NODE_ENV === "production") return false;
+
+  const normalized = error.toLowerCase();
+  return (
+    normalized.includes("fetch failed") ||
+    normalized.includes("failed to fetch") ||
+    normalized.includes("networkerror") ||
+    normalized.includes("connection refused") ||
+    normalized.includes("econnrefused") ||
+    normalized.includes("enotfound") ||
+    normalized.includes("etimedout")
+  );
+}
+
 // ---------------------------------------------------------------------------
 // emit() — Mode A
 // ---------------------------------------------------------------------------
@@ -120,15 +135,17 @@ async function emit(input: EmitEventInput): Promise<EventServiceResult<{ id: str
       .single();
 
     if (error) {
-      console.error("[event.emit.failure]", {
-        actionKey: input.actionKey,
-        organizationId: input.organizationId ?? null,
-        actorUserId,
-        entityType: input.entityType,
-        entityId: input.entityId,
-        requestId: input.requestId ?? null,
-        error: error.message,
-      });
+      if (!shouldSuppressBestEffortEmitFailure(error.message)) {
+        console.error("[event.emit.failure]", {
+          actionKey: input.actionKey,
+          organizationId: input.organizationId ?? null,
+          actorUserId,
+          entityType: input.entityType,
+          entityId: input.entityId,
+          requestId: input.requestId ?? null,
+          error: error.message,
+        });
+      }
       return {
         success: false,
         error: `Event insert failed: ${error.message}`,
@@ -138,15 +155,17 @@ async function emit(input: EmitEventInput): Promise<EventServiceResult<{ id: str
     return { success: true, data: { id: data.id as string } };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error("[event.emit.unexpected]", {
-      actionKey: input.actionKey,
-      organizationId: input.organizationId ?? null,
-      actorUserId,
-      entityType: input.entityType,
-      entityId: input.entityId,
-      requestId: input.requestId ?? null,
-      error: message,
-    });
+    if (!shouldSuppressBestEffortEmitFailure(message)) {
+      console.error("[event.emit.unexpected]", {
+        actionKey: input.actionKey,
+        organizationId: input.organizationId ?? null,
+        actorUserId,
+        entityType: input.entityType,
+        entityId: input.entityId,
+        requestId: input.requestId ?? null,
+        error: message,
+      });
+    }
     return { success: false, error: `Event emit error: ${message}` };
   }
 }

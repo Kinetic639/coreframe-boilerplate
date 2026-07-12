@@ -40,7 +40,6 @@ export default async function WarehouseEditItemPage({ params }: PageProps) {
   const [
     productResult,
     unitsResult,
-    suppliersResult,
     brandsResult,
     manufacturersResult,
     taxRatesResult,
@@ -53,7 +52,6 @@ export default async function WarehouseEditItemPage({ params }: PageProps) {
       context.app.activeBranchId
     ),
     InventoryProductsService.listUnits(supabase, context.app.activeOrgId),
-    InventoryProductsService.listSuppliers(supabase, context.app.activeOrgId),
     InventoryProductsService.listBrands(supabase, context.app.activeOrgId),
     InventoryProductsService.listManufacturers(supabase, context.app.activeOrgId),
     InventoryProductsService.listTaxRates(supabase, context.app.activeOrgId),
@@ -66,7 +64,6 @@ export default async function WarehouseEditItemPage({ params }: PageProps) {
     <InventoryProductEditClient
       product={productResult.data}
       units={unitsResult.success ? unitsResult.data : []}
-      suppliers={suppliersResult.success ? suppliersResult.data : []}
       brands={brandsResult.success ? brandsResult.data : []}
       manufacturers={manufacturersResult.success ? manufacturersResult.data : []}
       taxRates={taxRatesResult.success ? taxRatesResult.data : []}

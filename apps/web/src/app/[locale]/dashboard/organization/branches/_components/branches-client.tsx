@@ -142,6 +142,14 @@ export function BranchesClient({
 
   const columns: DataViewColumnDef<OrgBranch>[] = [
     {
+      key: "branch_number",
+      header: t("columns.number"),
+      accessor: (row) => <span className="font-mono text-sm">{row.branch_number}</span>,
+      sortable: true,
+      defaultVisible: true,
+      compactLabel: true,
+    },
+    {
       key: "name",
       header: t("columns.name"),
       accessor: (row) => (
@@ -233,11 +241,20 @@ export function BranchesClient({
         </div>
         <div className="min-w-0">
           <h2 className="text-lg font-semibold leading-tight">{branch.name}</h2>
-          {branch.slug && <p className="font-mono text-sm text-muted-foreground">{branch.slug}</p>}
+          <p className="font-mono text-sm text-muted-foreground">
+            {t("detail.number")} {branch.branch_number}
+            {branch.slug ? ` · ${branch.slug}` : ""}
+          </p>
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 text-sm">
+        <div>
+          <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            {t("detail.number")}
+          </p>
+          <span className="font-mono">{branch.branch_number}</span>
+        </div>
         <div>
           <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
             {t("detail.slug")}

@@ -23,7 +23,10 @@ export function filterSortBranches(
   if (params.search) {
     const q = params.search.toLowerCase();
     result = result.filter(
-      (b) => b.name.toLowerCase().includes(q) || (b.slug?.toLowerCase().includes(q) ?? false)
+      (b) =>
+        b.name.toLowerCase().includes(q) ||
+        (b.slug?.toLowerCase().includes(q) ?? false) ||
+        String(b.branch_number).includes(q)
     );
   }
 

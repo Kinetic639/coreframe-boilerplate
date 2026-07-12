@@ -325,6 +325,18 @@ export function InventoryMovementDetailPanel({
                 )}
                 {detail.sender_details && (
                   <div className="text-xs text-muted-foreground font-mono space-y-0.5 mt-2">
+                    {(detail.sender_details.entityNumber ||
+                      detail.sender_details.counterpartyNumber ||
+                      detail.sender_details.branchNumber) && (
+                      <p>
+                        {td("counterpartyNumber")}:{" "}
+                        <strong className="text-foreground">
+                          {detail.sender_details.entityNumber ??
+                            detail.sender_details.counterpartyNumber ??
+                            detail.sender_details.branchNumber}
+                        </strong>
+                      </p>
+                    )}
                     {detail.sender_details.nip && (
                       <p>
                         NIP:{" "}
@@ -352,6 +364,18 @@ export function InventoryMovementDetailPanel({
                     </h4>
                     {detail.recipient_details && (
                       <div className="text-xs text-muted-foreground font-mono space-y-0.5 mt-2">
+                        {(detail.recipient_details.entityNumber ||
+                          detail.recipient_details.counterpartyNumber ||
+                          detail.recipient_details.branchNumber) && (
+                          <p>
+                            {td("counterpartyNumber")}:{" "}
+                            <strong className="text-foreground">
+                              {detail.recipient_details.entityNumber ??
+                                detail.recipient_details.counterpartyNumber ??
+                                detail.recipient_details.branchNumber}
+                            </strong>
+                          </p>
+                        )}
                         {detail.recipient_details.nip && (
                           <p>
                             NIP:{" "}

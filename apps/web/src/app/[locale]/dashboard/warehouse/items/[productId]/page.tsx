@@ -6,6 +6,7 @@ import { redirect, Link } from "@/i18n/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import { checkPermission } from "@/lib/utils/permissions";
 import {
+  CRM_PARTIES_READ,
   WAREHOUSE_PRODUCTS_MANAGE,
   WAREHOUSE_PRODUCTS_READ,
   WAREHOUSE_READ,
@@ -22,6 +23,10 @@ import {
   type InventoryProductImageRow,
   type InventoryProductVariantListRow,
 } from "@/server/services/inventory-products.service";
+import {
+  WarehouseItemSuppliersService,
+  type WarehouseItemSupplierRow,
+} from "@/server/services/warehouse-item-suppliers.service";
 
 type PageProps = {
   params: Promise<{ productId: string }>;
@@ -32,6 +37,7 @@ export default async function WarehouseItemDetailPage({ params }: PageProps) {
   const tc = await getTranslations("warehouseInventory.common");
   const tList = await getTranslations("warehouseInventory.list");
   const tDetail = await getTranslations("warehouseInventory.detail");
+  const tCrmSuppliers = await getTranslations("warehouseInventory.create.crmSuppliers");
   const context = await loadDashboardContextV2();
   const { productId } = await params;
 
@@ -47,7 +53,8 @@ export default async function WarehouseItemDetailPage({ params }: PageProps) {
   }
 
   const supabase = await createClient();
-  const [productResult, customFieldsResult] = await Promise.all([
+  const canReadCrmParties = checkPermission(context.user.permissionSnapshot, CRM_PARTIES_READ);
+  const [productResult, customFieldsResult, crmSuppliersResult] = await Promise.all([
     InventoryProductsService.getProductDetail(
       supabase,
       context.app.activeOrgId,
@@ -55,10 +62,14 @@ export default async function WarehouseItemDetailPage({ params }: PageProps) {
       context.app.activeBranchId
     ),
     InventoryProductsService.listCustomFields(supabase, context.app.activeOrgId),
+    canReadCrmParties
+      ? WarehouseItemSuppliersService.listByItem(supabase, context.app.activeOrgId, productId)
+      : Promise.resolve({ success: true as const, data: [] }),
   ]);
   if (!productResult.success || !productResult.data) notFound();
   const product = productResult.data;
   const customFields = customFieldsResult.success ? customFieldsResult.data : [];
+  const crmSuppliers = crmSuppliersResult.success ? crmSuppliersResult.data : [];
   const productCustomFieldRows = customFields
     .filter((field) => field.entity_type === "product")
     .map((field) => ({ field, value: product.custom_field_values[field.id] }))
@@ -230,6 +241,19 @@ export default async function WarehouseItemDetailPage({ params }: PageProps) {
               emptyText={tc("notSet")}
             />
           </div>
+
+          {canReadCrmParties ? (
+            <CrmSuppliersDetailSection
+              suppliers={crmSuppliers}
+              title={tCrmSuppliers("title")}
+              empty={tCrmSuppliers("empty")}
+              primary={tCrmSuppliers("primary")}
+              noSku={tCrmSuppliers("noSku")}
+              leadTime={(count) => tCrmSuppliers("leadTimeValue", { count })}
+              moq={(value) => tCrmSuppliers("moqValue", { value })}
+              price={(value, currency) => tCrmSuppliers("priceValue", { value, currency })}
+            />
+          ) : null}
         </div>
       </section>
 
@@ -283,6 +307,61 @@ export default async function WarehouseItemDetailPage({ params }: PageProps) {
         )}
       </section>
     </div>
+  );
+}
+
+function CrmSuppliersDetailSection({
+  suppliers,
+  title,
+  empty,
+  primary,
+  noSku,
+  leadTime,
+  moq,
+  price,
+}: {
+  suppliers: WarehouseItemSupplierRow[];
+  title: string;
+  empty: string;
+  primary: string;
+  noSku: string;
+  leadTime: (count: number) => string;
+  moq: (value: number) => string;
+  price: (value: number, currency: string) => string;
+}) {
+  return (
+    <section className="rounded-md border p-4">
+      <h2 className="text-lg font-medium">{title}</h2>
+      <div className="mt-3 space-y-2">
+        {suppliers.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{empty}</p>
+        ) : (
+          suppliers.map((supplier) => (
+            <div key={supplier.id} className="rounded-md border p-3 text-sm">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-medium">
+                  {supplier.counterparty_number ? `${supplier.counterparty_number} - ` : ""}
+                  {supplier.supplier_name ?? supplier.party_id}
+                </span>
+                {supplier.is_primary ? <Badge>{primary}</Badge> : null}
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">{supplier.supplier_sku ?? noSku}</p>
+              <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                {supplier.lead_time_days !== null ? (
+                  <span>{leadTime(supplier.lead_time_days)}</span>
+                ) : null}
+                {supplier.minimum_order_quantity !== null ? (
+                  <span>{moq(supplier.minimum_order_quantity)}</span>
+                ) : null}
+                {supplier.purchase_price !== null ? (
+                  <span>{price(supplier.purchase_price, supplier.currency_code ?? "")}</span>
+                ) : null}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </section>
   );
 }
 
