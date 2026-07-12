@@ -20,6 +20,7 @@ import type {
 import {
   createCrmContactAction,
   deleteCrmContactAction,
+  getCrmContactAvatarSignedUrlAction,
   getCrmContactDetailAction,
   listCrmContactsForDataViewAction,
   updateCrmContactAction,
@@ -196,6 +197,7 @@ function CrmContactDetailPanel({
   const [saving, setSaving] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarLoading, setAvatarLoading] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [form, setForm] = useState({
     display_name: detail.display_name,
@@ -226,6 +228,27 @@ function CrmContactDetailPanel({
     });
     setAvatarUrl(null);
   }, [detail]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!current.avatar_storage_path) {
+      setAvatarUrl(null);
+      setAvatarLoading(false);
+      return;
+    }
+
+    setAvatarLoading(true);
+    void getCrmContactAvatarSignedUrlAction(current.id).then((result) => {
+      if (cancelled) return;
+      setAvatarUrl(result.success ? result.data.signedUrl : null);
+      setAvatarLoading(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [current.id, current.avatar_storage_path]);
 
   const updateForm = (key: keyof typeof form, value: string) => {
     setForm((currentForm) => ({ ...currentForm, [key]: value }));
@@ -269,7 +292,12 @@ function CrmContactDetailPanel({
       toast.error(result.error);
       return;
     }
+    setCurrent((value) => ({
+      ...value,
+      avatar_storage_path: result.data.avatarStoragePath,
+    }));
     setAvatarUrl(result.data.signedUrl);
+    setAvatarLoading(false);
     toast.success(t("messages.avatarUploaded"));
   };
 
@@ -293,14 +321,16 @@ function CrmContactDetailPanel({
     <div className="flex h-full flex-col gap-6 overflow-auto p-6">
       <div>
         <div className="mb-4 flex items-center gap-3">
-          {avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={avatarUrl}
-              alt=""
-              className="h-12 w-12 rounded-full border border-border object-cover"
-            />
-          ) : null}
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-border bg-muted">
+            {avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={avatarUrl} alt="" className="h-full w-full rounded-full object-cover" />
+            ) : avatarLoading || uploadingAvatar ? (
+              <div className="h-7 w-7 animate-pulse rounded-full bg-muted-foreground/20" />
+            ) : (
+              <Users className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
+            )}
+          </div>
           {canUpdate ? (
             <Label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2 text-sm">
               <Upload className="h-4 w-4" />

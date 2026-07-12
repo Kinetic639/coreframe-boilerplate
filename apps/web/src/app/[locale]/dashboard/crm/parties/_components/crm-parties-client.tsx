@@ -23,6 +23,7 @@ import {
   deleteCrmPartyAction,
   deleteCrmPartyAddressAction,
   getCrmPartyDetailAction,
+  getCrmPartyLogoSignedUrlAction,
   linkCrmPartyContactAction,
   listCrmPartiesForDataViewAction,
   listCrmContactsForDataViewAction,
@@ -218,6 +219,7 @@ function CrmPartyDetailPanel({
   const [saving, setSaving] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [logoLoading, setLogoLoading] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [form, setForm] = useState({
     display_name: detail.display_name,
@@ -262,6 +264,27 @@ function CrmPartyDetailPanel({
     setSelectedRoles(detail.roles);
     setLogoUrl(null);
   }, [detail]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!current.logo_storage_path) {
+      setLogoUrl(null);
+      setLogoLoading(false);
+      return;
+    }
+
+    setLogoLoading(true);
+    void getCrmPartyLogoSignedUrlAction(current.id).then((result) => {
+      if (cancelled) return;
+      setLogoUrl(result.success ? result.data.signedUrl : null);
+      setLogoLoading(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [current.id, current.logo_storage_path]);
 
   const updateForm = (key: keyof typeof form, value: string) => {
     setForm((currentForm) => ({ ...currentForm, [key]: value }));
@@ -318,7 +341,12 @@ function CrmPartyDetailPanel({
       toast.error(result.error);
       return;
     }
+    setCurrent((value) => ({
+      ...value,
+      logo_storage_path: result.data.logoStoragePath,
+    }));
     setLogoUrl(result.data.signedUrl);
+    setLogoLoading(false);
     toast.success(t("messages.logoUploaded"));
   };
 
@@ -444,14 +472,16 @@ function CrmPartyDetailPanel({
           ))}
         </div>
         <div className="mt-4 flex items-center gap-3">
-          {logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={logoUrl}
-              alt=""
-              className="h-12 w-12 rounded border border-border object-contain"
-            />
-          ) : null}
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded border border-border bg-muted">
+            {logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={logoUrl} alt="" className="h-full w-full rounded object-contain" />
+            ) : logoLoading || uploadingLogo ? (
+              <div className="h-7 w-7 animate-pulse rounded bg-muted-foreground/20" />
+            ) : (
+              <Building2 className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
+            )}
+          </div>
           {canUpdate ? (
             <Label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2 text-sm">
               <Upload className="h-4 w-4" />
