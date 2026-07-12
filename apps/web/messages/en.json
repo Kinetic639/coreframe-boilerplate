@@ -6682,7 +6682,8 @@
       "warningTitle": "{count} active warnings",
       "noLocations": "No locations",
       "locked": "Locked",
-      "editMode": "Edit mode"
+      "editMode": "Edit mode",
+      "backToList": "Back to list"
     },
     "tabs": {
       "information": "Information",

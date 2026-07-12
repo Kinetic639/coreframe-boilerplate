@@ -969,7 +969,7 @@ export const SchedulerMonthView: React.FC<SchedulerMonthViewProps> = ({
 
             return (
               <div
-                className={`pointer-events-none fixed left-0 top-0 z-[1000] h-5 rounded-md border px-2 py-0.5 text-[10px] font-semibold leading-4 truncate shadow-xl ring-2 ring-foreground/20 will-change-transform ${style.bg} ${style.text}`}
+                className={`pointer-events-none fixed left-0 top-0 z-[var(--z-drag-preview)] h-5 rounded-md border px-2 py-0.5 text-[10px] font-semibold leading-4 truncate shadow-xl ring-2 ring-foreground/20 will-change-transform ${style.bg} ${style.text}`}
                 style={{
                   width: `${drag?.dragWidth ?? 220}px`,
                   transform: `translate3d(${left}px, ${top}px, 0)`,

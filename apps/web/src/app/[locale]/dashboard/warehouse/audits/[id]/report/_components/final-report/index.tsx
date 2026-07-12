@@ -93,7 +93,7 @@ export function FinalReportScreen({
         <div className="w-16" />
       </div>
 
-      <div className="relative z-10 mx-auto max-w-md space-y-5 px-4 py-4">
+      <div className="mx-auto max-w-md space-y-5 px-4 py-4">
         <div className="relative space-y-3.5 overflow-hidden rounded-2xl border border-border bg-card p-5 text-center shadow-lg">
           <div className="pointer-events-none absolute bottom-[-20px] right-[-20px] select-none text-primary/10">
             <FileText size={120} />

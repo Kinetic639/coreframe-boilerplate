@@ -280,7 +280,7 @@ export default function LocationModal({
     t(`operationProfiles.${profile}`, { fallback: profile });
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-background/80 backdrop-blur-md">
+    <div className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-4 bg-background/80 backdrop-blur-md">
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}

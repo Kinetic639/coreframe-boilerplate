@@ -31,7 +31,7 @@ export function LoadingOverlay({ visible, label }: LoadingOverlayProps) {
     <div
       role="status"
       aria-live="polite"
-      className="fixed inset-0 z-[9990] flex items-center justify-center bg-background/70 backdrop-blur-md"
+      className="fixed inset-0 z-[var(--z-loading-overlay)] flex items-center justify-center bg-background/70 backdrop-blur-md"
     >
       <BrandLoader
         variant="beacon_swap"
