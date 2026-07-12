@@ -1,6 +1,9 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { CreateWarehouseItemSupplierInput } from "@/lib/validations/crm";
+import type {
+  CreateWarehouseItemSupplierInput,
+  UpdateWarehouseItemSupplierInput,
+} from "@/lib/validations/crm";
 import type { ServiceResult } from "./crm-parties.service";
 
 export interface WarehouseItemSupplierRow {
@@ -104,6 +107,46 @@ export const WarehouseItemSuppliersService = {
       currency_code: input.currency_code ?? null,
       created_by: userId,
     });
+
+    if (error) return { success: false, error: error.message };
+    return WarehouseItemSuppliersService.listByItem(supabase, orgId, input.item_id);
+  },
+
+  async update(
+    supabase: SupabaseClient,
+    orgId: string,
+    input: UpdateWarehouseItemSupplierInput
+  ): Promise<ServiceResult<WarehouseItemSupplierRow[]>> {
+    if (input.is_primary) {
+      const clearPrimary = await supabase
+        .from("warehouse_item_suppliers")
+        .update({ is_primary: false })
+        .eq("organization_id", orgId)
+        .eq("item_id", input.item_id)
+        .is("deleted_at", null);
+      if (clearPrimary.error) return { success: false, error: clearPrimary.error.message };
+    }
+
+    const patch: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (input.is_primary !== undefined) patch.is_primary = input.is_primary;
+    if (input.supplier_sku !== undefined) patch.supplier_sku = input.supplier_sku ?? null;
+    if (input.lead_time_days !== undefined) patch.lead_time_days = input.lead_time_days ?? null;
+    if (input.minimum_order_quantity !== undefined) {
+      patch.minimum_order_quantity = input.minimum_order_quantity ?? null;
+    }
+    if (input.purchase_price !== undefined) patch.purchase_price = input.purchase_price ?? null;
+    if (input.currency_code !== undefined) patch.currency_code = input.currency_code ?? null;
+
+    const { error } = await supabase
+      .from("warehouse_item_suppliers")
+      .update(patch)
+      .eq("organization_id", orgId)
+      .eq("item_id", input.item_id)
+      .eq("id", input.id)
+      .is("deleted_at", null);
 
     if (error) return { success: false, error: error.message };
     return WarehouseItemSuppliersService.listByItem(supabase, orgId, input.item_id);

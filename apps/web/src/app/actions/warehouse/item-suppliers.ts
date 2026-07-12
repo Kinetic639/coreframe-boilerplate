@@ -11,6 +11,8 @@ import {
 import {
   createWarehouseItemSupplierSchema,
   type CreateWarehouseItemSupplierInput,
+  updateWarehouseItemSupplierSchema,
+  type UpdateWarehouseItemSupplierInput,
 } from "@/lib/validations/crm";
 import {
   WarehouseItemSuppliersService,
@@ -93,6 +95,34 @@ export async function createWarehouseItemSupplierAction(
     }
 
     return WarehouseItemSuppliersService.create(ctx.supabase, ctx.orgId, ctx.userId, parsed.data);
+  } catch {
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
+export async function updateWarehouseItemSupplierAction(
+  input: UpdateWarehouseItemSupplierInput
+): Promise<ActionResult<WarehouseItemSupplierRow[]>> {
+  try {
+    const ctx = await getAuthedContext();
+    if (!ctx) return { success: false, error: "Unauthorized" };
+    const snapshot = ctx.context.user.permissionSnapshot;
+    if (
+      !checkPermission(snapshot, WAREHOUSE_PRODUCTS_MANAGE) ||
+      !checkPermission(snapshot, CRM_PARTIES_READ)
+    ) {
+      return { success: false, error: "Insufficient permissions" };
+    }
+
+    const parsed = updateWarehouseItemSupplierSchema.safeParse(input);
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: parsed.error.issues[0]?.message ?? parsed.error.message,
+      };
+    }
+
+    return WarehouseItemSuppliersService.update(ctx.supabase, ctx.orgId, parsed.data);
   } catch {
     return { success: false, error: "Unexpected error" };
   }

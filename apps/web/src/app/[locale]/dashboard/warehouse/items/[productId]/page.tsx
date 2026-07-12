@@ -37,7 +37,7 @@ export default async function WarehouseItemDetailPage({ params }: PageProps) {
   const tc = await getTranslations("warehouseInventory.common");
   const tList = await getTranslations("warehouseInventory.list");
   const tDetail = await getTranslations("warehouseInventory.detail");
-  const tCrmSuppliers = await getTranslations("warehouseInventory.edit.crmSuppliers");
+  const tCrmSuppliers = await getTranslations("warehouseInventory.create.crmSuppliers");
   const context = await loadDashboardContextV2();
   const { productId } = await params;
 

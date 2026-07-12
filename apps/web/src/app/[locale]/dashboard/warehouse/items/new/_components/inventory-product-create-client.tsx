@@ -9,7 +9,6 @@ import {
   ImageIcon,
   PackagePlus,
   Plus,
-  Search,
   Star,
   Trash2,
   Wand2,
@@ -28,10 +27,11 @@ import {
   updateInventorySkuTemplateAction,
   uploadInventoryItemImageAction,
 } from "@/app/actions/warehouse/inventory";
+import { createWarehouseItemSupplierAction } from "@/app/actions/warehouse/item-suppliers";
 import {
-  createWarehouseItemSupplierAction,
-  searchCrmWarehouseSupplierPartiesAction,
-} from "@/app/actions/warehouse/item-suppliers";
+  ContractorLookupDialog,
+  type ContractorLookupSelection,
+} from "@/components/crm/contractor-lookup-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -75,16 +75,10 @@ import {
   type UploadedImageRecord,
   type VariantDraftRow,
 } from "./product-create-utils";
-import type { CrmSupplierOption } from "@/server/services/crm-parties.service";
 
 type UnitOption = {
   id: string;
   code: string;
-  name: string;
-};
-
-type SupplierOption = {
-  id: string;
   name: string;
 };
 
@@ -142,7 +136,6 @@ type InitialCrmSupplierDraft = {
 
 type InventoryProductCreateClientProps = {
   units: UnitOption[];
-  suppliers: SupplierOption[];
   optionGroups: OptionGroupOption[];
   locations: LocationOption[];
   tags: TagOption[];
@@ -155,7 +148,6 @@ type InventoryProductCreateClientProps = {
 
 export function InventoryProductCreateClient({
   units,
-  suppliers,
   optionGroups,
   locations,
   tags,
@@ -167,7 +159,7 @@ export function InventoryProductCreateClient({
 }: InventoryProductCreateClientProps) {
   const t = useTranslations("warehouseInventory.create");
   const tc = useTranslations("warehouseInventory.common");
-  const tCrmSuppliers = useTranslations("warehouseInventory.edit.crmSuppliers");
+  const tCrmSuppliers = useTranslations("warehouseInventory.create.crmSuppliers");
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
   const [validationIssues, setValidationIssues] = useState<string[]>([]);
@@ -217,15 +209,15 @@ export function InventoryProductCreateClient({
   const [productCustomTokens, setProductCustomTokens] = useState<Record<string, string[]>>({});
   const [selectedProductCustomFieldIds, setSelectedProductCustomFieldIds] = useState<string[]>([]);
   const [selectedVariantCustomFieldIds, setSelectedVariantCustomFieldIds] = useState<string[]>([]);
-  const [crmSupplierQuery, setCrmSupplierQuery] = useState("");
-  const [crmSupplierResults, setCrmSupplierResults] = useState<CrmSupplierOption[]>([]);
-  const [selectedCrmSupplierId, setSelectedCrmSupplierId] = useState("");
   const [crmSupplierSku, setCrmSupplierSku] = useState("");
   const [crmLeadTimeDays, setCrmLeadTimeDays] = useState("");
   const [crmMinimumOrderQuantity, setCrmMinimumOrderQuantity] = useState("");
   const [crmPurchasePrice, setCrmPurchasePrice] = useState("");
   const [crmCurrencyCode, setCrmCurrencyCode] = useState("");
   const [crmIsPrimary, setCrmIsPrimary] = useState(false);
+  const [selectedCrmSupplier, setSelectedCrmSupplier] = useState<ContractorLookupSelection | null>(
+    null
+  );
   const [initialCrmSuppliers, setInitialCrmSuppliers] = useState<InitialCrmSupplierDraft[]>([]);
   const allProductCustomFields = useMemo(
     () => customFieldOptions.filter((field) => field.entity_type === "product"),
@@ -677,31 +669,16 @@ export function InventoryProductCreateClient({
     return Number.isFinite(parsed) ? parsed : undefined;
   };
 
-  const searchCrmSuppliers = async () => {
-    const result = await searchCrmWarehouseSupplierPartiesAction({
-      query: crmSupplierQuery,
-      limit: 12,
-    });
-    if ("error" in result) {
-      setMessage(result.error);
-      return;
-    }
-    setCrmSupplierResults(result.data);
-    setSelectedCrmSupplierId(result.data[0]?.id ?? "");
-    setMessage(null);
-  };
-
   const addInitialCrmSupplier = () => {
-    const supplier = crmSupplierResults.find((item) => item.id === selectedCrmSupplierId);
-    if (!supplier) return;
+    if (!selectedCrmSupplier) return;
     setInitialCrmSuppliers((current) => {
-      const withoutDuplicate = current.filter((item) => item.partyId !== supplier.id);
+      const withoutDuplicate = current.filter((item) => item.partyId !== selectedCrmSupplier.id);
       const nextIsPrimary = crmIsPrimary || withoutDuplicate.length === 0;
       const next = {
         draftId: crypto.randomUUID(),
-        partyId: supplier.id,
-        counterpartyNumber: supplier.counterparty_number,
-        displayName: supplier.display_name,
+        partyId: selectedCrmSupplier.id,
+        counterpartyNumber: selectedCrmSupplier.counterparty_number,
+        displayName: selectedCrmSupplier.display_name,
         supplierSku: crmSupplierSku,
         leadTimeDays: crmLeadTimeDays,
         minimumOrderQuantity: crmMinimumOrderQuantity,
@@ -720,6 +697,7 @@ export function InventoryProductCreateClient({
     setCrmPurchasePrice("");
     setCrmCurrencyCode("");
     setCrmIsPrimary(false);
+    setSelectedCrmSupplier(null);
   };
 
   const attachInitialCrmSuppliers = async (productId: string) => {
@@ -738,6 +716,15 @@ export function InventoryProductCreateClient({
         throw new Error(result.error);
       }
     }
+  };
+
+  const setInitialCrmSupplierPrimary = (draftId: string) => {
+    setInitialCrmSuppliers((current) =>
+      current.map((supplier) => ({
+        ...supplier,
+        isPrimary: supplier.draftId === draftId,
+      }))
+    );
   };
 
   const createProduct = (formData: FormData) => {
@@ -1403,60 +1390,56 @@ export function InventoryProductCreateClient({
                 name="purchase_account_code"
                 placeholder={t("purchaseAccountPlaceholder")}
               />
-              <div className="grid items-center gap-3 md:grid-cols-[170px_1fr]">
-                <label className="text-sm">{t("preferredVendor")}</label>
-                <select name="preferred_supplier_id" className={selectClass}>
-                  <option value="">{t("selectVendor")}</option>
-                  {suppliers.map((supplier) => (
-                    <option key={supplier.id} value={supplier.id}>
-                      {supplier.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
               <InventoryRichTextFormField name="purchase_description" label={tc("description")} />
               <section className="rounded-lg border border-border/70 p-4">
-                <div>
-                  <h3 className="text-sm font-semibold text-foreground">
-                    {tCrmSuppliers("title")}
-                  </h3>
-                  <p className="text-xs text-muted-foreground">{tCrmSuppliers("description")}</p>
-                </div>
-                <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
-                  <Input
-                    value={crmSupplierQuery}
-                    onChange={(event) => setCrmSupplierQuery(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.preventDefault();
-                        void searchCrmSuppliers();
-                      }
-                    }}
-                    placeholder={tCrmSuppliers("searchPlaceholder")}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => void searchCrmSuppliers()}
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground">
+                      {tCrmSuppliers("title")}
+                    </h3>
+                    <p className="text-xs text-muted-foreground">{tCrmSuppliers("description")}</p>
+                  </div>
+                  <ContractorLookupDialog
+                    role="supplier"
+                    triggerLabel={tCrmSuppliers("findSupplier")}
+                    selected={selectedCrmSupplier}
+                    excludeIds={initialCrmSuppliers.map((supplier) => supplier.partyId)}
+                    onSelect={setSelectedCrmSupplier}
                     disabled={isPending}
-                  >
-                    <Search className="mr-2 h-4 w-4" />
-                    {tCrmSuppliers("search")}
-                  </Button>
+                    className="w-full sm:w-auto"
+                  />
                 </div>
-                <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_160px_120px_auto]">
-                  <select
-                    className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                    value={selectedCrmSupplierId}
-                    onChange={(event) => setSelectedCrmSupplierId(event.target.value)}
-                  >
-                    <option value="">{tCrmSuppliers("selectSupplier")}</option>
-                    {crmSupplierResults.map((supplier) => (
-                      <option key={supplier.id} value={supplier.id}>
-                        {supplier.counterparty_number} - {supplier.display_name}
-                      </option>
-                    ))}
-                  </select>
+                {selectedCrmSupplier ? (
+                  <div className="mt-3 rounded-md border border-border bg-muted/30 p-3 text-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-xs text-muted-foreground">
+                          {tCrmSuppliers("selectedSupplier")}
+                        </div>
+                        <div className="mt-1 truncate font-medium">
+                          {selectedCrmSupplier.counterparty_number} -{" "}
+                          {selectedCrmSupplier.display_name}
+                        </div>
+                        <div className="mt-1 truncate text-xs text-muted-foreground">
+                          {selectedCrmSupplier.tax_id ||
+                            selectedCrmSupplier.email ||
+                            selectedCrmSupplier.phone ||
+                            tCrmSuppliers("noContactData")}
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setSelectedCrmSupplier(null)}
+                        aria-label={tCrmSuppliers("clearSelection")}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
+                <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_120px_auto]">
                   <Input
                     value={crmSupplierSku}
                     onChange={(event) => setCrmSupplierSku(event.target.value)}
@@ -1473,10 +1456,10 @@ export function InventoryProductCreateClient({
                   <Button
                     type="button"
                     onClick={addInitialCrmSupplier}
-                    disabled={isPending || !selectedCrmSupplierId}
+                    disabled={isPending || !selectedCrmSupplier}
                   >
                     <Plus className="mr-2 h-4 w-4" />
-                    {tCrmSuppliers("add")}
+                    {tCrmSuppliers("addSelectedSupplier")}
                   </Button>
                 </div>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -1533,19 +1516,32 @@ export function InventoryProductCreateClient({
                             {supplier.supplierSku || tCrmSuppliers("noSku")}
                           </p>
                         </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() =>
-                            setInitialCrmSuppliers((current) =>
-                              current.filter((item) => item.draftId !== supplier.draftId)
-                            )
-                          }
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          {tCrmSuppliers("remove")}
-                        </Button>
+                        <div className="flex flex-wrap justify-end gap-2">
+                          {!supplier.isPrimary ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setInitialCrmSupplierPrimary(supplier.draftId)}
+                            >
+                              <Star className="mr-2 h-4 w-4" />
+                              {tCrmSuppliers("makePrimary")}
+                            </Button>
+                          ) : null}
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              setInitialCrmSuppliers((current) =>
+                                current.filter((item) => item.draftId !== supplier.draftId)
+                              )
+                            }
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            {tCrmSuppliers("remove")}
+                          </Button>
+                        </div>
                       </div>
                     ))
                   )}
@@ -1610,19 +1606,6 @@ export function InventoryProductCreateClient({
             </label>
             <div className="grid gap-4 lg:grid-cols-2">
               <Field label={t("reorderPoint")} name="reorder_point" type="number" />
-              {mode !== "variants" && (
-                <div className="grid items-center gap-3 md:grid-cols-[170px_1fr]">
-                  <label className="text-sm">{t("defaultSupplier")}</label>
-                  <select name="default_supplier_id" className={selectClass}>
-                    <option value="">{t("selectVendor")}</option>
-                    {suppliers.map((supplier) => (
-                      <option key={supplier.id} value={supplier.id}>
-                        {supplier.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
               <div className="grid items-center gap-3 md:grid-cols-[170px_1fr]">
                 <label className="text-sm">{t("openingStock")}</label>
                 <label className="flex items-center gap-2 text-sm">
@@ -1884,7 +1867,7 @@ export function InventoryProductCreateClient({
           <section className="grid gap-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-6">
-                <h2 className="text-lg font-medium">{tc("variants")}</h2>
+                <h2 className="text-lg font-medium">{t("itemStructure")}</h2>
                 <label className="flex items-center gap-2 text-sm">
                   <input
                     type="radio"
@@ -2043,7 +2026,6 @@ export function InventoryProductCreateClient({
                             onCopy={() => fillDown("reorder_point")}
                           />
                         </th>
-                        <th className="px-2 py-2 text-left">{t("defaultSupplier")}</th>
                         {includeOpeningStock ? (
                           <th className="px-2 py-2 text-left">{t("openingStock")}</th>
                         ) : null}
@@ -2136,22 +2118,6 @@ export function InventoryProductCreateClient({
                             type="number"
                             onChange={(value) => updateVariant(row.id, { reorder_point: value })}
                           />
-                          <td className="px-2 py-2">
-                            <select
-                              value={row.default_supplier_id}
-                              className={cn(selectClass, "h-9 min-w-40 pr-9")}
-                              onChange={(event) =>
-                                updateVariant(row.id, { default_supplier_id: event.target.value })
-                              }
-                            >
-                              <option value="">{t("selectVendor")}</option>
-                              {suppliers.map((supplier) => (
-                                <option key={supplier.id} value={supplier.id}>
-                                  {supplier.name}
-                                </option>
-                              ))}
-                            </select>
-                          </td>
                           {includeOpeningStock ? (
                             <Cell
                               value={row.opening_quantity}

@@ -16,6 +16,7 @@ vi.mock("@/server/services/warehouse-item-suppliers.service", () => ({
   WarehouseItemSuppliersService: {
     listByItem: vi.fn(),
     create: vi.fn(),
+    update: vi.fn(),
     softDelete: vi.fn(),
   },
 }));
@@ -34,6 +35,7 @@ import {
   createWarehouseItemSupplierAction,
   listWarehouseItemSuppliersAction,
   searchCrmWarehouseSupplierPartiesAction,
+  updateWarehouseItemSupplierAction,
 } from "../item-suppliers";
 
 const ORG_ID = "11111111-1111-4111-8111-111111111111";
@@ -126,6 +128,32 @@ describe("warehouse CRM item supplier actions", () => {
       expect.objectContaining({
         item_id: ITEM_ID,
         party_id: PARTY_ID,
+        is_primary: true,
+      })
+    );
+  });
+
+  it("updates an existing item supplier link to become primary", async () => {
+    vi.mocked(loadDashboardContextV2).mockResolvedValue(
+      makeContext(["warehouse.products.manage", "crm.parties.read"]) as never
+    );
+    vi.mocked(WarehouseItemSuppliersService.update).mockResolvedValue({
+      success: true,
+      data: [],
+    });
+
+    const result = await updateWarehouseItemSupplierAction({
+      id: "55555555-5555-4555-8555-555555555555",
+      item_id: ITEM_ID,
+      is_primary: true,
+    });
+
+    expect(result.success).toBe(true);
+    expect(WarehouseItemSuppliersService.update).toHaveBeenCalledWith(
+      expect.anything(),
+      ORG_ID,
+      expect.objectContaining({
+        item_id: ITEM_ID,
         is_primary: true,
       })
     );

@@ -124,6 +124,14 @@ export const createWarehouseItemSupplierSchema = z.object({
   currency_code: optionalTrimmed,
 });
 
+export const updateWarehouseItemSupplierSchema = createWarehouseItemSupplierSchema
+  .omit({ party_id: true })
+  .partial()
+  .extend({
+    id: z.string().uuid(),
+    item_id: z.string().uuid(),
+  });
+
 export type CreateCrmPartyInput = z.infer<typeof createCrmPartySchema>;
 export type UpdateCrmPartyInput = z.infer<typeof updateCrmPartySchema>;
 export type CreateCrmContactInput = z.infer<typeof createCrmContactSchema>;
@@ -133,5 +141,6 @@ export type UnlinkCrmPartyContactInput = z.infer<typeof unlinkCrmPartyContactSch
 export type CreateCrmPartyAddressInput = z.infer<typeof createCrmPartyAddressSchema>;
 export type DeleteCrmPartyAddressInput = z.infer<typeof deleteCrmPartyAddressSchema>;
 export type CreateWarehouseItemSupplierInput = z.infer<typeof createWarehouseItemSupplierSchema>;
+export type UpdateWarehouseItemSupplierInput = z.infer<typeof updateWarehouseItemSupplierSchema>;
 export type CrmPartyRole = z.infer<typeof crmPartyRoleSchema>;
 export type CrmContactVisibility = z.infer<typeof crmContactVisibilitySchema>;

@@ -1,19 +1,22 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
-import { Plus, Search, Star, Trash2 } from "lucide-react";
+import { Star, Trash2 } from "lucide-react";
 
 import {
   createWarehouseItemSupplierAction,
   deleteWarehouseItemSupplierAction,
   listWarehouseItemSuppliersAction,
-  searchCrmWarehouseSupplierPartiesAction,
+  updateWarehouseItemSupplierAction,
 } from "@/app/actions/warehouse/item-suppliers";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  ContractorLookupDialog,
+  type ContractorLookupSelection,
+} from "@/components/crm/contractor-lookup-dialog";
 import { Input } from "@/components/ui/input";
-import type { CrmSupplierOption } from "@/server/services/crm-parties.service";
 import type { WarehouseItemSupplierRow } from "@/server/services/warehouse-item-suppliers.service";
 
 type CrmItemSuppliersPanelProps = {
@@ -21,24 +24,17 @@ type CrmItemSuppliersPanelProps = {
 };
 
 export function CrmItemSuppliersPanel({ itemId }: CrmItemSuppliersPanelProps) {
-  const t = useTranslations("warehouseInventory.edit.crmSuppliers");
+  const t = useTranslations("warehouseInventory.create.crmSuppliers");
   const [rows, setRows] = useState<WarehouseItemSupplierRow[]>([]);
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<CrmSupplierOption[]>([]);
-  const [selectedPartyId, setSelectedPartyId] = useState("");
   const [supplierSku, setSupplierSku] = useState("");
   const [leadTimeDays, setLeadTimeDays] = useState("");
   const [minimumOrderQuantity, setMinimumOrderQuantity] = useState("");
   const [purchasePrice, setPurchasePrice] = useState("");
   const [currencyCode, setCurrencyCode] = useState("");
   const [isPrimary, setIsPrimary] = useState(false);
+  const [selectedSupplier, setSelectedSupplier] = useState<ContractorLookupSelection | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-
-  const selectedSupplier = useMemo(
-    () => results.find((supplier) => supplier.id === selectedPartyId),
-    [results, selectedPartyId]
-  );
 
   const loadRows = () => {
     startTransition(async () => {
@@ -57,28 +53,8 @@ export function CrmItemSuppliersPanel({ itemId }: CrmItemSuppliersPanelProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [itemId]);
 
-  const search = () => {
-    startTransition(async () => {
-      const result = await searchCrmWarehouseSupplierPartiesAction({
-        query,
-        limit: 12,
-      });
-
-      if ("error" in result) {
-        setMessage(result.error);
-        return;
-      }
-
-      setResults(result.data);
-      setSelectedPartyId(result.data[0]?.id ?? "");
-      setMessage(null);
-    });
-  };
-
   const addSupplier = () => {
-    if (!selectedPartyId) {
-      return;
-    }
+    if (!selectedSupplier) return;
 
     const numericValue = (value: string) => {
       const trimmed = value.trim();
@@ -90,8 +66,8 @@ export function CrmItemSuppliersPanel({ itemId }: CrmItemSuppliersPanelProps) {
     startTransition(async () => {
       const result = await createWarehouseItemSupplierAction({
         item_id: itemId,
-        party_id: selectedPartyId,
-        is_primary: isPrimary,
+        party_id: selectedSupplier.id,
+        is_primary: isPrimary || rows.length === 0,
         supplier_sku: supplierSku || undefined,
         lead_time_days: numericValue(leadTimeDays),
         minimum_order_quantity: numericValue(minimumOrderQuantity),
@@ -111,6 +87,7 @@ export function CrmItemSuppliersPanel({ itemId }: CrmItemSuppliersPanelProps) {
       setPurchasePrice("");
       setCurrencyCode("");
       setIsPrimary(false);
+      setSelectedSupplier(null);
       setMessage(null);
     });
   };
@@ -124,6 +101,23 @@ export function CrmItemSuppliersPanel({ itemId }: CrmItemSuppliersPanelProps) {
       }
 
       setRows((current) => current.filter((row) => row.id !== supplierRowId));
+      setMessage(null);
+    });
+  };
+
+  const makePrimary = (row: WarehouseItemSupplierRow) => {
+    startTransition(async () => {
+      const result = await updateWarehouseItemSupplierAction({
+        id: row.id,
+        item_id: row.item_id,
+        is_primary: true,
+      });
+      if ("error" in result) {
+        setMessage(result.error);
+        return;
+      }
+
+      setRows(result.data);
       setMessage(null);
     });
   };
@@ -155,37 +149,7 @@ export function CrmItemSuppliersPanel({ itemId }: CrmItemSuppliersPanelProps) {
         ) : null}
       </div>
 
-      <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
-        <Input
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.preventDefault();
-              search();
-            }
-          }}
-          placeholder={t("searchPlaceholder")}
-        />
-        <Button type="button" variant="outline" onClick={search} disabled={isPending}>
-          <Search className="mr-2 h-4 w-4" />
-          {t("search")}
-        </Button>
-      </div>
-
-      <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px_120px_auto]">
-        <select
-          className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground"
-          value={selectedPartyId}
-          onChange={(event) => setSelectedPartyId(event.target.value)}
-        >
-          <option value="">{t("selectSupplier")}</option>
-          {results.map((supplier) => (
-            <option key={supplier.id} value={supplier.id}>
-              {supplier.counterparty_number} - {supplier.display_name}
-            </option>
-          ))}
-        </select>
+      <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_120px_auto]">
         <Input
           value={supplierSku}
           onChange={(event) => setSupplierSku(event.target.value)}
@@ -199,11 +163,43 @@ export function CrmItemSuppliersPanel({ itemId }: CrmItemSuppliersPanelProps) {
           />
           {t("primary")}
         </label>
-        <Button type="button" onClick={addSupplier} disabled={isPending || !selectedPartyId}>
-          <Plus className="mr-2 h-4 w-4" />
-          {t("add")}
-        </Button>
+        <ContractorLookupDialog
+          role="supplier"
+          triggerLabel={t("findSupplier")}
+          selected={selectedSupplier}
+          excludeIds={rows.map((row) => row.party_id)}
+          onSelect={setSelectedSupplier}
+          disabled={isPending}
+        />
       </div>
+
+      {selectedSupplier ? (
+        <div className="mt-3 rounded-md border border-border bg-muted/30 p-3 text-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-xs text-muted-foreground">{t("selectedSupplier")}</div>
+              <div className="mt-1 truncate font-medium">
+                {selectedSupplier.counterparty_number} - {selectedSupplier.display_name}
+              </div>
+              <div className="mt-1 truncate text-xs text-muted-foreground">
+                {selectedSupplier.tax_id ||
+                  selectedSupplier.email ||
+                  selectedSupplier.phone ||
+                  t("noContactData")}
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => setSelectedSupplier(null)}
+              aria-label={t("clearSelection")}
+            >
+              <Trash2 className="h-4 w-4 text-destructive" />
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Input
@@ -232,11 +228,11 @@ export function CrmItemSuppliersPanel({ itemId }: CrmItemSuppliersPanelProps) {
         />
       </div>
 
-      {selectedSupplier ? (
-        <p className="mt-2 text-xs text-muted-foreground">
-          {selectedSupplier.email || selectedSupplier.phone || t("noContactData")}
-        </p>
-      ) : null}
+      <div className="mt-3 flex justify-end">
+        <Button type="button" onClick={addSupplier} disabled={isPending || !selectedSupplier}>
+          {t("addSelectedSupplier")}
+        </Button>
+      </div>
 
       <div className="mt-4 space-y-2">
         {rows.length === 0 ? (
@@ -281,16 +277,30 @@ export function CrmItemSuppliersPanel({ itemId }: CrmItemSuppliersPanelProps) {
                   ) : null}
                 </div>
               </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => removeSupplier(row.id)}
-                disabled={isPending}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                {t("remove")}
-              </Button>
+              <div className="flex flex-wrap justify-end gap-2">
+                {!row.is_primary ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => makePrimary(row)}
+                    disabled={isPending}
+                  >
+                    <Star className="mr-2 h-4 w-4" />
+                    {t("makePrimary")}
+                  </Button>
+                ) : null}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => removeSupplier(row.id)}
+                  disabled={isPending}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  {t("remove")}
+                </Button>
+              </div>
             </div>
           ))
         )}

@@ -38,8 +38,14 @@
 - [x] Add CRM counterparty-number lookup to warehouse movement party fields.
 - [x] Store CRM party id, counterparty number, and snapshot in movement party details JSON.
 - [x] Add lead time, MOQ, purchase price, and currency fields to warehouse item edit CRM supplier panel.
+- [x] Add existing CRM supplier promotion to main supplier on warehouse item edit.
 - [x] Show CRM item suppliers on warehouse item detail page.
 - [x] Add initial CRM supplier assignment to warehouse item create flow.
+- [x] Hide legacy supplier selectors from warehouse item create/edit so CRM suppliers are the visible supplier source.
+- [x] Hide variant internals for simple item edit while keeping the hidden default variant as the persistence model.
+- [x] Add reusable rich CRM contractor lookup dialog for supplier picking by number, name, tax ID, email, and phone.
+- [x] Replace inline warehouse item supplier search forms with the shared contractor lookup dialog.
+- [x] Keep contractor lookup selection separate from supplier assignment so item forms can fill terms before adding.
 - [x] Reconcile CRM work with the new warehouse audit feature pulled from `main`.
 - [x] Add RLS integration coverage through CRM migration invariant tests.
 - [x] Complete party create/edit/detail UI polish.

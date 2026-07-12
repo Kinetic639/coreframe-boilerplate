@@ -146,6 +146,30 @@ describe("WarehouseItemSuppliersService", () => {
     );
   });
 
+  it("promotes an existing supplier as the only primary supplier", async () => {
+    const supabase = createSupabaseMock();
+
+    const result = await WarehouseItemSuppliersService.update(supabase.client as never, ORG_ID, {
+      id: SUPPLIER_LINK_ID,
+      item_id: ITEM_ID,
+      is_primary: true,
+    });
+
+    expect(result.success).toBe(true);
+    const updates = supabase.operations.filter(
+      (op) => op.table === "warehouse_item_suppliers" && op.action === "update"
+    );
+    expect(updates[0]?.payload).toEqual({ is_primary: false });
+    expect(updates[1]?.payload).toEqual(
+      expect.objectContaining({ is_primary: true, updated_at: expect.any(String) })
+    );
+    expect(supabase.operations).toContainEqual({
+      table: "warehouse_item_suppliers",
+      action: "eq",
+      args: ["id", SUPPLIER_LINK_ID],
+    });
+  });
+
   it("soft-deletes item supplier links", async () => {
     const supabase = createSupabaseMock();
 
