@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { z } from "zod";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { entitlements, mapEntitlementError } from "@/server/guards/entitlements-guards";
 import { checkPermission } from "@/lib/utils/permissions";
@@ -18,6 +19,7 @@ import {
 } from "@/lib/constants/permissions";
 import {
   CrmPartiesService,
+  type CrmSupplierOption,
   type CrmPartyDetail,
   type CrmPartyListRow,
 } from "@/server/services/crm-parties.service";
@@ -47,6 +49,10 @@ import {
 import type { DataViewListParams, PaginatedResult } from "@/lib/data-view/types";
 
 type ActionResult<T> = { success: true; data: T } | { success: false; error: string };
+
+export type CrmContractorLookupOption = CrmSupplierOption & {
+  logo_signed_url: string | null;
+};
 
 const CRM_PARTY_LOGOS_BUCKET = "crm-party-logos";
 const CRM_CONTACT_AVATARS_BUCKET = "crm-contact-avatars";
@@ -93,6 +99,19 @@ function mapError(error: unknown): ActionResult<never> {
   return { success: false, error: "Unexpected error" };
 }
 
+const contractorLookupSchema = z.object({
+  role: z
+    .enum(["supplier", "client", "contractor", "vendor", "partner", "receiver", "payer", "other"])
+    .optional(),
+  query: z.string().trim().max(200).nullable().optional(),
+  number: z.number().int().positive().nullable().optional(),
+  name: z.string().trim().max(200).nullable().optional(),
+  taxId: z.string().trim().max(80).nullable().optional(),
+  email: z.string().trim().max(200).nullable().optional(),
+  phone: z.string().trim().max(80).nullable().optional(),
+  limit: z.number().int().min(1).max(50).optional(),
+});
+
 function validateCrmImageFile(file: unknown): ActionResult<{ file: File; extension: string }> {
   if (!(file instanceof File) || file.size === 0) {
     return { success: false, error: "Image file is required" };
@@ -134,6 +153,41 @@ export async function listCrmPartiesForDataViewAction(
     if (!checkPermission(ctx.context.user.permissionSnapshot, CRM_PARTIES_READ))
       return permissionDenied();
     return CrmPartiesService.listForDataView(ctx.supabase, ctx.orgId, params);
+  } catch (error) {
+    return mapError(error);
+  }
+}
+
+export async function searchCrmContractorsForLookupAction(
+  input: z.infer<typeof contractorLookupSchema>
+): Promise<ActionResult<CrmContractorLookupOption[]>> {
+  try {
+    const ctx = await getAuthedContext();
+    if (!ctx) return { success: false, error: "Unauthorized" };
+    if (!checkPermission(ctx.context.user.permissionSnapshot, CRM_PARTIES_READ))
+      return permissionDenied();
+
+    const parsed = contractorLookupSchema.safeParse(input);
+    if (!parsed.success) return { success: false, error: validationError(parsed.error) };
+
+    const result = await CrmPartiesService.searchContractors(ctx.supabase, ctx.orgId, parsed.data);
+    if ("error" in result) return { success: false, error: result.error };
+
+    const withLogos = await Promise.all(
+      result.data.map(async (party) => {
+        const logo = await signedUrl(
+          ctx.supabase,
+          CRM_PARTY_LOGOS_BUCKET,
+          party.logo_storage_path ?? null
+        );
+        return {
+          ...party,
+          logo_signed_url: logo.success ? logo.data.signedUrl : null,
+        };
+      })
+    );
+
+    return { success: true, data: withLogos };
   } catch (error) {
     return mapError(error);
   }

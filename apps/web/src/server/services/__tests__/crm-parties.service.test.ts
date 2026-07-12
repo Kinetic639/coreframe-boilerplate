@@ -320,8 +320,13 @@ describe("CrmPartiesService", () => {
           id: PARTY_ID,
           counterparty_number: 81,
           display_name: "Ambra Supplier",
+          legal_name: null,
+          tax_id: null,
           email: "supplier@example.com",
           phone: null,
+          website: null,
+          logo_storage_path: null,
+          roles: ["supplier"],
         },
       ],
     });

@@ -69,8 +69,27 @@ export interface CrmSupplierOption {
   id: string;
   counterparty_number: number;
   display_name: string;
+  legal_name?: string | null;
+  tax_id?: string | null;
   email: string | null;
   phone: string | null;
+  website?: string | null;
+  logo_storage_path?: string | null;
+  roles?: CrmPartyRole[];
+  city?: string | null;
+  postal_code?: string | null;
+  street?: string | null;
+}
+
+export interface CrmContractorSearchInput {
+  role?: CrmPartyRole;
+  number?: number | null;
+  name?: string | null;
+  taxId?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  query?: string | null;
+  limit?: number;
 }
 
 export interface CrmCounterpartyLookup {
@@ -275,20 +294,68 @@ export const CrmPartiesService = {
     search: string | null | undefined,
     limit = 20
   ): Promise<ServiceResult<CrmSupplierOption[]>> {
+    return CrmPartiesService.searchContractors(supabase, orgId, {
+      role: "supplier",
+      query: search,
+      limit,
+    });
+  },
+
+  async searchContractors(
+    supabase: SupabaseClient,
+    orgId: string,
+    input: CrmContractorSearchInput
+  ): Promise<ServiceResult<CrmSupplierOption[]>> {
+    const limit = input.limit ?? 20;
     let query = supabase
       .from("crm_parties")
-      .select("id, counterparty_number, display_name, email, phone, crm_party_roles!inner(role)")
+      .select(
+        "id, counterparty_number, display_name, legal_name, tax_id, email, phone, website, logo_storage_path, crm_party_roles!inner(role)"
+      )
       .eq("organization_id", orgId)
       .eq("status", "active")
-      .eq("crm_party_roles.role", "supplier")
       .is("deleted_at", null)
-      .order("display_name", { ascending: true })
+      .order("counterparty_number", { ascending: true })
       .limit(Math.min(Math.max(limit, 1), 50));
 
-    const trimmed = search?.trim();
+    if (input.role) {
+      query = query.eq("crm_party_roles.role", input.role);
+    }
+
+    if (input.number) {
+      query = query.eq("counterparty_number", input.number);
+    }
+
+    const name = input.name?.trim();
+    if (name) {
+      query = query.or(`display_name.ilike.%${name}%,legal_name.ilike.%${name}%`);
+    }
+
+    const taxId = input.taxId?.trim();
+    if (taxId) {
+      query = query.ilike("tax_id", `%${taxId}%`);
+    }
+
+    const email = input.email?.trim();
+    if (email) {
+      query = query.ilike("email", `%${email}%`);
+    }
+
+    const phone = input.phone?.trim();
+    if (phone) {
+      query = query.ilike("phone", `%${phone}%`);
+    }
+
+    const trimmed = input.query?.trim();
     if (trimmed) {
       const numeric = Number(trimmed);
-      const clauses = [`display_name.ilike.%${trimmed}%`, `tax_id.ilike.%${trimmed}%`];
+      const clauses = [
+        `display_name.ilike.%${trimmed}%`,
+        `legal_name.ilike.%${trimmed}%`,
+        `tax_id.ilike.%${trimmed}%`,
+        `email.ilike.%${trimmed}%`,
+        `phone.ilike.%${trimmed}%`,
+      ];
       if (Number.isInteger(numeric) && numeric > 0) {
         clauses.push(`counterparty_number.eq.${numeric}`);
       }
@@ -304,8 +371,13 @@ export const CrmPartiesService = {
         id: row.id,
         counterparty_number: row.counterparty_number,
         display_name: row.display_name,
+        legal_name: row.legal_name ?? null,
+        tax_id: row.tax_id ?? null,
         email: row.email,
         phone: row.phone,
+        website: row.website ?? null,
+        logo_storage_path: row.logo_storage_path ?? null,
+        roles: rolesFromRow(row as unknown as { crm_party_roles?: RoleRow[] | RoleRow | null }),
       })),
     };
   },
