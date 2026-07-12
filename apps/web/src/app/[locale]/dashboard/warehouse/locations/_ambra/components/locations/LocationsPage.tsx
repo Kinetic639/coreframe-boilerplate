@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
 import {
@@ -452,6 +452,19 @@ export default function LocationsPage({
   const selectedLocationId =
     controlledSelectedId !== undefined ? controlledSelectedId : internalSelectedId;
   const setSelectedLocationId = controlledOnSelect ?? setInternalSelectedId;
+  // Below `lg` (1024px, covers phones and tablets) the sidebar tree and the
+  // detail panel can't sit side by side without squeezing the detail panel
+  // into nothing — show one pane at a time instead, switching automatically
+  // based on whether a location is selected. Desktop (>=1024px) is
+  // completely unaffected: both panes always render exactly as before.
+  const [isCompactViewport, setIsCompactViewport] = useState(false);
+  useEffect(() => {
+    const mql = window.matchMedia("(max-width: 1023px)");
+    const onChange = () => setIsCompactViewport(mql.matches);
+    onChange();
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, []);
   const [expandedIds, setExpandedIds] = useState<string[]>(["l1", "l2"]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -1026,7 +1039,11 @@ export default function LocationsPage({
       </AnimatePresence>
 
       {/* Sidebar: Location Tree */}
-      <div className="relative z-10 flex w-[360px] shrink-0 flex-col overflow-hidden border-r border-border bg-card">
+      <div
+        className={`relative z-10 w-full shrink-0 flex-col overflow-hidden border-r border-border bg-card lg:w-[360px] ${
+          isCompactViewport && selectedLocationId ? "hidden" : "flex"
+        }`}
+      >
         <div className="border-b border-border bg-card px-3 py-3">
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
@@ -1174,7 +1191,20 @@ export default function LocationsPage({
       </div>
 
       {/* Main Content Area: Location Detail */}
-      <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden bg-background">
+      <div
+        className={`relative min-w-0 flex-1 flex-col overflow-hidden bg-background ${
+          isCompactViewport && !selectedLocationId ? "hidden" : "flex"
+        }`}
+      >
+        {isCompactViewport && (
+          <button
+            onClick={() => setSelectedLocationId(null)}
+            className="flex items-center gap-1.5 border-b border-border bg-card px-3 py-2.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground lg:hidden"
+          >
+            <ChevronRight className="h-3.5 w-3.5 rotate-180" />
+            {t("tree.backToList")}
+          </button>
+        )}
         <AnimatePresence mode="wait">
           {selectedLocation ? (
             <motion.div

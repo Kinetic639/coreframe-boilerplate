@@ -6656,7 +6656,8 @@
       "warningTitle": "{count} aktywnych ostrzeżeń",
       "noLocations": "Brak lokalizacji",
       "locked": "Zablokowane",
-      "editMode": "Tryb edycji"
+      "editMode": "Tryb edycji",
+      "backToList": "Powrót do listy"
     },
     "tabs": {
       "information": "Informacje",
