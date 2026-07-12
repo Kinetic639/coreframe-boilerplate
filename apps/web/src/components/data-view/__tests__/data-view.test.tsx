@@ -133,6 +133,7 @@ const TEST_TRANSLATIONS: Record<string, string> = {
   "dataView.toolbar.searchAria": "Search",
   "dataView.toolbar.closeSearchAria": "Close search",
   "dataView.toolbar.backToListAria": "Back to full list",
+  "dataView.toolbar.refreshAria": "Refresh",
   "dataView.selection.selectedCount": "{count} selected",
   "dataView.selection.keepSelected": "Keep selected",
   "dataView.selection.showAll": "Show all",
@@ -173,6 +174,7 @@ const TEST_TRANSLATIONS: Record<string, string> = {
   "dataView.sidebar.loadingPreviousAria": "Loading previous items",
   "dataView.sidebar.loadingMoreAria": "Loading more items",
   "dataView.table.noResults": "No results",
+  "dataView.mobile.loadingAria": "Loading rows",
 };
 
 vi.mock("next-intl", () => ({
@@ -203,6 +205,26 @@ const localStorageMock = (() => {
 Object.defineProperty(window, "localStorage", { value: localStorageMock });
 // Radix UI Select needs scrollIntoView in jsdom
 window.HTMLElement.prototype.scrollIntoView = vi.fn();
+
+function setDesktopViewport(isDesktop: boolean) {
+  Object.defineProperty(window, "matchMedia", {
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches: query.includes("min-width: 1024px") ? isDesktop : false,
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
+}
+
+beforeEach(() => {
+  setDesktopViewport(true);
+});
 
 // ---------------------------------------------------------------------------
 // Test data
@@ -355,9 +377,9 @@ describe("T-DV-RENDER: renders initial rows from initialData", () => {
     mockReplace.mockReset();
   });
 
-  it("renders all row names from initialData", () => {
+  it("renders all row names from initialData", async () => {
     renderDataView();
-    expect(screen.getByText("Widget A")).toBeInTheDocument();
+    expect(await screen.findByText("Widget A")).toBeInTheDocument();
     expect(screen.getByText("Widget B")).toBeInTheDocument();
     expect(screen.getByText("Widget C")).toBeInTheDocument();
   });
@@ -368,6 +390,32 @@ describe("T-DV-RENDER: renders initial rows from initialData", () => {
     expect(screen.getByText("Name")).toBeInTheDocument();
     expect(screen.getAllByText("Category").length).toBeGreaterThan(0);
     expect(screen.getByText("Price")).toBeInTheDocument();
+  });
+
+  it("keeps the desktop table layout at lg and up", () => {
+    setDesktopViewport(true);
+    renderDataView();
+
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    expect(screen.queryByTestId("data-view-mobile-list")).not.toBeInTheDocument();
+  });
+
+  it("uses touch-friendly mobile cards below lg", async () => {
+    setDesktopViewport(false);
+    renderDataView();
+
+    expect(screen.getByTestId("data-view-mobile-list")).toBeInTheDocument();
+    expect(await screen.findByTestId("mobile-card-p1")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
+
+  it("opens detail as a mobile full-screen panel", async () => {
+    setDesktopViewport(false);
+    renderDataView({}, { selected: "p1" });
+
+    await waitFor(() => expect(screen.getByTestId("data-view-mobile-detail")).toBeInTheDocument());
+    expect(await screen.findByTestId("detail-content")).toBeInTheDocument();
+    expect(screen.queryByTestId("data-view-mobile-list")).not.toBeInTheDocument();
   });
 });
 
@@ -402,7 +450,7 @@ describe("T-DV-SELECT: clicking a row updates selected state", () => {
 
   it("calls push with selected param when row is clicked", async () => {
     renderDataView();
-    fireEvent.click(screen.getByTestId("row-p1"));
+    fireEvent.click(await screen.findByTestId("row-p1"));
     await waitFor(() => {
       expect(mockPush).toHaveBeenCalledWith(expect.stringContaining("selected=p1"));
     });
@@ -622,9 +670,9 @@ describe("T-DV-TYPES: list data does not require detail-only fields", () => {
     expect("stock" in row).toBe(false);
   });
 
-  it("renders without needing detail fields on list rows", () => {
+  it("renders without needing detail fields on list rows", async () => {
     renderDataView();
-    expect(screen.getByText("Widget A")).toBeInTheDocument();
+    expect(await screen.findByText("Widget A")).toBeInTheDocument();
   });
 });
 

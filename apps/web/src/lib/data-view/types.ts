@@ -86,6 +86,7 @@ export type DataViewProps<TListRow, TDetail> = {
   }) => Promise<number | null>;
   getRowId: (row: TListRow) => string;
   renderCompactItem?: (row: TListRow) => React.ReactNode;
+  renderMobileItem?: (row: TListRow) => React.ReactNode;
   renderExpandedRow?: (row: TListRow) => React.ReactNode;
   renderRowControl?: (row: TListRow) => React.ReactNode;
   renderToolbarControls?: () => React.ReactNode;

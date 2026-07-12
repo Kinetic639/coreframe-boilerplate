@@ -25,6 +25,7 @@ export type DataViewStaticContextValue<TListRow, TDetail> = {
   filters: DataViewFilterDef[];
   getRowId: (row: TListRow) => string;
   renderCompactItem?: (row: TListRow) => React.ReactNode;
+  renderMobileItem?: (row: TListRow) => React.ReactNode;
   renderExpandedRow?: (row: TListRow) => React.ReactNode;
   renderRowControl?: (row: TListRow) => React.ReactNode;
   renderToolbarControls?: () => React.ReactNode;
@@ -104,6 +105,7 @@ type DataViewProviderProps<TListRow, TDetail> = Pick<
   | "resolveSelectedPage"
   | "getRowId"
   | "renderCompactItem"
+  | "renderMobileItem"
   | "renderExpandedRow"
   | "renderRowControl"
   | "renderToolbarControls"
@@ -125,6 +127,7 @@ export function DataViewProvider<TListRow, TDetail>({
   resolveSelectedPage,
   getRowId,
   renderCompactItem,
+  renderMobileItem,
   renderExpandedRow,
   renderRowControl,
   renderToolbarControls,
@@ -210,6 +213,7 @@ export function DataViewProvider<TListRow, TDetail>({
       filters,
       getRowId,
       renderCompactItem,
+      renderMobileItem,
       renderExpandedRow,
       renderRowControl,
       renderToolbarControls,
@@ -222,6 +226,7 @@ export function DataViewProvider<TListRow, TDetail>({
       filters,
       getRowId,
       renderCompactItem,
+      renderMobileItem,
       renderExpandedRow,
       renderRowControl,
       renderToolbarControls,

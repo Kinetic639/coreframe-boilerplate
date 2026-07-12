@@ -9,6 +9,8 @@ import { DataViewTable } from "./data-view-table";
 import { DataViewSidebar } from "./data-view-sidebar";
 import { DataViewDetail } from "./data-view-detail";
 import { DataViewPagination } from "./data-view-pagination";
+import { DataViewMobileLayout } from "./data-view-mobile-layout";
+import { useMediaQuery } from "./use-media-query";
 
 const COLLAPSE_MS = 220;
 const SIDEBAR_WIDTH = 320;
@@ -19,7 +21,7 @@ const DETAIL_TRANSITION = { duration: COLLAPSE_MS / 1000, ease: SHARED_EASE };
 
 type TransitionPhase = "list" | "entering" | "detail" | "exiting";
 
-export function DataViewLayout() {
+function DataViewDesktopLayout() {
   const { isDetailOpen } = useDataViewUrl();
   const [phase, setPhase] = useState<TransitionPhase>(isDetailOpen ? "detail" : "list");
   const [showOnlyPrimary, setShowOnlyPrimary] = useState(isDetailOpen);
@@ -129,4 +131,10 @@ export function DataViewLayout() {
       </AnimatePresence>
     </div>
   );
+}
+
+export function DataViewLayout() {
+  const isDesktop = useMediaQuery("(min-width: 1024px)", true);
+
+  return isDesktop ? <DataViewDesktopLayout /> : <DataViewMobileLayout />;
 }
