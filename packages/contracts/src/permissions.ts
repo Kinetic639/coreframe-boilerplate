@@ -225,6 +225,24 @@ export const PLANNING_BOARDS_UPDATE = "planning.boards.update" as const;
 export const PLANNING_BOARDS_DELETE = "planning.boards.delete" as const;
 export const PLANNING_SETTINGS_MANAGE = "planning.settings.manage" as const;
 
+// CRM / Kontrahenci Permissions (org+branch-scoped — Professional/Enterprise)
+// crm.*                 — wildcard for org_owner; compiler expands to all concrete crm.X slugs
+// crm.read              — view the CRM module shell and overview
+// crm.parties.*         — manage kontrahenci / billable parties
+// crm.contacts.*        — manage people contacts and org-member contact links
+// module.crm.access     — user-level gate; admins assign to custom roles
+export const MODULE_CRM_ACCESS = "module.crm.access" as const;
+export const CRM_WILDCARD = "crm.*" as const;
+export const CRM_READ = "crm.read" as const;
+export const CRM_PARTIES_READ = "crm.parties.read" as const;
+export const CRM_PARTIES_CREATE = "crm.parties.create" as const;
+export const CRM_PARTIES_UPDATE = "crm.parties.update" as const;
+export const CRM_PARTIES_DELETE = "crm.parties.delete" as const;
+export const CRM_CONTACTS_READ = "crm.contacts.read" as const;
+export const CRM_CONTACTS_CREATE = "crm.contacts.create" as const;
+export const CRM_CONTACTS_UPDATE = "crm.contacts.update" as const;
+export const CRM_CONTACTS_DELETE = "crm.contacts.delete" as const;
+
 // Tools Permissions (user-scoped — always available, no plan gating)
 // tools.read  — view the tools catalog, tool detail pages, and personal enabled-tools list
 // tools.manage — enable, disable, pin, and update settings for tools
@@ -353,6 +371,17 @@ export type PermissionSlug =
   | typeof PLANNING_BOARDS_UPDATE
   | typeof PLANNING_BOARDS_DELETE
   | typeof PLANNING_SETTINGS_MANAGE
+  | typeof MODULE_CRM_ACCESS
+  | typeof CRM_WILDCARD
+  | typeof CRM_READ
+  | typeof CRM_PARTIES_READ
+  | typeof CRM_PARTIES_CREATE
+  | typeof CRM_PARTIES_UPDATE
+  | typeof CRM_PARTIES_DELETE
+  | typeof CRM_CONTACTS_READ
+  | typeof CRM_CONTACTS_CREATE
+  | typeof CRM_CONTACTS_UPDATE
+  | typeof CRM_CONTACTS_DELETE
   | typeof PERMISSION_TOOLS_READ
   | typeof PERMISSION_TOOLS_MANAGE
   | typeof PERMISSION_WDD_MATCHER_READ
@@ -461,6 +490,17 @@ export const ALL_PERMISSION_SLUGS: PermissionSlug[] = [
   PLANNING_BOARDS_UPDATE,
   PLANNING_BOARDS_DELETE,
   PLANNING_SETTINGS_MANAGE,
+  MODULE_CRM_ACCESS,
+  CRM_WILDCARD,
+  CRM_READ,
+  CRM_PARTIES_READ,
+  CRM_PARTIES_CREATE,
+  CRM_PARTIES_UPDATE,
+  CRM_PARTIES_DELETE,
+  CRM_CONTACTS_READ,
+  CRM_CONTACTS_CREATE,
+  CRM_CONTACTS_UPDATE,
+  CRM_CONTACTS_DELETE,
   PERMISSION_TOOLS_READ,
   PERMISSION_TOOLS_MANAGE,
   PERMISSION_WDD_MATCHER_READ,

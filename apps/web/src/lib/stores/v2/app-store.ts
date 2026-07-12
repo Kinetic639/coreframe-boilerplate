@@ -6,6 +6,7 @@ export interface BranchDataV2 {
   id: string; // UUID - this is the primary key
   name: string;
   organization_id: string;
+  branch_number?: number;
   slug: string | null;
   public_warehouse_maps_enabled?: boolean;
   created_at: string;

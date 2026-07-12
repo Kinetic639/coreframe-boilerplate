@@ -17,6 +17,17 @@ import type { PickedMovementItem } from "@/components/warehouse/inventory-item-p
 import type { SupplierFields } from "./movement-supplier-section";
 import type { ImportedMovementDocumentDraft, LineDraft, MovementFormInitialValues } from "./types";
 
+type ActiveBranchParty = {
+  id: string;
+  name: string;
+  branch_number?: number;
+  slug: string | null;
+} | null;
+
+const CURRENT_BRANCH_RECIPIENT_CODES = new Set(["101"]);
+const CURRENT_BRANCH_BOTH_LOCKED_CODES = new Set(["801", "401", "402"]);
+const INTER_BRANCH_OUT_CODES = new Set(["311"]);
+
 function initNoteValue(note?: string): RichTextValue | null {
   if (!note) return null;
   try {
@@ -36,6 +47,13 @@ function emptyPartyFields(name = ""): SupplierFields {
     street: "",
     postalCode: "",
     city: "",
+    entityNumber: undefined,
+    crmPartyId: undefined,
+    counterpartyNumber: undefined,
+    branchId: undefined,
+    branchNumber: undefined,
+    branchSnapshot: undefined,
+    counterpartySnapshot: undefined,
   };
 }
 
@@ -50,6 +68,68 @@ function partyFieldsFromDetails(
     street: details?.street ?? "",
     postalCode: details?.postalCode ?? "",
     city: details?.city ?? "",
+    entityNumber: details?.entityNumber ?? details?.counterpartyNumber ?? details?.branchNumber,
+    crmPartyId: details?.crmPartyId,
+    counterpartyNumber: details?.counterpartyNumber,
+    branchId: details?.branchId,
+    branchNumber: details?.branchNumber,
+    branchSnapshot: details?.branchSnapshot,
+    counterpartySnapshot: details?.counterpartySnapshot,
+  };
+}
+
+function branchPartyFields(branch: ActiveBranchParty, fallbackName: string): SupplierFields {
+  if (!branch || !Number.isInteger(branch.branch_number)) return emptyPartyFields(fallbackName);
+  const branchNumber = branch.branch_number;
+  return {
+    name: branch.name,
+    nip: "",
+    phone: "",
+    street: "",
+    postalCode: "",
+    city: "",
+    entityNumber: branchNumber,
+    branchId: branch.id,
+    branchNumber,
+    branchSnapshot: {
+      id: branch.id,
+      branch_number: branchNumber,
+      name: branch.name,
+      slug: branch.slug,
+    },
+  };
+}
+
+function movementPartyContract(code: string) {
+  if (CURRENT_BRANCH_BOTH_LOCKED_CODES.has(code)) {
+    return {
+      sender: "current_branch_locked" as const,
+      recipient: "current_branch_locked" as const,
+      senderEntityTypes: ["branch"] as Array<"branch" | "crm_party">,
+      recipientEntityTypes: ["branch"] as Array<"branch" | "crm_party">,
+    };
+  }
+  if (CURRENT_BRANCH_RECIPIENT_CODES.has(code)) {
+    return {
+      sender: "select_crm_party" as const,
+      recipient: "current_branch_locked" as const,
+      senderEntityTypes: ["crm_party"] as Array<"branch" | "crm_party">,
+      recipientEntityTypes: ["branch"] as Array<"branch" | "crm_party">,
+    };
+  }
+  if (INTER_BRANCH_OUT_CODES.has(code)) {
+    return {
+      sender: "current_branch_locked" as const,
+      recipient: "select_branch" as const,
+      senderEntityTypes: ["branch"] as Array<"branch" | "crm_party">,
+      recipientEntityTypes: ["branch"] as Array<"branch" | "crm_party">,
+    };
+  }
+  return {
+    sender: "select_any" as const,
+    recipient: "select_any" as const,
+    senderEntityTypes: ["branch", "crm_party"] as Array<"branch" | "crm_party">,
+    recipientEntityTypes: ["branch", "crm_party"] as Array<"branch" | "crm_party">,
   };
 }
 
@@ -59,41 +139,49 @@ export function useMovementFormState(
   variants: InventoryVariantOption[],
   units: InventoryUnitRow[],
   initialValues?: MovementFormInitialValues,
-  defaultRecipientName = ""
+  defaultRecipientName = "",
+  activeBranch: ActiveBranchParty = null
 ) {
   const t = useTranslations("warehouseInventory.movementEditor");
   const initialTypeCode = initialValues?.movementTypeCode ?? movementTypes[0]?.code ?? "";
-  const initialType = movementTypes.find((type) => type.code === initialTypeCode) ?? null;
-  const isInitialIncomingReceipt = initialType?.document_type_code === "PZ";
-  const defaultRecipientFields = useMemo(
-    () => emptyPartyFields(defaultRecipientName),
-    [defaultRecipientName]
+  const initialContract = movementPartyContract(initialTypeCode);
+  const initialBranchFields = useMemo(
+    () => branchPartyFields(activeBranch, defaultRecipientName),
+    [activeBranch, defaultRecipientName]
   );
+  const initialSenderBranchLocked = initialContract.sender === "current_branch_locked";
+  const initialRecipientBranchLocked = initialContract.recipient === "current_branch_locked";
   const [typeCode, setTypeCode] = useState(initialTypeCode);
-  const [senderName, setSenderName] = useState(initialValues?.senderName ?? "");
+  const [senderName, setSenderName] = useState(
+    initialValues?.senderName ?? (initialSenderBranchLocked ? initialBranchFields.name : "")
+  );
   const [senderDetails, setSenderDetails] = useState<MovementPartyDetails | null>(
-    initialValues?.senderDetails ?? null
+    initialValues?.senderDetails ??
+      (initialSenderBranchLocked && activeBranch ? initialBranchFields : null)
   );
   const [recipientName, setRecipientName] = useState(
-    initialValues?.recipientName ?? (isInitialIncomingReceipt ? defaultRecipientName : "")
+    initialValues?.recipientName ?? (initialRecipientBranchLocked ? initialBranchFields.name : "")
   );
   const [recipientDetails, setRecipientDetails] = useState<MovementPartyDetails | null>(
     initialValues?.recipientDetails ??
-      (isInitialIncomingReceipt && defaultRecipientName ? defaultRecipientFields : null)
+      (initialRecipientBranchLocked && activeBranch ? initialBranchFields : null)
   );
   const [supplierFields, setSupplierFields] = useState(
-    partyFieldsFromDetails(initialValues?.senderDetails, initialValues?.senderName ?? "")
+    initialValues?.senderDetails || initialValues?.senderName
+      ? partyFieldsFromDetails(initialValues?.senderDetails, initialValues?.senderName ?? "")
+      : initialSenderBranchLocked
+        ? initialBranchFields
+        : emptyPartyFields()
   );
-  const [supplierLocked, setSupplierLocked] = useState(false);
+  const [supplierLocked, setSupplierLocked] = useState(initialSenderBranchLocked);
   const [recipientFields, setRecipientFields] = useState(
-    partyFieldsFromDetails(
-      initialValues?.recipientDetails,
-      initialValues?.recipientName ?? (isInitialIncomingReceipt ? defaultRecipientName : "")
-    )
+    initialValues?.recipientDetails || initialValues?.recipientName
+      ? partyFieldsFromDetails(initialValues?.recipientDetails, initialValues?.recipientName ?? "")
+      : initialRecipientBranchLocked
+        ? initialBranchFields
+        : emptyPartyFields()
   );
-  const [recipientLocked, setRecipientLocked] = useState(
-    isInitialIncomingReceipt && !!defaultRecipientName
-  );
+  const [recipientLocked, setRecipientLocked] = useState(initialRecipientBranchLocked);
   const [externalReference, setExternalReference] = useState(
     initialValues?.externalReference ?? ""
   );
@@ -146,6 +234,11 @@ export function useMovementFormState(
   const allowsRecipient = capabilities.allowsRecipient;
   const isPZ = selType?.document_type_code === "PZ";
   const is801 = requiresSourceLocation && requiresDestinationLocation;
+  const partyContract = useMemo(() => movementPartyContract(typeCode), [typeCode]);
+  const showSender = allowsSender || partyContract.sender === "current_branch_locked";
+  const showRecipient = allowsRecipient || partyContract.recipient === "current_branch_locked";
+  const senderCanUnlock = partyContract.sender !== "current_branch_locked";
+  const recipientCanUnlock = partyContract.recipient !== "current_branch_locked";
   const totalQty = useMemo(() => lines.reduce((s, l) => s + (Number(l.quantity) || 0), 0), [lines]);
 
   const handleTypeChange = useCallback(
@@ -156,26 +249,35 @@ export function useMovementFormState(
         setLines([]);
       }
       setTypeCode(code);
-      const nextType = movementTypes.find((type) => type.code === code) ?? null;
-      if (nextType?.document_type_code === "PZ" && !recipientName.trim()) {
-        setRecipientName(defaultRecipientName);
-        setRecipientDetails(defaultRecipientFields);
-        setRecipientFields(defaultRecipientFields);
-        setRecipientLocked(!!defaultRecipientName);
+      const nextContract = movementPartyContract(code);
+      const branchFields = branchPartyFields(activeBranch, defaultRecipientName);
+      if (nextContract.sender === "current_branch_locked") {
+        setSenderName(branchFields.name);
+        setSenderDetails(branchFields);
+        setSupplierFields(branchFields);
+        setSupplierLocked(true);
+      } else {
+        setSenderName("");
+        setSenderDetails(null);
+        setSupplierFields(emptyPartyFields());
+        setSupplierLocked(false);
+      }
+      if (nextContract.recipient === "current_branch_locked") {
+        setRecipientName(branchFields.name);
+        setRecipientDetails(branchFields);
+        setRecipientFields(branchFields);
+        setRecipientLocked(true);
+      } else {
+        setRecipientName("");
+        setRecipientDetails(null);
+        setRecipientFields(emptyPartyFields());
+        setRecipientLocked(false);
       }
       setManualCorrectionMode(false);
       setSrcLoc("");
       setDstLoc("");
     },
-    [
-      defaultRecipientFields,
-      defaultRecipientName,
-      movementTypes,
-      recipientName,
-      typeCode,
-      lines.length,
-      t,
-    ]
+    [defaultRecipientName, activeBranch, movementTypes, typeCode, lines.length, t]
   );
 
   const handleSrcChange = useCallback(
@@ -317,25 +419,38 @@ export function useMovementFormState(
       });
 
       setTypeCode(document.movementTypeCode);
-      setSenderName(document.senderName ?? "");
-      setSenderDetails(document.senderDetails ?? null);
-      setRecipientName(
-        document.recipientName ??
-          (nextType?.document_type_code === "PZ" ? defaultRecipientName : "")
+      const nextContract = movementPartyContract(document.movementTypeCode);
+      const branchFields = branchPartyFields(activeBranch, defaultRecipientName);
+      const importedSenderFields = partyFieldsFromDetails(
+        document.senderDetails,
+        document.senderName ?? ""
       );
-      setRecipientDetails(
-        document.recipientDetails ??
-          (nextType?.document_type_code === "PZ" ? defaultRecipientFields : null)
+      const importedRecipientFields = partyFieldsFromDetails(
+        document.recipientDetails,
+        document.recipientName ?? ""
       );
-      setSupplierFields(partyFieldsFromDetails(document.senderDetails, document.senderName ?? ""));
-      setRecipientFields(
-        partyFieldsFromDetails(
-          document.recipientDetails,
-          document.recipientName ??
-            (nextType?.document_type_code === "PZ" ? defaultRecipientName : "")
-        )
-      );
-      setRecipientLocked(nextType?.document_type_code === "PZ" && !!defaultRecipientName);
+      if (nextContract.sender === "current_branch_locked") {
+        setSenderName(branchFields.name);
+        setSenderDetails(branchFields);
+        setSupplierFields(branchFields);
+        setSupplierLocked(true);
+      } else {
+        setSenderName(document.senderName ?? "");
+        setSenderDetails(document.senderDetails ?? null);
+        setSupplierFields(importedSenderFields);
+        setSupplierLocked(false);
+      }
+      if (nextContract.recipient === "current_branch_locked") {
+        setRecipientName(branchFields.name);
+        setRecipientDetails(branchFields);
+        setRecipientFields(branchFields);
+        setRecipientLocked(true);
+      } else {
+        setRecipientName(document.recipientName ?? "");
+        setRecipientDetails(document.recipientDetails ?? null);
+        setRecipientFields(importedRecipientFields);
+        setRecipientLocked(false);
+      }
       setExternalReference(document.externalReference ?? "");
       setNoteRichText(initNoteValue(document.note ?? undefined));
       setSrcLoc(
@@ -353,16 +468,7 @@ export function useMovementFormState(
       setManualCorrectionMode(false);
       setActiveTab("lines");
     },
-    [
-      defaultRecipientFields,
-      defaultRecipientName,
-      dstLoc,
-      lines.length,
-      movementTypes,
-      t,
-      units,
-      variants,
-    ]
+    [defaultRecipientName, activeBranch, dstLoc, lines.length, movementTypes, t, units, variants]
   );
 
   return {
@@ -370,6 +476,11 @@ export function useMovementFormState(
     selType,
     isPZ,
     is801,
+    partyContract,
+    showSender,
+    showRecipient,
+    senderCanUnlock,
+    recipientCanUnlock,
     requiresSourceLocation,
     requiresDestinationLocation,
     allowsSender,

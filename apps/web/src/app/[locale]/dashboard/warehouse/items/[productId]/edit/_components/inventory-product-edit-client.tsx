@@ -27,9 +27,9 @@ import type {
   InventoryTaxRateRow,
 } from "@/lib/warehouse/inventory-types";
 import { cn } from "@/utils";
+import { CrmItemSuppliersPanel } from "./crm-item-suppliers-panel";
 
 type UnitOption = { id: string; code: string; name: string };
-type SupplierOption = { id: string; name: string };
 type CustomFieldTarget = "product" | "variant";
 type VariantDraft = {
   sku: string;
@@ -180,7 +180,6 @@ function customFieldPayload(
 export function InventoryProductEditClient({
   product,
   units,
-  suppliers,
   brands,
   manufacturers,
   taxRates,
@@ -188,7 +187,6 @@ export function InventoryProductEditClient({
 }: {
   product: InventoryProductDetail;
   units: UnitOption[];
-  suppliers: SupplierOption[];
   brands: InventoryMasterDataRow[];
   manufacturers: InventoryMasterDataRow[];
   taxRates: InventoryTaxRateRow[];
@@ -238,6 +236,13 @@ export function InventoryProductEditClient({
       ])
     )
   );
+  const hasVisibleVariants = product.variant_count > 1;
+  const defaultVariant =
+    product.variants.find((variant) => variant.id === product.default_variant_id) ??
+    product.variants.find((variant) => variant.is_default) ??
+    product.variants[0] ??
+    null;
+  const defaultVariantDraft = defaultVariant ? variantDrafts[defaultVariant.id] : null;
   const productCustomFields = customFields.filter((field) => field.entity_type === "product");
   const variantCustomFields = customFields.filter((field) => field.entity_type === "variant");
   const selectedTaxPresetId =
@@ -304,7 +309,9 @@ export function InventoryProductEditClient({
         weight_unit: textOrNull(formData.get("weight_unit")),
         sales_description: textOrNull(formData.get("sales_description")),
         purchase_description: textOrNull(formData.get("purchase_description")),
-        preferred_supplier_id: textOrNull(formData.get("preferred_supplier_id")),
+        preferred_supplier_id: formData.has("preferred_supplier_id")
+          ? textOrNull(formData.get("preferred_supplier_id"))
+          : product.preferred_supplier_id,
         sales_account_code: textOrNull(formData.get("sales_account_code")),
         purchase_account_code: textOrNull(formData.get("purchase_account_code")),
         tax_code: textOrNull(formData.get("tax_code")),
@@ -772,7 +779,7 @@ export function InventoryProductEditClient({
                 })}
               </div>
             ) : null}
-            {product.variant_count > 1 ? (
+            {hasVisibleVariants ? (
               <div className="grid gap-3 rounded-md border border-border p-3">
                 <h3 className="text-sm font-medium">{t("variantGalleries")}</h3>
                 {product.variants.map((variant) => {
@@ -871,14 +878,119 @@ export function InventoryProductEditClient({
           </div>
         </section>
 
-        {product.variants.length > 0 ? (
+        {!hasVisibleVariants && defaultVariant && defaultVariantDraft ? (
+          <section className="grid gap-4">
+            <div>
+              <h2 className="text-lg font-medium">{t("simpleItemDetails")}</h2>
+              <p className="text-sm text-muted-foreground">{t("simpleItemDetailsHelp")}</p>
+            </div>
+            <div className="grid gap-4 rounded-md border border-border p-4 lg:grid-cols-3">
+              <div className="grid gap-2">
+                <label className="text-sm">{tc("sku")}</label>
+                <Input
+                  value={defaultVariantDraft.sku}
+                  onChange={(event) =>
+                    updateVariantDraft(defaultVariant.id, { sku: event.target.value })
+                  }
+                />
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm">{tc("barcode")}</label>
+                <Input
+                  value={defaultVariantDraft.barcode}
+                  onChange={(event) =>
+                    updateVariantDraft(defaultVariant.id, { barcode: event.target.value })
+                  }
+                />
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm">{tc("status")}</label>
+                <select
+                  value={defaultVariantDraft.status}
+                  className={cn(selectClass, "pr-9")}
+                  onChange={(event) =>
+                    updateVariantDraft(defaultVariant.id, {
+                      status: event.target.value as VariantDraft["status"],
+                    })
+                  }
+                >
+                  <option value="active">{t("active")}</option>
+                  <option value="discontinued">{t("discontinued")}</option>
+                  <option value="archived">{t("archived")}</option>
+                </select>
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm">{tCreate("purchaseInformation")}</label>
+                <Input
+                  value={defaultVariantDraft.purchase_price}
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  onChange={(event) =>
+                    updateVariantDraft(defaultVariant.id, { purchase_price: event.target.value })
+                  }
+                />
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm">{tCreate("salesInformation")}</label>
+                <Input
+                  value={defaultVariantDraft.sales_price}
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  onChange={(event) =>
+                    updateVariantDraft(defaultVariant.id, { sales_price: event.target.value })
+                  }
+                />
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm">{t("currency")}</label>
+                <Input
+                  value={defaultVariantDraft.price_currency}
+                  maxLength={3}
+                  className="uppercase"
+                  onChange={(event) =>
+                    updateVariantDraft(defaultVariant.id, {
+                      price_currency: event.target.value.toUpperCase(),
+                    })
+                  }
+                />
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm">{t("reorder")}</label>
+                <Input
+                  value={defaultVariantDraft.reorder_point}
+                  type="number"
+                  min="0"
+                  step="1"
+                  onChange={(event) =>
+                    updateVariantDraft(defaultVariant.id, { reorder_point: event.target.value })
+                  }
+                />
+              </div>
+              <div className="flex items-end lg:col-span-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => saveVariant(defaultVariant.id)}
+                  disabled={isPending}
+                >
+                  <Save className="mr-2 h-4 w-4" />
+                  {tc("save")}
+                </Button>
+              </div>
+            </div>
+          </section>
+        ) : null}
+
+        {hasVisibleVariants ? (
           <section className="grid gap-4">
             <div>
               <h2 className="text-lg font-medium">{tc("variants")}</h2>
               <p className="text-sm text-muted-foreground">{t("variantsHelp")}</p>
             </div>
             <div className="overflow-x-auto rounded-md border border-border">
-              <table className="min-w-[1520px] text-sm">
+              <table className="min-w-[1380px] text-sm">
                 <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
                   <tr>
                     <th className="px-3 py-2 text-left">{tc("name")}</th>
@@ -890,7 +1002,6 @@ export function InventoryProductEditClient({
                     <th className="px-3 py-2 text-left">{tCreate("salesInformation")}</th>
                     <th className="px-3 py-2 text-left">{t("currency")}</th>
                     <th className="px-3 py-2 text-left">{t("reorder")}</th>
-                    <th className="px-3 py-2 text-left">{t("defaultSupplier")}</th>
                     <th className="px-3 py-2 text-right">{t("action")}</th>
                   </tr>
                 </thead>
@@ -1004,24 +1115,6 @@ export function InventoryProductEditClient({
                             }
                           />
                         </td>
-                        <td className="px-3 py-2">
-                          <select
-                            value={draft.default_supplier_id}
-                            className={cn(selectClass, "min-w-40 pr-9")}
-                            onChange={(event) =>
-                              updateVariantDraft(variant.id, {
-                                default_supplier_id: event.target.value,
-                              })
-                            }
-                          >
-                            <option value="">{t("selectVendor")}</option>
-                            {suppliers.map((supplier) => (
-                              <option key={supplier.id} value={supplier.id}>
-                                {supplier.name}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
                         <td className="px-3 py-2 text-right">
                           <Button
                             type="button"
@@ -1067,7 +1160,7 @@ export function InventoryProductEditClient({
               </div>
             ) : null}
 
-            {variantCustomFields.length > 0 ? (
+            {hasVisibleVariants && variantCustomFields.length > 0 ? (
               <div className="overflow-x-auto rounded-md border border-border">
                 <table className="min-w-full text-sm">
                   <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
@@ -1188,26 +1281,12 @@ export function InventoryProductEditClient({
               name="purchase_account_code"
               defaultValue={product.purchase_account_code ?? ""}
             />
-            <div className="grid items-center gap-3 md:grid-cols-[170px_1fr]">
-              <label className="text-sm">{t("preferredVendor")}</label>
-              <select
-                name="preferred_supplier_id"
-                defaultValue={product.preferred_supplier_id ?? ""}
-                className={selectClass}
-              >
-                <option value="">{t("selectVendor")}</option>
-                {suppliers.map((supplier) => (
-                  <option key={supplier.id} value={supplier.id}>
-                    {supplier.name}
-                  </option>
-                ))}
-              </select>
-            </div>
             <InventoryRichTextFormField
               name="purchase_description"
               label={tc("description")}
               defaultValue={product.purchase_description}
             />
+            <CrmItemSuppliersPanel itemId={product.id} />
           </div>
         </section>
 

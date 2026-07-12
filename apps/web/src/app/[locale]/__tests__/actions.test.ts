@@ -512,6 +512,33 @@ describe("T-EMIT-TYPED-FAILURE — typed result handling", () => {
 
       consoleSpy.mockRestore();
     });
+
+    it("does not log transient fetch failures for auth.login.failed in local/test runtime", async () => {
+      mockEmit.mockResolvedValue({
+        success: false,
+        error: "Event insert failed: TypeError: fetch failed",
+      });
+      mockSupabaseClient.auth.signInWithPassword.mockResolvedValue({
+        data: {},
+        error: { message: "Invalid login credentials" },
+      });
+
+      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      const formData = new FormData();
+      formData.append("email", "user@example.com");
+      formData.append("password", "wrong");
+
+      const result = await signInAction(formData);
+
+      expect((result as any).type).toBe("error");
+      expect(consoleSpy).not.toHaveBeenCalledWith(
+        "[signInAction] Failed to emit auth.login.failed:",
+        expect.anything()
+      );
+
+      consoleSpy.mockRestore();
+    });
   });
 
   // -------------------------------------------------------------------------

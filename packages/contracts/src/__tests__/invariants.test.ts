@@ -7,7 +7,21 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { ALL_PERMISSION_SLUGS } from "../permissions.js";
+import {
+  ALL_PERMISSION_SLUGS,
+  CRM_CONTACTS_CREATE,
+  CRM_CONTACTS_DELETE,
+  CRM_CONTACTS_READ,
+  CRM_CONTACTS_UPDATE,
+  CRM_PARTIES_CREATE,
+  CRM_PARTIES_DELETE,
+  CRM_PARTIES_READ,
+  CRM_PARTIES_UPDATE,
+  CRM_READ,
+  CRM_WILDCARD,
+  MODULE_CRM_ACCESS,
+} from "../permissions.js";
+import { MODULE_CRM, PREMIUM_MODULES } from "../modules.js";
 
 // ---------------------------------------------------------------------------
 // Permission slug invariants
@@ -66,6 +80,37 @@ describe("permission slug format spot-checks", () => {
     const nonWildcards = ALL_PERMISSION_SLUGS.filter((s) => !s.endsWith(".*"));
     for (const slug of nonWildcards) {
       expect(slug).not.toContain("*");
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// CRM module invariants
+// ---------------------------------------------------------------------------
+
+describe("CRM module contract", () => {
+  it("is registered as a premium module", () => {
+    expect(MODULE_CRM).toBe("crm");
+    expect(PREMIUM_MODULES).toContain(MODULE_CRM);
+  });
+
+  it("exports every CRM permission through ALL_PERMISSION_SLUGS", () => {
+    const crmSlugs = [
+      MODULE_CRM_ACCESS,
+      CRM_WILDCARD,
+      CRM_READ,
+      CRM_PARTIES_READ,
+      CRM_PARTIES_CREATE,
+      CRM_PARTIES_UPDATE,
+      CRM_PARTIES_DELETE,
+      CRM_CONTACTS_READ,
+      CRM_CONTACTS_CREATE,
+      CRM_CONTACTS_UPDATE,
+      CRM_CONTACTS_DELETE,
+    ];
+
+    for (const slug of crmSlugs) {
+      expect(ALL_PERMISSION_SLUGS).toContain(slug);
     }
   });
 });

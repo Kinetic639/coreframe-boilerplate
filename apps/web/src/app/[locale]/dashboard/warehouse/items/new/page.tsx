@@ -34,7 +34,6 @@ export default async function WarehouseNewItemPage() {
   const supabase = await createClient();
   const [
     unitsResult,
-    suppliersResult,
     optionGroupsResult,
     locationsResult,
     tagsResult,
@@ -45,7 +44,6 @@ export default async function WarehouseNewItemPage() {
     taxRatesResult,
   ] = await Promise.all([
     InventoryProductsService.listUnits(supabase, context.app.activeOrgId),
-    InventoryProductsService.listSuppliers(supabase, context.app.activeOrgId),
     InventoryProductsService.listOptionGroupsWithValues(supabase, context.app.activeOrgId),
     context.app.activeBranchId
       ? WarehouseLocationsService.listByBranch(
@@ -66,7 +64,6 @@ export default async function WarehouseNewItemPage() {
     <div className="flex min-h-[calc(100vh-4rem)] flex-col bg-background">
       <InventoryProductCreateClient
         units={unitsResult.success ? unitsResult.data : []}
-        suppliers={suppliersResult.success ? suppliersResult.data : []}
         optionGroups={optionGroupsResult.success ? optionGroupsResult.data : []}
         locations={
           locationsResult.success

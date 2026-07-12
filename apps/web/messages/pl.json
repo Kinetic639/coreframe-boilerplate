@@ -2780,6 +2780,7 @@
         "description": "Zarządzaj oddziałami organizacji",
         "createButton": "Utwórz oddział",
         "columns": {
+          "number": "Nr",
           "name": "Nazwa",
           "slug": "Slug",
           "publicMaps": "Publiczne mapy",
@@ -2791,6 +2792,7 @@
           "created": "Utworzono"
         },
         "detail": {
+          "number": "Nr",
           "slug": "Slug",
           "publicMaps": "Publiczne mapy",
           "created": "Utworzono",
@@ -3479,6 +3481,177 @@
         "loadPlanningRetry": "Nie udało się załadować planowania. Spróbuj ponownie.",
         "tryAgain": "Spróbuj ponownie",
         "operationFailed": "Operacja nie powiodła się"
+      }
+    },
+    "crm": {
+      "title": "CRM / Kontrahenci",
+      "titleSidebar": "CRM",
+      "description": "Zarządzanie kontrahentami, dostawcami, klientami, wykonawcami i kontaktami",
+      "items": {
+        "overview": "Przegląd",
+        "parties": "Kontrahenci",
+        "contacts": "Kontakty",
+        "settings": "Ustawienia"
+      },
+      "pages": {
+        "overview": {
+          "title": "CRM / Kontrahenci",
+          "description": "Centralne miejsce dla podmiotów fakturowych, osób kontaktowych i relacji z dostawcami."
+        },
+        "parties": {
+          "title": "Kontrahenci"
+        },
+        "contacts": {
+          "title": "Kontakty"
+        },
+        "settings": {
+          "title": "Ustawienia CRM",
+          "description": "Konfiguruj domyślne ustawienia CRM, numerację, widoczność i zasoby w Storage."
+        }
+      },
+      "stats": {
+        "parties": "Kontrahenci",
+        "contacts": "Kontakty"
+      },
+      "fields": {
+        "counterpartyNumber": "Nr",
+        "role": "Rola",
+        "roles": "Role",
+        "status": "Status",
+        "partyKind": "Typ",
+        "name": "Nazwa",
+        "firstName": "Imię",
+        "lastName": "Nazwisko",
+        "legalName": "Nazwa prawna",
+        "taxId": "NIP",
+        "email": "Email",
+        "phone": "Telefon",
+        "mobile": "Telefon kom.",
+        "website": "Strona www",
+        "notes": "Notatki",
+        "visibility": "Widoczność",
+        "linkedUser": "Powiązany użytkownik organizacji",
+        "noLinkedUser": "Brak powiązanego użytkownika",
+        "jobTitle": "Stanowisko",
+        "primary": "Główny",
+        "addressType": "Typ adresu",
+        "country": "Kraj",
+        "city": "Miasto",
+        "postalCode": "Kod pocztowy",
+        "street": "Ulica",
+        "buildingNumber": "Nr budynku",
+        "unitNumber": "Nr lokalu",
+        "region": "Region",
+        "defaultAddress": "Adres domyślny"
+      },
+      "roles": {
+        "supplier": "Dostawca",
+        "client": "Klient",
+        "contractor": "Wykonawca",
+        "vendor": "Sprzedawca",
+        "partner": "Partner",
+        "receiver": "Odbiorca",
+        "payer": "Płatnik",
+        "other": "Inne"
+      },
+      "contractorLookup": {
+        "title": "Znajdź kontrahenta",
+        "description": "Szukaj kontrahentów CRM po numerze, nazwie, NIP, e-mailu albo telefonie, a potem wybierz właściwy rekord.",
+        "query": "Szukaj we wszystkich polach",
+        "number": "Nr",
+        "name": "Nazwa lub nazwa prawna",
+        "taxId": "NIP",
+        "taxIdShort": "NIP",
+        "email": "E-mail",
+        "phone": "Telefon",
+        "loading": "Szukam kontrahentów...",
+        "empty": "Nie znaleziono pasujących kontrahentów."
+      },
+      "status": {
+        "active": "Aktywny",
+        "inactive": "Nieaktywny",
+        "archived": "Zarchiwizowany"
+      },
+      "partyKinds": {
+        "organization": "Organizacja",
+        "individual": "Osoba"
+      },
+      "sections": {
+        "partyDetails": "Dane kontrahenta",
+        "contactDetails": "Dane kontaktu",
+        "contactPeople": "Osoby kontaktowe",
+        "addresses": "Adresy",
+        "linkedParties": "Powiązani kontrahenci"
+      },
+      "empty": {
+        "noContactPeople": "Brak przypisanych osób kontaktowych.",
+        "noAddresses": "Brak dodanych adresów.",
+        "noLinkedParties": "Brak powiązanych kontrahentów."
+      },
+      "permissions": {
+        "canUpdate": "Możesz edytować ten rekord.",
+        "canDelete": "Możesz archiwizować ten rekord."
+      },
+      "actions": {
+        "newParty": "Nowy kontrahent",
+        "newContact": "Nowy kontakt",
+        "saving": "Zapisywanie...",
+        "save": "Zapisz",
+        "edit": "Edytuj",
+        "cancel": "Anuluj",
+        "archive": "Archiwizuj",
+        "archiving": "Archiwizowanie...",
+        "search": "Szukaj",
+        "searchContacts": "Szukaj kontaktów po nazwie, emailu lub telefonie",
+        "selectContact": "Wybierz kontakt",
+        "linkContact": "Połącz kontakt",
+        "unlink": "Odłącz",
+        "addAddress": "Dodaj adres",
+        "remove": "Usuń",
+        "uploading": "Przesyłanie...",
+        "uploadLogo": "Prześlij logo",
+        "uploadAvatar": "Prześlij avatar"
+      },
+      "messages": {
+        "partyCreated": "Kontrahent został utworzony.",
+        "contactCreated": "Kontakt został utworzony.",
+        "partyUpdated": "Kontrahent został zaktualizowany.",
+        "contactUpdated": "Kontakt został zaktualizowany.",
+        "partyArchived": "Kontrahent został zarchiwizowany.",
+        "contactArchived": "Kontakt został zarchiwizowany.",
+        "contactLinked": "Kontakt został połączony.",
+        "contactUnlinked": "Kontakt został odłączony.",
+        "addressAdded": "Adres został dodany.",
+        "addressDeleted": "Adres został usunięty.",
+        "logoUploaded": "Logo przesłane.",
+        "avatarUploaded": "Avatar przesłany.",
+        "notesLater": "Notatki można rozbudować po utworzeniu.",
+        "linkedOrgUser": "Powiązany użytkownik organizacji"
+      },
+      "addressTypes": {
+        "registered": "Rejestrowy",
+        "billing": "Fakturowy",
+        "shipping": "Dostawy",
+        "correspondence": "Korespondencyjny",
+        "other": "Inny"
+      },
+      "relationshipTypes": {
+        "primary": "Główny",
+        "billing": "Fakturowy",
+        "sales": "Sprzedaż",
+        "technical": "Techniczny",
+        "owner": "Właściciel",
+        "representative": "Reprezentant",
+        "other": "Inny"
+      },
+      "visibility": {
+        "private": "Prywatny",
+        "branch": "Oddział",
+        "organization": "Organizacja"
+      },
+      "errors": {
+        "loadRetry": "Nie udało się załadować danych CRM. Spróbuj ponownie.",
+        "tryAgain": "Spróbuj ponownie"
       }
     },
     "analytics": {
@@ -5485,6 +5658,11 @@
       "newCounterpartyDetails": "Dane nowego kontrahenta",
       "manualEntry": "Wpis ręczny",
       "companyName": "Nazwa firmy",
+      "counterpartyNumber": "Nr",
+      "counterpartyNumberPlaceholder": "np. 81",
+      "counterpartyNumberInvalid": "Wpisz poprawny numer.",
+      "counterpartyFilled": "Dane zostały uzupełnione.",
+      "fill": "Uzupełnij",
       "nip": "NIP",
       "phone": "Telefon",
       "street": "Ulica",
@@ -5543,6 +5721,18 @@
       "searchSupplierPlaceholder": "Szukaj po nazwie dostawcy...",
       "searchSupplierEmpty": "Nie znaleziono dostawców.",
       "searchSupplierHint": "Zacznij wpisywać, aby wyszukać istniejących dostawców.",
+      "searchEntityBtn": "Szukaj",
+      "searchEntityTitle": "Szukaj oddziałów i kontrahentów",
+      "searchBranchesTitle": "Szukaj oddziałów",
+      "searchContractorsTitle": "Szukaj kontrahentów",
+      "searchEntityPlaceholder": "Szukaj po numerze, nazwie, NIP, telefonie...",
+      "searchBranchesPlaceholder": "Szukaj po numerze oddziału, nazwie, slugu...",
+      "searchContractorsPlaceholder": "Szukaj po numerze kontrahenta, nazwie, NIP...",
+      "searchEntityEmpty": "Nie znaleziono pasujących rekordów.",
+      "searchEntityHint": "Szukaj po numerze lub danych identyfikacyjnych.",
+      "entityBranch": "Oddział",
+      "entityContractor": "Kontrahent",
+      "entityTypeNotAllowed": "Tego typu rekordu nie można użyć w tym miejscu.",
       "selectAndFill": "Wybierz",
       "counterpartyDetails": "Dane kontrahenta",
       "lockSupplier": "Zatwierdź",
@@ -5741,6 +5931,7 @@
       "unitConversionInvalid": "Konwersje jednostek wymagają różnych jednostek i dodatniego współczynnika.",
       "createFailed": "Nieoczekiwana odpowiedź tworzenia produktu",
       "imageSaveFailed": "Nie udało się zapisać obrazów",
+      "crmSuppliersSaveFailed": "Produkt został utworzony, ale nie udało się przypisać dostawców CRM.",
       "unitCreated": "Jednostka utworzona",
       "brandCreated": "Marka utworzona",
       "manufacturerCreated": "Producent utworzony",
@@ -5772,6 +5963,32 @@
       "purchaseAccountPlaceholder": "np. 330-1",
       "preferredVendor": "Preferowany dostawca",
       "selectVendor": "Wybierz dostawcę",
+      "crmSuppliers": {
+        "title": "Dostawcy",
+        "description": "Wyszukaj kontrahentów CRM, przypisz dostawców i wybierz głównego dostawcę dla tego produktu.",
+        "searchPlaceholder": "Szukaj po nazwie, NIP lub numerze kontrahenta",
+        "search": "Szukaj",
+        "selectSupplier": "Wybierz dostawcę",
+        "supplierSku": "SKU dostawcy",
+        "findSupplier": "Znajdź dostawcę",
+        "selectedSupplier": "Wybrany dostawca",
+        "clearSelection": "Wyczyść",
+        "addSelectedSupplier": "Dodaj dostawcę",
+        "leadTimeDays": "Czas dostawy dni",
+        "minimumOrderQuantity": "MOQ",
+        "purchasePrice": "Cena zakupu",
+        "currencyCode": "Waluta",
+        "primary": "Główny",
+        "makePrimary": "Ustaw jako głównego",
+        "add": "Dodaj",
+        "remove": "Usuń",
+        "empty": "Brak przypisanych dostawców CRM.",
+        "noSku": "Brak SKU dostawcy",
+        "noContactData": "Brak danych kontaktowych",
+        "leadTimeValue": "{count}d dostawy",
+        "moqValue": "MOQ {value}",
+        "priceValue": "{value} {currency}"
+      },
       "dimensions": "Wymiary",
       "length": "Długość",
       "width": "Szerokość",
@@ -5804,6 +6021,7 @@
       "customFieldsHelp": "Opcjonalne pola dla tego produktu. Definicje są zarządzane w ustawieniach magazynu.",
       "manageFields": "Zarządzaj polami",
       "noCustomFieldsSelected": "Nie wybrano pól własnych dla tego produktu.",
+      "itemStructure": "Struktura produktu",
       "simpleItem": "Prosty produkt",
       "itemWithVariants": "Produkt z wariantami",
       "attributeNamesUnique": "Nazwy atrybutów muszą być unikalne: {names}",
@@ -5974,6 +6192,8 @@
       "removeVariantImage": "Usuń obraz wariantu",
       "variantGalleryFallback": "Używa galerii produktu, dopóki nie dodasz obrazów wariantu.",
       "variantsHelp": "Edytuj magazynowe wiersze SKU, status cyklu życia, ceny i progi ponownego zamówienia.",
+      "simpleItemDetails": "SKU i dane magazynowe produktu",
+      "simpleItemDetailsHelp": "Ten prosty produkt używa jednego ukrytego wiersza magazynowego. Tutaj edytujesz SKU, ceny, kod kreskowy i próg ponownego zamówienia.",
       "attributesPlaceholder": "Kolor: Czerwony | Rozmiar: L",
       "currency": "Waluta",
       "reorder": "Próg",

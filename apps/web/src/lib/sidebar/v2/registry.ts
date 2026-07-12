@@ -27,6 +27,10 @@ import {
   PLANNING_BOARDS_READ,
   PLANNING_TASKS_READ,
   PLANNING_SETTINGS_MANAGE,
+  MODULE_CRM_ACCESS,
+  CRM_READ,
+  CRM_PARTIES_READ,
+  CRM_CONTACTS_READ,
 } from "@/lib/constants/permissions";
 import {
   MODULE_ORGANIZATION_MANAGEMENT,
@@ -35,6 +39,7 @@ import {
   MODULE_WORKSHOP,
   MODULE_HELPDESK,
   MODULE_PLANNING,
+  MODULE_CRM,
 } from "@/lib/constants/modules";
 
 /**
@@ -383,6 +388,66 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
         match: { startsWith: "/dashboard/planning/settings" },
         visibility: {
           requiresPermissions: [PLANNING_SETTINGS_MANAGE],
+        },
+      },
+    ],
+  },
+
+  // ── Group: crm ───────────────────────────────────────────────────────────
+
+  {
+    id: "crm",
+    group: "crm",
+    title: "CRM",
+    titleKey: "modules.crm.titleSidebar",
+    iconKey: "building",
+    visibility: {
+      requiresModules: [MODULE_CRM],
+      requiresPermissions: [MODULE_CRM_ACCESS],
+    },
+    children: [
+      {
+        id: "crm.overview",
+        title: "Overview",
+        titleKey: "modules.crm.items.overview",
+        iconKey: "dashboard",
+        href: "/dashboard/crm",
+        match: { exact: "/dashboard/crm" },
+        visibility: {
+          requiresPermissions: [CRM_READ],
+        },
+      },
+      {
+        id: "crm.parties",
+        title: "Kontrahenci",
+        titleKey: "modules.crm.items.parties",
+        iconKey: "building",
+        href: "/dashboard/crm/parties",
+        match: { startsWith: "/dashboard/crm/parties" },
+        visibility: {
+          requiresPermissions: [CRM_PARTIES_READ],
+        },
+      },
+      {
+        id: "crm.contacts",
+        title: "Contacts",
+        titleKey: "modules.crm.items.contacts",
+        iconKey: "users",
+        href: "/dashboard/crm/contacts",
+        match: { startsWith: "/dashboard/crm/contacts" },
+        visibility: {
+          requiresPermissions: [CRM_CONTACTS_READ],
+        },
+      },
+      {
+        id: "crm.settings",
+        title: "Settings",
+        titleKey: "modules.crm.items.settings",
+        iconKey: "settings",
+        href: "/dashboard/crm/settings",
+        match: { startsWith: "/dashboard/crm/settings" },
+        visibility: {
+          requiresPermissions: [CRM_READ],
         },
       },
     ],

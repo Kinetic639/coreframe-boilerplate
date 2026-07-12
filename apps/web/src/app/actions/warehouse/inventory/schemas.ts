@@ -212,6 +212,43 @@ const partyDetailsSchema = z
     street: z.string().max(200).optional(),
     postalCode: z.string().max(10).optional(),
     city: z.string().max(100).optional(),
+    entityNumber: z.number().int().positive().optional(),
+    crmPartyId: uuidSchema.optional(),
+    counterpartyNumber: z.number().int().positive().optional(),
+    branchId: uuidSchema.optional(),
+    branchNumber: z.number().int().positive().optional(),
+    branchSnapshot: z
+      .object({
+        id: uuidSchema,
+        branch_number: z.number().int().positive(),
+        name: z.string().max(200),
+        slug: z.string().max(100).nullable(),
+      })
+      .optional(),
+    counterpartySnapshot: z
+      .object({
+        id: uuidSchema,
+        counterparty_number: z.number().int().positive(),
+        display_name: z.string().max(300),
+        legal_name: z.string().max(300).nullable(),
+        tax_id: z.string().max(100).nullable(),
+        email: z.string().max(320).nullable(),
+        phone: z.string().max(100).nullable(),
+        status: z.string().max(40),
+        address: z
+          .object({
+            country: z.string().max(100).nullable(),
+            city: z.string().max(100).nullable(),
+            postal_code: z.string().max(20).nullable(),
+            street: z.string().max(200).nullable(),
+            building_number: z.string().max(50).nullable(),
+            unit_number: z.string().max(50).nullable(),
+            region: z.string().max(100).nullable(),
+          })
+          .nullable()
+          .optional(),
+      })
+      .optional(),
   })
   .nullable()
   .optional();

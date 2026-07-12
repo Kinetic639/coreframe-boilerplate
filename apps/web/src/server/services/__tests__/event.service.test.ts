@@ -319,6 +319,23 @@ describe("T-EVENT-SERVICE: eventService.emit()", () => {
     );
   });
 
+  it("does not log transient fetch failures in local/test runtime", async () => {
+    const client = makeInsertClient({
+      data: null,
+      error: { message: "TypeError: fetch failed" },
+    });
+    vi.mocked(createServiceClient).mockReturnValue(client as any);
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await eventService.emit(makeAuthLoginInput());
+
+    expect(result.success).toBe(false);
+    expect((result as { success: false; error: string }).error).toContain("fetch failed");
+    expect(consoleSpy).not.toHaveBeenCalledWith("[event.emit.failure]", expect.anything());
+
+    consoleSpy.mockRestore();
+  });
+
   it("returns error when createServiceClient throws", async () => {
     vi.mocked(createServiceClient).mockImplementation(() => {
       throw new Error("Missing env variable");
