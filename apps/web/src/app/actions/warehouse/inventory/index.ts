@@ -2272,6 +2272,52 @@ export async function lookupOrganizationEntityNumberForMovementAction(input: { n
   }
 }
 
+export async function searchOrganizationEntitiesForMovementAction(input: {
+  query?: string;
+  entityTypes?: Array<"branch" | "crm_party">;
+  limit?: number;
+}) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return { success: false, error: auth.error };
+    if (!hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const parsed = z
+      .object({
+        query: z.string().max(120).optional(),
+        entityTypes: z
+          .array(z.enum(["branch", "crm_party"]))
+          .min(1)
+          .max(2)
+          .optional(),
+        limit: z.number().int().min(1).max(50).optional(),
+      })
+      .safeParse(input);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const entityTypes = parsed.data.entityTypes ?? ["branch", "crm_party"];
+    if (entityTypes.includes("branch") && !hasPermission(auth, BRANCHES_READ)) {
+      return { success: false, error: "Unauthorized" };
+    }
+    if (entityTypes.includes("crm_party") && !hasPermission(auth, CRM_PARTIES_READ)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const supabase = await createClient();
+    return OrganizationEntityNumbersService.search(
+      supabase,
+      auth.context.app.activeOrgId,
+      parsed.data.query,
+      entityTypes,
+      parsed.data.limit
+    );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
 export async function createInventoryPurchaseOrderAction(rawInput: unknown) {
   try {
     const auth = await requireWarehouseContext();

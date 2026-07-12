@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
   lookupOrganizationEntityNumberForMovementAction,
-  searchSuppliersAction,
+  searchOrganizationEntitiesForMovementAction,
 } from "@/app/actions/warehouse/inventory";
 import type { MovementPartyDetails } from "@/lib/warehouse/inventory-types";
 import type { OrganizationEntityNumberLookup } from "@/server/services/organization.service";
@@ -34,6 +34,8 @@ export type SupplierFields = {
 type Props = {
   fields: SupplierFields;
   locked: boolean;
+  canUnlock?: boolean;
+  allowedEntityTypes?: Array<"branch" | "crm_party">;
   onFieldsChange: (fields: SupplierFields) => void;
   onLockedChange: (locked: boolean) => void;
   onSenderChange: (val: string) => void;
@@ -45,7 +47,9 @@ type PartySectionProps = {
   detailsTitle: string;
   fields: SupplierFields;
   locked: boolean;
-  showSupplierSearch?: boolean;
+  canUnlock?: boolean;
+  showEntitySearch?: boolean;
+  allowedEntityTypes?: Array<"branch" | "crm_party">;
   lockedBadgeLabel?: string;
   onFieldsChange: (fields: SupplierFields) => void;
   onLockedChange: (locked: boolean) => void;
@@ -53,11 +57,11 @@ type PartySectionProps = {
   onDetailsChange: (details: SupplierFields) => void;
 };
 
-type SupplierResult = { id: string; name: string; phone: string | null };
-
 export const MovementSupplierSection = React.memo(function MovementSupplierSection({
   fields,
   locked,
+  canUnlock,
+  allowedEntityTypes = ["crm_party"],
   onFieldsChange,
   onLockedChange,
   onSenderChange,
@@ -71,7 +75,9 @@ export const MovementSupplierSection = React.memo(function MovementSupplierSecti
       detailsTitle={t("senderDetails")}
       fields={fields}
       locked={locked}
-      showSupplierSearch
+      canUnlock={canUnlock}
+      showEntitySearch
+      allowedEntityTypes={allowedEntityTypes}
       lockedBadgeLabel={t("supplierLocked")}
       onFieldsChange={onFieldsChange}
       onLockedChange={onLockedChange}
@@ -86,7 +92,9 @@ export const MovementPartySection = React.memo(function MovementPartySection({
   detailsTitle,
   fields,
   locked,
-  showSupplierSearch = false,
+  canUnlock = true,
+  showEntitySearch = false,
+  allowedEntityTypes = ["branch", "crm_party"],
   lockedBadgeLabel,
   onFieldsChange,
   onLockedChange,
@@ -119,21 +127,6 @@ export const MovementPartySection = React.memo(function MovementPartySection({
   const handleUnlock = useCallback(() => {
     onLockedChange(false);
   }, [onLockedChange]);
-
-  const fillFromSupplier = useCallback(
-    (supplier: SupplierResult) => {
-      const next: SupplierFields = {
-        ...fields,
-        name: supplier.name,
-        phone: supplier.phone ?? fields.phone,
-      };
-      onFieldsChange(next);
-      onNameChange(supplier.name);
-      onDetailsChange(next);
-      setDialogOpen(false);
-    },
-    [fields, onFieldsChange, onNameChange, onDetailsChange]
-  );
 
   const fillFromEntityNumber = useCallback(
     (lookup: OrganizationEntityNumberLookup) => {
@@ -199,10 +192,14 @@ export const MovementPartySection = React.memo(function MovementPartySection({
         toast.error(result.error);
         return;
       }
+      if (!allowedEntityTypes.includes(result.data.entity_type)) {
+        toast.error(t("entityTypeNotAllowed"));
+        return;
+      }
       fillFromEntityNumber(result.data);
       toast.success(t("counterpartyFilled"));
     });
-  }, [counterpartyInput, fillFromEntityNumber, t]);
+  }, [allowedEntityTypes, counterpartyInput, fillFromEntityNumber, t]);
 
   return (
     <section className="rounded-sm border bg-card p-4">
@@ -213,19 +210,21 @@ export const MovementPartySection = React.memo(function MovementPartySection({
         </div>
         <div className="flex items-center gap-1.5">
           {locked ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs gap-1.5"
-              onClick={handleUnlock}
-            >
-              <Pencil className="h-3 w-3" />
-              {t("editSupplier")}
-            </Button>
+            canUnlock ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs gap-1.5"
+                onClick={handleUnlock}
+              >
+                <Pencil className="h-3 w-3" />
+                {t("editSupplier")}
+              </Button>
+            ) : null
           ) : (
             <>
-              {showSupplierSearch && (
+              {showEntitySearch && (
                 <Button
                   type="button"
                   variant="outline"
@@ -234,7 +233,7 @@ export const MovementPartySection = React.memo(function MovementPartySection({
                   onClick={() => setDialogOpen(true)}
                 >
                   <Search className="h-3 w-3" />
-                  {t("searchSupplierBtn")}
+                  {t("searchEntityBtn")}
                 </Button>
               )}
               {fields.name && (
@@ -405,31 +404,38 @@ export const MovementPartySection = React.memo(function MovementPartySection({
         </div>
       )}
 
-      {showSupplierSearch && (
-        <SupplierSearchDialog
+      {showEntitySearch && (
+        <OrganizationEntitySearchDialog
           open={dialogOpen}
           onOpenChange={setDialogOpen}
-          onSelect={fillFromSupplier}
+          entityTypes={allowedEntityTypes}
+          onSelect={(lookup) => {
+            fillFromEntityNumber(lookup);
+            setDialogOpen(false);
+          }}
         />
       )}
     </section>
   );
 });
 
-function SupplierSearchDialog({
+function OrganizationEntitySearchDialog({
   open,
   onOpenChange,
+  entityTypes,
   onSelect,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSelect: (supplier: SupplierResult) => void;
+  entityTypes: Array<"branch" | "crm_party">;
+  onSelect: (lookup: OrganizationEntityNumberLookup) => void;
 }) {
   const t = useTranslations("warehouseInventory.movementEditor");
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [results, setResults] = useState<SupplierResult[]>([]);
+  const [results, setResults] = useState<OrganizationEntityNumberLookup[]>([]);
   const [isLoading, startTransition] = useTransition();
+  const entityTypesKey = entityTypes.join(",");
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQuery(query), 300);
@@ -444,14 +450,29 @@ function SupplierSearchDialog({
       return;
     }
     startTransition(async () => {
-      const r = (await searchSuppliersAction({
+      const r = await searchOrganizationEntitiesForMovementAction({
         query: debouncedQuery || undefined,
+        entityTypes,
         limit: 30,
-      })) as any;
-      if (r.success) setResults(r.data ?? []);
+      });
+      if ("data" in r) setResults(r.data ?? []);
       else setResults([]);
     });
-  }, [open, debouncedQuery]);
+  }, [open, debouncedQuery, entityTypes, entityTypesKey]);
+
+  const title =
+    entityTypes.length === 1 && entityTypes[0] === "branch"
+      ? t("searchBranchesTitle")
+      : entityTypes.length === 1 && entityTypes[0] === "crm_party"
+        ? t("searchContractorsTitle")
+        : t("searchEntityTitle");
+
+  const placeholder =
+    entityTypes.length === 1 && entityTypes[0] === "branch"
+      ? t("searchBranchesPlaceholder")
+      : entityTypes.length === 1 && entityTypes[0] === "crm_party"
+        ? t("searchContractorsPlaceholder")
+        : t("searchEntityPlaceholder");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -459,14 +480,14 @@ function SupplierSearchDialog({
         <div className="px-4 py-3 border-b">
           <DialogTitle className="text-xs uppercase font-bold tracking-widest flex items-center gap-2">
             <Search className="h-4 w-4" />
-            {t("searchSupplierTitle")}
+            {title}
           </DialogTitle>
         </div>
         <div className="p-3 border-b">
           <div className="relative">
             <Search className="h-4 w-4 text-muted-foreground absolute left-3 top-2.5" />
             <Input
-              placeholder={t("searchSupplierPlaceholder")}
+              placeholder={placeholder}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="h-9 pl-10 text-sm"
@@ -481,30 +502,48 @@ function SupplierSearchDialog({
             </div>
           ) : results.length === 0 ? (
             <div className="py-8 text-center text-xs text-muted-foreground">
-              {debouncedQuery ? t("searchSupplierEmpty") : t("searchSupplierHint")}
+              {debouncedQuery ? t("searchEntityEmpty") : t("searchEntityHint")}
             </div>
           ) : (
             <div className="divide-y">
-              {results.map((supplier) => (
-                <button
-                  key={supplier.id}
-                  type="button"
-                  className="w-full px-4 py-2.5 text-left hover:bg-muted/50 transition flex items-center justify-between gap-3"
-                  onClick={() => onSelect(supplier)}
-                >
-                  <div className="min-w-0">
-                    <div className="text-sm font-semibold truncate">{supplier.name}</div>
-                    {supplier.phone && (
-                      <div className="text-xs text-muted-foreground font-mono">
-                        {supplier.phone}
+              {results.map((lookup) => {
+                const isBranch = lookup.entity_type === "branch";
+                const name = isBranch
+                  ? lookup.branch.name
+                  : (lookup.party.legal_name ?? lookup.party.display_name);
+                const secondary = isBranch
+                  ? lookup.branch.slug
+                  : [lookup.party.tax_id, lookup.party.phone].filter(Boolean).join(" · ");
+
+                return (
+                  <button
+                    key={`${lookup.entity_type}-${lookup.entity_number}`}
+                    type="button"
+                    className="w-full px-4 py-2.5 text-left hover:bg-muted/50 transition flex items-center justify-between gap-3"
+                    onClick={() => onSelect(lookup)}
+                  >
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="grid h-9 w-9 shrink-0 place-items-center rounded-sm border bg-muted text-xs font-bold">
+                        {lookup.entity_number}
                       </div>
-                    )}
-                  </div>
-                  <span className="text-xs text-primary font-semibold shrink-0">
-                    {t("selectAndFill")}
-                  </span>
-                </button>
-              ))}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <div className="truncate text-sm font-semibold">{name}</div>
+                          <Badge variant="secondary" className="h-5 text-[10px]">
+                            {isBranch ? t("entityBranch") : t("entityContractor")}
+                          </Badge>
+                        </div>
+                        {secondary && (
+                          <div className="text-xs text-muted-foreground font-mono">{secondary}</div>
+                        )}
+                      </div>
+                    </div>
+                    <span className="text-xs text-primary font-semibold shrink-0">
+                      {t("selectAndFill")}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>

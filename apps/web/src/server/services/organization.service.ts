@@ -1338,6 +1338,93 @@ export type OrganizationEntityNumberLookup =
     };
 
 export class OrganizationEntityNumbersService {
+  private static async resolveBranch(
+    supabase: SupabaseClient,
+    orgId: string,
+    branchId: string,
+    entityNumber: number
+  ): Promise<ServiceResult<OrganizationEntityNumberLookup>> {
+    const { data: branch, error: branchError } = await supabase
+      .from("branches")
+      .select("id, branch_number, name, slug")
+      .eq("organization_id", orgId)
+      .eq("id", branchId)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (branchError) return { success: false, error: branchError.message };
+    if (!branch) return { success: false, error: "Branch not found" };
+
+    return {
+      success: true,
+      data: {
+        entity_type: "branch",
+        entity_number: entityNumber,
+        branch: branch as OrganizationEntityNumberBranch,
+      },
+    };
+  }
+
+  private static async resolveParty(
+    supabase: SupabaseClient,
+    orgId: string,
+    partyId: string,
+    entityNumber: number
+  ): Promise<ServiceResult<OrganizationEntityNumberLookup>> {
+    const { data: party, error: partyError } = await supabase
+      .from("crm_parties")
+      .select("id, counterparty_number, display_name, legal_name, tax_id, email, phone, status")
+      .eq("organization_id", orgId)
+      .eq("id", partyId)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (partyError) return { success: false, error: partyError.message };
+    if (!party) return { success: false, error: "Counterparty not found" };
+
+    const { data: addresses, error: addressError } = await supabase
+      .from("crm_party_addresses")
+      .select(
+        "address_type, is_default, country, city, postal_code, street, building_number, unit_number, region"
+      )
+      .eq("organization_id", orgId)
+      .eq("party_id", partyId)
+      .is("deleted_at", null);
+
+    if (addressError) return { success: false, error: addressError.message };
+
+    const typedAddresses =
+      (addresses as Array<{
+        address_type: string;
+        is_default: boolean;
+        country: string | null;
+        city: string | null;
+        postal_code: string | null;
+        street: string | null;
+        building_number: string | null;
+        unit_number: string | null;
+        region: string | null;
+      }> | null) ?? [];
+    const address =
+      typedAddresses.find((item) => item.is_default) ??
+      typedAddresses.find((item) => item.address_type === "registered") ??
+      typedAddresses.find((item) => item.address_type === "billing") ??
+      typedAddresses[0] ??
+      null;
+
+    return {
+      success: true,
+      data: {
+        entity_type: "crm_party",
+        entity_number: entityNumber,
+        party: {
+          ...(party as Omit<OrganizationEntityNumberParty, "address">),
+          address,
+        },
+      },
+    };
+  }
+
   static async lookup(
     supabase: SupabaseClient,
     orgId: string,
@@ -1358,82 +1445,97 @@ export class OrganizationEntityNumbersService {
     const entityNumber = (registry as { number: number }).number;
 
     if (entityType === "branch") {
-      const { data: branch, error: branchError } = await supabase
-        .from("branches")
-        .select("id, branch_number, name, slug")
-        .eq("organization_id", orgId)
-        .eq("id", entityId)
-        .is("deleted_at", null)
-        .maybeSingle();
-
-      if (branchError) return { success: false, error: branchError.message };
-      if (!branch) return { success: false, error: "Branch not found" };
-
-      return {
-        success: true,
-        data: {
-          entity_type: "branch",
-          entity_number: entityNumber,
-          branch: branch as OrganizationEntityNumberBranch,
-        },
-      };
+      return this.resolveBranch(supabase, orgId, entityId, entityNumber);
     }
 
     if (entityType === "crm_party") {
-      const { data: party, error: partyError } = await supabase
-        .from("crm_parties")
-        .select("id, counterparty_number, display_name, legal_name, tax_id, email, phone, status")
-        .eq("organization_id", orgId)
-        .eq("id", entityId)
-        .is("deleted_at", null)
-        .maybeSingle();
-
-      if (partyError) return { success: false, error: partyError.message };
-      if (!party) return { success: false, error: "Counterparty not found" };
-
-      const { data: addresses, error: addressError } = await supabase
-        .from("crm_party_addresses")
-        .select(
-          "address_type, is_default, country, city, postal_code, street, building_number, unit_number, region"
-        )
-        .eq("organization_id", orgId)
-        .eq("party_id", entityId)
-        .is("deleted_at", null);
-
-      if (addressError) return { success: false, error: addressError.message };
-
-      const typedAddresses =
-        (addresses as Array<{
-          address_type: string;
-          is_default: boolean;
-          country: string | null;
-          city: string | null;
-          postal_code: string | null;
-          street: string | null;
-          building_number: string | null;
-          unit_number: string | null;
-          region: string | null;
-        }> | null) ?? [];
-      const address =
-        typedAddresses.find((item) => item.is_default) ??
-        typedAddresses.find((item) => item.address_type === "registered") ??
-        typedAddresses.find((item) => item.address_type === "billing") ??
-        typedAddresses[0] ??
-        null;
-
-      return {
-        success: true,
-        data: {
-          entity_type: "crm_party",
-          entity_number: entityNumber,
-          party: {
-            ...(party as Omit<OrganizationEntityNumberParty, "address">),
-            address,
-          },
-        },
-      };
+      return this.resolveParty(supabase, orgId, entityId, entityNumber);
     }
 
     return { success: false, error: "Unsupported entity number type" };
+  }
+
+  static async search(
+    supabase: SupabaseClient,
+    orgId: string,
+    query: string | undefined,
+    entityTypes: Array<"branch" | "crm_party">,
+    limit = 20
+  ): Promise<ServiceResult<OrganizationEntityNumberLookup[]>> {
+    const normalizedQuery = query?.trim() ?? "";
+    const numericQuery = /^\d+$/.test(normalizedQuery) ? Number(normalizedQuery) : null;
+    const results: OrganizationEntityNumberLookup[] = [];
+
+    if (entityTypes.includes("branch")) {
+      let branchQuery = supabase
+        .from("branches")
+        .select("id, branch_number, name, slug")
+        .eq("organization_id", orgId)
+        .is("deleted_at", null)
+        .order("branch_number", { ascending: true })
+        .limit(limit);
+
+      if (normalizedQuery) {
+        branchQuery =
+          numericQuery !== null
+            ? branchQuery.or(
+                `branch_number.eq.${numericQuery},name.ilike.%${normalizedQuery}%,slug.ilike.%${normalizedQuery}%`
+              )
+            : branchQuery.or(`name.ilike.%${normalizedQuery}%,slug.ilike.%${normalizedQuery}%`);
+      }
+
+      const { data: branches, error } = await branchQuery;
+      if (error) return { success: false, error: error.message };
+
+      for (const branch of (branches ?? []) as OrganizationEntityNumberBranch[]) {
+        results.push({
+          entity_type: "branch",
+          entity_number: branch.branch_number,
+          branch,
+        });
+      }
+    }
+
+    if (entityTypes.includes("crm_party")) {
+      let partyQuery = supabase
+        .from("crm_parties")
+        .select("id, counterparty_number")
+        .eq("organization_id", orgId)
+        .eq("status", "active")
+        .is("deleted_at", null)
+        .order("counterparty_number", { ascending: true })
+        .limit(limit);
+
+      if (normalizedQuery) {
+        partyQuery =
+          numericQuery !== null
+            ? partyQuery.or(
+                `counterparty_number.eq.${numericQuery},display_name.ilike.%${normalizedQuery}%,legal_name.ilike.%${normalizedQuery}%,tax_id.ilike.%${normalizedQuery}%,email.ilike.%${normalizedQuery}%,phone.ilike.%${normalizedQuery}%`
+              )
+            : partyQuery.or(
+                `display_name.ilike.%${normalizedQuery}%,legal_name.ilike.%${normalizedQuery}%,tax_id.ilike.%${normalizedQuery}%,email.ilike.%${normalizedQuery}%,phone.ilike.%${normalizedQuery}%`
+              );
+      }
+
+      const { data: parties, error } = await partyQuery;
+      if (error) return { success: false, error: error.message };
+
+      for (const party of (parties ?? []) as Array<{ id: string; counterparty_number: number }>) {
+        const resolved = await this.resolveParty(
+          supabase,
+          orgId,
+          party.id,
+          party.counterparty_number
+        );
+        if (resolved.success) results.push(resolved.data);
+      }
+    }
+
+    return {
+      success: true,
+      data: results
+        .sort((a, b) => a.entity_number - b.entity_number)
+        .slice(0, Math.max(1, Math.min(limit, 50))),
+    };
   }
 }
