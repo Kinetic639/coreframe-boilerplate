@@ -35,6 +35,7 @@ export function DataView<TListRow, TDetail>({
   resolveSelectedPage,
   getRowId,
   renderCompactItem,
+  renderMobileItem,
   renderExpandedRow,
   renderRowControl,
   renderToolbarControls,
@@ -59,6 +60,7 @@ export function DataView<TListRow, TDetail>({
         resolveSelectedPage={resolveSelectedPage}
         getRowId={getRowId}
         renderCompactItem={renderCompactItem}
+        renderMobileItem={renderMobileItem}
         renderExpandedRow={renderExpandedRow}
         renderRowControl={renderRowControl}
         renderToolbarControls={renderToolbarControls}

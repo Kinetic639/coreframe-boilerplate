@@ -264,7 +264,8 @@
       "searchPlaceholder": "Search...",
       "searchAria": "Search",
       "closeSearchAria": "Close search",
-      "backToListAria": "Back to full list"
+      "backToListAria": "Back to full list",
+      "refreshAria": "Refresh"
     },
     "selection": {
       "selectedCount": "{count} selected",
@@ -315,6 +316,9 @@
     },
     "table": {
       "noResults": "No results"
+    },
+    "mobile": {
+      "loadingAria": "Loading rows"
     }
   },
   "dataViewDemo": {

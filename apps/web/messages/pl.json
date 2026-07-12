@@ -264,7 +264,8 @@
       "searchPlaceholder": "Szukaj...",
       "searchAria": "Szukaj",
       "closeSearchAria": "Zamknij wyszukiwanie",
-      "backToListAria": "Wróć do pełnej listy"
+      "backToListAria": "Wróć do pełnej listy",
+      "refreshAria": "Odśwież"
     },
     "selection": {
       "selectedCount": "Wybrano: {count}",
@@ -315,6 +316,9 @@
     },
     "table": {
       "noResults": "Brak wyników"
+    },
+    "mobile": {
+      "loadingAria": "Ładowanie wierszy"
     }
   },
   "dataViewDemo": {
