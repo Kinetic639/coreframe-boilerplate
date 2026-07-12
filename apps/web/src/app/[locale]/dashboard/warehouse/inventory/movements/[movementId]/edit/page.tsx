@@ -119,6 +119,16 @@ export default async function EditDraftMovementPage({ params }: PageProps) {
     <MovementDocumentForm
       mode="edit"
       organizationName={context.app.activeOrg?.name ?? ""}
+      activeBranch={
+        context.app.activeBranch
+          ? {
+              id: context.app.activeBranch.id,
+              name: context.app.activeBranch.name,
+              branch_number: context.app.activeBranch.branch_number,
+              slug: context.app.activeBranch.slug,
+            }
+          : null
+      }
       branchName={context.app.activeBranch?.name ?? ""}
       createdByName={
         [context.user.user?.first_name, context.user.user?.last_name].filter(Boolean).join(" ") ||

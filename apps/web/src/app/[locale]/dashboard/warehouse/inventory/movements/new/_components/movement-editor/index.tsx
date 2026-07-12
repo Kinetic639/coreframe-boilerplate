@@ -23,6 +23,7 @@ export type { MovementFormInitialValues } from "./types";
 export function MovementDocumentForm({
   mode,
   organizationName,
+  activeBranch,
   branchName,
   createdByName,
   movementTypes,
@@ -44,7 +45,8 @@ export function MovementDocumentForm({
     variants,
     units,
     initialValues,
-    defaultRecipientName
+    defaultRecipientName,
+    activeBranch
   );
   const validation = useMovementValidation(
     form.typeCode,
@@ -60,10 +62,10 @@ export function MovementDocumentForm({
     mode,
     form.typeCode,
     form.requiresSourceLocation,
-    form.senderName,
-    form.senderDetails,
-    form.recipientName,
-    form.recipientDetails,
+    form.allowsSender ? form.senderName : "",
+    form.allowsSender ? form.senderDetails : null,
+    form.allowsRecipient ? form.recipientName : "",
+    form.allowsRecipient ? form.recipientDetails : null,
     form.externalReference,
     form.noteForSave,
     form.srcLoc,
@@ -170,6 +172,12 @@ export function MovementDocumentForm({
               movementTypes={movementTypes}
               allowsSender={form.allowsSender}
               allowsRecipient={form.allowsRecipient}
+              showSender={form.showSender}
+              showRecipient={form.showRecipient}
+              senderCanUnlock={form.senderCanUnlock}
+              recipientCanUnlock={form.recipientCanUnlock}
+              senderEntityTypes={form.partyContract.senderEntityTypes}
+              recipientEntityTypes={form.partyContract.recipientEntityTypes}
               senderName={form.senderName}
               recipientName={form.recipientName}
               supplierFields={form.supplierFields}

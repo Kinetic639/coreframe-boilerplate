@@ -87,6 +87,12 @@ export type ImportedMovementDocumentDraft = {
 export type MovementFormProps = {
   mode: "create" | "edit";
   organizationName?: string;
+  activeBranch?: {
+    id: string;
+    name: string;
+    branch_number?: number;
+    slug: string | null;
+  } | null;
   branchName: string;
   createdByName?: string;
   movementTypes: InventoryMovementType[];
