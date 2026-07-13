@@ -363,6 +363,10 @@ export const routing = defineRouting({
       en: "/dashboard/qr",
       pl: "/dashboard/kody-qr",
     },
+    "/dashboard/qr/assign/[token]": {
+      en: "/dashboard/qr/assign/[token]",
+      pl: "/dashboard/kody-qr/przypisz/[token]",
+    },
     "/dashboard/support": {
       en: "/dashboard/support",
       pl: "/dashboard/wsparcie",
