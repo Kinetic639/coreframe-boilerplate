@@ -3154,7 +3154,9 @@
           "requiresAcceptance": "Requires Acceptance",
           "requiresAcceptanceHint": "Ticket must be accepted by an authorized user before it can be resolved.",
           "acceptors": "Authorized Acceptors",
-          "acceptorsPlaceholder": "Select authorized acceptors"
+          "acceptorsPlaceholder": "Select authorized acceptors",
+          "attachments": "Attachments",
+          "qrCode": "QR Code"
         },
         "validation": {
           "titleRequired": "Title is required.",
@@ -3169,6 +3171,8 @@
         "submitting": "Submitting…",
         "cancel": "Cancel",
         "created": "Ticket #{number} created successfully.",
+        "attachmentUploadFailed": "Ticket created, but attachments failed to upload.",
+        "qrAssignFailed": "Ticket created, but the QR code could not be assigned.",
         "description": "Description",
         "details": "Details",
         "comments": "Comments",
@@ -3334,6 +3338,7 @@
         "taskUpdated": "Task updated",
         "failedCreate": "Failed to create task",
         "failedCreateRetry": "Failed to create task. Please try again.",
+        "qrAssignFailed": "Task created, but the QR code could not be assigned.",
         "title": "Title",
         "titleRequired": "Title is required",
         "titlePlaceholder": "Enter task title...",
@@ -4097,7 +4102,11 @@
         "warehouse": {
           "title": "WAREHOUSE",
           "item": "Item",
-          "itemDescription": "Open the item creation form."
+          "itemDescription": "Open the item creation form.",
+          "movement": "Movement",
+          "movementDescription": "Record a new stock movement.",
+          "audit": "Audit",
+          "auditDescription": "Start a new inventory audit."
         },
         "helpdesk": {
           "title": "HELP DESK",
@@ -7129,5 +7138,20 @@
       "members": "No public members found.",
       "memberBio": "No public biography has been added yet."
     }
+  },
+  "qrAssign": {
+    "title": "Quick Assign QR Code",
+    "targetTicket": "Ticket",
+    "targetTask": "Task",
+    "back": "Back",
+    "assignExisting": "Assign to existing",
+    "createNew": "Create new",
+    "searchTickets": "Search tickets…",
+    "searchTasks": "Search tasks…",
+    "assigning": "Assigning…",
+    "assigned": "QR code assigned.",
+    "successTitle": "QR code assigned",
+    "successBody": "The QR code is now linked to {name}.",
+    "viewItem": "View"
   }
 }

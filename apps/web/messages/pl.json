@@ -3125,7 +3125,9 @@
           "requiresAcceptance": "Wymaga akceptacji",
           "requiresAcceptanceHint": "Zgłoszenie musi zostać zaakceptowane przez upoważnioną osobę przed rozwiązaniem.",
           "acceptors": "Osoby upoważnione do akceptacji",
-          "acceptorsPlaceholder": "Wybierz osoby upoważnione do akceptacji"
+          "acceptorsPlaceholder": "Wybierz osoby upoważnione do akceptacji",
+          "attachments": "Załączniki",
+          "qrCode": "Kod QR"
         },
         "validation": {
           "titleRequired": "Tytuł jest wymagany.",
@@ -3140,6 +3142,8 @@
         "submitting": "Wysyłanie…",
         "cancel": "Anuluj",
         "created": "Zgłoszenie #{number} zostało utworzone.",
+        "attachmentUploadFailed": "Zgłoszenie utworzone, ale przesyłanie załączników nie powiodło się.",
+        "qrAssignFailed": "Zgłoszenie utworzone, ale przypisanie kodu QR nie powiodło się.",
         "description": "Opis",
         "details": "Szczegóły",
         "comments": "Komentarze",
@@ -3305,6 +3309,7 @@
         "taskUpdated": "Zadanie zaktualizowane",
         "failedCreate": "Nie udało się utworzyć zadania",
         "failedCreateRetry": "Nie udało się utworzyć zadania. Spróbuj ponownie.",
+        "qrAssignFailed": "Zadanie utworzone, ale przypisanie kodu QR nie powiodło się.",
         "title": "Tytuł",
         "titleRequired": "Tytuł jest wymagany",
         "titlePlaceholder": "Wpisz tytuł zadania...",
@@ -4068,7 +4073,11 @@
         "warehouse": {
           "title": "MAGAZYN",
           "item": "Towar",
-          "itemDescription": "Otwórz formularz tworzenia towaru."
+          "itemDescription": "Otwórz formularz tworzenia towaru.",
+          "movement": "Przesunięcie",
+          "movementDescription": "Zarejestruj nowe przesunięcie magazynowe.",
+          "audit": "Audyt",
+          "auditDescription": "Rozpocznij nowy audyt magazynowy."
         },
         "helpdesk": {
           "title": "HELP DESK",
@@ -7103,5 +7112,20 @@
       "members": "Nie znaleziono publicznych członków.",
       "memberBio": "Nie dodano jeszcze publicznego biogramu."
     }
+  },
+  "qrAssign": {
+    "title": "Szybkie przypisanie kodu QR",
+    "targetTicket": "Zgłoszenie",
+    "targetTask": "Zadanie",
+    "back": "Wstecz",
+    "assignExisting": "Przypisz do istniejącego",
+    "createNew": "Utwórz nowe",
+    "searchTickets": "Szukaj zgłoszeń…",
+    "searchTasks": "Szukaj zadań…",
+    "assigning": "Przypisywanie…",
+    "assigned": "Kod QR przypisany.",
+    "successTitle": "Kod QR przypisany",
+    "successBody": "Kod QR jest teraz powiązany z {name}.",
+    "viewItem": "Zobacz"
   }
 }
