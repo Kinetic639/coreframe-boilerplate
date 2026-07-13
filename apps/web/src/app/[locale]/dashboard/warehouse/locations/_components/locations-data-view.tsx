@@ -2,7 +2,8 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Check, LayoutGrid, LayoutList, Printer, X } from "lucide-react";
+import { Check, ClipboardCheck, LayoutGrid, LayoutList, Printer, X } from "lucide-react";
+import { useRouter } from "@/i18n/navigation";
 import { DataView } from "@/components/data-view/data-view";
 import { Button } from "@/components/ui/button";
 import type {
@@ -68,6 +69,7 @@ export function LocationsDataView({
 }: Props) {
   const t = useTranslations("warehouseLocations.listView");
   const tAmbra = useTranslations("ambraLocations");
+  const router = useRouter();
   const [isCompactMode, setIsCompactMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
@@ -155,17 +157,37 @@ export function LocationsDataView({
   const renderToolbarControls = useCallback(
     () =>
       selectedIds.length > 0 ? (
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => setPrintDialogOpen(true)}
-          className="gap-1.5"
-        >
-          <Printer className="h-3.5 w-3.5" />
-          {t("printLabels", { count: selectedIds.length })}
-        </Button>
+        <>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setPrintDialogOpen(true)}
+            className="gap-1.5"
+          >
+            <Printer className="h-3.5 w-3.5" />
+            {t("printLabels", { count: selectedIds.length })}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() =>
+              router.push({
+                pathname: "/dashboard/warehouse/audits/new",
+                query: {
+                  step: "2",
+                  countType: "location",
+                  locationIds: selectedIds.join(","),
+                },
+              })
+            }
+            className="gap-1.5"
+          >
+            <ClipboardCheck className="h-3.5 w-3.5" />
+            {tAmbra("actions.auditSelected", { count: selectedIds.length })}
+          </Button>
+        </>
       ) : null,
-    [selectedIds, t]
+    [selectedIds, t, tAmbra, router]
   );
 
   const columns = useMemo<DataViewColumnDef<LocationListRow>[]>(
@@ -293,22 +315,40 @@ export function LocationsDataView({
             compact={isCompactMode}
             qrAssignment={detail.qrAssignment}
             headerActions={
-              <div className="flex items-center gap-1 bg-background/80 rounded-xl p-1 border border-border">
+              <>
+                <div className="flex items-center gap-1 bg-background/80 rounded-xl p-1 border border-border">
+                  <button
+                    onClick={() => setIsCompactMode(false)}
+                    className={`p-2 rounded-lg transition-all ${!isCompactMode ? "bg-primary/10 text-primary shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)] border border-primary/20" : "text-muted-foreground hover:text-foreground/80 border border-transparent"}`}
+                    title={tAmbra("actions.bentoView")}
+                  >
+                    <LayoutGrid className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setIsCompactMode(true)}
+                    className={`p-2 rounded-lg transition-all ${isCompactMode ? "bg-primary/10 text-primary shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)] border border-primary/20" : "text-muted-foreground hover:text-foreground/80 border border-transparent"}`}
+                    title={tAmbra("actions.streamlinedView")}
+                  >
+                    <LayoutList className="w-4 h-4" />
+                  </button>
+                </div>
                 <button
-                  onClick={() => setIsCompactMode(false)}
-                  className={`p-2 rounded-lg transition-all ${!isCompactMode ? "bg-primary/10 text-primary shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)] border border-primary/20" : "text-muted-foreground hover:text-foreground/80 border border-transparent"}`}
-                  title={tAmbra("actions.bentoView")}
+                  onClick={() =>
+                    router.push({
+                      pathname: "/dashboard/warehouse/audits/new",
+                      query: {
+                        step: "2",
+                        countType: "location",
+                        locationId: detail.location.id,
+                      },
+                    })
+                  }
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border bg-muted hover:bg-muted font-bold text-xs text-foreground/80 transition-all shadow-sm"
                 >
-                  <LayoutGrid className="w-4 h-4" />
+                  <ClipboardCheck className="w-4 h-4" />
+                  {tAmbra("actions.auditLocation")}
                 </button>
-                <button
-                  onClick={() => setIsCompactMode(true)}
-                  className={`p-2 rounded-lg transition-all ${isCompactMode ? "bg-primary/10 text-primary shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)] border border-primary/20" : "text-muted-foreground hover:text-foreground/80 border border-transparent"}`}
-                  title={tAmbra("actions.streamlinedView")}
-                >
-                  <LayoutList className="w-4 h-4" />
-                </button>
-              </div>
+              </>
             }
           />
         )}
