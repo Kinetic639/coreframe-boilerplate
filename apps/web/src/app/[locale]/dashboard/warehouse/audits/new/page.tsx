@@ -8,9 +8,35 @@ import { WarehouseLocationsService } from "@/server/services/warehouse-locations
 import { InventoryProductsService } from "@/server/services/inventory-products.service";
 import { flattenLocationTreeDepthFirst } from "@/lib/warehouse/location-tree";
 import { AuditWizard } from "./_components/audit-wizard";
+import type { CountSessionType } from "@/lib/warehouse/count-session-types";
 
-export default async function NewWarehouseAuditPage() {
+type PageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function NewWarehouseAuditPage({ searchParams }: PageProps) {
   const locale = await getLocale();
+  const params = searchParams ? await searchParams : {};
+  const asString = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+  const rawStep = Number(asString(params.step));
+  const rawCountType = asString(params.countType);
+  const locationId = asString(params.locationId);
+  const rawLocationIds = params.locationIds;
+  const locationIds = Array.isArray(rawLocationIds)
+    ? rawLocationIds
+    : rawLocationIds
+      ? rawLocationIds.split(",").filter(Boolean)
+      : locationId
+        ? [locationId]
+        : [];
+  const initialState =
+    rawStep === 2 && locationIds.length > 0
+      ? {
+          step: 2 as const,
+          countType: (rawCountType === "supplier" ? "supplier" : "location") as CountSessionType,
+          selectedLocationIds: locationIds,
+        }
+      : undefined;
   const context = await loadDashboardContextV2();
 
   if (!context?.app.activeOrgId) return redirect({ href: "/sign-in", locale });
@@ -110,6 +136,7 @@ export default async function NewWarehouseAuditPage() {
       locations={locations}
       suppliers={suppliers}
       stockIndex={stockIndex}
+      initialState={initialState}
     />
   );
 }

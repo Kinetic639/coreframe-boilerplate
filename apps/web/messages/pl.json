@@ -6718,6 +6718,8 @@
       "bentoView": "Widok siatki bento",
       "streamlinedView": "Widok uproszczony",
       "edit": "Edytuj",
+      "auditLocation": "Audytuj lokalizację",
+      "auditSelected": "Audytuj zaznaczone ({count})",
       "quickAddChild": "Szybko dodaj dziecko",
       "duplicate": "Duplikuj",
       "locateOnMap": "Znajdź na mapie",

@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
+import { useRouter } from "@/i18n/navigation";
 import {
   LogicalLocation,
   LocationRole,
@@ -76,6 +77,7 @@ import {
   Package,
   Circle,
   Activity,
+  ClipboardCheck,
 } from "lucide-react";
 
 import {
@@ -446,6 +448,7 @@ export default function LocationsPage({
   onQrUnassigned,
 }: LocationsPageProps) {
   const t = useTranslations("ambraLocations");
+  const router = useRouter();
   const [internalSelectedId, setInternalSelectedId] = useState<string | null>(
     controlledSelectedId ?? (locations[0]?.id || null)
   );
@@ -1253,6 +1256,22 @@ export default function LocationsPage({
                     >
                       <Pencil className="w-4 h-4" />
                       {t("actions.edit")}
+                    </button>
+                    <button
+                      onClick={() =>
+                        router.push({
+                          pathname: "/dashboard/warehouse/audits/new",
+                          query: {
+                            step: "2",
+                            countType: "location",
+                            locationId: selectedLocation.id,
+                          },
+                        })
+                      }
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border bg-muted hover:bg-muted font-bold text-xs text-foreground/80 transition-all shadow-sm"
+                    >
+                      <ClipboardCheck className="w-4 h-4" />
+                      {t("actions.auditLocation")}
                     </button>
                     <div className="flex items-center gap-1.5 bg-background/50 p-1 rounded-xl border border-border/40">
                       <RibbonAction

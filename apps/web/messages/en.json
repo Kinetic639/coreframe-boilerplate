@@ -6744,6 +6744,8 @@
       "bentoView": "Bento grid view",
       "streamlinedView": "Streamlined view",
       "edit": "Edit",
+      "auditLocation": "Audit location",
+      "auditSelected": "Audit selected ({count})",
       "quickAddChild": "Quick add child",
       "duplicate": "Duplicate",
       "locateOnMap": "Locate on map",
