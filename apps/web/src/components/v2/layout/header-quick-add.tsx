@@ -3,7 +3,16 @@
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { CheckSquare, KanbanSquare, Loader2, PackagePlus, Plus, Ticket } from "lucide-react";
+import {
+  ArrowLeftRight,
+  CheckSquare,
+  ClipboardCheck,
+  KanbanSquare,
+  Loader2,
+  PackagePlus,
+  Plus,
+  Ticket,
+} from "lucide-react";
 import { toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
 import {
@@ -90,6 +99,20 @@ export function HeaderQuickAdd() {
             description: t("warehouse.itemDescription"),
             icon: PackagePlus,
             onSelect: () => navigate("/dashboard/warehouse/items/new"),
+          },
+          {
+            id: "movement",
+            label: t("warehouse.movement"),
+            description: t("warehouse.movementDescription"),
+            icon: ArrowLeftRight,
+            onSelect: () => navigate("/dashboard/warehouse/inventory/movements/new"),
+          },
+          {
+            id: "audit",
+            label: t("warehouse.audit"),
+            description: t("warehouse.auditDescription"),
+            icon: ClipboardCheck,
+            onSelect: () => navigate("/dashboard/warehouse/audits/new"),
           },
         ],
       },
