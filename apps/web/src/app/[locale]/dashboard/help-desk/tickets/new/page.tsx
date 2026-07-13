@@ -8,7 +8,11 @@ import { HelpdeskTicketTypesService } from "@/server/services/helpdesk-ticket-ty
 import { OrgMembersService } from "@/server/services/organization.service";
 import { NewTicketForm } from "./_components/new-ticket-form";
 
-export default async function NewTicketPage() {
+type PageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function NewTicketPage({ searchParams }: PageProps = {}) {
   const locale = await getLocale();
   const context = await loadDashboardContextV2();
 
@@ -46,6 +50,15 @@ export default async function NewTicketPage() {
 
   const settings = settingsResult.success ? settingsResult.data : null;
 
+  const params = searchParams ? await searchParams : {};
+  const asString = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+  const qrCodeId = asString(params.qrCodeId);
+  const qrToken = asString(params.qrToken);
+  const initialQr =
+    qrCodeId && qrToken
+      ? { qrCodeId, token: qrToken, label: asString(params.qrLabel) ?? null }
+      : null;
+
   return (
     <NewTicketForm
       ticketTypes={ticketTypes}
@@ -53,6 +66,7 @@ export default async function NewTicketPage() {
       activeBranchId={context.app.activeBranchId ?? null}
       statusConfigs={settings?.status_configs ?? null}
       priorityConfigs={settings?.priority_configs ?? null}
+      initialQr={initialQr}
     />
   );
 }
