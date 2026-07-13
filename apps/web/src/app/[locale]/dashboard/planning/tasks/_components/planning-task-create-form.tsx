@@ -125,11 +125,15 @@ export function PlanningTaskCreateForm({
       toast.success(t("taskCreated"));
 
       if (stagedQr) {
-        const qrResult = await assignQrToPlanningTaskAction({
-          qrCodeId: stagedQr.qrCodeId,
-          taskId: result.data.id,
-        });
-        if (!qrResult.success) {
+        try {
+          const qrResult = await assignQrToPlanningTaskAction({
+            qrCodeId: stagedQr.qrCodeId,
+            taskId: result.data.id,
+          });
+          if (!qrResult.success) {
+            toast.error(t("qrAssignFailed"));
+          }
+        } catch {
           toast.error(t("qrAssignFailed"));
         }
       }
