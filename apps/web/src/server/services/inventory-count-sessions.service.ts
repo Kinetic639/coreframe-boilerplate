@@ -113,12 +113,16 @@ export class InventoryCountSessionsService {
 
   static async getSessionDetail(
     supabase: SupabaseClient,
+    orgId: string,
+    branchId: string,
     sessionId: string
   ): Promise<ServiceResult<CountSessionDetail>> {
     const { data: session, error: sessionError } = await supabase
       .from("inventory_count_sessions")
       .select("*")
       .eq("id", sessionId)
+      .eq("organization_id", orgId)
+      .eq("branch_id", branchId)
       .single();
     if (sessionError) return { success: false, error: errorMessage(sessionError) };
 
@@ -126,6 +130,8 @@ export class InventoryCountSessionsService {
       .from("inventory_count_lines")
       .select("*")
       .eq("count_session_id", sessionId)
+      .eq("organization_id", orgId)
+      .eq("branch_id", branchId)
       .order("sequence_no", { ascending: true });
     if (linesError) return { success: false, error: errorMessage(linesError) };
 
@@ -193,6 +199,8 @@ export class InventoryCountSessionsService {
    */
   static async updateCountLine(
     supabase: SupabaseClient,
+    orgId: string,
+    branchId: string,
     lineId: string,
     input: UpdateCountLineInput
   ): Promise<ServiceResult<{ id: string }>> {
@@ -233,6 +241,8 @@ export class InventoryCountSessionsService {
       .from("inventory_count_lines")
       .update(updates)
       .eq("id", lineId)
+      .eq("organization_id", orgId)
+      .eq("branch_id", branchId)
       .select("id")
       .single();
 
@@ -258,6 +268,8 @@ export class InventoryCountSessionsService {
       .from("inventory_count_lines")
       .select("sequence_no")
       .eq("count_session_id", sessionId)
+      .eq("organization_id", input.organization_id)
+      .eq("branch_id", input.branch_id)
       .order("sequence_no", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -301,6 +313,8 @@ export class InventoryCountSessionsService {
    */
   static async bulkApproveLines(
     supabase: SupabaseClient,
+    orgId: string,
+    branchId: string,
     lineIds: string[],
     input: { require_reason_for_variance: boolean }
   ): Promise<ServiceResult<{ approvedIds: string[]; skippedIds: string[] }>> {
@@ -309,6 +323,8 @@ export class InventoryCountSessionsService {
     const { data: lines, error } = await supabase
       .from("inventory_count_lines")
       .select("id, status, variance_quantity, reason_code")
+      .eq("organization_id", orgId)
+      .eq("branch_id", branchId)
       .in("id", lineIds);
     if (error) return { success: false, error: errorMessage(error) };
 
@@ -339,6 +355,8 @@ export class InventoryCountSessionsService {
       const { error: updateError } = await supabase
         .from("inventory_count_lines")
         .update({ status: "approved" })
+        .eq("organization_id", orgId)
+        .eq("branch_id", branchId)
         .in("id", approvedIds);
       if (updateError) return { success: false, error: errorMessage(updateError) };
     }
@@ -356,9 +374,21 @@ export class InventoryCountSessionsService {
    */
   static async approveCountSession(
     supabase: SupabaseClient,
+    orgId: string,
+    branchId: string,
     countSessionId: string,
     actorUserId: string | null
   ): Promise<ServiceResult<Record<string, unknown>>> {
+    const { data: session, error: sessionError } = await supabase
+      .from("inventory_count_sessions")
+      .select("id")
+      .eq("id", countSessionId)
+      .eq("organization_id", orgId)
+      .eq("branch_id", branchId)
+      .single();
+    if (sessionError) return { success: false, error: errorMessage(sessionError) };
+    if (!session) return { success: false, error: "Inventory count session not found" };
+
     const { data, error } = await supabase.rpc("inventory_approve_count_session", {
       p_count_session_id: countSessionId,
       p_actor_user_id: actorUserId,
@@ -379,6 +409,8 @@ export class InventoryCountSessionsService {
    */
   static async updateSessionStatus(
     supabase: SupabaseClient,
+    orgId: string,
+    branchId: string,
     sessionId: string,
     status: "counting" | "submitted"
   ): Promise<ServiceResult<{ id: string; status: string }>> {
@@ -386,6 +418,8 @@ export class InventoryCountSessionsService {
       .from("inventory_count_sessions")
       .update({ status })
       .eq("id", sessionId)
+      .eq("organization_id", orgId)
+      .eq("branch_id", branchId)
       .select("id, status")
       .single();
 

@@ -25,6 +25,7 @@ import { InventoryCountSessionsService } from "../inventory-count-sessions.servi
 const ORG_ID = "org-111";
 const BRANCH_ID = "branch-222";
 const USER_ID = "user-333";
+const COUNT_SCOPE = [ORG_ID, BRANCH_ID] as const;
 
 // ─── Supabase mock builder (mirrors warehouse-locations.service.test.ts) ──────
 
@@ -34,6 +35,7 @@ function makeSupabaseMock(
 ) {
   let fromIndex = 0;
   let rpcIndex = 0;
+  const chains: Array<Record<string, unknown>> = [];
 
   const makeChain = (result: { data: unknown; error: unknown }) => {
     const chain: Record<string, unknown> = {};
@@ -50,10 +52,13 @@ function makeSupabaseMock(
   };
 
   return {
+    chains,
     from: vi.fn().mockImplementation(() => {
       const result = fromResults[fromIndex] ?? { data: null, error: null };
       fromIndex++;
-      return makeChain(result);
+      const chain = makeChain(result);
+      chains.push(chain);
+      return chain;
     }),
     rpc: vi.fn().mockImplementation(() => {
       const result = rpcResults[rpcIndex] ?? { data: null, error: null };
@@ -78,6 +83,11 @@ function makeRlsDeniedClient() {
     from: vi.fn().mockReturnValue(chain),
     rpc: vi.fn().mockResolvedValue(errResult),
   };
+}
+
+function expectScopedQuery(chain: Record<string, unknown>, orgId: string, branchId: string) {
+  expect(chain.eq).toHaveBeenCalledWith("organization_id", orgId);
+  expect(chain.eq).toHaveBeenCalledWith("branch_id", branchId);
 }
 
 // ─── listSessions / getSessionDetail ───────────────────────────────────────────
@@ -132,7 +142,11 @@ describe("getSessionDetail", () => {
       { data: [{ id: "l1", sequence_no: 1 }], error: null },
     ]);
 
-    const result = await InventoryCountSessionsService.getSessionDetail(supabase as any, "s1");
+    const result = await InventoryCountSessionsService.getSessionDetail(
+      supabase as any,
+      ...COUNT_SCOPE,
+      "s1"
+    );
 
     expect(result).toEqual({
       success: true,
@@ -142,7 +156,11 @@ describe("getSessionDetail", () => {
 
   it("fails when the session lookup errors", async () => {
     const supabase = makeSupabaseMock([{ data: null, error: { message: "not found" } }]);
-    const result = await InventoryCountSessionsService.getSessionDetail(supabase as any, "s1");
+    const result = await InventoryCountSessionsService.getSessionDetail(
+      supabase as any,
+      ...COUNT_SCOPE,
+      "s1"
+    );
     expect(result).toEqual({ success: false, error: "not found" });
   });
 });
@@ -267,31 +285,46 @@ describe("createCountSession", () => {
 describe("updateCountLine", () => {
   it("updates counted_quantity and stamps counted_by/counted_at", async () => {
     const supabase = makeSupabaseMock([{ data: { id: "line-1" }, error: null }]);
-    const result = await InventoryCountSessionsService.updateCountLine(supabase as any, "line-1", {
-      counted_quantity: 5,
-      actor_user_id: USER_ID,
-    });
+    const result = await InventoryCountSessionsService.updateCountLine(
+      supabase as any,
+      ...COUNT_SCOPE,
+      "line-1",
+      {
+        counted_quantity: 5,
+        actor_user_id: USER_ID,
+      }
+    );
     expect(result).toEqual({ success: true, data: { id: "line-1" } });
   });
 
   it("allows approving a zero-variance line without a reason_code, even when require_reason_for_variance=true", async () => {
     const supabase = makeSupabaseMock([{ data: { id: "line-1" }, error: null }]);
-    const result = await InventoryCountSessionsService.updateCountLine(supabase as any, "line-1", {
-      status: "approved",
-      variance_quantity: 0,
-      require_reason_for_variance: true,
-    });
+    const result = await InventoryCountSessionsService.updateCountLine(
+      supabase as any,
+      ...COUNT_SCOPE,
+      "line-1",
+      {
+        status: "approved",
+        variance_quantity: 0,
+        require_reason_for_variance: true,
+      }
+    );
     expect(result.success).toBe(true);
   });
 
   it("rejects approving a nonzero-variance line without a reason_code when required", async () => {
     const supabase = makeSupabaseMock([{ data: { id: "line-1" }, error: null }]);
-    const result = await InventoryCountSessionsService.updateCountLine(supabase as any, "line-1", {
-      status: "approved",
-      variance_quantity: -2,
-      require_reason_for_variance: true,
-      reason_code: null,
-    });
+    const result = await InventoryCountSessionsService.updateCountLine(
+      supabase as any,
+      ...COUNT_SCOPE,
+      "line-1",
+      {
+        status: "approved",
+        variance_quantity: -2,
+        require_reason_for_variance: true,
+        reason_code: null,
+      }
+    );
     expect(result).toEqual({
       success: false,
       error: "A reason is required to approve a line with a quantity variance",
@@ -301,37 +334,57 @@ describe("updateCountLine", () => {
 
   it("allows approving a nonzero-variance line without a reason when the session does not require one", async () => {
     const supabase = makeSupabaseMock([{ data: { id: "line-1" }, error: null }]);
-    const result = await InventoryCountSessionsService.updateCountLine(supabase as any, "line-1", {
-      status: "approved",
-      variance_quantity: -2,
-      require_reason_for_variance: false,
-    });
+    const result = await InventoryCountSessionsService.updateCountLine(
+      supabase as any,
+      ...COUNT_SCOPE,
+      "line-1",
+      {
+        status: "approved",
+        variance_quantity: -2,
+        require_reason_for_variance: false,
+      }
+    );
     expect(result.success).toBe(true);
   });
 
   it("rejects an invalid transition when current_status is supplied", async () => {
     const supabase = makeSupabaseMock([{ data: { id: "line-1" }, error: null }]);
-    const result = await InventoryCountSessionsService.updateCountLine(supabase as any, "line-1", {
-      status: "pending",
-      current_status: "approved",
-    });
+    const result = await InventoryCountSessionsService.updateCountLine(
+      supabase as any,
+      ...COUNT_SCOPE,
+      "line-1",
+      {
+        status: "pending",
+        current_status: "approved",
+      }
+    );
     expect(result.success).toBe(false);
     expect(supabase.from).not.toHaveBeenCalled();
   });
 
   it("skips transition validation when current_status is not supplied", async () => {
     const supabase = makeSupabaseMock([{ data: { id: "line-1" }, error: null }]);
-    const result = await InventoryCountSessionsService.updateCountLine(supabase as any, "line-1", {
-      status: "skipped",
-    });
+    const result = await InventoryCountSessionsService.updateCountLine(
+      supabase as any,
+      ...COUNT_SCOPE,
+      "line-1",
+      {
+        status: "skipped",
+      }
+    );
     expect(result.success).toBe(true);
   });
 
   it("propagates a DB error", async () => {
     const supabase = makeSupabaseMock([{ data: null, error: { message: "constraint violated" } }]);
-    const result = await InventoryCountSessionsService.updateCountLine(supabase as any, "line-1", {
-      status: "skipped",
-    });
+    const result = await InventoryCountSessionsService.updateCountLine(
+      supabase as any,
+      ...COUNT_SCOPE,
+      "line-1",
+      {
+        status: "skipped",
+      }
+    );
     expect(result).toEqual({ success: false, error: "constraint violated" });
   });
 });
@@ -407,9 +460,14 @@ describe("addUnexpectedLine", () => {
 describe("bulkApproveLines", () => {
   it("returns empty results immediately for an empty id list, without querying", async () => {
     const supabase = makeSupabaseMock([]);
-    const result = await InventoryCountSessionsService.bulkApproveLines(supabase as any, [], {
-      require_reason_for_variance: true,
-    });
+    const result = await InventoryCountSessionsService.bulkApproveLines(
+      supabase as any,
+      ...COUNT_SCOPE,
+      [],
+      {
+        require_reason_for_variance: true,
+      }
+    );
     expect(result).toEqual({ success: true, data: { approvedIds: [], skippedIds: [] } });
     expect(supabase.from).not.toHaveBeenCalled();
   });
@@ -431,6 +489,7 @@ describe("bulkApproveLines", () => {
 
     const result = await InventoryCountSessionsService.bulkApproveLines(
       supabase as any,
+      ...COUNT_SCOPE,
       ["l-match", "l-has-reason", "l-missing-reason", "l-skipped", "l-pending"],
       { require_reason_for_variance: true }
     );
@@ -453,6 +512,7 @@ describe("bulkApproveLines", () => {
     ]);
     const result = await InventoryCountSessionsService.bulkApproveLines(
       supabase as any,
+      ...COUNT_SCOPE,
       ["l-pending"],
       {
         require_reason_for_variance: true,
@@ -469,11 +529,12 @@ describe("bulkApproveLines", () => {
 describe("approveCountSession", () => {
   it("passes through a successful RPC result", async () => {
     const supabase = makeSupabaseMock(
-      [],
+      [{ data: { id: "s1" }, error: null }],
       [{ data: { count_session_id: "s1", status: "approved" }, error: null }]
     );
     const result = await InventoryCountSessionsService.approveCountSession(
       supabase as any,
+      ...COUNT_SCOPE,
       "s1",
       USER_ID
     );
@@ -482,11 +543,12 @@ describe("approveCountSession", () => {
 
   it("surfaces the RPC's rejection reason unchanged (e.g. all-or-nothing gate failure)", async () => {
     const supabase = makeSupabaseMock(
-      [],
+      [{ data: { id: "s1" }, error: null }],
       [{ data: null, error: { message: "Cannot post: session has unresolved pending lines" } }]
     );
     const result = await InventoryCountSessionsService.approveCountSession(
       supabase as any,
+      ...COUNT_SCOPE,
       "s1",
       USER_ID
     );
@@ -498,11 +560,12 @@ describe("approveCountSession", () => {
 
   it("surfaces a missing warehouse.inventory.adjust permission error unchanged", async () => {
     const supabase = makeSupabaseMock(
-      [],
+      [{ data: { id: "s1" }, error: null }],
       [{ data: null, error: { message: "Missing warehouse.inventory.adjust permission" } }]
     );
     const result = await InventoryCountSessionsService.approveCountSession(
       supabase as any,
+      ...COUNT_SCOPE,
       "s1",
       USER_ID
     );
@@ -518,6 +581,7 @@ describe("updateSessionStatus", () => {
     const supabase = makeSupabaseMock([{ data: { id: "s1", status: "counting" }, error: null }]);
     const result = await InventoryCountSessionsService.updateSessionStatus(
       supabase as any,
+      ...COUNT_SCOPE,
       "s1",
       "counting"
     );
@@ -528,6 +592,7 @@ describe("updateSessionStatus", () => {
     const supabase = makeSupabaseMock([{ data: { id: "s1", status: "submitted" }, error: null }]);
     const result = await InventoryCountSessionsService.updateSessionStatus(
       supabase as any,
+      ...COUNT_SCOPE,
       "s1",
       "submitted"
     );
@@ -538,6 +603,7 @@ describe("updateSessionStatus", () => {
     const supabase = makeSupabaseMock([{ data: null, error: { message: "not found" } }]);
     const result = await InventoryCountSessionsService.updateSessionStatus(
       supabase as any,
+      ...COUNT_SCOPE,
       "s1",
       "counting"
     );
@@ -718,15 +784,24 @@ describe("T-RLS: RLS denial", () => {
 
   it("getSessionDetail surfaces an RLS permission error on SELECT", async () => {
     const supabase = makeRlsDeniedClient();
-    const result = await InventoryCountSessionsService.getSessionDetail(supabase as any, "s1");
+    const result = await InventoryCountSessionsService.getSessionDetail(
+      supabase as any,
+      ...COUNT_SCOPE,
+      "s1"
+    );
     expect(result.success).toBe(false);
   });
 
   it("updateCountLine surfaces an RLS permission error on UPDATE", async () => {
     const supabase = makeRlsDeniedClient();
-    const result = await InventoryCountSessionsService.updateCountLine(supabase as any, "line-1", {
-      status: "skipped",
-    });
+    const result = await InventoryCountSessionsService.updateCountLine(
+      supabase as any,
+      ...COUNT_SCOPE,
+      "line-1",
+      {
+        status: "skipped",
+      }
+    );
     expect(result.success).toBe(false);
   });
 
@@ -734,6 +809,7 @@ describe("T-RLS: RLS denial", () => {
     const supabase = makeRlsDeniedClient();
     const result = await InventoryCountSessionsService.approveCountSession(
       supabase as any,
+      ...COUNT_SCOPE,
       "s1",
       USER_ID
     );
@@ -765,6 +841,83 @@ describe("T-BRANCH/T-ORG: isolation invariants", () => {
     expect(supabase.rpc).toHaveBeenCalledWith(
       "inventory_create_count_session",
       expect.objectContaining({ p_organization_id: "org-A", p_branch_id: "branch-A" })
+    );
+  });
+
+  it("getSessionDetail scopes both the session and line queries to the given organization and branch", async () => {
+    const supabase = makeSupabaseMock([
+      { data: { id: "s1", status: "counting" }, error: null },
+      { data: [], error: null },
+    ]);
+    await InventoryCountSessionsService.getSessionDetail(
+      supabase as any,
+      "org-A",
+      "branch-A",
+      "s1"
+    );
+    expectScopedQuery(supabase.chains[0], "org-A", "branch-A");
+    expectScopedQuery(supabase.chains[1], "org-A", "branch-A");
+  });
+
+  it("updateCountLine scopes the update to the given organization and branch", async () => {
+    const supabase = makeSupabaseMock([{ data: { id: "line-1" }, error: null }]);
+    await InventoryCountSessionsService.updateCountLine(
+      supabase as any,
+      "org-A",
+      "branch-A",
+      "line-1",
+      { status: "skipped" }
+    );
+    expectScopedQuery(supabase.chains[0], "org-A", "branch-A");
+  });
+
+  it("bulkApproveLines scopes both the select and update to the given organization and branch", async () => {
+    const supabase = makeSupabaseMock([
+      {
+        data: [{ id: "line-1", status: "counted", variance_quantity: 0, reason_code: null }],
+        error: null,
+      },
+      { data: null, error: null },
+    ]);
+    await InventoryCountSessionsService.bulkApproveLines(
+      supabase as any,
+      "org-A",
+      "branch-A",
+      ["line-1"],
+      { require_reason_for_variance: true }
+    );
+    expectScopedQuery(supabase.chains[0], "org-A", "branch-A");
+    expectScopedQuery(supabase.chains[1], "org-A", "branch-A");
+  });
+
+  it("updateSessionStatus scopes the update to the given organization and branch", async () => {
+    const supabase = makeSupabaseMock([{ data: { id: "s1", status: "submitted" }, error: null }]);
+    await InventoryCountSessionsService.updateSessionStatus(
+      supabase as any,
+      "org-A",
+      "branch-A",
+      "s1",
+      "submitted"
+    );
+    expectScopedQuery(supabase.chains[0], "org-A", "branch-A");
+  });
+
+  it("approveCountSession verifies the session belongs to the given organization and branch before calling the RPC", async () => {
+    const supabase = makeSupabaseMock(
+      [{ data: { id: "s1" }, error: null }],
+      [{ data: { count_session_id: "s1" }, error: null }]
+    );
+    await InventoryCountSessionsService.approveCountSession(
+      supabase as any,
+      "org-A",
+      "branch-A",
+      "s1",
+      USER_ID
+    );
+    expectScopedQuery(supabase.chains[0], "org-A", "branch-A");
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      "inventory_approve_count_session",
+      expect.objectContaining({ p_count_session_id: "s1" })
     );
   });
 

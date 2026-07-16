@@ -174,6 +174,12 @@ describe("getInventoryCountSessionAction", () => {
       id: "11111111-1111-1111-1111-111111111111",
     });
 
+    expect(InventoryCountSessionsService.getSessionDetail).toHaveBeenCalledWith(
+      expect.anything(),
+      ORG_ID,
+      BRANCH_ID,
+      "11111111-1111-1111-1111-111111111111"
+    );
     expect(enrichCountLines).toHaveBeenCalledWith(expect.anything(), [rawLine]);
     expect(result).toEqual({
       success: true,
@@ -307,6 +313,8 @@ describe("updateInventoryCountLineAction", () => {
     expect(result.success).toBe(true);
     expect(InventoryCountSessionsService.updateCountLine).toHaveBeenCalledWith(
       expect.anything(),
+      ORG_ID,
+      BRANCH_ID,
       LOCATION_ID,
       expect.objectContaining({ counted_quantity: 5, status: "counted", actor_user_id: USER_ID })
     );
@@ -389,6 +397,13 @@ describe("bulkApproveCountLinesAction", () => {
 
     const result = await bulkApproveCountLinesAction({ line_ids: [LOCATION_ID] });
     expect(result.success).toBe(true);
+    expect(InventoryCountSessionsService.bulkApproveLines).toHaveBeenCalledWith(
+      expect.anything(),
+      ORG_ID,
+      BRANCH_ID,
+      [LOCATION_ID],
+      expect.objectContaining({ require_reason_for_variance: true })
+    );
     expect(eventService.emit).not.toHaveBeenCalled();
   });
 });
@@ -431,6 +446,8 @@ describe("updateInventoryCountSessionStatusAction", () => {
     expect(result.success).toBe(true);
     expect(InventoryCountSessionsService.updateSessionStatus).toHaveBeenCalledWith(
       expect.anything(),
+      ORG_ID,
+      BRANCH_ID,
       LOCATION_ID,
       "counting"
     );
@@ -475,7 +492,13 @@ describe("approveInventoryCountSessionAction", () => {
     });
 
     const result = await approveInventoryCountSessionAction({ id: LOCATION_ID });
-    expect(InventoryCountSessionsService.approveCountSession).toHaveBeenCalled();
+    expect(InventoryCountSessionsService.approveCountSession).toHaveBeenCalledWith(
+      expect.anything(),
+      ORG_ID,
+      BRANCH_ID,
+      LOCATION_ID,
+      USER_ID
+    );
     expect(result).toEqual({
       success: false,
       error: "Missing warehouse.inventory.adjust permission",
