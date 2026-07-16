@@ -32,6 +32,12 @@ import {
 } from "@/hooks/queries/help-desk";
 import type { StatusBadgeConfig } from "@/components/help-desk/ticket-status-badge";
 import type { PriorityBadgeConfig } from "@/components/help-desk/ticket-priority-badge";
+import { AttachmentsStagingField } from "@/components/primitives/attachments";
+import { QrCodeStagingField, type StagedQrCode } from "@/components/features/qr";
+import { usePermissions } from "@/hooks/v2/use-permissions";
+import { QR_ASSIGN, QR_CREATE } from "@/lib/constants/permissions";
+import { uploadAttachmentsAction } from "@/app/actions/attachments";
+import { assignQrToTicketAction } from "@/app/actions/qr/assign";
 
 interface NewTicketFormProps {
   ticketTypes: HelpdeskTicketType[];
@@ -39,6 +45,7 @@ interface NewTicketFormProps {
   activeBranchId: string | null;
   statusConfigs: Record<string, StatusBadgeConfig> | null;
   priorityConfigs: Record<string, PriorityBadgeConfig> | null;
+  initialQr?: { qrCodeId: string; token: string; label: string | null } | null;
 }
 
 export function NewTicketForm({
@@ -47,6 +54,7 @@ export function NewTicketForm({
   activeBranchId,
   statusConfigs,
   priorityConfigs,
+  initialQr,
 }: NewTicketFormProps) {
   const visibleTicketTypes = ticketTypes.filter(
     (tt) =>
@@ -55,6 +63,7 @@ export function NewTicketForm({
   );
   const t = useTranslations("modules.helpDesk");
   const router = useRouter();
+  const { can } = usePermissions();
 
   const [title, setTitle] = useState("");
   const [descriptionRich, setDescriptionRich] = useState<RichTextValue>(createEmptyRichText);
@@ -64,6 +73,12 @@ export function NewTicketForm({
   const [priority, setPriority] = useState<TicketPriority>("medium");
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [stagedFiles, setStagedFiles] = useState<File[]>([]);
+  const [stagedQr, setStagedQr] = useState<StagedQrCode | null>(
+    initialQr
+      ? { qrCodeId: initialQr.qrCodeId, token: initialQr.token, label: initialQr.label }
+      : null
+  );
 
   // Cached query — re-selecting the same type reuses the cached result, no extra network call
   const { data: defaultResponders } = useTicketTypeDefaultRespondersQuery(ticketTypeId || null);
@@ -131,8 +146,53 @@ export function NewTicketForm({
         acceptor_user_ids: acceptorIds,
       },
       {
-        onSuccess: (data) => {
+        onSuccess: async (data) => {
           toast.success(t("tickets.created", { number: data.ticket_number }));
+
+          const followUps: Promise<unknown>[] = [];
+          if (stagedFiles.length > 0) {
+            followUps.push(
+              (async () => {
+                try {
+                  const formData = new FormData();
+                  formData.set("targetType", "helpdesk.ticket");
+                  formData.set("targetId", data.id);
+                  stagedFiles.forEach((file) => formData.append("files", file));
+                  const result = await uploadAttachmentsAction(formData);
+                  if (!result.success) {
+                    toast.error(
+                      (result as { success: false; error: string }).error ||
+                        t("tickets.attachmentUploadFailed")
+                    );
+                  }
+                } catch {
+                  toast.error(t("tickets.attachmentUploadFailed"));
+                }
+              })()
+            );
+          }
+          if (stagedQr) {
+            followUps.push(
+              (async () => {
+                try {
+                  const result = await assignQrToTicketAction({
+                    qrCodeId: stagedQr.qrCodeId,
+                    ticketId: data.id,
+                  });
+                  if (!result.success) {
+                    toast.error(
+                      (result as { success: false; error: string }).error ||
+                        t("tickets.qrAssignFailed")
+                    );
+                  }
+                } catch {
+                  toast.error(t("tickets.qrAssignFailed"));
+                }
+              })()
+            );
+          }
+          if (followUps.length > 0) await Promise.allSettled(followUps);
+
           router.push({
             pathname: "/dashboard/help-desk/tickets/[ticketId]",
             params: { ticketId: data.ticket_number },
@@ -296,6 +356,33 @@ export function NewTicketForm({
             maxLength={10000}
           />
         </div>
+
+        {/* Attachments */}
+        <div className="space-y-2">
+          <Label>{t("tickets.fields.attachments")}</Label>
+          <AttachmentsStagingField
+            files={stagedFiles}
+            onChange={setStagedFiles}
+            disabled={createTicketMutation.isPending}
+            labels={{
+              upload: "Add files",
+              uploading: "Adding…",
+            }}
+          />
+        </div>
+
+        {/* QR Code */}
+        {can(QR_ASSIGN) && (
+          <div className="space-y-2">
+            <Label>{t("tickets.fields.qrCode")}</Label>
+            <QrCodeStagingField
+              value={stagedQr}
+              onChange={setStagedQr}
+              canGenerate={can(QR_CREATE)}
+              disabled={createTicketMutation.isPending}
+            />
+          </div>
+        )}
 
         {/* Actions */}
         <div className="flex gap-3 pt-2">

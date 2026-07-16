@@ -55,7 +55,9 @@ export default async function QRPage({ params }: QRPageProps) {
 
               {error === "QR_UNASSIGNED" ? (
                 <Button asChild className="w-full">
-                  <Link href="/dashboard/qr">Otwórz zarządzanie kodami QR</Link>
+                  <Link href={{ pathname: "/dashboard/qr/assign/[token]", params: { token } }}>
+                    Szybkie przypisanie
+                  </Link>
                 </Button>
               ) : null}
 

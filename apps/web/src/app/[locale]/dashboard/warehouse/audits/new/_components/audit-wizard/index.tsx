@@ -8,7 +8,7 @@ import { useRouter } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import { LoadingOverlay } from "@/components/branding";
 import { useUiStoreV2 } from "@/lib/stores/v2/ui-store";
-import { useWizardState } from "./use-wizard-state";
+import { useWizardState, type WizardInitialState } from "./use-wizard-state";
 import { useWizardScopePreview } from "./use-wizard-scope-preview";
 import { useWizardSubmission } from "./use-wizard-submission";
 import { WizardStepIndicator } from "./wizard-step-indicator";
@@ -24,12 +24,19 @@ interface AuditWizardProps {
   locations: WizardLocationOption[];
   suppliers: WizardSupplierOption[];
   stockIndex?: WizardStockIndexRow[];
+  initialState?: WizardInitialState;
 }
 
-export function AuditWizard({ branchId, locations, suppliers, stockIndex = [] }: AuditWizardProps) {
+export function AuditWizard({
+  branchId,
+  locations,
+  suppliers,
+  stockIndex = [],
+  initialState,
+}: AuditWizardProps) {
   const t = useTranslations("warehouseInventory.audits.wizard");
   const router = useRouter();
-  const state = useWizardState(locations);
+  const state = useWizardState(locations, initialState);
   const preview = useWizardScopePreview(state, suppliers, stockIndex);
   const { launch, isPending } = useWizardSubmission(branchId);
 

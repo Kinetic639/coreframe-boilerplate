@@ -11,11 +11,19 @@ import type { WizardLocationOption } from "./types";
  * guidance (§14): recomputing subtree expansion on every keystroke of
  * unrelated fields would be wasteful once the location count grows.
  */
-export function useWizardState(allLocations: WizardLocationOption[]) {
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
-  const [countType, setCountType] = useState<CountSessionType>("location");
+export interface WizardInitialState {
+  step?: 1 | 2 | 3 | 4;
+  countType?: CountSessionType;
+  selectedLocationIds?: string[];
+}
 
-  const [selectedLocationIds, setSelectedLocationIds] = useState<string[]>([]);
+export function useWizardState(allLocations: WizardLocationOption[], initial?: WizardInitialState) {
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(initial?.step ?? 1);
+  const [countType, setCountType] = useState<CountSessionType>(initial?.countType ?? "location");
+
+  const [selectedLocationIds, setSelectedLocationIds] = useState<string[]>(
+    initial?.selectedLocationIds ?? []
+  );
   const [includeChildren, setIncludeChildren] = useState(true);
 
   const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null);
