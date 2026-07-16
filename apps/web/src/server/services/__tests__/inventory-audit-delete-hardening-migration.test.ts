@@ -7,7 +7,7 @@ import path from "node:path";
 
 const migrationPath = path.resolve(
   __dirname,
-  "../../../../supabase-target/supabase/migrations/20260712200644_harden_inventory_audit_delete_policies.sql"
+  "../../../../supabase-target/supabase/migrations/20260716190424_harden_inventory_audit_delete_policies.sql"
 );
 
 function readMigration() {
