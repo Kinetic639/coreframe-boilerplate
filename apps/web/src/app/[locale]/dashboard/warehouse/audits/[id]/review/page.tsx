@@ -65,7 +65,7 @@ export default async function VarianceReviewPage({ params }: PageProps) {
     });
   }
 
-  const enrichedLines = await enrichCountLines(supabase, lines);
+  const enrichedLines = await enrichCountLines(supabase, context.app.activeOrgId, branchId, lines);
 
   const sessionInfo: ReviewSessionInfo = {
     id: session.id,

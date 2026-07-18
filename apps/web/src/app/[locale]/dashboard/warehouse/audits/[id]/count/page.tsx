@@ -62,7 +62,7 @@ export default async function GuidedCountPage({ params }: PageProps) {
     });
   }
 
-  const enrichedLines = await enrichCountLines(supabase, lines);
+  const enrichedLines = await enrichCountLines(supabase, context.app.activeOrgId, branchId, lines);
 
   const locationsResult = branchId
     ? await WarehouseLocationsService.listByBranch(supabase, context.app.activeOrgId, branchId)

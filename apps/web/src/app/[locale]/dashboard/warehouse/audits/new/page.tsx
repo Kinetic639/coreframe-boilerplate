@@ -5,7 +5,7 @@ import { WAREHOUSE_AUDITS_MANAGE } from "@/lib/constants/permissions";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { createClient } from "@/utils/supabase/server";
 import { WarehouseLocationsService } from "@/server/services/warehouse-locations.service";
-import { InventoryProductsService } from "@/server/services/inventory-products.service";
+import { InventoryCountSessionsService } from "@/server/services/inventory-count-sessions.service";
 import { flattenLocationTreeDepthFirst } from "@/lib/warehouse/location-tree";
 import { AuditWizard } from "./_components/audit-wizard";
 import type { CountSessionType } from "@/lib/warehouse/count-session-types";
@@ -50,15 +50,26 @@ export default async function NewWarehouseAuditPage({ searchParams }: PageProps)
   const branchId = context.app.activeBranchId ?? null;
   const supabase = await createClient();
 
-  const [locationsResult, suppliersResult, variantsResult, balancesResult] = await Promise.all([
+  const [
+    locationsResult,
+    suppliersResult,
+    variantsResult,
+    warehouseItemSuppliersResult,
+    balancesResult,
+  ] = await Promise.all([
     branchId
       ? WarehouseLocationsService.listByBranch(supabase, context.app.activeOrgId, branchId)
       : Promise.resolve({ success: true as const, data: [] }),
-    InventoryProductsService.listSuppliers(supabase, context.app.activeOrgId),
+    InventoryCountSessionsService.listAuditSuppliers(supabase, context.app.activeOrgId),
     supabase
       .from("inventory_variants")
-      .select("id, default_supplier_id")
+      .select("id, product_id, default_supplier_id")
       .eq("organization_id", context.app.activeOrgId),
+    supabase
+      .from("warehouse_item_suppliers")
+      .select("item_id, party_id")
+      .eq("organization_id", context.app.activeOrgId)
+      .is("deleted_at", null),
     branchId
       ? supabase
           .from("inventory_balances")
@@ -70,9 +81,29 @@ export default async function NewWarehouseAuditPage({ searchParams }: PageProps)
 
   const allVariants = (variantsResult.data ?? []) as {
     id: string;
+    product_id: string;
     default_supplier_id: string | null;
   }[];
-  const variantSupplierById = new Map(allVariants.map((v) => [v.id, v.default_supplier_id]));
+  const crmSupplierIdsByProductId = new Map<string, Set<string>>();
+  for (const row of (warehouseItemSuppliersResult.data ?? []) as Array<{
+    item_id: string;
+    party_id: string;
+  }>) {
+    const supplierIds = crmSupplierIdsByProductId.get(row.item_id) ?? new Set<string>();
+    supplierIds.add(row.party_id);
+    crmSupplierIdsByProductId.set(row.item_id, supplierIds);
+  }
+
+  const variantSupplierIdsById = new Map(
+    allVariants.map((variant) => {
+      const supplierIds = new Set<string>();
+      if (variant.default_supplier_id) supplierIds.add(variant.default_supplier_id);
+      for (const supplierId of crmSupplierIdsByProductId.get(variant.product_id) ?? []) {
+        supplierIds.add(supplierId);
+      }
+      return [variant.id, [...supplierIds]];
+    })
+  );
 
   const allBalances = (balancesResult.data ?? []) as {
     variant_id: string;
@@ -126,7 +157,8 @@ export default async function NewWarehouseAuditPage({ searchParams }: PageProps)
   const stockIndex = allBalances.map((b) => ({
     variantId: b.variant_id,
     locationId: b.location_id,
-    supplierId: variantSupplierById.get(b.variant_id) ?? null,
+    supplierId: variantSupplierIdsById.get(b.variant_id)?.[0] ?? null,
+    supplierIds: variantSupplierIdsById.get(b.variant_id) ?? [],
     isZero: b.on_hand_quantity <= 0,
   }));
 

@@ -71,7 +71,12 @@ export default async function AuditFinalReportPage({ params }: PageProps) {
     });
   }
 
-  const enrichedLines = await enrichCountLines(supabase, lines);
+  const enrichedLines = await enrichCountLines(
+    supabase,
+    context.app.activeOrgId,
+    session.branch_id,
+    lines
+  );
   const scope = session.scope as CountSessionScope;
   const branchId = session.branch_id;
 
@@ -89,12 +94,11 @@ export default async function AuditFinalReportPage({ params }: PageProps) {
 
   let supplierName: string | null = null;
   if (scope.count_type === "supplier" && scope.supplier_id) {
-    const { data: supplier } = await supabase
-      .from("inventory_suppliers")
-      .select("name")
-      .eq("id", scope.supplier_id)
-      .maybeSingle();
-    supplierName = (supplier as { name: string } | null)?.name ?? null;
+    supplierName = await InventoryCountSessionsService.getAuditSupplierName(
+      supabase,
+      context.app.activeOrgId,
+      scope.supplier_id
+    );
   }
 
   const sessionInfo: FinalReportSessionInfo = {

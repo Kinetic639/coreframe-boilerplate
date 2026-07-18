@@ -83,7 +83,12 @@ export async function getInventoryCountSessionAction(rawInput: unknown) {
     );
     if (!detail.success) return detail;
 
-    const enrichedLines = await enrichCountLines(supabase, detail.data.lines);
+    const enrichedLines = await enrichCountLines(
+      supabase,
+      auth.context.app.activeOrgId,
+      branch.branchId,
+      detail.data.lines
+    );
     return { success: true, data: { session: detail.data.session, lines: enrichedLines } };
   } catch (error) {
     return mapUnexpected(error);

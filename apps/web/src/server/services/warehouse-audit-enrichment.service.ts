@@ -23,6 +23,8 @@ import type {
  */
 export async function enrichCountLines(
   supabase: SupabaseClient,
+  orgId: string,
+  branchId: string,
   lines: CountLineRow[]
 ): Promise<EnrichedCountLine[]> {
   if (lines.length === 0) return [];
@@ -32,9 +34,22 @@ export async function enrichCountLines(
   const unitIds = [...new Set(lines.map((l) => l.unit_id))];
 
   const [variantsRes, locationsRes, unitsRes] = await Promise.all([
-    supabase.from("inventory_variants").select("id, product_id, sku, name").in("id", variantIds),
-    supabase.from("warehouse_locations").select("id, code, name").in("id", locationIds),
-    supabase.from("inventory_units").select("id, code").in("id", unitIds),
+    supabase
+      .from("inventory_variants")
+      .select("id, product_id, sku, name")
+      .eq("organization_id", orgId)
+      .in("id", variantIds),
+    supabase
+      .from("warehouse_locations")
+      .select("id, code, name")
+      .eq("organization_id", orgId)
+      .eq("branch_id", branchId)
+      .in("id", locationIds),
+    supabase
+      .from("inventory_units")
+      .select("id, code")
+      .eq("organization_id", orgId)
+      .in("id", unitIds),
   ]);
 
   const variants = (variantsRes.data ?? []) as {
@@ -45,7 +60,11 @@ export async function enrichCountLines(
   }[];
   const productIds = [...new Set(variants.map((v) => v.product_id))];
   const productsRes = productIds.length
-    ? await supabase.from("inventory_products").select("id, name").in("id", productIds)
+    ? await supabase
+        .from("inventory_products")
+        .select("id, name")
+        .eq("organization_id", orgId)
+        .in("id", productIds)
     : { data: [] };
   const products = (productsRes.data ?? []) as { id: string; name: string }[];
 
@@ -101,21 +120,45 @@ export async function enrichReorderReportRows(
     ...new Set(rows.map((r) => r.preferred_supplier_id).filter((id): id is string => !!id)),
   ];
 
-  const [variantsRes, locationsRes, suppliersRes, actionsRes] = await Promise.all([
-    supabase.from("inventory_variants").select("id, product_id, sku, name").in("id", variantIds),
-    locationIds.length
-      ? supabase.from("warehouse_locations").select("id, code, name").in("id", locationIds)
-      : Promise.resolve({ data: [] }),
-    supplierIds.length
-      ? supabase.from("inventory_suppliers").select("id, name").in("id", supplierIds)
-      : Promise.resolve({ data: [] }),
-    supabase
-      .from("inventory_reorder_suggestion_actions")
-      .select("variant_id, location_id, status, created_at")
-      .eq("organization_id", orgId)
-      .eq("branch_id", branchId)
-      .order("created_at", { ascending: true }),
-  ]);
+  const [variantsRes, locationsRes, legacySuppliersRes, crmSuppliersRes, actionsRes] =
+    await Promise.all([
+      supabase
+        .from("inventory_variants")
+        .select("id, product_id, sku, name")
+        .eq("organization_id", orgId)
+        .in("id", variantIds),
+      locationIds.length
+        ? supabase
+            .from("warehouse_locations")
+            .select("id, code, name")
+            .eq("organization_id", orgId)
+            .eq("branch_id", branchId)
+            .in("id", locationIds)
+        : Promise.resolve({ data: [] }),
+      supplierIds.length
+        ? supabase
+            .from("inventory_suppliers")
+            .select("id, name")
+            .eq("organization_id", orgId)
+            .in("id", supplierIds)
+        : Promise.resolve({ data: [] }),
+      supplierIds.length
+        ? supabase
+            .from("crm_parties")
+            .select("id, display_name, crm_party_roles!inner(role)")
+            .eq("organization_id", orgId)
+            .eq("status", "active")
+            .is("deleted_at", null)
+            .eq("crm_party_roles.role", "supplier")
+            .in("id", supplierIds)
+        : Promise.resolve({ data: [] }),
+      supabase
+        .from("inventory_reorder_suggestion_actions")
+        .select("variant_id, location_id, status, created_at")
+        .eq("organization_id", orgId)
+        .eq("branch_id", branchId)
+        .order("created_at", { ascending: true }),
+    ]);
 
   const variants = (variantsRes.data ?? []) as {
     id: string;
@@ -128,6 +171,7 @@ export async function enrichReorderReportRows(
     ? await supabase
         .from("inventory_products")
         .select("id, name, base_unit_id")
+        .eq("organization_id", orgId)
         .in("id", productIds)
     : { data: [] };
   const products = (productsRes.data ?? []) as {
@@ -139,7 +183,11 @@ export async function enrichReorderReportRows(
     ...new Set(products.map((p) => p.base_unit_id).filter((id): id is string => !!id)),
   ];
   const unitsRes = unitIds.length
-    ? await supabase.from("inventory_units").select("id, code").in("id", unitIds)
+    ? await supabase
+        .from("inventory_units")
+        .select("id, code")
+        .eq("organization_id", orgId)
+        .in("id", unitIds)
     : { data: [] };
 
   const variantsById = new Map(variants.map((v) => [v.id, v]));
@@ -153,9 +201,16 @@ export async function enrichReorderReportRows(
       l,
     ])
   );
-  const suppliersById = new Map(
-    ((suppliersRes.data ?? []) as { id: string; name: string }[]).map((s) => [s.id, s])
-  );
+  const suppliersById = new Map<string, { id: string; name: string }>();
+  for (const supplier of (legacySuppliersRes.data ?? []) as { id: string; name: string }[]) {
+    suppliersById.set(supplier.id, supplier);
+  }
+  for (const party of (crmSuppliersRes.data ?? []) as Array<{
+    id: string;
+    display_name: string;
+  }>) {
+    suppliersById.set(party.id, { id: party.id, name: party.display_name });
+  }
 
   const actionByKey = new Map<string, "accepted" | "ignored">();
   for (const action of (actionsRes.data ?? []) as Array<{

@@ -280,11 +280,72 @@ describe("createCountSession", () => {
   });
 });
 
+describe("listAuditSuppliers", () => {
+  it("returns active legacy suppliers and CRM supplier parties as audit supplier options", async () => {
+    const supabase = makeSupabaseMock([
+      { data: [{ id: "legacy-1", name: "Legacy Supplier" }], error: null },
+      {
+        data: [
+          {
+            party_id: "party-1",
+            crm_parties: { id: "party-1", display_name: "CRM Supplier" },
+          },
+        ],
+        error: null,
+      },
+    ]);
+
+    const result = await InventoryCountSessionsService.listAuditSuppliers(supabase as any, ORG_ID);
+
+    expect(result).toEqual({
+      success: true,
+      data: [
+        { id: "party-1", name: "CRM Supplier" },
+        { id: "legacy-1", name: "Legacy Supplier" },
+      ],
+    });
+    expect(supabase.from).toHaveBeenCalledWith("inventory_suppliers");
+    expect(supabase.from).toHaveBeenCalledWith("crm_party_roles");
+  });
+
+  it("looks up an audit supplier name from CRM parties when it is not a legacy supplier", async () => {
+    const supabase = makeSupabaseMock([
+      { data: null, error: null },
+      { data: { display_name: "CRM Supplier" }, error: null },
+    ]);
+
+    const result = await InventoryCountSessionsService.getAuditSupplierName(
+      supabase as any,
+      ORG_ID,
+      "party-1"
+    );
+
+    expect(result).toBe("CRM Supplier");
+    expect(supabase.from).toHaveBeenCalledWith("inventory_suppliers");
+    expect(supabase.from).toHaveBeenCalledWith("crm_parties");
+  });
+});
+
 // ─── updateCountLine ────────────────────────────────────────────────────────────
 
 describe("updateCountLine", () => {
   it("updates counted_quantity and stamps counted_by/counted_at", async () => {
-    const supabase = makeSupabaseMock([{ data: { id: "line-1" }, error: null }]);
+    const supabase = makeSupabaseMock([
+      {
+        data: {
+          id: "line-1",
+          count_session_id: "session-1",
+          status: "pending",
+          expected_quantity: 0,
+          counted_quantity: null,
+          variance_quantity: null,
+          reason_code: null,
+        },
+        error: null,
+      },
+      { data: { id: "session-1", status: "counting" }, error: null },
+      { data: { id: "line-1" }, error: null },
+    ]);
     const result = await InventoryCountSessionsService.updateCountLine(
       supabase as any,
       ...COUNT_SCOPE,
@@ -298,7 +359,22 @@ describe("updateCountLine", () => {
   });
 
   it("allows approving a zero-variance line without a reason_code, even when require_reason_for_variance=true", async () => {
-    const supabase = makeSupabaseMock([{ data: { id: "line-1" }, error: null }]);
+    const supabase = makeSupabaseMock([
+      {
+        data: {
+          id: "line-1",
+          count_session_id: "session-1",
+          status: "counted",
+          expected_quantity: 5,
+          counted_quantity: 5,
+          variance_quantity: 0,
+          reason_code: null,
+        },
+        error: null,
+      },
+      { data: { id: "session-1", status: "submitted" }, error: null },
+      { data: { id: "line-1" }, error: null },
+    ]);
     const result = await InventoryCountSessionsService.updateCountLine(
       supabase as any,
       ...COUNT_SCOPE,
@@ -313,7 +389,28 @@ describe("updateCountLine", () => {
   });
 
   it("rejects approving a nonzero-variance line without a reason_code when required", async () => {
-    const supabase = makeSupabaseMock([{ data: { id: "line-1" }, error: null }]);
+    const supabase = makeSupabaseMock([
+      {
+        data: {
+          id: "line-1",
+          count_session_id: "session-1",
+          status: "counted",
+          expected_quantity: 5,
+          counted_quantity: 3,
+          variance_quantity: -2,
+          reason_code: null,
+        },
+        error: null,
+      },
+      {
+        data: {
+          id: "session-1",
+          status: "submitted",
+          scope: { require_reason_for_variance: true },
+        },
+        error: null,
+      },
+    ]);
     const result = await InventoryCountSessionsService.updateCountLine(
       supabase as any,
       ...COUNT_SCOPE,
@@ -329,11 +426,33 @@ describe("updateCountLine", () => {
       success: false,
       error: "A reason is required to approve a line with a quantity variance",
     });
-    expect(supabase.from).not.toHaveBeenCalled();
+    expect(supabase.from).toHaveBeenCalledTimes(2);
   });
 
   it("allows approving a nonzero-variance line without a reason when the session does not require one", async () => {
-    const supabase = makeSupabaseMock([{ data: { id: "line-1" }, error: null }]);
+    const supabase = makeSupabaseMock([
+      {
+        data: {
+          id: "line-1",
+          count_session_id: "session-1",
+          status: "counted",
+          expected_quantity: 5,
+          counted_quantity: 3,
+          variance_quantity: -2,
+          reason_code: null,
+        },
+        error: null,
+      },
+      {
+        data: {
+          id: "session-1",
+          status: "submitted",
+          scope: { require_reason_for_variance: false },
+        },
+        error: null,
+      },
+      { data: { id: "line-1" }, error: null },
+    ]);
     const result = await InventoryCountSessionsService.updateCountLine(
       supabase as any,
       ...COUNT_SCOPE,
@@ -347,23 +466,52 @@ describe("updateCountLine", () => {
     expect(result.success).toBe(true);
   });
 
-  it("rejects an invalid transition when current_status is supplied", async () => {
-    const supabase = makeSupabaseMock([{ data: { id: "line-1" }, error: null }]);
+  it("rejects an invalid transition using the database line status", async () => {
+    const supabase = makeSupabaseMock([
+      {
+        data: {
+          id: "line-1",
+          count_session_id: "session-1",
+          status: "approved",
+          expected_quantity: 5,
+          counted_quantity: 5,
+          variance_quantity: 0,
+          reason_code: null,
+        },
+        error: null,
+      },
+      { data: { id: "session-1", status: "submitted", scope: {} }, error: null },
+    ]);
     const result = await InventoryCountSessionsService.updateCountLine(
       supabase as any,
       ...COUNT_SCOPE,
       "line-1",
       {
         status: "pending",
-        current_status: "approved",
+        current_status: "counted",
       }
     );
     expect(result.success).toBe(false);
-    expect(supabase.from).not.toHaveBeenCalled();
+    expect(supabase.from).toHaveBeenCalledTimes(2);
   });
 
-  it("skips transition validation when current_status is not supplied", async () => {
-    const supabase = makeSupabaseMock([{ data: { id: "line-1" }, error: null }]);
+  it("uses the database line status when current_status is omitted", async () => {
+    const supabase = makeSupabaseMock([
+      {
+        data: {
+          id: "line-1",
+          count_session_id: "session-1",
+          status: "pending",
+          expected_quantity: 0,
+          counted_quantity: null,
+          variance_quantity: null,
+          reason_code: null,
+        },
+        error: null,
+      },
+      { data: { id: "session-1", status: "counting" }, error: null },
+      { data: { id: "line-1" }, error: null },
+    ]);
     const result = await InventoryCountSessionsService.updateCountLine(
       supabase as any,
       ...COUNT_SCOPE,
@@ -373,6 +521,46 @@ describe("updateCountLine", () => {
       }
     );
     expect(result.success).toBe(true);
+  });
+
+  it("does not trust a client-supplied zero variance when the database row has nonzero variance", async () => {
+    const supabase = makeSupabaseMock([
+      {
+        data: {
+          id: "line-1",
+          count_session_id: "session-1",
+          status: "counted",
+          expected_quantity: 5,
+          counted_quantity: 3,
+          variance_quantity: -2,
+          reason_code: null,
+        },
+        error: null,
+      },
+      {
+        data: {
+          id: "session-1",
+          status: "submitted",
+          scope: { require_reason_for_variance: true },
+        },
+        error: null,
+      },
+    ]);
+    const result = await InventoryCountSessionsService.updateCountLine(
+      supabase as any,
+      ...COUNT_SCOPE,
+      "line-1",
+      {
+        status: "approved",
+        variance_quantity: 0,
+        require_reason_for_variance: false,
+      }
+    );
+
+    expect(result).toEqual({
+      success: false,
+      error: "A reason is required to approve a line with a quantity variance",
+    });
   });
 
   it("propagates a DB error", async () => {
@@ -387,6 +575,37 @@ describe("updateCountLine", () => {
     );
     expect(result).toEqual({ success: false, error: "constraint violated" });
   });
+
+  it("rejects updates when the owning session is already approved", async () => {
+    const supabase = makeSupabaseMock([
+      {
+        data: {
+          id: "line-1",
+          count_session_id: "session-1",
+          status: "counted",
+          expected_quantity: 5,
+          counted_quantity: 5,
+          variance_quantity: 0,
+          reason_code: null,
+        },
+        error: null,
+      },
+      { data: { id: "session-1", status: "approved" }, error: null },
+    ]);
+
+    const result = await InventoryCountSessionsService.updateCountLine(
+      supabase as any,
+      ...COUNT_SCOPE,
+      "line-1",
+      { status: "skipped" }
+    );
+
+    expect(result).toEqual({
+      success: false,
+      error: "Inventory count session is approved and can no longer be changed",
+    });
+    expect(supabase.from).toHaveBeenCalledTimes(2);
+  });
 });
 
 // ─── addUnexpectedLine ──────────────────────────────────────────────────────────
@@ -394,6 +613,7 @@ describe("updateCountLine", () => {
 describe("addUnexpectedLine", () => {
   it("computes sequence_no from the current max, server-side, and inserts the line", async () => {
     const supabase = makeSupabaseMock([
+      { data: { id: "session-1", status: "counting" }, error: null }, // session guard
       { data: { sequence_no: 7 }, error: null }, // max lookup
       { data: { id: "line-new" }, error: null }, // insert
     ]);
@@ -417,6 +637,7 @@ describe("addUnexpectedLine", () => {
 
   it("starts sequence_no at 1 when the session has no existing lines", async () => {
     const supabase = makeSupabaseMock([
+      { data: { id: "session-1", status: "counting" }, error: null },
       { data: null, error: null }, // maybeSingle -> no rows
       { data: { id: "line-new" }, error: null },
     ]);
@@ -438,7 +659,10 @@ describe("addUnexpectedLine", () => {
   });
 
   it("propagates an error from the max-sequence lookup", async () => {
-    const supabase = makeSupabaseMock([{ data: null, error: { message: "boom" } }]);
+    const supabase = makeSupabaseMock([
+      { data: { id: "session-1", status: "counting" }, error: null },
+      { data: null, error: { message: "boom" } },
+    ]);
     const result = await InventoryCountSessionsService.addUnexpectedLine(
       supabase as any,
       "session-1",
@@ -452,6 +676,31 @@ describe("addUnexpectedLine", () => {
       }
     );
     expect(result).toEqual({ success: false, error: "boom" });
+  });
+
+  it("rejects adding an unexpected line when the session belongs to a closed audit", async () => {
+    const supabase = makeSupabaseMock([
+      { data: { id: "session-1", status: "cancelled" }, error: null },
+    ]);
+
+    const result = await InventoryCountSessionsService.addUnexpectedLine(
+      supabase as any,
+      "session-1",
+      {
+        organization_id: ORG_ID,
+        branch_id: BRANCH_ID,
+        variant_id: "variant-1",
+        location_id: "loc-1",
+        unit_id: "unit-1",
+        counted_quantity: 1,
+      }
+    );
+
+    expect(result).toEqual({
+      success: false,
+      error: "Inventory count session is cancelled and can no longer be changed",
+    });
+    expect(supabase.from).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -476,14 +725,45 @@ describe("bulkApproveLines", () => {
     const supabase = makeSupabaseMock([
       {
         data: [
-          { id: "l-match", status: "counted", variance_quantity: 0, reason_code: null },
-          { id: "l-has-reason", status: "counted", variance_quantity: -2, reason_code: "damaged" },
-          { id: "l-missing-reason", status: "counted", variance_quantity: 3, reason_code: null },
-          { id: "l-skipped", status: "skipped", variance_quantity: null, reason_code: null },
-          { id: "l-pending", status: "pending", variance_quantity: null, reason_code: null },
+          {
+            id: "l-match",
+            count_session_id: "session-1",
+            status: "counted",
+            variance_quantity: 0,
+            reason_code: null,
+          },
+          {
+            id: "l-has-reason",
+            count_session_id: "session-1",
+            status: "counted",
+            variance_quantity: -2,
+            reason_code: "damaged",
+          },
+          {
+            id: "l-missing-reason",
+            count_session_id: "session-1",
+            status: "counted",
+            variance_quantity: 3,
+            reason_code: null,
+          },
+          {
+            id: "l-skipped",
+            count_session_id: "session-1",
+            status: "skipped",
+            variance_quantity: null,
+            reason_code: null,
+          },
+          {
+            id: "l-pending",
+            count_session_id: "session-1",
+            status: "pending",
+            variance_quantity: null,
+            reason_code: null,
+          },
         ],
         error: null,
       },
+      { data: { id: "session-1", status: "submitted" }, error: null },
       { data: null, error: null }, // bulk update
     ]);
 
@@ -506,9 +786,18 @@ describe("bulkApproveLines", () => {
   it("never issues the update call when nothing qualifies", async () => {
     const supabase = makeSupabaseMock([
       {
-        data: [{ id: "l-pending", status: "pending", variance_quantity: null, reason_code: null }],
+        data: [
+          {
+            id: "l-pending",
+            count_session_id: "session-1",
+            status: "pending",
+            variance_quantity: null,
+            reason_code: null,
+          },
+        ],
         error: null,
       },
+      { data: { id: "session-1", status: "submitted" }, error: null },
     ]);
     const result = await InventoryCountSessionsService.bulkApproveLines(
       supabase as any,
@@ -519,8 +808,76 @@ describe("bulkApproveLines", () => {
       }
     );
     expect(result.success).toBe(true);
-    // Only one .from() call (the select) — no second call for the update.
+    // The lines and owning session are checked, but no update is issued.
+    expect(supabase.from).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects bulk approval when selected lines span multiple sessions", async () => {
+    const supabase = makeSupabaseMock([
+      {
+        data: [
+          {
+            id: "l-1",
+            count_session_id: "session-1",
+            status: "counted",
+            variance_quantity: 0,
+            reason_code: null,
+          },
+          {
+            id: "l-2",
+            count_session_id: "session-2",
+            status: "counted",
+            variance_quantity: 0,
+            reason_code: null,
+          },
+        ],
+        error: null,
+      },
+    ]);
+
+    const result = await InventoryCountSessionsService.bulkApproveLines(
+      supabase as any,
+      ...COUNT_SCOPE,
+      ["l-1", "l-2"],
+      { require_reason_for_variance: true }
+    );
+
+    expect(result).toEqual({
+      success: false,
+      error: "Bulk approving lines from multiple audit sessions is not allowed",
+    });
     expect(supabase.from).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects bulk approval for a closed session", async () => {
+    const supabase = makeSupabaseMock([
+      {
+        data: [
+          {
+            id: "l-1",
+            count_session_id: "session-1",
+            status: "counted",
+            variance_quantity: 0,
+            reason_code: null,
+          },
+        ],
+        error: null,
+      },
+      { data: { id: "session-1", status: "approved" }, error: null },
+    ]);
+
+    const result = await InventoryCountSessionsService.bulkApproveLines(
+      supabase as any,
+      ...COUNT_SCOPE,
+      ["l-1"],
+      { require_reason_for_variance: true }
+    );
+
+    expect(result).toEqual({
+      success: false,
+      error: "Inventory count session is approved and can no longer be changed",
+    });
+    expect(supabase.from).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -578,7 +935,10 @@ describe("approveCountSession", () => {
 
 describe("updateSessionStatus", () => {
   it("updates the session status to counting", async () => {
-    const supabase = makeSupabaseMock([{ data: { id: "s1", status: "counting" }, error: null }]);
+    const supabase = makeSupabaseMock([
+      { data: { id: "s1", status: "draft" }, error: null },
+      { data: { id: "s1", status: "counting" }, error: null },
+    ]);
     const result = await InventoryCountSessionsService.updateSessionStatus(
       supabase as any,
       ...COUNT_SCOPE,
@@ -589,7 +949,10 @@ describe("updateSessionStatus", () => {
   });
 
   it("updates the session status to submitted", async () => {
-    const supabase = makeSupabaseMock([{ data: { id: "s1", status: "submitted" }, error: null }]);
+    const supabase = makeSupabaseMock([
+      { data: { id: "s1", status: "counting" }, error: null },
+      { data: { id: "s1", status: "submitted" }, error: null },
+    ]);
     const result = await InventoryCountSessionsService.updateSessionStatus(
       supabase as any,
       ...COUNT_SCOPE,
@@ -597,6 +960,38 @@ describe("updateSessionStatus", () => {
       "submitted"
     );
     expect(result).toEqual({ success: true, data: { id: "s1", status: "submitted" } });
+  });
+
+  it("rejects reopening an approved session", async () => {
+    const supabase = makeSupabaseMock([{ data: { id: "s1", status: "approved" }, error: null }]);
+    const result = await InventoryCountSessionsService.updateSessionStatus(
+      supabase as any,
+      ...COUNT_SCOPE,
+      "s1",
+      "counting"
+    );
+
+    expect(result).toEqual({
+      success: false,
+      error: 'Cannot move an inventory count session from "approved" to "counting"',
+    });
+    expect(supabase.from).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects moving a submitted session back to counting", async () => {
+    const supabase = makeSupabaseMock([{ data: { id: "s1", status: "submitted" }, error: null }]);
+    const result = await InventoryCountSessionsService.updateSessionStatus(
+      supabase as any,
+      ...COUNT_SCOPE,
+      "s1",
+      "counting"
+    );
+
+    expect(result).toEqual({
+      success: false,
+      error: 'Cannot move an inventory count session from "submitted" to "counting"',
+    });
+    expect(supabase.from).toHaveBeenCalledTimes(1);
   });
 
   it("propagates a DB error", async () => {
@@ -860,7 +1255,22 @@ describe("T-BRANCH/T-ORG: isolation invariants", () => {
   });
 
   it("updateCountLine scopes the update to the given organization and branch", async () => {
-    const supabase = makeSupabaseMock([{ data: { id: "line-1" }, error: null }]);
+    const supabase = makeSupabaseMock([
+      {
+        data: {
+          id: "line-1",
+          count_session_id: "session-1",
+          status: "pending",
+          expected_quantity: 0,
+          counted_quantity: null,
+          variance_quantity: null,
+          reason_code: null,
+        },
+        error: null,
+      },
+      { data: { id: "session-1", status: "counting" }, error: null },
+      { data: { id: "line-1" }, error: null },
+    ]);
     await InventoryCountSessionsService.updateCountLine(
       supabase as any,
       "org-A",
@@ -869,14 +1279,25 @@ describe("T-BRANCH/T-ORG: isolation invariants", () => {
       { status: "skipped" }
     );
     expectScopedQuery(supabase.chains[0], "org-A", "branch-A");
+    expectScopedQuery(supabase.chains[1], "org-A", "branch-A");
+    expectScopedQuery(supabase.chains[2], "org-A", "branch-A");
   });
 
   it("bulkApproveLines scopes both the select and update to the given organization and branch", async () => {
     const supabase = makeSupabaseMock([
       {
-        data: [{ id: "line-1", status: "counted", variance_quantity: 0, reason_code: null }],
+        data: [
+          {
+            id: "line-1",
+            count_session_id: "session-1",
+            status: "counted",
+            variance_quantity: 0,
+            reason_code: null,
+          },
+        ],
         error: null,
       },
+      { data: { id: "session-1", status: "submitted" }, error: null },
       { data: null, error: null },
     ]);
     await InventoryCountSessionsService.bulkApproveLines(
@@ -888,18 +1309,23 @@ describe("T-BRANCH/T-ORG: isolation invariants", () => {
     );
     expectScopedQuery(supabase.chains[0], "org-A", "branch-A");
     expectScopedQuery(supabase.chains[1], "org-A", "branch-A");
+    expectScopedQuery(supabase.chains[2], "org-A", "branch-A");
   });
 
   it("updateSessionStatus scopes the update to the given organization and branch", async () => {
-    const supabase = makeSupabaseMock([{ data: { id: "s1", status: "submitted" }, error: null }]);
+    const supabase = makeSupabaseMock([
+      { data: { id: "s1", status: "draft" }, error: null },
+      { data: { id: "s1", status: "counting" }, error: null },
+    ]);
     await InventoryCountSessionsService.updateSessionStatus(
       supabase as any,
       "org-A",
       "branch-A",
       "s1",
-      "submitted"
+      "counting"
     );
     expectScopedQuery(supabase.chains[0], "org-A", "branch-A");
+    expectScopedQuery(supabase.chains[1], "org-A", "branch-A");
   });
 
   it("approveCountSession verifies the session belongs to the given organization and branch before calling the RPC", async () => {

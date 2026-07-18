@@ -180,7 +180,7 @@ describe("getInventoryCountSessionAction", () => {
       BRANCH_ID,
       "11111111-1111-1111-1111-111111111111"
     );
-    expect(enrichCountLines).toHaveBeenCalledWith(expect.anything(), [rawLine]);
+    expect(enrichCountLines).toHaveBeenCalledWith(expect.anything(), ORG_ID, BRANCH_ID, [rawLine]);
     expect(result).toEqual({
       success: true,
       data: { session: { id: "session-1" }, lines: [enrichedLine] },
