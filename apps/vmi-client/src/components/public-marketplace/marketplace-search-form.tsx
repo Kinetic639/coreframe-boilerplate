@@ -17,26 +17,26 @@ export function MarketplaceSearchForm({
   query = "",
   city = "",
   category = "",
-  showCategory = false
+  showCategory = false,
 }: MarketplaceSearchFormProps) {
   return (
     <form
       action={action}
-      className="grid gap-2 rounded-2xl bg-white p-2 shadow-2xl ring-1 ring-slate-200 md:grid-cols-[1fr_220px_auto]"
+      className="grid gap-2 rounded-lg border border-border bg-card p-2 shadow-sm md:grid-cols-[1fr_220px_auto]"
     >
-      <label className="flex min-h-12 items-center gap-2 rounded-xl bg-slate-50 px-3">
-        <Search className="h-4 w-4 shrink-0 text-slate-400" />
+      <label className="flex min-h-12 items-center gap-2 rounded-md bg-muted px-3">
+        <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
         <span className="sr-only">Szukaj</span>
         <input
           name="query"
           defaultValue={query}
           placeholder="Szukaj produktu, marki lub dostawcy..."
-          className="w-full bg-transparent text-sm font-bold outline-none placeholder:text-slate-400"
+          className="w-full bg-transparent text-sm font-bold outline-none placeholder:text-muted-foreground"
         />
       </label>
 
-      <label className="flex min-h-12 items-center gap-2 rounded-xl bg-slate-50 px-3">
-        <MapPin className="h-4 w-4 shrink-0 text-slate-400" />
+      <label className="flex min-h-12 items-center gap-2 rounded-md bg-muted px-3">
+        <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
         <span className="sr-only">Miasto</span>
         <select
           name="city"
@@ -58,7 +58,7 @@ export function MarketplaceSearchForm({
           <select
             name="category"
             defaultValue={category}
-            className="min-h-12 w-full rounded-xl bg-slate-50 px-3 text-sm font-bold outline-none"
+            className="min-h-12 w-full rounded-md bg-muted px-3 text-sm font-bold outline-none"
           >
             <option value="">Wszystkie kategorie</option>
             {categories.map((item) => (
@@ -72,7 +72,7 @@ export function MarketplaceSearchForm({
 
       <button
         type="submit"
-        className="min-h-12 rounded-xl bg-blue-700 px-5 text-sm font-black text-white shadow-sm hover:bg-blue-800"
+        className="min-h-12 rounded-md bg-primary px-5 text-sm font-black text-primary-foreground shadow-sm transition-colors hover:bg-amber-600"
       >
         Szukaj
       </button>

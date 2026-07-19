@@ -18,22 +18,22 @@ import {
   Sparkles,
   Wrench,
   Zap,
-  MapPin
+  MapPin,
 } from "lucide-react";
 import type {
   MarketplaceSnapshotDto,
   PublicFlyerDto,
   PublicProductDto,
-  PublicSupplierDetailsDto
+  PublicSupplierDetailsDto,
 } from "@/lib/public-marketplace/types";
 
 function CategoryIcon({ category }: { category: string }) {
   const className = "mx-auto h-5 w-5";
   switch (category) {
     case "Części samochodowe":
-      return <Cpu className={`${className} text-blue-500`} />;
+      return <Cpu className={`${className} text-amber-500`} />;
     case "Chemia warsztatowa":
-      return <FlaskConical className={`${className} text-indigo-500`} />;
+      return <FlaskConical className={`${className} text-orange-500`} />;
     case "Narzędzia":
       return <Wrench className={`${className} text-amber-500`} />;
     case "Wyposażenie warsztatu":
@@ -53,14 +53,14 @@ function CategoryIcon({ category }: { category: string }) {
     case "Łączniki i pneumatyka":
       return <Plug className={`${className} text-emerald-500`} />;
     default:
-      return <Settings className={`${className} text-slate-500`} />;
+      return <Settings className={`${className} text-muted-foreground`} />;
   }
 }
 
 function FeaturedVendorCard({ vendor }: { vendor: PublicSupplierDetailsDto }) {
   return (
-    <article className="group flex h-full flex-col overflow-hidden rounded-2xl bg-white shadow-md transition-all hover:-translate-y-0.5 hover:shadow-xl">
-      <div className="relative h-28 overflow-hidden bg-slate-50">
+    <article className="group flex h-full flex-col overflow-hidden rounded-2xl bg-card shadow-md transition-all hover:-translate-y-0.5 hover:shadow-xl">
+      <div className="relative h-28 overflow-hidden bg-muted">
         <Image
           src={vendor.coverUrl}
           alt=""
@@ -70,7 +70,7 @@ function FeaturedVendorCard({ vendor }: { vendor: PublicSupplierDetailsDto }) {
           className="object-cover transition-transform duration-500 group-hover:scale-105"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-        <div className="absolute right-3 top-3 flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-1 text-[9px] font-black uppercase tracking-wide text-slate-700 shadow-sm">
+        <div className="absolute right-3 top-3 flex items-center gap-1 rounded-full bg-card/90 px-2.5 py-1 text-[9px] font-black uppercase tracking-wide text-foreground shadow-sm">
           <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
           {vendor.city}
         </div>
@@ -84,10 +84,10 @@ function FeaturedVendorCard({ vendor }: { vendor: PublicSupplierDetailsDto }) {
             width={48}
             height={48}
             unoptimized
-            className="relative z-10 h-12 w-12 rounded-xl bg-white object-cover p-1 shadow-md"
+            className="relative z-10 h-12 w-12 rounded-xl bg-card object-cover p-1 shadow-md"
           />
           <div className="pt-8">
-            <span className="rounded bg-blue-50 px-2 py-0.5 font-mono text-[9px] font-black uppercase tracking-widest text-blue-600">
+            <span className="rounded bg-amber-50 px-2 py-0.5 font-mono text-[9px] font-black uppercase tracking-widest text-amber-600">
               {vendor.industry}
             </span>
           </div>
@@ -95,21 +95,23 @@ function FeaturedVendorCard({ vendor }: { vendor: PublicSupplierDetailsDto }) {
 
         <div className="space-y-1.5">
           <div className="flex items-center gap-1.5">
-            <h3 className="font-display text-sm font-extrabold uppercase tracking-normal text-slate-900 transition-colors group-hover:text-blue-600">
+            <h3 className="font-display text-sm font-extrabold uppercase tracking-normal text-foreground transition-colors group-hover:text-amber-600">
               {vendor.name}
             </h3>
             {vendor.verificationStatus === "verified" ? (
-              <ShieldCheck className="h-4 w-4 shrink-0 fill-blue-500/10 text-blue-500" />
+              <ShieldCheck className="h-4 w-4 shrink-0 fill-amber-500/10 text-amber-500" />
             ) : null}
           </div>
-          <p className="line-clamp-2 text-xs leading-relaxed text-slate-500">{vendor.shortDescription}</p>
+          <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+            {vendor.shortDescription}
+          </p>
         </div>
 
         <div className="flex flex-wrap gap-1.5">
           {vendor.featuredBrands.map((brand) => (
             <span
               key={brand}
-              className="rounded-full bg-slate-50 px-2 py-0.5 text-[8px] font-bold uppercase tracking-wider text-slate-400 shadow-sm"
+              className="rounded-full bg-muted px-2 py-0.5 text-[8px] font-bold uppercase tracking-wider text-muted-foreground shadow-sm"
             >
               {brand}
             </span>
@@ -117,11 +119,13 @@ function FeaturedVendorCard({ vendor }: { vendor: PublicSupplierDetailsDto }) {
         </div>
       </div>
 
-      <div className="mt-auto flex items-center justify-between gap-2 bg-slate-50/70 p-4">
-        <span className="text-[10px] font-medium text-slate-400">{vendor.responseTimeText}</span>
+      <div className="mt-auto flex items-center justify-between gap-2 bg-muted/70 p-4">
+        <span className="text-[10px] font-medium text-muted-foreground">
+          {vendor.responseTimeText}
+        </span>
         <Link
           href={`/vendors/${vendor.slug}`}
-          className="flex items-center gap-0.5 rounded-lg bg-[#2A3B4C] px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wider text-white transition-all hover:brightness-110"
+          className="flex items-center gap-0.5 rounded-md bg-primary px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wider text-primary-foreground transition-colors hover:bg-amber-600"
         >
           Otwórz profil <ArrowRight className="h-3 w-3" />
         </Link>
@@ -132,7 +136,7 @@ function FeaturedVendorCard({ vendor }: { vendor: PublicSupplierDetailsDto }) {
 
 function FlyerCard({
   flyer,
-  vendor
+  vendor,
 }: {
   flyer: PublicFlyerDto;
   vendor?: PublicSupplierDetailsDto;
@@ -140,9 +144,9 @@ function FlyerCard({
   return (
     <Link
       href={`/flyers/${flyer.slug}`}
-      className="group overflow-hidden rounded-xl bg-white shadow-md transition-all hover:-translate-y-0.5 hover:shadow-xl"
+      className="group overflow-hidden rounded-xl bg-card shadow-md transition-all hover:-translate-y-0.5 hover:shadow-xl"
     >
-      <div className="relative aspect-[3/4] overflow-hidden bg-slate-50">
+      <div className="relative aspect-[3/4] overflow-hidden bg-muted">
         <Image
           src={flyer.coverUrl}
           alt=""
@@ -152,18 +156,18 @@ function FlyerCard({
           className="object-cover transition-transform duration-500 group-hover:scale-105"
         />
         <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/70 to-transparent p-4">
-          <span className="mb-1 w-fit rounded bg-blue-950/40 px-2 py-0.5 font-mono text-[8px] font-black uppercase tracking-widest text-blue-400">
+          <span className="mb-1 w-fit rounded bg-amber-950/40 px-2 py-0.5 font-mono text-[8px] font-black uppercase tracking-widest text-amber-400">
             {vendor?.name}
           </span>
           <h4 className="line-clamp-2 text-xs font-bold leading-tight text-white">{flyer.title}</h4>
         </div>
       </div>
-      <div className="flex items-center justify-between p-3.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+      <div className="flex items-center justify-between p-3.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
         <span className="flex items-center gap-1">
-          <BookOpen className="h-3.5 w-3.5 text-blue-500" />
+          <BookOpen className="h-3.5 w-3.5 text-amber-500" />
           {flyer.pages.length} strony
         </span>
-        <span className="flex items-center gap-0.5 text-blue-600">
+        <span className="flex items-center gap-0.5 text-amber-600">
           Przeglądaj <ArrowRight className="h-3 w-3" />
         </span>
       </div>
@@ -173,7 +177,7 @@ function FlyerCard({
 
 function ProductTeaser({
   product,
-  vendor
+  vendor,
 }: {
   product: PublicProductDto;
   vendor?: PublicSupplierDetailsDto;
@@ -181,9 +185,9 @@ function ProductTeaser({
   return (
     <Link
       href={`/products/${product.slug}`}
-      className="group flex h-full flex-col rounded-xl bg-white p-4 shadow-md transition-all hover:shadow-lg"
+      className="group flex h-full flex-col rounded-xl bg-card p-4 shadow-md transition-all hover:shadow-lg"
     >
-      <div className="relative mb-3.5 aspect-square overflow-hidden rounded-lg bg-slate-50">
+      <div className="relative mb-3.5 aspect-square overflow-hidden rounded-lg bg-muted">
         <Image
           src={product.imageUrl}
           alt=""
@@ -193,18 +197,18 @@ function ProductTeaser({
           className="object-cover transition-transform duration-300 group-hover:scale-105"
         />
         {product.isNew ? (
-          <span className="absolute left-2.5 top-2.5 rounded-full bg-blue-600 px-2 py-0.5 text-[8px] font-black uppercase tracking-wider text-white shadow-sm">
+          <span className="absolute left-2.5 top-2.5 rounded-full bg-amber-600 px-2 py-0.5 text-[8px] font-black uppercase tracking-wider text-white shadow-sm">
             Nowość
           </span>
         ) : null}
       </div>
-      <span className="font-mono text-[8px] font-black uppercase tracking-widest text-blue-600">
+      <span className="font-mono text-[8px] font-black uppercase tracking-widest text-amber-600">
         {product.brand} · {vendor?.name}
       </span>
-      <h3 className="mt-2 line-clamp-2 text-xs font-bold leading-tight text-slate-900 group-hover:text-blue-600">
+      <h3 className="mt-2 line-clamp-2 text-xs font-bold leading-tight text-foreground group-hover:text-amber-600">
         {product.name}
       </h3>
-      <p className="mt-auto pt-3 text-[9px] font-semibold text-slate-400">
+      <p className="mt-auto pt-3 text-[9px] font-semibold text-muted-foreground">
         Op: {product.packSize} {product.unit}
       </p>
     </Link>
@@ -218,33 +222,28 @@ export function PrototypeMarketplaceHome({ snapshot }: { snapshot: MarketplaceSn
 
   return (
     <div className="space-y-12 pb-12">
-      <section className="relative overflow-hidden bg-gradient-to-br from-[#1E2B38] via-[#2A3B4C] to-[#0E151F] px-4 py-16 text-white md:py-24">
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff05_1px,transparent_1px),linear-gradient(to_bottom,#ffffff05_1px,transparent_1px)] bg-[size:24px_24px]" />
-
+      <section className="relative overflow-hidden border-b border-border bg-background px-4 py-16 md:py-24">
         <div className="relative z-10 mx-auto max-w-4xl space-y-6 text-center">
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-blue-500/10 px-3.5 py-1 text-xs font-black uppercase tracking-widest text-blue-300">
-            <Sparkles className="h-3.5 w-3.5 animate-pulse text-blue-400" />
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-accent px-3.5 py-1 text-xs font-black uppercase tracking-widest text-accent-foreground">
+            <Sparkles className="h-3.5 w-3.5 text-primary" />
             Otwarte wyszukiwanie dostawców B2B
           </div>
 
-          <h1 className="font-display text-3xl font-black uppercase leading-none tracking-normal md:text-5xl">
-            Znajdź Certyfikowanych Dostawców{" "}
-            <span className="bg-gradient-to-r from-blue-400 to-indigo-300 bg-clip-text text-transparent">
-              Ambra VMI
-            </span>
+          <h1 className="font-display text-3xl font-black uppercase leading-none tracking-normal text-foreground md:text-5xl">
+            Znajdź Certyfikowanych Dostawców <span className="text-primary">Ambra VMI</span>
           </h1>
 
-          <p className="mx-auto max-w-2xl text-sm font-medium leading-relaxed text-slate-300 md:text-base">
-            Przeglądaj asortyment hurtowy, sprawdzaj lokalizacje w Poznaniu i całej Polsce,
-            pobieraj gazetki promocyjne i składaj zapytania ofertowe (RFQ) w jednym koszyku.
+          <p className="mx-auto max-w-2xl text-sm font-medium leading-relaxed text-muted-foreground md:text-base">
+            Przeglądaj asortyment hurtowy, sprawdzaj lokalizacje w Poznaniu i całej Polsce, pobieraj
+            gazetki promocyjne i składaj zapytania ofertowe (RFQ) w jednym koszyku.
           </p>
 
           <form
             action="/vendors"
-            className="mx-auto flex max-w-3xl flex-col items-stretch gap-2 rounded-2xl bg-white p-2 text-slate-900 shadow-2xl md:flex-row"
+            className="mx-auto flex max-w-3xl flex-col items-stretch gap-2 rounded-lg border border-border bg-card p-2 text-foreground shadow-sm md:flex-row"
           >
             <div className="flex flex-1 items-center gap-2 px-3 py-2 md:border-r md:py-0">
-              <Search className="h-4 w-4 shrink-0 text-slate-400" />
+              <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
               <input
                 type="text"
                 name="query"
@@ -254,8 +253,11 @@ export function PrototypeMarketplaceHome({ snapshot }: { snapshot: MarketplaceSn
             </div>
 
             <div className="flex w-full items-center gap-2 px-3 py-2 md:w-56 md:py-0">
-              <MapPin className="h-4 w-4 shrink-0 text-slate-400" />
-              <select name="city" className="w-full cursor-pointer bg-transparent text-xs font-bold outline-none">
+              <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <select
+                name="city"
+                className="w-full cursor-pointer bg-transparent text-xs font-bold outline-none"
+              >
                 <option value="">Wszystkie miasta</option>
                 {snapshot.cities.map((city) => (
                   <option key={city} value={city}>
@@ -267,19 +269,19 @@ export function PrototypeMarketplaceHome({ snapshot }: { snapshot: MarketplaceSn
 
             <button
               type="submit"
-              className="flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-700 px-6 py-3 text-xs font-black text-white transition-all hover:brightness-110"
+              className="flex items-center justify-center gap-1.5 rounded-md bg-primary px-6 py-3 text-xs font-black text-primary-foreground transition-colors hover:bg-amber-600"
             >
               Wyszukaj dostawców
             </button>
           </form>
 
-          <div className="flex flex-wrap items-center justify-center gap-2 pt-2 text-[10px] font-black uppercase tracking-wider text-slate-400">
+          <div className="flex flex-wrap items-center justify-center gap-2 pt-2 text-[10px] font-black uppercase tracking-wider text-muted-foreground">
             <span>Popularne:</span>
             {["Części", "Castrol", "Wurth", "Narzędzia", "Yato", "BHP"].map((tag) => (
               <Link
                 key={tag}
                 href={`/vendors?query=${encodeURIComponent(tag)}`}
-                className="rounded-md bg-white/5 px-2.5 py-1 text-slate-300 transition-colors hover:bg-white/10"
+                className="rounded-md bg-accent px-2.5 py-1 text-accent-foreground transition-colors hover:bg-amber-100"
               >
                 {tag}
               </Link>
@@ -291,12 +293,17 @@ export function PrototypeMarketplaceHome({ snapshot }: { snapshot: MarketplaceSn
       <section className="mx-auto max-w-7xl space-y-6 px-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="font-display text-base font-black uppercase tracking-normal text-slate-900">
+            <h2 className="font-display text-base font-black uppercase tracking-normal text-foreground">
               Kategorie B2B
             </h2>
-            <p className="text-xs text-slate-400">Przeglądaj asortyment certyfikowany przez branżę.</p>
+            <p className="text-xs text-muted-foreground">
+              Przeglądaj asortyment certyfikowany przez branżę.
+            </p>
           </div>
-          <Link href="/vendors" className="flex items-center gap-0.5 text-xs font-black text-blue-600 hover:underline">
+          <Link
+            href="/vendors"
+            className="flex items-center gap-0.5 text-xs font-black text-amber-600 hover:underline"
+          >
             Wszystkie <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </div>
@@ -306,12 +313,12 @@ export function PrototypeMarketplaceHome({ snapshot }: { snapshot: MarketplaceSn
             <Link
               key={category}
               href={`/vendors?category=${encodeURIComponent(category)}`}
-              className="group rounded-xl bg-white p-4 text-center shadow-md transition-all hover:shadow-lg"
+              className="group rounded-xl bg-card p-4 text-center shadow-md transition-all hover:shadow-lg"
             >
               <div className="mb-2.5 flex justify-center transition-transform group-hover:scale-110">
                 <CategoryIcon category={category} />
               </div>
-              <h4 className="line-clamp-1 text-[11px] font-extrabold uppercase tracking-normal text-slate-800 transition-colors group-hover:text-blue-600">
+              <h4 className="line-clamp-1 text-[11px] font-extrabold uppercase tracking-normal text-foreground transition-colors group-hover:text-amber-600">
                 {category}
               </h4>
             </Link>
@@ -322,14 +329,17 @@ export function PrototypeMarketplaceHome({ snapshot }: { snapshot: MarketplaceSn
       <section className="mx-auto max-w-7xl space-y-6 px-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="font-display text-base font-black uppercase tracking-normal text-slate-900">
+            <h2 className="font-display text-base font-black uppercase tracking-normal text-foreground">
               Wyróżnieni Dostawcy
             </h2>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-muted-foreground">
               Certyfikowani producenci i dystrybutorzy o sprawdzonej wydajności logistycznej.
             </p>
           </div>
-          <Link href="/vendors" className="flex items-center gap-0.5 text-xs font-black text-blue-600 hover:underline">
+          <Link
+            href="/vendors"
+            className="flex items-center gap-0.5 text-xs font-black text-amber-600 hover:underline"
+          >
             Pokaż wszystkich ({snapshot.suppliers.length}) <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </div>
@@ -341,18 +351,22 @@ export function PrototypeMarketplaceHome({ snapshot }: { snapshot: MarketplaceSn
         </div>
       </section>
 
-      <section className="bg-white py-12">
+      <section className="bg-card py-12">
         <div className="mx-auto max-w-7xl space-y-8 px-4">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="font-display text-base font-black uppercase tracking-normal text-slate-900">
+              <h2 className="font-display text-base font-black uppercase tracking-normal text-foreground">
                 Aktywne Gazetki Produktowe B2B
               </h2>
-              <p className="text-xs text-slate-400">
-                Wygodne, interaktywne gazetki promocyjne dostawców. Zamawiaj bezpośrednio ze stron gazetki.
+              <p className="text-xs text-muted-foreground">
+                Wygodne, interaktywne gazetki promocyjne dostawców. Zamawiaj bezpośrednio ze stron
+                gazetki.
               </p>
             </div>
-            <Link href="/vendors" className="flex items-center gap-0.5 text-xs font-black text-blue-600 hover:underline">
+            <Link
+              href="/vendors"
+              className="flex items-center gap-0.5 text-xs font-black text-amber-600 hover:underline"
+            >
               Wszystkie gazetki <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>
@@ -367,34 +381,38 @@ export function PrototypeMarketplaceHome({ snapshot }: { snapshot: MarketplaceSn
 
       <section className="mx-auto max-w-7xl space-y-6 px-4">
         <div>
-          <h2 className="font-display text-base font-black uppercase tracking-normal text-slate-900">
+          <h2 className="font-display text-base font-black uppercase tracking-normal text-foreground">
             Nowości produktowe
           </h2>
-          <p className="text-xs font-medium text-slate-400">
+          <p className="text-xs font-medium text-muted-foreground">
             Najnowszy asortyment hurtowy zgłoszony przez zweryfikowanych partnerów.
           </p>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {newProducts.map((product) => (
-            <ProductTeaser key={product.id} product={product} vendor={vendorById.get(product.vendorId)} />
+            <ProductTeaser
+              key={product.id}
+              product={product}
+              vendor={vendorById.get(product.vendorId)}
+            />
           ))}
         </div>
       </section>
 
-      <section className="mx-auto w-[calc(100%-2rem)] max-w-7xl overflow-hidden rounded-3xl bg-gradient-to-br from-[#2A3B4C] to-[#1E2B38] px-4 py-12 text-white shadow-xl">
+      <section className="mx-auto w-[calc(100%-2rem)] max-w-7xl overflow-hidden rounded-lg border border-border bg-accent/30 px-4 py-12 shadow-sm">
         <div className="mx-auto grid max-w-4xl grid-cols-1 gap-8 text-center md:grid-cols-3 md:text-left">
           {[
             ["Szybka weryfikacja", "Sprawdź profile i dostępność jeszcze przed kontaktem."],
             ["Zapytania RFQ", "Buduj koszyk zapytań ofertowych z wielu produktów."],
-            ["Gotowość VMI", "Widzisz, którzy dostawcy nadają się do stałej współpracy."]
+            ["Gotowość VMI", "Widzisz, którzy dostawcy nadają się do stałej współpracy."],
           ].map(([title, text]) => (
             <div key={title} className="space-y-2">
-              <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/20 text-blue-300 md:mx-0">
+              <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-primary md:mx-0">
                 <Check className="h-5 w-5" />
               </div>
-              <h3 className="font-display text-sm font-black uppercase">{title}</h3>
-              <p className="text-xs leading-6 text-slate-300">{text}</p>
+              <h3 className="font-display text-sm font-black uppercase text-foreground">{title}</h3>
+              <p className="text-xs leading-6 text-muted-foreground">{text}</p>
             </div>
           ))}
         </div>

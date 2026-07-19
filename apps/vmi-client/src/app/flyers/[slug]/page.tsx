@@ -13,7 +13,7 @@ export default async function FlyerDetailPage({ params }: FlyerDetailPageProps) 
   const { slug } = await params;
   const [flyerResult, snapshot] = await Promise.all([
     PublicMarketplaceRepository.getFlyerBySlug(slug),
-    PublicMarketplaceRepository.getMarketplaceSnapshot()
+    PublicMarketplaceRepository.getMarketplaceSnapshot(),
   ]);
 
   if (!flyerResult.success) throw new Error(flyerResult.error);
@@ -25,26 +25,42 @@ export default async function FlyerDetailPage({ params }: FlyerDetailPageProps) 
 
   return (
     <PublicMarketplaceShell>
-      <section className="bg-slate-950 text-white">
+      <section className="border-b border-border bg-background">
         <div className="mx-auto grid max-w-7xl gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[0.85fr_1.15fr] lg:px-8">
-          <div className="relative aspect-[4/3] overflow-hidden rounded-3xl bg-slate-800 shadow-2xl">
-            <Image src={flyer.coverUrl} alt="" fill priority unoptimized sizes="(min-width: 1024px) 40vw, 100vw" className="object-cover" />
+          <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-muted shadow-sm">
+            <Image
+              src={flyer.coverUrl}
+              alt=""
+              fill
+              priority
+              unoptimized
+              sizes="(min-width: 1024px) 40vw, 100vw"
+              className="object-cover"
+            />
           </div>
           <div className="flex flex-col justify-center space-y-5">
-            <Link href="/" className="inline-flex w-fit items-center gap-2 text-sm font-black text-blue-200">
+            <Link
+              href="/"
+              className="inline-flex w-fit items-center gap-2 text-sm font-black text-primary"
+            >
               <ArrowLeft className="h-4 w-4" />
               Wróć
             </Link>
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-200">Gazetka</p>
-              <h1 className="mt-2 font-display text-4xl font-black leading-tight">{flyer.title}</h1>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-primary">Gazetka</p>
+              <h1 className="mt-2 font-display text-4xl font-black leading-tight text-foreground">
+                {flyer.title}
+              </h1>
             </div>
-            <p className="flex items-center gap-2 text-sm font-bold text-slate-300">
+            <p className="flex items-center gap-2 text-sm font-bold text-muted-foreground">
               <CalendarDays className="h-4 w-4" />
               {flyer.validFrom} - {flyer.validTo}
             </p>
             {supplier ? (
-              <Link href={`/vendors/${supplier.slug}`} className="text-sm font-black text-blue-200 hover:text-white">
+              <Link
+                href={`/vendors/${supplier.slug}`}
+                className="text-sm font-black text-primary hover:underline"
+              >
                 Dostawca: {supplier.name}
               </Link>
             ) : null}
@@ -58,11 +74,15 @@ export default async function FlyerDetailPage({ params }: FlyerDetailPageProps) 
           return (
             <div key={page.pageNumber} className="space-y-4">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-700">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-700">
                   Strona {page.pageNumber} · {page.layoutType}
                 </p>
-                <h2 className="mt-1 font-display text-2xl font-black text-slate-950">{page.title}</h2>
-                {page.description ? <p className="mt-2 text-sm leading-6 text-slate-500">{page.description}</p> : null}
+                <h2 className="mt-1 font-display text-2xl font-black text-foreground">
+                  {page.title}
+                </h2>
+                {page.description ? (
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">{page.description}</p>
+                ) : null}
               </div>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {products.map((product) => (

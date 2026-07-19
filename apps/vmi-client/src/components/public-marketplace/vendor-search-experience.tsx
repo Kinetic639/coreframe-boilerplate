@@ -17,13 +17,10 @@ import {
   SlidersHorizontal,
   Truck,
   Warehouse,
-  X
+  X,
 } from "lucide-react";
 import { parseAsInteger, parseAsString, useQueryStates } from "nuqs";
-import type {
-  PublicProductDto,
-  PublicSupplierDetailsDto
-} from "@/lib/public-marketplace/types";
+import type { PublicProductDto, PublicSupplierDetailsDto } from "@/lib/public-marketplace/types";
 import { cn } from "@/utils/cn";
 
 const vendorMapPins: Record<string, { x: number; y: number }> = {
@@ -38,7 +35,7 @@ const vendorMapPins: Record<string, { x: number; y: number }> = {
   "mv-9": { x: 36, y: 43 },
   "mv-10": { x: 80, y: 55 },
   "mv-11": { x: 64, y: 58 },
-  "mv-12": { x: 61, y: 43 }
+  "mv-12": { x: 61, y: 43 },
 };
 
 const searchParsers = {
@@ -51,13 +48,13 @@ const searchParsers = {
   distance: parseAsInteger.withDefault(200),
   sort: parseAsString.withDefault("name"),
   tab: parseAsString.withDefault("dostawcy"),
-  view: parseAsString.withDefault("list")
+  view: parseAsString.withDefault("list"),
 };
 
 const booleanFilters = [
   { key: "verified", label: "Zweryfikowani", icon: ShieldCheck },
   { key: "delivery", label: "Wysyłka", icon: Truck },
-  { key: "collection", label: "Odbiór", icon: Warehouse }
+  { key: "collection", label: "Odbiór", icon: Warehouse },
 ] as const;
 
 interface VendorSearchExperienceProps {
@@ -75,7 +72,7 @@ function matchesTerm(value: string, term: string): boolean {
 function SupplierResultCard({
   vendor,
   selected,
-  onSelectMap
+  onSelectMap,
 }: {
   vendor: PublicSupplierDetailsDto;
   selected: boolean;
@@ -84,26 +81,19 @@ function SupplierResultCard({
   return (
     <article
       className={cn(
-        "group grid gap-4 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md sm:grid-cols-[96px_1fr]",
-        selected && "border-blue-400 ring-2 ring-blue-100"
+        "group grid gap-4 rounded-2xl border border-border bg-card p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-amber-200 hover:shadow-md sm:grid-cols-[96px_1fr]",
+        selected && "border-amber-400 ring-2 ring-amber-100"
       )}
     >
-      <div className="relative h-24 w-24 overflow-hidden rounded-2xl bg-slate-100">
-        <Image
-          src={vendor.logoUrl}
-          alt=""
-          fill
-          unoptimized
-          sizes="96px"
-          className="object-cover"
-        />
+      <div className="relative h-24 w-24 overflow-hidden rounded-2xl bg-secondary">
+        <Image src={vendor.logoUrl} alt="" fill unoptimized sizes="96px" className="object-cover" />
       </div>
 
       <div className="min-w-0 space-y-3">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h3 className="font-display text-base font-black text-slate-950 group-hover:text-blue-700">
+              <h3 className="font-display text-base font-black text-foreground group-hover:text-amber-700">
                 {vendor.name}
               </h3>
             </div>
@@ -112,7 +102,7 @@ function SupplierResultCard({
               {vendor.categories.slice(0, 4).map((category) => (
                 <span
                   key={category}
-                  className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-600"
+                  className="rounded-full bg-secondary px-2 py-1 text-[11px] font-bold text-muted-foreground"
                 >
                   {category}
                 </span>
@@ -121,15 +111,17 @@ function SupplierResultCard({
           </div>
 
           {selected ? (
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white shadow-sm">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-600 text-white shadow-sm">
               <MapPin className="h-4 w-4" />
             </div>
           ) : null}
         </div>
 
-        <p className="line-clamp-2 text-sm leading-6 text-slate-600">{vendor.shortDescription}</p>
+        <p className="line-clamp-2 text-sm leading-6 text-muted-foreground">
+          {vendor.shortDescription}
+        </p>
 
-        <div className="flex flex-wrap items-center gap-3 text-xs font-bold text-slate-500">
+        <div className="flex flex-wrap items-center gap-3 text-xs font-bold text-muted-foreground">
           <span className="inline-flex items-center gap-1">
             <MapPin className="h-4 w-4" />
             {vendor.city}, zasięg {vendor.serviceRadiusKm} km
@@ -150,7 +142,7 @@ function SupplierResultCard({
 
         <div
           className={cn(
-            "flex flex-col gap-2 border-t border-slate-100 pt-3 sm:flex-row sm:items-center",
+            "flex flex-col gap-2 border-t border-border pt-3 sm:flex-row sm:items-center",
             selected ? "sm:justify-end" : "sm:justify-between"
           )}
         >
@@ -158,7 +150,7 @@ function SupplierResultCard({
             <button
               type="button"
               onClick={onSelectMap}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-black text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-border px-3 py-2 text-xs font-black text-foreground transition hover:border-amber-200 hover:bg-amber-50 hover:text-amber-700"
             >
               <MapIcon className="h-4 w-4" />
               Pokaż na mapie
@@ -166,7 +158,7 @@ function SupplierResultCard({
           )}
           <Link
             href={`/vendors/${vendor.slug}`}
-            className="inline-flex items-center justify-center gap-1 rounded-xl bg-[#1f3347] px-3 py-2 text-xs font-black text-white shadow-sm transition hover:bg-blue-700"
+            className="inline-flex items-center justify-center gap-1 rounded-md bg-primary px-3 py-2 text-xs font-black text-primary-foreground shadow-sm transition-colors hover:bg-amber-600"
           >
             Profil
             <ChevronRight className="h-4 w-4" />
@@ -179,7 +171,7 @@ function SupplierResultCard({
 
 function ProductMiniCard({
   product,
-  vendor
+  vendor,
 }: {
   product: PublicProductDto;
   vendor?: PublicSupplierDetailsDto;
@@ -187,9 +179,9 @@ function ProductMiniCard({
   return (
     <Link
       href={`/products/${product.slug}`}
-      className="group grid grid-cols-[88px_1fr] gap-3 rounded-2xl border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md sm:block"
+      className="group grid grid-cols-[88px_1fr] gap-3 rounded-2xl border border-border bg-card p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md sm:block"
     >
-      <div className="relative aspect-square overflow-hidden rounded-xl bg-slate-50">
+      <div className="relative aspect-square overflow-hidden rounded-xl bg-muted">
         <Image
           src={product.imageUrl}
           alt=""
@@ -200,13 +192,15 @@ function ProductMiniCard({
         />
       </div>
       <div className="min-w-0 sm:mt-3">
-        <span className="font-mono text-[9px] font-black uppercase tracking-widest text-blue-600">
+        <span className="font-mono text-[9px] font-black uppercase tracking-widest text-amber-600">
           {product.brand} · {vendor?.name}
         </span>
-        <h4 className="mt-1.5 line-clamp-2 text-sm font-bold leading-snug text-slate-900 group-hover:text-blue-600">
+        <h4 className="mt-1.5 line-clamp-2 text-sm font-bold leading-snug text-foreground group-hover:text-amber-600">
           {product.name}
         </h4>
-        <p className="mt-2 text-[11px] font-semibold text-slate-400">{product.availability}</p>
+        <p className="mt-2 text-[11px] font-semibold text-muted-foreground">
+          {product.availability}
+        </p>
       </div>
     </Link>
   );
@@ -214,11 +208,11 @@ function ProductMiniCard({
 
 function EmptyState({ label }: { label: string }) {
   return (
-    <div className="space-y-2 rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-12 text-center shadow-sm">
+    <div className="space-y-2 rounded-2xl border border-dashed border-border bg-card px-4 py-12 text-center shadow-sm">
       <div className="flex justify-center">
-        <Building2 className="h-8 w-8 text-slate-400" />
+        <Building2 className="h-8 w-8 text-muted-foreground" />
       </div>
-      <p className="text-sm font-bold text-slate-500">{label}</p>
+      <p className="text-sm font-bold text-muted-foreground">{label}</p>
     </div>
   );
 }
@@ -228,7 +222,7 @@ export function VendorSearchExperience({
   products,
   cities,
   categories,
-  brands
+  brands,
 }: VendorSearchExperienceProps) {
   const [params, setParams] = useQueryStates(searchParsers);
   const [draftQuery, setDraftQuery] = useState(params.query);
@@ -237,10 +231,13 @@ export function VendorSearchExperience({
   const [selectedMapVendor, setSelectedMapVendor] = useState<PublicSupplierDetailsDto | null>(null);
   const mapSectionRef = useRef<HTMLElement | null>(null);
 
-  const activeTab = params.tab === "produkty" || params.tab === "wszystko" ? params.tab : "dostawcy";
+  const activeTab =
+    params.tab === "produkty" || params.tab === "wszystko" ? params.tab : "dostawcy";
   const viewMode = params.view === "map" ? "map" : "list";
   const selectedCategory = params.category || "Wszystko";
-  const selectedBrand = params.sort.startsWith("brand:") ? params.sort.slice("brand:".length) : "Wszystkie";
+  const selectedBrand = params.sort.startsWith("brand:")
+    ? params.sort.slice("brand:".length)
+    : "Wszystkie";
   const term = params.query.trim();
 
   const filteredVendors = useMemo(() => {
@@ -254,7 +251,8 @@ export function VendorSearchExperience({
         const matchesCity = !params.city || vendor.city === params.city;
         const matchesCategory =
           selectedCategory === "Wszystko" || vendor.categories.includes(selectedCategory);
-        const matchesVerified = params.verified !== "true" || vendor.verificationStatus === "verified";
+        const matchesVerified =
+          params.verified !== "true" || vendor.verificationStatus === "verified";
         const matchesDelivery = params.delivery !== "true" || vendor.deliveryAvailable;
         const matchesCollection = params.collection !== "true" || vendor.collectionAvailable;
         const matchesDistance = vendor.serviceRadiusKm <= params.distance;
@@ -273,9 +271,22 @@ export function VendorSearchExperience({
         if (params.sort === "completeness") return b.rating - a.rating;
         return a.name.localeCompare(b.name);
       });
-  }, [params.city, params.collection, params.delivery, params.distance, params.sort, params.verified, selectedCategory, suppliers, term]);
+  }, [
+    params.city,
+    params.collection,
+    params.delivery,
+    params.distance,
+    params.sort,
+    params.verified,
+    selectedCategory,
+    suppliers,
+    term,
+  ]);
 
-  const supplierById = useMemo(() => new Map(suppliers.map((supplier) => [supplier.id, supplier])), [suppliers]);
+  const supplierById = useMemo(
+    () => new Map(suppliers.map((supplier) => [supplier.id, supplier])),
+    [suppliers]
+  );
 
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
@@ -288,7 +299,8 @@ export function VendorSearchExperience({
         matchesTerm(product.sku, term) ||
         matchesTerm(product.description, term);
       const matchesCity = !params.city || vendor.city === params.city;
-      const matchesCategory = selectedCategory === "Wszystko" || product.category === selectedCategory;
+      const matchesCategory =
+        selectedCategory === "Wszystko" || product.category === selectedCategory;
       const matchesBrand = selectedBrand === "Wszystkie" || product.brand === selectedBrand;
       return matchesSearch && matchesCity && matchesCategory && matchesBrand;
     });
@@ -299,7 +311,7 @@ export function VendorSearchExperience({
     if (!highlightedVendor) return filteredVendors;
     return [
       highlightedVendor,
-      ...filteredVendors.filter((vendor) => vendor.id !== highlightedVendor.id)
+      ...filteredVendors.filter((vendor) => vendor.id !== highlightedVendor.id),
     ];
   }, [filteredVendors, highlightedVendor]);
 
@@ -322,7 +334,7 @@ export function VendorSearchExperience({
       distance: 200,
       sort: "name",
       tab: "dostawcy",
-      view: "list"
+      view: "list",
     });
   }
 
@@ -347,22 +359,22 @@ export function VendorSearchExperience({
 
   return (
     <div className="mx-auto max-w-7xl space-y-4 px-3 py-4 pb-24 sm:px-4 lg:py-6">
-      <form onSubmit={submitSearch} className="space-y-3 rounded-2xl bg-white p-3 shadow-sm sm:p-4">
+      <form onSubmit={submitSearch} className="space-y-3 rounded-2xl bg-card p-3 shadow-sm sm:p-4">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-          <div className="flex min-h-12 items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 md:col-span-2">
-            <Search className="h-4 w-4 shrink-0 text-slate-400" />
+          <div className="flex min-h-12 items-center gap-2 rounded-xl bg-muted px-3 py-2 md:col-span-2">
+            <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
             <input
               type="text"
               placeholder="Szukaj dostawcy, marki, produktu..."
               value={draftQuery}
               onChange={(event) => setDraftQuery(event.target.value)}
-              className="w-full bg-transparent text-sm font-bold outline-none placeholder:text-slate-400"
+              className="w-full bg-transparent text-sm font-bold outline-none placeholder:text-muted-foreground"
             />
             {draftQuery ? (
               <button
                 type="button"
                 onClick={() => setDraftQuery("")}
-                className="rounded-lg p-1 text-slate-400 hover:bg-white hover:text-slate-700"
+                className="rounded-lg p-1 text-muted-foreground hover:bg-card hover:text-foreground"
                 aria-label="Wyczyść wyszukiwanie"
               >
                 <X className="h-4 w-4" />
@@ -370,8 +382,8 @@ export function VendorSearchExperience({
             ) : null}
           </div>
 
-          <div className="flex min-h-12 items-center gap-2 rounded-xl bg-slate-50 px-3 py-2">
-            <MapPin className="h-4 w-4 shrink-0 text-slate-400" />
+          <div className="flex min-h-12 items-center gap-2 rounded-xl bg-muted px-3 py-2">
+            <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
             <select
               value={draftCity}
               onChange={(event) => {
@@ -389,8 +401,8 @@ export function VendorSearchExperience({
             </select>
           </div>
 
-          <div className="flex min-h-12 items-center gap-2 rounded-xl bg-slate-50 px-3 py-2">
-            <Filter className="h-4 w-4 shrink-0 text-slate-400" />
+          <div className="flex min-h-12 items-center gap-2 rounded-xl bg-muted px-3 py-2">
+            <Filter className="h-4 w-4 shrink-0 text-muted-foreground" />
             <select
               value={selectedCategory}
               onChange={(event) => void setParams({ category: event.target.value })}
@@ -406,7 +418,7 @@ export function VendorSearchExperience({
           </div>
         </div>
 
-        <div className="flex flex-col gap-3 border-t border-slate-100 pt-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-3 border-t border-border pt-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:items-center">
             {booleanFilters.map(({ key, label, icon: Icon }) => {
               const checked = params[key] === "true";
@@ -418,8 +430,8 @@ export function VendorSearchExperience({
                   className={cn(
                     "inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border px-2 text-[11px] font-black transition sm:px-3",
                     checked
-                      ? "border-blue-200 bg-blue-50 text-blue-700"
-                      : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+                      ? "border-amber-200 bg-amber-50 text-amber-700"
+                      : "border-border bg-card text-muted-foreground hover:bg-muted"
                   )}
                 >
                   <Icon className="h-3.5 w-3.5" />
@@ -430,7 +442,7 @@ export function VendorSearchExperience({
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between lg:justify-end">
-            <label className="flex items-center gap-2 text-xs font-bold text-slate-500">
+            <label className="flex items-center gap-2 text-xs font-bold text-muted-foreground">
               <span className="shrink-0">Dystans</span>
               <input
                 type="range"
@@ -438,7 +450,7 @@ export function VendorSearchExperience({
                 max="200"
                 value={params.distance}
                 onChange={(event) => void setParams({ distance: Number(event.target.value) })}
-                className="h-1.5 w-full min-w-28 cursor-pointer rounded-lg bg-slate-200 accent-blue-600 sm:w-28"
+                className="h-1.5 w-full min-w-28 cursor-pointer rounded-lg bg-slate-200 accent-amber-600 sm:w-28"
               />
               <span className="w-12 text-right font-extrabold">{params.distance} km</span>
             </label>
@@ -447,13 +459,13 @@ export function VendorSearchExperience({
               <button
                 type="button"
                 onClick={resetFilters}
-                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-extrabold text-slate-500 transition hover:bg-slate-50 hover:text-blue-700"
+                className="rounded-xl border border-border px-4 py-2 text-xs font-extrabold text-muted-foreground transition hover:bg-muted hover:text-amber-700"
               >
                 Resetuj
               </button>
               <button
                 type="submit"
-                className="rounded-xl bg-[#1f3347] px-4 py-2 text-xs font-black uppercase text-white shadow-sm transition hover:bg-blue-700"
+                className="rounded-md bg-primary px-4 py-2 text-xs font-black uppercase text-primary-foreground shadow-sm transition-colors hover:bg-amber-600"
               >
                 Filtruj
               </button>
@@ -471,8 +483,8 @@ export function VendorSearchExperience({
             className={cn(
               "whitespace-nowrap rounded-full border px-3 py-2 text-[11px] font-black transition",
               selectedCategory === category
-                ? "border-blue-200 bg-blue-50 text-blue-700"
-                : "border-slate-200 bg-white text-slate-500"
+                ? "border-amber-200 bg-amber-50 text-amber-700"
+                : "border-border bg-card text-muted-foreground"
             )}
           >
             {category}
@@ -486,10 +498,14 @@ export function VendorSearchExperience({
             <button
               key={tab}
               type="button"
-              onClick={() => void setParams({ tab, view: tab === "produkty" ? "list" : params.view })}
+              onClick={() =>
+                void setParams({ tab, view: tab === "produkty" ? "list" : params.view })
+              }
               className={cn(
                 "whitespace-nowrap rounded-xl px-4 py-2 text-xs font-black uppercase tracking-wider transition-all",
-                activeTab === tab ? "bg-blue-600 text-white shadow-sm" : "bg-white text-slate-500 hover:bg-slate-100"
+                activeTab === tab
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-card text-muted-foreground hover:bg-secondary"
               )}
             >
               {tab === "wszystko"
@@ -502,12 +518,12 @@ export function VendorSearchExperience({
         </div>
 
         <div className="grid grid-cols-[1fr_auto] gap-2 sm:flex sm:items-center">
-          <label className="flex min-h-10 items-center gap-2 rounded-xl bg-white px-3 text-xs shadow-sm">
-            <ArrowUpDown className="h-4 w-4 text-slate-400" />
+          <label className="flex min-h-10 items-center gap-2 rounded-xl bg-card px-3 text-xs shadow-sm">
+            <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
             <select
               value={params.sort}
               onChange={(event) => void setParams({ sort: event.target.value })}
-              className="w-full cursor-pointer bg-transparent font-bold text-slate-700 outline-none"
+              className="w-full cursor-pointer bg-transparent font-bold text-foreground outline-none"
             >
               <option value="name">Nazwa A-Z</option>
               <option value="distance">Dystans</option>
@@ -523,7 +539,7 @@ export function VendorSearchExperience({
           <button
             type="button"
             onClick={() => void setParams({ view: viewMode === "list" ? "map" : "list" })}
-            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#1f3347] px-3 text-xs font-black uppercase tracking-wide text-white shadow-sm xl:hidden"
+            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-primary px-3 text-xs font-black uppercase tracking-wide text-primary-foreground shadow-sm transition-colors hover:bg-amber-600 xl:hidden"
           >
             {viewMode === "list" ? <MapIcon className="h-4 w-4" /> : <List className="h-4 w-4" />}
             {viewMode === "list" ? "Mapa" : "Lista"}
@@ -532,10 +548,10 @@ export function VendorSearchExperience({
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[248px_minmax(0,1fr)] xl:grid-cols-[248px_minmax(0,1fr)_390px] xl:items-start">
-        <aside className="hidden rounded-2xl bg-white p-4 shadow-sm lg:block">
+        <aside className="hidden rounded-2xl bg-card p-4 shadow-sm lg:block">
           <div className="flex items-center gap-2">
-            <SlidersHorizontal className="h-4 w-4 text-blue-700" />
-            <h2 className="font-display text-sm font-black text-slate-950">Kategorie</h2>
+            <SlidersHorizontal className="h-4 w-4 text-amber-700" />
+            <h2 className="font-display text-sm font-black text-foreground">Kategorie</h2>
           </div>
           <div className="mt-4 space-y-1">
             {["Wszystko", ...categories].map((category) => (
@@ -545,7 +561,9 @@ export function VendorSearchExperience({
                 onClick={() => void setParams({ category })}
                 className={cn(
                   "block w-full rounded-xl px-3 py-2 text-left text-xs font-black transition-colors",
-                  selectedCategory === category ? "bg-blue-50 text-blue-700" : "text-slate-600 hover:bg-slate-100"
+                  selectedCategory === category
+                    ? "bg-amber-50 text-amber-700"
+                    : "text-muted-foreground hover:bg-secondary"
                 )}
               >
                 {category}
@@ -558,7 +576,7 @@ export function VendorSearchExperience({
           {activeTab === "wszystko" ? (
             <>
               <section className="space-y-3">
-                <h3 className="font-mono text-xs font-black uppercase tracking-widest text-slate-400">
+                <h3 className="font-mono text-xs font-black uppercase tracking-widest text-muted-foreground">
                   Zweryfikowani Dostawcy ({filteredVendors.length})
                 </h3>
                 {filteredVendors.length ? (
@@ -578,12 +596,16 @@ export function VendorSearchExperience({
               </section>
 
               <section className="space-y-3">
-                <h3 className="font-mono text-xs font-black uppercase tracking-widest text-slate-400">
+                <h3 className="font-mono text-xs font-black uppercase tracking-widest text-muted-foreground">
                   Pasujące produkty ({filteredProducts.length})
                 </h3>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   {filteredProducts.slice(0, 6).map((product) => (
-                    <ProductMiniCard key={product.id} product={product} vendor={supplierById.get(product.vendorId)} />
+                    <ProductMiniCard
+                      key={product.id}
+                      product={product}
+                      vendor={supplierById.get(product.vendorId)}
+                    />
                   ))}
                 </div>
               </section>
@@ -592,7 +614,7 @@ export function VendorSearchExperience({
 
           {activeTab === "dostawcy" ? (
             <section className="space-y-4">
-              <h3 className="font-mono text-xs font-black uppercase tracking-widest text-slate-400">
+              <h3 className="font-mono text-xs font-black uppercase tracking-widest text-muted-foreground">
                 Dostawcy w Twojej okolicy ({filteredVendors.length})
               </h3>
               {filteredVendors.length ? (
@@ -614,13 +636,17 @@ export function VendorSearchExperience({
 
           {activeTab === "produkty" ? (
             <section className="space-y-4">
-              <h3 className="font-mono text-xs font-black uppercase tracking-widest text-slate-400">
+              <h3 className="font-mono text-xs font-black uppercase tracking-widest text-muted-foreground">
                 Katalog produktów ({filteredProducts.length})
               </h3>
               {filteredProducts.length ? (
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   {filteredProducts.map((product) => (
-                    <ProductMiniCard key={product.id} product={product} vendor={supplierById.get(product.vendorId)} />
+                    <ProductMiniCard
+                      key={product.id}
+                      product={product}
+                      vendor={supplierById.get(product.vendorId)}
+                    />
                   ))}
                 </div>
               ) : (
@@ -633,16 +659,16 @@ export function VendorSearchExperience({
         <section
           ref={mapSectionRef}
           className={cn(
-            "overflow-hidden rounded-2xl bg-white shadow-sm xl:mt-8",
+            "overflow-hidden rounded-2xl bg-card shadow-sm xl:mt-8",
             viewMode === "list" ? "hidden xl:block" : "block lg:col-span-2 xl:col-span-1"
           )}
         >
-          <div className="relative aspect-square overflow-hidden bg-blue-50/40 xl:sticky xl:top-20">
-            <div className="absolute inset-0 bg-[radial-gradient(#1d4ed810_1px,transparent_1px)] [background-size:16px_16px]" />
-            <div className="absolute left-1/2 top-1/2 flex h-5 w-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-blue-600/15">
-              <div className="h-2 w-2 rounded-full bg-blue-600" />
+          <div className="relative aspect-square overflow-hidden bg-amber-50/40 xl:sticky xl:top-20">
+            <div className="absolute inset-0 bg-[radial-gradient(#d9770618_1px,transparent_1px)] [background-size:16px_16px]" />
+            <div className="absolute left-1/2 top-1/2 flex h-5 w-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-amber-600/15">
+              <div className="h-2 w-2 rounded-full bg-amber-600" />
             </div>
-            <span className="pointer-events-none absolute left-[52%] top-[52%] font-mono text-[9px] font-black uppercase tracking-wider text-blue-600/50">
+            <span className="pointer-events-none absolute left-[52%] top-[52%] font-mono text-[9px] font-black uppercase tracking-wider text-amber-600/50">
               Poznań
             </span>
 
@@ -660,17 +686,36 @@ export function VendorSearchExperience({
                   className="group absolute -translate-x-1/2 -translate-y-1/2 transition-all duration-300"
                   aria-label={`Pokaż dostawcę ${vendor.name}`}
                 >
-                  <span className={cn("pointer-events-none absolute -inset-3 rounded-full bg-blue-500/10 opacity-0 transition-all group-hover:opacity-100", isActive && "scale-110 opacity-100")} />
-                  <span className={cn("pointer-events-none relative flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-md transition-all", isActive && "z-20 scale-110 shadow-lg")}>
-                    <MapPin className={cn("h-4 w-4", isActive ? "text-blue-600" : "text-slate-400")} />
+                  <span
+                    className={cn(
+                      "pointer-events-none absolute -inset-3 rounded-full bg-amber-500/10 opacity-0 transition-all group-hover:opacity-100",
+                      isActive && "scale-110 opacity-100"
+                    )}
+                  />
+                  <span
+                    className={cn(
+                      "pointer-events-none relative flex h-8 w-8 items-center justify-center rounded-full bg-card shadow-md transition-all",
+                      isActive && "z-20 scale-110 shadow-lg"
+                    )}
+                  >
+                    <MapPin
+                      className={cn(
+                        "h-4 w-4",
+                        isActive ? "text-amber-600" : "text-muted-foreground"
+                      )}
+                    />
                   </span>
-                  <span className={cn("pointer-events-none absolute bottom-10 left-1/2 z-30 -translate-x-1/2 scale-90 whitespace-nowrap rounded-md bg-[#1f3347] px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider text-white opacity-0 shadow-md transition-all", hoveredVendorId === vendor.id && "scale-100 opacity-100")}>
+                  <span
+                    className={cn(
+                      "pointer-events-none absolute bottom-10 left-1/2 z-30 -translate-x-1/2 scale-90 whitespace-nowrap rounded-md bg-primary px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider text-primary-foreground opacity-0 shadow-md transition-all",
+                      hoveredVendorId === vendor.id && "scale-100 opacity-100"
+                    )}
+                  >
                     {vendor.name} ({vendor.serviceRadiusKm} km)
                   </span>
                 </button>
               );
             })}
-
           </div>
         </section>
       </div>

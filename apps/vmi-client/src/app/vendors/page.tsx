@@ -12,7 +12,7 @@ export default async function VendorsPage() {
       <Suspense
         fallback={
           <div className="mx-auto max-w-7xl px-4 py-6">
-            <div className="h-[calc(100vh-6rem)] rounded-2xl bg-white shadow-sm" />
+            <div className="h-[calc(100vh-6rem)] rounded-2xl bg-card shadow-sm" />
           </div>
         }
       >
