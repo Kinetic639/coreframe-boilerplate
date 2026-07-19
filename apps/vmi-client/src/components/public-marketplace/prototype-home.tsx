@@ -238,10 +238,8 @@ export function PrototypeMarketplaceHome({ snapshot }: { snapshot: MarketplaceSn
           </div>
 
           <h1 className="mx-auto max-w-5xl text-4xl font-bold leading-[1.05] tracking-tight text-foreground sm:text-5xl md:text-7xl">
-            <span className="text-gradient-amber">Z</span>najdź{" "}
-            <span className="text-gradient-amber">D</span>ostawców
-            <br />
-            <span className="text-gradient-amber">w</span> okolicy
+            <span className="text-gradient-amber">L</span>okalni{" "}
+            <span className="text-gradient-amber">D</span>ostawcy
           </h1>
 
           <p className="mx-auto max-w-2xl text-lg text-muted-foreground md:text-xl">
