@@ -28,7 +28,17 @@ export default async function VarianceReviewPage({ params }: PageProps) {
   }
 
   const supabase = await createClient();
-  const detailResult = await InventoryCountSessionsService.getSessionDetail(supabase, id);
+  const branchId = context.app.activeBranchId ?? null;
+  if (!branchId) {
+    return redirect({ href: "/dashboard/warehouse/audits", locale });
+  }
+
+  const detailResult = await InventoryCountSessionsService.getSessionDetail(
+    supabase,
+    context.app.activeOrgId,
+    branchId,
+    id
+  );
 
   if (!detailResult.success) {
     return redirect({ href: "/dashboard/warehouse/audits", locale });
@@ -55,7 +65,7 @@ export default async function VarianceReviewPage({ params }: PageProps) {
     });
   }
 
-  const enrichedLines = await enrichCountLines(supabase, lines);
+  const enrichedLines = await enrichCountLines(supabase, context.app.activeOrgId, branchId, lines);
 
   const sessionInfo: ReviewSessionInfo = {
     id: session.id,

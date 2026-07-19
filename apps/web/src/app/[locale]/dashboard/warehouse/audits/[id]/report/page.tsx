@@ -31,7 +31,17 @@ export default async function AuditFinalReportPage({ params }: PageProps) {
   }
 
   const supabase = await createClient();
-  const detailResult = await InventoryCountSessionsService.getSessionDetail(supabase, id);
+  const activeBranchId = context.app.activeBranchId ?? null;
+  if (!activeBranchId) {
+    return redirect({ href: "/dashboard/warehouse/audits", locale });
+  }
+
+  const detailResult = await InventoryCountSessionsService.getSessionDetail(
+    supabase,
+    context.app.activeOrgId,
+    activeBranchId,
+    id
+  );
   if (!detailResult.success) {
     return redirect({ href: "/dashboard/warehouse/audits", locale });
   }
@@ -61,12 +71,17 @@ export default async function AuditFinalReportPage({ params }: PageProps) {
     });
   }
 
-  const enrichedLines = await enrichCountLines(supabase, lines);
+  const enrichedLines = await enrichCountLines(
+    supabase,
+    context.app.activeOrgId,
+    session.branch_id,
+    lines
+  );
   const scope = session.scope as CountSessionScope;
   const branchId = session.branch_id;
 
   const [adjustments, reorderResult] = await Promise.all([
-    loadAdjustments(supabase, session.id),
+    loadAdjustments(supabase, context.app.activeOrgId, branchId, session.id),
     InventoryCountSessionsService.getReorderReport(supabase, context.app.activeOrgId, branchId),
   ]);
 
@@ -79,12 +94,11 @@ export default async function AuditFinalReportPage({ params }: PageProps) {
 
   let supplierName: string | null = null;
   if (scope.count_type === "supplier" && scope.supplier_id) {
-    const { data: supplier } = await supabase
-      .from("inventory_suppliers")
-      .select("name")
-      .eq("id", scope.supplier_id)
-      .maybeSingle();
-    supplierName = (supplier as { name: string } | null)?.name ?? null;
+    supplierName = await InventoryCountSessionsService.getAuditSupplierName(
+      supabase,
+      context.app.activeOrgId,
+      scope.supplier_id
+    );
   }
 
   const sessionInfo: FinalReportSessionInfo = {
@@ -119,11 +133,15 @@ export default async function AuditFinalReportPage({ params }: PageProps) {
  */
 async function loadAdjustments(
   supabase: Awaited<ReturnType<typeof createClient>>,
+  orgId: string,
+  branchId: string,
   sessionId: string
 ): Promise<AdjustmentLine[]> {
   const { data: headers } = await supabase
     .from("inventory_movement_headers")
     .select("id, movement_number")
+    .eq("organization_id", orgId)
+    .eq("branch_id", branchId)
     .eq("reference_type", "inventory_count")
     .eq("reference_id", sessionId);
 
@@ -136,6 +154,8 @@ async function loadAdjustments(
     .select(
       "id, movement_id, variant_id, quantity, source_location_id, destination_location_id, note"
     )
+    .eq("organization_id", orgId)
+    .eq("branch_id", branchId)
     .in(
       "movement_id",
       headerRows.map((h) => h.id)
@@ -156,6 +176,7 @@ async function loadAdjustments(
   const { data: variants } = await supabase
     .from("inventory_variants")
     .select("id, product_id, sku, name")
+    .eq("organization_id", orgId)
     .in("id", variantIds);
   const variantRows = (variants ?? []) as {
     id: string;
@@ -168,6 +189,7 @@ async function loadAdjustments(
     ? await supabase
         .from("inventory_products")
         .select("id, name, base_unit_id")
+        .eq("organization_id", orgId)
         .in("id", productIds)
     : { data: [] };
   const productRows = (products ?? []) as {
@@ -179,7 +201,11 @@ async function loadAdjustments(
     ...new Set(productRows.map((p) => p.base_unit_id).filter((v): v is string => !!v)),
   ];
   const { data: units } = unitIds.length
-    ? await supabase.from("inventory_units").select("id, code").in("id", unitIds)
+    ? await supabase
+        .from("inventory_units")
+        .select("id, code")
+        .eq("organization_id", orgId)
+        .in("id", unitIds)
     : { data: [] };
 
   const variantsById = new Map(variantRows.map((v) => [v.id, v]));

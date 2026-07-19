@@ -7,6 +7,7 @@ import { isValidCountLineTransition } from "@/lib/warehouse/count-session-types"
 import type {
   CountLineStatus,
   CountLineRow,
+  CountSessionStatus,
   CountSessionDetail,
   CountSessionListResult,
   CountSessionScope,
@@ -25,6 +26,38 @@ export type ServiceResult<T> = { success: true; data: T } | { success: false; er
 
 function errorMessage(error: { message?: string } | null | undefined) {
   return error?.message ?? "Unexpected database error";
+}
+
+const CLOSED_COUNT_SESSION_STATUSES = new Set(["approved", "cancelled"]);
+
+function isClosedCountSessionStatus(status: unknown) {
+  return typeof status === "string" && CLOSED_COUNT_SESSION_STATUSES.has(status);
+}
+
+function closedCountSessionError(status: unknown) {
+  return `Inventory count session is ${String(status)} and can no longer be changed`;
+}
+
+function parseRequireReasonForVariance(scope: unknown) {
+  if (!scope || typeof scope !== "object") return true;
+  const value = (scope as { require_reason_for_variance?: unknown }).require_reason_for_variance;
+  return value !== false;
+}
+
+const VALID_COUNT_SESSION_TRANSITIONS: Record<
+  Extract<CountSessionStatus, "draft" | "counting" | "submitted">,
+  ReadonlyArray<"counting" | "submitted">
+> = {
+  draft: ["counting", "submitted"],
+  counting: ["counting", "submitted"],
+  submitted: ["submitted"],
+};
+
+function isValidCountSessionTransition(from: string, to: "counting" | "submitted") {
+  if (from === "approved" || from === "cancelled") return false;
+  const transitions =
+    VALID_COUNT_SESSION_TRANSITIONS[from as keyof typeof VALID_COUNT_SESSION_TRANSITIONS];
+  return transitions?.includes(to) ?? false;
 }
 
 export interface CountSessionLocationRef {
@@ -49,15 +82,13 @@ export interface UpdateCountLineInput {
   counted_quantity?: number | null;
   variance_quantity?: number | null;
   status?: CountLineStatus;
-  /** Current status, if known — enables transition validation. Optional so
-   * callers that don't have it yet (e.g. a bare quantity edit) can still
-   * call this without an extra round trip. */
+  /** Legacy client hint kept for action-schema compatibility. The service
+   * always reads the authoritative current status from the database. */
   current_status?: CountLineStatus;
   reason_code?: string | null;
   note?: string | null;
-  /** Whether the owning session requires a reason for nonzero-variance
-   * approvals. Passed by the caller (from session.scope), not looked up
-   * here, to avoid an extra round trip on every line edit. */
+  /** Legacy client hint kept for action-schema compatibility. The service
+   * always reads the owning session scope from the database. */
   require_reason_for_variance?: boolean;
   actor_user_id?: string | null;
 }
@@ -113,12 +144,16 @@ export class InventoryCountSessionsService {
 
   static async getSessionDetail(
     supabase: SupabaseClient,
+    orgId: string,
+    branchId: string,
     sessionId: string
   ): Promise<ServiceResult<CountSessionDetail>> {
     const { data: session, error: sessionError } = await supabase
       .from("inventory_count_sessions")
       .select("*")
       .eq("id", sessionId)
+      .eq("organization_id", orgId)
+      .eq("branch_id", branchId)
       .single();
     if (sessionError) return { success: false, error: errorMessage(sessionError) };
 
@@ -126,6 +161,8 @@ export class InventoryCountSessionsService {
       .from("inventory_count_lines")
       .select("*")
       .eq("count_session_id", sessionId)
+      .eq("organization_id", orgId)
+      .eq("branch_id", branchId)
       .order("sequence_no", { ascending: true });
     if (linesError) return { success: false, error: errorMessage(linesError) };
 
@@ -180,38 +217,162 @@ export class InventoryCountSessionsService {
     return { success: true, data: data as Record<string, unknown> };
   }
 
+  static async listAuditSuppliers(
+    supabase: SupabaseClient,
+    orgId: string
+  ): Promise<ServiceResult<Array<{ id: string; name: string }>>> {
+    const [legacyResult, crmResult] = await Promise.all([
+      supabase
+        .from("inventory_suppliers")
+        .select("id, name")
+        .eq("organization_id", orgId)
+        .eq("status", "active")
+        .is("deleted_at", null)
+        .order("name", { ascending: true }),
+      supabase
+        .from("crm_party_roles")
+        .select("party_id, crm_parties!inner(id, display_name, status, deleted_at)")
+        .eq("organization_id", orgId)
+        .eq("role", "supplier")
+        .eq("crm_parties.organization_id", orgId)
+        .eq("crm_parties.status", "active")
+        .is("crm_parties.deleted_at", null),
+    ]);
+
+    if (legacyResult.error) return { success: false, error: errorMessage(legacyResult.error) };
+    if (crmResult.error) return { success: false, error: errorMessage(crmResult.error) };
+
+    const suppliersById = new Map<string, { id: string; name: string }>();
+    for (const supplier of (legacyResult.data ?? []) as Array<{ id: string; name: string }>) {
+      suppliersById.set(supplier.id, supplier);
+    }
+
+    for (const role of (crmResult.data ?? []) as Array<{
+      party_id: string;
+      crm_parties?:
+        | { id: string; display_name: string }
+        | Array<{ id: string; display_name: string }>
+        | null;
+    }>) {
+      const party = Array.isArray(role.crm_parties) ? role.crm_parties[0] : role.crm_parties;
+      if (party?.id && party.display_name) {
+        suppliersById.set(party.id, { id: party.id, name: party.display_name });
+      }
+    }
+
+    return {
+      success: true,
+      data: [...suppliersById.values()].sort((a, b) => a.name.localeCompare(b.name)),
+    };
+  }
+
+  static async getAuditSupplierName(
+    supabase: SupabaseClient,
+    orgId: string,
+    supplierId: string
+  ): Promise<string | null> {
+    const { data: legacySupplier, error: legacyError } = await supabase
+      .from("inventory_suppliers")
+      .select("name")
+      .eq("id", supplierId)
+      .eq("organization_id", orgId)
+      .maybeSingle();
+
+    if (!legacyError && legacySupplier) {
+      return ((legacySupplier as { name?: string | null }).name ?? null) || null;
+    }
+
+    const { data: crmParty } = await supabase
+      .from("crm_parties")
+      .select("display_name, crm_party_roles!inner(role)")
+      .eq("id", supplierId)
+      .eq("organization_id", orgId)
+      .eq("status", "active")
+      .is("deleted_at", null)
+      .eq("crm_party_roles.role", "supplier")
+      .maybeSingle();
+
+    return ((crmParty as { display_name?: string | null } | null)?.display_name ?? null) || null;
+  }
+
   /**
    * Updates a count line's counted quantity / status / reason / note.
    * Enforces two rules server-side (not just in the UI):
    *  - a reason_code is required when approving a nonzero-variance line and
    *    the session requires reasons;
    *  - the requested status transition must be valid per the state machine
-   *    (only checked when `current_status` is supplied by the caller).
+   *    using the current status read from the database.
    * A zero-variance counted line does NOT need to become "approved" — it is
    * already resolved (plan §4) — so no reason/approval requirement applies
    * to it.
    */
   static async updateCountLine(
     supabase: SupabaseClient,
+    orgId: string,
+    branchId: string,
     lineId: string,
     input: UpdateCountLineInput
   ): Promise<ServiceResult<{ id: string }>> {
-    if (
-      input.status &&
-      input.current_status &&
-      !isValidCountLineTransition(input.current_status, input.status)
-    ) {
+    const { data: line, error: lineError } = await supabase
+      .from("inventory_count_lines")
+      .select(
+        "id, count_session_id, status, expected_quantity, counted_quantity, variance_quantity, reason_code"
+      )
+      .eq("id", lineId)
+      .eq("organization_id", orgId)
+      .eq("branch_id", branchId)
+      .single();
+    if (lineError) return { success: false, error: errorMessage(lineError) };
+
+    const lineRow = line as {
+      count_session_id?: string;
+      status?: CountLineStatus;
+      expected_quantity?: number | null;
+      counted_quantity?: number | null;
+      variance_quantity?: number | null;
+      reason_code?: string | null;
+    } | null;
+    const countSessionId = lineRow?.count_session_id;
+    if (!countSessionId) return { success: false, error: "Inventory count line not found" };
+
+    const { data: session, error: sessionError } = await supabase
+      .from("inventory_count_sessions")
+      .select("id, status, scope")
+      .eq("id", countSessionId)
+      .eq("organization_id", orgId)
+      .eq("branch_id", branchId)
+      .single();
+    if (sessionError) return { success: false, error: errorMessage(sessionError) };
+
+    const sessionStatus = (session as { status?: string } | null)?.status;
+    if (isClosedCountSessionStatus(sessionStatus)) {
+      return { success: false, error: closedCountSessionError(sessionStatus) };
+    }
+
+    const currentStatus = lineRow?.status;
+    if (input.status && currentStatus && !isValidCountLineTransition(currentStatus, input.status)) {
       return {
         success: false,
-        error: `Cannot move a count line from "${input.current_status}" to "${input.status}"`,
+        error: `Cannot move a count line from "${currentStatus}" to "${input.status}"`,
       };
     }
 
+    const nextReason =
+      input.reason_code !== undefined ? input.reason_code : (lineRow?.reason_code ?? null);
+    const nextVariance =
+      input.counted_quantity !== undefined
+        ? (input.counted_quantity ?? lineRow?.expected_quantity ?? 0) -
+          (lineRow?.expected_quantity ?? 0)
+        : (lineRow?.variance_quantity ?? 0);
+    const requireReasonForVariance = parseRequireReasonForVariance(
+      (session as { scope?: unknown } | null)?.scope
+    );
+
     if (
       input.status === "approved" &&
-      input.require_reason_for_variance &&
-      (input.variance_quantity ?? 0) !== 0 &&
-      !input.reason_code
+      requireReasonForVariance &&
+      nextVariance !== 0 &&
+      !nextReason
     ) {
       return {
         success: false,
@@ -233,6 +394,9 @@ export class InventoryCountSessionsService {
       .from("inventory_count_lines")
       .update(updates)
       .eq("id", lineId)
+      .eq("organization_id", orgId)
+      .eq("branch_id", branchId)
+      .eq("count_session_id", countSessionId)
       .select("id")
       .single();
 
@@ -254,10 +418,26 @@ export class InventoryCountSessionsService {
     sessionId: string,
     input: AddUnexpectedLineInput
   ): Promise<ServiceResult<{ id: string }>> {
+    const { data: session, error: sessionError } = await supabase
+      .from("inventory_count_sessions")
+      .select("id, status")
+      .eq("id", sessionId)
+      .eq("organization_id", input.organization_id)
+      .eq("branch_id", input.branch_id)
+      .single();
+    if (sessionError) return { success: false, error: errorMessage(sessionError) };
+
+    const sessionStatus = (session as { status?: string } | null)?.status;
+    if (isClosedCountSessionStatus(sessionStatus)) {
+      return { success: false, error: closedCountSessionError(sessionStatus) };
+    }
+
     const { data: maxRow, error: maxError } = await supabase
       .from("inventory_count_lines")
       .select("sequence_no")
       .eq("count_session_id", sessionId)
+      .eq("organization_id", input.organization_id)
+      .eq("branch_id", input.branch_id)
       .order("sequence_no", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -301,6 +481,8 @@ export class InventoryCountSessionsService {
    */
   static async bulkApproveLines(
     supabase: SupabaseClient,
+    orgId: string,
+    branchId: string,
     lineIds: string[],
     input: { require_reason_for_variance: boolean }
   ): Promise<ServiceResult<{ approvedIds: string[]; skippedIds: string[] }>> {
@@ -308,16 +490,43 @@ export class InventoryCountSessionsService {
 
     const { data: lines, error } = await supabase
       .from("inventory_count_lines")
-      .select("id, status, variance_quantity, reason_code")
+      .select("id, count_session_id, status, variance_quantity, reason_code")
+      .eq("organization_id", orgId)
+      .eq("branch_id", branchId)
       .in("id", lineIds);
     if (error) return { success: false, error: errorMessage(error) };
 
     const rows = (lines ?? []) as Array<{
       id: string;
+      count_session_id: string;
       status: CountLineStatus;
       variance_quantity: number | null;
       reason_code: string | null;
     }>;
+
+    const countSessionIds = [...new Set(rows.map((line) => line.count_session_id).filter(Boolean))];
+    if (countSessionIds.length > 1) {
+      return {
+        success: false,
+        error: "Bulk approving lines from multiple audit sessions is not allowed",
+      };
+    }
+
+    if (countSessionIds.length === 1) {
+      const { data: session, error: sessionError } = await supabase
+        .from("inventory_count_sessions")
+        .select("id, status")
+        .eq("id", countSessionIds[0])
+        .eq("organization_id", orgId)
+        .eq("branch_id", branchId)
+        .single();
+      if (sessionError) return { success: false, error: errorMessage(sessionError) };
+
+      const sessionStatus = (session as { status?: string } | null)?.status;
+      if (isClosedCountSessionStatus(sessionStatus)) {
+        return { success: false, error: closedCountSessionError(sessionStatus) };
+      }
+    }
 
     const approvedIds: string[] = [];
     const skippedIds: string[] = [];
@@ -339,6 +548,9 @@ export class InventoryCountSessionsService {
       const { error: updateError } = await supabase
         .from("inventory_count_lines")
         .update({ status: "approved" })
+        .eq("organization_id", orgId)
+        .eq("branch_id", branchId)
+        .eq("count_session_id", countSessionIds[0])
         .in("id", approvedIds);
       if (updateError) return { success: false, error: errorMessage(updateError) };
     }
@@ -356,9 +568,21 @@ export class InventoryCountSessionsService {
    */
   static async approveCountSession(
     supabase: SupabaseClient,
+    orgId: string,
+    branchId: string,
     countSessionId: string,
     actorUserId: string | null
   ): Promise<ServiceResult<Record<string, unknown>>> {
+    const { data: session, error: sessionError } = await supabase
+      .from("inventory_count_sessions")
+      .select("id")
+      .eq("id", countSessionId)
+      .eq("organization_id", orgId)
+      .eq("branch_id", branchId)
+      .single();
+    if (sessionError) return { success: false, error: errorMessage(sessionError) };
+    if (!session) return { success: false, error: "Inventory count session not found" };
+
     const { data, error } = await supabase.rpc("inventory_approve_count_session", {
       p_count_session_id: countSessionId,
       p_actor_user_id: actorUserId,
@@ -379,13 +603,36 @@ export class InventoryCountSessionsService {
    */
   static async updateSessionStatus(
     supabase: SupabaseClient,
+    orgId: string,
+    branchId: string,
     sessionId: string,
     status: "counting" | "submitted"
   ): Promise<ServiceResult<{ id: string; status: string }>> {
+    const { data: session, error: sessionError } = await supabase
+      .from("inventory_count_sessions")
+      .select("id, status")
+      .eq("id", sessionId)
+      .eq("organization_id", orgId)
+      .eq("branch_id", branchId)
+      .single();
+
+    if (sessionError) return { success: false, error: errorMessage(sessionError) };
+
+    const currentStatus = (session as { status?: string } | null)?.status;
+    if (!currentStatus) return { success: false, error: "Inventory count session not found" };
+    if (!isValidCountSessionTransition(currentStatus, status)) {
+      return {
+        success: false,
+        error: `Cannot move an inventory count session from "${currentStatus}" to "${status}"`,
+      };
+    }
+
     const { data, error } = await supabase
       .from("inventory_count_sessions")
       .update({ status })
       .eq("id", sessionId)
+      .eq("organization_id", orgId)
+      .eq("branch_id", branchId)
       .select("id, status")
       .single();
 

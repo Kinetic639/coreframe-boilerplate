@@ -31,5 +31,6 @@ export interface WizardStockIndexRow {
   variantId: string;
   locationId: string;
   supplierId: string | null;
+  supplierIds?: string[];
   isZero: boolean;
 }

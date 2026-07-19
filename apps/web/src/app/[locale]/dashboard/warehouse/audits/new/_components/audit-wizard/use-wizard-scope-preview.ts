@@ -39,7 +39,8 @@ export function useWizardScopePreview(
       zeroStockCount = stockIndex.filter(
         (r) =>
           r.isZero &&
-          r.supplierId === state.selectedSupplierId &&
+          (r.supplierIds?.includes(state.selectedSupplierId!) ||
+            r.supplierId === state.selectedSupplierId) &&
           (!locationFilterActive || r.locationId === state.supplierLocationFilterId)
       ).length;
     }

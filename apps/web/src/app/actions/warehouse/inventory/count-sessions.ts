@@ -69,14 +69,26 @@ export async function getInventoryCountSessionAction(rawInput: unknown) {
     if (!auth.success) return auth;
     if (!hasPermission(auth, WAREHOUSE_AUDITS_READ))
       return { success: false, error: "Unauthorized" };
+    const branch = requireActiveBranch(auth);
+    if (!branch.success) return branch;
     const parsed = approveCountSessionSchema.safeParse(rawInput); // shape is just { id }
     if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
 
     const supabase = await createClient();
-    const detail = await InventoryCountSessionsService.getSessionDetail(supabase, parsed.data.id);
+    const detail = await InventoryCountSessionsService.getSessionDetail(
+      supabase,
+      auth.context.app.activeOrgId,
+      branch.branchId,
+      parsed.data.id
+    );
     if (!detail.success) return detail;
 
-    const enrichedLines = await enrichCountLines(supabase, detail.data.lines);
+    const enrichedLines = await enrichCountLines(
+      supabase,
+      auth.context.app.activeOrgId,
+      branch.branchId,
+      detail.data.lines
+    );
     return { success: true, data: { session: detail.data.session, lines: enrichedLines } };
   } catch (error) {
     return mapUnexpected(error);
@@ -156,21 +168,29 @@ export async function updateInventoryCountLineAction(rawInput: unknown) {
     if (!auth.success) return auth;
     if (!hasPermission(auth, WAREHOUSE_AUDITS_MANAGE))
       return { success: false, error: "Unauthorized" };
+    const branch = requireActiveBranch(auth);
+    if (!branch.success) return branch;
     const parsed = updateCountLineSchema.safeParse(rawInput);
     if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
 
     const userId = userIdFrom(auth);
     const supabase = await createClient();
-    const result = await InventoryCountSessionsService.updateCountLine(supabase, parsed.data.id, {
-      counted_quantity: parsed.data.counted_quantity,
-      variance_quantity: parsed.data.variance_quantity,
-      status: parsed.data.status,
-      current_status: parsed.data.current_status,
-      reason_code: parsed.data.reason_code,
-      note: parsed.data.note,
-      require_reason_for_variance: parsed.data.require_reason_for_variance,
-      actor_user_id: userId,
-    });
+    const result = await InventoryCountSessionsService.updateCountLine(
+      supabase,
+      auth.context.app.activeOrgId,
+      branch.branchId,
+      parsed.data.id,
+      {
+        counted_quantity: parsed.data.counted_quantity,
+        variance_quantity: parsed.data.variance_quantity,
+        status: parsed.data.status,
+        current_status: parsed.data.current_status,
+        reason_code: parsed.data.reason_code,
+        note: parsed.data.note,
+        require_reason_for_variance: parsed.data.require_reason_for_variance,
+        actor_user_id: userId,
+      }
+    );
 
     if (result.success) {
       await emitInventoryEvent(auth, userId, {
@@ -196,6 +216,8 @@ export async function updateInventoryCountSessionStatusAction(rawInput: unknown)
     if (!auth.success) return auth;
     if (!hasPermission(auth, WAREHOUSE_AUDITS_MANAGE))
       return { success: false, error: "Unauthorized" };
+    const branch = requireActiveBranch(auth);
+    if (!branch.success) return branch;
     const parsed = updateCountSessionStatusSchema.safeParse(rawInput);
     if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
 
@@ -203,6 +225,8 @@ export async function updateInventoryCountSessionStatusAction(rawInput: unknown)
     const supabase = await createClient();
     const result = await InventoryCountSessionsService.updateSessionStatus(
       supabase,
+      auth.context.app.activeOrgId,
+      branch.branchId,
       parsed.data.id,
       parsed.data.status
     );
@@ -274,6 +298,8 @@ export async function bulkApproveCountLinesAction(rawInput: unknown) {
     if (!auth.success) return auth;
     if (!hasPermission(auth, WAREHOUSE_AUDITS_MANAGE))
       return { success: false, error: "Unauthorized" };
+    const branch = requireActiveBranch(auth);
+    if (!branch.success) return branch;
     const parsed = bulkApproveCountLinesSchema.safeParse(rawInput);
     if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
 
@@ -281,6 +307,8 @@ export async function bulkApproveCountLinesAction(rawInput: unknown) {
     const supabase = await createClient();
     const result = await InventoryCountSessionsService.bulkApproveLines(
       supabase,
+      auth.context.app.activeOrgId,
+      branch.branchId,
       parsed.data.line_ids,
       {
         require_reason_for_variance: parsed.data.require_reason_for_variance,
@@ -310,6 +338,8 @@ export async function approveInventoryCountSessionAction(rawInput: unknown) {
     if (!auth.success) return auth;
     if (!hasPermission(auth, WAREHOUSE_AUDITS_MANAGE))
       return { success: false, error: "Unauthorized" };
+    const branch = requireActiveBranch(auth);
+    if (!branch.success) return branch;
     const parsed = approveCountSessionSchema.safeParse(rawInput);
     if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
 
@@ -321,6 +351,8 @@ export async function approveInventoryCountSessionAction(rawInput: unknown) {
     // rejection message rather than a generic "Unauthorized" from this layer.
     const result = await InventoryCountSessionsService.approveCountSession(
       supabase,
+      auth.context.app.activeOrgId,
+      branch.branchId,
       parsed.data.id,
       userId
     );
