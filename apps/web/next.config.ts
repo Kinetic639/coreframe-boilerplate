@@ -1,10 +1,13 @@
-import path from 'path';
-import {NextConfig} from 'next';
-import createNextIntlPlugin from 'next-intl/plugin';
+import path from "path";
+import { NextConfig } from "next";
+import createNextIntlPlugin from "next-intl/plugin";
 
 const nextConfig = {
   reactStrictMode: true,
-  allowedDevOrigins: ["3000-firebase-coreframe-1761721056153.cluster-55m56i2mgjalcvl276gecmncu6.cloudworkstations.dev"],
+  transpilePackages: ["@repo/ui"],
+  allowedDevOrigins: [
+    "3000-firebase-coreframe-1761721056153.cluster-55m56i2mgjalcvl276gecmncu6.cloudworkstations.dev",
+  ],
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "avatars.githubusercontent.com" },
@@ -17,14 +20,14 @@ const nextConfig = {
     return [
       // English: /en/dashboard/account -> /en/dashboard/account/preferences
       {
-        source: '/en/dashboard/account',
-        destination: '/en/dashboard/account/preferences',
+        source: "/en/dashboard/account",
+        destination: "/en/dashboard/account/preferences",
         permanent: true,
       },
       // Polish (default locale, no prefix): /dashboard/konto -> /dashboard/konto/ustawienia
       {
-        source: '/dashboard/konto',
-        destination: '/dashboard/konto/ustawienia',
+        source: "/dashboard/konto",
+        destination: "/dashboard/konto/ustawienia",
         permanent: true,
       },
     ];
@@ -47,7 +50,7 @@ const nextConfig = {
       bodySizeLimit: "50mb",
     },
     // Memory optimizations for Codespaces
-    optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
+    optimizePackageImports: ["lucide-react", "@radix-ui/react-icons"],
   },
   typescript: {
     // Disable TypeScript type-checking during builds to avoid timeout - run separately with 'npm run type-check'

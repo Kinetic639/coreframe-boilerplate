@@ -5,6 +5,8 @@ import Link from "next/link";
 import type { AmbraPublicHeaderConfig } from "@repo/ui/ambra-public-header";
 import { AmbraPublicHeader } from "@repo/ui/ambra-public-header";
 import { Button } from "@repo/ui/button";
+import { PublicFooter } from "@repo/ui/public-footer";
+import { ThemeSwitcher } from "@repo/ui/theme-switcher";
 import {
   Boxes,
   Building2,
@@ -181,16 +183,45 @@ const vmiHeaderConfig: AmbraPublicHeaderConfig = {
   topLinks: [{ label: "Produkty", href: "/products" }],
 };
 
+const footerColumns = [
+  {
+    title: "Marketplace",
+    links: [
+      { href: "/vendors", label: "Dostawcy" },
+      { href: "/products", label: "Produkty" },
+      { href: "/vendors?view=map", label: "Mapa dostawców" },
+      { href: "/partnerships", label: "Współpraca B2B" },
+    ],
+  },
+  {
+    title: "VMI",
+    links: [
+      { href: "/inventory", label: "Stany magazynowe" },
+      { href: "/stock-counts", label: "Stock count" },
+      { href: "/orders", label: "Zamówienia" },
+      { href: "/settings", label: "Ustawienia" },
+    ],
+  },
+];
+
 export function PublicMarketplaceShell({ children }: PublicMarketplaceShellProps) {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="flex min-h-screen min-w-[320px] w-full flex-col bg-background text-foreground">
       <AmbraPublicHeader
         LinkComponent={LinkAdapter}
         config={vmiHeaderConfig}
         authActions={authActions}
         mobileAuthActions={authActions}
       />
-      <main>{children}</main>
+      <main className="flex-1">{children}</main>
+      <PublicFooter
+        LinkComponent={LinkAdapter}
+        description="Buyer-facing marketplace i portal VMI dla wyszukiwania dostawców, nawiązywania współpracy B2B i automatyzacji uzupełniania zapasów."
+        columns={footerColumns}
+        copyrightName="@Kinetic639"
+        copyrightHref="https://github.com/Kinetic639"
+        themeSwitcher={<ThemeSwitcher />}
+      />
     </div>
   );
 }

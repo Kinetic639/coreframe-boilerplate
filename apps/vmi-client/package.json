@@ -25,6 +25,8 @@
     "@repo/supabase": "workspace:*",
     "@repo/ui": "workspace:*",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
+    "@radix-ui/react-navigation-menu": "^1.2.14",
+    "@radix-ui/react-slot": "^1.2.4",
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.101.0",
     "class-variance-authority": "^0.7.1",
