@@ -33,11 +33,18 @@
 
 ### Phase 2: Design Extraction
 
-- [ ] Audit reusable UI from `temp/vmi-client`
-- [ ] Port visual tokens and layout patterns
-- [ ] Rebuild shell navigation
-- [ ] Rebuild dashboard UI with typed props
-- [ ] Remove mock/localStorage coupling from ported components
+- [x] Audit reusable UI from `temp/vmi-client`
+- [x] Port visual tokens and layout patterns
+- [x] Rebuild public marketplace shell navigation
+- [x] Rebuild public marketplace home with typed props
+- [x] Rebuild public marketplace home to match prototype visual structure
+- [x] Rebuild supplier search route with `nuqs` URL state
+- [x] Rebuild supplier search route with prototype-style filters and map preview
+- [x] Rebuild supplier directory and profile routes with typed props
+- [x] Rebuild product directory and detail routes with typed props
+- [x] Rebuild flyer detail route with typed props
+- [ ] Rebuild authenticated dashboard UI with typed props
+- [x] Remove mock/localStorage coupling from ported public components
 
 ### Phase 3: Database And Security
 
