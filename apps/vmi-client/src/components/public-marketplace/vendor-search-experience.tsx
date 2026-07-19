@@ -1,20 +1,22 @@
 "use client";
 
-import Link from "next/link";
 import Image from "next/image";
-import { useMemo, useState } from "react";
+import Link from "next/link";
+import type { FormEvent } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   ArrowUpDown,
   Building2,
   ChevronRight,
   Filter,
-  Heart,
   List,
   Map as MapIcon,
   MapPin,
   Search,
   ShieldCheck,
   SlidersHorizontal,
+  Truck,
+  Warehouse,
   X
 } from "lucide-react";
 import { parseAsInteger, parseAsString, useQueryStates } from "nuqs";
@@ -25,18 +27,18 @@ import type {
 import { cn } from "@/utils/cn";
 
 const vendorMapPins: Record<string, { x: number; y: number }> = {
-  "mv-1": { x: 50, y: 50 },
-  "mv-2": { x: 42, y: 58 },
-  "mv-3": { x: 48, y: 56 },
+  "mv-1": { x: 50, y: 38 },
+  "mv-2": { x: 34, y: 66 },
+  "mv-3": { x: 47, y: 68 },
   "mv-4": { x: 38, y: 46 },
-  "mv-5": { x: 48, y: 48 },
+  "mv-5": { x: 36, y: 54 },
   "mv-6": { x: 65, y: 32 },
   "mv-7": { x: 75, y: 78 },
   "mv-8": { x: 30, y: 90 },
   "mv-9": { x: 36, y: 43 },
   "mv-10": { x: 80, y: 55 },
-  "mv-11": { x: 56, y: 48 },
-  "mv-12": { x: 50, y: 46 }
+  "mv-11": { x: 64, y: 58 },
+  "mv-12": { x: 61, y: 43 }
 };
 
 const searchParsers = {
@@ -48,14 +50,14 @@ const searchParsers = {
   collection: parseAsString.withDefault(""),
   distance: parseAsInteger.withDefault(200),
   sort: parseAsString.withDefault("name"),
-  tab: parseAsString.withDefault("wszystko"),
+  tab: parseAsString.withDefault("dostawcy"),
   view: parseAsString.withDefault("list")
 };
 
 const booleanFilters = [
-  { key: "verified", label: "Tylko zweryfikowani" },
-  { key: "delivery", label: "Wysyłka kurierska" },
-  { key: "collection", label: "Odbiór osobisty" }
+  { key: "verified", label: "Zweryfikowani", icon: ShieldCheck },
+  { key: "delivery", label: "Wysyłka", icon: Truck },
+  { key: "collection", label: "Odbiór", icon: Warehouse }
 ] as const;
 
 interface VendorSearchExperienceProps {
@@ -70,7 +72,7 @@ function matchesTerm(value: string, term: string): boolean {
   return value.toLowerCase().includes(term.toLowerCase());
 }
 
-function VendorResultCard({
+function SupplierResultCard({
   vendor,
   selected,
   onSelectMap
@@ -82,58 +84,94 @@ function VendorResultCard({
   return (
     <article
       className={cn(
-        "group rounded-xl bg-white p-4 text-left shadow-md transition-all hover:shadow-lg",
-        selected && "ring-2 ring-blue-500"
+        "group grid gap-4 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md sm:grid-cols-[96px_1fr]",
+        selected && "border-blue-400 ring-2 ring-blue-100"
       )}
     >
-      <div className="mb-3 flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <Image
-            src={vendor.logoUrl}
-            alt=""
-            width={44}
-            height={44}
-            unoptimized
-            className="h-11 w-11 shrink-0 rounded-lg bg-slate-50 object-cover"
-          />
-          <div>
-            <div className="flex flex-wrap items-center gap-1.5">
-              <h4 className="font-display text-xs font-extrabold uppercase tracking-normal text-slate-900 transition-colors group-hover:text-blue-600">
+      <div className="relative h-24 w-24 overflow-hidden rounded-2xl bg-slate-100">
+        <Image
+          src={vendor.logoUrl}
+          alt=""
+          fill
+          unoptimized
+          sizes="96px"
+          className="object-cover"
+        />
+      </div>
+
+      <div className="min-w-0 space-y-3">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="font-display text-base font-black text-slate-950 group-hover:text-blue-700">
                 {vendor.name}
-              </h4>
-              {vendor.verificationStatus === "verified" ? (
-                <ShieldCheck className="h-3.5 w-3.5 shrink-0 fill-blue-500/10 text-blue-500" />
-              ) : null}
+              </h3>
             </div>
-            <span className="font-mono text-[9px] font-black uppercase tracking-wider text-blue-600">
-              {vendor.industry}
-            </span>
+
+            <div className="mt-2 flex flex-wrap gap-2">
+              {vendor.categories.slice(0, 4).map((category) => (
+                <span
+                  key={category}
+                  className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-600"
+                >
+                  {category}
+                </span>
+              ))}
+            </div>
           </div>
+
+          {selected ? (
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white shadow-sm">
+              <MapPin className="h-4 w-4" />
+            </div>
+          ) : null}
         </div>
 
-        <button className="p-1 text-slate-400 hover:text-rose-500" type="button" aria-label="Zapisz dostawcę">
-          <Heart className="h-4 w-4" />
-        </button>
-      </div>
+        <p className="line-clamp-2 text-sm leading-6 text-slate-600">{vendor.shortDescription}</p>
 
-      <p className="mb-4 line-clamp-2 text-[11px] leading-normal text-slate-500">{vendor.shortDescription}</p>
-
-      <div className="mb-3 flex flex-wrap gap-1.5">
-        {vendor.featuredBrands.slice(0, 3).map((brand) => (
-          <span key={brand} className="rounded-full bg-slate-50 px-2 py-0.5 text-[8px] font-bold uppercase tracking-wider text-slate-400">
-            {brand}
+        <div className="flex flex-wrap items-center gap-3 text-xs font-bold text-slate-500">
+          <span className="inline-flex items-center gap-1">
+            <MapPin className="h-4 w-4" />
+            {vendor.city}, zasięg {vendor.serviceRadiusKm} km
           </span>
-        ))}
-      </div>
+          {vendor.deliveryAvailable ? (
+            <span className="inline-flex items-center gap-1">
+              <Truck className="h-4 w-4" />
+              Dostawa
+            </span>
+          ) : null}
+          {vendor.collectionAvailable ? (
+            <span className="inline-flex items-center gap-1">
+              <Warehouse className="h-4 w-4" />
+              Odbiór
+            </span>
+          ) : null}
+        </div>
 
-      <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-3 font-mono text-[10px] font-semibold uppercase text-slate-400">
-        <button type="button" onClick={onSelectMap} className="flex items-center gap-1 hover:text-blue-600">
-          <MapPin className="h-3.5 w-3.5" />
-          {vendor.city} ({vendor.serviceRadiusKm} km)
-        </button>
-        <Link href={`/vendors/${vendor.slug}`} className="flex items-center gap-0.5 text-xs font-black text-blue-600 hover:underline">
-          Otwórz <ChevronRight className="h-3.5 w-3.5" />
-        </Link>
+        <div
+          className={cn(
+            "flex flex-col gap-2 border-t border-slate-100 pt-3 sm:flex-row sm:items-center",
+            selected ? "sm:justify-end" : "sm:justify-between"
+          )}
+        >
+          {selected ? null : (
+            <button
+              type="button"
+              onClick={onSelectMap}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-black text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+            >
+              <MapIcon className="h-4 w-4" />
+              Pokaż na mapie
+            </button>
+          )}
+          <Link
+            href={`/vendors/${vendor.slug}`}
+            className="inline-flex items-center justify-center gap-1 rounded-xl bg-[#1f3347] px-3 py-2 text-xs font-black text-white shadow-sm transition hover:bg-blue-700"
+          >
+            Profil
+            <ChevronRight className="h-4 w-4" />
+          </Link>
+        </div>
       </div>
     </article>
   );
@@ -147,25 +185,41 @@ function ProductMiniCard({
   vendor?: PublicSupplierDetailsDto;
 }) {
   return (
-    <Link href={`/products/${product.slug}`} className="group rounded-xl bg-white p-3.5 text-left shadow-md transition-all hover:shadow-lg">
-      <div className="relative mb-3 aspect-square overflow-hidden rounded-lg bg-slate-50">
+    <Link
+      href={`/products/${product.slug}`}
+      className="group grid grid-cols-[88px_1fr] gap-3 rounded-2xl border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md sm:block"
+    >
+      <div className="relative aspect-square overflow-hidden rounded-xl bg-slate-50">
         <Image
           src={product.imageUrl}
           alt=""
           fill
           unoptimized
-          sizes="(min-width: 1024px) 25vw, 100vw"
+          sizes="(min-width: 1024px) 25vw, 88px"
           className="object-cover transition-transform duration-300 group-hover:scale-105"
         />
       </div>
-      <span className="font-mono text-[8px] font-black uppercase tracking-widest text-blue-600">
-        {product.brand} · {vendor?.name}
-      </span>
-      <h4 className="mt-1.5 line-clamp-2 text-xs font-bold leading-snug text-slate-900 group-hover:text-blue-600">
-        {product.name}
-      </h4>
-      <p className="mt-2 text-[9px] font-semibold text-slate-400">{product.availability}</p>
+      <div className="min-w-0 sm:mt-3">
+        <span className="font-mono text-[9px] font-black uppercase tracking-widest text-blue-600">
+          {product.brand} · {vendor?.name}
+        </span>
+        <h4 className="mt-1.5 line-clamp-2 text-sm font-bold leading-snug text-slate-900 group-hover:text-blue-600">
+          {product.name}
+        </h4>
+        <p className="mt-2 text-[11px] font-semibold text-slate-400">{product.availability}</p>
+      </div>
     </Link>
+  );
+}
+
+function EmptyState({ label }: { label: string }) {
+  return (
+    <div className="space-y-2 rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-12 text-center shadow-sm">
+      <div className="flex justify-center">
+        <Building2 className="h-8 w-8 text-slate-400" />
+      </div>
+      <p className="text-sm font-bold text-slate-500">{label}</p>
+    </div>
   );
 }
 
@@ -181,8 +235,9 @@ export function VendorSearchExperience({
   const [draftCity, setDraftCity] = useState(params.city);
   const [hoveredVendorId, setHoveredVendorId] = useState<string | null>(null);
   const [selectedMapVendor, setSelectedMapVendor] = useState<PublicSupplierDetailsDto | null>(null);
+  const mapSectionRef = useRef<HTMLElement | null>(null);
 
-  const activeTab = params.tab === "produkty" || params.tab === "dostawcy" ? params.tab : "wszystko";
+  const activeTab = params.tab === "produkty" || params.tab === "wszystko" ? params.tab : "dostawcy";
   const viewMode = params.view === "map" ? "map" : "list";
   const selectedCategory = params.category || "Wszystko";
   const selectedBrand = params.sort.startsWith("brand:") ? params.sort.slice("brand:".length) : "Wszystkie";
@@ -239,9 +294,16 @@ export function VendorSearchExperience({
     });
   }, [params.city, products, selectedBrand, selectedCategory, supplierById, term]);
 
-  const selectedVendor = selectedMapVendor ?? filteredVendors[0] ?? null;
+  const highlightedVendor = selectedMapVendor;
+  const orderedVendors = useMemo(() => {
+    if (!highlightedVendor) return filteredVendors;
+    return [
+      highlightedVendor,
+      ...filteredVendors.filter((vendor) => vendor.id !== highlightedVendor.id)
+    ];
+  }, [filteredVendors, highlightedVendor]);
 
-  function submitSearch(event: React.FormEvent<HTMLFormElement>) {
+  function submitSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     void setParams({ query: draftQuery, city: draftCity });
   }
@@ -249,6 +311,7 @@ export function VendorSearchExperience({
   function resetFilters() {
     setDraftQuery("");
     setDraftCity("");
+    setSelectedMapVendor(null);
     void setParams({
       query: "",
       city: "",
@@ -258,7 +321,7 @@ export function VendorSearchExperience({
       collection: "",
       distance: 200,
       sort: "name",
-      tab: "wszystko",
+      tab: "dostawcy",
       view: "list"
     });
   }
@@ -269,27 +332,45 @@ export function VendorSearchExperience({
     if (key === "collection") void setParams({ collection: checked ? "true" : "" });
   }
 
+  function selectMapVendor(vendor: PublicSupplierDetailsDto) {
+    setSelectedMapVendor(vendor);
+    void setParams({ view: "map" });
+    window.setTimeout(() => {
+      mapSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 80);
+  }
+
+  function selectVendorFromMap(vendor: PublicSupplierDetailsDto) {
+    setSelectedMapVendor(vendor);
+    void setParams({ tab: "dostawcy", view: "list" });
+  }
+
   return (
-    <div className="mx-auto flex h-[calc(100vh-4.25rem)] max-w-7xl flex-col space-y-4 overflow-hidden px-3 py-4 sm:px-4 lg:py-6">
-      <form onSubmit={submitSearch} className="shrink-0 space-y-3 rounded-2xl bg-white p-4 shadow-sm">
+    <div className="mx-auto max-w-7xl space-y-4 px-3 py-4 pb-24 sm:px-4 lg:py-6">
+      <form onSubmit={submitSearch} className="space-y-3 rounded-2xl bg-white p-3 shadow-sm sm:p-4">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-          <div className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 md:col-span-2">
+          <div className="flex min-h-12 items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 md:col-span-2">
             <Search className="h-4 w-4 shrink-0 text-slate-400" />
             <input
               type="text"
-              placeholder="Czego dzisiaj szukasz? (np. Castrol, hamulce, Yato...)"
+              placeholder="Szukaj dostawcy, marki, produktu..."
               value={draftQuery}
               onChange={(event) => setDraftQuery(event.target.value)}
-              className="w-full bg-transparent text-xs font-bold outline-none"
+              className="w-full bg-transparent text-sm font-bold outline-none placeholder:text-slate-400"
             />
             {draftQuery ? (
-              <button type="button" onClick={() => setDraftQuery("")} className="text-slate-400 hover:text-slate-600">
-                <X className="h-3.5 w-3.5" />
+              <button
+                type="button"
+                onClick={() => setDraftQuery("")}
+                className="rounded-lg p-1 text-slate-400 hover:bg-white hover:text-slate-700"
+                aria-label="Wyczyść wyszukiwanie"
+              >
+                <X className="h-4 w-4" />
               </button>
             ) : null}
           </div>
 
-          <div className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2">
+          <div className="flex min-h-12 items-center gap-2 rounded-xl bg-slate-50 px-3 py-2">
             <MapPin className="h-4 w-4 shrink-0 text-slate-400" />
             <select
               value={draftCity}
@@ -297,7 +378,7 @@ export function VendorSearchExperience({
                 setDraftCity(event.target.value);
                 void setParams({ city: event.target.value });
               }}
-              className="w-full cursor-pointer bg-transparent text-xs font-bold outline-none"
+              className="w-full cursor-pointer bg-transparent text-sm font-bold outline-none"
             >
               <option value="">Wszystkie miasta</option>
               {cities.map((city) => (
@@ -308,12 +389,12 @@ export function VendorSearchExperience({
             </select>
           </div>
 
-          <div className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2">
+          <div className="flex min-h-12 items-center gap-2 rounded-xl bg-slate-50 px-3 py-2">
             <Filter className="h-4 w-4 shrink-0 text-slate-400" />
             <select
               value={selectedCategory}
               onChange={(event) => void setParams({ category: event.target.value })}
-              className="w-full cursor-pointer bg-transparent text-xs font-bold outline-none"
+              className="w-full cursor-pointer bg-transparent text-sm font-bold outline-none"
             >
               <option value="Wszystko">Wszystkie kategorie</option>
               {categories.map((category) => (
@@ -325,59 +406,94 @@ export function VendorSearchExperience({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 text-[11px] text-slate-500">
-          <div className="flex flex-wrap items-center gap-4">
-            {booleanFilters.map(({ key, label }) => (
-              <label key={key} className="flex cursor-pointer items-center gap-1.5 font-bold">
-                <input
-                  type="checkbox"
-                  checked={params[key] === "true"}
-                  onChange={(event) => setBooleanFilter(key, event.target.checked)}
-                  className="rounded text-blue-600 focus:ring-blue-500"
-                />
-                <span>{label}</span>
-              </label>
-            ))}
+        <div className="flex flex-col gap-3 border-t border-slate-100 pt-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:items-center">
+            {booleanFilters.map(({ key, label, icon: Icon }) => {
+              const checked = params[key] === "true";
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setBooleanFilter(key, !checked)}
+                  className={cn(
+                    "inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border px-2 text-[11px] font-black transition sm:px-3",
+                    checked
+                      ? "border-blue-200 bg-blue-50 text-blue-700"
+                      : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {label}
+                </button>
+              );
+            })}
+          </div>
 
-            <div className="flex items-center gap-2">
-              <span>Dystans do:</span>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between lg:justify-end">
+            <label className="flex items-center gap-2 text-xs font-bold text-slate-500">
+              <span className="shrink-0">Dystans</span>
               <input
                 type="range"
                 min="5"
                 max="200"
                 value={params.distance}
                 onChange={(event) => void setParams({ distance: Number(event.target.value) })}
-                className="h-1.5 w-24 cursor-pointer rounded-lg bg-slate-200 accent-blue-600"
+                className="h-1.5 w-full min-w-28 cursor-pointer rounded-lg bg-slate-200 accent-blue-600 sm:w-28"
               />
-              <span className="font-extrabold">{params.distance} km</span>
-            </div>
-          </div>
+              <span className="w-12 text-right font-extrabold">{params.distance} km</span>
+            </label>
 
-          <div className="flex items-center gap-2">
-            <button type="button" onClick={resetFilters} className="text-xs font-extrabold text-slate-400 hover:text-blue-600">
-              Resetuj filtry
-            </button>
-            <button type="submit" className="rounded-lg bg-[#2A3B4C] px-4 py-1 text-[10px] font-black uppercase text-white">
-              Filtruj
-            </button>
+            <div className="grid grid-cols-[1fr_1fr] gap-2 sm:flex sm:items-center">
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-extrabold text-slate-500 transition hover:bg-slate-50 hover:text-blue-700"
+              >
+                Resetuj
+              </button>
+              <button
+                type="submit"
+                className="rounded-xl bg-[#1f3347] px-4 py-2 text-xs font-black uppercase text-white shadow-sm transition hover:bg-blue-700"
+              >
+                Filtruj
+              </button>
+            </div>
           </div>
         </div>
       </form>
 
-      <div className="flex shrink-0 items-center justify-between gap-3 pb-1">
-        <div className="no-scrollbar flex items-center gap-1 overflow-x-auto">
-          {(["wszystko", "produkty", "dostawcy"] as const).map((tab) => (
+      <div className="no-scrollbar -mx-3 flex gap-2 overflow-x-auto px-3 lg:hidden">
+        {["Wszystko", ...categories].map((category) => (
+          <button
+            key={category}
+            type="button"
+            onClick={() => void setParams({ category })}
+            className={cn(
+              "whitespace-nowrap rounded-full border px-3 py-2 text-[11px] font-black transition",
+              selectedCategory === category
+                ? "border-blue-200 bg-blue-50 text-blue-700"
+                : "border-slate-200 bg-white text-slate-500"
+            )}
+          >
+            {category}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="no-scrollbar -mx-3 flex items-center gap-1 overflow-x-auto px-3 sm:mx-0 sm:px-0">
+          {(["dostawcy", "produkty", "wszystko"] as const).map((tab) => (
             <button
               key={tab}
               type="button"
-              onClick={() => void setParams({ tab, view: tab === "dostawcy" ? "list" : params.view })}
+              onClick={() => void setParams({ tab, view: tab === "produkty" ? "list" : params.view })}
               className={cn(
-                "whitespace-nowrap rounded-lg px-4 py-1.5 text-xs font-black uppercase tracking-wider transition-all",
-                activeTab === tab ? "bg-blue-600 text-white shadow-sm" : "text-slate-500 hover:bg-slate-100"
+                "whitespace-nowrap rounded-xl px-4 py-2 text-xs font-black uppercase tracking-wider transition-all",
+                activeTab === tab ? "bg-blue-600 text-white shadow-sm" : "bg-white text-slate-500 hover:bg-slate-100"
               )}
             >
               {tab === "wszystko"
-                ? "Wszystko"
+                ? `Wszystko (${filteredVendors.length + filteredProducts.length})`
                 : tab === "produkty"
                   ? `Produkty (${filteredProducts.length})`
                   : `Dostawcy (${filteredVendors.length})`}
@@ -385,39 +501,38 @@ export function VendorSearchExperience({
           ))}
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => void setParams({ view: viewMode === "list" ? "map" : "list" })}
-            className="flex items-center gap-1 rounded-lg bg-[#2A3B4C] p-1.5 text-xs font-black uppercase tracking-wide text-white lg:hidden"
-          >
-            {viewMode === "list" ? <MapIcon className="h-3.5 w-3.5" /> : <List className="h-3.5 w-3.5" />}
-            {viewMode === "list" ? "Mapa" : "Lista"}
-          </button>
-
-          <div className="hidden items-center gap-2 text-xs lg:flex">
-            <ArrowUpDown className="h-3.5 w-3.5 text-slate-400" />
-            <span className="font-medium text-slate-400">Sortuj według:</span>
+        <div className="grid grid-cols-[1fr_auto] gap-2 sm:flex sm:items-center">
+          <label className="flex min-h-10 items-center gap-2 rounded-xl bg-white px-3 text-xs shadow-sm">
+            <ArrowUpDown className="h-4 w-4 text-slate-400" />
             <select
               value={params.sort}
               onChange={(event) => void setParams({ sort: event.target.value })}
-              className="cursor-pointer bg-transparent font-bold text-slate-700 outline-none"
+              className="w-full cursor-pointer bg-transparent font-bold text-slate-700 outline-none"
             >
               <option value="name">Nazwa A-Z</option>
-              <option value="distance">Dystans (km)</option>
-              <option value="completeness">Kompletność profilu</option>
+              <option value="distance">Dystans</option>
+              <option value="completeness">Ocena profilu</option>
               {brands.slice(0, 6).map((brand) => (
                 <option key={brand} value={`brand:${brand}`}>
                   Marka: {brand}
                 </option>
               ))}
             </select>
-          </div>
+          </label>
+
+          <button
+            type="button"
+            onClick={() => void setParams({ view: viewMode === "list" ? "map" : "list" })}
+            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#1f3347] px-3 text-xs font-black uppercase tracking-wide text-white shadow-sm xl:hidden"
+          >
+            {viewMode === "list" ? <MapIcon className="h-4 w-4" /> : <List className="h-4 w-4" />}
+            {viewMode === "list" ? "Mapa" : "Lista"}
+          </button>
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 items-stretch gap-4 overflow-hidden lg:gap-6">
-        <aside className="hidden w-64 shrink-0 overflow-y-auto rounded-2xl bg-white p-4 shadow-sm lg:block">
+      <div className="grid gap-4 lg:grid-cols-[248px_minmax(0,1fr)] xl:grid-cols-[248px_minmax(0,1fr)_390px] xl:items-start">
+        <aside className="hidden rounded-2xl bg-white p-4 shadow-sm lg:block">
           <div className="flex items-center gap-2">
             <SlidersHorizontal className="h-4 w-4 text-blue-700" />
             <h2 className="font-display text-sm font-black text-slate-950">Kategorie</h2>
@@ -429,7 +544,7 @@ export function VendorSearchExperience({
                 type="button"
                 onClick={() => void setParams({ category })}
                 className={cn(
-                  "block w-full rounded-lg px-3 py-2 text-left text-xs font-black transition-colors",
+                  "block w-full rounded-xl px-3 py-2 text-left text-xs font-black transition-colors",
                   selectedCategory === category ? "bg-blue-50 text-blue-700" : "text-slate-600 hover:bg-slate-100"
                 )}
               >
@@ -439,26 +554,26 @@ export function VendorSearchExperience({
           </div>
         </aside>
 
-        <div className={cn("h-full flex-1 overflow-y-auto pr-1", viewMode === "map" ? "hidden lg:block" : "block")}>
+        <div className={cn("space-y-5", viewMode === "map" ? "hidden xl:block" : "block")}>
           {activeTab === "wszystko" ? (
-            <div className="space-y-6">
+            <>
               <section className="space-y-3">
                 <h3 className="font-mono text-xs font-black uppercase tracking-widest text-slate-400">
                   Zweryfikowani Dostawcy ({filteredVendors.length})
                 </h3>
                 {filteredVendors.length ? (
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    {filteredVendors.slice(0, 6).map((vendor) => (
-                      <VendorResultCard
+                  <div className="grid grid-cols-1 gap-4">
+                    {orderedVendors.slice(0, 6).map((vendor) => (
+                      <SupplierResultCard
                         key={vendor.id}
                         vendor={vendor}
-                        selected={selectedVendor?.id === vendor.id}
-                        onSelectMap={() => setSelectedMapVendor(vendor)}
+                        selected={highlightedVendor?.id === vendor.id}
+                        onSelectMap={() => selectMapVendor(vendor)}
                       />
                     ))}
                   </div>
                 ) : (
-                  <p className="rounded-xl bg-white p-4 text-xs font-bold text-slate-400">Brak pasujących dostawców.</p>
+                  <EmptyState label="Brak pasujących dostawców." />
                 )}
               </section>
 
@@ -472,7 +587,7 @@ export function VendorSearchExperience({
                   ))}
                 </div>
               </section>
-            </div>
+            </>
           ) : null}
 
           {activeTab === "dostawcy" ? (
@@ -481,23 +596,18 @@ export function VendorSearchExperience({
                 Dostawcy w Twojej okolicy ({filteredVendors.length})
               </h3>
               {filteredVendors.length ? (
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  {filteredVendors.map((vendor) => (
-                    <VendorResultCard
+                <div className="grid grid-cols-1 gap-4">
+                  {orderedVendors.map((vendor) => (
+                    <SupplierResultCard
                       key={vendor.id}
                       vendor={vendor}
-                      selected={selectedVendor?.id === vendor.id}
-                      onSelectMap={() => setSelectedMapVendor(vendor)}
+                      selected={highlightedVendor?.id === vendor.id}
+                      onSelectMap={() => selectMapVendor(vendor)}
                     />
                   ))}
                 </div>
               ) : (
-                <div className="space-y-2 rounded-xl bg-white py-12 text-center shadow-md">
-                  <div className="flex justify-center">
-                    <Building2 className="h-8 w-8 text-slate-400" />
-                  </div>
-                  <p className="text-xs font-bold text-slate-500">Brak dostawców spełniających kryteria wyszukiwania.</p>
-                </div>
+                <EmptyState label="Brak dostawców spełniających kryteria wyszukiwania." />
               )}
             </section>
           ) : null}
@@ -507,101 +617,62 @@ export function VendorSearchExperience({
               <h3 className="font-mono text-xs font-black uppercase tracking-widest text-slate-400">
                 Katalog produktów ({filteredProducts.length})
               </h3>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {filteredProducts.map((product) => (
-                  <ProductMiniCard key={product.id} product={product} vendor={supplierById.get(product.vendorId)} />
-                ))}
-              </div>
+              {filteredProducts.length ? (
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  {filteredProducts.map((product) => (
+                    <ProductMiniCard key={product.id} product={product} vendor={supplierById.get(product.vendorId)} />
+                  ))}
+                </div>
+              ) : (
+                <EmptyState label="Brak produktów spełniających wybrane kryteria." />
+              )}
             </section>
           ) : null}
         </div>
 
-        <div className={cn("relative flex-1 overflow-hidden rounded-2xl bg-white", viewMode === "list" ? "hidden lg:flex" : "flex")}>
-          <div className="absolute left-4 top-4 z-10 max-w-xs space-y-1 rounded-xl bg-white/95 p-3 text-left shadow-lg">
-            <h4 className="font-mono text-[10px] font-extrabold uppercase tracking-widest text-slate-400">
-              Region Wielkopolski
-            </h4>
-            <p className="text-[11px] font-bold leading-tight text-slate-800">Mapa i odległość logistyczna</p>
-            <p className="text-[9px] leading-normal text-slate-400">
-              Klikaj na pinezki, aby otworzyć szczegóły i sprawdzić zasięg partnera handlowego.
-            </p>
-          </div>
-
-          <div className="relative flex min-h-[560px] flex-1 items-center justify-center overflow-hidden bg-blue-50/40">
+        <section
+          ref={mapSectionRef}
+          className={cn(
+            "overflow-hidden rounded-2xl bg-white shadow-sm xl:mt-8",
+            viewMode === "list" ? "hidden xl:block" : "block lg:col-span-2 xl:col-span-1"
+          )}
+        >
+          <div className="relative aspect-square overflow-hidden bg-blue-50/40 xl:sticky xl:top-20">
             <div className="absolute inset-0 bg-[radial-gradient(#1d4ed810_1px,transparent_1px)] [background-size:16px_16px]" />
-            <div className="absolute left-1/2 top-1/2 flex h-4 w-4 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-blue-600/15">
-              <div className="h-1.5 w-1.5 rounded-full bg-blue-600" />
+            <div className="absolute left-1/2 top-1/2 flex h-5 w-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-blue-600/15">
+              <div className="h-2 w-2 rounded-full bg-blue-600" />
             </div>
             <span className="pointer-events-none absolute left-[52%] top-[52%] font-mono text-[9px] font-black uppercase tracking-wider text-blue-600/50">
-              Poznań (Ośrodek)
+              Poznań
             </span>
 
             {filteredVendors.map((vendor) => {
               const coords = vendorMapPins[vendor.id] ?? { x: 50, y: 50 };
-              const isActive = hoveredVendorId === vendor.id || selectedVendor?.id === vendor.id;
+              const isActive = hoveredVendorId === vendor.id || highlightedVendor?.id === vendor.id;
               return (
                 <button
                   key={vendor.id}
                   type="button"
-                  onClick={() => setSelectedMapVendor(vendor)}
+                  onClick={() => selectVendorFromMap(vendor)}
                   onMouseEnter={() => setHoveredVendorId(vendor.id)}
                   onMouseLeave={() => setHoveredVendorId(null)}
-                  style={{ left: `${coords.x}%`, top: `${coords.y}%` }}
-                  className="group absolute z-10 -translate-x-1/2 -translate-y-1/2 transition-all duration-300"
+                  style={{ left: `${coords.x}%`, top: `${coords.y}%`, zIndex: isActive ? 40 : 10 }}
+                  className="group absolute -translate-x-1/2 -translate-y-1/2 transition-all duration-300"
+                  aria-label={`Pokaż dostawcę ${vendor.name}`}
                 >
-                  <span className={cn("absolute -inset-2.5 rounded-full bg-blue-500/10 opacity-0 transition-all group-hover:opacity-100", isActive && "scale-110 opacity-100")} />
-                  <div className={cn("relative flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-md transition-all", isActive && "z-20 scale-125 shadow-lg")}>
-                    <MapPin className={cn("h-3 w-3", isActive ? "text-blue-600" : "text-slate-400")} />
-                  </div>
-                  <div className={cn("pointer-events-none absolute bottom-8 left-1/2 z-30 -translate-x-1/2 scale-90 whitespace-nowrap rounded-md bg-[#2A3B4C] px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider text-white opacity-0 shadow-md transition-all", hoveredVendorId === vendor.id && "scale-100 opacity-100")}>
-                    {vendor.name} ({vendor.serviceRadiusKm}km)
-                  </div>
+                  <span className={cn("pointer-events-none absolute -inset-3 rounded-full bg-blue-500/10 opacity-0 transition-all group-hover:opacity-100", isActive && "scale-110 opacity-100")} />
+                  <span className={cn("pointer-events-none relative flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-md transition-all", isActive && "z-20 scale-110 shadow-lg")}>
+                    <MapPin className={cn("h-4 w-4", isActive ? "text-blue-600" : "text-slate-400")} />
+                  </span>
+                  <span className={cn("pointer-events-none absolute bottom-10 left-1/2 z-30 -translate-x-1/2 scale-90 whitespace-nowrap rounded-md bg-[#1f3347] px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider text-white opacity-0 shadow-md transition-all", hoveredVendorId === vendor.id && "scale-100 opacity-100")}>
+                    {vendor.name} ({vendor.serviceRadiusKm} km)
+                  </span>
                 </button>
               );
             })}
+
           </div>
-
-          {selectedVendor ? (
-            <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-3 bg-white p-4 text-left shadow-[0_-12px_30px_rgba(15,23,42,0.12)]">
-              <div className="flex min-w-0 items-center gap-3">
-                <Image
-                  src={selectedVendor.logoUrl}
-                  alt=""
-                  width={44}
-                  height={44}
-                  unoptimized
-                  className="h-11 w-11 rounded-lg bg-slate-50 object-cover"
-                />
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1">
-                    <h4 className="truncate font-display text-xs font-extrabold uppercase tracking-normal text-slate-900">
-                      {selectedVendor.name}
-                    </h4>
-                    {selectedVendor.verificationStatus === "verified" ? <ShieldCheck className="h-3.5 w-3.5 text-blue-500" /> : null}
-                  </div>
-                  <p className="text-[10px] font-medium text-slate-400">
-                    {selectedVendor.city} · Zasięg: {selectedVendor.serviceRadiusKm} km
-                  </p>
-                  <p className="mt-0.5 line-clamp-1 max-w-md text-[10px] text-slate-500">{selectedVendor.shortDescription}</p>
-                </div>
-              </div>
-
-              <div className="flex shrink-0 items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setSelectedMapVendor(null)}
-                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100"
-                  title="Zamknij"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-                <Link href={`/vendors/${selectedVendor.slug}`} className="rounded-lg bg-blue-600 px-3 py-1.5 text-[10px] font-black uppercase text-white hover:bg-blue-700">
-                  Zobacz profil
-                </Link>
-              </div>
-            </div>
-          ) : null}
-        </div>
+        </section>
       </div>
     </div>
   );

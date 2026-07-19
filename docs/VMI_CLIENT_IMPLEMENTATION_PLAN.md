@@ -40,6 +40,7 @@
 - [x] Rebuild public marketplace home to match prototype visual structure
 - [x] Rebuild supplier search route with `nuqs` URL state
 - [x] Rebuild supplier search route with prototype-style filters and map preview
+- [x] Rebuild supplier search route as mobile-first responsive results experience
 - [x] Rebuild supplier directory and profile routes with typed props
 - [x] Rebuild product directory and detail routes with typed props
 - [x] Rebuild flyer detail route with typed props

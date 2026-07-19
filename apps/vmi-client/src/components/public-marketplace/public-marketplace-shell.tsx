@@ -61,7 +61,40 @@ export function PublicMarketplaceShell({ children }: PublicMarketplaceShellProps
         </div>
       </header>
 
-      <main className="pb-16 md:pb-0">{children}</main>
+      <main>{children}</main>
+
+      <footer className="mb-14 mt-12 border-t border-slate-100 bg-white py-8 text-xs text-slate-400 lg:mb-0">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 px-6 text-center md:flex-row md:text-left">
+          <div className="flex flex-col items-center gap-2 sm:flex-row">
+            <span className="font-display font-extrabold uppercase text-[#2A3B4C]">
+              Ambra VMI Marketplace
+            </span>
+            <span className="hidden sm:inline">•</span>
+            <span>© 2026 Wszystkie prawa zastrzeżone</span>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-center gap-4">
+            <Link href="/" className="hover:underline">
+              Jak to działa
+            </Link>
+            <Link href="/vendors" className="hover:underline">
+              Dla dostawców
+            </Link>
+            <Link href="/sign-in" className="font-bold text-blue-600 hover:underline">
+              Portal partnerski
+            </Link>
+
+            <span className="hidden h-4 w-px bg-slate-200 sm:inline" />
+
+            <Link
+              href="/products"
+              className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-bold text-slate-500 shadow-sm transition-colors hover:bg-slate-100"
+            >
+              Katalog produktów
+            </Link>
+          </div>
+        </div>
+      </footer>
 
       <nav className="fixed bottom-0 left-0 right-0 z-40 grid grid-cols-3 border-t border-slate-200 bg-white/95 px-2 py-2 backdrop-blur md:hidden">
         {links.map((link) => (
