@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "exports": {
+    "./ambra-hero-background": "./src/ambra-hero-background.tsx",
     "./ambra-public-header": "./src/ambra-public-header.tsx",
     "./branding": "./src/branding.tsx",
     "./button": "./src/button.tsx",

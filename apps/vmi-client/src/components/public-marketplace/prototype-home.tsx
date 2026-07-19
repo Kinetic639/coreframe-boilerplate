@@ -20,6 +20,8 @@ import {
   Zap,
   MapPin,
 } from "lucide-react";
+import { AmbraHeroBackground } from "@repo/ui/ambra-hero-background";
+import { Button } from "@repo/ui/button";
 import type {
   MarketplaceSnapshotDto,
   PublicFlyerDto,
@@ -222,33 +224,42 @@ export function PrototypeMarketplaceHome({ snapshot }: { snapshot: MarketplaceSn
 
   return (
     <div className="space-y-12 pb-12">
-      <section className="relative overflow-hidden border-b border-border bg-background px-4 py-16 md:py-24">
-        <div className="relative z-10 mx-auto max-w-4xl space-y-6 text-center">
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-accent px-3.5 py-1 text-xs font-black uppercase tracking-widest text-accent-foreground">
-            <Sparkles className="h-3.5 w-3.5 text-primary" />
+      <section className="relative isolate flex min-h-[30rem] items-center overflow-hidden border-b border-border bg-background px-4 py-10 sm:min-h-[32rem] md:min-h-[34rem] md:py-14">
+        <AmbraHeroBackground
+          className="-z-10"
+          showWatermark={false}
+          watermarkClassName="top-3 md:top-0"
+          watermarkSizeClassName="h-72 w-72 md:h-[26rem] md:w-[26rem] xl:h-[30rem] xl:w-[30rem]"
+        />
+        <div className="relative z-10 mx-auto w-full max-w-5xl space-y-6 text-center">
+          <div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/70 px-3 py-1 text-xs font-medium text-muted-foreground shadow-soft backdrop-blur">
+            <Sparkles className="h-3 w-3 text-primary" />
             Otwarte wyszukiwanie dostawców B2B
           </div>
 
-          <h1 className="font-display text-3xl font-black uppercase leading-none tracking-normal text-foreground md:text-5xl">
-            Znajdź Certyfikowanych Dostawców <span className="text-primary">Ambra VMI</span>
+          <h1 className="mx-auto max-w-5xl text-4xl font-bold leading-[1.05] tracking-tight text-foreground sm:text-5xl md:text-7xl">
+            <span className="text-gradient-amber">Z</span>najdź{" "}
+            <span className="text-gradient-amber">D</span>ostawców
+            <br />
+            <span className="text-gradient-amber">w</span> okolicy
           </h1>
 
-          <p className="mx-auto max-w-2xl text-sm font-medium leading-relaxed text-muted-foreground md:text-base">
+          <p className="mx-auto max-w-2xl text-lg text-muted-foreground md:text-xl">
             Przeglądaj asortyment hurtowy, sprawdzaj lokalizacje w Poznaniu i całej Polsce, pobieraj
             gazetki promocyjne i składaj zapytania ofertowe (RFQ) w jednym koszyku.
           </p>
 
           <form
             action="/vendors"
-            className="mx-auto flex max-w-3xl flex-col items-stretch gap-2 rounded-lg border border-border bg-card p-2 text-foreground shadow-sm md:flex-row"
+            className="mx-auto flex max-w-3xl flex-col items-stretch gap-2 rounded-xl border border-border/60 bg-background/70 p-2 text-foreground shadow-soft backdrop-blur md:flex-row"
           >
-            <div className="flex flex-1 items-center gap-2 px-3 py-2 md:border-r md:py-0">
+            <div className="flex flex-1 items-center gap-2 px-3 py-2 md:border-r md:border-border/60 md:py-0">
               <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
               <input
                 type="text"
                 name="query"
                 placeholder="Szukaj produktu, marki lub dostawcy..."
-                className="w-full bg-transparent text-xs font-bold outline-none"
+                className="w-full bg-transparent text-sm font-medium outline-none placeholder:text-muted-foreground"
               />
             </div>
 
@@ -256,7 +267,7 @@ export function PrototypeMarketplaceHome({ snapshot }: { snapshot: MarketplaceSn
               <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
               <select
                 name="city"
-                className="w-full cursor-pointer bg-transparent text-xs font-bold outline-none"
+                className="w-full cursor-pointer bg-transparent text-sm font-medium outline-none"
               >
                 <option value="">Wszystkie miasta</option>
                 {snapshot.cities.map((city) => (
@@ -267,21 +278,23 @@ export function PrototypeMarketplaceHome({ snapshot }: { snapshot: MarketplaceSn
               </select>
             </div>
 
-            <button
+            <Button
               type="submit"
-              className="flex items-center justify-center gap-1.5 rounded-md bg-primary px-6 py-3 text-xs font-black text-primary-foreground transition-colors hover:bg-amber-600"
+              size="lg"
+              className="h-12 bg-gradient-amber px-7 text-primary-foreground shadow-glow transition-opacity hover:opacity-95"
             >
               Wyszukaj dostawców
-            </button>
+              <ArrowRight className="h-4 w-4" />
+            </Button>
           </form>
 
-          <div className="flex flex-wrap items-center justify-center gap-2 pt-2 text-[10px] font-black uppercase tracking-wider text-muted-foreground">
+          <div className="flex flex-wrap items-center justify-center gap-2 pt-2 text-xs text-muted-foreground">
             <span>Popularne:</span>
             {["Części", "Castrol", "Wurth", "Narzędzia", "Yato", "BHP"].map((tag) => (
               <Link
                 key={tag}
                 href={`/vendors?query=${encodeURIComponent(tag)}`}
-                className="rounded-md bg-accent px-2.5 py-1 text-accent-foreground transition-colors hover:bg-amber-100"
+                className="rounded-full border border-border/60 bg-background/60 px-3 py-1 font-medium text-muted-foreground shadow-soft backdrop-blur transition-colors hover:text-foreground"
               >
                 {tag}
               </Link>
