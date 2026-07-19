@@ -24,24 +24,28 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
     vendorId: params.vendorId || undefined,
     category: params.category || undefined,
     brand: params.brand || undefined,
-    limit: 100
+    limit: 100,
   });
   if (!result.success) throw new Error(result.error);
 
   const products = params.city
-    ? result.data.products.filter((product) => suppliersById.get(product.vendorId)?.city === params.city)
+    ? result.data.products.filter(
+        (product) => suppliersById.get(product.vendorId)?.city === params.city
+      )
     : result.data.products;
 
   return (
     <PublicMarketplaceShell>
-      <section className="border-b border-slate-200 bg-white">
+      <section className="border-b border-border bg-card">
         <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
           <div className="space-y-2">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-700">Produkty</p>
-            <h1 className="font-display text-3xl font-black text-slate-950 sm:text-4xl">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-700">
+              Produkty
+            </p>
+            <h1 className="font-display text-3xl font-black text-foreground sm:text-4xl">
               Przeglądaj asortyment dostawców
             </h1>
-            <p className="max-w-3xl text-sm leading-6 text-slate-500">
+            <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
               Szukaj po nazwie, marce, SKU, kategorii i mieście dostawcy.
             </p>
           </div>
@@ -60,15 +64,15 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
 
       <section className="mx-auto max-w-7xl space-y-5 px-4 py-8 sm:px-6 lg:px-8">
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-          <p className="text-sm font-bold text-slate-500">
-            Produkty: <span className="font-black text-slate-950">{products.length}</span>
+          <p className="text-sm font-bold text-muted-foreground">
+            Produkty: <span className="font-black text-foreground">{products.length}</span>
           </p>
           <div className="flex flex-wrap gap-2">
             {snapshot.data.brands.slice(0, 6).map((brand) => (
               <a
                 key={brand}
                 href={`/products?brand=${encodeURIComponent(brand)}`}
-                className="rounded-full bg-white px-3 py-2 text-xs font-black text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
+                className="rounded-full bg-card px-3 py-2 text-xs font-black text-muted-foreground ring-1 ring-border hover:bg-muted"
               >
                 {brand}
               </a>
@@ -79,13 +83,19 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
         {products.length > 0 ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {products.map((product) => (
-              <ProductCard key={product.id} product={product} supplier={suppliersById.get(product.vendorId)} />
+              <ProductCard
+                key={product.id}
+                product={product}
+                supplier={suppliersById.get(product.vendorId)}
+              />
             ))}
           </div>
         ) : (
-          <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center">
-            <h2 className="font-display text-lg font-black text-slate-950">Brak produktów</h2>
-            <p className="mt-2 text-sm text-slate-500">Zmień frazę, miasto albo kategorię.</p>
+          <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center">
+            <h2 className="font-display text-lg font-black text-foreground">Brak produktów</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Zmień frazę, miasto albo kategorię.
+            </p>
           </div>
         )}
       </section>

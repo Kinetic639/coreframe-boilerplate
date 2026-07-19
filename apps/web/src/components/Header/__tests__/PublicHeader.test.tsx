@@ -2,7 +2,9 @@ import { render, screen } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 
 vi.mock("../PublicHeaderClient", () => ({
-  PublicHeaderClient: () => <div data-testid="public-header-client" />,
+  PublicHeaderClient: ({ authActions }: { authActions?: React.ReactNode }) => (
+    <div data-testid="public-header-client">{authActions}</div>
+  ),
 }));
 
 vi.mock("../PublicHeaderAuth", () => ({
