@@ -20,6 +20,7 @@ apps/web/temp
 # Testing
 coverage/
 test-results/
+playwright-report/
 
 # Turbo / package manager / tool outputs
 .turbo/
