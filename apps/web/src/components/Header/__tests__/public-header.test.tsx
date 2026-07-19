@@ -8,7 +8,12 @@ vi.mock("@/server/loaders/v2/load-user-context.v2", () => ({
 }));
 
 vi.mock("../PublicHeaderClient", () => ({
-  PublicHeaderClient: () => <div>public-header-client</div>,
+  PublicHeaderClient: ({ authActions }: { authActions?: React.ReactNode }) => (
+    <div>
+      public-header-client
+      {authActions}
+    </div>
+  ),
 }));
 
 vi.mock("../PublicHeaderAuth", () => ({
