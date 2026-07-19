@@ -9,7 +9,9 @@
     "RESEND_FROM_NAME",
     "RESEND_API_KEY",
     "SUPABASE_ACCESS_TOKEN",
-    "SUPABASE_SERVICE_ROLE_KEY"
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "PORT",
+    "PLAYWRIGHT_BASE_URL"
   ],
   "tasks": {
     "build": {

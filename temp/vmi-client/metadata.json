@@ -1,0 +1,6 @@
+{
+  "name": "Ambra VMI Client",
+  "description": "Mobilna aplikacja klienta dla systemu Vendor-Managed Inventory (VMI) platformy Ambra oraz publiczna giełda i wyszukiwarka licencjonowanych dostawców B2B z zapytaniami ofertowymi (RFQ).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
