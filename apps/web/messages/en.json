@@ -742,6 +742,18 @@
       "forgotPassword": {
         "title": "Reset Password",
         "description": "Reset your Ambra account password securely"
+      },
+      "resetPassword": {
+        "title": "Set New Password",
+        "description": "Choose a new password to secure your Ambra account"
+      },
+      "authCodeError": {
+        "title": "Invalid or Expired Link",
+        "description": "This authentication link is no longer valid. It may have already been used or has expired."
+      },
+      "registrationDisabled": {
+        "title": "Registration Closed",
+        "description": "New account registration is currently disabled. If you have an invitation link, you can still use it to create your account."
       }
     },
     "public": {
@@ -756,6 +768,16 @@
       "pricing": {
         "title": "Pricing",
         "description": "Choose the perfect plan for your organization with flexible pricing options and enterprise-grade features"
+      },
+      "tools": {
+        "svwmsWddMatcher": {
+          "title": "SV WMS WDD Matcher",
+          "description": "Free online tool to match and reconcile SV WMS warehouse data documents (WDD) quickly and accurately"
+        }
+      },
+      "maps": {
+        "title": "{branchName} — Warehouse Map",
+        "description": "Explore the interactive warehouse map and location layout for {branchName}"
       }
     },
     "dashboard": {
@@ -852,9 +874,6 @@
   "LocaleSwitcher": {
     "label": "Change language",
     "locale": "{locale, select, de {🇩🇪} en {🇺🇸} pl {🇵🇱} other {Unknown}}"
-  },
-  "Manifest": {
-    "name": "next-intl example"
   },
   "warehouseLocationsPage": {
     "header": {

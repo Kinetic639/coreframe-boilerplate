@@ -16,7 +16,13 @@ const nextConfig = {
   },
   experimental: {
     serverActions: {
-      allowedOrigins: ["localhost:3001"],
+      // Zezwól na Server Actions z domen IDX i Cloud Workstations
+      allowedOrigins: [
+        "localhost:3000",
+        "localhost:3001",
+        "*.cloudworkstations.dev",
+        "*.idx.dev"
+      ],
       bodySizeLimit: "10mb",
     },
     optimizePackageImports: ["lucide-react"],

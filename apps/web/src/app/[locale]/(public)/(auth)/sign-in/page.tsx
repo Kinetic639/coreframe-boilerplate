@@ -1,6 +1,6 @@
 import { SignInForm } from "@/components/auth/forms/sign-in-form";
 import { Message } from "@/components/form-message";
-import { generatePageMetadata } from "@/lib/metadata";
+import { generateAuthMetadata } from "@/lib/metadata";
 
 type Props = {
   params: Promise<{ locale: string }>;
@@ -8,7 +8,7 @@ type Props = {
 };
 
 export async function generateMetadata({ params }: Props) {
-  return generatePageMetadata(params, "metadata.auth.signIn");
+  return generateAuthMetadata(params, "metadata.auth.signIn");
 }
 
 export default async function Login(props: Props) {

@@ -791,6 +791,18 @@
       "forgotPassword": {
         "title": "Resetuj Hasło",
         "description": "Bezpiecznie zresetuj hasło do swojego konta Ambra"
+      },
+      "resetPassword": {
+        "title": "Ustaw Nowe Hasło",
+        "description": "Wybierz nowe hasło, aby zabezpieczyć swoje konto Ambra"
+      },
+      "authCodeError": {
+        "title": "Nieprawidłowy lub Wygasły Link",
+        "description": "Ten link uwierzytelniający jest już nieważny. Mógł zostać już użyty lub wygasł."
+      },
+      "registrationDisabled": {
+        "title": "Rejestracja Zamknięta",
+        "description": "Rejestracja nowych kont jest obecnie wyłączona. Jeśli masz link z zaproszeniem, nadal możesz z niego skorzystać, aby utworzyć konto."
       }
     },
     "public": {
@@ -805,6 +817,16 @@
       "pricing": {
         "title": "Cennik",
         "description": "Wybierz idealny plan dla swojej organizacji z elastycznymi opcjami cenowymi i funkcjami klasy enterprise"
+      },
+      "tools": {
+        "svwmsWddMatcher": {
+          "title": "SV WMS WDD Matcher",
+          "description": "Darmowe narzędzie online do dopasowywania i uzgadniania dokumentów magazynowych WDD SV WMS szybko i dokładnie"
+        }
+      },
+      "maps": {
+        "title": "{branchName} — Mapa Magazynu",
+        "description": "Poznaj interaktywną mapę magazynu i układ lokalizacji dla {branchName}"
       }
     },
     "dashboard": {
@@ -901,9 +923,6 @@
   "LocaleSwitcher": {
     "label": "Zmień język",
     "locale": "{locale, select, de {🇩🇪} en {🇺🇸} pl {🇵🇱} other {Nieznany}}"
-  },
-  "Manifest": {
-    "name": "Przykład next-intl"
   },
   "warehouseLocationsPage": {
     "header": {

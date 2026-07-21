@@ -1,6 +1,6 @@
 import { SignUpForm } from "@/components/auth/forms/sign-up-form";
 import { FormMessage, Message } from "@/components/form-message";
-import { generatePageMetadata } from "@/lib/metadata";
+import { generateAuthMetadata } from "@/lib/metadata";
 import { SiteSettingsService } from "@/server/services/site-settings.service";
 import { createServiceClient } from "@/utils/supabase/service";
 import { redirect } from "@/i18n/navigation";
@@ -12,7 +12,7 @@ type Props = {
 };
 
 export async function generateMetadata({ params }: Props) {
-  return generatePageMetadata(params, "metadata.auth.signUp");
+  return generateAuthMetadata(params, "metadata.auth.signUp");
 }
 
 export default async function Signup(props: Props) {
