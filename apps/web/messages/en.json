@@ -758,16 +758,16 @@
     },
     "public": {
       "home": {
-        "title": "Enterprise SaaS Platform",
-        "description": "Ambra provides comprehensive business management solutions with advanced warehouse management, user administration, and analytics"
+        "title": "Warehouse & Inventory Management Software",
+        "description": "Real-time warehouse management with QR-coded locations, SAP-compatible stock movements, and Allegro/WooCommerce integration. Free 14-day trial, no credit card."
       },
       "features": {
-        "title": "Features",
-        "description": "Discover powerful features including warehouse management, user roles, inventory tracking, and enterprise analytics"
+        "title": "Warehouse Features: QR Scanning, Alerts & Analytics",
+        "description": "Explore Ambra: QR and barcode scanning, real-time low-stock alerts, analytics dashboards, role-based user management, and a full-featured mobile app."
       },
       "pricing": {
-        "title": "Pricing",
-        "description": "Choose the perfect plan for your organization with flexible pricing options and enterprise-grade features"
+        "title": "Pricing — Basic, Professional & Business Plans",
+        "description": "Compare Ambra's warehouse management plans: Basic, Professional, and Business. Monthly or annual billing, with 20% off on the annual plan."
       },
       "tools": {
         "svwmsWddMatcher": {
