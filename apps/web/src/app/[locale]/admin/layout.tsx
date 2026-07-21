@@ -12,6 +12,7 @@ import { AdminShell } from "./_components/admin-shell";
 export const metadata: Metadata = {
   title: "Admin Panel | Ambra",
   description: "System administration tools — superadmin only",
+  robots: { index: false, follow: false },
 };
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {

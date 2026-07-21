@@ -2,7 +2,7 @@ import { ForgotPasswordForm } from "@/components/auth/forms/forgot-password-form
 import { Message } from "@/components/form-message";
 import { SmtpMessage } from "../smtp-message";
 import { AuthCard } from "@/components/auth/AuthCard";
-import { generatePageMetadata } from "@/lib/metadata";
+import { generateAuthMetadata } from "@/lib/metadata";
 
 type Props = {
   params: Promise<{ locale: string }>;
@@ -10,7 +10,7 @@ type Props = {
 };
 
 export async function generateMetadata({ params }: Props) {
-  return generatePageMetadata(params, "metadata.auth.forgotPassword");
+  return generateAuthMetadata(params, "metadata.auth.forgotPassword");
 }
 
 export default async function ForgotPassword(props: Props) {

@@ -22,17 +22,22 @@ type Props = {
 };
 
 export async function generateMetadata({ params }: Props) {
-  return generatePublicMetadata(params, "metadata.public.home", [
-    "SaaS platform",
-    "warehouse management",
-    "inventory tracking",
-    "business management",
-    "enterprise software",
-    "Next.js",
-    "Supabase",
-    "zarządzanie magazynem",
-    "platforma SaaS",
-  ]);
+  return generatePublicMetadata(
+    params,
+    "metadata.public.home",
+    [
+      "SaaS platform",
+      "warehouse management",
+      "inventory tracking",
+      "business management",
+      "enterprise software",
+      "Next.js",
+      "Supabase",
+      "zarządzanie magazynem",
+      "platforma SaaS",
+    ],
+    { pathname: "/" }
+  );
 }
 
 export default function Home() {

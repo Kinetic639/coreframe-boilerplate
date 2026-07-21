@@ -1,4 +1,5 @@
 import { cache } from "react";
+import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { redirect } from "@/i18n/navigation";
 import { redirect as nextRedirect } from "next/navigation";
@@ -14,6 +15,12 @@ import type { SidebarItem } from "@/lib/types/v2/sidebar";
 import { DashboardV2Providers } from "./_providers";
 import { DashboardShell } from "./_components/dashboard-shell";
 import { DashboardColorThemeLoader } from "./_components/dashboard-color-theme-loader";
+
+// Authenticated area — never indexable, regardless of whether an individual
+// dashboard page sets its own metadata via generateDashboardMetadata().
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 // Root tools child — matches the main tools page (/dashboard/tools).
 // Added as the first child when pinned tools are injected so the parent

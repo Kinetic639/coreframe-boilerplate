@@ -14,8 +14,11 @@ vi.mock("@/i18n/navigation", () => ({
 import AuthCodeErrorPage, { generateMetadata } from "../page";
 
 describe("localized auth-code-error page", () => {
-  it("generates translated metadata", async () => {
-    await expect(generateMetadata()).resolves.toEqual({ title: "t:title" });
+  it("generates translated, noindex metadata", async () => {
+    const metadata = await generateMetadata({ params: Promise.resolve({ locale: "en" }) });
+    expect(metadata.title).toBe("t:titlet:separatort:appName");
+    expect(metadata.description).toBe("t:description");
+    expect(metadata.robots).toEqual({ index: false, follow: true });
   });
 
   it("renders translated content and consumes search params", async () => {

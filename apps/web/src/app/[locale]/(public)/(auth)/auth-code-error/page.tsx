@@ -2,11 +2,10 @@ import { Link } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle } from "lucide-react";
 import { getTranslations } from "next-intl/server";
-import { type Metadata } from "next";
+import { generateAuthMetadata, MetadataProps } from "@/lib/metadata";
 
-export async function generateMetadata(): Promise<Metadata> {
-  const t = await getTranslations("auth.authCodeError");
-  return { title: t("title") };
+export async function generateMetadata({ params }: MetadataProps) {
+  return generateAuthMetadata(params, "metadata.auth.authCodeError");
 }
 
 export default async function AuthCodeErrorPage({

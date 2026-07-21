@@ -3,6 +3,11 @@ import { AuthCard } from "@/components/auth/AuthCard";
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "@/i18n/navigation";
 import { getLocale } from "next-intl/server";
+import { generateAuthMetadata, MetadataProps } from "@/lib/metadata";
+
+export async function generateMetadata({ params }: MetadataProps) {
+  return generateAuthMetadata(params, "metadata.auth.resetPassword");
+}
 
 export default async function ResetPasswordPage({
   searchParams,
