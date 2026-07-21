@@ -129,7 +129,7 @@ function FeaturedVendorCard({ vendor }: { vendor: PublicSupplierDetailsDto }) {
           href={`/vendors/${vendor.slug}`}
           className="flex items-center gap-0.5 rounded-md bg-primary px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wider text-primary-foreground transition-colors hover:bg-amber-600"
         >
-          Otwórz profil <ArrowRight className="h-3 w-3" />
+          Profil <ArrowRight className="h-3 w-3" />
         </Link>
       </div>
     </article>
