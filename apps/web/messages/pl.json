@@ -807,16 +807,16 @@
     },
     "public": {
       "home": {
-        "title": "Platforma SaaS dla Przedsiębiorstw",
-        "description": "Ambra zapewnia kompleksowe rozwiązania do zarządzania biznesem z zaawansowanym zarządzaniem magazynem, administracją użytkowników i analityką"
+        "title": "Oprogramowanie do Zarządzania Magazynem i Inwentarzem",
+        "description": "Zarządzanie magazynem w czasie rzeczywistym: kody QR, ruchy magazynowe zgodne z SAP i integracja z Allegro/WooCommerce. Darmowy 14-dniowy okres próbny."
       },
       "features": {
-        "title": "Funkcje",
-        "description": "Odkryj potężne funkcje obejmujące zarządzanie magazynem, role użytkowników, śledzenie zapasów i analitykę enterprise"
+        "title": "Funkcje Magazynowe: Skanowanie QR, Alerty i Analityka",
+        "description": "Poznaj Ambra: skanowanie kodów QR i kreskowych, alerty o niskim stanie magazynowym, analitykę i raporty, zarządzanie użytkownikami oraz aplikację mobilną."
       },
       "pricing": {
-        "title": "Cennik",
-        "description": "Wybierz idealny plan dla swojej organizacji z elastycznymi opcjami cenowymi i funkcjami klasy enterprise"
+        "title": "Cennik — Plany Podstawowy, Profesjonalny i Biznes",
+        "description": "Porównaj plany Ambra: Podstawowy, Profesjonalny i Biznes. Rozliczenie miesięczne lub roczne — oszczędź 20% z planem rocznym."
       },
       "tools": {
         "svwmsWddMatcher": {
