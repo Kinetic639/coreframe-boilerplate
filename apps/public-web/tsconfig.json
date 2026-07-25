@@ -1,0 +1,55 @@
+{
+  "extends": "@repo/typescript-config/nextjs.json",
+  "compilerOptions": {
+    "target": "es2015",
+    "allowJs": true,
+    "strict": false,
+    "noImplicitAny": false,
+    "strictNullChecks": false,
+    "strictPropertyInitialization": false,
+    "noImplicitReturns": false,
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": ".",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "jsx": "preserve",
+    "incremental": true,
+    "types": ["vitest", "vitest/globals", "@testing-library/jest-dom"],
+    "paths": {
+      "@/*": ["./src/*"],
+      "@app/*": ["./src/app/*"],
+      "@components/*": ["./src/components/*"],
+      "@lib/*": ["./src/lib/*"],
+      "@utils/*": ["./src/utils/*"],
+      "@supabase/*": ["./src/utils/supabase/*"],
+      "@actions/*": ["./src/app/actions/*"],
+      "@modules/*": ["./src/modules/*"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    ".next/types/*.ts",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    "src/proxy.ts",
+    "src/app/*.ts",
+    "src/app/*.tsx",
+    "src/app/[locale]/*.ts",
+    "src/app/[locale]/*.tsx",
+    "src/app/[locale]/(public)/**/*.ts",
+    "src/app/[locale]/(public)/**/*.tsx",
+    "src/i18n/**/*.ts",
+    "src/i18n/**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules",
+    ".next",
+    "coverage",
+    "test-results",
+    "**/__tests__/**",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx"
+  ]
+}
