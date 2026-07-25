@@ -214,7 +214,14 @@ export function ProposalsExperience({ proposals, inventory, vendors }: Proposals
                     <div className="flex min-w-0 gap-3">
                       <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800">
                         {product?.imageUrl ? (
-                          <Image src={product.imageUrl} alt={product.productName} fill sizes="40px" className="object-cover" />
+                          <Image
+                            src={product.imageUrl}
+                            alt={product.productName}
+                            fill
+                            sizes="40px"
+                            className="object-cover"
+                            unoptimized
+                          />
                         ) : (
                           <Package className="m-3 h-4 w-4 text-gray-400" />
                         )}

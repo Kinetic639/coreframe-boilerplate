@@ -721,6 +721,7 @@ function TileView({
                   fill
                   sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 16vw"
                   className="object-cover transition-transform duration-300 group-hover:scale-105"
+                  unoptimized
                 />
                 <span className={cn("absolute left-1 top-1 rounded px-1 py-0.5 text-[8px] font-black uppercase shadow-sm", status.color)}>
                   {status.text}
@@ -827,6 +828,7 @@ function ListView({
                 width={44}
                 height={44}
                 className="h-11 w-11 shrink-0 rounded bg-gray-100 object-cover"
+                unoptimized
               />
               <div className="min-w-0">
                 <button className="line-clamp-1 cursor-pointer text-left text-xs font-bold leading-snug text-gray-900 transition-colors hover:text-blue-600 dark:text-white dark:hover:text-blue-400">

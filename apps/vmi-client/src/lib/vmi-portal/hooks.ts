@@ -22,6 +22,7 @@ export function useCreateVmiOrder() {
     try {
       const response = await fetch("/api/portal/orders", {
         method: "POST",
+        credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
       });
