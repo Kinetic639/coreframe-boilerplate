@@ -1,0 +1,3133 @@
+"use server";
+
+import { z } from "zod";
+import { createClient } from "@/utils/supabase/server";
+import { eventService } from "@/server/services/event.service";
+import {
+  WAREHOUSE_PRODUCTS_READ,
+  WAREHOUSE_PRODUCTS_MANAGE,
+  WAREHOUSE_PRODUCTS_ARCHIVE,
+  WAREHOUSE_INVENTORY_READ,
+  WAREHOUSE_INVENTORY_OPERATE,
+  WAREHOUSE_PROCUREMENT_MANAGE,
+  WAREHOUSE_PRICING_MANAGE,
+  WAREHOUSE_REPORTS_READ,
+  WAREHOUSE_IMPORTS_MANAGE,
+  CRM_PARTIES_READ,
+  BRANCHES_READ,
+} from "@/lib/constants/permissions";
+import { InventoryProductsService } from "@/server/services/inventory-products.service";
+import { InventoryProductImportsService } from "@/server/services/inventory-product-imports.service";
+import { InventoryBalancesService } from "@/server/services/inventory-balances.service";
+import { InventoryMovementsService } from "@/server/services/inventory-movements.service";
+import { InventoryMovementImportsService } from "@/server/services/inventory-movement-imports.service";
+import { InventoryEnterpriseService } from "@/server/services/inventory-enterprise.service";
+import { CrmPartiesService } from "@/server/services/crm-parties.service";
+import { OrganizationEntityNumbersService } from "@/server/services/organization.service";
+import {
+  emitInventoryEvent,
+  hasPermission,
+  mapUnexpected,
+  normalizeListParams,
+  requireActiveBranch,
+  requireWarehouseContext,
+  textFromRecord,
+  userIdFrom,
+} from "./action-context";
+import {
+  archiveInventoryProductSchema,
+  archiveInventoryTagSchema,
+  archiveInventoryTaxRateSchema,
+  archiveInventoryUnitConversionSchema,
+  archiveInventoryUnitSchema,
+  addCollectionItemSchema,
+  acceptBranchTransferSchema,
+  assignInventoryVariantGalleryImageSchema,
+  adjustStockSchema,
+  checkInventorySkuCollisionsSchema,
+  createBranchTransferSchema,
+  createAllocationSchema,
+  createCollectionSchema,
+  createCustomFieldSchema,
+  archiveCustomFieldSchema,
+  createDraftMovementSchema,
+  createEnhancedInventoryProductSchema,
+  createInventoryExportJobSchema,
+  createInventoryImportJobSchema,
+  createMovementImportProductsSchema,
+  createMovementImportUnitsSchema,
+  listMovementImportSourcesSchema,
+  createInventoryMasterDataSchema,
+  createInventoryProductSchema,
+  createInventorySkuTemplateSchema,
+  createInventoryTagSchema,
+  createInventoryTaxRateSchema,
+  archiveInventorySkuTemplateSchema,
+  createInventoryUnitSchema,
+  createLotSchema,
+  createOptionGroupSchema,
+  createOptionValueSchema,
+  createProductUnitConversionSchema,
+  createPurchaseOrderSchema,
+  createReservationSchema,
+  createSerialSchema,
+  createSupplierSchema,
+  createUnitConversionSchema,
+  createValuationSnapshotSchema,
+  dataViewListParamsSchema,
+  declineBranchTransferSchema,
+  generateVariantsSchema,
+  getByIdSchema,
+  issueStockSchema,
+  postMovementSchema,
+  productCsvTextSchema,
+  productCsvImportSchema,
+  previewInventorySkuSchema,
+  receivePurchaseOrderSchema,
+  receiveStockSchema,
+  releaseAllocationSchema,
+  releaseReservationSchema,
+  reverseMovementSchema,
+  saveInventoryViewSchema,
+  setCustomFieldValueSchema,
+  transferStockSchema,
+  previewMovementImportFromSourceSchema,
+  updateVariantPricingSchema,
+  updateInventoryVariantSchema,
+  updateInventoryVariantOptionsSchema,
+  updateInventoryProductSchema,
+  updateInventoryProductImagesSchema,
+  updateCustomFieldSchema,
+  updateInventorySkuTemplateSchema,
+} from "./schemas";
+import { validateInventoryImageFile } from "./image-upload-policy";
+
+export async function listInventoryProductsAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return { success: false, error: auth.error };
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_READ)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const parsed = dataViewListParamsSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const supabase = await createClient();
+    return InventoryProductsService.listProducts(
+      supabase,
+      auth.context.app.activeOrgId,
+      normalizeListParams(parsed.data),
+      auth.context.app.activeBranchId
+    );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function getInventoryProductAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return { success: false, error: auth.error };
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_READ)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const parsed = getByIdSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const supabase = await createClient();
+    return InventoryProductsService.getProductDetail(
+      supabase,
+      auth.context.app.activeOrgId,
+      parsed.data.id,
+      auth.context.app.activeBranchId
+    );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function createInventoryProductAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const parsed = createInventoryProductSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const userId = userIdFrom(auth);
+    if (!userId) return { success: false, error: "User identity unavailable" };
+
+    const supabase = await createClient();
+    const result = await InventoryProductsService.createProduct(
+      supabase,
+      auth.context.app.activeOrgId,
+      {
+        name: parsed.data.name!,
+        product_type: parsed.data.product_type!,
+        base_unit_id: parsed.data.base_unit_id!,
+        sku: parsed.data.sku ?? null,
+        description: parsed.data.description ?? null,
+        returnable: parsed.data.returnable,
+        brand_name: parsed.data.brand_name,
+        manufacturer_name: parsed.data.manufacturer_name,
+        length_value: parsed.data.length_value,
+        width_value: parsed.data.width_value,
+        height_value: parsed.data.height_value,
+        dimension_unit: parsed.data.dimension_unit,
+        weight_value: parsed.data.weight_value,
+        weight_unit: parsed.data.weight_unit,
+        sales_description: parsed.data.sales_description,
+        purchase_description: parsed.data.purchase_description,
+        preferred_supplier_id: parsed.data.preferred_supplier_id,
+        sales_account_code: parsed.data.sales_account_code,
+        purchase_account_code: parsed.data.purchase_account_code,
+        tax_code: parsed.data.tax_code,
+        tax_rate_percent: parsed.data.tax_rate_percent,
+      },
+      userId
+    );
+
+    if (result.success) {
+      await eventService.emit({
+        actionKey: "warehouse.inventory.product.created",
+        actorType: "user",
+        actorUserId: userId,
+        organizationId: auth.context.app.activeOrgId,
+        branchId: auth.context.app.activeBranchId ?? null,
+        entityType: "inventory_product",
+        entityId: result.data.product_id,
+        eventTier: "baseline",
+        metadata: {
+          product_id: result.data.product_id,
+          variant_id: result.data.variant_id,
+          sku: result.data.sku,
+        },
+      });
+    }
+
+    return result;
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function createEnhancedInventoryProductAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const parsed = createEnhancedInventoryProductSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    if (
+      parsed.data.track_inventory &&
+      (parsed.data.opening_location_id ||
+        parsed.data.variants.some((variant) => variant.opening_quantity))
+    ) {
+      if (!hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE)) {
+        return { success: false, error: "Opening stock requires inventory operate permission" };
+      }
+      const branch = requireActiveBranch(auth);
+      if (!branch.success) return branch;
+    }
+
+    const userId = userIdFrom(auth);
+    if (!userId) return { success: false, error: "User identity unavailable" };
+
+    const supabase = await createClient();
+    const result = await InventoryProductsService.createEnhancedProduct(
+      supabase,
+      auth.context.app.activeOrgId,
+      {
+        name: parsed.data.name!,
+        product_type: parsed.data.product_type!,
+        base_unit_id: parsed.data.base_unit_id!,
+        sku: parsed.data.sku ?? null,
+        description: parsed.data.description ?? null,
+        returnable: parsed.data.returnable,
+        brand_name: parsed.data.brand_name,
+        manufacturer_name: parsed.data.manufacturer_name,
+        length_value: parsed.data.length_value,
+        width_value: parsed.data.width_value,
+        height_value: parsed.data.height_value,
+        dimension_unit: parsed.data.dimension_unit,
+        weight_value: parsed.data.weight_value,
+        weight_unit: parsed.data.weight_unit,
+        sales_description: parsed.data.sales_description,
+        purchase_description: parsed.data.purchase_description,
+        preferred_supplier_id: parsed.data.preferred_supplier_id,
+        sales_account_code: parsed.data.sales_account_code,
+        purchase_account_code: parsed.data.purchase_account_code,
+        tax_code: parsed.data.tax_code,
+        tax_rate_percent: parsed.data.tax_rate_percent,
+        attributes: (parsed.data.attributes ?? []).map((attribute) => ({
+          name: attribute.name!,
+          values: attribute.values ?? [],
+        })),
+        variants: (parsed.data.variants ?? []).map((variant) => ({
+          sku: variant.sku!,
+          name: variant.name!,
+          options: variant.options,
+          option_value_ids: variant.option_value_ids,
+          barcode: variant.barcode,
+          upc: variant.upc,
+          ean: variant.ean,
+          isbn: variant.isbn,
+          mpn: variant.mpn,
+          purchase_price: variant.purchase_price,
+          sales_price: variant.sales_price,
+          price_currency: variant.price_currency,
+          reorder_point: variant.reorder_point,
+          opening_quantity: variant.opening_quantity,
+          opening_unit_cost: variant.opening_unit_cost,
+          default_supplier_id: variant.default_supplier_id,
+        })),
+        track_inventory: parsed.data.track_inventory,
+        opening_location_id: parsed.data.opening_location_id,
+        branch_id: auth.context.app.activeBranchId ?? null,
+        tags: parsed.data.tags,
+        unit_conversions: parsed.data.unit_conversions.map((conversion) => ({
+          from_unit_id: conversion.from_unit_id!,
+          to_unit_id: conversion.to_unit_id!,
+          factor: conversion.factor!,
+          rounding_mode: conversion.rounding_mode,
+        })),
+        custom_fields: (parsed.data.custom_fields ?? [])
+          .filter((field) => field.field_id && field.entity_type)
+          .map((field) => ({
+            field_id: field.field_id!,
+            entity_type: field.entity_type!,
+            variant_sku: field.variant_sku,
+            value_text: field.value_text,
+            value_number: field.value_number,
+            value_date: field.value_date,
+            value_boolean: field.value_boolean,
+            value_json: field.value_json,
+          })),
+      },
+      userId
+    );
+
+    if (result.success) {
+      await eventService.emit({
+        actionKey: "warehouse.inventory.product.created",
+        actorType: "user",
+        actorUserId: userId,
+        organizationId: auth.context.app.activeOrgId,
+        branchId: auth.context.app.activeBranchId ?? null,
+        entityType: "inventory_product",
+        entityId: result.data.product_id,
+        eventTier: "enhanced",
+        metadata: {
+          product_id: result.data.product_id,
+          variant_ids: result.data.variant_ids,
+          sku: result.data.sku,
+        },
+      });
+    }
+
+    return result;
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function uploadInventoryItemImageAction(formData: FormData) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const productId = String(formData.get("product_id") ?? "");
+    const variantId = String(formData.get("variant_id") ?? "") || null;
+    const isPrimary = String(formData.get("is_primary") ?? "false") === "true";
+    const file = formData.get("file");
+    if (!productId) return { success: false, error: "Product id is required" };
+    if (!(file instanceof File)) return { success: false, error: "Image file is required" };
+
+    const userId = userIdFrom(auth);
+    if (!userId) return { success: false, error: "User identity unavailable" };
+
+    const supabase = await createClient();
+    const validation = await validateInventoryImageFile(file);
+    if (!validation.success) return validation;
+
+    const target = await InventoryProductsService.verifyImageTarget(
+      supabase,
+      auth.context.app.activeOrgId,
+      productId,
+      variantId
+    );
+    if (!target.success) return target;
+
+    const safeName = `${crypto.randomUUID()}.${validation.data.extension}`;
+    const path = `${auth.context.app.activeOrgId}/${productId}/${variantId ?? "product"}/${safeName}`;
+    const { error: uploadError } = await supabase.storage
+      .from("inventory-item-images")
+      .upload(path, file, { upsert: false, contentType: validation.data.mime_type });
+    if (uploadError) return { success: false, error: uploadError.message };
+
+    const { data: urlData } = supabase.storage.from("inventory-item-images").getPublicUrl(path);
+    const record = await InventoryProductsService.addImageRecord(
+      supabase,
+      auth.context.app.activeOrgId,
+      {
+        product_id: productId,
+        variant_id: variantId,
+        storage_path: path,
+        public_url: urlData.publicUrl,
+        file_name: validation.data.file_name,
+        content_type: validation.data.mime_type,
+        file_size: validation.data.file_size,
+        is_primary: isPrimary,
+        actor_user_id: userId,
+      }
+    );
+    if (!record.success) {
+      await supabase.storage.from("inventory-item-images").remove([path]);
+      return record;
+    }
+    await emitInventoryEvent(auth, userId, {
+      actionKey: "warehouse.inventory.product.image.uploaded",
+      entityType: "inventory_product_image",
+      entityId: record.data.id,
+      metadata: {
+        product_id: productId,
+        variant_id: variantId,
+        image_id: record.data.id,
+        is_primary: isPrimary,
+        file_name: validation.data.file_name,
+        content_type: validation.data.mime_type,
+        file_size: validation.data.file_size,
+      },
+    });
+    return record;
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function assignInventoryVariantGalleryImageAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const parsed = assignInventoryVariantGalleryImageSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const userId = userIdFrom(auth);
+    if (!userId) return { success: false, error: "User identity unavailable" };
+
+    const supabase = await createClient();
+    const result = await InventoryProductsService.assignExistingImageToVariant(
+      supabase,
+      auth.context.app.activeOrgId,
+      {
+        product_id: parsed.data.product_id,
+        variant_id: parsed.data.variant_id,
+        image_id: parsed.data.image_id,
+        sort_order: parsed.data.sort_order ?? 0,
+        is_primary: parsed.data.is_primary ?? false,
+        actor_user_id: userId,
+      }
+    );
+    if (result.success) {
+      await emitInventoryEvent(auth, userId, {
+        actionKey: "warehouse.inventory.product.image.assigned",
+        entityType: "inventory_product_image",
+        entityId: parsed.data.image_id,
+        metadata: {
+          product_id: parsed.data.product_id,
+          variant_id: parsed.data.variant_id,
+          image_id: parsed.data.image_id,
+          is_primary: parsed.data.is_primary ?? false,
+          sort_order: parsed.data.sort_order ?? 0,
+        },
+      });
+    }
+    return result;
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function updateInventoryProductImagesAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const parsed = updateInventoryProductImagesSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const userId = userIdFrom(auth);
+    const supabase = await createClient();
+    const deletedCount = parsed.data.images.filter((image) => image.deleted).length;
+    if (parsed.data.variant_id) {
+      const result = await InventoryProductsService.updateVariantImages(
+        supabase,
+        auth.context.app.activeOrgId,
+        parsed.data.product_id,
+        parsed.data.variant_id,
+        parsed.data.images.map((image) => ({
+          id: image.id!,
+          sort_order: image.sort_order,
+          is_primary: image.is_primary,
+          deleted: image.deleted,
+        }))
+      );
+      if (result.success) {
+        await emitInventoryEvent(auth, userId, {
+          actionKey: "warehouse.inventory.product.images.updated",
+          entityType: "inventory_product",
+          entityId: parsed.data.product_id,
+          metadata: {
+            product_id: parsed.data.product_id,
+            variant_id: parsed.data.variant_id,
+            image_count: parsed.data.images.length,
+            deleted_count: deletedCount,
+          },
+        });
+      }
+      return result;
+    }
+
+    const result = await InventoryProductsService.updateProductImages(
+      supabase,
+      auth.context.app.activeOrgId,
+      parsed.data.product_id,
+      parsed.data.images.map((image) => ({
+        id: image.id!,
+        sort_order: image.sort_order,
+        is_primary: image.is_primary,
+        deleted: image.deleted,
+      }))
+    );
+    if (result.success) {
+      await emitInventoryEvent(auth, userId, {
+        actionKey: "warehouse.inventory.product.images.updated",
+        entityType: "inventory_product",
+        entityId: parsed.data.product_id,
+        metadata: {
+          product_id: parsed.data.product_id,
+          image_count: parsed.data.images.length,
+          deleted_count: deletedCount,
+        },
+      });
+    }
+    return result;
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function checkInventorySkuCollisionsAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_READ)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const parsed = checkInventorySkuCollisionsSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const supabase = await createClient();
+    return InventoryProductsService.checkSkuCollisions(
+      supabase,
+      auth.context.app.activeOrgId,
+      parsed.data.skus,
+      parsed.data.exclude_variant_ids
+    );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function createInventorySkuTemplateAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const parsed = createInventorySkuTemplateSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    const userId = userIdFrom(auth);
+    if (!userId) return { success: false, error: "User identity unavailable" };
+
+    const supabase = await createClient();
+    const result = await InventoryProductsService.createSkuTemplate(
+      supabase,
+      auth.context.app.activeOrgId,
+      {
+        name: parsed.data.name,
+        description: parsed.data.description,
+        rules: parsed.data.rules,
+        is_default: parsed.data.is_default,
+      },
+      userId
+    );
+    if (result.success) {
+      await emitInventoryEvent(auth, userId, {
+        actionKey: "warehouse.inventory.settings.sku_template.created",
+        entityType: "inventory_sku_template",
+        entityId: result.data.id,
+        metadata: {
+          sku_template_id: result.data.id,
+          name: result.data.name,
+          is_default: result.data.is_default,
+        },
+      });
+    }
+    return result;
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function previewInventoryProductsCsvImportAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (
+      !hasPermission(auth, WAREHOUSE_IMPORTS_MANAGE) &&
+      !hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE)
+    ) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const parsed = productCsvTextSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const supabase = await createClient();
+    return InventoryProductImportsService.previewProductCsvImport(
+      supabase,
+      auth.context.app.activeOrgId,
+      parsed.data.csv
+    );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function importInventoryProductsCsvAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (
+      !hasPermission(auth, WAREHOUSE_IMPORTS_MANAGE) &&
+      !hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE)
+    ) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const parsed = productCsvImportSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    const userId = userIdFrom(auth);
+    if (!userId) return { success: false, error: "User identity unavailable" };
+
+    const supabase = await createClient();
+    const result = await InventoryProductImportsService.importProductsFromCsv(
+      supabase,
+      auth.context.app.activeOrgId,
+      parsed.data.csv,
+      userId,
+      parsed.data.mode
+    );
+    if (result.success) {
+      await emitInventoryEvent(auth, userId, {
+        actionKey: "warehouse.inventory.import.completed",
+        entityType: "inventory_import_job",
+        entityId: result.data.job_id,
+        metadata: {
+          job_id: result.data.job_id,
+          imported_products: result.data.imported_products,
+          imported_variants: result.data.imported_variants,
+          skipped_rows: result.data.skipped_rows,
+          mode: parsed.data.mode,
+        },
+      });
+    }
+    return result;
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function updateInventorySkuTemplateAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE))
+      return { success: false, error: "Unauthorized" };
+    const parsed = updateInventorySkuTemplateSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    const userId = userIdFrom(auth);
+    if (!userId) return { success: false, error: "User identity unavailable" };
+    const supabase = await createClient();
+    const result = await InventoryProductsService.updateSkuTemplate(
+      supabase,
+      auth.context.app.activeOrgId,
+      {
+        id: parsed.data.id!,
+        name: parsed.data.name,
+        description: parsed.data.description,
+        rules: parsed.data.rules,
+        is_default: parsed.data.is_default,
+      },
+      userId
+    );
+    if (result.success) {
+      await emitInventoryEvent(auth, userId, {
+        actionKey: "warehouse.inventory.settings.sku_template.updated",
+        entityType: "inventory_sku_template",
+        entityId: result.data.id,
+        metadata: {
+          sku_template_id: result.data.id,
+          name: result.data.name,
+          is_default: result.data.is_default,
+          updated_fields: Object.keys(parsed.data).filter((key) => key !== "id"),
+        },
+      });
+    }
+    return result;
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function archiveInventorySkuTemplateAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE))
+      return { success: false, error: "Unauthorized" };
+    const parsed = archiveInventorySkuTemplateSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    const userId = userIdFrom(auth);
+    if (!userId) return { success: false, error: "User identity unavailable" };
+    const supabase = await createClient();
+    const result = await InventoryProductsService.archiveSkuTemplate(
+      supabase,
+      auth.context.app.activeOrgId,
+      parsed.data.id!,
+      userId
+    );
+    if (result.success) {
+      await emitInventoryEvent(auth, userId, {
+        actionKey: "warehouse.inventory.settings.sku_template.archived",
+        entityType: "inventory_sku_template",
+        entityId: parsed.data.id!,
+        metadata: { sku_template_id: parsed.data.id! },
+      });
+    }
+    return result;
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function exportInventoryProductsCsvAction() {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_READ)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const userId = userIdFrom(auth);
+    if (!userId) return { success: false, error: "User identity unavailable" };
+
+    const supabase = await createClient();
+    const result = await InventoryProductImportsService.exportProductsCsv(
+      supabase,
+      auth.context.app.activeOrgId,
+      userId
+    );
+    if (result.success) {
+      await emitInventoryEvent(auth, userId, {
+        actionKey: "warehouse.inventory.export.completed",
+        entityType: "inventory_export_job",
+        entityId: result.data.job_id,
+        metadata: { job_id: result.data.job_id, file_name: result.data.file_name },
+      });
+    }
+    return result;
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function createInventoryUnitAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const parsed = createInventoryUnitSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const userId = userIdFrom(auth);
+    if (!userId) return { success: false, error: "User identity unavailable" };
+
+    const supabase = await createClient();
+    const result = await InventoryProductsService.createUnit(
+      supabase,
+      auth.context.app.activeOrgId,
+      {
+        code: parsed.data.code!,
+        name: parsed.data.name!,
+        unit_kind: parsed.data.unit_kind!,
+        precision: parsed.data.precision,
+      },
+      userId
+    );
+    if (result.success) {
+      await emitInventoryEvent(auth, userId, {
+        actionKey: "warehouse.inventory.settings.unit.created",
+        entityType: "inventory_unit",
+        entityId: result.data.id,
+        metadata: {
+          unit_id: result.data.id,
+          code: result.data.code,
+          name: result.data.name,
+          unit_kind: parsed.data.unit_kind!,
+        },
+      });
+    }
+    return result;
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function archiveInventoryUnitAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const parsed = archiveInventoryUnitSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const userId = userIdFrom(auth);
+    if (!userId) return { success: false, error: "User identity unavailable" };
+
+    const supabase = await createClient();
+    const result = await InventoryProductsService.archiveUnit(
+      supabase,
+      auth.context.app.activeOrgId,
+      parsed.data.id,
+      userId
+    );
+    if (result.success) {
+      await emitInventoryEvent(auth, userId, {
+        actionKey: "warehouse.inventory.settings.unit.archived",
+        entityType: "inventory_unit",
+        entityId: parsed.data.id,
+        metadata: { unit_id: parsed.data.id },
+      });
+    }
+    return result;
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function createInventoryTaxRateAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const parsed = createInventoryTaxRateSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const userId = userIdFrom(auth);
+    if (!userId) return { success: false, error: "User identity unavailable" };
+
+    const supabase = await createClient();
+    const result = await InventoryProductsService.createTaxRate(
+      supabase,
+      auth.context.app.activeOrgId,
+      {
+        name: parsed.data.name,
+        code: parsed.data.code,
+        rate_percent: parsed.data.rate_percent,
+        is_default: parsed.data.is_default,
+      },
+      userId
+    );
+    if (result.success) {
+      await emitInventoryEvent(auth, userId, {
+        actionKey: "warehouse.inventory.settings.tax_rate.created",
+        entityType: "inventory_tax_rate",
+        entityId: result.data.id,
+        metadata: {
+          tax_rate_id: result.data.id,
+          code: result.data.code,
+          name: result.data.name,
+          rate_percent: result.data.rate_percent,
+          is_default: result.data.is_default,
+        },
+      });
+    }
+    return result;
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function archiveInventoryTaxRateAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const parsed = archiveInventoryTaxRateSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const userId = userIdFrom(auth);
+    if (!userId) return { success: false, error: "User identity unavailable" };
+
+    const supabase = await createClient();
+    const result = await InventoryProductsService.archiveTaxRate(
+      supabase,
+      auth.context.app.activeOrgId,
+      parsed.data.id,
+      userId
+    );
+    if (result.success) {
+      await emitInventoryEvent(auth, userId, {
+        actionKey: "warehouse.inventory.settings.tax_rate.archived",
+        entityType: "inventory_tax_rate",
+        entityId: parsed.data.id,
+        metadata: { tax_rate_id: parsed.data.id },
+      });
+    }
+    return result;
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function createInventoryTagAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const parsed = createInventoryTagSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const userId = userIdFrom(auth);
+    if (!userId) return { success: false, error: "User identity unavailable" };
+
+    const supabase = await createClient();
+    const result = await InventoryProductsService.createTag(
+      supabase,
+      auth.context.app.activeOrgId,
+      {
+        name: parsed.data.name,
+        color: parsed.data.color,
+      },
+      userId
+    );
+    if (result.success) {
+      await emitInventoryEvent(auth, userId, {
+        actionKey: "warehouse.inventory.settings.tag.created",
+        entityType: "inventory_tag",
+        entityId: result.data.id,
+        metadata: {
+          tag_id: result.data.id,
+          name: result.data.name,
+          color: result.data.color,
+        },
+      });
+    }
+    return result;
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function archiveInventoryTagAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const parsed = archiveInventoryTagSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const userId = userIdFrom(auth);
+    const supabase = await createClient();
+    const result = await InventoryProductsService.archiveTag(
+      supabase,
+      auth.context.app.activeOrgId,
+      parsed.data.id
+    );
+    if (result.success) {
+      await emitInventoryEvent(auth, userId, {
+        actionKey: "warehouse.inventory.settings.tag.archived",
+        entityType: "inventory_tag",
+        entityId: parsed.data.id,
+        metadata: { tag_id: parsed.data.id },
+      });
+    }
+    return result;
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function createInventoryBrandAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const parsed = createInventoryMasterDataSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const userId = userIdFrom(auth);
+    if (!userId) return { success: false, error: "User identity unavailable" };
+
+    const supabase = await createClient();
+    return InventoryProductsService.createBrand(
+      supabase,
+      auth.context.app.activeOrgId,
+      parsed.data.name,
+      userId
+    );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function createInventoryManufacturerAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const parsed = createInventoryMasterDataSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const userId = userIdFrom(auth);
+    if (!userId) return { success: false, error: "User identity unavailable" };
+
+    const supabase = await createClient();
+    return InventoryProductsService.createManufacturer(
+      supabase,
+      auth.context.app.activeOrgId,
+      parsed.data.name,
+      userId
+    );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function updateInventoryProductAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const parsed = updateInventoryProductSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const userId = userIdFrom(auth);
+    if (!userId) return { success: false, error: "User identity unavailable" };
+
+    const supabase = await createClient();
+    const result = await InventoryProductsService.updateProduct(
+      supabase,
+      auth.context.app.activeOrgId,
+      {
+        id: parsed.data.id!,
+        name: parsed.data.name,
+        description: parsed.data.description,
+        status: parsed.data.status,
+        product_type: parsed.data.product_type,
+        base_unit_id: parsed.data.base_unit_id,
+        returnable: parsed.data.returnable,
+        brand_name: parsed.data.brand_name,
+        manufacturer_name: parsed.data.manufacturer_name,
+        length_value: parsed.data.length_value,
+        width_value: parsed.data.width_value,
+        height_value: parsed.data.height_value,
+        dimension_unit: parsed.data.dimension_unit,
+        weight_value: parsed.data.weight_value,
+        weight_unit: parsed.data.weight_unit,
+        sales_description: parsed.data.sales_description,
+        purchase_description: parsed.data.purchase_description,
+        preferred_supplier_id: parsed.data.preferred_supplier_id,
+        sales_account_code: parsed.data.sales_account_code,
+        purchase_account_code: parsed.data.purchase_account_code,
+        tax_code: parsed.data.tax_code,
+        tax_rate_percent: parsed.data.tax_rate_percent,
+        tags: parsed.data.tags,
+        unit_conversions: parsed.data.unit_conversions?.map((conversion) => ({
+          from_unit_id: conversion.from_unit_id!,
+          to_unit_id: conversion.to_unit_id!,
+          factor: conversion.factor!,
+          rounding_mode: conversion.rounding_mode,
+        })),
+      },
+      userId,
+      auth.context.app.activeBranchId
+    );
+
+    if (result.success) {
+      await eventService.emit({
+        actionKey: "warehouse.inventory.product.updated",
+        actorType: "user",
+        actorUserId: userId,
+        organizationId: auth.context.app.activeOrgId,
+        branchId: auth.context.app.activeBranchId ?? null,
+        entityType: "inventory_product",
+        entityId: parsed.data.id,
+        eventTier: "baseline",
+        metadata: {
+          product_id: parsed.data.id,
+          updated_fields: Object.keys(parsed.data).filter((k) => k !== "id"),
+        },
+      });
+    }
+
+    return result;
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function archiveInventoryProductAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_ARCHIVE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const parsed = archiveInventoryProductSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const userId = userIdFrom(auth);
+    if (!userId) return { success: false, error: "User identity unavailable" };
+
+    const supabase = await createClient();
+    const result = await InventoryProductsService.archiveProduct(
+      supabase,
+      auth.context.app.activeOrgId,
+      parsed.data.id,
+      userId
+    );
+
+    if (result.success) {
+      await eventService.emit({
+        actionKey: "warehouse.inventory.product.archived",
+        actorType: "user",
+        actorUserId: userId,
+        organizationId: auth.context.app.activeOrgId,
+        branchId: auth.context.app.activeBranchId ?? null,
+        entityType: "inventory_product",
+        entityId: parsed.data.id,
+        eventTier: "enhanced",
+        metadata: { product_id: parsed.data.id },
+      });
+    }
+
+    return result;
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function listInventoryBalancesAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_INVENTORY_READ)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const branch = requireActiveBranch(auth);
+    if (!branch.success) return branch;
+
+    const parsed = dataViewListParamsSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const supabase = await createClient();
+    return InventoryBalancesService.listBalances(
+      supabase,
+      auth.context.app.activeOrgId,
+      branch.branchId,
+      normalizeListParams(parsed.data)
+    );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function getInventoryBalanceAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_INVENTORY_READ)) {
+      return { success: false, error: "Unauthorized" };
+    }
+    const branch = requireActiveBranch(auth);
+    if (!branch.success) return branch;
+
+    const parsed = getByIdSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const supabase = await createClient();
+    return InventoryBalancesService.getBalanceDetail(
+      supabase,
+      auth.context.app.activeOrgId,
+      branch.branchId,
+      parsed.data.id
+    );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function listInventoryMovementsAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_INVENTORY_READ)) {
+      return { success: false, error: "Unauthorized" };
+    }
+    const branch = requireActiveBranch(auth);
+    if (!branch.success) return branch;
+
+    const parsed = dataViewListParamsSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const supabase = await createClient();
+    return InventoryMovementsService.listMovements(
+      supabase,
+      auth.context.app.activeOrgId,
+      branch.branchId,
+      normalizeListParams(parsed.data)
+    );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function getInventoryMovementAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_INVENTORY_READ)) {
+      return { success: false, error: "Unauthorized" };
+    }
+    const branch = requireActiveBranch(auth);
+    if (!branch.success) return branch;
+
+    const input = rawInput as { id?: string; identifier?: string };
+    const identifier = input?.identifier || input?.id;
+    if (!identifier || typeof identifier !== "string") {
+      return { success: false, error: "Movement identifier is required" };
+    }
+
+    const supabase = await createClient();
+    return InventoryMovementsService.getMovementDetail(
+      supabase,
+      auth.context.app.activeOrgId,
+      branch.branchId,
+      identifier
+    );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function createDraftMovementAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+    const branch = requireActiveBranch(auth);
+    if (!branch.success) return branch;
+
+    const userId = userIdFrom(auth);
+    if (!userId) return { success: false, error: "User identity unavailable" };
+
+    const parsed = createDraftMovementSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const supabase = await createClient();
+    return InventoryMovementsService.createDraft(
+      supabase,
+      auth.context.app.activeOrgId,
+      branch.branchId,
+      {
+        movement_type_code: parsed.data.movement_type_code!,
+        lines: parsed.data.lines!.map((line) => ({
+          variant_id: line.variant_id!,
+          source_location_id: line.source_location_id ?? null,
+          destination_location_id: line.destination_location_id ?? null,
+          unit_id: line.unit_id!,
+          quantity: line.quantity!,
+          unit_cost: line.unit_cost ?? null,
+          total_cost: line.total_cost ?? null,
+          currency: line.currency ?? null,
+          note: line.note ?? null,
+        })),
+        operation_date: parsed.data.operation_date ?? null,
+        document_date: parsed.data.document_date ?? null,
+        sender_name: parsed.data.sender_name ?? null,
+        sender_details: (parsed.data.sender_details as any) ?? null,
+        recipient_name: parsed.data.recipient_name ?? null,
+        recipient_details: (parsed.data.recipient_details as any) ?? null,
+        external_reference: parsed.data.external_reference ?? null,
+        note: parsed.data.note ?? null,
+        idempotency_key: parsed.data.idempotency_key ?? null,
+      },
+      userId
+    );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function finalizePostingAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const parsed = postMovementSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const userId = userIdFrom(auth);
+    if (!userId) return { success: false, error: "User identity unavailable" };
+
+    const supabase = await createClient();
+    const result = await InventoryMovementsService.finalizePosting(
+      supabase,
+      parsed.data.id,
+      userId
+    );
+    if (result.success) {
+      await emitMovementEvent(auth, userId, "warehouse.inventory.movement.posted", result.data);
+    }
+    return result;
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function cancelMovementAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const parsed = postMovementSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const userId = userIdFrom(auth);
+    if (!userId) return { success: false, error: "User identity unavailable" };
+
+    const supabase = await createClient();
+    return InventoryMovementsService.cancelMovement(supabase, parsed.data.id, userId);
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function addLinesToDraftAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+    const branch = requireActiveBranch(auth);
+    if (!branch.success) return branch;
+    const userId = userIdFrom(auth);
+    if (!userId) return { success: false, error: "User identity unavailable" };
+
+    const parsed = z
+      .object({
+        movement_id: z.string().uuid(),
+        lines: z
+          .array(
+            z.object({
+              variant_id: z.string().uuid(),
+              unit_id: z.string().uuid(),
+              quantity: z.number().positive(),
+              source_location_id: z.string().uuid().nullable().optional(),
+              destination_location_id: z.string().uuid().nullable().optional(),
+              note: z.string().nullable().optional(),
+            })
+          )
+          .min(1),
+      })
+      .safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const supabase = await createClient();
+    const orgId = auth.context.app.activeOrgId;
+
+    const { data: header, error: headerError } = await supabase
+      .from("inventory_movement_headers")
+      .select("id, status, organization_id, branch_id")
+      .eq("id", parsed.data.movement_id)
+      .eq("organization_id", orgId)
+      .eq("branch_id", branch.branchId)
+      .maybeSingle();
+
+    if (headerError) return { success: false, error: headerError.message };
+    if (!header) return { success: false, error: "Movement not found" };
+    if ((header as any).status !== "draft")
+      return { success: false, error: "Can only add lines to draft movements" };
+
+    const { data: maxLine } = await supabase
+      .from("inventory_movement_lines")
+      .select("line_number")
+      .eq("movement_id", parsed.data.movement_id)
+      .is("deleted_at", null)
+      .order("line_number", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    let nextLineNumber = ((maxLine as any)?.line_number ?? 0) + 1;
+
+    for (const line of parsed.data.lines) {
+      await supabase.from("inventory_movement_lines").insert({
+        organization_id: orgId,
+        branch_id: branch.branchId,
+        movement_id: parsed.data.movement_id,
+        line_number: nextLineNumber++,
+        variant_id: line.variant_id,
+        unit_id: line.unit_id,
+        quantity: line.quantity,
+        source_location_id: line.source_location_id ?? null,
+        destination_location_id: line.destination_location_id ?? null,
+        note: line.note ?? null,
+      });
+    }
+
+    return { success: true as const };
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function removeLineFromDraftAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+    const branch = requireActiveBranch(auth);
+    if (!branch.success) return branch;
+
+    const parsed = z
+      .object({ movement_id: z.string().uuid(), line_id: z.string().uuid() })
+      .safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const supabase = await createClient();
+    const orgId = auth.context.app.activeOrgId;
+
+    const { data: header } = await supabase
+      .from("inventory_movement_headers")
+      .select("id, status")
+      .eq("id", parsed.data.movement_id)
+      .eq("organization_id", orgId)
+      .eq("branch_id", branch.branchId)
+      .maybeSingle();
+
+    if (!header) return { success: false, error: "Movement not found" };
+    if ((header as any).status !== "draft")
+      return { success: false, error: "Can only remove lines from draft movements" };
+
+    const { error } = await supabase
+      .from("inventory_movement_lines")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", parsed.data.line_id)
+      .eq("movement_id", parsed.data.movement_id)
+      .eq("organization_id", orgId)
+      .eq("branch_id", branch.branchId);
+
+    if (error) return { success: false, error: error.message };
+    return { success: true as const };
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function saveDraftMovementAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+    const branch = requireActiveBranch(auth);
+    if (!branch.success) return branch;
+    const userId = userIdFrom(auth);
+    if (!userId) return { success: false, error: "User identity unavailable" };
+
+    const parsed = z
+      .object({
+        movement_id: z.string().uuid(),
+        document_date: z.string().nullable().optional(),
+        operation_date: z.string().nullable().optional(),
+        sender_name: z.string().max(200).nullable().optional(),
+        sender_details: z
+          .object({
+            name: z.string(),
+            nip: z.string().optional(),
+            phone: z.string().optional(),
+            street: z.string().optional(),
+            postalCode: z.string().optional(),
+            city: z.string().optional(),
+          })
+          .nullable()
+          .optional(),
+        recipient_name: z.string().max(200).nullable().optional(),
+        recipient_details: z
+          .object({
+            name: z.string(),
+            nip: z.string().optional(),
+            phone: z.string().optional(),
+            street: z.string().optional(),
+            postalCode: z.string().optional(),
+            city: z.string().optional(),
+          })
+          .nullable()
+          .optional(),
+        external_reference: z.string().max(200).nullable().optional(),
+        note: z.string().max(1000).nullable().optional(),
+        lines: z
+          .array(
+            z.object({
+              variant_id: z.string().uuid(),
+              unit_id: z.string().uuid(),
+              quantity: z.number().positive(),
+              source_location_id: z.string().uuid().nullable().optional(),
+              destination_location_id: z.string().uuid().nullable().optional(),
+              note: z.string().nullable().optional(),
+            })
+          )
+          .min(1, "At least one line required"),
+      })
+      .safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const supabase = await createClient();
+    return InventoryMovementsService.saveDraft(
+      supabase,
+      parsed.data.movement_id,
+      {
+        document_date: parsed.data.document_date,
+        operation_date: parsed.data.operation_date,
+        sender_name: parsed.data.sender_name,
+        sender_details: parsed.data.sender_details,
+        recipient_name: parsed.data.recipient_name,
+        recipient_details: parsed.data.recipient_details,
+        external_reference: parsed.data.external_reference,
+        note: parsed.data.note,
+        lines: parsed.data.lines.map((l) => ({
+          variant_id: l.variant_id,
+          unit_id: l.unit_id,
+          quantity: l.quantity,
+          source_location_id: l.source_location_id ?? null,
+          destination_location_id: l.destination_location_id ?? null,
+          note: l.note ?? null,
+        })),
+      },
+      userId
+    );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function saveAndPostDraftMovementAction(rawInput: unknown) {
+  const saveResult = await saveDraftMovementAction(rawInput);
+  if (!saveResult.success) return saveResult;
+  const data = (saveResult as any).data as { movement_id: string };
+  return finalizePostingAction({ id: data.movement_id });
+}
+
+export async function createAndPostMovementAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+    const branch = requireActiveBranch(auth);
+    if (!branch.success) return branch;
+    const userId = userIdFrom(auth);
+    if (!userId) return { success: false, error: "User identity unavailable" };
+
+    const parsed = createDraftMovementSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const supabase = await createClient();
+    return InventoryMovementsService.createAndFinalize(
+      supabase,
+      auth.context.app.activeOrgId,
+      branch.branchId,
+      {
+        movement_type_code: parsed.data.movement_type_code!,
+        lines: parsed.data.lines!.map((line) => ({
+          variant_id: line.variant_id!,
+          unit_id: line.unit_id!,
+          quantity: line.quantity!,
+          source_location_id: line.source_location_id ?? null,
+          destination_location_id: line.destination_location_id ?? null,
+          unit_cost: line.unit_cost ?? null,
+          total_cost: line.total_cost ?? null,
+          currency: line.currency ?? null,
+          note: line.note ?? null,
+        })),
+        operation_date: parsed.data.operation_date ?? null,
+        document_date: parsed.data.document_date ?? null,
+        sender_name: parsed.data.sender_name ?? null,
+        sender_details: (parsed.data.sender_details as any) ?? null,
+        recipient_name: parsed.data.recipient_name ?? null,
+        recipient_details: (parsed.data.recipient_details as any) ?? null,
+        external_reference: parsed.data.external_reference ?? null,
+        note: parsed.data.note ?? null,
+        idempotency_key: parsed.data.idempotency_key ?? null,
+      },
+      userId
+    );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function searchPickerItemsAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_INVENTORY_READ)) {
+      return { success: false, error: "Unauthorized" };
+    }
+    const branch = requireActiveBranch(auth);
+    if (!branch.success) return branch;
+
+    const parsed = z
+      .object({
+        query: z.string().optional(),
+        source_location_id: z.string().uuid().nullable().optional(),
+        limit: z.number().int().min(1).max(100).optional(),
+      })
+      .safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const supabase = await createClient();
+    return InventoryMovementsService.searchPickerItems(
+      supabase,
+      auth.context.app.activeOrgId,
+      branch.branchId,
+      {
+        query: parsed.data.query,
+        sourceLocationId: parsed.data.source_location_id,
+        limit: parsed.data.limit,
+      }
+    );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function listVariantsInLocationAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_INVENTORY_READ)) {
+      return { success: false, error: "Unauthorized" };
+    }
+    const branch = requireActiveBranch(auth);
+    if (!branch.success) return branch;
+
+    const parsed = z
+      .object({ location_id: z.string().uuid(), search: z.string().optional() })
+      .safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const supabase = await createClient();
+    return InventoryMovementsService.listVariantsInLocation(
+      supabase,
+      auth.context.app.activeOrgId,
+      branch.branchId,
+      parsed.data.location_id,
+      parsed.data.search
+    );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function listMovementTypesAction() {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+
+    const supabase = await createClient();
+    return InventoryMovementsService.listMovementTypes(supabase, auth.context.app.activeOrgId);
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function quickReceiptAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+    const branch = requireActiveBranch(auth);
+    if (!branch.success) return branch;
+    const userId = userIdFrom(auth);
+    if (!userId) return { success: false, error: "User identity unavailable" };
+
+    const parsed = receiveStockSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const supabase = await createClient();
+    const draft = await InventoryMovementsService.createDraft(
+      supabase,
+      auth.context.app.activeOrgId,
+      branch.branchId,
+      {
+        movement_type_code: "101",
+        lines: [
+          {
+            variant_id: parsed.data.variant_id,
+            destination_location_id: parsed.data.destination_location_id,
+            unit_id: parsed.data.unit_id,
+            quantity: parsed.data.quantity,
+          },
+        ],
+        note: parsed.data.note,
+        idempotency_key: crypto.randomUUID(),
+      },
+      userId
+    );
+    if (!draft.success) return draft;
+    return InventoryMovementsService.finalizePosting(supabase, draft.data.movement_id, userId);
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function quickBinMoveAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+    const branch = requireActiveBranch(auth);
+    if (!branch.success) return branch;
+    const userId = userIdFrom(auth);
+    if (!userId) return { success: false, error: "User identity unavailable" };
+
+    const parsed = transferStockSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const supabase = await createClient();
+    const draft = await InventoryMovementsService.createDraft(
+      supabase,
+      auth.context.app.activeOrgId,
+      branch.branchId,
+      {
+        movement_type_code: "801",
+        lines: [
+          {
+            variant_id: parsed.data.variant_id,
+            source_location_id: parsed.data.source_location_id,
+            destination_location_id: parsed.data.destination_location_id,
+            unit_id: parsed.data.unit_id,
+            quantity: parsed.data.quantity,
+          },
+        ],
+        note: parsed.data.note,
+        idempotency_key: crypto.randomUUID(),
+      },
+      userId
+    );
+    if (!draft.success) return draft;
+    return InventoryMovementsService.finalizePosting(supabase, draft.data.movement_id, userId);
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+// Legacy aliases — these call the new v1 system
+export const receiveStockAction = quickReceiptAction;
+export const transferStockAction = quickBinMoveAction;
+
+export async function issueStockAction(_rawInput: unknown) {
+  return {
+    success: false as const,
+    error: "Issue movements not yet available in v1. Use the movements page.",
+  };
+}
+
+export async function adjustStockAction(_rawInput: unknown) {
+  return {
+    success: false as const,
+    error: "Adjustment movements not yet available in v1. Use the movements page.",
+  };
+}
+
+// Legacy alias
+export const postMovementAction = finalizePostingAction;
+export const reverseMovementAction = async (_rawInput: unknown) => ({
+  success: false as const,
+  error: "Reversal not available in v1.",
+});
+
+export async function createInventoryOptionGroupAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE))
+      return { success: false, error: "Unauthorized" };
+    const parsed = createOptionGroupSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    const userId = userIdFrom(auth);
+    const supabase = await createClient();
+    return InventoryEnterpriseService.createOptionGroup(supabase, auth.context.app.activeOrgId, {
+      name: parsed.data.name!,
+      display_order: parsed.data.display_order,
+      actor_user_id: userId,
+    });
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function createInventoryOptionValueAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE))
+      return { success: false, error: "Unauthorized" };
+    const parsed = createOptionValueSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    const userId = userIdFrom(auth);
+    const supabase = await createClient();
+    return InventoryEnterpriseService.createOptionValue(supabase, auth.context.app.activeOrgId, {
+      option_group_id: parsed.data.option_group_id!,
+      value: parsed.data.value!,
+      display_order: parsed.data.display_order,
+      actor_user_id: userId,
+    });
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function generateInventoryVariantsAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE))
+      return { success: false, error: "Unauthorized" };
+    const parsed = generateVariantsSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    const userId = userIdFrom(auth);
+    const supabase = await createClient();
+    return InventoryEnterpriseService.generateVariants(supabase, auth.context.app.activeOrgId, {
+      product_id: parsed.data.product_id!,
+      variants: (parsed.data.variants ?? []).map((variant) => ({
+        sku: variant.sku!,
+        name: variant.name!,
+        option_value_ids: variant.option_value_ids ?? [],
+        barcode: variant.barcode,
+        purchase_price: variant.purchase_price,
+        sales_price: variant.sales_price,
+        price_currency: variant.price_currency,
+      })),
+      actor_user_id: userId,
+    });
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function updateInventoryVariantPricingAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRICING_MANAGE))
+      return { success: false, error: "Unauthorized" };
+    const parsed = updateVariantPricingSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    const userId = userIdFrom(auth);
+    const supabase = await createClient();
+    return InventoryEnterpriseService.updateVariantPricing(
+      supabase,
+      auth.context.app.activeOrgId,
+      parsed.data.variant_id!,
+      {
+        purchase_price: parsed.data.purchase_price,
+        sales_price: parsed.data.sales_price,
+        price_currency: parsed.data.price_currency,
+        actor_user_id: userId,
+      }
+    );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function updateInventoryVariantAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE))
+      return { success: false, error: "Unauthorized" };
+    const parsed = updateInventoryVariantSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    const userId = userIdFrom(auth);
+    const supabase = await createClient();
+
+    const collisions = await InventoryProductsService.checkSkuCollisions(
+      supabase,
+      auth.context.app.activeOrgId,
+      [parsed.data.sku],
+      [parsed.data.variant_id!]
+    );
+    if (!collisions.success) return collisions;
+    if (collisions.data.length > 0) {
+      return {
+        success: false,
+        error: `SKU already exists: ${collisions.data.map((collision) => collision.sku).join(", ")}`,
+      };
+    }
+
+    return InventoryEnterpriseService.updateVariantDetails(
+      supabase,
+      auth.context.app.activeOrgId,
+      parsed.data.variant_id!,
+      {
+        sku: parsed.data.sku,
+        name: parsed.data.name,
+        status: parsed.data.status,
+        barcode: parsed.data.barcode,
+        purchase_price: parsed.data.purchase_price,
+        sales_price: parsed.data.sales_price,
+        price_currency: parsed.data.price_currency,
+        reorder_point: parsed.data.reorder_point,
+        preferred_supplier_id: parsed.data.preferred_supplier_id,
+        default_supplier_id: parsed.data.default_supplier_id,
+        actor_user_id: userId,
+      }
+    );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function updateInventoryVariantOptionsAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE))
+      return { success: false, error: "Unauthorized" };
+    const parsed = updateInventoryVariantOptionsSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    const userId = userIdFrom(auth);
+    if (!userId) return { success: false, error: "User identity unavailable" };
+    const supabase = await createClient();
+    const options = (parsed.data.options ?? [])
+      .map((option) => ({
+        name: option.name?.trim() ?? "",
+        value: option.value?.trim() ?? "",
+      }))
+      .filter((option): option is { name: string; value: string } =>
+        Boolean(option.name && option.value)
+      );
+    return InventoryProductsService.replaceVariantOptions(
+      supabase,
+      auth.context.app.activeOrgId,
+      parsed.data.variant_id!,
+      options,
+      userId
+    );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function createInventoryLotAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE))
+      return { success: false, error: "Unauthorized" };
+    const parsed = createLotSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    const userId = userIdFrom(auth);
+    const supabase = await createClient();
+    return InventoryEnterpriseService.createLot(supabase, auth.context.app.activeOrgId, {
+      product_id: parsed.data.product_id!,
+      variant_id: parsed.data.variant_id!,
+      lot_number: parsed.data.lot_number!,
+      manufactured_at: parsed.data.manufactured_at,
+      expires_at: parsed.data.expires_at,
+      supplier_reference: parsed.data.supplier_reference,
+      actor_user_id: userId,
+    });
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function createInventorySerialAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE))
+      return { success: false, error: "Unauthorized" };
+    const parsed = createSerialSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    const userId = userIdFrom(auth);
+    const supabase = await createClient();
+    return InventoryEnterpriseService.createSerial(supabase, auth.context.app.activeOrgId, {
+      product_id: parsed.data.product_id!,
+      variant_id: parsed.data.variant_id!,
+      serial_number: parsed.data.serial_number!,
+      lot_id: parsed.data.lot_id,
+      current_branch_id: parsed.data.current_branch_id,
+      current_location_id: parsed.data.current_location_id,
+      actor_user_id: userId,
+    });
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function createInventoryReservationAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE))
+      return { success: false, error: "Unauthorized" };
+    const branch = requireActiveBranch(auth);
+    if (!branch.success) return branch;
+    const parsed = createReservationSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    const userId = userIdFrom(auth);
+    const supabase = await createClient();
+    return InventoryEnterpriseService.createReservation(
+      supabase,
+      auth.context.app.activeOrgId,
+      branch.branchId,
+      {
+        lines: (parsed.data.lines ?? []).map((line) => ({
+          variant_id: line.variant_id!,
+          location_id: line.location_id!,
+          quantity: line.quantity!,
+          lot_id: line.lot_id,
+          serial_id: line.serial_id,
+        })),
+        reference_type: parsed.data.reference_type,
+        reference_id: parsed.data.reference_id,
+        reference_number: parsed.data.reference_number,
+        expires_at: parsed.data.expires_at,
+        notes: parsed.data.notes,
+        actor_user_id: userId,
+      }
+    );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function releaseInventoryReservationAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE))
+      return { success: false, error: "Unauthorized" };
+    const parsed = releaseReservationSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    const supabase = await createClient();
+    return InventoryEnterpriseService.releaseReservation(
+      supabase,
+      parsed.data.id,
+      userIdFrom(auth)
+    );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function createInventoryAllocationAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE))
+      return { success: false, error: "Unauthorized" };
+    const branch = requireActiveBranch(auth);
+    if (!branch.success) return branch;
+    const parsed = createAllocationSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    const userId = userIdFrom(auth);
+    const supabase = await createClient();
+    return InventoryEnterpriseService.createAllocation(
+      supabase,
+      auth.context.app.activeOrgId,
+      branch.branchId,
+      {
+        lines: (parsed.data.lines ?? []).map((line) => ({
+          variant_id: line.variant_id!,
+          location_id: line.location_id!,
+          quantity: line.quantity!,
+          lot_id: line.lot_id,
+          serial_id: line.serial_id,
+          reservation_line_id: line.reservation_line_id,
+        })),
+        reservation_id: parsed.data.reservation_id,
+        reference_type: parsed.data.reference_type,
+        reference_id: parsed.data.reference_id,
+        reference_number: parsed.data.reference_number,
+        actor_user_id: userId,
+      }
+    );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function releaseInventoryAllocationAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE))
+      return { success: false, error: "Unauthorized" };
+    const parsed = releaseAllocationSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    const supabase = await createClient();
+    return InventoryEnterpriseService.releaseAllocation(supabase, parsed.data.id, userIdFrom(auth));
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function createInventorySupplierAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PROCUREMENT_MANAGE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+    const parsed = createSupplierSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    const userId = userIdFrom(auth);
+    const supabase = await createClient();
+    return InventoryEnterpriseService.createSupplier(supabase, auth.context.app.activeOrgId, {
+      name: parsed.data.name!,
+      email: parsed.data.email,
+      phone: parsed.data.phone,
+      actor_user_id: userId,
+    });
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function searchSuppliersAction(input: { query?: string; limit?: number }) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    const supabase = await createClient();
+    let q = supabase
+      .from("inventory_suppliers")
+      .select("id, name, phone")
+      .eq("organization_id", auth.context.app.activeOrgId)
+      .eq("status", "active")
+      .is("deleted_at", null)
+      .order("name", { ascending: true })
+      .limit(input.limit ?? 20);
+    if (input.query) q = q.ilike("name", `%${input.query}%`);
+    const { data, error } = await q;
+    if (error) return { success: false, error: error.message };
+    return { success: true, data: data ?? [] };
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function lookupCrmCounterpartyForMovementAction(input: {
+  counterparty_number: number;
+}) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return { success: false, error: auth.error };
+    if (
+      !hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE) ||
+      !hasPermission(auth, CRM_PARTIES_READ)
+    ) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const parsed = z.object({ counterparty_number: z.number().int().positive() }).safeParse(input);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const supabase = await createClient();
+    return CrmPartiesService.lookupByCounterpartyNumber(
+      supabase,
+      auth.context.app.activeOrgId,
+      parsed.data.counterparty_number
+    );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function lookupOrganizationEntityNumberForMovementAction(input: { number: number }) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return { success: false, error: auth.error };
+    if (!hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const parsed = z.object({ number: z.number().int().positive() }).safeParse(input);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const supabase = await createClient();
+    const result = await OrganizationEntityNumbersService.lookup(
+      supabase,
+      auth.context.app.activeOrgId,
+      parsed.data.number
+    );
+    if (!result.success) return result;
+
+    if (result.data.entity_type === "branch" && !hasPermission(auth, BRANCHES_READ)) {
+      return { success: false, error: "Unauthorized" };
+    }
+    if (result.data.entity_type === "crm_party" && !hasPermission(auth, CRM_PARTIES_READ)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    return result;
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function searchOrganizationEntitiesForMovementAction(input: {
+  query?: string;
+  entityTypes?: Array<"branch" | "crm_party">;
+  limit?: number;
+}) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return { success: false, error: auth.error };
+    if (!hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const parsed = z
+      .object({
+        query: z.string().max(120).optional(),
+        entityTypes: z
+          .array(z.enum(["branch", "crm_party"]))
+          .min(1)
+          .max(2)
+          .optional(),
+        limit: z.number().int().min(1).max(50).optional(),
+      })
+      .safeParse(input);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const entityTypes = parsed.data.entityTypes ?? ["branch", "crm_party"];
+    if (entityTypes.includes("branch") && !hasPermission(auth, BRANCHES_READ)) {
+      return { success: false, error: "Unauthorized" };
+    }
+    if (entityTypes.includes("crm_party") && !hasPermission(auth, CRM_PARTIES_READ)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const supabase = await createClient();
+    return OrganizationEntityNumbersService.search(
+      supabase,
+      auth.context.app.activeOrgId,
+      parsed.data.query,
+      entityTypes,
+      parsed.data.limit
+    );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function createInventoryPurchaseOrderAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PROCUREMENT_MANAGE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+    const branch = requireActiveBranch(auth);
+    if (!branch.success) return branch;
+    const parsed = createPurchaseOrderSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    const userId = userIdFrom(auth);
+    const supabase = await createClient();
+    return InventoryEnterpriseService.createPurchaseOrder(
+      supabase,
+      auth.context.app.activeOrgId,
+      branch.branchId,
+      {
+        supplier_id: parsed.data.supplier_id!,
+        expected_delivery_date: parsed.data.expected_delivery_date,
+        delivery_location_id: parsed.data.delivery_location_id,
+        currency: parsed.data.currency,
+        notes: parsed.data.notes,
+        lines: (parsed.data.lines ?? []).map((line) => ({
+          variant_id: line.variant_id!,
+          unit_id: line.unit_id!,
+          quantity: line.quantity!,
+          unit_cost: line.unit_cost,
+        })),
+        actor_user_id: userId,
+      }
+    );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function receiveInventoryPurchaseOrderAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PROCUREMENT_MANAGE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+    const parsed = receivePurchaseOrderSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    const supabase = await createClient();
+    return InventoryEnterpriseService.receivePurchaseOrder(supabase, {
+      purchase_order_id: parsed.data.purchase_order_id!,
+      lines: (parsed.data.lines ?? []).map((line) => ({
+        purchase_order_line_id: line.purchase_order_line_id!,
+        quantity: line.quantity!,
+        destination_location_id: line.destination_location_id,
+      })),
+      actor_user_id: userIdFrom(auth),
+    });
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function previewInventorySkuAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_READ))
+      return { success: false, error: "Unauthorized" };
+    const parsed = previewInventorySkuSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    const supabase = await createClient();
+    return InventoryEnterpriseService.previewSku(supabase, auth.context.app.activeOrgId, {
+      product_name: parsed.data.product_name!,
+      product_type: parsed.data.product_type!,
+    });
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function createInventoryUnitConversionAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE))
+      return { success: false, error: "Unauthorized" };
+    const parsed = createUnitConversionSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    const userId = userIdFrom(auth);
+    const supabase = await createClient();
+    const result = await InventoryEnterpriseService.createUnitConversion(
+      supabase,
+      auth.context.app.activeOrgId,
+      {
+        from_unit_id: parsed.data.from_unit_id!,
+        to_unit_id: parsed.data.to_unit_id!,
+        factor: parsed.data.factor!,
+        actor_user_id: userId,
+      }
+    );
+    if (result.success) {
+      await emitInventoryEvent(auth, userId, {
+        actionKey: "warehouse.inventory.settings.unit_conversion.created",
+        entityType: "inventory_unit_conversion",
+        entityId: result.data.id,
+        metadata: {
+          unit_conversion_id: result.data.id,
+          from_unit_id: parsed.data.from_unit_id!,
+          to_unit_id: parsed.data.to_unit_id!,
+          factor: parsed.data.factor!,
+        },
+      });
+    }
+    return result;
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function archiveInventoryUnitConversionAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE))
+      return { success: false, error: "Unauthorized" };
+
+    const parsed = archiveInventoryUnitConversionSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const userId = userIdFrom(auth);
+    if (!userId) return { success: false, error: "User identity unavailable" };
+
+    const supabase = await createClient();
+    const result = await InventoryProductsService.archiveUnitConversion(
+      supabase,
+      auth.context.app.activeOrgId,
+      parsed.data.id,
+      userId
+    );
+    if (result.success) {
+      await emitInventoryEvent(auth, userId, {
+        actionKey: "warehouse.inventory.settings.unit_conversion.archived",
+        entityType: "inventory_unit_conversion",
+        entityId: parsed.data.id,
+        metadata: { unit_conversion_id: parsed.data.id },
+      });
+    }
+    return result;
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function createInventoryProductUnitConversionAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE))
+      return { success: false, error: "Unauthorized" };
+    const parsed = createProductUnitConversionSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    const supabase = await createClient();
+    return InventoryEnterpriseService.createProductUnitConversion(
+      supabase,
+      auth.context.app.activeOrgId,
+      {
+        product_id: parsed.data.product_id!,
+        from_unit_id: parsed.data.from_unit_id!,
+        to_unit_id: parsed.data.to_unit_id!,
+        factor: parsed.data.factor!,
+        rounding_mode: parsed.data.rounding_mode!,
+        actor_user_id: userIdFrom(auth),
+      }
+    );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function createInventoryCustomFieldAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE))
+      return { success: false, error: "Unauthorized" };
+    const parsed = createCustomFieldSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    const userId = userIdFrom(auth);
+    const supabase = await createClient();
+    const result = await InventoryEnterpriseService.createCustomField(
+      supabase,
+      auth.context.app.activeOrgId,
+      {
+        entity_type: parsed.data.entity_type!,
+        name: parsed.data.name!,
+        field_key: parsed.data.field_key!,
+        field_type: parsed.data.field_type!,
+        is_required: parsed.data.is_required,
+        is_filterable: parsed.data.is_filterable,
+        options: parsed.data.options,
+        display_order: parsed.data.display_order,
+        actor_user_id: userId,
+      }
+    );
+    if (result.success) {
+      await emitInventoryEvent(auth, userId, {
+        actionKey: "warehouse.inventory.settings.custom_field.created",
+        entityType: "inventory_custom_field",
+        entityId: result.data.id,
+        metadata: {
+          custom_field_id: result.data.id,
+          entity_type: parsed.data.entity_type!,
+          field_key: parsed.data.field_key!,
+          field_type: parsed.data.field_type!,
+          name: parsed.data.name!,
+        },
+      });
+    }
+    return result;
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function archiveInventoryCustomFieldAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE))
+      return { success: false, error: "Unauthorized" };
+    const parsed = archiveCustomFieldSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    const userId = userIdFrom(auth);
+    const supabase = await createClient();
+    const result = await InventoryEnterpriseService.archiveCustomField(
+      supabase,
+      auth.context.app.activeOrgId,
+      parsed.data.id!,
+      userId
+    );
+    if (result.success) {
+      await emitInventoryEvent(auth, userId, {
+        actionKey: "warehouse.inventory.settings.custom_field.archived",
+        entityType: "inventory_custom_field",
+        entityId: parsed.data.id!,
+        metadata: { custom_field_id: parsed.data.id! },
+      });
+    }
+    return result;
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function updateInventoryCustomFieldAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE))
+      return { success: false, error: "Unauthorized" };
+    const parsed = updateCustomFieldSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    const userId = userIdFrom(auth);
+    const supabase = await createClient();
+    const result = await InventoryEnterpriseService.updateCustomField(
+      supabase,
+      auth.context.app.activeOrgId,
+      {
+        id: parsed.data.id!,
+        name: parsed.data.name,
+        is_required: parsed.data.is_required,
+        is_filterable: parsed.data.is_filterable,
+        options: parsed.data.options,
+        display_order: parsed.data.display_order,
+      }
+    );
+    if (result.success) {
+      await emitInventoryEvent(auth, userId, {
+        actionKey: "warehouse.inventory.settings.custom_field.updated",
+        entityType: "inventory_custom_field",
+        entityId: parsed.data.id!,
+        metadata: {
+          custom_field_id: parsed.data.id!,
+          updated_fields: Object.keys(parsed.data).filter((key) => key !== "id"),
+        },
+      });
+    }
+    return result;
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function setInventoryCustomFieldValueAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE))
+      return { success: false, error: "Unauthorized" };
+    const parsed = setCustomFieldValueSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    const supabase = await createClient();
+    return InventoryEnterpriseService.setCustomFieldValue(supabase, auth.context.app.activeOrgId, {
+      field_id: parsed.data.field_id!,
+      product_id: parsed.data.product_id,
+      variant_id: parsed.data.variant_id,
+      lot_id: parsed.data.lot_id,
+      serial_id: parsed.data.serial_id,
+      value_text: parsed.data.value_text,
+      value_number: parsed.data.value_number,
+      value_date: parsed.data.value_date,
+      value_boolean: parsed.data.value_boolean,
+      value_json: parsed.data.value_json,
+      actor_user_id: userIdFrom(auth),
+    });
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function createInventoryCollectionAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE))
+      return { success: false, error: "Unauthorized" };
+    const parsed = createCollectionSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    const supabase = await createClient();
+    return InventoryEnterpriseService.createCollection(supabase, auth.context.app.activeOrgId, {
+      name: parsed.data.name!,
+      description: parsed.data.description,
+      collection_type: parsed.data.collection_type,
+      filter_json: parsed.data.filter_json,
+      actor_user_id: userIdFrom(auth),
+    });
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function addInventoryCollectionItemAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE))
+      return { success: false, error: "Unauthorized" };
+    const parsed = addCollectionItemSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    const supabase = await createClient();
+    return InventoryEnterpriseService.addCollectionItem(supabase, auth.context.app.activeOrgId, {
+      collection_id: parsed.data.collection_id!,
+      product_id: parsed.data.product_id!,
+      actor_user_id: userIdFrom(auth),
+    });
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function saveInventoryViewAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_READ))
+      return { success: false, error: "Unauthorized" };
+    const parsed = saveInventoryViewSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    const userId = userIdFrom(auth);
+    if (!userId) return { success: false, error: "User identity unavailable" };
+    const supabase = await createClient();
+    return InventoryEnterpriseService.saveView(supabase, auth.context.app.activeOrgId, userId, {
+      entity: parsed.data.entity!,
+      name: parsed.data.name!,
+      config: parsed.data.config!,
+      is_shared: parsed.data.is_shared,
+    });
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function createInventoryImportJobAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_IMPORTS_MANAGE))
+      return { success: false, error: "Unauthorized" };
+    const parsed = createInventoryImportJobSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    const supabase = await createClient();
+    return InventoryEnterpriseService.createImportJob(
+      supabase,
+      auth.context.app.activeOrgId,
+      auth.context.app.activeBranchId ?? null,
+      {
+        import_type: parsed.data.import_type!,
+        file_name: parsed.data.file_name,
+        storage_path: parsed.data.storage_path,
+        mapping: parsed.data.mapping,
+        actor_user_id: userIdFrom(auth),
+      }
+    );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function listMovementImportSourcesAction(rawInput?: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (
+      !hasPermission(auth, WAREHOUSE_IMPORTS_MANAGE) ||
+      !hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE)
+    ) {
+      return { success: false, error: "Unauthorized" };
+    }
+    const branch = requireActiveBranch(auth);
+    if (!branch.success) return branch;
+    const parsed = listMovementImportSourcesSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const supabase = await createClient();
+    return InventoryMovementImportsService.listSources(
+      supabase,
+      auth.context.app.activeOrgId,
+      branch.branchId,
+      parsed.data.movement_type_code
+    );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function previewMovementImportFromSourceAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (
+      !hasPermission(auth, WAREHOUSE_IMPORTS_MANAGE) ||
+      !hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE)
+    ) {
+      return { success: false, error: "Unauthorized" };
+    }
+    const branch = requireActiveBranch(auth);
+    if (!branch.success) return branch;
+
+    const parsed = previewMovementImportFromSourceSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const supabase = await createClient();
+    return InventoryMovementImportsService.previewFromSource(
+      supabase,
+      auth.context.app.activeOrgId,
+      branch.branchId,
+      {
+        source_type: parsed.data.source_type,
+        source_input: parsed.data.source_input,
+        movement_type_code: parsed.data.movement_type_code,
+      }
+    );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function createMovementImportUnitsAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (
+      !hasPermission(auth, WAREHOUSE_IMPORTS_MANAGE) ||
+      !hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE)
+    ) {
+      return { success: false, error: "Unauthorized" };
+    }
+    const branch = requireActiveBranch(auth);
+    if (!branch.success) return branch;
+
+    const parsed = createMovementImportUnitsSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    const userId = userIdFrom(auth);
+    if (!userId) return { success: false, error: "User identity unavailable" };
+
+    const supabase = await createClient();
+    const created: Array<{
+      key: string;
+      unit: {
+        id: string;
+        code: string;
+        name: string;
+      };
+    }> = [];
+
+    for (const unit of parsed.data.units) {
+      const result = await InventoryProductsService.createUnit(
+        supabase,
+        auth.context.app.activeOrgId,
+        {
+          code: unit.code,
+          name: unit.name,
+          unit_kind: "count",
+          precision: 0,
+        },
+        userId
+      );
+      if (!result.success) {
+        return {
+          success: false,
+          error: "error" in result ? result.error : "Could not create import unit",
+        };
+      }
+      created.push({ key: unit.key, unit: result.data });
+    }
+
+    return { success: true, data: { created } };
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function createMovementImportProductsAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (
+      !hasPermission(auth, WAREHOUSE_IMPORTS_MANAGE) ||
+      !hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE)
+    ) {
+      return { success: false, error: "Unauthorized" };
+    }
+    const branch = requireActiveBranch(auth);
+    if (!branch.success) return branch;
+
+    const parsed = createMovementImportProductsSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    const userId = userIdFrom(auth);
+    if (!userId) return { success: false, error: "User identity unavailable" };
+
+    const supabase = await createClient();
+    const created: Array<{
+      key: string;
+      variant: {
+        id: string;
+        sku: string;
+        label: string;
+        product_name: string;
+        unit_id: string;
+        unit_code: string;
+      };
+    }> = [];
+
+    for (const product of parsed.data.products) {
+      const result = await InventoryProductsService.createEnhancedProduct(
+        supabase,
+        auth.context.app.activeOrgId,
+        {
+          name: product.name,
+          product_type: "stocked",
+          base_unit_id: product.unit_id,
+          sku: product.sku,
+          returnable: true,
+          track_inventory: false,
+          variants: [{ sku: product.sku, name: product.name }],
+          attributes: [],
+          tags: [],
+          custom_fields: [],
+          unit_conversions: [],
+        },
+        userId
+      );
+      if (!result.success) {
+        return {
+          success: false,
+          error: "error" in result ? result.error : "Could not create import product",
+        };
+      }
+      const variantId = result.data.variant_ids[0];
+      if (!variantId) {
+        return {
+          success: false,
+          error: `Created product ${product.sku} did not return a variant`,
+        };
+      }
+      created.push({
+        key: product.key,
+        variant: {
+          id: variantId,
+          sku: result.data.sku ?? product.sku,
+          label: `${product.sku} - ${product.name}`,
+          product_name: product.name,
+          unit_id: product.unit_id,
+          unit_code: product.unit_code,
+        },
+      });
+    }
+
+    return { success: true, data: { created } };
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function createInventoryExportJobAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (
+      !hasPermission(auth, WAREHOUSE_REPORTS_READ) &&
+      !hasPermission(auth, WAREHOUSE_IMPORTS_MANAGE)
+    ) {
+      return { success: false, error: "Unauthorized" };
+    }
+    const parsed = createInventoryExportJobSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    const supabase = await createClient();
+    return InventoryEnterpriseService.createExportJob(
+      supabase,
+      auth.context.app.activeOrgId,
+      auth.context.app.activeBranchId ?? null,
+      {
+        export_type: parsed.data.export_type!,
+        filters: parsed.data.filters,
+        actor_user_id: userIdFrom(auth),
+      }
+    );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function createInventoryValuationSnapshotAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_REPORTS_READ))
+      return { success: false, error: "Unauthorized" };
+    const parsed = createValuationSnapshotSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    const supabase = await createClient();
+    return InventoryEnterpriseService.createValuationSnapshot(
+      supabase,
+      auth.context.app.activeOrgId,
+      auth.context.app.activeBranchId ?? null,
+      parsed.data.snapshot_date
+    );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function listInventoryBranchTransfersAction() {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_INVENTORY_READ))
+      return { success: false, error: "Unauthorized" };
+    const branch = requireActiveBranch(auth);
+    if (!branch.success) return branch;
+    const supabase = await createClient();
+    return InventoryEnterpriseService.listBranchTransfers(
+      supabase,
+      auth.context.app.activeOrgId,
+      branch.branchId
+    );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function createInventoryBranchTransferAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE))
+      return { success: false, error: "Unauthorized" };
+    const branch = requireActiveBranch(auth);
+    if (!branch.success) return branch;
+    const parsed = createBranchTransferSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    const userId = userIdFrom(auth);
+    const supabase = await createClient();
+    const result = await InventoryEnterpriseService.createBranchTransfer(
+      supabase,
+      auth.context.app.activeOrgId,
+      branch.branchId,
+      {
+        destination_branch_id: parsed.data.destination_branch_id!,
+        lines: (parsed.data.lines ?? []).map((line) => ({
+          variant_id: line.variant_id!,
+          source_location_id: line.source_location_id!,
+          lot_id: line.lot_id,
+          serial_id: line.serial_id,
+          unit_id: line.unit_id!,
+          quantity: line.quantity!,
+        })),
+        notes: parsed.data.notes,
+        actor_user_id: userId,
+      }
+    );
+    const transferId = textFromRecord(result.success ? result.data : null, ["transfer_id", "id"]);
+    if (result.success && transferId) {
+      await emitInventoryEvent(auth, userId, {
+        actionKey: "warehouse.inventory.branch_transfer.created",
+        entityType: "inventory_branch_transfer",
+        entityId: transferId,
+        branchId: branch.branchId,
+        metadata: {
+          transfer_id: transferId,
+          source_branch_id: branch.branchId,
+          destination_branch_id: parsed.data.destination_branch_id!,
+          line_count: parsed.data.lines?.length ?? 0,
+        },
+      });
+    }
+    return result;
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function acceptInventoryBranchTransferAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE))
+      return { success: false, error: "Unauthorized" };
+    const parsed = acceptBranchTransferSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    const userId = userIdFrom(auth);
+    const supabase = await createClient();
+    const result = await InventoryEnterpriseService.acceptBranchTransfer(
+      supabase,
+      parsed.data.id!,
+      parsed.data.destination_location_id!,
+      userId
+    );
+    if (result.success) {
+      await emitInventoryEvent(auth, userId, {
+        actionKey: "warehouse.inventory.branch_transfer.accepted",
+        entityType: "inventory_branch_transfer",
+        entityId: parsed.data.id!,
+        metadata: {
+          transfer_id: parsed.data.id!,
+          destination_location_id: parsed.data.destination_location_id!,
+        },
+      });
+    }
+    return result;
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function declineInventoryBranchTransferAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE))
+      return { success: false, error: "Unauthorized" };
+    const parsed = declineBranchTransferSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    const userId = userIdFrom(auth);
+    const supabase = await createClient();
+    const result = await InventoryEnterpriseService.declineBranchTransfer(
+      supabase,
+      parsed.data.id!,
+      parsed.data.decline_reason ?? null,
+      userId
+    );
+    if (result.success) {
+      await emitInventoryEvent(auth, userId, {
+        actionKey: "warehouse.inventory.branch_transfer.declined",
+        entityType: "inventory_branch_transfer",
+        entityId: parsed.data.id!,
+        metadata: {
+          transfer_id: parsed.data.id!,
+          has_decline_reason: Boolean(parsed.data.decline_reason),
+        },
+      });
+    }
+    return result;
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+// createInventoryCountSessionAction / updateInventoryCountLineAction /
+// approveInventoryCountSessionAction moved to ./count-sessions.ts as part of
+// the Stock Audit feature — see apps/web/docs/stock-audit-implementation-plan.md §3.
+
+async function emitMovementEvent(
+  auth: Extract<Awaited<ReturnType<typeof requireWarehouseContext>>, { success: true }>,
+  userId: string,
+  actionKey: "warehouse.inventory.movement.posted" | "warehouse.inventory.movement.reversed",
+  movement: { movement_id: string; status: string; document_number?: string; draft_number?: string }
+) {
+  await eventService.emit({
+    actionKey,
+    actorType: "user",
+    actorUserId: userId,
+    organizationId: auth.context.app.activeOrgId,
+    branchId: auth.context.app.activeBranchId ?? null,
+    entityType: "inventory_movement",
+    entityId: movement.movement_id,
+    eventTier: actionKey.endsWith(".reversed") ? "enhanced" : "baseline",
+    metadata: {
+      movement_id: movement.movement_id,
+      document_number: movement.document_number ?? movement.draft_number ?? null,
+      status: movement.status,
+    },
+  });
+}

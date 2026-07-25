@@ -1,0 +1,95 @@
+"use client";
+
+import {
+  Home,
+  Warehouse,
+  Users,
+  Settings,
+  BarChart3,
+  BarChart2,
+  Activity,
+  Shield,
+  FileText,
+  MessageSquare,
+  Calendar,
+  Package,
+  MapPin,
+  Map,
+  HelpCircle,
+  Code,
+  UserCircle,
+  SlidersHorizontal,
+  Wrench,
+  QrCode,
+  Car,
+  LifeBuoy,
+  Ticket,
+  Tags,
+  Building2,
+  CreditCard,
+  GitBranch,
+  TrendingUp,
+  ClipboardList,
+  Truck,
+  LayoutDashboard,
+  ArrowLeftRight,
+  ShieldCheck,
+  CheckSquare,
+  LayoutGrid,
+  KanbanSquare,
+  ListTodo,
+} from "lucide-react";
+import type { IconKey } from "@/lib/types/v2/sidebar";
+
+/**
+ * Icon key to lucide component mapping
+ *
+ * IMPORTANT: Only import this on client side.
+ * Server uses iconKey strings only.
+ */
+export const ICON_MAP: Record<IconKey, React.ComponentType<{ className?: string }>> = {
+  home: Home,
+  warehouse: Warehouse,
+  users: Users,
+  settings: Settings,
+  analytics: BarChart3,
+  barChart: BarChart2,
+  activity: Activity,
+  shield: Shield,
+  documentation: FileText,
+  chat: MessageSquare,
+  calendar: Calendar,
+  products: Package,
+  locations: MapPin,
+  map: Map,
+  support: HelpCircle,
+  development: Code,
+  profile: UserCircle,
+  preferences: SlidersHorizontal,
+  tools: Wrench,
+  "qr-code": QrCode,
+  car: Car,
+  lifeBuoy: LifeBuoy,
+  ticket: Ticket,
+  tags: Tags,
+  building: Building2,
+  creditCard: CreditCard,
+  branch: GitBranch,
+  trending: TrendingUp,
+  clipboard: ClipboardList,
+  truck: Truck,
+  dashboard: LayoutDashboard,
+  transfers: ArrowLeftRight,
+  shieldCheck: ShieldCheck,
+  checkSquare: CheckSquare,
+  layoutGrid: LayoutGrid,
+  kanban: KanbanSquare,
+  listTodo: ListTodo,
+};
+
+/**
+ * Get icon component by key (client-side only)
+ */
+export function getIconComponent(key: string) {
+  return ICON_MAP[key as IconKey] || Settings; // Fallback to Settings icon
+}

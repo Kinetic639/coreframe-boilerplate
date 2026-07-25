@@ -1,0 +1,55 @@
+{
+  "profile": {
+    "title": "Organization Profile",
+    "description": "Manage your organization settings, branding, and configuration options"
+  },
+  "branches": {
+    "title": "Branch Management",
+    "description": "Manage organizational branches, locations, and hierarchical structure"
+  },
+  "users": {
+    "title": "User Management",
+    "description": "Comprehensive user administration with role-based access control"
+  },
+  "usersList": {
+    "title": "Users List",
+    "description": "Complete list of organization users with management and administrative tools"
+  },
+  "userDetail": {
+    "title": "User Details",
+    "description": "Detailed user profile with role management and permission overrides"
+  },
+  "userRoles": {
+    "title": "User Roles",
+    "description": "Role-based access control system with granular permission management"
+  },
+  "userManage": {
+    "title": "User Administration",
+    "description": "Advanced user management tools for enterprise user administration"
+  },
+  "billing": {
+    "title": "Billing & Subscriptions",
+    "description": "Manage your organization's subscription plan and billing information",
+    "noSubscription": {
+      "title": "No Active Subscription",
+      "description": "This organization does not have an active subscription plan."
+    },
+    "currentPlan": {
+      "title": "Current Plan",
+      "subtitle": "Your active subscription plan details"
+    },
+    "status": {
+      "active": "Active",
+      "trialing": "Trial",
+      "past_due": "Past Due",
+      "canceled": "Canceled",
+      "unpaid": "Unpaid",
+      "incomplete": "Incomplete"
+    },
+    "developmentPlan": "Development",
+    "perMonth": "month",
+    "billingPeriod": "Billing period",
+    "planIncludes": "Plan includes",
+    "modules": "modules"
+  }
+}
