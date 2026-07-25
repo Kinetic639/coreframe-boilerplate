@@ -46,3 +46,27 @@ test("stock count workflow remains reachable as an action route", async ({ page 
   await expect(page.getByRole("heading", { name: "Wybierz dostawcę asortymentu" })).toBeVisible();
   await expect(page.getByText("ONLINE")).toBeVisible();
 });
+
+test("partner panel supports catalog ordering on mobile", async ({ page }) => {
+  await page.goto("/portal/vendors/autoparts/overview");
+  await expect(page.getByText("Panel partnera VMI")).toBeVisible();
+
+  await page.getByRole("button", { name: /Szczegóły/i }).first().click();
+  await expect(page.getByText("Tablica Ogłoszeń")).toBeVisible();
+  await page.getByRole("button", { name: /Zamknij tablicę/i }).click();
+
+  await page.getByRole("button", { name: /Katalog towarów/i }).click();
+  await expect(page).toHaveURL(/\/portal\/vendors\/autoparts\/catalog$/);
+  await expect(page.getByPlaceholder("Wyszukaj produkt po nazwie lub SKU...")).toBeVisible();
+
+  await page.getByRole("button", { name: "Kup" }).first().click();
+  await page.getByRole("button", { name: "Potwierdź" }).click();
+  await expect(page.getByText("Zatwierdzono")).toBeVisible();
+  await page.getByRole("button", { name: /Koszyk/i }).click();
+  await expect(page).toHaveURL(/\/portal\/vendors\/autoparts\/cart$/);
+
+  await expect(page.getByText("Podsumowanie zamówienia B2B")).toBeVisible();
+  await expect(page.getByText("Pozycje w koszyku (1)")).toBeVisible();
+  await page.getByRole("button", { name: "Prześlij zamówienie B2B do VMI" }).click();
+  await expect(page.getByText(/Zamówienie .* zostało przesłane/)).toBeVisible();
+});
