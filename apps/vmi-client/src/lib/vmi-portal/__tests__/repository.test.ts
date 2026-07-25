@@ -87,6 +87,59 @@ describe("VmiPortalRepository", () => {
     });
   });
 
+  it("creates a manual order from allowed catalog items", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-25T09:00:00.000Z"));
+
+    const result = await VmiPortalRepository.createOrder({
+      locationId: "loc-komorniki",
+      lines: [{ inventoryItemId: "inv-brake-pads", requestedQty: 4 }],
+      notes: "Quick order",
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data).toMatchObject({
+      id: "mock-order-1784970000000",
+      orderNumber: "ZAM-DEMO-1784970000000",
+      vendorId: "vendor-autoparts",
+      locationId: "loc-komorniki",
+      status: "Wysłane",
+      origin: "Zamówienie ręczne",
+      notes: "Quick order",
+      totalValue: 580,
+    });
+    expect(result.data.lines).toEqual([
+      {
+        inventoryItemId: "inv-brake-pads",
+        requestedQty: 4,
+        confirmedQty: 0,
+        shippedQty: 0,
+        deliveredQty: 0,
+        price: 145,
+      },
+    ]);
+  });
+
+  it("rejects manual orders outside allowed catalog scope", async () => {
+    await expect(
+      VmiPortalRepository.createOrder({
+        locationId: "loc-komorniki",
+        lines: [{ inventoryItemId: "inv-wrench-set", requestedQty: 1 }],
+      }),
+    ).resolves.toEqual({ success: false, error: "Order contains item outside selected location" });
+
+    await expect(
+      VmiPortalRepository.createOrder({
+        locationId: "loc-komorniki",
+        lines: [
+          { inventoryItemId: "inv-brake-pads", requestedQty: 1 },
+          { inventoryItemId: "inv-impact-wrench", requestedQty: 1 },
+        ],
+      }),
+    ).resolves.toEqual({ success: false, error: "Order can contain items from one vendor only" });
+  });
+
   it("creates a mocked outbound message for an existing thread", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-07-25T08:30:00.000Z"));

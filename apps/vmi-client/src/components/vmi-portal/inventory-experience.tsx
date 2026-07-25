@@ -93,6 +93,10 @@ export function InventoryExperience({
   const [hidePrices, setHidePrices] = React.useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
   const [activeQuickFilter, setActiveQuickFilter] = React.useState<QuickFilter>("all");
+  const [orderMessage, setOrderMessage] = React.useState<{
+    tone: "success" | "error";
+    text: string;
+  } | null>(null);
 
   const activeLocationName =
     locations.find((location) => location.id === activeLocationId)?.name ?? "Wybrany Oddział";
@@ -137,6 +141,25 @@ export function InventoryExperience({
   const getVendor = (vendorId: string) => vendors.find((vendor) => vendor.id === vendorId);
 
   const clearQuickFilter = () => setActiveQuickFilter("all");
+
+  const createQuickOrder = async (item: VmiPortalInventoryItemDto) => {
+    setOrderMessage(null);
+    const response = await fetch("/api/portal/orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        locationId: activeLocationId,
+        lines: [{ inventoryItemId: item.id, requestedQty: item.packSize }],
+        notes: `Szybkie zamówienie z katalogu VMI: ${item.productName}`,
+      }),
+    });
+    const payload = (await response.json()) as { success: boolean; data?: { orderNumber: string }; error?: string };
+    setOrderMessage(
+      payload.success && payload.data
+        ? { tone: "success", text: `Utworzono zamówienie ${payload.data.orderNumber} dla ${item.productName}.` }
+        : { tone: "error", text: payload.error ?? "Nie udało się utworzyć zamówienia." },
+    );
+  };
 
   return (
     <section className="space-y-4">
@@ -318,16 +341,44 @@ export function InventoryExperience({
         ) : null}
       </div>
 
+      {orderMessage ? (
+        <div
+          className={cn(
+            "rounded-xl p-3 text-xs font-semibold",
+            orderMessage.tone === "success"
+              ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400"
+              : "bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-400",
+          )}
+        >
+          {orderMessage.text}
+        </div>
+      ) : null}
+
       {viewMode === "table" ? (
-        <TableView items={filteredInventory} getVendor={getVendor} hidePrices={hidePrices} />
+        <TableView
+          items={filteredInventory}
+          getVendor={getVendor}
+          hidePrices={hidePrices}
+          onCreateOrder={createQuickOrder}
+        />
       ) : null}
 
       {viewMode === "tile" ? (
-        <TileView items={filteredInventory} getVendor={getVendor} hidePrices={hidePrices} />
+        <TileView
+          items={filteredInventory}
+          getVendor={getVendor}
+          hidePrices={hidePrices}
+          onCreateOrder={createQuickOrder}
+        />
       ) : null}
 
       {viewMode === "list" ? (
-        <ListView items={filteredInventory} getVendor={getVendor} hidePrices={hidePrices} />
+        <ListView
+          items={filteredInventory}
+          getVendor={getVendor}
+          hidePrices={hidePrices}
+          onCreateOrder={createQuickOrder}
+        />
       ) : null}
 
       <div className="flex items-start gap-2.5 rounded-xl bg-blue-50/50 p-3 text-xs text-blue-800 dark:bg-blue-950/10 dark:text-blue-300">
@@ -412,10 +463,12 @@ function TableView({
   items,
   getVendor,
   hidePrices,
+  onCreateOrder,
 }: {
   items: VmiPortalInventoryItemDto[];
   getVendor: (vendorId: string) => VmiPortalVendorDto | undefined;
   hidePrices: boolean;
+  onCreateOrder: (item: VmiPortalInventoryItemDto) => void;
 }) {
   return (
     <div className="overflow-hidden rounded-xl bg-white shadow-sm dark:bg-[#0E1321]">
@@ -498,7 +551,11 @@ function TableView({
                       <button className="cursor-pointer rounded bg-gray-100 px-2.5 py-1 text-[10px] font-semibold text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">
                         Przelicz
                       </button>
-                      <button className="cursor-pointer rounded bg-[#2A3B4C] px-2.5 py-1 text-[10px] font-bold text-white transition-colors hover:bg-gray-800 dark:bg-blue-600 dark:hover:bg-blue-500">
+                      <button
+                        type="button"
+                        onClick={() => onCreateOrder(item)}
+                        className="cursor-pointer rounded bg-[#2A3B4C] px-2.5 py-1 text-[10px] font-bold text-white transition-colors hover:bg-gray-800 dark:bg-blue-600 dark:hover:bg-blue-500"
+                      >
                         Zamów (+{item.packSize})
                       </button>
                     </td>
@@ -514,7 +571,15 @@ function TableView({
         {items.length === 0 ? (
           <div className="py-6 text-center text-xs text-gray-500">Brak wyników.</div>
         ) : (
-          items.map((item) => <MobileInventoryCard key={item.id} item={item} vendor={getVendor(item.vendorId)} hidePrices={hidePrices} />)
+          items.map((item) => (
+            <MobileInventoryCard
+              key={item.id}
+              item={item}
+              vendor={getVendor(item.vendorId)}
+              hidePrices={hidePrices}
+              onCreateOrder={onCreateOrder}
+            />
+          ))
         )}
       </div>
     </div>
@@ -525,10 +590,12 @@ function MobileInventoryCard({
   item,
   vendor,
   hidePrices,
+  onCreateOrder,
 }: {
   item: VmiPortalInventoryItemDto;
   vendor?: VmiPortalVendorDto;
   hidePrices: boolean;
+  onCreateOrder: (item: VmiPortalInventoryItemDto) => void;
 }) {
   const status = getStatusLabel(item.status);
 
@@ -575,7 +642,11 @@ function MobileInventoryCard({
           <button className="cursor-pointer rounded bg-gray-100 px-2.5 py-1 text-[10px] font-bold text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">
             Przelicz
           </button>
-          <button className="cursor-pointer rounded bg-[#2A3B4C] px-2.5 py-1 text-[10px] font-bold text-white transition-colors hover:bg-gray-800 dark:bg-blue-600 dark:hover:bg-blue-500">
+          <button
+            type="button"
+            onClick={() => onCreateOrder(item)}
+            className="cursor-pointer rounded bg-[#2A3B4C] px-2.5 py-1 text-[10px] font-bold text-white transition-colors hover:bg-gray-800 dark:bg-blue-600 dark:hover:bg-blue-500"
+          >
             + Zamów
           </button>
         </div>
@@ -604,10 +675,12 @@ function TileView({
   items,
   getVendor,
   hidePrices,
+  onCreateOrder,
 }: {
   items: VmiPortalInventoryItemDto[];
   getVendor: (vendorId: string) => VmiPortalVendorDto | undefined;
   hidePrices: boolean;
+  onCreateOrder: (item: VmiPortalInventoryItemDto) => void;
 }) {
   if (items.length === 0) {
     return (
@@ -669,7 +742,11 @@ function TileView({
                 <button className="flex-1 cursor-pointer rounded bg-gray-50 py-1 text-[9px] font-bold text-gray-600 transition-colors hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-750">
                   Spis
                 </button>
-                <button className="flex flex-[2] cursor-pointer items-center justify-center gap-0.5 rounded bg-[#2A3B4C] py-1 text-[9px] font-black text-white transition-all hover:bg-[#1E2B38] dark:bg-blue-600 dark:hover:bg-blue-500">
+                <button
+                  type="button"
+                  onClick={() => onCreateOrder(item)}
+                  className="flex flex-[2] cursor-pointer items-center justify-center gap-0.5 rounded bg-[#2A3B4C] py-1 text-[9px] font-black text-white transition-all hover:bg-[#1E2B38] dark:bg-blue-600 dark:hover:bg-blue-500"
+                >
                   <Plus className="h-3 w-3" />
                   Kup ({item.packSize})
                 </button>
@@ -702,10 +779,12 @@ function ListView({
   items,
   getVendor,
   hidePrices,
+  onCreateOrder,
 }: {
   items: VmiPortalInventoryItemDto[];
   getVendor: (vendorId: string) => VmiPortalVendorDto | undefined;
   hidePrices: boolean;
+  onCreateOrder: (item: VmiPortalInventoryItemDto) => void;
 }) {
   if (items.length === 0) {
     return (
@@ -768,7 +847,11 @@ function ListView({
               <button className="cursor-pointer rounded bg-gray-50 px-2.5 py-1 text-[10px] font-bold text-gray-700 transition-colors hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">
                 Przelicz
               </button>
-              <button className="flex cursor-pointer items-center gap-1 rounded bg-[#2A3B4C] px-2.5 py-1 text-[10px] font-extrabold text-white transition-colors hover:bg-[#1E2B38] dark:bg-blue-600 dark:hover:bg-blue-500">
+              <button
+                type="button"
+                onClick={() => onCreateOrder(item)}
+                className="flex cursor-pointer items-center gap-1 rounded bg-[#2A3B4C] px-2.5 py-1 text-[10px] font-extrabold text-white transition-colors hover:bg-[#1E2B38] dark:bg-blue-600 dark:hover:bg-blue-500"
+              >
                 <Plus className="h-3 w-3" />
                 Kup (+{item.packSize})
               </button>

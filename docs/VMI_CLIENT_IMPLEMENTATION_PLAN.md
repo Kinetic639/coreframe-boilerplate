@@ -108,7 +108,7 @@
 - [x] Client sees only assigned vendors/locations in mocked portal fixtures
 - [x] Client can submit stock count in mocked workflow
 - [x] Client can review proposal in mocked workflow
-- [ ] Client can create/order from allowed catalog items
+- [x] Client can create/order from allowed catalog items in mocked workflow
 - [ ] Vendor-side Ambra data stays consistent
 
 ## Summary

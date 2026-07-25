@@ -125,6 +125,78 @@ export class VmiPortalRepository {
     });
   }
 
+  static async createOrder(input: {
+    locationId: string;
+    lines: Array<{ inventoryItemId: string; requestedQty: number }>;
+    notes?: string;
+  }): Promise<VmiPortalResult<VmiPortalOrderDto>> {
+    if (input.lines.length === 0) return { success: false, error: "Order must contain at least one line" };
+
+    const normalizedLines = input.lines.map((line) => ({
+      ...line,
+      requestedQty: Math.trunc(line.requestedQty),
+    }));
+    if (normalizedLines.some((line) => line.requestedQty <= 0)) {
+      return { success: false, error: "Order quantities must be positive" };
+    }
+
+    const inventoryItems = normalizedLines.map((line) =>
+      vmiPortalSnapshotFixture.inventory.find((item) => item.id === line.inventoryItemId),
+    );
+    if (inventoryItems.some((item) => !item)) return { success: false, error: "Order contains unknown item" };
+
+    const concreteItems = inventoryItems as VmiPortalInventoryItemDto[];
+    if (concreteItems.some((item) => item.locationId !== input.locationId)) {
+      return { success: false, error: "Order contains item outside selected location" };
+    }
+
+    const vendorIds = new Set(concreteItems.map((item) => item.vendorId));
+    if (vendorIds.size !== 1) return { success: false, error: "Order can contain items from one vendor only" };
+    const firstItem = concreteItems[0];
+    if (!firstItem) return { success: false, error: "Order must contain at least one line" };
+
+    const createdAt = new Date();
+    const requestedDeliveryDate = new Date(createdAt);
+    requestedDeliveryDate.setDate(requestedDeliveryDate.getDate() + 3);
+
+    const orderLines = normalizedLines.map((line) => {
+      const item = concreteItems.find((inventoryItem) => inventoryItem.id === line.inventoryItemId);
+      const price = item?.promoPrice ?? item?.price ?? 0;
+      return {
+        inventoryItemId: line.inventoryItemId,
+        requestedQty: line.requestedQty,
+        confirmedQty: 0,
+        shippedQty: 0,
+        deliveredQty: 0,
+        price,
+      };
+    });
+
+    const totalValue = orderLines.reduce((sum, line) => sum + line.price * line.requestedQty, 0);
+
+    return ok({
+      id: `mock-order-${Date.now()}`,
+      vendorId: firstItem.vendorId,
+      locationId: input.locationId,
+      orderNumber: `ZAM-DEMO-${Date.now()}`,
+      date: createdAt.toISOString().slice(0, 10),
+      status: "Wysłane",
+      requestedDeliveryDate: requestedDeliveryDate.toISOString().slice(0, 10),
+      origin: "Zamówienie ręczne",
+      notes: input.notes,
+      hasAttachment: false,
+      totalValue,
+      lines: orderLines,
+      timeline: [
+        {
+          status: "Wysłane",
+          date: createdAt.toISOString().slice(0, 16).replace("T", " "),
+          description: "Utworzono ręczne zamówienie z katalogu VMI klienta.",
+        },
+      ],
+    });
+  }
+
   static async sendMessage(input: {
     threadId: string;
     content: string;
