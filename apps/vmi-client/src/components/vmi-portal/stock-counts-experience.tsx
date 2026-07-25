@@ -321,7 +321,14 @@ export function StockCountsExperience({
               <div className="space-y-4 rounded-2xl bg-white p-4 shadow-sm dark:bg-[#0E1321]/30">
                 <div className="flex items-start gap-4">
                   <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-800">
-                    <Image src={activeProduct.imageUrl} alt={activeProduct.productName} fill sizes="80px" className="object-cover" />
+                    <Image
+                      src={activeProduct.imageUrl}
+                      alt={activeProduct.productName}
+                      fill
+                      sizes="80px"
+                      className="object-cover"
+                      unoptimized
+                    />
                   </div>
                   <div className="min-w-0 space-y-1">
                     <span className="rounded bg-blue-50 px-2 py-0.5 text-[10px] font-bold uppercase text-blue-700 dark:bg-blue-950/20 dark:text-blue-400">
