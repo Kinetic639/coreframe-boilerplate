@@ -11,14 +11,14 @@ import {
 
 export const vmiRoutes = [
   {
-    href: "/",
+    href: "/portal",
     label: "Pulpit",
     title: "Pulpit VMI",
     description: "Najważniejsze statusy zapasów, dostawców, propozycji i zamówień.",
     icon: Home
   },
   {
-    href: "/vendors",
+    href: "/portal/vendors",
     label: "Dostawcy",
     title: "Dostawcy",
     description: "Relacje z dostawcami, kontakty, warunki i katalogi VMI.",
