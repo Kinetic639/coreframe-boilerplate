@@ -12,7 +12,7 @@ test("public supplier API is reachable from the running VMI app", async ({ reque
 test("public home page renders the VMI shell", async ({ page }) => {
   await page.goto("/");
 
-  await expect(page.getByRole("heading", { name: /Znajdź Certyfikowanych Dostawców/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Lokalni Dostawcy/ })).toBeVisible();
   await expect(page.getByText("Kategorie B2B")).toBeVisible();
   await expect(page.getByText("Aktywne Gazetki Produktowe B2B")).toBeVisible();
 });

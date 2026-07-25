@@ -97,7 +97,7 @@
 - [x] Unit tests
 - [ ] Server action tests
 - [ ] RLS/integration tests
-- [ ] Mobile viewport checks
+- [x] Mobile viewport checks
 - [x] Type-check
 - [x] Build
 - [ ] Supabase advisors
