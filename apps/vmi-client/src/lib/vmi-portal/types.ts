@@ -52,8 +52,15 @@ export interface VmiPortalInventoryItemDto {
   vendorId: string;
   locationId: string;
   productName: string;
+  vendorSku: string;
   clientSku: string;
+  category: string;
   unit: string;
+  packSize: number;
+  price: number;
+  promoPrice?: number;
+  imageUrl: string;
+  warehouseQty: number;
   currentStock: number;
   minStock: number;
   targetStock: number;
@@ -64,7 +71,8 @@ export interface VmiPortalInventoryItemDto {
     | "Below minimum"
     | "Out of stock"
     | "Overstocked"
-    | "Count outdated";
+    | "Count outdated"
+    | "Needs verification";
   lastUpdated: string;
 }
 
@@ -73,10 +81,20 @@ export interface VmiPortalProposalDto {
   vendorId: string;
   locationId: string;
   proposalNumber: string;
-  status: "Oczekuje na zatwierdzenie" | "Zatwierdzona" | "Odrzucona";
+  date: string;
+  status: "Oczekuje na zatwierdzenie" | "Oczekująca" | "Zaakceptowana" | "Zatwierdzona" | "Odrzucona" | "Wymaga zmian";
   expiryDate: string;
+  deliveryConditions: string;
+  notes?: string;
   urgentLinesCount: number;
   totalValue: number;
+  lines: Array<{
+    inventoryItemId: string;
+    qty: number;
+    originalPrice: number;
+    offeredPrice: number;
+    reason?: string;
+  }>;
 }
 
 export interface VmiPortalOrderDto {
@@ -84,17 +102,64 @@ export interface VmiPortalOrderDto {
   vendorId: string;
   locationId: string;
   orderNumber: string;
-  status: "Wysłane" | "Potwierdzone" | "W przygotowaniu" | "Dostarczone";
+  date: string;
+  status:
+    | "Wysłane"
+    | "Potwierdzone"
+    | "W przygotowaniu"
+    | "Częściowo potwierdzone"
+    | "W transporcie"
+    | "Wysłane (Kurier)"
+    | "Dostarczone"
+    | "Anulowane";
   requestedDeliveryDate: string;
+  confirmedDeliveryDate?: string;
+  origin: string;
+  poReference?: string;
+  notes?: string;
+  hasAttachment: boolean;
   totalValue: number;
+  lines: Array<{
+    inventoryItemId: string;
+    requestedQty: number;
+    confirmedQty?: number;
+    shippedQty?: number;
+    deliveredQty?: number;
+    price: number;
+  }>;
+  timeline: Array<{
+    status: string;
+    date: string;
+    description: string;
+  }>;
 }
 
 export interface VmiPortalMessageThreadDto {
   id: string;
   vendorId: string;
   subject: string;
+  status: "active" | "closed";
+  relatedObjectType: "order" | "product" | "proposal" | "quotation" | "delivery" | "none";
+  relatedObjectId?: string;
   unreadCount: number;
   lastUpdated: string;
+  messages: Array<{
+    id: string;
+    sender: "client" | "vendor" | "system";
+    senderName: string;
+    content: string;
+    timestamp: string;
+  }>;
+}
+
+export interface VmiPortalStockCountRequestDto {
+  id: string;
+  vendorId: string;
+  locationId: string;
+  title: string;
+  deadline: string;
+  status: "Oczekujące" | "W trakcie" | "Zakończone";
+  inventoryItemIds: string[];
 }
 
 export interface VmiPortalDashboardDto {
@@ -123,4 +188,5 @@ export interface VmiPortalSnapshotDto {
   proposals: VmiPortalProposalDto[];
   orders: VmiPortalOrderDto[];
   messageThreads: VmiPortalMessageThreadDto[];
+  stockCountRequests: VmiPortalStockCountRequestDto[];
 }

@@ -44,7 +44,7 @@ export class VmiPortalRepository {
     const pendingProposals = snapshot.proposals.filter(
       (proposal) =>
         proposal.locationId === activeLocation.id &&
-        proposal.status === "Oczekuje na zatwierdzenie",
+        (proposal.status === "Oczekuje na zatwierdzenie" || proposal.status === "Oczekująca"),
     );
     const activeOrders = snapshot.orders.filter(
       (order) => order.locationId === activeLocation.id && order.status !== "Dostarczone",
