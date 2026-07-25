@@ -243,6 +243,38 @@ export const CRM_CONTACTS_CREATE = "crm.contacts.create" as const;
 export const CRM_CONTACTS_UPDATE = "crm.contacts.update" as const;
 export const CRM_CONTACTS_DELETE = "crm.contacts.delete" as const;
 
+// VMI Client Portal Permissions (org-scoped — Professional/Enterprise)
+// vmi.*                  — wildcard for org_owner; compiler expands to concrete VMI slugs
+// vmi.read               — view VMI vendor-side shell and overview
+// vmi.clients.*          — manage client accounts and vendor-client relationships
+// vmi.invitations.manage — invite buyer/client users into the VMI portal
+// vmi.locations.*        — manage buyer delivery/inventory locations
+// vmi.inventory.*        — expose and review client inventory state
+// vmi.stock_counts.*     — review and manage client stock count submissions
+// vmi.proposals.*        — create/review replenishment proposals
+// vmi.orders.*           — manage VMI replenishment orders
+// vmi.messages.*         — use the VMI client/vendor message shell
+// vmi.settings.manage    — manage VMI vendor-side settings
+export const MODULE_VMI_ACCESS = "module.vmi.access" as const;
+export const VMI_WILDCARD = "vmi.*" as const;
+export const VMI_READ = "vmi.read" as const;
+export const VMI_CLIENTS_READ = "vmi.clients.read" as const;
+export const VMI_CLIENTS_MANAGE = "vmi.clients.manage" as const;
+export const VMI_INVITATIONS_MANAGE = "vmi.invitations.manage" as const;
+export const VMI_LOCATIONS_READ = "vmi.locations.read" as const;
+export const VMI_LOCATIONS_MANAGE = "vmi.locations.manage" as const;
+export const VMI_INVENTORY_READ = "vmi.inventory.read" as const;
+export const VMI_INVENTORY_MANAGE = "vmi.inventory.manage" as const;
+export const VMI_STOCK_COUNTS_READ = "vmi.stock_counts.read" as const;
+export const VMI_STOCK_COUNTS_MANAGE = "vmi.stock_counts.manage" as const;
+export const VMI_PROPOSALS_READ = "vmi.proposals.read" as const;
+export const VMI_PROPOSALS_MANAGE = "vmi.proposals.manage" as const;
+export const VMI_ORDERS_READ = "vmi.orders.read" as const;
+export const VMI_ORDERS_MANAGE = "vmi.orders.manage" as const;
+export const VMI_MESSAGES_READ = "vmi.messages.read" as const;
+export const VMI_MESSAGES_SEND = "vmi.messages.send" as const;
+export const VMI_SETTINGS_MANAGE = "vmi.settings.manage" as const;
+
 // Tools Permissions (user-scoped — always available, no plan gating)
 // tools.read  — view the tools catalog, tool detail pages, and personal enabled-tools list
 // tools.manage — enable, disable, pin, and update settings for tools
@@ -382,6 +414,25 @@ export type PermissionSlug =
   | typeof CRM_CONTACTS_CREATE
   | typeof CRM_CONTACTS_UPDATE
   | typeof CRM_CONTACTS_DELETE
+  | typeof MODULE_VMI_ACCESS
+  | typeof VMI_WILDCARD
+  | typeof VMI_READ
+  | typeof VMI_CLIENTS_READ
+  | typeof VMI_CLIENTS_MANAGE
+  | typeof VMI_INVITATIONS_MANAGE
+  | typeof VMI_LOCATIONS_READ
+  | typeof VMI_LOCATIONS_MANAGE
+  | typeof VMI_INVENTORY_READ
+  | typeof VMI_INVENTORY_MANAGE
+  | typeof VMI_STOCK_COUNTS_READ
+  | typeof VMI_STOCK_COUNTS_MANAGE
+  | typeof VMI_PROPOSALS_READ
+  | typeof VMI_PROPOSALS_MANAGE
+  | typeof VMI_ORDERS_READ
+  | typeof VMI_ORDERS_MANAGE
+  | typeof VMI_MESSAGES_READ
+  | typeof VMI_MESSAGES_SEND
+  | typeof VMI_SETTINGS_MANAGE
   | typeof PERMISSION_TOOLS_READ
   | typeof PERMISSION_TOOLS_MANAGE
   | typeof PERMISSION_WDD_MATCHER_READ
@@ -501,6 +552,25 @@ export const ALL_PERMISSION_SLUGS: PermissionSlug[] = [
   CRM_CONTACTS_CREATE,
   CRM_CONTACTS_UPDATE,
   CRM_CONTACTS_DELETE,
+  MODULE_VMI_ACCESS,
+  VMI_WILDCARD,
+  VMI_READ,
+  VMI_CLIENTS_READ,
+  VMI_CLIENTS_MANAGE,
+  VMI_INVITATIONS_MANAGE,
+  VMI_LOCATIONS_READ,
+  VMI_LOCATIONS_MANAGE,
+  VMI_INVENTORY_READ,
+  VMI_INVENTORY_MANAGE,
+  VMI_STOCK_COUNTS_READ,
+  VMI_STOCK_COUNTS_MANAGE,
+  VMI_PROPOSALS_READ,
+  VMI_PROPOSALS_MANAGE,
+  VMI_ORDERS_READ,
+  VMI_ORDERS_MANAGE,
+  VMI_MESSAGES_READ,
+  VMI_MESSAGES_SEND,
+  VMI_SETTINGS_MANAGE,
   PERMISSION_TOOLS_READ,
   PERMISSION_TOOLS_MANAGE,
   PERMISSION_WDD_MATCHER_READ,
