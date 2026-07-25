@@ -7,6 +7,7 @@ import type {
   VmiPortalProposalDto,
   VmiPortalResult,
   VmiPortalSnapshotDto,
+  VmiPortalStockCountRequestDto,
   VmiPortalVendorDto,
 } from "./types";
 
@@ -92,6 +93,17 @@ export class VmiPortalRepository {
     return ok(vmiPortalSnapshotFixture.messageThreads);
   }
 
+  static async listStockCountRequests(
+    locationId?: string,
+  ): Promise<VmiPortalResult<VmiPortalStockCountRequestDto[]>> {
+    const snapshot = activeLocationSnapshot(locationId);
+    return ok(
+      snapshot.stockCountRequests.filter(
+        (request) => request.locationId === snapshot.user.activeLocationId,
+      ),
+    );
+  }
+
   static async submitStockCount(input: {
     locationId: string;
     lines: Array<{ inventoryItemId: string; countedQuantity: number }>;
@@ -110,6 +122,32 @@ export class VmiPortalRepository {
       proposalId,
       orderId: `mock-order-${Date.now()}`,
       status: "approved",
+    });
+  }
+
+  static async sendMessage(input: {
+    threadId: string;
+    content: string;
+  }): Promise<
+    VmiPortalResult<{
+      threadId: string;
+      message: VmiPortalMessageThreadDto["messages"][number];
+    }>
+  > {
+    const thread = vmiPortalSnapshotFixture.messageThreads.find((item) => item.id === input.threadId);
+    if (!thread) return { success: false, error: "Message thread not found" };
+    const content = input.content.trim();
+    if (!content) return { success: false, error: "Message content is required" };
+
+    return ok({
+      threadId: thread.id,
+      message: {
+        id: `mock-message-${Date.now()}`,
+        sender: "client",
+        senderName: vmiPortalSnapshotFixture.user.name,
+        content,
+        timestamp: new Date().toISOString(),
+      },
     });
   }
 }

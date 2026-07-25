@@ -70,7 +70,7 @@
 - [x] Add orders lookup and creation mock
 - [x] Add messages lookup
 - [x] Add messages send mock
-- [ ] Add mocked portal repository tests
+- [x] Add mocked portal repository tests
 
 ### Phase 4: Real Services And Actions
 
@@ -94,7 +94,7 @@
 
 ### Phase 6: Testing And Hardening
 
-- [ ] Unit tests
+- [x] Unit tests
 - [ ] Server action tests
 - [ ] RLS/integration tests
 - [ ] Mobile viewport checks
