@@ -69,7 +69,7 @@
 - [x] Add proposals lookup and approval mock
 - [x] Add orders lookup and creation mock
 - [x] Add messages lookup
-- [ ] Add messages send mock
+- [x] Add messages send mock
 - [ ] Add mocked portal repository tests
 
 ### Phase 4: Real Services And Actions
@@ -86,11 +86,11 @@
 - [x] Dashboard
 - [x] Vendors
 - [x] Inventory
-- [ ] Stock counts
+- [x] Stock counts
 - [x] Proposals
 - [x] Orders
 - [x] Messages shell
-- [ ] Settings
+- [x] Settings
 
 ### Phase 6: Testing And Hardening
 
@@ -99,15 +99,15 @@
 - [ ] RLS/integration tests
 - [ ] Mobile viewport checks
 - [x] Type-check
-- [ ] Build
+- [x] Build
 - [ ] Supabase advisors
 
 ### Phase 7: V1 Acceptance
 
 - [x] Client user can sign in with mock demo session
-- [ ] Client sees only assigned vendors/locations
-- [ ] Client can submit stock count
-- [ ] Client can review proposal
+- [x] Client sees only assigned vendors/locations in mocked portal fixtures
+- [x] Client can submit stock count in mocked workflow
+- [x] Client can review proposal in mocked workflow
 - [ ] Client can create/order from allowed catalog items
 - [ ] Vendor-side Ambra data stays consistent
 
