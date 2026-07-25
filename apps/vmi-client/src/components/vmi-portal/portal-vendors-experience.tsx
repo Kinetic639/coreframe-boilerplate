@@ -23,6 +23,7 @@ import type {
   VmiPortalProposalDto,
   VmiPortalVendorDto,
 } from "@/lib/vmi-portal/types";
+import { vendorPortalPath } from "@/lib/vmi-portal/vendor-slugs";
 import { cn } from "@/utils/cn";
 
 type VendorsTab = "partner" | "favourite_products" | "favourite_vendors";
@@ -387,7 +388,7 @@ export function PortalVendorsExperience({
                     </div>
 
                     <Link
-                      href={`/portal/vendors/${vendor.id}`}
+                      href={vendorPortalPath(vendor.id)}
                       className="w-full rounded-lg bg-gray-50 py-2.5 text-center text-xs font-bold text-gray-700 transition-colors hover:bg-gray-100 dark:bg-gray-800 dark:text-white dark:hover:bg-gray-750"
                     >
                       Otwórz panel partnera
