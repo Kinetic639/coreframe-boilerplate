@@ -44,54 +44,71 @@
 - [x] Rebuild supplier directory and profile routes with typed props
 - [x] Rebuild product directory and detail routes with typed props
 - [x] Rebuild flyer detail route with typed props
-- [ ] Rebuild authenticated dashboard UI with typed props
+- [x] Rebuild authenticated dashboard UI with typed props
 - [x] Remove mock/localStorage coupling from ported public components
 
 ### Phase 3: Database And Security
 
-- [ ] Add VMI contracts and permission constants
-- [ ] Create Supabase migration
-- [ ] Add VMI tables, indexes, RLS, grants
-- [ ] Apply migration through Supabase MCP
+- [x] Add VMI contracts and permission constants
+- [x] Draft VMI database schema, indexes, RLS, grants
+- [x] Move draft schema out of executable migrations until MVP schema freeze
+- [ ] Finalize MVP data model after mocked portal workflows stabilize
+- [ ] Create final Supabase migration
+- [ ] Apply final migration through Supabase MCP
 - [ ] Regenerate Supabase types
 - [ ] Add migration regression tests
 
-### Phase 4: Services And Actions
+### Phase 3.5: Mocked Authenticated Portal Backend
 
-- [ ] Add validation schemas
-- [ ] Add service layer
-- [ ] Add server actions
-- [ ] Add query hooks for client islands
-- [ ] Enforce auth, permissions, and client organization scoping
+- [x] Add authenticated VMI portal DTO contracts
+- [x] Add full fixture-backed portal repository
+- [x] Add dashboard summary lookup
+- [x] Add client vendors lookup
+- [x] Add inventory lookup
+- [x] Add stock count submission mock
+- [x] Add proposals lookup and approval mock
+- [x] Add orders lookup and creation mock
+- [x] Add messages lookup
+- [x] Add messages send mock
+- [x] Add mocked portal repository tests
+
+### Phase 4: Real Services And Actions
+
+- [x] Add validation schemas
+- [x] Draft Supabase service layer
+- [x] Draft server actions
+- [x] Add query hooks for client islands
+- [x] Enforce auth, permissions, and client organization scoping
+- [ ] Revisit and wire real services/actions after final migration is applied
 
 ### Phase 5: Core Routes
 
-- [ ] Dashboard
-- [ ] Vendors
-- [ ] Inventory
-- [ ] Stock counts
-- [ ] Proposals
-- [ ] Orders
-- [ ] Messages shell
-- [ ] Settings
+- [x] Dashboard
+- [x] Vendors
+- [x] Inventory
+- [x] Stock counts
+- [x] Proposals
+- [x] Orders
+- [x] Messages shell
+- [x] Settings
 
 ### Phase 6: Testing And Hardening
 
-- [ ] Unit tests
+- [x] Unit tests
 - [ ] Server action tests
 - [ ] RLS/integration tests
-- [ ] Mobile viewport checks
-- [ ] Type-check
-- [ ] Build
+- [x] Mobile viewport checks
+- [x] Type-check
+- [x] Build
 - [ ] Supabase advisors
 
 ### Phase 7: V1 Acceptance
 
-- [ ] Client user can sign in
-- [ ] Client sees only assigned vendors/locations
-- [ ] Client can submit stock count
-- [ ] Client can review proposal
-- [ ] Client can create/order from allowed catalog items
+- [x] Client user can sign in with mock demo session
+- [x] Client sees only assigned vendors/locations in mocked portal fixtures
+- [x] Client can submit stock count in mocked workflow
+- [x] Client can review proposal in mocked workflow
+- [x] Client can create/order from allowed catalog items in mocked workflow
 - [ ] Vendor-side Ambra data stays consistent
 
 ## Summary
@@ -117,7 +134,7 @@ Chosen defaults:
 - Add VMI-specific public/client portal routes:
   - `/sign-in`
   - `/`
-  - `/vendors`
+  - `/portal/vendors`
   - `/inventory`
   - `/stock-counts`
   - `/proposals`

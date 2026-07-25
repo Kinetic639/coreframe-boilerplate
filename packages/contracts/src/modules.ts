@@ -38,6 +38,7 @@ export const MODULE_WORKSHOP = "workshop" as const;
 export const MODULE_HELPDESK = "help-desk" as const;
 export const MODULE_PLANNING = "planning" as const;
 export const MODULE_CRM = "crm" as const;
+export const MODULE_VMI = "vmi" as const;
 
 // Tools Module (Always available — no plan gating; not in enabled_modules)
 export const MODULE_TOOLS = "tools" as const;
@@ -64,6 +65,7 @@ export type ModuleSlug =
   | typeof MODULE_HELPDESK
   | typeof MODULE_PLANNING
   | typeof MODULE_CRM
+  | typeof MODULE_VMI
   | typeof MODULE_TOOLS
   | typeof MODULE_ADMIN;
 
@@ -91,6 +93,7 @@ export const PREMIUM_MODULES = [
   MODULE_HELPDESK,
   MODULE_PLANNING,
   MODULE_CRM,
+  MODULE_VMI,
 ] as const;
 
 /**

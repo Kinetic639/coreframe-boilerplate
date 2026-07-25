@@ -1,6 +1,12 @@
 import Link from "next/link";
-import { Database, Plus } from "lucide-react";
-import { vmiRoutes, type VmiRouteHref } from "@/lib/navigation";
+import { Database, LogOut, Plus } from "lucide-react";
+import { signOutDemoClientAction } from "@/app/sign-in/actions";
+import {
+  vmiDesktopNavRoutes,
+  vmiMobileNavRoutes,
+  vmiRoutes,
+  type VmiRouteHref,
+} from "@/lib/navigation";
 import { cn } from "@/utils/cn";
 
 interface VmiAppShellProps {
@@ -41,7 +47,7 @@ export function VmiAppShell({ activeHref, children }: VmiAppShellProps) {
         </div>
 
         <nav className="mt-5 flex-1 space-y-1 px-3">
-          {vmiRoutes.map((route) => {
+          {vmiDesktopNavRoutes.map((route) => {
             const Icon = route.icon;
             const isActive = route.href === activeHref;
 
@@ -71,6 +77,15 @@ export function VmiAppShell({ activeHref, children }: VmiAppShellProps) {
             <Plus className="h-4 w-4" />
             Inwentaryzacja VMI
           </Link>
+          <form action={signOutDemoClientAction} className="mt-2">
+            <button
+              type="submit"
+              className="flex w-full items-center justify-center gap-2 rounded-md px-3 py-2.5 text-xs font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <LogOut className="h-4 w-4" />
+              Wyloguj
+            </button>
+          </form>
         </div>
       </aside>
 
@@ -91,8 +106,8 @@ export function VmiAppShell({ activeHref, children }: VmiAppShellProps) {
 
         <main className="flex-1 px-4 py-5 pb-24 md:p-8">{children}</main>
 
-        <nav className="fixed bottom-0 left-0 right-0 z-30 grid grid-cols-4 border-t border-border bg-background/95 px-2 py-2 backdrop-blur md:hidden">
-          {vmiRoutes.slice(0, 7).map((route) => {
+        <nav className="fixed bottom-0 left-0 right-0 z-30 grid grid-cols-5 border-t border-border bg-background/95 px-2 py-2 backdrop-blur md:hidden">
+          {vmiMobileNavRoutes.map((route) => {
             const Icon = route.icon;
             const isActive = route.href === activeHref;
 
@@ -106,7 +121,7 @@ export function VmiAppShell({ activeHref, children }: VmiAppShellProps) {
                 )}
               >
                 <Icon className="h-5 w-5" />
-                <span>{route.label}</span>
+                <span>{route.mobileLabel}</span>
               </Link>
             );
           })}

@@ -20,8 +20,27 @@ import {
   CRM_READ,
   CRM_WILDCARD,
   MODULE_CRM_ACCESS,
+  MODULE_VMI_ACCESS,
+  VMI_CLIENTS_MANAGE,
+  VMI_CLIENTS_READ,
+  VMI_INVITATIONS_MANAGE,
+  VMI_INVENTORY_MANAGE,
+  VMI_INVENTORY_READ,
+  VMI_LOCATIONS_MANAGE,
+  VMI_LOCATIONS_READ,
+  VMI_MESSAGES_READ,
+  VMI_MESSAGES_SEND,
+  VMI_ORDERS_MANAGE,
+  VMI_ORDERS_READ,
+  VMI_PROPOSALS_MANAGE,
+  VMI_PROPOSALS_READ,
+  VMI_READ,
+  VMI_SETTINGS_MANAGE,
+  VMI_STOCK_COUNTS_MANAGE,
+  VMI_STOCK_COUNTS_READ,
+  VMI_WILDCARD,
 } from "../permissions.js";
-import { MODULE_CRM, PREMIUM_MODULES } from "../modules.js";
+import { MODULE_CRM, MODULE_VMI, PREMIUM_MODULES } from "../modules.js";
 
 // ---------------------------------------------------------------------------
 // Permission slug invariants
@@ -110,6 +129,45 @@ describe("CRM module contract", () => {
     ];
 
     for (const slug of crmSlugs) {
+      expect(ALL_PERMISSION_SLUGS).toContain(slug);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// VMI module invariants
+// ---------------------------------------------------------------------------
+
+describe("VMI module contract", () => {
+  it("is registered as a premium module", () => {
+    expect(MODULE_VMI).toBe("vmi");
+    expect(PREMIUM_MODULES).toContain(MODULE_VMI);
+  });
+
+  it("exports every VMI permission through ALL_PERMISSION_SLUGS", () => {
+    const vmiSlugs = [
+      MODULE_VMI_ACCESS,
+      VMI_WILDCARD,
+      VMI_READ,
+      VMI_CLIENTS_READ,
+      VMI_CLIENTS_MANAGE,
+      VMI_INVITATIONS_MANAGE,
+      VMI_LOCATIONS_READ,
+      VMI_LOCATIONS_MANAGE,
+      VMI_INVENTORY_READ,
+      VMI_INVENTORY_MANAGE,
+      VMI_STOCK_COUNTS_READ,
+      VMI_STOCK_COUNTS_MANAGE,
+      VMI_PROPOSALS_READ,
+      VMI_PROPOSALS_MANAGE,
+      VMI_ORDERS_READ,
+      VMI_ORDERS_MANAGE,
+      VMI_MESSAGES_READ,
+      VMI_MESSAGES_SEND,
+      VMI_SETTINGS_MANAGE,
+    ];
+
+    for (const slug of vmiSlugs) {
       expect(ALL_PERMISSION_SLUGS).toContain(slug);
     }
   });
