@@ -77,7 +77,7 @@
 - [x] Add validation schemas
 - [x] Draft Supabase service layer
 - [x] Draft server actions
-- [ ] Add query hooks for client islands
+- [x] Add query hooks for client islands
 - [x] Enforce auth, permissions, and client organization scoping
 - [ ] Revisit and wire real services/actions after final migration is applied
 

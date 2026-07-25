@@ -21,6 +21,7 @@ import type {
   VmiPortalOrderDto,
   VmiPortalVendorDto,
 } from "@/lib/vmi-portal/types";
+import { useCreateVmiOrder } from "@/lib/vmi-portal/hooks";
 import { cn } from "@/utils/cn";
 
 type ViewMode = "table" | "tile" | "list";
@@ -97,6 +98,7 @@ export function InventoryExperience({
     tone: "success" | "error";
     text: string;
   } | null>(null);
+  const { createOrder, isPending: isCreatingOrder } = useCreateVmiOrder();
 
   const activeLocationName =
     locations.find((location) => location.id === activeLocationId)?.name ?? "Wybrany Oddział";
@@ -144,21 +146,19 @@ export function InventoryExperience({
 
   const createQuickOrder = async (item: VmiPortalInventoryItemDto) => {
     setOrderMessage(null);
-    const response = await fetch("/api/portal/orders", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        locationId: activeLocationId,
-        lines: [{ inventoryItemId: item.id, requestedQty: item.packSize }],
-        notes: `Szybkie zamówienie z katalogu VMI: ${item.productName}`,
-      }),
+    const payload = await createOrder({
+      locationId: activeLocationId,
+      lines: [{ inventoryItemId: item.id, requestedQty: item.packSize }],
+      notes: `Szybkie zamówienie z katalogu VMI: ${item.productName}`,
     });
-    const payload = (await response.json()) as { success: boolean; data?: { orderNumber: string }; error?: string };
-    setOrderMessage(
-      payload.success && payload.data
-        ? { tone: "success", text: `Utworzono zamówienie ${payload.data.orderNumber} dla ${item.productName}.` }
-        : { tone: "error", text: payload.error ?? "Nie udało się utworzyć zamówienia." },
-    );
+    if (payload.success) {
+      setOrderMessage({
+        tone: "success",
+        text: `Utworzono zamówienie ${payload.data.orderNumber} dla ${item.productName}.`,
+      });
+      return;
+    }
+    setOrderMessage({ tone: "error", text: payload.error });
   };
 
   return (
@@ -360,6 +360,7 @@ export function InventoryExperience({
           getVendor={getVendor}
           hidePrices={hidePrices}
           onCreateOrder={createQuickOrder}
+          isCreatingOrder={isCreatingOrder}
         />
       ) : null}
 
@@ -369,6 +370,7 @@ export function InventoryExperience({
           getVendor={getVendor}
           hidePrices={hidePrices}
           onCreateOrder={createQuickOrder}
+          isCreatingOrder={isCreatingOrder}
         />
       ) : null}
 
@@ -378,6 +380,7 @@ export function InventoryExperience({
           getVendor={getVendor}
           hidePrices={hidePrices}
           onCreateOrder={createQuickOrder}
+          isCreatingOrder={isCreatingOrder}
         />
       ) : null}
 
@@ -464,11 +467,13 @@ function TableView({
   getVendor,
   hidePrices,
   onCreateOrder,
+  isCreatingOrder,
 }: {
   items: VmiPortalInventoryItemDto[];
   getVendor: (vendorId: string) => VmiPortalVendorDto | undefined;
   hidePrices: boolean;
   onCreateOrder: (item: VmiPortalInventoryItemDto) => void;
+  isCreatingOrder: boolean;
 }) {
   return (
     <div className="overflow-hidden rounded-xl bg-white shadow-sm dark:bg-[#0E1321]">
@@ -553,8 +558,9 @@ function TableView({
                       </button>
                       <button
                         type="button"
+                        disabled={isCreatingOrder}
                         onClick={() => onCreateOrder(item)}
-                        className="cursor-pointer rounded bg-[#2A3B4C] px-2.5 py-1 text-[10px] font-bold text-white transition-colors hover:bg-gray-800 dark:bg-blue-600 dark:hover:bg-blue-500"
+                        className="cursor-pointer rounded bg-[#2A3B4C] px-2.5 py-1 text-[10px] font-bold text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-blue-600 dark:hover:bg-blue-500"
                       >
                         Zamów (+{item.packSize})
                       </button>
@@ -578,6 +584,7 @@ function TableView({
               vendor={getVendor(item.vendorId)}
               hidePrices={hidePrices}
               onCreateOrder={onCreateOrder}
+              isCreatingOrder={isCreatingOrder}
             />
           ))
         )}
@@ -591,11 +598,13 @@ function MobileInventoryCard({
   vendor,
   hidePrices,
   onCreateOrder,
+  isCreatingOrder,
 }: {
   item: VmiPortalInventoryItemDto;
   vendor?: VmiPortalVendorDto;
   hidePrices: boolean;
   onCreateOrder: (item: VmiPortalInventoryItemDto) => void;
+  isCreatingOrder: boolean;
 }) {
   const status = getStatusLabel(item.status);
 
@@ -644,8 +653,9 @@ function MobileInventoryCard({
           </button>
           <button
             type="button"
+            disabled={isCreatingOrder}
             onClick={() => onCreateOrder(item)}
-            className="cursor-pointer rounded bg-[#2A3B4C] px-2.5 py-1 text-[10px] font-bold text-white transition-colors hover:bg-gray-800 dark:bg-blue-600 dark:hover:bg-blue-500"
+            className="cursor-pointer rounded bg-[#2A3B4C] px-2.5 py-1 text-[10px] font-bold text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-blue-600 dark:hover:bg-blue-500"
           >
             + Zamów
           </button>
@@ -676,11 +686,13 @@ function TileView({
   getVendor,
   hidePrices,
   onCreateOrder,
+  isCreatingOrder,
 }: {
   items: VmiPortalInventoryItemDto[];
   getVendor: (vendorId: string) => VmiPortalVendorDto | undefined;
   hidePrices: boolean;
   onCreateOrder: (item: VmiPortalInventoryItemDto) => void;
+  isCreatingOrder: boolean;
 }) {
   if (items.length === 0) {
     return (
@@ -744,8 +756,9 @@ function TileView({
                 </button>
                 <button
                   type="button"
+                  disabled={isCreatingOrder}
                   onClick={() => onCreateOrder(item)}
-                  className="flex flex-[2] cursor-pointer items-center justify-center gap-0.5 rounded bg-[#2A3B4C] py-1 text-[9px] font-black text-white transition-all hover:bg-[#1E2B38] dark:bg-blue-600 dark:hover:bg-blue-500"
+                  className="flex flex-[2] cursor-pointer items-center justify-center gap-0.5 rounded bg-[#2A3B4C] py-1 text-[9px] font-black text-white transition-all hover:bg-[#1E2B38] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-blue-600 dark:hover:bg-blue-500"
                 >
                   <Plus className="h-3 w-3" />
                   Kup ({item.packSize})
@@ -780,11 +793,13 @@ function ListView({
   getVendor,
   hidePrices,
   onCreateOrder,
+  isCreatingOrder,
 }: {
   items: VmiPortalInventoryItemDto[];
   getVendor: (vendorId: string) => VmiPortalVendorDto | undefined;
   hidePrices: boolean;
   onCreateOrder: (item: VmiPortalInventoryItemDto) => void;
+  isCreatingOrder: boolean;
 }) {
   if (items.length === 0) {
     return (
@@ -849,8 +864,9 @@ function ListView({
               </button>
               <button
                 type="button"
+                disabled={isCreatingOrder}
                 onClick={() => onCreateOrder(item)}
-                className="flex cursor-pointer items-center gap-1 rounded bg-[#2A3B4C] px-2.5 py-1 text-[10px] font-extrabold text-white transition-colors hover:bg-[#1E2B38] dark:bg-blue-600 dark:hover:bg-blue-500"
+                className="flex cursor-pointer items-center gap-1 rounded bg-[#2A3B4C] px-2.5 py-1 text-[10px] font-extrabold text-white transition-colors hover:bg-[#1E2B38] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-blue-600 dark:hover:bg-blue-500"
               >
                 <Plus className="h-3 w-3" />
                 Kup (+{item.packSize})
