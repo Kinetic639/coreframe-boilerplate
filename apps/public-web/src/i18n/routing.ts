@@ -19,6 +19,30 @@ export const routing = defineRouting({
       en: "/tools/svwms-wdd-matcher",
       pl: "/narzedzia/svwms-wdd-matcher",
     },
+    "/vmi": {
+      en: "/vmi",
+      pl: "/vmi",
+    },
+    "/vmi/vendors": {
+      en: "/vmi/vendors",
+      pl: "/vmi/vendors",
+    },
+    "/vmi/vendors/[slug]": {
+      en: "/vmi/vendors/[slug]",
+      pl: "/vmi/vendors/[slug]",
+    },
+    "/vmi/products": {
+      en: "/vmi/products",
+      pl: "/vmi/products",
+    },
+    "/vmi/products/[slug]": {
+      en: "/vmi/products/[slug]",
+      pl: "/vmi/products/[slug]",
+    },
+    "/vmi/flyers/[slug]": {
+      en: "/vmi/flyers/[slug]",
+      pl: "/vmi/flyers/[slug]",
+    },
     "/attachments/[attachmentId]/download/[fileName]": {
       en: "/attachments/[attachmentId]/download/[fileName]",
       pl: "/zalaczniki/[attachmentId]/pobierz/[fileName]",
