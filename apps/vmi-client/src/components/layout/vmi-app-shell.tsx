@@ -21,7 +21,10 @@ export function VmiAppShell({ activeHref, children }: VmiAppShellProps) {
     <div className="min-h-screen bg-muted text-foreground md:flex">
       <aside className="hidden w-64 shrink-0 border-r border-border bg-background md:flex md:flex-col">
         <div className="p-5">
-          <div className="flex items-center gap-3">
+          <a
+            href="https://www.ambra-system.com"
+            className="flex items-center gap-3 rounded-md transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
             <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary text-sm font-black text-primary-foreground shadow-sm">
               <span>A</span>
             </div>
@@ -31,7 +34,7 @@ export function VmiAppShell({ activeHref, children }: VmiAppShellProps) {
                 Portal klienta
               </p>
             </div>
-          </div>
+          </a>
         </div>
 
         <div className="mx-3 rounded-md bg-accent/40 p-3">
@@ -92,12 +95,15 @@ export function VmiAppShell({ activeHref, children }: VmiAppShellProps) {
       <div className="flex min-h-screen flex-1 flex-col">
         <header className="sticky top-0 z-30 border-b border-border bg-background/95 px-4 py-3 backdrop-blur md:hidden">
           <div className="flex items-center justify-between">
-            <div>
+            <a
+              href="https://www.ambra-system.com"
+              className="rounded-md transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
               <p className="font-display text-sm font-black text-foreground">Ambra VMI</p>
               <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
                 {activeRoute.label}
               </p>
-            </div>
+            </a>
             <div className="rounded-md bg-accent px-2 py-1 text-[10px] font-bold text-accent-foreground">
               Do konfiguracji
             </div>

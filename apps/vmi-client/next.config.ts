@@ -1,9 +1,33 @@
 import type { NextConfig } from "next";
 import path from "node:path";
 
+const publicSiteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.ambra-system.com";
+
 const nextConfig = {
   reactStrictMode: true,
   transpilePackages: ["@repo/ui"],
+  async redirects() {
+    return [
+      { source: "/", destination: `${publicSiteUrl}/vmi`, permanent: true },
+      { source: "/vendors", destination: `${publicSiteUrl}/vmi/vendors`, permanent: true },
+      {
+        source: "/vendors/:path*",
+        destination: `${publicSiteUrl}/vmi/vendors/:path*`,
+        permanent: true,
+      },
+      { source: "/products", destination: `${publicSiteUrl}/vmi/products`, permanent: true },
+      {
+        source: "/products/:path*",
+        destination: `${publicSiteUrl}/vmi/products/:path*`,
+        permanent: true,
+      },
+      {
+        source: "/flyers/:path*",
+        destination: `${publicSiteUrl}/vmi/flyers/:path*`,
+        permanent: true,
+      },
+    ];
+  },
   turbopack: {
     root: path.join(__dirname, "../.."),
   },

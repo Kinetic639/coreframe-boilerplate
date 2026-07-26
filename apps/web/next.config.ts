@@ -2,6 +2,8 @@ import path from "path";
 import { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 
+const publicSiteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.ambra-system.com";
+
 const nextConfig = {
   reactStrictMode: true,
   transpilePackages: ["@repo/ui"],
@@ -18,6 +20,71 @@ const nextConfig = {
   },
   async redirects() {
     return [
+      {
+        source: "/",
+        destination: publicSiteUrl,
+        permanent: true,
+      },
+      {
+        source: "/en",
+        destination: `${publicSiteUrl}/en`,
+        permanent: true,
+      },
+      {
+        source: "/features",
+        destination: `${publicSiteUrl}/features`,
+        permanent: true,
+      },
+      {
+        source: "/en/features",
+        destination: `${publicSiteUrl}/en/features`,
+        permanent: true,
+      },
+      {
+        source: "/funkcjonalonosci",
+        destination: `${publicSiteUrl}/funkcjonalonosci`,
+        permanent: true,
+      },
+      {
+        source: "/pricing",
+        destination: `${publicSiteUrl}/pricing`,
+        permanent: true,
+      },
+      {
+        source: "/en/pricing",
+        destination: `${publicSiteUrl}/en/pricing`,
+        permanent: true,
+      },
+      {
+        source: "/cennik",
+        destination: `${publicSiteUrl}/cennik`,
+        permanent: true,
+      },
+      {
+        source: "/tools/svwms-wdd-matcher",
+        destination: `${publicSiteUrl}/tools/svwms-wdd-matcher`,
+        permanent: true,
+      },
+      {
+        source: "/en/tools/svwms-wdd-matcher",
+        destination: `${publicSiteUrl}/en/tools/svwms-wdd-matcher`,
+        permanent: true,
+      },
+      {
+        source: "/narzedzia/svwms-wdd-matcher",
+        destination: `${publicSiteUrl}/narzedzia/svwms-wdd-matcher`,
+        permanent: true,
+      },
+      {
+        source: "/maps/:path*",
+        destination: `${publicSiteUrl}/maps/:path*`,
+        permanent: true,
+      },
+      {
+        source: "/en/maps/:path*",
+        destination: `${publicSiteUrl}/en/maps/:path*`,
+        permanent: true,
+      },
       // English: /en/dashboard/account -> /en/dashboard/account/preferences
       {
         source: "/en/dashboard/account",
