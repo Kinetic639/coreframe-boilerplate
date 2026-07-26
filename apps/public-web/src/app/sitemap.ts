@@ -1,13 +1,22 @@
 import type { MetadataRoute } from "next";
 import { createServiceClient } from "@/utils/supabase/service";
 import { resolveLocalizedPathnames } from "@/i18n/localized-pathnames";
+import { PublicMarketplaceRepository } from "@/lib/public-marketplace/repository";
 
 // Only genuinely indexable, crawler-worthy public routes — auth/utility pages
 // get robots: noindex in their own metadata and are intentionally left out here.
-const PUBLIC_ROUTES = ["/", "/features", "/pricing", "/tools/svwms-wdd-matcher"] as const;
+const PUBLIC_ROUTES = [
+  "/",
+  "/features",
+  "/pricing",
+  "/tools/svwms-wdd-matcher",
+  "/vmi",
+  "/vmi/vendors",
+  "/vmi/products",
+] as const;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const appUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.ambra-system.com";
   const now = new Date();
 
   const staticEntries: MetadataRoute.Sitemap = PUBLIC_ROUTES.map((route) => {
@@ -40,5 +49,28 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Don't fail the whole sitemap if the DB is unreachable at build/request time.
   }
 
-  return [...staticEntries, ...branchEntries];
+  let marketplaceEntries: MetadataRoute.Sitemap = [];
+  try {
+    const snapshot = await PublicMarketplaceRepository.getMarketplaceSnapshot();
+    if (snapshot.success) {
+      marketplaceEntries = [
+        ...snapshot.data.suppliers.map((supplier) => ({
+          url: `${appUrl}/vmi/vendors/${supplier.slug}`,
+          lastModified: now,
+        })),
+        ...snapshot.data.products.map((product) => ({
+          url: `${appUrl}/vmi/products/${product.slug}`,
+          lastModified: now,
+        })),
+        ...snapshot.data.flyers.map((flyer) => ({
+          url: `${appUrl}/vmi/flyers/${flyer.slug}`,
+          lastModified: now,
+        })),
+      ];
+    }
+  } catch {
+    // Keep the sitemap available even if marketplace data cannot be read.
+  }
+
+  return [...staticEntries, ...branchEntries, ...marketplaceEntries];
 }

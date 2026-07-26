@@ -23,11 +23,31 @@ export async function generateMetadata(props: Omit<Props, "children">): Promise<
   const { locale } = await props.params;
 
   const t = await getTranslations({ locale, namespace: "LocaleLayout" });
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.ambra-system.com";
+  const canonicalLocalePrefix = locale === routing.defaultLocale ? "" : `/${locale}`;
 
   return {
     title: t("title"),
-    metadataBase: new URL(appUrl),
+    metadataBase: new URL(siteUrl),
+    alternates: {
+      canonical: canonicalLocalePrefix || "/",
+      languages: {
+        pl: "/",
+        en: "/en",
+        "x-default": "/",
+      },
+    },
+    openGraph: {
+      type: "website",
+      locale,
+      siteName: "Ambra System",
+      url: canonicalLocalePrefix || "/",
+      title: t("title"),
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: t("title"),
+    },
   };
 }
 

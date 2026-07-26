@@ -74,10 +74,10 @@ const MobileMenu = ({ showPricing = true }: { showPricing?: boolean }) => {
 
         <div className="flex flex-col gap-2 pt-4">
           <Button variant="outline" className="w-full" asChild>
-            <Link href="/sign-in">Zaloguj się</Link>
+            <a href="https://app.ambra-system.com/sign-in">Logowanie Ambra ERP</a>
           </Button>
           <Button className="w-full" asChild>
-            <Link href="/sign-up">Zarejestruj się</Link>
+            <a href="https://vmi.ambra-system.com/sign-in">Logowanie VMI</a>
           </Button>
         </div>
       </div>

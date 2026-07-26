@@ -25,7 +25,7 @@ function toDisallowPrefix(localizedPath: string): string {
 }
 
 export default function robots(): MetadataRoute.Robots {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const appUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.ambra-system.com";
 
   const disallow = new Set<string>(["/dashboard", "/en/dashboard", "/admin", "/en/admin"]);
 
