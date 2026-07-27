@@ -4,6 +4,9 @@ import * as React from "react";
 import { Globe, Languages, LogOut, Moon, Sun, User, Wifi, WifiOff } from "lucide-react";
 import { useLocale } from "next-intl";
 import { useTheme } from "next-themes";
+import { useParams } from "next/navigation";
+import type { Locale } from "@/i18n/routing";
+import { usePathname, useRouter } from "@/i18n/navigation";
 import type { VmiPortalUserDto } from "@/lib/vmi-portal/types";
 import { cn } from "@/utils/cn";
 
@@ -45,6 +48,9 @@ const defaultNotifications: NotificationItem[] = [
 
 export function SettingsExperience({ user }: SettingsExperienceProps) {
   const locale = useLocale();
+  const router = useRouter();
+  const pathname = usePathname();
+  const params = useParams();
   const { theme, setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = React.useState(false);
   const [isOnline, setIsOnline] = React.useState(true);
@@ -102,9 +108,14 @@ export function SettingsExperience({ user }: SettingsExperienceProps) {
     setNotifications(defaultNotifications);
   };
 
-  const changeLocale = (nextLocale: "pl" | "en") => {
-    document.cookie = `NEXT_LOCALE=${nextLocale}; path=/; max-age=31536000; SameSite=Lax`;
-    window.location.reload();
+  const changeLocale = (nextLocale: Locale) => {
+    router.replace(
+      // @ts-expect-error -- TypeScript will validate that only known `params`
+      // are used in combination with a given `pathname`. Since the two will
+      // always match for the current route, we can skip runtime checks.
+      { pathname, params },
+      { locale: nextLocale }
+    );
   };
 
   return (
