@@ -14,26 +14,34 @@ const footerColumns = [
   {
     title: "Produkt",
     links: [
-      { href: "/", label: "Funkcje" },
-      { href: "/", label: "Cennik" },
-      { href: "/", label: "Zaloguj się" },
-      { href: "/", label: "Rozpocznij za darmo" },
+      { href: "/features", label: "Funkcje" },
+      { href: "/pricing", label: "Cennik" },
+      { href: "https://app.ambra-system.com/sign-in", label: "Ambra ERP" },
+      { href: "https://app.ambra-system.com/sign-up", label: "Rejestracja ERP" },
     ],
   },
   {
-    title: "Rozwiązania",
+    title: "VMI marketplace",
     links: [
-      { href: "/", label: "Magazynowanie" },
-      { href: "/", label: "Produkcja" },
-      { href: "/", label: "Edukacja" },
-      { href: "/", label: "Placówki medyczne" },
-      { href: "/", label: "Serwis i naprawy" },
-      { href: "/", label: "Budownictwo" },
+      { href: "/vmi", label: "Marketplace VMI" },
+      { href: "/vmi/vendors", label: "Dostawcy" },
+      { href: "/vmi/products", label: "Produkty" },
+      { href: "/vmi/vendors?view=map", label: "Mapa dostawców" },
+      { href: "https://vmi.ambra-system.com/sign-in", label: "Logowanie VMI" },
+      { href: "https://vmi.ambra-system.com/portal", label: "Panel VMI" },
     ],
   },
 ];
 
 function LinkAdapter({ href, className, children }: LinkAdapterProps) {
+  if (href.startsWith("http")) {
+    return (
+      <a href={href} className={className}>
+        {children}
+      </a>
+    );
+  }
+
   return (
     <Link href={href as Parameters<typeof Link>[0]["href"]} className={className}>
       {children}

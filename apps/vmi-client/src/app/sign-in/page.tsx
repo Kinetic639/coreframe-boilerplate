@@ -1,17 +1,9 @@
-import Link from "next/link";
 import { Lock, Mail, ShieldAlert, Sparkles, UserCheck } from "lucide-react";
 import { signInDemoClientAction } from "./actions";
 
 export default function SignInPage() {
   return (
     <main className="relative flex min-h-screen flex-col justify-center overflow-hidden bg-muted px-4 py-10 text-foreground sm:px-6 lg:px-8">
-      <Link
-        href="/"
-        className="absolute left-4 top-4 rounded-xl border border-border bg-card px-4 py-2 text-xs font-bold text-foreground shadow-sm transition hover:bg-background sm:left-6 sm:top-6"
-      >
-        ← Powrot do gieldy
-      </Link>
-
       <section className="mx-auto w-full max-w-md">
         <div className="flex flex-col items-center text-center">
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-3xl font-extrabold tracking-wider text-primary-foreground shadow-md">

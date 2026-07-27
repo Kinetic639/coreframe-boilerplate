@@ -34,6 +34,7 @@
     "src/proxy.ts",
     "src/app/*.ts",
     "src/app/*.tsx",
+    "src/app/api/**/*.ts",
     "src/app/[locale]/*.ts",
     "src/app/[locale]/*.tsx",
     "src/app/[locale]/(public)/**/*.ts",

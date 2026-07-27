@@ -12,12 +12,25 @@ interface LinkAdapterProps {
 }
 
 function LinkAdapter({ href, className, children, onClick }: LinkAdapterProps) {
+  if (href.startsWith("http")) {
+    return (
+      <a href={href} className={className} onClick={onClick}>
+        {children}
+      </a>
+    );
+  }
+
   return (
     <Link href={href as Parameters<typeof Link>[0]["href"]} className={className} onClick={onClick}>
       {children}
     </Link>
   );
 }
+
+const APP_PUBLIC_HEADER_CONFIG = {
+  ...AMBRA_PUBLIC_HEADER_CONFIG,
+  homeHref: "https://www.ambra-system.com",
+};
 
 export function PublicHeaderClient({
   showPricing = true,
@@ -27,8 +40,8 @@ export function PublicHeaderClient({
   authActions?: ReactNode;
 }) {
   const config = showPricing
-    ? AMBRA_PUBLIC_HEADER_CONFIG
-    : { ...AMBRA_PUBLIC_HEADER_CONFIG, topLinks: [] };
+    ? APP_PUBLIC_HEADER_CONFIG
+    : { ...APP_PUBLIC_HEADER_CONFIG, topLinks: [] };
 
   return (
     <AmbraPublicHeader

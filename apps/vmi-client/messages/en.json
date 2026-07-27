@@ -1,0 +1,9 @@
+{
+  "LocaleLayout": {
+    "title": "Ambra VMI Client"
+  },
+  "LocaleSwitcher": {
+    "label": "Change language",
+    "locale": "{locale, select, pl {Polish} en {English} other {#}}"
+  }
+}
