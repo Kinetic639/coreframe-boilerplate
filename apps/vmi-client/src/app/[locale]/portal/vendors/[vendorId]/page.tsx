@@ -1,7 +1,9 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
+import { getLocale } from "next-intl/server";
+import { redirect } from "@/i18n/navigation";
 import { requireDemoSession } from "@/lib/demo-session";
 import { VmiPortalRepository } from "@/lib/vmi-portal/repository";
-import { resolveVendorByPortalSlug, vendorPortalPath } from "@/lib/vmi-portal/vendor-slugs";
+import { resolveVendorByPortalSlug, vendorIdToPortalSlug } from "@/lib/vmi-portal/vendor-slugs";
 
 interface PortalVendorRedirectPageProps {
   params: Promise<{
@@ -19,5 +21,12 @@ export default async function PortalVendorRedirectPage({ params }: PortalVendorR
   const vendor = resolveVendorByPortalSlug(vendors.data, vendorId);
   if (!vendor) notFound();
 
-  redirect(vendorPortalPath(vendor.id, "overview"));
+  const locale = await getLocale();
+  redirect({
+    href: {
+      pathname: "/portal/vendors/[vendorId]/[tab]",
+      params: { vendorId: vendorIdToPortalSlug(vendor.id), tab: "overview" },
+    },
+    locale,
+  });
 }

@@ -1,7 +1,8 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+import { getLocale } from "next-intl/server";
+import { redirect } from "@/i18n/navigation";
 import { demoSessionCookie } from "@/lib/demo-session";
 
 export async function signInDemoClientAction() {
@@ -13,12 +14,14 @@ export async function signInDemoClientAction() {
     maxAge: 60 * 60 * 8,
   });
 
-  redirect("/portal");
+  const locale = await getLocale();
+  redirect({ href: "/portal", locale });
 }
 
 export async function signOutDemoClientAction() {
   const cookieStore = await cookies();
   cookieStore.delete(demoSessionCookie.name);
 
-  redirect("/sign-in");
+  const locale = await getLocale();
+  redirect({ href: "/sign-in", locale });
 }
