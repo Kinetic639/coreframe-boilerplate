@@ -2,7 +2,6 @@ import { cache } from "react";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { redirect } from "@/i18n/navigation";
-import { redirect as nextRedirect } from "next/navigation";
 import { getLocale } from "next-intl/server";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { loadAdminContextV2 } from "@/server/loaders/v2/load-admin-context.v2";
@@ -116,7 +115,10 @@ export default async function DashboardV2Layout({ children }: { children: React.
     const rawPath = headersList.get("x-pathname") ?? "";
     const safeReturnUrl = rawPath.startsWith("/") && rawPath !== "/" ? rawPath : undefined;
     if (safeReturnUrl) {
-      return nextRedirect(`/${locale}/sign-in?returnUrl=${encodeURIComponent(safeReturnUrl)}`);
+      return redirect({
+        href: { pathname: "/sign-in", query: { returnUrl: safeReturnUrl } },
+        locale,
+      });
     }
     return redirect({ href: "/sign-in", locale });
   }

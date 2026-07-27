@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
-import { routing } from "@/i18n/routing";
+import { routing, type Locale } from "@/i18n/routing";
+import { resolveLocalizedPathnames } from "@/i18n/localized-pathnames";
 
 function pathnameWithoutLocale(pathname: string): string {
   const [, maybeLocale, ...rest] = pathname.split("/");
@@ -8,6 +9,31 @@ function pathnameWithoutLocale(pathname: string): string {
     return rest.length > 0 ? `/${rest.join("/")}` : "/";
   }
   return pathname;
+}
+
+// Prefer the locale segment already in the URL (e.g. "/en/sign-in") over the
+// NEXT_LOCALE cookie, so a direct visit to an explicit locale is respected.
+function detectLocale(request: NextRequest): Locale {
+  const [, maybeLocale] = request.nextUrl.pathname.split("/");
+  if (routing.locales.includes(maybeLocale as Locale)) {
+    return maybeLocale as Locale;
+  }
+  const cookieLocale = request.cookies.get("NEXT_LOCALE")?.value;
+  return routing.locales.includes(cookieLocale as Locale)
+    ? (cookieLocale as Locale)
+    : routing.defaultLocale;
+}
+
+function buildLocalizedUrl(request: NextRequest, pathnameKey: string, locale: Locale): URL {
+  const localized = resolveLocalizedPathnames(pathnameKey);
+  const slug = localized[locale];
+  const path = locale === routing.defaultLocale ? slug : `/${locale}${slug}`;
+  return new URL(path, request.url);
+}
+
+function isSignInPath(normalizedPathname: string): boolean {
+  const signIn = resolveLocalizedPathnames("/sign-in");
+  return normalizedPathname === signIn.en || normalizedPathname === signIn.pl;
 }
 
 export const updateSession = async (request: NextRequest) => {
@@ -47,30 +73,26 @@ export const updateSession = async (request: NextRequest) => {
     const user = await supabase.auth.getUser();
 
     const normalizedPathname = pathnameWithoutLocale(request.nextUrl.pathname);
+    const isAuthenticated = !user.error;
+    const locale = detectLocale(request);
 
-    // dashboard routes
-    if (normalizedPathname.startsWith("/dashboard") && user.error) {
-      // Detect locale from request (fallback to default)
-      const locale = request.cookies.get("NEXT_LOCALE")?.value || routing.defaultLocale;
-
-      // Get localized sign-in path
-      const signInPaths = routing.pathnames["/sign-in"];
-      const localizedSignInPath =
-        typeof signInPaths === "string"
-          ? signInPaths
-          : signInPaths[locale as keyof typeof signInPaths];
-
-      // Build sign-in URL with locale prefix if needed
-      const signInPath =
-        locale === routing.defaultLocale ? localizedSignInPath : `/${locale}${localizedSignInPath}`;
-
-      const signInUrl = new URL(signInPath, request.url);
+    // dashboard routes require auth
+    if (normalizedPathname.startsWith("/dashboard") && !isAuthenticated) {
+      const signInUrl = buildLocalizedUrl(request, "/sign-in", locale);
       signInUrl.searchParams.set("returnUrl", request.nextUrl.pathname + request.nextUrl.search);
       return NextResponse.redirect(signInUrl);
     }
 
-    if (normalizedPathname === "/" && !user.error) {
-      return NextResponse.redirect(new URL("/dashboard", request.url));
+    // Signed-in users should never land on the sign-in page or the bare "/" —
+    // send them straight into the app instead.
+    if (isAuthenticated && (normalizedPathname === "/" || isSignInPath(normalizedPathname))) {
+      return NextResponse.redirect(buildLocalizedUrl(request, "/dashboard/start", locale));
+    }
+
+    // Root has no public page anymore (public pages live in apps/public-web) —
+    // anonymous visitors land on sign-in.
+    if (!isAuthenticated && normalizedPathname === "/") {
+      return NextResponse.redirect(buildLocalizedUrl(request, "/sign-in", locale));
     }
 
     return response;

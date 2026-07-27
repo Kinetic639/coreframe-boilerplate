@@ -20,16 +20,10 @@ const nextConfig = {
   },
   async redirects() {
     return [
-      {
-        source: "/",
-        destination: "/logowanie",
-        permanent: false,
-      },
-      {
-        source: "/en",
-        destination: "/en/sign-in",
-        permanent: false,
-      },
+      // "/" and the sign-in page are handled by the auth-aware proxy
+      // (src/utils/supabase/proxy.ts) instead of a blind redirect here —
+      // it needs to check the session to decide between sign-in and
+      // /dashboard/start.
       {
         source: "/features",
         destination: `${publicSiteUrl}/features`,
