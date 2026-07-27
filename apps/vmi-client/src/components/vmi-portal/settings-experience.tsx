@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Globe, LogOut, Moon, Sun, User, Wifi, WifiOff } from "lucide-react";
+import { Globe, Languages, LogOut, Moon, Sun, User, Wifi, WifiOff } from "lucide-react";
+import { useLocale } from "next-intl";
 import { useTheme } from "next-themes";
 import type { VmiPortalUserDto } from "@/lib/vmi-portal/types";
 import { cn } from "@/utils/cn";
@@ -43,6 +44,7 @@ const defaultNotifications: NotificationItem[] = [
 ];
 
 export function SettingsExperience({ user }: SettingsExperienceProps) {
+  const locale = useLocale();
   const { theme, setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = React.useState(false);
   const [isOnline, setIsOnline] = React.useState(true);
@@ -100,6 +102,11 @@ export function SettingsExperience({ user }: SettingsExperienceProps) {
     setNotifications(defaultNotifications);
   };
 
+  const changeLocale = (nextLocale: "pl" | "en") => {
+    document.cookie = `NEXT_LOCALE=${nextLocale}; path=/; max-age=31536000; SameSite=Lax`;
+    window.location.reload();
+  };
+
   return (
     <section className="space-y-6 text-xs text-gray-600 dark:text-gray-300">
       <div className="pb-2">
@@ -149,6 +156,21 @@ export function SettingsExperience({ user }: SettingsExperienceProps) {
               <ThemeButton active={currentTheme === "dark"} onClick={() => setTheme("dark")} icon={Moon}>
                 Ciemny motyw
               </ThemeButton>
+            </div>
+          </div>
+
+          <div className="space-y-3 rounded-xl bg-white p-5 text-xs shadow-sm dark:bg-[#0E1321]">
+            <h2 className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-950 dark:text-white">
+              <Languages className="h-4 w-4 text-[#2A3B4C] dark:text-blue-400" />
+              Język interfejsu
+            </h2>
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <LocaleButton active={locale === "pl"} onClick={() => changeLocale("pl")}>
+                Polski
+              </LocaleButton>
+              <LocaleButton active={locale === "en"} onClick={() => changeLocale("en")}>
+                English
+              </LocaleButton>
             </div>
           </div>
 
@@ -243,6 +265,31 @@ export function SettingsExperience({ user }: SettingsExperienceProps) {
         </div>
       </div>
     </section>
+  );
+}
+
+function LocaleButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "rounded-lg py-2 text-center font-bold transition-all",
+        active
+          ? "bg-[#2A3B4C] text-white shadow-sm dark:bg-blue-600"
+          : "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-850 dark:hover:bg-gray-800",
+      )}
+    >
+      {children}
+    </button>
   );
 }
 

@@ -22,13 +22,13 @@ const nextConfig = {
     return [
       {
         source: "/",
-        destination: publicSiteUrl,
-        permanent: true,
+        destination: "/logowanie",
+        permanent: false,
       },
       {
         source: "/en",
-        destination: `${publicSiteUrl}/en`,
-        permanent: true,
+        destination: "/en/sign-in",
+        permanent: false,
       },
       {
         source: "/features",

@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import path from "node:path";
+import createNextIntlPlugin from "next-intl/plugin";
 
 const publicSiteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.ambra-system.com";
 
@@ -8,7 +9,6 @@ const nextConfig = {
   transpilePackages: ["@repo/ui"],
   async redirects() {
     return [
-      { source: "/", destination: `${publicSiteUrl}/vmi`, permanent: true },
       { source: "/vendors", destination: `${publicSiteUrl}/vmi/vendors`, permanent: true },
       {
         source: "/vendors/:path*",
@@ -53,4 +53,5 @@ const nextConfig = {
   },
 } satisfies NextConfig;
 
-export default nextConfig;
+const withNextIntl = createNextIntlPlugin();
+export default withNextIntl(nextConfig);
