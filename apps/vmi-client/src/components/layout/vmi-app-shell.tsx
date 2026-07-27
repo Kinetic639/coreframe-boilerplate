@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { Database, LogOut, Plus } from "lucide-react";
-import { signOutDemoClientAction } from "@/app/sign-in/actions";
+import { signOutDemoClientAction } from "@/app/[locale]/sign-in/actions";
+import { Link } from "@/i18n/navigation";
 import {
   vmiDesktopNavRoutes,
   vmiMobileNavRoutes,

@@ -1,4 +1,6 @@
-import Link from "next/link";
+import NextLink from "next/link";
+import { Link } from "@/i18n/navigation";
+import type { Pathnames } from "@/i18n/routing";
 import {
   AlertTriangle,
   ArrowRight,
@@ -71,7 +73,7 @@ function MetricCard({
   label: string;
   value: number;
   suffix: string;
-  href: string;
+  href: Exclude<Pathnames, `${string}[${string}`>;
   icon: typeof Layers;
   isWarning?: boolean;
 }) {
@@ -117,7 +119,7 @@ function ActionCard({
   title: string;
   description: string;
   meta: string;
-  href: string;
+  href: Exclude<Pathnames, `${string}[${string}`>;
   icon: typeof Database;
   tone: "red" | "blue" | "amber" | "indigo" | "orange";
 }) {
@@ -322,13 +324,13 @@ export function PortalDashboard({ dashboard }: PortalDashboardProps) {
               Zapytania ofertowe, pytania do dostawców oraz zapisane produkty i firmy z katalogu publicznego.
             </p>
           </div>
-          <Link
+          <NextLink
             href="/vendors"
             className="inline-flex items-center gap-1.5 self-start rounded-xl bg-primary/10 px-4 py-2 text-xs font-extrabold uppercase tracking-wide text-primary transition hover:bg-primary/15 sm:self-center"
           >
             Otwórz Marketplace
             <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
+          </NextLink>
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-2 border-b border-border pb-3">
@@ -359,12 +361,12 @@ export function PortalDashboard({ dashboard }: PortalDashboardProps) {
           <p className="mt-1 max-w-md text-[10px]">
             Dodaj wybrane towary dostawców do zapytania w Marketplace i wyślij je w kilka chwil.
           </p>
-          <Link
+          <NextLink
             href="/vendors"
             className="mt-4 rounded-lg bg-muted px-4 py-1.5 text-xs font-bold text-foreground transition hover:bg-background"
           >
             Szukaj produktów i stwórz RFQ
-          </Link>
+          </NextLink>
         </div>
       </section>
     </section>

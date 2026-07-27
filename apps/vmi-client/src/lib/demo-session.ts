@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+import { getLocale } from "next-intl/server";
+import { redirect } from "@/i18n/navigation";
 
 const DEMO_SESSION_COOKIE = "vmi_demo_session";
 const DEMO_SESSION_VALUE = "client-demo";
@@ -11,7 +12,8 @@ export async function hasDemoSession() {
 
 export async function requireDemoSession() {
   if (!(await hasDemoSession())) {
-    redirect("/sign-in");
+    const locale = await getLocale();
+    redirect({ href: "/sign-in", locale });
   }
 }
 

@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
+import NextLink from "next/link";
+import { Link } from "@/i18n/navigation";
 import {
   Building2,
   ChevronDown,
@@ -23,7 +24,7 @@ import type {
   VmiPortalProposalDto,
   VmiPortalVendorDto,
 } from "@/lib/vmi-portal/types";
-import { vendorPortalPath } from "@/lib/vmi-portal/vendor-slugs";
+import { vendorIdToPortalSlug } from "@/lib/vmi-portal/vendor-slugs";
 import { cn } from "@/utils/cn";
 
 type VendorsTab = "partner" | "favourite_products" | "favourite_vendors";
@@ -113,12 +114,12 @@ function EmptySavedPanel({ label, href }: { label: string; href: string }) {
   return (
     <div className="space-y-3.5 rounded-2xl border border-gray-100 bg-white p-12 text-center text-xs dark:border-gray-850 dark:bg-[#0E1321]">
       <p className="italic text-gray-400">{label}</p>
-      <Link
+      <NextLink
         href={href}
         className="inline-flex rounded-lg bg-blue-600 px-4 py-2 text-[10px] font-bold text-white shadow transition hover:bg-blue-500"
       >
         Przeglądaj Wyszukiwarkę B2B
-      </Link>
+      </NextLink>
     </div>
   );
 }
@@ -211,13 +212,13 @@ export function PortalVendorsExperience({
           ) : null}
         </div>
 
-        <Link
+        <NextLink
           href="/vendors"
           className="flex w-full shrink-0 items-center justify-center gap-2 rounded-xl border border-blue-150 bg-blue-50 px-4 py-2.5 text-xs font-extrabold text-blue-600 shadow-sm transition hover:bg-blue-100 dark:border-blue-900/40 dark:bg-blue-950/25 dark:text-blue-400 dark:hover:bg-blue-950/50 sm:w-auto"
         >
           <Globe className="h-4 w-4" />
           Przejdź do Wyszukiwarki B2B
-        </Link>
+        </NextLink>
       </div>
 
       <div className="flex gap-1 overflow-x-auto border-b border-gray-100 pt-2 dark:border-gray-800/80">
@@ -388,7 +389,10 @@ export function PortalVendorsExperience({
                     </div>
 
                     <Link
-                      href={vendorPortalPath(vendor.id)}
+                      href={{
+                        pathname: "/portal/vendors/[vendorId]/[tab]",
+                        params: { vendorId: vendorIdToPortalSlug(vendor.id), tab: "overview" },
+                      }}
                       className="w-full rounded-lg bg-gray-50 py-2.5 text-center text-xs font-bold text-gray-700 transition-colors hover:bg-gray-100 dark:bg-gray-800 dark:text-white dark:hover:bg-gray-750"
                     >
                       Otwórz panel partnera
