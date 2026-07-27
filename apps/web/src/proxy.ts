@@ -2,6 +2,7 @@ import { type NextRequest } from "next/server";
 import { updateSession } from "@/utils/supabase/proxy";
 import createIntlMiddleware from "next-intl/middleware";
 import { routing } from "./i18n/routing";
+import { resolveLocalizedPathnames } from "./i18n/localized-pathnames";
 
 const intlMiddleware = createIntlMiddleware(routing);
 
@@ -15,8 +16,11 @@ function pathnameWithoutLocale(pathname: string): string {
 
 function needsSupabaseSession(pathname: string): boolean {
   const normalized = pathnameWithoutLocale(pathname);
+  const signIn = resolveLocalizedPathnames("/sign-in");
   return (
     normalized === "/" ||
+    normalized === signIn.en ||
+    normalized === signIn.pl ||
     normalized.startsWith("/dashboard") ||
     normalized.startsWith("/admin") ||
     normalized.startsWith("/onboarding")
@@ -36,6 +40,16 @@ export async function proxy(request: NextRequest) {
 
   // Run Supabase session proxy on the updated request
   const response = await updateSession(request);
+
+  // updateSession may decide to redirect (auth required, or a signed-in user
+  // hitting sign-in/root) — that redirect must actually be returned, not
+  // discarded in favor of the intl rewrite response.
+  if (response.headers.get("location")) {
+    for (const cookie of intlResponse.cookies.getAll()) {
+      response.cookies.set(cookie.name, cookie.value, cookie);
+    }
+    return response;
+  }
 
   // Copy cookies from Supabase to the intl response
   const cookiesToCopy = response.cookies.getAll();

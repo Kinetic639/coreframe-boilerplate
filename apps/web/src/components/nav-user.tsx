@@ -61,7 +61,9 @@ export function NavUser({
   };
 
   const handleGoHome = () => {
-    router.push("/");
+    // The public marketing site now lives in a separate app (apps/public-web);
+    // "/" in this app is the sign-in/dashboard entry point, not a homepage.
+    window.location.href = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.ambra-system.com";
   };
 
   const handleGoToAdmin = () => {

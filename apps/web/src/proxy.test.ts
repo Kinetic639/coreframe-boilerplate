@@ -14,7 +14,11 @@ vi.mock("next-intl/middleware", () => ({
 }));
 
 vi.mock("./i18n/routing", () => ({
-  routing: { locales: ["en", "pl"], defaultLocale: "en" },
+  routing: {
+    locales: ["en", "pl"],
+    defaultLocale: "en",
+    pathnames: { "/sign-in": { en: "/sign-in", pl: "/logowanie" } },
+  },
 }));
 
 import { config, proxy } from "./proxy";
@@ -31,6 +35,7 @@ describe("proxy", () => {
       cookies: { set: vi.fn() },
     };
     const sessionResponse = {
+      headers: { get: () => null },
       cookies: {
         getAll: () => [
           { name: "sb-access-token", value: "token", path: "/", httpOnly: true },
@@ -58,9 +63,32 @@ describe("proxy", () => {
     expect(result).toBe(intlResponse);
   });
 
+  it("returns updateSession's redirect instead of the intl rewrite response", async () => {
+    const intlResponse = {
+      headers: { set: vi.fn() },
+      cookies: { set: vi.fn(), getAll: () => [{ name: "NEXT_LOCALE", value: "pl" }] },
+    };
+    const redirectResponse = {
+      headers: { get: (name: string) => (name === "location" ? "/logowanie" : null) },
+      cookies: { set: vi.fn(), getAll: () => [] },
+    };
+
+    intlMiddlewareMock.mockReturnValue(intlResponse);
+    updateSessionMock.mockResolvedValue(redirectResponse);
+
+    const request = { nextUrl: { pathname: "/dashboard/start" } } as any;
+    const result = await proxy(request);
+
+    expect(result).toBe(redirectResponse);
+    expect(redirectResponse.cookies.set).toHaveBeenCalledWith("NEXT_LOCALE", "pl", {
+      name: "NEXT_LOCALE",
+      value: "pl",
+    });
+  });
+
   it("exports the middleware matcher config", () => {
     expect(config.matcher).toEqual([
-      "/((?!api|auth|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+      "/((?!api|auth|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|manifest.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
     ]);
   });
 });
