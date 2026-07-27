@@ -4,6 +4,10 @@ export const routing = defineRouting({
   locales: ["en", "pl"],
   defaultLocale: "pl",
   localePrefix: "as-needed",
+  localeCookie: {
+    domain: process.env.NEXT_PUBLIC_LOCALE_COOKIE_DOMAIN,
+    sameSite: "lax",
+  },
   pathnames: {
     "/": "/",
     "/sign-in": "/sign-in",
