@@ -29,7 +29,7 @@ const mockSupabaseClient = {
   }),
 };
 
-const mockHeaders = new Map([["origin", "http://localhost:3000"]]);
+const mockHeaders = new Map([["origin", "http://127.0.0.1:3001"]]);
 
 vi.mock("@/utils/supabase/server", () => ({
   createClient: vi.fn(async () => mockSupabaseClient),
@@ -87,6 +87,9 @@ describe("Auth Actions", () => {
 
   afterEach(() => {
     vi.clearAllMocks();
+    delete process.env.NEXT_PUBLIC_APP_URL;
+    delete process.env.NEXT_PUBLIC_SITE_URL;
+    delete process.env.NEXT_PUBLIC_MARKETING_SITE_URL;
   });
 
   describe("forgotPasswordAction", () => {
@@ -116,6 +119,7 @@ describe("Auth Actions", () => {
     });
 
     it("should call resetPasswordForEmail with correct parameters", async () => {
+      process.env.NEXT_PUBLIC_APP_URL = "https://www.ambra-system.com";
       const formData = new FormData();
       formData.append("email", "user@example.com");
 
@@ -129,7 +133,7 @@ describe("Auth Actions", () => {
       expect(mockSupabaseClient.auth.resetPasswordForEmail).toHaveBeenCalledWith(
         "user@example.com",
         {
-          redirectTo: "http://localhost:3000/auth/confirm?next=%2Fen%2Freset-password",
+          redirectTo: "http://127.0.0.1:3001/auth/confirm?next=%2Fen%2Freset-password",
         }
       );
     });

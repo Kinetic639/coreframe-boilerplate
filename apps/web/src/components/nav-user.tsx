@@ -29,6 +29,7 @@ import {
 import { useTranslations } from "next-intl";
 import { useRouter, usePathname } from "@/i18n/navigation";
 import { signOutAction } from "@/app/[locale]/actions";
+import { getMarketingSiteUrl } from "@/lib/urls";
 
 export function NavUser({
   user,
@@ -58,12 +59,6 @@ export function NavUser({
 
   const handleGoToAccount = () => {
     router.push("/dashboard/account");
-  };
-
-  const handleGoHome = () => {
-    // The public marketing site now lives in a separate app (apps/public-web);
-    // "/" in this app is the sign-in/dashboard entry point, not a homepage.
-    window.location.href = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.ambra-system.com";
   };
 
   const handleGoToAdmin = () => {
@@ -118,9 +113,11 @@ export function NavUser({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem onClick={handleGoHome}>
-                <Home />
-                {t("home")}
+              <DropdownMenuItem asChild>
+                <a href={getMarketingSiteUrl()} className="flex items-center gap-2 cursor-default">
+                  <Home className="size-4" />
+                  {t("home")}
+                </a>
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleGoToAccount}>
                 <BadgeCheck />

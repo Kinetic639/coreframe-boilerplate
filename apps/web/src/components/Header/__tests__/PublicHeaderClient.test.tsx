@@ -23,7 +23,10 @@ describe("PublicHeaderClient", () => {
   it("renders the logo, desktop navigation, and pricing link", async () => {
     render(<PublicHeaderClient />);
 
-    expect(screen.getByRole("link", { name: /ambra system/i })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: /ambra system/i })).toHaveAttribute(
+      "href",
+      "https://www.ambra-system.com"
+    );
     expect(await screen.findByRole("button", { name: /funkcje/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /rozwiązania/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /materiały edukacyjne/i })).toBeInTheDocument();
@@ -37,9 +40,9 @@ describe("PublicHeaderClient", () => {
     expect(screen.queryByText("Wszystkie funkcje")).not.toBeInTheDocument();
 
     fireEvent.click(toggleButton);
-    expect(screen.getByText("Wszystkie funkcje")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /zamknij menu/i })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /zamknij menu/i }));
-    expect(screen.queryByText("Wszystkie funkcje")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /otwórz menu/i })).toBeInTheDocument();
   });
 });

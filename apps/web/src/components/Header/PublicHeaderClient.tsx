@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { AMBRA_PUBLIC_HEADER_CONFIG, AmbraPublicHeader } from "@repo/ui/ambra-public-header";
 import { Link } from "@/i18n/navigation";
+import { getMarketingSiteUrl } from "@/lib/urls";
 
 interface LinkAdapterProps {
   href: string;
@@ -29,7 +30,7 @@ function LinkAdapter({ href, className, children, onClick }: LinkAdapterProps) {
 
 const APP_PUBLIC_HEADER_CONFIG = {
   ...AMBRA_PUBLIC_HEADER_CONFIG,
-  homeHref: "https://www.ambra-system.com",
+  homeHref: getMarketingSiteUrl(),
 };
 
 export function PublicHeaderClient({
