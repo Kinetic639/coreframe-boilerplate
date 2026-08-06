@@ -14,7 +14,6 @@ import {
   useDeleteLocationMutation,
   useUpdateLocationMutation,
 } from "@/hooks/queries/warehouse";
-import { MOCK_BRANCHES, MOCK_LAYOUTS, MOCK_LOCATIONS, MOCK_VISUALS } from "../_ambra/constants";
 import LocationsPage from "../_ambra/components/locations/LocationsPage";
 import type {
   AmbraLocationInventorySnapshot,
@@ -41,6 +40,8 @@ type AmbraLocationsClientProps = {
   initialInventorySnapshot: AmbraLocationInventorySnapshot;
   variantOptions: InventoryVariantOption[];
   initialListData: PaginatedResult<LocationListRow>;
+  /** Whether the current user is allowed to create locations (gates the empty-state CTA). */
+  canCreateLocation: boolean;
 };
 
 export function AmbraLocationsClient({
@@ -50,6 +51,7 @@ export function AmbraLocationsClient({
   initialInventorySnapshot,
   variantOptions,
   initialListData,
+  canCreateLocation,
 }: AmbraLocationsClientProps) {
   const t = useTranslations("warehouseLocations.listView");
   const [viewParam, setViewParam] = useQueryState("view", parseAsString.withDefault("tree"));
@@ -114,16 +116,13 @@ export function AmbraLocationsClient({
       });
   }, [selectedLocationId, qrCache]);
 
-  const useDemoData = initialLocations.length === 0;
-  const [locations, setLocations] = useState<LogicalLocation[]>(
-    useDemoData ? MOCK_LOCATIONS : initialLocations
-  );
-  const [layouts] = useState<Layout[]>(useDemoData ? MOCK_LAYOUTS : []);
-  const [visuals] = useState<VisualNode[]>(useDemoData ? MOCK_VISUALS : []);
-  const effectiveBranch = useDemoData ? MOCK_BRANCHES[0] : activeBranch;
-  const createLocation = useCreateLocationMutation(useDemoData ? null : activeBranch.id);
-  const updateLocation = useUpdateLocationMutation(useDemoData ? null : activeBranch.id);
-  const deleteLocation = useDeleteLocationMutation(useDemoData ? null : activeBranch.id);
+  const [locations, setLocations] = useState<LogicalLocation[]>(initialLocations);
+  const [layouts] = useState<Layout[]>([]);
+  const [visuals] = useState<VisualNode[]>([]);
+  const effectiveBranch = activeBranch;
+  const createLocation = useCreateLocationMutation(activeBranch.id);
+  const updateLocation = useUpdateLocationMutation(activeBranch.id);
+  const deleteLocation = useDeleteLocationMutation(activeBranch.id);
 
   const branchLocations = useMemo(
     () => locations.filter((location) => location.branchId === effectiveBranch.id),
@@ -145,11 +144,6 @@ export function AmbraLocationsClient({
   );
 
   const handleCreateLocation = async (location: LogicalLocation) => {
-    if (useDemoData) {
-      setLocations((current) => [...current, { ...location, branchId: effectiveBranch.id }]);
-      return;
-    }
-
     const created = await createLocation.mutateAsync(ambraLocationToCreateInput(location));
     const [createdAmbraLocation] = warehouseLocationsToAmbra([created]);
     if (!createdAmbraLocation) return;
@@ -158,13 +152,6 @@ export function AmbraLocationsClient({
   };
 
   const handleUpdateLocation = async (location: Partial<LogicalLocation> & { id: string }) => {
-    if (useDemoData) {
-      setLocations((current) =>
-        current.map((item) => (item.id === location.id ? { ...item, ...location } : item))
-      );
-      return;
-    }
-
     const updated = await updateLocation.mutateAsync(ambraLocationToUpdateInput(location));
     const [updatedAmbraLocation] = warehouseLocationsToAmbra([updated]);
     if (!updatedAmbraLocation) return;
@@ -175,11 +162,6 @@ export function AmbraLocationsClient({
   };
 
   const handleDeleteLocation = async (locationId: string) => {
-    if (useDemoData) {
-      setLocations((current) => current.filter((item) => item.id !== locationId));
-      return;
-    }
-
     await deleteLocation.mutateAsync(locationId);
     setLocations((current) => current.filter((item) => item.id !== locationId));
   };
@@ -238,6 +220,7 @@ export function AmbraLocationsClient({
                 onUpdateLocation={handleUpdateLocation}
                 onDeleteLocation={handleDeleteLocation}
                 onNavigateToWorkspace={() => undefined}
+                canCreateLocation={canCreateLocation}
                 qrAssignment={qrAssignment}
                 onQrAssigned={(a) => {
                   setQrAssignment(a);
