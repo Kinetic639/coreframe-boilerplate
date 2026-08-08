@@ -14,14 +14,16 @@ Dokument służy do śledzenia gotowości Ambry przed prezentacją i pilotażem.
 - [ ] Lokalizacje mają spójne nazwy i unikalne kody (2)
 - [ ] Każda lokalizacja ma kod QR (3)
 - [ ] Można generować i drukować etykiety seryjnie (4)
-- [ ] Etykieta zawiera nazwę, kod i QR (5)
-- [ ] Kod można zeskanować telefonem (6)
-- [ ] Skanowanie otwiera widok lokalizacji (7)
+- [x] Etykieta zawiera nazwę, kod i QR (5)
+- [x] Kod można zeskanować telefonem (6)
+- [x] Skanowanie otwiera widok lokalizacji (7)
 - [ ] Można wyświetlić zawartość lokalizacji (8)
 - [ ] Można rozpocząć ruch i audyt ze skanu (9)
 - [ ] Można oznaczać kontenery, zwroty, reklamacje i części problemowe (10)
-- [ ] Test druku i skanowania przechodzi (11)
+- [x] Test druku i skanowania przechodzi (11)
 - [ ] **OBSZAR GOTOWY DO PREZENTACJI** (12)
+
+**Weryfikacja MVP — 6 sierpnia 2026:** ręcznie sprawdzono utworzenie lokalizacji w pustym oddziale, wygenerowanie i przypisanie kodu QR, poprawne wygenerowanie etykiety oraz skanowanie kodu telefonem. Skan wykonany bez aktywnej sesji poprawnie przekierował do logowania, a po zalogowaniu użytkownik został przeniesiony bezpośrednio do zeskanowanej lokalizacji. Usunięto również wyświetlanie danych demonstracyjnych dla oddziału bez lokalizacji. Test API etykiet QR przechodzi: 20/20.
 
 ## 2. Komunikacja doradca–części
 
