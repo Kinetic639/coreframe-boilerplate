@@ -11,7 +11,9 @@
     "SUPABASE_ACCESS_TOKEN",
     "SUPABASE_SERVICE_ROLE_KEY",
     "PORT",
-    "PLAYWRIGHT_BASE_URL"
+    "PLAYWRIGHT_BASE_URL",
+    "E2E_TEST_EMAIL",
+    "E2E_TEST_PASSWORD"
   ],
   "tasks": {
     "build": {

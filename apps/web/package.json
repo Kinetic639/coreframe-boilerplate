@@ -17,6 +17,9 @@
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest watch",
+    "test:e2e": "node ./scripts/run-e2e.mjs",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:ui": "playwright test --ui",
     "supabase:link:legacy": "dotenv -e .env.local -- sh -c 'supabase link --project-ref \"$SUPABASE_LEGACY_PROJECT_REF\"'",
     "supabase:link:target": "dotenv -e .env.local -- sh -c 'supabase --workdir ./supabase-target link --project-ref \"$SUPABASE_TARGET_PROJECT_REF\"'",
     "supabase:migration:new": "dotenv -e .env.local -- sh -c 'supabase migration new'",
@@ -151,6 +154,7 @@
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
+    "@playwright/test": "^1.61.1",
     "@supabase/mcp-server-supabase": "^0.5.10",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
