@@ -2,12 +2,19 @@ import path from "path";
 import { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 
-const publicSiteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.ambra-system.com";
+const publicSiteUrl =
+  process.env.NEXT_PUBLIC_MARKETING_SITE_URL ??
+  process.env.NEXT_PUBLIC_SITE_URL ??
+  "https://www.ambra-system.com";
+const isProduction = process.env.NODE_ENV === "production";
+const permanentPublicRedirects = isProduction;
 
-const nextConfig = {
+export const nextConfig = {
   reactStrictMode: true,
-  transpilePackages: ["@repo/ui"],
+  transpilePackages: ["@repo/ui", "@repo/i18n"],
   allowedDevOrigins: [
+    "localhost:3001",
+    "127.0.0.1:3001",
     "3000-firebase-coreframe-1761721056153.cluster-55m56i2mgjalcvl276gecmncu6.cloudworkstations.dev",
   ],
   images: {
@@ -19,65 +26,80 @@ const nextConfig = {
     ],
   },
   async redirects() {
+    const localAppEntryRedirects = isProduction
+      ? []
+      : [
+          {
+            source: "/",
+            destination: "/logowanie",
+            permanent: false,
+          },
+          {
+            source: "/en",
+            destination: "/en/sign-in",
+            permanent: false,
+          },
+        ];
+
     return [
-      // "/" and the sign-in page are handled by the auth-aware proxy
-      // (src/utils/supabase/proxy.ts) instead of a blind redirect here —
-      // it needs to check the session to decide between sign-in and
-      // /dashboard/start.
+      ...localAppEntryRedirects,
+      // Auth-aware dashboard/sign-in routing still lives in src/utils/supabase/proxy.ts.
+      // In local dev, the bare app root gets an explicit login redirect above so
+      // the extracted public website can never steal the app entry point.
       {
         source: "/features",
         destination: `${publicSiteUrl}/features`,
-        permanent: true,
+        permanent: permanentPublicRedirects,
       },
       {
         source: "/en/features",
         destination: `${publicSiteUrl}/en/features`,
-        permanent: true,
+        permanent: permanentPublicRedirects,
       },
       {
         source: "/funkcjonalonosci",
         destination: `${publicSiteUrl}/funkcjonalonosci`,
-        permanent: true,
+        permanent: permanentPublicRedirects,
       },
       {
         source: "/pricing",
         destination: `${publicSiteUrl}/pricing`,
-        permanent: true,
+        permanent: permanentPublicRedirects,
       },
       {
         source: "/en/pricing",
         destination: `${publicSiteUrl}/en/pricing`,
-        permanent: true,
+        permanent: permanentPublicRedirects,
       },
       {
         source: "/cennik",
         destination: `${publicSiteUrl}/cennik`,
-        permanent: true,
+        permanent: permanentPublicRedirects,
       },
       {
         source: "/tools/svwms-wdd-matcher",
         destination: `${publicSiteUrl}/tools/svwms-wdd-matcher`,
-        permanent: true,
+        permanent: permanentPublicRedirects,
       },
       {
         source: "/en/tools/svwms-wdd-matcher",
         destination: `${publicSiteUrl}/en/tools/svwms-wdd-matcher`,
-        permanent: true,
+        permanent: permanentPublicRedirects,
       },
       {
         source: "/narzedzia/svwms-wdd-matcher",
         destination: `${publicSiteUrl}/narzedzia/svwms-wdd-matcher`,
-        permanent: true,
+        permanent: permanentPublicRedirects,
       },
       {
         source: "/maps/:path*",
         destination: `${publicSiteUrl}/maps/:path*`,
-        permanent: true,
+        permanent: permanentPublicRedirects,
       },
       {
         source: "/en/maps/:path*",
         destination: `${publicSiteUrl}/en/maps/:path*`,
-        permanent: true,
+        permanent: permanentPublicRedirects,
       },
       // English: /en/dashboard/account -> /en/dashboard/account/preferences
       {
@@ -107,7 +129,7 @@ const nextConfig = {
   },
   experimental: {
     serverActions: {
-      allowedOrigins: ["localhost:3000"],
+      allowedOrigins: ["localhost:3001", "127.0.0.1:3001"],
       bodySizeLimit: "50mb",
     },
     // Memory optimizations for Codespaces

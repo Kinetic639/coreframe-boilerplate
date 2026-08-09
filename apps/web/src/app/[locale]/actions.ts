@@ -8,6 +8,7 @@ import { redirect } from "@/i18n/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import { eventService } from "@/server/services/event.service";
 import { SiteSettingsService } from "@/server/services/site-settings.service";
+import { getTrustedRequestOrigin } from "@/lib/urls";
 
 /**
  * Extract IP and user-agent from the current request headers.
@@ -66,8 +67,7 @@ export const signUpAction = async (formData: FormData) => {
   const locale = await getLocale();
   const t = await getTranslations({ locale, namespace: "auth" });
 
-  // Use environment variable for site URL - more reliable than origin header
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const siteUrl = getTrustedRequestOrigin(await headers());
 
   if (!email) {
     return encodedRedirect("error", "/sign-up", t("errors.emailPasswordRequired"));
@@ -255,8 +255,7 @@ export const forgotPasswordAction = async (formData: FormData) => {
   const locale = await getLocale();
   const t = await getTranslations({ locale, namespace: "auth" });
 
-  // Use environment variable for site URL - more reliable than origin header
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const siteUrl = getTrustedRequestOrigin(await headers());
 
   if (!email) {
     return encodedRedirect("error", "/forgot-password", t("errors.emailRequired"));

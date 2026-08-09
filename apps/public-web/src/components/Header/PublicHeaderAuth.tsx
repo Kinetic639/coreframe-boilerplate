@@ -17,6 +17,7 @@ type PublicHeaderAuthProps = {
 
 function LoginDropdownButton() {
   const [isOpen, setIsOpen] = useState(false);
+  const tNav = useTranslations("Navigation.buttons");
 
   return (
     <div
@@ -38,7 +39,7 @@ function LoginDropdownButton() {
         aria-expanded={isOpen}
         onClick={() => setIsOpen((current) => !current)}
       >
-        Logowanie
+        {tNav("signIn")}
       </Button>
 
       <AnimatePresence>
@@ -83,6 +84,7 @@ export function PublicHeaderAuth({ userContext }: PublicHeaderAuthProps) {
   const supabase = createClient();
   const t = useTranslations("auth.logout");
   const tSuccess = useTranslations("auth.success");
+  const tNav = useTranslations("Navigation.buttons");
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const handleLogout = async () => {
@@ -105,7 +107,7 @@ export function PublicHeaderAuth({ userContext }: PublicHeaderAuthProps) {
         <Button asChild className="gap-2">
           <a href="https://app.ambra-system.com/dashboard/start" className="flex items-center">
             <LayoutDashboard className="h-4 w-4" />
-            Dashboard
+            {tNav("dashboard")}
           </a>
         </Button>
         <Button onClick={handleLogout} variant="ghost" disabled={isLoggingOut}>

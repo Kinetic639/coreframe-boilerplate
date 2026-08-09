@@ -75,15 +75,17 @@ describe("NavUser", () => {
       <NavUser user={{ name: "Alice Smith", email: "alice@example.com", avatar: "" }} isAdmin />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /home/i }));
+    expect(screen.getByRole("link", { name: /home/i })).toHaveAttribute(
+      "href",
+      "https://www.ambra-system.com"
+    );
     fireEvent.click(screen.getByRole("button", { name: /account/i }));
     fireEvent.click(screen.getByRole("button", { name: /admin panel/i }));
     fireEvent.click(screen.getByRole("button", { name: /diagnostics/i }));
 
-    expect(mockPush).toHaveBeenNthCalledWith(1, "/");
-    expect(mockPush).toHaveBeenNthCalledWith(2, "/dashboard/account");
-    expect(mockPush).toHaveBeenNthCalledWith(3, "/admin");
-    expect(mockPush).toHaveBeenNthCalledWith(4, "/dashboard/diagnostics");
+    expect(mockPush).toHaveBeenNthCalledWith(1, "/dashboard/account");
+    expect(mockPush).toHaveBeenNthCalledWith(2, "/admin");
+    expect(mockPush).toHaveBeenNthCalledWith(3, "/dashboard/diagnostics");
     expect(screen.getByRole("button", { name: /log out/i })).toBeInTheDocument();
   });
 });

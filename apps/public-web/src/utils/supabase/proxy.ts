@@ -1,14 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
+import { pathnameWithoutLocale } from "@repo/i18n/middleware-utils";
 import { routing } from "@/i18n/routing";
-
-function pathnameWithoutLocale(pathname: string): string {
-  const [, maybeLocale, ...rest] = pathname.split("/");
-  if (routing.locales.includes(maybeLocale as (typeof routing.locales)[number])) {
-    return rest.length > 0 ? `/${rest.join("/")}` : "/";
-  }
-  return pathname;
-}
 
 export const updateSession = async (request: NextRequest) => {
   // This `try/catch` block is only here for the interactive tutorial.
@@ -46,7 +39,7 @@ export const updateSession = async (request: NextRequest) => {
     // https://supabase.com/docs/guides/auth/server-side/nextjs
     const user = await supabase.auth.getUser();
 
-    const normalizedPathname = pathnameWithoutLocale(request.nextUrl.pathname);
+    const normalizedPathname = pathnameWithoutLocale(request.nextUrl.pathname, routing.locales);
 
     // dashboard routes
     if (normalizedPathname.startsWith("/dashboard") && user.error) {

@@ -6,7 +6,7 @@ const publicSiteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.ambra-sys
 
 const nextConfig = {
   reactStrictMode: true,
-  transpilePackages: ["@repo/ui"],
+  transpilePackages: ["@repo/ui", "@repo/i18n"],
   async redirects() {
     return [
       { source: "/vendors", destination: `${publicSiteUrl}/vmi/vendors`, permanent: true },

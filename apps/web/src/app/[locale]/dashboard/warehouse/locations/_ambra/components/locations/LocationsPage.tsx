@@ -137,6 +137,8 @@ interface LocationsPageProps {
     status: string;
   }) => void;
   onQrUnassigned?: () => void;
+  /** Whether the current user is allowed to create locations (gates the empty-state CTA). */
+  canCreateLocation?: boolean;
 }
 
 function InventoryMetric({
@@ -446,6 +448,7 @@ export default function LocationsPage({
   qrAssignment,
   onQrAssigned,
   onQrUnassigned,
+  canCreateLocation,
 }: LocationsPageProps) {
   const t = useTranslations("ambraLocations");
   const router = useRouter();
@@ -1084,6 +1087,18 @@ export default function LocationsPage({
               <p className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">
                 {t("tree.noLocations")}
               </p>
+              {canCreateLocation && (
+                <button
+                  onClick={() => {
+                    setSelectedLocationId(null);
+                    setIsAddModalOpen(true);
+                  }}
+                  className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer border border-primary/20"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  {t("actions.initialSeed")}
+                </button>
+              )}
             </div>
           )}
         </div>

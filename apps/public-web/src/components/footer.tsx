@@ -1,4 +1,7 @@
+"use client";
+
 import type { ReactNode } from "react";
+import { useTranslations } from "next-intl";
 import { PublicFooter } from "@repo/ui/public-footer";
 import { Link } from "@/i18n/navigation";
 import LocaleSwitcher from "./LocaleSwitcher";
@@ -9,29 +12,6 @@ interface LinkAdapterProps {
   className?: string;
   children: ReactNode;
 }
-
-const footerColumns = [
-  {
-    title: "Produkt",
-    links: [
-      { href: "/features", label: "Funkcje" },
-      { href: "/pricing", label: "Cennik" },
-      { href: "https://app.ambra-system.com/sign-in", label: "Ambra ERP" },
-      { href: "https://app.ambra-system.com/sign-up", label: "Rejestracja ERP" },
-    ],
-  },
-  {
-    title: "VMI marketplace",
-    links: [
-      { href: "/vmi", label: "Marketplace VMI" },
-      { href: "/vmi/vendors", label: "Dostawcy" },
-      { href: "/vmi/products", label: "Produkty" },
-      { href: "/vmi/vendors?view=map", label: "Mapa dostawców" },
-      { href: "https://vmi.ambra-system.com/sign-in", label: "Logowanie VMI" },
-      { href: "https://vmi.ambra-system.com/portal", label: "Panel VMI" },
-    ],
-  },
-];
 
 function LinkAdapter({ href, className, children }: LinkAdapterProps) {
   if (href.startsWith("http")) {
@@ -49,12 +29,42 @@ function LinkAdapter({ href, className, children }: LinkAdapterProps) {
   );
 }
 
-const footer = () => {
+const Footer = () => {
+  const t = useTranslations("PublicFooter");
+
+  const footerColumns = [
+    {
+      title: t("columns.product.title"),
+      links: [
+        { href: "/features", label: t("columns.product.features") },
+        { href: "/pricing", label: t("columns.product.pricing") },
+        { href: "https://app.ambra-system.com/sign-in", label: t("columns.product.ambraErp") },
+        { href: "https://app.ambra-system.com/sign-up", label: t("columns.product.ambraErpSignUp") },
+      ],
+    },
+    {
+      title: t("columns.vmiMarketplace.title"),
+      links: [
+        { href: "/vmi", label: t("columns.vmiMarketplace.marketplace") },
+        { href: "/vmi/vendors", label: t("columns.vmiMarketplace.vendors") },
+        { href: "/vmi/products", label: t("columns.vmiMarketplace.products") },
+        { href: "/vmi/vendors?view=map", label: t("columns.vmiMarketplace.vendorMap") },
+        { href: "https://vmi.ambra-system.com/sign-in", label: t("columns.vmiMarketplace.vmiSignIn") },
+        { href: "https://vmi.ambra-system.com/portal", label: t("columns.vmiMarketplace.vmiPortal") },
+      ],
+    },
+  ];
+
   return (
     <PublicFooter
       LinkComponent={LinkAdapter}
-      description="Nowoczesne narzędzie do zarządzania magazynem i inwentarzem dla firm każdej wielkości."
+      description={t("description")}
+      rightsReservedText={t("rightsReserved")}
       columns={footerColumns}
+      legalLinks={[
+        { href: "/", label: t("legal.privacyPolicy") },
+        { href: "/", label: t("legal.terms") },
+      ]}
       copyrightName="@Kinetic639"
       copyrightHref="https://github.com/Kinetic639"
       themeSwitcher={<ThemeSwitcher />}
@@ -63,4 +73,4 @@ const footer = () => {
   );
 };
 
-export default footer;
+export default Footer;

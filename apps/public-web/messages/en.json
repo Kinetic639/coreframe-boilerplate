@@ -7176,5 +7176,164 @@
     "successTitle": "QR code assigned",
     "successBody": "The QR code is now linked to {name}.",
     "viewItem": "View"
+  },
+  "PublicHeader": {
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "allPrefix": "All",
+    "pricing": "Pricing",
+    "dropdowns": {
+      "features": {
+        "label": "Features",
+        "description": "Discover how Ambra simplifies inventory management with features designed for ease and organization.",
+        "items": {
+          "mobile": {
+            "title": "Mobile App",
+            "description": "Track inventory from anywhere"
+          },
+          "qr": {
+            "title": "QR Coding",
+            "description": "QR code scanning and labeling"
+          },
+          "alerts": {
+            "title": "Alerts",
+            "description": "Low-stock and expiration alerts"
+          },
+          "barcode": {
+            "title": "Barcode Scanning",
+            "description": "Barcode labeling and scanning"
+          },
+          "integrations": {
+            "title": "Integrations",
+            "description": "Connect with other systems"
+          },
+          "reporting": {
+            "title": "Reporting",
+            "description": "Data statistics and analytics"
+          }
+        }
+      },
+      "solutions": {
+        "label": "Solutions",
+        "description": "Whatever you need to track, Ambra has a solution for you.",
+        "useCasesCategory": "Use Cases",
+        "industriesCategory": "Industries",
+        "items": {
+          "warehouseManagement": {
+            "title": "Warehouse Management",
+            "description": "Manage, organize, and monitor your company's entire inventory"
+          },
+          "deliveryTracking": {
+            "title": "Delivery Tracking",
+            "description": "Track materials, raw materials, and parts used in your business"
+          },
+          "assetTracking": {
+            "title": "Asset Tracking",
+            "description": "Track tools, equipment, and other valuable assets with ease"
+          },
+          "construction": {
+            "title": "Construction",
+            "description": "Manage construction inventory and tools across all job sites"
+          },
+          "healthcare": {
+            "title": "Healthcare Facilities",
+            "description": "Seamlessly manage medical supplies and equipment on the go"
+          },
+          "manufacturing": {
+            "title": "Manufacturing",
+            "description": "Simplify warehouse operations with smarter inventory tracking"
+          },
+          "education": {
+            "title": "Education",
+            "description": "Easily manage school inventory and materials"
+          },
+          "serviceRepair": {
+            "title": "Service & Repair",
+            "description": "Boost efficiency with real-time inventory control"
+          }
+        }
+      },
+      "educational": {
+        "label": "Educational Resources",
+        "description": "Discover our educational resources to help you manage your warehouse better.",
+        "materialsCategory": "Resources",
+        "items": {
+          "blog": {
+            "title": "Blog",
+            "description": "Articles and tips on warehouse management"
+          },
+          "knowledgeBase": {
+            "title": "Knowledge Base",
+            "description": "Comprehensive guides and instructions"
+          },
+          "updates": {
+            "title": "Updates",
+            "description": "Latest product updates and features"
+          },
+          "roadmap": {
+            "title": "Roadmap",
+            "description": "See what we're planning for the future"
+          }
+        }
+      },
+      "vmi": {
+        "label": "VMI",
+        "description": "Public VMI marketplace: vendors, products, catalogs, and access to the client portal.",
+        "marketplaceCategory": "Marketplace",
+        "portalCategory": "Portal",
+        "items": {
+          "marketplace": {
+            "title": "VMI Marketplace",
+            "description": "Browse the public vendor and product catalog"
+          },
+          "vendors": {
+            "title": "Vendors",
+            "description": "Search by location, category, and VMI readiness"
+          },
+          "products": {
+            "title": "Products",
+            "description": "Public catalog of vendor products and brands"
+          },
+          "vendorMap": {
+            "title": "Vendor Map",
+            "description": "View vendors by region and service area"
+          },
+          "vmiSignIn": {
+            "title": "Sign in to VMI",
+            "description": "Go to the VMI client portal"
+          },
+          "vmiPortal": {
+            "title": "VMI Portal",
+            "description": "Inventory, orders, proposals, and messaging"
+          }
+        }
+      }
+    }
+  },
+  "PublicFooter": {
+    "description": "A modern tool for warehouse and inventory management for businesses of every size.",
+    "rightsReserved": "All rights reserved.",
+    "legal": {
+      "privacyPolicy": "Privacy Policy",
+      "terms": "Terms of Service"
+    },
+    "columns": {
+      "product": {
+        "title": "Product",
+        "features": "Features",
+        "pricing": "Pricing",
+        "ambraErp": "Ambra ERP",
+        "ambraErpSignUp": "ERP Registration"
+      },
+      "vmiMarketplace": {
+        "title": "VMI Marketplace",
+        "marketplace": "VMI Marketplace",
+        "vendors": "Vendors",
+        "products": "Products",
+        "vendorMap": "Vendor Map",
+        "vmiSignIn": "VMI Sign In",
+        "vmiPortal": "VMI Portal"
+      }
+    }
   }
 }

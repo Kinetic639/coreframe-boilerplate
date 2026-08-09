@@ -34,7 +34,13 @@ NavigationMenuList.displayName = NavigationMenuPrimitive.List.displayName;
 const NavigationMenuItem = NavigationMenuPrimitive.Item;
 
 const navigationMenuTriggerStyle = cva(
-  "group inline-flex h-10 w-max items-center justify-center rounded-md bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none disabled:pointer-events-none disabled:opacity-50 data-[state=open]:bg-accent/50 data-[state=open]:text-accent-foreground data-[state=open]:hover:bg-accent data-[state=open]:focus:bg-accent"
+  // `focus-visible:` (not `focus:`) is deliberate: `:focus-visible` only matches
+  // keyboard-driven focus, not a mouse click. With plain `focus:`, clicking a
+  // trigger left it visually "stuck open" (same accent background as an open/
+  // hovered item) even after the dropdown itself closed and the mouse moved to
+  // hover a different trigger -- two items would appear active at once. Keyboard
+  // users still get the accent-background focus indicator via focus-visible.
+  "group inline-flex h-10 w-max items-center justify-center rounded-md bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 data-[state=open]:bg-accent/50 data-[state=open]:text-accent-foreground data-[state=open]:hover:bg-accent data-[state=open]:focus-visible:bg-accent"
 );
 
 const NavigationMenuTrigger = React.forwardRef<

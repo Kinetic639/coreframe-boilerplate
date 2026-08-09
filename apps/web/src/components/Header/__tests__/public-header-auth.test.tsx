@@ -59,12 +59,7 @@ vi.mock("@/utils/supabase/client", () => ({
 }));
 
 vi.mock("next-intl", () => ({
-  useTranslations: (ns?: string) => (key: string) => {
-    if (ns === "auth.logout") {
-      return { button: "Log out", loggingOut: "Logging out" }[key] ?? key;
-    }
-    return { logoutSuccess: "Logged out" }[key] ?? key;
-  },
+  useTranslations: (ns?: string) => (key: string) => `${ns}:${key}`,
 }));
 
 vi.mock("react-toastify", () => ({
@@ -84,8 +79,11 @@ describe("PublicHeaderAuth", () => {
   it("renders sign-in and sign-up buttons for guests", () => {
     render(<PublicHeaderAuth userContext={null} />);
 
-    expect(screen.getByRole("link", { name: /zaloguj się/i })).toHaveAttribute("href", "/sign-in");
-    expect(screen.getByRole("link", { name: /rozpocznij za darmo/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Navigation.buttons:signIn" })).toHaveAttribute(
+      "href",
+      "/sign-in"
+    );
+    expect(screen.getByRole("link", { name: "Navigation.buttons:signUp" })).toHaveAttribute(
       "href",
       "/sign-up"
     );
@@ -96,16 +94,16 @@ describe("PublicHeaderAuth", () => {
 
     render(<PublicHeaderAuth userContext={{ user: { id: "u-1" } } as never} />);
 
-    expect(screen.getByRole("link", { name: /dashboard/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Navigation.buttons:dashboard" })).toHaveAttribute(
       "href",
       "/dashboard/start"
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /log out/i }));
+    fireEvent.click(screen.getByRole("button", { name: "auth.logout:button" }));
 
     await waitFor(() => {
       expect(mockSignOut).toHaveBeenCalled();
-      expect(mockSuccess).toHaveBeenCalledWith("Logged out");
+      expect(mockSuccess).toHaveBeenCalledWith("auth.success:logoutSuccess");
       expect(mockRefresh).toHaveBeenCalled();
     });
   });
@@ -115,7 +113,7 @@ describe("PublicHeaderAuth", () => {
 
     render(<PublicHeaderAuth userContext={{ user: { id: "u-1" } } as never} />);
 
-    fireEvent.click(screen.getByRole("button", { name: /log out/i }));
+    fireEvent.click(screen.getByRole("button", { name: "auth.logout:button" }));
 
     await waitFor(() => {
       expect(mockError).toHaveBeenCalledWith("Failed to log out. Please try again.");

@@ -15,6 +15,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ─── Supabase mock ────────────────────────────────────────────────────────────
 const { signUpMock } = vi.hoisted(() => ({ signUpMock: vi.fn() }));
+const mockHeaders = new Map([["origin", "http://127.0.0.1:3001"]]);
 
 vi.mock("@/utils/supabase/server", () => ({
   createClient: vi.fn().mockResolvedValue({
@@ -22,6 +23,24 @@ vi.mock("@/utils/supabase/server", () => ({
       signUp: signUpMock,
     },
   }),
+}));
+
+vi.mock("@/utils/supabase/service", () => ({
+  createServiceClient: vi.fn(() => ({
+    from: vi.fn(() => ({
+      upsert: vi.fn().mockResolvedValue({ data: null, error: null }),
+    })),
+  })),
+}));
+
+vi.mock("@/server/services/site-settings.service", () => ({
+  SiteSettingsService: {
+    getSettings: vi.fn().mockResolvedValue({ registrationEnabled: true }),
+  },
+}));
+
+vi.mock("next/headers", () => ({
+  headers: vi.fn(async () => mockHeaders),
 }));
 
 // next-intl server helpers
@@ -33,6 +52,9 @@ vi.mock("next-intl/server", () => ({
 // next navigation redirect (not used in signUp happy path, but mocked to avoid throws)
 vi.mock("@/i18n/navigation", () => ({
   redirect: vi.fn(),
+  getPathname: vi.fn(({ href, locale }: { href: string; locale: string }) =>
+    locale === "en" ? `/en${href}` : href
+  ),
 }));
 
 // next/navigation redirect used by encodedRedirect in utils.ts
@@ -95,6 +117,7 @@ describe("signUpAction — invitation_token in metadata", () => {
 
     const callArgs = signUpMock.mock.calls[0][0];
     const redirectTo: string = callArgs.options.emailRedirectTo;
+    expect(redirectTo).toMatch(/^http:\/\/127.0.0.1:3001\/auth\/callback/);
     expect(redirectTo).toContain("invitation_token=");
     expect(redirectTo).toContain(encodeURIComponent("tok-xyz"));
   });

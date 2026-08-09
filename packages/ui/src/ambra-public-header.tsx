@@ -86,179 +86,233 @@ export interface AmbraPublicHeaderConfig {
 
 interface AmbraPublicHeaderProps {
   LinkComponent?: ComponentType<LinkLikeProps>;
-  config?: AmbraPublicHeaderConfig;
+  config: AmbraPublicHeaderConfig;
   authActions?: ReactNode;
   mobileAuthActions?: ReactNode;
+  /** aria-label when the mobile menu is open (shown on the close/X button). */
+  closeMenuLabel?: string;
+  /** aria-label when the mobile menu is closed (shown on the open/hamburger button). */
+  openMenuLabel?: string;
+  /** Prefix shown before a lowercased dropdown title in the mobile "view all" link, e.g. "All" -> "All solutions". */
+  allLabel?: string;
 }
 
-const features: AmbraPublicHeaderMenuItem[] = [
-  {
-    icon: Smartphone,
-    title: "Aplikacja mobilna",
-    description: "Śledź inwentarz z dowolnego miejsca",
-    href: "/features#mobile",
+// Icon assignments for the standard Ambra marketing nav. Content (titles,
+// descriptions, labels) is locale-specific and must come from each app's own
+// translations via `config` -- this module intentionally has no hardcoded
+// copy so it can't silently default to one language. See
+// apps/web/src/components/Header/PublicHeaderClient.tsx (or the equivalent in
+// apps/public-web) for how `config` is built from `useTranslations()`.
+export const AMBRA_PUBLIC_HEADER_ICONS = {
+  features: {
+    mobile: Smartphone,
+    qr: QrCode,
+    alerts: Bell,
+    barcode: Barcode,
+    integrations: GearIcon,
+    reporting: BarChart,
   },
-  {
-    icon: QrCode,
-    title: "Kodowanie QR",
-    description: "Skanowanie i etykietowanie kodów QR",
-    href: "/features#qr",
+  solutions: {
+    warehouseManagement: Archive,
+    deliveryTracking: Truck,
+    assetTracking: Hammer,
+    construction: Building,
+    healthcare: Hospital,
+    manufacturing: Factory,
+    education: GraduationCap,
+    serviceRepair: Wrench,
   },
-  {
-    icon: Bell,
-    title: "Alerty",
-    description: "Alerty o niskim stanie, przeterminowaniu",
-    href: "/features#alerts",
+  educational: {
+    blog: FileText,
+    knowledgeBase: BookOpen,
+    updates: RefreshCw,
+    roadmap: KanbanSquare,
   },
-  {
-    icon: Barcode,
-    title: "Kodowanie kreskowe",
-    description: "Etykietowanie i skanowanie kodów",
-    href: "/features#barcode",
-  },
-  {
-    icon: GearIcon,
-    title: "Integracje",
-    description: "Połączenie z innymi systemami",
-    href: "/features#integrations",
-  },
-  {
-    icon: BarChart,
-    title: "Raportowanie",
-    description: "Statystyki i analizy danych",
-    href: "/features#reporting",
-  },
-];
+} as const;
 
-const solutionsMenuItems: AmbraPublicHeaderMenuGroup[] = [
-  {
-    category: "Zastosowania",
-    items: [
+/**
+ * Single source of truth for the standard Ambra marketing header's content
+ * *structure* (which dropdowns/items exist, their hrefs, their translation
+ * keys) -- both apps/web and apps/public-web call this with their own
+ * `useTranslations("PublicHeader")` result so the two headers can never drift
+ * out of sync. The `t` param only needs to match `(key: string) => string`
+ * (next-intl's translator shape), so this module still has no direct
+ * dependency on next-intl or either app's message catalog.
+ */
+export function buildAmbraPublicHeaderConfig({
+  t,
+  homeHref = "/",
+  showPricing = true,
+}: {
+  t: (key: string) => string;
+  homeHref?: string;
+  showPricing?: boolean;
+}): AmbraPublicHeaderConfig {
+  const icons = AMBRA_PUBLIC_HEADER_ICONS;
+
+  return {
+    homeHref,
+    dropdowns: [
       {
-        icon: Archive,
-        title: "Zarządzanie magazynem",
-        description: "Zarządzaj, organizuj i monitoruj cały inwentarz swojej firmy",
-        href: "/solutions/magazynowanie",
+        id: "features",
+        label: t("dropdowns.features.label"),
+        description: t("dropdowns.features.description"),
+        groups: [
+          {
+            items: [
+              {
+                icon: icons.features.mobile,
+                title: t("dropdowns.features.items.mobile.title"),
+                description: t("dropdowns.features.items.mobile.description"),
+                href: "/features#mobile",
+              },
+              {
+                icon: icons.features.qr,
+                title: t("dropdowns.features.items.qr.title"),
+                description: t("dropdowns.features.items.qr.description"),
+                href: "/features#qr",
+              },
+              {
+                icon: icons.features.alerts,
+                title: t("dropdowns.features.items.alerts.title"),
+                description: t("dropdowns.features.items.alerts.description"),
+                href: "/features#alerts",
+              },
+              {
+                icon: icons.features.barcode,
+                title: t("dropdowns.features.items.barcode.title"),
+                description: t("dropdowns.features.items.barcode.description"),
+                href: "/features#barcode",
+              },
+              {
+                icon: icons.features.integrations,
+                title: t("dropdowns.features.items.integrations.title"),
+                description: t("dropdowns.features.items.integrations.description"),
+                href: "/features#integrations",
+              },
+              {
+                icon: icons.features.reporting,
+                title: t("dropdowns.features.items.reporting.title"),
+                description: t("dropdowns.features.items.reporting.description"),
+                href: "/features#reporting",
+              },
+            ],
+          },
+        ],
+        contentClassName: "grid w-[600px] grid-cols-[180px_1fr] gap-8 p-6",
+        itemsClassName: "grid w-full grid-cols-2 gap-3",
       },
       {
-        icon: Truck,
-        title: "Śledzenie dostaw",
-        description: "Śledź materiały, surowce i części wykorzystywane w Twojej firmie",
-        href: "/solutions/dostawy",
+        id: "solutions",
+        label: t("dropdowns.solutions.label"),
+        description: t("dropdowns.solutions.description"),
+        groups: [
+          {
+            category: t("dropdowns.solutions.useCasesCategory"),
+            items: [
+              {
+                icon: icons.solutions.warehouseManagement,
+                title: t("dropdowns.solutions.items.warehouseManagement.title"),
+                description: t("dropdowns.solutions.items.warehouseManagement.description"),
+                href: "/solutions/magazynowanie",
+              },
+              {
+                icon: icons.solutions.deliveryTracking,
+                title: t("dropdowns.solutions.items.deliveryTracking.title"),
+                description: t("dropdowns.solutions.items.deliveryTracking.description"),
+                href: "/solutions/dostawy",
+              },
+              {
+                icon: icons.solutions.assetTracking,
+                title: t("dropdowns.solutions.items.assetTracking.title"),
+                description: t("dropdowns.solutions.items.assetTracking.description"),
+                href: "/solutions/aktywa",
+              },
+            ],
+          },
+          {
+            category: t("dropdowns.solutions.industriesCategory"),
+            items: [
+              {
+                icon: icons.solutions.construction,
+                title: t("dropdowns.solutions.items.construction.title"),
+                description: t("dropdowns.solutions.items.construction.description"),
+                href: "/solutions/budownictwo",
+              },
+              {
+                icon: icons.solutions.healthcare,
+                title: t("dropdowns.solutions.items.healthcare.title"),
+                description: t("dropdowns.solutions.items.healthcare.description"),
+                href: "/solutions/medycyna",
+              },
+              {
+                icon: icons.solutions.manufacturing,
+                title: t("dropdowns.solutions.items.manufacturing.title"),
+                description: t("dropdowns.solutions.items.manufacturing.description"),
+                href: "/solutions/produkcja",
+              },
+              {
+                icon: icons.solutions.education,
+                title: t("dropdowns.solutions.items.education.title"),
+                description: t("dropdowns.solutions.items.education.description"),
+                href: "/solutions/edukacja",
+              },
+              {
+                icon: icons.solutions.serviceRepair,
+                title: t("dropdowns.solutions.items.serviceRepair.title"),
+                description: t("dropdowns.solutions.items.serviceRepair.description"),
+                href: "/solutions/serwis",
+              },
+            ],
+          },
+        ],
+        contentClassName: "grid w-[800px] grid-cols-[180px_1fr] gap-8 p-6",
+        groupsClassName: "grid grid-cols-2 gap-x-6 gap-y-10",
+        itemsClassName: "space-y-3",
       },
       {
-        icon: Hammer,
-        title: "Śledzenie aktywów",
-        description: "Śledź narzędzia, sprzęt i inne wartościowe aktywa z łatwością",
-        href: "/solutions/aktywa",
+        id: "educational",
+        label: t("dropdowns.educational.label"),
+        description: t("dropdowns.educational.description"),
+        groups: [
+          {
+            category: t("dropdowns.educational.materialsCategory"),
+            items: [
+              {
+                icon: icons.educational.blog,
+                title: t("dropdowns.educational.items.blog.title"),
+                description: t("dropdowns.educational.items.blog.description"),
+                href: "/blog",
+              },
+              {
+                icon: icons.educational.knowledgeBase,
+                title: t("dropdowns.educational.items.knowledgeBase.title"),
+                description: t("dropdowns.educational.items.knowledgeBase.description"),
+                href: "/knowledge-base",
+              },
+              {
+                icon: icons.educational.updates,
+                title: t("dropdowns.educational.items.updates.title"),
+                description: t("dropdowns.educational.items.updates.description"),
+                href: "/updates",
+              },
+              {
+                icon: icons.educational.roadmap,
+                title: t("dropdowns.educational.items.roadmap.title"),
+                description: t("dropdowns.educational.items.roadmap.description"),
+                href: "/roadmap",
+              },
+            ],
+          },
+        ],
+        contentClassName: "grid w-[600px] grid-cols-[180px_1fr] gap-8 p-6",
+        groupsClassName: "grid grid-cols-2 gap-x-6 gap-y-4",
+        itemsClassName: "grid grid-cols-2 gap-3",
       },
     ],
-  },
-  {
-    category: "Branże",
-    items: [
-      {
-        icon: Building,
-        title: "Budownictwo",
-        description: "Zarządzaj inwentarzem budowlanym i narzędziami na wszystkich placach budowy",
-        href: "/solutions/budownictwo",
-      },
-      {
-        icon: Hospital,
-        title: "Placówki medyczne",
-        description: "Bezproblemowo zarządzaj materiałami medycznymi i sprzętem w podróży",
-        href: "/solutions/medycyna",
-      },
-      {
-        icon: Factory,
-        title: "Produkcja",
-        description:
-          "Uproszczenie operacji magazynowych dzięki inteligentniejszemu śledzeniu zapasów",
-        href: "/solutions/produkcja",
-      },
-      {
-        icon: GraduationCap,
-        title: "Edukacja",
-        description: "Łatwo zarządzaj inwentarzem szkolnym i materiałami",
-        href: "/solutions/edukacja",
-      },
-      {
-        icon: Wrench,
-        title: "Serwis i naprawy",
-        description:
-          "Zwiększ efektywność organizacji non-profit dzięki kontroli zapasów w czasie rzeczywistym",
-        href: "/solutions/serwis",
-      },
-    ],
-  },
-];
-
-const educationalMenuItems: AmbraPublicHeaderMenuGroup[] = [
-  {
-    category: "Materiały",
-    items: [
-      {
-        icon: FileText,
-        title: "Blog",
-        description: "Artykuły i porady dotyczące zarządzania magazynem",
-        href: "/blog",
-      },
-      {
-        icon: BookOpen,
-        title: "Baza wiedzy",
-        description: "Kompleksowe poradniki i instrukcje",
-        href: "/knowledge-base",
-      },
-      {
-        icon: RefreshCw,
-        title: "Aktualizacje",
-        description: "Najnowsze aktualizacje i funkcje produktu",
-        href: "/updates",
-      },
-      {
-        icon: KanbanSquare,
-        title: "Roadmapa",
-        description: "Zobacz co planujemy na przyszłość",
-        href: "/roadmap",
-      },
-    ],
-  },
-];
-
-export const AMBRA_PUBLIC_HEADER_CONFIG: AmbraPublicHeaderConfig = {
-  homeHref: "/",
-  dropdowns: [
-    {
-      id: "features",
-      label: "Funkcje",
-      description:
-        "Odkryj, jak MagazynPro upraszcza zarządzanie inwentarzem dzięki funkcjom zaprojektowanym dla łatwości i organizacji.",
-      groups: [{ items: features }],
-      contentClassName: "grid w-[600px] grid-cols-[180px_1fr] gap-8 p-6",
-      itemsClassName: "grid w-full grid-cols-2 gap-3",
-    },
-    {
-      id: "solutions",
-      label: "Rozwiązania",
-      description:
-        "Bez względu na to, czego potrzebujesz do śledzenia, MagazynPro ma dla Ciebie rozwiązanie.",
-      groups: solutionsMenuItems,
-      contentClassName: "grid w-[800px] grid-cols-[180px_1fr] gap-8 p-6",
-      groupsClassName: "grid grid-cols-2 gap-x-6 gap-y-10",
-      itemsClassName: "space-y-3",
-    },
-    {
-      id: "educational",
-      label: "Materiały edukacyjne",
-      description: "Odkryj nasze materiały edukacyjne, które pomogą Ci lepiej zarządzać magazynem.",
-      groups: educationalMenuItems,
-      contentClassName: "grid w-[600px] grid-cols-[180px_1fr] gap-8 p-6",
-      groupsClassName: "grid grid-cols-2 gap-x-6 gap-y-4",
-      itemsClassName: "grid grid-cols-2 gap-3",
-    },
-  ],
-  topLinks: [{ label: "Cennik", href: "/pricing" }],
-};
+    topLinks: showPricing ? [{ label: t("pricing"), href: "/pricing" }] : [],
+  };
+}
 
 function DefaultLink({ href, className, children, onClick }: LinkLikeProps) {
   return (
@@ -301,13 +355,9 @@ function MenuItemLink({
 
 function HeaderDropdown({
   dropdown,
-  activeDropdown,
-  setActiveDropdown,
   LinkComponent,
 }: {
   dropdown: AmbraPublicHeaderDropdown;
-  activeDropdown: string | null;
-  setActiveDropdown: (v: string | null) => void;
   LinkComponent: ComponentType<LinkLikeProps>;
 }) {
   const grouped = dropdown.groups.length > 1 || dropdown.groups.some((group) => group.category);
@@ -315,7 +365,18 @@ function HeaderDropdown({
   return (
     <NavigationMenuItem>
       <NavigationMenuTrigger
-        onClick={() => setActiveDropdown(activeDropdown === dropdown.id ? null : dropdown.id)}
+        // Radix's Trigger opens on hover already; its own click handler additionally
+        // *toggles* open/closed on click, which reads as a bug here (hover reveals
+        // the menu, then the same click that "activates" a hovered item immediately
+        // closes it again). Radix composes this onClick with its internal toggle
+        // handler and skips the internal one when the event's default is prevented
+        // (same pattern as Radix's Slot: see
+        // https://www.radix-ui.com/primitives/docs/utilities/slot -- "if an event
+        // handler depends on event.defaultPrevented, ensure the order of execution
+        // is correct"), so this disables click-to-toggle without touching hover.
+        // Keyboard access is unaffected: Radix documents Enter/Space-opens-content
+        // as its own keyboard interaction, separate from the click handler.
+        onClick={(event) => event.preventDefault()}
       >
         {dropdown.label}
       </NavigationMenuTrigger>
@@ -324,10 +385,7 @@ function HeaderDropdown({
           className={dropdown.contentClassName ?? "grid w-[600px] grid-cols-[180px_1fr] gap-8 p-6"}
         >
           <div>
-            <div
-              onClick={() => setActiveDropdown(null)}
-              className="group mb-4 flex cursor-pointer items-center text-lg font-semibold tracking-tight transition-all duration-300 hover:text-primary"
-            >
+            <div className="group mb-4 flex items-center text-lg font-semibold tracking-tight transition-all duration-300 hover:text-primary">
               {dropdown.label}
               <span className="ml-1 inline-block transform opacity-0 transition-all duration-300 group-hover:translate-x-1 group-hover:opacity-100">
                 →
@@ -378,10 +436,12 @@ function MobileMenu({
   config,
   mobileAuthActions,
   LinkComponent,
+  allLabel,
 }: {
   config: AmbraPublicHeaderConfig;
   mobileAuthActions?: ReactNode;
   LinkComponent: ComponentType<LinkLikeProps>;
+  allLabel: string;
 }) {
   return (
     <div className="border-t bg-background md:hidden">
@@ -392,6 +452,7 @@ function MobileMenu({
             title={dropdown.label}
             items={dropdown.groups.flatMap((group) => group.items)}
             LinkComponent={LinkComponent}
+            allLabel={allLabel}
           />
         ))}
 
@@ -411,10 +472,12 @@ function MobileDropdown({
   title,
   items,
   LinkComponent,
+  allLabel,
 }: {
   title: string;
   items: AmbraPublicHeaderMenuItem[];
   LinkComponent: ComponentType<LinkLikeProps>;
+  allLabel: string;
 }) {
   return (
     <DropdownMenu>
@@ -427,7 +490,7 @@ function MobileDropdown({
       <DropdownMenuContent className="w-full">
         <DropdownMenuItem asChild>
           <LinkComponent href="/" className="w-full">
-            Wszystkie {title.toLowerCase()}
+            {allLabel} {title.toLowerCase()}
           </LinkComponent>
         </DropdownMenuItem>
         {items.map((item) => (
@@ -445,12 +508,14 @@ function MobileDropdown({
 
 export function AmbraPublicHeader({
   LinkComponent = DefaultLink,
-  config = AMBRA_PUBLIC_HEADER_CONFIG,
+  config,
   authActions,
   mobileAuthActions,
+  closeMenuLabel = "Close menu",
+  openMenuLabel = "Open menu",
+  allLabel = "All",
 }: AmbraPublicHeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -461,13 +526,7 @@ export function AmbraPublicHeader({
     <NavigationMenu>
       <NavigationMenuList>
         {config.dropdowns.map((dropdown) => (
-          <HeaderDropdown
-            key={dropdown.id}
-            dropdown={dropdown}
-            activeDropdown={activeDropdown}
-            setActiveDropdown={setActiveDropdown}
-            LinkComponent={LinkComponent}
-          />
+          <HeaderDropdown key={dropdown.id} dropdown={dropdown} LinkComponent={LinkComponent} />
         ))}
         {config.topLinks?.map((link) => (
           <li key={link.href}>
@@ -534,7 +593,7 @@ export function AmbraPublicHeader({
             size="icon"
             onClick={() => setMobileMenuOpen((open) => !open)}
             aria-expanded={mobileMenuOpen}
-            aria-label={mobileMenuOpen ? "Zamknij menu" : "Otwórz menu"}
+            aria-label={mobileMenuOpen ? closeMenuLabel : openMenuLabel}
           >
             {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </Button>
@@ -546,6 +605,7 @@ export function AmbraPublicHeader({
           config={config}
           mobileAuthActions={mobileAuthActions}
           LinkComponent={LinkComponent}
+          allLabel={allLabel}
         />
       ) : null}
     </header>

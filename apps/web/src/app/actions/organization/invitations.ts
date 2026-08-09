@@ -16,6 +16,8 @@ import {
 } from "@/lib/constants/permissions";
 import { EmailService } from "@/server/services/email.service";
 import { eventService } from "@/server/services/event.service";
+import { headers } from "next/headers";
+import { getTrustedRequestOrigin } from "@/lib/urls";
 
 const roleAssignmentSchema = z.object({
   role_id: z.string().uuid(),
@@ -119,7 +121,7 @@ export async function createInvitationAction(rawInput: unknown) {
         `${context.user.user?.first_name ?? ""} ${context.user.user?.last_name ?? ""}`.trim() ||
         (context.user.user?.email ?? "");
       const locale = rawLocale === "en" ? "en" : "pl";
-      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+      const siteUrl = getTrustedRequestOrigin(await headers());
       const invitationLink = `${siteUrl}/invite/${result.data.token}`;
 
       let emailDelivered = false;
@@ -245,7 +247,7 @@ export async function resendInvitationAction(rawInput: unknown) {
         `${context.user.user?.first_name ?? ""} ${context.user.user?.last_name ?? ""}`.trim() ||
         (context.user.user?.email ?? "");
       const locale = rawLocale === "en" ? "en" : "pl";
-      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+      const siteUrl = getTrustedRequestOrigin(await headers());
       const invitationLink = `${siteUrl}/invite/${result.data.token}`;
 
       let emailDelivered = false;

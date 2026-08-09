@@ -3,6 +3,7 @@
 import { getLocale } from "next-intl/server";
 import { redirect } from "next/navigation";
 import type { Pathnames } from "@/i18n/routing";
+import { resolveLocalizedPathnames } from "@/i18n/localized-pathnames";
 
 /**
  * Redirects to a localized pathname with an encoded query message.
@@ -18,6 +19,8 @@ export async function encodedRedirect(
 ) {
   const locale = await getLocale();
   const queryString = new URLSearchParams({ [type]: message }).toString();
-  const url = `/${locale}${pathname}${queryString ? `?${queryString}` : ""}`;
+  const localizedPaths = resolveLocalizedPathnames(pathname);
+  const localizedPath = locale === "en" ? localizedPaths.en : localizedPaths.pl;
+  const url = `${localizedPath}${queryString ? `?${queryString}` : ""}`;
   return redirect(url);
 }

@@ -1,7 +1,11 @@
 import { redirect } from "@/i18n/navigation";
 import { getLocale } from "next-intl/server";
 import { checkPermission } from "@/lib/utils/permissions";
-import { WAREHOUSE_LOCATIONS_READ, WAREHOUSE_READ } from "@/lib/constants/permissions";
+import {
+  WAREHOUSE_LOCATIONS_MANAGE,
+  WAREHOUSE_LOCATIONS_READ,
+  WAREHOUSE_READ,
+} from "@/lib/constants/permissions";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { WarehouseLocationsService } from "@/server/services/warehouse-locations.service";
 import { AmbraLocationInventoryService } from "@/server/services/ambra-location-inventory.service";
@@ -35,6 +39,11 @@ export default async function AmbraWarehouseLocationsPage({ searchParams }: Page
       locale,
     });
   }
+
+  const canManageLocations = checkPermission(
+    context.user.permissionSnapshot,
+    WAREHOUSE_LOCATIONS_MANAGE
+  );
 
   const branchId = context.app.activeBranchId;
   const supabase = await createClient();
@@ -89,6 +98,7 @@ export default async function AmbraWarehouseLocationsPage({ searchParams }: Page
       initialListData={
         listResult.success ? listResult.data : { rows: [], totalCount: 0, page: 1, pageSize: 25 }
       }
+      canCreateLocation={canManageLocations}
     />
   );
 }

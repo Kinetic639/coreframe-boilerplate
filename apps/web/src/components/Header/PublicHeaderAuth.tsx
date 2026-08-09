@@ -19,6 +19,7 @@ export function PublicHeaderAuth({ userContext }: PublicHeaderAuthProps) {
   const supabase = createClient();
   const t = useTranslations("auth.logout");
   const tSuccess = useTranslations("auth.success");
+  const tNav = useTranslations("Navigation.buttons");
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const handleLogout = async () => {
@@ -41,7 +42,7 @@ export function PublicHeaderAuth({ userContext }: PublicHeaderAuthProps) {
         <Button asChild className="gap-2">
           <Link href="/dashboard/start" className="flex items-center">
             <LayoutDashboard className="h-4 w-4" />
-            Dashboard
+            {tNav("dashboard")}
           </Link>
         </Button>
         <Button onClick={handleLogout} variant="ghost" disabled={isLoggingOut}>
@@ -62,10 +63,10 @@ export function PublicHeaderAuth({ userContext }: PublicHeaderAuthProps) {
   return (
     <>
       <Button variant="outline" asChild>
-        <Link href="/sign-in">Zaloguj się</Link>
+        <Link href="/sign-in">{tNav("signIn")}</Link>
       </Button>
       <Button asChild>
-        <Link href="/sign-up">Zarejestruj się</Link>
+        <Link href="/sign-up">{tNav("signUp")}</Link>
       </Button>
     </>
   );
