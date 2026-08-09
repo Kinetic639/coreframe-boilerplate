@@ -355,13 +355,9 @@ function MenuItemLink({
 
 function HeaderDropdown({
   dropdown,
-  activeDropdown,
-  setActiveDropdown,
   LinkComponent,
 }: {
   dropdown: AmbraPublicHeaderDropdown;
-  activeDropdown: string | null;
-  setActiveDropdown: (v: string | null) => void;
   LinkComponent: ComponentType<LinkLikeProps>;
 }) {
   const grouped = dropdown.groups.length > 1 || dropdown.groups.some((group) => group.category);
@@ -369,7 +365,18 @@ function HeaderDropdown({
   return (
     <NavigationMenuItem>
       <NavigationMenuTrigger
-        onClick={() => setActiveDropdown(activeDropdown === dropdown.id ? null : dropdown.id)}
+        // Radix's Trigger opens on hover already; its own click handler additionally
+        // *toggles* open/closed on click, which reads as a bug here (hover reveals
+        // the menu, then the same click that "activates" a hovered item immediately
+        // closes it again). Radix composes this onClick with its internal toggle
+        // handler and skips the internal one when the event's default is prevented
+        // (same pattern as Radix's Slot: see
+        // https://www.radix-ui.com/primitives/docs/utilities/slot -- "if an event
+        // handler depends on event.defaultPrevented, ensure the order of execution
+        // is correct"), so this disables click-to-toggle without touching hover.
+        // Keyboard access is unaffected: Radix documents Enter/Space-opens-content
+        // as its own keyboard interaction, separate from the click handler.
+        onClick={(event) => event.preventDefault()}
       >
         {dropdown.label}
       </NavigationMenuTrigger>
@@ -378,10 +385,7 @@ function HeaderDropdown({
           className={dropdown.contentClassName ?? "grid w-[600px] grid-cols-[180px_1fr] gap-8 p-6"}
         >
           <div>
-            <div
-              onClick={() => setActiveDropdown(null)}
-              className="group mb-4 flex cursor-pointer items-center text-lg font-semibold tracking-tight transition-all duration-300 hover:text-primary"
-            >
+            <div className="group mb-4 flex items-center text-lg font-semibold tracking-tight transition-all duration-300 hover:text-primary">
               {dropdown.label}
               <span className="ml-1 inline-block transform opacity-0 transition-all duration-300 group-hover:translate-x-1 group-hover:opacity-100">
                 →
@@ -512,7 +516,6 @@ export function AmbraPublicHeader({
   allLabel = "All",
 }: AmbraPublicHeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -523,13 +526,7 @@ export function AmbraPublicHeader({
     <NavigationMenu>
       <NavigationMenuList>
         {config.dropdowns.map((dropdown) => (
-          <HeaderDropdown
-            key={dropdown.id}
-            dropdown={dropdown}
-            activeDropdown={activeDropdown}
-            setActiveDropdown={setActiveDropdown}
-            LinkComponent={LinkComponent}
-          />
+          <HeaderDropdown key={dropdown.id} dropdown={dropdown} LinkComponent={LinkComponent} />
         ))}
         {config.topLinks?.map((link) => (
           <li key={link.href}>
