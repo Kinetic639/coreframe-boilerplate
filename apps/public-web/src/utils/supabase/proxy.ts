@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
-import { pathnameWithoutLocale } from "@repo/i18n/middleware-utils";
+import { pathnameWithoutLocale, resolveAcceptLanguageLocale } from "@repo/i18n/middleware-utils";
 import { routing } from "@/i18n/routing";
 
 export const updateSession = async (request: NextRequest) => {
@@ -43,8 +43,17 @@ export const updateSession = async (request: NextRequest) => {
 
     // dashboard routes
     if (normalizedPathname.startsWith("/dashboard") && user.error) {
-      // Detect locale from request (fallback to default)
-      const locale = request.cookies.get("NEXT_LOCALE")?.value || routing.defaultLocale;
+      // Detect locale: cookie first (shared across apps -- see
+      // @repo/i18n/config), then the browser's Accept-Language, matching
+      // next-intl's own cookie > accept-language > default precedence.
+      const cookieLocale = request.cookies.get("NEXT_LOCALE")?.value;
+      const locale = routing.locales.includes(cookieLocale as (typeof routing.locales)[number])
+        ? (cookieLocale as (typeof routing.locales)[number])
+        : resolveAcceptLanguageLocale(
+            request.headers.get("accept-language"),
+            routing.locales,
+            routing.defaultLocale
+          );
 
       // Get localized sign-in path
       const signInPaths = routing.pathnames["/sign-in"];
