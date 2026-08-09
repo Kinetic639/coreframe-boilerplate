@@ -21,6 +21,8 @@ interface LinkLikeProps {
 export interface PublicFooterProps {
   description: string;
   columns: PublicFooterColumn[];
+  /** e.g. "All rights reserved." / "Wszelkie prawa zastrzeżone." -- appended after the copyright line. */
+  rightsReservedText: string;
   copyrightName?: string;
   copyrightHref?: string;
   legalLinks?: PublicFooterLink[];
@@ -41,12 +43,10 @@ function DefaultLink({ href, className, children }: LinkLikeProps) {
 export function PublicFooter({
   description,
   columns,
+  rightsReservedText,
   copyrightName = "Ambra",
   copyrightHref,
-  legalLinks = [
-    { href: "/", label: "Polityka prywatności" },
-    { href: "/", label: "Regulamin" },
-  ],
+  legalLinks = [],
   LinkComponent = DefaultLink,
   localeSwitcher,
   themeSwitcher,
@@ -162,7 +162,7 @@ export function PublicFooter({
           ) : (
             copyrightName
           )}
-          . Wszelkie prawa zastrzeżone.
+          . {rightsReservedText}
         </p>
         <div className="flex flex-wrap items-center gap-6">
           {legalLinks.map((link) => (

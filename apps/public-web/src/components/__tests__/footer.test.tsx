@@ -1,6 +1,10 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 
+vi.mock("next-intl", () => ({
+  useTranslations: () => (key: string) => key,
+}));
+
 vi.mock("@/i18n/navigation", () => ({
   Link: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => (
     <a href={href} {...rest}>
@@ -24,8 +28,8 @@ describe("footer", () => {
     render(<Footer />);
 
     expect(screen.getByText("Ambra")).toBeInTheDocument();
-    expect(screen.getByText(/Nowoczesne narzędzie/i)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /polityka prywatności/i })).toBeInTheDocument();
+    expect(screen.getByText("description")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "legal.privacyPolicy" })).toBeInTheDocument();
     expect(screen.getByTestId("theme-switcher")).toBeInTheDocument();
     expect(screen.getByTestId("locale-switcher")).toBeInTheDocument();
   });

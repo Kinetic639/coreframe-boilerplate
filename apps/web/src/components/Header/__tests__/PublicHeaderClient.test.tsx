@@ -19,6 +19,9 @@ vi.mock("@/i18n/navigation", () => ({
 
 import { PublicHeaderClient } from "../PublicHeaderClient";
 
+// `next-intl` is mocked globally (vitest.setup.ts) to return the translation
+// key itself rather than real copy, so assertions here target keys under the
+// "PublicHeader" namespace (see messages/{en,pl}.json), not literal text.
 describe("PublicHeaderClient", () => {
   it("renders the logo, desktop navigation, and pricing link", async () => {
     render(<PublicHeaderClient />);
@@ -27,22 +30,28 @@ describe("PublicHeaderClient", () => {
       "href",
       "https://www.ambra-system.com"
     );
-    expect(await screen.findByRole("button", { name: /funkcje/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /rozwiązania/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /materiały edukacyjne/i })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Cennik" })).toHaveAttribute("href", "/pricing");
+    expect(
+      await screen.findByRole("button", { name: /dropdowns\.features\.label/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /dropdowns\.solutions\.label/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /dropdowns\.educational\.label/i })
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "pricing" })).toHaveAttribute("href", "/pricing");
   });
 
   it("toggles the mobile menu open and closed", () => {
     render(<PublicHeaderClient />);
 
-    const toggleButton = screen.getByRole("button", { name: /otwórz menu/i });
-    expect(screen.queryByText("Wszystkie funkcje")).not.toBeInTheDocument();
+    const toggleButton = screen.getByRole("button", { name: "openMenu" });
+    expect(screen.queryByText(/allPrefix/)).not.toBeInTheDocument();
 
     fireEvent.click(toggleButton);
-    expect(screen.getByRole("button", { name: /zamknij menu/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "closeMenu" })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /zamknij menu/i }));
-    expect(screen.getByRole("button", { name: /otwórz menu/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "closeMenu" }));
+    expect(screen.getByRole("button", { name: "openMenu" })).toBeInTheDocument();
   });
 });

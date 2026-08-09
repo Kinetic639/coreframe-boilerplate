@@ -1,4 +1,7 @@
+"use client";
+
 import type { ReactNode } from "react";
+import { useTranslations } from "next-intl";
 import { PublicFooter } from "@repo/ui/public-footer";
 import { Link } from "@/i18n/navigation";
 import LocaleSwitcher from "./LocaleSwitcher";
@@ -10,29 +13,6 @@ interface LinkAdapterProps {
   children: ReactNode;
 }
 
-const footerColumns = [
-  {
-    title: "Produkt",
-    links: [
-      { href: "/", label: "Funkcje" },
-      { href: "/", label: "Cennik" },
-      { href: "/", label: "Zaloguj się" },
-      { href: "/", label: "Rozpocznij za darmo" },
-    ],
-  },
-  {
-    title: "Rozwiązania",
-    links: [
-      { href: "/", label: "Magazynowanie" },
-      { href: "/", label: "Produkcja" },
-      { href: "/", label: "Edukacja" },
-      { href: "/", label: "Placówki medyczne" },
-      { href: "/", label: "Serwis i naprawy" },
-      { href: "/", label: "Budownictwo" },
-    ],
-  },
-];
-
 function LinkAdapter({ href, className, children }: LinkAdapterProps) {
   return (
     <Link href={href as Parameters<typeof Link>[0]["href"]} className={className}>
@@ -41,12 +21,42 @@ function LinkAdapter({ href, className, children }: LinkAdapterProps) {
   );
 }
 
-const footer = () => {
+const Footer = () => {
+  const t = useTranslations("PublicFooter");
+
+  const footerColumns = [
+    {
+      title: t("columns.product.title"),
+      links: [
+        { href: "/", label: t("columns.product.features") },
+        { href: "/", label: t("columns.product.pricing") },
+        { href: "/", label: t("columns.product.signIn") },
+        { href: "/", label: t("columns.product.getStarted") },
+      ],
+    },
+    {
+      title: t("columns.solutions.title"),
+      links: [
+        { href: "/", label: t("columns.solutions.warehousing") },
+        { href: "/", label: t("columns.solutions.manufacturing") },
+        { href: "/", label: t("columns.solutions.education") },
+        { href: "/", label: t("columns.solutions.healthcare") },
+        { href: "/", label: t("columns.solutions.serviceRepair") },
+        { href: "/", label: t("columns.solutions.construction") },
+      ],
+    },
+  ];
+
   return (
     <PublicFooter
       LinkComponent={LinkAdapter}
-      description="Nowoczesne narzędzie do zarządzania magazynem i inwentarzem dla firm każdej wielkości."
+      description={t("description")}
+      rightsReservedText={t("rightsReserved")}
       columns={footerColumns}
+      legalLinks={[
+        { href: "/", label: t("legal.privacyPolicy") },
+        { href: "/", label: t("legal.terms") },
+      ]}
       copyrightName="@Kinetic639"
       copyrightHref="https://github.com/Kinetic639"
       themeSwitcher={<ThemeSwitcher />}
@@ -55,4 +65,4 @@ const footer = () => {
   );
 };
 
-export default footer;
+export default Footer;
