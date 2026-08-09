@@ -14,7 +14,15 @@
       "Bash(head -5 grep -r \"dashboard-old\" /home/user/coreframe-boilerplate/next.config*)",
       "Bash(grep -A2 '\"\"packageManager\"\"' /home/user/coreframe-boilerplate/package.json)",
       "Bash(pnpm supabase:db:push:target)",
-      "mcp__supabase-target__get_project_url"
+      "mcp__supabase-target__get_project_url",
+      "PowerShell(Get-Process node -ErrorAction SilentlyContinue)",
+      "PowerShell(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-Object { $_.OwningProcess -in \\(Get-Process node -ErrorAction SilentlyContinue\\).Id } | Select-Object LocalAddress, LocalPort, OwningProcess | Sort-Object LocalPort -Unique)",
+      "PowerShell(Get-CimInstance Win32_Process -Filter \"Name='node.exe'\")",
+      "Bash(netstat -ano)",
+      "Bash(node -e ' *)",
+      "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\(JSON.stringify\\(p.scripts,null,2\\)\\); console.log\\('deps has playwright:', !!\\(p.dependencies&&p.dependencies['@playwright/test']\\)||!!\\(p.devDependencies&&p.devDependencies['@playwright/test']\\)\\)\")",
+      "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\(JSON.stringify\\(p.scripts,null,2\\)\\)\")",
+      "Bash(node -e \"console.log\\(JSON.stringify\\(require\\('./package.json'\\).scripts,null,2\\)\\)\")"
     ],
     "additionalDirectories": [
       "/home/user/coreframe-boilerplate/src/app/[locale]/admin",
