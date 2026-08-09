@@ -1,0 +1,124 @@
+# CI for the coreframe-boilerplate turborepo.
+#
+# Required repository secrets (Settings -> Secrets and variables -> Actions)
+# before every job here goes green:
+#   NEXT_PUBLIC_SUPABASE_URL       - target Supabase project URL (public)
+#   NEXT_PUBLIC_SUPABASE_ANON_KEY  - target Supabase anon/publishable key (public)
+#   NEXT_PUBLIC_APP_URL            - e.g. https://app.ambra-system.com
+#   NEXT_PUBLIC_SITE_URL           - e.g. https://app.ambra-system.com
+#   NEXT_PUBLIC_MARKETING_SITE_URL - e.g. https://www.ambra-system.com
+#   RESEND_API_KEY                 - only needed for the `build` job (email templates)
+# Optional, unlocks the authenticated e2e specs in apps/web/e2e (they self-skip
+# without these rather than failing):
+#   E2E_TEST_EMAIL, E2E_TEST_PASSWORD
+#
+# Until secrets are added, `quality` (lint/types/unit tests) still runs and
+# gates PRs on its own.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "22"
+
+jobs:
+  quality:
+    name: Lint, types, unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm lint
+
+      - run: pnpm check-types
+
+      - run: pnpm test
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: quality
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
+      NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+      NEXT_PUBLIC_MARKETING_SITE_URL: ${{ secrets.NEXT_PUBLIC_MARKETING_SITE_URL }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm build
+
+  e2e:
+    name: E2E (apps/web)
+    runs-on: ubuntu-latest
+    needs: quality
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
+      NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+      NEXT_PUBLIC_MARKETING_SITE_URL: ${{ secrets.NEXT_PUBLIC_MARKETING_SITE_URL }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      # Optional -- authenticated specs in apps/web/e2e self-skip without these.
+      E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
+      E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        working-directory: apps/web
+        run: npx playwright install --with-deps chromium
+
+      # Builds a production server, boots it, runs the suite against it, then
+      # tears it down -- see apps/web/scripts/run-e2e.mjs. Deliberately not
+      # reusing the `build` job's output: this needs the full monorepo install
+      # plus Playwright browsers, and keeping it self-contained keeps the job
+      # simple to re-run in isolation.
+      - name: Run e2e suite
+        working-directory: apps/web
+        run: pnpm test:e2e
+
+      - name: Upload Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          retention-days: 14
