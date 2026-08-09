@@ -63,6 +63,7 @@
     "@repo/auth": "workspace:*",
     "@repo/contracts": "workspace:*",
     "@repo/domain": "workspace:*",
+    "@repo/i18n": "workspace:*",
     "@repo/supabase": "workspace:*",
     "@repo/ui": "workspace:*",
     "@sparticuz/chromium": "^138.0.2",

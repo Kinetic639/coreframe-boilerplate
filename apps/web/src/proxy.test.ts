@@ -88,7 +88,20 @@ describe("proxy", () => {
 
   it("exports the middleware matcher config", () => {
     expect(config.matcher).toEqual([
-      "/((?!api|auth|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|manifest.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+      "/((?!api|auth|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|manifest.webmanifest|pl(?:/|$)|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
     ]);
+  });
+
+  it("matcher excludes next-intl's internal rewrite target for the default locale (regression guard)", () => {
+    // See @repo/i18n/middleware-utils for the full story: without this
+    // exclusion, next-intl's own internal rewrite for an unprefixed
+    // default-locale request re-enters this middleware and causes an
+    // infinite redirect loop.
+    const [pattern] = config.matcher;
+    const matcherRegex = new RegExp(`^${pattern}$`);
+    expect(matcherRegex.test("/pl")).toBe(false);
+    expect(matcherRegex.test("/pl/sign-in")).toBe(false);
+    expect(matcherRegex.test("/logowanie")).toBe(true);
+    expect(matcherRegex.test("/en/sign-in")).toBe(true);
   });
 });

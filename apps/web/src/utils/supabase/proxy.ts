@@ -1,15 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
+import { pathnameWithoutLocale } from "@repo/i18n/middleware-utils";
 import { routing, type Locale } from "@/i18n/routing";
 import { resolveLocalizedPathnames } from "@/i18n/localized-pathnames";
-
-function pathnameWithoutLocale(pathname: string): string {
-  const [, maybeLocale, ...rest] = pathname.split("/");
-  if (routing.locales.includes(maybeLocale as (typeof routing.locales)[number])) {
-    return rest.length > 0 ? `/${rest.join("/")}` : "/";
-  }
-  return pathname;
-}
 
 // Prefer the locale segment already in the URL (e.g. "/en/sign-in") over the
 // NEXT_LOCALE cookie, so a direct visit to an explicit locale is respected.
@@ -72,7 +65,7 @@ export const updateSession = async (request: NextRequest) => {
     // https://supabase.com/docs/guides/auth/server-side/nextjs
     const user = await supabase.auth.getUser();
 
-    const normalizedPathname = pathnameWithoutLocale(request.nextUrl.pathname);
+    const normalizedPathname = pathnameWithoutLocale(request.nextUrl.pathname, routing.locales);
     const isAuthenticated = !user.error;
     const locale = detectLocale(request);
 

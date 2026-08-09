@@ -13,7 +13,8 @@
     "PORT",
     "PLAYWRIGHT_BASE_URL",
     "E2E_TEST_EMAIL",
-    "E2E_TEST_PASSWORD"
+    "E2E_TEST_PASSWORD",
+    "NEXT_PUBLIC_LOCALE_COOKIE_DOMAIN"
   ],
   "tasks": {
     "build": {

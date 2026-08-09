@@ -1,13 +1,9 @@
 import { defineRouting } from "next-intl/routing";
+import { baseRoutingConfig } from "@repo/i18n/config";
+import { authPathnames } from "@repo/i18n/auth-pathnames";
 
 export const routing = defineRouting({
-  locales: ["en", "pl"],
-  defaultLocale: "pl",
-  localePrefix: "as-needed",
-  localeCookie: {
-    domain: process.env.NEXT_PUBLIC_LOCALE_COOKIE_DOMAIN,
-    sameSite: "lax",
-  },
+  ...baseRoutingConfig,
   pathnames: {
     //public
     "/": "/",
@@ -431,30 +427,7 @@ export const routing = defineRouting({
     },
 
     // === Auth ===
-    "/sign-in": {
-      en: "/sign-in",
-      pl: "/logowanie",
-    },
-    "/sign-up": {
-      en: "/sign-up",
-      pl: "/rejestracja",
-    },
-    "/forgot-password": {
-      en: "/forgot-password",
-      pl: "/zapomnialem-hasla",
-    },
-    "/reset-password": {
-      en: "/reset-password",
-      pl: "/zresetuj-haslo",
-    },
-    "/auth-code-error": {
-      en: "/auth-code-error",
-      pl: "/blad-uwierzytelniania",
-    },
-    "/registration-disabled": {
-      en: "/registration-disabled",
-      pl: "/rejestracja-wylaczona",
-    },
+    ...authPathnames,
   },
 });
 
