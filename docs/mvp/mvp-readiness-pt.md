@@ -2,56 +2,66 @@
 
 Audyt repozytorium: **7 września 2026**. Produkt: **wyłącznie `apps/web`**. Źródło zakresu: [skrypt prezentacji](ambra-skrypt-prezentacji.md). Dowody i ograniczenia: [audyt implementacji](mvp-readiness-audit.md).
 
-**Pełny scenariusz ze skryptu nie jest jeszcze gotowy.** Istnieją rzeczywiste fundamenty, zapis sesji Matchera i operacje magazynowe, ale nie ma potwierdzonego ciągłego procesu sesja → mobilne rozłożenie → zlecenie/lokalizacja → wydanie → podpisany dokument. Najpierw domknąć tę ścieżkę; nie kończyć całej Ambry.
+**Pełny scenariusz ze skryptu nie jest jeszcze gotowy.** Szczegółowy audyt Stref 1–12 (zakończony) pokazuje, że Ambra ma realne fundamenty i kilka w pełni działających przepływów: logowanie/organizacja/oddział (Strefa 1) i administracja członkostwami/rolami (Strefa 10) są solidne; generyczny system komentarzy/załączników (Strefa 9) jest gotowy do reużycia; wyszukiwanie/zawartość lokalizacji/relokacja pojedynczej części (Strefa 7) oraz tickety (Strefa 11) mają mocny, działający rdzeń z konkretnymi, naprawialnymi lukami (nie fikcją). Największa brakująca praca to jeden centralny łańcuch biznesowy, nie rozproszone niedoróbki: **trwałe zlecenie naprawcze z pozycjami i dokumentami (Strefa 4, dziś NOT IMPLEMENTED) → przyjęcie 101/PZ z importu Matchera rozszerzone o mobilne potwierdzenie lokalizacji, zamknięcie i raport z rzeczywistych lokalizacji (Strefa 6, dziś w połowie placeholder) → rzeczywista operacja zwykłego wydania części z polem odbiorcy (Strefa 8, dziś zaślepka UI)**. Najpierw domknąć dokładnie tę ścieżkę pokazu (skrypt §6–11); nie kończyć całej Ambry.
 
 ## Priorytety — od czego zacząć
 
 Stan wymagany to **cel przed prezentacją**, nie ocena obecnej implementacji. Numery wskazują sekcje poniżej, nie dawne identyfikatory checklisty.
 
-| Priorytet | Obszar                                                                     | Wymagany stan                     | Dlaczego ma znaczenie                                                     |
-| --------- | -------------------------------------------------------------------------- | --------------------------------- | ------------------------------------------------------------------------- |
-| P0        | 1. Logowanie, organizacja, aktywny oddział, autoryzacja i RLS ścieżki demo | FULLY READY w zakresie demo       | Każdy następny krok zależy od właściwego dostępu i danych                 |
-| P0        | 2. Publiczny Matcher                                                       | DEMO READY                        | Pierwszy pokaz na tych samych dokumentach; zależność zewnętrzna wobec web |
-| P0        | 3. Matcher zalogowany, trwałość sesji i przekazanie do przyjęcia           | DEMO READY                        | Przejście od narzędzia do procesu                                         |
-| P0        | 4. Minimalny katalog części i widok zlecenia                               | DEMO READY                        | Tożsamość części i zleceń spina przyjęcie, szukanie i wydanie             |
-| P0        | 5. Lokalizacje, QR i etykiety części/zestawów                              | DEMO READY                        | Warunek fizycznego pokazu na telefonie                                    |
-| P0        | 6. Przyjęcie, mobilne rozłożenie, zamknięcie i raport                      | DEMO READY                        | Centralna demonstracja w §7 skryptu                                       |
-| P0        | 7. Szukanie, zawartość lokalizacji, ruch części/zestawu, historia          | DEMO READY                        | Obiecana codzienna praca w §9                                             |
-| P0        | 8. Zwykłe wydanie części                                                   | DEMO READY                        | Domknięcie cyklu części, §10–11                                           |
-| P0        | 9. Zdjęcie podpisanego wydania i ponowne otwarcie                          | DEMO READY                        | Konkretna wartość dodatkowego potwierdzenia                               |
-| P1        | 10. Użytkownicy, zaproszenia, członkostwa, administracja rolami            | DEMO READY                        | Wiarygodne, krótkie wyjaśnienie fundamentów w §5                          |
-| P1        | 11. Tickety: komunikacja, prosta akceptacja, problemowa część z QR         | DEMO READY                        | Drugi, krótki pokaz w §12–13                                              |
-| P1        | 12. Początkowy magazyn i propozycja pilotażu                               | DEMO READY (materiał i procedura) | Ograniczenia i decyzja biznesowa w §8, §16–23                             |
-| P2        | 13. Zadania jednorazowe, kalendarz i Kanban                                | PARTIALLY READY                   | §14 zapowiada kierunek, bez kolejnego dużego demo                         |
-| P3        | 14. Cykliczność i powiadomienia operacyjne                                 | ROADMAP ONLY                      | Zapowiedź, nie obietnica działającej automatyzacji                        |
-| P3        | 15. Materiały, dostawcy, audyty i wsparcie zamawiania                      | ROADMAP ONLY                      | Są elementy backendu; §15 nie wymaga ich ukończenia                       |
-| P3        | 16. VMI i dalsze procesy magazynowe                                        | ROADMAP ONLY                      | Kierunek po wynikach pilotażu                                             |
-| P4        | 17. Szerokie importy historyczne i integracja DMS                          | ROADMAP ONLY                      | Skrypt dopuszcza naturalną rotację; DMS pozostaje źródłem                 |
-| P4        | 18. Awaryjne pobrania i rozbudowane procesy zwrotów/reklamacji             | ROADMAP ONLY                      | Wykraczają poza zwykłe wydanie i jeden ticket                             |
-| P4        | 19. Lakiery, nieroty, procedury i zbiorczy dashboard operacyjny            | ROADMAP ONLY                      | Brak wymogu w aktualnym pokazie                                           |
+| Priorytet | Obszar                                                                                | Wymagany stan                         | Dlaczego ma znaczenie                                                                                              |
+| --------- | ------------------------------------------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| P0        | 1. Logowanie, organizacja, aktywny oddział, autoryzacja i RLS ścieżki demo            | FULLY READY w zakresie demo           | Każdy następny krok zależy od właściwego dostępu i danych                                                          |
+| P0        | 2. Publiczny SVWMS Matcher                                                            | DEMO READY                            | Pierwszy pokaz na tych samych dokumentach; żyje w `apps/public-web`, nie w `apps/web`                              |
+| P0        | 3. Matcher zalogowany → trwała sesja → przygotowanie danych do dalszego przetwarzania | DEMO READY                            | Przejście od prostego Matchera do trwałych danych wykorzystywanych później przez proces magazynowy                 |
+| P0        | 4. Car Workshop — zlecenia naprawcze, pozycje i dokumenty magazynowe                  | DEMO READY                            | Trwała tożsamość zlecenia spina szukanie, przyjęcie, wydanie i załączniki (Strefy 6–9); dziś NOT IMPLEMENTED       |
+| P0        | 5. Lokalizacje, QR, etykiety i fizyczna identyfikacja części/zestawów                 | DEMO READY                            | Warunek fizycznego pokazu na telefonie; lokalizacja gotowa, część/zestaw wymaga decyzji zakresu przed pitchem      |
+| P0        | 6. Przyjęcie 101/PZ → import z Matchera → mobilne rozłożenie → zamknięcie → raport    | DEMO READY                            | Centralna demonstracja w §7 skryptu; dziś działa tylko import na komputerze, reszta łańcucha to placeholdery       |
+| P0        | 7. Szukanie, zawartość lokalizacji, relokacja części/zestawu i historia               | DEMO READY                            | Obiecana codzienna praca w §9; rdzeń działa, wymaga naprawy wyszukiwania i decyzji o relokacji zestawu             |
+| P0        | 8. Zwykłe wydanie części                                                              | DEMO READY                            | Domknięcie cyklu części, §10–11; wymaga rzeczywistej operacji wydania, nie obejścia korektą magazynową             |
+| P0        | 9. Załączniki zlecenia naprawczego i archiwum dokumentów                              | DEMO READY                            | Podpisany dokument AutoStacji jako przykładowy załącznik zlecenia; infrastruktura gotowa, zależy tylko od Strefy 4 |
+| P1        | 10. Użytkownicy, zaproszenia, członkostwa, role i administracja dostępem              | DEMO READY dla krótkiego omówienia    | Wiarygodne, krótkie wyjaśnienie fundamentów w §5; fundament już mocny i przetestowany                              |
+| P1        | 11. Tickety: komunikacja, akceptacja i problemowa część z QR                          | DEMO READY dla krótkiego pokazu       | Drugi, krótki pokaz w §12–13; QR to etykieta ticketu na części, nie cyfrowa identyfikacja samej części             |
+| P1        | 12. Stan początkowy magazynu i propozycja kontrolowanego pilotażu                     | DEMO READY dla materiału i propozycji | Ograniczenia i decyzja biznesowa w §8, §16–23; materiał mocny, wymaga próby na głos                                |
+| P2        | 13. Zadania jednorazowe, kalendarz i Kanban                                           | PARTIALLY READY                       | §14 zapowiada kierunek, bez kolejnego dużego demo                                                                  |
+| P3        | 14. Cykliczność i powiadomienia operacyjne                                            | ROADMAP ONLY                          | Zapowiedź, nie obietnica działającej automatyzacji                                                                 |
+| P3        | 15. Materiały, dostawcy, audyty i wsparcie zamawiania                                 | ROADMAP ONLY                          | Są elementy backendu; §15 nie wymaga ich ukończenia                                                                |
+| P3        | 16. VMI i dalsze procesy magazynowe                                                   | ROADMAP ONLY                          | Kierunek po wynikach pilotażu                                                                                      |
+| P4        | 17. Szerokie importy historyczne i integracja DMS                                     | ROADMAP ONLY                          | Skrypt dopuszcza naturalną rotację; DMS pozostaje źródłem                                                          |
+| P4        | 18. Awaryjne pobrania i rozbudowane procesy zwrotów/reklamacji                        | ROADMAP ONLY                          | Wykraczają poza zwykłe wydanie i jeden ticket; ticket dziś ma tylko akceptację, nie odrzucenie                     |
+| P4        | 19. Lakiery, nieroty, procedury i zbiorczy dashboard operacyjny                       | ROADMAP ONLY                          | Brak wymogu w aktualnym pokazie                                                                                    |
+
+Numeracja i priorytety P0–P4 odpowiadają szczegółowym, zaakceptowanym Strefom 1–12 poniżej oraz niezmienionemu zakresowi 13–19. Kolumna „Wymagany stan" to cel przed pitchem, nie ocena obecnej implementacji — obecny stan każdej strefy 1–12 (🔴/🟠/🟡) jest opisany wyłącznie w jej szczegółowej sekcji, nie tutaj.
 
 ### MUST FINISH BEFORE PITCH
 
-- Jedna trwała dostawa z dokumentów Matchera, z identyfikacją zleceń/części, możliwa do wznowienia po odświeżeniu i na telefonie.
-- Etykiety i skany części/zestawu oraz lokalizacji; rozłożenie kilku pozycji, kontrola braków, zamknięcie i raport faktycznych lokalizacji.
-- Odnalezienie tych samych części, przeniesienie części i zestawu, wydanie oraz ponowne otwarcie zdjęcia podpisanego dokumentu.
-- Dostęp demonstratora, właściwy oddział, odmowy niedozwolonych operacji, brak fikcyjnych sukcesów; publiczny Matcher i pełna próba P0.
+- Dostęp/bezpieczeństwo ścieżki demo zweryfikowane na żywo (Strefa 1): właściwa organizacja/oddział, zachowanie sesji Matchera pod RLS, potwierdzone środowisko (dryf dwóch drzew migracji rozstrzygnięty dla ścieżek użytych w demo).
+- Trwała sesja Matchera (Strefa 3) zweryfikowana ręcznie na aktualnym build; świadomość, że dopasowania na poziomie linii nie są dziś zapisywane.
+- Minimalny, trwały model zlecenia naprawczego z pozycjami i powiązanymi dokumentami magazynowymi (Strefa 4) — dziś NOT IMPLEMENTED; to pojedyncza najgłębsza praca implementacyjna w całym P0, bo od niej zależy ciągłość zlecenie → części → lokalizacje oraz Strefa 9.
+- Fizyczna identyfikacja gotowa dla lokalizacji (Strefa 5); świadoma decyzja, czy część/zestaw dostają minimalny cel QR na potrzeby demo, czy scenariusz zostaje jawnie zawężony.
+- Przyjęcie 101/PZ z importu Matchera rozszerzone o mobilne potwierdzenie lokalizacji, zamknięcie procesu i raport z rzeczywiście potwierdzonych lokalizacji (Strefa 6) — dziś połowa łańcucha (mobilne rozłożenie, zamknięcie, raport) to placeholdery.
+- Szukanie, zawartość lokalizacji i relokacja pojedynczej części sprawdzone na żywo (Strefa 7); naprawione wyszukiwanie po SKU; decyzja o relokacji zestawu jak w Strefie 5.
+- Rzeczywista operacja zwykłego wydania części z polem odbiorcy (Strefa 8) — dziś dedykowana funkcja to zaślepka zwracająca błąd; jedyny substytut (korekta magazynowa) nie ma pola odbiorcy.
+- Załączniki zlecenia naprawczego (Strefa 9) — tanie do domknięcia zaraz po Strefie 4, niezależnie od stanu Stref 6–8.
+- Pełna próba P0 wykonana w kolejności skryptu, bez fikcyjnych sukcesów, na koncie demonstratora z właściwym oddziałem; publiczny Matcher (Strefa 2, `apps/public-web`) sprawdzony jako osobne wejście do historii.
 
 ### SHOULD FINISH BEFORE PITCH
 
-- Wąski pokaz ticketu: zgłoszenie → odpowiedź → akceptacja → historia; QR otwierający opisany problem.
-- Krótka prezentacja użytkowników, zaproszeń i ról; przygotowane konta zamiast długiego onboardingu na żywo.
-- Materiał o stanie początkowym, trzech miesiącach pilotażu, odpowiedzialności, budżecie i kryteriach powodzenia.
+- Administracja dostępem (Strefa 10): fundament już mocny, testowany i sprawdzony po stronie serwera — przygotować konta demonstracyjne i zweryfikować ręcznie jeden krótki scenariusz (lista członków lub zaproszenie).
+- Wąski przepływ ticketu (Strefa 11): utworzenie → przypisanie → komentarz → akceptacja → ponowne otwarcie z trwałą historią → skan QR ticketu; bez obietnicy odrzucenia (nie istnieje) i bez sugerowania cyfrowej relacji ticket↔zlecenie/część/zestaw (nie istnieje).
+- Materiał o stanie początkowym magazynu i kontrolowanym pilotażu (Strefa 12): treść już dojrzała i uczciwa, wymaga przećwiczenia na głos oraz jawnego uwzględnienia w zakresie miesiąca 1 tego, co Strefy 4/6/8 pokazały jako dziś brakujące.
 
 ### CAN REMAIN PARTIAL
 
-- Zadania, kalendarz i Kanban: istniejący, stabilny przykład albo sama wzmianka.
-- Zaawansowany katalog, zlecenia, kontenery, wyszukiwanie i tickety poza dokładnym scenariuszem P0/P1. Nieukończone warianty nie blokują sprawdzonej ścieżki.
+- Zadania, kalendarz i Kanban (Strefa 13): istniejący, stabilny przykład albo sama wzmianka.
+- Zaawansowana funkcjonalność Car Workshop wykraczająca poza minimalny model zlecenia wymagany przez Strefę 4 (pełny edytor zleceń, historia serwisowa, integracja z pojazdami, harmonogramowanie) — sam minimalny model zlecenia (nagłówek/pozycje/dokumenty magazynowe) NIE może pozostać częściowy, jeśli demo zachowuje obecny scenariusz P0.
+- Relokacja zestawu/kontenera (Strefy 5 i 7), jeśli finalny scenariusz demo świadomie jej nie obejmuje.
+- Rozszerzone typy ticketów, akcja odrzucenia, pełny katalog i wyszukiwanie poza dokładnym scenariuszem P0/P1. Nieukończone warianty nie blokują sprawdzonej ścieżki.
 
 ### DO NOT SPEND TIME ON BEFORE PITCH
 
 - Generator zadań cyklicznych, pełny system powiadomień, VMI, rozbudowa materiałów/audytów/zamawiania.
 - Pełna migracja AutoStacji, nieroty, lakiery, procedury, awaryjne pobrania, Customer Care VGP i pełny dashboard.
+- Akcja odrzucenia ticketu, pełny silnik zwrotów/reklamacji, relacje domenowe ticket↔zlecenie/część poza tym, co Strefy 4 i 9 już dostarczają.
 - Pełne pokrycie testami wszystkich modułów, rozbudowana analityka i hardening całej produkcji. Ochrona danych demo pozostaje P0; wymagania pilotażu zachowano na końcu.
 
 ## Zasady odhaczania
@@ -65,9 +75,18 @@ Stan wymagany to **cel przed prezentacją**, nie ocena obecnej implementacji. Nu
 
 ## Kolejność zależności i pracy
 
-**1 → 3 → 4 → 5 → 6 → 7 → 8 → 9** to ścieżka wewnątrz web. **2** przygotować jako osobne wejście do historii. Kolejność wystąpienia pozostaje zgodna ze skryptem; kolejność pracy wynika z zależności i braków.
+Kolejność _wystąpienia_ w prezentacji zostaje zgodna ze skryptem (1 → 2 → 3 → 6 → 7 → 8 → 9 → 11 → 12). Kolejność _pracy implementacyjnej_ poniżej wynika z rzeczywistych zależności ustalonych w Strefach 1–12, nie z kolejności scenariusza — i różni się od niej w jednym ważnym miejscu (Strefa 9).
 
-Pierwszy zakres wykonawczy po audycie: zweryfikować środowisko/oddział, następnie domknąć **3 + minimalne 4 + 6**, korzystając z istniejących ruchów. Uwzględnić brakujące cele QR z **5**. Potem **7 → 8 → 9**, na końcu **10–12**. Nie rozbudowywać administracji ani katalogu przed sprawdzeniem tego przejścia.
+**1 (dostęp/RLS) → 3 (trwała sesja Matchera) → 4 (trwałe zlecenie naprawcze).** Strefa 4 to najgłębsza pojedyncza praca w całym P0 — wymagana przez szukanie zlecenia, ciągłość zlecenie→części→lokalizacje oraz Strefę 9. Od Strefy 4 praca rozchodzi się na dwie w dużej mierze niezależne gałęzie:
+
+- **4 → 9.** Strefa 9 zależy WYŁĄCZNIE od istnienia trwałego zlecenia (Strefa 4) — generyczna infrastruktura załączników już istnieje i jest tania do podłączenia (nowy wpis w rejestrze celów + odpowiadająca gałąź SQL, według wzorca trzech już działających typów). Nie zależy architektonicznie od Stref 6–8 ani od tego, czy ruch magazynowy stanie się celem załączników — podpisany dokument dołącza się do zlecenia, nie do ruchu. Można ją domknąć równolegle z resztą łańcucha, od razu po Strefie 4, a nie dopiero na końcu.
+- **4 → 5 → 6 → 7 → 8.** Strefa 5 (lokalizacje/QR) jest już solidnym fundamentem dla lokalizacji — jedyna otwarta decyzja to zakres fizycznej identyfikacji części/zestawu. Strefa 6 rozszerza istniejący, częściowo działający import Matchera→101 o stan przyjęcia, mobilne potwierdzenie lokalizacji, zamknięcie i raport z rzeczywistych lokalizacji. Strefa 7 konsumuje stan magazynowy wyprodukowany przez Strefę 6 — jej rdzeń (relokacja pojedynczej części, zawartość lokalizacji, historia) jest już mocny i wymaga tylko naprawy wyszukiwania po SKU oraz decyzji o relokacji zestawu (współdzielonej ze Strefą 5). Strefa 8 konsumuje ten sam stan magazynowy i potrzebuje realnej operacji wydania zamiast dzisiejszego obejścia korektą magazynową.
+
+**2** (publiczny Matcher, `apps/public-web`) przygotować niezależnie jako osobne wejście do historii — nie blokuje ani nie jest blokowana przez powyższy łańcuch.
+
+**10–12** to w większości przygotowanie i weryfikacja, nie nowa implementacja. Fundamenty administracji dostępem (10) i ticketów (11) są już mocne i mogą być przygotowywane równolegle z resztą, bez czekania na 4–9. Materiał pilotażowy (12) najlepiej domknąć na końcu, kiedy wiadomo dokładnie, co z łańcucha 4–9 faktycznie trafiło do pokazu — bo zakres miesiąca 1 pilotażu zależy od tego, co z tego łańcucha zostanie dokończone przed pitchem, a co dopiero w trakcie przygotowania pilotażu.
+
+Nie rozbudowywać administracji, katalogu ani ticketów ponad wąski, sprawdzony scenariusz przed domknięciem łańcucha 4 → (9 równolegle) → 5 → 6 → 7 → 8.
 
 ## P0 — główny pokaz
 
@@ -717,7 +736,7 @@ Dedykowany przycisk „Wydanie" na pulpicie magazynowym jest dosłownym zaślepk
 
 **Dowody:**
 
-- Kod: VERIFIED. Prześledzono zaślepkę `issueStockAction` (`apps/web/src/app/actions/warehouse/inventory/index.ts` ok. linii 1821-1826 — zawsze zwraca błąd), definicję typów 401/402 (`inventory_seed_movement_types`, kategoria `adjustment`, nazwy PL „Korekta z inwentaryzacji"), gałąź `movement_kind = 'issue'` w `inventory_post_movement` (realne, ale nieużywane przez aplikację zabezpieczenie przed ujemnym stanem), politykę pól nadawca/odbiorca (`inventory_movement_type_field_policies` — zdefiniowana dla typów 101/801/311, **nigdy dla 401/402**, więc pola odbiorcy nie są w ogóle oferowane dla jedynego typu technicznie zdolnego pełnić rolę wydania), osierocony plik `inventory-movement-new-client.tsx` (definiuje typ operacji „issue", niezaimportowany nigdzie w repozytorium) oraz rejestr celów komentarzy/załączników (`target-registry.ts` w `apps/web/src/server/comments/` — trzy typy: ticket/task/kanban_card, **brak wpisu dla ruchu magazynowego**, co ma bezpośrednie znaczenie dla Strefy 9).
+- Kod: VERIFIED. Prześledzono zaślepkę `issueStockAction` (`apps/web/src/app/actions/warehouse/inventory/index.ts` ok. linii 1821-1826 — zawsze zwraca błąd), definicję typów 401/402 (`inventory_seed_movement_types`, kategoria `adjustment`, nazwy PL „Korekta z inwentaryzacji"), gałąź `movement_kind = 'issue'` w `inventory_post_movement` (realne, ale nieużywane przez aplikację zabezpieczenie przed ujemnym stanem), politykę pól nadawca/odbiorca (`inventory_movement_type_field_policies` — zdefiniowana dla typów 101/801/311, **nigdy dla 401/402**, więc pola odbiorcy nie są w ogóle oferowane dla jedynego typu technicznie zdolnego pełnić rolę wydania) oraz osierocony plik `inventory-movement-new-client.tsx` (definiuje typ operacji „issue", niezaimportowany nigdzie w repozytorium). Rejestr celów komentarzy/załączników (`target-registry.ts` w `apps/web/src/server/comments/`) nie ma wpisu dla ruchu magazynowego — zgodnie z ustaleniem Strefy 9 nie jest to blokerem, bo podpisany dokument dołącza się do zlecenia naprawczego (RepairOrder), nie do ruchu.
 - Testy automatyczne: NONE dla realnego zachowania. Istniejące testy (`inventory-phase1-migrations.test.ts`, `inventory-movement-field-policies-migration.test.ts`) sprawdzają wyłącznie obecność fragmentów tekstu SQL w plikach migracji (`toContain("v_header.movement_kind = 'issue'")` itp.), nie wykonują żadnego realnego ruchu i nie testują ścieżki 401/402. Zero testów `issueStockAction` (to trwała zaślepka, więc nie ma czego testować), zero testów odrzucenia nadmiernego wydania na realnej ścieżce, zero testów ponownego odnalezienia wydania.
 - Weryfikacja ręczna: NOT VERIFIED — brak jakiejkolwiek odnotowanej próby.
 - Przebieg end-to-end: NOT APPLICABLE dla zamierzonego „wydania" (nie istnieje ścieżka do przetestowania — przycisk to zaślepka); NOT VERIFIED dla obejścia przez ręczne utworzenie ruchu 402.
@@ -764,7 +783,7 @@ Dedykowany przycisk „Wydanie" na pulpicie magazynowym jest dosłownym zaślepk
 
 **Granica ze Strefą 9**
 
-- [ ] Ustalono jednoznacznie, do jakiego trwałego obiektu Strefa 9 ma dołączyć zdjęcie podpisanego dokumentu — dziś rejestr celów komentarzy/załączników nie ma żadnego wpisu dla ruchu magazynowego, więc nawet po wybraniu dokumentu wydania jako celu, dołączenie załącznika wymaga nowej pracy w Strefie 9, nie tylko wyboru istniejącego obiektu.
+- [ ] Potwierdzono, że podpisany dokument wydania dołącza się do zlecenia naprawczego (Strefa 9: RepairOrder jako cel załączników), nie do samego ruchu magazynowego wydania — ruch magazynowy nie musi stawać się celem załączników na potrzeby pitchu; jedyna zależność to istnienie zlecenia ze Strefy 4, do którego można nawigować z odnalezionego wydania.
 
 **Narracja o AutoStacji**
 
@@ -776,7 +795,7 @@ Dedykowany przycisk „Wydanie" na pulpicie magazynowym jest dosłownym zaślepk
 
 **Pitch gap:**
 
-To druga po Strefie 6 najgłębsza luka funkcjonalna wśród ocenionych dotąd stref P0 — z ważnym zastrzeżeniem, że luka jest węższa niż w Strefie 6, bo mechanizm księgowania (zmniejszanie stanu, blokada nadmiernego wydania, częściowa ilość) jest już sprawdzony i działający dla analogicznej operacji (relokacja, Strefa 7). Brakuje jednak samej **warstwy biznesowej wydania**: dedykowany przycisk jest trwałą zaślepką z zaszytym błędem; jedyny technicznie zdolny typ ruchu (402) nazywa się i jest oznaczony jako korekta z inwentaryzacji, nie wydanie; nie oferuje żadnego pola odbiorcy/kontekstu; ochrona przed podwójnym zatwierdzeniem to wyłącznie blokada przycisku po stronie klienta. Dodatkowo rejestr celów załączników nie zna dziś ruchu magazynowego jako możliwego celu — to bezpośrednio blokuje płynne przejście do Strefy 9, nawet po rozwiązaniu problemów tej strefy. Zbudowanie tej strefy do stanu obiecywanego przez skrypt wymaga: (1) świadomej decyzji, którym mechanizmem pokazać wydanie, (2) minimalnego pola odbiorcy/kontekstu dla wybranego typu, (3) prawdziwej ochrony przed podwójnym zatwierdzeniem, (4) dodania ruchu magazynowego do rejestru celów załączników na potrzeby Strefy 9. To realna, ale węższa niż w Strefie 6, praca implementacyjna.
+To druga po Strefie 6 najgłębsza luka funkcjonalna wśród ocenionych dotąd stref P0 — z ważnym zastrzeżeniem, że luka jest węższa niż w Strefie 6, bo mechanizm księgowania (zmniejszanie stanu, blokada nadmiernego wydania, częściowa ilość) jest już sprawdzony i działający dla analogicznej operacji (relokacja, Strefa 7). Brakuje jednak samej **warstwy biznesowej wydania**: dedykowany przycisk jest trwałą zaślepką z zaszytym błędem; jedyny technicznie zdolny typ ruchu (402) nazywa się i jest oznaczony jako korekta z inwentaryzacji, nie wydanie; nie oferuje żadnego pola odbiorcy/kontekstu; ochrona przed podwójnym zatwierdzeniem to wyłącznie blokada przycisku po stronie klienta. Zbudowanie tej strefy do stanu obiecywanego przez skrypt wymaga: (1) świadomej decyzji, którym mechanizmem pokazać wydanie, (2) minimalnego pola odbiorcy/kontekstu dla wybranego typu, (3) prawdziwej ochrony przed podwójnym zatwierdzeniem. Podpisany dokument wydania (Strefa 9) dołącza się do zlecenia naprawczego, nie do samego ruchu — rejestr celów załączników nie musi więc obejmować ruchu magazynowego na potrzeby pitchu, o ile Strefa 4 dostarczy zlecenie, do którego wydanie się odnosi. To realna, ale węższa niż w Strefie 6, praca implementacyjna.
 
 **Wymagany stan dla pilotażu:** PILOT READY
 
@@ -808,8 +827,8 @@ Zakres pilotażowy tej strefy jest w dużej mierze naturalną kontynuacją tego,
 - Polityka pól nadawca/odbiorca zdefiniowana wyłącznie dla typów 101 (opcjonalne), 801 (zabronione), 311 (wymagane) — `apps/web/supabase-target/supabase/migrations/20260626150000_inventory_movement_field_policies.sql` i `20260712120000_add_inter_branch_movement_contract.sql`; brak jakiegokolwiek wiersza polityki dla 401/402, więc te pola nie są dziś oferowane w UI dla jedynego typu technicznie zdolnego reprezentować wydanie.
 - Ochrona przed podwójnym zatwierdzeniem: kolumna `idempotency_key` i unikalny indeks istnieją (`inventory_movement_headers_org_idempotency_uidx`), ale klucz jest generowany (`crypto.randomUUID()`) wewnątrz callbacku wysyłki przy każdym wywołaniu (`use-movement-submission.ts` ok. linii 105), nie trzymany stabilnie w stanie — realna ochrona przed podwójnym kliknięciem to wyłącznie `disabled={isPending}` na przycisku.
 - Odnalezienie ruchu: lista (`InventoryMovementsService.listMovements`, wyszukiwanie po numerze dokumentu/nadawcy/odbiorcy) i szczegóły (`inventory-movement-detail-panel.tsx`) są realne i działające dla ogólnego silnika ruchów; historia lokalizacji (Strefa 7) także pokazuje ruchy. Brak jednak widoku historii ruchów z poziomu szczegółów produktu.
-- Rejestr celów załączników/komentarzy (`apps/web/src/server/comments/target-registry.ts`) ma dokładnie trzy wpisy: `helpdesk.ticket`, `planning.task`, `planning.kanban_card` — brak wpisu dla ruchu magazynowego; to bezpośrednia zależność blokująca Strefę 9, niezależnie od tego, który mechanizm wydania zostanie wybrany w tej strefie.
-- Zależności: Strefa 1 (izolacja oddziałowa/RLS), Strefa 4 (prawdziwa relacja zlecenia zamiast tekstu, jeśli wydanie ma pokazywać kontekst zlecenia), Strefa 6/7 (stan magazynowy, z którego wydawana jest część, musi istnieć przed demo tej strefy), Strefa 9 (dołączenie podpisanego dokumentu do obiektu zidentyfikowanego tutaj) — odnotowane, nie duplikowane.
+- Rejestr celów załączników/komentarzy (`apps/web/src/server/comments/target-registry.ts`) ma dokładnie trzy wpisy: `helpdesk.ticket`, `planning.task`, `planning.kanban_card` — brak wpisu dla ruchu magazynowego. Zgodnie z ustaleniem Strefy 9 nie jest to zależność blokująca tę strefę: podpisany dokument dołącza się do zlecenia naprawczego (RepairOrder), nie do ruchu magazynowego, więc ruch nie musi stać się celem załączników na potrzeby pitchu.
+- Zależności: Strefa 1 (izolacja oddziałowa/RLS), Strefa 4 (prawdziwa relacja zlecenia zamiast tekstu, jeśli wydanie ma pokazywać kontekst zlecenia; również cel, do którego Strefa 9 dołączy podpisany dokument), Strefa 6/7 (stan magazynowy, z którego wydawana jest część, musi istnieć przed demo tej strefy), Strefa 9 (podpisany dokument wydania dołącza się do zlecenia naprawczego, nie do tego ruchu — brak zależności architektonicznej w drugą stronę) — odnotowane, nie duplikowane.
 
 ### 9. Załączniki zlecenia naprawczego i archiwum dokumentów
 
@@ -1200,13 +1219,65 @@ Główna praca przed realnym pilotażem to nie technologia tej konkretnej strefy
 
 ## P2 — wystarczy część działającego obszaru
 
-### 13. Zadania jednorazowe, kalendarz, Kanban
+### 13. Zadania jednorazowe, kalendarz i Kanban
 
-**Cel: PARTIALLY READY. Skrypt: §14. Dowód: A11.** Są trwałe zadania, kalendarze/źródła kalendarza i tablice/karty Kanban. Nie są wyłącznie makietami; bez świeżej próby nie uznajemy całych modułów za gotowe.
+**Priorytet:** P2
 
-- [ ] Wybrano najwyżej jeden zapisany przykład; ewentualny pokaz nie rozszerza głównego demo.
-- [ ] Opis odróżnia istniejące zadania/planowanie od niepotwierdzonej cykliczności i powiadomień.
-- [ ] Jeśli ekran nie jest stabilny, pozostać przy uczciwej wzmiance. Brak demo nie blokuje P0.
+**Stan obecny:** 🟡 PARTIAL
+
+To realna, nietrywialna funkcjonalność — nie makieta. Zadania jednorazowe mają pełne CRUD z dziennikiem aktywności, kalendarz to prawdziwy, zapytaniowy agregator (zadania, karty Kanban i tickety pojawiają się na nim automatycznie, nie przez ręczny krok „dodaj do kalendarza"), a przeciąganie kart Kanban trwale zapisuje nową kolejność/kolumnę w bazie, nie tylko w stanie klienta. Uprawnienia są wymuszane po stronie serwera i przez RLS z `FORCE`. Status pozostaje PARTIAL (zgodnie z zastanym oczekiwaniem P2 — nie wymaga to podniesienia priorytetu), bo: (a) brak świeżej ręcznej próby na aktualnym build; (b) karta Kanban jest odrębnym bytem od zadania (potwierdzone brakiem jakiejkolwiek relacji FK) — prezenter musi to wiedzieć, żeby nie sugerować integracji, której nie ma; (c) panel załączników (`AttachmentsPanel`) nie jest dziś w ogóle renderowany w UI Planowania — `planning.task`/`planning.kanban_card` są zarejestrowane jako cele załączników na poziomie danych, ale bez żadnego konsumenta UI (w przeciwieństwie do komentarzy, które są w pełni podłączone).
+
+**Dowody:**
+
+- Kod: VERIFIED. Prześledzono pełny CRUD zadania (`createTaskAction`/`updateTaskAction`/`changeTaskStatusAction`/`assignTaskAction` → `PlanningTasksService` → realne zapisy do `planning_tasks` + `planning_task_activity`), agregator kalendarza (`PlanningCalendarService.getCalendarData` — odkrywa źródła wg uprawnień/entitlementów: zadania, tickety, każda widoczna tablica Kanban, natywne kalendarze — i mapuje je do wspólnego DTO), oraz Kanban (`planning_kanban_boards/columns/cards`, `KanbanBoardsService.moveCard` — realne przeliczenie i zapis `position`/`column_id` dla każdej dotkniętej karty). Potwierdzono: pojedynczy przypisany użytkownik (nie wiele osób), karta Kanban nie ma żadnej kolumny odwołującej się do zadania — to w pełni odrębny prymityw, nie to samo co zadanie i nie zsynchronizowane z nim. Komentarze (`CommentsThread`) są realnie renderowane zarówno w szczegółach zadania, jak i karty Kanban. Załączniki — mimo że `planning.task`/`planning.kanban_card` są zarejestrowane jako obsługiwane cele na poziomie serwisu — nie mają dziś żadnego wywołania `AttachmentsPanel` w UI Planowania (tylko w Help Desk).
+- Testy automatyczne: PARTIAL. Solidne testy jednostkowe na zamockowanym kliencie dla serwisu zadań (tworzenie, zmiana statusu, przypisanie, usunięcie) i agregatora kalendarza (odkrywanie źródeł wg uprawnień, mapowanie DTO). Zero testów dla serwisu Kanban (`kanban-boards.service.ts` nie ma pliku testowego) — przeciąganie/zapis kolejności kart jest dziś całkowicie nieprzetestowane na żadnym poziomie. Zero testów renderujących kalendarz/tablicę na realnych danych.
+- Weryfikacja ręczna: NOT VERIFIED — brak odnotowanej świeżej próby.
+- Przebieg end-to-end: NOT VERIFIED — nie odtworzono na żywo: utworzenie zadania → widoczność na liście/kalendarzu → (opcjonalnie) karta na tablicy Kanban → trwałość po odświeżeniu.
+
+**Wymagany stan dla pitchu:** PARTIALLY READY
+
+### Pitch readiness checklist
+
+- [ ] Wybrano najwyżej jeden mały, zapisany przykład (jedno zadanie, ewentualnie widoczne też na kalendarzu lub tablicy) — pokaz nie rozszerza głównego demo P0/P1.
+- [ ] Jeśli przykład jest pokazywany na żywo: utworzenie/edycja/zakończenie jednego zadania jednorazowego sprawdzone na aktualnym build, z trwałością po odświeżeniu.
+- [ ] Jeśli pokazywany jest kalendarz lub Kanban: wybrany widok jest stabilny; sprawdzone, że pokazane dane są rzeczywiście zapisane, nie przypadkowe/testowe śmieci.
+- [ ] Wypowiedź jasno rozróżnia zadania i karty Kanban jako **osobne narzędzia organizacji pracy**, nie sugeruje, że karta Kanban to to samo zadanie lub że są zsynchronizowane.
+- [ ] Wypowiedź nie wspomina o cykliczności zadań ani o dostarczaniu powiadomień — to nie istnieje i należy do przyszłej Strefy 14.
+- [ ] Jeśli ekran okazuje się niestabilny podczas przygotowań: zamiana na samą wzmiankę słowną, bez pokazu na żywo — brak demo tej strefy nie blokuje głównego pitchu.
+
+**Pitch gap:**
+
+Brak istotnej luki funkcjonalnej blokującej krótką wzmiankę lub mały pokaz — to działający kod, nie fasada. Jedyne realne ryzyko to nadinterpretacja podczas prezentacji: sugerowanie integracji zadanie↔karta Kanban, której nie ma, albo cykliczności/powiadomień, których nie ma. Poza tym brakuje wyłącznie świeżej ręcznej próby wybranego przykładu.
+
+**Wymagany stan dla pilotażu:** dotyczy wyłącznie, jeśli Planowanie zostanie świadomie włączone do zakresu pilotażu — patrz Strefa 12
+
+### Pilot readiness checklist
+
+Poniższe wymagania są istotne tylko wtedy, gdy pilotaż faktycznie obejmie operacyjne użycie zadań/kalendarza/Kanban (co dziś nie jest ustalone — Strefa 12 nie wymienia Planowania w zakresie pilotażu). Jeśli Planowanie nie wejdzie do zakresu pilotażu, poniższe punkty są N/A, nie blokerami.
+
+- [ ] Testy dla serwisu Kanban (dziś całkowicie nieobecne) — w szczególności poprawność przeliczania kolejności kart przy współbieżnej edycji.
+- [ ] Jawna decyzja o zakresie oddziałowym: `planning_tasks.branch_id` to dziś tylko opcjonalny tag filtrowania, nie wymuszona granica RLS; tablice Kanban nie mają w ogóle koncepcji oddziału (są całkowicie organizacyjne) — do zaakceptowania świadomie albo do utwardzenia przed realnym użyciem wieloddziałowym.
+- [ ] Podłączenie `AttachmentsPanel` do UI zadań/kart Kanban, jeśli pilotaż ma z załączników korzystać — dziś zarejestrowane na poziomie danych, ale bez konsumenta UI.
+- [ ] Zachowanie przypisania zadania po usunięciu/dezaktywacji przypisanego użytkownika.
+- [ ] Ślad audytowy zmian statusu/przypisania dla ról administracyjnych (częściowo już istnieje przez `planning_task_activity`/`planning_kanban_card_activity` — do potwierdzenia jako wystarczający operacyjnie).
+- [ ] Realistyczny test wieloużytkownikowej pracy na tej samej tablicy Kanban.
+- [ ] **Dokładny scenariusz pilotażu Strefy 13 zweryfikowany ręcznie**, wyłącznie jeśli Planowanie wejdzie do zakresu pilotażu.
+
+**Pilot gap:**
+
+Nie dotyczy, dopóki Strefa 12 nie potwierdzi, że Planowanie jest częścią zakresu pilotażu. Jeśli zostanie włączone, głównym brakiem jest testowanie Kanban (dziś zerowe) i decyzja o twardości granicy oddziałowej.
+
+### Notes / evidence
+
+- Schemat `planning_tasks`: `id, organization_id, branch_id(opcjonalny), title, description(+rich), status(open/in_progress/completed/cancelled), priority, assigned_to(pojedynczy), created_by/updated_by, completed_at/started_at/cancelled_at/due_at, task_number, pola kalendarzowe (due_date, calendar_all_day/start/end/timezone)` — brak kolumn cykliczności, brak kolumny labels/tags (etykiety statusu/priorytetu to konfiguracja per-organizacja w `planning_settings`, nie pole zadania).
+- CRUD zadania: `createTaskAction`/`updateTaskAction`/`changeTaskStatusAction`/`assignTaskAction` (`apps/web/src/app/actions/planning/index.ts`) → `PlanningTasksService` (`planning-tasks.service.ts`) — realne zapisy, potwierdzone testami sprawdzającymi dokładny kształt wywołań Supabase.
+- Kalendarz: `PlanningCalendarService.getCalendarData` (`planning-calendar.service.ts:121-437`) — realny agregator odkrywający źródła (zadania/tickety/każda widoczna tablica Kanban/natywne kalendarze) wg uprawnień i entitlementów, mapujący je do wspólnego DTO; zadanie trafia na kalendarz automatycznie przez obecność pól `due_date`/`calendar_*`, nie przez ręczny krok.
+- Kanban: `planning_kanban_boards/columns/cards` (`20260605130000_planning_kanban_boards.sql`) — realne tabele, `FORCE ROW LEVEL SECURITY`; przeciąganie karty (`moveCard` w `planning-boards-client.tsx` → `moveKanbanCardAction` → `KanbanBoardsService.moveCard`) realnie przelicza i zapisuje `position`/`column_id` dla każdej dotkniętej karty, z wycofaniem stanu klienta przy błędzie.
+- Karta Kanban nie ma żadnej kolumny/FK odwołującej się do zadania — potwierdzone przeszukaniem wszystkich migracji Kanban; to w pełni odrębny prymityw, nie to samo zadanie ani nie zsynchronizowane.
+- Komentarze są realnie podłączone w UI (zadanie i karta Kanban); załączniki są zarejestrowane jako obsługiwany cel na poziomie serwisu, ale `AttachmentsPanel` nie jest dziś wywoływany nigdzie w UI Planowania (tylko w Help Desk) — korekta wcześniejszego ustalenia „komentarze/załączniki podłączone", trafna tylko dla komentarzy.
+- Uprawnienia wymuszane po stronie serwera (`checkPermission` w akcjach) i przez RLS z `FORCE` na `planning_tasks`/`planning_kanban_*`, z bezpośrednimi wywołaniami `has_permission(...)` w politykach.
+- Cykliczność: brak jakichkolwiek kolumn/pól/generatora w tym module — potwierdzone, poza zakresem tej strefy (Strefa 14).
+- Zero testów dla serwisu Kanban; solidne testy jednostkowe (zamockowane) dla serwisu zadań i agregatora kalendarza; zero testów renderujących realny widok kalendarza/tablicy.
 
 ## P3 — wzmianka / roadmapa, bez prac przed pitchem
 
@@ -1288,6 +1359,6 @@ Przed wdrożeniem któregokolwiek: realne dane, uprawnienia, historia i odpowied
 
 ## Decyzja o gotowości
 
-- [ ] **Gotowy do pitchu:** GATE 1–9 + Pitch Safety; P1 pokazane w sprawdzonym zakresie lub jawnie zawężone, P2–P4 opisane uczciwie. Obecnie **niepotwierdzone / blokery otwarte**.
+- [ ] **Gotowy do pitchu:** finalne bramki ręcznej weryfikacji (checkbox „Dokładny scenariusz pitchu Strefy N zweryfikowany...") stref 1–9 + Pitch Safety; P1 (10–12) pokazane w sprawdzonym zakresie lub jawnie zawężone, P2–P4 opisane uczciwie. Obecnie **niepotwierdzone / blokery otwarte** — patrz Strefy 4, 6, 8 jako najgłębsze braki implementacyjne.
 - [ ] **Gotowy do kontrolowanego pilotażu:** osobno spełniona bramka B. Gotowy pokaz nie oznacza tej zgody.
 - [ ] **Gotowy do rozszerzania produkcji:** wyniki pilotażu i bramka C dla uzgodnionego zakresu. Nie wymaga się ukończenia wszystkich 19 obecnych obszarów przed prezentacją.
