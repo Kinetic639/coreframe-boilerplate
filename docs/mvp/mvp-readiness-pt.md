@@ -1398,25 +1398,189 @@ Nie dotyczy, dopóki Strefa 12 nie zdecyduje, że audyty są częścią zakresu 
 - Sugestie uzupełnienia: realny panel (`reorder-suggestions-panel.tsx`), akceptacja/odrzucenie zapisuje wyłącznie wiersz decyzji w `inventory_reorder_suggestion_actions` — potwierdzone komentarzem w migracji, że to jedyny efekt akceptacji; żaden dokument zamówienia nie powstaje.
 - Zależność od Strefy 14: audyty są dziś wyłącznie ręcznie inicjowane; brak jakiegokolwiek schedulera/cyklicznego wyzwalacza w całej aplikacji (potwierdzone tam) oznacza, że „cykliczny audyt" pozostaje czystą roadmapą, niezależnie od tego, jak dopracowany jest pojedynczy, ręczny audyt.
 
-### 16. VMI i dalsze możliwości
+### 16. VMI, pulpit startowy i pozostałe drugorzędne powierzchnie produktu
 
-**Cel: ROADMAP ONLY. Skrypt: §15, §22. Dowód: A13.** Nie potwierdzono dostępnego end-to-end VMI w web; tabele/stare deklaracje nie wystarczają.
+**Priorytet:** P3 (wartość aktualna z tabeli globalnej — sprawdzone tu wyłącznie pod kątem sensowności opisu, tabela globalna nie jest jeszcze aktualizowana)
 
-Zachowany backlog: wiarygodne katalogi, dostawcy, lokalizacje, progi i audyty; potem zakres MVP VMI, prawdziwy backend, konta klientów/dostawców, trwała komunikacja/zamówienia/historia, połączenie z Warehouse, izolacja i E2E bez fixtures. Nie odhaczać przed pitchem.
+**Stan obecny:** 🟠 EARLY / DISCONNECTED
+
+Ta strefa łączy trzy odrębne, drugorzędne powierzchnie o bardzo różnej dojrzałości — pojedynczy status musi to uśredniać, więc kluczowe są rozróżnienia poniżej, nie sama etykieta.
+
+- **VMI (`apps/vmi-client`)** — to nie jest niedokończony produkt na realnym backendzie, tylko **w pełni oparty na atrapie (fixture) prototyp UI bez jakiegokolwiek żywego backendu na ścieżce, którą użytkownik faktycznie osiąga**. Jedyną bramką dostępu jest ciasteczko `client-demo` ustawiane bezwarunkowo, bez sprawdzenia poświadczeń. Istnieje osobna, realnie wyglądająca warstwa serwerowa (akcje, serwisy, prawdziwe zapytania Supabase) — ale jest całkowicie osierocona: żadna strona jej nie wywołuje, a tabele, do których się odwołuje (`vmi_client_accounts` itd.), nie istnieją w żadnej zastosowanej migracji — istnieją wyłącznie jako szkic SQL świadomie trzymany poza katalogiem migracji do czasu „zamrożenia schematu". Żadna operacja zapisu (zamówienie, wiadomość, liczenie stanu) nie jest trwała — odświeżenie strony usuwa zmiany.
+- **Pulpit startowy (`/dashboard/start`)** — dziś to dosłownie jeden statyczny nagłówek powitalny bez żadnych danych, kart czy widżetów; nie jest centrum operacyjnym w żadnym sensie. Dokumentacja projektu (`CLAUDE.md`) opisuje nieistniejący dziś „moduł news feed z szybkimi akcjami" — to nieaktualny, aspiracyjny opis, nie stan kodu.
+- **Analityka** — tu sytuacja jest odwrotna: strona przeglądu (`/dashboard/analytics`) to pusty placeholder (sam tytuł/podtytuł), ale **dwa realne, zasilane bazą danych ekrany istnieją i działają**: kanał aktywności organizacji i kanał audytu, oba oparte o rzeczywiste zapytania do `platform_events` z prawdziwym sprawdzeniem uprawnień i aktywnej organizacji/oddziału.
+
+Żadna z tych trzech powierzchni nie jest wymagana przez główną narrację skryptu (Matcher → przyjęcie → magazyn → wydanie → historia → pilotaż) — to jest zgodne z zamierzeniem tej strefy jako drugorzędnej, nie odkrytym problemem.
+
+**Dowody:**
+
+- Kod: VERIFIED dla wszystkich trzech powierzchni. VMI: potwierdzono brak importu klienta Supabase w repozytorium obsługującym wszystkie realnie osiągalne strony (`VmiPortalRepository`), potwierdzono osieroconą warstwę serwerową bez wywołań, potwierdzono brak katalogu migracji w `apps/vmi-client` i brak jakiejkolwiek migracji `*vmi*` w `apps/web/supabase/migrations`. Pulpit startowy: pełna treść pliku strony to jeden statyczny komponent kliencki bez pobierania danych. Analityka: dwie akcje serwerowe (`getOrgActivityAction`, `getAuditFeedAction`) potwierdzone jako realne zapytania z kontrolą uprawnień i aktywnej organizacji.
+- Testy automatyczne: NOT VERIFIED dla VMI (nie sprawdzano w tej sesji, nieistotne przy braku backendu). Pulpit startowy ma jeden test potwierdzający, że renderuje wyłącznie statyczny nagłówek — spójne z ustaleniem. Analityka nie była przedmiotem szczegółowego przeglądu testów w tej sesji.
+- Weryfikacja ręczna: NOT VERIFIED dla żadnej z trzech powierzchni w tej sesji.
+- Przebieg end-to-end: NOT APPLICABLE dla VMI i pulpitu startowego (nie ma spójnego przepływu do zweryfikowania — jeden to atrapa bez trwałości, drugi to pusta strona); NOT VERIFIED dla kanałów analityki (kod realny, brak świeżej próby na żywo).
+
+**Wymagany stan dla pitchu:** ROADMAP ONLY (dla VMI); brak wymogu demonstracji (dla pulpitu i analityki)
+
+### Pitch readiness checklist
+
+- [ ] VMI nie jest pokazywane na żywo podczas pitchu — dziś to atrapa bez trwałości danych; ryzyko pokazania czegoś, co znika po odświeżeniu, jest realne i niepotrzebne.
+- [ ] Jeśli VMI jest wspominane słownie, opisane jest wyłącznie jako kierunek produktowy/wizja, nigdy jako działający portal klienta.
+- [ ] Pulpit startowy (`/dashboard/start`) nie jest punktem wejścia demo ani celowym przystankiem — dziś to pusty ekran powitalny, który wygląda na niedokończony; nawigacja po zalogowaniu powinna iść bezpośrednio do właściwego modułu demo (Strefy 2–3), nie zatrzymywać się tu.
+- [ ] Jeśli podczas pitchu przypadkowo pojawi się pulpit startowy (np. przez link po zalogowaniu), prezenter wie, że to oczekiwany, nieukończony ekran, nie błąd — i przechodzi dalej bez komentarza.
+- [ ] Kanały aktywności/audytu (Strefa Analityka) nie są wymagane w pokazie, ale są bezpieczne do krótkiego pokazania, jeśli prezenter chce zilustrować „historię działań" — są realne, nie atrapą — pod warunkiem świeżej ręcznej próby, jeśli zostaną użyte.
+- [ ] Strona przeglądu analityki (`/dashboard/analytics`, pusty placeholder) nie jest odwiedzana podczas pitchu.
+
+Brama końcowa nie jest wymagana dla VMI ani pulpitu (roadmapa/nawigacja, nie demo). Jeśli kanały aktywności/audytu zostaną świadomie włączone do pokazu, wymagana jest ich świeża, ręczna weryfikacja jak w innych strefach — ale to opcjonalne wzbogacenie, nie blokada.
+
+**Pitch gap:**
+
+Brak luki blokującej główny pitch — żadna z trzech powierzchni nie jest częścią obiecanej demonstracji. Jedyne realne ryzyko jest nawigacyjne/retoryczne: przypadkowe zatrzymanie się na pustym pulpicie startowym po zalogowaniu wygląda niedopracowane, a pokazanie VMI na żywo (nawet w dobrej wierze, jako „kolejny krok") ujawniłoby, że nic się nie zapisuje i że dostęp nie wymaga żadnych poświadczeń — to należy świadomie unikać, nie naprawiać przed pitchem.
+
+**Wymagany stan dla pilotażu:** Not required for initial controlled pilot — żadna z trzech powierzchni nie jest częścią zakresu pilotażu zdefiniowanego w Strefie 12
+
+### Pilot readiness checklist
+
+Żadna z poniższych pozycji nie jest wymaganiem przed pilotażem opisanym w Strefie 12 — pilotaż dotyczy magazynu jednego oddziału, nie klientów zewnętrznych ani rozbudowanej analityki. Zachowane wyłącznie jako przyszły backlog, jeśli produkt kiedykolwiek rozszerzy zakres:
+
+- [ ] (Przyszłość, nie pilotaż) Jeśli VMI ma kiedyś obsłużyć realnych zewnętrznych użytkowników: prawdziwe uwierzytelnienie zastępujące ciasteczko demo, prawdziwa tożsamość klienta powiązana z organizacją/oddziałem, rzeczywisty schemat bazy zamiast szkicu poza migracjami, trwałość wszystkich operacji zapisu, izolacja dostępu między klientami, oraz połączenie z rzeczywistymi danymi magazynowymi `apps/web` zamiast atrapy.
+- [ ] (Przyszłość, nie pilotaż) Jeśli pulpit startowy ma stać się realnym centrum operacyjnym: zdefiniowanie, jakie dane rzeczywiście powinien pokazywać, i zbudowanie ich od zera — dziś nie ma nawet częściowej implementacji do rozszerzenia.
+- [ ] (Przyszłość, nie pilotaż) Jeśli szersza analityka/BI ma powstać: określenie zakresu wykraczającego poza dwa istniejące kanały aktywności/audytu.
+
+**Pilot gap:**
+
+Nie dotyczy — żadna z trzech powierzchni nie jest częścią trzymiesięcznego, ograniczonego do jednego oddziału pilotażu zdefiniowanego w Strefie 12. Nie należy sztucznie włączać ich do zakresu pilotażu.
+
+### Notes / evidence
+
+- VMI — bramka dostępu: `apps/vmi-client/src/lib/demo-session.ts` (stała wartość ciasteczka), `signInDemoClientAction` (`sign-in/actions.ts`) ustawia je bez sprawdzenia poświadczeń; `requireDemoSession()` wywoływane na starcie każdej z dziesięciu chronionych stron (portal, inventory, orders, proposals, messages, stock-counts, settings, vendors i podstrony).
+- VMI — dane: `VmiPortalRepository` (`src/lib/vmi-portal/repository.ts`) nie importuje żadnego klienta Supabase; wszystkie metody (odczyt i zapis) operują na `vmiPortalSnapshotFixture` (`fixtures.ts`, ręcznie napisane polskie dane demo); zapisy (`createOrder`, `submitStockCount`, `sendMessage`) zwracają syntetyczne identyfikatory (`mock-order-${Date.now()}`) i nie są trwałe.
+- VMI — osierocona warstwa realna: `apps/vmi-client/src/app/actions/vmi/index.ts` i powiązane serwisy mają prawdziwe wywołania Supabase (`auth.getUser()`, RPC `vmi_can_manage`, zapytania do `vmi_client_accounts` itd.), ale zero wywołań z jakiejkolwiek strony w aplikacji; docelowe tabele istnieją wyłącznie jako `docs/VMI_DATABASE_SCHEMA_DRAFT.sql`, z jawnym komentarzem, że jest to szkic świadomie trzymany poza katalogiem migracji do czasu zamrożenia schematu.
+- VMI — brak migracji: `apps/vmi-client` nie ma katalogu `supabase/`; żadna migracja `*vmi*` nie istnieje w `apps/web/supabase/migrations` (303 pliki, zero trafień).
+- VMI — brak połączenia z danymi `apps/web`: zero odwołań do `inventory_products`/`inventory_balances`/`organizations`/`branches` w całym `apps/vmi-client/src`.
+- Pulpit startowy: pełna treść `apps/web/src/app/[locale]/dashboard/start/page.tsx` to komponent kliencki renderujący wyłącznie `PageHeaderV2` ze statycznym tytułem/opisem — brak pobierania danych, brak komponentu serwerowego. Jedyny realny, zasilany bazą element blisko tego miejsca to podgląd aktywności w pasku stanu powłoki dashboardu (`DashboardStatusBar.tsx`, obecny na każdej stronie, nie tylko na starcie), zasilany `getLatestActivityAction()`.
+- Analityka: `/dashboard/analytics` (przegląd) to placeholder — sam tytuł/podtytuł, zero zapytań. `/dashboard/analytics/activity` i `/dashboard/analytics/audit` są realne — wywołują odpowiednio `getOrgActivityAction`/`getAuditFeedAction`, które sprawdzają aktywną organizację i uprawnienia (`ANALYTICS_ACTIVITY_READ`/`ANALYTICS_AUDIT_READ`) przed zapytaniem do `platform_events`. Zero zahardkodowanych wartości znalezionych na tych stronach.
+- Klasyfikacja poprzednich ustaleń trackera: stwierdzenie „nie potwierdzono dostępnego end-to-end VMI w web; tabele/stare deklaracje nie wystarczają" — **CONFIRMED**, i doprecyzowane (dziś wiadomo dokładnie dlaczego: fixture bez backendu, brak migracji, osierocona warstwa realna). Zachowany backlog VMI (wiarygodne katalogi/dostawcy/lokalizacje/progi/audyty jako fundament, potem prawdziwy backend VMI, konta klientów, trwała komunikacja/zamówienia, połączenie z Warehouse, izolacja, E2E bez fixtures) — **CONFIRMED** jako wciąż aktualny i kompletny opis brakującej pracy, nic nie wymaga korekty.
+- Żadna z trzech powierzchni nie jest wymagana przez skrypt prezentacji (§2–13 — główna narracja Matcher→przyjęcie→magazyn→wydanie→historia→tickety) ani przez zakres pilotażu ze Strefy 12.
 
 ## P4 — odłożyć
 
 ### 17. Pełne importy AutoStacji i integracja DMS
 
-**Cel: ROADMAP ONLY.** Wąski import Matchera pozostaje w 3, raport w 6, wydanie w 8. Odłożyć import wszystkich starych zleceń/zamówień, materiałów, nierotów/inwentaryzacji oraz automatyczną synchronizację DMS.
+**Priorytet:** P4
 
-Zachowane wymagania na wybrany później zakres: podgląd/walidacja, duplikaty, brak częściowych zapisów, historia, poprawienie/cofnięcie, testy i minimalizacja podwójnej pracy. „Proces nie wymaga podwójnej pracy” nie jest warunkiem pitchu: skrypt zakłada dodatkowe potwierdzenie wydania.
+**Stan obecny:** 🟠 EARLY / DISCONNECTED
+
+Zero bezpośredniej integracji API z AutoStacją/DMS gdziekolwiek w repozytorium — to potwierdzone wynikiem negatywnym na poziomie całego kodu, nie tylko brakiem widocznej funkcji. Zero infrastruktury uzgadniania (reconciliation): żadna tabela w żadnym z drzew migracji nie przechowuje identyfikatora systemu źródłowego, flagi synchronizacji ani statusu rozbieżności. Istnieją natomiast realne, ale niezwiązane z AutoStacją prymitywy: generyczny, osiągalny z UI importer/eksporter CSV/XLSX katalogu produktów (bez żadnego kontraktu „eksport z AutoStacji"), oraz czysty, wielokrotnego użytku wzorzec rejestru adapterów importu do ruchu magazynowego (dziś zarejestrowany wyłącznie dla Matchera, architektonicznie gotowy na kolejny adapter, ale bez żadnej pracy projektowej nad tym, jak wyglądałby adapter AutoStacji). Matcher (Strefy 2/3/6) to ingestion danych z wydrukowanych/wyeksportowanych dokumentów PDF, nie integracja z systemem — i po zapisie do ruchu magazynowego traci nawet tę częściową proweniencję (Strefa 6: tylko wolny tekst przetrwa). Kolumny `reference_type`/`reference_id` na nagłówku ruchu istnieją i są realnie używane — ale wyłącznie do wewnętrznych odwołań (produkt, sesja inwentaryzacji), nigdy do oznaczenia pochodzenia z systemu zewnętrznego, i nigdy nie są wypełniane przez ścieżkę importu z Matchera. To dokładnie sytuacja 🟠: realne prymitywy istnieją osobno, spójny przepływ integracji z AutoStacją/DMS — nie.
+
+**Dowody:**
+
+- Kod: VERIFIED. Wyczerpujące przeszukanie całego repozytorium (kod wykonywalny, nie dokumentacja) pod kątem „autostacja"/„dms" oraz wszystkich wywołań HTTP do systemów zewnętrznych — zero wyników poza narzędziami obserwowalności (APM) i wewnętrznymi endpointami. Potwierdzono realny, generyczny importer/eksporter CSV/XLSX katalogu produktów (`InventoryProductImportsService`, strona `/dashboard/warehouse/items/import`) — osiągalny z UI, ale o kontrakcie ogólnym (nazwa/SKU/typ/jednostka/cena/kod podatku), bez żadnego związku z AutoStacją. Potwierdzono czysty wzorzec rejestru adapterów (`MovementImportSourceRegistry`) z jednym zarejestrowanym adapterem (Matcher). Potwierdzono zerowy wynik przeszukania schematu (oba drzewa migracji) pod kątem `external_id`/`source_system`/`sync_status`/`checksum` powiązanego z systemem zewnętrznym — jedyne trafienie to niezwiązany checksum plików załączników.
+- Testy automatyczne: NONE dla czegokolwiek związanego z AutoStacją/DMS/integracją/uzgadnianiem — potwierdzone zerowym wynikiem wyszukiwania w plikach testowych obu aplikacji. Generyczny importer/eksporter CSV ma własne testy jednostkowe, niezwiązane z tym pytaniem.
+- Weryfikacja ręczna: NOT APPLICABLE — strefa pozostaje ROADMAP ONLY, nie wymaga próby na żywo.
+- Przebieg end-to-end: NOT APPLICABLE — nie ma spójnej ścieżki integracji do przetestowania.
+
+**Wymagany stan dla pitchu:** ROADMAP ONLY
+
+### Pitch readiness checklist
+
+- [ ] Wypowiedź jasno mówi, że AutoStacja pozostaje źródłem prawdy, a Ambra nie łączy się z nią programowo — dziś nie ma żadnej integracji API i nie należy sugerować, że istnieje choćby w zalążkowej formie.
+- [ ] Matcher opisywany jest jako wczytywanie tych samych dokumentów, które i tak są drukowane/eksportowane z SVWMS — nie jako „integracja z DMS".
+- [ ] Wypowiedź nie obiecuje automatycznej synchronizacji ani pełnej migracji historycznych danych — zgodnie z tym, co już ustalono w Strefie 12 (naturalna rotacja/ukierunkowane wprowadzanie stanu wystarczają).
+- [ ] Generyczny import/eksport CSV katalogu produktów (jeśli w ogóle wspomniany) nie jest nazywany „importem z AutoStacji" — to osobne, ogólne narzędzie do masowego zakładania produktów.
+- [ ] Żaden ekran integracji/uzgadniania nie jest pokazywany na żywo — nie istnieje.
+
+Brama końcowa nie jest wymagana — brak demonstracji na żywo dla tej strefy.
+
+**Pitch gap:**
+
+Brak luki blokującej pitch — to zgodne z zamierzeniem strefy jako czystej roadmapy. Jedyne ryzyko jest retoryczne: łatwo przez skrót myślowy nazwać Matcher „integracją z AutoStacją", podczas gdy to wczytywanie wydrukowanych dokumentów, nie połączenie systemów.
+
+**Wymagany stan dla pilotażu:** manual dual-system procedure sufficient unless scope changes
+
+### Pilot readiness checklist
+
+Zgodnie ze Strefą 12, pilotaż może działać z AutoStacją jako systemem autorytatywnym bez żadnej integracji technicznej — poniższe to procedura organizacyjna, nie funkcja do zbudowania:
+
+- [ ] Spisano wprost, który system jest autorytatywny dla których danych (AutoStacja dla stanów/dokumentacji oficjalnej, Ambra jako dodatkowa warstwa operacyjna) — zależność ze Strefy 12, tu tylko odnotowana jako wymóg przed realnymi danymi.
+- [ ] Spisano, które czynności nadal trzeba wykonać w AutoStacji równolegle z Ambrą (np. wydanie — Strefa 8).
+- [ ] Ustalono, kiedy i jak często następuje ręczne uzgodnienie stanów między systemami.
+- [ ] Ustalono, kto jest właścicielem rozbieżności i jak są one zgłaszane/rejestrowane (może być tak proste jak wspólny arkusz/kanał, nie wymaga funkcji w aplikacji).
+- [ ] Ustalono regułę zatrzymania/eskalacji, jeśli rozbieżności między systemami staną się nie do zaakceptowania.
+- [ ] **Jeśli** pilotaż uzna to za operacyjnie konieczne: rozważyć wąską, minimalną funkcję techniczną (np. jedno pole `external_reference` widoczne w UI dla ręcznie wpisywanego numeru dokumentu AutoStacji) — ale tylko jeśli procedura ręczna okaże się w praktyce niewystarczająca, nie z góry.
+
+**Pilot gap:**
+
+Nie ma luki technicznej blokującej pilotaż — Strefa 12 już akceptuje ręczne dwusystemowe działanie. Jedyna praca przed realnymi danymi to spisanie prostej procedury organizacyjnej (własność rozbieżności, częstotliwość uzgadniania, reguła eskalacji), nie budowa integracji.
+
+### Notes / evidence
+
+- Zero bezpośredniej integracji API z AutoStacją/DMS: wyczerpujące przeszukanie „autostacja"/„dms" w kodzie wykonywalnym (nie dokumentacji) obu aplikacji — same trafienia w plikach `.md` i jeden komentarz migracji („Based on AutoStacja specification" — nazewnictwo typów ruchu wzorowane na AutoStacji, nie połączenie z nią). Jedyne realne wywołania HTTP do systemów zewnętrznych to eksporter śledzenia APM (`tracing.ts`) — niezwiązany z AutoStacją.
+- Generyczny import/eksport katalogu produktów: `InventoryProductImportsService` (`importProductsFromCsv`/`exportProductsCsv`, `apps/web/src/server/services/inventory-product-imports.service.ts`), kreator UI (`inventory-product-import-wizard.tsx`), strona `/dashboard/warehouse/items/import` — realny, osiągalny, ale ogólny kontrakt pól (nazwa/SKU/typ/jednostka/ceny/kody podatkowe), zero odwołań do AutoStacji w kodzie ani nazewnictwie.
+- Brak importu historycznego: brak jakiegokolwiek jednorazowego skryptu migracji starych zleceń/ruchów/klientów/pojazdów — jedyne mechanizmy zakładania stanu to generyczny import produktów (wyżej), ręczne tworzenie pozycji i audyt/inwentaryzacja z księgowaniem 401/402 (Strefa 15) — zgodnie z już zaakceptowaną strategią Strefy 12.
+- Brak eksportu/zapisu zwrotnego do AutoStacji: jedyne istniejące eksporty to CSV katalogu produktów (pobranie pliku, bez wysyłki gdziekolwiek) oraz wzbogacony PDF dostawy z Matchera (Strefa 6, odtwarza dane źródłowe, nie stan potwierdzony w Ambrze) — żaden nie zapisuje niczego z powrotem do systemu zewnętrznego.
+- Brak infrastruktury uzgadniania: zerowy wynik przeszukania obu drzew migracji pod kątem `external_id`/`source_system`/`sync_status`/`checksum` powiązanego z systemem zewnętrznym (jedyne trafienie to niezwiązany checksum integralności plików załączników).
+- Proweniencja źródłowa: `inventory_movement_headers.reference_type`/`reference_id` istnieją i są realnie używane — ale wyłącznie do wewnętrznych odwołań (`"inventory_product"`, `"inventory_count"`), nigdy do oznaczenia pochodzenia zewnętrznego; ścieżka importu z Matchera nigdy ich nie wypełnia (zgodne z ustaleniem Strefy 6 o utracie strukturalnej proweniencji po zapisie ruchu).
+- Architektura adapterów: `MovementImportSourceRegistry` (`apps/web/src/server/services/movement-import-adapters/registry.ts`) to czysty, generyczny wzorzec rejestru — interfejs nie zawiera niczego specyficznego dla Matchera, więc technicznie nadaje się pod przyszły adapter AutoStacji — ale dziś zarejestrowany jest wyłącznie jeden adapter (Matcher) i nie wykonano żadnej pracy projektowej nad kontraktem danych, którego wymagałby adapter AutoStacji.
+- Klasyfikacja poprzednich ustaleń trackera: „Cel: ROADMAP ONLY... odłożyć import starych zleceń/materiałów/nierotów oraz automatyczną synchronizację DMS" — **CONFIRMED**, potwierdzone i doprecyzowane dowodami z kodu. Zachowana lista wymagań na przyszłość (podgląd/walidacja, duplikaty, brak częściowych zapisów, historia, poprawienie/cofnięcie, testy, minimalizacja podwójnej pracy) — **CONFIRMED** jako wciąż aktualny, kompletny opis przyszłego zakresu, bez korekt.
 
 ### 18. Awaryjne wydania, pełne zwroty i Customer Care VGP
 
-**Cel: ROADMAP ONLY.** Awaryjne pobranie bez działu części nie występuje w głównej narracji. Zwrot/reklamacja to przykłady ticketu, nie obowiązek wdrożenia specjalistycznych procesów.
+**Priorytet:** P4
 
-Zachowany backlog: uprawnienia awaryjne, odbiorca/czas/potwierdzenie, częściowe/wielokrotne wydania i pełny raport archiwum; wartość/rotacja/miejsce oczekiwania zwrotu, akceptacja/odrzucenie/komentarz i raport; numer/link Customer Care, terminy kontroli/odesłania, alarmy, prowadzący, statusy i dowody reklamacji. Uruchomiony proces wymaga trwałej historii i E2E przed realnym użyciem.
+**Stan obecny:** 🔴 NOT IMPLEMENTED
+
+Wszystkie cztery podobszary tej strefy — wydanie awaryjne, zwrot jako proces biznesowy, reklamacja/gwarancja, Customer Care VGP — są dziś niemal całkowicie nieobecne w kodzie, nie tylko niedokończone. Jedyne realne prymitywy w pobliżu to (a) generyczny, działający mechanizm cofnięcia/odwrócenia ruchu magazynowego (`inventory_reverse_movement`), który poprawnie zachowuje powiązanie z oryginalnym ruchem, ale ma na sztywno zaszyty powód `'REVERSAL'` i żadnego kontekstu biznesowego zwrotu (przyczyna, stan części, akceptacja) — to korekta księgowa, nie proces zwrotu; oraz (b) realny system ticketów z Strefy 11, który może służyć jako warstwa komunikacji dla zgłoszenia problemu, ale nie jest i nie udaje dedykowanego silnika reklamacji/RMA. Wydanie awaryjne nie istnieje w kodzie w ogóle — zero wyników wyszukiwania w całym repozytorium. Customer Care VGP to wyłącznie fraza z dokumentów planistycznych — zero reprezentacji w kodzie (trasa, tabela, serwis, akcja, uprawnienie) w obu aplikacjach.
+
+**Dowody:**
+
+- Kod: VERIFIED. Wyczerpujące przeszukanie repozytorium (kod, nie dokumentacja) pod kątem wydania awaryjnego — zero wyników. Potwierdzono, że akcja `reverseMovementAction` w UI jest trwałą zaślepką zwracającą błąd „Reversal not available in v1", a rzeczywisty silnik odwracania (`inventory_reverse_movement`) działa wyłącznie po stronie bazy, z zaszytym na sztywno powodem `'REVERSAL'`, bez taksonomii przyczyn zwrotu, stanu części czy akceptacji. Potwierdzono, że aktualny (target) schemat `movement_kind` w ogóle nie zawiera wartości `'return'` — starsze etykiety ruchów „Zwrot od klienta"/„Zwrot do dostawcy" (kody 103/203) to tylko nazwy w generycznym pickerze typu ruchu, bez żadnej dedykowanej logiki. Potwierdzono brak jakiejkolwiek kolumny stanu/dyspozycji części (uszkodzona/sprawna/do kontroli) na `inventory_balances` czy `inventory_movement_lines`. Potwierdzono zerową reprezentację kodową Customer Care VGP w obu aplikacjach — wyłącznie wzmianki w plikach `.md`. Potwierdzono, że rola `'client'` istnieje w generycznym CRUD encji CRM, ale nie ma żadnego konsumenta poza edycją rekordu — brak historii spraw/interakcji.
+- Testy automatyczne: NONE dla realnego zachowania tej strefy. Jedyne dwa trafienia to test potwierdzający, że zaślepka `reverseMovementAction` zwraca błąd, oraz test sprawdzający obecność tekstu SQL nazwy funkcji odwracania ruchu w migracji — żaden nie testuje semantyki zwrotu/reklamacji/wydania awaryjnego.
+- Weryfikacja ręczna: NOT APPLICABLE — strefa pozostaje ROADMAP ONLY, nie ma czego weryfikować na żywo.
+- Przebieg end-to-end: NOT APPLICABLE — nie istnieje żadna spójna ścieżka do przetestowania w żadnym z czterech podobszarów.
+
+**Wymagany stan dla pitchu:** ROADMAP ONLY
+
+### Pitch readiness checklist
+
+- [ ] Wypowiedź jasno oddziela dzisiejszy, realny fundament ticketów (Strefa 11) od przyszłego, pełnego silnika zwrotów/reklamacji — nie sugeruje, że to jedno i to samo.
+- [ ] Wypowiedź nie twierdzi, że istnieje akcja odrzucenia w kontekście zwrotu/reklamacji — nie istnieje nigdzie w tej strefie (zgodnie z już ustalonym brakiem odrzucenia ticketów w Strefie 11).
+- [ ] Wypowiedź nie sugeruje, że jakikolwiek ruch magazynowy automatycznie „wraca" na stan w ramach procesu zwrotu — istniejący mechanizm odwracania ruchu to korekta księgowa z zaszytym na sztywno powodem, nie zwrot biznesowy.
+- [ ] Wypowiedź nie wspomina „Customer Care VGP" jako istniejącej funkcji — to dziś wyłącznie nazwa z dokumentów planistycznych, zero kodu.
+- [ ] Wydanie awaryjne nie jest wspominane jako istniejąca funkcja — nie istnieje w żadnej formie.
+- [ ] Żaden ekran tej strefy nie jest pokazywany na żywo — nie ma czego pokazać.
+
+Brama końcowa nie jest wymagana — brak demonstracji na żywo dla tej strefy.
+
+**Pitch gap:**
+
+Brak luki blokującej pitch — to zgodne z zamierzeniem strefy jako czystej roadmapy, a skrypt prezentacji nie obiecuje niczego z tego zakresu poza jednym, wąskim przykładem ticketu (już pokrytym w Strefie 11). Jedyne ryzyko jest retoryczne: łatwo przez skrót myślowy powiedzieć „mamy już zwroty" na podstawie realnego systemu ticketów, podczas gdy to co innego.
+
+**Wymagany stan dla pilotażu:** NOT REQUIRED FOR INITIAL CONTROLLED PILOT unless scope changes
+
+### Pilot readiness checklist
+
+Zgodnie ze Strefą 12, żaden z czterech podobszarów nie jest częścią wybranego, trzymiesięcznego, ograniczonego do jednego oddziału pilotażu. Poniższe to wyłącznie przyszły backlog, nie wymagania przed pilotażem:
+
+- [ ] (Przyszłość, nie pilotaż) Jeśli biznes zdecyduje się na jeden wąski proces zwrotu: dedykowana semantyka ruchu (nie nadużyty ruch odwracający), powiązanie z oryginalnym wydaniem/przyjęciem, przyczyna, stan/dyspozycja części, decyzja akceptacji/odrzucenia, realny wpływ na stan, ślad audytowy, dowody (zdjęcia) przez już istniejący generyczny system załączników (Strefa 9), uprawnienia ról, ręczna weryfikacja.
+- [ ] (Przyszłość, nie pilotaż) Jeśli biznes zdecyduje się na wydanie awaryjne: dedykowane uprawnienie, jawne oznaczenie „awaryjne" na dokumencie, potwierdzenie odbiorcy, ślad audytowy — dziś nie ma nawet punktu wyjścia do rozbudowy.
+- [ ] (Przyszłość, nie pilotaż) Jeśli biznes zdecyduje się na Customer Care VGP: to nowy moduł od zera — dziś nie ma żadnego fundamentu technicznego do rozszerzenia, poza ogólną rolą „client" w CRM bez żadnego workflow.
+- [ ] **Zakres pilotażu potwierdzony jako nieobejmujący tej strefy** — jeśli Strefa 12 to zmieni, wymaga to osobnej, szczegółowej analizy wybranego wąskiego procesu, nie całego zakresu tej strefy naraz.
+
+**Pilot gap:**
+
+Nie dotyczy — żaden z czterech podobszarów nie jest częścią zaakceptowanego zakresu pilotażu ze Strefy 12. Nie należy sztucznie włączać ich do zakresu.
+
+### Notes / evidence
+
+- Wydanie awaryjne: zero wyników wyszukiwania w całym repozytorium (kod, nie dokumentacja) dla „emergency"/„awaryjn" oraz pokrewnych terminów w kontekście magazynowym.
+- Zwrot — etykiety bez logiki: starszy, generyczny słownik typów ruchu zawiera kody `103` („Zwrot od klienta") i `203` („Zwrot do dostawcy") — `apps/web/supabase/migrations/20251024043520_enhance_movement_types.sql`, ale są to wyłącznie nazwy wybieralne w generycznym pickerze typu ruchu, bez żadnej dedykowanej logiki, formularza czy walidacji. Aktualny, docelowy schemat (`inventory_movement_headers.movement_kind`, `apps/web/supabase-target/supabase/migrations/20260505091000_inventory_phase1_core.sql:261-263`) ogranicza się do `receipt/issue/transfer/adjustment/opening_balance` — **nie zawiera wartości `return`**.
+- Zwrot — odwracanie ruchu to korekta, nie zwrot: `reverseMovementAction` (`apps/web/src/app/actions/warehouse/inventory/index.ts:1837-1840`) to trwała zaślepka zwracająca błąd „Reversal not available in v1"; realny silnik `inventory_reverse_movement` (baza danych, `20260505092000_inventory_phase1_rpcs.sql:589-790`) poprawnie linkuje `original_movement_id`/`reversal_movement_id`, ale ma zaszyty na sztywno powód `'REVERSAL'` (linia 700), bez taksonomii przyczyn, stanu części czy kroku akceptacji — tylko sprawdzenie uprawnienia i wolny tekst notatki.
+- Reklamacja/gwarancja: brak dedykowanej domeny; jedyne pokrewne pojęcie to wolnotekstowy (nie wymuszony przez bazę) słownik przyczyn wariancji audytu (`count-reason-codes.ts`: damaged/placement_error/theft/supplier_shortage/unexpected_surplus) — to etykieta różnicy inwentaryzacyjnej, nie obiekt reklamacji. Help Desk zasiewa domyślnie wyłącznie 3 typy ticketów (`general_request`/`question`/`task_request`) — brak domyślnego typu „Zwrot"/reklamacja (zgodne z ustaleniem Strefy 11).
+- Stan/dyspozycja części: brak jakiejkolwiek kolumny (uszkodzona/sprawna/do kontroli/zablokowana) na `inventory_balances` czy `inventory_movement_lines` w aktualnym schemacie. Istnieje nieużywany typ ruchu „Zmiana statusu jakości" (kod 411, `affects_stock=0`), ale zero odwołań w kodzie.
+- Customer Care VGP: zero reprezentacji kodowej w całym repozytorium (obie aplikacje) — wyłącznie wzmianki w plikach `docs/mvp/*.md`. Jedyne trafienie w kodzie to komentarz w parserze Matchera wykluczający „VGP" z rozpoznawania numerów (skrót nazwy klienta), niezwiązany z żadną funkcją Customer Care.
+- CRM/dane klienta: rola `'client'` istnieje w ograniczeniu CHECK generycznej tabeli ról CRM (`crm_party_roles`), wybieralna w UI, ale bez żadnego konsumenta poza edycją samego rekordu — brak tabeli historii spraw/interakcji.
+- Odrzucenie gdzie indziej: jedyny realny mechanizm decyzji z powodem w pobliżu tej strefy to odrzucenie transferu międzyoddziałowego (`declineBranchTransfer`, ze strefy magazynowej, nie zwrotów/reklamacji) — nieistotny dla tej strefy poza wykazaniem, że wzorzec „decyzja z powodem" jest gdzieś w kodzie zastosowany, tylko nie tutaj.
+- Klasyfikacja poprzednich ustaleń trackera: „Cel: ROADMAP ONLY... awaryjne pobranie nie występuje w głównej narracji; zwrot/reklamacja to przykłady ticketu" — **CONFIRMED**. Zachowana lista przyszłych wymagań (uprawnienia awaryjne, odbiorca/czas/potwierdzenie, wartość/rotacja zwrotu, akceptacja/odrzucenie/komentarz/raport, numer/link Customer Care, terminy/alarmy/statusy/dowody reklamacji) — **CONFIRMED** jako wciąż aktualny, kompletny opis przyszłej pracy; żadna pozycja nie wymaga korekty ani nie okazała się już częściowo zbudowana.
 
 ### 19. Lakiery, nieroty, procedury, zbiorczy dashboard
 
