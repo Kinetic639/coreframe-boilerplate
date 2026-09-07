@@ -1,435 +1,323 @@
-# Ambra — Presentation Readiness Progress Tracker
+# Ambra — gotowość do prezentacji i kontrolowanego pilotażu
 
-## Cel dokumentu
+Audyt repozytorium: **7 września 2026**. Produkt: **wyłącznie `apps/web`**. Źródło zakresu: [skrypt prezentacji](ambra-skrypt-prezentacji.md). Dowody i ograniczenia: [audyt implementacji](mvp-readiness-audit.md).
 
-Dokument służy do śledzenia gotowości Ambry przed prezentacją i pilotażem. Każdy z 19 obszarów można uznać za ukończony dopiero wtedy, gdy wszystkie kryteria są odhaczone, proces działa od początku do końca, dane są trwale zapisywane, uprawnienia zostały zweryfikowane, testy przechodzą, a funkcja została ręcznie sprawdzona na realistycznym scenariuszu oddziału.
+**Pełny scenariusz ze skryptu nie jest jeszcze gotowy.** Istnieją rzeczywiste fundamenty, zapis sesji Matchera i operacje magazynowe, ale nie ma potwierdzonego ciągłego procesu sesja → mobilne rozłożenie → zlecenie/lokalizacja → wydanie → podpisany dokument. Najpierw domknąć tę ścieżkę; nie kończyć całej Ambry.
 
----
+## Priorytety — od czego zacząć
 
-# Główny progress tracker
+Stan wymagany to **cel przed prezentacją**, nie ocena obecnej implementacji. Numery wskazują sekcje poniżej, nie dawne identyfikatory checklisty.
 
-## 1. Etykiety QR i lokalizacje
+| Priorytet | Obszar                                                                     | Wymagany stan                     | Dlaczego ma znaczenie                                                     |
+| --------- | -------------------------------------------------------------------------- | --------------------------------- | ------------------------------------------------------------------------- |
+| P0        | 1. Logowanie, organizacja, aktywny oddział, autoryzacja i RLS ścieżki demo | FULLY READY w zakresie demo       | Każdy następny krok zależy od właściwego dostępu i danych                 |
+| P0        | 2. Publiczny Matcher                                                       | DEMO READY                        | Pierwszy pokaz na tych samych dokumentach; zależność zewnętrzna wobec web |
+| P0        | 3. Matcher zalogowany, trwałość sesji i przekazanie do przyjęcia           | DEMO READY                        | Przejście od narzędzia do procesu                                         |
+| P0        | 4. Minimalny katalog części i widok zlecenia                               | DEMO READY                        | Tożsamość części i zleceń spina przyjęcie, szukanie i wydanie             |
+| P0        | 5. Lokalizacje, QR i etykiety części/zestawów                              | DEMO READY                        | Warunek fizycznego pokazu na telefonie                                    |
+| P0        | 6. Przyjęcie, mobilne rozłożenie, zamknięcie i raport                      | DEMO READY                        | Centralna demonstracja w §7 skryptu                                       |
+| P0        | 7. Szukanie, zawartość lokalizacji, ruch części/zestawu, historia          | DEMO READY                        | Obiecana codzienna praca w §9                                             |
+| P0        | 8. Zwykłe wydanie części                                                   | DEMO READY                        | Domknięcie cyklu części, §10–11                                           |
+| P0        | 9. Zdjęcie podpisanego wydania i ponowne otwarcie                          | DEMO READY                        | Konkretna wartość dodatkowego potwierdzenia                               |
+| P1        | 10. Użytkownicy, zaproszenia, członkostwa, administracja rolami            | DEMO READY                        | Wiarygodne, krótkie wyjaśnienie fundamentów w §5                          |
+| P1        | 11. Tickety: komunikacja, prosta akceptacja, problemowa część z QR         | DEMO READY                        | Drugi, krótki pokaz w §12–13                                              |
+| P1        | 12. Początkowy magazyn i propozycja pilotażu                               | DEMO READY (materiał i procedura) | Ograniczenia i decyzja biznesowa w §8, §16–23                             |
+| P2        | 13. Zadania jednorazowe, kalendarz i Kanban                                | PARTIALLY READY                   | §14 zapowiada kierunek, bez kolejnego dużego demo                         |
+| P3        | 14. Cykliczność i powiadomienia operacyjne                                 | ROADMAP ONLY                      | Zapowiedź, nie obietnica działającej automatyzacji                        |
+| P3        | 15. Materiały, dostawcy, audyty i wsparcie zamawiania                      | ROADMAP ONLY                      | Są elementy backendu; §15 nie wymaga ich ukończenia                       |
+| P3        | 16. VMI i dalsze procesy magazynowe                                        | ROADMAP ONLY                      | Kierunek po wynikach pilotażu                                             |
+| P4        | 17. Szerokie importy historyczne i integracja DMS                          | ROADMAP ONLY                      | Skrypt dopuszcza naturalną rotację; DMS pozostaje źródłem                 |
+| P4        | 18. Awaryjne pobrania i rozbudowane procesy zwrotów/reklamacji             | ROADMAP ONLY                      | Wykraczają poza zwykłe wydanie i jeden ticket                             |
+| P4        | 19. Lakiery, nieroty, procedury i zbiorczy dashboard operacyjny            | ROADMAP ONLY                      | Brak wymogu w aktualnym pokazie                                           |
 
-- [ ] Istnieje pełna struktura lokalizacji (1)
-- [ ] Lokalizacje mają spójne nazwy i unikalne kody (2)
-- [ ] Każda lokalizacja ma kod QR (3)
-- [ ] Można generować i drukować etykiety seryjnie (4)
-- [x] Etykieta zawiera nazwę, kod i QR (5)
-- [x] Kod można zeskanować telefonem (6)
-- [x] Skanowanie otwiera widok lokalizacji (7)
-- [ ] Można wyświetlić zawartość lokalizacji (8)
-- [ ] Można rozpocząć ruch i audyt ze skanu (9)
-- [ ] Można oznaczać kontenery, zwroty, reklamacje i części problemowe (10)
-- [x] Test druku i skanowania przechodzi (11)
-- [ ] **OBSZAR GOTOWY DO PREZENTACJI** (12)
+### MUST FINISH BEFORE PITCH
 
-**Weryfikacja MVP — 6 sierpnia 2026:** ręcznie sprawdzono utworzenie lokalizacji w pustym oddziale, wygenerowanie i przypisanie kodu QR, poprawne wygenerowanie etykiety oraz skanowanie kodu telefonem. Skan wykonany bez aktywnej sesji poprawnie przekierował do logowania, a po zalogowaniu użytkownik został przeniesiony bezpośrednio do zeskanowanej lokalizacji. Usunięto również wyświetlanie danych demonstracyjnych dla oddziału bez lokalizacji. Test API etykiet QR przechodzi: 20/20.
+- Jedna trwała dostawa z dokumentów Matchera, z identyfikacją zleceń/części, możliwa do wznowienia po odświeżeniu i na telefonie.
+- Etykiety i skany części/zestawu oraz lokalizacji; rozłożenie kilku pozycji, kontrola braków, zamknięcie i raport faktycznych lokalizacji.
+- Odnalezienie tych samych części, przeniesienie części i zestawu, wydanie oraz ponowne otwarcie zdjęcia podpisanego dokumentu.
+- Dostęp demonstratora, właściwy oddział, odmowy niedozwolonych operacji, brak fikcyjnych sukcesów; publiczny Matcher i pełna próba P0.
 
-## 2. Komunikacja doradca–części
+### SHOULD FINISH BEFORE PITCH
 
-- [ ] Istnieje wspólna kolejka ticketów (13)
-- [ ] Ticket ma typ, priorytet, status i termin (14)
-- [ ] Ticket może mieć numer zlecenia (15)
-- [ ] Ticket ma osobę zgłaszającą i przypisanych wykonawców (16)
-- [ ] Ticket ma komentarze i historię aktywności (17)
-- [ ] Ticket może wymagać akceptacji (18)
-- [ ] Istnieje lista uprawnionych akceptantów (19)
-- [ ] Istnieje widok „oczekuje na moje działanie” (20)
-- [ ] Istnieją kolejki według zespołu (21)
-- [ ] Doradca ma prosty formularz tworzenia ticketu (22)
-- [ ] Częściowcy widzą wszystkie tickety skierowane do zespołu (23)
-- [ ] Powiadomienia o komentarzach i zmianie statusu działają (24)
-- [ ] Gotowe są typy: domówienie części, termin, zwrot, reklamacja, wydanie, brak części, decyzja kierownika (154)
-- [ ] Test E2E pełnego procesu ticketu przechodzi (155)
-- [ ] **OBSZAR GOTOWY DO PREZENTACJI** (156)
+- Wąski pokaz ticketu: zgłoszenie → odpowiedź → akceptacja → historia; QR otwierający opisany problem.
+- Krótka prezentacja użytkowników, zaproszeń i ról; przygotowane konta zamiast długiego onboardingu na żywo.
+- Materiał o stanie początkowym, trzech miesiącach pilotażu, odpowiedzialności, budżecie i kryteriach powodzenia.
 
-## 3. Przyjmowanie dokumentów dostawy
+### CAN REMAIN PARTIAL
 
-- [ ] Import wszystkich wymaganych dokumentów działa (25)
-- [ ] Parser poprawnie odczytuje numery WDD (26)
-- [ ] Parser poprawnie odczytuje numery zleceń (27)
-- [ ] Dopasowanie dokumentów działa automatycznie (28)
-- [ ] Niedopasowane pozycje są wyraźnie oznaczone (29)
-- [ ] Użytkownik może poprawić błędne dopasowanie (30)
-- [ ] Historia przetworzenia dokumentu jest zapisywana (31)
-- [ ] Wynik może przejść bezpośrednio do procesu rozlokowania (219)
-- [ ] Obsłużone są duplikaty i ponowne przesłanie pliku (32)
-- [ ] Testy parsera i dopasowania przechodzą (33)
-- [ ] Proces został sprawdzony na realnych dokumentach (34)
-- [ ] **OBSZAR GOTOWY DO PREZENTACJI** (220)
+- Zadania, kalendarz i Kanban: istniejący, stabilny przykład albo sama wzmianka.
+- Zaawansowany katalog, zlecenia, kontenery, wyszukiwanie i tickety poza dokładnym scenariuszem P0/P1. Nieukończone warianty nie blokują sprawdzonej ścieżki.
 
-## 4. Import danych z AutoStacji
+### DO NOT SPEND TIME ON BEFORE PITCH
 
-- [ ] Zdefiniowano minimalny zakres importowanych danych (35)
-- [ ] Import numerów zleceń działa (36)
-- [ ] Import wcześniejszych zamówień i list części działa (37)
-- [ ] Import wolnych części działa (38)
-- [ ] Import materiałów działa (39)
-- [ ] Import raportu nierotów działa (40)
-- [ ] Import danych inwentaryzacyjnych działa (41)
-- [ ] Import wykrywa duplikaty i błędne wiersze (42)
-- [ ] Import nie pozostawia częściowych danych po błędzie (43)
-- [ ] Import ma podgląd przed zatwierdzeniem (44)
-- [ ] Import zapisuje historię (45)
-- [ ] Import można bezpiecznie poprawić lub cofnąć (46)
-- [ ] Proces nie wymaga podwójnej pracy (47)
-- [ ] Import nie kopiuje całej logiki AutoStacji (48)
-- [ ] Testy importów i E2E przechodzą (49)
-- [ ] **OBSZAR GOTOWY DO PREZENTACJI** (50)
+- Generator zadań cyklicznych, pełny system powiadomień, VMI, rozbudowa materiałów/audytów/zamawiania.
+- Pełna migracja AutoStacji, nieroty, lakiery, procedury, awaryjne pobrania, Customer Care VGP i pełny dashboard.
+- Pełne pokrycie testami wszystkich modułów, rozbudowana analityka i hardening całej produkcji. Ochrona danych demo pozostaje P0; wymagania pilotażu zachowano na końcu.
 
-## 5. Minimalne zlecenie warsztatowe
+## Zasady odhaczania
 
-- [ ] Istnieje encja zlecenia (80)
-- [ ] Zlecenie ma numer z AutoStacji (81)
-- [ ] Numer jest unikalny w odpowiednim zakresie (82)
-- [ ] Zlecenie może mieć części i wcześniejsze zamówienia (83)
-- [ ] Zlecenie może mieć lokalizacje i kontenery (187)
-- [ ] Zlecenie może mieć wydania i tickety (254)
-- [ ] Zlecenie może mieć reklamacje i zwroty (157)
-- [ ] Zlecenie może mieć załączniki (84)
-- [ ] Zlecenie ma historię i oś czasu (85)
-- [ ] Zlecenie nie duplikuje całej logiki AutoStacji (86)
-- [ ] Import numeru zlecenia działa (87)
-- [ ] Uprawnienia i RLS zostały zweryfikowane (88)
-- [ ] Test E2E widoku zlecenia przechodzi (255)
-- [ ] **OBSZAR GOTOWY DO PREZENTACJI** (256)
+- **P0 — PITCH BLOCKER:** awaria przerywa główną historię. **P1 — HIGH VALUE FOR PITCH:** bezpośrednio wzmacnia pokaz. **P2 — PARTIAL IMPLEMENTATION IS ENOUGH:** wystarcza wąski, prawdziwy przykład. **P3 — MENTION / ROADMAP ONLY:** bez istotnych prac przed spotkaniem. **P4 — DEFER:** odłożyć poza przygotowania.
+- **FULLY READY:** end-to-end, trwałe dane, sprawdzone uprawnienia, happy path i główne błędy, brak mocków, ręczna próba. Tutaj dotyczy dostępu i bezpieczeństwa używanej ścieżki, nie całego IAM.
+- **DEMO READY:** dokładny scenariusz działa na rzeczywistym backendzie i trwałych danych; szersze przypadki mogą pozostać otwarte. Nadal wymagane są sprawdzenie dostępu, test happy path/głównych błędów i próba ręczna.
+- **PARTIALLY READY:** można uczciwie wspomnieć lub krótko pokazać część funkcji. **ROADMAP ONLY:** nie kończyć na potrzeby pitchu, nawet jeżeli część kodu już istnieje.
+- `[x]` oznacza wyłącznie opisany dowód. Dawna próba ręczna nie jest świeżą certyfikacją wdrożenia. Nie odhaczamy obszaru na podstawie strony, migracji, testu z mockami ani wcześniejszego `[x]`.
+- Przy zamknięciu P0/P1 zapisać wersję aplikacji, środowisko, datę, konta/role, scenariusz, wynik i dowód. Żaden obszar nie otrzymał w tym audycie nowego statusu „gotowy”.
 
-## 6. Kontenery i jednostki kompletacyjne
+## Kolejność zależności i pracy
 
-- [ ] Istnieje encja kontenera (158)
-- [ ] Kontener ma własny kod QR (159)
-- [ ] Kontener może być przypisany do zlecenia (160)
-- [ ] Kontener ma listę części i aktualną lokalizację (161)
-- [ ] Kontener ma historię lokalizacji i status (162)
-- [ ] Kontener może zostać przeniesiony przez skanowanie (163)
-- [ ] Kontener może zostać wydany częściowo (164)
-- [ ] Jedno zlecenie może mieć wiele kontenerów (165)
-- [ ] Części można przenosić między kontenerami (166)
-- [ ] System wykrywa pusty kontener i części bez kontenera (167)
-- [ ] Operacje trafiają do audit logu (168)
-- [ ] Uprawnienia do przenoszenia są zweryfikowane (169)
-- [ ] Test E2E kontenera przechodzi (170)
-- [ ] **OBSZAR GOTOWY DO PREZENTACJI** (171)
+**1 → 3 → 4 → 5 → 6 → 7 → 8 → 9** to ścieżka wewnątrz web. **2** przygotować jako osobne wejście do historii. Kolejność wystąpienia pozostaje zgodna ze skryptem; kolejność pracy wynika z zależności i braków.
 
-## 7. Rozkładanie dostawy na magazynie
+Pierwszy zakres wykonawczy po audycie: zweryfikować środowisko/oddział, następnie domknąć **3 + minimalne 4 + 6**, korzystając z istniejących ruchów. Uwzględnić brakujące cele QR z **5**. Potem **7 → 8 → 9**, na końcu **10–12**. Nie rozbudowywać administracji ani katalogu przed sprawdzeniem tego przejścia.
 
-- [ ] Dostawa jest powiązana z numerami zleceń (188)
-- [ ] System zna listę części w dostawie (189)
-- [ ] Użytkownik może utworzyć lub wybrać kontener (190)
-- [ ] Użytkownik może przypisać części do kontenera (191)
-- [ ] Kontener może zostać zeskanowany kodem QR (192)
-- [ ] Lokalizacja może zostać zeskanowana kodem QR (193)
-- [ ] System zapisuje zlecenie, część, kontener i lokalizację (194)
-- [ ] System zapisuje użytkownika, datę i godzinę operacji (195)
-- [ ] Proces działa z telefonu (196)
-- [ ] System wykrywa części bez lokalizacji (197)
-- [ ] Nie można zakończyć rozkładania z brakującymi lokalizacjami (198)
-- [ ] Można poprawić błędne przypisanie (199)
-- [ ] Można rozdzielić jedno zlecenie na wiele kontenerów (200)
-- [ ] Historia zmian jest widoczna (201)
-- [ ] Test E2E całego procesu przechodzi (202)
-- [ ] Proces został sprawdzony na realistycznej dostawie (203)
-- [ ] **OBSZAR GOTOWY DO PREZENTACJI** (204)
+## P0 — główny pokaz
 
-## 8. Wyszukiwanie części i zleceń
+### 1. Logowanie, organizacja, aktywny oddział, autoryzacja i RLS
 
-- [ ] Wyszukiwanie działa po numerze zlecenia (221)
-- [ ] Wyszukiwanie działa po SKU (222)
-- [ ] Wyszukiwanie działa po numerze katalogowym (223)
-- [ ] Wyszukiwanie działa po nazwie części (224)
-- [ ] Wyszukiwanie działa po lokalizacji (225)
-- [ ] Wyszukiwanie działa po kontenerze (226)
-- [ ] Wyszukiwanie działa po kodzie QR (227)
-- [ ] Widok zlecenia pokazuje wszystkie części (228)
-- [ ] Widok zlecenia pokazuje status dostawy (229)
-- [ ] Widok zlecenia pokazuje kontenery i lokalizacje (230)
-- [ ] Widok zlecenia pokazuje historię przeniesień (231)
-- [ ] Widok zlecenia pokazuje wydania (232)
-- [ ] Widok zlecenia pokazuje pozycje bez lokalizacji (233)
-- [ ] Widok zlecenia pokazuje wydania częściowe (234)
-- [ ] Wyniki wyszukiwania są szybkie i czytelne (235)
-- [ ] Uprawnienia do podglądu zostały zweryfikowane (236)
-- [ ] Testy E2E wyszukiwania przechodzą (237)
-- [ ] **OBSZAR GOTOWY DO PREZENTACJI** (238)
+**Cel: FULLY READY w zakresie kont i danych demo. Skrypt: §5–7. Dowód: A1.** Są prawdziwe uwierzytelnienie, kontekst organizacji/oddziału, kompilowane uprawnienia, guardy i polityki. Ich istnienie nie dowodzi izolacji wdrożenia. Są osobne drzewa migracji legacy/target; używane środowisko wymaga potwierdzenia.
 
-## 9. Pobranie części bez wiedzy działu części
+- [ ] Logowanie na komputerze i telefonie, wygaśnięcie sesji oraz powrót z QR prowadzą do właściwego obiektu.
+- [ ] Aktywny oddział jest widoczny i trwały; zmiana odświeża dane i uprawnienia, bez wyników poprzedniego kontekstu.
+- [ ] Użytkownik demo ma potrzebne moduły/uprawnienia; brak modułu, roli lub oddziału daje czytelną odmowę.
+- [ ] Na kontach testowych sprawdzono odczyt/zapis obcej organizacji i niedozwolonego oddziału przez akcję/API i bezpośrednio przez bazę z JWT użytkownika.
+- [ ] Ustalono zakres tabel: organizacyjny nie znaczy ograniczony do aktywnego oddziału. Szczególnie sprawdzić sesje Matchera, ruchy, QR i załączniki.
+- [ ] Potwierdzono zgodność wdrożonego schematu z kodem demo, dostęp do Storage oraz brak service role w kliencie.
+- [ ] **GATE 1:** pozytywny i negatywny scenariusz dostępu zapisany, bez nierozwiązanych błędów ujawniających lub uszkadzających dane demo.
 
-- [ ] Istnieje szybki tryb awaryjnego wydania (205)
-- [ ] Można zeskanować zlecenie lub kontener (206)
-- [ ] Można wskazać osobę pobierającą (207)
-- [ ] Można wybrać pobierane części (208)
-- [ ] System zapisuje datę i godzinę pobrania (209)
-- [ ] System aktualizuje status lokalizacji i kontenera (210)
-- [ ] Można dodać zdjęcie dokumentu (211)
-- [ ] Można dodać podpis lub potwierdzenie odbioru (212)
-- [ ] Operacja trafia do historii (213)
-- [ ] Wydanie można później odnaleźć (214)
-- [ ] Uprawnienia do awaryjnego pobrania są ograniczone (215)
-- [ ] Test E2E awaryjnego wydania przechodzi (216)
-- [ ] **OBSZAR GOTOWY DO PREZENTACJI** (217)
+### 2. Publiczny SVWMS Matcher
 
-## 10. Papierowe wydania
+**Cel: DEMO READY. Skrypt: §2–4. Dowód: A2.** Web przekierowuje publiczne adresy do witryny marketingowej; implementacji poza web nie audytowano. To zależność prezentacyjna, nie powód do audytu innej aplikacji.
 
-- [ ] Istnieje cyfrowe archiwum wydań (239)
-- [ ] Wydanie ma numer zlecenia, datę i odbiorcę (240)
-- [ ] Wydanie zawiera listę pozycji (241)
-- [ ] Można dodać zdjęcie podpisanego dokumentu (242)
-- [ ] Można dodać komentarz (243)
-- [ ] Wydanie ma historię zmian (244)
-- [ ] Obsługiwane są wydania częściowe (245)
-- [ ] Obsługiwane są wielokrotne wydania do jednego zlecenia (246)
-- [ ] Można wyszukiwać po zleceniu, części i odbiorcy (247)
-- [ ] Dokument można otworzyć w kilka sekund (248)
-- [ ] Retencja i dostęp do załączników są zabezpieczone (249)
-- [ ] Test E2E archiwum wydań przechodzi (250)
-- [ ] **OBSZAR GOTOWY DO PREZENTACJI** (251)
+- [ ] Przygotowano właściwy adres i wydruki odpowiadające zanonimizowanym plikom demo.
+- [ ] W docelowym publicznym narzędziu bez logowania sprawdzono upload, matching, niedopasowania i wynik dla tych plików.
+- [ ] Potwierdzono stwierdzenie „nie zapisuje sesji” w działającym narzędziu; nie wnioskować z kodu zalogowanego Matchera.
+- [ ] Autor potwierdził informację o używaniu od kwietnia; repo nie dowodzi tej historii.
+- [ ] Przygotowano wynik/nagranie zapasowe z jasno opisanym pochodzeniem.
+- [ ] **GATE 2:** próba otwarcia, matching i wynik w środowisku prezentacji.
 
-## 11. Zwroty wymagające zgody kierownika
+### 3. Matcher zalogowany → trwała sesja → przyjęcie
 
-- [ ] Istnieje typ ticketu „Zwrot” (89)
-- [ ] Ticket zawiera część, numer zlecenia i powód (90)
-- [ ] Ticket może zawierać wartość i informację o rotacji (91)
-- [ ] Ticket obsługuje zdjęcia i załączniki (92)
-- [ ] Ticket ma fizyczną lokalizację oczekiwania (93)
-- [ ] Ticket wymaga akceptacji kierownika (94)
-- [ ] Kierownik może zaakceptować, odrzucić i skomentować (95)
-- [ ] Decyzja jest zapisywana w historii (96)
-- [ ] Ticket ma termin dalszego działania (97)
-- [ ] System może wydrukować etykietę QR (98)
-- [ ] Etykietę można przypisać do części (99)
-- [ ] Lokalizację można przypisać przez skanowanie (100)
-- [ ] Istnieje raport otwartych zwrotów (101)
-- [ ] Test E2E procesu zwrotu przechodzi (102)
-- [ ] **OBSZAR GOTOWY DO PREZENTACJI** (103)
+**Cel: DEMO READY. Skrypt: §6–7. Dowód: A3.** Sesje, pliki, bloki, linie i dopasowania są zapisywane. Import typu `101` wybiera sesję z edytora ruchu. Test granicy modułów celowo wyklucza przyciski importu w wynikach Matchera. To częściowe połączenie, nie gotowa sesja fizycznego rozłożenia.
 
-## 12. Reklamacje Customer Care VGP
+- [ ] Te same pliki tworzą sesję we właściwym oddziale; WDD/zlecenia, SKU i ilości odpowiadają dokumentom.
+- [ ] Błędny PDF, niedopasowanie i błąd zapisu są widoczne; podgląd w pamięci nie udaje udanego zapisu w tle.
+- [ ] Odświeżenie i drugie urządzenie odtwarzają te same dane, status i identyfikator po zakończeniu zapisu.
+- [ ] Rzeczywista nawigacja do przyjęcia zachowuje dane bez przepisywania; brakujące produkty/jednostki można rozstrzygnąć przed zatwierdzeniem.
+- [ ] Ponowienie zapisu/importu nie dubluje fizycznego przyjęcia; błąd pośredni nie pozostawia pozornie zakończonego procesu.
+- [ ] Jest trwałe powiązanie wyniku Matchera, przyjęcia i postępu rozkładania. Status `approved` Matchera nie oznacza „rozłożono”.
+- [ ] **GATE 3:** dokumenty → zapis → ponowne otwarcie → dane gotowe do 6, z testem integracji i próbą ręczną.
 
-- [ ] Istnieje typ ticketu „Reklamacja VGP” (104)
-- [ ] Ticket zawiera link do Customer Care (105)
-- [ ] Ticket zawiera numer reklamacji, część i numer zlecenia (106)
-- [ ] Ticket ma datę założenia i osobę prowadzącą (107)
-- [ ] Ticket ma status wewnętrzny (108)
-- [ ] Ticket ma termin następnej kontroli i odesłania (109)
-- [ ] Działają przypomnienia i ostrzeżenia terminowe (110)
-- [ ] Można dodawać zdjęcia i załączniki (111)
-- [ ] Istnieje widok otwartych reklamacji (112)
-- [ ] Istnieje widok reklamacji wymagających działania (113)
-- [ ] Istnieje widok reklamacji zagrożonych terminem (114)
-- [ ] Zakończenie reklamacji jest zapisywane w historii (115)
-- [ ] Test E2E procesu reklamacji przechodzi (116)
-- [ ] **OBSZAR GOTOWY DO PREZENTACJI** (117)
+### 4. Minimalny katalog części i proste zlecenia
 
-## 13. Powtarzalne zadania
+**Cel: DEMO READY. Skrypt: §5, §7, §9–11. Dowód: A4.** Katalog produktów/wariantów, jednostki i stany są rzeczywiste. Numery zleceń z Matchera są przenoszone w kontekście importu/notatkach pozycji. Workshop to „coming soon”; nie potwierdzono osobnej encji i pełnego widoku zlecenie → części → lokalizacje.
 
-- [ ] Zadanie może mieć regułę powtarzalności (51)
-- [ ] Obsługiwane są cykle dzienne, tygodniowe i miesięczne (52)
-- [ ] Można wskazać dzień tygodnia (53)
-- [ ] Można wskazać datę rozpoczęcia i zakończenia (54)
-- [ ] Można wskazać domyślnego wykonawcę (55)
-- [ ] Zadanie można przypisać ręcznie przed wykonaniem (56)
-- [ ] Generowane są kolejne wystąpienia (57)
-- [ ] Działają przypomnienia (58)
-- [ ] Każde wystąpienie ma własny status (59)
-- [ ] Istnieje historia wykonania serii (60)
-- [ ] Można edytować jedno wystąpienie lub całą serię (61)
-- [ ] Można pominąć jedno wystąpienie (62)
-- [ ] Zadanie może być powiązane z audytem lub ticketem (63)
-- [ ] Testy reguł cykliczności przechodzą (64)
-- [ ] Test E2E zadania cyklicznego przechodzi (65)
-- [ ] **OBSZAR GOTOWY DO PREZENTACJI** (66)
+- [ ] Kilka części demo ma trwałą tożsamość, SKU/numer katalogowy, nazwę i jednostkę; import nie tworzy ich duplikatów.
+- [ ] Minimalny widok zlecenia pokazuje numer DMS, części, ilości i rzeczywiste lokalizacje, także przy dwóch lokalizacjach.
+- [ ] Numer identyfikuje zlecenie w ustalonym zakresie; tekst w notatce nie jest prezentowany jako relacja bazodanowa.
+- [ ] Jedna część wolna działa bez zlecenia; można ją znaleźć i wydać.
+- [ ] Powiązania pozostają prawidłowe po przyjęciu, przeniesieniu, wydaniu i odświeżeniu.
+- [ ] **GATE 4:** od numeru zlecenia do części/lokalizacji bez ręcznego szukania po notatkach.
 
-## 14. Materiały zużywalne
+Poza pitchem: pojazdy, naprawy, rozliczenia, pełne zamówienia, reklamacje i załączniki na poziomie zlecenia. Nie budować kopii AutoStacji.
 
-- [ ] Istnieje kompletny katalog materiałów (118)
-- [ ] Materiał ma dostawcę, lokalizację i kod (119)
-- [ ] Materiał ma stan minimalny, docelowy i punkt zamówienia (120)
-- [ ] Materiał ma sugerowaną ilość zamówienia (121)
-- [ ] Audyt według dostawcy działa (122)
-- [ ] Audyt według lokalizacji działa (123)
-- [ ] Audyt można wykonać mobilnie i skanerem (124)
-- [ ] Audyt zapisuje różnice i notatki (125)
-- [ ] System generuje listę zamówień według dostawcy (126)
-- [ ] Sugestię można zaakceptować lub odrzucić (127)
-- [ ] Historia audytów i zamówień jest dostępna (128)
-- [ ] Można planować cykliczne audyty (129)
-- [ ] Można masowo importować materiały (130)
-- [ ] Można masowo przypisywać dostawców i lokalizacje (131)
-- [ ] Można masowo ustawiać reguły zamawiania (132)
-- [ ] Test E2E audytu i listy zamówień przechodzi (133)
-- [ ] **OBSZAR GOTOWY DO PREZENTACJI** (134)
+### 5. Lokalizacje, QR, etykiety i identyfikacja części/zestawów
 
-## 15. Lakiery
+**Cel: DEMO READY. Skrypt: §5, §7, §9. Dowód: A5.** Lokalizacje i etykiety mają rzeczywisty backend. Rejestr QR obsługuje lokalizację, ticket i zadanie; nie obsługuje części ani kontenera. Generator grafiki QR nie zamyka tej luki.
 
-- [ ] Lista lakierów jest zaimportowana (172)
-- [ ] Lakiery mają lokalizacje i reguły stanów (173)
-- [ ] Istnieje cotygodniowe zadanie kontroli (174)
-- [ ] Istnieje comiesięczne zadanie inwentaryzacji (175)
-- [ ] Audyt lakierów działa (176)
-- [ ] Różnice i wyniki są zapisywane (177)
-- [ ] System generuje raport i sugestie zamówień (178)
-- [ ] Wykonanie zadania można potwierdzić (179)
-- [ ] Historia miesięcznych wyników jest dostępna (180)
-- [ ] Zadanie jest powiązane z kalendarzem i wykonawcą (181)
-- [ ] Test E2E procesu lakierów przechodzi (182)
-- [ ] **OBSZAR GOTOWY DO PREZENTACJI** (183)
+- [ ] Mały zestaw lokalizacji oddziału ma unikalne kody, spójne nazwy i poprawne przeznaczenie do składowania.
+- [x] Etykieta lokalizacji ma nazwę, kod i QR — potwierdzone statycznie w generatorze/kontekście etykiety oraz historyczną próbą.
+- [x] Telefon zeskanował etykietę — **historyczna próba ręczna 2026-08-06**, nie powtórzona w audycie.
+- [x] Skan bez sesji poprowadził przez logowanie do lokalizacji — **historyczna próba 2026-08-06**; resolver nadal wskazuje lokalizację.
+- [x] Druk i skan sprawdzono — **historyczna próba 2026-08-06**, tylko scenariusz lokalizacji, nie cała infrastruktura QR.
+- [ ] Wydrukowano potrzebną serię etykiet w docelowym rozmiarze; każdy kod prowadzi do poprawnego rekordu na telefonie prezentacyjnym.
+- [ ] Część i zestaw mają obsługiwany trwały cel QR i odpowiedni widok; nie zastępuje go tekst bez powiązania.
+- [ ] QR obcego oddziału, nieprzypisany, odwołany/usunięty nie kieruje do niewłaściwej operacji.
+- [ ] **GATE 5:** świeży druk/skan lokalizacji i części/zestawu na właściwym środowisku, z obsługą odmowy kamery.
 
-## 16. Części nierotujące
+**Zachowana notatka z 6 sierpnia 2026:** ręcznie utworzono lokalizację w pustym oddziale, wygenerowano i przypisano QR, wygenerowano etykietę i zeskanowano telefonem. Po logowaniu powrót do lokalizacji zadziałał. Odnotowano usunięcie danych demonstracyjnych z pustego oddziału oraz wynik API etykiet **20/20**. Obecny kod ładuje lokalizacje z backendu; próba pustego oddziału i wynik 20/20 nie zostały tutaj odtworzone. Test API mockuje zależności i nie dowodzi fizycznego druku.
 
-- [ ] Można importować raport nierotów (135)
-- [ ] Import waliduje dane (136)
-- [ ] Część ma liczbę dni bez rotacji, wartość i lokalizację (137)
-- [ ] Część ma status procesu i osobę prowadzącą (138)
-- [ ] Można zapisać rotację na innych oddziałach (139)
-- [ ] Można wskazać sugerowany oddział (140)
-- [ ] Można zapisać kontakt, rezultat i termin kolejnego działania (141)
-- [ ] Istnieje historia kontaktów (142)
-- [ ] Istnieje filtrowanie po dniach, wartości i statusie (143)
-- [ ] Istnieje raport zmniejszenia nierotów (144)
-- [ ] Istnieje raport wartości objętej działaniem (145)
-- [ ] Proces działa dla wielu oddziałów (146)
-- [ ] Test E2E procesu nierotów przechodzi (147)
-- [ ] **OBSZAR GOTOWY DO PREZENTACJI** (148)
+Nie blokują pitchu: oznaczenie wszystkich obiektów, zaawansowane szablony, uruchamianie audytu ze skanu.
 
-## 17. Procedury i wiedza operacyjna
+### 6. Przyjęcie i mobilne rozłożenie → zamknięcie → raport
 
-- [ ] Istnieje baza procedur (67)
-- [ ] Procedura ma instrukcję krok po kroku (68)
-- [ ] Procedura ma wymagane dane i odpowiedzialną rolę (69)
-- [ ] Procedura może mieć checklistę i załączniki (70)
-- [ ] Procedura ma wersje i historię zmian (71)
-- [ ] Użytkownik może potwierdzić zapoznanie (72)
-- [ ] Ticket i zadanie mogą linkować do procedury (73)
-- [ ] Procedury można wyszukiwać (74)
-- [ ] Procedurę można kopiować między oddziałami (75)
-- [ ] Istnieje tryb szkoleniowy (76)
-- [ ] Uprawnienia do edycji są ograniczone (77)
-- [ ] Test E2E publikacji i użycia procedury przechodzi (78)
-- [ ] **OBSZAR GOTOWY DO PREZENTACJI** (79)
+**Cel: DEMO READY. Skrypt: §7. Dowód: A6.** Ogólny silnik ruchów przyjmuje i księguje dane. `/warehouse/deliveries` i `/warehouse/scanning/delivery` są placeholderami. Reguły odkładania/tabele kontenerów nie są kompletnym workflow dostawy.
 
-## 18. Dashboard operacyjny
+- [ ] Sesja z 3 pokazuje zlecenia, części, grupowanie oraz pozycje oczekujące i rozłożone.
+- [ ] Zestaw i oznaczenia mają trwałe dane; oczekiwane części są odróżnione od fizycznie potwierdzonego stanu.
+- [ ] Telefon: **skan części/zestawu → skan lokalizacji → potwierdzenie** zapisuje ilość, lokalizację, użytkownika i czas.
+- [ ] Wykonano kilka pozycji; komputer i telefon pokazują ten sam postęp po odświeżeniu/wznowieniu.
+- [ ] Błędny skan, zły oddział, ponowny tap i przerwany zapis nie powodują podwójnego ruchu ani fałszywego sukcesu.
+- [ ] Można poprawić błędne odłożenie z historią; nie można ogłosić pełnego zakończenia, jeśli wymagane pozycje nie mają lokalizacji. Wyjątek/brak pozostaje jawny.
+- [ ] Zamknięcie i raport korzystają z zapisanych lokalizacji, nie tylko odczytanych z PDF.
+- [ ] Raport daje dane do ręcznej aktualizacji AutoStacji; nie udaje automatycznej integracji DMS.
+- [ ] **GATE 6:** mała dostawa z 3 rozłożona na telefonie, zamknięta i wyeksportowana; test happy path i głównych błędów.
 
-- [ ] Dashboard pokazuje nowe i pilne tickety (149)
-- [ ] Dashboard pokazuje oczekujące akceptacje (150)
-- [ ] Dashboard pokazuje reklamacje z terminem (184)
-- [ ] Dashboard pokazuje zadania na dziś i zaległe (151)
-- [ ] Dashboard pokazuje części bez lokalizacji (252)
-- [ ] Dashboard pokazuje dostawy do rozłożenia (253)
-- [ ] Dashboard pokazuje zlecenia niekompletne (257)
-- [ ] Dashboard pokazuje materiały poniżej minimum (185)
-- [ ] Dashboard pokazuje ostatnie audyty (218)
-- [ ] Dashboard pokazuje nieroty wymagające działania (186)
-- [ ] Istnieje widok osobisty i zespołowy (152)
-- [ ] Istnieje filtrowanie według oddziału (153)
-- [ ] Każda karta prowadzi do konkretnego działania (258)
-- [ ] Dane odświeżają się poprawnie (259)
-- [ ] Dashboard działa szybko i respektuje uprawnienia (260)
-- [ ] Test E2E dashboardu przechodzi (261)
-- [ ] **OBSZAR GOTOWY DO PREZENTACJI** (262)
+### 7. Szukanie, lokalizacje, ruch części/zestawów i historia
 
-## 19. VMI jako etap późniejszy
+**Cel: DEMO READY. Skrypt: §9. Dowód: A7.** Są zapytania katalogu/pickera, stany i historia ruchów lokalizacji. Wyszukiwanie nagłówka przeszukuje nawigację, nie zlecenia. Akcje kontenerów istnieją, ale nie znaleziono wywołań poza plikiem definicji; ich odczyt nie oznacza dostępnej operacji.
 
-- [ ] Katalog materiałów jest uporządkowany (263)
-- [ ] Dostawcy i lokalizacje są przypisani (264)
-- [ ] Stany minimalne i docelowe są skonfigurowane (265)
-- [ ] Audyty dostarczają wiarygodne dane (266)
-- [ ] Listy zamówień działają (267)
-- [ ] Zdefiniowano zakres MVP VMI (268)
-- [ ] Istnieje prawdziwy backend VMI (269)
-- [ ] Dane nie pochodzą z fixtures (270)
-- [ ] Konta klientów i dostawców działają (271)
-- [ ] Izolacja organizacji została zweryfikowana (272)
-- [ ] Propozycje, zamówienia i komunikacja są trwałe (273)
-- [ ] Historia działań jest trwała (274)
-- [ ] VMI jest powiązane z Warehouse (275)
-- [ ] Uprawnienia i RLS zostały zweryfikowane (276)
-- [ ] Test E2E głównego procesu VMI przechodzi (277)
-- [ ] **OBSZAR GOTOWY DO PREZENTACJI** (278)
+- [ ] Szukanie po zleceniu oraz SKU/numerze części prowadzi do części i lokalizacji; także część wolna.
+- [ ] Skan lokalizacji pokazuje rzeczywistą zawartość; skan części/zestawu identyfikuje właściwy obiekt.
+- [ ] „Zmień lokalizację” pozwala wskazać/skanować cel i trwale przenieść część.
+- [ ] Przeniesienie zestawu aktualizuje jego części, alokacje i lokalizację spójnie; błąd/ponowienie nie rozjeżdża danych.
+- [ ] Historia pokazuje źródło/cel, ilość, użytkownika i czas oraz pozostaje dostępna po ponownym wejściu.
+- [ ] Po ruchu zlecenie i wyniki pokazują nowy stan, nie tylko ostatni ruch produktu bez kontekstu zlecenia.
+- [ ] **GATE 7:** na danych z 6 znaleziono zlecenie/część wolną, przeniesiono część i zestaw, sprawdzono obie lokalizacje/historię.
 
----
+Odłożyć pełne przepakowywanie, wszystkie filtry i duże wolumeny. Podstawowy ruch zestawu pozostaje P0, ponieważ skrypt każe go pokazać.
 
-# Zbiorczy status obszarów
+### 8. Zwykłe odnalezienie i wydanie
 
-- [ ] 1. Etykiety QR i lokalizacje
-- [ ] 2. Komunikacja doradca–części
-- [ ] 3. Przyjmowanie dokumentów dostawy
-- [ ] 4. Import danych z AutoStacji
-- [ ] 5. Minimalne zlecenie warsztatowe
-- [ ] 6. Kontenery i jednostki kompletacyjne
-- [ ] 7. Rozkładanie dostawy na magazynie
-- [ ] 8. Wyszukiwanie części i zleceń
-- [ ] 9. Pobranie części bez wiedzy działu części
-- [ ] 10. Papierowe wydania
-- [ ] 11. Zwroty wymagające zgody kierownika
-- [ ] 12. Reklamacje Customer Care VGP
-- [ ] 13. Powtarzalne zadania
-- [ ] 14. Materiały zużywalne
-- [ ] 15. Lakiery
-- [ ] 16. Części nierotujące
-- [ ] 17. Procedury i wiedza operacyjna
-- [ ] 18. Dashboard operacyjny
-- [ ] 19. VMI jako etap późniejszy
+**Cel: DEMO READY. Skrypt: §10–11. Dowód: A8.** Istnieje backend dokumentów/ruchów i księgowania zmieniającego stany. Nie dowodzi to kompletnego wydania do zlecenia. Usunięcie pozycji kontenera tylko zwalnia alokację — nie jest wydaniem.
 
----
+- [ ] Z odnalezionej części/zlecenia można zapisać wydanie z ilością, odbiorcą, datą i identyfikowalnym dokumentem.
+- [ ] Zatwierdzenie zmniejsza właściwy stan, zachowuje historię i nie pozwala wydać więcej niż dostępne.
+- [ ] Ponowne zatwierdzenie/błąd sieci nie dubluje wydania; błędny zapis nie udaje sukcesu.
+- [ ] Po odświeżeniu widać dokument i zmniejszony stan; pozostałość części nadal można odnaleźć.
+- [ ] Wypowiedź zachowuje wydanie w AutoStacji jako obowiązującą operację źródłową.
+- [ ] **GATE 8:** wydano część z 7 i sprawdzono saldo/historię z odpowiednią rolą.
 
-# Globalne kryteria gotowości
+Pełne warianty wydań częściowych i tryb awaryjny nie blokują podstawowego pokazu. Usunięcie zwykłego wydania z demo wymagałoby zmiany obietnicy skryptu.
 
-## Jakość kodu
+### 9. Podpisany dokument i cyfrowe archiwum wydania
 
-- [ ] Type-check całego monorepo przechodzi
-- [ ] Lint całego monorepo przechodzi
-- [ ] Build wszystkich prezentowanych aplikacji przechodzi
-- [ ] Brak krytycznych błędów w konsoli
-- [ ] Brak placeholderów i martwych przycisków w prezentowanych ekranach
-- [ ] Brak danych mockowanych w procesach przedstawianych jako działające
+**Cel: DEMO READY. Skrypt: §10–11. Dowód: A9.** Jest prywatny mechanizm załączników dla ticketów, zadań i kart Kanban. Rejestr celów nie zawiera wydania/ruchu; brak podłączenia załączników w badanych szczegółach ruchu.
 
-## Baza danych i bezpieczeństwo
+- [ ] Zdjęcie podpisanego dokumentu DMS można dodać do wydania z 8, z kontrolą formatu/rozmiaru.
+- [ ] Plik i powiązanie są trwałe; błąd uploadu nie tworzy pozornego dokumentu.
+- [ ] Po zamknięciu widoku i ponownym zalogowaniu można znaleźć wydanie i otworzyć zdjęcie.
+- [ ] Pobranie wymaga dostępu do wydania; obca organizacja/nieuprawniony użytkownik nie otrzymuje pliku.
+- [ ] **GATE 9:** wyszukane wydanie → podpisany dokument, przy innym wejściu niż bezpośrednio po uploadzie.
 
-- [ ] Wszystkie migracje są zapisane lokalnie
-- [ ] Migracje przechodzą na czystej bazie
-- [ ] RLS i FORCE RLS są zweryfikowane
-- [ ] Izolacja organizacji i oddziałów została przetestowana
-- [ ] Krytyczne operacje są transakcyjne i idempotentne
-- [ ] Service role key nie trafia do klienta
-- [ ] Sekrety nie znajdują się w repozytorium
-- [ ] Uploady są walidowane
-- [ ] Audit log zapisuje kluczowe operacje
+Nie potrzeba podpisu elektronicznego, OCR ani pełnego DMS. Retencja, usuwanie i odtwarzanie dokumentów firmowych pozostają wymaganiem pilotażu.
 
-## Testy
+## P1 — mocne uzupełnienie prezentacji
 
-- [ ] Testy jednostkowe przechodzą
-- [ ] Testy usług i server actions przechodzą
-- [ ] Testy migracji i RLS przechodzą
-- [ ] Testy E2E krytycznych procesów przechodzą
-- [ ] Ręczne testy mobilne zostały wykonane
-- [ ] Testy na realistycznych danych zostały wykonane
+### 10. Użytkownicy, zaproszenia, członkostwa i administracja rolami
 
-## Stabilność
+**Cel: DEMO READY dla krótkiego omówienia. Skrypt: §5. Dowód: A1.** Realne usługi, akcje i testy istnieją. Działający dostęp jest P0; pełne administrowanie na żywo nie.
 
-- [ ] Sentry jest skonfigurowane
-- [ ] PostHog jest skonfigurowany
-- [ ] Monitoring uptime jest skonfigurowany
-- [ ] Backup bazy działa
-- [ ] Odtworzenie backupu zostało przetestowane
-- [ ] Istnieje procedura rollbacku
-- [ ] Istnieje środowisko staging
-- [ ] Preview deployments są chronione
+- [ ] Przygotowano konta demonstratora, pracownika i akceptanta z członkostwami/rolami.
+- [ ] Można pokazać członków, zaproszenie i zakres roli bez obietnicy ukończenia całej administracji.
+- [ ] Jedno zaproszenie/przyjęcie sprawdzono przed spotkaniem, w tym błędny/wygasły token i zmianę dostępu.
+- [ ] Uprawnienia serwera potwierdza scenariusz odmowy z 1, nie tylko ukryty przycisk.
+- [ ] **GATE 10:** prawdziwy opis fundamentów mieszczący się w około dwóch minutach.
 
-## Gotowość prezentacyjna
+Nie kończyć wszystkich edytorów ról, pozycji, profili, billingów i pełnej macierzy administracyjnych edge cases przed pitchem.
 
-- [ ] Dane demonstracyjne są realistyczne
-- [ ] Każdy proces ma przygotowany scenariusz demo
-- [ ] Każdy scenariusz działa od początku do końca
-- [ ] Prezentowane ekrany są spójne wizualnie
-- [ ] Demo nie wymaga ręcznej ingerencji w bazę
-- [ ] Istnieje plan awaryjny na problemy z internetem
-- [ ] Istnieją zrzuty ekranu lub nagranie zapasowe
-- [ ] Pełne demo zostało wykonane próbnie
-- [ ] Krytyczne błędy z próby zostały usunięte
+### 11. Tickety: doradca ↔ części, akceptacja i problem z QR
 
----
+**Cel: DEMO READY. Skrypt: §12–13. Dowód: A10.** Są typy/statusy, wykonawcy, komentarze, aktywność, akceptanci i RPC akceptacji; działa rejestr QR ticketu. Nie potwierdzono relacji do encji części/zlecenia/kontenera ani kompletnego procesu decyzji o zwrocie.
 
-# Ostateczna gotowość
+- [ ] Jeden ticket trafia do przygotowanych częściowców, ma typ/status, odpowiedzialną osobę i termin; druga osoba odpowiada, historia jest trwała.
+- [ ] Przykład „Zwrot” wymaga wskazanej akceptacji i pokazuje autora/czas; niedozwolona decyzja jest odrzucana.
+- [ ] Nie przedstawiać akceptacji ticketu jako pełnego silnika zwrotów z odrzuceniem, eskalacją i blokadami — sprawdzić konkretny pokazany warunek.
+- [ ] QR na problemowej części otwiera ticket z opisem/statusem/historią. Wyjaśnić, czy to etykieta ticketu na części, czy rzeczywista relacja do części.
+- [ ] Jeśli zachowujemy zdanie o bezpośrednim powiązaniu ze zleceniem/częścią/zestawem, musi istnieć trwałe, nawigowalne powiązanie; numer w opisie nie wystarcza.
+- [ ] **GATE 11:** przebieg na dwóch rolach, ponowne otwarcie i skan QR, bez udawanych powiadomień.
 
-- [ ] Wszystkie wymagane obszary MVP są ukończone
-- [ ] Wszystkie globalne kryteria są spełnione
-- [ ] Ambra jest gotowa do zaprezentowania kierownikowi
+Połączono komunikację, tickety wewnętrzne i jeden przykład akceptacji. Siedem typów, raporty zwrotów, Customer Care i pełne SLA nie są bramką pitchu. Niedokończone P1 wymaga jawnego zawężenia wypowiedzi przed próbą.
+
+### 12. Stan początkowy i propozycja pilotażu
+
+**Cel: DEMO READY dla materiału i planu. Skrypt: §8, §16–23.** To nie zlecenie implementacji migracji historycznej.
+
+- [ ] Wyjaśniono, że pierwszego dnia system nie zna całego starego magazynu; nowe dostawy nie dowodzą pełnego stanu.
+- [ ] Wybrano do rozmowy naturalną rotację albo ograniczone wprowadzenie przy porządkowaniu/inwentaryzacji; określono unikanie podwójnego przyjęcia.
+- [ ] Materiał opisuje jeden oddział, trzy miesiące (przygotowanie → realna praca → ocena), odpowiedzialność i zgodę na dane.
+- [ ] Około 25 tys. zł ma podział: sprzęt, infrastruktura/narzędzia, praca; nie jest ceną gotowego produktu.
+- [ ] Mierniki obejmują czas przyjęcia/szukania, pomyłki lokalizacji, koszt podwójnego potwierdzenia wydania, opinie i warunki zatrzymania pilota.
+- [ ] **GATE 12:** konkretny wniosek oddziela pokaz od dopuszczenia danych firmowych.
+
+## P2 — wystarczy część działającego obszaru
+
+### 13. Zadania jednorazowe, kalendarz, Kanban
+
+**Cel: PARTIALLY READY. Skrypt: §14. Dowód: A11.** Są trwałe zadania, kalendarze/źródła kalendarza i tablice/karty Kanban. Nie są wyłącznie makietami; bez świeżej próby nie uznajemy całych modułów za gotowe.
+
+- [ ] Wybrano najwyżej jeden zapisany przykład; ewentualny pokaz nie rozszerza głównego demo.
+- [ ] Opis odróżnia istniejące zadania/planowanie od niepotwierdzonej cykliczności i powiadomień.
+- [ ] Jeśli ekran nie jest stabilny, pozostać przy uczciwej wzmiance. Brak demo nie blokuje P0.
+
+## P3 — wzmianka / roadmapa, bez prac przed pitchem
+
+### 14. Zadania cykliczne i powiadomienia operacyjne
+
+**Cel: ROADMAP ONLY. Skrypt: §14. Dowód: A11.** Nie znaleziono generatora cyklicznych wystąpień w badanej ścieżce. Ustawienia powiadomień zapisują preferencje; dzwonek ma TODO podłączenia systemu. To nie dowód dostarczania alertów.
+
+Zachowany backlog: reguły dzienne/tygodniowe/miesięczne, zakres dat, domyślny wykonawca, generowanie/statusy wystąpień, historia serii, edycja serii/jednego terminu, pomijanie, powiązanie z audytem/ticketem, przypomnienia i testy cykliczności. Osobno trwały inbox, odbiorcy, dostarczenie i odczyt powiadomień.
+
+### 15. Materiały, dostawcy, audyty, propozycje zamówień
+
+**Cel: ROADMAP ONLY na potrzeby pitchu. Skrypt: §15. Dowód: A12.** Katalog, CRM/dostawcy pozycji, liczenia, różnice i sugestie uzupełnienia mają rzeczywiste elementy implementacji. Strona Warehouse „Dostawcy” jest placeholderem. Nie domykać całości przed spotkaniem.
+
+Zachowany backlog: katalog/import materiałów, dostawcy/lokalizacje/kody, minimum/cel/punkt zamówienia, masowa konfiguracja, liczenie po lokalizacji/dostawcy, telefon/skan, różnice/notatki/akceptacja, historia, listy zamówień per dostawca, akceptacja/odrzucenie sugestii i E2E. Sugestia nie jest złożonym zamówieniem. Cykliczne audyty zależą od 14.
+
+### 16. VMI i dalsze możliwości
+
+**Cel: ROADMAP ONLY. Skrypt: §15, §22. Dowód: A13.** Nie potwierdzono dostępnego end-to-end VMI w web; tabele/stare deklaracje nie wystarczają.
+
+Zachowany backlog: wiarygodne katalogi, dostawcy, lokalizacje, progi i audyty; potem zakres MVP VMI, prawdziwy backend, konta klientów/dostawców, trwała komunikacja/zamówienia/historia, połączenie z Warehouse, izolacja i E2E bez fixtures. Nie odhaczać przed pitchem.
+
+## P4 — odłożyć
+
+### 17. Pełne importy AutoStacji i integracja DMS
+
+**Cel: ROADMAP ONLY.** Wąski import Matchera pozostaje w 3, raport w 6, wydanie w 8. Odłożyć import wszystkich starych zleceń/zamówień, materiałów, nierotów/inwentaryzacji oraz automatyczną synchronizację DMS.
+
+Zachowane wymagania na wybrany później zakres: podgląd/walidacja, duplikaty, brak częściowych zapisów, historia, poprawienie/cofnięcie, testy i minimalizacja podwójnej pracy. „Proces nie wymaga podwójnej pracy” nie jest warunkiem pitchu: skrypt zakłada dodatkowe potwierdzenie wydania.
+
+### 18. Awaryjne wydania, pełne zwroty i Customer Care VGP
+
+**Cel: ROADMAP ONLY.** Awaryjne pobranie bez działu części nie występuje w głównej narracji. Zwrot/reklamacja to przykłady ticketu, nie obowiązek wdrożenia specjalistycznych procesów.
+
+Zachowany backlog: uprawnienia awaryjne, odbiorca/czas/potwierdzenie, częściowe/wielokrotne wydania i pełny raport archiwum; wartość/rotacja/miejsce oczekiwania zwrotu, akceptacja/odrzucenie/komentarz i raport; numer/link Customer Care, terminy kontroli/odesłania, alarmy, prowadzący, statusy i dowody reklamacji. Uruchomiony proces wymaga trwałej historii i E2E przed realnym użyciem.
+
+### 19. Lakiery, nieroty, procedury, zbiorczy dashboard
+
+**Cel: ROADMAP ONLY. Brak wymogu pokazu. Dowód: A13.** Dashboard startowy to ekran powitalny, nie centrum operacyjne.
+
+Zachowany backlog:
+
+- Lakiery: import, lokalizacje/progi, cotygodniowa kontrola, miesięczna inwentaryzacja, raport/różnice/sugestie, historia i kalendarz z wykonawcą.
+- Nieroty: walidowany import, dni/wartość/lokalizacja, status/prowadzący, rotacja innych oddziałów, kontakty/follow-up, raport efektów i wiele oddziałów.
+- Procedury: instrukcje, role/checklisty/załączniki, wersje, potwierdzenie zapoznania, linki z ticketów/zadań, wyszukiwanie, kopiowanie, szkolenie i ograniczenie edycji.
+- Dashboard: osobisty/zespołowy zakres oddziału, tickety/akceptacje/terminy/zadania, dostawy/braki lokalizacji/niekompletne zlecenia, materiały/audyty/nieroty, działające odnośniki i odświeżanie. Nie tworzyć go dla katalogu funkcji.
+
+Przed wdrożeniem któregokolwiek: realne dane, uprawnienia, historia i odpowiednie testy. Nie są bramką pitchu.
+
+## Globalne bramki — trzy różne decyzje
+
+### A. PITCH SAFETY — przed pokazem (P0)
+
+- [ ] Build, osobny type-check i lint web oraz używanych zależności przechodzą; nie wymagać innych aplikacji. Build ma `ignoreBuildErrors`, więc nie zastępuje type-checku.
+- [ ] Wybrane testy kodu/integracji głównej ścieżki przechodzą, wynik zapisany. W audycie próba Vitest zakończyła się brakiem narzędzia, nie wynikiem testów.
+- [ ] Demo ma trwałe, zanonimizowane dane na rzeczywistym backendzie, jawny oddział i role. Symulacja, fixture/nagranie nie udają operacji na żywo.
+- [ ] Sprawdzono dostęp, izolację, uploady i ponawianie krytycznych zapisów z 1–9; pokaz nie wymaga ingerencji w bazę.
+- [ ] Trasa demo nie ma martwych przycisków, nieobsłużonych błędów, placeholderów/niespójnych stanów; mobilny układ, HTTPS/kamera, wydruki i sieć sprawdzone na docelowych urządzeniach.
+- [ ] Jest bezpieczna kopia danych demo/procedura ponownego przygotowania, plan awarii internetu i zapasowe nagranie/zrzuty rzeczywiście wykonanego procesu.
+- [ ] Pełną próbę wykonano w kolejności skryptu bez dygresji; poprawiono blokery i porównano wypowiadane obietnice z pokazem.
+
+### B. CONTROLLED PILOT — przed danymi firmowymi (nie warunek spotkania)
+
+- [ ] Zgoda firmy, jeden oddział, odpowiedzialność, użytkownicy i procedura wsparcia ustalone.
+- [ ] Produkcja/staging, chronione preview, inwentaryzacja migracji i odtworzenie wybranego schematu na czystej bazie sprawdzone.
+- [ ] Macierz dostępu i rzeczywiste testy RLS uruchamianych procesów obejmują organizacje, oddziały, Storage/RPC; zweryfikowano FORCE RLS i uprawnienia uprzywilejowanych funkcji.
+- [ ] Krytyczne operacje są transakcyjne/idempotentne, przetestowane przy kilku użytkownikach; historia nie znika przy błędzie pośrednim.
+- [ ] Backup bazy i plików działa, odtworzenie przetestowane; procedura rollbacku/odtworzenia gotowa.
+- [ ] Monitoring błędów (np. Sentry), uptime i alerty mają odbiorcę; brak sekretów w repo/kliencie zweryfikowany.
+- [ ] Retencja/dostęp do podpisanych dokumentów, walidacja plików, usuwanie/eksport danych i audit log ustalone.
+- [ ] E2E uruchamianych procesów, realistyczne dane i próby mobilne sprawdzone; stary magazyn nie dubluje nowych dostaw.
+- [ ] AutoStacja pozostaje źródłem stanów/dokumentacji; mierzymy dodatkową pracę i korzyści, znamy warunki przerwania pilota.
+
+### C. DALSZA PRODUKCJA — po wyborze zakresu na podstawie pilotażu
+
+- [ ] Obserwowalność, wydajność, obciążenie, alerty i odtwarzanie odpowiadają docelowej skali.
+- [ ] Analityka produktu (np. PostHog) służy miernikom; jej kompletność nie blokuje pokazu.
+- [ ] Testy/hardening rozszerzono na nowe moduły, organizacje i oddziały; wykonano okresowe próby backupu/rollbacku.
+- [ ] Roadmapę 14–19 uporządkowano na podstawie wyników, nie automatycznie jako obowiązkowy MVP.
+
+## Decyzja o gotowości
+
+- [ ] **Gotowy do pitchu:** GATE 1–9 + Pitch Safety; P1 pokazane w sprawdzonym zakresie lub jawnie zawężone, P2–P4 opisane uczciwie. Obecnie **niepotwierdzone / blokery otwarte**.
+- [ ] **Gotowy do kontrolowanego pilotażu:** osobno spełniona bramka B. Gotowy pokaz nie oznacza tej zgody.
+- [ ] **Gotowy do rozszerzania produkcji:** wyniki pilotażu i bramka C dla uzgodnionego zakresu. Nie wymaga się ukończenia wszystkich 19 obecnych obszarów przed prezentacją.

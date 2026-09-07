@@ -3,7 +3,26 @@ url = "https://mcp.supabase.com/mcp?project_ref=rjeraydumwechpjjzrus&features=do
 
 [mcp_servers.next-devtools]
 command = "npx"
-args = ["-y", "next-devtools-mcp@latest"]
+args = [
+    "-y",
+    "next-devtools-mcp@latest",
+]
 
 [mcp_servers.next-devtools.tools.nextjs_index]
 approval_mode = "approve"
+
+[mcp_servers.playwright]
+command = "npx"
+args = ["@playwright/mcp@latest"]
+
+[mcp_servers.supabase-legacy]
+url = "https://mcp.supabase.com/mcp?project_ref=zlcnlalwfmmtusigeuyk&read_only=true"
+
+[mcp_servers.supabase-legacy.http_headers]
+Authorization = "Bearer sbp_0508242e76569db2ccee3f664d40b8ab25d3ff5e"
+
+[mcp_servers.supabase-target]
+url = "https://mcp.supabase.com/mcp?project_ref=rjeraydumwechpjjzrus"
+
+[mcp_servers.supabase-target.http_headers]
+Authorization = "Bearer sbp_0508242e76569db2ccee3f664d40b8ab25d3ff5e"
