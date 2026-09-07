@@ -612,32 +612,204 @@ Ponieważ bramka pitchu dla tej strefy już wymaga zbudowania większości braku
 - Raport dostawy (`WddMatcherService.getEnhancedPdfData`) czyta wyłącznie `wdd_matcher_block_matches`/`wdd_matcher_blocks`/`wdd_matcher_lines` — pole `location` to surowy tekst z dokumentu źródłowego, nie FK do `warehouse_locations` i nie dane z `inventory_movement_lines.destination_location_id`. Widok szczegółów ruchu używa realnych danych ruchu, ale to zwykły wydruk przeglądarki formularza draft/posted, nie raport z procesu potwierdzania przyjęcia.
 - Zależności: Strefa 3 (poprawność danych źródłowych Matchera), Strefa 4 (prawdziwa relacja zlecenia zamiast tekstu w notatce), Strefa 5 (fizyczna tożsamość QR części/zestawu, jeśli mobilne rozłożenie ma z niej korzystać), Strefa 1 (izolacja oddziałowa/RLS nowych elementów tej strefy) — odnotowane, nie duplikowane.
 
-### 7. Szukanie, lokalizacje, ruch części/zestawów i historia
+### 7. Szukanie, zawartość lokalizacji, relokacja części/zestawu i historia
 
-**Cel: DEMO READY. Skrypt: §9. Dowód: A7.** Są zapytania katalogu/pickera, stany i historia ruchów lokalizacji. Wyszukiwanie nagłówka przeszukuje nawigację, nie zlecenia. Akcje kontenerów istnieją, ale nie znaleziono wywołań poza plikiem definicji; ich odczyt nie oznacza dostępnej operacji.
+**Priorytet:** P0
 
-- [ ] Szukanie po zleceniu oraz SKU/numerze części prowadzi do części i lokalizacji; także część wolna.
-- [ ] Skan lokalizacji pokazuje rzeczywistą zawartość; skan części/zestawu identyfikuje właściwy obiekt.
-- [ ] „Zmień lokalizację” pozwala wskazać/skanować cel i trwale przenieść część.
-- [ ] Przeniesienie zestawu aktualizuje jego części, alokacje i lokalizację spójnie; błąd/ponowienie nie rozjeżdża danych.
-- [ ] Historia pokazuje źródło/cel, ilość, użytkownika i czas oraz pozostaje dostępna po ponownym wejściu.
-- [ ] Po ruchu zlecenie i wyniki pokazują nowy stan, nie tylko ostatni ruch produktu bez kontekstu zlecenia.
-- [ ] **GATE 7:** na danych z 6 znaleziono zlecenie/część wolną, przeniesiono część i zestaw, sprawdzono obie lokalizacje/historię.
+**Stan obecny:** 🟡 PARTIAL
 
-Odłożyć pełne przepakowywanie, wszystkie filtry i duże wolumeny. Podstawowy ruch zestawu pozostaje P0, ponieważ skrypt każe go pokazać.
+W przeciwieństwie do Strefy 6, tutaj istnieje realny, działający rdzeń codziennej pracy: zawartość lokalizacji jest prawdziwą tabelą stanu magazynowego (nie tylko kontenerami), relokacja pojedynczej części (typ ruchu 801, „Bin-to-Bin Move") jest rzeczywistą, osiągalną z UI operacją z obsługą ilości częściowej i zabezpieczeniem przed ujemnym stanem po stronie bazy, a historia ruchów lokalizacji to prawdziwe zapytanie do bazy, nie fasada. To realna, działająca zdolność, nie tylko rozłączone prymitywy — stąd 🟡 PARTIAL, nie 🟠. Jednocześnie prześledzenie ujawniło konkretne, potwierdzone w kodzie usterki i braki wymagane przez skrypt: wyszukiwanie produktów filtruje wyłącznie po nazwie, nie po SKU/numerze katalogowym (mimo że pole nazywa się „szukanie", numer części go nie znajdzie); relokacja zestawu/kontenera jest kodem martwym bez żadnego wywołania z interfejsu; historia ruchów nie pokazuje użytkownika mimo że pole `posted_by` istnieje w zapytaniu; etykieta „przeniesienie wewnętrzne" w historii nigdy się nie wyświetla z powodu błędu porównania (`movementKind === "transfer"` nigdy nie jest prawdą dla realnych kodów `"801"`/`"311"`). Wyszukiwanie zlecenia nie istnieje w ogóle — zgodnie z oczekiwaniem, bo Strefa 4 nie istnieje.
 
-### 8. Zwykłe odnalezienie i wydanie
+**Dowody:**
 
-**Cel: DEMO READY. Skrypt: §10–11. Dowód: A8.** Istnieje backend dokumentów/ruchów i księgowania zmieniającego stany. Nie dowodzi to kompletnego wydania do zlecenia. Usunięcie pozycji kontenera tylko zwalnia alokację — nie jest wydaniem.
+- Kod: VERIFIED. Prześledzono wyszukiwanie produktów (`InventoryProductsService.listProducts`, filtr `.ilike("name", ...)`/`.ilike("product_name", ...)` — nigdy po `sku`), panel zawartości lokalizacji (`AmbraLocationInventoryService.getSnapshot` — realne zapytanie na `inventory_balances` dla stanu, `inventory_movement_lines`/`inventory_movement_headers` dla historii, `inventory_containers` dla kontenerów), edytor relokacji (`movement-positions-tab.tsx`, typ ruchu `801`, walidacja ilości klient+serwer) i funkcję księgującą `inventory_post_movement` (realna blokada ujemnego stanu: `IF NOT allow_negative_stock AND available_quantity < quantity THEN RAISE EXCEPTION`). Potwierdzono ponownie, niezależnie od wcześniejszych stref, że `relocateContainerAction` i pokrewne akcje kontenera nie mają żadnego wywołania w żadnym pliku `.tsx` w całym `apps/web/src`, łącznie ze stronami lokalizacji — to nie jest powtórzenie starego ustalenia, tylko osobna, świeża weryfikacja tej strefy.
+- Testy automatyczne: PARTIAL/NONE w kluczowych miejscach. Brak testu wyszukiwania po SKU/lokalizacji, brak testu `ambra-location-inventory.service.ts` (panel lokalizacji, historia, stan), brak testu przepływu relokacji (`movement-positions-tab.tsx`, typ 801), brak testu relokacji kontenera (bo nie istnieje). Jedyny test dotykający transferów międzyoddziałowych (`inventory-cross-branch-transfers.test.ts`) **nie wykonuje żadnej realnej operacji** — sprawdza wyłącznie obecność fragmentów tekstu SQL w plikach migracji, z których część może już nie odpowiadać aktualnie działającemu silnikowi księgowania (ten sam dryf schematu co w poprzednich strefach).
+- Weryfikacja ręczna: NOT VERIFIED — brak jakiejkolwiek odnotowanej świeżej próby tej ścieżki na aktualnym build.
+- Przebieg end-to-end: NOT VERIFIED — nie odtworzono na żywo: szukanie części → otwarcie lokalizacji → relokacja → sprawdzenie obu lokalizacji i historii.
 
-- [ ] Z odnalezionej części/zlecenia można zapisać wydanie z ilością, odbiorcą, datą i identyfikowalnym dokumentem.
-- [ ] Zatwierdzenie zmniejsza właściwy stan, zachowuje historię i nie pozwala wydać więcej niż dostępne.
-- [ ] Ponowne zatwierdzenie/błąd sieci nie dubluje wydania; błędny zapis nie udaje sukcesu.
-- [ ] Po odświeżeniu widać dokument i zmniejszony stan; pozostałość części nadal można odnaleźć.
-- [ ] Wypowiedź zachowuje wydanie w AutoStacji jako obowiązującą operację źródłową.
-- [ ] **GATE 8:** wydano część z 7 i sprawdzono saldo/historię z odpowiednią rolą.
+**Wymagany stan dla pitchu:** DEMO READY
 
-Pełne warianty wydań częściowych i tryb awaryjny nie blokują podstawowego pokazu. Usunięcie zwykłego wydania z demo wymagałoby zmiany obietnicy skryptu.
+### Pitch readiness checklist
+
+**Wyszukiwanie**
+
+- [ ] Wyszukiwanie po numerze zlecenia jest świadomie wyłączone ze scenariusza demo (zależność od Strefy 4 — nie istnieje i nie jest w zakresie tej strefy) albo zastąpione jawnie opisanym obejściem.
+- [ ] Wyszukiwanie po SKU/numerze katalogowym faktycznie znajduje część — **dziś nie znajduje**, bo filtr sprawdza wyłącznie nazwę produktu; wymaga naprawy lub świadomego użycia w demo wyłącznie wyszukiwania po nazwie, z jawnym zastrzeżeniem tej różnicy w scenariuszu.
+- [ ] Wynik wyszukiwania pokazuje rzeczywisty, aktualny stan (potwierdzone: tak, `inventory_balances` na żywo) — ale główna lista wyników nie pokazuje dziś lokalizacji; ustalono, jak prezenter dojdzie od wyniku wyszukiwania do konkretnej lokalizacji (np. przez szczegóły produktu/wariantu, jeśli tam lokalizacja jest widoczna).
+
+**Zawartość lokalizacji**
+
+- [ ] Otwarcie/skan lokalizacji demo pokazuje rzeczywisty stan (SKU + ilość), nie tylko kontenery czy reguły odkładania — potwierdzone w kodzie, do zweryfikowania na żywo.
+- [ ] Dla przygotowanej lokalizacji demo liczba pozycji jest na tyle mała, że filtrowanie po stronie klienta (zapytanie pobiera stan całego oddziału i filtruje w przeglądarce, nie po stronie serwera) nie powoduje zauważalnego opóźnienia na urządzeniu prezentacji.
+
+**Relokacja części**
+
+- [ ] Wybór części/pozycji ze znanym źródłem, wybór/skan lokalizacji docelowej i potwierdzenie faktycznie przenosi zapisany stan — sprawdzone na żywo dla przygotowanych danych demo (mechanizm typu 801 istnieje i jest realny, wymaga świeżej próby).
+- [ ] Przeniesienie częściowej ilości działa poprawnie: źródło maleje, cel rośnie, reszta pozostaje na źródłowej lokalizacji.
+- [ ] Próba przeniesienia więcej niż dostępna ilość jest odrzucana, nie tworzy ujemnego stanu — potwierdzone w kodzie księgowania, do zweryfikowania na żywo.
+
+**Relokacja zestawu/kontenera — decyzja wymagana przed pitchem**
+
+- [ ] Ustalono, czy scenariusz demo obejmuje przeniesienie zestawu/kontenera jako osobnego obiektu — dziś **nie istnieje żadna dostępna z UI operacja relokacji kontenera** (funkcja jest w pełni zaimplementowana po stronie serwera, ale nie ma żadnego wywołania z interfejsu w całym repozytorium).
+- [ ] Jeśli demo ma pokazać przeniesienie zestawu: zbudowano tymczasowe wejście UI wywołujące istniejącą funkcję serwerową i sprawdzono na żywo, że `current_location_id` kontenera faktycznie się zmienia i pozostaje spójne z zawartością.
+- [ ] Jeśli nie zbudowano: scenariusz prezentacji jawnie nie obiecuje przenoszenia zestawu jako osobnej, trwałej operacji — zastąpione np. przeniesieniem pojedynczej części.
+
+**Historia**
+
+- [ ] Historia ruchów dla lokalizacji demo pokazuje źródło, cel i ilość po odświeżeniu/ponownym wejściu — potwierdzone jako realne zapytanie do bazy w kodzie.
+- [ ] Prezenter wie, że **historia dziś nie pokazuje użytkownika, który wykonał ruch**, mimo że dane czasu (`posted_at`) są pobierane — jeśli scenariusz ma to pokazywać, wymaga naprawy przed pitchem albo świadomego pominięcia tego elementu w wypowiedzi.
+- [ ] Naprawiono lub świadomie obeszło się błąd etykietowania rodzaju ruchu (`movementKind === "transfer"` nigdy nie jest prawdą dla realnych kodów `"801"`/`"311"`) — inaczej historia pokaże surowy kod ruchu zamiast czytelnej etykiety „przeniesienie" na oczach uczestników.
+
+**Spójność po ruchu**
+
+- [ ] Po relokacji: ponowne wyszukanie/otwarcie starej lokalizacji nie pokazuje już przeniesionej ilości, a nowa lokalizacja ją pokazuje — sprawdzone na żywo.
+- [ ] Jeśli w demo używany jest kontener: sprawdzono, że jego wyświetlana „aktualna lokalizacja" nie rozjeżdża się cicho ze stanem magazynowym jego zawartości — dziś nic w interfejsie nie krzyżuje tych dwóch źródeł prawdy (pole na kontenerze jest praktycznie zamrożone, bo nic go realnie nie aktualizuje).
+
+**Brama końcowa**
+
+- [ ] **Dokładny scenariusz pitchu Strefy 7 zweryfikowany ręcznie na aktualnym build, na danych utworzonych w Strefie 6:** wyszukanie znanego zlecenia/SKU → otwarcie bieżącej lokalizacji → sprawdzenie zawartości → relokacja jednej części/ilości do innej lokalizacji → relokacja jednego zestawu/kontenera, jeśli objęta finalnym scenariuszem pitchu → odświeżenie/ponowne wejście → wyszukiwanie i oba widoki lokalizacji pokazują nowy stan → historia ruchów pokazuje źródło, cel, ilość, użytkownika i czas.
+
+**Pitch gap:**
+
+Rdzeń tej strefy realnie działa i jest solidniejszy niż w większości pozostałych stref: zawartość lokalizacji to prawdziwy stan magazynowy, relokacja pojedynczej części to prawdziwa, osiągalna z UI operacja z sensowną walidacją ilości i zabezpieczeniem przed ujemnym stanem, a historia to prawdziwe zapytanie do bazy przetrwające odświeżenie. Braki są konkretne i naprawialne, nie fundamentalne: (1) wyszukiwanie produktów nie znajduje po SKU, tylko po nazwie — sprzeczne z dosłowną obietnicą skryptu „mogę wyszukać część"; (2) relokacja zestawu/kontenera nie ma żadnego wejścia UI, mimo że logika serwerowa istnieje — druga połowa obietnicy skryptu „przenoszę część i zestaw" jest dziś nieosiągalna; (3) historia nie pokazuje użytkownika i błędnie etykietuje rodzaj ruchu — szczegół, ale widoczny na żywo podczas pokazu. Wyszukiwanie zlecenia świadomie nie jest tu wymagane, bo zależy od nieistniejącej jeszcze Strefy 4.
+
+**Wymagany stan dla pilotażu:** PILOT READY
+
+### Pilot readiness checklist
+
+- [ ] Transakcyjność/idempotencja relokacji przy błędzie sieci/podwójnym kliknięciu — dziś nie sprawdzono, czy `inventory_post_movement` chroni przed podwójnym zaksięgowaniem tego samego żądania.
+- [ ] Ochrona przed wyścigiem przy współbieżnej relokacji tej samej pozycji przez dwóch pracowników jednocześnie.
+- [ ] Zapytania stanu/historii lokalizacji filtrowane po stronie serwera, nie tylko pobierane w całości i filtrowane w przeglądarce — dziś `listBalances`/`listMovements` pobierają do 2000 wierszy całego oddziału i filtrują po stronie klienta, co nie skaluje się do realnego wolumenu pilotażu.
+- [ ] Jeśli relokacja kontenera zostanie zbudowana dla pitchu: dodano spójność między `inventory_containers.current_location_id` a rzeczywistym stanem `inventory_balances`/`inventory_serials` jego zawartości — dziś te źródła prawdy mogą się rozjechać bez żadnej kontroli.
+- [ ] Naprawiono wyszukiwanie po SKU na stałe (nie tylko obejście na potrzeby pitchu).
+- [ ] Naprawiono wyświetlanie użytkownika i etykiety rodzaju ruchu w historii na stałe.
+- [ ] Ścieżka korekty/reversal błędnej relokacji z zachowaniem historii.
+- [ ] Trwały ślad audytowy relokacji (dziś `posted_by` jest pobierane z bazy, ale nigdy nie wyświetlane — do rozszerzenia na realny log audytowy dla ról administracyjnych).
+- [ ] Izolacja oddziałowa/organizacyjna wyszukiwania, zawartości lokalizacji i relokacji — zależność od ogólnych ustaleń RLS ze Strefy 1, tu tylko odnotowana jako wymaganie dla tabel `inventory_balances`/`inventory_movement_lines`/`inventory_containers` używanych w tej strefie.
+- [ ] Testy automatyczne pokrywające realny przepływ relokacji (typ 801), wyszukiwanie po SKU+lokalizacji i historię — dziś praktycznie nieobecne (jedyny test „transferów" sprawdza tylko tekst SQL w migracjach, nie działanie).
+- [ ] Wydajność wyszukiwania/zawartości lokalizacji przy realistycznym wolumenie pilotażowego oddziału (setki–tysiące pozycji), nie tylko garstce danych demo.
+- [ ] **Dokładny scenariusz pilotażu Strefy 7 zweryfikowany ręcznie z reprezentatywnymi rolami/użytkownikami pilotażu**, w tym współbieżna relokacja przez dwóch pracowników.
+
+**Pilot gap:**
+
+Poza ogólnym pogłębieniem twardości (transakcyjność, współbieżność, wydajność zapytań) najważniejsza dodatkowa praca pilotażowa to trwałe (nie tymczasowe na potrzeby jednego pokazu) naprawienie wyszukiwania po SKU i wyświetlania użytkownika/etykiety w historii, oraz — jeśli relokacja kontenera zostanie w ogóle zbudowana — zapewnienie, że nie tworzy cichej rozbieżności między zapisaną „aktualną lokalizacją" kontenera a rzeczywistym stanem jego zawartości. Żadna z tych pozycji nie wymaga nowego zakresu funkcjonalnego wykraczającego poza to, co skrypt już obiecuje na pitchu — to kwestia solidności, nie nowej funkcji.
+
+### Notes / evidence
+
+- Wyszukiwanie produktów filtruje wyłącznie po `name`/`product_name` (`InventoryProductsService.listProducts`, `apps/web/src/server/services/inventory-products.service.ts` ok. linii 192-193, 281-282) — nigdy po `sku`. Realny, aktualny stan (`on_hand_quantity`/`available_quantity`) pochodzi z bezpośredniego zapytania na `inventory_balances` (ok. linii 2500-2623), nie z pól katalogowych, ale lokalizacja nie jest kolumną głównej listy wyników.
+- Osobna funkcja z realnym podziałem na lokalizacje (`listVariantOptions`, ok. linii 1253-1397) istnieje, ale jest używana wyłącznie w pickerze panelu lokalizacji i dialogu importu ruchu — nie na stronie wyszukiwania produktów.
+- Panel zawartości lokalizacji (`location-detail-panel.tsx`) renderuje trzy niezależnie zasilane sekcje z `AmbraLocationInventoryService.getSnapshot` (`apps/web/src/server/services/ambra-location-inventory.service.ts:57-83`): realny stan magazynowy z `inventory_balances` (ok. linii 85-198), realną historię ruchów z `inventory_movement_lines`/`inventory_movement_headers` (ok. linii 200-330), oraz kontenery (ok. linii 333+). `listBalances`/`listMovements` nie filtrują po `location_id` po stronie serwera — pobierają do 2000 wierszy oddziału i filtrują w przeglądarce (`location-detail-panel.tsx` ok. linii 474-494).
+- Relokacja pojedynczej części: `movement-positions-tab.tsx` (ok. linii 161-207) dla typu ruchu `801` („Bin-to-Bin Move (MMZ)") renderuje wybór lokalizacji źródłowej/docelowej (cel wyklucza źródło, ok. linii 200) i ilość ze sterownikami +/- z walidacją `max={line.on_hand_at_source}` (ok. linii 77-115). Księgowanie: `public.inventory_post_movement` (`apps/web/supabase-target/supabase/migrations/20260506090000_inventory_phase2_enterprise_core.sql:1738-1773`) blokuje ujemny dostępny stan po stronie bazy, nie tylko UI.
+- Realnie zasiane dziś typy ruchów to wyłącznie `101`, `801`, `401`, `402`, `311` (`public.inventory_seed_movement_types`, `apps/web/supabase-target/supabase/migrations/20260712120000_add_inter_branch_movement_contract.sql:71-171`) — udokumentowana gdzie indziej lista „31 typów ruchów (101-613)" nie odpowiada temu, co faktycznie działa w runtime; `801` ma kategorię `bin_operation`, nie `transfer`.
+- Relokacja kontenera ponownie potwierdzona jako martwa: `grep` dla `relocateContainerAction` w całym `apps/web/src` (włącznie ze stronami lokalizacji) zwraca wyłącznie plik definicji akcji — zero wywołań z jakiegokolwiek komponentu `.tsx`.
+- Błąd etykietowania historii: `LocationMovementLine.movementKind` niesie surowy kod typu ruchu (np. `"801"`), ale UI porównuje go z literałem `"transfer"` (`location-detail-panel.tsx` ok. linii 311-312, 322) — warunek nigdy nie jest prawdziwy, więc etykieta „przeniesienie wewnętrzne" nigdy się nie wyświetla. Pole `posted_by`/wykonawca nie jest w ogóle pobierane ani wyświetlane w tym widoku, mimo że `posted_at` jest.
+- Trzy niezależne mechanizmy „aktualnej lokalizacji": `inventory_balances` (autorytatywne, aktualizowane transakcyjnie przy każdym zaksięgowanym ruchu), `inventory_containers.current_location_id` (pole cache, ustawiane wyłącznie przez martwy kod relokacji kontenera — w praktyce zamrożone od utworzenia), `inventory_serials.current_location_id` (aktualizowane wewnątrz `inventory_post_movement` dla pozycji seryjnych). Interfejs nigdy nie krzyżuje tych źródeł, więc mogą się cicho rozjechać dla kontenerów.
+- Jedyny test dotykający transferów międzyoddziałowych (`inventory-cross-branch-transfers.test.ts`) sprawdza wyłącznie obecność fragmentów tekstu w plikach migracji (`fs.readFileSync` + `toContain`), nie wykonuje żadnej realnej operacji — może odnosić się do nazw funkcji sprzed przepisania silnika księgowania.
+- Zależności: Strefa 4 (wyszukiwanie zlecenia będzie możliwe dopiero po istnieniu trwałej tożsamości zlecenia — dziś świadomie poza zakresem tej strefy), Strefa 5 (fizyczna tożsamość QR części/zestawu, jeśli relokacja ma korzystać ze skanu zamiast wyboru z listy), Strefa 6 (dane wejściowe tej strefy pochodzą z przyjęcia — jeśli Strefa 6 nie dostarczy trwałego stanu magazynowego przed pitchem, Strefa 7 nie ma na czym pracować), Strefa 1 (izolacja oddziałowa/RLS tabel użytych tutaj) — odnotowane, nie duplikowane.
+
+### 8. Zwykłe wydanie części
+
+**Priorytet:** P0
+
+**Stan obecny:** 🟠 EARLY / DISCONNECTED
+
+Dedykowany przycisk „Wydanie" na pulpicie magazynowym jest dosłownym zaślepką — akcja serwerowa, którą wywołuje, zwraca zawsze ten sam, zaszyty na sztywno błąd: „Issue movements not yet available in v1. Use the movements page." Nie ma żadnego zasianego typu ruchu o kategorii „wydanie"/„issue"/„consumption" — jedyne typy zdolne zmniejszyć stan bez lokalizacji docelowej to `401`/`402`, które są jawnie korektami z inwentaryzacji (nadwyżka/niedobór), nie wydaniem części do odbiorcy. Na poziomie bazy istnieje osobny, gotowy mechanizm `movement_kind='issue'` z prawidłowym zabezpieczeniem przed nadmiernym wydaniem — ale żaden kod aplikacji nigdy go nie ustawia; to martwa zdolność. Istnieje też osierocony plik UI z typem operacji „issue", niepodłączony do żadnej trasy. Da się technicznie zmniejszyć stan konkretnej pozycji w konkretnej lokalizacji, ręcznie tworząc ruch typu 402 w ogólnym edytorze — z prawdziwym zabezpieczeniem przed ujemnym stanem po stronie bazy — ale bez jakiegokolwiek pola odbiorcy/kontekstu (polityka pól nie definiuje ich dla typu 402 w ogóle) i pod błędną nazwą dokumentu („korekta z inwentaryzacji", nie „wydanie"). To dokładnie sytuacja opisana jako 🟠: prymityw zdolny technicznie zmniejszyć stan istnieje, ale nie ma spójnego, nazwanego poprawnie workflow wydania części.
+
+**Dowody:**
+
+- Kod: VERIFIED. Prześledzono zaślepkę `issueStockAction` (`apps/web/src/app/actions/warehouse/inventory/index.ts` ok. linii 1821-1826 — zawsze zwraca błąd), definicję typów 401/402 (`inventory_seed_movement_types`, kategoria `adjustment`, nazwy PL „Korekta z inwentaryzacji"), gałąź `movement_kind = 'issue'` w `inventory_post_movement` (realne, ale nieużywane przez aplikację zabezpieczenie przed ujemnym stanem), politykę pól nadawca/odbiorca (`inventory_movement_type_field_policies` — zdefiniowana dla typów 101/801/311, **nigdy dla 401/402**, więc pola odbiorcy nie są w ogóle oferowane dla jedynego typu technicznie zdolnego pełnić rolę wydania), osierocony plik `inventory-movement-new-client.tsx` (definiuje typ operacji „issue", niezaimportowany nigdzie w repozytorium) oraz rejestr celów komentarzy/załączników (`target-registry.ts` w `apps/web/src/server/comments/` — trzy typy: ticket/task/kanban_card, **brak wpisu dla ruchu magazynowego**, co ma bezpośrednie znaczenie dla Strefy 9).
+- Testy automatyczne: NONE dla realnego zachowania. Istniejące testy (`inventory-phase1-migrations.test.ts`, `inventory-movement-field-policies-migration.test.ts`) sprawdzają wyłącznie obecność fragmentów tekstu SQL w plikach migracji (`toContain("v_header.movement_kind = 'issue'")` itp.), nie wykonują żadnego realnego ruchu i nie testują ścieżki 401/402. Zero testów `issueStockAction` (to trwała zaślepka, więc nie ma czego testować), zero testów odrzucenia nadmiernego wydania na realnej ścieżce, zero testów ponownego odnalezienia wydania.
+- Weryfikacja ręczna: NOT VERIFIED — brak jakiejkolwiek odnotowanej próby.
+- Przebieg end-to-end: NOT APPLICABLE dla zamierzonego „wydania" (nie istnieje ścieżka do przetestowania — przycisk to zaślepka); NOT VERIFIED dla obejścia przez ręczne utworzenie ruchu 402.
+
+**Wymagany stan dla pitchu:** DEMO READY
+
+### Pitch readiness checklist
+
+**Decyzja architektoniczna wymagana przed pitchem**
+
+- [ ] Ustalono świadomie, jak demo pokaże „wydanie części", skoro dedykowany przycisk jest dziś zaślepką: (a) podłączyć istniejącą gałąź `movement_kind='issue'` do prawdziwego, choćby minimalnego wejścia UI, (b) tymczasowo nadać typowi 402 pola odbiorcy przez politykę pól i używać go jako obejścia z jasną etykietą w scenariuszu, albo (c) świadomie zawęzić scenariusz demo, żeby nie obiecywał dedykowanego wydania, którego dziś nie ma.
+
+**Typ dokumentu wydania**
+
+- [ ] Wybrany na potrzeby demo mechanizm (zależnie od decyzji wyżej) ma trwały numer dokumentu, status i właściwe oddział/organizację — potwierdzone w kodzie dla ogólnego silnika ruchów, do zweryfikowania na żywo dla wybranej ścieżki.
+- [ ] Wymaga lokalizacji źródłowej, nie wymaga docelowej — zgodne z semantyką wydania.
+
+**Wejście do procesu**
+
+- [ ] Użytkownik demo ma praktyczną, przećwiczoną ścieżkę rozpoczęcia wydania (nie improwizowaną nawigację po ogólnym edytorze ruchów podczas samego pokazu).
+- [ ] Wybrana część/lokalizacja źródłowa jest jednoznacznie widoczna przed zatwierdzeniem.
+
+**Ilość**
+
+- [ ] Wydanie konkretnej, znanej ilości działa na aktualnym build.
+- [ ] Wydanie ilości częściowej (mniej niż cały dostępny stan) działa poprawnie — mechanizm księgowania jest wspólny z relokacją ze Strefy 7 i tam już zweryfikowany w kodzie.
+- [ ] Próba wydania więcej niż dostępny stan jest odrzucana po stronie serwera, nie tylko UI — potwierdzone w kodzie dla ogólnego mechanizmu, do zweryfikowania na żywo dla wybranej ścieżki demo.
+
+**Odbiorca/kontekst**
+
+- [ ] Wybrana ścieżka demo faktycznie pozwala zapisać, komu/na jaki kontekst część została wydana — dziś typ 402 nie oferuje żadnego pola odbiorcy (brak wpisu w polityce pól), więc bez zmiany jedynym dostępnym polem jest ogólna notatka tekstowa.
+- [ ] Powiązanie ze zleceniem naprawczym, jeśli pokazywane, jest jawnie opisane jako tekst, nie jako trwała relacja — zgodnie z ustaleniem Strefy 4 (Workshop nie istnieje).
+
+**Zatwierdzenie i stan**
+
+- [ ] Zatwierdzenie trwale zmniejsza stan na właściwej lokalizacji — sprawdzone na żywo dla wybranej ścieżki demo.
+- [ ] Ponowne kliknięcie/błąd sieci przy zatwierdzaniu nie tworzy dwóch dokumentów wydania — dziś ochrona to wyłącznie blokada przycisku po stronie klienta (`disabled` podczas wysyłki); klucz idempotencji jest generowany na nowo przy każdym wywołaniu, więc nie chroni przed prawdziwym podwójnym zatwierdzeniem.
+- [ ] Błąd zapisu nie wygląda na sukces.
+
+**Odnalezienie później**
+
+- [ ] Wydany dokument można ponownie odnaleźć z listy ruchów magazynowych i otworzyć jego szczegóły (ilość, lokalizacja źródłowa, data, numer dokumentu) — potwierdzone jako realna, działająca funkcja ogólnego silnika ruchów.
+- [ ] Historia lokalizacji źródłowej pokazuje to wydanie po odświeżeniu/ponownym wejściu.
+
+**Granica ze Strefą 9**
+
+- [ ] Ustalono jednoznacznie, do jakiego trwałego obiektu Strefa 9 ma dołączyć zdjęcie podpisanego dokumentu — dziś rejestr celów komentarzy/załączników nie ma żadnego wpisu dla ruchu magazynowego, więc nawet po wybraniu dokumentu wydania jako celu, dołączenie załącznika wymaga nowej pracy w Strefie 9, nie tylko wyboru istniejącego obiektu.
+
+**Narracja o AutoStacji**
+
+- [ ] Wypowiedź prezentera jasno mówi, że oficjalne wydanie nadal odbywa się w AutoStacji podczas pilotażu, a potwierdzenie w Ambrze to dodatkowa warstwa (kontrola magazynowa, historia, ślad fizyczny) — nie zastąpienie AutoStacji ani automatyczna synchronizacja.
+
+**Brama końcowa**
+
+- [ ] **Dokładny scenariusz pitchu Strefy 8 zweryfikowany ręcznie na aktualnym build, na stanie utworzonym w Strefach 6–7:** odnalezienie znanej części → rozpoczęcie wydania wybraną ścieżką → wybór właściwej lokalizacji źródłowej → wydanie reprezentatywnej ilości → zapisanie odbiorcy/kontekstu → zatwierdzenie → poprawne zmniejszenie stanu → widoczność stanu/lokalizacji po odświeżeniu → ponowne odnalezienie dokumentu z nowej nawigacji → potwierdzenie ilości, lokalizacji źródłowej, użytkownika/czasu i stabilnej tożsamości dokumentu gotowej pod dołączenie podpisanego dokumentu w Strefie 9.
+
+**Pitch gap:**
+
+To druga po Strefie 6 najgłębsza luka funkcjonalna wśród ocenionych dotąd stref P0 — z ważnym zastrzeżeniem, że luka jest węższa niż w Strefie 6, bo mechanizm księgowania (zmniejszanie stanu, blokada nadmiernego wydania, częściowa ilość) jest już sprawdzony i działający dla analogicznej operacji (relokacja, Strefa 7). Brakuje jednak samej **warstwy biznesowej wydania**: dedykowany przycisk jest trwałą zaślepką z zaszytym błędem; jedyny technicznie zdolny typ ruchu (402) nazywa się i jest oznaczony jako korekta z inwentaryzacji, nie wydanie; nie oferuje żadnego pola odbiorcy/kontekstu; ochrona przed podwójnym zatwierdzeniem to wyłącznie blokada przycisku po stronie klienta. Dodatkowo rejestr celów załączników nie zna dziś ruchu magazynowego jako możliwego celu — to bezpośrednio blokuje płynne przejście do Strefy 9, nawet po rozwiązaniu problemów tej strefy. Zbudowanie tej strefy do stanu obiecywanego przez skrypt wymaga: (1) świadomej decyzji, którym mechanizmem pokazać wydanie, (2) minimalnego pola odbiorcy/kontekstu dla wybranego typu, (3) prawdziwej ochrony przed podwójnym zatwierdzeniem, (4) dodania ruchu magazynowego do rejestru celów załączników na potrzeby Strefy 9. To realna, ale węższa niż w Strefie 6, praca implementacyjna.
+
+**Wymagany stan dla pilotażu:** PILOT READY
+
+### Pilot readiness checklist
+
+- [ ] Dedykowany typ ruchu „wydanie" (nie nadużyty 402) zasiany i podłączony do prawdziwej ścieżki `movement_kind='issue'` — na potrzeby pilotażu nazwa/semantyka dokumentu musi być poprawna, nie tymczasowym obejściem z pitchu.
+- [ ] Prawdziwa idempotencja zatwierdzenia (stabilny klucz trzymany w stanie komponentu przez cały cykl żądania, nie generowany na nowo przy każdym wywołaniu) plus ochrona po stronie bazy.
+- [ ] Bezpieczeństwo współbieżnego wydania tej samej pozycji przez dwóch pracowników jednocześnie (blokada/kolejkowanie na poziomie salda).
+- [ ] Jawne zasady korekty/reversal błędnie wydanej pozycji z zachowaniem historii.
+- [ ] Walidacja odbiorcy/kontekstu (np. wymagany, jeśli typ tego wymaga) dopracowana dla realnych ról pilotażowych.
+- [ ] Trwały ślad audytowy wydań dla ról administracyjnych.
+- [ ] Izolacja oddziałowa/organizacyjna wydań — zależność od ogólnych ustaleń RLS ze Strefy 1, tu tylko odnotowana jako wymaganie dla nowego/podłączonego typu ruchu.
+- [ ] Integralność numeracji dokumentów wydania przy realistycznym wolumenie i wielu jednoczesnych użytkownikach.
+- [ ] Testy integracyjne automatyczne pokrywające realny przepływ wydania (utworzenie → zatwierdzenie → odrzucenie nadmiernej ilości → odnalezienie) — dziś praktycznie nieobecne.
+- [ ] Procedura uzgadniania z AutoStacją (co się dzieje, gdy wydanie w Ambrze i w AutoStacji się rozjadą) ustalona proceduralnie, nie tylko wypowiedziana podczas pitchu.
+- [ ] Monitorowanie nieudanych prób wydania (np. odrzuconych z powodu braku stanu) widoczne dla administratora.
+- [ ] **Dokładny scenariusz pilotażu Strefy 8 zweryfikowany ręcznie z reprezentatywnymi rolami/użytkownikami pilotażu**, w tym współbieżne wydanie i jedna kontrolowana korekta.
+
+**Pilot gap:**
+
+Zakres pilotażowy tej strefy jest w dużej mierze naturalną kontynuacją tego, co pitch-gate już wymusza — nazwany poprawnie, podłączony mechanizm wydania z polem odbiorcy. Ponad to dochodzi twardość specyficzna dla realnego wolumenu: prawdziwa idempotencja (nie tylko blokada przycisku), współbieżność, integralność numeracji dokumentów i procedura uzgadniania z AutoStacją — istotna, bo skrypt explicite mówi, że AutoStacja pozostaje źródłem prawdy podczas pilotażu, więc rozbieżności między systemami muszą mieć ustaloną procedurę, nie tylko dobre intencje.
+
+### Notes / evidence
+
+- Zaślepka dedykowanego wydania: `apps/web/src/app/actions/warehouse/inventory/index.ts` ok. linii 1821-1826 (`issueStockAction` zawsze zwraca `{success: false, error: "Issue movements not yet available in v1. Use the movements page."}`), wywoływana z realnego, osiągalnego formularza na pulpicie magazynowym (`inventory-client.tsx` ok. linii 245-263) — w przeciwieństwie do sąsiednich, realnych akcji przyjęcia/transferu na tej samej stronie.
+- Typy 401/402: zasiane jako `category='adjustment'`, `name_pl: "Korekta z inwentaryzacji (nadwyżka/niedobór)"` (`apps/web/supabase-target/supabase/migrations/20260710131915_fix_audit_movement_and_zero_stock.sql` ok. linii 227-250) — zbudowane, żeby dać typ do księgowania sesji inwentaryzacyjnych, nie do wydawania części odbiorcy. Żaden zasiany typ nie ma kategorii issue/consumption/sales/shipment.
+- Martwa zdolność na poziomie bazy: gałąź `movement_kind = 'issue'` w `inventory_post_movement` (`apps/web/supabase-target/supabase/migrations/20260506090000_inventory_phase2_enterprise_core.sql` ok. linii 1703-1735) ma prawidłowe zabezpieczenie przed ujemnym stanem, ale żaden kod aplikacji nigdy nie ustawia `movement_kind: "issue"` (jedyne użycie parametru w kodzie to `"opening_balance"`, `inventory-products.service.ts:2310`).
+- Osierocony plik UI: `inventory-movement-new-client.tsx` definiuje typ operacji „issue" (linie ok. 28-30, 120-123, 307), ale nie jest importowany nigdzie w repozytorium — realna strona `movements/new/page.tsx` renderuje inny komponent (`MovementDocumentForm`).
+- Polityka pól nadawca/odbiorca zdefiniowana wyłącznie dla typów 101 (opcjonalne), 801 (zabronione), 311 (wymagane) — `apps/web/supabase-target/supabase/migrations/20260626150000_inventory_movement_field_policies.sql` i `20260712120000_add_inter_branch_movement_contract.sql`; brak jakiegokolwiek wiersza polityki dla 401/402, więc te pola nie są dziś oferowane w UI dla jedynego typu technicznie zdolnego reprezentować wydanie.
+- Ochrona przed podwójnym zatwierdzeniem: kolumna `idempotency_key` i unikalny indeks istnieją (`inventory_movement_headers_org_idempotency_uidx`), ale klucz jest generowany (`crypto.randomUUID()`) wewnątrz callbacku wysyłki przy każdym wywołaniu (`use-movement-submission.ts` ok. linii 105), nie trzymany stabilnie w stanie — realna ochrona przed podwójnym kliknięciem to wyłącznie `disabled={isPending}` na przycisku.
+- Odnalezienie ruchu: lista (`InventoryMovementsService.listMovements`, wyszukiwanie po numerze dokumentu/nadawcy/odbiorcy) i szczegóły (`inventory-movement-detail-panel.tsx`) są realne i działające dla ogólnego silnika ruchów; historia lokalizacji (Strefa 7) także pokazuje ruchy. Brak jednak widoku historii ruchów z poziomu szczegółów produktu.
+- Rejestr celów załączników/komentarzy (`apps/web/src/server/comments/target-registry.ts`) ma dokładnie trzy wpisy: `helpdesk.ticket`, `planning.task`, `planning.kanban_card` — brak wpisu dla ruchu magazynowego; to bezpośrednia zależność blokująca Strefę 9, niezależnie od tego, który mechanizm wydania zostanie wybrany w tej strefie.
+- Zależności: Strefa 1 (izolacja oddziałowa/RLS), Strefa 4 (prawdziwa relacja zlecenia zamiast tekstu, jeśli wydanie ma pokazywać kontekst zlecenia), Strefa 6/7 (stan magazynowy, z którego wydawana jest część, musi istnieć przed demo tej strefy), Strefa 9 (dołączenie podpisanego dokumentu do obiektu zidentyfikowanego tutaj) — odnotowane, nie duplikowane.
 
 ### 9. Podpisany dokument i cyfrowe archiwum wydania
 
