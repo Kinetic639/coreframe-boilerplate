@@ -1,3 +1,5 @@
+> Archived snapshot of the accepted monolithic MVP readiness tracker before it was split into the master tracker and Zone 1–19 files. Do not update this file. Current tracking lives in `../mvp-readiness.md` and `../zones/`.
+
 # Ambra — gotowość do prezentacji i kontrolowanego pilotażu
 
 Audyt repozytorium: **7 września 2026**. Produkt: **wyłącznie `apps/web`** (Strefy 2 i 16 sprawdzają dodatkowo `apps/public-web`/`apps/vmi-client` tam, gdzie to bezpośrednio dotyczy pokazu). Źródło zakresu: [skrypt prezentacji](ambra-skrypt-prezentacji.md). Dowody i ograniczenia: [audyt implementacji](mvp-readiness-audit.md). **Wszystkie 19 stref zostało zaudytowanych i zaakceptowanych szczegółowo poniżej.** Ta sekcja to końcowe podsumowanie i plan pracy wynikający z tych 19 audytów, wykonany jako osobny przebieg spójności po ich zamknięciu — nie nowa ocena.
