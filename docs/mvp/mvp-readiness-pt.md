@@ -811,55 +811,392 @@ Zakres pilotażowy tej strefy jest w dużej mierze naturalną kontynuacją tego,
 - Rejestr celów załączników/komentarzy (`apps/web/src/server/comments/target-registry.ts`) ma dokładnie trzy wpisy: `helpdesk.ticket`, `planning.task`, `planning.kanban_card` — brak wpisu dla ruchu magazynowego; to bezpośrednia zależność blokująca Strefę 9, niezależnie od tego, który mechanizm wydania zostanie wybrany w tej strefie.
 - Zależności: Strefa 1 (izolacja oddziałowa/RLS), Strefa 4 (prawdziwa relacja zlecenia zamiast tekstu, jeśli wydanie ma pokazywać kontekst zlecenia), Strefa 6/7 (stan magazynowy, z którego wydawana jest część, musi istnieć przed demo tej strefy), Strefa 9 (dołączenie podpisanego dokumentu do obiektu zidentyfikowanego tutaj) — odnotowane, nie duplikowane.
 
-### 9. Podpisany dokument i cyfrowe archiwum wydania
+### 9. Załączniki zlecenia naprawczego i archiwum dokumentów
 
-**Cel: DEMO READY. Skrypt: §10–11. Dowód: A9.** Jest prywatny mechanizm załączników dla ticketów, zadań i kart Kanban. Rejestr celów nie zawiera wydania/ruchu; brak podłączenia załączników w badanych szczegółach ruchu.
+**Priorytet:** P0
 
-- [ ] Zdjęcie podpisanego dokumentu DMS można dodać do wydania z 8, z kontrolą formatu/rozmiaru.
-- [ ] Plik i powiązanie są trwałe; błąd uploadu nie tworzy pozornego dokumentu.
-- [ ] Po zamknięciu widoku i ponownym zalogowaniu można znaleźć wydanie i otworzyć zdjęcie.
-- [ ] Pobranie wymaga dostępu do wydania; obca organizacja/nieuprawniony użytkownik nie otrzymuje pliku.
-- [ ] **GATE 9:** wyszukane wydanie → podpisany dokument, przy innym wejściu niż bezpośrednio po uploadzie.
+**Stan obecny:** 🟠 EARLY / DISCONNECTED
 
-Nie potrzeba podpisu elektronicznego, OCR ani pełnego DMS. Retencja, usuwanie i odtwarzanie dokumentów firmowych pozostają wymaganiem pilotażu.
+Generyczny system załączników jest realny, prywatny i genuinely reużywalny — to nie jest fasada ani coś specyficznego dla ticketów. Architektura oparta o `(targetType, targetId)` i rejestr deskryptorów celu jest w warstwie TypeScript prawdziwie generyczna: serwis, akcje serwerowe, trasa pobierania i komponent UI (`AttachmentsPanel`) nie mają ani jednej gałęzi specyficznej dla ticketu/zadania/karty Kanban — działają wyłącznie na podstawie rejestru. Ale **zlecenie naprawcze, które miałoby stać się czwartym celem, nie istnieje** (Strefa 4: NOT IMPLEMENTED), więc nie ma dziś niczego, do czego mógłby dołączyć się nowy typ. To dokładnie sytuacja opisana jako 🟠: realna, generyczna infrastruktura istnieje, ale brakujący cel (RepairOrder) uniemożliwia jej użycie w tej strefie. Dodatkowo warstwa autoryzacji SQL (`can_access_comment_target`) nie jest tak czysto wtykowa jak warstwa TypeScript — to zaszyty łańcuch `IF p_target_type = '...'`, więc dodanie nowego typu wymaga migracji kopiującej całe ciało funkcji, nie prostego wiersza w tabeli.
+
+**Dowody:**
+
+- Kod: VERIFIED. Prześledzono pełny łańcuch: interfejs `CommentTargetDescriptor` i rejestr trzech typów (`apps/web/src/server/comments/target-registry.ts`), generyczne akcje serwerowe (`apps/web/src/app/actions/attachments/index.ts` — zero gałęzi specyficznych dla typu celu), generyczny serwis (`attachments.service.ts` — cztery metody, wszystkie rozwiązujące deskryptor przez rejestr), generyczną trasę pobierania z 60-minutowym podpisanym URL (`file-response.ts`), generyczny komponent UI (`AttachmentsPanel`, realnie użyty w szczegółach ticketu) oraz funkcję SQL `can_access_comment_target` (trzy migracje kolejno dopisujące gałęzie dla ticket/task/kanban_card — potwierdzony wzorzec kopiowania całego ciała funkcji). Potwierdzono: brak sprzężenia z komentarzami na poziomie tabeli (`app_attachments` nie ma FK do wątku komentarza), prywatny bucket Storage bez publicznych/zgadywalnych URL-i, walidację typu/rozmiaru pliku w trzech niezależnych miejscach (klient, serwis, konfiguracja bucketu Storage), oraz standardowy input pliku HTML bez żadnej dodatkowej integracji — działający natywnie z wyborem zdjęcia/aparatu na telefonie.
+- Testy automatyczne: NONE. Wyczerpujące przeszukanie nie znalazło ani jednego testu (jednostkowego, integracyjnego ani e2e) dla całego systemu załączników — upload, listowanie, autoryzacja pobrania, odmowa między organizacjami/celami. Każde rozszerzenie systemu, w tym dodanie RepairOrder, byłoby dziś pozbawione jakiejkolwiek automatycznej ochrony przed regresją.
+- Weryfikacja ręczna: NOT VERIFIED dla scenariusza RepairOrder (bo cel nie istnieje); NOT VERIFIED również dla samego mechanizmu na ticketach/zadaniach w tej analizie (brak odnotowanej świeżej próby).
+- Przebieg end-to-end: NOT APPLICABLE dla zamierzonego scenariusza tej strefy — nie ma dziś RepairOrder, do którego można by cokolwiek dołączyć.
+
+**Wymagany stan dla pitchu:** DEMO READY
+
+### Pitch readiness checklist
+
+**Zależność od Strefy 4**
+
+- [ ] Potwierdzono, że trwałe zlecenie naprawcze ze Strefy 4 istnieje i ma stabilny identyfikator wewnętrzny, zanim rozpocznie się jakakolwiek praca nad tą strefą — bez tego cała reszta tej listy jest niewykonalna.
+
+**Rejestracja RepairOrder jako celu**
+
+- [ ] Dodano wpis `workshop.repair_order` (lub równoważny) do `COMMENT_TARGET_REGISTRY` w `target-registry.ts`, z `validate()` sprawdzającym istnienie zlecenia w danej organizacji/oddziale — wzorowane bezpośrednio na trzech istniejących wpisach, bez tworzenia równoległej, zduplikowanej infrastruktury.
+- [ ] Dodano odpowiadającą gałąź dla tego typu w funkcji SQL `can_access_comment_target` (pełna migracja kopiująca istniejące ciało funkcji plus nowy blok `IF`) — świadomie zaplanowane jako osobny krok, nie „przy okazji".
+- [ ] Zdefiniowano minimalne uprawnienia odczytu/załącznika dla zlecenia naprawczego, spójne z resztą systemu uprawnień (Strefa 1).
+
+**UI na szczegółach zlecenia**
+
+- [ ] Widok szczegółów zlecenia (Strefa 4: Nagłówek/Pozycje/Magazyn i Zam.) zyskuje czwartą sekcję „Załączniki", renderującą istniejący, niezmieniony komponent `AttachmentsPanel` z `targetType="workshop.repair_order"` i `targetId` zlecenia — bez tworzenia nowego, dedykowanego komponentu.
+- [ ] Dodawanie załącznika działa z tego widoku na aktualnym build.
+- [ ] Lista załączników jest widoczna i pozwala otworzyć/pobrać plik.
+
+**Wsparcie plików**
+
+- [ ] Zdjęcie JPEG podpisanego dokumentu można wgrać — sprawdzone na żywo dla przygotowanego pliku demo.
+- [ ] PDF, jeśli używany w demo, również działa.
+- [ ] Limit rozmiaru (25 MB) i dozwolone typy są znane prezenterowi; przygotowany plik demo mieści się w limicie.
+
+**Telefon**
+
+- [ ] Upload z telefonu prezentacyjnego działa — standardowy wybór pliku/aparatu z poziomu przeglądarki, bez dodatkowej aplikacji.
+- [ ] Stany ładowania/sukcesu/błędu są czytelne na ekranie telefonu.
+
+**Trwałość**
+
+- [ ] Załącznik pozostaje widoczny po odświeżeniu strony.
+- [ ] Załącznik pozostaje widoczny po wylogowaniu i ponownym zalogowaniu.
+- [ ] Powiązanie z zleceniem jest zapisane jako rekord w bazie (`target_type`/`target_id`), nie jako konwencja nazwy pliku czy stan lokalny.
+
+**Prywatność**
+
+- [ ] Konto bez dostępu do danego zlecenia/oddziału/organizacji nie może otworzyć załącznika — sprawdzone na żywo dwoma kontami, nie tylko wywnioskowane z kodu.
+- [ ] Bezpośredni dostęp do pliku (bez przejścia przez autoryzowaną trasę aplikacji) nie jest możliwy — zgodne z architekturą prywatnego bucketu i podpisanych URL-i, do potwierdzenia na żywo.
+
+**Scenariusz prezentacyjny podpisanego wydania**
+
+- [ ] Przygotowany przykładowy „podpisany dokument wydania" wgrywa się jako zwykły, generyczny załącznik — bez żadnego dedykowanego mechanizmu „wgraj podpisane wydanie".
+- [ ] Wypowiedź prezentera jasno opisuje to jako kopię dokumentu z AutoStacji/DMS dołączoną do zlecenia, nie jako oficjalny, podpisany elektronicznie dokument generowany przez Ambrę.
+
+**Brama końcowa**
+
+- [ ] **Dokładny scenariusz pitchu Strefy 9 zweryfikowany ręcznie na aktualnym build i urządzeniach prezentacji:** wyszukanie/otwarcie zlecenia naprawczego używanego w demo → otwarcie sekcji Załączniki → wgranie jednego przygotowanego, podpisanego dokumentu wydania AutoStacji/DMS jako zwykłego załącznika JPEG/PDF → potwierdzenie uploadu → wylogowanie → powrót przez normalne wyszukiwanie zlecenia → ponowne otwarcie tego samego zlecenia → załącznik nadal widoczny na liście → otwarcie go z sukcesem → potwierdzenie, że nieuprawnione konto nie ma dostępu do załącznika zlecenia.
+
+**Pitch gap:**
+
+To jedyna strefa P0, w której główna przeszkoda nie leży w samej ocenianej funkcjonalności, tylko w zewnętrznej zależności: generyczny system załączników jest gotowy, przemyślany i nie wymaga przebudowy — potrzebuje wyłącznie nowego wpisu w rejestrze i odpowiadającej gałęzi SQL, dokładnie według istniejącego wzorca, bez duplikowania logiki. Bez Strefy 4 (trwałe zlecenie naprawcze) nie ma jednak niczego, do czego można by ten wpis dodać — to twardy blokier sekwencyjny, nie równoległa praca. Dodatkowe realne ryzyko: warstwa autoryzacji SQL nie jest czystym punktem wtyku (wymaga pełnej migracji kopiującej ciało funkcji), a cały system załączników — łącznie z trzema już działającymi celami — nie ma dziś żadnego pokrycia testami automatycznymi, więc rozszerzenie go o czwarty typ jest pracą bez siatki bezpieczeństwa.
+
+**Wymagany stan dla pilotażu:** PILOT READY
+
+### Pilot readiness checklist
+
+- [ ] Testy automatyczne dla całego generycznego systemu załączników (upload, listowanie, autoryzacja pobrania, odmowa między organizacjami/celami) — dziś nieobecne dla wszystkich czterech celów, nie tylko dla nowego.
+- [ ] Polityka retencji załączników zlecenia (jak długo przechowywać, czy i kto może usunąć) ustalona i wdrożona — dziś usuwanie na poziomie bazy jest całkowicie zablokowane (`DELETE ... USING (false)`), więc jakiekolwiek świadome usuwanie wymaga miękkiego usuwania przez serwis, do zweryfikowania dla nowego celu.
+- [ ] Uprawnienia do usuwania/zastępowania błędnie wgranego załącznika ustalone dla realnych ról pilotażowych.
+- [ ] Ślad audytowy dodania/usunięcia załącznika zlecenia dla ról administracyjnych.
+- [ ] Sprzątanie osieroconych plików w Storage w przypadku nieudanego zapisu wiersza bazy (lub odwrotnie) — do zweryfikowania na realnych awariach, nie tylko szczęśliwej ścieżce.
+- [ ] Realistyczne rozmiary zdjęć z telefonu (pełna rozdzielczość aparatu) sprawdzone pod kątem limitu 25 MB i czasu uploadu na realnej sieci magazynowej.
+- [ ] Polityka wobec formatu HEIC (domyślny format zdjęć na iPhone) — dziś nieobsługiwany w liście dozwolonych typów; ustalić, czy wymaga dodania czy jawnego komunikatu dla użytkownika.
+- [ ] Monitorowanie wykorzystania limitu Storage/bucketu przy realnym wolumenie pilotażowym.
+- [ ] Izolacja oddziałowa/organizacyjna załączników zlecenia potwierdzona rzeczywistym testem na żywej bazie — zależność od ogólnych ustaleń RLS ze Strefy 1, tu odnotowana jako wymaganie dla nowej gałęzi `can_access_comment_target`.
+- [ ] Współbieżne dodawanie wielu załączników przez różnych użytkowników do tego samego zlecenia sprawdzone pod kątem spójności listy.
+- [ ] **Dokładny scenariusz pilotażu Strefy 9 zweryfikowany ręcznie z reprezentatywnymi rolami/użytkownikami pilotażu**, w tym realne zdjęcia z telefonu i co najmniej jedna próba nieuprawnionego dostępu.
+
+**Pilot gap:**
+
+Ponieważ generyczna infrastruktura jest już solidna, luka pilotażowa dla tej strefy jest węższa niż w większości pozostałych — głównie brakujące testy automatyczne (dotyczące całego systemu, nie tylko nowego celu), polityka retencji/usuwania (dziś zablokowana na poziomie bazy, wymaga świadomej decyzji operacyjnej) oraz realistyczne testy na prawdziwych zdjęciach z telefonu i realnym wolumenie. Nie wymaga to nowego zakresu architektonicznego — rozszerza istniejący, dobrze zaprojektowany system.
+
+### Notes / evidence
+
+- Interfejs `CommentTargetDescriptor` i rejestr trzech typów (`helpdesk.ticket`, `planning.task`, `planning.kanban_card`) — `apps/web/src/server/comments/target-registry.ts` (deskryptor: `type`, `requiredReadPermission`, `requiredCommentPermission`, `requiredModeratePermission?`, `requiredAttachmentPermission?`, `validate()`, opcjonalne `afterCommentCreated`/`afterAttachmentCreated`).
+- Generyczne akcje/serwis bez żadnej gałęzi specyficznej dla typu celu: `apps/web/src/app/actions/attachments/index.ts` (`listAttachmentsForTargetAction`, `uploadAttachmentsAction`, `deleteAttachmentAction`), `apps/web/src/server/services/attachments.service.ts` (`listForTarget`, `uploadForTarget`, `softDelete`, `getById` — wszystkie rozwiązują deskryptor przez `getCommentTargetDescriptor`).
+- Generyczna trasa pobierania z podpisanym URL ważnym 60 minut, bez ekspozycji publicznego/zgadywalnego adresu obiektu — `apps/web/src/server/attachments/file-response.ts`.
+- Generyczny komponent `AttachmentsPanel` (props `targetType`/`targetId`) realnie użyty w szczegółach ticketu (`ticket-detail-client.tsx`) — ten sam komponent, nie duplikat per typ encji; ta sama zasada dotyczy wątku komentarzy (`CommentsThread`) na zadaniach i kartach Kanban.
+- Funkcja SQL `can_access_comment_target` to zaszyty łańcuch `IF p_target_type = '...' THEN ... END IF`, dopisywany kolejnymi migracjami pełną podmianą ciała funkcji (`20260604170000_generic_app_comments.sql` — tylko ticket; `20260604173000_comments_planning_task_target.sql` — dodaje task; `20260605170000_planning_kanban_card_details.sql` — dodaje kanban_card) — dodanie RepairOrder wymaga tego samego wzorca, nie prostego wiersza konfiguracyjnego.
+- Brak sprzężenia z komentarzami na poziomie tabeli: `app_attachments` nie ma kolumny/FK do wątku komentarza, jest kluczowane niezależnie przez `(org_id, target_type, target_id)` — `apps/web/supabase/migrations/20260607100000_generic_app_attachments.sql`.
+- Prywatność: bucket `app-attachments` ma `public: false`; pobranie zawsze przechodzi przez `file-response.ts`, generujący 60-minutowy podpisany URL i strumieniujący plik przez trasę aplikacji, nie eksponujący go bezpośrednio klientowi; RLS Storage niezależnie re-weryfikuje `can_access_comment_target` przy SELECT/DELETE, INSERT wymaga zgodności segmentu folderu z `auth.uid()`, UPDATE zablokowane w całości.
+- Walidacja pliku w trzech niezależnych miejscach: filtr klienta (`attachment-dropzone.tsx`), `validateFile()` w serwisie, oraz konfiguracja bucketu Storage (`allowed_mime_types`, `file_size_limit: 26214400`) — limit 25 MB, maksymalnie 10 plików na partię, brak wsparcia dla HEIC.
+- Standardowy input pliku HTML (`&lt;input type="file" accept="..."&gt;`) bez atrybutu `capture` — działa natywnie z wyborem zdjęcia/aparatu telefonu bez dodatkowej integracji.
+- Zero testów jakiegokolwiek rodzaju dla całego systemu załączników — potwierdzone wyczerpującym przeszukaniem (`*attachment*.test.*`, testy pgTAP, e2e) w całym `apps/web`.
+- Zależności: Strefa 4 (twardy blokier sekwencyjny — bez trwałego RepairOrder ta strefa nie ma celu do rejestracji), Strefa 1 (izolacja oddziałowa/organizacyjna nowej gałęzi autoryzacji, ogólne bezpieczeństwo Storage), Strefa 8 (odnotowane wyłącznie jako źródło scenariusza biznesowego — podpisany dokument wydania — nie jako zależność architektoniczna; załącznik dołącza się do zlecenia, nie do ruchu magazynowego, zgodnie z zamierzonym modelem tej strefy).
 
 ## P1 — mocne uzupełnienie prezentacji
 
-### 10. Użytkownicy, zaproszenia, członkostwa i administracja rolami
+### 10. Użytkownicy, zaproszenia, członkostwa, role i administracja dostępem
 
-**Cel: DEMO READY dla krótkiego omówienia. Skrypt: §5. Dowód: A1.** Realne usługi, akcje i testy istnieją. Działający dostęp jest P0; pełne administrowanie na żywo nie.
+**Priorytet:** P1
 
-- [ ] Przygotowano konta demonstratora, pracownika i akceptanta z członkostwami/rolami.
-- [ ] Można pokazać członków, zaproszenie i zakres roli bez obietnicy ukończenia całej administracji.
-- [ ] Jedno zaproszenie/przyjęcie sprawdzono przed spotkaniem, w tym błędny/wygasły token i zmianę dostępu.
-- [ ] Uprawnienia serwera potwierdza scenariusz odmowy z 1, nie tylko ukryty przycisk.
-- [ ] **GATE 10:** prawdziwy opis fundamentów mieszczący się w około dwóch minutach.
+**Stan obecny:** 🟡 PARTIAL
 
-Nie kończyć wszystkich edytorów ról, pozycji, profili, billingów i pełnej macierzy administracyjnych edge cases przed pitchem.
+To najbardziej solidna strefa spośród dotychczas ocenionych — realna, w pełni podłączona administracja: lista członków, zaproszenia (tworzenie, akceptacja, odmowa, obsługa błędnych/wygasłych tokenów), role wbudowane i niestandardowe z edytorem uprawnień, przypisania ról w zakresie organizacji i oddziału (model „branch managera"), oraz rzeczywiste, testowane sprawdzenia uprawnień po stronie serwera — nie tylko ukrywanie przycisków. Zmiana roli działa bez wymuszania ponownego logowania (snapshot uprawnień jest czytany na świeżo przy każdym żądaniu SSR; JWT ma tylko kosmetyczne opóźnienie widoczne w wyświetlanej liście ról, nie w faktycznej autoryzacji). Jest jednak konkretna, potwierdzona w kodzie luka bezpieczeństwa administracyjnego: **nie istnieje żadne zabezpieczenie przed usunięciem/zdegradowaniem ostatniego właściciela organizacji ani przed samodzielnym odebraniem sobie dostępu** — ani w akcji, ani w serwisie, ani w RLS. To realny, potwierdzony brak, nie tylko niezweryfikowany szczegół, więc mimo mocnego fundamentu status nie przekracza PARTIAL.
 
-### 11. Tickety: doradca ↔ części, akceptacja i problem z QR
+**Dowody:**
 
-**Cel: DEMO READY. Skrypt: §12–13. Dowód: A10.** Są typy/statusy, wykonawcy, komentarze, aktywność, akceptanci i RPC akceptacji; działa rejestr QR ticketu. Nie potwierdzono relacji do encji części/zlecenia/kontenera ani kompletnego procesu decyzji o zwrocie.
+- Kod: VERIFIED, na aktualnie działającym backendzie (`apps/web/.env.local` wskazuje projekt „target" — użyto migracji z `apps/web/supabase-target/supabase/migrations`, nie starszego drzewa `apps/web/supabase/migrations`). Prześledzono: listę członków (`members-client.tsx`, `OrgMembersService.listMembers`), pełny cykl zaproszenia (`createInvitationAction` → `OrgInvitationsService.createInvitation` → e-mail → `acceptInvitationAction`/`declineInvitationAction` → RPC `accept_invitation_and_join_org`/`decline_invitation`), rejestrację bez zaproszenia (`createOrganizationAction` → RPC `create_organization_for_current_user`, przypisanie roli `org_owner`), model ról (role wbudowane `org_owner`/`org_member` plus role niestandardowe per organizacja z edytorem uprawnień w `roles-client.tsx`), zmianę roli (`assignRoleToUserAction`/`removeRoleFromUserAction` → `user_role_assignments`, podwójna bramka `MEMBERS_MANAGE`/`BRANCH_ROLES_MANAGE`), administrację dostępem oddziałowym (ten sam mechanizm z `scope: "branch"`, filtrowany widok dla branch managerów) oraz świeżość uprawnień po zmianie (`compile_user_permissions` wywoływane jawnie po akceptacji zaproszenia; `PermissionServiceV2.getPermissionSnapshotForUser()` czytane na nowo przy każdym żądaniu SSR, nie z JWT). Potwierdzono realny brak: żadna z funkcji usuwania członka/roli (`OrgMembersService.removeMember`, akcje `roles.ts`) nie sprawdza liczby właścicieli ani tożsamości działającego użytkownika względem celu operacji; przeszukanie migracji `target` pod kątem „last_owner"/„owner_count" nie dało wyników.
+- Testy automatyczne: PARTIAL/VERIFIED na papierze, nie uruchomione w tej sesji. Istnieje szeroki, konkretny zestaw testów (`invite-lifecycle.test.ts` — kody błędów `INVITE_NOT_FOUND`/`INVITE_EXPIRED`/`EMAIL_MISMATCH`/`INVITE_NOT_PENDING`; `actions-org-gaps.test.ts`, `roles.test.ts`, `branches.test.ts`, `member-detail-client.test.tsx`, `roles-client.test.tsx`, `branches-client.test.tsx` — w tym jawne przypadki „returns unauthorized when missing ..."), asercje odpowiadają dokładnie kształtowi realnego kodu. Zero testów dla scenariusza „ostatni właściciel"/samodzielnego odebrania dostępu — bo taka ochrona nie istnieje.
+- Weryfikacja ręczna: NOT VERIFIED — brak jakiejkolwiek odnotowanej świeżej próby na aktualnym build.
+- Przebieg end-to-end: NOT VERIFIED — nie odtworzono na żywo: otwarcie widoku członków → pokazanie realnych kont z różnymi rolami → jedna bezpieczna operacja (zmiana roli lub zaproszenie/akceptacja) → potwierdzenie efektu.
 
-- [ ] Jeden ticket trafia do przygotowanych częściowców, ma typ/status, odpowiedzialną osobę i termin; druga osoba odpowiada, historia jest trwała.
-- [ ] Przykład „Zwrot” wymaga wskazanej akceptacji i pokazuje autora/czas; niedozwolona decyzja jest odrzucana.
-- [ ] Nie przedstawiać akceptacji ticketu jako pełnego silnika zwrotów z odrzuceniem, eskalacją i blokadami — sprawdzić konkretny pokazany warunek.
-- [ ] QR na problemowej części otwiera ticket z opisem/statusem/historią. Wyjaśnić, czy to etykieta ticketu na części, czy rzeczywista relacja do części.
-- [ ] Jeśli zachowujemy zdanie o bezpośrednim powiązaniu ze zleceniem/częścią/zestawem, musi istnieć trwałe, nawigowalne powiązanie; numer w opisie nie wystarcza.
-- [ ] **GATE 11:** przebieg na dwóch rolach, ponowne otwarcie i skan QR, bez udawanych powiadomień.
+**Wymagany stan dla pitchu:** DEMO READY dla krótkiego omówienia
 
-Połączono komunikację, tickety wewnętrzne i jeden przykład akceptacji. Siedem typów, raporty zwrotów, Customer Care i pełne SLA nie są bramką pitchu. Niedokończone P1 wymaga jawnego zawężenia wypowiedzi przed próbą.
+### Pitch readiness checklist
 
-### 12. Stan początkowy i propozycja pilotażu
+**Konta przygotowane przed spotkaniem**
 
-**Cel: DEMO READY dla materiału i planu. Skrypt: §8, §16–23.** To nie zlecenie implementacji migracji historycznej.
+- [ ] Konto administratora/właściciela przygotowane z pełnym dostępem.
+- [ ] Konto pracownika magazynu przygotowane z rolą niestandardową odpowiednią do reszty pokazu (Strefy 6–9).
+- [ ] Jeśli scenariusz tego wymaga: drugie konto (np. akceptant/doradca) przygotowane z inną, kontrastującą rolą.
+- [ ] Członkostwa/role tych kont odpowiadają temu, co prezenter faktycznie pokaże — sprawdzone na żywo, nie tylko założone.
 
-- [ ] Wyjaśniono, że pierwszego dnia system nie zna całego starego magazynu; nowe dostawy nie dowodzą pełnego stanu.
-- [ ] Wybrano do rozmowy naturalną rotację albo ograniczone wprowadzenie przy porządkowaniu/inwentaryzacji; określono unikanie podwójnego przyjęcia.
-- [ ] Materiał opisuje jeden oddział, trzy miesiące (przygotowanie → realna praca → ocena), odpowiedzialność i zgodę na dane.
-- [ ] Około 25 tys. zł ma podział: sprzęt, infrastruktura/narzędzia, praca; nie jest ceną gotowego produktu.
-- [ ] Mierniki obejmują czas przyjęcia/szukania, pomyłki lokalizacji, koszt podwójnego potwierdzenia wydania, opinie i warunki zatrzymania pilota.
-- [ ] **GATE 12:** konkretny wniosek oddziela pokaz od dopuszczenia danych firmowych.
+**Wybrany krótki scenariusz**
+
+- [ ] Wybrano jeden, stabilny ekran administracyjny do pokazania (lista członków ze zróżnicowanymi rolami LUB zaproszenie z przypisaną rolą/zakresem) — nie oba naraz.
+- [ ] Jeśli scenariusz obejmuje zmianę roli na żywo: sprawdzono na aktualnym build, że zmiana się zapisuje i jest widoczna bez konieczności wylogowania.
+- [ ] Jeśli scenariusz obejmuje zaproszenie: jedno zaproszenie/przyjęcie przetestowano przed spotkaniem od początku do końca, łącznie z błędnym/wygasłym tokenem.
+- [ ] Prezenter potrafi krótko i poprawnie terminologicznie opisać hierarchię organizacja → oddział → członek → rola → uprawnienie, zgodnie z rzeczywistym modelem w kodzie (role wbudowane + role niestandardowe per organizacja, nie sztywna lista „org_owner/manager/worker/viewer" nieodpowiadająca kodowi).
+- [ ] Wypowiedź nie obiecuje funkcji, których nie ma (SSO, katalog HR, masowy import, pełny edytor macierzy uprawnień na poziomie enterprise) — pokaz ogranicza się do tego, co faktycznie działa.
+
+**Bezpieczeństwo widoczne podczas pokazu**
+
+- [ ] Konto bez uprawnień administracyjnych nie może wykonać tej samej operacji (zmiana roli/zaproszenie) — sprawdzone na żywo, nie tylko wywnioskowane z ukrytego przycisku.
+- [ ] Podczas przygotowania demo nie wykonano przypadkowo operacji na ostatnim właścicielu organizacji — świadome ominięcie znanej luki (brak ochrony ostatniego właściciela), nie poleganie na tym, że nikt tego nie zrobi.
+
+**Brama końcowa**
+
+- [ ] **Dokładny scenariusz pitchu Strefy 10 zweryfikowany ręcznie na aktualnym build:** administrator otwiera realny widok administracji członkami/dostępem → pokazuje przygotowane konta z odrębnymi, rzeczywistymi członkostwami/rolami → wykonuje jedną wybraną, bezpieczną operację (zmiana roli LUB zaproszenie/akceptacja) → odświeżenie/ponowne zalogowanie w razie potrzeby → wynikowy dostęp jest widoczny i spójny ze Strefą 1 → konto nieuprawnione nie może wykonać tej samej operacji administracyjnej.
+
+**Pitch gap:**
+
+Fundament jest realny i solidniejszy niż w większości pozostałych stref — to nie jest kwestia budowania brakującej funkcjonalności, tylko krótkiej, świeżej weryfikacji ręcznej wybranego scenariusza na aktualnym build oraz świadomego, wąskiego doboru tego, co pokazać w ograniczonym czasie. Jedyna realna luka funkcjonalna — brak ochrony ostatniego właściciela/samodzielnej degradacji — nie blokuje pitchu wprost (nie jest to element scenariusza), ale wymaga ostrożności przy przygotowywaniu kont demo, żeby nie ujawnić jej przypadkowo na żywo.
+
+**Wymagany stan dla pilotażu:** PILOT READY
+
+### Pilot readiness checklist
+
+- [ ] Ochrona ostatniego właściciela organizacji przed usunięciem/degradacją — dziś potwierdzona jako całkowicie nieobecna na wszystkich warstwach (akcja, serwis, RLS).
+- [ ] Ochrona przed samodzielnym odebraniem sobie dostępu/degradacją własnej roli administracyjnej bez potwierdzenia.
+- [ ] Ochrona przed eskalacją uprawnień (użytkownik przypisujący sobie lub innym rolę szerszą niż jego własne uprawnienia pozwalają) — do potwierdzenia dokładnego zakresu istniejących sprawdzeń.
+- [ ] Trwały ślad audytowy zmian członkostwa/roli (kto/kiedy zmienił czyją rolę) dla ról administracyjnych.
+- [ ] Natychmiastowe odwołanie dostępu po usunięciu członkostwa sprawdzone na żywo (nie tylko w kodzie) — czy trwająca sesja usuniętego użytkownika traci dostęp przy najbliższym żądaniu.
+- [ ] Zachowanie przy współbieżnej zmianie roli tej samej osoby przez dwóch administratorów jednocześnie.
+- [ ] Obsługa zduplikowanego zaproszenia (ten sam e-mail, dwa aktywne zaproszenia) sprawdzona na realnych danych.
+- [ ] Odzyskiwanie po błędnym przypisaniu roli (jasna ścieżka korekty, nie tylko ręczna ingerencja w bazę).
+- [ ] Testy integracyjne/RLS na żywej bazie dla scenariuszy administracji dostępem — dziś istniejące testy są w większości na zamockowanym kliencie; zależność od ogólnych ustaleń o realnych testach RLS ze Strefy 1, tu odnotowana jako wymaganie specyficzne dla tabel `user_role_assignments`/`organization_members`/`invitations`.
+- [ ] Realistyczny test wielu pilotażowych ról jednocześnie (właściciel, pracownik magazynu, doradca/akceptant, ewentualny branch manager) na rzeczywistych kontach, nie tylko syntetycznych.
+- [ ] **Dokładny scenariusz pilotażu Strefy 10 zweryfikowany ręcznie z reprezentatywnymi rolami/użytkownikami pilotażu**, w tym próba usunięcia/degradacji ostatniego właściciela jako świadomy test negatywny.
+
+**Pilot gap:**
+
+Główna dodatkowa praca pilotażowa to domknięcie jednej konkretnej, potwierdzonej luki bezpieczeństwa administracyjnego (ochrona ostatniego właściciela i samodzielnej degradacji) oraz rozszerzenie pokrycia testami z zamockowanego klienta na realną bazę dla tabel administracji dostępem. Reszta to pogłębienie audytu/współbieżności odpowiednie do skali pilotażu, nie nowy zakres funkcjonalny — fundament administracyjny jest już dziś zbudowany solidnie.
+
+### Notes / evidence
+
+- Backend runtime potwierdzony jako projekt „target" (`apps/web/.env.local` → `rjeraydumwechpjjzrus`); wszystkie cytowania DB pochodzą z `apps/web/supabase-target/supabase/migrations`, nie ze starszego, częściowo nieaktualnego drzewa `apps/web/supabase/migrations` — istotne rozróżnienie już wcześniej odnotowane w innych strefach (dryf/dwa drzewa migracji).
+- Lista członków: `apps/web/src/app/[locale]/dashboard/organization/users/members/_components/members-client.tsx` + `apps/web/src/app/actions/organization/members.ts` (`listMembersAction` → `OrgMembersService.listMembers`) — realne dane, role/zakresy/oddziały widoczne per wiersz.
+- Zaproszenia: `createInvitationAction`/`acceptInvitationAction`/`declineInvitationAction` (`apps/web/src/app/actions/organization/invitations.ts`) → RPC `accept_invitation_and_join_org`/`decline_invitation` (`apps/web/supabase-target/supabase/migrations/20260323000015_target_harden_p6_legacy_cleanup.sql:27-170`) — kopiuje przypisania ról z zaproszenia do `user_role_assignments` z rozróżnieniem zakresu org/oddział i jawnie wywołuje `compile_user_permissions` na końcu.
+- Rejestracja bez zaproszenia: `createOrganizationAction` (`apps/web/src/app/actions/onboarding/index.ts:61-170`) → RPC `create_organization_for_current_user`, przypisanie wbudowanej roli `org_owner` (seed w `20260320000011_target_p3_b3_seed.sql:53-60`).
+- Role: wbudowane `org_owner`/`org_member` (`is_basic=true`) plus role niestandardowe per organizacja (`is_basic=false`, `scope_type` org/oddział) z triggerem chroniącym niezmienność tych pól po utworzeniu — UI: `apps/web/src/app/[locale]/dashboard/organization/users/roles/_components/roles-client.tsx`, akcje: `apps/web/src/app/actions/organization/roles.ts` (`createRoleAction`/`updateRoleAction`, walidacja `validateBranchRolePermissions` blokująca uprawnienia tylko-organizacyjne na rolach oddziałowych).
+- Zmiana roli bez wymuszonego ponownego logowania: `apps/web/src/server/loaders/v2/load-user-context.v2.ts:110-146` — JWT ma tylko kosmetyczne opóźnienie w wyświetlanej liście ról; faktyczna autoryzacja (RLS, `has_permission`/`has_branch_permission`, `PermissionServiceV2.getPermissionSnapshotForUser()`) czyta `user_effective_permissions` na świeżo przy każdym żądaniu SSR.
+- Potwierdzony brak ochrony ostatniego właściciela/samodzielnej degradacji: `OrgMembersService.removeMember` (`organization.service.ts:293-338`) i akcje w `roles.ts` wykonują bezwarunkowe usunięcie/zmianę bez sprawdzenia liczby właścicieli ani tożsamości działającego użytkownika; brak odpowiadającej polityki RLS (`20260320000022_target_p1_b1_org_members_policies.sql:63-70` — polityka DELETE sprawdza tylko `members.manage`, nie liczbę właścicieli); pomocnicza funkcja `is_org_owner()` istnieje, ale jest używana wyłącznie do bramkowania panelu admina platformy, nie do ochrony przy usuwaniu/zmianie roli.
+- Administracja dostępem oddziałowym („branch manager"): ten sam mechanizm `assignRoleToUserAction`/`removeRoleFromUserAction` z `scope: "branch"`, plus filtrowany widok dla branch managerów bez `MEMBERS_READ` (`roles.ts:58-62`, `:482-492`) — zgodne z modelem opisanym już w code memory tego projektu.
+- Sprawdzenia uprawnień po stronie serwera są realne i testowane bezpośrednio na akcjach (z pominięciem UI): `actions-org-gaps.test.ts`, `roles.test.ts`, `branches.test.ts` — konkretne przypadki „returns unauthorized when missing ...".
+- Zależność: Strefa 1 (ostateczne wymuszenie dostępu, RLS, izolacja oddziałowa/organizacyjna — nie duplikowana tutaj); przygotowane w tej strefie konta są używane jako dane wejściowe do demo P0 w Strefach 6-9.
+
+### 11. Tickety: komunikacja, akceptacja i problemowa część z QR
+
+**Priorytet:** P1
+
+**Stan obecny:** 🟡 PARTIAL
+
+Rdzeń działa i jest spójny, nie tylko rozłączonymi prymitywami: prawdziwy wielo-użytkownikowy ticket z rzeczywistymi komentarzami (generyczny system załączników/komentarzy z Strefy 9), trwałą, niemutowalną historią aktywności, realnym procesem akceptacji wymuszanym po stronie RPC (nie tylko RLS), oraz w pełni działającym przypisaniem/skanowaniem QR ticketu prowadzącym do właściwego widoku szczegółów. To realna, sprawdzona (kodowo) funkcjonalność. Jednocześnie ujawniono konkretne, potwierdzone braki wymagające jawnego zawężenia wypowiedzi: **nie istnieje akcja odrzucenia** — jest wyłącznie akceptacja, żadnej symetrycznej decyzji negatywnej; **żadna kolumna nie łączy ticketu strukturalnie ze zleceniem, produktem, częścią ani kontenerem** — istnieje wprawdzie generyczna tabela `helpdesk_ticket_references` do takich powiązań, ale nie ma jej ani jednego wywołania w całym kodzie (martwa infrastruktura); wyszukiwanie ticketów dopasowuje wyłącznie tytuł, nie numer ticketu; przejścia statusu nie są wymuszane po stronie serwera poza zamknięciem (bezwarunkowym, z dowolnego statusu). Żaden typ „Zwrot" nie jest dziś zasiany domyślnie — trzeba by go utworzyć ręcznie przed pokazem jako typ niestandardowy.
+
+**Dowody:**
+
+- Kod: VERIFIED, na autorytatywnym drzewie migracji dla tego modułu (tabele `helpdesk_*` istnieją wyłącznie w `apps/web/supabase/migrations` — w przeciwieństwie do innych stref, nie ma tu problemu dwóch drzew/dryfu schematu). Prześledzono pełny schemat `helpdesk_tickets` i tabel powiązanych, tworzenie ticketu przez atomowy RPC `helpdesk_create_ticket`, model przypisania wielu użytkowników (`helpdesk_ticket_assignees`, domyślni odpowiedzialni/akceptanci per typ), generyczne komentarze (`CommentsService`/`CommentsThread` z `targetType="helpdesk.ticket"`), niemutowalną tabelę aktywności (`helpdesk_ticket_activity` — INSERT-only, bez polityki UPDATE/DELETE) z realnie logowanymi zdarzeniami (`ticket_created`, `ticket_accepted`, `ticket_closed`, `comment_added`, `attachment_added` — **brak** logowania zmiany statusu poza zamknięciem i brak logowania zmiany przypisania), proces akceptacji (`helpdesk_accept_ticket` RPC z autoryzacją wymuszoną wewnątrz funkcji, nie tylko przez RLS — potwierdzony brak jakiejkolwiek funkcji/akcji odrzucenia), oraz realny UI QR ticketu (`AssignQrDialog` — generowanie/przypisanie/skan/odłączenie) ze zweryfikowanym resolverem publicznym prowadzącym do poprawnej trasy szczegółów po `ticket_number`. Potwierdzono też dwie konkretne usterki: wyszukiwanie na liście ticketów filtruje wyłącznie `title` (`.ilike("title", ...)`), nie `ticket_number`; oraz że generyczna metoda `update()` serwisu (pozwalająca na dowolną zmianę statusu) istnieje, ale nie jest wywoływana z żadnej akcji — jedyna realna zmiana statusu po utworzeniu to bezwarunkowe zamknięcie.
+- Testy automatyczne: NONE dla realnego zachowania ticketów. Wyczerpujące przeszukanie nie znalazło żadnego dedykowanego testu tworzenia ticketu, komentowania, akceptacji, zamknięcia ani przypisania QR — istniejące testy z „helpdesk" w nazwie dotyczą wyłącznie widoczności menu bocznego (gate uprawnień) albo integracji z kalendarzem planowania, z `HelpdeskTicketsService` całkowicie zamockowanym.
+- Weryfikacja ręczna: NOT VERIFIED — brak jakiejkolwiek odnotowanej świeżej próby.
+- Przebieg end-to-end: NOT VERIFIED — nie odtworzono na żywo: utworzenie ticketu przez konto A → komentarz konta B → akceptacja przez uprawnione konto → ponowne otwarcie → skan QR na telefonie prowadzący do tego samego ticketu.
+
+**Wymagany stan dla pitchu:** DEMO READY dla krótkiego pokazu
+
+### Pitch readiness checklist
+
+**Rdzeń ticketu**
+
+- [ ] Utworzono jeden reprezentatywny ticket na aktualnym build, z typem, statusem, terminem i co najmniej jedną przypisaną osobą (konto B ze Strefy 10).
+- [ ] Ticket i jego pola przetrwały odświeżenie strony.
+
+**Komunikacja dwóch użytkowników**
+
+- [ ] Konto B (inne niż twórca) otwiera ticket i dodaje komentarz — sprawdzone na żywo, że komentarz jest widoczny z autorem i czasem.
+- [ ] Konto A ponownie otwiera ticket i widzi komentarz konta B po nawigacji/odświeżeniu.
+
+**Historia**
+
+- [ ] Historia aktywności ticketu pokazuje rzeczywiste zdarzenia (utworzenie, komentarz, ewentualną akceptację/zamknięcie) — prezenter wie, że zmiana przypisania i zmiana statusu (poza zamknięciem) **nie są dziś logowane** w historii, więc nie obiecuje tego na żywo.
+
+**Akceptacja — bez fałszywej symetrii**
+
+- [ ] Jeśli demo pokazuje przykład „Zwrot": utworzono ręcznie typ ticketu z wymaganą akceptacją przed spotkaniem — nie istnieje on domyślnie.
+- [ ] Wyznaczony akceptant (konto z uprawnieniem zarządzania lub wpisany na listę akceptantów tego ticketu) akceptuje ticket — decyzja jest trwała, z autorem i czasem, widoczna po ponownym wejściu.
+- [ ] Konto nieuprawnione nie może wykonać akceptacji — sprawdzone na żywo, nie tylko wywnioskowane z ukrycia przycisku (RPC wymusza to niezależnie od RLS).
+- [ ] Wypowiedź prezentera **nie wspomina o odrzuceniu ticketu** jako istniejącej funkcji — dziś istnieje wyłącznie akceptacja, nie ma żadnej symetrycznej akcji odrzucenia w kodzie.
+- [ ] Akceptacja jest opisana dokładnie jako to, czym jest: potwierdzenie z autorem/czasem dla konkretnego ticketu, nie jako silnik decyzji biznesowych z eskalacją, blokadami czy automatycznym skutkiem magazynowym.
+
+**QR ticketu**
+
+- [ ] Dla ticketu demo wygenerowano/przypisano QR z realnego UI na stronie szczegółów.
+- [ ] Skan QR na telefonie prezentacyjnym otwiera dokładnie ten ticket (weryfikacja rozwiązywania po `ticket_number`, nie tylko odczyt kodu z rejestru).
+- [ ] Wypowiedź prezentera opisuje to jako „etykieta ticketu przyklejona do części", nie jako „QR identyfikuje część" — dziś QR nie ma żadnej strukturalnej relacji do fizycznej części (zależność od Strefy 5, gdzie nie ma celu QR dla części).
+
+**Powiązania domenowe — jawne zawężenie wymagane**
+
+- [ ] Jeśli scenariusz demo wspomina o powiązaniu ticketu ze zleceniem/częścią/zestawem: potwierdzono, że dziś nie istnieje żadna trwała, nawigowalna relacja (tabela `helpdesk_ticket_references` istnieje w schemacie, ale nie ma żadnego wywołania w kodzie — martwa infrastruktura) — wypowiedź ogranicza się do „QR na fizycznej części otwiera ticket z opisem problemu", nie do „ticket zna tę część".
+
+**Wyszukiwanie i ponowne odnalezienie**
+
+- [ ] Ticket demo można odnaleźć z listy po tytule — prezenter wie, że wyszukiwanie po numerze ticketu dziś nie działa (filtr sprawdza wyłącznie tytuł).
+- [ ] Ponowne otwarcie po nawigacji pokazuje pełny, trwały stan (komentarze, historia, akceptacja).
+
+**Uczciwość wobec powiadomień**
+
+- [ ] Wypowiedź nie sugeruje, że utworzenie/przypisanie/skomentowanie ticketu wysyła realne powiadomienie (e-mail/push/in-app) — dziś żadne z tych zdarzeń nie wyzwala niczego poza zapisem w bazie.
+
+**Brama końcowa**
+
+- [ ] **Dokładny scenariusz pitchu Strefy 11 zweryfikowany ręcznie na aktualnym build, na dwóch przygotowanych kontach ze Strefy 10:** konto A tworzy reprezentatywny ticket → przypisuje go zgodnie z rzeczywistym modelem do konta B → konto B otwiera i komentuje → wybrana akcja statusu/akceptacji wykonana przez uprawnione konto → konto A ponownie otwiera ticket i widzi trwałe komentarze/historię/decyzję → QR tego ticketu zeskanowany na telefonie prezentacyjnym otwiera ten sam ticket → każde pokazane powiązanie ze zleceniem/częścią/zestawem jest potwierdzone jako strukturalne i nawigowalne, w przeciwnym razie prezenter jawnie opisuje QR jako etykietę ticketu fizycznie przyklejoną do części, nie jako cyfrową relację do części.
+
+**Pitch gap:**
+
+Rdzeń działa realnie i spójnie — to nie jest strefa wymagająca nowej implementacji, tylko precyzyjnego, zawężonego opisu tego, co faktycznie istnieje. Trzy konkretne rzeczy wymagają jawnego ograniczenia wypowiedzi, nie kodu: (1) brak akcji odrzucenia — tylko akceptacja; (2) brak jakiejkolwiek strukturalnej relacji do zlecenia/części/zestawu — istniejąca tabela do tego celu jest martwym kodem; (3) wyszukiwanie po numerze ticketu nie działa. Dodatkowo typ „Zwrot" wymaga ręcznego przygotowania przed spotkaniem, bo nie jest zasiany domyślnie. Nic z powyższego nie zostało odtworzone ręcznie na aktualnym build.
+
+**Wymagany stan dla pilotażu:** PILOT READY
+
+### Pilot readiness checklist
+
+- [ ] Izolacja oddziałowa ticketów — zależność od Strefy 1 (RLS `helpdesk_tickets` jest dziś tylko organizacyjne, nie wymuszone na poziomie oddziału mimo kolumny `branch_id`), tu odnotowana jako wymaganie specyficzne dla tego modułu, nie duplikowana.
+- [ ] Testy automatyczne dla całego przepływu ticketu (utworzenie, przypisanie, komentarz, akceptacja, zamknięcie, QR) — dziś całkowicie nieobecne.
+- [ ] Wymuszenie przejść statusu po stronie serwera (dziś dowolna zmiana byłaby możliwa przez nieużywaną, ale istniejącą generyczną metodę `update()`, gdyby ktoś ją podłączył bez ograniczeń) — ustalić właściwy model przed realnym użyciem operacyjnym.
+- [ ] Decyzja: czy dodać akcję odrzucenia jako realną funkcję, czy świadomie pozostać przy modelu wyłącznie akceptacji dla pilotażu.
+- [ ] Jeśli pilotaż ma operacyjnie korzystać z powiązania ticket ↔ zlecenie/część: podłączenie istniejącej, dziś martwej tabeli `helpdesk_ticket_references` (lub równoważnego mechanizmu) do rzeczywistego UI, zależne też od istnienia Strefy 4.
+- [ ] Naprawa wyszukiwania po numerze ticketu na stałe.
+- [ ] Ślad audytowy zmiany przypisania i zmiany statusu w historii aktywności (dziś logowane są tylko utworzenie/komentarz/załącznik/akceptacja/zamknięcie).
+- [ ] Zachowanie przy usunięciu/dezaktywacji przypisanego użytkownika (czy ticket pozostaje przypisany do „widmowego" konta).
+- [ ] Polityka powiadomień, jeśli pilotaż uzna je za potrzebne — dziś brak jakiejkolwiek implementacji, zależność od przyszłej Strefy 14.
+- [ ] Testy integracyjne/RLS na żywej bazie dla ticketów i akceptacji — dziś brak jakichkolwiek testów.
+- [ ] **Dokładny scenariusz pilotażu Strefy 11 zweryfikowany ręcznie z reprezentatywnymi rolami/użytkownikami pilotażu.**
+
+**Pilot gap:**
+
+Główna dodatkowa praca pilotażowa to domknięcie luk już zidentyfikowanych dla pitchu (odrzucenie, relacje domenowe, wyszukiwanie, wymuszanie statusu) w sposób trwały, nie tymczasowy, plus pierwsze pokrycie testami całego modułu (dziś zerowe) i podjęcie świadomej decyzji o powiadomieniach. Nie wymaga to pełnego silnika zwrotów, Customer Care ani SLA — zgodnie z ograniczeniem zakresu tej strefy.
+
+### Notes / evidence
+
+- Autorytatywne drzewo migracji dla Help Desk to wyłącznie `apps/web/supabase/migrations` — brak plików `helpdesk_*` w `apps/web/supabase-target/supabase/migrations`, więc (w przeciwieństwie do innych stref) nie ma tu niejednoznaczności dwóch drzew.
+- Schemat `helpdesk_tickets`: `id, org_id, ticket_number, title, description(+rich/plain), status, priority, ticket_type_id, assigned_to(vestigialne, nieużywane), created_by, branch_id, requested_by, closed_by, resolved_at, closed_at, due_at, requires_acceptance, accepted_by, accepted_at, created_at, updated_at, deleted_at`. Jedyna generyczna tabela relacji domenowych, `helpdesk_ticket_references` (`source_module, source_type, source_id, context_snapshot`), istnieje w schemacie z pełnym RLS, ale nie ma żadnego wywołania w `apps/web/src` — martwa infrastruktura.
+- Typy ticketów: zasiane systemowo `general_request`, `question`, `task_request` — **brak domyślnego typu „Zwrot"**; typ wpływa na domyślny priorytet, domyślnych odpowiedzialnych/akceptantów i flagę `requires_acceptance`, ale to zachowanie jest realizowane po stronie klienta (`new-ticket-form.tsx`), nie wymuszane przez RPC tworzenia ticketu.
+- Tworzenie: `createTicketAction` → `HelpdeskTicketsService.createWithAssignees` → RPC `helpdesk_create_ticket` (atomowy, generuje numer `HD-000001`, wstawia przypisania i akceptantów, loguje `ticket_created`); wymaga tytułu i co najmniej jednego przypisanego użytkownika.
+- Przypisanie: model wielo-użytkownikowy przez `helpdesk_ticket_assignees` (rola responder/watcher, status), nie pojedynczy `assigned_to` (kolumna istnieje, ale nieużywana) i nie zespół/dział — nie ma koncepcji zespołu w schemacie.
+- Komentarze: generyczny system z Strefy 9 (`CommentsService`/`CommentsThread`, `targetType="helpdesk.ticket"`) — trwałe, z autorem/czasem, RLS ograniczające widoczność do twórcy/przypisanego/managera z uprawnieniem odczytu.
+- Historia: `helpdesk_ticket_activity`, tabela tylko-do-wstawiania (bez polityk UPDATE/DELETE), realnie loguje `ticket_created`/`ticket_accepted`/`ticket_closed`/`comment_added`/`attachment_added` — nie loguje zmiany przypisania ani zmiany statusu poza zamknięciem.
+- Akceptacja: RPC `helpdesk_accept_ticket` z autoryzacją wymuszoną wewnątrz funkcji (manager LUB wpisany akceptant tego ticketu) — realny, RPC-poziomowy mechanizm obronny, nie tylko RLS. **Brak jakiejkolwiek funkcji/akcji odrzucenia** — potwierdzone brakiem wystąpień „reject"/„rejection" w migracjach i kodzie akcji/serwisu.
+- QR: realny UI `AssignQrDialog` na stronie szczegółów ticketu (generowanie, skan istniejącej etykiety, odłączenie); resolver publiczny (`target-registry.ts`, wpis `helpdesk.ticket`) poprawnie rozwiązuje `ticket_number` do trasy `/dashboard/help-desk/tickets/{ticket_number}`, zgodnej z tym, czego faktycznie oczekuje strona szczegółów.
+- Statusy: CHECK `('open','in_progress','waiting','waiting_response','resolved','closed','cancelled')` — brak wymuszania przejść; jedyna realna zmiana po utworzeniu to bezwarunkowe zamknięcie (`closeTicketAction`, dostępne dla twórcy lub managera); generyczna metoda `update()` pozwalająca na dowolną zmianę statusu istnieje w serwisie, ale nie jest wywoływana z żadnej akcji — martwa.
+- Wyszukiwanie: lista ticketów filtruje `title` przez `.ilike`, nie `ticket_number` — ten sam wzorzec usterki co wyszukiwanie SKU w Strefie 7.
+- Powiadomienia: zero implementacji dla ticketów (utworzenie/przypisanie/komentarz/akceptacja nie wyzwalają niczego poza zapisem w bazie) — spójne z ogólnym stanem powiadomień w projekcie (dzwonek z jawnym `TODO: Connect to real notifications system`), zależność od przyszłej Strefy 14.
+- Zero testów jakiegokolwiek rodzaju dla realnego zachowania ticketów (tworzenie, komentarze, akceptacja, zamknięcie, QR) — istniejące testy z „helpdesk" w nazwie dotyczą wyłącznie widoczności menu i integracji z kalendarzem, z serwisem ticketów całkowicie zamockowanym.
+- Zależności: Strefa 1 (izolacja oddziałowa RLS `helpdesk_tickets`), Strefa 4 (przyszła relacja do zlecenia, jeśli `helpdesk_ticket_references` zostanie podłączone), Strefa 5 (QR ticketu działa, ale nie ma celu QR dla samej części), Strefa 9 (współdzielony system komentarzy/załączników), Strefa 10 (przygotowane konta demo).
+
+### 12. Stan początkowy magazynu i propozycja kontrolowanego pilotażu
+
+**Priorytet:** P1
+
+**Stan obecny:** 🟡 PARTIAL
+
+To strefa biznesowa/operacyjna, nie funkcjonalna — nie ma tu strony, tabeli ani akcji do zaudytowania jako takiej. Materiał skryptu (§8, §16–23) jest dojrzały i wewnętrznie uczciwy: już dziś wprost mówi, że Ambra pierwszego dnia nie zna całego starego magazynu, już dziś jasno rozdziela budżet pilotażu od ceny produktu, już dziś unika wymyślonych procentów sukcesu, już dziś traktuje negatywny wynik pilotażu jako wartościowy, a nie porażkę, i już dziś wprost mówi, że AutoStacja pozostaje źródłem prawdy podczas pilotażu. To nie jest fragmentaryczny szkic. Mimo to status nie może przekroczyć PARTIAL z dwóch niezależnych powodów: (1) sam materiał, choćby najlepszy, nie został tu odnotowany jako świeżo przećwiczony/porównany na głos z ustaleniami Stref 1–11; (2) skonfrontowanie tego materiału z realną implementacją ujawnia konkretną, nieoczywistą lukę — scenariusz „miesiąca 2: realna praca" w §18 milcząco zakłada, że dostawy realnie przechodzą przez Ambrę (przyjęcie, mobilne rozłożenie) i że wydanie działa — a Strefy 6 i 8 ustaliły, że mobilne rozłożenie, zamknięcie przyjęcia i dedykowane wydanie **dziś nie istnieją jako działające funkcje**, tylko jako placeholdery/obejścia. „Naturalna rotacja" ze §8 nie jest więc dziś operacyjnie wykonalna w takiej formie, w jakiej opisuje ją skrypt, dopóki te strefy nie osiągną co najmniej stanu DEMO READY.
+
+**Dowody:**
+
+- Materiał/skrypt: VERIFIED. §8 wprost mówi: „Ambra oczywiście pierwszego dnia nie będzie wiedziała o wszystkich starych zleceniach i częściach" oraz przedstawia dwie alternatywy (naturalna rotacja / wprowadzenie przy porządkowaniu i inwentaryzacji) — obie jawnie odrzucają wielką migrację historyczną pierwszego dnia. §16–17 jasno formułują prośbę o zgodę na 3-miesięczny, ograniczony do jednego oddziału pilotaż, z celem „jaką wartość Ambra daje w rzeczywistej pracy", nie „czy potrafię ją zbudować". §18 opisuje strukturę miesiąc 1 (przygotowanie) → miesiąc 2 (realna praca) → miesiąc 3 (iteracje i ocena). §19 unika wymyślonych liczb, definiuje sukces jakościowo (mniej czynności ręcznych, łatwiejsze/szybsze wybrane procesy, mniej pomyłek, mniejsza zależność od pamięci pracownika, prostota dla innych użytkowników, i kluczowo: pracownicy _wolą_ używać Ambry niż wracać do starego sposobu). §20 jawnie odróżnia budżet pilotażu (~25 tys. zł: sprzęt, infrastruktura/narzędzia, praca poza obecnymi obowiązkami) od ceny gotowego produktu — ale sama treść skryptu wskazuje na osobny „przygotowany podział budżetu" pokazywany na slajdzie, którego dokładnej zawartości nie ma w tym pliku źródłowym. §21–22 jasno mówią, że negatywny/częściowy wynik pilotażu jest wartościowym wynikiem, nie porażką, i że decyzja o dalszym rozwoju zapada dopiero po pilotażu, nie teraz. §10–11 jawnie i wprost stwierdzają, że AutoStacja pozostaje systemem źródłowym dla stanów/dokumentacji podczas pilotażu.
+- Implementacja wspierająca: PARTIAL. Realny mechanizm wprowadzenia istniejącego stanu do konkretnej lokalizacji istnieje: typy ruchu `401`/`402` („Korekta z inwentaryzacji — nadwyżka/niedobór", Strefa 8) księgują przez ten sam silnik co przyjęcie/wydanie, z realnym zabezpieczeniem przed błędami po stronie bazy — to technicznie wspiera opcję B skryptu (wprowadzenie przy porządkowaniu/inwentaryzacji). Istnieje też osobny, nieużywany dziś przez UI tryb `movement_kind: 'opening_balance'` w silniku księgowania (Strefa 6/8) — dodatkowy, potencjalny, ale dziś niepodłączony do żadnego ekranu mechanizm otwarcia salda. Opcja A (naturalna rotacja) zależy strukturalnie od tego, żeby nowe dostawy realnie przechodziły przez Ambrę od przyjęcia po rozłożenie — a Strefa 6 ustaliła, że mobilne rozłożenie i zamknięcie przyjęcia dziś nie istnieją (placeholdery), więc „naturalna rotacja" w praktyce dziś zatrzymuje się na etapie zaimportowanej, ale nieprzełożonej na fizyczne miejsce, dostawy. Żaden mechanizm programowy nie chroni dziś przed podwójnym wprowadzeniem tej samej pozycji legacy — to musi być regułą proceduralną, nie funkcją.
+- Weryfikacja ręczna: NOT VERIFIED — materiał nie został odczytany na głos ani porównany punkt po punkcie z ustaleniami Stref 1–11 w tej sesji ani w żadnej odnotowanej wcześniejszej.
+- Gotowość operacyjna: NOT VERIFIED — brak potwierdzenia, że oddział/użytkownicy/urządzenia/zgoda na dane są już uzgodnione; brak spisanej reguły antyduplikacyjnej; brak nazwanej osoby odpowiedzialnej za pilotaż w samym materiale (domyślnie prezenter, ale nie zapisane wprost); brak warunków zatrzymania pilotażu.
+
+**Wymagany stan dla pitchu:** DEMO READY dla materiału i propozycji
+
+### Pitch readiness checklist
+
+**Stan początkowy**
+
+- [ ] Prezenter wprost mówi na głos (nie tylko w slajdzie), że Ambra pierwszego dnia nie zna całego starego magazynu.
+- [ ] Wybrano do rozmowy jedną lub obie strategie ze skryptu (naturalna rotacja / wprowadzenie przy porządkowaniu i inwentaryzacji) i przygotowano krótkie, konkretne sformułowanie każdej.
+- [ ] Spisano prostą regułę proceduralną unikania podwójnego wprowadzenia tej samej pozycji legacy (kto może wprowadzać, jak oznaczyć „już wprowadzone") — dziś nic w oprogramowaniu tego nie pilnuje, więc musi to być jawna zasada organizacyjna, nie założenie.
+- [ ] Prezenter jest świadomy (nawet jeśli nie mówi tego wprost na pitchu), że scenariusz „naturalnej rotacji" z §8 zakłada działające mobilne przyjęcie/rozłożenie ze Strefy 6, które dziś nie istnieje jako funkcja — przygotowano spójne, uczciwe sformułowanie tego w kontekście miesiąca 1 pilotażu („dokończenie wybranych procesów do realnego użycia" z §18 musi realnie obejmować dokończenie tych elementów, nie tylko konfigurację środowiska).
+
+**Zakres pilotażu**
+
+- [ ] Materiał jasno określa: jeden oddział, ograniczona liczba użytkowników, konkretne, wybrane procesy — nie cała firma, nie wszystkie procesy.
+- [ ] Materiał nie sugeruje zastąpienia AutoStacji ani automatycznej synchronizacji.
+
+**Trzy miesiące**
+
+- [ ] Struktura miesiąc 1 (przygotowanie) → miesiąc 2 (realna praca) → miesiąc 3 (iteracje i ocena) jest gotowa do krótkiego przedstawienia zgodnie z §18.
+- [ ] Zakres miesiąca 1 uwzględnia realistycznie to, co Strefy 1–11 pokazały jako brakujące w wybranych do pilotażu procesach (nie tylko „środowisko produkcyjne i backupy") — inaczej harmonogram miesiąca 1 jest niedoszacowany.
+- [ ] Nazwano (choćby nieformalnie) osobę odpowiedzialną operacyjnie za pilotaż i punkt kontaktowy dla użytkowników przy problemach.
+
+**Budżet**
+
+- [ ] Kwota ~25 tys. zł jest przedstawiona wprost jako budżet pilotażu, nie cena Ambry — zgodnie z jawnym rozróżnieniem już obecnym w §20 skryptu.
+- [ ] Przygotowano rzeczywisty, prosty podział budżetu (sprzęt / infrastruktura i narzędzia / praca poza obecnymi obowiązkami) na slajdzie — skrypt odsyła do „przygotowanej wersji" podziału, której samej treści nie ma w pliku źródłowym skryptu, więc trzeba potwierdzić, że faktycznie istnieje i jest gotowa.
+- [ ] Brak sztucznej precyzji (np. rozbicia co do złotówki) tam, gdzie skrypt jej nie zakłada.
+
+**Sukces i porażka**
+
+- [ ] Kryteria sukcesu ze §19 (mniej czynności ręcznych, szybsze/łatwiejsze wybrane procesy, mniej pomyłek, mniejsza zależność od pamięci pracownika, prostota, preferencja pracowników wobec starego sposobu) są gotowe do przedstawienia bez wymyślonych liczb.
+- [ ] Wypowiedź jasno mówi, że niepotwierdzenie założeń to nadal wartościowy wynik (§21), nie porażka całego projektu.
+- [ ] Wypowiedź jasno mówi, że decyzja o dalszym rozwoju zapada dopiero po pilotażu, na podstawie dowodów (§22), nie jest przesądzona dziś.
+
+**Brama końcowa**
+
+- [ ] **Dokładna sekcja pitchu Strefy 12 przećwiczona/przejrzana na głos na aktualnym materiale, w konfrontacji ze Strefami 1–11:** wyjaśnienie stanu początkowego → ograniczony do jednego oddziału/liczby użytkowników pilotaż → struktura trzech miesięcy → prośba o wsparcie ~25 tys. zł → kryteria sukcesu/porażki → AutoStacja jako źródło prawdy → jasna prośba o zgodę/wsparcie → żadne zdanie nie sugeruje, że Ambra jest już gotowym produktem produkcyjnym ani że cały stary magazyn/procesy zostaną zmigrowane przed pilotażem.
+
+**Pitch gap:**
+
+Materiał źródłowy jest mocny i uczciwy — to nie jest strefa wymagająca przepisania skryptu. Realny gap to: (1) brak świeżej próby wygłoszenia/skonfrontowania tej sekcji z resztą audytu; (2) ciche założenie w §18 (miesiąc 2: „realna praca"), że przyjęcie/rozłożenie i wydanie już działają — podczas gdy Strefy 6 i 8 ustaliły, że kluczowe elementy tych procesów są dziś placeholderami; to nie unieważnia propozycji pilotażu (przygotowanie w miesiącu 1 może i powinno obejmować ich dokończenie), ale wymaga uczciwego, jawnego uwzględnienia tego w zakresie miesiąca 1, żeby nie obiecać zarządowi gotowości, której nie ma; (3) brak spisanej reguły antyduplikacyjnej dla wprowadzania zaległego stanu — dziś to czysto proceduralne, nieoprogramowane; (4) brak potwierdzenia, że osobny „przygotowany podział budżetu" (do którego odsyła skrypt) faktycznie istnieje jako gotowy materiał.
+
+**Wymagany stan dla pilotażu:** PILOT READY operacyjnie
+
+### Pilot readiness checklist
+
+- [ ] Oddział pilotażowy wybrany i formalnie zatwierdzony przez firmę.
+- [ ] Użytkownicy/role pilotażu wybrani i poinformowani, z minimalnym wprowadzeniem: co jest autorytatywne w Ambrze, co nadal trzeba robić w AutoStacji, jak zgłaszać problemy.
+- [ ] Formalna zgoda firmy na wykorzystanie rzeczywistych danych/procesów w pilotażu — odesłanie do globalnej bramki „CONTROLLED PILOT" w tym dokumencie, nie duplikowanie jej tutaj.
+- [ ] Nazwana osoba odpowiedzialna operacyjnie za pilotaż oraz punkt kontaktowy przy awarii/problemie.
+- [ ] Spisana procedura uzgadniania z AutoStacją (co robić, gdy stany się rozjadą) — zależność już odnotowana w Strefie 8, tu potwierdzona jako wymóg organizacyjny przed startem pilotażu.
+- [ ] Spisana, uzgodniona procedura wprowadzania stanu początkowego (kto, kiedy, jak oznaczyć „już wprowadzone", jak uniknąć duplikatu) — nie tylko koncepcja ze slajdu.
+- [ ] Sprzęt/urządzenia gotowe: telefon(y) do skanowania, drukarka etykiet, etykiety, stanowisko komputerowe — zakres wynika z faktycznie testowanych procesów, nie z góry ustalonej listy zakupów.
+- [ ] Środowisko (produkcja/staging, backupy, monitoring) gotowe — odesłanie do globalnej bramki „CONTROLLED PILOT", nie duplikowanie.
+- [ ] Prosty plan pomiaru uzgodniony (znaczniki czasu tam, gdzie system je ma, ręczna obserwacja/próbkowanie czasu, log problemów/błędów, cykliczne zbieranie opinii) — bez rozbudowanej analityki.
+- [ ] Ustalona częstotliwość przeglądu postępu pilotażu (np. cotygodniowa).
+- [ ] Log incydentów/problemów pilotażu prowadzony w jednym uzgodnionym miejscu.
+- [ ] Warunki zatrzymania pilotażu jawnie spisane (np. problem izolacji danych, niespójności stanu magazynowego, powtarzające się fałszywe sukcesy operacji, nieakceptowalna podwójna praca, niestabilność krytycznego procesu, utrata/uszkodzenie danych) — dziś nieobecne w materiale.
+- [ ] Format i termin spotkania podsumowującego pilotaż oraz osoba decydująca o dalszych krokach ustalone z wyprzedzeniem.
+- [ ] Wszystkie procesy faktycznie objęte pilotażem osiągnęły co najmniej DEMO READY (a najlepiej PILOT READY) w odpowiednich strefach tego dokumentu przed realnym uruchomieniem z danymi firmowymi — nie tylko przed samym pitchem.
+- [ ] **Dokładny scenariusz pilotażu Strefy 12 zweryfikowany operacyjnie**: wszystkie powyższe punkty potwierdzone jako uzgodnione i gotowe, nie tylko zaplanowane.
+
+**Pilot gap:**
+
+Główna praca przed realnym pilotażem to nie technologia tej konkretnej strefy, tylko organizacja: spisanie reguł, które dziś istnieją wyłącznie jako dobre intencje (antyduplikacja, warunki zatrzymania, uzgadnianie z AutoStacją, odpowiedzialność), oraz — co ważniejsze — upewnienie się, że procesy faktycznie objęte pilotażem (przyjęcie/rozłożenie ze Strefy 6, wydanie ze Strefy 8, ewentualnie zlecenia ze Strefy 4) same osiągnęły wymagany poziom gotowości, zanim miesiąc 2 pilotażu („realna praca") będzie mógł się wydarzyć zgodnie z opisem w skrypcie.
+
+### Notes / evidence
+
+- Skrypt §8: „Ambra oczywiście pierwszego dnia nie będzie wiedziała o wszystkich starych zleceniach i częściach" + dwie strategie (naturalna rotacja / porządkowanie i inwentaryzacja) — jawnie odrzuca migrację historyczną.
+- Skrypt §16–17: prośba o 3-miesięczny, ograniczony do jednego oddziału pilotaż; cel to sprawdzenie wartości w realnej pracy, nie dowód wykonalności technicznej.
+- Skrypt §18: struktura miesiąc 1 (przygotowanie: środowisko produkcyjne, infrastruktura, backupy, monitoring, dopracowanie bezpieczeństwa i uprawnień, przygotowanie użytkowników/lokalizacji/etykiet/danych, dokończenie wybranych procesów) → miesiąc 2 (realna praca: prawdziwe dostawy/części/lokalizacje, inni użytkownicy, stopniowe uruchamianie, feedback) → miesiąc 3 (iteracje i ocena).
+- Skrypt §19: kryteria sukcesu jakościowe, bez wymyślonych procentów — kluczowe: „przy konkretnych procesach pracownicy wolą używać Ambry niż wrócić do starego sposobu".
+- Skrypt §20: budżet ~25 tys. zł jawnie odróżniony od ceny produktu; podział (sprzęt, infrastruktura/narzędzia, praca) ma być pokazany „zgodnie z przygotowaną wersją" — sama zawartość tego podziału nie jest częścią pliku źródłowego skryptu, wymaga potwierdzenia jako osobny, gotowy materiał.
+- Skrypt §21–22: negatywny/częściowy wynik pilotażu to wartościowy wynik, nie porażka; decyzja o dalszym rozwoju zapada po pilotażu na podstawie dowodów, nie jest przesądzona.
+- Skrypt §10–11: AutoStacja jawnie pozostaje systemem źródłowym dla stanów/dokumentacji podczas pilotażu — ta granica jest już dziś jasno wypowiedziana w materiale, nie wymaga dodania.
+- Zależność krzyżowa ze Strefą 6: mobilne rozłożenie i zamknięcie przyjęcia to dziś potwierdzone placeholdery (`/warehouse/deliveries`, `/warehouse/scanning/delivery`) — „naturalna rotacja" ze §8 zakłada działający proces przyjęcia, którego dziś brakuje w części mobilnej.
+- Zależność krzyżowa ze Strefą 8: dedykowane „wydanie" to dziś zaślepka zwracająca zaszyty błąd; jedyny działający substytut (ruch typu 402) nie ma pola odbiorcy — istotne dla „potwierdzenia wydania" wspomnianego w §10–11 skryptu jako elementu wartości testowanego w pilotażu.
+- Zależność krzyżowa ze Strefą 4: jeśli pilotaż ma testować wartość lokalizacji/wyszukiwania w kontekście zlecenia naprawczego (część wartości opisanej w §17), zależy to od nieistniejącego dziś modelu zlecenia — do uwzględnienia przy ustalaniu dokładnego zakresu procesów testowanych w pilotażu, nie jako blokada samego pitchu.
+- Mechanizm wprowadzenia stanu początkowego: realnie istnieje przez typy ruchu 401/402 (Strefa 8) oraz nieużywany dziś przez UI tryb `movement_kind: 'opening_balance'` w silniku księgowania (Strefa 6/8) — technicznie wspiera opcję B skryptu, ale bez żadnej wbudowanej ochrony przed podwójnym wprowadzeniem tej samej pozycji.
+- Globalna bramka „CONTROLLED PILOT" w tym dokumencie (sekcja „Globalne bramki") pokrywa techniczne/bezpieczeństwowe wymagania pilotażu (RLS, backupy, monitoring, testy E2E) — nie duplikowana tutaj, tylko odnotowana jako punkt odniesienia dla wymagań operacyjnych tej strefy.
 
 ## P2 — wystarczy część działającego obszaru
 
