@@ -1,3 +1,7 @@
+> Historical/retired zone.
+> Former Zone 18 was removed from the active product-zone model because it grouped unrelated future roadmap ideas and had no current pitch/pilot requirement.
+> This file is historical evidence only and is not an active source of product requirements.
+
 ### 18. Awaryjne wydania, pełne zwroty i Customer Care VGP
 
 **Priorytet:** P4

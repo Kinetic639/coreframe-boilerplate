@@ -1,3 +1,7 @@
+# Plan kontrolowanego pilotażu Ambry
+
+> **Ten dokument nie jest już strefą produktową.** Dawna Strefa 12 („Stan początkowy magazynu i propozycja kontrolowanego pilotażu") została usunięta z aktywnego modelu stref produktowych, ponieważ jej własny zaakceptowany audyt wprost stwierdzał: „To strefa biznesowa/operacyjna, nie funkcjonalna — nie ma tu strony, tabeli ani akcji do zaudytowania jako takiej." Ten dokument jest teraz autorytatywnym materiałem planistycznym dla przygotowania i założeń operacyjnych kontrolowanego pilotażu — nie śledzi gotowości żadnej funkcji aplikacji. Gotowość funkcji produktowych pozostaje własnością rzeczywistych stref produktowych w `docs/mvp/zones/`; ten dokument koordynuje zakres pilotażu pomiędzy nimi. Historyczna numeracja: dawna Strefa 12. Zaakceptowana treść audytu poniżej jest zachowana bez zmian merytorycznych — dodano wyłącznie ten nagłówek oraz zastąpiono na końcu pusty szkielet „Product clarification and final design" sekcją planistyczną (patrz „Pilot planning workspace" na końcu dokumentu).
+
 ### 12. Stan początkowy magazynu i propozycja kontrolowanego pilotażu
 
 **Priorytet:** P1
@@ -96,39 +100,26 @@ Główna praca przed realnym pilotażem to nie technologia tej konkretnej strefy
 
 ---
 
-## Product clarification and final design
+## Pilot planning workspace
 
-> This section is intentionally separate from the accepted implementation audit above.
->
-> The audit describes what currently exists.
-> This section will be used to determine how the functionality SHOULD ultimately behave before implementation work begins.
->
-> Do not treat unanswered questions in this section as accepted requirements.
+> Ta sekcja zastępuje wcześniejszy, pusty szkielet „Product clarification and final design" używany przez strefy produktowe — ten dokument nie jest już strefą produktową, więc ten szkielet nie miał tu zastosowania. Poniższe podsekcje pozostają celowo puste; nie wprowadzono tu żadnych nowych ustaleń w tym przebiegu.
 
-### Open questions
+### Open operational questions
 
-_To be reviewed together before implementation._
+_To be reviewed during pilot planning._
 
-### Problems / ambiguities
+### Pilot decisions
 
-_To be reviewed together before implementation._
+_No additional final decisions recorded here yet._
 
-### Product decisions
+### Pitch preparation
 
-_No final decisions recorded yet._
+_To be coordinated with the presentation script and master readiness tracker._
 
-### Final intended workflow
+### Controlled pilot preparation
 
-_To be defined after product clarification._
+_To be finalized after the selected product zones reach the required readiness._
 
-### Architecture implications
+### Operational procedures
 
-_To be defined after the intended workflow is agreed._
-
-### Final pitch scope
-
-_To be defined after clarification._
-
-### Final controlled-pilot scope
-
-_To be defined after clarification._
+_To be defined before pilot start._
