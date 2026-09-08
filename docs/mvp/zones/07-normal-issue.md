@@ -1,4 +1,4 @@
-### 8. Zwykłe wydanie części
+### 7. Zwykłe wydanie części
 
 **Priorytet:** P0
 
@@ -8,7 +8,7 @@ Dedykowany przycisk „Wydanie" na pulpicie magazynowym jest dosłownym zaślepk
 
 **Dowody:**
 
-- Kod: VERIFIED. Prześledzono zaślepkę `issueStockAction` (`apps/web/src/app/actions/warehouse/inventory/index.ts` ok. linii 1821-1826 — zawsze zwraca błąd), definicję typów 401/402 (`inventory_seed_movement_types`, kategoria `adjustment`, nazwy PL „Korekta z inwentaryzacji"), gałąź `movement_kind = 'issue'` w `inventory_post_movement` (realne, ale nieużywane przez aplikację zabezpieczenie przed ujemnym stanem), politykę pól nadawca/odbiorca (`inventory_movement_type_field_policies` — zdefiniowana dla typów 101/801/311, **nigdy dla 401/402**, więc pola odbiorcy nie są w ogóle oferowane dla jedynego typu technicznie zdolnego pełnić rolę wydania) oraz osierocony plik `inventory-movement-new-client.tsx` (definiuje typ operacji „issue", niezaimportowany nigdzie w repozytorium). Rejestr celów komentarzy/załączników (`target-registry.ts` w `apps/web/src/server/comments/`) nie ma wpisu dla ruchu magazynowego — zgodnie z ustaleniem Strefy 9 nie jest to blokerem, bo podpisany dokument dołącza się do zlecenia naprawczego (RepairOrder), nie do ruchu.
+- Kod: VERIFIED. Prześledzono zaślepkę `issueStockAction` (`apps/web/src/app/actions/warehouse/inventory/index.ts` ok. linii 1821-1826 — zawsze zwraca błąd), definicję typów 401/402 (`inventory_seed_movement_types`, kategoria `adjustment`, nazwy PL „Korekta z inwentaryzacji"), gałąź `movement_kind = 'issue'` w `inventory_post_movement` (realne, ale nieużywane przez aplikację zabezpieczenie przed ujemnym stanem), politykę pól nadawca/odbiorca (`inventory_movement_type_field_policies` — zdefiniowana dla typów 101/801/311, **nigdy dla 401/402**, więc pola odbiorcy nie są w ogóle oferowane dla jedynego typu technicznie zdolnego pełnić rolę wydania) oraz osierocony plik `inventory-movement-new-client.tsx` (definiuje typ operacji „issue", niezaimportowany nigdzie w repozytorium). Rejestr celów komentarzy/załączników (`target-registry.ts` w `apps/web/src/server/comments/`) nie ma wpisu dla ruchu magazynowego — zgodnie z ustaleniem Strefy 3 (dawna Strefa 9) nie jest to blokerem, bo podpisany dokument dołącza się do zlecenia naprawczego (RepairOrder), nie do ruchu.
 - Testy automatyczne: NONE dla realnego zachowania. Istniejące testy (`inventory-phase1-migrations.test.ts`, `inventory-movement-field-policies-migration.test.ts`) sprawdzają wyłącznie obecność fragmentów tekstu SQL w plikach migracji (`toContain("v_header.movement_kind = 'issue'")` itp.), nie wykonują żadnego realnego ruchu i nie testują ścieżki 401/402. Zero testów `issueStockAction` (to trwała zaślepka, więc nie ma czego testować), zero testów odrzucenia nadmiernego wydania na realnej ścieżce, zero testów ponownego odnalezienia wydania.
 - Weryfikacja ręczna: NOT VERIFIED — brak jakiejkolwiek odnotowanej próby.
 - Przebieg end-to-end: NOT APPLICABLE dla zamierzonego „wydania" (nie istnieje ścieżka do przetestowania — przycisk to zaślepka); NOT VERIFIED dla obejścia przez ręczne utworzenie ruchu 402.
@@ -34,13 +34,13 @@ Dedykowany przycisk „Wydanie" na pulpicie magazynowym jest dosłownym zaślepk
 **Ilość**
 
 - [ ] Wydanie konkretnej, znanej ilości działa na aktualnym build.
-- [ ] Wydanie ilości częściowej (mniej niż cały dostępny stan) działa poprawnie — mechanizm księgowania jest wspólny z relokacją ze Strefy 7 i tam już zweryfikowany w kodzie.
+- [ ] Wydanie ilości częściowej (mniej niż cały dostępny stan) działa poprawnie — mechanizm księgowania jest wspólny z relokacją ze Strefy 6 i tam już zweryfikowany w kodzie.
 - [ ] Próba wydania więcej niż dostępny stan jest odrzucana po stronie serwera, nie tylko UI — potwierdzone w kodzie dla ogólnego mechanizmu, do zweryfikowania na żywo dla wybranej ścieżki demo.
 
 **Odbiorca/kontekst**
 
 - [ ] Wybrana ścieżka demo faktycznie pozwala zapisać, komu/na jaki kontekst część została wydana — dziś typ 402 nie oferuje żadnego pola odbiorcy (brak wpisu w polityce pól), więc bez zmiany jedynym dostępnym polem jest ogólna notatka tekstowa.
-- [ ] Powiązanie ze zleceniem naprawczym, jeśli pokazywane, jest jawnie opisane jako tekst, nie jako trwała relacja — zgodnie z ustaleniem Strefy 4 (Workshop nie istnieje).
+- [ ] Powiązanie ze zleceniem naprawczym, jeśli pokazywane, jest jawnie opisane jako tekst, nie jako trwała relacja — zgodnie z ustaleniem Strefy 3 (Workshop nie istnieje).
 
 **Zatwierdzenie i stan**
 
@@ -53,9 +53,9 @@ Dedykowany przycisk „Wydanie" na pulpicie magazynowym jest dosłownym zaślepk
 - [ ] Wydany dokument można ponownie odnaleźć z listy ruchów magazynowych i otworzyć jego szczegóły (ilość, lokalizacja źródłowa, data, numer dokumentu) — potwierdzone jako realna, działająca funkcja ogólnego silnika ruchów.
 - [ ] Historia lokalizacji źródłowej pokazuje to wydanie po odświeżeniu/ponownym wejściu.
 
-**Granica ze Strefą 9**
+**Granica ze Strefą 3 (dawna Strefa 9)**
 
-- [ ] Potwierdzono, że podpisany dokument wydania dołącza się do zlecenia naprawczego (Strefa 9: RepairOrder jako cel załączników), nie do samego ruchu magazynowego wydania — ruch magazynowy nie musi stawać się celem załączników na potrzeby pitchu; jedyna zależność to istnienie zlecenia ze Strefy 4, do którego można nawigować z odnalezionego wydania.
+- [ ] Potwierdzono, że podpisany dokument wydania dołącza się do zlecenia naprawczego (Strefa 3, dawna Strefa 9: RepairOrder jako cel załączników), nie do samego ruchu magazynowego wydania — ruch magazynowy nie musi stawać się celem załączników na potrzeby pitchu; jedyna zależność to istnienie zlecenia ze Strefy 3, do którego można nawigować z odnalezionego wydania.
 
 **Narracja o AutoStacji**
 
@@ -63,11 +63,11 @@ Dedykowany przycisk „Wydanie" na pulpicie magazynowym jest dosłownym zaślepk
 
 **Brama końcowa**
 
-- [ ] **Dokładny scenariusz pitchu Strefy 8 zweryfikowany ręcznie na aktualnym build, na stanie utworzonym w Strefach 6–7:** odnalezienie znanej części → rozpoczęcie wydania wybraną ścieżką → wybór właściwej lokalizacji źródłowej → wydanie reprezentatywnej ilości → zapisanie odbiorcy/kontekstu → zatwierdzenie → poprawne zmniejszenie stanu → widoczność stanu/lokalizacji po odświeżeniu → ponowne odnalezienie dokumentu z nowej nawigacji → potwierdzenie ilości, lokalizacji źródłowej, użytkownika/czasu i stabilnej tożsamości dokumentu gotowej pod dołączenie podpisanego dokumentu w Strefie 9.
+- [ ] **Dokładny scenariusz pitchu Strefy 7 zweryfikowany ręcznie na aktualnym build, na stanie utworzonym w Strefach 5–6:** odnalezienie znanej części → rozpoczęcie wydania wybraną ścieżką → wybór właściwej lokalizacji źródłowej → wydanie reprezentatywnej ilości → zapisanie odbiorcy/kontekstu → zatwierdzenie → poprawne zmniejszenie stanu → widoczność stanu/lokalizacji po odświeżeniu → ponowne odnalezienie dokumentu z nowej nawigacji → potwierdzenie ilości, lokalizacji źródłowej, użytkownika/czasu i stabilnej tożsamości dokumentu gotowej pod dołączenie podpisanego dokumentu w Strefie 3 (dawna Strefa 9).
 
 **Pitch gap:**
 
-To druga po Strefie 6 najgłębsza luka funkcjonalna wśród ocenionych dotąd stref P0 — z ważnym zastrzeżeniem, że luka jest węższa niż w Strefie 6, bo mechanizm księgowania (zmniejszanie stanu, blokada nadmiernego wydania, częściowa ilość) jest już sprawdzony i działający dla analogicznej operacji (relokacja, Strefa 7). Brakuje jednak samej **warstwy biznesowej wydania**: dedykowany przycisk jest trwałą zaślepką z zaszytym błędem; jedyny technicznie zdolny typ ruchu (402) nazywa się i jest oznaczony jako korekta z inwentaryzacji, nie wydanie; nie oferuje żadnego pola odbiorcy/kontekstu; ochrona przed podwójnym zatwierdzeniem to wyłącznie blokada przycisku po stronie klienta. Zbudowanie tej strefy do stanu obiecywanego przez skrypt wymaga: (1) świadomej decyzji, którym mechanizmem pokazać wydanie, (2) minimalnego pola odbiorcy/kontekstu dla wybranego typu, (3) prawdziwej ochrony przed podwójnym zatwierdzeniem. Podpisany dokument wydania (Strefa 9) dołącza się do zlecenia naprawczego, nie do samego ruchu — rejestr celów załączników nie musi więc obejmować ruchu magazynowego na potrzeby pitchu, o ile Strefa 4 dostarczy zlecenie, do którego wydanie się odnosi. To realna, ale węższa niż w Strefie 6, praca implementacyjna.
+To druga po Strefie 5 najgłębsza luka funkcjonalna wśród ocenionych dotąd stref P0 — z ważnym zastrzeżeniem, że luka jest węższa niż w Strefie 5, bo mechanizm księgowania (zmniejszanie stanu, blokada nadmiernego wydania, częściowa ilość) jest już sprawdzony i działający dla analogicznej operacji (relokacja, Strefa 6). Brakuje jednak samej **warstwy biznesowej wydania**: dedykowany przycisk jest trwałą zaślepką z zaszytym błędem; jedyny technicznie zdolny typ ruchu (402) nazywa się i jest oznaczony jako korekta z inwentaryzacji, nie wydanie; nie oferuje żadnego pola odbiorcy/kontekstu; ochrona przed podwójnym zatwierdzeniem to wyłącznie blokada przycisku po stronie klienta. Zbudowanie tej strefy do stanu obiecywanego przez skrypt wymaga: (1) świadomej decyzji, którym mechanizmem pokazać wydanie, (2) minimalnego pola odbiorcy/kontekstu dla wybranego typu, (3) prawdziwej ochrony przed podwójnym zatwierdzeniem. Podpisany dokument wydania (Strefa 3, dawna Strefa 9) dołącza się do zlecenia naprawczego, nie do samego ruchu — rejestr celów załączników nie musi więc obejmować ruchu magazynowego na potrzeby pitchu, o ile Strefa 3 dostarczy zlecenie, do którego wydanie się odnosi. To realna, ale węższa niż w Strefie 5, praca implementacyjna.
 
 **Wymagany stan dla pilotażu:** PILOT READY
 
@@ -84,7 +84,7 @@ To druga po Strefie 6 najgłębsza luka funkcjonalna wśród ocenionych dotąd s
 - [ ] Testy integracyjne automatyczne pokrywające realny przepływ wydania (utworzenie → zatwierdzenie → odrzucenie nadmiernej ilości → odnalezienie) — dziś praktycznie nieobecne.
 - [ ] Procedura uzgadniania z AutoStacją (co się dzieje, gdy wydanie w Ambrze i w AutoStacji się rozjadą) ustalona proceduralnie, nie tylko wypowiedziana podczas pitchu.
 - [ ] Monitorowanie nieudanych prób wydania (np. odrzuconych z powodu braku stanu) widoczne dla administratora.
-- [ ] **Dokładny scenariusz pilotażu Strefy 8 zweryfikowany ręcznie z reprezentatywnymi rolami/użytkownikami pilotażu**, w tym współbieżne wydanie i jedna kontrolowana korekta.
+- [ ] **Dokładny scenariusz pilotażu Strefy 7 zweryfikowany ręcznie z reprezentatywnymi rolami/użytkownikami pilotażu**, w tym współbieżne wydanie i jedna kontrolowana korekta.
 
 **Pilot gap:**
 
@@ -98,9 +98,9 @@ Zakres pilotażowy tej strefy jest w dużej mierze naturalną kontynuacją tego,
 - Osierocony plik UI: `inventory-movement-new-client.tsx` definiuje typ operacji „issue" (linie ok. 28-30, 120-123, 307), ale nie jest importowany nigdzie w repozytorium — realna strona `movements/new/page.tsx` renderuje inny komponent (`MovementDocumentForm`).
 - Polityka pól nadawca/odbiorca zdefiniowana wyłącznie dla typów 101 (opcjonalne), 801 (zabronione), 311 (wymagane) — `apps/web/supabase-target/supabase/migrations/20260626150000_inventory_movement_field_policies.sql` i `20260712120000_add_inter_branch_movement_contract.sql`; brak jakiegokolwiek wiersza polityki dla 401/402, więc te pola nie są dziś oferowane w UI dla jedynego typu technicznie zdolnego reprezentować wydanie.
 - Ochrona przed podwójnym zatwierdzeniem: kolumna `idempotency_key` i unikalny indeks istnieją (`inventory_movement_headers_org_idempotency_uidx`), ale klucz jest generowany (`crypto.randomUUID()`) wewnątrz callbacku wysyłki przy każdym wywołaniu (`use-movement-submission.ts` ok. linii 105), nie trzymany stabilnie w stanie — realna ochrona przed podwójnym kliknięciem to wyłącznie `disabled={isPending}` na przycisku.
-- Odnalezienie ruchu: lista (`InventoryMovementsService.listMovements`, wyszukiwanie po numerze dokumentu/nadawcy/odbiorcy) i szczegóły (`inventory-movement-detail-panel.tsx`) są realne i działające dla ogólnego silnika ruchów; historia lokalizacji (Strefa 7) także pokazuje ruchy. Brak jednak widoku historii ruchów z poziomu szczegółów produktu.
-- Rejestr celów załączników/komentarzy (`apps/web/src/server/comments/target-registry.ts`) ma dokładnie trzy wpisy: `helpdesk.ticket`, `planning.task`, `planning.kanban_card` — brak wpisu dla ruchu magazynowego. Zgodnie z ustaleniem Strefy 9 nie jest to zależność blokująca tę strefę: podpisany dokument dołącza się do zlecenia naprawczego (RepairOrder), nie do ruchu magazynowego, więc ruch nie musi stać się celem załączników na potrzeby pitchu.
-- Zależności: Strefa 1 (izolacja oddziałowa/RLS), Strefa 4 (prawdziwa relacja zlecenia zamiast tekstu, jeśli wydanie ma pokazywać kontekst zlecenia; również cel, do którego Strefa 9 dołączy podpisany dokument), Strefa 6/7 (stan magazynowy, z którego wydawana jest część, musi istnieć przed demo tej strefy), Strefa 9 (podpisany dokument wydania dołącza się do zlecenia naprawczego, nie do tego ruchu — brak zależności architektonicznej w drugą stronę) — odnotowane, nie duplikowane.
+- Odnalezienie ruchu: lista (`InventoryMovementsService.listMovements`, wyszukiwanie po numerze dokumentu/nadawcy/odbiorcy) i szczegóły (`inventory-movement-detail-panel.tsx`) są realne i działające dla ogólnego silnika ruchów; historia lokalizacji (Strefa 6) także pokazuje ruchy. Brak jednak widoku historii ruchów z poziomu szczegółów produktu.
+- Rejestr celów załączników/komentarzy (`apps/web/src/server/comments/target-registry.ts`) ma dokładnie trzy wpisy: `helpdesk.ticket`, `planning.task`, `planning.kanban_card` — brak wpisu dla ruchu magazynowego. Zgodnie z ustaleniem Strefy 3 (dawna Strefa 9) nie jest to zależność blokująca tę strefę: podpisany dokument dołącza się do zlecenia naprawczego (RepairOrder), nie do ruchu magazynowego, więc ruch nie musi stać się celem załączników na potrzeby pitchu.
+- Zależności: Strefa 1 (izolacja oddziałowa/RLS), Strefa 3 (prawdziwa relacja zlecenia zamiast tekstu, jeśli wydanie ma pokazywać kontekst zlecenia; również cel, do którego Strefa 3 (dawna Strefa 9) dołączy podpisany dokument), Strefa 4/6 (stan magazynowy, z którego wydawana jest część, musi istnieć przed demo tej strefy), Strefa 3 (dawna Strefa 9, podpisany dokument wydania dołącza się do zlecenia naprawczego, nie do tego ruchu — brak zależności architektonicznej w drugą stronę) — odnotowane, nie duplikowane.
 
 ---
 

@@ -38,7 +38,7 @@ Ten dokument zbiera i porządkuje przyszłe kierunki produktowe wykraczające po
 - Skonsolidowane raportowanie międzyoddziałowe.
 - Raportowanie wieku zapasu / nierotów.
 
-**Uwaga:** wspólny pulpit startowy (`/dashboard/start`) NIE jest już wyłącznie roadmapą — jego minimalna, realna wersja stała się aktywną strefą pitchową: [Zone 21 — Home / Operational Dashboard](../zones/21-home-operational-dashboard.md). Tutaj, w roadmapie, pozostaje wyłącznie zaawansowana analityka/BI wykraczająca poza ten minimalny pulpit.
+**Uwaga:** wspólny pulpit startowy (`/dashboard/start`) NIE jest już wyłącznie roadmapą — jego minimalna, realna wersja stała się aktywną strefą pitchową: [Zone 11 — Home / Operational Dashboard](../zones/11-home-operational-dashboard.md). Tutaj, w roadmapie, pozostaje wyłącznie zaawansowana analityka/BI wykraczająca poza ten minimalny pulpit.
 
 Źródło szczegółów: [archived Zone 16](../archive/zones/16-vmi-dashboard-analytics-retired.md), [archived Zone 19](../archive/zones/19-secondary-processes-retired.md).
 

@@ -1,4 +1,4 @@
-### 5. Lokalizacje, QR, etykiety i fizyczna identyfikacja części/zestawów
+### 4. Lokalizacje, QR, etykiety i fizyczna identyfikacja części/zestawów
 
 **Priorytet:** P0
 
@@ -52,7 +52,7 @@ Ta strefa obejmuje trzy fizyczne obiekty, które skrypt wymaga skanować: lokali
 
 **Brama końcowa**
 
-- [ ] **Dokładny scenariusz pitchu Strefy 5 zweryfikowany ręcznie na aktualnym build i fizycznym sprzęcie prezentacji:** druk etykiety lokalizacji + etykiety części/zestawu (zgodnie z podjętą decyzją architektoniczną) → skan każdej na telefonie prezentacyjnym → przekierowanie przez logowanie tam, gdzie wymagane → każda prowadzi do właściwego, trwałego obiektu możliwego do dalszego wykorzystania w Strefie 6.
+- [ ] **Dokładny scenariusz pitchu Strefy 4 zweryfikowany ręcznie na aktualnym build i fizycznym sprzęcie prezentacji:** druk etykiety lokalizacji + etykiety części/zestawu (zgodnie z podjętą decyzją architektoniczną) → skan każdej na telefonie prezentacyjnym → przekierowanie przez logowanie tam, gdzie wymagane → każda prowadzi do właściwego, trwałego obiektu możliwego do dalszego wykorzystania w Strefie 5.
 
 **Pitch gap:**
 
@@ -78,7 +78,7 @@ Część i zestaw to inna sytuacja — to nie kwestia braku świeżej weryfikacj
 - [ ] Testy automatyczne resolvera QR rozszerzone o wszystkie faktycznie używane w pilotażu typy celu (dziś pełne pokrycie ma tylko `warehouse.location`).
 - [ ] Realistyczny test wieloużytkownikowego skanowania (kilku pracowników skanujących różne obiekty jednocześnie) na tym samym oddziale.
 - [ ] Jeśli część/zestaw otrzymają cel QR: decyzja, czy dotyczy to instancji fizycznej (jedna etykieta = jedna dostawa/partia) czy definicji katalogowej — i konsekwentne wymuszenie tego wyboru w modelu danych, żeby uniknąć nieporozumienia „jeden SKU = jeden QR dla wszystkich egzemplarzy".
-- [ ] **Dokładny scenariusz pilotażu Strefy 5 zweryfikowany ręcznie z reprezentatywnymi rolami/użytkownikami pilotażu**, w warunkach zbliżonych do rzeczywistego magazynu.
+- [ ] **Dokładny scenariusz pilotażu Strefy 4 zweryfikowany ręcznie z reprezentatywnymi rolami/użytkownikami pilotażu**, w warunkach zbliżonych do rzeczywistego magazynu.
 
 **Pilot gap:**
 
@@ -93,7 +93,7 @@ Poza ogólnym pogłębieniem twardości QR (integralność, audyt, cykl życia r
 - Stary schemat skanowania (`qr_labels`, `label_templates`, `qr_scan_logs`, `label_batches`, `scanning_operations`, `scanning_operation_items` z migracji `20250806120000`) jest dziś martwy — zero odwołań w bieżącym kodzie; obecny system używa wyłącznie `qr_codes`/`qr_assignments`.
 - Ani `qr_codes`/`qr_assignments`, ani `inventory_containers`/`inventory_container_lines` nie mają odpowiadającej migracji w repozytorium — ten sam dryf schematu odnotowany w Strefie 1 dla tabel Matchera i Help Desku; ograniczenia/RLS tych tabel są nieznane z kodu źródłowego.
 - Jedyna zapisana ręczna weryfikacja to test lokalizacji z 6 sierpnia 2026 (utworzenie lokalizacji w pustym oddziale, QR, etykieta, skan telefonem, powrót po logowaniu, wynik API etykiet 20/20) — dotyczy wyłącznie lokalizacji, oznaczony HISTORICAL, nieodtworzony w tej analizie.
-- Zależność od Strefy 4: jeśli etykieta części/zestawu ma docelowo pokazywać odniesienie do zlecenia naprawczego, zależy to od trwałej tożsamości zlecenia/pozycji zlecenia ze Strefy 4, której dziś nie ma — tożsamość QR części/zestawu opisana w tej strefie może istnieć niezależnie od zlecenia (jako identyfikacja fizyczna), ale odniesienie do zlecenia na etykiecie wymaga najpierw Strefy 4.
+- Zależność od Strefy 3: jeśli etykieta części/zestawu ma docelowo pokazywać odniesienie do zlecenia naprawczego, zależy to od trwałej tożsamości zlecenia/pozycji zlecenia ze Strefy 3, której dziś nie ma — tożsamość QR części/zestawu opisana w tej strefie może istnieć niezależnie od zlecenia (jako identyfikacja fizyczna), ale odniesienie do zlecenia na etykiecie wymaga najpierw Strefy 3.
 
 ---
 

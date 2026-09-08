@@ -1,10 +1,10 @@
-### 11. Tickety: komunikacja, akceptacja i problemowa część z QR
+### 8. Tickety: komunikacja, akceptacja i problemowa część z QR
 
 **Priorytet:** P1
 
 **Stan obecny:** 🟡 PARTIAL
 
-Rdzeń działa i jest spójny, nie tylko rozłączonymi prymitywami: prawdziwy wielo-użytkownikowy ticket z rzeczywistymi komentarzami (generyczny system załączników/komentarzy z Strefy 9), trwałą, niemutowalną historią aktywności, realnym procesem akceptacji wymuszanym po stronie RPC (nie tylko RLS), oraz w pełni działającym przypisaniem/skanowaniem QR ticketu prowadzącym do właściwego widoku szczegółów. To realna, sprawdzona (kodowo) funkcjonalność. Jednocześnie ujawniono konkretne, potwierdzone braki wymagające jawnego zawężenia wypowiedzi: **nie istnieje akcja odrzucenia** — jest wyłącznie akceptacja, żadnej symetrycznej decyzji negatywnej; **żadna kolumna nie łączy ticketu strukturalnie ze zleceniem, produktem, częścią ani kontenerem** — istnieje wprawdzie generyczna tabela `helpdesk_ticket_references` do takich powiązań, ale nie ma jej ani jednego wywołania w całym kodzie (martwa infrastruktura); wyszukiwanie ticketów dopasowuje wyłącznie tytuł, nie numer ticketu; przejścia statusu nie są wymuszane po stronie serwera poza zamknięciem (bezwarunkowym, z dowolnego statusu). Żaden typ „Zwrot" nie jest dziś zasiany domyślnie — trzeba by go utworzyć ręcznie przed pokazem jako typ niestandardowy.
+Rdzeń działa i jest spójny, nie tylko rozłączonymi prymitywami: prawdziwy wielo-użytkownikowy ticket z rzeczywistymi komentarzami (generyczny system załączników/komentarzy z Strefy 3 (dawna Strefa 9)), trwałą, niemutowalną historią aktywności, realnym procesem akceptacji wymuszanym po stronie RPC (nie tylko RLS), oraz w pełni działającym przypisaniem/skanowaniem QR ticketu prowadzącym do właściwego widoku szczegółów. To realna, sprawdzona (kodowo) funkcjonalność. Jednocześnie ujawniono konkretne, potwierdzone braki wymagające jawnego zawężenia wypowiedzi: **nie istnieje akcja odrzucenia** — jest wyłącznie akceptacja, żadnej symetrycznej decyzji negatywnej; **żadna kolumna nie łączy ticketu strukturalnie ze zleceniem, produktem, częścią ani kontenerem** — istnieje wprawdzie generyczna tabela `helpdesk_ticket_references` do takich powiązań, ale nie ma jej ani jednego wywołania w całym kodzie (martwa infrastruktura); wyszukiwanie ticketów dopasowuje wyłącznie tytuł, nie numer ticketu; przejścia statusu nie są wymuszane po stronie serwera poza zamknięciem (bezwarunkowym, z dowolnego statusu). Żaden typ „Zwrot" nie jest dziś zasiany domyślnie — trzeba by go utworzyć ręcznie przed pokazem jako typ niestandardowy.
 
 **Dowody:**
 
@@ -19,7 +19,7 @@ Rdzeń działa i jest spójny, nie tylko rozłączonymi prymitywami: prawdziwy w
 
 **Rdzeń ticketu**
 
-- [ ] Utworzono jeden reprezentatywny ticket na aktualnym build, z typem, statusem, terminem i co najmniej jedną przypisaną osobą (konto B ze Strefy 10).
+- [ ] Utworzono jeden reprezentatywny ticket na aktualnym build, z typem, statusem, terminem i co najmniej jedną przypisaną osobą (konto B ze Strefy 1, dawna Strefa 10).
 - [ ] Ticket i jego pola przetrwały odświeżenie strony.
 
 **Komunikacja dwóch użytkowników**
@@ -43,7 +43,7 @@ Rdzeń działa i jest spójny, nie tylko rozłączonymi prymitywami: prawdziwy w
 
 - [ ] Dla ticketu demo wygenerowano/przypisano QR z realnego UI na stronie szczegółów.
 - [ ] Skan QR na telefonie prezentacyjnym otwiera dokładnie ten ticket (weryfikacja rozwiązywania po `ticket_number`, nie tylko odczyt kodu z rejestru).
-- [ ] Wypowiedź prezentera opisuje to jako „etykieta ticketu przyklejona do części", nie jako „QR identyfikuje część" — dziś QR nie ma żadnej strukturalnej relacji do fizycznej części (zależność od Strefy 5, gdzie nie ma celu QR dla części).
+- [ ] Wypowiedź prezentera opisuje to jako „etykieta ticketu przyklejona do części", nie jako „QR identyfikuje część" — dziś QR nie ma żadnej strukturalnej relacji do fizycznej części (zależność od Strefy 4, gdzie nie ma celu QR dla części).
 
 **Powiązania domenowe — jawne zawężenie wymagane**
 
@@ -60,7 +60,7 @@ Rdzeń działa i jest spójny, nie tylko rozłączonymi prymitywami: prawdziwy w
 
 **Brama końcowa**
 
-- [ ] **Dokładny scenariusz pitchu Strefy 11 zweryfikowany ręcznie na aktualnym build, na dwóch przygotowanych kontach ze Strefy 10:** konto A tworzy reprezentatywny ticket → przypisuje go zgodnie z rzeczywistym modelem do konta B → konto B otwiera i komentuje → wybrana akcja statusu/akceptacji wykonana przez uprawnione konto → konto A ponownie otwiera ticket i widzi trwałe komentarze/historię/decyzję → QR tego ticketu zeskanowany na telefonie prezentacyjnym otwiera ten sam ticket → każde pokazane powiązanie ze zleceniem/częścią/zestawem jest potwierdzone jako strukturalne i nawigowalne, w przeciwnym razie prezenter jawnie opisuje QR jako etykietę ticketu fizycznie przyklejoną do części, nie jako cyfrową relację do części.
+- [ ] **Dokładny scenariusz pitchu Strefy 8 zweryfikowany ręcznie na aktualnym build, na dwóch przygotowanych kontach ze Strefy 1 (dawna Strefa 10):** konto A tworzy reprezentatywny ticket → przypisuje go zgodnie z rzeczywistym modelem do konta B → konto B otwiera i komentuje → wybrana akcja statusu/akceptacji wykonana przez uprawnione konto → konto A ponownie otwiera ticket i widzi trwałe komentarze/historię/decyzję → QR tego ticketu zeskanowany na telefonie prezentacyjnym otwiera ten sam ticket → każde pokazane powiązanie ze zleceniem/częścią/zestawem jest potwierdzone jako strukturalne i nawigowalne, w przeciwnym razie prezenter jawnie opisuje QR jako etykietę ticketu fizycznie przyklejoną do części, nie jako cyfrową relację do części.
 
 **Pitch gap:**
 
@@ -74,13 +74,13 @@ Rdzeń działa realnie i spójnie — to nie jest strefa wymagająca nowej imple
 - [ ] Testy automatyczne dla całego przepływu ticketu (utworzenie, przypisanie, komentarz, akceptacja, zamknięcie, QR) — dziś całkowicie nieobecne.
 - [ ] Wymuszenie przejść statusu po stronie serwera (dziś dowolna zmiana byłaby możliwa przez nieużywaną, ale istniejącą generyczną metodę `update()`, gdyby ktoś ją podłączył bez ograniczeń) — ustalić właściwy model przed realnym użyciem operacyjnym.
 - [ ] Decyzja: czy dodać akcję odrzucenia jako realną funkcję, czy świadomie pozostać przy modelu wyłącznie akceptacji dla pilotażu.
-- [ ] Jeśli pilotaż ma operacyjnie korzystać z powiązania ticket ↔ zlecenie/część: podłączenie istniejącej, dziś martwej tabeli `helpdesk_ticket_references` (lub równoważnego mechanizmu) do rzeczywistego UI, zależne też od istnienia Strefy 4.
+- [ ] Jeśli pilotaż ma operacyjnie korzystać z powiązania ticket ↔ zlecenie/część: podłączenie istniejącej, dziś martwej tabeli `helpdesk_ticket_references` (lub równoważnego mechanizmu) do rzeczywistego UI, zależne też od istnienia Strefy 3.
 - [ ] Naprawa wyszukiwania po numerze ticketu na stałe.
 - [ ] Ślad audytowy zmiany przypisania i zmiany statusu w historii aktywności (dziś logowane są tylko utworzenie/komentarz/załącznik/akceptacja/zamknięcie).
 - [ ] Zachowanie przy usunięciu/dezaktywacji przypisanego użytkownika (czy ticket pozostaje przypisany do „widmowego" konta).
-- [ ] Polityka powiadomień, jeśli pilotaż uzna je za potrzebne — dziś brak jakiejkolwiek implementacji, zależność od przyszłej Strefy 14.
+- [ ] Polityka powiadomień, jeśli pilotaż uzna je za potrzebne — dziś brak jakiejkolwiek implementacji, zależność od Strefy 10 (Notifications & Operational Alerts, dawna Strefa 14).
 - [ ] Testy integracyjne/RLS na żywej bazie dla ticketów i akceptacji — dziś brak jakichkolwiek testów.
-- [ ] **Dokładny scenariusz pilotażu Strefy 11 zweryfikowany ręcznie z reprezentatywnymi rolami/użytkownikami pilotażu.**
+- [ ] **Dokładny scenariusz pilotażu Strefy 8 zweryfikowany ręcznie z reprezentatywnymi rolami/użytkownikami pilotażu.**
 
 **Pilot gap:**
 
@@ -93,15 +93,15 @@ Główna dodatkowa praca pilotażowa to domknięcie luk już zidentyfikowanych d
 - Typy ticketów: zasiane systemowo `general_request`, `question`, `task_request` — **brak domyślnego typu „Zwrot"**; typ wpływa na domyślny priorytet, domyślnych odpowiedzialnych/akceptantów i flagę `requires_acceptance`, ale to zachowanie jest realizowane po stronie klienta (`new-ticket-form.tsx`), nie wymuszane przez RPC tworzenia ticketu.
 - Tworzenie: `createTicketAction` → `HelpdeskTicketsService.createWithAssignees` → RPC `helpdesk_create_ticket` (atomowy, generuje numer `HD-000001`, wstawia przypisania i akceptantów, loguje `ticket_created`); wymaga tytułu i co najmniej jednego przypisanego użytkownika.
 - Przypisanie: model wielo-użytkownikowy przez `helpdesk_ticket_assignees` (rola responder/watcher, status), nie pojedynczy `assigned_to` (kolumna istnieje, ale nieużywana) i nie zespół/dział — nie ma koncepcji zespołu w schemacie.
-- Komentarze: generyczny system z Strefy 9 (`CommentsService`/`CommentsThread`, `targetType="helpdesk.ticket"`) — trwałe, z autorem/czasem, RLS ograniczające widoczność do twórcy/przypisanego/managera z uprawnieniem odczytu.
+- Komentarze: generyczny system z Strefy 3 (dawna Strefa 9) (`CommentsService`/`CommentsThread`, `targetType="helpdesk.ticket"`) — trwałe, z autorem/czasem, RLS ograniczające widoczność do twórcy/przypisanego/managera z uprawnieniem odczytu.
 - Historia: `helpdesk_ticket_activity`, tabela tylko-do-wstawiania (bez polityk UPDATE/DELETE), realnie loguje `ticket_created`/`ticket_accepted`/`ticket_closed`/`comment_added`/`attachment_added` — nie loguje zmiany przypisania ani zmiany statusu poza zamknięciem.
 - Akceptacja: RPC `helpdesk_accept_ticket` z autoryzacją wymuszoną wewnątrz funkcji (manager LUB wpisany akceptant tego ticketu) — realny, RPC-poziomowy mechanizm obronny, nie tylko RLS. **Brak jakiejkolwiek funkcji/akcji odrzucenia** — potwierdzone brakiem wystąpień „reject"/„rejection" w migracjach i kodzie akcji/serwisu.
 - QR: realny UI `AssignQrDialog` na stronie szczegółów ticketu (generowanie, skan istniejącej etykiety, odłączenie); resolver publiczny (`target-registry.ts`, wpis `helpdesk.ticket`) poprawnie rozwiązuje `ticket_number` do trasy `/dashboard/help-desk/tickets/{ticket_number}`, zgodnej z tym, czego faktycznie oczekuje strona szczegółów.
 - Statusy: CHECK `('open','in_progress','waiting','waiting_response','resolved','closed','cancelled')` — brak wymuszania przejść; jedyna realna zmiana po utworzeniu to bezwarunkowe zamknięcie (`closeTicketAction`, dostępne dla twórcy lub managera); generyczna metoda `update()` pozwalająca na dowolną zmianę statusu istnieje w serwisie, ale nie jest wywoływana z żadnej akcji — martwa.
-- Wyszukiwanie: lista ticketów filtruje `title` przez `.ilike`, nie `ticket_number` — ten sam wzorzec usterki co wyszukiwanie SKU w Strefie 7.
-- Powiadomienia: zero implementacji dla ticketów (utworzenie/przypisanie/komentarz/akceptacja nie wyzwalają niczego poza zapisem w bazie) — spójne z ogólnym stanem powiadomień w projekcie (dzwonek z jawnym `TODO: Connect to real notifications system`), zależność od przyszłej Strefy 14.
+- Wyszukiwanie: lista ticketów filtruje `title` przez `.ilike`, nie `ticket_number` — ten sam wzorzec usterki co wyszukiwanie SKU w Strefie 6.
+- Powiadomienia: zero implementacji dla ticketów (utworzenie/przypisanie/komentarz/akceptacja nie wyzwalają niczego poza zapisem w bazie) — spójne z ogólnym stanem powiadomień w projekcie (dzwonek z jawnym `TODO: Connect to real notifications system`), zależność od Strefy 10 (Notifications & Operational Alerts, dawna Strefa 14).
 - Zero testów jakiegokolwiek rodzaju dla realnego zachowania ticketów (tworzenie, komentarze, akceptacja, zamknięcie, QR) — istniejące testy z „helpdesk" w nazwie dotyczą wyłącznie widoczności menu i integracji z kalendarzem, z serwisem ticketów całkowicie zamockowanym.
-- Zależności: Strefa 1 (izolacja oddziałowa RLS `helpdesk_tickets`), Strefa 4 (przyszła relacja do zlecenia, jeśli `helpdesk_ticket_references` zostanie podłączone), Strefa 5 (QR ticketu działa, ale nie ma celu QR dla samej części), Strefa 9 (współdzielony system komentarzy/załączników), Strefa 10 (przygotowane konta demo).
+- Zależności: Strefa 1 (izolacja oddziałowa RLS `helpdesk_tickets`), Strefa 3 (przyszła relacja do zlecenia, jeśli `helpdesk_ticket_references` zostanie podłączone), Strefa 4 (QR ticketu działa, ale nie ma celu QR dla samej części), Strefa 3 (dawna Strefa 9, współdzielony system komentarzy/załączników), Strefa 1 (dawna Strefa 10, przygotowane konta demo).
 
 ---
 

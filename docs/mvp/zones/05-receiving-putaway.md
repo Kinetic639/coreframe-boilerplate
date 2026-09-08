@@ -1,10 +1,10 @@
-### 6. Przyjęcie 101/PZ → import z Matchera → mobilne rozłożenie → zamknięcie → raport
+### 5. Przyjęcie 101/PZ → import z Matchera → mobilne rozłożenie → zamknięcie → raport
 
 **Priorytet:** P0
 
 **Stan obecny:** 🟠 EARLY / DISCONNECTED
 
-Realne prymitywy istnieją — typ ruchu 101 („Przyjęcie z zamówienia"/PZ) jest prawdziwie zdefiniowany, import z Matchera do edytora ruchu na komputerze naprawdę działa i rozwiązuje produkty (nie jest atrapą), kontenery jako model danych istnieją, a lokalizacje/QR ze Strefy 5 działają dla lokalizacji. Ale te elementy **nie składają się w zamierzony workflow przyjęcia**. Mobilne rozłożenie nie istnieje w ogóle (potwierdzone placeholdery), kontenery są całkowicie niepodłączone do przyjęcia (akcje-sieroty bez żadnego wywołania z UI), nie ma rozróżnienia „oczekiwane" vs „fizycznie potwierdzone", nie ma dedykowanego zamknięcia przyjęcia, a jedyny realny raport dostawy w aplikacji odtwarza wyłącznie dane odczytane z dokumentu źródłowego, nigdy rzeczywiście potwierdzonych lokalizacji magazynowych. To dokładnie sytuacja opisana jako 🟠: prymitywy istnieją, spójny workflow — nie.
+Realne prymitywy istnieją — typ ruchu 101 („Przyjęcie z zamówienia"/PZ) jest prawdziwie zdefiniowany, import z Matchera do edytora ruchu na komputerze naprawdę działa i rozwiązuje produkty (nie jest atrapą), kontenery jako model danych istnieją, a lokalizacje/QR ze Strefy 4 działają dla lokalizacji. Ale te elementy **nie składają się w zamierzony workflow przyjęcia**. Mobilne rozłożenie nie istnieje w ogóle (potwierdzone placeholdery), kontenery są całkowicie niepodłączone do przyjęcia (akcje-sieroty bez żadnego wywołania z UI), nie ma rozróżnienia „oczekiwane" vs „fizycznie potwierdzone", nie ma dedykowanego zamknięcia przyjęcia, a jedyny realny raport dostawy w aplikacji odtwarza wyłącznie dane odczytane z dokumentu źródłowego, nigdy rzeczywiście potwierdzonych lokalizacji magazynowych. To dokładnie sytuacja opisana jako 🟠: prymitywy istnieją, spójny workflow — nie.
 
 **Dowody:**
 
@@ -25,10 +25,10 @@ Realne prymitywy istnieją — typ ruchu 101 („Przyjęcie z zamówienia"/PZ) j
 
 **Import z Matchera**
 
-- [ ] Zapisana sesja Matchera (Strefa 3) jest wybieralna jako źródło importu przy tworzeniu ruchu 101 na aktualnym build.
+- [ ] Zapisana sesja Matchera (Strefa 2) jest wybieralna jako źródło importu przy tworzeniu ruchu 101 na aktualnym build.
 - [ ] Import automatycznie wypełnia linie ruchu (produkt, ilość, jednostka, lokalizacja docelowa) bez ręcznego przepisywania — sprawdzone na żywo dla przygotowanych danych demo.
 - [ ] Nieznany/niejednoznaczny SKU jest jawnie sygnalizowany użytkownikowi (przypisanie/utworzenie/pominięcie) — nie znika po cichu i nie blokuje reszty importu.
-- [ ] Numer zlecenia z Matchera pojawia się przy zaimportowanej linii — **ze świadomością, że dziś przetrwa wyłącznie jako tekst w polu notatki, nie jako trwałe powiązanie w zapisanym ruchu** (zależność od Strefy 4 dla prawdziwej relacji zlecenia).
+- [ ] Numer zlecenia z Matchera pojawia się przy zaimportowanej linii — **ze świadomością, że dziś przetrwa wyłącznie jako tekst w polu notatki, nie jako trwałe powiązanie w zapisanym ruchu** (zależność od Strefy 3 dla prawdziwej relacji zlecenia).
 - [ ] Prezenter wie i uwzględnia w scenariuszu, że **po zapisaniu ruchu nie istnieje żadne trwałe powiązanie z sesją/linią Matchera** — `inventory_movement_lines` nie ma kolumny wskazującej źródłową sesję; jedynym śladem pochodzenia są wolnotekstowe notatki nagłówka/linii.
 - [ ] Ta sama sesja Matchera zaimportowana dwukrotnie do dwóch różnych ruchów jest albo świadomie niedopuszczona w scenariuszu demo, albo jawnie wyjaśniona jako znane ograniczenie — dziś nic w systemie tego nie blokuje ani nie ostrzega.
 - [ ] Zaimportowany, niezapisany szkic ruchu nie jest tracony przypadkowo w trakcie demo przez odświeżenie strony — sprawdzone i uwzględnione w choreografii pokazu (stan importu żyje wyłącznie w pamięci przeglądarki do momentu zapisu).
@@ -62,7 +62,7 @@ Realne prymitywy istnieją — typ ruchu 101 („Przyjęcie z zamówienia"/PZ) j
 
 **Brama końcowa**
 
-- [ ] **Dokładny scenariusz pitchu Strefy 6 zweryfikowany ręcznie na aktualnym build i urządzeniach prezentacji:** utworzenie ruchu 101/PZ → wybór Importu → wybór zapisanej sesji Matchera → zaimportowane linie pojawiają się bez ręcznego przepisywania → przetworzenie reprezentatywnych pozycji (na telefonie, jeśli zbudowano minimalny ekran, albo w uzgodnionej alternatywnej ścieżce) → potwierdzenie rzeczywistych lokalizacji → komputer pokazuje ten sam postęp → obsłużono jeden kontrolowany wyjątek/korektę → zamknięcie przyjęcia → wygenerowanie/eksport raportu zawierającego rzeczywiście potwierdzone lokalizacje do ręcznej aktualizacji AutoStacji.
+- [ ] **Dokładny scenariusz pitchu Strefy 5 zweryfikowany ręcznie na aktualnym build i urządzeniach prezentacji:** utworzenie ruchu 101/PZ → wybór Importu → wybór zapisanej sesji Matchera → zaimportowane linie pojawiają się bez ręcznego przepisywania → przetworzenie reprezentatywnych pozycji (na telefonie, jeśli zbudowano minimalny ekran, albo w uzgodnionej alternatywnej ścieżce) → potwierdzenie rzeczywistych lokalizacji → komputer pokazuje ten sam postęp → obsłużono jeden kontrolowany wyjątek/korektę → zamknięcie przyjęcia → wygenerowanie/eksport raportu zawierającego rzeczywiście potwierdzone lokalizacje do ręcznej aktualizacji AutoStacji.
 
 **Pitch gap:**
 
@@ -89,7 +89,7 @@ To jest najgłębsza luka funkcjonalna spośród dotychczas ocenionych stref P0.
 - [ ] Realistyczne testy na telefonie (nie tylko symulator/desktop) dla mobilnej części przyjęcia.
 - [ ] Izolacja oddziałowa/organizacyjna przyjęcia — zależność od ogólnych ustaleń RLS ze Strefy 1, tu tylko odnotowana jako wymaganie dla nowych elementów tej strefy (np. ewentualnego mobilnego potwierdzenia).
 - [ ] Spójność raportowania przy wielu jednoczesnych przyjęciach na tym samym oddziale.
-- [ ] **Dokładny scenariusz pilotażu Strefy 6 zweryfikowany ręcznie z reprezentatywnymi rolami/użytkownikami pilotażu**, w tym rzeczywista, większa dostawa i co najmniej jedna kontrolowana awaria/korekta.
+- [ ] **Dokładny scenariusz pilotażu Strefy 5 zweryfikowany ręcznie z reprezentatywnymi rolami/użytkownikami pilotażu**, w tym rzeczywista, większa dostawa i co najmniej jedna kontrolowana awaria/korekta.
 
 **Pilot gap:**
 
@@ -103,11 +103,11 @@ Ponieważ bramka pitchu dla tej strefy już wymaga zbudowania większości braku
 - Brak ochrony przed podwójnym importem: `wdd_matcher_sessions`/`wdd_matcher_lines` nie mają kolumny „zaimportowano"/`movement_id`; `getMovementImportCandidates` to bramka gotowości (status/oddział), nie bramka jednorazowości.
 - Stan importu żyje wyłącznie w pamięci przeglądarki (`useState` w `use-movement-form-state.ts`, brak `localStorage`/`sessionStorage`) do momentu jawnego zapisu — odświeżenie przed zapisem usuwa cały zaimportowany szkic.
 - Mobilne trasy potwierdzone jako atrapy: `apps/web/src/app/[locale]/dashboard/warehouse/deliveries/page.tsx` i `.../scanning/delivery/page.tsx` renderują generyczny komponent `WarehousePlaceholderPage`, potwierdzone testem `placeholder-pages.test.tsx`. Jedyny realny skan telefonem w module magazynowym dotyczy audytów stanu (`audits/[id]/count/_components/guided-count/count-scan-trigger.tsx`), architektonicznie niezwiązanego z przyjęciem.
-- Kontenery całkowicie niepodłączone do przyjęcia: kolumna `inventory_movement_lines.container_id` istnieje w schemacie, ale nigdy nie jest ustawiana przez serwis ruchów; akcje mutujące kontener (`createLocationContainerAction`, `addItemsToContainerAction`, `removeItemFromContainerAction`, `relocateContainerAction` w `ambra-location-inventory.ts`) nie mają żadnego wywołania spoza własnego pliku definicji — zależność od Strefy 5, gdzie ten sam model już opisano jako realny, ale niepodłączony do QR/etykiet.
+- Kontenery całkowicie niepodłączone do przyjęcia: kolumna `inventory_movement_lines.container_id` istnieje w schemacie, ale nigdy nie jest ustawiana przez serwis ruchów; akcje mutujące kontener (`createLocationContainerAction`, `addItemsToContainerAction`, `removeItemFromContainerAction`, `relocateContainerAction` w `ambra-location-inventory.ts`) nie mają żadnego wywołania spoza własnego pliku definicji — zależność od Strefy 4, gdzie ten sam model już opisano jako realny, ale niepodłączony do QR/etykiet.
 - Brak rozróżnienia oczekiwane/potwierdzone: `inventory_movement_lines` ma jedno pole `quantity`, bez statusu potwierdzenia; jedyny „putaway" w kodzie to statyczna tabela reguł preferencji (`inventory_putaway_rules`), wyświetlana tylko do odczytu, bez żadnego kodu, który by ją faktycznie stosował.
 - Brak dedykowanego zamknięcia: serwis ruchów ma wyłącznie `createDraft`/`saveDraft`/`finalizePosting`/`cancelMovement` — te same przejścia statusu dla każdego typu ruchu, bez walidacji specyficznej dla przyjęcia.
 - Raport dostawy (`WddMatcherService.getEnhancedPdfData`) czyta wyłącznie `wdd_matcher_block_matches`/`wdd_matcher_blocks`/`wdd_matcher_lines` — pole `location` to surowy tekst z dokumentu źródłowego, nie FK do `warehouse_locations` i nie dane z `inventory_movement_lines.destination_location_id`. Widok szczegółów ruchu używa realnych danych ruchu, ale to zwykły wydruk przeglądarki formularza draft/posted, nie raport z procesu potwierdzania przyjęcia.
-- Zależności: Strefa 3 (poprawność danych źródłowych Matchera), Strefa 4 (prawdziwa relacja zlecenia zamiast tekstu w notatce), Strefa 5 (fizyczna tożsamość QR części/zestawu, jeśli mobilne rozłożenie ma z niej korzystać), Strefa 1 (izolacja oddziałowa/RLS nowych elementów tej strefy) — odnotowane, nie duplikowane.
+- Zależności: Strefa 2 (poprawność danych źródłowych Matchera), Strefa 3 (prawdziwa relacja zlecenia zamiast tekstu w notatce), Strefa 4 (fizyczna tożsamość QR części/zestawu, jeśli mobilne rozłożenie ma z niej korzystać), Strefa 1 (izolacja oddziałowa/RLS nowych elementów tej strefy) — odnotowane, nie duplikowane.
 
 ---
 

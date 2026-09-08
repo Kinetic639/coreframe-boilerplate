@@ -1,10 +1,10 @@
-### 7. Szukanie, zawartość lokalizacji, relokacja części/zestawu i historia
+### 6. Szukanie, zawartość lokalizacji, relokacja części/zestawu i historia
 
 **Priorytet:** P0
 
 **Stan obecny:** 🟡 PARTIAL
 
-W przeciwieństwie do Strefy 6, tutaj istnieje realny, działający rdzeń codziennej pracy: zawartość lokalizacji jest prawdziwą tabelą stanu magazynowego (nie tylko kontenerami), relokacja pojedynczej części (typ ruchu 801, „Bin-to-Bin Move") jest rzeczywistą, osiągalną z UI operacją z obsługą ilości częściowej i zabezpieczeniem przed ujemnym stanem po stronie bazy, a historia ruchów lokalizacji to prawdziwe zapytanie do bazy, nie fasada. To realna, działająca zdolność, nie tylko rozłączone prymitywy — stąd 🟡 PARTIAL, nie 🟠. Jednocześnie prześledzenie ujawniło konkretne, potwierdzone w kodzie usterki i braki wymagane przez skrypt: wyszukiwanie produktów filtruje wyłącznie po nazwie, nie po SKU/numerze katalogowym (mimo że pole nazywa się „szukanie", numer części go nie znajdzie); relokacja zestawu/kontenera jest kodem martwym bez żadnego wywołania z interfejsu; historia ruchów nie pokazuje użytkownika mimo że pole `posted_by` istnieje w zapytaniu; etykieta „przeniesienie wewnętrzne" w historii nigdy się nie wyświetla z powodu błędu porównania (`movementKind === "transfer"` nigdy nie jest prawdą dla realnych kodów `"801"`/`"311"`). Wyszukiwanie zlecenia nie istnieje w ogóle — zgodnie z oczekiwaniem, bo Strefa 4 nie istnieje.
+W przeciwieństwie do Strefy 5, tutaj istnieje realny, działający rdzeń codziennej pracy: zawartość lokalizacji jest prawdziwą tabelą stanu magazynowego (nie tylko kontenerami), relokacja pojedynczej części (typ ruchu 801, „Bin-to-Bin Move") jest rzeczywistą, osiągalną z UI operacją z obsługą ilości częściowej i zabezpieczeniem przed ujemnym stanem po stronie bazy, a historia ruchów lokalizacji to prawdziwe zapytanie do bazy, nie fasada. To realna, działająca zdolność, nie tylko rozłączone prymitywy — stąd 🟡 PARTIAL, nie 🟠. Jednocześnie prześledzenie ujawniło konkretne, potwierdzone w kodzie usterki i braki wymagane przez skrypt: wyszukiwanie produktów filtruje wyłącznie po nazwie, nie po SKU/numerze katalogowym (mimo że pole nazywa się „szukanie", numer części go nie znajdzie); relokacja zestawu/kontenera jest kodem martwym bez żadnego wywołania z interfejsu; historia ruchów nie pokazuje użytkownika mimo że pole `posted_by` istnieje w zapytaniu; etykieta „przeniesienie wewnętrzne" w historii nigdy się nie wyświetla z powodu błędu porównania (`movementKind === "transfer"` nigdy nie jest prawdą dla realnych kodów `"801"`/`"311"`). Wyszukiwanie zlecenia nie istnieje w ogóle — zgodnie z oczekiwaniem, bo Strefa 3 nie istnieje.
 
 **Dowody:**
 
@@ -19,7 +19,7 @@ W przeciwieństwie do Strefy 6, tutaj istnieje realny, działający rdzeń codzi
 
 **Wyszukiwanie**
 
-- [ ] Wyszukiwanie po numerze zlecenia jest świadomie wyłączone ze scenariusza demo (zależność od Strefy 4 — nie istnieje i nie jest w zakresie tej strefy) albo zastąpione jawnie opisanym obejściem.
+- [ ] Wyszukiwanie po numerze zlecenia jest świadomie wyłączone ze scenariusza demo (zależność od Strefy 3 — nie istnieje i nie jest w zakresie tej strefy) albo zastąpione jawnie opisanym obejściem.
 - [ ] Wyszukiwanie po SKU/numerze katalogowym faktycznie znajduje część — **dziś nie znajduje**, bo filtr sprawdza wyłącznie nazwę produktu; wymaga naprawy lub świadomego użycia w demo wyłącznie wyszukiwania po nazwie, z jawnym zastrzeżeniem tej różnicy w scenariuszu.
 - [ ] Wynik wyszukiwania pokazuje rzeczywisty, aktualny stan (potwierdzone: tak, `inventory_balances` na żywo) — ale główna lista wyników nie pokazuje dziś lokalizacji; ustalono, jak prezenter dojdzie od wyniku wyszukiwania do konkretnej lokalizacji (np. przez szczegóły produktu/wariantu, jeśli tam lokalizacja jest widoczna).
 
@@ -53,11 +53,11 @@ W przeciwieństwie do Strefy 6, tutaj istnieje realny, działający rdzeń codzi
 
 **Brama końcowa**
 
-- [ ] **Dokładny scenariusz pitchu Strefy 7 zweryfikowany ręcznie na aktualnym build, na danych utworzonych w Strefie 6:** wyszukanie znanego zlecenia/SKU → otwarcie bieżącej lokalizacji → sprawdzenie zawartości → relokacja jednej części/ilości do innej lokalizacji → relokacja jednego zestawu/kontenera, jeśli objęta finalnym scenariuszem pitchu → odświeżenie/ponowne wejście → wyszukiwanie i oba widoki lokalizacji pokazują nowy stan → historia ruchów pokazuje źródło, cel, ilość, użytkownika i czas.
+- [ ] **Dokładny scenariusz pitchu Strefy 6 zweryfikowany ręcznie na aktualnym build, na danych utworzonych w Strefie 5:** wyszukanie znanego zlecenia/SKU → otwarcie bieżącej lokalizacji → sprawdzenie zawartości → relokacja jednej części/ilości do innej lokalizacji → relokacja jednego zestawu/kontenera, jeśli objęta finalnym scenariuszem pitchu → odświeżenie/ponowne wejście → wyszukiwanie i oba widoki lokalizacji pokazują nowy stan → historia ruchów pokazuje źródło, cel, ilość, użytkownika i czas.
 
 **Pitch gap:**
 
-Rdzeń tej strefy realnie działa i jest solidniejszy niż w większości pozostałych stref: zawartość lokalizacji to prawdziwy stan magazynowy, relokacja pojedynczej części to prawdziwa, osiągalna z UI operacja z sensowną walidacją ilości i zabezpieczeniem przed ujemnym stanem, a historia to prawdziwe zapytanie do bazy przetrwające odświeżenie. Braki są konkretne i naprawialne, nie fundamentalne: (1) wyszukiwanie produktów nie znajduje po SKU, tylko po nazwie — sprzeczne z dosłowną obietnicą skryptu „mogę wyszukać część"; (2) relokacja zestawu/kontenera nie ma żadnego wejścia UI, mimo że logika serwerowa istnieje — druga połowa obietnicy skryptu „przenoszę część i zestaw" jest dziś nieosiągalna; (3) historia nie pokazuje użytkownika i błędnie etykietuje rodzaj ruchu — szczegół, ale widoczny na żywo podczas pokazu. Wyszukiwanie zlecenia świadomie nie jest tu wymagane, bo zależy od nieistniejącej jeszcze Strefy 4.
+Rdzeń tej strefy realnie działa i jest solidniejszy niż w większości pozostałych stref: zawartość lokalizacji to prawdziwy stan magazynowy, relokacja pojedynczej części to prawdziwa, osiągalna z UI operacja z sensowną walidacją ilości i zabezpieczeniem przed ujemnym stanem, a historia to prawdziwe zapytanie do bazy przetrwające odświeżenie. Braki są konkretne i naprawialne, nie fundamentalne: (1) wyszukiwanie produktów nie znajduje po SKU, tylko po nazwie — sprzeczne z dosłowną obietnicą skryptu „mogę wyszukać część"; (2) relokacja zestawu/kontenera nie ma żadnego wejścia UI, mimo że logika serwerowa istnieje — druga połowa obietnicy skryptu „przenoszę część i zestaw" jest dziś nieosiągalna; (3) historia nie pokazuje użytkownika i błędnie etykietuje rodzaj ruchu — szczegół, ale widoczny na żywo podczas pokazu. Wyszukiwanie zlecenia świadomie nie jest tu wymagane, bo zależy od nieistniejącej jeszcze Strefy 3.
 
 **Wymagany stan dla pilotażu:** PILOT READY
 
@@ -74,7 +74,7 @@ Rdzeń tej strefy realnie działa i jest solidniejszy niż w większości pozost
 - [ ] Izolacja oddziałowa/organizacyjna wyszukiwania, zawartości lokalizacji i relokacji — zależność od ogólnych ustaleń RLS ze Strefy 1, tu tylko odnotowana jako wymaganie dla tabel `inventory_balances`/`inventory_movement_lines`/`inventory_containers` używanych w tej strefie.
 - [ ] Testy automatyczne pokrywające realny przepływ relokacji (typ 801), wyszukiwanie po SKU+lokalizacji i historię — dziś praktycznie nieobecne (jedyny test „transferów" sprawdza tylko tekst SQL w migracjach, nie działanie).
 - [ ] Wydajność wyszukiwania/zawartości lokalizacji przy realistycznym wolumenie pilotażowego oddziału (setki–tysiące pozycji), nie tylko garstce danych demo.
-- [ ] **Dokładny scenariusz pilotażu Strefy 7 zweryfikowany ręcznie z reprezentatywnymi rolami/użytkownikami pilotażu**, w tym współbieżna relokacja przez dwóch pracowników.
+- [ ] **Dokładny scenariusz pilotażu Strefy 6 zweryfikowany ręcznie z reprezentatywnymi rolami/użytkownikami pilotażu**, w tym współbieżna relokacja przez dwóch pracowników.
 
 **Pilot gap:**
 
@@ -91,7 +91,7 @@ Poza ogólnym pogłębieniem twardości (transakcyjność, współbieżność, w
 - Błąd etykietowania historii: `LocationMovementLine.movementKind` niesie surowy kod typu ruchu (np. `"801"`), ale UI porównuje go z literałem `"transfer"` (`location-detail-panel.tsx` ok. linii 311-312, 322) — warunek nigdy nie jest prawdziwy, więc etykieta „przeniesienie wewnętrzne" nigdy się nie wyświetla. Pole `posted_by`/wykonawca nie jest w ogóle pobierane ani wyświetlane w tym widoku, mimo że `posted_at` jest.
 - Trzy niezależne mechanizmy „aktualnej lokalizacji": `inventory_balances` (autorytatywne, aktualizowane transakcyjnie przy każdym zaksięgowanym ruchu), `inventory_containers.current_location_id` (pole cache, ustawiane wyłącznie przez martwy kod relokacji kontenera — w praktyce zamrożone od utworzenia), `inventory_serials.current_location_id` (aktualizowane wewnątrz `inventory_post_movement` dla pozycji seryjnych). Interfejs nigdy nie krzyżuje tych źródeł, więc mogą się cicho rozjechać dla kontenerów.
 - Jedyny test dotykający transferów międzyoddziałowych (`inventory-cross-branch-transfers.test.ts`) sprawdza wyłącznie obecność fragmentów tekstu w plikach migracji (`fs.readFileSync` + `toContain`), nie wykonuje żadnej realnej operacji — może odnosić się do nazw funkcji sprzed przepisania silnika księgowania.
-- Zależności: Strefa 4 (wyszukiwanie zlecenia będzie możliwe dopiero po istnieniu trwałej tożsamości zlecenia — dziś świadomie poza zakresem tej strefy), Strefa 5 (fizyczna tożsamość QR części/zestawu, jeśli relokacja ma korzystać ze skanu zamiast wyboru z listy), Strefa 6 (dane wejściowe tej strefy pochodzą z przyjęcia — jeśli Strefa 6 nie dostarczy trwałego stanu magazynowego przed pitchem, Strefa 7 nie ma na czym pracować), Strefa 1 (izolacja oddziałowa/RLS tabel użytych tutaj) — odnotowane, nie duplikowane.
+- Zależności: Strefa 3 (wyszukiwanie zlecenia będzie możliwe dopiero po istnieniu trwałej tożsamości zlecenia — dziś świadomie poza zakresem tej strefy), Strefa 4 (fizyczna tożsamość QR części/zestawu, jeśli relokacja ma korzystać ze skanu zamiast wyboru z listy), Strefa 5 (dane wejściowe tej strefy pochodzą z przyjęcia — jeśli Strefa 5 nie dostarczy trwałego stanu magazynowego przed pitchem, Strefa 6 nie ma na czym pracować), Strefa 1 (izolacja oddziałowa/RLS tabel użytych tutaj) — odnotowane, nie duplikowane.
 
 ---
 
