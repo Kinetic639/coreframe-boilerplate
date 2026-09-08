@@ -1,4 +1,16 @@
-### 13. Zadania jednorazowe, kalendarz i Kanban
+### 13. Planning & Work Organization — zadania, kalendarz, Kanban i cykliczność
+
+**Priorytet:** P2
+
+**Stan obecny:** 🟡 PARTIAL
+
+Ta strefa zachowuje w całości zaakceptowany audyt dawnej Strefy 13 (zadania jednorazowe, kalendarz, Kanban) i dodatkowo przejmuje własność koncepcyjną nad cyklicznością/harmonogramowaniem, która wcześniej była częścią dawnej Strefy 14 („Cykliczność i powiadomienia operacyjne"). Dawna Strefa 14 opisywała dwa różne tematy w jednym audycie: cykliczność (należy koncepcyjnie do Planowania) oraz powiadomienia (infrastruktura przekrojowa, używana przez wiele domen — NIE należy do Planowania). Powiadomienia zostały wydzielone do nowej, niezależnej aktywnej strefy: [Strefa 20 — Notifications & Operational Alerts](./20-notifications-operational-alerts.md). Scalenie NIE podnosi statusu — Stan obecny pozostaje 🟡 PARTIAL, dokładnie jak w oryginalnym audycie dawnej Strefy 13, i NIE staje się nowym blokerem pitchu (pozostaje opcjonalną/wspierającą strefą P2, tak jak wcześniej).
+
+Ewidencja cykliczności z dawnej Strefy 14 nie jest w tym przebiegu w pełni przepisywana do tej strefy, żeby nie naruszyć proweniencji: pełny, oryginalny audyt dawnej Strefy 14 (obejmujący zarówno cykliczność, jak i powiadomienia — te dwa tematy są w wielu miejscach oryginalnego tekstu splecione w te same zdania/akapity i nie dają się bezpiecznie rozdzielić bez przepisywania) jest zachowany bez zmian w archiwum: [archived Zone 14](../archive/zones/14-recurrence-notifications-pre-split.md). Poniżej, w osobnej, jawnie oznaczonej podsekcji, przytoczono wyłącznie te dwa zdania z oryginalnego audytu dawnej Strefy 14, które dotyczą **wyłącznie** cykliczności i dają się precyzyjnie wyodrębnić bez ryzyka zmiany znaczenia (nie dotykają w ogóle tematu powiadomień).
+
+## Accepted implementation audit
+
+### Former Zone 13 audit — Zadania jednorazowe, kalendarz i Kanban
 
 **Priorytet:** P2
 
@@ -57,6 +69,13 @@ Nie dotyczy, dopóki Strefa 12 nie potwierdzi, że Planowanie jest częścią za
 - Uprawnienia wymuszane po stronie serwera (`checkPermission` w akcjach) i przez RLS z `FORCE` na `planning_tasks`/`planning_kanban_*`, z bezpośrednimi wywołaniami `has_permission(...)` w politykach.
 - Cykliczność: brak jakichkolwiek kolumn/pól/generatora w tym module — potwierdzone, poza zakresem tej strefy (Strefa 14).
 - Zero testów dla serwisu Kanban; solidne testy jednostkowe (zamockowane) dla serwisu zadań i agregatora kalendarza; zero testów renderujących realny widok kalendarza/tablicy.
+
+### Recurrence-specific excerpt from former Zone 14 audit (notification-relevant findings excluded — see archive)
+
+> Poniższe dwa zdania są przytoczone dosłownie z oryginalnego, zaakceptowanego audytu dawnej Strefy 14 (`Notes / evidence`). Dotyczą wyłącznie cykliczności/harmonogramowania i nie zawierają żadnej treści o powiadomieniach — dlatego mogły zostać bezpiecznie wyodrębnione bez ryzyka zniekształcenia znaczenia. Pełny oryginalny audyt (obie strony: cykliczność i powiadomienia razem) pozostaje jedynym pełnym źródłem prawdy w archiwum, patrz link wyżej.
+
+- Zero kolumn/tabel/generatora cykliczności w obu drzewach migracji i w całym `apps/web/src`; jedyny artefakt to martwy typ `AuditSchedule` (`src/lib/types/audit.ts`) z polem `frequency`, bez żadnej wspierającej tabeli (`audit_schedules`/`next_audit_date` nie istnieją nigdzie w migracjach) ani konsumenta w kodzie.
+- Zero infrastruktury harmonogramowanej w całej aplikacji: brak `vercel.json` z cronami, brak `pg_cron` w migracjach, trzy istniejące Supabase Edge Functions dotyczą wyłącznie uwierzytelniania (`auth-hook`, `custom-access-token-hook`, `send-auth-email`).
 
 ---
 

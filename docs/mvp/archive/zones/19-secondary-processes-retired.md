@@ -1,3 +1,7 @@
+> Historical/retired zone.
+> Former Zone 19 ("Lakiery, nieroty, procedury, zbiorczy dashboard") was removed from the active product-zone model. Its paints/non-moving-stock/procedures content is future/roadmap material, summarized in [Product Roadmap](../../planning/product-roadmap.md). Its aggregate-dashboard content is NOT roadmap-only — the accepted findings confirming `/dashboard/start` as a placeholder were extracted (alongside former Zone 16) into a new active pitch-relevant zone: [Zone 21 — Home / Operational Dashboard](../../zones/21-home-operational-dashboard.md).
+> This file is historical evidence only and is not an active source of current pitch/pilot readiness requirements.
+
 ### 19. Lakiery, nieroty, procedury, zbiorczy dashboard
 
 **Priorytet:** P3

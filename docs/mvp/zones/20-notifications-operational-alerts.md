@@ -1,4 +1,16 @@
-### 14. Cykliczność i powiadomienia operacyjne
+### 20. Notifications & Operational Alerts
+
+**Priorytet:** P3 (nie blokuje pitchu; ważne dla decyzji o zakresie kontrolowanego pilotażu — patrz notatka niżej)
+
+**Stan obecny:** 🟠 EARLY / DISCONNECTED
+
+Ta strefa jest nową, aktywną strefą produktową powstałą z podziału dawnej Strefy 14 („Cykliczność i powiadomienia operacyjne"). Dawna Strefa 14 opisywała dwa różne tematy w jednym audycie: cykliczność (przeniesiona koncepcyjnie do [Strefy 13 — Planning & Work Organization](./13-planning.md)) oraz powiadomienia/alerty operacyjne (przekrojowa infrastruktura używana przez wiele domen — własność tej strefy). Ponieważ oba tematy są w wielu miejscach oryginalnego audytu splecione w te same zdania/akapity i nie dają się bezpiecznie rozdzielić bez przepisywania dowodów, PEŁNY oryginalny audyt dawnej Strefy 14 jest zachowany poniżej bez zmian, w całości, jako podstawa dowodowa tej strefy — nie tylko fragment. Ta strefa jest głównym, aktywnym następcą dawnej Strefy 14 dla wszystkiego, co dotyczy powiadomień; strona cykliczności jest odnotowana w Strefie 13 wyłącznie jako krótki, jednoznacznie wyodrębniony wyciąg (patrz link do Strefy 13).
+
+Stan obecny 🟠 EARLY / DISCONNECTED jest przeniesiony bez zmian z oryginalnego audytu dawnej Strefy 14 — realne prymitywy (preferencje powiadomień zapisujące się do bazy, schemat UI dzwonka, flagi bazodanowe) istnieją, ale są rozłączone: brak silnika dostarczania, brak silnika wykonania cykliczności, brak trwałej skrzynki odbiorczej, brak operacyjnej wysyłki e-mail poza zaproszeniami, brak infrastruktury push. To NIE jest 🔴 NOT IMPLEMENTED (bo realne prymitywy istnieją) i NIE jest 🟡 PARTIAL (bo nie ma żadnego spójnego, działającego przepływu powiadomienia od zdarzenia do dostarczenia).
+
+## Accepted implementation audit
+
+### Former Zone 14 audit — Cykliczność i powiadomienia operacyjne (inherited in full — recurrence-specific findings also excerpted separately in Zone 13)
 
 **Priorytet:** P3
 
@@ -61,13 +73,6 @@ Nie dotyczy, dopóki Strefa 12 nie zdecyduje, że konkretne powiadomienie jest o
 
 ## Product clarification and final design
 
-> This section is intentionally separate from the accepted implementation audit above.
->
-> The audit describes what currently exists.
-> This section will be used to determine how the functionality SHOULD ultimately behave before implementation work begins.
->
-> Do not treat unanswered questions in this section as accepted requirements.
-
 ### Open questions
 
 _To be reviewed together before implementation._
@@ -88,10 +93,18 @@ _To be defined after product clarification._
 
 _To be defined after the intended workflow is agreed._
 
-### Final pitch scope
+### Readiness progression plan
 
 _To be defined after clarification._
 
+### Final pitch scope
+
+_Not required for the current pitch unless explicitly changed later._
+
 ### Final controlled-pilot scope
+
+_To be defined during product clarification._
+
+### Implementation and verification work plan
 
 _To be defined after clarification._

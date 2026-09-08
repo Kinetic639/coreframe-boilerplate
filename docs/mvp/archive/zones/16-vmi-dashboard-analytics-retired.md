@@ -1,3 +1,7 @@
+> Historical/retired zone.
+> Former Zone 16 ("VMI, pulpit startowy i pozostałe drugorzędne powierzchnie produktu") was removed from the active product-zone model. Its VMI and advanced-analytics content is future/roadmap material, summarized in [Product Roadmap](../../planning/product-roadmap.md). Its home/common-dashboard content is NOT roadmap-only — the accepted findings specific to `/dashboard/start` were extracted into a new active pitch-relevant zone: [Zone 21 — Home / Operational Dashboard](../../zones/21-home-operational-dashboard.md).
+> This file is historical evidence only and is not an active source of current pitch/pilot readiness requirements.
+
 ### 16. VMI, pulpit startowy i pozostałe drugorzędne powierzchnie produktu
 
 **Priorytet:** P3 (wartość aktualna z tabeli globalnej — sprawdzone tu wyłącznie pod kątem sensowności opisu, tabela globalna nie jest jeszcze aktualizowana)

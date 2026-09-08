@@ -1,3 +1,7 @@
+> Historical/retired zone.
+> Former Zone 17 ("Pełne importy AutoStacji i integracja DMS") was removed from the active product-zone model — it is primarily future/roadmap material and is not useful as an active pitch-readiness zone. Its future capability ideas (AutoStacja/DMS integration, future import/synchronization, reconciliation, historical imports) are summarized in [Product Roadmap](../../planning/product-roadmap.md).
+> This file is historical evidence only and is not an active source of current pitch/pilot readiness requirements.
+
 ### 17. Pełne importy AutoStacji i integracja DMS
 
 **Priorytet:** P4

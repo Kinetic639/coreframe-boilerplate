@@ -1,3 +1,7 @@
+> Historical/retired zone.
+> Former Zone 15 ("Materiały, dostawcy, audyty i wsparcie zamawiania") was removed from the active product-zone model — it is primarily future/pilot/post-pilot roadmap material and is not useful as an active pitch-readiness zone. Its future capability ideas (materials/consumables, supplier management, reorder support, purchase orders/procurement, richer inventory audits) are summarized in [Product Roadmap](../../planning/product-roadmap.md).
+> This file is historical evidence only and is not an active source of current pitch/pilot readiness requirements.
+
 ### 15. Materiały, dostawcy, audyty i wsparcie zamawiania
 
 **Priorytet:** P3
