@@ -11,6 +11,7 @@ import {
   Play,
   ArrowLeft,
   AlertCircle,
+  AlertTriangle,
   CheckCircle2,
   MinusCircle,
   Copy,
@@ -18,6 +19,7 @@ import {
   Download,
   XCircle,
   HelpCircle,
+  RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,6 +31,9 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
+import { usePermissions } from "@/hooks/v2/use-permissions";
+import { PERMISSION_WDD_MATCHER_APPROVE } from "@repo/contracts/permissions";
 import type { WddMatcherPipelineState } from "./pipeline-progress";
 import { ConfidenceBar, MatchTypeBadge, SummaryChip } from "./results-view";
 import {
@@ -38,6 +43,9 @@ import {
   useSessionExtractedDataQuery,
   useSessionResultsQuery,
   useRunMatchingMutation,
+  useApproveAndMaterializeSessionMutation,
+  useRetryMaterializationMutation,
+  useMaterializationStatusQuery,
 } from "@/hooks/queries/tools/wdd-matcher";
 import { listSessionsAction } from "@/app/actions/tools/wdd-matcher";
 import type {
@@ -234,6 +242,24 @@ export function ExtractionReviewView({
 
   const runMatching = useRunMatchingMutation();
   const exportCsv = useExportCsvMutation(sessionId);
+  const { can } = usePermissions();
+  const canApprove = can(PERMISSION_WDD_MATCHER_APPROVE);
+  const approveAndMaterialize = useApproveAndMaterializeSessionMutation();
+  const retryMaterialization = useRetryMaterializationMutation();
+  const isApprovedStatus = matchedSession?.status === "approved";
+  const {
+    data: materializationStatus,
+    isLoading: isMaterializationStatusLoading,
+    isError: isMaterializationStatusError,
+    refetch: refetchMaterializationStatus,
+  } = useMaterializationStatusQuery(matchedSession?.id ?? null, isApprovedStatus);
+  const justApproved = approveAndMaterialize.data;
+  const handleApprove = useCallback(() => {
+    if (!matchedSession) return;
+    approveAndMaterialize.mutate(matchedSession.id, {
+      onSuccess: (result) => onMatchingComplete(result.session),
+    });
+  }, [matchedSession, approveAndMaterialize, onMatchingComplete]);
 
   const buildPdfPreview = useCallback(
     async (blocks: PdfBlockData[]) => {
@@ -356,6 +382,35 @@ export function ExtractionReviewView({
     isRunning || isLoading || !extractedFiles?.length || (isAutoRunning && !matchedSession);
   const isPersistenceReady =
     matchedSession?.status === "ready_for_review" || matchedSession?.status === "approved";
+  const isReadyForReview = matchedSession?.status === "ready_for_review";
+  // "Needs retry" is derived, never a stored flag (Phase 5 decision): a
+  // just-approved call that failed materialization, OR (on reload) an
+  // approved session whose materialization-status query comes back false.
+  const materializationNeedsRetry =
+    justApproved?.materializationError != null ||
+    (isApprovedStatus &&
+      !isMaterializationStatusLoading &&
+      materializationStatus?.materialized === false);
+  /**
+   * Finding F (corrective review, CONFIRMED BUG, fixed here): previously
+   * there was no distinct handling for the materialization-status query
+   * itself erroring (a permission failure, a transient network error) --
+   * on reload of an already-approved session, `isMaterializationStatusLoading`
+   * settles to false once the query errors (React Query's isLoading is only
+   * true while status==='pending'), `materializationStatus` stays
+   * `undefined`, and `undefined === false` is false, so
+   * materializationNeedsRetry silently stayed false too -- meaning an error
+   * was rendered as the plain green "Approved" success state instead of a
+   * genuinely distinct, honest third state. Excluded when this browser tab
+   * itself just ran the approval (justApproved set): that mutation result
+   * is already authoritative for this session regardless of what the
+   * separate background status query does.
+   */
+  const materializationStatusUnavailable =
+    isApprovedStatus &&
+    !justApproved &&
+    !isMaterializationStatusLoading &&
+    isMaterializationStatusError;
   const summary = matchedSession?.match_summary as Record<string, number> | null;
   const totalWddBlocks = summary?.total_wdd_blocks ?? 0;
   const directOrders = summary?.direct_orders ?? 0;
@@ -445,11 +500,31 @@ export function ExtractionReviewView({
             </DropdownMenuContent>
           </DropdownMenu>
 
+          {matchedSession && isReadyForReview && canApprove && (
+            <Button
+              onClick={handleApprove}
+              disabled={approveAndMaterialize.isPending}
+              size="sm"
+              className="h-8 px-2.5 text-xs"
+              data-testid="approve-session-button"
+            >
+              {approveAndMaterialize.isPending ? (
+                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
+              )}
+              {approveAndMaterialize.isPending
+                ? t("approval.approving")
+                : t("approval.approveButton")}
+            </Button>
+          )}
+
           {matchedSession ? (
             <Button
               onClick={handlePreviewPdf}
               disabled={isPdfLoading || isLoading}
               size="sm"
+              variant="outline"
               className="h-8 px-2.5 text-xs"
             >
               {isPdfLoading ? (
@@ -478,6 +553,97 @@ export function ExtractionReviewView({
           )}
         </div>
       </div>
+
+      {/* Approval status strip -- Phase 4/5. Only rendered once a session
+          has reached ready_for_review or beyond; earlier statuses show
+          nothing here (no misleading active control). */}
+      {matchedSession && isApprovedStatus && (
+        <div
+          data-testid="approval-status-strip"
+          className={
+            "flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3 text-sm " +
+            (materializationStatusUnavailable
+              ? "border-amber-300 bg-amber-50 dark:border-amber-900/50 dark:bg-amber-950/30"
+              : materializationNeedsRetry
+                ? "border-destructive/30 bg-destructive/5"
+                : "border-emerald-200 bg-emerald-50 dark:border-emerald-900/50 dark:bg-emerald-950/30")
+          }
+        >
+          <div className="flex items-center gap-2">
+            {materializationStatusUnavailable ? (
+              <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+            ) : materializationNeedsRetry ? (
+              <AlertTriangle className="h-4 w-4 shrink-0 text-destructive" />
+            ) : (
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+            )}
+            <div>
+              <p className="font-medium">
+                {materializationStatusUnavailable
+                  ? t("approval.approvedStatusUnavailable")
+                  : materializationNeedsRetry
+                    ? t("approval.approvedMaterializationFailed")
+                    : t("approval.approvedAndMaterialized")}
+              </p>
+              {materializationStatusUnavailable ? (
+                <p className="text-xs text-muted-foreground">
+                  {t("approval.statusUnavailableDescription")}
+                </p>
+              ) : (
+                !materializationNeedsRetry && (
+                  <p className="text-xs text-muted-foreground">
+                    {isMaterializationStatusLoading
+                      ? t("approval.checkingStatus")
+                      : t("approval.repairOrdersCount", {
+                          count:
+                            justApproved?.materialization?.createdRepairOrders !== undefined
+                              ? justApproved.materialization.createdRepairOrders +
+                                justApproved.materialization.reusedRepairOrders
+                              : (materializationStatus?.repairOrderCount ?? 0),
+                        })}
+                  </p>
+                )
+              )}
+            </div>
+          </div>
+          {materializationStatusUnavailable ? (
+            <Button
+              onClick={() => void refetchMaterializationStatus()}
+              size="sm"
+              variant="outline"
+              className="h-8 px-2.5 text-xs"
+              data-testid="refresh-materialization-status-button"
+            >
+              <RotateCcw className="mr-1 h-3.5 w-3.5" />
+              {t("approval.refreshStatus")}
+            </Button>
+          ) : materializationNeedsRetry ? (
+            <Button
+              onClick={() => retryMaterialization.mutate(matchedSession.id)}
+              disabled={retryMaterialization.isPending}
+              size="sm"
+              variant="outline"
+              className="h-8 px-2.5 text-xs"
+              data-testid="retry-materialization-button"
+            >
+              {retryMaterialization.isPending ? (
+                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RotateCcw className="mr-1 h-3.5 w-3.5" />
+              )}
+              {retryMaterialization.isPending
+                ? t("approval.retrying")
+                : t("approval.retryMaterialization")}
+            </Button>
+          ) : (
+            !isMaterializationStatusLoading && (
+              <Button asChild size="sm" variant="outline" className="h-8 px-2.5 text-xs">
+                <Link href="/dashboard/workshop">{t("approval.goToWorkshop")}</Link>
+              </Button>
+            )
+          )}
+        </div>
+      )}
 
       {/* Body */}
       {isLoading ? (

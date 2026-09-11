@@ -293,6 +293,10 @@ export const routing = defineRouting({
       en: "/dashboard/workshop",
       pl: "/dashboard/warsztat",
     },
+    "/dashboard/workshop/[id]": {
+      en: "/dashboard/workshop/[id]",
+      pl: "/dashboard/warsztat/[id]",
+    },
 
     // === Help Desk module ===
     "/dashboard/help-desk": {
