@@ -2,11 +2,11 @@
 
 **Priorytet:** P1
 
-**Stan obecny:** 🔴 NOT IMPLEMENTED
+**Stan obecny:** 🟡 PARTIAL — IMPLEMENTED AND TESTED; GLOBAL BUILD GATE OPEN
 
-Ta strefa jest nową, aktywną strefą produktową wydzieloną z dawnej Strefy 16 („VMI, pulpit startowy i pozostałe drugorzędne powierzchnie produktu") oraz potwierdzającej wzmianki w dawnej Strefie 19 („...zbiorczy dashboard"). W przeciwieństwie do VMI i szerszej analityki (które pozostają wyłącznie roadmapą — patrz [Product Roadmap](../planning/product-roadmap.md) oraz zarchiwizowane audyty dawnych Stref 16/19), wspólny pulpit startowy przestaje być traktowany jako drugorzędna/roadmapowa powierzchnia: `/dashboard/start` to dziś ekran powitalny każdego zalogowanego użytkownika, a zaakceptowany audyt ustalił, że jest on pustym placeholderem. To materialnie wpływa na pierwsze wrażenie z pitchu, dlatego staje się osobną, aktywną strefą wymagającą minimalnej, realnej implementacji przed pitchem — nie pełnej analityki/BI.
+Ta strefa jest aktywną strefą produktową wydzieloną z dawnej Strefy 16 („VMI, pulpit startowy i pozostałe drugorzędne powierzchnie produktu”) oraz potwierdzającej wzmianki w dawnej Strefie 19 („...zbiorczy dashboard”). W przeciwieństwie do VMI i szerszej analityki (które pozostają wyłącznie roadmapą — patrz [Product Roadmap](../planning/product-roadmap.md) oraz zarchiwizowane audyty dawnych Stref 16/19), wspólny pulpit startowy jest teraz minimalnym, realnym centrum operacyjnym: pokazuje kontekst, dozwolone wejścia do pracy, rzeczywistą kolejkę ważnych ticketów i osobistą aktywność. Zaakceptowany audyt pustego placeholdera pozostaje niżej bez zmian jako historia stanu przed implementacją.
 
-**Dlaczego 🔴 NOT IMPLEMENTED, nie 🟠 EARLY/DISCONNECTED:** zaakceptowany audyt (cytowany dosłownie niżej) ustalił, że `/dashboard/start` to jeden statyczny komponent kliencki renderujący wyłącznie nagłówek, bez pobierania jakichkolwiek danych i bez komponentu serwerowego — nie istnieje żaden dedykowany prymityw tego ekranu (żadna częściowa tabela, akcja czy zapytanie), który byłby dziś "rozłączony". Jedyny realny, zasilany bazą element w pobliżu (`DashboardStatusBar.tsx`, podgląd aktywności) nie jest częścią samego ekranu startowego — jest obecny na każdej stronie dashboardu, nie tylko na starcie, i nie jest przez to budulcem tej konkretnej strefy. Dlatego status to 🔴 NOT IMPLEMENTED, a nie 🟠 — nie ma tu istniejących, rozłączonych prymitywów specyficznych dla tego ekranu, do których nawiązywałby status EARLY/DISCONNECTED.
+**Dlaczego 🟡 PARTIAL, mimo zakończonego zakresu samej strony:** kod Strefy 11 przechodzi 35 testów Vitest, scoped ESLint, pełny `tsc --noEmit` i pięć testów Playwright na żywych danych. Zweryfikowano branch scope, empty/populated state, nawigację, responsive layout oraz 30 kombinacji 15 skins × light/dark. Nie można jednak oznaczyć strefy jako DEMO READY według przyjętej definicji, dopóki pełny `next build` aplikacji kończy się błędem istniejącej trasy auth bez root layoutu. Ten błąd nie pochodzi ze Strefy 11 i nie jest naprawiany w tym izolowanym workstreamie.
 
 **Wymagany stan dla pitchu:** DEMO READY
 
@@ -48,36 +48,81 @@ Dokładne widżety/zakres NIE są tu decydowane — to zadanie dla właściwego 
 
 ### Open questions
 
-_To be reviewed together before implementation._
+- Czy po ustabilizowaniu kontraktów Stref 3/5/7 dodać osobny widżet zleceń naprawczych lub przyjęć. Pierwsza wersja świadomie nie korzysta z tych niegotowych kontraktów.
+- Czy w pilotażu pulpit ma pokazywać aktywność osobistą, czy nowy, szerszy feed operacyjny oddziału. Obecna etykieta precyzyjnie opisuje istniejący feed osobisty.
+- Czy kierownik potrzebuje osobnej, bardziej agregowanej wersji. Nie jest to wymagane do pitchu i wymaga osobnego product clarification.
 
 ### Problems / ambiguities
 
-_To be reviewed together before implementation._
+- Pojęcie „wymaga uwagi” musiało mieć dokładną, audytowalną definicję. Przyjęto: niezakończone tickety o priorytecie `high` lub `urgent` w aktywnym oddziale.
+- Istniejący feed aktywności jest feedem osobistym, a nie kompletną historią operacyjną oddziału. UI mówi o tym wprost.
+- Przełącznik oddziału utrzymuje kontekst zakładki po stronie klienta, podczas gdy pulpit pobiera dane jako Server Component. Lokalna granica synchronizuje RSC przez parametr `branch`, ale parametr jest akceptowany wyłącznie po sprawdzeniu w serwerowej liście `accessibleBranches` i ponownym wczytaniu snapshotu uprawnień dla wybranego oddziału.
+- Dla konta testowego i oddziału Blacharnia Komorniki istniejące trasy Lokalizacje i Zadania wracają do `/dashboard/start`, gdy brakuje wymaganego kontekstu modułu. Playwright potwierdza ich dokładne, zlokalizowane adresy w launcherze, lecz pełną nawigację wykonuje tylko dla dostępnych tras Narzędzi i Ticketów. Usunięcie tych redirectów wymaga pracy poza Strefą 11.
+- Pełny build `apps/web` blokuje istniejąca, niezwiązana ze Strefą 11 trasa `src/app/auth/auth-code-error/page.tsx`, która nie ma root layoutu. Strona Strefy 11 kompiluje się w aktualnym serwerze Next; osobny `tsc --noEmit` obejmuje aplikację.
 
 ### Product decisions
 
-_No final decisions recorded yet._
+- Pulpit pozostaje krótką stroną operacyjną, bez wykresów, trendów i marketingowego hero.
+- Widoczny, ogólny nagłówek „Pulpit” i opis powitalny usunięto po przeglądzie produktu; strona zaczyna się bezpośrednio od kontekstu pracy. Semantyczny `h1` pozostaje dostępny dla czytników ekranu.
+- Widoczny nagłówek nad rzędem szybkich akcji usunięto; semantyczna nazwa sekcji pozostaje dostępna dla czytników ekranu.
+- Pulpit wykorzystuje pełną szerokość obszaru roboczego; usunięto centralny limit `max-w-7xl`. Przycisk odświeżania jest wyrównany pionowo z pierwszym wierszem kontekstu organizacji.
+- Kontekst organizacji i aktywnego oddziału jest widoczny na początku strony. Oddział ma silniejszą hierarchię, jawny znacznik aktywnego kontekstu, a nagłówek pokazuje czas ostatniego renderu/odświeżenia.
+- Szybkie akcje prowadzą wyłącznie do istniejących tras: Narzędzia, Lokalizacje, Tickety i Zadania. Każda akcja wymaga tego samego modułu i uprawnienia liścia co jej docelowa powierzchnia; Narzędzia zachowują istniejący model bez płatnego gate modułu.
+- Pasek operacyjny pokazuje wyłącznie dwa wiarygodne, dokładne liczniki dla aktywnego oddziału: tickety wymagające uwagi oraz zadania w stanach `open`/`in_progress`. Liczniki są powtórzone jako krótkie sygnały na odpowiednich kartach modułów. Niedostępny odczyt jest pomijany, a nie zastępowany fikcyjnym zerem.
+- Widżet ticketów dziedziczy konfigurację kolorów i etykiet priorytetów organizacji oraz istniejący styl typu ticketu (kolorowana kropka i obrys). Ustawienia wizualne są opcjonalne: ich awaria nie ukrywa właściwej kolejki.
+- Ostatnia aktywność używa istniejącej, autoryzowanej projekcji `getPersonalActivityAction`, jest ograniczona do pięciu elementów po odfiltrowaniu innych oddziałów i zachowuje zdarzenia konta/organizacji z `branch_id = null`. Renderuje kompaktową oś czasu z istniejącą kategorią zdarzenia i rzeczywistym timestampem.
+- Mikrointerakcje korzystają z CSS i istniejących tokenów; nie dodano klientowej granicy ani biblioteki animacji do kart. Ruch jest krótki, a transformacje i spinner respektują `prefers-reduced-motion`.
+- RepairOrders, dostawy, rezerwacje, alokacje, kontenery, wydania, materiały, dostawcy, audyty i powiadomienia nie są źródłami widżetów tej wersji.
 
 ### Final intended workflow
 
-_To be defined after product clarification._
+1. Po zalogowaniu użytkownik trafia na `/dashboard/start` i od razu widzi organizację oraz aktywny oddział.
+2. Wybiera dozwoloną szybką akcję albo ocenia kolejkę ważnych ticketów.
+3. Kliknięcie ticketu otwiera jego realny szczegół, a „Otwórz kolejkę” przenosi ten sam zakres filtrów do listy ticketów.
+4. Podgląd aktywności daje krótki kontekst ostatnich działań użytkownika bez sugerowania, że jest historią całego oddziału.
+5. Zmiana oddziału ukrywa stary zakres, pobiera ponownie autoryzowany kontekst i pokazuje dane nowego oddziału. Trzy sprawdzone oddziały zwróciły odpowiednio 4, 1 i 0 ticketów w kolejce.
 
 ### Architecture implications
 
-_To be defined after the intended workflow is agreed._
+- `page.tsx` jest asynchronicznym Server Componentem. Pobiera kontekst, moduły i aktualny snapshot uprawnień po stronie serwera.
+- Widżety ticketów i aktywności są niezależnymi asynchronicznymi Server Components pod osobnymi granicami `Suspense`.
+- Jedyną nową granicą klienta jest `HomeScopeBoundary`: synchronizacja kontekstu oddziału i ręczne odświeżenie. Brak pollingu, chart library i klientowego pobierania danych domenowych.
+- Adapter ticketów korzysta z istniejącego `HelpdeskTicketsService.listForDataView` z zakresem `orgId`, `branchId`, limitem pięciu rekordów i dokładnym `count`.
+- Licznik zadań korzysta z istniejącego `PlanningTasksService.listForDataView`, `pageSize: 1`, dokładnego `count`, aktywnego `branch_id` i stanów `open`/`in_progress`; pulpit nie przejmuje logiki planowania.
+- Adapter aktywności korzysta z istniejącej projekcji widoczności zdarzeń, a nie z surowej tabeli audytowej.
+- Błąd opcjonalnego widżetu jest zamieniany na neutralny stan `unavailable`; treść błędu Supabase/SQL nie trafia do UI.
+- Komponenty używają istniejących prymitywów `Card`, `Badge`, `Button`, `Skeleton`, `Link` i tokenów semantycznych. Nie dodano biblioteki ani systemu stylistycznego.
 
 ### Readiness progression plan
 
-_To be rebuilt after clarification._
+- [x] Placeholder zastąpiony rzeczywistym pulpitem operacyjnym.
+- [x] Organizacja, oddział i szybkie akcje zależne od dostępu są renderowane z kontekstu serwerowego.
+- [x] Kolejka ticketów używa trwałych danych i rzeczywistego licznika.
+- [x] Feed osobisty używa istniejącej projekcji uprawnień i ma prawdziwy empty/error state.
+- [x] Zmiana oddziału ponownie zakresuje dane bez pozostawienia starego widżetu na ekranie.
+- [x] Zweryfikowano populated i empty/low-data state na żywo.
+- [x] Zweryfikowano układ 320×800, 360×800, 390×844, 430×932, 768×1024, 1024×768, 1280×800, 1440×900 i 1920×1080 bez poziomego overflow.
+- [x] Zweryfikowano wszystkie 15 selectable skins w light i dark (30 kombinacji tokenów); wizualnie przejrzano Default light, Graphite dark i widoki mobilne.
+- [x] Testy jednostkowe/komponentowe obejmują dostęp, scope, mapowanie, empty/error i formatowanie.
+- [x] Playwright potwierdza dokładne adresy czterech wejść, otwieranie dostępnych tras Narzędzi i Ticketów, kolejkę, nawigację klawiaturą, ręczny refresh, globalne menu szybkiego dodawania oraz zmianę i przywrócenie oddziału bez fatalnych błędów konsoli na stronie. Istniejące redirecty Lokalizacji i Zadań opisano wyżej.
+- [x] Scoped ESLint oraz pełny `tsc --noEmit` kończą się kodem 0.
+- [ ] Pełny build całej aplikacji przechodzi — obecnie blokuje go istniejący route-level problem poza Strefą 11 opisany wyżej.
 
 ### Final pitch scope
 
-_To be defined after clarification._
+Pokazać krótko: aktywny oddział → cztery dozwolone wejścia do pracy → realna kolejka ważnych ticketów → osobista ostatnia aktywność. Podkreślić, że każdy element prowadzi do działania. Nie nazywać tego analityką całego warsztatu, nie pokazywać trendów i nie obiecywać jeszcze podsumowań RepairOrders/dostaw.
 
 ### Final controlled-pilot scope
 
-_To be defined after clarification._
+- Ustalić role, które mają otrzymać wariant kierowniczy, i zweryfikować ich rzeczywiste fixture/accounty.
+- Po ustabilizowaniu Stref 3/5/7 ocenić widżety zleceń, przyjęć i wydań na podstawie nowych publicznych kontraktów odczytu.
+- Zdecydować, czy potrzebny jest oddziałowy feed operacyjny oraz kontrakt agregacyjny zoptymalizowany pod pulpit.
+- Dodać monitoring czasu odpowiedzi i błędów opcjonalnych widżetów przed rozpoczęciem pilotażu.
 
 ### Implementation and verification work plan
 
-_To be defined after clarification._
+- Kod i testy są odizolowane w worktree `D:\dev\ambra-zone11-dashboard` na branchu `codex/zone11-home-dashboard`, utworzonym z `c5d9e47f`.
+- Weryfikacja końcowa obejmuje scoped Vitest i ESLint, pełny `tsc --noEmit`, próbę pełnego Next build, Playwright Chromium oraz manualny przegląd screenshotów.
+- Wyniki z 2026-09-11: Vitest 4/4 plików i 35/35 testów; Playwright Chromium 5/5 testów; ESLint exit 0; `tsc --noEmit` exit 0; `git diff --check` exit 0.
+- Próba pełnego `next build --webpack`: FAIL przed sprawdzeniem wszystkich tras — `auth/auth-code-error/page.tsx doesn't have a root layout`. Jest to istniejący plik poza zakresem i bez zmian w tej gałęzi.
+- Nie zmieniono migracji, RLS, schematu, RPC, RepairOrders, Matchera, ruchów magazynowych, rezerwacji, alokacji ani kontenerów.
