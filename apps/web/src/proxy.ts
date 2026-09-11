@@ -20,9 +20,61 @@ function needsSupabaseSession(pathname: string): boolean {
   );
 }
 
+/**
+ * A same-origin rewrite must resolve to the same origin Next.js's own
+ * server actually received the request on -- never a different protocol.
+ *
+ * next-intl's middleware builds its locale rewrite (e.g. /logowanie ->
+ * /pl/sign-in) as a fully-qualified absolute URL via `new URL(path,
+ * request.url)`. When this app runs behind an HTTPS-terminating reverse
+ * proxy that sets `x-forwarded-proto: https` (true of this repo's cloud
+ * dev environments, and of standard production deployments where the
+ * Node process itself only ever speaks plain HTTP internally), Next.js's
+ * own request/URL construction picks up that forwarded protocol -- so the
+ * rewrite target ends up as `https://<host>/...` even though the actual
+ * server process never terminates TLS itself.
+ *
+ * Next.js's router (`resolve-routes.js`) only recognizes a rewrite as
+ * same-origin (and serves it as an ordinary internal rewrite) when it can
+ * relativize the target against the real incoming request's own origin. A
+ * protocol mismatch defeats that relativization, so Next.js instead
+ * treats the rewrite as a genuine cross-origin target and tries to proxy
+ * it over a real TLS connection -- which the plain-HTTP server can't
+ * accept, producing `EPROTO` / "Internal Server Error" on effectively
+ * every request that needs this rewrite (the sign-in page, most of all).
+ *
+ * Fix: when the rewrite target points back at this same host, force its
+ * protocol back to plain `http:` -- matching what the Node process
+ * genuinely listens on -- while keeping the URL otherwise fully
+ * qualified (some of Next.js's own downstream handling of this header
+ * assumes an absolute URL, not a bare path; only the protocol is wrong
+ * here, so only the protocol is corrected).
+ */
+function normalizeSameOriginRewrite(response: Response, request: NextRequest): void {
+  const rewriteHeader = response.headers.get("x-middleware-rewrite");
+  if (!rewriteHeader) return;
+
+  // next-intl always emits a fully-qualified absolute URL here -- no base
+  // needed (and none is safe to assume, since request.nextUrl is itself
+  // the forwarded-protocol-tainted value this function exists to correct).
+  let rewriteUrl: URL;
+  try {
+    rewriteUrl = new URL(rewriteHeader);
+  } catch {
+    return;
+  }
+
+  if (rewriteUrl.protocol !== "https:") return;
+  if (rewriteUrl.hostname !== request.nextUrl.hostname) return;
+
+  rewriteUrl.protocol = "http:";
+  response.headers.set("x-middleware-rewrite", rewriteUrl.toString());
+}
+
 export async function proxy(request: NextRequest) {
   // Run next-intl middleware first
   const intlResponse = intlMiddleware(request);
+  normalizeSameOriginRewrite(intlResponse, request);
 
   // Set pathname header for server components
   intlResponse.headers.set("x-pathname", request.nextUrl.pathname);

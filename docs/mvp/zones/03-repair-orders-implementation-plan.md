@@ -368,7 +368,11 @@ PITCH.
 
 ---
 
-## Phase 4 — Explicit Matcher approval workflow
+## Phase 4 — Explicit Matcher approval workflow 🔵 IN PROGRESS (2026-09-11 — functionally built, unit/action/component-tested, live-data-verified; genuine browser E2E outstanding)
+
+> **2026-09-11 corrective review**: a verify-first review pass found and fixed one CONFIRMED live security gap in this phase's own RLS layer (Finding A — the `wdd_matcher_sessions` UPDATE policy had no `WITH CHECK`, so an upload-only actor could bypass the application's approval-permission check via a raw client update). Full evidence, the live-verified fix, and the new pgTAP regression test are recorded in `03-repair-orders-progress.md`'s Phase 4 task list and its 2026-09-11 corrective-review change-log entry — not duplicated here.
+>
+> **2026-09-11 corrective review, SECOND pass**: that same-day fix was itself re-verified against a narrower reviewer hypothesis and found insufficient — `wdd_matcher.approve` had silently become generic Matcher UPDATE authority, and RLS could not enforce the intended `ready_for_review→approved` OLD-status transition (a genuine PostgreSQL RLS limitation, not an oversight). Fixed with a dedicated `approve_wdd_matcher_session` RPC (new migration `20260911090117`, matching the established `materialize_repair_orders_from_session` pattern), narrowing `wms_update` back to upload-only reachability. Separately, this pass also independently re-verified the nullable-`branchId` question specifically for `wdd_matcher_sessions` (not the Workshop tables the first pass's Finding C reasoning covered) and confirmed a real, already-known, Zone-1-owned inconsistency (`01-auth-org-branch-access.md`'s "problem C") — correctly left unfixed here, cross-referenced instead of silently redefined. Full evidence in `03-repair-orders-progress.md`'s Phase 4 task list and its second 2026-09-11 corrective-review change-log entry.
 
 ### Objective
 
@@ -398,25 +402,25 @@ Existing `wdd_matcher_sessions` status enum/columns, existing session-review UI 
 
 ### Implementation tasks
 
-- [ ] Confirm exact current state of `WddMatcherService.approveSession` (exists as dead code vs. does not exist at all) — re-verify before writing, per the work order's "verify before implementing" instruction.
-- [ ] Implement/wire the service method: validates session is in `ready_for_review`, sets `status = 'approved'`, `approved_by`, `approved_at`.
-- [ ] Add `approveSessionAction` server action with permission check.
-- [ ] Add UI approval button/flow on the Matcher session review screen.
-- [ ] Add permission slug for approval (reconciled with Phase 0B/1's permission-file decision).
-- [ ] Emit a `platform_events` entry on approval.
-- [ ] Unit tests for the service method (state-transition validation: rejects approving a non-`ready_for_review` session).
-- [ ] Component test for the approval UI control.
-- [ ] E2E: review → approve → session shows `approved` status.
+- [x] ✅ Confirm exact current state of `WddMatcherService.approveSession` — re-verified live before writing: existed as genuinely dead code (zero callers anywhere in the actions/UI layer; confirmed via repo-wide grep), with no state-transition guard and no actor-identity check. Not merely "not wired" — the method itself needed correcting.
+- [x] ✅ Implement/wire the service method: rewrote `approveSession` so the `status = 'ready_for_review'` guard is part of the UPDATE's own WHERE clause (atomic, race-safe — no separate SELECT-then-UPDATE), sets `status='approved'`, `approved_by`, `approved_at`; returns a distinct `SESSION_NOT_READY` error (not a generic failure) that collapses "not found" and "wrong status" into one message so it never leaks cross-org/branch row existence.
+- [x] ✅ Add `approveSessionAction` server action with permission check — `PERMISSION_WDD_MATCHER_APPROVE`, checked server-side before any DB call (not merely hiding the button).
+- [x] ✅ Add UI approval button/flow on the Matcher session review screen (`extraction-review-view.tsx`'s header + a new approval-status strip) — Approve button only when `status==='ready_for_review'` AND the caller's permission snapshot allows it (UX convenience; the real gate is server-side).
+- [x] ✅ Add permission slug for approval — **re-verified live first**, per the work order's explicit instruction to prefer reuse: `wdd_matcher.approve` already existed as a seeded permission (`PERMISSION_WDD_MATCHER_APPROVE` in `packages/contracts/src/permissions.ts`, confirmed live via `SELECT slug FROM permissions`), just never referenced by any action. No new permission created — reused as-is, no permission-cache recompile issue applicable (this is an existing slug, not a newly-inserted one, so DISCOVERY-002's gap does not apply here).
+- [x] ✅ Emit a `platform_events` entry on approval — new `workshop.matcher_session.approved` registry entry (session id, org, branch, actor, previous status, new status), emitted from `approveSessionAction` after the DB write commits (Mode A, matching the repo's established pattern).
+- [x] ✅ Unit tests for the service method — `wdd-matcher.service.test.ts` (4 tests: ready_for_review→approved succeeds with correct WHERE-clause filters; other states rejected with SESSION_NOT_READY; branch-filter omitted when branchId is null; DB error normalized).
+- [x] ✅ Component test for the approval UI control — `extraction-review-approval.test.tsx` (7 tests: button visible only when ready_for_review + permitted; hidden without permission; hidden for other statuses; loading state; approved+materialized state with no duplicate approve control; approved+needs-retry state with a working Retry button; just-approved failure state rendered without waiting on the status query).
+- [ ] ⬜ **E2E: review → approve → session shows `approved` status** — **NOT completed as a genuine browser-based Playwright spec this session.** The sandboxed dev environment's headless-Chromium instances (Playwright's own downloaded build, and a nix-provided fallback after extensive troubleshooting — see Phase 6 notes for full detail) could not reliably render/screenshot this app's pages without crashing, despite the app itself serving pages correctly (confirmed via raw HTTP and via CDP target-list titles). **Substituted evidence**: a live integration script — real authenticated Supabase client (not mocked, not service-role), signed in as a dedicated E2E test user, issuing the exact reviewed queries — proved live against the real database: `ready_for_review → approved` succeeds with correct `approved_by`/`approved_at`; a second approval attempt on the same session is correctly rejected (`SESSION_NOT_READY`). This proves the same underlying behavior end-to-end at the data layer; it does not prove the browser UI renders/behaves correctly, which is what remains outstanding.
 
 ### Testing requirements
 
-- **Unit**: service state-transition logic.
-- **Component**: approval button/flow.
-- **E2E**: full review-to-approved path.
+- **Unit**: service state-transition logic. **Met.**
+- **Component**: approval button/flow. **Met.**
+- **E2E**: full review-to-approved path. **NOT met as genuine browser E2E** — live-integration-script evidence only (see task list above). Flagged, not silently skipped.
 
 ### Acceptance criteria
 
-A real user can move a session from `ready_for_review` to `approved` through the UI; the transition is rejected for sessions not in `ready_for_review`; live-verified via MCP that `approved_by`/`approved_at` populate correctly.
+A real user can move a session from `ready_for_review` to `approved` through the UI; the transition is rejected for sessions not in `ready_for_review`; live-verified via MCP that `approved_by`/`approved_at` populate correctly. **The data-layer half of this is live-verified** (via the integration script above, run against `supabase-target`). **The "through the UI" half is unverified by a real browser** this session — the button/strip exist, are unit/component-tested with mocked hooks, but have not been visually/interactively confirmed working end-to-end in an actual rendered page. Phase 4 is therefore **NOT marked DONE**.
 
 ### Scope classification
 
@@ -424,7 +428,11 @@ PITCH.
 
 ---
 
-## Phase 5 — Matcher → RepairOrder materialization
+## Phase 5 — Matcher → RepairOrder materialization 🔵 IN PROGRESS (2026-09-11 — same status as Phase 4: functionally built + live-data-verified, genuine browser E2E outstanding)
+
+> **2026-09-11 corrective review**: five CONFIRMED findings in this phase were fixed (B — materialization-status permission gap matching the underlying RLS; D — incomplete org/branch scope on the materialization-failure audit event; F — the approval-status UI silently rendering a status-query error as success, plus an undercounted RepairOrder cache-seed; G — raw RPC error text reaching the client unnormalized; I — a defense-in-depth soft-delete filter matching this service's sibling methods). Two reviewer findings touching this phase's design (C — nullable branchId; H — redundant-but-safe authorization re-checks across the approve/materialize/retry/status actions) were investigated and classified as **not** problems, with evidence, and left unchanged — the accepted two-transaction approve→materialize design itself was not touched. Full evidence and exact fixes are recorded in `03-repair-orders-progress.md`'s Phase 5 task list and its 2026-09-11 corrective-review change-log entry.
+>
+> **2026-09-11 corrective review, SECOND pass**: two further items confirmed and fixed in this phase — the audit-scope fix above was itself refined (item D) to use the target session's own org/branch instead of the caller's active context (already in memory for the initial attempt; one new failure-path-only read for retry); the error-normalization allowlist above (item G) was hardened (item E) to require both errcode AND message-shape match, since a same-errcode native Postgres error could otherwise have leaked. The first pass's own noted test gap (the amber "status unavailable" UI state, item F) was also closed. Full evidence in `03-repair-orders-progress.md`'s Phase 5 task list and its second 2026-09-11 corrective-review change-log entry.
 
 ### Objective
 
@@ -459,23 +467,23 @@ Phase 3 RPC, Phase 4 approval state.
 
 ### Implementation tasks
 
-- [ ] Implement the approval action (Phase 4) to call the Phase 3 materialization RPC immediately after a successful approval, within the same server action but as a distinct RPC call (not the same transaction as the approval write itself).
-- [ ] On materialization success: surface the result (created RepairOrder count, linked-existing-order count) to the UI as part of the approval success state.
-- [ ] On materialization failure: keep `approved` state, record failure via `platform_events`, surface a clear error, and expose a "Retry Materialization" action.
-- [ ] Implement the Retry Materialization action calling the same Phase 3 RPC.
-- [ ] Handle the "session already materialized" idempotent-replay case gracefully in the UI (not as an error toast for a no-op) — applies both to the automatic call and to retries.
-- [ ] E2E: one session with multiple distinct `zl_number` values → multiple RepairOrders created automatically on approval, each correctly linked to its source documents/lines.
-- [ ] E2E: approve → materialization fails (simulated) → `approved` state preserved → Retry Materialization succeeds.
-- [ ] E2E: re-triggering materialization (via retry or re-approval-adjacent flow) on an already-materialized session is a safe no-op.
+- [x] ✅ Implement the approval action to call the Phase 3 materialization RPC immediately after a successful approval — `approveAndMaterializeSessionAction` calls `approveSessionAction` then, only on its success, `RepairOrdersService.materializeFromSession` as a genuinely distinct call (not the same DB transaction as the approval write — approval commits in its own statement first).
+- [x] ✅ On materialization success: surface the result to the UI — the approval-status strip shows the repair-order count (created + reused) from the RPC's own returned counts, and a "Go to Workshop" link; no raw RPC JSON exposed.
+- [x] ✅ On materialization failure: keep `approved` state (never rolled back — approval already committed independently), record failure via a new `workshop.repair_orders.materialization_failed` platform event (session id, actor, org/branch, normalized error class/message), surface a clear error, and expose a working "Retry Materialization" control.
+- [x] ✅ Implement the Retry Materialization action — `retryMaterializationAction`, calls the same idempotent Phase 3 RPC directly (permission-gated on `wdd_matcher.approve`; the RPC's own internal `workshop.repair_orders.manage_own/manage_all` check is the second, authoritative layer).
+- [x] ✅ Handle the "already materialized" idempotent-replay case gracefully — the materialization-status read model (`getMaterializationStatusForSession`, new service method + action) distinguishes "materialized" from "needs retry" on reload without re-running materialization just to find out; live-verified this session (`already_materialized: true`, all `created_*` counts 0, `reused_repair_orders: 1` on a real repeat call).
+- [ ] ⬜ **E2E: one session with multiple distinct `zl_number` values → multiple RepairOrders on approval** — not run as a genuine browser E2E this session (see Phase 4's E2E note for why). The underlying multi-order RPC behavior itself was already pgTAP-proven in Phase 3 (unchanged, reused as-is here); this session's live-integration script exercised a single-order case end-to-end through the real approve→materialize action logic, not the specific multi-order scenario through the UI.
+- [ ] ⬜ **E2E: materialization fails (simulated) → approved preserved → Retry succeeds** — not run as a genuine browser E2E. Covered instead by: (a) a component test injecting a `materializationError` into the just-approved mutation result and asserting the Retry control renders (`extraction-review-approval.test.tsx`), and (b) an action-level unit test asserting `approveAndMaterializeSessionAction` returns `success:true` with `materializationError` set (not a thrown/failed action) when the underlying RPC call fails (`wdd-matcher-approval-actions.test.ts`).
+- [x] ✅ **E2E-equivalent: re-triggering materialization on an already-materialized session is a safe no-op** — this one genuinely **is** live-verified, end-to-end, against the real database (not just mocked): the live-integration script called `materializeFromSession` twice in sequence for the same real session and confirmed the second call was a pure no-op (`already_materialized: true`, `created_repair_orders: 0`, `reused_repair_orders: 1`). This specific acceptance criterion does not depend on the browser layer to be meaningfully proven, so it is marked done on that evidence.
 
 ### Testing requirements
 
-- **Service/integration**: multi-order-per-session materialization result correctness.
-- **E2E**: one-session→multiple-orders; re-materialization no-op.
+- **Service/integration**: multi-order-per-session materialization result correctness — **met via Phase 3's existing pgTAP coverage** (unchanged RPC, reused as-is); not re-proven through this phase's own UI layer.
+- **E2E**: one-session→multiple-orders (not done via browser); re-materialization no-op (**done, live-verified** — see above).
 
 ### Acceptance criteria
 
-Approving a real session and triggering materialization produces real, persisted `repair_orders` rows with correct `zl_number` identity, verified live via MCP — not mocked/fixture data.
+Approving a real session and triggering materialization produces real, persisted `repair_orders` rows with correct `zl_number` identity, verified live via MCP — not mocked/fixture data. **Met**: this session's live-integration script signed in as a real user, called the real approval + materialization service logic against `supabase-target`, and produced one real, persisted `repair_orders` row with `zl_number = 'ZL/95001/26/3252/BL'`, independently re-queried and confirmed via `listForWorkshop`/`getByIdForWorkshop`. The browser-UI half of end-to-end verification remains outstanding, same as Phase 4. Phase 5 is therefore **NOT marked DONE**.
 
 ### Scope classification
 
@@ -483,7 +491,9 @@ PITCH.
 
 ---
 
-## Phase 6 — RepairOrder list and search
+## Phase 6 — RepairOrder list and search 🔵 IN PROGRESS (2026-09-11 — the actual milestone this run targeted; real UI built and live-data-verified, but the manual/visual browser review this milestone exists to enable has not happened yet)
+
+> **2026-09-11 corrective review**: this phase's search-filter construction (Finding E) was investigated against a repo-wide grep of every other `.or()` caller and classified **ACCEPTABLE CURRENT DESIGN** — it matches established repo-wide precedent, and no shared PostgREST-escaping helper exists anywhere to reuse. A small, optional, local hardening was applied anyway and live-verified directly against the target Supabase REST endpoint (an unquoted comma-containing search value previously caused a real `HTTP 400 PGRST100` filter-parse failure; the fix resolves it). Full evidence is recorded in `03-repair-orders-progress.md`'s Phase 6 task list and its 2026-09-11 corrective-review change-log entry.
 
 ### Objective
 
@@ -513,25 +523,25 @@ Possibly additional search-supporting indexes if not already added in Phase 2 (t
 
 ### Implementation tasks
 
-- [ ] Add `listRepairOrders`/`searchRepairOrders` service methods (org/branch-scoped, RLS-backed).
-- [ ] Add corresponding server action(s).
-- [ ] Add query hook under `src/hooks/queries/workshop/`.
-- [ ] Build list UI: table/cards with `zl_number`, `order_number`, VIN, status, advisor.
-- [ ] Build search input wired to `useDebounce`.
-- [ ] Handle the "ambiguous number in different workshop contexts" UI disambiguation explicitly (per frozen audit's pitch checklist item) — now grounded in the corrected identity model rather than the old, disproven `order_number`-based ambiguity framing.
-- [ ] Unit tests for service query methods.
-- [ ] Component tests for list/search UI.
-- [ ] E2E: search by `zl_number`, by VIN, by `order_number` all return the correct order.
+- [x] ✅ Add `listForWorkshop`/`getByIdForWorkshop` service methods (org/branch-scoped, RLS-backed; single combined search box matching `zl_number`/`vin`/`order_number` via one OR-ILIKE clause, per the architecture doc's "order_number is descriptive only, never identity" rule — search convenience across all three fields does not change that).
+- [ ] ⬜ **Add corresponding server action(s) — deliberately NOT added, by design, not an oversight.** `page.tsx` is a server component that calls `RepairOrdersService.listForWorkshop`/`getByIdForWorkshop` directly at render time (matching the exact convention already established by `help-desk/tickets/page.tsx` and `planning/tasks/page.tsx`, both of which call their services directly for initial SSR data, not through an action) — a server action is for mutations or client-triggered fetches, neither of which applies to a server component's own read. Recorded here so this isn't mistaken for a missed task later.
+- [ ] ⬜ **Add query hook under `src/hooks/queries/workshop/` — N/A, per the work order's own explicitly offered alternative.** The work order's Phase 6 section states search "may use: URL search params + server rendering, OR the project's existing query-hook pattern — choose whichever best matches the repository's current architecture." This implementation chose URL-search-params + server rendering (`?q=`, debounced client-side navigation via `RepairOrdersSearch`, re-rendered server-side on each navigation) — a genuinely standard Next.js App Router pattern already implicit even in the data-view-based pages (their own URL state is the source of truth underneath the client machinery). No react-query hook was needed or added for this simpler first version.
+- [x] ✅ Build list UI: table/cards with `zl_number`, `order_number`, VIN, status, advisor — desktop table (`hidden md:block`) + mobile card list (`md:hidden`), both real, at `/dashboard/workshop/page.tsx`. Row-open action links to a new minimal detail shell at `/dashboard/workshop/[id]/page.tsx` (identifier/context only — zl_number, order_number, VIN, status, identity_status, advisor, created/updated — explicitly not Phase 7's full header/lines/lifecycle view, per the work order's "option A, don't steal Phase 7 scope" instruction).
+- [x] ✅ Build search input wired to `useDebounce` — `RepairOrdersSearch` (350ms debounce, clears the `?q=` param entirely rather than setting it empty).
+- [ ] ⬜ **Handle the "ambiguous number in different workshop contexts" disambiguation — NOT built.** Under the corrected identity model, `zl_number` is unique per `(organization_id, branch_id)`, so true same-branch ambiguity should not occur; cross-branch same-`zl_number` collisions are structurally possible (per the architecture doc's accepted cross-branch open risk) but this list is branch-scoped by default, so they wouldn't co-appear. No explicit disambiguation UI was built for this edge case — flagged as a real gap, not assumed away.
+- [x] ✅ Unit tests for service query methods — 14 tests added to `repair-orders.service.test.ts` (`listForWorkshop`: domain mapping, org/branch scoping, OR-ILIKE search construction, empty-result handling, advisor-join mapping, DB-error propagation; `getMaterializationStatusForSession`: 2 tests; `getByIdForWorkshop`: not-found-returns-null, found-maps-correctly).
+- [ ] ⬜ **Component tests for list/search UI — PARTIAL.** `RepairOrderStatusBadge` (4 tests) and `RepairOrdersSearch` (3 tests: initial value, debounced navigation to `?q=`, clearing removes the param) are genuinely unit/component tested. The list/table/empty-state rendering itself is **not** independently component-tested — it lives inline in the async server component (`page.tsx`), which this repo's existing convention does not typically unit-test directly (server data-fetching pages are exercised through E2E, not RTL, elsewhere in this codebase too — confirmed by absence of `page.test.tsx` files for the Help Desk/Planning equivalents). Flagged, not silently assumed covered.
+- [ ] ⬜ **E2E: search by `zl_number`, by VIN, by `order_number` all return the correct order** — **not run as a genuine browser Playwright spec this session** (see Phase 4's E2E note for the environment-level reason). **Live-integration-script evidence**: all three searches were run against the real database through a real authenticated session with the exact reviewed query logic, and each independently found the correct real `repair_orders` row (`ZL/95001/26/3252/BL` / `E2ETESTVIN000001` / `BLWK/9501`); a fourth search for a non-existent value correctly returned zero rows; a cross-branch `getByIdForWorkshop` call for the real row's id, scoped to a different real branch in the same org, correctly returned `null` (not the row) — proving the branch-scoping/RLS behavior live, not just in a mocked unit test. This proves the query logic is correct; it does not prove the actual search input/table render correctly in a browser.
 
 ### Testing requirements
 
-- **Unit**: service query logic.
-- **Component**: list/search rendering, empty states.
-- **E2E**: search-by-each-field scenarios.
+- **Unit**: service query logic. **Met** (14 tests).
+- **Component**: list/search rendering, empty states. **Partially met** — search input and status badge tested; list/table/empty-state rendering itself not independently tested (see task note above).
+- **E2E**: search-by-each-field scenarios. **NOT met as genuine browser E2E** — live-integration-script evidence only (see task list above).
 
 ### Acceptance criteria
 
-A real materialized RepairOrder (from Phase 5's E2E data) is findable via search by `zl_number`, VIN, and `order_number`; RLS-scoped correctly (verified with a cross-branch negative test).
+A real materialized RepairOrder (from Phase 5's real data) is findable via search by `zl_number`, VIN, and `order_number`; RLS-scoped correctly (verified with a cross-branch negative test). **Met at the data layer**, live-verified this session exactly as described above. **NOT met at the UI/browser layer** — the actual rendered search box, table, and detail page have not been visually or interactively confirmed working in a real browser this session, which is the explicit goal of this milestone ("the product owner can... visually inspect and manually validate the first real Workshop UI"). Phase 6 is therefore **NOT marked DONE** — it is functionally complete and live-data-verified, but the manual/visual review this whole milestone exists to enable has not itself happened yet.
 
 ### Scope classification
 

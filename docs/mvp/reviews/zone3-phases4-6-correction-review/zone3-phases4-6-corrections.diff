@@ -1,0 +1,1050 @@
+diff --git a/apps/web/messages/en.json b/apps/web/messages/en.json
+index 6e888305..d8a9a92d 100644
+--- a/apps/web/messages/en.json
++++ b/apps/web/messages/en.json
+@@ -4006,7 +4006,10 @@
+           "repairOrdersCount": "{count, plural, =0 {No repair orders yet} one {# repair order created} other {# repair orders created}}",
+           "retryMaterialization": "Retry Materialization",
+           "retrying": "Retrying…",
+-          "goToWorkshop": "Go to Workshop"
++          "goToWorkshop": "Go to Workshop",
++          "approvedStatusUnavailable": "Approved — Status unavailable",
++          "statusUnavailableDescription": "Could not check whether repair orders were created. This may not mean anything is wrong — refresh to check again.",
++          "refreshStatus": "Refresh Status"
+         },
+         "extractionReview": {
+           "title": "Extraction Preview",
+diff --git a/apps/web/messages/pl.json b/apps/web/messages/pl.json
+index 9a46487b..a312bf3e 100644
+--- a/apps/web/messages/pl.json
++++ b/apps/web/messages/pl.json
+@@ -3977,7 +3977,10 @@
+           "repairOrdersCount": "{count, plural, =0 {Brak zleceń naprawy} one {Utworzono # zlecenie naprawy} few {Utworzono # zlecenia naprawy} other {Utworzono # zleceń naprawy}}",
+           "retryMaterialization": "Ponów materializację",
+           "retrying": "Ponawianie…",
+-          "goToWorkshop": "Przejdź do Warsztatu"
++          "goToWorkshop": "Przejdź do Warsztatu",
++          "approvedStatusUnavailable": "Zatwierdzono — Status niedostępny",
++          "statusUnavailableDescription": "Nie udało się sprawdzić, czy zlecenia naprawy zostały utworzone. Niekoniecznie oznacza to problem — odśwież, aby sprawdzić ponownie.",
++          "refreshStatus": "Odśwież status"
+         },
+         "extractionReview": {
+           "title": "Podgląd ekstrakcji",
+diff --git a/apps/web/src/app/actions/tools/__tests__/wdd-matcher-approval-actions.test.ts b/apps/web/src/app/actions/tools/__tests__/wdd-matcher-approval-actions.test.ts
+index 5f4303ae..6dfe6d81 100644
+--- a/apps/web/src/app/actions/tools/__tests__/wdd-matcher-approval-actions.test.ts
++++ b/apps/web/src/app/actions/tools/__tests__/wdd-matcher-approval-actions.test.ts
+@@ -60,12 +60,27 @@ import {
+ 
+ const CTX_APPROVE = {
+   app: { activeOrgId: "org-1", activeBranchId: "branch-1" },
+-  user: { permissionSnapshot: { allow: ["wdd_matcher.approve", "wdd_matcher.read"], deny: [] } },
++  user: {
++    permissionSnapshot: {
++      allow: ["wdd_matcher.approve", "wdd_matcher.read", "workshop.repair_orders.read"],
++      deny: [],
++    },
++  },
+ };
+ const CTX_NO_APPROVE = {
+   app: { activeOrgId: "org-1", activeBranchId: "branch-1" },
+   user: { permissionSnapshot: { allow: ["wdd_matcher.read"], deny: [] } },
+ };
++// Finding B (corrective review): a caller with Matcher read access but
++// WITHOUT the separate workshop.repair_orders.read permission that
++// getMaterializationStatusAction's underlying query is actually RLS-gated
++// by (see repair-orders.service.ts's getMaterializationStatusForSession
++// doc comment) -- must be rejected, not silently read as "not
++// materialized".
++const CTX_MATCHER_READ_ONLY_NO_WORKSHOP_READ = {
++  app: { activeOrgId: "org-1", activeBranchId: "branch-1" },
++  user: { permissionSnapshot: { allow: ["wdd_matcher.read"], deny: [] } },
++};
+ 
+ const APPROVED_SESSION = {
+   id: "11111111-1111-1111-1111-111111111111",
+@@ -237,6 +252,12 @@ describe("approveAndMaterializeSessionAction", () => {
+         actionKey: "workshop.repair_orders.materialization_failed",
+         entityId: "11111111-1111-1111-1111-111111111111",
+         metadata: expect.objectContaining({ attempt: "initial" }),
++        // Finding D (corrective review, CONFIRMED, fixed): this event
++        // previously carried neither organizationId nor branchId at all on
++        // this code path -- both must now be present, derived only from
++        // the trusted server-loaded context (never client input).
++        organizationId: "org-1",
++        branchId: "branch-1",
+       })
+     );
+   });
+@@ -295,6 +316,10 @@ describe("retryMaterializationAction", () => {
+       expect.objectContaining({
+         actionKey: "workshop.repair_orders.materialization_failed",
+         metadata: expect.objectContaining({ attempt: "retry" }),
++        // Finding D (corrective review, CONFIRMED, fixed): this path
++        // already carried organizationId but was missing branchId.
++        organizationId: "org-1",
++        branchId: "branch-1",
+       })
+     );
+   });
+@@ -313,4 +338,24 @@ describe("getMaterializationStatusAction", () => {
+ 
+     expect(result).toEqual({ success: true, data: { materialized: true, repairOrderCount: 2 } });
+   });
++
++  /**
++   * Finding B (corrective review, CONFIRMED BUG, fixed): the action
++   * previously checked ONLY wdd_matcher.read, while the read model it
++   * calls is actually gated (via RLS) by the separate
++   * workshop.repair_orders.read permission -- meaning rows hidden by
++   * authorization could previously be silently misread as "not yet
++   * materialized" instead of surfacing the real cause. Verifies the fix:
++   * a caller lacking workshop.repair_orders.read is now rejected outright,
++   * and the underlying service is never even called (never an implicit,
++   * possibly-misleading zero-rows read).
++   */
++  it("rejects a caller with wdd_matcher.read but NOT workshop.repair_orders.read, never reaching the underlying query (Finding B fix)", async () => {
++    setCtx(CTX_MATCHER_READ_ONLY_NO_WORKSHOP_READ);
++
++    const result = await getMaterializationStatusAction("11111111-1111-1111-1111-111111111111");
++
++    expect(result).toEqual({ success: false, error: "Unauthorized" });
++    expect(RepairOrdersService.getMaterializationStatusForSession).not.toHaveBeenCalled();
++  });
+ });
+diff --git a/apps/web/src/app/actions/tools/wdd-matcher.ts b/apps/web/src/app/actions/tools/wdd-matcher.ts
+index 79bc38e9..8d41d3fd 100644
+--- a/apps/web/src/app/actions/tools/wdd-matcher.ts
++++ b/apps/web/src/app/actions/tools/wdd-matcher.ts
+@@ -7,6 +7,7 @@ import {
+   PERMISSION_WDD_MATCHER_READ,
+   PERMISSION_WDD_MATCHER_UPLOAD,
+   PERMISSION_WDD_MATCHER_APPROVE,
++  WORKSHOP_REPAIR_ORDERS_READ,
+ } from "@repo/contracts/permissions";
+ import {
+   WddMatcherService,
+@@ -1121,8 +1122,16 @@ export async function approveAndMaterializeSessionAction(
+   rawInput: unknown
+ ): Promise<ActionResult<ApproveAndMaterializeResult>> {
+   try {
+-    const { supabase, user } = await getAuthedContext();
++    const { supabase, user, context } = await getAuthedContext();
+     if (!user) return { success: false, error: "Unauthenticated" };
++    // Trusted context only -- org/branch for the audit event are derived
++    // from the server-loaded session context, never from client input.
++    // (Corrective review Finding D: this event previously carried neither
++    // field at all, since this function never loaded `context` in the
++    // first place -- it only destructured `supabase`/`user` from
++    // getAuthedContext() before this fix.)
++    const orgId = context?.app.activeOrgId ?? null;
++    const branchId = context?.app.activeBranchId ?? null;
+ 
+     const approveResult = await approveSessionAction(rawInput);
+     if (!approveResult.success) {
+@@ -1146,6 +1155,8 @@ export async function approveAndMaterializeSessionAction(
+         actionKey: "workshop.repair_orders.materialization_failed",
+         actorType: "user",
+         actorUserId: user.id,
++        organizationId: orgId,
++        branchId,
+         entityType: "wdd_matcher_session",
+         entityId: session.id,
+         metadata: {
+@@ -1192,6 +1203,7 @@ export async function retryMaterializationAction(
+     if (!user) return { success: false, error: "Unauthenticated" };
+     const orgId = context?.app.activeOrgId;
+     if (!orgId) return { success: false, error: "No active organisation" };
++    const branchId = context?.app.activeBranchId ?? null;
+     if (!checkPermission(context.user.permissionSnapshot, PERMISSION_WDD_MATCHER_APPROVE))
+       return { success: false, error: "Unauthorized" };
+ 
+@@ -1204,6 +1216,7 @@ export async function retryMaterializationAction(
+         actorType: "user",
+         actorUserId: user.id,
+         organizationId: orgId,
++        branchId,
+         entityType: "wdd_matcher_session",
+         entityId: sessionId,
+         metadata: {
+@@ -1232,6 +1245,28 @@ export async function retryMaterializationAction(
+  * produced RepairOrders yet? Used on load/reload of an approved session so
+  * the UI can distinguish "materialized" from "needs retry" without
+  * re-running materialization just to find out.
++ *
++ * Corrective review Finding B (CONFIRMED BUG, fixed here): the underlying
++ * read (RepairOrdersService.getMaterializationStatusForSession) queries
++ * workshop_source_documents / repair_order_source_document_links, both
++ * FORCE-RLS-gated on workshop.repair_orders.read -- a DIFFERENT permission
++ * domain than wdd_matcher.read, which is all this action previously
++ * checked. A caller holding wdd_matcher.read but NOT
++ * workshop.repair_orders.read would have every row silently hidden by RLS
++ * (not an error), and the query would then compute repairOrderIds.size ===
++ * 0 -- indistinguishable from a genuine "not yet materialized" result. The
++ * UI would render "Materialization failed, please retry" for a session
++ * that actually succeeded, purely because the caller lacks a read
++ * permission on a different domain's tables. Live-verified this session
++ * that these two permission slugs are genuinely independent (no shared
++ * wildcard couples them structurally) -- a real "Matcher operator" role
++ * scoped only to wdd_matcher.* would hit this. Requiring both permissions
++ * explicitly (rather than a new RPC -- this doesn't expose any RepairOrder
++ * *content*, only a count, and the existing dual-permission-check pattern
++ * is already established throughout this codebase, e.g.
++ * QrAssignmentsService.listByBranch's qr.read + warehouse.locations.read
++ * compound check) is the smallest fix consistent with repository
++ * convention.
+  */
+ export async function getMaterializationStatusAction(
+   sessionId: string
+@@ -1242,6 +1277,8 @@ export async function getMaterializationStatusAction(
+     if (!context) return { success: false, error: "No active organisation" };
+     if (!checkPermission(context.user.permissionSnapshot, PERMISSION_WDD_MATCHER_READ))
+       return { success: false, error: "Unauthorized" };
++    if (!checkPermission(context.user.permissionSnapshot, WORKSHOP_REPAIR_ORDERS_READ))
++      return { success: false, error: "Unauthorized" };
+ 
+     return await RepairOrdersService.getMaterializationStatusForSession(supabase, sessionId);
+   } catch {
+diff --git a/apps/web/src/components/tools/svwms-wdd-matcher/extraction-review-view.tsx b/apps/web/src/components/tools/svwms-wdd-matcher/extraction-review-view.tsx
+index 3cf15123..981a7c7f 100644
+--- a/apps/web/src/components/tools/svwms-wdd-matcher/extraction-review-view.tsx
++++ b/apps/web/src/components/tools/svwms-wdd-matcher/extraction-review-view.tsx
+@@ -247,8 +247,12 @@ export function ExtractionReviewView({
+   const approveAndMaterialize = useApproveAndMaterializeSessionMutation();
+   const retryMaterialization = useRetryMaterializationMutation();
+   const isApprovedStatus = matchedSession?.status === "approved";
+-  const { data: materializationStatus, isLoading: isMaterializationStatusLoading } =
+-    useMaterializationStatusQuery(matchedSession?.id ?? null, isApprovedStatus);
++  const {
++    data: materializationStatus,
++    isLoading: isMaterializationStatusLoading,
++    isError: isMaterializationStatusError,
++    refetch: refetchMaterializationStatus,
++  } = useMaterializationStatusQuery(matchedSession?.id ?? null, isApprovedStatus);
+   const justApproved = approveAndMaterialize.data;
+   const handleApprove = useCallback(() => {
+     if (!matchedSession) return;
+@@ -385,6 +389,23 @@ export function ExtractionReviewView({
+   const materializationNeedsRetry =
+     justApproved?.materializationError != null ||
+     (isApprovedStatus && !isMaterializationStatusLoading && materializationStatus?.materialized === false);
++  /**
++   * Finding F (corrective review, CONFIRMED BUG, fixed here): previously
++   * there was no distinct handling for the materialization-status query
++   * itself erroring (a permission failure, a transient network error) --
++   * on reload of an already-approved session, `isMaterializationStatusLoading`
++   * settles to false once the query errors (React Query's isLoading is only
++   * true while status==='pending'), `materializationStatus` stays
++   * `undefined`, and `undefined === false` is false, so
++   * materializationNeedsRetry silently stayed false too -- meaning an error
++   * was rendered as the plain green "Approved" success state instead of a
++   * genuinely distinct, honest third state. Excluded when this browser tab
++   * itself just ran the approval (justApproved set): that mutation result
++   * is already authoritative for this session regardless of what the
++   * separate background status query does.
++   */
++  const materializationStatusUnavailable =
++    isApprovedStatus && !justApproved && !isMaterializationStatusLoading && isMaterializationStatusError;
+   const summary = matchedSession?.match_summary as Record<string, number> | null;
+   const totalWddBlocks = summary?.total_wdd_blocks ?? 0;
+   const directOrders = summary?.direct_orders ?? 0;
+@@ -536,39 +557,62 @@ export function ExtractionReviewView({
+           data-testid="approval-status-strip"
+           className={
+             "flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3 text-sm " +
+-            (materializationNeedsRetry
+-              ? "border-destructive/30 bg-destructive/5"
+-              : "border-emerald-200 bg-emerald-50 dark:border-emerald-900/50 dark:bg-emerald-950/30")
++            (materializationStatusUnavailable
++              ? "border-amber-300 bg-amber-50 dark:border-amber-900/50 dark:bg-amber-950/30"
++              : materializationNeedsRetry
++                ? "border-destructive/30 bg-destructive/5"
++                : "border-emerald-200 bg-emerald-50 dark:border-emerald-900/50 dark:bg-emerald-950/30")
+           }
+         >
+           <div className="flex items-center gap-2">
+-            {materializationNeedsRetry ? (
++            {materializationStatusUnavailable ? (
++              <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
++            ) : materializationNeedsRetry ? (
+               <AlertTriangle className="h-4 w-4 shrink-0 text-destructive" />
+             ) : (
+               <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+             )}
+             <div>
+               <p className="font-medium">
+-                {materializationNeedsRetry
+-                  ? t("approval.approvedMaterializationFailed")
+-                  : t("approval.approvedAndMaterialized")}
++                {materializationStatusUnavailable
++                  ? t("approval.approvedStatusUnavailable")
++                  : materializationNeedsRetry
++                    ? t("approval.approvedMaterializationFailed")
++                    : t("approval.approvedAndMaterialized")}
+               </p>
+-              {!materializationNeedsRetry && (
++              {materializationStatusUnavailable ? (
+                 <p className="text-xs text-muted-foreground">
+-                  {isMaterializationStatusLoading
+-                    ? t("approval.checkingStatus")
+-                    : t("approval.repairOrdersCount", {
+-                        count:
+-                          justApproved?.materialization?.createdRepairOrders !== undefined
+-                            ? justApproved.materialization.createdRepairOrders +
+-                              justApproved.materialization.reusedRepairOrders
+-                            : (materializationStatus?.repairOrderCount ?? 0),
+-                      })}
++                  {t("approval.statusUnavailableDescription")}
+                 </p>
++              ) : (
++                !materializationNeedsRetry && (
++                  <p className="text-xs text-muted-foreground">
++                    {isMaterializationStatusLoading
++                      ? t("approval.checkingStatus")
++                      : t("approval.repairOrdersCount", {
++                          count:
++                            justApproved?.materialization?.createdRepairOrders !== undefined
++                              ? justApproved.materialization.createdRepairOrders +
++                                justApproved.materialization.reusedRepairOrders
++                              : (materializationStatus?.repairOrderCount ?? 0),
++                        })}
++                  </p>
++                )
+               )}
+             </div>
+           </div>
+-          {materializationNeedsRetry ? (
++          {materializationStatusUnavailable ? (
++            <Button
++              onClick={() => void refetchMaterializationStatus()}
++              size="sm"
++              variant="outline"
++              className="h-8 px-2.5 text-xs"
++              data-testid="refresh-materialization-status-button"
++            >
++              <RotateCcw className="mr-1 h-3.5 w-3.5" />
++              {t("approval.refreshStatus")}
++            </Button>
++          ) : materializationNeedsRetry ? (
+             <Button
+               onClick={() => retryMaterialization.mutate(matchedSession.id)}
+               disabled={retryMaterialization.isPending}
+diff --git a/apps/web/src/hooks/queries/tools/wdd-matcher.ts b/apps/web/src/hooks/queries/tools/wdd-matcher.ts
+index e2572e28..78e74c2f 100644
+--- a/apps/web/src/hooks/queries/tools/wdd-matcher.ts
++++ b/apps/web/src/hooks/queries/tools/wdd-matcher.ts
+@@ -172,9 +172,21 @@ export function useApproveAndMaterializeSessionMutation() {
+       approveAndMaterializeSessionAction({ sessionId }).then(unwrap),
+     onSuccess: (result: ApproveAndMaterializeResult) => {
+       qc.invalidateQueries({ queryKey: wddMatcherKeys.sessions() });
++      // Finding F (corrective review, CONFIRMED BUG, fixed here): this
++      // previously seeded repairOrderCount from createdRepairOrders alone,
++      // undercounting whenever materialization reused an existing
++      // RepairOrder instead of creating a new one -- inconsistent with
++      // useRetryMaterializationMutation below (createdRepairOrders +
++      // reusedRepairOrders) and with the component's own inline
++      // computation for the same value. materialized now reflects the
++      // actual resulting count rather than the previous always-true
++      // `>= 0` check (which was never false for a non-negative number).
++      const repairOrderCount =
++        (result.materialization?.createdRepairOrders ?? 0) +
++        (result.materialization?.reusedRepairOrders ?? 0);
+       qc.setQueryData(wddMatcherKeys.materializationStatus(result.session.id), {
+-        materialized: !!result.materialization && result.materialization.createdRepairOrders >= 0,
+-        repairOrderCount: result.materialization?.createdRepairOrders ?? 0,
++        materialized: !!result.materialization && repairOrderCount > 0,
++        repairOrderCount,
+       });
+       if (result.materializationError) {
+         toast.error(t("approval.materializationFailedToast"));
+diff --git a/apps/web/src/server/services/__tests__/repair-orders.service.test.ts b/apps/web/src/server/services/__tests__/repair-orders.service.test.ts
+index 2e1a7699..3186611c 100644
+--- a/apps/web/src/server/services/__tests__/repair-orders.service.test.ts
++++ b/apps/web/src/server/services/__tests__/repair-orders.service.test.ts
+@@ -94,7 +94,10 @@ describe("RepairOrdersService.materializeFromSession", () => {
+   });
+ 
+   it("returns a failure result and does NOT emit an event when the RPC itself errors", async () => {
+-    const supabase = buildSupabaseMock({ data: null, error: { message: "session not found" } });
++    const supabase = buildSupabaseMock({
++      data: null,
++      error: { code: "P0002", message: "Matcher session not found: missing-session" },
++    });
+ 
+     const result = await RepairOrdersService.materializeFromSession(
+       supabase,
+@@ -102,10 +105,63 @@ describe("RepairOrdersService.materializeFromSession", () => {
+       "missing-session"
+     );
+ 
+-    expect(result).toEqual({ success: false, error: "session not found" });
++    expect(result).toEqual({
++      success: false,
++      error: "Matcher session not found: missing-session",
++    });
+     expect(eventService.emit).not.toHaveBeenCalled();
+   });
+ 
++  /**
++   * Finding G (corrective review): materialize_repair_orders_from_session
++   * RAISEs exactly four deliberately-authored, already-safe business
++   * messages, each with a specific ERRCODE -- those must pass through to
++   * the caller verbatim. Any OTHER errcode (a raw constraint violation,
++   * connection error, etc. -- not part of the RPC's own deliberate design)
++   * must be replaced with a generic, safe message instead of leaking raw
++   * DB internals to the browser.
++   */
++  it.each([
++    ["P0002", "Matcher session not found: session-1"],
++    ["55000", "Matcher session is not approved (status=ready_for_review)"],
++    ["28000", "p_actor_user_id must match the authenticated caller"],
++    ["42501", "Not authorized to materialize repair orders for this branch"],
++  ])("passes the RPC's own safe errcode %s message through verbatim", async (code, message) => {
++    const supabase = buildSupabaseMock({ data: null, error: { code, message } });
++
++    const result = await RepairOrdersService.materializeFromSession(supabase, "user-1", "session-1");
++
++    expect(result).toEqual({ success: false, error: message });
++  });
++
++  it("replaces an unrecognized errcode's raw message with a generic, safe client-facing message", async () => {
++    const supabase = buildSupabaseMock({
++      data: null,
++      error: { code: "23505", message: 'duplicate key value violates unique constraint "repair_orders_pkey"' },
++    });
++
++    const result = await RepairOrdersService.materializeFromSession(supabase, "user-1", "session-1");
++
++    expect(result.success).toBe(false);
++    const error = (result as { success: false; error: string }).error;
++    expect(error).not.toContain("repair_orders_pkey");
++    expect(error).not.toContain("duplicate key");
++    expect(error.length).toBeGreaterThan(0);
++  });
++
++  it("replaces a codeless/unexpected error's raw message with a generic, safe client-facing message", async () => {
++    const supabase = buildSupabaseMock({
++      data: null,
++      error: { message: "connection terminated unexpectedly" },
++    });
++
++    const result = await RepairOrdersService.materializeFromSession(supabase, "user-1", "session-1");
++
++    expect(result.success).toBe(false);
++    const error = (result as { success: false; error: string }).error;
++    expect(error).not.toBe("connection terminated unexpectedly");
++  });
++
+   it("still returns the successful domain result even when event emission fails (Mode A best-effort trade-off)", async () => {
+     const supabase = buildSupabaseMock({ data: RPC_ROW, error: null });
+     (eventService.emit as ReturnType<typeof vi.fn>).mockResolvedValue({
+@@ -227,14 +283,58 @@ describe("RepairOrdersService.listForWorkshop", () => {
+     expect(mock.calls.some((c) => c.method === "or")).toBe(false);
+   });
+ 
+-  it("applies a single OR-ILIKE search across zl_number, vin, and order_number", async () => {
++  it("applies a single OR-ILIKE search across zl_number, vin, and order_number, quoting the value against structural , ( ) characters (Finding E of corrective review)", async () => {
+     const mock = makeChainableQueryMock({ data: [], error: null });
+ 
+     await RepairOrdersService.listForWorkshop(mock as never, "org-1", null, "ZL/9000");
+ 
+     const orCall = mock.calls.find((c) => c.method === "or");
+     expect(orCall?.args[0]).toBe(
+-      "zl_number.ilike.%ZL/9000%,vin.ilike.%ZL/9000%,order_number.ilike.%ZL/9000%"
++      'zl_number.ilike."%ZL/9000%",vin.ilike."%ZL/9000%",order_number.ilike."%ZL/9000%"'
++    );
++  });
++
++  it("still matches business values containing spaces and slashes literally (real ZL/order-number shape)", async () => {
++    const mock = makeChainableQueryMock({ data: [], error: null });
++
++    await RepairOrdersService.listForWorkshop(mock as never, "org-1", null, "BLWK/900 3252");
++
++    const orCall = mock.calls.find((c) => c.method === "or");
++    expect(orCall?.args[0]).toBe(
++      'zl_number.ilike."%BLWK/900 3252%",vin.ilike."%BLWK/900 3252%",order_number.ilike."%BLWK/900 3252%"'
++    );
++  });
++
++  it("escapes % and _ ilike wildcards so they match literally, not as patterns", async () => {
++    const mock = makeChainableQueryMock({ data: [], error: null });
++
++    await RepairOrdersService.listForWorkshop(mock as never, "org-1", null, "100%_off");
++
++    const orCall = mock.calls.find((c) => c.method === "or");
++    expect(orCall?.args[0]).toBe(
++      'zl_number.ilike."%100\\%\\_off%",vin.ilike."%100\\%\\_off%",order_number.ilike."%100\\%\\_off%"'
++    );
++  });
++
++  it("quotes the value and escapes embedded double-quotes so a comma-containing search term can't inject extra/malformed OR conditions (Finding E, live-verified against PostgREST directly -- see corrective review evidence)", async () => {
++    const mock = makeChainableQueryMock({ data: [], error: null });
++
++    // Live-verified directly against the target Supabase project's REST
++    // endpoint: the OLD (%/_ -escape-only, unquoted) behavior for this
++    // exact value made PostgREST fail with PGRST100 "failed to parse logic
++    // tree" (HTTP 400) -- the unescaped comma inside the value was read as
++    // the top-level OR-condition separator. The quoted form below is
++    // confirmed live to parse as a single ilike condition (HTTP 200).
++    await RepairOrdersService.listForWorkshop(
++      mock as never,
++      "org-1",
++      null,
++      'x",status.eq.approved,y'
++    );
++
++    const orCall = mock.calls.find((c) => c.method === "or");
++    expect(orCall?.args[0]).toBe(
++      'zl_number.ilike."%x\\",status.eq.approved,y%",vin.ilike."%x\\",status.eq.approved,y%",order_number.ilike."%x\\",status.eq.approved,y%"'
+     );
+   });
+ 
+@@ -274,8 +374,35 @@ describe("RepairOrdersService.listForWorkshop", () => {
+   });
+ });
+ 
++/**
++ * A per-table chainable query-builder mock: `.from(table)` returns a fresh
++ * chain builder scoped to that table's own configured result, so a test can
++ * exercise a method (like getMaterializationStatusForSession, after the
++ * Finding I fix) that issues two independent `.from()` calls against two
++ * different tables in sequence.
++ */
++function makeTableQueryMock(tableResponses: Record<string, { data: unknown; error: unknown }>) {
++  const callsByTable: Record<string, { method: string; args: unknown[] }[]> = {};
++  const from = vi.fn().mockImplementation((table: string) => {
++    const result = tableResponses[table] ?? { data: null, error: null };
++    const calls: { method: string; args: unknown[] }[] = [];
++    callsByTable[table] = calls;
++    const q: Record<string, unknown> = {};
++    for (const m of ["select", "eq", "is", "order", "or", "in"]) {
++      q[m] = vi.fn().mockImplementation((...args: unknown[]) => {
++        calls.push({ method: m, args });
++        return q;
++      });
++    }
++    q["maybeSingle"] = vi.fn().mockResolvedValue(result);
++    q["then"] = (onFulfilled: (v: unknown) => unknown) => Promise.resolve(result).then(onFulfilled);
++    return q;
++  });
++  return { from, callsByTable };
++}
++
+ describe("RepairOrdersService.getMaterializationStatusForSession", () => {
+-  it("reports materialized: false and repairOrderCount: 0 when no source documents are linked to any RepairOrder yet", async () => {
++  it("reports materialized: false and repairOrderCount: 0 when no source documents are linked to any RepairOrder yet (short-circuits before querying repair_orders at all)", async () => {
+     const mock = makeChainableQueryMock({
+       data: [{ id: "doc-1", repair_order_source_document_links: [] }],
+       error: null,
+@@ -287,17 +414,24 @@ describe("RepairOrdersService.getMaterializationStatusForSession", () => {
+     );
+ 
+     expect(result).toEqual({ success: true, data: { materialized: false, repairOrderCount: 0 } });
++    expect(mock.from).toHaveBeenCalledTimes(1);
+   });
+ 
+   it("counts DISTINCT repair_order_ids across all linked source documents (not a raw row count)", async () => {
+-    const mock = makeChainableQueryMock({
+-      data: [
+-        { id: "doc-1", repair_order_source_document_links: [{ repair_order_id: "ro-1" }] },
+-        // Same RepairOrder linked via a second source document -- must not double-count.
+-        { id: "doc-2", repair_order_source_document_links: [{ repair_order_id: "ro-1" }] },
+-        { id: "doc-3", repair_order_source_document_links: [{ repair_order_id: "ro-2" }] },
+-      ],
+-      error: null,
++    const mock = makeTableQueryMock({
++      workshop_source_documents: {
++        data: [
++          { id: "doc-1", repair_order_source_document_links: [{ repair_order_id: "ro-1" }] },
++          // Same RepairOrder linked via a second source document -- must not double-count.
++          { id: "doc-2", repair_order_source_document_links: [{ repair_order_id: "ro-1" }] },
++          { id: "doc-3", repair_order_source_document_links: [{ repair_order_id: "ro-2" }] },
++        ],
++        error: null,
++      },
++      repair_orders: {
++        data: [{ id: "ro-1" }, { id: "ro-2" }],
++        error: null,
++      },
+     });
+ 
+     const result = await RepairOrdersService.getMaterializationStatusForSession(
+@@ -306,6 +440,61 @@ describe("RepairOrdersService.getMaterializationStatusForSession", () => {
+     );
+ 
+     expect(result).toEqual({ success: true, data: { materialized: true, repairOrderCount: 2 } });
++    const roCalls = mock.callsByTable["repair_orders"];
++    expect(roCalls.some((c) => c.method === "in" && c.args[0] === "id")).toBe(true);
++    expect(roCalls.some((c) => c.method === "is" && c.args[0] === "deleted_at" && c.args[1] === null)).toBe(
++      true
++    );
++  });
++
++  it("excludes a soft-deleted RepairOrder from the count -- Finding I (corrective review) defense-in-depth on top of the RLS policy that already hides it", async () => {
++    const mock = makeTableQueryMock({
++      workshop_source_documents: {
++        data: [
++          {
++            id: "doc-1",
++            repair_order_source_document_links: [
++              { repair_order_id: "ro-1" },
++              { repair_order_id: "ro-2" },
++            ],
++          },
++        ],
++        error: null,
++      },
++      repair_orders: {
++        // ro-2 is soft-deleted -- filtered out by the .is("deleted_at", null)
++        // query itself, so it never reaches this mocked result.
++        data: [{ id: "ro-1" }],
++        error: null,
++      },
++    });
++
++    const result = await RepairOrdersService.getMaterializationStatusForSession(
++      mock as never,
++      "session-1"
++    );
++
++    expect(result).toEqual({ success: true, data: { materialized: true, repairOrderCount: 1 } });
++  });
++
++  it("propagates a DB error from the second (repair_orders) query as a structured failure, never throws", async () => {
++    const mock = makeTableQueryMock({
++      workshop_source_documents: {
++        data: [{ id: "doc-1", repair_order_source_document_links: [{ repair_order_id: "ro-1" }] }],
++        error: null,
++      },
++      repair_orders: {
++        data: null,
++        error: { message: "connection reset" },
++      },
++    });
++
++    const result = await RepairOrdersService.getMaterializationStatusForSession(
++      mock as never,
++      "session-1"
++    );
++
++    expect(result).toEqual({ success: false, error: "connection reset" });
+   });
+ });
+ 
+diff --git a/apps/web/src/server/services/repair-orders.service.ts b/apps/web/src/server/services/repair-orders.service.ts
+index f6bc45eb..d5c0163d 100644
+--- a/apps/web/src/server/services/repair-orders.service.ts
++++ b/apps/web/src/server/services/repair-orders.service.ts
+@@ -8,6 +8,43 @@ import { eventService } from "./event.service";
+ 
+ export type ServiceResult<T> = { success: true; data: T } | { success: false; error: string };
+ 
++/**
++ * Corrective review Finding G (CONFIRMED DESIGN INCONSISTENCY, fixed here):
++ * materializeFromSession previously returned `error.message` from the RPC
++ * call completely unnormalized -- unlike its sibling
++ * WddMatcherService.approveSession (which already normalizes RLS/
++ * permission-denied errors via its own normalizeDbError helper). This
++ * client-facing message flows through into `materializationError` in the
++ * actions layer and is sent to the browser (never rendered as raw text by
++ * the current UI, which only checks its presence as a boolean -- but it IS
++ * present in the JSON/RSC payload, inspectable via devtools).
++ *
++ * materialize_repair_orders_from_session (the RPC this wraps) RAISEs
++ * exactly four deliberately-authored, human-readable, already-safe
++ * business messages, each with an explicit, stable ERRCODE chosen for
++ * this exact purpose:
++ *   - P0002 "Matcher session not found: %"
++ *   - 55000 "Matcher session is not approved (status=%)"
++ *   - 55000 "Matcher session has no branch_id -- cannot materialize..."
++ *   - 28000 "p_actor_user_id must match the authenticated caller"
++ *   - 42501 "Not authorized to materialize repair orders for this branch"
++ * These are the intended, specific, safe user-facing text and must be
++ * passed through as-is -- blindly normalizing on errcode (the way
++ * normalizeDbError does for 42501) would replace the RPC's own good,
++ * specific message with a generic one and lose real UX value. Only a
++ * genuinely UNEXPECTED error (any other errcode -- a raw constraint
++ * violation, connection error, etc., none of which are part of this RPC's
++ * own deliberate design) gets replaced with a generic, safe message here.
++ */
++const REPAIR_ORDER_RPC_SAFE_ERRCODES = new Set(["P0002", "55000", "28000", "42501"]);
++
++function normalizeMaterializationRpcError(error: { code?: string; message: string }): string {
++  if (error.code && REPAIR_ORDER_RPC_SAFE_ERRCODES.has(error.code)) {
++    return error.message;
++  }
++  return "Materialization failed due to an unexpected server error. Please try again or contact support.";
++}
++
+ /**
+  * Typed, clean result of a materialization call -- the raw jsonb shape
+  * returned by the materialize_repair_orders_from_session RPC, mapped to a
+@@ -151,7 +188,14 @@ export class RepairOrdersService {
+     });
+ 
+     if (error) {
+-      return { success: false, error: error.message };
++      // Full raw error stays in server logs for diagnosis/audit; only the
++      // normalized, allowlisted message (see normalizeMaterializationRpcError
++      // above) is returned to the caller / eventually the browser.
++      console.error(
++        "[RepairOrdersService.materializeFromSession] materialize_repair_orders_from_session RPC error:",
++        error
++      );
++      return { success: false, error: normalizeMaterializationRpcError(error) };
+     }
+ 
+     const result = mapMaterializationResult(data as MaterializeRpcRow);
+@@ -212,18 +256,45 @@ export class RepairOrdersService {
+ 
+     if (error) return { success: false, error: error.message };
+ 
+-    const repairOrderIds = new Set<string>();
++    const rawRepairOrderIds = new Set<string>();
+     for (const doc of (data ?? []) as Array<{
+       repair_order_source_document_links: { repair_order_id: string }[] | null;
+     }>) {
+       for (const link of doc.repair_order_source_document_links ?? []) {
+-        repairOrderIds.add(link.repair_order_id);
++        rawRepairOrderIds.add(link.repair_order_id);
+       }
+     }
+ 
++    if (rawRepairOrderIds.size === 0) {
++      return { success: true, data: { materialized: false, repairOrderCount: 0 } };
++    }
++
++    /**
++     * Finding I (corrective review, CONFIRMED DESIGN INCONSISTENCY, fixed
++     * here): repair_order_source_document_links' own SELECT RLS policy
++     * already requires the linked repair_orders row to have
++     * deleted_at IS NULL, so a soft-deleted RepairOrder's link is already
++     * invisible to any caller today -- making the gap this closes currently
++     * unreachable in practice, not an active bug. This explicit re-check is
++     * added anyway, matching the deleted_at IS NULL convention this
++     * service's sibling methods already apply directly
++     * (listForWorkshop/getByIdForWorkshop), as defense-in-depth: the
++     * "materialized" read model this method exposes to the UI should not
++     * depend solely on an unrelated table's RLS policy staying exactly as
++     * it is today to remain correct.
++     */
++    const { data: activeRows, error: activeError } = await supabase
++      .from("repair_orders")
++      .select("id")
++      .in("id", Array.from(rawRepairOrderIds))
++      .is("deleted_at", null);
++
++    if (activeError) return { success: false, error: activeError.message };
++
++    const repairOrderCount = activeRows?.length ?? 0;
+     return {
+       success: true,
+-      data: { materialized: repairOrderIds.size > 0, repairOrderCount: repairOrderIds.size },
++      data: { materialized: repairOrderCount > 0, repairOrderCount },
+     };
+   }
+ 
+@@ -257,9 +328,30 @@ export class RepairOrdersService {
+ 
+     const trimmed = search?.trim();
+     if (trimmed) {
+-      const escaped = trimmed.replace(/[%_]/g, (c) => `\\${c}`);
++      /**
++       * Finding E (corrective review): classified ACCEPTABLE CURRENT DESIGN
++       * overall -- a repo-wide grep of every other pre-existing .or( caller
++       * found no shared escaping helper anywhere, and this method already
++       * did MORE escaping (%/_) than most of that established precedent, so
++       * this is not a Phase 4-6-specific regression. This is a small,
++       * local-only hardening on top of that, not a "confirmed unsafe" fix:
++       * PostgREST's .or() filter-list syntax treats "," and "(" / ")" as
++       * structural separators/grouping, not literal value characters --
++       * backslash-escaping (the previous %/_-only behavior) has no effect
++       * on them, so a free-text value containing one of them (plausible in
++       * an order/VIN search box) could silently corrupt the intended filter
++       * into extra/malformed OR conditions. PostgREST's own documented fix
++       * for structural characters is to double-quote the value; backslash
++       * must first be escaped (so our own inserted escapes stay
++       * unambiguous), then the quote-delimiter character itself, then the
++       * ilike pattern wildcards % and _.
++       */
++      const escaped = trimmed
++        .replace(/\\/g, "\\\\")
++        .replace(/"/g, '\\"')
++        .replace(/[%_]/g, (c) => `\\${c}`);
+       query = query.or(
+-        `zl_number.ilike.%${escaped}%,vin.ilike.%${escaped}%,order_number.ilike.%${escaped}%`
++        `zl_number.ilike."%${escaped}%",vin.ilike."%${escaped}%",order_number.ilike."%${escaped}%"`
+       );
+     }
+ 
+diff --git a/apps/web/supabase-target/supabase/migrations/20260911071854_wdd_matcher_sessions_approval_rls_restriction.sql b/apps/web/supabase-target/supabase/migrations/20260911071854_wdd_matcher_sessions_approval_rls_restriction.sql
+new file mode 100644
+index 00000000..a7b7cc97
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260911071854_wdd_matcher_sessions_approval_rls_restriction.sql
+@@ -0,0 +1,42 @@
++-- Zone 3 Phase 4-6 corrective review, Finding A (CONFIRMED SECURITY GAP):
++--
++-- wdd_matcher_sessions' UPDATE RLS policy (wms_update) gates only on
++-- wdd_matcher.upload, with no WITH CHECK clause at all. That means an
++-- upload-only caller (lacking wdd_matcher.approve) could bypass
++-- approveSessionAction's server-side permission check entirely via a raw
++-- client .update() call, setting status='approved' directly -- the DB
++-- layer never independently enforced the same approval-authority contract
++-- the application layer does.
++--
++-- Fix, mirroring the exact pattern already established for
++-- repair_orders_update's archive-restriction
++-- (20260910074716_repair_orders_archive_rls_restriction.sql): the row
++-- remains reachable for UPDATE by either .upload or .approve holders (so
++-- the existing upload/parse/match lifecycle keeps working, and an
++-- approve-only-without-upload role -- architecturally plausible, since
++-- these are separate permission slugs -- can still reach the row for the
++-- approval transition itself), but the resulting row's status may only be
++-- 'approved' if the actor holds wdd_matcher.approve specifically.
++--
++-- This is layered on top of (not a replacement for) the application's own
++-- atomic UPDATE ... WHERE status = 'ready_for_review' guard in
++-- WddMatcherService.approveSession -- both remain race-safe together,
++-- since RLS is re-evaluated per-statement alongside that WHERE clause.
++drop policy if exists wms_update on public.wdd_matcher_sessions;
++
++create policy wms_update on public.wdd_matcher_sessions
++  for update
++  using (
++    has_permission(organization_id, 'wdd_matcher.upload'::text)
++    or has_permission(organization_id, 'wdd_matcher.approve'::text)
++  )
++  with check (
++    (
++      has_permission(organization_id, 'wdd_matcher.upload'::text)
++      or has_permission(organization_id, 'wdd_matcher.approve'::text)
++    )
++    and (
++      status <> 'approved'::text
++      or has_permission(organization_id, 'wdd_matcher.approve'::text)
++    )
++  );
+diff --git a/apps/web/supabase/tests/092_wdd_matcher_approval_rls_test.sql b/apps/web/supabase/tests/092_wdd_matcher_approval_rls_test.sql
+new file mode 100644
+index 00000000..c4306aa1
+--- /dev/null
++++ b/apps/web/supabase/tests/092_wdd_matcher_approval_rls_test.sql
+@@ -0,0 +1,126 @@
++-- ============================================================================
++-- TEST: wdd_matcher_sessions approval RLS (Zone 3 Phase 4-6 corrective
++-- review, Finding A)
++-- ============================================================================
++-- Verifies apps/web/supabase-target/supabase/migrations/
++-- 20260911071854_wdd_matcher_sessions_approval_rls_restriction.sql.
++--
++-- Runs the actual UPDATE statements as the `authenticated` role (not
++-- `postgres`, which bypasses RLS entirely) with a real JWT claim set via
++-- request.jwt.claims, so this genuinely exercises RLS -- not just the
++-- policy text. A WITH CHECK failure on a row already matched by USING
++-- raises a hard Postgres error ("new row violates row-level security
++-- policy"), not a silent 0-row update -- that is the expected/correct
++-- signal for the blocked case below, not a test bug.
++--
++-- Uses a real, existing user (the dedicated Zone 3 E2E test account) whose
++-- permission-cache rows are temporarily narrowed to exactly one slug at a
++-- time -- deleted and reinserted within this same transaction, which is
++-- rolled back at the end, so the account's real permissions are unaffected
++-- after the run.
++--
++-- Executed against supabase-target via Supabase MCP. Last run: 2026-09-11,
++-- 3/3 passing. Verified zero residual data after rollback.
++
++BEGIN;
++
++SELECT plan(3);
++
++CREATE TEMP TABLE rls_fixture (session1 uuid, session2 uuid, session3 uuid, e2e_user uuid, org uuid, branch uuid);
++CREATE TEMP TABLE rls_outcomes (test_name text, blocked_or_unchanged boolean);
++GRANT SELECT ON rls_fixture TO authenticated;
++GRANT INSERT, SELECT ON rls_outcomes TO authenticated;
++
++INSERT INTO rls_fixture
++SELECT gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
++       'c4a24371-42db-4bb8-ab5e-379ebbf7d9c4'::uuid,
++       '9f98fe91-63b8-4986-a2b3-65bdd47684c9'::uuid,
++       'e39b15da-0a8d-4056-b5a2-80eb1da868a6'::uuid;
++
++INSERT INTO wdd_matcher_sessions (id, organization_id, branch_id, name, status)
++SELECT session1, org, branch, 'RLS test 1 - upload-only direct approve attempt', 'ready_for_review' FROM rls_fixture;
++INSERT INTO wdd_matcher_sessions (id, organization_id, branch_id, name, status)
++SELECT session2, org, branch, 'RLS test 2 - approve-only direct approve', 'ready_for_review' FROM rls_fixture;
++INSERT INTO wdd_matcher_sessions (id, organization_id, branch_id, name, status)
++SELECT session3, org, branch, 'RLS test 3 - upload-only legit non-approval update', 'pending' FROM rls_fixture;
++
++-- === Phase 1: narrow the E2E user to upload+read. read is a baseline
++-- visibility permission, orthogonal to the upload-vs-approve distinction
++-- under test -- without it, RLS's SELECT policy hides the row entirely
++-- and every UPDATE would silently affect 0 rows regardless of this fix,
++-- which would make the test meaningless (discovered live while writing
++-- this test: a role given ONLY .upload, with no .read, cannot even see
++-- the row -- a real role always bundles read alongside write). ===
++DELETE FROM user_effective_permissions WHERE user_id = (SELECT e2e_user FROM rls_fixture) AND organization_id = (SELECT org FROM rls_fixture);
++INSERT INTO user_effective_permissions (user_id, organization_id, permission_slug, permission_slug_exact)
++SELECT e2e_user, org, slug, slug FROM rls_fixture, unnest(ARRAY['wdd_matcher.upload','wdd_matcher.read']) AS slug;
++
++SET LOCAL ROLE authenticated;
++SELECT set_config('request.jwt.claims', json_build_object('sub', e2e_user::text, 'role','authenticated')::text, true) FROM rls_fixture;
++
++-- Test 1: upload-only (no approve) tries to directly set status='approved'.
++DO $t1$
++DECLARE
++  v_session uuid;
++  v_actor uuid;
++  v_blocked boolean := false;
++BEGIN
++  SELECT session1, e2e_user INTO v_session, v_actor FROM rls_fixture;
++  BEGIN
++    UPDATE wdd_matcher_sessions SET status = 'approved', approved_by = v_actor, approved_at = now() WHERE id = v_session;
++  EXCEPTION WHEN insufficient_privilege OR OTHERS THEN
++    v_blocked := true;
++  END;
++  INSERT INTO rls_outcomes VALUES (
++    'upload-only cannot directly approve',
++    v_blocked OR (SELECT status <> 'approved' FROM wdd_matcher_sessions WHERE id = v_session)
++  );
++END;
++$t1$;
++
++-- Test 2 setup: the SAME upload-only actor performs a legitimate
++-- non-approval transition -- must still succeed (no regression to the
++-- existing upload/parse/match lifecycle).
++UPDATE wdd_matcher_sessions SET status = 'processing' WHERE id = (SELECT session3 FROM rls_fixture);
++INSERT INTO rls_outcomes
++SELECT 'upload-only can still do non-approval updates',
++       (SELECT status = 'processing' FROM wdd_matcher_sessions WHERE id = (SELECT session3 FROM rls_fixture));
++
++-- === Phase 2: narrow the E2E user to approve+read (no upload) -- a
++-- plausible narrower role, since .approve and .upload are separate slugs. ===
++RESET ROLE;
++DELETE FROM user_effective_permissions WHERE user_id = (SELECT e2e_user FROM rls_fixture) AND organization_id = (SELECT org FROM rls_fixture);
++INSERT INTO user_effective_permissions (user_id, organization_id, permission_slug, permission_slug_exact)
++SELECT e2e_user, org, slug, slug FROM rls_fixture, unnest(ARRAY['wdd_matcher.approve','wdd_matcher.read']) AS slug;
++
++SET LOCAL ROLE authenticated;
++SELECT set_config('request.jwt.claims', json_build_object('sub', e2e_user::text, 'role','authenticated')::text, true) FROM rls_fixture;
++
++-- Test 3: approve-only (no upload) CAN directly approve -- proves the fix
++-- doesn't over-restrict to .upload-only reachability.
++UPDATE wdd_matcher_sessions SET status = 'approved', approved_by = (SELECT e2e_user FROM rls_fixture), approved_at = now()
++WHERE id = (SELECT session2 FROM rls_fixture);
++INSERT INTO rls_outcomes
++SELECT 'approve-only (without upload) CAN directly approve',
++       (SELECT status = 'approved' FROM wdd_matcher_sessions WHERE id = (SELECT session2 FROM rls_fixture));
++
++RESET ROLE;
++
++SELECT ok(
++  (SELECT blocked_or_unchanged FROM rls_outcomes WHERE test_name = 'upload-only cannot directly approve'),
++  'an upload-only actor (no wdd_matcher.approve) is blocked by RLS from directly setting status=approved'
++);
++
++SELECT ok(
++  (SELECT blocked_or_unchanged FROM rls_outcomes WHERE test_name = 'upload-only can still do non-approval updates'),
++  'the same upload-only actor can still perform the existing upload/parse/match lifecycle transitions (no regression)'
++);
++
++SELECT ok(
++  (SELECT blocked_or_unchanged FROM rls_outcomes WHERE test_name = 'approve-only (without upload) CAN directly approve'),
++  'an approve-only actor (no wdd_matcher.upload) can reach the row and directly approve it (the fix does not over-restrict to upload-only reachability)'
++);
++
++SELECT * FROM finish();
++
++ROLLBACK;
+diff --git a/docs/mvp/zones/03-repair-orders-implementation-plan.md b/docs/mvp/zones/03-repair-orders-implementation-plan.md
+index 120fea55..8cd0382f 100644
+--- a/docs/mvp/zones/03-repair-orders-implementation-plan.md
++++ b/docs/mvp/zones/03-repair-orders-implementation-plan.md
+@@ -370,6 +370,8 @@ PITCH.
+ 
+ ## Phase 4 — Explicit Matcher approval workflow 🔵 IN PROGRESS (2026-09-11 — functionally built, unit/action/component-tested, live-data-verified; genuine browser E2E outstanding)
+ 
++> **2026-09-11 corrective review**: a verify-first review pass found and fixed one CONFIRMED live security gap in this phase's own RLS layer (Finding A — the `wdd_matcher_sessions` UPDATE policy had no `WITH CHECK`, so an upload-only actor could bypass the application's approval-permission check via a raw client update). Full evidence, the live-verified fix, and the new pgTAP regression test are recorded in `03-repair-orders-progress.md`'s Phase 4 task list and its 2026-09-11 corrective-review change-log entry — not duplicated here.
++
+ ### Objective
+ 
+ Build the currently-nonexistent `approveSession` action/service method and its UI trigger, implementing the `review → approve → approved → materialize` gate the architecture doc requires.
+@@ -426,6 +428,8 @@ PITCH.
+ 
+ ## Phase 5 — Matcher → RepairOrder materialization 🔵 IN PROGRESS (2026-09-11 — same status as Phase 4: functionally built + live-data-verified, genuine browser E2E outstanding)
+ 
++> **2026-09-11 corrective review**: five CONFIRMED findings in this phase were fixed (B — materialization-status permission gap matching the underlying RLS; D — incomplete org/branch scope on the materialization-failure audit event; F — the approval-status UI silently rendering a status-query error as success, plus an undercounted RepairOrder cache-seed; G — raw RPC error text reaching the client unnormalized; I — a defense-in-depth soft-delete filter matching this service's sibling methods). Two reviewer findings touching this phase's design (C — nullable branchId; H — redundant-but-safe authorization re-checks across the approve/materialize/retry/status actions) were investigated and classified as **not** problems, with evidence, and left unchanged — the accepted two-transaction approve→materialize design itself was not touched. Full evidence and exact fixes are recorded in `03-repair-orders-progress.md`'s Phase 5 task list and its 2026-09-11 corrective-review change-log entry.
++
+ ### Objective
+ 
+ Wire the Phase 3 RPC/service to the Phase 4 approval action so that approving a session automatically runs materialization into RepairOrders as one orchestrated user-facing workflow, with an explicit retry path for the failure case.
+@@ -485,6 +489,8 @@ PITCH.
+ 
+ ## Phase 6 — RepairOrder list and search 🔵 IN PROGRESS (2026-09-11 — the actual milestone this run targeted; real UI built and live-data-verified, but the manual/visual browser review this milestone exists to enable has not happened yet)
+ 
++> **2026-09-11 corrective review**: this phase's search-filter construction (Finding E) was investigated against a repo-wide grep of every other `.or()` caller and classified **ACCEPTABLE CURRENT DESIGN** — it matches established repo-wide precedent, and no shared PostgREST-escaping helper exists anywhere to reuse. A small, optional, local hardening was applied anyway and live-verified directly against the target Supabase REST endpoint (an unquoted comma-containing search value previously caused a real `HTTP 400 PGRST100` filter-parse failure; the fix resolves it). Full evidence is recorded in `03-repair-orders-progress.md`'s Phase 6 task list and its 2026-09-11 corrective-review change-log entry.
++
+ ### Objective
+ 
+ Build list/search UI and backing query for RepairOrders: search by `zl_number`, `order_number`, VIN.
+diff --git a/docs/mvp/zones/03-repair-orders-progress.md b/docs/mvp/zones/03-repair-orders-progress.md
+index 18351eca..86476bdb 100644
+--- a/docs/mvp/zones/03-repair-orders-progress.md
++++ b/docs/mvp/zones/03-repair-orders-progress.md
+@@ -6,7 +6,7 @@
+ **Priority:** P0
+ **Architecture:** ✅ APPROVED
+ **Runtime status:** 🟡 PARTIALLY IMPLEMENTED (schema, domain types, materialization RPC/service, Matcher approval, approve→materialize orchestration, and a first real Workshop list/search/detail UI are all live and tested against real data; genuine browser-based Playwright E2E/visual verification could not be completed this session — see Phase 4/5/6 notes)
+-**Current phase:** Phases 4, 5, 6 🔵 IN PROGRESS (functionally complete + live-integration-verified; browser E2E/Playwright screenshot review outstanding) — next up: product-owner manual review, then Phase 7
++**Current phase:** Phases 4, 5, 6 🔵 IN PROGRESS (functionally complete + live-integration-verified; a focused corrective-review pass on 2026-09-11 fixed one confirmed live RLS security gap plus five other confirmed application-layer findings — see the 2026-09-11 corrective-review change-log entry; browser E2E/Playwright screenshot review still outstanding) — next up: product-owner manual review, then Phase 7
+ **Pitch readiness:** NOT READY (manual/visual review still required before this milestone can be called done)
+ **Pilot readiness:** NOT READY
+ **Last updated:** 2026-09-11
+@@ -183,6 +183,7 @@ All later phases: task lists mirror the implementation plan 1:1 and are intentio
+   - Evidence attempted: Playwright's own bundled Chrome for Testing could not launch (missing shared libraries; `install-deps` failed, no root access in this sandbox). A nix-provided Chromium 126 was obtained and could load real pages (confirmed via CDP target-list titles, e.g. "Sign In | Ambra" after navigating to `/logowanie`) but crashed reproducibly during the screenshot/rasterization step across multiple fresh instances, font-config fixes, and launch-flag variations — root-caused to the sandbox's software-rendering stack, not the application.
+   - Substituted evidence: a live integration script, using a real (non-service-role) authenticated Supabase client signed in as a dedicated E2E test user, issued the exact reviewed `approveSession` query against `supabase-target` and confirmed: (a) `ready_for_review → approved` succeeds with correct `approved_by`/`approved_at`; (b) a second approval attempt on the same session correctly fails with `SESSION_NOT_READY`. Full transcript in this session's tool history.
+   - Blocker: sandboxed headless-browser infra, not app code. Real interactive/visual verification must happen in a normal environment (the product owner's own machine, or a CI runner with proper browser deps) — see "Exact manual verification steps" in this session's final report.
++- [x] ✅ **2026-09-11 corrective review, Finding A (CONFIRMED SECURITY GAP, fixed):** `wdd_matcher_sessions`' UPDATE RLS policy (`wms_update`) gated only on `wdd_matcher.upload` with no `WITH CHECK` at all — an upload-only actor could bypass `approveSessionAction`'s server-side `wdd_matcher.approve` check entirely via a raw client `.update()` call. Fixed via forward migration `20260911071854_wdd_matcher_sessions_approval_rls_restriction.sql` (transition-aware `WITH CHECK`, mirroring the established `repair_orders_update` archive-restriction pattern): row remains reachable by either `.upload` or `.approve` (lifecycle preserved), but `status='approved'` requires `.approve` specifically. Live-verified genuinely as the `authenticated` role (not `postgres`, which bypasses RLS) — 3/3 pgTAP assertions passing (`apps/web/supabase/tests/092_wdd_matcher_approval_rls_test.sql`, executed live 2026-09-11).
+ 
+ ### Phase 5 — Matcher → RepairOrder materialization 🔵 IN PROGRESS (6/8)
+ 
+@@ -193,6 +194,11 @@ All later phases: task lists mirror the implementation plan 1:1 and are intentio
+ - [x] ✅ "Already materialized" handled gracefully — new `getMaterializationStatusForSession` read model + `getMaterializationStatusAction`, live-verified this session (see below).
+ - [x] ✅ **Idempotent re-materialization — live-verified against the real DB.** The live-integration script called `materializeFromSession` twice for the same real session: first call created 1 real `repair_orders` row (`zl_number = 'ZL/95001/26/3252/BL'`), second call returned `already_materialized: true`, `created_repair_orders: 0`, `reused_repair_orders: 1` — a genuine, live, no-mock proof of Phase 3's idempotency guarantee holding through this phase's own orchestration.
+ - [ ] ⬜ **Multi-order E2E and simulated-failure E2E — NOT run as genuine browser E2E** (same environment blocker as Phase 4). Multi-order RPC behavior itself remains pgTAP-proven from Phase 3 (unchanged). Simulated-failure behavior is covered by a component test (`extraction-review-approval.test.tsx`'s "shows the failure state immediately after a just-completed approve call") and an action-level unit test (`approveAndMaterializeSessionAction` returns `success:true` with `materializationError` set, not a thrown failure, when the RPC call fails).
++- [x] ✅ **2026-09-11 corrective review, Finding B (CONFIRMED BUG, fixed):** `getMaterializationStatusAction` checked only `wdd_matcher.read`, while the query it calls (`getMaterializationStatusForSession`, reading `workshop_source_documents`/`repair_order_source_document_links`) is actually RLS-gated by the separate `workshop.repair_orders.read` permission — a caller with Matcher-read-but-not-Workshop-read would previously have every row silently hidden and misread as "not yet materialized" rather than rejected. Fixed by adding an explicit `workshop.repair_orders.read` check alongside the existing `wdd_matcher.read` check (dual-permission pattern, matching existing repo precedent — e.g. `QrAssignmentsService.listByBranch`'s `qr.read` + `warehouse.locations.read`), not a new RPC.
++- [x] ✅ **2026-09-11 corrective review, Finding D (CONFIRMED, fixed):** `workshop.repair_orders.materialization_failed` was emitted with no `organizationId`/`branchId` at all on the initial approve→materialize failure path, and missing `branchId` specifically on the retry-failure path — both now derive org/branch only from the trusted server-loaded `loadDashboardContextV2` context (never client input), matching the Phase 4 `workshop.matcher_session.approved` event's own precedent.
++- [x] ✅ **2026-09-11 corrective review, Finding G (CONFIRMED DESIGN INCONSISTENCY, fixed):** `materializeFromSession` previously returned the RPC error's raw `.message` completely unnormalized (unlike its sibling `WddMatcherService.approveSession`). Fixed with an errcode-allowlist: the RPC's own four deliberately-authored, already-safe messages (`P0002`, `55000`, `28000`, `42501`) pass through verbatim; any other errcode is replaced with a generic, safe client-facing message while the raw error is still logged server-side.
++- [x] ✅ **2026-09-11 corrective review, Finding I (confirmed design inconsistency, low-severity/currently unreachable, fixed as defense-in-depth):** `getMaterializationStatusForSession` now explicitly excludes soft-deleted RepairOrders (`deleted_at IS NULL`), matching its sibling methods' own convention — even though `repair_order_source_document_links`' own RLS SELECT policy already made this unreachable in practice today.
++- [x] ✅ **2026-09-11 corrective review, Finding F (CONFIRMED BUG, fixed):** the approval-status strip's derived "needs retry" state did not distinguish a genuine materialization-status query error from "still loading," so an error was silently rendered as the green "Approved" success state. Added a real third UI state (amber "status unavailable," with a manual refresh action) — the client never again displays "unknown" as "success." Also fixed `useApproveAndMaterializeSessionMutation`'s cache-seed, which counted only `createdRepairOrders` (undercounting a reused RepairOrder) instead of `createdRepairOrders + reusedRepairOrders`, matching `useRetryMaterializationMutation`'s and the component's own already-correct convention.
+ 
+ ### Phase 6 — RepairOrder list and search 🔵 IN PROGRESS (4/9)
+ 
+@@ -206,6 +212,7 @@ All later phases: task lists mirror the implementation plan 1:1 and are intentio
+ - [ ] ⬜ **Ambiguous-number disambiguation UI — genuinely not built.** Flagged as an open gap (see implementation plan for the reasoning on why same-branch ambiguity shouldn't occur under the corrected identity model, and why cross-branch collisions remain an accepted open risk).
+ - [ ] ⬜ **List/empty-state component tests — not built**, since that rendering lives inline in the async server page (this repo's existing convention does not RTL-test server data-fetching pages directly elsewhere either).
+ - [ ] ⬜ **Genuine browser Playwright E2E + visual screenshot review — NOT completed** (same environment blocker as Phase 4/5). **Live-integration-script evidence**: all three searches (`zl_number`, VIN, `order_number`) independently found the correct real RepairOrder; a non-matching search correctly returned zero rows; `getByIdForWorkshop` correctly returned the row for the right branch and `null` for a different real branch in the same org (proving branch-scoping/RLS live). This proves the query/data layer end-to-end; it does **not** prove the actual list/search/detail pages render correctly, responsively, or theme-correctly in a real browser — which is the literal goal of this milestone.
++- [x] ✅ **2026-09-11 corrective review, Finding E (ACCEPTABLE CURRENT DESIGN, matches established repo-wide `.or()` precedent with no shared escaping helper anywhere — hardened anyway as a small, local, optional improvement):** `listForWorkshop`'s search value is now wrapped in PostgREST double-quote value syntax (in addition to the existing `%`/`_` ilike-wildcard escaping) so a search term containing `,`/`(`/`)` can no longer corrupt the `.or()` filter's structure. **Live-verified directly against the target Supabase REST endpoint**: the old (unquoted) behavior for a comma-containing value produced `HTTP 400 PGRST100 "failed to parse logic tree"`; the new (quoted) behavior for the identical value returns `HTTP 200` as a single, correctly-scoped ilike condition.
+ 
+ **Phases 4, 5, and 6 are therefore 🔵 IN PROGRESS, not ✅ DONE.** Every acceptance criterion answerable without a working browser in this sandbox has been met and live-verified against the real database with a real authenticated session (not mocks, not service-role bypass). The one consistent, honestly-reported gap across all three phases is genuine browser-based Playwright E2E and visual/screenshot review — attempted extensively (see Phase 4's evidence note) and blocked by this sandbox's headless-rendering infrastructure, not by the application code. A dedicated E2E test account (`zone3-e2e-test@ambra-internal.test`, org_owner role, credentials in `apps/web/.env.local`'s gitignored `E2E_TEST_EMAIL`/`E2E_TEST_PASSWORD`) and one real, live, persisted demonstration RepairOrder (`ZL/95001/26/3252/BL`) already exist for whoever performs that review next.
+ 
+@@ -296,3 +303,18 @@ None currently active.
+ - **2026-09-10 (container-workflow READ-ONLY audit, separate session/turn)**: `03-repair-orders-container-workflow-audit.md` produced — a 30-section, READ-ONLY audit of reservations/allocations/containers/QR/locations/801 and their relationship to RepairOrder and future WU 201. Confirmed live: reservation and allocation are fully built and correctly handshake (allocation-create already drains the reservation and moves `reserved`→`allocated` balance); container has schema + FORCE RLS but **zero RPCs** (only a read-only display consumer exists); the QR platform (`qr_codes`/`qr_assignments`/`target-registry.ts`) is generic and reusable but has never been pointed at inventory objects; `inventory_movement_lines.container_id` exists but is silently dropped by `inventory_create_draft`; nothing writes `inventory_containers.current_location_id`. At the time of that audit, allocation/container/QR/location workflow was classified PILOT because the then-active pitch script (`ambra-skrypt-prezentacji.md`) contained no such workflow — explicitly flagged in that document as pending product-owner review, no code/schema changed.
+ - **2026-09-10 (container-workflow scope expansion + Phase 3 completion, this session)**: Product-owner directive received: the full physical container workflow is now **PITCH** (supersedes the audit's own PILOT classification — see the scope-expansion banner at the top of this file and of the implementation plan). Seven frozen architecture decisions recorded and six new implementation phases (10A–10F: Reservation integration, Allocation integration, Container orchestration, Container QR, 801 whole-container relocation, 201/WZ issue from container) added to `03-repair-orders-implementation-plan.md`, inserted between Phase 10 and Phase 11 to avoid renumbering existing cross-references; Phase 13's E2E dependency list updated to include them; a documented (not-yet-implemented) "smallest consistent proposal" for RepairOrder-close blocking on outstanding warehouse obligations added under Phase 7. Separately, this session closed Phase 3's one remaining gap: added and live-verified (via `mcp__supabase-target__execute_sql`, wrapped `BEGIN;...ROLLBACK;`) an authorization-denial pgTAP test — an authenticated, non-spoofed actor with zero `workshop.repair_orders.*` permission grants is rejected by the RPC's own `has_branch_permission` check (ERRCODE 42501), not merely by RLS; this closed the gap between the RPC's real (LIVE VERIFIED) authorization logic and the test suite's prior coverage, which only tested actor-identity spoofing. Test suite now 17/17 passing (up from 16/16); `pnpm type-check` reconfirmed clean; Vitest domain+service suites reconfirmed 21/21 passing. **Phase 3 moved from 🔵 IN PROGRESS to ✅ DONE** — every criterion in its own acceptance-criteria list, including the "realistic concurrency / duplicate invocation behavior" bar, is now met; genuine two-connection concurrent-execution proof remains explicitly assigned to Phase 15 (pgTAP/MSW-Vitest tooling cannot express it), unchanged from the standing plan and not re-opened as a Phase 3 gap. No Zone 11 (Home Dashboard) files touched, per this turn's shared-agent conflict rule; no historical migration-tree reconciliation attempted, per standing instruction.
+ - **2026-09-11 (Phases 4/5/6 — Matcher approval, approve→materialize orchestration, first real Workshop UI)**: Built and tested all three phases per the product owner's "next milestone the product owner can manually inspect" directive. **Phase 4**: re-verified `WddMatcherService.approveSession` live before touching it (confirmed genuinely dead code, no state-transition guard); rewrote it with an atomic `status='ready_for_review'` guard inside the UPDATE's own WHERE clause; confirmed `wdd_matcher.approve` was already a live-seeded permission slug and reused it rather than creating a new one; added `approveSessionAction` (server-side permission check, not UI-hiding); registered and emitted `workshop.matcher_session.approved`; added the Approve button + an approval-status strip to `extraction-review-view.tsx`. **Phase 5**: `approveAndMaterializeSessionAction` orchestrates approval then materialization as two genuinely separate calls (not one DB transaction); success/failure UX with repair-order counts and a "Go to Workshop" link; `retryMaterializationAction` + a new `getMaterializationStatusForSession` read model (resolves the implementation plan's own open question — no new `wdd_matcher_sessions` column needed, "approved but zero linked repair_orders" is a sufficient live signal); `workshop.repair_orders.materialization_failed` event added. **Phase 6**: replaced the old "coming soon" Workshop placeholder with a real, branch-scoped RepairOrder list (desktop table + mobile cards) and a minimal detail shell at a new `/dashboard/workshop/[id]` route (registered in `src/i18n/routing.ts`'s `pathnames` map, localized to `/dashboard/warsztat/[id]` in Polish); single combined zl_number/VIN/order_number search via URL params + debounced client input, chosen over a react-query hook per the work order's own sanctioned alternative; permission gate corrected from the old placeholder's generic `WORKSHOP_READ` to the precise `WORKSHOP_REPAIR_ORDERS_READ` matching the live RLS policy. **Testing**: 81/81 automated tests passing this session (4 new `WddMatcherService.approveSession` unit tests, 14 new `RepairOrdersService` list/detail/status unit tests, 12 action-layer tests for the approve/materialize/retry/status actions, 7 component tests for the approval UI, 4 + 3 component tests for the status badge and search box), `pnpm type-check` clean, `pnpm lint` clean (0 errors, same 319 pre-existing warnings elsewhere). **Live-database integration verification** (new for this session, beyond mocked unit tests): created a real, persistent, dedicated E2E test user (`zone3-e2e-test@ambra-internal.test`, org_owner role in the same org used throughout Zone 3 testing, created via Supabase's admin API — does **not** touch any real person's account) and a real `ready_for_review` Matcher session fixture, then ran a script that signs in as that real user with a real Supabase client (no service-role bypass) and exercises the exact reviewed query/RPC logic end-to-end against `supabase-target`: approve succeeds → re-approve correctly rejected (`SESSION_NOT_READY`) → materialize creates one real persisted `repair_orders` row → idempotent retry is a genuine no-op → list/search by all three fields (zl_number, VIN, order_number) each correctly find the real row → a non-matching search returns zero rows → cross-branch detail lookup correctly returns `null` (proving RLS/branch-scoping live). **Genuine browser-based Playwright E2E and visual/screenshot review — the task's explicit headline requirement — could NOT be completed.** Extensive, good-faith troubleshooting was attempted: Playwright's own bundled Chrome for Testing failed to launch (missing shared libraries, `install-deps` requires root which this sandbox does not grant); a nix-provided Chromium 126 was obtained and successfully loaded real app pages (confirmed via the Chrome DevTools Protocol's own target list showing correct page titles after navigation, e.g. "Sign In | Ambra") but crashed reproducibly during the screenshot/rasterization step specifically, across multiple fresh browser instances, font-configuration fixes (which did resolve a separate, real missing-font issue along the way), and launch-flag variations — root-caused to this sandbox's software-rendering stack being unable to reliably rasterize this app's pages, not to any defect in the Zone 3 code (the same pages return correct 200 responses with correct content via plain HTTP). This is reported plainly rather than silently worked around or claimed as done. All three phases are kept at 🔵 IN PROGRESS, not ✅ DONE, specifically because of this gap — see each phase's detailed task list above for the exact per-item breakdown of what is and is not covered. No Zone 11 (Home Dashboard) files touched. No historical migration reconciliation attempted. No new Supabase schema/RPC changes this session (Phase 4/5/6 needed none — confirmed by re-verifying live state before starting, per the work order's explicit instruction).
++- **2026-09-11 (Phase 4/5/6 corrective review — verify-first pass over 9 external reviewer findings)**: A second reviewer's findings on the 2026-09-11 Phase 4/5/6 bundle were independently re-investigated against live Supabase, the codebase, repo conventions, and existing tests before any change was made, per explicit instruction not to blindly implement review suggestions. **6 of 9 findings CONFIRMED and fixed** (A, B, D, F, G, I); **1 (Finding E) classified ACCEPTABLE CURRENT DESIGN** relative to repo-wide `.or()` precedent but hardened anyway as a small, cheap, optional local improvement; **2 (Findings C and H) classified FALSE POSITIVE / REVIEWER INCORRECT and explicitly left unchanged**, with evidence.
++  - **Finding A (CONFIRMED SECURITY GAP, fixed)** — see Phase 4's dedicated bullet above. New forward migration `20260911071854_wdd_matcher_sessions_approval_rls_restriction.sql`, live-applied and live-verified as the genuinely-RLS-enforced `authenticated` role (not the MCP connection's own `postgres` role, which was discovered mid-session to have `rolbypassrls=true` and so never actually exercises RLS — a real methodological pitfall, worked around by an explicit `SET LOCAL ROLE authenticated` + JWT-claim simulation within the test transaction). New pgTAP test `092_wdd_matcher_approval_rls_test.sql`, executed live both as inline SQL and as the literal file's own statements — 3/3 passing both ways.
++  - **Finding B (CONFIRMED BUG, fixed)** — see Phase 5's dedicated bullet above.
++  - **Finding C (branchId nullability, FALSE POSITIVE / ACCEPTABLE CURRENT DESIGN, no change made)**: `resolveActiveBranch` (`packages/domain/src/branch.ts`) returns `null` only when a user has zero accessible branches in the org — a real, intentional domain state (org-level users, or a user mid-onboarding), not a bug. Every Phase 4-6 path that accepts a nullable `branchId` and omits the branch filter when null is still independently protected by RLS's own per-row branch enforcement on the underlying Workshop tables (`has_branch_permission`) — a caller with no accessible branch simply sees zero rows, never a cross-branch leak. Classified per-path, not blanket-replaced with an error, per the explicit instruction.
++  - **Finding D (CONFIRMED, fixed)** — see Phase 5's dedicated bullet above.
++  - **Finding E (`.or()` search escaping, ACCEPTABLE CURRENT DESIGN + optional hardening applied)** — see Phase 6's dedicated bullet above. A repo-wide grep found no shared PostgREST-filter-escaping helper anywhere, and at least 7 other pre-existing services build `.or()` filters identically or less carefully than the reviewed Phase 6 code — so this was not a Phase-4-6-specific regression. The optional improvement was live-verified directly against the target Supabase REST endpoint (see Phase 6 bullet), not merely reasoned about.
++  - **Finding F (CONFIRMED BUG, fixed)** — see Phase 5's dedicated bullet above.
++  - **Finding G (CONFIRMED DESIGN INCONSISTENCY, fixed)** — see Phase 5's dedicated bullet above.
++  - **Finding H (approval/materialization authorization re-check across all 4 actions, FALSE POSITIVE / ACCEPTABLE CURRENT DESIGN, no change made)**: every privileged step in the approve→materialize chain (`approveSessionAction`, `approveAndMaterializeSessionAction`, `retryMaterializationAction`, `getMaterializationStatusAction`) independently re-verifies its own authorization against live state at the point of use — never a shared, potentially-stale snapshot — so no TOCTOU gap exists. The redundant double context-load between approval and materialization is a minor, non-security performance nit, not worth trading away `approveSessionAction`'s standalone reusability/testability for. The two-transaction approve→materialize design itself (accepted architecture) was **not** touched, per explicit instruction.
++  - **Finding I (confirmed low-severity/currently-unreachable design inconsistency, fixed as defense-in-depth)** — see Phase 5's dedicated bullet above.
++  - **Testing**: 25/25 `repair-orders.service.test.ts` (11 new/updated), 12/12 `wdd-matcher-approval-actions.test.ts` (2 new), 7/7 `extraction-review-approval.test.tsx`, plus the existing `wdd-matcher.service.test.ts`, status-badge, and search-component suites — **56/56 passing** across all six Zone 3 test files run together this pass. `pnpm type-check` clean. `pnpm lint` clean on every changed file. Finding A's pgTAP file executed live twice (equivalent inline SQL, then the literal file's own statement sequence) — 3/3 both times, zero residual data after `ROLLBACK`.
++  - **Live authenticated integration**: Finding A's RLS fix was live-tested as the genuinely-non-bypassed `authenticated` role (see above) — this is the one finding in this pass with a direct live-authorization re-test beyond mocked unit tests, per the explicit "do not rely only on mocked tests for authorization/RLS changes" instruction. Finding B's fix was verified via a new mocked action-level test (`rejects a caller with wdd_matcher.read but NOT workshop.repair_orders.read`); a further live-authenticated re-test specifically proving the permission-denied response (vs. the old false-negative) was not additionally run this pass, since the underlying RLS/permission model itself (workshop.repair_orders.read gating those tables) was already independently live-confirmed while investigating the finding, and the application-layer check change is a pure, fully-typed, unit-testable conditional.
++  - **Browser E2E**: not attempted again this pass, per explicit instruction not to re-spend time on the same known sandbox Chromium/screenshot limitation already established in the prior session. Status unchanged from the 2026-09-11 Phase 4/5/6 entry above.
++  - **Documentation**: only this file and `03-repair-orders-implementation-plan.md` updated, both strictly reflecting verified results; `03-repair-orders.md` (architecture source of truth) left untouched — no genuine architecture contradiction was found requiring product-owner review. Phases 4, 5, and 6 remain 🔵 IN PROGRESS (not promoted to ✅ DONE) — this pass fixed defense-in-depth/correctness/consistency gaps underneath the phases, it did not complete the still-outstanding genuine browser E2E/visual acceptance criterion.
++  - **No Zone 7+ / container / reservation / allocation / WU / Legacy Stock work started this pass, per explicit scope boundary.** This turn stops here for product-owner review of the corrective-review result.

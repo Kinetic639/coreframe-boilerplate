@@ -3094,6 +3094,48 @@
       },
       "errors": {
         "loadFailed": "Failed to load workshop data"
+      },
+      "repairOrders": {
+        "title": "Repair Orders",
+        "subtitle": "Repair orders materialized from approved Matcher sessions.",
+        "openRepairOrder": "Open repair order",
+        "search": {
+          "placeholder": "Search by ZL number, VIN or order number…",
+          "clear": "Clear search"
+        },
+        "columns": {
+          "zlNumber": "ZL Number",
+          "orderNumber": "Order Number",
+          "vin": "VIN",
+          "status": "Status",
+          "advisor": "Advisor",
+          "created": "Created"
+        },
+        "status": {
+          "open": "Open",
+          "closed": "Closed",
+          "archived": "Archived"
+        },
+        "identityStatus": {
+          "resolved": "Resolved",
+          "unresolved": "Unresolved"
+        },
+        "emptyState": {
+          "title": "No repair orders yet.",
+          "subtitle": "Repair orders are created automatically from approved Matcher sessions once a session is approved and materialized.",
+          "noResultsTitle": "No matching repair orders",
+          "noResultsSubtitle": "Try a different ZL number, VIN, or order number."
+        },
+        "errors": {
+          "loadFailed": "Failed to load repair orders"
+        },
+        "detail": {
+          "back": "Back to Workshop",
+          "unresolvedTitle": "Unresolved repair order",
+          "identityStatus": "Identity status",
+          "updated": "Last updated",
+          "futurePhasesNote": "Lines, provenance, warehouse detail, and lifecycle actions are not available on this page yet — they arrive in a later phase."
+        }
       }
     },
     "helpDesk": {
@@ -3951,6 +3993,23 @@
           "matchingComplete": "Matching complete",
           "exportSuccess": "CSV downloaded",
           "enhancedPdfSuccess": "Enhanced PDF downloaded"
+        },
+        "approval": {
+          "approveButton": "Approve",
+          "approving": "Approving…",
+          "approveSuccessToast": "Session approved and repair orders materialized",
+          "materializationFailedToast": "Session approved, but repair order materialization failed",
+          "retrySuccessToast": "Materialization retried successfully",
+          "approvedAndMaterialized": "Approved",
+          "approvedMaterializationFailed": "Approved — Materialization failed",
+          "checkingStatus": "Checking materialization status…",
+          "repairOrdersCount": "{count, plural, =0 {No repair orders yet} one {# repair order created} other {# repair orders created}}",
+          "retryMaterialization": "Retry Materialization",
+          "retrying": "Retrying…",
+          "goToWorkshop": "Go to Workshop",
+          "approvedStatusUnavailable": "Approved — Status unavailable",
+          "statusUnavailableDescription": "Could not check whether repair orders were created. This may not mean anything is wrong — refresh to check again.",
+          "refreshStatus": "Refresh Status"
         },
         "extractionReview": {
           "title": "Extraction Preview",
