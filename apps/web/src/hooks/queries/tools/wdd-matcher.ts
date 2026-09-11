@@ -12,12 +12,17 @@ import {
   runMatchingAction,
   exportCsvAction,
   getEnhancedPdfDataAction,
+  approveAndMaterializeSessionAction,
+  retryMaterializationAction,
+  getMaterializationStatusAction,
+  type ApproveAndMaterializeResult,
 } from "@/app/actions/tools/wdd-matcher";
 import type {
   WddMatcherSession,
   ExtractedFileData,
   PdfBlockData,
 } from "@/server/services/wdd-matcher.service";
+import type { MaterializationResult } from "@/server/services/repair-orders.service";
 
 // ---------------------------------------------------------------------------
 // Query key factory
@@ -31,6 +36,8 @@ export const wddMatcherKeys = {
     [...wddMatcherKeys.all, "extracted-data", sessionId] as const,
   enhancedPdfData: (sessionId: string) =>
     [...wddMatcherKeys.all, "enhanced-pdf-data", sessionId] as const,
+  materializationStatus: (sessionId: string) =>
+    [...wddMatcherKeys.all, "materialization-status", sessionId] as const,
 };
 
 // ---------------------------------------------------------------------------
@@ -127,6 +134,86 @@ export function useEnhancedPdfDataMutation(onData: (blocks: PdfBlockData[]) => v
       return result.data;
     },
     onSuccess: onData,
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+/**
+ * Read-model query: has this (already-approved) session actually produced
+ * RepairOrders yet? Enabled only for approved sessions -- there is nothing
+ * to check for a session still in ready_for_review.
+ */
+export function useMaterializationStatusQuery(sessionId: string | null, enabled: boolean) {
+  return useQuery({
+    queryKey: wddMatcherKeys.materializationStatus(sessionId ?? ""),
+    queryFn: () => getMaterializationStatusAction(sessionId!).then(unwrap),
+    enabled: !!sessionId && enabled,
+    staleTime: 10 * 1000,
+  });
+}
+
+/**
+ * Phase 4/5 -- the "Approve" button: approval, then (non-blocking) an
+ * immediate materialization attempt. Always resolves successfully once
+ * approval itself commits; a materialization failure is carried inside the
+ * resolved payload (`materializationError`), not thrown -- so callers
+ * render the "Approved / Materialization failed" state from the payload,
+ * not from useMutation's onError.
+ */
+export function useApproveAndMaterializeSessionMutation() {
+  const qc = useQueryClient();
+  const t = useTranslations("modules.tools.wddMatcher");
+
+  return useMutation({
+    mutationFn: (sessionId: string) =>
+      approveAndMaterializeSessionAction({ sessionId }).then(unwrap),
+    onSuccess: (result: ApproveAndMaterializeResult) => {
+      qc.invalidateQueries({ queryKey: wddMatcherKeys.sessions() });
+      // Finding F (corrective review, CONFIRMED BUG, fixed here): this
+      // previously seeded repairOrderCount from createdRepairOrders alone,
+      // undercounting whenever materialization reused an existing
+      // RepairOrder instead of creating a new one -- inconsistent with
+      // useRetryMaterializationMutation below (createdRepairOrders +
+      // reusedRepairOrders) and with the component's own inline
+      // computation for the same value. materialized now reflects the
+      // actual resulting count rather than the previous always-true
+      // `>= 0` check (which was never false for a non-negative number).
+      const repairOrderCount =
+        (result.materialization?.createdRepairOrders ?? 0) +
+        (result.materialization?.reusedRepairOrders ?? 0);
+      qc.setQueryData(wddMatcherKeys.materializationStatus(result.session.id), {
+        materialized: !!result.materialization && repairOrderCount > 0,
+        repairOrderCount,
+      });
+      if (result.materializationError) {
+        toast.error(t("approval.materializationFailedToast"));
+      } else {
+        toast.success(t("approval.approveSuccessToast"));
+      }
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+/**
+ * Phase 5 -- "Retry Materialization". Only meaningful for an already
+ * `approved` session. Idempotent against the same Phase 3 RPC -- a retry
+ * against an already-materialized session is a harmless no-op.
+ */
+export function useRetryMaterializationMutation() {
+  const qc = useQueryClient();
+  const t = useTranslations("modules.tools.wddMatcher");
+
+  return useMutation({
+    mutationFn: (sessionId: string) => retryMaterializationAction(sessionId).then(unwrap),
+    onSuccess: (result: MaterializationResult, sessionId) => {
+      qc.setQueryData(wddMatcherKeys.materializationStatus(sessionId), {
+        materialized: true,
+        repairOrderCount: result.createdRepairOrders + result.reusedRepairOrders,
+      });
+      qc.invalidateQueries({ queryKey: wddMatcherKeys.materializationStatus(sessionId) });
+      toast.success(t("approval.retrySuccessToast"));
+    },
     onError: (err: Error) => toast.error(err.message),
   });
 }

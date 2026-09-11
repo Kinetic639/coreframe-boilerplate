@@ -1417,6 +1417,54 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
     visibleTo: ["org_member", "org_admin", "auditor"],
     sensitiveFields: [],
   },
+
+  "workshop.matcher_session.approved": {
+    actionKey: "workshop.matcher_session.approved",
+    moduleSlug: "workshop",
+    eventTier: "baseline",
+    category: "STATE",
+    intent: "UPDATE",
+    description:
+      "A Matcher session was approved (ready_for_review -> approved), gating RepairOrder materialization",
+    metadataSchema: z.object({
+      previousStatus: z.string(),
+      newStatus: z.string(),
+      branchId: z.string().uuid().nullable(),
+    }),
+    summaryTemplate: "Approved Matcher session ({{previousStatus}} -> {{newStatus}})",
+    i18nKey: "events.workshop.matcher_session.approved",
+    iconKey: "check",
+    scope: "branch",
+    actorVisible: true,
+    selfVisible: true,
+    visibilityClass: "org_activity",
+    visibleTo: ["org_member", "org_admin", "auditor"],
+    sensitiveFields: [],
+  },
+
+  "workshop.repair_orders.materialization_failed": {
+    actionKey: "workshop.repair_orders.materialization_failed",
+    moduleSlug: "workshop",
+    eventTier: "baseline",
+    category: "STATE",
+    intent: "CREATE",
+    description:
+      "Materialization was attempted for an approved Matcher session but failed (approval itself is preserved; safe to retry)",
+    metadataSchema: z.object({
+      errorClass: z.string(),
+      errorMessage: z.string(),
+      attempt: z.enum(["initial", "retry"]),
+    }),
+    summaryTemplate: "RepairOrder materialization failed for Matcher session ({{errorClass}})",
+    i18nKey: "events.workshop.repair_orders.materialization_failed",
+    iconKey: "alert-triangle",
+    scope: "branch",
+    actorVisible: true,
+    selfVisible: true,
+    visibilityClass: "org_activity",
+    visibleTo: ["org_member", "org_admin", "auditor"],
+    sensitiveFields: ["errorMessage"],
+  },
 };
 
 // ---------------------------------------------------------------------------
