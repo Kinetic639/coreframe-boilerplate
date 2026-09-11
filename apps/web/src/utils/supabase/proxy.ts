@@ -1,20 +1,28 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
-import { pathnameWithoutLocale } from "@repo/i18n/middleware-utils";
+import { pathnameWithoutLocale, resolveAcceptLanguageLocale } from "@repo/i18n/middleware-utils";
 import { routing, type Locale } from "@/i18n/routing";
 import { resolveLocalizedPathnames } from "@/i18n/localized-pathnames";
 
-// Prefer the locale segment already in the URL (e.g. "/en/sign-in") over the
-// NEXT_LOCALE cookie, so a direct visit to an explicit locale is respected.
+// Prefer the locale segment already in the URL (e.g. "/en/sign-in"), then the
+// NEXT_LOCALE cookie (shared across apps -- see @repo/i18n/config), then the
+// browser's Accept-Language, matching next-intl's own prefix > cookie >
+// accept-language > default precedence so this auth-redirect logic doesn't
+// disagree with next-intl's middleware about which locale a visitor wants.
 function detectLocale(request: NextRequest): Locale {
   const [, maybeLocale] = request.nextUrl.pathname.split("/");
   if (routing.locales.includes(maybeLocale as Locale)) {
     return maybeLocale as Locale;
   }
   const cookieLocale = request.cookies.get("NEXT_LOCALE")?.value;
-  return routing.locales.includes(cookieLocale as Locale)
-    ? (cookieLocale as Locale)
-    : routing.defaultLocale;
+  if (routing.locales.includes(cookieLocale as Locale)) {
+    return cookieLocale as Locale;
+  }
+  return resolveAcceptLanguageLocale(
+    request.headers.get("accept-language"),
+    routing.locales,
+    routing.defaultLocale
+  );
 }
 
 function buildLocalizedUrl(request: NextRequest, pathnameKey: string, locale: Locale): URL {

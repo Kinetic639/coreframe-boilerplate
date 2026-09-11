@@ -175,6 +175,22 @@ export const WORKSHOP_WILDCARD = "workshop.*" as const;
 export const WORKSHOP_READ = "workshop.read" as const;
 export const WORKSHOP_MANAGE = "workshop.manage" as const;
 
+// Zone 3 RepairOrder Permissions (org/branch-scoped — Workshop module)
+// workshop.repair_orders.read        — list/view repair orders (own org/branch)
+// workshop.repair_orders.manage_own  — create/edit repair orders where the
+//                                       current user is the linked advisor
+//                                       (repair_orders.advisor_contact_id ->
+//                                       crm_contacts.linked_user_id)
+// workshop.repair_orders.manage_all  — create/edit any repair order in branch
+// Advisor ownership (manage_own) NEVER grants warehouse.* permissions —
+// receiving/issuing against a RepairOrderLine requires separate warehouse
+// permissions regardless of advisor ownership.
+// Seeded in migration 20260910061711_repair_orders_core_schema.sql.
+// Covered by the existing workshop.* wildcard — no separate wildcard needed.
+export const WORKSHOP_REPAIR_ORDERS_READ = "workshop.repair_orders.read" as const;
+export const WORKSHOP_REPAIR_ORDERS_MANAGE_OWN = "workshop.repair_orders.manage_own" as const;
+export const WORKSHOP_REPAIR_ORDERS_MANAGE_ALL = "workshop.repair_orders.manage_all" as const;
+
 // Help Desk Permissions (org-scoped — Help Desk module, Premium plan only)
 // helpdesk.*                  — org_owner wildcard; compiler expands to concrete slugs
 // helpdesk.read               — view the Help Desk module shell and overview
@@ -381,6 +397,9 @@ export type PermissionSlug =
   | typeof WORKSHOP_WILDCARD
   | typeof WORKSHOP_READ
   | typeof WORKSHOP_MANAGE
+  | typeof WORKSHOP_REPAIR_ORDERS_READ
+  | typeof WORKSHOP_REPAIR_ORDERS_MANAGE_OWN
+  | typeof WORKSHOP_REPAIR_ORDERS_MANAGE_ALL
   | typeof MODULE_HELPDESK_ACCESS
   | typeof HELPDESK_WILDCARD
   | typeof HELPDESK_READ
@@ -519,6 +538,9 @@ export const ALL_PERMISSION_SLUGS: PermissionSlug[] = [
   WORKSHOP_WILDCARD,
   WORKSHOP_READ,
   WORKSHOP_MANAGE,
+  WORKSHOP_REPAIR_ORDERS_READ,
+  WORKSHOP_REPAIR_ORDERS_MANAGE_OWN,
+  WORKSHOP_REPAIR_ORDERS_MANAGE_ALL,
   MODULE_HELPDESK_ACCESS,
   HELPDESK_WILDCARD,
   HELPDESK_READ,

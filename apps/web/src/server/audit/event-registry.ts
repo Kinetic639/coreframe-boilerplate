@@ -1388,6 +1388,35 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
     visibleTo: ["org_member", "org_admin", "auditor"],
     sensitiveFields: [],
   },
+
+  // -------------------------------------------------------------------------
+  // Workshop module — Zone 3 RepairOrders
+  // -------------------------------------------------------------------------
+
+  "workshop.repair_orders.materialized": {
+    actionKey: "workshop.repair_orders.materialized",
+    moduleSlug: "workshop",
+    eventTier: "baseline",
+    category: "STATE",
+    intent: "CREATE",
+    description: "RepairOrders were materialized from an approved Matcher session",
+    metadataSchema: z.object({
+      createdRepairOrders: z.number().int().nonnegative(),
+      reusedRepairOrders: z.number().int().nonnegative(),
+      createdSourceDocuments: z.number().int().nonnegative(),
+      createdLogicalLines: z.number().int().nonnegative(),
+      alreadyMaterialized: z.boolean(),
+    }),
+    summaryTemplate: "Materialized {{createdRepairOrders}} repair order(s) from Matcher session",
+    i18nKey: "events.workshop.repair_orders.materialized",
+    iconKey: "settings",
+    scope: "branch",
+    actorVisible: true,
+    selfVisible: true,
+    visibilityClass: "org_activity",
+    visibleTo: ["org_member", "org_admin", "auditor"],
+    sensitiveFields: [],
+  },
 };
 
 // ---------------------------------------------------------------------------

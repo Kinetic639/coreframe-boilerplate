@@ -19,6 +19,48 @@ export function pathnameWithoutLocale(pathname: string, locales: readonly string
   return pathname;
 }
 
+/**
+ * Picks the best-matching supported locale from an `Accept-Language` header,
+ * using simple q-value ordering (highest preference first, falling back to
+ * each tag's primary subtag, e.g. "en-US" matches a supported "en").
+ *
+ * Exists because apps/web and apps/public-web each run their own locale
+ * detection for the Supabase-auth-redirect paths (root "/" and dashboard ->
+ * sign-in), *separately* from next-intl's own middleware -- that logic used
+ * to only check the URL prefix and the NEXT_LOCALE cookie, silently ignoring
+ * the visitor's browser language whenever neither was present, which meant a
+ * first-time visitor always landed on the default-locale (pl) sign-in page
+ * regardless of their browser's Accept-Language. Both apps' detectLocale now
+ * fall through to this as a third step, matching next-intl's own prefix >
+ * cookie > accept-language > default precedence.
+ */
+export function resolveAcceptLanguageLocale<T extends string>(
+  acceptLanguageHeader: string | null,
+  locales: readonly T[],
+  defaultLocale: T
+): T {
+  if (!acceptLanguageHeader) return defaultLocale;
+
+  const ranked = acceptLanguageHeader
+    .split(",")
+    .map((part) => {
+      const [tag, qPart] = part.trim().split(";q=");
+      const q = qPart ? parseFloat(qPart) : 1;
+      return { tag: tag.trim().toLowerCase(), q: Number.isNaN(q) ? 1 : q };
+    })
+    .sort((a, b) => b.q - a.q);
+
+  for (const { tag } of ranked) {
+    const primary = tag.split("-")[0];
+    const match = locales.find(
+      (locale) => locale.toLowerCase() === tag || locale.toLowerCase() === primary
+    );
+    if (match) return match;
+  }
+
+  return defaultLocale;
+}
+
 const DEFAULT_MATCHER_EXCLUDES = [
   "api",
   "_next/static",
