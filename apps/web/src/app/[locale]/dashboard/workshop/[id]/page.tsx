@@ -6,7 +6,10 @@ import { checkPermission } from "@/lib/utils/permissions";
 import { WORKSHOP_REPAIR_ORDERS_READ } from "@/lib/constants/permissions";
 import { createClient } from "@/utils/supabase/server";
 import { RepairOrdersService } from "@/server/services/repair-orders.service";
-import { RepairOrderStorageService } from "@/server/services/repair-order-storage.service";
+import {
+  RepairOrderStorageService,
+  type ReceivedLine,
+} from "@/server/services/repair-order-storage.service";
 import { ArrowLeft } from "lucide-react";
 import { RepairOrderStatusBadge } from "../_components/repair-order-status-badge";
 import { RepairOrderPutawayPanel } from "../../warehouse/_components/repair-order-putaway-panel";
@@ -55,11 +58,29 @@ export default async function RepairOrderDetailPage({ params }: PageProps) {
   // RepairOrder actually has received stock sitting at the branch's
   // receiving location -- otherwise the section is simply absent (no empty
   // "Put away" affordance for an order with nothing to put away yet).
-  const receivedLines = branchId
-    ? await RepairOrderStorageService.getReceivedLines(supabase, orgId, branchId, id).then((r) =>
-        r.success ? r.data : []
-      )
-    : [];
+  //
+  // CORRECTION (external review): a genuine read failure must not look
+  // identical to "zero received lines" -- that previously collapsed both
+  // into an empty array via `.then((r) => r.success ? r.data : [])`,
+  // silently hiding a real error as if the RepairOrder simply had nothing
+  // to put away. Distinguish the three real outcomes explicitly; a failure
+  // shows a compact, local, non-leaking error state in the storage/putaway
+  // area only -- it must never fail the whole RepairOrder detail page.
+  let receivedLines: ReceivedLine[] = [];
+  let receivedLinesError: string | null = null;
+  if (branchId) {
+    const receivedLinesResult = await RepairOrderStorageService.getReceivedLines(
+      supabase,
+      orgId,
+      branchId,
+      id
+    );
+    if (receivedLinesResult.success === true) {
+      receivedLines = receivedLinesResult.data;
+    } else {
+      receivedLinesError = "Could not load receiving stock. Please try again or contact support.";
+    }
+  }
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -100,7 +121,16 @@ export default async function RepairOrderDetailPage({ params }: PageProps) {
         />
       </div>
 
-      {receivedLines.length > 0 && (
+      {receivedLinesError && (
+        <div
+          className="max-w-2xl rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive"
+          data-testid="received-lines-error"
+        >
+          {receivedLinesError}
+        </div>
+      )}
+
+      {!receivedLinesError && receivedLines.length > 0 && (
         <div className="max-w-2xl">
           <RepairOrderPutawayPanel
             repairOrderId={id}

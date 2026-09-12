@@ -18,7 +18,7 @@
 - **PILOT** / **TECH DEBT** — unchanged from the approved plan, not touched this pass.
 
 **Mechanical count, both passes combined**: 23 files in the full diff (21 new, 2 pre-existing
-files modified — see `changed-files.md` for the itemized manifest); 6 migrations written, 0
+files modified — see `changed-files.md` for the itemized manifest); 5 migrations written, 0
 applied; 5 pgTAP test files (59 assertions across `093`-`097`, up from 54 — corrections added/
 fixed assertions in `093` and `096`), 0 executed; 4144 vitest tests run in the full-suite
 regression pass (4103 passed / 24 failed — all 24 pre-existing and unrelated to Zone 5 / 8
@@ -29,12 +29,12 @@ touched file.
 ## Correction pass — this session (external review of the first implementation bundle)
 
 - [x] **1. Aggregate + `FOR UPDATE` bug — CONFIRMED and fixed.** `SELECT sum(...), count(...) ...
-  FOR UPDATE` is invalid PostgreSQL (the locking clause cannot combine with aggregation at
+FOR UPDATE` is invalid PostgreSQL (the locking clause cannot combine with aggregation at
       the same query level — verified against PostgreSQL's own SELECT/locking-clause
       documentation, and confirmed no precedent for this pattern exists anywhere in this repo).
       Fixed in `20260912092000_zone5_attribution_sync_trigger.sql`: lock the individual rows
       first via a CTE (`WITH locked_rows AS (SELECT ... FOR UPDATE) SELECT sum(...), ... FROM
-  locked_rows`), aggregate over the already-locked set in the same statement. This also let
+locked_rows`), aggregate over the already-locked set in the same statement. This also let
       `v_line_id`/`v_ro_id` be captured from the same locked read via `max()` (safe when
       `v_distinct_lines = 1`), removing a second, separate, unlocked re-SELECT entirely.
 - [x] **2. Fake pgTAP placeholders — removed.** `096`'s two `SELECT pass('... TODO ...')`

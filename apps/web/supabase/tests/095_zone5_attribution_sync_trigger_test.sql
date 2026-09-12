@@ -5,15 +5,27 @@
 --   apps/web/supabase-target/supabase/migrations/
 --   20260912092000_zone5_attribution_sync_trigger.sql
 --
--- CORRECTION (external review, applied before any live run): the trigger's
--- ambiguity-test query originally combined an aggregate (sum/count) with
--- `FOR UPDATE` in one query -- invalid PostgreSQL ("FOR UPDATE is not
+-- CORRECTION, round 1 (external review, applied before any live run): the
+-- trigger's ambiguity-test query originally combined an aggregate (sum/count)
+-- with `FOR UPDATE` in one query -- invalid PostgreSQL ("FOR UPDATE is not
 -- allowed with aggregate functions"). Fixed to lock via a CTE first, then
 -- aggregate over the locked rows in the same statement. Test #2 below
 -- exercises exactly this corrected query path (the single-unambiguous-source
 -- propagation branch) -- when this file is actually run, a failure there
 -- would have caught the original bug directly (the trigger would have
 -- raised a Postgres error instead of silently mis-behaving).
+--
+-- CORRECTION, round 2 (external review of round 1's bundle): the prior
+-- trigger cleared the zero-bucket's UNKNOWN marker as its very first act,
+-- destroying the "was this bucket UNKNOWN before" signal before the
+-- marker-gate could use it -- a bucket that had just gone physically empty
+-- could fall through into the generic math test against now-stale rows,
+-- either re-marking UNKNOWN spuriously or, worse, propagating a GUESSED
+-- attribution to a transfer's destination if the stale numbers happened to
+-- coincide. Fixed (see the migration's own updated header/body). Test #9b
+-- and the four new scenario blocks (A-D, tests 15-25) below are the real,
+-- fixture-driven regression tests the review specifically required -- they
+-- fail against the pre-fix trigger and pass against the fix.
 --
 -- NOT EXECUTED this session -- Supabase MCP / live DB access was unavailable.
 -- Per that same migration's own header: the exact column list of
@@ -34,7 +46,7 @@
 
 BEGIN;
 
-SELECT plan(14);
+SELECT plan(26);
 
 CREATE TEMP TABLE fx (
   org uuid, branch uuid,
@@ -174,7 +186,11 @@ SELECT is(
 );
 
 -- =====================================================================
--- 9. Zero clears the marker -- the ONE automatic clearing path.
+-- 9. Zero clears the marker -- the ONE automatic clearing path. Also
+--    verifies (second review round): physical truth wipes ALL leftover
+--    projection rows for the bucket, not just the marker -- rol1's stale
+--    row (quantity 5, untouched by test 8) must be gone too, since on_hand
+--    is now provably zero regardless of what any stale row claims.
 -- =====================================================================
 INSERT INTO inventory_stock_ledger_entries
   (organization_id, branch_id, location_id, variant_id, movement_id, movement_line_id, movement_type_code, balance_field, direction, quantity, balance_after, posted_at)
@@ -183,6 +199,11 @@ SELECT org, branch, loc_a, variant_x, header_id, line_a_pure_decrease, '402', 'o
 SELECT ok(
   NOT EXISTS (SELECT 1 FROM repair_order_location_attribution_uncertain WHERE organization_id = (SELECT org FROM fx) AND location_id = (SELECT loc_a FROM fx) AND variant_id = (SELECT variant_x FROM fx)),
   '9. on_hand reaching exactly zero clears the UNKNOWN marker for (A, X) -- the only automatic clearing path'
+);
+SELECT is(
+  (SELECT count(*)::int FROM repair_order_line_locations WHERE organization_id = (SELECT org FROM fx) AND location_id = (SELECT loc_a FROM fx) AND variant_id = (SELECT variant_x FROM fx)),
+  0,
+  '9b. on_hand reaching exactly zero also wipes ALL leftover projection rows for the bucket (the stale rol1=5 row from an UNKNOWN bucket), not just the marker'
 );
 
 -- =====================================================================
@@ -273,6 +294,133 @@ SELECT ok(
 SELECT ok(
   pg_get_functiondef('public.repair_order_location_attribution_sync'::regproc) ~* 'FOR UPDATE',
   '14. (structural only, not a concurrency proof) the trigger body contains a FOR UPDATE lock statement before reading/deciding on repair_order_line_locations rows'
+);
+
+-- =====================================================================
+-- 15/16. SCENARIO A (external review, second round): UNKNOWN + pure
+--    decrease to zero. Fresh, isolated fixture (loc_d) to avoid depending
+--    on residual state from earlier tests.
+-- =====================================================================
+CREATE TEMP TABLE fx2 (loc_d uuid, loc_e uuid, loc_f uuid, loc_g uuid, loc_h uuid, loc_i uuid, rol3 uuid,
+  line_d_pure uuid, line_e_to_f uuid, line_g_to_h uuid, line_i_pure uuid);
+INSERT INTO fx2 SELECT gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
+  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
+  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid();
+
+INSERT INTO warehouse_locations (id, organization_id, branch_id, name, code, can_store_inventory)
+SELECT loc_d, org, branch, '095-test D', '095-D', true FROM fx, fx2;
+INSERT INTO warehouse_locations (id, organization_id, branch_id, name, code, can_store_inventory)
+SELECT loc_e, org, branch, '095-test E', '095-E', true FROM fx, fx2;
+INSERT INTO warehouse_locations (id, organization_id, branch_id, name, code, can_store_inventory)
+SELECT loc_f, org, branch, '095-test F', '095-F', true FROM fx, fx2;
+INSERT INTO warehouse_locations (id, organization_id, branch_id, name, code, can_store_inventory)
+SELECT loc_g, org, branch, '095-test G', '095-G', true FROM fx, fx2;
+INSERT INTO warehouse_locations (id, organization_id, branch_id, name, code, can_store_inventory)
+SELECT loc_h, org, branch, '095-test H', '095-H', true FROM fx, fx2;
+INSERT INTO warehouse_locations (id, organization_id, branch_id, name, code, can_store_inventory)
+SELECT loc_i, org, branch, '095-test I', '095-I', true FROM fx, fx2;
+INSERT INTO repair_order_lines (id, repair_order_id, product_name, ordered_quantity, status)
+SELECT rol3, ro1, '095-test product 3 (fresh, never ambiguous)', 5, 'pending' FROM fx, fx2;
+
+INSERT INTO inventory_movement_lines (id, movement_id, organization_id, branch_id, variant_id, unit_id, quantity, source_location_id, destination_location_id)
+SELECT line_d_pure, header_id, org, branch, variant_x, unit_ea, 4, loc_d, NULL FROM fx, fx2;
+INSERT INTO inventory_movement_lines (id, movement_id, organization_id, branch_id, variant_id, unit_id, quantity, source_location_id, destination_location_id)
+SELECT line_e_to_f, header_id, org, branch, variant_x, unit_ea, 5, loc_e, loc_f FROM fx, fx2;
+INSERT INTO inventory_movement_lines (id, movement_id, organization_id, branch_id, variant_id, unit_id, quantity, source_location_id, destination_location_id)
+SELECT line_g_to_h, header_id, org, branch, variant_x, unit_ea, 5, loc_g, loc_h FROM fx, fx2;
+INSERT INTO inventory_movement_lines (id, movement_id, organization_id, branch_id, variant_id, unit_id, quantity, source_location_id, destination_location_id)
+SELECT line_i_pure, header_id, org, branch, variant_x, unit_ea, 4, loc_i, NULL FROM fx, fx2;
+
+-- --- Scenario A: UNKNOWN + pure decrease to zero -----------------------
+INSERT INTO repair_order_line_locations (organization_id, branch_id, repair_order_id, repair_order_line_id, variant_id, location_id, quantity)
+SELECT org, branch, ro1, rol1, variant_x, loc_d, 5 FROM fx;  -- stale row, quantity doesn't matter, bucket is UNKNOWN
+INSERT INTO repair_order_location_attribution_uncertain (organization_id, branch_id, location_id, variant_id)
+SELECT org, branch, loc_d, variant_x FROM fx;
+
+INSERT INTO inventory_stock_ledger_entries
+  (organization_id, branch_id, location_id, variant_id, movement_id, movement_line_id, movement_type_code, balance_field, direction, quantity, balance_after, posted_at)
+SELECT org, branch, loc_d, variant_x, header_id, line_d_pure, '402', 'on_hand', 'decrease', 4, 0, now() FROM fx, fx2;
+
+SELECT ok(
+  NOT EXISTS (SELECT 1 FROM repair_order_location_attribution_uncertain WHERE organization_id = (SELECT org FROM fx) AND location_id = (SELECT loc_d FROM fx2) AND variant_id = (SELECT variant_x FROM fx)),
+  '15. SCENARIO A: UNKNOWN + pure decrease to zero -- source marker removed'
+);
+SELECT is(
+  (SELECT count(*)::int FROM repair_order_line_locations WHERE organization_id = (SELECT org FROM fx) AND location_id = (SELECT loc_d FROM fx2) AND variant_id = (SELECT variant_x FROM fx)),
+  0,
+  '16. SCENARIO A: UNKNOWN + pure decrease to zero -- all source projection rows gone, marker not recreated'
+);
+
+-- --- Scenario B: UNKNOWN + transfer that empties source ----------------
+INSERT INTO repair_order_line_locations (organization_id, branch_id, repair_order_id, repair_order_line_id, variant_id, location_id, quantity)
+SELECT org, branch, ro1, rol1, variant_x, loc_e, 5 FROM fx;  -- stale row
+INSERT INTO repair_order_location_attribution_uncertain (organization_id, branch_id, location_id, variant_id)
+SELECT org, branch, loc_e, variant_x FROM fx;
+
+INSERT INTO inventory_stock_ledger_entries
+  (organization_id, branch_id, location_id, variant_id, movement_id, movement_line_id, movement_type_code, balance_field, direction, quantity, balance_after, posted_at)
+SELECT org, branch, loc_e, variant_x, header_id, line_e_to_f, '801', 'on_hand', 'decrease', 5, 0, now() FROM fx, fx2;
+
+SELECT is(
+  (SELECT count(*)::int FROM repair_order_line_locations WHERE organization_id = (SELECT org FROM fx) AND location_id = (SELECT loc_e FROM fx2) AND variant_id = (SELECT variant_x FROM fx)),
+  0,
+  '17. SCENARIO B: UNKNOWN + transfer emptying source -- source projection rows gone'
+);
+SELECT ok(
+  NOT EXISTS (SELECT 1 FROM repair_order_location_attribution_uncertain WHERE organization_id = (SELECT org FROM fx) AND location_id = (SELECT loc_e FROM fx2) AND variant_id = (SELECT variant_x FROM fx)),
+  '18. SCENARIO B: UNKNOWN + transfer emptying source -- source marker removed'
+);
+SELECT ok(
+  EXISTS (SELECT 1 FROM repair_order_location_attribution_uncertain WHERE organization_id = (SELECT org FROM fx) AND location_id = (SELECT loc_f FROM fx2) AND variant_id = (SELECT variant_x FROM fx)),
+  '19. SCENARIO B: UNKNOWN + transfer emptying source -- destination IS marked UNKNOWN'
+);
+SELECT is(
+  (SELECT count(*)::int FROM repair_order_line_locations WHERE organization_id = (SELECT org FROM fx) AND location_id = (SELECT loc_f FROM fx2) AND variant_id = (SELECT variant_x FROM fx)),
+  0,
+  '20. SCENARIO B: UNKNOWN + transfer emptying source -- destination receives NO guessed RepairOrder attribution row'
+);
+
+-- --- Scenario C: KNOWN + unambiguous transfer that empties source ------
+INSERT INTO repair_order_line_locations (organization_id, branch_id, repair_order_id, repair_order_line_id, variant_id, location_id, quantity)
+SELECT org, branch, ro1, rol3, variant_x, loc_g, 5 FROM fx, fx2;  -- fresh, single, KNOWN row
+
+INSERT INTO inventory_stock_ledger_entries
+  (organization_id, branch_id, location_id, variant_id, movement_id, movement_line_id, movement_type_code, balance_field, direction, quantity, balance_after, posted_at)
+SELECT org, branch, loc_g, variant_x, header_id, line_g_to_h, '801', 'on_hand', 'decrease', 5, 0, now() FROM fx, fx2;
+
+SELECT is(
+  (SELECT count(*)::int FROM repair_order_line_locations WHERE organization_id = (SELECT org FROM fx) AND location_id = (SELECT loc_g FROM fx2) AND variant_id = (SELECT variant_x FROM fx)),
+  0,
+  '21. SCENARIO C: KNOWN + unambiguous transfer emptying source -- source rows wiped cleanly'
+);
+SELECT is(
+  (SELECT quantity FROM repair_order_line_locations WHERE repair_order_line_id = (SELECT rol3 FROM fx2) AND location_id = (SELECT loc_h FROM fx2)),
+  5::numeric,
+  '22. SCENARIO C: KNOWN + unambiguous transfer emptying source -- destination gets the correct KNOWN attribution (rol3, qty 5)'
+);
+SELECT ok(
+  NOT EXISTS (SELECT 1 FROM repair_order_location_attribution_uncertain WHERE organization_id = (SELECT org FROM fx) AND location_id = (SELECT loc_h FROM fx2) AND variant_id = (SELECT variant_x FROM fx)),
+  '23. SCENARIO C: KNOWN + unambiguous transfer emptying source -- no unnecessary UNKNOWN marker at destination'
+);
+
+-- --- Scenario D: stale quantity deliberately mismatched, then zero -----
+INSERT INTO repair_order_line_locations (organization_id, branch_id, repair_order_id, repair_order_line_id, variant_id, location_id, quantity)
+SELECT org, branch, ro1, rol1, variant_x, loc_i, 7 FROM fx;  -- stale quantity (7) does NOT match the decrease (4) or anything else -- proves the wipe is unconditional on physical truth, not a coincidental match
+INSERT INTO repair_order_location_attribution_uncertain (organization_id, branch_id, location_id, variant_id)
+SELECT org, branch, loc_i, variant_x FROM fx;
+
+INSERT INTO inventory_stock_ledger_entries
+  (organization_id, branch_id, location_id, variant_id, movement_id, movement_line_id, movement_type_code, balance_field, direction, quantity, balance_after, posted_at)
+SELECT org, branch, loc_i, variant_x, header_id, line_i_pure, '402', 'on_hand', 'decrease', 4, 0, now() FROM fx, fx2;
+
+SELECT ok(
+  NOT EXISTS (SELECT 1 FROM repair_order_location_attribution_uncertain WHERE organization_id = (SELECT org FROM fx) AND location_id = (SELECT loc_i FROM fx2) AND variant_id = (SELECT variant_x FROM fx)),
+  '24. SCENARIO D: stale/mismatched quantity while UNKNOWN, physical balance reaches zero -- marker still clears correctly'
+);
+SELECT is(
+  (SELECT count(*)::int FROM repair_order_line_locations WHERE organization_id = (SELECT org FROM fx) AND location_id = (SELECT loc_i FROM fx2) AND variant_id = (SELECT variant_x FROM fx)),
+  0,
+  '25. SCENARIO D: stale/mismatched quantity while UNKNOWN, physical balance reaches zero -- stale row wiped regardless of its mismatched quantity'
 );
 
 SELECT * FROM finish();

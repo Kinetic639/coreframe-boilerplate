@@ -34,6 +34,7 @@ import { Badge } from "@/components/ui/badge";
 import { unassignQrFromLocationAction } from "@/app/actions/qr/assign-location";
 import { AssignQrLocationDialog } from "./assign-qr-location-dialog";
 import { PrintLocationLabelDialog } from "./print-location-label-dialog";
+import { LocationPurposeControl } from "./location-purpose-control";
 import type {
   AmbraLocationInventorySnapshot,
   ContainerLine,
@@ -708,6 +709,13 @@ export function LocationDetailPanel({
                       />
                     </div>
                     <DetailItem label={t("detail.fullPathCode")} value={pathCode} isMono />
+                    {/* Zone 5: minimal, self-contained receiving-buffer designation
+                        control -- independent of this panel's existing
+                        stockPolicy/capabilities model (which has its own,
+                        unrelated `canReceive` concept). */}
+                    <div className="mt-4 border-t border-border pt-4">
+                      <LocationPurposeControl locationId={location.id} />
+                    </div>
                   </div>
                 </section>
 

@@ -650,6 +650,64 @@ describe("WarehouseLocationsService.update", () => {
       expect((result as { success: false; error: string }).error).toMatch(/already exists/i);
   });
 
+  it("Zone 5: disambiguates a receiving-location UNIQUE violation from a duplicate-code one (same 23505 code, different constraint)", async () => {
+    const current = makeLocation({ id: "loc-1" });
+    const supabase = makeSupabaseMock([
+      { data: current, error: null },
+      {
+        data: null,
+        error: {
+          message:
+            'duplicate key value violates unique constraint "warehouse_locations_one_receiving_per_branch"',
+          code: "23505",
+        },
+      },
+    ]);
+    const result = await WarehouseLocationsService.update(
+      supabase as never,
+      ORG_ID,
+      "loc-1",
+      { purpose: "receiving" } as never,
+      USER_ID
+    );
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect((result as { success: false; error: string }).error).toMatch(
+        /already has an active receiving location/i
+      );
+      expect((result as { success: false; error: string }).error).not.toMatch(
+        /code already exists/i
+      );
+    }
+  });
+
+  it("Zone 5: returns a friendly error on the stockable-receiving CHECK violation (23514)", async () => {
+    const current = makeLocation({ id: "loc-1" });
+    const supabase = makeSupabaseMock([
+      { data: current, error: null },
+      {
+        data: null,
+        error: {
+          message:
+            'new row for relation "warehouse_locations" violates check constraint "warehouse_locations_receiving_must_be_stockable"',
+          code: "23514",
+        },
+      },
+    ]);
+    const result = await WarehouseLocationsService.update(
+      supabase as never,
+      ORG_ID,
+      "loc-1",
+      { purpose: "receiving" } as never,
+      USER_ID
+    );
+    expect(result.success).toBe(false);
+    if (!result.success)
+      expect((result as { success: false; error: string }).error).toMatch(
+        /only a stockable location/i
+      );
+  });
+
   it("rejects when group belongs to a different branch", async () => {
     const current = makeLocation({ id: "loc-1", parent_id: null, group_id: null });
     const group = makeGroup({ id: "group-x", branch_id: "other-branch" });

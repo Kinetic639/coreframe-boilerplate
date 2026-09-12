@@ -494,10 +494,34 @@ export class WarehouseLocationsService {
       .single();
 
     if (error) {
+      // Zone 5: the two new receiving-location constraints share error codes
+      // with pre-existing checks (23505/23514), so they must be
+      // disambiguated by constraint name, not code alone -- otherwise a
+      // receiving-location conflict would surface the wrong ("duplicate
+      // code") message.
+      if (
+        error.code === "23505" &&
+        error.message?.includes("warehouse_locations_one_receiving_per_branch")
+      ) {
+        return {
+          success: false,
+          error:
+            "This branch already has an active receiving location. Remove or reassign it first.",
+        };
+      }
       if (error.code === "23505") {
         return {
           success: false,
           error: "A location with this code already exists under the same parent location",
+        };
+      }
+      if (
+        error.code === "23514" &&
+        error.message?.includes("warehouse_locations_receiving_must_be_stockable")
+      ) {
+        return {
+          success: false,
+          error: "Only a stockable location can be designated as the receiving location.",
         };
       }
       return { success: false, error: error.message };

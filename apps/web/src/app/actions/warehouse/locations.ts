@@ -403,6 +403,53 @@ export async function getLocationDetailAction(id: string) {
   }
 }
 
+/**
+ * Zone 5 -- minimal, dedicated read for the "Purpose" control
+ * (LocationPurposeControl). Deliberately its own tiny action rather than
+ * extending `LOCATION_COLUMNS`/`WarehouseLocation` (the shared Ambra visual
+ * model + its mapping layer) -- avoids widening the blast radius of adding
+ * `purpose` into a large, richly-modeled system this pass did not have time
+ * to fully map, while still giving the new control real, live current state.
+ */
+export async function getLocationPurposeAction(
+  id: string
+): Promise<
+  | { success: true; data: { purpose: "standard" | "receiving"; canStoreInventory: boolean } }
+  | { success: false; error: string }
+> {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return { success: false, error: auth.error };
+
+    if (!checkPermission(auth.context.user.permissionSnapshot, WAREHOUSE_LOCATIONS_READ)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("warehouse_locations")
+      .select("id, purpose, can_store_inventory")
+      .eq("id", id)
+      .eq("organization_id", auth.context.app.activeOrgId)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (error) return { success: false, error: "Could not load location purpose." };
+    if (!data) return { success: false, error: "Location not found" };
+    return {
+      success: true,
+      data: {
+        purpose: (data.purpose as "standard" | "receiving") ?? "standard",
+        canStoreInventory: Boolean(data.can_store_inventory),
+      },
+    };
+  } catch (error) {
+    const mapped = mapEntitlementError(error);
+    if (mapped) return { success: false, error: mapped.message };
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
 export async function listPlacedLocationIdsAction() {
   try {
     const auth = await requireWarehouseContext();

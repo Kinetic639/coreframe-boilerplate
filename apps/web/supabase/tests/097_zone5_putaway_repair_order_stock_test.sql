@@ -11,7 +11,7 @@
 
 BEGIN;
 
-SELECT plan(6);
+SELECT plan(7);
 
 CREATE TEMP TABLE fx (
   org uuid, branch uuid, e2e_user uuid,
