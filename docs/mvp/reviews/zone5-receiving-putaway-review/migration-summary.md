@@ -1,11 +1,12 @@
 # Zone 5 — Migration Summary
 
 **None of the five migrations below have been applied to any live or local database.** Supabase
-MCP was unavailable for this entire implementation session (both passes); there was no running
-local Postgres/Docker stack either (see `review-context.md` for the exact evidence). Every row's
-"Live verification" and "Local/live parity" columns are therefore **BLOCKED ON MCP**, not
-performed, not fabricated. This revision reflects the correction pass applied after external
-review of the first bundle — changes from that pass are marked **CORRECTED** below.
+MCP was unavailable for this entire implementation session (all three correction passes); there
+was no running local Postgres/Docker stack either (see `review-context.md` for the exact
+evidence). Every row's "Live verification" and "Local/live parity" columns are therefore
+**BLOCKED ON MCP**, not performed, not fabricated. This revision reflects all three correction
+passes applied after external review — changes are marked **[CORRECTED this pass]** or
+**[CORRECTED again this pass]** inline, with the specific pass identified in context.
 
 ## 1. `20260912090000_zone5_receiving_location_purpose.sql`
 
