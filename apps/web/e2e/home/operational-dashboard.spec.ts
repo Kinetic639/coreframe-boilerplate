@@ -16,6 +16,11 @@ test.describe("operational home", () => {
     ).toBeAttached();
     await expect(page.getByTestId("home-branch")).not.toHaveText("");
     await expect(home.getByRole("heading", { name: "Twoja ostatnia aktywność" })).toBeVisible();
+    const planning = home.getByRole("region", { name: "Organizacja pracy" });
+    await expect(planning).toBeVisible();
+    await expect(planning.getByRole("heading", { name: "Dzisiaj" })).toBeVisible();
+    await expect(planning.getByRole("heading", { name: "Zadania" })).toBeVisible();
+    await expect(planning.getByRole("heading", { name: "Kanban" })).toBeVisible();
     await expect(home.getByRole("status")).toHaveCount(0);
     for (const [width, height] of [
       [320, 800],
@@ -48,6 +53,24 @@ test.describe("operational home", () => {
     await refresh.click();
     await expect(refresh).toBeEnabled();
     expect(fatal).toEqual([]);
+  });
+
+  test("planning summary links resolve to canonical Planning surfaces", async ({ page }) => {
+    const planning = page.getByRole("region", { name: "Organizacja pracy" });
+    await expect(planning).toBeVisible({ timeout: 30_000 });
+    const destinations = [
+      ["Otwórz kalendarz", /\/dashboard\/planowanie$/],
+      ["Otwórz zadania", /\/dashboard\/planowanie\/zadania$/],
+      ["Otwórz tablicę", /\/dashboard\/planowanie\/tablice/],
+    ] as const;
+    for (const [name, destination] of destinations) {
+      await planning.getByRole("link", { name, exact: true }).click();
+      await expect(page).toHaveURL(destination, { timeout: 30_000 });
+      await page.goBack({ waitUntil: "commit" });
+      await expect(page.getByRole("region", { name: "Organizacja pracy" })).toBeVisible({
+        timeout: 30_000,
+      });
+    }
   });
 
   test("all selectable skins in light and dark retain tokens and fit the page", async ({
@@ -123,7 +146,7 @@ test.describe("operational home", () => {
       });
       await expect(page.getByText("404", { exact: true })).toHaveCount(0);
       await expect(page.getByText("Application error", { exact: false })).toHaveCount(0);
-      await page.goto("/dashboard/start", { waitUntil: "domcontentloaded" });
+      await page.goBack({ waitUntil: "commit" });
       await expect(page.getByTestId("home-dashboard")).toBeVisible({ timeout: 30_000 });
       await expect(page.getByTestId("home-dashboard").getByRole("status")).toHaveCount(0, {
         timeout: 30_000,

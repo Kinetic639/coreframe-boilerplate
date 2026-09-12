@@ -11,6 +11,26 @@ import {
 } from "@/lib/constants/permissions";
 import { MODULE_WAREHOUSE, MODULE_HELPDESK, MODULE_PLANNING } from "@/lib/constants/modules";
 import type { ProjectedEvent } from "@/server/audit/types";
+import type { PlanningTaskListRow } from "@/server/services/planning-tasks.service";
+import type { CalendarEventDTO } from "@/lib/types/planning-calendar";
+
+export interface HomePlanningSummary {
+  timeZone: string;
+  todayItems: Array<
+    CalendarEventDTO & {
+      calendarLabel: string;
+      calendarColor: string;
+    }
+  >;
+  tasks: PlanningTaskListRow[];
+  openCount: number;
+  inProgressCount: number;
+  board: {
+    id: string;
+    title: string;
+    columns: Array<{ id: string; title: string; color: string | null; count: number }>;
+  } | null;
+}
 
 export type HomeAction = "tools" | "locations" | "tickets" | "tasks";
 export type WidgetResult<T> = { state: "ready"; data: T } | { state: "unavailable" };

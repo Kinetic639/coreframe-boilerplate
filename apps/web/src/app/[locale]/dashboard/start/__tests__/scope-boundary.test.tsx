@@ -15,26 +15,16 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/lib/stores/v2/app-store", () => ({
   useAppStoreV2: (select: (s: typeof mocks.state) => unknown) => select(mocks.state),
 }));
-import { HomeScopeBoundary } from "../_components/scope-boundary";
+import { HomeRefreshControl, HomeScopeBoundary } from "../_components/scope-boundary";
 afterEach(cleanup);
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.state = { activeOrgId: "org", activeBranchId: "a", isLoaded: true };
 });
 const view = (branchId = "a") => (
-  <HomeScopeBoundary
-    orgId="org"
-    branchId={branchId}
-    refreshLabel="Refresh"
-    refreshedAtLabel="Refreshed at 10:30"
-    loadingLabel="Changing branch"
-  >
-    {(refreshControl) => (
-      <>
-        {refreshControl}
-        <span>Private branch content</span>
-      </>
-    )}
+  <HomeScopeBoundary orgId="org" branchId={branchId} loadingLabel="Changing branch">
+    <HomeRefreshControl refreshLabel="Refresh" refreshedAtLabel="Refreshed at 10:30" />
+    <span>Private branch content</span>
   </HomeScopeBoundary>
 );
 describe("tab-local branch boundary", () => {

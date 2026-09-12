@@ -27,11 +27,8 @@ vi.mock("../_lib/data", () => ({
   loadOpenTaskCount: mocks.tasks,
 }));
 vi.mock("../_components/scope-boundary", () => ({
-  HomeScopeBoundary: ({
-    children,
-  }: {
-    children: ReactNode | ((refreshControl: ReactNode) => ReactNode);
-  }) => <div>{typeof children === "function" ? children(<button>Refresh</button>) : children}</div>,
+  HomeScopeBoundary: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  HomeRefreshControl: () => <button>Refresh</button>,
 }));
 import Page from "../page";
 import { AttentionWidget } from "../_components/attention-widget";

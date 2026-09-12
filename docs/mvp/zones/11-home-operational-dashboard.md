@@ -6,7 +6,7 @@
 
 Ta strefa jest aktywną strefą produktową wydzieloną z dawnej Strefy 16 („VMI, pulpit startowy i pozostałe drugorzędne powierzchnie produktu”) oraz potwierdzającej wzmianki w dawnej Strefie 19 („...zbiorczy dashboard”). W przeciwieństwie do VMI i szerszej analityki (które pozostają wyłącznie roadmapą — patrz [Product Roadmap](../planning/product-roadmap.md) oraz zarchiwizowane audyty dawnych Stref 16/19), wspólny pulpit startowy jest teraz minimalnym, realnym centrum operacyjnym: pokazuje kontekst, dozwolone wejścia do pracy, rzeczywistą kolejkę ważnych ticketów i osobistą aktywność. Zaakceptowany audyt pustego placeholdera pozostaje niżej bez zmian jako historia stanu przed implementacją.
 
-**Dlaczego 🟡 PARTIAL, mimo zakończonego zakresu samej strony:** kod Strefy 11 przechodzi 35 testów Vitest, scoped ESLint, pełny `tsc --noEmit` i pięć testów Playwright na żywych danych. Zweryfikowano branch scope, empty/populated state, nawigację, responsive layout oraz 30 kombinacji 15 skins × light/dark. Nie można jednak oznaczyć strefy jako DEMO READY według przyjętej definicji, dopóki pełny `next build` aplikacji kończy się błędem istniejącej trasy auth bez root layoutu. Ten błąd nie pochodzi ze Strefy 11 i nie jest naprawiany w tym izolowanym workstreamie.
+**Dlaczego 🟡 PARTIAL, mimo zakończonego zakresu samej strony:** kod Strefy 11 przechodzi 38 testów Vitest, scoped ESLint, pełny `tsc --noEmit` i sześć testów Playwright na żywych danych. Zweryfikowano branch scope, empty/populated state, nawigację, responsive layout oraz 30 kombinacji 15 skins × light/dark. Nie można jednak oznaczyć strefy jako DEMO READY według przyjętej definicji, dopóki pełny `next build` aplikacji kończy się błędem istniejącej trasy auth bez root layoutu. Ten błąd nie pochodzi ze Strefy 11 i nie jest naprawiany w tym izolowanym workstreamie.
 
 **Wymagany stan dla pitchu:** DEMO READY
 
@@ -71,6 +71,7 @@ Dokładne widżety/zakres NIE są tu decydowane — to zadanie dla właściwego 
 - Pasek operacyjny pokazuje wyłącznie dwa wiarygodne, dokładne liczniki dla aktywnego oddziału: tickety wymagające uwagi oraz zadania w stanach `open`/`in_progress`. Liczniki są powtórzone jako krótkie sygnały na odpowiednich kartach modułów. Niedostępny odczyt jest pomijany, a nie zastępowany fikcyjnym zerem.
 - Widżet ticketów dziedziczy konfigurację kolorów i etykiet priorytetów organizacji oraz istniejący styl typu ticketu (kolorowana kropka i obrys). Ustawienia wizualne są opcjonalne: ich awaria nie ukrywa właściwej kolejki.
 - Ostatnia aktywność używa istniejącej, autoryzowanej projekcji `getPersonalActivityAction`, jest ograniczona do pięciu elementów po odfiltrowaniu innych oddziałów i zachowuje zdarzenia konta/organizacji z `branch_id = null`. Renderuje kompaktową oś czasu z istniejącą kategorią zdarzenia i rzeczywistym timestampem.
+- Sekcja organizacji pracy konsumuje istniejące kontrakty Planning: dzisiejszy agregat kalendarza użytkownika, branch-scoped zadania `open`/`in_progress` oraz pierwszą widoczną tablicę Kanban z jej rzeczywistymi kolumnami. Nie definiuje nowych statusów, zdarzeń ani modelu cykliczności.
 - Mikrointerakcje korzystają z CSS i istniejących tokenów; nie dodano klientowej granicy ani biblioteki animacji do kart. Ruch jest krótki, a transformacje i spinner respektują `prefers-reduced-motion`.
 - RepairOrders, dostawy, rezerwacje, alokacje, kontenery, wydania, materiały, dostawcy, audyty i powiadomienia nie są źródłami widżetów tej wersji.
 
@@ -89,6 +90,7 @@ Dokładne widżety/zakres NIE są tu decydowane — to zadanie dla właściwego 
 - Jedyną nową granicą klienta jest `HomeScopeBoundary`: synchronizacja kontekstu oddziału i ręczne odświeżenie. Brak pollingu, chart library i klientowego pobierania danych domenowych.
 - Adapter ticketów korzysta z istniejącego `HelpdeskTicketsService.listForDataView` z zakresem `orgId`, `branchId`, limitem pięciu rekordów i dokładnym `count`.
 - Licznik zadań korzysta z istniejącego `PlanningTasksService.listForDataView`, `pageSize: 1`, dokładnego `count`, aktywnego `branch_id` i stanów `open`/`in_progress`; pulpit nie przejmuje logiki planowania.
+- Podgląd Planning używa `PlanningTasksService`, `getPlanningCalendarDataAction`, `KanbanBoardsService` i `UserPreferencesService`. „Dzisiaj” jest wyliczane w zapisanej strefie czasowej użytkownika; kalendarz zachowuje własny org/user scope, zadania są dodatkowo ograniczone do aktywnego oddziału, a Kanban zachowuje swój istniejący model widoczności prywatnej/publicznej.
 - Adapter aktywności korzysta z istniejącej projekcji widoczności zdarzeń, a nie z surowej tabeli audytowej.
 - Błąd opcjonalnego widżetu jest zamieniany na neutralny stan `unavailable`; treść błędu Supabase/SQL nie trafia do UI.
 - Komponenty używają istniejących prymitywów `Card`, `Badge`, `Button`, `Skeleton`, `Link` i tokenów semantycznych. Nie dodano biblioteki ani systemu stylistycznego.
@@ -105,12 +107,13 @@ Dokładne widżety/zakres NIE są tu decydowane — to zadanie dla właściwego 
 - [x] Zweryfikowano wszystkie 15 selectable skins w light i dark (30 kombinacji tokenów); wizualnie przejrzano Default light, Graphite dark i widoki mobilne.
 - [x] Testy jednostkowe/komponentowe obejmują dostęp, scope, mapowanie, empty/error i formatowanie.
 - [x] Playwright potwierdza dokładne adresy czterech wejść, otwieranie dostępnych tras Narzędzi i Ticketów, kolejkę, nawigację klawiaturą, ręczny refresh, globalne menu szybkiego dodawania oraz zmianę i przywrócenie oddziału bez fatalnych błędów konsoli na stronie. Istniejące redirecty Lokalizacji i Zadań opisano wyżej.
+- [x] Podgląd Planning pokazuje realny empty/populated state i prowadzi do kanonicznych powierzchni Kalendarza, Zadań i Tablicy.
 - [x] Scoped ESLint oraz pełny `tsc --noEmit` kończą się kodem 0.
 - [ ] Pełny build całej aplikacji przechodzi — obecnie blokuje go istniejący route-level problem poza Strefą 11 opisany wyżej.
 
 ### Final pitch scope
 
-Pokazać krótko: aktywny oddział → cztery dozwolone wejścia do pracy → realna kolejka ważnych ticketów → osobista ostatnia aktywność. Podkreślić, że każdy element prowadzi do działania. Nie nazywać tego analityką całego warsztatu, nie pokazywać trendów i nie obiecywać jeszcze podsumowań RepairOrders/dostaw.
+Pokazać krótko: aktywny oddział → cztery dozwolone wejścia do pracy → realny plan dnia, zadania i snapshot Kanban → kolejka ważnych ticketów → osobista ostatnia aktywność. Podkreślić, że każdy element prowadzi do działania. Nie nazywać tego analityką całego warsztatu, nie pokazywać trendów i nie obiecywać jeszcze podsumowań RepairOrders/dostaw ani zadań cyklicznych.
 
 ### Final controlled-pilot scope
 
@@ -123,6 +126,6 @@ Pokazać krótko: aktywny oddział → cztery dozwolone wejścia do pracy → re
 
 - Kod i testy są odizolowane w worktree `D:\dev\ambra-zone11-dashboard` na branchu `codex/zone11-home-dashboard`, utworzonym z `c5d9e47f`.
 - Weryfikacja końcowa obejmuje scoped Vitest i ESLint, pełny `tsc --noEmit`, próbę pełnego Next build, Playwright Chromium oraz manualny przegląd screenshotów.
-- Wyniki z 2026-09-11: Vitest 4/4 plików i 35/35 testów; Playwright Chromium 5/5 testów; ESLint exit 0; `tsc --noEmit` exit 0; `git diff --check` exit 0.
+- Wyniki z 2026-09-12: Vitest 5/5 plików i 38/38 testów; Playwright Chromium 6/6 testów; ESLint exit 0; `tsc --noEmit` exit 0; `git diff --check` exit 0.
 - Próba pełnego `next build --webpack`: FAIL przed sprawdzeniem wszystkich tras — `auth/auth-code-error/page.tsx doesn't have a root layout`. Jest to istniejący plik poza zakresem i bez zmian w tej gałęzi.
 - Nie zmieniono migracji, RLS, schematu, RPC, RepairOrders, Matchera, ruchów magazynowych, rezerwacji, alokacji ani kontenerów.
