@@ -3,12 +3,17 @@ import { Link } from "@/i18n/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { checkPermission } from "@/lib/utils/permissions";
-import { WORKSHOP_REPAIR_ORDERS_READ } from "@/lib/constants/permissions";
+import {
+  WORKSHOP_REPAIR_ORDERS_READ,
+  WORKSHOP_REPAIR_ORDERS_MANAGE_OWN,
+  WORKSHOP_REPAIR_ORDERS_MANAGE_ALL,
+} from "@/lib/constants/permissions";
 import { createClient } from "@/utils/supabase/server";
 import { RepairOrdersService } from "@/server/services/repair-orders.service";
-import { Wrench, FileSearch, ChevronRight } from "lucide-react";
+import { Wrench, FileSearch, ChevronRight, Plus } from "lucide-react";
 import { RepairOrdersSearch } from "./_components/repair-orders-search";
 import { RepairOrderStatusBadge } from "./_components/repair-order-status-badge";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableHeader,
@@ -56,6 +61,9 @@ export default async function WorkshopOverviewPage({ searchParams }: PageProps =
   const t = await getTranslations("modules.workshop.repairOrders");
   const resolvedParams = searchParams ? await searchParams : {};
   const query = firstValue(resolvedParams.q).trim();
+  const canCreate =
+    checkPermission(context.user.permissionSnapshot, WORKSHOP_REPAIR_ORDERS_MANAGE_OWN) ||
+    checkPermission(context.user.permissionSnapshot, WORKSHOP_REPAIR_ORDERS_MANAGE_ALL);
 
   const supabase = await createClient();
   const orgId = context.app.activeOrgId;
@@ -85,7 +93,17 @@ export default async function WorkshopOverviewPage({ searchParams }: PageProps =
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">{t("subtitle")}</p>
         </div>
-        <RepairOrdersSearch initialQuery={query} />
+        <div className="flex flex-wrap items-center gap-2">
+          <RepairOrdersSearch initialQuery={query} />
+          {canCreate && (
+            <Button asChild size="sm" data-testid="new-repair-order-link">
+              <Link href="/dashboard/workshop/new">
+                <Plus className="mr-1.5 h-4 w-4" />
+                {t("newOrder.cta")}
+              </Link>
+            </Button>
+          )}
+        </div>
       </div>
 
       {loadError ? (

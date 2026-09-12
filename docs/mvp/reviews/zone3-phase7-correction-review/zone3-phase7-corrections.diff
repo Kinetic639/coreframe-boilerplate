@@ -1,0 +1,1081 @@
+diff --git a/apps/web/src/app/[locale]/dashboard/workshop/[id]/_components/__tests__/repair-order-header-editor.test.tsx b/apps/web/src/app/[locale]/dashboard/workshop/[id]/_components/__tests__/repair-order-header-editor.test.tsx
+index 93b2cb7f..f64e64b5 100644
+--- a/apps/web/src/app/[locale]/dashboard/workshop/[id]/_components/__tests__/repair-order-header-editor.test.tsx
++++ b/apps/web/src/app/[locale]/dashboard/workshop/[id]/_components/__tests__/repair-order-header-editor.test.tsx
+@@ -203,6 +203,22 @@ describe("RepairOrderHeaderEditor -- header edit visibility/behavior", () => {
+     expect(screen.queryByTestId("edit-header-button")).not.toBeInTheDocument();
+   });
+ 
++  it("correction pass Finding B: hides the Edit control for manage_all too once the order is archived (repair_orders_update's RLS now makes archived DB-terminal for everyone, not just manage_own)", () => {
++    render(
++      <RepairOrderHeaderEditor
++        order={{ ...BASE_ORDER, status: "archived" }}
++        advisorCandidates={[]}
++        canManageOwn={false}
++        canManageAll={true}
++        ownAdvisorContactId={null}
++        createdAtLabel="x"
++        updatedAtLabel="y"
++      />
++    );
++
++    expect(screen.queryByTestId("edit-header-button")).not.toBeInTheDocument();
++  });
++
+   it("shows no lifecycle actions at all once the order is archived (terminal state)", () => {
+     render(
+       <RepairOrderHeaderEditor
+diff --git a/apps/web/src/app/[locale]/dashboard/workshop/[id]/_components/repair-order-header-editor.tsx b/apps/web/src/app/[locale]/dashboard/workshop/[id]/_components/repair-order-header-editor.tsx
+index eb8b039f..968796ae 100644
+--- a/apps/web/src/app/[locale]/dashboard/workshop/[id]/_components/repair-order-header-editor.tsx
++++ b/apps/web/src/app/[locale]/dashboard/workshop/[id]/_components/repair-order-header-editor.tsx
+@@ -61,14 +61,14 @@ export function RepairOrderHeaderEditor({
+   const router = useRouter();
+ 
+   const isOwner = order.advisorContactId !== null && order.advisorContactId === ownAdvisorContactId;
+-  // A manage_own-only actor's RLS WITH CHECK unconditionally rejects any
+-  // write once the row's status is 'archived' (not just status writes --
+-  // any header edit too, since the NEW row's status remains 'archived'
+-  // either way) -- so header editing is manage_own-disallowed once
+-  // archived, matching repair_orders_update's live policy exactly.
+-  // manage_all has no such restriction.
+-  const canEditHeader =
+-    canManageAll || (canManageOwn && isOwner && order.status !== "archived");
++  // Correction pass Finding B: repair_orders_update's RLS now makes an
++  // already-archived row unreachable for UPDATE by ANYONE (its USING
++  // clause requires status <> 'archived', evaluated against the CURRENT
++  // row) -- archived is DB-terminal for manage_all too, not just
++  // manage_own. The UI mirrors this exactly so a manage_all caller never
++  // sees an Edit control that would silently no-op against the DB.
++  const isArchived = order.status === "archived";
++  const canEditHeader = !isArchived && (canManageAll || (canManageOwn && isOwner));
+   const canReassignAdvisor = canManageAll;
+   const canChangeStatus = canManageAll || (canManageOwn && isOwner);
+ 
+diff --git a/apps/web/src/app/[locale]/dashboard/workshop/[id]/page.tsx b/apps/web/src/app/[locale]/dashboard/workshop/[id]/page.tsx
+index 731fa284..f709ce31 100644
+--- a/apps/web/src/app/[locale]/dashboard/workshop/[id]/page.tsx
++++ b/apps/web/src/app/[locale]/dashboard/workshop/[id]/page.tsx
+@@ -57,7 +57,7 @@ export default async function RepairOrderDetailPage({ params }: PageProps) {
+       ? RepairOrdersService.listAdvisorCandidates(supabase, orgId)
+       : Promise.resolve({ success: true as const, data: [] }),
+     canManageOwn && !canManageAll && context.user.user?.id
+-      ? RepairOrdersService.getOwnAdvisorContactId(supabase, orgId, context.user.user.id)
++      ? RepairOrdersService.getOwnAdvisorContactId(supabase, orgId)
+       : Promise.resolve({ success: true as const, data: null }),
+   ]);
+ 
+diff --git a/apps/web/src/app/[locale]/dashboard/workshop/new/page.tsx b/apps/web/src/app/[locale]/dashboard/workshop/new/page.tsx
+index 0a3b6221..a487038f 100644
+--- a/apps/web/src/app/[locale]/dashboard/workshop/new/page.tsx
++++ b/apps/web/src/app/[locale]/dashboard/workshop/new/page.tsx
+@@ -52,7 +52,7 @@ export default async function NewRepairOrderPage() {
+ 
+   const ownAdvisorResult =
+     canManageOwn && !canManageAll && context.user.user?.id
+-      ? await RepairOrdersService.getOwnAdvisorContactId(supabase, orgId, context.user.user.id)
++      ? await RepairOrdersService.getOwnAdvisorContactId(supabase, orgId)
+       : { success: true as const, data: null };
+   const ownAdvisorContactId = ownAdvisorResult.success ? ownAdvisorResult.data : null;
+ 
+diff --git a/apps/web/src/app/actions/workshop/repair-orders.ts b/apps/web/src/app/actions/workshop/repair-orders.ts
+index 393f805d..7c04a4bb 100644
+--- a/apps/web/src/app/actions/workshop/repair-orders.ts
++++ b/apps/web/src/app/actions/workshop/repair-orders.ts
+@@ -76,11 +76,7 @@ export async function createRepairOrderAction(
+     if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+ 
+     if (!hasManageAll && parsed.data.advisor_contact_id) {
+-      const ownContactResult = await RepairOrdersService.getOwnAdvisorContactId(
+-        supabase,
+-        orgId,
+-        user.id
+-      );
++      const ownContactResult = await RepairOrdersService.getOwnAdvisorContactId(supabase, orgId);
+       const ownContactId = ownContactResult.success ? ownContactResult.data : null;
+       if (parsed.data.advisor_contact_id !== ownContactId) {
+         return {
+diff --git a/apps/web/src/server/services/__tests__/repair-orders.service.test.ts b/apps/web/src/server/services/__tests__/repair-orders.service.test.ts
+index b278e2ff..75542cbd 100644
+--- a/apps/web/src/server/services/__tests__/repair-orders.service.test.ts
++++ b/apps/web/src/server/services/__tests__/repair-orders.service.test.ts
+@@ -1,5 +1,5 @@
+ // @vitest-environment node
+-import { describe, it, expect, vi, beforeEach } from "vitest";
++import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+ 
+ vi.mock("../event.service", () => ({
+   eventService: {
+@@ -666,7 +666,10 @@ describe("RepairOrdersService.createRepairOrder", () => {
+   it("maps a 23505 unique-constraint violation to a clear duplicate-zl_number error", async () => {
+     const mock = makeChainableQueryMock({
+       data: null,
+-      error: { code: "23505", message: "duplicate key value violates unique constraint" },
++      error: {
++        code: "23505",
++        message: 'duplicate key value violates unique constraint "repair_orders_identity_unique"',
++      },
+     });
+ 
+     const result = await RepairOrdersService.createRepairOrder(
+@@ -734,7 +737,10 @@ describe("RepairOrdersService.updateHeader", () => {
+   it("maps a 23505 unique-constraint violation to a clear duplicate-zl_number error", async () => {
+     const mock = makeChainableQueryMock({
+       data: null,
+-      error: { code: "23505", message: "duplicate key" },
++      error: {
++        code: "23505",
++        message: 'duplicate key value violates unique constraint "repair_orders_identity_unique"',
++      },
+     });
+ 
+     const result = await RepairOrdersService.updateHeader(
+@@ -870,20 +876,218 @@ describe("RepairOrdersService.listAdvisorCandidates", () => {
+   });
+ });
+ 
++/**
++ * Correction pass Finding A (CONFIRMED, fixed): getOwnAdvisorContactId now
++ * calls the get_own_advisor_contact_id(p_organization_id) RPC -- a
++ * SECURITY DEFINER function that bypasses crm_contacts' own RLS -- instead
++ * of a plain authenticated SELECT against crm_contacts, which was itself
++ * subject to that RLS (requiring a separate crm.contacts.read grant the
++ * caller may not hold) and silently returned nothing even for a genuine
++ * self-linked contact. Live-reproduced and fixed; see
++ * 094_repair_orders_correction_pass_rls_test.sql T1/T2 for the live-RLS
++ * proof. These tests cover the service-layer RPC-calling contract.
++ */
+ describe("RepairOrdersService.getOwnAdvisorContactId", () => {
+-  it("returns the caller's own linked crm_contacts id when one exists", async () => {
+-    const mock = makeChainableQueryMock({ data: { id: "contact-1" }, error: null });
++  function makeRpcMock(result: { data: unknown; error: unknown }) {
++    const rpc = vi.fn().mockResolvedValue(result);
++    return { mock: { rpc } as unknown as import("@supabase/supabase-js").SupabaseClient, rpc };
++  }
+ 
+-    const result = await RepairOrdersService.getOwnAdvisorContactId(mock as never, "org-1", "user-1");
++  it("calls the get_own_advisor_contact_id RPC with the org id, never the raw crm_contacts table", async () => {
++    const { mock, rpc } = makeRpcMock({ data: "contact-1", error: null });
++
++    const result = await RepairOrdersService.getOwnAdvisorContactId(mock, "org-1");
+ 
+     expect(result).toEqual({ success: true, data: "contact-1" });
++    expect(rpc).toHaveBeenCalledWith("get_own_advisor_contact_id", { p_organization_id: "org-1" });
+   });
+ 
+   it("returns null (not an error) when the caller has no linked contact", async () => {
+-    const mock = makeChainableQueryMock({ data: null, error: null });
++    const { mock } = makeRpcMock({ data: null, error: null });
+ 
+-    const result = await RepairOrdersService.getOwnAdvisorContactId(mock as never, "org-1", "user-1");
++    const result = await RepairOrdersService.getOwnAdvisorContactId(mock, "org-1");
+ 
+     expect(result).toEqual({ success: true, data: null });
+   });
++
++  it("normalizes an unexpected RPC error to a generic safe message, not the raw error text", async () => {
++    const { mock } = makeRpcMock({
++      data: null,
++      error: { code: "XX000", message: "connection terminated unexpectedly" },
++    });
++
++    const result = await RepairOrdersService.getOwnAdvisorContactId(mock, "org-1");
++
++    expect(result.success).toBe(false);
++    const error = (result as { success: false; error: string }).error;
++    expect(error).not.toContain("connection terminated");
++  });
++});
++
++/**
++ * Correction pass Finding E (CONFIRMED, fixed): every Phase 7 plain-CRUD
++ * method previously returned raw `error.message` for any non-23505
++ * failure. normalizeRepairOrderCrudError (used by all five methods below)
++ * now logs the full error server-side and returns one generic, safe
++ * message for anything outside its small, curated allowlist (duplicate
++ * zl_number; cross-org/invalid advisor_contact_id FK violation).
++ */
++describe("RepairOrdersService error normalization (Finding E)", () => {
++  const ORIGINAL_CONSOLE_ERROR = console.error;
++  beforeEach(() => {
++    console.error = vi.fn();
++  });
++  afterEach(() => {
++    console.error = ORIGINAL_CONSOLE_ERROR;
++  });
++
++  it("createRepairOrder: an unexpected RLS/constraint error is replaced with a generic message, not leaked verbatim", async () => {
++    const mock = makeChainableQueryMock({
++      data: null,
++      error: {
++        code: "42501",
++        message: 'new row violates row-level security policy for table "repair_orders"',
++      },
++    });
++
++    const result = await RepairOrdersService.createRepairOrder(
++      mock as never,
++      "org-1",
++      "branch-1",
++      "user-1",
++      {}
++    );
++
++    expect(result.success).toBe(false);
++    const error = (result as { success: false; error: string }).error;
++    expect(error).not.toContain("row-level security");
++    expect(error).not.toContain("repair_orders");
++  });
++
++  it("createRepairOrder: a cross-org/invalid advisor FK violation gets a clear, specific, non-leaking message", async () => {
++    const mock = makeChainableQueryMock({
++      data: null,
++      error: {
++        code: "23503",
++        message:
++          'insert or update on table "repair_orders" violates foreign key constraint "repair_orders_advisor_contact_id_fkey"',
++      },
++    });
++
++    const result = await RepairOrdersService.createRepairOrder(
++      mock as never,
++      "org-1",
++      "branch-1",
++      "user-1",
++      { advisor_contact_id: "22222222-2222-2222-2222-222222222222" }
++    );
++
++    expect(result.success).toBe(false);
++    const error = (result as { success: false; error: string }).error;
++    expect(error).toContain("advisor");
++    expect(error).not.toContain("constraint");
++    expect(error).not.toContain("foreign key");
++  });
++
++  it("createRepairOrder: the duplicate-zl_number 23505 case is still specifically labeled, not swallowed by the generic fallback", async () => {
++    const mock = makeChainableQueryMock({
++      data: null,
++      error: {
++        code: "23505",
++        message:
++          'duplicate key value violates unique constraint "repair_orders_identity_unique"',
++      },
++    });
++
++    const result = await RepairOrdersService.createRepairOrder(
++      mock as never,
++      "org-1",
++      "branch-1",
++      "user-1",
++      { zl_number: "ZL/DUP" }
++    );
++
++    expect(result).toEqual({
++      success: false,
++      error: "A RepairOrder with this ZL number already exists in this branch",
++    });
++  });
++
++  it("createRepairOrder: a 23505 on a DIFFERENT, unrelated constraint is NOT mislabeled as duplicate zl_number", async () => {
++    const mock = makeChainableQueryMock({
++      data: null,
++      error: { code: "23505", message: 'duplicate key value violates unique constraint "repair_orders_pkey"' },
++    });
++
++    const result = await RepairOrdersService.createRepairOrder(
++      mock as never,
++      "org-1",
++      "branch-1",
++      "user-1",
++      {}
++    );
++
++    expect(result.success).toBe(false);
++    const error = (result as { success: false; error: string }).error;
++    expect(error).not.toContain("ZL number");
++  });
++
++  it("assignAdvisor: a cross-org/invalid advisor FK violation gets the same clear, specific message", async () => {
++    const mock = makeChainableQueryMock({
++      data: null,
++      error: {
++        code: "23503",
++        message:
++          'insert or update on table "repair_orders" violates foreign key constraint "repair_orders_advisor_contact_id_fkey"',
++      },
++    });
++
++    const result = await RepairOrdersService.assignAdvisor(
++      mock as never,
++      "org-1",
++      "branch-1",
++      "user-1",
++      "ro-1",
++      "22222222-2222-2222-2222-222222222222"
++    );
++
++    expect(result.success).toBe(false);
++    expect((result as { success: false; error: string }).error).toContain("advisor");
++  });
++
++  it("changeStatus: an unexpected error is replaced with a generic message", async () => {
++    const mock = makeChainableQueryMock({
++      data: null,
++      error: { code: "XX000", message: "connection terminated unexpectedly" },
++    });
++
++    const result = await RepairOrdersService.changeStatus(
++      mock as never,
++      "org-1",
++      "branch-1",
++      "user-1",
++      "ro-1",
++      "open",
++      "closed"
++    );
++
++    expect(result.success).toBe(false);
++    expect((result as { success: false; error: string }).error).not.toBe(
++      "connection terminated unexpectedly"
++    );
++  });
++
++  it("listAdvisorCandidates: an unexpected error is replaced with a generic message", async () => {
++    const mock = makeChainableQueryMock({
++      data: null,
++      error: { code: "XX000", message: "connection terminated unexpectedly" },
++    });
++
++    const result = await RepairOrdersService.listAdvisorCandidates(mock as never, "org-1");
++
++    expect(result.success).toBe(false);
++    expect((result as { success: false; error: string }).error).not.toBe(
++      "connection terminated unexpectedly"
++    );
++  });
+ });
+diff --git a/apps/web/src/server/services/repair-orders.service.ts b/apps/web/src/server/services/repair-orders.service.ts
+index db77d2e2..9b418ff9 100644
+--- a/apps/web/src/server/services/repair-orders.service.ts
++++ b/apps/web/src/server/services/repair-orders.service.ts
+@@ -76,6 +76,37 @@ function normalizeMaterializationRpcError(error: { code?: string; message: strin
+   return "Materialization failed due to an unexpected server error. Please try again or contact support.";
+ }
+ 
++/**
++ * Correction pass Finding E (CONFIRMED, fixed here): the plain-CRUD Phase 7
++ * methods below (create/update/assign/changeStatus) previously returned raw
++ * `error.message` for any non-23505 failure -- unlike the curated
++ * allowlist-based normalization already established above for the
++ * materialization RPC's own four deliberate RAISEs. A genuinely unexpected
++ * error on a plain table INSERT/UPDATE (an RLS WITH CHECK violation, an FK
++ * violation -- including the new org-scoped advisor FK from Finding D's
++ * fix -- a connection error, etc.) was reaching the browser verbatim,
++ * revealing table/constraint/policy names. Every such error is now logged
++ * in full server-side (with the calling method name for context) and
++ * replaced with one generic, safe message before returning to the caller.
++ * The only specific, curated exceptions are the two already-safe, already-
++ * expected cases below -- matched by constraint name/column, not by
++ * errcode alone, so a different, unrelated future constraint on this table
++ * can never be mislabeled as one of these two.
++ */
++function normalizeRepairOrderCrudError(
++  methodName: string,
++  error: { code?: string; message: string }
++): string {
++  if (error.code === "23505" && error.message.includes("repair_orders_identity_unique")) {
++    return "A RepairOrder with this ZL number already exists in this branch";
++  }
++  if (error.code === "23503" && error.message.includes("advisor_contact_id")) {
++    return "The selected advisor is not valid for this organization";
++  }
++  console.error(`[RepairOrdersService.${methodName}] Unexpected DB error:`, error);
++  return "An unexpected error occurred. Please try again or contact support.";
++}
++
+ /**
+  * Typed, clean result of a materialization call -- the raw jsonb shape
+  * returned by the materialize_repair_orders_from_session RPC, mapped to a
+@@ -506,7 +537,9 @@ export class RepairOrdersService {
+       .is("deleted_at", null)
+       .order("display_name", { ascending: true });
+ 
+-    if (error) return { success: false, error: error.message };
++    if (error) {
++      return { success: false, error: normalizeRepairOrderCrudError("listAdvisorCandidates", error) };
++    }
+ 
+     return {
+       success: true,
+@@ -523,25 +556,42 @@ export class RepairOrdersService {
+    * manage_own-only actor's advisor_contact_id selection server-side
+    * (defense in depth ahead of repair_orders_insert's own RLS, which
+    * enforces the identical rule at the DB layer as the authoritative
+-   * gate). Returns null (not an error) when the caller has no linked
+-   * contact -- a real, valid state (e.g. an advisor identity not yet
+-   * created in CRM).
++   * gate), and by the detail page to determine UI ownership.
++   *
++   * Correction pass Finding A (CONFIRMED, fixed here): this previously
++   * performed a plain authenticated SELECT against crm_contacts
++   * (organization_id = :org AND linked_user_id = :user) -- itself subject
++   * to crm_contacts_select's own RLS (requires a separate crm.contacts.read
++   * grant), reintroducing in the application layer the exact same
++   * visibility bug already fixed at the RLS layer by
++   * is_own_advisor_contact(). Live-reproduced before fixing: a real
++   * self-linked crm_contacts row, for which is_own_advisor_contact()
++   * correctly returned true, returned ZERO rows from this exact query
++   * shape under an actor holding only workshop.repair_orders.manage_own/
++   * .read (no crm.contacts.read) -- meaning a genuine advisor without CRM
++   * access was shown as a non-owner on their own RepairOrder, and could not
++   * self-assign during manual creation. Fixed by calling the new
++   * get_own_advisor_contact_id(p_organization_id) SECURITY DEFINER RPC
++   * (20260911183702) instead -- derives identity from auth.uid() only (no
++   * caller-supplied user id parameter at all, unlike the previous plain
++   * query, which is why this method's own signature no longer takes a
++   * userId parameter either), organization-scoped, exposes only the
++   * resulting contact id. Returns null (not an error) when the caller has
++   * no linked contact -- a real, valid state (e.g. an advisor identity not
++   * yet created in CRM).
+    */
+   static async getOwnAdvisorContactId(
+     supabase: SupabaseClient,
+-    orgId: string,
+-    userId: string
++    orgId: string
+   ): Promise<ServiceResult<string | null>> {
+-    const { data, error } = await supabase
+-      .from("crm_contacts")
+-      .select("id")
+-      .eq("organization_id", orgId)
+-      .eq("linked_user_id", userId)
+-      .is("deleted_at", null)
+-      .maybeSingle();
++    const { data, error } = await supabase.rpc("get_own_advisor_contact_id", {
++      p_organization_id: orgId,
++    });
+ 
+-    if (error) return { success: false, error: error.message };
+-    return { success: true, data: (data as { id: string } | null)?.id ?? null };
++    if (error) {
++      return { success: false, error: normalizeRepairOrderCrudError("getOwnAdvisorContactId", error) };
++    }
++    return { success: true, data: (data as string | null) ?? null };
+   }
+ 
+   /**
+@@ -590,13 +640,7 @@ export class RepairOrdersService {
+       .single();
+ 
+     if (error) {
+-      if (error.code === "23505") {
+-        return {
+-          success: false,
+-          error: "A RepairOrder with this ZL number already exists in this branch",
+-        };
+-      }
+-      return { success: false, error: error.message };
++      return { success: false, error: normalizeRepairOrderCrudError("createRepairOrder", error) };
+     }
+ 
+     const header = mapRepairOrderHeader(data as RepairOrderHeaderDbRow);
+@@ -661,13 +705,7 @@ export class RepairOrdersService {
+     const { data, error } = await query.select(HEADER_COLUMNS).maybeSingle();
+ 
+     if (error) {
+-      if (error.code === "23505") {
+-        return {
+-          success: false,
+-          error: "A RepairOrder with this ZL number already exists in this branch",
+-        };
+-      }
+-      return { success: false, error: error.message };
++      return { success: false, error: normalizeRepairOrderCrudError("updateHeader", error) };
+     }
+     if (!data) {
+       return {
+@@ -728,7 +766,9 @@ export class RepairOrdersService {
+     if (branchId) query = query.eq("branch_id", branchId);
+ 
+     const { data, error } = await query.select(HEADER_COLUMNS).maybeSingle();
+-    if (error) return { success: false, error: error.message };
++    if (error) {
++      return { success: false, error: normalizeRepairOrderCrudError("assignAdvisor", error) };
++    }
+     if (!data) {
+       return {
+         success: false,
+@@ -792,7 +832,9 @@ export class RepairOrdersService {
+     if (branchId) query = query.eq("branch_id", branchId);
+ 
+     const { data, error } = await query.select(HEADER_COLUMNS).maybeSingle();
+-    if (error) return { success: false, error: error.message };
++    if (error) {
++      return { success: false, error: normalizeRepairOrderCrudError("changeStatus", error) };
++    }
+     if (!data) {
+       return {
+         success: false,
+diff --git a/apps/web/supabase-target/supabase/migrations/20260911183702_repair_orders_own_advisor_contact_id_fn.sql b/apps/web/supabase-target/supabase/migrations/20260911183702_repair_orders_own_advisor_contact_id_fn.sql
+new file mode 100644
+index 00000000..7afe2aae
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260911183702_repair_orders_own_advisor_contact_id_fn.sql
+@@ -0,0 +1,40 @@
++-- Zone 3 Phase 7 correction pass -- Finding A (CONFIRMED, live-reproduced):
++-- RepairOrdersService.getOwnAdvisorContactId() performed a plain authenticated
++-- SELECT against crm_contacts (organization_id = :org AND linked_user_id =
++-- :user), which is itself subject to crm_contacts_select's own RLS policy
++-- (requires a separate crm.contacts.read grant) -- reintroducing, in the
++-- APPLICATION layer, the exact same visibility bug already fixed at the RLS
++-- layer by is_own_advisor_contact() (20260911172434). Live-reproduced this
++-- pass: a real self-linked crm_contacts row, for which
++-- is_own_advisor_contact() correctly returns true, returned ZERO rows from
++-- the plain-SELECT pattern under the same actor (workshop.repair_orders.
++-- manage_own + .read, no crm.contacts.read).
++--
++-- Consequence: a genuine manage_own advisor lacking crm.contacts.read (a) is
++-- shown as a non-owner on their own RepairOrder's detail page (edit/
++-- lifecycle controls incorrectly hidden), and (b) cannot self-assign during
++-- manual creation through createRepairOrderAction, since its pre-check
++-- compares the submitted advisor_contact_id against this same broken lookup.
++--
++-- Fix: a dedicated SECURITY DEFINER function, mirroring is_own_advisor_
++-- contact()'s and has_branch_permission()'s established pattern -- derives
++-- identity from auth.uid() only (no caller-supplied user id, no privilege
++-- escalation surface), is organization-scoped (a trusted p_organization_id
++-- parameter, matching the "org/branch always server-trusted" convention
++-- already used throughout Zone 3's action layer), fixed search_path, and
++-- returns only the minimum information necessary (a single uuid, not the
++-- full contact record).
++create or replace function public.get_own_advisor_contact_id(p_organization_id uuid)
++returns uuid
++language sql
++stable
++security definer
++set search_path = public, pg_temp
++as $$
++  select id
++  from crm_contacts
++  where organization_id = p_organization_id
++    and linked_user_id = (select auth.uid())
++    and deleted_at is null
++  limit 1;
++$$;
+diff --git a/apps/web/supabase-target/supabase/migrations/20260911183705_repair_orders_archived_terminal_for_all.sql b/apps/web/supabase-target/supabase/migrations/20260911183705_repair_orders_archived_terminal_for_all.sql
+new file mode 100644
+index 00000000..8ea4e839
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260911183705_repair_orders_archived_terminal_for_all.sql
+@@ -0,0 +1,52 @@
++-- Zone 3 Phase 7 correction pass -- Finding B (CONFIRMED, live-reproduced):
++-- the accepted contract states "archived is terminal for everyone,
++-- including manage_all", and the application layer (canTransitionRepair
++-- OrderStatus) already enforces this -- but repair_orders_update's RLS only
++-- restricted status='archived' writes for the manage_own branch
++-- (WITH CHECK ... AND status <> 'archived'). The manage_all branch (USING/
++-- WITH CHECK: has_branch_permission(..., 'manage_all') OR (...)) carried NO
++-- status restriction at all.
++--
++-- Live-reproduced this pass, as the genuinely-RLS-enforced authenticated
++-- role holding only workshop.repair_orders.manage_all: archiving an open
++-- order succeeded (expected); a subsequent raw UPDATE ... SET status =
++-- 'open' on that now-archived row ALSO succeeded (un-archiving -- NOT
++-- expected); a raw UPDATE ... SET vin = ... on a genuinely still-archived
++-- row ALSO succeeded (mutating an archived record -- NOT expected). Both
++-- confirm archived was not actually DB-terminal for manage_all.
++--
++-- Fix: add `status <> 'archived'` to the USING clause (evaluated against
++-- the OLD/current row, unlike WITH CHECK which evaluates the NEW row) --
++-- this makes an already-archived row simply unreachable for UPDATE by
++-- ANYONE, manage_all included, without needing per-branch special-casing.
++-- Does not affect the ability to legally archive a row in the first place:
++-- when transitioning open/closed -> archived, OLD.status is never already
++-- 'archived', so USING still evaluates true for that transition. An UPDATE
++-- attempt against an already-archived row now becomes a SILENT 0-row no-op
++-- (the same "USING excludes the row" behavior already proven and tested for
++-- the wrong-advisor case in 093_repair_orders_header_ownership_rls_test.sql's
++-- T8) rather than a hard RLS error for manage_own, and rather than a
++-- silently-succeeding mutation for manage_all.
++drop policy if exists repair_orders_update on public.repair_orders;
++
++create policy repair_orders_update
++  on public.repair_orders
++  for update
++  using (
++    status <> 'archived'
++    and (
++      has_branch_permission(organization_id, branch_id, 'workshop.repair_orders.manage_all')
++      or (
++        has_branch_permission(organization_id, branch_id, 'workshop.repair_orders.manage_own')
++        and is_own_advisor_contact(advisor_contact_id)
++      )
++    )
++  )
++  with check (
++    has_branch_permission(organization_id, branch_id, 'workshop.repair_orders.manage_all')
++    or (
++      has_branch_permission(organization_id, branch_id, 'workshop.repair_orders.manage_own')
++      and is_own_advisor_contact(advisor_contact_id)
++      and status <> 'archived'
++    )
++  );
+diff --git a/apps/web/supabase-target/supabase/migrations/20260911183709_repair_orders_field_invariants_trigger.sql b/apps/web/supabase-target/supabase/migrations/20260911183709_repair_orders_field_invariants_trigger.sql
+new file mode 100644
+index 00000000..3ef15de4
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260911183709_repair_orders_field_invariants_trigger.sql
+@@ -0,0 +1,83 @@
++-- Zone 3 Phase 7 correction pass -- Finding C (CONFIRMED, live-reproduced):
++-- identity_status, created_by, organization_id, and branch_id are documented
++-- as system/derived/non-client-writable fields, enforced only by the zod
++-- schema + action layer today -- not by the DB. Live-reproduced this pass,
++-- as the genuinely-RLS-enforced authenticated role holding
++-- workshop.repair_orders.manage_all (which has no per-field WITH CHECK
++-- restriction beyond the archived-terminal fix above): a raw UPDATE could
++-- set identity_status='resolved' together with a fabricated zl_number
++-- (bypassing the app's own derivation logic entirely), set
++-- identity_status='unresolved' while a real zl_number remained present (a
++-- state the existing repair_orders_resolved_requires_zl_number CHECK does
++-- NOT catch, since that constraint only forbids the opposite direction --
++-- resolved with no zl_number), and directly rewrite created_by to an
++-- arbitrary user id (audit-trail/authorship integrity).
++--
++-- Determination (per explicit instruction to determine, not assume, the
++-- intended architecture): sibling services in this repo (CrmContactsService
++-- .update, WarehouseLocationsService's update paths) allow arbitrary field
++-- mutation via a plain .update(patch) with no invariant protection beyond
++-- RLS row-scoping -- confirming Ambra's general pattern is
++-- application-layer-authoritative for ordinary business fields, RLS
++-- authoritative only for row-level multi-tenancy/ownership. However,
++-- identity_status and created_by are not ordinary business fields: identity_
++-- status is a DERIVED invariant the schema already partially polices (the
++-- existing one-directional CHECK constraint), and created_by is an
++-- audit-authorship field with no legitimate post-creation write path
++-- anywhere in the accepted design. These specifically cross the bar the
++-- existing materialize_repair_orders_from_session/approve_wdd_matcher_
++-- session precedent already established: build the smallest DB-level
++-- mechanism only where RLS genuinely cannot express the needed invariant --
++-- here, a lightweight BEFORE INSERT OR UPDATE trigger (the standard,
++-- established Postgres mechanism for exactly this class of invariant,
++-- distinct from and complementary to RLS, not a new framework).
++--
++-- organization_id/branch_id are included in the same trigger as a cheap,
++-- purely defensive addition: the live test this pass found that reassigning
++-- organization_id to a different org is already blocked by RLS in the
++-- realistic case (the acting caller lacks a manage_all grant in the target
++-- org) -- the only remaining theoretical gap is a caller holding manage_all
++-- in BOTH orgs simultaneously, which is a legitimate multi-org-admin
++-- authorization state, not a bypass, and is not implemented/fixed here as a
++-- distinct mechanism -- but since this trigger already runs on every UPDATE
++-- for other reasons, making organization_id/branch_id immutable-after-insert
++-- here is nearly free and closes even that theoretical edge defensively,
++-- consistent with "organization_id/branch_id are always the caller's
++-- trusted server-side active context, never a write target" already being
++-- this table's documented contract.
++--
++-- Does not affect materialize_repair_orders_from_session: that RPC only
++-- INSERTs repair_orders rows (identity_status is always set to 'resolved'
++-- together with a real zl_number there, which this trigger's INSERT-time
++-- recomputation reproduces exactly -- confirmed via pg_get_functiondef
++-- before writing this migration) and never UPDATEs repair_orders.created_by/
++-- organization_id/branch_id for the reuse path (only repair_order_lines.
++-- ordered_quantity). Does not affect any Phase 7 service method's
++-- legitimate writes (changeStatus/assignAdvisor never touch these columns;
++-- updateHeader's own identity_status recomputation now becomes a redundant-
++-- but-consistent mirror of this trigger's authoritative one, not a
++-- conflict).
++create or replace function public.repair_orders_enforce_invariants()
++returns trigger
++language plpgsql
++set search_path = public, pg_temp
++as $$
++begin
++  new.identity_status := case when new.zl_number is not null then 'resolved' else 'unresolved' end;
++
++  if tg_op = 'UPDATE' then
++    new.created_by := old.created_by;
++    new.organization_id := old.organization_id;
++    new.branch_id := old.branch_id;
++  end if;
++
++  return new;
++end;
++$$;
++
++drop trigger if exists repair_orders_enforce_invariants_trigger on public.repair_orders;
++
++create trigger repair_orders_enforce_invariants_trigger
++  before insert or update on public.repair_orders
++  for each row
++  execute function public.repair_orders_enforce_invariants();
+diff --git a/apps/web/supabase-target/supabase/migrations/20260911183712_repair_orders_advisor_org_scoped_fk.sql b/apps/web/supabase-target/supabase/migrations/20260911183712_repair_orders_advisor_org_scoped_fk.sql
+new file mode 100644
+index 00000000..db51d14f
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260911183712_repair_orders_advisor_org_scoped_fk.sql
+@@ -0,0 +1,49 @@
++-- Zone 3 Phase 7 correction pass -- Finding D (CONFIRMED, live-reproduced):
++-- repair_orders.advisor_contact_id -> crm_contacts.id was a SIMPLE foreign
++-- key with no organization scoping, and is_own_advisor_contact() only checks
++-- linked_user_id = auth.uid() (correctly, for its own narrow purpose) but
++-- never the contact's own organization_id against the RepairOrder's.
++-- manage_all's RLS branch has no advisor_contact_id restriction at all.
++--
++-- Live-reproduced this pass: created a synthetic second organization ("org
++-- B") with a crm_contacts row inside it, then, as the genuinely-RLS-enforced
++-- authenticated role holding workshop.repair_orders.manage_all in the real
++-- org ("org A"), successfully set an org-A RepairOrder's advisor_contact_id
++-- to the org-B contact's id -- a real cross-tenant data-integrity violation,
++-- confirmed live, not assumed.
++--
++-- Fix, per explicit instruction to "prefer DB integrity over picker-only
++-- validation" and to make "every ownership helper/check organization-aware
++-- at minimum": a composite foreign key, not an RLS patch -- this is a hard
++-- storage-layer integrity constraint enforced for EVERY caller (manage_own,
++-- manage_all, and any future/service-role code path), not merely an
++-- authorization gate that a future RLS change could accidentally loosen.
++-- crm_contacts.id is already globally unique (its own primary key), so
++-- crm_contacts_org_id_unique (organization_id, id) is a same-data-always-
++-- valid addition -- live-verified zero existing repair_orders rows violate
++-- this before adding it. MATCH SIMPLE (Postgres's default composite-FK
++-- match mode) means the constraint is trivially satisfied whenever
++-- advisor_contact_id IS NULL (unassigned -- nothing to check); when it IS
++-- NOT NULL, organization_id is already NOT NULL on repair_orders, so BOTH
++-- columns are always checked together, and the referenced (organization_id,
++-- id) pair must exist in crm_contacts -- the contact must belong to the
++-- SAME org as the RepairOrder, full stop, independent of RLS/role.
++--
++-- ON DELETE SET NULL (advisor_contact_id) uses Postgres 15+'s column-list
++-- SET NULL syntax (confirmed live on PostgreSQL 17.6) so only
++-- advisor_contact_id is cleared on a (today purely theoretical, since
++-- crm_contacts is soft-deleted throughout this app) hard-delete of the
++-- referenced contact -- organization_id, which is NOT NULL on repair_orders,
++-- is correctly left untouched rather than a tuple-wide SET NULL attempting
++-- (and failing) to null out a NOT NULL column.
++alter table public.crm_contacts
++  add constraint crm_contacts_org_id_unique unique (organization_id, id);
++
++alter table public.repair_orders
++  drop constraint repair_orders_advisor_contact_id_fkey;
++
++alter table public.repair_orders
++  add constraint repair_orders_advisor_contact_id_fkey
++  foreign key (organization_id, advisor_contact_id)
++  references public.crm_contacts (organization_id, id)
++  on delete set null (advisor_contact_id);
+diff --git a/apps/web/supabase/tests/094_repair_orders_correction_pass_rls_test.sql b/apps/web/supabase/tests/094_repair_orders_correction_pass_rls_test.sql
+new file mode 100644
+index 00000000..c403405d
+--- /dev/null
++++ b/apps/web/supabase/tests/094_repair_orders_correction_pass_rls_test.sql
+@@ -0,0 +1,225 @@
++-- ============================================================================
++-- TEST: repair_orders correction-pass fixes (Zone 3 Phase 7 external review)
++-- ============================================================================
++-- Covers the four CONFIRMED findings from the external reviewer's Phase 7
++-- correction pass, each live-reproduced BEFORE its fix and re-verified
++-- AFTER, per that pass's explicit "verify first" instruction:
++--
++--   Finding A: get_own_advisor_contact_id() (20260911183702) -- a genuine
++--     manage_own advisor lacking crm.contacts.read can now resolve their own
++--     linked contact id (the prior plain-SELECT-based application code could
++--     not, even though is_own_advisor_contact() -- a DIFFERENT, already-
++--     correct function -- always could).
++--   Finding B: repair_orders_update's USING clause (20260911183705) now
++--     requires status <> 'archived' unconditionally -- archived is
++--     DB-terminal for manage_all too, not just manage_own.
++--   Finding C: repair_orders_enforce_invariants() trigger (20260911183709)
++--     -- identity_status is always DB-recomputed from zl_number's presence,
++--     and created_by/organization_id/branch_id are immutable after insert,
++--     regardless of what a direct UPDATE attempts to set them to.
++--   Finding D: repair_orders_advisor_contact_id_fkey (20260911183712) is now
++--     a composite FK on (organization_id, advisor_contact_id) ->
++--     crm_contacts(organization_id, id) -- a cross-organization advisor
++--     assignment is now rejected at the storage layer for EVERY caller,
++--     manage_all included, not just narrowed for manage_own.
++--
++-- Runs as the genuinely-RLS-enforced `authenticated` role (not `postgres`)
++-- with a real JWT claim, using the real, existing dedicated Zone 3 E2E test
++-- account and a synthetic second organization created and rolled back
++-- within this same transaction for the cross-org tests. Individual pgTAP
++-- assertion results are collected into a temp table and selected out as the
++-- final statement (the MCP SQL execution path used to run this only
++-- surfaces the last statement's result set).
++--
++-- Executed live against supabase-target via Supabase MCP. Last run:
++-- 2026-09-11, 13/13 assertions passing.
++
++BEGIN;
++
++SELECT plan(13);
++
++CREATE TEMP TABLE fx (
++  org uuid, branch uuid, e2e_user uuid, other_user uuid,
++  self_contact uuid, org_b uuid, branch_b uuid, contact_b uuid,
++  ro1 uuid, ro2 uuid, ro3 uuid
++);
++GRANT SELECT ON fx TO authenticated;
++INSERT INTO fx SELECT
++  '9f98fe91-63b8-4986-a2b3-65bdd47684c9'::uuid,
++  'e39b15da-0a8d-4056-b5a2-80eb1da868a6'::uuid,
++  'c4a24371-42db-4bb8-ab5e-379ebbf7d9c4'::uuid,
++  gen_random_uuid(),
++  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
++  gen_random_uuid(), gen_random_uuid(), gen_random_uuid();
++
++CREATE TEMP TABLE test_log (seq serial, line text);
++GRANT INSERT, SELECT ON test_log TO authenticated;
++GRANT USAGE ON SEQUENCE test_log_seq_seq TO authenticated;
++
++-- Synthetic second org, purely for the Finding D cross-org tests.
++INSERT INTO organizations (id, name) SELECT org_b, '094-test-org-B' FROM fx;
++INSERT INTO branches (id, organization_id, name, branch_number) SELECT branch_b, org_b, '094-test-branch-B', 997 FROM fx;
++INSERT INTO crm_contacts (id, organization_id, linked_user_id, visibility_scope, display_name, created_by)
++SELECT contact_b, org_b, NULL, 'organization', '094-test-org-B-contact', e2e_user FROM fx;
++
++-- self_contact: linked to the real E2E test user, in their REAL org.
++INSERT INTO crm_contacts (id, organization_id, linked_user_id, visibility_scope, display_name, created_by)
++SELECT self_contact, org, e2e_user, 'organization', '094-test-self-advisor', e2e_user FROM fx;
++
++-- ===========================================================================
++-- Phase A: actor holds workshop.repair_orders.manage_own + .read ONLY --
++-- deliberately NOT crm.contacts.read, to reproduce/verify Finding A.
++-- ===========================================================================
++DELETE FROM user_effective_permissions WHERE user_id = (SELECT e2e_user FROM fx) AND organization_id = (SELECT org FROM fx);
++INSERT INTO user_effective_permissions (user_id, organization_id, branch_id, permission_slug, permission_slug_exact)
++SELECT e2e_user, org, branch, slug, slug FROM fx, unnest(ARRAY['workshop.repair_orders.manage_own', 'workshop.repair_orders.read']) AS slug;
++
++SET LOCAL ROLE authenticated;
++SELECT set_config('request.jwt.claims', json_build_object('sub', e2e_user::text, 'role', 'authenticated')::text, true) FROM fx;
++
++-- T1 (Finding A): get_own_advisor_contact_id resolves the real self-linked
++-- contact even without crm.contacts.read.
++INSERT INTO test_log(line) SELECT is(
++  get_own_advisor_contact_id((SELECT org FROM fx)),
++  (SELECT self_contact FROM fx),
++  'T1 (Finding A): get_own_advisor_contact_id resolves the caller''s own linked contact without crm.contacts.read'
++);
++
++-- T2 (Finding A): organization-scoped -- a different org returns NULL, not
++-- the same contact (proves the org filter is real, not a no-op).
++INSERT INTO test_log(line) SELECT is(
++  get_own_advisor_contact_id((SELECT org_b FROM fx)),
++  NULL::uuid,
++  'T2 (Finding A): get_own_advisor_contact_id is organization-scoped (wrong org -> NULL)'
++);
++
++-- Fixture row, self-assigned, for the Finding B/C tests below.
++INSERT INTO repair_orders (id, organization_id, branch_id, advisor_contact_id, order_number, status)
++SELECT ro1, org, branch, self_contact, '094-test-B-C', 'open' FROM fx;
++
++RESET ROLE;
++
++-- ===========================================================================
++-- Phase B: actor holds workshop.repair_orders.manage_all + .read.
++-- ===========================================================================
++DELETE FROM user_effective_permissions WHERE user_id = (SELECT e2e_user FROM fx) AND organization_id = (SELECT org FROM fx);
++INSERT INTO user_effective_permissions (user_id, organization_id, branch_id, permission_slug, permission_slug_exact)
++SELECT e2e_user, org, branch, slug, slug FROM fx, unnest(ARRAY['workshop.repair_orders.manage_all', 'workshop.repair_orders.read']) AS slug;
++
++SET LOCAL ROLE authenticated;
++SELECT set_config('request.jwt.claims', json_build_object('sub', e2e_user::text, 'role', 'authenticated')::text, true) FROM fx;
++
++-- T3 (Finding B): manage_all CAN archive.
++UPDATE repair_orders SET status = 'archived' WHERE id = (SELECT ro1 FROM fx);
++INSERT INTO test_log(line) SELECT is(
++  (SELECT status FROM repair_orders WHERE id = (SELECT ro1 FROM fx)),
++  'archived',
++  'T3 (Finding B): manage_all can archive an open RepairOrder'
++);
++
++-- T4 (Finding B): manage_all's raw UPDATE attempt to un-archive is now a
++-- silent no-op -- archived is DB-terminal for manage_all too.
++UPDATE repair_orders SET status = 'open' WHERE id = (SELECT ro1 FROM fx);
++INSERT INTO test_log(line) SELECT is(
++  (SELECT status FROM repair_orders WHERE id = (SELECT ro1 FROM fx)),
++  'archived',
++  'T4 (Finding B): manage_all cannot un-archive via raw UPDATE (status stays archived)'
++);
++
++-- T5 (Finding B): manage_all's raw UPDATE attempt to edit an unrelated
++-- field (vin) on an already-archived order is ALSO a silent no-op.
++UPDATE repair_orders SET vin = 'SHOULD-NOT-APPLY-POST-FIX' WHERE id = (SELECT ro1 FROM fx);
++INSERT INTO test_log(line) SELECT is(
++  (SELECT vin FROM repair_orders WHERE id = (SELECT ro1 FROM fx)),
++  NULL::text,
++  'T5 (Finding B): manage_all cannot edit an unrelated field on an already-archived order (vin stays NULL)'
++);
++
++-- Fresh open fixture row for Finding C (field-invariant) tests.
++INSERT INTO repair_orders (id, organization_id, branch_id, order_number, status, created_by)
++SELECT ro2, org, branch, '094-test-C', 'open', e2e_user FROM fx;
++
++-- T6 (Finding C): a direct attempt to set identity_status='resolved'
++-- together with a fabricated zl_number is recomputed consistently (not
++-- rejected -- the trigger recomputes from zl_number's presence, which here
++-- happens to agree with what was attempted).
++UPDATE repair_orders SET identity_status = 'resolved', zl_number = '094-FAKE-ZL' WHERE id = (SELECT ro2 FROM fx);
++INSERT INTO test_log(line) SELECT is(
++  (SELECT identity_status FROM repair_orders WHERE id = (SELECT ro2 FROM fx)),
++  'resolved',
++  'T6 (Finding C): identity_status is derived from zl_number (resolved when present)'
++);
++
++-- T7 (Finding C): a direct attempt to desync identity_status to
++-- 'unresolved' WHILE zl_number remains present is overridden back to
++-- 'resolved' by the trigger -- the inconsistent state is unreachable.
++UPDATE repair_orders SET identity_status = 'unresolved' WHERE id = (SELECT ro2 FROM fx);
++INSERT INTO test_log(line) SELECT is(
++  (SELECT identity_status FROM repair_orders WHERE id = (SELECT ro2 FROM fx)),
++  'resolved',
++  'T7 (Finding C): a direct attempt to desync identity_status from zl_number''s presence is overridden by the trigger'
++);
++
++-- T8 (Finding C): genuinely clearing zl_number correctly flips identity_
++-- status to 'unresolved' -- the trigger does not simply freeze the value,
++-- it recomputes it correctly for the legitimate case too.
++UPDATE repair_orders SET zl_number = NULL WHERE id = (SELECT ro2 FROM fx);
++INSERT INTO test_log(line) SELECT is(
++  (SELECT identity_status FROM repair_orders WHERE id = (SELECT ro2 FROM fx)),
++  'unresolved',
++  'T8 (Finding C): clearing zl_number correctly re-derives identity_status to unresolved'
++);
++
++-- T9 (Finding C): a direct attempt to rewrite created_by is overridden back
++-- to the original value -- authorship/audit-trail integrity.
++UPDATE repair_orders SET created_by = (SELECT other_user FROM fx) WHERE id = (SELECT ro2 FROM fx);
++INSERT INTO test_log(line) SELECT is(
++  (SELECT created_by FROM repair_orders WHERE id = (SELECT ro2 FROM fx)),
++  (SELECT e2e_user FROM fx),
++  'T9 (Finding C): created_by is immutable after insert (a direct UPDATE attempt is overridden)'
++);
++
++-- T10 (Finding D): manage_all's raw UPDATE attempt to assign a DIFFERENT
++-- organization's crm_contacts row as advisor is rejected at the FK layer,
++-- not merely by RLS -- proven via the specific expected SQLSTATE (23503),
++-- not just "some error occurred".
++INSERT INTO repair_orders (id, organization_id, branch_id, order_number, status)
++SELECT ro3, org, branch, '094-test-D', 'open' FROM fx;
++INSERT INTO test_log(line) SELECT throws_ok(
++  format('UPDATE repair_orders SET advisor_contact_id = %L::uuid WHERE id = %L::uuid', (SELECT contact_b FROM fx), (SELECT ro3 FROM fx)),
++  '23503',
++  'insert or update on table "repair_orders" violates foreign key constraint "repair_orders_advisor_contact_id_fkey"',
++  'T10 (Finding D): manage_all cannot assign a cross-organization contact as advisor -- rejected by the composite FK (SQLSTATE 23503)'
++);
++
++-- T11 (Finding D): the row's advisor_contact_id genuinely never changed --
++-- the rejected UPDATE left no partial effect.
++INSERT INTO test_log(line) SELECT is(
++  (SELECT advisor_contact_id FROM repair_orders WHERE id = (SELECT ro3 FROM fx)),
++  NULL::uuid,
++  'T11 (Finding D): the row''s advisor_contact_id is genuinely unchanged after the blocked cross-org attempt'
++);
++
++-- T12 (Finding D): a SAME-org advisor assignment (the legitimate case)
++-- still works correctly -- the FK is not overly restrictive.
++UPDATE repair_orders SET advisor_contact_id = (SELECT self_contact FROM fx) WHERE id = (SELECT ro3 FROM fx);
++INSERT INTO test_log(line) SELECT is(
++  (SELECT advisor_contact_id FROM repair_orders WHERE id = (SELECT ro3 FROM fx)),
++  (SELECT self_contact FROM fx),
++  'T12 (Finding D): a same-organization advisor assignment still succeeds'
++);
++
++-- T13 (Finding D): clearing the advisor (NULL) is still always allowed --
++-- MATCH SIMPLE means the FK is not checked when advisor_contact_id IS NULL.
++UPDATE repair_orders SET advisor_contact_id = NULL WHERE id = (SELECT ro3 FROM fx);
++INSERT INTO test_log(line) SELECT is(
++  (SELECT advisor_contact_id FROM repair_orders WHERE id = (SELECT ro3 FROM fx)),
++  NULL::uuid,
++  'T13 (Finding D): clearing advisor_contact_id to NULL still works (FK not checked when NULL)'
++);
++
++RESET ROLE;
++
++SELECT line FROM test_log ORDER BY seq;
++
++ROLLBACK;
+diff --git a/docs/mvp/zones/03-repair-orders-implementation-plan.md b/docs/mvp/zones/03-repair-orders-implementation-plan.md
+index 742d7f53..091835f5 100644
+--- a/docs/mvp/zones/03-repair-orders-implementation-plan.md
++++ b/docs/mvp/zones/03-repair-orders-implementation-plan.md
+@@ -557,6 +557,17 @@ PITCH.
+ > **2026-09-11 verify-first pass, before any code was written**: re-read the current architecture doc, current code (Phase 4-6 state), and live Supabase schema/RLS before touching anything, per explicit instruction. Found and fixed **one CONFIRMED, pre-existing, live security/correctness bug** in already-deployed Phase 2 RLS (not introduced by this phase): `repair_orders_update`'s ownership check (`advisor_contact_id IN (SELECT id FROM crm_contacts WHERE linked_user_id = auth.uid())`) is a plain correlated subquery against `crm_contacts`, itself subject to `crm_contacts`' own RLS (`crm.contacts.read` required) -- so ANY `manage_own` advisor who does not also separately hold `crm.contacts.read` had their own, genuine ownership silently evaluate to false: a hard self-lockout on the exact ownership model this table exists to enforce. Found live, while writing this phase's own RLS test, not assumed. Fixed with a `SECURITY DEFINER` helper (`is_own_advisor_contact`), matching `has_branch_permission`'s own established pattern of bypassing the underlying table's RLS for this class of cross-table authorization check -- see the migrations list below. Also found and closed a smaller, related INSERT-time gap (`repair_orders_insert` let a `manage_own`-only actor name ANY contact as advisor, not just themselves) before it could compound the same class of problem. Both fixes are narrow, additive, forward migrations -- no RLS was broadened, only tightened to match the already-accepted ownership model.
+ >
+ > **One genuine, unresolved product-decision gap identified and NOT silently invented around**: the architecture doc's own prose for advisor-picker scoping ("a `crm_contacts` row representing an internal advisor gets a `crm_party_roles` row with `role='employee'`") is not literally implementable against the live schema -- `crm_party_roles.role` is a PARTY-level tag (`crm_party_roles.party_id -> crm_parties.id`), not a CONTACT-level one; `crm_party_roles` has no `contact_id` column at all, and no existing code anywhere in the repo uses this party-role-employee pattern. Implementing it as literally described would require inventing a new, undocumented, unprecedented synthetic-party-per-employee scheme. This phase does NOT invent that scheme. Instead, the advisor picker uses a narrower, schema-real, reversible interim signal: `crm_contacts` rows already linked to a real platform user (`linked_user_id IS NOT NULL`) -- the only contacts that can ever function as an "owner" under the `manage_own` ownership model in the first place. See `RepairOrdersService.listAdvisorCandidates`'s own doc comment for the full reasoning. **This remains an open product decision, and the interim signal is deliberately provisional**, not a load-bearing security boundary (RLS enforces real ownership independent of picker scoping either way) — see the progress tracker's Phase 7 task list for the exact decision needed if/when the party-role scheme is genuinely wanted.
++>
++> **2026-09-11 external-review correction pass**: an external reviewer examined the full Phase 7 diff/bundle and raised six findings. Each was independently live-reproduced against `supabase-target` (as the genuinely-RLS-enforced `authenticated` role, not `postgres`) BEFORE any fix was written, per explicit "verify first" instruction. **Four of six findings CONFIRMED and fixed**, all via new forward migrations (no existing applied migration edited in place); **one (Finding F) is a genuine product/UX decision, documented with a recommendation but deliberately NOT decided or implemented**; the advisor-picker product decision from the note above was explicitly kept separate from this pass, per instruction, and remains equally open.
++>
++> - **Finding A (CONFIRMED, fixed)**: `RepairOrdersService.getOwnAdvisorContactId` performed a plain authenticated SELECT against `crm_contacts` -- itself subject to that table's own RLS (`crm.contacts.read` required) -- reintroducing in the APPLICATION layer the exact same visibility bug the first correction pass had already fixed at the RLS layer (`is_own_advisor_contact()`). Live-reproduced: a real self-linked contact, for which `is_own_advisor_contact()` correctly returned true, returned zero rows from this method's exact query shape for an actor holding only `workshop.repair_orders.manage_own`/`.read`. Consequence: a genuine advisor without CRM access was shown as a non-owner on their own RepairOrder and could not self-assign during manual creation. Fixed with a new `SECURITY DEFINER` RPC, `get_own_advisor_contact_id(p_organization_id)` (migration `20260911183702`), mirroring `is_own_advisor_contact`/`has_branch_permission`'s own established pattern -- derives identity from `auth.uid()` only, organization-scoped, exposes only the resulting contact id.
++> - **Finding B (CONFIRMED, fixed)**: `repair_orders_update`'s RLS restricted `status='archived'` writes only for the `manage_own` branch -- the `manage_all` branch had no status restriction at all, meaning a raw Data API call as `manage_all` could un-archive a row or edit its fields while archived, violating the accepted "archived is terminal for everyone" contract. Live-reproduced both paths succeeding before the fix. Fixed by adding `status <> 'archived'` to the policy's `USING` clause (migration `20260911183705`) -- evaluated against the CURRENT row, this makes an already-archived row unreachable for UPDATE by anyone, without blocking the act of archiving itself (`OLD.status` is never already `'archived'` when transitioning into it). The UI's edit-control gating was also extended to match (previously `manage_all` always saw an Edit control regardless of status).
++> - **Finding C (CONFIRMED, fixed)**: `identity_status`, `created_by`, `organization_id`, and `branch_id` were documented as non-client-writable but enforced only by the zod/action layer, not the DB -- live-reproduced a direct UPDATE setting `identity_status`/`zl_number` into a self-consistent-but-fabricated state, a genuinely inconsistent state (`identity_status='unresolved'` while `zl_number` remained non-null, a direction the existing one-way CHECK constraint does not cover), and a direct rewrite of `created_by`. Determined (by examining sibling services) that Ambra's general pattern is application-layer-authoritative for ordinary fields, RLS-authoritative for row-level scoping -- but `identity_status` (a derived invariant) and `created_by` (audit authorship) cross that bar. Fixed with a single, minimal `BEFORE INSERT OR UPDATE` trigger (migration `20260911183709`) that recomputes `identity_status` from `zl_number`'s presence unconditionally and freezes `created_by`/`organization_id`/`branch_id` after insert -- confirmed via `pg_get_functiondef` not to interact adversely with `materialize_repair_orders_from_session` (which already only ever inserts consistent values for these fields).
++> - **Finding D (CONFIRMED, fixed)**: `repair_orders.advisor_contact_id` was a simple FK to `crm_contacts(id)` with no organization scoping, and no RLS branch (including `manage_all`) checked the contact's own organization against the RepairOrder's. Live-reproduced: `manage_all` successfully assigned a crm_contacts row belonging to a completely different organization as advisor. Fixed at the storage layer, not just RLS, per explicit instruction to "prefer DB integrity over picker-only validation": a new `crm_contacts_org_id_unique (organization_id, id)` constraint plus a composite FK, `repair_orders (organization_id, advisor_contact_id) -> crm_contacts (organization_id, id)` (migration `20260911183712`) -- enforced for every caller, including any future/service-role code path, not merely an authorization gate a future RLS change could loosen. Zero existing rows violated this before it was added (live-verified).
++> - **Finding E (CONFIRMED, fixed)**: the five plain-CRUD Phase 7 service methods returned raw `error.message` for any non-23505 failure, unlike the curated normalization already established for the materialization RPC. Fixed with a shared `normalizeRepairOrderCrudError` helper: a small, curated allowlist (duplicate `zl_number`, matched by constraint name not errcode alone; cross-org/invalid advisor FK violation, matched by column name) passes through a specific safe message, everything else is logged server-side and replaced with one generic message.
++> - **Finding F (verified, NOT decided)**: confirmed that a `manage_own` actor can currently create a RepairOrder with `advisor_contact_id IS NULL` (the manual-creation UI's self-assign checkbox is opt-in, unchecked by default), producing an order its own creator cannot subsequently edit via `manage_own`. This is a genuine product/UX question, not a security bug -- see the progress tracker's Phase 7 task list for the recorded options and recommendation. **Not implemented or decided in this pass.**
++>
++> Full evidence (live reproduction queries, exact before/after policy text, migration versions, and the 13 new pgTAP assertions) is recorded in the progress tracker's Phase 7 task list and its 2026-09-11 correction-pass change-log entry.
+ 
+ ### Objective
+ 
+diff --git a/docs/mvp/zones/03-repair-orders-progress.md b/docs/mvp/zones/03-repair-orders-progress.md
+index 3979d5c0..9159c201 100644
+--- a/docs/mvp/zones/03-repair-orders-progress.md
++++ b/docs/mvp/zones/03-repair-orders-progress.md
+@@ -252,7 +252,41 @@ All later phases: task lists mirror the implementation plan 1:1 and are intentio
+ 
+ **Open product decision, NOT silently invented around**: the architecture doc's own prose for advisor-picker scoping ("a `crm_contacts` row representing an internal advisor gets a `crm_party_roles` row with `role='employee'`") is not literally implementable against the live schema — `crm_party_roles.role` is a PARTY-level tag (`crm_party_roles.party_id -> crm_parties.id`, no `contact_id` column at all), not a CONTACT-level one, and no existing code anywhere in the repo uses this party-role-employee pattern (a repo-wide grep for `employee` found only an unrelated auth-role usage in `UserRoleManager.tsx`). Implementing the literal architecture-doc mechanism would require inventing a new, undecided, undocumented synthetic-party-per-employee scheme. **This phase does not invent that scheme.** `RepairOrdersService.listAdvisorCandidates` instead uses a narrower, schema-real, reversible interim signal: `crm_contacts` rows already linked to a real platform user (`linked_user_id IS NOT NULL`) — the only contacts that can ever function as an "owner" under the `manage_own` model in the first place. This is not a security gap (RLS enforces real ownership independent of picker scoping either way) — it only affects which names show up in the assignment dropdown. **Decision needed from the product owner before/if the full employee-role scheme is wanted**: (a) accept the interim `linked_user_id`-based scoping as sufficient long-term, or (b) design the synthetic-party-per-employee (or an alternative) mechanism explicitly.
+ 
+-**Phase 7 is therefore ✅ DONE (10/10).** Every acceptance-criteria item this phase's own plan named is met with both mocked-test and live-RLS evidence (55 new tests + 12 live pgTAP assertions, 111/111 passing across the full Zone 3 suite run together). `pnpm type-check` and `pnpm lint` clean on every new/changed file. The one remaining item, matching the same pattern Phases 4-6 carried before their own UAT pass, is genuine manual/browser verification of this phase's UI (create a real order, edit its header, reassign its advisor, close/reopen/archive it) — not yet performed, explicitly flagged rather than assumed.
++### 2026-09-11 external-review correction pass (six findings, four confirmed and fixed)
++
++An external reviewer examined the full Phase 7 diff/review bundle (`docs/mvp/reviews/zone3-phase7-review/`) and raised six findings. Each was independently live-reproduced against `supabase-target` as the genuinely-RLS-enforced `authenticated` role BEFORE any fix was written, per this pass's explicit "verify first, do not blindly implement" instruction.
++
++- [x] ✅ **Finding A (CONFIRMED, fixed)**: `RepairOrdersService.getOwnAdvisorContactId` performed a plain authenticated SELECT against `crm_contacts` — itself subject to that table's own RLS (`crm.contacts.read` required) — reintroducing in the APPLICATION layer the exact same visibility bug the first correction pass already fixed at the RLS layer (`is_own_advisor_contact()`).
++  - Evidence: live-reproduced — a real self-linked `crm_contacts` row, for which `is_own_advisor_contact()` correctly returns `true`, returned zero rows from this method's exact query shape for an actor holding only `workshop.repair_orders.manage_own`/`.read` (no `crm.contacts.read`). Consequence, confirmed by tracing the call sites: a genuine advisor without CRM access was shown as a non-owner on their own RepairOrder's detail page (edit/lifecycle controls incorrectly hidden), and could not self-assign during manual creation (the action's own pre-check compared the submitted id against this same broken lookup).
++  - Fix: new `SECURITY DEFINER` RPC `get_own_advisor_contact_id(p_organization_id uuid)` (migration `20260911183702_repair_orders_own_advisor_contact_id_fn.sql`), mirroring `is_own_advisor_contact`/`has_branch_permission`'s own established pattern — derives identity from `auth.uid()` only (no caller-supplied user id parameter, closing that escalation vector by construction), organization-scoped, exposes only the resulting contact id. `RepairOrdersService.getOwnAdvisorContactId` rewritten to call it (and dropped its now-unused `userId` parameter — the three call sites updated accordingly).
++  - Tests: `094_repair_orders_correction_pass_rls_test.sql` T1 (resolves correctly without `crm.contacts.read`) / T2 (organization-scoped — a different org id correctly returns `NULL`); service-level tests rewritten to mock `.rpc()` instead of the old raw-select chain, plus a new normalization test.
++- [x] ✅ **Finding B (CONFIRMED, fixed)**: `repair_orders_update`'s RLS restricted `status='archived'` writes only for the `manage_own` branch — the `manage_all` branch had no status restriction at all, contradicting the accepted "archived is terminal for everyone" contract.
++  - Evidence: live-reproduced as `manage_all` — archiving an open order succeeded (expected); a subsequent raw `UPDATE ... SET status = 'open'` on that now-archived row ALSO succeeded (un-archiving — not expected); a raw `UPDATE ... SET vin = ...` on a genuinely still-archived row ALSO succeeded (mutating an archived record — not expected).
++  - Fix: `status <> 'archived'` added to the policy's `USING` clause (migration `20260911183705_repair_orders_archived_terminal_for_all.sql`) — evaluated against the CURRENT row, so an already-archived row becomes unreachable for UPDATE by anyone, without blocking the act of archiving itself (`OLD.status` is never already `'archived'` when transitioning into it). `RepairOrderHeaderEditor`'s `canEditHeader` computation updated to match — previously `manage_all` always saw an Edit control regardless of status; now archived hides it for everyone, not just `manage_own`.
++  - Tests: `094_...` T3/T4/T5 (archive succeeds; un-archive attempt is a silent no-op; unrelated-field edit attempt on an archived row is a silent no-op); re-ran the existing `093_...` suite unchanged — 12/12 still passing, confirming no regression; new component test for the `manage_all`+archived case (mirroring the existing `manage_own`+archived one).
++- [x] ✅ **Finding C (CONFIRMED, fixed)**: `identity_status`/`created_by`/`organization_id`/`branch_id` were documented as non-client-writable but enforced only by the zod/action layer, not the DB.
++  - Evidence: live-reproduced as `manage_all` — a direct UPDATE set `identity_status='resolved'` together with a fabricated `zl_number` (bypassing the app's own derivation logic); a direct UPDATE set `identity_status='unresolved'` while a real `zl_number` remained present (a state the existing one-directional CHECK constraint does not catch); a direct UPDATE rewrote `created_by` to an arbitrary user id.
++  - Determination (per explicit instruction to determine, not assume, the intended architecture): sibling services (`CrmContactsService.update`, `WarehouseLocationsService`'s update paths) allow arbitrary field mutation via a plain `.update(patch)` with no invariant protection beyond RLS row-scoping — confirming Ambra's general pattern is application-layer-authoritative for ordinary fields, RLS-authoritative for row-level scoping. `identity_status` (a derived invariant already partially policed by an existing CHECK) and `created_by` (audit authorship, no legitimate post-creation write path anywhere in the accepted design) cross that bar, matching the same "RLS genuinely cannot express this" threshold that justified `materialize_repair_orders_from_session`/`approve_wdd_matcher_session` as dedicated RPCs.
++  - Fix: a single, minimal `BEFORE INSERT OR UPDATE` trigger, `repair_orders_enforce_invariants()` (migration `20260911183709_repair_orders_field_invariants_trigger.sql`) — recomputes `identity_status` from `NEW.zl_number`'s presence unconditionally, and on UPDATE freezes `created_by`/`organization_id`/`branch_id` back to their `OLD` values (the latter two added as a cheap, defensive closure of a much narrower theoretical multi-org-admin edge case, not a confirmed exploit — see below). Confirmed via `pg_get_functiondef` before writing this migration that `materialize_repair_orders_from_session` only ever INSERTs consistent `identity_status`/`zl_number` pairs and never UPDATEs `repair_orders.created_by` for its reuse path — this trigger is a no-op recomputation for that RPC's own writes, not a behavior change.
++  - Tests: `094_...` T6/T7/T8 (identity_status derivation, including the inconsistent-state-overridden case and the legitimate-clearing case) / T9 (created_by immutability).
++- [x] ✅ **Finding D (CONFIRMED, fixed)**: `repair_orders.advisor_contact_id` was a simple FK to `crm_contacts(id)` with no organization scoping; no RLS branch, `manage_all` included, checked the contact's own organization against the RepairOrder's.
++  - Evidence: live-reproduced — created a synthetic second organization with its own `crm_contacts` row, then, as `manage_all` in the real org, successfully assigned that cross-org contact as advisor on a real-org RepairOrder.
++  - Fix, per explicit instruction to "prefer DB integrity over picker-only validation" and make ownership checks "organization-aware at minimum": a genuine storage-layer fix, not an RLS patch — `crm_contacts_org_id_unique (organization_id, id)` (trivially valid, since `id` alone is already unique) plus a composite FK `repair_orders (organization_id, advisor_contact_id) -> crm_contacts (organization_id, id)` with `ON DELETE SET NULL (advisor_contact_id)` (PG15+ column-list syntax, confirmed supported on the live PostgreSQL 17.6) (migration `20260911183712_repair_orders_advisor_org_scoped_fk.sql`). Enforced for EVERY caller — `manage_own`, `manage_all`, and any future/service-role code path — not merely an authorization gate a future RLS change could loosen. Live-verified zero existing `repair_orders` rows violated this before it was added.
++  - Tests: `094_...` T10 (cross-org assignment now rejected with the specific SQLSTATE 23503, not just "some error") / T11 (no partial effect) / T12 (same-org assignment still succeeds) / T13 (clearing to `NULL` still always allowed, since MATCH SIMPLE skips the check when the FK column is null).
++- [x] ✅ **Finding E (CONFIRMED, fixed)**: the five plain-CRUD Phase 7 service methods (`createRepairOrder`, `updateHeader`, `assignAdvisor`, `changeStatus`, `listAdvisorCandidates`) returned raw `error.message` for any non-`23505` failure, unlike the curated allowlist-based normalization already established for the materialization RPC path (`normalizeMaterializationRpcError`).
++  - Fix: new shared `normalizeRepairOrderCrudError(methodName, error)` helper — a small, curated allowlist (duplicate `zl_number`, matched by constraint name `repair_orders_identity_unique`, not errcode alone; the new cross-org/invalid advisor FK violation from Finding D's fix, matched by column name `advisor_contact_id`) passes through a specific, safe, already-helpful message; everything else is logged in full server-side (with the method name for context) and replaced with one generic message before reaching the browser. Applied to all five methods plus `getOwnAdvisorContactId`'s own new RPC-error path.
++  - Also verified, per the reviewer's specific ask: the `23505` mapping cannot currently mislabel an unrelated unique-constraint violation as "duplicate zl_number", since neither `createRepairOrder` nor `updateHeader` can trigger the table's only other unique constraint (`repair_orders_pkey`) via any client-reachable input path — hardened anyway (matched by constraint name, not errcode alone) so this stays true if that ever changes.
++  - Tests: new `describe("RepairOrdersService error normalization (Finding E)")` block — 7 tests covering the generic-fallback case, the specific duplicate-`zl_number` case, the specific cross-org-advisor-FK case, and a same-errcode-different-constraint case proving no mislabeling; two pre-existing tests (predating this pass) updated to use a realistic Postgres error message including the constraint name, since the hardened check now requires it.
++- [x] ✅ **Finding F (verified, deliberately NOT decided or implemented)**: confirmed the exact current behavior — a `manage_own` actor CAN create a RepairOrder with `advisor_contact_id IS NULL` (the manual-creation form's "assign this order to me" checkbox is opt-in and unchecked by default), producing an order its own creator cannot subsequently edit via `manage_own` (RLS's ownership check can never match a `NULL` advisor). This is a genuine product/UX question, not a security bug — recorded here with the reviewer's own options, not resolved:
++  - **(A)** keep unassigned creation intentionally (current behavior) — simplest, but produces orphaned-until-a-`manage_all`-admin-assigns orders.
++  - **(B)** automatically self-assign manual orders created by `manage_own` when a linked contact exists (remove the opt-in checkbox, make it the default with an opt-OUT instead).
++  - **(C)** require explicit self-assignment for `manage_own` (block submission until they choose "assign to me" or a `manage_all` admin creates it instead).
++  - **(D)** another option, not yet identified.
++  - **No implementation change was made for this finding.** Decision needed from the product owner before/if this should change.
++
++**Testing summary for this pass**: 20 new/updated tests across `repair-orders.service.test.ts` (10 new: 3 rewritten `getOwnAdvisorContactId` + 7 new error-normalization; 2 pre-existing tests updated for the hardened `23505` check) and `repair-order-header-editor.test.tsx` (1 new); new `094_repair_orders_correction_pass_rls_test.sql`, **13/13 passing live**; re-ran `093_...` unchanged, **12/12 still passing** (no regression from the `repair_orders_update` policy rewrite). **Full Zone 3 suite: 136/136 passing** across ten test files run together (was 111/111 before this pass — net +25, since some new tests replaced rather than purely added to the prior count). `pnpm type-check` and `pnpm lint` clean on every new/changed file.
++
++**Phase 7 remains ✅ DONE (10/10)** — no implementation task was reopened or unchecked; this pass fixed defense-in-depth/correctness/consistency gaps underneath already-complete tasks, the same shape as the Phase 4-6 corrective-review passes. Every acceptance-criteria item this phase's own plan named is met with both mocked-test and live-RLS evidence. Manual/browser UAT of this phase's UI remains the one outstanding item, unchanged by this pass — **explicitly NOT claimed as done here**, per instruction.
+ 
+ ## DEMO READY gate
+ 
+@@ -398,3 +432,14 @@ None currently active.
+   - **Runtime/pitch-readiness status updated**: top-of-file `Runtime status`/`Current phase`/`Pitch readiness` corrected to reflect Phases 4-6 DONE; pitch readiness remains NOT YET overall, since Phases 7-13 (including the 10A-10F container chain) are still unstarted.
+   - **Stopping point, per explicit instruction: Phase 7 has NOT been started.** Its starting state is unchanged from before this pass: 0/10 tasks complete, ⬜ NOT STARTED, blocked on nothing (Phase 2's `crm_contacts`/`crm_party_roles` changes and Phase 6's list/detail navigation — its stated dependencies — are both already satisfied). No Phase 7/8/9/10/10A-10F/11/12/13 work, and no container/reservation/allocation/WU/Legacy Stock work, was started in this pass.
+ - **2026-09-11 (Phase 7 — header, advisor ownership, lifecycle, manual RepairOrder creation)**: verify-first pass, per explicit instruction not to blindly implement from the old plan — re-read the architecture doc, this tracker, the current Phase 4-6 code, and live Supabase schema/RLS for `repair_orders`/`crm_contacts`/`crm_party_roles`/`crm_party_contacts` before writing anything. **Found and fixed one CONFIRMED, pre-existing, live RLS bug** (DISCOVERY-005): `repair_orders_update`'s ownership check was a plain subquery against `crm_contacts`, itself blocked by that table's own RLS for any `manage_own` advisor lacking a separate `crm.contacts.read` grant — a hard self-lockout, live since Phase 2, found while writing this phase's own RLS test (not assumed). Fixed with a `SECURITY DEFINER` helper (`is_own_advisor_contact`), matching `has_branch_permission`'s established pattern; `repair_orders_update`/`repair_orders_insert` rewritten to use it. Also hardened `repair_orders_insert` so a `manage_own`-only actor can only name themselves (or nobody) as advisor at creation time, matching the UPDATE policy's own self-consistent design (two migrations: `20260911172022_repair_orders_insert_advisor_self_restriction.sql`, `20260911172434_repair_orders_advisor_self_check_fn.sql`, both live-applied, local files renamed to their live-reported versions). **One genuine product-decision gap identified and explicitly NOT invented around** (DISCOVERY-006): the architecture doc's advisor-picker "employee-role" scoping is not implementable against the live schema (`crm_party_roles` is party-level, not contact-level); an interim, reversible `linked_user_id`-based signal is used instead, with the real decision flagged for the product owner. **Built**: `RepairOrdersService.createRepairOrder`/`updateHeader`/`assignAdvisor`/`changeStatus`/`listAdvisorCandidates`/`getOwnAdvisorContactId`; 5 new server actions (`apps/web/src/app/actions/workshop/repair-orders.ts`); 4 new `platform_events` registry entries; a new manual-creation route (`/dashboard/workshop/new`) and an upgraded header/advisor/lifecycle detail page (`/dashboard/workshop/[id]`, `RepairOrderHeaderEditor` client component) — including a mid-build fix this phase's own component tests caught: `manage_own` must not see an Edit control on an already-`archived` order, since RLS rejects any write to it regardless of which field changes. **Testing**: 55 new tests (15 service + 21 action + 13 component), all passing; `093_repair_orders_header_ownership_rls_test.sql` (new), 12/12 passing live against `supabase-target` as the genuinely-RLS-enforced `authenticated` role, zero residual data after `ROLLBACK`; 111/111 passing across the full nine-file Zone 3 suite run together; `pnpm type-check` and `pnpm lint` clean on every new/changed file. **Live Supabase verification**: both new migrations applied via MCP, live-verified (`pg_policies`, `information_schema.routine_privileges`), local files renamed to match live-reported versions, no drift. **Phase 7 is marked ✅ DONE (10/10)** — every acceptance-criteria item this phase's own plan named is met with both mocked-test and live-RLS evidence; genuine manual/browser UAT of this phase's UI (matching the same pattern Phases 4-6 carried before their own UAT pass) remains the one outstanding item, explicitly flagged, not assumed. **Stopping point, per explicit instruction: Phase 8 has NOT been started**, nor has reservation/allocation/container/QR/WU/Legacy-Stock/comments/AutoStacja-hardening work beyond what Phase 7 itself needed (none of it did).
++- **2026-09-11 (Phase 7 external-review correction pass — six findings, four confirmed and fixed)**: an external reviewer examined the full Phase 7 diff/review bundle (`docs/mvp/reviews/zone3-phase7-review/`) and raised six findings; each was independently live-reproduced against `supabase-target` as the genuinely-RLS-enforced `authenticated` role BEFORE any fix, per explicit "verify first, do not blindly implement" instruction. See Phase 7's own task-list section above ("2026-09-11 external-review correction pass") for the full per-finding writeup; summarized here for traceability.
++  - **Finding A (CONFIRMED, fixed)**: `getOwnAdvisorContactId` reintroduced, in the application layer, the exact same `crm_contacts`-RLS visibility bug the first correction pass had already fixed at the RLS layer — a genuine `manage_own` advisor without `crm.contacts.read` was shown as a non-owner on their own order and couldn't self-assign at creation. Fixed with a new `SECURITY DEFINER` RPC, `get_own_advisor_contact_id(p_organization_id)` (migration `20260911183702`).
++  - **Finding B (CONFIRMED, fixed)**: `repair_orders_update`'s RLS had no archived-status restriction at all for `manage_all` — a raw Data API call could un-archive a row or edit it while archived, contradicting the "archived is terminal for everyone" contract. Fixed by adding `status <> 'archived'` to the policy's `USING` clause (migration `20260911183705`), making an already-archived row unreachable for UPDATE by anyone. UI's edit-control gating updated to match.
++  - **Finding C (CONFIRMED, fixed)**: `identity_status`/`created_by`/`organization_id`/`branch_id` were only application-layer-protected, not DB-enforced — a direct UPDATE could desync `identity_status` from `zl_number`'s presence or rewrite `created_by`. Fixed with a single `BEFORE INSERT OR UPDATE` trigger, `repair_orders_enforce_invariants()` (migration `20260911183709`), confirmed not to interact adversely with the materialization RPC.
++  - **Finding D (CONFIRMED, fixed)**: `advisor_contact_id`'s FK had no organization scoping — `manage_all` could assign a cross-organization contact as advisor. Fixed at the storage layer with a composite FK, `repair_orders (organization_id, advisor_contact_id) -> crm_contacts (organization_id, id)` (migration `20260911183712`), enforced for every caller including any future/service-role path.
++  - **Finding E (CONFIRMED, fixed)**: the five plain-CRUD Phase 7 service methods leaked raw `error.message` for unexpected failures. Fixed with a shared `normalizeRepairOrderCrudError` helper (small curated allowlist, generic fallback for everything else, matching the established convention from the materialization RPC's own error handling).
++  - **Finding F (verified, deliberately NOT decided)**: confirmed `manage_own` can create an unassigned (and thus self-unmanageable) RepairOrder by default; recorded four options with a note that this is a product/UX decision, not a bug — **not implemented or decided in this pass**.
++  - **New migrations** (all applied via MCP, live-verified, local files renamed to their live-reported versions, no drift): `20260911183702_repair_orders_own_advisor_contact_id_fn.sql`, `20260911183705_repair_orders_archived_terminal_for_all.sql`, `20260911183709_repair_orders_field_invariants_trigger.sql`, `20260911183712_repair_orders_advisor_org_scoped_fk.sql`.
++  - **Testing**: new `094_repair_orders_correction_pass_rls_test.sql`, 13/13 passing live (zero residual data after `ROLLBACK`); `093_...` re-run unchanged, 12/12 still passing (no regression); 20 new/updated Vitest tests (10 new in `repair-orders.service.test.ts`, 2 pre-existing ones updated for the hardened `23505` check, 1 new component test); **full Zone 3 suite: 136/136 passing** across ten test files run together. `pnpm type-check` and `pnpm lint` clean.
++  - **Phase 7 remains ✅ DONE (10/10)** — no task reopened; this pass fixed defense-in-depth/correctness gaps underneath already-complete tasks. Manual/browser UAT of Phase 7's UI remains outstanding, unchanged by this pass, explicitly not claimed as done.
++  - **Stopping point, per explicit instruction: Phase 8 has NOT been started**, nor has any reservation/allocation/container/QR/WU/Legacy-Stock/comments/AutoStacja-hardening work. No Supabase changes beyond the four migrations explicitly required to fix the four confirmed findings were made; no existing applied migration was edited in place.

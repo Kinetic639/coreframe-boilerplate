@@ -1,6 +1,11 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { eventService } from "./event.service";
+import type {
+  CreateRepairOrderInput,
+  UpdateRepairOrderHeaderInput,
+} from "@/lib/validations/repair-orders";
+import type { RepairOrderStatus } from "@/lib/types/repair-orders";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -69,6 +74,37 @@ function normalizeMaterializationRpcError(error: { code?: string; message: strin
   );
   if (isKnown) return error.message;
   return "Materialization failed due to an unexpected server error. Please try again or contact support.";
+}
+
+/**
+ * Correction pass Finding E (CONFIRMED, fixed here): the plain-CRUD Phase 7
+ * methods below (create/update/assign/changeStatus) previously returned raw
+ * `error.message` for any non-23505 failure -- unlike the curated
+ * allowlist-based normalization already established above for the
+ * materialization RPC's own four deliberate RAISEs. A genuinely unexpected
+ * error on a plain table INSERT/UPDATE (an RLS WITH CHECK violation, an FK
+ * violation -- including the new org-scoped advisor FK from Finding D's
+ * fix -- a connection error, etc.) was reaching the browser verbatim,
+ * revealing table/constraint/policy names. Every such error is now logged
+ * in full server-side (with the calling method name for context) and
+ * replaced with one generic, safe message before returning to the caller.
+ * The only specific, curated exceptions are the two already-safe, already-
+ * expected cases below -- matched by constraint name/column, not by
+ * errcode alone, so a different, unrelated future constraint on this table
+ * can never be mislabeled as one of these two.
+ */
+function normalizeRepairOrderCrudError(
+  methodName: string,
+  error: { code?: string; message: string }
+): string {
+  if (error.code === "23505" && error.message.includes("repair_orders_identity_unique")) {
+    return "A RepairOrder with this ZL number already exists in this branch";
+  }
+  if (error.code === "23503" && error.message.includes("advisor_contact_id")) {
+    return "The selected advisor is not valid for this organization";
+  }
+  console.error(`[RepairOrdersService.${methodName}] Unexpected DB error:`, error);
+  return "An unexpected error occurred. Please try again or contact support.";
 }
 
 /**
@@ -156,6 +192,48 @@ interface RepairOrderListDbRow {
    * types this as an array; both shapes are handled defensively below. */
   advisor?: { display_name: string | null } | { display_name: string | null }[] | null;
 }
+
+/** Phase 7: candidate advisor for the assignment picker -- a crm_contacts
+ * row already linked to a real platform user (the only kind of contact
+ * that can ever function as an "owner" under the manage_own ownership
+ * model; see repair-orders.service.ts's listAdvisorCandidates doc comment
+ * for why this is the interim scoping rule, pending a product decision on
+ * the CRM party-role "employee" tagging scheme). */
+export interface RepairOrderAdvisorCandidate {
+  id: string;
+  displayName: string;
+}
+
+/** Phase 7: full editable header shape returned to the detail/edit UI --
+ * a superset of RepairOrderListRow (adds vehicle_brand/client_name/
+ * dealer_name/created_by, none of which the Phase 6 list view needed). */
+export interface RepairOrderHeader extends RepairOrderListRow {
+  vehicleBrand: string | null;
+  clientName: string | null;
+  dealerName: string | null;
+  createdBy: string | null;
+}
+
+interface RepairOrderHeaderDbRow extends RepairOrderListDbRow {
+  vehicle_brand: string | null;
+  client_name: string | null;
+  dealer_name: string | null;
+  created_by: string | null;
+}
+
+function mapRepairOrderHeader(row: RepairOrderHeaderDbRow): RepairOrderHeader {
+  return {
+    ...mapRepairOrderListRow(row),
+    vehicleBrand: row.vehicle_brand,
+    clientName: row.client_name,
+    dealerName: row.dealer_name,
+    createdBy: row.created_by,
+  };
+}
+
+const HEADER_COLUMNS = `id, zl_number, order_number, vin, vehicle_brand, client_name, dealer_name,
+   status, identity_status, advisor_contact_id, created_by, created_at, updated_at,
+   advisor:crm_contacts!repair_orders_advisor_contact_id_fkey(display_name)`;
 
 function mapRepairOrderListRow(row: RepairOrderListDbRow): RepairOrderListRow {
   const advisor = Array.isArray(row.advisor) ? row.advisor[0] : row.advisor;
@@ -391,25 +469,22 @@ export class RepairOrdersService {
   }
 
   /**
-   * Phase 6 minimal detail read -- "option A" from the work order (a real,
-   * basic identifier/context shell), deliberately NOT the Phase 7 header
-   * view: no lines, no provenance, no lifecycle transitions, no advisor
-   * editing. Same row shape as listForWorkshop's mapping, fetched by id and
-   * scoped to org (+ branch, when known) so a wrong-org/branch id reads as
-   * "not found" rather than leaking existence.
+   * Detail read backing both the Phase 6 list-row-open shell and Phase 7's
+   * full header view -- returns the full RepairOrderHeader shape (a
+   * superset of RepairOrderListRow, so this is a non-breaking extension of
+   * the Phase 6 method rather than a parallel duplicate query). Scoped to
+   * org (+ branch, when known) so a wrong-org/branch id reads as "not
+   * found" rather than leaking existence.
    */
   static async getByIdForWorkshop(
     supabase: SupabaseClient,
     orgId: string,
     branchId: string | null,
     id: string
-  ): Promise<ServiceResult<RepairOrderListRow | null>> {
+  ): Promise<ServiceResult<RepairOrderHeader | null>> {
     let query = supabase
       .from("repair_orders")
-      .select(
-        `id, zl_number, order_number, vin, status, identity_status, advisor_contact_id, created_at, updated_at,
-         advisor:crm_contacts!repair_orders_advisor_contact_id_fkey(display_name)`
-      )
+      .select(HEADER_COLUMNS)
       .eq("id", id)
       .eq("organization_id", orgId)
       .is("deleted_at", null);
@@ -420,6 +495,380 @@ export class RepairOrdersService {
     if (error) return { success: false, error: error.message };
     if (!data) return { success: true, data: null };
 
-    return { success: true, data: mapRepairOrderListRow(data as RepairOrderListDbRow) };
+    return { success: true, data: mapRepairOrderHeader(data as RepairOrderHeaderDbRow) };
+  }
+
+  /**
+   * Phase 7: candidate advisors for the assignment picker.
+   *
+   * Interim scoping rule (see this session's Phase 7 report for the full
+   * product-decision writeup): the architecture doc's own prose ("a
+   * crm_contacts row representing an internal advisor gets a
+   * crm_party_roles row with role='employee'") is not literally
+   * implementable against the live schema -- crm_party_roles.role is a
+   * PARTY-level tag (crm_party_roles.party_id -> crm_parties.id), not a
+   * CONTACT-level one; crm_party_roles has no contact_id column at all.
+   * Scoping this picker by that mechanism would require inventing a new,
+   * undecided, undocumented synthetic-party-per-employee scheme. Pending
+   * that product decision, this method uses the narrower, schema-real,
+   * reversible signal instead: crm_contacts rows already linked to a real
+   * platform user (linked_user_id IS NOT NULL) -- the only contacts that
+   * can ever function as an "owner" under the manage_own ownership model
+   * (repair_orders_update's RLS requires exactly this link). An advisor
+   * with no linked_user_id can still be assigned by a manage_all caller
+   * via a free-text/manual path later if ever needed -- not built here,
+   * since nothing in this phase's accepted scope requires it.
+   *
+   * This list is inherently gated by crm_contacts' own RLS (a separate
+   * crm.contacts.read permission) -- a caller without it simply sees an
+   * empty list here (safe default), not an error; advisor assignment is
+   * optional everywhere it is used, so an empty candidate list degrades
+   * gracefully rather than blocking anything.
+   */
+  static async listAdvisorCandidates(
+    supabase: SupabaseClient,
+    orgId: string
+  ): Promise<ServiceResult<RepairOrderAdvisorCandidate[]>> {
+    const { data, error } = await supabase
+      .from("crm_contacts")
+      .select("id, display_name")
+      .eq("organization_id", orgId)
+      .not("linked_user_id", "is", null)
+      .is("deleted_at", null)
+      .order("display_name", { ascending: true });
+
+    if (error) {
+      return {
+        success: false,
+        error: normalizeRepairOrderCrudError("listAdvisorCandidates", error),
+      };
+    }
+
+    return {
+      success: true,
+      data: (data ?? []).map((row) => ({
+        id: (row as { id: string; display_name: string }).id,
+        displayName: (row as { id: string; display_name: string }).display_name,
+      })),
+    };
+  }
+
+  /**
+   * Phase 7: resolve the caller's OWN linked crm_contacts row, if any --
+   * used by createRepairOrderAction/createRepairOrder to validate a
+   * manage_own-only actor's advisor_contact_id selection server-side
+   * (defense in depth ahead of repair_orders_insert's own RLS, which
+   * enforces the identical rule at the DB layer as the authoritative
+   * gate), and by the detail page to determine UI ownership.
+   *
+   * Correction pass Finding A (CONFIRMED, fixed here): this previously
+   * performed a plain authenticated SELECT against crm_contacts
+   * (organization_id = :org AND linked_user_id = :user) -- itself subject
+   * to crm_contacts_select's own RLS (requires a separate crm.contacts.read
+   * grant), reintroducing in the application layer the exact same
+   * visibility bug already fixed at the RLS layer by
+   * is_own_advisor_contact(). Live-reproduced before fixing: a real
+   * self-linked crm_contacts row, for which is_own_advisor_contact()
+   * correctly returned true, returned ZERO rows from this exact query
+   * shape under an actor holding only workshop.repair_orders.manage_own/
+   * .read (no crm.contacts.read) -- meaning a genuine advisor without CRM
+   * access was shown as a non-owner on their own RepairOrder, and could not
+   * self-assign during manual creation. Fixed by calling the new
+   * get_own_advisor_contact_id(p_organization_id) SECURITY DEFINER RPC
+   * (20260911183702) instead -- derives identity from auth.uid() only (no
+   * caller-supplied user id parameter at all, unlike the previous plain
+   * query, which is why this method's own signature no longer takes a
+   * userId parameter either), organization-scoped, exposes only the
+   * resulting contact id. Returns null (not an error) when the caller has
+   * no linked contact -- a real, valid state (e.g. an advisor identity not
+   * yet created in CRM).
+   */
+  static async getOwnAdvisorContactId(
+    supabase: SupabaseClient,
+    orgId: string
+  ): Promise<ServiceResult<string | null>> {
+    const { data, error } = await supabase.rpc("get_own_advisor_contact_id", {
+      p_organization_id: orgId,
+    });
+
+    if (error) {
+      return {
+        success: false,
+        error: normalizeRepairOrderCrudError("getOwnAdvisorContactId", error),
+      };
+    }
+    return { success: true, data: (data as string | null) ?? null };
+  }
+
+  /**
+   * Phase 7: manual RepairOrder header creation. organization_id/branch_id
+   * are always the caller's trusted server-side active context (never
+   * accepted from `input`) -- matching the accepted "no separate manual-
+   * order subsystem" rule: this INSERT goes through the exact same table,
+   * RLS, and permission gates a materialized RepairOrder uses.
+   *
+   * identity_status is derived here, never accepted as client input:
+   * 'resolved' when zl_number is present, 'unresolved' otherwise -- the
+   * same rule repair_orders_resolved_requires_zl_number enforces at the DB
+   * layer (this is a convenience default matching that constraint, not a
+   * bypass of it).
+   *
+   * advisor_contact_id is passed through as given by the caller (already
+   * pre-validated by the action layer via getOwnAdvisorContactId for a
+   * manage_own-only actor) -- repair_orders_insert's own RLS WITH CHECK
+   * remains the authoritative enforcement either way.
+   */
+  static async createRepairOrder(
+    supabase: SupabaseClient,
+    orgId: string,
+    branchId: string,
+    userId: string,
+    input: CreateRepairOrderInput
+  ): Promise<ServiceResult<RepairOrderHeader>> {
+    const zlNumber = input.zl_number ?? null;
+
+    const { data, error } = await supabase
+      .from("repair_orders")
+      .insert({
+        organization_id: orgId,
+        branch_id: branchId,
+        zl_number: zlNumber,
+        order_number: input.order_number ?? null,
+        vin: input.vin ?? null,
+        vehicle_brand: input.vehicle_brand ?? null,
+        client_name: input.client_name ?? null,
+        dealer_name: input.dealer_name ?? null,
+        advisor_contact_id: input.advisor_contact_id ?? null,
+        identity_status: zlNumber ? "resolved" : "unresolved",
+        created_by: userId,
+      })
+      .select(HEADER_COLUMNS)
+      .single();
+
+    if (error) {
+      return { success: false, error: normalizeRepairOrderCrudError("createRepairOrder", error) };
+    }
+
+    const header = mapRepairOrderHeader(data as RepairOrderHeaderDbRow);
+
+    const emitResult = await eventService.emit({
+      actionKey: "workshop.repair_orders.created",
+      actorType: "user",
+      actorUserId: userId,
+      organizationId: orgId,
+      branchId,
+      entityType: "repair_order",
+      entityId: header.id,
+      metadata: { zlNumber: header.zlNumber, identityStatus: header.identityStatus },
+      eventTier: "baseline",
+    });
+    if (!emitResult.success) {
+      console.error(
+        "[RepairOrdersService.createRepairOrder] Failed to emit workshop.repair_orders.created:",
+        (emitResult as { success: false; error: string }).error
+      );
+    }
+
+    return { success: true, data: header };
+  }
+
+  /**
+   * Phase 7: edit mutable header/business fields. NEVER touches
+   * advisor_contact_id (assignAdvisor) or status (changeStatus) -- both
+   * carry stricter, dedicated RLS/authorization rules of their own.
+   * organization_id/branch_id are query filters, never write targets.
+   *
+   * A race-safe conditional filter is unnecessary here (unlike
+   * changeStatus): concurrent header edits are a last-write-wins field
+   * update, the same convention CrmContactsService.update already uses --
+   * ownership/authorization is re-verified live by RLS on every request
+   * regardless, so no stale-permission window exists.
+   *
+   * identity_status is re-derived whenever the payload includes zl_number
+   * (even when set back to null) -- never accepted directly.
+   */
+  static async updateHeader(
+    supabase: SupabaseClient,
+    orgId: string,
+    branchId: string | null,
+    userId: string,
+    id: string,
+    patch: Omit<UpdateRepairOrderHeaderInput, "id">
+  ): Promise<ServiceResult<RepairOrderHeader>> {
+    const updatePayload: Record<string, unknown> = { ...patch };
+    if ("zl_number" in patch) {
+      updatePayload.identity_status = patch.zl_number ? "resolved" : "unresolved";
+    }
+
+    let query = supabase
+      .from("repair_orders")
+      .update(updatePayload)
+      .eq("id", id)
+      .eq("organization_id", orgId)
+      .is("deleted_at", null);
+    if (branchId) query = query.eq("branch_id", branchId);
+
+    const { data, error } = await query.select(HEADER_COLUMNS).maybeSingle();
+
+    if (error) {
+      return { success: false, error: normalizeRepairOrderCrudError("updateHeader", error) };
+    }
+    if (!data) {
+      return {
+        success: false,
+        error: "RepairOrder not found, wrong branch, or you are not authorized to edit it",
+      };
+    }
+
+    const header = mapRepairOrderHeader(data as RepairOrderHeaderDbRow);
+
+    const emitResult = await eventService.emit({
+      actionKey: "workshop.repair_orders.header_updated",
+      actorType: "user",
+      actorUserId: userId,
+      organizationId: orgId,
+      branchId,
+      entityType: "repair_order",
+      entityId: id,
+      metadata: { fields: Object.keys(patch) },
+      eventTier: "baseline",
+    });
+    if (!emitResult.success) {
+      console.error(
+        "[RepairOrdersService.updateHeader] Failed to emit workshop.repair_orders.header_updated:",
+        (emitResult as { success: false; error: string }).error
+      );
+    }
+
+    return { success: true, data: header };
+  }
+
+  /**
+   * Phase 7: reassign (or clear) the advisor. A separate method from
+   * updateHeader because RLS treats advisor_contact_id specially: a
+   * manage_own-only actor's WITH CHECK requires the NEW value to remain
+   * their own linked contact, so in practice only a manage_all caller (or
+   * a manage_own caller re-affirming themselves, a no-op) can ever
+   * succeed here for a real reassignment -- matching the accepted "manage_
+   * all can reassign; manage_own may edit header but not change advisor"
+   * policy. This method itself performs no extra authorization beyond the
+   * org/branch/id filter -- repair_orders_update's RLS is the authoritative
+   * gate; the action layer adds a clearer pre-check for UX.
+   */
+  static async assignAdvisor(
+    supabase: SupabaseClient,
+    orgId: string,
+    branchId: string | null,
+    userId: string,
+    id: string,
+    advisorContactId: string | null
+  ): Promise<ServiceResult<RepairOrderHeader>> {
+    let query = supabase
+      .from("repair_orders")
+      .update({ advisor_contact_id: advisorContactId })
+      .eq("id", id)
+      .eq("organization_id", orgId)
+      .is("deleted_at", null);
+    if (branchId) query = query.eq("branch_id", branchId);
+
+    const { data, error } = await query.select(HEADER_COLUMNS).maybeSingle();
+    if (error) {
+      return { success: false, error: normalizeRepairOrderCrudError("assignAdvisor", error) };
+    }
+    if (!data) {
+      return {
+        success: false,
+        error: "RepairOrder not found, wrong branch, or you are not authorized to reassign it",
+      };
+    }
+
+    const header = mapRepairOrderHeader(data as RepairOrderHeaderDbRow);
+
+    const emitResult = await eventService.emit({
+      actionKey: "workshop.repair_orders.advisor_assigned",
+      actorType: "user",
+      actorUserId: userId,
+      organizationId: orgId,
+      branchId,
+      entityType: "repair_order",
+      entityId: id,
+      metadata: { advisorContactId },
+      eventTier: "baseline",
+    });
+    if (!emitResult.success) {
+      console.error(
+        "[RepairOrdersService.assignAdvisor] Failed to emit workshop.repair_orders.advisor_assigned:",
+        (emitResult as { success: false; error: string }).error
+      );
+    }
+
+    return { success: true, data: header };
+  }
+
+  /**
+   * Phase 7: lifecycle transition (open/closed/archived). Race-safe via a
+   * conditional UPDATE keyed on the CURRENT status matching `fromStatus`
+   * (the same "guard inside the WHERE clause" pattern already established
+   * by WddMatcherService.approveSession) -- a concurrent second caller who
+   * changed the status first causes this call to affect 0 rows, reported
+   * as a specific "conflict" error rather than silently reporting success.
+   * `canTransitionRepairOrderStatus` (the existing, authoritative domain
+   * helper) is checked BEFORE attempting the UPDATE, so an illegal
+   * transition is rejected with a clear message before ever reaching the
+   * DB -- RLS's `status <> 'archived'` restriction for manage_own remains
+   * the authoritative server-side enforcement of the archive-requires-
+   * manage_all rule either way.
+   */
+  static async changeStatus(
+    supabase: SupabaseClient,
+    orgId: string,
+    branchId: string | null,
+    userId: string,
+    id: string,
+    fromStatus: RepairOrderStatus,
+    toStatus: RepairOrderStatus
+  ): Promise<ServiceResult<RepairOrderHeader>> {
+    let query = supabase
+      .from("repair_orders")
+      .update({ status: toStatus })
+      .eq("id", id)
+      .eq("organization_id", orgId)
+      .eq("status", fromStatus)
+      .is("deleted_at", null);
+    if (branchId) query = query.eq("branch_id", branchId);
+
+    const { data, error } = await query.select(HEADER_COLUMNS).maybeSingle();
+    if (error) {
+      return { success: false, error: normalizeRepairOrderCrudError("changeStatus", error) };
+    }
+    if (!data) {
+      return {
+        success: false,
+        error:
+          "RepairOrder was not in the expected status (already changed by someone else, not found, wrong branch, or you are not authorized to change it)",
+      };
+    }
+
+    const header = mapRepairOrderHeader(data as RepairOrderHeaderDbRow);
+
+    const emitResult = await eventService.emit({
+      actionKey: "workshop.repair_orders.status_changed",
+      actorType: "user",
+      actorUserId: userId,
+      organizationId: orgId,
+      branchId,
+      entityType: "repair_order",
+      entityId: id,
+      metadata: { previousStatus: fromStatus, newStatus: toStatus },
+      eventTier: "baseline",
+    });
+    if (!emitResult.success) {
+      console.error(
+        "[RepairOrdersService.changeStatus] Failed to emit workshop.repair_orders.status_changed:",
+        (emitResult as { success: false; error: string }).error
+      );
+    }
+
+    return { success: true, data: header };
   }
 }

@@ -50,7 +50,7 @@ const REPAIR_ORDER_IDENTITY_STATUSES: readonly RepairOrderIdentityStatus[] = [
   "resolved",
   "unresolved",
 ];
-const REPAIR_ORDER_STATUSES: readonly RepairOrderStatus[] = ["open", "closed", "archived"];
+export const REPAIR_ORDER_STATUSES: readonly RepairOrderStatus[] = ["open", "closed", "archived"];
 const REPAIR_ORDER_LINE_STATUSES: readonly RepairOrderLineStatus[] = [
   "pending",
   "partially_received",

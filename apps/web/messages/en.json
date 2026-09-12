@@ -3097,7 +3097,7 @@
       },
       "repairOrders": {
         "title": "Repair Orders",
-        "subtitle": "Repair orders materialized from approved Matcher sessions.",
+        "subtitle": "Repair orders from approved Matcher sessions and manual entry.",
         "openRepairOrder": "Open repair order",
         "search": {
           "placeholder": "Search by ZL number, VIN or order number…",
@@ -3122,7 +3122,7 @@
         },
         "emptyState": {
           "title": "No repair orders yet.",
-          "subtitle": "Repair orders are created automatically from approved Matcher sessions once a session is approved and materialized.",
+          "subtitle": "Repair orders are created automatically from approved Matcher sessions once a session is approved and materialized, or you can create one manually.",
           "noResultsTitle": "No matching repair orders",
           "noResultsSubtitle": "Try a different ZL number, VIN, or order number."
         },
@@ -3134,7 +3134,36 @@
           "unresolvedTitle": "Unresolved repair order",
           "identityStatus": "Identity status",
           "updated": "Last updated",
-          "futurePhasesNote": "Lines, provenance, warehouse detail, and lifecycle actions are not available on this page yet — they arrive in a later phase."
+          "futurePhasesNote": "Parts lines, source-document provenance, and warehouse detail are not available on this page yet — they arrive in a later phase.",
+          "vehicleBrand": "Vehicle brand",
+          "clientName": "Client name",
+          "dealerName": "Dealer",
+          "save": "Save",
+          "cancel": "Cancel",
+          "editHeader": "Edit",
+          "unassignedAdvisor": "Unassigned",
+          "assignAdvisor": "Assign",
+          "closeOrder": "Close order",
+          "reopenOrder": "Reopen order",
+          "archiveOrder": "Archive",
+          "archiveConfirmTitle": "Archive this repair order?",
+          "archiveConfirmDescription": "Archived repair orders are final and cannot be reopened. This does not affect any already-received or issued parts.",
+          "readOnlyNote": "You don't have permission to edit this repair order."
+        },
+        "newOrder": {
+          "cta": "New repair order",
+          "title": "New repair order",
+          "description": "Create a repair order manually — without a Matcher import. Parts lines are added later.",
+          "zlNumberPlaceholder": "Leave empty if not yet known",
+          "zlNumberHint": "Optional. Without a ZL number the order starts as \"Unresolved\" and can be resolved later.",
+          "assignToSelf": "Assign this order to me",
+          "submit": "Create repair order"
+        },
+        "toasts": {
+          "createSuccess": "Repair order created",
+          "updateSuccess": "Repair order updated",
+          "advisorAssignedSuccess": "Advisor updated",
+          "statusChangedSuccess": "Status updated"
         }
       }
     },
