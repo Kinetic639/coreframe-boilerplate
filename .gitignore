@@ -70,3 +70,6 @@ yarn-error.*
 *.pem
 *.orig.*
 .vercel
+
+# Local browser crash output
+/debug.log
