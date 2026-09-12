@@ -7,8 +7,11 @@ vi.mock("../event.service", () => ({
   },
 }));
 
-import { RepairOrdersService } from "../repair-orders.service";
-import type { RepairOrderLineReadModel } from "../repair-orders.service";
+import { RepairOrdersService, groupProvenanceByRepairOrderLine } from "../repair-orders.service";
+import type {
+  RepairOrderLineReadModel,
+  RepairOrderProvenanceDocument,
+} from "../repair-orders.service";
 import { eventService } from "../event.service";
 
 function buildSupabaseMock(rpcResult: { data: unknown; error: unknown }) {
@@ -1437,6 +1440,614 @@ describe("RepairOrdersService.listRepairOrderLines", () => {
     });
 
     const result = await RepairOrdersService.listRepairOrderLines(
+      mock as never,
+      "org-1",
+      "branch-1",
+      "ro-1"
+    );
+
+    expect(result.success).toBe(false);
+    expect((result as { success: false; error: string }).error).not.toBe(
+      "connection terminated unexpectedly"
+    );
+  });
+});
+
+/**
+ * Phase 9: RepairOrdersService.getRepairOrderProvenance -- source-document/
+ * source-line provenance, explicitly distinct from Phase 8's logical-line
+ * list. Uses makeTableQueryMock (repair_orders parent check +
+ * repair_order_source_document_links main query), matching
+ * listRepairOrderLines' own established two-`.from()`-calls test pattern.
+ */
+describe("RepairOrdersService.getRepairOrderProvenance", () => {
+  const PARENT_FOUND = { data: { id: "ro-1" }, error: null };
+
+  function linkRow(overrides: Partial<Record<string, unknown>> = {}) {
+    return {
+      workshop_source_document_id: "doc-1",
+      linked_at: "2026-09-10T10:00:00.000Z",
+      document: {
+        id: "doc-1",
+        document_type: "zl",
+        external_document_number: "ZL/90001/26/3252/BL",
+        source_session_id: "session-1",
+        official_warehouse_code: "BL",
+        created_at: "2026-09-10T09:00:00.000Z",
+        lines: [],
+      },
+      ...overrides,
+    };
+  }
+
+  function sourceLine(overrides: Partial<Record<string, unknown>> = {}) {
+    return {
+      id: "docline-1",
+      product_code: "5WA-857-093",
+      product_name: "Front bumper cover",
+      quantity: 2,
+      unit: "pcs",
+      raw_text: "5WA 857 093  front bumper  2 pcs",
+      wdd_matcher_line_id: "wdd-line-1",
+      line_links: [],
+      ...overrides,
+    };
+  }
+
+  it("lists provenance documents with nested source lines and contributions, mapped to the domain shape", async () => {
+    const mock = makeTableQueryMock({
+      repair_orders: PARENT_FOUND,
+      repair_order_lines: { data: [{ id: "line-1" }], error: null },
+      repair_order_source_document_links: {
+        data: [
+          linkRow({
+            document: {
+              id: "doc-1",
+              document_type: "zl",
+              external_document_number: "ZL/90001/26/3252/BL",
+              source_session_id: "session-1",
+              official_warehouse_code: "BL",
+              created_at: "2026-09-10T09:00:00.000Z",
+              lines: [
+                sourceLine({
+                  line_links: [
+                    {
+                      repair_order_line_id: "line-1",
+                      quantity_contribution: 2,
+                      linked_at: "2026-09-10T10:01:00.000Z",
+                    },
+                  ],
+                }),
+              ],
+            },
+          }),
+        ],
+        error: null,
+      },
+    });
+
+    const result = await RepairOrdersService.getRepairOrderProvenance(
+      mock as never,
+      "org-1",
+      "branch-1",
+      "ro-1"
+    );
+
+    expect(result).toEqual({
+      success: true,
+      data: [
+        {
+          id: "doc-1",
+          documentType: "zl",
+          externalDocumentNumber: "ZL/90001/26/3252/BL",
+          sourceSessionId: "session-1",
+          officialWarehouseCode: "BL",
+          createdAt: "2026-09-10T09:00:00.000Z",
+          linkedAt: "2026-09-10T10:00:00.000Z",
+          lines: [
+            {
+              id: "docline-1",
+              productCode: "5WA-857-093",
+              productName: "Front bumper cover",
+              quantity: 2,
+              unit: "pcs",
+              rawText: "5WA 857 093  front bumper  2 pcs",
+              wddMatcherLineId: "wdd-line-1",
+              contributions: [
+                {
+                  repairOrderLineId: "line-1",
+                  quantityContribution: 2,
+                  linkedAt: "2026-09-10T10:01:00.000Z",
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("one RepairOrder -> many source documents: both appear, in linked_at order", async () => {
+    const mock = makeTableQueryMock({
+      repair_orders: PARENT_FOUND,
+      repair_order_source_document_links: {
+        data: [
+          linkRow({
+            workshop_source_document_id: "doc-1",
+            document: { ...linkRow().document, id: "doc-1" },
+          }),
+          linkRow({
+            workshop_source_document_id: "doc-2",
+            linked_at: "2026-09-11T10:00:00.000Z",
+            document: { ...linkRow().document, id: "doc-2", external_document_number: "ZW/900" },
+          }),
+        ],
+        error: null,
+      },
+    });
+
+    const result = await RepairOrdersService.getRepairOrderProvenance(
+      mock as never,
+      "org-1",
+      "branch-1",
+      "ro-1"
+    );
+
+    expect(result.success).toBe(true);
+    const docs = (result as { success: true; data: RepairOrderProvenanceDocument[] }).data;
+    expect(docs.map((d) => d.id)).toEqual(["doc-1", "doc-2"]);
+  });
+
+  it("scopes the query to this RepairOrder's own document links only (never cross-order)", async () => {
+    const mock = makeTableQueryMock({
+      repair_orders: PARENT_FOUND,
+      repair_order_source_document_links: { data: [], error: null },
+    });
+
+    await RepairOrdersService.getRepairOrderProvenance(mock as never, "org-1", "branch-1", "ro-1");
+
+    const eqCalls = (mock.callsByTable["repair_order_source_document_links"] ?? [])
+      .filter((c) => c.method === "eq")
+      .map((c) => c.args);
+    expect(eqCalls).toContainEqual(["repair_order_id", "ro-1"]);
+  });
+
+  it("one logical line -> many source lines: quantity_contribution preserved exactly for each, never summed/collapsed", async () => {
+    const mock = makeTableQueryMock({
+      repair_orders: PARENT_FOUND,
+      repair_order_lines: { data: [{ id: "line-1" }], error: null },
+      repair_order_source_document_links: {
+        data: [
+          linkRow({
+            document: {
+              ...linkRow().document,
+              lines: [
+                sourceLine({
+                  id: "docline-A",
+                  line_links: [
+                    { repair_order_line_id: "line-1", quantity_contribution: 2, linked_at: "t1" },
+                  ],
+                }),
+                sourceLine({
+                  id: "docline-B",
+                  line_links: [
+                    { repair_order_line_id: "line-1", quantity_contribution: 3, linked_at: "t2" },
+                  ],
+                }),
+              ],
+            },
+          }),
+        ],
+        error: null,
+      },
+    });
+
+    const result = await RepairOrdersService.getRepairOrderProvenance(
+      mock as never,
+      "org-1",
+      "branch-1",
+      "ro-1"
+    );
+
+    expect(result.success).toBe(true);
+    const docs = (result as { success: true; data: RepairOrderProvenanceDocument[] }).data;
+    const sources = groupProvenanceByRepairOrderLine(docs, "line-1");
+
+    expect(sources).toHaveLength(2);
+    expect(sources.map((s) => s.contribution.quantityContribution).sort()).toEqual([2, 3]);
+    // Never summed into one contribution of 5.
+    expect(sources.some((s) => s.contribution.quantityContribution === 5)).toBe(false);
+  });
+
+  it("same-SKU source lines do not cross logical-line boundaries when grouped by line", async () => {
+    const mock = makeTableQueryMock({
+      repair_orders: PARENT_FOUND,
+      repair_order_lines: { data: [{ id: "line-A" }, { id: "line-B" }], error: null },
+      repair_order_source_document_links: {
+        data: [
+          linkRow({
+            document: {
+              ...linkRow().document,
+              lines: [
+                sourceLine({
+                  id: "docline-A",
+                  product_code: "SKU-X",
+                  line_links: [
+                    { repair_order_line_id: "line-A", quantity_contribution: 2, linked_at: "t1" },
+                  ],
+                }),
+                sourceLine({
+                  id: "docline-B",
+                  product_code: "SKU-X",
+                  line_links: [
+                    { repair_order_line_id: "line-B", quantity_contribution: 3, linked_at: "t2" },
+                  ],
+                }),
+              ],
+            },
+          }),
+        ],
+        error: null,
+      },
+    });
+
+    const result = await RepairOrdersService.getRepairOrderProvenance(
+      mock as never,
+      "org-1",
+      "branch-1",
+      "ro-1"
+    );
+
+    const docs = (result as { success: true; data: RepairOrderProvenanceDocument[] }).data;
+    const sourcesForA = groupProvenanceByRepairOrderLine(docs, "line-A");
+    const sourcesForB = groupProvenanceByRepairOrderLine(docs, "line-B");
+
+    expect(sourcesForA).toHaveLength(1);
+    expect(sourcesForA[0].contribution.quantityContribution).toBe(2);
+    expect(sourcesForB).toHaveLength(1);
+    expect(sourcesForB[0].contribution.quantityContribution).toBe(3);
+  });
+
+  /**
+   * CASE A (document M:N, cross-order leak): a source document shared
+   * between TWO RepairOrders must never leak one order's own source-line
+   * CONTENT (not just its contribution reference) into the other's
+   * provenance view. Reproduces the exact scenario found and fixed above
+   * -- doc-1 has two lines, docline-mine contributing to THIS order's own
+   * line-mine, and docline-theirs contributing ONLY to a DIFFERENT order's
+   * line-theirs (not in this order's owned-line set).
+   *
+   * External-review Finding (2026-09-12, CONFIRMED, fixed): the original
+   * fix only emptied `theirs.contributions` -- the source line ITSELF
+   * (SKU/product name/quantity/unit/wddMatcherLineId) still leaked through.
+   * This test now asserts the foreign line is entirely ABSENT, not merely
+   * "present with an empty contributions array".
+   */
+  it("a document shared with another RepairOrder does not leak that other order's source-line content (cross-order metadata leak fix)", async () => {
+    const mock = makeTableQueryMock({
+      repair_orders: PARENT_FOUND,
+      // This RepairOrder owns only "line-mine" -- "line-theirs" belongs to
+      // a different RepairOrder entirely.
+      repair_order_lines: { data: [{ id: "line-mine" }], error: null },
+      repair_order_source_document_links: {
+        data: [
+          linkRow({
+            document: {
+              ...linkRow().document,
+              lines: [
+                sourceLine({
+                  id: "docline-mine",
+                  product_code: "SKU-MINE",
+                  product_name: "My own part",
+                  wdd_matcher_line_id: "wdd-mine",
+                  line_links: [
+                    {
+                      repair_order_line_id: "line-mine",
+                      quantity_contribution: 2,
+                      linked_at: "t1",
+                    },
+                  ],
+                }),
+                sourceLine({
+                  id: "docline-theirs",
+                  product_code: "SKU-THEIRS",
+                  product_name: "Their part",
+                  quantity: 4,
+                  wdd_matcher_line_id: "wdd-theirs",
+                  line_links: [
+                    {
+                      repair_order_line_id: "line-theirs",
+                      quantity_contribution: 4,
+                      linked_at: "t2",
+                    },
+                  ],
+                }),
+              ],
+            },
+          }),
+        ],
+        error: null,
+      },
+    });
+
+    const result = await RepairOrdersService.getRepairOrderProvenance(
+      mock as never,
+      "org-1",
+      "branch-1",
+      "ro-1"
+    );
+
+    expect(result.success).toBe(true);
+    const docs = (result as { success: true; data: RepairOrderProvenanceDocument[] }).data;
+    const docLines = docs[0].lines;
+
+    // Only "docline-mine" is present -- "docline-theirs" is omitted
+    // entirely, not present-with-empty-contributions.
+    expect(docLines).toHaveLength(1);
+    expect(docLines[0].id).toBe("docline-mine");
+    expect(docLines[0].contributions).toEqual([
+      { repairOrderLineId: "line-mine", quantityContribution: 2, linkedAt: "t1" },
+    ]);
+
+    // None of the foreign line's own metadata is exposed anywhere in the
+    // response -- not the source line itself, not its SKU, product name,
+    // quantity, wddMatcherLineId, or the foreign repair_order_line_id.
+    const serialized = JSON.stringify(docs);
+    expect(serialized).not.toContain("docline-theirs");
+    expect(serialized).not.toContain("SKU-THEIRS");
+    expect(serialized).not.toContain("Their part");
+    expect(serialized).not.toContain("wdd-theirs");
+    expect(serialized).not.toContain("line-theirs");
+  });
+
+  /**
+   * Inverse of CASE A: reading provenance FOR RepairOrder B (the "theirs"
+   * side) must symmetrically show only line-theirs and never line-mine's
+   * content -- proving the fix is not one-directional.
+   */
+  it("the inverse case: RepairOrder B's own provenance shows only its own line, never RepairOrder A's", async () => {
+    const mock = makeTableQueryMock({
+      repair_orders: PARENT_FOUND,
+      repair_order_lines: { data: [{ id: "line-theirs" }], error: null },
+      repair_order_source_document_links: {
+        data: [
+          linkRow({
+            document: {
+              ...linkRow().document,
+              lines: [
+                sourceLine({
+                  id: "docline-mine",
+                  product_code: "SKU-MINE",
+                  line_links: [
+                    {
+                      repair_order_line_id: "line-mine",
+                      quantity_contribution: 2,
+                      linked_at: "t1",
+                    },
+                  ],
+                }),
+                sourceLine({
+                  id: "docline-theirs",
+                  product_code: "SKU-THEIRS",
+                  line_links: [
+                    {
+                      repair_order_line_id: "line-theirs",
+                      quantity_contribution: 4,
+                      linked_at: "t2",
+                    },
+                  ],
+                }),
+              ],
+            },
+          }),
+        ],
+        error: null,
+      },
+    });
+
+    const result = await RepairOrdersService.getRepairOrderProvenance(
+      mock as never,
+      "org-1",
+      "branch-1",
+      "ro-2"
+    );
+
+    const docs = (result as { success: true; data: RepairOrderProvenanceDocument[] }).data;
+    expect(docs[0].lines).toHaveLength(1);
+    expect(docs[0].lines[0].id).toBe("docline-theirs");
+    expect(JSON.stringify(docs)).not.toContain("docline-mine");
+    expect(JSON.stringify(docs)).not.toContain("SKU-MINE");
+  });
+
+  /**
+   * External-review Finding, point 3: a source line with ZERO
+   * contributions to THIS RepairOrder is not provenance of this
+   * RepairOrder -- omitted entirely, never fabricated into the tree as an
+   * "unlinked" placeholder. This applies whether the line was never linked
+   * to anything at all, or (proven separately above) linked only to a
+   * different order.
+   */
+  it("a source line with zero contributions to this RepairOrder (never linked to anything) is OMITTED from this RepairOrder's provenance", async () => {
+    const mock = makeTableQueryMock({
+      repair_orders: PARENT_FOUND,
+      repair_order_source_document_links: {
+        data: [
+          linkRow({
+            document: {
+              ...linkRow().document,
+              lines: [sourceLine({ line_links: [] })],
+            },
+          }),
+        ],
+        error: null,
+      },
+    });
+
+    const result = await RepairOrdersService.getRepairOrderProvenance(
+      mock as never,
+      "org-1",
+      "branch-1",
+      "ro-1"
+    );
+
+    const docs = (result as { success: true; data: RepairOrderProvenanceDocument[] }).data;
+    // The document itself is still returned (a real, genuine link), but
+    // with zero lines -- the never-linked line is not fabricated into it.
+    expect(docs).toHaveLength(1);
+    expect(docs[0].lines).toEqual([]);
+  });
+
+  /**
+   * A shared document may legitimately be linked to THIS RepairOrder while
+   * (after correct per-order line scoping) yielding zero visible lines --
+   * e.g. every one of its lines belongs to a DIFFERENT order it is also
+   * shared with. The document-level link itself is real, genuine
+   * provenance and must NOT be silently dropped just because none of its
+   * lines happen to belong to this specific order.
+   */
+  it("a document linked to this RepairOrder with zero own-order visible lines is still returned (document-level link is real provenance)", async () => {
+    const mock = makeTableQueryMock({
+      repair_orders: PARENT_FOUND,
+      // This order owns no lines at all in this fixture -- every line in
+      // the shared document below belongs to some other order.
+      repair_order_lines: { data: [], error: null },
+      repair_order_source_document_links: {
+        data: [
+          linkRow({
+            document: {
+              ...linkRow().document,
+              id: "doc-shared-no-own-lines",
+              lines: [
+                sourceLine({
+                  id: "docline-foreign",
+                  line_links: [
+                    {
+                      repair_order_line_id: "line-belongs-elsewhere",
+                      quantity_contribution: 1,
+                      linked_at: "t1",
+                    },
+                  ],
+                }),
+              ],
+            },
+          }),
+        ],
+        error: null,
+      },
+    });
+
+    const result = await RepairOrdersService.getRepairOrderProvenance(
+      mock as never,
+      "org-1",
+      "branch-1",
+      "ro-1"
+    );
+
+    const docs = (result as { success: true; data: RepairOrderProvenanceDocument[] }).data;
+    expect(docs).toHaveLength(1);
+    expect(docs[0].id).toBe("doc-shared-no-own-lines");
+    expect(docs[0].lines).toEqual([]);
+  });
+
+  it("does not fabricate a wddMatcherLineId or join wdd_matcher_lines content -- exposes only the raw id reference, or null, for a line that genuinely belongs to this order", async () => {
+    const mock = makeTableQueryMock({
+      repair_orders: PARENT_FOUND,
+      repair_order_lines: { data: [{ id: "line-1" }], error: null },
+      repair_order_source_document_links: {
+        data: [
+          linkRow({
+            document: {
+              ...linkRow().document,
+              lines: [
+                sourceLine({
+                  wdd_matcher_line_id: null,
+                  line_links: [
+                    { repair_order_line_id: "line-1", quantity_contribution: 2, linked_at: "t1" },
+                  ],
+                }),
+              ],
+            },
+          }),
+        ],
+        error: null,
+      },
+    });
+
+    const result = await RepairOrdersService.getRepairOrderProvenance(
+      mock as never,
+      "org-1",
+      "branch-1",
+      "ro-1"
+    );
+
+    const docs = (result as { success: true; data: RepairOrderProvenanceDocument[] }).data;
+    expect(docs[0].lines).toHaveLength(1);
+    expect(docs[0].lines[0].wddMatcherLineId).toBeNull();
+  });
+
+  it("inaccessible parent RepairOrder (wrong org/branch, not found, or soft-deleted) -> empty provenance, no error, no leak, and the link table is never even queried", async () => {
+    const mock = makeTableQueryMock({
+      repair_orders: { data: null, error: null },
+    });
+
+    const result = await RepairOrdersService.getRepairOrderProvenance(
+      mock as never,
+      "org-1",
+      "branch-1",
+      "ro-missing"
+    );
+
+    expect(result).toEqual({ success: true, data: [] });
+    expect(mock.from).not.toHaveBeenCalledWith("repair_order_source_document_links");
+  });
+
+  it("a manually-created RepairOrder with zero linked documents returns a genuine empty array, not an error", async () => {
+    const mock = makeTableQueryMock({
+      repair_orders: PARENT_FOUND,
+      repair_order_source_document_links: { data: [], error: null },
+    });
+
+    const result = await RepairOrdersService.getRepairOrderProvenance(
+      mock as never,
+      "org-1",
+      "branch-1",
+      "ro-1"
+    );
+
+    expect(result).toEqual({ success: true, data: [] });
+  });
+
+  it("error normalization: an unexpected error on the parent check is replaced with a generic message, not leaked raw", async () => {
+    const mock = makeTableQueryMock({
+      repair_orders: {
+        data: null,
+        error: { code: "XX000", message: "connection terminated unexpectedly" },
+      },
+    });
+
+    const result = await RepairOrdersService.getRepairOrderProvenance(
+      mock as never,
+      "org-1",
+      "branch-1",
+      "ro-1"
+    );
+
+    expect(result.success).toBe(false);
+    expect((result as { success: false; error: string }).error).not.toBe(
+      "connection terminated unexpectedly"
+    );
+  });
+
+  it("error normalization: an unexpected error on the provenance query is replaced with a generic message, not leaked raw", async () => {
+    const mock = makeTableQueryMock({
+      repair_orders: PARENT_FOUND,
+      repair_order_source_document_links: {
+        data: null,
+        error: { code: "XX000", message: "connection terminated unexpectedly" },
+      },
+    });
+
+    const result = await RepairOrdersService.getRepairOrderProvenance(
       mock as never,
       "org-1",
       "branch-1",

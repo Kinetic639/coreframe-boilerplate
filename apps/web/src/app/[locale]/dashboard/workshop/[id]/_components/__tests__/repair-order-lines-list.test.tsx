@@ -3,13 +3,27 @@
  */
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import type { RepairOrderLineReadModel } from "@/server/services/repair-orders.service";
+import type {
+  RepairOrderLineReadModel,
+  RepairOrderProvenanceDocument,
+} from "@/server/services/repair-orders.service";
 
 const mockGetTranslations = vi.fn();
 
 vi.mock("next-intl/server", () => ({
   getTranslations: (...args: unknown[]) => mockGetTranslations(...args),
 }));
+
+// LineSourcesPopover (a client subcomponent rendered inside this server
+// component) uses next-intl's own client-side useTranslations hook.
+vi.mock("next-intl", () => ({
+  useTranslations: () => (key: string, values?: Record<string, unknown>) =>
+    key === "sourcesButton" ? `Sources (${values?.count})` : (LINE_TRANSLATIONS[key] ?? key),
+}));
+
+const LINE_TRANSLATIONS: Record<string, string> = {
+  sourcesPopoverTitle: "Source lines for this part",
+};
 
 const TRANSLATIONS: Record<string, string> = {
   title: "Parts lines",
@@ -196,6 +210,102 @@ describe("RepairOrderLinesList", () => {
 
       expect(screen.getAllByTestId("repair-order-line-row")).toHaveLength(1);
       expect(screen.queryByTestId("repair-order-lines-error-state")).not.toBeInTheDocument();
+    });
+  });
+
+  /**
+   * Phase 9: the per-line "Sources (N)" provenance affordance. Uses the
+   * SAME provenance tree the "Source documents" section renders --
+   * grouped server-side by repair_order_line_id, never re-queried.
+   */
+  describe("Phase 9 per-line 'Sources (N)' affordance", () => {
+    function provenanceDoc(
+      overrides: Partial<RepairOrderProvenanceDocument> = {}
+    ): RepairOrderProvenanceDocument {
+      return {
+        id: "doc-1",
+        documentType: "wdd",
+        externalDocumentNumber: "WDD/900",
+        sourceSessionId: "session-1",
+        officialWarehouseCode: null,
+        createdAt: "2026-09-10T09:00:00.000Z",
+        linkedAt: "2026-09-10T09:00:00.000Z",
+        lines: [],
+        ...overrides,
+      };
+    }
+
+    it("renders a 'Sources (N)' trigger for a line with provenance contributions", async () => {
+      const el = await RepairOrderLinesList({
+        lines: [line({ id: "line-1" })],
+        provenance: [
+          provenanceDoc({
+            lines: [
+              {
+                id: "docline-1",
+                productCode: "5WA-857-093",
+                productName: "Front bumper cover",
+                quantity: 2,
+                unit: "pcs",
+                rawText: null,
+                wddMatcherLineId: null,
+                contributions: [
+                  { repairOrderLineId: "line-1", quantityContribution: 2, linkedAt: "t1" },
+                ],
+              },
+            ],
+          }),
+        ],
+      });
+      render(el);
+
+      const triggers = screen.getAllByTestId("repair-order-line-sources-trigger");
+      expect(triggers.length).toBeGreaterThan(0);
+      expect(triggers[0]).toHaveTextContent("Sources (1)");
+    });
+
+    it("renders NO 'Sources' trigger for a line with zero provenance contributions", async () => {
+      const el = await RepairOrderLinesList({
+        lines: [line({ id: "line-no-sources" })],
+        provenance: [],
+      });
+      render(el);
+
+      expect(screen.queryByTestId("repair-order-line-sources-trigger")).not.toBeInTheDocument();
+    });
+
+    it("a provenance contribution belonging to a DIFFERENT line does not render a trigger on this line", async () => {
+      const el = await RepairOrderLinesList({
+        lines: [line({ id: "line-1" })],
+        provenance: [
+          provenanceDoc({
+            lines: [
+              {
+                id: "docline-1",
+                productCode: "X",
+                productName: "X",
+                quantity: 1,
+                unit: null,
+                rawText: null,
+                wddMatcherLineId: null,
+                contributions: [
+                  { repairOrderLineId: "line-OTHER", quantityContribution: 1, linkedAt: "t1" },
+                ],
+              },
+            ],
+          }),
+        ],
+      });
+      render(el);
+
+      expect(screen.queryByTestId("repair-order-line-sources-trigger")).not.toBeInTheDocument();
+    });
+
+    it("defaults to no provenance (no crash, no trigger) when the provenance prop is omitted", async () => {
+      const el = await RepairOrderLinesList({ lines: [line()] });
+      render(el);
+
+      expect(screen.queryByTestId("repair-order-line-sources-trigger")).not.toBeInTheDocument();
     });
   });
 });

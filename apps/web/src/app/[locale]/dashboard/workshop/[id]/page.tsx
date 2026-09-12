@@ -14,6 +14,7 @@ import { ArrowLeft } from "lucide-react";
 import { RepairOrderStatusBadge } from "../_components/repair-order-status-badge";
 import { RepairOrderHeaderEditor } from "./_components/repair-order-header-editor";
 import { RepairOrderLinesList } from "./_components/repair-order-lines-list";
+import { RepairOrderProvenance } from "./_components/repair-order-provenance";
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -24,9 +25,15 @@ type PageProps = { params: Promise<{ id: string }> };
  *
  * Phase 8 adds the logical RepairOrderLine list below the header (durable
  * business lines -- SKU/part/ordered/received/outstanding/available --
- * never grouped by source document). Source-document provenance and full
- * warehouse receipt/issue detail remain later phases (9/10/11), per the
- * work order's explicit scope boundary.
+ * never grouped by source document).
+ *
+ * Phase 9 adds the "Source documents" provenance section below that --
+ * which document(s)/source line(s) this order was materialized from, and
+ * (via each Phase 8 line's own "Sources (N)" affordance) which source
+ * line(s) contributed to which logical line. Full warehouse receipt/issue
+ * detail and the final Magazyn/Zamówienia-Przyjęcia sub-view composition
+ * remain later phases (10/11), per the work order's explicit scope
+ * boundary.
  */
 export default async function RepairOrderDetailPage({ params }: PageProps) {
   const { id } = await params;
@@ -56,16 +63,18 @@ export default async function RepairOrderDetailPage({ params }: PageProps) {
   const canManageOwn = checkPermission(snapshot, WORKSHOP_REPAIR_ORDERS_MANAGE_OWN);
   const canManageAll = checkPermission(snapshot, WORKSHOP_REPAIR_ORDERS_MANAGE_ALL);
 
-  const [orderResult, advisorCandidatesResult, ownAdvisorResult, linesResult] = await Promise.all([
-    RepairOrdersService.getByIdForWorkshop(supabase, orgId, branchId, id),
-    canManageAll
-      ? RepairOrdersService.listAdvisorCandidates(supabase, orgId)
-      : Promise.resolve({ success: true as const, data: [] }),
-    canManageOwn && !canManageAll && context.user.user?.id
-      ? RepairOrdersService.getOwnAdvisorContactId(supabase, orgId)
-      : Promise.resolve({ success: true as const, data: null }),
-    RepairOrdersService.listRepairOrderLines(supabase, orgId, branchId, id),
-  ]);
+  const [orderResult, advisorCandidatesResult, ownAdvisorResult, linesResult, provenanceResult] =
+    await Promise.all([
+      RepairOrdersService.getByIdForWorkshop(supabase, orgId, branchId, id),
+      canManageAll
+        ? RepairOrdersService.listAdvisorCandidates(supabase, orgId)
+        : Promise.resolve({ success: true as const, data: [] }),
+      canManageOwn && !canManageAll && context.user.user?.id
+        ? RepairOrdersService.getOwnAdvisorContactId(supabase, orgId)
+        : Promise.resolve({ success: true as const, data: null }),
+      RepairOrdersService.listRepairOrderLines(supabase, orgId, branchId, id),
+      RepairOrdersService.getRepairOrderProvenance(supabase, orgId, branchId, id),
+    ]);
 
   if (!orderResult.success || !orderResult.data) {
     notFound();
@@ -81,6 +90,11 @@ export default async function RepairOrderDetailPage({ params }: PageProps) {
   // page's own established loadError convention.
   const lines = linesResult.success ? linesResult.data : [];
   const linesLoadError = !linesResult.success;
+  // Same pattern as linesLoadError above -- a failed provenance read must
+  // not look like a manually-created order with genuinely zero provenance,
+  // and must not fail the rest of the page either.
+  const provenance = provenanceResult.success ? provenanceResult.data : [];
+  const provenanceLoadError = !provenanceResult.success;
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -109,7 +123,9 @@ export default async function RepairOrderDetailPage({ params }: PageProps) {
         updatedAtLabel={new Date(order.updatedAt).toLocaleString(locale)}
       />
 
-      <RepairOrderLinesList lines={lines} loadError={linesLoadError} />
+      <RepairOrderLinesList lines={lines} loadError={linesLoadError} provenance={provenance} />
+
+      <RepairOrderProvenance documents={provenance} loadError={provenanceLoadError} />
 
       <p className="text-muted-foreground max-w-2xl text-xs">{t("detail.futurePhasesNote")}</p>
     </div>

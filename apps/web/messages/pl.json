@@ -3105,7 +3105,7 @@
           "unresolvedTitle": "Nierozwiązane zlecenie naprawy",
           "identityStatus": "Status identyfikacji",
           "updated": "Ostatnia aktualizacja",
-          "futurePhasesNote": "Pochodzenie z dokumentów źródłowych i pełne szczegóły przyjęć/wydań magazynowych nie są jeszcze dostępne na tej stronie — pojawią się w kolejnej fazie.",
+          "futurePhasesNote": "Pełne szczegóły przyjęć/wydań magazynowych oraz docelowe widoki Magazyn/Zamówienia-Przyjęcia nie są jeszcze dostępne na tej stronie — pojawią się w kolejnej fazie.",
           "vehicleBrand": "Marka pojazdu",
           "clientName": "Nazwa klienta",
           "dealerName": "Dealer",
@@ -3137,6 +3137,18 @@
           "emptyStateSubtitle": "Pozycje są tworzone automatycznie po zmaterializowaniu tego zlecenia z zatwierdzonej sesji Matchera.",
           "errors": {
             "loadFailed": "Nie udało się wczytać pozycji części"
+          },
+          "sourcesButton": "Źródła ({count})",
+          "sourcesPopoverTitle": "Pozycje źródłowe tej części"
+        },
+        "provenance": {
+          "title": "Dokumenty źródłowe",
+          "subtitle": "Z jakich dokumentów i pozycji źródłowych powstało to zlecenie. To nie to samo, co lista części powyżej.",
+          "documentLinesCount": "{count, plural, one {# pozycja} few {# pozycje} other {# pozycji}}",
+          "emptyStateTitle": "Brak powiązanych dokumentów źródłowych.",
+          "emptyStateSubtitle": "To zlecenie naprawy zostało utworzone ręcznie, bez importu z Matchera.",
+          "errors": {
+            "loadFailed": "Nie udało się wczytać dokumentów źródłowych"
           }
         },
         "newOrder": {

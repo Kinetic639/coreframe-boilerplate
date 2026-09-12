@@ -3134,7 +3134,7 @@
           "unresolvedTitle": "Unresolved repair order",
           "identityStatus": "Identity status",
           "updated": "Last updated",
-          "futurePhasesNote": "Source-document provenance and full warehouse receipt/issue detail are not available on this page yet — they arrive in a later phase.",
+          "futurePhasesNote": "Full warehouse receipt/issue detail and the final Magazyn/Zamówienia-Przyjęcia views are not available on this page yet — they arrive in a later phase.",
           "vehicleBrand": "Vehicle brand",
           "clientName": "Client name",
           "dealerName": "Dealer",
@@ -3166,6 +3166,18 @@
           "emptyStateSubtitle": "Lines are created automatically when this order is materialized from an approved Matcher session.",
           "errors": {
             "loadFailed": "Failed to load parts lines"
+          },
+          "sourcesButton": "Sources ({count})",
+          "sourcesPopoverTitle": "Source lines for this part"
+        },
+        "provenance": {
+          "title": "Source documents",
+          "subtitle": "Which documents and source lines this order was materialized from. Not the same as the parts list above.",
+          "documentLinesCount": "{count, plural, one {# line} other {# lines}}",
+          "emptyStateTitle": "No source documents linked.",
+          "emptyStateSubtitle": "This repair order was created manually, without a Matcher import.",
+          "errors": {
+            "loadFailed": "Failed to load source documents"
           }
         },
         "newOrder": {

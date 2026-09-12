@@ -8,7 +8,12 @@ import {
   TableRow,
   TableCell,
 } from "@/components/ui/table";
-import type { RepairOrderLineReadModel } from "@/server/services/repair-orders.service";
+import type {
+  RepairOrderLineReadModel,
+  RepairOrderProvenanceDocument,
+} from "@/server/services/repair-orders.service";
+import { groupProvenanceByRepairOrderLine } from "@/server/services/repair-orders.service";
+import { LineSourcesPopover, type LineSourceEntry } from "./repair-order-line-sources";
 
 type Props = {
   lines: RepairOrderLineReadModel[];
@@ -24,6 +29,19 @@ type Props = {
    * read did not, so only this section degrades.
    */
   loadError?: boolean;
+  /**
+   * Phase 9: the SAME provenance tree `RepairOrderProvenance` (the
+   * "Source documents" section) already renders -- passed down here too,
+   * purely to compute each line's own "Sources (N)" affordance
+   * server-side via `groupProvenanceByRepairOrderLine` (a pure re-index,
+   * not a second query -- see that function's own doc comment). Optional
+   * and defaults to an empty tree so this component still works
+   * standalone (e.g. in tests) without Phase 9 data. Omitted entirely
+   * (no prop, no query) when the provenance read itself failed -- a
+   * missing "Sources" affordance is a silent, harmless degradation, not
+   * something that needs its own error state layered onto Phase 8's list.
+   */
+  provenance?: RepairOrderProvenanceDocument[];
 };
 
 /**
@@ -44,8 +62,20 @@ type Props = {
  * would misrepresent the line's true state; the numeric received/
  * outstanding/available columns are this phase's truthful signal instead).
  */
-export async function RepairOrderLinesList({ lines, loadError = false }: Props) {
+export async function RepairOrderLinesList({ lines, loadError = false, provenance = [] }: Props) {
   const t = await getTranslations("modules.workshop.repairOrders.lines");
+
+  function sourcesFor(lineId: string): LineSourceEntry[] {
+    return groupProvenanceByRepairOrderLine(provenance, lineId).map(
+      ({ document, sourceLine, contribution }) => ({
+        documentType: document.documentType,
+        externalDocumentNumber: document.externalDocumentNumber,
+        sourceLineProductCode: sourceLine.productCode,
+        sourceLineProductName: sourceLine.productName,
+        quantityContribution: contribution.quantityContribution,
+      })
+    );
+  }
 
   return (
     <div className="flex flex-col gap-3" data-testid="repair-order-lines-section">
@@ -94,8 +124,11 @@ export async function RepairOrderLinesList({ lines, loadError = false }: Props) 
                     <TableCell className="font-mono text-xs font-medium">
                       {line.sku ?? "—"}
                     </TableCell>
-                    <TableCell className="max-w-xs truncate text-sm" title={line.productName}>
-                      {line.productName}
+                    <TableCell className="max-w-xs text-sm">
+                      <div className="truncate" title={line.productName}>
+                        {line.productName}
+                      </div>
+                      <LineSourcesPopover sources={sourcesFor(line.id)} />
                     </TableCell>
                     <TableCell className="text-right font-mono text-xs">
                       {formatQuantity(line.orderedQuantity)}
@@ -132,6 +165,7 @@ export async function RepairOrderLinesList({ lines, loadError = false }: Props) 
                       {line.productName}
                     </p>
                     <p className="text-muted-foreground font-mono text-xs">{line.sku ?? "—"}</p>
+                    <LineSourcesPopover sources={sourcesFor(line.id)} />
                   </div>
                   {line.unit && (
                     <span className="text-muted-foreground shrink-0 text-xs">{line.unit}</span>
