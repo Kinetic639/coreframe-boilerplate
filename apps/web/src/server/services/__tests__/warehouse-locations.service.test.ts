@@ -443,6 +443,36 @@ describe("WarehouseLocationsService.update", () => {
     if (result.success) expect(result.data.name).toBe("Updated");
   });
 
+  it("Zone 5: passes purpose through to the update payload, not silently dropped", async () => {
+    const current = makeLocation({ id: "loc-1" });
+    const updated = makeLocation({ id: "loc-1", purpose: "receiving" } as never);
+    const supabase = makeSupabaseMock([
+      { data: current, error: null }, // getById current
+      { data: updated, error: null }, // update query
+    ]);
+    const result = await WarehouseLocationsService.update(
+      supabase as never,
+      ORG_ID,
+      "loc-1",
+      { purpose: "receiving" } as never,
+      USER_ID
+    );
+    expect(result.success).toBe(true);
+
+    const chains = (
+      supabase.from as unknown as { mock: { results: Array<{ value: Record<string, unknown> }> } }
+    ).mock.results.map((r) => r.value);
+    const updateChain = chains.find(
+      (c) => (c.update as { mock: { calls: unknown[][] } }).mock.calls.length > 0
+    );
+    expect(updateChain).toBeDefined();
+    expect(
+      (updateChain!.update as { mock: { calls: unknown[][] } }).mock.calls[0][0]
+    ).toMatchObject({
+      purpose: "receiving",
+    });
+  });
+
   it("rejects self-parent assignment", async () => {
     const current = makeLocation({ id: "loc-self" });
     const supabase = makeSupabaseMock([{ data: current, error: null }]);

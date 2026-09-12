@@ -92,6 +92,8 @@ export interface UpdateLocationInput {
   allow_top_storage?: boolean;
   can_store_inventory?: boolean;
   sort_order?: number;
+  /** Zone 5: 'standard' | 'receiving' -- see warehouse_locations.purpose. */
+  purpose?: "standard" | "receiving";
 }
 
 // ─── Column select ────────────────────────────────────────────────────────────
@@ -352,6 +354,7 @@ export class WarehouseLocationsService {
     if (input.icon_name !== undefined) updatePayload.icon_name = input.icon_name;
     if (input.color !== undefined) updatePayload.color = input.color;
     if (input.sort_order !== undefined) updatePayload.sort_order = input.sort_order;
+    if (input.purpose !== undefined) updatePayload.purpose = input.purpose;
     if (input.group_id !== undefined) updatePayload.group_id = input.group_id;
     if (input.inherit_group_color !== undefined) {
       updatePayload.inherit_group_color = input.inherit_group_color;

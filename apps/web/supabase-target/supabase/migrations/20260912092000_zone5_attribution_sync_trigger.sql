@@ -149,12 +149,29 @@ BEGIN
   -- insert the ledger row).
   v_pre_effect_on_hand := NEW.balance_after + NEW.quantity;
 
-  SELECT sum(quantity), count(DISTINCT repair_order_line_id)
-    INTO v_attributed_sum, v_distinct_lines
+  -- CORRECTNESS FIX (external review): `SELECT sum(...) ... FOR UPDATE` is not
+  -- valid/safe PostgreSQL -- the locking clause cannot be combined with
+  -- aggregation at the same query level ("the locking clauses cannot be used
+  -- in contexts where returned rows cannot be clearly identified with
+  -- individual table rows... for example with aggregation" -- PostgreSQL
+  -- documentation for the SELECT locking clause; in practice this raises
+  -- `ERROR: FOR UPDATE is not allowed with aggregate functions`). The
+  -- corrected pattern locks the individual rows first, in a CTE, then
+  -- aggregates over that already-locked result set in the same statement --
+  -- this also lets us pull v_line_id/v_ro_id from the same locked read
+  -- (valid via max(), since when v_distinct_lines = 1 there is only one
+  -- value to begin with), removing the previous, separate, unlocked
+  -- re-SELECT entirely.
+  WITH locked_rows AS (
+    SELECT quantity, repair_order_line_id, repair_order_id
     FROM public.repair_order_line_locations
     WHERE organization_id = NEW.organization_id AND branch_id = NEW.branch_id
       AND location_id = NEW.location_id AND variant_id = NEW.variant_id
-    FOR UPDATE;
+    FOR UPDATE
+  )
+  SELECT sum(quantity), count(DISTINCT repair_order_line_id), max(repair_order_line_id), max(repair_order_id)
+    INTO v_attributed_sum, v_distinct_lines, v_line_id, v_ro_id
+    FROM locked_rows;
 
   IF v_attributed_sum IS DISTINCT FROM v_pre_effect_on_hand OR v_distinct_lines <> 1 THEN
     -- Ambiguous: never guess. Mark BOTH ends UNKNOWN if transfer-shaped
@@ -173,12 +190,9 @@ BEGIN
   END IF;
 
   -- Unambiguous: exactly one repair_order_line_id accounts for 100% of the
-  -- reconstructed pre-effect on-hand. Safe to propagate exactly.
-  SELECT repair_order_line_id, repair_order_id INTO v_line_id, v_ro_id
-    FROM public.repair_order_line_locations
-    WHERE organization_id = NEW.organization_id AND branch_id = NEW.branch_id
-      AND location_id = NEW.location_id AND variant_id = NEW.variant_id;
-
+  -- reconstructed pre-effect on-hand -- v_line_id/v_ro_id were already
+  -- captured from the SAME locked read above, so no second (unlocked) query
+  -- is needed here.
   UPDATE public.repair_order_line_locations
     SET quantity = quantity - NEW.quantity
     WHERE repair_order_line_id = v_line_id AND location_id = NEW.location_id;

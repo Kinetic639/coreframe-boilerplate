@@ -34,6 +34,79 @@ import {
  * gap, not a bug in this file -- see the review bundle's migration summary.
  */
 
+/**
+ * Error normalization (external review correction): follows the exact,
+ * already-established, hardened convention in
+ * `repair-orders.service.ts`'s `normalizeMaterializationRpcError` --
+ * NOT a bare passthrough of `error.message`. Each RPC deliberately RAISEs a
+ * small number of fixed, safe, human-readable messages with a specific
+ * ERRCODE; the allowlist below requires BOTH the exact code AND a match
+ * against that RPC's own known message shape (not the errcode alone --
+ * SQLSTATEs are broad Postgres error CLASSES, e.g. 42501/22023 are also
+ * raised natively by Postgres itself for unrelated reasons, so an
+ * errcode-only check could let a raw, schema-revealing native error through
+ * under the same code). Anything that doesn't match both is logged
+ * server-side (console.error -- this app has no other centralized server
+ * logger this session found to reuse) and replaced with a generic,
+ * client-safe message that leaks no SQL text, relation/function names,
+ * UUIDs, or constraint internals.
+ */
+type DbLikeError = { code?: string; message: string };
+
+const RECEIVE_RPC_KNOWN_ERRORS: ReadonlyArray<{ code: string; pattern: RegExp }> = [
+  { code: "28000", pattern: /^p_actor_user_id must match the authenticated caller$/ },
+  { code: "42501", pattern: /^Not authorized to receive stock for this branch$/ },
+  { code: "22023", pattern: /^At least one line is required$/ },
+  { code: "P0002", pattern: /^No active receiving location configured for this branch/ },
+  { code: "P0002", pattern: /did not resolve to any RepairOrderLine/ },
+  { code: "55000", pattern: /resolved ambiguously to \d+ RepairOrderLine candidates/ },
+  {
+    code: "42501",
+    pattern:
+      /Resolved RepairOrder for line \d+ does not belong to the target organization\/branch$/,
+  },
+  {
+    code: "22023",
+    pattern: /Resolved RepairOrderLine variant for line \d+ does not match the received variant$/,
+  },
+];
+
+const PUTAWAY_RPC_KNOWN_ERRORS: ReadonlyArray<{ code: string; pattern: RegExp }> = [
+  { code: "28000", pattern: /^p_actor_user_id must match the authenticated caller$/ },
+  { code: "42501", pattern: /^Not authorized to putaway stock for this branch$/ },
+  { code: "22023", pattern: /^At least one line is required$/ },
+  { code: "22023", pattern: /^A destination location is required$/ },
+  { code: "P0002", pattern: /^No active receiving location configured for this branch/ },
+  { code: "22023", pattern: /is not a valid stockable location for this branch$/ },
+  { code: "22023", pattern: /^Destination cannot be the receiving location itself$/ },
+  { code: "22023", pattern: /is missing repair_order_line_id/ },
+  { code: "22023", pattern: /quantity must be positive$/ },
+  { code: "42501", pattern: /does not belong to this organization\/branch$/ },
+  { code: "22023", pattern: /variant does not match the RepairOrderLine's own variant$/ },
+  { code: "22023", pattern: /but only .* is currently attributed to this RepairOrderLine/ },
+];
+
+const GENERIC_RECEIVE_ERROR =
+  "Receiving failed due to an unexpected server error. Please try again or contact support.";
+const GENERIC_PUTAWAY_ERROR =
+  "Putaway failed due to an unexpected server error. Please try again or contact support.";
+const GENERIC_STORAGE_ERROR =
+  "Could not load current storage information. Please try again or contact support.";
+
+function normalizeRpcError(
+  error: DbLikeError,
+  allowlist: ReadonlyArray<{ code: string; pattern: RegExp }>,
+  genericMessage: string,
+  context: string
+): string {
+  const isKnown = allowlist.some(
+    (known) => error.code === known.code && known.pattern.test(error.message)
+  );
+  if (isKnown) return error.message;
+  console.error(`[zone5:${context}] unexpected DB error`, error);
+  return genericMessage;
+}
+
 const receiveLineSchema = z.object({
   variant_id: z.string().uuid(),
   unit_id: z.string().uuid(),
@@ -89,7 +162,11 @@ export async function receiveRepairOrderStockAction(
       p_idempotency_key: crypto.randomUUID(),
     });
 
-    if (error) return { success: false as const, error: error.message };
+    if (error)
+      return {
+        success: false as const,
+        error: normalizeRpcError(error, RECEIVE_RPC_KNOWN_ERRORS, GENERIC_RECEIVE_ERROR, "receive"),
+      };
     revalidatePath("/dashboard/warehouse/inventory/movements");
     return { success: true as const, data };
   } catch (error) {
@@ -141,7 +218,11 @@ export async function putawayRepairOrderStockAction(
       p_idempotency_key: crypto.randomUUID(),
     });
 
-    if (error) return { success: false as const, error: error.message };
+    if (error)
+      return {
+        success: false as const,
+        error: normalizeRpcError(error, PUTAWAY_RPC_KNOWN_ERRORS, GENERIC_PUTAWAY_ERROR, "putaway"),
+      };
     revalidatePath("/dashboard/warehouse/inventory/movements");
     revalidatePath("/dashboard/warehouse/locations");
     return { success: true as const, data };
@@ -180,7 +261,24 @@ export async function getRepairOrderStorageSuggestionsAction(
     if (result.success === true) {
       return { success: true as const, data: result.data };
     } else {
-      return { success: false as const, error: result.error };
+      // The read model's own errors are plain Supabase SELECT failures (no
+      // deliberately-authored safe messages exist for it, unlike the two
+      // RPCs above) -- every failure here is treated as unexpected: logged
+      // server-side, replaced with a generic message before reaching the
+      // client. The one narrow exception (matching the older, established
+      // normalizeDbError pattern already used elsewhere in this codebase --
+      // e.g. wdd-matcher.service.ts) is a recognizable RLS/permission
+      // denial, which is itself already a safe, generic statement.
+      const isRlsDenial = /row-level security|permission denied/i.test(result.error);
+      if (!isRlsDenial) {
+        console.error("[zone5:storage] unexpected DB error", result.error);
+      }
+      return {
+        success: false as const,
+        error: isRlsDenial
+          ? "You do not have permission to view this data."
+          : GENERIC_STORAGE_ERROR,
+      };
     }
   } catch (error) {
     return mapUnexpected(error);

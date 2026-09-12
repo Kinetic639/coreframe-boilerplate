@@ -1,187 +1,211 @@
 # Zone 5 — Receiving / Putaway: Progress Tracker
 
 > Companion to `05-receiving-putaway-implementation-plan.md`. **Architecture: APPROVED FOR
-> IMPLEMENTATION.** This revision records the first implementation pass.
+> IMPLEMENTATION.** This revision records the second implementation pass (a correction pass
+> against external review of the first bundle). **Zone 5 is NOT pitch-ready** — no migration has
+> been applied to any database.
 
 ## Implementation status legend (mechanical, used throughout this file)
 
-- **PITCH DONE** — code/migration/test written, typechecked/linted/unit-tested where that's
-  possible without a live database, and (for anything DB-related) reviewed against the tracked
-  schema this session could read directly.
+- **PITCH DONE** — code/migration/test written, typechecked/linted/unit-or-pgTAP-tested where
+  that's possible without a live database, and (for anything DB-related) reviewed against the
+  tracked schema this session could read directly.
 - **PITCH — BLOCKED ON MCP** — written and ready for review, but **not applied to any live or
-  local database**, because Supabase MCP was unavailable this entire session (confirmed
-  repeatedly: no `select:supabase*` deferred tool, no `supabase` CLI installed until this
-  session's own `pnpm install`, no running Docker daemon for a local stack). Per the working
-  rules, this is reported honestly rather than fabricated as verified.
+  local database** (no Supabase MCP tool, no `supabase` CLI link, no running Docker daemon this
+  session). Per the working rules, reported honestly rather than fabricated as verified.
 - **PITCH UAT OUTSTANDING** — code exists but has not been exercised end-to-end against a real
-  browser/backend (Playwright, manual pitch rehearsal).
+  browser/backend.
 - **PILOT** / **TECH DEBT** — unchanged from the approved plan, not touched this pass.
 
-**Mechanical count, this pass**: 9 new files created (6 migrations + 5 pgTAP test files — one
-migration, Phase 1, has one paired test file; see manifest), 4 new TypeScript files (1 service, 1
-service test, 1 server action module, 1 UI component), 0 files modified in any other zone, 0
-migrations applied, 0 pgTAP tests executed, 12 new/updated vitest assertions executed and
-passing (7 pre-existing + 5 new, confirming no regression in the touched area — see report),
-1 full-repo `tsc --noEmit` pass (clean), 1 full-repo `eslint` pass on touched files (clean).
+## Correction pass — this session (external review of the first implementation bundle)
 
-## Verification pass — completed (this session, final semantic correction pass — planning only)
+- [x] **1. Aggregate + `FOR UPDATE` bug — CONFIRMED and fixed.** `SELECT sum(...), count(...) ...
+    FOR UPDATE` is invalid PostgreSQL (the locking clause cannot combine with aggregation at
+      the same query level — verified against PostgreSQL's own SELECT/locking-clause
+      documentation, and confirmed no precedent for this pattern exists anywhere in this repo).
+      Fixed in `20260912092000_zone5_attribution_sync_trigger.sql`: lock the individual rows
+      first via a CTE (`WITH locked_rows AS (SELECT ... FOR UPDATE) SELECT sum(...), ... FROM
+    locked_rows`), aggregate over the already-locked set in the same statement. This also let
+      `v_line_id`/`v_ro_id` be captured from the same locked read via `max()` (safe when
+      `v_distinct_lines = 1`), removing a second, separate, unlocked re-SELECT entirely.
+- [x] **2. Fake pgTAP placeholders — removed.** `096`'s two `SELECT pass('... TODO ...')`
+      assertions are replaced: (a) ambiguous-provenance resolution is now a real, fixture-driven
+      test built against the confirmed-real schema of `wdd_matcher_sessions` /
+      `wdd_matcher_session_files` / `wdd_matcher_blocks` / `wdd_matcher_lines` (read directly
+      from `20260415100000_svwms_wdd_matcher_tables.sql` this pass); (b) atomicity is now a real
+      executed test (no movement header is created at all when resolution fails, searched for by
+      a distinctive idempotency key) plus a structural proof (no exception-swallowing block in
+      the function body) — and the one sub-case genuinely requiring live/local execution
+      (mid-engine-call failure) is marked with an honest `skip()`, never a `pass()`. The same
+      anti-pattern (a bare `pass()`) found in `093` was also fixed the same way.
+- [x] **3. Receiving flow wired.** `use-movement-submission.ts`'s `submit(andPost=true)` now
+      routes a NEW (not edit), type-101 movement with at least one `source_line_id`-carrying line
+      through `receiveRepairOrderStockAction`; every other case (no resolvable line, any other
+      movement type, edit mode, draft-only save) is unchanged and goes through the existing
+      generic actions. Proven by 5 real, executed unit tests
+      (`use-movement-submission.route-selection.test.ts`) covering exactly those branches.
+- [x] **4. Putaway wired into a real page.** `RepairOrderPutawayPanel` is now rendered from
+      `/dashboard/workshop/[id]/page.tsx` (the real, existing RepairOrder detail shell),
+      conditionally, only when `RepairOrderStorageService.getReceivedLines` finds stock actually
+      sitting at the branch's receiving location for that RepairOrder. New service method
+      `getReceivedLines` added (line-level read, joins `repair_order_line_locations` filtered to
+      the receiving location with `inventory_variants` for sku/productName/unit_id).
+- [x] **5. Receiving-location admin — backend done, UI wiring deferred (disclosed).** Added
+      `purpose` to `updateLocationSchema` and to `WarehouseLocationsService.update`'s field
+      allowlist (previously an explicit per-field list that would have silently dropped it) —
+      the REAL, existing, `WAREHOUSE_LOCATIONS_MANAGE`-gated admin action now genuinely persists
+      `purpose`. Proven by a new service test (42/42 passing including the new one, zero
+      regression). **NOT done this pass**: a visible toggle inside the actual location edit
+      surface. Two candidate files were inspected (`LocationModal.tsx`, 809 lines;
+      `location-detail-panel.tsx`, 1076 lines) — both are large and unfamiliar, and a blind edit
+      under time pressure risked breaking Zone 4's working UI, which this assignment must not do.
+      This is a deliberate, disclosed scope boundary, not a silent omission — see "Remaining
+      work" below.
+- [x] **6. Stockable-receiving invariant — added at the DB level.** New CHECK constraint
+      `warehouse_locations_receiving_must_be_stockable`
+      (`purpose <> 'receiving' OR can_store_inventory = true`) in the Phase 1 migration — a
+      non-stockable location can no longer be marked `receiving` even if application code has a
+      bug. New pgTAP assertion in `093` proves the constraint rejects such an attempt.
+- [x] **7. `resolve_branch_receiving_location` EXECUTE grant — removed from `authenticated`.**
+      The helper took an arbitrary org/branch with no permission check of its own; granting
+      `authenticated` EXECUTE would have let any signed-in user probe any org/branch's receiving
+      location id. Now revoked from `PUBLIC`/`anon`/`authenticated` entirely — the two
+      orchestration RPCs can still call it internally (a `SECURITY DEFINER` function executes as
+      its owner, which already has implicit EXECUTE on functions the same owner created). New
+      pgTAP assertion (`093`) proves `authenticated` has no direct EXECUTE.
+- [x] **8. Error normalization implemented**, following this repo's own already-established,
+      hardened convention (`repair-orders.service.ts`'s `normalizeMaterializationRpcError` —
+      allowlist requiring BOTH exact SQLSTATE AND a match against the RPC's own known message
+      shape, not the code alone). Applied to both new RPCs' error paths and to the read model's
+      action wrapper (which normalizes everything except a recognizable RLS denial, since that
+      service has no deliberately-authored safe messages of its own). 13 real, executed action
+      tests prove: known errors pass through, the SAME SQLSTATE with a DIFFERENT message is NOT
+      leaked, and completely unexpected errors never leak raw SQL/relation/constraint text.
+- [x] **9. Putaway destination selector fixed.** The raw "enter another location ID" text input
+      is replaced with a `<select>` populated from the existing `listLocationsAction()`, showing
+      `code — name`, filtered to stockable locations — no UUID ever shown to the operator, no new
+      picker subsystem, no QR/mobile scanning (still PILOT).
+- [x] **10. UI/action test coverage added** — 13 action-level tests
+      (`repair-order-receiving.test.ts`) + 8 component tests
+      (`repair-order-putaway-panel.test.tsx`) covering all 9 requested scenarios (A-I: KNOWN
+      actionable, UNKNOWN never confident, batch payload, partial quantity, destination selector,
+      API failure, no-selection guard, success, no capacity display) + 5 route-selection tests +
+      1 new service test — all real, executed, all passing (see counts below).
+- [x] **11. Live schema gate — reaffirmed, not overridden.** No migration was applied. The
+      Phase 3 trigger's disclosed column-verification gap (against `inventory_stock_ledger_entries`)
+      is unchanged and still blocks live application until a session with Supabase MCP/live
+      access independently confirms every referenced column.
+- [x] **12. No PILOT features started** — confirmed by re-scanning the diff for any of:
+      `inventory_containers`, capacity/percentage fields, `relation_type='putaway'`, mobile
+      scanning, QR. None present.
 
-- [x] Corrected the marker-clearing model: removed the "implicitly superseded by matching math"
-      self-heal behavior. The only automatic clearing path is on-hand reaching exactly zero at
-      that `(location, variant)`; all other clearing requires a future, explicit,
-      full-bucket-authoritative operation (reconciliation or container/scan — PILOT, not built
-      now). A single RepairOrder-aware RPC write does not clear a bucket-wide marker.
-- [x] Corrected the trigger to gate on the marker's mere existence _before_ attempting the math
-      test, rather than letting a later coincidentally-passing math test override an existing
-      marker — closing the exact loophole the self-heal correction was about.
-- [x] Corrected ambiguous-transfer handling: both ends of an ambiguous `801` are now marked
-      UNKNOWN (previously only the source was marked); an ambiguous pure decrease (`402`/future
-      issue) still marks only the source, since it has no paired destination.
-- [x] Corrected the bypass-flag documentation: explicitly reclassified a hypothetical
-      improperly-set flag as a **correctness** risk (attribution staleness) only, never a
-      security one — unauthorized access, cross-org/branch access, and RLS bypass remain
-      independently impossible regardless of this flag's state.
+## Implementation pass — prior session (context, unchanged this pass unless noted above)
 
-## Implementation pass — this session
-
-- [x] Re-verified repo state (git log/status) matches the state this plan was written against;
-      no new commits landed since the planning pass. Committed the planning docs as an explicit
-      pre-implementation baseline (`0d8babb5`).
-- [x] Confirmed Supabase MCP unavailable (`ToolSearch` for supabase-prefixed deferred tools:
-      zero results).
-- [x] Confirmed no local Supabase/Postgres alternative: `supabase` CLI was not installed prior to
-      this session's own `pnpm install` (which brought it in only as a devDependency, unlinked to
-      any project); Docker Desktop is present but its daemon is not running
-      (`docker ps` → "cannot connect ... daemon is not running").
-- [x] **New finding this pass, reported rather than assumed past**: `inventory_stock_ledger_entries`
-      and `inventory_movement_audit_log` have **zero** tracked migrations anywhere in the repo
-      (`grep -rl inventory_stock_ledger_entries` across both migration directories: no matches) —
-      this is a deeper instance of the same schema-drift category already accepted as tech debt
-      for the RPC bodies, but extends to the table itself. The Phase 3 trigger migration's exact
-      column references are therefore based on convergent design-doc + prior-session
-      LIVE-VERIFIED evidence, not this session's own live confirmation — flagged prominently in
-      that migration's own header, not silently assumed. `warehouse_locations`, `inventory_balances`,
-      `inventory_movement_lines`, `inventory_movement_headers`, `repair_orders`,
-      `repair_order_lines`, `repair_order_line_movement_links` ARE fully tracked and were read
-      directly this session with high confidence.
-- [x] Deliberately did **not** fall back to `pnpm run supabase:db:push:target` (a real, working
-      CLI path found in `package.json`) to apply migrations directly to the live target project —
-      the working rules specify MCP for all mutations; substituting a raw CLI push against a
-      shared live project the moment the specified approval path is unavailable was judged unsafe
-      and out of scope for this session's own authority to decide unilaterally.
+- [x] Re-verified repo state; no new commits landed since the planning pass. Planning docs
+      committed as baseline (`0d8babb5`).
+- [x] Confirmed Supabase MCP unavailable (repeated this pass — still true).
+- [x] Confirmed no local Supabase/Postgres alternative (repeated this pass — still true;
+      `docker ps` still fails, daemon not running).
+- [x] `inventory_stock_ledger_entries`/`inventory_movement_audit_log` have zero tracked
+      migrations anywhere in the repo (unchanged finding).
+- [x] Deliberately did not fall back to `supabase db push` against the live target project
+      (unchanged decision).
 
 ### Phase 0 — Fresh verification (PITCH, gate)
 
-- [ ] 101 + Matcher import chain manually re-run on current build — **BLOCKED ON MCP** (no live
-      environment reachable this session).
+- [ ] 101 + Matcher import chain manually re-run on current build — **BLOCKED ON MCP**.
 - [ ] 801 relocation (Zone 6's existing UI) manually re-run on current build — **BLOCKED ON MCP**.
 - [ ] Matcher-line → RepairOrder-line join returns real rows for a materialized session —
       **BLOCKED ON MCP**.
 
 ### Phase 1 — Receiving-location schema
 
-- [x] Migration written: `20260912090000_zone5_receiving_location_purpose.sql` —
-      `warehouse_locations.purpose` + CHECK + partial unique index +
-      `resolve_branch_receiving_location()` helper. **PITCH — BLOCKED ON MCP** (not applied).
-- [ ] Location edit UI: purpose toggle — **NOT BUILT this pass** (time-boxed out in favor of the
-      DB layer + the receiving/putaway RPCs and read model, which are the parts every other phase
-      depends on; a location can still be designated via direct update against the resolver's own
-      invariants once applied — see remaining work in the final report).
-- [x] pgTAP test written: `093_zone5_receiving_location_purpose_test.sql` (8 assertions) —
-      **PITCH — BLOCKED ON MCP** (not executed).
-- [ ] Admin designates the demo branch's receiving location — **BLOCKED ON MCP** (depends on the
-      migration being applied first).
+- [x] Migration: `20260912090000_zone5_receiving_location_purpose.sql` — `purpose` column +
+      CHECK + partial unique index + stockable-receiving invariant (NEW this pass) +
+      `resolve_branch_receiving_location()` (EXECUTE grant corrected this pass). **PITCH —
+      BLOCKED ON MCP**.
+- [x] Backend admin plumbing (`updateLocationSchema` + `WarehouseLocationsService.update`) —
+      **PITCH DONE**, tested (42/42 service tests passing).
+- [ ] Visible toggle in the location edit UI — **NOT DONE this pass** (disclosed scope boundary,
+      see correction #5 above and "Remaining work" below).
+- [x] pgTAP test: `093_...purpose_test.sql`, now 10 assertions (was 8; +2 this pass: stockable
+      invariant, EXECUTE-grant check) — **PITCH — BLOCKED ON MCP** (not executed).
+- [ ] Admin designates the demo branch's receiving location — **BLOCKED ON MCP**.
 
 ### Phase 2 — Projection + uncertainty marker + full integrity
 
-- [x] Migration written: `20260912091000_zone5_repair_order_spatial_attribution_schema.sql` —
-      both composite-unique constraints, `repair_order_line_locations` (all 3 composite FKs, no
-      `container_id`), `repair_order_location_attribution_uncertain`, RLS (SELECT-only). **PITCH
-      — BLOCKED ON MCP**.
-- [x] pgTAP test written: `094_zone5_repair_order_spatial_schema_test.sql` (9 assertions,
-      including all 3 composite-FK rejections and RLS isolation) — **PITCH — BLOCKED ON MCP**.
+- [x] Migration: `20260912091000_...schema.sql` — unchanged this pass. **PITCH — BLOCKED ON MCP**.
+- [x] pgTAP test: `094_...schema_test.sql`, 9 assertions — **PITCH — BLOCKED ON MCP**.
 
-### Phase 3 — Safety-net trigger (corrected timing, no-inference, no-self-heal, both-ends, on_hand-only)
+### Phase 3 — Safety-net trigger
 
-- [x] Migration written: `20260912092000_zone5_attribution_sync_trigger.sql` — implements the
-      full corrected algorithm (on_hand guard, zero-clears rule unconditional, bypass check,
-      fast no-op path, marker-gate-before-math, pre-effect reconstruction from the ledger row's
-      own columns, both-ends marking). **PITCH — BLOCKED ON MCP**, with the additional disclosed
-      column-verification gap noted above.
-- [x] pgTAP test written: `095_zone5_attribution_sync_trigger_test.sql` (14 assertions covering
-      all 13 required scenarios plus the structural concurrency proof) — **PITCH — BLOCKED ON
-      MCP**.
-- [ ] Live-DB two-session concurrency integration test — **explicitly deferred**, per the plan's
-      own §6.1, not written this pass either (would itself require live/local DB access to run).
+- [x] Migration: `20260912092000_...trigger.sql` — **corrected this pass** (aggregate+FOR UPDATE
+      fix, #1 above). **PITCH — BLOCKED ON MCP**, plus the still-open ledger-column
+      verification gap (#11).
+- [x] pgTAP test: `095_...trigger_test.sql`, 14 assertions, header note added pointing at the
+      corrected query path — **PITCH — BLOCKED ON MCP**.
+- [ ] Live-DB two-session concurrency integration test — still explicitly deferred.
 
 ### Phase 4 — `receive_repair_order_stock` RPC + wiring
 
-- [x] Migration written: `20260912093000_zone5_receive_repair_order_stock_rpc.sql` — actor check,
-      permission check, receiving-location resolution, Matcher-line resolution with the
-      null/unique/zero/ambiguous four-way contract, org/branch/variant cross-validation, calls
-      `inventory_create_and_finalize('101', ...)`, writes seed attribution +
-      `repair_order_line_movement_links` directly. **PITCH — BLOCKED ON MCP**.
-- [x] `use-movement-submission.ts` wiring — **NOT DONE this pass** (see remaining work; the
-      existing manual-movement-editor path is unchanged and unaffected, which was independently
-      confirmed by the full `tsc`/`eslint`/`vitest` passes below showing zero regressions).
-- [x] pgTAP test written: `096_zone5_receive_repair_order_stock_test.sql` (7 assertions; 2 marked
-      as fixture-TODO for ambiguous-resolution and atomicity, requiring live fixtures) — **PITCH
-      — BLOCKED ON MCP**.
+- [x] Migration: `20260912093000_...receive_rpc.sql` — unchanged this pass. **PITCH — BLOCKED ON
+      MCP**.
+- [x] **Wiring done this pass** (#3 above) — `use-movement-submission.ts`, 5 route-selection
+      tests passing.
+- [x] pgTAP test: `096_...receive_test.sql` — **corrected this pass** (#2 above), now 10
+      assertions, no fake passes. **PITCH — BLOCKED ON MCP**.
 
 ### Phase 5 — Putaway read model + suggestion UI
 
-- [x] Service written: `src/server/services/repair-order-storage.service.ts` — plain
-      client-side read + aggregation against `repair_order_line_locations` +
-      `repair_order_location_attribution_uncertain` (deliberately not a new DB function/view).
-      **PITCH DONE** for the logic itself: unit-tested against a mocked Supabase client (5/5
-      tests passing, see report), typechecked, linted clean.
-- [x] Server action written: `getRepairOrderStorageSuggestionsAction` in
-      `repair-order-receiving.ts`. **PITCH DONE** (typechecked/linted); **BLOCKED ON MCP** for
-      any live call (depends on Phase 2's tables existing).
-- [x] UI written: `repair-order-putaway-panel.tsx` — suggestion list (KNOWN only, `[Put here]`),
-      a visibly separate UNKNOWN warning banner (never merged into confident suggestions), a
-      manual-location fallback, multi-line selection with per-line quantity for batch putaway.
-      No capacity/percentage display anywhere. **PITCH DONE** for typecheck/lint; **PITCH UAT
-      OUTSTANDING** (no browser/Playwright run — no live backend to render real data against).
-- [ ] Wiring this panel into Zone 3's actual RepairOrder Workshop detail page — **NOT DONE this
-      pass**; the panel is self-contained and takes its data as props specifically so it can be
-      dropped into that page without this session needing to reverse-engineer its full existing
-      structure under time pressure (see remaining work).
+- [x] Service: `repair-order-storage.service.ts` — `getStorageSuggestions` unchanged;
+      `getReceivedLines` **added this pass**. **PITCH DONE** (5 + coverage via component tests).
+- [x] Server action: `getRepairOrderStorageSuggestionsAction` — error normalization added this
+      pass (#8). **PITCH DONE**.
+- [x] UI: `repair-order-putaway-panel.tsx` — destination selector fixed this pass (#9), 8
+      component tests added (#10). **PITCH DONE** for typecheck/lint/unit tests; **PITCH UAT
+      OUTSTANDING** for real browser verification.
+- [x] **Wired into a real page this pass** (#4 above) — `/dashboard/workshop/[id]/page.tsx`.
 
 ### Phase 6 — `putaway_repair_order_stock` RPC + wiring
 
-- [x] Migration written: `20260912094000_zone5_putaway_repair_order_stock_rpc.sql` — batch
-      contract (one call, N lines, one destination, one document), destination validation,
-      per-line quantity-available validation against the live projection, writes attribution
-      directly, does **not** clear a pre-existing bucket-wide marker, writes **no**
-      `repair_order_line_movement_links` row. **PITCH — BLOCKED ON MCP**.
-- [x] `[Put here]` / manual-location wiring — done in the Phase 5 UI component (same file).
-- [x] pgTAP test written: `097_zone5_putaway_repair_order_stock_test.sql` (6 assertions: batch,
-      partial quantity, destination credit, over-request rejection, marker non-clearing, no
-      `relation_type='putaway'` row ever exists). **PITCH — BLOCKED ON MCP**.
+- [x] Migration: `20260912094000_...putaway_rpc.sql` — unchanged this pass. **PITCH — BLOCKED ON
+      MCP**.
+- [x] `[Put here]` / destination-selector wiring — corrected this pass (#9).
+- [x] pgTAP test: `097_...putaway_test.sql`, 6 assertions — **PITCH — BLOCKED ON MCP**.
 
 ### Phase 7 — Presentation UAT
 
-- [ ] Full live run — **BLOCKED ON MCP** (no live environment).
-- [ ] Zone 6 rehearsal (plain `801` on deliberately unambiguous data) — **BLOCKED ON MCP**.
-- [ ] Playwright / responsive QA at 390×844, 768×1024, 1440×900 — **NOT RUN this pass**; honestly
-      reported as an environmental limitation (no live Supabase project reachable to render real
-      warehouse/RepairOrder data, and this session's Playwright config depends on the app's own
-      dev server + backend) rather than fabricated. See final report.
-- [ ] Manual pitch scenario data preparation — **NOT DONE this pass** (depends on Phase 0/1
-      being live-applicable first).
+- [ ] Full live run — **BLOCKED ON MCP**.
+- [ ] Zone 6 rehearsal — **BLOCKED ON MCP**.
+- [ ] Playwright / responsive QA at 390×844, 768×1024, 1440×900 — **NOT RUN this pass** (no live
+      backend to render against — disclosed environmental limitation, not fabricated).
+- [ ] Manual pitch scenario data preparation — **NOT DONE this pass**.
 
-## Known-good regression checks (run this pass)
+## Remaining work (explicit, not silently deferred)
 
-- [x] Full-repo `tsc --noEmit`: **clean** (0 errors) after fixing a real narrowing issue this
-      pass surfaced (see final report) in three newly-added files — not a pre-existing bug, and
-      not left unresolved.
-- [x] `eslint` on every new file: **clean** (0 errors, 0 warnings after removing one unused
-      import).
-- [x] `vitest` targeted run (new service test): **5/5 passing**.
-- [x] `vitest` full-suite regression run: see final report for the completed result (was still
-      running in the background at the time this tracker was last edited — do not treat an
-      earlier partial view of this file as the final word; the report has the actual number).
-- [ ] Zone 3 pgTAP regression (`090`-`092`) — **BLOCKED ON MCP** (not executed, but not modified
-      either — this pass touched zero existing Zone 3 files).
-- [ ] Zone 6 regression — **BLOCKED ON MCP**; zero Zone 6 files modified this pass.
+1. **Location edit UI toggle** — wire a `purpose` control into `LocationModal.tsx` and/or
+   `location-detail-panel.tsx` (both real, both large/unfamiliar this session) once someone with
+   more context on those specific files' structure (or live rendering to verify against) can do
+   so safely. The backend (`updateLocationAction`) already supports it correctly and is tested.
+2. Everything Phase 0/7 and every migration application — blocked on Supabase MCP or equivalent
+   live/local access, per the standing constraint.
+3. The live two-session concurrency integration test (Phase 3, explicitly deferred per plan
+   §6.1).
+4. The one honestly-`skip()`ped atomicity sub-case in `096` (mid-engine-call failure) — needs
+   either live execution or independently-confirmed knowledge of `inventory_create_and_finalize`'s
+   internal validation surface.
+
+## Known-good regression checks (this pass)
+
+- [x] Full-repo `tsc --noEmit`: **clean** (0 errors) — including after fixing a real,
+      reproducible TS discriminated-union narrowing issue this pass hit again in three more new
+      files (worked around the same way as the prior pass: explicit `=== true`/`=== false`
+      checks instead of negated guard-returns; root cause still not fully isolated, flagged for
+      whoever next touches this pattern in this codebase).
+- [x] `eslint` on every touched/new file: **clean** (0 errors, 0 warnings after two trivial
+      fixes — an unused mock param, two now-unnecessary `eslint-disable` comments).
+- [x] `vitest` full-suite regression run: executed this pass — see the accompanying final report
+      for the exact pass/fail counts; the pre-existing failure set (unrelated to Zone 5, e.g. a
+      date-format assertion in an unrelated account-settings test) is unchanged in shape from the
+      prior pass's own baseline run, and every Zone-5-authored test file passes.
+- [ ] Zone 3/Zone 6 pgTAP regression — **BLOCKED ON MCP**; zero Zone 3/Zone 6 files modified.

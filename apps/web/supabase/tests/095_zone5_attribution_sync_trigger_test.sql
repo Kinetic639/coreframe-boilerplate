@@ -5,6 +5,16 @@
 --   apps/web/supabase-target/supabase/migrations/
 --   20260912092000_zone5_attribution_sync_trigger.sql
 --
+-- CORRECTION (external review, applied before any live run): the trigger's
+-- ambiguity-test query originally combined an aggregate (sum/count) with
+-- `FOR UPDATE` in one query -- invalid PostgreSQL ("FOR UPDATE is not
+-- allowed with aggregate functions"). Fixed to lock via a CTE first, then
+-- aggregate over the locked rows in the same statement. Test #2 below
+-- exercises exactly this corrected query path (the single-unambiguous-source
+-- propagation branch) -- when this file is actually run, a failure there
+-- would have caught the original bug directly (the trigger would have
+-- raised a Postgres error instead of silently mis-behaving).
+--
 -- NOT EXECUTED this session -- Supabase MCP / live DB access was unavailable.
 -- Per that same migration's own header: the exact column list of
 -- `inventory_stock_ledger_entries` and `inventory_movement_lines` used below

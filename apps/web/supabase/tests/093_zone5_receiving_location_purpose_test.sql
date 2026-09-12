@@ -19,7 +19,7 @@
 
 BEGIN;
 
-SELECT plan(8);
+SELECT plan(10);
 
 CREATE TEMP TABLE fx (
   org uuid, branch uuid, other_branch uuid, other_org uuid,
@@ -73,11 +73,29 @@ SELECT throws_ok(
   'a purpose value outside (standard, receiving) is rejected -- pitch domain is intentionally narrow'
 );
 
--- 5. Standard locations are unaffected by the one-per-branch rule (many allowed).
+-- 5. Standard locations are unaffected by the one-per-branch rule (many
+--    allowed) -- a real assertion (count), not a bare pass().
 INSERT INTO warehouse_locations (id, organization_id, branch_id, name, code, can_store_inventory)
 SELECT gen_random_uuid(), org, branch, '093-test standard 2', '093-STD-2', true FROM fx;
 
-SELECT pass('a second purpose=standard location in the same branch is allowed (no error)');
+SELECT is(
+  (SELECT count(*)::int FROM warehouse_locations WHERE organization_id = (SELECT org FROM fx) AND branch_id = (SELECT branch FROM fx) AND purpose = 'standard' AND code LIKE '093-STD%'),
+  2,
+  '5. a second purpose=standard location in the same branch is allowed -- both rows persist'
+);
+
+-- 5b. CORRECTION (external review): a non-stockable location cannot be
+--     designated 'receiving' -- DB-enforced (warehouse_locations_receiving_
+--     must_be_stockable), not merely by the resolver's own read-time filter.
+SELECT throws_ok(
+  format($sql$
+    INSERT INTO warehouse_locations (id, organization_id, branch_id, name, code, can_store_inventory, purpose)
+    VALUES ('%s', '%s', '%s', '093-test non-stockable receiving (should fail)', '093-NOSTOCK', false, 'receiving')
+  $sql$, (SELECT loc_not_stockable::text FROM fx), (SELECT org::text FROM fx), (SELECT branch::text FROM fx)),
+  '23514',
+  NULL,
+  '5b. a non-stockable location cannot be designated purpose=receiving -- DB CHECK constraint enforced'
+);
 
 -- 6. Soft-deleting the active receiving location frees the branch to designate
 --    a new one -- the partial index only counts deleted_at IS NULL rows.
@@ -105,6 +123,13 @@ SELECT throws_ok(
   'P0002',
   NULL,
   'resolve_branch_receiving_location raises a clear error when no receiving location is configured'
+);
+
+-- 9. CORRECTION (external review): resolve_branch_receiving_location is
+--    internal-only -- `authenticated` must NOT have direct EXECUTE.
+SELECT ok(
+  NOT has_function_privilege('authenticated', 'public.resolve_branch_receiving_location(uuid,uuid)', 'EXECUTE'),
+  '9. authenticated has no direct EXECUTE on resolve_branch_receiving_location -- it is callable only from within the two SECURITY DEFINER orchestration RPCs'
 );
 
 SELECT * FROM finish();

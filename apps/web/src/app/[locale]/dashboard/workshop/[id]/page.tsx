@@ -6,8 +6,10 @@ import { checkPermission } from "@/lib/utils/permissions";
 import { WORKSHOP_REPAIR_ORDERS_READ } from "@/lib/constants/permissions";
 import { createClient } from "@/utils/supabase/server";
 import { RepairOrdersService } from "@/server/services/repair-orders.service";
+import { RepairOrderStorageService } from "@/server/services/repair-order-storage.service";
 import { ArrowLeft } from "lucide-react";
 import { RepairOrderStatusBadge } from "../_components/repair-order-status-badge";
+import { RepairOrderPutawayPanel } from "../../warehouse/_components/repair-order-putaway-panel";
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -49,6 +51,16 @@ export default async function RepairOrderDetailPage({ params }: PageProps) {
 
   const order = result.data;
 
+  // Zone 5 Phase 4/7 wiring: show a "Put away" panel only when this
+  // RepairOrder actually has received stock sitting at the branch's
+  // receiving location -- otherwise the section is simply absent (no empty
+  // "Put away" affordance for an order with nothing to put away yet).
+  const receivedLines = branchId
+    ? await RepairOrderStorageService.getReceivedLines(supabase, orgId, branchId, id).then((r) =>
+        r.success ? r.data : []
+      )
+    : [];
+
   return (
     <div className="flex flex-col gap-6 p-6">
       <Link
@@ -87,6 +99,16 @@ export default async function RepairOrderDetailPage({ params }: PageProps) {
           value={new Date(order.updatedAt).toLocaleString(locale)}
         />
       </div>
+
+      {receivedLines.length > 0 && (
+        <div className="max-w-2xl">
+          <RepairOrderPutawayPanel
+            repairOrderId={id}
+            repairOrderLabel={order.zlNumber ?? t("detail.unresolvedTitle")}
+            receivedLines={receivedLines}
+          />
+        </div>
+      )}
 
       <p className="text-muted-foreground max-w-2xl text-xs">{t("detail.futurePhasesNote")}</p>
     </div>

@@ -38,7 +38,22 @@ export type RepairOrderStorageSuggestion = {
 };
 
 type LocationRow = { id: string; code: string | null; name: string };
-type VariantRow = { id: string; sku: string | null; product_name: string | null };
+type VariantRow = {
+  id: string;
+  sku: string | null;
+  product_name: string | null;
+  unit_id: string | null;
+};
+
+/** Shape consumed directly by RepairOrderPutawayPanel's `receivedLines` prop. */
+export type ReceivedLine = {
+  repairOrderLineId: string;
+  variantId: string;
+  unitId: string;
+  sku: string;
+  productName: string;
+  availableAtReceiving: number;
+};
 
 export class RepairOrderStorageService {
   /**
@@ -172,5 +187,77 @@ export class RepairOrderStorageService {
     );
 
     return { success: true, data: suggestions };
+  }
+
+  /**
+   * Lines of this RepairOrder currently sitting at the branch's designated
+   * receiving location -- i.e. exactly what a "Put away" action should offer
+   * the operator. Deliberately its own small query (not a filter over
+   * getStorageSuggestions' grouped-by-location DTO), since putaway needs
+   * line-level granularity (repair_order_line_id, variant_id, unit_id) that
+   * the location-grouped suggestion shape intentionally doesn't carry.
+   */
+  static async getReceivedLines(
+    supabase: SupabaseClient,
+    organizationId: string,
+    branchId: string,
+    repairOrderId: string
+  ): Promise<ServiceResult<ReceivedLine[]>> {
+    const { data: receivingLocation, error: locError } = await supabase
+      .from("warehouse_locations")
+      .select("id")
+      .eq("organization_id", organizationId)
+      .eq("branch_id", branchId)
+      .eq("purpose", "receiving")
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (locError) return { success: false, error: locError.message };
+    if (!receivingLocation) return { success: true, data: [] }; // no receiving location configured -- nothing to show, not an error
+
+    const { data: rows, error } = await supabase
+      .from("repair_order_line_locations")
+      .select("repair_order_line_id, variant_id, quantity")
+      .eq("organization_id", organizationId)
+      .eq("branch_id", branchId)
+      .eq("repair_order_id", repairOrderId)
+      .eq("location_id", receivingLocation.id)
+      .gt("quantity", 0);
+    if (error) return { success: false, error: error.message };
+
+    const projectionRows = (rows ?? []) as Array<{
+      repair_order_line_id: string;
+      variant_id: string | null;
+      quantity: number | string;
+    }>;
+    if (projectionRows.length === 0) return { success: true, data: [] };
+
+    const variantIds = [
+      ...new Set(projectionRows.map((r) => r.variant_id).filter(Boolean)),
+    ] as string[];
+    const { data: variantRows, error: varError } =
+      variantIds.length > 0
+        ? await supabase
+            .from("inventory_variants")
+            .select("id, sku, product_name, unit_id")
+            .in("id", variantIds)
+        : { data: [] as VariantRow[], error: null };
+    if (varError) return { success: false, error: varError.message };
+    const variantsById = new Map(((variantRows ?? []) as VariantRow[]).map((v) => [v.id, v]));
+
+    const lines: ReceivedLine[] = projectionRows
+      .filter((r) => r.variant_id && variantsById.get(r.variant_id)?.unit_id)
+      .map((r) => {
+        const variant = variantsById.get(r.variant_id as string)!;
+        return {
+          repairOrderLineId: r.repair_order_line_id,
+          variantId: r.variant_id as string,
+          unitId: variant.unit_id as string,
+          sku: variant.sku ?? r.variant_id ?? "",
+          productName: variant.product_name ?? variant.sku ?? "",
+          availableAtReceiving: Number(r.quantity),
+        };
+      });
+
+    return { success: true, data: lines };
   }
 }

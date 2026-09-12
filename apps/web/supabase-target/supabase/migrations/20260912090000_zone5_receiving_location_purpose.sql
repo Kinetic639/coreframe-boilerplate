@@ -51,6 +51,18 @@ ALTER TABLE public.warehouse_locations
   ADD CONSTRAINT warehouse_locations_purpose_check
   CHECK (purpose IN ('standard', 'receiving'));
 
+-- CORRECTION (external review): a purpose='receiving' row must be stockable
+-- at the DB level, not merely by the resolver's own (previously
+-- read-time-only) filter. can_store_inventory is NOT NULL (confirmed --
+-- 20260617120000_inventory_location_placement.sql), so this CHECK has no
+-- NULL edge case to worry about.
+ALTER TABLE public.warehouse_locations
+  DROP CONSTRAINT IF EXISTS warehouse_locations_receiving_must_be_stockable;
+
+ALTER TABLE public.warehouse_locations
+  ADD CONSTRAINT warehouse_locations_receiving_must_be_stockable
+  CHECK (purpose <> 'receiving' OR can_store_inventory = true);
+
 COMMENT ON COLUMN public.warehouse_locations.purpose IS
   'Zone 5: semantic role of this location. ''standard'' (default) or ''receiving''
    (the branch''s designated inbound buffer -- see warehouse_locations_one_receiving_per_branch).
@@ -114,6 +126,19 @@ COMMENT ON FUNCTION public.resolve_branch_receiving_location(uuid, uuid) IS
    silently picking a wrong location. Used by receive_repair_order_stock and
    putaway_repair_order_stock (Phases 4/6).';
 
+-- CORRECTION (external review): this helper is internal-only -- it takes an
+-- arbitrary organization_id/branch_id with NO caller-permission check of its
+-- own, and returns a location UUID. Nothing in this codebase needs to call
+-- it directly from the client; it exists solely so
+-- receive_repair_order_stock/putaway_repair_order_stock (Phases 4/6) share
+-- one resolution implementation. Granting `authenticated` EXECUTE would let
+-- any signed-in user probe an arbitrary org/branch's receiving-location id
+-- with zero authorization check -- an unnecessary cross-tenant metadata
+-- lookup surface. Revoked from every client-reachable role; the two
+-- SECURITY DEFINER RPCs can still call it internally regardless (a
+-- SECURITY DEFINER function executes as its owner, and function ownership
+-- carries implicit EXECUTE on functions the same owner created -- no grant
+-- to `authenticated` is needed for that internal call path to keep working).
 REVOKE ALL ON FUNCTION public.resolve_branch_receiving_location(uuid, uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.resolve_branch_receiving_location(uuid, uuid) FROM anon;
-GRANT EXECUTE ON FUNCTION public.resolve_branch_receiving_location(uuid, uuid) TO authenticated;
+REVOKE ALL ON FUNCTION public.resolve_branch_receiving_location(uuid, uuid) FROM authenticated;

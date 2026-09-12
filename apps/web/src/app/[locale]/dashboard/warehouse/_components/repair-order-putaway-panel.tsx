@@ -7,26 +7,30 @@ import {
   getRepairOrderStorageSuggestionsAction,
   putawayRepairOrderStockAction,
 } from "@/app/actions/warehouse/repair-order-receiving";
+import { listLocationsAction } from "@/app/actions/warehouse/locations";
 import type { RepairOrderStorageSuggestion } from "@/server/services/repair-order-storage.service";
 
 /**
  * Zone 5 Phase 5/7 -- minimal pitch putaway panel.
  *
  * Deliberately self-contained (no dependency on Zone 3's own RepairOrder
- * Workshop UI internals, which this session did not have time to fully map)
- * -- a parent page/panel passes in the lines currently sitting at the
- * receiving location for one RepairOrder, and this component shows
- * consolidate-first suggestions plus a manual-location fallback.
+ * Workshop UI internals) -- a parent page/panel passes in the lines
+ * currently sitting at the receiving location for one RepairOrder, and this
+ * component shows consolidate-first suggestions plus a location-picker
+ * fallback (reusing the existing `listLocationsAction`, not a raw UUID
+ * input -- external review correction).
  *
  * Explicitly does NOT show:
  *   - any capacity/percentage figure (no real capacity model exists),
  *   - container recommendations (PILOT scope),
- *   - an UNKNOWN suggestion rendered identically to a KNOWN one.
+ *   - an UNKNOWN suggestion rendered identically to a KNOWN one,
+ *   - QR/mobile scanning for location selection (PILOT scope).
  *
  * NOT verified against a live backend this session (no Supabase MCP / local
  * DB) -- this component typechecks and its data-shape assumptions match the
- * exact DTO produced by RepairOrderStorageService (unit-tested separately),
- * but end-to-end/browser verification is a disclosed gap, not a hidden one.
+ * exact DTOs produced by RepairOrderStorageService and
+ * WarehouseLocationsService (both unit-tested separately), but end-to-end/
+ * browser verification is a disclosed gap, not a hidden one.
  */
 
 export type PutawayLineInput = {
@@ -36,6 +40,13 @@ export type PutawayLineInput = {
   sku: string;
   productName: string;
   availableAtReceiving: number;
+};
+
+type LocationOption = {
+  id: string;
+  code: string | null;
+  name: string;
+  canStoreInventory?: boolean;
 };
 
 type Props = {
@@ -55,6 +66,7 @@ export function RepairOrderPutawayPanel({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedLineIds, setSelectedLineIds] = useState<Set<string>>(new Set());
   const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const [locationOptions, setLocationOptions] = useState<LocationOption[]>([]);
   const [manualLocationId, setManualLocationId] = useState<string>("");
   const [isPending, startTransition] = useTransition();
 
@@ -76,6 +88,45 @@ export function RepairOrderPutawayPanel({
     };
   }, [repairOrderId]);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const result = (await listLocationsAction()) as
+        | {
+            success: true;
+            data: Array<{
+              id: string;
+              code: string | null;
+              name: string;
+              can_store_inventory?: boolean;
+            }>;
+          }
+        | { success: false; error: string };
+      if (cancelled) return;
+      if (result.success === true) {
+        // Stockable locations only -- a non-stockable location is never a
+        // valid putaway destination (mirrors the RPC's own destination
+        // validation, so the picker doesn't offer something the RPC would
+        // reject anyway).
+        setLocationOptions(
+          result.data
+            .filter((l) => l.can_store_inventory !== false)
+            .map((l) => ({
+              id: l.id,
+              code: l.code,
+              name: l.name,
+              canStoreInventory: l.can_store_inventory,
+            }))
+        );
+      }
+      // A load failure here is non-fatal -- the picker just stays empty;
+      // KNOWN suggestions above still work independently.
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   function toggleLine(lineId: string, availableQty: number) {
     setSelectedLineIds((prev) => {
       const next = new Set(prev);
@@ -92,6 +143,10 @@ export function RepairOrderPutawayPanel({
   function submitPutaway(destinationLocationId: string) {
     if (selectedLineIds.size === 0) {
       toast.error("Select at least one received line to put away.");
+      return;
+    }
+    if (!destinationLocationId) {
+      toast.error("Choose a destination location.");
       return;
     }
     const lines = receivedLines
@@ -111,6 +166,7 @@ export function RepairOrderPutawayPanel({
       if (result.success === true) {
         toast.success("Stock put away.");
         setSelectedLineIds(new Set());
+        setManualLocationId("");
         onPutawayComplete?.();
       } else {
         toast.error(result.error ?? "Putaway failed");
@@ -128,11 +184,12 @@ export function RepairOrderPutawayPanel({
       </div>
 
       {/* Received lines to select from */}
-      <div className="space-y-1">
+      <div className="space-y-1" data-testid="putaway-received-lines">
         {receivedLines.map((line) => (
           <label key={line.repairOrderLineId} className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
+              data-testid={`putaway-line-checkbox-${line.repairOrderLineId}`}
               checked={selectedLineIds.has(line.repairOrderLineId)}
               onChange={() => toggleLine(line.repairOrderLineId, line.availableAtReceiving)}
             />
@@ -145,6 +202,7 @@ export function RepairOrderPutawayPanel({
               max={line.availableAtReceiving}
               step="any"
               disabled={!selectedLineIds.has(line.repairOrderLineId)}
+              data-testid={`putaway-line-qty-${line.repairOrderLineId}`}
               value={quantities[line.repairOrderLineId] ?? line.availableAtReceiving}
               onChange={(e) =>
                 setQuantities((q) => ({ ...q, [line.repairOrderLineId]: Number(e.target.value) }))
@@ -171,12 +229,13 @@ export function RepairOrderPutawayPanel({
           </p>
         )}
 
-        <div className="space-y-2">
+        <div className="space-y-2" data-testid="putaway-suggestions">
           {suggestions
             ?.filter((s) => s.attributionStatus === "known")
             .map((s) => (
               <div
                 key={s.locationId}
+                data-testid={`putaway-suggestion-known-${s.locationId}`}
                 className="flex items-center justify-between rounded border border-border p-2"
               >
                 <div>
@@ -198,7 +257,10 @@ export function RepairOrderPutawayPanel({
             ))}
 
           {suggestions?.some((s) => s.attributionStatus === "unknown") && (
-            <div className="rounded border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-400">
+            <div
+              data-testid="putaway-suggestions-unknown-banner"
+              className="rounded border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-400"
+            >
               Location attribution requires verification for{" "}
               {suggestions.filter((s) => s.attributionStatus === "unknown").length} location(s) —
               not shown as a confident suggestion above.
@@ -207,22 +269,30 @@ export function RepairOrderPutawayPanel({
         </div>
       </div>
 
-      {/* Manual fallback */}
+      {/* Location picker fallback -- reuses the existing locations list
+          (listLocationsAction), showing code/name, never a raw UUID input. */}
       <div className="flex items-center gap-2 border-t border-border pt-3">
-        <input
-          type="text"
-          placeholder="Or enter another location ID"
+        <select
+          aria-label="Choose another location"
+          data-testid="putaway-manual-location-select"
           value={manualLocationId}
           onChange={(e) => setManualLocationId(e.target.value)}
           className="flex-1 rounded border border-border bg-background px-2 py-1 text-xs"
-        />
+        >
+          <option value="">Choose another location…</option>
+          {locationOptions.map((l) => (
+            <option key={l.id} value={l.id}>
+              {l.code ? `${l.code} — ${l.name}` : l.name}
+            </option>
+          ))}
+        </select>
         <button
           type="button"
           disabled={isPending || !manualLocationId}
           onClick={() => submitPutaway(manualLocationId)}
           className="rounded border border-border px-3 py-1 text-xs font-medium disabled:opacity-50"
         >
-          Choose another location
+          Put here
         </button>
       </div>
     </div>

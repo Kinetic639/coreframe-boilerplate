@@ -75,6 +75,10 @@ export const updateLocationSchema = z.object({
   id: z.string().uuid("Invalid location id"),
   name: z.string().min(1, "Name is required").max(200).optional(),
   code: locationCodeSchema,
+  /** Zone 5: semantic role ('standard' | 'receiving'). DB enforces at most one
+   * active 'receiving' location per branch and that it must be stockable --
+   * this schema-level enum is a first line of defense, not the guarantee. */
+  purpose: z.enum(["standard", "receiving"]).optional(),
   description: z.string().max(1000).nullable().optional(),
   icon_name: z.string().max(50).nullable().optional(),
   color: hexColorSchema,
