@@ -55,6 +55,23 @@ export type ReceivedLine = {
   availableAtReceiving: number;
 };
 
+/**
+ * getReceivedLines' result shape (external review, third correction pass).
+ * `lines` contains ONLY actionable, confidently-KNOWN receiving stock --
+ * never a bucket flagged `repair_order_location_attribution_uncertain`
+ * (existence of that marker means the RepairOrder attribution for that
+ * (location, variant) bucket is UNKNOWN; the projection row is then only
+ * last-known/stale, never physical proof -- plan §D, and this session's
+ * putaway RPC now independently enforces the same rule server-side).
+ * `unverifiedLineCount` is a compact, honest signal for case C ("stock
+ * exists but attribution requires verification") -- deliberately just a
+ * count, not a reconciliation UI (out of pitch scope).
+ */
+export type ReceivedLinesResult = {
+  lines: ReceivedLine[];
+  unverifiedLineCount: number;
+};
+
 export class RepairOrderStorageService {
   /**
    * Current storage suggestions for a RepairOrder, ordered per the approved
@@ -196,13 +213,27 @@ export class RepairOrderStorageService {
    * getStorageSuggestions' grouped-by-location DTO), since putaway needs
    * line-level granularity (repair_order_line_id, variant_id, unit_id) that
    * the location-grouped suggestion shape intentionally doesn't carry.
+   *
+   * CORRECTION (external review, third pass): this previously read
+   * `repair_order_line_locations` alone and offered every positive-quantity
+   * row as a confident "Put away <quantity>" candidate, without checking
+   * `repair_order_location_attribution_uncertain`. That is exactly backwards
+   * per the architecture -- existence of a marker row means the bucket's
+   * RepairOrder attribution is UNKNOWN, and the projection row is then only
+   * last-known/stale, never authoritative physical identity. Any receiving
+   * bucket flagged UNKNOWN is now excluded from the actionable `lines`
+   * array entirely (never rendered as a confident putaway candidate); its
+   * count is surfaced separately via `unverifiedLineCount` so the caller can
+   * truthfully distinguish "nothing to put away" from "stock exists here but
+   * requires attribution verification first" -- without building a
+   * reconciliation UI (out of pitch scope).
    */
   static async getReceivedLines(
     supabase: SupabaseClient,
     organizationId: string,
     branchId: string,
     repairOrderId: string
-  ): Promise<ServiceResult<ReceivedLine[]>> {
+  ): Promise<ServiceResult<ReceivedLinesResult>> {
     const { data: receivingLocation, error: locError } = await supabase
       .from("warehouse_locations")
       .select("id")
@@ -212,7 +243,7 @@ export class RepairOrderStorageService {
       .is("deleted_at", null)
       .maybeSingle();
     if (locError) return { success: false, error: locError.message };
-    if (!receivingLocation) return { success: true, data: [] }; // no receiving location configured -- nothing to show, not an error
+    if (!receivingLocation) return { success: true, data: { lines: [], unverifiedLineCount: 0 } }; // no receiving location configured -- nothing to show, not an error
 
     const { data: rows, error } = await supabase
       .from("repair_order_line_locations")
@@ -229,35 +260,61 @@ export class RepairOrderStorageService {
       variant_id: string | null;
       quantity: number | string;
     }>;
-    if (projectionRows.length === 0) return { success: true, data: [] };
+    if (projectionRows.length === 0)
+      return { success: true, data: { lines: [], unverifiedLineCount: 0 } };
 
     const variantIds = [
       ...new Set(projectionRows.map((r) => r.variant_id).filter(Boolean)),
     ] as string[];
-    const { data: variantRows, error: varError } =
-      variantIds.length > 0
-        ? await supabase
-            .from("inventory_variants")
-            .select("id, sku, product_name, unit_id")
-            .in("id", variantIds)
-        : { data: [] as VariantRow[], error: null };
+
+    const [{ data: uncertainRows, error: uncertainError }, { data: variantRows, error: varError }] =
+      await Promise.all([
+        variantIds.length > 0
+          ? supabase
+              .from("repair_order_location_attribution_uncertain")
+              .select("variant_id")
+              .eq("organization_id", organizationId)
+              .eq("branch_id", branchId)
+              .eq("location_id", receivingLocation.id)
+              .in("variant_id", variantIds)
+          : Promise.resolve({ data: [] as Array<{ variant_id: string }>, error: null }),
+        variantIds.length > 0
+          ? supabase
+              .from("inventory_variants")
+              .select("id, sku, product_name, unit_id")
+              .in("id", variantIds)
+          : Promise.resolve({ data: [] as VariantRow[], error: null }),
+      ]);
+    if (uncertainError) return { success: false, error: uncertainError.message };
     if (varError) return { success: false, error: varError.message };
+
+    const uncertainVariantIds = new Set(
+      ((uncertainRows ?? []) as Array<{ variant_id: string }>).map((u) => u.variant_id)
+    );
     const variantsById = new Map(((variantRows ?? []) as VariantRow[]).map((v) => [v.id, v]));
 
-    const lines: ReceivedLine[] = projectionRows
-      .filter((r) => r.variant_id && variantsById.get(r.variant_id)?.unit_id)
-      .map((r) => {
-        const variant = variantsById.get(r.variant_id as string)!;
-        return {
-          repairOrderLineId: r.repair_order_line_id,
-          variantId: r.variant_id as string,
-          unitId: variant.unit_id as string,
-          sku: variant.sku ?? r.variant_id ?? "",
-          productName: variant.product_name ?? variant.sku ?? "",
-          availableAtReceiving: Number(r.quantity),
-        };
+    const lines: ReceivedLine[] = [];
+    let unverifiedLineCount = 0;
+    for (const row of projectionRows) {
+      if (!row.variant_id || !variantsById.get(row.variant_id)?.unit_id) continue;
+      if (uncertainVariantIds.has(row.variant_id)) {
+        // UNKNOWN at the receiving location for this variant -- the marker
+        // is authoritative; never shown as a confident putaway candidate,
+        // regardless of what this stale projection row says (no self-heal).
+        unverifiedLineCount += 1;
+        continue;
+      }
+      const variant = variantsById.get(row.variant_id)!;
+      lines.push({
+        repairOrderLineId: row.repair_order_line_id,
+        variantId: row.variant_id,
+        unitId: variant.unit_id as string,
+        sku: variant.sku ?? row.variant_id,
+        productName: variant.product_name ?? variant.sku ?? "",
+        availableAtReceiving: Number(row.quantity),
       });
+    }
 
-    return { success: true, data: lines };
+    return { success: true, data: { lines, unverifiedLineCount } };
   }
 }

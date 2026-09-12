@@ -75,13 +75,17 @@ describe("RepairOrderDetailPage -- received-lines load error vs. empty", () => {
 
   it("SUCCESS + no received lines -> no putaway panel, no error shown", async () => {
     mockOrderFound();
-    getReceivedLines.mockResolvedValue({ success: true, data: [] });
+    getReceivedLines.mockResolvedValue({
+      success: true,
+      data: { lines: [], unverifiedLineCount: 0 },
+    });
 
     const page = await RepairOrderDetailPage({ params: Promise.resolve({ id: "ro-1" }) });
     render(page);
 
     expect(screen.queryByTestId("putaway-panel-stub")).not.toBeInTheDocument();
     expect(screen.queryByTestId("received-lines-error")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("received-lines-unknown-warning")).not.toBeInTheDocument();
     // The rest of the page still rendered normally.
     expect(screen.getByTestId("repair-order-detail-card")).toBeInTheDocument();
   });
@@ -90,16 +94,19 @@ describe("RepairOrderDetailPage -- received-lines load error vs. empty", () => {
     mockOrderFound();
     getReceivedLines.mockResolvedValue({
       success: true,
-      data: [
-        {
-          repairOrderLineId: "rol-1",
-          variantId: "v-1",
-          unitId: "u-1",
-          sku: "SKU-1",
-          productName: "Bumper",
-          availableAtReceiving: 3,
-        },
-      ],
+      data: {
+        lines: [
+          {
+            repairOrderLineId: "rol-1",
+            variantId: "v-1",
+            unitId: "u-1",
+            sku: "SKU-1",
+            productName: "Bumper",
+            availableAtReceiving: 3,
+          },
+        ],
+        unverifiedLineCount: 0,
+      },
     });
 
     const page = await RepairOrderDetailPage({ params: Promise.resolve({ id: "ro-1" }) });
@@ -107,6 +114,50 @@ describe("RepairOrderDetailPage -- received-lines load error vs. empty", () => {
 
     expect(screen.getByTestId("putaway-panel-stub")).toBeInTheDocument();
     expect(screen.queryByTestId("received-lines-error")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("received-lines-unknown-warning")).not.toBeInTheDocument();
+  });
+
+  it("SUCCESS + only UNKNOWN receiving stock -> warning shown, no putaway panel, no error", async () => {
+    mockOrderFound();
+    getReceivedLines.mockResolvedValue({
+      success: true,
+      data: { lines: [], unverifiedLineCount: 2 },
+    });
+
+    const page = await RepairOrderDetailPage({ params: Promise.resolve({ id: "ro-1" }) });
+    render(page);
+
+    expect(screen.queryByTestId("putaway-panel-stub")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("received-lines-error")).not.toBeInTheDocument();
+    const warning = screen.getByTestId("received-lines-unknown-warning");
+    expect(warning).toBeInTheDocument();
+    expect(warning.textContent).toMatch(/requires attribution verification/i);
+  });
+
+  it("SUCCESS + mixed KNOWN and UNKNOWN receiving stock -> both the panel and the warning are shown", async () => {
+    mockOrderFound();
+    getReceivedLines.mockResolvedValue({
+      success: true,
+      data: {
+        lines: [
+          {
+            repairOrderLineId: "rol-1",
+            variantId: "v-1",
+            unitId: "u-1",
+            sku: "SKU-1",
+            productName: "Bumper",
+            availableAtReceiving: 3,
+          },
+        ],
+        unverifiedLineCount: 1,
+      },
+    });
+
+    const page = await RepairOrderDetailPage({ params: Promise.resolve({ id: "ro-1" }) });
+    render(page);
+
+    expect(screen.getByTestId("putaway-panel-stub")).toBeInTheDocument();
+    expect(screen.getByTestId("received-lines-unknown-warning")).toBeInTheDocument();
   });
 
   it("ERROR -> compact local error shown, no putaway panel, rest of the page still renders, raw error not leaked", async () => {

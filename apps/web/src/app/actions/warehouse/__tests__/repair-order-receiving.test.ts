@@ -219,6 +219,41 @@ describe("putawayRepairOrderStockAction", () => {
     );
   });
 
+  it("known error (UNKNOWN-source rejection, external review third pass) passes through as-is", async () => {
+    rpcMock.mockResolvedValue({
+      data: null,
+      error: {
+        code: "55000",
+        message:
+          "Line 1: the receiving location's attribution for this variant is UNKNOWN (a prior generic movement made it ambiguous) -- putaway is not permitted until it is reconciled",
+      },
+    });
+    const result = await putawayRepairOrderStockAction({
+      lines: [validPutawayLine],
+      destination_location_id: "55555555-5555-5555-5555-555555555555",
+    });
+    expect(result.success).toBe(false);
+    if (result.success === true) return;
+    expect(result.error).toContain("attribution for this variant is UNKNOWN");
+  });
+
+  it("the SAME SQLSTATE (55000) with a DIFFERENT, unrecognized message is NOT leaked -- falls back to the generic message", async () => {
+    rpcMock.mockResolvedValue({
+      data: null,
+      error: { code: "55000", message: "some unrelated 55000 error from elsewhere in the schema" },
+    });
+    const result = await putawayRepairOrderStockAction({
+      lines: [validPutawayLine],
+      destination_location_id: "55555555-5555-5555-5555-555555555555",
+    });
+    expect(result.success).toBe(false);
+    if (result.success === true) return;
+    expect(result.error).not.toContain("unrelated 55000 error");
+    expect(result.error).toBe(
+      "Putaway failed due to an unexpected server error. Please try again or contact support."
+    );
+  });
+
   it("succeeds and posts one document for one destination", async () => {
     rpcMock.mockResolvedValue({
       data: { movement_id: "m-2", document_number: "MM/1" },

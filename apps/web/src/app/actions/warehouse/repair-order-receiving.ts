@@ -84,6 +84,11 @@ const PUTAWAY_RPC_KNOWN_ERRORS: ReadonlyArray<{ code: string; pattern: RegExp }>
   { code: "42501", pattern: /does not belong to this organization\/branch$/ },
   { code: "22023", pattern: /variant does not match the RepairOrderLine's own variant$/ },
   { code: "22023", pattern: /but only .* is currently attributed to this RepairOrderLine/ },
+  {
+    code: "55000",
+    pattern:
+      /attribution for this variant is UNKNOWN .* putaway is not permitted until it is reconciled$/,
+  },
 ];
 
 const GENERIC_RECEIVE_ERROR =

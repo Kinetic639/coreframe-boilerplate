@@ -67,6 +67,7 @@ export default async function RepairOrderDetailPage({ params }: PageProps) {
   // shows a compact, local, non-leaking error state in the storage/putaway
   // area only -- it must never fail the whole RepairOrder detail page.
   let receivedLines: ReceivedLine[] = [];
+  let unverifiedLineCount = 0;
   let receivedLinesError: string | null = null;
   if (branchId) {
     const receivedLinesResult = await RepairOrderStorageService.getReceivedLines(
@@ -76,7 +77,8 @@ export default async function RepairOrderDetailPage({ params }: PageProps) {
       id
     );
     if (receivedLinesResult.success === true) {
-      receivedLines = receivedLinesResult.data;
+      receivedLines = receivedLinesResult.data.lines;
+      unverifiedLineCount = receivedLinesResult.data.unverifiedLineCount;
     } else {
       receivedLinesError = "Could not load receiving stock. Please try again or contact support.";
     }
@@ -127,6 +129,15 @@ export default async function RepairOrderDetailPage({ params }: PageProps) {
           data-testid="received-lines-error"
         >
           {receivedLinesError}
+        </div>
+      )}
+
+      {!receivedLinesError && unverifiedLineCount > 0 && (
+        <div
+          className="max-w-2xl rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400"
+          data-testid="received-lines-unknown-warning"
+        >
+          Some receiving stock requires attribution verification before putaway.
         </div>
       )}
 

@@ -11,10 +11,14 @@ import { RepairOrderStorageService } from "../repair-order-storage.service";
 
 type Row = Record<string, unknown>;
 
-function makeSupabaseMock(tables: Record<string, Row[]>) {
+function makeSupabaseMock(
+  tables: Record<string, Row[]>,
+  errors: Record<string, { message: string }> = {}
+) {
   return {
     from(table: string) {
       const rows = tables[table] ?? [];
+      const tableError = errors[table] ?? null;
       const builder: any = {
         _filters: [] as Array<(r: Row) => boolean>,
         select() {
@@ -32,7 +36,22 @@ function makeSupabaseMock(tables: Record<string, Row[]>) {
           builder._filters.push((r: Row) => vals.includes(r[col]));
           return builder;
         },
-        then(resolve: (v: { data: Row[]; error: null }) => void) {
+        is(col: string, val: null) {
+          builder._filters.push((r: Row) => (r[col] ?? null) === val);
+          return builder;
+        },
+        maybeSingle() {
+          if (tableError) return Promise.resolve({ data: null, error: tableError });
+          const filtered = rows.filter((r) =>
+            builder._filters.every((f: (r: Row) => boolean) => f(r))
+          );
+          return Promise.resolve({ data: filtered[0] ?? null, error: null });
+        },
+        then(resolve: (v: { data: Row[] | null; error: { message: string } | null }) => void) {
+          if (tableError) {
+            resolve({ data: null, error: tableError });
+            return;
+          }
           const filtered = rows.filter((r) =>
             builder._filters.every((f: (r: Row) => boolean) => f(r))
           );
@@ -211,5 +230,161 @@ describe("RepairOrderStorageService.getStorageSuggestions", () => {
     );
     expect(result.success).toBe(false);
     if (result.success === false) expect(result.error).toBe("boom");
+  });
+});
+
+describe("RepairOrderStorageService.getReceivedLines", () => {
+  const org = "org-1";
+  const branch = "branch-1";
+  const ro = "ro-1";
+  const recvLoc = { id: "loc-recv", organization_id: org, branch_id: branch, purpose: "receiving" };
+
+  /**
+   * External review, third correction pass: this service must never expose
+   * UNKNOWN receiving stock as a confident, actionable putaway candidate.
+   * These tests are the item-11 A/B/D/E coverage requested by that review.
+   */
+
+  it("A: KNOWN receiving stock is actionable", async () => {
+    const supabase = makeSupabaseMock({
+      warehouse_locations: [recvLoc],
+      repair_order_line_locations: [
+        {
+          organization_id: org,
+          branch_id: branch,
+          repair_order_id: ro,
+          location_id: "loc-recv",
+          variant_id: "var-x",
+          repair_order_line_id: "rol-1",
+          quantity: 5,
+        },
+      ],
+      repair_order_location_attribution_uncertain: [],
+      inventory_variants: [
+        { id: "var-x", sku: "SKU-X", product_name: "Bumper", unit_id: "unit-ea" },
+      ],
+    });
+
+    const result = await RepairOrderStorageService.getReceivedLines(
+      supabase as any,
+      org,
+      branch,
+      ro
+    );
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.lines).toHaveLength(1);
+    expect(result.data.lines[0].repairOrderLineId).toBe("rol-1");
+    expect(result.data.lines[0].availableAtReceiving).toBe(5);
+    expect(result.data.unverifiedLineCount).toBe(0);
+  });
+
+  it("B: UNKNOWN receiving stock is excluded from actionable lines and counted separately, never shown as a confident candidate", async () => {
+    const supabase = makeSupabaseMock({
+      warehouse_locations: [recvLoc],
+      repair_order_line_locations: [
+        {
+          organization_id: org,
+          branch_id: branch,
+          repair_order_id: ro,
+          location_id: "loc-recv",
+          variant_id: "var-x",
+          repair_order_line_id: "rol-1",
+          quantity: 5,
+        },
+      ],
+      repair_order_location_attribution_uncertain: [
+        { organization_id: org, branch_id: branch, location_id: "loc-recv", variant_id: "var-x" },
+      ],
+      inventory_variants: [
+        { id: "var-x", sku: "SKU-X", product_name: "Bumper", unit_id: "unit-ea" },
+      ],
+    });
+
+    const result = await RepairOrderStorageService.getReceivedLines(
+      supabase as any,
+      org,
+      branch,
+      ro
+    );
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.lines).toHaveLength(0);
+    expect(result.data.unverifiedLineCount).toBe(1);
+  });
+
+  it("E: mixed KNOWN and UNKNOWN receiving stock -- KNOWN line stays actionable, UNKNOWN line is excluded and counted (normal known behavior unchanged)", async () => {
+    const supabase = makeSupabaseMock({
+      warehouse_locations: [recvLoc],
+      repair_order_line_locations: [
+        {
+          organization_id: org,
+          branch_id: branch,
+          repair_order_id: ro,
+          location_id: "loc-recv",
+          variant_id: "var-x",
+          repair_order_line_id: "rol-1",
+          quantity: 5,
+        },
+        {
+          organization_id: org,
+          branch_id: branch,
+          repair_order_id: ro,
+          location_id: "loc-recv",
+          variant_id: "var-y",
+          repair_order_line_id: "rol-2",
+          quantity: 2,
+        },
+      ],
+      repair_order_location_attribution_uncertain: [
+        { organization_id: org, branch_id: branch, location_id: "loc-recv", variant_id: "var-y" },
+      ],
+      inventory_variants: [
+        { id: "var-x", sku: "SKU-X", product_name: "Bumper", unit_id: "unit-ea" },
+        { id: "var-y", sku: "SKU-Y", product_name: "Door handle", unit_id: "unit-ea" },
+      ],
+    });
+
+    const result = await RepairOrderStorageService.getReceivedLines(
+      supabase as any,
+      org,
+      branch,
+      ro
+    );
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.lines).toHaveLength(1);
+    expect(result.data.lines[0].repairOrderLineId).toBe("rol-1");
+    expect(result.data.unverifiedLineCount).toBe(1);
+  });
+
+  it("D: a genuine read error is distinct from empty/unknown -- surfaced as a failed ServiceResult, not an empty array", async () => {
+    const supabase = makeSupabaseMock(
+      { warehouse_locations: [recvLoc], repair_order_line_locations: [] },
+      { repair_order_line_locations: { message: 'relation "typo" does not exist' } }
+    );
+
+    const result = await RepairOrderStorageService.getReceivedLines(
+      supabase as any,
+      org,
+      branch,
+      ro
+    );
+    expect(result.success).toBe(false);
+    if (result.success === false) expect(result.error).toBe('relation "typo" does not exist');
+  });
+
+  it("no receiving location configured -- empty, not an error", async () => {
+    const supabase = makeSupabaseMock({ warehouse_locations: [] });
+
+    const result = await RepairOrderStorageService.getReceivedLines(
+      supabase as any,
+      org,
+      branch,
+      ro
+    );
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data).toEqual({ lines: [], unverifiedLineCount: 0 });
   });
 });
