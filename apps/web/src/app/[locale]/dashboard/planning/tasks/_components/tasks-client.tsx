@@ -58,6 +58,11 @@ interface Member {
   email: string | null;
 }
 
+interface BranchOption {
+  id: string;
+  name: string;
+}
+
 interface TasksClientProps {
   initialData: PaginatedResult<PlanningTaskListRow>;
   initialKanbanTasks: PlanningTaskListRow[];
@@ -66,6 +71,8 @@ interface TasksClientProps {
   canAssign: boolean;
   canDelete: boolean;
   members: Member[];
+  branches: BranchOption[];
+  activeBranchId: string | null;
   currentUserId: string;
   orgId: string;
   statusConfigs: Record<string, PlanningStatusBadgeConfig> | null;
@@ -80,6 +87,8 @@ export function TasksClient({
   canAssign,
   canDelete,
   members,
+  branches,
+  activeBranchId,
   currentUserId,
   orgId,
   statusConfigs,
@@ -402,6 +411,8 @@ export function TasksClient({
         open={createOpen}
         onOpenChange={setCreateOpen}
         members={members}
+        branches={branches}
+        activeBranchId={activeBranchId}
         currentUserId={currentUserId}
         canAssign={canAssign}
         onCreated={handleCreated}

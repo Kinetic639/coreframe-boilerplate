@@ -3,7 +3,12 @@ import { Building2, MapPin } from "lucide-react";
 import { getLocale } from "next-intl/server";
 import { redirect } from "@/i18n/navigation";
 import { Badge } from "@/components/ui/badge";
-import { loadAttention, loadHomeContext, loadOpenTaskCount } from "./_lib/data";
+import {
+  loadAttention,
+  loadHomeContext,
+  loadOpenTaskCount,
+  loadPlanningSummary,
+} from "./_lib/data";
 import { homeCopy } from "./_lib/copy";
 import { formatRefreshTime } from "./_lib/model";
 import { HomeRefreshControl, HomeScopeBoundary } from "./_components/scope-boundary";
@@ -11,6 +16,7 @@ import { OverviewSkeleton, WidgetSkeleton } from "./_components/home-sections";
 import { OperationalOverview } from "./_components/operational-overview";
 import { AttentionWidget } from "./_components/attention-widget";
 import { ActivityWidget } from "./_components/activity-widget";
+import { PlanningWidget } from "./_components/planning-widget";
 
 export default async function DashboardStartPage({
   searchParams,
@@ -32,6 +38,10 @@ export default async function DashboardStartPage({
       ? loadOpenTaskCount(context.orgId, context.branchId)
       : null;
   const refreshedAt = formatRefreshTime(new Date().toISOString(), locale);
+  const planningResult =
+    context.orgId && context.branchId && context.actions.includes("tasks")
+      ? loadPlanningSummary(context.orgId, context.branchId)
+      : null;
   return (
     <div className="w-full pb-6">
       <HomeScopeBoundary
@@ -94,20 +104,31 @@ export default async function DashboardStartPage({
               className="grid items-start gap-3 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]"
               key={`${context.orgId}:${context.branchId}`}
             >
-              {context.actions.includes("tickets") && context.branchId ? (
-                <Suspense fallback={<WidgetSkeleton label={copy.loading} />}>
-                  <AttentionWidget
-                    orgId={context.orgId}
-                    branchId={context.branchId}
-                    locale={locale}
-                    copy={copy}
-                    resultPromise={attentionResult ?? undefined}
-                  />
-                </Suspense>
+              {planningResult ? (
+                <div className="order-2 xl:order-1 xl:col-span-2">
+                  <Suspense fallback={<WidgetSkeleton label={copy.loading} />}>
+                    <PlanningWidget resultPromise={planningResult} copy={copy} locale={locale} />
+                  </Suspense>
+                </div>
               ) : null}
-              <Suspense fallback={<WidgetSkeleton label={copy.loading} />}>
-                <ActivityWidget branchId={context.branchId} locale={locale} copy={copy} />
-              </Suspense>
+              {context.actions.includes("tickets") && context.branchId ? (
+                <div className="order-1 xl:order-2">
+                  <Suspense fallback={<WidgetSkeleton label={copy.loading} />}>
+                    <AttentionWidget
+                      orgId={context.orgId}
+                      branchId={context.branchId}
+                      locale={locale}
+                      copy={copy}
+                      resultPromise={attentionResult ?? undefined}
+                    />
+                  </Suspense>
+                </div>
+              ) : null}
+              <div className="order-3">
+                <Suspense fallback={<WidgetSkeleton label={copy.loading} />}>
+                  <ActivityWidget branchId={context.branchId} locale={locale} copy={copy} />
+                </Suspense>
+              </div>
             </div>
           ) : null}
         </>

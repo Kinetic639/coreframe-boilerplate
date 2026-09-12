@@ -130,7 +130,7 @@ describe("bounded existing data adapters", () => {
     expect(await loadHomeActivity()).toMatchObject({ state: "ready" });
     expect(mocks.activity).toHaveBeenCalledWith(10, 0);
   });
-  it("reads an exact branch-scoped count of open planning tasks", async () => {
+  it("counts organization-wide tasks together with tasks from the active branch", async () => {
     mocks.tasks.mockResolvedValue({
       success: true,
       data: { rows: [], totalCount: 7, page: 1, pageSize: 1 },
@@ -143,7 +143,7 @@ describe("bounded existing data adapters", () => {
       mocks.client,
       "org",
       expect.objectContaining({ page: 1, pageSize: 1 }),
-      { branch_id: "b", status: ["open", "in_progress"] }
+      { branch_id_or_global: "b", status: ["open", "in_progress"] }
     );
   });
 });

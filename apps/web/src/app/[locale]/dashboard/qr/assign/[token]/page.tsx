@@ -91,6 +91,11 @@ export default async function QuickAssignQrPage({ params }: PageProps) {
       canCreateTask={checkPermission(snap, PLANNING_TASKS_CREATE)}
       canAssignTask={checkPermission(snap, PLANNING_TASKS_ASSIGN)}
       members={members}
+      branches={context.app.accessibleBranches.map((branch) => ({
+        id: branch.id,
+        name: branch.name,
+      }))}
+      activeBranchId={context.app.activeBranchId}
       currentUserId={context.user.user?.id ?? ""}
       taskPriorityConfigs={planningSettings?.priority_configs ?? null}
     />

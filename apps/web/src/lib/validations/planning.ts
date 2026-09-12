@@ -74,5 +74,7 @@ export interface TaskListFilters {
   status?: TaskStatus[];
   priority?: TaskPriority[];
   branch_id?: string | null;
+  /** Organization-wide tasks plus tasks scoped to this branch. */
+  branch_id_or_global?: string;
   assigned_to?: string | null;
 }

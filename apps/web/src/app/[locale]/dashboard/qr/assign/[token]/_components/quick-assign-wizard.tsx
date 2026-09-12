@@ -23,6 +23,11 @@ interface MemberOption {
   avatar_url?: string | null;
 }
 
+interface BranchOption {
+  id: string;
+  name: string;
+}
+
 interface QuickAssignWizardProps {
   qrCodeId: string;
   token: string;
@@ -32,6 +37,8 @@ interface QuickAssignWizardProps {
   canCreateTask: boolean;
   canAssignTask: boolean;
   members: MemberOption[];
+  branches: BranchOption[];
+  activeBranchId: string | null;
   currentUserId: string;
   taskPriorityConfigs: Record<string, PlanningPriorityBadgeConfig> | null;
 }
@@ -45,6 +52,8 @@ export function QuickAssignWizard({
   canCreateTask,
   canAssignTask,
   members,
+  branches,
+  activeBranchId,
   currentUserId,
   taskPriorityConfigs,
 }: QuickAssignWizardProps) {
@@ -243,6 +252,8 @@ export function QuickAssignWizard({
           <div className="rounded-lg border p-4">
             <PlanningTaskCreateForm
               members={members}
+              branches={branches}
+              activeBranchId={activeBranchId}
               currentUserId={currentUserId}
               canAssign={canAssignTask}
               priorityConfigs={taskPriorityConfigs}
