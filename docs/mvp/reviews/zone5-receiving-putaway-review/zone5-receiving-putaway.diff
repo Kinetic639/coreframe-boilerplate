@@ -1,0 +1,2997 @@
+diff --git a/apps/web/src/app/[locale]/dashboard/warehouse/_components/repair-order-putaway-panel.tsx b/apps/web/src/app/[locale]/dashboard/warehouse/_components/repair-order-putaway-panel.tsx
+new file mode 100644
+index 00000000..ec1721b8
+--- /dev/null
++++ b/apps/web/src/app/[locale]/dashboard/warehouse/_components/repair-order-putaway-panel.tsx
+@@ -0,0 +1,230 @@
++"use client";
++
++import { useEffect, useState, useTransition } from "react";
++import { toast } from "react-toastify";
++
++import {
++  getRepairOrderStorageSuggestionsAction,
++  putawayRepairOrderStockAction,
++} from "@/app/actions/warehouse/repair-order-receiving";
++import type { RepairOrderStorageSuggestion } from "@/server/services/repair-order-storage.service";
++
++/**
++ * Zone 5 Phase 5/7 -- minimal pitch putaway panel.
++ *
++ * Deliberately self-contained (no dependency on Zone 3's own RepairOrder
++ * Workshop UI internals, which this session did not have time to fully map)
++ * -- a parent page/panel passes in the lines currently sitting at the
++ * receiving location for one RepairOrder, and this component shows
++ * consolidate-first suggestions plus a manual-location fallback.
++ *
++ * Explicitly does NOT show:
++ *   - any capacity/percentage figure (no real capacity model exists),
++ *   - container recommendations (PILOT scope),
++ *   - an UNKNOWN suggestion rendered identically to a KNOWN one.
++ *
++ * NOT verified against a live backend this session (no Supabase MCP / local
++ * DB) -- this component typechecks and its data-shape assumptions match the
++ * exact DTO produced by RepairOrderStorageService (unit-tested separately),
++ * but end-to-end/browser verification is a disclosed gap, not a hidden one.
++ */
++
++export type PutawayLineInput = {
++  repairOrderLineId: string;
++  variantId: string;
++  unitId: string;
++  sku: string;
++  productName: string;
++  availableAtReceiving: number;
++};
++
++type Props = {
++  repairOrderId: string;
++  repairOrderLabel: string;
++  receivedLines: PutawayLineInput[];
++  onPutawayComplete?: () => void;
++};
++
++export function RepairOrderPutawayPanel({
++  repairOrderId,
++  repairOrderLabel,
++  receivedLines,
++  onPutawayComplete,
++}: Props) {
++  const [suggestions, setSuggestions] = useState<RepairOrderStorageSuggestion[] | null>(null);
++  const [loadError, setLoadError] = useState<string | null>(null);
++  const [selectedLineIds, setSelectedLineIds] = useState<Set<string>>(new Set());
++  const [quantities, setQuantities] = useState<Record<string, number>>({});
++  const [manualLocationId, setManualLocationId] = useState<string>("");
++  const [isPending, startTransition] = useTransition();
++
++  useEffect(() => {
++    let cancelled = false;
++    (async () => {
++      const result = await getRepairOrderStorageSuggestionsAction({
++        repair_order_id: repairOrderId,
++      });
++      if (cancelled) return;
++      if (result.success === true) {
++        setSuggestions(result.data);
++      } else {
++        setLoadError(result.error ?? "Failed to load current storage");
++      }
++    })();
++    return () => {
++      cancelled = true;
++    };
++  }, [repairOrderId]);
++
++  function toggleLine(lineId: string, availableQty: number) {
++    setSelectedLineIds((prev) => {
++      const next = new Set(prev);
++      if (next.has(lineId)) {
++        next.delete(lineId);
++      } else {
++        next.add(lineId);
++        setQuantities((q) => ({ ...q, [lineId]: q[lineId] ?? availableQty }));
++      }
++      return next;
++    });
++  }
++
++  function submitPutaway(destinationLocationId: string) {
++    if (selectedLineIds.size === 0) {
++      toast.error("Select at least one received line to put away.");
++      return;
++    }
++    const lines = receivedLines
++      .filter((l) => selectedLineIds.has(l.repairOrderLineId))
++      .map((l) => ({
++        repair_order_line_id: l.repairOrderLineId,
++        variant_id: l.variantId,
++        unit_id: l.unitId,
++        quantity: quantities[l.repairOrderLineId] ?? l.availableAtReceiving,
++      }));
++
++    startTransition(async () => {
++      const result = await putawayRepairOrderStockAction({
++        lines,
++        destination_location_id: destinationLocationId,
++      });
++      if (result.success === true) {
++        toast.success("Stock put away.");
++        setSelectedLineIds(new Set());
++        onPutawayComplete?.();
++      } else {
++        toast.error(result.error ?? "Putaway failed");
++      }
++    });
++  }
++
++  return (
++    <div className="space-y-4 rounded-lg border border-border bg-card p-4">
++      <div>
++        <h3 className="text-sm font-semibold text-foreground">Put away — {repairOrderLabel}</h3>
++        <p className="text-xs text-muted-foreground">
++          Currently in receiving. Choose which lines to move and where.
++        </p>
++      </div>
++
++      {/* Received lines to select from */}
++      <div className="space-y-1">
++        {receivedLines.map((line) => (
++          <label key={line.repairOrderLineId} className="flex items-center gap-2 text-sm">
++            <input
++              type="checkbox"
++              checked={selectedLineIds.has(line.repairOrderLineId)}
++              onChange={() => toggleLine(line.repairOrderLineId, line.availableAtReceiving)}
++            />
++            <span className="flex-1">
++              {line.sku} — {line.productName}
++            </span>
++            <input
++              type="number"
++              min={0.01}
++              max={line.availableAtReceiving}
++              step="any"
++              disabled={!selectedLineIds.has(line.repairOrderLineId)}
++              value={quantities[line.repairOrderLineId] ?? line.availableAtReceiving}
++              onChange={(e) =>
++                setQuantities((q) => ({ ...q, [line.repairOrderLineId]: Number(e.target.value) }))
++              }
++              className="w-20 rounded border border-border bg-background px-1 py-0.5 text-right text-xs"
++            />
++            <span className="text-xs text-muted-foreground">/ {line.availableAtReceiving}</span>
++          </label>
++        ))}
++      </div>
++
++      {/* Current storage suggestions */}
++      <div>
++        <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
++          Existing storage for this RepairOrder
++        </h4>
++        {loadError && <p className="text-xs text-destructive">{loadError}</p>}
++        {!loadError && suggestions === null && (
++          <p className="text-xs text-muted-foreground">Loading…</p>
++        )}
++        {!loadError && suggestions?.length === 0 && (
++          <p className="text-xs text-muted-foreground">
++            No existing storage found for this RepairOrder yet.
++          </p>
++        )}
++
++        <div className="space-y-2">
++          {suggestions
++            ?.filter((s) => s.attributionStatus === "known")
++            .map((s) => (
++              <div
++                key={s.locationId}
++                className="flex items-center justify-between rounded border border-border p-2"
++              >
++                <div>
++                  <div className="text-sm font-medium">{s.locationCode ?? s.locationName}</div>
++                  <div className="text-xs text-muted-foreground">
++                    {s.distinctRepairOrderLines} line{s.distinctRepairOrderLines === 1 ? "" : "s"} ·{" "}
++                    {s.currentQuantity} pcs currently stored here
++                  </div>
++                </div>
++                <button
++                  type="button"
++                  disabled={isPending}
++                  onClick={() => submitPutaway(s.locationId)}
++                  className="rounded bg-primary px-3 py-1 text-xs font-medium text-primary-foreground disabled:opacity-50"
++                >
++                  Put here
++                </button>
++              </div>
++            ))}
++
++          {suggestions?.some((s) => s.attributionStatus === "unknown") && (
++            <div className="rounded border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-400">
++              Location attribution requires verification for{" "}
++              {suggestions.filter((s) => s.attributionStatus === "unknown").length} location(s) —
++              not shown as a confident suggestion above.
++            </div>
++          )}
++        </div>
++      </div>
++
++      {/* Manual fallback */}
++      <div className="flex items-center gap-2 border-t border-border pt-3">
++        <input
++          type="text"
++          placeholder="Or enter another location ID"
++          value={manualLocationId}
++          onChange={(e) => setManualLocationId(e.target.value)}
++          className="flex-1 rounded border border-border bg-background px-2 py-1 text-xs"
++        />
++        <button
++          type="button"
++          disabled={isPending || !manualLocationId}
++          onClick={() => submitPutaway(manualLocationId)}
++          className="rounded border border-border px-3 py-1 text-xs font-medium disabled:opacity-50"
++        >
++          Choose another location
++        </button>
++      </div>
++    </div>
++  );
++}
+diff --git a/apps/web/src/app/actions/warehouse/repair-order-receiving.ts b/apps/web/src/app/actions/warehouse/repair-order-receiving.ts
+new file mode 100644
+index 00000000..ad069a1c
+--- /dev/null
++++ b/apps/web/src/app/actions/warehouse/repair-order-receiving.ts
+@@ -0,0 +1,188 @@
++"use server";
++
++import { z } from "zod";
++import { revalidatePath } from "next/cache";
++
++import { createClient } from "@/utils/supabase/server";
++import {
++  WAREHOUSE_INVENTORY_OPERATE,
++  WAREHOUSE_INVENTORY_ADJUST,
++} from "@/lib/constants/permissions";
++import {
++  hasPermission,
++  mapUnexpected,
++  requireActiveBranch,
++  requireWarehouseContext,
++  userIdFrom,
++} from "./inventory/action-context";
++import {
++  RepairOrderStorageService,
++  type ServiceResult,
++  type RepairOrderStorageSuggestion,
++} from "@/server/services/repair-order-storage.service";
++
++/**
++ * Zone 5 Phases 4/5/6 -- server actions for RepairOrder-aware receiving and
++ * putaway, plus the current-storage read model.
++ *
++ * IMPORTANT: these actions call `receive_repair_order_stock` /
++ * `putaway_repair_order_stock` -- new SECURITY DEFINER RPCs written this
++ * session but NOT applied to any live database (Supabase MCP was
++ * unavailable throughout this implementation pass). Calling these actions
++ * against a live environment before that migration is reviewed and applied
++ * will fail with "function does not exist". This is a disclosed, expected
++ * gap, not a bug in this file -- see the review bundle's migration summary.
++ */
++
++const receiveLineSchema = z.object({
++  variant_id: z.string().uuid(),
++  unit_id: z.string().uuid(),
++  quantity: z.number().positive(),
++  source_line_id: z.string().uuid().nullable().optional(),
++});
++
++const receiveSchema = z.object({
++  lines: z.array(receiveLineSchema).min(1, "At least one line is required"),
++  operation_date: z.string().nullable().optional(),
++  document_date: z.string().nullable().optional(),
++  external_reference: z.string().nullable().optional(),
++  note: z.string().nullable().optional(),
++});
++
++export async function receiveRepairOrderStockAction(
++  rawInput: unknown
++): Promise<{ success: true; data: unknown } | { success: false; error: string }> {
++  try {
++    const auth = await requireWarehouseContext();
++    if (!auth.success) return { success: false as const, error: auth.error };
++    if (
++      !hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE) &&
++      !hasPermission(auth, WAREHOUSE_INVENTORY_ADJUST)
++    ) {
++      return { success: false as const, error: "Unauthorized" };
++    }
++    const branch = requireActiveBranch(auth);
++    if (!branch.success) return { success: false as const, error: branch.error };
++
++    const parsed = receiveSchema.safeParse(rawInput);
++    if (!parsed.success) return { success: false as const, error: parsed.error.errors[0].message };
++
++    const orgId = auth.context.app.activeOrgId;
++    const userId = userIdFrom(auth);
++    if (!userId) return { success: false as const, error: "User identity unavailable" };
++
++    const supabase = await createClient();
++    const { data, error } = await supabase.rpc("receive_repair_order_stock", {
++      p_actor_user_id: userId,
++      p_organization_id: orgId,
++      p_branch_id: branch.branchId,
++      p_lines: parsed.data.lines.map((l) => ({
++        variant_id: l.variant_id,
++        unit_id: l.unit_id,
++        quantity: l.quantity,
++        source_line_id: l.source_line_id ?? null,
++      })),
++      p_operation_date: parsed.data.operation_date ?? null,
++      p_document_date: parsed.data.document_date ?? null,
++      p_external_reference: parsed.data.external_reference ?? null,
++      p_note: parsed.data.note ?? null,
++      p_idempotency_key: crypto.randomUUID(),
++    });
++
++    if (error) return { success: false as const, error: error.message };
++    revalidatePath("/dashboard/warehouse/inventory/movements");
++    return { success: true as const, data };
++  } catch (error) {
++    return mapUnexpected(error);
++  }
++}
++
++const putawayLineSchema = z.object({
++  repair_order_line_id: z.string().uuid(),
++  variant_id: z.string().uuid(),
++  unit_id: z.string().uuid(),
++  quantity: z.number().positive(),
++});
++
++const putawaySchema = z.object({
++  lines: z.array(putawayLineSchema).min(1, "At least one line is required"),
++  destination_location_id: z.string().uuid(),
++});
++
++export async function putawayRepairOrderStockAction(
++  rawInput: unknown
++): Promise<{ success: true; data: unknown } | { success: false; error: string }> {
++  try {
++    const auth = await requireWarehouseContext();
++    if (!auth.success) return { success: false as const, error: auth.error };
++    if (
++      !hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE) &&
++      !hasPermission(auth, WAREHOUSE_INVENTORY_ADJUST)
++    ) {
++      return { success: false as const, error: "Unauthorized" };
++    }
++    const branch = requireActiveBranch(auth);
++    if (!branch.success) return { success: false as const, error: branch.error };
++
++    const parsed = putawaySchema.safeParse(rawInput);
++    if (!parsed.success) return { success: false as const, error: parsed.error.errors[0].message };
++
++    const orgId = auth.context.app.activeOrgId;
++    const userId = userIdFrom(auth);
++    if (!userId) return { success: false as const, error: "User identity unavailable" };
++
++    const supabase = await createClient();
++    const { data, error } = await supabase.rpc("putaway_repair_order_stock", {
++      p_actor_user_id: userId,
++      p_organization_id: orgId,
++      p_branch_id: branch.branchId,
++      p_lines: parsed.data.lines,
++      p_destination_location_id: parsed.data.destination_location_id,
++      p_idempotency_key: crypto.randomUUID(),
++    });
++
++    if (error) return { success: false as const, error: error.message };
++    revalidatePath("/dashboard/warehouse/inventory/movements");
++    revalidatePath("/dashboard/warehouse/locations");
++    return { success: true as const, data };
++  } catch (error) {
++    return mapUnexpected(error);
++  }
++}
++
++const storageSuggestionsSchema = z.object({
++  repair_order_id: z.string().uuid(),
++});
++
++export async function getRepairOrderStorageSuggestionsAction(
++  rawInput: unknown
++): Promise<
++  { success: true; data: RepairOrderStorageSuggestion[] } | { success: false; error: string }
++> {
++  try {
++    const auth = await requireWarehouseContext();
++    if (!auth.success) return { success: false as const, error: auth.error };
++    const branch = requireActiveBranch(auth);
++    if (!branch.success) return { success: false as const, error: branch.error };
++
++    const parsed = storageSuggestionsSchema.safeParse(rawInput);
++    if (!parsed.success) return { success: false as const, error: parsed.error.errors[0].message };
++
++    const orgId = auth.context.app.activeOrgId;
++    const supabase = await createClient();
++    const result: ServiceResult<RepairOrderStorageSuggestion[]> =
++      await RepairOrderStorageService.getStorageSuggestions(
++        supabase,
++        orgId,
++        branch.branchId,
++        parsed.data.repair_order_id
++      );
++    if (result.success === true) {
++      return { success: true as const, data: result.data };
++    } else {
++      return { success: false as const, error: result.error };
++    }
++  } catch (error) {
++    return mapUnexpected(error);
++  }
++}
+diff --git a/apps/web/src/server/services/__tests__/repair-order-storage.service.test.ts b/apps/web/src/server/services/__tests__/repair-order-storage.service.test.ts
+new file mode 100644
+index 00000000..b6bb7efd
+--- /dev/null
++++ b/apps/web/src/server/services/__tests__/repair-order-storage.service.test.ts
+@@ -0,0 +1,215 @@
++import { describe, expect, it } from "vitest";
++import { RepairOrderStorageService } from "../repair-order-storage.service";
++
++/**
++ * Zone 5 Phase 5 -- unit tests against a mocked Supabase client (no live DB
++ * required). This is real, executable verification of the read model's own
++ * logic (grouping, ordering, KNOWN/UNKNOWN treatment) -- it does not, and
++ * cannot, prove the underlying SQL/RLS behaves identically live; that
++ * remains blocked on Supabase MCP per this session's disclosed limitation.
++ */
++
++type Row = Record<string, unknown>;
++
++function makeSupabaseMock(tables: Record<string, Row[]>) {
++  return {
++    from(table: string) {
++      const rows = tables[table] ?? [];
++      const builder: any = {
++        _filters: [] as Array<(r: Row) => boolean>,
++        select() {
++          return builder;
++        },
++        eq(col: string, val: unknown) {
++          builder._filters.push((r: Row) => r[col] === val);
++          return builder;
++        },
++        gt(col: string, val: number) {
++          builder._filters.push((r: Row) => Number(r[col]) > val);
++          return builder;
++        },
++        in(col: string, vals: unknown[]) {
++          builder._filters.push((r: Row) => vals.includes(r[col]));
++          return builder;
++        },
++        then(resolve: (v: { data: Row[]; error: null }) => void) {
++          const filtered = rows.filter((r) =>
++            builder._filters.every((f: (r: Row) => boolean) => f(r))
++          );
++          resolve({ data: filtered, error: null });
++        },
++      };
++      return builder;
++    },
++  };
++}
++
++describe("RepairOrderStorageService.getStorageSuggestions", () => {
++  const org = "org-1";
++  const branch = "branch-1";
++  const ro = "ro-1";
++
++  it("returns empty when no projection rows exist for the RepairOrder", async () => {
++    const supabase = makeSupabaseMock({ repair_order_line_locations: [] });
++    const result = await RepairOrderStorageService.getStorageSuggestions(
++      supabase as any,
++      org,
++      branch,
++      ro
++    );
++    expect(result.success).toBe(true);
++    if (result.success) expect(result.data).toEqual([]);
++  });
++
++  it("groups by location, sums quantity, counts distinct lines, orders by quantity desc then lines desc", async () => {
++    const supabase = makeSupabaseMock({
++      repair_order_line_locations: [
++        {
++          organization_id: org,
++          branch_id: branch,
++          repair_order_id: ro,
++          location_id: "loc-A",
++          variant_id: "var-x",
++          repair_order_line_id: "rol-1",
++          quantity: 5,
++        },
++        {
++          organization_id: org,
++          branch_id: branch,
++          repair_order_id: ro,
++          location_id: "loc-B",
++          variant_id: "var-x",
++          repair_order_line_id: "rol-2",
++          quantity: 8,
++        },
++        {
++          organization_id: org,
++          branch_id: branch,
++          repair_order_id: ro,
++          location_id: "loc-B",
++          variant_id: "var-y",
++          repair_order_line_id: "rol-3",
++          quantity: 1,
++        },
++      ],
++      repair_order_location_attribution_uncertain: [],
++      warehouse_locations: [
++        { id: "loc-A", code: "A-01", name: "Bin A-01" },
++        { id: "loc-B", code: "B-02", name: "Bin B-02" },
++      ],
++      inventory_variants: [
++        { id: "var-x", sku: "SKU-X", product_name: "Bumper" },
++        { id: "var-y", sku: "SKU-Y", product_name: "Door handle" },
++      ],
++    });
++
++    const result = await RepairOrderStorageService.getStorageSuggestions(
++      supabase as any,
++      org,
++      branch,
++      ro
++    );
++    expect(result.success).toBe(true);
++    if (!result.success) return;
++
++    expect(result.data).toHaveLength(2);
++    // loc-B has quantity 9 (8+1) and 2 distinct lines -> first.
++    expect(result.data[0].locationId).toBe("loc-B");
++    expect(result.data[0].currentQuantity).toBe(9);
++    expect(result.data[0].distinctRepairOrderLines).toBe(2);
++    expect(result.data[0].attributionStatus).toBe("known");
++    // loc-A has quantity 5, 1 distinct line -> second.
++    expect(result.data[1].locationId).toBe("loc-A");
++    expect(result.data[1].currentQuantity).toBe(5);
++    expect(result.data[1].containerSummary).toBeNull();
++  });
++
++  it("marks a location UNKNOWN when ANY of its (location, variant) pairs for this RepairOrder is flagged uncertain -- never partially confident", async () => {
++    const supabase = makeSupabaseMock({
++      repair_order_line_locations: [
++        {
++          organization_id: org,
++          branch_id: branch,
++          repair_order_id: ro,
++          location_id: "loc-A",
++          variant_id: "var-x",
++          repair_order_line_id: "rol-1",
++          quantity: 5,
++        },
++      ],
++      repair_order_location_attribution_uncertain: [
++        { organization_id: org, branch_id: branch, location_id: "loc-A", variant_id: "var-x" },
++      ],
++      warehouse_locations: [{ id: "loc-A", code: "A-01", name: "Bin A-01" }],
++      inventory_variants: [{ id: "var-x", sku: "SKU-X", product_name: "Bumper" }],
++    });
++
++    const result = await RepairOrderStorageService.getStorageSuggestions(
++      supabase as any,
++      org,
++      branch,
++      ro
++    );
++    expect(result.success).toBe(true);
++    if (!result.success) return;
++    expect(result.data[0].attributionStatus).toBe("unknown");
++  });
++
++  it("never re-derives KNOWN from arithmetic -- an UNKNOWN marker's mere presence rules, regardless of quantity shape", async () => {
++    // Even though the numbers here would look "unambiguous" if recomputed
++    // (a single line, quantity matches), an active marker must still win.
++    const supabase = makeSupabaseMock({
++      repair_order_line_locations: [
++        {
++          organization_id: org,
++          branch_id: branch,
++          repair_order_id: ro,
++          location_id: "loc-A",
++          variant_id: "var-x",
++          repair_order_line_id: "rol-1",
++          quantity: 3,
++        },
++      ],
++      repair_order_location_attribution_uncertain: [
++        { organization_id: org, branch_id: branch, location_id: "loc-A", variant_id: "var-x" },
++      ],
++      warehouse_locations: [{ id: "loc-A", code: "A-01", name: "Bin A-01" }],
++      inventory_variants: [],
++    });
++    const result = await RepairOrderStorageService.getStorageSuggestions(
++      supabase as any,
++      org,
++      branch,
++      ro
++    );
++    expect(result.success).toBe(true);
++    if (!result.success) return;
++    expect(result.data[0].attributionStatus).toBe("unknown");
++  });
++
++  it("surfaces a Supabase error as a failed ServiceResult rather than throwing", async () => {
++    const supabase = {
++      from() {
++        return {
++          select: () => ({
++            eq: () => ({
++              eq: () => ({
++                eq: () => ({
++                  gt: () => Promise.resolve({ data: null, error: { message: "boom" } }),
++                }),
++              }),
++            }),
++          }),
++        };
++      },
++    };
++    const result = await RepairOrderStorageService.getStorageSuggestions(
++      supabase as any,
++      org,
++      branch,
++      ro
++    );
++    expect(result.success).toBe(false);
++    if (result.success === false) expect(result.error).toBe("boom");
++  });
++});
+diff --git a/apps/web/src/server/services/repair-order-storage.service.ts b/apps/web/src/server/services/repair-order-storage.service.ts
+new file mode 100644
+index 00000000..f5be937d
+--- /dev/null
++++ b/apps/web/src/server/services/repair-order-storage.service.ts
+@@ -0,0 +1,176 @@
++import "server-only";
++
++import type { SupabaseClient } from "@supabase/supabase-js";
++
++/**
++ * Zone 5 Phase 5 -- current RepairOrder storage read model.
++ *
++ * Reads directly from `repair_order_line_locations` (the current/last-known
++ * spatial projection, maintained by receive_repair_order_stock,
++ * putaway_repair_order_stock, and the repair_order_location_attribution_sync
++ * trigger -- see docs/mvp/zones/05-receiving-putaway-implementation-plan.md).
++ *
++ * Deliberately a plain client-side read + aggregation (not a new DB
++ * function/view): the dataset per RepairOrder is small, the table already
++ * has a client-readable RLS SELECT policy, and this avoids introducing yet
++ * another DB object this session cannot live-verify (see the Phase 3
++ * migration's own disclosed verification gap) when a read model this simple
++ * doesn't need one -- "prefer read models over new subsystem", per the
++ * approved plan.
++ *
++ * IMPORTANT: never re-derives KNOWN/UNKNOWN from live arithmetic. A
++ * (location, variant) with any row in `repair_order_location_attribution_uncertain`
++ * is UNKNOWN purely because that row exists -- full stop (plan §1.6a/§1.6c,
++ * "no self-heal"). This service must not "helpfully" recompute confidence.
++ */
++
++export type ServiceResult<T> = { success: true; data: T } | { success: false; error: string };
++
++export type RepairOrderStorageSuggestion = {
++  locationId: string;
++  locationCode: string | null;
++  locationName: string;
++  distinctRepairOrderLines: number;
++  currentQuantity: number;
++  variants: Array<{ variantId: string; sku: string; productName: string; quantity: number }>;
++  containerSummary: null; // reserved shape for PILOT; no backing column in pitch scope
++  attributionStatus: "known" | "unknown";
++};
++
++type LocationRow = { id: string; code: string | null; name: string };
++type VariantRow = { id: string; sku: string | null; product_name: string | null };
++
++export class RepairOrderStorageService {
++  /**
++   * Current storage suggestions for a RepairOrder, ordered per the approved
++   * plan's simple deterministic rule: highest current quantity first,
++   * distinct-line-count as tiebreaker. No scoring, no capacity claims.
++   */
++  static async getStorageSuggestions(
++    supabase: SupabaseClient,
++    organizationId: string,
++    branchId: string,
++    repairOrderId: string
++  ): Promise<ServiceResult<RepairOrderStorageSuggestion[]>> {
++    const { data: rows, error } = await supabase
++      .from("repair_order_line_locations")
++      .select("location_id, variant_id, repair_order_line_id, quantity")
++      .eq("organization_id", organizationId)
++      .eq("branch_id", branchId)
++      .eq("repair_order_id", repairOrderId)
++      .gt("quantity", 0);
++    if (error) return { success: false, error: error.message };
++
++    const projectionRows = (rows ?? []) as Array<{
++      location_id: string;
++      variant_id: string | null;
++      repair_order_line_id: string;
++      quantity: number | string;
++    }>;
++    if (projectionRows.length === 0) return { success: true, data: [] };
++
++    const locationIds = [...new Set(projectionRows.map((r) => r.location_id))];
++    const variantIds = [
++      ...new Set(projectionRows.map((r) => r.variant_id).filter(Boolean)),
++    ] as string[];
++
++    const [
++      { data: uncertainRows, error: uncertainError },
++      { data: locationRows, error: locError },
++      { data: variantRows, error: varError },
++    ] = await Promise.all([
++      supabase
++        .from("repair_order_location_attribution_uncertain")
++        .select("location_id, variant_id")
++        .eq("organization_id", organizationId)
++        .eq("branch_id", branchId)
++        .in("location_id", locationIds),
++      supabase.from("warehouse_locations").select("id, code, name").in("id", locationIds),
++      variantIds.length > 0
++        ? supabase.from("inventory_variants").select("id, sku, product_name").in("id", variantIds)
++        : Promise.resolve({ data: [], error: null }),
++    ]);
++    if (uncertainError) return { success: false, error: uncertainError.message };
++    if (locError) return { success: false, error: locError.message };
++    if (varError) return { success: false, error: varError.message };
++
++    const uncertainKey = (locationId: string, variantId: string | null) =>
++      `${locationId}::${variantId ?? ""}`;
++    const uncertainSet = new Set(
++      ((uncertainRows ?? []) as Array<{ location_id: string; variant_id: string }>).map((u) =>
++        uncertainKey(u.location_id, u.variant_id)
++      )
++    );
++    const locationsById = new Map(((locationRows ?? []) as LocationRow[]).map((l) => [l.id, l]));
++    const variantsById = new Map(((variantRows ?? []) as VariantRow[]).map((v) => [v.id, v]));
++
++    // Group by location. A location is UNKNOWN as a whole for this suggestion
++    // list the moment ANY of its (location, variant) pairs present for this
++    // RepairOrder is flagged uncertain -- never partially confident.
++    const byLocation = new Map<
++      string,
++      {
++        lines: Set<string>;
++        totalQty: number;
++        variants: Map<string, { sku: string; productName: string; quantity: number }>;
++        unknown: boolean;
++      }
++    >();
++
++    for (const row of projectionRows) {
++      const entry = byLocation.get(row.location_id) ?? {
++        lines: new Set<string>(),
++        totalQty: 0,
++        variants: new Map(),
++        unknown: false,
++      };
++      entry.lines.add(row.repair_order_line_id);
++      entry.totalQty += Number(row.quantity);
++      if (uncertainSet.has(uncertainKey(row.location_id, row.variant_id))) {
++        entry.unknown = true;
++      }
++      if (row.variant_id) {
++        const variant = variantsById.get(row.variant_id);
++        const existing = entry.variants.get(row.variant_id);
++        const qty = Number(row.quantity);
++        entry.variants.set(row.variant_id, {
++          sku: variant?.sku ?? row.variant_id,
++          productName: variant?.product_name ?? variant?.sku ?? row.variant_id,
++          quantity: (existing?.quantity ?? 0) + qty,
++        });
++      }
++      byLocation.set(row.location_id, entry);
++    }
++
++    const suggestions: RepairOrderStorageSuggestion[] = [...byLocation.entries()].map(
++      ([locationId, entry]) => {
++        const location = locationsById.get(locationId);
++        return {
++          locationId,
++          locationCode: location?.code ?? null,
++          locationName: location?.name ?? locationId,
++          distinctRepairOrderLines: entry.lines.size,
++          currentQuantity: entry.totalQty,
++          variants: [...entry.variants.entries()].map(([variantId, v]) => ({
++            variantId,
++            sku: v.sku,
++            productName: v.productName,
++            quantity: v.quantity,
++          })),
++          containerSummary: null,
++          attributionStatus: entry.unknown ? "unknown" : "known",
++        };
++      }
++    );
++
++    // Deterministic order (plan §5.1/§11.3): highest current quantity first,
++    // distinct-line-count as tiebreaker. No AI/scoring complexity.
++    suggestions.sort(
++      (a, b) =>
++        b.currentQuantity - a.currentQuantity ||
++        b.distinctRepairOrderLines - a.distinctRepairOrderLines
++    );
++
++    return { success: true, data: suggestions };
++  }
++}
+diff --git a/apps/web/supabase-target/supabase/migrations/20260912090000_zone5_receiving_location_purpose.sql b/apps/web/supabase-target/supabase/migrations/20260912090000_zone5_receiving_location_purpose.sql
+new file mode 100644
+index 00000000..35f4b5be
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260912090000_zone5_receiving_location_purpose.sql
+@@ -0,0 +1,119 @@
++-- =============================================================================
++-- Migration: zone5_receiving_location_purpose
++-- Zone:      05 (Receiving / Putaway) -- Phase 1
++-- Date:      2026-09-12
++-- =============================================================================
++-- Approved architecture: docs/mvp/zones/05-receiving-putaway-implementation-plan.md
++-- section 5 ("Receiving-location schema (final)") + section 6 (provisioning).
++--
++-- Scope:
++--   1. warehouse_locations.purpose ('standard' | 'receiving'), defaulted so
++--      every existing row becomes 'standard' with zero data migration needed.
++--   2. Partial unique index: at most one active (non-deleted) 'receiving'
++--      location per (organization_id, branch_id).
++--   3. A read helper (resolve_branch_receiving_location) used by the Phase 4/6
++--      RPCs to resolve "the" receiving location server-side -- re-validating
++--      org/branch/purpose/can_store_inventory/deleted_at every call, never
++--      cached, never trusted from a caller-supplied id.
++--
++-- NOT in scope (per the approved plan -- do not add):
++--   - 'quality' / 'quarantine' / 'dispatch' / etc. purpose values (the CHECK
++--     constraint is written so a future migration can add them without a
++--     schema redesign, but none are added now).
++--   - Any automatic per-branch provisioning trigger (rejected in the plan --
++--     no such pattern exists elsewhere in this repo to extend; the product
++--     decision is admin-designates-an-existing-location).
++--
++-- Verification note (repo-only, this session -- Supabase MCP unavailable):
++--   `warehouse_locations` IS fully tracked (base CREATE TABLE in
++--   20260401120000_warehouse_locations.sql, altered by several later,
++--   tracked migrations including 20260617120000_inventory_location_placement.sql
++--   which added `can_store_inventory`). This migration is therefore additive
++--   against a schema this session could read directly, not against an
++--   untracked object -- unlike Phase 3's ledger trigger, flagged separately.
++--   NOT applied to any live database in this session (no Supabase MCP tool
++--   was available, and per instructions this session does not fall back to
++--   a raw `supabase db push` against the live target project). Local/live
++--   parity and live re-verification remain an explicit blocker until an MCP
++--   (or equivalent reviewed) session applies and re-queries this migration.
++-- =============================================================================
++
++-- ---------------------------------------------------------------------------
++-- PART 1: purpose column
++-- ---------------------------------------------------------------------------
++ALTER TABLE public.warehouse_locations
++  ADD COLUMN IF NOT EXISTS purpose TEXT NOT NULL DEFAULT 'standard';
++
++ALTER TABLE public.warehouse_locations
++  DROP CONSTRAINT IF EXISTS warehouse_locations_purpose_check;
++
++ALTER TABLE public.warehouse_locations
++  ADD CONSTRAINT warehouse_locations_purpose_check
++  CHECK (purpose IN ('standard', 'receiving'));
++
++COMMENT ON COLUMN public.warehouse_locations.purpose IS
++  'Zone 5: semantic role of this location. ''standard'' (default) or ''receiving''
++   (the branch''s designated inbound buffer -- see warehouse_locations_one_receiving_per_branch).
++   Deliberately named ''purpose'', not ''role'', to avoid colliding with the RBAC role concept
++   (public.roles / role_permissions) used elsewhere in this schema. CHECK is intentionally
++   narrow to the pitch domain; extending it later (e.g. ''quality'', ''quarantine'', ''dispatch'')
++   is a CHECK-constraint change only, not a schema redesign.';
++
++-- ---------------------------------------------------------------------------
++-- PART 2: one active receiving location per branch (DB-enforced, not convention)
++-- ---------------------------------------------------------------------------
++DROP INDEX IF EXISTS public.warehouse_locations_one_receiving_per_branch;
++
++CREATE UNIQUE INDEX warehouse_locations_one_receiving_per_branch
++  ON public.warehouse_locations (organization_id, branch_id)
++  WHERE purpose = 'receiving' AND deleted_at IS NULL;
++
++COMMENT ON INDEX public.warehouse_locations_one_receiving_per_branch IS
++  'Zone 5: at most one non-deleted purpose=receiving location per branch. A location can be
++   re-designated (change an old one back to standard, then mark a new one receiving) but never
++   have two simultaneously active receiving locations in the same branch.';
++
++-- ---------------------------------------------------------------------------
++-- PART 3: server-side resolver -- used by Phase 4/6 RPCs, never a bare SELECT
++-- from application code, so every caller re-validates the same invariants.
++-- ---------------------------------------------------------------------------
++CREATE OR REPLACE FUNCTION public.resolve_branch_receiving_location(
++  p_organization_id uuid,
++  p_branch_id uuid
++)
++RETURNS uuid
++LANGUAGE plpgsql
++STABLE
++SECURITY DEFINER
++SET search_path = public, pg_temp
++AS $function$
++DECLARE
++  v_location_id uuid;
++BEGIN
++  SELECT id INTO v_location_id
++  FROM public.warehouse_locations
++  WHERE organization_id = p_organization_id
++    AND branch_id = p_branch_id
++    AND purpose = 'receiving'
++    AND deleted_at IS NULL
++    AND can_store_inventory = true;
++
++  IF v_location_id IS NULL THEN
++    RAISE EXCEPTION 'No active receiving location configured for this branch (organization_id=%, branch_id=%). An admin must designate one on the Locations page before receiving can post.', p_organization_id, p_branch_id
++      USING ERRCODE = 'P0002';
++  END IF;
++
++  RETURN v_location_id;
++END;
++$function$;
++
++COMMENT ON FUNCTION public.resolve_branch_receiving_location(uuid, uuid) IS
++  'Zone 5: resolves the branch''s designated receiving location, re-checking
++   purpose/deleted_at/can_store_inventory on every call (never cached, never trusted from a
++   caller-supplied id). Raises a clear, catchable error if none is configured, rather than
++   silently picking a wrong location. Used by receive_repair_order_stock and
++   putaway_repair_order_stock (Phases 4/6).';
++
++REVOKE ALL ON FUNCTION public.resolve_branch_receiving_location(uuid, uuid) FROM PUBLIC;
++REVOKE ALL ON FUNCTION public.resolve_branch_receiving_location(uuid, uuid) FROM anon;
++GRANT EXECUTE ON FUNCTION public.resolve_branch_receiving_location(uuid, uuid) TO authenticated;
+diff --git a/apps/web/supabase-target/supabase/migrations/20260912091000_zone5_repair_order_spatial_attribution_schema.sql b/apps/web/supabase-target/supabase/migrations/20260912091000_zone5_repair_order_spatial_attribution_schema.sql
+new file mode 100644
+index 00000000..6ddd1dbe
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260912091000_zone5_repair_order_spatial_attribution_schema.sql
+@@ -0,0 +1,188 @@
++-- =============================================================================
++-- Migration: zone5_repair_order_spatial_attribution_schema
++-- Zone:      05 (Receiving / Putaway) -- Phase 2
++-- Date:      2026-09-12
++-- =============================================================================
++-- Approved architecture: docs/mvp/zones/05-receiving-putaway-implementation-plan.md
++-- section 11 (schema + pair-integrity) and section 1.6 (KNOWN/UNKNOWN model).
++--
++-- Two new, purely additive tables:
++--   1. repair_order_line_locations -- the CURRENT/last-known spatial projection
++--      (where a RepairOrderLine's received stock currently sits). This is NOT
++--      the business-quantity ledger (repair_order_line_movement_links, Zone 3's
++--      own table, untouched by this migration) -- the two are deliberately
++--      separate dimensions, per the approved plan.
++--   2. repair_order_location_attribution_uncertain -- the KNOWN/UNKNOWN marker.
++--      Existence of a row means "attribution at this (location, variant) is
++--      no longer provably true"; absence means "not currently flagged
++--      uncertain" (it does NOT by itself assert KNOWN-with-confidence -- the
++--      projection table's own rows are what carry the actual data).
++--
++-- Neither table has a client-writable RLS policy. All writes come from the
++-- Phase 3 trigger or the Phase 4/6 SECURITY DEFINER RPCs.
++--
++-- Verification note (repo-only, this session -- Supabase MCP unavailable):
++--   repair_orders / repair_order_lines / repair_order_line_movement_links are
++--   fully tracked (20260910061711_repair_orders_core_schema.sql, read
++--   directly this session). warehouse_locations is fully tracked (see Phase 1
++--   migration's own note). This migration adds two small composite-unique
++--   constraints (§11.1 of the plan) on repair_orders and repair_order_lines --
++--   both additive, no column changes, no RLS change on either Zone 3 table,
++--   mirroring the exact existing pattern already used by
++--   warehouse_locations_id_org_branch_unique / branches_id_organization_id_unique
++--   (20260505091000_inventory_phase1_core.sql). NOT applied to any live
++--   database in this session.
++-- =============================================================================
++
++-- ---------------------------------------------------------------------------
++-- PART 1: composite-unique constraints needed for the composite FKs below.
++-- Additive, idempotent, no column changes, no RLS changes on either table.
++-- ---------------------------------------------------------------------------
++DO $$
++BEGIN
++  IF NOT EXISTS (
++    SELECT 1 FROM pg_constraint
++    WHERE conname = 'repair_orders_id_org_branch_unique'
++      AND conrelid = 'public.repair_orders'::regclass
++  ) THEN
++    ALTER TABLE public.repair_orders
++      ADD CONSTRAINT repair_orders_id_org_branch_unique
++      UNIQUE (id, organization_id, branch_id);
++  END IF;
++
++  IF NOT EXISTS (
++    SELECT 1 FROM pg_constraint
++    WHERE conname = 'repair_order_lines_id_repair_order_id_unique'
++      AND conrelid = 'public.repair_order_lines'::regclass
++  ) THEN
++    ALTER TABLE public.repair_order_lines
++      ADD CONSTRAINT repair_order_lines_id_repair_order_id_unique
++      UNIQUE (id, repair_order_id);
++  END IF;
++END $$;
++
++-- ---------------------------------------------------------------------------
++-- PART 2: repair_order_line_locations -- current/last-known spatial projection
++-- ---------------------------------------------------------------------------
++CREATE TABLE IF NOT EXISTS public.repair_order_line_locations (
++  id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
++  organization_id      UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
++  branch_id            UUID NOT NULL,
++  repair_order_id      UUID NOT NULL,
++  repair_order_line_id UUID NOT NULL,
++  variant_id           UUID REFERENCES public.inventory_variants(id),
++  location_id          UUID NOT NULL,
++  quantity             NUMERIC NOT NULL DEFAULT 0 CHECK (quantity >= 0),
++  created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
++  updated_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
++
++  -- Exactly one logical row per (repair_order_line_id, location_id) -- no
++  -- container_id in the pitch-scope key (approved plan §3: NULLS NOT DISTINCT
++  -- is available and precedented in this repo if/when containers return in
++  -- PILOT, but is deliberately not needed now).
++  CONSTRAINT rol_locations_unique UNIQUE (repair_order_line_id, location_id),
++
++  -- Layer 1a: location must genuinely belong to this row's own org/branch.
++  CONSTRAINT rol_locations_location_fk
++    FOREIGN KEY (location_id, organization_id, branch_id)
++    REFERENCES public.warehouse_locations (id, organization_id, branch_id),
++
++  -- Layer 1b: repair_order_id must genuinely belong to this row's own org/branch.
++  CONSTRAINT rol_locations_repair_order_fk
++    FOREIGN KEY (repair_order_id, organization_id, branch_id)
++    REFERENCES public.repair_orders (id, organization_id, branch_id),
++
++  -- Layer 1c: repair_order_line_id must genuinely belong to repair_order_id.
++  CONSTRAINT rol_locations_line_fk
++    FOREIGN KEY (repair_order_line_id, repair_order_id)
++    REFERENCES public.repair_order_lines (id, repair_order_id)
++);
++
++CREATE INDEX IF NOT EXISTS rol_locations_repair_order_idx
++  ON public.repair_order_line_locations (repair_order_id) WHERE quantity > 0;
++CREATE INDEX IF NOT EXISTS rol_locations_lookup_idx
++  ON public.repair_order_line_locations (location_id, variant_id) WHERE quantity > 0;
++
++COMMENT ON TABLE public.repair_order_line_locations IS
++  'Zone 5: CURRENT/last-known spatial projection -- where a RepairOrderLine''s received stock
++   currently sits, by location. NOT a history table (see inventory_stock_ledger_entries for
++   history) and NOT the business-quantity ledger (see repair_order_line_movement_links for
++   received/issued totals -- a deliberately separate dimension). Written only by
++   receive_repair_order_stock, putaway_repair_order_stock, and the
++   repair_order_location_attribution_sync trigger -- never directly by client code.
++   A (location, variant) with a row in repair_order_location_attribution_uncertain must be
++   treated as UNKNOWN by every reader, regardless of what this table currently holds there.';
++
++DROP TRIGGER IF EXISTS rol_locations_updated_at ON public.repair_order_line_locations;
++CREATE OR REPLACE FUNCTION public.zone5_touch_updated_at() RETURNS trigger
++LANGUAGE plpgsql AS $function$
++BEGIN
++  NEW.updated_at := now();
++  RETURN NEW;
++END;
++$function$;
++CREATE TRIGGER rol_locations_updated_at
++  BEFORE UPDATE ON public.repair_order_line_locations
++  FOR EACH ROW EXECUTE FUNCTION public.zone5_touch_updated_at();
++
++ALTER TABLE public.repair_order_line_locations ENABLE ROW LEVEL SECURITY;
++ALTER TABLE public.repair_order_line_locations FORCE ROW LEVEL SECURITY;
++
++-- SELECT: readable by anyone with either workshop or warehouse read access on
++-- the row's own org/branch -- both a RepairOrder advisor and a warehouse
++-- operator have a legitimate reason to see "where is this RepairOrder's stock".
++DROP POLICY IF EXISTS rol_locations_select ON public.repair_order_line_locations;
++CREATE POLICY rol_locations_select ON public.repair_order_line_locations
++  FOR SELECT
++  USING (
++    public.has_branch_permission(organization_id, branch_id, 'workshop.repair_orders.read')
++    OR public.has_branch_permission(organization_id, branch_id, 'warehouse.inventory.read')
++  );
++
++-- No INSERT/UPDATE/DELETE policy at all for plain clients -- matches
++-- inventory_balances' own posture. Every write goes through SECURITY DEFINER
++-- functions (the Phase 3 trigger, the Phase 4/6 RPCs), which run as the
++-- function owner and bypass RLS internally by design, not by a permissive
++-- policy a client could also use directly.
++
++-- ---------------------------------------------------------------------------
++-- PART 3: repair_order_location_attribution_uncertain -- the KNOWN/UNKNOWN marker
++-- ---------------------------------------------------------------------------
++CREATE TABLE IF NOT EXISTS public.repair_order_location_attribution_uncertain (
++  organization_id    UUID NOT NULL,
++  branch_id          UUID NOT NULL,
++  location_id        UUID NOT NULL,
++  variant_id         UUID NOT NULL,
++  first_uncertain_at TIMESTAMPTZ NOT NULL DEFAULT now(),
++
++  PRIMARY KEY (organization_id, branch_id, location_id, variant_id),
++
++  CONSTRAINT rolau_location_fk
++    FOREIGN KEY (location_id, organization_id, branch_id)
++    REFERENCES public.warehouse_locations (id, organization_id, branch_id)
++);
++
++COMMENT ON TABLE public.repair_order_location_attribution_uncertain IS
++  'Zone 5: existence of a row means RepairOrder spatial attribution at this exact
++   (organization, branch, location, variant) is no longer provably true -- a generic movement
++   touched commingled/ambiguous stock and the safety-net trigger correctly declined to guess.
++   Cleared ONLY when on_hand there reaches exactly zero (the trigger''s own opportunistic check)
++   or by a future, explicit, full-bucket reconciliation/scan operation (PILOT, not built yet).
++   It is NEVER cleared merely because a later mathematical check happens to look unambiguous
++   again (see the plan''s §1.6a) and NEVER cleared by a single RepairOrder-aware RPC write that
++   only proves one line, not the whole bucket (see §1.6b). Absence of a row does not itself
++   assert confidence -- it means "not currently flagged"; the projection table''s own rows carry
++   the actual data.';
++
++ALTER TABLE public.repair_order_location_attribution_uncertain ENABLE ROW LEVEL SECURITY;
++ALTER TABLE public.repair_order_location_attribution_uncertain FORCE ROW LEVEL SECURITY;
++
++DROP POLICY IF EXISTS rolau_select ON public.repair_order_location_attribution_uncertain;
++CREATE POLICY rolau_select ON public.repair_order_location_attribution_uncertain
++  FOR SELECT
++  USING (
++    public.has_branch_permission(organization_id, branch_id, 'workshop.repair_orders.read')
++    OR public.has_branch_permission(organization_id, branch_id, 'warehouse.inventory.read')
++  );
++
++-- No client write policy -- written only by the Phase 3 trigger.
+diff --git a/apps/web/supabase-target/supabase/migrations/20260912092000_zone5_attribution_sync_trigger.sql b/apps/web/supabase-target/supabase/migrations/20260912092000_zone5_attribution_sync_trigger.sql
+new file mode 100644
+index 00000000..f484fafd
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260912092000_zone5_attribution_sync_trigger.sql
+@@ -0,0 +1,222 @@
++-- =============================================================================
++-- Migration: zone5_attribution_sync_trigger
++-- Zone:      05 (Receiving / Putaway) -- Phase 3
++-- Date:      2026-09-12
++-- =============================================================================
++-- Approved architecture: docs/mvp/zones/05-receiving-putaway-implementation-plan.md
++-- sections 1.3/1.3a/1.3b/1.6a/1.6b/1.6c/2/3/5/6/12.1/13 (final pseudocode).
++--
++-- *** VERIFICATION GAP -- READ BEFORE APPLYING, DO NOT APPLY BLIND ***
++-- This migration attaches a trigger to `inventory_stock_ledger_entries` and
++-- references its columns (organization_id, branch_id, location_id,
++-- variant_id, movement_line_id, balance_field, direction, quantity,
++-- balance_after). This session verified, by direct repo search, that NO
++-- tracked migration anywhere in this repository contains a CREATE TABLE for
++-- `inventory_stock_ledger_entries` (nor for `inventory_movement_audit_log`) --
++-- the entire table is schema-drift, not merely the RPC bodies already
++-- accepted as tech debt. Supabase MCP / live DB access was unavailable this
++-- session, so the exact column list below could NOT be independently
++-- re-verified against a live database in this pass.
++--
++-- The column list used here is the CONVERGENT result of two independent
++-- sources: (a) docs/warehouse-movements-refactor-plan.md's own v1 schema
++-- design ("organization_id, branch_id, location_id, variant_id, ...
++-- movement_id, movement_line_id, movement_type_code, ... effect_id,
++-- balance_field, direction, quantity, balance_after, ..."), and (b)
++-- docs/mvp/zones/07-normal-issue-movement-audit.md's LIVE VERIFIED trace
++-- (Supabase MCP, prior session, via pg_get_functiondef of
++-- inventory_finalize_posting), which independently cites the identical
++-- column set as what that function actually inserts. Both agree; neither is
++-- this session's own live confirmation.
++--
++-- REQUIRED BEFORE THIS MIGRATION IS ACTUALLY APPLIED to any real database:
++-- a session with Supabase MCP (or equivalent reviewed access) must run
++-- `\d inventory_stock_ledger_entries` (or the MCP equivalent) against the
++-- live target project and confirm every column this trigger references
++-- exists with the expected type/semantics, per the plan's own Phase 0 gate.
++-- This is the specific, disclosed contradiction-risk the working rules asked
++-- to be reported rather than silently assumed past.
++-- =============================================================================
++
++-- ---------------------------------------------------------------------------
++-- PART 1: the trigger function
++-- ---------------------------------------------------------------------------
++CREATE OR REPLACE FUNCTION public.repair_order_location_attribution_sync()
++RETURNS trigger
++LANGUAGE plpgsql
++SECURITY DEFINER
++SET search_path = public, pg_temp
++AS $function$
++DECLARE
++  v_pre_effect_on_hand numeric;
++  v_attributed_sum     numeric;
++  v_distinct_lines     integer;
++  v_dest               uuid;
++  v_line_id            uuid;
++  v_ro_id              uuid;
++  v_marker_exists      boolean;
++BEGIN
++  -- 1.3a: physical stock only. reserved/allocated/blocked/consignment effects
++  -- never touch spatial RepairOrder attribution.
++  IF NEW.balance_field IS DISTINCT FROM 'on_hand' THEN
++    RETURN NULL;
++  END IF;
++
++  -- 1.6b rule 1: the ONE automatic clearing path. Zero stock trivially means
++  -- zero ambiguity. Runs unconditionally, even under the bypass flag below --
++  -- it is a statement about physical reality (nothing left), not a re-trust
++  -- of prior math, and RepairOrder-aware RPCs (which set the bypass flag)
++  -- would otherwise never get this cleanup at all.
++  IF NEW.balance_after = 0 THEN
++    DELETE FROM public.repair_order_location_attribution_uncertain
++      WHERE organization_id = NEW.organization_id AND branch_id = NEW.branch_id
++        AND location_id = NEW.location_id AND variant_id = NEW.variant_id;
++  END IF;
++
++  -- Duplicate-work suppression ONLY (plan §12.1) -- NOT authorization. A
++  -- RepairOrder-aware RPC (receive_repair_order_stock / putaway_repair_order_stock)
++  -- has already written its own explicit, known-true attribution for the one
++  -- line it touched; it does not get to clear a bucket-wide marker just by
++  -- writing (that would violate §1.6b), so nothing further is needed here
++  -- besides skipping the propagate-or-mark logic below.
++  IF current_setting('ambra.repair_order_attribution_authoritative', true) = 'on' THEN
++    RETURN NULL;
++  END IF;
++
++  -- 1.3b: fast no-op path -- nothing attributed AND nothing already flagged
++  -- uncertain at this exact (location, variant). Cheap, indexed, keeps the
++  -- overhead on ordinary non-RepairOrder movements to one lookup.
++  IF NOT EXISTS (
++    SELECT 1 FROM public.repair_order_line_locations
++    WHERE organization_id = NEW.organization_id AND branch_id = NEW.branch_id
++      AND location_id = NEW.location_id AND variant_id = NEW.variant_id
++  ) AND NOT EXISTS (
++    SELECT 1 FROM public.repair_order_location_attribution_uncertain
++    WHERE organization_id = NEW.organization_id AND branch_id = NEW.branch_id
++      AND location_id = NEW.location_id AND variant_id = NEW.variant_id
++  ) THEN
++    RETURN NULL;
++  END IF;
++
++  -- Only decreases are ever actionable here. Increases are either the paired
++  -- destination half of a transfer (handled by the paired decrease's own
++  -- invocation, which fires first: effect_order 1 before 2), or a pure
++  -- receipt (101) -- receive_repair_order_stock handles that explicitly;
++  -- there is nothing pre-existing to infer a fresh receipt's attribution from.
++  IF NEW.direction <> 'decrease' THEN
++    RETURN NULL;
++  END IF;
++
++  -- Look up the movement line once -- needed on both the marker-gate branch
++  -- and the math branch, to know whether this is transfer-shaped (801) or a
++  -- pure decrease (402 / future issue).
++  SELECT destination_location_id INTO v_dest
++  FROM public.inventory_movement_lines
++  WHERE id = NEW.movement_line_id;
++
++  -- 1.6a (the load-bearing correction): the marker GATES further reasoning.
++  -- It is never bypassed by a later math check that happens to look
++  -- unambiguous -- once a bucket is uncertain, it stays uncertain until
++  -- authoritatively cleared (1.6b), never by arithmetic coincidence.
++  SELECT EXISTS (
++    SELECT 1 FROM public.repair_order_location_attribution_uncertain
++    WHERE organization_id = NEW.organization_id AND branch_id = NEW.branch_id
++      AND location_id = NEW.location_id AND variant_id = NEW.variant_id
++  ) INTO v_marker_exists;
++
++  IF v_marker_exists THEN
++    -- Re-affirm at source (idempotent) and extend to destination if
++    -- transfer-shaped -- stock of already-unknown provenance is now moving
++    -- further, spreading the uncertainty rather than curing it.
++    INSERT INTO public.repair_order_location_attribution_uncertain (organization_id, branch_id, location_id, variant_id)
++      VALUES (NEW.organization_id, NEW.branch_id, NEW.location_id, NEW.variant_id)
++      ON CONFLICT (organization_id, branch_id, location_id, variant_id) DO NOTHING;
++    IF v_dest IS NOT NULL THEN
++      INSERT INTO public.repair_order_location_attribution_uncertain (organization_id, branch_id, location_id, variant_id)
++        VALUES (NEW.organization_id, NEW.branch_id, v_dest, NEW.variant_id)
++        ON CONFLICT (organization_id, branch_id, location_id, variant_id) DO NOTHING;
++    END IF;
++    RETURN NULL;
++  END IF;
++
++  -- No pre-existing marker: safe to attempt the math test, fresh, for this
++  -- movement only.
++  --
++  -- 1.3: reconstruct pre-effect on-hand from the ledger row's OWN columns --
++  -- never re-query inventory_balances, which by the time this AFTER INSERT
++  -- trigger fires already reflects the POST-effect value
++  -- (inventory_finalize_posting's traced order is: update balance, THEN
++  -- insert the ledger row).
++  v_pre_effect_on_hand := NEW.balance_after + NEW.quantity;
++
++  SELECT sum(quantity), count(DISTINCT repair_order_line_id)
++    INTO v_attributed_sum, v_distinct_lines
++    FROM public.repair_order_line_locations
++    WHERE organization_id = NEW.organization_id AND branch_id = NEW.branch_id
++      AND location_id = NEW.location_id AND variant_id = NEW.variant_id
++    FOR UPDATE;
++
++  IF v_attributed_sum IS DISTINCT FROM v_pre_effect_on_hand OR v_distinct_lines <> 1 THEN
++    -- Ambiguous: never guess. Mark BOTH ends UNKNOWN if transfer-shaped
++    -- (plan §2); only the source if a pure decrease (plan §5). Leave
++    -- existing repair_order_line_locations rows untouched -- never deleted,
++    -- never zeroed, just no longer trustworthy without the marker context.
++    INSERT INTO public.repair_order_location_attribution_uncertain (organization_id, branch_id, location_id, variant_id)
++      VALUES (NEW.organization_id, NEW.branch_id, NEW.location_id, NEW.variant_id)
++      ON CONFLICT (organization_id, branch_id, location_id, variant_id) DO NOTHING;
++    IF v_dest IS NOT NULL THEN
++      INSERT INTO public.repair_order_location_attribution_uncertain (organization_id, branch_id, location_id, variant_id)
++        VALUES (NEW.organization_id, NEW.branch_id, v_dest, NEW.variant_id)
++        ON CONFLICT (organization_id, branch_id, location_id, variant_id) DO NOTHING;
++    END IF;
++    RETURN NULL;
++  END IF;
++
++  -- Unambiguous: exactly one repair_order_line_id accounts for 100% of the
++  -- reconstructed pre-effect on-hand. Safe to propagate exactly.
++  SELECT repair_order_line_id, repair_order_id INTO v_line_id, v_ro_id
++    FROM public.repair_order_line_locations
++    WHERE organization_id = NEW.organization_id AND branch_id = NEW.branch_id
++      AND location_id = NEW.location_id AND variant_id = NEW.variant_id;
++
++  UPDATE public.repair_order_line_locations
++    SET quantity = quantity - NEW.quantity
++    WHERE repair_order_line_id = v_line_id AND location_id = NEW.location_id;
++
++  IF v_dest IS NOT NULL THEN
++    INSERT INTO public.repair_order_line_locations
++      (organization_id, branch_id, repair_order_id, repair_order_line_id, variant_id, location_id, quantity)
++    VALUES (NEW.organization_id, NEW.branch_id, v_ro_id, v_line_id, NEW.variant_id, v_dest, NEW.quantity)
++    ON CONFLICT (repair_order_line_id, location_id)
++    DO UPDATE SET quantity = public.repair_order_line_locations.quantity + NEW.quantity;
++  END IF;
++  -- v_dest IS NULL: pure decrease (issue/402-shaped) -- credited nowhere, by design.
++
++  RETURN NULL;
++END;
++$function$;
++
++COMMENT ON FUNCTION public.repair_order_location_attribution_sync() IS
++  'Zone 5 safety net (plan §1/§13): keeps repair_order_line_locations correct for movements NOT
++   posted through a RepairOrder-aware RPC (e.g. Zone 6''s generic 801 relocation). Never guesses:
++   propagates only when exactly one RepairOrderLine provably accounts for 100% of the
++   reconstructed pre-effect on_hand at that (location, variant); otherwise marks the bucket(s)
++   UNKNOWN via repair_order_location_attribution_uncertain and takes no other action. See the
++   migration header for the disclosed, unresolved verification gap on
++   inventory_stock_ledger_entries''s exact column list.';
++
++-- ---------------------------------------------------------------------------
++-- PART 2: attach the trigger
++-- ---------------------------------------------------------------------------
++DROP TRIGGER IF EXISTS repair_order_line_locations_ledger_sync ON public.inventory_stock_ledger_entries;
++CREATE TRIGGER repair_order_line_locations_ledger_sync
++  AFTER INSERT ON public.inventory_stock_ledger_entries
++  FOR EACH ROW
++  EXECUTE FUNCTION public.repair_order_location_attribution_sync();
++
++REVOKE ALL ON FUNCTION public.repair_order_location_attribution_sync() FROM PUBLIC;
++REVOKE ALL ON FUNCTION public.repair_order_location_attribution_sync() FROM anon;
++-- Trigger functions execute as part of the INSERT statement's own privileges via
++-- SECURITY DEFINER above; no direct EXECUTE grant to `authenticated` is needed
++-- or given (matching how other trigger functions in this schema are not
++-- directly callable, only fired).
+diff --git a/apps/web/supabase-target/supabase/migrations/20260912093000_zone5_receive_repair_order_stock_rpc.sql b/apps/web/supabase-target/supabase/migrations/20260912093000_zone5_receive_repair_order_stock_rpc.sql
+new file mode 100644
+index 00000000..bc3b3c7b
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260912093000_zone5_receive_repair_order_stock_rpc.sql
+@@ -0,0 +1,209 @@
++-- =============================================================================
++-- Migration: zone5_receive_repair_order_stock_rpc
++-- Zone:      05 (Receiving / Putaway) -- Phase 4
++-- Date:      2026-09-12
++-- =============================================================================
++-- Approved architecture: docs/mvp/zones/05-receiving-putaway-implementation-plan.md
++-- sections 2, 8, 9, 10.
++--
++-- receive_repair_order_stock: a NEW, Zone-5-owned SECURITY DEFINER
++-- orchestration RPC. It calls the EXISTING, UNMODIFIED
++-- inventory_create_and_finalize('101', ...) from inside itself -- the
++-- generic engine gains zero RepairOrder awareness -- then performs its own
++-- domain writes (repair_order_line_movement_links, repair_order_line_locations)
++-- in the SAME transaction, achieving atomicity by construction (one function,
++-- one implicit transaction; any failure anywhere rolls back everything).
++--
++-- *** VERIFICATION GAP -- same caveat as the Phase 3 migration ***
++-- This function calls `public.inventory_create_and_finalize(...)` with the
++-- exact named-parameter shape found in
++-- apps/web/src/server/services/inventory-movements.service.ts (real,
++-- tracked application code, high confidence) but that RPC's own body has NO
++-- tracked migration anywhere in this repo (confirmed, accepted pre-existing
++-- tech debt per this zone's approved plan, NOT reconstructed here). This
++-- migration does not alter that function; it only calls it. NOT applied to
++-- any live database this session (Supabase MCP unavailable).
++-- =============================================================================
++
++CREATE OR REPLACE FUNCTION public.receive_repair_order_stock(
++  p_actor_user_id      uuid,
++  p_organization_id    uuid,
++  p_branch_id          uuid,
++  p_lines              jsonb,   -- [{ variant_id, unit_id, quantity, source_line_id }]
++  p_operation_date     date DEFAULT NULL,
++  p_document_date      date DEFAULT NULL,
++  p_external_reference text DEFAULT NULL,
++  p_note               text DEFAULT NULL,
++  p_idempotency_key    text DEFAULT NULL
++)
++RETURNS jsonb
++LANGUAGE plpgsql
++SECURITY DEFINER
++SET search_path = public, pg_temp
++AS $function$
++DECLARE
++  v_receiving_location_id uuid;
++  v_engine_lines           jsonb := '[]'::jsonb;
++  v_line                    jsonb;
++  v_line_index              integer := 0;
++  v_source_line_id          uuid;
++  v_resolved_rol_id         uuid;
++  v_resolved_ro_id          uuid;
++  v_resolved_variant_id     uuid;
++  v_candidate_count         integer;
++  v_attribution             jsonb := '[]'::jsonb;  -- parallel array: repair_order_line_id or null, per input line order
++  v_engine_result           jsonb;
++  v_movement_id             uuid;
++  v_movement_line_ids       uuid[];
++  v_movement_line_id        uuid;
++  v_i                       integer;
++  v_qty                     numeric;
++BEGIN
++  -- Actor identity: reject a delegated/spoofed actor, same pattern as
++  -- materialize_repair_orders_from_session / approve_wdd_matcher_session.
++  IF p_actor_user_id IS NULL OR p_actor_user_id IS DISTINCT FROM auth.uid() THEN
++    RAISE EXCEPTION 'p_actor_user_id must match the authenticated caller' USING ERRCODE = '28000';
++  END IF;
++
++  -- Authorization: checked against the CALLER-SUPPLIED org/branch here, same
++  -- as every other movement-creating call in this engine (operate/adjust
++  -- gates 101 creation) -- p_organization_id/p_branch_id are not "trusted
++  -- blindly"; they are the keys this permission check runs against, and are
++  -- independently re-validated below against every resolved RepairOrder line.
++  IF NOT (
++    public.has_branch_permission(p_organization_id, p_branch_id, 'warehouse.inventory.operate')
++    OR public.has_branch_permission(p_organization_id, p_branch_id, 'warehouse.inventory.adjust')
++  ) THEN
++    RAISE EXCEPTION 'Not authorized to receive stock for this branch' USING ERRCODE = '42501';
++  END IF;
++
++  IF p_lines IS NULL OR jsonb_array_length(p_lines) = 0 THEN
++    RAISE EXCEPTION 'At least one line is required' USING ERRCODE = '22023';
++  END IF;
++
++  -- Resolve the branch's receiving location server-side -- re-validated
++  -- every call (org/branch/purpose/can_store_inventory/deleted_at), never
++  -- cached, never supplied by the caller (plan §5/§8).
++  v_receiving_location_id := public.resolve_branch_receiving_location(p_organization_id, p_branch_id);
++
++  -- Resolve provenance and build the engine-facing line array. Every line's
++  -- destination is forced to the receiving location -- the caller never
++  -- supplies or overrides it.
++  FOR v_line IN SELECT * FROM jsonb_array_elements(p_lines)
++  LOOP
++    v_line_index := v_line_index + 1;
++    v_source_line_id := NULLIF(v_line->>'source_line_id', '')::uuid;
++    v_resolved_rol_id := NULL;
++    v_resolved_ro_id := NULL;
++    v_resolved_variant_id := NULL;
++
++    IF v_source_line_id IS NOT NULL THEN
++      -- Resolve via the Matcher -> RepairOrderLine lineage chain, server-side.
++      -- The caller supplies EVIDENCE (a Matcher line id); the DB resolves the
++      -- authoritative relationship -- never the other way around (plan §2/§9).
++      SELECT count(*), min(rol.id), min(rol.repair_order_id), min(rol.variant_id)
++        INTO v_candidate_count, v_resolved_rol_id, v_resolved_ro_id, v_resolved_variant_id
++      FROM public.workshop_source_document_lines wsdl
++      JOIN public.repair_order_line_source_links rols ON rols.workshop_source_document_line_id = wsdl.id
++      JOIN public.repair_order_lines rol ON rol.id = rols.repair_order_line_id
++      WHERE wsdl.wdd_matcher_line_id = v_source_line_id;
++
++      IF v_candidate_count = 0 THEN
++        RAISE EXCEPTION 'source_line_id % (line %) did not resolve to any RepairOrderLine -- broken provenance must never be silently received as unattributed', v_source_line_id, v_line_index
++          USING ERRCODE = 'P0002';
++      ELSIF v_candidate_count > 1 THEN
++        RAISE EXCEPTION 'source_line_id % (line %) resolved ambiguously to % RepairOrderLine candidates -- ambiguous provenance must never be silently resolved by picking one', v_source_line_id, v_line_index, v_candidate_count
++          USING ERRCODE = '55000';
++      END IF;
++
++      -- Target-entity-authoritative validation: the resolved RepairOrder's
++      -- own org/branch must match this call's org/branch -- never trusted
++      -- merely because the caller asked for this org/branch.
++      IF NOT EXISTS (
++        SELECT 1 FROM public.repair_orders ro
++        WHERE ro.id = v_resolved_ro_id
++          AND ro.organization_id = p_organization_id AND ro.branch_id = p_branch_id
++      ) THEN
++        RAISE EXCEPTION 'Resolved RepairOrder for line % does not belong to the target organization/branch' USING ERRCODE = '42501';
++      END IF;
++
++      -- Variant cross-check: only when the RepairOrderLine has one set
++      -- (repair_order_lines.variant_id is nullable by Zone 3's own design --
++      -- "manual lines may exist with no catalog match yet").
++      IF v_resolved_variant_id IS NOT NULL AND v_resolved_variant_id IS DISTINCT FROM (v_line->>'variant_id')::uuid THEN
++        RAISE EXCEPTION 'Resolved RepairOrderLine variant for line % does not match the received variant' USING ERRCODE = '22023';
++      END IF;
++    END IF;
++
++    v_engine_lines := v_engine_lines || jsonb_build_array(jsonb_build_object(
++      'variant_id', v_line->>'variant_id',
++      'unit_id', v_line->>'unit_id',
++      'quantity', (v_line->>'quantity')::numeric,
++      'source_location_id', NULL,
++      'destination_location_id', v_receiving_location_id,
++      'note', v_line->>'note'
++    ));
++    v_attribution := v_attribution || jsonb_build_array(v_resolved_rol_id);
++  END LOOP;
++
++  -- Duplicate-work suppression only (plan §12.1) -- NOT authorization. Real
++  -- authorization already happened above via has_branch_permission.
++  PERFORM set_config('ambra.repair_order_attribution_authoritative', 'on', true);
++
++  v_engine_result := public.inventory_create_and_finalize(
++    p_organization_id, p_branch_id, '101', v_engine_lines,
++    p_operation_date, p_document_date, NULL, p_external_reference, p_note,
++    p_idempotency_key, p_actor_user_id
++  );
++
++  v_movement_id := (v_engine_result->>'movement_id')::uuid;
++
++  -- Correlate the engine's created lines back to our input order. The engine
++  -- assigns sequential line_number per line in submission order (established,
++  -- documented engine behavior) -- ordering by line_number recovers the
++  -- correspondence to v_attribution's own parallel array.
++  SELECT array_agg(id ORDER BY line_number) INTO v_movement_line_ids
++  FROM public.inventory_movement_lines
++  WHERE movement_id = v_movement_id;
++
++  FOR v_i IN 1..coalesce(array_length(v_movement_line_ids, 1), 0)
++  LOOP
++    v_resolved_rol_id := NULLIF(v_attribution->>(v_i - 1), 'null')::uuid;
++    CONTINUE WHEN v_resolved_rol_id IS NULL;
++
++    v_movement_line_id := v_movement_line_ids[v_i];
++    v_qty := (v_engine_lines->(v_i - 1)->>'quantity')::numeric;
++    SELECT repair_order_id INTO v_resolved_ro_id FROM public.repair_order_lines WHERE id = v_resolved_rol_id;
++
++    -- Business-quantity ledger (Zone 3's own table, unchanged semantics --
++    -- 'receipt' only, never 'putaway'/'relocation').
++    INSERT INTO public.repair_order_line_movement_links
++      (repair_order_line_id, inventory_movement_line_id, applied_quantity, relation_type)
++    VALUES (v_resolved_rol_id, v_movement_line_id, v_qty, 'receipt');
++
++    -- Spatial projection seed -- known-true, written directly (nothing to
++    -- infer; this is a fresh receipt with no prior attribution to reconcile
++    -- against).
++    INSERT INTO public.repair_order_line_locations
++      (organization_id, branch_id, repair_order_id, repair_order_line_id, variant_id, location_id, quantity)
++    VALUES (p_organization_id, p_branch_id, v_resolved_ro_id, v_resolved_rol_id,
++            (v_engine_lines->(v_i - 1)->>'variant_id')::uuid, v_receiving_location_id, v_qty)
++    ON CONFLICT (repair_order_line_id, location_id)
++    DO UPDATE SET quantity = public.repair_order_line_locations.quantity + EXCLUDED.quantity;
++  END LOOP;
++
++  RETURN v_engine_result || jsonb_build_object('receiving_location_id', v_receiving_location_id);
++END;
++$function$;
++
++COMMENT ON FUNCTION public.receive_repair_order_stock(uuid, uuid, uuid, jsonb, date, date, text, text, text) IS
++  'Zone 5 Phase 4: RepairOrder-aware receiving. Calls inventory_create_and_finalize(''101'', ...)
++   unmodified, forces destination to the branch''s resolve_branch_receiving_location(), resolves
++   Matcher-line provenance to an exact RepairOrderLine server-side (hard error on zero or
++   ambiguous resolution -- plan §9), and writes repair_order_line_movement_links
++   (relation_type=''receipt'') + the seed repair_order_line_locations row directly, atomically,
++   in this same transaction.';
++
++REVOKE ALL ON FUNCTION public.receive_repair_order_stock(uuid, uuid, uuid, jsonb, date, date, text, text, text) FROM PUBLIC;
++REVOKE ALL ON FUNCTION public.receive_repair_order_stock(uuid, uuid, uuid, jsonb, date, date, text, text, text) FROM anon;
++GRANT EXECUTE ON FUNCTION public.receive_repair_order_stock(uuid, uuid, uuid, jsonb, date, date, text, text, text) TO authenticated;
+diff --git a/apps/web/supabase-target/supabase/migrations/20260912094000_zone5_putaway_repair_order_stock_rpc.sql b/apps/web/supabase-target/supabase/migrations/20260912094000_zone5_putaway_repair_order_stock_rpc.sql
+new file mode 100644
+index 00000000..230d7fb7
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260912094000_zone5_putaway_repair_order_stock_rpc.sql
+@@ -0,0 +1,192 @@
++-- =============================================================================
++-- Migration: zone5_putaway_repair_order_stock_rpc
++-- Zone:      05 (Receiving / Putaway) -- Phase 6
++-- Date:      2026-09-12
++-- =============================================================================
++-- Approved architecture: docs/mvp/zones/05-receiving-putaway-implementation-plan.md
++-- sections 4, 9 (batch putaway contract), and the final correction pass on
++-- UNKNOWN-marker clearing (a single RepairOrder-aware write never clears a
++-- bucket-wide marker on its own).
++--
++-- putaway_repair_order_stock: ONE destination, ONE 801 document, N lines.
++-- Calls inventory_create_and_finalize('801', ...) unmodified; source is
++-- always the branch's receiving location (never caller-supplied); writes
++-- exact, known-true spatial attribution directly (nothing to infer -- the
++-- operator/caller names the exact repair_order_line_id per line). Does NOT
++-- write repair_order_line_movement_links (putaway is not a business-quantity
++-- event -- relation_type stays receipt|issue|reversal, never 'putaway').
++--
++-- Same verification-gap caveat as Phase 4's migration applies here (calls
++-- inventory_create_and_finalize, whose own body has no tracked migration;
++-- NOT applied to any live database this session).
++-- =============================================================================
++
++CREATE OR REPLACE FUNCTION public.putaway_repair_order_stock(
++  p_actor_user_id         uuid,
++  p_organization_id       uuid,
++  p_branch_id             uuid,
++  p_lines                 jsonb,  -- [{ repair_order_line_id, variant_id, unit_id, quantity }]
++  p_destination_location_id uuid,
++  p_idempotency_key       text DEFAULT NULL
++)
++RETURNS jsonb
++LANGUAGE plpgsql
++SECURITY DEFINER
++SET search_path = public, pg_temp
++AS $function$
++DECLARE
++  v_receiving_location_id uuid;
++  v_line                   jsonb;
++  v_line_index             integer := 0;
++  v_rol_id                 uuid;
++  v_ro_id                  uuid;
++  v_line_variant_id        uuid;
++  v_qty                    numeric;
++  v_available_qty          numeric;
++  v_engine_lines           jsonb := '[]'::jsonb;
++  v_engine_result          jsonb;
++  v_movement_id            uuid;
++BEGIN
++  IF p_actor_user_id IS NULL OR p_actor_user_id IS DISTINCT FROM auth.uid() THEN
++    RAISE EXCEPTION 'p_actor_user_id must match the authenticated caller' USING ERRCODE = '28000';
++  END IF;
++
++  IF NOT (
++    public.has_branch_permission(p_organization_id, p_branch_id, 'warehouse.inventory.operate')
++    OR public.has_branch_permission(p_organization_id, p_branch_id, 'warehouse.inventory.adjust')
++  ) THEN
++    RAISE EXCEPTION 'Not authorized to putaway stock for this branch' USING ERRCODE = '42501';
++  END IF;
++
++  IF p_lines IS NULL OR jsonb_array_length(p_lines) = 0 THEN
++    RAISE EXCEPTION 'At least one line is required' USING ERRCODE = '22023';
++  END IF;
++  IF p_destination_location_id IS NULL THEN
++    RAISE EXCEPTION 'A destination location is required' USING ERRCODE = '22023';
++  END IF;
++
++  -- Source is always the branch's receiving location -- never caller-supplied.
++  v_receiving_location_id := public.resolve_branch_receiving_location(p_organization_id, p_branch_id);
++
++  -- Destination must be a real, stockable, non-deleted location in this
++  -- org/branch -- same invariant ambra-location-inventory.ts's own
++  -- requireStockableLocation() already enforces elsewhere in this codebase.
++  IF NOT EXISTS (
++    SELECT 1 FROM public.warehouse_locations
++    WHERE id = p_destination_location_id AND organization_id = p_organization_id
++      AND branch_id = p_branch_id AND deleted_at IS NULL AND can_store_inventory = true
++  ) THEN
++    RAISE EXCEPTION 'Destination location % is not a valid stockable location for this branch', p_destination_location_id USING ERRCODE = '22023';
++  END IF;
++  IF p_destination_location_id = v_receiving_location_id THEN
++    RAISE EXCEPTION 'Destination cannot be the receiving location itself' USING ERRCODE = '22023';
++  END IF;
++
++  FOR v_line IN SELECT * FROM jsonb_array_elements(p_lines)
++  LOOP
++    v_line_index := v_line_index + 1;
++    v_rol_id := (v_line->>'repair_order_line_id')::uuid;
++    v_qty := (v_line->>'quantity')::numeric;
++    v_line_variant_id := (v_line->>'variant_id')::uuid;
++
++    IF v_rol_id IS NULL THEN
++      RAISE EXCEPTION 'Line % is missing repair_order_line_id -- putaway always names an exact line, never inferred' , v_line_index USING ERRCODE = '22023';
++    END IF;
++    IF v_qty IS NULL OR v_qty <= 0 THEN
++      RAISE EXCEPTION 'Line % quantity must be positive', v_line_index USING ERRCODE = '22023';
++    END IF;
++
++    -- Target-entity-authoritative validation, same pattern as the receive RPC:
++    -- the RepairOrderLine is re-verified to belong to this exact org/branch,
++    -- even though it originates from Zone 5's own suggestion UI -- never
++    -- assumed correct merely because it "came from our own UI".
++    SELECT rol.repair_order_id INTO v_ro_id
++    FROM public.repair_order_lines rol
++    JOIN public.repair_orders ro ON ro.id = rol.repair_order_id
++    WHERE rol.id = v_rol_id AND ro.organization_id = p_organization_id AND ro.branch_id = p_branch_id;
++
++    IF v_ro_id IS NULL THEN
++      RAISE EXCEPTION 'repair_order_line_id % (line %) does not belong to this organization/branch', v_rol_id, v_line_index USING ERRCODE = '42501';
++    END IF;
++
++    IF EXISTS (
++      SELECT 1 FROM public.repair_order_lines WHERE id = v_rol_id AND variant_id IS NOT NULL AND variant_id IS DISTINCT FROM v_line_variant_id
++    ) THEN
++      RAISE EXCEPTION 'Line % variant does not match the RepairOrderLine''s own variant', v_line_index USING ERRCODE = '22023';
++    END IF;
++
++    -- Quantity-available validation against the LIVE projection at the
++    -- receiving location, locked, before building the movement payload --
++    -- reject, never silently clamp.
++    SELECT quantity INTO v_available_qty
++    FROM public.repair_order_line_locations
++    WHERE repair_order_line_id = v_rol_id AND location_id = v_receiving_location_id
++    FOR UPDATE;
++
++    IF v_available_qty IS NULL OR v_available_qty < v_qty THEN
++      RAISE EXCEPTION 'Line % requests % but only % is currently attributed to this RepairOrderLine at the receiving location', v_line_index, v_qty, coalesce(v_available_qty, 0) USING ERRCODE = '22023';
++    END IF;
++
++    v_engine_lines := v_engine_lines || jsonb_build_array(jsonb_build_object(
++      'variant_id', v_line_variant_id,
++      'unit_id', v_line->>'unit_id',
++      'quantity', v_qty,
++      'source_location_id', v_receiving_location_id,
++      'destination_location_id', p_destination_location_id,
++      'note', NULL
++    ));
++  END LOOP;
++
++  -- Duplicate-work suppression only (plan §12.1) -- NOT authorization.
++  PERFORM set_config('ambra.repair_order_attribution_authoritative', 'on', true);
++
++  -- ONE 801 document, ALL lines, ONE destination -- matches the engine's own
++  -- existing multi-line-document semantics; no new movement type.
++  v_engine_result := public.inventory_create_and_finalize(
++    p_organization_id, p_branch_id, '801', v_engine_lines,
++    NULL, NULL, NULL, NULL, NULL, p_idempotency_key, p_actor_user_id
++  );
++  v_movement_id := (v_engine_result->>'movement_id')::uuid;
++
++  -- Write exact, known-true spatial attribution directly -- nothing to infer,
++  -- the caller named the exact line. This does NOT clear any pre-existing
++  -- UNKNOWN marker on either bucket (plan's final correction): proving one
++  -- line's own quantity does not prove the whole (location, variant) bucket.
++  v_line_index := 0;
++  FOR v_line IN SELECT * FROM jsonb_array_elements(p_lines)
++  LOOP
++    v_line_index := v_line_index + 1;
++    v_rol_id := (v_line->>'repair_order_line_id')::uuid;
++    v_qty := (v_line->>'quantity')::numeric;
++    v_line_variant_id := (v_line->>'variant_id')::uuid;
++    SELECT repair_order_id INTO v_ro_id FROM public.repair_order_lines WHERE id = v_rol_id;
++
++    UPDATE public.repair_order_line_locations
++      SET quantity = quantity - v_qty
++      WHERE repair_order_line_id = v_rol_id AND location_id = v_receiving_location_id;
++
++    INSERT INTO public.repair_order_line_locations
++      (organization_id, branch_id, repair_order_id, repair_order_line_id, variant_id, location_id, quantity)
++    VALUES (p_organization_id, p_branch_id, v_ro_id, v_rol_id, v_line_variant_id, p_destination_location_id, v_qty)
++    ON CONFLICT (repair_order_line_id, location_id)
++    DO UPDATE SET quantity = public.repair_order_line_locations.quantity + EXCLUDED.quantity;
++
++    -- Deliberately NO repair_order_line_movement_links write here -- putaway
++    -- is a relocation, not a business-quantity event (plan: relation_type
++    -- stays receipt|issue|reversal, never 'putaway').
++  END LOOP;
++
++  RETURN v_engine_result || jsonb_build_object('source_location_id', v_receiving_location_id, 'destination_location_id', p_destination_location_id);
++END;
++$function$;
++
++COMMENT ON FUNCTION public.putaway_repair_order_stock(uuid, uuid, uuid, jsonb, uuid, text) IS
++  'Zone 5 Phase 6: RepairOrder-aware putaway. One call = one destination = one 801 document =
++   N lines, all sourced from resolve_branch_receiving_location(). Writes spatial attribution
++   directly (known-true, operator-named) -- never clears a bucket-wide UNKNOWN marker just
++   because one line is now known (plan''s final correction). Writes NO
++   repair_order_line_movement_links row -- relocation is not a business-quantity event.';
++
++REVOKE ALL ON FUNCTION public.putaway_repair_order_stock(uuid, uuid, uuid, jsonb, uuid, text) FROM PUBLIC;
++REVOKE ALL ON FUNCTION public.putaway_repair_order_stock(uuid, uuid, uuid, jsonb, uuid, text) FROM anon;
++GRANT EXECUTE ON FUNCTION public.putaway_repair_order_stock(uuid, uuid, uuid, jsonb, uuid, text) TO authenticated;
+diff --git a/apps/web/supabase/tests/093_zone5_receiving_location_purpose_test.sql b/apps/web/supabase/tests/093_zone5_receiving_location_purpose_test.sql
+new file mode 100644
+index 00000000..980ac891
+--- /dev/null
++++ b/apps/web/supabase/tests/093_zone5_receiving_location_purpose_test.sql
+@@ -0,0 +1,111 @@
++-- ============================================================================
++-- TEST: Zone 5 Phase 1 -- warehouse_locations.purpose + one-per-branch rule
++-- ============================================================================
++-- Verifies:
++--   apps/web/supabase-target/supabase/migrations/
++--   20260912090000_zone5_receiving_location_purpose.sql
++--
++-- NOT EXECUTED this session -- Supabase MCP / live DB access was unavailable
++-- throughout this implementation pass. Written to the same convention as
++-- 090-092 (temp fixture table, real E2E org/branch, pgtap assertions) for
++-- execution in a session with live access, per the plan's own "BLOCKED ON
++-- MCP" instruction rather than fabricating a run record.
++--
++-- Reuses the same dedicated E2E fixture identifiers already used by
++-- 091/092 (known to exist live, with baseline permissions already granted):
++--   org    = 9f98fe91-63b8-4986-a2b3-65bdd47684c9
++--   branch = e39b15da-0a8d-4056-b5a2-80eb1da868a6
++--   e2e_user = c4a24371-42db-4bb8-ab5e-379ebbf7d9c4
++
++BEGIN;
++
++SELECT plan(8);
++
++CREATE TEMP TABLE fx (
++  org uuid, branch uuid, other_branch uuid, other_org uuid,
++  loc_std uuid, loc_recv_a uuid, loc_recv_b uuid, loc_deleted uuid, loc_not_stockable uuid
++);
++INSERT INTO fx SELECT
++  '9f98fe91-63b8-4986-a2b3-65bdd47684c9'::uuid,
++  'e39b15da-0a8d-4056-b5a2-80eb1da868a6'::uuid,
++  gen_random_uuid(), gen_random_uuid(),
++  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid();
++
++-- 1. New rows default to 'standard' without specifying purpose.
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, code, can_store_inventory)
++SELECT loc_std, org, branch, '093-test standard location', '093-STD', true FROM fx;
++
++SELECT is(
++  (SELECT purpose FROM warehouse_locations WHERE id = (SELECT loc_std FROM fx)),
++  'standard',
++  'new location defaults to purpose=standard'
++);
++
++-- 2. A location can be designated 'receiving'.
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, code, can_store_inventory, purpose)
++SELECT loc_recv_a, org, branch, '093-test receiving A', '093-RECV-A', true, 'receiving' FROM fx;
++
++SELECT is(
++  (SELECT purpose FROM warehouse_locations WHERE id = (SELECT loc_recv_a FROM fx)),
++  'receiving',
++  'a location can be designated purpose=receiving'
++);
++
++-- 3. A SECOND active receiving location in the SAME branch is rejected by the DB.
++SELECT throws_ok(
++  format($sql$
++    INSERT INTO warehouse_locations (id, organization_id, branch_id, name, code, can_store_inventory, purpose)
++    VALUES ('%s', '%s', '%s', '093-test receiving B (should fail)', '093-RECV-B', true, 'receiving')
++  $sql$, (SELECT loc_recv_b::text FROM fx), (SELECT org::text FROM fx), (SELECT branch::text FROM fx)),
++  '23505',
++  NULL,
++  'a second active receiving location in the same branch violates the one-per-branch unique index'
++);
++
++-- 4. An invalid purpose value is rejected by the CHECK constraint.
++SELECT throws_ok(
++  format($sql$
++    INSERT INTO warehouse_locations (id, organization_id, branch_id, name, code, can_store_inventory, purpose)
++    VALUES ('%s', '%s', '%s', '093-test bad purpose', '093-BAD', true, 'quarantine')
++  $sql$, (SELECT gen_random_uuid()::text), (SELECT org::text FROM fx), (SELECT branch::text FROM fx)),
++  '23514',
++  NULL,
++  'a purpose value outside (standard, receiving) is rejected -- pitch domain is intentionally narrow'
++);
++
++-- 5. Standard locations are unaffected by the one-per-branch rule (many allowed).
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, code, can_store_inventory)
++SELECT gen_random_uuid(), org, branch, '093-test standard 2', '093-STD-2', true FROM fx;
++
++SELECT pass('a second purpose=standard location in the same branch is allowed (no error)');
++
++-- 6. Soft-deleting the active receiving location frees the branch to designate
++--    a new one -- the partial index only counts deleted_at IS NULL rows.
++UPDATE warehouse_locations SET deleted_at = now() WHERE id = (SELECT loc_recv_a FROM fx);
++
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, code, can_store_inventory, purpose)
++SELECT loc_recv_b, org, branch, '093-test receiving B (after A deleted)', '093-RECV-B2', true, 'receiving' FROM fx;
++
++SELECT is(
++  (SELECT purpose FROM warehouse_locations WHERE id = (SELECT loc_recv_b FROM fx)),
++  'receiving',
++  'after the old receiving location is soft-deleted, a new one can be designated in the same branch'
++);
++
++-- 7. resolve_branch_receiving_location() returns the active one, ignoring the deleted one.
++SELECT is(
++  resolve_branch_receiving_location((SELECT org FROM fx), (SELECT branch FROM fx)),
++  (SELECT loc_recv_b FROM fx),
++  'resolve_branch_receiving_location returns the active (non-deleted) receiving location'
++);
++
++-- 8. resolve_branch_receiving_location() raises a clear error for a branch with none designated.
++SELECT throws_ok(
++  format('SELECT resolve_branch_receiving_location(%L, %L)', (SELECT other_org::text FROM fx), (SELECT other_branch::text FROM fx)),
++  'P0002',
++  NULL,
++  'resolve_branch_receiving_location raises a clear error when no receiving location is configured'
++);
++
++SELECT * FROM finish();
++ROLLBACK;
+diff --git a/apps/web/supabase/tests/094_zone5_repair_order_spatial_schema_test.sql b/apps/web/supabase/tests/094_zone5_repair_order_spatial_schema_test.sql
+new file mode 100644
+index 00000000..a488483c
+--- /dev/null
++++ b/apps/web/supabase/tests/094_zone5_repair_order_spatial_schema_test.sql
+@@ -0,0 +1,162 @@
++-- ============================================================================
++-- TEST: Zone 5 Phase 2 -- repair_order_line_locations + uncertainty marker
++-- schema integrity (composite FKs, RLS, negative-quantity guard)
++-- ============================================================================
++-- Verifies:
++--   apps/web/supabase-target/supabase/migrations/
++--   20260912091000_zone5_repair_order_spatial_attribution_schema.sql
++--
++-- NOT EXECUTED this session -- Supabase MCP / live DB access was unavailable.
++-- Written for execution in a session with live access. Uses the same
++-- dedicated E2E fixture org/branch as 090-093; creates its own RepairOrder/
++-- RepairOrderLine/location fixtures scoped to this test only (rolled back).
++
++BEGIN;
++
++SELECT plan(9);
++
++CREATE TEMP TABLE fx (
++  org uuid, branch uuid, other_org uuid, other_branch uuid,
++  ro uuid, ro_other_branch uuid, rol_a uuid, rol_b uuid,
++  loc_a uuid, loc_wrong_branch uuid, variant_x uuid, advisor_contact uuid
++);
++INSERT INTO fx SELECT
++  '9f98fe91-63b8-4986-a2b3-65bdd47684c9'::uuid,
++  'e39b15da-0a8d-4056-b5a2-80eb1da868a6'::uuid,
++  gen_random_uuid(), gen_random_uuid(),
++  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
++  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), NULL;
++
++-- Fixture: a RepairOrder + line in the real E2E org/branch, and a location in
++-- a DIFFERENT (synthetic) branch to prove the cross-branch FK rejection.
++INSERT INTO repair_orders (id, organization_id, branch_id, zl_number, order_number, status)
++SELECT ro, org, branch, '094-TEST-ZL-1', '094-TEST-1', 'open' FROM fx;
++INSERT INTO repair_order_lines (id, repair_order_id, product_name, ordered_quantity, status)
++SELECT rol_a, ro, '094-test product A', 5, 'pending' FROM fx;
++
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, code, can_store_inventory)
++SELECT loc_a, org, branch, '094-test location A', '094-LOC-A', true FROM fx;
++
++-- 1. A correct row (all relationships consistent) inserts cleanly.
++INSERT INTO repair_order_line_locations
++  (organization_id, branch_id, repair_order_id, repair_order_line_id, variant_id, location_id, quantity)
++SELECT org, branch, ro, rol_a, variant_x, loc_a, 5 FROM fx;
++
++SELECT pass('a fully-consistent repair_order_line_locations row inserts without error');
++
++-- 2. location_id belonging to a DIFFERENT branch than the row's own branch_id
++--    is rejected by the composite FK (rol_locations_location_fk), not merely
++--    by application code.
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, code, can_store_inventory)
++SELECT loc_wrong_branch, org, other_branch, '094-test wrong-branch location', '094-LOC-WRONG', true FROM fx;
++
++SELECT throws_ok(
++  format($sql$
++    INSERT INTO repair_order_line_locations
++      (organization_id, branch_id, repair_order_id, repair_order_line_id, variant_id, location_id, quantity)
++    VALUES ('%s', '%s', '%s', '%s', NULL, '%s', 1)
++  $sql$,
++    (SELECT org::text FROM fx), (SELECT branch::text FROM fx),
++    (SELECT ro::text FROM fx), (SELECT rol_a::text FROM fx), (SELECT loc_wrong_branch::text FROM fx)),
++  '23503',
++  NULL,
++  'a location belonging to a different branch than the row''s own branch_id is rejected (composite FK)'
++);
++
++-- 3. repair_order_id belonging to a different org/branch than the row's own
++--    columns is rejected (rol_locations_repair_order_fk).
++INSERT INTO repair_orders (id, organization_id, branch_id, zl_number, order_number, status)
++SELECT ro_other_branch, org, other_branch, '094-TEST-ZL-2', '094-TEST-2', 'open' FROM fx;
++
++SELECT throws_ok(
++  format($sql$
++    INSERT INTO repair_order_line_locations
++      (organization_id, branch_id, repair_order_id, repair_order_line_id, variant_id, location_id, quantity)
++    VALUES ('%s', '%s', '%s', '%s', NULL, '%s', 1)
++  $sql$,
++    (SELECT org::text FROM fx), (SELECT branch::text FROM fx),
++    (SELECT ro_other_branch::text FROM fx), (SELECT rol_a::text FROM fx), (SELECT loc_a::text FROM fx)),
++  '23503',
++  NULL,
++  'a repair_order_id whose own org/branch does not match the row''s columns is rejected (composite FK)'
++);
++
++-- 4. repair_order_line_id that does not actually belong to the claimed
++--    repair_order_id is rejected (rol_locations_line_fk) -- the "pair
++--    integrity" gap the review specifically asked to close at the DB level.
++INSERT INTO repair_order_lines (id, repair_order_id, product_name, ordered_quantity, status)
++SELECT rol_b, ro_other_branch, '094-test product B (belongs to other RO)', 3, 'pending' FROM fx;
++
++SELECT throws_ok(
++  format($sql$
++    INSERT INTO repair_order_line_locations
++      (organization_id, branch_id, repair_order_id, repair_order_line_id, variant_id, location_id, quantity)
++    VALUES ('%s', '%s', '%s', '%s', NULL, '%s', 1)
++  $sql$,
++    (SELECT org::text FROM fx), (SELECT branch::text FROM fx),
++    (SELECT ro::text FROM fx), (SELECT rol_b::text FROM fx), (SELECT loc_a::text FROM fx)),
++  '23503',
++  NULL,
++  'a repair_order_line_id that does not belong to the claimed repair_order_id is rejected (composite FK, closes the pair-integrity gap)'
++);
++
++-- 5. quantity cannot go negative -- CHECK constraint, not just application discipline.
++SELECT throws_ok(
++  format($sql$
++    UPDATE repair_order_line_locations SET quantity = -1
++    WHERE repair_order_line_id = '%s' AND location_id = '%s'
++  $sql$, (SELECT rol_a::text FROM fx), (SELECT loc_a::text FROM fx)),
++  '23514',
++  NULL,
++  'quantity cannot be set negative -- CHECK (quantity >= 0) enforced at the DB level'
++);
++
++-- 6. Duplicate (repair_order_line_id, location_id) is rejected -- exactly one
++--    logical row per that pair (rol_locations_unique).
++SELECT throws_ok(
++  format($sql$
++    INSERT INTO repair_order_line_locations
++      (organization_id, branch_id, repair_order_id, repair_order_line_id, variant_id, location_id, quantity)
++    VALUES ('%s', '%s', '%s', '%s', NULL, '%s', 2)
++  $sql$,
++    (SELECT org::text FROM fx), (SELECT branch::text FROM fx),
++    (SELECT ro::text FROM fx), (SELECT rol_a::text FROM fx), (SELECT loc_a::text FROM fx)),
++  '23505',
++  NULL,
++  'a second row for the same (repair_order_line_id, location_id) pair is rejected'
++);
++
++-- 7. Uncertainty marker: a bad location (wrong branch) is rejected by its own FK.
++SELECT throws_ok(
++  format($sql$
++    INSERT INTO repair_order_location_attribution_uncertain
++      (organization_id, branch_id, location_id, variant_id)
++    VALUES ('%s', '%s', '%s', '%s')
++  $sql$,
++    (SELECT org::text FROM fx), (SELECT branch::text FROM fx),
++    (SELECT loc_wrong_branch::text FROM fx), (SELECT variant_x::text FROM fx)),
++  '23503',
++  NULL,
++  'the uncertainty marker table also rejects a location from the wrong branch'
++);
++
++-- 8/9. RLS isolation: an actor with no permission on this org/branch sees zero
++-- rows from either new table, even though rows exist.
++SET LOCAL ROLE authenticated;
++SET LOCAL request.jwt.claims = '{"sub": "00000000-0000-0000-0000-000000000099"}';
++
++SELECT is(
++  (SELECT count(*)::int FROM repair_order_line_locations WHERE organization_id = (SELECT org FROM fx)),
++  0,
++  'RLS isolation: an actor with no permission on this org sees zero repair_order_line_locations rows'
++);
++SELECT is(
++  (SELECT count(*)::int FROM repair_order_location_attribution_uncertain WHERE organization_id = (SELECT org FROM fx)),
++  0,
++  'RLS isolation: an actor with no permission on this org sees zero uncertainty-marker rows'
++);
++
++RESET ROLE;
++
++SELECT * FROM finish();
++ROLLBACK;
+diff --git a/apps/web/supabase/tests/095_zone5_attribution_sync_trigger_test.sql b/apps/web/supabase/tests/095_zone5_attribution_sync_trigger_test.sql
+new file mode 100644
+index 00000000..69ce1705
+--- /dev/null
++++ b/apps/web/supabase/tests/095_zone5_attribution_sync_trigger_test.sql
+@@ -0,0 +1,269 @@
++-- ============================================================================
++-- TEST: Zone 5 Phase 3 -- repair_order_location_attribution_sync trigger
++-- ============================================================================
++-- Verifies:
++--   apps/web/supabase-target/supabase/migrations/
++--   20260912092000_zone5_attribution_sync_trigger.sql
++--
++-- NOT EXECUTED this session -- Supabase MCP / live DB access was unavailable.
++-- Per that same migration's own header: the exact column list of
++-- `inventory_stock_ledger_entries` and `inventory_movement_lines` used below
++-- is the convergent result of two independent design/audit sources, NOT this
++-- session's own live confirmation. A session with live access MUST re-check
++-- every column name/type referenced here (and in the trigger itself) before
++-- treating a pass/fail result as meaningful -- this file is written to the
++-- required test list in the approved plan and progress tracker, to be run
++-- (and, if any column differs, corrected) as the very first live step of
++-- Phase 3, per the "verify before each phase" working rule.
++--
++-- Approach: synthetic ledger rows are inserted directly into
++-- inventory_stock_ledger_entries (exactly as the plan's own Phase 3 test
++-- design calls for -- "against synthetic ledger rows, before either
++-- orchestration RPC exists"), against a minimal real movement header/line
++-- fixture, so the trigger fires with realistic movement_line_id linkage.
++
++BEGIN;
++
++SELECT plan(14);
++
++CREATE TEMP TABLE fx (
++  org uuid, branch uuid,
++  loc_a uuid, loc_b uuid, loc_c uuid,
++  variant_x uuid, variant_y uuid, unit_ea uuid,
++  header_id uuid,
++  line_ax_decrease uuid,   -- source=A dest=B, variant X (transfer-shaped)
++  line_a_pure_decrease uuid, -- source=A dest=NULL, variant X (402/issue-shaped)
++  ro1 uuid, ro2 uuid, rol1 uuid, rol2 uuid
++);
++INSERT INTO fx SELECT
++  '9f98fe91-63b8-4986-a2b3-65bdd47684c9'::uuid,
++  'e39b15da-0a8d-4056-b5a2-80eb1da868a6'::uuid,
++  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
++  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
++  gen_random_uuid(),
++  gen_random_uuid(), gen_random_uuid(),
++  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid();
++
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, code, can_store_inventory)
++SELECT loc_a, org, branch, '095-test A', '095-A', true FROM fx;
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, code, can_store_inventory)
++SELECT loc_b, org, branch, '095-test B', '095-B', true FROM fx;
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, code, can_store_inventory)
++SELECT loc_c, org, branch, '095-test C', '095-C', true FROM fx;
++
++INSERT INTO repair_orders (id, organization_id, branch_id, zl_number, order_number, status)
++SELECT ro1, org, branch, '095-TEST-ZL-1', '095-TEST-1', 'open' FROM fx;
++INSERT INTO repair_orders (id, organization_id, branch_id, zl_number, order_number, status)
++SELECT ro2, org, branch, '095-TEST-ZL-2', '095-TEST-2', 'open' FROM fx;
++INSERT INTO repair_order_lines (id, repair_order_id, product_name, ordered_quantity, status)
++SELECT rol1, ro1, '095-test product 1', 5, 'pending' FROM fx;
++INSERT INTO repair_order_lines (id, repair_order_id, product_name, ordered_quantity, status)
++SELECT rol2, ro2, '095-test product 2', 5, 'pending' FROM fx;
++
++-- Minimal movement header/line fixtures (status irrelevant to the trigger,
++-- which only reacts to ledger inserts) -- one transfer-shaped line (A->B),
++-- one pure-decrease-shaped line (A, no destination).
++INSERT INTO inventory_movement_headers (id, organization_id, branch_id, status)
++SELECT header_id, org, branch, 'posted' FROM fx;
++INSERT INTO inventory_movement_lines (id, movement_id, organization_id, branch_id, variant_id, unit_id, quantity, source_location_id, destination_location_id)
++SELECT line_ax_decrease, header_id, org, branch, variant_x, unit_ea, 2, loc_a, loc_b FROM fx;
++INSERT INTO inventory_movement_lines (id, movement_id, organization_id, branch_id, variant_id, unit_id, quantity, source_location_id, destination_location_id)
++SELECT line_a_pure_decrease, header_id, org, branch, variant_x, unit_ea, 2, loc_a, NULL FROM fx;
++
++-- =====================================================================
++-- 1. Non-on_hand ledger effect is ignored entirely.
++-- =====================================================================
++INSERT INTO repair_order_line_locations (organization_id, branch_id, repair_order_id, repair_order_line_id, variant_id, location_id, quantity)
++SELECT org, branch, ro1, rol1, variant_x, loc_a, 5 FROM fx;
++
++INSERT INTO inventory_stock_ledger_entries
++  (organization_id, branch_id, location_id, variant_id, movement_id, movement_line_id, movement_type_code, balance_field, direction, quantity, balance_after, posted_at)
++SELECT org, branch, loc_a, variant_x, header_id, line_a_pure_decrease, '999-test-reserved', 'reserved', 'decrease', 2, 3, now() FROM fx;
++
++SELECT is(
++  (SELECT quantity FROM repair_order_line_locations WHERE repair_order_line_id = (SELECT rol1 FROM fx) AND location_id = (SELECT loc_a FROM fx)),
++  5::numeric,
++  '1. a non-on_hand ledger effect (e.g. reserved) leaves the projection completely untouched'
++);
++
++-- =====================================================================
++-- 2. Exact single attribution, transfer-shaped -> propagates correctly.
++--    Pre-effect on_hand at A/X = 5 (matches rol1's 5), decrease of 2,
++--    balance_after = 3 (post-effect) -- proves the pre-effect reconstruction
++--    (3 + 2 = 5) is what's used, not the raw post-effect value.
++-- =====================================================================
++INSERT INTO inventory_stock_ledger_entries
++  (organization_id, branch_id, location_id, variant_id, movement_id, movement_line_id, movement_type_code, balance_field, direction, quantity, balance_after, posted_at)
++SELECT org, branch, loc_a, variant_x, header_id, line_ax_decrease, '801', 'on_hand', 'decrease', 2, 3, now() FROM fx;
++
++SELECT is(
++  (SELECT quantity FROM repair_order_line_locations WHERE repair_order_line_id = (SELECT rol1 FROM fx) AND location_id = (SELECT loc_a FROM fx)),
++  3::numeric,
++  '2. exact single attribution, transfer-shaped: source decrements from 5 to 3 (using reconstructed pre-effect on_hand=5, not raw balance_after=3)'
++);
++SELECT is(
++  (SELECT quantity FROM repair_order_line_locations WHERE repair_order_line_id = (SELECT rol1 FROM fx) AND location_id = (SELECT loc_b FROM fx)),
++  2::numeric,
++  '3. exact single attribution, transfer-shaped: destination credited with the same repair_order_line_id and the moved quantity'
++);
++
++-- Reset A back to 5 for the next scenarios (simulate a fresh receipt directly).
++UPDATE repair_order_line_locations SET quantity = 5 WHERE repair_order_line_id = (SELECT rol1 FROM fx) AND location_id = (SELECT loc_a FROM fx);
++DELETE FROM repair_order_line_locations WHERE repair_order_line_id = (SELECT rol1 FROM fx) AND location_id = (SELECT loc_b FROM fx);
++
++-- =====================================================================
++-- 3/4/5. Ambiguous multi-RepairOrder 801: A holds rol1=5 and rol2=5 (two
++--    distinct lines) -- moving 2 units out is ambiguous. Must NOT guess,
++--    must mark BOTH source and destination UNKNOWN.
++-- =====================================================================
++INSERT INTO repair_order_line_locations (organization_id, branch_id, repair_order_id, repair_order_line_id, variant_id, location_id, quantity)
++SELECT org, branch, ro2, rol2, variant_x, loc_a, 5 FROM fx;
++
++INSERT INTO inventory_stock_ledger_entries
++  (organization_id, branch_id, location_id, variant_id, movement_id, movement_line_id, movement_type_code, balance_field, direction, quantity, balance_after, posted_at)
++SELECT org, branch, loc_a, variant_x, header_id, line_ax_decrease, '801', 'on_hand', 'decrease', 2, 8, now() FROM fx;
++
++SELECT is(
++  (SELECT quantity FROM repair_order_line_locations WHERE repair_order_line_id = (SELECT rol1 FROM fx) AND location_id = (SELECT loc_a FROM fx)),
++  5::numeric,
++  '4. ambiguous multi-RepairOrder 801 does NOT guess: rol1''s row at A is untouched'
++);
++SELECT is(
++  (SELECT quantity FROM repair_order_line_locations WHERE repair_order_line_id = (SELECT rol2 FROM fx) AND location_id = (SELECT loc_a FROM fx)),
++  5::numeric,
++  '5. ambiguous multi-RepairOrder 801 does NOT guess: rol2''s row at A is untouched either'
++);
++SELECT ok(
++  EXISTS (SELECT 1 FROM repair_order_location_attribution_uncertain WHERE organization_id = (SELECT org FROM fx) AND location_id = (SELECT loc_a FROM fx) AND variant_id = (SELECT variant_x FROM fx)),
++  '6. ambiguous 801 marks the SOURCE (A, X) UNKNOWN'
++);
++SELECT ok(
++  EXISTS (SELECT 1 FROM repair_order_location_attribution_uncertain WHERE organization_id = (SELECT org FROM fx) AND location_id = (SELECT loc_b FROM fx) AND variant_id = (SELECT variant_x FROM fx)),
++  '7. ambiguous 801 ALSO marks the DESTINATION (B, X) UNKNOWN, even though B had zero prior rows'
++);
++
++-- Clean slate for the sticky/no-self-heal test: clear rol2 from A so A is
++-- single-attribution again (numerically), leaving the marker in place.
++DELETE FROM repair_order_line_locations WHERE repair_order_line_id = (SELECT rol2 FROM fx) AND location_id = (SELECT loc_a FROM fx);
++
++-- =====================================================================
++-- 8. STICKY / NO-SELF-HEAL (the load-bearing test for this whole correction):
++--    A is marked UNKNOWN from the previous step. Post a SECOND movement at
++--    A/X that, numerically, now looks unambiguous (rol1=5 is the only row,
++--    matching pre-effect on_hand). The trigger must NOT propagate it and
++--    must NOT clear the marker -- it must only re-affirm/extend it.
++-- =====================================================================
++INSERT INTO inventory_stock_ledger_entries
++  (organization_id, branch_id, location_id, variant_id, movement_id, movement_line_id, movement_type_code, balance_field, direction, quantity, balance_after, posted_at)
++SELECT org, branch, loc_a, variant_x, header_id, line_ax_decrease, '801', 'on_hand', 'decrease', 1, 4, now() FROM fx;
++
++SELECT is(
++  (SELECT quantity FROM repair_order_line_locations WHERE repair_order_line_id = (SELECT rol1 FROM fx) AND location_id = (SELECT loc_a FROM fx)),
++  5::numeric,
++  '8. UNKNOWN is sticky: a later, numerically-unambiguous-looking movement at an already-marked bucket is NOT propagated (no self-heal from arithmetic equality)'
++);
++
++-- =====================================================================
++-- 9. Zero clears the marker -- the ONE automatic clearing path.
++-- =====================================================================
++INSERT INTO inventory_stock_ledger_entries
++  (organization_id, branch_id, location_id, variant_id, movement_id, movement_line_id, movement_type_code, balance_field, direction, quantity, balance_after, posted_at)
++SELECT org, branch, loc_a, variant_x, header_id, line_a_pure_decrease, '402', 'on_hand', 'decrease', 4, 0, now() FROM fx;
++
++SELECT ok(
++  NOT EXISTS (SELECT 1 FROM repair_order_location_attribution_uncertain WHERE organization_id = (SELECT org FROM fx) AND location_id = (SELECT loc_a FROM fx) AND variant_id = (SELECT variant_x FROM fx)),
++  '9. on_hand reaching exactly zero clears the UNKNOWN marker for (A, X) -- the only automatic clearing path'
++);
++
++-- =====================================================================
++-- 10. Ambiguous 402 (pure decrease, ordinary + attributed stock coexisting)
++--     marks ONLY the source, no destination bucket.
++-- =====================================================================
++INSERT INTO repair_order_line_locations (organization_id, branch_id, repair_order_id, repair_order_line_id, variant_id, location_id, quantity)
++SELECT org, branch, ro1, rol1, variant_x, loc_c, 5 FROM fx;
++-- pre-effect on_hand at C/X is 10 (5 attributed + 5 ordinary) -- attributed_sum(5) != pre_effect(10) -> ambiguous.
++INSERT INTO inventory_movement_lines (id, movement_id, organization_id, branch_id, variant_id, unit_id, quantity, source_location_id, destination_location_id)
++SELECT gen_random_uuid(), header_id, org, branch, variant_x, unit_ea, 3, loc_c, NULL FROM fx;
++
++INSERT INTO inventory_stock_ledger_entries
++  (organization_id, branch_id, location_id, variant_id, movement_id, movement_line_id, movement_type_code, balance_field, direction, quantity, balance_after, posted_at)
++SELECT org, branch, loc_c, variant_x, header_id,
++  (SELECT id FROM inventory_movement_lines WHERE source_location_id = loc_c AND destination_location_id IS NULL LIMIT 1),
++  '402', 'on_hand', 'decrease', 3, 7, now() FROM fx;
++
++SELECT ok(
++  EXISTS (SELECT 1 FROM repair_order_location_attribution_uncertain WHERE organization_id = (SELECT org FROM fx) AND location_id = (SELECT loc_c FROM fx) AND variant_id = (SELECT variant_x FROM fx))
++  AND NOT EXISTS (SELECT 1 FROM repair_order_location_attribution_uncertain WHERE organization_id = (SELECT org FROM fx) AND variant_id = (SELECT variant_x FROM fx) AND location_id NOT IN (SELECT loc_c FROM fx)),
++  '10. ambiguous 402 (ordinary + attributed stock coexisting) marks ONLY the source bucket -- no destination bucket exists for a pure decrease'
++);
++
++-- =====================================================================
++-- 11. No negative projection quantity is ever produced (structural check:
++--     the CHECK constraint itself, exercised via a direct decrement attempt
++--     larger than what's attributed).
++-- =====================================================================
++SELECT throws_ok(
++  format($sql$UPDATE repair_order_line_locations SET quantity = quantity - 999 WHERE repair_order_line_id = '%s' AND location_id = '%s'$sql$,
++    (SELECT rol1::text FROM fx), (SELECT loc_c::text FROM fx)),
++  '23514',
++  NULL,
++  '11. the CHECK(quantity >= 0) constraint itself prevents negative projection quantity regardless of caller'
++);
++
++-- =====================================================================
++-- 12. Bypass flag suppresses the trigger's propagation logic.
++-- =====================================================================
++SET LOCAL ambra.repair_order_attribution_authoritative = 'on';
++INSERT INTO inventory_stock_ledger_entries
++  (organization_id, branch_id, location_id, variant_id, movement_id, movement_line_id, movement_type_code, balance_field, direction, quantity, balance_after, posted_at)
++SELECT org, branch, loc_a, variant_x, header_id, line_a_pure_decrease, '101', 'on_hand', 'increase', 1, 1, now() FROM fx;
++-- (loc_a/variant_x has no attribution left at this point in the script, so
++--  this is primarily proving the bypass check itself does not error and
++--  does not fabricate a marker/row where none would otherwise be created.)
++SELECT ok(
++  NOT EXISTS (SELECT 1 FROM repair_order_location_attribution_uncertain WHERE organization_id = (SELECT org FROM fx) AND location_id = (SELECT loc_a FROM fx) AND variant_id = (SELECT variant_x FROM fx)),
++  '12. with the bypass flag set, the trigger performs no propagation/marking work for that ledger insert'
++);
++RESET ambra.repair_order_attribution_authoritative;
++
++-- =====================================================================
++-- 13. Bypass flag grants no authorization: it is a plain SET LOCAL on a
++--     custom GUC, not a permission check -- setting it does not itself
++--     allow an otherwise-unauthorized write to any table. This is
++--     structurally proven by the trigger function having no permission
++--     logic conditioned on the flag at all (it only ever affects whether
++--     the SECURITY DEFINER trigger body itself performs its own writes,
++--     which happen under the trigger's own definer privileges regardless of
++--     who is connected) -- and by repair_order_line_locations having zero
++--     client-writable RLS policy, independent of this flag's state.
++-- =====================================================================
++SELECT ok(
++  NOT EXISTS (
++    SELECT 1 FROM pg_policies
++    WHERE schemaname = 'public' AND tablename = 'repair_order_line_locations'
++      AND cmd IN ('INSERT', 'UPDATE', 'DELETE')
++  ),
++  '13. repair_order_line_locations has no client-writable RLS policy at all -- the bypass flag cannot grant a write path that does not exist'
++);
++
++-- =====================================================================
++-- 14. Concurrency -- structural proof only (per plan §6.1, mirroring this
++--     repo's own established, honest convention in
++--     091_repair_orders_materialization_rpc_test.sql: "true two-connection
++--     concurrent-call testing cannot be expressed in a single pgTAP
++--     script"). This proves the FOR UPDATE lock statement is present in the
++--     trigger body; it does NOT prove genuine concurrent-session safety.
++--     REQUIRED, EXPLICITLY DEFERRED, NOT WRITTEN HERE: a live-DB
++--     integration test opening two separate database sessions/connections
++--     with overlapping transactions against the same
++--     (org, branch, location, variant), asserting no double-consumption of
++--     the same attribution, no negative quantity, no lost destination
++--     credit, and a final projection state consistent with both operations.
++-- =====================================================================
++SELECT ok(
++  pg_get_functiondef('public.repair_order_location_attribution_sync'::regproc) ~* 'FOR UPDATE',
++  '14. (structural only, not a concurrency proof) the trigger body contains a FOR UPDATE lock statement before reading/deciding on repair_order_line_locations rows'
++);
++
++SELECT * FROM finish();
++ROLLBACK;
+diff --git a/apps/web/supabase/tests/096_zone5_receive_repair_order_stock_test.sql b/apps/web/supabase/tests/096_zone5_receive_repair_order_stock_test.sql
+new file mode 100644
+index 00000000..f4d86ec6
+--- /dev/null
++++ b/apps/web/supabase/tests/096_zone5_receive_repair_order_stock_test.sql
+@@ -0,0 +1,129 @@
++-- ============================================================================
++-- TEST: Zone 5 Phase 4 -- receive_repair_order_stock RPC
++-- ============================================================================
++-- Verifies:
++--   apps/web/supabase-target/supabase/migrations/
++--   20260912093000_zone5_receive_repair_order_stock_rpc.sql
++--
++-- NOT EXECUTED this session -- Supabase MCP / live DB access was unavailable.
++-- Depends on inventory_create_and_finalize existing live with the exact
++-- named-parameter shape documented in
++-- apps/web/src/server/services/inventory-movements.service.ts (tracked
++-- application code, high confidence) and on a '101' movement type/receiving
++-- purpose location already configured for the E2E fixture org/branch --
++-- both require live confirmation before this file is actually run.
++
++BEGIN;
++
++SELECT plan(7);
++
++CREATE TEMP TABLE fx (
++  org uuid, branch uuid, e2e_user uuid,
++  ro uuid, rol1 uuid, unit_ea uuid, variant_x uuid,
++  loc_recv uuid, session_id uuid, wsd_id uuid, wsdl_id uuid
++);
++INSERT INTO fx SELECT
++  '9f98fe91-63b8-4986-a2b3-65bdd47684c9'::uuid,
++  'e39b15da-0a8d-4056-b5a2-80eb1da868a6'::uuid,
++  'c4a24371-42db-4bb8-ab5e-379ebbf7d9c4'::uuid,
++  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
++  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid();
++
++-- Fixture: branch receiving location (Phase 1), a RepairOrder + line, and a
++-- Matcher-line -> RepairOrderLine lineage chain (Phase 2 dependency, Zone 3
++-- tables) to exercise both the null and the resolvable source_line_id paths.
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, code, can_store_inventory, purpose)
++SELECT loc_recv, org, branch, '096-test receiving', '096-RECV', true, 'receiving' FROM fx;
++INSERT INTO repair_orders (id, organization_id, branch_id, zl_number, order_number, status)
++SELECT ro, org, branch, '096-TEST-ZL-1', '096-TEST-1', 'open' FROM fx;
++INSERT INTO repair_order_lines (id, repair_order_id, variant_id, product_name, ordered_quantity, status)
++SELECT rol1, ro, variant_x, '096-test product', 5, 'pending' FROM fx;
++
++-- 1. NULL source_line_id -> allowed, unattributed receipt succeeds; the RPC
++--    itself is exercised end-to-end (assumes '101'/receiving are configured
++--    live for this org/branch -- disclosed dependency above).
++SELECT lives_ok(
++  format($sql$
++    SELECT receive_repair_order_stock(
++      '%s'::uuid, '%s'::uuid, '%s'::uuid,
++      jsonb_build_array(jsonb_build_object('variant_id', '%s', 'unit_id', '%s', 'quantity', 3, 'source_line_id', NULL)),
++      NULL, NULL, NULL, '096 unattributed receipt test', gen_random_uuid()::text
++    )
++  $sql$, (SELECT e2e_user::text FROM fx), (SELECT org::text FROM fx), (SELECT branch::text FROM fx),
++         (SELECT variant_x::text FROM fx), (SELECT unit_ea::text FROM fx)),
++  '1. source_line_id = NULL is allowed: an ordinary unattributed 101 receipt succeeds'
++);
++
++SELECT is(
++  (SELECT count(*)::int FROM repair_order_line_locations WHERE repair_order_line_id = (SELECT rol1 FROM fx)),
++  0,
++  '2. an unattributed receipt writes NO repair_order_line_locations row (nothing to attribute)'
++);
++
++-- 3. A source_line_id that resolves to zero RepairOrderLines -> HARD ERROR,
++--    never silently downgraded to unattributed.
++SELECT throws_ok(
++  format($sql$
++    SELECT receive_repair_order_stock(
++      '%s'::uuid, '%s'::uuid, '%s'::uuid,
++      jsonb_build_array(jsonb_build_object('variant_id', '%s', 'unit_id', '%s', 'quantity', 2, 'source_line_id', '%s')),
++      NULL, NULL, NULL, NULL, gen_random_uuid()::text
++    )
++  $sql$, (SELECT e2e_user::text FROM fx), (SELECT org::text FROM fx), (SELECT branch::text FROM fx),
++         (SELECT variant_x::text FROM fx), (SELECT unit_ea::text FROM fx), (SELECT gen_random_uuid()::text)),
++  'P0002',
++  NULL,
++  '3. a source_line_id that resolves to ZERO RepairOrderLines is a HARD ERROR, not a silent unattributed fallback'
++);
++
++-- 4. A source_line_id that resolves to more than one candidate -> HARD ERROR.
++-- (Fixture: two workshop_source_document_lines rows pointing at the SAME
++-- wdd_matcher_line_id, each linked to a DIFFERENT repair_order_line -- proven
++-- structurally reachable in the plan §10 since
++-- workshop_source_document_lines.wdd_matcher_line_id carries no UNIQUE
++-- constraint.)
++-- (Fixture construction omitted for brevity in this non-executed draft --
++-- requires real wdd_matcher_sessions/blocks/lines rows per Zone 2/3's own
++-- schema; to be completed against live fixtures when this test is actually
++-- run, per the Phase 0 gate.)
++SELECT pass('4. (fixture TODO when run live) ambiguous source_line_id resolution -> HARD ERROR, matching case 3''s pattern with two candidate rows');
++
++-- 5. Receiving with no receiving location configured for the branch fails
++--    clearly (resolve_branch_receiving_location's own P0002).
++SELECT throws_ok(
++  format($sql$
++    SELECT receive_repair_order_stock(
++      '%s'::uuid, '%s'::uuid, '%s'::uuid,
++      jsonb_build_array(jsonb_build_object('variant_id', '%s', 'unit_id', '%s', 'quantity', 1, 'source_line_id', NULL)),
++      NULL, NULL, NULL, NULL, gen_random_uuid()::text
++    )
++  $sql$, (SELECT e2e_user::text FROM fx), (SELECT gen_random_uuid()::text), (SELECT gen_random_uuid()::text),
++         (SELECT variant_x::text FROM fx), (SELECT unit_ea::text FROM fx)),
++  'P0002',
++  NULL,
++  '5. receiving into a branch with no designated receiving location fails clearly, not silently'
++);
++
++-- 6. Actor-identity spoofing is rejected.
++SELECT throws_ok(
++  format($sql$
++    SELECT receive_repair_order_stock(
++      '%s'::uuid, '%s'::uuid, '%s'::uuid,
++      jsonb_build_array(jsonb_build_object('variant_id', '%s', 'unit_id', '%s', 'quantity', 1, 'source_line_id', NULL)),
++      NULL, NULL, NULL, NULL, gen_random_uuid()::text
++    )
++  $sql$, (SELECT gen_random_uuid()::text), (SELECT org::text FROM fx), (SELECT branch::text FROM fx),
++         (SELECT variant_x::text FROM fx), (SELECT unit_ea::text FROM fx)),
++  '28000',
++  NULL,
++  '6. p_actor_user_id not matching auth.uid() is rejected'
++);
++
++-- 7. (Atomicity) -- documented as requiring a forced-failure fixture (e.g. an
++--    invalid unit_id causing inventory_create_and_finalize itself to raise
++--    mid-transaction) to prove no orphaned repair_order_line_movement_links/
++--    repair_order_line_locations rows remain; to be completed live.
++SELECT pass('7. (fixture TODO when run live) a forced mid-path failure inside inventory_create_and_finalize leaves no orphaned attribution rows -- one transaction, all-or-nothing');
++
++SELECT * FROM finish();
++ROLLBACK;
+diff --git a/apps/web/supabase/tests/097_zone5_putaway_repair_order_stock_test.sql b/apps/web/supabase/tests/097_zone5_putaway_repair_order_stock_test.sql
+new file mode 100644
+index 00000000..b8a61d45
+--- /dev/null
++++ b/apps/web/supabase/tests/097_zone5_putaway_repair_order_stock_test.sql
+@@ -0,0 +1,128 @@
++-- ============================================================================
++-- TEST: Zone 5 Phase 6 -- putaway_repair_order_stock RPC (batch behavior,
++-- UNKNOWN-marker non-clearing)
++-- ============================================================================
++-- Verifies:
++--   apps/web/supabase-target/supabase/migrations/
++--   20260912094000_zone5_putaway_repair_order_stock_rpc.sql
++--
++-- NOT EXECUTED this session -- Supabase MCP / live DB access was unavailable.
++-- Same inventory_create_and_finalize live-dependency caveat as test 096.
++
++BEGIN;
++
++SELECT plan(6);
++
++CREATE TEMP TABLE fx (
++  org uuid, branch uuid, e2e_user uuid,
++  ro uuid, rol1 uuid, rol2 uuid, unit_ea uuid, variant_x uuid, variant_y uuid,
++  loc_recv uuid, loc_final uuid
++);
++INSERT INTO fx SELECT
++  '9f98fe91-63b8-4986-a2b3-65bdd47684c9'::uuid,
++  'e39b15da-0a8d-4056-b5a2-80eb1da868a6'::uuid,
++  'c4a24371-42db-4bb8-ab5e-379ebbf7d9c4'::uuid,
++  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
++  gen_random_uuid(), gen_random_uuid();
++
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, code, can_store_inventory, purpose)
++SELECT loc_recv, org, branch, '097-test receiving', '097-RECV', true, 'receiving' FROM fx;
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, code, can_store_inventory)
++SELECT loc_final, org, branch, '097-test final bin', '097-A-01', true FROM fx;
++INSERT INTO repair_orders (id, organization_id, branch_id, zl_number, order_number, status)
++SELECT ro, org, branch, '097-TEST-ZL-1', '097-TEST-1', 'open' FROM fx;
++INSERT INTO repair_order_lines (id, repair_order_id, variant_id, product_name, ordered_quantity, status)
++SELECT rol1, ro, variant_x, '097-test product 1', 5, 'pending' FROM fx;
++INSERT INTO repair_order_lines (id, repair_order_id, variant_id, product_name, ordered_quantity, status)
++SELECT rol2, ro, variant_y, '097-test product 2', 3, 'pending' FROM fx;
++
++-- Seed known-true attribution at the receiving location, as
++-- receive_repair_order_stock would have done.
++INSERT INTO repair_order_line_locations (organization_id, branch_id, repair_order_id, repair_order_line_id, variant_id, location_id, quantity)
++SELECT org, branch, ro, rol1, variant_x, loc_recv, 5 FROM fx;
++INSERT INTO repair_order_line_locations (organization_id, branch_id, repair_order_id, repair_order_line_id, variant_id, location_id, quantity)
++SELECT org, branch, ro, rol2, variant_y, loc_recv, 3 FROM fx;
++
++-- 1. Batch: one call, two lines (rol1 partial=3-of-5, rol2 full=3), one
++--    destination -> one movement document.
++SELECT lives_ok(
++  format($sql$
++    SELECT putaway_repair_order_stock(
++      '%s'::uuid, '%s'::uuid, '%s'::uuid,
++      jsonb_build_array(
++        jsonb_build_object('repair_order_line_id', '%s', 'variant_id', '%s', 'unit_id', '%s', 'quantity', 3),
++        jsonb_build_object('repair_order_line_id', '%s', 'variant_id', '%s', 'unit_id', '%s', 'quantity', 3)
++      ),
++      '%s'::uuid, gen_random_uuid()::text
++    )
++  $sql$, (SELECT e2e_user::text FROM fx), (SELECT org::text FROM fx), (SELECT branch::text FROM fx),
++         (SELECT rol1::text FROM fx), (SELECT variant_x::text FROM fx), (SELECT unit_ea::text FROM fx),
++         (SELECT rol2::text FROM fx), (SELECT variant_y::text FROM fx), (SELECT unit_ea::text FROM fx),
++         (SELECT loc_final::text FROM fx)),
++  '1. batch putaway: one call with two lines and one destination succeeds (one 801 document, two lines)'
++);
++
++-- 2. Partial quantity preserved: rol1 had 5 at receiving, moved 3 -> 2 remains at receiving.
++SELECT is(
++  (SELECT quantity FROM repair_order_line_locations WHERE repair_order_line_id = (SELECT rol1 FROM fx) AND location_id = (SELECT loc_recv FROM fx)),
++  2::numeric,
++  '2. partial-quantity putaway leaves the correct remainder (2 of 5) at the receiving location'
++);
++
++-- 3. Destination correctly credited for both lines.
++SELECT is(
++  (SELECT quantity FROM repair_order_line_locations WHERE repair_order_line_id = (SELECT rol1 FROM fx) AND location_id = (SELECT loc_final FROM fx)),
++  3::numeric,
++  '3. destination bin is credited with the exact moved quantity for rol1'
++);
++SELECT is(
++  (SELECT quantity FROM repair_order_line_locations WHERE repair_order_line_id = (SELECT rol2 FROM fx) AND location_id = (SELECT loc_final FROM fx)),
++  3::numeric,
++  '3b. destination bin is credited with the exact moved quantity for rol2 (all of it, since rol2 had no partial)'
++);
++
++-- 4. Requesting more than currently attributed at receiving is rejected, not
++--    silently clamped.
++SELECT throws_ok(
++  format($sql$
++    SELECT putaway_repair_order_stock(
++      '%s'::uuid, '%s'::uuid, '%s'::uuid,
++      jsonb_build_array(jsonb_build_object('repair_order_line_id', '%s', 'variant_id', '%s', 'unit_id', '%s', 'quantity', 999)),
++      '%s'::uuid, gen_random_uuid()::text
++    )
++  $sql$, (SELECT e2e_user::text FROM fx), (SELECT org::text FROM fx), (SELECT branch::text FROM fx),
++         (SELECT rol1::text FROM fx), (SELECT variant_x::text FROM fx), (SELECT unit_ea::text FROM fx),
++         (SELECT loc_final::text FROM fx)),
++  '22023',
++  NULL,
++  '4. requesting more than currently attributed at the receiving location is rejected (not silently clamped)'
++);
++
++-- 5. UNKNOWN-marker non-clearing: mark (loc_recv, variant_x) UNKNOWN
++--    (simulating an earlier ambiguous generic movement there), then putaway
++--    the remaining known 2 units of rol1 -- the marker must remain, since
++--    this RPC only proves ONE line, not the whole bucket.
++INSERT INTO repair_order_location_attribution_uncertain (organization_id, branch_id, location_id, variant_id)
++SELECT org, branch, loc_recv, variant_x FROM fx;
++
++PERFORM putaway_repair_order_stock(
++  (SELECT e2e_user FROM fx), (SELECT org FROM fx), (SELECT branch FROM fx),
++  jsonb_build_array(jsonb_build_object('repair_order_line_id', (SELECT rol1 FROM fx), 'variant_id', (SELECT variant_x FROM fx), 'unit_id', (SELECT unit_ea FROM fx), 'quantity', 2)),
++  (SELECT loc_final FROM fx), gen_random_uuid()::text
++);
++
++SELECT ok(
++  EXISTS (SELECT 1 FROM repair_order_location_attribution_uncertain WHERE organization_id = (SELECT org FROM fx) AND location_id = (SELECT loc_recv FROM fx) AND variant_id = (SELECT variant_x FROM fx)),
++  '5. a single RepairOrder-aware putaway call does NOT clear a pre-existing bucket-wide UNKNOWN marker -- it only proves the one line it moved'
++);
++
++-- 6. No repair_order_line_movement_links row was written by any putaway
++--    call above -- putaway is not a business-quantity event.
++SELECT is(
++  (SELECT count(*)::int FROM repair_order_line_movement_links WHERE relation_type = 'putaway'),
++  0,
++  '6. no repair_order_line_movement_links row with relation_type=''putaway'' exists -- that value is never written, by design'
++);
++
++SELECT * FROM finish();
++ROLLBACK;
+diff --git a/docs/mvp/zones/05-receiving-putaway-progress.md b/docs/mvp/zones/05-receiving-putaway-progress.md
+index 218ebc73..1b2fc51d 100644
+--- a/docs/mvp/zones/05-receiving-putaway-progress.md
++++ b/docs/mvp/zones/05-receiving-putaway-progress.md
+@@ -1,17 +1,30 @@
+ # Zone 5 — Receiving / Putaway: Progress Tracker
+ 
+ > Companion to `05-receiving-putaway-implementation-plan.md`. **Architecture: APPROVED FOR
+-> IMPLEMENTATION.** Nothing below is implemented yet — this tracker still starts from zero
+-> checked boxes; approval means the design is no longer open for re-litigation, not that work
+-> has begun. This revision folds in the sixth (final) correction pass: the UNKNOWN marker no
+-> longer self-heals from arithmetic coincidence (it clears only via on-hand reaching zero, or a
+-> future full-bucket reconciliation/scan operation — never implicitly); an ambiguous
+-> transfer-shaped movement marks **both** the source and destination `(location, variant)`
+-> uncertain, not just the source; a single RepairOrder-aware write never clears a bucket-wide
+-> marker on its own; and the bypass-flag documentation is corrected to classify a hypothetical
+-> misuse as a correctness risk, never a security one.
+-
+-## Verification pass — completed (this session, final semantic correction pass)
++> IMPLEMENTATION.** This revision records the first implementation pass.
++
++## Implementation status legend (mechanical, used throughout this file)
++
++- **PITCH DONE** — code/migration/test written, typechecked/linted/unit-tested where that's
++  possible without a live database, and (for anything DB-related) reviewed against the tracked
++  schema this session could read directly.
++- **PITCH — BLOCKED ON MCP** — written and ready for review, but **not applied to any live or
++  local database**, because Supabase MCP was unavailable this entire session (confirmed
++  repeatedly: no `select:supabase*` deferred tool, no `supabase` CLI installed until this
++  session's own `pnpm install`, no running Docker daemon for a local stack). Per the working
++  rules, this is reported honestly rather than fabricated as verified.
++- **PITCH UAT OUTSTANDING** — code exists but has not been exercised end-to-end against a real
++  browser/backend (Playwright, manual pitch rehearsal).
++- **PILOT** / **TECH DEBT** — unchanged from the approved plan, not touched this pass.
++
++**Mechanical count, this pass**: 9 new files created (6 migrations + 5 pgTAP test files — one
++migration, Phase 1, has one paired test file; see manifest), 4 new TypeScript files (1 service, 1
++service test, 1 server action module, 1 UI component), 0 files modified in any other zone, 0
++migrations applied, 0 pgTAP tests executed, 12 new/updated vitest assertions executed and
++passing (7 pre-existing + 5 new, confirming no regression in the touched area — see report),
++1 full-repo `tsc --noEmit` pass (clean), 1 full-repo `eslint` pass on touched files (clean).
++
++## Verification pass — completed (this session, final semantic correction pass — planning only)
+ 
+ - [x] Corrected the marker-clearing model: removed the "implicitly superseded by matching math"
+       self-heal behavior. The only automatic clearing path is on-hand reaching exactly zero at
+@@ -29,185 +42,146 @@
+       security one — unauthorized access, cross-org/branch access, and RLS bypass remain
+       independently impossible regardless of this flag's state.
+ 
+-## Verification pass — completed (prior session, timing/honesty correction pass)
+-
+-- [x] Confirmed `inventory_finalize_posting`'s traced ordering (balance UPDATE before ledger
+-      INSERT) means an `AFTER INSERT` trigger always sees the **post**-effect
+-      `inventory_balances.on_hand_quantity` — the original ambiguity-test formula
+-      (`SUM(projection) = inventory_balances.on_hand`) was timing-wrong and would have rejected
+-      genuinely unambiguous moves. Corrected to reconstruct pre-effect on-hand from the ledger
+-      row's own `balance_after`/`quantity`/`direction` instead of re-querying the balance table.
+-- [x] Confirmed `inventory_stock_ledger_entries.balance_field` and
+-      `inventory_movement_type_effects.balance_field` both model `on_hand | reserved | allocated
+-    | blocked | consignment` — the trigger's first guard rejects every value except `on_hand`,
+-      so a future reservation/allocation-type effect can never mutate physical location
+-      attribution.
+-- [x] Confirmed this repo's own established, explicit convention for the concurrency-test
+-      limitation (`supabase/tests/091_repair_orders_materialization_rpc_test.sql`: "true
+-      two-connection concurrent-call testing cannot be expressed in a single pgTAP script") —
+-      reused verbatim rather than inventing a different convention or overclaiming pgTAP proves
+-      genuine concurrency.
+-- [x] Verified the `SET LOCAL` bypass flag's security posture: it is settable only from inside
+-      the two orchestration RPCs' own PL/pgSQL bodies (never a function parameter), and
+-      PostgREST's request surface gives an ordinary authenticated Data API caller no way to
+-      submit a raw `SET`/`SET LOCAL` statement at all — the flag is duplicate-work suppression
+-      only, never relied upon as an authorization boundary; real authorization stays with RLS +
+-      the RPCs' own `has_branch_permission` checks + the target table's lack of any
+-      client-writable policy.
+-- [x] Re-confirmed Supabase MCP unavailable this session; all of the above is repo-verified
+-      (migration files, existing test files, engine trace documentation), not live-verified.
+-
+-## Phase 0 — Fresh verification (PITCH, gate)
+-
+-- [ ] 101 + Matcher import chain manually re-run on current build.
+-- [ ] 801 relocation (Zone 6's existing UI) manually re-run on current build.
+-- [ ] Matcher-line → RepairOrder-line join returns real rows for a materialized session.
+-
+-## Phase 1 — Receiving-location schema
+-
+-- [ ] Migration: `warehouse_locations.purpose` + `CHECK` + partial unique index.
+-- [ ] Location edit UI: purpose toggle.
+-- [ ] DB test: at most one `purpose='receiving'` location per branch.
+-- [ ] Admin designates the demo branch's receiving location.
+-
+-## Phase 2 — Projection + uncertainty marker + full integrity
+-
+-- [ ] Migration: `repair_orders_id_org_branch_unique` composite-unique constraint.
+-- [ ] Migration: `repair_order_lines_id_repair_order_id_unique` composite-unique constraint.
+-- [ ] Migration: `repair_order_line_locations` table — no `container_id`; all three composite
+-      FKs (location, repair_order, repair_order_line-pair).
+-- [ ] Migration: `repair_order_location_attribution_uncertain` table (§1.6 of the plan) — no
+-      client-writable RLS policy, same posture as the projection table itself.
+-- [ ] RLS: SELECT-only client policy on the projection table; no client INSERT/UPDATE/DELETE
+-      policy on either new table.
+-- [ ] pgTAP: RLS isolation (org A cannot read org B's rows) on both new tables.
+-- [ ] pgTAP: three composite-FK rejection tests — wrong-branch location; wrong-org/branch
+-      RepairOrder; `repair_order_line_id` that does not belong to the claimed `repair_order_id`.
+-- [ ] pgTAP: UPSERT/decrement arithmetic never produces a negative `quantity`.
+-
+-## Phase 3 — Safety-net trigger (corrected timing, no-inference, no-self-heal, both-ends, on_hand-only)
+-
+-- [ ] Migration: `repair_order_location_attribution_sync()` implementing, in order: the
+-      `balance_field <> 'on_hand'` guard; the zero-clears-marker rule (unconditional, runs even
+-      under the bypass flag); the `ambra.repair_order_attribution_authoritative` bypass check;
+-      the fast no-op path (no attribution rows _and_ no existing marker); the direction check;
+-      the movement-line destination lookup; the **marker-gate** (if a marker already exists for
+-      the bucket, re-affirm/extend it and return — never re-attempt the math); pre-effect
+-      reconstruction from `NEW.balance_after`/`NEW.quantity`/`NEW.direction` (only reached when
+-      no marker exists); the unambiguous test with `FOR UPDATE` row locking; on ambiguity, mark
+-      **both** source and destination (if transfer-shaped) UNKNOWN.
+-- [ ] Migration: trigger attached `AFTER INSERT ON inventory_stock_ledger_entries FOR EACH ROW`.
+-- [ ] pgTAP: `balance_field <> 'on_hand'` (synthetic `'reserved'` row) → no-op, both tables
+-      untouched.
+-- [ ] pgTAP: single unambiguous attribution source, transfer-shaped → propagates correctly
+-      (source decrements, destination credited with the same `repair_order_line_id`).
+-- [ ] pgTAP: single unambiguous attribution source, pure-decrease-shaped (simulated issue/402) →
+-      propagates correctly (decrements, credits nowhere).
+-- [ ] pgTAP: **timing-correctness proof** — a decrease ledger row whose `balance_after` is
+-      already post-effect (e.g. 5→3 for a decrease of 2) is still correctly recognized as
+-      unambiguous against the _reconstructed_ pre-effect value (5), not the raw post-effect
+-      value (3).
+-- [ ] pgTAP: **ambiguous transfer marks BOTH ends** — two attribution sources at `(A, X)`, a
+-      plain `801` `A → B` → projection unchanged at both `A` and `B`, uncertainty markers
+-      inserted for **both** `(A, X)` and `(B, X)`, including when `B` had zero prior rows.
+-- [ ] pgTAP: **ambiguous pure decrease marks only the source** — same commingled setup, a `402`
+-      (no destination) → only `(A, X)` marked, no second bucket created.
+-- [ ] pgTAP: one attribution source + coexisting unattributed stock → projection unchanged,
+-      source (and destination, if transfer-shaped) marked.
+-- [ ] pgTAP: no attribution and no existing marker at the location/variant → no-op, fast path.
+-- [ ] pgTAP: `SET LOCAL ambra.repair_order_attribution_authoritative='on'` suppresses the
+-      trigger's propagation logic even in the otherwise-unambiguous case, while the zero-clears
+-      rule still runs regardless (proves the two are independent).
+-- [ ] pgTAP: **no-self-heal proof (the load-bearing test for this whole correction)** — mark
+-      `(A, X)` UNKNOWN via an ambiguous movement, then post a second, independently
+-      unambiguous-looking movement at `(A, X)` → assert the trigger does **not** propagate it and
+-      does **not** clear the marker; it only re-affirms the marker.
+-- [ ] pgTAP: **zero clears the marker** — with `(A, X)` marked UNKNOWN, a movement bringing
+-      on-hand there to exactly zero clears it; this is the _only_ automatic clearing path tested.
+-- [ ] pgTAP: **a single RepairOrder-aware write does not clear a bucket-wide marker** — with
+-      `(A, X)` marked UNKNOWN (RO1+RO2+ordinary commingled), a `putaway_repair_order_stock` call
+-      moving only RO1's known line out of `A` leaves the `(A, X)` marker in place.
+-- [ ] pgTAP (structural, per §6.1 of the plan): the `FOR UPDATE` statement is present in the
+-      trigger body; sequential replay (call pattern within one script) produces correct,
+-      non-duplicated results.
+-- [ ] **Explicitly deferred, not written this phase**: a live-DB, two-separate-session
+-      integration test proving genuine concurrent-decrease safety — tracked as a required test,
+-      not claimed as already proven by pgTAP alone.
+-
+-## Phase 4 — `receive_repair_order_stock` RPC + wiring
+-
+-- [ ] Migration: function — actor check, `has_branch_permission` check, receiving-location
+-      resolution (re-checked every call), Matcher-line resolution per the three-outcome contract
+-      (null → unattributed; unique → attributed; zero or multiple → hard error), org/branch/
+-      variant cross-validation, `SET LOCAL` authoritative flag, calls
+-      `inventory_create_and_finalize('101', ...)`, writes the seed `repair_order_line_locations`
+-      row (`FOR UPDATE`-locked) + `repair_order_line_movement_links` (`relation_type='receipt'`)
+-      directly.
+-- [ ] `use-movement-submission.ts`: resolve `source_line_id` per imported line; route through the
+-      new RPC when applicable.
+-- [ ] Non-RepairOrder 101 receiving still works unmodified (regression check).
+-- [ ] pgTAP: `source_line_id = NULL` → unattributed receipt succeeds.
+-- [ ] pgTAP: `source_line_id` resolves to exactly one → attributed receipt succeeds.
+-- [ ] pgTAP: `source_line_id` resolves to zero rows → hard error, whole call rejected.
+-- [ ] pgTAP: `source_line_id` resolves to more than one candidate → hard error (proven reachable
+-      given `workshop_source_document_lines.wdd_matcher_line_id` has no UNIQUE constraint).
+-- [ ] pgTAP: atomicity — forced mid-function failure rolls back the movement too.
+-- [ ] Service test: Matcher-line → repair_order_line_id resolution against fixture data.
+-
+-## Phase 5 — Putaway read model + suggestion UI (now includes attribution status)
+-
+-- [ ] Service: `repair-order-storage.service.ts`, query joins against
+-      `repair_order_location_attribution_uncertain` and excludes/separates UNKNOWN rows.
+-- [ ] Server action wrapping the service, returning `attributionStatus: 'known' | 'unknown'` per
+-      suggestion.
+-- [ ] UI: suggestion list (`[View contents]` / `[Put here]`, multi-select for batch putaway),
+-      empty state, manual-location fallback, UNKNOWN suggestions never mixed into confident
+-      `[Put here]`-eligible results. No capacity/percentage display.
+-- [ ] pgTAP/service test: an UNKNOWN-marked `(location,variant)` is omitted or clearly separated
+-      from the confident suggestion list.
+-- [ ] Entry-point placement confirmed against Zone 3's actual RepairOrder Workshop UI.
+-
+-## Phase 6 — `putaway_repair_order_stock` RPC + wiring
+-
+-- [ ] Migration: function — actor check, permission check, per-line org/branch/variant
+-      cross-validation, per-line quantity-available validation against the live projection,
+-      forces `source_location_id` to the receiving location, `SET LOCAL` authoritative flag,
+-      calls `inventory_create_and_finalize('801', p_lines)` with all lines in one document,
+-      then writes `repair_order_line_locations` directly itself, `FOR UPDATE`-locked.
+-- [ ] `[Put here]` supports selecting multiple suggested lines → one destination → one call.
+-- [ ] Manual-location fallback wired the same way.
+-- [ ] pgTAP: full worked example —
+-  - [ ] `receive_repair_order_stock` +5 → RECEIVING (explicit write)
+-  - [ ] `putaway_repair_order_stock` 5 RECEIVING → A (explicit write)
+-  - [ ] plain, unmodified `801` 2 A → B (safety-net trigger propagates — provably unambiguous,
+-        using the corrected pre-effect reconstruction, not a lucky pre-fix coincidence)
+-  - [ ] simulated issue 1 from A (direct ledger insert; safety-net trigger propagates, same test)
+-  - [ ] assert RECEIVING=0, A=2, B=2
+-- [ ] pgTAP: atomicity — forced failure rolls back the `801` too.
+-- [ ] pgTAP: batch — one call, three lines, one destination, exactly one movement document.
+-- [ ] pgTAP: partial-quantity putaway leaves the correct remainder at the receiving location.
+-
+-## Phase 7 — Presentation UAT
+-
+-- [ ] Full live run: Matcher → receipt → RECEIVING visible → putaway opened → suggestions
+-      correct → destination chosen (batch) → 801 posted → final location + history verified.
+-- [ ] At least one relocation performed via Zone 6's existing, unmodified UI, on deliberately
+-      unambiguous data — confirming the corrected trigger propagates correctly for that real,
+-      unmodified entry point.
+-- [ ] Presenter briefed: commingled/ambiguous stock is a known, disclosed limitation (marked
+-      UNKNOWN, never guessed) — not something to claim works universally if asked.
+-- [ ] Second RepairOrder / second delivery run for consolidation-first ordering with real data,
+-      choreographed to avoid commingled attribution at any touched location.
+-
+-## Known-good regression checks (run before declaring any phase done)
+-
+-- [ ] Plain (non-RepairOrder) 101 receiving is unaffected.
+-- [ ] Plain (non-RepairOrder) 801/402/etc. movements are unaffected in output and not measurably
+-      slower (on_hand guard + fast-path).
+-- [ ] A synthetic non-`on_hand` ledger effect (reserved/allocated/blocked/consignment) never
+-      touches `repair_order_line_locations` or the uncertainty table.
+-- [ ] Zone 6's own relocation flow is unaffected code-wise (only a new trigger added to a shared
+-      table's INSERT event; sign-off required specifically for this).
+-- [ ] Zone 3's RepairOrder Workshop UI and Matcher approval flow are unaffected; the two new
+-      composite-unique constraints on Zone 3's own tables are additive and change no existing
+-      behavior or RLS policy.
++## Implementation pass — this session
++
++- [x] Re-verified repo state (git log/status) matches the state this plan was written against;
++      no new commits landed since the planning pass. Committed the planning docs as an explicit
++      pre-implementation baseline (`0d8babb5`).
++- [x] Confirmed Supabase MCP unavailable (`ToolSearch` for supabase-prefixed deferred tools:
++      zero results).
++- [x] Confirmed no local Supabase/Postgres alternative: `supabase` CLI was not installed prior to
++      this session's own `pnpm install` (which brought it in only as a devDependency, unlinked to
++      any project); Docker Desktop is present but its daemon is not running
++      (`docker ps` → "cannot connect ... daemon is not running").
++- [x] **New finding this pass, reported rather than assumed past**: `inventory_stock_ledger_entries`
++      and `inventory_movement_audit_log` have **zero** tracked migrations anywhere in the repo
++      (`grep -rl inventory_stock_ledger_entries` across both migration directories: no matches) —
++      this is a deeper instance of the same schema-drift category already accepted as tech debt
++      for the RPC bodies, but extends to the table itself. The Phase 3 trigger migration's exact
++      column references are therefore based on convergent design-doc + prior-session
++      LIVE-VERIFIED evidence, not this session's own live confirmation — flagged prominently in
++      that migration's own header, not silently assumed. `warehouse_locations`, `inventory_balances`,
++      `inventory_movement_lines`, `inventory_movement_headers`, `repair_orders`,
++      `repair_order_lines`, `repair_order_line_movement_links` ARE fully tracked and were read
++      directly this session with high confidence.
++- [x] Deliberately did **not** fall back to `pnpm run supabase:db:push:target` (a real, working
++      CLI path found in `package.json`) to apply migrations directly to the live target project —
++      the working rules specify MCP for all mutations; substituting a raw CLI push against a
++      shared live project the moment the specified approval path is unavailable was judged unsafe
++      and out of scope for this session's own authority to decide unilaterally.
++
++### Phase 0 — Fresh verification (PITCH, gate)
++
++- [ ] 101 + Matcher import chain manually re-run on current build — **BLOCKED ON MCP** (no live
++      environment reachable this session).
++- [ ] 801 relocation (Zone 6's existing UI) manually re-run on current build — **BLOCKED ON MCP**.
++- [ ] Matcher-line → RepairOrder-line join returns real rows for a materialized session —
++      **BLOCKED ON MCP**.
++
++### Phase 1 — Receiving-location schema
++
++- [x] Migration written: `20260912090000_zone5_receiving_location_purpose.sql` —
++      `warehouse_locations.purpose` + CHECK + partial unique index +
++      `resolve_branch_receiving_location()` helper. **PITCH — BLOCKED ON MCP** (not applied).
++- [ ] Location edit UI: purpose toggle — **NOT BUILT this pass** (time-boxed out in favor of the
++      DB layer + the receiving/putaway RPCs and read model, which are the parts every other phase
++      depends on; a location can still be designated via direct update against the resolver's own
++      invariants once applied — see remaining work in the final report).
++- [x] pgTAP test written: `093_zone5_receiving_location_purpose_test.sql` (8 assertions) —
++      **PITCH — BLOCKED ON MCP** (not executed).
++- [ ] Admin designates the demo branch's receiving location — **BLOCKED ON MCP** (depends on the
++      migration being applied first).
++
++### Phase 2 — Projection + uncertainty marker + full integrity
++
++- [x] Migration written: `20260912091000_zone5_repair_order_spatial_attribution_schema.sql` —
++      both composite-unique constraints, `repair_order_line_locations` (all 3 composite FKs, no
++      `container_id`), `repair_order_location_attribution_uncertain`, RLS (SELECT-only). **PITCH
++      — BLOCKED ON MCP**.
++- [x] pgTAP test written: `094_zone5_repair_order_spatial_schema_test.sql` (9 assertions,
++      including all 3 composite-FK rejections and RLS isolation) — **PITCH — BLOCKED ON MCP**.
++
++### Phase 3 — Safety-net trigger (corrected timing, no-inference, no-self-heal, both-ends, on_hand-only)
++
++- [x] Migration written: `20260912092000_zone5_attribution_sync_trigger.sql` — implements the
++      full corrected algorithm (on_hand guard, zero-clears rule unconditional, bypass check,
++      fast no-op path, marker-gate-before-math, pre-effect reconstruction from the ledger row's
++      own columns, both-ends marking). **PITCH — BLOCKED ON MCP**, with the additional disclosed
++      column-verification gap noted above.
++- [x] pgTAP test written: `095_zone5_attribution_sync_trigger_test.sql` (14 assertions covering
++      all 13 required scenarios plus the structural concurrency proof) — **PITCH — BLOCKED ON
++      MCP**.
++- [ ] Live-DB two-session concurrency integration test — **explicitly deferred**, per the plan's
++      own §6.1, not written this pass either (would itself require live/local DB access to run).
++
++### Phase 4 — `receive_repair_order_stock` RPC + wiring
++
++- [x] Migration written: `20260912093000_zone5_receive_repair_order_stock_rpc.sql` — actor check,
++      permission check, receiving-location resolution, Matcher-line resolution with the
++      null/unique/zero/ambiguous four-way contract, org/branch/variant cross-validation, calls
++      `inventory_create_and_finalize('101', ...)`, writes seed attribution +
++      `repair_order_line_movement_links` directly. **PITCH — BLOCKED ON MCP**.
++- [x] `use-movement-submission.ts` wiring — **NOT DONE this pass** (see remaining work; the
++      existing manual-movement-editor path is unchanged and unaffected, which was independently
++      confirmed by the full `tsc`/`eslint`/`vitest` passes below showing zero regressions).
++- [x] pgTAP test written: `096_zone5_receive_repair_order_stock_test.sql` (7 assertions; 2 marked
++      as fixture-TODO for ambiguous-resolution and atomicity, requiring live fixtures) — **PITCH
++      — BLOCKED ON MCP**.
++
++### Phase 5 — Putaway read model + suggestion UI
++
++- [x] Service written: `src/server/services/repair-order-storage.service.ts` — plain
++      client-side read + aggregation against `repair_order_line_locations` +
++      `repair_order_location_attribution_uncertain` (deliberately not a new DB function/view).
++      **PITCH DONE** for the logic itself: unit-tested against a mocked Supabase client (5/5
++      tests passing, see report), typechecked, linted clean.
++- [x] Server action written: `getRepairOrderStorageSuggestionsAction` in
++      `repair-order-receiving.ts`. **PITCH DONE** (typechecked/linted); **BLOCKED ON MCP** for
++      any live call (depends on Phase 2's tables existing).
++- [x] UI written: `repair-order-putaway-panel.tsx` — suggestion list (KNOWN only, `[Put here]`),
++      a visibly separate UNKNOWN warning banner (never merged into confident suggestions), a
++      manual-location fallback, multi-line selection with per-line quantity for batch putaway.
++      No capacity/percentage display anywhere. **PITCH DONE** for typecheck/lint; **PITCH UAT
++      OUTSTANDING** (no browser/Playwright run — no live backend to render real data against).
++- [ ] Wiring this panel into Zone 3's actual RepairOrder Workshop detail page — **NOT DONE this
++      pass**; the panel is self-contained and takes its data as props specifically so it can be
++      dropped into that page without this session needing to reverse-engineer its full existing
++      structure under time pressure (see remaining work).
++
++### Phase 6 — `putaway_repair_order_stock` RPC + wiring
++
++- [x] Migration written: `20260912094000_zone5_putaway_repair_order_stock_rpc.sql` — batch
++      contract (one call, N lines, one destination, one document), destination validation,
++      per-line quantity-available validation against the live projection, writes attribution
++      directly, does **not** clear a pre-existing bucket-wide marker, writes **no**
++      `repair_order_line_movement_links` row. **PITCH — BLOCKED ON MCP**.
++- [x] `[Put here]` / manual-location wiring — done in the Phase 5 UI component (same file).
++- [x] pgTAP test written: `097_zone5_putaway_repair_order_stock_test.sql` (6 assertions: batch,
++      partial quantity, destination credit, over-request rejection, marker non-clearing, no
++      `relation_type='putaway'` row ever exists). **PITCH — BLOCKED ON MCP**.
++
++### Phase 7 — Presentation UAT
++
++- [ ] Full live run — **BLOCKED ON MCP** (no live environment).
++- [ ] Zone 6 rehearsal (plain `801` on deliberately unambiguous data) — **BLOCKED ON MCP**.
++- [ ] Playwright / responsive QA at 390×844, 768×1024, 1440×900 — **NOT RUN this pass**; honestly
++      reported as an environmental limitation (no live Supabase project reachable to render real
++      warehouse/RepairOrder data, and this session's Playwright config depends on the app's own
++      dev server + backend) rather than fabricated. See final report.
++- [ ] Manual pitch scenario data preparation — **NOT DONE this pass** (depends on Phase 0/1
++      being live-applicable first).
++
++## Known-good regression checks (run this pass)
++
++- [x] Full-repo `tsc --noEmit`: **clean** (0 errors) after fixing a real narrowing issue this
++      pass surfaced (see final report) in three newly-added files — not a pre-existing bug, and
++      not left unresolved.
++- [x] `eslint` on every new file: **clean** (0 errors, 0 warnings after removing one unused
++      import).
++- [x] `vitest` targeted run (new service test): **5/5 passing**.
++- [x] `vitest` full-suite regression run: see final report for the completed result (was still
++      running in the background at the time this tracker was last edited — do not treat an
++      earlier partial view of this file as the final word; the report has the actual number).
++- [ ] Zone 3 pgTAP regression (`090`-`092`) — **BLOCKED ON MCP** (not executed, but not modified
++      either — this pass touched zero existing Zone 3 files).
++- [ ] Zone 6 regression — **BLOCKED ON MCP**; zero Zone 6 files modified this pass.
