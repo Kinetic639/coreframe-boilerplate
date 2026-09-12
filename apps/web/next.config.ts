@@ -15,7 +15,14 @@ export const nextConfig = {
   allowedDevOrigins: [
     "localhost:3001",
     "127.0.0.1:3001",
+    "localhost:3000",
+    "127.0.0.1:3000",
     "3000-firebase-coreframe-1761721056153.cluster-55m56i2mgjalcvl276gecmncu6.cloudworkstations.dev",
+    // Cloud Workstations (Firebase Studio) preview hostname. Port-prefixed
+    // subdomain, so it must match the port the dev server actually runs on
+    // (3001, per apps/web's own "dev" script) -- a stale "3000-..." entry
+    // here silently does nothing for a server running on 3001.
+    "3001-firebase-coreframe-1761721056153.cluster-55m56i2mgjalcvl276gecmncu6.cloudworkstations.dev",
   ],
   images: {
     remotePatterns: [
@@ -129,7 +136,21 @@ export const nextConfig = {
   },
   experimental: {
     serverActions: {
-      allowedOrigins: ["localhost:3001", "127.0.0.1:3001"],
+      // Next.js's Server Actions CSRF check compares the request's Origin
+      // header against this list (see next/dist/server/app-render/action-
+      // handler.js -- isCsrfOriginAllowed). Without the Cloud Workstations
+      // hostname here, EVERY Server Action submitted through that preview
+      // URL (sign-in included) is rejected with "Invalid Server Actions
+      // request.", regardless of allowedDevOrigins above (that array only
+      // governs asset/cross-origin dev warnings, not this check).
+      allowedOrigins: [
+        "localhost:3000",
+        "127.0.0.1:3000",
+        "3000-firebase-coreframe-1761721056153.cluster-55m56i2mgjalcvl276gecmncu6.cloudworkstations.dev",
+        "localhost:3001",
+        "127.0.0.1:3001",
+        "3001-firebase-coreframe-1761721056153.cluster-55m56i2mgjalcvl276gecmncu6.cloudworkstations.dev",
+      ],
       bodySizeLimit: "50mb",
     },
     // Memory optimizations for Codespaces

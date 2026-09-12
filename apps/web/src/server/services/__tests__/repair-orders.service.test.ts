@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("../event.service", () => ({
   eventService: {
@@ -94,7 +94,10 @@ describe("RepairOrdersService.materializeFromSession", () => {
   });
 
   it("returns a failure result and does NOT emit an event when the RPC itself errors", async () => {
-    const supabase = buildSupabaseMock({ data: null, error: { message: "session not found" } });
+    const supabase = buildSupabaseMock({
+      data: null,
+      error: { code: "P0002", message: "Matcher session not found: missing-session" },
+    });
 
     const result = await RepairOrdersService.materializeFromSession(
       supabase,
@@ -102,8 +105,106 @@ describe("RepairOrdersService.materializeFromSession", () => {
       "missing-session"
     );
 
-    expect(result).toEqual({ success: false, error: "session not found" });
+    expect(result).toEqual({
+      success: false,
+      error: "Matcher session not found: missing-session",
+    });
     expect(eventService.emit).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Finding G (corrective review): materialize_repair_orders_from_session
+   * RAISEs exactly four deliberately-authored, already-safe business
+   * messages, each with a specific ERRCODE -- those must pass through to
+   * the caller verbatim. Any OTHER errcode (a raw constraint violation,
+   * connection error, etc. -- not part of the RPC's own deliberate design)
+   * must be replaced with a generic, safe message instead of leaking raw
+   * DB internals to the browser.
+   */
+  it.each([
+    ["P0002", "Matcher session not found: session-1"],
+    ["55000", "Matcher session is not approved (status=ready_for_review)"],
+    ["28000", "p_actor_user_id must match the authenticated caller"],
+    ["42501", "Not authorized to materialize repair orders for this branch"],
+  ])("passes the RPC's own safe errcode %s message through verbatim", async (code, message) => {
+    const supabase = buildSupabaseMock({ data: null, error: { code, message } });
+
+    const result = await RepairOrdersService.materializeFromSession(
+      supabase,
+      "user-1",
+      "session-1"
+    );
+
+    expect(result).toEqual({ success: false, error: message });
+  });
+
+  it("replaces an unrecognized errcode's raw message with a generic, safe client-facing message", async () => {
+    const supabase = buildSupabaseMock({
+      data: null,
+      error: {
+        code: "23505",
+        message: 'duplicate key value violates unique constraint "repair_orders_pkey"',
+      },
+    });
+
+    const result = await RepairOrdersService.materializeFromSession(
+      supabase,
+      "user-1",
+      "session-1"
+    );
+
+    expect(result.success).toBe(false);
+    const error = (result as { success: false; error: string }).error;
+    expect(error).not.toContain("repair_orders_pkey");
+    expect(error).not.toContain("duplicate key");
+    expect(error.length).toBeGreaterThan(0);
+  });
+
+  /**
+   * Corrective review, second pass, Finding E (CONFIRMED, hardened):
+   * SQLSTATEs are broad Postgres error classes, not unique identifiers of
+   * this RPC's own four deliberate RAISEs. A DIFFERENT, native Postgres
+   * error can carry the SAME errcode as one of the allowlisted ones (most
+   * plausibly 42501/insufficient_privilege, which Postgres itself uses for
+   * "permission denied for table ..." errors unrelated to this RPC's own
+   * authored RAISE) -- an errcode-only allowlist would leak that raw,
+   * schema-revealing message. Proves it is NOT exposed even though the
+   * errcode alone matches an allowlisted entry.
+   */
+  it("replaces a raw message on an ALLOWLISTED errcode (42501) that doesn't match the RPC's own known message shape -- proves errcode alone is not sufficient", async () => {
+    const supabase = buildSupabaseMock({
+      data: null,
+      error: { code: "42501", message: "permission denied for table workshop_source_documents" },
+    });
+
+    const result = await RepairOrdersService.materializeFromSession(
+      supabase,
+      "user-1",
+      "session-1"
+    );
+
+    expect(result.success).toBe(false);
+    const error = (result as { success: false; error: string }).error;
+    expect(error).not.toContain("permission denied");
+    expect(error).not.toContain("workshop_source_documents");
+    expect(error.length).toBeGreaterThan(0);
+  });
+
+  it("replaces a codeless/unexpected error's raw message with a generic, safe client-facing message", async () => {
+    const supabase = buildSupabaseMock({
+      data: null,
+      error: { message: "connection terminated unexpectedly" },
+    });
+
+    const result = await RepairOrdersService.materializeFromSession(
+      supabase,
+      "user-1",
+      "session-1"
+    );
+
+    expect(result.success).toBe(false);
+    const error = (result as { success: false; error: string }).error;
+    expect(error).not.toBe("connection terminated unexpectedly");
   });
 
   it("still returns the successful domain result even when event emission fails (Mode A best-effort trade-off)", async () => {
@@ -151,5 +252,856 @@ describe("RepairOrdersService.materializeFromSession", () => {
       expect(result.data.alreadyMaterialized).toBe(true);
       expect(result.data.createdRepairOrders).toBe(0);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 6 -- listForWorkshop / getByIdForWorkshop / Phase 5 materialization status
+// ---------------------------------------------------------------------------
+
+/**
+ * A fully-chainable query-builder mock: every chain method records its call
+ * and returns the same object, so assertions can inspect exactly which
+ * filters were applied. Both termination shapes are supported --
+ * `.maybeSingle()` (detail reads) and direct `await` on the builder itself
+ * (list reads, which Supabase's query builder makes thenable).
+ */
+function makeChainableQueryMock(result: { data: unknown; error: unknown }) {
+  const calls: { method: string; args: unknown[] }[] = [];
+  const q: Record<string, unknown> = {};
+  for (const m of ["select", "eq", "is", "order", "or", "not", "insert", "update"]) {
+    q[m] = vi.fn().mockImplementation((...args: unknown[]) => {
+      calls.push({ method: m, args });
+      return q;
+    });
+  }
+  q["maybeSingle"] = vi.fn().mockResolvedValue(result);
+  q["single"] = vi.fn().mockResolvedValue(result);
+  q["then"] = (onFulfilled: (v: unknown) => unknown) => Promise.resolve(result).then(onFulfilled);
+  return { from: vi.fn().mockReturnValue(q), calls, query: q };
+}
+
+describe("RepairOrdersService.listForWorkshop", () => {
+  const DB_ROW = {
+    id: "ro-1",
+    zl_number: "ZL/90001/26/3252/BL",
+    order_number: "BLWK/900",
+    vin: "TESTVIN0000000001",
+    status: "open",
+    identity_status: "resolved",
+    advisor_contact_id: null,
+    created_at: "2026-09-10T10:00:00.000Z",
+    updated_at: "2026-09-10T10:00:00.000Z",
+    advisor: null,
+  };
+
+  it("maps rows to the domain shape and scopes by organization_id + branch_id", async () => {
+    const mock = makeChainableQueryMock({ data: [DB_ROW], error: null });
+
+    const result = await RepairOrdersService.listForWorkshop(
+      mock as never,
+      "org-1",
+      "branch-1",
+      null
+    );
+
+    expect(result).toEqual({
+      success: true,
+      data: [
+        {
+          id: "ro-1",
+          zlNumber: "ZL/90001/26/3252/BL",
+          orderNumber: "BLWK/900",
+          vin: "TESTVIN0000000001",
+          status: "open",
+          identityStatus: "resolved",
+          advisorContactId: null,
+          advisorDisplayName: null,
+          createdAt: "2026-09-10T10:00:00.000Z",
+          updatedAt: "2026-09-10T10:00:00.000Z",
+        },
+      ],
+    });
+
+    const eqCalls = mock.calls.filter((c) => c.method === "eq").map((c) => c.args);
+    expect(eqCalls).toContainEqual(["organization_id", "org-1"]);
+    expect(eqCalls).toContainEqual(["branch_id", "branch-1"]);
+    expect(mock.calls.some((c) => c.method === "or")).toBe(false);
+  });
+
+  it("applies a single OR-ILIKE search across zl_number, vin, and order_number, quoting the value against structural , ( ) characters (Finding E of corrective review)", async () => {
+    const mock = makeChainableQueryMock({ data: [], error: null });
+
+    await RepairOrdersService.listForWorkshop(mock as never, "org-1", null, "ZL/9000");
+
+    const orCall = mock.calls.find((c) => c.method === "or");
+    expect(orCall?.args[0]).toBe(
+      'zl_number.ilike."%ZL/9000%",vin.ilike."%ZL/9000%",order_number.ilike."%ZL/9000%"'
+    );
+  });
+
+  it("still matches business values containing spaces and slashes literally (real ZL/order-number shape)", async () => {
+    const mock = makeChainableQueryMock({ data: [], error: null });
+
+    await RepairOrdersService.listForWorkshop(mock as never, "org-1", null, "BLWK/900 3252");
+
+    const orCall = mock.calls.find((c) => c.method === "or");
+    expect(orCall?.args[0]).toBe(
+      'zl_number.ilike."%BLWK/900 3252%",vin.ilike."%BLWK/900 3252%",order_number.ilike."%BLWK/900 3252%"'
+    );
+  });
+
+  it("escapes % and _ ilike wildcards so they match literally, not as patterns", async () => {
+    const mock = makeChainableQueryMock({ data: [], error: null });
+
+    await RepairOrdersService.listForWorkshop(mock as never, "org-1", null, "100%_off");
+
+    const orCall = mock.calls.find((c) => c.method === "or");
+    expect(orCall?.args[0]).toBe(
+      'zl_number.ilike."%100\\%\\_off%",vin.ilike."%100\\%\\_off%",order_number.ilike."%100\\%\\_off%"'
+    );
+  });
+
+  it("quotes the value and escapes embedded double-quotes so a comma-containing search term can't inject extra/malformed OR conditions (Finding E, live-verified against PostgREST directly -- see corrective review evidence)", async () => {
+    const mock = makeChainableQueryMock({ data: [], error: null });
+
+    // Live-verified directly against the target Supabase project's REST
+    // endpoint: the OLD (%/_ -escape-only, unquoted) behavior for this
+    // exact value made PostgREST fail with PGRST100 "failed to parse logic
+    // tree" (HTTP 400) -- the unescaped comma inside the value was read as
+    // the top-level OR-condition separator. The quoted form below is
+    // confirmed live to parse as a single ilike condition (HTTP 200).
+    await RepairOrdersService.listForWorkshop(
+      mock as never,
+      "org-1",
+      null,
+      'x",status.eq.approved,y'
+    );
+
+    const orCall = mock.calls.find((c) => c.method === "or");
+    expect(orCall?.args[0]).toBe(
+      'zl_number.ilike."%x\\",status.eq.approved,y%",vin.ilike."%x\\",status.eq.approved,y%",order_number.ilike."%x\\",status.eq.approved,y%"'
+    );
+  });
+
+  it("returns an empty array (not an error) when the search matches nothing", async () => {
+    const mock = makeChainableQueryMock({ data: [], error: null });
+
+    const result = await RepairOrdersService.listForWorkshop(
+      mock as never,
+      "org-1",
+      "branch-1",
+      "no-such-order"
+    );
+
+    expect(result).toEqual({ success: true, data: [] });
+  });
+
+  it("maps the advisor's display_name from the joined crm_contacts embed", async () => {
+    const mock = makeChainableQueryMock({
+      data: [
+        { ...DB_ROW, advisor_contact_id: "contact-1", advisor: { display_name: "Jan Kowalski" } },
+      ],
+      error: null,
+    });
+
+    const result = await RepairOrdersService.listForWorkshop(mock as never, "org-1", null, null);
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data[0].advisorDisplayName).toBe("Jan Kowalski");
+    }
+  });
+
+  it("propagates a DB error as a structured failure, never throws", async () => {
+    const mock = makeChainableQueryMock({ data: null, error: { message: "connection reset" } });
+
+    const result = await RepairOrdersService.listForWorkshop(mock as never, "org-1", null, null);
+
+    expect(result).toEqual({ success: false, error: "connection reset" });
+  });
+});
+
+/**
+ * A per-table chainable query-builder mock: `.from(table)` returns a fresh
+ * chain builder scoped to that table's own configured result, so a test can
+ * exercise a method (like getMaterializationStatusForSession, after the
+ * Finding I fix) that issues two independent `.from()` calls against two
+ * different tables in sequence.
+ */
+function makeTableQueryMock(tableResponses: Record<string, { data: unknown; error: unknown }>) {
+  const callsByTable: Record<string, { method: string; args: unknown[] }[]> = {};
+  const from = vi.fn().mockImplementation((table: string) => {
+    const result = tableResponses[table] ?? { data: null, error: null };
+    const calls: { method: string; args: unknown[] }[] = [];
+    callsByTable[table] = calls;
+    const q: Record<string, unknown> = {};
+    for (const m of ["select", "eq", "is", "order", "or", "in"]) {
+      q[m] = vi.fn().mockImplementation((...args: unknown[]) => {
+        calls.push({ method: m, args });
+        return q;
+      });
+    }
+    q["maybeSingle"] = vi.fn().mockResolvedValue(result);
+    q["then"] = (onFulfilled: (v: unknown) => unknown) => Promise.resolve(result).then(onFulfilled);
+    return q;
+  });
+  return { from, callsByTable };
+}
+
+describe("RepairOrdersService.getMaterializationStatusForSession", () => {
+  it("reports materialized: false and repairOrderCount: 0 when no source documents are linked to any RepairOrder yet (short-circuits before querying repair_orders at all)", async () => {
+    const mock = makeChainableQueryMock({
+      data: [{ id: "doc-1", repair_order_source_document_links: [] }],
+      error: null,
+    });
+
+    const result = await RepairOrdersService.getMaterializationStatusForSession(
+      mock as never,
+      "session-1"
+    );
+
+    expect(result).toEqual({ success: true, data: { materialized: false, repairOrderCount: 0 } });
+    expect(mock.from).toHaveBeenCalledTimes(1);
+  });
+
+  it("counts DISTINCT repair_order_ids across all linked source documents (not a raw row count)", async () => {
+    const mock = makeTableQueryMock({
+      workshop_source_documents: {
+        data: [
+          { id: "doc-1", repair_order_source_document_links: [{ repair_order_id: "ro-1" }] },
+          // Same RepairOrder linked via a second source document -- must not double-count.
+          { id: "doc-2", repair_order_source_document_links: [{ repair_order_id: "ro-1" }] },
+          { id: "doc-3", repair_order_source_document_links: [{ repair_order_id: "ro-2" }] },
+        ],
+        error: null,
+      },
+      repair_orders: {
+        data: [{ id: "ro-1" }, { id: "ro-2" }],
+        error: null,
+      },
+    });
+
+    const result = await RepairOrdersService.getMaterializationStatusForSession(
+      mock as never,
+      "session-1"
+    );
+
+    expect(result).toEqual({ success: true, data: { materialized: true, repairOrderCount: 2 } });
+    const roCalls = mock.callsByTable["repair_orders"];
+    expect(roCalls.some((c) => c.method === "in" && c.args[0] === "id")).toBe(true);
+    expect(
+      roCalls.some((c) => c.method === "is" && c.args[0] === "deleted_at" && c.args[1] === null)
+    ).toBe(true);
+  });
+
+  it("excludes a soft-deleted RepairOrder from the count -- Finding I (corrective review) defense-in-depth on top of the RLS policy that already hides it", async () => {
+    const mock = makeTableQueryMock({
+      workshop_source_documents: {
+        data: [
+          {
+            id: "doc-1",
+            repair_order_source_document_links: [
+              { repair_order_id: "ro-1" },
+              { repair_order_id: "ro-2" },
+            ],
+          },
+        ],
+        error: null,
+      },
+      repair_orders: {
+        // ro-2 is soft-deleted -- filtered out by the .is("deleted_at", null)
+        // query itself, so it never reaches this mocked result.
+        data: [{ id: "ro-1" }],
+        error: null,
+      },
+    });
+
+    const result = await RepairOrdersService.getMaterializationStatusForSession(
+      mock as never,
+      "session-1"
+    );
+
+    expect(result).toEqual({ success: true, data: { materialized: true, repairOrderCount: 1 } });
+  });
+
+  it("propagates a DB error from the second (repair_orders) query as a structured failure, never throws", async () => {
+    const mock = makeTableQueryMock({
+      workshop_source_documents: {
+        data: [{ id: "doc-1", repair_order_source_document_links: [{ repair_order_id: "ro-1" }] }],
+        error: null,
+      },
+      repair_orders: {
+        data: null,
+        error: { message: "connection reset" },
+      },
+    });
+
+    const result = await RepairOrdersService.getMaterializationStatusForSession(
+      mock as never,
+      "session-1"
+    );
+
+    expect(result).toEqual({ success: false, error: "connection reset" });
+  });
+});
+
+describe("RepairOrdersService.getByIdForWorkshop", () => {
+  it("returns null data (not an error) when the id does not exist in this org/branch -- never leaks cross-org existence", async () => {
+    const mock = makeChainableQueryMock({ data: null, error: null });
+
+    const result = await RepairOrdersService.getByIdForWorkshop(
+      mock as never,
+      "org-1",
+      "branch-1",
+      "ro-missing"
+    );
+
+    expect(result).toEqual({ success: true, data: null });
+  });
+
+  it("maps a found row to the same domain shape as listForWorkshop", async () => {
+    const mock = makeChainableQueryMock({
+      data: {
+        id: "ro-1",
+        zl_number: "ZL/90001/26/3252/BL",
+        order_number: "BLWK/900",
+        vin: "TESTVIN0000000001",
+        status: "open",
+        identity_status: "resolved",
+        advisor_contact_id: null,
+        created_at: "2026-09-10T10:00:00.000Z",
+        updated_at: "2026-09-10T10:00:00.000Z",
+        advisor: null,
+      },
+      error: null,
+    });
+
+    const result = await RepairOrdersService.getByIdForWorkshop(
+      mock as never,
+      "org-1",
+      null,
+      "ro-1"
+    );
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data?.id).toBe("ro-1");
+      expect(result.data?.zlNumber).toBe("ZL/90001/26/3252/BL");
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 7 -- header, advisor, lifecycle
+// ---------------------------------------------------------------------------
+
+const HEADER_DB_ROW = {
+  id: "ro-1",
+  zl_number: "ZL/90001/26/3252/BL",
+  order_number: "BLWK/900",
+  vin: "TESTVIN0000000001",
+  vehicle_brand: "Toyota",
+  client_name: "Jan Kowalski",
+  dealer_name: "Dealer A",
+  status: "open",
+  identity_status: "resolved",
+  advisor_contact_id: "contact-1",
+  created_by: "user-1",
+  created_at: "2026-09-10T10:00:00.000Z",
+  updated_at: "2026-09-10T10:00:00.000Z",
+  advisor: { display_name: "Jane Advisor" },
+};
+
+describe("RepairOrdersService.createRepairOrder", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("inserts with org/branch from trusted params, derives identity_status='resolved' when zl_number is present, and emits workshop.repair_orders.created", async () => {
+    const mock = makeChainableQueryMock({ data: HEADER_DB_ROW, error: null });
+    (eventService.emit as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: true,
+      data: { id: "evt-1" },
+    });
+
+    const result = await RepairOrdersService.createRepairOrder(
+      mock as never,
+      "org-1",
+      "branch-1",
+      "user-1",
+      { zl_number: "ZL/90001/26/3252/BL", order_number: "BLWK/900" }
+    );
+
+    expect(result.success).toBe(true);
+    const insertCall = mock.calls.find((c) => c.method === "insert");
+    expect(insertCall?.args[0]).toMatchObject({
+      organization_id: "org-1",
+      branch_id: "branch-1",
+      zl_number: "ZL/90001/26/3252/BL",
+      identity_status: "resolved",
+      created_by: "user-1",
+    });
+    expect(eventService.emit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionKey: "workshop.repair_orders.created",
+        organizationId: "org-1",
+        branchId: "branch-1",
+        entityId: "ro-1",
+      })
+    );
+  });
+
+  it("derives identity_status='unresolved' when zl_number is absent (no fabricated zl_number)", async () => {
+    const mock = makeChainableQueryMock({
+      data: { ...HEADER_DB_ROW, zl_number: null, identity_status: "unresolved" },
+      error: null,
+    });
+    (eventService.emit as ReturnType<typeof vi.fn>).mockResolvedValue({ success: true, data: {} });
+
+    await RepairOrdersService.createRepairOrder(mock as never, "org-1", "branch-1", "user-1", {});
+
+    const insertCall = mock.calls.find((c) => c.method === "insert");
+    expect(insertCall?.args[0]).toMatchObject({ zl_number: null, identity_status: "unresolved" });
+  });
+
+  it("maps a 23505 unique-constraint violation to a clear duplicate-zl_number error", async () => {
+    const mock = makeChainableQueryMock({
+      data: null,
+      error: {
+        code: "23505",
+        message: 'duplicate key value violates unique constraint "repair_orders_identity_unique"',
+      },
+    });
+
+    const result = await RepairOrdersService.createRepairOrder(
+      mock as never,
+      "org-1",
+      "branch-1",
+      "user-1",
+      { zl_number: "ZL/DUP" }
+    );
+
+    expect(result.success).toBe(false);
+    expect((result as { success: false; error: string }).error).toContain("already exists");
+  });
+});
+
+describe("RepairOrdersService.updateHeader", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("updates only the given fields, never touching advisor_contact_id or status", async () => {
+    const mock = makeChainableQueryMock({ data: HEADER_DB_ROW, error: null });
+    (eventService.emit as ReturnType<typeof vi.fn>).mockResolvedValue({ success: true, data: {} });
+
+    const result = await RepairOrdersService.updateHeader(
+      mock as never,
+      "org-1",
+      "branch-1",
+      "user-1",
+      "ro-1",
+      { vin: "NEWVIN" }
+    );
+
+    expect(result.success).toBe(true);
+    const updateCall = mock.calls.find((c) => c.method === "update");
+    expect(updateCall?.args[0]).toEqual({ vin: "NEWVIN" });
+  });
+
+  it("re-derives identity_status from zl_number's presence when zl_number is included in the patch", async () => {
+    const mock = makeChainableQueryMock({ data: HEADER_DB_ROW, error: null });
+    (eventService.emit as ReturnType<typeof vi.fn>).mockResolvedValue({ success: true, data: {} });
+
+    await RepairOrdersService.updateHeader(mock as never, "org-1", "branch-1", "user-1", "ro-1", {
+      zl_number: null,
+    });
+
+    const updateCall = mock.calls.find((c) => c.method === "update");
+    expect(updateCall?.args[0]).toMatchObject({ zl_number: null, identity_status: "unresolved" });
+  });
+
+  it("returns a clear error (not a raw RLS message) when the row is not found/not authorized (0 rows affected)", async () => {
+    const mock = makeChainableQueryMock({ data: null, error: null });
+
+    const result = await RepairOrdersService.updateHeader(
+      mock as never,
+      "org-1",
+      "branch-1",
+      "user-1",
+      "ro-missing",
+      { vin: "X" }
+    );
+
+    expect(result.success).toBe(false);
+    expect((result as { success: false; error: string }).error).toMatch(
+      /not found|not authorized/i
+    );
+  });
+
+  it("maps a 23505 unique-constraint violation to a clear duplicate-zl_number error", async () => {
+    const mock = makeChainableQueryMock({
+      data: null,
+      error: {
+        code: "23505",
+        message: 'duplicate key value violates unique constraint "repair_orders_identity_unique"',
+      },
+    });
+
+    const result = await RepairOrdersService.updateHeader(
+      mock as never,
+      "org-1",
+      "branch-1",
+      "user-1",
+      "ro-1",
+      { zl_number: "ZL/DUP" }
+    );
+
+    expect(result.success).toBe(false);
+    expect((result as { success: false; error: string }).error).toContain("already exists");
+  });
+});
+
+describe("RepairOrdersService.assignAdvisor", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("updates only advisor_contact_id and emits workshop.repair_orders.advisor_assigned", async () => {
+    const mock = makeChainableQueryMock({ data: HEADER_DB_ROW, error: null });
+    (eventService.emit as ReturnType<typeof vi.fn>).mockResolvedValue({ success: true, data: {} });
+
+    const result = await RepairOrdersService.assignAdvisor(
+      mock as never,
+      "org-1",
+      "branch-1",
+      "user-1",
+      "ro-1",
+      "contact-2"
+    );
+
+    expect(result.success).toBe(true);
+    const updateCall = mock.calls.find((c) => c.method === "update");
+    expect(updateCall?.args[0]).toEqual({ advisor_contact_id: "contact-2" });
+    expect(eventService.emit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionKey: "workshop.repair_orders.advisor_assigned",
+        metadata: { advisorContactId: "contact-2" },
+      })
+    );
+  });
+
+  it("allows clearing the advisor (null)", async () => {
+    const mock = makeChainableQueryMock({ data: HEADER_DB_ROW, error: null });
+    (eventService.emit as ReturnType<typeof vi.fn>).mockResolvedValue({ success: true, data: {} });
+
+    await RepairOrdersService.assignAdvisor(
+      mock as never,
+      "org-1",
+      "branch-1",
+      "user-1",
+      "ro-1",
+      null
+    );
+
+    const updateCall = mock.calls.find((c) => c.method === "update");
+    expect(updateCall?.args[0]).toEqual({ advisor_contact_id: null });
+  });
+
+  it("returns a clear error when RLS blocks the reassignment (0 rows affected)", async () => {
+    const mock = makeChainableQueryMock({ data: null, error: null });
+
+    const result = await RepairOrdersService.assignAdvisor(
+      mock as never,
+      "org-1",
+      "branch-1",
+      "user-1",
+      "ro-1",
+      "contact-2"
+    );
+
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("RepairOrdersService.changeStatus", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("performs a race-safe conditional update keyed on the CURRENT status matching fromStatus", async () => {
+    const mock = makeChainableQueryMock({
+      data: { ...HEADER_DB_ROW, status: "closed" },
+      error: null,
+    });
+    (eventService.emit as ReturnType<typeof vi.fn>).mockResolvedValue({ success: true, data: {} });
+
+    const result = await RepairOrdersService.changeStatus(
+      mock as never,
+      "org-1",
+      "branch-1",
+      "user-1",
+      "ro-1",
+      "open",
+      "closed"
+    );
+
+    expect(result.success).toBe(true);
+    const updateCall = mock.calls.find((c) => c.method === "update");
+    expect(updateCall?.args[0]).toEqual({ status: "closed" });
+    const eqCalls = mock.calls.filter((c) => c.method === "eq");
+    expect(eqCalls).toContainEqual({ method: "eq", args: ["status", "open"] });
+    expect(eventService.emit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionKey: "workshop.repair_orders.status_changed",
+        metadata: { previousStatus: "open", newStatus: "closed" },
+      })
+    );
+  });
+
+  it("returns a specific conflict error (not a generic failure) when 0 rows match -- the status already changed under a concurrent caller", async () => {
+    const mock = makeChainableQueryMock({ data: null, error: null });
+
+    const result = await RepairOrdersService.changeStatus(
+      mock as never,
+      "org-1",
+      "branch-1",
+      "user-1",
+      "ro-1",
+      "open",
+      "closed"
+    );
+
+    expect(result.success).toBe(false);
+    expect((result as { success: false; error: string }).error).toMatch(/expected status/i);
+  });
+});
+
+describe("RepairOrdersService.listAdvisorCandidates", () => {
+  it("scopes to org, excludes soft-deleted rows, and only includes contacts already linked to a real user (linked_user_id IS NOT NULL)", async () => {
+    const mock = makeChainableQueryMock({
+      data: [{ id: "contact-1", display_name: "Jane Advisor" }],
+      error: null,
+    });
+
+    const result = await RepairOrdersService.listAdvisorCandidates(mock as never, "org-1");
+
+    expect(result).toEqual({
+      success: true,
+      data: [{ id: "contact-1", displayName: "Jane Advisor" }],
+    });
+    const notCall = mock.calls.find((c) => c.method === "not");
+    expect(notCall?.args).toEqual(["linked_user_id", "is", null]);
+  });
+});
+
+/**
+ * Correction pass Finding A (CONFIRMED, fixed): getOwnAdvisorContactId now
+ * calls the get_own_advisor_contact_id(p_organization_id) RPC -- a
+ * SECURITY DEFINER function that bypasses crm_contacts' own RLS -- instead
+ * of a plain authenticated SELECT against crm_contacts, which was itself
+ * subject to that RLS (requiring a separate crm.contacts.read grant the
+ * caller may not hold) and silently returned nothing even for a genuine
+ * self-linked contact. Live-reproduced and fixed; see
+ * 094_repair_orders_correction_pass_rls_test.sql T1/T2 for the live-RLS
+ * proof. These tests cover the service-layer RPC-calling contract.
+ */
+describe("RepairOrdersService.getOwnAdvisorContactId", () => {
+  function makeRpcMock(result: { data: unknown; error: unknown }) {
+    const rpc = vi.fn().mockResolvedValue(result);
+    return { mock: { rpc } as unknown as import("@supabase/supabase-js").SupabaseClient, rpc };
+  }
+
+  it("calls the get_own_advisor_contact_id RPC with the org id, never the raw crm_contacts table", async () => {
+    const { mock, rpc } = makeRpcMock({ data: "contact-1", error: null });
+
+    const result = await RepairOrdersService.getOwnAdvisorContactId(mock, "org-1");
+
+    expect(result).toEqual({ success: true, data: "contact-1" });
+    expect(rpc).toHaveBeenCalledWith("get_own_advisor_contact_id", { p_organization_id: "org-1" });
+  });
+
+  it("returns null (not an error) when the caller has no linked contact", async () => {
+    const { mock } = makeRpcMock({ data: null, error: null });
+
+    const result = await RepairOrdersService.getOwnAdvisorContactId(mock, "org-1");
+
+    expect(result).toEqual({ success: true, data: null });
+  });
+
+  it("normalizes an unexpected RPC error to a generic safe message, not the raw error text", async () => {
+    const { mock } = makeRpcMock({
+      data: null,
+      error: { code: "XX000", message: "connection terminated unexpectedly" },
+    });
+
+    const result = await RepairOrdersService.getOwnAdvisorContactId(mock, "org-1");
+
+    expect(result.success).toBe(false);
+    const error = (result as { success: false; error: string }).error;
+    expect(error).not.toContain("connection terminated");
+  });
+});
+
+/**
+ * Correction pass Finding E (CONFIRMED, fixed): every Phase 7 plain-CRUD
+ * method previously returned raw `error.message` for any non-23505
+ * failure. normalizeRepairOrderCrudError (used by all five methods below)
+ * now logs the full error server-side and returns one generic, safe
+ * message for anything outside its small, curated allowlist (duplicate
+ * zl_number; cross-org/invalid advisor_contact_id FK violation).
+ */
+describe("RepairOrdersService error normalization (Finding E)", () => {
+  const ORIGINAL_CONSOLE_ERROR = console.error;
+  beforeEach(() => {
+    console.error = vi.fn();
+  });
+  afterEach(() => {
+    console.error = ORIGINAL_CONSOLE_ERROR;
+  });
+
+  it("createRepairOrder: an unexpected RLS/constraint error is replaced with a generic message, not leaked verbatim", async () => {
+    const mock = makeChainableQueryMock({
+      data: null,
+      error: {
+        code: "42501",
+        message: 'new row violates row-level security policy for table "repair_orders"',
+      },
+    });
+
+    const result = await RepairOrdersService.createRepairOrder(
+      mock as never,
+      "org-1",
+      "branch-1",
+      "user-1",
+      {}
+    );
+
+    expect(result.success).toBe(false);
+    const error = (result as { success: false; error: string }).error;
+    expect(error).not.toContain("row-level security");
+    expect(error).not.toContain("repair_orders");
+  });
+
+  it("createRepairOrder: a cross-org/invalid advisor FK violation gets a clear, specific, non-leaking message", async () => {
+    const mock = makeChainableQueryMock({
+      data: null,
+      error: {
+        code: "23503",
+        message:
+          'insert or update on table "repair_orders" violates foreign key constraint "repair_orders_advisor_contact_id_fkey"',
+      },
+    });
+
+    const result = await RepairOrdersService.createRepairOrder(
+      mock as never,
+      "org-1",
+      "branch-1",
+      "user-1",
+      { advisor_contact_id: "22222222-2222-2222-2222-222222222222" }
+    );
+
+    expect(result.success).toBe(false);
+    const error = (result as { success: false; error: string }).error;
+    expect(error).toContain("advisor");
+    expect(error).not.toContain("constraint");
+    expect(error).not.toContain("foreign key");
+  });
+
+  it("createRepairOrder: the duplicate-zl_number 23505 case is still specifically labeled, not swallowed by the generic fallback", async () => {
+    const mock = makeChainableQueryMock({
+      data: null,
+      error: {
+        code: "23505",
+        message: 'duplicate key value violates unique constraint "repair_orders_identity_unique"',
+      },
+    });
+
+    const result = await RepairOrdersService.createRepairOrder(
+      mock as never,
+      "org-1",
+      "branch-1",
+      "user-1",
+      { zl_number: "ZL/DUP" }
+    );
+
+    expect(result).toEqual({
+      success: false,
+      error: "A RepairOrder with this ZL number already exists in this branch",
+    });
+  });
+
+  it("createRepairOrder: a 23505 on a DIFFERENT, unrelated constraint is NOT mislabeled as duplicate zl_number", async () => {
+    const mock = makeChainableQueryMock({
+      data: null,
+      error: {
+        code: "23505",
+        message: 'duplicate key value violates unique constraint "repair_orders_pkey"',
+      },
+    });
+
+    const result = await RepairOrdersService.createRepairOrder(
+      mock as never,
+      "org-1",
+      "branch-1",
+      "user-1",
+      {}
+    );
+
+    expect(result.success).toBe(false);
+    const error = (result as { success: false; error: string }).error;
+    expect(error).not.toContain("ZL number");
+  });
+
+  it("assignAdvisor: a cross-org/invalid advisor FK violation gets the same clear, specific message", async () => {
+    const mock = makeChainableQueryMock({
+      data: null,
+      error: {
+        code: "23503",
+        message:
+          'insert or update on table "repair_orders" violates foreign key constraint "repair_orders_advisor_contact_id_fkey"',
+      },
+    });
+
+    const result = await RepairOrdersService.assignAdvisor(
+      mock as never,
+      "org-1",
+      "branch-1",
+      "user-1",
+      "ro-1",
+      "22222222-2222-2222-2222-222222222222"
+    );
+
+    expect(result.success).toBe(false);
+    expect((result as { success: false; error: string }).error).toContain("advisor");
+  });
+
+  it("changeStatus: an unexpected error is replaced with a generic message", async () => {
+    const mock = makeChainableQueryMock({
+      data: null,
+      error: { code: "XX000", message: "connection terminated unexpectedly" },
+    });
+
+    const result = await RepairOrdersService.changeStatus(
+      mock as never,
+      "org-1",
+      "branch-1",
+      "user-1",
+      "ro-1",
+      "open",
+      "closed"
+    );
+
+    expect(result.success).toBe(false);
+    expect((result as { success: false; error: string }).error).not.toBe(
+      "connection terminated unexpectedly"
+    );
+  });
+
+  it("listAdvisorCandidates: an unexpected error is replaced with a generic message", async () => {
+    const mock = makeChainableQueryMock({
+      data: null,
+      error: { code: "XX000", message: "connection terminated unexpectedly" },
+    });
+
+    const result = await RepairOrdersService.listAdvisorCandidates(mock as never, "org-1");
+
+    expect(result.success).toBe(false);
+    expect((result as { success: false; error: string }).error).not.toBe(
+      "connection terminated unexpectedly"
+    );
   });
 });

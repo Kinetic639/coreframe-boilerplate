@@ -3065,6 +3065,77 @@
       },
       "errors": {
         "loadFailed": "Nie udało się załadować danych warsztatu"
+      },
+      "repairOrders": {
+        "title": "Zlecenia naprawy",
+        "subtitle": "Zlecenia naprawy z zatwierdzonych sesji Matchera oraz wprowadzone ręcznie.",
+        "openRepairOrder": "Otwórz zlecenie naprawy",
+        "search": {
+          "placeholder": "Szukaj po numerze ZL, VIN lub numerze zamówienia…",
+          "clear": "Wyczyść wyszukiwanie"
+        },
+        "columns": {
+          "zlNumber": "Numer ZL",
+          "orderNumber": "Numer zamówienia",
+          "vin": "VIN",
+          "status": "Status",
+          "advisor": "Doradca",
+          "created": "Utworzono"
+        },
+        "status": {
+          "open": "Otwarte",
+          "closed": "Zamknięte",
+          "archived": "Zarchiwizowane"
+        },
+        "identityStatus": {
+          "resolved": "Rozwiązane",
+          "unresolved": "Nierozwiązane"
+        },
+        "emptyState": {
+          "title": "Brak zleceń naprawy.",
+          "subtitle": "Zlecenia naprawy są tworzone automatycznie z zatwierdzonych sesji Matchera po ich zatwierdzeniu i zmaterializowaniu, albo możesz utworzyć je ręcznie.",
+          "noResultsTitle": "Brak pasujących zleceń naprawy",
+          "noResultsSubtitle": "Spróbuj innego numeru ZL, VIN lub numeru zamówienia."
+        },
+        "errors": {
+          "loadFailed": "Nie udało się załadować zleceń naprawy"
+        },
+        "detail": {
+          "back": "Powrót do Warsztatu",
+          "unresolvedTitle": "Nierozwiązane zlecenie naprawy",
+          "identityStatus": "Status identyfikacji",
+          "updated": "Ostatnia aktualizacja",
+          "futurePhasesNote": "Pozycje części, pochodzenie z dokumentów źródłowych i szczegóły magazynowe nie są jeszcze dostępne na tej stronie — pojawią się w kolejnej fazie.",
+          "vehicleBrand": "Marka pojazdu",
+          "clientName": "Nazwa klienta",
+          "dealerName": "Dealer",
+          "save": "Zapisz",
+          "cancel": "Anuluj",
+          "editHeader": "Edytuj",
+          "unassignedAdvisor": "Nieprzypisany",
+          "assignAdvisor": "Przypisz",
+          "closeOrder": "Zamknij zlecenie",
+          "reopenOrder": "Otwórz ponownie",
+          "archiveOrder": "Archiwizuj",
+          "archiveConfirmTitle": "Zarchiwizować to zlecenie naprawy?",
+          "archiveConfirmDescription": "Zarchiwizowane zlecenia naprawy są ostateczne i nie można ich ponownie otworzyć. Nie wpływa to na już przyjęte lub wydane części.",
+          "readOnlyNote": "Nie masz uprawnień do edycji tego zlecenia naprawy."
+        },
+        "newOrder": {
+          "cta": "Nowe zlecenie naprawy",
+          "title": "Nowe zlecenie naprawy",
+          "description": "Utwórz zlecenie naprawy ręcznie — bez importu z Matchera. Pozycje części dodaje się później.",
+          "zlNumberPlaceholder": "Pozostaw puste, jeśli jeszcze nieznany",
+          "zlNumberHint": "Opcjonalne. Bez numeru ZL zlecenie zaczyna się jako „Nierozwiązane” i może zostać rozwiązane później.",
+          "assignToSelf": "Przypisz to zlecenie do mnie",
+          "submit": "Utwórz zlecenie naprawy"
+        },
+        "toasts": {
+          "createSuccess": "Zlecenie naprawy utworzone",
+          "updateSuccess": "Zlecenie naprawy zaktualizowane",
+          "advisorAssignedSuccess": "Doradca zaktualizowany",
+          "statusChangedSuccess": "Status zaktualizowany"
+        }
       }
     },
     "helpDesk": {
@@ -3922,6 +3993,23 @@
           "matchingComplete": "Dopasowanie zakończone",
           "exportSuccess": "Pobrano CSV",
           "enhancedPdfSuccess": "Pobrano rozszerzony PDF"
+        },
+        "approval": {
+          "approveButton": "Zatwierdź",
+          "approving": "Zatwierdzanie…",
+          "approveSuccessToast": "Sesja zatwierdzona, zlecenia naprawy zmaterializowane",
+          "materializationFailedToast": "Sesja zatwierdzona, ale materializacja zleceń naprawy nie powiodła się",
+          "retrySuccessToast": "Ponowiono materializację pomyślnie",
+          "approvedAndMaterialized": "Zatwierdzono",
+          "approvedMaterializationFailed": "Zatwierdzono — Materializacja nie powiodła się",
+          "checkingStatus": "Sprawdzanie statusu materializacji…",
+          "repairOrdersCount": "{count, plural, =0 {Brak zleceń naprawy} one {Utworzono # zlecenie naprawy} few {Utworzono # zlecenia naprawy} other {Utworzono # zleceń naprawy}}",
+          "retryMaterialization": "Ponów materializację",
+          "retrying": "Ponawianie…",
+          "goToWorkshop": "Przejdź do Warsztatu",
+          "approvedStatusUnavailable": "Zatwierdzono — Status niedostępny",
+          "statusUnavailableDescription": "Nie udało się sprawdzić, czy zlecenia naprawy zostały utworzone. Niekoniecznie oznacza to problem — odśwież, aby sprawdzić ponownie.",
+          "refreshStatus": "Odśwież status"
         },
         "extractionReview": {
           "title": "Podgląd ekstrakcji",

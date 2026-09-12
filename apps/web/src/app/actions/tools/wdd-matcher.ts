@@ -6,6 +6,8 @@ import { checkPermission } from "@/lib/utils/permissions";
 import {
   PERMISSION_WDD_MATCHER_READ,
   PERMISSION_WDD_MATCHER_UPLOAD,
+  PERMISSION_WDD_MATCHER_APPROVE,
+  WORKSHOP_REPAIR_ORDERS_READ,
 } from "@repo/contracts/permissions";
 import {
   WddMatcherService,
@@ -17,7 +19,7 @@ import {
   type PdfBlockData,
   type MatchSummary,
 } from "@/server/services/wdd-matcher.service";
-import { exportCsvSchema } from "@/lib/validations/wdd-matcher";
+import { exportCsvSchema, approveSessionSchema } from "@/lib/validations/wdd-matcher";
 import type {
   ParseResultV4,
   ParsedBlockV4,
@@ -25,6 +27,11 @@ import type {
 } from "@/lib/tools/svwms-wdd-matcher/parser_v4";
 import type { BlockMatchType } from "@/lib/validations/wdd-matcher";
 import { runWddEnrichment, toMatchSummary } from "@/lib/tools/svwms-wdd-matcher/matcher";
+import { eventService } from "@/server/services/event.service";
+import {
+  RepairOrdersService,
+  type MaterializationResult,
+} from "@/server/services/repair-orders.service";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -1013,5 +1020,288 @@ export async function getEnhancedPdfDataAction(
     return await WddMatcherService.getEnhancedPdfData(supabase, sessionId, orgId);
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Unexpected error" };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Approval + materialization (Zone 3 Repair Orders, Phase 4 / Phase 5)
+// ---------------------------------------------------------------------------
+
+/**
+ * Combined result of the "Approve" button's happy-path flow: approval
+ * always either succeeds or fails outright (Phase 4); materialization is a
+ * distinct, non-blocking step layered on top (Phase 5) -- if it fails, the
+ * approval itself is NOT rolled back (already committed in its own
+ * statement) and `materializationError` carries a safe, user-facing message
+ * while `materialization` stays null, so the UI can render the
+ * "Approved / Materialization failed [Retry]" state described by the
+ * accepted product decision.
+ */
+export interface ApproveAndMaterializeResult {
+  session: WddMatcherSession;
+  materialization: MaterializationResult | null;
+  materializationError: string | null;
+}
+
+/**
+ * Phase 4 -- pure approval transition (ready_for_review -> approved).
+ *
+ * Authorization is enforced here, server-side, independent of whether the
+ * approve control is even rendered client-side: PERMISSION_WDD_MATCHER_APPROVE
+ * is checked before any DB call, and the state-transition guard itself lives
+ * in WddMatcherService.approveSession's own UPDATE ... WHERE clause (atomic,
+ * race-safe -- see that method's docstring), not in this action.
+ *
+ * Exported standalone (not only reachable through
+ * approveAndMaterializeSessionAction) so the pure approval behavior stays
+ * independently testable and usable, per the Phase 4 acceptance criteria.
+ */
+export async function approveSessionAction(
+  rawInput: unknown
+): Promise<ActionResult<WddMatcherSession>> {
+  try {
+    const { supabase, user, context } = await getAuthedContext();
+    if (!user) return { success: false, error: "Unauthenticated" };
+    const orgId = context?.app.activeOrgId;
+    if (!orgId) return { success: false, error: "No active organisation" };
+    const branchId = context?.app.activeBranchId ?? null;
+    if (!checkPermission(context.user.permissionSnapshot, PERMISSION_WDD_MATCHER_APPROVE))
+      return { success: false, error: "Unauthorized" };
+
+    const parsed = approveSessionSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const result = await WddMatcherService.approveSession(
+      supabase,
+      parsed.data.sessionId,
+      orgId,
+      branchId,
+      user.id
+    );
+    if (!result.success) return result;
+
+    const emitResult = await eventService.emit({
+      actionKey: "workshop.matcher_session.approved",
+      actorType: "user",
+      actorUserId: user.id,
+      organizationId: orgId,
+      branchId,
+      entityType: "wdd_matcher_session",
+      entityId: parsed.data.sessionId,
+      metadata: {
+        previousStatus: "ready_for_review",
+        newStatus: "approved",
+        branchId,
+      },
+      eventTier: "baseline",
+    });
+    if (!emitResult.success) {
+      console.error(
+        "[approveSessionAction] Failed to emit workshop.matcher_session.approved:",
+        (emitResult as { success: false; error: string }).error
+      );
+    }
+
+    return result;
+  } catch {
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
+/**
+ * Phase 5 -- the actual "Approve" button behavior: approval, then (if it
+ * succeeded) an immediate materialization attempt, orchestrated at the
+ * application layer as two distinct calls -- NOT merged into one DB
+ * transaction, per the accepted architecture. A materialization failure
+ * here does not undo the approval and is reported as
+ * `materializationError`, not as an action-level failure (the action
+ * itself "succeeds" once approval commits; materialization's own outcome
+ * is carried inside the success payload).
+ */
+export async function approveAndMaterializeSessionAction(
+  rawInput: unknown
+): Promise<ActionResult<ApproveAndMaterializeResult>> {
+  try {
+    const { supabase, user } = await getAuthedContext();
+    if (!user) return { success: false, error: "Unauthenticated" };
+
+    const approveResult = await approveSessionAction(rawInput);
+    if (!approveResult.success) {
+      // Cast needed: apps/web's tsconfig strictNullChecks setup does not
+      // narrow ActionResult<T> across a differently-typed ActionResult<U>
+      // return from `if (!x.success)` alone (known repo-wide quirk).
+      return { success: false, error: (approveResult as { success: false; error: string }).error };
+    }
+
+    const session = approveResult.data;
+    const materializeResult = await RepairOrdersService.materializeFromSession(
+      supabase,
+      user.id,
+      session.id
+    );
+
+    if (!materializeResult.success) {
+      const errorMessage = (materializeResult as { success: false; error: string }).error;
+
+      const emitResult = await eventService.emit({
+        actionKey: "workshop.repair_orders.materialization_failed",
+        actorType: "user",
+        actorUserId: user.id,
+        // Corrective review Finding D (second pass): audit scope must
+        // describe the entity/action that actually occurred, not merely
+        // where the caller happened to be browsing. `session` (the just-
+        // approved row, already in memory -- no extra DB read needed) is
+        // the target-entity-authoritative source, not the caller's active
+        // context, which the RPC-based approval flow no longer even
+        // guarantees still equals the session's own org/branch by the time
+        // this runs (see WddMatcherService.approveSession's own
+        // organization_id/branch_id defense-in-depth check).
+        organizationId: session.organization_id,
+        branchId: session.branch_id,
+        entityType: "wdd_matcher_session",
+        entityId: session.id,
+        metadata: {
+          errorClass: "materialization_rpc_error",
+          errorMessage,
+          attempt: "initial",
+        },
+        eventTier: "baseline",
+      });
+      if (!emitResult.success) {
+        console.error(
+          "[approveAndMaterializeSessionAction] Failed to emit workshop.repair_orders.materialization_failed:",
+          (emitResult as { success: false; error: string }).error
+        );
+      }
+
+      return {
+        success: true,
+        data: { session, materialization: null, materializationError: errorMessage },
+      };
+    }
+
+    return {
+      success: true,
+      data: { session, materialization: materializeResult.data, materializationError: null },
+    };
+  } catch {
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
+/**
+ * Phase 5 -- "Retry Materialization". Only valid once a session is already
+ * `approved` (does not re-approve, does not accept a ready_for_review
+ * session). Calls the same idempotent Phase 3 RPC as the initial attempt --
+ * a retry against an already-materialized session is a safe, harmless
+ * no-op (`alreadyMaterialized: true`, every created* count 0).
+ */
+export async function retryMaterializationAction(
+  sessionId: string
+): Promise<ActionResult<MaterializationResult>> {
+  try {
+    const { supabase, user, context } = await getAuthedContext();
+    if (!user) return { success: false, error: "Unauthenticated" };
+    const orgId = context?.app.activeOrgId;
+    if (!orgId) return { success: false, error: "No active organisation" };
+    const branchId = context?.app.activeBranchId ?? null;
+    if (!checkPermission(context.user.permissionSnapshot, PERMISSION_WDD_MATCHER_APPROVE))
+      return { success: false, error: "Unauthorized" };
+
+    const result = await RepairOrdersService.materializeFromSession(supabase, user.id, sessionId);
+
+    if (!result.success) {
+      const errorMessage = (result as { success: false; error: string }).error;
+      // Corrective review Finding D (second pass): unlike the initial-
+      // attempt path (which already has the approved session in memory),
+      // a retry only has `sessionId` -- the target session's own
+      // organization_id/branch_id is genuinely not already available here,
+      // so (only on this failure path, never on the success path) fetch it
+      // directly rather than trusting the caller's active context, which
+      // can differ from the session's real scope (branch switch, deep
+      // link, org-level user, or retrying an older approved session from a
+      // different branch). RLS-respecting read via the caller's own
+      // `supabase` client (same as every other read in this file) -- if it
+      // returns nothing (e.g. the caller genuinely lacks wdd_matcher.read),
+      // falls back to the caller's active-context scope rather than
+      // omitting org/branch entirely.
+      const { data: sessionScope } = await supabase
+        .from("wdd_matcher_sessions")
+        .select("organization_id, branch_id")
+        .eq("id", sessionId)
+        .maybeSingle();
+
+      const emitResult = await eventService.emit({
+        actionKey: "workshop.repair_orders.materialization_failed",
+        actorType: "user",
+        actorUserId: user.id,
+        organizationId: sessionScope?.organization_id ?? orgId,
+        branchId: sessionScope?.branch_id ?? branchId,
+        entityType: "wdd_matcher_session",
+        entityId: sessionId,
+        metadata: {
+          errorClass: "materialization_rpc_error",
+          errorMessage,
+          attempt: "retry",
+        },
+        eventTier: "baseline",
+      });
+      if (!emitResult.success) {
+        console.error(
+          "[retryMaterializationAction] Failed to emit workshop.repair_orders.materialization_failed:",
+          (emitResult as { success: false; error: string }).error
+        );
+      }
+    }
+
+    return result;
+  } catch {
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
+/**
+ * Phase 5 read-model action: has this (already-approved) session actually
+ * produced RepairOrders yet? Used on load/reload of an approved session so
+ * the UI can distinguish "materialized" from "needs retry" without
+ * re-running materialization just to find out.
+ *
+ * Corrective review Finding B (CONFIRMED BUG, fixed here): the underlying
+ * read (RepairOrdersService.getMaterializationStatusForSession) queries
+ * workshop_source_documents / repair_order_source_document_links, both
+ * FORCE-RLS-gated on workshop.repair_orders.read -- a DIFFERENT permission
+ * domain than wdd_matcher.read, which is all this action previously
+ * checked. A caller holding wdd_matcher.read but NOT
+ * workshop.repair_orders.read would have every row silently hidden by RLS
+ * (not an error), and the query would then compute repairOrderIds.size ===
+ * 0 -- indistinguishable from a genuine "not yet materialized" result. The
+ * UI would render "Materialization failed, please retry" for a session
+ * that actually succeeded, purely because the caller lacks a read
+ * permission on a different domain's tables. Live-verified this session
+ * that these two permission slugs are genuinely independent (no shared
+ * wildcard couples them structurally) -- a real "Matcher operator" role
+ * scoped only to wdd_matcher.* would hit this. Requiring both permissions
+ * explicitly (rather than a new RPC -- this doesn't expose any RepairOrder
+ * *content*, only a count, and the existing dual-permission-check pattern
+ * is already established throughout this codebase, e.g.
+ * QrAssignmentsService.listByBranch's qr.read + warehouse.locations.read
+ * compound check) is the smallest fix consistent with repository
+ * convention.
+ */
+export async function getMaterializationStatusAction(
+  sessionId: string
+): Promise<ActionResult<{ materialized: boolean; repairOrderCount: number }>> {
+  try {
+    const { supabase, user, context } = await getAuthedContext();
+    if (!user) return { success: false, error: "Unauthenticated" };
+    if (!context) return { success: false, error: "No active organisation" };
+    if (!checkPermission(context.user.permissionSnapshot, PERMISSION_WDD_MATCHER_READ))
+      return { success: false, error: "Unauthorized" };
+    if (!checkPermission(context.user.permissionSnapshot, WORKSHOP_REPAIR_ORDERS_READ))
+      return { success: false, error: "Unauthorized" };
+
+    return await RepairOrdersService.getMaterializationStatusForSession(supabase, sessionId);
+  } catch {
+    return { success: false, error: "Unexpected error" };
   }
 }

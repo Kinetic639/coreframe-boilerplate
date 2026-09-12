@@ -1,0 +1,421 @@
+diff --git a/apps/web/supabase-target/supabase/migrations/20260911192411_repair_orders_created_by_insert_spoof_fix.sql b/apps/web/supabase-target/supabase/migrations/20260911192411_repair_orders_created_by_insert_spoof_fix.sql
+new file mode 100644
+index 00000000..c1f07dbd
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260911192411_repair_orders_created_by_insert_spoof_fix.sql
+@@ -0,0 +1,60 @@
++-- Zone 3 Phase 7 final narrow verify-first pass -- Issue 1 (CONFIRMED,
++-- live-reproduced): repair_orders_enforce_invariants() (20260911183709) only
++-- froze created_by to OLD.created_by on UPDATE -- it left NEW.created_by
++-- exactly as the client supplied it on INSERT. repair_orders_insert's own
++-- RLS WITH CHECK checks permissions/advisor ownership but never checks
++-- created_by at all.
++--
++-- Live-reproduced before this fix: as authenticated manage_all (and, by the
++-- identical policy shape, manage_own would behave the same), a raw
++-- INSERT ... created_by = <a different real user's id> succeeded and
++-- persisted that OTHER user's id as created_by -- authorship spoofing at
++-- creation time, for an actor who was never that other user.
++--
++-- Compatibility verified before choosing this fix (per explicit instruction
++-- not to blindly force created_by = auth.uid()):
++--   - Manual creation (RepairOrdersService.createRepairOrder) already sets
++--     created_by from the authenticated actor's own resolved user id
++--     (never client input) -- auth.uid() equals that same value for the
++--     same request, so this fix changes nothing for that path.
++--   - materialize_repair_orders_from_session (SECURITY DEFINER) validates
++--     p_actor_user_id = auth.uid() as its very first statement, then
++--     INSERTs repair_orders with created_by = p_actor_user_id -- since
++--     auth.uid() reads the session's JWT claim (a GUC), not the invoking
++--     function's own SECURITY DEFINER/INVOKER attribute, auth.uid() still
++--     resolves correctly inside that RPC and is already guaranteed equal
++--     to p_actor_user_id by the time the INSERT runs. This fix changes
++--     nothing for that path either.
++--   - A genuinely trusted service-role/backend-only insertion path (no
++--     PostgREST session, no JWT -- auth.uid() itself returns NULL in that
++--     context) is explicitly preserved: such a caller's own explicitly
++--     supplied created_by (e.g. for a hypothetical future historical-data
++--     backfill tool) is kept as given, since it does not go through RLS at
++--     all and is already a fully-trusted context.
++--
++-- Fix: on INSERT specifically, NEW.created_by := COALESCE(auth.uid(),
++-- NEW.created_by) -- when there IS an authenticated session, the real
++-- actor's identity always wins over anything the client attempted to
++-- supply; when there is none (auth.uid() IS NULL, i.e. a trusted
++-- service-role path), the caller-supplied value is preserved unchanged.
++-- UPDATE behavior (freeze created_by/organization_id/branch_id to OLD) is
++-- unchanged from 20260911183709.
++create or replace function public.repair_orders_enforce_invariants()
++returns trigger
++language plpgsql
++set search_path = public, pg_temp
++as $$
++begin
++  new.identity_status := case when new.zl_number is not null then 'resolved' else 'unresolved' end;
++
++  if tg_op = 'INSERT' then
++    new.created_by := coalesce(auth.uid(), new.created_by);
++  elsif tg_op = 'UPDATE' then
++    new.created_by := old.created_by;
++    new.organization_id := old.organization_id;
++    new.branch_id := old.branch_id;
++  end if;
++
++  return new;
++end;
++$$;
+diff --git a/apps/web/supabase/tests/094_repair_orders_correction_pass_rls_test.sql b/apps/web/supabase/tests/094_repair_orders_correction_pass_rls_test.sql
+index c403405d..50ff5259 100644
+--- a/apps/web/supabase/tests/094_repair_orders_correction_pass_rls_test.sql
++++ b/apps/web/supabase/tests/094_repair_orders_correction_pass_rls_test.sql
+@@ -23,25 +23,44 @@
+ --     assignment is now rejected at the storage layer for EVERY caller,
+ --     manage_all included, not just narrowed for manage_own.
+ --
++-- Also covers the final narrow verify-first pass (2026-09-11, same day):
++--   Issue 1: repair_orders_enforce_invariants() (20260911192411) now also
++--     forces created_by := COALESCE(auth.uid(), created_by) on INSERT, not
++--     only freezing it to OLD.created_by on UPDATE -- a raw INSERT
++--     supplying a DIFFERENT real user's id as created_by previously
++--     persisted that spoofed authorship verbatim (repair_orders_insert's
++--     RLS never checked created_by at all).
++--   Issue 3: explicit regression coverage that organization_id/branch_id
++--     genuinely cannot be moved via a raw UPDATE (the trigger's freeze-to-
++--     OLD behavior for these two columns, added in 20260911183709, had
++--     only been spot-checked ad hoc during that pass, not committed as a
++--     regression test).
++--   (Issue 2, own-advisor-contact cardinality, and Issue 4, EXECUTE grants
++--   on get_own_advisor_contact_id, were both verified live during that same
++--   pass and found NOT to need a code/schema change -- see the Zone 3
++--   progress tracker's change log for the evidence. Nothing to regression-
++--   test for either, since neither involved a behavior change.)
++--
+ -- Runs as the genuinely-RLS-enforced `authenticated` role (not `postgres`)
+ -- with a real JWT claim, using the real, existing dedicated Zone 3 E2E test
+--- account and a synthetic second organization created and rolled back
+--- within this same transaction for the cross-org tests. Individual pgTAP
+--- assertion results are collected into a temp table and selected out as the
+--- final statement (the MCP SQL execution path used to run this only
+--- surfaces the last statement's result set).
++-- account (and a second real org member for the created_by-spoof tests) and
++-- a synthetic second organization created and rolled back within this same
++-- transaction for the cross-org tests. Individual pgTAP assertion results
++-- are collected into a temp table and selected out as the final statement
++-- (the MCP SQL execution path used to run this only surfaces the last
++-- statement's result set).
+ --
+ -- Executed live against supabase-target via Supabase MCP. Last run:
+--- 2026-09-11, 13/13 assertions passing.
++-- 2026-09-11, 17/17 assertions passing.
+ 
+ BEGIN;
+ 
+-SELECT plan(13);
++SELECT plan(17);
+ 
+ CREATE TEMP TABLE fx (
+-  org uuid, branch uuid, e2e_user uuid, other_user uuid,
++  org uuid, branch uuid, e2e_user uuid, other_user uuid, other_real_user uuid,
+   self_contact uuid, org_b uuid, branch_b uuid, contact_b uuid,
+-  ro1 uuid, ro2 uuid, ro3 uuid
++  ro1 uuid, ro2 uuid, ro3 uuid, ro4 uuid, ro5 uuid
+ );
+ GRANT SELECT ON fx TO authenticated;
+ INSERT INTO fx SELECT
+@@ -49,14 +68,20 @@ INSERT INTO fx SELECT
+   'e39b15da-0a8d-4056-b5a2-80eb1da868a6'::uuid,
+   'c4a24371-42db-4bb8-ab5e-379ebbf7d9c4'::uuid,
+   gen_random_uuid(),
++  -- A second REAL org member (not a synthetic random uuid) -- needed
++  -- because the Issue-1 INSERT-spoof tests must prove a genuine other
++  -- user's authorship cannot be persisted, which requires a real users.id
++  -- for repair_orders_created_by_fkey to accept in the first place.
++  '832858c3-0a9f-4f9f-a230-fc7e47855e78'::uuid,
+   gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
+-  gen_random_uuid(), gen_random_uuid(), gen_random_uuid();
++  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid();
+ 
+ CREATE TEMP TABLE test_log (seq serial, line text);
+ GRANT INSERT, SELECT ON test_log TO authenticated;
+ GRANT USAGE ON SEQUENCE test_log_seq_seq TO authenticated;
+ 
+--- Synthetic second org, purely for the Finding D cross-org tests.
++-- Synthetic second org, purely for the Finding D cross-org tests and the
++-- Issue-3 branch/org-immutability tests.
+ INSERT INTO organizations (id, name) SELECT org_b, '094-test-org-B' FROM fx;
+ INSERT INTO branches (id, organization_id, name, branch_number) SELECT branch_b, org_b, '094-test-branch-B', 997 FROM fx;
+ INSERT INTO crm_contacts (id, organization_id, linked_user_id, visibility_scope, display_name, created_by)
+@@ -93,6 +118,18 @@ INSERT INTO test_log(line) SELECT is(
+   'T2 (Finding A): get_own_advisor_contact_id is organization-scoped (wrong org -> NULL)'
+ );
+ 
++-- T3 (Issue 1, final pass): manage_own's raw INSERT attempt to spoof
++-- created_by as a DIFFERENT real user is overridden -- the persisted row
++-- always attributes authorship to the genuine actor (auth.uid()), never the
++-- caller-supplied value.
++INSERT INTO repair_orders (id, organization_id, branch_id, advisor_contact_id, order_number, status, created_by)
++SELECT ro4, org, branch, self_contact, '094-test-created-by-spoof-manage-own', 'open', other_real_user FROM fx;
++INSERT INTO test_log(line) SELECT is(
++  (SELECT created_by FROM repair_orders WHERE id = (SELECT ro4 FROM fx)),
++  (SELECT e2e_user FROM fx),
++  'T3 (Issue 1): manage_own cannot spoof created_by on INSERT -- the genuine actor is persisted regardless of the supplied value'
++);
++
+ -- Fixture row, self-assigned, for the Finding B/C tests below.
+ INSERT INTO repair_orders (id, organization_id, branch_id, advisor_contact_id, order_number, status)
+ SELECT ro1, org, branch, self_contact, '094-test-B-C', 'open' FROM fx;
+@@ -109,37 +146,37 @@ SELECT e2e_user, org, branch, slug, slug FROM fx, unnest(ARRAY['workshop.repair_
+ SET LOCAL ROLE authenticated;
+ SELECT set_config('request.jwt.claims', json_build_object('sub', e2e_user::text, 'role', 'authenticated')::text, true) FROM fx;
+ 
+--- T3 (Finding B): manage_all CAN archive.
++-- T4 (Finding B): manage_all CAN archive.
+ UPDATE repair_orders SET status = 'archived' WHERE id = (SELECT ro1 FROM fx);
+ INSERT INTO test_log(line) SELECT is(
+   (SELECT status FROM repair_orders WHERE id = (SELECT ro1 FROM fx)),
+   'archived',
+-  'T3 (Finding B): manage_all can archive an open RepairOrder'
++  'T4 (Finding B): manage_all can archive an open RepairOrder'
+ );
+ 
+--- T4 (Finding B): manage_all's raw UPDATE attempt to un-archive is now a
++-- T5 (Finding B): manage_all's raw UPDATE attempt to un-archive is now a
+ -- silent no-op -- archived is DB-terminal for manage_all too.
+ UPDATE repair_orders SET status = 'open' WHERE id = (SELECT ro1 FROM fx);
+ INSERT INTO test_log(line) SELECT is(
+   (SELECT status FROM repair_orders WHERE id = (SELECT ro1 FROM fx)),
+   'archived',
+-  'T4 (Finding B): manage_all cannot un-archive via raw UPDATE (status stays archived)'
++  'T5 (Finding B): manage_all cannot un-archive via raw UPDATE (status stays archived)'
+ );
+ 
+--- T5 (Finding B): manage_all's raw UPDATE attempt to edit an unrelated
++-- T6 (Finding B): manage_all's raw UPDATE attempt to edit an unrelated
+ -- field (vin) on an already-archived order is ALSO a silent no-op.
+ UPDATE repair_orders SET vin = 'SHOULD-NOT-APPLY-POST-FIX' WHERE id = (SELECT ro1 FROM fx);
+ INSERT INTO test_log(line) SELECT is(
+   (SELECT vin FROM repair_orders WHERE id = (SELECT ro1 FROM fx)),
+   NULL::text,
+-  'T5 (Finding B): manage_all cannot edit an unrelated field on an already-archived order (vin stays NULL)'
++  'T6 (Finding B): manage_all cannot edit an unrelated field on an already-archived order (vin stays NULL)'
+ );
+ 
+ -- Fresh open fixture row for Finding C (field-invariant) tests.
+ INSERT INTO repair_orders (id, organization_id, branch_id, order_number, status, created_by)
+ SELECT ro2, org, branch, '094-test-C', 'open', e2e_user FROM fx;
+ 
+--- T6 (Finding C): a direct attempt to set identity_status='resolved'
++-- T7 (Finding C): a direct attempt to set identity_status='resolved'
+ -- together with a fabricated zl_number is recomputed consistently (not
+ -- rejected -- the trigger recomputes from zl_number's presence, which here
+ -- happens to agree with what was attempted).
+@@ -147,39 +184,40 @@ UPDATE repair_orders SET identity_status = 'resolved', zl_number = '094-FAKE-ZL'
+ INSERT INTO test_log(line) SELECT is(
+   (SELECT identity_status FROM repair_orders WHERE id = (SELECT ro2 FROM fx)),
+   'resolved',
+-  'T6 (Finding C): identity_status is derived from zl_number (resolved when present)'
++  'T7 (Finding C): identity_status is derived from zl_number (resolved when present)'
+ );
+ 
+--- T7 (Finding C): a direct attempt to desync identity_status to
++-- T8 (Finding C): a direct attempt to desync identity_status to
+ -- 'unresolved' WHILE zl_number remains present is overridden back to
+ -- 'resolved' by the trigger -- the inconsistent state is unreachable.
+ UPDATE repair_orders SET identity_status = 'unresolved' WHERE id = (SELECT ro2 FROM fx);
+ INSERT INTO test_log(line) SELECT is(
+   (SELECT identity_status FROM repair_orders WHERE id = (SELECT ro2 FROM fx)),
+   'resolved',
+-  'T7 (Finding C): a direct attempt to desync identity_status from zl_number''s presence is overridden by the trigger'
++  'T8 (Finding C): a direct attempt to desync identity_status from zl_number''s presence is overridden by the trigger'
+ );
+ 
+--- T8 (Finding C): genuinely clearing zl_number correctly flips identity_
++-- T9 (Finding C): genuinely clearing zl_number correctly flips identity_
+ -- status to 'unresolved' -- the trigger does not simply freeze the value,
+ -- it recomputes it correctly for the legitimate case too.
+ UPDATE repair_orders SET zl_number = NULL WHERE id = (SELECT ro2 FROM fx);
+ INSERT INTO test_log(line) SELECT is(
+   (SELECT identity_status FROM repair_orders WHERE id = (SELECT ro2 FROM fx)),
+   'unresolved',
+-  'T8 (Finding C): clearing zl_number correctly re-derives identity_status to unresolved'
++  'T9 (Finding C): clearing zl_number correctly re-derives identity_status to unresolved'
+ );
+ 
+--- T9 (Finding C): a direct attempt to rewrite created_by is overridden back
+--- to the original value -- authorship/audit-trail integrity.
++-- T10 (Finding C): a direct attempt to rewrite created_by on UPDATE is
++-- overridden back to the original value -- authorship/audit-trail
++-- integrity.
+ UPDATE repair_orders SET created_by = (SELECT other_user FROM fx) WHERE id = (SELECT ro2 FROM fx);
+ INSERT INTO test_log(line) SELECT is(
+   (SELECT created_by FROM repair_orders WHERE id = (SELECT ro2 FROM fx)),
+   (SELECT e2e_user FROM fx),
+-  'T9 (Finding C): created_by is immutable after insert (a direct UPDATE attempt is overridden)'
++  'T10 (Finding C): created_by is immutable via UPDATE (a direct attempt is overridden)'
+ );
+ 
+--- T10 (Finding D): manage_all's raw UPDATE attempt to assign a DIFFERENT
++-- T11 (Finding D): manage_all's raw UPDATE attempt to assign a DIFFERENT
+ -- organization's crm_contacts row as advisor is rejected at the FK layer,
+ -- not merely by RLS -- proven via the specific expected SQLSTATE (23503),
+ -- not just "some error occurred".
+@@ -189,33 +227,67 @@ INSERT INTO test_log(line) SELECT throws_ok(
+   format('UPDATE repair_orders SET advisor_contact_id = %L::uuid WHERE id = %L::uuid', (SELECT contact_b FROM fx), (SELECT ro3 FROM fx)),
+   '23503',
+   'insert or update on table "repair_orders" violates foreign key constraint "repair_orders_advisor_contact_id_fkey"',
+-  'T10 (Finding D): manage_all cannot assign a cross-organization contact as advisor -- rejected by the composite FK (SQLSTATE 23503)'
++  'T11 (Finding D): manage_all cannot assign a cross-organization contact as advisor -- rejected by the composite FK (SQLSTATE 23503)'
+ );
+ 
+--- T11 (Finding D): the row's advisor_contact_id genuinely never changed --
++-- T12 (Finding D): the row's advisor_contact_id genuinely never changed --
+ -- the rejected UPDATE left no partial effect.
+ INSERT INTO test_log(line) SELECT is(
+   (SELECT advisor_contact_id FROM repair_orders WHERE id = (SELECT ro3 FROM fx)),
+   NULL::uuid,
+-  'T11 (Finding D): the row''s advisor_contact_id is genuinely unchanged after the blocked cross-org attempt'
++  'T12 (Finding D): the row''s advisor_contact_id is genuinely unchanged after the blocked cross-org attempt'
+ );
+ 
+--- T12 (Finding D): a SAME-org advisor assignment (the legitimate case)
++-- T13 (Finding D): a SAME-org advisor assignment (the legitimate case)
+ -- still works correctly -- the FK is not overly restrictive.
+ UPDATE repair_orders SET advisor_contact_id = (SELECT self_contact FROM fx) WHERE id = (SELECT ro3 FROM fx);
+ INSERT INTO test_log(line) SELECT is(
+   (SELECT advisor_contact_id FROM repair_orders WHERE id = (SELECT ro3 FROM fx)),
+   (SELECT self_contact FROM fx),
+-  'T12 (Finding D): a same-organization advisor assignment still succeeds'
++  'T13 (Finding D): a same-organization advisor assignment still succeeds'
+ );
+ 
+--- T13 (Finding D): clearing the advisor (NULL) is still always allowed --
++-- T14 (Finding D): clearing the advisor (NULL) is still always allowed --
+ -- MATCH SIMPLE means the FK is not checked when advisor_contact_id IS NULL.
+ UPDATE repair_orders SET advisor_contact_id = NULL WHERE id = (SELECT ro3 FROM fx);
+ INSERT INTO test_log(line) SELECT is(
+   (SELECT advisor_contact_id FROM repair_orders WHERE id = (SELECT ro3 FROM fx)),
+   NULL::uuid,
+-  'T13 (Finding D): clearing advisor_contact_id to NULL still works (FK not checked when NULL)'
++  'T14 (Finding D): clearing advisor_contact_id to NULL still works (FK not checked when NULL)'
++);
++
++-- T15 (Issue 1, final pass): manage_all's raw INSERT attempt to spoof
++-- created_by as a DIFFERENT real user is ALSO overridden -- proves the fix
++-- is not narrowed to manage_own.
++INSERT INTO repair_orders (id, organization_id, branch_id, order_number, status, created_by)
++SELECT ro5, org, branch, '094-test-created-by-spoof-manage-all', 'open', other_real_user FROM fx;
++INSERT INTO test_log(line) SELECT is(
++  (SELECT created_by FROM repair_orders WHERE id = (SELECT ro5 FROM fx)),
++  (SELECT e2e_user FROM fx),
++  'T15 (Issue 1): manage_all cannot spoof created_by on INSERT either -- the genuine actor is persisted regardless of the supplied value'
++);
++
++-- T16 (Issue 3, final pass): manage_all's raw UPDATE attempt to move an
++-- existing RepairOrder to a DIFFERENT organization leaves organization_id
++-- genuinely unchanged -- asserting exact persisted row state, not merely
++-- "an error occurred" (this UPDATE does not raise -- the trigger resets
++-- organization_id back to OLD before RLS's WITH CHECK is ever evaluated
++-- against the attempted new value, so it is a real, successful statement
++-- that simply has no effect on this column).
++UPDATE repair_orders SET organization_id = (SELECT org_b FROM fx) WHERE id = (SELECT ro5 FROM fx);
++INSERT INTO test_log(line) SELECT is(
++  (SELECT organization_id FROM repair_orders WHERE id = (SELECT ro5 FROM fx)),
++  (SELECT org FROM fx),
++  'T16 (Issue 3): a raw UPDATE cannot move a RepairOrder to a different organization_id'
++);
++
++-- T17 (Issue 3, final pass): same proof for branch_id, using the synthetic
++-- org B's own branch as the attempted (invalid) target.
++UPDATE repair_orders SET branch_id = (SELECT branch_b FROM fx) WHERE id = (SELECT ro5 FROM fx);
++INSERT INTO test_log(line) SELECT is(
++  (SELECT branch_id FROM repair_orders WHERE id = (SELECT ro5 FROM fx)),
++  (SELECT branch FROM fx),
++  'T17 (Issue 3): a raw UPDATE cannot move a RepairOrder to a different branch_id'
+ );
+ 
+ RESET ROLE;
+diff --git a/docs/mvp/zones/03-repair-orders-implementation-plan.md b/docs/mvp/zones/03-repair-orders-implementation-plan.md
+index 091835f5..b983ecd6 100644
+--- a/docs/mvp/zones/03-repair-orders-implementation-plan.md
++++ b/docs/mvp/zones/03-repair-orders-implementation-plan.md
+@@ -568,6 +568,8 @@ PITCH.
+ > - **Finding F (verified, NOT decided)**: confirmed that a `manage_own` actor can currently create a RepairOrder with `advisor_contact_id IS NULL` (the manual-creation UI's self-assign checkbox is opt-in, unchecked by default), producing an order its own creator cannot subsequently edit via `manage_own`. This is a genuine product/UX question, not a security bug -- see the progress tracker's Phase 7 task list for the recorded options and recommendation. **Not implemented or decided in this pass.**
+ >
+ > Full evidence (live reproduction queries, exact before/after policy text, migration versions, and the 13 new pgTAP assertions) is recorded in the progress tracker's Phase 7 task list and its 2026-09-11 correction-pass change-log entry.
++>
++> **2026-09-12 final narrow verify-first pass**: a second, narrower review round found and fixed one more CONFIRMED gap in Finding C's own fix (`created_by` was frozen only on UPDATE, not INSERT -- a raw INSERT could still spoof authorship as another real user; fixed via `COALESCE(auth.uid(), NEW.created_by)` on INSERT, migration `20260911192411`, verified compatible with manual creation, materialization, and a hypothetical service-role path), verified two more hypotheses (own-advisor-contact cardinality; `SECURITY DEFINER` EXECUTE grants) as already safe without changing anything, and closed one regression-test gap (`organization_id`/`branch_id` immutability, now committed as pgTAP tests). No Finding B/D/E work was reopened. See the progress tracker's own 2026-09-12 entry for full detail.
+ 
+ ### Objective
+ 
+@@ -612,7 +614,7 @@ CRM contact search/selection UI if it exists; `has_branch_permission` for the ow
+ - [x] ✅ Implement status/lifecycle transitions: **`open` → `closed` → `archived`**, using the existing, authoritative `canTransitionRepairOrderStatus` domain helper (unchanged from Phase 1/2 — confirmed still correct: `archived` is terminal, no `archived → closed`/`archived → open`, matching the live RLS exactly). `archived` requires `manage_all` — **RLS-layer enforcement already live from Phase 2** (`20260910074716_repair_orders_archive_rls_restriction.sql`); this phase adds the application-layer piece: `changeStatus` service method (race-safe conditional `UPDATE ... WHERE status = fromStatus`, returns a specific conflict error on 0 rows), `changeRepairOrderStatusAction`, and the UI's Close/Reopen/Archive buttons (Archive behind a confirmation dialog, `manage_all`-only).
+ - [x] ✅ Unit/service tests for ownership-rule-consistent RLS behavior, manual-creation identity-status defaulting (present → `resolved`, absent → `unresolved`, never fabricated), race-safe status transitions, and duplicate-`zl_number` error mapping — `repair-orders.service.test.ts`, 15 new tests (41/41 total in that file).
+ - [x] ✅ Component tests for header/advisor/manual-creation UI — `repair-order-header-editor.test.tsx` (8 tests, including the archived-`manage_own` read-only regression this pass's own testing caught) and `new-repair-order-form.test.tsx` (5 tests).
+-- [x] ✅ DB/RLS test: advisor with only `manage_own` cannot edit an order they are not assigned to (proven as a silent 0-row no-op); advisor with `manage_all` can edit any in-branch order; advisor ownership does not grant any `inventory.*`/`warehouse.*` capability (explicit negative test); archiving requires `manage_all`, not plain `manage_own` — new `apps/web/supabase/tests/093_repair_orders_header_ownership_rls_test.sql`, **12/12 passing live**, executed against `supabase-target` via MCP with zero residual data (wrapped `BEGIN;...ROLLBACK;`). This is also the test that surfaced the `is_own_advisor_contact` bug fix above — written to *prove* the ownership rule, and initially failing for the right reason.
++- [x] ✅ DB/RLS test: advisor with only `manage_own` cannot edit an order they are not assigned to (proven as a silent 0-row no-op); advisor with `manage_all` can edit any in-branch order; advisor ownership does not grant any `inventory.*`/`warehouse.*` capability (explicit negative test); archiving requires `manage_all`, not plain `manage_own` — new `apps/web/supabase/tests/093_repair_orders_header_ownership_rls_test.sql`, **12/12 passing live**, executed against `supabase-target` via MCP with zero residual data (wrapped `BEGIN;...ROLLBACK;`). This is also the test that surfaced the `is_own_advisor_contact` bug fix above — written to _prove_ the ownership rule, and initially failing for the right reason.
+ 
+ ### Testing requirements
+ 
+diff --git a/docs/mvp/zones/03-repair-orders-progress.md b/docs/mvp/zones/03-repair-orders-progress.md
+index 9159c201..050b67d0 100644
+--- a/docs/mvp/zones/03-repair-orders-progress.md
++++ b/docs/mvp/zones/03-repair-orders-progress.md
+@@ -35,7 +35,7 @@
+ | 4 Explicit Matcher approval workflow                      | ✅ DONE        | PITCH              |       9/9 | Real `approveSession` rewrite (atomic ready_for_review→approved guard), action, permission reuse (`wdd_matcher.approve`, already seeded — no new slug), UI (Approve button + status strip), `workshop.matcher_session.approved` event. 4 service + 7 component + 5 action unit/mocked tests passing. Live-integration-verified (real auth, real DB). **Manually confirmed working in a real browser by the product owner (2026-09-11 UAT)** — login, session approval, and the ready_for_review→approved transition all directly observed. Automated Playwright E2E remains a separate, unclosed follow-up item.                                                                                                                                                                                                                  |
+ | 5 Matcher → RepairOrder materialization                   | ✅ DONE        | PITCH              |       8/9 | Approve→materialize orchestration (2 distinct calls, not 1 transaction), success/failure UI, Retry action, `workshop.repair_orders.materialization_failed` event, materialization-status read model. Idempotent re-materialization **live-verified** against the real DB (already_materialized:true, 0 new rows on repeat). **Manually confirmed working in a real browser (2026-09-11 UAT)**: approval → automatic materialization → RepairOrder appears in Workshop. Multi-order scenario remains an explicit follow-up gap (not required by this phase's own acceptance criteria); simulated-failure/retry not manually rehearsed but explicitly waived for pitch by product-owner directive (automated test coverage accepted as sufficient).                                                                                 |
+ | 6 RepairOrder list and search                             | ✅ DONE        | PITCH              |       5/9 | Real Workshop list (`/dashboard/workshop`) + minimal detail shell (`/dashboard/workshop/[id]`) replacing the old placeholder — real data only, `listForWorkshop`/`getByIdForWorkshop`, branch-scoped, single combined zl_number/VIN/order_number search via URL params (chosen over a query hook, per the plan's own sanctioned alternative). 14 service unit tests + 7 search/badge component tests passing. **Manually confirmed working in a real browser (2026-09-11 UAT)**: search by zl_number/VIN/order_number, detail open, reload persistence, list persistence after reload. **Known non-blocking issue**: branch switch does not auto-refresh the list until a manual page reload — recorded as Zone-1-owned (see detailed task list). Disambiguation UI and full list-component tests remain explicit follow-up gaps. |
+-| 7 Header, advisor ownership, lifecycle, manual creation   | ✅ DONE        | PITCH              |     10/10 | Manual header creation, header edit, advisor assignment (manage_all-gated to match RLS), lifecycle transitions (race-safe conditional UPDATE), 5 new server actions, real UI (`/dashboard/workshop/new` + upgraded `[id]` detail page). **Found and fixed one CONFIRMED pre-existing live RLS bug** (the ownership subquery was itself blocked by `crm_contacts`' own RLS, silently locking out any `manage_own` advisor without separate `crm.contacts.read`). 55 new tests, all passing; 12/12 new pgTAP RLS assertions passing live. One open product decision flagged (advisor-picker "employee-role" scoping), not silently invented around. Manual browser UAT of this phase's UI remains outstanding.                                                                                                                                                                                                                                                                                                                                                                |
++| 7 Header, advisor ownership, lifecycle, manual creation   | ✅ DONE        | PITCH              |     10/10 | Manual header creation, header edit, advisor assignment (manage_all-gated to match RLS), lifecycle transitions (race-safe conditional UPDATE), 5 new server actions, real UI (`/dashboard/workshop/new` + upgraded `[id]` detail page). **Found and fixed one CONFIRMED pre-existing live RLS bug** (the ownership subquery was itself blocked by `crm_contacts`' own RLS, silently locking out any `manage_own` advisor without separate `crm.contacts.read`). 55 new tests, all passing; 12/12 new pgTAP RLS assertions passing live. One open product decision flagged (advisor-picker "employee-role" scoping), not silently invented around. Manual browser UAT of this phase's UI remains outstanding.                                                                                                                      |
+ | 8 Logical RepairOrder lines                               | ⬜ NOT STARTED | PITCH              |       0/7 | —                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+ | 9 Source documents, lines, provenance                     | ⬜ NOT STARTED | PITCH              |       0/6 | —                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+ | 10 Movement-line linkage / warehouse read model           | ⬜ NOT STARTED | PITCH              |       0/8 | —                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+@@ -233,7 +233,7 @@ All later phases: task lists mirror the implementation plan 1:1 and are intentio
+ - [x] ✅ **CONFIRMED, pre-existing, live RLS bug found and fixed** (not introduced by this phase — discovered while writing this phase's own `093` RLS test, live-verified before assuming anything): `repair_orders_update`'s ownership check (`advisor_contact_id IN (SELECT id FROM crm_contacts WHERE linked_user_id = auth.uid())`) is a plain correlated subquery against `crm_contacts`, itself subject to `crm_contacts`' own RLS SELECT policy (`crm.contacts.read` required). Any `manage_own` advisor who does not ALSO separately hold `crm.contacts.read` — a realistic role configuration, since a Workshop advisor is not automatically a CRM user — had this subquery silently return zero rows regardless of genuine ownership, so the ownership check always evaluated false: a hard self-lockout on the RLS this table's whole ownership model depends on.
+   - Evidence: live-reproduced via `mcp__supabase-target__execute_sql` as the genuinely-RLS-enforced `authenticated` role — a real self-linked `crm_contacts` row, visible when queried directly as `postgres`, returned zero rows from the identical subquery run as `authenticated` holding only `workshop.repair_orders.manage_own`/`.read`.
+   - Fix: `is_own_advisor_contact(p_contact_id uuid) RETURNS boolean SECURITY DEFINER` (matches `has_branch_permission`'s own established pattern of bypassing the underlying table's RLS for this class of cross-table authorization check), migration `20260911172434_repair_orders_advisor_self_check_fn.sql`. `repair_orders_update` and `repair_orders_insert` rewritten to call it. Also closes a smaller related gap while rewriting this logic: the original subquery never excluded soft-deleted `crm_contacts` rows.
+-  - Tests: `093_repair_orders_header_ownership_rls_test.sql`, T1/T4/T5/T7/T10/T11 all directly exercise this function; 12/12 passing live, re-verified after the fix (failed with the exact "new row violates row-level security policy" symptom before it, for the *wrong* reason — a real bug, not a test-authoring mistake).
++  - Tests: `093_repair_orders_header_ownership_rls_test.sql`, T1/T4/T5/T7/T10/T11 all directly exercise this function; 12/12 passing live, re-verified after the fix (failed with the exact "new row violates row-level security policy" symptom before it, for the _wrong_ reason — a real bug, not a test-authoring mistake).
+ - [x] ✅ **Phase 7 INSERT-time hardening** (found while confirming the ownership model before implementing `createRepairOrder`, not a pre-existing bug — `repair_orders_insert` did not exist with advisor-scoping semantics before Phase 7): `repair_orders_insert`'s `WITH CHECK` previously allowed a `manage_own`-only actor to INSERT naming ANY `crm_contacts` row as advisor, not just themselves — inconsistent with `repair_orders_update`'s own self-consistent design (a `manage_own` actor who didn't set themselves as advisor at creation would immediately create an order they could never again edit via `manage_own`). Fixed via migration `20260911172022_repair_orders_insert_advisor_self_restriction.sql`: `manage_own` may now only INSERT with `advisor_contact_id IS NULL` or their own linked contact; `manage_all` unaffected.
+   - Tests: `093_...`, T1/T2/T3, 3/3 passing live.
+ - [x] ✅ `RepairOrdersService.createRepairOrder` — org/branch always from the caller's trusted server-side active context (never client input, matching the "no separate manual-order subsystem" rule); `identity_status` derived (`'resolved'` when `zl_number` present, `'unresolved'` otherwise — never a fabricated `zl_number`); `23505` (duplicate `zl_number` within org+branch) mapped to a clear client-facing message; emits `workshop.repair_orders.created` (Mode A, matching the rest of Zone 3).
+@@ -288,6 +288,26 @@ An external reviewer examined the full Phase 7 diff/review bundle (`docs/mvp/rev
+ 
+ **Phase 7 remains ✅ DONE (10/10)** — no implementation task was reopened or unchecked; this pass fixed defense-in-depth/correctness/consistency gaps underneath already-complete tasks, the same shape as the Phase 4-6 corrective-review passes. Every acceptance-criteria item this phase's own plan named is met with both mocked-test and live-RLS evidence. Manual/browser UAT of this phase's UI remains the one outstanding item, unchanged by this pass — **explicitly NOT claimed as done here**, per instruction.
+ 
++### 2026-09-12 final narrow verify-first pass (two concrete issues fixed, two verified-safe, one test gap closed)
++
++A second external review pass, narrower in scope, raised two additional concrete issues and one regression-test gap against the correction pass above. Both issues were live-reproduced against `supabase-target` as `authenticated` BEFORE any fix, per the same "verify first" discipline; neither already-approved Finding B, D, nor E was reopened or touched.
++
++- [x] ✅ **Issue 1 (CONFIRMED, fixed) — `created_by` INSERT spoofing**: `repair_orders_enforce_invariants()` (from the prior pass) only froze `created_by` to `OLD.created_by` on UPDATE — it left `NEW.created_by` exactly as supplied on INSERT, and `repair_orders_insert`'s RLS `WITH CHECK` never checked `created_by` at all.
++  - Evidence: live-reproduced as both `manage_own` and `manage_all` — a raw `INSERT ... created_by = <a different real org member's id>` succeeded and persisted that OTHER user's id as `created_by`, for an actor who was never that other user.
++  - Compatibility verified BEFORE choosing a fix, per explicit instruction not to blindly force `created_by = auth.uid()`: manual creation already sets `created_by` from the authenticated actor's own resolved id (same value `auth.uid()` would produce for that request); `materialize_repair_orders_from_session` validates `p_actor_user_id = auth.uid()` as its first statement, then inserts using that same value — `auth.uid()` resolves correctly inside a `SECURITY DEFINER` function (it reads the session's JWT-claim GUC, unaffected by the function's own privilege mode), so this RPC's behavior is unchanged by the fix; a hypothetical trusted service-role path (no JWT, `auth.uid()` returns `NULL`) has its own explicitly supplied `created_by` preserved.
++  - Fix: migration `20260911192411_repair_orders_created_by_insert_spoof_fix.sql` — on INSERT, `NEW.created_by := COALESCE(auth.uid(), NEW.created_by)` (UPDATE behavior unchanged). Live re-verified: the identical spoof attempt, as both `manage_own` and `manage_all`, now persists the genuine actor's id, never the supplied value.
++  - Tests: `094_...` T3 (`manage_own`) / T15 (`manage_all`).
++- [x] ✅ **Issue 2 (verified, NO fix needed) — own-advisor-contact cardinality**: checked, not assumed, whether more than one ACTIVE `crm_contacts` row could be linked to the same user in the same organization (which would make `get_own_advisor_contact_id`'s `LIMIT 1` non-deterministic and could desync it from `is_own_advisor_contact`). Found that `crm_contacts_org_linked_user_unique` — a partial unique index on `(organization_id, linked_user_id) WHERE linked_user_id IS NOT NULL AND deleted_at IS NULL`, live since Phase 2's original CRM module migration, per that phase's own architecture-doc "Correction 2" decision — already enforces exactly this invariant. Live-verified twice: zero existing duplicate active `(organization_id, linked_user_id)` pairs in current data, and a direct live attempt to INSERT a second active contact for the same user in the same org fails immediately with `23505 duplicate key value violates unique constraint "crm_contacts_org_linked_user_unique"`. The reviewer's hypothetical "contact A vs. contact B, same user" scenario is therefore structurally impossible today — `get_own_advisor_contact_id`'s `LIMIT 1` has at most one row to ever pick from. **No migration, code change, or new constraint was added** — the existing constraint already matches the intended CRM invariant, and per explicit instruction not to add uniqueness merely for convenience, none was needed.
++- [x] ✅ **Issue 3 (CONFIRMED test gap, closed)**: the trigger's `organization_id`/`branch_id` freeze-to-`OLD` behavior (added in the prior pass) had only been spot-checked ad hoc during that pass, not committed as a regression test. Live-verified the exact resulting behavior first (not assumed): a raw UPDATE attempting to move a row to a different organization/branch does not raise an error — the trigger resets both columns back to `OLD` before RLS's `WITH CHECK` is ever evaluated against the attempted new values, so the statement succeeds but has no effect on either column. Added as committed regression tests asserting exact persisted row state (not "an error occurred").
++  - Tests: `094_...` T16 (`organization_id`) / T17 (`branch_id`), plus the pre-existing T7-T10 (`identity_status`/`created_by` UPDATE invariants) retained unchanged.
++- [x] ✅ **Issue 4 (verified, NO fix needed) — `SECURITY DEFINER` EXECUTE scope**: checked `get_own_advisor_contact_id`'s live `EXECUTE` grants against the repository's own established convention rather than inventing a stricter rule. Found identical grants (`PUBLIC`/`anon`/`authenticated`/`postgres`/`service_role`, i.e. default privileges, never explicitly revoked) on its direct sibling `is_own_advisor_contact` and on `repair_orders_enforce_invariants` — this repo's uniform convention for this class of narrow `SECURITY DEFINER` helper is to leave default grants in place, not to `REVOKE ... FROM PUBLIC`. Classified the `anon`/unauthenticated-caller exposure explicitly: `auth.uid()` returns `NULL` for any caller with no JWT session, so `linked_user_id = (select auth.uid())` can never match any row for `anon` — the function always returns `NULL` regardless of `p_organization_id`, learning nothing about any organization's existence or contents. An authenticated caller outside any Workshop permission can still call it, but it only ever exposes THEIR OWN linked-contact id (never another user's), which is not a privilege boundary this function was ever meant to enforce. **No grant change made** — matches established convention, provably harmless.
++
++**Testing summary for this pass**: `094_...` expanded from 13 to **17 assertions** (T3/T15: Issue 1 created_by-spoof, both permission tiers; T16/T17: Issue 3 organization_id/branch_id immutability; existing T1-T2, T4-T14 unchanged in substance, renumbered for file-order clarity), **17/17 passing live**; re-ran `093_...` unchanged, **12/12 still passing** (no regression from the trigger fix). **Full Zone 3 + CRM sibling suite: 146/146 passing** across twelve test files run together (no application/TypeScript code changed this pass — Issues 1 and 3 were pure DB-side fixes; Issues 2 and 4 needed no fix). `pnpm type-check` and `pnpm lint` clean.
++
++**One new migration**: `20260911192411_repair_orders_created_by_insert_spoof_fix.sql` (`repair_orders_enforce_invariants()` `CREATE OR REPLACE`) — applied via MCP, live version-parity confirmed (`20260911192411`, local filename matches), no existing applied migration edited in place beyond this same function's own already-established `CREATE OR REPLACE` pattern from the prior pass.
++
++**Phase 7 remains ✅ DONE (10/10)** — no task reopened; this pass closed the two remaining concrete gaps the second review round found, verified two more hypotheses as already-safe without inventing unneeded changes, and closed one regression-test gap. No review bundle was created for this narrow pass, per explicit instruction. Manual/browser UAT of Phase 7's UI remains the one outstanding item, unchanged by this pass, **explicitly not claimed as done here**.
++
+ ## DEMO READY gate
+ 
+ None of the following are formally checked yet — all ⬜. Several now have real, live-data evidence (noted inline) but are **not** checked because the gate's own bar ("required automated tests exist and pass for every item," "representative E2E scenario passes," "manual rehearsal performed and recorded") explicitly requires the browser-level proof this session could not complete.
+@@ -377,7 +397,7 @@ None currently active.
+ 
+ ### DISCOVERY-005 — `repair_orders_update`'s ownership-check subquery was silently defeated by `crm_contacts`' own RLS for any actor without `crm.contacts.read` (CONFIRMED LIVE BUG, found and fixed in Phase 7, pre-existing since Phase 2)
+ 
+-- **Issue**: the RLS ownership check `advisor_contact_id IN (SELECT id FROM crm_contacts WHERE linked_user_id = auth.uid())` is a plain correlated subquery under the querying role's own privileges — unlike `has_branch_permission` (SECURITY DEFINER, reads `user_effective_permissions` directly, bypassing its RLS), this subquery is itself subject to `crm_contacts_select`'s own policy, which additionally requires `crm.contacts.read`. Any `manage_own` RepairOrder advisor who does not separately hold `crm.contacts.read` — a realistic role split, since Workshop and CRM are different modules — had their own genuine ownership silently evaluate to false on every UPDATE attempt: a hard self-lockout on the exact ownership model this table's RLS exists to enforce. This has been live since Phase 2's original migration (`20260910061711_repair_orders_core_schema.sql`); it was not caught by Phase 2's own pgTAP suite because that suite tests policy *wording*, not full authenticated-session behavior (explicitly documented as a scope note in that suite's own header).
++- **Issue**: the RLS ownership check `advisor_contact_id IN (SELECT id FROM crm_contacts WHERE linked_user_id = auth.uid())` is a plain correlated subquery under the querying role's own privileges — unlike `has_branch_permission` (SECURITY DEFINER, reads `user_effective_permissions` directly, bypassing its RLS), this subquery is itself subject to `crm_contacts_select`'s own policy, which additionally requires `crm.contacts.read`. Any `manage_own` RepairOrder advisor who does not separately hold `crm.contacts.read` — a realistic role split, since Workshop and CRM are different modules — had their own genuine ownership silently evaluate to false on every UPDATE attempt: a hard self-lockout on the exact ownership model this table's RLS exists to enforce. This has been live since Phase 2's original migration (`20260910061711_repair_orders_core_schema.sql`); it was not caught by Phase 2's own pgTAP suite because that suite tests policy _wording_, not full authenticated-session behavior (explicitly documented as a scope note in that suite's own header).
+ - **Evidence**: LIVE VERIFIED this session while writing `093_repair_orders_header_ownership_rls_test.sql` — a real self-linked `crm_contacts` row, visible when queried as `postgres`, returned zero rows from the identical subquery run as the genuinely-RLS-enforced `authenticated` role holding only `workshop.repair_orders.manage_own`/`.read` (no `crm.contacts.read`).
+ - **Resolution**: `is_own_advisor_contact(p_contact_id uuid) RETURNS boolean SECURITY DEFINER` (matches `has_branch_permission`'s own established bypass-the-underlying-table's-RLS pattern), migration `20260911172434_repair_orders_advisor_self_check_fn.sql`, live-applied. `repair_orders_update` and `repair_orders_insert` rewritten to call it instead of the raw subquery. Re-verified fixed live: the same self-linked-contact scenario now correctly succeeds.
+ - **Takeaway for future phases**: any RLS policy that needs to check "does row X relate to a row in table Y that the current user owns/is linked to" must NOT express that as a plain subquery against Y if Y has its own RLS that could plausibly exclude the current caller — use a SECURITY DEFINER helper, the same way `has_branch_permission` already does for the permission-cache case. Worth a repo-wide grep for the same pattern elsewhere (not performed this session — out of Zone 3's scope to audit other modules).
+@@ -443,3 +463,4 @@ None currently active.
+   - **Testing**: new `094_repair_orders_correction_pass_rls_test.sql`, 13/13 passing live (zero residual data after `ROLLBACK`); `093_...` re-run unchanged, 12/12 still passing (no regression); 20 new/updated Vitest tests (10 new in `repair-orders.service.test.ts`, 2 pre-existing ones updated for the hardened `23505` check, 1 new component test); **full Zone 3 suite: 136/136 passing** across ten test files run together. `pnpm type-check` and `pnpm lint` clean.
+   - **Phase 7 remains ✅ DONE (10/10)** — no task reopened; this pass fixed defense-in-depth/correctness gaps underneath already-complete tasks. Manual/browser UAT of Phase 7's UI remains outstanding, unchanged by this pass, explicitly not claimed as done.
+   - **Stopping point, per explicit instruction: Phase 8 has NOT been started**, nor has any reservation/allocation/container/QR/WU/Legacy-Stock/comments/AutoStacja-hardening work. No Supabase changes beyond the four migrations explicitly required to fix the four confirmed findings were made; no existing applied migration was edited in place.
++- **2026-09-12 (Phase 7 final narrow verify-first pass — two issues fixed, two verified-safe, one test gap closed)**: a second, narrower external review round raised two concrete issues and one regression-test gap against the 2026-09-11 correction pass. Both issues were live-reproduced against `supabase-target` as `authenticated` before any fix; Findings B/D/E from that prior pass were not reopened. **Issue 1 (CONFIRMED, fixed)**: the field-invariants trigger only froze `created_by` on UPDATE, not INSERT — a raw INSERT could spoof `created_by` as any other real user, live-reproduced as both `manage_own` and `manage_all`. Fixed via `20260911192411_repair_orders_created_by_insert_spoof_fix.sql` (`NEW.created_by := COALESCE(auth.uid(), NEW.created_by)` on INSERT only), after explicitly verifying compatibility with manual creation, `materialize_repair_orders_from_session`, and a hypothetical trusted service-role path. **Issue 2 (verified, no fix needed)**: checked whether more than one active `crm_contacts` row could link to the same user in the same org (which would make `get_own_advisor_contact_id` non-deterministic) — found the pre-existing `crm_contacts_org_linked_user_unique` partial unique index (live since Phase 2) already enforces this, live-verified both against current data (zero duplicates) and by direct attempt (blocked with `23505`). **Issue 3 (test gap, closed)**: added committed pgTAP regression coverage (`094_...` T16/T17) proving `organization_id`/`branch_id` cannot be moved via raw UPDATE, asserting exact persisted row state. **Issue 4 (verified, no fix needed)**: `get_own_advisor_contact_id`'s `EXECUTE` grants match this repo's established convention for this class of helper (identical to `is_own_advisor_contact`), and are provably harmless to `anon`/unauthenticated callers (`auth.uid()` is `NULL` for them, so the function always returns `NULL`). **Testing**: `094_...` expanded to 17 assertions, 17/17 passing live; `093_...` re-run unchanged, 12/12 still passing; full Zone 3 + CRM sibling suite 146/146 passing; `pnpm type-check`/`pnpm lint` clean. **No review bundle was created for this pass**, per explicit instruction. **Phase 7 remains ✅ DONE (10/10)** — manual/browser UAT remains the one outstanding item, unchanged, not claimed as done. **Stopping point, per explicit instruction: Phase 8 has NOT been started**, nor was Supabase touched beyond the one migration required for Issue 1.

@@ -598,22 +598,80 @@ export class WddMatcherService {
     return { success: true, data: { session: sessionResult.data, lines } };
   }
 
+  /**
+   * Approve a Matcher session: ready_for_review -> approved.
+   *
+   * Phase 4 (Zone 3 Repair Orders). Corrective-review Finding A (second
+   * pass): this previously issued a raw `.update()` with the
+   * `ready_for_review` transition guard baked into the UPDATE's own WHERE
+   * clause -- atomic and race-safe against Postgres's row-locking, but a
+   * live re-verify proved RLS itself could not enforce the same OLD-status
+   * transition guard (RLS's USING/WITH CHECK clauses cannot correlate the
+   * pre- and post-image of a row in one expression), so a raw client
+   * `.update()` bypassing this service entirely could set
+   * status='approved' from ANY prior status, not just ready_for_review.
+   * This now calls the dedicated `approve_wdd_matcher_session` RPC
+   * (SECURITY DEFINER, apps/web/supabase-target/supabase/migrations/
+   * 20260911090117_wdd_matcher_session_approval_rpc.sql) instead, which
+   * performs the SAME atomic, race-safe transition guard (SELECT ... FOR
+   * UPDATE + an explicit OLD-status check inside the function body) at the
+   * DB layer itself -- not just in this service's query shape -- so the
+   * guarantee now holds regardless of caller. The corresponding RLS policy
+   * (wms_update) no longer allows any raw client UPDATE, by any
+   * permission, to ever set status='approved' at all.
+   *
+   * Returns a distinct "SESSION_NOT_READY" error (rather than a generic
+   * DB error) for the RPC's P0002 (not found) and 55000 (wrong status)
+   * cases, matching the previous raw-UPDATE behavior's deliberately
+   * collapsed message (never leaks row existence through its error text).
+   * Other RPC errors (28000 actor mismatch, 42501 not authorized) pass
+   * through normalizeDbError, matching every other DB-error path in this
+   * service.
+   */
   static async approveSession(
     supabase: SupabaseClient,
     sessionId: string,
     orgId: string,
+    branchId: string | null,
     userId: string
   ): Promise<ServiceResult<WddMatcherSession>> {
-    const now = new Date().toISOString();
-    const { data, error } = await supabase
-      .from("wdd_matcher_sessions")
-      .update({ status: "approved", approved_by: userId, approved_at: now })
-      .eq("id", sessionId)
-      .eq("organization_id", orgId)
-      .select("*")
-      .single();
-    if (error) return { success: false, error: normalizeDbError(error) };
-    return { success: true, data: data as WddMatcherSession };
+    const { data, error } = await supabase.rpc("approve_wdd_matcher_session", {
+      p_actor_user_id: userId,
+      p_session_id: sessionId,
+    });
+
+    if (error) {
+      if (error.code === "P0002" || error.code === "55000") {
+        return {
+          success: false,
+          error:
+            "SESSION_NOT_READY: session not found, wrong branch, or not in ready_for_review status",
+        };
+      }
+      return { success: false, error: normalizeDbError(error) };
+    }
+
+    const session = data as WddMatcherSession;
+    // Defense-in-depth sanity check: the RPC authorizes against the
+    // session's own real organization_id (never a client-supplied org --
+    // same "target-entity-authoritative" principle as
+    // materialize_repair_orders_from_session's has_branch_permission
+    // check), so this can only legitimately mismatch if the caller's own
+    // active org/branch context has drifted from what their own app-layer
+    // permission check (already run before this is ever called -- see
+    // approveSessionAction) was evaluated against. Preserves the same org
+    // (always) / branch (only when known) scoping the previous raw-UPDATE
+    // query filters provided, now as a post-hoc assertion instead of a
+    // query filter.
+    if (session.organization_id !== orgId || (branchId && session.branch_id !== branchId)) {
+      return {
+        success: false,
+        error:
+          "SESSION_NOT_READY: session not found, wrong branch, or not in ready_for_review status",
+      };
+    }
+
+    return { success: true, data: session };
   }
 
   // -------------------------------------------------------------------------

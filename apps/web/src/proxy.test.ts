@@ -31,7 +31,7 @@ describe("proxy", () => {
 
   it("runs intl middleware, copies cookies, and sets the pathname header", async () => {
     const intlResponse = {
-      headers: { set: vi.fn() },
+      headers: { get: () => null, set: vi.fn() },
       cookies: { set: vi.fn() },
     };
     const sessionResponse = {
@@ -65,7 +65,7 @@ describe("proxy", () => {
 
   it("returns updateSession's redirect instead of the intl rewrite response", async () => {
     const intlResponse = {
-      headers: { set: vi.fn() },
+      headers: { get: () => null, set: vi.fn() },
       cookies: { set: vi.fn(), getAll: () => [{ name: "NEXT_LOCALE", value: "pl" }] },
     };
     const redirectResponse = {
@@ -90,6 +90,52 @@ describe("proxy", () => {
     expect(config.matcher).toEqual([
       "/((?!api|auth|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|manifest.webmanifest|pl(?:/|$)|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
     ]);
+  });
+
+  it("downgrades an https same-origin x-middleware-rewrite header back to http (regression guard: forwarded-https reverse proxy would otherwise make Next.js treat the internal locale rewrite as cross-origin and fail with EPROTO)", async () => {
+    const headers = new Headers();
+    headers.set("x-middleware-rewrite", "https://127.0.0.1:3001/pl/sign-in");
+    const intlResponse = {
+      headers,
+      cookies: { set: vi.fn() },
+    };
+    const sessionResponse = {
+      headers: { get: () => null },
+      cookies: { getAll: () => [] },
+    };
+
+    intlMiddlewareMock.mockReturnValue(intlResponse);
+    updateSessionMock.mockResolvedValue(sessionResponse);
+
+    const request = {
+      nextUrl: { pathname: "/logowanie", hostname: "127.0.0.1" },
+    } as any;
+    const result = await proxy(request);
+
+    expect(result.headers.get("x-middleware-rewrite")).toBe("http://127.0.0.1:3001/pl/sign-in");
+  });
+
+  it("leaves a rewrite header pointing at a different host untouched (defensive -- this app has no cross-origin rewrites today, but the fix must not blindly strip legitimate external targets)", async () => {
+    const headers = new Headers();
+    headers.set("x-middleware-rewrite", "https://other-host.example.com/path");
+    const intlResponse = {
+      headers,
+      cookies: { set: vi.fn() },
+    };
+    const sessionResponse = {
+      headers: { get: () => null },
+      cookies: { getAll: () => [] },
+    };
+
+    intlMiddlewareMock.mockReturnValue(intlResponse);
+    updateSessionMock.mockResolvedValue(sessionResponse);
+
+    const request = {
+      nextUrl: { pathname: "/dashboard/start", hostname: "127.0.0.1" },
+    } as any;
+    const result = await proxy(request);
+
+    expect(result.headers.get("x-middleware-rewrite")).toBe("https://other-host.example.com/path");
   });
 
   it("matcher excludes next-intl's internal rewrite target for the default locale (regression guard)", () => {
