@@ -5,7 +5,7 @@ import type {
   CreateRepairOrderInput,
   UpdateRepairOrderHeaderInput,
 } from "@/lib/validations/repair-orders";
-import type { RepairOrderStatus } from "@/lib/types/repair-orders";
+import type { RepairOrderStatus, RepairOrderLineStatus } from "@/lib/types/repair-orders";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -248,6 +248,121 @@ function mapRepairOrderListRow(row: RepairOrderListDbRow): RepairOrderListRow {
     advisorDisplayName: advisor?.display_name ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+/**
+ * Phase 8: the logical RepairOrderLine read model -- the durable BUSINESS
+ * line list (never grouped by source document; that is provenance, Phase
+ * 9's own concern). See listRepairOrderLines' own doc comment for the full
+ * identity/aggregation/formula rules this shape depends on.
+ */
+export interface RepairOrderLineReadModel {
+  id: string;
+  repairOrderId: string;
+  variantId: string | null;
+  /**
+   * = repair_order_lines.product_code (the raw/source-parsed part code),
+   * NOT a join through inventory_variants.sku. Live-verified before this
+   * phase: 100% of currently-materialized repair_order_lines rows (167/167)
+   * have variant_id IS NULL -- no existing materialization or creation path
+   * ever resolves/assigns a real inventory_variants row. Joining through
+   * inventory_variants for a "canonical" SKU would therefore (a) return
+   * nothing for any real row today, and (b) introduce an unnecessary
+   * cross-module RLS dependency (inventory_variants' own SELECT policy
+   * requires warehouse.products.read, a permission Workshop callers are
+   * not guaranteed to hold) for zero current benefit. Revisit only if/when
+   * a future phase actually starts populating variant_id.
+   */
+  sku: string | null;
+  /** repair_order_lines.product_name -- NOT NULL at the DB layer; already
+   * carries the established 'Unknown part' fallback from materialization
+   * (COALESCE(product_name, raw_text, 'Unknown part')) when no better value
+   * exists. Phase 8 renders this truthfully as-is; it does not invent its
+   * own separate "Unknown product" fallback string. */
+  productName: string;
+  orderedQuantity: number;
+  unit: string | null;
+  /** SUM(applied_quantity) WHERE relation_type = 'receipt', for THIS
+   * line's id only -- never grouped/matched by sku/product_code. */
+  receivedQuantity: number;
+  /** SUM(applied_quantity) WHERE relation_type = 'issue', for THIS line's
+   * id only. */
+  issuedQuantity: number;
+  /** orderedQuantity - receivedQuantity. Deliberately NOT clamped to zero
+   * -- see listRepairOrderLines' own doc comment for why. */
+  outstandingToReceive: number;
+  /** receivedQuantity - issuedQuantity. Deliberately NOT clamped to zero. */
+  availableForIssue: number;
+  /**
+   * Real, persisted repair_order_lines.status (CHECK 'pending' |
+   * 'partially_received' | 'received' | 'closed') -- included because it
+   * genuinely exists, not fabricated for this phase. Live-verified before
+   * this phase: 100% of currently-materialized lines (167/167) read
+   * 'pending' -- nothing (no trigger, no service method, no Phase-10 wiring
+   * yet) ever transitions it away from the DB default. Phase 8's own UI
+   * deliberately does NOT render this as a status indicator for exactly
+   * that reason (it would misrepresent every real line as permanently
+   * "pending" regardless of its true received/issued state) -- the numeric
+   * received/outstanding/available columns are the truthful signal for
+   * this phase. This field is exposed on the read model for completeness
+   * and for any future phase that legitimately needs it.
+   */
+  status: RepairOrderLineStatus;
+}
+
+interface RepairOrderLineMovementLinkDbRow {
+  applied_quantity: number;
+  relation_type: string;
+}
+
+interface RepairOrderLineDbRow {
+  id: string;
+  variant_id: string | null;
+  product_code: string | null;
+  product_name: string;
+  ordered_quantity: number;
+  unit: string | null;
+  status: string;
+  /** PostgREST has-many embed -- always an array (never a bare object),
+   * unlike the advisor:crm_contacts embed above (a has-one/belongs-to
+   * embed, which the client types defensively as object-or-array). */
+  repair_order_line_movement_links: RepairOrderLineMovementLinkDbRow[] | null;
+}
+
+function mapRepairOrderLine(
+  row: RepairOrderLineDbRow,
+  repairOrderId: string
+): RepairOrderLineReadModel {
+  const links = row.repair_order_line_movement_links ?? [];
+  // Aggregation is scoped by construction to THIS row's own nested links
+  // array -- PostgREST nests each repair_order_lines row's movement links
+  // under that specific row via the repair_order_line_id FK, never across
+  // rows that happen to share the same product_code. This is what makes
+  // the same-SKU-independence guarantee hold without any extra code here.
+  const receivedQuantity = links
+    .filter((link) => link.relation_type === "receipt")
+    .reduce((sum, link) => sum + link.applied_quantity, 0);
+  const issuedQuantity = links
+    .filter((link) => link.relation_type === "issue")
+    .reduce((sum, link) => sum + link.applied_quantity, 0);
+  // 'reversal' rows are deliberately excluded from both sums -- see
+  // listRepairOrderLines' own doc comment for why this is a disclosed
+  // limitation, not an oversight.
+
+  return {
+    id: row.id,
+    repairOrderId,
+    variantId: row.variant_id,
+    sku: row.product_code,
+    productName: row.product_name,
+    orderedQuantity: row.ordered_quantity,
+    unit: row.unit,
+    receivedQuantity,
+    issuedQuantity,
+    outstandingToReceive: row.ordered_quantity - receivedQuantity,
+    availableForIssue: receivedQuantity - issuedQuantity,
+    status: row.status as RepairOrderLineStatus,
   };
 }
 
@@ -870,5 +985,137 @@ export class RepairOrdersService {
     }
 
     return { success: true, data: header };
+  }
+
+  /**
+   * Phase 8: list the logical RepairOrderLines for one RepairOrder --
+   * durable business lines (SKU/part/ordered/received/issued/outstanding/
+   * available), NEVER grouped by source document (that is provenance,
+   * Phase 9's own separate concern).
+   *
+   * Identity rule (verified against the materialization RPC and the
+   * architecture doc before writing this, not assumed): `repair_order_
+   * lines.id` is the ONLY identity/grouping key this method ever uses.
+   * Two lines sharing the same `product_code` (SKU) are NEVER merged or
+   * cross-attributed here, even though Phase 3's own materialization RPC
+   * (20260910075814) happens to merge SAME-SKU SOURCE lines into one
+   * logical line AT CREATE TIME within a single materialization call (an
+   * existing, accepted Phase 3 design choice, out of this phase's scope to
+   * change) -- that upstream behavior does not guarantee two independent
+   * `repair_order_lines` rows can never share a product_code (a null-
+   * product_code source line always gets its own new logical line; a
+   * future manual-line-entry feature could create genuine duplicates on
+   * purpose). This method's own query never re-groups by product_code, so
+   * it is correct regardless of how the rows it reads were created --
+   * see the explicit same-SKU-independence test for the live proof.
+   *
+   * Derived-quantity formulas (per the architecture doc's Correction 5,
+   * `repair_order_line_movement_links` table comment, and this phase's own
+   * verification pass -- NOT invented from field names):
+   *   receivedQuantity     = SUM(applied_quantity) WHERE relation_type = 'receipt'
+   *   issuedQuantity       = SUM(applied_quantity) WHERE relation_type = 'issue'
+   *   outstandingToReceive = orderedQuantity - receivedQuantity
+   *   availableForIssue    = receivedQuantity - issuedQuantity
+   * All four grouped strictly by repair_order_line_id (never by SKU,
+   * movement, or source document). This resolves, rather than guesses at,
+   * the architecture doc's own flagged ambiguity ("remaining_quantity =
+   * received - issued, OR ordered - issued, per final product definition
+   * -- needs one product-owner confirmation"): rather than picking one
+   * interpretation of a single ambiguous "remaining" number, this method
+   * exposes BOTH well-defined quantities under their own unambiguous
+   * names, matching the worked example exactly (ordered=5, received=5,
+   * issued=3 -> outstandingToReceive=0, availableForIssue=2).
+   *
+   * NOT clamped to zero: `applied_quantity` is always > 0 (DB CHECK) and
+   * `relation_type` buckets are disjoint, but nothing today (Phase 10 does
+   * not exist yet) prevents receiving more than ordered or issuing more
+   * than received -- a negative outstanding/available value is a genuine,
+   * meaningful over-receipt/over-issue signal, not an error state to hide.
+   * No established convention says to clamp; inventing one was avoided.
+   *
+   * Reversal handling (disclosed limitation, not invented): `relation_type
+   * = 'reversal'` exists in the live CHECK constraint but has NO defined
+   * netting/linkage semantics anywhere in the architecture doc, the schema
+   * (no column identifies WHICH receipt/issue a reversal row reverses), or
+   * any existing code path (nothing writes 'reversal' rows yet -- Phase 10
+   * is what will eventually populate this table at all; live-verified 0
+   * rows exist in repair_order_line_movement_links today). This method
+   * therefore excludes 'reversal' rows from both sums entirely, matching
+   * the architecture doc's own literal formula (which only ever sums
+   * 'receipt' or 'issue', never mentions netting a 'reversal' bucket
+   * against either) -- it does NOT attempt to guess a netting rule. A
+   * future phase that defines real reversal semantics must add an explicit
+   * linkage column and update this method accordingly.
+   *
+   * Scope/authorization: mirrors getByIdForWorkshop's own explicit org(+
+   * branch) pre-check on the PARENT repair_orders row (never trusting a
+   * client-supplied org/branch, and not relying solely on RLS, since a
+   * caller's permission grants may span more than one branch) -- an
+   * inaccessible/wrong-org/wrong-branch/soft-deleted parent yields an
+   * empty line list, never an error and never a leak. `repair_order_lines`
+   * and `repair_order_line_movement_links` are both Tier 1 join-derived-
+   * scope tables (FORCE RLS, scoped through repair_order_id ->
+   * repair_orders -> has_branch_permission('workshop.repair_orders.read'))
+   * -- the exact same read boundary as the parent RepairOrder itself, not
+   * a widened one.
+   *
+   * Query shape: two bounded queries total (the parent existence/scope
+   * check, then one PostgREST embedded-select that nests each line's own
+   * `repair_order_line_movement_links` rows via a single server-side
+   * join/aggregation) -- not one query per line, no N+1. No new DB view,
+   * RPC, or migration was needed or added for this.
+   */
+  static async listRepairOrderLines(
+    supabase: SupabaseClient,
+    orgId: string,
+    branchId: string | null,
+    repairOrderId: string
+  ): Promise<ServiceResult<RepairOrderLineReadModel[]>> {
+    let parentQuery = supabase
+      .from("repair_orders")
+      .select("id")
+      .eq("id", repairOrderId)
+      .eq("organization_id", orgId)
+      .is("deleted_at", null);
+    if (branchId) parentQuery = parentQuery.eq("branch_id", branchId);
+
+    const { data: parent, error: parentError } = await parentQuery.maybeSingle();
+    if (parentError) {
+      return {
+        success: false,
+        error: normalizeRepairOrderCrudError("listRepairOrderLines", parentError),
+      };
+    }
+    if (!parent) {
+      // Not found / wrong org / wrong branch / soft-deleted -- no lines
+      // exposed, no error, no existence leak. Matches getByIdForWorkshop's
+      // own "success: true, data: null" convention for the same case.
+      return { success: true, data: [] };
+    }
+
+    const { data, error } = await supabase
+      .from("repair_order_lines")
+      .select(
+        `id, variant_id, product_code, product_name, ordered_quantity, unit, status,
+         repair_order_line_movement_links(applied_quantity, relation_type)`
+      )
+      .eq("repair_order_id", repairOrderId)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true });
+
+    if (error) {
+      return {
+        success: false,
+        error: normalizeRepairOrderCrudError("listRepairOrderLines", error),
+      };
+    }
+
+    return {
+      success: true,
+      data: (data ?? []).map((row) =>
+        mapRepairOrderLine(row as RepairOrderLineDbRow, repairOrderId)
+      ),
+    };
   }
 }

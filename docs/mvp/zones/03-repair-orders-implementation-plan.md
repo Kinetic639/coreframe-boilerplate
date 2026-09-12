@@ -642,11 +642,19 @@ PITCH.
 
 ---
 
-## Phase 8 — Logical RepairOrder lines
+## Phase 8 — Logical RepairOrder lines ✅ DONE (2026-09-12)
+
+> **Verify-first pass, before any code was written**: re-read this plan, the progress tracker, the accepted architecture doc, the live Phase 7 code, the Phase 2/3 migrations, and live Supabase schema/RLS/data before touching anything. Found and corrected several stale/underspecified assumptions in this section's own original text:
+>
+> - **"aggregated across all backing source lines" was imprecise and has been corrected in practice**: `repair_order_lines` rows are NOT re-aggregated by this phase's read model at all -- each row's `id` is already the sole, final, durable logical-line identity (established by Phase 3's materialization RPC, which is the thing that aggregates SOURCE lines into logical lines, at CREATE time, by `product_code` within one materialization call -- an existing, accepted Phase 3 design, out of this phase's scope to change). Phase 8's OWN job is simply to list existing `repair_order_lines` rows and join each one's OWN `repair_order_line_movement_links`, strictly by `repair_order_line_id` -- never re-grouping/merging by SKU a second time. This distinction matters because the explicit "same SKU != same line" requirement is about NEVER re-merging by SKU in the READ layer, regardless of what the CREATE layer already did.
+> - **The derived-quantity formula was ambiguous in the architecture doc and has been resolved, not guessed**: `docs/mvp/zones/03-repair-orders.md` (Correction 5) explicitly flags `remaining_quantity` as unresolved between two candidate formulas (`received - issued` OR `ordered - issued`) pending product-owner confirmation. Rather than picking one, this phase implements BOTH underlying quantities under their own unambiguous names -- `outstandingToReceive = ordered - received` and `availableForIssue = received - issued` -- which sidesteps the ambiguity entirely and still reproduces the architecture doc's own worked example exactly (received=5, issued=3 -> outstandingToReceive=0, availableForIssue=2, matching that example's "remaining=2" in the specific case where the order is fully received).
+> - **"status" was listed as a UI column, but is NOT a real derived/transitioning concept today**: `repair_order_lines.status` genuinely exists as a persisted column (live-verified), but live data confirms 100% of materialized lines (167/167) read the DB default `'pending'` -- nothing (no trigger, no service method, no Phase-10 wiring yet) ever transitions it. Rendering it as a status indicator would misrepresent every real line's true state. Per explicit instruction not to invent a status concept, Phase 8's UI does NOT render it; the numeric received/outstanding/available columns are the truthful signal instead. The field is still exposed on the service's read model (for completeness/future use), just not surfaced in this phase's own UI.
+> - **"read-model view" was left as a TO VERIFY, and is resolved here**: no DB view, RPC, or migration was added. A single PostgREST embedded-select (`repair_order_lines` with a nested `repair_order_line_movement_links(...)` array) performs the join/aggregation-input fetch as ONE bounded query server-side, with quantity summation done in TypeScript from the small nested array -- correct, RLS-transparent, and avoids inventing a new DB object for a detail-screen read Postgres itself already resolves in one round trip.
+> - **Reversal semantics are a genuine, disclosed gap, not invented**: `relation_type = 'reversal'` exists in the live CHECK constraint but has no defined netting/linkage semantics anywhere (no column identifies which receipt/issue a reversal reverses), and nothing writes such rows yet (0 rows exist in `repair_order_line_movement_links` live, since Phase 10 has not been built). This phase's read model excludes `'reversal'` rows from both sums, matching the architecture doc's own literal formula (which only ever sums `'receipt'` or `'issue'`) -- a future phase that defines real reversal semantics must add an explicit linkage column and update the aggregation accordingly.
 
 ### Objective
 
-Build the logical order-lines view: SKU, name, ordered quantity, unit, aggregated across all backing source lines (not grouped by source document).
+Build the logical order-lines view: SKU, name, ordered quantity, unit, derived received/outstanding/available quantities from real linked movement data -- explicitly NOT grouped by source document (that is Phase 9's own provenance concern).
 
 ### Why it exists
 
@@ -654,38 +662,39 @@ Frozen audit pitch checklist "Pozycje" section: a durable, non-WDD-grouped line 
 
 ### Dependencies
 
-Phase 2, Phase 5 (real materialized lines to display).
+Phase 2, Phase 5 (real materialized lines to display). Phase 10 (not yet built) owns wiring REAL receiving/issuing movement lines to `repair_order_line_movement_links` -- Phase 8's read model is provably correct against seeded/fixture link data now, but the full real-world end-to-end receipt/issue proof remains dependent on Phase 10 existing.
 
 ### Repository areas affected
 
-- Detail view line-list component.
-- `repair-orders.service.ts` — line listing with quantity read-model join.
+- Detail view line-list component (new: `repair-order-lines-list.tsx`).
+- `repair-orders.service.ts` — new `listRepairOrderLines` method + `RepairOrderLineReadModel` type.
 
 ### Supabase changes
 
-None beyond Phase 2 (may need a read-model view — TO VERIFY DURING PHASE whether a SQL view or an application-level join is preferred for the derived-quantities read model; default to application-level join for pitch simplicity, revisit as a DB view if performance requires it in pilot).
+**None.** No migration was needed or added -- verified against actual query characteristics (a single PostgREST embedded-select is sufficient; existing indexes on `repair_order_lines.repair_order_id` and `repair_order_line_movement_links.repair_order_line_id`, both already created in Phase 2, are exactly what this query needs), not merely assumed from the plan's original "TO VERIFY" note.
 
 ### Existing infrastructure reused
 
-N/A new.
+`repair_order_lines`/`repair_order_line_movement_links` tables and their Phase 2 RLS policies (unchanged); the established `ServiceResult<T>`/`normalizeRepairOrderCrudError` service-layer conventions from Phase 7.
 
 ### Implementation tasks
 
-- [ ] Add `listRepairOrderLines` service method joining `repair_order_lines` with aggregated `repair_order_line_movement_links` sums for `outstanding_to_receive`/`available_for_issue`.
-- [ ] Build line-list UI: SKU, product name, ordered qty, unit, `outstanding_to_receive`, `available_for_issue`, status.
-- [ ] Confirm same-SKU-on-multiple-lines never merges (explicit test, per architecture doc).
-- [ ] Unit tests for the quantity-aggregation query logic.
-- [ ] Component tests for line-list rendering including the two derived-quantity columns.
-- [ ] Service test: worked example from the architecture doc (ordered=5 across 3 receipt batches totaling 5, issued=3 across 2 issue batches → `outstanding_to_receive` and `available_for_issue` computed correctly).
+- [x] Add `listRepairOrderLines` service method — a bounded 2-query read (parent org/branch scope check, then one embedded-select joining `repair_order_lines` with nested `repair_order_line_movement_links`), deriving `receivedQuantity`/`issuedQuantity`/`outstandingToReceive`/`availableForIssue` strictly by `repair_order_line_id`.
+- [x] Build line-list UI: SKU, product name, ordered qty, unit, `outstandingToReceive`, `availableForIssue` -- deliberately NOT `status` (see verify-first note above) and NOT a source-document column (Phase 9's concern).
+- [x] Confirm same-SKU-on-multiple-lines never merges (explicit test, per architecture doc) — both a mocked service test and a live pgTAP test with two real persisted `repair_order_lines` rows sharing a `product_code`.
+- [x] Unit tests for the quantity-aggregation query logic — 12 new service tests.
+- [x] Component tests for line-list rendering including the derived-quantity columns — 8 new component tests.
+- [x] Service test: worked example from the architecture doc (ordered=5 across 3 receipt batches totaling 5, issued=3 across 2 issue batches → `outstandingToReceive`=0/`availableForIssue`=2 computed correctly) — both mocked and live (pgTAP, real persisted movement-link rows).
 
 ### Testing requirements
 
-- **Unit/service**: quantity-derivation worked example (exact numbers from the architecture doc).
-- **Component**: line list rendering.
+- **Unit/service**: quantity-derivation worked example (exact numbers from the architecture doc); same-SKU independence; one-line-many-links (receipt and issue); zero-links; reversal-exclusion; branch isolation; parent-not-accessible; error normalization.
+- **Component**: line list rendering, empty state, same-SKU rows render separately, derived quantity columns, no source-document column, no fabricated status indicator, desktop+mobile both render the same data.
+- **DB/pgTAP**: live-verified against real persisted rows and real RLS, not only mocks (`095_repair_order_lines_phase8_test.sql`, 11/11 passing).
 
 ### Acceptance criteria
 
-Line list shows a complete, non-duplicated set of parts per order; derived quantities match the worked example exactly when replicated against real linked movement data (Phase 10 dependency for full end-to-end proof, but the query logic itself is provable against seeded test data now).
+Line list shows a complete, non-duplicated set of parts per order (VERIFIED NOW, live); derived quantities match the worked example exactly against real linked movement-link fixture data (VERIFIED NOW, live pgTAP); same-SKU lines are proven to remain independent (VERIFIED NOW, both mocked and live); branch/RLS read isolation is intact (VERIFIED NOW, live). The full real-world receipt/issue E2E proof (an actual warehouse receiving/issuing action populating these rows through a real UI flow) is **DEPENDENT ON PHASE 10**, which does not exist yet -- not claimed here. Manual/browser UAT of this phase's UI is **OUTSTANDING** (Playwright was not available in this environment this session -- no browser binaries cached, and installing them risked repeating an earlier disk-space exhaustion incident this same session; honestly disclosed, not fabricated).
 
 ### Scope classification
 

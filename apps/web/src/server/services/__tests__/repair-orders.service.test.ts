@@ -8,6 +8,7 @@ vi.mock("../event.service", () => ({
 }));
 
 import { RepairOrdersService } from "../repair-orders.service";
+import type { RepairOrderLineReadModel } from "../repair-orders.service";
 import { eventService } from "../event.service";
 
 function buildSupabaseMock(rpcResult: { data: unknown; error: unknown }) {
@@ -1098,6 +1099,349 @@ describe("RepairOrdersService error normalization (Finding E)", () => {
     });
 
     const result = await RepairOrdersService.listAdvisorCandidates(mock as never, "org-1");
+
+    expect(result.success).toBe(false);
+    expect((result as { success: false; error: string }).error).not.toBe(
+      "connection terminated unexpectedly"
+    );
+  });
+});
+
+/**
+ * Phase 8: RepairOrdersService.listRepairOrderLines -- the logical
+ * RepairOrderLine read model. Every test here uses makeTableQueryMock
+ * (already established above for getMaterializationStatusForSession) since
+ * this method makes two sequential `.from()` calls: a parent-scope check
+ * against `repair_orders`, then the lines query against `repair_order_lines`
+ * with a nested `repair_order_line_movement_links` embed.
+ */
+describe("RepairOrdersService.listRepairOrderLines", () => {
+  const PARENT_FOUND = { data: { id: "ro-1" }, error: null };
+
+  function lineRow(overrides: Partial<Record<string, unknown>> = {}) {
+    return {
+      id: "line-1",
+      variant_id: null,
+      product_code: "5WA-857-093",
+      product_name: "Front bumper cover",
+      ordered_quantity: 5,
+      unit: "pcs",
+      status: "pending",
+      repair_order_line_movement_links: [],
+      ...overrides,
+    };
+  }
+
+  it("lists logical RepairOrder lines, mapped to the domain shape", async () => {
+    const mock = makeTableQueryMock({
+      repair_orders: PARENT_FOUND,
+      repair_order_lines: { data: [lineRow()], error: null },
+    });
+
+    const result = await RepairOrdersService.listRepairOrderLines(
+      mock as never,
+      "org-1",
+      "branch-1",
+      "ro-1"
+    );
+
+    expect(result).toEqual({
+      success: true,
+      data: [
+        {
+          id: "line-1",
+          repairOrderId: "ro-1",
+          variantId: null,
+          sku: "5WA-857-093",
+          productName: "Front bumper cover",
+          orderedQuantity: 5,
+          unit: "pcs",
+          receivedQuantity: 0,
+          issuedQuantity: 0,
+          outstandingToReceive: 5,
+          availableForIssue: 0,
+          status: "pending",
+        },
+      ],
+    });
+  });
+
+  it("the list is not grouped by source document -- the query never selects/joins workshop_source_documents at all", async () => {
+    const mock = makeTableQueryMock({
+      repair_orders: PARENT_FOUND,
+      repair_order_lines: { data: [lineRow()], error: null },
+    });
+
+    await RepairOrdersService.listRepairOrderLines(mock as never, "org-1", "branch-1", "ro-1");
+
+    const selectCall = mock.callsByTable["repair_order_lines"]?.find((c) => c.method === "select");
+    const selectArg = selectCall?.args[0] as string;
+    expect(selectArg).not.toContain("workshop_source_document");
+    expect(selectArg).not.toContain("source_document");
+  });
+
+  it("same-SKU different lines remain distinct -- never merged or cross-attributed by product_code", async () => {
+    const mock = makeTableQueryMock({
+      repair_orders: PARENT_FOUND,
+      repair_order_lines: {
+        data: [
+          lineRow({
+            id: "line-A",
+            product_code: "SKU-X",
+            ordered_quantity: 2,
+            repair_order_line_movement_links: [{ applied_quantity: 2, relation_type: "receipt" }],
+          }),
+          lineRow({
+            id: "line-B",
+            product_code: "SKU-X",
+            ordered_quantity: 3,
+            repair_order_line_movement_links: [{ applied_quantity: 1, relation_type: "receipt" }],
+          }),
+        ],
+        error: null,
+      },
+    });
+
+    const result = await RepairOrdersService.listRepairOrderLines(
+      mock as never,
+      "org-1",
+      "branch-1",
+      "ro-1"
+    );
+
+    expect(result.success).toBe(true);
+    const lines = (
+      result as {
+        success: true;
+        data: Array<{ id: string; sku: string; orderedQuantity: number; receivedQuantity: number }>;
+      }
+    ).data;
+
+    expect(lines).toHaveLength(2);
+    const lineA = lines.find((l) => l.id === "line-A")!;
+    const lineB = lines.find((l) => l.id === "line-B")!;
+    expect(lineA.sku).toBe("SKU-X");
+    expect(lineB.sku).toBe("SKU-X");
+    // Independent quantities -- never summed into one SKU-X row (would be
+    // orderedQuantity: 5, receivedQuantity: 3 if wrongly merged).
+    expect(lineA.orderedQuantity).toBe(2);
+    expect(lineA.receivedQuantity).toBe(2);
+    expect(lineB.orderedQuantity).toBe(3);
+    expect(lineB.receivedQuantity).toBe(1);
+  });
+
+  it("quantity worked example: ordered=5, receipts 2+2+1=5, issues 2+1=3 -> outstandingToReceive=0, availableForIssue=2", async () => {
+    const mock = makeTableQueryMock({
+      repair_orders: PARENT_FOUND,
+      repair_order_lines: {
+        data: [
+          lineRow({
+            ordered_quantity: 5,
+            repair_order_line_movement_links: [
+              { applied_quantity: 2, relation_type: "receipt" },
+              { applied_quantity: 2, relation_type: "receipt" },
+              { applied_quantity: 1, relation_type: "receipt" },
+              { applied_quantity: 2, relation_type: "issue" },
+              { applied_quantity: 1, relation_type: "issue" },
+            ],
+          }),
+        ],
+        error: null,
+      },
+    });
+
+    const result = await RepairOrdersService.listRepairOrderLines(
+      mock as never,
+      "org-1",
+      "branch-1",
+      "ro-1"
+    );
+
+    expect(result.success).toBe(true);
+    const [line] = (result as { success: true; data: RepairOrderLineReadModel[] }).data;
+    expect(line.receivedQuantity).toBe(5);
+    expect(line.issuedQuantity).toBe(3);
+    expect(line.outstandingToReceive).toBe(0);
+    expect(line.availableForIssue).toBe(2);
+  });
+
+  it("one line can aggregate many receipt links (3 receipts summed correctly)", async () => {
+    const mock = makeTableQueryMock({
+      repair_orders: PARENT_FOUND,
+      repair_order_lines: {
+        data: [
+          lineRow({
+            repair_order_line_movement_links: [
+              { applied_quantity: 2, relation_type: "receipt" },
+              { applied_quantity: 2, relation_type: "receipt" },
+              { applied_quantity: 1, relation_type: "receipt" },
+            ],
+          }),
+        ],
+        error: null,
+      },
+    });
+
+    const result = await RepairOrdersService.listRepairOrderLines(
+      mock as never,
+      "org-1",
+      "branch-1",
+      "ro-1"
+    );
+
+    const [line] = (result as { success: true; data: RepairOrderLineReadModel[] }).data;
+    expect(line.receivedQuantity).toBe(5);
+  });
+
+  it("one line can aggregate many issue links (2 issues summed correctly)", async () => {
+    const mock = makeTableQueryMock({
+      repair_orders: PARENT_FOUND,
+      repair_order_lines: {
+        data: [
+          lineRow({
+            repair_order_line_movement_links: [
+              { applied_quantity: 2, relation_type: "issue" },
+              { applied_quantity: 1, relation_type: "issue" },
+            ],
+          }),
+        ],
+        error: null,
+      },
+    });
+
+    const result = await RepairOrdersService.listRepairOrderLines(
+      mock as never,
+      "org-1",
+      "branch-1",
+      "ro-1"
+    );
+
+    const [line] = (result as { success: true; data: RepairOrderLineReadModel[] }).data;
+    expect(line.issuedQuantity).toBe(3);
+  });
+
+  it("no movement links -> zero derived quantities (received=0, issued=0, outstanding=ordered, available=0)", async () => {
+    const mock = makeTableQueryMock({
+      repair_orders: PARENT_FOUND,
+      repair_order_lines: {
+        data: [lineRow({ ordered_quantity: 7, repair_order_line_movement_links: [] })],
+        error: null,
+      },
+    });
+
+    const result = await RepairOrdersService.listRepairOrderLines(
+      mock as never,
+      "org-1",
+      "branch-1",
+      "ro-1"
+    );
+
+    const [line] = (result as { success: true; data: RepairOrderLineReadModel[] }).data;
+    expect(line.receivedQuantity).toBe(0);
+    expect(line.issuedQuantity).toBe(0);
+    expect(line.outstandingToReceive).toBe(7);
+    expect(line.availableForIssue).toBe(0);
+  });
+
+  it("'reversal' relation_type rows are excluded from both received and issued sums (disclosed limitation, not netted)", async () => {
+    const mock = makeTableQueryMock({
+      repair_orders: PARENT_FOUND,
+      repair_order_lines: {
+        data: [
+          lineRow({
+            repair_order_line_movement_links: [
+              { applied_quantity: 5, relation_type: "receipt" },
+              { applied_quantity: 3, relation_type: "reversal" },
+            ],
+          }),
+        ],
+        error: null,
+      },
+    });
+
+    const result = await RepairOrdersService.listRepairOrderLines(
+      mock as never,
+      "org-1",
+      "branch-1",
+      "ro-1"
+    );
+
+    const [line] = (result as { success: true; data: RepairOrderLineReadModel[] }).data;
+    // 'reversal' neither adds to nor subtracts from receivedQuantity today.
+    expect(line.receivedQuantity).toBe(5);
+  });
+
+  it("scopes the parent check by organization_id AND branch_id (branch isolation)", async () => {
+    const mock = makeTableQueryMock({
+      repair_orders: PARENT_FOUND,
+      repair_order_lines: { data: [], error: null },
+    });
+
+    await RepairOrdersService.listRepairOrderLines(mock as never, "org-1", "branch-1", "ro-1");
+
+    const eqCalls = (mock.callsByTable["repair_orders"] ?? [])
+      .filter((c) => c.method === "eq")
+      .map((c) => c.args);
+    expect(eqCalls).toContainEqual(["organization_id", "org-1"]);
+    expect(eqCalls).toContainEqual(["branch_id", "branch-1"]);
+  });
+
+  it("parent RepairOrder not accessible (wrong org/branch, not found, or soft-deleted) -> lines are not exposed, and the lines table is never even queried", async () => {
+    const mock = makeTableQueryMock({
+      repair_orders: { data: null, error: null },
+      // Deliberately no repair_order_lines entry -- if the method queried
+      // it anyway, makeTableQueryMock's default { data: null, error: null }
+      // would still make this assertion pass for the wrong reason, so we
+      // additionally assert the table was never queried at all below.
+    });
+
+    const result = await RepairOrdersService.listRepairOrderLines(
+      mock as never,
+      "org-1",
+      "branch-1",
+      "ro-missing"
+    );
+
+    expect(result).toEqual({ success: true, data: [] });
+    expect(mock.from).not.toHaveBeenCalledWith("repair_order_lines");
+  });
+
+  it("error normalization: an unexpected error on the parent check is replaced with a generic message, not leaked raw", async () => {
+    const mock = makeTableQueryMock({
+      repair_orders: {
+        data: null,
+        error: { code: "XX000", message: "connection terminated unexpectedly" },
+      },
+    });
+
+    const result = await RepairOrdersService.listRepairOrderLines(
+      mock as never,
+      "org-1",
+      "branch-1",
+      "ro-1"
+    );
+
+    expect(result.success).toBe(false);
+    expect((result as { success: false; error: string }).error).not.toBe(
+      "connection terminated unexpectedly"
+    );
+  });
+
+  it("error normalization: an unexpected error on the lines query is replaced with a generic message, not leaked raw", async () => {
+    const mock = makeTableQueryMock({
+      repair_orders: PARENT_FOUND,
+      repair_order_lines: {
+        data: null,
+        error: { code: "XX000", message: "connection terminated unexpectedly" },
+      },
+    });
+
+    const result = await RepairOrdersService.listRepairOrderLines(
+      mock as never,
+      "org-1",
+      "branch-1",
+      "ro-1"
+    );
 
     expect(result.success).toBe(false);
     expect((result as { success: false; error: string }).error).not.toBe(

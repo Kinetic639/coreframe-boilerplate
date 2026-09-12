@@ -3105,7 +3105,7 @@
           "unresolvedTitle": "Nierozwiązane zlecenie naprawy",
           "identityStatus": "Status identyfikacji",
           "updated": "Ostatnia aktualizacja",
-          "futurePhasesNote": "Pozycje części, pochodzenie z dokumentów źródłowych i szczegóły magazynowe nie są jeszcze dostępne na tej stronie — pojawią się w kolejnej fazie.",
+          "futurePhasesNote": "Pochodzenie z dokumentów źródłowych i pełne szczegóły przyjęć/wydań magazynowych nie są jeszcze dostępne na tej stronie — pojawią się w kolejnej fazie.",
           "vehicleBrand": "Marka pojazdu",
           "clientName": "Nazwa klienta",
           "dealerName": "Dealer",
@@ -3120,6 +3120,24 @@
           "archiveConfirmTitle": "Zarchiwizować to zlecenie naprawy?",
           "archiveConfirmDescription": "Zarchiwizowane zlecenia naprawy są ostateczne i nie można ich ponownie otworzyć. Nie wpływa to na już przyjęte lub wydane części.",
           "readOnlyNote": "Nie masz uprawnień do edycji tego zlecenia naprawy."
+        },
+        "lines": {
+          "title": "Pozycje części",
+          "subtitle": "Trwała lista pozycji zlecenia. Bez grupowania według dokumentu źródłowego.",
+          "columns": {
+            "sku": "SKU",
+            "description": "Część / Opis",
+            "ordered": "Zamówiono",
+            "received": "Przyjęto",
+            "outstanding": "Pozostało do przyjęcia",
+            "available": "Dostępne do wydania",
+            "unit": "Jednostka"
+          },
+          "emptyStateTitle": "Brak pozycji części.",
+          "emptyStateSubtitle": "Pozycje są tworzone automatycznie po zmaterializowaniu tego zlecenia z zatwierdzonej sesji Matchera.",
+          "errors": {
+            "loadFailed": "Nie udało się wczytać pozycji części"
+          }
         },
         "newOrder": {
           "cta": "Nowe zlecenie naprawy",
