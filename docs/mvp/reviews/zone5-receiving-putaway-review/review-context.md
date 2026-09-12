@@ -1,11 +1,49 @@
 # Zone 5 — Receiving/Putaway: External Review Context
 
-This bundle covers the Zone 5 implementation, including two correction passes applied after
-external review of the first and second bundles, against the architecture approved across six
-prior planning/correction rounds (see `docs/mvp/zones/05-receiving-putaway-implementation-plan.md`
-for the full design record). Read `changed-files.md` for the file manifest and
-`migration-summary.md` for per-migration detail; this document explains the _why_ behind each
-piece and lists the reviewer's checklist.
+This bundle covers the Zone 5 implementation, including three correction passes applied after
+external review of the first, second, and third bundles, against the architecture approved across
+six prior planning/correction rounds (see
+`docs/mvp/zones/05-receiving-putaway-implementation-plan.md` for the full design record). Read
+`changed-files.md` for the file manifest and `migration-summary.md` for per-migration detail; this
+document explains the _why_ behind each piece and lists the reviewer's checklist.
+
+## Corrections applied in the third correction pass (in response to external review of the second-pass bundle)
+
+1. **Fixed a semantic correctness bug: putaway trusted an UNKNOWN source bucket.** The read model
+   (`RepairOrderStorageService.getReceivedLines`) offered every positive-quantity
+   `repair_order_line_locations` row at the receiving location as a confident "Put away
+   &lt;quantity&gt;" candidate, without checking
+   `repair_order_location_attribution_uncertain`. Worse, `putaway_repair_order_stock()` itself
+   validated quantity-available against the same table alone, treating stale projection as
+   authoritative available stock. This directly contradicted the architecture: existence of an
+   UNKNOWN marker means the bucket's RepairOrder attribution is unknown, full stop — the
+   projection row is then only last-known/stale, never physical proof, and the caller naming an
+   exact `repair_order_line_id` is not proof either. Fixed at BOTH layers: the read model now
+   excludes any receiving-location bucket flagged UNKNOWN from the actionable `lines` array
+   (surfacing a separate `unverifiedLineCount` instead — a compact, honest signal, not a
+   reconciliation UI), and the RPC independently re-derives and enforces the same rule
+   server-side (never relying on the UI having already filtered it) — see §J below.
+2. **Fixed a lock-order inversion / deadlock risk in the putaway RPC.** The prior revision took a
+   `FOR UPDATE` lock on `repair_order_line_locations` (its quantity-available check) BEFORE
+   calling `inventory_create_and_finalize`, which internally locks `inventory_balances`. Every
+   other code path touching both resource families (the ledger-sync trigger, fired from inside
+   the engine's own ledger insert) locks balance first and attribution/projection second — two
+   transactions contending for the same bucket in opposite orders is a textbook deadlock. Fixed:
+   the RPC now never locks either projection/marker table until after the engine call returns —
+   see §J and §N below for the full analysis and the new, disclosed live pre-apply gate this
+   requires.
+3. **Replaced the previous, semantically wrong pgTAP test 5** in file `097` (it asserted that
+   putaway from an UNKNOWN bucket _succeeded_) with the correct expectation (HARD ERROR, no
+   movement created, source/destination projections unchanged, marker remains) — see §Q. Also
+   fixed a latent bug in that same test: a bare `PERFORM putaway_repair_order_stock(...)` is
+   invalid top-level SQL (PERFORM is PL/pgSQL-only); never caught because this file has never
+   been executed. Added 2 new scenarios (destination-UNKNOWN retention; a best-effort structural
+   lock-order proof) and 4 new application-level tests (2 read-model, 2 action-error-normalization).
+4. Kept everything else on the "frozen" list untouched — see the bottom of this section.
+
+None of these corrections touch the underlying architecture decisions from the six approved
+planning rounds, nor any decision already locked in by the first or second correction passes —
+they are implementation-quality fixes, not design changes.
 
 ## Corrections applied in the second correction pass (in response to external review of the corrected bundle)
 
@@ -102,7 +140,12 @@ A separate table, `repair_order_location_attribution_uncertain`, keyed at
 `(organization_id, branch_id, location_id, variant_id)`. Existence of a row = UNKNOWN, full
 stop — never re-derived from live arithmetic. Cleared only by on-hand reaching exactly zero
 (automatic) or a future, explicit, full-bucket reconciliation (PILOT, not built). A single
-RepairOrder-aware RPC write never clears a bucket-wide marker.
+RepairOrder-aware RPC write never clears a bucket-wide marker. **[Third pass]** This marker is now
+consulted, not just written, by every consumer that would otherwise treat a projection row as
+authoritative: the read model excludes UNKNOWN receiving stock from actionable putaway candidates,
+and the putaway RPC independently rejects putaway from a marked-UNKNOWN source bucket — a stale
+projection row is never treated as physical proof merely because a caller names an exact
+`repair_order_line_id`.
 
 ## E. Trigger algorithm
 
@@ -176,6 +219,28 @@ One call = one destination = one `801` document = N lines. Per-line quantity-ava
 validation against the live projection (reject, never clamp). Writes attribution directly
 (operator-named, not inferred). Writes no `repair_order_line_movement_links` row.
 
+**[Third pass — UNKNOWN-source rejection]** Every line's receiving-location+variant bucket is
+checked against `repair_order_location_attribution_uncertain` TWICE: once via a plain, non-locking
+read _before_ the engine call (the actually-authoritative gate), and once again, `FOR UPDATE`,
+_after_ the engine call (defense-in-depth for the narrow pre-check-to-engine-call race window).
+Either check finding a marker is a HARD ERROR (SQLSTATE `55000`) — see test 5a–5e in file `097`.
+The pre-call check cannot be deferred to after the call: this RPC's own bypass flag suppresses the
+ledger-sync trigger's general logic, but its zero-clear branch still runs even under bypass and
+would silently clear a stale marker as a side effect of this putaway's own decrease reaching
+exactly zero — a post-call-only check could see "no marker" and wrongly let the putaway through
+using evidence its own transaction just erased. A destination bucket already marked UNKNOWN is
+unaffected by this source-side gate and — unchanged since the first correction pass — still never
+gets its own marker cleared just because it gained a real, known contribution (test 6a–6c).
+
+**[Third pass — lock-order fix]** `repair_order_line_locations` /
+`repair_order_location_attribution_uncertain` are never locked (`FOR UPDATE`) until _after_ the
+engine call returns, matching the generic engine + ledger-sync trigger's own global lock order
+(balance, then attribution/projection) everywhere else. The previous revision's opposite order
+(projection lock, then implicitly the engine's own balance lock) was a textbook AB-BA deadlock
+risk against any concurrent generic movement on the same bucket — see §N and `migration-summary.md`
+§5 for the full analysis, and the new, disclosed pre-apply gate this requires (confirming
+`inventory_balances`'s exact key shape and `inventory_finalize_posting`'s locking behavior live).
+
 ## K. Batch behavior
 
 Proven by pgTAP test #1 in file `097`: two lines (one partial, one full quantity), one
@@ -207,6 +272,29 @@ is present (test #14 in file `095`, via `pg_get_functiondef(...) ~* 'FOR UPDATE'
 correct sequential behavior; it does **not** prove genuine two-session concurrency. A live-DB,
 two-connection integration test is explicitly recorded as outstanding, not fabricated as done.
 
+**[Third pass — lock order]** External review identified a real lock-order inversion in the
+putaway RPC: it locked `repair_order_line_locations` BEFORE calling the engine (which locks
+`inventory_balances`), while every other path (the ledger-sync trigger, fired from inside the
+engine's own insert) locks balance first, attribution/projection second. Two transactions
+contending for the same bucket in opposite orders is a textbook AB-BA deadlock (T1 holds the
+projection lock, waits on balance; T2 holds balance, waits on projection). Fixed by never taking a
+lock on either projection/marker table until after the engine call returns, in `putaway_repair_order_stock`
+(see §J and `migration-summary.md` §5). A structural pgTAP assertion (test 7 in file `097`) proves
+the function's own source text never places a `FOR UPDATE` clause before the engine call — this is
+a source-text proof only; it does **not** prove the absence of a deadlock under real concurrent
+load, and does **not** confirm `inventory_finalize_posting`'s actual locking behavior (which this
+session could not verify live — see the new pre-apply gate in §P and `migration-summary.md` §5).
+
+**Required live two-session test (still outstanding, now with two scenarios to prove, not one)**:
+
+1. _Pre-existing scenario_: two concurrent putaway/receive calls on the same
+   `(location, variant)` bucket must not double-consume or negative-attribute.
+2. _New this pass_: a putaway call and a concurrent generic movement (e.g. Zone 6's own
+   relocation UI) on the same `(location, variant)` bucket, timed so each is waiting on the lock
+   the other holds, must resolve WITHOUT a deadlock under the corrected lock order — and must
+   never let either side observe or act on a stale/erased UNKNOWN marker. Neither scenario can be
+   exercised by pgTAP; both require a genuine two-connection live session.
+
 ## O. RLS/security
 
 Both new tables: RLS enabled + forced, SELECT-only client policy, zero client write path (write
@@ -225,21 +313,37 @@ does exist in `package.json`, since the working rules specify MCP as the approva
 mechanism for mutations and substituting a raw CLI push against a live, shared project was
 judged outside this session's authority to decide alone.
 
+**[Third pass]** Migration #5 (the putaway RPC) picked up a NEW, disclosed pre-apply gate in
+addition to migration #3's pre-existing one: a live/MCP session must independently confirm
+`inventory_balances`'s exact key shape and `inventory_finalize_posting`'s exact locking behavior
+before the corrected lock order (§J/§N) can be trusted under real concurrency. See
+`migration-summary.md` §5 and the migration file's own header.
+
 ## Q. Tests
 
-Five pgTAP files (62 assertions total across `093`–`097`, itemized in each file's own header),
-none executed (same MCP blocker). File `095` grew from 14 to 26 assertions this pass: one added
-assertion (9b, projection rows wiped on zero-clear, not just the marker) plus the four new
-zero-bucket regression scenarios A–D described in §E above (tests 15–25). File `097`'s `plan()`
-was also corrected from a stale `6` to the actual `7` assertions present (a latent bug, unrelated
-to the trigger fix, caught by this pass's mechanical `plan()`-vs-assertion-count cross-check).
+Five pgTAP files (70 assertions total across `093`–`097`, itemized in each file's own header),
+none executed (same MCP blocker). File `095` grew from 14 to 26 assertions in the second pass (one
+added assertion 9b plus zero-bucket regression scenarios A–D, tests 15–25 — unchanged this pass).
+File `097` grew from 7 to 15 assertions THIS pass: test 5 was **replaced** (not merely extended) —
+the previous version asserted the wrong semantic model (putaway from an UNKNOWN bucket
+_succeeding_); it is now 5 assertions (5a–5e) proving a HARD ERROR, no movement created, source
+and destination projections both unchanged, and the marker still present. 3 new assertions (6a–6c)
+prove a destination bucket already marked UNKNOWN keeps that marker after gaining a known
+contribution. 1 new assertion (7) is a best-effort, honestly-caveated structural proof that no
+`FOR UPDATE` clause appears before the engine call in the function's own source (NOT a concurrency
+proof). Test 8 (movement-links non-write) is the prior test 6, renumbered only.
 
 Application-side (vitest), **all executed and passing** against real component/action tests, not
-mocked-away placeholders: the RepairOrder detail page's load-error-vs-empty-state distinction (3
-tests), the new receiving-location `LocationPurposeControl` component (5 tests), and 2 new
-`WarehouseLocationsService` tests for the constraint-name disambiguation — in addition to the
-prior pass's read-model unit-test file (5 assertions, real Supabase-client mock, verifying the
-grouping/ordering/KNOWN-UNKNOWN logic).
+mocked-away placeholders. This pass added: 5 new `getReceivedLines` tests (KNOWN stock actionable;
+UNKNOWN stock excluded and counted; mixed KNOWN+UNKNOWN; a genuine read error distinct from
+empty; no-receiving-location-configured), 2 new RepairOrder detail page tests (the new
+`unverifiedLineCount` warning banner, alone and combined with actionable KNOWN lines), and 2 new
+`putawayRepairOrderStockAction` tests (the new SQLSTATE `55000` error passes through as-is; the
+same code with an unrecognized message does not leak). In addition to the second pass's tests: the
+RepairOrder detail page's load-error-vs-empty-state distinction (3 tests), the receiving-location
+`LocationPurposeControl` component (5 tests), and 2 `WarehouseLocationsService` constraint-name
+disambiguation tests — and the first pass's read-model unit-test file (5 assertions, real
+Supabase-client mock, verifying the grouping/ordering/KNOWN-UNKNOWN logic).
 
 ## R. Manual/browser verification
 
@@ -316,14 +420,16 @@ resurfaces on a future file.
 13. Does batch putaway preserve per-line attribution correctly? (Intended answer: yes — test #1–3
     in file `097`.)
 14. Does putaway accidentally affect `received_quantity`/the business-quantity ledger? (Intended
-    answer: no — putaway never writes `repair_order_line_movement_links`; test #6 in file `097`.)
+    answer: no — putaway never writes `repair_order_line_movement_links`; test #8 in file `097`.)
 15. Can Zone 6's generic `801` silently corrupt current location attribution? (Intended answer:
     no in the unambiguous case (propagates correctly), and no in the ambiguous case either
     (marks UNKNOWN rather than corrupting) — but please specifically try to find a movement
     shape this session didn't consider.)
-16. Does the UNKNOWN UI ever appear as confident KNOWN data? (Intended answer: no — see the
-    putaway panel's filtering by `attributionStatus`; please review the component directly,
-    since this was not verified in a real browser this pass.)
+16. Does the UNKNOWN UI ever appear as confident KNOWN data? (Intended answer: no — the putaway
+    panel's suggestions filter by `attributionStatus`, AND, as of this pass, `getReceivedLines`
+    itself excludes any UNKNOWN receiving bucket from the actionable candidate list before the
+    panel ever sees it — see §J and the new `getReceivedLines`/page tests in §Q; please review
+    both layers directly, since neither was verified in a real browser this pass.)
 17. Does any RLS policy permit direct client writes to either new projection table? (Intended
     answer: no — please confirm directly against the live policies once applied, not just the
     migration file's intent.)
@@ -334,6 +440,19 @@ resurfaces on a future file.
     `inventory_create_and_finalize`, `inventory_finalize_posting`, and every existing table's
     existing columns/RLS are untouched; the only genuinely new _behavioral_ surface is the
     Phase 3 trigger, called out explicitly as such in `migration-summary.md`.)
-20. Is Zone 5 technically safe for pitch UAT? (Honest answer, this pass: **not yet** — nothing
+20. **[NEW this pass]** Can a caller putaway stock from a receiving bucket flagged UNKNOWN by
+    naming an exact `repair_order_line_id`? (Intended answer: no — hard error, SQLSTATE `55000`,
+    at both the read model and the RPC; test 5a–5e in file `097`; please specifically try to
+    construct a request that reaches the engine call despite an UNKNOWN marker being present.)
+21. **[NEW this pass]** Does a destination bucket already marked UNKNOWN lose that marker merely
+    by receiving one known putaway contribution? (Intended answer: no — test 6a–6c in file `097`.)
+22. **[NEW this pass]** Does the corrected lock order in `putaway_repair_order_stock` actually
+    eliminate the deadlock risk under real concurrent load, and does
+    `inventory_finalize_posting` lock `inventory_balances` the way this pass assumed? (Intended
+    answer: unverified — this is the single highest-value thing to confirm live before trusting
+    Phase 6 under concurrency; see §N's two-scenario live test plan and the new pre-apply gate in
+    `migration-summary.md` §5. Test 7 in file `097` is a structural, source-text-only proof and
+    explicitly does NOT answer this question.)
+23. Is Zone 5 technically safe for pitch UAT? (Honest answer, this pass: **not yet** — nothing
     has been applied to any database, and Phase 0/7 live verification plus Playwright QA remain
     fully outstanding. This bundle is for architecture/code review, not a readiness sign-off.)

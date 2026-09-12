@@ -179,11 +179,51 @@ direction, quantity, balance_after`) and for `inventory_movement_lines`
   `801` document (always sourced from the resolved receiving location), quantity-available
   validated against the live projection before posting, writes spatial attribution directly
   (never infers), writes **no** `repair_order_line_movement_links` row, and does **not** clear
-  any pre-existing bucket-wide UNKNOWN marker.
-- **Why required**: approved plan §4/§9 (batch putaway contract) + the final correction pass
+  any pre-existing bucket-wide UNKNOWN marker (on either the source or the destination bucket).
+- **Why required**: approved plan §4/§9 (batch putaway contract) + the first correction pass
   (marker non-clearing).
+- **[CORRECTED this pass — two fixes, both from external review of the corrected bundle]**:
+  1. **UNKNOWN-source rejection (semantic correctness bug).** The prior revision validated
+     quantity-available against `repair_order_line_locations` alone, never checking
+     `repair_order_location_attribution_uncertain` — a receiving bucket flagged UNKNOWN could
+     still be putaway'd as if it were confident, physical truth, merely because the caller named
+     an exact `repair_order_line_id`. Fixed: every line's receiving-location+variant bucket is
+     now checked against the marker table TWICE — once via a plain, non-locking read **before**
+     the engine call (the actually-authoritative gate — see point 2 for why it cannot be deferred
+     to after the call) and once again, this time `FOR UPDATE`, **after** the engine call
+     (defense-in-depth for the narrow pre-check-to-engine-call race window). Either check finding
+     a marker is a HARD ERROR (SQLSTATE `55000`); nothing is inferred, nothing is reconciled, and
+     the caller cannot "prove" the line merely by naming its id. A destination bucket already
+     marked UNKNOWN is unaffected by this gate (it only gates the _source_) and — unchanged from
+     the first correction pass — still never gets its own marker cleared just because it gained a
+     real, known contribution.
+  2. **Lock-order inversion / deadlock risk.** The prior revision took `FOR UPDATE` on
+     `repair_order_line_locations` (the quantity-available check) **before** calling
+     `inventory_create_and_finalize`, which internally locks `inventory_balances`. Every other
+     code path touching both resource families (the ledger-sync trigger, fired from inside the
+     engine's own ledger insert) locks `inventory_balances` first and
+     `repair_order_line_locations`/`repair_order_location_attribution_uncertain` second — two
+     transactions contending for the same (location, variant) bucket in opposite lock orders is a
+     textbook AB-BA deadlock. Fixed: this RPC now never takes a `FOR UPDATE` lock on either of
+     those two tables until _after_ the engine call returns, matching the generic engine +
+     ledger-sync trigger's own global lock order everywhere else. The quantity-available check is
+     _also_ kept as a fast, non-locking pre-call read (safe — nothing under this RPC's own bypass
+     ever mutates `repair_order_line_locations`, so this value cannot be self-erased by this
+     transaction's own engine call) and is re-validated, this time under lock, in the correct
+     post-call position.
+     A structural (source-text-only) pgTAP assertion proves no `FOR UPDATE` clause on either table
+     appears before the engine call in the function's own body (test 7 in file `097`) — this is
+     **not** a proof of deadlock-freedom under real concurrent load; that requires the still-
+     outstanding live two-session test (see `review-context.md` §N and the Pre-Apply Gate below).
 - **RLS/Constraints/dependency**: same posture as file #4 above.
-- **Live verification**: BLOCKED ON MCP.
+- **⚠ NEW disclosed verification gap this pass**: this migration's corrected lock order assumes
+  (but this session cannot confirm) that `inventory_finalize_posting` takes a row-level lock on
+  `inventory_balances` scoped to `(organization_id, branch_id, location_id, variant_id)` before
+  updating it, and holds that lock for the remainder of the transaction. A live/MCP session must
+  independently confirm `inventory_balances`'s exact key shape and `inventory_finalize_posting`'s
+  exact locking behavior before this corrected lock order can be trusted under real concurrency.
+- **Live verification**: BLOCKED ON MCP (and additionally gated on the lock-order-verification
+  item above, which is itself a live-only check).
 - **Local/live parity**: BLOCKED ON MCP.
 
 ## 6. Application-layer files (not migrations, listed here for completeness of the "required
@@ -204,7 +244,9 @@ and — for the read model — passes its own mocked unit tests).
 3. `20260912092000_...trigger.sql` — **only after independently confirming the ledger-table
    column list disclosed above**
 4. `20260912093000_...receive_rpc.sql`
-5. `20260912094000_...putaway_rpc.sql`
+5. `20260912094000_...putaway_rpc.sql` — **only after independently confirming
+   `inventory_balances`'s exact key shape and `inventory_finalize_posting`'s exact locking
+   behavior disclosed above (this pass's new gate, distinct from and in addition to #3's)**
 
 Then: run pgTAP files `093`–`097` in order (they are independent of each other except that `096`
 and `097` assume `093`/`094`/`095` have already been applied, since they exercise the RPCs that

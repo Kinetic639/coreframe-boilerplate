@@ -1190,10 +1190,10 @@ index 00000000..4f8df6c6
 +}
 diff --git a/apps/web/src/app/[locale]/dashboard/workshop/[id]/__tests__/page.test.tsx b/apps/web/src/app/[locale]/dashboard/workshop/[id]/__tests__/page.test.tsx
 new file mode 100644
-index 00000000..b3177def
+index 00000000..34b2aa22
 --- /dev/null
 +++ b/apps/web/src/app/[locale]/dashboard/workshop/[id]/__tests__/page.test.tsx
-@@ -0,0 +1,131 @@
+@@ -0,0 +1,182 @@
 +import { render, screen } from "@testing-library/react";
 +import { describe, it, expect, vi, beforeEach } from "vitest";
 +
@@ -1271,13 +1271,17 @@ index 00000000..b3177def
 +
 +  it("SUCCESS + no received lines -> no putaway panel, no error shown", async () => {
 +    mockOrderFound();
-+    getReceivedLines.mockResolvedValue({ success: true, data: [] });
++    getReceivedLines.mockResolvedValue({
++      success: true,
++      data: { lines: [], unverifiedLineCount: 0 },
++    });
 +
 +    const page = await RepairOrderDetailPage({ params: Promise.resolve({ id: "ro-1" }) });
 +    render(page);
 +
 +    expect(screen.queryByTestId("putaway-panel-stub")).not.toBeInTheDocument();
 +    expect(screen.queryByTestId("received-lines-error")).not.toBeInTheDocument();
++    expect(screen.queryByTestId("received-lines-unknown-warning")).not.toBeInTheDocument();
 +    // The rest of the page still rendered normally.
 +    expect(screen.getByTestId("repair-order-detail-card")).toBeInTheDocument();
 +  });
@@ -1286,16 +1290,19 @@ index 00000000..b3177def
 +    mockOrderFound();
 +    getReceivedLines.mockResolvedValue({
 +      success: true,
-+      data: [
-+        {
-+          repairOrderLineId: "rol-1",
-+          variantId: "v-1",
-+          unitId: "u-1",
-+          sku: "SKU-1",
-+          productName: "Bumper",
-+          availableAtReceiving: 3,
-+        },
-+      ],
++      data: {
++        lines: [
++          {
++            repairOrderLineId: "rol-1",
++            variantId: "v-1",
++            unitId: "u-1",
++            sku: "SKU-1",
++            productName: "Bumper",
++            availableAtReceiving: 3,
++          },
++        ],
++        unverifiedLineCount: 0,
++      },
 +    });
 +
 +    const page = await RepairOrderDetailPage({ params: Promise.resolve({ id: "ro-1" }) });
@@ -1303,6 +1310,50 @@ index 00000000..b3177def
 +
 +    expect(screen.getByTestId("putaway-panel-stub")).toBeInTheDocument();
 +    expect(screen.queryByTestId("received-lines-error")).not.toBeInTheDocument();
++    expect(screen.queryByTestId("received-lines-unknown-warning")).not.toBeInTheDocument();
++  });
++
++  it("SUCCESS + only UNKNOWN receiving stock -> warning shown, no putaway panel, no error", async () => {
++    mockOrderFound();
++    getReceivedLines.mockResolvedValue({
++      success: true,
++      data: { lines: [], unverifiedLineCount: 2 },
++    });
++
++    const page = await RepairOrderDetailPage({ params: Promise.resolve({ id: "ro-1" }) });
++    render(page);
++
++    expect(screen.queryByTestId("putaway-panel-stub")).not.toBeInTheDocument();
++    expect(screen.queryByTestId("received-lines-error")).not.toBeInTheDocument();
++    const warning = screen.getByTestId("received-lines-unknown-warning");
++    expect(warning).toBeInTheDocument();
++    expect(warning.textContent).toMatch(/requires attribution verification/i);
++  });
++
++  it("SUCCESS + mixed KNOWN and UNKNOWN receiving stock -> both the panel and the warning are shown", async () => {
++    mockOrderFound();
++    getReceivedLines.mockResolvedValue({
++      success: true,
++      data: {
++        lines: [
++          {
++            repairOrderLineId: "rol-1",
++            variantId: "v-1",
++            unitId: "u-1",
++            sku: "SKU-1",
++            productName: "Bumper",
++            availableAtReceiving: 3,
++          },
++        ],
++        unverifiedLineCount: 1,
++      },
++    });
++
++    const page = await RepairOrderDetailPage({ params: Promise.resolve({ id: "ro-1" }) });
++    render(page);
++
++    expect(screen.getByTestId("putaway-panel-stub")).toBeInTheDocument();
++    expect(screen.getByTestId("received-lines-unknown-warning")).toBeInTheDocument();
 +  });
 +
 +  it("ERROR -> compact local error shown, no putaway panel, rest of the page still renders, raw error not leaked", async () => {
@@ -1326,7 +1377,7 @@ index 00000000..b3177def
 +  });
 +});
 diff --git a/apps/web/src/app/[locale]/dashboard/workshop/[id]/page.tsx b/apps/web/src/app/[locale]/dashboard/workshop/[id]/page.tsx
-index 42e14223..5b26cf67 100644
+index 42e14223..3d43f5f6 100644
 --- a/apps/web/src/app/[locale]/dashboard/workshop/[id]/page.tsx
 +++ b/apps/web/src/app/[locale]/dashboard/workshop/[id]/page.tsx
 @@ -6,8 +6,13 @@ import { checkPermission } from "@/lib/utils/permissions";
@@ -1343,7 +1394,7 @@ index 42e14223..5b26cf67 100644
  
  type PageProps = { params: Promise<{ id: string }> };
  
-@@ -49,6 +54,34 @@ export default async function RepairOrderDetailPage({ params }: PageProps) {
+@@ -49,6 +54,36 @@ export default async function RepairOrderDetailPage({ params }: PageProps) {
  
    const order = result.data;
  
@@ -1360,6 +1411,7 @@ index 42e14223..5b26cf67 100644
 +  // shows a compact, local, non-leaking error state in the storage/putaway
 +  // area only -- it must never fail the whole RepairOrder detail page.
 +  let receivedLines: ReceivedLine[] = [];
++  let unverifiedLineCount = 0;
 +  let receivedLinesError: string | null = null;
 +  if (branchId) {
 +    const receivedLinesResult = await RepairOrderStorageService.getReceivedLines(
@@ -1369,7 +1421,8 @@ index 42e14223..5b26cf67 100644
 +      id
 +    );
 +    if (receivedLinesResult.success === true) {
-+      receivedLines = receivedLinesResult.data;
++      receivedLines = receivedLinesResult.data.lines;
++      unverifiedLineCount = receivedLinesResult.data.unverifiedLineCount;
 +    } else {
 +      receivedLinesError = "Could not load receiving stock. Please try again or contact support.";
 +    }
@@ -1378,7 +1431,7 @@ index 42e14223..5b26cf67 100644
    return (
      <div className="flex flex-col gap-6 p-6">
        <Link
-@@ -88,6 +121,25 @@ export default async function RepairOrderDetailPage({ params }: PageProps) {
+@@ -88,6 +123,34 @@ export default async function RepairOrderDetailPage({ params }: PageProps) {
          />
        </div>
  
@@ -1388,6 +1441,15 @@ index 42e14223..5b26cf67 100644
 +          data-testid="received-lines-error"
 +        >
 +          {receivedLinesError}
++        </div>
++      )}
++
++      {!receivedLinesError && unverifiedLineCount > 0 && (
++        <div
++          className="max-w-2xl rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400"
++          data-testid="received-lines-unknown-warning"
++        >
++          Some receiving stock requires attribution verification before putaway.
 +        </div>
 +      )}
 +
@@ -1406,10 +1468,10 @@ index 42e14223..5b26cf67 100644
    );
 diff --git a/apps/web/src/app/actions/warehouse/__tests__/repair-order-receiving.test.ts b/apps/web/src/app/actions/warehouse/__tests__/repair-order-receiving.test.ts
 new file mode 100644
-index 00000000..dec0be54
+index 00000000..f69ff9e7
 --- /dev/null
 +++ b/apps/web/src/app/actions/warehouse/__tests__/repair-order-receiving.test.ts
-@@ -0,0 +1,277 @@
+@@ -0,0 +1,312 @@
 +import { describe, expect, it, vi, beforeEach } from "vitest";
 +
 +/**
@@ -1631,6 +1693,41 @@ index 00000000..dec0be54
 +    );
 +  });
 +
++  it("known error (UNKNOWN-source rejection, external review third pass) passes through as-is", async () => {
++    rpcMock.mockResolvedValue({
++      data: null,
++      error: {
++        code: "55000",
++        message:
++          "Line 1: the receiving location's attribution for this variant is UNKNOWN (a prior generic movement made it ambiguous) -- putaway is not permitted until it is reconciled",
++      },
++    });
++    const result = await putawayRepairOrderStockAction({
++      lines: [validPutawayLine],
++      destination_location_id: "55555555-5555-5555-5555-555555555555",
++    });
++    expect(result.success).toBe(false);
++    if (result.success === true) return;
++    expect(result.error).toContain("attribution for this variant is UNKNOWN");
++  });
++
++  it("the SAME SQLSTATE (55000) with a DIFFERENT, unrecognized message is NOT leaked -- falls back to the generic message", async () => {
++    rpcMock.mockResolvedValue({
++      data: null,
++      error: { code: "55000", message: "some unrelated 55000 error from elsewhere in the schema" },
++    });
++    const result = await putawayRepairOrderStockAction({
++      lines: [validPutawayLine],
++      destination_location_id: "55555555-5555-5555-5555-555555555555",
++    });
++    expect(result.success).toBe(false);
++    if (result.success === true) return;
++    expect(result.error).not.toContain("unrelated 55000 error");
++    expect(result.error).toBe(
++      "Putaway failed due to an unexpected server error. Please try again or contact support."
++    );
++  });
++
 +  it("succeeds and posts one document for one destination", async () => {
 +    rpcMock.mockResolvedValue({
 +      data: { movement_id: "m-2", document_number: "MM/1" },
@@ -1747,10 +1844,10 @@ index fa3c22fc..77eacdc1 100644
      const auth = await requireWarehouseContext();
 diff --git a/apps/web/src/app/actions/warehouse/repair-order-receiving.ts b/apps/web/src/app/actions/warehouse/repair-order-receiving.ts
 new file mode 100644
-index 00000000..43df443d
+index 00000000..094d8aad
 --- /dev/null
 +++ b/apps/web/src/app/actions/warehouse/repair-order-receiving.ts
-@@ -0,0 +1,286 @@
+@@ -0,0 +1,291 @@
 +"use server";
 +
 +import { z } from "zod";
@@ -1837,6 +1934,11 @@ index 00000000..43df443d
 +  { code: "42501", pattern: /does not belong to this organization\/branch$/ },
 +  { code: "22023", pattern: /variant does not match the RepairOrderLine's own variant$/ },
 +  { code: "22023", pattern: /but only .* is currently attributed to this RepairOrderLine/ },
++  {
++    code: "55000",
++    pattern:
++      /attribution for this variant is UNKNOWN .* putaway is not permitted until it is reconciled$/,
++  },
 +];
 +
 +const GENERIC_RECEIVE_ERROR =
@@ -2054,10 +2156,10 @@ index aad128e1..a26a2955 100644
    color: hexColorSchema,
 diff --git a/apps/web/src/server/services/__tests__/repair-order-storage.service.test.ts b/apps/web/src/server/services/__tests__/repair-order-storage.service.test.ts
 new file mode 100644
-index 00000000..b6bb7efd
+index 00000000..8f2a3a34
 --- /dev/null
 +++ b/apps/web/src/server/services/__tests__/repair-order-storage.service.test.ts
-@@ -0,0 +1,215 @@
+@@ -0,0 +1,390 @@
 +import { describe, expect, it } from "vitest";
 +import { RepairOrderStorageService } from "../repair-order-storage.service";
 +
@@ -2071,10 +2173,14 @@ index 00000000..b6bb7efd
 +
 +type Row = Record<string, unknown>;
 +
-+function makeSupabaseMock(tables: Record<string, Row[]>) {
++function makeSupabaseMock(
++  tables: Record<string, Row[]>,
++  errors: Record<string, { message: string }> = {}
++) {
 +  return {
 +    from(table: string) {
 +      const rows = tables[table] ?? [];
++      const tableError = errors[table] ?? null;
 +      const builder: any = {
 +        _filters: [] as Array<(r: Row) => boolean>,
 +        select() {
@@ -2092,7 +2198,22 @@ index 00000000..b6bb7efd
 +          builder._filters.push((r: Row) => vals.includes(r[col]));
 +          return builder;
 +        },
-+        then(resolve: (v: { data: Row[]; error: null }) => void) {
++        is(col: string, val: null) {
++          builder._filters.push((r: Row) => (r[col] ?? null) === val);
++          return builder;
++        },
++        maybeSingle() {
++          if (tableError) return Promise.resolve({ data: null, error: tableError });
++          const filtered = rows.filter((r) =>
++            builder._filters.every((f: (r: Row) => boolean) => f(r))
++          );
++          return Promise.resolve({ data: filtered[0] ?? null, error: null });
++        },
++        then(resolve: (v: { data: Row[] | null; error: { message: string } | null }) => void) {
++          if (tableError) {
++            resolve({ data: null, error: tableError });
++            return;
++          }
 +          const filtered = rows.filter((r) =>
 +            builder._filters.every((f: (r: Row) => boolean) => f(r))
 +          );
@@ -2273,6 +2394,162 @@ index 00000000..b6bb7efd
 +    if (result.success === false) expect(result.error).toBe("boom");
 +  });
 +});
++
++describe("RepairOrderStorageService.getReceivedLines", () => {
++  const org = "org-1";
++  const branch = "branch-1";
++  const ro = "ro-1";
++  const recvLoc = { id: "loc-recv", organization_id: org, branch_id: branch, purpose: "receiving" };
++
++  /**
++   * External review, third correction pass: this service must never expose
++   * UNKNOWN receiving stock as a confident, actionable putaway candidate.
++   * These tests are the item-11 A/B/D/E coverage requested by that review.
++   */
++
++  it("A: KNOWN receiving stock is actionable", async () => {
++    const supabase = makeSupabaseMock({
++      warehouse_locations: [recvLoc],
++      repair_order_line_locations: [
++        {
++          organization_id: org,
++          branch_id: branch,
++          repair_order_id: ro,
++          location_id: "loc-recv",
++          variant_id: "var-x",
++          repair_order_line_id: "rol-1",
++          quantity: 5,
++        },
++      ],
++      repair_order_location_attribution_uncertain: [],
++      inventory_variants: [
++        { id: "var-x", sku: "SKU-X", product_name: "Bumper", unit_id: "unit-ea" },
++      ],
++    });
++
++    const result = await RepairOrderStorageService.getReceivedLines(
++      supabase as any,
++      org,
++      branch,
++      ro
++    );
++    expect(result.success).toBe(true);
++    if (!result.success) return;
++    expect(result.data.lines).toHaveLength(1);
++    expect(result.data.lines[0].repairOrderLineId).toBe("rol-1");
++    expect(result.data.lines[0].availableAtReceiving).toBe(5);
++    expect(result.data.unverifiedLineCount).toBe(0);
++  });
++
++  it("B: UNKNOWN receiving stock is excluded from actionable lines and counted separately, never shown as a confident candidate", async () => {
++    const supabase = makeSupabaseMock({
++      warehouse_locations: [recvLoc],
++      repair_order_line_locations: [
++        {
++          organization_id: org,
++          branch_id: branch,
++          repair_order_id: ro,
++          location_id: "loc-recv",
++          variant_id: "var-x",
++          repair_order_line_id: "rol-1",
++          quantity: 5,
++        },
++      ],
++      repair_order_location_attribution_uncertain: [
++        { organization_id: org, branch_id: branch, location_id: "loc-recv", variant_id: "var-x" },
++      ],
++      inventory_variants: [
++        { id: "var-x", sku: "SKU-X", product_name: "Bumper", unit_id: "unit-ea" },
++      ],
++    });
++
++    const result = await RepairOrderStorageService.getReceivedLines(
++      supabase as any,
++      org,
++      branch,
++      ro
++    );
++    expect(result.success).toBe(true);
++    if (!result.success) return;
++    expect(result.data.lines).toHaveLength(0);
++    expect(result.data.unverifiedLineCount).toBe(1);
++  });
++
++  it("E: mixed KNOWN and UNKNOWN receiving stock -- KNOWN line stays actionable, UNKNOWN line is excluded and counted (normal known behavior unchanged)", async () => {
++    const supabase = makeSupabaseMock({
++      warehouse_locations: [recvLoc],
++      repair_order_line_locations: [
++        {
++          organization_id: org,
++          branch_id: branch,
++          repair_order_id: ro,
++          location_id: "loc-recv",
++          variant_id: "var-x",
++          repair_order_line_id: "rol-1",
++          quantity: 5,
++        },
++        {
++          organization_id: org,
++          branch_id: branch,
++          repair_order_id: ro,
++          location_id: "loc-recv",
++          variant_id: "var-y",
++          repair_order_line_id: "rol-2",
++          quantity: 2,
++        },
++      ],
++      repair_order_location_attribution_uncertain: [
++        { organization_id: org, branch_id: branch, location_id: "loc-recv", variant_id: "var-y" },
++      ],
++      inventory_variants: [
++        { id: "var-x", sku: "SKU-X", product_name: "Bumper", unit_id: "unit-ea" },
++        { id: "var-y", sku: "SKU-Y", product_name: "Door handle", unit_id: "unit-ea" },
++      ],
++    });
++
++    const result = await RepairOrderStorageService.getReceivedLines(
++      supabase as any,
++      org,
++      branch,
++      ro
++    );
++    expect(result.success).toBe(true);
++    if (!result.success) return;
++    expect(result.data.lines).toHaveLength(1);
++    expect(result.data.lines[0].repairOrderLineId).toBe("rol-1");
++    expect(result.data.unverifiedLineCount).toBe(1);
++  });
++
++  it("D: a genuine read error is distinct from empty/unknown -- surfaced as a failed ServiceResult, not an empty array", async () => {
++    const supabase = makeSupabaseMock(
++      { warehouse_locations: [recvLoc], repair_order_line_locations: [] },
++      { repair_order_line_locations: { message: 'relation "typo" does not exist' } }
++    );
++
++    const result = await RepairOrderStorageService.getReceivedLines(
++      supabase as any,
++      org,
++      branch,
++      ro
++    );
++    expect(result.success).toBe(false);
++    if (result.success === false) expect(result.error).toBe('relation "typo" does not exist');
++  });
++
++  it("no receiving location configured -- empty, not an error", async () => {
++    const supabase = makeSupabaseMock({ warehouse_locations: [] });
++
++    const result = await RepairOrderStorageService.getReceivedLines(
++      supabase as any,
++      org,
++      branch,
++      ro
++    );
++    expect(result.success).toBe(true);
++    if (!result.success) return;
++    expect(result.data).toEqual({ lines: [], unverifiedLineCount: 0 });
++  });
++});
 diff --git a/apps/web/src/server/services/__tests__/warehouse-locations.service.test.ts b/apps/web/src/server/services/__tests__/warehouse-locations.service.test.ts
 index b239f666..6fe98d4f 100644
 --- a/apps/web/src/server/services/__tests__/warehouse-locations.service.test.ts
@@ -2381,10 +2658,10 @@ index b239f666..6fe98d4f 100644
      const group = makeGroup({ id: "group-x", branch_id: "other-branch" });
 diff --git a/apps/web/src/server/services/repair-order-storage.service.ts b/apps/web/src/server/services/repair-order-storage.service.ts
 new file mode 100644
-index 00000000..a8d95209
+index 00000000..69d5b215
 --- /dev/null
 +++ b/apps/web/src/server/services/repair-order-storage.service.ts
-@@ -0,0 +1,263 @@
+@@ -0,0 +1,320 @@
 +import "server-only";
 +
 +import type { SupabaseClient } from "@supabase/supabase-js";
@@ -2440,6 +2717,23 @@ index 00000000..a8d95209
 +  sku: string;
 +  productName: string;
 +  availableAtReceiving: number;
++};
++
++/**
++ * getReceivedLines' result shape (external review, third correction pass).
++ * `lines` contains ONLY actionable, confidently-KNOWN receiving stock --
++ * never a bucket flagged `repair_order_location_attribution_uncertain`
++ * (existence of that marker means the RepairOrder attribution for that
++ * (location, variant) bucket is UNKNOWN; the projection row is then only
++ * last-known/stale, never physical proof -- plan §D, and this session's
++ * putaway RPC now independently enforces the same rule server-side).
++ * `unverifiedLineCount` is a compact, honest signal for case C ("stock
++ * exists but attribution requires verification") -- deliberately just a
++ * count, not a reconciliation UI (out of pitch scope).
++ */
++export type ReceivedLinesResult = {
++  lines: ReceivedLine[];
++  unverifiedLineCount: number;
 +};
 +
 +export class RepairOrderStorageService {
@@ -2583,13 +2877,27 @@ index 00000000..a8d95209
 +   * getStorageSuggestions' grouped-by-location DTO), since putaway needs
 +   * line-level granularity (repair_order_line_id, variant_id, unit_id) that
 +   * the location-grouped suggestion shape intentionally doesn't carry.
++   *
++   * CORRECTION (external review, third pass): this previously read
++   * `repair_order_line_locations` alone and offered every positive-quantity
++   * row as a confident "Put away <quantity>" candidate, without checking
++   * `repair_order_location_attribution_uncertain`. That is exactly backwards
++   * per the architecture -- existence of a marker row means the bucket's
++   * RepairOrder attribution is UNKNOWN, and the projection row is then only
++   * last-known/stale, never authoritative physical identity. Any receiving
++   * bucket flagged UNKNOWN is now excluded from the actionable `lines`
++   * array entirely (never rendered as a confident putaway candidate); its
++   * count is surfaced separately via `unverifiedLineCount` so the caller can
++   * truthfully distinguish "nothing to put away" from "stock exists here but
++   * requires attribution verification first" -- without building a
++   * reconciliation UI (out of pitch scope).
 +   */
 +  static async getReceivedLines(
 +    supabase: SupabaseClient,
 +    organizationId: string,
 +    branchId: string,
 +    repairOrderId: string
-+  ): Promise<ServiceResult<ReceivedLine[]>> {
++  ): Promise<ServiceResult<ReceivedLinesResult>> {
 +    const { data: receivingLocation, error: locError } = await supabase
 +      .from("warehouse_locations")
 +      .select("id")
@@ -2599,7 +2907,7 @@ index 00000000..a8d95209
 +      .is("deleted_at", null)
 +      .maybeSingle();
 +    if (locError) return { success: false, error: locError.message };
-+    if (!receivingLocation) return { success: true, data: [] }; // no receiving location configured -- nothing to show, not an error
++    if (!receivingLocation) return { success: true, data: { lines: [], unverifiedLineCount: 0 } }; // no receiving location configured -- nothing to show, not an error
 +
 +    const { data: rows, error } = await supabase
 +      .from("repair_order_line_locations")
@@ -2616,36 +2924,62 @@ index 00000000..a8d95209
 +      variant_id: string | null;
 +      quantity: number | string;
 +    }>;
-+    if (projectionRows.length === 0) return { success: true, data: [] };
++    if (projectionRows.length === 0)
++      return { success: true, data: { lines: [], unverifiedLineCount: 0 } };
 +
 +    const variantIds = [
 +      ...new Set(projectionRows.map((r) => r.variant_id).filter(Boolean)),
 +    ] as string[];
-+    const { data: variantRows, error: varError } =
-+      variantIds.length > 0
-+        ? await supabase
-+            .from("inventory_variants")
-+            .select("id, sku, product_name, unit_id")
-+            .in("id", variantIds)
-+        : { data: [] as VariantRow[], error: null };
++
++    const [{ data: uncertainRows, error: uncertainError }, { data: variantRows, error: varError }] =
++      await Promise.all([
++        variantIds.length > 0
++          ? supabase
++              .from("repair_order_location_attribution_uncertain")
++              .select("variant_id")
++              .eq("organization_id", organizationId)
++              .eq("branch_id", branchId)
++              .eq("location_id", receivingLocation.id)
++              .in("variant_id", variantIds)
++          : Promise.resolve({ data: [] as Array<{ variant_id: string }>, error: null }),
++        variantIds.length > 0
++          ? supabase
++              .from("inventory_variants")
++              .select("id, sku, product_name, unit_id")
++              .in("id", variantIds)
++          : Promise.resolve({ data: [] as VariantRow[], error: null }),
++      ]);
++    if (uncertainError) return { success: false, error: uncertainError.message };
 +    if (varError) return { success: false, error: varError.message };
++
++    const uncertainVariantIds = new Set(
++      ((uncertainRows ?? []) as Array<{ variant_id: string }>).map((u) => u.variant_id)
++    );
 +    const variantsById = new Map(((variantRows ?? []) as VariantRow[]).map((v) => [v.id, v]));
 +
-+    const lines: ReceivedLine[] = projectionRows
-+      .filter((r) => r.variant_id && variantsById.get(r.variant_id)?.unit_id)
-+      .map((r) => {
-+        const variant = variantsById.get(r.variant_id as string)!;
-+        return {
-+          repairOrderLineId: r.repair_order_line_id,
-+          variantId: r.variant_id as string,
-+          unitId: variant.unit_id as string,
-+          sku: variant.sku ?? r.variant_id ?? "",
-+          productName: variant.product_name ?? variant.sku ?? "",
-+          availableAtReceiving: Number(r.quantity),
-+        };
++    const lines: ReceivedLine[] = [];
++    let unverifiedLineCount = 0;
++    for (const row of projectionRows) {
++      if (!row.variant_id || !variantsById.get(row.variant_id)?.unit_id) continue;
++      if (uncertainVariantIds.has(row.variant_id)) {
++        // UNKNOWN at the receiving location for this variant -- the marker
++        // is authoritative; never shown as a confident putaway candidate,
++        // regardless of what this stale projection row says (no self-heal).
++        unverifiedLineCount += 1;
++        continue;
++      }
++      const variant = variantsById.get(row.variant_id)!;
++      lines.push({
++        repairOrderLineId: row.repair_order_line_id,
++        variantId: row.variant_id,
++        unitId: variant.unit_id as string,
++        sku: variant.sku ?? row.variant_id,
++        productName: variant.product_name ?? variant.sku ?? "",
++        availableAtReceiving: Number(row.quantity),
 +      });
++    }
 +
-+    return { success: true, data: lines };
++    return { success: true, data: { lines, unverifiedLineCount } };
 +  }
 +}
 diff --git a/apps/web/src/server/services/warehouse-locations.service.ts b/apps/web/src/server/services/warehouse-locations.service.ts
@@ -3575,10 +3909,10 @@ index 00000000..bc3b3c7b
 +GRANT EXECUTE ON FUNCTION public.receive_repair_order_stock(uuid, uuid, uuid, jsonb, date, date, text, text, text) TO authenticated;
 diff --git a/apps/web/supabase-target/supabase/migrations/20260912094000_zone5_putaway_repair_order_stock_rpc.sql b/apps/web/supabase-target/supabase/migrations/20260912094000_zone5_putaway_repair_order_stock_rpc.sql
 new file mode 100644
-index 00000000..230d7fb7
+index 00000000..29ae9dd0
 --- /dev/null
 +++ b/apps/web/supabase-target/supabase/migrations/20260912094000_zone5_putaway_repair_order_stock_rpc.sql
-@@ -0,0 +1,192 @@
+@@ -0,0 +1,346 @@
 +-- =============================================================================
 +-- Migration: zone5_putaway_repair_order_stock_rpc
 +-- Zone:      05 (Receiving / Putaway) -- Phase 6
@@ -3597,9 +3931,84 @@ index 00000000..230d7fb7
 +-- write repair_order_line_movement_links (putaway is not a business-quantity
 +-- event -- relation_type stays receipt|issue|reversal, never 'putaway').
 +--
++-- *** THIRD CORRECTION ROUND (this revision) -- TWO FIXES ***
++--
++-- FIX 1 -- UNKNOWN source bucket was trusted as authoritative. The previous
++-- revision validated quantity-available against `repair_order_line_locations`
++-- alone, never checking `repair_order_location_attribution_uncertain`. Per
++-- the architecture, existence of a marker row means the RepairOrder
++-- attribution for that (location, variant) bucket is UNKNOWN -- the
++-- projection rows are then only last-known/stale, never authoritative
++-- physical identity. A caller naming a `repair_order_line_id` is not
++-- physical proof once the bucket itself has lost provenance. Fixed: EVERY
++-- line's receiving-location + variant is checked against the marker table,
++-- TWICE -- once BEFORE the engine call (a plain, non-locking read; this is
++-- the actually-authoritative gate, deliberately placed before the engine
++-- call rather than after -- see FIX 2's lock-order note for exactly why a
++-- post-call-only check would be unsafe here) and once again AFTER the
++-- engine call (this time FOR UPDATE, as defense-in-depth against the narrow
++-- window between the pre-check and the engine call). Either check existing
++-- is a HARD ERROR (SQLSTATE 55000); no reconciliation is attempted, no
++-- physical identity is inferred, and the caller cannot "prove" the line by
++-- merely naming its id.
++--
++-- FIX 2 -- lock-order inversion / deadlock risk. The previous revision took
++-- `SELECT quantity ... FOR UPDATE` on `repair_order_line_locations` BEFORE
++-- calling `inventory_create_and_finalize`, which internally locks
++-- `inventory_balances`. Every OTHER path that touches both resource
++-- families (the ledger-sync trigger, fired from inside the engine's own
++-- ledger insert) locks `inventory_balances` first and
++-- `repair_order_line_locations` / `repair_order_location_attribution_uncertain`
++-- second. Two transactions contending for the same (location, variant)
++-- bucket in opposite lock orders -- this putaway RPC vs. any concurrent
++-- generic movement on the same bucket (e.g. Zone 6's own relocation UI) --
++-- is a textbook AB-BA deadlock: T1 (putaway) holds the projection lock,
++-- waits on the balance lock (inside its own engine call); T2 (generic
++-- movement) holds the balance lock, waits on the projection lock (inside
++-- the ledger-sync trigger the engine's own insert fires). PostgreSQL
++-- resolves an actual deadlock by aborting one side, but the correct fix is
++-- one consistent global lock order, not a race that occasionally aborts.
++-- Fixed: `repair_order_line_locations` / `repair_order_location_attribution_uncertain`
++-- are never locked (FOR UPDATE) until AFTER the engine call returns --
++-- matching the generic engine + ledger-sync trigger's own order everywhere
++-- else (balance, then attribution/projection). The pre-existing
++-- quantity-available check is kept as a fast, non-locking pre-call read
++-- too (safe: unlike the marker, nothing touches `repair_order_line_locations`
++-- under this RPC's own bypass, so this value cannot be self-erased by this
++-- transaction's own engine call) and is re-validated, this time FOR UPDATE,
++-- in the correct post-call position -- so a request this RPC's own rules
++-- would reject still fails with its own friendly message before an engine
++-- call is even attempted, in the common case.
++--
++-- Why the UNKNOWN-marker gate could not simply move to "after the engine
++-- call" to make FIX 2 trivial: this RPC sets
++-- `ambra.repair_order_attribution_authoritative` before calling the engine
++-- (duplicate-work suppression). The ledger-sync trigger's own zero-clear
++-- branch still runs even under that bypass (it is pure physical-truth
++-- cleanup, not attribution inference -- see the Phase 3 migration) and
++-- unconditionally clears a stale MARKER (not the projection rows -- the
++-- bypass branch never touches `repair_order_line_locations`) the instant
++-- this putaway's own decrease brings the bucket to exactly zero. If the
++-- ONLY UNKNOWN-marker check happened after the engine call, a bucket that
++-- WAS UNKNOWN right up until this exact putaway call could have its own
++-- evidence erased as a side effect of the very movement being validated,
++-- and the post-call check would wrongly see "no marker" and let it through.
++-- The pre-call, non-locking check reads the true pre-movement state and is
++-- therefore the actually-authoritative gate; the post-call, locked
++-- re-check exists only to catch a fully independent, concurrent
++-- transaction racing a fresh marker into the narrow gap between the two.
++--
 +-- Same verification-gap caveat as Phase 4's migration applies here (calls
 +-- inventory_create_and_finalize, whose own body has no tracked migration;
-+-- NOT applied to any live database this session).
++-- NOT applied to any live database this session). This revision ADDS a
++-- further, NEW pre-apply requirement: a live/MCP session must independently
++-- confirm `inventory_balances`'s exact key shape and the exact locking
++-- behavior of `inventory_finalize_posting` before this corrected lock order
++-- can be trusted under real concurrency -- see review-context.md's
++-- "Concurrency" section and the still-outstanding two-session live test
++-- plan documented there. This migration's own restructuring is the
++-- furthest this session can safely go without that live confirmation; it
++-- is NOT a substitute for it.
 +-- =============================================================================
 +
 +CREATE OR REPLACE FUNCTION public.putaway_repair_order_stock(
@@ -3663,6 +4072,16 @@ index 00000000..230d7fb7
 +    RAISE EXCEPTION 'Destination cannot be the receiving location itself' USING ERRCODE = '22023';
 +  END IF;
 +
++  -- =========================================================================
++  -- LOOP 1 (BEFORE the engine call): identity/ownership/variant validation
++  -- (unchanged) plus the actually-authoritative UNKNOWN-source gate (NEW,
++  -- third correction pass). Deliberately no row-locking read is taken in
++  -- this loop -- see the migration header's FIX 2 for why locking
++  -- repair_order_line_locations / repair_order_location_attribution_uncertain
++  -- before the engine call is the exact lock-order inversion this pass
++  -- fixes, and the header's note on FIX 1 for why the UNKNOWN check
++  -- specifically cannot be deferred to after the engine call.
++  -- =========================================================================
 +  FOR v_line IN SELECT * FROM jsonb_array_elements(p_lines)
 +  LOOP
 +    v_line_index := v_line_index + 1;
@@ -3696,13 +4115,37 @@ index 00000000..230d7fb7
 +      RAISE EXCEPTION 'Line % variant does not match the RepairOrderLine''s own variant', v_line_index USING ERRCODE = '22023';
 +    END IF;
 +
-+    -- Quantity-available validation against the LIVE projection at the
-+    -- receiving location, locked, before building the movement payload --
-+    -- reject, never silently clamp.
++    -- NEW (third correction pass) -- the actually-authoritative UNKNOWN
++    -- gate. Existence of a marker row for this exact (org, branch,
++    -- receiving_location, variant) bucket means its RepairOrder attribution
++    -- is UNKNOWN -- repair_order_line_locations rows for it are only
++    -- last-known/stale, never physical proof. The caller naming this exact
++    -- repair_order_line_id does not override that. A plain (non-locking)
++    -- read is deliberate here, not an oversight: it captures the bucket's
++    -- true pre-movement state, before this transaction's own engine call
++    -- can run -- see the migration header for why a lock here, or a check
++    -- only after the engine call, would each be wrong in their own way.
++    IF EXISTS (
++      SELECT 1 FROM public.repair_order_location_attribution_uncertain
++      WHERE organization_id = p_organization_id AND branch_id = p_branch_id
++        AND location_id = v_receiving_location_id AND variant_id = v_line_variant_id
++    ) THEN
++      RAISE EXCEPTION 'Line %: the receiving location''s attribution for this variant is UNKNOWN (a prior generic movement made it ambiguous) -- putaway is not permitted until it is reconciled', v_line_index
++        USING ERRCODE = '55000';
++    END IF;
++
++    -- Fast, non-authoritative quantity pre-check (plain read, no lock):
++    -- rejects an obviously-oversized request with this RPC's own friendly
++    -- message before an engine call is even attempted. Safe to do
++    -- unlocked here -- unlike the marker above, nothing in this function's
++    -- own bypassed trigger path ever mutates repair_order_line_locations
++    -- itself (only the marker table can be touched under bypass), so this
++    -- value cannot be self-erased by this transaction's own engine call.
++    -- The AUTHORITATIVE, race-safe check (row-locked) happens again after
++    -- the engine call, in LOOP 2 below, in the correct global lock order.
 +    SELECT quantity INTO v_available_qty
 +    FROM public.repair_order_line_locations
-+    WHERE repair_order_line_id = v_rol_id AND location_id = v_receiving_location_id
-+    FOR UPDATE;
++    WHERE repair_order_line_id = v_rol_id AND location_id = v_receiving_location_id;
 +
 +    IF v_available_qty IS NULL OR v_available_qty < v_qty THEN
 +      RAISE EXCEPTION 'Line % requests % but only % is currently attributed to this RepairOrderLine at the receiving location', v_line_index, v_qty, coalesce(v_available_qty, 0) USING ERRCODE = '22023';
@@ -3722,17 +4165,33 @@ index 00000000..230d7fb7
 +  PERFORM set_config('ambra.repair_order_attribution_authoritative', 'on', true);
 +
 +  -- ONE 801 document, ALL lines, ONE destination -- matches the engine's own
-+  -- existing multi-line-document semantics; no new movement type.
++  -- existing multi-line-document semantics; no new movement type. This is
++  -- also, deliberately, the FIRST point in this function that can acquire
++  -- any lock on inventory_balances (via the engine's own internal locking)
++  -- -- see the migration header's FIX 2.
 +  v_engine_result := public.inventory_create_and_finalize(
 +    p_organization_id, p_branch_id, '801', v_engine_lines,
 +    NULL, NULL, NULL, NULL, NULL, p_idempotency_key, p_actor_user_id
 +  );
 +  v_movement_id := (v_engine_result->>'movement_id')::uuid;
 +
-+  -- Write exact, known-true spatial attribution directly -- nothing to infer,
-+  -- the caller named the exact line. This does NOT clear any pre-existing
-+  -- UNKNOWN marker on either bucket (plan's final correction): proving one
-+  -- line's own quantity does not prove the whole (location, variant) bucket.
++  -- =========================================================================
++  -- LOOP 2 (AFTER the engine call): only now does this function acquire any
++  -- lock on repair_order_line_locations / repair_order_location_attribution_uncertain
++  -- -- matching the exact global lock order the generic engine + ledger-sync
++  -- trigger already use everywhere else (balance, then attribution/
++  -- projection). Re-checks the UNKNOWN marker (defense-in-depth for the
++  -- narrow pre-check-to-engine-call race window; LOOP 1's plain read above
++  -- is the actually-authoritative gate, not this one), re-validates
++  -- quantity-available under lock (LOOP 1's own plain-read pre-check above
++  -- is fast-fail only, not authoritative -- this locked re-check is what
++  -- FIX 2 actually requires), then writes exact, known-true spatial attribution directly --
++  -- nothing to infer, the caller named the exact line. This does NOT clear
++  -- any pre-existing UNKNOWN marker on either bucket (plan's earlier
++  -- correction): proving one line's own quantity does not prove the whole
++  -- (location, variant) bucket, and a destination bucket already marked
++  -- UNKNOWN stays UNKNOWN even after gaining a known contribution.
++  -- =========================================================================
 +  v_line_index := 0;
 +  FOR v_line IN SELECT * FROM jsonb_array_elements(p_lines)
 +  LOOP
@@ -3741,6 +4200,27 @@ index 00000000..230d7fb7
 +    v_qty := (v_line->>'quantity')::numeric;
 +    v_line_variant_id := (v_line->>'variant_id')::uuid;
 +    SELECT repair_order_id INTO v_ro_id FROM public.repair_order_lines WHERE id = v_rol_id;
++
++    IF EXISTS (
++      SELECT 1 FROM public.repair_order_location_attribution_uncertain
++      WHERE organization_id = p_organization_id AND branch_id = p_branch_id
++        AND location_id = v_receiving_location_id AND variant_id = v_line_variant_id
++      FOR UPDATE
++    ) THEN
++      RAISE EXCEPTION 'Line %: the receiving location''s attribution for this variant is UNKNOWN (a prior generic movement made it ambiguous) -- putaway is not permitted until it is reconciled', v_line_index
++        USING ERRCODE = '55000';
++    END IF;
++
++    -- Quantity-available validation against the LIVE projection, locked --
++    -- reject, never silently clamp.
++    SELECT quantity INTO v_available_qty
++    FROM public.repair_order_line_locations
++    WHERE repair_order_line_id = v_rol_id AND location_id = v_receiving_location_id
++    FOR UPDATE;
++
++    IF v_available_qty IS NULL OR v_available_qty < v_qty THEN
++      RAISE EXCEPTION 'Line % requests % but only % is currently attributed to this RepairOrderLine at the receiving location', v_line_index, v_qty, coalesce(v_available_qty, 0) USING ERRCODE = '22023';
++    END IF;
 +
 +    UPDATE public.repair_order_line_locations
 +      SET quantity = quantity - v_qty
@@ -3763,10 +4243,18 @@ index 00000000..230d7fb7
 +
 +COMMENT ON FUNCTION public.putaway_repair_order_stock(uuid, uuid, uuid, jsonb, uuid, text) IS
 +  'Zone 5 Phase 6: RepairOrder-aware putaway. One call = one destination = one 801 document =
-+   N lines, all sourced from resolve_branch_receiving_location(). Writes spatial attribution
-+   directly (known-true, operator-named) -- never clears a bucket-wide UNKNOWN marker just
-+   because one line is now known (plan''s final correction). Writes NO
-+   repair_order_line_movement_links row -- relocation is not a business-quantity event.';
++   N lines, all sourced from resolve_branch_receiving_location(). Rejects (SQLSTATE 55000) any
++   line whose receiving-location+variant bucket is marked UNKNOWN in
++   repair_order_location_attribution_uncertain -- checked before AND after the engine call, in
++   that order, deliberately (third correction pass; see this migration''s own header). Writes
++   spatial attribution directly (known-true, operator-named) only for buckets confirmed KNOWN --
++   never clears a bucket-wide UNKNOWN marker just because one line is now known (an earlier
++   correction), and never clears a destination bucket''s own pre-existing UNKNOWN marker just
++   because it gained a known contribution. Writes NO repair_order_line_movement_links row --
++   relocation is not a business-quantity event. Locks repair_order_line_locations /
++   repair_order_location_attribution_uncertain only AFTER the engine call, matching the generic
++   engine + ledger-sync trigger''s own lock order (balance, then attribution/projection) -- see
++   this migration''s header for the lock-order-inversion fix this corrects.';
 +
 +REVOKE ALL ON FUNCTION public.putaway_repair_order_stock(uuid, uuid, uuid, jsonb, uuid, text) FROM PUBLIC;
 +REVOKE ALL ON FUNCTION public.putaway_repair_order_stock(uuid, uuid, uuid, jsonb, uuid, text) FROM anon;
@@ -4756,13 +5244,13 @@ index 00000000..402bec71
 +ROLLBACK;
 diff --git a/apps/web/supabase/tests/097_zone5_putaway_repair_order_stock_test.sql b/apps/web/supabase/tests/097_zone5_putaway_repair_order_stock_test.sql
 new file mode 100644
-index 00000000..f392b95d
+index 00000000..de698a09
 --- /dev/null
 +++ b/apps/web/supabase/tests/097_zone5_putaway_repair_order_stock_test.sql
-@@ -0,0 +1,128 @@
+@@ -0,0 +1,247 @@
 +-- ============================================================================
 +-- TEST: Zone 5 Phase 6 -- putaway_repair_order_stock RPC (batch behavior,
-+-- UNKNOWN-marker non-clearing)
++-- UNKNOWN-source rejection, destination-UNKNOWN retention, lock order)
 +-- ============================================================================
 +-- Verifies:
 +--   apps/web/supabase-target/supabase/migrations/
@@ -4770,10 +5258,27 @@ index 00000000..f392b95d
 +--
 +-- NOT EXECUTED this session -- Supabase MCP / live DB access was unavailable.
 +-- Same inventory_create_and_finalize live-dependency caveat as test 096.
++--
++-- CORRECTION (external review, third pass): test 5 previously asserted the
++-- WRONG semantic model -- it marked the receiving bucket UNKNOWN, then
++-- asserted a subsequent putaway of the remaining "known-looking" quantity
++-- SUCCEEDED and merely left the marker in place. That is backwards: the
++-- architecture says existence of the marker means the bucket's attribution
++-- is UNKNOWN, full stop -- repair_order_line_locations is then only
++-- last-known/stale, never physical proof, and the caller naming an exact
++-- repair_order_line_id is not proof either. Test 5 is replaced with the
++-- correct expectation (HARD ERROR, nothing moved, nothing changed, marker
++-- remains). New tests 6 and 7 cover destination-UNKNOWN retention and a
++-- best-effort structural proof of the corrected lock order, per that
++-- review's items 4-7. This also fixes a latent bug: the previous test 5's
++-- own `PERFORM putaway_repair_order_stock(...)` was invalid top-level SQL
++-- (PERFORM is PL/pgSQL-only) -- never caught because this file has never
++-- been executed; replaced with the file's own established `throws_ok`/
++-- `lives_ok` + `format($sql$ SELECT ... $sql$, ...)` pattern throughout.
 +
 +BEGIN;
 +
-+SELECT plan(7);
++SELECT plan(15);
 +
 +CREATE TEMP TABLE fx (
 +  org uuid, branch uuid, e2e_user uuid,
@@ -4860,30 +5365,132 @@ index 00000000..f392b95d
 +  '4. requesting more than currently attributed at the receiving location is rejected (not silently clamped)'
 +);
 +
-+-- 5. UNKNOWN-marker non-clearing: mark (loc_recv, variant_x) UNKNOWN
-+--    (simulating an earlier ambiguous generic movement there), then putaway
-+--    the remaining known 2 units of rol1 -- the marker must remain, since
-+--    this RPC only proves ONE line, not the whole bucket.
++-- =====================================================================
++-- 5a-5e. UNKNOWN-source rejection (external review, third pass, items 1-5):
++--    mark (loc_recv, variant_x) UNKNOWN (simulating an earlier ambiguous
++--    generic movement there -- e.g. Zone 6's own relocation UI), then
++--    attempt to putaway the remaining 2 units of rol1. The caller naming
++--    the exact repair_order_line_id is NOT physical proof once the bucket
++--    itself has lost provenance -- the RPC must independently reject this,
++--    never relying on the UI to have already filtered it out.
++-- =====================================================================
 +INSERT INTO repair_order_location_attribution_uncertain (organization_id, branch_id, location_id, variant_id)
 +SELECT org, branch, loc_recv, variant_x FROM fx;
 +
-+PERFORM putaway_repair_order_stock(
-+  (SELECT e2e_user FROM fx), (SELECT org FROM fx), (SELECT branch FROM fx),
-+  jsonb_build_array(jsonb_build_object('repair_order_line_id', (SELECT rol1 FROM fx), 'variant_id', (SELECT variant_x FROM fx), 'unit_id', (SELECT unit_ea FROM fx), 'quantity', 2)),
-+  (SELECT loc_final FROM fx), gen_random_uuid()::text
++SELECT throws_ok(
++  format($sql$
++    SELECT putaway_repair_order_stock(
++      '%s'::uuid, '%s'::uuid, '%s'::uuid,
++      jsonb_build_array(jsonb_build_object('repair_order_line_id', '%s', 'variant_id', '%s', 'unit_id', '%s', 'quantity', 2)),
++      '%s'::uuid, '097-test-unknown-source-key'
++    )
++  $sql$, (SELECT e2e_user::text FROM fx), (SELECT org::text FROM fx), (SELECT branch::text FROM fx),
++         (SELECT rol1::text FROM fx), (SELECT variant_x::text FROM fx), (SELECT unit_ea::text FROM fx),
++         (SELECT loc_final::text FROM fx)),
++  '55000',
++  NULL,
++  '5a. putaway from a receiving bucket flagged UNKNOWN is a HARD ERROR -- naming the exact repair_order_line_id does not override the bucket''s own lost provenance'
++);
++
++SELECT is(
++  (SELECT count(*)::int FROM inventory_movement_headers WHERE idempotency_key = '097-test-unknown-source-key'),
++  0,
++  '5b. the rejected UNKNOWN-source putaway created NO 801 movement at all -- the whole operation is atomic, not partially posted'
++);
++
++SELECT is(
++  (SELECT quantity FROM repair_order_line_locations WHERE repair_order_line_id = (SELECT rol1 FROM fx) AND location_id = (SELECT loc_recv FROM fx)),
++  2::numeric,
++  '5c. the rejected UNKNOWN-source putaway left the source (receiving) projection completely unchanged'
++);
++
++SELECT is(
++  (SELECT quantity FROM repair_order_line_locations WHERE repair_order_line_id = (SELECT rol1 FROM fx) AND location_id = (SELECT loc_final FROM fx)),
++  3::numeric,
++  '5d. the rejected UNKNOWN-source putaway left the destination projection completely unchanged'
 +);
 +
 +SELECT ok(
 +  EXISTS (SELECT 1 FROM repair_order_location_attribution_uncertain WHERE organization_id = (SELECT org FROM fx) AND location_id = (SELECT loc_recv FROM fx) AND variant_id = (SELECT variant_x FROM fx)),
-+  '5. a single RepairOrder-aware putaway call does NOT clear a pre-existing bucket-wide UNKNOWN marker -- it only proves the one line it moved'
++  '5e. the UNKNOWN marker at the receiving location remains -- a rejected putaway does not itself resolve or clear it'
 +);
 +
-+-- 6. No repair_order_line_movement_links row was written by any putaway
++-- =====================================================================
++-- 6a-6c. Destination-UNKNOWN retention (external review, third pass, item
++--    6): a destination bucket already marked UNKNOWN keeps that marker
++--    even after gaining a real, KNOWN contribution -- putaway proves the
++--    one line it moved, never the whole destination bucket. Uses a fresh,
++--    isolated fixture (rol3/variant_z/loc_dest2) so this scenario cannot
++--    be affected by test 5's still-UNKNOWN receiving-location marker.
++-- =====================================================================
++DO $$
++DECLARE
++  v_rol3 uuid := gen_random_uuid();
++  v_variant_z uuid := gen_random_uuid();
++  v_loc_dest2 uuid := gen_random_uuid();
++BEGIN
++  INSERT INTO warehouse_locations (id, organization_id, branch_id, name, code, can_store_inventory)
++  SELECT v_loc_dest2, org, branch, '097-test dest2', '097-A-02', true FROM fx;
++  INSERT INTO repair_order_lines (id, repair_order_id, variant_id, product_name, ordered_quantity, status)
++  SELECT v_rol3, ro, v_variant_z, '097-test product 3', 4, 'pending' FROM fx;
++  INSERT INTO repair_order_line_locations (organization_id, branch_id, repair_order_id, repair_order_line_id, variant_id, location_id, quantity)
++  SELECT org, branch, ro, v_rol3, v_variant_z, loc_recv, 4 FROM fx;
++  INSERT INTO repair_order_location_attribution_uncertain (organization_id, branch_id, location_id, variant_id)
++  SELECT org, branch, v_loc_dest2, v_variant_z FROM fx;
++
++  PERFORM set_config('zone5_test.rol3', v_rol3::text, true);
++  PERFORM set_config('zone5_test.variant_z', v_variant_z::text, true);
++  PERFORM set_config('zone5_test.loc_dest2', v_loc_dest2::text, true);
++END $$;
++
++SELECT lives_ok(
++  format($sql$
++    SELECT putaway_repair_order_stock(
++      '%s'::uuid, '%s'::uuid, '%s'::uuid,
++      jsonb_build_array(jsonb_build_object('repair_order_line_id', '%s', 'variant_id', '%s', 'unit_id', '%s', 'quantity', 4)),
++      '%s'::uuid, gen_random_uuid()::text
++    )
++  $sql$, (SELECT e2e_user::text FROM fx), (SELECT org::text FROM fx), (SELECT branch::text FROM fx),
++         current_setting('zone5_test.rol3', true), current_setting('zone5_test.variant_z', true),
++         (SELECT unit_ea::text FROM fx), current_setting('zone5_test.loc_dest2', true)),
++  '6a. putaway of a KNOWN source line into a destination bucket already marked UNKNOWN succeeds -- the source''s own known attribution is unaffected by the destination''s pre-existing uncertainty'
++);
++
++SELECT is(
++  (SELECT quantity FROM repair_order_line_locations WHERE repair_order_line_id = current_setting('zone5_test.rol3', true)::uuid AND location_id = current_setting('zone5_test.loc_dest2', true)::uuid),
++  4::numeric,
++  '6b. the destination bucket is genuinely credited with the real, known contribution'
++);
++
++SELECT ok(
++  EXISTS (SELECT 1 FROM repair_order_location_attribution_uncertain WHERE organization_id = (SELECT org FROM fx) AND location_id = current_setting('zone5_test.loc_dest2', true)::uuid AND variant_id = current_setting('zone5_test.variant_z', true)::uuid),
++  '6c. the destination bucket''s pre-existing UNKNOWN marker still remains -- gaining one known contribution does not reconcile or clear the whole bucket'
++);
++
++-- =====================================================================
++-- 7. Lock-order structural proof (external review, third pass, item 7) --
++--    best-effort and HONESTLY LIMITED: this proves the function's own
++--    SOURCE TEXT never takes a FOR UPDATE lock on
++--    repair_order_line_locations / repair_order_location_attribution_uncertain
++--    before calling inventory_create_and_finalize (the previous revision's
++--    lock-order inversion, now fixed -- see the migration's own header for
++--    the full deadlock analysis). It does NOT and CANNOT prove the absence
++--    of a deadlock under real concurrent load, nor confirm
++--    inventory_finalize_posting's own actual locking behavior (that
++--    requires the live two-session test documented in review-context.md).
++-- =====================================================================
++SELECT ok(
++  position('FOR UPDATE' in pg_get_functiondef('public.putaway_repair_order_stock'::regproc))
++    > position('inventory_create_and_finalize(' in pg_get_functiondef('public.putaway_repair_order_stock'::regproc)),
++  '7. (structural only, not a concurrency proof) no FOR UPDATE clause appears before the engine call in putaway_repair_order_stock''s own source -- the previous lock-order inversion is fixed'
++);
++
++-- 8. No repair_order_line_movement_links row was written by any putaway
 +--    call above -- putaway is not a business-quantity event.
 +SELECT is(
 +  (SELECT count(*)::int FROM repair_order_line_movement_links WHERE relation_type = 'putaway'),
 +  0,
-+  '6. no repair_order_line_movement_links row with relation_type=''putaway'' exists -- that value is never written, by design'
++  '8. no repair_order_line_movement_links row with relation_type=''putaway'' exists -- that value is never written, by design'
 +);
 +
 +SELECT * FROM finish();
