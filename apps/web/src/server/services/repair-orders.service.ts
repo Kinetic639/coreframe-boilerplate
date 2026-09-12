@@ -5,7 +5,11 @@ import type {
   CreateRepairOrderInput,
   UpdateRepairOrderHeaderInput,
 } from "@/lib/validations/repair-orders";
-import type { RepairOrderStatus, RepairOrderLineStatus } from "@/lib/types/repair-orders";
+import type {
+  RepairOrderStatus,
+  RepairOrderLineStatus,
+  WorkshopSourceDocumentType,
+} from "@/lib/types/repair-orders";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -364,6 +368,208 @@ function mapRepairOrderLine(
     availableForIssue: receivedQuantity - issuedQuantity,
     status: row.status as RepairOrderLineStatus,
   };
+}
+
+/**
+ * Phase 9: provenance read model -- which source document(s) and source
+ * line(s) back a RepairOrder, and which logical RepairOrderLine each source
+ * line contributes to. Deliberately a SEPARATE shape from Phase 8's
+ * `RepairOrderLineReadModel` -- a logical line is never a source line (one
+ * logical line may be backed by many source lines, across many documents;
+ * a source document may back many RepairOrders). See
+ * `getRepairOrderProvenance`'s own doc comment for the full model.
+ */
+export interface RepairOrderProvenanceContribution {
+  /** The logical RepairOrderLine (Phase 8) this source line contributes to. */
+  repairOrderLineId: string;
+  /** repair_order_line_source_links.quantity_contribution -- persisted,
+   * never recomputed from quantity/SKU heuristics. */
+  quantityContribution: number;
+  linkedAt: string;
+}
+
+export interface RepairOrderProvenanceSourceLine {
+  id: string;
+  productCode: string | null;
+  productName: string | null;
+  quantity: number;
+  unit: string | null;
+  rawText: string | null;
+  /**
+   * Deep Matcher traceability reference -- the exact `wdd_matcher_lines.id`
+   * this source line was parsed from, when known. Deliberately NOT joined
+   * to fetch the target row's own content: `wdd_matcher_lines`' (and
+   * `wdd_matcher_sessions`') own SELECT RLS requires `wdd_matcher.read`, a
+   * separate Matcher-module permission Workshop callers holding only
+   * `workshop.repair_orders.read` are not guaranteed to hold -- exactly the
+   * same class of cross-module RLS dependency Phase 8 already declined for
+   * `inventory_variants`. The id alone already satisfies this phase's own
+   * acceptance criterion ("traceable back to specific wdd_matcher_lines
+   * rows") without widening any RLS boundary.
+   */
+  wddMatcherLineId: string | null;
+  /**
+   * Which logical RepairOrderLine(s) this source line contributes to.
+   * Modeled as an array purely because `repair_order_line_source_links` has
+   * no NOT-NULL/exactly-one constraint forcing a link to exist at all (a
+   * source line can legitimately have zero links -- e.g. Phase 3's
+   * materialization RPC skips linking for a zero/null-quantity source
+   * line) -- NOT because more than one is ever expected.
+   * `repair_order_line_source_links_source_line_unique` (a live, verified
+   * UNIQUE index on `workshop_source_document_line_id` alone) guarantees at
+   * most one contribution per source line; this array is therefore always
+   * length 0 or 1 in practice, never collapsed or assumed to be exactly 1.
+   */
+  contributions: RepairOrderProvenanceContribution[];
+}
+
+export interface RepairOrderProvenanceDocument {
+  id: string;
+  documentType: WorkshopSourceDocumentType;
+  externalDocumentNumber: string;
+  sourceSessionId: string;
+  officialWarehouseCode: string | null;
+  createdAt: string;
+  /** repair_order_source_document_links.linked_at -- when THIS RepairOrder
+   * was linked to this document (may differ from the document's own
+   * createdAt for a later-arriving document attaching to an
+   * already-existing order). */
+  linkedAt: string;
+  lines: RepairOrderProvenanceSourceLine[];
+}
+
+interface ProvenanceDbRow {
+  workshop_source_document_id: string;
+  linked_at: string;
+  document: {
+    id: string;
+    document_type: string;
+    external_document_number: string;
+    source_session_id: string;
+    official_warehouse_code: string | null;
+    created_at: string;
+    lines: Array<{
+      id: string;
+      product_code: string | null;
+      product_name: string | null;
+      quantity: number;
+      unit: string | null;
+      raw_text: string | null;
+      wdd_matcher_line_id: string | null;
+      line_links: Array<{
+        repair_order_line_id: string;
+        quantity_contribution: number;
+        linked_at: string;
+      }> | null;
+    }> | null;
+  } | null;
+}
+
+function mapProvenanceDocument(
+  row: ProvenanceDbRow,
+  ownLineIds: ReadonlySet<string>
+): RepairOrderProvenanceDocument | null {
+  const doc = row.document;
+  if (!doc) return null;
+
+  const lines: RepairOrderProvenanceSourceLine[] = [];
+  for (const line of doc.lines ?? []) {
+    // External-review Finding (2026-09-12, CONFIRMED, fixed here): filtering
+    // only each line's own `contributions` array (the prior version of this
+    // function) still returned the SOURCE LINE ITSELF -- with its
+    // productCode/productName/quantity/unit/rawText/wddMatcherLineId all
+    // intact -- for a line whose ONLY contribution belongs to a DIFFERENT
+    // RepairOrder sharing this document. That is real metadata leakage: a
+    // caller viewing RepairOrder A's provenance could see RepairOrder B's
+    // own source-line content (just with an empty contributions array),
+    // even though the actual product question this phase answers is "which
+    // source lines contributed to THIS RepairOrder", not "show every line
+    // contained in every shared document". No accepted product requirement
+    // anywhere in the architecture doc calls for the latter (checked, not
+    // assumed, before applying this fix) -- the line-level content itself
+    // is therefore filtered, not just the contribution reference inside it.
+    const ownContributions = (line.line_links ?? [])
+      .filter((link) => ownLineIds.has(link.repair_order_line_id))
+      .map((link) => ({
+        repairOrderLineId: link.repair_order_line_id,
+        quantityContribution: link.quantity_contribution,
+        linkedAt: link.linked_at,
+      }));
+
+    // Zero own-order contributions -- whether because this line was never
+    // linked to anything at all, or because its only link(s) belong to a
+    // DIFFERENT RepairOrder sharing this document -- means this line is not
+    // provenance of THIS RepairOrder. Omitted entirely (not included with
+    // an empty contributions array), rather than fabricating an "unlinked"
+    // placeholder line into a RepairOrder's own provenance tree.
+    if (ownContributions.length === 0) continue;
+
+    lines.push({
+      id: line.id,
+      productCode: line.product_code,
+      productName: line.product_name,
+      quantity: line.quantity,
+      unit: line.unit,
+      rawText: line.raw_text,
+      wddMatcherLineId: line.wdd_matcher_line_id,
+      contributions: ownContributions,
+    });
+  }
+
+  return {
+    id: doc.id,
+    documentType: doc.document_type as WorkshopSourceDocumentType,
+    externalDocumentNumber: doc.external_document_number,
+    sourceSessionId: doc.source_session_id,
+    officialWarehouseCode: doc.official_warehouse_code,
+    createdAt: doc.created_at,
+    linkedAt: row.linked_at,
+    // The document itself is ALWAYS kept (never omitted here) even if every
+    // one of its lines was just filtered out above -- the
+    // repair_order_source_document_links row linking it to THIS RepairOrder
+    // is itself real, genuine document-level provenance ("this document was
+    // linked to this order"), independent of which specific lines within it
+    // happen to belong to this order vs. another one it is also shared
+    // with. See getRepairOrderProvenance's own doc comment for why this
+    // state is possible at all (not reachable through today's
+    // materialization RPC, but not schema-prevented either) and why keeping
+    // the document with zero visible lines is the truthful choice, not
+    // silently dropping a real link.
+    lines,
+  };
+}
+
+/**
+ * Phase 9: pure derivation, not a query -- groups an already-fetched
+ * provenance tree by logical RepairOrderLine id, for the "Sources (N)"
+ * affordance on a Phase 8 line row. Takes the SAME data
+ * `getRepairOrderProvenance` already returned; never issues its own query
+ * (there is nothing left to fetch -- the full tree, in both directions, was
+ * already retrieved in that one call).
+ */
+export function groupProvenanceByRepairOrderLine(
+  documents: RepairOrderProvenanceDocument[],
+  repairOrderLineId: string
+): Array<{
+  document: RepairOrderProvenanceDocument;
+  sourceLine: RepairOrderProvenanceSourceLine;
+  contribution: RepairOrderProvenanceContribution;
+}> {
+  const result: Array<{
+    document: RepairOrderProvenanceDocument;
+    sourceLine: RepairOrderProvenanceSourceLine;
+    contribution: RepairOrderProvenanceContribution;
+  }> = [];
+  for (const document of documents) {
+    for (const sourceLine of document.lines) {
+      for (const contribution of sourceLine.contributions) {
+        if (contribution.repairOrderLineId === repairOrderLineId) {
+          result.push({ document, sourceLine, contribution });
+        }
+      }
+    }
+  }
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -1117,5 +1323,174 @@ export class RepairOrdersService {
         mapRepairOrderLine(row as RepairOrderLineDbRow, repairOrderId)
       ),
     };
+  }
+
+  /**
+   * Phase 9: full source-document/source-line provenance for one
+   * RepairOrder -- "where did this come from?" Explicitly a DIFFERENT
+   * concept from Phase 8's logical-line list: one document may back many
+   * RepairOrders (M:N via `repair_order_source_document_links`, a
+   * composite-PK link table with no cardinality restriction in either
+   * direction), one RepairOrder may be backed by many documents, and one
+   * logical RepairOrderLine may be backed by many source lines across many
+   * documents. This method never merges/collapses any of that -- it
+   * returns the full tree, and `groupProvenanceByRepairOrderLine` (a pure
+   * function above, not a second query) re-indexes the SAME data by
+   * logical line for the UI's line-level "Sources (N)" affordance.
+   *
+   * Query architecture (verified against the actual live data shape before
+   * choosing this, not assumed): ONE hierarchical PostgREST embedded-select
+   * -- `repair_order_source_document_links` (scoped to this RepairOrder) ->
+   * nested `workshop_source_documents` -> nested `workshop_source_document_
+   * lines` -> nested `repair_order_line_source_links`. Postgres/PostgREST
+   * resolves this as a single query with a server-side join/aggregation,
+   * not one query per document or per line -- chosen over (a) fetching
+   * documents then looping to fetch each one's lines (real N+1, rejected)
+   * or (b) a new SQL view/RPC (unnecessary: live data is small -- 26
+   * documents / 202 lines total across the whole database at verification
+   * time, and PostgREST's own embed mechanism already expresses this exact
+   * shape in one round trip). Preceded by the same explicit parent-scope
+   * check Phase 7/8 already established (`getByIdForWorkshop`/
+   * `listRepairOrderLines`'s own convention) -- never trusting a
+   * client-supplied org/branch, not relying on RLS alone. Followed by ONE
+   * more small, indexed query fetching this order's own logical-line ids
+   * (`repair_order_lines.repair_order_id`, indexed since Phase 2/8) -- used
+   * to filter cross-order contribution leakage, see the inline comment
+   * below for the exact scenario this closes. Total: 3 bounded queries,
+   * independent of how many documents/lines/links exist -- still no
+   * per-document or per-line looping.
+   *
+   * Does NOT join `wdd_matcher_lines`/`wdd_matcher_sessions` for content --
+   * see `RepairOrderProvenanceSourceLine.wddMatcherLineId`'s own doc
+   * comment for why (a cross-module RLS dependency on `wdd_matcher.read`,
+   * declined for the same reason Phase 8 declined joining
+   * `inventory_variants`). `quantity_contribution` is always the persisted
+   * DB value, never recomputed from SKU/quantity heuristics.
+   *
+   * External-review Finding (2026-09-12, CONFIRMED, fixed): the ownLineIds
+   * filter above only protects the CONTRIBUTION reference (which logical
+   * line a source line points to) -- it does not, by itself, prevent a
+   * source line belonging ENTIRELY to a different RepairOrder (sharing a
+   * document with this one) from still appearing with its own full content
+   * (productCode/productName/quantity/unit/rawText/wddMatcherLineId). Fixed
+   * in `mapProvenanceDocument`: a source line with ZERO contributions
+   * belonging to THIS order (whether never-linked at all, or linked only to
+   * a different order) is omitted from the returned `lines` array entirely
+   * -- "which source lines contributed to THIS RepairOrder" is the actual
+   * product question, not "show every line contained in every shared
+   * document" (no accepted requirement for the latter was found anywhere in
+   * the architecture doc). The DOCUMENT itself is still always returned
+   * (its `repair_order_source_document_links` row is real, genuine
+   * document-level provenance) even if this filtering leaves it with zero
+   * visible lines -- not reachable through today's materialization RPC (a
+   * document is always linked to the SAME order its own lines contribute
+   * to, live-verified), but not schema-prevented either; keeping the real
+   * link with an empty line list is the truthful choice over silently
+   * dropping it.
+   *
+   * Scope/authorization: identical read boundary to the parent RepairOrder
+   * -- `workshop_source_documents`/`repair_order_source_document_links`/
+   * `workshop_source_document_lines`/`repair_order_line_source_links` are
+   * all Tier 1 join-derived-scope tables (unchanged, Phase 2), each
+   * requiring `workshop.repair_orders.read` on the parent RepairOrder's
+   * organization_id/branch_id. An inaccessible/wrong-org/wrong-branch/
+   * soft-deleted parent yields an empty provenance list, never an error,
+   * never an existence leak -- matches `listRepairOrderLines`'s own
+   * convention exactly. A manually-created RepairOrder with zero linked
+   * documents is a genuine, valid, non-error state (an empty array), not
+   * fabricated data.
+   */
+  static async getRepairOrderProvenance(
+    supabase: SupabaseClient,
+    orgId: string,
+    branchId: string | null,
+    repairOrderId: string
+  ): Promise<ServiceResult<RepairOrderProvenanceDocument[]>> {
+    let parentQuery = supabase
+      .from("repair_orders")
+      .select("id")
+      .eq("id", repairOrderId)
+      .eq("organization_id", orgId)
+      .is("deleted_at", null);
+    if (branchId) parentQuery = parentQuery.eq("branch_id", branchId);
+
+    const { data: parent, error: parentError } = await parentQuery.maybeSingle();
+    if (parentError) {
+      return {
+        success: false,
+        error: normalizeRepairOrderCrudError("getRepairOrderProvenance", parentError),
+      };
+    }
+    if (!parent) {
+      return { success: true, data: [] };
+    }
+
+    /**
+     * Cross-order contribution leak, found and fixed while verifying the
+     * "one document -> many orders, without leaking each other's logical
+     * lines" case (not assumed safe): `repair_order_source_document_links`
+     * is a genuine M:N link, so a single `workshop_source_documents` row
+     * can legitimately be linked to MULTIPLE RepairOrders -- and because
+     * `repair_order_line_source_links_source_line_unique` only restricts a
+     * SOURCE line to at most one contribution TOTAL (never that all of a
+     * shared document's lines belong to the same order), individual lines
+     * within one shared document can genuinely contribute to DIFFERENT
+     * orders' logical lines. A naive fetch of this RepairOrder's document
+     * tree would, for a document it shares with another order, still
+     * return that OTHER order's `repair_order_line_id` inside the shared
+     * document's own line `line_links` -- leaking a reference to a logical
+     * line this caller's RepairOrder does not own. Fixed by first fetching
+     * this order's own logical-line ids (one extra bounded, indexed query
+     * on `repair_order_lines.repair_order_id`, already indexed since
+     * Phase 2/8), then filtering every source line's `contributions` array
+     * to only the entries whose `repairOrderLineId` is in that set --
+     * never trimming the document/line listing itself (a document's own
+     * line contents are legitimate shared provenance metadata; only WHICH
+     * logical line a contribution points to is the sensitive, order-scoped
+     * reference).
+     */
+    const { data: ownLines, error: ownLinesError } = await supabase
+      .from("repair_order_lines")
+      .select("id")
+      .eq("repair_order_id", repairOrderId)
+      .is("deleted_at", null);
+    if (ownLinesError) {
+      return {
+        success: false,
+        error: normalizeRepairOrderCrudError("getRepairOrderProvenance", ownLinesError),
+      };
+    }
+    const ownLineIds = new Set((ownLines ?? []).map((row) => (row as { id: string }).id));
+
+    const { data, error } = await supabase
+      .from("repair_order_source_document_links")
+      .select(
+        `workshop_source_document_id, linked_at,
+         document:workshop_source_documents(
+           id, document_type, external_document_number, source_session_id,
+           official_warehouse_code, created_at,
+           lines:workshop_source_document_lines(
+             id, product_code, product_name, quantity, unit, raw_text, wdd_matcher_line_id,
+             line_links:repair_order_line_source_links(repair_order_line_id, quantity_contribution, linked_at)
+           )
+         )`
+      )
+      .eq("repair_order_id", repairOrderId)
+      .order("linked_at", { ascending: true });
+
+    if (error) {
+      return {
+        success: false,
+        error: normalizeRepairOrderCrudError("getRepairOrderProvenance", error),
+      };
+    }
+
+    const documents: RepairOrderProvenanceDocument[] = [];
+    for (const row of (data ?? []) as unknown as ProvenanceDbRow[]) {
+      const mapped = mapProvenanceDocument(row, ownLineIds);
+      if (mapped) documents.push(mapped);
+    }
+
+    return { success: true, data: documents };
   }
 }

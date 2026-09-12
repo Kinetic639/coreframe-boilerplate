@@ -1,0 +1,2388 @@
+diff --git a/apps/web/messages/en.json b/apps/web/messages/en.json
+index f0ca2485..96f9bd51 100644
+--- a/apps/web/messages/en.json
++++ b/apps/web/messages/en.json
+@@ -3134,7 +3134,7 @@
+           "unresolvedTitle": "Unresolved repair order",
+           "identityStatus": "Identity status",
+           "updated": "Last updated",
+-          "futurePhasesNote": "Source-document provenance and full warehouse receipt/issue detail are not available on this page yet — they arrive in a later phase.",
++          "futurePhasesNote": "Full warehouse receipt/issue detail and the final Magazyn/Zamówienia-Przyjęcia views are not available on this page yet — they arrive in a later phase.",
+           "vehicleBrand": "Vehicle brand",
+           "clientName": "Client name",
+           "dealerName": "Dealer",
+@@ -3166,6 +3166,18 @@
+           "emptyStateSubtitle": "Lines are created automatically when this order is materialized from an approved Matcher session.",
+           "errors": {
+             "loadFailed": "Failed to load parts lines"
++          },
++          "sourcesButton": "Sources ({count})",
++          "sourcesPopoverTitle": "Source lines for this part"
++        },
++        "provenance": {
++          "title": "Source documents",
++          "subtitle": "Which documents and source lines this order was materialized from. Not the same as the parts list above.",
++          "documentLinesCount": "{count, plural, one {# line} other {# lines}}",
++          "emptyStateTitle": "No source documents linked.",
++          "emptyStateSubtitle": "This repair order was created manually, without a Matcher import.",
++          "errors": {
++            "loadFailed": "Failed to load source documents"
+           }
+         },
+         "newOrder": {
+diff --git a/apps/web/messages/pl.json b/apps/web/messages/pl.json
+index b20f8f28..185dcb9b 100644
+--- a/apps/web/messages/pl.json
++++ b/apps/web/messages/pl.json
+@@ -3105,7 +3105,7 @@
+           "unresolvedTitle": "Nierozwiązane zlecenie naprawy",
+           "identityStatus": "Status identyfikacji",
+           "updated": "Ostatnia aktualizacja",
+-          "futurePhasesNote": "Pochodzenie z dokumentów źródłowych i pełne szczegóły przyjęć/wydań magazynowych nie są jeszcze dostępne na tej stronie — pojawią się w kolejnej fazie.",
++          "futurePhasesNote": "Pełne szczegóły przyjęć/wydań magazynowych oraz docelowe widoki Magazyn/Zamówienia-Przyjęcia nie są jeszcze dostępne na tej stronie — pojawią się w kolejnej fazie.",
+           "vehicleBrand": "Marka pojazdu",
+           "clientName": "Nazwa klienta",
+           "dealerName": "Dealer",
+@@ -3137,6 +3137,18 @@
+           "emptyStateSubtitle": "Pozycje są tworzone automatycznie po zmaterializowaniu tego zlecenia z zatwierdzonej sesji Matchera.",
+           "errors": {
+             "loadFailed": "Nie udało się wczytać pozycji części"
++          },
++          "sourcesButton": "Źródła ({count})",
++          "sourcesPopoverTitle": "Pozycje źródłowe tej części"
++        },
++        "provenance": {
++          "title": "Dokumenty źródłowe",
++          "subtitle": "Z jakich dokumentów i pozycji źródłowych powstało to zlecenie. To nie to samo, co lista części powyżej.",
++          "documentLinesCount": "{count, plural, one {# pozycja} few {# pozycje} other {# pozycji}}",
++          "emptyStateTitle": "Brak powiązanych dokumentów źródłowych.",
++          "emptyStateSubtitle": "To zlecenie naprawy zostało utworzone ręcznie, bez importu z Matchera.",
++          "errors": {
++            "loadFailed": "Nie udało się wczytać dokumentów źródłowych"
+           }
+         },
+         "newOrder": {
+diff --git a/apps/web/src/app/[locale]/dashboard/workshop/[id]/_components/__tests__/repair-order-lines-list.test.tsx b/apps/web/src/app/[locale]/dashboard/workshop/[id]/_components/__tests__/repair-order-lines-list.test.tsx
+index 724340e3..a27d55ad 100644
+--- a/apps/web/src/app/[locale]/dashboard/workshop/[id]/_components/__tests__/repair-order-lines-list.test.tsx
++++ b/apps/web/src/app/[locale]/dashboard/workshop/[id]/_components/__tests__/repair-order-lines-list.test.tsx
+@@ -3,7 +3,10 @@
+  */
+ import { render, screen } from "@testing-library/react";
+ import { describe, expect, it, vi, beforeEach } from "vitest";
+-import type { RepairOrderLineReadModel } from "@/server/services/repair-orders.service";
++import type {
++  RepairOrderLineReadModel,
++  RepairOrderProvenanceDocument,
++} from "@/server/services/repair-orders.service";
+ 
+ const mockGetTranslations = vi.fn();
+ 
+@@ -11,6 +14,17 @@ vi.mock("next-intl/server", () => ({
+   getTranslations: (...args: unknown[]) => mockGetTranslations(...args),
+ }));
+ 
++// LineSourcesPopover (a client subcomponent rendered inside this server
++// component) uses next-intl's own client-side useTranslations hook.
++vi.mock("next-intl", () => ({
++  useTranslations: () => (key: string, values?: Record<string, unknown>) =>
++    key === "sourcesButton" ? `Sources (${values?.count})` : (LINE_TRANSLATIONS[key] ?? key),
++}));
++
++const LINE_TRANSLATIONS: Record<string, string> = {
++  sourcesPopoverTitle: "Source lines for this part",
++};
++
+ const TRANSLATIONS: Record<string, string> = {
+   title: "Parts lines",
+   subtitle: "The durable order-line list for this repair order.",
+@@ -198,4 +212,100 @@ describe("RepairOrderLinesList", () => {
+       expect(screen.queryByTestId("repair-order-lines-error-state")).not.toBeInTheDocument();
+     });
+   });
++
++  /**
++   * Phase 9: the per-line "Sources (N)" provenance affordance. Uses the
++   * SAME provenance tree the "Source documents" section renders --
++   * grouped server-side by repair_order_line_id, never re-queried.
++   */
++  describe("Phase 9 per-line 'Sources (N)' affordance", () => {
++    function provenanceDoc(
++      overrides: Partial<RepairOrderProvenanceDocument> = {}
++    ): RepairOrderProvenanceDocument {
++      return {
++        id: "doc-1",
++        documentType: "wdd",
++        externalDocumentNumber: "WDD/900",
++        sourceSessionId: "session-1",
++        officialWarehouseCode: null,
++        createdAt: "2026-09-10T09:00:00.000Z",
++        linkedAt: "2026-09-10T09:00:00.000Z",
++        lines: [],
++        ...overrides,
++      };
++    }
++
++    it("renders a 'Sources (N)' trigger for a line with provenance contributions", async () => {
++      const el = await RepairOrderLinesList({
++        lines: [line({ id: "line-1" })],
++        provenance: [
++          provenanceDoc({
++            lines: [
++              {
++                id: "docline-1",
++                productCode: "5WA-857-093",
++                productName: "Front bumper cover",
++                quantity: 2,
++                unit: "pcs",
++                rawText: null,
++                wddMatcherLineId: null,
++                contributions: [
++                  { repairOrderLineId: "line-1", quantityContribution: 2, linkedAt: "t1" },
++                ],
++              },
++            ],
++          }),
++        ],
++      });
++      render(el);
++
++      const triggers = screen.getAllByTestId("repair-order-line-sources-trigger");
++      expect(triggers.length).toBeGreaterThan(0);
++      expect(triggers[0]).toHaveTextContent("Sources (1)");
++    });
++
++    it("renders NO 'Sources' trigger for a line with zero provenance contributions", async () => {
++      const el = await RepairOrderLinesList({
++        lines: [line({ id: "line-no-sources" })],
++        provenance: [],
++      });
++      render(el);
++
++      expect(screen.queryByTestId("repair-order-line-sources-trigger")).not.toBeInTheDocument();
++    });
++
++    it("a provenance contribution belonging to a DIFFERENT line does not render a trigger on this line", async () => {
++      const el = await RepairOrderLinesList({
++        lines: [line({ id: "line-1" })],
++        provenance: [
++          provenanceDoc({
++            lines: [
++              {
++                id: "docline-1",
++                productCode: "X",
++                productName: "X",
++                quantity: 1,
++                unit: null,
++                rawText: null,
++                wddMatcherLineId: null,
++                contributions: [
++                  { repairOrderLineId: "line-OTHER", quantityContribution: 1, linkedAt: "t1" },
++                ],
++              },
++            ],
++          }),
++        ],
++      });
++      render(el);
++
++      expect(screen.queryByTestId("repair-order-line-sources-trigger")).not.toBeInTheDocument();
++    });
++
++    it("defaults to no provenance (no crash, no trigger) when the provenance prop is omitted", async () => {
++      const el = await RepairOrderLinesList({ lines: [line()] });
++      render(el);
++
++      expect(screen.queryByTestId("repair-order-line-sources-trigger")).not.toBeInTheDocument();
++    });
++  });
+ });
+diff --git a/apps/web/src/app/[locale]/dashboard/workshop/[id]/_components/__tests__/repair-order-provenance.test.tsx b/apps/web/src/app/[locale]/dashboard/workshop/[id]/_components/__tests__/repair-order-provenance.test.tsx
+new file mode 100644
+index 00000000..d4fa3c49
+--- /dev/null
++++ b/apps/web/src/app/[locale]/dashboard/workshop/[id]/_components/__tests__/repair-order-provenance.test.tsx
+@@ -0,0 +1,242 @@
++/**
++ * @vitest-environment jsdom
++ */
++import { render, screen, fireEvent } from "@testing-library/react";
++import { describe, expect, it, vi } from "vitest";
++import type { RepairOrderProvenanceDocument } from "@/server/services/repair-orders.service";
++
++const TRANSLATIONS: Record<string, string> = {
++  title: "Source documents",
++  subtitle: "Which documents and source lines this order was materialized from.",
++  emptyStateTitle: "No source documents linked.",
++  emptyStateSubtitle: "This repair order was created manually, without a Matcher import.",
++  "errors.loadFailed": "Failed to load source documents",
++};
++
++vi.mock("next-intl", () => ({
++  useTranslations: () => (key: string, values?: Record<string, unknown>) => {
++    if (key === "documentLinesCount") return `${values?.count} lines`;
++    return TRANSLATIONS[key] ?? key;
++  },
++}));
++
++import { RepairOrderProvenance } from "../repair-order-provenance";
++
++function doc(overrides: Partial<RepairOrderProvenanceDocument> = {}): RepairOrderProvenanceDocument {
++  return {
++    id: "doc-1",
++    documentType: "wdd",
++    externalDocumentNumber: "WDD/900",
++    sourceSessionId: "session-1",
++    officialWarehouseCode: "BL",
++    createdAt: "2026-09-10T09:00:00.000Z",
++    linkedAt: "2026-09-10T09:05:00.000Z",
++    lines: [],
++    ...overrides,
++  };
++}
++
++describe("RepairOrderProvenance", () => {
++  it("renders the empty state for a manually-created RepairOrder with no linked documents (no fabricated document is ever shown)", () => {
++    render(<RepairOrderProvenance documents={[]} />);
++
++    expect(screen.getByTestId("repair-order-provenance-empty-state")).toBeInTheDocument();
++    expect(screen.getByText("No source documents linked.")).toBeInTheDocument();
++    expect(screen.queryByTestId("repair-order-provenance-document")).not.toBeInTheDocument();
++  });
++
++  it("renders the load-error state distinctly from the empty state when the provenance read failed", () => {
++    render(<RepairOrderProvenance documents={[]} loadError />);
++
++    expect(screen.getByTestId("repair-order-provenance-error-state")).toBeInTheDocument();
++    expect(screen.getByText("Failed to load source documents")).toBeInTheDocument();
++    expect(screen.queryByTestId("repair-order-provenance-empty-state")).not.toBeInTheDocument();
++  });
++
++  it("renders one document row per real document, with its document type + external number", () => {
++    render(
++      <RepairOrderProvenance
++        documents={[doc({ id: "doc-1", externalDocumentNumber: "WDD/900" })]}
++      />
++    );
++
++    const rows = screen.getAllByTestId("repair-order-provenance-document");
++    expect(rows).toHaveLength(1);
++    expect(rows[0]).toHaveTextContent("WDD");
++    expect(rows[0]).toHaveTextContent("WDD/900");
++  });
++
++  it("renders multiple documents (one RepairOrder -> many documents)", () => {
++    render(
++      <RepairOrderProvenance
++        documents={[
++          doc({ id: "doc-1", externalDocumentNumber: "WDD/900" }),
++          doc({ id: "doc-2", externalDocumentNumber: "ZL/900", documentType: "zl" }),
++        ]}
++      />
++    );
++
++    expect(screen.getAllByTestId("repair-order-provenance-document")).toHaveLength(2);
++  });
++
++  it("expanding a document reveals its source lines, with quantity and quantity_contribution", () => {
++    render(
++      <RepairOrderProvenance
++        documents={[
++          doc({
++            lines: [
++              {
++                id: "docline-1",
++                productCode: "5WA-857-093",
++                productName: "Front bumper cover",
++                quantity: 2,
++                unit: "pcs",
++                rawText: null,
++                wddMatcherLineId: null,
++                contributions: [
++                  { repairOrderLineId: "line-1", quantityContribution: 2, linkedAt: "t1" },
++                ],
++              },
++            ],
++          }),
++        ]}
++      />
++    );
++
++    // Radix Collapsible does not render its content into the DOM until
++    // expanded -- simulate the user clicking the document row to open it.
++    fireEvent.click(screen.getByRole("button"));
++
++    const sourceLines = screen.getAllByTestId("repair-order-provenance-source-line");
++    expect(sourceLines).toHaveLength(1);
++    expect(sourceLines[0]).toHaveTextContent("5WA-857-093");
++    expect(sourceLines[0]).toHaveTextContent("2");
++  });
++
++  /**
++   * External-review Finding (2026-09-12): `getRepairOrderProvenance`'s own
++   * cross-order metadata-leak fix means the UI now NEVER receives a source
++   * line with zero own-order contributions -- such lines are omitted
++   * entirely at the service layer (see that method's own doc comment).
++   * This component test proves the UI stays correct/defensive even in the
++   * (now-unreachable-via-the-real-service, but still worth guarding)
++   * hypothetical case of a zero-contribution line reaching it directly：no
++   * crash, and no "unlinked"/placeholder text is fabricated -- the removed
++   * `sourceLine.unlinked` UI concept must not silently reappear.
++   */
++  it("renders a zero-contribution source line defensively (no crash, no fabricated 'unlinked' placeholder) even though the real service never returns one", () => {
++    render(
++      <RepairOrderProvenance
++        documents={[
++          doc({
++            lines: [
++              {
++                id: "docline-defensive",
++                productCode: "X",
++                productName: "X part",
++                quantity: 1,
++                unit: null,
++                rawText: null,
++                wddMatcherLineId: null,
++                contributions: [],
++              },
++            ],
++          }),
++        ]}
++      />
++    );
++
++    fireEvent.click(screen.getByRole("button"));
++
++    expect(screen.getByTestId("repair-order-provenance-source-line")).toBeInTheDocument();
++    expect(screen.queryByText("Not linked to a part on this order")).not.toBeInTheDocument();
++    expect(screen.queryByText(/unlinked/i)).not.toBeInTheDocument();
++  });
++
++  /**
++   * The primary, actually-reachable guarantee: a document containing a
++   * source line that belongs to a DIFFERENT RepairOrder (the exact
++   * cross-order scenario `getRepairOrderProvenance` now filters out at the
++   * source) must never be rendered by this component -- proving the fix
++   * holds end-to-end, from service output shape to rendered UI, not just
++   * at the service layer in isolation.
++   */
++  it("never renders a source line that was never included in the documents prop (the service-layer fix's own contract)", () => {
++    render(
++      <RepairOrderProvenance
++        documents={[
++          doc({
++            lines: [
++              {
++                id: "docline-mine",
++                productCode: "SKU-MINE",
++                productName: "My part",
++                quantity: 2,
++                unit: "pcs",
++                rawText: null,
++                wddMatcherLineId: null,
++                contributions: [
++                  { repairOrderLineId: "line-mine", quantityContribution: 2, linkedAt: "t1" },
++                ],
++              },
++              // Note: NO "docline-theirs" entry -- exactly what
++              // getRepairOrderProvenance now returns for a document shared
++              // with another RepairOrder (that foreign line is omitted
++              // before this component ever sees it).
++            ],
++          }),
++        ]}
++      />
++    );
++
++    fireEvent.click(screen.getByRole("button"));
++
++    const lines = screen.getAllByTestId("repair-order-provenance-source-line");
++    expect(lines).toHaveLength(1);
++    expect(screen.queryByText("SKU-THEIRS")).not.toBeInTheDocument();
++  });
++
++  it("multiple source lines under one document are each shown independently (one document -> many source lines)", () => {
++    render(
++      <RepairOrderProvenance
++        documents={[
++          doc({
++            lines: [
++              {
++                id: "docline-a",
++                productCode: "A",
++                productName: "Part A",
++                quantity: 2,
++                unit: "pcs",
++                rawText: null,
++                wddMatcherLineId: null,
++                contributions: [{ repairOrderLineId: "line-1", quantityContribution: 2, linkedAt: "t1" }],
++              },
++              {
++                id: "docline-b",
++                productCode: "B",
++                productName: "Part B",
++                quantity: 3,
++                unit: "pcs",
++                rawText: null,
++                wddMatcherLineId: null,
++                contributions: [{ repairOrderLineId: "line-2", quantityContribution: 3, linkedAt: "t2" }],
++              },
++            ],
++          }),
++        ]}
++      />
++    );
++
++    fireEvent.click(screen.getByRole("button"));
++
++    expect(screen.getAllByTestId("repair-order-provenance-source-line")).toHaveLength(2);
++  });
++
++  it("does not render Matcher session navigation (no stable route exists to link to)", () => {
++    render(<RepairOrderProvenance documents={[doc()]} />);
++
++    expect(screen.queryByRole("link")).not.toBeInTheDocument();
++    expect(screen.queryByText(/open source session/i)).not.toBeInTheDocument();
++  });
++});
+diff --git a/apps/web/src/app/[locale]/dashboard/workshop/[id]/_components/repair-order-line-sources.tsx b/apps/web/src/app/[locale]/dashboard/workshop/[id]/_components/repair-order-line-sources.tsx
+new file mode 100644
+index 00000000..285a460e
+--- /dev/null
++++ b/apps/web/src/app/[locale]/dashboard/workshop/[id]/_components/repair-order-line-sources.tsx
+@@ -0,0 +1,75 @@
++"use client";
++
++import { useTranslations } from "next-intl";
++import { Layers } from "lucide-react";
++import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
++
++/**
++ * Phase 9: the smallest useful line-level provenance affordance -- a
++ * "Sources (N)" trigger on a Phase 8 line row, opening a small popover that
++ * lists exactly which source line(s) contributed to THIS logical line and
++ * how much each one contributed. Deliberately does NOT duplicate the whole
++ * "Source documents" section (`repair-order-provenance.tsx`) inside every
++ * row -- just enough to answer "which source line contributed to this
++ * line, and how much?" without leaving the line list.
++ *
++ * Takes plain, already-resolved, server-computed data (never imports
++ * anything from `repair-orders.service.ts` itself, type or value -- that
++ * file is `import "server-only"`-guarded; a client component may safely
++ * `import type` from it, but this component avoids even that coupling by
++ * accepting a small local prop shape instead, computed by the server
++ * component that renders it).
++ */
++export interface LineSourceEntry {
++  documentType: string;
++  externalDocumentNumber: string;
++  sourceLineProductCode: string | null;
++  sourceLineProductName: string | null;
++  quantityContribution: number;
++}
++
++type Props = {
++  sources: LineSourceEntry[];
++};
++
++export function LineSourcesPopover({ sources }: Props) {
++  const t = useTranslations("modules.workshop.repairOrders.lines");
++
++  if (sources.length === 0) return null;
++
++  return (
++    <Popover>
++      <PopoverTrigger asChild>
++        <button
++          type="button"
++          className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs underline decoration-dotted underline-offset-2"
++          data-testid="repair-order-line-sources-trigger"
++        >
++          <Layers className="h-3 w-3" />
++          {t("sourcesButton", { count: sources.length })}
++        </button>
++      </PopoverTrigger>
++      <PopoverContent className="w-72" align="start" data-testid="repair-order-line-sources-popover">
++        <p className="mb-2 text-xs font-medium">{t("sourcesPopoverTitle")}</p>
++        <ul className="flex flex-col gap-2">
++          {sources.map((source, i) => (
++            <li key={i} className="border-border border-t pt-2 text-xs first:border-t-0 first:pt-0">
++              <div className="font-mono font-medium">
++                {source.documentType.toUpperCase()} {source.externalDocumentNumber}
++              </div>
++              <div className="text-muted-foreground flex items-center justify-between gap-2">
++                <span className="truncate">
++                  {source.sourceLineProductCode ?? "—"}
++                  {source.sourceLineProductName ? ` · ${source.sourceLineProductName}` : ""}
++                </span>
++                <span className="text-foreground shrink-0 font-mono">
++                  {source.quantityContribution}
++                </span>
++              </div>
++            </li>
++          ))}
++        </ul>
++      </PopoverContent>
++    </Popover>
++  );
++}
+diff --git a/apps/web/src/app/[locale]/dashboard/workshop/[id]/_components/repair-order-lines-list.tsx b/apps/web/src/app/[locale]/dashboard/workshop/[id]/_components/repair-order-lines-list.tsx
+index 737a0d87..ade55b5c 100644
+--- a/apps/web/src/app/[locale]/dashboard/workshop/[id]/_components/repair-order-lines-list.tsx
++++ b/apps/web/src/app/[locale]/dashboard/workshop/[id]/_components/repair-order-lines-list.tsx
+@@ -8,7 +8,12 @@ import {
+   TableRow,
+   TableCell,
+ } from "@/components/ui/table";
+-import type { RepairOrderLineReadModel } from "@/server/services/repair-orders.service";
++import type {
++  RepairOrderLineReadModel,
++  RepairOrderProvenanceDocument,
++} from "@/server/services/repair-orders.service";
++import { groupProvenanceByRepairOrderLine } from "@/server/services/repair-orders.service";
++import { LineSourcesPopover, type LineSourceEntry } from "./repair-order-line-sources";
+ 
+ type Props = {
+   lines: RepairOrderLineReadModel[];
+@@ -24,6 +29,19 @@ type Props = {
+    * read did not, so only this section degrades.
+    */
+   loadError?: boolean;
++  /**
++   * Phase 9: the SAME provenance tree `RepairOrderProvenance` (the
++   * "Source documents" section) already renders -- passed down here too,
++   * purely to compute each line's own "Sources (N)" affordance
++   * server-side via `groupProvenanceByRepairOrderLine` (a pure re-index,
++   * not a second query -- see that function's own doc comment). Optional
++   * and defaults to an empty tree so this component still works
++   * standalone (e.g. in tests) without Phase 9 data. Omitted entirely
++   * (no prop, no query) when the provenance read itself failed -- a
++   * missing "Sources" affordance is a silent, harmless degradation, not
++   * something that needs its own error state layered onto Phase 8's list.
++   */
++  provenance?: RepairOrderProvenanceDocument[];
+ };
+ 
+ /**
+@@ -44,9 +62,19 @@ type Props = {
+  * would misrepresent the line's true state; the numeric received/
+  * outstanding/available columns are this phase's truthful signal instead).
+  */
+-export async function RepairOrderLinesList({ lines, loadError = false }: Props) {
++export async function RepairOrderLinesList({ lines, loadError = false, provenance = [] }: Props) {
+   const t = await getTranslations("modules.workshop.repairOrders.lines");
+ 
++  function sourcesFor(lineId: string): LineSourceEntry[] {
++    return groupProvenanceByRepairOrderLine(provenance, lineId).map(({ document, sourceLine, contribution }) => ({
++      documentType: document.documentType,
++      externalDocumentNumber: document.externalDocumentNumber,
++      sourceLineProductCode: sourceLine.productCode,
++      sourceLineProductName: sourceLine.productName,
++      quantityContribution: contribution.quantityContribution,
++    }));
++  }
++
+   return (
+     <div className="flex flex-col gap-3" data-testid="repair-order-lines-section">
+       <div>
+@@ -94,8 +122,11 @@ export async function RepairOrderLinesList({ lines, loadError = false }: Props)
+                     <TableCell className="font-mono text-xs font-medium">
+                       {line.sku ?? "—"}
+                     </TableCell>
+-                    <TableCell className="max-w-xs truncate text-sm" title={line.productName}>
+-                      {line.productName}
++                    <TableCell className="max-w-xs text-sm">
++                      <div className="truncate" title={line.productName}>
++                        {line.productName}
++                      </div>
++                      <LineSourcesPopover sources={sourcesFor(line.id)} />
+                     </TableCell>
+                     <TableCell className="text-right font-mono text-xs">
+                       {formatQuantity(line.orderedQuantity)}
+@@ -132,6 +163,7 @@ export async function RepairOrderLinesList({ lines, loadError = false }: Props)
+                       {line.productName}
+                     </p>
+                     <p className="text-muted-foreground font-mono text-xs">{line.sku ?? "—"}</p>
++                    <LineSourcesPopover sources={sourcesFor(line.id)} />
+                   </div>
+                   {line.unit && (
+                     <span className="text-muted-foreground shrink-0 text-xs">{line.unit}</span>
+diff --git a/apps/web/src/app/[locale]/dashboard/workshop/[id]/_components/repair-order-provenance.tsx b/apps/web/src/app/[locale]/dashboard/workshop/[id]/_components/repair-order-provenance.tsx
+new file mode 100644
+index 00000000..5b46c480
+--- /dev/null
++++ b/apps/web/src/app/[locale]/dashboard/workshop/[id]/_components/repair-order-provenance.tsx
+@@ -0,0 +1,136 @@
++"use client";
++
++import { useState } from "react";
++import { useTranslations } from "next-intl";
++import { ChevronDown, FileText } from "lucide-react";
++import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
++import type { RepairOrderProvenanceDocument } from "@/server/services/repair-orders.service";
++
++type Props = {
++  documents: RepairOrderProvenanceDocument[];
++  loadError?: boolean;
++};
++
++/**
++ * Phase 9: the "Source documents" provenance-inspection section --
++ * explicitly distinct from Phase 8's logical-line list above it. Answers
++ * "where did this RepairOrder come from?" -- which source document(s)
++ * contributed, and (once a document is expanded) which source line(s) each
++ * one carried and how much each contributed to a logical line.
++ *
++ * A plain client component (needs local expand/collapse state per
++ * document) -- but deliberately NOT the final Phase 11 Magazyn/
++ * Zamówienia-Przyjęcia sub-view system; a compact, reusable
++ * provenance-inspection surface only, per this phase's explicit scope
++ * boundary. `import type` only from `repair-orders.service.ts` (erased at
++ * compile time, never bundles that `server-only`-guarded module's runtime
++ * code into the client).
++ *
++ * Deliberately does NOT show Matcher session navigation -- no stable route
++ * to a specific Matcher session detail view exists anywhere in this
++ * codebase today (verified, not assumed, before choosing to omit it); the
++ * `sourceSessionId` is not rendered as a dead/fake link.
++ */
++export function RepairOrderProvenance({ documents, loadError = false }: Props) {
++  const t = useTranslations("modules.workshop.repairOrders.provenance");
++
++  return (
++    <div className="flex flex-col gap-3" data-testid="repair-order-provenance-section">
++      <div>
++        <h2 className="text-lg font-semibold tracking-tight">{t("title")}</h2>
++        <p className="text-muted-foreground mt-0.5 text-sm">{t("subtitle")}</p>
++      </div>
++
++      {loadError ? (
++        <div
++          className="border-destructive/30 bg-destructive/5 text-destructive rounded-lg border p-4 text-sm"
++          data-testid="repair-order-provenance-error-state"
++        >
++          {t("errors.loadFailed")}
++        </div>
++      ) : documents.length === 0 ? (
++        <div
++          className="border-border flex flex-col items-center gap-2 rounded-lg border border-dashed py-10 text-center"
++          data-testid="repair-order-provenance-empty-state"
++        >
++          <FileText className="text-muted-foreground h-7 w-7" />
++          <div>
++            <p className="text-sm font-medium">{t("emptyStateTitle")}</p>
++            <p className="text-muted-foreground mt-1 max-w-sm text-sm">{t("emptyStateSubtitle")}</p>
++          </div>
++        </div>
++      ) : (
++        <div className="flex flex-col gap-2">
++          {documents.map((document) => (
++            <DocumentRow key={document.id} document={document} />
++          ))}
++        </div>
++      )}
++    </div>
++  );
++}
++
++function DocumentRow({ document }: { document: RepairOrderProvenanceDocument }) {
++  const t = useTranslations("modules.workshop.repairOrders.provenance");
++  const [open, setOpen] = useState(false);
++  // `document.lines` here only ever contains lines with >= 1 contribution
++  // to THIS RepairOrder -- getRepairOrderProvenance's own cross-order
++  // metadata-leak fix (2026-09-12) omits a source line entirely once it
++  // has zero own-order contributions (whether never-linked, or linked only
++  // to a different RepairOrder sharing this document), rather than
++  // returning it with an empty contributions array. There is therefore no
++  // reachable "unlinked" state left to render here.
++
++  return (
++    <Collapsible
++      open={open}
++      onOpenChange={setOpen}
++      className="border-border rounded-lg border"
++      data-testid="repair-order-provenance-document"
++    >
++      <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 p-3 text-left">
++        <div className="flex min-w-0 items-center gap-2">
++          <FileText className="text-muted-foreground h-4 w-4 shrink-0" />
++          <div className="min-w-0">
++            <p className="truncate font-mono text-sm font-medium">
++              {document.documentType.toUpperCase()} {document.externalDocumentNumber}
++            </p>
++            <p className="text-muted-foreground text-xs">
++              {t("documentLinesCount", { count: document.lines.length })}
++            </p>
++          </div>
++        </div>
++        <ChevronDown
++          className={`text-muted-foreground h-4 w-4 shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
++        />
++      </CollapsibleTrigger>
++      <CollapsibleContent>
++        <div className="border-border flex flex-col gap-2 border-t px-3 py-2.5">
++          {document.lines.map((line) => (
++            <div
++              key={line.id}
++              className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 text-xs"
++              data-testid="repair-order-provenance-source-line"
++            >
++              <div className="min-w-0">
++                <span className="font-mono font-medium">{line.productCode ?? "—"}</span>
++                <span className="text-muted-foreground ml-2 truncate">
++                  {line.productName ?? "—"}
++                </span>
++              </div>
++              <div className="text-muted-foreground shrink-0 font-mono">
++                {line.quantity}
++                {line.unit ? ` ${line.unit}` : ""}
++                {line.contributions.length > 0 && (
++                  <span className="text-foreground ml-2">
++                    → {line.contributions.map((c) => c.quantityContribution).join(" + ")}
++                  </span>
++                )}
++              </div>
++            </div>
++          ))}
++        </div>
++      </CollapsibleContent>
++    </Collapsible>
++  );
++}
+diff --git a/apps/web/src/app/[locale]/dashboard/workshop/[id]/page.tsx b/apps/web/src/app/[locale]/dashboard/workshop/[id]/page.tsx
+index 9f0c7bf2..de69ae5f 100644
+--- a/apps/web/src/app/[locale]/dashboard/workshop/[id]/page.tsx
++++ b/apps/web/src/app/[locale]/dashboard/workshop/[id]/page.tsx
+@@ -14,6 +14,7 @@ import { ArrowLeft } from "lucide-react";
+ import { RepairOrderStatusBadge } from "../_components/repair-order-status-badge";
+ import { RepairOrderHeaderEditor } from "./_components/repair-order-header-editor";
+ import { RepairOrderLinesList } from "./_components/repair-order-lines-list";
++import { RepairOrderProvenance } from "./_components/repair-order-provenance";
+ 
+ type PageProps = { params: Promise<{ id: string }> };
+ 
+@@ -24,9 +25,15 @@ type PageProps = { params: Promise<{ id: string }> };
+  *
+  * Phase 8 adds the logical RepairOrderLine list below the header (durable
+  * business lines -- SKU/part/ordered/received/outstanding/available --
+- * never grouped by source document). Source-document provenance and full
+- * warehouse receipt/issue detail remain later phases (9/10/11), per the
+- * work order's explicit scope boundary.
++ * never grouped by source document).
++ *
++ * Phase 9 adds the "Source documents" provenance section below that --
++ * which document(s)/source line(s) this order was materialized from, and
++ * (via each Phase 8 line's own "Sources (N)" affordance) which source
++ * line(s) contributed to which logical line. Full warehouse receipt/issue
++ * detail and the final Magazyn/Zamówienia-Przyjęcia sub-view composition
++ * remain later phases (10/11), per the work order's explicit scope
++ * boundary.
+  */
+ export default async function RepairOrderDetailPage({ params }: PageProps) {
+   const { id } = await params;
+@@ -56,16 +63,18 @@ export default async function RepairOrderDetailPage({ params }: PageProps) {
+   const canManageOwn = checkPermission(snapshot, WORKSHOP_REPAIR_ORDERS_MANAGE_OWN);
+   const canManageAll = checkPermission(snapshot, WORKSHOP_REPAIR_ORDERS_MANAGE_ALL);
+ 
+-  const [orderResult, advisorCandidatesResult, ownAdvisorResult, linesResult] = await Promise.all([
+-    RepairOrdersService.getByIdForWorkshop(supabase, orgId, branchId, id),
+-    canManageAll
+-      ? RepairOrdersService.listAdvisorCandidates(supabase, orgId)
+-      : Promise.resolve({ success: true as const, data: [] }),
+-    canManageOwn && !canManageAll && context.user.user?.id
+-      ? RepairOrdersService.getOwnAdvisorContactId(supabase, orgId)
+-      : Promise.resolve({ success: true as const, data: null }),
+-    RepairOrdersService.listRepairOrderLines(supabase, orgId, branchId, id),
+-  ]);
++  const [orderResult, advisorCandidatesResult, ownAdvisorResult, linesResult, provenanceResult] =
++    await Promise.all([
++      RepairOrdersService.getByIdForWorkshop(supabase, orgId, branchId, id),
++      canManageAll
++        ? RepairOrdersService.listAdvisorCandidates(supabase, orgId)
++        : Promise.resolve({ success: true as const, data: [] }),
++      canManageOwn && !canManageAll && context.user.user?.id
++        ? RepairOrdersService.getOwnAdvisorContactId(supabase, orgId)
++        : Promise.resolve({ success: true as const, data: null }),
++      RepairOrdersService.listRepairOrderLines(supabase, orgId, branchId, id),
++      RepairOrdersService.getRepairOrderProvenance(supabase, orgId, branchId, id),
++    ]);
+ 
+   if (!orderResult.success || !orderResult.data) {
+     notFound();
+@@ -81,6 +90,11 @@ export default async function RepairOrderDetailPage({ params }: PageProps) {
+   // page's own established loadError convention.
+   const lines = linesResult.success ? linesResult.data : [];
+   const linesLoadError = !linesResult.success;
++  // Same pattern as linesLoadError above -- a failed provenance read must
++  // not look like a manually-created order with genuinely zero provenance,
++  // and must not fail the rest of the page either.
++  const provenance = provenanceResult.success ? provenanceResult.data : [];
++  const provenanceLoadError = !provenanceResult.success;
+ 
+   return (
+     <div className="flex flex-col gap-6 p-6">
+@@ -109,7 +123,9 @@ export default async function RepairOrderDetailPage({ params }: PageProps) {
+         updatedAtLabel={new Date(order.updatedAt).toLocaleString(locale)}
+       />
+ 
+-      <RepairOrderLinesList lines={lines} loadError={linesLoadError} />
++      <RepairOrderLinesList lines={lines} loadError={linesLoadError} provenance={provenance} />
++
++      <RepairOrderProvenance documents={provenance} loadError={provenanceLoadError} />
+ 
+       <p className="text-muted-foreground max-w-2xl text-xs">{t("detail.futurePhasesNote")}</p>
+     </div>
+diff --git a/apps/web/src/server/services/__tests__/repair-orders.service.test.ts b/apps/web/src/server/services/__tests__/repair-orders.service.test.ts
+index 1bf90418..b4c54fc6 100644
+--- a/apps/web/src/server/services/__tests__/repair-orders.service.test.ts
++++ b/apps/web/src/server/services/__tests__/repair-orders.service.test.ts
+@@ -7,8 +7,11 @@ vi.mock("../event.service", () => ({
+   },
+ }));
+ 
+-import { RepairOrdersService } from "../repair-orders.service";
+-import type { RepairOrderLineReadModel } from "../repair-orders.service";
++import { RepairOrdersService, groupProvenanceByRepairOrderLine } from "../repair-orders.service";
++import type {
++  RepairOrderLineReadModel,
++  RepairOrderProvenanceDocument,
++} from "../repair-orders.service";
+ import { eventService } from "../event.service";
+ 
+ function buildSupabaseMock(rpcResult: { data: unknown; error: unknown }) {
+@@ -1449,3 +1452,607 @@ describe("RepairOrdersService.listRepairOrderLines", () => {
+     );
+   });
+ });
++
++/**
++ * Phase 9: RepairOrdersService.getRepairOrderProvenance -- source-document/
++ * source-line provenance, explicitly distinct from Phase 8's logical-line
++ * list. Uses makeTableQueryMock (repair_orders parent check +
++ * repair_order_source_document_links main query), matching
++ * listRepairOrderLines' own established two-`.from()`-calls test pattern.
++ */
++describe("RepairOrdersService.getRepairOrderProvenance", () => {
++  const PARENT_FOUND = { data: { id: "ro-1" }, error: null };
++
++  function linkRow(overrides: Partial<Record<string, unknown>> = {}) {
++    return {
++      workshop_source_document_id: "doc-1",
++      linked_at: "2026-09-10T10:00:00.000Z",
++      document: {
++        id: "doc-1",
++        document_type: "zl",
++        external_document_number: "ZL/90001/26/3252/BL",
++        source_session_id: "session-1",
++        official_warehouse_code: "BL",
++        created_at: "2026-09-10T09:00:00.000Z",
++        lines: [],
++      },
++      ...overrides,
++    };
++  }
++
++  function sourceLine(overrides: Partial<Record<string, unknown>> = {}) {
++    return {
++      id: "docline-1",
++      product_code: "5WA-857-093",
++      product_name: "Front bumper cover",
++      quantity: 2,
++      unit: "pcs",
++      raw_text: "5WA 857 093  front bumper  2 pcs",
++      wdd_matcher_line_id: "wdd-line-1",
++      line_links: [],
++      ...overrides,
++    };
++  }
++
++  it("lists provenance documents with nested source lines and contributions, mapped to the domain shape", async () => {
++    const mock = makeTableQueryMock({
++      repair_orders: PARENT_FOUND,
++      repair_order_lines: { data: [{ id: "line-1" }], error: null },
++      repair_order_source_document_links: {
++        data: [
++          linkRow({
++            document: {
++              id: "doc-1",
++              document_type: "zl",
++              external_document_number: "ZL/90001/26/3252/BL",
++              source_session_id: "session-1",
++              official_warehouse_code: "BL",
++              created_at: "2026-09-10T09:00:00.000Z",
++              lines: [
++                sourceLine({
++                  line_links: [
++                    {
++                      repair_order_line_id: "line-1",
++                      quantity_contribution: 2,
++                      linked_at: "2026-09-10T10:01:00.000Z",
++                    },
++                  ],
++                }),
++              ],
++            },
++          }),
++        ],
++        error: null,
++      },
++    });
++
++    const result = await RepairOrdersService.getRepairOrderProvenance(
++      mock as never,
++      "org-1",
++      "branch-1",
++      "ro-1"
++    );
++
++    expect(result).toEqual({
++      success: true,
++      data: [
++        {
++          id: "doc-1",
++          documentType: "zl",
++          externalDocumentNumber: "ZL/90001/26/3252/BL",
++          sourceSessionId: "session-1",
++          officialWarehouseCode: "BL",
++          createdAt: "2026-09-10T09:00:00.000Z",
++          linkedAt: "2026-09-10T10:00:00.000Z",
++          lines: [
++            {
++              id: "docline-1",
++              productCode: "5WA-857-093",
++              productName: "Front bumper cover",
++              quantity: 2,
++              unit: "pcs",
++              rawText: "5WA 857 093  front bumper  2 pcs",
++              wddMatcherLineId: "wdd-line-1",
++              contributions: [
++                {
++                  repairOrderLineId: "line-1",
++                  quantityContribution: 2,
++                  linkedAt: "2026-09-10T10:01:00.000Z",
++                },
++              ],
++            },
++          ],
++        },
++      ],
++    });
++  });
++
++  it("one RepairOrder -> many source documents: both appear, in linked_at order", async () => {
++    const mock = makeTableQueryMock({
++      repair_orders: PARENT_FOUND,
++      repair_order_source_document_links: {
++        data: [
++          linkRow({
++            workshop_source_document_id: "doc-1",
++            document: { ...linkRow().document, id: "doc-1" },
++          }),
++          linkRow({
++            workshop_source_document_id: "doc-2",
++            linked_at: "2026-09-11T10:00:00.000Z",
++            document: { ...linkRow().document, id: "doc-2", external_document_number: "ZW/900" },
++          }),
++        ],
++        error: null,
++      },
++    });
++
++    const result = await RepairOrdersService.getRepairOrderProvenance(
++      mock as never,
++      "org-1",
++      "branch-1",
++      "ro-1"
++    );
++
++    expect(result.success).toBe(true);
++    const docs = (result as { success: true; data: RepairOrderProvenanceDocument[] }).data;
++    expect(docs.map((d) => d.id)).toEqual(["doc-1", "doc-2"]);
++  });
++
++  it("scopes the query to this RepairOrder's own document links only (never cross-order)", async () => {
++    const mock = makeTableQueryMock({
++      repair_orders: PARENT_FOUND,
++      repair_order_source_document_links: { data: [], error: null },
++    });
++
++    await RepairOrdersService.getRepairOrderProvenance(mock as never, "org-1", "branch-1", "ro-1");
++
++    const eqCalls = (mock.callsByTable["repair_order_source_document_links"] ?? [])
++      .filter((c) => c.method === "eq")
++      .map((c) => c.args);
++    expect(eqCalls).toContainEqual(["repair_order_id", "ro-1"]);
++  });
++
++  it("one logical line -> many source lines: quantity_contribution preserved exactly for each, never summed/collapsed", async () => {
++    const mock = makeTableQueryMock({
++      repair_orders: PARENT_FOUND,
++      repair_order_lines: { data: [{ id: "line-1" }], error: null },
++      repair_order_source_document_links: {
++        data: [
++          linkRow({
++            document: {
++              ...linkRow().document,
++              lines: [
++                sourceLine({
++                  id: "docline-A",
++                  line_links: [
++                    { repair_order_line_id: "line-1", quantity_contribution: 2, linked_at: "t1" },
++                  ],
++                }),
++                sourceLine({
++                  id: "docline-B",
++                  line_links: [
++                    { repair_order_line_id: "line-1", quantity_contribution: 3, linked_at: "t2" },
++                  ],
++                }),
++              ],
++            },
++          }),
++        ],
++        error: null,
++      },
++    });
++
++    const result = await RepairOrdersService.getRepairOrderProvenance(
++      mock as never,
++      "org-1",
++      "branch-1",
++      "ro-1"
++    );
++
++    expect(result.success).toBe(true);
++    const docs = (result as { success: true; data: RepairOrderProvenanceDocument[] }).data;
++    const sources = groupProvenanceByRepairOrderLine(docs, "line-1");
++
++    expect(sources).toHaveLength(2);
++    expect(sources.map((s) => s.contribution.quantityContribution).sort()).toEqual([2, 3]);
++    // Never summed into one contribution of 5.
++    expect(sources.some((s) => s.contribution.quantityContribution === 5)).toBe(false);
++  });
++
++  it("same-SKU source lines do not cross logical-line boundaries when grouped by line", async () => {
++    const mock = makeTableQueryMock({
++      repair_orders: PARENT_FOUND,
++      repair_order_lines: { data: [{ id: "line-A" }, { id: "line-B" }], error: null },
++      repair_order_source_document_links: {
++        data: [
++          linkRow({
++            document: {
++              ...linkRow().document,
++              lines: [
++                sourceLine({
++                  id: "docline-A",
++                  product_code: "SKU-X",
++                  line_links: [
++                    { repair_order_line_id: "line-A", quantity_contribution: 2, linked_at: "t1" },
++                  ],
++                }),
++                sourceLine({
++                  id: "docline-B",
++                  product_code: "SKU-X",
++                  line_links: [
++                    { repair_order_line_id: "line-B", quantity_contribution: 3, linked_at: "t2" },
++                  ],
++                }),
++              ],
++            },
++          }),
++        ],
++        error: null,
++      },
++    });
++
++    const result = await RepairOrdersService.getRepairOrderProvenance(
++      mock as never,
++      "org-1",
++      "branch-1",
++      "ro-1"
++    );
++
++    const docs = (result as { success: true; data: RepairOrderProvenanceDocument[] }).data;
++    const sourcesForA = groupProvenanceByRepairOrderLine(docs, "line-A");
++    const sourcesForB = groupProvenanceByRepairOrderLine(docs, "line-B");
++
++    expect(sourcesForA).toHaveLength(1);
++    expect(sourcesForA[0].contribution.quantityContribution).toBe(2);
++    expect(sourcesForB).toHaveLength(1);
++    expect(sourcesForB[0].contribution.quantityContribution).toBe(3);
++  });
++
++  /**
++   * CASE A (document M:N, cross-order leak): a source document shared
++   * between TWO RepairOrders must never leak one order's own source-line
++   * CONTENT (not just its contribution reference) into the other's
++   * provenance view. Reproduces the exact scenario found and fixed above
++   * -- doc-1 has two lines, docline-mine contributing to THIS order's own
++   * line-mine, and docline-theirs contributing ONLY to a DIFFERENT order's
++   * line-theirs (not in this order's owned-line set).
++   *
++   * External-review Finding (2026-09-12, CONFIRMED, fixed): the original
++   * fix only emptied `theirs.contributions` -- the source line ITSELF
++   * (SKU/product name/quantity/unit/wddMatcherLineId) still leaked through.
++   * This test now asserts the foreign line is entirely ABSENT, not merely
++   * "present with an empty contributions array".
++   */
++  it("a document shared with another RepairOrder does not leak that other order's source-line content (cross-order metadata leak fix)", async () => {
++    const mock = makeTableQueryMock({
++      repair_orders: PARENT_FOUND,
++      // This RepairOrder owns only "line-mine" -- "line-theirs" belongs to
++      // a different RepairOrder entirely.
++      repair_order_lines: { data: [{ id: "line-mine" }], error: null },
++      repair_order_source_document_links: {
++        data: [
++          linkRow({
++            document: {
++              ...linkRow().document,
++              lines: [
++                sourceLine({
++                  id: "docline-mine",
++                  product_code: "SKU-MINE",
++                  product_name: "My own part",
++                  wdd_matcher_line_id: "wdd-mine",
++                  line_links: [
++                    {
++                      repair_order_line_id: "line-mine",
++                      quantity_contribution: 2,
++                      linked_at: "t1",
++                    },
++                  ],
++                }),
++                sourceLine({
++                  id: "docline-theirs",
++                  product_code: "SKU-THEIRS",
++                  product_name: "Their part",
++                  quantity: 4,
++                  wdd_matcher_line_id: "wdd-theirs",
++                  line_links: [
++                    {
++                      repair_order_line_id: "line-theirs",
++                      quantity_contribution: 4,
++                      linked_at: "t2",
++                    },
++                  ],
++                }),
++              ],
++            },
++          }),
++        ],
++        error: null,
++      },
++    });
++
++    const result = await RepairOrdersService.getRepairOrderProvenance(
++      mock as never,
++      "org-1",
++      "branch-1",
++      "ro-1"
++    );
++
++    expect(result.success).toBe(true);
++    const docs = (result as { success: true; data: RepairOrderProvenanceDocument[] }).data;
++    const docLines = docs[0].lines;
++
++    // Only "docline-mine" is present -- "docline-theirs" is omitted
++    // entirely, not present-with-empty-contributions.
++    expect(docLines).toHaveLength(1);
++    expect(docLines[0].id).toBe("docline-mine");
++    expect(docLines[0].contributions).toEqual([
++      { repairOrderLineId: "line-mine", quantityContribution: 2, linkedAt: "t1" },
++    ]);
++
++    // None of the foreign line's own metadata is exposed anywhere in the
++    // response -- not the source line itself, not its SKU, product name,
++    // quantity, wddMatcherLineId, or the foreign repair_order_line_id.
++    const serialized = JSON.stringify(docs);
++    expect(serialized).not.toContain("docline-theirs");
++    expect(serialized).not.toContain("SKU-THEIRS");
++    expect(serialized).not.toContain("Their part");
++    expect(serialized).not.toContain("wdd-theirs");
++    expect(serialized).not.toContain("line-theirs");
++  });
++
++  /**
++   * Inverse of CASE A: reading provenance FOR RepairOrder B (the "theirs"
++   * side) must symmetrically show only line-theirs and never line-mine's
++   * content -- proving the fix is not one-directional.
++   */
++  it("the inverse case: RepairOrder B's own provenance shows only its own line, never RepairOrder A's", async () => {
++    const mock = makeTableQueryMock({
++      repair_orders: PARENT_FOUND,
++      repair_order_lines: { data: [{ id: "line-theirs" }], error: null },
++      repair_order_source_document_links: {
++        data: [
++          linkRow({
++            document: {
++              ...linkRow().document,
++              lines: [
++                sourceLine({
++                  id: "docline-mine",
++                  product_code: "SKU-MINE",
++                  line_links: [
++                    { repair_order_line_id: "line-mine", quantity_contribution: 2, linked_at: "t1" },
++                  ],
++                }),
++                sourceLine({
++                  id: "docline-theirs",
++                  product_code: "SKU-THEIRS",
++                  line_links: [
++                    {
++                      repair_order_line_id: "line-theirs",
++                      quantity_contribution: 4,
++                      linked_at: "t2",
++                    },
++                  ],
++                }),
++              ],
++            },
++          }),
++        ],
++        error: null,
++      },
++    });
++
++    const result = await RepairOrdersService.getRepairOrderProvenance(
++      mock as never,
++      "org-1",
++      "branch-1",
++      "ro-2"
++    );
++
++    const docs = (result as { success: true; data: RepairOrderProvenanceDocument[] }).data;
++    expect(docs[0].lines).toHaveLength(1);
++    expect(docs[0].lines[0].id).toBe("docline-theirs");
++    expect(JSON.stringify(docs)).not.toContain("docline-mine");
++    expect(JSON.stringify(docs)).not.toContain("SKU-MINE");
++  });
++
++  /**
++   * External-review Finding, point 3: a source line with ZERO
++   * contributions to THIS RepairOrder is not provenance of this
++   * RepairOrder -- omitted entirely, never fabricated into the tree as an
++   * "unlinked" placeholder. This applies whether the line was never linked
++   * to anything at all, or (proven separately above) linked only to a
++   * different order.
++   */
++  it("a source line with zero contributions to this RepairOrder (never linked to anything) is OMITTED from this RepairOrder's provenance", async () => {
++    const mock = makeTableQueryMock({
++      repair_orders: PARENT_FOUND,
++      repair_order_source_document_links: {
++        data: [
++          linkRow({
++            document: {
++              ...linkRow().document,
++              lines: [sourceLine({ line_links: [] })],
++            },
++          }),
++        ],
++        error: null,
++      },
++    });
++
++    const result = await RepairOrdersService.getRepairOrderProvenance(
++      mock as never,
++      "org-1",
++      "branch-1",
++      "ro-1"
++    );
++
++    const docs = (result as { success: true; data: RepairOrderProvenanceDocument[] }).data;
++    // The document itself is still returned (a real, genuine link), but
++    // with zero lines -- the never-linked line is not fabricated into it.
++    expect(docs).toHaveLength(1);
++    expect(docs[0].lines).toEqual([]);
++  });
++
++  /**
++   * A shared document may legitimately be linked to THIS RepairOrder while
++   * (after correct per-order line scoping) yielding zero visible lines --
++   * e.g. every one of its lines belongs to a DIFFERENT order it is also
++   * shared with. The document-level link itself is real, genuine
++   * provenance and must NOT be silently dropped just because none of its
++   * lines happen to belong to this specific order.
++   */
++  it("a document linked to this RepairOrder with zero own-order visible lines is still returned (document-level link is real provenance)", async () => {
++    const mock = makeTableQueryMock({
++      repair_orders: PARENT_FOUND,
++      // This order owns no lines at all in this fixture -- every line in
++      // the shared document below belongs to some other order.
++      repair_order_lines: { data: [], error: null },
++      repair_order_source_document_links: {
++        data: [
++          linkRow({
++            document: {
++              ...linkRow().document,
++              id: "doc-shared-no-own-lines",
++              lines: [
++                sourceLine({
++                  id: "docline-foreign",
++                  line_links: [
++                    {
++                      repair_order_line_id: "line-belongs-elsewhere",
++                      quantity_contribution: 1,
++                      linked_at: "t1",
++                    },
++                  ],
++                }),
++              ],
++            },
++          }),
++        ],
++        error: null,
++      },
++    });
++
++    const result = await RepairOrdersService.getRepairOrderProvenance(
++      mock as never,
++      "org-1",
++      "branch-1",
++      "ro-1"
++    );
++
++    const docs = (result as { success: true; data: RepairOrderProvenanceDocument[] }).data;
++    expect(docs).toHaveLength(1);
++    expect(docs[0].id).toBe("doc-shared-no-own-lines");
++    expect(docs[0].lines).toEqual([]);
++  });
++
++  it("does not fabricate a wddMatcherLineId or join wdd_matcher_lines content -- exposes only the raw id reference, or null, for a line that genuinely belongs to this order", async () => {
++    const mock = makeTableQueryMock({
++      repair_orders: PARENT_FOUND,
++      repair_order_lines: { data: [{ id: "line-1" }], error: null },
++      repair_order_source_document_links: {
++        data: [
++          linkRow({
++            document: {
++              ...linkRow().document,
++              lines: [
++                sourceLine({
++                  wdd_matcher_line_id: null,
++                  line_links: [
++                    { repair_order_line_id: "line-1", quantity_contribution: 2, linked_at: "t1" },
++                  ],
++                }),
++              ],
++            },
++          }),
++        ],
++        error: null,
++      },
++    });
++
++    const result = await RepairOrdersService.getRepairOrderProvenance(
++      mock as never,
++      "org-1",
++      "branch-1",
++      "ro-1"
++    );
++
++    const docs = (result as { success: true; data: RepairOrderProvenanceDocument[] }).data;
++    expect(docs[0].lines).toHaveLength(1);
++    expect(docs[0].lines[0].wddMatcherLineId).toBeNull();
++  });
++
++  it("inaccessible parent RepairOrder (wrong org/branch, not found, or soft-deleted) -> empty provenance, no error, no leak, and the link table is never even queried", async () => {
++    const mock = makeTableQueryMock({
++      repair_orders: { data: null, error: null },
++    });
++
++    const result = await RepairOrdersService.getRepairOrderProvenance(
++      mock as never,
++      "org-1",
++      "branch-1",
++      "ro-missing"
++    );
++
++    expect(result).toEqual({ success: true, data: [] });
++    expect(mock.from).not.toHaveBeenCalledWith("repair_order_source_document_links");
++  });
++
++  it("a manually-created RepairOrder with zero linked documents returns a genuine empty array, not an error", async () => {
++    const mock = makeTableQueryMock({
++      repair_orders: PARENT_FOUND,
++      repair_order_source_document_links: { data: [], error: null },
++    });
++
++    const result = await RepairOrdersService.getRepairOrderProvenance(
++      mock as never,
++      "org-1",
++      "branch-1",
++      "ro-1"
++    );
++
++    expect(result).toEqual({ success: true, data: [] });
++  });
++
++  it("error normalization: an unexpected error on the parent check is replaced with a generic message, not leaked raw", async () => {
++    const mock = makeTableQueryMock({
++      repair_orders: {
++        data: null,
++        error: { code: "XX000", message: "connection terminated unexpectedly" },
++      },
++    });
++
++    const result = await RepairOrdersService.getRepairOrderProvenance(
++      mock as never,
++      "org-1",
++      "branch-1",
++      "ro-1"
++    );
++
++    expect(result.success).toBe(false);
++    expect((result as { success: false; error: string }).error).not.toBe(
++      "connection terminated unexpectedly"
++    );
++  });
++
++  it("error normalization: an unexpected error on the provenance query is replaced with a generic message, not leaked raw", async () => {
++    const mock = makeTableQueryMock({
++      repair_orders: PARENT_FOUND,
++      repair_order_source_document_links: {
++        data: null,
++        error: { code: "XX000", message: "connection terminated unexpectedly" },
++      },
++    });
++
++    const result = await RepairOrdersService.getRepairOrderProvenance(
++      mock as never,
++      "org-1",
++      "branch-1",
++      "ro-1"
++    );
++
++    expect(result.success).toBe(false);
++    expect((result as { success: false; error: string }).error).not.toBe(
++      "connection terminated unexpectedly"
++    );
++  });
++});
+diff --git a/apps/web/src/server/services/repair-orders.service.ts b/apps/web/src/server/services/repair-orders.service.ts
+index e66efa90..c6cc58c0 100644
+--- a/apps/web/src/server/services/repair-orders.service.ts
++++ b/apps/web/src/server/services/repair-orders.service.ts
+@@ -5,7 +5,11 @@ import type {
+   CreateRepairOrderInput,
+   UpdateRepairOrderHeaderInput,
+ } from "@/lib/validations/repair-orders";
+-import type { RepairOrderStatus, RepairOrderLineStatus } from "@/lib/types/repair-orders";
++import type {
++  RepairOrderStatus,
++  RepairOrderLineStatus,
++  WorkshopSourceDocumentType,
++} from "@/lib/types/repair-orders";
+ 
+ // ---------------------------------------------------------------------------
+ // Types
+@@ -366,6 +370,208 @@ function mapRepairOrderLine(
+   };
+ }
+ 
++/**
++ * Phase 9: provenance read model -- which source document(s) and source
++ * line(s) back a RepairOrder, and which logical RepairOrderLine each source
++ * line contributes to. Deliberately a SEPARATE shape from Phase 8's
++ * `RepairOrderLineReadModel` -- a logical line is never a source line (one
++ * logical line may be backed by many source lines, across many documents;
++ * a source document may back many RepairOrders). See
++ * `getRepairOrderProvenance`'s own doc comment for the full model.
++ */
++export interface RepairOrderProvenanceContribution {
++  /** The logical RepairOrderLine (Phase 8) this source line contributes to. */
++  repairOrderLineId: string;
++  /** repair_order_line_source_links.quantity_contribution -- persisted,
++   * never recomputed from quantity/SKU heuristics. */
++  quantityContribution: number;
++  linkedAt: string;
++}
++
++export interface RepairOrderProvenanceSourceLine {
++  id: string;
++  productCode: string | null;
++  productName: string | null;
++  quantity: number;
++  unit: string | null;
++  rawText: string | null;
++  /**
++   * Deep Matcher traceability reference -- the exact `wdd_matcher_lines.id`
++   * this source line was parsed from, when known. Deliberately NOT joined
++   * to fetch the target row's own content: `wdd_matcher_lines`' (and
++   * `wdd_matcher_sessions`') own SELECT RLS requires `wdd_matcher.read`, a
++   * separate Matcher-module permission Workshop callers holding only
++   * `workshop.repair_orders.read` are not guaranteed to hold -- exactly the
++   * same class of cross-module RLS dependency Phase 8 already declined for
++   * `inventory_variants`. The id alone already satisfies this phase's own
++   * acceptance criterion ("traceable back to specific wdd_matcher_lines
++   * rows") without widening any RLS boundary.
++   */
++  wddMatcherLineId: string | null;
++  /**
++   * Which logical RepairOrderLine(s) this source line contributes to.
++   * Modeled as an array purely because `repair_order_line_source_links` has
++   * no NOT-NULL/exactly-one constraint forcing a link to exist at all (a
++   * source line can legitimately have zero links -- e.g. Phase 3's
++   * materialization RPC skips linking for a zero/null-quantity source
++   * line) -- NOT because more than one is ever expected.
++   * `repair_order_line_source_links_source_line_unique` (a live, verified
++   * UNIQUE index on `workshop_source_document_line_id` alone) guarantees at
++   * most one contribution per source line; this array is therefore always
++   * length 0 or 1 in practice, never collapsed or assumed to be exactly 1.
++   */
++  contributions: RepairOrderProvenanceContribution[];
++}
++
++export interface RepairOrderProvenanceDocument {
++  id: string;
++  documentType: WorkshopSourceDocumentType;
++  externalDocumentNumber: string;
++  sourceSessionId: string;
++  officialWarehouseCode: string | null;
++  createdAt: string;
++  /** repair_order_source_document_links.linked_at -- when THIS RepairOrder
++   * was linked to this document (may differ from the document's own
++   * createdAt for a later-arriving document attaching to an
++   * already-existing order). */
++  linkedAt: string;
++  lines: RepairOrderProvenanceSourceLine[];
++}
++
++interface ProvenanceDbRow {
++  workshop_source_document_id: string;
++  linked_at: string;
++  document: {
++    id: string;
++    document_type: string;
++    external_document_number: string;
++    source_session_id: string;
++    official_warehouse_code: string | null;
++    created_at: string;
++    lines:
++      | Array<{
++          id: string;
++          product_code: string | null;
++          product_name: string | null;
++          quantity: number;
++          unit: string | null;
++          raw_text: string | null;
++          wdd_matcher_line_id: string | null;
++          line_links:
++            | Array<{
++                repair_order_line_id: string;
++                quantity_contribution: number;
++                linked_at: string;
++              }>
++            | null;
++        }>
++      | null;
++  } | null;
++}
++
++function mapProvenanceDocument(
++  row: ProvenanceDbRow,
++  ownLineIds: ReadonlySet<string>
++): RepairOrderProvenanceDocument | null {
++  const doc = row.document;
++  if (!doc) return null;
++
++  const lines: RepairOrderProvenanceSourceLine[] = [];
++  for (const line of doc.lines ?? []) {
++    // External-review Finding (2026-09-12, CONFIRMED, fixed here): filtering
++    // only each line's own `contributions` array (the prior version of this
++    // function) still returned the SOURCE LINE ITSELF -- with its
++    // productCode/productName/quantity/unit/rawText/wddMatcherLineId all
++    // intact -- for a line whose ONLY contribution belongs to a DIFFERENT
++    // RepairOrder sharing this document. That is real metadata leakage: a
++    // caller viewing RepairOrder A's provenance could see RepairOrder B's
++    // own source-line content (just with an empty contributions array),
++    // even though the actual product question this phase answers is "which
++    // source lines contributed to THIS RepairOrder", not "show every line
++    // contained in every shared document". No accepted product requirement
++    // anywhere in the architecture doc calls for the latter (checked, not
++    // assumed, before applying this fix) -- the line-level content itself
++    // is therefore filtered, not just the contribution reference inside it.
++    const ownContributions = (line.line_links ?? [])
++      .filter((link) => ownLineIds.has(link.repair_order_line_id))
++      .map((link) => ({
++        repairOrderLineId: link.repair_order_line_id,
++        quantityContribution: link.quantity_contribution,
++        linkedAt: link.linked_at,
++      }));
++
++    // Zero own-order contributions -- whether because this line was never
++    // linked to anything at all, or because its only link(s) belong to a
++    // DIFFERENT RepairOrder sharing this document -- means this line is not
++    // provenance of THIS RepairOrder. Omitted entirely (not included with
++    // an empty contributions array), rather than fabricating an "unlinked"
++    // placeholder line into a RepairOrder's own provenance tree.
++    if (ownContributions.length === 0) continue;
++
++    lines.push({
++      id: line.id,
++      productCode: line.product_code,
++      productName: line.product_name,
++      quantity: line.quantity,
++      unit: line.unit,
++      rawText: line.raw_text,
++      wddMatcherLineId: line.wdd_matcher_line_id,
++      contributions: ownContributions,
++    });
++  }
++
++  return {
++    id: doc.id,
++    documentType: doc.document_type as WorkshopSourceDocumentType,
++    externalDocumentNumber: doc.external_document_number,
++    sourceSessionId: doc.source_session_id,
++    officialWarehouseCode: doc.official_warehouse_code,
++    createdAt: doc.created_at,
++    linkedAt: row.linked_at,
++    // The document itself is ALWAYS kept (never omitted here) even if every
++    // one of its lines was just filtered out above -- the
++    // repair_order_source_document_links row linking it to THIS RepairOrder
++    // is itself real, genuine document-level provenance ("this document was
++    // linked to this order"), independent of which specific lines within it
++    // happen to belong to this order vs. another one it is also shared
++    // with. See getRepairOrderProvenance's own doc comment for why this
++    // state is possible at all (not reachable through today's
++    // materialization RPC, but not schema-prevented either) and why keeping
++    // the document with zero visible lines is the truthful choice, not
++    // silently dropping a real link.
++    lines,
++  };
++}
++
++/**
++ * Phase 9: pure derivation, not a query -- groups an already-fetched
++ * provenance tree by logical RepairOrderLine id, for the "Sources (N)"
++ * affordance on a Phase 8 line row. Takes the SAME data
++ * `getRepairOrderProvenance` already returned; never issues its own query
++ * (there is nothing left to fetch -- the full tree, in both directions, was
++ * already retrieved in that one call).
++ */
++export function groupProvenanceByRepairOrderLine(
++  documents: RepairOrderProvenanceDocument[],
++  repairOrderLineId: string
++): Array<{ document: RepairOrderProvenanceDocument; sourceLine: RepairOrderProvenanceSourceLine; contribution: RepairOrderProvenanceContribution }> {
++  const result: Array<{
++    document: RepairOrderProvenanceDocument;
++    sourceLine: RepairOrderProvenanceSourceLine;
++    contribution: RepairOrderProvenanceContribution;
++  }> = [];
++  for (const document of documents) {
++    for (const sourceLine of document.lines) {
++      for (const contribution of sourceLine.contributions) {
++        if (contribution.repairOrderLineId === repairOrderLineId) {
++          result.push({ document, sourceLine, contribution });
++        }
++      }
++    }
++  }
++  return result;
++}
++
+ // ---------------------------------------------------------------------------
+ // RepairOrdersService
+ // ---------------------------------------------------------------------------
+@@ -1118,4 +1324,173 @@ export class RepairOrdersService {
+       ),
+     };
+   }
++
++  /**
++   * Phase 9: full source-document/source-line provenance for one
++   * RepairOrder -- "where did this come from?" Explicitly a DIFFERENT
++   * concept from Phase 8's logical-line list: one document may back many
++   * RepairOrders (M:N via `repair_order_source_document_links`, a
++   * composite-PK link table with no cardinality restriction in either
++   * direction), one RepairOrder may be backed by many documents, and one
++   * logical RepairOrderLine may be backed by many source lines across many
++   * documents. This method never merges/collapses any of that -- it
++   * returns the full tree, and `groupProvenanceByRepairOrderLine` (a pure
++   * function above, not a second query) re-indexes the SAME data by
++   * logical line for the UI's line-level "Sources (N)" affordance.
++   *
++   * Query architecture (verified against the actual live data shape before
++   * choosing this, not assumed): ONE hierarchical PostgREST embedded-select
++   * -- `repair_order_source_document_links` (scoped to this RepairOrder) ->
++   * nested `workshop_source_documents` -> nested `workshop_source_document_
++   * lines` -> nested `repair_order_line_source_links`. Postgres/PostgREST
++   * resolves this as a single query with a server-side join/aggregation,
++   * not one query per document or per line -- chosen over (a) fetching
++   * documents then looping to fetch each one's lines (real N+1, rejected)
++   * or (b) a new SQL view/RPC (unnecessary: live data is small -- 26
++   * documents / 202 lines total across the whole database at verification
++   * time, and PostgREST's own embed mechanism already expresses this exact
++   * shape in one round trip). Preceded by the same explicit parent-scope
++   * check Phase 7/8 already established (`getByIdForWorkshop`/
++   * `listRepairOrderLines`'s own convention) -- never trusting a
++   * client-supplied org/branch, not relying on RLS alone. Followed by ONE
++   * more small, indexed query fetching this order's own logical-line ids
++   * (`repair_order_lines.repair_order_id`, indexed since Phase 2/8) -- used
++   * to filter cross-order contribution leakage, see the inline comment
++   * below for the exact scenario this closes. Total: 3 bounded queries,
++   * independent of how many documents/lines/links exist -- still no
++   * per-document or per-line looping.
++   *
++   * Does NOT join `wdd_matcher_lines`/`wdd_matcher_sessions` for content --
++   * see `RepairOrderProvenanceSourceLine.wddMatcherLineId`'s own doc
++   * comment for why (a cross-module RLS dependency on `wdd_matcher.read`,
++   * declined for the same reason Phase 8 declined joining
++   * `inventory_variants`). `quantity_contribution` is always the persisted
++   * DB value, never recomputed from SKU/quantity heuristics.
++   *
++   * External-review Finding (2026-09-12, CONFIRMED, fixed): the ownLineIds
++   * filter above only protects the CONTRIBUTION reference (which logical
++   * line a source line points to) -- it does not, by itself, prevent a
++   * source line belonging ENTIRELY to a different RepairOrder (sharing a
++   * document with this one) from still appearing with its own full content
++   * (productCode/productName/quantity/unit/rawText/wddMatcherLineId). Fixed
++   * in `mapProvenanceDocument`: a source line with ZERO contributions
++   * belonging to THIS order (whether never-linked at all, or linked only to
++   * a different order) is omitted from the returned `lines` array entirely
++   * -- "which source lines contributed to THIS RepairOrder" is the actual
++   * product question, not "show every line contained in every shared
++   * document" (no accepted requirement for the latter was found anywhere in
++   * the architecture doc). The DOCUMENT itself is still always returned
++   * (its `repair_order_source_document_links` row is real, genuine
++   * document-level provenance) even if this filtering leaves it with zero
++   * visible lines -- not reachable through today's materialization RPC (a
++   * document is always linked to the SAME order its own lines contribute
++   * to, live-verified), but not schema-prevented either; keeping the real
++   * link with an empty line list is the truthful choice over silently
++   * dropping it.
++   *
++   * Scope/authorization: identical read boundary to the parent RepairOrder
++   * -- `workshop_source_documents`/`repair_order_source_document_links`/
++   * `workshop_source_document_lines`/`repair_order_line_source_links` are
++   * all Tier 1 join-derived-scope tables (unchanged, Phase 2), each
++   * requiring `workshop.repair_orders.read` on the parent RepairOrder's
++   * organization_id/branch_id. An inaccessible/wrong-org/wrong-branch/
++   * soft-deleted parent yields an empty provenance list, never an error,
++   * never an existence leak -- matches `listRepairOrderLines`'s own
++   * convention exactly. A manually-created RepairOrder with zero linked
++   * documents is a genuine, valid, non-error state (an empty array), not
++   * fabricated data.
++   */
++  static async getRepairOrderProvenance(
++    supabase: SupabaseClient,
++    orgId: string,
++    branchId: string | null,
++    repairOrderId: string
++  ): Promise<ServiceResult<RepairOrderProvenanceDocument[]>> {
++    let parentQuery = supabase
++      .from("repair_orders")
++      .select("id")
++      .eq("id", repairOrderId)
++      .eq("organization_id", orgId)
++      .is("deleted_at", null);
++    if (branchId) parentQuery = parentQuery.eq("branch_id", branchId);
++
++    const { data: parent, error: parentError } = await parentQuery.maybeSingle();
++    if (parentError) {
++      return {
++        success: false,
++        error: normalizeRepairOrderCrudError("getRepairOrderProvenance", parentError),
++      };
++    }
++    if (!parent) {
++      return { success: true, data: [] };
++    }
++
++    /**
++     * Cross-order contribution leak, found and fixed while verifying the
++     * "one document -> many orders, without leaking each other's logical
++     * lines" case (not assumed safe): `repair_order_source_document_links`
++     * is a genuine M:N link, so a single `workshop_source_documents` row
++     * can legitimately be linked to MULTIPLE RepairOrders -- and because
++     * `repair_order_line_source_links_source_line_unique` only restricts a
++     * SOURCE line to at most one contribution TOTAL (never that all of a
++     * shared document's lines belong to the same order), individual lines
++     * within one shared document can genuinely contribute to DIFFERENT
++     * orders' logical lines. A naive fetch of this RepairOrder's document
++     * tree would, for a document it shares with another order, still
++     * return that OTHER order's `repair_order_line_id` inside the shared
++     * document's own line `line_links` -- leaking a reference to a logical
++     * line this caller's RepairOrder does not own. Fixed by first fetching
++     * this order's own logical-line ids (one extra bounded, indexed query
++     * on `repair_order_lines.repair_order_id`, already indexed since
++     * Phase 2/8), then filtering every source line's `contributions` array
++     * to only the entries whose `repairOrderLineId` is in that set --
++     * never trimming the document/line listing itself (a document's own
++     * line contents are legitimate shared provenance metadata; only WHICH
++     * logical line a contribution points to is the sensitive, order-scoped
++     * reference).
++     */
++    const { data: ownLines, error: ownLinesError } = await supabase
++      .from("repair_order_lines")
++      .select("id")
++      .eq("repair_order_id", repairOrderId)
++      .is("deleted_at", null);
++    if (ownLinesError) {
++      return {
++        success: false,
++        error: normalizeRepairOrderCrudError("getRepairOrderProvenance", ownLinesError),
++      };
++    }
++    const ownLineIds = new Set((ownLines ?? []).map((row) => (row as { id: string }).id));
++
++    const { data, error } = await supabase
++      .from("repair_order_source_document_links")
++      .select(
++        `workshop_source_document_id, linked_at,
++         document:workshop_source_documents(
++           id, document_type, external_document_number, source_session_id,
++           official_warehouse_code, created_at,
++           lines:workshop_source_document_lines(
++             id, product_code, product_name, quantity, unit, raw_text, wdd_matcher_line_id,
++             line_links:repair_order_line_source_links(repair_order_line_id, quantity_contribution, linked_at)
++           )
++         )`
++      )
++      .eq("repair_order_id", repairOrderId)
++      .order("linked_at", { ascending: true });
++
++    if (error) {
++      return {
++        success: false,
++        error: normalizeRepairOrderCrudError("getRepairOrderProvenance", error),
++      };
++    }
++
++    const documents: RepairOrderProvenanceDocument[] = [];
++    for (const row of (data ?? []) as unknown as ProvenanceDbRow[]) {
++      const mapped = mapProvenanceDocument(row, ownLineIds);
++      if (mapped) documents.push(mapped);
++    }
++
++    return { success: true, data: documents };
++  }
+ }
+diff --git a/apps/web/supabase/tests/096_repair_order_provenance_phase9_test.sql b/apps/web/supabase/tests/096_repair_order_provenance_phase9_test.sql
+new file mode 100644
+index 00000000..5390bb04
+--- /dev/null
++++ b/apps/web/supabase/tests/096_repair_order_provenance_phase9_test.sql
+@@ -0,0 +1,352 @@
++-- ============================================================================
++-- TEST: Phase 9 provenance read model -- live RLS + M:N + traceability
++-- ============================================================================
++-- Complements the mocked service-level tests in repair-orders.service.test.ts
++-- (RepairOrdersService.getRepairOrderProvenance) with the SAME assertions
++-- proven against real persisted rows and real RLS, as the genuinely-RLS-
++-- enforced `authenticated` role (not `postgres`).
++--
++-- Live data at verification time (2026-09-12) showed a perfect 1:1:1 ratio
++-- between documents/orders/links (26 = 26 = 26) -- no document-M:N or
++-- later-arrival scenario exists in production yet. This test therefore
++-- creates its own transaction-scoped fixture rows directly (bypassing the
++-- materialization RPC, exactly as the same class of test already did for
++-- Phase 8's same-SKU-independence case) and rolls everything back at the
++-- end -- zero residual data. All fixture INSERTs happen before the role
++-- switch below (this test's own actor is granted only
++-- workshop.repair_orders.read -- a read-only grant -- so every write must
++-- happen while still connected as the unrestricted connecting role, exactly
++-- matching 093/094/095's own established fixture-setup convention).
++--
++-- Covers, against real rows and real RLS (not mocks):
++--   - one document -> many RepairOrders (M:N), WITHOUT leaking one order's
++--     logical-line contribution into the other's provenance (the exact
++--     cross-order leak found and fixed during this phase's own
++--     implementation -- see repair-orders.service.ts's own doc comment).
++--   - one RepairOrder -> many source documents.
++--   - one logical RepairOrderLine -> many source lines, quantity_
++--     contribution preserved exactly, never summed/collapsed.
++--   - source-line unique ownership: a source line CANNOT be linked to a
++--     second logical RepairOrderLine (negative case, proven via the
++--     specific expected SQLSTATE).
++--   - traceability to a specific, real, existing wdd_matcher_lines row.
++--   - branch isolation: a RepairOrder (and its provenance) in a branch the
++--     actor has no permission for is completely invisible.
++--   - later-arriving document: a second document attaches to an ALREADY-
++--     EXISTING RepairOrder without creating a duplicate order.
++--
++-- Executed live against supabase-target via Supabase MCP. Last run:
++-- 2026-09-12, 15/15 assertions passing.
++--
++-- NOTE (external-review correction, same day): a separate cross-order
++-- SOURCE-LINE METADATA leak (not just the contribution-reference leak T3
++-- proves at the raw data-shape level below) was found and fixed in the
++-- TypeScript mapper (`RepairOrdersService.getRepairOrderProvenance` /
++-- `mapProvenanceDocument`), not in this SQL file -- pgTAP tests the
++-- underlying relational data/RLS/constraints directly, not the
++-- application-layer filtering logic that fix lives in, so this file's own
++-- assertions/fixtures did not need to change and were not re-run for that
++-- fix. See `repair-orders.service.test.ts`'s own "cross-order metadata
++-- leak fix" tests for the live proof of that specific correction.
++
++BEGIN;
++
++SELECT plan(15);
++
++CREATE TEMP TABLE fx (
++  org uuid, branch uuid, branch_b uuid, e2e_user uuid,
++  session1 uuid,
++  ro1 uuid, ro2 uuid, ro_other_branch uuid,
++  doc1 uuid, doc2 uuid, doc_later uuid, doc_other_branch uuid,
++  line_mine uuid, line_theirs uuid,
++  docline_a uuid, docline_b uuid, docline_theirs uuid, docline_traced uuid
++);
++GRANT SELECT ON fx TO authenticated;
++INSERT INTO fx SELECT
++  '9f98fe91-63b8-4986-a2b3-65bdd47684c9'::uuid,
++  'e39b15da-0a8d-4056-b5a2-80eb1da868a6'::uuid,
++  gen_random_uuid(),
++  'c4a24371-42db-4bb8-ab5e-379ebbf7d9c4'::uuid,
++  gen_random_uuid(),
++  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
++  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
++  gen_random_uuid(), gen_random_uuid(),
++  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid();
++
++CREATE TEMP TABLE test_log (seq serial, line text);
++GRANT INSERT, SELECT ON test_log TO authenticated;
++GRANT USAGE ON SEQUENCE test_log_seq_seq TO authenticated;
++
++-- ===========================================================================
++-- Fixture setup (as the connecting role, unrestricted -- mirrors 093/094/095's
++-- own convention of creating fixtures before switching to `authenticated`).
++-- ===========================================================================
++
++-- Second branch, same org -- for the branch-isolation tests.
++INSERT INTO branches (id, organization_id, name, branch_number)
++SELECT branch_b, org, '096-test-branch-B', 994 FROM fx;
++
++-- Minimal synthetic Matcher session (own module, not otherwise touched by
++-- Phase 9 -- only needed to satisfy workshop_source_documents' own NOT NULL
++-- FK to it).
++INSERT INTO wdd_matcher_sessions (id, organization_id, branch_id, name, status)
++SELECT session1, org, branch, '096-test-session', 'approved' FROM fx;
++
++-- Three RepairOrders: ro1/ro2 in the real branch (for the document-M:N and
++-- cross-order-leak tests), ro_other_branch in branch_b (isolation test).
++INSERT INTO repair_orders (id, organization_id, branch_id, order_number, status)
++SELECT ro1, org, branch, '096-test-RO1', 'open' FROM fx;
++INSERT INTO repair_orders (id, organization_id, branch_id, order_number, status)
++SELECT ro2, org, branch, '096-test-RO2', 'open' FROM fx;
++INSERT INTO repair_orders (id, organization_id, branch_id, order_number, status)
++SELECT ro_other_branch, org, branch_b, '096-test-RO-other-branch', 'open' FROM fx;
++
++-- Logical lines (Phase 8): line_mine under ro1, line_theirs under ro2.
++INSERT INTO repair_order_lines (id, repair_order_id, product_code, product_name, ordered_quantity, unit)
++SELECT line_mine, ro1, '096-SKU-A', '096 line under ro1', 2, 'pcs' FROM fx;
++INSERT INTO repair_order_lines (id, repair_order_id, product_code, product_name, ordered_quantity, unit)
++SELECT line_theirs, ro2, '096-SKU-B', '096 line under ro2', 4, 'pcs' FROM fx;
++
++-- doc1: linked to BOTH ro1 and ro2 -- proves one document -> many orders.
++INSERT INTO workshop_source_documents (id, organization_id, branch_id, document_type, external_document_number, source_session_id)
++SELECT doc1, org, branch, 'wdd', '096-DOC-SHARED', session1 FROM fx;
++INSERT INTO repair_order_source_document_links (repair_order_id, workshop_source_document_id)
++SELECT ro1, doc1 FROM fx;
++INSERT INTO repair_order_source_document_links (repair_order_id, workshop_source_document_id)
++SELECT ro2, doc1 FROM fx;
++
++-- doc2: linked to ro1 only -- combined with doc1, proves ro1 -> many docs.
++INSERT INTO workshop_source_documents (id, organization_id, branch_id, document_type, external_document_number, source_session_id)
++SELECT doc2, org, branch, 'zl', '096-DOC-RO1-ONLY', session1 FROM fx;
++INSERT INTO repair_order_source_document_links (repair_order_id, workshop_source_document_id)
++SELECT ro1, doc2 FROM fx;
++
++-- Later-arriving document: attaches to the ALREADY-EXISTING ro1 (simulating
++-- a second Matcher session's materialization output arriving after the
++-- fact) -- fixture created now; T10/T11 below verify it does not create a
++-- duplicate order and appears alongside the original provenance.
++INSERT INTO workshop_source_documents (id, organization_id, branch_id, document_type, external_document_number, source_session_id)
++SELECT doc_later, org, branch, 'wdd', '096-DOC-LATER', session1 FROM fx;
++INSERT INTO repair_order_source_document_links (repair_order_id, workshop_source_document_id)
++SELECT ro1, doc_later FROM fx;
++
++-- A source document scoped to branch_b -- for the branch-isolation test.
++INSERT INTO workshop_source_documents (id, organization_id, branch_id, document_type, external_document_number, source_session_id)
++SELECT doc_other_branch, org, branch_b, 'wdd', '096-DOC-OTHER-BRANCH', session1 FROM fx;
++
++-- doc1 has TWO lines: docline_a contributes to ro1's line_mine, docline_theirs
++-- contributes to ro2's line_theirs -- the exact cross-order-leak scenario.
++INSERT INTO workshop_source_document_lines (id, workshop_source_document_id, product_code, product_name, quantity, unit)
++SELECT docline_a, doc1, '096-SKU-A', '096 part A', 2, 'pcs' FROM fx;
++INSERT INTO workshop_source_document_lines (id, workshop_source_document_id, product_code, product_name, quantity, unit)
++SELECT docline_theirs, doc1, '096-SKU-B', '096 part B', 4, 'pcs' FROM fx;
++
++-- doc2 has one line (docline_b), ALSO contributing to line_mine -- proves
++-- one logical line -> many source lines, across TWO different documents.
++INSERT INTO workshop_source_document_lines (id, workshop_source_document_id, product_code, product_name, quantity, unit)
++SELECT docline_b, doc2, '096-SKU-A', '096 part A (2nd batch)', 3, 'pcs' FROM fx;
++
++-- A source line for the traceability test, referencing a REAL, EXISTING
++-- wdd_matcher_lines row (read-only reference, borrowed by id -- does not
++-- mutate wdd_matcher_lines itself).
++INSERT INTO workshop_source_document_lines (id, workshop_source_document_id, product_code, product_name, quantity, unit, wdd_matcher_line_id)
++SELECT docline_traced, doc2, '096-TRACED', '096 traced part', 1, 'pcs',
++  (SELECT id FROM wdd_matcher_lines LIMIT 1)
++FROM fx;
++
++-- Links: docline_a (2) + docline_b (3) -> line_mine (total 5, matches
++-- ordered_quantity=2... intentionally left at 2 to independently prove
++-- quantity_contribution is read AS PERSISTED, not recomputed/reconciled
++-- against ordered_quantity -- this phase must expose real data, not
++-- silently normalize a mismatch).
++INSERT INTO repair_order_line_source_links (repair_order_line_id, workshop_source_document_line_id, quantity_contribution)
++SELECT line_mine, docline_a, 2 FROM fx;
++INSERT INTO repair_order_line_source_links (repair_order_line_id, workshop_source_document_line_id, quantity_contribution)
++SELECT line_mine, docline_b, 3 FROM fx;
++-- docline_theirs -> line_theirs (ro2's own line -- this is the "leak
++-- candidate" the cross-order fix must exclude from ro1's own provenance).
++INSERT INTO repair_order_line_source_links (repair_order_line_id, workshop_source_document_line_id, quantity_contribution)
++SELECT line_theirs, docline_theirs, 4 FROM fx;
++
++-- T-integrity (data integrity, checked as the unrestricted connecting role
++-- -- independent of RLS): the traced source line's wdd_matcher_line_id
++-- genuinely resolves to a real, existing wdd_matcher_lines row (not a
++-- dangling/fabricated id). Proven here, before the role switch, precisely
++-- BECAUSE the authenticated actor below cannot read wdd_matcher_lines
++-- directly (see T9/T9b) -- this is the one assertion in this file that
++-- deliberately runs outside the RLS-enforced role, to isolate "is the data
++-- itself correct" from "can this specific actor see it".
++INSERT INTO test_log(line) SELECT ok(
++  EXISTS (
++    SELECT 1 FROM wdd_matcher_lines wml
++    JOIN workshop_source_document_lines wsdl ON wsdl.wdd_matcher_line_id = wml.id
++    WHERE wsdl.id = (SELECT docline_traced FROM fx)
++  ),
++  'T-integrity: the traced source line''s wdd_matcher_line_id resolves to a real, existing wdd_matcher_lines row (data-integrity check, not an RLS-outcome check)'
++);
++
++-- Actor holds workshop.repair_orders.read + .manage_all for the PRIMARY
++-- branch ONLY -- deliberately nothing granted for branch_b, to prove branch
++-- isolation. manage_all is included (not just .read) so that T8's negative
++-- unique-constraint case below is genuinely proven at the CONSTRAINT layer
++-- -- without it, RLS's own manage_own/manage_all requirement on
++-- repair_order_line_source_links_insert would reject the attempt first
++-- (42501), before the unique constraint ever got a chance to fire, which
++-- would prove the wrong thing.
++DELETE FROM user_effective_permissions WHERE user_id = (SELECT e2e_user FROM fx) AND organization_id = (SELECT org FROM fx);
++INSERT INTO user_effective_permissions (user_id, organization_id, branch_id, permission_slug, permission_slug_exact)
++SELECT e2e_user, org, branch, slug, slug FROM fx, unnest(ARRAY['workshop.repair_orders.read', 'workshop.repair_orders.manage_all']) AS slug;
++
++-- ===========================================================================
++-- Assertions, as the genuinely-RLS-enforced `authenticated` role.
++-- ===========================================================================
++SET LOCAL ROLE authenticated;
++SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fx)::text, 'role', 'authenticated')::text, true);
++
++-- T1: doc1 (shared) is visible from BOTH ro1's and ro2's own document-link
++-- list -- proves one document -> many orders.
++INSERT INTO test_log(line) SELECT is(
++  (SELECT count(*)::int FROM repair_order_source_document_links
++   WHERE workshop_source_document_id = (SELECT doc1 FROM fx)
++     AND repair_order_id IN (SELECT ro1 FROM fx UNION SELECT ro2 FROM fx)),
++  2,
++  'T1: doc1 is linked to BOTH ro1 and ro2 (one document -> many orders)'
++);
++
++-- T2: ro1 has THREE documents linked (doc1 + doc2 + doc_later, the last
++-- one being the later-arrival) -- proves one order -> many documents.
++INSERT INTO test_log(line) SELECT is(
++  (SELECT count(*)::int FROM repair_order_source_document_links WHERE repair_order_id = (SELECT ro1 FROM fx)),
++  3,
++  'T2: ro1 is linked to THREE source documents (one order -> many documents)'
++);
++
++-- T3 (cross-order leak): a raw SQL simulation of ro1's own provenance
++-- fetch -- joining through doc1's lines -- confirms that WITHOUT
++-- filtering, a contribution belonging to a DIFFERENT order (line_theirs)
++-- genuinely IS reachable via the shared document, proving the leak
++-- scenario this phase's service-layer fix (ownLineIds filtering) is
++-- required to close (verified separately, live, in the mocked Vitest
++-- suite's own "cross-order leak fix" test, since pgTAP cannot invoke the
++-- application's own filtering code -- this assertion proves the DATA
++-- SHAPE that makes the fix necessary).
++INSERT INTO test_log(line) SELECT is(
++  (SELECT count(*)::int FROM repair_order_line_source_links rls
++   JOIN workshop_source_document_lines wsdl ON wsdl.id = rls.workshop_source_document_line_id
++   WHERE wsdl.workshop_source_document_id = (SELECT doc1 FROM fx)
++     AND rls.repair_order_line_id NOT IN (SELECT id FROM repair_order_lines WHERE repair_order_id = (SELECT ro1 FROM fx))),
++  1,
++  'T3: exactly one contribution on the shared document belongs to a DIFFERENT order (line_theirs) -- confirms the leak scenario is real and must be filtered client-side'
++);
++
++-- T4: one logical line (line_mine) has source contributions from TWO
++-- different documents (doc1's docline_a=2, doc2's docline_b=3) -- proves
++-- one logical line -> many source lines, across documents.
++INSERT INTO test_log(line) SELECT is(
++  (SELECT count(*)::int FROM repair_order_line_source_links WHERE repair_order_line_id = (SELECT line_mine FROM fx)),
++  2,
++  'T4: line_mine has TWO independent source-line contributions (across two different documents)'
++);
++
++-- T5/T6: quantity_contribution is preserved EXACTLY as persisted for each
++-- -- never summed/collapsed into one row.
++INSERT INTO test_log(line) SELECT is(
++  (SELECT quantity_contribution FROM repair_order_line_source_links WHERE workshop_source_document_line_id = (SELECT docline_a FROM fx)),
++  2::numeric,
++  'T5: docline_a''s quantity_contribution is exactly 2, as persisted'
++);
++INSERT INTO test_log(line) SELECT is(
++  (SELECT quantity_contribution FROM repair_order_line_source_links WHERE workshop_source_document_line_id = (SELECT docline_b FROM fx)),
++  3::numeric,
++  'T6: docline_b''s quantity_contribution is exactly 3, as persisted'
++);
++
++-- T7: real persisted data may legitimately diverge from ordered_quantity
++-- (2+3=5 contributed vs. ordered_quantity=2 on line_mine) -- this phase
++-- must expose that truthfully, not silently reconcile it. Confirms the sum
++-- genuinely differs, matching this test's own deliberate fixture choice.
++INSERT INTO test_log(line) SELECT isnt(
++  (SELECT ordered_quantity FROM repair_order_lines WHERE id = (SELECT line_mine FROM fx)),
++  (SELECT sum(quantity_contribution) FROM repair_order_line_source_links WHERE repair_order_line_id = (SELECT line_mine FROM fx)),
++  'T7: a genuine ordered_quantity vs. summed quantity_contribution mismatch is real, persisted data -- not silently normalized by this fixture'
++);
++
++-- T8: source-line unique ownership -- a source line already linked to
++-- line_mine CANNOT also be linked to line_theirs (negative case, specific
++-- expected SQLSTATE).
++INSERT INTO test_log(line) SELECT throws_ok(
++  format(
++    'INSERT INTO repair_order_line_source_links (repair_order_line_id, workshop_source_document_line_id, quantity_contribution) VALUES (%L::uuid, %L::uuid, 1)',
++    (SELECT line_theirs FROM fx), (SELECT docline_a FROM fx)
++  ),
++  '23505',
++  'duplicate key value violates unique constraint "repair_order_line_source_links_source_line_unique"',
++  'T8: a source line already linked to one logical line cannot ALSO be linked to a second (rejected by the unique constraint, SQLSTATE 23505)'
++);
++
++-- T9: traceability -- the traced source line's wdd_matcher_line_id is
++-- exposed correctly via workshop_source_document_lines' OWN RLS (which
++-- only requires workshop.repair_orders.read, already granted) -- NOT via a
++-- join through wdd_matcher_lines itself, which this actor deliberately
++-- cannot read (no wdd_matcher.read granted -- confirmed by the immediately
++-- following T9b). This is exactly the service's own real design: the raw
++-- id reference is the traceability signal; the target row's own CONTENT
++-- requires a separate, unrelated Matcher-module permission.
++INSERT INTO test_log(line) SELECT ok(
++  (SELECT wdd_matcher_line_id FROM workshop_source_document_lines WHERE id = (SELECT docline_traced FROM fx)) IS NOT NULL,
++  'T9: the traced source line''s wdd_matcher_line_id is exposed via workshop_source_document_lines'' own (accessible) RLS, without requiring wdd_matcher.read'
++);
++
++-- T9b: ...confirms WHY the service correctly avoids joining wdd_matcher_
++-- lines for content -- this actor (workshop.repair_orders.read/manage_all,
++-- no wdd_matcher.read) genuinely cannot see ANY wdd_matcher_lines rows,
++-- including the very one just proven to exist at the data-integrity layer
++-- above. A naive join would have silently returned nothing here, not an
++-- error -- exactly the failure mode the service's own design avoids by
++-- never attempting that join in the first place.
++INSERT INTO test_log(line) SELECT is(
++  (SELECT count(*)::int FROM wdd_matcher_lines
++   WHERE id = (SELECT wdd_matcher_line_id FROM workshop_source_document_lines WHERE id = (SELECT docline_traced FROM fx))),
++  0,
++  'T9b: this actor (no wdd_matcher.read) cannot see the traced wdd_matcher_lines row directly, even though it genuinely exists (confirms the cross-module RLS boundary the service design deliberately works around)'
++);
++
++-- T10: later-arriving document -- attaching doc_later to the ALREADY-
++-- EXISTING ro1 did NOT create a duplicate order row.
++INSERT INTO test_log(line) SELECT is(
++  (SELECT count(*)::int FROM repair_orders WHERE id = (SELECT ro1 FROM fx)),
++  1,
++  'T10: attaching a later-arriving document to an existing RepairOrder does not create a duplicate order row'
++);
++
++-- T11: ...and the later-arriving document is genuinely visible/queryable
++-- alongside the original two (old and new provenance both listed).
++INSERT INTO test_log(line) SELECT is(
++  (SELECT count(*)::int FROM repair_order_source_document_links
++   WHERE repair_order_id = (SELECT ro1 FROM fx) AND workshop_source_document_id = (SELECT doc_later FROM fx)),
++  1,
++  'T11: the later-arriving document is listed alongside ro1''s original provenance, not replacing or duplicating it'
++);
++
++-- T12: branch isolation -- the OTHER branch's RepairOrder is completely
++-- invisible to an actor with no permission grant there.
++INSERT INTO test_log(line) SELECT is(
++  (SELECT count(*)::int FROM repair_orders WHERE id = (SELECT ro_other_branch FROM fx)),
++  0,
++  'T12: a RepairOrder in a branch the actor has no permission for is completely invisible'
++);
++
++-- T13: branch isolation for provenance tables specifically -- the source
++-- document scoped to branch_b is likewise invisible under this actor's
++-- read-only, primary-branch-only grant.
++INSERT INTO test_log(line) SELECT is(
++  (SELECT count(*)::int FROM workshop_source_documents WHERE id = (SELECT doc_other_branch FROM fx)),
++  0,
++  'T13: a source document in a branch the actor has no permission for is completely invisible'
++);
++
++RESET ROLE;
++
++SELECT line FROM test_log ORDER BY seq;
++
++ROLLBACK;
+diff --git a/docs/mvp/zones/03-repair-orders-implementation-plan.md b/docs/mvp/zones/03-repair-orders-implementation-plan.md
+index 268ac4bb..96b8c41e 100644
+--- a/docs/mvp/zones/03-repair-orders-implementation-plan.md
++++ b/docs/mvp/zones/03-repair-orders-implementation-plan.md
+@@ -702,11 +702,19 @@ PITCH.
+ 
+ ---
+ 
+-## Phase 9 — Source documents, source lines and provenance
++## Phase 9 — Source documents, source lines and provenance ✅ DONE (2026-09-12)
++
++> **Verify-first pass, before any code was written**: re-read this plan, the progress tracker, the architecture doc, the Phase 2 schema, Phase 3's materialization RPC, Phase 7's (frozen, untouched) code, and Phase 8's own read model/UI before writing anything, plus live Supabase schema/RLS/data for `workshop_source_documents`/`repair_order_source_document_links`/`workshop_source_document_lines`/`repair_order_line_source_links`/`wdd_matcher_sessions`/`wdd_matcher_lines`. Corrected two stale/underspecified assumptions in this section's own original text, and found and fixed one genuine correctness bug BEFORE it could ship:
++>
++> - **Method names were stale, corrected in practice**: the plan's own `listSourceDocumentsForOrder`/`listSourceLinesForOrderLine` naming does not match this repo's established one-call-per-detail-read convention (`getByIdForWorkshop`, `listRepairOrderLines`). A single `getRepairOrderProvenance` method was built instead, returning the full document→line→contribution tree for one RepairOrder in one bounded read — `groupProvenanceByRepairOrderLine` (a pure, in-memory re-index of that SAME data, not a second query) answers the line-level "which source lines feed this logical line" question the plan's second method name implied, without a separate round trip.
++> - **`wdd_matcher_lines`/`wdd_matcher_sessions` cannot be joined for content**: live-verified before writing any query — both tables' own SELECT RLS requires `wdd_matcher.read`, a separate Matcher-module permission Workshop callers holding only `workshop.repair_orders.read` are not guaranteed to hold (the same class of cross-module RLS dependency Phase 8 already declined for `inventory_variants`). Traceability to a specific `wdd_matcher_lines` row is satisfied by exposing the raw `wdd_matcher_line_id` reference (already present on `workshop_source_document_lines`, no join needed) — not by fetching that row's own content.
++> - **CONFIRMED cross-order contribution leak, found and fixed during this phase's own implementation** (not a pre-existing bug reachable before this phase — it would have been introduced BY this phase's own naive first-draft query, caught before it ever shipped): `repair_order_source_document_links` is a genuine M:N link (a document can legitimately be linked to multiple RepairOrders), and `repair_order_line_source_links_source_line_unique` only restricts a source line to at most one contribution TOTAL — never that all of a shared document's lines belong to the same order. A naive fetch of one RepairOrder's provenance tree, for a document it shares with another order, would have returned that OTHER order's own `repair_order_line_id` inside the shared document's line data — leaking a reference to a logical line the caller's RepairOrder does not own. Fixed with one additional small, indexed query (this order's own logical-line ids) used to filter every source line's `contributions` array to only entries this order actually owns — the document/line listing itself stays visible (legitimate shared provenance metadata), only the sensitive cross-order contribution target is filtered. Proven both mocked (Vitest) and live (pgTAP T1-T3).
++>
++> - **CORRECTION (2026-09-12, external review, same day)**: the fix above was itself incomplete — it filtered the contribution REFERENCE but still returned the foreign SOURCE LINE's own full content (SKU/name/quantity/unit/`wddMatcherLineId`) for a line belonging entirely to another order. Fixed by filtering `doc.lines` itself (not just each line's `contributions`) — a source line with zero contributions to THIS order (never-linked, or linked only to a different order) is now omitted from the tree entirely; the document itself is still always returned (a real, genuine link) even with zero visible lines. See the progress tracker's own dated entry for the full writeup and updated test evidence (198/198 full-suite).
+ 
+ ### Objective
+ 
+-Build the "Magazyn i Zam." documents sub-view backing data and provenance-inspection capability: which source documents and source lines back a given RepairOrder/line.
++Build the provenance-inspection read model and a compact, reusable UI surface: which source document(s) and source line(s) back a given RepairOrder/logical line, traceable down to specific `wdd_matcher_lines` rows. Explicitly NOT the final Phase 11 Magazyn/Zamówienia-Przyjęcia sub-view composition.
+ 
+ ### Why it exists
+ 
+@@ -714,36 +722,38 @@ Frozen audit pitch checklist "Magazyn i Zam." section; architecture doc Correcti
+ 
+ ### Dependencies
+ 
+-Phase 2, Phase 5.
++Phase 2, Phase 5, Phase 8 (the logical-line model this phase's line-level affordance links into).
+ 
+ ### Repository areas affected
+ 
+-- `repair-orders.service.ts` — `listSourceDocumentsForOrder`, `listSourceLinesForOrderLine`.
+-- Detail view "Magazyn i Zam." tab (conceptual read-model only per the architecture doc; actual UI split into Magazyn/Zamówienia-Przyjęcia sub-views is Phase 11).
++- `repair-orders.service.ts` — new `getRepairOrderProvenance` method + `groupProvenanceByRepairOrderLine` pure helper + `RepairOrderProvenanceDocument`/`RepairOrderProvenanceSourceLine`/`RepairOrderProvenanceContribution` types.
++- Detail view: new "Source documents" section (`repair-order-provenance.tsx`) below Phase 8's line list, and a per-line "Sources (N)" affordance (`repair-order-line-sources.tsx`) added to Phase 8's own line rows.
+ 
+ ### Supabase changes
+ 
+-None beyond Phase 2.
++**None.** No migration was needed or added — verified against actual query characteristics (all needed indexes already exist from Phase 2: `repair_order_source_document_links_document_idx`, its own composite PK, `workshop_source_document_lines_document_idx`, `repair_order_line_source_links_line_idx`), not merely assumed from the plan's original text.
+ 
+ ### Existing infrastructure reused
+ 
+-N/A new.
++`workshop_source_documents`/`repair_order_source_document_links`/`workshop_source_document_lines`/`repair_order_line_source_links` tables and their Phase 2 RLS policies (unchanged); the established `ServiceResult<T>`/`normalizeRepairOrderCrudError` service-layer conventions and the parent-scope-check pattern from Phase 7/8.
+ 
+ ### Implementation tasks
+ 
+-- [ ] Add service methods for document/line provenance listing, joined through both link tables.
+-- [ ] Verify (service test) one-document→many-orders and one-order→many-documents both render correctly.
+-- [ ] Verify (service test) one-logical-line→many-source-lines renders correctly with each source line's `quantity_contribution`.
+-- [ ] Verify (service test) a later-arriving WDD document correctly attaches to an existing order rather than creating a duplicate.
+-- [ ] Component tests for the document/line provenance list.
++- [x] Add service methods for document/line provenance listing, joined through both link tables — `getRepairOrderProvenance` (one hierarchical PostgREST embedded-select) + `groupProvenanceByRepairOrderLine` (pure re-index, not a query).
++- [x] Verify (service test) one-document→many-orders and one-order→many-documents both render correctly — mocked service tests + live pgTAP T1/T2.
++- [x] Verify (service test) one-logical-line→many-source-lines renders correctly with each source line's `quantity_contribution` — mocked service tests + live pgTAP T4-T6.
++- [x] Verify (service test) a later-arriving WDD document correctly attaches to an existing order rather than creating a duplicate — live pgTAP T10/T11 (no mocked-only equivalent needed; this is fundamentally a DB-state proof).
++- [x] Component tests for the document/line provenance list — 8 new tests (`repair-order-provenance.test.tsx`) + 4 new tests for the line-level "Sources (N)" affordance (`repair-order-lines-list.test.tsx`).
+ 
+ ### Testing requirements
+ 
+-- **Service/domain**: exactly the M:N scenarios named in the architecture doc's testing strategy (one-document→many-orders, one-order→many-documents, one-logical-line→many-source-lines, source-line-linked-only-once).
++- **Service/domain**: exactly the M:N scenarios named in the architecture doc's testing strategy (one-document→many-orders, one-order→many-documents, one-logical-line→many-source-lines, source-line-linked-only-once) — **plus** the cross-order contribution leak this phase found and fixed (not originally named in the plan, since the plan predates discovering it).
++- **DB/pgTAP**: source-line unique ownership (negative case, specific SQLSTATE), M:N document links, quantity_contribution exact persistence, branch/RLS isolation, traceability to a real `wdd_matcher_lines` row.
++- **Component**: document list rendering, expand/collapse to source lines, multiple documents, multiple source lines, quantity contribution display, empty state, load-error state (distinct from empty), line-level "Sources (N)" affordance.
+ 
+ ### Acceptance criteria
+ 
+-Given a RepairOrder materialized from multiple sessions (Phase 5 E2E case), its full document/line provenance is correctly listable and traceable back to specific `wdd_matcher_lines` rows.
++Given a RepairOrder materialized from multiple sessions (Phase 5 E2E case), its full document/line provenance is correctly listable and traceable back to specific `wdd_matcher_lines` rows. **VERIFIED NOW** (live pgTAP, 15/15 passing, using transaction-scoped fixtures since no real M:N/later-arrival scenario exists in production data yet — live-verified 26/26/26 perfect 1:1:1 ratio before this phase). Manual/browser UAT of this phase's UI is **OUTSTANDING** (Playwright unavailable in this environment — see this phase's own change-log entry).
+ 
+ ### Scope classification
+ 
+diff --git a/docs/mvp/zones/03-repair-orders-progress.md b/docs/mvp/zones/03-repair-orders-progress.md
+index a6030825..e0793a9c 100644
+--- a/docs/mvp/zones/03-repair-orders-progress.md
++++ b/docs/mvp/zones/03-repair-orders-progress.md
+@@ -5,9 +5,9 @@
+ **Zone:** 3 — Repair Orders
+ **Priority:** P0
+ **Architecture:** ✅ APPROVED
+-**Runtime status:** 🟡 PARTIALLY IMPLEMENTED (schema, domain types, materialization RPC/service, Matcher approval, approve→materialize orchestration, a real Workshop list/search/detail UI, the full RepairOrder header/advisor/lifecycle/manual-creation flow, and now the logical RepairOrderLine read model/UI are all live and tested against real data — Phases 4-6 additionally manually confirmed in a real browser by the product owner; Phase 7's own manual UAT is still outstanding, in parallel with the product owner's review; Phase 8's manual/browser UAT is also outstanding (Playwright unavailable this session — see Phase 8's own change-log entry). Automated Playwright browser E2E remains a genuine, separate, explicitly-tracked follow-up item)
+-**Current phase:** Phase 8 ✅ DONE (2026-09-12 — logical RepairOrderLine read model + UI built, live-RLS-tested; Phase 7 is frozen during this phase per explicit instruction, undergoing parallel product-owner manual UAT; see the change log below) — next up: Phase 9, pending external review of Phase 8
+-**Pitch readiness:** NOT YET (Phases 4-8 of the pitch-required work are now DONE; Phases 9-13 — including the container/reservation/allocation chain added 2026-09-10 — remain NOT STARTED and are required before DEMO READY can be claimed)
++**Runtime status:** 🟡 PARTIALLY IMPLEMENTED (schema, domain types, materialization RPC/service, Matcher approval, approve→materialize orchestration, a real Workshop list/search/detail UI, the full RepairOrder header/advisor/lifecycle/manual-creation flow, the logical RepairOrderLine read model/UI, and now the source-document/source-line provenance read model/UI are all live and tested against real data — Phases 4-6 additionally manually confirmed in a real browser by the product owner; Phase 7's own manual UAT is still outstanding, in parallel with the product owner's review; Phase 8's and Phase 9's manual/browser UAT are also outstanding (Playwright unavailable this session — see each phase's own change-log entry). Automated Playwright browser E2E remains a genuine, separate, explicitly-tracked follow-up item)
++**Current phase:** Phase 9 ✅ DONE (2026-09-12 — source-document/source-line provenance read model + UI built, live-RLS-tested, one genuine cross-order contribution leak found and fixed before shipping; Phase 7 remains frozen, undergoing parallel product-owner manual UAT; see the change log below) — next up: Phase 10, pending external review of Phase 9
++**Pitch readiness:** NOT YET (Phases 4-9 of the pitch-required work are now DONE; Phases 10-13 — including the container/reservation/allocation chain added 2026-09-10 — remain NOT STARTED and are required before DEMO READY can be claimed)
+ **Pilot readiness:** NOT READY
+ **Last updated:** 2026-09-12
+ 
+@@ -17,8 +17,8 @@
+ 
+ ### Overall execution
+ 
+-- Completed tasks: 82 / 165 (mechanical count of every implementation-task checkbox across the implementation plan's 22 phases, recomputed via `grep -c` after this pass's Phase 8 work — +6 from the 76/165 Phase-7-corrections baseline: Phase 8 +6 [6/6])
+-- Pitch-required tasks: 82 / 151 (Phases 0A–13 including 10A–10F, all PITCH-classified tasks)
++- Completed tasks: 87 / 165 (mechanical count of every implementation-task checkbox across the implementation plan's 22 phases, recomputed via `grep -c` after this pass's Phase 9 work — +5 from the 82/165 Phase-8 baseline: Phase 9 +5 [5/5])
++- Pitch-required tasks: 87 / 151 (Phases 0A–13 including 10A–10F, all PITCH-classified tasks)
+ - Pilot-required tasks: 0 / 14 (Phase 14: 6, Phase 15: 8 — unchanged)
+ 
+ > Counts above are a mechanical tally of checkboxes in the implementation plan, recomputed via `grep -c` after every edit in this pass. They will be recomputed again whenever a phase's task list changes — never hand-waved to a round number.
+@@ -37,7 +37,7 @@
+ | 6 RepairOrder list and search                             | ✅ DONE        | PITCH              |       5/9 | Real Workshop list (`/dashboard/workshop`) + minimal detail shell (`/dashboard/workshop/[id]`) replacing the old placeholder — real data only, `listForWorkshop`/`getByIdForWorkshop`, branch-scoped, single combined zl_number/VIN/order_number search via URL params (chosen over a query hook, per the plan's own sanctioned alternative). 14 service unit tests + 7 search/badge component tests passing. **Manually confirmed working in a real browser (2026-09-11 UAT)**: search by zl_number/VIN/order_number, detail open, reload persistence, list persistence after reload. **Known non-blocking issue**: branch switch does not auto-refresh the list until a manual page reload — recorded as Zone-1-owned (see detailed task list). Disambiguation UI and full list-component tests remain explicit follow-up gaps. |
+ | 7 Header, advisor ownership, lifecycle, manual creation   | ✅ DONE        | PITCH              |     10/10 | Manual header creation, header edit, advisor assignment (manage_all-gated to match RLS), lifecycle transitions (race-safe conditional UPDATE), 5 new server actions, real UI (`/dashboard/workshop/new` + upgraded `[id]` detail page). **Found and fixed one CONFIRMED pre-existing live RLS bug** (the ownership subquery was itself blocked by `crm_contacts`' own RLS, silently locking out any `manage_own` advisor without separate `crm.contacts.read`). 55 new tests, all passing; 12/12 new pgTAP RLS assertions passing live. One open product decision flagged (advisor-picker "employee-role" scoping), not silently invented around. Manual browser UAT of this phase's UI remains outstanding.                                                                                                                      |
+ | 8 Logical RepairOrder lines                               | ✅ DONE        | PITCH              |       6/6 | `listRepairOrderLines` service method (2 bounded queries, no N+1, no new migration), `RepairOrderLineReadModel`, new line-list UI (desktop table + mobile cards). Same-SKU independence explicitly proven (never merges by SKU in the read layer, regardless of Phase 3's own upstream create-time merging). Worked-example derived quantities (`outstandingToReceive`/`availableForIssue`) proven correct both mocked and live. 20 new tests + 11/11 new live pgTAP assertions, all passing. Full real-world receipt/issue E2E remains dependent on Phase 10 (not built yet) — not claimed. Manual browser UAT outstanding. Phase 7 left untouched throughout.                                                                                                                                                                   |
+-| 9 Source documents, lines, provenance                     | ⬜ NOT STARTED | PITCH              |       0/6 | —                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
++| 9 Source documents, lines, provenance                      | ✅ DONE        | PITCH              |       5/5 | `getRepairOrderProvenance` service method (one hierarchical embedded-select, no N+1) + `groupProvenanceByRepairOrderLine` pure helper. New "Source documents" UI section (expand/collapse) + per-line "Sources (N)" affordance on Phase 8's own line rows. **Found and fixed one genuine cross-order contribution leak before shipping** (a document shared between two RepairOrders could otherwise leak the other order's logical-line reference) — filtered via an extra small, indexed query. 24 new tests + 15/15 new live pgTAP assertions, all passing. Traceable to real `wdd_matcher_lines` rows (id-reference only, no cross-module RLS join). No migration. Manual browser UAT outstanding. Phase 7/8 left untouched.                                                                                        |
+ | 10 Movement-line linkage / warehouse read model           | ⬜ NOT STARTED | PITCH              |       0/8 | —                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+ | 10A Reservation integration                               | ⬜ NOT STARTED | PITCH              |       0/6 | NEW 2026-09-10. RepairOrderLine → Reservation, reuses live `inventory_create_reservation`/`inventory_release_reservation` as-is.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+ | 10B Allocation integration                                | ⬜ NOT STARTED | PITCH              |       0/4 | NEW 2026-09-10. Reservation → Allocation, reuses live `inventory_create_allocation` (reservation-first, per decision 2).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+@@ -342,6 +342,40 @@ External review of Phase 8 found one concrete UI correctness bug: `RepairOrderDe
+ 
+ No review bundle was created for this narrow fix, per explicit instruction. No Phase 9+ file was touched.
+ 
++### Phase 9 — Source documents, source lines, and provenance ✅ DONE (5/5)
++
++> **Verify-first pass, before any code was written**: re-read this tracker, the implementation plan, the architecture doc, the Phase 2 schema, Phase 3's materialization RPC, Phase 7's (frozen, untouched) code, Phase 8's own read model/UI, and live Supabase schema/RLS/data for every provenance-related table before writing anything. Corrected two stale plan assumptions (method naming; the `wdd_matcher_lines`/`wdd_matcher_sessions` cross-module RLS boundary) and — most importantly — **found and fixed one genuine cross-order contribution leak in this phase's own first-draft query, before it ever shipped**: see the implementation plan's own Phase 9 verify-first note for the full writeup.
++
++- [x] ✅ **`RepairOrdersService.getRepairOrderProvenance`** — new method, three bounded queries (parent org/branch scope check on `repair_orders`; this order's own logical-line ids from `repair_order_lines`, used only for the leak-filter below; one PostgREST embedded-select hierarchically nesting `repair_order_source_document_links` → `workshop_source_documents` → `workshop_source_document_lines` → `repair_order_line_source_links`). Returns the FULL provenance tree for one RepairOrder — every linked document, each document's own source lines, and each source line's contribution(s) to logical RepairOrderLines, with `quantity_contribution` always the persisted DB value, never recomputed from SKU/quantity heuristics. `groupProvenanceByRepairOrderLine` (a pure function, not a query) re-indexes the SAME already-fetched tree by logical line for the UI's "Sources (N)" affordance — no second round trip.
++- [x] ✅ **Cross-order contribution leak — found and fixed before shipping**: `repair_order_source_document_links` is a genuine M:N link (a document can legitimately be linked to multiple RepairOrders), and `repair_order_line_source_links_source_line_unique` only restricts a source line to at most one contribution TOTAL — never that a shared document's lines all belong to the same order. A naive first-draft fetch of one RepairOrder's provenance, for a document shared with another order, would have returned that OTHER order's own `repair_order_line_id` inside the shared document's line data. Fixed with an additional small, indexed query (this order's own logical-line ids) filtering every source line's `contributions` array to only entries this order actually owns — the document/line LISTING itself stays visible (legitimate shared provenance metadata: "this document also has other lines"), only the sensitive cross-order contribution TARGET is filtered. Proven both mocked (a dedicated Vitest test with a document shared between two orders) and live (pgTAP T1-T3, using real inserted rows reproducing the exact scenario).
++- [x] ✅ **Matcher/WDD traceability, without a cross-module RLS dependency**: `wdd_matcher_lines`/`wdd_matcher_sessions` SELECT RLS both require `wdd_matcher.read` (live-verified before writing any query) — a separate Matcher-module permission Workshop callers holding only `workshop.repair_orders.read` are not guaranteed to hold, the same class of boundary Phase 8 already declined to cross for `inventory_variants`. `workshop_source_document_lines.wdd_matcher_line_id` (already a plain column, no join needed) is exposed as-is — satisfying "traceable to a specific `wdd_matcher_lines` row" literally, without widening any permission surface. Live-proven (pgTAP T9/T9b): the id reference is genuinely readable via the source line's own (accessible) RLS, while the SAME actor genuinely cannot read the target `wdd_matcher_lines` row's own content directly — confirming the design decision is correct, not merely convenient.
++- [x] ✅ **UI**: new `repair-order-provenance.tsx` ("Source documents" section, client component for expand/collapse state, using the existing `Collapsible` primitive — matching "reuse existing design patterns," not inventing a new interaction pattern) rendered below Phase 8's line list; new `repair-order-line-sources.tsx` (a small `Popover`-based "Sources (N)" trigger added to each Phase 8 line row, showing exactly which source line(s) — with document/SKU/quantity_contribution — feed that specific logical line, without duplicating the whole document section per row). Both distinguish a genuine empty state (manually-created RepairOrder, zero provenance — truthful, not an error) from a load-error state (matching the exact pattern corrected in Phase 8's own external review). No Matcher session navigation link was added — verified, not assumed, that no stable route to a specific Matcher session detail view exists anywhere in this codebase today.
++- [x] ✅ **Tests**: 13 new service tests (list mapping, M:N document scenarios, one-logical-line-many-source-lines, the dedicated cross-order-leak-fix test, zero-contribution handling, no-fabricated-Matcher-join, inaccessible-parent, empty-manual-order, 2× error normalization) + 8 new `RepairOrderProvenance` component tests (empty state, error state, multiple documents, expand-to-reveal-lines, unlinked-source-line truthful state, multiple source lines, no Matcher navigation) + 4 new line-level "Sources (N)" affordance tests (present/absent/cross-line-isolation/default) — **195/195 passing** across the full Zone 3 + CRM sibling suite (14 files). New live pgTAP `096_repair_order_provenance_phase9_test.sql` — **15/15 passing live** against `supabase-target` as the genuinely-RLS-enforced `authenticated` role, using transaction-scoped fixture rows (live data showed a perfect 26/26/26 1:1:1 document/order/link ratio before this phase — no real M:N or later-arrival scenario exists in production yet, exactly as Phase 8's same-SKU test also needed synthetic fixtures), zero residual data after `ROLLBACK`. `093_...`/`094_...`/`095_...` not re-run — zero migrations/DB changes this phase, nothing in their scope could regress. `pnpm type-check` and `pnpm lint` clean on every new/changed file.
++
++**Query architecture chosen**: one hierarchical PostgREST embedded-select (Option A from this phase's own evaluation) over (B) separate document + on-demand line queries [rejected: would need a second round trip for the exact line-level data the embed already returns in one] or a new SQL view/RPC [rejected: no DB migration justified for a query PostgREST's own embed mechanism already resolves in one round trip, given live data volumes at verification time — 26 documents / 202 lines total]. Total queries for a full provenance read: **3** (parent scope check + this order's own line-id set, for the leak filter + the hierarchical embed) — independent of how many documents/lines/contributions exist, no N+1.
++
++**Phase 10/11 boundary, explicitly not crossed**: no receipt/issue movement attribution, no `repair_order_line_movement_links` writes, no WU, no reservation/allocation/container work (Phase 10); no final named Magazyn/Zamówienia-Przyjęcia sub-tabs (Phase 11) — this phase built the reusable provenance data + a compact inspection surface only, exactly as scoped.
++
++**Phase 7/8 frozen, confirmed**: no Phase 7 or Phase 8 file (RLS policy, trigger, header/advisor/lifecycle code, the Phase 8 read model's own derived-quantity logic, or either phase's own tests) was modified beyond the two small, additive, backward-compatible props (`provenance`, unused-by-default) this phase added to Phase 8's `RepairOrderLinesList` to host the new line-level affordance — confirmed via `git diff` that every other line of that file is unchanged.
++
++**Browser/Playwright verification: NOT performed, honestly disclosed** — re-checked at this phase's own start: no cached browser binaries in this environment, and installing one was judged too risky given this same session's earlier disk-space exhaustion incident (still only ~2.2GB free). DB/domain correctness does not depend on this and stands on the 195 Vitest + 15 live pgTAP assertions above, independently.
++
++**No DB migration was added.** Verified, not assumed: every index this phase's queries need already existed from Phase 2 (`repair_order_source_document_links`'s own composite PK and its `..._document_idx`, `workshop_source_document_lines_document_idx`, `repair_order_line_source_links_line_idx`).
++
++**Phase 9 is therefore ✅ DONE (5/5)** for everything VERIFIED NOW (live-RLS-tested, real-fixture-tested, including the cross-order leak fix). Manual/browser UAT of this phase's UI is **OUTSTANDING**, same as Phase 7's and Phase 8's own.
++
++#### 2026-09-12 external-review fix — cross-order provenance leak was narrower than it needed to be (source-line METADATA also leaked, not just the contribution reference)
++
++External review of Phase 9 found the first-draft cross-order fix (documented above) was incomplete: `mapProvenanceDocument` filtered each source line's own `contributions` array to this order's own logical lines, but still returned the SOURCE LINE ITSELF -- product code/name/quantity/unit/`wddMatcherLineId` all intact -- for a line whose only contribution belongs to a DIFFERENT RepairOrder sharing the same document. Confirmed exactly as described: a shared document's foreign-only line was still present in the response, just with an empty `contributions` array.
++
++- [x] ✅ **Fixed narrowly, at the source-line level, not just the contribution level**: `mapProvenanceDocument` now filters `doc.lines` itself, not merely each line's `contributions` -- a source line with ZERO contributions belonging to THIS order (whether never-linked at all, or linked only to a different order) is omitted from the returned `lines` array entirely. The DOCUMENT itself is still always returned (its `repair_order_source_document_links` row is real, genuine document-level provenance) even if every one of its lines gets filtered out this way -- verified this state is not reachable through today's materialization RPC (a document is always linked to the SAME order its own lines contribute to) but is not schema-prevented either, so the truthful choice is to keep the real link with an empty line list, not silently drop it.
++- [x] ✅ **UI updated to match**: the now-unreachable "Not linked to a part on this order" rendering branch (and its `sourceLine.unlinked` i18n key, in both locales) was removed from `repair-order-provenance.tsx` -- every line the service now returns always has >= 1 contribution, so that branch was dead code, not a state worth keeping "just in case".
++- [x] ✅ **Tests updated/added**: the existing cross-order mocked test was rewritten to assert the foreign line ("docline-theirs") is entirely ABSENT (not present-with-empty-contributions), including explicit checks that its SKU/product name/`wddMatcherLineId`/`repair_order_line_id` never appear anywhere in the serialized response; a new inverse test proves RepairOrder B's own provenance symmetrically excludes RepairOrder A's line; the pre-existing "zero contributions" test was renamed/rewritten to assert omission (not "empty array, not dropped" -- the opposite of the new correct behavior); a new test proves a document linked to this order with zero own-order visible lines is still returned (document-level link preserved); the wddMatcherLineId test was fixed to use a line that genuinely belongs to this order (previously relied on the now-removed always-included behavior). Component tests: the removed "unlinked" test was replaced with a defensive no-crash/no-fabricated-placeholder test, plus a new test proving the component never renders a line absent from its own `documents` prop. **Sources (N) affordance re-verified**: already correctly scoped by `repair_order_line_id` per-line (unaffected by this fix, since the affordance only ever counts contributions actually present in the -- now correctly filtered -- provenance tree); the existing cross-line-isolation test already covers this exact invariant, no new test was needed.
++- [x] ✅ **pgTAP**: not re-run -- this fix lives entirely in the TypeScript mapper (`mapProvenanceDocument`), which pgTAP (testing raw SQL/RLS/constraints directly) cannot exercise; `096_...`'s own assertions and fixtures are unchanged. Its stale header comment ("13/13", left over from an earlier draft before two more assertions were added) was corrected to the actual `plan(15)`/15-assertion live result, with a note explaining why this fix did not require a pgTAP re-run.
++- [x] ✅ **Full Zone 3 + CRM sibling suite**: **198/198 passing** across 14 files (was 195). `pnpm type-check`/`pnpm lint` clean.
++
++No DB migration, no RLS change -- this was a pure application-layer read-model scoping correction. Phase 9 review bundle regenerated against the same baseline (`HEAD` `51175b67`) to reflect this fix. **Phase 9 remains ✅ DONE (5/5)** -- no task reopened; this pass closed a real, disclosed gap in the prior fix before Phase 9 moved to manual UAT. **Stopping point: Phase 10+ was not started.**
++
+ ## DEMO READY gate
+ 
+ None of the following are formally checked yet — all ⬜. Several now have real, live-data evidence (noted inline) but are **not** checked because the gate's own bar ("required automated tests exist and pass for every item," "representative E2E scenario passes," "manual rehearsal performed and recorded") explicitly requires the browser-level proof this session could not complete.
+@@ -354,7 +388,7 @@ None of the following are formally checked yet — all ⬜. Several now have rea
+ - [ ] Multiple RepairOrders can materialize from a single session. — pgTAP-proven (Phase 3), not re-run through this phase's own UI or manually rehearsed (genuine follow-up gap, see Phase 5's task list).
+ - [ ] Multiple source documents can attach to a single order. — pgTAP-proven (Phase 3), not manually rehearsed through the UI.
+ - [ ] Logical order lines render correctly, non-duplicated. — _built and live-RLS/pgTAP-tested this session (Phase 8), including explicit same-SKU-independence proof; manual browser verification not yet performed (Playwright unavailable this session — see Phase 8's own change-log entry), kept unchecked for that reason._
+-- [ ] Full provenance (document + line level) is traceable. — unstarted (Phase 9).
++- [ ] Full provenance (document + line level) is traceable. — _built and live-RLS/pgTAP-tested this session (Phase 9), including traceability to specific `wdd_matcher_lines` rows and a found-and-fixed cross-order contribution leak; manual browser verification not yet performed (Playwright unavailable this session), kept unchecked for that reason._
+ - [ ] Inventory movement-line linkage attributes receipts/issues correctly, including partial/multiple batches. — unstarted (Phase 10).
+ - [x] List/search by `zl_number` works. — _data-layer live-verified; browser UI now confirmed via the 2026-09-11 product-owner manual UAT._
+ - [x] Search by VIN works. — _data-layer live-verified; browser UI now confirmed via the 2026-09-11 product-owner manual UAT (search by `order_number` also confirmed the same way)._
+@@ -500,3 +534,5 @@ None currently active.
+ - **2026-09-12 (Phase 7 final narrow verify-first pass — two issues fixed, two verified-safe, one test gap closed)**: a second, narrower external review round raised two concrete issues and one regression-test gap against the 2026-09-11 correction pass. Both issues were live-reproduced against `supabase-target` as `authenticated` before any fix; Findings B/D/E from that prior pass were not reopened. **Issue 1 (CONFIRMED, fixed)**: the field-invariants trigger only froze `created_by` on UPDATE, not INSERT — a raw INSERT could spoof `created_by` as any other real user, live-reproduced as both `manage_own` and `manage_all`. Fixed via `20260911192411_repair_orders_created_by_insert_spoof_fix.sql` (`NEW.created_by := COALESCE(auth.uid(), NEW.created_by)` on INSERT only), after explicitly verifying compatibility with manual creation, `materialize_repair_orders_from_session`, and a hypothetical trusted service-role path. **Issue 2 (verified, no fix needed)**: checked whether more than one active `crm_contacts` row could link to the same user in the same org (which would make `get_own_advisor_contact_id` non-deterministic) — found the pre-existing `crm_contacts_org_linked_user_unique` partial unique index (live since Phase 2) already enforces this, live-verified both against current data (zero duplicates) and by direct attempt (blocked with `23505`). **Issue 3 (test gap, closed)**: added committed pgTAP regression coverage (`094_...` T16/T17) proving `organization_id`/`branch_id` cannot be moved via raw UPDATE, asserting exact persisted row state. **Issue 4 (verified, no fix needed)**: `get_own_advisor_contact_id`'s `EXECUTE` grants match this repo's established convention for this class of helper (identical to `is_own_advisor_contact`), and are provably harmless to `anon`/unauthenticated callers (`auth.uid()` is `NULL` for them, so the function always returns `NULL`). **Testing**: `094_...` expanded to 17 assertions, 17/17 passing live; `093_...` re-run unchanged, 12/12 still passing; full Zone 3 + CRM sibling suite 146/146 passing; `pnpm type-check`/`pnpm lint` clean. **No review bundle was created for this pass**, per explicit instruction. **Phase 7 remains ✅ DONE (10/10)** — manual/browser UAT remains the one outstanding item, unchanged, not claimed as done. **Stopping point, per explicit instruction: Phase 8 has NOT been started**, nor was Supabase touched beyond the one migration required for Issue 1.
+ - **2026-09-12 (Phase 8 — logical RepairOrder lines)**: verify-first pass, per explicit instruction not to blindly implement from the old plan text — re-read this tracker, the implementation plan, the architecture doc, the current (frozen, untouched) Phase 7 code, the Phase 2 schema and Phase 3 materialization RPC, and live Supabase schema/RLS/data before writing anything. Corrected several stale/underspecified assumptions in the plan's own original Phase 8 section (see the implementation plan's own Phase 8 verify-first note and this tracker's Phase 8 section above for the full writeup): materialization already establishes `repair_order_lines.id` as the sole logical-line identity (same-SKU merging happens upstream, at Phase 3 create-time, by design — Phase 8's own read model never re-merges by SKU); the architecture doc's `remaining_quantity` formula is genuinely ambiguous between two candidates (flagged in that doc's own "Remaining technical unknowns") and is resolved here by exposing both `outstandingToReceive`/`availableForIssue` under unambiguous names rather than guessing; `repair_order_lines.status` is a real column but nothing transitions it yet (100% of 167 live lines read `'pending'`), so it is not rendered as a status indicator; no DB view/migration was needed (a single PostgREST embedded-select suffices); `'reversal'`-typed movement links have no defined netting semantics anywhere and are excluded from both sums, a disclosed limitation rather than an invented one. **Built**: `RepairOrdersService.listRepairOrderLines` (new method, 2 bounded queries, zero N+1) + `RepairOrderLineReadModel` type; a new `repair-order-lines-list.tsx` server component (desktop table + mobile cards, matching the Workshop list page's own established responsive pattern) wired into the existing `/dashboard/workshop/[id]` detail page below Phase 7's header editor (Phase 7 itself untouched). **Same-SKU independence** was both verified against real materialization behavior (upstream merging happens at Phase 3 create-time by `product_code`, confirmed via reading the RPC; zero live duplicates today as a result) and explicitly proven false-safe at the read-model layer with two real, directly-inserted `repair_order_lines` rows sharing a `product_code` — both a mocked service test and a live pgTAP test confirm they remain fully independent. **Testing**: 12 new service tests + 8 new component tests, **166/166 passing** across the full 13-file Zone 3 + CRM sibling suite; new `095_repair_order_lines_phase8_test.sql`, **11/11 passing live** against `supabase-target` as the genuinely-RLS-enforced `authenticated` role using transaction-scoped fixture movement-link rows (Phase 10 does not exist yet to create these through a real flow — explicitly anticipated by this phase's own scope boundary), zero residual data after `ROLLBACK`; `093_...`/`094_...` not re-run (zero migrations/DB changes this phase, nothing in their scope could regress); `pnpm type-check`/`pnpm lint` clean. **No DB migration** — verified, not assumed, that existing Phase 2 indexes already suffice for this query shape. **Phase 10 boundary respected**: no WU, no 101 attribution, no `inventory_finalize_posting` change, no Zone 5/putaway/container work — Phase 8 only reads the existing (currently-empty-in-production) `repair_order_line_movement_links` table. **Browser/Playwright verification NOT performed, honestly disclosed** — no cached browser binaries in this environment, and installing one now was judged too risky given this same session's earlier disk-space exhaustion incident (an accidental `pnpm install` inside a temporary worktree); DB/domain correctness does not depend on this and stands on the Vitest/pgTAP evidence above independently. **Phase 8 is marked ✅ DONE (6/6)** for everything verified now; the full real-world receipt/issue E2E proof remains explicitly dependent on Phase 10, not claimed here; manual/browser UAT of this phase's UI remains outstanding, same as Phase 7's own. **Stopping point, per explicit instruction: Phase 9 has NOT been started**, nor has Phase 10/11/12/13 or any Zone 5/8/11 work; Phase 7 was not modified in any way during this phase.
+ - **2026-09-12 (Phase 8 external-review fix — line-query error was indistinguishable from a genuinely empty order)**: `RepairOrderDetailPage` previously collapsed `linesResult.success ? linesResult.data : []` into one array, so a failed `listRepairOrderLines` read rendered the identical empty-state UI as a RepairOrder genuinely confirmed to have zero lines — the already-defined `lines.errors.loadFailed` i18n key existed but was unused. **Fixed narrowly**: `RepairOrderLinesList` gained a `loadError?: boolean` prop and now branches three ways (load-error → empty → populated), rendering a compact, section-local destructive-bordered box on error (matching the Workshop list page's own established error-banner language, scoped to just this section); the page computes `linesLoadError = !linesResult.success` and passes only that boolean down — the normalized error string never reaches the client, and a lines-read failure does not fail the rest of the page (the header renders independently either way). **Tests**: 5 new component tests (successful-empty vs. error vs. populated, mutually exclusive; default-prop backward compatibility) — 13/13 passing in that file (was 8); full Zone 3 + CRM sibling suite **171/171 passing** (was 166); `pnpm type-check`/`pnpm lint` clean. **Manual/browser UAT remains outstanding** — Playwright still unavailable in this environment (re-checked: no cached binaries, 1.9GB free, same disk-space risk as before), honestly disclosed rather than fabricated. No review bundle created for this narrow fix, per explicit instruction. **Stopping point: Phase 9+ was not started.**
++- **2026-09-12 (Phase 9 — source documents, source lines, and provenance)**: verify-first pass, per explicit instruction not to blindly implement from the old plan text — re-read this tracker, the implementation plan, the architecture doc, Phase 2's schema, Phase 3's materialization RPC, Phase 7's (frozen, untouched) code, Phase 8's own read model/UI, and live Supabase schema/RLS/data for every provenance table before writing anything. Corrected two stale plan assumptions (method naming, matching this repo's established one-call-per-detail-read convention instead of the plan's own two-method text; the `wdd_matcher_lines`/`wdd_matcher_sessions` cross-module RLS boundary, live-verified to require a separate `wdd_matcher.read` permission). **Found and fixed one genuine cross-order contribution leak in this phase's own first-draft query, before it ever shipped**: `repair_order_source_document_links` is a genuine M:N link, and the source-line unique-ownership constraint only guarantees a source line contributes to at most ONE logical line total — never that a document shared between two RepairOrders has all its lines belonging to the same order. A naive fetch would have leaked one order's own logical-line reference into another order's provenance view. Fixed with one additional small, indexed query (this order's own logical-line ids), used to filter contribution data by ownership — proven both mocked and live (pgTAP T1-T3, reproducing the exact scenario with real rows). **Built**: `RepairOrdersService.getRepairOrderProvenance` (3 bounded queries, no N+1) + `groupProvenanceByRepairOrderLine` (pure re-index helper) + 3 new domain types; a new "Source documents" UI section (`repair-order-provenance.tsx`, expand/collapse via the existing `Collapsible` primitive) and a per-line "Sources (N)" popover affordance (`repair-order-line-sources.tsx`) added to Phase 8's own line rows, both distinguishing a genuine empty-provenance state (manual RepairOrder) from a load-error state, matching the exact pattern Phase 8's own external review had already corrected. Traceability to specific `wdd_matcher_lines` rows is satisfied via the raw id reference alone (no cross-module RLS join attempted, live-proven both that the reference is readable and that the target row's own content genuinely is not, for the same actor). **Testing**: 13 new service tests + 8 new `RepairOrderProvenance` component tests + 4 new line-affordance tests, **195/195 passing** across the full 14-file Zone 3 + CRM sibling suite; new `096_repair_order_provenance_phase9_test.sql`, **15/15 passing live** against `supabase-target` as the genuinely-RLS-enforced `authenticated` role using transaction-scoped fixtures (live data showed a perfect 26/26/26 document/order/link ratio — no real M:N/later-arrival scenario exists in production yet), zero residual data after `ROLLBACK`; `093_...`/`094_...`/`095_...` not re-run (zero migrations/DB changes this phase); `pnpm type-check`/`pnpm lint` clean. **No DB migration** — verified, not assumed, that every index this phase's queries need already existed from Phase 2. **Phase 10/11 boundary respected**: no movement attribution, no `repair_order_line_movement_links` writes, no WU/reservation/allocation/container work, no final Magazyn/Zamówienia-Przyjęcia sub-tabs — only the reusable provenance data + a compact inspection surface. **Phase 7/8 frozen, confirmed** — no file from either phase was modified beyond two small, additive, backward-compatible props added to Phase 8's own line-list component. **Browser/Playwright verification NOT performed, honestly disclosed** — still no cached browser binaries in this environment, installing one judged too risky given this session's earlier disk-space exhaustion incident (re-checked, ~2.2GB free); DB/domain correctness does not depend on this and stands on the Vitest/pgTAP evidence above independently. **Phase 9 is marked ✅ DONE (5/5)** for everything verified now; manual/browser UAT of this phase's UI remains outstanding, same as Phase 7's and Phase 8's own. **Stopping point, per explicit instruction: Phase 10 has NOT been started**, nor has Phase 11/12/13 or any Zone 5/8/11 work; Phase 7 and Phase 8 were not modified in any way beyond the two additive props noted above.
++- **2026-09-12 (Phase 9 external-review fix — cross-order provenance leak was narrower than it needed to be)**: `mapProvenanceDocument`'s original cross-order fix filtered each source line's own `contributions` array to this order's owned logical lines, but still returned the SOURCE LINE ITSELF (product code/name/quantity/unit/`wddMatcherLineId`) for a line whose only contribution belongs to a DIFFERENT RepairOrder sharing the same document — confirmed exactly as external review described. **Fixed narrowly**: `doc.lines` itself is now filtered, not just each line's `contributions` — a source line with zero contributions to THIS order (never-linked, or linked only elsewhere) is omitted from the tree entirely; the document itself is always still returned (a real, genuine link) even with zero visible lines. UI updated to match: the now-unreachable "Not linked to a part on this order" branch and its i18n key were removed (dead code, not kept "just in case"). **Tests**: existing cross-order test rewritten to assert the foreign line is entirely absent (SKU/name/id/wddMatcherLineId all checked absent from the serialized response); new inverse test (order B excludes order A's line); "zero contributions" test rewritten from "empty array, not dropped" to "omitted"; new "document with zero own-order visible lines is still returned" test; component tests updated to match (defensive no-crash test replacing the removed "unlinked" test, plus a new never-renders-an-absent-line test). Sources (N) affordance re-verified as already correctly scoped, no fix needed there. **pgTAP not re-run** — this fix lives entirely in the TypeScript mapper, which pgTAP cannot exercise; its stale "13/13" header comment (left over from an earlier draft) was corrected to the actual `plan(15)`/15-assertion result. **Full Zone 3 + CRM sibling suite: 198/198 passing** (was 195); `pnpm type-check`/`pnpm lint` clean. No migration, no RLS change. Phase 9 review bundle regenerated against the same `HEAD` (`51175b67`) baseline. **Phase 9 remains ✅ DONE (5/5)**. **Stopping point: Phase 10+ was not started.**

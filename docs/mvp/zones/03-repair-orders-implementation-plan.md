@@ -702,11 +702,18 @@ PITCH.
 
 ---
 
-## Phase 9 — Source documents, source lines and provenance
+## Phase 9 — Source documents, source lines and provenance ✅ DONE (2026-09-12)
+
+> **Verify-first pass, before any code was written**: re-read this plan, the progress tracker, the architecture doc, the Phase 2 schema, Phase 3's materialization RPC, Phase 7's (frozen, untouched) code, and Phase 8's own read model/UI before writing anything, plus live Supabase schema/RLS/data for `workshop_source_documents`/`repair_order_source_document_links`/`workshop_source_document_lines`/`repair_order_line_source_links`/`wdd_matcher_sessions`/`wdd_matcher_lines`. Corrected two stale/underspecified assumptions in this section's own original text, and found and fixed one genuine correctness bug BEFORE it could ship:
+>
+> - **Method names were stale, corrected in practice**: the plan's own `listSourceDocumentsForOrder`/`listSourceLinesForOrderLine` naming does not match this repo's established one-call-per-detail-read convention (`getByIdForWorkshop`, `listRepairOrderLines`). A single `getRepairOrderProvenance` method was built instead, returning the full document→line→contribution tree for one RepairOrder in one bounded read — `groupProvenanceByRepairOrderLine` (a pure, in-memory re-index of that SAME data, not a second query) answers the line-level "which source lines feed this logical line" question the plan's second method name implied, without a separate round trip.
+> - **`wdd_matcher_lines`/`wdd_matcher_sessions` cannot be joined for content**: live-verified before writing any query — both tables' own SELECT RLS requires `wdd_matcher.read`, a separate Matcher-module permission Workshop callers holding only `workshop.repair_orders.read` are not guaranteed to hold (the same class of cross-module RLS dependency Phase 8 already declined for `inventory_variants`). Traceability to a specific `wdd_matcher_lines` row is satisfied by exposing the raw `wdd_matcher_line_id` reference (already present on `workshop_source_document_lines`, no join needed) — not by fetching that row's own content.
+> - **CONFIRMED cross-order contribution leak, found and fixed during this phase's own implementation** (not a pre-existing bug reachable before this phase — it would have been introduced BY this phase's own naive first-draft query, caught before it ever shipped): `repair_order_source_document_links` is a genuine M:N link (a document can legitimately be linked to multiple RepairOrders), and `repair_order_line_source_links_source_line_unique` only restricts a source line to at most one contribution TOTAL — never that all of a shared document's lines belong to the same order. A naive fetch of one RepairOrder's provenance tree, for a document it shares with another order, would have returned that OTHER order's own `repair_order_line_id` inside the shared document's line data — leaking a reference to a logical line the caller's RepairOrder does not own. Fixed with one additional small, indexed query (this order's own logical-line ids) used to filter every source line's `contributions` array to only entries this order actually owns — the document/line listing itself stays visible (legitimate shared provenance metadata), only the sensitive cross-order contribution target is filtered. Proven both mocked (Vitest) and live (pgTAP T1-T3).
+> - **CORRECTION (2026-09-12, external review, same day)**: the fix above was itself incomplete — it filtered the contribution REFERENCE but still returned the foreign SOURCE LINE's own full content (SKU/name/quantity/unit/`wddMatcherLineId`) for a line belonging entirely to another order. Fixed by filtering `doc.lines` itself (not just each line's `contributions`) — a source line with zero contributions to THIS order (never-linked, or linked only to a different order) is now omitted from the tree entirely; the document itself is still always returned (a real, genuine link) even with zero visible lines. See the progress tracker's own dated entry for the full writeup and updated test evidence (198/198 full-suite).
 
 ### Objective
 
-Build the "Magazyn i Zam." documents sub-view backing data and provenance-inspection capability: which source documents and source lines back a given RepairOrder/line.
+Build the provenance-inspection read model and a compact, reusable UI surface: which source document(s) and source line(s) back a given RepairOrder/logical line, traceable down to specific `wdd_matcher_lines` rows. Explicitly NOT the final Phase 11 Magazyn/Zamówienia-Przyjęcia sub-view composition.
 
 ### Why it exists
 
@@ -714,36 +721,38 @@ Frozen audit pitch checklist "Magazyn i Zam." section; architecture doc Correcti
 
 ### Dependencies
 
-Phase 2, Phase 5.
+Phase 2, Phase 5, Phase 8 (the logical-line model this phase's line-level affordance links into).
 
 ### Repository areas affected
 
-- `repair-orders.service.ts` — `listSourceDocumentsForOrder`, `listSourceLinesForOrderLine`.
-- Detail view "Magazyn i Zam." tab (conceptual read-model only per the architecture doc; actual UI split into Magazyn/Zamówienia-Przyjęcia sub-views is Phase 11).
+- `repair-orders.service.ts` — new `getRepairOrderProvenance` method + `groupProvenanceByRepairOrderLine` pure helper + `RepairOrderProvenanceDocument`/`RepairOrderProvenanceSourceLine`/`RepairOrderProvenanceContribution` types.
+- Detail view: new "Source documents" section (`repair-order-provenance.tsx`) below Phase 8's line list, and a per-line "Sources (N)" affordance (`repair-order-line-sources.tsx`) added to Phase 8's own line rows.
 
 ### Supabase changes
 
-None beyond Phase 2.
+**None.** No migration was needed or added — verified against actual query characteristics (all needed indexes already exist from Phase 2: `repair_order_source_document_links_document_idx`, its own composite PK, `workshop_source_document_lines_document_idx`, `repair_order_line_source_links_line_idx`), not merely assumed from the plan's original text.
 
 ### Existing infrastructure reused
 
-N/A new.
+`workshop_source_documents`/`repair_order_source_document_links`/`workshop_source_document_lines`/`repair_order_line_source_links` tables and their Phase 2 RLS policies (unchanged); the established `ServiceResult<T>`/`normalizeRepairOrderCrudError` service-layer conventions and the parent-scope-check pattern from Phase 7/8.
 
 ### Implementation tasks
 
-- [ ] Add service methods for document/line provenance listing, joined through both link tables.
-- [ ] Verify (service test) one-document→many-orders and one-order→many-documents both render correctly.
-- [ ] Verify (service test) one-logical-line→many-source-lines renders correctly with each source line's `quantity_contribution`.
-- [ ] Verify (service test) a later-arriving WDD document correctly attaches to an existing order rather than creating a duplicate.
-- [ ] Component tests for the document/line provenance list.
+- [x] Add service methods for document/line provenance listing, joined through both link tables — `getRepairOrderProvenance` (one hierarchical PostgREST embedded-select) + `groupProvenanceByRepairOrderLine` (pure re-index, not a query).
+- [x] Verify (service test) one-document→many-orders and one-order→many-documents both render correctly — mocked service tests + live pgTAP T1/T2.
+- [x] Verify (service test) one-logical-line→many-source-lines renders correctly with each source line's `quantity_contribution` — mocked service tests + live pgTAP T4-T6.
+- [x] Verify (service test) a later-arriving WDD document correctly attaches to an existing order rather than creating a duplicate — live pgTAP T10/T11 (no mocked-only equivalent needed; this is fundamentally a DB-state proof).
+- [x] Component tests for the document/line provenance list — 8 new tests (`repair-order-provenance.test.tsx`) + 4 new tests for the line-level "Sources (N)" affordance (`repair-order-lines-list.test.tsx`).
 
 ### Testing requirements
 
-- **Service/domain**: exactly the M:N scenarios named in the architecture doc's testing strategy (one-document→many-orders, one-order→many-documents, one-logical-line→many-source-lines, source-line-linked-only-once).
+- **Service/domain**: exactly the M:N scenarios named in the architecture doc's testing strategy (one-document→many-orders, one-order→many-documents, one-logical-line→many-source-lines, source-line-linked-only-once) — **plus** the cross-order contribution leak this phase found and fixed (not originally named in the plan, since the plan predates discovering it).
+- **DB/pgTAP**: source-line unique ownership (negative case, specific SQLSTATE), M:N document links, quantity_contribution exact persistence, branch/RLS isolation, traceability to a real `wdd_matcher_lines` row.
+- **Component**: document list rendering, expand/collapse to source lines, multiple documents, multiple source lines, quantity contribution display, empty state, load-error state (distinct from empty), line-level "Sources (N)" affordance.
 
 ### Acceptance criteria
 
-Given a RepairOrder materialized from multiple sessions (Phase 5 E2E case), its full document/line provenance is correctly listable and traceable back to specific `wdd_matcher_lines` rows.
+Given a RepairOrder materialized from multiple sessions (Phase 5 E2E case), its full document/line provenance is correctly listable and traceable back to specific `wdd_matcher_lines` rows. **VERIFIED NOW** (live pgTAP, 15/15 passing, using transaction-scoped fixtures since no real M:N/later-arrival scenario exists in production data yet — live-verified 26/26/26 perfect 1:1:1 ratio before this phase). Manual/browser UAT of this phase's UI is **OUTSTANDING** (Playwright unavailable in this environment — see this phase's own change-log entry).
 
 ### Scope classification
 
