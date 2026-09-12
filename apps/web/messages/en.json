@@ -3134,7 +3134,7 @@
           "unresolvedTitle": "Unresolved repair order",
           "identityStatus": "Identity status",
           "updated": "Last updated",
-          "futurePhasesNote": "Parts lines, source-document provenance, and warehouse detail are not available on this page yet — they arrive in a later phase.",
+          "futurePhasesNote": "Source-document provenance and full warehouse receipt/issue detail are not available on this page yet — they arrive in a later phase.",
           "vehicleBrand": "Vehicle brand",
           "clientName": "Client name",
           "dealerName": "Dealer",
@@ -3149,6 +3149,24 @@
           "archiveConfirmTitle": "Archive this repair order?",
           "archiveConfirmDescription": "Archived repair orders are final and cannot be reopened. This does not affect any already-received or issued parts.",
           "readOnlyNote": "You don't have permission to edit this repair order."
+        },
+        "lines": {
+          "title": "Parts lines",
+          "subtitle": "The durable order-line list for this repair order. Not grouped by source document.",
+          "columns": {
+            "sku": "SKU",
+            "description": "Part / Description",
+            "ordered": "Ordered",
+            "received": "Received",
+            "outstanding": "Outstanding",
+            "available": "Available",
+            "unit": "Unit"
+          },
+          "emptyStateTitle": "No parts lines yet.",
+          "emptyStateSubtitle": "Lines are created automatically when this order is materialized from an approved Matcher session.",
+          "errors": {
+            "loadFailed": "Failed to load parts lines"
+          }
         },
         "newOrder": {
           "cta": "New repair order",

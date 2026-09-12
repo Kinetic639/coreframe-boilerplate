@@ -13,15 +13,20 @@ import { RepairOrdersService } from "@/server/services/repair-orders.service";
 import { ArrowLeft } from "lucide-react";
 import { RepairOrderStatusBadge } from "../_components/repair-order-status-badge";
 import { RepairOrderHeaderEditor } from "./_components/repair-order-header-editor";
+import { RepairOrderLinesList } from "./_components/repair-order-lines-list";
 
 type PageProps = { params: Promise<{ id: string }> };
 
 /**
  * Phase 7 -- the real RepairOrder header/detail view: editable business
  * fields, advisor display + reassignment (manage_all), lifecycle actions
- * (open/closed/archived), identity status. Deliberately still NOT lines,
- * source-document provenance, or warehouse detail -- those remain later
- * phases (8/9/10/11), per the work order's explicit scope boundary.
+ * (open/closed/archived), identity status.
+ *
+ * Phase 8 adds the logical RepairOrderLine list below the header (durable
+ * business lines -- SKU/part/ordered/received/outstanding/available --
+ * never grouped by source document). Source-document provenance and full
+ * warehouse receipt/issue detail remain later phases (9/10/11), per the
+ * work order's explicit scope boundary.
  */
 export default async function RepairOrderDetailPage({ params }: PageProps) {
   const { id } = await params;
@@ -51,7 +56,7 @@ export default async function RepairOrderDetailPage({ params }: PageProps) {
   const canManageOwn = checkPermission(snapshot, WORKSHOP_REPAIR_ORDERS_MANAGE_OWN);
   const canManageAll = checkPermission(snapshot, WORKSHOP_REPAIR_ORDERS_MANAGE_ALL);
 
-  const [orderResult, advisorCandidatesResult, ownAdvisorResult] = await Promise.all([
+  const [orderResult, advisorCandidatesResult, ownAdvisorResult, linesResult] = await Promise.all([
     RepairOrdersService.getByIdForWorkshop(supabase, orgId, branchId, id),
     canManageAll
       ? RepairOrdersService.listAdvisorCandidates(supabase, orgId)
@@ -59,6 +64,7 @@ export default async function RepairOrderDetailPage({ params }: PageProps) {
     canManageOwn && !canManageAll && context.user.user?.id
       ? RepairOrdersService.getOwnAdvisorContactId(supabase, orgId)
       : Promise.resolve({ success: true as const, data: null }),
+    RepairOrdersService.listRepairOrderLines(supabase, orgId, branchId, id),
   ]);
 
   if (!orderResult.success || !orderResult.data) {
@@ -68,6 +74,13 @@ export default async function RepairOrderDetailPage({ params }: PageProps) {
   const order = orderResult.data;
   const advisorCandidates = advisorCandidatesResult.success ? advisorCandidatesResult.data : [];
   const ownAdvisorContactId = ownAdvisorResult.success ? ownAdvisorResult.data : null;
+  // A failed lines read must NOT look like a genuinely empty order, and
+  // must NOT fail the whole page -- the header above loaded fine either
+  // way. Only this boolean crosses into the UI; the already-normalized
+  // (never raw) error string stays server-side, matching the Workshop list
+  // page's own established loadError convention.
+  const lines = linesResult.success ? linesResult.data : [];
+  const linesLoadError = !linesResult.success;
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -95,6 +108,8 @@ export default async function RepairOrderDetailPage({ params }: PageProps) {
         createdAtLabel={new Date(order.createdAt).toLocaleString(locale)}
         updatedAtLabel={new Date(order.updatedAt).toLocaleString(locale)}
       />
+
+      <RepairOrderLinesList lines={lines} loadError={linesLoadError} />
 
       <p className="text-muted-foreground max-w-2xl text-xs">{t("detail.futurePhasesNote")}</p>
     </div>
