@@ -1,6 +1,6 @@
 # Zone 5 — Migration Summary
 
-**None of the six migrations below have been applied to any live or local database.** Supabase
+**None of the five migrations below have been applied to any live or local database.** Supabase
 MCP was unavailable for this entire implementation session (both passes); there was no running
 local Postgres/Docker stack either (see `review-context.md` for the exact evidence). Every row's
 "Live verification" and "Local/live parity" columns are therefore **BLOCKED ON MCP**, not
@@ -82,31 +82,51 @@ EACH ROW`.
 - **Constraints/FKs**: none added by this file.
 - **Trigger/RPC body — key behaviors implemented, matching the approved algorithm exactly**:
   1. Guard: ignores any `balance_field <> 'on_hand'`.
-  2. Zero-clears rule: unconditionally deletes any uncertainty marker for a bucket whose
-     `balance_after = 0`, even under the bypass flag.
-  3. Bypass check: `current_setting('ambra.repair_order_attribution_authoritative', true) =
+  2. Bypass check: `current_setting('ambra.repair_order_attribution_authoritative', true) =
 'on'` short-circuits the rest (duplicate-work suppression only, not authorization — see
-     `review-context.md` §G).
-  4. Fast no-op path when neither a projection row nor a marker exists for the bucket.
-  5. Marker-gate: an existing marker is re-affirmed/extended (never re-tested by math) — the
-     specific mechanism that makes "UNKNOWN is sticky, never self-heals from arithmetic
-     coincidence" true.
-  6. Pre-effect reconstruction from `NEW.balance_after`/`NEW.quantity`/`NEW.direction` only —
-     never a re-query of `inventory_balances`.
-  7. **[CORRECTED this pass]** The ambiguity test itself: locks the relevant
+     `review-context.md` §G). Even under the bypass, a `balance_after = 0` event still clears
+     the marker (the one action the bypass never needs to skip, since it is pure physical-truth
+     cleanup, not attribution inference).
+  3. Fast no-op path when neither a projection row nor a marker exists for the bucket.
+  4. Direction guard: only `direction = 'decrease'` rows are ever actionable (increases are
+     either the paired destination half of a transfer — handled by the paired decrease's own
+     invocation — or a pure receipt, which `receive_repair_order_stock` handles explicitly).
+  5. **[CORRECTED this pass — the critical zero-clear ordering fix]** `v_source_was_unknown` is
+     captured via `SELECT EXISTS(... FOR UPDATE)` **first, before any mutation whatsoever**. The
+     prior revision deleted the marker as its very first act whenever `balance_after = 0`,
+     destroying this signal before it could gate anything — risking either a spurious re-mark or,
+     worse, a coincidental arithmetic match propagating a _guessed_ attribution to a transfer's
+     destination. Now the "was this bucket UNKNOWN" fact is fixed in a local variable before
+     anything downstream can change it.
+  6. The ambiguity/math test (`v_confident_known`) only runs when `NOT v_source_was_unknown`
+     (1.6a: never test math against a bucket already known-uncertain). Locks the relevant
      `repair_order_line_locations` rows via a `WITH locked_rows AS (SELECT ... FOR UPDATE)` CTE,
      then aggregates (`sum`, `count(DISTINCT ...)`, and — via `max()` — the single line/RO id
-     when unambiguous) over that already-locked set in the same statement. The prior version
-     combined `sum()`/`count()` with `FOR UPDATE` directly on one query — **invalid PostgreSQL**
-     (the locking clause cannot be combined with aggregation at the same query level; in
-     practice this raises `ERROR: FOR UPDATE is not allowed with aggregate functions`). Confirmed
-     by direct reference to PostgreSQL's own SELECT/locking-clause documentation and by finding
-     zero precedent for this pattern anywhere else in the repo. This also eliminated a second,
-     separate, _unlocked_ re-SELECT the prior version used to fetch `v_line_id`/`v_ro_id` — now
-     captured from the same locked read.
-  8. On ambiguity: marks source, and destination too if transfer-shaped, UNKNOWN.
-  9. On unambiguity: decrements the one attributable row, credits the destination (if any) with
-     the same `repair_order_line_id`.
+     when unambiguous) over that already-locked set in the same statement — the aggregate+`FOR
+UPDATE` fix from the first correction round, unchanged and re-verified this pass. Pre-effect
+     on-hand is reconstructed from `NEW.balance_after + NEW.quantity` only — never a re-query of
+     `inventory_balances`.
+  7. **[NEW this pass — the zero-bucket-authoritative branch]** `NEW.balance_after = 0` is now its
+     own decisive branch, evaluated immediately after `v_confident_known` is computed and BEFORE
+     any of the generic marker-gate/math logic below it, and it never falls through into that
+     logic. Physical truth (on-hand is exactly zero) is authoritative regardless of prior
+     KNOWN/UNKNOWN state: **all** `repair_order_line_locations` rows for the exact bucket are
+     unconditionally deleted (not just the one row a normal decrement would touch — a stale or
+     mismatched-quantity row is wiped just the same) and the marker is unconditionally cleared.
+     If the movement is transfer-shaped (`v_dest IS NOT NULL`): the destination is credited with
+     real, known attribution **only if `v_confident_known` was true** (computed pre-wipe, from the
+     locked read in step 6) — otherwise (source was UNKNOWN, or was ambiguous/commingled) the
+     destination is marked UNKNOWN unconditionally, even if it had no prior attribution rows of
+     its own. A pure decrease to zero (`v_dest IS NULL`) simply clears the source; there is no
+     destination to consider.
+  8. Non-zero-result decrease (bucket still has stock remaining): unchanged in spirit from the
+     first correction round. If `v_source_was_unknown`, re-affirm at source and extend to
+     destination if transfer-shaped (never cleared merely because the math would look
+     unambiguous — no math is even attempted in this branch). Else, if not confidently known,
+     mark BOTH ends UNKNOWN if transfer-shaped, only the source if a pure decrease, leaving
+     existing projection rows untouched. Else (confidently known and non-zero remainder):
+     decrement the one attributable row and credit the destination (if any) with the same
+     `repair_order_line_id`.
 - **⚠ Disclosed verification gap (the single most important entry in this table)**: this
   migration's column references for `inventory_stock_ledger_entries`
   (`organization_id, branch_id, location_id, variant_id, movement_line_id, balance_field,

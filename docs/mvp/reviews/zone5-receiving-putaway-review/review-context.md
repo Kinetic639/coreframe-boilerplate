@@ -1,13 +1,48 @@
 # Zone 5 — Receiving/Putaway: External Review Context
 
-This bundle covers the Zone 5 implementation, including a correction pass applied after external
-review of the first bundle, against the architecture approved across six prior planning/
-correction rounds (see `docs/mvp/zones/05-receiving-putaway-implementation-plan.md` for the full
-design record). Read `changed-files.md` for the file manifest and `migration-summary.md` for
-per-migration detail; this document explains the _why_ behind each piece and lists the
-reviewer's checklist.
+This bundle covers the Zone 5 implementation, including two correction passes applied after
+external review of the first and second bundles, against the architecture approved across six
+prior planning/correction rounds (see `docs/mvp/zones/05-receiving-putaway-implementation-plan.md`
+for the full design record). Read `changed-files.md` for the file manifest and
+`migration-summary.md` for per-migration detail; this document explains the _why_ behind each
+piece and lists the reviewer's checklist.
 
-## Corrections applied this pass (in response to external review of the first bundle)
+## Corrections applied in the second correction pass (in response to external review of the corrected bundle)
+
+1. **Fixed a critical trigger correctness bug (zero-clear ordering)**: the prior revision deleted
+   the source bucket's UNKNOWN marker as its very first act whenever `balance_after = 0`,
+   destroying the "was this bucket UNKNOWN before this event" signal before it could gate
+   anything — risking either a spurious re-mark or, worse, a coincidental arithmetic match
+   propagating a _guessed_ attribution to a transfer's destination. Fixed by capturing
+   `v_source_was_unknown` first (before any mutation) and treating `balance_after = 0` as its own
+   decisive, physical-truth-authoritative branch — see §E below for the exact resulting
+   semantics, and `migration-summary.md` §3 for the full guard-by-guard breakdown.
+2. **Added 4 new real regression pgTAP scenarios** (A–D, tests 15–25 in file `095`) plus one
+   additional assertion (9b) proving ALL projection rows are wiped on a zero-clear, not just the
+   marker — see §Q below. `plan()` in file `095` went from 14 to 26.
+3. **Fixed a latent, previously-uncaught `plan()`/assertion-count mismatch** in test file `097`
+   (declared `plan(6)`, 7 real assertions existed) — found via a mechanical cross-check run this
+   pass, unrelated to the trigger bug itself.
+4. **Fixed the RepairOrder detail page conflating a real load error with "zero received lines"**
+   — `/dashboard/workshop/[id]` now branches explicitly on success/failure instead of collapsing
+   both to an empty array, and shows a compact, non-leaking error banner
+   (`data-testid="received-lines-error"`) when the read genuinely fails.
+5. **Implemented the receiving-location admin UI control**, previously deferred as a "backend
+   fixed, UI deferred" item in the first correction pass. A new, small, self-contained
+   `LocationPurposeControl` component (calling `getLocationPurposeAction`/`updateLocationAction`
+   directly) is wired into the existing `location-detail-panel.tsx`, deliberately independent of
+   the large, pre-existing `LogicalLocation`/capabilities visual model to avoid conflating the new
+   `purpose` column with that model's own, unrelated `canReceive` concept. `WarehouseLocationsService.update()`
+   also gained constraint-name disambiguation so the new unique/CHECK violations surface distinct,
+   safe messages instead of a generic duplicate-code error.
+6. **Corrected migration-count wording** throughout this bundle and the progress tracker — five
+   migration files, not six.
+
+None of these corrections touch the underlying architecture decisions from the six approved
+planning rounds, nor any decision already locked in by the first correction pass — they are
+implementation-quality fixes, not design changes.
+
+## Corrections applied in the first correction pass (in response to external review of the first bundle)
 
 1. **Fixed an invalid PostgreSQL construct**: the attribution-sync trigger's ambiguity test
    combined an aggregate (`sum`/`count`) with `FOR UPDATE` in one query — not valid Postgres.
@@ -20,7 +55,8 @@ reviewer's checklist.
    when applicable.
 5. **Receiving-location admin backend fixed and tested** (`updateLocationSchema` +
    `WarehouseLocationsService.update` now genuinely persist `purpose`); a visible toggle in the
-   actual location-edit UI is explicitly deferred — see "Pitch limitations" below.
+   actual location-edit UI was deferred at this point in the process — implemented in the second
+   correction pass, see the section above.
 6. **Added a DB-level stockable-receiving invariant.**
 7. **Closed an unnecessary cross-tenant metadata-lookup surface** (`resolve_branch_receiving_location`
    no longer grants `authenticated` EXECUTE).
@@ -73,6 +109,29 @@ RepairOrder-aware RPC write never clears a bucket-wide marker.
 See `migration-summary.md` §3 for the exact ordered list of guards/branches, and the migration
 file itself (`20260912092000_...trigger.sql`) for the literal PL/pgSQL, written to match the
 approved plan's own pseudocode line-for-line.
+
+**Zero-bucket semantics (final, this pass)** — `NEW.balance_after = 0` is its own decisive branch,
+evaluated before and never falling through into the generic marker-gate/math logic, because
+whether the source was already UNKNOWN (`v_source_was_unknown`) and whether the math resolved
+confidently (`v_confident_known`) are both captured _before_ any row is touched:
+
+- **UNKNOWN + pure decrease to zero** (no destination): marker and all projection rows for the
+  bucket are wiped; nothing else happens — there is no destination to consider. (Scenario A,
+  tests 15–16.)
+- **UNKNOWN + transfer emptying the source** (destination present): source rows/marker wiped, and
+  the destination is marked UNKNOWN — never given a guessed attribution row, even though the
+  source bucket is now empty and even though the destination may have had zero prior rows of its
+  own. (Scenario B, tests 17–20.)
+- **KNOWN (unambiguous, single-line) + transfer emptying the source**: source rows wiped cleanly,
+  and the destination is credited with the _correct_ known attribution (the one line/RepairOrder
+  the pre-wipe locked read resolved to), with no unnecessary destination marker. (Scenario C,
+  tests 21–23.)
+- **Stale/mismatched quantity while UNKNOWN, decrease reaches zero**: the marker still clears and
+  the stale row is still wiped regardless of the mismatch — `balance_after = 0` is authoritative
+  over any prior row content, stale or not. (Scenario D, tests 24–25.)
+
+All four scenarios are new real pgTAP fixtures added this pass (file `095`, tests 15–25, using an
+isolated `fx2` fixture table) — not fake `pass()` placeholders.
 
 ## F. Pre-effect math
 
@@ -158,7 +217,7 @@ matching the slug that already gates `repair_order_line_movement_links` INSERT.
 
 ## P. Migrations
 
-Six files, all additive (see `migration-summary.md`). **None applied to any live/local
+Five files, all additive (see `migration-summary.md`). **None applied to any live/local
 database** — Supabase MCP was unavailable this entire session (confirmed via `ToolSearch`), no
 local Postgres/Docker alternative was available (`docker ps` failed — daemon not running), and
 this session deliberately did not fall back to the `supabase db push --db-url ...` CLI path that
@@ -168,10 +227,19 @@ judged outside this session's authority to decide alone.
 
 ## Q. Tests
 
-Six pgTAP files (60 assertions total across `093`–`097`, itemized in each file's own header),
-none executed (same MCP blocker). One vitest unit-test file (5 assertions), **executed, 5/5
-passing**, against a hand-written mocked Supabase client — real, if narrow, verification of the
-read model's own grouping/ordering/KNOWN-UNKNOWN logic.
+Five pgTAP files (62 assertions total across `093`–`097`, itemized in each file's own header),
+none executed (same MCP blocker). File `095` grew from 14 to 26 assertions this pass: one added
+assertion (9b, projection rows wiped on zero-clear, not just the marker) plus the four new
+zero-bucket regression scenarios A–D described in §E above (tests 15–25). File `097`'s `plan()`
+was also corrected from a stale `6` to the actual `7` assertions present (a latent bug, unrelated
+to the trigger fix, caught by this pass's mechanical `plan()`-vs-assertion-count cross-check).
+
+Application-side (vitest), **all executed and passing** against real component/action tests, not
+mocked-away placeholders: the RepairOrder detail page's load-error-vs-empty-state distinction (3
+tests), the new receiving-location `LocationPurposeControl` component (5 tests), and 2 new
+`WarehouseLocationsService` tests for the constraint-name disambiguation — in addition to the
+prior pass's read-model unit-test file (5 assertions, real Supabase-client mock, verifying the
+grouping/ordering/KNOWN-UNKNOWN logic).
 
 ## R. Manual/browser verification
 

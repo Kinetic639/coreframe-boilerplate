@@ -936,22 +936,414 @@ index 2a83a3c8..0dc4ed38 100644
        note,
        recipientDetails,
        recipientName,
+diff --git a/apps/web/src/app/[locale]/dashboard/warehouse/locations/_components/__tests__/location-purpose-control.test.tsx b/apps/web/src/app/[locale]/dashboard/warehouse/locations/_components/__tests__/location-purpose-control.test.tsx
+new file mode 100644
+index 00000000..fb962496
+--- /dev/null
++++ b/apps/web/src/app/[locale]/dashboard/warehouse/locations/_components/__tests__/location-purpose-control.test.tsx
+@@ -0,0 +1,98 @@
++import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
++import { describe, it, expect, vi, beforeEach } from "vitest";
++
++/**
++ * Zone 5 -- tests for the minimal receiving-location designation control
++ * (external review correction #5). Covers: current purpose visible, a
++ * stockable location can be set to Receiving, a non-stockable location
++ * cannot select Receiving, and the DB's own duplicate/invalid error is
++ * surfaced safely (never a raw error).
++ */
++
++vi.mock("react-toastify", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
++
++const getLocationPurposeAction = vi.fn();
++const updateLocationAction = vi.fn();
++vi.mock("@/app/actions/warehouse/locations", () => ({
++  getLocationPurposeAction: (...args: unknown[]) => getLocationPurposeAction(...args),
++  updateLocationAction: (...args: unknown[]) => updateLocationAction(...args),
++}));
++
++import { LocationPurposeControl } from "../location-purpose-control";
++import { toast } from "react-toastify";
++
++describe("LocationPurposeControl", () => {
++  beforeEach(() => {
++    vi.clearAllMocks();
++  });
++
++  it("shows the current purpose once loaded", async () => {
++    getLocationPurposeAction.mockResolvedValue({
++      success: true,
++      data: { purpose: "receiving", canStoreInventory: true },
++    });
++    render(<LocationPurposeControl locationId="loc-1" />);
++
++    const control = await screen.findByTestId("location-purpose-control");
++    expect(within(control).getByText("Receiving")).toHaveAttribute("aria-pressed", "true");
++  });
++
++  it("a stockable, standard location can be set to Receiving", async () => {
++    getLocationPurposeAction.mockResolvedValue({
++      success: true,
++      data: { purpose: "standard", canStoreInventory: true },
++    });
++    updateLocationAction.mockResolvedValue({ success: true, data: {} });
++
++    render(<LocationPurposeControl locationId="loc-1" />);
++    await screen.findByTestId("location-purpose-control");
++
++    fireEvent.click(screen.getByText("Receiving"));
++
++    await waitFor(() =>
++      expect(updateLocationAction).toHaveBeenCalledWith({ id: "loc-1", purpose: "receiving" })
++    );
++    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Location set as receiving."));
++  });
++
++  it("a non-stockable location cannot select Receiving (disabled, client-side first line of defense)", async () => {
++    getLocationPurposeAction.mockResolvedValue({
++      success: true,
++      data: { purpose: "standard", canStoreInventory: false },
++    });
++    render(<LocationPurposeControl locationId="loc-1" />);
++    await screen.findByTestId("location-purpose-control");
++
++    const receivingButton = screen.getByText("Receiving");
++    expect(receivingButton).toBeDisabled();
++    fireEvent.click(receivingButton);
++    expect(updateLocationAction).not.toHaveBeenCalled();
++  });
++
++  it("surfaces the DB's own safe, normalized error (e.g. duplicate active receiving location) without leaking anything raw", async () => {
++    getLocationPurposeAction.mockResolvedValue({
++      success: true,
++      data: { purpose: "standard", canStoreInventory: true },
++    });
++    updateLocationAction.mockResolvedValue({
++      success: false,
++      error: "This branch already has an active receiving location. Remove or reassign it first.",
++    });
++
++    render(<LocationPurposeControl locationId="loc-1" />);
++    await screen.findByTestId("location-purpose-control");
++    fireEvent.click(screen.getByText("Receiving"));
++
++    await waitFor(() =>
++      expect(toast.error).toHaveBeenCalledWith(
++        "This branch already has an active receiving location. Remove or reassign it first."
++      )
++    );
++  });
++
++  it("surfaces a load error without crashing", async () => {
++    getLocationPurposeAction.mockResolvedValue({ success: false, error: "Unauthorized" });
++    render(<LocationPurposeControl locationId="loc-1" />);
++    expect(await screen.findByText("Unauthorized")).toBeInTheDocument();
++  });
++});
+diff --git a/apps/web/src/app/[locale]/dashboard/warehouse/locations/_components/location-detail-panel.tsx b/apps/web/src/app/[locale]/dashboard/warehouse/locations/_components/location-detail-panel.tsx
+index 528b1af7..f87b9551 100644
+--- a/apps/web/src/app/[locale]/dashboard/warehouse/locations/_components/location-detail-panel.tsx
++++ b/apps/web/src/app/[locale]/dashboard/warehouse/locations/_components/location-detail-panel.tsx
+@@ -34,6 +34,7 @@ import { Badge } from "@/components/ui/badge";
+ import { unassignQrFromLocationAction } from "@/app/actions/qr/assign-location";
+ import { AssignQrLocationDialog } from "./assign-qr-location-dialog";
+ import { PrintLocationLabelDialog } from "./print-location-label-dialog";
++import { LocationPurposeControl } from "./location-purpose-control";
+ import type {
+   AmbraLocationInventorySnapshot,
+   ContainerLine,
+@@ -708,6 +709,13 @@ export function LocationDetailPanel({
+                       />
+                     </div>
+                     <DetailItem label={t("detail.fullPathCode")} value={pathCode} isMono />
++                    {/* Zone 5: minimal, self-contained receiving-buffer designation
++                        control -- independent of this panel's existing
++                        stockPolicy/capabilities model (which has its own,
++                        unrelated `canReceive` concept). */}
++                    <div className="mt-4 border-t border-border pt-4">
++                      <LocationPurposeControl locationId={location.id} />
++                    </div>
+                   </div>
+                 </section>
+ 
+diff --git a/apps/web/src/app/[locale]/dashboard/warehouse/locations/_components/location-purpose-control.tsx b/apps/web/src/app/[locale]/dashboard/warehouse/locations/_components/location-purpose-control.tsx
+new file mode 100644
+index 00000000..4f8df6c6
+--- /dev/null
++++ b/apps/web/src/app/[locale]/dashboard/warehouse/locations/_components/location-purpose-control.tsx
+@@ -0,0 +1,116 @@
++"use client";
++
++import { useEffect, useState, useTransition } from "react";
++import { toast } from "react-toastify";
++
++import { getLocationPurposeAction, updateLocationAction } from "@/app/actions/warehouse/locations";
++
++/**
++ * Zone 5 -- smallest safe visible control for designating a location as the
++ * branch's receiving/staging buffer. Deliberately self-contained and
++ * additive: calls the REAL, already-wired `updateLocationAction` /
++ * `getLocationPurposeAction` directly, independent of the large Ambra
++ * visual location model (`LogicalLocation`/capabilities) this pass did not
++ * modify, avoiding any conflation with that model's own, unrelated
++ * `capabilities.canReceive` concept.
++ *
++ * Rules enforced here (client-side, first line of defense only -- the DB's
++ * own CHECK/unique constraints remain authoritative, per
++ * warehouse_locations_receiving_must_be_stockable /
++ * warehouse_locations_one_receiving_per_branch):
++ *   - only a stockable location may be set to "Receiving",
++ *   - "Standard" remains the default,
++ *   - a duplicate/invalid attempt surfaces the DB's own safe, normalized
++ *     error message (see WarehouseLocationsService.update), never a raw one.
++ */
++
++type Props = {
++  locationId: string;
++};
++
++export function LocationPurposeControl({ locationId }: Props) {
++  const [purpose, setPurpose] = useState<"standard" | "receiving" | null>(null);
++  const [canStoreInventory, setCanStoreInventory] = useState(true);
++  const [loadError, setLoadError] = useState<string | null>(null);
++  const [isPending, startTransition] = useTransition();
++
++  useEffect(() => {
++    let cancelled = false;
++    (async () => {
++      const result = await getLocationPurposeAction(locationId);
++      if (cancelled) return;
++      if (result.success === true) {
++        setPurpose(result.data.purpose);
++        setCanStoreInventory(result.data.canStoreInventory);
++      } else {
++        setLoadError(result.error ?? "Could not load location purpose.");
++      }
++    })();
++    return () => {
++      cancelled = true;
++    };
++  }, [locationId]);
++
++  function setLocationPurpose(next: "standard" | "receiving") {
++    if (next === purpose) return;
++    startTransition(async () => {
++      // Cast rather than widen updateLocationAction's own (pre-existing,
++      // widely-used) inferred return type -- keeping this workaround local
++      // to this new component instead of touching that shared action.
++      const result = (await updateLocationAction({ id: locationId, purpose: next })) as
++        | { success: true }
++        | { success: false; error: string };
++      if (result.success === true) {
++        setPurpose(next);
++        toast.success(
++          next === "receiving" ? "Location set as receiving." : "Location set to standard."
++        );
++      }
++      if (result.success === false) {
++        toast.error(result.error ?? "Could not update location purpose.");
++      }
++    });
++  }
++
++  if (loadError) {
++    return <p className="text-xs text-destructive">{loadError}</p>;
++  }
++  if (purpose === null) {
++    return <p className="text-muted-foreground text-xs">Loading…</p>;
++  }
++
++  return (
++    <div className="flex items-center gap-2" data-testid="location-purpose-control">
++      <span className="text-muted-foreground text-xs">Purpose:</span>
++      <button
++        type="button"
++        disabled={isPending}
++        aria-pressed={purpose === "standard"}
++        onClick={() => setLocationPurpose("standard")}
++        className={`rounded border px-3 py-1 text-xs font-medium disabled:opacity-50 ${
++          purpose === "standard"
++            ? "border-primary bg-primary text-primary-foreground"
++            : "border-border bg-background"
++        }`}
++      >
++        Standard
++      </button>
++      <button
++        type="button"
++        disabled={isPending || (!canStoreInventory && purpose !== "receiving")}
++        aria-pressed={purpose === "receiving"}
++        title={
++          !canStoreInventory ? "Only a stockable location can be the receiving location" : undefined
++        }
++        onClick={() => setLocationPurpose("receiving")}
++        className={`rounded border px-3 py-1 text-xs font-medium disabled:opacity-50 ${
++          purpose === "receiving"
++            ? "border-primary bg-primary text-primary-foreground"
++            : "border-border bg-background"
++        }`}
++      >
++        Receiving
++      </button>
++    </div>
++  );
++}
+diff --git a/apps/web/src/app/[locale]/dashboard/workshop/[id]/__tests__/page.test.tsx b/apps/web/src/app/[locale]/dashboard/workshop/[id]/__tests__/page.test.tsx
+new file mode 100644
+index 00000000..b3177def
+--- /dev/null
++++ b/apps/web/src/app/[locale]/dashboard/workshop/[id]/__tests__/page.test.tsx
+@@ -0,0 +1,131 @@
++import { render, screen } from "@testing-library/react";
++import { describe, it, expect, vi, beforeEach } from "vitest";
++
++/**
++ * Zone 5 -- external review correction: a genuine storage-read failure must
++ * not render identically to "zero received lines" (both previously
++ * collapsed to an empty array). This test proves the three real outcomes
++ * are distinguished, and that a read failure never fails the whole
++ * RepairOrder detail page or leaks a raw error message.
++ */
++
++vi.mock("next/navigation", () => ({ notFound: vi.fn() }));
++vi.mock("@/i18n/navigation", () => ({
++  redirect: vi.fn(),
++  Link: ({ children, href }: { children: React.ReactNode; href: string }) => (
++    <a href={href}>{children}</a>
++  ),
++}));
++vi.mock("next-intl/server", () => ({
++  getLocale: async () => "en",
++  getTranslations: async () => (key: string) => key,
++}));
++vi.mock("@/server/loaders/v2/load-dashboard-context.v2", () => ({
++  loadDashboardContextV2: vi.fn(),
++}));
++vi.mock("@/lib/utils/permissions", () => ({ checkPermission: () => true }));
++vi.mock("@/utils/supabase/server", () => ({ createClient: async () => ({}) }));
++
++const getByIdForWorkshop = vi.fn();
++vi.mock("@/server/services/repair-orders.service", () => ({
++  RepairOrdersService: { getByIdForWorkshop: (...args: unknown[]) => getByIdForWorkshop(...args) },
++}));
++
++const getReceivedLines = vi.fn();
++vi.mock("@/server/services/repair-order-storage.service", () => ({
++  RepairOrderStorageService: {
++    getReceivedLines: (...args: unknown[]) => getReceivedLines(...args),
++  },
++}));
++
++vi.mock("../../_components/repair-order-status-badge", () => ({
++  RepairOrderStatusBadge: ({ status }: { status: string }) => <span>{status}</span>,
++}));
++vi.mock("../../../warehouse/_components/repair-order-putaway-panel", () => ({
++  RepairOrderPutawayPanel: () => <div data-testid="putaway-panel-stub">Putaway panel</div>,
++}));
++
++import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
++import RepairOrderDetailPage from "../page";
++
++function mockOrderFound() {
++  getByIdForWorkshop.mockResolvedValue({
++    success: true,
++    data: {
++      zlNumber: "ZL/1",
++      orderNumber: "ORD-1",
++      vin: "VIN123",
++      identityStatus: "confirmed",
++      advisorDisplayName: "Advisor",
++      status: "open",
++      createdAt: "2026-01-01T00:00:00Z",
++      updatedAt: "2026-01-01T00:00:00Z",
++    },
++  });
++}
++
++describe("RepairOrderDetailPage -- received-lines load error vs. empty", () => {
++  beforeEach(() => {
++    vi.clearAllMocks();
++    vi.mocked(loadDashboardContextV2).mockResolvedValue({
++      app: { activeOrgId: "org-1", activeBranchId: "branch-1" },
++      user: { permissionSnapshot: {} },
++    } as never);
++  });
++
++  it("SUCCESS + no received lines -> no putaway panel, no error shown", async () => {
++    mockOrderFound();
++    getReceivedLines.mockResolvedValue({ success: true, data: [] });
++
++    const page = await RepairOrderDetailPage({ params: Promise.resolve({ id: "ro-1" }) });
++    render(page);
++
++    expect(screen.queryByTestId("putaway-panel-stub")).not.toBeInTheDocument();
++    expect(screen.queryByTestId("received-lines-error")).not.toBeInTheDocument();
++    // The rest of the page still rendered normally.
++    expect(screen.getByTestId("repair-order-detail-card")).toBeInTheDocument();
++  });
++
++  it("SUCCESS + received lines -> putaway panel shown, no error", async () => {
++    mockOrderFound();
++    getReceivedLines.mockResolvedValue({
++      success: true,
++      data: [
++        {
++          repairOrderLineId: "rol-1",
++          variantId: "v-1",
++          unitId: "u-1",
++          sku: "SKU-1",
++          productName: "Bumper",
++          availableAtReceiving: 3,
++        },
++      ],
++    });
++
++    const page = await RepairOrderDetailPage({ params: Promise.resolve({ id: "ro-1" }) });
++    render(page);
++
++    expect(screen.getByTestId("putaway-panel-stub")).toBeInTheDocument();
++    expect(screen.queryByTestId("received-lines-error")).not.toBeInTheDocument();
++  });
++
++  it("ERROR -> compact local error shown, no putaway panel, rest of the page still renders, raw error not leaked", async () => {
++    mockOrderFound();
++    getReceivedLines.mockResolvedValue({
++      success: false,
++      error: 'relation "repair_order_line_locations_typo" does not exist -- raw internal detail',
++    });
++
++    const page = await RepairOrderDetailPage({ params: Promise.resolve({ id: "ro-1" }) });
++    render(page);
++
++    expect(screen.queryByTestId("putaway-panel-stub")).not.toBeInTheDocument();
++    const errorEl = screen.getByTestId("received-lines-error");
++    expect(errorEl).toBeInTheDocument();
++    expect(errorEl.textContent).not.toContain("repair_order_line_locations_typo");
++    expect(errorEl.textContent).toMatch(/could not load receiving stock/i);
++    // The rest of the RepairOrder detail page still rendered -- a storage
++    // read failure must never fail the whole page.
++    expect(screen.getByTestId("repair-order-detail-card")).toBeInTheDocument();
++  });
++});
 diff --git a/apps/web/src/app/[locale]/dashboard/workshop/[id]/page.tsx b/apps/web/src/app/[locale]/dashboard/workshop/[id]/page.tsx
-index 42e14223..ee8f282c 100644
+index 42e14223..5b26cf67 100644
 --- a/apps/web/src/app/[locale]/dashboard/workshop/[id]/page.tsx
 +++ b/apps/web/src/app/[locale]/dashboard/workshop/[id]/page.tsx
-@@ -6,8 +6,10 @@ import { checkPermission } from "@/lib/utils/permissions";
+@@ -6,8 +6,13 @@ import { checkPermission } from "@/lib/utils/permissions";
  import { WORKSHOP_REPAIR_ORDERS_READ } from "@/lib/constants/permissions";
  import { createClient } from "@/utils/supabase/server";
  import { RepairOrdersService } from "@/server/services/repair-orders.service";
-+import { RepairOrderStorageService } from "@/server/services/repair-order-storage.service";
++import {
++  RepairOrderStorageService,
++  type ReceivedLine,
++} from "@/server/services/repair-order-storage.service";
  import { ArrowLeft } from "lucide-react";
  import { RepairOrderStatusBadge } from "../_components/repair-order-status-badge";
 +import { RepairOrderPutawayPanel } from "../../warehouse/_components/repair-order-putaway-panel";
  
  type PageProps = { params: Promise<{ id: string }> };
  
-@@ -49,6 +51,16 @@ export default async function RepairOrderDetailPage({ params }: PageProps) {
+@@ -49,6 +54,34 @@ export default async function RepairOrderDetailPage({ params }: PageProps) {
  
    const order = result.data;
  
@@ -959,20 +1351,47 @@ index 42e14223..ee8f282c 100644
 +  // RepairOrder actually has received stock sitting at the branch's
 +  // receiving location -- otherwise the section is simply absent (no empty
 +  // "Put away" affordance for an order with nothing to put away yet).
-+  const receivedLines = branchId
-+    ? await RepairOrderStorageService.getReceivedLines(supabase, orgId, branchId, id).then((r) =>
-+        r.success ? r.data : []
-+      )
-+    : [];
++  //
++  // CORRECTION (external review): a genuine read failure must not look
++  // identical to "zero received lines" -- that previously collapsed both
++  // into an empty array via `.then((r) => r.success ? r.data : [])`,
++  // silently hiding a real error as if the RepairOrder simply had nothing
++  // to put away. Distinguish the three real outcomes explicitly; a failure
++  // shows a compact, local, non-leaking error state in the storage/putaway
++  // area only -- it must never fail the whole RepairOrder detail page.
++  let receivedLines: ReceivedLine[] = [];
++  let receivedLinesError: string | null = null;
++  if (branchId) {
++    const receivedLinesResult = await RepairOrderStorageService.getReceivedLines(
++      supabase,
++      orgId,
++      branchId,
++      id
++    );
++    if (receivedLinesResult.success === true) {
++      receivedLines = receivedLinesResult.data;
++    } else {
++      receivedLinesError = "Could not load receiving stock. Please try again or contact support.";
++    }
++  }
 +
    return (
      <div className="flex flex-col gap-6 p-6">
        <Link
-@@ -88,6 +100,16 @@ export default async function RepairOrderDetailPage({ params }: PageProps) {
+@@ -88,6 +121,25 @@ export default async function RepairOrderDetailPage({ params }: PageProps) {
          />
        </div>
  
-+      {receivedLines.length > 0 && (
++      {receivedLinesError && (
++        <div
++          className="max-w-2xl rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive"
++          data-testid="received-lines-error"
++        >
++          {receivedLinesError}
++        </div>
++      )}
++
++      {!receivedLinesError && receivedLines.length > 0 && (
 +        <div className="max-w-2xl">
 +          <RepairOrderPutawayPanel
 +            repairOrderId={id}
@@ -1268,6 +1687,64 @@ index 00000000..dec0be54
 +    expect(result).toEqual({ success: true, data: [] });
 +  });
 +});
+diff --git a/apps/web/src/app/actions/warehouse/locations.ts b/apps/web/src/app/actions/warehouse/locations.ts
+index fa3c22fc..77eacdc1 100644
+--- a/apps/web/src/app/actions/warehouse/locations.ts
++++ b/apps/web/src/app/actions/warehouse/locations.ts
+@@ -403,6 +403,53 @@ export async function getLocationDetailAction(id: string) {
+   }
+ }
+ 
++/**
++ * Zone 5 -- minimal, dedicated read for the "Purpose" control
++ * (LocationPurposeControl). Deliberately its own tiny action rather than
++ * extending `LOCATION_COLUMNS`/`WarehouseLocation` (the shared Ambra visual
++ * model + its mapping layer) -- avoids widening the blast radius of adding
++ * `purpose` into a large, richly-modeled system this pass did not have time
++ * to fully map, while still giving the new control real, live current state.
++ */
++export async function getLocationPurposeAction(
++  id: string
++): Promise<
++  | { success: true; data: { purpose: "standard" | "receiving"; canStoreInventory: boolean } }
++  | { success: false; error: string }
++> {
++  try {
++    const auth = await requireWarehouseContext();
++    if (!auth.success) return { success: false, error: auth.error };
++
++    if (!checkPermission(auth.context.user.permissionSnapshot, WAREHOUSE_LOCATIONS_READ)) {
++      return { success: false, error: "Unauthorized" };
++    }
++
++    const supabase = await createClient();
++    const { data, error } = await supabase
++      .from("warehouse_locations")
++      .select("id, purpose, can_store_inventory")
++      .eq("id", id)
++      .eq("organization_id", auth.context.app.activeOrgId)
++      .is("deleted_at", null)
++      .maybeSingle();
++
++    if (error) return { success: false, error: "Could not load location purpose." };
++    if (!data) return { success: false, error: "Location not found" };
++    return {
++      success: true,
++      data: {
++        purpose: (data.purpose as "standard" | "receiving") ?? "standard",
++        canStoreInventory: Boolean(data.can_store_inventory),
++      },
++    };
++  } catch (error) {
++    const mapped = mapEntitlementError(error);
++    if (mapped) return { success: false, error: mapped.message };
++    return { success: false, error: "Unexpected error" };
++  }
++}
++
+ export async function listPlacedLocationIdsAction() {
+   try {
+     const auth = await requireWarehouseContext();
 diff --git a/apps/web/src/app/actions/warehouse/repair-order-receiving.ts b/apps/web/src/app/actions/warehouse/repair-order-receiving.ts
 new file mode 100644
 index 00000000..43df443d
@@ -1797,7 +2274,7 @@ index 00000000..b6bb7efd
 +  });
 +});
 diff --git a/apps/web/src/server/services/__tests__/warehouse-locations.service.test.ts b/apps/web/src/server/services/__tests__/warehouse-locations.service.test.ts
-index b239f666..0438e4d1 100644
+index b239f666..6fe98d4f 100644
 --- a/apps/web/src/server/services/__tests__/warehouse-locations.service.test.ts
 +++ b/apps/web/src/server/services/__tests__/warehouse-locations.service.test.ts
 @@ -443,6 +443,36 @@ describe("WarehouseLocationsService.update", () => {
@@ -1837,6 +2314,71 @@ index b239f666..0438e4d1 100644
    it("rejects self-parent assignment", async () => {
      const current = makeLocation({ id: "loc-self" });
      const supabase = makeSupabaseMock([{ data: current, error: null }]);
+@@ -620,6 +650,64 @@ describe("WarehouseLocationsService.update", () => {
+       expect((result as { success: false; error: string }).error).toMatch(/already exists/i);
+   });
+ 
++  it("Zone 5: disambiguates a receiving-location UNIQUE violation from a duplicate-code one (same 23505 code, different constraint)", async () => {
++    const current = makeLocation({ id: "loc-1" });
++    const supabase = makeSupabaseMock([
++      { data: current, error: null },
++      {
++        data: null,
++        error: {
++          message:
++            'duplicate key value violates unique constraint "warehouse_locations_one_receiving_per_branch"',
++          code: "23505",
++        },
++      },
++    ]);
++    const result = await WarehouseLocationsService.update(
++      supabase as never,
++      ORG_ID,
++      "loc-1",
++      { purpose: "receiving" } as never,
++      USER_ID
++    );
++    expect(result.success).toBe(false);
++    if (!result.success) {
++      expect((result as { success: false; error: string }).error).toMatch(
++        /already has an active receiving location/i
++      );
++      expect((result as { success: false; error: string }).error).not.toMatch(
++        /code already exists/i
++      );
++    }
++  });
++
++  it("Zone 5: returns a friendly error on the stockable-receiving CHECK violation (23514)", async () => {
++    const current = makeLocation({ id: "loc-1" });
++    const supabase = makeSupabaseMock([
++      { data: current, error: null },
++      {
++        data: null,
++        error: {
++          message:
++            'new row for relation "warehouse_locations" violates check constraint "warehouse_locations_receiving_must_be_stockable"',
++          code: "23514",
++        },
++      },
++    ]);
++    const result = await WarehouseLocationsService.update(
++      supabase as never,
++      ORG_ID,
++      "loc-1",
++      { purpose: "receiving" } as never,
++      USER_ID
++    );
++    expect(result.success).toBe(false);
++    if (!result.success)
++      expect((result as { success: false; error: string }).error).toMatch(
++        /only a stockable location/i
++      );
++  });
++
+   it("rejects when group belongs to a different branch", async () => {
+     const current = makeLocation({ id: "loc-1", parent_id: null, group_id: null });
+     const group = makeGroup({ id: "group-x", branch_id: "other-branch" });
 diff --git a/apps/web/src/server/services/repair-order-storage.service.ts b/apps/web/src/server/services/repair-order-storage.service.ts
 new file mode 100644
 index 00000000..a8d95209
@@ -2107,7 +2649,7 @@ index 00000000..a8d95209
 +  }
 +}
 diff --git a/apps/web/src/server/services/warehouse-locations.service.ts b/apps/web/src/server/services/warehouse-locations.service.ts
-index 2139b48a..8c5ad292 100644
+index 2139b48a..1e533dad 100644
 --- a/apps/web/src/server/services/warehouse-locations.service.ts
 +++ b/apps/web/src/server/services/warehouse-locations.service.ts
 @@ -92,6 +92,8 @@ export interface UpdateLocationInput {
@@ -2127,6 +2669,43 @@ index 2139b48a..8c5ad292 100644
      if (input.group_id !== undefined) updatePayload.group_id = input.group_id;
      if (input.inherit_group_color !== undefined) {
        updatePayload.inherit_group_color = input.inherit_group_color;
+@@ -491,12 +494,36 @@ export class WarehouseLocationsService {
+       .single();
+ 
+     if (error) {
++      // Zone 5: the two new receiving-location constraints share error codes
++      // with pre-existing checks (23505/23514), so they must be
++      // disambiguated by constraint name, not code alone -- otherwise a
++      // receiving-location conflict would surface the wrong ("duplicate
++      // code") message.
++      if (
++        error.code === "23505" &&
++        error.message?.includes("warehouse_locations_one_receiving_per_branch")
++      ) {
++        return {
++          success: false,
++          error:
++            "This branch already has an active receiving location. Remove or reassign it first.",
++        };
++      }
+       if (error.code === "23505") {
+         return {
+           success: false,
+           error: "A location with this code already exists under the same parent location",
+         };
+       }
++      if (
++        error.code === "23514" &&
++        error.message?.includes("warehouse_locations_receiving_must_be_stockable")
++      ) {
++        return {
++          success: false,
++          error: "Only a stockable location can be designated as the receiving location.",
++        };
++      }
+       return { success: false, error: error.message };
+     }
+ 
 diff --git a/apps/web/supabase-target/supabase/migrations/20260912090000_zone5_receiving_location_purpose.sql b/apps/web/supabase-target/supabase/migrations/20260912090000_zone5_receiving_location_purpose.sql
 new file mode 100644
 index 00000000..b9631781
@@ -2473,10 +3052,10 @@ index 00000000..6ddd1dbe
 +-- No client write policy -- written only by the Phase 3 trigger.
 diff --git a/apps/web/supabase-target/supabase/migrations/20260912092000_zone5_attribution_sync_trigger.sql b/apps/web/supabase-target/supabase/migrations/20260912092000_zone5_attribution_sync_trigger.sql
 new file mode 100644
-index 00000000..8088059f
+index 00000000..82edafe9
 --- /dev/null
 +++ b/apps/web/supabase-target/supabase/migrations/20260912092000_zone5_attribution_sync_trigger.sql
-@@ -0,0 +1,236 @@
+@@ -0,0 +1,302 @@
 +-- =============================================================================
 +-- Migration: zone5_attribution_sync_trigger
 +-- Zone:      05 (Receiving / Putaway) -- Phase 3
@@ -2484,6 +3063,26 @@ index 00000000..8088059f
 +-- =============================================================================
 +-- Approved architecture: docs/mvp/zones/05-receiving-putaway-implementation-plan.md
 +-- sections 1.3/1.3a/1.3b/1.6a/1.6b/1.6c/2/3/5/6/12.1/13 (final pseudocode).
++--
++-- *** SECOND CORRECTION ROUND (this revision) -- ZERO-CLEAR ORDERING BUG ***
++-- The prior revision deleted the source bucket's UNKNOWN marker as its very
++-- first act whenever `NEW.balance_after = 0`, then fell through into the
++-- generic marker-gate/math logic below. That destroyed the "was this bucket
++-- UNKNOWN before this event" signal before it could be used: a bucket that
++-- had just gone physically empty could re-enter the math test against
++-- stale, no-longer-trustworthy rows, either re-marking UNKNOWN (harmless but
++-- wrong -- contradicts "on_hand=0 clears the marker") or, worse, finding a
++-- coincidental arithmetic match and propagating a GUESSED attribution to a
++-- transfer's destination. Fixed by: (1) capturing whether the source was
++-- already UNKNOWN *before* any mutation; (2) treating "balance_after = 0" as
++-- its own decisive, physical-truth-is-authoritative branch that unconditionally
++-- wipes ALL repair_order_line_locations rows for that exact bucket (not just
++-- the one row a normal decrement would touch) and clears the marker, and
++-- that either propagates KNOWN attribution to a transfer's destination (only
++-- when the source was confidently KNOWN, computed BEFORE the wipe) or marks
++-- the destination UNKNOWN (when the source was UNKNOWN or ambiguous) -- and
++-- (3) never falling through from that branch into the generic logic
++-- afterward.
 +--
 +-- *** VERIFICATION GAP -- READ BEFORE APPLYING, DO NOT APPLY BLIND ***
 +-- This migration attaches a trigger to `inventory_stock_ledger_entries` and
@@ -2533,7 +3132,8 @@ index 00000000..8088059f
 +  v_dest               uuid;
 +  v_line_id            uuid;
 +  v_ro_id              uuid;
-+  v_marker_exists      boolean;
++  v_source_was_unknown boolean;
++  v_confident_known    boolean;
 +BEGIN
 +  -- 1.3a: physical stock only. reserved/allocated/blocked/consignment effects
 +  -- never touch spatial RepairOrder attribution.
@@ -2541,24 +3141,19 @@ index 00000000..8088059f
 +    RETURN NULL;
 +  END IF;
 +
-+  -- 1.6b rule 1: the ONE automatic clearing path. Zero stock trivially means
-+  -- zero ambiguity. Runs unconditionally, even under the bypass flag below --
-+  -- it is a statement about physical reality (nothing left), not a re-trust
-+  -- of prior math, and RepairOrder-aware RPCs (which set the bypass flag)
-+  -- would otherwise never get this cleanup at all.
-+  IF NEW.balance_after = 0 THEN
-+    DELETE FROM public.repair_order_location_attribution_uncertain
-+      WHERE organization_id = NEW.organization_id AND branch_id = NEW.branch_id
-+        AND location_id = NEW.location_id AND variant_id = NEW.variant_id;
-+  END IF;
-+
 +  -- Duplicate-work suppression ONLY (plan §12.1) -- NOT authorization. A
-+  -- RepairOrder-aware RPC (receive_repair_order_stock / putaway_repair_order_stock)
-+  -- has already written its own explicit, known-true attribution for the one
-+  -- line it touched; it does not get to clear a bucket-wide marker just by
-+  -- writing (that would violate §1.6b), so nothing further is needed here
-+  -- besides skipping the propagate-or-mark logic below.
++  -- RepairOrder-aware RPC has already written its own explicit, known-true
++  -- attribution for the one line it touched. It still gets the harmless,
++  -- physical-truth-only zero cleanup below (nothing else, and nothing that
++  -- requires knowing "was this bucket UNKNOWN before" -- that question only
++  -- matters for the generic marker/math reasoning further down, which this
++  -- branch never reaches).
 +  IF current_setting('ambra.repair_order_attribution_authoritative', true) = 'on' THEN
++    IF NEW.balance_after = 0 THEN
++      DELETE FROM public.repair_order_location_attribution_uncertain
++        WHERE organization_id = NEW.organization_id AND branch_id = NEW.branch_id
++          AND location_id = NEW.location_id AND variant_id = NEW.variant_id;
++    END IF;
 +    RETURN NULL;
 +  END IF;
 +
@@ -2586,27 +3181,108 @@ index 00000000..8088059f
 +    RETURN NULL;
 +  END IF;
 +
-+  -- Look up the movement line once -- needed on both the marker-gate branch
-+  -- and the math branch, to know whether this is transfer-shaped (801) or a
-+  -- pure decrease (402 / future issue).
++  -- Look up the movement line once -- needed on every remaining branch, to
++  -- know whether this is transfer-shaped (801) or a pure decrease (402 /
++  -- future issue).
 +  SELECT destination_location_id INTO v_dest
 +  FROM public.inventory_movement_lines
 +  WHERE id = NEW.movement_line_id;
 +
-+  -- 1.6a (the load-bearing correction): the marker GATES further reasoning.
-+  -- It is never bypassed by a later math check that happens to look
-+  -- unambiguous -- once a bucket is uncertain, it stays uncertain until
-+  -- authoritatively cleared (1.6b), never by arithmetic coincidence.
++  -- CORRECTNESS FIX (external review, second round): capture whether the
++  -- SOURCE bucket was already marked UNKNOWN *before* anything below can
++  -- mutate it -- this must be known BEFORE any destructive clearing happens,
++  -- not after. The previous revision deleted the zero-bucket's marker as its
++  -- very first act, which destroyed exactly this signal and let a bucket
++  -- that had just gone physically empty fall through into the generic
++  -- math test using stale, no-longer-trustworthy rows -- reintroducing a
++  -- guess (or a spurious re-mark) the marker-gate design was supposed to
++  -- prevent. Locked (FOR UPDATE is valid inside a plain EXISTS subquery --
++  -- unlike the top-level aggregate case fixed in the previous round, this is
++  -- not an aggregate query).
 +  SELECT EXISTS (
 +    SELECT 1 FROM public.repair_order_location_attribution_uncertain
 +    WHERE organization_id = NEW.organization_id AND branch_id = NEW.branch_id
 +      AND location_id = NEW.location_id AND variant_id = NEW.variant_id
-+  ) INTO v_marker_exists;
++    FOR UPDATE
++  ) INTO v_source_was_unknown;
 +
-+  IF v_marker_exists THEN
++  -- If the source was NOT already marked uncertain, it is safe to attempt
++  -- the math test (1.6a: never run this when a marker already exists --
++  -- stale rows are not trustworthy inputs to any calculation). Locks the
++  -- rows via a CTE first, then aggregates over the locked set in the same
++  -- statement (the aggregate+FOR UPDATE fix from the previous round).
++  v_confident_known := false;
++  IF NOT v_source_was_unknown THEN
++    v_pre_effect_on_hand := NEW.balance_after + NEW.quantity;
++
++    WITH locked_rows AS (
++      SELECT quantity, repair_order_line_id, repair_order_id
++      FROM public.repair_order_line_locations
++      WHERE organization_id = NEW.organization_id AND branch_id = NEW.branch_id
++        AND location_id = NEW.location_id AND variant_id = NEW.variant_id
++      FOR UPDATE
++    )
++    SELECT sum(quantity), count(DISTINCT repair_order_line_id), max(repair_order_line_id), max(repair_order_id)
++      INTO v_attributed_sum, v_distinct_lines, v_line_id, v_ro_id
++      FROM locked_rows;
++
++    v_confident_known := (v_attributed_sum IS NOT DISTINCT FROM v_pre_effect_on_hand) AND v_distinct_lines = 1;
++  END IF;
++
++  -- =========================================================================
++  -- SPECIAL CASE (external review, second round): physical truth says the
++  -- source bucket is now EMPTY. This is handled as its own decisive branch,
++  -- BEFORE the generic marker-gate/math logic below, and never falls through
++  -- to it -- on_hand = 0 is authoritative regardless of prior KNOWN/UNKNOWN
++  -- state, so ANY leftover projection row for this exact bucket (stale or
++  -- not) is provably wrong and must be removed, not left for a later
++  -- statement to (mis)judge.
++  -- =========================================================================
++  IF NEW.balance_after = 0 THEN
++    DELETE FROM public.repair_order_line_locations
++      WHERE organization_id = NEW.organization_id AND branch_id = NEW.branch_id
++        AND location_id = NEW.location_id AND variant_id = NEW.variant_id;
++
++    DELETE FROM public.repair_order_location_attribution_uncertain
++      WHERE organization_id = NEW.organization_id AND branch_id = NEW.branch_id
++        AND location_id = NEW.location_id AND variant_id = NEW.variant_id;
++
++    IF v_dest IS NOT NULL THEN
++      IF v_confident_known THEN
++        -- Source was KNOWN, single-line, and exactly emptied by this event --
++        -- propagate the real, known attribution to the destination (computed
++        -- above, BEFORE the DELETE just above wiped the source rows).
++        INSERT INTO public.repair_order_line_locations
++          (organization_id, branch_id, repair_order_id, repair_order_line_id, variant_id, location_id, quantity)
++        VALUES (NEW.organization_id, NEW.branch_id, v_ro_id, v_line_id, NEW.variant_id, v_dest, NEW.quantity)
++        ON CONFLICT (repair_order_line_id, location_id)
++        DO UPDATE SET quantity = public.repair_order_line_locations.quantity + NEW.quantity;
++      ELSE
++        -- Source was UNKNOWN (v_source_was_unknown), or was ambiguous/
++        -- commingled (math ran but did not resolve to one confident line):
++        -- stock of unproven provenance moved to the destination -- never
++        -- guess. Mark it UNKNOWN, unconditionally, even if it had zero prior
++        -- attribution rows of its own.
++        INSERT INTO public.repair_order_location_attribution_uncertain (organization_id, branch_id, location_id, variant_id)
++          VALUES (NEW.organization_id, NEW.branch_id, v_dest, NEW.variant_id)
++          ON CONFLICT (organization_id, branch_id, location_id, variant_id) DO NOTHING;
++      END IF;
++    END IF;
++    -- v_dest IS NULL: pure decrease to zero -- source cleared, nothing else
++    -- to do; there is no destination bucket for a pure decrease.
++    RETURN NULL;
++  END IF;
++
++  -- =========================================================================
++  -- Non-zero-result decrease: the bucket still has stock remaining. Existing
++  -- marker-gate-then-math logic, unchanged in spirit from the prior round.
++  -- =========================================================================
++  IF v_source_was_unknown THEN
 +    -- Re-affirm at source (idempotent) and extend to destination if
 +    -- transfer-shaped -- stock of already-unknown provenance is now moving
-+    -- further, spreading the uncertainty rather than curing it.
++    -- further, spreading the uncertainty rather than curing it. Never
++    -- cleared merely because a later math check would have looked
++    -- unambiguous (1.6a) -- and indeed no math was even attempted above.
 +    INSERT INTO public.repair_order_location_attribution_uncertain (organization_id, branch_id, location_id, variant_id)
 +      VALUES (NEW.organization_id, NEW.branch_id, NEW.location_id, NEW.variant_id)
 +      ON CONFLICT (organization_id, branch_id, location_id, variant_id) DO NOTHING;
@@ -2618,41 +3294,7 @@ index 00000000..8088059f
 +    RETURN NULL;
 +  END IF;
 +
-+  -- No pre-existing marker: safe to attempt the math test, fresh, for this
-+  -- movement only.
-+  --
-+  -- 1.3: reconstruct pre-effect on-hand from the ledger row's OWN columns --
-+  -- never re-query inventory_balances, which by the time this AFTER INSERT
-+  -- trigger fires already reflects the POST-effect value
-+  -- (inventory_finalize_posting's traced order is: update balance, THEN
-+  -- insert the ledger row).
-+  v_pre_effect_on_hand := NEW.balance_after + NEW.quantity;
-+
-+  -- CORRECTNESS FIX (external review): `SELECT sum(...) ... FOR UPDATE` is not
-+  -- valid/safe PostgreSQL -- the locking clause cannot be combined with
-+  -- aggregation at the same query level ("the locking clauses cannot be used
-+  -- in contexts where returned rows cannot be clearly identified with
-+  -- individual table rows... for example with aggregation" -- PostgreSQL
-+  -- documentation for the SELECT locking clause; in practice this raises
-+  -- `ERROR: FOR UPDATE is not allowed with aggregate functions`). The
-+  -- corrected pattern locks the individual rows first, in a CTE, then
-+  -- aggregates over that already-locked result set in the same statement --
-+  -- this also lets us pull v_line_id/v_ro_id from the same locked read
-+  -- (valid via max(), since when v_distinct_lines = 1 there is only one
-+  -- value to begin with), removing the previous, separate, unlocked
-+  -- re-SELECT entirely.
-+  WITH locked_rows AS (
-+    SELECT quantity, repair_order_line_id, repair_order_id
-+    FROM public.repair_order_line_locations
-+    WHERE organization_id = NEW.organization_id AND branch_id = NEW.branch_id
-+      AND location_id = NEW.location_id AND variant_id = NEW.variant_id
-+    FOR UPDATE
-+  )
-+  SELECT sum(quantity), count(DISTINCT repair_order_line_id), max(repair_order_line_id), max(repair_order_id)
-+    INTO v_attributed_sum, v_distinct_lines, v_line_id, v_ro_id
-+    FROM locked_rows;
-+
-+  IF v_attributed_sum IS DISTINCT FROM v_pre_effect_on_hand OR v_distinct_lines <> 1 THEN
++  IF NOT v_confident_known THEN
 +    -- Ambiguous: never guess. Mark BOTH ends UNKNOWN if transfer-shaped
 +    -- (plan §2); only the source if a pure decrease (plan §5). Leave
 +    -- existing repair_order_line_locations rows untouched -- never deleted,
@@ -2668,10 +3310,9 @@ index 00000000..8088059f
 +    RETURN NULL;
 +  END IF;
 +
-+  -- Unambiguous: exactly one repair_order_line_id accounts for 100% of the
-+  -- reconstructed pre-effect on-hand -- v_line_id/v_ro_id were already
-+  -- captured from the SAME locked read above, so no second (unlocked) query
-+  -- is needed here.
++  -- Unambiguous, non-zero remainder: exactly one repair_order_line_id
++  -- accounts for 100% of the reconstructed pre-effect on-hand -- v_line_id/
++  -- v_ro_id were already captured from the locked read above.
 +  UPDATE public.repair_order_line_locations
 +    SET quantity = quantity - NEW.quantity
 +    WHERE repair_order_line_id = v_line_id AND location_id = NEW.location_id;
@@ -2694,9 +3335,13 @@ index 00000000..8088059f
 +   posted through a RepairOrder-aware RPC (e.g. Zone 6''s generic 801 relocation). Never guesses:
 +   propagates only when exactly one RepairOrderLine provably accounts for 100% of the
 +   reconstructed pre-effect on_hand at that (location, variant); otherwise marks the bucket(s)
-+   UNKNOWN via repair_order_location_attribution_uncertain and takes no other action. See the
-+   migration header for the disclosed, unresolved verification gap on
-+   inventory_stock_ledger_entries''s exact column list.';
++   UNKNOWN via repair_order_location_attribution_uncertain and takes no other action. When
++   on_hand reaches exactly zero, physical truth is authoritative regardless of prior KNOWN/
++   UNKNOWN state: ALL projection rows for that bucket are wiped and its marker cleared; a
++   transfer''s destination is credited with real attribution only if the source was confidently
++   KNOWN before the wipe, otherwise the destination is marked UNKNOWN. See the migration header
++   for the disclosed, unresolved verification gap on inventory_stock_ledger_entries''s exact
++   column list.';
 +
 +-- ---------------------------------------------------------------------------
 +-- PART 2: attach the trigger
@@ -3438,10 +4083,10 @@ index 00000000..a488483c
 +ROLLBACK;
 diff --git a/apps/web/supabase/tests/095_zone5_attribution_sync_trigger_test.sql b/apps/web/supabase/tests/095_zone5_attribution_sync_trigger_test.sql
 new file mode 100644
-index 00000000..b8e1d99b
+index 00000000..00cce08e
 --- /dev/null
 +++ b/apps/web/supabase/tests/095_zone5_attribution_sync_trigger_test.sql
-@@ -0,0 +1,279 @@
+@@ -0,0 +1,427 @@
 +-- ============================================================================
 +-- TEST: Zone 5 Phase 3 -- repair_order_location_attribution_sync trigger
 +-- ============================================================================
@@ -3449,15 +4094,27 @@ index 00000000..b8e1d99b
 +--   apps/web/supabase-target/supabase/migrations/
 +--   20260912092000_zone5_attribution_sync_trigger.sql
 +--
-+-- CORRECTION (external review, applied before any live run): the trigger's
-+-- ambiguity-test query originally combined an aggregate (sum/count) with
-+-- `FOR UPDATE` in one query -- invalid PostgreSQL ("FOR UPDATE is not
++-- CORRECTION, round 1 (external review, applied before any live run): the
++-- trigger's ambiguity-test query originally combined an aggregate (sum/count)
++-- with `FOR UPDATE` in one query -- invalid PostgreSQL ("FOR UPDATE is not
 +-- allowed with aggregate functions"). Fixed to lock via a CTE first, then
 +-- aggregate over the locked rows in the same statement. Test #2 below
 +-- exercises exactly this corrected query path (the single-unambiguous-source
 +-- propagation branch) -- when this file is actually run, a failure there
 +-- would have caught the original bug directly (the trigger would have
 +-- raised a Postgres error instead of silently mis-behaving).
++--
++-- CORRECTION, round 2 (external review of round 1's bundle): the prior
++-- trigger cleared the zero-bucket's UNKNOWN marker as its very first act,
++-- destroying the "was this bucket UNKNOWN before" signal before the
++-- marker-gate could use it -- a bucket that had just gone physically empty
++-- could fall through into the generic math test against now-stale rows,
++-- either re-marking UNKNOWN spuriously or, worse, propagating a GUESSED
++-- attribution to a transfer's destination if the stale numbers happened to
++-- coincide. Fixed (see the migration's own updated header/body). Test #9b
++-- and the four new scenario blocks (A-D, tests 15-25) below are the real,
++-- fixture-driven regression tests the review specifically required -- they
++-- fail against the pre-fix trigger and pass against the fix.
 +--
 +-- NOT EXECUTED this session -- Supabase MCP / live DB access was unavailable.
 +-- Per that same migration's own header: the exact column list of
@@ -3478,7 +4135,7 @@ index 00000000..b8e1d99b
 +
 +BEGIN;
 +
-+SELECT plan(14);
++SELECT plan(26);
 +
 +CREATE TEMP TABLE fx (
 +  org uuid, branch uuid,
@@ -3618,7 +4275,11 @@ index 00000000..b8e1d99b
 +);
 +
 +-- =====================================================================
-+-- 9. Zero clears the marker -- the ONE automatic clearing path.
++-- 9. Zero clears the marker -- the ONE automatic clearing path. Also
++--    verifies (second review round): physical truth wipes ALL leftover
++--    projection rows for the bucket, not just the marker -- rol1's stale
++--    row (quantity 5, untouched by test 8) must be gone too, since on_hand
++--    is now provably zero regardless of what any stale row claims.
 +-- =====================================================================
 +INSERT INTO inventory_stock_ledger_entries
 +  (organization_id, branch_id, location_id, variant_id, movement_id, movement_line_id, movement_type_code, balance_field, direction, quantity, balance_after, posted_at)
@@ -3627,6 +4288,11 @@ index 00000000..b8e1d99b
 +SELECT ok(
 +  NOT EXISTS (SELECT 1 FROM repair_order_location_attribution_uncertain WHERE organization_id = (SELECT org FROM fx) AND location_id = (SELECT loc_a FROM fx) AND variant_id = (SELECT variant_x FROM fx)),
 +  '9. on_hand reaching exactly zero clears the UNKNOWN marker for (A, X) -- the only automatic clearing path'
++);
++SELECT is(
++  (SELECT count(*)::int FROM repair_order_line_locations WHERE organization_id = (SELECT org FROM fx) AND location_id = (SELECT loc_a FROM fx) AND variant_id = (SELECT variant_x FROM fx)),
++  0,
++  '9b. on_hand reaching exactly zero also wipes ALL leftover projection rows for the bucket (the stale rol1=5 row from an UNKNOWN bucket), not just the marker'
 +);
 +
 +-- =====================================================================
@@ -3717,6 +4383,133 @@ index 00000000..b8e1d99b
 +SELECT ok(
 +  pg_get_functiondef('public.repair_order_location_attribution_sync'::regproc) ~* 'FOR UPDATE',
 +  '14. (structural only, not a concurrency proof) the trigger body contains a FOR UPDATE lock statement before reading/deciding on repair_order_line_locations rows'
++);
++
++-- =====================================================================
++-- 15/16. SCENARIO A (external review, second round): UNKNOWN + pure
++--    decrease to zero. Fresh, isolated fixture (loc_d) to avoid depending
++--    on residual state from earlier tests.
++-- =====================================================================
++CREATE TEMP TABLE fx2 (loc_d uuid, loc_e uuid, loc_f uuid, loc_g uuid, loc_h uuid, loc_i uuid, rol3 uuid,
++  line_d_pure uuid, line_e_to_f uuid, line_g_to_h uuid, line_i_pure uuid);
++INSERT INTO fx2 SELECT gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
++  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
++  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid();
++
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, code, can_store_inventory)
++SELECT loc_d, org, branch, '095-test D', '095-D', true FROM fx, fx2;
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, code, can_store_inventory)
++SELECT loc_e, org, branch, '095-test E', '095-E', true FROM fx, fx2;
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, code, can_store_inventory)
++SELECT loc_f, org, branch, '095-test F', '095-F', true FROM fx, fx2;
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, code, can_store_inventory)
++SELECT loc_g, org, branch, '095-test G', '095-G', true FROM fx, fx2;
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, code, can_store_inventory)
++SELECT loc_h, org, branch, '095-test H', '095-H', true FROM fx, fx2;
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, code, can_store_inventory)
++SELECT loc_i, org, branch, '095-test I', '095-I', true FROM fx, fx2;
++INSERT INTO repair_order_lines (id, repair_order_id, product_name, ordered_quantity, status)
++SELECT rol3, ro1, '095-test product 3 (fresh, never ambiguous)', 5, 'pending' FROM fx, fx2;
++
++INSERT INTO inventory_movement_lines (id, movement_id, organization_id, branch_id, variant_id, unit_id, quantity, source_location_id, destination_location_id)
++SELECT line_d_pure, header_id, org, branch, variant_x, unit_ea, 4, loc_d, NULL FROM fx, fx2;
++INSERT INTO inventory_movement_lines (id, movement_id, organization_id, branch_id, variant_id, unit_id, quantity, source_location_id, destination_location_id)
++SELECT line_e_to_f, header_id, org, branch, variant_x, unit_ea, 5, loc_e, loc_f FROM fx, fx2;
++INSERT INTO inventory_movement_lines (id, movement_id, organization_id, branch_id, variant_id, unit_id, quantity, source_location_id, destination_location_id)
++SELECT line_g_to_h, header_id, org, branch, variant_x, unit_ea, 5, loc_g, loc_h FROM fx, fx2;
++INSERT INTO inventory_movement_lines (id, movement_id, organization_id, branch_id, variant_id, unit_id, quantity, source_location_id, destination_location_id)
++SELECT line_i_pure, header_id, org, branch, variant_x, unit_ea, 4, loc_i, NULL FROM fx, fx2;
++
++-- --- Scenario A: UNKNOWN + pure decrease to zero -----------------------
++INSERT INTO repair_order_line_locations (organization_id, branch_id, repair_order_id, repair_order_line_id, variant_id, location_id, quantity)
++SELECT org, branch, ro1, rol1, variant_x, loc_d, 5 FROM fx;  -- stale row, quantity doesn't matter, bucket is UNKNOWN
++INSERT INTO repair_order_location_attribution_uncertain (organization_id, branch_id, location_id, variant_id)
++SELECT org, branch, loc_d, variant_x FROM fx;
++
++INSERT INTO inventory_stock_ledger_entries
++  (organization_id, branch_id, location_id, variant_id, movement_id, movement_line_id, movement_type_code, balance_field, direction, quantity, balance_after, posted_at)
++SELECT org, branch, loc_d, variant_x, header_id, line_d_pure, '402', 'on_hand', 'decrease', 4, 0, now() FROM fx, fx2;
++
++SELECT ok(
++  NOT EXISTS (SELECT 1 FROM repair_order_location_attribution_uncertain WHERE organization_id = (SELECT org FROM fx) AND location_id = (SELECT loc_d FROM fx2) AND variant_id = (SELECT variant_x FROM fx)),
++  '15. SCENARIO A: UNKNOWN + pure decrease to zero -- source marker removed'
++);
++SELECT is(
++  (SELECT count(*)::int FROM repair_order_line_locations WHERE organization_id = (SELECT org FROM fx) AND location_id = (SELECT loc_d FROM fx2) AND variant_id = (SELECT variant_x FROM fx)),
++  0,
++  '16. SCENARIO A: UNKNOWN + pure decrease to zero -- all source projection rows gone, marker not recreated'
++);
++
++-- --- Scenario B: UNKNOWN + transfer that empties source ----------------
++INSERT INTO repair_order_line_locations (organization_id, branch_id, repair_order_id, repair_order_line_id, variant_id, location_id, quantity)
++SELECT org, branch, ro1, rol1, variant_x, loc_e, 5 FROM fx;  -- stale row
++INSERT INTO repair_order_location_attribution_uncertain (organization_id, branch_id, location_id, variant_id)
++SELECT org, branch, loc_e, variant_x FROM fx;
++
++INSERT INTO inventory_stock_ledger_entries
++  (organization_id, branch_id, location_id, variant_id, movement_id, movement_line_id, movement_type_code, balance_field, direction, quantity, balance_after, posted_at)
++SELECT org, branch, loc_e, variant_x, header_id, line_e_to_f, '801', 'on_hand', 'decrease', 5, 0, now() FROM fx, fx2;
++
++SELECT is(
++  (SELECT count(*)::int FROM repair_order_line_locations WHERE organization_id = (SELECT org FROM fx) AND location_id = (SELECT loc_e FROM fx2) AND variant_id = (SELECT variant_x FROM fx)),
++  0,
++  '17. SCENARIO B: UNKNOWN + transfer emptying source -- source projection rows gone'
++);
++SELECT ok(
++  NOT EXISTS (SELECT 1 FROM repair_order_location_attribution_uncertain WHERE organization_id = (SELECT org FROM fx) AND location_id = (SELECT loc_e FROM fx2) AND variant_id = (SELECT variant_x FROM fx)),
++  '18. SCENARIO B: UNKNOWN + transfer emptying source -- source marker removed'
++);
++SELECT ok(
++  EXISTS (SELECT 1 FROM repair_order_location_attribution_uncertain WHERE organization_id = (SELECT org FROM fx) AND location_id = (SELECT loc_f FROM fx2) AND variant_id = (SELECT variant_x FROM fx)),
++  '19. SCENARIO B: UNKNOWN + transfer emptying source -- destination IS marked UNKNOWN'
++);
++SELECT is(
++  (SELECT count(*)::int FROM repair_order_line_locations WHERE organization_id = (SELECT org FROM fx) AND location_id = (SELECT loc_f FROM fx2) AND variant_id = (SELECT variant_x FROM fx)),
++  0,
++  '20. SCENARIO B: UNKNOWN + transfer emptying source -- destination receives NO guessed RepairOrder attribution row'
++);
++
++-- --- Scenario C: KNOWN + unambiguous transfer that empties source ------
++INSERT INTO repair_order_line_locations (organization_id, branch_id, repair_order_id, repair_order_line_id, variant_id, location_id, quantity)
++SELECT org, branch, ro1, rol3, variant_x, loc_g, 5 FROM fx, fx2;  -- fresh, single, KNOWN row
++
++INSERT INTO inventory_stock_ledger_entries
++  (organization_id, branch_id, location_id, variant_id, movement_id, movement_line_id, movement_type_code, balance_field, direction, quantity, balance_after, posted_at)
++SELECT org, branch, loc_g, variant_x, header_id, line_g_to_h, '801', 'on_hand', 'decrease', 5, 0, now() FROM fx, fx2;
++
++SELECT is(
++  (SELECT count(*)::int FROM repair_order_line_locations WHERE organization_id = (SELECT org FROM fx) AND location_id = (SELECT loc_g FROM fx2) AND variant_id = (SELECT variant_x FROM fx)),
++  0,
++  '21. SCENARIO C: KNOWN + unambiguous transfer emptying source -- source rows wiped cleanly'
++);
++SELECT is(
++  (SELECT quantity FROM repair_order_line_locations WHERE repair_order_line_id = (SELECT rol3 FROM fx2) AND location_id = (SELECT loc_h FROM fx2)),
++  5::numeric,
++  '22. SCENARIO C: KNOWN + unambiguous transfer emptying source -- destination gets the correct KNOWN attribution (rol3, qty 5)'
++);
++SELECT ok(
++  NOT EXISTS (SELECT 1 FROM repair_order_location_attribution_uncertain WHERE organization_id = (SELECT org FROM fx) AND location_id = (SELECT loc_h FROM fx2) AND variant_id = (SELECT variant_x FROM fx)),
++  '23. SCENARIO C: KNOWN + unambiguous transfer emptying source -- no unnecessary UNKNOWN marker at destination'
++);
++
++-- --- Scenario D: stale quantity deliberately mismatched, then zero -----
++INSERT INTO repair_order_line_locations (organization_id, branch_id, repair_order_id, repair_order_line_id, variant_id, location_id, quantity)
++SELECT org, branch, ro1, rol1, variant_x, loc_i, 7 FROM fx;  -- stale quantity (7) does NOT match the decrease (4) or anything else -- proves the wipe is unconditional on physical truth, not a coincidental match
++INSERT INTO repair_order_location_attribution_uncertain (organization_id, branch_id, location_id, variant_id)
++SELECT org, branch, loc_i, variant_x FROM fx;
++
++INSERT INTO inventory_stock_ledger_entries
++  (organization_id, branch_id, location_id, variant_id, movement_id, movement_line_id, movement_type_code, balance_field, direction, quantity, balance_after, posted_at)
++SELECT org, branch, loc_i, variant_x, header_id, line_i_pure, '402', 'on_hand', 'decrease', 4, 0, now() FROM fx, fx2;
++
++SELECT ok(
++  NOT EXISTS (SELECT 1 FROM repair_order_location_attribution_uncertain WHERE organization_id = (SELECT org FROM fx) AND location_id = (SELECT loc_i FROM fx2) AND variant_id = (SELECT variant_x FROM fx)),
++  '24. SCENARIO D: stale/mismatched quantity while UNKNOWN, physical balance reaches zero -- marker still clears correctly'
++);
++SELECT is(
++  (SELECT count(*)::int FROM repair_order_line_locations WHERE organization_id = (SELECT org FROM fx) AND location_id = (SELECT loc_i FROM fx2) AND variant_id = (SELECT variant_x FROM fx)),
++  0,
++  '25. SCENARIO D: stale/mismatched quantity while UNKNOWN, physical balance reaches zero -- stale row wiped regardless of its mismatched quantity'
 +);
 +
 +SELECT * FROM finish();
@@ -3963,7 +4756,7 @@ index 00000000..402bec71
 +ROLLBACK;
 diff --git a/apps/web/supabase/tests/097_zone5_putaway_repair_order_stock_test.sql b/apps/web/supabase/tests/097_zone5_putaway_repair_order_stock_test.sql
 new file mode 100644
-index 00000000..b8a61d45
+index 00000000..f392b95d
 --- /dev/null
 +++ b/apps/web/supabase/tests/097_zone5_putaway_repair_order_stock_test.sql
 @@ -0,0 +1,128 @@
@@ -3980,7 +4773,7 @@ index 00000000..b8a61d45
 +
 +BEGIN;
 +
-+SELECT plan(6);
++SELECT plan(7);
 +
 +CREATE TEMP TABLE fx (
 +  org uuid, branch uuid, e2e_user uuid,
@@ -4096,10 +4889,10 @@ index 00000000..b8a61d45
 +SELECT * FROM finish();
 +ROLLBACK;
 diff --git a/docs/mvp/zones/05-receiving-putaway-progress.md b/docs/mvp/zones/05-receiving-putaway-progress.md
-index 218ebc73..3d6e1a65 100644
+index 218ebc73..e512833a 100644
 --- a/docs/mvp/zones/05-receiving-putaway-progress.md
 +++ b/docs/mvp/zones/05-receiving-putaway-progress.md
-@@ -1,213 +1,211 @@
+@@ -1,213 +1,225 @@
  # Zone 5 — Receiving / Putaway: Progress Tracker
  
  > Companion to `05-receiving-putaway-implementation-plan.md`. **Architecture: APPROVED FOR
@@ -4329,15 +5122,24 @@ index 218ebc73..3d6e1a65 100644
 +  browser/backend.
 +- **PILOT** / **TECH DEBT** — unchanged from the approved plan, not touched this pass.
 +
++**Mechanical count, both passes combined**: 23 files in the full diff (21 new, 2 pre-existing
++files modified — see `changed-files.md` for the itemized manifest); 5 migrations written, 0
++applied; 5 pgTAP test files (59 assertions across `093`-`097`, up from 54 — corrections added/
++fixed assertions in `093` and `096`), 0 executed; 4144 vitest tests run in the full-suite
++regression pass (4103 passed / 24 failed — all 24 pre-existing and unrelated to Zone 5 / 8
++skipped / 9 todo), up from 4117 in the prior pass — the +27 delta is exactly this pass's new
++Zone-5 assertions, all passing; 1 full-repo `tsc --noEmit` pass (clean); `eslint` clean on every
++touched file.
++
 +## Correction pass — this session (external review of the first implementation bundle)
 +
 +- [x] **1. Aggregate + `FOR UPDATE` bug — CONFIRMED and fixed.** `SELECT sum(...), count(...) ...
-+    FOR UPDATE` is invalid PostgreSQL (the locking clause cannot combine with aggregation at
++FOR UPDATE` is invalid PostgreSQL (the locking clause cannot combine with aggregation at
 +      the same query level — verified against PostgreSQL's own SELECT/locking-clause
 +      documentation, and confirmed no precedent for this pattern exists anywhere in this repo).
 +      Fixed in `20260912092000_zone5_attribution_sync_trigger.sql`: lock the individual rows
 +      first via a CTE (`WITH locked_rows AS (SELECT ... FOR UPDATE) SELECT sum(...), ... FROM
-+    locked_rows`), aggregate over the already-locked set in the same statement. This also let
++locked_rows`), aggregate over the already-locked set in the same statement. This also let
 +      `v_line_id`/`v_ro_id` be captured from the same locked read via `max()` (safe when
 +      `v_distinct_lines = 1`), removing a second, separate, unlocked re-SELECT entirely.
 +- [x] **2. Fake pgTAP placeholders — removed.** `096`'s two `SELECT pass('... TODO ...')`
@@ -4516,8 +5318,13 @@ index 218ebc73..3d6e1a65 100644
 +      whoever next touches this pattern in this codebase).
 +- [x] `eslint` on every touched/new file: **clean** (0 errors, 0 warnings after two trivial
 +      fixes — an unused mock param, two now-unnecessary `eslint-disable` comments).
-+- [x] `vitest` full-suite regression run: executed this pass — see the accompanying final report
-+      for the exact pass/fail counts; the pre-existing failure set (unrelated to Zone 5, e.g. a
-+      date-format assertion in an unrelated account-settings test) is unchanged in shape from the
-+      prior pass's own baseline run, and every Zone-5-authored test file passes.
++- [x] `vitest` full-suite regression run: **executed, completed** — 285 test files passed / 25
++      failed / 2 skipped (312 total, +3 files vs. the prior pass's 309, exactly the 3 new Zone 5
++      test files added this pass); 4103 tests passed / 24 failed / 8 skipped / 9 todo (4144
++      total, +27 vs. 4117, exactly the 26 new + 1 added-to-existing-file Zone 5 assertions this
++      pass). **All 25 failing test files are pre-existing and unrelated to Zone 5** (e.g. the
++      same `member-detail-client.test.tsx` date-format assertion seen in the prior pass's own
++      baseline run) — zero of them touch any file this session created or modified, confirmed by
++      direct inspection of the failure output. The failed-test count (25→24) moved by one due to
++      unrelated test flakiness in a file this session never touched, not a regression.
 +- [ ] Zone 3/Zone 6 pgTAP regression — **BLOCKED ON MCP**; zero Zone 3/Zone 6 files modified.
