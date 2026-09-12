@@ -1,9 +1,309 @@
+diff --git a/apps/web/src/app/[locale]/dashboard/warehouse/_components/__tests__/repair-order-putaway-panel.test.tsx b/apps/web/src/app/[locale]/dashboard/warehouse/_components/__tests__/repair-order-putaway-panel.test.tsx
+new file mode 100644
+index 00000000..48d7a8c9
+--- /dev/null
++++ b/apps/web/src/app/[locale]/dashboard/warehouse/_components/__tests__/repair-order-putaway-panel.test.tsx
+@@ -0,0 +1,294 @@
++import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
++import { describe, it, expect, vi, beforeEach } from "vitest";
++
++/**
++ * Zone 5 Phase 5/7 -- component tests for RepairOrderPutawayPanel (external
++ * review correction: previously zero component tests existed). Covers the
++ * 9 scenarios the review specifically asked for: KNOWN actionable, UNKNOWN
++ * never confident, batch payload construction, partial quantity, manual
++ * destination selection, API failure, no-selection guard, success, and
++ * that error messages are surfaced as-is (normalization itself is proven
++ * at the action layer in repair-order-receiving.test.ts -- this file
++ * proves the panel doesn't further mangle or re-interpret them).
++ */
++
++vi.mock("react-toastify", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
++
++const getRepairOrderStorageSuggestionsAction = vi.fn();
++const putawayRepairOrderStockAction = vi.fn();
++vi.mock("@/app/actions/warehouse/repair-order-receiving", () => ({
++  getRepairOrderStorageSuggestionsAction: (...args: unknown[]) =>
++    getRepairOrderStorageSuggestionsAction(...args),
++  putawayRepairOrderStockAction: (...args: unknown[]) => putawayRepairOrderStockAction(...args),
++}));
++
++const listLocationsAction = vi.fn();
++vi.mock("@/app/actions/warehouse/locations", () => ({
++  listLocationsAction: () => listLocationsAction(),
++}));
++
++import { RepairOrderPutawayPanel, type PutawayLineInput } from "../repair-order-putaway-panel";
++import { toast } from "react-toastify";
++
++const lineA: PutawayLineInput = {
++  repairOrderLineId: "rol-1",
++  variantId: "var-1",
++  unitId: "unit-1",
++  sku: "SKU-1",
++  productName: "Bumper",
++  availableAtReceiving: 5,
++};
++const lineB: PutawayLineInput = {
++  repairOrderLineId: "rol-2",
++  variantId: "var-2",
++  unitId: "unit-2",
++  sku: "SKU-2",
++  productName: "Door handle",
++  availableAtReceiving: 3,
++};
++
++function setup(suggestions: unknown[] = [], locations: unknown[] = []) {
++  getRepairOrderStorageSuggestionsAction.mockResolvedValue({ success: true, data: suggestions });
++  listLocationsAction.mockResolvedValue({ success: true, data: locations });
++}
++
++describe("RepairOrderPutawayPanel", () => {
++  beforeEach(() => {
++    vi.clearAllMocks();
++  });
++
++  it("A. a KNOWN suggestion renders a working [Put here] button", async () => {
++    setup([
++      {
++        locationId: "loc-A",
++        locationCode: "A-01",
++        locationName: "Bin A-01",
++        distinctRepairOrderLines: 1,
++        currentQuantity: 5,
++        variants: [],
++        containerSummary: null,
++        attributionStatus: "known",
++      },
++    ]);
++    putawayRepairOrderStockAction.mockResolvedValue({ success: true, data: {} });
++
++    render(
++      <RepairOrderPutawayPanel
++        repairOrderId="ro-1"
++        repairOrderLabel="ZL/1"
++        receivedLines={[lineA]}
++      />
++    );
++
++    await waitFor(() =>
++      expect(screen.getByTestId("putaway-suggestion-known-loc-A")).toBeInTheDocument()
++    );
++    fireEvent.click(screen.getByTestId(`putaway-line-checkbox-${lineA.repairOrderLineId}`));
++    fireEvent.click(
++      within(screen.getByTestId("putaway-suggestion-known-loc-A")).getByText("Put here")
++    );
++
++    await waitFor(() => expect(putawayRepairOrderStockAction).toHaveBeenCalledTimes(1));
++    expect(putawayRepairOrderStockAction.mock.calls[0][0].destination_location_id).toBe("loc-A");
++  });
++
++  it("B. an UNKNOWN suggestion is NEVER rendered as a confident [Put here] target", async () => {
++    setup([
++      {
++        locationId: "loc-A",
++        locationCode: "A-01",
++        locationName: "Bin A-01",
++        distinctRepairOrderLines: 1,
++        currentQuantity: 5,
++        variants: [],
++        containerSummary: null,
++        attributionStatus: "known",
++      },
++      {
++        locationId: "loc-B",
++        locationCode: "B-02",
++        locationName: "Bin B-02",
++        distinctRepairOrderLines: 2,
++        currentQuantity: 9,
++        variants: [],
++        containerSummary: null,
++        attributionStatus: "unknown",
++      },
++    ]);
++
++    render(
++      <RepairOrderPutawayPanel
++        repairOrderId="ro-1"
++        repairOrderLabel="ZL/1"
++        receivedLines={[lineA]}
++      />
++    );
++
++    await waitFor(() =>
++      expect(screen.getByTestId("putaway-suggestions-unknown-banner")).toBeInTheDocument()
++    );
++    expect(screen.queryByTestId("putaway-suggestion-known-loc-B")).not.toBeInTheDocument();
++    // The banner communicates uncertainty, not a confident location card.
++    expect(screen.getByTestId("putaway-suggestions-unknown-banner").textContent).toMatch(
++      /requires verification/i
++    );
++  });
++
++  it("C/D. batch selection with partial quantity builds the correct per-line payload", async () => {
++    setup([], [{ id: "loc-manual", code: "B-02", name: "Bin B-02", can_store_inventory: true }]);
++    putawayRepairOrderStockAction.mockResolvedValue({ success: true, data: {} });
++
++    render(
++      <RepairOrderPutawayPanel
++        repairOrderId="ro-1"
++        repairOrderLabel="ZL/1"
++        receivedLines={[lineA, lineB]}
++      />
++    );
++    await waitFor(() => expect(listLocationsAction).toHaveBeenCalled());
++
++    fireEvent.click(screen.getByTestId(`putaway-line-checkbox-${lineA.repairOrderLineId}`));
++    fireEvent.click(screen.getByTestId(`putaway-line-checkbox-${lineB.repairOrderLineId}`));
++    // Partial quantity on line A: 3 of 5 available.
++    fireEvent.change(screen.getByTestId(`putaway-line-qty-${lineA.repairOrderLineId}`), {
++      target: { value: "3" },
++    });
++
++    fireEvent.change(screen.getByTestId("putaway-manual-location-select"), {
++      target: { value: "loc-manual" },
++    });
++    fireEvent.click(screen.getByText("Put here", { selector: "button" }));
++
++    await waitFor(() => expect(putawayRepairOrderStockAction).toHaveBeenCalledTimes(1));
++    const payload = putawayRepairOrderStockAction.mock.calls[0][0];
++    expect(payload.destination_location_id).toBe("loc-manual");
++    expect(payload.lines).toHaveLength(2);
++    expect(payload.lines).toEqual(
++      expect.arrayContaining([
++        expect.objectContaining({ repair_order_line_id: "rol-1", quantity: 3 }),
++        expect.objectContaining({ repair_order_line_id: "rol-2", quantity: 3 }), // full quantity, unedited
++      ])
++    );
++  });
++
++  it("E. the manual destination selector shows location code/name, never a raw UUID input", async () => {
++    setup([], [{ id: "loc-manual", code: "B-02", name: "Bin B-02", can_store_inventory: true }]);
++
++    render(
++      <RepairOrderPutawayPanel
++        repairOrderId="ro-1"
++        repairOrderLabel="ZL/1"
++        receivedLines={[lineA]}
++      />
++    );
++
++    await waitFor(() => expect(listLocationsAction).toHaveBeenCalled());
++    const select = await screen.findByTestId("putaway-manual-location-select");
++    expect(select.tagName).toBe("SELECT");
++    expect(screen.getByText("B-02 — Bin B-02")).toBeInTheDocument();
++    // No raw-UUID text input anywhere in the destination area.
++    expect(screen.queryByPlaceholderText(/location id/i)).not.toBeInTheDocument();
++  });
++
++  it("F. an API failure surfaces the action's own (already-normalized) error message, unmodified", async () => {
++    setup([], [{ id: "loc-x", code: "X-01", name: "Bin X-01", can_store_inventory: true }]);
++    putawayRepairOrderStockAction.mockResolvedValue({
++      success: false,
++      error:
++        "Putaway failed due to an unexpected server error. Please try again or contact support.",
++    });
++
++    render(
++      <RepairOrderPutawayPanel
++        repairOrderId="ro-1"
++        repairOrderLabel="ZL/1"
++        receivedLines={[lineA]}
++      />
++    );
++    await waitFor(() => expect(getRepairOrderStorageSuggestionsAction).toHaveBeenCalled());
++
++    fireEvent.click(screen.getByTestId(`putaway-line-checkbox-${lineA.repairOrderLineId}`));
++    fireEvent.change(screen.getByTestId("putaway-manual-location-select"), {
++      target: { value: "loc-x" },
++    });
++    fireEvent.click(screen.getByText("Put here", { selector: "button" }));
++
++    await waitFor(() =>
++      expect(toast.error).toHaveBeenCalledWith(
++        "Putaway failed due to an unexpected server error. Please try again or contact support."
++      )
++    );
++  });
++
++  it("G. submitting with no line selected is blocked client-side (no API call)", async () => {
++    setup([], [{ id: "loc-x", code: "X-01", name: "Bin X-01", can_store_inventory: true }]);
++    render(
++      <RepairOrderPutawayPanel
++        repairOrderId="ro-1"
++        repairOrderLabel="ZL/1"
++        receivedLines={[lineA]}
++      />
++    );
++    await waitFor(() => expect(getRepairOrderStorageSuggestionsAction).toHaveBeenCalled());
++
++    fireEvent.change(screen.getByTestId("putaway-manual-location-select"), {
++      target: { value: "loc-x" },
++    });
++    fireEvent.click(screen.getByText("Put here", { selector: "button" }));
++
++    expect(toast.error).toHaveBeenCalledWith("Select at least one received line to put away.");
++    expect(putawayRepairOrderStockAction).not.toHaveBeenCalled();
++  });
++
++  it("H. successful completion clears selection and shows a success toast", async () => {
++    setup([], [{ id: "loc-x", code: "X-01", name: "Bin X-01", can_store_inventory: true }]);
++    putawayRepairOrderStockAction.mockResolvedValue({ success: true, data: {} });
++    render(
++      <RepairOrderPutawayPanel
++        repairOrderId="ro-1"
++        repairOrderLabel="ZL/1"
++        receivedLines={[lineA]}
++      />
++    );
++    await waitFor(() => expect(getRepairOrderStorageSuggestionsAction).toHaveBeenCalled());
++
++    fireEvent.click(screen.getByTestId(`putaway-line-checkbox-${lineA.repairOrderLineId}`));
++    fireEvent.change(screen.getByTestId("putaway-manual-location-select"), {
++      target: { value: "loc-x" },
++    });
++    fireEvent.click(screen.getByText("Put here", { selector: "button" }));
++
++    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Stock put away."));
++    expect(
++      (screen.getByTestId(`putaway-line-checkbox-${lineA.repairOrderLineId}`) as HTMLInputElement)
++        .checked
++    ).toBe(false);
++  });
++
++  it("I. no capacity/percentage figure is ever rendered", async () => {
++    setup([
++      {
++        locationId: "loc-A",
++        locationCode: "A-01",
++        locationName: "Bin A-01",
++        distinctRepairOrderLines: 1,
++        currentQuantity: 5,
++        variants: [],
++        containerSummary: null,
++        attributionStatus: "known",
++      },
++    ]);
++    render(
++      <RepairOrderPutawayPanel
++        repairOrderId="ro-1"
++        repairOrderLabel="ZL/1"
++        receivedLines={[lineA]}
++      />
++    );
++    await waitFor(() =>
++      expect(screen.getByTestId("putaway-suggestion-known-loc-A")).toBeInTheDocument()
++    );
++    expect(screen.queryByText(/%/)).not.toBeInTheDocument();
++    expect(screen.queryByText(/capacity/i)).not.toBeInTheDocument();
++  });
++});
 diff --git a/apps/web/src/app/[locale]/dashboard/warehouse/_components/repair-order-putaway-panel.tsx b/apps/web/src/app/[locale]/dashboard/warehouse/_components/repair-order-putaway-panel.tsx
 new file mode 100644
-index 00000000..ec1721b8
+index 00000000..195583f7
 --- /dev/null
 +++ b/apps/web/src/app/[locale]/dashboard/warehouse/_components/repair-order-putaway-panel.tsx
-@@ -0,0 +1,230 @@
+@@ -0,0 +1,300 @@
 +"use client";
 +
 +import { useEffect, useState, useTransition } from "react";
@@ -13,26 +313,30 @@ index 00000000..ec1721b8
 +  getRepairOrderStorageSuggestionsAction,
 +  putawayRepairOrderStockAction,
 +} from "@/app/actions/warehouse/repair-order-receiving";
++import { listLocationsAction } from "@/app/actions/warehouse/locations";
 +import type { RepairOrderStorageSuggestion } from "@/server/services/repair-order-storage.service";
 +
 +/**
 + * Zone 5 Phase 5/7 -- minimal pitch putaway panel.
 + *
 + * Deliberately self-contained (no dependency on Zone 3's own RepairOrder
-+ * Workshop UI internals, which this session did not have time to fully map)
-+ * -- a parent page/panel passes in the lines currently sitting at the
-+ * receiving location for one RepairOrder, and this component shows
-+ * consolidate-first suggestions plus a manual-location fallback.
++ * Workshop UI internals) -- a parent page/panel passes in the lines
++ * currently sitting at the receiving location for one RepairOrder, and this
++ * component shows consolidate-first suggestions plus a location-picker
++ * fallback (reusing the existing `listLocationsAction`, not a raw UUID
++ * input -- external review correction).
 + *
 + * Explicitly does NOT show:
 + *   - any capacity/percentage figure (no real capacity model exists),
 + *   - container recommendations (PILOT scope),
-+ *   - an UNKNOWN suggestion rendered identically to a KNOWN one.
++ *   - an UNKNOWN suggestion rendered identically to a KNOWN one,
++ *   - QR/mobile scanning for location selection (PILOT scope).
 + *
 + * NOT verified against a live backend this session (no Supabase MCP / local
 + * DB) -- this component typechecks and its data-shape assumptions match the
-+ * exact DTO produced by RepairOrderStorageService (unit-tested separately),
-+ * but end-to-end/browser verification is a disclosed gap, not a hidden one.
++ * exact DTOs produced by RepairOrderStorageService and
++ * WarehouseLocationsService (both unit-tested separately), but end-to-end/
++ * browser verification is a disclosed gap, not a hidden one.
 + */
 +
 +export type PutawayLineInput = {
@@ -42,6 +346,13 @@ index 00000000..ec1721b8
 +  sku: string;
 +  productName: string;
 +  availableAtReceiving: number;
++};
++
++type LocationOption = {
++  id: string;
++  code: string | null;
++  name: string;
++  canStoreInventory?: boolean;
 +};
 +
 +type Props = {
@@ -61,6 +372,7 @@ index 00000000..ec1721b8
 +  const [loadError, setLoadError] = useState<string | null>(null);
 +  const [selectedLineIds, setSelectedLineIds] = useState<Set<string>>(new Set());
 +  const [quantities, setQuantities] = useState<Record<string, number>>({});
++  const [locationOptions, setLocationOptions] = useState<LocationOption[]>([]);
 +  const [manualLocationId, setManualLocationId] = useState<string>("");
 +  const [isPending, startTransition] = useTransition();
 +
@@ -82,6 +394,45 @@ index 00000000..ec1721b8
 +    };
 +  }, [repairOrderId]);
 +
++  useEffect(() => {
++    let cancelled = false;
++    (async () => {
++      const result = (await listLocationsAction()) as
++        | {
++            success: true;
++            data: Array<{
++              id: string;
++              code: string | null;
++              name: string;
++              can_store_inventory?: boolean;
++            }>;
++          }
++        | { success: false; error: string };
++      if (cancelled) return;
++      if (result.success === true) {
++        // Stockable locations only -- a non-stockable location is never a
++        // valid putaway destination (mirrors the RPC's own destination
++        // validation, so the picker doesn't offer something the RPC would
++        // reject anyway).
++        setLocationOptions(
++          result.data
++            .filter((l) => l.can_store_inventory !== false)
++            .map((l) => ({
++              id: l.id,
++              code: l.code,
++              name: l.name,
++              canStoreInventory: l.can_store_inventory,
++            }))
++        );
++      }
++      // A load failure here is non-fatal -- the picker just stays empty;
++      // KNOWN suggestions above still work independently.
++    })();
++    return () => {
++      cancelled = true;
++    };
++  }, []);
++
 +  function toggleLine(lineId: string, availableQty: number) {
 +    setSelectedLineIds((prev) => {
 +      const next = new Set(prev);
@@ -98,6 +449,10 @@ index 00000000..ec1721b8
 +  function submitPutaway(destinationLocationId: string) {
 +    if (selectedLineIds.size === 0) {
 +      toast.error("Select at least one received line to put away.");
++      return;
++    }
++    if (!destinationLocationId) {
++      toast.error("Choose a destination location.");
 +      return;
 +    }
 +    const lines = receivedLines
@@ -117,6 +472,7 @@ index 00000000..ec1721b8
 +      if (result.success === true) {
 +        toast.success("Stock put away.");
 +        setSelectedLineIds(new Set());
++        setManualLocationId("");
 +        onPutawayComplete?.();
 +      } else {
 +        toast.error(result.error ?? "Putaway failed");
@@ -134,11 +490,12 @@ index 00000000..ec1721b8
 +      </div>
 +
 +      {/* Received lines to select from */}
-+      <div className="space-y-1">
++      <div className="space-y-1" data-testid="putaway-received-lines">
 +        {receivedLines.map((line) => (
 +          <label key={line.repairOrderLineId} className="flex items-center gap-2 text-sm">
 +            <input
 +              type="checkbox"
++              data-testid={`putaway-line-checkbox-${line.repairOrderLineId}`}
 +              checked={selectedLineIds.has(line.repairOrderLineId)}
 +              onChange={() => toggleLine(line.repairOrderLineId, line.availableAtReceiving)}
 +            />
@@ -151,6 +508,7 @@ index 00000000..ec1721b8
 +              max={line.availableAtReceiving}
 +              step="any"
 +              disabled={!selectedLineIds.has(line.repairOrderLineId)}
++              data-testid={`putaway-line-qty-${line.repairOrderLineId}`}
 +              value={quantities[line.repairOrderLineId] ?? line.availableAtReceiving}
 +              onChange={(e) =>
 +                setQuantities((q) => ({ ...q, [line.repairOrderLineId]: Number(e.target.value) }))
@@ -177,12 +535,13 @@ index 00000000..ec1721b8
 +          </p>
 +        )}
 +
-+        <div className="space-y-2">
++        <div className="space-y-2" data-testid="putaway-suggestions">
 +          {suggestions
 +            ?.filter((s) => s.attributionStatus === "known")
 +            .map((s) => (
 +              <div
 +                key={s.locationId}
++                data-testid={`putaway-suggestion-known-${s.locationId}`}
 +                className="flex items-center justify-between rounded border border-border p-2"
 +              >
 +                <div>
@@ -204,7 +563,10 @@ index 00000000..ec1721b8
 +            ))}
 +
 +          {suggestions?.some((s) => s.attributionStatus === "unknown") && (
-+            <div className="rounded border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-400">
++            <div
++              data-testid="putaway-suggestions-unknown-banner"
++              className="rounded border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-400"
++            >
 +              Location attribution requires verification for{" "}
 +              {suggestions.filter((s) => s.attributionStatus === "unknown").length} location(s) —
 +              not shown as a confident suggestion above.
@@ -213,33 +575,705 @@ index 00000000..ec1721b8
 +        </div>
 +      </div>
 +
-+      {/* Manual fallback */}
++      {/* Location picker fallback -- reuses the existing locations list
++          (listLocationsAction), showing code/name, never a raw UUID input. */}
 +      <div className="flex items-center gap-2 border-t border-border pt-3">
-+        <input
-+          type="text"
-+          placeholder="Or enter another location ID"
++        <select
++          aria-label="Choose another location"
++          data-testid="putaway-manual-location-select"
 +          value={manualLocationId}
 +          onChange={(e) => setManualLocationId(e.target.value)}
 +          className="flex-1 rounded border border-border bg-background px-2 py-1 text-xs"
-+        />
++        >
++          <option value="">Choose another location…</option>
++          {locationOptions.map((l) => (
++            <option key={l.id} value={l.id}>
++              {l.code ? `${l.code} — ${l.name}` : l.name}
++            </option>
++          ))}
++        </select>
 +        <button
 +          type="button"
 +          disabled={isPending || !manualLocationId}
 +          onClick={() => submitPutaway(manualLocationId)}
 +          className="rounded border border-border px-3 py-1 text-xs font-medium disabled:opacity-50"
 +        >
-+          Choose another location
++          Put here
 +        </button>
 +      </div>
 +    </div>
 +  );
 +}
+diff --git a/apps/web/src/app/[locale]/dashboard/warehouse/inventory/movements/new/_components/movement-editor/__tests__/use-movement-submission.route-selection.test.ts b/apps/web/src/app/[locale]/dashboard/warehouse/inventory/movements/new/_components/movement-editor/__tests__/use-movement-submission.route-selection.test.ts
+new file mode 100644
+index 00000000..0026b559
+--- /dev/null
++++ b/apps/web/src/app/[locale]/dashboard/warehouse/inventory/movements/new/_components/movement-editor/__tests__/use-movement-submission.route-selection.test.ts
+@@ -0,0 +1,229 @@
++import { renderHook, waitFor } from "@testing-library/react";
++import { describe, expect, it, vi, beforeEach } from "vitest";
++
++/**
++ * Zone 5 Phase 4 wiring -- proves route selection in useMovementSubmission:
++ * a Save & Post of a NEW, type-101 movement with at least one
++ * source_line_id-carrying line goes through receiveRepairOrderStockAction;
++ * every other case (no source_line_id, a different movement type, or edit
++ * mode) goes through the existing, unmodified generic actions.
++ */
++
++const createAndPostMovementAction = vi.fn();
++const createDraftMovementAction = vi.fn();
++const saveDraftMovementAction = vi.fn();
++const saveAndPostDraftMovementAction = vi.fn();
++const receiveRepairOrderStockAction = vi.fn();
++
++vi.mock("@/app/actions/warehouse/inventory", () => ({
++  createAndPostMovementAction: (...args: unknown[]) => createAndPostMovementAction(...args),
++  createDraftMovementAction: (...args: unknown[]) => createDraftMovementAction(...args),
++  saveDraftMovementAction: (...args: unknown[]) => saveDraftMovementAction(...args),
++  saveAndPostDraftMovementAction: (...args: unknown[]) => saveAndPostDraftMovementAction(...args),
++}));
++vi.mock("@/app/actions/warehouse/repair-order-receiving", () => ({
++  receiveRepairOrderStockAction: (...args: unknown[]) => receiveRepairOrderStockAction(...args),
++}));
++vi.mock("next-intl", () => ({
++  useTranslations: () => (key: string) => key,
++}));
++vi.mock("@/i18n/navigation", () => ({
++  useRouter: () => ({ push: vi.fn() }),
++}));
++vi.mock("react-toastify", () => ({
++  toast: { error: vi.fn(), success: vi.fn() },
++}));
++
++// Imported after mocks are registered.
++import { useMovementSubmission } from "../use-movement-submission";
++import type { LineDraft, ValidationResult } from "../types";
++
++function makeLine(overrides: Partial<LineDraft> = {}): LineDraft {
++  return {
++    key: "k1",
++    origin: "manual",
++    variant_id: "variant-1",
++    unit_id: "unit-1",
++    sku: "SKU-1",
++    product_name: "Test product",
++    unit_code: "ea",
++    brand_name: null,
++    barcode: null,
++    quantity: "2",
++    on_hand_at_source: null,
++    source_location_id: "",
++    destination_location_id: "loc-recv",
++    note: null,
++    ...overrides,
++  };
++}
++
++const validValidation: ValidationResult = { isValid: true, allErrors: [] } as ValidationResult;
++
++describe("useMovementSubmission -- Zone 5 route selection", () => {
++  beforeEach(() => {
++    vi.clearAllMocks();
++    createAndPostMovementAction.mockResolvedValue({
++      success: true,
++      data: { document_number: "PZ/1" },
++    });
++    receiveRepairOrderStockAction.mockResolvedValue({
++      success: true,
++      data: { document_number: "PZ/2" },
++    });
++  });
++
++  it("A. routes a NEW 101 Save&Post with a source_line_id-carrying line through receiveRepairOrderStockAction", async () => {
++    const lines = [makeLine({ source_line_id: "matcher-line-1" })];
++    const { result } = renderHook(() =>
++      useMovementSubmission(
++        "create",
++        "101",
++        false,
++        "",
++        null,
++        "",
++        null,
++        "",
++        "",
++        "",
++        "loc-recv",
++        lines,
++        validValidation
++      )
++    );
++
++    result.current.submit(true);
++
++    await waitFor(() => expect(receiveRepairOrderStockAction).toHaveBeenCalledTimes(1));
++    expect(createAndPostMovementAction).not.toHaveBeenCalled();
++    const payload = receiveRepairOrderStockAction.mock.calls[0][0];
++    expect(payload.lines[0]).toMatchObject({
++      variant_id: "variant-1",
++      unit_id: "unit-1",
++      quantity: 2,
++      source_line_id: "matcher-line-1",
++    });
++  });
++
++  it("B. an ordinary 101 (no source_line_id on any line) still goes through the unchanged generic path", async () => {
++    const lines = [makeLine({ source_line_id: null })];
++    const { result } = renderHook(() =>
++      useMovementSubmission(
++        "create",
++        "101",
++        false,
++        "",
++        null,
++        "",
++        null,
++        "",
++        "",
++        "",
++        "loc-recv",
++        lines,
++        validValidation
++      )
++    );
++
++    result.current.submit(true);
++
++    await waitFor(() => expect(createAndPostMovementAction).toHaveBeenCalledTimes(1));
++    expect(receiveRepairOrderStockAction).not.toHaveBeenCalled();
++  });
++
++  it("C. a different movement type (e.g. 801) with a source_line_id never routes to receive_repair_order_stock", async () => {
++    const lines = [makeLine({ source_line_id: "matcher-line-1", source_location_id: "loc-a" })];
++    const { result } = renderHook(() =>
++      useMovementSubmission(
++        "create",
++        "801",
++        true,
++        "",
++        null,
++        "",
++        null,
++        "",
++        "",
++        "loc-a",
++        "loc-b",
++        lines,
++        validValidation
++      )
++    );
++
++    result.current.submit(true);
++
++    await waitFor(() => expect(createAndPostMovementAction).toHaveBeenCalledTimes(1));
++    expect(receiveRepairOrderStockAction).not.toHaveBeenCalled();
++  });
++
++  it("D. edit mode never routes to receive_repair_order_stock, even for a 101 with a source_line_id", async () => {
++    saveAndPostDraftMovementAction.mockResolvedValue({
++      success: true,
++      data: { document_number: "PZ/3" },
++    });
++    const lines = [makeLine({ source_line_id: "matcher-line-1" })];
++    const { result } = renderHook(() =>
++      useMovementSubmission(
++        "edit",
++        "101",
++        false,
++        "",
++        null,
++        "",
++        null,
++        "",
++        "",
++        "",
++        "loc-recv",
++        lines,
++        validValidation,
++        {
++          movementId: "m-1",
++          movementTypeCode: "101",
++          draftNumber: "DRF-1",
++          documentDate: "",
++          operationDate: "",
++          senderName: "",
++          recipientName: "",
++          externalReference: "",
++          note: "",
++          lines: [],
++        }
++      )
++    );
++
++    result.current.submit(true);
++
++    await waitFor(() => expect(saveAndPostDraftMovementAction).toHaveBeenCalledTimes(1));
++    expect(receiveRepairOrderStockAction).not.toHaveBeenCalled();
++  });
++
++  it("E. Save Draft (andPost=false) on a RepairOrder-resolvable 101 still uses the generic draft path (disclosed scope limit -- receive_repair_order_stock only supports create+post)", async () => {
++    createDraftMovementAction.mockResolvedValue({ success: true, data: { draft_number: "DRF-1" } });
++    const lines = [makeLine({ source_line_id: "matcher-line-1" })];
++    const { result } = renderHook(() =>
++      useMovementSubmission(
++        "create",
++        "101",
++        false,
++        "",
++        null,
++        "",
++        null,
++        "",
++        "",
++        "",
++        "loc-recv",
++        lines,
++        validValidation
++      )
++    );
++
++    result.current.submit(false);
++
++    await waitFor(() => expect(createDraftMovementAction).toHaveBeenCalledTimes(1));
++    expect(receiveRepairOrderStockAction).not.toHaveBeenCalled();
++  });
++});
+diff --git a/apps/web/src/app/[locale]/dashboard/warehouse/inventory/movements/new/_components/movement-editor/use-movement-submission.ts b/apps/web/src/app/[locale]/dashboard/warehouse/inventory/movements/new/_components/movement-editor/use-movement-submission.ts
+index 2a83a3c8..0dc4ed38 100644
+--- a/apps/web/src/app/[locale]/dashboard/warehouse/inventory/movements/new/_components/movement-editor/use-movement-submission.ts
++++ b/apps/web/src/app/[locale]/dashboard/warehouse/inventory/movements/new/_components/movement-editor/use-movement-submission.ts
+@@ -8,10 +8,33 @@ import {
+   saveDraftMovementAction,
+   saveAndPostDraftMovementAction,
+ } from "@/app/actions/warehouse/inventory";
++import { receiveRepairOrderStockAction } from "@/app/actions/warehouse/repair-order-receiving";
+ import type { MovementPartyDetails } from "@/lib/warehouse/inventory-types";
+ import { toMovementRouteKey } from "@/lib/warehouse/movement-route-key";
+ import type { LineDraft, MovementFormInitialValues, ValidationResult } from "./types";
+ 
++/**
++ * Zone 5 Phase 4 wiring (narrowest correct integration point, per external
++ * review): a NEW (not edit), Save & Post, movement-type-101 submission where
++ * at least one line carries a resolvable `source_line_id` (set by the
++ * Matcher import dialog -- see movement-import-dialog.tsx /
++ * use-movement-form-state.ts's applyImportedDocument, which already keeps
++ * this field in memory today, per the Zone 5 discovery pass) routes through
++ * the RepairOrder-aware receive_repair_order_stock RPC instead of the
++ * generic createAndPostMovementAction. Every other case -- draft-only saves,
++ * edit mode, any other movement type, or a plain 101 with no
++ * RepairOrder-resolvable line -- is completely unchanged and continues
++ * through the existing generic path below. This is a deliberately narrow
++ * scope: receive_repair_order_stock only supports immediate create+post
++ * (matching inventory_create_and_finalize), so draft-only RepairOrder
++ * receiving is not wired this pass and still uses the generic path (its
++ * attribution is simply not captured in that case -- a disclosed limitation,
++ * not a silent one).
++ */
++function hasResolvableSourceLine(lines: LineDraft[]): boolean {
++  return lines.some((l) => Boolean(l.source_line_id));
++}
++
+ export function useMovementSubmission(
+   mode: "create" | "edit",
+   typeCode: string,
+@@ -46,6 +69,20 @@ export function useMovementSubmission(
+     [lines, requiresSourceLocation, srcLoc, dstLoc]
+   );
+ 
++  /** Zone 5: same lines, but keeping source_line_id for the RepairOrder-aware
++   * receipt path (the generic buildLines() above deliberately excludes it,
++   * since the generic engine/movement editor has no concept of it). */
++  const buildReceiptLines = useCallback(
++    () =>
++      lines.map((l) => ({
++        variant_id: l.variant_id,
++        unit_id: l.unit_id,
++        quantity: Number(l.quantity),
++        source_line_id: l.source_line_id ?? null,
++      })),
++    [lines]
++  );
++
+   const submit = useCallback(
+     (andPost: boolean) => {
+       if (andPost && !validation.isValid) {
+@@ -105,7 +142,24 @@ export function useMovementSubmission(
+             idempotency_key: crypto.randomUUID(),
+             lines: ls,
+           };
+-          if (andPost) {
++          if (andPost && typeCode === "101" && hasResolvableSourceLine(lines)) {
++            // Zone 5 Phase 4: route through the RepairOrder-aware receipt RPC.
++            // Ordinary 101s (no source_line_id on any line) fall through to
++            // the unchanged generic path below.
++            const r = (await receiveRepairOrderStockAction({
++              lines: buildReceiptLines(),
++              external_reference: externalReference || null,
++              note: note || null,
++            })) as any;
++            if (!r.success) {
++              toast.error(r.error ?? t("failed"));
++              return;
++            }
++            toast.success(t("documentPosted", { number: r.data?.document_number ?? "" }));
++            router.push(
++              detailPath(r.data?.route_key ?? toMovementRouteKey(r.data?.document_number))
++            );
++          } else if (andPost) {
+             const r = (await createAndPostMovementAction(bp)) as any;
+             if (!r.success) {
+               toast.error(r.error ?? t("failed"));
+@@ -129,9 +183,11 @@ export function useMovementSubmission(
+     },
+     [
+       buildLines,
++      buildReceiptLines,
+       externalReference,
+       initialValues,
+       isEdit,
++      lines,
+       note,
+       recipientDetails,
+       recipientName,
+diff --git a/apps/web/src/app/[locale]/dashboard/workshop/[id]/page.tsx b/apps/web/src/app/[locale]/dashboard/workshop/[id]/page.tsx
+index 42e14223..ee8f282c 100644
+--- a/apps/web/src/app/[locale]/dashboard/workshop/[id]/page.tsx
++++ b/apps/web/src/app/[locale]/dashboard/workshop/[id]/page.tsx
+@@ -6,8 +6,10 @@ import { checkPermission } from "@/lib/utils/permissions";
+ import { WORKSHOP_REPAIR_ORDERS_READ } from "@/lib/constants/permissions";
+ import { createClient } from "@/utils/supabase/server";
+ import { RepairOrdersService } from "@/server/services/repair-orders.service";
++import { RepairOrderStorageService } from "@/server/services/repair-order-storage.service";
+ import { ArrowLeft } from "lucide-react";
+ import { RepairOrderStatusBadge } from "../_components/repair-order-status-badge";
++import { RepairOrderPutawayPanel } from "../../warehouse/_components/repair-order-putaway-panel";
+ 
+ type PageProps = { params: Promise<{ id: string }> };
+ 
+@@ -49,6 +51,16 @@ export default async function RepairOrderDetailPage({ params }: PageProps) {
+ 
+   const order = result.data;
+ 
++  // Zone 5 Phase 4/7 wiring: show a "Put away" panel only when this
++  // RepairOrder actually has received stock sitting at the branch's
++  // receiving location -- otherwise the section is simply absent (no empty
++  // "Put away" affordance for an order with nothing to put away yet).
++  const receivedLines = branchId
++    ? await RepairOrderStorageService.getReceivedLines(supabase, orgId, branchId, id).then((r) =>
++        r.success ? r.data : []
++      )
++    : [];
++
+   return (
+     <div className="flex flex-col gap-6 p-6">
+       <Link
+@@ -88,6 +100,16 @@ export default async function RepairOrderDetailPage({ params }: PageProps) {
+         />
+       </div>
+ 
++      {receivedLines.length > 0 && (
++        <div className="max-w-2xl">
++          <RepairOrderPutawayPanel
++            repairOrderId={id}
++            repairOrderLabel={order.zlNumber ?? t("detail.unresolvedTitle")}
++            receivedLines={receivedLines}
++          />
++        </div>
++      )}
++
+       <p className="text-muted-foreground max-w-2xl text-xs">{t("detail.futurePhasesNote")}</p>
+     </div>
+   );
+diff --git a/apps/web/src/app/actions/warehouse/__tests__/repair-order-receiving.test.ts b/apps/web/src/app/actions/warehouse/__tests__/repair-order-receiving.test.ts
+new file mode 100644
+index 00000000..dec0be54
+--- /dev/null
++++ b/apps/web/src/app/actions/warehouse/__tests__/repair-order-receiving.test.ts
+@@ -0,0 +1,277 @@
++import { describe, expect, it, vi, beforeEach } from "vitest";
++
++/**
++ * Zone 5 Phase 4/5/6 -- action-level tests (external review correction:
++ * "no action-level tests" previously). Covers permission gating, error
++ * normalization (allowlisted vs unexpected DB errors, never leaking raw
++ * SQL/relation/function names or provenance details), and success paths --
++ * without touching a real database (the auth/context layer and the
++ * Supabase client are both mocked).
++ */
++
++const requireWarehouseContext = vi.fn();
++const hasPermission = vi.fn();
++const requireActiveBranch = vi.fn();
++const userIdFrom = vi.fn();
++const mapUnexpected = vi.fn((_e: unknown) => ({
++  success: false as const,
++  error: "Unexpected error",
++}));
++
++vi.mock("../inventory/action-context", () => ({
++  requireWarehouseContext: () => requireWarehouseContext(),
++  hasPermission: (...args: unknown[]) => hasPermission(...args),
++  requireActiveBranch: (...args: unknown[]) => requireActiveBranch(...args),
++  userIdFrom: (...args: unknown[]) => userIdFrom(...args),
++  mapUnexpected: (e: unknown) => mapUnexpected(e),
++}));
++
++const rpcMock = vi.fn();
++vi.mock("@/utils/supabase/server", () => ({
++  createClient: async () => ({ rpc: rpcMock }),
++}));
++vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
++
++const getStorageSuggestions = vi.fn();
++vi.mock("@/server/services/repair-order-storage.service", () => ({
++  RepairOrderStorageService: {
++    getStorageSuggestions: (...args: unknown[]) => getStorageSuggestions(...args),
++  },
++}));
++
++import {
++  receiveRepairOrderStockAction,
++  putawayRepairOrderStockAction,
++  getRepairOrderStorageSuggestionsAction,
++} from "../repair-order-receiving";
++
++function mockAuthOk() {
++  requireWarehouseContext.mockResolvedValue({
++    success: true,
++    context: {
++      app: { activeOrgId: "org-1", activeBranchId: "branch-1" },
++      user: { user: { id: "user-1" } },
++    },
++  });
++  hasPermission.mockReturnValue(true);
++  requireActiveBranch.mockReturnValue({ success: true, branchId: "branch-1" });
++  userIdFrom.mockReturnValue("user-1");
++}
++
++const validLine = {
++  variant_id: "11111111-1111-1111-1111-111111111111",
++  unit_id: "22222222-2222-2222-2222-222222222222",
++  quantity: 1,
++};
++
++describe("receiveRepairOrderStockAction", () => {
++  beforeEach(() => {
++    vi.clearAllMocks();
++    mockAuthOk();
++  });
++
++  it("rejects when the caller lacks warehouse.inventory.operate/adjust", async () => {
++    hasPermission.mockReturnValue(false);
++    const result = await receiveRepairOrderStockAction({ lines: [validLine] });
++    expect(result).toEqual({ success: false, error: "Unauthorized" });
++    expect(rpcMock).not.toHaveBeenCalled();
++  });
++
++  it("rejects invalid input before ever calling the RPC", async () => {
++    const result = await receiveRepairOrderStockAction({ lines: [] });
++    expect(result.success).toBe(false);
++    expect(rpcMock).not.toHaveBeenCalled();
++  });
++
++  it("A. maps an allowlisted, known DB error through as-is (safe, deliberate message)", async () => {
++    rpcMock.mockResolvedValue({
++      data: null,
++      error: {
++        code: "P0002",
++        message:
++          "No active receiving location configured for this branch (organization_id=org-1, branch_id=branch-1). An admin must designate one on the Locations page before receiving can post.",
++      },
++    });
++    const result = await receiveRepairOrderStockAction({ lines: [validLine] });
++    expect(result.success).toBe(false);
++    if (result.success === true) return;
++    expect(result.error).toContain("No active receiving location configured");
++  });
++
++  it("B. the SAME SQLSTATE with a DIFFERENT (unrecognized) message is NOT leaked -- falls back to the generic message", async () => {
++    rpcMock.mockResolvedValue({
++      data: null,
++      // Same code (P0002) as an allowlisted entry, but a message that does
++      // not match that entry's pattern -- must not be passed through.
++      error: {
++        code: "P0002",
++        message: 'relation "inventory_secret_internal_table" does not exist',
++      },
++    });
++    const result = await receiveRepairOrderStockAction({ lines: [validLine] });
++    expect(result.success).toBe(false);
++    if (result.success === true) return;
++    expect(result.error).not.toContain("inventory_secret_internal_table");
++    expect(result.error).toContain("unexpected server error");
++  });
++
++  it("C. a completely unexpected DB error/code is never leaked to the client", async () => {
++    rpcMock.mockResolvedValue({
++      data: null,
++      error: {
++        code: "XX000",
++        message:
++          'duplicate key value violates unique constraint "repair_order_line_locations_pkey" DETAIL: Key (id)=(...) already exists.',
++      },
++    });
++    const result = await receiveRepairOrderStockAction({ lines: [validLine] });
++    expect(result.success).toBe(false);
++    if (result.success === true) return;
++    expect(result.error).not.toContain("repair_order_line_locations_pkey");
++    expect(result.error).not.toContain("duplicate key");
++    expect(result.error).toBe(
++      "Receiving failed due to an unexpected server error. Please try again or contact support."
++    );
++  });
++
++  it("succeeds and calls the RPC with the expected shape, including source_line_id passthrough", async () => {
++    rpcMock.mockResolvedValue({
++      data: { movement_id: "m-1", document_number: "PZ/1" },
++      error: null,
++    });
++    const result = await receiveRepairOrderStockAction({
++      lines: [{ ...validLine, source_line_id: "33333333-3333-3333-3333-333333333333" }],
++    });
++    expect(result).toEqual({
++      success: true,
++      data: { movement_id: "m-1", document_number: "PZ/1" },
++    });
++    expect(rpcMock).toHaveBeenCalledWith(
++      "receive_repair_order_stock",
++      expect.objectContaining({
++        p_organization_id: "org-1",
++        p_branch_id: "branch-1",
++        p_actor_user_id: "user-1",
++        p_lines: [
++          expect.objectContaining({ source_line_id: "33333333-3333-3333-3333-333333333333" }),
++        ],
++      })
++    );
++  });
++});
++
++describe("putawayRepairOrderStockAction", () => {
++  beforeEach(() => {
++    vi.clearAllMocks();
++    mockAuthOk();
++  });
++
++  const validPutawayLine = {
++    repair_order_line_id: "44444444-4444-4444-4444-444444444444",
++    ...validLine,
++  };
++
++  it("rejects when the caller lacks permission", async () => {
++    hasPermission.mockReturnValue(false);
++    const result = await putawayRepairOrderStockAction({
++      lines: [validPutawayLine],
++      destination_location_id: "55555555-5555-5555-5555-555555555555",
++    });
++    expect(result).toEqual({ success: false, error: "Unauthorized" });
++    expect(rpcMock).not.toHaveBeenCalled();
++  });
++
++  it("known error (insufficient attributed quantity) passes through as-is", async () => {
++    rpcMock.mockResolvedValue({
++      data: null,
++      error: {
++        code: "22023",
++        message:
++          "Line 1 requests 999 but only 3 is currently attributed to this RepairOrderLine at the receiving location",
++      },
++    });
++    const result = await putawayRepairOrderStockAction({
++      lines: [validPutawayLine],
++      destination_location_id: "55555555-5555-5555-5555-555555555555",
++    });
++    expect(result.success).toBe(false);
++    if (result.success === true) return;
++    expect(result.error).toContain("only 3 is currently attributed");
++  });
++
++  it("unexpected error is replaced with a generic, non-leaking message", async () => {
++    rpcMock.mockResolvedValue({
++      data: null,
++      error: {
++        code: "42P01",
++        message: 'column "secret_internal_column" of relation does not exist',
++      },
++    });
++    const result = await putawayRepairOrderStockAction({
++      lines: [validPutawayLine],
++      destination_location_id: "55555555-5555-5555-5555-555555555555",
++    });
++    expect(result.success).toBe(false);
++    if (result.success === true) return;
++    expect(result.error).not.toContain("secret_internal_column");
++    expect(result.error).toBe(
++      "Putaway failed due to an unexpected server error. Please try again or contact support."
++    );
++  });
++
++  it("succeeds and posts one document for one destination", async () => {
++    rpcMock.mockResolvedValue({
++      data: { movement_id: "m-2", document_number: "MM/1" },
++      error: null,
++    });
++    const result = await putawayRepairOrderStockAction({
++      lines: [validPutawayLine],
++      destination_location_id: "55555555-5555-5555-5555-555555555555",
++    });
++    expect(result).toEqual({
++      success: true,
++      data: { movement_id: "m-2", document_number: "MM/1" },
++    });
++  });
++});
++
++describe("getRepairOrderStorageSuggestionsAction", () => {
++  beforeEach(() => {
++    vi.clearAllMocks();
++    mockAuthOk();
++  });
++
++  it("normalizes an unexpected read-model error, never leaking raw Supabase text", async () => {
++    getStorageSuggestions.mockResolvedValue({
++      success: false,
++      error: 'relation "repair_order_line_locations_typo" does not exist',
++    });
++    const result = await getRepairOrderStorageSuggestionsAction({
++      repair_order_id: "66666666-6666-6666-6666-666666666666",
++    });
++    expect(result.success).toBe(false);
++    if (result.success === true) return;
++    expect(result.error).not.toContain("repair_order_line_locations_typo");
++  });
++
++  it("passes through a recognizable RLS/permission denial as a safe generic statement", async () => {
++    getStorageSuggestions.mockResolvedValue({
++      success: false,
++      error: "permission denied for table repair_order_line_locations",
++    });
++    const result = await getRepairOrderStorageSuggestionsAction({
++      repair_order_id: "66666666-6666-6666-6666-666666666666",
++    });
++    expect(result.success).toBe(false);
++    if (result.success === true) return;
++    expect(result.error).toBe("You do not have permission to view this data.");
++  });
++
++  it("returns suggestions on success", async () => {
++    getStorageSuggestions.mockResolvedValue({ success: true, data: [] });
++    const result = await getRepairOrderStorageSuggestionsAction({
++      repair_order_id: "66666666-6666-6666-6666-666666666666",
++    });
++    expect(result).toEqual({ success: true, data: [] });
++  });
++});
 diff --git a/apps/web/src/app/actions/warehouse/repair-order-receiving.ts b/apps/web/src/app/actions/warehouse/repair-order-receiving.ts
 new file mode 100644
-index 00000000..ad069a1c
+index 00000000..43df443d
 --- /dev/null
 +++ b/apps/web/src/app/actions/warehouse/repair-order-receiving.ts
-@@ -0,0 +1,188 @@
+@@ -0,0 +1,286 @@
 +"use server";
 +
 +import { z } from "zod";
@@ -275,6 +1309,79 @@ index 00000000..ad069a1c
 + * will fail with "function does not exist". This is a disclosed, expected
 + * gap, not a bug in this file -- see the review bundle's migration summary.
 + */
++
++/**
++ * Error normalization (external review correction): follows the exact,
++ * already-established, hardened convention in
++ * `repair-orders.service.ts`'s `normalizeMaterializationRpcError` --
++ * NOT a bare passthrough of `error.message`. Each RPC deliberately RAISEs a
++ * small number of fixed, safe, human-readable messages with a specific
++ * ERRCODE; the allowlist below requires BOTH the exact code AND a match
++ * against that RPC's own known message shape (not the errcode alone --
++ * SQLSTATEs are broad Postgres error CLASSES, e.g. 42501/22023 are also
++ * raised natively by Postgres itself for unrelated reasons, so an
++ * errcode-only check could let a raw, schema-revealing native error through
++ * under the same code). Anything that doesn't match both is logged
++ * server-side (console.error -- this app has no other centralized server
++ * logger this session found to reuse) and replaced with a generic,
++ * client-safe message that leaks no SQL text, relation/function names,
++ * UUIDs, or constraint internals.
++ */
++type DbLikeError = { code?: string; message: string };
++
++const RECEIVE_RPC_KNOWN_ERRORS: ReadonlyArray<{ code: string; pattern: RegExp }> = [
++  { code: "28000", pattern: /^p_actor_user_id must match the authenticated caller$/ },
++  { code: "42501", pattern: /^Not authorized to receive stock for this branch$/ },
++  { code: "22023", pattern: /^At least one line is required$/ },
++  { code: "P0002", pattern: /^No active receiving location configured for this branch/ },
++  { code: "P0002", pattern: /did not resolve to any RepairOrderLine/ },
++  { code: "55000", pattern: /resolved ambiguously to \d+ RepairOrderLine candidates/ },
++  {
++    code: "42501",
++    pattern:
++      /Resolved RepairOrder for line \d+ does not belong to the target organization\/branch$/,
++  },
++  {
++    code: "22023",
++    pattern: /Resolved RepairOrderLine variant for line \d+ does not match the received variant$/,
++  },
++];
++
++const PUTAWAY_RPC_KNOWN_ERRORS: ReadonlyArray<{ code: string; pattern: RegExp }> = [
++  { code: "28000", pattern: /^p_actor_user_id must match the authenticated caller$/ },
++  { code: "42501", pattern: /^Not authorized to putaway stock for this branch$/ },
++  { code: "22023", pattern: /^At least one line is required$/ },
++  { code: "22023", pattern: /^A destination location is required$/ },
++  { code: "P0002", pattern: /^No active receiving location configured for this branch/ },
++  { code: "22023", pattern: /is not a valid stockable location for this branch$/ },
++  { code: "22023", pattern: /^Destination cannot be the receiving location itself$/ },
++  { code: "22023", pattern: /is missing repair_order_line_id/ },
++  { code: "22023", pattern: /quantity must be positive$/ },
++  { code: "42501", pattern: /does not belong to this organization\/branch$/ },
++  { code: "22023", pattern: /variant does not match the RepairOrderLine's own variant$/ },
++  { code: "22023", pattern: /but only .* is currently attributed to this RepairOrderLine/ },
++];
++
++const GENERIC_RECEIVE_ERROR =
++  "Receiving failed due to an unexpected server error. Please try again or contact support.";
++const GENERIC_PUTAWAY_ERROR =
++  "Putaway failed due to an unexpected server error. Please try again or contact support.";
++const GENERIC_STORAGE_ERROR =
++  "Could not load current storage information. Please try again or contact support.";
++
++function normalizeRpcError(
++  error: DbLikeError,
++  allowlist: ReadonlyArray<{ code: string; pattern: RegExp }>,
++  genericMessage: string,
++  context: string
++): string {
++  const isKnown = allowlist.some(
++    (known) => error.code === known.code && known.pattern.test(error.message)
++  );
++  if (isKnown) return error.message;
++  console.error(`[zone5:${context}] unexpected DB error`, error);
++  return genericMessage;
++}
 +
 +const receiveLineSchema = z.object({
 +  variant_id: z.string().uuid(),
@@ -331,7 +1438,11 @@ index 00000000..ad069a1c
 +      p_idempotency_key: crypto.randomUUID(),
 +    });
 +
-+    if (error) return { success: false as const, error: error.message };
++    if (error)
++      return {
++        success: false as const,
++        error: normalizeRpcError(error, RECEIVE_RPC_KNOWN_ERRORS, GENERIC_RECEIVE_ERROR, "receive"),
++      };
 +    revalidatePath("/dashboard/warehouse/inventory/movements");
 +    return { success: true as const, data };
 +  } catch (error) {
@@ -383,7 +1494,11 @@ index 00000000..ad069a1c
 +      p_idempotency_key: crypto.randomUUID(),
 +    });
 +
-+    if (error) return { success: false as const, error: error.message };
++    if (error)
++      return {
++        success: false as const,
++        error: normalizeRpcError(error, PUTAWAY_RPC_KNOWN_ERRORS, GENERIC_PUTAWAY_ERROR, "putaway"),
++      };
 +    revalidatePath("/dashboard/warehouse/inventory/movements");
 +    revalidatePath("/dashboard/warehouse/locations");
 +    return { success: true as const, data };
@@ -422,12 +1537,44 @@ index 00000000..ad069a1c
 +    if (result.success === true) {
 +      return { success: true as const, data: result.data };
 +    } else {
-+      return { success: false as const, error: result.error };
++      // The read model's own errors are plain Supabase SELECT failures (no
++      // deliberately-authored safe messages exist for it, unlike the two
++      // RPCs above) -- every failure here is treated as unexpected: logged
++      // server-side, replaced with a generic message before reaching the
++      // client. The one narrow exception (matching the older, established
++      // normalizeDbError pattern already used elsewhere in this codebase --
++      // e.g. wdd-matcher.service.ts) is a recognizable RLS/permission
++      // denial, which is itself already a safe, generic statement.
++      const isRlsDenial = /row-level security|permission denied/i.test(result.error);
++      if (!isRlsDenial) {
++        console.error("[zone5:storage] unexpected DB error", result.error);
++      }
++      return {
++        success: false as const,
++        error: isRlsDenial
++          ? "You do not have permission to view this data."
++          : GENERIC_STORAGE_ERROR,
++      };
 +    }
 +  } catch (error) {
 +    return mapUnexpected(error);
 +  }
 +}
+diff --git a/apps/web/src/app/actions/warehouse/schemas.ts b/apps/web/src/app/actions/warehouse/schemas.ts
+index aad128e1..a26a2955 100644
+--- a/apps/web/src/app/actions/warehouse/schemas.ts
++++ b/apps/web/src/app/actions/warehouse/schemas.ts
+@@ -75,6 +75,10 @@ export const updateLocationSchema = z.object({
+   id: z.string().uuid("Invalid location id"),
+   name: z.string().min(1, "Name is required").max(200).optional(),
+   code: locationCodeSchema,
++  /** Zone 5: semantic role ('standard' | 'receiving'). DB enforces at most one
++   * active 'receiving' location per branch and that it must be stockable --
++   * this schema-level enum is a first line of defense, not the guarantee. */
++  purpose: z.enum(["standard", "receiving"]).optional(),
+   description: z.string().max(1000).nullable().optional(),
+   icon_name: z.string().max(50).nullable().optional(),
+   color: hexColorSchema,
 diff --git a/apps/web/src/server/services/__tests__/repair-order-storage.service.test.ts b/apps/web/src/server/services/__tests__/repair-order-storage.service.test.ts
 new file mode 100644
 index 00000000..b6bb7efd
@@ -649,12 +1796,53 @@ index 00000000..b6bb7efd
 +    if (result.success === false) expect(result.error).toBe("boom");
 +  });
 +});
+diff --git a/apps/web/src/server/services/__tests__/warehouse-locations.service.test.ts b/apps/web/src/server/services/__tests__/warehouse-locations.service.test.ts
+index b239f666..0438e4d1 100644
+--- a/apps/web/src/server/services/__tests__/warehouse-locations.service.test.ts
++++ b/apps/web/src/server/services/__tests__/warehouse-locations.service.test.ts
+@@ -443,6 +443,36 @@ describe("WarehouseLocationsService.update", () => {
+     if (result.success) expect(result.data.name).toBe("Updated");
+   });
+ 
++  it("Zone 5: passes purpose through to the update payload, not silently dropped", async () => {
++    const current = makeLocation({ id: "loc-1" });
++    const updated = makeLocation({ id: "loc-1", purpose: "receiving" } as never);
++    const supabase = makeSupabaseMock([
++      { data: current, error: null }, // getById current
++      { data: updated, error: null }, // update query
++    ]);
++    const result = await WarehouseLocationsService.update(
++      supabase as never,
++      ORG_ID,
++      "loc-1",
++      { purpose: "receiving" } as never,
++      USER_ID
++    );
++    expect(result.success).toBe(true);
++
++    const chains = (
++      supabase.from as unknown as { mock: { results: Array<{ value: Record<string, unknown> }> } }
++    ).mock.results.map((r) => r.value);
++    const updateChain = chains.find(
++      (c) => (c.update as { mock: { calls: unknown[][] } }).mock.calls.length > 0
++    );
++    expect(updateChain).toBeDefined();
++    expect(
++      (updateChain!.update as { mock: { calls: unknown[][] } }).mock.calls[0][0]
++    ).toMatchObject({
++      purpose: "receiving",
++    });
++  });
++
+   it("rejects self-parent assignment", async () => {
+     const current = makeLocation({ id: "loc-self" });
+     const supabase = makeSupabaseMock([{ data: current, error: null }]);
 diff --git a/apps/web/src/server/services/repair-order-storage.service.ts b/apps/web/src/server/services/repair-order-storage.service.ts
 new file mode 100644
-index 00000000..f5be937d
+index 00000000..a8d95209
 --- /dev/null
 +++ b/apps/web/src/server/services/repair-order-storage.service.ts
-@@ -0,0 +1,176 @@
+@@ -0,0 +1,263 @@
 +import "server-only";
 +
 +import type { SupabaseClient } from "@supabase/supabase-js";
@@ -695,7 +1883,22 @@ index 00000000..f5be937d
 +};
 +
 +type LocationRow = { id: string; code: string | null; name: string };
-+type VariantRow = { id: string; sku: string | null; product_name: string | null };
++type VariantRow = {
++  id: string;
++  sku: string | null;
++  product_name: string | null;
++  unit_id: string | null;
++};
++
++/** Shape consumed directly by RepairOrderPutawayPanel's `receivedLines` prop. */
++export type ReceivedLine = {
++  repairOrderLineId: string;
++  variantId: string;
++  unitId: string;
++  sku: string;
++  productName: string;
++  availableAtReceiving: number;
++};
 +
 +export class RepairOrderStorageService {
 +  /**
@@ -830,13 +2033,106 @@ index 00000000..f5be937d
 +
 +    return { success: true, data: suggestions };
 +  }
++
++  /**
++   * Lines of this RepairOrder currently sitting at the branch's designated
++   * receiving location -- i.e. exactly what a "Put away" action should offer
++   * the operator. Deliberately its own small query (not a filter over
++   * getStorageSuggestions' grouped-by-location DTO), since putaway needs
++   * line-level granularity (repair_order_line_id, variant_id, unit_id) that
++   * the location-grouped suggestion shape intentionally doesn't carry.
++   */
++  static async getReceivedLines(
++    supabase: SupabaseClient,
++    organizationId: string,
++    branchId: string,
++    repairOrderId: string
++  ): Promise<ServiceResult<ReceivedLine[]>> {
++    const { data: receivingLocation, error: locError } = await supabase
++      .from("warehouse_locations")
++      .select("id")
++      .eq("organization_id", organizationId)
++      .eq("branch_id", branchId)
++      .eq("purpose", "receiving")
++      .is("deleted_at", null)
++      .maybeSingle();
++    if (locError) return { success: false, error: locError.message };
++    if (!receivingLocation) return { success: true, data: [] }; // no receiving location configured -- nothing to show, not an error
++
++    const { data: rows, error } = await supabase
++      .from("repair_order_line_locations")
++      .select("repair_order_line_id, variant_id, quantity")
++      .eq("organization_id", organizationId)
++      .eq("branch_id", branchId)
++      .eq("repair_order_id", repairOrderId)
++      .eq("location_id", receivingLocation.id)
++      .gt("quantity", 0);
++    if (error) return { success: false, error: error.message };
++
++    const projectionRows = (rows ?? []) as Array<{
++      repair_order_line_id: string;
++      variant_id: string | null;
++      quantity: number | string;
++    }>;
++    if (projectionRows.length === 0) return { success: true, data: [] };
++
++    const variantIds = [
++      ...new Set(projectionRows.map((r) => r.variant_id).filter(Boolean)),
++    ] as string[];
++    const { data: variantRows, error: varError } =
++      variantIds.length > 0
++        ? await supabase
++            .from("inventory_variants")
++            .select("id, sku, product_name, unit_id")
++            .in("id", variantIds)
++        : { data: [] as VariantRow[], error: null };
++    if (varError) return { success: false, error: varError.message };
++    const variantsById = new Map(((variantRows ?? []) as VariantRow[]).map((v) => [v.id, v]));
++
++    const lines: ReceivedLine[] = projectionRows
++      .filter((r) => r.variant_id && variantsById.get(r.variant_id)?.unit_id)
++      .map((r) => {
++        const variant = variantsById.get(r.variant_id as string)!;
++        return {
++          repairOrderLineId: r.repair_order_line_id,
++          variantId: r.variant_id as string,
++          unitId: variant.unit_id as string,
++          sku: variant.sku ?? r.variant_id ?? "",
++          productName: variant.product_name ?? variant.sku ?? "",
++          availableAtReceiving: Number(r.quantity),
++        };
++      });
++
++    return { success: true, data: lines };
++  }
 +}
+diff --git a/apps/web/src/server/services/warehouse-locations.service.ts b/apps/web/src/server/services/warehouse-locations.service.ts
+index 2139b48a..8c5ad292 100644
+--- a/apps/web/src/server/services/warehouse-locations.service.ts
++++ b/apps/web/src/server/services/warehouse-locations.service.ts
+@@ -92,6 +92,8 @@ export interface UpdateLocationInput {
+   allow_top_storage?: boolean;
+   can_store_inventory?: boolean;
+   sort_order?: number;
++  /** Zone 5: 'standard' | 'receiving' -- see warehouse_locations.purpose. */
++  purpose?: "standard" | "receiving";
+ }
+ 
+ // ─── Column select ────────────────────────────────────────────────────────────
+@@ -352,6 +354,7 @@ export class WarehouseLocationsService {
+     if (input.icon_name !== undefined) updatePayload.icon_name = input.icon_name;
+     if (input.color !== undefined) updatePayload.color = input.color;
+     if (input.sort_order !== undefined) updatePayload.sort_order = input.sort_order;
++    if (input.purpose !== undefined) updatePayload.purpose = input.purpose;
+     if (input.group_id !== undefined) updatePayload.group_id = input.group_id;
+     if (input.inherit_group_color !== undefined) {
+       updatePayload.inherit_group_color = input.inherit_group_color;
 diff --git a/apps/web/supabase-target/supabase/migrations/20260912090000_zone5_receiving_location_purpose.sql b/apps/web/supabase-target/supabase/migrations/20260912090000_zone5_receiving_location_purpose.sql
 new file mode 100644
-index 00000000..35f4b5be
+index 00000000..b9631781
 --- /dev/null
 +++ b/apps/web/supabase-target/supabase/migrations/20260912090000_zone5_receiving_location_purpose.sql
-@@ -0,0 +1,119 @@
+@@ -0,0 +1,144 @@
 +-- =============================================================================
 +-- Migration: zone5_receiving_location_purpose
 +-- Zone:      05 (Receiving / Putaway) -- Phase 1
@@ -889,6 +2185,18 @@ index 00000000..35f4b5be
 +ALTER TABLE public.warehouse_locations
 +  ADD CONSTRAINT warehouse_locations_purpose_check
 +  CHECK (purpose IN ('standard', 'receiving'));
++
++-- CORRECTION (external review): a purpose='receiving' row must be stockable
++-- at the DB level, not merely by the resolver's own (previously
++-- read-time-only) filter. can_store_inventory is NOT NULL (confirmed --
++-- 20260617120000_inventory_location_placement.sql), so this CHECK has no
++-- NULL edge case to worry about.
++ALTER TABLE public.warehouse_locations
++  DROP CONSTRAINT IF EXISTS warehouse_locations_receiving_must_be_stockable;
++
++ALTER TABLE public.warehouse_locations
++  ADD CONSTRAINT warehouse_locations_receiving_must_be_stockable
++  CHECK (purpose <> 'receiving' OR can_store_inventory = true);
 +
 +COMMENT ON COLUMN public.warehouse_locations.purpose IS
 +  'Zone 5: semantic role of this location. ''standard'' (default) or ''receiving''
@@ -953,9 +2261,22 @@ index 00000000..35f4b5be
 +   silently picking a wrong location. Used by receive_repair_order_stock and
 +   putaway_repair_order_stock (Phases 4/6).';
 +
++-- CORRECTION (external review): this helper is internal-only -- it takes an
++-- arbitrary organization_id/branch_id with NO caller-permission check of its
++-- own, and returns a location UUID. Nothing in this codebase needs to call
++-- it directly from the client; it exists solely so
++-- receive_repair_order_stock/putaway_repair_order_stock (Phases 4/6) share
++-- one resolution implementation. Granting `authenticated` EXECUTE would let
++-- any signed-in user probe an arbitrary org/branch's receiving-location id
++-- with zero authorization check -- an unnecessary cross-tenant metadata
++-- lookup surface. Revoked from every client-reachable role; the two
++-- SECURITY DEFINER RPCs can still call it internally regardless (a
++-- SECURITY DEFINER function executes as its owner, and function ownership
++-- carries implicit EXECUTE on functions the same owner created -- no grant
++-- to `authenticated` is needed for that internal call path to keep working).
 +REVOKE ALL ON FUNCTION public.resolve_branch_receiving_location(uuid, uuid) FROM PUBLIC;
 +REVOKE ALL ON FUNCTION public.resolve_branch_receiving_location(uuid, uuid) FROM anon;
-+GRANT EXECUTE ON FUNCTION public.resolve_branch_receiving_location(uuid, uuid) TO authenticated;
++REVOKE ALL ON FUNCTION public.resolve_branch_receiving_location(uuid, uuid) FROM authenticated;
 diff --git a/apps/web/supabase-target/supabase/migrations/20260912091000_zone5_repair_order_spatial_attribution_schema.sql b/apps/web/supabase-target/supabase/migrations/20260912091000_zone5_repair_order_spatial_attribution_schema.sql
 new file mode 100644
 index 00000000..6ddd1dbe
@@ -1152,10 +2473,10 @@ index 00000000..6ddd1dbe
 +-- No client write policy -- written only by the Phase 3 trigger.
 diff --git a/apps/web/supabase-target/supabase/migrations/20260912092000_zone5_attribution_sync_trigger.sql b/apps/web/supabase-target/supabase/migrations/20260912092000_zone5_attribution_sync_trigger.sql
 new file mode 100644
-index 00000000..f484fafd
+index 00000000..8088059f
 --- /dev/null
 +++ b/apps/web/supabase-target/supabase/migrations/20260912092000_zone5_attribution_sync_trigger.sql
-@@ -0,0 +1,222 @@
+@@ -0,0 +1,236 @@
 +-- =============================================================================
 +-- Migration: zone5_attribution_sync_trigger
 +-- Zone:      05 (Receiving / Putaway) -- Phase 3
@@ -1307,12 +2628,29 @@ index 00000000..f484fafd
 +  -- insert the ledger row).
 +  v_pre_effect_on_hand := NEW.balance_after + NEW.quantity;
 +
-+  SELECT sum(quantity), count(DISTINCT repair_order_line_id)
-+    INTO v_attributed_sum, v_distinct_lines
++  -- CORRECTNESS FIX (external review): `SELECT sum(...) ... FOR UPDATE` is not
++  -- valid/safe PostgreSQL -- the locking clause cannot be combined with
++  -- aggregation at the same query level ("the locking clauses cannot be used
++  -- in contexts where returned rows cannot be clearly identified with
++  -- individual table rows... for example with aggregation" -- PostgreSQL
++  -- documentation for the SELECT locking clause; in practice this raises
++  -- `ERROR: FOR UPDATE is not allowed with aggregate functions`). The
++  -- corrected pattern locks the individual rows first, in a CTE, then
++  -- aggregates over that already-locked result set in the same statement --
++  -- this also lets us pull v_line_id/v_ro_id from the same locked read
++  -- (valid via max(), since when v_distinct_lines = 1 there is only one
++  -- value to begin with), removing the previous, separate, unlocked
++  -- re-SELECT entirely.
++  WITH locked_rows AS (
++    SELECT quantity, repair_order_line_id, repair_order_id
 +    FROM public.repair_order_line_locations
 +    WHERE organization_id = NEW.organization_id AND branch_id = NEW.branch_id
 +      AND location_id = NEW.location_id AND variant_id = NEW.variant_id
-+    FOR UPDATE;
++    FOR UPDATE
++  )
++  SELECT sum(quantity), count(DISTINCT repair_order_line_id), max(repair_order_line_id), max(repair_order_id)
++    INTO v_attributed_sum, v_distinct_lines, v_line_id, v_ro_id
++    FROM locked_rows;
 +
 +  IF v_attributed_sum IS DISTINCT FROM v_pre_effect_on_hand OR v_distinct_lines <> 1 THEN
 +    -- Ambiguous: never guess. Mark BOTH ends UNKNOWN if transfer-shaped
@@ -1331,12 +2669,9 @@ index 00000000..f484fafd
 +  END IF;
 +
 +  -- Unambiguous: exactly one repair_order_line_id accounts for 100% of the
-+  -- reconstructed pre-effect on-hand. Safe to propagate exactly.
-+  SELECT repair_order_line_id, repair_order_id INTO v_line_id, v_ro_id
-+    FROM public.repair_order_line_locations
-+    WHERE organization_id = NEW.organization_id AND branch_id = NEW.branch_id
-+      AND location_id = NEW.location_id AND variant_id = NEW.variant_id;
-+
++  -- reconstructed pre-effect on-hand -- v_line_id/v_ro_id were already
++  -- captured from the SAME locked read above, so no second (unlocked) query
++  -- is needed here.
 +  UPDATE public.repair_order_line_locations
 +    SET quantity = quantity - NEW.quantity
 +    WHERE repair_order_line_id = v_line_id AND location_id = NEW.location_id;
@@ -1793,10 +3128,10 @@ index 00000000..230d7fb7
 +GRANT EXECUTE ON FUNCTION public.putaway_repair_order_stock(uuid, uuid, uuid, jsonb, uuid, text) TO authenticated;
 diff --git a/apps/web/supabase/tests/093_zone5_receiving_location_purpose_test.sql b/apps/web/supabase/tests/093_zone5_receiving_location_purpose_test.sql
 new file mode 100644
-index 00000000..980ac891
+index 00000000..ed1f4efa
 --- /dev/null
 +++ b/apps/web/supabase/tests/093_zone5_receiving_location_purpose_test.sql
-@@ -0,0 +1,111 @@
+@@ -0,0 +1,136 @@
 +-- ============================================================================
 +-- TEST: Zone 5 Phase 1 -- warehouse_locations.purpose + one-per-branch rule
 +-- ============================================================================
@@ -1818,7 +3153,7 @@ index 00000000..980ac891
 +
 +BEGIN;
 +
-+SELECT plan(8);
++SELECT plan(10);
 +
 +CREATE TEMP TABLE fx (
 +  org uuid, branch uuid, other_branch uuid, other_org uuid,
@@ -1872,11 +3207,29 @@ index 00000000..980ac891
 +  'a purpose value outside (standard, receiving) is rejected -- pitch domain is intentionally narrow'
 +);
 +
-+-- 5. Standard locations are unaffected by the one-per-branch rule (many allowed).
++-- 5. Standard locations are unaffected by the one-per-branch rule (many
++--    allowed) -- a real assertion (count), not a bare pass().
 +INSERT INTO warehouse_locations (id, organization_id, branch_id, name, code, can_store_inventory)
 +SELECT gen_random_uuid(), org, branch, '093-test standard 2', '093-STD-2', true FROM fx;
 +
-+SELECT pass('a second purpose=standard location in the same branch is allowed (no error)');
++SELECT is(
++  (SELECT count(*)::int FROM warehouse_locations WHERE organization_id = (SELECT org FROM fx) AND branch_id = (SELECT branch FROM fx) AND purpose = 'standard' AND code LIKE '093-STD%'),
++  2,
++  '5. a second purpose=standard location in the same branch is allowed -- both rows persist'
++);
++
++-- 5b. CORRECTION (external review): a non-stockable location cannot be
++--     designated 'receiving' -- DB-enforced (warehouse_locations_receiving_
++--     must_be_stockable), not merely by the resolver's own read-time filter.
++SELECT throws_ok(
++  format($sql$
++    INSERT INTO warehouse_locations (id, organization_id, branch_id, name, code, can_store_inventory, purpose)
++    VALUES ('%s', '%s', '%s', '093-test non-stockable receiving (should fail)', '093-NOSTOCK', false, 'receiving')
++  $sql$, (SELECT loc_not_stockable::text FROM fx), (SELECT org::text FROM fx), (SELECT branch::text FROM fx)),
++  '23514',
++  NULL,
++  '5b. a non-stockable location cannot be designated purpose=receiving -- DB CHECK constraint enforced'
++);
 +
 +-- 6. Soft-deleting the active receiving location frees the branch to designate
 +--    a new one -- the partial index only counts deleted_at IS NULL rows.
@@ -1904,6 +3257,13 @@ index 00000000..980ac891
 +  'P0002',
 +  NULL,
 +  'resolve_branch_receiving_location raises a clear error when no receiving location is configured'
++);
++
++-- 9. CORRECTION (external review): resolve_branch_receiving_location is
++--    internal-only -- `authenticated` must NOT have direct EXECUTE.
++SELECT ok(
++  NOT has_function_privilege('authenticated', 'public.resolve_branch_receiving_location(uuid,uuid)', 'EXECUTE'),
++  '9. authenticated has no direct EXECUTE on resolve_branch_receiving_location -- it is callable only from within the two SECURITY DEFINER orchestration RPCs'
 +);
 +
 +SELECT * FROM finish();
@@ -2078,16 +3438,26 @@ index 00000000..a488483c
 +ROLLBACK;
 diff --git a/apps/web/supabase/tests/095_zone5_attribution_sync_trigger_test.sql b/apps/web/supabase/tests/095_zone5_attribution_sync_trigger_test.sql
 new file mode 100644
-index 00000000..69ce1705
+index 00000000..b8e1d99b
 --- /dev/null
 +++ b/apps/web/supabase/tests/095_zone5_attribution_sync_trigger_test.sql
-@@ -0,0 +1,269 @@
+@@ -0,0 +1,279 @@
 +-- ============================================================================
 +-- TEST: Zone 5 Phase 3 -- repair_order_location_attribution_sync trigger
 +-- ============================================================================
 +-- Verifies:
 +--   apps/web/supabase-target/supabase/migrations/
 +--   20260912092000_zone5_attribution_sync_trigger.sql
++--
++-- CORRECTION (external review, applied before any live run): the trigger's
++-- ambiguity-test query originally combined an aggregate (sum/count) with
++-- `FOR UPDATE` in one query -- invalid PostgreSQL ("FOR UPDATE is not
++-- allowed with aggregate functions"). Fixed to lock via a CTE first, then
++-- aggregate over the locked rows in the same statement. Test #2 below
++-- exercises exactly this corrected query path (the single-unambiguous-source
++-- propagation branch) -- when this file is actually run, a failure there
++-- would have caught the original bug directly (the trigger would have
++-- raised a Postgres error instead of silently mis-behaving).
 +--
 +-- NOT EXECUTED this session -- Supabase MCP / live DB access was unavailable.
 +-- Per that same migration's own header: the exact column list of
@@ -2353,10 +3723,10 @@ index 00000000..69ce1705
 +ROLLBACK;
 diff --git a/apps/web/supabase/tests/096_zone5_receive_repair_order_stock_test.sql b/apps/web/supabase/tests/096_zone5_receive_repair_order_stock_test.sql
 new file mode 100644
-index 00000000..f4d86ec6
+index 00000000..402bec71
 --- /dev/null
 +++ b/apps/web/supabase/tests/096_zone5_receive_repair_order_stock_test.sql
-@@ -0,0 +1,129 @@
+@@ -0,0 +1,234 @@
 +-- ============================================================================
 +-- TEST: Zone 5 Phase 4 -- receive_repair_order_stock RPC
 +-- ============================================================================
@@ -2371,32 +3741,50 @@ index 00000000..f4d86ec6
 +-- application code, high confidence) and on a '101' movement type/receiving
 +-- purpose location already configured for the E2E fixture org/branch --
 +-- both require live confirmation before this file is actually run.
++--
++-- CORRECTION (external review): the two placeholder `SELECT pass('... TODO
++-- ...')` assertions from the previous pass are removed. Case 4 (ambiguous
++-- provenance) is now a real, fixture-driven test built against the
++-- CONFIRMED real schema of wdd_matcher_sessions/wdd_matcher_session_files/
++-- wdd_matcher_blocks/wdd_matcher_lines (read directly from
++-- supabase/migrations/20260415100000_svwms_wdd_matcher_tables.sql this
++-- pass, not assumed). Case 7 (atomicity) is now a real executed test (no
++-- movement is created at all when resolution fails, proven by searching for
++-- a distinctive idempotency key afterward) plus a structural proof (no
++-- exception-swallowing block exists in the function body) -- not a fake
++-- pass(). Where genuine live-only uncertainty remains (an engine-internal
++-- failure occurring strictly AFTER inventory_create_and_finalize succeeds
++-- but before this RPC's own attribution writes complete), that specific
++-- sub-case is marked with an honest `skip()`, not a `pass()` -- see test 7b.
 +
 +BEGIN;
 +
-+SELECT plan(7);
++SELECT plan(10);
 +
 +CREATE TEMP TABLE fx (
 +  org uuid, branch uuid, e2e_user uuid,
-+  ro uuid, rol1 uuid, unit_ea uuid, variant_x uuid,
-+  loc_recv uuid, session_id uuid, wsd_id uuid, wsdl_id uuid
++  ro uuid, rol1 uuid, rol2 uuid, unit_ea uuid, variant_x uuid,
++  loc_recv uuid,
++  session_id uuid, session_file_id uuid, block_id uuid, matcher_line_id uuid,
++  wsd_id uuid, wsdl_a uuid, wsdl_b uuid
 +);
 +INSERT INTO fx SELECT
 +  '9f98fe91-63b8-4986-a2b3-65bdd47684c9'::uuid,
 +  'e39b15da-0a8d-4056-b5a2-80eb1da868a6'::uuid,
 +  'c4a24371-42db-4bb8-ab5e-379ebbf7d9c4'::uuid,
++  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
++  gen_random_uuid(),
 +  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
-+  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid();
++  gen_random_uuid(), gen_random_uuid(), gen_random_uuid();
 +
-+-- Fixture: branch receiving location (Phase 1), a RepairOrder + line, and a
-+-- Matcher-line -> RepairOrderLine lineage chain (Phase 2 dependency, Zone 3
-+-- tables) to exercise both the null and the resolvable source_line_id paths.
 +INSERT INTO warehouse_locations (id, organization_id, branch_id, name, code, can_store_inventory, purpose)
 +SELECT loc_recv, org, branch, '096-test receiving', '096-RECV', true, 'receiving' FROM fx;
 +INSERT INTO repair_orders (id, organization_id, branch_id, zl_number, order_number, status)
 +SELECT ro, org, branch, '096-TEST-ZL-1', '096-TEST-1', 'open' FROM fx;
 +INSERT INTO repair_order_lines (id, repair_order_id, variant_id, product_name, ordered_quantity, status)
 +SELECT rol1, ro, variant_x, '096-test product', 5, 'pending' FROM fx;
++INSERT INTO repair_order_lines (id, repair_order_id, variant_id, product_name, ordered_quantity, status)
++SELECT rol2, ro, variant_x, '096-test product (second line, same RO)', 5, 'pending' FROM fx;
 +
 +-- 1. NULL source_line_id -> allowed, unattributed receipt succeeds; the RPC
 +--    itself is exercised end-to-end (assumes '101'/receiving are configured
@@ -2435,17 +3823,59 @@ index 00000000..f4d86ec6
 +  '3. a source_line_id that resolves to ZERO RepairOrderLines is a HARD ERROR, not a silent unattributed fallback'
 +);
 +
-+-- 4. A source_line_id that resolves to more than one candidate -> HARD ERROR.
-+-- (Fixture: two workshop_source_document_lines rows pointing at the SAME
-+-- wdd_matcher_line_id, each linked to a DIFFERENT repair_order_line -- proven
-+-- structurally reachable in the plan §10 since
-+-- workshop_source_document_lines.wdd_matcher_line_id carries no UNIQUE
-+-- constraint.)
-+-- (Fixture construction omitted for brevity in this non-executed draft --
-+-- requires real wdd_matcher_sessions/blocks/lines rows per Zone 2/3's own
-+-- schema; to be completed against live fixtures when this test is actually
-+-- run, per the Phase 0 gate.)
-+SELECT pass('4. (fixture TODO when run live) ambiguous source_line_id resolution -> HARD ERROR, matching case 3''s pattern with two candidate rows');
++-- =====================================================================
++-- 4. A source_line_id that resolves to MORE THAN ONE candidate -> HARD
++--    ERROR. Real fixture: one wdd_matcher_lines row referenced by TWO
++--    workshop_source_document_lines rows (proven structurally reachable --
++--    workshop_source_document_lines.wdd_matcher_line_id carries no UNIQUE
++--    constraint, confirmed by direct read of
++--    20260910061711_repair_orders_core_schema.sql:387,401), each linked via
++--    repair_order_line_source_links to a DIFFERENT repair_order_line.
++-- =====================================================================
++INSERT INTO wdd_matcher_sessions (id, organization_id, branch_id, name, status)
++SELECT session_id, org, branch, '096-test session', 'approved' FROM fx;
++INSERT INTO wdd_matcher_session_files (id, session_id, organization_id, file_role, file_name)
++SELECT session_file_id, session_id, org, 'wdd', '096-test.pdf' FROM fx;
++INSERT INTO wdd_matcher_blocks (id, session_file_id, session_id, organization_id, block_index, block_type)
++SELECT block_id, session_file_id, session_id, org, 1, 'wdd_source' FROM fx;
++INSERT INTO wdd_matcher_lines (id, block_id, session_id, organization_id, line_number, product_code, product_name, quantity, unit)
++SELECT matcher_line_id, block_id, session_id, org, 1, 'SKU-X', '096 ambiguous test part', 2, 'ea' FROM fx;
++
++INSERT INTO workshop_source_documents (id, organization_id, branch_id, document_type, external_document_number, source_session_id)
++SELECT wsd_id, org, branch, 'wdd', '096-TEST-WDD-1', session_id FROM fx;
++INSERT INTO workshop_source_document_lines (id, workshop_source_document_id, wdd_matcher_line_id, product_code, product_name, quantity, unit)
++SELECT wsdl_a, wsd_id, matcher_line_id, 'SKU-X', '096 ambiguous test part (copy A)', 2, 'ea' FROM fx;
++INSERT INTO workshop_source_document_lines (id, workshop_source_document_id, wdd_matcher_line_id, product_code, product_name, quantity, unit)
++SELECT wsdl_b, wsd_id, matcher_line_id, 'SKU-X', '096 ambiguous test part (copy B)', 2, 'ea' FROM fx;
++
++INSERT INTO repair_order_line_source_links (repair_order_line_id, workshop_source_document_line_id, quantity_contribution)
++SELECT rol1, wsdl_a, 2 FROM fx;
++INSERT INTO repair_order_line_source_links (repair_order_line_id, workshop_source_document_line_id, quantity_contribution)
++SELECT rol2, wsdl_b, 2 FROM fx;
++
++-- Sanity: the fixture itself really is ambiguous at the wdd_matcher_line_id
++-- hop (two distinct workshop_source_document_lines reference the same
++-- matcher line, each resolving to a different repair_order_line) -- prove
++-- the setup before trusting the RPC's rejection of it.
++SELECT is(
++  (SELECT count(*)::int FROM workshop_source_document_lines WHERE wdd_matcher_line_id = (SELECT matcher_line_id FROM fx)),
++  2,
++  '4a. fixture sanity: the same wdd_matcher_line_id is genuinely referenced by two workshop_source_document_lines rows'
++);
++
++SELECT throws_ok(
++  format($sql$
++    SELECT receive_repair_order_stock(
++      '%s'::uuid, '%s'::uuid, '%s'::uuid,
++      jsonb_build_array(jsonb_build_object('variant_id', '%s', 'unit_id', '%s', 'quantity', 2, 'source_line_id', '%s')),
++      NULL, NULL, NULL, NULL, gen_random_uuid()::text
++    )
++  $sql$, (SELECT e2e_user::text FROM fx), (SELECT org::text FROM fx), (SELECT branch::text FROM fx),
++         (SELECT variant_x::text FROM fx), (SELECT unit_ea::text FROM fx), (SELECT matcher_line_id::text FROM fx)),
++  '55000',
++  NULL,
++  '4b. a source_line_id resolving to TWO RepairOrderLine candidates is a HARD ERROR (real fixture, not a placeholder)'
++);
 +
 +-- 5. Receiving with no receiving location configured for the branch fails
 +--    clearly (resolve_branch_receiving_location's own P0002).
@@ -2478,11 +3908,56 @@ index 00000000..f4d86ec6
 +  '6. p_actor_user_id not matching auth.uid() is rejected'
 +);
 +
-+-- 7. (Atomicity) -- documented as requiring a forced-failure fixture (e.g. an
-+--    invalid unit_id causing inventory_create_and_finalize itself to raise
-+--    mid-transaction) to prove no orphaned repair_order_line_movement_links/
-+--    repair_order_line_locations rows remain; to be completed live.
-+SELECT pass('7. (fixture TODO when run live) a forced mid-path failure inside inventory_create_and_finalize leaves no orphaned attribution rows -- one transaction, all-or-nothing');
++-- =====================================================================
++-- 7a. Atomicity, REAL executed proof (replaces the previous placeholder):
++--     when resolution fails (case 3's zero-candidate scenario), NO movement
++--     is posted at all -- proven by searching for a movement whose
++--     idempotency key matches the one we passed, which must not exist.
++-- =====================================================================
++DO $$
++DECLARE
++  v_key text := gen_random_uuid()::text;
++  v_bad_line uuid := gen_random_uuid();
++BEGIN
++  BEGIN
++    PERFORM receive_repair_order_stock(
++      (SELECT e2e_user FROM fx), (SELECT org FROM fx), (SELECT branch FROM fx),
++      jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_x FROM fx), 'unit_id', (SELECT unit_ea FROM fx), 'quantity', 2, 'source_line_id', v_bad_line)),
++      NULL, NULL, NULL, NULL, v_key
++    );
++  EXCEPTION WHEN OTHERS THEN
++    NULL; -- expected: resolution fails before anything is posted
++  END;
++  PERFORM set_config('zone5_test.atomicity_key', v_key, true);
++END $$;
++
++SELECT is(
++  (SELECT count(*)::int FROM inventory_movement_headers WHERE idempotency_key = current_setting('zone5_test.atomicity_key', true)),
++  0,
++  '7a. a resolution failure creates NO movement header at all -- the whole operation is atomic, not partially posted'
++);
++
++-- =====================================================================
++-- 7b. Structural proof (not a behavioral one -- honestly labeled as such):
++--     the function body contains no exception-swallowing block that could
++--     let a mid-function failure be silently absorbed and falsely reported
++--     as success while leaving partial writes. A genuine "engine posts,
++--     then THIS function's own attribution write fails" scenario would
++--     require either forcing an internal engine failure (whose exact
++--     validation surface is not independently confirmed this session --
++--     see the migration's own disclosed gap) or a live/local database to
++--     execute against; that specific sub-case is honestly left unresolved
++--     here via skip(), not asserted as passing.
++-- =====================================================================
++SELECT ok(
++  pg_get_functiondef('public.receive_repair_order_stock'::regproc) !~* 'EXCEPTION\s+WHEN',
++  '7b. (structural only) receive_repair_order_stock has no exception-swallowing block -- any failure anywhere in the function aborts the whole transaction by default PL/pgSQL behavior'
++);
++
++SELECT * FROM skip(
++  1,
++  '7c. SKIPPED (honest, not a fake pass): proving rollback of a failure occurring strictly AFTER inventory_create_and_finalize succeeds but BEFORE this RPC''s own attribution writes complete requires either live/local DB execution or independently-confirmed knowledge of the untracked engine''s internal validation surface -- neither is available this session; do not treat 7a/7b above as substituting for this specific sub-case.'
++);
 +
 +SELECT * FROM finish();
 +ROLLBACK;
@@ -2621,10 +4096,10 @@ index 00000000..b8a61d45
 +SELECT * FROM finish();
 +ROLLBACK;
 diff --git a/docs/mvp/zones/05-receiving-putaway-progress.md b/docs/mvp/zones/05-receiving-putaway-progress.md
-index 218ebc73..1b2fc51d 100644
+index 218ebc73..3d6e1a65 100644
 --- a/docs/mvp/zones/05-receiving-putaway-progress.md
 +++ b/docs/mvp/zones/05-receiving-putaway-progress.md
-@@ -1,17 +1,30 @@
+@@ -1,213 +1,211 @@
  # Zone 5 — Receiving / Putaway: Progress Tracker
  
  > Companion to `05-receiving-putaway-implementation-plan.md`. **Architecture: APPROVED FOR
@@ -2639,37 +4114,23 @@ index 218ebc73..1b2fc51d 100644
 -> misuse as a correctness risk, never a security one.
 -
 -## Verification pass — completed (this session, final semantic correction pass)
-+> IMPLEMENTATION.** This revision records the first implementation pass.
-+
-+## Implementation status legend (mechanical, used throughout this file)
-+
-+- **PITCH DONE** — code/migration/test written, typechecked/linted/unit-tested where that's
-+  possible without a live database, and (for anything DB-related) reviewed against the tracked
-+  schema this session could read directly.
-+- **PITCH — BLOCKED ON MCP** — written and ready for review, but **not applied to any live or
-+  local database**, because Supabase MCP was unavailable this entire session (confirmed
-+  repeatedly: no `select:supabase*` deferred tool, no `supabase` CLI installed until this
-+  session's own `pnpm install`, no running Docker daemon for a local stack). Per the working
-+  rules, this is reported honestly rather than fabricated as verified.
-+- **PITCH UAT OUTSTANDING** — code exists but has not been exercised end-to-end against a real
-+  browser/backend (Playwright, manual pitch rehearsal).
-+- **PILOT** / **TECH DEBT** — unchanged from the approved plan, not touched this pass.
-+
-+**Mechanical count, this pass**: 9 new files created (6 migrations + 5 pgTAP test files — one
-+migration, Phase 1, has one paired test file; see manifest), 4 new TypeScript files (1 service, 1
-+service test, 1 server action module, 1 UI component), 0 files modified in any other zone, 0
-+migrations applied, 0 pgTAP tests executed, 12 new/updated vitest assertions executed and
-+passing (7 pre-existing + 5 new, confirming no regression in the touched area — see report),
-+1 full-repo `tsc --noEmit` pass (clean), 1 full-repo `eslint` pass on touched files (clean).
-+
-+## Verification pass — completed (this session, final semantic correction pass — planning only)
- 
- - [x] Corrected the marker-clearing model: removed the "implicitly superseded by matching math"
-       self-heal behavior. The only automatic clearing path is on-hand reaching exactly zero at
-@@ -29,185 +42,146 @@
-       security one — unauthorized access, cross-org/branch access, and RLS bypass remain
-       independently impossible regardless of this flag's state.
- 
+-
+-- [x] Corrected the marker-clearing model: removed the "implicitly superseded by matching math"
+-      self-heal behavior. The only automatic clearing path is on-hand reaching exactly zero at
+-      that `(location, variant)`; all other clearing requires a future, explicit,
+-      full-bucket-authoritative operation (reconciliation or container/scan — PILOT, not built
+-      now). A single RepairOrder-aware RPC write does not clear a bucket-wide marker.
+-- [x] Corrected the trigger to gate on the marker's mere existence _before_ attempting the math
+-      test, rather than letting a later coincidentally-passing math test override an existing
+-      marker — closing the exact loophole the self-heal correction was about.
+-- [x] Corrected ambiguous-transfer handling: both ends of an ambiguous `801` are now marked
+-      UNKNOWN (previously only the source was marked); an ambiguous pure decrease (`402`/future
+-      issue) still marks only the source, since it has no paired destination.
+-- [x] Corrected the bypass-flag documentation: explicitly reclassified a hypothetical
+-      improperly-set flag as a **correctness** risk (attribution staleness) only, never a
+-      security one — unauthorized access, cross-org/branch access, and RLS bypass remain
+-      independently impossible regardless of this flag's state.
+-
 -## Verification pass — completed (prior session, timing/honesty correction pass)
 -
 -- [x] Confirmed `inventory_finalize_posting`'s traced ordering (balance UPDATE before ledger
@@ -2852,146 +4313,211 @@ index 218ebc73..1b2fc51d 100644
 -- [ ] Zone 3's RepairOrder Workshop UI and Matcher approval flow are unaffected; the two new
 -      composite-unique constraints on Zone 3's own tables are additive and change no existing
 -      behavior or RLS policy.
-+## Implementation pass — this session
++> IMPLEMENTATION.** This revision records the second implementation pass (a correction pass
++> against external review of the first bundle). **Zone 5 is NOT pitch-ready** — no migration has
++> been applied to any database.
 +
-+- [x] Re-verified repo state (git log/status) matches the state this plan was written against;
-+      no new commits landed since the planning pass. Committed the planning docs as an explicit
-+      pre-implementation baseline (`0d8babb5`).
-+- [x] Confirmed Supabase MCP unavailable (`ToolSearch` for supabase-prefixed deferred tools:
-+      zero results).
-+- [x] Confirmed no local Supabase/Postgres alternative: `supabase` CLI was not installed prior to
-+      this session's own `pnpm install` (which brought it in only as a devDependency, unlinked to
-+      any project); Docker Desktop is present but its daemon is not running
-+      (`docker ps` → "cannot connect ... daemon is not running").
-+- [x] **New finding this pass, reported rather than assumed past**: `inventory_stock_ledger_entries`
-+      and `inventory_movement_audit_log` have **zero** tracked migrations anywhere in the repo
-+      (`grep -rl inventory_stock_ledger_entries` across both migration directories: no matches) —
-+      this is a deeper instance of the same schema-drift category already accepted as tech debt
-+      for the RPC bodies, but extends to the table itself. The Phase 3 trigger migration's exact
-+      column references are therefore based on convergent design-doc + prior-session
-+      LIVE-VERIFIED evidence, not this session's own live confirmation — flagged prominently in
-+      that migration's own header, not silently assumed. `warehouse_locations`, `inventory_balances`,
-+      `inventory_movement_lines`, `inventory_movement_headers`, `repair_orders`,
-+      `repair_order_lines`, `repair_order_line_movement_links` ARE fully tracked and were read
-+      directly this session with high confidence.
-+- [x] Deliberately did **not** fall back to `pnpm run supabase:db:push:target` (a real, working
-+      CLI path found in `package.json`) to apply migrations directly to the live target project —
-+      the working rules specify MCP for all mutations; substituting a raw CLI push against a
-+      shared live project the moment the specified approval path is unavailable was judged unsafe
-+      and out of scope for this session's own authority to decide unilaterally.
++## Implementation status legend (mechanical, used throughout this file)
++
++- **PITCH DONE** — code/migration/test written, typechecked/linted/unit-or-pgTAP-tested where
++  that's possible without a live database, and (for anything DB-related) reviewed against the
++  tracked schema this session could read directly.
++- **PITCH — BLOCKED ON MCP** — written and ready for review, but **not applied to any live or
++  local database** (no Supabase MCP tool, no `supabase` CLI link, no running Docker daemon this
++  session). Per the working rules, reported honestly rather than fabricated as verified.
++- **PITCH UAT OUTSTANDING** — code exists but has not been exercised end-to-end against a real
++  browser/backend.
++- **PILOT** / **TECH DEBT** — unchanged from the approved plan, not touched this pass.
++
++## Correction pass — this session (external review of the first implementation bundle)
++
++- [x] **1. Aggregate + `FOR UPDATE` bug — CONFIRMED and fixed.** `SELECT sum(...), count(...) ...
++    FOR UPDATE` is invalid PostgreSQL (the locking clause cannot combine with aggregation at
++      the same query level — verified against PostgreSQL's own SELECT/locking-clause
++      documentation, and confirmed no precedent for this pattern exists anywhere in this repo).
++      Fixed in `20260912092000_zone5_attribution_sync_trigger.sql`: lock the individual rows
++      first via a CTE (`WITH locked_rows AS (SELECT ... FOR UPDATE) SELECT sum(...), ... FROM
++    locked_rows`), aggregate over the already-locked set in the same statement. This also let
++      `v_line_id`/`v_ro_id` be captured from the same locked read via `max()` (safe when
++      `v_distinct_lines = 1`), removing a second, separate, unlocked re-SELECT entirely.
++- [x] **2. Fake pgTAP placeholders — removed.** `096`'s two `SELECT pass('... TODO ...')`
++      assertions are replaced: (a) ambiguous-provenance resolution is now a real, fixture-driven
++      test built against the confirmed-real schema of `wdd_matcher_sessions` /
++      `wdd_matcher_session_files` / `wdd_matcher_blocks` / `wdd_matcher_lines` (read directly
++      from `20260415100000_svwms_wdd_matcher_tables.sql` this pass); (b) atomicity is now a real
++      executed test (no movement header is created at all when resolution fails, searched for by
++      a distinctive idempotency key) plus a structural proof (no exception-swallowing block in
++      the function body) — and the one sub-case genuinely requiring live/local execution
++      (mid-engine-call failure) is marked with an honest `skip()`, never a `pass()`. The same
++      anti-pattern (a bare `pass()`) found in `093` was also fixed the same way.
++- [x] **3. Receiving flow wired.** `use-movement-submission.ts`'s `submit(andPost=true)` now
++      routes a NEW (not edit), type-101 movement with at least one `source_line_id`-carrying line
++      through `receiveRepairOrderStockAction`; every other case (no resolvable line, any other
++      movement type, edit mode, draft-only save) is unchanged and goes through the existing
++      generic actions. Proven by 5 real, executed unit tests
++      (`use-movement-submission.route-selection.test.ts`) covering exactly those branches.
++- [x] **4. Putaway wired into a real page.** `RepairOrderPutawayPanel` is now rendered from
++      `/dashboard/workshop/[id]/page.tsx` (the real, existing RepairOrder detail shell),
++      conditionally, only when `RepairOrderStorageService.getReceivedLines` finds stock actually
++      sitting at the branch's receiving location for that RepairOrder. New service method
++      `getReceivedLines` added (line-level read, joins `repair_order_line_locations` filtered to
++      the receiving location with `inventory_variants` for sku/productName/unit_id).
++- [x] **5. Receiving-location admin — backend done, UI wiring deferred (disclosed).** Added
++      `purpose` to `updateLocationSchema` and to `WarehouseLocationsService.update`'s field
++      allowlist (previously an explicit per-field list that would have silently dropped it) —
++      the REAL, existing, `WAREHOUSE_LOCATIONS_MANAGE`-gated admin action now genuinely persists
++      `purpose`. Proven by a new service test (42/42 passing including the new one, zero
++      regression). **NOT done this pass**: a visible toggle inside the actual location edit
++      surface. Two candidate files were inspected (`LocationModal.tsx`, 809 lines;
++      `location-detail-panel.tsx`, 1076 lines) — both are large and unfamiliar, and a blind edit
++      under time pressure risked breaking Zone 4's working UI, which this assignment must not do.
++      This is a deliberate, disclosed scope boundary, not a silent omission — see "Remaining
++      work" below.
++- [x] **6. Stockable-receiving invariant — added at the DB level.** New CHECK constraint
++      `warehouse_locations_receiving_must_be_stockable`
++      (`purpose <> 'receiving' OR can_store_inventory = true`) in the Phase 1 migration — a
++      non-stockable location can no longer be marked `receiving` even if application code has a
++      bug. New pgTAP assertion in `093` proves the constraint rejects such an attempt.
++- [x] **7. `resolve_branch_receiving_location` EXECUTE grant — removed from `authenticated`.**
++      The helper took an arbitrary org/branch with no permission check of its own; granting
++      `authenticated` EXECUTE would have let any signed-in user probe any org/branch's receiving
++      location id. Now revoked from `PUBLIC`/`anon`/`authenticated` entirely — the two
++      orchestration RPCs can still call it internally (a `SECURITY DEFINER` function executes as
++      its owner, which already has implicit EXECUTE on functions the same owner created). New
++      pgTAP assertion (`093`) proves `authenticated` has no direct EXECUTE.
++- [x] **8. Error normalization implemented**, following this repo's own already-established,
++      hardened convention (`repair-orders.service.ts`'s `normalizeMaterializationRpcError` —
++      allowlist requiring BOTH exact SQLSTATE AND a match against the RPC's own known message
++      shape, not the code alone). Applied to both new RPCs' error paths and to the read model's
++      action wrapper (which normalizes everything except a recognizable RLS denial, since that
++      service has no deliberately-authored safe messages of its own). 13 real, executed action
++      tests prove: known errors pass through, the SAME SQLSTATE with a DIFFERENT message is NOT
++      leaked, and completely unexpected errors never leak raw SQL/relation/constraint text.
++- [x] **9. Putaway destination selector fixed.** The raw "enter another location ID" text input
++      is replaced with a `<select>` populated from the existing `listLocationsAction()`, showing
++      `code — name`, filtered to stockable locations — no UUID ever shown to the operator, no new
++      picker subsystem, no QR/mobile scanning (still PILOT).
++- [x] **10. UI/action test coverage added** — 13 action-level tests
++      (`repair-order-receiving.test.ts`) + 8 component tests
++      (`repair-order-putaway-panel.test.tsx`) covering all 9 requested scenarios (A-I: KNOWN
++      actionable, UNKNOWN never confident, batch payload, partial quantity, destination selector,
++      API failure, no-selection guard, success, no capacity display) + 5 route-selection tests +
++      1 new service test — all real, executed, all passing (see counts below).
++- [x] **11. Live schema gate — reaffirmed, not overridden.** No migration was applied. The
++      Phase 3 trigger's disclosed column-verification gap (against `inventory_stock_ledger_entries`)
++      is unchanged and still blocks live application until a session with Supabase MCP/live
++      access independently confirms every referenced column.
++- [x] **12. No PILOT features started** — confirmed by re-scanning the diff for any of:
++      `inventory_containers`, capacity/percentage fields, `relation_type='putaway'`, mobile
++      scanning, QR. None present.
++
++## Implementation pass — prior session (context, unchanged this pass unless noted above)
++
++- [x] Re-verified repo state; no new commits landed since the planning pass. Planning docs
++      committed as baseline (`0d8babb5`).
++- [x] Confirmed Supabase MCP unavailable (repeated this pass — still true).
++- [x] Confirmed no local Supabase/Postgres alternative (repeated this pass — still true;
++      `docker ps` still fails, daemon not running).
++- [x] `inventory_stock_ledger_entries`/`inventory_movement_audit_log` have zero tracked
++      migrations anywhere in the repo (unchanged finding).
++- [x] Deliberately did not fall back to `supabase db push` against the live target project
++      (unchanged decision).
 +
 +### Phase 0 — Fresh verification (PITCH, gate)
 +
-+- [ ] 101 + Matcher import chain manually re-run on current build — **BLOCKED ON MCP** (no live
-+      environment reachable this session).
++- [ ] 101 + Matcher import chain manually re-run on current build — **BLOCKED ON MCP**.
 +- [ ] 801 relocation (Zone 6's existing UI) manually re-run on current build — **BLOCKED ON MCP**.
 +- [ ] Matcher-line → RepairOrder-line join returns real rows for a materialized session —
 +      **BLOCKED ON MCP**.
 +
 +### Phase 1 — Receiving-location schema
 +
-+- [x] Migration written: `20260912090000_zone5_receiving_location_purpose.sql` —
-+      `warehouse_locations.purpose` + CHECK + partial unique index +
-+      `resolve_branch_receiving_location()` helper. **PITCH — BLOCKED ON MCP** (not applied).
-+- [ ] Location edit UI: purpose toggle — **NOT BUILT this pass** (time-boxed out in favor of the
-+      DB layer + the receiving/putaway RPCs and read model, which are the parts every other phase
-+      depends on; a location can still be designated via direct update against the resolver's own
-+      invariants once applied — see remaining work in the final report).
-+- [x] pgTAP test written: `093_zone5_receiving_location_purpose_test.sql` (8 assertions) —
-+      **PITCH — BLOCKED ON MCP** (not executed).
-+- [ ] Admin designates the demo branch's receiving location — **BLOCKED ON MCP** (depends on the
-+      migration being applied first).
++- [x] Migration: `20260912090000_zone5_receiving_location_purpose.sql` — `purpose` column +
++      CHECK + partial unique index + stockable-receiving invariant (NEW this pass) +
++      `resolve_branch_receiving_location()` (EXECUTE grant corrected this pass). **PITCH —
++      BLOCKED ON MCP**.
++- [x] Backend admin plumbing (`updateLocationSchema` + `WarehouseLocationsService.update`) —
++      **PITCH DONE**, tested (42/42 service tests passing).
++- [ ] Visible toggle in the location edit UI — **NOT DONE this pass** (disclosed scope boundary,
++      see correction #5 above and "Remaining work" below).
++- [x] pgTAP test: `093_...purpose_test.sql`, now 10 assertions (was 8; +2 this pass: stockable
++      invariant, EXECUTE-grant check) — **PITCH — BLOCKED ON MCP** (not executed).
++- [ ] Admin designates the demo branch's receiving location — **BLOCKED ON MCP**.
 +
 +### Phase 2 — Projection + uncertainty marker + full integrity
 +
-+- [x] Migration written: `20260912091000_zone5_repair_order_spatial_attribution_schema.sql` —
-+      both composite-unique constraints, `repair_order_line_locations` (all 3 composite FKs, no
-+      `container_id`), `repair_order_location_attribution_uncertain`, RLS (SELECT-only). **PITCH
-+      — BLOCKED ON MCP**.
-+- [x] pgTAP test written: `094_zone5_repair_order_spatial_schema_test.sql` (9 assertions,
-+      including all 3 composite-FK rejections and RLS isolation) — **PITCH — BLOCKED ON MCP**.
++- [x] Migration: `20260912091000_...schema.sql` — unchanged this pass. **PITCH — BLOCKED ON MCP**.
++- [x] pgTAP test: `094_...schema_test.sql`, 9 assertions — **PITCH — BLOCKED ON MCP**.
 +
-+### Phase 3 — Safety-net trigger (corrected timing, no-inference, no-self-heal, both-ends, on_hand-only)
++### Phase 3 — Safety-net trigger
 +
-+- [x] Migration written: `20260912092000_zone5_attribution_sync_trigger.sql` — implements the
-+      full corrected algorithm (on_hand guard, zero-clears rule unconditional, bypass check,
-+      fast no-op path, marker-gate-before-math, pre-effect reconstruction from the ledger row's
-+      own columns, both-ends marking). **PITCH — BLOCKED ON MCP**, with the additional disclosed
-+      column-verification gap noted above.
-+- [x] pgTAP test written: `095_zone5_attribution_sync_trigger_test.sql` (14 assertions covering
-+      all 13 required scenarios plus the structural concurrency proof) — **PITCH — BLOCKED ON
-+      MCP**.
-+- [ ] Live-DB two-session concurrency integration test — **explicitly deferred**, per the plan's
-+      own §6.1, not written this pass either (would itself require live/local DB access to run).
++- [x] Migration: `20260912092000_...trigger.sql` — **corrected this pass** (aggregate+FOR UPDATE
++      fix, #1 above). **PITCH — BLOCKED ON MCP**, plus the still-open ledger-column
++      verification gap (#11).
++- [x] pgTAP test: `095_...trigger_test.sql`, 14 assertions, header note added pointing at the
++      corrected query path — **PITCH — BLOCKED ON MCP**.
++- [ ] Live-DB two-session concurrency integration test — still explicitly deferred.
 +
 +### Phase 4 — `receive_repair_order_stock` RPC + wiring
 +
-+- [x] Migration written: `20260912093000_zone5_receive_repair_order_stock_rpc.sql` — actor check,
-+      permission check, receiving-location resolution, Matcher-line resolution with the
-+      null/unique/zero/ambiguous four-way contract, org/branch/variant cross-validation, calls
-+      `inventory_create_and_finalize('101', ...)`, writes seed attribution +
-+      `repair_order_line_movement_links` directly. **PITCH — BLOCKED ON MCP**.
-+- [x] `use-movement-submission.ts` wiring — **NOT DONE this pass** (see remaining work; the
-+      existing manual-movement-editor path is unchanged and unaffected, which was independently
-+      confirmed by the full `tsc`/`eslint`/`vitest` passes below showing zero regressions).
-+- [x] pgTAP test written: `096_zone5_receive_repair_order_stock_test.sql` (7 assertions; 2 marked
-+      as fixture-TODO for ambiguous-resolution and atomicity, requiring live fixtures) — **PITCH
-+      — BLOCKED ON MCP**.
++- [x] Migration: `20260912093000_...receive_rpc.sql` — unchanged this pass. **PITCH — BLOCKED ON
++      MCP**.
++- [x] **Wiring done this pass** (#3 above) — `use-movement-submission.ts`, 5 route-selection
++      tests passing.
++- [x] pgTAP test: `096_...receive_test.sql` — **corrected this pass** (#2 above), now 10
++      assertions, no fake passes. **PITCH — BLOCKED ON MCP**.
 +
 +### Phase 5 — Putaway read model + suggestion UI
 +
-+- [x] Service written: `src/server/services/repair-order-storage.service.ts` — plain
-+      client-side read + aggregation against `repair_order_line_locations` +
-+      `repair_order_location_attribution_uncertain` (deliberately not a new DB function/view).
-+      **PITCH DONE** for the logic itself: unit-tested against a mocked Supabase client (5/5
-+      tests passing, see report), typechecked, linted clean.
-+- [x] Server action written: `getRepairOrderStorageSuggestionsAction` in
-+      `repair-order-receiving.ts`. **PITCH DONE** (typechecked/linted); **BLOCKED ON MCP** for
-+      any live call (depends on Phase 2's tables existing).
-+- [x] UI written: `repair-order-putaway-panel.tsx` — suggestion list (KNOWN only, `[Put here]`),
-+      a visibly separate UNKNOWN warning banner (never merged into confident suggestions), a
-+      manual-location fallback, multi-line selection with per-line quantity for batch putaway.
-+      No capacity/percentage display anywhere. **PITCH DONE** for typecheck/lint; **PITCH UAT
-+      OUTSTANDING** (no browser/Playwright run — no live backend to render real data against).
-+- [ ] Wiring this panel into Zone 3's actual RepairOrder Workshop detail page — **NOT DONE this
-+      pass**; the panel is self-contained and takes its data as props specifically so it can be
-+      dropped into that page without this session needing to reverse-engineer its full existing
-+      structure under time pressure (see remaining work).
++- [x] Service: `repair-order-storage.service.ts` — `getStorageSuggestions` unchanged;
++      `getReceivedLines` **added this pass**. **PITCH DONE** (5 + coverage via component tests).
++- [x] Server action: `getRepairOrderStorageSuggestionsAction` — error normalization added this
++      pass (#8). **PITCH DONE**.
++- [x] UI: `repair-order-putaway-panel.tsx` — destination selector fixed this pass (#9), 8
++      component tests added (#10). **PITCH DONE** for typecheck/lint/unit tests; **PITCH UAT
++      OUTSTANDING** for real browser verification.
++- [x] **Wired into a real page this pass** (#4 above) — `/dashboard/workshop/[id]/page.tsx`.
 +
 +### Phase 6 — `putaway_repair_order_stock` RPC + wiring
 +
-+- [x] Migration written: `20260912094000_zone5_putaway_repair_order_stock_rpc.sql` — batch
-+      contract (one call, N lines, one destination, one document), destination validation,
-+      per-line quantity-available validation against the live projection, writes attribution
-+      directly, does **not** clear a pre-existing bucket-wide marker, writes **no**
-+      `repair_order_line_movement_links` row. **PITCH — BLOCKED ON MCP**.
-+- [x] `[Put here]` / manual-location wiring — done in the Phase 5 UI component (same file).
-+- [x] pgTAP test written: `097_zone5_putaway_repair_order_stock_test.sql` (6 assertions: batch,
-+      partial quantity, destination credit, over-request rejection, marker non-clearing, no
-+      `relation_type='putaway'` row ever exists). **PITCH — BLOCKED ON MCP**.
++- [x] Migration: `20260912094000_...putaway_rpc.sql` — unchanged this pass. **PITCH — BLOCKED ON
++      MCP**.
++- [x] `[Put here]` / destination-selector wiring — corrected this pass (#9).
++- [x] pgTAP test: `097_...putaway_test.sql`, 6 assertions — **PITCH — BLOCKED ON MCP**.
 +
 +### Phase 7 — Presentation UAT
 +
-+- [ ] Full live run — **BLOCKED ON MCP** (no live environment).
-+- [ ] Zone 6 rehearsal (plain `801` on deliberately unambiguous data) — **BLOCKED ON MCP**.
-+- [ ] Playwright / responsive QA at 390×844, 768×1024, 1440×900 — **NOT RUN this pass**; honestly
-+      reported as an environmental limitation (no live Supabase project reachable to render real
-+      warehouse/RepairOrder data, and this session's Playwright config depends on the app's own
-+      dev server + backend) rather than fabricated. See final report.
-+- [ ] Manual pitch scenario data preparation — **NOT DONE this pass** (depends on Phase 0/1
-+      being live-applicable first).
++- [ ] Full live run — **BLOCKED ON MCP**.
++- [ ] Zone 6 rehearsal — **BLOCKED ON MCP**.
++- [ ] Playwright / responsive QA at 390×844, 768×1024, 1440×900 — **NOT RUN this pass** (no live
++      backend to render against — disclosed environmental limitation, not fabricated).
++- [ ] Manual pitch scenario data preparation — **NOT DONE this pass**.
 +
-+## Known-good regression checks (run this pass)
++## Remaining work (explicit, not silently deferred)
 +
-+- [x] Full-repo `tsc --noEmit`: **clean** (0 errors) after fixing a real narrowing issue this
-+      pass surfaced (see final report) in three newly-added files — not a pre-existing bug, and
-+      not left unresolved.
-+- [x] `eslint` on every new file: **clean** (0 errors, 0 warnings after removing one unused
-+      import).
-+- [x] `vitest` targeted run (new service test): **5/5 passing**.
-+- [x] `vitest` full-suite regression run: see final report for the completed result (was still
-+      running in the background at the time this tracker was last edited — do not treat an
-+      earlier partial view of this file as the final word; the report has the actual number).
-+- [ ] Zone 3 pgTAP regression (`090`-`092`) — **BLOCKED ON MCP** (not executed, but not modified
-+      either — this pass touched zero existing Zone 3 files).
-+- [ ] Zone 6 regression — **BLOCKED ON MCP**; zero Zone 6 files modified this pass.
++1. **Location edit UI toggle** — wire a `purpose` control into `LocationModal.tsx` and/or
++   `location-detail-panel.tsx` (both real, both large/unfamiliar this session) once someone with
++   more context on those specific files' structure (or live rendering to verify against) can do
++   so safely. The backend (`updateLocationAction`) already supports it correctly and is tested.
++2. Everything Phase 0/7 and every migration application — blocked on Supabase MCP or equivalent
++   live/local access, per the standing constraint.
++3. The live two-session concurrency integration test (Phase 3, explicitly deferred per plan
++   §6.1).
++4. The one honestly-`skip()`ped atomicity sub-case in `096` (mid-engine-call failure) — needs
++   either live execution or independently-confirmed knowledge of `inventory_create_and_finalize`'s
++   internal validation surface.
++
++## Known-good regression checks (this pass)
++
++- [x] Full-repo `tsc --noEmit`: **clean** (0 errors) — including after fixing a real,
++      reproducible TS discriminated-union narrowing issue this pass hit again in three more new
++      files (worked around the same way as the prior pass: explicit `=== true`/`=== false`
++      checks instead of negated guard-returns; root cause still not fully isolated, flagged for
++      whoever next touches this pattern in this codebase).
++- [x] `eslint` on every touched/new file: **clean** (0 errors, 0 warnings after two trivial
++      fixes — an unused mock param, two now-unnecessary `eslint-disable` comments).
++- [x] `vitest` full-suite regression run: executed this pass — see the accompanying final report
++      for the exact pass/fail counts; the pre-existing failure set (unrelated to Zone 5, e.g. a
++      date-format assertion in an unrelated account-settings test) is unchanged in shape from the
++      prior pass's own baseline run, and every Zone-5-authored test file passes.
++- [ ] Zone 3/Zone 6 pgTAP regression — **BLOCKED ON MCP**; zero Zone 3/Zone 6 files modified.

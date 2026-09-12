@@ -1,28 +1,37 @@
 # Zone 5 — Migration Summary
 
 **None of the six migrations below have been applied to any live or local database.** Supabase
-MCP was unavailable for this entire implementation session; there was no running local
-Postgres/Docker stack either (see `review-context.md` for the exact evidence). Every row's
+MCP was unavailable for this entire implementation session (both passes); there was no running
+local Postgres/Docker stack either (see `review-context.md` for the exact evidence). Every row's
 "Live verification" and "Local/live parity" columns are therefore **BLOCKED ON MCP**, not
-performed, not fabricated.
+performed, not fabricated. This revision reflects the correction pass applied after external
+review of the first bundle — changes from that pass are marked **CORRECTED** below.
 
 ## 1. `20260912090000_zone5_receiving_location_purpose.sql`
 
-- **Object changed**: `warehouse_locations` (ALTER — add `purpose` column); new index
+- **Object changed**: `warehouse_locations` (ALTER — add `purpose` column, add
+  `warehouse_locations_receiving_must_be_stockable` CHECK **[CORRECTED this pass]**); new index
   `warehouse_locations_one_receiving_per_branch`; new function
   `resolve_branch_receiving_location(uuid, uuid)`.
 - **Before**: no semantic role/purpose concept existed anywhere on this table (verified across
-  every tracked ALTER on `warehouse_locations` in both migration directories, in a prior session
-  of this same work).
+  every tracked ALTER on `warehouse_locations` in both migration directories).
 - **After**: `purpose TEXT NOT NULL DEFAULT 'standard' CHECK (purpose IN ('standard','receiving'))`;
-  at most one non-deleted `purpose='receiving'` row per `(organization_id, branch_id)`.
+  at most one non-deleted `purpose='receiving'` row per `(organization_id, branch_id)`;
+  **[CORRECTED]** `CHECK (purpose <> 'receiving' OR can_store_inventory = true)` — a
+  non-stockable location can no longer be marked `receiving` at the DB level, closing a gap the
+  first pass left enforced only by the resolver's own read-time filter.
 - **Why required**: approved plan §5 — the branch receiving buffer needs a DB-enforced, non-hardcoded
   semantic location role.
 - **RLS**: none added/changed on `warehouse_locations` itself (existing policies apply
   unchanged — `purpose` is just another column on an already-RLS'd table).
-- **Constraints/FKs**: one `CHECK`, one partial `UNIQUE` index. No FKs.
-- **Function/RPC**: `resolve_branch_receiving_location` — `SECURITY DEFINER`, `STABLE`, revoked
-  from `PUBLIC`/`anon`, granted to `authenticated`. Re-validates
+- **Constraints/FKs**: two `CHECK` constraints (was one), one partial `UNIQUE` index. No FKs.
+- **Function/RPC**: `resolve_branch_receiving_location` — `SECURITY DEFINER`, `STABLE`.
+  **[CORRECTED this pass]**: revoked from `PUBLIC`/`anon`/**`authenticated`** (was previously
+  granted to `authenticated`, which had no permission check of its own and let any signed-in
+  user probe any org/branch's receiving-location id — a genuine cross-tenant metadata-lookup
+  surface, now closed). The two orchestration RPCs (files #4/#5) still call it internally without
+  any grant, since a `SECURITY DEFINER` function executes as its owner, which already has
+  implicit EXECUTE on functions the same owner created. Re-validates
   org/branch/purpose/`can_store_inventory`/`deleted_at` on every call.
 - **Live verification**: BLOCKED ON MCP.
 - **Local/live parity**: BLOCKED ON MCP — file exists only locally.
@@ -84,8 +93,19 @@ EACH ROW`.
      coincidence" true.
   6. Pre-effect reconstruction from `NEW.balance_after`/`NEW.quantity`/`NEW.direction` only —
      never a re-query of `inventory_balances`.
-  7. On ambiguity: marks source, and destination too if transfer-shaped, UNKNOWN.
-  8. On unambiguity: decrements the one attributable row, credits the destination (if any) with
+  7. **[CORRECTED this pass]** The ambiguity test itself: locks the relevant
+     `repair_order_line_locations` rows via a `WITH locked_rows AS (SELECT ... FOR UPDATE)` CTE,
+     then aggregates (`sum`, `count(DISTINCT ...)`, and — via `max()` — the single line/RO id
+     when unambiguous) over that already-locked set in the same statement. The prior version
+     combined `sum()`/`count()` with `FOR UPDATE` directly on one query — **invalid PostgreSQL**
+     (the locking clause cannot be combined with aggregation at the same query level; in
+     practice this raises `ERROR: FOR UPDATE is not allowed with aggregate functions`). Confirmed
+     by direct reference to PostgreSQL's own SELECT/locking-clause documentation and by finding
+     zero precedent for this pattern anywhere else in the repo. This also eliminated a second,
+     separate, _unlocked_ re-SELECT the prior version used to fetch `v_line_id`/`v_ro_id` — now
+     captured from the same locked read.
+  8. On ambiguity: marks source, and destination too if transfer-shaped, UNKNOWN.
+  9. On unambiguity: decrements the one attributable row, credits the destination (if any) with
      the same `repair_order_line_id`.
 - **⚠ Disclosed verification gap (the single most important entry in this table)**: this
   migration's column references for `inventory_stock_ledger_entries`

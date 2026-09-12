@@ -1,10 +1,36 @@
 # Zone 5 — Receiving/Putaway: External Review Context
 
-This bundle covers the first implementation pass of the Zone 5 architecture approved across six
-prior planning/correction rounds (see `docs/mvp/zones/05-receiving-putaway-implementation-plan.md`
-for the full design record). Read `changed-files.md` for the file manifest and
-`migration-summary.md` for per-migration detail; this document explains the _why_ behind each
-piece and lists the reviewer's checklist.
+This bundle covers the Zone 5 implementation, including a correction pass applied after external
+review of the first bundle, against the architecture approved across six prior planning/
+correction rounds (see `docs/mvp/zones/05-receiving-putaway-implementation-plan.md` for the full
+design record). Read `changed-files.md` for the file manifest and `migration-summary.md` for
+per-migration detail; this document explains the _why_ behind each piece and lists the
+reviewer's checklist.
+
+## Corrections applied this pass (in response to external review of the first bundle)
+
+1. **Fixed an invalid PostgreSQL construct**: the attribution-sync trigger's ambiguity test
+   combined an aggregate (`sum`/`count`) with `FOR UPDATE` in one query — not valid Postgres.
+   Fixed by locking rows via a CTE first, then aggregating over the locked set.
+2. **Removed fake pgTAP `pass()` placeholders** (tests `093`, `096`) — replaced with real
+   fixture-driven tests or an honest `skip()` where genuinely live-only.
+3. **Wired the receiving flow** — `use-movement-submission.ts` now routes a RepairOrder-resolvable
+   101 through the new RPC; every other case unchanged. 5 new tests prove the routing.
+4. **Wired putaway into a real page** — `/dashboard/workshop/[id]` now shows the putaway panel
+   when applicable.
+5. **Receiving-location admin backend fixed and tested** (`updateLocationSchema` +
+   `WarehouseLocationsService.update` now genuinely persist `purpose`); a visible toggle in the
+   actual location-edit UI is explicitly deferred — see "Pitch limitations" below.
+6. **Added a DB-level stockable-receiving invariant.**
+7. **Closed an unnecessary cross-tenant metadata-lookup surface** (`resolve_branch_receiving_location`
+   no longer grants `authenticated` EXECUTE).
+8. **Implemented error normalization** matching this repo's own established, hardened convention.
+9. **Replaced the raw location-ID text input** with a real location picker.
+10. **Added 13 action tests + 8 component tests** + 5 route-selection tests + 1 service test,
+    all real and executed.
+
+None of these corrections touch the underlying architecture decisions from the six approved
+planning rounds — they are implementation-quality fixes, not design changes.
 
 ## A. Final architecture (one paragraph)
 

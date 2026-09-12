@@ -17,15 +17,24 @@
   browser/backend.
 - **PILOT** / **TECH DEBT** — unchanged from the approved plan, not touched this pass.
 
+**Mechanical count, both passes combined**: 23 files in the full diff (21 new, 2 pre-existing
+files modified — see `changed-files.md` for the itemized manifest); 6 migrations written, 0
+applied; 5 pgTAP test files (59 assertions across `093`-`097`, up from 54 — corrections added/
+fixed assertions in `093` and `096`), 0 executed; 4144 vitest tests run in the full-suite
+regression pass (4103 passed / 24 failed — all 24 pre-existing and unrelated to Zone 5 / 8
+skipped / 9 todo), up from 4117 in the prior pass — the +27 delta is exactly this pass's new
+Zone-5 assertions, all passing; 1 full-repo `tsc --noEmit` pass (clean); `eslint` clean on every
+touched file.
+
 ## Correction pass — this session (external review of the first implementation bundle)
 
 - [x] **1. Aggregate + `FOR UPDATE` bug — CONFIRMED and fixed.** `SELECT sum(...), count(...) ...
-    FOR UPDATE` is invalid PostgreSQL (the locking clause cannot combine with aggregation at
+  FOR UPDATE` is invalid PostgreSQL (the locking clause cannot combine with aggregation at
       the same query level — verified against PostgreSQL's own SELECT/locking-clause
       documentation, and confirmed no precedent for this pattern exists anywhere in this repo).
       Fixed in `20260912092000_zone5_attribution_sync_trigger.sql`: lock the individual rows
       first via a CTE (`WITH locked_rows AS (SELECT ... FOR UPDATE) SELECT sum(...), ... FROM
-    locked_rows`), aggregate over the already-locked set in the same statement. This also let
+  locked_rows`), aggregate over the already-locked set in the same statement. This also let
       `v_line_id`/`v_ro_id` be captured from the same locked read via `max()` (safe when
       `v_distinct_lines = 1`), removing a second, separate, unlocked re-SELECT entirely.
 - [x] **2. Fake pgTAP placeholders — removed.** `096`'s two `SELECT pass('... TODO ...')`
@@ -204,8 +213,13 @@
       whoever next touches this pattern in this codebase).
 - [x] `eslint` on every touched/new file: **clean** (0 errors, 0 warnings after two trivial
       fixes — an unused mock param, two now-unnecessary `eslint-disable` comments).
-- [x] `vitest` full-suite regression run: executed this pass — see the accompanying final report
-      for the exact pass/fail counts; the pre-existing failure set (unrelated to Zone 5, e.g. a
-      date-format assertion in an unrelated account-settings test) is unchanged in shape from the
-      prior pass's own baseline run, and every Zone-5-authored test file passes.
+- [x] `vitest` full-suite regression run: **executed, completed** — 285 test files passed / 25
+      failed / 2 skipped (312 total, +3 files vs. the prior pass's 309, exactly the 3 new Zone 5
+      test files added this pass); 4103 tests passed / 24 failed / 8 skipped / 9 todo (4144
+      total, +27 vs. 4117, exactly the 26 new + 1 added-to-existing-file Zone 5 assertions this
+      pass). **All 25 failing test files are pre-existing and unrelated to Zone 5** (e.g. the
+      same `member-detail-client.test.tsx` date-format assertion seen in the prior pass's own
+      baseline run) — zero of them touch any file this session created or modified, confirmed by
+      direct inspection of the failure output. The failed-test count (25→24) moved by one due to
+      unrelated test flakiness in a file this session never touched, not a regression.
 - [ ] Zone 3/Zone 6 pgTAP regression — **BLOCKED ON MCP**; zero Zone 3/Zone 6 files modified.
