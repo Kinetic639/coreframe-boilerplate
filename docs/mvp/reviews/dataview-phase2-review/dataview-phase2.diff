@@ -1,0 +1,1768 @@
+diff --git a/apps/web/e2e/data-view-responsive.spec.ts b/apps/web/e2e/data-view-responsive.spec.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..013fa702d725459e65ac4f994fb752e5c70506b2
+--- /dev/null
++++ b/apps/web/e2e/data-view-responsive.spec.ts
+@@ -0,0 +1,155 @@
++import { test, expect } from "./fixtures";
++import type { Page } from "@playwright/test";
++
++const VIEWPORTS = [
++  { width: 1440, height: 900 },
++  { width: 1280, height: 800 },
++  { width: 1024, height: 768 },
++  { width: 768, height: 1024 },
++  { width: 430, height: 932 },
++  { width: 390, height: 844 },
++  { width: 360, height: 800 },
++] as const;
++
++const CONSUMERS = [
++  { name: "Products", path: "/dashboard/warehouse/items" },
++  { name: "Help Desk", path: "/dashboard/help-desk/tickets" },
++] as const;
++
++async function expectNoDocumentOverflow(page: Page) {
++  await expect
++    .poll(() =>
++      page.evaluate(
++        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth
++      )
++    )
++    .toBe(true);
++}
++
++for (const consumer of CONSUMERS) {
++  test(`${consumer.name} adapts its list and detail across the viewport matrix`, async ({
++    page,
++  }) => {
++    test.setTimeout(180_000);
++
++    for (const viewport of VIEWPORTS) {
++      await page.setViewportSize(viewport);
++      await page.goto(consumer.path);
++
++      const root = page.getByTestId("data-view-root");
++      await expect(root).toBeVisible({ timeout: 30_000 });
++      const mode = await root.getAttribute("data-layout-mode");
++      expect(mode).toMatch(/^(wide|medium|narrow)$/);
++
++      const row =
++        mode === "narrow"
++          ? page.locator('[data-testid^="mobile-card-"] button[data-data-view-row-id]').first()
++          : page.locator('[data-testid^="row-"]:not([data-testid^="row-select-"])').first();
++      await expect(row).toBeVisible({ timeout: 30_000 });
++      await expectNoDocumentOverflow(page);
++
++      const selectedId = await row.getAttribute("data-data-view-row-id");
++      expect(selectedId).toBeTruthy();
++      await row.click();
++      await expect(page.getByTestId("detail-panel")).toBeVisible({ timeout: 30_000 });
++      await expectNoDocumentOverflow(page);
++
++      if (mode === "wide") {
++        await expect(page.getByTestId("data-view-sidebar")).toBeVisible();
++      } else {
++        const back = page.locator('[data-testid="back-to-list-button"]:visible');
++        await expect(back).toBeFocused();
++        const box = await back.boundingBox();
++        expect(box?.height).toBeGreaterThanOrEqual(44);
++      }
++
++      await page.locator('[data-testid="back-to-list-button"]:visible').click();
++      await expect(page).not.toHaveURL(/selected=/);
++      await expectNoDocumentOverflow(page);
++
++      if (mode === "narrow") {
++        await expect(page.getByTestId("data-view-mobile-list")).toBeVisible();
++        await expect(page.getByRole("textbox", { name: /Szukaj|Search/i })).toBeVisible();
++      } else {
++        await expect(page.getByRole("table")).toBeVisible();
++      }
++
++      if (viewport.width === 390) {
++        await page.goto(`${consumer.path}?selected=${encodeURIComponent(selectedId!)}`);
++        await expect(page.getByTestId("detail-panel")).toBeVisible({ timeout: 30_000 });
++        await page.reload();
++        await expect(page.getByTestId("detail-panel")).toBeVisible({ timeout: 30_000 });
++        await page.locator('[data-testid="back-to-list-button"]:visible').click();
++        await expect(page).not.toHaveURL(/selected=/);
++        await expect(page.getByTestId("data-view-mobile-list")).toBeFocused();
++
++        const historyRow = page
++          .locator('[data-testid^="mobile-card-"] button[data-data-view-row-id]')
++          .first();
++        await historyRow.click();
++        await page.goBack();
++        await expect(page).not.toHaveURL(/selected=/);
++        await page.goForward();
++        await expect(page.getByTestId("detail-panel")).toBeVisible({ timeout: 30_000 });
++      }
++    }
++  });
++
++  test(`${consumer.name} preserves selection, search, and page recovery semantics`, async ({
++    page,
++  }) => {
++    test.setTimeout(120_000);
++    await page.setViewportSize({ width: 1440, height: 900 });
++    await page.goto(consumer.path);
++
++    const firstRow = page
++      .locator('[data-testid^="row-"]:not([data-testid^="row-select-"])')
++      .first();
++    await firstRow.click();
++    await expect(page.getByTestId("data-view-sidebar")).toBeVisible({ timeout: 30_000 });
++    const firstSelected = new URL(page.url()).searchParams.get("selected");
++
++    const sidebarRows = page.locator('[data-testid^="sidebar-item-"]');
++    await expect(sidebarRows.nth(2)).toBeVisible({ timeout: 30_000 });
++    await sidebarRows.nth(1).click();
++    const secondSelected = new URL(page.url()).searchParams.get("selected");
++    await sidebarRows.nth(2).click();
++    const thirdSelected = new URL(page.url()).searchParams.get("selected");
++    expect(new Set([firstSelected, secondSelected, thirdSelected]).size).toBe(3);
++
++    const root = page.getByTestId("data-view-root");
++    await root.evaluate((element) => {
++      element.style.width = "768px";
++      element.style.maxWidth = "768px";
++    });
++    await expect(root).toHaveAttribute("data-layout-mode", "medium");
++    await expect(page.locator('[data-testid="back-to-list-button"]:visible')).toBeFocused();
++    await page.locator('[data-testid="back-to-list-button"]:visible').click();
++    await expect(page).not.toHaveURL(/selected=/);
++    const returnedRow = page.locator(`[data-data-view-row-id="${thirdSelected}"]:visible`).first();
++    await expect(returnedRow).toBeFocused();
++
++    await root.evaluate((element) => {
++      element.style.removeProperty("width");
++      element.style.removeProperty("max-width");
++    });
++    await expect(root).toHaveAttribute("data-layout-mode", "wide");
++    await returnedRow.click();
++    await expect(page.getByTestId("data-view-sidebar")).toBeVisible();
++
++    await page.getByTestId("search-icon-button").click();
++    await page.getByTestId("search-input").fill("__phase2_no_match__");
++    await expect(page).toHaveURL(/selected=/);
++    await expect(page.getByText(/poza bieżącymi wynikami|outside current results/i)).toBeVisible({
++      timeout: 30_000,
++    });
++    await expectNoDocumentOverflow(page);
++
++    await page.locator('[data-testid="back-to-list-button"]:visible').click();
++    await page.goto(`${consumer.path}?page=999`);
++    await expect
++      .poll(() => new URL(page.url()).searchParams.get("page"), { timeout: 30_000 })
++      .not.toBe("999");
++    await expectNoDocumentOverflow(page);
++  });
++}
+diff --git a/apps/web/messages/en.json b/apps/web/messages/en.json
+index 8d8f028ab8f9fbf5ff2b63afac93dfc69c468d38..79839cbecc08289c5c20cb9bee4379effd1a0b94 100644
+--- a/apps/web/messages/en.json
++++ b/apps/web/messages/en.json
+@@ -257,6 +257,7 @@
+     },
+     "detail": {
+       "closeAria": "Close detail",
++      "backToList": "Back to list",
+       "loadingAria": "Loading details",
+       "refreshing": "Refreshing details",
+       "empty": "No item selected",
+@@ -266,7 +267,7 @@
+       "selectedOutsideResults": "Selected item is outside current results."
+     },
+     "toolbar": {
+-      "searchPlaceholder": "Search...",
++      "searchPlaceholder": "Search…",
+       "searchAria": "Search",
+       "closeSearchAria": "Close search",
+       "backToListAria": "Back to full list",
+diff --git a/apps/web/messages/pl.json b/apps/web/messages/pl.json
+index 0594ce368b2df1cea6bc8a31467d505a065f1ae3..3053b9475edbceabfc133956a2a96d475c4894b2 100644
+--- a/apps/web/messages/pl.json
++++ b/apps/web/messages/pl.json
+@@ -257,6 +257,7 @@
+     },
+     "detail": {
+       "closeAria": "Zamknij szczegóły",
++      "backToList": "Wróć do listy",
+       "loadingAria": "Ładowanie szczegółów",
+       "refreshing": "Odświeżanie szczegółów",
+       "empty": "Nie wybrano elementu",
+@@ -266,7 +267,7 @@
+       "selectedOutsideResults": "Wybrany element jest poza bieżącymi wynikami."
+     },
+     "toolbar": {
+-      "searchPlaceholder": "Szukaj...",
++      "searchPlaceholder": "Szukaj…",
+       "searchAria": "Szukaj",
+       "closeSearchAria": "Zamknij wyszukiwanie",
+       "backToListAria": "Wróć do pełnej listy",
+diff --git a/apps/web/src/components/data-view/README.md b/apps/web/src/components/data-view/README.md
+index 3cdf16b3b536c36b71343c861a9dbb57e58a8e60..50540bc97827c54baee0ad822cb26642fbb9846d 100644
+--- a/apps/web/src/components/data-view/README.md
++++ b/apps/web/src/components/data-view/README.md
+@@ -49,6 +49,24 @@ Detail states are distinct:
+ - not found/deleted: successful `null` detail result;
+ - selected outside current results: valid detail remains open while the current list does not contain its ID.
+ 
+-## Phase 2 boundary
++## Responsive presentation
+ 
+-Phase 1 intentionally retains the existing viewport breakpoint and current desktop/mobile layouts. Container-query layout selection, tablet list-to-detail replacement, mobile navigation and focus restoration, 44px touch controls, mobile expanded rows, toolbar reflow, and nested-scroll cleanup belong to Phase 2.
++DataView observes its own inline-size with one `ResizeObserver`; viewport width never selects presentation. The initial server and hydration render use the same wide markup, then a layout effect measures before the first client paint. Presentation changes do not alter URL state, query keys, fetchers, or cache identity.
++
++- **Wide (840px and above):** the full table is shown until detail opens, then a stable `clamp(280px, 30cqw, 320px)` compact master sits beside a detail pane with at least about 520px at the boundary.
++- **Medium (560–839px):** list-only uses the desktop table and compact filter toolbar. Selected detail replaces the list within the same DataView surface.
++- **Narrow (below 560px):** list-only uses touch-oriented cards and compact pagination. Selected detail replaces the cards at full surface width.
++
++The 840px split threshold comes from the minimum readable 280–320px master plus a practical 520px arbitrary-detail region. The 560px table threshold keeps a useful multi-column table; below it cards avoid compressing table semantics into an unusable viewport.
++
++Consumers may provide `renderMobileItem(row)` for a purpose-built card body. DataView falls back to `renderCompactItem(row)`, then to the first visible column plus up to three secondary columns. `renderExpandedRow(row)` appears beneath its card in a bounded horizontal scroll region, so domain content remains consumer-owned.
++
++Replacement detail provides a localized 44px Back-to-list button. Opening replacement detail moves focus to Back. If replacement presentation is being closed, focus returns to the initiating row when it still exists and otherwise moves to the list surface; this also covers direct selected URLs and details that changed from split to replacement after a resize. Wide split avoids focus stealing. DataView does not own Escape because arbitrary detail content may contain an interaction that does. Table rows open with Enter, mobile and sidebar rows use native buttons, and all focus targets retain visible focus styles.
++
++Wide split owns one scroll surface for the compact master and one for arbitrary detail. Medium and narrow replacement modes expose one detail scroll surface. The DataView shell clips accidental outer overflow; desktop tables retain internal horizontal scrolling and sticky headers. Mobile search remains visible, filters use a viewport-bounded popover, consumer actions wrap into a secondary toolbar row, and pagination retains page size plus explicit previous/next controls.
++
++The master and arbitrary consumer-detail subtrees stay mounted while replacement detail is visible, so container-mode changes do not restart consumer effects or remote queries. Framer transitions are disabled when `prefers-reduced-motion` is active. Animation never controls whether detail exists; `selected` remains the semantic authority. Loading, transition, error, empty, not-found, and selected-outside-results states use the same Phase-1 query state in every presentation.
++
++## Phase 3 boundary
++
++Advanced row-grid keyboard navigation, broader virtualization changes, speculative prefetching, deep render profiling, persisted splitter widths, broad consumer migration, Repair Orders adoption, and convergence with the divergent public-web DataView remain deferred. The public-web copy is explicit technical debt and is not synchronized by this implementation.
+diff --git a/apps/web/src/components/data-view/__tests__/data-view-foundation.test.ts b/apps/web/src/components/data-view/__tests__/data-view-foundation.test.ts
+index 773562e8f21a2df77addb9c85fd99c8b0b386c47..cbd94de18aada962f1e1b2c4a41af8a5fb1afaf6 100644
+--- a/apps/web/src/components/data-view/__tests__/data-view-foundation.test.ts
++++ b/apps/web/src/components/data-view/__tests__/data-view-foundation.test.ts
+@@ -14,6 +14,20 @@ import {
+   synchronizeDataViewSidebarPage,
+ } from "../data-view-query-keys";
+ import { getInitialColumnVisibility } from "../data-view-columns";
++import {
++  DATA_VIEW_SPLIT_MIN_WIDTH,
++  DATA_VIEW_TABLE_MIN_WIDTH,
++  getDataViewLayoutMode,
++} from "../use-data-view-container-mode";
++
++describe("DataView container capability thresholds", () => {
++  it("selects narrow, medium, and wide modes at the documented boundaries", () => {
++    expect(getDataViewLayoutMode(DATA_VIEW_TABLE_MIN_WIDTH - 1)).toBe("narrow");
++    expect(getDataViewLayoutMode(DATA_VIEW_TABLE_MIN_WIDTH)).toBe("medium");
++    expect(getDataViewLayoutMode(DATA_VIEW_SPLIT_MIN_WIDTH - 1)).toBe("medium");
++    expect(getDataViewLayoutMode(DATA_VIEW_SPLIT_MIN_WIDTH)).toBe("wide");
++  });
++});
+ 
+ describe("DataView shared search parameter contract", () => {
+   it.each([
+diff --git a/apps/web/src/components/data-view/__tests__/data-view-url-state.test.tsx b/apps/web/src/components/data-view/__tests__/data-view-url-state.test.tsx
+index b36bd04dc4ed5d6f048e09a10947e091582a5b63..aa5b752026759267fbfea3b7fe65e2ab8ac8a8cc 100644
+--- a/apps/web/src/components/data-view/__tests__/data-view-url-state.test.tsx
++++ b/apps/web/src/components/data-view/__tests__/data-view-url-state.test.tsx
+@@ -37,15 +37,15 @@ describe("DataView real nuqs adapter contract", () => {
+     const { result } = renderHook(() => useDataViewUrlState("test"), { wrapper });
+ 
+     await act(async () => result.current.setSelected("A"));
+-    await waitFor(() => expect(result.current.selected).toBe("A"));
++    await waitFor(() => expect(result.current.selected).toBe("A"), { timeout: 5_000 });
+     expect(updates.at(-1)?.options.history).toBe("push");
+ 
+     await act(async () => result.current.setSelected("B"));
+-    await waitFor(() => expect(result.current.selected).toBe("B"));
++    await waitFor(() => expect(result.current.selected).toBe("B"), { timeout: 5_000 });
+     expect(updates.at(-1)?.options.history).toBe("replace");
+ 
+     await act(async () => result.current.closeDetail());
+-    await waitFor(() => expect(result.current.selected).toBeNull());
++    await waitFor(() => expect(result.current.selected).toBeNull(), { timeout: 5_000 });
+     expect(updates.at(-1)?.options.history).toBe("replace");
+   });
+ });
+diff --git a/apps/web/src/components/data-view/__tests__/data-view.test.tsx b/apps/web/src/components/data-view/__tests__/data-view.test.tsx
+index b3ccd766751f2a5a2ff0d13c346d90fc87ceec09..e7d7dac81664b3833e80089724124c367251dc09 100644
+--- a/apps/web/src/components/data-view/__tests__/data-view.test.tsx
++++ b/apps/web/src/components/data-view/__tests__/data-view.test.tsx
+@@ -20,6 +20,9 @@ const nuqsState = {
+   push: null as unknown as (url: string) => void,
+   replace: null as unknown as (url: string) => void,
+ };
++let mockReducedMotion = false;
++let mockContainerWidth = 1000;
++const resizeObservers = new Set<(width: number) => void>();
+ 
+ // ---------------------------------------------------------------------------
+ // Mocks
+@@ -38,6 +41,7 @@ vi.mock("framer-motion", () => {
+   return {
+     AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+     motion: { div: MotionDiv },
++    useReducedMotion: () => mockReducedMotion,
+   };
+ });
+ 
+@@ -171,6 +175,7 @@ const TEST_TRANSLATIONS: Record<string, string> = {
+   "dataView.columns.toggleTitle": "Toggle columns",
+   "dataView.columns.toggleColumnAria": "Toggle column {column}",
+   "dataView.detail.closeAria": "Close detail",
++  "dataView.detail.backToList": "Back to list",
+   "dataView.detail.loadingAria": "Loading details",
+   "dataView.detail.empty": "No item selected",
+   "dataView.detail.error": "Unable to load details.",
+@@ -253,8 +258,43 @@ const localStorageMock = (() => {
+ Object.defineProperty(window, "localStorage", { value: localStorageMock });
+ // Radix UI Select needs scrollIntoView in jsdom
+ window.HTMLElement.prototype.scrollIntoView = vi.fn();
++window.HTMLElement.prototype.scrollTo = vi.fn();
++
++class ResizeObserverMock {
++  private update: (width: number) => void;
++
++  constructor(callback: ResizeObserverCallback) {
++    this.update = (width) =>
++      callback(
++        [{ contentRect: { width } } as ResizeObserverEntry],
++        this as unknown as ResizeObserver
++      );
++    resizeObservers.add(this.update);
++  }
++
++  observe() {
++    this.update(mockContainerWidth);
++  }
++
++  unobserve() {}
++
++  disconnect() {
++    resizeObservers.delete(this.update);
++  }
++}
++
++Object.defineProperty(globalThis, "ResizeObserver", {
++  configurable: true,
++  value: ResizeObserverMock,
++});
++
++function setContainerWidth(width: number) {
++  mockContainerWidth = width;
++  resizeObservers.forEach((update) => update(width));
++}
+ 
+ function setDesktopViewport(isDesktop: boolean) {
++  setContainerWidth(isDesktop ? 1000 : 400);
+   Object.defineProperty(window, "matchMedia", {
+     writable: true,
+     value: vi.fn().mockImplementation((query: string) => ({
+@@ -272,6 +312,7 @@ function setDesktopViewport(isDesktop: boolean) {
+ 
+ beforeEach(() => {
+   setDesktopViewport(true);
++  mockReducedMotion = false;
+ });
+ 
+ // ---------------------------------------------------------------------------
+@@ -499,6 +540,281 @@ describe("T-DV-RENDER: renders initial rows from initialData", () => {
+   });
+ });
+ 
++describe("T-DV-RESPONSIVE: container-driven presentation", () => {
++  beforeEach(() => {
++    vi.clearAllMocks();
++    localStorageMock.clear();
++    nuqsState.params = new Map();
++    mockPush.mockReset();
++    mockReplace.mockReset();
++    mockDetailFetcher.mockResolvedValue(MOCK_DETAILS.p1);
++  });
++
++  it("uses a table without a split at medium container width", async () => {
++    setContainerWidth(700);
++    renderDataView();
++
++    expect(await screen.findByTestId("data-view-medium-layout")).toBeInTheDocument();
++    expect(screen.getByRole("table")).toBeInTheDocument();
++    expect(screen.queryByTestId("data-view-sidebar")).not.toBeInTheDocument();
++  });
++
++  it("replaces the table with detail at medium container width", async () => {
++    setContainerWidth(700);
++    renderDataView({}, { selected: "p1" });
++
++    expect(await screen.findByTestId("data-view-replacement-detail")).toBeInTheDocument();
++    expect(screen.queryByRole("table")).not.toBeInTheDocument();
++    expect(screen.getByRole("button", { name: "Back to list" })).toBeInTheDocument();
++  });
++
++  it("keeps wide selected detail in a split pane", async () => {
++    setContainerWidth(1000);
++    renderDataView({}, { selected: "p1" });
++
++    expect(await screen.findByTestId("data-view-sidebar")).toBeInTheDocument();
++    expect(screen.queryByTestId("data-view-replacement-detail")).not.toBeInTheDocument();
++  });
++
++  it("keeps mobile search prominent and toolbar actions in a wrapping row", () => {
++    setContainerWidth(400);
++    renderDataView({ renderToolbarControls: () => <button>Consumer action</button> });
++
++    expect(screen.getByRole("textbox", { name: "Search" })).toBeInTheDocument();
++    expect(screen.getByTestId("mobile-toolbar-actions")).toContainElement(
++      screen.getByRole("button", { name: "Consumer action" })
++    );
++  });
++
++  it("renders compact mobile pagination with 44px controls", () => {
++    setContainerWidth(400);
++    renderDataView();
++
++    expect(screen.getByTestId("mobile-pagination-info")).toHaveTextContent(
++      "Showing 1–3 of 3 results"
++    );
++    expect(screen.getByRole("button", { name: "Next page" })).toHaveClass("h-11", "w-11");
++  });
++
++  it("renders generic expanded content inside the narrow card", async () => {
++    setContainerWidth(400);
++    renderDataView({ renderExpandedRow: (row) => <div>Expanded {row.name}</div> });
++
++    expect(await screen.findByTestId("mobile-expanded-p1")).toHaveTextContent("Expanded Widget A");
++  });
++
++  it("opens a table row with Enter", async () => {
++    setContainerWidth(700);
++    renderDataView();
++    const row = await screen.findByTestId("row-p1");
++
++    row.focus();
++    fireEvent.keyDown(row, { key: "Enter" });
++
++    await waitFor(() =>
++      expect(mockPush).toHaveBeenCalledWith(expect.stringContaining("selected=p1"))
++    );
++  });
++
++  it("moves focus to Back when replacement detail opens", async () => {
++    setContainerWidth(700);
++    const result = renderDataViewWithClient();
++    const row = await screen.findByTestId("row-p1");
++    fireEvent.click(row);
++    result.rerenderDataView({ selected: "p1" });
++
++    const back = await screen.findByRole("button", { name: "Back to list" });
++    await waitFor(() => expect(back).toHaveFocus());
++  });
++
++  it("restores focus to the initiating row when returning to the list", async () => {
++    setContainerWidth(700);
++    const result = renderDataViewWithClient();
++    const row = await screen.findByTestId("row-p1");
++    fireEvent.click(row);
++    result.rerenderDataView({ selected: "p1" });
++    fireEvent.click(await screen.findByRole("button", { name: "Back to list" }));
++    result.rerenderDataView({});
++
++    await waitFor(() => expect(screen.getByTestId("row-p1")).toHaveFocus());
++  });
++
++  it("restores focus to the list for a direct replacement-detail URL", async () => {
++    setContainerWidth(700);
++    const result = renderDataViewWithClient({}, { selected: "p1" });
++    const back = await screen.findByRole("button", { name: "Back to list" });
++    await waitFor(() => expect(back).toHaveFocus());
++
++    fireEvent.click(back);
++    result.rerenderDataView({});
++
++    await waitFor(() => expect(screen.getByTestId("data-view-table-scroll")).toHaveFocus());
++  });
++
++  it.each([
++    ["medium", 700, "row-p1"],
++    ["narrow", 400, "mobile-card-p1"],
++  ])("restores row focus after wide detail becomes %s replacement", async (_, width, rowTestId) => {
++    setContainerWidth(1000);
++    const result = renderDataViewWithClient();
++    fireEvent.click(await screen.findByTestId("row-p1"));
++    result.rerenderDataView({ selected: "p1" });
++
++    act(() => setContainerWidth(width));
++    const back = await screen.findByRole("button", { name: "Back to list" });
++    await waitFor(() => expect(back).toHaveFocus());
++    fireEvent.click(back);
++    result.rerenderDataView({});
++
++    const returnedRow =
++      rowTestId === "row-p1"
++        ? screen.getByTestId(rowTestId)
++        : screen.getByTestId(rowTestId).querySelector<HTMLElement>("[data-data-view-row-id]");
++    await waitFor(() => expect(returnedRow).toHaveFocus());
++  });
++
++  it("does not close replacement detail with Escape", async () => {
++    setContainerWidth(700);
++    renderDataView({}, { selected: "p1" });
++    await screen.findByRole("button", { name: "Back to list" });
++    mockReplace.mockClear();
++
++    fireEvent.keyDown(document, { key: "Escape" });
++
++    expect(mockReplace).not.toHaveBeenCalled();
++    expect(screen.getByTestId("detail-panel")).toBeInTheDocument();
++  });
++
++  it("leaves selection open when nested content owns Escape", async () => {
++    const nestedEscape = vi.fn();
++    setContainerWidth(700);
++    renderDataView(
++      {
++        renderDetail: () => (
++          <input
++            aria-label="Nested editor"
++            onKeyDown={(event) => {
++              if (event.key === "Escape") {
++                event.preventDefault();
++                event.stopPropagation();
++                nestedEscape();
++              }
++            }}
++          />
++        ),
++      },
++      { selected: "p1" }
++    );
++    const input = await screen.findByRole("textbox", { name: "Nested editor" });
++    mockReplace.mockClear();
++
++    fireEvent.keyDown(input, { key: "Escape" });
++
++    expect(nestedEscape).toHaveBeenCalledTimes(1);
++    expect(mockReplace).not.toHaveBeenCalled();
++    expect(screen.getByTestId("detail-panel")).toBeInTheDocument();
++  });
++
++  it("always closes replacement detail through Back", async () => {
++    setContainerWidth(700);
++    renderDataView({}, { selected: "p1" });
++    fireEvent.click(await screen.findByRole("button", { name: "Back to list" }));
++
++    await waitFor(() =>
++      expect(mockReplace).toHaveBeenCalledWith(expect.not.stringContaining("selected=p1"))
++    );
++  });
++
++  it("leaves wide split selection open on Escape", async () => {
++    setContainerWidth(1000);
++    renderDataView({}, { selected: "p1" });
++    await screen.findByTestId("data-view-sidebar");
++    mockReplace.mockClear();
++
++    fireEvent.keyDown(document, { key: "Escape" });
++
++    expect(mockReplace).not.toHaveBeenCalled();
++    expect(screen.getByTestId("detail-panel")).toBeInTheDocument();
++  });
++
++  it("disables decorative split transitions for reduced motion", async () => {
++    mockReducedMotion = true;
++    setContainerWidth(1000);
++    renderDataView({}, { selected: "p1" });
++
++    expect(
++      await screen.findByTestId("data-view-wide-layout").then((node) => node.firstElementChild)
++    ).toHaveAttribute("data-motion", "reduced");
++  });
++
++  it("shows a narrow detail error in the replacement surface", async () => {
++    setContainerWidth(400);
++    renderDataView(
++      { detailFetcher: vi.fn().mockRejectedValue(new Error("network unavailable")) },
++      { selected: "p1" }
++    );
++
++    expect(await screen.findByText("Unable to load details.")).toBeInTheDocument();
++    expect(screen.getByTestId("data-view-mobile-detail")).toBeInTheDocument();
++  });
++
++  it("shows a stable narrow list skeleton without a full-surface jump", () => {
++    setContainerWidth(400);
++    renderDataView({
++      initialData: undefined as unknown as PaginatedResult<MockProduct>,
++      listFetcher: vi.fn(() => new Promise<PaginatedResult<MockProduct>>(() => undefined)),
++    });
++
++    expect(screen.getByLabelText("Loading rows")).toBeInTheDocument();
++    expect(screen.getByTestId("data-view-mobile-list")).toBeInTheDocument();
++  });
++
++  it("changes presentation without changing selected URL or refetching detail", async () => {
++    setContainerWidth(1000);
++    const result = renderDataViewWithClient({}, { selected: "p1" });
++    await screen.findByText("Great widget");
++    const detailCalls = mockDetailFetcher.mock.calls.length;
++
++    act(() => setContainerWidth(700));
++
++    expect(await screen.findByTestId("data-view-replacement-detail")).toBeInTheDocument();
++    expect(nuqsState.params.get("selected")).toBe("p1");
++    expect(mockDetailFetcher).toHaveBeenCalledTimes(detailCalls);
++    result.unmount();
++  });
++
++  it("keeps arbitrary consumer detail mounted while container mode changes", async () => {
++    const mounted = vi.fn();
++    const unmounted = vi.fn();
++
++    function ConsumerDetail({ detail }: { detail: MockProductDetail }) {
++      React.useEffect(() => {
++        mounted();
++        return unmounted;
++      }, []);
++
++      return <div>{detail.description}</div>;
++    }
++
++    setContainerWidth(1000);
++    const result = renderDataView(
++      { renderDetail: (detail) => <ConsumerDetail detail={detail} /> },
++      { selected: "p1" }
++    );
++    await screen.findByText("Great widget");
++
++    act(() => setContainerWidth(700));
++    expect(await screen.findByTestId("data-view-replacement-detail")).toBeInTheDocument();
++    act(() => setContainerWidth(400));
++    expect(await screen.findByTestId("data-view-mobile-detail")).toBeInTheDocument();
++
++    expect(mounted).toHaveBeenCalledTimes(1);
++    expect(unmounted).not.toHaveBeenCalled();
++    result.unmount();
++    expect(unmounted).toHaveBeenCalledTimes(1);
++  });
++});
++
+ describe("T-DV-PAGINATION: shows correct pagination info", () => {
+   beforeEach(() => {
+     vi.clearAllMocks();
+diff --git a/apps/web/src/components/data-view/data-view-detail.tsx b/apps/web/src/components/data-view/data-view-detail.tsx
+index c3d68d81258fc66c76c1fc5c6510b575f7a61c23..921abfe29e318a0be711b6d4de7529267399d9dc 100644
+--- a/apps/web/src/components/data-view/data-view-detail.tsx
++++ b/apps/web/src/components/data-view/data-view-detail.tsx
+@@ -2,12 +2,17 @@
+ 
+ import React from "react";
+ import { useTranslations } from "next-intl";
+-import { X } from "lucide-react";
++import { ArrowLeft, X } from "lucide-react";
+ import { Button } from "@/components/ui/button";
+ import { Skeleton } from "@/components/ui/skeleton";
+ import { useDataViewDetail, useDataViewStatic } from "./use-data-view";
+ 
+-export function DataViewDetail() {
++type DataViewDetailProps = {
++  mode?: "split" | "replacement";
++  focusRef?: React.RefObject<HTMLButtonElement | null>;
++};
++
++export function DataViewDetail({ mode = "split", focusRef }: DataViewDetailProps) {
+   const { renderDetail } = useDataViewStatic();
+   const {
+     detailData,
+@@ -20,26 +25,43 @@ export function DataViewDetail() {
+     isClosingDetail,
+   } = useDataViewDetail();
+   const t = useTranslations("dataView");
++  const isReplacement = mode === "replacement";
+ 
+   return (
+     <div
+       className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background"
+       data-testid="detail-panel"
+     >
+-      <div className="flex h-12 shrink-0 items-center justify-end border-b px-4">
+-        <Button
+-          variant="ghost"
+-          size="icon"
+-          className="h-8 w-8"
+-          onClick={() => void closeDetail()}
+-          disabled={isClosingDetail}
+-          aria-label={t("detail.closeAria")}
+-        >
+-          <X className="h-4 w-4" />
+-        </Button>
++      <div className="flex min-h-12 shrink-0 items-center border-b px-2 sm:px-4">
++        {isReplacement ? (
++          <Button
++            ref={focusRef}
++            variant="ghost"
++            size="sm"
++            className="min-h-11 touch-manipulation gap-2 px-3 focus-visible:ring-2"
++            onClick={() => void closeDetail()}
++            disabled={isClosingDetail}
++            aria-label={t("detail.backToList")}
++            data-testid="back-to-list-button"
++          >
++            <ArrowLeft aria-hidden="true" className="h-4 w-4" />
++            <span>{t("detail.backToList")}</span>
++          </Button>
++        ) : (
++          <Button
++            variant="ghost"
++            size="icon"
++            className="ml-auto h-9 w-9"
++            onClick={() => void closeDetail()}
++            disabled={isClosingDetail}
++            aria-label={t("detail.closeAria")}
++          >
++            <X aria-hidden="true" className="h-4 w-4" />
++          </Button>
++        )}
+       </div>
+ 
+-      <div className="flex-1 overflow-y-auto p-4">
++      <div className="min-w-0 flex-1 overflow-auto overscroll-contain p-3 sm:p-4">
+         {selectedOutsideCurrentResults ? (
+           <div
+             className="mb-3 rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground"
+diff --git a/apps/web/src/components/data-view/data-view-filters.tsx b/apps/web/src/components/data-view/data-view-filters.tsx
+index 30eda7efbffe289ec98f65b1ccbbab0fc7da9b45..c15337d18d0717478f344460c567c89b032057fe 100644
+--- a/apps/web/src/components/data-view/data-view-filters.tsx
++++ b/apps/web/src/components/data-view/data-view-filters.tsx
+@@ -294,16 +294,19 @@ function DataViewFilterPill({
+               }}
+               aria-label={t("filters.clearSingleAria", { label: def.label })}
+             >
+-              <X className="h-3 w-3" />
++              <X aria-hidden="true" className="h-3 w-3" />
+             </span>
+           ) : (
+-            <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
++            <ChevronDown aria-hidden="true" className="h-3 w-3 text-muted-foreground shrink-0" />
+           )}
+         </Button>
+       </PopoverTrigger>
+       <PopoverContent
+         align="start"
+-        className={cn("p-3", def.type === "date-range" ? "w-[340px]" : "w-72")}
++        className={cn(
++          "max-w-[calc(100vw-2rem)] p-3",
++          def.type === "date-range" ? "w-[340px]" : "w-72"
++        )}
+       >
+         <FilterField def={def} filters={filters} onChange={onChange} t={t} />
+       </PopoverContent>
+@@ -400,16 +403,19 @@ export function DataViewFilters({ mode = "dropdown" }: DataViewFiltersProps) {
+ 
+   // ── Dropdown mode: single button + popover ────────────────────────────────
+   return (
+-    <div className="flex items-center gap-2 flex-wrap" data-testid="dropdown-filters">
++    <div
++      className="flex min-w-0 max-w-full flex-wrap items-center gap-2"
++      data-testid="dropdown-filters"
++    >
+       <Popover open={open} onOpenChange={setOpen}>
+         <PopoverTrigger asChild>
+           <Button
+             variant="outline"
+             size="sm"
+-            className="h-8 gap-2"
++            className="min-h-11 gap-2 px-3"
+             aria-label={t("filters.openAria")}
+           >
+-            <Filter className="h-4 w-4" />
++            <Filter aria-hidden="true" className="h-4 w-4" />
+             <span>{t("filters.button")}</span>
+             {activeCount > 0 && (
+               <Badge
+@@ -421,7 +427,7 @@ export function DataViewFilters({ mode = "dropdown" }: DataViewFiltersProps) {
+             )}
+           </Button>
+         </PopoverTrigger>
+-        <PopoverContent align="start" className="w-72 space-y-3">
++        <PopoverContent align="start" className="w-72 max-w-[calc(100vw-2rem)] space-y-3">
+           <p className="text-sm font-medium text-foreground">{t("filters.title")}</p>
+           {visibleFilterDefs.map((def) => (
+             <FilterField
+@@ -453,7 +459,7 @@ export function DataViewFilters({ mode = "dropdown" }: DataViewFiltersProps) {
+               className="ml-1 rounded-full hover:bg-muted-foreground/20 p-0.5"
+               aria-label={t("filters.removeSingleAria", { label: def.label })}
+             >
+-              <X className="h-3 w-3" />
++              <X aria-hidden="true" className="h-3 w-3" />
+             </button>
+           </Badge>
+         );
+diff --git a/apps/web/src/components/data-view/data-view-layout.tsx b/apps/web/src/components/data-view/data-view-layout.tsx
+index 6f5a09be3defced3d096410089fd3208198d2eaf..c259bfcaaddd11434ccb5d4eed23ef107b032186 100644
+--- a/apps/web/src/components/data-view/data-view-layout.tsx
++++ b/apps/web/src/components/data-view/data-view-layout.tsx
+@@ -1,7 +1,7 @@
+ "use client";
+ 
+-import React from "react";
+-import { motion, AnimatePresence } from "framer-motion";
++import React, { useCallback, useEffect, useRef, useState } from "react";
++import { motion, useReducedMotion } from "framer-motion";
+ import { cn } from "@/utils";
+ import { useDataViewUrl } from "./use-data-view";
+ import { DataViewToolbar } from "./data-view-toolbar";
+@@ -10,72 +10,188 @@ import { DataViewSidebar } from "./data-view-sidebar";
+ import { DataViewDetail } from "./data-view-detail";
+ import { DataViewPagination } from "./data-view-pagination";
+ import { DataViewMobileLayout } from "./data-view-mobile-layout";
+-import { useMediaQuery } from "./use-media-query";
++import { type DataViewLayoutMode, useDataViewContainerMode } from "./use-data-view-container-mode";
+ 
+ const COLLAPSE_MS = 220;
+-const SIDEBAR_WIDTH = 320;
+ const PAGINATION_HEIGHT = 53;
+ const SHARED_EASE = [0.22, 1, 0.36, 1] as const;
+-const WIDTH_TRANSITION = { duration: COLLAPSE_MS / 1000, ease: SHARED_EASE };
+ const DETAIL_TRANSITION = { duration: COLLAPSE_MS / 1000, ease: SHARED_EASE };
+ 
+-function DataViewDesktopLayout() {
+-  const { isDetailOpen } = useDataViewUrl();
++type OpenRowHandler = (rowId: string, trigger: HTMLElement) => void;
+ 
++type DataViewDesktopMasterProps = {
++  mode: "wide" | "medium";
++  isSplit: boolean;
++  onOpenRow: OpenRowHandler;
++  listContainerRef: React.RefObject<HTMLDivElement | null>;
++};
++
++function DataViewDesktopMaster({
++  mode,
++  isSplit,
++  onOpenRow,
++  listContainerRef,
++}: DataViewDesktopMasterProps) {
+   return (
+-    <div className="flex h-full min-h-0 overflow-hidden rounded-lg border bg-background">
+-      <motion.div
+-        animate={{ width: isDetailOpen ? SIDEBAR_WIDTH : "100%" }}
+-        transition={WIDTH_TRANSITION}
+-        style={{ willChange: "width" }}
+-        className="flex h-full min-h-0 shrink-0 flex-col overflow-hidden border-r bg-background"
+-      >
+-        <DataViewToolbar mode={isDetailOpen ? "compact" : "list"} />
++    <>
++      <DataViewToolbar
++        mode={isSplit ? "compact" : "list"}
++        filterMode={mode === "wide" ? "inline" : "dropdown"}
++      />
+ 
+-        <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+-          {isDetailOpen ? <DataViewSidebar /> : <DataViewTable />}
+-        </div>
++      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
++        {isSplit ? (
++          <DataViewSidebar onOpenRow={onOpenRow} />
++        ) : (
++          <DataViewTable onOpenRow={onOpenRow} listContainerRef={listContainerRef} />
++        )}
++      </div>
+ 
++      <div
++        className={cn(
++          "shrink-0 overflow-hidden transition-[height,opacity] duration-200 ease-out motion-reduce:transition-none",
++          !isSplit ? "opacity-100" : "pointer-events-none opacity-0"
++        )}
++        style={{ height: !isSplit ? PAGINATION_HEIGHT : 0 }}
++        aria-hidden={isSplit}
++      >
+         <div
+           className={cn(
+-            "shrink-0 overflow-hidden transition-[height,opacity] duration-200 ease-out",
+-            !isDetailOpen ? "opacity-100" : "pointer-events-none opacity-0"
++            "transition-opacity duration-150 motion-reduce:transition-none",
++            !isSplit ? "opacity-100" : "pointer-events-none opacity-0"
+           )}
+-          style={{ height: !isDetailOpen ? PAGINATION_HEIGHT : 0 }}
+-          aria-hidden={isDetailOpen}
+         >
+-          <div
+-            className={cn(
+-              "transition-opacity duration-150",
+-              !isDetailOpen ? "opacity-100" : "pointer-events-none opacity-0"
+-            )}
+-          >
+-            <DataViewPagination />
+-          </div>
++          <DataViewPagination />
+         </div>
+-      </motion.div>
++      </div>
++    </>
++  );
++}
++
++export function DataViewLayout() {
++  const { containerRef, mode } = useDataViewContainerMode();
++  const { urlState } = useDataViewUrl();
++  const reduceMotion = useReducedMotion();
++  const detailFocusRef = useRef<HTMLButtonElement>(null);
++  const listContainerRef = useRef<HTMLDivElement>(null);
++  const rootRef = useRef<HTMLDivElement | null>(null);
++  const returnFocusIdRef = useRef<string | null>(null);
++  const previousSelectedRef = useRef<string | null>(null);
++  const previousDetailWasReplacementRef = useRef(false);
++  const [mountedMasterMode, setMountedMasterMode] = useState<DataViewLayoutMode>(mode);
++  const isDetailOpen = urlState.selected !== null;
++  const isSplit = mode === "wide" && isDetailOpen;
++  const showMaster = !isDetailOpen || isSplit;
++  const renderedMasterMode = !isDetailOpen || mode === "wide" ? mode : mountedMasterMode;
++  const mountedMasterIsSplit = renderedMasterMode === "wide" && isDetailOpen;
++
++  const setContainerRef = useCallback(
++    (node: HTMLDivElement | null) => {
++      containerRef.current = node;
++      rootRef.current = node;
++    },
++    [containerRef]
++  );
++
++  const handleOpenRow = useCallback<OpenRowHandler>(
++    (rowId) => {
++      returnFocusIdRef.current = rowId;
++      setMountedMasterMode(mode);
++      urlState.setSelected(rowId);
++    },
++    [mode, urlState]
++  );
+ 
+-      <AnimatePresence initial={false}>
+-        {isDetailOpen && (
++  useEffect(() => {
++    const wasSelected = previousSelectedRef.current;
++    previousSelectedRef.current = urlState.selected;
++
++    if (urlState.selected) {
++      previousDetailWasReplacementRef.current = mode !== "wide";
++      if (mode !== "wide") requestAnimationFrame(() => detailFocusRef.current?.focus());
++      return;
++    }
++
++    if (wasSelected && previousDetailWasReplacementRef.current) {
++      previousDetailWasReplacementRef.current = false;
++      requestAnimationFrame(() => {
++        const root = rootRef.current;
++        const returnId = returnFocusIdRef.current;
++        const target = returnId
++          ? Array.from(root?.querySelectorAll<HTMLElement>("[data-data-view-row-id]") ?? []).find(
++              (element) => element.dataset.dataViewRowId === returnId
++            )
++          : null;
++        (target ?? listContainerRef.current)?.focus();
++      });
++    }
++  }, [mode, urlState.selected]);
++
++  return (
++    <div
++      ref={setContainerRef}
++      className="h-full min-h-0 min-w-0 [container-type:inline-size]"
++      data-testid="data-view-root"
++      data-layout-mode={mode}
++    >
++      <div
++        className="flex h-full min-h-0 min-w-0 overflow-hidden rounded-lg border bg-background"
++        data-testid={
++          mode === "wide"
++            ? "data-view-wide-layout"
++            : mode === "medium"
++              ? "data-view-medium-layout"
++              : "data-view-narrow-layout"
++        }
++      >
++        <motion.div
++          key="master"
++          animate={{ width: isSplit ? "clamp(280px, 30cqw, 320px)" : "100%" }}
++          transition={reduceMotion ? { duration: 0 } : DETAIL_TRANSITION}
++          style={reduceMotion ? undefined : { willChange: "width" }}
++          className={cn(
++            "h-full min-h-0 min-w-0 shrink-0 flex-col overflow-hidden bg-background",
++            showMaster ? "flex" : "hidden",
++            isSplit && "border-r"
++          )}
++          aria-hidden={!showMaster}
++          data-motion={reduceMotion ? "reduced" : "full"}
++        >
++          {renderedMasterMode === "narrow" ? (
++            <DataViewMobileLayout onOpenRow={handleOpenRow} listContainerRef={listContainerRef} />
++          ) : (
++            <DataViewDesktopMaster
++              mode={renderedMasterMode}
++              isSplit={mountedMasterIsSplit}
++              onOpenRow={handleOpenRow}
++              listContainerRef={listContainerRef}
++            />
++          )}
++        </motion.div>
++
++        {isDetailOpen ? (
+           <motion.div
+-            key="detail-panel"
+-            initial={{ x: 64, opacity: 0 }}
++            key="detail"
++            initial={reduceMotion ? false : { x: 48, opacity: 0 }}
+             animate={{ x: 0, opacity: 1 }}
+-            exit={{ x: 64, opacity: 0 }}
+-            transition={DETAIL_TRANSITION}
+-            style={{ willChange: "transform, opacity" }}
+-            className="flex h-full min-w-0 flex-1 overflow-hidden"
++            transition={reduceMotion ? { duration: 0 } : DETAIL_TRANSITION}
++            style={reduceMotion ? undefined : { willChange: "transform, opacity" }}
++            className={cn(
++              "flex h-full min-h-0 min-w-0 overflow-hidden",
++              isSplit ? "flex-1" : "w-full"
++            )}
++            data-testid={
++              mode === "narrow"
++                ? "data-view-mobile-detail"
++                : mode === "medium"
++                  ? "data-view-replacement-detail"
++                  : undefined
++            }
+           >
+-            <DataViewDetail />
++            <DataViewDetail mode={isSplit ? "split" : "replacement"} focusRef={detailFocusRef} />
+           </motion.div>
+-        )}
+-      </AnimatePresence>
++        ) : null}
++      </div>
+     </div>
+   );
+ }
+-
+-export function DataViewLayout() {
+-  const isDesktop = useMediaQuery("(min-width: 1024px)", true);
+-
+-  return isDesktop ? <DataViewDesktopLayout /> : <DataViewMobileLayout />;
+-}
+diff --git a/apps/web/src/components/data-view/data-view-mobile-layout.tsx b/apps/web/src/components/data-view/data-view-mobile-layout.tsx
+index e1f54ba8ece3eb2f3c76a4da30c2bbdaa05b51a1..b58327006093991e86882341710634671917991c 100644
+--- a/apps/web/src/components/data-view/data-view-mobile-layout.tsx
++++ b/apps/web/src/components/data-view/data-view-mobile-layout.tsx
+@@ -23,7 +23,6 @@ import {
+   useDataViewStatic,
+   useDataViewUrl,
+ } from "./use-data-view";
+-import { DataViewDetail } from "./data-view-detail";
+ import { DataViewFilters } from "./data-view-filters";
+ import { DataViewSearchControl } from "./data-view-search-control";
+ import { invalidateDataViewEntity } from "./data-view-query-keys";
+@@ -49,27 +48,40 @@ function DataViewMobileToolbar() {
+ 
+   return (
+     <div className="shrink-0 border-b bg-background">
+-      <div className="flex min-h-12 items-center gap-2 px-3 py-1.5">
+-        <DataViewSearchControl />
++      <div className="flex min-h-14 min-w-0 items-center gap-2 px-3 py-1.5">
++        <div className="min-w-0 flex-1">
++          <DataViewSearchControl persistent />
++        </div>
+         <DataViewFilters mode="dropdown" />
+         <Button
+           variant="ghost"
+           size="icon"
+-          className="h-9 w-9 shrink-0"
++          className="h-11 w-11 shrink-0"
+           onClick={handleRefresh}
+           disabled={listIsTransitioning}
+           aria-label={t("toolbar.refreshAria")}
+           title={t("toolbar.refreshAria")}
+           data-testid="mobile-refresh-button"
+         >
+-          <RefreshCw className={cn("h-4 w-4", listIsTransitioning && "animate-spin")} />
++          <RefreshCw
++            aria-hidden="true"
++            className={cn(
++              "h-4 w-4",
++              listIsTransitioning && "animate-spin motion-reduce:animate-none"
++            )}
++          />
+         </Button>
+-        <div className="min-w-0 flex-1" />
+-        {renderToolbarControls ? (
+-          <div className="flex shrink-0 items-center gap-1">{renderToolbarControls()}</div>
+-        ) : null}
+       </div>
+ 
++      {renderToolbarControls ? (
++        <div
++          className="flex min-w-0 flex-wrap items-center justify-end gap-2 border-t px-3 py-2"
++          data-testid="mobile-toolbar-actions"
++        >
++          {renderToolbarControls()}
++        </div>
++      ) : null}
++
+       {selectedRowCount > 0 ? (
+         <div className="flex items-center gap-2 border-t px-3 py-2">
+           <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+@@ -78,7 +90,7 @@ function DataViewMobileToolbar() {
+           <Button
+             variant="secondary"
+             size="sm"
+-            className="h-8 shrink-0 text-xs"
++            className="min-h-11 shrink-0 text-xs"
+             onClick={keepOnlySelected ? disableKeepOnlySelected : enableKeepOnlySelected}
+           >
+             {keepOnlySelected ? t("selection.showAll") : t("selection.keepSelected")}
+@@ -86,7 +98,7 @@ function DataViewMobileToolbar() {
+           <Button
+             variant="ghost"
+             size="sm"
+-            className="h-8 shrink-0 text-xs"
++            className="min-h-11 shrink-0 text-xs"
+             onClick={clearSelectedRows}
+           >
+             {t("selection.clear")}
+@@ -144,7 +156,7 @@ function DataViewMobilePagination() {
+           }}
+           disabled={keepOnlySelected}
+         >
+-          <SelectTrigger className="h-9 w-24" aria-label={t("pagination.rowsPerPage")}>
++          <SelectTrigger className="h-11 w-24" aria-label={t("pagination.rowsPerPage")}>
+             <SelectValue />
+           </SelectTrigger>
+           <SelectContent>
+@@ -160,7 +172,7 @@ function DataViewMobilePagination() {
+           <Button
+             variant="outline"
+             size="icon"
+-            className="h-9 w-9"
++            className="h-11 w-11"
+             onClick={() => {
+               handleMeaningfulInteraction();
+               urlState.setPage(validPage - 1);
+@@ -168,7 +180,7 @@ function DataViewMobilePagination() {
+             disabled={!canPrev}
+             aria-label={t("pagination.previousPageAria")}
+           >
+-            <ChevronLeft className="h-4 w-4" />
++            <ChevronLeft aria-hidden="true" className="h-4 w-4" />
+           </Button>
+           <span className="min-w-14 text-center text-xs text-muted-foreground">
+             {pageDisplay} / {totalPages}
+@@ -176,7 +188,7 @@ function DataViewMobilePagination() {
+           <Button
+             variant="outline"
+             size="icon"
+-            className="h-9 w-9"
++            className="h-11 w-11"
+             onClick={() => {
+               handleMeaningfulInteraction();
+               urlState.setPage(validPage + 1);
+@@ -184,7 +196,7 @@ function DataViewMobilePagination() {
+             disabled={!canNext}
+             aria-label={t("pagination.nextPageAria")}
+           >
+-            <ChevronRight className="h-4 w-4" />
++            <ChevronRight aria-hidden="true" className="h-4 w-4" />
+           </Button>
+         </div>
+       </div>
+@@ -192,9 +204,21 @@ function DataViewMobilePagination() {
+   );
+ }
+ 
+-function DataViewMobileCard<TRow>({ row }: { row: TRow }) {
+-  const { columns, getRowId, renderMobileItem, renderCompactItem, renderRowControl } =
+-    useDataViewStatic();
++function DataViewMobileCard<TRow>({
++  row,
++  onOpenRow,
++}: {
++  row: TRow;
++  onOpenRow: (rowId: string, trigger: HTMLElement) => void;
++}) {
++  const {
++    columns,
++    getRowId,
++    renderMobileItem,
++    renderCompactItem,
++    renderRowControl,
++    renderExpandedRow,
++  } = useDataViewStatic();
+   const { columnVisibility } = useDataViewColumns();
+   const { urlState } = useDataViewUrl();
+   const { isRowSelected, toggleRowSelected } = useDataViewSelection();
+@@ -210,6 +234,7 @@ function DataViewMobileCard<TRow>({ row }: { row: TRow }) {
+     .filter((column) => column.key !== primaryColumn?.key)
+     .slice(0, 3);
+   const customContent = renderMobileItem?.(row) ?? renderCompactItem?.(row);
++  const expandedContent = renderExpandedRow?.(row);
+ 
+   return (
+     <article
+@@ -220,8 +245,12 @@ function DataViewMobileCard<TRow>({ row }: { row: TRow }) {
+       data-testid={`mobile-card-${rowId}`}
+     >
+       <div className="flex gap-2 p-3">
+-        <div className="pt-0.5" onClick={(event) => event.stopPropagation()}>
++        <div
++          className="grid h-11 w-11 shrink-0 place-items-center"
++          onClick={(event) => event.stopPropagation()}
++        >
+           <Checkbox
++            className="relative after:absolute after:-inset-3"
+             checked={isRowSelected(rowId)}
+             onCheckedChange={() => toggleRowSelected(rowId)}
+             aria-label={t("selection.selectRowAria", { rowId })}
+@@ -231,9 +260,10 @@ function DataViewMobileCard<TRow>({ row }: { row: TRow }) {
+ 
+         <button
+           type="button"
+-          className="min-w-0 flex-1 text-left"
+-          onClick={() => urlState.setSelected(rowId)}
++          className="min-h-11 min-w-0 flex-1 touch-manipulation rounded-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
++          onClick={(event) => onOpenRow(rowId, event.currentTarget)}
+           aria-selected={isSelected}
++          data-data-view-row-id={rowId}
+         >
+           {customContent ? (
+             <div className="min-w-0">{customContent}</div>
+@@ -259,16 +289,33 @@ function DataViewMobileCard<TRow>({ row }: { row: TRow }) {
+         </button>
+ 
+         {renderRowControl ? (
+-          <div className="shrink-0" onClick={(event) => event.stopPropagation()}>
++          <div
++            className="grid min-h-11 min-w-11 shrink-0 place-items-center [&_button]:min-h-11 [&_button]:min-w-11"
++            onClick={(event) => event.stopPropagation()}
++          >
+             {renderRowControl(row)}
+           </div>
+         ) : null}
+       </div>
++      {expandedContent ? (
++        <div
++          className="max-w-full overflow-x-auto border-t bg-muted/20"
++          data-testid={`mobile-expanded-${rowId}`}
++        >
++          {expandedContent}
++        </div>
++      ) : null}
+     </article>
+   );
+ }
+ 
+-function DataViewMobileList() {
++function DataViewMobileList({
++  onOpenRow,
++  listContainerRef,
++}: {
++  onOpenRow: (rowId: string, trigger: HTMLElement) => void;
++  listContainerRef: React.RefObject<HTMLDivElement | null>;
++}) {
+   const { getRowId } = useDataViewStatic();
+   const { urlState } = useDataViewUrl();
+   const { listData, listIsLoading, listIsTransitioning, listError } = useDataViewList();
+@@ -290,7 +337,9 @@ function DataViewMobileList() {
+ 
+   return (
+     <div
+-      className="min-h-0 flex-1 overflow-y-auto bg-muted/20 p-3"
++      ref={listContainerRef}
++      className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-muted/20 p-3"
++      tabIndex={-1}
+       onPointerDownCapture={handleMeaningfulInteraction}
+       onWheelCapture={handleMeaningfulInteraction}
+       onKeyDownCapture={handleMeaningfulInteraction}
+@@ -298,7 +347,7 @@ function DataViewMobileList() {
+     >
+       {listIsTransitioning ? (
+         <div
+-          className="absolute inset-x-0 top-0 z-20 h-0.5 animate-pulse bg-primary/60"
++          className="absolute inset-x-0 top-0 z-20 h-0.5 animate-pulse bg-primary/60 motion-reduce:animate-none"
+           role="status"
+           aria-label={t("table.updating")}
+         />
+@@ -327,7 +376,7 @@ function DataViewMobileList() {
+       ) : (
+         <div className="space-y-2">
+           {visibleRows.map((row) => (
+-            <DataViewMobileCard key={getRowId(row)} row={row} />
++            <DataViewMobileCard key={getRowId(row)} row={row} onOpenRow={onOpenRow} />
+           ))}
+         </div>
+       )}
+@@ -335,22 +384,18 @@ function DataViewMobileList() {
+   );
+ }
+ 
+-export function DataViewMobileLayout() {
+-  const { isDetailOpen } = useDataViewUrl();
+-
++export function DataViewMobileLayout({
++  onOpenRow,
++  listContainerRef,
++}: {
++  onOpenRow: (rowId: string, trigger: HTMLElement) => void;
++  listContainerRef: React.RefObject<HTMLDivElement | null>;
++}) {
+   return (
+-    <div className="flex h-full min-h-0 overflow-hidden rounded-md border bg-background">
+-      {isDetailOpen ? (
+-        <div className="flex min-h-0 flex-1 overflow-hidden" data-testid="data-view-mobile-detail">
+-          <DataViewDetail />
+-        </div>
+-      ) : (
+-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+-          <DataViewMobileToolbar />
+-          <DataViewMobileList />
+-          <DataViewMobilePagination />
+-        </div>
+-      )}
++    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
++      <DataViewMobileToolbar />
++      <DataViewMobileList onOpenRow={onOpenRow} listContainerRef={listContainerRef} />
++      <DataViewMobilePagination />
+     </div>
+   );
+ }
+diff --git a/apps/web/src/components/data-view/data-view-pagination.tsx b/apps/web/src/components/data-view/data-view-pagination.tsx
+index a3df17ef9cfeec18636508e5c3abf3573dc777a6..dfba2d0afa0ddf29b18a7417cd52468f0e861d82 100644
+--- a/apps/web/src/components/data-view/data-view-pagination.tsx
++++ b/apps/web/src/components/data-view/data-view-pagination.tsx
+@@ -117,7 +117,7 @@ export function DataViewPagination() {
+             disabled={!canPrev || keepOnlySelected}
+             aria-label={t("pagination.previousPageAria")}
+           >
+-            <ChevronLeft className="h-4 w-4" />
++            <ChevronLeft aria-hidden="true" className="h-4 w-4" />
+           </Button>
+           <span className="text-muted-foreground text-xs px-1">
+             {pageDisplay} / {totalPages}
+@@ -133,7 +133,7 @@ export function DataViewPagination() {
+             disabled={!canNext || keepOnlySelected}
+             aria-label={t("pagination.nextPageAria")}
+           >
+-            <ChevronRight className="h-4 w-4" />
++            <ChevronRight aria-hidden="true" className="h-4 w-4" />
+           </Button>
+         </div>
+       </div>
+diff --git a/apps/web/src/components/data-view/data-view-search-control.tsx b/apps/web/src/components/data-view/data-view-search-control.tsx
+index ecd376b5639765d8ced5b652ec37421b1cc8ca11..ca375effa79051431380fcc3e0c58ba441366e20 100644
+--- a/apps/web/src/components/data-view/data-view-search-control.tsx
++++ b/apps/web/src/components/data-view/data-view-search-control.tsx
+@@ -1,7 +1,7 @@
+ "use client";
+ 
+ import React, { useCallback, useEffect, useRef, useState } from "react";
+-import { AnimatePresence, motion } from "framer-motion";
++import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+ import { useTranslations } from "next-intl";
+ import { Search, X } from "lucide-react";
+ import { Input } from "@/components/ui/input";
+@@ -12,13 +12,18 @@ const SEARCH_TRANSITION = { duration: 0.18, ease: [0.22, 1, 0.36, 1] as const };
+ 
+ type DataViewSearchControlProps = {
+   mode?: "list" | "compact";
++  persistent?: boolean;
+ };
+ 
+-export function DataViewSearchControl({ mode = "list" }: DataViewSearchControlProps) {
++export function DataViewSearchControl({
++  mode = "list",
++  persistent = false,
++}: DataViewSearchControlProps) {
+   const { urlState } = useDataViewUrl();
+   const [searchOpen, setSearchOpen] = useState(false);
+   const searchInputRef = useRef<HTMLInputElement>(null);
+   const t = useTranslations("dataView");
++  const reduceMotion = useReducedMotion();
+ 
+   useEffect(() => {
+     if (mode === "compact") setSearchOpen(false);
+@@ -41,19 +46,43 @@ export function DataViewSearchControl({ mode = "list" }: DataViewSearchControlPr
+     if (event.key === "Escape") setSearchOpen(false);
+   }, []);
+ 
++  if (persistent) {
++    return (
++      <div className="relative min-w-0 w-full">
++        <Search
++          aria-hidden="true"
++          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
++        />
++        <Input
++          value={urlState.search}
++          onChange={handleSearchChange}
++          placeholder={t("toolbar.searchPlaceholder")}
++          className="h-11 w-full min-w-0 pl-9 text-sm"
++          name="data-view-search"
++          autoComplete="off"
++          aria-label={t("toolbar.searchAria")}
++          data-testid="search-input"
++        />
++      </div>
++    );
++  }
++
+   return (
+     <div className="flex shrink-0 items-center">
+       <AnimatePresence initial={false} mode="popLayout">
+         {searchOpen ? (
+           <motion.div
+             key="search-input"
+-            initial={{ width: 36, opacity: 0 }}
+-            animate={{ width: 176, opacity: 1 }}
+-            exit={{ width: 36, opacity: 0 }}
+-            transition={SEARCH_TRANSITION}
+-            className="relative shrink-0 overflow-hidden"
++            initial={{ x: -4, opacity: 0 }}
++            animate={{ x: 0, opacity: 1 }}
++            exit={{ x: -4, opacity: 0 }}
++            transition={reduceMotion ? { duration: 0 } : SEARCH_TRANSITION}
++            className="relative w-44 shrink-0 overflow-hidden"
+           >
+-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
++            <Search
++              aria-hidden="true"
++              className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
++            />
+             <Input
+               ref={searchInputRef}
+               value={urlState.search}
+@@ -61,6 +90,8 @@ export function DataViewSearchControl({ mode = "list" }: DataViewSearchControlPr
+               onKeyDown={handleSearchKeyDown}
+               placeholder={t("toolbar.searchPlaceholder")}
+               className="h-9 w-44 pl-8 pr-8 text-sm"
++              name="data-view-search"
++              autoComplete="off"
+               aria-label={t("toolbar.searchAria")}
+               data-testid="search-input"
+             />
+@@ -70,16 +101,16 @@ export function DataViewSearchControl({ mode = "list" }: DataViewSearchControlPr
+               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+               aria-label={t("toolbar.closeSearchAria")}
+             >
+-              <X className="h-3.5 w-3.5" />
++              <X aria-hidden="true" className="h-3.5 w-3.5" />
+             </button>
+           </motion.div>
+         ) : (
+           <motion.div
+             key="search-button"
+-            initial={{ width: 32, opacity: 0 }}
+-            animate={{ width: 36, opacity: 1 }}
+-            exit={{ width: 32, opacity: 0 }}
+-            transition={SEARCH_TRANSITION}
++            initial={{ opacity: 0 }}
++            animate={{ opacity: 1 }}
++            exit={{ opacity: 0 }}
++            transition={reduceMotion ? { duration: 0 } : SEARCH_TRANSITION}
+             className="shrink-0 overflow-hidden"
+           >
+             <Button
+@@ -90,7 +121,7 @@ export function DataViewSearchControl({ mode = "list" }: DataViewSearchControlPr
+               aria-label={t("toolbar.searchAria")}
+               data-testid="search-icon-button"
+             >
+-              <Search className="h-4 w-4" />
++              <Search aria-hidden="true" className="h-4 w-4" />
+             </Button>
+           </motion.div>
+         )}
+diff --git a/apps/web/src/components/data-view/data-view-sidebar.tsx b/apps/web/src/components/data-view/data-view-sidebar.tsx
+index 73f631ee9bd7b6bc7e904f0c6d0d2518f87028ed..dd9081b99d00138f4aae1731584f5d34a63a584a 100644
+--- a/apps/web/src/components/data-view/data-view-sidebar.tsx
++++ b/apps/web/src/components/data-view/data-view-sidebar.tsx
+@@ -17,7 +17,11 @@ const LOAD_THRESHOLD = 120;
+ const LOAD_INDICATOR_HEIGHT = 40;
+ const VIRTUALIZATION_THRESHOLD = 30;
+ 
+-export function DataViewSidebar() {
++export function DataViewSidebar({
++  onOpenRow,
++}: {
++  onOpenRow?: (rowId: string, trigger: HTMLElement) => void;
++}) {
+   const { columns, getRowId, renderCompactItem } = useDataViewStatic();
+   const { urlState } = useDataViewUrl();
+   const { keepOnlySelected, isRowSelected, selectedRowCount } = useDataViewSelection();
+@@ -163,7 +167,7 @@ export function DataViewSidebar() {
+ 
+       <div
+         ref={scrollRef}
+-        className="relative flex-1 overflow-y-auto"
++        className="relative flex-1 overflow-y-auto overscroll-contain"
+         onScroll={(event) => {
+           const element = event.currentTarget;
+           if (element.scrollTop <= LOAD_THRESHOLD) {
+@@ -215,8 +219,11 @@ export function DataViewSidebar() {
+                     isSelected && "bg-muted"
+                   )}
+                   style={{ transform: `translateY(${virtualRow.start}px)` }}
+-                  onClick={() => urlState.setSelected(rowId)}
++                  onClick={(event) =>
++                    onOpenRow ? onOpenRow(rowId, event.currentTarget) : urlState.setSelected(rowId)
++                  }
+                   aria-selected={isSelected}
++                  data-data-view-row-id={rowId}
+                   data-testid={`sidebar-item-${rowId}`}
+                 >
+                   {renderCompactItem ? (
+@@ -242,8 +249,11 @@ export function DataViewSidebar() {
+                   "flex h-14 w-full items-center border-b px-4 text-left text-sm transition-colors hover:bg-muted/50",
+                   isSelected && "bg-muted"
+                 )}
+-                onClick={() => urlState.setSelected(rowId)}
++                onClick={(event) =>
++                  onOpenRow ? onOpenRow(rowId, event.currentTarget) : urlState.setSelected(rowId)
++                }
+                 aria-selected={isSelected}
++                data-data-view-row-id={rowId}
+                 data-testid={`sidebar-item-${rowId}`}
+               >
+                 {renderCompactItem ? (
+diff --git a/apps/web/src/components/data-view/data-view-table.tsx b/apps/web/src/components/data-view/data-view-table.tsx
+index 596f5712ad4d57492bb2aa7868250a3fd7f1f3b9..5fc55adb97e60d727d716e3d729701f81bbe4b0b 100644
+--- a/apps/web/src/components/data-view/data-view-table.tsx
++++ b/apps/web/src/components/data-view/data-view-table.tsx
+@@ -35,9 +35,15 @@ import { Checkbox } from "@/components/ui/checkbox";
+ interface DataViewTableProps {
+   /** When true, renders only the first (primary) column — used during collapse transition */
+   primaryOnly?: boolean;
++  onOpenRow?: (rowId: string, trigger: HTMLElement) => void;
++  listContainerRef?: React.RefObject<HTMLDivElement | null>;
+ }
+ 
+-export function DataViewTable({ primaryOnly = false }: DataViewTableProps) {
++export function DataViewTable({
++  primaryOnly = false,
++  onOpenRow,
++  listContainerRef,
++}: DataViewTableProps) {
+   const { columns: colDefs, getRowId, renderExpandedRow, renderRowControl } = useDataViewStatic();
+   const { urlState } = useDataViewUrl();
+   const { listData, listIsLoading, listIsTransitioning, listError } = useDataViewList();
+@@ -162,15 +168,20 @@ export function DataViewTable({ primaryOnly = false }: DataViewTableProps) {
+ 
+   return (
+     <div
+-      ref={containerRef}
+-      className="relative flex-1 overflow-auto"
++      ref={(node) => {
++        containerRef.current = node;
++        if (listContainerRef) listContainerRef.current = node;
++      }}
++      className="relative flex-1 overflow-auto overscroll-contain"
++      tabIndex={-1}
++      data-testid="data-view-table-scroll"
+       onPointerDownCapture={handleMeaningfulInteraction}
+       onWheelCapture={handleMeaningfulInteraction}
+       onKeyDownCapture={handleMeaningfulInteraction}
+     >
+       {listIsTransitioning ? (
+         <div
+-          className="absolute inset-x-0 top-0 z-20 h-0.5 animate-pulse bg-primary/60"
++          className="absolute inset-x-0 top-0 z-20 h-0.5 animate-pulse bg-primary/60 motion-reduce:animate-none"
+           role="status"
+           aria-label={t("table.updating")}
+         />
+@@ -219,11 +230,11 @@ export function DataViewTable({ primaryOnly = false }: DataViewTableProps) {
+                       {canSort && (
+                         <span className="ml-1 opacity-60">
+                           {sorted === "asc" ? (
+-                            <ArrowUp className="h-3.5 w-3.5" />
++                            <ArrowUp aria-hidden="true" className="h-3.5 w-3.5" />
+                           ) : sorted === "desc" ? (
+-                            <ArrowDown className="h-3.5 w-3.5" />
++                            <ArrowDown aria-hidden="true" className="h-3.5 w-3.5" />
+                           ) : (
+-                            <ChevronsUpDown className="h-3.5 w-3.5" />
++                            <ChevronsUpDown aria-hidden="true" className="h-3.5 w-3.5" />
+                           )}
+                         </span>
+                       )}
+@@ -299,14 +310,26 @@ export function DataViewTable({ primaryOnly = false }: DataViewTableProps) {
+                     }}
+                     data-state={isSelected ? "selected" : undefined}
+                     className={cn(
+-                      "h-14 cursor-pointer hover:bg-muted/50",
++                      "h-14 cursor-pointer hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+                       isSelected && "bg-muted",
+                       isReturnHighlight && "bg-muted/50 hover:bg-muted/50 transition-colors"
+                     )}
+-                    onClick={() => urlState.setSelected(rowId)}
++                    onClick={(event) =>
++                      onOpenRow
++                        ? onOpenRow(rowId, event.currentTarget)
++                        : urlState.setSelected(rowId)
++                    }
++                    onKeyDown={(event) => {
++                      if (event.target !== event.currentTarget || event.key !== "Enter") return;
++                      event.preventDefault();
++                      if (onOpenRow) onOpenRow(rowId, event.currentTarget);
++                      else urlState.setSelected(rowId);
++                    }}
++                    tabIndex={0}
+                     role="row"
+                     aria-selected={isSelected}
+                     data-row-id={rowId}
++                    data-data-view-row-id={rowId}
+                     data-return-highlight={isReturnHighlight || undefined}
+                     data-testid={`row-${rowId}`}
+                   >
+diff --git a/apps/web/src/components/data-view/data-view-toolbar.tsx b/apps/web/src/components/data-view/data-view-toolbar.tsx
+index a246d4c419e66a76df826fc9902788b41dcd7c5f..91f3fed14f1d771fa5746d7e6e4f53c73ac6fc32 100644
+--- a/apps/web/src/components/data-view/data-view-toolbar.tsx
++++ b/apps/web/src/components/data-view/data-view-toolbar.tsx
+@@ -2,7 +2,7 @@
+ 
+ import React, { useCallback } from "react";
+ import { useTranslations } from "next-intl";
+-import { Filter, X, RefreshCw } from "lucide-react";
++import { ArrowLeft, X, RefreshCw } from "lucide-react";
+ import { useQueryClient } from "@tanstack/react-query";
+ import { Button } from "@/components/ui/button";
+ import {
+@@ -17,13 +17,14 @@ import { invalidateDataViewEntity } from "./data-view-query-keys";
+ 
+ // Both toolbar variants use this height so the body area never shifts vertically.
+ const TOOLBAR_CLS =
+-  "flex items-center gap-2 px-3 py-1 border-b bg-background shrink-0 min-h-[3rem]";
++  "flex min-w-0 flex-wrap items-center gap-2 border-b bg-background px-3 py-1.5 shrink-0 min-h-[3rem]";
+ 
+ type DataViewToolbarProps = {
+   mode?: "list" | "compact";
++  filterMode?: "inline" | "dropdown";
+ };
+ 
+-export function DataViewToolbar({ mode = "list" }: DataViewToolbarProps) {
++export function DataViewToolbar({ mode = "list", filterMode = "inline" }: DataViewToolbarProps) {
+   const { renderToolbarControls, entity, scope } = useDataViewStatic();
+   const { closeDetail, isClosingDetail } = useDataViewDetail();
+   const { listIsTransitioning } = useDataViewList();
+@@ -45,19 +46,22 @@ export function DataViewToolbar({ mode = "list" }: DataViewToolbarProps) {
+     return (
+       <div className={TOOLBAR_CLS} data-testid="toolbar-list">
+         <DataViewSearchControl mode={mode} />
+-        <DataViewFilters mode="inline" />
+-        <div className="flex-1" />
++        <DataViewFilters mode={filterMode} />
++        <div className="min-w-0 flex-1" />
+         <Button
+           variant="ghost"
+           size="icon"
+           className="h-9 w-9 shrink-0"
+           onClick={handleRefresh}
+           disabled={listIsTransitioning}
+-          aria-label="Refresh"
+-          title="Refresh"
++          aria-label={t("toolbar.refreshAria")}
++          title={t("toolbar.refreshAria")}
+           data-testid="refresh-button"
+         >
+-          <RefreshCw className={`h-4 w-4 ${listIsTransitioning ? "animate-spin" : ""}`} />
++          <RefreshCw
++            aria-hidden="true"
++            className={`h-4 w-4 ${listIsTransitioning ? "animate-spin motion-reduce:animate-none" : ""}`}
++          />
+         </Button>
+         {renderToolbarControls ? renderToolbarControls() : null}
+         {selectedRowCount > 0 ? (
+@@ -106,8 +110,8 @@ export function DataViewToolbar({ mode = "list" }: DataViewToolbarProps) {
+         aria-label={t("toolbar.backToListAria")}
+         data-testid="back-to-list-button"
+       >
+-        <Filter className="h-3.5 w-3.5" />
+-        <span>{t("filters.button")}</span>
++        <ArrowLeft aria-hidden="true" className="h-3.5 w-3.5" />
++        <span>{t("detail.backToList")}</span>
+       </Button>
+     </div>
+   );
+@@ -125,7 +129,7 @@ export function DataViewCloseDetail() {
+       aria-label={t("detail.closeAria")}
+       className="h-8 w-8"
+     >
+-      <X className="h-4 w-4" />
++      <X aria-hidden="true" className="h-4 w-4" />
+     </Button>
+   );
+ }
+diff --git a/apps/web/src/components/data-view/use-data-view-container-mode.ts b/apps/web/src/components/data-view/use-data-view-container-mode.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..8b9e4adbe7178190940d9220998edb6a9afc2f29
+--- /dev/null
++++ b/apps/web/src/components/data-view/use-data-view-container-mode.ts
+@@ -0,0 +1,43 @@
++"use client";
++
++import { useLayoutEffect, useRef, useState } from "react";
++
++export const DATA_VIEW_TABLE_MIN_WIDTH = 560;
++export const DATA_VIEW_SPLIT_MIN_WIDTH = 840;
++
++export type DataViewLayoutMode = "wide" | "medium" | "narrow";
++
++export function getDataViewLayoutMode(width: number): DataViewLayoutMode {
++  if (width >= DATA_VIEW_SPLIT_MIN_WIDTH) return "wide";
++  if (width >= DATA_VIEW_TABLE_MIN_WIDTH) return "medium";
++  return "narrow";
++}
++
++export function useDataViewContainerMode() {
++  const containerRef = useRef<HTMLDivElement>(null);
++  const [mode, setMode] = useState<DataViewLayoutMode>("wide");
++
++  useLayoutEffect(() => {
++    const container = containerRef.current;
++    if (!container || typeof ResizeObserver === "undefined") return;
++
++    const update = (width: number) => {
++      if (width > 0)
++        setMode((current) => {
++          const next = getDataViewLayoutMode(width);
++          return current === next ? current : next;
++        });
++    };
++
++    update(container.getBoundingClientRect().width);
++    const observer = new ResizeObserver((entries) => {
++      const entry = entries[0];
++      if (entry) update(entry.contentRect.width);
++    });
++    observer.observe(container);
++
++    return () => observer.disconnect();
++  }, []);
++
++  return { containerRef, mode };
++}
+diff --git a/apps/web/src/components/data-view/use-media-query.ts b/apps/web/src/components/data-view/use-media-query.ts
+deleted file mode 100644
+index bc84753914cb543cc037bcad768b875c73065988..0000000000000000000000000000000000000000
+--- a/apps/web/src/components/data-view/use-media-query.ts
++++ /dev/null
+@@ -1,23 +0,0 @@
+-"use client";
+-
+-import { useEffect, useState } from "react";
+-
+-export function useMediaQuery(query: string, defaultValue = false) {
+-  const [matches, setMatches] = useState(() => {
+-    if (typeof window === "undefined" || !window.matchMedia) return defaultValue;
+-    return window.matchMedia(query).matches;
+-  });
+-
+-  useEffect(() => {
+-    if (!window.matchMedia) return;
+-
+-    const mediaQuery = window.matchMedia(query);
+-    const update = () => setMatches(mediaQuery.matches);
+-    update();
+-
+-    mediaQuery.addEventListener?.("change", update);
+-    return () => mediaQuery.removeEventListener?.("change", update);
+-  }, [query]);
+-
+-  return matches;
+-}

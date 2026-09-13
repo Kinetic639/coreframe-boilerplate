@@ -2,7 +2,7 @@
 
 import React, { useCallback } from "react";
 import { useTranslations } from "next-intl";
-import { Filter, X, RefreshCw } from "lucide-react";
+import { ArrowLeft, X, RefreshCw } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,13 +17,14 @@ import { invalidateDataViewEntity } from "./data-view-query-keys";
 
 // Both toolbar variants use this height so the body area never shifts vertically.
 const TOOLBAR_CLS =
-  "flex items-center gap-2 px-3 py-1 border-b bg-background shrink-0 min-h-[3rem]";
+  "flex min-w-0 flex-wrap items-center gap-2 border-b bg-background px-3 py-1.5 shrink-0 min-h-[3rem]";
 
 type DataViewToolbarProps = {
   mode?: "list" | "compact";
+  filterMode?: "inline" | "dropdown";
 };
 
-export function DataViewToolbar({ mode = "list" }: DataViewToolbarProps) {
+export function DataViewToolbar({ mode = "list", filterMode = "inline" }: DataViewToolbarProps) {
   const { renderToolbarControls, entity, scope } = useDataViewStatic();
   const { closeDetail, isClosingDetail } = useDataViewDetail();
   const { listIsTransitioning } = useDataViewList();
@@ -45,19 +46,22 @@ export function DataViewToolbar({ mode = "list" }: DataViewToolbarProps) {
     return (
       <div className={TOOLBAR_CLS} data-testid="toolbar-list">
         <DataViewSearchControl mode={mode} />
-        <DataViewFilters mode="inline" />
-        <div className="flex-1" />
+        <DataViewFilters mode={filterMode} />
+        <div className="min-w-0 flex-1" />
         <Button
           variant="ghost"
           size="icon"
           className="h-9 w-9 shrink-0"
           onClick={handleRefresh}
           disabled={listIsTransitioning}
-          aria-label="Refresh"
-          title="Refresh"
+          aria-label={t("toolbar.refreshAria")}
+          title={t("toolbar.refreshAria")}
           data-testid="refresh-button"
         >
-          <RefreshCw className={`h-4 w-4 ${listIsTransitioning ? "animate-spin" : ""}`} />
+          <RefreshCw
+            aria-hidden="true"
+            className={`h-4 w-4 ${listIsTransitioning ? "animate-spin motion-reduce:animate-none" : ""}`}
+          />
         </Button>
         {renderToolbarControls ? renderToolbarControls() : null}
         {selectedRowCount > 0 ? (
@@ -106,8 +110,8 @@ export function DataViewToolbar({ mode = "list" }: DataViewToolbarProps) {
         aria-label={t("toolbar.backToListAria")}
         data-testid="back-to-list-button"
       >
-        <Filter className="h-3.5 w-3.5" />
-        <span>{t("filters.button")}</span>
+        <ArrowLeft aria-hidden="true" className="h-3.5 w-3.5" />
+        <span>{t("detail.backToList")}</span>
       </Button>
     </div>
   );
@@ -125,7 +129,7 @@ export function DataViewCloseDetail() {
       aria-label={t("detail.closeAria")}
       className="h-8 w-8"
     >
-      <X className="h-4 w-4" />
+      <X aria-hidden="true" className="h-4 w-4" />
     </Button>
   );
 }

@@ -257,6 +257,7 @@
     },
     "detail": {
       "closeAria": "Close detail",
+      "backToList": "Back to list",
       "loadingAria": "Loading details",
       "refreshing": "Refreshing details",
       "empty": "No item selected",
@@ -266,7 +267,7 @@
       "selectedOutsideResults": "Selected item is outside current results."
     },
     "toolbar": {
-      "searchPlaceholder": "Search...",
+      "searchPlaceholder": "Search…",
       "searchAria": "Search",
       "closeSearchAria": "Close search",
       "backToListAria": "Back to full list",

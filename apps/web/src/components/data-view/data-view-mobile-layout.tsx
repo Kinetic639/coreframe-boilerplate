@@ -23,7 +23,6 @@ import {
   useDataViewStatic,
   useDataViewUrl,
 } from "./use-data-view";
-import { DataViewDetail } from "./data-view-detail";
 import { DataViewFilters } from "./data-view-filters";
 import { DataViewSearchControl } from "./data-view-search-control";
 import { invalidateDataViewEntity } from "./data-view-query-keys";
@@ -49,26 +48,39 @@ function DataViewMobileToolbar() {
 
   return (
     <div className="shrink-0 border-b bg-background">
-      <div className="flex min-h-12 items-center gap-2 px-3 py-1.5">
-        <DataViewSearchControl />
+      <div className="flex min-h-14 min-w-0 items-center gap-2 px-3 py-1.5">
+        <div className="min-w-0 flex-1">
+          <DataViewSearchControl persistent />
+        </div>
         <DataViewFilters mode="dropdown" />
         <Button
           variant="ghost"
           size="icon"
-          className="h-9 w-9 shrink-0"
+          className="h-11 w-11 shrink-0"
           onClick={handleRefresh}
           disabled={listIsTransitioning}
           aria-label={t("toolbar.refreshAria")}
           title={t("toolbar.refreshAria")}
           data-testid="mobile-refresh-button"
         >
-          <RefreshCw className={cn("h-4 w-4", listIsTransitioning && "animate-spin")} />
+          <RefreshCw
+            aria-hidden="true"
+            className={cn(
+              "h-4 w-4",
+              listIsTransitioning && "animate-spin motion-reduce:animate-none"
+            )}
+          />
         </Button>
-        <div className="min-w-0 flex-1" />
-        {renderToolbarControls ? (
-          <div className="flex shrink-0 items-center gap-1">{renderToolbarControls()}</div>
-        ) : null}
       </div>
+
+      {renderToolbarControls ? (
+        <div
+          className="flex min-w-0 flex-wrap items-center justify-end gap-2 border-t px-3 py-2"
+          data-testid="mobile-toolbar-actions"
+        >
+          {renderToolbarControls()}
+        </div>
+      ) : null}
 
       {selectedRowCount > 0 ? (
         <div className="flex items-center gap-2 border-t px-3 py-2">
@@ -78,7 +90,7 @@ function DataViewMobileToolbar() {
           <Button
             variant="secondary"
             size="sm"
-            className="h-8 shrink-0 text-xs"
+            className="min-h-11 shrink-0 text-xs"
             onClick={keepOnlySelected ? disableKeepOnlySelected : enableKeepOnlySelected}
           >
             {keepOnlySelected ? t("selection.showAll") : t("selection.keepSelected")}
@@ -86,7 +98,7 @@ function DataViewMobileToolbar() {
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 shrink-0 text-xs"
+            className="min-h-11 shrink-0 text-xs"
             onClick={clearSelectedRows}
           >
             {t("selection.clear")}
@@ -144,7 +156,7 @@ function DataViewMobilePagination() {
           }}
           disabled={keepOnlySelected}
         >
-          <SelectTrigger className="h-9 w-24" aria-label={t("pagination.rowsPerPage")}>
+          <SelectTrigger className="h-11 w-24" aria-label={t("pagination.rowsPerPage")}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -160,7 +172,7 @@ function DataViewMobilePagination() {
           <Button
             variant="outline"
             size="icon"
-            className="h-9 w-9"
+            className="h-11 w-11"
             onClick={() => {
               handleMeaningfulInteraction();
               urlState.setPage(validPage - 1);
@@ -168,7 +180,7 @@ function DataViewMobilePagination() {
             disabled={!canPrev}
             aria-label={t("pagination.previousPageAria")}
           >
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft aria-hidden="true" className="h-4 w-4" />
           </Button>
           <span className="min-w-14 text-center text-xs text-muted-foreground">
             {pageDisplay} / {totalPages}
@@ -176,7 +188,7 @@ function DataViewMobilePagination() {
           <Button
             variant="outline"
             size="icon"
-            className="h-9 w-9"
+            className="h-11 w-11"
             onClick={() => {
               handleMeaningfulInteraction();
               urlState.setPage(validPage + 1);
@@ -184,7 +196,7 @@ function DataViewMobilePagination() {
             disabled={!canNext}
             aria-label={t("pagination.nextPageAria")}
           >
-            <ChevronRight className="h-4 w-4" />
+            <ChevronRight aria-hidden="true" className="h-4 w-4" />
           </Button>
         </div>
       </div>
@@ -192,9 +204,21 @@ function DataViewMobilePagination() {
   );
 }
 
-function DataViewMobileCard<TRow>({ row }: { row: TRow }) {
-  const { columns, getRowId, renderMobileItem, renderCompactItem, renderRowControl } =
-    useDataViewStatic();
+function DataViewMobileCard<TRow>({
+  row,
+  onOpenRow,
+}: {
+  row: TRow;
+  onOpenRow: (rowId: string, trigger: HTMLElement) => void;
+}) {
+  const {
+    columns,
+    getRowId,
+    renderMobileItem,
+    renderCompactItem,
+    renderRowControl,
+    renderExpandedRow,
+  } = useDataViewStatic();
   const { columnVisibility } = useDataViewColumns();
   const { urlState } = useDataViewUrl();
   const { isRowSelected, toggleRowSelected } = useDataViewSelection();
@@ -210,6 +234,7 @@ function DataViewMobileCard<TRow>({ row }: { row: TRow }) {
     .filter((column) => column.key !== primaryColumn?.key)
     .slice(0, 3);
   const customContent = renderMobileItem?.(row) ?? renderCompactItem?.(row);
+  const expandedContent = renderExpandedRow?.(row);
 
   return (
     <article
@@ -220,8 +245,12 @@ function DataViewMobileCard<TRow>({ row }: { row: TRow }) {
       data-testid={`mobile-card-${rowId}`}
     >
       <div className="flex gap-2 p-3">
-        <div className="pt-0.5" onClick={(event) => event.stopPropagation()}>
+        <div
+          className="grid h-11 w-11 shrink-0 place-items-center"
+          onClick={(event) => event.stopPropagation()}
+        >
           <Checkbox
+            className="relative after:absolute after:-inset-3"
             checked={isRowSelected(rowId)}
             onCheckedChange={() => toggleRowSelected(rowId)}
             aria-label={t("selection.selectRowAria", { rowId })}
@@ -231,9 +260,10 @@ function DataViewMobileCard<TRow>({ row }: { row: TRow }) {
 
         <button
           type="button"
-          className="min-w-0 flex-1 text-left"
-          onClick={() => urlState.setSelected(rowId)}
+          className="min-h-11 min-w-0 flex-1 touch-manipulation rounded-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          onClick={(event) => onOpenRow(rowId, event.currentTarget)}
           aria-selected={isSelected}
+          data-data-view-row-id={rowId}
         >
           {customContent ? (
             <div className="min-w-0">{customContent}</div>
@@ -259,16 +289,33 @@ function DataViewMobileCard<TRow>({ row }: { row: TRow }) {
         </button>
 
         {renderRowControl ? (
-          <div className="shrink-0" onClick={(event) => event.stopPropagation()}>
+          <div
+            className="grid min-h-11 min-w-11 shrink-0 place-items-center [&_button]:min-h-11 [&_button]:min-w-11"
+            onClick={(event) => event.stopPropagation()}
+          >
             {renderRowControl(row)}
           </div>
         ) : null}
       </div>
+      {expandedContent ? (
+        <div
+          className="max-w-full overflow-x-auto border-t bg-muted/20"
+          data-testid={`mobile-expanded-${rowId}`}
+        >
+          {expandedContent}
+        </div>
+      ) : null}
     </article>
   );
 }
 
-function DataViewMobileList() {
+function DataViewMobileList({
+  onOpenRow,
+  listContainerRef,
+}: {
+  onOpenRow: (rowId: string, trigger: HTMLElement) => void;
+  listContainerRef: React.RefObject<HTMLDivElement | null>;
+}) {
   const { getRowId } = useDataViewStatic();
   const { urlState } = useDataViewUrl();
   const { listData, listIsLoading, listIsTransitioning, listError } = useDataViewList();
@@ -290,7 +337,9 @@ function DataViewMobileList() {
 
   return (
     <div
-      className="min-h-0 flex-1 overflow-y-auto bg-muted/20 p-3"
+      ref={listContainerRef}
+      className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-muted/20 p-3"
+      tabIndex={-1}
       onPointerDownCapture={handleMeaningfulInteraction}
       onWheelCapture={handleMeaningfulInteraction}
       onKeyDownCapture={handleMeaningfulInteraction}
@@ -298,7 +347,7 @@ function DataViewMobileList() {
     >
       {listIsTransitioning ? (
         <div
-          className="absolute inset-x-0 top-0 z-20 h-0.5 animate-pulse bg-primary/60"
+          className="absolute inset-x-0 top-0 z-20 h-0.5 animate-pulse bg-primary/60 motion-reduce:animate-none"
           role="status"
           aria-label={t("table.updating")}
         />
@@ -327,7 +376,7 @@ function DataViewMobileList() {
       ) : (
         <div className="space-y-2">
           {visibleRows.map((row) => (
-            <DataViewMobileCard key={getRowId(row)} row={row} />
+            <DataViewMobileCard key={getRowId(row)} row={row} onOpenRow={onOpenRow} />
           ))}
         </div>
       )}
@@ -335,22 +384,18 @@ function DataViewMobileList() {
   );
 }
 
-export function DataViewMobileLayout() {
-  const { isDetailOpen } = useDataViewUrl();
-
+export function DataViewMobileLayout({
+  onOpenRow,
+  listContainerRef,
+}: {
+  onOpenRow: (rowId: string, trigger: HTMLElement) => void;
+  listContainerRef: React.RefObject<HTMLDivElement | null>;
+}) {
   return (
-    <div className="flex h-full min-h-0 overflow-hidden rounded-md border bg-background">
-      {isDetailOpen ? (
-        <div className="flex min-h-0 flex-1 overflow-hidden" data-testid="data-view-mobile-detail">
-          <DataViewDetail />
-        </div>
-      ) : (
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <DataViewMobileToolbar />
-          <DataViewMobileList />
-          <DataViewMobilePagination />
-        </div>
-      )}
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      <DataViewMobileToolbar />
+      <DataViewMobileList onOpenRow={onOpenRow} listContainerRef={listContainerRef} />
+      <DataViewMobilePagination />
     </div>
   );
 }

@@ -14,6 +14,20 @@ import {
   synchronizeDataViewSidebarPage,
 } from "../data-view-query-keys";
 import { getInitialColumnVisibility } from "../data-view-columns";
+import {
+  DATA_VIEW_SPLIT_MIN_WIDTH,
+  DATA_VIEW_TABLE_MIN_WIDTH,
+  getDataViewLayoutMode,
+} from "../use-data-view-container-mode";
+
+describe("DataView container capability thresholds", () => {
+  it("selects narrow, medium, and wide modes at the documented boundaries", () => {
+    expect(getDataViewLayoutMode(DATA_VIEW_TABLE_MIN_WIDTH - 1)).toBe("narrow");
+    expect(getDataViewLayoutMode(DATA_VIEW_TABLE_MIN_WIDTH)).toBe("medium");
+    expect(getDataViewLayoutMode(DATA_VIEW_SPLIT_MIN_WIDTH - 1)).toBe("medium");
+    expect(getDataViewLayoutMode(DATA_VIEW_SPLIT_MIN_WIDTH)).toBe("wide");
+  });
+});
 
 describe("DataView shared search parameter contract", () => {
   it.each([

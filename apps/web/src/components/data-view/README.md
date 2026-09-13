@@ -49,6 +49,24 @@ Detail states are distinct:
 - not found/deleted: successful `null` detail result;
 - selected outside current results: valid detail remains open while the current list does not contain its ID.
 
-## Phase 2 boundary
+## Responsive presentation
 
-Phase 1 intentionally retains the existing viewport breakpoint and current desktop/mobile layouts. Container-query layout selection, tablet list-to-detail replacement, mobile navigation and focus restoration, 44px touch controls, mobile expanded rows, toolbar reflow, and nested-scroll cleanup belong to Phase 2.
+DataView observes its own inline-size with one `ResizeObserver`; viewport width never selects presentation. The initial server and hydration render use the same wide markup, then a layout effect measures before the first client paint. Presentation changes do not alter URL state, query keys, fetchers, or cache identity.
+
+- **Wide (840px and above):** the full table is shown until detail opens, then a stable `clamp(280px, 30cqw, 320px)` compact master sits beside a detail pane with at least about 520px at the boundary.
+- **Medium (560–839px):** list-only uses the desktop table and compact filter toolbar. Selected detail replaces the list within the same DataView surface.
+- **Narrow (below 560px):** list-only uses touch-oriented cards and compact pagination. Selected detail replaces the cards at full surface width.
+
+The 840px split threshold comes from the minimum readable 280–320px master plus a practical 520px arbitrary-detail region. The 560px table threshold keeps a useful multi-column table; below it cards avoid compressing table semantics into an unusable viewport.
+
+Consumers may provide `renderMobileItem(row)` for a purpose-built card body. DataView falls back to `renderCompactItem(row)`, then to the first visible column plus up to three secondary columns. `renderExpandedRow(row)` appears beneath its card in a bounded horizontal scroll region, so domain content remains consumer-owned.
+
+Replacement detail provides a localized 44px Back-to-list button. Opening replacement detail moves focus to Back. If replacement presentation is being closed, focus returns to the initiating row when it still exists and otherwise moves to the list surface; this also covers direct selected URLs and details that changed from split to replacement after a resize. Wide split avoids focus stealing. DataView does not own Escape because arbitrary detail content may contain an interaction that does. Table rows open with Enter, mobile and sidebar rows use native buttons, and all focus targets retain visible focus styles.
+
+Wide split owns one scroll surface for the compact master and one for arbitrary detail. Medium and narrow replacement modes expose one detail scroll surface. The DataView shell clips accidental outer overflow; desktop tables retain internal horizontal scrolling and sticky headers. Mobile search remains visible, filters use a viewport-bounded popover, consumer actions wrap into a secondary toolbar row, and pagination retains page size plus explicit previous/next controls.
+
+The master and arbitrary consumer-detail subtrees stay mounted while replacement detail is visible, so container-mode changes do not restart consumer effects or remote queries. Framer transitions are disabled when `prefers-reduced-motion` is active. Animation never controls whether detail exists; `selected` remains the semantic authority. Loading, transition, error, empty, not-found, and selected-outside-results states use the same Phase-1 query state in every presentation.
+
+## Phase 3 boundary
+
+Advanced row-grid keyboard navigation, broader virtualization changes, speculative prefetching, deep render profiling, persisted splitter widths, broad consumer migration, Repair Orders adoption, and convergence with the divergent public-web DataView remain deferred. The public-web copy is explicit technical debt and is not synchronized by this implementation.

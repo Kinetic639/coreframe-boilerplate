@@ -294,16 +294,19 @@ function DataViewFilterPill({
               }}
               aria-label={t("filters.clearSingleAria", { label: def.label })}
             >
-              <X className="h-3 w-3" />
+              <X aria-hidden="true" className="h-3 w-3" />
             </span>
           ) : (
-            <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
+            <ChevronDown aria-hidden="true" className="h-3 w-3 text-muted-foreground shrink-0" />
           )}
         </Button>
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        className={cn("p-3", def.type === "date-range" ? "w-[340px]" : "w-72")}
+        className={cn(
+          "max-w-[calc(100vw-2rem)] p-3",
+          def.type === "date-range" ? "w-[340px]" : "w-72"
+        )}
       >
         <FilterField def={def} filters={filters} onChange={onChange} t={t} />
       </PopoverContent>
@@ -400,16 +403,19 @@ export function DataViewFilters({ mode = "dropdown" }: DataViewFiltersProps) {
 
   // ── Dropdown mode: single button + popover ────────────────────────────────
   return (
-    <div className="flex items-center gap-2 flex-wrap" data-testid="dropdown-filters">
+    <div
+      className="flex min-w-0 max-w-full flex-wrap items-center gap-2"
+      data-testid="dropdown-filters"
+    >
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
             variant="outline"
             size="sm"
-            className="h-8 gap-2"
+            className="min-h-11 gap-2 px-3"
             aria-label={t("filters.openAria")}
           >
-            <Filter className="h-4 w-4" />
+            <Filter aria-hidden="true" className="h-4 w-4" />
             <span>{t("filters.button")}</span>
             {activeCount > 0 && (
               <Badge
@@ -421,7 +427,7 @@ export function DataViewFilters({ mode = "dropdown" }: DataViewFiltersProps) {
             )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent align="start" className="w-72 space-y-3">
+        <PopoverContent align="start" className="w-72 max-w-[calc(100vw-2rem)] space-y-3">
           <p className="text-sm font-medium text-foreground">{t("filters.title")}</p>
           {visibleFilterDefs.map((def) => (
             <FilterField
@@ -453,7 +459,7 @@ export function DataViewFilters({ mode = "dropdown" }: DataViewFiltersProps) {
               className="ml-1 rounded-full hover:bg-muted-foreground/20 p-0.5"
               aria-label={t("filters.removeSingleAria", { label: def.label })}
             >
-              <X className="h-3 w-3" />
+              <X aria-hidden="true" className="h-3 w-3" />
             </button>
           </Badge>
         );

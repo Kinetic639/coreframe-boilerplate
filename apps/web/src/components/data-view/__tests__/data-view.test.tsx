@@ -20,6 +20,9 @@ const nuqsState = {
   push: null as unknown as (url: string) => void,
   replace: null as unknown as (url: string) => void,
 };
+let mockReducedMotion = false;
+let mockContainerWidth = 1000;
+const resizeObservers = new Set<(width: number) => void>();
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -38,6 +41,7 @@ vi.mock("framer-motion", () => {
   return {
     AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
     motion: { div: MotionDiv },
+    useReducedMotion: () => mockReducedMotion,
   };
 });
 
@@ -171,6 +175,7 @@ const TEST_TRANSLATIONS: Record<string, string> = {
   "dataView.columns.toggleTitle": "Toggle columns",
   "dataView.columns.toggleColumnAria": "Toggle column {column}",
   "dataView.detail.closeAria": "Close detail",
+  "dataView.detail.backToList": "Back to list",
   "dataView.detail.loadingAria": "Loading details",
   "dataView.detail.empty": "No item selected",
   "dataView.detail.error": "Unable to load details.",
@@ -253,8 +258,43 @@ const localStorageMock = (() => {
 Object.defineProperty(window, "localStorage", { value: localStorageMock });
 // Radix UI Select needs scrollIntoView in jsdom
 window.HTMLElement.prototype.scrollIntoView = vi.fn();
+window.HTMLElement.prototype.scrollTo = vi.fn();
+
+class ResizeObserverMock {
+  private update: (width: number) => void;
+
+  constructor(callback: ResizeObserverCallback) {
+    this.update = (width) =>
+      callback(
+        [{ contentRect: { width } } as ResizeObserverEntry],
+        this as unknown as ResizeObserver
+      );
+    resizeObservers.add(this.update);
+  }
+
+  observe() {
+    this.update(mockContainerWidth);
+  }
+
+  unobserve() {}
+
+  disconnect() {
+    resizeObservers.delete(this.update);
+  }
+}
+
+Object.defineProperty(globalThis, "ResizeObserver", {
+  configurable: true,
+  value: ResizeObserverMock,
+});
+
+function setContainerWidth(width: number) {
+  mockContainerWidth = width;
+  resizeObservers.forEach((update) => update(width));
+}
 
 function setDesktopViewport(isDesktop: boolean) {
+  setContainerWidth(isDesktop ? 1000 : 400);
   Object.defineProperty(window, "matchMedia", {
     writable: true,
     value: vi.fn().mockImplementation((query: string) => ({
@@ -272,6 +312,7 @@ function setDesktopViewport(isDesktop: boolean) {
 
 beforeEach(() => {
   setDesktopViewport(true);
+  mockReducedMotion = false;
 });
 
 // ---------------------------------------------------------------------------
@@ -496,6 +537,281 @@ describe("T-DV-RENDER: renders initial rows from initialData", () => {
     await waitFor(() => expect(screen.getByTestId("data-view-mobile-detail")).toBeInTheDocument());
     expect(await screen.findByTestId("detail-content")).toBeInTheDocument();
     expect(screen.queryByTestId("data-view-mobile-list")).not.toBeInTheDocument();
+  });
+});
+
+describe("T-DV-RESPONSIVE: container-driven presentation", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorageMock.clear();
+    nuqsState.params = new Map();
+    mockPush.mockReset();
+    mockReplace.mockReset();
+    mockDetailFetcher.mockResolvedValue(MOCK_DETAILS.p1);
+  });
+
+  it("uses a table without a split at medium container width", async () => {
+    setContainerWidth(700);
+    renderDataView();
+
+    expect(await screen.findByTestId("data-view-medium-layout")).toBeInTheDocument();
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    expect(screen.queryByTestId("data-view-sidebar")).not.toBeInTheDocument();
+  });
+
+  it("replaces the table with detail at medium container width", async () => {
+    setContainerWidth(700);
+    renderDataView({}, { selected: "p1" });
+
+    expect(await screen.findByTestId("data-view-replacement-detail")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Back to list" })).toBeInTheDocument();
+  });
+
+  it("keeps wide selected detail in a split pane", async () => {
+    setContainerWidth(1000);
+    renderDataView({}, { selected: "p1" });
+
+    expect(await screen.findByTestId("data-view-sidebar")).toBeInTheDocument();
+    expect(screen.queryByTestId("data-view-replacement-detail")).not.toBeInTheDocument();
+  });
+
+  it("keeps mobile search prominent and toolbar actions in a wrapping row", () => {
+    setContainerWidth(400);
+    renderDataView({ renderToolbarControls: () => <button>Consumer action</button> });
+
+    expect(screen.getByRole("textbox", { name: "Search" })).toBeInTheDocument();
+    expect(screen.getByTestId("mobile-toolbar-actions")).toContainElement(
+      screen.getByRole("button", { name: "Consumer action" })
+    );
+  });
+
+  it("renders compact mobile pagination with 44px controls", () => {
+    setContainerWidth(400);
+    renderDataView();
+
+    expect(screen.getByTestId("mobile-pagination-info")).toHaveTextContent(
+      "Showing 1–3 of 3 results"
+    );
+    expect(screen.getByRole("button", { name: "Next page" })).toHaveClass("h-11", "w-11");
+  });
+
+  it("renders generic expanded content inside the narrow card", async () => {
+    setContainerWidth(400);
+    renderDataView({ renderExpandedRow: (row) => <div>Expanded {row.name}</div> });
+
+    expect(await screen.findByTestId("mobile-expanded-p1")).toHaveTextContent("Expanded Widget A");
+  });
+
+  it("opens a table row with Enter", async () => {
+    setContainerWidth(700);
+    renderDataView();
+    const row = await screen.findByTestId("row-p1");
+
+    row.focus();
+    fireEvent.keyDown(row, { key: "Enter" });
+
+    await waitFor(() =>
+      expect(mockPush).toHaveBeenCalledWith(expect.stringContaining("selected=p1"))
+    );
+  });
+
+  it("moves focus to Back when replacement detail opens", async () => {
+    setContainerWidth(700);
+    const result = renderDataViewWithClient();
+    const row = await screen.findByTestId("row-p1");
+    fireEvent.click(row);
+    result.rerenderDataView({ selected: "p1" });
+
+    const back = await screen.findByRole("button", { name: "Back to list" });
+    await waitFor(() => expect(back).toHaveFocus());
+  });
+
+  it("restores focus to the initiating row when returning to the list", async () => {
+    setContainerWidth(700);
+    const result = renderDataViewWithClient();
+    const row = await screen.findByTestId("row-p1");
+    fireEvent.click(row);
+    result.rerenderDataView({ selected: "p1" });
+    fireEvent.click(await screen.findByRole("button", { name: "Back to list" }));
+    result.rerenderDataView({});
+
+    await waitFor(() => expect(screen.getByTestId("row-p1")).toHaveFocus());
+  });
+
+  it("restores focus to the list for a direct replacement-detail URL", async () => {
+    setContainerWidth(700);
+    const result = renderDataViewWithClient({}, { selected: "p1" });
+    const back = await screen.findByRole("button", { name: "Back to list" });
+    await waitFor(() => expect(back).toHaveFocus());
+
+    fireEvent.click(back);
+    result.rerenderDataView({});
+
+    await waitFor(() => expect(screen.getByTestId("data-view-table-scroll")).toHaveFocus());
+  });
+
+  it.each([
+    ["medium", 700, "row-p1"],
+    ["narrow", 400, "mobile-card-p1"],
+  ])("restores row focus after wide detail becomes %s replacement", async (_, width, rowTestId) => {
+    setContainerWidth(1000);
+    const result = renderDataViewWithClient();
+    fireEvent.click(await screen.findByTestId("row-p1"));
+    result.rerenderDataView({ selected: "p1" });
+
+    act(() => setContainerWidth(width));
+    const back = await screen.findByRole("button", { name: "Back to list" });
+    await waitFor(() => expect(back).toHaveFocus());
+    fireEvent.click(back);
+    result.rerenderDataView({});
+
+    const returnedRow =
+      rowTestId === "row-p1"
+        ? screen.getByTestId(rowTestId)
+        : screen.getByTestId(rowTestId).querySelector<HTMLElement>("[data-data-view-row-id]");
+    await waitFor(() => expect(returnedRow).toHaveFocus());
+  });
+
+  it("does not close replacement detail with Escape", async () => {
+    setContainerWidth(700);
+    renderDataView({}, { selected: "p1" });
+    await screen.findByRole("button", { name: "Back to list" });
+    mockReplace.mockClear();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(mockReplace).not.toHaveBeenCalled();
+    expect(screen.getByTestId("detail-panel")).toBeInTheDocument();
+  });
+
+  it("leaves selection open when nested content owns Escape", async () => {
+    const nestedEscape = vi.fn();
+    setContainerWidth(700);
+    renderDataView(
+      {
+        renderDetail: () => (
+          <input
+            aria-label="Nested editor"
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                event.stopPropagation();
+                nestedEscape();
+              }
+            }}
+          />
+        ),
+      },
+      { selected: "p1" }
+    );
+    const input = await screen.findByRole("textbox", { name: "Nested editor" });
+    mockReplace.mockClear();
+
+    fireEvent.keyDown(input, { key: "Escape" });
+
+    expect(nestedEscape).toHaveBeenCalledTimes(1);
+    expect(mockReplace).not.toHaveBeenCalled();
+    expect(screen.getByTestId("detail-panel")).toBeInTheDocument();
+  });
+
+  it("always closes replacement detail through Back", async () => {
+    setContainerWidth(700);
+    renderDataView({}, { selected: "p1" });
+    fireEvent.click(await screen.findByRole("button", { name: "Back to list" }));
+
+    await waitFor(() =>
+      expect(mockReplace).toHaveBeenCalledWith(expect.not.stringContaining("selected=p1"))
+    );
+  });
+
+  it("leaves wide split selection open on Escape", async () => {
+    setContainerWidth(1000);
+    renderDataView({}, { selected: "p1" });
+    await screen.findByTestId("data-view-sidebar");
+    mockReplace.mockClear();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(mockReplace).not.toHaveBeenCalled();
+    expect(screen.getByTestId("detail-panel")).toBeInTheDocument();
+  });
+
+  it("disables decorative split transitions for reduced motion", async () => {
+    mockReducedMotion = true;
+    setContainerWidth(1000);
+    renderDataView({}, { selected: "p1" });
+
+    expect(
+      await screen.findByTestId("data-view-wide-layout").then((node) => node.firstElementChild)
+    ).toHaveAttribute("data-motion", "reduced");
+  });
+
+  it("shows a narrow detail error in the replacement surface", async () => {
+    setContainerWidth(400);
+    renderDataView(
+      { detailFetcher: vi.fn().mockRejectedValue(new Error("network unavailable")) },
+      { selected: "p1" }
+    );
+
+    expect(await screen.findByText("Unable to load details.")).toBeInTheDocument();
+    expect(screen.getByTestId("data-view-mobile-detail")).toBeInTheDocument();
+  });
+
+  it("shows a stable narrow list skeleton without a full-surface jump", () => {
+    setContainerWidth(400);
+    renderDataView({
+      initialData: undefined as unknown as PaginatedResult<MockProduct>,
+      listFetcher: vi.fn(() => new Promise<PaginatedResult<MockProduct>>(() => undefined)),
+    });
+
+    expect(screen.getByLabelText("Loading rows")).toBeInTheDocument();
+    expect(screen.getByTestId("data-view-mobile-list")).toBeInTheDocument();
+  });
+
+  it("changes presentation without changing selected URL or refetching detail", async () => {
+    setContainerWidth(1000);
+    const result = renderDataViewWithClient({}, { selected: "p1" });
+    await screen.findByText("Great widget");
+    const detailCalls = mockDetailFetcher.mock.calls.length;
+
+    act(() => setContainerWidth(700));
+
+    expect(await screen.findByTestId("data-view-replacement-detail")).toBeInTheDocument();
+    expect(nuqsState.params.get("selected")).toBe("p1");
+    expect(mockDetailFetcher).toHaveBeenCalledTimes(detailCalls);
+    result.unmount();
+  });
+
+  it("keeps arbitrary consumer detail mounted while container mode changes", async () => {
+    const mounted = vi.fn();
+    const unmounted = vi.fn();
+
+    function ConsumerDetail({ detail }: { detail: MockProductDetail }) {
+      React.useEffect(() => {
+        mounted();
+        return unmounted;
+      }, []);
+
+      return <div>{detail.description}</div>;
+    }
+
+    setContainerWidth(1000);
+    const result = renderDataView(
+      { renderDetail: (detail) => <ConsumerDetail detail={detail} /> },
+      { selected: "p1" }
+    );
+    await screen.findByText("Great widget");
+
+    act(() => setContainerWidth(700));
+    expect(await screen.findByTestId("data-view-replacement-detail")).toBeInTheDocument();
+    act(() => setContainerWidth(400));
+    expect(await screen.findByTestId("data-view-mobile-detail")).toBeInTheDocument();
+
+    expect(mounted).toHaveBeenCalledTimes(1);
+    expect(unmounted).not.toHaveBeenCalled();
+    result.unmount();
+    expect(unmounted).toHaveBeenCalledTimes(1);
   });
 });
 

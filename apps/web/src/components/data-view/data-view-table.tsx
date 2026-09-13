@@ -35,9 +35,15 @@ import { Checkbox } from "@/components/ui/checkbox";
 interface DataViewTableProps {
   /** When true, renders only the first (primary) column — used during collapse transition */
   primaryOnly?: boolean;
+  onOpenRow?: (rowId: string, trigger: HTMLElement) => void;
+  listContainerRef?: React.RefObject<HTMLDivElement | null>;
 }
 
-export function DataViewTable({ primaryOnly = false }: DataViewTableProps) {
+export function DataViewTable({
+  primaryOnly = false,
+  onOpenRow,
+  listContainerRef,
+}: DataViewTableProps) {
   const { columns: colDefs, getRowId, renderExpandedRow, renderRowControl } = useDataViewStatic();
   const { urlState } = useDataViewUrl();
   const { listData, listIsLoading, listIsTransitioning, listError } = useDataViewList();
@@ -162,15 +168,20 @@ export function DataViewTable({ primaryOnly = false }: DataViewTableProps) {
 
   return (
     <div
-      ref={containerRef}
-      className="relative flex-1 overflow-auto"
+      ref={(node) => {
+        containerRef.current = node;
+        if (listContainerRef) listContainerRef.current = node;
+      }}
+      className="relative flex-1 overflow-auto overscroll-contain"
+      tabIndex={-1}
+      data-testid="data-view-table-scroll"
       onPointerDownCapture={handleMeaningfulInteraction}
       onWheelCapture={handleMeaningfulInteraction}
       onKeyDownCapture={handleMeaningfulInteraction}
     >
       {listIsTransitioning ? (
         <div
-          className="absolute inset-x-0 top-0 z-20 h-0.5 animate-pulse bg-primary/60"
+          className="absolute inset-x-0 top-0 z-20 h-0.5 animate-pulse bg-primary/60 motion-reduce:animate-none"
           role="status"
           aria-label={t("table.updating")}
         />
@@ -219,11 +230,11 @@ export function DataViewTable({ primaryOnly = false }: DataViewTableProps) {
                       {canSort && (
                         <span className="ml-1 opacity-60">
                           {sorted === "asc" ? (
-                            <ArrowUp className="h-3.5 w-3.5" />
+                            <ArrowUp aria-hidden="true" className="h-3.5 w-3.5" />
                           ) : sorted === "desc" ? (
-                            <ArrowDown className="h-3.5 w-3.5" />
+                            <ArrowDown aria-hidden="true" className="h-3.5 w-3.5" />
                           ) : (
-                            <ChevronsUpDown className="h-3.5 w-3.5" />
+                            <ChevronsUpDown aria-hidden="true" className="h-3.5 w-3.5" />
                           )}
                         </span>
                       )}
@@ -299,14 +310,26 @@ export function DataViewTable({ primaryOnly = false }: DataViewTableProps) {
                     }}
                     data-state={isSelected ? "selected" : undefined}
                     className={cn(
-                      "h-14 cursor-pointer hover:bg-muted/50",
+                      "h-14 cursor-pointer hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
                       isSelected && "bg-muted",
                       isReturnHighlight && "bg-muted/50 hover:bg-muted/50 transition-colors"
                     )}
-                    onClick={() => urlState.setSelected(rowId)}
+                    onClick={(event) =>
+                      onOpenRow
+                        ? onOpenRow(rowId, event.currentTarget)
+                        : urlState.setSelected(rowId)
+                    }
+                    onKeyDown={(event) => {
+                      if (event.target !== event.currentTarget || event.key !== "Enter") return;
+                      event.preventDefault();
+                      if (onOpenRow) onOpenRow(rowId, event.currentTarget);
+                      else urlState.setSelected(rowId);
+                    }}
+                    tabIndex={0}
                     role="row"
                     aria-selected={isSelected}
                     data-row-id={rowId}
+                    data-data-view-row-id={rowId}
                     data-return-highlight={isReturnHighlight || undefined}
                     data-testid={`row-${rowId}`}
                   >

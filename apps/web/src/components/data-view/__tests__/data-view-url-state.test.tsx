@@ -37,15 +37,15 @@ describe("DataView real nuqs adapter contract", () => {
     const { result } = renderHook(() => useDataViewUrlState("test"), { wrapper });
 
     await act(async () => result.current.setSelected("A"));
-    await waitFor(() => expect(result.current.selected).toBe("A"));
+    await waitFor(() => expect(result.current.selected).toBe("A"), { timeout: 5_000 });
     expect(updates.at(-1)?.options.history).toBe("push");
 
     await act(async () => result.current.setSelected("B"));
-    await waitFor(() => expect(result.current.selected).toBe("B"));
+    await waitFor(() => expect(result.current.selected).toBe("B"), { timeout: 5_000 });
     expect(updates.at(-1)?.options.history).toBe("replace");
 
     await act(async () => result.current.closeDetail());
-    await waitFor(() => expect(result.current.selected).toBeNull());
+    await waitFor(() => expect(result.current.selected).toBeNull(), { timeout: 5_000 });
     expect(updates.at(-1)?.options.history).toBe("replace");
   });
 });

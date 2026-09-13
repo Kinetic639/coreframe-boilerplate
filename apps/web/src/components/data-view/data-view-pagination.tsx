@@ -117,7 +117,7 @@ export function DataViewPagination() {
             disabled={!canPrev || keepOnlySelected}
             aria-label={t("pagination.previousPageAria")}
           >
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft aria-hidden="true" className="h-4 w-4" />
           </Button>
           <span className="text-muted-foreground text-xs px-1">
             {pageDisplay} / {totalPages}
@@ -133,7 +133,7 @@ export function DataViewPagination() {
             disabled={!canNext || keepOnlySelected}
             aria-label={t("pagination.nextPageAria")}
           >
-            <ChevronRight className="h-4 w-4" />
+            <ChevronRight aria-hidden="true" className="h-4 w-4" />
           </Button>
         </div>
       </div>

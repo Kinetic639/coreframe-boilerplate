@@ -257,6 +257,7 @@
     },
     "detail": {
       "closeAria": "Zamknij szczegóły",
+      "backToList": "Wróć do listy",
       "loadingAria": "Ładowanie szczegółów",
       "refreshing": "Odświeżanie szczegółów",
       "empty": "Nie wybrano elementu",
@@ -266,7 +267,7 @@
       "selectedOutsideResults": "Wybrany element jest poza bieżącymi wynikami."
     },
     "toolbar": {
-      "searchPlaceholder": "Szukaj...",
+      "searchPlaceholder": "Szukaj…",
       "searchAria": "Szukaj",
       "closeSearchAria": "Zamknij wyszukiwanie",
       "backToListAria": "Wróć do pełnej listy",

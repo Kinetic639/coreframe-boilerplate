@@ -2,12 +2,17 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { X } from "lucide-react";
+import { ArrowLeft, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDataViewDetail, useDataViewStatic } from "./use-data-view";
 
-export function DataViewDetail() {
+type DataViewDetailProps = {
+  mode?: "split" | "replacement";
+  focusRef?: React.RefObject<HTMLButtonElement | null>;
+};
+
+export function DataViewDetail({ mode = "split", focusRef }: DataViewDetailProps) {
   const { renderDetail } = useDataViewStatic();
   const {
     detailData,
@@ -20,26 +25,43 @@ export function DataViewDetail() {
     isClosingDetail,
   } = useDataViewDetail();
   const t = useTranslations("dataView");
+  const isReplacement = mode === "replacement";
 
   return (
     <div
       className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background"
       data-testid="detail-panel"
     >
-      <div className="flex h-12 shrink-0 items-center justify-end border-b px-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          onClick={() => void closeDetail()}
-          disabled={isClosingDetail}
-          aria-label={t("detail.closeAria")}
-        >
-          <X className="h-4 w-4" />
-        </Button>
+      <div className="flex min-h-12 shrink-0 items-center border-b px-2 sm:px-4">
+        {isReplacement ? (
+          <Button
+            ref={focusRef}
+            variant="ghost"
+            size="sm"
+            className="min-h-11 touch-manipulation gap-2 px-3 focus-visible:ring-2"
+            onClick={() => void closeDetail()}
+            disabled={isClosingDetail}
+            aria-label={t("detail.backToList")}
+            data-testid="back-to-list-button"
+          >
+            <ArrowLeft aria-hidden="true" className="h-4 w-4" />
+            <span>{t("detail.backToList")}</span>
+          </Button>
+        ) : (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="ml-auto h-9 w-9"
+            onClick={() => void closeDetail()}
+            disabled={isClosingDetail}
+            aria-label={t("detail.closeAria")}
+          >
+            <X aria-hidden="true" className="h-4 w-4" />
+          </Button>
+        )}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="min-w-0 flex-1 overflow-auto overscroll-contain p-3 sm:p-4">
         {selectedOutsideCurrentResults ? (
           <div
             className="mb-3 rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground"

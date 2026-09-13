@@ -17,7 +17,11 @@ const LOAD_THRESHOLD = 120;
 const LOAD_INDICATOR_HEIGHT = 40;
 const VIRTUALIZATION_THRESHOLD = 30;
 
-export function DataViewSidebar() {
+export function DataViewSidebar({
+  onOpenRow,
+}: {
+  onOpenRow?: (rowId: string, trigger: HTMLElement) => void;
+}) {
   const { columns, getRowId, renderCompactItem } = useDataViewStatic();
   const { urlState } = useDataViewUrl();
   const { keepOnlySelected, isRowSelected, selectedRowCount } = useDataViewSelection();
@@ -163,7 +167,7 @@ export function DataViewSidebar() {
 
       <div
         ref={scrollRef}
-        className="relative flex-1 overflow-y-auto"
+        className="relative flex-1 overflow-y-auto overscroll-contain"
         onScroll={(event) => {
           const element = event.currentTarget;
           if (element.scrollTop <= LOAD_THRESHOLD) {
@@ -215,8 +219,11 @@ export function DataViewSidebar() {
                     isSelected && "bg-muted"
                   )}
                   style={{ transform: `translateY(${virtualRow.start}px)` }}
-                  onClick={() => urlState.setSelected(rowId)}
+                  onClick={(event) =>
+                    onOpenRow ? onOpenRow(rowId, event.currentTarget) : urlState.setSelected(rowId)
+                  }
                   aria-selected={isSelected}
+                  data-data-view-row-id={rowId}
                   data-testid={`sidebar-item-${rowId}`}
                 >
                   {renderCompactItem ? (
@@ -242,8 +249,11 @@ export function DataViewSidebar() {
                   "flex h-14 w-full items-center border-b px-4 text-left text-sm transition-colors hover:bg-muted/50",
                   isSelected && "bg-muted"
                 )}
-                onClick={() => urlState.setSelected(rowId)}
+                onClick={(event) =>
+                  onOpenRow ? onOpenRow(rowId, event.currentTarget) : urlState.setSelected(rowId)
+                }
                 aria-selected={isSelected}
+                data-data-view-row-id={rowId}
                 data-testid={`sidebar-item-${rowId}`}
               >
                 {renderCompactItem ? (
