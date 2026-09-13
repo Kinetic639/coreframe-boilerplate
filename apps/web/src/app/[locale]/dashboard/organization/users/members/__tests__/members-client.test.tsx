@@ -103,6 +103,7 @@ function makeInitialData(members: OrgMember[] = []): PaginatedResult<OrgMember> 
 function renderClient(members: OrgMember[] = [], branches: OrgBranch[] = []) {
   return render(
     <MembersClient
+      orgId="org-1"
       initialData={makeInitialData(members)}
       allMembers={members}
       initialPositions={[]}

@@ -25,6 +25,7 @@ import {
 } from "@/hooks/queries/organization";
 import type { OrgBranch } from "@/server/services/organization.service";
 import { DataView } from "@/components/data-view/data-view";
+import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
 import type {
   DataViewColumnDef,
   DataViewFilterDef,
@@ -37,6 +38,7 @@ import { filterSortBranches, paginateBranches } from "../_utils/branches-data-vi
 const BRANCHES_DV_QUERY_KEY = ["org-branches-dataview"];
 
 interface BranchesClientProps {
+  orgId: string;
   initialData: PaginatedResult<OrgBranch>;
   allBranches: OrgBranch[];
 }
@@ -44,6 +46,7 @@ interface BranchesClientProps {
 type DialogMode = "create" | "edit" | null;
 
 export function BranchesClient({
+  orgId,
   initialData,
   allBranches: initialAllBranches,
 }: BranchesClientProps) {
@@ -342,6 +345,7 @@ export function BranchesClient({
       <div className="flex-1 overflow-hidden">
         <DataView<OrgBranch, OrgBranch>
           entity="org-branches"
+          scope={dataViewScope.organization(orgId)}
           columns={columns}
           filters={filters}
           initialData={initialData}

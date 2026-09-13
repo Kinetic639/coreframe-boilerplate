@@ -258,7 +258,12 @@
     "detail": {
       "closeAria": "Zamknij szczegóły",
       "loadingAria": "Ładowanie szczegółów",
-      "empty": "Nie wybrano elementu"
+      "refreshing": "Odświeżanie szczegółów",
+      "empty": "Nie wybrano elementu",
+      "error": "Nie udało się załadować szczegółów.",
+      "refreshError": "Nie udało się pobrać najnowszych szczegółów. Wyświetlana jest poprzednia wersja.",
+      "notFound": "Ten element już nie istnieje.",
+      "selectedOutsideResults": "Wybrany element jest poza bieżącymi wynikami."
     },
     "toolbar": {
       "searchPlaceholder": "Szukaj...",
@@ -315,7 +320,9 @@
       "loadingMoreAria": "Ładowanie kolejnych elementów"
     },
     "table": {
-      "noResults": "Brak wyników"
+      "noResults": "Brak wyników",
+      "error": "Nie udało się załadować wyników.",
+      "updating": "Aktualizowanie wyników"
     },
     "mobile": {
       "loadingAria": "Ładowanie wierszy"

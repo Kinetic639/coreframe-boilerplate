@@ -6,6 +6,7 @@ import type {
   DataViewColumnDef,
   DataViewFilterDef,
   DataViewProps,
+  DataViewScope,
   PaginatedResult,
 } from "./data-view.types";
 import type { DataViewUrlStateHook } from "./data-view-url-state";
@@ -17,9 +18,16 @@ import {
 } from "./use-data-view-query";
 import { useColumnVisibility } from "./data-view-columns";
 import { useDataViewReturn } from "./use-data-view-return";
+import {
+  dataViewKeys,
+  invalidateDataViewEntity,
+  synchronizeDataViewSidebarPage,
+} from "./data-view-query-keys";
+import { recoverDataViewPage } from "./data-view-search-params";
 
 export type DataViewStaticContextValue<TListRow, TDetail> = {
   entity: string;
+  scope: DataViewScope;
   queryKey: string[];
   columns: DataViewColumnDef<TListRow>[];
   filters: DataViewFilterDef[];
@@ -41,6 +49,8 @@ export type DataViewListContextValue<TListRow> = {
   listData: PaginatedResult<TListRow>;
   listIsLoading: boolean;
   listIsTransitioning: boolean;
+  listIsRefreshing: boolean;
+  listError: Error | null;
 };
 
 export type DataViewColumnsContextValue = {
@@ -70,6 +80,7 @@ export type DataViewSidebarContextValue<TListRow> = {
   sidebarIsFetchingPreviousPage: boolean;
   sidebarHasNextPage: boolean;
   sidebarHasPreviousPage: boolean;
+  sidebarError: Error | null;
   fetchSidebarNextPage: () => Promise<unknown>;
   fetchSidebarPreviousPage: () => Promise<unknown>;
 };
@@ -77,6 +88,10 @@ export type DataViewSidebarContextValue<TListRow> = {
 export type DataViewDetailContextValue<TDetail> = {
   detailData: TDetail | null | undefined;
   detailIsLoading: boolean;
+  detailIsRefreshing: boolean;
+  detailError: Error | null;
+  detailNotFound: boolean;
+  selectedOutsideCurrentResults: boolean;
   closeDetail: () => void;
   isClosingDetail: boolean;
   returnHighlightId: string | null;
@@ -96,9 +111,11 @@ export const DataViewDetailContext = createContext<DataViewDetailContextValue<an
 type DataViewProviderProps<TListRow, TDetail> = Pick<
   DataViewProps<TListRow, TDetail>,
   | "entity"
+  | "scope"
   | "columns"
   | "filters"
   | "initialData"
+  | "initialDataUpdatedAt"
   | "queryKey"
   | "listFetcher"
   | "detailFetcher"
@@ -118,9 +135,11 @@ type DataViewProviderProps<TListRow, TDetail> = Pick<
 
 export function DataViewProvider<TListRow, TDetail>({
   entity,
+  scope,
   columns,
   filters = [],
   initialData,
+  initialDataUpdatedAt,
   queryKey,
   listFetcher,
   detailFetcher,
@@ -137,27 +156,40 @@ export function DataViewProvider<TListRow, TDetail>({
   children,
 }: DataViewProviderProps<TListRow, TDetail>) {
   const queryClient = useQueryClient();
+  const scopeKey = JSON.stringify(scope);
+  const stableScope = useMemo<DataViewScope>(() => JSON.parse(scopeKey), [scopeKey]);
   const urlState = useDataViewUrlState(entity);
+  const setUrlPage = urlState.setPage;
   const lastRefreshTokenRef = React.useRef(refreshToken);
-  const columnKeys = useMemo(() => columns.map((column) => column.key), [columns]);
-
-  const { columnVisibility, setColumnVisibility } = useColumnVisibility(entity, columnKeys);
+  const { columnVisibility, setColumnVisibility } = useColumnVisibility(entity, columns);
   const [selectedRowIds, setSelectedRowIds] = React.useState<Record<string, true>>({});
   const [keepOnlySelected, setKeepOnlySelected] = React.useState(false);
+  const initialListParamsRef = React.useRef(urlState.listParams);
+  const initialScopeKeyRef = React.useRef(scopeKey);
+  const initialParamsKey = JSON.stringify(initialListParamsRef.current);
+  const currentParamsKey = JSON.stringify(urlState.listParams);
+  const initialDataForCurrentParams =
+    initialParamsKey === currentParamsKey && initialScopeKeyRef.current === scopeKey
+      ? initialData
+      : undefined;
 
   useEffect(() => {
     onSelectionChange?.(Object.keys(selectedRowIds));
   }, [selectedRowIds, onSelectionChange]);
 
   const listQuery = useDataViewListQuery<TListRow>({
-    queryKey,
+    entity,
+    scope: stableScope,
     listFetcher,
     listParams: urlState.listParams,
-    initialData,
+    initialData: initialDataForCurrentParams,
+    initialDataUpdatedAt:
+      initialDataForCurrentParams === undefined ? undefined : initialDataUpdatedAt,
   });
 
   const detailQuery = useDataViewDetailQuery<TDetail>({
-    queryKey,
+    entity,
+    scope: stableScope,
     detailFetcher,
     selectedId: urlState.selected,
   });
@@ -166,18 +198,69 @@ export function DataViewProvider<TListRow, TDetail>({
     if (refreshToken === undefined) return;
     if (lastRefreshTokenRef.current === refreshToken) return;
     lastRefreshTokenRef.current = refreshToken;
-    void queryClient.invalidateQueries({ queryKey });
-  }, [queryClient, queryKey, refreshToken]);
+    void invalidateDataViewEntity(queryClient, entity, stableScope);
+  }, [queryClient, entity, stableScope, refreshToken]);
 
   const isDetailOpen = !!urlState.selected;
-  const resolvedListData = listQuery.data ?? initialData;
+  const resolvedListData = useMemo(
+    () =>
+      listQuery.data ??
+      (initialScopeKeyRef.current === scopeKey ? initialData : undefined) ?? {
+        rows: [],
+        totalCount: 0,
+        page: urlState.page,
+        pageSize: urlState.pageSize,
+      },
+    [initialData, listQuery.data, scopeKey, urlState.page, urlState.pageSize]
+  );
   const sidebarQuery = useDataViewSidebarInfiniteQuery<TListRow>({
-    queryKey,
+    entity,
+    scope: stableScope,
     listFetcher,
     listParams: urlState.listParams,
-    initialPageData: resolvedListData,
-    enabled: isDetailOpen,
+    initialPageData: listQuery.isPlaceholderData ? undefined : resolvedListData,
+    initialDataUpdatedAt: queryClient.getQueryState(
+      dataViewKeys.list(entity, stableScope, urlState.listParams)
+    )?.dataUpdatedAt,
+    enabled: isDetailOpen && !listQuery.isPlaceholderData,
   });
+
+  useEffect(() => {
+    if (!listQuery.isSuccess || listQuery.isPlaceholderData || !listQuery.data) return;
+
+    synchronizeDataViewSidebarPage(
+      queryClient,
+      entity,
+      stableScope,
+      urlState.listParams,
+      listQuery.data
+    );
+  }, [
+    entity,
+    stableScope,
+    listQuery.data,
+    listQuery.isPlaceholderData,
+    listQuery.isSuccess,
+    queryClient,
+    urlState.listParams,
+  ]);
+
+  useEffect(() => {
+    if (!listQuery.isSuccess || listQuery.isPlaceholderData || !listQuery.data) return;
+    const recoveredPage = recoverDataViewPage(
+      urlState.page,
+      listQuery.data.totalCount,
+      urlState.pageSize
+    );
+    if (recoveredPage !== urlState.page) setUrlPage(recoveredPage);
+  }, [
+    listQuery.data,
+    listQuery.isPlaceholderData,
+    listQuery.isSuccess,
+    urlState.page,
+    urlState.pageSize,
+    setUrlPage,
+  ]);
 
   const sidebarRows = useMemo(() => {
     const pages = sidebarQuery.data?.pages ?? [resolvedListData];
@@ -208,6 +291,7 @@ export function DataViewProvider<TListRow, TDetail>({
   const staticValue = useMemo<DataViewStaticContextValue<TListRow, TDetail>>(
     () => ({
       entity,
+      scope: stableScope,
       queryKey,
       columns,
       filters,
@@ -221,6 +305,7 @@ export function DataViewProvider<TListRow, TDetail>({
     }),
     [
       entity,
+      stableScope,
       queryKey,
       columns,
       filters,
@@ -245,10 +330,19 @@ export function DataViewProvider<TListRow, TDetail>({
   const listValue = useMemo<DataViewListContextValue<TListRow>>(
     () => ({
       listData: resolvedListData,
-      listIsLoading: listQuery.isFetching,
-      listIsTransitioning: listQuery.isFetching,
+      listIsLoading: listQuery.isPending && !listQuery.data,
+      listIsTransitioning: listQuery.isFetching && listQuery.isPlaceholderData,
+      listIsRefreshing: listQuery.isFetching && !listQuery.isPlaceholderData && !!listQuery.data,
+      listError: listQuery.error,
     }),
-    [resolvedListData, listQuery.isFetching]
+    [
+      resolvedListData,
+      listQuery.data,
+      listQuery.error,
+      listQuery.isFetching,
+      listQuery.isPending,
+      listQuery.isPlaceholderData,
+    ]
   );
 
   const columnsValue = useMemo<DataViewColumnsContextValue>(
@@ -363,6 +457,7 @@ export function DataViewProvider<TListRow, TDetail>({
       sidebarIsFetchingPreviousPage: sidebarQuery.isFetchingPreviousPage,
       sidebarHasNextPage: !!sidebarQuery.hasNextPage,
       sidebarHasPreviousPage: !!sidebarQuery.hasPreviousPage,
+      sidebarError: sidebarQuery.error ?? listQuery.error,
       fetchSidebarNextPage: sidebarQuery.fetchNextPage,
       fetchSidebarPreviousPage: sidebarQuery.fetchPreviousPage,
     }),
@@ -374,6 +469,8 @@ export function DataViewProvider<TListRow, TDetail>({
       sidebarQuery.isFetchingPreviousPage,
       sidebarQuery.hasNextPage,
       sidebarQuery.hasPreviousPage,
+      sidebarQuery.error,
+      listQuery.error,
       sidebarQuery.fetchNextPage,
       sidebarQuery.fetchPreviousPage,
     ]
@@ -382,13 +479,31 @@ export function DataViewProvider<TListRow, TDetail>({
   const detailValue = useMemo<DataViewDetailContextValue<TDetail>>(
     () => ({
       detailData: detailQuery.data,
-      detailIsLoading: detailQuery.isFetching,
+      detailIsLoading: isDetailOpen && detailQuery.isPending,
+      detailIsRefreshing: detailQuery.isFetching && detailQuery.data != null,
+      detailError: detailQuery.error,
+      detailNotFound: detailQuery.isSuccess && detailQuery.data === null,
+      selectedOutsideCurrentResults:
+        isDetailOpen && !resolvedListData.rows.some((row) => getRowId(row) === urlState.selected),
       closeDetail,
       isClosingDetail: false,
       returnHighlightId,
       clearReturnHighlight,
     }),
-    [detailQuery.data, detailQuery.isFetching, closeDetail, returnHighlightId, clearReturnHighlight]
+    [
+      detailQuery.data,
+      detailQuery.error,
+      detailQuery.isFetching,
+      detailQuery.isPending,
+      detailQuery.isSuccess,
+      isDetailOpen,
+      resolvedListData.rows,
+      getRowId,
+      urlState.selected,
+      closeDetail,
+      returnHighlightId,
+      clearReturnHighlight,
+    ]
   );
 
   return (

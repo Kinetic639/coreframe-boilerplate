@@ -56,6 +56,7 @@ export default async function MembersPage({ searchParams }: PageProps) {
 
   return (
     <MembersClient
+      orgId={orgId}
       initialData={initialData}
       allMembers={allMembers}
       initialPositions={positionsResult.success ? positionsResult.data : []}

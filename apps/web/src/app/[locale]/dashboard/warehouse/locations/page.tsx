@@ -80,6 +80,7 @@ export default async function AmbraWarehouseLocationsPage({ searchParams }: Page
 
   return (
     <AmbraLocationsClient
+      organizationId={context.app.activeOrgId}
       activeBranch={createAmbraBranch(branchId, context.app.activeBranch?.name)}
       initialLocations={
         locationsResult.success ? warehouseLocationsToAmbra(locationsResult.data) : []

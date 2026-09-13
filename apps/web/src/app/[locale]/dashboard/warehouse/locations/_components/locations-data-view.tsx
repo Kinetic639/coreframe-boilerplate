@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { Check, ClipboardCheck, LayoutGrid, LayoutList, Printer, X } from "lucide-react";
 import { useRouter } from "@/i18n/navigation";
 import { DataView } from "@/components/data-view/data-view";
+import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
 import { Button } from "@/components/ui/button";
 import type {
   DataViewColumnDef,
@@ -44,6 +45,8 @@ type LocationDetailData = {
 };
 
 type Props = {
+  organizationId: string;
+  branchId: string;
   initialData: PaginatedResult<LocationListRow>;
   allLocations: WarehouseLocation[];
   ambraLocations: LogicalLocation[];
@@ -60,6 +63,8 @@ async function listFetcher(params: DataViewListParams) {
 }
 
 export function LocationsDataView({
+  organizationId,
+  branchId,
   initialData,
   allLocations,
   ambraLocations,
@@ -296,6 +301,7 @@ export function LocationsDataView({
     <>
       <DataView<LocationListRow, LocationDetailData>
         entity="locations"
+        scope={dataViewScope.branch(organizationId, branchId)}
         columns={columns}
         filters={filters}
         initialData={initialData}

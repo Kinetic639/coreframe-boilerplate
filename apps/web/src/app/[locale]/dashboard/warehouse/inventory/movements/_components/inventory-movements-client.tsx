@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { PackagePlus } from "lucide-react";
 import { DataView } from "@/components/data-view/data-view";
+import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
 import type {
   DataViewColumnDef,
   DataViewFilterDef,
@@ -30,6 +31,7 @@ type LocationOption = {
 };
 
 type InventoryMovementsClientProps = {
+  organizationId: string;
   initialData: PaginatedResult<InventoryMovementListRow>;
   activeBranchId: string | null;
   locations: LocationOption[];
@@ -61,6 +63,7 @@ const statusVariant: Record<string, "default" | "secondary" | "destructive" | "o
 };
 
 export function InventoryMovementsClient({
+  organizationId,
   initialData,
   activeBranchId,
   locations,
@@ -185,6 +188,7 @@ export function InventoryMovementsClient({
       </div>
       <DataView<InventoryMovementListRow, InventoryMovementDetail>
         entity="inventory-movements"
+        scope={dataViewScope.branch(organizationId, activeBranchId)}
         columns={columns}
         filters={filters}
         initialData={initialData}

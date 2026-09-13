@@ -104,6 +104,7 @@ function makeInitialData(invitations: OrgInvitation[] = []): PaginatedResult<Org
 function renderClient(invitations: OrgInvitation[] = []) {
   return render(
     <InvitationsClient
+      orgId="org-1"
       initialData={makeInitialData(invitations)}
       allInvitations={invitations}
       initialRoles={[]}

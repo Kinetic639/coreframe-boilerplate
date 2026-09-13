@@ -3,6 +3,7 @@
 import React from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { DataView } from "@/components/data-view/data-view";
+import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/utils";
 import type {
@@ -243,6 +244,7 @@ export function DataViewDemoClient({ initialData, resolveSelectedPage }: DataVie
   return (
     <DataView<Product, ProductDetail>
       entity="demo-products"
+      scope={dataViewScope.global()}
       columns={columns}
       filters={filters}
       initialData={initialData}

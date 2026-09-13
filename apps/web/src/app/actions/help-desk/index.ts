@@ -175,7 +175,7 @@ export async function listTicketsForDataViewAction(
 export async function getTicketDetailAction(
   ticketId: string,
   orgId: string
-): Promise<ActionResult<HelpdeskTicketDetail>> {
+): Promise<ActionResult<HelpdeskTicketDetail | null>> {
   try {
     // Lightweight auth: RLS enforces is_org_member(org_id) + has_permission('helpdesk.tickets.read')
     const supabase = await createClient();
