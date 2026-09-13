@@ -175,10 +175,16 @@ export function DataViewTable({
       className="relative flex-1 overflow-auto overscroll-contain"
       tabIndex={-1}
       data-testid="data-view-table-scroll"
+      aria-busy={listIsLoading || listIsTransitioning}
       onPointerDownCapture={handleMeaningfulInteraction}
       onWheelCapture={handleMeaningfulInteraction}
       onKeyDownCapture={handleMeaningfulInteraction}
     >
+      {listIsLoading ? (
+        <span className="sr-only" role="status">
+          {t("table.loadingAria")}
+        </span>
+      ) : null}
       {listIsTransitioning ? (
         <div
           className="absolute inset-x-0 top-0 z-20 h-0.5 animate-pulse bg-primary/60 motion-reduce:animate-none"
@@ -216,18 +222,18 @@ export function DataViewTable({
                 return (
                   <TableHead
                     key={header.id}
-                    className={cn(
-                      "whitespace-nowrap shadow-[inset_0_-1px_0_hsl(var(--border))]",
-                      canSort && "cursor-pointer select-none hover:bg-muted/50"
-                    )}
-                    onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
+                    className="whitespace-nowrap p-0 shadow-[inset_0_-1px_0_hsl(var(--border))]"
                     aria-sort={
                       sorted === "asc" ? "ascending" : sorted === "desc" ? "descending" : undefined
                     }
                   >
-                    <div className="flex items-center gap-1">
-                      {flexRender(header.column.columnDef.header, header.getContext())}
-                      {canSort && (
+                    {canSort ? (
+                      <button
+                        type="button"
+                        className="flex h-full w-full select-none items-center gap-1 px-4 text-left hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                        onClick={header.column.getToggleSortingHandler()}
+                      >
+                        {flexRender(header.column.columnDef.header, header.getContext())}
                         <span className="ml-1 opacity-60">
                           {sorted === "asc" ? (
                             <ArrowUp aria-hidden="true" className="h-3.5 w-3.5" />
@@ -237,8 +243,12 @@ export function DataViewTable({
                             <ChevronsUpDown aria-hidden="true" className="h-3.5 w-3.5" />
                           )}
                         </span>
-                      )}
-                    </div>
+                      </button>
+                    ) : (
+                      <div className="flex h-full items-center gap-1 px-4">
+                        {flexRender(header.column.columnDef.header, header.getContext())}
+                      </div>
+                    )}
                   </TableHead>
                 );
               })}
@@ -288,6 +298,7 @@ export function DataViewTable({
               <TableCell
                 colSpan={totalColumnCount}
                 className="text-center text-muted-foreground py-10"
+                role="status"
               >
                 {t("table.noResults")}
               </TableCell>

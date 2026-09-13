@@ -67,6 +67,20 @@ Wide split owns one scroll surface for the compact master and one for arbitrary 
 
 The master and arbitrary consumer-detail subtrees stay mounted while replacement detail is visible, so container-mode changes do not restart consumer effects or remote queries. Framer transitions are disabled when `prefers-reduced-motion` is active. Animation never controls whether detail exists; `selected` remains the semantic authority. Loading, transition, error, empty, not-found, and selected-outside-results states use the same Phase-1 query state in every presentation.
 
-## Phase 3 boundary
+## Accessibility and keyboard contract
 
-Advanced row-grid keyboard navigation, broader virtualization changes, speculative prefetching, deep render profiling, persisted splitter widths, broad consumer migration, Repair Orders adoption, and convergence with the divergent public-web DataView remain deferred. The public-web copy is explicit technical debt and is not synchronized by this implementation.
+Rows remain ordinary focusable table rows that open with Enter; cards and compact-master items are native buttons. Sortable headers are native buttons inside semantic column headers, and `aria-sort` stays on the header. Selection is exposed with `aria-selected` on table rows and `aria-current` on button-based card/master choices. Loading regions expose `aria-busy` plus a polite status, request failures use alerts, and empty/not-found states use statuses. Filters have programmatic labels and active-filter clear actions are separate buttons. Replacement detail moves focus to Back and restores the initiating row or list surface. DataView intentionally does not implement spreadsheet arrow navigation. Reduced motion removes decorative transition duration and shimmer animation.
+
+## Runtime and performance contract
+
+TanStack Query owns concurrency. Every generic list/detail fetcher receives `{ signal }`; consumers using an abortable transport should pass that signal through. Canonical keys isolate list inputs, detail IDs, and opaque scopes, so obsolete completions may fill only their own cache entry and cannot replace the visible newer query. Search keeps a local draft and commits one canonical URL change after 250 ms; blur, close, and Escape flush immediately, while Back/Forward cancels an obsolete pending draft.
+
+DataView keeps server pagination and renders at most the selected page (10/25/50/100 rows). Production measurements showed no material 25-to-100-row slowdown, so the desktop table and mobile cards are intentionally not virtualized. Compact master virtualization remains enabled above 30 items with fixed-height rows and stable domain IDs. Detail prefetch remains deferred because measured selection latency did not justify extra network/cache pressure. Inactive entries use the dashboard QueryClient policy (TanStack's five-minute default `gcTime`); the 60-second stale time enables useful scope-return reuse without global invalidation.
+
+Behavioral regression budgets are: resize causes zero data requests; selection does not refetch the list; one uncached selection causes at most one detail request; rapid search causes one canonical list request after debounce; explicit list refresh causes one list request; fresh SSR hydration causes no duplicate client request; and one ResizeObserver is installed per mounted root, updates only on 560/840 capability crossings, and disconnects on unmount. React Profiler coverage guards same-band resize from committing the DataView tree.
+
+Future consumers can import `createDataViewContractFixture` from `__tests__/data-view-contract-harness.tsx` as the reference fixture for list, selection URL, detail, close, mobile rendering, replacement mode, scope identity, loading, and error expectations. Runtime tests separately cover AbortSignal cancellation, hostile list/detail completion order, error recovery, background-refresh retention, and A→B→C→A scope reuse.
+
+## Phase 4 boundary
+
+Broad consumer migration, Repair Orders adoption, persisted splitter widths, and convergence with the divergent public-web DataView remain deferred. The public-web copy is explicit technical debt and is not synchronized by this implementation.

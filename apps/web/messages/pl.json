@@ -321,6 +321,7 @@
       "loadingMoreAria": "Ładowanie kolejnych elementów"
     },
     "table": {
+      "loadingAria": "Ładowanie wyników",
       "noResults": "Brak wyników",
       "error": "Nie udało się załadować wyników.",
       "updating": "Aktualizowanie wyników"

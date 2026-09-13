@@ -29,6 +29,7 @@ export function DataViewSidebar({
   const {
     sidebarRows,
     sidebarTotalCount,
+    sidebarIsLoading,
     sidebarHasNextPage,
     sidebarHasPreviousPage,
     sidebarIsFetchingNextPage,
@@ -160,6 +161,7 @@ export function DataViewSidebar({
     <div
       className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background"
       data-testid="data-view-sidebar"
+      aria-busy={sidebarIsLoading}
     >
       <div className="flex h-12 shrink-0 items-center border-b px-4 text-left align-middle font-medium text-muted-foreground">
         {primaryColumn?.header ?? t("sidebar.fallbackPrimaryHeader")}
@@ -222,7 +224,7 @@ export function DataViewSidebar({
                   onClick={(event) =>
                     onOpenRow ? onOpenRow(rowId, event.currentTarget) : urlState.setSelected(rowId)
                   }
-                  aria-selected={isSelected}
+                  aria-current={isSelected ? "true" : undefined}
                   data-data-view-row-id={rowId}
                   data-testid={`sidebar-item-${rowId}`}
                 >
@@ -252,7 +254,7 @@ export function DataViewSidebar({
                 onClick={(event) =>
                   onOpenRow ? onOpenRow(rowId, event.currentTarget) : urlState.setSelected(rowId)
                 }
-                aria-selected={isSelected}
+                aria-current={isSelected ? "true" : undefined}
                 data-data-view-row-id={rowId}
                 data-testid={`sidebar-item-${rowId}`}
               >

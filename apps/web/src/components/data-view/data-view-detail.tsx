@@ -31,6 +31,7 @@ export function DataViewDetail({ mode = "split", focusRef }: DataViewDetailProps
     <div
       className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background"
       data-testid="detail-panel"
+      aria-busy={detailIsLoading || detailIsRefreshing}
     >
       <div className="flex min-h-12 shrink-0 items-center border-b px-2 sm:px-4">
         {isReplacement ? (
@@ -84,7 +85,7 @@ export function DataViewDetail({ mode = "split", focusRef }: DataViewDetailProps
           </div>
         ) : null}
         {detailIsLoading ? (
-          <div className="space-y-3" aria-label={t("detail.loadingAria")}>
+          <div className="space-y-3" role="status" aria-label={t("detail.loadingAria")}>
             <Skeleton className="h-8 w-3/4" />
             <Skeleton className="h-4 w-1/2" />
             <Skeleton className="h-4 w-2/3" />
@@ -100,11 +101,17 @@ export function DataViewDetail({ mode = "split", focusRef }: DataViewDetailProps
             {t("detail.error")}
           </div>
         ) : detailNotFound ? (
-          <div className="flex h-24 items-center justify-center text-sm text-muted-foreground">
+          <div
+            className="flex h-24 items-center justify-center text-sm text-muted-foreground"
+            role="status"
+          >
             {t("detail.notFound")}
           </div>
         ) : (
-          <div className="flex items-center justify-center h-24 text-sm text-muted-foreground">
+          <div
+            className="flex items-center justify-center h-24 text-sm text-muted-foreground"
+            role="status"
+          >
             {t("detail.empty")}
           </div>
         )}

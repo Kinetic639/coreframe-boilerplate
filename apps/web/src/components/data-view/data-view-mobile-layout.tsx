@@ -262,7 +262,7 @@ function DataViewMobileCard<TRow>({
           type="button"
           className="min-h-11 min-w-0 flex-1 touch-manipulation rounded-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           onClick={(event) => onOpenRow(rowId, event.currentTarget)}
-          aria-selected={isSelected}
+          aria-current={isSelected ? "true" : undefined}
           data-data-view-row-id={rowId}
         >
           {customContent ? (
@@ -340,6 +340,7 @@ function DataViewMobileList({
       ref={listContainerRef}
       className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-muted/20 p-3"
       tabIndex={-1}
+      aria-busy={listIsLoading || listIsTransitioning}
       onPointerDownCapture={handleMeaningfulInteraction}
       onWheelCapture={handleMeaningfulInteraction}
       onKeyDownCapture={handleMeaningfulInteraction}
@@ -353,7 +354,7 @@ function DataViewMobileList({
         />
       ) : null}
       {listIsLoading ? (
-        <div className="space-y-2" aria-label={t("mobile.loadingAria")}>
+        <div className="space-y-2" role="status" aria-label={t("mobile.loadingAria")}>
           {Array.from({ length: Math.min(Math.max(listData.pageSize, 1), 8) }).map((_, index) => (
             <div key={index} className="rounded-md border bg-card p-3">
               <Skeleton className="h-4 w-2/3" />
@@ -370,7 +371,10 @@ function DataViewMobileList({
           {t("table.error")}
         </div>
       ) : visibleRows.length === 0 ? (
-        <div className="flex min-h-40 items-center justify-center rounded-md border bg-card p-6 text-center text-sm text-muted-foreground">
+        <div
+          className="flex min-h-40 items-center justify-center rounded-md border bg-card p-6 text-center text-sm text-muted-foreground"
+          role="status"
+        >
           {t("table.noResults")}
         </div>
       ) : (

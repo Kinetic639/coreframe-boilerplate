@@ -6,6 +6,7 @@ import type {
   PaginatedResult,
   DataViewListParams,
   DataViewScope,
+  DataViewQueryContext,
   InfinitePaginatedData,
 } from "./data-view.types";
 import {
@@ -17,7 +18,10 @@ import {
 type UseDataViewListQueryOptions<TListRow> = {
   entity: string;
   scope: DataViewScope;
-  listFetcher: (params: DataViewListParams) => Promise<PaginatedResult<TListRow>>;
+  listFetcher: (
+    params: DataViewListParams,
+    context: DataViewQueryContext
+  ) => Promise<PaginatedResult<TListRow>>;
   listParams: DataViewListParams;
   initialData?: PaginatedResult<TListRow>;
   initialDataUpdatedAt?: number;
@@ -33,7 +37,7 @@ export function useDataViewListQuery<TListRow>({
 }: UseDataViewListQueryOptions<TListRow>) {
   return useQuery({
     queryKey: dataViewKeys.list(entity, scope, listParams),
-    queryFn: () => listFetcher(listParams),
+    queryFn: ({ signal }) => listFetcher(listParams, { signal }),
     initialData,
     initialDataUpdatedAt,
     placeholderData: (previous) => previous,
@@ -45,7 +49,7 @@ export function useDataViewListQuery<TListRow>({
 type UseDataViewDetailQueryOptions<TDetail> = {
   entity: string;
   scope: DataViewScope;
-  detailFetcher: (id: string) => Promise<TDetail | null>;
+  detailFetcher: (id: string, context: DataViewQueryContext) => Promise<TDetail | null>;
   selectedId: string | null;
 };
 
@@ -59,7 +63,7 @@ export function useDataViewDetailQuery<TDetail>({
     queryKey: selectedId
       ? dataViewKeys.detail(entity, scope, selectedId)
       : [...dataViewKeys.details(entity, scope), "none"],
-    queryFn: () => detailFetcher(selectedId!),
+    queryFn: ({ signal }) => detailFetcher(selectedId!, { signal }),
     enabled: !!selectedId,
     staleTime: DATA_VIEW_DETAIL_STALE_TIME,
     refetchOnWindowFocus: false,
@@ -69,7 +73,10 @@ export function useDataViewDetailQuery<TDetail>({
 type UseDataViewSidebarInfiniteQueryOptions<TListRow> = {
   entity: string;
   scope: DataViewScope;
-  listFetcher: (params: DataViewListParams) => Promise<PaginatedResult<TListRow>>;
+  listFetcher: (
+    params: DataViewListParams,
+    context: DataViewQueryContext
+  ) => Promise<PaginatedResult<TListRow>>;
   listParams: DataViewListParams;
   initialPageData?: PaginatedResult<TListRow>;
   initialDataUpdatedAt?: number;
@@ -96,11 +103,14 @@ export function useDataViewSidebarInfiniteQuery<TListRow>({
     number
   >({
     queryKey: dataViewKeys.sidebar(entity, scope, listParams),
-    queryFn: ({ pageParam }) =>
-      listFetcher({
-        ...listParams,
-        page: pageParam,
-      }),
+    queryFn: ({ pageParam, signal }) =>
+      listFetcher(
+        {
+          ...listParams,
+          page: pageParam,
+        },
+        { signal }
+      ),
     enabled,
     initialPageParam: listParams.page,
     getNextPageParam: (lastPage) => {

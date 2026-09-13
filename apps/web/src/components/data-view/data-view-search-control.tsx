@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { useDataViewUrl } from "./use-data-view";
 
 const SEARCH_TRANSITION = { duration: 0.18, ease: [0.22, 1, 0.36, 1] as const };
+export const DATA_VIEW_SEARCH_DEBOUNCE_MS = 250;
 
 type DataViewSearchControlProps = {
   mode?: "list" | "compact";
@@ -21,7 +22,9 @@ export function DataViewSearchControl({
 }: DataViewSearchControlProps) {
   const { urlState } = useDataViewUrl();
   const [searchOpen, setSearchOpen] = useState(false);
+  const [draftSearch, setDraftSearch] = useState(urlState.search);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const t = useTranslations("dataView");
   const reduceMotion = useReducedMotion();
 
@@ -35,16 +38,49 @@ export function DataViewSearchControl({
     }
   }, [searchOpen]);
 
-  const handleSearchChange = useCallback(
-    (event: React.ChangeEvent<HTMLInputElement>) => {
-      urlState.setSearch(event.target.value);
+  useEffect(() => {
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current);
+      searchTimerRef.current = null;
+    }
+    setDraftSearch(urlState.search);
+  }, [urlState.search]);
+
+  useEffect(
+    () => () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    },
+    []
+  );
+
+  const commitSearch = useCallback(
+    (value: string) => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+      searchTimerRef.current = null;
+      urlState.setSearch(value);
     },
     [urlState]
   );
 
-  const handleSearchKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "Escape") setSearchOpen(false);
-  }, []);
+  const handleSearchChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const value = event.target.value;
+      setDraftSearch(value);
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+      searchTimerRef.current = setTimeout(() => commitSearch(value), DATA_VIEW_SEARCH_DEBOUNCE_MS);
+    },
+    [commitSearch]
+  );
+
+  const handleSearchKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === "Escape") {
+        commitSearch(draftSearch);
+        setSearchOpen(false);
+      }
+    },
+    [commitSearch, draftSearch]
+  );
 
   if (persistent) {
     return (
@@ -54,8 +90,9 @@ export function DataViewSearchControl({
           className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
         />
         <Input
-          value={urlState.search}
+          value={draftSearch}
           onChange={handleSearchChange}
+          onBlur={() => commitSearch(draftSearch)}
           placeholder={t("toolbar.searchPlaceholder")}
           className="h-11 w-full min-w-0 pl-9 text-sm"
           name="data-view-search"
@@ -85,9 +122,10 @@ export function DataViewSearchControl({
             />
             <Input
               ref={searchInputRef}
-              value={urlState.search}
+              value={draftSearch}
               onChange={handleSearchChange}
               onKeyDown={handleSearchKeyDown}
+              onBlur={() => commitSearch(draftSearch)}
               placeholder={t("toolbar.searchPlaceholder")}
               className="h-9 w-44 pl-8 pr-8 text-sm"
               name="data-view-search"
@@ -97,7 +135,10 @@ export function DataViewSearchControl({
             />
             <button
               type="button"
-              onClick={() => setSearchOpen(false)}
+              onClick={() => {
+                commitSearch(draftSearch);
+                setSearchOpen(false);
+              }}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               aria-label={t("toolbar.closeSearchAria")}
             >

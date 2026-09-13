@@ -321,6 +321,7 @@
       "loadingMoreAria": "Loading more items"
     },
     "table": {
+      "loadingAria": "Loading results",
       "noResults": "No results",
       "error": "Unable to load results.",
       "updating": "Updating results"

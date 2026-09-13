@@ -3,6 +3,7 @@ export type {
   DataViewFilterDef,
   DataViewListParams,
   DataViewProps,
+  DataViewQueryContext,
   DataViewScope,
   DataViewScopePrimitive,
   DataViewUrlState,

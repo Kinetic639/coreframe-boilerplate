@@ -4,12 +4,13 @@
  * DataView — Behavior Tests
  */
 
-import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act, within } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { DataViewProps, PaginatedResult } from "../data-view.types";
 import { DataView } from "../data-view";
+import { createDataViewContractFixture } from "./data-view-contract-harness";
 
 // ---------------------------------------------------------------------------
 // Shared nuqs mock state (module-level so vi.mock factory can close over it)
@@ -227,6 +228,7 @@ const TEST_TRANSLATIONS: Record<string, string> = {
   "dataView.sidebar.loadingMoreAria": "Loading more items",
   "dataView.table.noResults": "No results",
   "dataView.table.error": "Unable to load results.",
+  "dataView.table.loadingAria": "Loading results",
   "dataView.mobile.loadingAria": "Loading rows",
 };
 
@@ -537,6 +539,36 @@ describe("T-DV-RENDER: renders initial rows from initialData", () => {
     await waitFor(() => expect(screen.getByTestId("data-view-mobile-detail")).toBeInTheDocument());
     expect(await screen.findByTestId("detail-content")).toBeInTheDocument();
     expect(screen.queryByTestId("data-view-mobile-list")).not.toBeInTheDocument();
+  });
+});
+
+describe("T-DV-CONTRACT: reusable domain-neutral consumer fixture", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorageMock.clear();
+    nuqsState.params = new Map();
+    mockPush.mockReset();
+    mockReplace.mockReset();
+  });
+
+  it("proves list, selection URL, detail, mobile rendering, and replacement mode", async () => {
+    const fixture = createDataViewContractFixture();
+    setContainerWidth(400);
+    const first = renderWithProviders(<DataView {...fixture} />);
+
+    const card = await screen.findByTestId("contract-mobile-record-1");
+    fireEvent.click(card.closest("button")!);
+    expect(mockPush).toHaveBeenCalledWith(expect.stringContaining("selected=record-1"));
+    first.unmount();
+
+    nuqsState.params = new Map([["selected", "record-1"]]);
+    renderWithProviders(<DataView {...fixture} />);
+    expect(await screen.findByTestId("contract-detail")).toHaveTextContent(
+      "Detail: Contract record one"
+    );
+    expect(screen.getByTestId("data-view-mobile-detail")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Back to list" }));
+    expect(mockReplace).toHaveBeenCalledWith(expect.not.stringContaining("selected="));
   });
 });
 
@@ -890,7 +922,7 @@ describe("T-DV-DETAIL: selecting a row shows detail panel", () => {
     });
 
     expect(screen.getByTestId("detail-panel")).toBeInTheDocument();
-    expect(screen.getByTestId("sidebar-item-p1")).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("sidebar-item-p1")).toHaveAttribute("aria-current", "true");
   });
 
   it("re-initializes a selected URL after a route-Back remount", async () => {
@@ -934,7 +966,10 @@ describe("T-DV-SIDEBAR-CACHE: selected sidebar follows normalized list params", 
     result.rerenderDataView({ selected: "p1", search: "NO_MATCH" });
 
     await waitFor(() =>
-      expect(listFetcher).toHaveBeenCalledWith(expect.objectContaining({ search: "NO_MATCH" }))
+      expect(listFetcher).toHaveBeenCalledWith(
+        expect.objectContaining({ search: "NO_MATCH" }),
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
+      )
     );
     await waitFor(() => expect(screen.queryByTestId("sidebar-item-p1")).not.toBeInTheDocument());
     expect(screen.getByTestId("detail-panel")).toBeInTheDocument();
@@ -1075,7 +1110,7 @@ describe("T-DV-SORT: clicking sortable column header toggles sort", () => {
       .getAllByRole("columnheader")
       .find((h) => h.textContent?.includes("Name"));
     expect(nameHeader).toBeTruthy();
-    fireEvent.click(nameHeader!);
+    fireEvent.click(within(nameHeader!).getByRole("button", { name: /name/i }));
     await waitFor(() => {
       const calls = mockReplace.mock.calls.map((c: string[]) => c[0]);
       expect(calls.some((url: string) => url.includes("sort=name"))).toBe(true);
@@ -1134,7 +1169,12 @@ describe("T-DV-DETAIL-Q: detail fetcher called only when item selected", () => {
   it("calls detailFetcher when item is selected", async () => {
     mockDetailFetcher.mockResolvedValue(MOCK_DETAILS["p2"]);
     renderDataView({}, { selected: "p2" });
-    await waitFor(() => expect(mockDetailFetcher).toHaveBeenCalledWith("p2"));
+    await waitFor(() =>
+      expect(mockDetailFetcher).toHaveBeenCalledWith(
+        "p2",
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
+      )
+    );
   });
 });
 
@@ -1167,6 +1207,109 @@ describe("T-DV-STATES: loading and failures remain distinct", () => {
 
     expect(await screen.findByText("Unable to load results.")).toBeInTheDocument();
     expect(screen.queryByText("No results")).not.toBeInTheDocument();
+  });
+});
+
+describe("T-DV-P3-A11Y: native controls and announced states", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorageMock.clear();
+    nuqsState.params = new Map();
+    mockPush.mockReset();
+    mockReplace.mockReset();
+  });
+
+  it("makes sortable headers native keyboard targets with visible focus styling", () => {
+    renderDataView();
+    const sortButton = screen.getByRole("button", { name: /name/i });
+    sortButton.focus();
+    expect(sortButton).toHaveFocus();
+    expect(sortButton).toHaveClass("focus-visible:ring-2");
+    fireEvent.click(sortButton);
+    expect(mockReplace).toHaveBeenCalledWith(expect.stringContaining("sort=name"));
+  });
+
+  it("announces initial loading and exposes the list as busy", () => {
+    renderDataView({
+      initialData: undefined as unknown as PaginatedResult<MockProduct>,
+      listFetcher: vi.fn(() => new Promise<PaginatedResult<MockProduct>>(() => undefined)),
+    });
+
+    expect(screen.getByRole("status")).toHaveTextContent("Loading results");
+    expect(screen.getByTestId("data-view-table-scroll")).toHaveAttribute("aria-busy", "true");
+  });
+
+  it("keeps active filter controls as separate, valid native buttons", () => {
+    renderDataView({}, { filters: JSON.stringify({ category: "Electronics" }) });
+    const trigger = screen.getByRole("button", { name: "Filter by Category" });
+    const clear = screen.getByRole("button", { name: "Clear Category filter" });
+
+    expect(trigger.querySelector("button")).toBeNull();
+    expect(clear).toBeInTheDocument();
+  });
+});
+
+describe("T-DV-PERF: request and observer budgets", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorageMock.clear();
+    nuqsState.params = new Map();
+    mockPush.mockReset();
+    mockReplace.mockReset();
+  });
+
+  it("commits one canonical search update for rapid a→ab→abc input", async () => {
+    renderDataView();
+    fireEvent.click(screen.getByTestId("search-icon-button"));
+    const input = screen.getByTestId("search-input");
+
+    fireEvent.change(input, { target: { value: "a" } });
+    fireEvent.change(input, { target: { value: "ab" } });
+    fireEvent.change(input, { target: { value: "abc" } });
+
+    await waitFor(
+      () => expect(mockReplace).toHaveBeenCalledWith(expect.stringContaining("search=abc")),
+      { timeout: 1_000 }
+    );
+    expect(
+      mockReplace.mock.calls.filter(([url]: [string]) => url.includes("search="))
+    ).toHaveLength(1);
+  });
+
+  it("lets a canonical Back/Forward search change cancel an older pending draft", async () => {
+    const result = renderDataViewWithClient();
+    fireEvent.click(screen.getByTestId("search-icon-button"));
+    fireEvent.change(screen.getByTestId("search-input"), { target: { value: "obsolete" } });
+
+    result.rerenderDataView({ search: "restored" });
+    expect(screen.getByTestId("search-input")).toHaveValue("restored");
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 300)));
+    expect(mockReplace).not.toHaveBeenCalledWith(expect.stringContaining("search=obsolete"));
+  });
+
+  it("uses one observer, cleans it up, and skips commits within one capability band", async () => {
+    setContainerWidth(1000);
+    const observersBeforeMount = resizeObservers.size;
+    let commits = 0;
+    const { unmount } = renderWithProviders(
+      <React.Profiler id="data-view" onRender={() => commits++}>
+        <DataView {...defaultProps} />
+      </React.Profiler>
+    );
+    await screen.findByTestId("data-view-wide-layout");
+    expect(resizeObservers.size).toBe(observersBeforeMount + 1);
+    const settledCommits = commits;
+
+    act(() => {
+      setContainerWidth(980);
+      setContainerWidth(920);
+      setContainerWidth(850);
+    });
+    expect(screen.getByTestId("data-view-root")).toHaveAttribute("data-layout-mode", "wide");
+    expect(commits).toBe(settledCommits);
+
+    unmount();
+    expect(resizeObservers.size).toBe(observersBeforeMount);
   });
 });
 

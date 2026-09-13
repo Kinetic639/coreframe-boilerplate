@@ -1,0 +1,1328 @@
+diff --git a/apps/web/e2e/data-view-runtime.spec.ts b/apps/web/e2e/data-view-runtime.spec.ts
+new file mode 100644
+index 00000000..4bea7ccf
+--- /dev/null
++++ b/apps/web/e2e/data-view-runtime.spec.ts
+@@ -0,0 +1,148 @@
++import { test, expect } from "./fixtures";
++import type { Page, Request } from "@playwright/test";
++
++const CONSUMERS = [
++  { name: "Products", path: "/dashboard/warehouse/items" },
++  { name: "Help Desk", path: "/dashboard/help-desk/tickets" },
++] as const;
++
++function isDataRequest(request: Request) {
++  return request.method() === "POST" && Boolean(request.headers()["next-action"]);
++}
++
++async function desktopRow(page: Page) {
++  return page.locator('[data-testid^="row-"]:not([data-testid^="row-select-"])').first();
++}
++
++for (const consumer of CONSUMERS) {
++  test(`${consumer.name} meets DataView runtime and request budgets`, async ({ page, context }) => {
++    test.setTimeout(180_000);
++    const consoleErrors: string[] = [];
++    page.on("console", (message) => {
++      if (message.type() === "error") consoleErrors.push(message.text());
++    });
++
++    await page.setViewportSize({ width: 1440, height: 900 });
++    await page.emulateMedia({ reducedMotion: "reduce" });
++    await page.goto(`${consumer.path}?pageSize=10`);
++    await page.waitForLoadState("networkidle");
++
++    const firstRow = await desktopRow(page);
++    await expect(firstRow).toBeVisible({ timeout: 30_000 });
++    await firstRow.focus();
++    await page.keyboard.press("Enter");
++    await expect(page.getByTestId("detail-panel")).toBeVisible({ timeout: 30_000 });
++
++    let delayedFirstDetail = true;
++    await page.route("**/*", async (route) => {
++      if (delayedFirstDetail && isDataRequest(route.request())) {
++        delayedFirstDetail = false;
++        await new Promise((resolve) => setTimeout(resolve, 400));
++      }
++      await route.continue().catch(() => {
++        // TanStack may cancel the delayed obsolete request before routing resumes.
++      });
++    });
++    const sidebar = page.locator('[data-testid^="sidebar-item-"]');
++    await expect(sidebar.nth(2)).toBeVisible({ timeout: 30_000 });
++    await sidebar.nth(0).click();
++    await sidebar.nth(1).click();
++    await sidebar.nth(2).click();
++    const finalId = await sidebar.nth(2).getAttribute("data-data-view-row-id");
++    await expect
++      .poll(() => new URL(page.url()).searchParams.get("selected"), { timeout: 30_000 })
++      .toBe(finalId);
++    await expect(sidebar.nth(2)).toHaveAttribute("aria-current", "true");
++    await page.unroute("**/*");
++
++    await page.locator('[data-testid="back-to-list-button"]:visible').click();
++    await expect(page).not.toHaveURL(/selected=/);
++
++    for (let cycle = 0; cycle < 2; cycle++) {
++      await (await desktopRow(page)).click();
++      await expect(page.getByTestId("detail-panel")).toBeVisible({ timeout: 30_000 });
++      await page.locator('[data-testid="back-to-list-button"]:visible').click();
++      await expect(page).not.toHaveURL(/selected=/);
++    }
++
++    const pageRequests: Request[] = [];
++    const recordPageRequest = (request: Request) => {
++      if (isDataRequest(request)) pageRequests.push(request);
++    };
++    page.on("request", recordPageRequest);
++    await page.getByRole("button", { name: /next page|następna strona/i }).click();
++    await expect.poll(() => new URL(page.url()).searchParams.get("page")).toBe("2");
++    await expect(page.getByTestId("data-view-table-scroll")).toHaveAttribute("aria-busy", "false", {
++      timeout: 30_000,
++    });
++    await page.getByRole("button", { name: /next page|następna strona/i }).click();
++    await expect.poll(() => new URL(page.url()).searchParams.get("page")).toBe("3");
++    await page.waitForLoadState("networkidle");
++    expect(pageRequests.length).toBe(2);
++    page.off("request", recordPageRequest);
++
++    await page.goto(consumer.path);
++    await page.waitForLoadState("networkidle");
++    const searchRequests: Request[] = [];
++    const recordSearchRequest = (request: Request) => {
++      if (isDataRequest(request)) searchRequests.push(request);
++    };
++    page.on("request", recordSearchRequest);
++    await page.getByTestId("search-icon-button").click();
++    await page.getByTestId("search-input").pressSequentially("abc", { delay: 50 });
++    await expect.poll(() => new URL(page.url()).searchParams.get("search")).toBe("abc");
++    await page.waitForLoadState("networkidle");
++    expect(searchRequests.length).toBe(1);
++    page.off("request", recordSearchRequest);
++
++    await page.goto(consumer.path);
++    await page.waitForLoadState("networkidle");
++    const resizeRequests: Request[] = [];
++    const recordResizeRequest = (request: Request) => {
++      if (isDataRequest(request)) resizeRequests.push(request);
++    };
++    page.on("request", recordResizeRequest);
++    const root = page.getByTestId("data-view-root");
++    for (const width of [700, 400, 1000]) {
++      await root.evaluate((element, nextWidth) => {
++        element.style.width = `${nextWidth}px`;
++        element.style.maxWidth = `${nextWidth}px`;
++      }, width);
++      await expect(root).toHaveAttribute(
++        "data-layout-mode",
++        width >= 840 ? "wide" : width >= 560 ? "medium" : "narrow"
++      );
++    }
++    expect(resizeRequests).toHaveLength(0);
++    page.off("request", recordResizeRequest);
++
++    await root.evaluate((element) => {
++      element.style.removeProperty("width");
++      element.style.removeProperty("max-width");
++    });
++    await expect(root).toHaveAttribute("data-layout-mode", "wide");
++    const refreshRequests: Request[] = [];
++    const recordRefreshRequest = (request: Request) => {
++      if (isDataRequest(request)) refreshRequests.push(request);
++    };
++    page.on("request", recordRefreshRequest);
++    await page.getByTestId("refresh-button").click();
++    await page.waitForLoadState("networkidle");
++    expect(refreshRequests.length).toBe(1);
++    page.off("request", recordRefreshRequest);
++
++    await context.setOffline(true);
++    await page.getByTestId("search-icon-button").click();
++    await page.getByTestId("search-input").fill("temporary-network-failure");
++    await expect(page.getByRole("alert")).toBeVisible({ timeout: 30_000 });
++    await context.setOffline(false);
++    await page.getByTestId("search-input").fill("recovered-search");
++    await expect(page.getByTestId("data-view-table-scroll")).toHaveAttribute("aria-busy", "false", {
++      timeout: 30_000,
++    });
++
++    expect(
++      consoleErrors.filter((message) => !/Failed to fetch|NetworkError/i.test(message))
++    ).toEqual([]);
++  });
++}
+diff --git a/apps/web/messages/en.json b/apps/web/messages/en.json
+index 79839cbe..e91cd753 100644
+--- a/apps/web/messages/en.json
++++ b/apps/web/messages/en.json
+@@ -321,6 +321,7 @@
+       "loadingMoreAria": "Loading more items"
+     },
+     "table": {
++      "loadingAria": "Loading results",
+       "noResults": "No results",
+       "error": "Unable to load results.",
+       "updating": "Updating results"
+diff --git a/apps/web/messages/pl.json b/apps/web/messages/pl.json
+index 3053b947..05c09f4e 100644
+--- a/apps/web/messages/pl.json
++++ b/apps/web/messages/pl.json
+@@ -321,6 +321,7 @@
+       "loadingMoreAria": "Ładowanie kolejnych elementów"
+     },
+     "table": {
++      "loadingAria": "Ładowanie wyników",
+       "noResults": "Brak wyników",
+       "error": "Nie udało się załadować wyników.",
+       "updating": "Aktualizowanie wyników"
+diff --git a/apps/web/src/components/data-view/README.md b/apps/web/src/components/data-view/README.md
+index 50540bc9..df1983b0 100644
+--- a/apps/web/src/components/data-view/README.md
++++ b/apps/web/src/components/data-view/README.md
+@@ -67,6 +67,20 @@ Wide split owns one scroll surface for the compact master and one for arbitrary
+ 
+ The master and arbitrary consumer-detail subtrees stay mounted while replacement detail is visible, so container-mode changes do not restart consumer effects or remote queries. Framer transitions are disabled when `prefers-reduced-motion` is active. Animation never controls whether detail exists; `selected` remains the semantic authority. Loading, transition, error, empty, not-found, and selected-outside-results states use the same Phase-1 query state in every presentation.
+ 
+-## Phase 3 boundary
++## Accessibility and keyboard contract
+ 
+-Advanced row-grid keyboard navigation, broader virtualization changes, speculative prefetching, deep render profiling, persisted splitter widths, broad consumer migration, Repair Orders adoption, and convergence with the divergent public-web DataView remain deferred. The public-web copy is explicit technical debt and is not synchronized by this implementation.
++Rows remain ordinary focusable table rows that open with Enter; cards and compact-master items are native buttons. Sortable headers are native buttons inside semantic column headers, and `aria-sort` stays on the header. Selection is exposed with `aria-selected` on table rows and `aria-current` on button-based card/master choices. Loading regions expose `aria-busy` plus a polite status, request failures use alerts, and empty/not-found states use statuses. Filters have programmatic labels and active-filter clear actions are separate buttons. Replacement detail moves focus to Back and restores the initiating row or list surface. DataView intentionally does not implement spreadsheet arrow navigation. Reduced motion removes decorative transition duration and shimmer animation.
++
++## Runtime and performance contract
++
++TanStack Query owns concurrency. Every generic list/detail fetcher receives `{ signal }`; consumers using an abortable transport should pass that signal through. Canonical keys isolate list inputs, detail IDs, and opaque scopes, so obsolete completions may fill only their own cache entry and cannot replace the visible newer query. Search keeps a local draft and commits one canonical URL change after 250 ms; blur, close, and Escape flush immediately, while Back/Forward cancels an obsolete pending draft.
++
++DataView keeps server pagination and renders at most the selected page (10/25/50/100 rows). Production measurements showed no material 25-to-100-row slowdown, so the desktop table and mobile cards are intentionally not virtualized. Compact master virtualization remains enabled above 30 items with fixed-height rows and stable domain IDs. Detail prefetch remains deferred because measured selection latency did not justify extra network/cache pressure. Inactive entries use the dashboard QueryClient policy (TanStack's five-minute default `gcTime`); the 60-second stale time enables useful scope-return reuse without global invalidation.
++
++Behavioral regression budgets are: resize causes zero data requests; selection does not refetch the list; one uncached selection causes at most one detail request; rapid search causes one canonical list request after debounce; explicit list refresh causes one list request; fresh SSR hydration causes no duplicate client request; and one ResizeObserver is installed per mounted root, updates only on 560/840 capability crossings, and disconnects on unmount. React Profiler coverage guards same-band resize from committing the DataView tree.
++
++Future consumers can import `createDataViewContractFixture` from `__tests__/data-view-contract-harness.tsx` as the reference fixture for list, selection URL, detail, close, mobile rendering, replacement mode, scope identity, loading, and error expectations. Runtime tests separately cover AbortSignal cancellation, hostile list/detail completion order, error recovery, background-refresh retention, and A→B→C→A scope reuse.
++
++## Phase 4 boundary
++
++Broad consumer migration, Repair Orders adoption, persisted splitter widths, and convergence with the divergent public-web DataView remain deferred. The public-web copy is explicit technical debt and is not synchronized by this implementation.
+diff --git a/apps/web/src/components/data-view/__tests__/data-view-contract-harness.tsx b/apps/web/src/components/data-view/__tests__/data-view-contract-harness.tsx
+new file mode 100644
+index 00000000..e5b643e5
+--- /dev/null
++++ b/apps/web/src/components/data-view/__tests__/data-view-contract-harness.tsx
+@@ -0,0 +1,41 @@
++import React from "react";
++import type { DataViewProps, PaginatedResult } from "../data-view.types";
++
++export type DataViewContractRecord = {
++  id: string;
++  label: string;
++};
++
++/**
++ * Domain-neutral fixture for consumers that want to run DataView's shared
++ * list/detail, URL-selection, mobile-renderer, and replacement-mode contract.
++ */
++export function createDataViewContractFixture(
++  rows: DataViewContractRecord[] = [
++    { id: "record-1", label: "Contract record one" },
++    { id: "record-2", label: "Contract record two" },
++  ]
++): DataViewProps<DataViewContractRecord, DataViewContractRecord> {
++  const page: PaginatedResult<DataViewContractRecord> = {
++    rows,
++    totalCount: rows.length,
++    page: 1,
++    pageSize: 25,
++  };
++
++  return {
++    entity: "data-view-contract-fixture",
++    scope: { projectId: "project-1", workspaceId: "workspace-2" },
++    queryKey: ["data-view-contract-fixture"],
++    columns: [{ key: "label", header: "Label", accessor: (row) => row.label, sortable: true }],
++    initialData: page,
++    listFetcher: async () => page,
++    detailFetcher: async (id) => rows.find((row) => row.id === id) ?? null,
++    getRowId: (row) => row.id,
++    renderCompactItem: (row) => <span>{row.label}</span>,
++    renderMobileItem: (row) => <span data-testid={`contract-mobile-${row.id}`}>{row.label}</span>,
++    renderDetail: (detail) => (
++      <article data-testid="contract-detail">Detail: {detail.label}</article>
++    ),
++  };
++}
+diff --git a/apps/web/src/components/data-view/__tests__/data-view-runtime.test.tsx b/apps/web/src/components/data-view/__tests__/data-view-runtime.test.tsx
+new file mode 100644
+index 00000000..df9cd7fa
+--- /dev/null
++++ b/apps/web/src/components/data-view/__tests__/data-view-runtime.test.tsx
+@@ -0,0 +1,219 @@
++/** @vitest-environment jsdom */
++
++import React, { type PropsWithChildren } from "react";
++import { act, renderHook, waitFor } from "@testing-library/react";
++import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
++import { describe, expect, it, vi } from "vitest";
++import type { DataViewListParams, DataViewScope, PaginatedResult } from "../data-view.types";
++import { useDataViewDetailQuery, useDataViewListQuery } from "../use-data-view-query";
++
++type Row = { id: string; label: string };
++
++const baseParams: DataViewListParams = {
++  search: "",
++  sort: null,
++  filters: {},
++  page: 1,
++  pageSize: 25,
++};
++
++function result(label: string, page = 1): PaginatedResult<Row> {
++  return { rows: [{ id: label, label }], totalCount: 75, page, pageSize: 25 };
++}
++
++function deferred<T>() {
++  let resolve!: (value: T) => void;
++  let reject!: (reason?: unknown) => void;
++  const promise = new Promise<T>((res, rej) => {
++    resolve = res;
++    reject = rej;
++  });
++  return { promise, resolve, reject };
++}
++
++function createHarness() {
++  const client = new QueryClient({
++    defaultOptions: { queries: { retry: false, gcTime: 60_000 } },
++  });
++  const wrapper = ({ children }: PropsWithChildren) => (
++    <QueryClientProvider client={client}>{children}</QueryClientProvider>
++  );
++  return { client, wrapper };
++}
++
++describe("DataView runtime query guarantees", () => {
++  it("passes TanStack's AbortSignal and aborts an obsolete list request", async () => {
++    const { wrapper } = createHarness();
++    const signals: AbortSignal[] = [];
++    const requests = new Map<string, ReturnType<typeof deferred<PaginatedResult<Row>>>>();
++    const fetcher = vi.fn((params: DataViewListParams, context: { signal: AbortSignal }) => {
++      signals.push(context.signal);
++      const request = deferred<PaginatedResult<Row>>();
++      requests.set(params.search, request);
++      return request.promise;
++    });
++
++    const { rerender, unmount } = renderHook(
++      ({ search }) =>
++        useDataViewListQuery({
++          entity: "runtime-list",
++          scope: { projectId: "project-1" },
++          listFetcher: fetcher,
++          listParams: { ...baseParams, search },
++        }),
++      { initialProps: { search: "a" }, wrapper }
++    );
++
++    await waitFor(() => expect(requests.has("a")).toBe(true));
++    rerender({ search: "ab" });
++    await waitFor(() => expect(requests.has("ab")).toBe(true));
++    expect(signals[0].aborted).toBe(true);
++
++    unmount();
++    expect(signals[1].aborted).toBe(true);
++  });
++
++  it("keeps the newest search/page result visible after hostile completions", async () => {
++    const { wrapper } = createHarness();
++    const pending = new Map<string, ReturnType<typeof deferred<PaginatedResult<Row>>>>();
++    const fetcher = (params: DataViewListParams) => {
++      const key = `${params.search}:${params.page}`;
++      const request = deferred<PaginatedResult<Row>>();
++      pending.set(key, request);
++      return request.promise;
++    };
++    const { result: hook, rerender } = renderHook(
++      ({ search, page }) =>
++        useDataViewListQuery({
++          entity: "runtime-list",
++          scope: { projectId: "project-1" },
++          listFetcher: fetcher,
++          listParams: { ...baseParams, search, page },
++        }),
++      { initialProps: { search: "a", page: 1 }, wrapper }
++    );
++
++    await waitFor(() => expect(pending.has("a:1")).toBe(true));
++    rerender({ search: "abc", page: 3 });
++    await waitFor(() => expect(pending.has("abc:3")).toBe(true));
++    await act(async () => pending.get("abc:3")!.resolve(result("newest", 3)));
++    await waitFor(() => expect(hook.current.data?.rows[0].label).toBe("newest"));
++    await act(async () => pending.get("a:1")!.resolve(result("obsolete", 1)));
++    expect(hook.current.data?.rows[0].label).toBe("newest");
++  });
++
++  it("keeps C selected through an A→B→C detail race", async () => {
++    const { wrapper } = createHarness();
++    const pending = new Map<string, ReturnType<typeof deferred<Row | null>>>();
++    const fetcher = (id: string) => {
++      const request = deferred<Row | null>();
++      pending.set(id, request);
++      return request.promise;
++    };
++    const { result: hook, rerender } = renderHook(
++      ({ selectedId }) =>
++        useDataViewDetailQuery({
++          entity: "runtime-detail",
++          scope: { workspaceId: "workspace-2" },
++          detailFetcher: fetcher,
++          selectedId,
++        }),
++      { initialProps: { selectedId: "A" as string | null }, wrapper }
++    );
++
++    await waitFor(() => expect(pending.has("A")).toBe(true));
++    rerender({ selectedId: "B" });
++    await waitFor(() => expect(pending.has("B")).toBe(true));
++    rerender({ selectedId: "C" });
++    await waitFor(() => expect(pending.has("C")).toBe(true));
++
++    await act(async () => pending.get("C")!.resolve({ id: "C", label: "Detail C" }));
++    await waitFor(() => expect(hook.current.data?.id).toBe("C"));
++    await act(async () => pending.get("A")!.resolve({ id: "A", label: "Detail A" }));
++    await act(async () => pending.get("B")!.resolve({ id: "B", label: "Detail B" }));
++    expect(hook.current.data?.id).toBe("C");
++  });
++
++  it("isolates A→B→C→A scopes and reuses the still-fresh A cache", async () => {
++    const { wrapper } = createHarness();
++    const calls: string[] = [];
++    const fetchers = new Map<string, () => Promise<PaginatedResult<Row>>>();
++    for (const id of ["A", "B", "C"]) {
++      fetchers.set(id, async () => {
++        calls.push(id);
++        return result(`scope-${id}`);
++      });
++    }
++    const { result: hook, rerender } = renderHook(
++      ({ scope }: { scope: DataViewScope }) => {
++        const id = String(scope.projectId);
++        return useDataViewListQuery({
++          entity: "scoped-runtime",
++          scope,
++          listFetcher: fetchers.get(id)!,
++          listParams: baseParams,
++        });
++      },
++      { initialProps: { scope: { projectId: "A" } }, wrapper }
++    );
++
++    await waitFor(() => expect(hook.current.data?.rows[0].label).toBe("scope-A"));
++    rerender({ scope: { projectId: "B" } });
++    await waitFor(() => expect(hook.current.data?.rows[0].label).toBe("scope-B"));
++    rerender({ scope: { projectId: "C" } });
++    await waitFor(() => expect(hook.current.data?.rows[0].label).toBe("scope-C"));
++    rerender({ scope: { projectId: "A" } });
++    await waitFor(() => expect(hook.current.data?.rows[0].label).toBe("scope-A"));
++    expect(calls).toEqual(["A", "B", "C"]);
++  });
++
++  it("recovers from a detail error by opening another row", async () => {
++    const { wrapper } = createHarness();
++    const fetcher = vi.fn(async (id: string) => {
++      if (id === "broken") throw new Error("temporary failure");
++      return { id, label: `Detail ${id}` };
++    });
++    const { result: hook, rerender } = renderHook(
++      ({ selectedId }) =>
++        useDataViewDetailQuery({
++          entity: "detail-recovery",
++          scope: { projectId: "project-1" },
++          detailFetcher: fetcher,
++          selectedId,
++        }),
++      { initialProps: { selectedId: "broken" }, wrapper }
++    );
++
++    await waitFor(() => expect(hook.current.isError).toBe(true));
++    rerender({ selectedId: "healthy" });
++    await waitFor(() => expect(hook.current.data?.id).toBe("healthy"));
++    expect(hook.current.isError).toBe(false);
++  });
++
++  it("retains good rows across a failed background refresh", async () => {
++    const { wrapper } = createHarness();
++    const fetcher = vi
++      .fn<() => Promise<PaginatedResult<Row>>>()
++      .mockResolvedValueOnce(result("stable"))
++      .mockRejectedValueOnce(new Error("temporary failure"));
++    const { result: hook } = renderHook(
++      () =>
++        useDataViewListQuery({
++          entity: "background-recovery",
++          scope: { projectId: "project-1" },
++          listFetcher: fetcher,
++          listParams: baseParams,
++        }),
++      { wrapper }
++    );
++
++    await waitFor(() => expect(hook.current.data?.rows[0].label).toBe("stable"));
++    let refreshError: Error | null = null;
++    await act(async () => {
++      const refresh = await hook.current.refetch();
++      refreshError = refresh.error;
++    });
++    expect(hook.current.data?.rows[0].label).toBe("stable");
++    expect(refreshError).toEqual(new Error("temporary failure"));
++  });
++});
+diff --git a/apps/web/src/components/data-view/__tests__/data-view.test.tsx b/apps/web/src/components/data-view/__tests__/data-view.test.tsx
+index e7d7dac8..dd98a1b7 100644
+--- a/apps/web/src/components/data-view/__tests__/data-view.test.tsx
++++ b/apps/web/src/components/data-view/__tests__/data-view.test.tsx
+@@ -4,12 +4,13 @@
+  * DataView — Behavior Tests
+  */
+ 
+-import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
++import { render, screen, fireEvent, waitFor, act, within } from "@testing-library/react";
+ import { describe, it, expect, vi, beforeEach } from "vitest";
+ import React from "react";
+ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+ import type { DataViewProps, PaginatedResult } from "../data-view.types";
+ import { DataView } from "../data-view";
++import { createDataViewContractFixture } from "./data-view-contract-harness";
+ 
+ // ---------------------------------------------------------------------------
+ // Shared nuqs mock state (module-level so vi.mock factory can close over it)
+@@ -227,6 +228,7 @@ const TEST_TRANSLATIONS: Record<string, string> = {
+   "dataView.sidebar.loadingMoreAria": "Loading more items",
+   "dataView.table.noResults": "No results",
+   "dataView.table.error": "Unable to load results.",
++  "dataView.table.loadingAria": "Loading results",
+   "dataView.mobile.loadingAria": "Loading rows",
+ };
+ 
+@@ -540,6 +542,36 @@ describe("T-DV-RENDER: renders initial rows from initialData", () => {
+   });
+ });
+ 
++describe("T-DV-CONTRACT: reusable domain-neutral consumer fixture", () => {
++  beforeEach(() => {
++    vi.clearAllMocks();
++    localStorageMock.clear();
++    nuqsState.params = new Map();
++    mockPush.mockReset();
++    mockReplace.mockReset();
++  });
++
++  it("proves list, selection URL, detail, mobile rendering, and replacement mode", async () => {
++    const fixture = createDataViewContractFixture();
++    setContainerWidth(400);
++    const first = renderWithProviders(<DataView {...fixture} />);
++
++    const card = await screen.findByTestId("contract-mobile-record-1");
++    fireEvent.click(card.closest("button")!);
++    expect(mockPush).toHaveBeenCalledWith(expect.stringContaining("selected=record-1"));
++    first.unmount();
++
++    nuqsState.params = new Map([["selected", "record-1"]]);
++    renderWithProviders(<DataView {...fixture} />);
++    expect(await screen.findByTestId("contract-detail")).toHaveTextContent(
++      "Detail: Contract record one"
++    );
++    expect(screen.getByTestId("data-view-mobile-detail")).toBeInTheDocument();
++    fireEvent.click(screen.getByRole("button", { name: "Back to list" }));
++    expect(mockReplace).toHaveBeenCalledWith(expect.not.stringContaining("selected="));
++  });
++});
++
+ describe("T-DV-RESPONSIVE: container-driven presentation", () => {
+   beforeEach(() => {
+     vi.clearAllMocks();
+@@ -890,7 +922,7 @@ describe("T-DV-DETAIL: selecting a row shows detail panel", () => {
+     });
+ 
+     expect(screen.getByTestId("detail-panel")).toBeInTheDocument();
+-    expect(screen.getByTestId("sidebar-item-p1")).toHaveAttribute("aria-selected", "true");
++    expect(screen.getByTestId("sidebar-item-p1")).toHaveAttribute("aria-current", "true");
+   });
+ 
+   it("re-initializes a selected URL after a route-Back remount", async () => {
+@@ -934,7 +966,10 @@ describe("T-DV-SIDEBAR-CACHE: selected sidebar follows normalized list params",
+     result.rerenderDataView({ selected: "p1", search: "NO_MATCH" });
+ 
+     await waitFor(() =>
+-      expect(listFetcher).toHaveBeenCalledWith(expect.objectContaining({ search: "NO_MATCH" }))
++      expect(listFetcher).toHaveBeenCalledWith(
++        expect.objectContaining({ search: "NO_MATCH" }),
++        expect.objectContaining({ signal: expect.any(AbortSignal) })
++      )
+     );
+     await waitFor(() => expect(screen.queryByTestId("sidebar-item-p1")).not.toBeInTheDocument());
+     expect(screen.getByTestId("detail-panel")).toBeInTheDocument();
+@@ -1075,7 +1110,7 @@ describe("T-DV-SORT: clicking sortable column header toggles sort", () => {
+       .getAllByRole("columnheader")
+       .find((h) => h.textContent?.includes("Name"));
+     expect(nameHeader).toBeTruthy();
+-    fireEvent.click(nameHeader!);
++    fireEvent.click(within(nameHeader!).getByRole("button", { name: /name/i }));
+     await waitFor(() => {
+       const calls = mockReplace.mock.calls.map((c: string[]) => c[0]);
+       expect(calls.some((url: string) => url.includes("sort=name"))).toBe(true);
+@@ -1134,7 +1169,12 @@ describe("T-DV-DETAIL-Q: detail fetcher called only when item selected", () => {
+   it("calls detailFetcher when item is selected", async () => {
+     mockDetailFetcher.mockResolvedValue(MOCK_DETAILS["p2"]);
+     renderDataView({}, { selected: "p2" });
+-    await waitFor(() => expect(mockDetailFetcher).toHaveBeenCalledWith("p2"));
++    await waitFor(() =>
++      expect(mockDetailFetcher).toHaveBeenCalledWith(
++        "p2",
++        expect.objectContaining({ signal: expect.any(AbortSignal) })
++      )
++    );
+   });
+ });
+ 
+@@ -1170,6 +1210,109 @@ describe("T-DV-STATES: loading and failures remain distinct", () => {
+   });
+ });
+ 
++describe("T-DV-P3-A11Y: native controls and announced states", () => {
++  beforeEach(() => {
++    vi.clearAllMocks();
++    localStorageMock.clear();
++    nuqsState.params = new Map();
++    mockPush.mockReset();
++    mockReplace.mockReset();
++  });
++
++  it("makes sortable headers native keyboard targets with visible focus styling", () => {
++    renderDataView();
++    const sortButton = screen.getByRole("button", { name: /name/i });
++    sortButton.focus();
++    expect(sortButton).toHaveFocus();
++    expect(sortButton).toHaveClass("focus-visible:ring-2");
++    fireEvent.click(sortButton);
++    expect(mockReplace).toHaveBeenCalledWith(expect.stringContaining("sort=name"));
++  });
++
++  it("announces initial loading and exposes the list as busy", () => {
++    renderDataView({
++      initialData: undefined as unknown as PaginatedResult<MockProduct>,
++      listFetcher: vi.fn(() => new Promise<PaginatedResult<MockProduct>>(() => undefined)),
++    });
++
++    expect(screen.getByRole("status")).toHaveTextContent("Loading results");
++    expect(screen.getByTestId("data-view-table-scroll")).toHaveAttribute("aria-busy", "true");
++  });
++
++  it("keeps active filter controls as separate, valid native buttons", () => {
++    renderDataView({}, { filters: JSON.stringify({ category: "Electronics" }) });
++    const trigger = screen.getByRole("button", { name: "Filter by Category" });
++    const clear = screen.getByRole("button", { name: "Clear Category filter" });
++
++    expect(trigger.querySelector("button")).toBeNull();
++    expect(clear).toBeInTheDocument();
++  });
++});
++
++describe("T-DV-PERF: request and observer budgets", () => {
++  beforeEach(() => {
++    vi.clearAllMocks();
++    localStorageMock.clear();
++    nuqsState.params = new Map();
++    mockPush.mockReset();
++    mockReplace.mockReset();
++  });
++
++  it("commits one canonical search update for rapid a→ab→abc input", async () => {
++    renderDataView();
++    fireEvent.click(screen.getByTestId("search-icon-button"));
++    const input = screen.getByTestId("search-input");
++
++    fireEvent.change(input, { target: { value: "a" } });
++    fireEvent.change(input, { target: { value: "ab" } });
++    fireEvent.change(input, { target: { value: "abc" } });
++
++    await waitFor(
++      () => expect(mockReplace).toHaveBeenCalledWith(expect.stringContaining("search=abc")),
++      { timeout: 1_000 }
++    );
++    expect(
++      mockReplace.mock.calls.filter(([url]: [string]) => url.includes("search="))
++    ).toHaveLength(1);
++  });
++
++  it("lets a canonical Back/Forward search change cancel an older pending draft", async () => {
++    const result = renderDataViewWithClient();
++    fireEvent.click(screen.getByTestId("search-icon-button"));
++    fireEvent.change(screen.getByTestId("search-input"), { target: { value: "obsolete" } });
++
++    result.rerenderDataView({ search: "restored" });
++    expect(screen.getByTestId("search-input")).toHaveValue("restored");
++    await act(async () => new Promise((resolve) => setTimeout(resolve, 300)));
++    expect(mockReplace).not.toHaveBeenCalledWith(expect.stringContaining("search=obsolete"));
++  });
++
++  it("uses one observer, cleans it up, and skips commits within one capability band", async () => {
++    setContainerWidth(1000);
++    const observersBeforeMount = resizeObservers.size;
++    let commits = 0;
++    const { unmount } = renderWithProviders(
++      <React.Profiler id="data-view" onRender={() => commits++}>
++        <DataView {...defaultProps} />
++      </React.Profiler>
++    );
++    await screen.findByTestId("data-view-wide-layout");
++    expect(resizeObservers.size).toBe(observersBeforeMount + 1);
++    const settledCommits = commits;
++
++    act(() => {
++      setContainerWidth(980);
++      setContainerWidth(920);
++      setContainerWidth(850);
++    });
++    expect(screen.getByTestId("data-view-root")).toHaveAttribute("data-layout-mode", "wide");
++    expect(commits).toBe(settledCommits);
++
++    unmount();
++    expect(resizeObservers.size).toBe(observersBeforeMount);
++  });
++});
++
+ describe("T-DV-TYPES: list data does not require detail-only fields", () => {
+   it("list row has no detail-only fields", () => {
+     const row = MOCK_PRODUCTS[0];
+diff --git a/apps/web/src/components/data-view/data-view-detail.tsx b/apps/web/src/components/data-view/data-view-detail.tsx
+index 921abfe2..8d066def 100644
+--- a/apps/web/src/components/data-view/data-view-detail.tsx
++++ b/apps/web/src/components/data-view/data-view-detail.tsx
+@@ -31,6 +31,7 @@ export function DataViewDetail({ mode = "split", focusRef }: DataViewDetailProps
+     <div
+       className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background"
+       data-testid="detail-panel"
++      aria-busy={detailIsLoading || detailIsRefreshing}
+     >
+       <div className="flex min-h-12 shrink-0 items-center border-b px-2 sm:px-4">
+         {isReplacement ? (
+@@ -84,7 +85,7 @@ export function DataViewDetail({ mode = "split", focusRef }: DataViewDetailProps
+           </div>
+         ) : null}
+         {detailIsLoading ? (
+-          <div className="space-y-3" aria-label={t("detail.loadingAria")}>
++          <div className="space-y-3" role="status" aria-label={t("detail.loadingAria")}>
+             <Skeleton className="h-8 w-3/4" />
+             <Skeleton className="h-4 w-1/2" />
+             <Skeleton className="h-4 w-2/3" />
+@@ -100,11 +101,17 @@ export function DataViewDetail({ mode = "split", focusRef }: DataViewDetailProps
+             {t("detail.error")}
+           </div>
+         ) : detailNotFound ? (
+-          <div className="flex h-24 items-center justify-center text-sm text-muted-foreground">
++          <div
++            className="flex h-24 items-center justify-center text-sm text-muted-foreground"
++            role="status"
++          >
+             {t("detail.notFound")}
+           </div>
+         ) : (
+-          <div className="flex items-center justify-center h-24 text-sm text-muted-foreground">
++          <div
++            className="flex items-center justify-center h-24 text-sm text-muted-foreground"
++            role="status"
++          >
+             {t("detail.empty")}
+           </div>
+         )}
+diff --git a/apps/web/src/components/data-view/data-view-filters.tsx b/apps/web/src/components/data-view/data-view-filters.tsx
+index c15337d1..99f13dbb 100644
+--- a/apps/web/src/components/data-view/data-view-filters.tsx
++++ b/apps/web/src/components/data-view/data-view-filters.tsx
+@@ -1,6 +1,6 @@
+ "use client";
+ 
+-import React, { useCallback, useMemo, useState } from "react";
++import React, { useCallback, useId, useMemo, useState } from "react";
+ import { useTranslations } from "next-intl";
+ import { ChevronDown, Filter, X } from "lucide-react";
+ import { Button } from "@/components/ui/button";
+@@ -90,14 +90,19 @@ function FilterField({
+   onChange: (updates: Record<string, string | string[] | boolean | null>) => void;
+   t: ReturnType<typeof useTranslations>;
+ }) {
++  const fieldId = useId();
++  const labelId = `${fieldId}-label`;
+   const value =
+     def.type !== "range" && def.type !== "date-range" ? (filters[def.key] ?? null) : null;
+ 
+   if (def.type === "text") {
+     return (
+       <div className="space-y-1">
+-        <label className="text-xs font-medium text-muted-foreground">{def.label}</label>
++        <label htmlFor={fieldId} className="text-xs font-medium text-muted-foreground">
++          {def.label}
++        </label>
+         <Input
++          id={fieldId}
+           value={typeof value === "string" ? value : ""}
+           onChange={(e) => onChange({ [def.key]: e.target.value || null })}
+           placeholder={t("filters.textPlaceholder", { label: def.label.toLowerCase() })}
+@@ -111,12 +116,14 @@ function FilterField({
+     const strVal = typeof value === "string" ? value : "";
+     return (
+       <div className="space-y-1">
+-        <label className="text-xs font-medium text-muted-foreground">{def.label}</label>
++        <label htmlFor={fieldId} className="text-xs font-medium text-muted-foreground">
++          {def.label}
++        </label>
+         <Select
+           value={strVal}
+           onValueChange={(v) => onChange({ [def.key]: v === "__all__" ? null : v })}
+         >
+-          <SelectTrigger className="h-8">
++          <SelectTrigger id={fieldId} className="h-8">
+             <SelectValue placeholder={t("filters.allForLabel", { label: def.label })} />
+           </SelectTrigger>
+           <SelectContent>
+@@ -136,13 +143,17 @@ function FilterField({
+     const arrVal = Array.isArray(value) ? value : [];
+     return (
+       <div className="space-y-1">
+-        <label className="text-xs font-medium text-muted-foreground">{def.label}</label>
+-        <MultiSelect
+-          options={def.options}
+-          value={arrVal}
+-          onChange={(next) => onChange({ [def.key]: next.length > 0 ? next : null })}
+-          maxHeight={160}
+-        />
++        <p id={labelId} className="text-xs font-medium text-muted-foreground">
++          {def.label}
++        </p>
++        <div role="group" aria-labelledby={labelId}>
++          <MultiSelect
++            options={def.options}
++            value={arrVal}
++            onChange={(next) => onChange({ [def.key]: next.length > 0 ? next : null })}
++            maxHeight={160}
++          />
++        </div>
+       </div>
+     );
+   }
+@@ -151,8 +162,10 @@ function FilterField({
+     const boolVal = typeof value === "boolean" ? value : null;
+     return (
+       <div className="space-y-1">
+-        <label className="text-xs font-medium text-muted-foreground">{def.label}</label>
+-        <div className="flex gap-2">
++        <p id={labelId} className="text-xs font-medium text-muted-foreground">
++          {def.label}
++        </p>
++        <div className="flex gap-2" role="group" aria-labelledby={labelId}>
+           {(
+             [
+               { label: t("filters.any"), v: null },
+@@ -180,9 +193,12 @@ function FilterField({
+     const maxVal = typeof filters[def.maxKey] === "string" ? (filters[def.maxKey] as string) : "";
+     return (
+       <div className="space-y-1">
+-        <label className="text-xs font-medium text-muted-foreground">{def.label}</label>
+-        <div className="flex gap-2">
++        <p id={labelId} className="text-xs font-medium text-muted-foreground">
++          {def.label}
++        </p>
++        <div className="flex gap-2" role="group" aria-labelledby={labelId}>
+           <Input
++            aria-label={`${def.label} ${t("filters.min")}`}
+             value={minVal}
+             onChange={(e) =>
+               onChange({ [def.minKey]: e.target.value || null, [def.maxKey]: maxVal || null })
+@@ -192,6 +208,7 @@ function FilterField({
+             type="number"
+           />
+           <Input
++            aria-label={`${def.label} ${t("filters.max")}`}
+             value={maxVal}
+             onChange={(e) =>
+               onChange({ [def.minKey]: minVal || null, [def.maxKey]: e.target.value || null })
+@@ -211,11 +228,14 @@ function FilterField({
+     const toVal = typeof filters[def.toKey] === "string" ? (filters[def.toKey] as string) : "";
+     return (
+       <div className="space-y-1.5">
+-        <label className="text-xs font-medium text-muted-foreground">{def.label}</label>
+-        <div className="flex gap-2">
++        <p id={labelId} className="text-xs font-medium text-muted-foreground">
++          {def.label}
++        </p>
++        <div className="flex gap-2" role="group" aria-labelledby={labelId}>
+           <div className="flex-1 space-y-0.5">
+             <p className="text-[10px] text-muted-foreground">{t("filters.from")}</p>
+             <Input
++              aria-label={`${def.label} ${t("filters.from")}`}
+               value={fromVal}
+               onChange={(e) =>
+                 onChange({ [def.fromKey]: e.target.value || null, [def.toKey]: toVal || null })
+@@ -227,6 +247,7 @@ function FilterField({
+           <div className="flex-1 space-y-0.5">
+             <p className="text-[10px] text-muted-foreground">{t("filters.to")}</p>
+             <Input
++              aria-label={`${def.label} ${t("filters.to")}`}
+               value={toVal}
+               onChange={(e) =>
+                 onChange({ [def.fromKey]: fromVal || null, [def.toKey]: e.target.value || null })
+@@ -266,41 +287,33 @@ function DataViewFilterPill({
+ 
+   return (
+     <Popover open={open} onOpenChange={setOpen}>
+-      <PopoverTrigger asChild>
+-        <Button
+-          variant={isActive ? "secondary" : "ghost"}
+-          size="sm"
+-          className={cn("h-8 text-xs gap-1 max-w-48", isActive && "pr-1")}
+-          aria-label={t("filters.filterByAria", { label: def.label })}
+-          data-testid={`filter-pill-${def.key}`}
+-        >
+-          <span className="truncate font-medium">{def.label}</span>
+-          {isActive && <span className="truncate text-muted-foreground">: {label}</span>}
+-          {isActive ? (
+-            <span
+-              role="button"
+-              tabIndex={0}
+-              className="ml-0.5 shrink-0 rounded-full hover:bg-muted-foreground/20 p-0.5"
+-              onClick={(e) => {
+-                e.stopPropagation();
+-                e.preventDefault();
+-                onClear(def);
+-              }}
+-              onKeyDown={(e) => {
+-                if (e.key === "Enter" || e.key === " ") {
+-                  e.stopPropagation();
+-                  onClear(def);
+-                }
+-              }}
+-              aria-label={t("filters.clearSingleAria", { label: def.label })}
+-            >
+-              <X aria-hidden="true" className="h-3 w-3" />
+-            </span>
+-          ) : (
+-            <ChevronDown aria-hidden="true" className="h-3 w-3 text-muted-foreground shrink-0" />
+-          )}
+-        </Button>
+-      </PopoverTrigger>
++      <div className="flex shrink-0 items-center">
++        <PopoverTrigger asChild>
++          <Button
++            variant={isActive ? "secondary" : "ghost"}
++            size="sm"
++            className={cn("h-8 max-w-48 gap-1 text-xs", isActive && "rounded-r-none pr-2")}
++            aria-label={t("filters.filterByAria", { label: def.label })}
++            data-testid={`filter-pill-${def.key}`}
++          >
++            <span className="truncate font-medium">{def.label}</span>
++            {isActive && <span className="truncate text-muted-foreground">: {label}</span>}
++            <ChevronDown aria-hidden="true" className="h-3 w-3 shrink-0 text-muted-foreground" />
++          </Button>
++        </PopoverTrigger>
++        {isActive ? (
++          <Button
++            type="button"
++            variant="secondary"
++            size="icon"
++            className="h-8 w-8 rounded-l-none border-l border-border/50"
++            onClick={() => onClear(def)}
++            aria-label={t("filters.clearSingleAria", { label: def.label })}
++          >
++            <X aria-hidden="true" className="h-3 w-3" />
++          </Button>
++        ) : null}
++      </div>
+       <PopoverContent
+         align="start"
+         className={cn(
+diff --git a/apps/web/src/components/data-view/data-view-mobile-layout.tsx b/apps/web/src/components/data-view/data-view-mobile-layout.tsx
+index b5832700..5f7cbdb2 100644
+--- a/apps/web/src/components/data-view/data-view-mobile-layout.tsx
++++ b/apps/web/src/components/data-view/data-view-mobile-layout.tsx
+@@ -262,7 +262,7 @@ function DataViewMobileCard<TRow>({
+           type="button"
+           className="min-h-11 min-w-0 flex-1 touch-manipulation rounded-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+           onClick={(event) => onOpenRow(rowId, event.currentTarget)}
+-          aria-selected={isSelected}
++          aria-current={isSelected ? "true" : undefined}
+           data-data-view-row-id={rowId}
+         >
+           {customContent ? (
+@@ -340,6 +340,7 @@ function DataViewMobileList({
+       ref={listContainerRef}
+       className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-muted/20 p-3"
+       tabIndex={-1}
++      aria-busy={listIsLoading || listIsTransitioning}
+       onPointerDownCapture={handleMeaningfulInteraction}
+       onWheelCapture={handleMeaningfulInteraction}
+       onKeyDownCapture={handleMeaningfulInteraction}
+@@ -353,7 +354,7 @@ function DataViewMobileList({
+         />
+       ) : null}
+       {listIsLoading ? (
+-        <div className="space-y-2" aria-label={t("mobile.loadingAria")}>
++        <div className="space-y-2" role="status" aria-label={t("mobile.loadingAria")}>
+           {Array.from({ length: Math.min(Math.max(listData.pageSize, 1), 8) }).map((_, index) => (
+             <div key={index} className="rounded-md border bg-card p-3">
+               <Skeleton className="h-4 w-2/3" />
+@@ -370,7 +371,10 @@ function DataViewMobileList({
+           {t("table.error")}
+         </div>
+       ) : visibleRows.length === 0 ? (
+-        <div className="flex min-h-40 items-center justify-center rounded-md border bg-card p-6 text-center text-sm text-muted-foreground">
++        <div
++          className="flex min-h-40 items-center justify-center rounded-md border bg-card p-6 text-center text-sm text-muted-foreground"
++          role="status"
++        >
+           {t("table.noResults")}
+         </div>
+       ) : (
+diff --git a/apps/web/src/components/data-view/data-view-search-control.tsx b/apps/web/src/components/data-view/data-view-search-control.tsx
+index ca375eff..5c8033e6 100644
+--- a/apps/web/src/components/data-view/data-view-search-control.tsx
++++ b/apps/web/src/components/data-view/data-view-search-control.tsx
+@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
+ import { useDataViewUrl } from "./use-data-view";
+ 
+ const SEARCH_TRANSITION = { duration: 0.18, ease: [0.22, 1, 0.36, 1] as const };
++export const DATA_VIEW_SEARCH_DEBOUNCE_MS = 250;
+ 
+ type DataViewSearchControlProps = {
+   mode?: "list" | "compact";
+@@ -21,7 +22,9 @@ export function DataViewSearchControl({
+ }: DataViewSearchControlProps) {
+   const { urlState } = useDataViewUrl();
+   const [searchOpen, setSearchOpen] = useState(false);
++  const [draftSearch, setDraftSearch] = useState(urlState.search);
+   const searchInputRef = useRef<HTMLInputElement>(null);
++  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+   const t = useTranslations("dataView");
+   const reduceMotion = useReducedMotion();
+ 
+@@ -35,16 +38,49 @@ export function DataViewSearchControl({
+     }
+   }, [searchOpen]);
+ 
++  useEffect(() => {
++    if (searchTimerRef.current) {
++      clearTimeout(searchTimerRef.current);
++      searchTimerRef.current = null;
++    }
++    setDraftSearch(urlState.search);
++  }, [urlState.search]);
++
++  useEffect(
++    () => () => {
++      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
++    },
++    []
++  );
++
++  const commitSearch = useCallback(
++    (value: string) => {
++      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
++      searchTimerRef.current = null;
++      urlState.setSearch(value);
++    },
++    [urlState]
++  );
++
+   const handleSearchChange = useCallback(
+     (event: React.ChangeEvent<HTMLInputElement>) => {
+-      urlState.setSearch(event.target.value);
++      const value = event.target.value;
++      setDraftSearch(value);
++      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
++      searchTimerRef.current = setTimeout(() => commitSearch(value), DATA_VIEW_SEARCH_DEBOUNCE_MS);
+     },
+-    [urlState]
++    [commitSearch]
+   );
+ 
+-  const handleSearchKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
+-    if (event.key === "Escape") setSearchOpen(false);
+-  }, []);
++  const handleSearchKeyDown = useCallback(
++    (event: React.KeyboardEvent<HTMLInputElement>) => {
++      if (event.key === "Escape") {
++        commitSearch(draftSearch);
++        setSearchOpen(false);
++      }
++    },
++    [commitSearch, draftSearch]
++  );
+ 
+   if (persistent) {
+     return (
+@@ -54,8 +90,9 @@ export function DataViewSearchControl({
+           className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+         />
+         <Input
+-          value={urlState.search}
++          value={draftSearch}
+           onChange={handleSearchChange}
++          onBlur={() => commitSearch(draftSearch)}
+           placeholder={t("toolbar.searchPlaceholder")}
+           className="h-11 w-full min-w-0 pl-9 text-sm"
+           name="data-view-search"
+@@ -85,9 +122,10 @@ export function DataViewSearchControl({
+             />
+             <Input
+               ref={searchInputRef}
+-              value={urlState.search}
++              value={draftSearch}
+               onChange={handleSearchChange}
+               onKeyDown={handleSearchKeyDown}
++              onBlur={() => commitSearch(draftSearch)}
+               placeholder={t("toolbar.searchPlaceholder")}
+               className="h-9 w-44 pl-8 pr-8 text-sm"
+               name="data-view-search"
+@@ -97,7 +135,10 @@ export function DataViewSearchControl({
+             />
+             <button
+               type="button"
+-              onClick={() => setSearchOpen(false)}
++              onClick={() => {
++                commitSearch(draftSearch);
++                setSearchOpen(false);
++              }}
+               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+               aria-label={t("toolbar.closeSearchAria")}
+             >
+diff --git a/apps/web/src/components/data-view/data-view-sidebar.tsx b/apps/web/src/components/data-view/data-view-sidebar.tsx
+index dd9081b9..8ff36215 100644
+--- a/apps/web/src/components/data-view/data-view-sidebar.tsx
++++ b/apps/web/src/components/data-view/data-view-sidebar.tsx
+@@ -29,6 +29,7 @@ export function DataViewSidebar({
+   const {
+     sidebarRows,
+     sidebarTotalCount,
++    sidebarIsLoading,
+     sidebarHasNextPage,
+     sidebarHasPreviousPage,
+     sidebarIsFetchingNextPage,
+@@ -160,6 +161,7 @@ export function DataViewSidebar({
+     <div
+       className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background"
+       data-testid="data-view-sidebar"
++      aria-busy={sidebarIsLoading}
+     >
+       <div className="flex h-12 shrink-0 items-center border-b px-4 text-left align-middle font-medium text-muted-foreground">
+         {primaryColumn?.header ?? t("sidebar.fallbackPrimaryHeader")}
+@@ -222,7 +224,7 @@ export function DataViewSidebar({
+                   onClick={(event) =>
+                     onOpenRow ? onOpenRow(rowId, event.currentTarget) : urlState.setSelected(rowId)
+                   }
+-                  aria-selected={isSelected}
++                  aria-current={isSelected ? "true" : undefined}
+                   data-data-view-row-id={rowId}
+                   data-testid={`sidebar-item-${rowId}`}
+                 >
+@@ -252,7 +254,7 @@ export function DataViewSidebar({
+                 onClick={(event) =>
+                   onOpenRow ? onOpenRow(rowId, event.currentTarget) : urlState.setSelected(rowId)
+                 }
+-                aria-selected={isSelected}
++                aria-current={isSelected ? "true" : undefined}
+                 data-data-view-row-id={rowId}
+                 data-testid={`sidebar-item-${rowId}`}
+               >
+diff --git a/apps/web/src/components/data-view/data-view-table.tsx b/apps/web/src/components/data-view/data-view-table.tsx
+index 5fc55adb..d1a81548 100644
+--- a/apps/web/src/components/data-view/data-view-table.tsx
++++ b/apps/web/src/components/data-view/data-view-table.tsx
+@@ -175,10 +175,16 @@ export function DataViewTable({
+       className="relative flex-1 overflow-auto overscroll-contain"
+       tabIndex={-1}
+       data-testid="data-view-table-scroll"
++      aria-busy={listIsLoading || listIsTransitioning}
+       onPointerDownCapture={handleMeaningfulInteraction}
+       onWheelCapture={handleMeaningfulInteraction}
+       onKeyDownCapture={handleMeaningfulInteraction}
+     >
++      {listIsLoading ? (
++        <span className="sr-only" role="status">
++          {t("table.loadingAria")}
++        </span>
++      ) : null}
+       {listIsTransitioning ? (
+         <div
+           className="absolute inset-x-0 top-0 z-20 h-0.5 animate-pulse bg-primary/60 motion-reduce:animate-none"
+@@ -216,18 +222,18 @@ export function DataViewTable({
+                 return (
+                   <TableHead
+                     key={header.id}
+-                    className={cn(
+-                      "whitespace-nowrap shadow-[inset_0_-1px_0_hsl(var(--border))]",
+-                      canSort && "cursor-pointer select-none hover:bg-muted/50"
+-                    )}
+-                    onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
++                    className="whitespace-nowrap p-0 shadow-[inset_0_-1px_0_hsl(var(--border))]"
+                     aria-sort={
+                       sorted === "asc" ? "ascending" : sorted === "desc" ? "descending" : undefined
+                     }
+                   >
+-                    <div className="flex items-center gap-1">
+-                      {flexRender(header.column.columnDef.header, header.getContext())}
+-                      {canSort && (
++                    {canSort ? (
++                      <button
++                        type="button"
++                        className="flex h-full w-full select-none items-center gap-1 px-4 text-left hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
++                        onClick={header.column.getToggleSortingHandler()}
++                      >
++                        {flexRender(header.column.columnDef.header, header.getContext())}
+                         <span className="ml-1 opacity-60">
+                           {sorted === "asc" ? (
+                             <ArrowUp aria-hidden="true" className="h-3.5 w-3.5" />
+@@ -237,8 +243,12 @@ export function DataViewTable({
+                             <ChevronsUpDown aria-hidden="true" className="h-3.5 w-3.5" />
+                           )}
+                         </span>
+-                      )}
+-                    </div>
++                      </button>
++                    ) : (
++                      <div className="flex h-full items-center gap-1 px-4">
++                        {flexRender(header.column.columnDef.header, header.getContext())}
++                      </div>
++                    )}
+                   </TableHead>
+                 );
+               })}
+@@ -288,6 +298,7 @@ export function DataViewTable({
+               <TableCell
+                 colSpan={totalColumnCount}
+                 className="text-center text-muted-foreground py-10"
++                role="status"
+               >
+                 {t("table.noResults")}
+               </TableCell>
+diff --git a/apps/web/src/components/data-view/data-view.types.ts b/apps/web/src/components/data-view/data-view.types.ts
+index 57db05ee..c4bef748 100644
+--- a/apps/web/src/components/data-view/data-view.types.ts
++++ b/apps/web/src/components/data-view/data-view.types.ts
+@@ -3,6 +3,7 @@ export type {
+   DataViewFilterDef,
+   DataViewListParams,
+   DataViewProps,
++  DataViewQueryContext,
+   DataViewScope,
+   DataViewScopePrimitive,
+   DataViewUrlState,
+diff --git a/apps/web/src/components/data-view/use-data-view-query.ts b/apps/web/src/components/data-view/use-data-view-query.ts
+index af6657d2..4d2e4786 100644
+--- a/apps/web/src/components/data-view/use-data-view-query.ts
++++ b/apps/web/src/components/data-view/use-data-view-query.ts
+@@ -6,6 +6,7 @@ import type {
+   PaginatedResult,
+   DataViewListParams,
+   DataViewScope,
++  DataViewQueryContext,
+   InfinitePaginatedData,
+ } from "./data-view.types";
+ import {
+@@ -17,7 +18,10 @@ import {
+ type UseDataViewListQueryOptions<TListRow> = {
+   entity: string;
+   scope: DataViewScope;
+-  listFetcher: (params: DataViewListParams) => Promise<PaginatedResult<TListRow>>;
++  listFetcher: (
++    params: DataViewListParams,
++    context: DataViewQueryContext
++  ) => Promise<PaginatedResult<TListRow>>;
+   listParams: DataViewListParams;
+   initialData?: PaginatedResult<TListRow>;
+   initialDataUpdatedAt?: number;
+@@ -33,7 +37,7 @@ export function useDataViewListQuery<TListRow>({
+ }: UseDataViewListQueryOptions<TListRow>) {
+   return useQuery({
+     queryKey: dataViewKeys.list(entity, scope, listParams),
+-    queryFn: () => listFetcher(listParams),
++    queryFn: ({ signal }) => listFetcher(listParams, { signal }),
+     initialData,
+     initialDataUpdatedAt,
+     placeholderData: (previous) => previous,
+@@ -45,7 +49,7 @@ export function useDataViewListQuery<TListRow>({
+ type UseDataViewDetailQueryOptions<TDetail> = {
+   entity: string;
+   scope: DataViewScope;
+-  detailFetcher: (id: string) => Promise<TDetail | null>;
++  detailFetcher: (id: string, context: DataViewQueryContext) => Promise<TDetail | null>;
+   selectedId: string | null;
+ };
+ 
+@@ -59,7 +63,7 @@ export function useDataViewDetailQuery<TDetail>({
+     queryKey: selectedId
+       ? dataViewKeys.detail(entity, scope, selectedId)
+       : [...dataViewKeys.details(entity, scope), "none"],
+-    queryFn: () => detailFetcher(selectedId!),
++    queryFn: ({ signal }) => detailFetcher(selectedId!, { signal }),
+     enabled: !!selectedId,
+     staleTime: DATA_VIEW_DETAIL_STALE_TIME,
+     refetchOnWindowFocus: false,
+@@ -69,7 +73,10 @@ export function useDataViewDetailQuery<TDetail>({
+ type UseDataViewSidebarInfiniteQueryOptions<TListRow> = {
+   entity: string;
+   scope: DataViewScope;
+-  listFetcher: (params: DataViewListParams) => Promise<PaginatedResult<TListRow>>;
++  listFetcher: (
++    params: DataViewListParams,
++    context: DataViewQueryContext
++  ) => Promise<PaginatedResult<TListRow>>;
+   listParams: DataViewListParams;
+   initialPageData?: PaginatedResult<TListRow>;
+   initialDataUpdatedAt?: number;
+@@ -96,11 +103,14 @@ export function useDataViewSidebarInfiniteQuery<TListRow>({
+     number
+   >({
+     queryKey: dataViewKeys.sidebar(entity, scope, listParams),
+-    queryFn: ({ pageParam }) =>
+-      listFetcher({
+-        ...listParams,
+-        page: pageParam,
+-      }),
++    queryFn: ({ pageParam, signal }) =>
++      listFetcher(
++        {
++          ...listParams,
++          page: pageParam,
++        },
++        { signal }
++      ),
+     enabled,
+     initialPageParam: listParams.page,
+     getNextPageParam: (lastPage) => {
+diff --git a/apps/web/src/lib/data-view/types.ts b/apps/web/src/lib/data-view/types.ts
+index c823ffea..8c5c003e 100644
+--- a/apps/web/src/lib/data-view/types.ts
++++ b/apps/web/src/lib/data-view/types.ts
+@@ -63,6 +63,10 @@ export type DataViewListParams = {
+   filters: Record<string, string | string[] | boolean | null>;
+ };
+ 
++export type DataViewQueryContext = Readonly<{
++  signal: AbortSignal;
++}>;
++
+ export type DataViewScopePrimitive = string | number | boolean | null;
+ 
+ export type DataViewScope = Readonly<Record<string, DataViewScopePrimitive>>;
+@@ -85,8 +89,11 @@ export type DataViewProps<TListRow, TDetail> = {
+   initialDataUpdatedAt?: number;
+   /** @deprecated Canonical cache keys are derived from `entity`; retained for consumer compatibility. */
+   queryKey: string[];
+-  listFetcher: (params: DataViewListParams) => Promise<PaginatedResult<TListRow>>;
+-  detailFetcher: (id: string) => Promise<TDetail | null>;
++  listFetcher: (
++    params: DataViewListParams,
++    context: DataViewQueryContext
++  ) => Promise<PaginatedResult<TListRow>>;
++  detailFetcher: (id: string, context: DataViewQueryContext) => Promise<TDetail | null>;
+   resolveSelectedPage?: (args: {
+     selectedId: string;
+     listParams: DataViewListParams;

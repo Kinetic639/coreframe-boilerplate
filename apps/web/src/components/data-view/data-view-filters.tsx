@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useId, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { ChevronDown, Filter, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -90,14 +90,19 @@ function FilterField({
   onChange: (updates: Record<string, string | string[] | boolean | null>) => void;
   t: ReturnType<typeof useTranslations>;
 }) {
+  const fieldId = useId();
+  const labelId = `${fieldId}-label`;
   const value =
     def.type !== "range" && def.type !== "date-range" ? (filters[def.key] ?? null) : null;
 
   if (def.type === "text") {
     return (
       <div className="space-y-1">
-        <label className="text-xs font-medium text-muted-foreground">{def.label}</label>
+        <label htmlFor={fieldId} className="text-xs font-medium text-muted-foreground">
+          {def.label}
+        </label>
         <Input
+          id={fieldId}
           value={typeof value === "string" ? value : ""}
           onChange={(e) => onChange({ [def.key]: e.target.value || null })}
           placeholder={t("filters.textPlaceholder", { label: def.label.toLowerCase() })}
@@ -111,12 +116,14 @@ function FilterField({
     const strVal = typeof value === "string" ? value : "";
     return (
       <div className="space-y-1">
-        <label className="text-xs font-medium text-muted-foreground">{def.label}</label>
+        <label htmlFor={fieldId} className="text-xs font-medium text-muted-foreground">
+          {def.label}
+        </label>
         <Select
           value={strVal}
           onValueChange={(v) => onChange({ [def.key]: v === "__all__" ? null : v })}
         >
-          <SelectTrigger className="h-8">
+          <SelectTrigger id={fieldId} className="h-8">
             <SelectValue placeholder={t("filters.allForLabel", { label: def.label })} />
           </SelectTrigger>
           <SelectContent>
@@ -136,13 +143,17 @@ function FilterField({
     const arrVal = Array.isArray(value) ? value : [];
     return (
       <div className="space-y-1">
-        <label className="text-xs font-medium text-muted-foreground">{def.label}</label>
-        <MultiSelect
-          options={def.options}
-          value={arrVal}
-          onChange={(next) => onChange({ [def.key]: next.length > 0 ? next : null })}
-          maxHeight={160}
-        />
+        <p id={labelId} className="text-xs font-medium text-muted-foreground">
+          {def.label}
+        </p>
+        <div role="group" aria-labelledby={labelId}>
+          <MultiSelect
+            options={def.options}
+            value={arrVal}
+            onChange={(next) => onChange({ [def.key]: next.length > 0 ? next : null })}
+            maxHeight={160}
+          />
+        </div>
       </div>
     );
   }
@@ -151,8 +162,10 @@ function FilterField({
     const boolVal = typeof value === "boolean" ? value : null;
     return (
       <div className="space-y-1">
-        <label className="text-xs font-medium text-muted-foreground">{def.label}</label>
-        <div className="flex gap-2">
+        <p id={labelId} className="text-xs font-medium text-muted-foreground">
+          {def.label}
+        </p>
+        <div className="flex gap-2" role="group" aria-labelledby={labelId}>
           {(
             [
               { label: t("filters.any"), v: null },
@@ -180,9 +193,12 @@ function FilterField({
     const maxVal = typeof filters[def.maxKey] === "string" ? (filters[def.maxKey] as string) : "";
     return (
       <div className="space-y-1">
-        <label className="text-xs font-medium text-muted-foreground">{def.label}</label>
-        <div className="flex gap-2">
+        <p id={labelId} className="text-xs font-medium text-muted-foreground">
+          {def.label}
+        </p>
+        <div className="flex gap-2" role="group" aria-labelledby={labelId}>
           <Input
+            aria-label={`${def.label} ${t("filters.min")}`}
             value={minVal}
             onChange={(e) =>
               onChange({ [def.minKey]: e.target.value || null, [def.maxKey]: maxVal || null })
@@ -192,6 +208,7 @@ function FilterField({
             type="number"
           />
           <Input
+            aria-label={`${def.label} ${t("filters.max")}`}
             value={maxVal}
             onChange={(e) =>
               onChange({ [def.minKey]: minVal || null, [def.maxKey]: e.target.value || null })
@@ -211,11 +228,14 @@ function FilterField({
     const toVal = typeof filters[def.toKey] === "string" ? (filters[def.toKey] as string) : "";
     return (
       <div className="space-y-1.5">
-        <label className="text-xs font-medium text-muted-foreground">{def.label}</label>
-        <div className="flex gap-2">
+        <p id={labelId} className="text-xs font-medium text-muted-foreground">
+          {def.label}
+        </p>
+        <div className="flex gap-2" role="group" aria-labelledby={labelId}>
           <div className="flex-1 space-y-0.5">
             <p className="text-[10px] text-muted-foreground">{t("filters.from")}</p>
             <Input
+              aria-label={`${def.label} ${t("filters.from")}`}
               value={fromVal}
               onChange={(e) =>
                 onChange({ [def.fromKey]: e.target.value || null, [def.toKey]: toVal || null })
@@ -227,6 +247,7 @@ function FilterField({
           <div className="flex-1 space-y-0.5">
             <p className="text-[10px] text-muted-foreground">{t("filters.to")}</p>
             <Input
+              aria-label={`${def.label} ${t("filters.to")}`}
               value={toVal}
               onChange={(e) =>
                 onChange({ [def.fromKey]: fromVal || null, [def.toKey]: e.target.value || null })
@@ -266,41 +287,33 @@ function DataViewFilterPill({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant={isActive ? "secondary" : "ghost"}
-          size="sm"
-          className={cn("h-8 text-xs gap-1 max-w-48", isActive && "pr-1")}
-          aria-label={t("filters.filterByAria", { label: def.label })}
-          data-testid={`filter-pill-${def.key}`}
-        >
-          <span className="truncate font-medium">{def.label}</span>
-          {isActive && <span className="truncate text-muted-foreground">: {label}</span>}
-          {isActive ? (
-            <span
-              role="button"
-              tabIndex={0}
-              className="ml-0.5 shrink-0 rounded-full hover:bg-muted-foreground/20 p-0.5"
-              onClick={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                onClear(def);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.stopPropagation();
-                  onClear(def);
-                }
-              }}
-              aria-label={t("filters.clearSingleAria", { label: def.label })}
-            >
-              <X aria-hidden="true" className="h-3 w-3" />
-            </span>
-          ) : (
-            <ChevronDown aria-hidden="true" className="h-3 w-3 text-muted-foreground shrink-0" />
-          )}
-        </Button>
-      </PopoverTrigger>
+      <div className="flex shrink-0 items-center">
+        <PopoverTrigger asChild>
+          <Button
+            variant={isActive ? "secondary" : "ghost"}
+            size="sm"
+            className={cn("h-8 max-w-48 gap-1 text-xs", isActive && "rounded-r-none pr-2")}
+            aria-label={t("filters.filterByAria", { label: def.label })}
+            data-testid={`filter-pill-${def.key}`}
+          >
+            <span className="truncate font-medium">{def.label}</span>
+            {isActive && <span className="truncate text-muted-foreground">: {label}</span>}
+            <ChevronDown aria-hidden="true" className="h-3 w-3 shrink-0 text-muted-foreground" />
+          </Button>
+        </PopoverTrigger>
+        {isActive ? (
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon"
+            className="h-8 w-8 rounded-l-none border-l border-border/50"
+            onClick={() => onClear(def)}
+            aria-label={t("filters.clearSingleAria", { label: def.label })}
+          >
+            <X aria-hidden="true" className="h-3 w-3" />
+          </Button>
+        ) : null}
+      </div>
       <PopoverContent
         align="start"
         className={cn(
