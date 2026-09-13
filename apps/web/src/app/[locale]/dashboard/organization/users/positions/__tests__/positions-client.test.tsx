@@ -76,7 +76,11 @@ function makeInitialData(positions: OrgPosition[] = []): PaginatedResult<OrgPosi
 
 function renderClient(positions: OrgPosition[] = []) {
   return render(
-    <PositionsClient initialData={makeInitialData(positions)} allPositions={positions} />,
+    <PositionsClient
+      orgId="org-1"
+      initialData={makeInitialData(positions)}
+      allPositions={positions}
+    />,
     { wrapper: createWrapper() }
   );
 }

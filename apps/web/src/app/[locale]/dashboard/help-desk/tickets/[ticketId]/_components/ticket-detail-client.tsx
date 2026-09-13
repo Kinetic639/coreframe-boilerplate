@@ -77,8 +77,14 @@ export function TicketDetailClient({
     initialTicket.org_id,
     initialTicket
   );
-  const closeTicketMutation = useCloseTicketMutation(initialTicket.ticket_number);
-  const acceptTicketMutation = useAcceptTicketMutation(initialTicket.ticket_number);
+  const closeTicketMutation = useCloseTicketMutation(
+    initialTicket.ticket_number,
+    initialTicket.org_id
+  );
+  const acceptTicketMutation = useAcceptTicketMutation(
+    initialTicket.ticket_number,
+    initialTicket.org_id
+  );
 
   const canAccept =
     ticket.requires_acceptance &&

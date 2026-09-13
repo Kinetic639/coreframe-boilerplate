@@ -63,6 +63,10 @@ export type DataViewListParams = {
   filters: Record<string, string | string[] | boolean | null>;
 };
 
+export type DataViewScopePrimitive = string | number | boolean | null;
+
+export type DataViewScope = Readonly<Record<string, DataViewScopePrimitive>>;
+
 export type DataViewColumnDef<TRow> = {
   key: string;
   header: string;
@@ -74,9 +78,12 @@ export type DataViewColumnDef<TRow> = {
 
 export type DataViewProps<TListRow, TDetail> = {
   entity: string;
+  scope: DataViewScope;
   columns: DataViewColumnDef<TListRow>[];
   filters?: DataViewFilterDef[];
   initialData: PaginatedResult<TListRow>;
+  initialDataUpdatedAt?: number;
+  /** @deprecated Canonical cache keys are derived from `entity`; retained for consumer compatibility. */
   queryKey: string[];
   listFetcher: (params: DataViewListParams) => Promise<PaginatedResult<TListRow>>;
   detailFetcher: (id: string) => Promise<TDetail | null>;

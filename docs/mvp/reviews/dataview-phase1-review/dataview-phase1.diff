@@ -1,0 +1,4037 @@
+diff --git a/apps/web/messages/en.json b/apps/web/messages/en.json
+index f01786072937bbf869cff986e75ebfb51877bf99..8d8f028ab8f9fbf5ff2b63afac93dfc69c468d38 100644
+--- a/apps/web/messages/en.json
++++ b/apps/web/messages/en.json
+@@ -258,7 +258,12 @@
+     "detail": {
+       "closeAria": "Close detail",
+       "loadingAria": "Loading details",
+-      "empty": "No item selected"
++      "refreshing": "Refreshing details",
++      "empty": "No item selected",
++      "error": "Unable to load details.",
++      "refreshError": "The latest details could not be loaded. Showing the previous version.",
++      "notFound": "This item no longer exists.",
++      "selectedOutsideResults": "Selected item is outside current results."
+     },
+     "toolbar": {
+       "searchPlaceholder": "Search...",
+@@ -315,7 +320,9 @@
+       "loadingMoreAria": "Loading more items"
+     },
+     "table": {
+-      "noResults": "No results"
++      "noResults": "No results",
++      "error": "Unable to load results.",
++      "updating": "Updating results"
+     },
+     "mobile": {
+       "loadingAria": "Loading rows"
+diff --git a/apps/web/messages/pl.json b/apps/web/messages/pl.json
+index c81b7ac0282cc4c0c6139fec0aeed7e527395adc..0594ce368b2df1cea6bc8a31467d505a065f1ae3 100644
+--- a/apps/web/messages/pl.json
++++ b/apps/web/messages/pl.json
+@@ -258,7 +258,12 @@
+     "detail": {
+       "closeAria": "Zamknij szczegóły",
+       "loadingAria": "Ładowanie szczegółów",
+-      "empty": "Nie wybrano elementu"
++      "refreshing": "Odświeżanie szczegółów",
++      "empty": "Nie wybrano elementu",
++      "error": "Nie udało się załadować szczegółów.",
++      "refreshError": "Nie udało się pobrać najnowszych szczegółów. Wyświetlana jest poprzednia wersja.",
++      "notFound": "Ten element już nie istnieje.",
++      "selectedOutsideResults": "Wybrany element jest poza bieżącymi wynikami."
+     },
+     "toolbar": {
+       "searchPlaceholder": "Szukaj...",
+@@ -315,7 +320,9 @@
+       "loadingMoreAria": "Ładowanie kolejnych elementów"
+     },
+     "table": {
+-      "noResults": "Brak wyników"
++      "noResults": "Brak wyników",
++      "error": "Nie udało się załadować wyników.",
++      "updating": "Aktualizowanie wyników"
+     },
+     "mobile": {
+       "loadingAria": "Ładowanie wierszy"
+diff --git a/apps/web/src/app/[locale]/dashboard/crm/contacts/_components/crm-contacts-client.tsx b/apps/web/src/app/[locale]/dashboard/crm/contacts/_components/crm-contacts-client.tsx
+index 89d01513e2d49f657fb5f41b56d8ce911339ba09..45565e18b573656a372db0cc0da5aa2dc876f9a3 100644
+--- a/apps/web/src/app/[locale]/dashboard/crm/contacts/_components/crm-contacts-client.tsx
++++ b/apps/web/src/app/[locale]/dashboard/crm/contacts/_components/crm-contacts-client.tsx
+@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
+ import { Label } from "@/components/ui/label";
+ import { Textarea } from "@/components/ui/textarea";
+ import { DataView } from "@/components/data-view/data-view";
++import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
+ import type {
+   DataViewColumnDef,
+   DataViewFilterDef,
+@@ -138,6 +139,7 @@ export function CrmContactsClient({
+       <div className="min-h-0 flex-1">
+         <DataView<CrmContactListRow, CrmContactDetail>
+           entity="crm-contacts"
++          scope={dataViewScope.organization(orgId)}
+           columns={columns}
+           filters={filters}
+           initialData={initialData}
+diff --git a/apps/web/src/app/[locale]/dashboard/crm/parties/_components/crm-parties-client.tsx b/apps/web/src/app/[locale]/dashboard/crm/parties/_components/crm-parties-client.tsx
+index 3fbfe90efef2591e43e862e61d9a656c543b20aa..9b13e766c2e43a2962cfd03fb02238b73501934f 100644
+--- a/apps/web/src/app/[locale]/dashboard/crm/parties/_components/crm-parties-client.tsx
++++ b/apps/web/src/app/[locale]/dashboard/crm/parties/_components/crm-parties-client.tsx
+@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
+ import { Label } from "@/components/ui/label";
+ import { Textarea } from "@/components/ui/textarea";
+ import { DataView } from "@/components/data-view/data-view";
++import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
+ import type {
+   DataViewColumnDef,
+   DataViewFilterDef,
+@@ -155,6 +156,7 @@ export function CrmPartiesClient({
+       <div className="min-h-0 flex-1">
+         <DataView<CrmPartyListRow, CrmPartyDetail>
+           entity="crm-parties"
++          scope={dataViewScope.organization(orgId)}
+           columns={columns}
+           filters={filters}
+           initialData={initialData}
+diff --git a/apps/web/src/app/[locale]/dashboard/data-view-demo/data-view-demo-client.tsx b/apps/web/src/app/[locale]/dashboard/data-view-demo/data-view-demo-client.tsx
+index 056bda16fc7c2ff31bc9fe183708e8ec308fc63b..32f45a92c5586c4d2b0ce05ec33a489411f98e60 100644
+--- a/apps/web/src/app/[locale]/dashboard/data-view-demo/data-view-demo-client.tsx
++++ b/apps/web/src/app/[locale]/dashboard/data-view-demo/data-view-demo-client.tsx
+@@ -3,6 +3,7 @@
+ import React from "react";
+ import { useLocale, useTranslations } from "next-intl";
+ import { DataView } from "@/components/data-view/data-view";
++import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
+ import { Badge } from "@/components/ui/badge";
+ import { cn } from "@/utils";
+ import type {
+@@ -243,6 +244,7 @@ export function DataViewDemoClient({ initialData, resolveSelectedPage }: DataVie
+   return (
+     <DataView<Product, ProductDetail>
+       entity="demo-products"
++      scope={dataViewScope.global()}
+       columns={columns}
+       filters={filters}
+       initialData={initialData}
+diff --git a/apps/web/src/app/[locale]/dashboard/help-desk/ticket-types/_components/ticket-types-client.tsx b/apps/web/src/app/[locale]/dashboard/help-desk/ticket-types/_components/ticket-types-client.tsx
+index 1cd9860d6c182e8b479f13394947d1f11a84c91e..b5846c97914feeaa09b1ecb41886b14a100064e2 100644
+--- a/apps/web/src/app/[locale]/dashboard/help-desk/ticket-types/_components/ticket-types-client.tsx
++++ b/apps/web/src/app/[locale]/dashboard/help-desk/ticket-types/_components/ticket-types-client.tsx
+@@ -18,6 +18,7 @@ import {
+   AlertDialogTitle,
+ } from "@/components/ui/alert-dialog";
+ import { DataView } from "@/components/data-view/data-view";
++import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
+ import type {
+   DataViewColumnDef,
+   DataViewListParams,
+@@ -211,6 +212,7 @@ export function TicketTypesClient({
+       <div className="min-h-0 flex-1">
+         <DataView<HelpdeskTicketTypeWithDetails, HelpdeskTicketTypeWithDetails>
+           entity="helpdesk-ticket-types"
++          scope={dataViewScope.organization(orgId)}
+           columns={columns}
+           filters={[]}
+           initialData={initialData}
+diff --git a/apps/web/src/app/[locale]/dashboard/help-desk/tickets/[ticketId]/_components/ticket-detail-client.tsx b/apps/web/src/app/[locale]/dashboard/help-desk/tickets/[ticketId]/_components/ticket-detail-client.tsx
+index 2505ef63cdb1792dcd8a1ff134d5ed99b6b98eb5..2ad250678dfd96755b2dea2d610dd52e8b39b9d4 100644
+--- a/apps/web/src/app/[locale]/dashboard/help-desk/tickets/[ticketId]/_components/ticket-detail-client.tsx
++++ b/apps/web/src/app/[locale]/dashboard/help-desk/tickets/[ticketId]/_components/ticket-detail-client.tsx
+@@ -77,8 +77,14 @@ export function TicketDetailClient({
+     initialTicket.org_id,
+     initialTicket
+   );
+-  const closeTicketMutation = useCloseTicketMutation(initialTicket.ticket_number);
+-  const acceptTicketMutation = useAcceptTicketMutation(initialTicket.ticket_number);
++  const closeTicketMutation = useCloseTicketMutation(
++    initialTicket.ticket_number,
++    initialTicket.org_id
++  );
++  const acceptTicketMutation = useAcceptTicketMutation(
++    initialTicket.ticket_number,
++    initialTicket.org_id
++  );
+ 
+   const canAccept =
+     ticket.requires_acceptance &&
+diff --git a/apps/web/src/app/[locale]/dashboard/help-desk/tickets/_components/tickets-client.tsx b/apps/web/src/app/[locale]/dashboard/help-desk/tickets/_components/tickets-client.tsx
+index dca087a38f4be0b7746ef5a89842a7485a1a0b58..0c41277d65e38c2f8ef51b8e15499566850218bb 100644
+--- a/apps/web/src/app/[locale]/dashboard/help-desk/tickets/_components/tickets-client.tsx
++++ b/apps/web/src/app/[locale]/dashboard/help-desk/tickets/_components/tickets-client.tsx
+@@ -18,6 +18,7 @@ import {
+ import { Button } from "@/components/ui/button";
+ import { Separator } from "@/components/ui/separator";
+ import { DataView } from "@/components/data-view/data-view";
++import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
+ import type {
+   DataViewColumnDef,
+   DataViewFilterDef,
+@@ -55,6 +56,7 @@ const HELPDESK_TICKETS_QUERY_KEY = ["helpdesk-tickets-dataview"];
+ 
+ interface TicketsClientProps {
+   initialData: PaginatedResult<HelpdeskTicketListRow>;
++  initialDataUpdatedAt?: number;
+   ticketTypes: HelpdeskTicketType[];
+   members: Array<{ user_id: string; name: string | null; email: string | null }>;
+   branches: Array<{ id: string; name: string }>;
+@@ -106,6 +108,12 @@ function TicketDetailPanel({
+     });
+   }, [detail.id]);
+ 
++  useEffect(() => {
++    setActivity(detail.activity);
++    setAcceptedAt(detail.accepted_at);
++    setAcceptedByName(detail.accepted_by_name);
++  }, [detail.accepted_at, detail.accepted_by_name, detail.activity]);
++
+   const handleRevokeQr = async () => {
+     if (!qrAssignment) return;
+     setIsRevokingQr(true);
+@@ -124,7 +132,7 @@ function TicketDetailPanel({
+     }
+   };
+ 
+-  const acceptMutation = useAcceptTicketMutation(detail.ticket_number);
++  const acceptMutation = useAcceptTicketMutation(detail.ticket_number, detail.org_id);
+   const canComment = detail.status !== "closed" && detail.status !== "cancelled";
+   const canAccept =
+     detail.requires_acceptance &&
+@@ -323,24 +331,7 @@ function TicketDetailPanel({
+                   size="sm"
+                   className="w-full"
+                   disabled={acceptMutation.isPending}
+-                  onClick={() =>
+-                    acceptMutation.mutate(
+-                      { ticket_id: detail.id },
+-                      {
+-                        onSuccess: async () => {
+-                          const fresh = await getTicketDetailAction(
+-                            detail.ticket_number,
+-                            detail.org_id
+-                          );
+-                          if (fresh.success && fresh.data) {
+-                            setAcceptedAt(fresh.data.accepted_at);
+-                            setAcceptedByName(fresh.data.accepted_by_name);
+-                            setActivity(fresh.data.activity);
+-                          }
+-                        },
+-                      }
+-                    )
+-                  }
++                  onClick={() => acceptMutation.mutate({ ticket_id: detail.id })}
+                 >
+                   {acceptMutation.isPending ? (
+                     <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+@@ -474,6 +465,7 @@ function AssigneeAvatars({ assignees }: { assignees: HelpdeskTicketListRow["assi
+ 
+ export function TicketsClient({
+   initialData,
++  initialDataUpdatedAt,
+   ticketTypes,
+   members,
+   branches,
+@@ -499,7 +491,7 @@ export function TicketsClient({
+   const detailFetcher = useCallback(
+     async (ticketNumber: string): Promise<HelpdeskTicketDetail | null> => {
+       const result = await getTicketDetailAction(ticketNumber, orgId);
+-      if (!result.success) return null;
++      if (!result.success) throw new Error((result as { success: false; error: string }).error);
+       return result.data;
+     },
+     [orgId]
+@@ -800,9 +792,11 @@ export function TicketsClient({
+       <div className="min-h-0 flex-1">
+         <DataView<HelpdeskTicketListRow, HelpdeskTicketDetail>
+           entity="helpdesk-tickets"
++          scope={dataViewScope.organization(orgId)}
+           columns={columns}
+           filters={filters}
+           initialData={initialData}
++          initialDataUpdatedAt={initialDataUpdatedAt}
+           queryKey={HELPDESK_TICKETS_QUERY_KEY}
+           listFetcher={listFetcher}
+           detailFetcher={detailFetcher}
+diff --git a/apps/web/src/app/[locale]/dashboard/help-desk/tickets/page.tsx b/apps/web/src/app/[locale]/dashboard/help-desk/tickets/page.tsx
+index 50192c655eb6047fdfc34d5dd20663cd94d36533..6e9fba4279133323d49eb78ce662ad02c61c5cb6 100644
+--- a/apps/web/src/app/[locale]/dashboard/help-desk/tickets/page.tsx
++++ b/apps/web/src/app/[locale]/dashboard/help-desk/tickets/page.tsx
+@@ -1,4 +1,5 @@
+ import { redirect } from "@/i18n/navigation";
++import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
+ import { getLocale } from "next-intl/server";
+ import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
+ import { checkPermission } from "@/lib/utils/permissions";
+@@ -12,6 +13,13 @@ import { HelpdeskTicketsService } from "@/server/services/helpdesk-tickets.servi
+ import { HelpdeskTicketTypesService } from "@/server/services/helpdesk-ticket-types.service";
+ import { OrgMembersService } from "@/server/services/organization.service";
+ import { parseDataViewSearchParams } from "@/components/data-view/data-view-search-params";
++import {
++  createDataViewServerQueryClient,
++  prefetchDataViewDetail,
++  prefetchDataViewList,
++} from "@/components/data-view/data-view-ssr";
++import { dataViewKeys } from "@/components/data-view/data-view-query-keys";
++import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
+ import { TicketsClient } from "./_components/tickets-client";
+ 
+ type PageProps = {
+@@ -37,17 +45,64 @@ export default async function HelpDeskTicketsPage({ searchParams }: PageProps =
+   const params = parseDataViewSearchParams(searchParams ? await searchParams : {});
+   const supabase = await createClient();
+   const orgId = context.app.activeOrgId;
++  const queryClient = createDataViewServerQueryClient();
++  const entity = "helpdesk-tickets";
++  const scope = dataViewScope.organization(orgId);
+ 
+-  const [ticketsResult, ticketTypesResult, membersResult, settingsResult] = await Promise.all([
+-    HelpdeskTicketsService.listForDataView(supabase, orgId, params),
++  const prefetches: Promise<unknown>[] = [
++    prefetchDataViewList({
++      queryClient,
++      entity,
++      scope,
++      params,
++      fetcher: async () => {
++        const result = await HelpdeskTicketsService.listForDataView(supabase, orgId, params);
++        if (!result.success) throw new Error((result as { success: false; error: string }).error);
++        return result.data;
++      },
++    }),
+     HelpdeskTicketTypesService.list(supabase, orgId, false),
+     OrgMembersService.listMembers(supabase, orgId),
+     HelpdeskTicketTypesService.getSettings(supabase, orgId),
+-  ]);
++  ];
++
++  if (params.selected) {
++    prefetches.push(
++      prefetchDataViewDetail({
++        queryClient,
++        entity,
++        scope,
++        selectedId: params.selected,
++        fetcher: async () => {
++          const result = await HelpdeskTicketsService.getDetail(supabase, orgId, params.selected!);
++          if (!result.success) throw new Error((result as { success: false; error: string }).error);
++          return result.data;
++        },
++      })
++    );
++  }
++
++  const results = await Promise.all(prefetches);
++  const ticketTypesResult = results[1] as Awaited<
++    ReturnType<typeof HelpdeskTicketTypesService.list>
++  >;
++  const membersResult = results[2] as Awaited<ReturnType<typeof OrgMembersService.listMembers>>;
++  const settingsResult = results[3] as Awaited<
++    ReturnType<typeof HelpdeskTicketTypesService.getSettings>
++  >;
+ 
+-  const initialData = ticketsResult.success
+-    ? ticketsResult.data
+-    : { rows: [], totalCount: 0, page: params.page, pageSize: params.pageSize };
++  const initialData = queryClient.getQueryData<
++    Awaited<ReturnType<typeof HelpdeskTicketsService.listForDataView>> extends { data: infer T }
++      ? T
++      : never
++  >(dataViewKeys.list(entity, scope, params)) ?? {
++    rows: [],
++    totalCount: 0,
++    page: params.page,
++    pageSize: params.pageSize,
++  };
++  const initialDataUpdatedAt =
++    queryClient.getQueryState(dataViewKeys.list(entity, scope, params))?.dataUpdatedAt ?? 0;
+ 
+   const ticketTypes = ticketTypesResult.success ? ticketTypesResult.data : [];
+ 
+@@ -62,17 +117,20 @@ export default async function HelpDeskTicketsPage({ searchParams }: PageProps =
+   const settings = settingsResult.success ? settingsResult.data : null;
+ 
+   return (
+-    <TicketsClient
+-      initialData={initialData}
+-      ticketTypes={ticketTypes}
+-      members={members}
+-      branches={context.app.availableBranches.map((b) => ({ id: b.id, name: b.name }))}
+-      canCreate={checkPermission(context.user.permissionSnapshot, HELPDESK_TICKETS_CREATE)}
+-      canManage={checkPermission(context.user.permissionSnapshot, HELPDESK_TICKETS_MANAGE)}
+-      currentUserId={context.user.user?.id ?? ""}
+-      orgId={orgId}
+-      statusConfigs={settings?.status_configs ?? null}
+-      priorityConfigs={settings?.priority_configs ?? null}
+-    />
++    <HydrationBoundary state={dehydrate(queryClient)}>
++      <TicketsClient
++        initialData={initialData}
++        initialDataUpdatedAt={initialDataUpdatedAt}
++        ticketTypes={ticketTypes}
++        members={members}
++        branches={context.app.availableBranches.map((b) => ({ id: b.id, name: b.name }))}
++        canCreate={checkPermission(context.user.permissionSnapshot, HELPDESK_TICKETS_CREATE)}
++        canManage={checkPermission(context.user.permissionSnapshot, HELPDESK_TICKETS_MANAGE)}
++        currentUserId={context.user.user?.id ?? ""}
++        orgId={orgId}
++        statusConfigs={settings?.status_configs ?? null}
++        priorityConfigs={settings?.priority_configs ?? null}
++      />
++    </HydrationBoundary>
+   );
+ }
+diff --git a/apps/web/src/app/[locale]/dashboard/organization/branches/__tests__/branches-client.test.tsx b/apps/web/src/app/[locale]/dashboard/organization/branches/__tests__/branches-client.test.tsx
+index 5a36853e8715820c735e8f74d11d494d0fb176ec..02de4db4f22ffec7a6c77cc3e3ab856709be9422 100644
+--- a/apps/web/src/app/[locale]/dashboard/organization/branches/__tests__/branches-client.test.tsx
++++ b/apps/web/src/app/[locale]/dashboard/organization/branches/__tests__/branches-client.test.tsx
+@@ -87,7 +87,7 @@ function makeInitialData(branches: OrgBranch[] = []): PaginatedResult<OrgBranch>
+ }
+ 
+ function renderClient(branches: OrgBranch[] = []) {
+-  return render(<BranchesClient initialData={makeInitialData(branches)} allBranches={branches} />, {
++  return render(<BranchesClient orgId="org-1" initialData={makeInitialData(branches)} allBranches={branches} />, {
+     wrapper: createWrapper(),
+   });
+ }
+diff --git a/apps/web/src/app/[locale]/dashboard/organization/branches/_components/branches-client.tsx b/apps/web/src/app/[locale]/dashboard/organization/branches/_components/branches-client.tsx
+index d528aa44c2897357993d2e599e73aeaedb824be4..b4da3df50fba346cc1ea5bb4080cae9cc06ce21e 100644
+--- a/apps/web/src/app/[locale]/dashboard/organization/branches/_components/branches-client.tsx
++++ b/apps/web/src/app/[locale]/dashboard/organization/branches/_components/branches-client.tsx
+@@ -25,6 +25,7 @@ import {
+ } from "@/hooks/queries/organization";
+ import type { OrgBranch } from "@/server/services/organization.service";
+ import { DataView } from "@/components/data-view/data-view";
++import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
+ import type {
+   DataViewColumnDef,
+   DataViewFilterDef,
+@@ -37,6 +38,7 @@ import { filterSortBranches, paginateBranches } from "../_utils/branches-data-vi
+ const BRANCHES_DV_QUERY_KEY = ["org-branches-dataview"];
+ 
+ interface BranchesClientProps {
++  orgId: string;
+   initialData: PaginatedResult<OrgBranch>;
+   allBranches: OrgBranch[];
+ }
+@@ -44,6 +46,7 @@ interface BranchesClientProps {
+ type DialogMode = "create" | "edit" | null;
+ 
+ export function BranchesClient({
++  orgId,
+   initialData,
+   allBranches: initialAllBranches,
+ }: BranchesClientProps) {
+@@ -342,6 +345,7 @@ export function BranchesClient({
+       <div className="flex-1 overflow-hidden">
+         <DataView<OrgBranch, OrgBranch>
+           entity="org-branches"
++          scope={dataViewScope.organization(orgId)}
+           columns={columns}
+           filters={filters}
+           initialData={initialData}
+diff --git a/apps/web/src/app/[locale]/dashboard/organization/branches/page.tsx b/apps/web/src/app/[locale]/dashboard/organization/branches/page.tsx
+index 4befb29d60df769230cbf07ce886fdab8ae1bf4b..8fbe058b9764561c70b8167809d9281ff1603b3f 100644
+--- a/apps/web/src/app/[locale]/dashboard/organization/branches/page.tsx
++++ b/apps/web/src/app/[locale]/dashboard/organization/branches/page.tsx
+@@ -36,5 +36,11 @@ export default async function BranchesPage({ searchParams }: PageProps) {
+   });
+   const initialData = paginateBranches(filtered, urlState.page, urlState.pageSize);
+ 
+-  return <BranchesClient initialData={initialData} allBranches={allBranches} />;
++  return (
++    <BranchesClient
++      orgId={context.app.activeOrgId}
++      initialData={initialData}
++      allBranches={allBranches}
++    />
++  );
+ }
+diff --git a/apps/web/src/app/[locale]/dashboard/organization/users/invitations/__tests__/invitations-client.test.tsx b/apps/web/src/app/[locale]/dashboard/organization/users/invitations/__tests__/invitations-client.test.tsx
+index f905b455e0d80405cb6e98ee2a3139fc53378a2d..1b37f8101e7f2b3eed6966165f9276a475ec97a5 100644
+--- a/apps/web/src/app/[locale]/dashboard/organization/users/invitations/__tests__/invitations-client.test.tsx
++++ b/apps/web/src/app/[locale]/dashboard/organization/users/invitations/__tests__/invitations-client.test.tsx
+@@ -104,6 +104,7 @@ function makeInitialData(invitations: OrgInvitation[] = []): PaginatedResult<Org
+ function renderClient(invitations: OrgInvitation[] = []) {
+   return render(
+     <InvitationsClient
++      orgId="org-1"
+       initialData={makeInitialData(invitations)}
+       allInvitations={invitations}
+       initialRoles={[]}
+diff --git a/apps/web/src/app/[locale]/dashboard/organization/users/invitations/_components/invitations-client.tsx b/apps/web/src/app/[locale]/dashboard/organization/users/invitations/_components/invitations-client.tsx
+index 061ac51577a760e469b6054f079b0b721f49c3b9..5bb18eafa96e0e0a0631fa9df18a496498ff8042 100644
+--- a/apps/web/src/app/[locale]/dashboard/organization/users/invitations/_components/invitations-client.tsx
++++ b/apps/web/src/app/[locale]/dashboard/organization/users/invitations/_components/invitations-client.tsx
+@@ -31,6 +31,7 @@ import {
+ import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
+ import type { OrgInvitation, OrgRole, OrgBranch } from "@/server/services/organization.service";
+ import { DataView } from "@/components/data-view/data-view";
++import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
+ import type {
+   DataViewColumnDef,
+   DataViewFilterDef,
+@@ -50,6 +51,7 @@ const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "
+ };
+ 
+ interface InvitationsClientProps {
++  orgId: string;
+   initialData: PaginatedResult<OrgInvitation>;
+   allInvitations: OrgInvitation[];
+   initialRoles: OrgRole[];
+@@ -59,6 +61,7 @@ interface InvitationsClientProps {
+ type RoleScopeConfig = { scope: "org" | "branch"; branchIds: string[] };
+ 
+ export function InvitationsClient({
++  orgId,
+   initialData,
+   allInvitations: initialAllInvitations,
+   initialRoles,
+@@ -408,6 +411,7 @@ export function InvitationsClient({
+         <div className="flex-1 overflow-hidden">
+           <DataView<OrgInvitation, OrgInvitation>
+             entity="org-invitations"
++            scope={dataViewScope.organization(orgId)}
+             columns={columns}
+             filters={filters}
+             initialData={initialData}
+diff --git a/apps/web/src/app/[locale]/dashboard/organization/users/invitations/page.tsx b/apps/web/src/app/[locale]/dashboard/organization/users/invitations/page.tsx
+index d22ed6cdd214f686c8d78c89e25d65772a4a1f31..78edeb03fcb1af17f984ec0618e1c385d87b0e0b 100644
+--- a/apps/web/src/app/[locale]/dashboard/organization/users/invitations/page.tsx
++++ b/apps/web/src/app/[locale]/dashboard/organization/users/invitations/page.tsx
+@@ -50,6 +50,7 @@ export default async function InvitationsPage({ searchParams }: PageProps) {
+ 
+   return (
+     <InvitationsClient
++      orgId={context.app.activeOrgId}
+       initialData={initialData}
+       allInvitations={allInvitations}
+       initialRoles={rolesResult.success ? rolesResult.data : []}
+diff --git a/apps/web/src/app/[locale]/dashboard/organization/users/members/__tests__/members-client.test.tsx b/apps/web/src/app/[locale]/dashboard/organization/users/members/__tests__/members-client.test.tsx
+index c764b5ee8879bdacbeb9b3f397bba0e9963e5f36..77a0a84f8a07fd2b511bd0ec90748a7156384aaf 100644
+--- a/apps/web/src/app/[locale]/dashboard/organization/users/members/__tests__/members-client.test.tsx
++++ b/apps/web/src/app/[locale]/dashboard/organization/users/members/__tests__/members-client.test.tsx
+@@ -103,6 +103,7 @@ function makeInitialData(members: OrgMember[] = []): PaginatedResult<OrgMember>
+ function renderClient(members: OrgMember[] = [], branches: OrgBranch[] = []) {
+   return render(
+     <MembersClient
++      orgId="org-1"
+       initialData={makeInitialData(members)}
+       allMembers={members}
+       initialPositions={[]}
+diff --git a/apps/web/src/app/[locale]/dashboard/organization/users/members/_components/members-client.tsx b/apps/web/src/app/[locale]/dashboard/organization/users/members/_components/members-client.tsx
+index 8585287d359876e4f58011db4f6a362f01db7672..8d89ec6a9630c110969d030655d410ff3a416eab 100644
+--- a/apps/web/src/app/[locale]/dashboard/organization/users/members/_components/members-client.tsx
++++ b/apps/web/src/app/[locale]/dashboard/organization/users/members/_components/members-client.tsx
+@@ -51,6 +51,7 @@ import type {
+   OrgBranch,
+ } from "@/server/services/organization.service";
+ import { DataView } from "@/components/data-view/data-view";
++import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
+ import type {
+   DataViewColumnDef,
+   DataViewFilterDef,
+@@ -62,6 +63,7 @@ import { filterSortMembers, paginateMembers } from "../_utils/data-view";
+ const MEMBERS_DV_KEY = ["org-members-dataview"];
+ 
+ interface MembersClientProps {
++  orgId: string;
+   initialData: PaginatedResult<OrgMember>;
+   allMembers: OrgMember[];
+   initialPositions: OrgPosition[];
+@@ -73,6 +75,7 @@ interface MembersClientProps {
+ type RoleScopeConfig = { scope: "org" | "branch"; branchIds: string[] };
+ 
+ export function MembersClient({
++  orgId,
+   initialData,
+   allMembers: initialAllMembers,
+   initialPositions,
+@@ -691,6 +694,7 @@ export function MembersClient({
+         <div className="flex-1 overflow-hidden">
+           <DataView<OrgMember, OrgMember>
+             entity="org-members"
++            scope={dataViewScope.organization(orgId)}
+             columns={columns}
+             filters={filters}
+             initialData={initialData}
+diff --git a/apps/web/src/app/[locale]/dashboard/organization/users/members/page.tsx b/apps/web/src/app/[locale]/dashboard/organization/users/members/page.tsx
+index 5d0b7f1efcf5f7e3b2dc80246e8f1f70f2784944..89f126cf2cda5da01f644e8910cc5e02f534db1e 100644
+--- a/apps/web/src/app/[locale]/dashboard/organization/users/members/page.tsx
++++ b/apps/web/src/app/[locale]/dashboard/organization/users/members/page.tsx
+@@ -56,6 +56,7 @@ export default async function MembersPage({ searchParams }: PageProps) {
+ 
+   return (
+     <MembersClient
++      orgId={orgId}
+       initialData={initialData}
+       allMembers={allMembers}
+       initialPositions={positionsResult.success ? positionsResult.data : []}
+diff --git a/apps/web/src/app/[locale]/dashboard/organization/users/positions/__tests__/positions-client.test.tsx b/apps/web/src/app/[locale]/dashboard/organization/users/positions/__tests__/positions-client.test.tsx
+index 4790b1a7c40565905aa5d520abf43b600f248176..02299246166e12c3f9a29bf6965fb2cf97f1e761 100644
+--- a/apps/web/src/app/[locale]/dashboard/organization/users/positions/__tests__/positions-client.test.tsx
++++ b/apps/web/src/app/[locale]/dashboard/organization/users/positions/__tests__/positions-client.test.tsx
+@@ -76,7 +76,7 @@ function makeInitialData(positions: OrgPosition[] = []): PaginatedResult<OrgPosi
+ 
+ function renderClient(positions: OrgPosition[] = []) {
+   return render(
+-    <PositionsClient initialData={makeInitialData(positions)} allPositions={positions} />,
++    <PositionsClient orgId="org-1" initialData={makeInitialData(positions)} allPositions={positions} />,
+     { wrapper: createWrapper() }
+   );
+ }
+diff --git a/apps/web/src/app/[locale]/dashboard/organization/users/positions/_components/positions-client.tsx b/apps/web/src/app/[locale]/dashboard/organization/users/positions/_components/positions-client.tsx
+index 9af9425a6b95b56e8b121532a708d35512877919..08689ad58967a2d0fa555e782da4978f26ee70b5 100644
+--- a/apps/web/src/app/[locale]/dashboard/organization/users/positions/_components/positions-client.tsx
++++ b/apps/web/src/app/[locale]/dashboard/organization/users/positions/_components/positions-client.tsx
+@@ -26,6 +26,7 @@ import {
+ } from "@/hooks/queries/organization";
+ import type { OrgPosition } from "@/server/services/organization.service";
+ import { DataView } from "@/components/data-view/data-view";
++import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
+ import type {
+   DataViewColumnDef,
+   DataViewListParams,
+@@ -36,6 +37,7 @@ import { filterSortPositions, paginatePositions } from "../_utils/data-view";
+ const POSITIONS_DV_KEY = ["org-positions-dataview"];
+ 
+ interface PositionsClientProps {
++  orgId: string;
+   initialData: PaginatedResult<OrgPosition>;
+   allPositions: OrgPosition[];
+ }
+@@ -43,6 +45,7 @@ interface PositionsClientProps {
+ type DialogMode = "create" | "edit" | null;
+ 
+ export function PositionsClient({
++  orgId,
+   initialData,
+   allPositions: initialAllPositions,
+ }: PositionsClientProps) {
+@@ -245,6 +248,7 @@ export function PositionsClient({
+       <div className="flex-1 overflow-hidden">
+         <DataView<OrgPosition, OrgPosition>
+           entity="org-positions"
++          scope={dataViewScope.organization(orgId)}
+           columns={columns}
+           initialData={initialData}
+           queryKey={POSITIONS_DV_KEY}
+diff --git a/apps/web/src/app/[locale]/dashboard/organization/users/positions/page.tsx b/apps/web/src/app/[locale]/dashboard/organization/users/positions/page.tsx
+index fa83ffb757f84180c358813281c9292abc41de59..0317b4ef7cdabf430540269974d18f84ada4da1e 100644
+--- a/apps/web/src/app/[locale]/dashboard/organization/users/positions/page.tsx
++++ b/apps/web/src/app/[locale]/dashboard/organization/users/positions/page.tsx
+@@ -36,5 +36,11 @@ export default async function PositionsPage({ searchParams }: PageProps) {
+   });
+   const initialData = paginatePositions(filtered, urlState.page, urlState.pageSize);
+ 
+-  return <PositionsClient initialData={initialData} allPositions={allPositions} />;
++  return (
++    <PositionsClient
++      orgId={context.app.activeOrgId}
++      initialData={initialData}
++      allPositions={allPositions}
++    />
++  );
+ }
+diff --git a/apps/web/src/app/[locale]/dashboard/organization/users/roles/__tests__/roles-client.test.tsx b/apps/web/src/app/[locale]/dashboard/organization/users/roles/__tests__/roles-client.test.tsx
+index 7dd372d8e8c24f95844b8a9202a0565fdc06592c..7256caf38c369dee1d01ff3290f5e49255f1cbb8 100644
+--- a/apps/web/src/app/[locale]/dashboard/organization/users/roles/__tests__/roles-client.test.tsx
++++ b/apps/web/src/app/[locale]/dashboard/organization/users/roles/__tests__/roles-client.test.tsx
+@@ -75,7 +75,7 @@ function makeInitialData(roles: OrgRole[] = []): PaginatedResult<OrgRole> {
+ }
+ 
+ function renderClient(roles: OrgRole[] = []) {
+-  return render(<RolesClient initialData={makeInitialData(roles)} allRoles={roles} />, {
++  return render(<RolesClient orgId="org-1" initialData={makeInitialData(roles)} allRoles={roles} />, {
+     wrapper: createWrapper(),
+   });
+ }
+diff --git a/apps/web/src/app/[locale]/dashboard/organization/users/roles/_components/roles-client.tsx b/apps/web/src/app/[locale]/dashboard/organization/users/roles/_components/roles-client.tsx
+index 12ec4b06883c5c6123dcd2ee9dee2b9b4863cdd5..306b771c19f96a622aa9d8a167474a94791b1876 100644
+--- a/apps/web/src/app/[locale]/dashboard/organization/users/roles/_components/roles-client.tsx
++++ b/apps/web/src/app/[locale]/dashboard/organization/users/roles/_components/roles-client.tsx
+@@ -49,6 +49,7 @@ import {
+ } from "@/hooks/queries/organization";
+ import type { OrgRole } from "@/server/services/organization.service";
+ import { DataView } from "@/components/data-view/data-view";
++import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
+ import type {
+   DataViewColumnDef,
+   DataViewFilterDef,
+@@ -60,6 +61,7 @@ import { filterSortRoles, paginateRoles } from "../_utils/data-view";
+ const ROLES_DV_KEY = ["org-roles-dataview"];
+ 
+ interface RolesClientProps {
++  orgId: string;
+   initialData: PaginatedResult<OrgRole>;
+   allRoles: OrgRole[];
+ }
+@@ -86,7 +88,7 @@ function ScopeBadge({ scopeType, tBadge }: { scopeType: string; tBadge: (k: stri
+   return null;
+ }
+ 
+-export function RolesClient({ initialData, allRoles: initialAllRoles }: RolesClientProps) {
++export function RolesClient({ orgId, initialData, allRoles: initialAllRoles }: RolesClientProps) {
+   const t = useTranslations("modules.organizationManagement.roles");
+   const router = useRouter();
+   const queryClient = useQueryClient();
+@@ -539,6 +541,7 @@ export function RolesClient({ initialData, allRoles: initialAllRoles }: RolesCli
+         <div className="flex-1 overflow-hidden">
+           <DataView<OrgRole, OrgRole>
+             entity="org-roles"
++            scope={dataViewScope.organization(orgId)}
+             columns={columns}
+             filters={filters}
+             initialData={initialData}
+diff --git a/apps/web/src/app/[locale]/dashboard/organization/users/roles/page.tsx b/apps/web/src/app/[locale]/dashboard/organization/users/roles/page.tsx
+index 0dbf2f92503d2986778e9acb053b0ed2cfbe1976..f59296151c64d7e2674e84ff78e63ca3fbe557f9 100644
+--- a/apps/web/src/app/[locale]/dashboard/organization/users/roles/page.tsx
++++ b/apps/web/src/app/[locale]/dashboard/organization/users/roles/page.tsx
+@@ -39,5 +39,7 @@ export default async function RolesPage({ searchParams }: PageProps) {
+   });
+   const initialData = paginateRoles(filtered, urlState.page, urlState.pageSize);
+ 
+-  return <RolesClient initialData={initialData} allRoles={allRoles} />;
++  return (
++    <RolesClient orgId={context.app.activeOrgId} initialData={initialData} allRoles={allRoles} />
++  );
+ }
+diff --git a/apps/web/src/app/[locale]/dashboard/planning/tasks/_components/tasks-client.tsx b/apps/web/src/app/[locale]/dashboard/planning/tasks/_components/tasks-client.tsx
+index 8f4f464114cbf7852f78dd2c1f8d048402ab656f..ea5bd85c14d06a2f336f2a34de8db9e606144d3a 100644
+--- a/apps/web/src/app/[locale]/dashboard/planning/tasks/_components/tasks-client.tsx
++++ b/apps/web/src/app/[locale]/dashboard/planning/tasks/_components/tasks-client.tsx
+@@ -10,6 +10,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+ import { PageLoader } from "@/components/page-loader";
+ import { DataView } from "@/components/data-view/data-view";
++import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
+ import { DataViewFilters } from "@/components/data-view/data-view-filters";
+ import { DataViewSearchControl } from "@/components/data-view/data-view-search-control";
+ import {
+@@ -325,6 +326,7 @@ export function TasksClient({
+         {viewMode === "list" ? (
+           <DataView<PlanningTaskListRow, PlanningTaskDetail>
+             entity="planning-tasks"
++            scope={dataViewScope.organization(orgId)}
+             columns={columns}
+             filters={filters}
+             initialData={dataViewData}
+@@ -387,6 +389,7 @@ export function TasksClient({
+           />
+         ) : (
+           <TaskKanbanView
++            orgId={orgId}
+             tasks={kanbanTasks}
+             canUpdate={canUpdate}
+             statusLabel={statusLabel}
+@@ -423,6 +426,7 @@ export function TasksClient({
+ }
+ 
+ interface TaskKanbanViewProps {
++  orgId: string;
+   tasks: PlanningTaskListRow[];
+   canUpdate: boolean;
+   canAssign: boolean;
+@@ -439,21 +443,23 @@ interface TaskKanbanViewProps {
+ }
+ 
+ interface TaskKanbanDataViewToolbarProps {
++  orgId: string;
+   filters: DataViewFilterDef[];
+   urlState: DataViewUrlStateHook;
+ }
+ 
+-function TaskKanbanDataViewToolbar({ filters, urlState }: TaskKanbanDataViewToolbarProps) {
++function TaskKanbanDataViewToolbar({ orgId, filters, urlState }: TaskKanbanDataViewToolbarProps) {
+   const staticValue = useMemo(
+     () => ({
+       entity: "planning-tasks",
++      scope: dataViewScope.organization(orgId),
+       queryKey: PLANNING_TASKS_QUERY_KEY,
+       columns: [],
+       filters,
+       getRowId: (row: PlanningTaskListRow) => row.task_number,
+       renderDetail: () => null,
+     }),
+-    [filters]
++    [filters, orgId]
+   );
+ 
+   const urlValue = useMemo(
+@@ -477,6 +483,7 @@ function TaskKanbanDataViewToolbar({ filters, urlState }: TaskKanbanDataViewTool
+ }
+ 
+ function TaskKanbanView({
++  orgId,
+   tasks,
+   canUpdate,
+   canAssign,
+@@ -601,7 +608,7 @@ function TaskKanbanView({
+ 
+   return (
+     <div className="flex h-full min-h-0 flex-col overflow-hidden">
+-      <TaskKanbanDataViewToolbar filters={filters} urlState={urlState} />
++      <TaskKanbanDataViewToolbar orgId={orgId} filters={filters} urlState={urlState} />
+ 
+       <KanbanBoard
+         columns={columns}
+diff --git a/apps/web/src/app/[locale]/dashboard/qr/_components/qr-management-client.tsx b/apps/web/src/app/[locale]/dashboard/qr/_components/qr-management-client.tsx
+index 2c7ca6e75a6e65248c7dc12baaa70a2d3e62ae5e..49eec5b86032d6a7344d7a08e2195b1182ce9e11 100644
+--- a/apps/web/src/app/[locale]/dashboard/qr/_components/qr-management-client.tsx
++++ b/apps/web/src/app/[locale]/dashboard/qr/_components/qr-management-client.tsx
+@@ -28,6 +28,7 @@ import { createQrBatchAction } from "@/app/actions/qr/create-batch";
+ import { revokeQrAction } from "@/app/actions/qr/revoke";
+ import { PRIMARY_FIELD_KEY, TOKEN_FIELD_KEY, SCAN_URL_FIELD_KEY } from "@/lib/qr/label-config";
+ import { DataView } from "@/components/data-view/data-view";
++import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
+ import type {
+   DataViewColumnDef,
+   DataViewFilterDef,
+@@ -140,6 +141,7 @@ function QrDetailPanel({ qr, canRevoke, isRevoking, onRevoke, t }: QrDetailPanel
+ // ---------------------------------------------------------------------------
+ 
+ interface Props {
++  orgId: string;
+   initialData: PaginatedResult<QrCodeWithStatus>;
+   allCodes: QrCodeWithStatus[];
+ }
+@@ -148,7 +150,7 @@ interface Props {
+ // Main component
+ // ---------------------------------------------------------------------------
+ 
+-export function QrManagementClient({ initialData, allCodes: initialAllCodes }: Props) {
++export function QrManagementClient({ orgId, initialData, allCodes: initialAllCodes }: Props) {
+   const t = useTranslations("modules.qr.management");
+   const tDesigner = useTranslations("modules.qr.designer");
+   const { can } = usePermissions();
+@@ -466,6 +468,7 @@ export function QrManagementClient({ initialData, allCodes: initialAllCodes }: P
+             <div className="min-h-0 flex-1 overflow-hidden">
+               <DataView<QrCodeWithStatus, QrCodeWithStatus>
+                 entity="qr-codes"
++                scope={dataViewScope.organization(orgId)}
+                 columns={columns}
+                 filters={filters}
+                 initialData={initialData}
+diff --git a/apps/web/src/app/[locale]/dashboard/qr/page.tsx b/apps/web/src/app/[locale]/dashboard/qr/page.tsx
+index 340148c7b1d44eab20391e39ffdba85dc8bc2d4c..2e8827a537b30a38cb3927936dfd093da6608727 100644
+--- a/apps/web/src/app/[locale]/dashboard/qr/page.tsx
++++ b/apps/web/src/app/[locale]/dashboard/qr/page.tsx
+@@ -36,7 +36,7 @@ export default async function QrCodesPage({ searchParams }: PageProps) {
+         <p className="text-sm text-muted-foreground">{t("description")}</p>
+       </div>
+       <div className="min-h-0 flex-1 overflow-hidden">
+-        <QrManagementClient initialData={initialData} allCodes={allCodes} />
++        <QrManagementClient orgId={orgId} initialData={initialData} allCodes={allCodes} />
+       </div>
+     </div>
+   );
+diff --git a/apps/web/src/app/[locale]/dashboard/warehouse/inventory/_components/inventory-client.tsx b/apps/web/src/app/[locale]/dashboard/warehouse/inventory/_components/inventory-client.tsx
+index 079e740951638688f6783b945f11c1678fbb97cb..d91ca554b5cafe5610b25b6c63e1b9b4fd1052f7 100644
+--- a/apps/web/src/app/[locale]/dashboard/warehouse/inventory/_components/inventory-client.tsx
++++ b/apps/web/src/app/[locale]/dashboard/warehouse/inventory/_components/inventory-client.tsx
+@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
+ import { useTranslations } from "next-intl";
+ import { ArrowDownToLine, ArrowRightLeft, ArrowUpFromLine, SlidersHorizontal } from "lucide-react";
+ import { DataView } from "@/components/data-view/data-view";
++import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
+ import type { DataViewColumnDef, DataViewListParams, PaginatedResult } from "@/lib/data-view/types";
+ import { Button } from "@/components/ui/button";
+ import { Input } from "@/components/ui/input";
+@@ -28,6 +29,8 @@ type LocationOption = {
+ };
+ 
+ type InventoryClientProps = {
++  organizationId: string;
++  branchId: string | null;
+   initialData: PaginatedResult<InventoryBalanceListRow>;
+   variants: InventoryVariantOption[];
+   locations: LocationOption[];
+@@ -109,6 +112,8 @@ function LocationSelect({
+ }
+ 
+ export function InventoryClient({
++  organizationId,
++  branchId,
+   initialData,
+   variants,
+   locations,
+@@ -330,6 +335,7 @@ export function InventoryClient({
+ 
+       <DataView<InventoryBalanceListRow, InventoryBalanceDetail>
+         entity="inventory-balances"
++        scope={dataViewScope.branch(organizationId, branchId)}
+         columns={columns}
+         initialData={initialData}
+         queryKey={["inventory-balances"]}
+diff --git a/apps/web/src/app/[locale]/dashboard/warehouse/inventory/movements/_components/inventory-movements-client.tsx b/apps/web/src/app/[locale]/dashboard/warehouse/inventory/movements/_components/inventory-movements-client.tsx
+index 81a2dfeab793265155cbc21da90af4cd31489256..7a66e4b557bac6a5565517d6d93e70e8fb94316b 100644
+--- a/apps/web/src/app/[locale]/dashboard/warehouse/inventory/movements/_components/inventory-movements-client.tsx
++++ b/apps/web/src/app/[locale]/dashboard/warehouse/inventory/movements/_components/inventory-movements-client.tsx
+@@ -4,6 +4,7 @@ import { useMemo } from "react";
+ import { useTranslations } from "next-intl";
+ import { PackagePlus } from "lucide-react";
+ import { DataView } from "@/components/data-view/data-view";
++import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
+ import type {
+   DataViewColumnDef,
+   DataViewFilterDef,
+@@ -30,6 +31,7 @@ type LocationOption = {
+ };
+ 
+ type InventoryMovementsClientProps = {
++  organizationId: string;
+   initialData: PaginatedResult<InventoryMovementListRow>;
+   activeBranchId: string | null;
+   locations: LocationOption[];
+@@ -61,6 +63,7 @@ const statusVariant: Record<string, "default" | "secondary" | "destructive" | "o
+ };
+ 
+ export function InventoryMovementsClient({
++  organizationId,
+   initialData,
+   activeBranchId,
+   locations,
+@@ -185,6 +188,7 @@ export function InventoryMovementsClient({
+       </div>
+       <DataView<InventoryMovementListRow, InventoryMovementDetail>
+         entity="inventory-movements"
++        scope={dataViewScope.branch(organizationId, activeBranchId)}
+         columns={columns}
+         filters={filters}
+         initialData={initialData}
+diff --git a/apps/web/src/app/[locale]/dashboard/warehouse/inventory/movements/page.tsx b/apps/web/src/app/[locale]/dashboard/warehouse/inventory/movements/page.tsx
+index fb7aa9218c0d56f692c67a1375a7a9c6bc1f4dbe..19aa3ae4862c038e98c2ae60383eab3919c71e3d 100644
+--- a/apps/web/src/app/[locale]/dashboard/warehouse/inventory/movements/page.tsx
++++ b/apps/web/src/app/[locale]/dashboard/warehouse/inventory/movements/page.tsx
+@@ -63,6 +63,7 @@ export default async function WarehouseInventoryMovementsPage({ searchParams }:
+       </div>
+       <div className="min-h-0 flex-1">
+         <InventoryMovementsClient
++          organizationId={context.app.activeOrgId}
+           initialData={
+             movementsResult.success
+               ? movementsResult.data
+diff --git a/apps/web/src/app/[locale]/dashboard/warehouse/inventory/page.tsx b/apps/web/src/app/[locale]/dashboard/warehouse/inventory/page.tsx
+index 6626e3797821ebb03357347eb6ec8067084f4082..d897e37378a3753160040438d53864c038d4e92d 100644
+--- a/apps/web/src/app/[locale]/dashboard/warehouse/inventory/page.tsx
++++ b/apps/web/src/app/[locale]/dashboard/warehouse/inventory/page.tsx
+@@ -75,6 +75,8 @@ export default async function WarehouseInventoryPage({ searchParams }: PageProps
+       </div>
+       <div className="min-h-0 flex-1">
+         <InventoryClient
++          organizationId={context.app.activeOrgId}
++          branchId={branchId ?? null}
+           initialData={initialData}
+           variants={variantsResult.success ? variantsResult.data : []}
+           locations={
+diff --git a/apps/web/src/app/[locale]/dashboard/warehouse/items/_components/inventory-products-client.tsx b/apps/web/src/app/[locale]/dashboard/warehouse/items/_components/inventory-products-client.tsx
+index f75fda457574644be95f7f0456b52e7cc23d9136..4488ceb052fcb209124da0272beabbd87b409872 100644
+--- a/apps/web/src/app/[locale]/dashboard/warehouse/items/_components/inventory-products-client.tsx
++++ b/apps/web/src/app/[locale]/dashboard/warehouse/items/_components/inventory-products-client.tsx
+@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
+ import { ChevronDown, ChevronRight, Download, PackagePlus, Upload } from "lucide-react";
+ import { Link } from "@/i18n/navigation";
+ import { DataView } from "@/components/data-view/data-view";
++import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
+ import type {
+   DataViewColumnDef,
+   DataViewFilterDef,
+@@ -24,6 +25,7 @@ import {
+   getInventoryProductAction,
+   listInventoryProductsAction,
+ } from "@/app/actions/warehouse/inventory";
++import { getInventoryProductIdFromSelection } from "@/lib/warehouse/inventory-product-selection";
+ import {
+   ExpandedVariantRows,
+   ProductDetailPanel,
+@@ -33,7 +35,10 @@ import {
+ } from "./inventory-product-display";
+ 
+ type InventoryProductsClientProps = {
++  organizationId: string;
++  branchId: string | null;
+   initialData: PaginatedResult<InventoryProductListRow>;
++  initialDataUpdatedAt?: number;
+   customFields: InventoryCustomFieldDefinition[];
+   canManageProducts: boolean;
+   canImportProducts: boolean;
+@@ -50,7 +55,7 @@ async function listFetcher(params: DataViewListParams) {
+ 
+ async function detailFetcher(id: string) {
+   const result = await getInventoryProductAction({
+-    id: id.includes("::") ? id.split("::")[0] : id,
++    id: getInventoryProductIdFromSelection(id),
+   });
+   if (!result.success || !("data" in result))
+     throw new Error("error" in result ? result.error : "unauthorized");
+@@ -58,7 +63,10 @@ async function detailFetcher(id: string) {
+ }
+ 
+ export function InventoryProductsClient({
++  organizationId,
++  branchId,
+   initialData,
++  initialDataUpdatedAt,
+   customFields,
+   canManageProducts,
+   canImportProducts,
+@@ -90,7 +98,7 @@ export function InventoryProductsClient({
+     anchor.download = result.data.file_name;
+     anchor.click();
+     URL.revokeObjectURL(url);
+-  }, []);
++  }, [tList]);
+ 
+   const columns = useMemo<DataViewColumnDef<InventoryProductListRow>[]>(
+     () => [
+@@ -318,9 +326,11 @@ export function InventoryProductsClient({
+ 
+       <DataView<InventoryProductListRow, InventoryProductDetail>
+         entity="inventory-products"
++        scope={dataViewScope.branch(organizationId, branchId)}
+         columns={columns}
+         filters={filters}
+         initialData={initialData}
++        initialDataUpdatedAt={initialDataUpdatedAt}
+         queryKey={INVENTORY_PRODUCTS_QUERY_KEY}
+         listFetcher={listFetcher}
+         detailFetcher={detailFetcher}
+diff --git a/apps/web/src/app/[locale]/dashboard/warehouse/items/_lib/__tests__/compound-selection-ssr.test.tsx b/apps/web/src/app/[locale]/dashboard/warehouse/items/_lib/__tests__/compound-selection-ssr.test.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..3cc367a89d02c7d8204b237e2ae181f5d7841406
+--- /dev/null
++++ b/apps/web/src/app/[locale]/dashboard/warehouse/items/_lib/__tests__/compound-selection-ssr.test.tsx
+@@ -0,0 +1,68 @@
++/** @vitest-environment jsdom */
++
++import { render, screen, waitFor } from "@testing-library/react";
++import {
++  dehydrate,
++  HydrationBoundary,
++  QueryClient,
++  QueryClientProvider,
++} from "@tanstack/react-query";
++import { describe, expect, it, vi } from "vitest";
++import { dataViewKeys } from "@/components/data-view/data-view-query-keys";
++import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
++import { useDataViewDetailQuery } from "@/components/data-view/use-data-view-query";
++import type { InventoryProductDetail } from "@/lib/warehouse/inventory-types";
++import { prefetchInventoryProductDetail } from "../prefetch-inventory-product-detail";
++
++vi.mock("server-only", () => ({}));
++
++const selectedId = "product-1::variant-9";
++const scope = dataViewScope.branch("org-1", "branch-1");
++const detail = {
++  id: "product-1",
++  name: "Hydrated product",
++} as unknown as InventoryProductDetail;
++
++function DetailProbe({ fetcher }: { fetcher: (id: string) => Promise<typeof detail> }) {
++  const query = useDataViewDetailQuery({
++    entity: "inventory-products",
++    scope,
++    selectedId,
++    detailFetcher: fetcher,
++  });
++  return <div>{query.data?.name ?? "pending"}</div>;
++}
++
++describe("Products compound selection SSR", () => {
++  it("fetches by product ID, hydrates under the full selection ID, and avoids a client repair", async () => {
++    const serverQueryClient = new QueryClient();
++    const serverFetcher = vi.fn().mockResolvedValue(detail);
++    await prefetchInventoryProductDetail({
++      queryClient: serverQueryClient,
++      scope,
++      selectedId,
++      fetchProduct: serverFetcher,
++    });
++
++    expect(serverFetcher).toHaveBeenCalledWith("product-1");
++    expect(
++      serverQueryClient.getQueryData(dataViewKeys.detail("inventory-products", scope, selectedId))
++    ).toEqual(detail);
++
++    const browserQueryClient = new QueryClient({
++      defaultOptions: { queries: { retry: false } },
++    });
++    const browserFetcher = vi.fn().mockResolvedValue(detail);
++    render(
++      <QueryClientProvider client={browserQueryClient}>
++        <HydrationBoundary state={dehydrate(serverQueryClient)}>
++          <DetailProbe fetcher={browserFetcher} />
++        </HydrationBoundary>
++      </QueryClientProvider>
++    );
++
++    expect(await screen.findByText("Hydrated product")).toBeInTheDocument();
++    await waitFor(() => expect(serverFetcher).toHaveBeenCalledTimes(1));
++    expect(browserFetcher).not.toHaveBeenCalled();
++  });
++});
+diff --git a/apps/web/src/app/[locale]/dashboard/warehouse/items/_lib/prefetch-inventory-product-detail.ts b/apps/web/src/app/[locale]/dashboard/warehouse/items/_lib/prefetch-inventory-product-detail.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..d6370a19b012d3c6165a5d39486d72191fee0580
+--- /dev/null
++++ b/apps/web/src/app/[locale]/dashboard/warehouse/items/_lib/prefetch-inventory-product-detail.ts
+@@ -0,0 +1,20 @@
++import type { QueryClient } from "@tanstack/react-query";
++import type { DataViewScope } from "@/lib/data-view/types";
++import type { InventoryProductDetail } from "@/lib/warehouse/inventory-types";
++import { prefetchDataViewDetail } from "@/components/data-view/data-view-ssr";
++import { getInventoryProductIdFromSelection } from "@/lib/warehouse/inventory-product-selection";
++
++export function prefetchInventoryProductDetail(args: {
++  queryClient: QueryClient;
++  scope: DataViewScope;
++  selectedId: string;
++  fetchProduct: (productId: string) => Promise<InventoryProductDetail | null>;
++}) {
++  return prefetchDataViewDetail({
++    queryClient: args.queryClient,
++    entity: "inventory-products",
++    scope: args.scope,
++    selectedId: args.selectedId,
++    fetcher: () => args.fetchProduct(getInventoryProductIdFromSelection(args.selectedId)),
++  });
++}
+diff --git a/apps/web/src/app/[locale]/dashboard/warehouse/items/page.tsx b/apps/web/src/app/[locale]/dashboard/warehouse/items/page.tsx
+index b0839da6510a83bcdfa6a01a1bdb8d9067cd8e50..3b94390e33e55199d327b14b4bb2c3998cb5eb0c 100644
+--- a/apps/web/src/app/[locale]/dashboard/warehouse/items/page.tsx
++++ b/apps/web/src/app/[locale]/dashboard/warehouse/items/page.tsx
+@@ -1,6 +1,13 @@
+ import { redirect } from "@/i18n/navigation";
++import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
+ import { getLocale, getTranslations } from "next-intl/server";
+ import { parseDataViewSearchParams } from "@/components/data-view/data-view-search-params";
++import {
++  createDataViewServerQueryClient,
++  prefetchDataViewList,
++} from "@/components/data-view/data-view-ssr";
++import { dataViewKeys } from "@/components/data-view/data-view-query-keys";
++import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
+ import { checkPermission } from "@/lib/utils/permissions";
+ import {
+   WAREHOUSE_PRODUCTS_MANAGE,
+@@ -12,6 +19,7 @@ import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-conte
+ import { createClient } from "@/utils/supabase/server";
+ import { InventoryProductsService } from "@/server/services/inventory-products.service";
+ import { InventoryProductsClient } from "./_components/inventory-products-client";
++import { prefetchInventoryProductDetail } from "./_lib/prefetch-inventory-product-detail";
+ 
+ type PageProps = {
+   searchParams?: Promise<Record<string, string | string[] | undefined>>;
+@@ -35,25 +43,74 @@ export default async function WarehouseItemsPage({ searchParams }: PageProps = {
+ 
+   const params = parseDataViewSearchParams(searchParams ? await searchParams : {});
+   const supabase = await createClient();
+-  const [productsResult, customFieldsResult] = await Promise.all([
+-    InventoryProductsService.listProducts(
+-      supabase,
+-      context.app.activeOrgId,
+-      {
+-        search: params.search,
+-        sort: params.sort,
+-        page: params.page,
+-        pageSize: params.pageSize,
+-        filters: params.filters,
++  const queryClient = createDataViewServerQueryClient();
++  const entity = "inventory-products";
++  const scope = dataViewScope.branch(context.app.activeOrgId, context.app.activeBranchId);
++  const listParams = {
++    search: params.search,
++    sort: params.sort,
++    page: params.page,
++    pageSize: params.pageSize,
++    filters: params.filters,
++  };
++
++  const prefetches: Promise<unknown>[] = [
++    prefetchDataViewList({
++      queryClient,
++      entity,
++      scope,
++      params: listParams,
++      fetcher: async () => {
++        const result = await InventoryProductsService.listProducts(
++          supabase,
++          context.app.activeOrgId,
++          listParams,
++          context.app.activeBranchId
++        );
++        if (!result.success) throw new Error((result as { success: false; error: string }).error);
++        return result.data;
+       },
+-      context.app.activeBranchId
+-    ),
++    }),
+     InventoryProductsService.listCustomFields(supabase, context.app.activeOrgId, ["product"]),
+-  ]);
++  ];
++
++  if (params.selected) {
++    prefetches.push(
++      prefetchInventoryProductDetail({
++        queryClient,
++        scope,
++        selectedId: params.selected,
++        fetchProduct: async (productId) => {
++          const result = await InventoryProductsService.getProductDetail(
++            supabase,
++            context.app.activeOrgId,
++            productId,
++            context.app.activeBranchId
++          );
++          if (!result.success) throw new Error((result as { success: false; error: string }).error);
++          return result.data;
++        },
++      })
++    );
++  }
++
++  const results = await Promise.all(prefetches);
++  const customFieldsResult = results[1] as Awaited<
++    ReturnType<typeof InventoryProductsService.listCustomFields>
++  >;
+ 
+-  const initialData = productsResult.success
+-    ? productsResult.data
+-    : { rows: [], totalCount: 0, page: params.page, pageSize: params.pageSize };
++  const initialData = queryClient.getQueryData<
++    Awaited<ReturnType<typeof InventoryProductsService.listProducts>> extends { data: infer T }
++      ? T
++      : never
++  >(dataViewKeys.list(entity, scope, listParams)) ?? {
++    rows: [],
++    totalCount: 0,
++    page: params.page,
++    pageSize: params.pageSize,
++  };
++  const initialDataUpdatedAt =
++    queryClient.getQueryState(dataViewKeys.list(entity, scope, listParams))?.dataUpdatedAt ?? 0;
+ 
+   return (
+     <div className="flex h-[calc(100vh-4rem)] flex-col gap-4 p-4 md:p-6">
+@@ -62,18 +119,23 @@ export default async function WarehouseItemsPage({ searchParams }: PageProps = {
+         <p className="text-sm text-muted-foreground">{t("description")}</p>
+       </div>
+       <div className="min-h-0 flex-1">
+-        <InventoryProductsClient
+-          initialData={initialData}
+-          customFields={customFieldsResult.success ? customFieldsResult.data : []}
+-          canManageProducts={checkPermission(
+-            context.user.permissionSnapshot,
+-            WAREHOUSE_PRODUCTS_MANAGE
+-          )}
+-          canImportProducts={
+-            checkPermission(context.user.permissionSnapshot, WAREHOUSE_IMPORTS_MANAGE) ||
+-            checkPermission(context.user.permissionSnapshot, WAREHOUSE_PRODUCTS_MANAGE)
+-          }
+-        />
++        <HydrationBoundary state={dehydrate(queryClient)}>
++          <InventoryProductsClient
++            organizationId={context.app.activeOrgId}
++            branchId={context.app.activeBranchId}
++            initialData={initialData}
++            initialDataUpdatedAt={initialDataUpdatedAt}
++            customFields={customFieldsResult.success ? customFieldsResult.data : []}
++            canManageProducts={checkPermission(
++              context.user.permissionSnapshot,
++              WAREHOUSE_PRODUCTS_MANAGE
++            )}
++            canImportProducts={
++              checkPermission(context.user.permissionSnapshot, WAREHOUSE_IMPORTS_MANAGE) ||
++              checkPermission(context.user.permissionSnapshot, WAREHOUSE_PRODUCTS_MANAGE)
++            }
++          />
++        </HydrationBoundary>
+       </div>
+     </div>
+   );
+diff --git a/apps/web/src/app/[locale]/dashboard/warehouse/locations/_components/ambra-locations-client.tsx b/apps/web/src/app/[locale]/dashboard/warehouse/locations/_components/ambra-locations-client.tsx
+index 0eebb2c3497a238cee32c1b10a42fb84c114b323..06461d61a5d5a236decbc65c5b42b188c4642ca8 100644
+--- a/apps/web/src/app/[locale]/dashboard/warehouse/locations/_components/ambra-locations-client.tsx
++++ b/apps/web/src/app/[locale]/dashboard/warehouse/locations/_components/ambra-locations-client.tsx
+@@ -34,6 +34,7 @@ import {
+ import { LocationsDataView } from "./locations-data-view";
+ 
+ type AmbraLocationsClientProps = {
++  organizationId: string;
+   activeBranch: Branch;
+   initialLocations: LogicalLocation[];
+   rawLocations: WarehouseLocation[];
+@@ -45,6 +46,7 @@ type AmbraLocationsClientProps = {
+ };
+ 
+ export function AmbraLocationsClient({
++  organizationId,
+   activeBranch,
+   initialLocations,
+   rawLocations,
+@@ -191,6 +193,8 @@ export function AmbraLocationsClient({
+       <div className="flex-1 min-h-0">
+         {viewMode === "list" ? (
+           <LocationsDataView
++            organizationId={organizationId}
++            branchId={activeBranch.id}
+             initialData={initialListData}
+             allLocations={rawLocations}
+             ambraLocations={branchLocations}
+diff --git a/apps/web/src/app/[locale]/dashboard/warehouse/locations/_components/locations-data-view.tsx b/apps/web/src/app/[locale]/dashboard/warehouse/locations/_components/locations-data-view.tsx
+index 0a1ce20c989b77bb772dfe60f60fb8a34c676437..67bcdedb9c855ec2e1f8b219fe3e9e1d5c2007e8 100644
+--- a/apps/web/src/app/[locale]/dashboard/warehouse/locations/_components/locations-data-view.tsx
++++ b/apps/web/src/app/[locale]/dashboard/warehouse/locations/_components/locations-data-view.tsx
+@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
+ import { Check, ClipboardCheck, LayoutGrid, LayoutList, Printer, X } from "lucide-react";
+ import { useRouter } from "@/i18n/navigation";
+ import { DataView } from "@/components/data-view/data-view";
++import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
+ import { Button } from "@/components/ui/button";
+ import type {
+   DataViewColumnDef,
+@@ -44,6 +45,8 @@ type LocationDetailData = {
+ };
+ 
+ type Props = {
++  organizationId: string;
++  branchId: string;
+   initialData: PaginatedResult<LocationListRow>;
+   allLocations: WarehouseLocation[];
+   ambraLocations: LogicalLocation[];
+@@ -60,6 +63,8 @@ async function listFetcher(params: DataViewListParams) {
+ }
+ 
+ export function LocationsDataView({
++  organizationId,
++  branchId,
+   initialData,
+   allLocations,
+   ambraLocations,
+@@ -296,6 +301,7 @@ export function LocationsDataView({
+     <>
+       <DataView<LocationListRow, LocationDetailData>
+         entity="locations"
++        scope={dataViewScope.branch(organizationId, branchId)}
+         columns={columns}
+         filters={filters}
+         initialData={initialData}
+diff --git a/apps/web/src/app/[locale]/dashboard/warehouse/locations/page.tsx b/apps/web/src/app/[locale]/dashboard/warehouse/locations/page.tsx
+index 3d5ed50779677e1978c021c0dc8d7dc0de002f54..41bf8cebfc99ccaa5710037c01266253503663ed 100644
+--- a/apps/web/src/app/[locale]/dashboard/warehouse/locations/page.tsx
++++ b/apps/web/src/app/[locale]/dashboard/warehouse/locations/page.tsx
+@@ -80,6 +80,7 @@ export default async function AmbraWarehouseLocationsPage({ searchParams }: Page
+ 
+   return (
+     <AmbraLocationsClient
++      organizationId={context.app.activeOrgId}
+       activeBranch={createAmbraBranch(branchId, context.app.activeBranch?.name)}
+       initialLocations={
+         locationsResult.success ? warehouseLocationsToAmbra(locationsResult.data) : []
+diff --git a/apps/web/src/app/actions/help-desk/index.ts b/apps/web/src/app/actions/help-desk/index.ts
+index 01df1148a59db9c619335c94e674f4fd8d558c43..32ebcb8d00e6b6927af1420b20261d872e7e9a33 100644
+--- a/apps/web/src/app/actions/help-desk/index.ts
++++ b/apps/web/src/app/actions/help-desk/index.ts
+@@ -175,7 +175,7 @@ export async function listTicketsForDataViewAction(
+ export async function getTicketDetailAction(
+   ticketId: string,
+   orgId: string
+-): Promise<ActionResult<HelpdeskTicketDetail>> {
++): Promise<ActionResult<HelpdeskTicketDetail | null>> {
+   try {
+     // Lightweight auth: RLS enforces is_org_member(org_id) + has_permission('helpdesk.tickets.read')
+     const supabase = await createClient();
+diff --git a/apps/web/src/components/data-view/README.md b/apps/web/src/components/data-view/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..3cdf16b3b536c36b71343c861a9dbb57e58a8e60
+--- /dev/null
++++ b/apps/web/src/components/data-view/README.md
+@@ -0,0 +1,54 @@
++# DataView architecture
++
++DataView is the shared SSR-first list/detail primitive used by dashboard screens. Domain screens own columns, filters, fetchers, row identity, detail rendering, and mutations. DataView owns normalized URL state, canonical query keys, list/detail loading semantics, selection, and layout.
++
++## SSR and hydration
++
++Server pages parse search parameters with `parseDataViewSearchParams`, create a request-scoped QueryClient with `createDataViewServerQueryClient`, and prefetch `dataViewKeys.list(entity, scope, params)`. When `selected` is present, the page may also prefetch `dataViewKeys.detail(entity, scope, selected)`. The dehydrated state is rendered through `HydrationBoundary` inside the dashboard's application-level `QueryClientProvider`.
++
++Client DataView queries use the same keys and a 60-second stale time. Fresh hydrated data therefore renders immediately without a duplicate mount request. `initialData` remains as a compatibility fallback for consumers that have not yet adopted route hydration, and is applied only to the exact parameter and scope snapshot present when that DataView mounted.
++
++DataView never creates a QueryClient. The dashboard provider owns the cache used by DataView, consumer queries, and mutations.
++
++## Canonical keys and invalidation
++
++- `dataViewKeys.list(entity, scope, normalizedParams)` includes entity, an opaque primitive-only scope record, search, sort, filters, page, and page size. DataView treats scope only as query identity and does not interpret application domains.
++- `dataViewKeys.detail(entity, scope, id)` identifies one scoped detail record.
++- `dataViewKeys.sidebar(...)` contains the scoped infinite-sidebar extension cache. Its initial page is seeded only from an exact, non-placeholder list result.
++- `invalidateDataViewList`, `invalidateDataViewDetail`, and `invalidateDataViewEntity` invalidate only the current scope. `invalidateDataViewEntityAllScopes` is the explicit cross-scope boundary.
++- When a mutation invalidates a multi-page sidebar, synchronization resets it to the known-fresh current page. Adjacent pages are fetched again on demand; ordinary list synchronization preserves valid adjacent pages.
++
++Consumers should not construct DataView query keys or create separate DataView cache families. They may pass any primitive-only scope record, such as `{ projectId, workspaceId }`, without changing DataView core.
++
++## URL state
++
++`DATA_VIEW_PARSERS` is shared by the nuqs client hook and server loader. Pages are normalized to at least 1, page size is limited to 10, 25, 50, or 100, filters accept only string, string-array, boolean, or null values, and filter values are never decoded twice.
++
++Opening the first detail pushes history. Switching from A to B replaces the selected entry. Closing replaces `selected` with an empty value. This deterministic policy avoids hidden history counters and selection-entry spam. Browser Back/Forward remains driven by URL state.
++
++If a successful list result reports fewer pages than the requested page, DataView replaces the URL with the nearest valid page. Selected detail remains open when search, filters, or pagination hide the selected row.
++
++## State and rendering contract
++
++Semantic detail visibility is exactly `selected != null`. Animation may change width, opacity, or position but never decides whether detail content exists.
++
++List states are distinct:
++
++- initial load: no data; render a local table/card skeleton;
++- transition fetch: keep previous rows temporarily and show a subtle progress state;
++- background refresh: keep content visible;
++- empty: successful response with zero rows;
++- error: failed list request.
++
++Detail states are distinct:
++
++- initial load or A-to-B transition: stable detail shell with a skeleton and no previous record shown as the new selection;
++- background refresh: retain detail and announce refresh subtly;
++- success;
++- request error;
++- not found/deleted: successful `null` detail result;
++- selected outside current results: valid detail remains open while the current list does not contain its ID.
++
++## Phase 2 boundary
++
++Phase 1 intentionally retains the existing viewport breakpoint and current desktop/mobile layouts. Container-query layout selection, tablet list-to-detail replacement, mobile navigation and focus restoration, 44px touch controls, mobile expanded rows, toolbar reflow, and nested-scroll cleanup belong to Phase 2.
+diff --git a/apps/web/src/components/data-view/__tests__/data-view-foundation.test.ts b/apps/web/src/components/data-view/__tests__/data-view-foundation.test.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..773562e8f21a2df77addb9c85fd99c8b0b386c47
+--- /dev/null
++++ b/apps/web/src/components/data-view/__tests__/data-view-foundation.test.ts
+@@ -0,0 +1,229 @@
++import { describe, expect, it, vi } from "vitest";
++import { InfiniteQueryObserver, QueryClient } from "@tanstack/react-query";
++import {
++  DATA_VIEW_PAGE_SIZES,
++  parseDataViewSearchParams,
++  normalizeDataViewPage,
++  recoverDataViewPage,
++} from "../data-view-search-params";
++import {
++  dataViewKeys,
++  getSelectionHistoryMode,
++  invalidateDataViewList,
++  invalidateDataViewEntity,
++  synchronizeDataViewSidebarPage,
++} from "../data-view-query-keys";
++import { getInitialColumnVisibility } from "../data-view-columns";
++
++describe("DataView shared search parameter contract", () => {
++  it.each([
++    ["50%", "50%"],
++    ["%20", "%20"],
++  ])("preserves filter text %s identically after server parsing", (input, expected) => {
++    const filters = JSON.stringify({ name: input });
++    const fromNextRecord = parseDataViewSearchParams({ filters });
++    const fromUrl = parseDataViewSearchParams(
++      new URLSearchParams({ filters }) as unknown as Record<string, string>
++    );
++
++    expect(fromNextRecord.filters).toEqual({ name: expected });
++    expect(fromUrl.filters).toEqual(fromNextRecord.filters);
++  });
++
++  it("normalizes malformed and structurally invalid filters", () => {
++    expect(parseDataViewSearchParams({ filters: "{" }).filters).toEqual({});
++    expect(parseDataViewSearchParams({ filters: JSON.stringify({ count: 42 }) }).filters).toEqual(
++      {}
++    );
++  });
++
++  it("normalizes invalid pages and unsupported page sizes", () => {
++    expect(parseDataViewSearchParams({ page: "-4", pageSize: "13" })).toMatchObject({
++      page: 1,
++      pageSize: 50,
++    });
++    expect(parseDataViewSearchParams({ page: "0", pageSize: "100" })).toMatchObject({
++      page: 1,
++      pageSize: 100,
++    });
++    expect(DATA_VIEW_PAGE_SIZES).toEqual([10, 25, 50, 100]);
++    expect(normalizeDataViewPage(Number.NaN)).toBe(1);
++  });
++
++  it("recovers an out-of-range page to the nearest reported page", () => {
++    expect(recoverDataViewPage(999, 126, 50)).toBe(3);
++    expect(recoverDataViewPage(2, 0, 50)).toBe(1);
++    expect(recoverDataViewPage(2, 100, 50)).toBe(2);
++  });
++});
++
++describe("DataView canonical query and history contract", () => {
++  const scope = { tenantId: "tenant-1", partitionId: "partition-1" };
++  const params = {
++    search: "bolt",
++    sort: { field: "name", direction: "asc" as const },
++    page: 2,
++    pageSize: 25,
++    filters: { status: ["active"] },
++  };
++
++  it("includes the entity and every normalized list input in the list key", () => {
++    expect(dataViewKeys.list("inventory-products", scope, params)).toEqual([
++      "data-view",
++      "inventory-products",
++      "scope",
++      scope,
++      "list",
++      params,
++    ]);
++    expect(dataViewKeys.detail("inventory-products", scope, "product-1")).toEqual([
++      "data-view",
++      "inventory-products",
++      "scope",
++      scope,
++      "detail",
++      "product-1",
++    ]);
++  });
++
++  it("isolates identical list and detail identities between scopes", () => {
++    const scopeA = { tenantId: "tenant-1", partitionId: "partition-a" };
++    const scopeB = { tenantId: "tenant-1", partitionId: "partition-b" };
++
++    expect(dataViewKeys.list("inventory-products", scopeA, params)).not.toEqual(
++      dataViewKeys.list("inventory-products", scopeB, params)
++    );
++    expect(dataViewKeys.detail("inventory-products", scopeA, "product-1")).not.toEqual(
++      dataViewKeys.detail("inventory-products", scopeB, "product-1")
++    );
++  });
++
++  it("accepts domain-agnostic primitive scopes and isolates every changed field", () => {
++    const projectWorkspaceA = {
++      projectId: "project-1",
++      workspaceId: "workspace-1",
++    };
++    const projectWorkspaceB = {
++      projectId: "project-1",
++      workspaceId: "workspace-2",
++    };
++    const otherProject = {
++      projectId: "project-2",
++      workspaceId: "workspace-1",
++    };
++
++    expect(dataViewKeys.list("documents", projectWorkspaceA, params)).not.toEqual(
++      dataViewKeys.list("documents", projectWorkspaceB, params)
++    );
++    expect(dataViewKeys.list("documents", projectWorkspaceA, params)).not.toEqual(
++      dataViewKeys.list("documents", otherProject, params)
++    );
++  });
++
++  it("pushes only the first detail and replaces switches and closes", () => {
++    expect(getSelectionHistoryMode(null, "A")).toBe("push");
++    expect(getSelectionHistoryMode("A", "B")).toBe("replace");
++    expect(getSelectionHistoryMode("B", null)).toBe("replace");
++  });
++
++  it("invalidates only the requested entity query family", async () => {
++    const queryClient = new QueryClient();
++    const otherScope = { tenantId: "tenant-2" };
++    queryClient.setQueryData(dataViewKeys.list("helpdesk-tickets", scope, params), { rows: [] });
++    queryClient.setQueryData(dataViewKeys.detail("helpdesk-tickets", scope, "HD-1"), {
++      id: "HD-1",
++    });
++    queryClient.setQueryData(dataViewKeys.list("helpdesk-tickets", otherScope, params), {
++      rows: [],
++    });
++
++    await invalidateDataViewEntity(queryClient, "helpdesk-tickets", scope);
++
++    expect(
++      queryClient.getQueryState(dataViewKeys.list("helpdesk-tickets", scope, params))?.isInvalidated
++    ).toBe(true);
++    expect(
++      queryClient.getQueryState(dataViewKeys.detail("helpdesk-tickets", scope, "HD-1"))
++        ?.isInvalidated
++    ).toBe(true);
++    expect(
++      queryClient.getQueryState(dataViewKeys.list("helpdesk-tickets", otherScope, params))
++        ?.isInvalidated
++    ).toBe(false);
++  });
++
++  it("resets an invalidated multi-page sidebar around the known-fresh list page", async () => {
++    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
++    const key = dataViewKeys.sidebar("inventory-products", scope, { ...params, page: 1 });
++    const page1 = { rows: [{ id: "old-1" }], totalCount: 2, page: 1, pageSize: 1 };
++    const page2 = { rows: [{ id: "old-2" }], totalCount: 2, page: 2, pageSize: 1 };
++    queryClient.setQueryData(key, { pages: [page1, page2], pageParams: [1, 2] });
++
++    await invalidateDataViewList(queryClient, "inventory-products", scope);
++    const freshPage1 = { ...page1, rows: [{ id: "fresh-1" }] };
++    synchronizeDataViewSidebarPage(
++      queryClient,
++      "inventory-products",
++      scope,
++      { ...params, page: 1 },
++      freshPage1
++    );
++
++    expect(queryClient.getQueryData(key)).toEqual({ pages: [freshPage1], pageParams: [1] });
++
++    const fetcher = vi.fn(async ({ pageParam }: { pageParam: unknown }) => ({
++      ...page2,
++      rows: [{ id: `fresh-${pageParam}` }],
++    }));
++    const observer = new InfiniteQueryObserver(queryClient, {
++      queryKey: key,
++      queryFn: fetcher,
++      initialPageParam: 1,
++      getNextPageParam: (lastPage) => (lastPage.page === 1 ? 2 : undefined),
++    });
++    await observer.fetchNextPage();
++
++    expect(fetcher).toHaveBeenCalledWith(expect.objectContaining({ pageParam: 2 }));
++    expect(queryClient.getQueryData(key)).toEqual({
++      pages: [freshPage1, { ...page2, rows: [{ id: "fresh-2" }] }],
++      pageParams: [1, 2],
++    });
++  });
++
++  it("preserves valid adjacent sidebar pages during a normal list synchronization", () => {
++    const queryClient = new QueryClient();
++    const key = dataViewKeys.sidebar("inventory-products", scope, { ...params, page: 1 });
++    const page1 = { rows: [{ id: "old-1" }], totalCount: 2, page: 1, pageSize: 1 };
++    const page2 = { rows: [{ id: "valid-2" }], totalCount: 2, page: 2, pageSize: 1 };
++    const freshPage1 = { ...page1, rows: [{ id: "fresh-1" }] };
++    queryClient.setQueryData(key, { pages: [page1, page2], pageParams: [1, 2] });
++
++    synchronizeDataViewSidebarPage(
++      queryClient,
++      "inventory-products",
++      scope,
++      { ...params, page: 1 },
++      freshPage1
++    );
++
++    expect(queryClient.getQueryData(key)).toEqual({
++      pages: [freshPage1, page2],
++      pageParams: [1, 2],
++    });
++  });
++});
++
++describe("DataView column defaults", () => {
++  it("applies defaultVisible only when no stored preference exists", () => {
++    const columns = [
++      { key: "name", defaultVisible: true },
++      { key: "internal", defaultVisible: false },
++    ];
++
++    expect(getInitialColumnVisibility(columns, {})).toEqual({ name: true, internal: false });
++    expect(getInitialColumnVisibility(columns, { internal: true })).toEqual({
++      name: true,
++      internal: true,
++    });
++  });
++});
+diff --git a/apps/web/src/components/data-view/__tests__/data-view-hydration.test.tsx b/apps/web/src/components/data-view/__tests__/data-view-hydration.test.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..cd7d958081d79a6c257a845d619ba57c048365ab
+--- /dev/null
++++ b/apps/web/src/components/data-view/__tests__/data-view-hydration.test.tsx
+@@ -0,0 +1,135 @@
++/** @vitest-environment jsdom */
++
++import { render, screen, waitFor } from "@testing-library/react";
++import {
++  dehydrate,
++  HydrationBoundary,
++  QueryClient,
++  QueryClientProvider,
++} from "@tanstack/react-query";
++import { describe, expect, it, vi } from "vitest";
++import type { DataViewListParams, PaginatedResult } from "../data-view.types";
++import { dataViewKeys } from "../data-view-query-keys";
++import type { DataViewScope } from "../data-view.types";
++import { useDataViewListQuery } from "../use-data-view-query";
++
++type Row = { id: string; name: string };
++
++const params: DataViewListParams = {
++  search: "",
++  sort: null,
++  page: 1,
++  pageSize: 50,
++  filters: {},
++};
++
++const result: PaginatedResult<Row> = {
++  rows: [{ id: "row-1", name: "Hydrated row" }],
++  totalCount: 1,
++  page: 1,
++  pageSize: 50,
++};
++const scopeA = { tenantId: "tenant-1", partitionId: "partition-a" };
++
++function ListProbe({
++  fetcher,
++  initialData,
++  initialDataUpdatedAt,
++  scope = scopeA,
++}: {
++  fetcher: (input: DataViewListParams) => Promise<typeof result>;
++  initialData?: PaginatedResult<Row>;
++  initialDataUpdatedAt?: number;
++  scope?: DataViewScope;
++}) {
++  const query = useDataViewListQuery({
++    entity: "hydration-test",
++    scope,
++    listFetcher: fetcher,
++    listParams: params,
++    initialData,
++    initialDataUpdatedAt,
++  });
++  return <div>{query.data?.rows[0]?.name ?? "pending"}</div>;
++}
++
++describe("DataView SSR hydration contract", () => {
++  it("consumes a fresh canonical server query without an immediate client fetch", async () => {
++    const serverQueryClient = new QueryClient();
++    const serverFetcher = vi.fn().mockResolvedValue(result);
++    await serverQueryClient.prefetchQuery({
++      queryKey: dataViewKeys.list("hydration-test", scopeA, params),
++      queryFn: serverFetcher,
++    });
++
++    const browserQueryClient = new QueryClient({
++      defaultOptions: { queries: { retry: false } },
++    });
++    const browserFetcher = vi.fn().mockResolvedValue(result);
++
++    render(
++      <QueryClientProvider client={browserQueryClient}>
++        <HydrationBoundary state={dehydrate(serverQueryClient)}>
++          <ListProbe fetcher={browserFetcher} />
++        </HydrationBoundary>
++      </QueryClientProvider>
++    );
++
++    expect(await screen.findByText("Hydrated row")).toBeInTheDocument();
++    await waitFor(() => expect(serverFetcher).toHaveBeenCalledTimes(1));
++    expect(browserFetcher).not.toHaveBeenCalled();
++  });
++
++  it("immediately retries an explicitly stale fallback after an SSR list failure", async () => {
++    const browserQueryClient = new QueryClient({
++      defaultOptions: { queries: { retry: false } },
++    });
++    const recoveredResult = {
++      ...result,
++      rows: [{ id: "row-2", name: "Recovered row" }],
++    };
++    const browserFetcher = vi.fn().mockResolvedValue(recoveredResult);
++
++    render(
++      <QueryClientProvider client={browserQueryClient}>
++        <ListProbe
++          fetcher={browserFetcher}
++          initialData={{ ...result, rows: [], totalCount: 0 }}
++          initialDataUpdatedAt={0}
++        />
++      </QueryClientProvider>
++    );
++
++    expect(await screen.findByText("Recovered row")).toBeInTheDocument();
++    expect(browserFetcher).toHaveBeenCalledTimes(1);
++  });
++
++  it("never returns one scope's cache data for an identical query in another scope", async () => {
++    const serverQueryClient = new QueryClient();
++    await serverQueryClient.prefetchQuery({
++      queryKey: dataViewKeys.list("hydration-test", scopeA, params),
++      queryFn: async () => result,
++    });
++    const scopeB = { tenantId: "tenant-1", partitionId: "partition-b" };
++    const scopeBResult = {
++      ...result,
++      rows: [{ id: "row-b", name: "Branch B row" }],
++    };
++    const browserFetcher = vi.fn().mockResolvedValue(scopeBResult);
++    const browserQueryClient = new QueryClient({
++      defaultOptions: { queries: { retry: false } },
++    });
++
++    render(
++      <QueryClientProvider client={browserQueryClient}>
++        <HydrationBoundary state={dehydrate(serverQueryClient)}>
++          <ListProbe fetcher={browserFetcher} scope={scopeB} />
++        </HydrationBoundary>
++      </QueryClientProvider>
++    );
++
++    expect(await screen.findByText("Branch B row")).toBeInTheDocument();
++    expect(screen.queryByText("Hydrated row")).not.toBeInTheDocument();
++    expect(browserFetcher).toHaveBeenCalledTimes(1);
++  });
++});
+diff --git a/apps/web/src/components/data-view/__tests__/data-view-url-state.test.tsx b/apps/web/src/components/data-view/__tests__/data-view-url-state.test.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..b36bd04dc4ed5d6f048e09a10947e091582a5b63
+--- /dev/null
++++ b/apps/web/src/components/data-view/__tests__/data-view-url-state.test.tsx
+@@ -0,0 +1,51 @@
++/** @vitest-environment jsdom */
++
++import React from "react";
++import { act, renderHook, waitFor } from "@testing-library/react";
++import { NuqsTestingAdapter, type UrlUpdateEvent } from "nuqs/adapters/testing";
++import { describe, expect, it, vi } from "vitest";
++import { useDataViewUrlState } from "../data-view-url-state";
++
++describe("DataView real nuqs adapter contract", () => {
++  it("normalizes initial values with the shared parser definitions", () => {
++    const wrapper = ({ children }: { children: React.ReactNode }) => (
++      <NuqsTestingAdapter
++        searchParams={{
++          page: "-2",
++          pageSize: "13",
++          filters: JSON.stringify({ label: "50%", literal: "%20" }),
++        }}
++      >
++        {children}
++      </NuqsTestingAdapter>
++    );
++    const { result } = renderHook(() => useDataViewUrlState("test"), { wrapper });
++
++    expect(result.current.page).toBe(1);
++    expect(result.current.pageSize).toBe(50);
++    expect(result.current.filters).toEqual({ label: "50%", literal: "%20" });
++  });
++
++  it("pushes list-to-detail and replaces switches and close", async () => {
++    const updates: UrlUpdateEvent[] = [];
++    const onUrlUpdate = vi.fn((event: UrlUpdateEvent) => updates.push(event));
++    const wrapper = ({ children }: { children: React.ReactNode }) => (
++      <NuqsTestingAdapter hasMemory searchParams="" onUrlUpdate={onUrlUpdate}>
++        {children}
++      </NuqsTestingAdapter>
++    );
++    const { result } = renderHook(() => useDataViewUrlState("test"), { wrapper });
++
++    await act(async () => result.current.setSelected("A"));
++    await waitFor(() => expect(result.current.selected).toBe("A"));
++    expect(updates.at(-1)?.options.history).toBe("push");
++
++    await act(async () => result.current.setSelected("B"));
++    await waitFor(() => expect(result.current.selected).toBe("B"));
++    expect(updates.at(-1)?.options.history).toBe("replace");
++
++    await act(async () => result.current.closeDetail());
++    await waitFor(() => expect(result.current.selected).toBeNull());
++    expect(updates.at(-1)?.options.history).toBe("replace");
++  });
++});
+diff --git a/apps/web/src/components/data-view/__tests__/data-view.test.tsx b/apps/web/src/components/data-view/__tests__/data-view.test.tsx
+index e393daf8d3b8eb999c2401f6bf730e57ada04565..b3ccd766751f2a5a2ff0d13c346d90fc87ceec09 100644
+--- a/apps/web/src/components/data-view/__tests__/data-view.test.tsx
++++ b/apps/web/src/components/data-view/__tests__/data-view.test.tsx
+@@ -25,18 +25,21 @@ const nuqsState = {
+ // Mocks
+ // ---------------------------------------------------------------------------
+ 
+-vi.mock("framer-motion", () => ({
+-  AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+-  motion: {
+-    div: React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+-      ({ children, className, ...rest }, ref) => (
+-        <div ref={ref} className={className} {...rest}>
+-          {children}
+-        </div>
+-      )
+-    ),
+-  },
+-}));
++vi.mock("framer-motion", () => {
++  const MotionDiv = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
++    ({ children, className, ...rest }, ref) => (
++      <div ref={ref} className={className} {...rest}>
++        {children}
++      </div>
++    )
++  );
++  MotionDiv.displayName = "MotionDiv";
++
++  return {
++    AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
++    motion: { div: MotionDiv },
++  };
++});
+ 
+ vi.mock("nuqs", () => {
+   const parseAsString = {
+@@ -54,12 +57,53 @@ vi.mock("nuqs", () => {
+     parseAsString,
+     parseAsInteger,
+     parseAsJson,
+-    useQueryStates: (parsers: Record<string, { _t?: string; _d?: unknown }>) => {
++    createLoader:
++      (parsers: Record<string, { _t?: string; _d?: unknown }>) =>
++      (input: Record<string, string | string[] | undefined> | URLSearchParams | string) => {
++        const params =
++          typeof input === "string"
++            ? new URLSearchParams(input)
++            : input instanceof URLSearchParams
++              ? input
++              : new URLSearchParams(
++                  Object.entries(input).flatMap(([key, value]) =>
++                    typeof value === "string" ? [[key, value]] : []
++                  )
++                );
++        return Object.fromEntries(
++          Object.entries(parsers).map(([key, parser]) => {
++            const value = params.get(key);
++            if (!value) return [key, parser._d];
++            if (parser._t === "int") return [key, Number.parseInt(value, 10) || parser._d];
++            if (parser._t === "json") {
++              try {
++                return [key, JSON.parse(value)];
++              } catch {
++                return [key, parser._d];
++              }
++            }
++            return [key, value];
++          })
++        );
++      },
++    useQueryStates: (
++      parsers: Record<
++        string,
++        {
++          _t?: string;
++          _d?: unknown;
++          defaultValue?: unknown;
++          parse?: (value: string) => unknown;
++        }
++      >
++    ) => {
+       const state: Record<string, unknown> = {};
+       for (const [k, p] of Object.entries(parsers)) {
+         const raw = nuqsState.params.get(k) ?? null;
+         if (raw === null || raw === "") {
+-          state[k] = p._d ?? (p._t === "int" ? 0 : p._t === "json" ? {} : "");
++          state[k] = p.defaultValue ?? p._d ?? (p._t === "int" ? 0 : p._t === "json" ? {} : "");
++        } else if (p.parse) {
++          state[k] = p.parse(raw) ?? p.defaultValue;
+         } else if (p._t === "int") {
+           state[k] = parseInt(raw, 10) || p._d;
+         } else if (p._t === "json") {
+@@ -129,6 +173,9 @@ const TEST_TRANSLATIONS: Record<string, string> = {
+   "dataView.detail.closeAria": "Close detail",
+   "dataView.detail.loadingAria": "Loading details",
+   "dataView.detail.empty": "No item selected",
++  "dataView.detail.error": "Unable to load details.",
++  "dataView.detail.notFound": "This item no longer exists.",
++  "dataView.detail.selectedOutsideResults": "Selected item is outside current results.",
+   "dataView.toolbar.searchPlaceholder": "Search...",
+   "dataView.toolbar.searchAria": "Search",
+   "dataView.toolbar.closeSearchAria": "Close search",
+@@ -174,6 +221,7 @@ const TEST_TRANSLATIONS: Record<string, string> = {
+   "dataView.sidebar.loadingPreviousAria": "Loading previous items",
+   "dataView.sidebar.loadingMoreAria": "Loading more items",
+   "dataView.table.noResults": "No results",
++  "dataView.table.error": "Unable to load results.",
+   "dataView.mobile.loadingAria": "Loading rows",
+ };
+ 
+@@ -315,6 +363,7 @@ const mockFilters: DataViewProps<MockProduct, MockProductDetail>["filters"] = [
+ 
+ const defaultProps: DataViewProps<MockProduct, MockProductDetail> = {
+   entity: "test-products",
++  scope: { testScope: "global" },
+   columns: mockColumns,
+   filters: mockFilters,
+   initialData: makeInitialData(),
+@@ -364,6 +413,37 @@ function renderDataView(
+   return renderWithProviders(<DataView {...mergedProps} />);
+ }
+ 
++function renderDataViewWithClient(
++  props: Partial<DataViewProps<MockProduct, MockProductDetail>> = {},
++  searchParams: Record<string, string> = {},
++  strict = false
++) {
++  nuqsState.params = new Map(Object.entries(searchParams));
++  const mergedProps = { ...defaultProps, ...props };
++  const queryClient = makeQueryClient();
++  const view = <DataView {...mergedProps} />;
++  const tree = (
++    <QueryClientProvider client={queryClient}>
++      {strict ? <React.StrictMode>{view}</React.StrictMode> : view}
++    </QueryClientProvider>
++  );
++  const result = render(tree);
++
++  return {
++    ...result,
++    queryClient,
++    rerenderDataView(nextSearchParams: Record<string, string>) {
++      nuqsState.params = new Map(Object.entries(nextSearchParams));
++      const nextView = <DataView {...mergedProps} />;
++      result.rerender(
++        <QueryClientProvider client={queryClient}>
++          {strict ? <React.StrictMode>{nextView}</React.StrictMode> : nextView}
++        </QueryClientProvider>
++      );
++    },
++  };
++}
++
+ // ---------------------------------------------------------------------------
+ // Tests
+ // ---------------------------------------------------------------------------
+@@ -438,6 +518,17 @@ describe("T-DV-PAGINATION: shows correct pagination info", () => {
+     // Synchronous check — sees placeholder data before the query resolves
+     expect(screen.getByTestId("pagination-info")).toHaveTextContent("No results");
+   });
++
++  it("replaces an out-of-range page with the nearest valid page", async () => {
++    renderDataView(
++      { initialData: { rows: [], totalCount: 126, page: 999, pageSize: 50 } },
++      { page: "999" }
++    );
++
++    await waitFor(() => {
++      expect(mockReplace).toHaveBeenCalledWith(expect.stringContaining("page=3"));
++    });
++  });
+ });
+ 
+ describe("T-DV-SELECT: clicking a row updates selected state", () => {
+@@ -473,6 +564,65 @@ describe("T-DV-DETAIL: selecting a row shows detail panel", () => {
+     renderDataView({}, { selected: "p1" });
+     await waitFor(() => expect(screen.getByText("Great widget")).toBeInTheDocument());
+   });
++
++  it("keeps a direct selected detail visible after StrictMode effects settle", async () => {
++    renderDataViewWithClient({}, { selected: "p1" }, true);
++
++    expect(await screen.findByText("Great widget")).toBeInTheDocument();
++    await act(async () => {
++      await new Promise((resolve) => setTimeout(resolve, 25));
++    });
++
++    expect(screen.getByTestId("detail-panel")).toBeInTheDocument();
++    expect(screen.getByTestId("sidebar-item-p1")).toHaveAttribute("aria-selected", "true");
++  });
++
++  it("re-initializes a selected URL after a route-Back remount", async () => {
++    const first = renderDataViewWithClient({}, { selected: "p1" });
++    expect(await screen.findByText("Great widget")).toBeInTheDocument();
++    first.unmount();
++
++    renderDataViewWithClient({}, { selected: "p1" }, true);
++    expect(await screen.findByText("Great widget")).toBeInTheDocument();
++    expect(screen.getByTestId("detail-panel")).toBeInTheDocument();
++  });
++
++  it("shows detail when route Back restores selected without waiting for animation completion", async () => {
++    const result = renderDataViewWithClient({}, {});
++    expect(screen.queryByTestId("detail-panel")).not.toBeInTheDocument();
++
++    result.rerenderDataView({ selected: "p1" });
++
++    expect(await screen.findByText("Great widget")).toBeInTheDocument();
++    expect(screen.getByTestId("detail-panel")).toBeInTheDocument();
++  });
++});
++
++describe("T-DV-SIDEBAR-CACHE: selected sidebar follows normalized list params", () => {
++  beforeEach(() => {
++    vi.clearAllMocks();
++    localStorageMock.clear();
++    mockDetailFetcher.mockResolvedValue(MOCK_DETAILS.p1);
++  });
++
++  it("fetches a new key and does not keep previous rows fresh after search changes", async () => {
++    const listFetcher = vi.fn(async (params: { search: string }) => ({
++      rows: params.search === "NO_MATCH" ? [] : MOCK_PRODUCTS,
++      totalCount: params.search === "NO_MATCH" ? 0 : MOCK_PRODUCTS.length,
++      page: 1,
++      pageSize: 50,
++    }));
++    const result = renderDataViewWithClient({ listFetcher }, { selected: "p1" });
++
++    expect(await screen.findByTestId("sidebar-item-p1")).toBeInTheDocument();
++    result.rerenderDataView({ selected: "p1", search: "NO_MATCH" });
++
++    await waitFor(() =>
++      expect(listFetcher).toHaveBeenCalledWith(expect.objectContaining({ search: "NO_MATCH" }))
++    );
++    await waitFor(() => expect(screen.queryByTestId("sidebar-item-p1")).not.toBeInTheDocument());
++    expect(screen.getByTestId("detail-panel")).toBeInTheDocument();
++  });
+ });
+ 
+ describe("T-DV-CLOSE: clearing selected returns to full table mode", () => {
+@@ -489,7 +639,7 @@ describe("T-DV-CLOSE: clearing selected returns to full table mode", () => {
+     // Close is now the "Filters / Back to full list" button in the toolbar
+     fireEvent.click(screen.getByTestId("back-to-list-button"));
+     await waitFor(() => {
+-      expect(mockPush).toHaveBeenCalledWith(expect.not.stringContaining("selected=p1"));
++      expect(mockReplace).toHaveBeenCalledWith(expect.not.stringContaining("selected=p1"));
+     });
+   });
+ 
+@@ -512,8 +662,8 @@ describe("T-DV-CLOSE: clearing selected returns to full table mode", () => {
+           filters: {},
+         },
+       });
+-      expect(mockPush).toHaveBeenCalledWith(expect.stringContaining("page=1"));
+-      expect(mockPush).toHaveBeenCalledWith(expect.not.stringContaining("selected=p1"));
++      expect(mockReplace).toHaveBeenCalledWith(expect.stringContaining("page=1"));
++      expect(mockReplace).toHaveBeenCalledWith(expect.not.stringContaining("selected=p1"));
+     });
+   });
+ });
+@@ -639,6 +789,15 @@ describe("T-DV-COLUMNS: column visibility hides/shows a column", () => {
+     expect(screen.getAllByText("Category").length).toBeGreaterThan(0);
+     expect(screen.getByText("Price")).toBeInTheDocument();
+   });
++
++  it("honors defaultVisible false when no stored preference exists", () => {
++    renderDataView({
++      columns: mockColumns.map((column) =>
++        column.key === "price" ? { ...column, defaultVisible: false } : column
++      ),
++    });
++    expect(screen.queryByText("Price")).not.toBeInTheDocument();
++  });
+ });
+ 
+ describe("T-DV-DETAIL-Q: detail fetcher called only when item selected", () => {
+@@ -663,6 +822,38 @@ describe("T-DV-DETAIL-Q: detail fetcher called only when item selected", () => {
+   });
+ });
+ 
++describe("T-DV-STATES: loading and failures remain distinct", () => {
++  beforeEach(() => {
++    vi.clearAllMocks();
++    localStorageMock.clear();
++  });
++
++  it("renders detail not-found separately from an unselected detail", async () => {
++    renderDataView({ detailFetcher: vi.fn().mockResolvedValue(null) }, { selected: "missing" });
++    expect(await screen.findByText("This item no longer exists.")).toBeInTheDocument();
++  });
++
++  it("renders a detail request error separately from not-found", async () => {
++    renderDataView(
++      { detailFetcher: vi.fn().mockRejectedValue(new Error("network unavailable")) },
++      { selected: "p1" }
++    );
++    expect(await screen.findByText("Unable to load details.")).toBeInTheDocument();
++  });
++
++  it("renders a list transition error instead of reporting an empty success", async () => {
++    const listFetcher = vi.fn(async (params: { search: string }) => {
++      if (params.search) throw new Error("network unavailable");
++      return makeInitialData();
++    });
++    const result = renderDataViewWithClient({ listFetcher });
++    result.rerenderDataView({ search: "fails" });
++
++    expect(await screen.findByText("Unable to load results.")).toBeInTheDocument();
++    expect(screen.queryByText("No results")).not.toBeInTheDocument();
++  });
++});
++
+ describe("T-DV-TYPES: list data does not require detail-only fields", () => {
+   it("list row has no detail-only fields", () => {
+     const row = MOCK_PRODUCTS[0];
+@@ -757,7 +948,7 @@ describe("T-DV-TOOLBAR-DETAIL: detail/sidebar mode toolbar", () => {
+     await waitFor(() => screen.getByTestId("detail-panel"));
+     fireEvent.click(screen.getByTestId("back-to-list-button"));
+     await waitFor(() => {
+-      expect(mockPush).toHaveBeenCalledWith(expect.not.stringContaining("selected=p1"));
++      expect(mockReplace).toHaveBeenCalledWith(expect.not.stringContaining("selected=p1"));
+     });
+   });
+ 
+@@ -849,7 +1040,7 @@ describe("T-DV-CLOSE-BTN: detail panel has close button", () => {
+     await waitFor(() => screen.getByTestId("detail-panel"));
+     fireEvent.click(screen.getByRole("button", { name: /close detail/i }));
+     await waitFor(() => {
+-      expect(mockPush).toHaveBeenCalledWith(expect.not.stringContaining("selected=p1"));
++      expect(mockReplace).toHaveBeenCalledWith(expect.not.stringContaining("selected=p1"));
+     });
+   });
+ });
+diff --git a/apps/web/src/components/data-view/data-view-columns.tsx b/apps/web/src/components/data-view/data-view-columns.tsx
+index 6fbba8a596dc62b230242b3f53201c11d1105739..f8125f370e64125e20a87ab0c01bc5b56d60ac1a 100644
+--- a/apps/web/src/components/data-view/data-view-columns.tsx
++++ b/apps/web/src/components/data-view/data-view-columns.tsx
+@@ -8,6 +8,17 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
+ import { Checkbox } from "@/components/ui/checkbox";
+ import { useDataViewColumns, useDataViewStatic } from "./use-data-view";
+ 
++type ColumnVisibilityDefault = { key: string; defaultVisible?: boolean };
++
++export function getInitialColumnVisibility(
++  columns: ColumnVisibilityDefault[],
++  stored: Record<string, boolean>
++): Record<string, boolean> {
++  return Object.fromEntries(
++    columns.map((column) => [column.key, stored[column.key] ?? column.defaultVisible ?? true])
++  );
++}
++
+ function getStorageKey(entity: string) {
+   return `data-view:${entity}:columns`;
+ }
+@@ -19,7 +30,7 @@ function getStorageKey(entity: string) {
+  */
+ export function useColumnVisibility(
+   entity: string,
+-  columnKeys: string[]
++  columns: ColumnVisibilityDefault[]
+ ): {
+   columnVisibility: Record<string, boolean>;
+   setColumnVisibility: (key: string, visible: boolean) => void;
+@@ -71,14 +82,10 @@ export function useColumnVisibility(
+     }
+   }, [entity]);
+ 
+-  // Merge with defaults (all visible unless explicitly hidden)
++  // Stored user preferences override the declarative column defaults.
+   const merged = useMemo(() => {
+-    const next = { ...columnVisibility };
+-    for (const key of columnKeys) {
+-      if (!(key in next)) next[key] = true;
+-    }
+-    return next;
+-  }, [columnVisibility, columnKeys]);
++    return getInitialColumnVisibility(columns, columnVisibility);
++  }, [columnVisibility, columns]);
+ 
+   return { columnVisibility: merged, setColumnVisibility, resetColumnVisibility };
+ }
+diff --git a/apps/web/src/components/data-view/data-view-detail.tsx b/apps/web/src/components/data-view/data-view-detail.tsx
+index d94133265541c0650bde1b2b9e8a38e6555c8d7e..c3d68d81258fc66c76c1fc5c6510b575f7a61c23 100644
+--- a/apps/web/src/components/data-view/data-view-detail.tsx
++++ b/apps/web/src/components/data-view/data-view-detail.tsx
+@@ -9,7 +9,16 @@ import { useDataViewDetail, useDataViewStatic } from "./use-data-view";
+ 
+ export function DataViewDetail() {
+   const { renderDetail } = useDataViewStatic();
+-  const { detailData, detailIsLoading, closeDetail, isClosingDetail } = useDataViewDetail();
++  const {
++    detailData,
++    detailIsLoading,
++    detailIsRefreshing,
++    detailError,
++    detailNotFound,
++    selectedOutsideCurrentResults,
++    closeDetail,
++    isClosingDetail,
++  } = useDataViewDetail();
+   const t = useTranslations("dataView");
+ 
+   return (
+@@ -31,6 +40,27 @@ export function DataViewDetail() {
+       </div>
+ 
+       <div className="flex-1 overflow-y-auto p-4">
++        {selectedOutsideCurrentResults ? (
++          <div
++            className="mb-3 rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground"
++            role="status"
++          >
++            {t("detail.selectedOutsideResults")}
++          </div>
++        ) : null}
++        {detailIsRefreshing ? (
++          <span className="sr-only" role="status">
++            {t("detail.refreshing")}
++          </span>
++        ) : null}
++        {detailError && detailData ? (
++          <div
++            className="mb-3 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive"
++            role="alert"
++          >
++            {t("detail.refreshError")}
++          </div>
++        ) : null}
+         {detailIsLoading ? (
+           <div className="space-y-3" aria-label={t("detail.loadingAria")}>
+             <Skeleton className="h-8 w-3/4" />
+@@ -40,6 +70,17 @@ export function DataViewDetail() {
+           </div>
+         ) : detailData ? (
+           renderDetail(detailData)
++        ) : detailError ? (
++          <div
++            className="flex h-24 items-center justify-center text-sm text-destructive"
++            role="alert"
++          >
++            {t("detail.error")}
++          </div>
++        ) : detailNotFound ? (
++          <div className="flex h-24 items-center justify-center text-sm text-muted-foreground">
++            {t("detail.notFound")}
++          </div>
+         ) : (
+           <div className="flex items-center justify-center h-24 text-sm text-muted-foreground">
+             {t("detail.empty")}
+diff --git a/apps/web/src/components/data-view/data-view-layout.tsx b/apps/web/src/components/data-view/data-view-layout.tsx
+index 95b73b2c5a6fc732aa8666ea0bb9ae14530ba70b..6f5a09be3defced3d096410089fd3208198d2eaf 100644
+--- a/apps/web/src/components/data-view/data-view-layout.tsx
++++ b/apps/web/src/components/data-view/data-view-layout.tsx
+@@ -1,6 +1,6 @@
+ "use client";
+ 
+-import React, { useEffect, useRef, useState } from "react";
++import React from "react";
+ import { motion, AnimatePresence } from "framer-motion";
+ import { cn } from "@/utils";
+ import { useDataViewUrl } from "./use-data-view";
+@@ -19,94 +19,35 @@ const SHARED_EASE = [0.22, 1, 0.36, 1] as const;
+ const WIDTH_TRANSITION = { duration: COLLAPSE_MS / 1000, ease: SHARED_EASE };
+ const DETAIL_TRANSITION = { duration: COLLAPSE_MS / 1000, ease: SHARED_EASE };
+ 
+-type TransitionPhase = "list" | "entering" | "detail" | "exiting";
+-
+ function DataViewDesktopLayout() {
+   const { isDetailOpen } = useDataViewUrl();
+-  const [phase, setPhase] = useState<TransitionPhase>(isDetailOpen ? "detail" : "list");
+-  const [showOnlyPrimary, setShowOnlyPrimary] = useState(isDetailOpen);
+-  const [isCollapsed, setIsCollapsed] = useState(isDetailOpen);
+-  const [showDetailPanel, setShowDetailPanel] = useState(isDetailOpen);
+-  const hasMountedRef = useRef(false);
+-  const frameRef = useRef<number | null>(null);
+-
+-  useEffect(() => {
+-    if (!hasMountedRef.current) {
+-      hasMountedRef.current = true;
+-      return;
+-    }
+-
+-    if (frameRef.current) cancelAnimationFrame(frameRef.current);
+-
+-    if (isDetailOpen) {
+-      setPhase((current) => (current === "detail" ? current : "entering"));
+-      setShowOnlyPrimary(true);
+-      setShowDetailPanel(false);
+-      frameRef.current = requestAnimationFrame(() => {
+-        setIsCollapsed(true);
+-      });
+-    } else {
+-      setPhase((current) => (current === "list" ? current : "exiting"));
+-      setShowDetailPanel(false);
+-      setShowOnlyPrimary(true);
+-      setIsCollapsed(false);
+-    }
+-
+-    return () => {
+-      if (frameRef.current) cancelAnimationFrame(frameRef.current);
+-    };
+-  }, [isDetailOpen]);
+-
+-  useEffect(() => {
+-    if (isDetailOpen || phase !== "list") return;
+-
+-    setShowOnlyPrimary(false);
+-    setIsCollapsed(false);
+-    setShowDetailPanel(false);
+-  }, [isDetailOpen, phase]);
+-
+-  const showSidebar = phase === "detail" || phase === "exiting";
+-  const showPaginationSlot = phase === "list" || phase === "exiting";
+-  const showPaginationContent = phase === "list";
+-  const toolbarMode = phase === "list" ? "list" : "compact";
+ 
+   return (
+     <div className="flex h-full min-h-0 overflow-hidden rounded-lg border bg-background">
+       <motion.div
+-        animate={{ width: isCollapsed ? SIDEBAR_WIDTH : "100%" }}
++        animate={{ width: isDetailOpen ? SIDEBAR_WIDTH : "100%" }}
+         transition={WIDTH_TRANSITION}
+-        onAnimationComplete={() => {
+-          if (phase === "entering") {
+-            setShowDetailPanel(true);
+-            setPhase("detail");
+-          }
+-
+-          if (phase === "exiting") {
+-            setShowOnlyPrimary(false);
+-            setPhase("list");
+-          }
+-        }}
+         style={{ willChange: "width" }}
+         className="flex h-full min-h-0 shrink-0 flex-col overflow-hidden border-r bg-background"
+       >
+-        <DataViewToolbar mode={toolbarMode} />
++        <DataViewToolbar mode={isDetailOpen ? "compact" : "list"} />
+ 
+         <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+-          {showSidebar ? <DataViewSidebar /> : <DataViewTable primaryOnly={showOnlyPrimary} />}
++          {isDetailOpen ? <DataViewSidebar /> : <DataViewTable />}
+         </div>
+ 
+         <div
+           className={cn(
+             "shrink-0 overflow-hidden transition-[height,opacity] duration-200 ease-out",
+-            showPaginationSlot ? "opacity-100" : "pointer-events-none opacity-0"
++            !isDetailOpen ? "opacity-100" : "pointer-events-none opacity-0"
+           )}
+-          style={{ height: showPaginationSlot ? PAGINATION_HEIGHT : 0 }}
+-          aria-hidden={!showPaginationContent}
++          style={{ height: !isDetailOpen ? PAGINATION_HEIGHT : 0 }}
++          aria-hidden={isDetailOpen}
+         >
+           <div
+             className={cn(
+               "transition-opacity duration-150",
+-              showPaginationContent ? "opacity-100" : "pointer-events-none opacity-0"
++              !isDetailOpen ? "opacity-100" : "pointer-events-none opacity-0"
+             )}
+           >
+             <DataViewPagination />
+@@ -115,7 +56,7 @@ function DataViewDesktopLayout() {
+       </motion.div>
+ 
+       <AnimatePresence initial={false}>
+-        {showDetailPanel && (
++        {isDetailOpen && (
+           <motion.div
+             key="detail-panel"
+             initial={{ x: 64, opacity: 0 }}
+diff --git a/apps/web/src/components/data-view/data-view-mobile-layout.tsx b/apps/web/src/components/data-view/data-view-mobile-layout.tsx
+index 3f88ec3fecd742fe9eba2356d7c69d25f7dd4500..e1f54ba8ece3eb2f3c76a4da30c2bbdaa05b51a1 100644
+--- a/apps/web/src/components/data-view/data-view-mobile-layout.tsx
++++ b/apps/web/src/components/data-view/data-view-mobile-layout.tsx
+@@ -2,7 +2,7 @@
+ 
+ import React, { useCallback, useMemo } from "react";
+ import { useQueryClient } from "@tanstack/react-query";
+-import { ChevronLeft, ChevronRight, Loader2, RefreshCw } from "lucide-react";
++import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+ import { useTranslations } from "next-intl";
+ import { Button } from "@/components/ui/button";
+ import { Checkbox } from "@/components/ui/checkbox";
+@@ -26,11 +26,12 @@ import {
+ import { DataViewDetail } from "./data-view-detail";
+ import { DataViewFilters } from "./data-view-filters";
+ import { DataViewSearchControl } from "./data-view-search-control";
++import { invalidateDataViewEntity } from "./data-view-query-keys";
+ 
+ const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
+ 
+ function DataViewMobileToolbar() {
+-  const { renderToolbarControls, queryKey } = useDataViewStatic();
++  const { renderToolbarControls, entity, scope } = useDataViewStatic();
+   const { listIsTransitioning } = useDataViewList();
+   const {
+     selectedRowCount,
+@@ -43,8 +44,8 @@ function DataViewMobileToolbar() {
+   const t = useTranslations("dataView");
+ 
+   const handleRefresh = useCallback(() => {
+-    queryClient.invalidateQueries({ queryKey });
+-  }, [queryClient, queryKey]);
++    void invalidateDataViewEntity(queryClient, entity, scope);
++  }, [queryClient, entity, scope]);
+ 
+   return (
+     <div className="shrink-0 border-b bg-background">
+@@ -105,17 +106,18 @@ function DataViewMobilePagination() {
+   const t = useTranslations("dataView");
+ 
+   const totalPages = keepOnlySelected ? 1 : Math.max(1, Math.ceil(totalCount / pageSize));
+-  const pageDisplay = keepOnlySelected ? 1 : page;
++  const validPage = keepOnlySelected ? 1 : Math.min(Math.max(page, 1), totalPages);
++  const pageDisplay = validPage;
+   const from = keepOnlySelected
+     ? selectedRowCount === 0
+       ? 0
+       : 1
+     : totalCount === 0
+       ? 0
+-      : (page - 1) * pageSize + 1;
+-  const to = keepOnlySelected ? selectedRowCount : Math.min(page * pageSize, totalCount);
+-  const canPrev = !keepOnlySelected && page > 1;
+-  const canNext = !keepOnlySelected && page < totalPages;
++      : (validPage - 1) * pageSize + 1;
++  const to = keepOnlySelected ? selectedRowCount : Math.min(validPage * pageSize, totalCount);
++  const canPrev = !keepOnlySelected && validPage > 1;
++  const canNext = !keepOnlySelected && validPage < totalPages;
+ 
+   const handleMeaningfulInteraction = () => {
+     if (returnHighlightId) clearReturnHighlight();
+@@ -161,7 +163,7 @@ function DataViewMobilePagination() {
+             className="h-9 w-9"
+             onClick={() => {
+               handleMeaningfulInteraction();
+-              urlState.setPage(page - 1);
++              urlState.setPage(validPage - 1);
+             }}
+             disabled={!canPrev}
+             aria-label={t("pagination.previousPageAria")}
+@@ -177,7 +179,7 @@ function DataViewMobilePagination() {
+             className="h-9 w-9"
+             onClick={() => {
+               handleMeaningfulInteraction();
+-              urlState.setPage(page + 1);
++              urlState.setPage(validPage + 1);
+             }}
+             disabled={!canNext}
+             aria-label={t("pagination.nextPageAria")}
+@@ -269,7 +271,7 @@ function DataViewMobileCard<TRow>({ row }: { row: TRow }) {
+ function DataViewMobileList() {
+   const { getRowId } = useDataViewStatic();
+   const { urlState } = useDataViewUrl();
+-  const { listData, listIsLoading, listIsTransitioning } = useDataViewList();
++  const { listData, listIsLoading, listIsTransitioning, listError } = useDataViewList();
+   const { keepOnlySelected, isRowSelected } = useDataViewSelection();
+   const { returnHighlightId, clearReturnHighlight } = useDataViewDetail();
+   const t = useTranslations("dataView");
+@@ -294,7 +296,14 @@ function DataViewMobileList() {
+       onKeyDownCapture={handleMeaningfulInteraction}
+       data-testid="data-view-mobile-list"
+     >
+-      {listIsTransitioning || listIsLoading ? (
++      {listIsTransitioning ? (
++        <div
++          className="absolute inset-x-0 top-0 z-20 h-0.5 animate-pulse bg-primary/60"
++          role="status"
++          aria-label={t("table.updating")}
++        />
++      ) : null}
++      {listIsLoading ? (
+         <div className="space-y-2" aria-label={t("mobile.loadingAria")}>
+           {Array.from({ length: Math.min(Math.max(listData.pageSize, 1), 8) }).map((_, index) => (
+             <div key={index} className="rounded-md border bg-card p-3">
+@@ -304,6 +313,13 @@ function DataViewMobileList() {
+             </div>
+           ))}
+         </div>
++      ) : listError ? (
++        <div
++          className="flex min-h-40 items-center justify-center rounded-md border bg-card p-6 text-center text-sm text-destructive"
++          role="alert"
++        >
++          {t("table.error")}
++        </div>
+       ) : visibleRows.length === 0 ? (
+         <div className="flex min-h-40 items-center justify-center rounded-md border bg-card p-6 text-center text-sm text-muted-foreground">
+           {t("table.noResults")}
+diff --git a/apps/web/src/components/data-view/data-view-pagination.tsx b/apps/web/src/components/data-view/data-view-pagination.tsx
+index e16ac9569c3be390868e1bac883e5cd7306c3760..a3df17ef9cfeec18636508e5c3abf3573dc777a6 100644
+--- a/apps/web/src/components/data-view/data-view-pagination.tsx
++++ b/apps/web/src/components/data-view/data-view-pagination.tsx
+@@ -29,18 +29,19 @@ export function DataViewPagination() {
+   const t = useTranslations("dataView");
+ 
+   const totalPages = keepOnlySelected ? 1 : Math.max(1, Math.ceil(totalCount / pageSize));
+-  const pageDisplay = keepOnlySelected ? 1 : page;
++  const validPage = keepOnlySelected ? 1 : Math.min(Math.max(page, 1), totalPages);
++  const pageDisplay = validPage;
+   const from = keepOnlySelected
+     ? selectedRowCount === 0
+       ? 0
+       : 1
+     : totalCount === 0
+       ? 0
+-      : (page - 1) * pageSize + 1;
+-  const to = keepOnlySelected ? selectedRowCount : Math.min(page * pageSize, totalCount);
++      : (validPage - 1) * pageSize + 1;
++  const to = keepOnlySelected ? selectedRowCount : Math.min(validPage * pageSize, totalCount);
+ 
+-  const canPrev = !keepOnlySelected && page > 1;
+-  const canNext = !keepOnlySelected && page < totalPages;
++  const canPrev = !keepOnlySelected && validPage > 1;
++  const canNext = !keepOnlySelected && validPage < totalPages;
+ 
+   const handleMeaningfulInteraction = () => {
+     if (returnHighlightId) {
+@@ -111,7 +112,7 @@ export function DataViewPagination() {
+             className="h-8 w-8"
+             onClick={() => {
+               handleMeaningfulInteraction();
+-              urlState.setPage(page - 1);
++              urlState.setPage(validPage - 1);
+             }}
+             disabled={!canPrev || keepOnlySelected}
+             aria-label={t("pagination.previousPageAria")}
+@@ -127,7 +128,7 @@ export function DataViewPagination() {
+             className="h-8 w-8"
+             onClick={() => {
+               handleMeaningfulInteraction();
+-              urlState.setPage(page + 1);
++              urlState.setPage(validPage + 1);
+             }}
+             disabled={!canNext || keepOnlySelected}
+             aria-label={t("pagination.nextPageAria")}
+diff --git a/apps/web/src/components/data-view/data-view-provider.tsx b/apps/web/src/components/data-view/data-view-provider.tsx
+index 809a15a6d84380ee0378ba57ac6a1f87b37e0ac9..6dfdcd4b91f545158e9208dafffed7e6fcdd4e04 100644
+--- a/apps/web/src/components/data-view/data-view-provider.tsx
++++ b/apps/web/src/components/data-view/data-view-provider.tsx
+@@ -6,6 +6,7 @@ import type {
+   DataViewColumnDef,
+   DataViewFilterDef,
+   DataViewProps,
++  DataViewScope,
+   PaginatedResult,
+ } from "./data-view.types";
+ import type { DataViewUrlStateHook } from "./data-view-url-state";
+@@ -17,9 +18,16 @@ import {
+ } from "./use-data-view-query";
+ import { useColumnVisibility } from "./data-view-columns";
+ import { useDataViewReturn } from "./use-data-view-return";
++import {
++  dataViewKeys,
++  invalidateDataViewEntity,
++  synchronizeDataViewSidebarPage,
++} from "./data-view-query-keys";
++import { recoverDataViewPage } from "./data-view-search-params";
+ 
+ export type DataViewStaticContextValue<TListRow, TDetail> = {
+   entity: string;
++  scope: DataViewScope;
+   queryKey: string[];
+   columns: DataViewColumnDef<TListRow>[];
+   filters: DataViewFilterDef[];
+@@ -41,6 +49,8 @@ export type DataViewListContextValue<TListRow> = {
+   listData: PaginatedResult<TListRow>;
+   listIsLoading: boolean;
+   listIsTransitioning: boolean;
++  listIsRefreshing: boolean;
++  listError: Error | null;
+ };
+ 
+ export type DataViewColumnsContextValue = {
+@@ -70,6 +80,7 @@ export type DataViewSidebarContextValue<TListRow> = {
+   sidebarIsFetchingPreviousPage: boolean;
+   sidebarHasNextPage: boolean;
+   sidebarHasPreviousPage: boolean;
++  sidebarError: Error | null;
+   fetchSidebarNextPage: () => Promise<unknown>;
+   fetchSidebarPreviousPage: () => Promise<unknown>;
+ };
+@@ -77,6 +88,10 @@ export type DataViewSidebarContextValue<TListRow> = {
+ export type DataViewDetailContextValue<TDetail> = {
+   detailData: TDetail | null | undefined;
+   detailIsLoading: boolean;
++  detailIsRefreshing: boolean;
++  detailError: Error | null;
++  detailNotFound: boolean;
++  selectedOutsideCurrentResults: boolean;
+   closeDetail: () => void;
+   isClosingDetail: boolean;
+   returnHighlightId: string | null;
+@@ -96,9 +111,11 @@ export const DataViewDetailContext = createContext<DataViewDetailContextValue<an
+ type DataViewProviderProps<TListRow, TDetail> = Pick<
+   DataViewProps<TListRow, TDetail>,
+   | "entity"
++  | "scope"
+   | "columns"
+   | "filters"
+   | "initialData"
++  | "initialDataUpdatedAt"
+   | "queryKey"
+   | "listFetcher"
+   | "detailFetcher"
+@@ -118,9 +135,11 @@ type DataViewProviderProps<TListRow, TDetail> = Pick<
+ 
+ export function DataViewProvider<TListRow, TDetail>({
+   entity,
++  scope,
+   columns,
+   filters = [],
+   initialData,
++  initialDataUpdatedAt,
+   queryKey,
+   listFetcher,
+   detailFetcher,
+@@ -137,27 +156,40 @@ export function DataViewProvider<TListRow, TDetail>({
+   children,
+ }: DataViewProviderProps<TListRow, TDetail>) {
+   const queryClient = useQueryClient();
++  const scopeKey = JSON.stringify(scope);
++  const stableScope = useMemo<DataViewScope>(() => JSON.parse(scopeKey), [scopeKey]);
+   const urlState = useDataViewUrlState(entity);
++  const setUrlPage = urlState.setPage;
+   const lastRefreshTokenRef = React.useRef(refreshToken);
+-  const columnKeys = useMemo(() => columns.map((column) => column.key), [columns]);
+-
+-  const { columnVisibility, setColumnVisibility } = useColumnVisibility(entity, columnKeys);
++  const { columnVisibility, setColumnVisibility } = useColumnVisibility(entity, columns);
+   const [selectedRowIds, setSelectedRowIds] = React.useState<Record<string, true>>({});
+   const [keepOnlySelected, setKeepOnlySelected] = React.useState(false);
++  const initialListParamsRef = React.useRef(urlState.listParams);
++  const initialScopeKeyRef = React.useRef(scopeKey);
++  const initialParamsKey = JSON.stringify(initialListParamsRef.current);
++  const currentParamsKey = JSON.stringify(urlState.listParams);
++  const initialDataForCurrentParams =
++    initialParamsKey === currentParamsKey && initialScopeKeyRef.current === scopeKey
++      ? initialData
++      : undefined;
+ 
+   useEffect(() => {
+     onSelectionChange?.(Object.keys(selectedRowIds));
+   }, [selectedRowIds, onSelectionChange]);
+ 
+   const listQuery = useDataViewListQuery<TListRow>({
+-    queryKey,
++    entity,
++    scope: stableScope,
+     listFetcher,
+     listParams: urlState.listParams,
+-    initialData,
++    initialData: initialDataForCurrentParams,
++    initialDataUpdatedAt:
++      initialDataForCurrentParams === undefined ? undefined : initialDataUpdatedAt,
+   });
+ 
+   const detailQuery = useDataViewDetailQuery<TDetail>({
+-    queryKey,
++    entity,
++    scope: stableScope,
+     detailFetcher,
+     selectedId: urlState.selected,
+   });
+@@ -166,19 +198,70 @@ export function DataViewProvider<TListRow, TDetail>({
+     if (refreshToken === undefined) return;
+     if (lastRefreshTokenRef.current === refreshToken) return;
+     lastRefreshTokenRef.current = refreshToken;
+-    void queryClient.invalidateQueries({ queryKey });
+-  }, [queryClient, queryKey, refreshToken]);
++    void invalidateDataViewEntity(queryClient, entity, stableScope);
++  }, [queryClient, entity, stableScope, refreshToken]);
+ 
+   const isDetailOpen = !!urlState.selected;
+-  const resolvedListData = listQuery.data ?? initialData;
++  const resolvedListData = useMemo(
++    () =>
++      listQuery.data ??
++      (initialScopeKeyRef.current === scopeKey ? initialData : undefined) ?? {
++        rows: [],
++        totalCount: 0,
++        page: urlState.page,
++        pageSize: urlState.pageSize,
++      },
++    [initialData, listQuery.data, scopeKey, urlState.page, urlState.pageSize]
++  );
+   const sidebarQuery = useDataViewSidebarInfiniteQuery<TListRow>({
+-    queryKey,
++    entity,
++    scope: stableScope,
+     listFetcher,
+     listParams: urlState.listParams,
+-    initialPageData: resolvedListData,
+-    enabled: isDetailOpen,
++    initialPageData: listQuery.isPlaceholderData ? undefined : resolvedListData,
++    initialDataUpdatedAt: queryClient.getQueryState(
++      dataViewKeys.list(entity, stableScope, urlState.listParams)
++    )?.dataUpdatedAt,
++    enabled: isDetailOpen && !listQuery.isPlaceholderData,
+   });
+ 
++  useEffect(() => {
++    if (!listQuery.isSuccess || listQuery.isPlaceholderData || !listQuery.data) return;
++
++    synchronizeDataViewSidebarPage(
++      queryClient,
++      entity,
++      stableScope,
++      urlState.listParams,
++      listQuery.data
++    );
++  }, [
++    entity,
++    stableScope,
++    listQuery.data,
++    listQuery.isPlaceholderData,
++    listQuery.isSuccess,
++    queryClient,
++    urlState.listParams,
++  ]);
++
++  useEffect(() => {
++    if (!listQuery.isSuccess || listQuery.isPlaceholderData || !listQuery.data) return;
++    const recoveredPage = recoverDataViewPage(
++      urlState.page,
++      listQuery.data.totalCount,
++      urlState.pageSize
++    );
++    if (recoveredPage !== urlState.page) setUrlPage(recoveredPage);
++  }, [
++    listQuery.data,
++    listQuery.isPlaceholderData,
++    listQuery.isSuccess,
++    urlState.page,
++    urlState.pageSize,
++    setUrlPage,
++  ]);
++
+   const sidebarRows = useMemo(() => {
+     const pages = sidebarQuery.data?.pages ?? [resolvedListData];
+     const seen = new Set<string>();
+@@ -208,6 +291,7 @@ export function DataViewProvider<TListRow, TDetail>({
+   const staticValue = useMemo<DataViewStaticContextValue<TListRow, TDetail>>(
+     () => ({
+       entity,
++      scope: stableScope,
+       queryKey,
+       columns,
+       filters,
+@@ -221,6 +305,7 @@ export function DataViewProvider<TListRow, TDetail>({
+     }),
+     [
+       entity,
++      stableScope,
+       queryKey,
+       columns,
+       filters,
+@@ -245,10 +330,19 @@ export function DataViewProvider<TListRow, TDetail>({
+   const listValue = useMemo<DataViewListContextValue<TListRow>>(
+     () => ({
+       listData: resolvedListData,
+-      listIsLoading: listQuery.isFetching,
+-      listIsTransitioning: listQuery.isFetching,
++      listIsLoading: listQuery.isPending && !listQuery.data,
++      listIsTransitioning: listQuery.isFetching && listQuery.isPlaceholderData,
++      listIsRefreshing: listQuery.isFetching && !listQuery.isPlaceholderData && !!listQuery.data,
++      listError: listQuery.error,
+     }),
+-    [resolvedListData, listQuery.isFetching]
++    [
++      resolvedListData,
++      listQuery.data,
++      listQuery.error,
++      listQuery.isFetching,
++      listQuery.isPending,
++      listQuery.isPlaceholderData,
++    ]
+   );
+ 
+   const columnsValue = useMemo<DataViewColumnsContextValue>(
+@@ -363,6 +457,7 @@ export function DataViewProvider<TListRow, TDetail>({
+       sidebarIsFetchingPreviousPage: sidebarQuery.isFetchingPreviousPage,
+       sidebarHasNextPage: !!sidebarQuery.hasNextPage,
+       sidebarHasPreviousPage: !!sidebarQuery.hasPreviousPage,
++      sidebarError: sidebarQuery.error ?? listQuery.error,
+       fetchSidebarNextPage: sidebarQuery.fetchNextPage,
+       fetchSidebarPreviousPage: sidebarQuery.fetchPreviousPage,
+     }),
+@@ -374,6 +469,8 @@ export function DataViewProvider<TListRow, TDetail>({
+       sidebarQuery.isFetchingPreviousPage,
+       sidebarQuery.hasNextPage,
+       sidebarQuery.hasPreviousPage,
++      sidebarQuery.error,
++      listQuery.error,
+       sidebarQuery.fetchNextPage,
+       sidebarQuery.fetchPreviousPage,
+     ]
+@@ -382,13 +479,31 @@ export function DataViewProvider<TListRow, TDetail>({
+   const detailValue = useMemo<DataViewDetailContextValue<TDetail>>(
+     () => ({
+       detailData: detailQuery.data,
+-      detailIsLoading: detailQuery.isFetching,
++      detailIsLoading: isDetailOpen && detailQuery.isPending,
++      detailIsRefreshing: detailQuery.isFetching && detailQuery.data != null,
++      detailError: detailQuery.error,
++      detailNotFound: detailQuery.isSuccess && detailQuery.data === null,
++      selectedOutsideCurrentResults:
++        isDetailOpen && !resolvedListData.rows.some((row) => getRowId(row) === urlState.selected),
+       closeDetail,
+       isClosingDetail: false,
+       returnHighlightId,
+       clearReturnHighlight,
+     }),
+-    [detailQuery.data, detailQuery.isFetching, closeDetail, returnHighlightId, clearReturnHighlight]
++    [
++      detailQuery.data,
++      detailQuery.error,
++      detailQuery.isFetching,
++      detailQuery.isPending,
++      detailQuery.isSuccess,
++      isDetailOpen,
++      resolvedListData.rows,
++      getRowId,
++      urlState.selected,
++      closeDetail,
++      returnHighlightId,
++      clearReturnHighlight,
++    ]
+   );
+ 
+   return (
+diff --git a/apps/web/src/components/data-view/data-view-query-keys.ts b/apps/web/src/components/data-view/data-view-query-keys.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..f818ec96b6c5a4fb7fbfceb44d2ddde8ed6879b4
+--- /dev/null
++++ b/apps/web/src/components/data-view/data-view-query-keys.ts
+@@ -0,0 +1,113 @@
++import type { QueryClient } from "@tanstack/react-query";
++import type {
++  DataViewListParams,
++  DataViewScope,
++  InfinitePaginatedData,
++  PaginatedResult,
++} from "./data-view.types";
++
++export const DATA_VIEW_LIST_STALE_TIME = 60_000;
++export const DATA_VIEW_DETAIL_STALE_TIME = 60_000;
++
++export const dataViewKeys = {
++  all: ["data-view"] as const,
++  entity: (entity: string) => [...dataViewKeys.all, entity] as const,
++  scopes: (entity: string) => [...dataViewKeys.entity(entity), "scope"] as const,
++  scope: (entity: string, scope: DataViewScope) =>
++    [...dataViewKeys.scopes(entity), scope] as const,
++  lists: (entity: string, scope: DataViewScope) =>
++    [...dataViewKeys.scope(entity, scope), "list"] as const,
++  list: (entity: string, scope: DataViewScope, params: DataViewListParams) =>
++    [...dataViewKeys.lists(entity, scope), params] as const,
++  sidebars: (entity: string, scope: DataViewScope) =>
++    [...dataViewKeys.scope(entity, scope), "sidebar"] as const,
++  sidebar: (entity: string, scope: DataViewScope, params: DataViewListParams) =>
++    [
++      ...dataViewKeys.sidebars(entity, scope),
++      {
++        search: params.search,
++        sort: params.sort,
++        filters: params.filters,
++        page: params.page,
++        pageSize: params.pageSize,
++      },
++    ] as const,
++  details: (entity: string, scope: DataViewScope) =>
++    [...dataViewKeys.scope(entity, scope), "detail"] as const,
++  detail: (entity: string, scope: DataViewScope, id: string) =>
++    [...dataViewKeys.details(entity, scope), id] as const,
++};
++
++export function getSelectionHistoryMode(
++  currentSelectedId: string | null,
++  nextSelectedId: string | null
++): "push" | "replace" {
++  return currentSelectedId === null && nextSelectedId !== null ? "push" : "replace";
++}
++
++export async function invalidateDataViewList(
++  queryClient: QueryClient,
++  entity: string,
++  scope: DataViewScope
++) {
++  await queryClient.invalidateQueries({
++    queryKey: dataViewKeys.sidebars(entity, scope),
++    refetchType: "none",
++  });
++  await queryClient.invalidateQueries({ queryKey: dataViewKeys.lists(entity, scope) });
++}
++
++export function invalidateDataViewDetail(
++  queryClient: QueryClient,
++  entity: string,
++  scope: DataViewScope,
++  id: string
++) {
++  return queryClient.invalidateQueries({ queryKey: dataViewKeys.detail(entity, scope, id) });
++}
++
++export function invalidateDataViewEntity(
++  queryClient: QueryClient,
++  entity: string,
++  scope: DataViewScope,
++  id?: string
++) {
++  if (id) {
++    return Promise.all([
++      invalidateDataViewList(queryClient, entity, scope),
++      invalidateDataViewDetail(queryClient, entity, scope, id),
++    ]);
++  }
++
++  return queryClient.invalidateQueries({ queryKey: dataViewKeys.scope(entity, scope) });
++}
++
++export function invalidateDataViewEntityAllScopes(queryClient: QueryClient, entity: string) {
++  return queryClient.invalidateQueries({ queryKey: dataViewKeys.entity(entity) });
++}
++
++export function synchronizeDataViewSidebarPage<TListRow>(
++  queryClient: QueryClient,
++  entity: string,
++  scope: DataViewScope,
++  params: DataViewListParams,
++  freshPage: PaginatedResult<TListRow>
++) {
++  const key = dataViewKeys.sidebar(entity, scope, params);
++  const wasInvalidated = queryClient.getQueryState(key)?.isInvalidated === true;
++
++  queryClient.setQueryData<InfinitePaginatedData<TListRow>>(key, (current) => {
++    if (!current) return current;
++    if (wasInvalidated) {
++      return { pages: [freshPage], pageParams: [freshPage.page] };
++    }
++
++    let replaced = false;
++    const pages = current.pages.map((page) => {
++      if (page.page !== freshPage.page) return page;
++      replaced = true;
++      return freshPage;
++    });
++    return replaced ? { ...current, pages } : current;
++  });
++}
+diff --git a/apps/web/src/components/data-view/data-view-search-params.ts b/apps/web/src/components/data-view/data-view-search-params.ts
+index 5a1f35cb7c7093f2349b20517d648734b7723863..44342bde1d8d9b79244db876abf14eabe540227b 100644
+--- a/apps/web/src/components/data-view/data-view-search-params.ts
++++ b/apps/web/src/components/data-view/data-view-search-params.ts
+@@ -1,8 +1,29 @@
+-import type { DataViewUrlState, SortState } from "./data-view.types";
++import { createLoader, parseAsInteger, parseAsJson, parseAsString } from "nuqs/server";
++import { z } from "zod";
++import type { DataViewListParams, DataViewUrlState, SortState } from "./data-view.types";
+ 
+-type FilterRecord = Record<string, string | string[] | boolean | null>;
++export type DataViewFilterRecord = Record<string, string | string[] | boolean | null>;
+ 
+-function parseSortStr(sortStr: string): SortState {
++export const DATA_VIEW_PAGE_SIZES = [10, 25, 50, 100] as const;
++export const DATA_VIEW_DEFAULT_PAGE_SIZE = 50;
++
++const EMPTY_FILTERS: DataViewFilterRecord = {};
++const filterRecordSchema = z.record(
++  z.union([z.string(), z.array(z.string()), z.boolean(), z.null()])
++);
++
++export const DATA_VIEW_PARSERS = {
++  selected: parseAsString.withDefault(""),
++  search: parseAsString.withDefault(""),
++  sort: parseAsString.withDefault(""),
++  page: parseAsInteger.withDefault(1),
++  pageSize: parseAsInteger.withDefault(DATA_VIEW_DEFAULT_PAGE_SIZE),
++  filters: parseAsJson(filterRecordSchema).withDefault(EMPTY_FILTERS),
++};
++
++const loadDataViewSearchParams = createLoader(DATA_VIEW_PARSERS);
++
++export function parseDataViewSort(sortStr: string): SortState {
+   if (!sortStr) return null;
+   const lastDot = sortStr.lastIndexOf(".");
+   if (lastDot === -1) return null;
+@@ -12,37 +33,52 @@ function parseSortStr(sortStr: string): SortState {
+   return { field, direction: dir };
+ }
+ 
++export function normalizeDataViewPage(page: number): number {
++  return Number.isInteger(page) && page >= 1 ? page : 1;
++}
++
++export function normalizeDataViewPageSize(pageSize: number): number {
++  return DATA_VIEW_PAGE_SIZES.includes(pageSize as (typeof DATA_VIEW_PAGE_SIZES)[number])
++    ? pageSize
++    : DATA_VIEW_DEFAULT_PAGE_SIZE;
++}
++
++export function recoverDataViewPage(page: number, totalCount: number, pageSize: number): number {
++  const normalizedPageSize = normalizeDataViewPageSize(pageSize);
++  const pageCount = Math.max(1, Math.ceil(Math.max(0, totalCount) / normalizedPageSize));
++  return Math.min(normalizeDataViewPage(page), pageCount);
++}
++
++export function normalizeDataViewListParams(params: DataViewListParams): DataViewListParams {
++  return {
++    search: params.search ?? "",
++    sort: params.sort,
++    page: normalizeDataViewPage(params.page),
++    pageSize: normalizeDataViewPageSize(params.pageSize),
++    filters: Object.fromEntries(
++      Object.entries(params.filters ?? {}).sort(([left], [right]) => left.localeCompare(right))
++    ),
++  };
++}
++
+ /**
+  * Parses Next.js searchParams (from a server component's page props)
+  * into DataViewUrlState. Safe to import in server components.
+  */
+ export function parseDataViewSearchParams(
+-  params: Record<string, string | string[] | undefined>
++  params: Record<string, string | string[] | undefined> | URLSearchParams | string
+ ): DataViewUrlState {
+-  const get = (key: string): string => {
+-    const v = params[key];
+-    return typeof v === "string" ? v : "";
+-  };
+-
+-  let filters: FilterRecord = {};
+-  try {
+-    const raw = get("filters");
+-    if (raw) {
+-      const parsed = JSON.parse(decodeURIComponent(raw));
+-      if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+-        filters = parsed as FilterRecord;
+-      }
+-    }
+-  } catch {
+-    // ignore malformed JSON
+-  }
++  const raw = loadDataViewSearchParams(params);
++  const listParams = normalizeDataViewListParams({
++    search: raw.search,
++    sort: parseDataViewSort(raw.sort),
++    page: raw.page,
++    pageSize: raw.pageSize,
++    filters: raw.filters,
++  });
+ 
+   return {
+-    selected: get("selected") || null,
+-    search: get("search"),
+-    sort: parseSortStr(get("sort")),
+-    page: parseInt(get("page") || "1", 10) || 1,
+-    pageSize: parseInt(get("pageSize") || "50", 10) || 50,
+-    filters,
++    selected: raw.selected || null,
++    ...listParams,
+   };
+ }
+diff --git a/apps/web/src/components/data-view/data-view-sidebar.tsx b/apps/web/src/components/data-view/data-view-sidebar.tsx
+index c4f227ac8a4d22d4d13dc602e32bed1e7364842b..73f631ee9bd7b6bc7e904f0c6d0d2518f87028ed 100644
+--- a/apps/web/src/components/data-view/data-view-sidebar.tsx
++++ b/apps/web/src/components/data-view/data-view-sidebar.tsx
+@@ -31,6 +31,7 @@ export function DataViewSidebar() {
+     sidebarIsFetchingPreviousPage,
+     fetchSidebarNextPage,
+     fetchSidebarPreviousPage,
++    sidebarError,
+   } = useDataViewSidebar();
+ 
+   const scrollRef = useRef<HTMLDivElement>(null);
+@@ -174,7 +175,17 @@ export function DataViewSidebar() {
+           }
+         }}
+       >
+-        {showInfiniteLoading && (sidebarHasPreviousPage || sidebarIsFetchingPreviousPage) ? (
++        {sidebarError ? (
++          <div
++            className="flex h-24 items-center justify-center px-4 text-center text-sm text-destructive"
++            role="alert"
++          >
++            {t("table.error")}
++          </div>
++        ) : null}
++        {!sidebarError &&
++        showInfiniteLoading &&
++        (sidebarHasPreviousPage || sidebarIsFetchingPreviousPage) ? (
+           <div className="absolute inset-x-0 top-0 z-10 flex h-10 items-center justify-center border-b bg-background text-xs text-muted-foreground">
+             {sidebarIsFetchingPreviousPage ? (
+               <Loader2
+@@ -187,7 +198,7 @@ export function DataViewSidebar() {
+           </div>
+         ) : null}
+ 
+-        {shouldVirtualize ? (
++        {!sidebarError && shouldVirtualize ? (
+           <div className="relative w-full" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
+             {virtualRows.map((virtualRow) => {
+               const row = visibleSidebarRows[virtualRow.index];
+@@ -219,7 +230,7 @@ export function DataViewSidebar() {
+               );
+             })}
+           </div>
+-        ) : (
++        ) : !sidebarError ? (
+           visibleSidebarRows.map((row) => {
+             const rowId = getRowId(row);
+             const isSelected = urlState.selected === rowId;
+@@ -245,9 +256,11 @@ export function DataViewSidebar() {
+               </button>
+             );
+           })
+-        )}
++        ) : null}
+ 
+-        {showInfiniteLoading && (sidebarHasNextPage || sidebarIsFetchingNextPage) ? (
++        {!sidebarError &&
++        showInfiniteLoading &&
++        (sidebarHasNextPage || sidebarIsFetchingNextPage) ? (
+           <div className="absolute inset-x-0 bottom-0 z-10 flex h-10 items-center justify-center border-t bg-background text-xs text-muted-foreground">
+             {sidebarIsFetchingNextPage ? (
+               <Loader2 className="h-4 w-4 animate-spin" aria-label={t("sidebar.loadingMoreAria")} />
+diff --git a/apps/web/src/components/data-view/data-view-ssr.ts b/apps/web/src/components/data-view/data-view-ssr.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..2c6b851939a4d7f66d8d55003bb4746261af1bb9
+--- /dev/null
++++ b/apps/web/src/components/data-view/data-view-ssr.ts
+@@ -0,0 +1,48 @@
++import "server-only";
++
++import { QueryClient } from "@tanstack/react-query";
++import type { DataViewListParams, DataViewScope, PaginatedResult } from "./data-view.types";
++import {
++  DATA_VIEW_DETAIL_STALE_TIME,
++  DATA_VIEW_LIST_STALE_TIME,
++  dataViewKeys,
++} from "./data-view-query-keys";
++
++export function createDataViewServerQueryClient() {
++  return new QueryClient({
++    defaultOptions: {
++      queries: {
++        staleTime: DATA_VIEW_LIST_STALE_TIME,
++        retry: false,
++      },
++    },
++  });
++}
++
++export function prefetchDataViewList<TListRow>(args: {
++  queryClient: QueryClient;
++  entity: string;
++  scope: DataViewScope;
++  params: DataViewListParams;
++  fetcher: () => Promise<PaginatedResult<TListRow>>;
++}) {
++  return args.queryClient.prefetchQuery({
++    queryKey: dataViewKeys.list(args.entity, args.scope, args.params),
++    queryFn: args.fetcher,
++    staleTime: DATA_VIEW_LIST_STALE_TIME,
++  });
++}
++
++export function prefetchDataViewDetail<TDetail>(args: {
++  queryClient: QueryClient;
++  entity: string;
++  scope: DataViewScope;
++  selectedId: string;
++  fetcher: () => Promise<TDetail | null>;
++}) {
++  return args.queryClient.prefetchQuery({
++    queryKey: dataViewKeys.detail(args.entity, args.scope, args.selectedId),
++    queryFn: args.fetcher,
++    staleTime: DATA_VIEW_DETAIL_STALE_TIME,
++  });
++}
+diff --git a/apps/web/src/components/data-view/data-view-table.tsx b/apps/web/src/components/data-view/data-view-table.tsx
+index ecae02b168edd5b6e8eacfb2ee734fc8d071bb42..596f5712ad4d57492bb2aa7868250a3fd7f1f3b9 100644
+--- a/apps/web/src/components/data-view/data-view-table.tsx
++++ b/apps/web/src/components/data-view/data-view-table.tsx
+@@ -40,7 +40,7 @@ interface DataViewTableProps {
+ export function DataViewTable({ primaryOnly = false }: DataViewTableProps) {
+   const { columns: colDefs, getRowId, renderExpandedRow, renderRowControl } = useDataViewStatic();
+   const { urlState } = useDataViewUrl();
+-  const { listData, listIsLoading, listIsTransitioning } = useDataViewList();
++  const { listData, listIsLoading, listIsTransitioning, listError } = useDataViewList();
+   const { columnVisibility } = useDataViewColumns();
+   const { returnHighlightId, clearReturnHighlight } = useDataViewDetail();
+   const {
+@@ -168,6 +168,13 @@ export function DataViewTable({ primaryOnly = false }: DataViewTableProps) {
+       onWheelCapture={handleMeaningfulInteraction}
+       onKeyDownCapture={handleMeaningfulInteraction}
+     >
++      {listIsTransitioning ? (
++        <div
++          className="absolute inset-x-0 top-0 z-20 h-0.5 animate-pulse bg-primary/60"
++          role="status"
++          aria-label={t("table.updating")}
++        />
++      ) : null}
+       <Table
+         containerClassName="overflow-visible"
+         className="[&_thead_th]:sticky [&_thead_th]:top-0 [&_thead_th]:z-10 [&_thead_th]:bg-background"
+@@ -235,7 +242,7 @@ export function DataViewTable({ primaryOnly = false }: DataViewTableProps) {
+           ))}
+         </TableHeader>
+         <TableBody>
+-          {listIsTransitioning ? (
++          {listIsLoading ? (
+             Array.from({ length: skeletonRowCount }).map((_, rowIndex) => (
+               <TableRow
+                 key={`skeleton-row-${rowIndex}`}
+@@ -255,7 +262,17 @@ export function DataViewTable({ primaryOnly = false }: DataViewTableProps) {
+                 ) : null}
+               </TableRow>
+             ))
+-          ) : table.getRowModel().rows.length === 0 && !listIsLoading ? (
++          ) : listError ? (
++            <TableRow>
++              <TableCell
++                colSpan={totalColumnCount}
++                className="py-10 text-center text-destructive"
++                role="alert"
++              >
++                {t("table.error")}
++              </TableCell>
++            </TableRow>
++          ) : table.getRowModel().rows.length === 0 ? (
+             <TableRow>
+               <TableCell
+                 colSpan={totalColumnCount}
+diff --git a/apps/web/src/components/data-view/data-view-toolbar.tsx b/apps/web/src/components/data-view/data-view-toolbar.tsx
+index fe4b8e7eb4d874ca0dee9ddd925669ce9c70e5f5..a246d4c419e66a76df826fc9902788b41dcd7c5f 100644
+--- a/apps/web/src/components/data-view/data-view-toolbar.tsx
++++ b/apps/web/src/components/data-view/data-view-toolbar.tsx
+@@ -13,6 +13,7 @@ import {
+ } from "./use-data-view";
+ import { DataViewFilters } from "./data-view-filters";
+ import { DataViewSearchControl } from "./data-view-search-control";
++import { invalidateDataViewEntity } from "./data-view-query-keys";
+ 
+ // Both toolbar variants use this height so the body area never shifts vertically.
+ const TOOLBAR_CLS =
+@@ -23,14 +24,14 @@ type DataViewToolbarProps = {
+ };
+ 
+ export function DataViewToolbar({ mode = "list" }: DataViewToolbarProps) {
+-  const { renderToolbarControls, queryKey } = useDataViewStatic();
++  const { renderToolbarControls, entity, scope } = useDataViewStatic();
+   const { closeDetail, isClosingDetail } = useDataViewDetail();
+   const { listIsTransitioning } = useDataViewList();
+   const queryClient = useQueryClient();
+ 
+   const handleRefresh = useCallback(() => {
+-    queryClient.invalidateQueries({ queryKey });
+-  }, [queryClient, queryKey]);
++    void invalidateDataViewEntity(queryClient, entity, scope);
++  }, [queryClient, entity, scope]);
+   const {
+     selectedRowCount,
+     keepOnlySelected,
+diff --git a/apps/web/src/components/data-view/data-view-url-state.ts b/apps/web/src/components/data-view/data-view-url-state.ts
+index 980601875726be82fe8f1c50f8dbba5fe7e51c38..f878c2c9cac49e46b98d66fc4729c8c2d89cddef 100644
+--- a/apps/web/src/components/data-view/data-view-url-state.ts
++++ b/apps/web/src/components/data-view/data-view-url-state.ts
+@@ -1,23 +1,23 @@
+ "use client";
+ 
+ import { useCallback, useMemo } from "react";
+-import { useQueryStates, parseAsString, parseAsInteger, parseAsJson } from "nuqs";
+-import { z } from "zod";
++import { useQueryStates } from "nuqs";
+ import type { SortState, DataViewUrlState, DataViewListParams } from "./data-view.types";
++import {
++  DATA_VIEW_PARSERS,
++  normalizeDataViewListParams,
++  normalizeDataViewPage,
++  normalizeDataViewPageSize,
++  parseDataViewSort,
++  type DataViewFilterRecord,
++} from "./data-view-search-params";
++import { getSelectionHistoryMode } from "./data-view-query-keys";
+ 
+ // ---------------------------------------------------------------------------
+ // Helpers
+ // ---------------------------------------------------------------------------
+ 
+-export function parseSortString(sortStr: string): SortState {
+-  if (!sortStr) return null;
+-  const lastDot = sortStr.lastIndexOf(".");
+-  if (lastDot === -1) return null;
+-  const field = sortStr.slice(0, lastDot);
+-  const dir = sortStr.slice(lastDot + 1);
+-  if (dir !== "asc" && dir !== "desc") return null;
+-  return { field, direction: dir };
+-}
++export const parseSortString = parseDataViewSort;
+ 
+ export function serializeSortString(sort: SortState): string {
+   if (!sort) return "";
+@@ -28,23 +28,6 @@ export function serializeSortString(sort: SortState): string {
+ // nuqs parsers (defined at module level for stable references)
+ // ---------------------------------------------------------------------------
+ 
+-type FilterRecord = Record<string, string | string[] | boolean | null>;
+-
+-const DEFAULT_FILTERS: FilterRecord = {};
+-
+-const filterRecordSchema = z.record(
+-  z.union([z.string(), z.array(z.string()), z.boolean(), z.null()])
+-);
+-
+-const DATA_VIEW_PARSERS = {
+-  selected: parseAsString.withDefault(""),
+-  search: parseAsString.withDefault(""),
+-  sort: parseAsString.withDefault(""),
+-  page: parseAsInteger.withDefault(1),
+-  pageSize: parseAsInteger.withDefault(50),
+-  filters: parseAsJson(filterRecordSchema).withDefault(DEFAULT_FILTERS),
+-};
+-
+ // ---------------------------------------------------------------------------
+ // Hook return type
+ // ---------------------------------------------------------------------------
+@@ -58,7 +41,7 @@ export type DataViewUrlStateHook = DataViewUrlState & {
+   setSort: (sort: SortState) => void;
+   setPage: (page: number) => void;
+   setPageSize: (pageSize: number) => void;
+-  setFilters: (filters: FilterRecord) => void;
++  setFilters: (filters: DataViewFilterRecord) => void;
+ };
+ 
+ // ---------------------------------------------------------------------------
+@@ -74,19 +57,30 @@ export function useDataViewUrlState(_entity: string): DataViewUrlStateHook {
+   const [raw, setState] = useQueryStates(DATA_VIEW_PARSERS);
+ 
+   const selected = raw.selected || null;
+-  const sort = parseSortString(raw.sort);
++  const normalized = useMemo(
++    () =>
++      normalizeDataViewListParams({
++        search: raw.search,
++        sort: parseSortString(raw.sort),
++        page: raw.page,
++        pageSize: raw.pageSize,
++        filters: raw.filters,
++      }),
++    [raw.filters, raw.page, raw.pageSize, raw.search, raw.sort]
++  );
++  const sort = normalized.sort;
+ 
+   const setSelected = useCallback(
+     (id: string | null) => {
+-      void setState({ selected: id ?? "" }, { history: "push" });
++      void setState({ selected: id ?? "" }, { history: getSelectionHistoryMode(selected, id) });
+     },
+-    [setState]
++    [selected, setState]
+   );
+ 
+   const closeDetail = useCallback(
+     (page?: number) => {
+       void setState(page !== undefined ? { selected: "", page } : { selected: "" }, {
+-        history: "push",
++        history: "replace",
+       });
+     },
+     [setState]
+@@ -108,20 +102,20 @@ export function useDataViewUrlState(_entity: string): DataViewUrlStateHook {
+ 
+   const setPage = useCallback(
+     (p: number) => {
+-      void setState({ page: p }, { history: "replace" });
++      void setState({ page: normalizeDataViewPage(p) }, { history: "replace" });
+     },
+     [setState]
+   );
+ 
+   const setPageSize = useCallback(
+     (ps: number) => {
+-      void setState({ pageSize: ps, page: 1 }, { history: "replace" });
++      void setState({ pageSize: normalizeDataViewPageSize(ps), page: 1 }, { history: "replace" });
+     },
+     [setState]
+   );
+ 
+   const setFilters = useCallback(
+-    (f: FilterRecord) => {
++    (f: DataViewFilterRecord) => {
+       void setState({ filters: f, page: 1 }, { history: "replace" });
+     },
+     [setState]
+@@ -129,25 +123,15 @@ export function useDataViewUrlState(_entity: string): DataViewUrlStateHook {
+ 
+   // Stable memoized params — only recreates when URL state actually changes.
+ 
+-  const listParams = useMemo<DataViewListParams>(
+-    () => ({
+-      search: raw.search,
+-      sort,
+-      page: raw.page,
+-      pageSize: raw.pageSize,
+-      filters: raw.filters,
+-    }),
+-    // eslint-disable-next-line react-hooks/exhaustive-deps
+-    [raw.search, raw.sort, raw.page, raw.pageSize, raw.filters]
+-  );
++  const listParams: DataViewListParams = normalized;
+ 
+   return {
+     selected,
+-    search: raw.search,
++    search: normalized.search,
+     sort,
+-    page: raw.page,
+-    pageSize: raw.pageSize,
+-    filters: raw.filters,
++    page: normalized.page,
++    pageSize: normalized.pageSize,
++    filters: normalized.filters,
+     listParams,
+     setSelected,
+     closeDetail,
+diff --git a/apps/web/src/components/data-view/data-view.tsx b/apps/web/src/components/data-view/data-view.tsx
+index 5e0966f91c76587863f580810242289f14a75e27..3bc289f84fadad6a1f62e066a47c3752e92243cf 100644
+--- a/apps/web/src/components/data-view/data-view.tsx
++++ b/apps/web/src/components/data-view/data-view.tsx
+@@ -1,20 +1,11 @@
+ "use client";
+ 
+-import React, { useState } from "react";
+-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
++import React from "react";
+ import { cn } from "@/utils";
+ import type { DataViewProps } from "./data-view.types";
+ import { DataViewProvider } from "./data-view-provider";
+ import { DataViewLayout } from "./data-view-layout";
+ 
+-function makeQueryClient() {
+-  return new QueryClient({
+-    defaultOptions: {
+-      queries: { staleTime: 30_000 },
+-    },
+-  });
+-}
+-
+ /**
+  * DataView — Generic SSR-first Master–Detail data view component.
+  *
+@@ -26,9 +17,11 @@ function makeQueryClient() {
+  */
+ export function DataView<TListRow, TDetail>({
+   entity,
++  scope,
+   columns,
+   filters,
+   initialData,
++  initialDataUpdatedAt,
+   queryKey,
+   listFetcher,
+   detailFetcher,
+@@ -44,34 +37,31 @@ export function DataView<TListRow, TDetail>({
+   refreshToken,
+   className,
+ }: DataViewProps<TListRow, TDetail>) {
+-  // Per-mount QueryClient — isolates cache between DataView instances and test renders.
+-  const [queryClient] = useState(makeQueryClient);
+-
+   return (
+-    <QueryClientProvider client={queryClient}>
+-      <DataViewProvider
+-        entity={entity}
+-        columns={columns}
+-        filters={filters}
+-        initialData={initialData}
+-        queryKey={queryKey}
+-        listFetcher={listFetcher}
+-        detailFetcher={detailFetcher}
+-        resolveSelectedPage={resolveSelectedPage}
+-        getRowId={getRowId}
+-        renderCompactItem={renderCompactItem}
+-        renderMobileItem={renderMobileItem}
+-        renderExpandedRow={renderExpandedRow}
+-        renderRowControl={renderRowControl}
+-        renderToolbarControls={renderToolbarControls}
+-        renderDetail={renderDetail}
+-        onSelectionChange={onSelectionChange}
+-        refreshToken={refreshToken}
+-      >
+-        <div className={cn("h-full", className)}>
+-          <DataViewLayout />
+-        </div>
+-      </DataViewProvider>
+-    </QueryClientProvider>
++    <DataViewProvider
++      entity={entity}
++      scope={scope}
++      columns={columns}
++      filters={filters}
++      initialData={initialData}
++      initialDataUpdatedAt={initialDataUpdatedAt}
++      queryKey={queryKey}
++      listFetcher={listFetcher}
++      detailFetcher={detailFetcher}
++      resolveSelectedPage={resolveSelectedPage}
++      getRowId={getRowId}
++      renderCompactItem={renderCompactItem}
++      renderMobileItem={renderMobileItem}
++      renderExpandedRow={renderExpandedRow}
++      renderRowControl={renderRowControl}
++      renderToolbarControls={renderToolbarControls}
++      renderDetail={renderDetail}
++      onSelectionChange={onSelectionChange}
++      refreshToken={refreshToken}
++    >
++      <div className={cn("h-full", className)}>
++        <DataViewLayout />
++      </div>
++    </DataViewProvider>
+   );
+ }
+diff --git a/apps/web/src/components/data-view/data-view.types.ts b/apps/web/src/components/data-view/data-view.types.ts
+index 8e3166a5d3c11395869ff1120233067923ed142c..57db05ee99e36e4290a48dc042124d9201763468 100644
+--- a/apps/web/src/components/data-view/data-view.types.ts
++++ b/apps/web/src/components/data-view/data-view.types.ts
+@@ -3,6 +3,8 @@ export type {
+   DataViewFilterDef,
+   DataViewListParams,
+   DataViewProps,
++  DataViewScope,
++  DataViewScopePrimitive,
+   DataViewUrlState,
+   InfinitePaginatedData,
+   PaginatedResult,
+diff --git a/apps/web/src/components/data-view/use-data-view-query.ts b/apps/web/src/components/data-view/use-data-view-query.ts
+index 927fdfda2d5f93b72d61a3d6d450bc4130953a0e..af6657d2a3221ee9d86c89fbaa7976227468870a 100644
+--- a/apps/web/src/components/data-view/use-data-view-query.ts
++++ b/apps/web/src/components/data-view/use-data-view-query.ts
+@@ -2,73 +2,91 @@
+ 
+ import { useQuery } from "@tanstack/react-query";
+ import { useInfiniteQuery } from "@tanstack/react-query";
+-import type { PaginatedResult, DataViewListParams, InfinitePaginatedData } from "./data-view.types";
++import type {
++  PaginatedResult,
++  DataViewListParams,
++  DataViewScope,
++  InfinitePaginatedData,
++} from "./data-view.types";
++import {
++  DATA_VIEW_DETAIL_STALE_TIME,
++  DATA_VIEW_LIST_STALE_TIME,
++  dataViewKeys,
++} from "./data-view-query-keys";
+ 
+ type UseDataViewListQueryOptions<TListRow> = {
+-  queryKey: string[];
++  entity: string;
++  scope: DataViewScope;
+   listFetcher: (params: DataViewListParams) => Promise<PaginatedResult<TListRow>>;
+   listParams: DataViewListParams;
+-  initialData: PaginatedResult<TListRow>;
++  initialData?: PaginatedResult<TListRow>;
++  initialDataUpdatedAt?: number;
+ };
+ 
+ export function useDataViewListQuery<TListRow>({
+-  queryKey,
++  entity,
++  scope,
+   listFetcher,
+   listParams,
+   initialData,
++  initialDataUpdatedAt,
+ }: UseDataViewListQueryOptions<TListRow>) {
+   return useQuery({
+-    queryKey: [...queryKey, listParams],
++    queryKey: dataViewKeys.list(entity, scope, listParams),
+     queryFn: () => listFetcher(listParams),
+-    // IMPORTANT: Do NOT use `initialData` here.
+-    // TanStack Query v5 sets dataUpdatedAt = Date.now() when initialData is provided
+-    // without initialDataUpdatedAt, making the data "fresh" for the full staleTime.
+-    // This blocks refetches when query params change (filter/sort/page), causing the
+-    // "only works after refresh" bug.
+-    // `placeholderData` shows prior data while loading (smooth UX) but always fetches.
+-    placeholderData: (prev) => prev ?? initialData,
+-    staleTime: 30_000,
++    initialData,
++    initialDataUpdatedAt,
++    placeholderData: (previous) => previous,
++    staleTime: DATA_VIEW_LIST_STALE_TIME,
+     refetchOnWindowFocus: false,
+   });
+ }
+ 
+ type UseDataViewDetailQueryOptions<TDetail> = {
+-  queryKey: string[];
++  entity: string;
++  scope: DataViewScope;
+   detailFetcher: (id: string) => Promise<TDetail | null>;
+   selectedId: string | null;
+ };
+ 
+ export function useDataViewDetailQuery<TDetail>({
+-  queryKey,
++  entity,
++  scope,
+   detailFetcher,
+   selectedId,
+ }: UseDataViewDetailQueryOptions<TDetail>) {
+   return useQuery({
+-    queryKey: [...queryKey, "detail", selectedId],
++    queryKey: selectedId
++      ? dataViewKeys.detail(entity, scope, selectedId)
++      : [...dataViewKeys.details(entity, scope), "none"],
+     queryFn: () => detailFetcher(selectedId!),
+     enabled: !!selectedId,
+-    staleTime: 60_000,
++    staleTime: DATA_VIEW_DETAIL_STALE_TIME,
+     refetchOnWindowFocus: false,
+   });
+ }
+ 
+ type UseDataViewSidebarInfiniteQueryOptions<TListRow> = {
+-  queryKey: string[];
++  entity: string;
++  scope: DataViewScope;
+   listFetcher: (params: DataViewListParams) => Promise<PaginatedResult<TListRow>>;
+   listParams: DataViewListParams;
+-  initialPageData: PaginatedResult<TListRow>;
++  initialPageData?: PaginatedResult<TListRow>;
++  initialDataUpdatedAt?: number;
+   enabled: boolean;
+ };
+ 
+ export function useDataViewSidebarInfiniteQuery<TListRow>({
+-  queryKey,
++  entity,
++  scope,
+   listFetcher,
+   listParams,
+   initialPageData,
++  initialDataUpdatedAt,
+   enabled,
+ }: UseDataViewSidebarInfiniteQueryOptions<TListRow>) {
+   const canSeedFromInitialPage =
+-    initialPageData.page === listParams.page && initialPageData.pageSize === listParams.pageSize;
++    initialPageData?.page === listParams.page && initialPageData?.pageSize === listParams.pageSize;
+ 
+   return useInfiniteQuery<
+     PaginatedResult<TListRow>,
+@@ -77,16 +95,7 @@ export function useDataViewSidebarInfiniteQuery<TListRow>({
+     readonly unknown[],
+     number
+   >({
+-    queryKey: [
+-      ...queryKey,
+-      "sidebar",
+-      {
+-        search: listParams.search,
+-        sort: listParams.sort,
+-        filters: listParams.filters,
+-        pageSize: listParams.pageSize,
+-      },
+-    ],
++    queryKey: dataViewKeys.sidebar(entity, scope, listParams),
+     queryFn: ({ pageParam }) =>
+       listFetcher({
+         ...listParams,
+@@ -102,13 +111,14 @@ export function useDataViewSidebarInfiniteQuery<TListRow>({
+       return firstPage.page > 1 ? firstPage.page - 1 : undefined;
+     },
+     initialData:
+-      enabled && canSeedFromInitialPage
++      enabled && canSeedFromInitialPage && initialPageData
+         ? {
+             pages: [initialPageData],
+             pageParams: [listParams.page],
+           }
+         : undefined,
+-    staleTime: 30_000,
++    initialDataUpdatedAt,
++    staleTime: DATA_VIEW_LIST_STALE_TIME,
+     refetchOnWindowFocus: false,
+   });
+ }
+diff --git a/apps/web/src/components/tools/qr-generator/index.tsx b/apps/web/src/components/tools/qr-generator/index.tsx
+index 0f1c9a30b37f4ff6b4fed4536ef609fc3f43c0a3..f3ce7d66692a3fe7943695d62d98f2e3343fee2f 100644
+--- a/apps/web/src/components/tools/qr-generator/index.tsx
++++ b/apps/web/src/components/tools/qr-generator/index.tsx
+@@ -7,6 +7,7 @@ import { listQrCodesAction } from "@/app/actions/qr/list";
+ import { paginateQrCodes } from "@/app/[locale]/dashboard/qr/_utils/data-view";
+ import type { QrCodeWithStatus } from "@/server/services/qr.service";
+ import type { PaginatedResult } from "@/components/data-view/data-view.types";
++import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
+ 
+ interface LoadedState {
+   initialData: PaginatedResult<QrCodeWithStatus>;
+@@ -20,12 +21,15 @@ interface LoadedState {
+  * Permissions are resolved internally via usePermissions (no snapshot prop needed).
+  */
+ export function QrGeneratorTool() {
++  const activeOrgId = useAppStoreV2((state) => state.activeOrgId);
+   const [state, setState] = useState<LoadedState | null>(null);
+-  const fetched = useRef(false);
++  const fetchedOrgId = useRef<string | null>(null);
+ 
+   useEffect(() => {
+-    if (fetched.current) return;
+-    fetched.current = true;
++    if (!activeOrgId) return;
++    if (fetchedOrgId.current === activeOrgId) return;
++    fetchedOrgId.current = activeOrgId;
++    setState(null);
+ 
+     listQrCodesAction().then((result) => {
+       const codes = result.success
+@@ -36,7 +40,7 @@ export function QrGeneratorTool() {
+         initialData: paginateQrCodes(codes, 1, 50),
+       });
+     });
+-  }, []);
++  }, [activeOrgId]);
+ 
+   if (!state) {
+     return (
+@@ -50,7 +54,11 @@ export function QrGeneratorTool() {
+ 
+   return (
+     <div className="h-[calc(100vh-12rem)]">
+-      <QrManagementClient initialData={state.initialData} allCodes={state.allCodes} />
++      <QrManagementClient
++        orgId={activeOrgId!}
++        initialData={state.initialData}
++        allCodes={state.allCodes}
++      />
+     </div>
+   );
+ }
+diff --git a/apps/web/src/hooks/queries/help-desk/__tests__/data-view-invalidation.test.tsx b/apps/web/src/hooks/queries/help-desk/__tests__/data-view-invalidation.test.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..ab1658eb0187b5325e95f5640291d030669ae412
+--- /dev/null
++++ b/apps/web/src/hooks/queries/help-desk/__tests__/data-view-invalidation.test.tsx
+@@ -0,0 +1,75 @@
++/** @vitest-environment jsdom */
++
++import React from "react";
++import { act, renderHook } from "@testing-library/react";
++import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
++import { beforeEach, describe, expect, it, vi } from "vitest";
++import { dataViewKeys } from "@/components/data-view/data-view-query-keys";
++import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
++import type { DataViewListParams } from "@/components/data-view/data-view.types";
++import { useAcceptTicketMutation } from "../index";
++
++const { acceptTicketAction } = vi.hoisted(() => ({ acceptTicketAction: vi.fn() }));
++
++vi.mock("@/app/actions/help-desk", () => ({
++  acceptTicketAction,
++  closeTicketAction: vi.fn(),
++  createTicketAction: vi.fn(),
++  getTicketDetailAction: vi.fn(),
++  getTicketTypeDefaultAcceptorsAction: vi.fn(),
++  getTicketTypeDefaultRespondersAction: vi.fn(),
++  listOrgMembersForTicketAssignmentAction: vi.fn(),
++  listTicketTypesAction: vi.fn(),
++}));
++
++vi.mock("react-toastify", () => ({
++  toast: { success: vi.fn(), error: vi.fn() },
++}));
++
++const params: DataViewListParams = {
++  search: "",
++  sort: null,
++  page: 1,
++  pageSize: 50,
++  filters: {},
++};
++
++describe("Help Desk DataView invalidation", () => {
++  beforeEach(() => {
++    acceptTicketAction.mockResolvedValue({ success: true, data: {} });
++  });
++
++  it("invalidates the canonical list, sidebar, and selected detail after acceptance", async () => {
++    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
++    const scope = dataViewScope.organization("org-1");
++    const otherScope = dataViewScope.organization("org-2");
++    queryClient.setQueryData(dataViewKeys.list("helpdesk-tickets", scope, params), { rows: [] });
++    queryClient.setQueryData(dataViewKeys.sidebar("helpdesk-tickets", scope, params), { pages: [] });
++    queryClient.setQueryData(dataViewKeys.detail("helpdesk-tickets", scope, "HD-1"), { id: "HD-1" });
++    queryClient.setQueryData(dataViewKeys.list("helpdesk-tickets", otherScope, params), {
++      rows: [{ id: "other-org" }],
++    });
++    const wrapper = ({ children }: { children: React.ReactNode }) => (
++      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
++    );
++    const { result } = renderHook(() => useAcceptTicketMutation("HD-1", "org-1"), { wrapper });
++
++    await act(async () => {
++      await result.current.mutateAsync({ ticket_id: "00000000-0000-4000-8000-000000000001" });
++    });
++
++    expect(
++      queryClient.getQueryState(dataViewKeys.list("helpdesk-tickets", scope, params))?.isInvalidated
++    ).toBe(true);
++    expect(
++      queryClient.getQueryState(dataViewKeys.sidebar("helpdesk-tickets", scope, params))?.isInvalidated
++    ).toBe(true);
++    expect(
++      queryClient.getQueryState(dataViewKeys.detail("helpdesk-tickets", scope, "HD-1"))?.isInvalidated
++    ).toBe(true);
++    expect(
++      queryClient.getQueryState(dataViewKeys.list("helpdesk-tickets", otherScope, params))
++        ?.isInvalidated
++    ).toBe(false);
++  });
++});
+diff --git a/apps/web/src/hooks/queries/help-desk/index.ts b/apps/web/src/hooks/queries/help-desk/index.ts
+index a6135c9f7f437a39ca5da6833c43cf9509548b75..0d2d69d0714b1e91d478291ea3c0896ec62d1ddc 100644
+--- a/apps/web/src/hooks/queries/help-desk/index.ts
++++ b/apps/web/src/hooks/queries/help-desk/index.ts
+@@ -19,6 +19,11 @@ import type {
+   CloseTicketInput,
+ } from "@/lib/validations/helpdesk";
+ import type { HelpdeskTicketDetail } from "@/server/services/helpdesk-tickets.service";
++import {
++  dataViewKeys,
++  invalidateDataViewEntity,
++} from "@/components/data-view/data-view-query-keys";
++import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
+ 
+ // ---------------------------------------------------------------------------
+ // Query key factory
+@@ -30,9 +35,11 @@ export const helpdeskKeys = {
+   ticketTypeDefaultResponders: (typeId: string) =>
+     [...helpdeskKeys.ticketTypes(), typeId, "default-responders"] as const,
+   tickets: () => [...helpdeskKeys.all, "tickets"] as const,
+-  ticketsDataView: () => [...helpdeskKeys.tickets(), "data-view"] as const,
++  ticketsDataView: (orgId: string) =>
++    dataViewKeys.lists("helpdesk-tickets", dataViewScope.organization(orgId)),
+   ticket: (id: string) => [...helpdeskKeys.tickets(), id] as const,
+-  ticketDetail: (id: string) => [...helpdeskKeys.ticket(id), "detail"] as const,
++  ticketDetail: (orgId: string, id: string) =>
++    dataViewKeys.detail("helpdesk-tickets", dataViewScope.organization(orgId), id),
+   orgMembers: () => [...helpdeskKeys.all, "org-members"] as const,
+ };
+ 
+@@ -119,7 +126,7 @@ export function useTicketDetailQuery(
+   initialData?: HelpdeskTicketDetail
+ ) {
+   return useQuery({
+-    queryKey: helpdeskKeys.ticketDetail(ticketNumber),
++    queryKey: helpdeskKeys.ticketDetail(orgId, ticketNumber),
+     queryFn: async () => {
+       const result = await getTicketDetailAction(ticketNumber, orgId);
+       if (!result.success) throw new Error((result as { success: false; error: string }).error);
+@@ -154,7 +161,7 @@ export function useCreateTicketMutation() {
+ // Close Ticket
+ // ---------------------------------------------------------------------------
+ 
+-export function useCloseTicketMutation(ticketNumber: string) {
++export function useCloseTicketMutation(ticketNumber: string, orgId: string) {
+   const queryClient = useQueryClient();
+   const t = useTranslations("modules.helpDesk");
+ 
+@@ -165,8 +172,12 @@ export function useCloseTicketMutation(ticketNumber: string) {
+       return result.data;
+     },
+     onSuccess: () => {
+-      queryClient.invalidateQueries({ queryKey: helpdeskKeys.ticketDetail(ticketNumber) });
+-      queryClient.invalidateQueries({ queryKey: helpdeskKeys.ticketsDataView() });
++      void invalidateDataViewEntity(
++        queryClient,
++        "helpdesk-tickets",
++        dataViewScope.organization(orgId),
++        ticketNumber
++      );
+       toast.success(t("tickets.ticketClosed"));
+     },
+     onError: (err: Error) => {
+@@ -179,7 +190,7 @@ export function useCloseTicketMutation(ticketNumber: string) {
+ // Accept Ticket
+ // ---------------------------------------------------------------------------
+ 
+-export function useAcceptTicketMutation(ticketNumber: string) {
++export function useAcceptTicketMutation(ticketNumber: string, orgId: string) {
+   const queryClient = useQueryClient();
+   const t = useTranslations("modules.helpDesk");
+ 
+@@ -190,8 +201,12 @@ export function useAcceptTicketMutation(ticketNumber: string) {
+       return result.data;
+     },
+     onSuccess: () => {
+-      queryClient.invalidateQueries({ queryKey: helpdeskKeys.ticketDetail(ticketNumber) });
+-      queryClient.invalidateQueries({ queryKey: helpdeskKeys.ticketsDataView() });
++      void invalidateDataViewEntity(
++        queryClient,
++        "helpdesk-tickets",
++        dataViewScope.organization(orgId),
++        ticketNumber
++      );
+       toast.success(t("tickets.acceptance.acceptSuccess"));
+     },
+     onError: (err: Error) => {
+diff --git a/apps/web/src/lib/data-view/ambra-data-view-scope.ts b/apps/web/src/lib/data-view/ambra-data-view-scope.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..096b323fd92117577bd74c271a6704c76a2cb861
+--- /dev/null
++++ b/apps/web/src/lib/data-view/ambra-data-view-scope.ts
+@@ -0,0 +1,14 @@
++import type { DataViewScope } from "./types";
++
++export const dataViewScope = {
++  global: (): DataViewScope => ({ kind: "global" }),
++  organization: (organizationId: string): DataViewScope => ({
++    kind: "organization",
++    organizationId,
++  }),
++  branch: (organizationId: string, branchId: string | null): DataViewScope => ({
++    kind: "branch",
++    organizationId,
++    branchId,
++  }),
++};
+diff --git a/apps/web/src/lib/data-view/types.ts b/apps/web/src/lib/data-view/types.ts
+index 9c0f2f85325aa7486585e674fdd8f42b068c68ed..c823ffea42d8e7e45894e3734d3bb74c5dc8d5c8 100644
+--- a/apps/web/src/lib/data-view/types.ts
++++ b/apps/web/src/lib/data-view/types.ts
+@@ -63,6 +63,10 @@ export type DataViewListParams = {
+   filters: Record<string, string | string[] | boolean | null>;
+ };
+ 
++export type DataViewScopePrimitive = string | number | boolean | null;
++
++export type DataViewScope = Readonly<Record<string, DataViewScopePrimitive>>;
++
+ export type DataViewColumnDef<TRow> = {
+   key: string;
+   header: string;
+@@ -74,9 +78,12 @@ export type DataViewColumnDef<TRow> = {
+ 
+ export type DataViewProps<TListRow, TDetail> = {
+   entity: string;
++  scope: DataViewScope;
+   columns: DataViewColumnDef<TListRow>[];
+   filters?: DataViewFilterDef[];
+   initialData: PaginatedResult<TListRow>;
++  initialDataUpdatedAt?: number;
++  /** @deprecated Canonical cache keys are derived from `entity`; retained for consumer compatibility. */
+   queryKey: string[];
+   listFetcher: (params: DataViewListParams) => Promise<PaginatedResult<TListRow>>;
+   detailFetcher: (id: string) => Promise<TDetail | null>;
+diff --git a/apps/web/src/lib/warehouse/inventory-product-selection.ts b/apps/web/src/lib/warehouse/inventory-product-selection.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..d00a00d7cb7345202b1f36b237549dc3a592fc76
+--- /dev/null
++++ b/apps/web/src/lib/warehouse/inventory-product-selection.ts
+@@ -0,0 +1,4 @@
++export function getInventoryProductIdFromSelection(selectionId: string) {
++  const separatorIndex = selectionId.indexOf("::");
++  return separatorIndex === -1 ? selectionId : selectionId.slice(0, separatorIndex);
++}
+diff --git a/apps/web/src/server/services/helpdesk-tickets.service.ts b/apps/web/src/server/services/helpdesk-tickets.service.ts
+index 8f98f55f17c8700aac9c369aabd625a19f72526f..b3de3f7d97e164b51b1b305115f28e69e40cb188 100644
+--- a/apps/web/src/server/services/helpdesk-tickets.service.ts
++++ b/apps/web/src/server/services/helpdesk-tickets.service.ts
+@@ -521,7 +521,7 @@ export class HelpdeskTicketsService {
+     supabase: SupabaseClient,
+     orgId: string,
+     ticketNumber: string
+-  ): Promise<ServiceResult<HelpdeskTicketDetail>> {
++  ): Promise<ServiceResult<HelpdeskTicketDetail | null>> {
+     // Ticket + type + creator — look up by human-readable ticket_number
+     const { data: ticketRaw, error } = await supabase
+       .from("helpdesk_tickets")
+@@ -535,9 +535,10 @@ export class HelpdeskTicketsService {
+       .eq("ticket_number", ticketNumber)
+       .eq("org_id", orgId)
+       .is("deleted_at", null)
+-      .single();
++      .maybeSingle();
+ 
+     if (error) return { success: false, error: error.message };
++    if (!ticketRaw) return { success: true, data: null };
+ 
+     const ticket = ticketRaw as any;
+     // Sub-queries join on the internal UUID FK, not the human-readable ticket_number

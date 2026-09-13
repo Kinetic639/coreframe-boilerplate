@@ -521,7 +521,7 @@ export class HelpdeskTicketsService {
     supabase: SupabaseClient,
     orgId: string,
     ticketNumber: string
-  ): Promise<ServiceResult<HelpdeskTicketDetail>> {
+  ): Promise<ServiceResult<HelpdeskTicketDetail | null>> {
     // Ticket + type + creator — look up by human-readable ticket_number
     const { data: ticketRaw, error } = await supabase
       .from("helpdesk_tickets")
@@ -535,9 +535,10 @@ export class HelpdeskTicketsService {
       .eq("ticket_number", ticketNumber)
       .eq("org_id", orgId)
       .is("deleted_at", null)
-      .single();
+      .maybeSingle();
 
     if (error) return { success: false, error: error.message };
+    if (!ticketRaw) return { success: true, data: null };
 
     const ticket = ticketRaw as any;
     // Sub-queries join on the internal UUID FK, not the human-readable ticket_number

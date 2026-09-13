@@ -9,7 +9,16 @@ import { useDataViewDetail, useDataViewStatic } from "./use-data-view";
 
 export function DataViewDetail() {
   const { renderDetail } = useDataViewStatic();
-  const { detailData, detailIsLoading, closeDetail, isClosingDetail } = useDataViewDetail();
+  const {
+    detailData,
+    detailIsLoading,
+    detailIsRefreshing,
+    detailError,
+    detailNotFound,
+    selectedOutsideCurrentResults,
+    closeDetail,
+    isClosingDetail,
+  } = useDataViewDetail();
   const t = useTranslations("dataView");
 
   return (
@@ -31,6 +40,27 @@ export function DataViewDetail() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-4">
+        {selectedOutsideCurrentResults ? (
+          <div
+            className="mb-3 rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground"
+            role="status"
+          >
+            {t("detail.selectedOutsideResults")}
+          </div>
+        ) : null}
+        {detailIsRefreshing ? (
+          <span className="sr-only" role="status">
+            {t("detail.refreshing")}
+          </span>
+        ) : null}
+        {detailError && detailData ? (
+          <div
+            className="mb-3 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive"
+            role="alert"
+          >
+            {t("detail.refreshError")}
+          </div>
+        ) : null}
         {detailIsLoading ? (
           <div className="space-y-3" aria-label={t("detail.loadingAria")}>
             <Skeleton className="h-8 w-3/4" />
@@ -40,6 +70,17 @@ export function DataViewDetail() {
           </div>
         ) : detailData ? (
           renderDetail(detailData)
+        ) : detailError ? (
+          <div
+            className="flex h-24 items-center justify-center text-sm text-destructive"
+            role="alert"
+          >
+            {t("detail.error")}
+          </div>
+        ) : detailNotFound ? (
+          <div className="flex h-24 items-center justify-center text-sm text-muted-foreground">
+            {t("detail.notFound")}
+          </div>
         ) : (
           <div className="flex items-center justify-center h-24 text-sm text-muted-foreground">
             {t("detail.empty")}

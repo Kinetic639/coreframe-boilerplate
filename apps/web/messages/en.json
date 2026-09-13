@@ -258,7 +258,12 @@
     "detail": {
       "closeAria": "Close detail",
       "loadingAria": "Loading details",
-      "empty": "No item selected"
+      "refreshing": "Refreshing details",
+      "empty": "No item selected",
+      "error": "Unable to load details.",
+      "refreshError": "The latest details could not be loaded. Showing the previous version.",
+      "notFound": "This item no longer exists.",
+      "selectedOutsideResults": "Selected item is outside current results."
     },
     "toolbar": {
       "searchPlaceholder": "Search...",
@@ -315,7 +320,9 @@
       "loadingMoreAria": "Loading more items"
     },
     "table": {
-      "noResults": "No results"
+      "noResults": "No results",
+      "error": "Unable to load results.",
+      "updating": "Updating results"
     },
     "mobile": {
       "loadingAria": "Loading rows"

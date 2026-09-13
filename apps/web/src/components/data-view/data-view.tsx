@@ -1,19 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import React from "react";
 import { cn } from "@/utils";
 import type { DataViewProps } from "./data-view.types";
 import { DataViewProvider } from "./data-view-provider";
 import { DataViewLayout } from "./data-view-layout";
-
-function makeQueryClient() {
-  return new QueryClient({
-    defaultOptions: {
-      queries: { staleTime: 30_000 },
-    },
-  });
-}
 
 /**
  * DataView — Generic SSR-first Master–Detail data view component.
@@ -26,9 +17,11 @@ function makeQueryClient() {
  */
 export function DataView<TListRow, TDetail>({
   entity,
+  scope,
   columns,
   filters,
   initialData,
+  initialDataUpdatedAt,
   queryKey,
   listFetcher,
   detailFetcher,
@@ -44,34 +37,31 @@ export function DataView<TListRow, TDetail>({
   refreshToken,
   className,
 }: DataViewProps<TListRow, TDetail>) {
-  // Per-mount QueryClient — isolates cache between DataView instances and test renders.
-  const [queryClient] = useState(makeQueryClient);
-
   return (
-    <QueryClientProvider client={queryClient}>
-      <DataViewProvider
-        entity={entity}
-        columns={columns}
-        filters={filters}
-        initialData={initialData}
-        queryKey={queryKey}
-        listFetcher={listFetcher}
-        detailFetcher={detailFetcher}
-        resolveSelectedPage={resolveSelectedPage}
-        getRowId={getRowId}
-        renderCompactItem={renderCompactItem}
-        renderMobileItem={renderMobileItem}
-        renderExpandedRow={renderExpandedRow}
-        renderRowControl={renderRowControl}
-        renderToolbarControls={renderToolbarControls}
-        renderDetail={renderDetail}
-        onSelectionChange={onSelectionChange}
-        refreshToken={refreshToken}
-      >
-        <div className={cn("h-full", className)}>
-          <DataViewLayout />
-        </div>
-      </DataViewProvider>
-    </QueryClientProvider>
+    <DataViewProvider
+      entity={entity}
+      scope={scope}
+      columns={columns}
+      filters={filters}
+      initialData={initialData}
+      initialDataUpdatedAt={initialDataUpdatedAt}
+      queryKey={queryKey}
+      listFetcher={listFetcher}
+      detailFetcher={detailFetcher}
+      resolveSelectedPage={resolveSelectedPage}
+      getRowId={getRowId}
+      renderCompactItem={renderCompactItem}
+      renderMobileItem={renderMobileItem}
+      renderExpandedRow={renderExpandedRow}
+      renderRowControl={renderRowControl}
+      renderToolbarControls={renderToolbarControls}
+      renderDetail={renderDetail}
+      onSelectionChange={onSelectionChange}
+      refreshToken={refreshToken}
+    >
+      <div className={cn("h-full", className)}>
+        <DataViewLayout />
+      </div>
+    </DataViewProvider>
   );
 }

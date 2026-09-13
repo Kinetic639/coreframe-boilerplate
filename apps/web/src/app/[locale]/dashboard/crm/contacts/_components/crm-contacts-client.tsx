@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { DataView } from "@/components/data-view/data-view";
+import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
 import type {
   DataViewColumnDef,
   DataViewFilterDef,
@@ -138,6 +139,7 @@ export function CrmContactsClient({
       <div className="min-h-0 flex-1">
         <DataView<CrmContactListRow, CrmContactDetail>
           entity="crm-contacts"
+          scope={dataViewScope.organization(orgId)}
           columns={columns}
           filters={filters}
           initialData={initialData}

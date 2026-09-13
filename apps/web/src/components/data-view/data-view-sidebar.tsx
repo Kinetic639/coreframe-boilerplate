@@ -31,6 +31,7 @@ export function DataViewSidebar() {
     sidebarIsFetchingPreviousPage,
     fetchSidebarNextPage,
     fetchSidebarPreviousPage,
+    sidebarError,
   } = useDataViewSidebar();
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -174,7 +175,17 @@ export function DataViewSidebar() {
           }
         }}
       >
-        {showInfiniteLoading && (sidebarHasPreviousPage || sidebarIsFetchingPreviousPage) ? (
+        {sidebarError ? (
+          <div
+            className="flex h-24 items-center justify-center px-4 text-center text-sm text-destructive"
+            role="alert"
+          >
+            {t("table.error")}
+          </div>
+        ) : null}
+        {!sidebarError &&
+        showInfiniteLoading &&
+        (sidebarHasPreviousPage || sidebarIsFetchingPreviousPage) ? (
           <div className="absolute inset-x-0 top-0 z-10 flex h-10 items-center justify-center border-b bg-background text-xs text-muted-foreground">
             {sidebarIsFetchingPreviousPage ? (
               <Loader2
@@ -187,7 +198,7 @@ export function DataViewSidebar() {
           </div>
         ) : null}
 
-        {shouldVirtualize ? (
+        {!sidebarError && shouldVirtualize ? (
           <div className="relative w-full" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
             {virtualRows.map((virtualRow) => {
               const row = visibleSidebarRows[virtualRow.index];
@@ -219,7 +230,7 @@ export function DataViewSidebar() {
               );
             })}
           </div>
-        ) : (
+        ) : !sidebarError ? (
           visibleSidebarRows.map((row) => {
             const rowId = getRowId(row);
             const isSelected = urlState.selected === rowId;
@@ -245,9 +256,11 @@ export function DataViewSidebar() {
               </button>
             );
           })
-        )}
+        ) : null}
 
-        {showInfiniteLoading && (sidebarHasNextPage || sidebarIsFetchingNextPage) ? (
+        {!sidebarError &&
+        showInfiniteLoading &&
+        (sidebarHasNextPage || sidebarIsFetchingNextPage) ? (
           <div className="absolute inset-x-0 bottom-0 z-10 flex h-10 items-center justify-center border-t bg-background text-xs text-muted-foreground">
             {sidebarIsFetchingNextPage ? (
               <Loader2 className="h-4 w-4 animate-spin" aria-label={t("sidebar.loadingMoreAria")} />
