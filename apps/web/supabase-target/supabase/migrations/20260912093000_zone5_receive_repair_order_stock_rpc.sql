@@ -101,7 +101,11 @@ BEGIN
       -- Resolve via the Matcher -> RepairOrderLine lineage chain, server-side.
       -- The caller supplies EVIDENCE (a Matcher line id); the DB resolves the
       -- authoritative relationship -- never the other way around (plan §2/§9).
-      SELECT count(*), min(rol.id), min(rol.repair_order_id), min(rol.variant_id)
+      -- Live-verification correction: standard PostgreSQL has no built-in
+      -- min(uuid) aggregate -- cast to text for the aggregate, then back to
+      -- uuid. Safe: these values are only actually used when v_candidate_count
+      -- = 1 (checked immediately below), i.e. exactly one row to "min" over.
+      SELECT count(*), min(rol.id::text)::uuid, min(rol.repair_order_id::text)::uuid, min(rol.variant_id::text)::uuid
         INTO v_candidate_count, v_resolved_rol_id, v_resolved_ro_id, v_resolved_variant_id
       FROM public.workshop_source_document_lines wsdl
       JOIN public.repair_order_line_source_links rols ON rols.workshop_source_document_line_id = wsdl.id
@@ -124,14 +128,14 @@ BEGIN
         WHERE ro.id = v_resolved_ro_id
           AND ro.organization_id = p_organization_id AND ro.branch_id = p_branch_id
       ) THEN
-        RAISE EXCEPTION 'Resolved RepairOrder for line % does not belong to the target organization/branch' USING ERRCODE = '42501';
+        RAISE EXCEPTION 'Resolved RepairOrder for line % does not belong to the target organization/branch', v_line_index USING ERRCODE = '42501';
       END IF;
 
       -- Variant cross-check: only when the RepairOrderLine has one set
       -- (repair_order_lines.variant_id is nullable by Zone 3's own design --
       -- "manual lines may exist with no catalog match yet").
       IF v_resolved_variant_id IS NOT NULL AND v_resolved_variant_id IS DISTINCT FROM (v_line->>'variant_id')::uuid THEN
-        RAISE EXCEPTION 'Resolved RepairOrderLine variant for line % does not match the received variant' USING ERRCODE = '22023';
+        RAISE EXCEPTION 'Resolved RepairOrderLine variant for line % does not match the received variant', v_line_index USING ERRCODE = '22023';
       END IF;
     END IF;
 

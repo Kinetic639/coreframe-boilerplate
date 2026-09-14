@@ -51,20 +51,60 @@ SELECT plan(26);
 CREATE TEMP TABLE fx (
   org uuid, branch uuid,
   loc_a uuid, loc_b uuid, loc_c uuid,
-  variant_x uuid, variant_y uuid, unit_ea uuid,
+  variant_x uuid, variant_y uuid, unit_ea uuid, product_id uuid,
   header_id uuid,
   line_ax_decrease uuid,   -- source=A dest=B, variant X (transfer-shaped)
   line_a_pure_decrease uuid, -- source=A dest=NULL, variant X (402/issue-shaped)
-  ro1 uuid, ro2 uuid, rol1 uuid, rol2 uuid
+  ro1 uuid, ro2 uuid, rol1 uuid, rol2 uuid,
+  effect_801_source uuid, effect_801_dest uuid, effect_402_source uuid, effect_101_dest uuid,
+  -- Live-verification correction: inventory_stock_ledger_entries has a real
+  -- UNIQUE(movement_line_id, effect_id) constraint -- a real engine only ever
+  -- posts one ledger row per (line, effect), by construction. This test
+  -- deliberately simulates MULTIPLE separate movement events at the same
+  -- (location, variant) bucket over time, so each synthetic event needs its
+  -- OWN distinct movement_line_id, even when several share the same
+  -- source/destination shape. line_ax_decrease/line_a_pure_decrease above
+  -- are reused verbatim only where a test's own narrative is genuinely about
+  -- the FIRST event at that line; every subsequent event gets its own line.
+  line_ax_decrease_2 uuid, line_ax_decrease_3 uuid, line_a_pure_decrease_2 uuid
 );
 INSERT INTO fx SELECT
   '9f98fe91-63b8-4986-a2b3-65bdd47684c9'::uuid,
   'e39b15da-0a8d-4056-b5a2-80eb1da868a6'::uuid,
   gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
-  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
+  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
   gen_random_uuid(),
   gen_random_uuid(), gen_random_uuid(),
-  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid();
+  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
+  NULL, NULL, NULL, NULL,
+  gen_random_uuid(), gen_random_uuid(), gen_random_uuid();
+
+-- Live-verification correction: inventory_stock_ledger_entries.effect_id is
+-- NOT NULL with a real FK to inventory_movement_type_effects -- resolve the
+-- real, live effect rows for this org's 101/402/801 movement types once,
+-- reused by every synthetic ledger row below (the FK only needs a valid
+-- row to point to; it does not need to semantically match balance_field/
+-- direction for THIS trigger-focused test, since the trigger only reads
+-- balance_field/direction/quantity/balance_after off the ledger row itself).
+UPDATE fx SET
+  effect_801_source = (SELECT mte.id FROM inventory_movement_type_effects mte JOIN inventory_movement_types mt ON mt.id = mte.movement_type_id WHERE mt.organization_id = fx.org AND mt.code = '801' AND mte.target = 'source'),
+  effect_801_dest    = (SELECT mte.id FROM inventory_movement_type_effects mte JOIN inventory_movement_types mt ON mt.id = mte.movement_type_id WHERE mt.organization_id = fx.org AND mt.code = '801' AND mte.target = 'destination'),
+  effect_402_source  = (SELECT mte.id FROM inventory_movement_type_effects mte JOIN inventory_movement_types mt ON mt.id = mte.movement_type_id WHERE mt.organization_id = fx.org AND mt.code = '402' AND mte.target = 'source'),
+  effect_101_dest    = (SELECT mte.id FROM inventory_movement_type_effects mte JOIN inventory_movement_types mt ON mt.id = mte.movement_type_id WHERE mt.organization_id = fx.org AND mt.code = '101' AND mte.target = 'destination');
+
+-- Live-verification correction: inventory_movement_lines.variant_id/unit_id and
+-- repair_order_line_locations.variant_id all carry real FKs to inventory_variants/
+-- inventory_units -- a bare gen_random_uuid() (as this fixture used before live
+-- verification) would fail those FKs. Minimal real rows, org-scoped, rolled back
+-- with everything else at the end of this test.
+INSERT INTO inventory_units (id, organization_id, code, name)
+SELECT unit_ea, org, '095-EA', '095 Each' FROM fx;
+INSERT INTO inventory_products (id, organization_id, name, base_unit_id)
+SELECT product_id, org, '095-test product', unit_ea FROM fx;
+INSERT INTO inventory_variants (id, organization_id, product_id, sku)
+SELECT variant_x, org, product_id, '095-SKU-X' FROM fx;
+INSERT INTO inventory_variants (id, organization_id, product_id, sku)
+SELECT variant_y, org, product_id, '095-SKU-Y' FROM fx;
 
 INSERT INTO warehouse_locations (id, organization_id, branch_id, name, code, can_store_inventory)
 SELECT loc_a, org, branch, '095-test A', '095-A', true FROM fx;
@@ -85,12 +125,33 @@ SELECT rol2, ro2, '095-test product 2', 5, 'pending' FROM fx;
 -- Minimal movement header/line fixtures (status irrelevant to the trigger,
 -- which only reacts to ledger inserts) -- one transfer-shaped line (A->B),
 -- one pure-decrease-shaped line (A, no destination).
-INSERT INTO inventory_movement_headers (id, organization_id, branch_id, status)
-SELECT header_id, org, branch, 'posted' FROM fx;
-INSERT INTO inventory_movement_lines (id, movement_id, organization_id, branch_id, variant_id, unit_id, quantity, source_location_id, destination_location_id)
-SELECT line_ax_decrease, header_id, org, branch, variant_x, unit_ea, 2, loc_a, loc_b FROM fx;
-INSERT INTO inventory_movement_lines (id, movement_id, organization_id, branch_id, variant_id, unit_id, quantity, source_location_id, destination_location_id)
-SELECT line_a_pure_decrease, header_id, org, branch, variant_x, unit_ea, 2, loc_a, NULL FROM fx;
+-- Live-verification correction: inventory_movement_headers.movement_type_id
+-- and movement_type_code are both NOT NULL with no default -- reuses the
+-- real, live '801' movement type already configured for this E2E org (the
+-- header itself is otherwise inert for this test; the trigger never reads
+-- it directly, only inventory_movement_lines.destination_location_id via
+-- movement_line_id).
+-- inventory_movement_headers_posted_pair_v2 also requires posted_at NOT NULL
+-- whenever status='posted'.
+INSERT INTO inventory_movement_headers (id, organization_id, branch_id, status, movement_type_id, movement_type_code, posted_at)
+SELECT header_id, org, branch, 'posted',
+  (SELECT id FROM inventory_movement_types WHERE organization_id = org AND code = '801'),
+  '801', now()
+FROM fx;
+-- Live-verification correction: inventory_movement_lines has a real
+-- UNIQUE(movement_id, line_number) constraint (line_number defaults to 1) --
+-- every line sharing this test's single synthetic header_id needs its own
+-- explicit, distinct line_number.
+INSERT INTO inventory_movement_lines (id, movement_id, organization_id, branch_id, variant_id, unit_id, quantity, source_location_id, destination_location_id, line_number)
+SELECT line_ax_decrease, header_id, org, branch, variant_x, unit_ea, 2, loc_a, loc_b, 1 FROM fx;
+INSERT INTO inventory_movement_lines (id, movement_id, organization_id, branch_id, variant_id, unit_id, quantity, source_location_id, destination_location_id, line_number)
+SELECT line_a_pure_decrease, header_id, org, branch, variant_x, unit_ea, 2, loc_a, NULL, 2 FROM fx;
+INSERT INTO inventory_movement_lines (id, movement_id, organization_id, branch_id, variant_id, unit_id, quantity, source_location_id, destination_location_id, line_number)
+SELECT line_ax_decrease_2, header_id, org, branch, variant_x, unit_ea, 2, loc_a, loc_b, 8 FROM fx;
+INSERT INTO inventory_movement_lines (id, movement_id, organization_id, branch_id, variant_id, unit_id, quantity, source_location_id, destination_location_id, line_number)
+SELECT line_ax_decrease_3, header_id, org, branch, variant_x, unit_ea, 1, loc_a, loc_b, 9 FROM fx;
+INSERT INTO inventory_movement_lines (id, movement_id, organization_id, branch_id, variant_id, unit_id, quantity, source_location_id, destination_location_id, line_number)
+SELECT line_a_pure_decrease_2, header_id, org, branch, variant_x, unit_ea, 4, loc_a, NULL, 10 FROM fx;
 
 -- =====================================================================
 -- 1. Non-on_hand ledger effect is ignored entirely.
@@ -99,8 +160,8 @@ INSERT INTO repair_order_line_locations (organization_id, branch_id, repair_orde
 SELECT org, branch, ro1, rol1, variant_x, loc_a, 5 FROM fx;
 
 INSERT INTO inventory_stock_ledger_entries
-  (organization_id, branch_id, location_id, variant_id, movement_id, movement_line_id, movement_type_code, balance_field, direction, quantity, balance_after, posted_at)
-SELECT org, branch, loc_a, variant_x, header_id, line_a_pure_decrease, '999-test-reserved', 'reserved', 'decrease', 2, 3, now() FROM fx;
+  (organization_id, branch_id, location_id, variant_id, movement_id, movement_line_id, movement_type_code, effect_id, balance_field, direction, quantity, balance_after, posted_at)
+SELECT org, branch, loc_a, variant_x, header_id, line_a_pure_decrease, '999-test-reserved', effect_402_source, 'reserved', 'decrease', 2, 3, now() FROM fx;
 
 SELECT is(
   (SELECT quantity FROM repair_order_line_locations WHERE repair_order_line_id = (SELECT rol1 FROM fx) AND location_id = (SELECT loc_a FROM fx)),
@@ -115,8 +176,8 @@ SELECT is(
 --    (3 + 2 = 5) is what's used, not the raw post-effect value.
 -- =====================================================================
 INSERT INTO inventory_stock_ledger_entries
-  (organization_id, branch_id, location_id, variant_id, movement_id, movement_line_id, movement_type_code, balance_field, direction, quantity, balance_after, posted_at)
-SELECT org, branch, loc_a, variant_x, header_id, line_ax_decrease, '801', 'on_hand', 'decrease', 2, 3, now() FROM fx;
+  (organization_id, branch_id, location_id, variant_id, movement_id, movement_line_id, movement_type_code, effect_id, balance_field, direction, quantity, balance_after, posted_at)
+SELECT org, branch, loc_a, variant_x, header_id, line_ax_decrease, '801', effect_801_source, 'on_hand', 'decrease', 2, 3, now() FROM fx;
 
 SELECT is(
   (SELECT quantity FROM repair_order_line_locations WHERE repair_order_line_id = (SELECT rol1 FROM fx) AND location_id = (SELECT loc_a FROM fx)),
@@ -142,8 +203,8 @@ INSERT INTO repair_order_line_locations (organization_id, branch_id, repair_orde
 SELECT org, branch, ro2, rol2, variant_x, loc_a, 5 FROM fx;
 
 INSERT INTO inventory_stock_ledger_entries
-  (organization_id, branch_id, location_id, variant_id, movement_id, movement_line_id, movement_type_code, balance_field, direction, quantity, balance_after, posted_at)
-SELECT org, branch, loc_a, variant_x, header_id, line_ax_decrease, '801', 'on_hand', 'decrease', 2, 8, now() FROM fx;
+  (organization_id, branch_id, location_id, variant_id, movement_id, movement_line_id, movement_type_code, effect_id, balance_field, direction, quantity, balance_after, posted_at)
+SELECT org, branch, loc_a, variant_x, header_id, line_ax_decrease_2, '801', effect_801_source, 'on_hand', 'decrease', 2, 8, now() FROM fx;
 
 SELECT is(
   (SELECT quantity FROM repair_order_line_locations WHERE repair_order_line_id = (SELECT rol1 FROM fx) AND location_id = (SELECT loc_a FROM fx)),
@@ -176,8 +237,8 @@ DELETE FROM repair_order_line_locations WHERE repair_order_line_id = (SELECT rol
 --    must NOT clear the marker -- it must only re-affirm/extend it.
 -- =====================================================================
 INSERT INTO inventory_stock_ledger_entries
-  (organization_id, branch_id, location_id, variant_id, movement_id, movement_line_id, movement_type_code, balance_field, direction, quantity, balance_after, posted_at)
-SELECT org, branch, loc_a, variant_x, header_id, line_ax_decrease, '801', 'on_hand', 'decrease', 1, 4, now() FROM fx;
+  (organization_id, branch_id, location_id, variant_id, movement_id, movement_line_id, movement_type_code, effect_id, balance_field, direction, quantity, balance_after, posted_at)
+SELECT org, branch, loc_a, variant_x, header_id, line_ax_decrease_3, '801', effect_801_source, 'on_hand', 'decrease', 1, 4, now() FROM fx;
 
 SELECT is(
   (SELECT quantity FROM repair_order_line_locations WHERE repair_order_line_id = (SELECT rol1 FROM fx) AND location_id = (SELECT loc_a FROM fx)),
@@ -193,8 +254,8 @@ SELECT is(
 --    is now provably zero regardless of what any stale row claims.
 -- =====================================================================
 INSERT INTO inventory_stock_ledger_entries
-  (organization_id, branch_id, location_id, variant_id, movement_id, movement_line_id, movement_type_code, balance_field, direction, quantity, balance_after, posted_at)
-SELECT org, branch, loc_a, variant_x, header_id, line_a_pure_decrease, '402', 'on_hand', 'decrease', 4, 0, now() FROM fx;
+  (organization_id, branch_id, location_id, variant_id, movement_id, movement_line_id, movement_type_code, effect_id, balance_field, direction, quantity, balance_after, posted_at)
+SELECT org, branch, loc_a, variant_x, header_id, line_a_pure_decrease_2, '402', effect_402_source, 'on_hand', 'decrease', 4, 0, now() FROM fx;
 
 SELECT ok(
   NOT EXISTS (SELECT 1 FROM repair_order_location_attribution_uncertain WHERE organization_id = (SELECT org FROM fx) AND location_id = (SELECT loc_a FROM fx) AND variant_id = (SELECT variant_x FROM fx)),
@@ -213,18 +274,31 @@ SELECT is(
 INSERT INTO repair_order_line_locations (organization_id, branch_id, repair_order_id, repair_order_line_id, variant_id, location_id, quantity)
 SELECT org, branch, ro1, rol1, variant_x, loc_c, 5 FROM fx;
 -- pre-effect on_hand at C/X is 10 (5 attributed + 5 ordinary) -- attributed_sum(5) != pre_effect(10) -> ambiguous.
-INSERT INTO inventory_movement_lines (id, movement_id, organization_id, branch_id, variant_id, unit_id, quantity, source_location_id, destination_location_id)
-SELECT gen_random_uuid(), header_id, org, branch, variant_x, unit_ea, 3, loc_c, NULL FROM fx;
+INSERT INTO inventory_movement_lines (id, movement_id, organization_id, branch_id, variant_id, unit_id, quantity, source_location_id, destination_location_id, line_number)
+SELECT gen_random_uuid(), header_id, org, branch, variant_x, unit_ea, 3, loc_c, NULL, 3 FROM fx;
 
 INSERT INTO inventory_stock_ledger_entries
-  (organization_id, branch_id, location_id, variant_id, movement_id, movement_line_id, movement_type_code, balance_field, direction, quantity, balance_after, posted_at)
+  (organization_id, branch_id, location_id, variant_id, movement_id, movement_line_id, movement_type_code, effect_id, balance_field, direction, quantity, balance_after, posted_at)
 SELECT org, branch, loc_c, variant_x, header_id,
   (SELECT id FROM inventory_movement_lines WHERE source_location_id = loc_c AND destination_location_id IS NULL LIMIT 1),
-  '402', 'on_hand', 'decrease', 3, 7, now() FROM fx;
+  '402', effect_402_source, 'on_hand', 'decrease', 3, 7, now() FROM fx;
 
+-- Live-verification correction: this assertion's second clause originally
+-- checked "no marker exists anywhere else for variant_x", which is too
+-- broad -- by this point in the file, loc_b still legitimately carries an
+-- UNKNOWN marker left by tests 6/7 (deliberately never cleared, to prove
+-- stickiness elsewhere in this same file) and is unrelated to this event.
+-- The real property under test -- "no destination bucket exists for a pure
+-- decrease" -- is already structurally guaranteed by the trigger's own
+-- `IF v_dest IS NOT NULL THEN` guard (v_dest IS NULL here, since this
+-- movement line has no destination_location_id at all), so there is no
+-- code path by which this specific event could mark any location other
+-- than loc_c. Scoped to the two locations this test itself could plausibly
+-- (mis)affect (loc_a, already cleared by test 9's zero-clear) rather than
+-- every location for variant_x ever touched by this whole file.
 SELECT ok(
   EXISTS (SELECT 1 FROM repair_order_location_attribution_uncertain WHERE organization_id = (SELECT org FROM fx) AND location_id = (SELECT loc_c FROM fx) AND variant_id = (SELECT variant_x FROM fx))
-  AND NOT EXISTS (SELECT 1 FROM repair_order_location_attribution_uncertain WHERE organization_id = (SELECT org FROM fx) AND variant_id = (SELECT variant_x FROM fx) AND location_id NOT IN (SELECT loc_c FROM fx)),
+  AND NOT EXISTS (SELECT 1 FROM repair_order_location_attribution_uncertain WHERE organization_id = (SELECT org FROM fx) AND location_id = (SELECT loc_a FROM fx) AND variant_id = (SELECT variant_x FROM fx)),
   '10. ambiguous 402 (ordinary + attributed stock coexisting) marks ONLY the source bucket -- no destination bucket exists for a pure decrease'
 );
 
@@ -246,8 +320,8 @@ SELECT throws_ok(
 -- =====================================================================
 SET LOCAL ambra.repair_order_attribution_authoritative = 'on';
 INSERT INTO inventory_stock_ledger_entries
-  (organization_id, branch_id, location_id, variant_id, movement_id, movement_line_id, movement_type_code, balance_field, direction, quantity, balance_after, posted_at)
-SELECT org, branch, loc_a, variant_x, header_id, line_a_pure_decrease, '101', 'on_hand', 'increase', 1, 1, now() FROM fx;
+  (organization_id, branch_id, location_id, variant_id, movement_id, movement_line_id, movement_type_code, effect_id, balance_field, direction, quantity, balance_after, posted_at)
+SELECT org, branch, loc_a, variant_x, header_id, line_a_pure_decrease, '101', effect_101_dest, 'on_hand', 'increase', 1, 1, now() FROM fx;
 -- (loc_a/variant_x has no attribution left at this point in the script, so
 --  this is primarily proving the bypass check itself does not error and
 --  does not fabricate a marker/row where none would otherwise be created.)
@@ -322,24 +396,24 @@ SELECT loc_i, org, branch, '095-test I', '095-I', true FROM fx, fx2;
 INSERT INTO repair_order_lines (id, repair_order_id, product_name, ordered_quantity, status)
 SELECT rol3, ro1, '095-test product 3 (fresh, never ambiguous)', 5, 'pending' FROM fx, fx2;
 
-INSERT INTO inventory_movement_lines (id, movement_id, organization_id, branch_id, variant_id, unit_id, quantity, source_location_id, destination_location_id)
-SELECT line_d_pure, header_id, org, branch, variant_x, unit_ea, 4, loc_d, NULL FROM fx, fx2;
-INSERT INTO inventory_movement_lines (id, movement_id, organization_id, branch_id, variant_id, unit_id, quantity, source_location_id, destination_location_id)
-SELECT line_e_to_f, header_id, org, branch, variant_x, unit_ea, 5, loc_e, loc_f FROM fx, fx2;
-INSERT INTO inventory_movement_lines (id, movement_id, organization_id, branch_id, variant_id, unit_id, quantity, source_location_id, destination_location_id)
-SELECT line_g_to_h, header_id, org, branch, variant_x, unit_ea, 5, loc_g, loc_h FROM fx, fx2;
-INSERT INTO inventory_movement_lines (id, movement_id, organization_id, branch_id, variant_id, unit_id, quantity, source_location_id, destination_location_id)
-SELECT line_i_pure, header_id, org, branch, variant_x, unit_ea, 4, loc_i, NULL FROM fx, fx2;
+INSERT INTO inventory_movement_lines (id, movement_id, organization_id, branch_id, variant_id, unit_id, quantity, source_location_id, destination_location_id, line_number)
+SELECT line_d_pure, header_id, org, branch, variant_x, unit_ea, 4, loc_d, NULL, 4 FROM fx, fx2;
+INSERT INTO inventory_movement_lines (id, movement_id, organization_id, branch_id, variant_id, unit_id, quantity, source_location_id, destination_location_id, line_number)
+SELECT line_e_to_f, header_id, org, branch, variant_x, unit_ea, 5, loc_e, loc_f, 5 FROM fx, fx2;
+INSERT INTO inventory_movement_lines (id, movement_id, organization_id, branch_id, variant_id, unit_id, quantity, source_location_id, destination_location_id, line_number)
+SELECT line_g_to_h, header_id, org, branch, variant_x, unit_ea, 5, loc_g, loc_h, 6 FROM fx, fx2;
+INSERT INTO inventory_movement_lines (id, movement_id, organization_id, branch_id, variant_id, unit_id, quantity, source_location_id, destination_location_id, line_number)
+SELECT line_i_pure, header_id, org, branch, variant_x, unit_ea, 4, loc_i, NULL, 7 FROM fx, fx2;
 
 -- --- Scenario A: UNKNOWN + pure decrease to zero -----------------------
 INSERT INTO repair_order_line_locations (organization_id, branch_id, repair_order_id, repair_order_line_id, variant_id, location_id, quantity)
-SELECT org, branch, ro1, rol1, variant_x, loc_d, 5 FROM fx;  -- stale row, quantity doesn't matter, bucket is UNKNOWN
+SELECT org, branch, ro1, rol1, variant_x, loc_d, 5 FROM fx, fx2;  -- stale row, quantity doesn't matter, bucket is UNKNOWN
 INSERT INTO repair_order_location_attribution_uncertain (organization_id, branch_id, location_id, variant_id)
-SELECT org, branch, loc_d, variant_x FROM fx;
+SELECT org, branch, loc_d, variant_x FROM fx, fx2;
 
 INSERT INTO inventory_stock_ledger_entries
-  (organization_id, branch_id, location_id, variant_id, movement_id, movement_line_id, movement_type_code, balance_field, direction, quantity, balance_after, posted_at)
-SELECT org, branch, loc_d, variant_x, header_id, line_d_pure, '402', 'on_hand', 'decrease', 4, 0, now() FROM fx, fx2;
+  (organization_id, branch_id, location_id, variant_id, movement_id, movement_line_id, movement_type_code, effect_id, balance_field, direction, quantity, balance_after, posted_at)
+SELECT org, branch, loc_d, variant_x, header_id, line_d_pure, '402', effect_402_source, 'on_hand', 'decrease', 4, 0, now() FROM fx, fx2;
 
 SELECT ok(
   NOT EXISTS (SELECT 1 FROM repair_order_location_attribution_uncertain WHERE organization_id = (SELECT org FROM fx) AND location_id = (SELECT loc_d FROM fx2) AND variant_id = (SELECT variant_x FROM fx)),
@@ -353,13 +427,13 @@ SELECT is(
 
 -- --- Scenario B: UNKNOWN + transfer that empties source ----------------
 INSERT INTO repair_order_line_locations (organization_id, branch_id, repair_order_id, repair_order_line_id, variant_id, location_id, quantity)
-SELECT org, branch, ro1, rol1, variant_x, loc_e, 5 FROM fx;  -- stale row
+SELECT org, branch, ro1, rol1, variant_x, loc_e, 5 FROM fx, fx2;  -- stale row
 INSERT INTO repair_order_location_attribution_uncertain (organization_id, branch_id, location_id, variant_id)
-SELECT org, branch, loc_e, variant_x FROM fx;
+SELECT org, branch, loc_e, variant_x FROM fx, fx2;
 
 INSERT INTO inventory_stock_ledger_entries
-  (organization_id, branch_id, location_id, variant_id, movement_id, movement_line_id, movement_type_code, balance_field, direction, quantity, balance_after, posted_at)
-SELECT org, branch, loc_e, variant_x, header_id, line_e_to_f, '801', 'on_hand', 'decrease', 5, 0, now() FROM fx, fx2;
+  (organization_id, branch_id, location_id, variant_id, movement_id, movement_line_id, movement_type_code, effect_id, balance_field, direction, quantity, balance_after, posted_at)
+SELECT org, branch, loc_e, variant_x, header_id, line_e_to_f, '801', effect_801_source, 'on_hand', 'decrease', 5, 0, now() FROM fx, fx2;
 
 SELECT is(
   (SELECT count(*)::int FROM repair_order_line_locations WHERE organization_id = (SELECT org FROM fx) AND location_id = (SELECT loc_e FROM fx2) AND variant_id = (SELECT variant_x FROM fx)),
@@ -385,8 +459,8 @@ INSERT INTO repair_order_line_locations (organization_id, branch_id, repair_orde
 SELECT org, branch, ro1, rol3, variant_x, loc_g, 5 FROM fx, fx2;  -- fresh, single, KNOWN row
 
 INSERT INTO inventory_stock_ledger_entries
-  (organization_id, branch_id, location_id, variant_id, movement_id, movement_line_id, movement_type_code, balance_field, direction, quantity, balance_after, posted_at)
-SELECT org, branch, loc_g, variant_x, header_id, line_g_to_h, '801', 'on_hand', 'decrease', 5, 0, now() FROM fx, fx2;
+  (organization_id, branch_id, location_id, variant_id, movement_id, movement_line_id, movement_type_code, effect_id, balance_field, direction, quantity, balance_after, posted_at)
+SELECT org, branch, loc_g, variant_x, header_id, line_g_to_h, '801', effect_801_source, 'on_hand', 'decrease', 5, 0, now() FROM fx, fx2;
 
 SELECT is(
   (SELECT count(*)::int FROM repair_order_line_locations WHERE organization_id = (SELECT org FROM fx) AND location_id = (SELECT loc_g FROM fx2) AND variant_id = (SELECT variant_x FROM fx)),
@@ -405,13 +479,13 @@ SELECT ok(
 
 -- --- Scenario D: stale quantity deliberately mismatched, then zero -----
 INSERT INTO repair_order_line_locations (organization_id, branch_id, repair_order_id, repair_order_line_id, variant_id, location_id, quantity)
-SELECT org, branch, ro1, rol1, variant_x, loc_i, 7 FROM fx;  -- stale quantity (7) does NOT match the decrease (4) or anything else -- proves the wipe is unconditional on physical truth, not a coincidental match
+SELECT org, branch, ro1, rol1, variant_x, loc_i, 7 FROM fx, fx2;  -- stale quantity (7) does NOT match the decrease (4) or anything else -- proves the wipe is unconditional on physical truth, not a coincidental match
 INSERT INTO repair_order_location_attribution_uncertain (organization_id, branch_id, location_id, variant_id)
-SELECT org, branch, loc_i, variant_x FROM fx;
+SELECT org, branch, loc_i, variant_x FROM fx, fx2;
 
 INSERT INTO inventory_stock_ledger_entries
-  (organization_id, branch_id, location_id, variant_id, movement_id, movement_line_id, movement_type_code, balance_field, direction, quantity, balance_after, posted_at)
-SELECT org, branch, loc_i, variant_x, header_id, line_i_pure, '402', 'on_hand', 'decrease', 4, 0, now() FROM fx, fx2;
+  (organization_id, branch_id, location_id, variant_id, movement_id, movement_line_id, movement_type_code, effect_id, balance_field, direction, quantity, balance_after, posted_at)
+SELECT org, branch, loc_i, variant_x, header_id, line_i_pure, '402', effect_402_source, 'on_hand', 'decrease', 4, 0, now() FROM fx, fx2;
 
 SELECT ok(
   NOT EXISTS (SELECT 1 FROM repair_order_location_attribution_uncertain WHERE organization_id = (SELECT org FROM fx) AND location_id = (SELECT loc_i FROM fx2) AND variant_id = (SELECT variant_x FROM fx)),

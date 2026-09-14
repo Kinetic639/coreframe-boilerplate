@@ -32,7 +32,7 @@ SELECT plan(15);
 
 CREATE TEMP TABLE fx (
   org uuid, branch uuid, e2e_user uuid,
-  ro uuid, rol1 uuid, rol2 uuid, unit_ea uuid, variant_x uuid, variant_y uuid,
+  ro uuid, rol1 uuid, rol2 uuid, unit_ea uuid, variant_x uuid, variant_y uuid, product_id uuid,
   loc_recv uuid, loc_final uuid
 );
 INSERT INTO fx SELECT
@@ -40,7 +40,21 @@ INSERT INTO fx SELECT
   'e39b15da-0a8d-4056-b5a2-80eb1da868a6'::uuid,
   'c4a24371-42db-4bb8-ab5e-379ebbf7d9c4'::uuid,
   gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
+  gen_random_uuid(),
   gen_random_uuid(), gen_random_uuid();
+
+-- Live-verification correction: inventory_movement_lines/repair_order_lines/
+-- repair_order_line_locations all carry real FKs to inventory_variants/
+-- inventory_units -- minimal real rows, org-scoped, rolled back with
+-- everything else at the end of this test.
+INSERT INTO inventory_units (id, organization_id, code, name)
+SELECT unit_ea, org, '097-EA', '097 Each' FROM fx;
+INSERT INTO inventory_products (id, organization_id, name, base_unit_id)
+SELECT product_id, org, '097-test product', unit_ea FROM fx;
+INSERT INTO inventory_variants (id, organization_id, product_id, sku)
+SELECT variant_x, org, product_id, '097-SKU-X' FROM fx;
+INSERT INTO inventory_variants (id, organization_id, product_id, sku)
+SELECT variant_y, org, product_id, '097-SKU-Y' FROM fx;
 
 INSERT INTO warehouse_locations (id, organization_id, branch_id, name, code, can_store_inventory, purpose)
 SELECT loc_recv, org, branch, '097-test receiving', '097-RECV', true, 'receiving' FROM fx;
@@ -52,6 +66,36 @@ INSERT INTO repair_order_lines (id, repair_order_id, variant_id, product_name, o
 SELECT rol1, ro, variant_x, '097-test product 1', 5, 'pending' FROM fx;
 INSERT INTO repair_order_lines (id, repair_order_id, variant_id, product_name, ordered_quantity, status)
 SELECT rol2, ro, variant_y, '097-test product 2', 3, 'pending' FROM fx;
+
+-- Live-verification correction: the previous fixture seeded ONLY the
+-- shadow repair_order_line_locations projection, never any REAL on-hand
+-- balance at loc_recv (inventory_balances, via the actual engine). Live
+-- execution proved this matters: putaway_repair_order_stock's own call to
+-- inventory_create_and_finalize('801', ...) checks REAL on-hand at the
+-- source location and correctly rejected it ("Insufficient stock ... has
+-- 0.000000 on hand") -- this is the engine behaving correctly, not a bug;
+-- the fixture was simply incomplete. receive_repair_order_stock's real
+-- effect is TWO writes -- (1) a real inventory_create_and_finalize('101',
+-- ...) posting, and (2) the shadow repair_order_line_locations seed -- so
+-- this fixture now performs both, matching the comment's own claim ("as
+-- receive_repair_order_stock would have done") for real instead of only
+-- doing half of it.
+SELECT public.inventory_create_and_finalize(
+  org, branch, '101',
+  jsonb_build_array(jsonb_build_object(
+    'variant_id', variant_x, 'unit_id', unit_ea, 'quantity', 5,
+    'source_location_id', NULL, 'destination_location_id', loc_recv, 'note', NULL
+  )),
+  NULL, NULL, NULL, NULL, '097 fixture: real receipt for rol1/variant_x', gen_random_uuid()::text, e2e_user
+) FROM fx;
+SELECT public.inventory_create_and_finalize(
+  org, branch, '101',
+  jsonb_build_array(jsonb_build_object(
+    'variant_id', variant_y, 'unit_id', unit_ea, 'quantity', 3,
+    'source_location_id', NULL, 'destination_location_id', loc_recv, 'note', NULL
+  )),
+  NULL, NULL, NULL, NULL, '097 fixture: real receipt for rol2/variant_y', gen_random_uuid()::text, e2e_user
+) FROM fx;
 
 -- Seed known-true attribution at the receiving location, as
 -- receive_repair_order_stock would have done.
@@ -181,8 +225,26 @@ DECLARE
 BEGIN
   INSERT INTO warehouse_locations (id, organization_id, branch_id, name, code, can_store_inventory)
   SELECT v_loc_dest2, org, branch, '097-test dest2', '097-A-02', true FROM fx;
+  -- Live-verification correction: variant_z needs a real inventory_variants
+  -- row too (same FK as variant_x/variant_y above) -- reuses fx's own
+  -- product_id/unit_ea, no new product needed.
+  INSERT INTO inventory_variants (id, organization_id, product_id, sku)
+  SELECT v_variant_z, org, product_id, '097-SKU-Z' FROM fx;
   INSERT INTO repair_order_lines (id, repair_order_id, variant_id, product_name, ordered_quantity, status)
   SELECT v_rol3, ro, v_variant_z, '097-test product 3', 4, 'pending' FROM fx;
+
+  -- Live-verification correction: same real-on-hand gap as the main
+  -- fixture above -- this line also needs an actual inventory_create_and_finalize
+  -- ('101', ...) posting at loc_recv, not just the shadow projection row.
+  PERFORM public.inventory_create_and_finalize(
+    org, branch, '101',
+    jsonb_build_array(jsonb_build_object(
+      'variant_id', v_variant_z, 'unit_id', unit_ea, 'quantity', 4,
+      'source_location_id', NULL, 'destination_location_id', loc_recv, 'note', NULL
+    )),
+    NULL, NULL, NULL, NULL, '097 fixture: real receipt for rol3/variant_z', gen_random_uuid()::text, e2e_user
+  ) FROM fx;
+
   INSERT INTO repair_order_line_locations (organization_id, branch_id, repair_order_id, repair_order_line_id, variant_id, location_id, quantity)
   SELECT org, branch, ro, v_rol3, v_variant_z, loc_recv, 4 FROM fx;
   INSERT INTO repair_order_location_attribution_uncertain (organization_id, branch_id, location_id, variant_id)
