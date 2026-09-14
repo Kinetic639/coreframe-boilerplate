@@ -22,12 +22,15 @@ import {
   changeRepairOrderStatusSchema,
   reserveRepairOrderLineSchema,
   releaseRepairOrderLineReservationSchema,
+  allocateRepairOrderLineSchema,
 } from "@/lib/validations/repair-orders";
 import { WAREHOUSE_INVENTORY_OPERATE } from "@repo/contracts/permissions";
 import type {
   RepairOrderLineReservationResult,
   RepairOrderLineReservationReleaseResult,
   RepairOrderLineReservation,
+  RepairOrderLineAllocationResult,
+  RepairOrderLineAllocationLine,
 } from "@/server/services/repair-orders.service";
 
 // ---------------------------------------------------------------------------
@@ -358,6 +361,81 @@ export async function listRepairOrderLineReservationsAction(
     }
 
     return RepairOrdersService.listReservationsForLine(supabase, repairOrderLineId);
+  } catch {
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Phase 10B -- allocation
+// ---------------------------------------------------------------------------
+
+/**
+ * Phase 10B -- convert an existing reservation line into an allocation for
+ * one RepairOrderLine. Same `warehouse.inventory.operate` gate as
+ * reserve/release (matching decision 5 and this RPC's own live-verified
+ * permission gate) -- deliberately NOT gated on any
+ * `workshop.repair_orders.*` permission, same rationale as
+ * `reserveRepairOrderLineAction`. Reservation-line ownership (this
+ * reservation line genuinely belongs to this exact RepairOrderLine) and
+ * the target location/variant (always derived from the reservation line
+ * itself, never from client input) are verified server-side by
+ * `RepairOrdersService.allocateForLine`, not by this action.
+ */
+export async function allocateRepairOrderLineAction(
+  rawInput: unknown
+): Promise<ActionResult<RepairOrderLineAllocationResult>> {
+  try {
+    const { supabase, user, context } = await getAuthedContext();
+    if (!user) return { success: false, error: "Unauthenticated" };
+    if (!checkPermission(context?.user.permissionSnapshot, WAREHOUSE_INVENTORY_OPERATE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const parsed = allocateRepairOrderLineSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    return RepairOrdersService.allocateForLine(supabase, user.id, {
+      repairOrderLineId: parsed.data.repairOrderLineId,
+      reservationLineId: parsed.data.reservationLineId,
+      quantity: parsed.data.quantity,
+    });
+  } catch {
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
+/**
+ * Phase 10B read model -- every allocation line reachable from one
+ * RepairOrderLine via its own reservation(s). Same permission shape as
+ * `listRepairOrderLineReservationsAction`: any genuine, authenticated
+ * caller with SOME read access to this Workshop module may call this
+ * action -- the real data-visibility boundary is
+ * `inventory_allocations`'/`inventory_allocation_lines`' own RLS
+ * (`warehouse.inventory.read`, LIVE VERIFIED as a dedicated SELECT policy
+ * alongside the `.operate`-gated ALL policy, exactly mirroring the
+ * reservation tables' own policy shape), enforced independently underneath
+ * this call -- a caller who can view the RepairOrder but lacks
+ * inventory-read simply sees an empty list, never an error.
+ */
+export async function listRepairOrderLineAllocationsAction(
+  repairOrderLineId: string
+): Promise<ActionResult<RepairOrderLineAllocationLine[]>> {
+  try {
+    const { supabase, user, context } = await getAuthedContext();
+    if (!user) return { success: false, error: "Unauthenticated" };
+    const snapshot = context?.user.permissionSnapshot;
+    const canView =
+      checkPermission(snapshot, WORKSHOP_REPAIR_ORDERS_READ) ||
+      checkPermission(snapshot, WORKSHOP_REPAIR_ORDERS_MANAGE_OWN) ||
+      checkPermission(snapshot, WORKSHOP_REPAIR_ORDERS_MANAGE_ALL);
+    if (!canView) return { success: false, error: "Unauthorized" };
+
+    if (!z.string().uuid().safeParse(repairOrderLineId).success) {
+      return { success: false, error: "Invalid repair order line id" };
+    }
+
+    return RepairOrdersService.listAllocationsForLine(supabase, repairOrderLineId);
   } catch {
     return { success: false, error: "Unexpected error" };
   }

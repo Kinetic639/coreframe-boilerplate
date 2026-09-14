@@ -205,6 +205,35 @@ function normalizeReservationRpcError(error: { code?: string; message: string })
 }
 
 /**
+ * Phase 10B: `inventory_create_allocation`'s own known, safe error shapes --
+ * every message below copied verbatim from `pg_get_functiondef` output
+ * (LIVE VERIFIED, not guessed), matched by code AND exact message text
+ * together, same hardening rationale as the reservation allowlist above
+ * (every RAISE in this RPC's body is a bare `RAISE EXCEPTION 'message'`,
+ * default `P0001` SQLSTATE). `Unable to lock inventory balance row` is
+ * shared with the reservation RPC -- both call the same
+ * `inventory_get_or_create_balance_for_update` helper.
+ */
+const REPAIR_ORDER_ALLOCATION_KNOWN_ERRORS: ReadonlyArray<{ code: string; pattern: RegExp }> = [
+  { code: "P0001", pattern: /^Missing warehouse\.inventory\.operate permission$/ },
+  { code: "P0001", pattern: /^At least one allocation line is required$/ },
+  { code: "P0001", pattern: /^Allocation quantity must be positive$/ },
+  { code: "P0001", pattern: /^Allocation variant is not active$/ },
+  { code: "P0001", pattern: /^Reservation line not found for allocation$/ },
+  { code: "P0001", pattern: /^Allocation exceeds remaining reservation quantity$/ },
+  { code: "P0001", pattern: /^Insufficient available stock to allocate$/ },
+  { code: "P0001", pattern: /^Unable to lock inventory balance row$/ },
+];
+
+function normalizeAllocationRpcError(error: { code?: string; message: string }): string {
+  const isKnown = REPAIR_ORDER_ALLOCATION_KNOWN_ERRORS.some(
+    (known) => error.code === known.code && known.pattern.test(error.message)
+  );
+  if (isKnown) return error.message;
+  return "Failed to process this allocation request due to an unexpected server error. Please try again or contact support.";
+}
+
+/**
  * Typed, clean result of a materialization call -- the raw jsonb shape
  * returned by the materialize_repair_orders_from_session RPC, mapped to a
  * domain type so callers never depend on the RPC's raw jsonb keys directly.
@@ -422,6 +451,48 @@ export interface RepairOrderLineReservation {
   expiresAt: string | null;
   createdAt: string;
   lines: RepairOrderLineReservationLine[];
+  outstandingQuantity: number;
+}
+
+/**
+ * Phase 10B: the result of a successful `allocateForLine` call -- the raw
+ * jsonb `inventory_create_allocation` returns, mapped to a domain type.
+ */
+export interface RepairOrderLineAllocationResult {
+  allocationId: string;
+  allocationNumber: string;
+  status: string;
+}
+
+/**
+ * Phase 10B: one real, persisted `inventory_allocation_lines` row reachable
+ * from this RepairOrderLine via the authoritative relational chain --
+ * RepairOrderLine -> (reservation.reference_id) -> reservation ->
+ * reservation lines -> (allocation_lines.reservation_line_id) -> allocation
+ * lines -- never a redundant RepairOrderLine FK on the allocation tables
+ * themselves (none was added; LIVE VERIFIED none is needed -- the chain is
+ * sufficient and already indexed, see `listAllocationsForLine`).
+ * `outstandingQuantity` is the LIVE-VERIFIED engine formula
+ * (`inventory_release_allocation`'s own body, verbatim):
+ * `allocated_quantity - fulfilled_quantity` (this table has no
+ * `released_quantity` column, unlike reservation lines -- confirmed live,
+ * not assumed). A flat list, not grouped by allocation header -- each row
+ * already carries its own parent allocation's number/status inline, and a
+ * RepairOrderLine's allocations do not need a header-level rollup the way
+ * reservations' own multi-line-per-reservation shape did.
+ */
+export interface RepairOrderLineAllocationLine {
+  id: string;
+  allocationId: string;
+  allocationNumber: string;
+  allocationStatus: string;
+  reservationLineId: string | null;
+  variantId: string;
+  locationId: string;
+  lotId: string | null;
+  serialId: string | null;
+  allocatedQuantity: number;
+  fulfilledQuantity: number;
   outstandingQuantity: number;
 }
 
@@ -2058,6 +2129,13 @@ export class RepairOrdersService {
    * restricts either). `deleted_at IS NULL` scoped, ordered oldest-first.
    * Org/branch scope is resolved from the parent RepairOrderLine, never
    * trusted from the caller, matching every other Zone 3 read method.
+   *
+   * Domain-integrity correction (2026-09-14, external review): header
+   * reference equality is not sufficient proof of product identity (see
+   * `allocateForLine`'s own doc comment for the full finding) -- only
+   * lines whose own `variant_id` exactly matches this RepairOrderLine's
+   * authoritative `variant_id` are counted; a reservation left with zero
+   * matching lines after that filter is omitted from the result entirely.
    */
   static async listReservationsForLine(
     supabase: SupabaseClient,
@@ -2113,32 +2191,415 @@ export class RepairOrdersService {
       }> | null;
     };
 
-    const reservations = (data as unknown as ReservationRow[]).map((row) => {
-      const lines: RepairOrderLineReservationLine[] = (row.inventory_reservation_lines ?? []).map(
-        (line) => ({
-          id: line.id,
-          variantId: line.variant_id,
-          locationId: line.location_id,
-          lotId: line.lot_id,
-          serialId: line.serial_id,
-          reservedQuantity: line.reserved_quantity,
-          releasedQuantity: line.released_quantity,
-          fulfilledQuantity: line.fulfilled_quantity,
-          outstandingQuantity:
-            line.reserved_quantity - line.released_quantity - line.fulfilled_quantity,
-        })
-      );
-      return {
-        id: row.id,
-        reservationNumber: row.reservation_number,
-        status: row.status,
-        expiresAt: row.expires_at,
-        createdAt: row.created_at,
-        lines,
-        outstandingQuantity: lines.reduce((sum, l) => sum + l.outstandingQuantity, 0),
-      };
-    });
+    // Domain-integrity correction (2026-09-14, external review): a
+    // reservation HEADER matching `reference_type`/`reference_id` is NOT
+    // sufficient proof that one of its own LINES represents this
+    // RepairOrderLine's product identity -- `reference_id` is generic
+    // metadata with no FK (LIVE VERIFIED), and the generic Warehouse
+    // reservation action accepts it as unrestricted client input, entirely
+    // independent of each line's own `variant_id`. Only a reservation
+    // line whose own `variant_id` exactly matches this RepairOrderLine's
+    // own authoritative `scope.variantId` is counted as this line's own
+    // reservation quantity -- never inferred by SKU/product_code. A
+    // reservation with zero matching lines after this filter contributes
+    // nothing and is omitted entirely (a reservation header alone, with no
+    // line genuinely attributable to this RepairOrderLine, carries no
+    // useful reservation-quantity information for it). `scope.variantId`
+    // may be `null` (a RepairOrderLine with no product identity yet) --
+    // no real reservation line can ever match that, which is correct
+    // (mirrors `reserveForLine`'s own pre-existing no-variant guard).
+    const reservations = (data as unknown as ReservationRow[])
+      .map((row) => {
+        const lines: RepairOrderLineReservationLine[] = (row.inventory_reservation_lines ?? [])
+          .filter((line) => line.variant_id === scope.variantId)
+          .map((line) => ({
+            id: line.id,
+            variantId: line.variant_id,
+            locationId: line.location_id,
+            lotId: line.lot_id,
+            serialId: line.serial_id,
+            reservedQuantity: line.reserved_quantity,
+            releasedQuantity: line.released_quantity,
+            fulfilledQuantity: line.fulfilled_quantity,
+            outstandingQuantity:
+              line.reserved_quantity - line.released_quantity - line.fulfilled_quantity,
+          }));
+        return {
+          id: row.id,
+          reservationNumber: row.reservation_number,
+          status: row.status,
+          expiresAt: row.expires_at,
+          createdAt: row.created_at,
+          lines,
+          outstandingQuantity: lines.reduce((sum, l) => sum + l.outstandingQuantity, 0),
+        };
+      })
+      .filter((reservation) => reservation.lines.length > 0);
 
     return { success: true, data: reservations };
+  }
+
+  /**
+   * Phase 10B: convert an existing reservation line into an allocation for
+   * one RepairOrderLine, via the existing, unmodified generic
+   * `inventory_create_allocation` RPC (LIVE VERIFIED: `SECURITY INVOKER`,
+   * gated by its own `has_branch_permission(..., 'warehouse.inventory.
+   * operate')` check -- this method does not duplicate that check).
+   *
+   * Reservation-first is a HARD Zone 3 invariant: `p_lines[0].
+   * reservation_line_id` is ALWAYS set from a real, ownership-verified
+   * reservation line -- this method never calls the RPC with it omitted
+   * (which the generic engine's own direct-allocation-without-reservation
+   * path would otherwise allow; that path remains available to other,
+   * non-RepairOrder callers of the same RPC, unchanged).
+   *
+   * Ownership (server-authoritative, never trusted from the caller): the
+   * requested `reservationLineId` is read back together with its own
+   * parent reservation header, and the header is verified to genuinely
+   * belong to THIS RepairOrderLine (`reference_type = 'repair_order_line'`
+   * AND `reference_id = repairOrderLineId`) AND to the line's own
+   * authoritative org/branch (resolved via `resolveRepairOrderLineScope`,
+   * reusing the exact same pattern `releaseReservationForLine` already
+   * established in Phase 10A). A mismatch or not-found returns the same
+   * generic "Reservation line not found" either way -- no existence leak.
+   *
+   * Variant/location/lot/serial are DERIVED from the reservation line's
+   * own row, never accepted as client input, for a reason beyond ownership
+   * security: LIVE VERIFIED (reading `inventory_create_allocation`'s own
+   * body via `pg_get_functiondef`) the generic engine does NOT itself
+   * cross-check that an allocation line's `variant_id`/`location_id`
+   * agrees with its own `reservation_line_id` -- it trusts whatever
+   * `p_lines` supplies independently, and updates the BALANCE ROW keyed by
+   * whatever location/variant `p_lines` gives it, not the reservation
+   * line's own location/variant. Accepting a client-supplied location
+   * here (as the implementation plan's own illustrative signature
+   * suggested) could silently decrement `reserved_quantity` on a balance
+   * row the original reservation never actually incremented, corrupting
+   * that balance -- a real correctness defect, not just a security one.
+   * Deriving these fields from the reservation line closes both: the
+   * allocation can never disagree with the stock it claims to convert,
+   * and a client can never inject an out-of-branch location or a
+   * mismatched variant. This is a deliberate, disclosed deviation from
+   * the plan's illustrative `{ ..., locationId, ... }` signature -- not a
+   * generic-engine change (nothing in the RPC or its callers elsewhere
+   * was touched), and not a silent redesign (reported here and in the
+   * review bundle).
+   *
+   * Does not reimplement any allocation/quantity math -- the RPC's own
+   * row-locked check (`reserved_quantity - released_quantity -
+   * fulfilled_quantity < requested -> reject`) is the sole authority for
+   * whether the requested quantity is actually available on the
+   * reservation line; this method does not pre-compute or duplicate that
+   * comparison, only existence + ownership.
+   */
+  static async allocateForLine(
+    supabase: SupabaseClient,
+    actorUserId: string,
+    input: {
+      repairOrderLineId: string;
+      reservationLineId: string;
+      quantity: number;
+    }
+  ): Promise<ServiceResult<RepairOrderLineAllocationResult>> {
+    const scope = await RepairOrdersService.resolveRepairOrderLineScope(
+      supabase,
+      input.repairOrderLineId
+    );
+    if (!scope) {
+      return { success: false, error: "RepairOrderLine not found" };
+    }
+
+    const { data: reservationLine, error: reservationLineError } = await supabase
+      .from("inventory_reservation_lines")
+      .select("id, reservation_id, variant_id, location_id, lot_id, serial_id")
+      .eq("id", input.reservationLineId)
+      .maybeSingle();
+
+    if (reservationLineError) {
+      console.error(
+        "[RepairOrdersService.allocateForLine] reservation line lookup error:",
+        reservationLineError
+      );
+      return {
+        success: false,
+        error:
+          "Failed to process this allocation request due to an unexpected server error. Please try again or contact support.",
+      };
+    }
+
+    if (!reservationLine) {
+      return { success: false, error: "Reservation line not found" };
+    }
+
+    const { data: reservation, error: reservationError } = await supabase
+      .from("inventory_reservations")
+      .select("id, organization_id, branch_id, reference_type, reference_id")
+      .eq("id", reservationLine.reservation_id)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (reservationError) {
+      console.error(
+        "[RepairOrdersService.allocateForLine] reservation lookup error:",
+        reservationError
+      );
+      return {
+        success: false,
+        error:
+          "Failed to process this allocation request due to an unexpected server error. Please try again or contact support.",
+      };
+    }
+
+    const belongsToThisLine =
+      reservation &&
+      reservation.organization_id === scope.organizationId &&
+      reservation.branch_id === scope.branchId &&
+      reservation.reference_type === "repair_order_line" &&
+      reservation.reference_id === input.repairOrderLineId;
+
+    if (!belongsToThisLine) {
+      // Same message either way -- an unrelated/cross-scope reservation
+      // line must be indistinguishable from one that does not exist.
+      return { success: false, error: "Reservation line not found" };
+    }
+
+    // Domain-integrity correction (2026-09-14, external review): header
+    // reference equality alone is NOT sufficient proof that this
+    // reservation LINE represents the RepairOrderLine's own product
+    // identity. `inventory_reservations.reference_id` is generic metadata
+    // with no FK (LIVE VERIFIED, Phase 10A) -- the generic Warehouse
+    // reservation action (`createInventoryReservationAction`) accepts
+    // `reference_type`/`reference_id` as plain, unrestricted client input
+    // (LIVE VERIFIED: `createReservationSchema` places no domain
+    // constraint on either field) and each reservation LINE's own
+    // `variant_id` is entirely independent of the header's reference --
+    // so a reservation header can legitimately claim
+    // `reference_id=<this RepairOrderLine>` while one of its own lines
+    // carries a completely different variant. The final Zone 3 invariant
+    // requires BOTH: exact header reference identity (already checked
+    // above) AND exact reservation-LINE variant identity against this
+    // RepairOrderLine's own authoritative `variant_id` (`scope.variantId`,
+    // never inferred by SKU/product_code). `scope.variantId` may itself be
+    // `null` (a RepairOrderLine with no product identity yet) -- no real
+    // reservation line can ever match that, which is the correct outcome
+    // (matches `reserveForLine`'s own pre-existing no-variant guard).
+    if (!scope.variantId || reservationLine.variant_id !== scope.variantId) {
+      // Same generic, non-leaking shape as the ownership check above --
+      // never reveals that a mismatched reservation line exists.
+      return { success: false, error: "Reservation line not found" };
+    }
+
+    if (!reservationLine.location_id) {
+      // Defensive -- `inventory_create_reservation` enforces `location_id`
+      // as a hard requirement at reserve time (LIVE VERIFIED, Phase 10A),
+      // so this should be unreachable in practice. Kept as an explicit,
+      // honest guard rather than assuming the invariant always held.
+      return { success: false, error: "Reservation line has no location to allocate from" };
+    }
+
+    const { data, error } = await supabase.rpc("inventory_create_allocation", {
+      p_organization_id: scope.organizationId,
+      p_branch_id: scope.branchId,
+      p_lines: [
+        {
+          variant_id: reservationLine.variant_id,
+          location_id: reservationLine.location_id,
+          quantity: input.quantity,
+          lot_id: reservationLine.lot_id,
+          serial_id: reservationLine.serial_id,
+          reservation_line_id: input.reservationLineId,
+        },
+      ],
+      p_reservation_id: reservation.id,
+      p_reference_type: "repair_order_line",
+      p_reference_id: input.repairOrderLineId,
+      p_reference_number: null,
+      p_actor_user_id: actorUserId,
+    });
+
+    if (error) {
+      console.error(
+        "[RepairOrdersService.allocateForLine] inventory_create_allocation RPC error:",
+        error
+      );
+      return { success: false, error: normalizeAllocationRpcError(error) };
+    }
+
+    const row = data as { allocation_id: string; allocation_number: string; status: string };
+    const result: RepairOrderLineAllocationResult = {
+      allocationId: row.allocation_id,
+      allocationNumber: row.allocation_number,
+      status: row.status,
+    };
+
+    const emitResult = await eventService.emit({
+      actionKey: "workshop.repair_orders.allocation_created",
+      actorType: "user",
+      actorUserId,
+      entityType: "repair_order_line",
+      entityId: input.repairOrderLineId,
+      metadata: {
+        allocationId: result.allocationId,
+        reservationLineId: input.reservationLineId,
+        quantity: input.quantity,
+      },
+      eventTier: "baseline",
+    });
+    if (!emitResult.success) {
+      // Best-effort per Mode A -- the domain write above already succeeded
+      // and is returned to the caller regardless of this failure.
+      console.error(
+        "[RepairOrdersService.allocateForLine] Failed to emit workshop.repair_orders.allocation_created:",
+        (emitResult as { success: false; error: string }).error
+      );
+    }
+
+    return { success: true, data: result };
+  }
+
+  /**
+   * Phase 10B read model: every `inventory_allocation_lines` row reachable
+   * from this RepairOrderLine via the authoritative chain (this line's own
+   * reservations -> their own reservation lines -> allocation lines
+   * pointing at those reservation lines via `reservation_line_id`). No
+   * RepairOrderLine FK was added to either allocation table -- the chain,
+   * already indexed (`inventory_allocation_lines_reservation_line_id_idx`,
+   * LIVE VERIFIED to already exist), is sufficient. Returns `[]` (not an
+   * error) for an unresolvable line, matching `listReservationsForLine`'s
+   * own no-existence-leak convention. `deleted_at IS NULL` is filtered
+   * explicitly on the allocation header, not left to RLS alone -- LIVE
+   * VERIFIED `inventory_allocations_operate` (the `ALL`-command policy) has
+   * no `deleted_at` check of its own, unlike the dedicated `_select`
+   * policy; an actor with only `.operate` could otherwise see a
+   * soft-deleted row through that policy (the exact same asymmetry
+   * Phase 10A's own reservation read model already defends against the
+   * same way).
+   *
+   * Domain-integrity correction (2026-09-14, external review): the chain
+   * only follows reservation LINES whose own `variant_id` exactly matches
+   * this RepairOrderLine's own authoritative `variant_id` -- a reservation
+   * header matching `reference_type`/`reference_id` is not itself
+   * sufficient proof of product identity (see `allocateForLine`'s own doc
+   * comment for the full finding).
+   */
+  static async listAllocationsForLine(
+    supabase: SupabaseClient,
+    repairOrderLineId: string
+  ): Promise<ServiceResult<RepairOrderLineAllocationLine[]>> {
+    const scope = await RepairOrdersService.resolveRepairOrderLineScope(
+      supabase,
+      repairOrderLineId
+    );
+    if (!scope) {
+      return { success: true, data: [] };
+    }
+
+    const { data: reservationRows, error: reservationError } = await supabase
+      .from("inventory_reservations")
+      .select("inventory_reservation_lines(id, variant_id)")
+      .eq("organization_id", scope.organizationId)
+      .eq("branch_id", scope.branchId)
+      .eq("reference_type", "repair_order_line")
+      .eq("reference_id", repairOrderLineId)
+      .is("deleted_at", null);
+
+    if (reservationError) {
+      console.error(
+        "[RepairOrdersService.listAllocationsForLine] reservation lookup error:",
+        reservationError
+      );
+      return {
+        success: false,
+        error:
+          "Failed to load allocations due to an unexpected server error. Please try again or contact support.",
+      };
+    }
+
+    // Domain-integrity correction (2026-09-14, external review): a
+    // reservation LINE is only a valid source of allocation state for
+    // this RepairOrderLine if its own `variant_id` exactly matches the
+    // RepairOrderLine's own authoritative `scope.variantId` -- header
+    // reference equality alone is not sufficient (see `allocateForLine`'s
+    // own doc comment for the full finding). Filtered here, BEFORE
+    // collecting reservation-line ids, so a wrong-variant reservation
+    // line's own allocation lines are never even queried, let alone
+    // surfaced.
+    type ReservationLinesRow = {
+      inventory_reservation_lines: Array<{ id: string; variant_id: string }> | null;
+    };
+    const reservationLineIds = (
+      (reservationRows ?? []) as unknown as ReservationLinesRow[]
+    ).flatMap((r) =>
+      (r.inventory_reservation_lines ?? [])
+        .filter((l) => l.variant_id === scope.variantId)
+        .map((l) => l.id)
+    );
+
+    if (reservationLineIds.length === 0) {
+      return { success: true, data: [] };
+    }
+
+    const { data, error } = await supabase
+      .from("inventory_allocation_lines")
+      .select(
+        `id, reservation_line_id, variant_id, location_id, lot_id, serial_id, allocated_quantity, fulfilled_quantity,
+         allocation:inventory_allocations!inventory_allocation_lines_allocation_id_fkey(id, allocation_number, status, deleted_at)`
+      )
+      .eq("organization_id", scope.organizationId)
+      .eq("branch_id", scope.branchId)
+      .in("reservation_line_id", reservationLineIds);
+
+    if (error) {
+      console.error("[RepairOrdersService.listAllocationsForLine] query error:", error);
+      return {
+        success: false,
+        error:
+          "Failed to load allocations due to an unexpected server error. Please try again or contact support.",
+      };
+    }
+
+    type AllocationHeaderEmbed = {
+      id: string;
+      allocation_number: string;
+      status: string;
+      deleted_at: string | null;
+    };
+    type AllocationLineRow = {
+      id: string;
+      reservation_line_id: string | null;
+      variant_id: string;
+      location_id: string;
+      lot_id: string | null;
+      serial_id: string | null;
+      allocated_quantity: number;
+      fulfilled_quantity: number;
+      allocation: AllocationHeaderEmbed | AllocationHeaderEmbed[] | null;
+    };
+
+    const lines: RepairOrderLineAllocationLine[] = [];
+    for (const row of (data ?? []) as unknown as AllocationLineRow[]) {
+      const allocation = Array.isArray(row.allocation) ? row.allocation[0] : row.allocation;
+      // Defensive re-filter, not relying on RLS alone -- see this method's
+      // own doc comment for why the ALL/`.operate` policy does not itself
+      // exclude a soft-deleted allocation header.
+      if (!allocation || allocation.deleted_at !== null) continue;
+
+      lines.push({
+        id: row.id,
+        allocationId: allocation.id,
+        allocationNumber: allocation.allocation_number,
+        allocationStatus: allocation.status,
+        reservationLineId: row.reservation_line_id,
+        variantId: row.variant_id,
+        locationId: row.location_id,
+        lotId: row.lot_id,
+        serialId: row.serial_id,
+        allocatedQuantity: row.allocated_quantity,
+        fulfilledQuantity: row.fulfilled_quantity,
+        outstandingQuantity: row.allocated_quantity - row.fulfilled_quantity,
+      });
+    }
+
+    return { success: true, data: lines };
   }
 }

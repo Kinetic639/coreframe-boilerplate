@@ -894,7 +894,7 @@ PITCH.
 
 ---
 
-## Phase 10B — Allocation integration (Reservation → Allocation)
+## Phase 10B — Allocation integration (Reservation → Allocation) — ✅ DONE (2026-09-14)
 
 ### Objective
 
@@ -910,31 +910,43 @@ Phase 10A.
 
 ### Repository areas affected
 
-- `repair-orders.service.ts` — `allocateForLine` calling `inventory_create_allocation` with `p_reservation_line_id` set from Phase 10A's reservation.
+- `repair-orders.service.ts` — new `allocateForLine`/`listAllocationsForLine` methods calling `inventory_create_allocation` with `reservation_line_id` ALWAYS set inside each allocation line (reservation-first is a hard Zone 3 invariant — the generic engine's own direct-allocation-without-reservation path, `reservation_line_id` omitted, is never exercised by this domain).
+- `event-registry.ts` — one new Mode-A audit event (`workshop.repair_orders.allocation_created`).
+- `validations/repair-orders.ts`, `actions/workshop/repair-orders.ts` — schema + two new server actions (`allocateRepairOrderLineAction`, `listRepairOrderLineAllocationsAction`). **No hooks, no UI** this phase — see the Testing/Acceptance sections below for why.
 
 ### Supabase changes
 
-None to allocation tables/RPCs.
+**None.** Live-verified findings that justified this:
+
+- `inventory_create_allocation` is **`SECURITY INVOKER`** (`pg_proc.prosecdef = false`), same security model as Phase 10A's reservation RPCs — RLS on `inventory_allocations`/`inventory_allocation_lines` genuinely governs every call. Its `p_lines` array's per-line `reservation_line_id` field (LIVE VERIFIED via `pg_get_functiondef`) — **not** a top-level `p_reservation_line_id` parameter as this section's own prior text assumed — is what drives the reservation→allocation handshake (`UPDATE inventory_reservation_lines SET fulfilled_quantity += qty; UPDATE inventory_balances SET reserved_quantity = greatest(0, reserved_quantity - qty), allocated_quantity += qty`), all inside the RPC's own transaction, row-locked (`FOR UPDATE` on both the reservation line and the balance row).
+- `inventory_allocation_lines.reservation_line_id` is a real FK to `inventory_reservation_lines(id)` (`ON DELETE SET NULL`) — already indexed (`inventory_allocation_lines_reservation_line_id_idx`). This is the authoritative relational chain (RepairOrderLine → reservation.reference_id → reservation lines → allocation_lines.reservation_line_id) `listAllocationsForLine` reads through; no RepairOrderLine FK was added to either allocation table.
+- **Correctness/security finding, disclosed, not silently worked around**: the engine does **not** itself cross-check that an allocation line's `variant_id`/`location_id` agrees with its own `reservation_line_id` — it trusts whatever `p_lines` supplies independently, and updates the balance row keyed by whatever location/variant `p_lines` gives it. `RepairOrdersService.allocateForLine` therefore **derives** variant/location/lot/serial from the reservation line's own row, never from client input — a deliberate, disclosed deviation from this section's own prior illustrative `{ ..., locationId, ... }` signature (see the service method's own doc comment for the full reasoning).
+- `inventory_balances` carries a real composite FK, `(location_id, organization_id, branch_id) -> warehouse_locations(id, organization_id, branch_id)` — LIVE VERIFIED (a location genuinely belonging to a different branch is rejected with `23503` before the RPC ever reaches its own reservation-line lookup). This does not replace the correctness reason above (a _valid, same-branch_ but _wrong_ location is still not caught by this FK), but is a genuine, additional, engine-level defense worth recording.
+- No covering index was needed beyond what already exists (`inventory_allocation_lines_reservation_line_id_idx`).
 
 ### Existing infrastructure reused
 
-`inventory_create_allocation` (LIVE VERIFIED; **must** be called with `p_reservation_line_id` set for the normal RepairOrder path per decision 2 — direct allocation without a reservation stays available at the platform level but is not the Zone 3 default).
+`inventory_create_allocation` (LIVE VERIFIED, `warehouse.inventory.operate`-gated via `has_branch_permission`, `SECURITY INVOKER`, row-locked). Called directly via `supabase.rpc(...)`, matching Phase 10/10A's own established direct-call convention (not through `InventoryEnterpriseService`'s thinner wrapper, for the same errcode-preservation reason Phase 10A documented).
 
 ### Implementation tasks
 
-- [ ] Add `RepairOrdersService.allocateForLine(reservationLineId, locationId, quantity, ...)`.
-- [ ] Read-model method: given a RepairOrderLine, list its allocation(s), outstanding quantity (`allocated_quantity - fulfilled_quantity`).
-- [ ] Explicit test: creating the allocation correctly decrements the _reservation's_ `fulfilled_quantity`-driven outstanding, per the audit's documented handshake — and does **not** get double-decremented later by a WU issue (Phase 10F must increment `allocation_lines.fulfilled_quantity` only, never re-touch `reservation_lines.fulfilled_quantity`).
-- [ ] Unit tests + pgTAP/service test for the handshake.
+- [x] Add `RepairOrdersService.allocateForLine({ repairOrderLineId, reservationLineId, quantity })` — reservation-line ownership verified server-side (org/branch/`reference_type`/`reference_id` match against the caller's own resolved RepairOrderLine, reusing Phase 10A's exact ownership pattern), `reservation_line_id` always set, variant/location/lot/serial always derived from the reservation line's own row.
+- [x] Read-model method (`listAllocationsForLine`): given a RepairOrderLine, list its allocation line(s) via the authoritative reservation-line chain, outstanding quantity (`allocated_quantity - fulfilled_quantity`, LIVE-VERIFIED formula — this table has no `released_quantity` column).
+- [x] Explicit live test: creating the allocation correctly increments the reservation line's own `fulfilled_quantity` by exactly the allocated amount, decrements `inventory_balances.reserved_quantity`, and increments `inventory_balances.allocated_quantity` — proven live, real RPC, real balance row (`099_...`, T3-T5, T9, T11).
+- [x] Unit tests + live pgTAP for the handshake, partial allocation, multiple allocations, over-allocation rejection, same-SKU independence, and a genuine engine-level cross-branch rejection.
 
 ### Testing requirements
 
-- **Unit**: service mapping.
-- **Service/integration**: reservation→allocation handshake produces the exact live-verified balance transitions (`reserved_quantity` down, `allocated_quantity` up, reservation line `fulfilled_quantity` up).
+- **Unit** (Vitest, `repair-orders.service.test.ts`, 14 new tests / 124 total in file): `allocateForLine` reservation-line-derived param mapping (never client-supplied location/variant), not-found (RepairOrderLine, reservation line), cross-RepairOrderLine ownership rejection, cross-org/branch rejection, known-error passthrough, unexpected-error normalization, event emission (best-effort); `listAllocationsForLine` outstanding formula, empty-on-no-reservations, empty-on-unresolvable-scope, defensive soft-deleted-allocation-header filtering, unexpected-error normalization.
+- **Live/pgTAP** (`099_repair_order_line_allocation_phase10b_test.sql`, new, **19/19 passing**, executed live via MCP): the full reservation→allocation handshake (fulfilled_quantity up, reserved down, allocated up) against a real reservation created via the real Phase 10A RPC; partial allocation (4 then 6 of a 10-unit reservation); multiple allocation lines against one reservation line (cardinality, no 1:1 assumed); atomic over-allocation rejection with no partial write; same-SKU independence; a genuine **engine-level** cross-branch `reservation_line_id` rejection (not merely a Zone 3 one — the RPC's own org/branch-scoped lookup); permission denial. Concurrency: **sequential only**, honestly disclosed — pgTAP's single-connection limitation means this is not a genuine multi-session proof, matching Phase 10A's own precedent for the same limitation.
+- **Regression** (all re-run live in this pass, unaffected): `098_repair_order_line_reservation_phase10a_test.sql` 17/17, byte-for-byte unmodified; `097_...` (Phase 10 write boundary) reconfirmed 29/29 earlier in this same session, unaffected since no RPC/RLS/migration was touched by Phase 10B.
+- **Action-layer**: no new dedicated tests were added for `allocateRepairOrderLineAction`/`listRepairOrderLineAllocationsAction`, matching Phase 10A's own established precedent (its equivalent reserve/release/list actions were likewise never given dedicated action-layer tests — the service layer's own ownership/security logic is what's substantively tested; the action itself is a thin, consistent permission-check wrapper).
+- **Component/UI**: **none** — no Phase 10B UI was built this phase (see Acceptance criteria below for why), so no component tests were added, per explicit instruction not to create artificial tests just to raise counts.
+- **Browser/UAT**: not applicable this phase (no UI), honestly recorded rather than silently skipped.
 
 ### Acceptance criteria
 
-A real RepairOrderLine's reservation converts to an allocation at a specific location, live-verified; double-counting explicitly disproven by test.
+A real RepairOrderLine's reservation converts to an allocation at a specific location, live-verified; double-counting explicitly disproven by test. **Met.** Reservation-first is enforced as a hard Zone 3 invariant (the service never omits `reservation_line_id`). Reservation-line ownership, cross-org/branch rejection, and location/variant derivation are all server-authoritative, never trusting client input. The future Phase 10F double-counting rule is documented (allocation creation increments `reservation_line.fulfilled_quantity`; a future WU issue must increment `allocation_line.fulfilled_quantity` only, never re-touch the reservation line) but not implemented — Phase 10F itself was not started. **No Phase 10B UI was built** — the accepted plan's own "Repository areas affected"/"Implementation tasks" never called for one (service + read-model + tests only), and this pass confirmed that against the current plan/progress docs before writing any code, per the explicit "do not invent a large allocation interface merely because Phase 10A had a minimal reservation popover" instruction. UI ownership is recorded for the later Magazyn/Phase 11 surface. Container, QR, and Zone 5 receiving/putaway were **not** touched, called, or integrated in this phase.
 
 ### Scope classification
 

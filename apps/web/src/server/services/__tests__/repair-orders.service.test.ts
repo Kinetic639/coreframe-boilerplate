@@ -12,6 +12,7 @@ import type {
   RepairOrderLineReadModel,
   RepairOrderProvenanceDocument,
   RepairOrderLineReservation,
+  RepairOrderLineAllocationLine,
 } from "../repair-orders.service";
 import { eventService } from "../event.service";
 
@@ -2749,6 +2750,91 @@ describe("RepairOrdersService.listReservationsForLine", () => {
     expect(data[1].outstandingQuantity).toBe(1);
   });
 
+  it("[domain-integrity correction] a reservation line whose own variant does not match the RepairOrderLine's own variant contributes zero, and the whole reservation is omitted if that was its only line", async () => {
+    const supabase = buildReservationSupabaseMock({
+      lineResult: RESERVATION_LINE_FOUND, // RepairOrderLine's own variant_id: "variant-1"
+      orderResult: RESERVATION_ORDER_FOUND,
+      reservationsListResult: {
+        data: [
+          {
+            id: "res-wrong-variant",
+            reservation_number: "RES-000099",
+            status: "active",
+            expires_at: null,
+            created_at: "2026-01-01T00:00:00.000Z",
+            inventory_reservation_lines: [
+              {
+                id: "resline-wrong",
+                variant_id: "variant-2",
+                location_id: "loc-1",
+                lot_id: null,
+                serial_id: null,
+                reserved_quantity: 10,
+                released_quantity: 0,
+                fulfilled_quantity: 0,
+              },
+            ],
+          },
+        ],
+        error: null,
+      },
+    });
+
+    const result = await RepairOrdersService.listReservationsForLine(supabase, "line-1");
+
+    expect(result).toEqual({ success: true, data: [] });
+  });
+
+  it("[domain-integrity correction] within one reservation carrying BOTH a matching and a wrong-variant line, only the matching line is counted", async () => {
+    const supabase = buildReservationSupabaseMock({
+      lineResult: RESERVATION_LINE_FOUND,
+      orderResult: RESERVATION_ORDER_FOUND,
+      reservationsListResult: {
+        data: [
+          {
+            id: "res-mixed",
+            reservation_number: "RES-000100",
+            status: "active",
+            expires_at: null,
+            created_at: "2026-01-01T00:00:00.000Z",
+            inventory_reservation_lines: [
+              {
+                id: "resline-good",
+                variant_id: "variant-1",
+                location_id: "loc-1",
+                lot_id: null,
+                serial_id: null,
+                reserved_quantity: 3,
+                released_quantity: 0,
+                fulfilled_quantity: 0,
+              },
+              {
+                id: "resline-wrong",
+                variant_id: "variant-2",
+                location_id: "loc-1",
+                lot_id: null,
+                serial_id: null,
+                reserved_quantity: 10,
+                released_quantity: 0,
+                fulfilled_quantity: 0,
+              },
+            ],
+          },
+        ],
+        error: null,
+      },
+    });
+
+    const result = await RepairOrdersService.listReservationsForLine(supabase, "line-1");
+
+    expect(result.success).toBe(true);
+    const data = (result as { success: true; data: RepairOrderLineReservation[] }).data;
+    expect(data).toHaveLength(1);
+    expect(data[0].lines).toHaveLength(1);
+    expect(data[0].lines[0].id).toBe("resline-good");
+    expect(data[0].outstandingQuantity).toBe(3);
+  });
+
   it("returns an empty array (not an error, no existence leak) when the RepairOrderLine's own scope cannot be resolved", async () => {
     const supabase = buildReservationSupabaseMock({
       lineResult: { data: null, error: null },
@@ -2782,6 +2868,594 @@ describe("RepairOrdersService.listReservationsForLine", () => {
     });
 
     const result = await RepairOrdersService.listReservationsForLine(supabase, "line-1");
+
+    expect(result.success).toBe(false);
+    expect((result as { success: false; error: string }).error).not.toBe(
+      "connection terminated unexpectedly"
+    );
+  });
+});
+
+/**
+ * Phase 10B: RepairOrdersService.allocateForLine / listAllocationsForLine --
+ * the RepairOrder domain's own wrapper around the existing, unmodified
+ * generic allocation engine (`inventory_create_allocation`). The engine's
+ * OWN real behavior (reservation-line handshake, balance transitions,
+ * partial/multiple allocation, over-allocation rejection, permission
+ * gating) is proven live in `099_repair_order_line_allocation_phase10b_
+ * test.sql` -- these tests cover only this wrapper's own responsibilities:
+ * server-authoritative reservation-line ownership resolution (never
+ * trusting a caller-supplied org/branch/location/variant), the
+ * reservation-first invariant (`reservation_line_id` always set), RPC
+ * param mapping (variant/location/lot/serial always DERIVED from the
+ * reservation line row, never from client input), error normalization,
+ * event emission, and the read model's own outstanding-quantity formula.
+ */
+function buildAllocationSupabaseMock(config: {
+  lineResult?: { data: unknown; error: unknown };
+  orderResult?: { data: unknown; error: unknown };
+  reservationLineResult?: { data: unknown; error: unknown };
+  reservationHeaderResult?: { data: unknown; error: unknown };
+  reservationsWithLinesResult?: { data: unknown; error: unknown };
+  allocationLinesResult?: { data: unknown; error: unknown };
+  rpcResult?: { data: unknown; error: unknown };
+}) {
+  const rpc = vi.fn().mockResolvedValue(config.rpcResult ?? { data: null, error: null });
+  const from = vi.fn().mockImplementation((table: string) => {
+    let result: { data: unknown; error: unknown } = { data: null, error: null };
+    if (table === "repair_order_lines") result = config.lineResult ?? result;
+    else if (table === "repair_orders") result = config.orderResult ?? result;
+    else if (table === "inventory_reservation_lines")
+      result = config.reservationLineResult ?? result;
+    else if (table === "inventory_reservations") {
+      result = config.reservationHeaderResult ?? config.reservationsWithLinesResult ?? result;
+    } else if (table === "inventory_allocation_lines") {
+      result = config.allocationLinesResult ?? result;
+    }
+    const q: Record<string, unknown> = {};
+    for (const m of ["select", "eq", "is", "order", "in"]) {
+      q[m] = vi.fn().mockImplementation(() => q);
+    }
+    q["maybeSingle"] = vi.fn().mockResolvedValue(result);
+    q["then"] = (onFulfilled: (v: unknown) => unknown) => Promise.resolve(result).then(onFulfilled);
+    return q;
+  });
+  return { from, rpc } as unknown as import("@supabase/supabase-js").SupabaseClient;
+}
+
+const ALLOCATION_RESERVATION_LINE_FOUND = {
+  data: {
+    id: "resline-1",
+    reservation_id: "res-1",
+    variant_id: "variant-1",
+    location_id: "loc-1",
+    lot_id: null,
+    serial_id: null,
+  },
+  error: null,
+};
+const ALLOCATION_RESERVATION_HEADER_FOUND = {
+  data: {
+    id: "res-1",
+    organization_id: "org-1",
+    branch_id: "branch-1",
+    reference_type: "repair_order_line",
+    reference_id: "line-1",
+  },
+  error: null,
+};
+
+describe("RepairOrdersService.allocateForLine", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("resolves the reservation line's own variant/location/lot/serial (never from client input) and maps params to inventory_create_allocation correctly, with reservation_line_id always set", async () => {
+    const supabase = buildAllocationSupabaseMock({
+      lineResult: RESERVATION_LINE_FOUND,
+      orderResult: RESERVATION_ORDER_FOUND,
+      reservationLineResult: ALLOCATION_RESERVATION_LINE_FOUND,
+      reservationHeaderResult: ALLOCATION_RESERVATION_HEADER_FOUND,
+      rpcResult: {
+        data: { allocation_id: "alloc-1", allocation_number: "ALLOC-000001", status: "active" },
+        error: null,
+      },
+    });
+    (eventService.emit as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: true,
+      data: { id: "evt-1" },
+    });
+
+    const result = await RepairOrdersService.allocateForLine(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      reservationLineId: "resline-1",
+      quantity: 4,
+    });
+
+    expect(supabase.rpc).toHaveBeenCalledWith("inventory_create_allocation", {
+      p_organization_id: "org-1",
+      p_branch_id: "branch-1",
+      p_lines: [
+        {
+          variant_id: "variant-1",
+          location_id: "loc-1",
+          quantity: 4,
+          lot_id: null,
+          serial_id: null,
+          reservation_line_id: "resline-1",
+        },
+      ],
+      p_reservation_id: "res-1",
+      p_reference_type: "repair_order_line",
+      p_reference_id: "line-1",
+      p_reference_number: null,
+      p_actor_user_id: "user-1",
+    });
+    expect(result).toEqual({
+      success: true,
+      data: { allocationId: "alloc-1", allocationNumber: "ALLOC-000001", status: "active" },
+    });
+  });
+
+  it("returns a not-found error and never calls the RPC when the RepairOrderLine does not exist", async () => {
+    const supabase = buildAllocationSupabaseMock({
+      lineResult: { data: null, error: null },
+    });
+
+    const result = await RepairOrdersService.allocateForLine(supabase, "user-1", {
+      repairOrderLineId: "missing-line",
+      reservationLineId: "resline-1",
+      quantity: 4,
+    });
+
+    expect(result).toEqual({ success: false, error: "RepairOrderLine not found" });
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it("returns a not-found error and never calls the RPC when the reservation line does not exist", async () => {
+    const supabase = buildAllocationSupabaseMock({
+      lineResult: RESERVATION_LINE_FOUND,
+      orderResult: RESERVATION_ORDER_FOUND,
+      reservationLineResult: { data: null, error: null },
+    });
+
+    const result = await RepairOrdersService.allocateForLine(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      reservationLineId: "missing-resline",
+      quantity: 4,
+    });
+
+    expect(result).toEqual({ success: false, error: "Reservation line not found" });
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it("rejects, with the SAME generic message, a reservation line whose own reservation belongs to a DIFFERENT RepairOrderLine -- and never calls the RPC", async () => {
+    const supabase = buildAllocationSupabaseMock({
+      lineResult: RESERVATION_LINE_FOUND,
+      orderResult: RESERVATION_ORDER_FOUND,
+      reservationLineResult: ALLOCATION_RESERVATION_LINE_FOUND,
+      reservationHeaderResult: {
+        data: { ...ALLOCATION_RESERVATION_HEADER_FOUND.data, reference_id: "some-other-line" },
+        error: null,
+      },
+    });
+
+    const result = await RepairOrdersService.allocateForLine(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      reservationLineId: "resline-1",
+      quantity: 4,
+    });
+
+    expect(result).toEqual({ success: false, error: "Reservation line not found" });
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it("rejects a reservation line whose own reservation belongs to a different organization/branch, and never calls the RPC", async () => {
+    const supabase = buildAllocationSupabaseMock({
+      lineResult: RESERVATION_LINE_FOUND,
+      orderResult: RESERVATION_ORDER_FOUND,
+      reservationLineResult: ALLOCATION_RESERVATION_LINE_FOUND,
+      reservationHeaderResult: {
+        data: { ...ALLOCATION_RESERVATION_HEADER_FOUND.data, branch_id: "some-other-branch" },
+        error: null,
+      },
+    });
+
+    const result = await RepairOrdersService.allocateForLine(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      reservationLineId: "resline-1",
+      quantity: 4,
+    });
+
+    expect(result).toEqual({ success: false, error: "Reservation line not found" });
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it("passes through a known allocation-engine error verbatim (Allocation exceeds remaining reservation quantity)", async () => {
+    const supabase = buildAllocationSupabaseMock({
+      lineResult: RESERVATION_LINE_FOUND,
+      orderResult: RESERVATION_ORDER_FOUND,
+      reservationLineResult: ALLOCATION_RESERVATION_LINE_FOUND,
+      reservationHeaderResult: ALLOCATION_RESERVATION_HEADER_FOUND,
+      rpcResult: {
+        data: null,
+        error: { code: "P0001", message: "Allocation exceeds remaining reservation quantity" },
+      },
+    });
+
+    const result = await RepairOrdersService.allocateForLine(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      reservationLineId: "resline-1",
+      quantity: 999,
+    });
+
+    expect(result).toEqual({
+      success: false,
+      error: "Allocation exceeds remaining reservation quantity",
+    });
+  });
+
+  it("normalizes an unexpected allocation-engine error, never leaking it raw", async () => {
+    const supabase = buildAllocationSupabaseMock({
+      lineResult: RESERVATION_LINE_FOUND,
+      orderResult: RESERVATION_ORDER_FOUND,
+      reservationLineResult: ALLOCATION_RESERVATION_LINE_FOUND,
+      reservationHeaderResult: ALLOCATION_RESERVATION_HEADER_FOUND,
+      rpcResult: {
+        data: null,
+        error: { code: "XX000", message: "connection terminated unexpectedly" },
+      },
+    });
+
+    const result = await RepairOrdersService.allocateForLine(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      reservationLineId: "resline-1",
+      quantity: 4,
+    });
+
+    expect(result.success).toBe(false);
+    expect((result as { success: false; error: string }).error).not.toBe(
+      "connection terminated unexpectedly"
+    );
+  });
+
+  it("emits workshop.repair_orders.allocation_created on success", async () => {
+    const supabase = buildAllocationSupabaseMock({
+      lineResult: RESERVATION_LINE_FOUND,
+      orderResult: RESERVATION_ORDER_FOUND,
+      reservationLineResult: ALLOCATION_RESERVATION_LINE_FOUND,
+      reservationHeaderResult: ALLOCATION_RESERVATION_HEADER_FOUND,
+      rpcResult: {
+        data: { allocation_id: "alloc-1", allocation_number: "ALLOC-000001", status: "active" },
+        error: null,
+      },
+    });
+    (eventService.emit as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: true,
+      data: { id: "evt-1" },
+    });
+
+    await RepairOrdersService.allocateForLine(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      reservationLineId: "resline-1",
+      quantity: 4,
+    });
+
+    expect(eventService.emit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionKey: "workshop.repair_orders.allocation_created",
+        actorUserId: "user-1",
+        entityType: "repair_order_line",
+        entityId: "line-1",
+        metadata: expect.objectContaining({
+          allocationId: "alloc-1",
+          reservationLineId: "resline-1",
+          quantity: 4,
+        }),
+      })
+    );
+  });
+
+  it("does not fail the whole call when event emission itself fails (Mode A best-effort)", async () => {
+    const supabase = buildAllocationSupabaseMock({
+      lineResult: RESERVATION_LINE_FOUND,
+      orderResult: RESERVATION_ORDER_FOUND,
+      reservationLineResult: ALLOCATION_RESERVATION_LINE_FOUND,
+      reservationHeaderResult: ALLOCATION_RESERVATION_HEADER_FOUND,
+      rpcResult: {
+        data: { allocation_id: "alloc-1", allocation_number: "ALLOC-000001", status: "active" },
+        error: null,
+      },
+    });
+    (eventService.emit as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: false,
+      error: "emit failed",
+    });
+
+    const result = await RepairOrdersService.allocateForLine(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      reservationLineId: "resline-1",
+      quantity: 4,
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("[domain-integrity correction] rejects a reservation line whose own variant does NOT match the RepairOrderLine's own authoritative variant, with the SAME generic ownership-shaped message, and never calls the RPC or emits an event", async () => {
+    const supabase = buildAllocationSupabaseMock({
+      lineResult: RESERVATION_LINE_FOUND, // RepairOrderLine's own variant_id: "variant-1"
+      orderResult: RESERVATION_ORDER_FOUND,
+      reservationLineResult: {
+        data: { ...ALLOCATION_RESERVATION_LINE_FOUND.data, variant_id: "variant-2" },
+        error: null,
+      },
+      reservationHeaderResult: ALLOCATION_RESERVATION_HEADER_FOUND, // header reference matches this line exactly
+    });
+
+    const result = await RepairOrdersService.allocateForLine(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      reservationLineId: "resline-1",
+      quantity: 4,
+    });
+
+    expect(result).toEqual({ success: false, error: "Reservation line not found" });
+    expect(supabase.rpc).not.toHaveBeenCalled();
+    expect(eventService.emit).not.toHaveBeenCalled();
+  });
+
+  it("[domain-integrity correction] rejects allocation when the RepairOrderLine itself has no variant_id, even if the reservation header reference matches exactly", async () => {
+    const supabase = buildAllocationSupabaseMock({
+      lineResult: {
+        data: { id: "line-1", repair_order_id: "ro-1", variant_id: null },
+        error: null,
+      },
+      orderResult: RESERVATION_ORDER_FOUND,
+      reservationLineResult: ALLOCATION_RESERVATION_LINE_FOUND,
+      reservationHeaderResult: ALLOCATION_RESERVATION_HEADER_FOUND,
+    });
+
+    const result = await RepairOrdersService.allocateForLine(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      reservationLineId: "resline-1",
+      quantity: 4,
+    });
+
+    expect(result).toEqual({ success: false, error: "Reservation line not found" });
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+});
+
+describe("RepairOrdersService.listAllocationsForLine", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns allocation lines with outstanding = allocated - fulfilled, joined to their own allocation header's number/status", async () => {
+    const supabase = buildAllocationSupabaseMock({
+      lineResult: RESERVATION_LINE_FOUND,
+      orderResult: RESERVATION_ORDER_FOUND,
+      reservationsWithLinesResult: {
+        data: [
+          {
+            inventory_reservation_lines: [
+              { id: "resline-1", variant_id: "variant-1" },
+              { id: "resline-2", variant_id: "variant-1" },
+            ],
+          },
+        ],
+        error: null,
+      },
+      allocationLinesResult: {
+        data: [
+          {
+            id: "allocline-1",
+            reservation_line_id: "resline-1",
+            variant_id: "variant-1",
+            location_id: "loc-1",
+            lot_id: null,
+            serial_id: null,
+            allocated_quantity: 4,
+            fulfilled_quantity: 0,
+            allocation: {
+              id: "alloc-1",
+              allocation_number: "ALLOC-000001",
+              status: "active",
+              deleted_at: null,
+            },
+          },
+          {
+            id: "allocline-2",
+            reservation_line_id: "resline-2",
+            variant_id: "variant-1",
+            location_id: "loc-1",
+            lot_id: null,
+            serial_id: null,
+            allocated_quantity: 2,
+            fulfilled_quantity: 1,
+            allocation: {
+              id: "alloc-2",
+              allocation_number: "ALLOC-000002",
+              status: "active",
+              deleted_at: null,
+            },
+          },
+        ],
+        error: null,
+      },
+    });
+
+    const result = await RepairOrdersService.listAllocationsForLine(supabase, "line-1");
+
+    expect(result.success).toBe(true);
+    const lines = (result as { success: true; data: RepairOrderLineAllocationLine[] }).data;
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toMatchObject({
+      id: "allocline-1",
+      allocationId: "alloc-1",
+      allocationNumber: "ALLOC-000001",
+      outstandingQuantity: 4,
+    });
+    expect(lines[1]).toMatchObject({
+      id: "allocline-2",
+      allocationId: "alloc-2",
+      outstandingQuantity: 1,
+    });
+  });
+
+  it("returns an empty array (not an error) when the line has no reservations at all", async () => {
+    const supabase = buildAllocationSupabaseMock({
+      lineResult: RESERVATION_LINE_FOUND,
+      orderResult: RESERVATION_ORDER_FOUND,
+      reservationsWithLinesResult: { data: [], error: null },
+    });
+
+    const result = await RepairOrdersService.listAllocationsForLine(supabase, "line-1");
+
+    expect(result).toEqual({ success: true, data: [] });
+  });
+
+  it("returns an empty array (no existence leak) when the RepairOrderLine's own scope cannot be resolved", async () => {
+    const supabase = buildAllocationSupabaseMock({
+      lineResult: { data: null, error: null },
+    });
+
+    const result = await RepairOrdersService.listAllocationsForLine(supabase, "missing-line");
+
+    expect(result).toEqual({ success: true, data: [] });
+  });
+
+  it("filters out a soft-deleted allocation header defensively, not relying on RLS alone", async () => {
+    const supabase = buildAllocationSupabaseMock({
+      lineResult: RESERVATION_LINE_FOUND,
+      orderResult: RESERVATION_ORDER_FOUND,
+      reservationsWithLinesResult: {
+        data: [{ inventory_reservation_lines: [{ id: "resline-1", variant_id: "variant-1" }] }],
+        error: null,
+      },
+      allocationLinesResult: {
+        data: [
+          {
+            id: "allocline-1",
+            reservation_line_id: "resline-1",
+            variant_id: "variant-1",
+            location_id: "loc-1",
+            lot_id: null,
+            serial_id: null,
+            allocated_quantity: 4,
+            fulfilled_quantity: 0,
+            allocation: {
+              id: "alloc-1",
+              allocation_number: "ALLOC-000001",
+              status: "cancelled",
+              deleted_at: "2026-09-14T00:00:00.000Z",
+            },
+          },
+        ],
+        error: null,
+      },
+    });
+
+    const result = await RepairOrdersService.listAllocationsForLine(supabase, "line-1");
+
+    expect(result).toEqual({ success: true, data: [] });
+  });
+
+  it("[domain-integrity correction] excludes allocation state reachable only through a wrong-variant reservation line", async () => {
+    const supabase = buildAllocationSupabaseMock({
+      lineResult: RESERVATION_LINE_FOUND, // RepairOrderLine's own variant_id: "variant-1"
+      orderResult: RESERVATION_ORDER_FOUND,
+      reservationsWithLinesResult: {
+        data: [{ inventory_reservation_lines: [{ id: "resline-1", variant_id: "variant-2" }] }],
+        error: null,
+      },
+      allocationLinesResult: {
+        data: [
+          {
+            id: "allocline-1",
+            reservation_line_id: "resline-1",
+            variant_id: "variant-2",
+            location_id: "loc-1",
+            lot_id: null,
+            serial_id: null,
+            allocated_quantity: 4,
+            fulfilled_quantity: 0,
+            allocation: {
+              id: "alloc-1",
+              allocation_number: "ALLOC-000001",
+              status: "active",
+              deleted_at: null,
+            },
+          },
+        ],
+        error: null,
+      },
+    });
+
+    const result = await RepairOrdersService.listAllocationsForLine(supabase, "line-1");
+
+    // The wrong-variant reservation line's own id is never even collected,
+    // so `allocationLinesResult` (mocked to return data regardless) proves
+    // the filter -- a real query would never even reach it.
+    expect(result).toEqual({ success: true, data: [] });
+  });
+
+  it("[domain-integrity correction] keeps a matching-variant allocation visible when a wrong-variant reservation line ALSO exists under the same RepairOrderLine reference", async () => {
+    const supabase = buildAllocationSupabaseMock({
+      lineResult: RESERVATION_LINE_FOUND,
+      orderResult: RESERVATION_ORDER_FOUND,
+      reservationsWithLinesResult: {
+        data: [
+          {
+            inventory_reservation_lines: [
+              { id: "resline-good", variant_id: "variant-1" },
+              { id: "resline-bad", variant_id: "variant-2" },
+            ],
+          },
+        ],
+        error: null,
+      },
+      allocationLinesResult: {
+        data: [
+          {
+            id: "allocline-good",
+            reservation_line_id: "resline-good",
+            variant_id: "variant-1",
+            location_id: "loc-1",
+            lot_id: null,
+            serial_id: null,
+            allocated_quantity: 3,
+            fulfilled_quantity: 0,
+            allocation: {
+              id: "alloc-good",
+              allocation_number: "ALLOC-000003",
+              status: "active",
+              deleted_at: null,
+            },
+          },
+        ],
+        error: null,
+      },
+    });
+
+    const result = await RepairOrdersService.listAllocationsForLine(supabase, "line-1");
+
+    expect(result.success).toBe(true);
+    const lines = (result as { success: true; data: RepairOrderLineAllocationLine[] }).data;
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatchObject({ id: "allocline-good", outstandingQuantity: 3 });
+  });
+
+  it("error normalization: an unexpected query error is replaced with a generic message, never leaked raw", async () => {
+    const supabase = buildAllocationSupabaseMock({
+      lineResult: RESERVATION_LINE_FOUND,
+      orderResult: RESERVATION_ORDER_FOUND,
+      reservationsWithLinesResult: {
+        data: null,
+        error: { code: "XX000", message: "connection terminated unexpectedly" },
+      },
+    });
+
+    const result = await RepairOrdersService.listAllocationsForLine(supabase, "line-1");
 
     expect(result.success).toBe(false);
     expect((result as { success: false; error: string }).error).not.toBe(

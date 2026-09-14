@@ -1622,6 +1622,30 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
     visibleTo: ["org_member", "org_admin", "auditor"],
     sensitiveFields: [],
   },
+
+  "workshop.repair_orders.allocation_created": {
+    actionKey: "workshop.repair_orders.allocation_created",
+    moduleSlug: "workshop",
+    eventTier: "baseline",
+    category: "STATE",
+    intent: "CREATE",
+    description:
+      "A RepairOrderLine's reservation was converted into an allocation via the generic inventory allocation engine (Phase 10B)",
+    metadataSchema: z.object({
+      allocationId: z.string().uuid(),
+      reservationLineId: z.string().uuid(),
+      quantity: z.number().positive(),
+    }),
+    summaryTemplate: "Allocated {{quantity}} for a repair order line",
+    i18nKey: "events.workshop.repair_orders.allocation_created",
+    iconKey: "package-check",
+    scope: "branch",
+    actorVisible: true,
+    selfVisible: true,
+    visibilityClass: "org_activity",
+    visibleTo: ["org_member", "org_admin", "auditor"],
+    sensitiveFields: [],
+  },
 };
 
 // ---------------------------------------------------------------------------

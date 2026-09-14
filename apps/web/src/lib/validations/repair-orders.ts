@@ -106,3 +106,19 @@ export const releaseRepairOrderLineReservationSchema = z.object({
 export type ReleaseRepairOrderLineReservationInput = z.infer<
   typeof releaseRepairOrderLineReservationSchema
 >;
+
+/**
+ * Phase 10B -- convert an existing reservation line into an allocation.
+ * Deliberately no `locationId` field: the target location is ALWAYS
+ * derived server-side from the reservation line itself
+ * (`RepairOrdersService.allocateForLine`'s own doc comment has the full
+ * rationale) -- accepting one here would let a client submit a value that
+ * is silently ignored at best, or misleadingly imply client control over
+ * something the server never actually honors, at worst.
+ */
+export const allocateRepairOrderLineSchema = z.object({
+  repairOrderLineId: z.string().uuid(),
+  reservationLineId: z.string().uuid(),
+  quantity: z.number().positive(),
+});
+export type AllocateRepairOrderLineInput = z.infer<typeof allocateRepairOrderLineSchema>;
