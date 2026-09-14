@@ -1,0 +1,664 @@
+diff --git a/apps/web/src/app/actions/warehouse/repair-order-receiving.ts b/apps/web/src/app/actions/warehouse/repair-order-receiving.ts
+index 094d8aad..8872d518 100644
+--- a/apps/web/src/app/actions/warehouse/repair-order-receiving.ts
++++ b/apps/web/src/app/actions/warehouse/repair-order-receiving.ts
+@@ -25,13 +25,15 @@ import {
+  * Zone 5 Phases 4/5/6 -- server actions for RepairOrder-aware receiving and
+  * putaway, plus the current-storage read model.
+  *
+- * IMPORTANT: these actions call `receive_repair_order_stock` /
+- * `putaway_repair_order_stock` -- new SECURITY DEFINER RPCs written this
+- * session but NOT applied to any live database (Supabase MCP was
+- * unavailable throughout this implementation pass). Calling these actions
+- * against a live environment before that migration is reviewed and applied
+- * will fail with "function does not exist". This is a disclosed, expected
+- * gap, not a bug in this file -- see the review bundle's migration summary.
++ * `receive_repair_order_stock` / `putaway_repair_order_stock` are live,
++ * applied, SECURITY DEFINER RPCs (confirmed via Supabase MCP, live/MCP
++ * verification pass). `receive_repair_order_stock` now delegates its
++ * business-quantity write (`repair_order_line_movement_links`) to the
++ * canonical `attach_repair_order_line_movement` RPC (Zone 3 Phase 10) --
++ * see this file's `RECEIVE_RPC_KNOWN_ERRORS` allowlist for the one new
++ * error message that integration can surface. Browser/UAT verification of
++ * these actions has not yet been performed -- see the Zone 5 progress
++ * tracker.
+  */
+ 
+ /**
+@@ -69,6 +71,25 @@ const RECEIVE_RPC_KNOWN_ERRORS: ReadonlyArray<{ code: string; pattern: RegExp }>
+     code: "22023",
+     pattern: /Resolved RepairOrderLine variant for line \d+ does not match the received variant$/,
+   },
++  // Phase-10 attribution integration: receive_repair_order_stock now calls
++  // the canonical public.attach_repair_order_line_movement(...) RPC (Zone 3
++  // Phase 10) instead of inserting into repair_order_line_movement_links
++  // directly. Live-verified this pass: every OTHER invariant that RPC
++  // enforces is already guaranteed true by the time receive_repair_order_
++  // stock reaches this call (posted status, receipt category, matching
++  // org/branch, no conflicting RepairOrder reference, matching variant) --
++  // the ONE message that can genuinely bubble through in practice is this
++  // one, on a genuine idempotent retry (same idempotency_key): the engine
++  // itself returns the SAME already-posted movement/lines on retry
++  // (confirmed live), so the nested attach call re-attempts attributing the
++  // same movement line and is rejected by its own applied-quantity cap. Not
++  // a new failure mode -- the pre-integration direct INSERT (no ON
++  // CONFLICT) would have hit the table's own unique constraint on the
++  // identical retry, just as a raw, less-safe 23505.
++  {
++    code: "22023",
++    pattern: /^applied_quantity exceeds the movement line's own remaining quantity/,
++  },
+ ];
+ 
+ const PUTAWAY_RPC_KNOWN_ERRORS: ReadonlyArray<{ code: string; pattern: RegExp }> = [
+diff --git a/apps/web/supabase-target/supabase/migrations/20260914130000_zone5_receive_repair_order_stock_use_canonical_attach.sql b/apps/web/supabase-target/supabase/migrations/20260914130000_zone5_receive_repair_order_stock_use_canonical_attach.sql
+new file mode 100644
+index 00000000..0086344b
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260914130000_zone5_receive_repair_order_stock_use_canonical_attach.sql
+@@ -0,0 +1,250 @@
++-- =============================================================================
++-- Migration: zone5_receive_repair_order_stock_use_canonical_attach
++-- Zone:      05 (Receiving / Putaway) -- Phase 10 attribution integration
++-- Date:      2026-09-14
++-- =============================================================================
++-- FORWARD MIGRATION (receive_repair_order_stock is already live -- this does
++-- NOT edit the already-applied 20260912093000/20260914124640 migration files
++-- in place; CREATE OR REPLACE FUNCTION redefines the same function,
++-- same name/signature/OID, live callers pick up the new body automatically).
++--
++-- Zone 3 Phase 10 (branch mvp-readiness, commit 52fc0913, live on this same
++-- target project as of this session) established
++-- public.attach_repair_order_line_movement(...) as the ONE canonical,
++-- fully-validated production writer for repair_order_line_movement_links,
++-- and closed the direct-INSERT write boundary
++-- (20260914052934_repair_order_line_movement_links_close_direct_insert.sql
++-- -- a deny-all INSERT policy; the table's RLS is FORCE-enabled but
++-- SECURITY DEFINER functions owned by `postgres` bypass RLS via
++-- rolbypassrls regardless, which is exactly why receive_repair_order_stock's
++-- own direct INSERT has silently kept working until now even after that
++-- policy closed -- the overlap this migration resolves).
++--
++-- Live pre-apply verification this pass (Supabase MCP, transaction-scoped,
++-- rolled back):
++--   - attach_repair_order_line_movement's every invariant (posted status,
++--     receipt category, RepairOrder reference consistency, variant
++--     compatibility, org/branch match) is already guaranteed true by the
++--     time receive_repair_order_stock reaches this call -- confirmed
++--     against a real committed '101' movement's actual header shape
++--     (status='posted', category='receipt', reference_type IS NULL,
++--     reference_id IS NULL -- inventory_create_and_finalize's own signature
++--     has no reference_type/reference_id parameter at all, so the
++--     reference-mismatch branch can never fire for a Zone-5-created
++--     receipt).
++--   - Nested SECURITY DEFINER auth.uid() propagation confirmed live via a
++--     throwaway wrapper function structurally mirroring this exact call
++--     shape: the real actor succeeds through the nested call; a spoofed
++--     actor is rejected. auth.uid() reads a session-level GUC
++--     (request.jwt.claims), unaffected by SECURITY DEFINER role-switching,
++--     so nesting one SECURITY DEFINER function inside another does not
++--     change which identity either function's own auth.uid() check sees.
++--
++-- Final ownership split (unchanged from the architecture, now enforced in
++-- code): attach_repair_order_line_movement owns BUSINESS movement
++-- attribution (repair_order_line_movement_links); Zone 5 continues to own
++-- SPATIAL seed attribution (repair_order_line_locations) directly, in the
++-- same transaction, immediately after. These are not merged.
++--
++-- Everything else in this function is byte-for-byte unchanged: same
++-- signature, same actor/permission/provenance-resolution logic, same
++-- engine call, same spatial-seed write. Only the
++-- `INSERT INTO repair_order_line_movement_links ...` statement is replaced
++-- with `PERFORM public.attach_repair_order_line_movement(...)`.
++-- =============================================================================
++
++CREATE OR REPLACE FUNCTION public.receive_repair_order_stock(
++  p_actor_user_id      uuid,
++  p_organization_id    uuid,
++  p_branch_id          uuid,
++  p_lines              jsonb,   -- [{ variant_id, unit_id, quantity, source_line_id }]
++  p_operation_date     date DEFAULT NULL,
++  p_document_date      date DEFAULT NULL,
++  p_external_reference text DEFAULT NULL,
++  p_note               text DEFAULT NULL,
++  p_idempotency_key    text DEFAULT NULL
++)
++RETURNS jsonb
++LANGUAGE plpgsql
++SECURITY DEFINER
++SET search_path = public, pg_temp
++AS $function$
++DECLARE
++  v_receiving_location_id uuid;
++  v_engine_lines           jsonb := '[]'::jsonb;
++  v_line                    jsonb;
++  v_line_index              integer := 0;
++  v_source_line_id          uuid;
++  v_resolved_rol_id         uuid;
++  v_resolved_ro_id          uuid;
++  v_resolved_variant_id     uuid;
++  v_candidate_count         integer;
++  v_attribution             jsonb := '[]'::jsonb;  -- parallel array: repair_order_line_id or null, per input line order
++  v_engine_result           jsonb;
++  v_movement_id             uuid;
++  v_movement_line_ids       uuid[];
++  v_movement_line_id        uuid;
++  v_i                       integer;
++  v_qty                     numeric;
++BEGIN
++  -- Actor identity: reject a delegated/spoofed actor, same pattern as
++  -- materialize_repair_orders_from_session / approve_wdd_matcher_session.
++  IF p_actor_user_id IS NULL OR p_actor_user_id IS DISTINCT FROM auth.uid() THEN
++    RAISE EXCEPTION 'p_actor_user_id must match the authenticated caller' USING ERRCODE = '28000';
++  END IF;
++
++  -- Authorization: checked against the CALLER-SUPPLIED org/branch here, same
++  -- as every other movement-creating call in this engine (operate/adjust
++  -- gates 101 creation) -- p_organization_id/p_branch_id are not "trusted
++  -- blindly"; they are the keys this permission check runs against, and are
++  -- independently re-validated below against every resolved RepairOrder line.
++  IF NOT (
++    public.has_branch_permission(p_organization_id, p_branch_id, 'warehouse.inventory.operate')
++    OR public.has_branch_permission(p_organization_id, p_branch_id, 'warehouse.inventory.adjust')
++  ) THEN
++    RAISE EXCEPTION 'Not authorized to receive stock for this branch' USING ERRCODE = '42501';
++  END IF;
++
++  IF p_lines IS NULL OR jsonb_array_length(p_lines) = 0 THEN
++    RAISE EXCEPTION 'At least one line is required' USING ERRCODE = '22023';
++  END IF;
++
++  -- Resolve the branch's receiving location server-side -- re-validated
++  -- every call (org/branch/purpose/can_store_inventory/deleted_at), never
++  -- cached, never supplied by the caller (plan §5/§8).
++  v_receiving_location_id := public.resolve_branch_receiving_location(p_organization_id, p_branch_id);
++
++  -- Resolve provenance and build the engine-facing line array. Every line's
++  -- destination is forced to the receiving location -- the caller never
++  -- supplies or overrides it.
++  FOR v_line IN SELECT * FROM jsonb_array_elements(p_lines)
++  LOOP
++    v_line_index := v_line_index + 1;
++    v_source_line_id := NULLIF(v_line->>'source_line_id', '')::uuid;
++    v_resolved_rol_id := NULL;
++    v_resolved_ro_id := NULL;
++    v_resolved_variant_id := NULL;
++
++    IF v_source_line_id IS NOT NULL THEN
++      -- Resolve via the Matcher -> RepairOrderLine lineage chain, server-side.
++      -- The caller supplies EVIDENCE (a Matcher line id); the DB resolves the
++      -- authoritative relationship -- never the other way around (plan §2/§9).
++      -- Live-verification correction: standard PostgreSQL has no built-in
++      -- min(uuid) aggregate -- cast to text for the aggregate, then back to
++      -- uuid. Safe: these values are only actually used when v_candidate_count
++      -- = 1 (checked immediately below), i.e. exactly one row to "min" over.
++      SELECT count(*), min(rol.id::text)::uuid, min(rol.repair_order_id::text)::uuid, min(rol.variant_id::text)::uuid
++        INTO v_candidate_count, v_resolved_rol_id, v_resolved_ro_id, v_resolved_variant_id
++      FROM public.workshop_source_document_lines wsdl
++      JOIN public.repair_order_line_source_links rols ON rols.workshop_source_document_line_id = wsdl.id
++      JOIN public.repair_order_lines rol ON rol.id = rols.repair_order_line_id
++      WHERE wsdl.wdd_matcher_line_id = v_source_line_id;
++
++      IF v_candidate_count = 0 THEN
++        RAISE EXCEPTION 'source_line_id % (line %) did not resolve to any RepairOrderLine -- broken provenance must never be silently received as unattributed', v_source_line_id, v_line_index
++          USING ERRCODE = 'P0002';
++      ELSIF v_candidate_count > 1 THEN
++        RAISE EXCEPTION 'source_line_id % (line %) resolved ambiguously to % RepairOrderLine candidates -- ambiguous provenance must never be silently resolved by picking one', v_source_line_id, v_line_index, v_candidate_count
++          USING ERRCODE = '55000';
++      END IF;
++
++      -- Target-entity-authoritative validation: the resolved RepairOrder's
++      -- own org/branch must match this call's org/branch -- never trusted
++      -- merely because the caller asked for this org/branch.
++      IF NOT EXISTS (
++        SELECT 1 FROM public.repair_orders ro
++        WHERE ro.id = v_resolved_ro_id
++          AND ro.organization_id = p_organization_id AND ro.branch_id = p_branch_id
++      ) THEN
++        RAISE EXCEPTION 'Resolved RepairOrder for line % does not belong to the target organization/branch', v_line_index USING ERRCODE = '42501';
++      END IF;
++
++      -- Variant cross-check: only when the RepairOrderLine has one set
++      -- (repair_order_lines.variant_id is nullable by Zone 3's own design --
++      -- "manual lines may exist with no catalog match yet").
++      IF v_resolved_variant_id IS NOT NULL AND v_resolved_variant_id IS DISTINCT FROM (v_line->>'variant_id')::uuid THEN
++        RAISE EXCEPTION 'Resolved RepairOrderLine variant for line % does not match the received variant', v_line_index USING ERRCODE = '22023';
++      END IF;
++    END IF;
++
++    v_engine_lines := v_engine_lines || jsonb_build_array(jsonb_build_object(
++      'variant_id', v_line->>'variant_id',
++      'unit_id', v_line->>'unit_id',
++      'quantity', (v_line->>'quantity')::numeric,
++      'source_location_id', NULL,
++      'destination_location_id', v_receiving_location_id,
++      'note', v_line->>'note'
++    ));
++    v_attribution := v_attribution || jsonb_build_array(v_resolved_rol_id);
++  END LOOP;
++
++  -- Duplicate-work suppression only (plan §12.1) -- NOT authorization. Real
++  -- authorization already happened above via has_branch_permission.
++  PERFORM set_config('ambra.repair_order_attribution_authoritative', 'on', true);
++
++  v_engine_result := public.inventory_create_and_finalize(
++    p_organization_id, p_branch_id, '101', v_engine_lines,
++    p_operation_date, p_document_date, NULL, p_external_reference, p_note,
++    p_idempotency_key, p_actor_user_id
++  );
++
++  v_movement_id := (v_engine_result->>'movement_id')::uuid;
++
++  -- Correlate the engine's created lines back to our input order. The engine
++  -- assigns sequential line_number per line in submission order (established,
++  -- documented engine behavior) -- ordering by line_number recovers the
++  -- correspondence to v_attribution's own parallel array.
++  SELECT array_agg(id ORDER BY line_number) INTO v_movement_line_ids
++  FROM public.inventory_movement_lines
++  WHERE movement_id = v_movement_id;
++
++  FOR v_i IN 1..coalesce(array_length(v_movement_line_ids, 1), 0)
++  LOOP
++    v_resolved_rol_id := NULLIF(v_attribution->>(v_i - 1), 'null')::uuid;
++    CONTINUE WHEN v_resolved_rol_id IS NULL;
++
++    v_movement_line_id := v_movement_line_ids[v_i];
++    v_qty := (v_engine_lines->(v_i - 1)->>'quantity')::numeric;
++    SELECT repair_order_id INTO v_resolved_ro_id FROM public.repair_order_lines WHERE id = v_resolved_rol_id;
++
++    -- Business-quantity ledger -- Phase 10 integration: the canonical,
++    -- fully-validated writer owns this write now, not a direct INSERT.
++    -- Called INSIDE this same transaction/orchestration -- a failure here
++    -- (which should never actually happen for a Zone-5-created receipt line,
++    -- since every one of attach_repair_order_line_movement's own invariants
++    -- is already guaranteed true at this point -- see this migration's
++    -- header) still rolls back the whole receive_repair_order_stock call,
++    -- exactly as the direct INSERT it replaces did.
++    PERFORM public.attach_repair_order_line_movement(
++      p_actor_user_id, v_resolved_rol_id, v_movement_line_id, v_qty, 'receipt'
++    );
++
++    -- Spatial projection seed -- known-true, written directly (nothing to
++    -- infer; this is a fresh receipt with no prior attribution to reconcile
++    -- against). Zone 5 continues to own this write; the canonical RPC above
++    -- has no spatial awareness and must not gain any.
++    INSERT INTO public.repair_order_line_locations
++      (organization_id, branch_id, repair_order_id, repair_order_line_id, variant_id, location_id, quantity)
++    VALUES (p_organization_id, p_branch_id, v_resolved_ro_id, v_resolved_rol_id,
++            (v_engine_lines->(v_i - 1)->>'variant_id')::uuid, v_receiving_location_id, v_qty)
++    ON CONFLICT (repair_order_line_id, location_id)
++    DO UPDATE SET quantity = public.repair_order_line_locations.quantity + EXCLUDED.quantity;
++  END LOOP;
++
++  RETURN v_engine_result || jsonb_build_object('receiving_location_id', v_receiving_location_id);
++END;
++$function$;
++
++COMMENT ON FUNCTION public.receive_repair_order_stock(uuid, uuid, uuid, jsonb, date, date, text, text, text) IS
++  'Zone 5 Phase 4 (Phase-10-integrated): RepairOrder-aware receiving. Calls
++   inventory_create_and_finalize(''101'', ...) unmodified, forces destination to the branch''s
++   resolve_branch_receiving_location(), resolves Matcher-line provenance to an exact
++   RepairOrderLine server-side (hard error on zero or ambiguous resolution -- plan §9), attributes
++   business quantity via the canonical public.attach_repair_order_line_movement(...) RPC
++   (Zone 3 Phase 10 -- the ONE production writer for repair_order_line_movement_links), and
++   writes the seed repair_order_line_locations row directly (Zone 5''s own spatial attribution,
++   unchanged) -- all atomically, in this same transaction.';
++
++REVOKE ALL ON FUNCTION public.receive_repair_order_stock(uuid, uuid, uuid, jsonb, date, date, text, text, text) FROM PUBLIC;
++REVOKE ALL ON FUNCTION public.receive_repair_order_stock(uuid, uuid, uuid, jsonb, date, date, text, text, text) FROM anon;
++GRANT EXECUTE ON FUNCTION public.receive_repair_order_stock(uuid, uuid, uuid, jsonb, date, date, text, text, text) TO authenticated;
+diff --git a/apps/web/supabase/tests/096_zone5_receive_repair_order_stock_test.sql b/apps/web/supabase/tests/096_zone5_receive_repair_order_stock_test.sql
+index 38f34b0c..8695b435 100644
+--- a/apps/web/supabase/tests/096_zone5_receive_repair_order_stock_test.sql
++++ b/apps/web/supabase/tests/096_zone5_receive_repair_order_stock_test.sql
+@@ -27,10 +27,30 @@
+ -- failure occurring strictly AFTER inventory_create_and_finalize succeeds
+ -- but before this RPC's own attribution writes complete), that specific
+ -- sub-case is marked with an honest `skip()`, not a `pass()` -- see test 7b.
++--
++-- PHASE-10 ATTRIBUTION INTEGRATION PASS (2026-09-14): receive_repair_order_
++-- stock no longer INSERTs directly into repair_order_line_movement_links --
++-- it now calls the canonical public.attach_repair_order_line_movement(...)
++-- RPC (Zone 3 Phase 10) for that write, and continues to own the spatial
++-- seed (repair_order_line_locations) directly, unchanged. Tests 8a-8d below
++-- are new: a genuine idempotent retry of an ATTRIBUTED receive (same
++-- idempotency_key) was found, by real live execution, to no longer be a
++-- silent no-op -- the engine itself returns the SAME already-posted
++-- movement/lines on retry (confirmed live), so the second call's nested
++-- attach_repair_order_line_movement call re-attempts attributing the SAME
++-- movement line and is rejected by that RPC's own applied-quantity cap
++-- (22023) before ever reaching its ON CONFLICT/23505 duplicate path. This
++-- is not a regression introduced by this integration -- the PRE-integration
++-- direct INSERT (with no ON CONFLICT clause at all) would have hit the
++-- table's own repair_order_line_movement_links_unique constraint on the
++-- exact same retry, just with a raw, less friendly 23505. Tests 9a-9c prove
++-- multi-line same-call independence: two DIFFERENT RepairOrderLines,
++-- attributed via two DIFFERENT Matcher lines, in ONE receive_repair_order_
++-- stock call, each ending up with its own correct, uncontaminated row.
+ 
+ BEGIN;
+ 
+-SELECT plan(13);
++SELECT plan(21);
+ 
+ -- Live-verification correction: receive_repair_order_stock's own first
+ -- check compares p_actor_user_id against auth.uid() -- which reads from
+@@ -49,7 +69,11 @@ CREATE TEMP TABLE fx (
+   loc_recv uuid,
+   session_id uuid, session_file_id uuid, block_id uuid, matcher_line_id uuid,
+   wsd_id uuid, wsd_id_2 uuid, wsdl_a uuid, wsdl_b uuid,
+-  matcher_line_id_ok uuid, wsdl_ok uuid
++  matcher_line_id_ok uuid, wsdl_ok uuid,
++  rol_retry uuid, matcher_line_retry uuid, wsdl_retry uuid,
++  rol_multi_a uuid, rol_multi_b uuid,
++  matcher_line_multi_a uuid, matcher_line_multi_b uuid,
++  wsdl_multi_a uuid, wsdl_multi_b uuid
+ );
+ INSERT INTO fx SELECT
+   '9f98fe91-63b8-4986-a2b3-65bdd47684c9'::uuid,
+@@ -60,6 +84,10 @@ INSERT INTO fx SELECT
+   gen_random_uuid(),
+   gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
+   gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
++  gen_random_uuid(), gen_random_uuid(),
++  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
++  gen_random_uuid(), gen_random_uuid(),
++  gen_random_uuid(), gen_random_uuid(),
+   gen_random_uuid(), gen_random_uuid();
+ 
+ -- Live-verification correction: inventory_movement_lines/repair_order_lines both
+@@ -80,6 +108,12 @@ INSERT INTO repair_order_lines (id, repair_order_id, variant_id, product_name, o
+ SELECT rol1, ro, variant_x, '096-test product', 5, 'pending' FROM fx;
+ INSERT INTO repair_order_lines (id, repair_order_id, variant_id, product_name, ordered_quantity, status)
+ SELECT rol2, ro, variant_x, '096-test product (second line, same RO)', 5, 'pending' FROM fx;
++INSERT INTO repair_order_lines (id, repair_order_id, variant_id, product_name, ordered_quantity, status)
++SELECT rol_retry, ro, variant_x, '096-test product (idempotent-retry test line)', 5, 'pending' FROM fx;
++INSERT INTO repair_order_lines (id, repair_order_id, variant_id, product_name, ordered_quantity, status)
++SELECT rol_multi_a, ro, variant_x, '096-test product (multi-line A)', 5, 'pending' FROM fx;
++INSERT INTO repair_order_lines (id, repair_order_id, variant_id, product_name, ordered_quantity, status)
++SELECT rol_multi_b, ro, variant_x, '096-test product (multi-line B)', 5, 'pending' FROM fx;
+ 
+ -- 1. NULL source_line_id -> allowed, unattributed receipt succeeds; the RPC
+ --    itself is exercised end-to-end (assumes '101'/receiving are configured
+@@ -289,6 +323,137 @@ SELECT throws_ok(
+   '6. p_actor_user_id not matching auth.uid() is rejected'
+ );
+ 
++-- =====================================================================
++-- 8a-8d. Phase-10 integration: a genuine idempotent retry (same
++--    idempotency_key) of an ATTRIBUTED receive. Live-verified this pass:
++--    inventory_create_and_finalize itself returns the SAME already-posted
++--    movement/lines on retry (confirmed by direct probe: one header only
++--    for the key, same movement_id both calls). The second
++--    receive_repair_order_stock call therefore re-attempts attaching the
++--    SAME (repair_order_line_id, inventory_movement_line_id) pair via the
++--    canonical attach RPC, which rejects it via its own applied-quantity
++--    cap (22023) -- not a regression: the pre-integration direct INSERT
++--    (no ON CONFLICT) would have hit the table's own unique constraint on
++--    the identical retry, just as a raw 23505. Proves items G (duplicate
++--    attachment cannot occur) and H (a canonical-attribution failure rolls
++--    back / leaves no trace of the failed call's own attempt) together, for
++--    real, rather than via a contrived synthetic failure.
++-- =====================================================================
++INSERT INTO wdd_matcher_lines (id, block_id, session_id, organization_id, line_number, product_code, product_name, quantity, unit)
++SELECT matcher_line_retry, block_id, session_id, org, 3, 'SKU-X', '096 retry test part', 2, 'ea' FROM fx;
++INSERT INTO workshop_source_document_lines (id, workshop_source_document_id, wdd_matcher_line_id, product_code, product_name, quantity, unit)
++SELECT wsdl_retry, wsd_id, matcher_line_retry, 'SKU-X', '096 retry test part', 2, 'ea' FROM fx;
++INSERT INTO repair_order_line_source_links (repair_order_line_id, workshop_source_document_line_id, quantity_contribution)
++SELECT rol_retry, wsdl_retry, 2 FROM fx;
++
++DO $$
++DECLARE
++  v_key text := '096-idempotent-retry-key-' || gen_random_uuid()::text;
++  v_r1 jsonb;
++  v_retry_sqlstate text := 'none';
++  v_retry_message text := 'none';
++BEGIN
++  SELECT receive_repair_order_stock(
++    (SELECT e2e_user FROM fx), (SELECT org FROM fx), (SELECT branch FROM fx),
++    jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_x FROM fx), 'unit_id', (SELECT unit_ea FROM fx), 'quantity', 2, 'source_line_id', (SELECT matcher_line_retry::text FROM fx))),
++    NULL, NULL, NULL, NULL, v_key
++  ) INTO v_r1;
++
++  BEGIN
++    PERFORM receive_repair_order_stock(
++      (SELECT e2e_user FROM fx), (SELECT org FROM fx), (SELECT branch FROM fx),
++      jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_x FROM fx), 'unit_id', (SELECT unit_ea FROM fx), 'quantity', 2, 'source_line_id', (SELECT matcher_line_retry::text FROM fx))),
++      NULL, NULL, NULL, NULL, v_key
++    );
++  EXCEPTION WHEN OTHERS THEN
++    v_retry_sqlstate := SQLSTATE;
++    v_retry_message := SQLERRM;
++  END;
++
++  PERFORM set_config('zone5_test.retry_sqlstate', v_retry_sqlstate, true);
++  PERFORM set_config('zone5_test.retry_message', v_retry_message, true);
++  PERFORM set_config('zone5_test.retry_key', v_key, true);
++END $$;
++
++SELECT is(
++  current_setting('zone5_test.retry_sqlstate', true),
++  '22023',
++  '8a. a genuine idempotent retry (same idempotency_key) of an attributed receive is rejected -- 22023, propagated from the canonical attach RPC''s own applied-quantity cap'
++);
++
++SELECT ok(
++  current_setting('zone5_test.retry_message', true) LIKE '%applied_quantity exceeds the movement line%',
++  '8b. the propagated error is the canonical attach RPC''s own specific, safe message -- not a raw/leaked constraint-violation text'
++);
++
++SELECT is(
++  (SELECT count(*)::int FROM repair_order_line_movement_links WHERE repair_order_line_id = (SELECT rol_retry FROM fx)),
++  1,
++  '8c. after the rejected retry, exactly ONE repair_order_line_movement_links row exists for this line -- no duplicate, no partial second write'
++);
++
++SELECT is(
++  (SELECT count(*)::int FROM inventory_movement_headers WHERE idempotency_key = current_setting('zone5_test.retry_key', true)),
++  1,
++  '8d. after the rejected retry, exactly ONE movement header exists for this idempotency key -- the engine''s own idempotent replay, not a duplicate movement'
++);
++
++-- =====================================================================
++-- 9a-9c. Multi-line same-call independence: two DIFFERENT RepairOrderLines,
++--    attributed via two DIFFERENT Matcher lines, submitted together in ONE
++--    receive_repair_order_stock call. Each must end up with its own
++--    correct, uncontaminated repair_order_line_movement_links +
++--    repair_order_line_locations row -- proving the per-line attribution
++--    loop (now calling the canonical attach RPC once per resolved line)
++--    does not cross-contaminate across lines in the same batch.
++-- =====================================================================
++INSERT INTO wdd_matcher_lines (id, block_id, session_id, organization_id, line_number, product_code, product_name, quantity, unit)
++SELECT matcher_line_multi_a, block_id, session_id, org, 4, 'SKU-X', '096 multi-line part A', 3, 'ea' FROM fx;
++INSERT INTO wdd_matcher_lines (id, block_id, session_id, organization_id, line_number, product_code, product_name, quantity, unit)
++SELECT matcher_line_multi_b, block_id, session_id, org, 5, 'SKU-X', '096 multi-line part B', 4, 'ea' FROM fx;
++INSERT INTO workshop_source_document_lines (id, workshop_source_document_id, wdd_matcher_line_id, product_code, product_name, quantity, unit)
++SELECT wsdl_multi_a, wsd_id, matcher_line_multi_a, 'SKU-X', '096 multi-line part A', 3, 'ea' FROM fx;
++INSERT INTO workshop_source_document_lines (id, workshop_source_document_id, wdd_matcher_line_id, product_code, product_name, quantity, unit)
++SELECT wsdl_multi_b, wsd_id, matcher_line_multi_b, 'SKU-X', '096 multi-line part B', 4, 'ea' FROM fx;
++INSERT INTO repair_order_line_source_links (repair_order_line_id, workshop_source_document_line_id, quantity_contribution)
++SELECT rol_multi_a, wsdl_multi_a, 3 FROM fx;
++INSERT INTO repair_order_line_source_links (repair_order_line_id, workshop_source_document_line_id, quantity_contribution)
++SELECT rol_multi_b, wsdl_multi_b, 4 FROM fx;
++
++SELECT lives_ok(
++  format($sql$
++    SELECT receive_repair_order_stock(
++      '%s'::uuid, '%s'::uuid, '%s'::uuid,
++      jsonb_build_array(
++        jsonb_build_object('variant_id', '%s', 'unit_id', '%s', 'quantity', 3, 'source_line_id', '%s'),
++        jsonb_build_object('variant_id', '%s', 'unit_id', '%s', 'quantity', 4, 'source_line_id', '%s')
++      ),
++      NULL, NULL, NULL, '096 multi-line attributed receipt test', gen_random_uuid()::text
++    )
++  $sql$, (SELECT e2e_user::text FROM fx), (SELECT org::text FROM fx), (SELECT branch::text FROM fx),
++         (SELECT variant_x::text FROM fx), (SELECT unit_ea::text FROM fx), (SELECT matcher_line_multi_a::text FROM fx),
++         (SELECT variant_x::text FROM fx), (SELECT unit_ea::text FROM fx), (SELECT matcher_line_multi_b::text FROM fx)),
++  '9a. one call with TWO attributed lines (different RepairOrderLines, different Matcher lines) succeeds'
++);
++
++SELECT is(
++  (SELECT applied_quantity FROM repair_order_line_movement_links WHERE repair_order_line_id = (SELECT rol_multi_a FROM fx)),
++  3::numeric,
++  '9b. line A gets its own correct applied_quantity (3) -- not contaminated by line B''s own quantity'
++);
++
++SELECT is(
++  (SELECT applied_quantity FROM repair_order_line_movement_links WHERE repair_order_line_id = (SELECT rol_multi_b FROM fx)),
++  4::numeric,
++  '9c. line B gets its own correct applied_quantity (4) -- not contaminated by line A''s own quantity'
++);
++
++SELECT isnt(
++  (SELECT inventory_movement_line_id FROM repair_order_line_movement_links WHERE repair_order_line_id = (SELECT rol_multi_a FROM fx)),
++  (SELECT inventory_movement_line_id FROM repair_order_line_movement_links WHERE repair_order_line_id = (SELECT rol_multi_b FROM fx)),
++  '9d. line A and line B attribute against two DISTINCT inventory_movement_line_id rows -- the exact movement line, not merely the same movement header'
++);
++
+ -- =====================================================================
+ -- 7a. Atomicity, REAL executed proof (replaces the previous placeholder):
+ --     when resolution fails (case 3's zero-candidate scenario), NO movement
+diff --git a/docs/mvp/zones/05-receiving-putaway-progress.md b/docs/mvp/zones/05-receiving-putaway-progress.md
+index 9c8d24db..e36412e2 100644
+--- a/docs/mvp/zones/05-receiving-putaway-progress.md
++++ b/docs/mvp/zones/05-receiving-putaway-progress.md
+@@ -2,10 +2,15 @@
+ 
+ > Companion to `05-receiving-putaway-implementation-plan.md`. **Architecture: APPROVED FOR
+ > IMPLEMENTATION.** All 5 migrations are now **applied and live-verified** against the Supabase
+-> target project (this session, via Supabase MCP). **Zone 5 is NOT YET pitch-ready**: the DB layer
+-> (schema, RPCs, trigger, pgTAP, Zone 3 regression, real two-session concurrency) is fully live-
+-> verified, but application-layer/browser UAT (Playwright, real UI walkthrough) has **not** been
+-> attempted this pass — see "Live/MCP verification pass" below for the complete, honest breakdown.
++> target project (this session, via Supabase MCP), AND `receive_repair_order_stock` is now
++> **integrated with Zone 3 Phase 10's canonical `attach_repair_order_line_movement` RPC** (see
++> "Phase-10 attribution integration pass" below) — the direct
++> `INSERT INTO repair_order_line_movement_links` write is gone; the canonical RPC now owns that
++> business-attribution write, Zone 5 continues to own spatial attribution unchanged. **Zone 5 is
++> NOT YET pitch-ready**: the DB layer (schema, RPCs, trigger, pgTAP, Zone 3 regression, real
++> two-session concurrency, Phase-10 integration) is fully live-verified, but application-layer/
++> browser UAT (Playwright, real UI walkthrough) has **not** been attempted — this is now the ONLY
++> remaining gap to pitch-readiness at the technical level.
+ 
+ ## Implementation status legend (mechanical, used throughout this file)
+ 
+@@ -155,6 +160,98 @@ discoverable bugs found and fixed live (uuid-aggregate ×2, missing RAISE argume
+ function); real two-connection concurrency (double-consumption, AB-BA lock order, UNKNOWN-marker
+ race) all CONCURRENCY VERIFIED.
+ 
++## Phase-10 attribution integration pass — this session
++
++Zone 3 Phase 10 (branch `mvp-readiness`, commit `52fc0913`, live on this same Supabase target
++project) established `public.attach_repair_order_line_movement(...)` as the ONE canonical,
++fully-validated production writer for `repair_order_line_movement_links`, and closed the direct
++INSERT write boundary. `receive_repair_order_stock` had been directly INSERTing into that table
++since its own migration — bypassing the canonical writer (only silently still working because its
++own SECURITY DEFINER owner, `postgres`, has `rolbypassrls`, which the closing migration's RLS
++policy cannot stop). This pass resolves exactly that overlap, nothing else.
++
++- **Both live functions inspected fresh via `pg_get_functiondef`/`pg_proc`** before any change
++  (not from old bundle text, per the mandate). Confirmed: `attach_repair_order_line_movement`'s
++  every invariant (posted status, receipt category, RepairOrder reference consistency, variant
++  compatibility, org/branch match) is already guaranteed true by the time
++  `receive_repair_order_stock` reaches this call — verified against a real committed `101`
++  movement's actual header shape (`status='posted'`, `category='receipt'`,
++  `reference_type`/`reference_id` both NULL — `inventory_create_and_finalize`'s own signature has
++  no reference parameter at all, so the reference-mismatch branch can never fire here). **No
++  Phase-10 invariant is incompatible with the Zone-5 receipt workflow** — no STOP was needed.
++- **Nested `SECURITY DEFINER` `auth.uid()` propagation confirmed live**, transaction-scoped, via a
++  throwaway wrapper function structurally mirroring the real call shape: the real actor succeeds
++  through the nested call; a spoofed actor is rejected. `auth.uid()` reads a session-level GUC
++  (`request.jwt.claims`), unaffected by `SECURITY DEFINER` role-switching — no auth problem found.
++- **Forward migration applied**: `20260914130000_zone5_receive_repair_order_stock_use_canonical_
++  attach.sql` (live version `20260914173843`) — `receive_repair_order_stock`'s exact signature is
++  unchanged; only its business-attribution write changed, from a direct `INSERT` to
++  `PERFORM public.attach_repair_order_line_movement(p_actor_user_id, v_resolved_rol_id,
++  v_movement_line_id, v_qty, 'receipt')`, called inside the same transaction/orchestration.
++  Confirmed live: the function no longer contains any direct
++  `INSERT INTO repair_order_line_movement_links`.
++- **Ownership split enforced in code, exactly as designed**: the canonical Phase-10 RPC owns
++  business movement attribution; Zone 5 continues to write the `repair_order_line_locations`
++  spatial seed directly, unchanged, in the same transaction. Confirmed live: the attribution-sync
++  trigger's own definition (`repair_order_location_attribution_sync`) is byte-for-byte unchanged
++  and does not reference the canonical attach RPC — spatial attribution, UNKNOWN semantics, the
++  bypass flag, zero-clear behavior, and putaway's own lock order are all untouched, confirmed via
++  live definition diff, not merely asserted.
++- **A genuine, live-discovered idempotency finding** (not assumed): a retry of an ATTRIBUTED
++  receive with the SAME `idempotency_key` is **no longer a silent no-op**. Empirically confirmed:
++  `inventory_create_and_finalize` itself returns the SAME already-posted movement/lines on retry
++  (one header only for the key, same `movement_id` both calls) — so the nested attach call
++  re-attempts attributing the identical `(repair_order_line_id, inventory_movement_line_id)` pair
++  and is rejected by that RPC's own applied-quantity cap (`22023`). **Not a regression**: the
++  pre-integration direct `INSERT` (no `ON CONFLICT` clause at all) would have hit the table's own
++  unique constraint on the identical retry too, just as a raw, less-friendly `23505`. The action
++  normalizer (`repair-order-receiving.ts`) now allowlists this one new, stable, expected message.
++- **pgTAP `096` extended and re-run live in full**: 8 new assertions (8a-8d: the idempotent-retry
++  finding above, proven atomic — exactly one link row, exactly one movement header, after the
++  rejected retry; 9a-9d: two DIFFERENT RepairOrderLines attributed via two DIFFERENT Matcher lines
++  in ONE call succeed independently, each against its own distinct `inventory_movement_line_id`,
++  with no cross-contamination). **Result: 20/20 PASSED, 1 honest skip (21-assertion plan)** — the
++  pre-existing assertions (1-7b) all still pass unchanged, confirming no regression from the
++  integration.
++- **Phase-10's own pgTAP file re-run live, unmodified, exactly as written** (no branch merge
++  needed — pure SQL execution against the already-deployed RPC):
++  `097_repair_order_line_movement_attach_phase10_test.sql` (read from the `mvp-readiness` branch
++  via `git show`, never merged). **Result: 29/29 PASSED**, matching its own documented expectation.
++- **Zone 5's putaway RPC confirmed untouched and non-overlapping**: `putaway_repair_order_stock`'s
++  live definition contains no `repair_order_line_movement_links` write (only an explanatory
++  comment saying so) — confirmed via live definition inspection, not re-run, since nothing about
++  it changed.
++- **Error propagation**: no Phase-10 validation logic was duplicated in Zone 5's own normalizer —
++  only the one specific, stable message that this integration can newly surface was added to the
++  existing allowlist convention (exact code + message-pattern match, matching every other entry).
++- **Typecheck/lint**: full-repo `tsc --noEmit` clean; `eslint` clean on the modified action file;
++  its own 15 pre-existing unit tests re-run, 15/15 passing, no regression.
++- **Zero residual test data** from this integration pass specifically (all `096`-tagged fixtures
++  and both live probe scripts used `ROLLBACK`, confirmed via live query afterward). One
++  **pre-existing** residual-data interaction was found and corrected: the earlier concurrency-test
++  pass's permanently-undeletable `CONC-RECV-...` location (see prior section) was still marked
++  `purpose='receiving'` for the real E2E org/branch, which blocked `096`'s own temporary receiving
++  location from being created (the `warehouse_locations_one_receiving_per_branch` partial unique
++  index). Corrected by setting that leftover row's `purpose` back to `'standard'` — a legitimate
++  follow-up correction of already-disclosed residue, not new residue.
++- **Other Zone-5-adjacent live activity observed, explicitly NOT touched or integrated this pass**
++  (per the mandate's own scope boundary): `inventory_add_to_container_rpc`,
++  `inventory_remove_from_container_rpc` (+ a fix), `inventory_seal_container_rpc` — container work
++  landing on the same shared live target project from elsewhere, dated between this pass's own
++  migrations. Observed via `list_migrations`, not acted on.
++- **Filename collision, flagged for whoever eventually merges `mvp-readiness` into this branch**:
++  Zone 3 Phase 10's own pgTAP file and Zone 5's own pgTAP file are BOTH named `097_*_test.sql` on
++  their respective branches (`097_repair_order_line_movement_attach_phase10_test.sql` vs.
++  `097_zone5_putaway_repair_order_stock_test.sql`) — a literal numbering collision that will need
++  resolving (renumbering one of them) at merge time. Not resolved this pass (branches were not
++  merged, per the mandate's explicit "do NOT merge git branches broadly").
++
++**Zone 5 is now technically FINAL at the DB layer** — schema, RPCs, trigger, all pgTAP (Zone 5's
++own + Zone 3's 090-092 regression + Phase 10's own 097), real two-session concurrency, and the
++Phase-10 attribution-ownership overlap are all live-verified with zero known open DB-layer issues.
++The ONLY remaining work before pitch-readiness is application-layer/browser UAT (see "Remaining
++work" below) — nothing further is planned or needed at the database level.
++
+ ## Correction pass — this session (external review of the first implementation bundle)
+ 
+ - [x] **1. Aggregate + `FOR UPDATE` bug — CONFIRMED and fixed.** `SELECT sum(...), count(...) ...
+@@ -352,10 +449,16 @@ locked_rows`), aggregate over the already-locked set in the same statement. This
+    `location-detail-panel.tsx` (both real, both large/unfamiliar this session) once someone with
+    more context on those specific files' structure (or live rendering to verify against) can do
+    so safely. The backend (`updateLocationAction`) already supports it correctly and is tested.
+-2. **Application-layer/browser UAT** (Phase 0 UI walkthroughs, Phase 7 in full, Playwright
+-   responsive QA) — the DB layer this all rests on is now fully LIVE VERIFIED; the browser
+-   walkthrough itself has not been attempted. This is the single largest remaining gap before
+-   Zone 5 can be called pitch-ready.
++2. **Application-layer/browser UAT** — the DB layer this all rests on is now fully LIVE VERIFIED
++   (including the Phase-10 attribution-ownership integration); the browser walkthrough itself has
++   not been attempted. This is now the ONLY remaining gap before Zone 5 can be called pitch-ready
++   at the technical level. Explicitly, what remains:
++   - Browser/Playwright receiving UAT (real 101 receipt via the actual UI, attributed + unattributed).
++   - Browser/Playwright putaway UAT (real putaway via the actual UI, including partial putaway).
++   - Receiving-location configuration UAT (an admin actually designating a branch's receiving
++     location — note item 1 below, the backend supports this but no UI toggle exists yet).
++   - Real Zone-6 801 rehearsal (unambiguous and ambiguous cases) via Zone 6's own existing UI.
++   - Final pitch rehearsal (a full, real, end-to-end walkthrough of the pitch scenario).
+ 3. The one honestly-`skip()`ped atomicity sub-case in `096` (test 7c: a failure occurring strictly
+    AFTER `inventory_create_and_finalize` succeeds but BEFORE this RPC's own attribution writes
+    complete) — now technically _possible_ to attempt with live MCP access (unlike when it was

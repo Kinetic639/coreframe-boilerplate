@@ -2,10 +2,15 @@
 
 > Companion to `05-receiving-putaway-implementation-plan.md`. **Architecture: APPROVED FOR
 > IMPLEMENTATION.** All 5 migrations are now **applied and live-verified** against the Supabase
-> target project (this session, via Supabase MCP). **Zone 5 is NOT YET pitch-ready**: the DB layer
-> (schema, RPCs, trigger, pgTAP, Zone 3 regression, real two-session concurrency) is fully live-
-> verified, but application-layer/browser UAT (Playwright, real UI walkthrough) has **not** been
-> attempted this pass — see "Live/MCP verification pass" below for the complete, honest breakdown.
+> target project (this session, via Supabase MCP), AND `receive_repair_order_stock` is now
+> **integrated with Zone 3 Phase 10's canonical `attach_repair_order_line_movement` RPC** (see
+> "Phase-10 attribution integration pass" below) — the direct
+> `INSERT INTO repair_order_line_movement_links` write is gone; the canonical RPC now owns that
+> business-attribution write, Zone 5 continues to own spatial attribution unchanged. **Zone 5 is
+> NOT YET pitch-ready**: the DB layer (schema, RPCs, trigger, pgTAP, Zone 3 regression, real
+> two-session concurrency, Phase-10 integration) is fully live-verified, but application-layer/
+> browser UAT (Playwright, real UI walkthrough) has **not** been attempted — this is now the ONLY
+> remaining gap to pitch-readiness at the technical level.
 
 ## Implementation status legend (mechanical, used throughout this file)
 
@@ -154,6 +159,98 @@ pre-existing, Zone-5-unrelated failures — see "Remaining work" #4); 3 real, ex
 discoverable bugs found and fixed live (uuid-aggregate ×2, missing RAISE argument ×2 in one
 function); real two-connection concurrency (double-consumption, AB-BA lock order, UNKNOWN-marker
 race) all CONCURRENCY VERIFIED.
+
+## Phase-10 attribution integration pass — this session
+
+Zone 3 Phase 10 (branch `mvp-readiness`, commit `52fc0913`, live on this same Supabase target
+project) established `public.attach_repair_order_line_movement(...)` as the ONE canonical,
+fully-validated production writer for `repair_order_line_movement_links`, and closed the direct
+INSERT write boundary. `receive_repair_order_stock` had been directly INSERTing into that table
+since its own migration — bypassing the canonical writer (only silently still working because its
+own SECURITY DEFINER owner, `postgres`, has `rolbypassrls`, which the closing migration's RLS
+policy cannot stop). This pass resolves exactly that overlap, nothing else.
+
+- **Both live functions inspected fresh via `pg_get_functiondef`/`pg_proc`** before any change
+  (not from old bundle text, per the mandate). Confirmed: `attach_repair_order_line_movement`'s
+  every invariant (posted status, receipt category, RepairOrder reference consistency, variant
+  compatibility, org/branch match) is already guaranteed true by the time
+  `receive_repair_order_stock` reaches this call — verified against a real committed `101`
+  movement's actual header shape (`status='posted'`, `category='receipt'`,
+  `reference_type`/`reference_id` both NULL — `inventory_create_and_finalize`'s own signature has
+  no reference parameter at all, so the reference-mismatch branch can never fire here). **No
+  Phase-10 invariant is incompatible with the Zone-5 receipt workflow** — no STOP was needed.
+- **Nested `SECURITY DEFINER` `auth.uid()` propagation confirmed live**, transaction-scoped, via a
+  throwaway wrapper function structurally mirroring the real call shape: the real actor succeeds
+  through the nested call; a spoofed actor is rejected. `auth.uid()` reads a session-level GUC
+  (`request.jwt.claims`), unaffected by `SECURITY DEFINER` role-switching — no auth problem found.
+- **Forward migration applied**: `20260914130000_zone5_receive_repair_order_stock_use_canonical_
+attach.sql` (live version `20260914173843`) — `receive_repair_order_stock`'s exact signature is
+  unchanged; only its business-attribution write changed, from a direct `INSERT` to
+  `PERFORM public.attach_repair_order_line_movement(p_actor_user_id, v_resolved_rol_id,
+v_movement_line_id, v_qty, 'receipt')`, called inside the same transaction/orchestration.
+  Confirmed live: the function no longer contains any direct
+  `INSERT INTO repair_order_line_movement_links`.
+- **Ownership split enforced in code, exactly as designed**: the canonical Phase-10 RPC owns
+  business movement attribution; Zone 5 continues to write the `repair_order_line_locations`
+  spatial seed directly, unchanged, in the same transaction. Confirmed live: the attribution-sync
+  trigger's own definition (`repair_order_location_attribution_sync`) is byte-for-byte unchanged
+  and does not reference the canonical attach RPC — spatial attribution, UNKNOWN semantics, the
+  bypass flag, zero-clear behavior, and putaway's own lock order are all untouched, confirmed via
+  live definition diff, not merely asserted.
+- **A genuine, live-discovered idempotency finding** (not assumed): a retry of an ATTRIBUTED
+  receive with the SAME `idempotency_key` is **no longer a silent no-op**. Empirically confirmed:
+  `inventory_create_and_finalize` itself returns the SAME already-posted movement/lines on retry
+  (one header only for the key, same `movement_id` both calls) — so the nested attach call
+  re-attempts attributing the identical `(repair_order_line_id, inventory_movement_line_id)` pair
+  and is rejected by that RPC's own applied-quantity cap (`22023`). **Not a regression**: the
+  pre-integration direct `INSERT` (no `ON CONFLICT` clause at all) would have hit the table's own
+  unique constraint on the identical retry too, just as a raw, less-friendly `23505`. The action
+  normalizer (`repair-order-receiving.ts`) now allowlists this one new, stable, expected message.
+- **pgTAP `096` extended and re-run live in full**: 8 new assertions (8a-8d: the idempotent-retry
+  finding above, proven atomic — exactly one link row, exactly one movement header, after the
+  rejected retry; 9a-9d: two DIFFERENT RepairOrderLines attributed via two DIFFERENT Matcher lines
+  in ONE call succeed independently, each against its own distinct `inventory_movement_line_id`,
+  with no cross-contamination). **Result: 20/20 PASSED, 1 honest skip (21-assertion plan)** — the
+  pre-existing assertions (1-7b) all still pass unchanged, confirming no regression from the
+  integration.
+- **Phase-10's own pgTAP file re-run live, unmodified, exactly as written** (no branch merge
+  needed — pure SQL execution against the already-deployed RPC):
+  `097_repair_order_line_movement_attach_phase10_test.sql` (read from the `mvp-readiness` branch
+  via `git show`, never merged). **Result: 29/29 PASSED**, matching its own documented expectation.
+- **Zone 5's putaway RPC confirmed untouched and non-overlapping**: `putaway_repair_order_stock`'s
+  live definition contains no `repair_order_line_movement_links` write (only an explanatory
+  comment saying so) — confirmed via live definition inspection, not re-run, since nothing about
+  it changed.
+- **Error propagation**: no Phase-10 validation logic was duplicated in Zone 5's own normalizer —
+  only the one specific, stable message that this integration can newly surface was added to the
+  existing allowlist convention (exact code + message-pattern match, matching every other entry).
+- **Typecheck/lint**: full-repo `tsc --noEmit` clean; `eslint` clean on the modified action file;
+  its own 15 pre-existing unit tests re-run, 15/15 passing, no regression.
+- **Zero residual test data** from this integration pass specifically (all `096`-tagged fixtures
+  and both live probe scripts used `ROLLBACK`, confirmed via live query afterward). One
+  **pre-existing** residual-data interaction was found and corrected: the earlier concurrency-test
+  pass's permanently-undeletable `CONC-RECV-...` location (see prior section) was still marked
+  `purpose='receiving'` for the real E2E org/branch, which blocked `096`'s own temporary receiving
+  location from being created (the `warehouse_locations_one_receiving_per_branch` partial unique
+  index). Corrected by setting that leftover row's `purpose` back to `'standard'` — a legitimate
+  follow-up correction of already-disclosed residue, not new residue.
+- **Other Zone-5-adjacent live activity observed, explicitly NOT touched or integrated this pass**
+  (per the mandate's own scope boundary): `inventory_add_to_container_rpc`,
+  `inventory_remove_from_container_rpc` (+ a fix), `inventory_seal_container_rpc` — container work
+  landing on the same shared live target project from elsewhere, dated between this pass's own
+  migrations. Observed via `list_migrations`, not acted on.
+- **Filename collision, flagged for whoever eventually merges `mvp-readiness` into this branch**:
+  Zone 3 Phase 10's own pgTAP file and Zone 5's own pgTAP file are BOTH named `097_*_test.sql` on
+  their respective branches (`097_repair_order_line_movement_attach_phase10_test.sql` vs.
+  `097_zone5_putaway_repair_order_stock_test.sql`) — a literal numbering collision that will need
+  resolving (renumbering one of them) at merge time. Not resolved this pass (branches were not
+  merged, per the mandate's explicit "do NOT merge git branches broadly").
+
+**Zone 5 is now technically FINAL at the DB layer** — schema, RPCs, trigger, all pgTAP (Zone 5's
+own + Zone 3's 090-092 regression + Phase 10's own 097), real two-session concurrency, and the
+Phase-10 attribution-ownership overlap are all live-verified with zero known open DB-layer issues.
+The ONLY remaining work before pitch-readiness is application-layer/browser UAT (see "Remaining
+work" below) — nothing further is planned or needed at the database level.
 
 ## Correction pass — this session (external review of the first implementation bundle)
 
@@ -352,10 +449,16 @@ locked_rows`), aggregate over the already-locked set in the same statement. This
    `location-detail-panel.tsx` (both real, both large/unfamiliar this session) once someone with
    more context on those specific files' structure (or live rendering to verify against) can do
    so safely. The backend (`updateLocationAction`) already supports it correctly and is tested.
-2. **Application-layer/browser UAT** (Phase 0 UI walkthroughs, Phase 7 in full, Playwright
-   responsive QA) — the DB layer this all rests on is now fully LIVE VERIFIED; the browser
-   walkthrough itself has not been attempted. This is the single largest remaining gap before
-   Zone 5 can be called pitch-ready.
+2. **Application-layer/browser UAT** — the DB layer this all rests on is now fully LIVE VERIFIED
+   (including the Phase-10 attribution-ownership integration); the browser walkthrough itself has
+   not been attempted. This is now the ONLY remaining gap before Zone 5 can be called pitch-ready
+   at the technical level. Explicitly, what remains:
+   - Browser/Playwright receiving UAT (real 101 receipt via the actual UI, attributed + unattributed).
+   - Browser/Playwright putaway UAT (real putaway via the actual UI, including partial putaway).
+   - Receiving-location configuration UAT (an admin actually designating a branch's receiving
+     location — note item 1 below, the backend supports this but no UI toggle exists yet).
+   - Real Zone-6 801 rehearsal (unambiguous and ambiguous cases) via Zone 6's own existing UI.
+   - Final pitch rehearsal (a full, real, end-to-end walkthrough of the pitch scenario).
 3. The one honestly-`skip()`ped atomicity sub-case in `096` (test 7c: a failure occurring strictly
    AFTER `inventory_create_and_finalize` succeeds but BEFORE this RPC's own attribution writes
    complete) — now technically _possible_ to attempt with live MCP access (unlike when it was

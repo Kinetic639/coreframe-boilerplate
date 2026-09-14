@@ -27,10 +27,30 @@
 -- failure occurring strictly AFTER inventory_create_and_finalize succeeds
 -- but before this RPC's own attribution writes complete), that specific
 -- sub-case is marked with an honest `skip()`, not a `pass()` -- see test 7b.
+--
+-- PHASE-10 ATTRIBUTION INTEGRATION PASS (2026-09-14): receive_repair_order_
+-- stock no longer INSERTs directly into repair_order_line_movement_links --
+-- it now calls the canonical public.attach_repair_order_line_movement(...)
+-- RPC (Zone 3 Phase 10) for that write, and continues to own the spatial
+-- seed (repair_order_line_locations) directly, unchanged. Tests 8a-8d below
+-- are new: a genuine idempotent retry of an ATTRIBUTED receive (same
+-- idempotency_key) was found, by real live execution, to no longer be a
+-- silent no-op -- the engine itself returns the SAME already-posted
+-- movement/lines on retry (confirmed live), so the second call's nested
+-- attach_repair_order_line_movement call re-attempts attributing the SAME
+-- movement line and is rejected by that RPC's own applied-quantity cap
+-- (22023) before ever reaching its ON CONFLICT/23505 duplicate path. This
+-- is not a regression introduced by this integration -- the PRE-integration
+-- direct INSERT (with no ON CONFLICT clause at all) would have hit the
+-- table's own repair_order_line_movement_links_unique constraint on the
+-- exact same retry, just with a raw, less friendly 23505. Tests 9a-9c prove
+-- multi-line same-call independence: two DIFFERENT RepairOrderLines,
+-- attributed via two DIFFERENT Matcher lines, in ONE receive_repair_order_
+-- stock call, each ending up with its own correct, uncontaminated row.
 
 BEGIN;
 
-SELECT plan(13);
+SELECT plan(21);
 
 -- Live-verification correction: receive_repair_order_stock's own first
 -- check compares p_actor_user_id against auth.uid() -- which reads from
@@ -49,7 +69,11 @@ CREATE TEMP TABLE fx (
   loc_recv uuid,
   session_id uuid, session_file_id uuid, block_id uuid, matcher_line_id uuid,
   wsd_id uuid, wsd_id_2 uuid, wsdl_a uuid, wsdl_b uuid,
-  matcher_line_id_ok uuid, wsdl_ok uuid
+  matcher_line_id_ok uuid, wsdl_ok uuid,
+  rol_retry uuid, matcher_line_retry uuid, wsdl_retry uuid,
+  rol_multi_a uuid, rol_multi_b uuid,
+  matcher_line_multi_a uuid, matcher_line_multi_b uuid,
+  wsdl_multi_a uuid, wsdl_multi_b uuid
 );
 INSERT INTO fx SELECT
   '9f98fe91-63b8-4986-a2b3-65bdd47684c9'::uuid,
@@ -60,6 +84,10 @@ INSERT INTO fx SELECT
   gen_random_uuid(),
   gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
   gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
+  gen_random_uuid(), gen_random_uuid(),
+  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
+  gen_random_uuid(), gen_random_uuid(),
+  gen_random_uuid(), gen_random_uuid(),
   gen_random_uuid(), gen_random_uuid();
 
 -- Live-verification correction: inventory_movement_lines/repair_order_lines both
@@ -80,6 +108,12 @@ INSERT INTO repair_order_lines (id, repair_order_id, variant_id, product_name, o
 SELECT rol1, ro, variant_x, '096-test product', 5, 'pending' FROM fx;
 INSERT INTO repair_order_lines (id, repair_order_id, variant_id, product_name, ordered_quantity, status)
 SELECT rol2, ro, variant_x, '096-test product (second line, same RO)', 5, 'pending' FROM fx;
+INSERT INTO repair_order_lines (id, repair_order_id, variant_id, product_name, ordered_quantity, status)
+SELECT rol_retry, ro, variant_x, '096-test product (idempotent-retry test line)', 5, 'pending' FROM fx;
+INSERT INTO repair_order_lines (id, repair_order_id, variant_id, product_name, ordered_quantity, status)
+SELECT rol_multi_a, ro, variant_x, '096-test product (multi-line A)', 5, 'pending' FROM fx;
+INSERT INTO repair_order_lines (id, repair_order_id, variant_id, product_name, ordered_quantity, status)
+SELECT rol_multi_b, ro, variant_x, '096-test product (multi-line B)', 5, 'pending' FROM fx;
 
 -- 1. NULL source_line_id -> allowed, unattributed receipt succeeds; the RPC
 --    itself is exercised end-to-end (assumes '101'/receiving are configured
@@ -287,6 +321,137 @@ SELECT throws_ok(
   '28000',
   NULL,
   '6. p_actor_user_id not matching auth.uid() is rejected'
+);
+
+-- =====================================================================
+-- 8a-8d. Phase-10 integration: a genuine idempotent retry (same
+--    idempotency_key) of an ATTRIBUTED receive. Live-verified this pass:
+--    inventory_create_and_finalize itself returns the SAME already-posted
+--    movement/lines on retry (confirmed by direct probe: one header only
+--    for the key, same movement_id both calls). The second
+--    receive_repair_order_stock call therefore re-attempts attaching the
+--    SAME (repair_order_line_id, inventory_movement_line_id) pair via the
+--    canonical attach RPC, which rejects it via its own applied-quantity
+--    cap (22023) -- not a regression: the pre-integration direct INSERT
+--    (no ON CONFLICT) would have hit the table's own unique constraint on
+--    the identical retry, just as a raw 23505. Proves items G (duplicate
+--    attachment cannot occur) and H (a canonical-attribution failure rolls
+--    back / leaves no trace of the failed call's own attempt) together, for
+--    real, rather than via a contrived synthetic failure.
+-- =====================================================================
+INSERT INTO wdd_matcher_lines (id, block_id, session_id, organization_id, line_number, product_code, product_name, quantity, unit)
+SELECT matcher_line_retry, block_id, session_id, org, 3, 'SKU-X', '096 retry test part', 2, 'ea' FROM fx;
+INSERT INTO workshop_source_document_lines (id, workshop_source_document_id, wdd_matcher_line_id, product_code, product_name, quantity, unit)
+SELECT wsdl_retry, wsd_id, matcher_line_retry, 'SKU-X', '096 retry test part', 2, 'ea' FROM fx;
+INSERT INTO repair_order_line_source_links (repair_order_line_id, workshop_source_document_line_id, quantity_contribution)
+SELECT rol_retry, wsdl_retry, 2 FROM fx;
+
+DO $$
+DECLARE
+  v_key text := '096-idempotent-retry-key-' || gen_random_uuid()::text;
+  v_r1 jsonb;
+  v_retry_sqlstate text := 'none';
+  v_retry_message text := 'none';
+BEGIN
+  SELECT receive_repair_order_stock(
+    (SELECT e2e_user FROM fx), (SELECT org FROM fx), (SELECT branch FROM fx),
+    jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_x FROM fx), 'unit_id', (SELECT unit_ea FROM fx), 'quantity', 2, 'source_line_id', (SELECT matcher_line_retry::text FROM fx))),
+    NULL, NULL, NULL, NULL, v_key
+  ) INTO v_r1;
+
+  BEGIN
+    PERFORM receive_repair_order_stock(
+      (SELECT e2e_user FROM fx), (SELECT org FROM fx), (SELECT branch FROM fx),
+      jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_x FROM fx), 'unit_id', (SELECT unit_ea FROM fx), 'quantity', 2, 'source_line_id', (SELECT matcher_line_retry::text FROM fx))),
+      NULL, NULL, NULL, NULL, v_key
+    );
+  EXCEPTION WHEN OTHERS THEN
+    v_retry_sqlstate := SQLSTATE;
+    v_retry_message := SQLERRM;
+  END;
+
+  PERFORM set_config('zone5_test.retry_sqlstate', v_retry_sqlstate, true);
+  PERFORM set_config('zone5_test.retry_message', v_retry_message, true);
+  PERFORM set_config('zone5_test.retry_key', v_key, true);
+END $$;
+
+SELECT is(
+  current_setting('zone5_test.retry_sqlstate', true),
+  '22023',
+  '8a. a genuine idempotent retry (same idempotency_key) of an attributed receive is rejected -- 22023, propagated from the canonical attach RPC''s own applied-quantity cap'
+);
+
+SELECT ok(
+  current_setting('zone5_test.retry_message', true) LIKE '%applied_quantity exceeds the movement line%',
+  '8b. the propagated error is the canonical attach RPC''s own specific, safe message -- not a raw/leaked constraint-violation text'
+);
+
+SELECT is(
+  (SELECT count(*)::int FROM repair_order_line_movement_links WHERE repair_order_line_id = (SELECT rol_retry FROM fx)),
+  1,
+  '8c. after the rejected retry, exactly ONE repair_order_line_movement_links row exists for this line -- no duplicate, no partial second write'
+);
+
+SELECT is(
+  (SELECT count(*)::int FROM inventory_movement_headers WHERE idempotency_key = current_setting('zone5_test.retry_key', true)),
+  1,
+  '8d. after the rejected retry, exactly ONE movement header exists for this idempotency key -- the engine''s own idempotent replay, not a duplicate movement'
+);
+
+-- =====================================================================
+-- 9a-9c. Multi-line same-call independence: two DIFFERENT RepairOrderLines,
+--    attributed via two DIFFERENT Matcher lines, submitted together in ONE
+--    receive_repair_order_stock call. Each must end up with its own
+--    correct, uncontaminated repair_order_line_movement_links +
+--    repair_order_line_locations row -- proving the per-line attribution
+--    loop (now calling the canonical attach RPC once per resolved line)
+--    does not cross-contaminate across lines in the same batch.
+-- =====================================================================
+INSERT INTO wdd_matcher_lines (id, block_id, session_id, organization_id, line_number, product_code, product_name, quantity, unit)
+SELECT matcher_line_multi_a, block_id, session_id, org, 4, 'SKU-X', '096 multi-line part A', 3, 'ea' FROM fx;
+INSERT INTO wdd_matcher_lines (id, block_id, session_id, organization_id, line_number, product_code, product_name, quantity, unit)
+SELECT matcher_line_multi_b, block_id, session_id, org, 5, 'SKU-X', '096 multi-line part B', 4, 'ea' FROM fx;
+INSERT INTO workshop_source_document_lines (id, workshop_source_document_id, wdd_matcher_line_id, product_code, product_name, quantity, unit)
+SELECT wsdl_multi_a, wsd_id, matcher_line_multi_a, 'SKU-X', '096 multi-line part A', 3, 'ea' FROM fx;
+INSERT INTO workshop_source_document_lines (id, workshop_source_document_id, wdd_matcher_line_id, product_code, product_name, quantity, unit)
+SELECT wsdl_multi_b, wsd_id, matcher_line_multi_b, 'SKU-X', '096 multi-line part B', 4, 'ea' FROM fx;
+INSERT INTO repair_order_line_source_links (repair_order_line_id, workshop_source_document_line_id, quantity_contribution)
+SELECT rol_multi_a, wsdl_multi_a, 3 FROM fx;
+INSERT INTO repair_order_line_source_links (repair_order_line_id, workshop_source_document_line_id, quantity_contribution)
+SELECT rol_multi_b, wsdl_multi_b, 4 FROM fx;
+
+SELECT lives_ok(
+  format($sql$
+    SELECT receive_repair_order_stock(
+      '%s'::uuid, '%s'::uuid, '%s'::uuid,
+      jsonb_build_array(
+        jsonb_build_object('variant_id', '%s', 'unit_id', '%s', 'quantity', 3, 'source_line_id', '%s'),
+        jsonb_build_object('variant_id', '%s', 'unit_id', '%s', 'quantity', 4, 'source_line_id', '%s')
+      ),
+      NULL, NULL, NULL, '096 multi-line attributed receipt test', gen_random_uuid()::text
+    )
+  $sql$, (SELECT e2e_user::text FROM fx), (SELECT org::text FROM fx), (SELECT branch::text FROM fx),
+         (SELECT variant_x::text FROM fx), (SELECT unit_ea::text FROM fx), (SELECT matcher_line_multi_a::text FROM fx),
+         (SELECT variant_x::text FROM fx), (SELECT unit_ea::text FROM fx), (SELECT matcher_line_multi_b::text FROM fx)),
+  '9a. one call with TWO attributed lines (different RepairOrderLines, different Matcher lines) succeeds'
+);
+
+SELECT is(
+  (SELECT applied_quantity FROM repair_order_line_movement_links WHERE repair_order_line_id = (SELECT rol_multi_a FROM fx)),
+  3::numeric,
+  '9b. line A gets its own correct applied_quantity (3) -- not contaminated by line B''s own quantity'
+);
+
+SELECT is(
+  (SELECT applied_quantity FROM repair_order_line_movement_links WHERE repair_order_line_id = (SELECT rol_multi_b FROM fx)),
+  4::numeric,
+  '9c. line B gets its own correct applied_quantity (4) -- not contaminated by line A''s own quantity'
+);
+
+SELECT isnt(
+  (SELECT inventory_movement_line_id FROM repair_order_line_movement_links WHERE repair_order_line_id = (SELECT rol_multi_a FROM fx)),
+  (SELECT inventory_movement_line_id FROM repair_order_line_movement_links WHERE repair_order_line_id = (SELECT rol_multi_b FROM fx)),
+  '9d. line A and line B attribute against two DISTINCT inventory_movement_line_id rows -- the exact movement line, not merely the same movement header'
 );
 
 -- =====================================================================

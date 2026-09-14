@@ -25,13 +25,15 @@ import {
  * Zone 5 Phases 4/5/6 -- server actions for RepairOrder-aware receiving and
  * putaway, plus the current-storage read model.
  *
- * IMPORTANT: these actions call `receive_repair_order_stock` /
- * `putaway_repair_order_stock` -- new SECURITY DEFINER RPCs written this
- * session but NOT applied to any live database (Supabase MCP was
- * unavailable throughout this implementation pass). Calling these actions
- * against a live environment before that migration is reviewed and applied
- * will fail with "function does not exist". This is a disclosed, expected
- * gap, not a bug in this file -- see the review bundle's migration summary.
+ * `receive_repair_order_stock` / `putaway_repair_order_stock` are live,
+ * applied, SECURITY DEFINER RPCs (confirmed via Supabase MCP, live/MCP
+ * verification pass). `receive_repair_order_stock` now delegates its
+ * business-quantity write (`repair_order_line_movement_links`) to the
+ * canonical `attach_repair_order_line_movement` RPC (Zone 3 Phase 10) --
+ * see this file's `RECEIVE_RPC_KNOWN_ERRORS` allowlist for the one new
+ * error message that integration can surface. Browser/UAT verification of
+ * these actions has not yet been performed -- see the Zone 5 progress
+ * tracker.
  */
 
 /**
@@ -68,6 +70,25 @@ const RECEIVE_RPC_KNOWN_ERRORS: ReadonlyArray<{ code: string; pattern: RegExp }>
   {
     code: "22023",
     pattern: /Resolved RepairOrderLine variant for line \d+ does not match the received variant$/,
+  },
+  // Phase-10 attribution integration: receive_repair_order_stock now calls
+  // the canonical public.attach_repair_order_line_movement(...) RPC (Zone 3
+  // Phase 10) instead of inserting into repair_order_line_movement_links
+  // directly. Live-verified this pass: every OTHER invariant that RPC
+  // enforces is already guaranteed true by the time receive_repair_order_
+  // stock reaches this call (posted status, receipt category, matching
+  // org/branch, no conflicting RepairOrder reference, matching variant) --
+  // the ONE message that can genuinely bubble through in practice is this
+  // one, on a genuine idempotent retry (same idempotency_key): the engine
+  // itself returns the SAME already-posted movement/lines on retry
+  // (confirmed live), so the nested attach call re-attempts attributing the
+  // same movement line and is rejected by its own applied-quantity cap. Not
+  // a new failure mode -- the pre-integration direct INSERT (no ON
+  // CONFLICT) would have hit the table's own unique constraint on the
+  // identical retry, just as a raw, less-safe 23505.
+  {
+    code: "22023",
+    pattern: /^applied_quantity exceeds the movement line's own remaining quantity/,
   },
 ];
 
