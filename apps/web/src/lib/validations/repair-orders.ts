@@ -75,3 +75,34 @@ export const changeRepairOrderStatusSchema = z.object({
   toStatus: repairOrderStatusSchema,
 });
 export type ChangeRepairOrderStatusInput = z.infer<typeof changeRepairOrderStatusSchema>;
+
+/**
+ * Phase 10A -- reserve stock for one RepairOrderLine via the existing
+ * generic reservation engine. `locationId` is a hard requirement of the
+ * underlying `inventory_create_reservation` RPC itself (LIVE VERIFIED:
+ * "Phase 2 hard reservations require location_id") -- never defaulted or
+ * inferred here.
+ */
+export const reserveRepairOrderLineSchema = z.object({
+  repairOrderLineId: z.string().uuid(),
+  locationId: z.string().uuid(),
+  quantity: z.number().positive(),
+  notes: z.string().trim().max(500).nullable().optional(),
+});
+export type ReserveRepairOrderLineInput = z.infer<typeof reserveRepairOrderLineSchema>;
+
+/**
+ * Phase 10A -- release a reservation previously created for one
+ * RepairOrderLine. `cancel` defaults to true (release + mark cancelled) --
+ * the only granularity the underlying `inventory_release_reservation` RPC
+ * actually offers (LIVE VERIFIED: whole-reservation release, no
+ * partial-quantity primitive exists).
+ */
+export const releaseRepairOrderLineReservationSchema = z.object({
+  repairOrderLineId: z.string().uuid(),
+  reservationId: z.string().uuid(),
+  cancel: z.boolean().optional(),
+});
+export type ReleaseRepairOrderLineReservationInput = z.infer<
+  typeof releaseRepairOrderLineReservationSchema
+>;

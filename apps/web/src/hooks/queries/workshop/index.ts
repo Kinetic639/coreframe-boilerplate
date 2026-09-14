@@ -9,10 +9,16 @@ import {
   assignRepairOrderAdvisorAction,
   changeRepairOrderStatusAction,
   listAdvisorCandidatesAction,
+  reserveRepairOrderLineAction,
+  releaseRepairOrderLineReservationAction,
+  listRepairOrderLineReservationsAction,
 } from "@/app/actions/workshop/repair-orders";
 import type {
   RepairOrderHeader,
   RepairOrderAdvisorCandidate,
+  RepairOrderLineReservation,
+  RepairOrderLineReservationResult,
+  RepairOrderLineReservationReleaseResult,
 } from "@/server/services/repair-orders.service";
 
 // ---------------------------------------------------------------------------
@@ -22,6 +28,19 @@ import type {
 export const workshopKeys = {
   all: ["workshop-repair-orders"] as const,
   advisorCandidates: () => [...workshopKeys.all, "advisor-candidates"] as const,
+  /**
+   * Phase 10A correction (2026-09-14): branch-scoped. `branchId` is cache
+   * IDENTITY only, never authorization -- the server-side scope resolution
+   * in `RepairOrdersService.reserveForLine`/`releaseReservationForLine`/
+   * `listReservationsForLine` is unchanged and remains the real boundary.
+   * Without `branchId` in the key, switching the active branch while a
+   * RepairOrderLine detail view from a previous branch stays mounted could
+   * render that previous branch's cached reservation result under the new
+   * branch context -- this key shape makes that structurally impossible
+   * (a different branchId is always a different cache entry).
+   */
+  lineReservations: (branchId: string | null, lineId: string) =>
+    [...workshopKeys.all, "line-reservations", branchId, lineId] as const,
 };
 
 // ---------------------------------------------------------------------------
@@ -92,6 +111,65 @@ export function useChangeRepairOrderStatusMutation() {
   return useMutation({
     mutationFn: (input: unknown) => changeRepairOrderStatusAction(input).then(unwrap),
     onSuccess: () => toast.success(t("toasts.statusChangedSuccess")),
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+/**
+ * Phase 10A: a RepairOrderLine's own active reservation(s), fetched ONLY
+ * when `enabled` (the line's own reservation affordance is opened) --
+ * never eagerly for every line on initial page load, avoiding an N+1
+ * query per line. `staleTime: 0` -- reservation state changes from a
+ * user's own reserve/release action and must never show stale data.
+ *
+ * Phase 10A correction (2026-09-14): `branchId` is now part of the query
+ * key (see `workshopKeys.lineReservations`) -- cache identity only, not an
+ * authorization parameter. Returns the full react-query result object
+ * (not just `data`) so callers can distinguish never-fetched / loading /
+ * error / success against the library's own status flags, rather than
+ * inferring state from `data ?? []` (which cannot tell "never fetched"
+ * apart from "fetched, genuinely zero reservations").
+ */
+export function useRepairOrderLineReservationsQuery(
+  lineId: string,
+  enabled: boolean,
+  branchId: string | null
+) {
+  return useQuery<RepairOrderLineReservation[]>({
+    queryKey: workshopKeys.lineReservations(branchId, lineId),
+    queryFn: () => listRepairOrderLineReservationsAction(lineId).then(unwrap),
+    enabled,
+    staleTime: 0,
+  });
+}
+
+export function useReserveRepairOrderLineMutation(lineId: string, branchId: string | null) {
+  const t = useTranslations("modules.workshop.repairOrders");
+  const qc = useQueryClient();
+
+  return useMutation<RepairOrderLineReservationResult, Error, unknown>({
+    mutationFn: (input: unknown) => reserveRepairOrderLineAction(input).then(unwrap),
+    onSuccess: () => {
+      toast.success(t("toasts.reservationCreatedSuccess"));
+      qc.invalidateQueries({ queryKey: workshopKeys.lineReservations(branchId, lineId) });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+export function useReleaseRepairOrderLineReservationMutation(
+  lineId: string,
+  branchId: string | null
+) {
+  const t = useTranslations("modules.workshop.repairOrders");
+  const qc = useQueryClient();
+
+  return useMutation<RepairOrderLineReservationReleaseResult, Error, unknown>({
+    mutationFn: (input: unknown) => releaseRepairOrderLineReservationAction(input).then(unwrap),
+    onSuccess: () => {
+      toast.success(t("toasts.reservationReleasedSuccess"));
+      qc.invalidateQueries({ queryKey: workshopKeys.lineReservations(branchId, lineId) });
+    },
     onError: (err: Error) => toast.error(err.message),
   });
 }

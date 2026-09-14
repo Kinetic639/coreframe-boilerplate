@@ -11,6 +11,7 @@ import { RepairOrdersService, groupProvenanceByRepairOrderLine } from "../repair
 import type {
   RepairOrderLineReadModel,
   RepairOrderProvenanceDocument,
+  RepairOrderLineReservation,
 } from "../repair-orders.service";
 import { eventService } from "../event.service";
 
@@ -2280,6 +2281,511 @@ describe("RepairOrdersService.attachMovementToRepairOrderLine", () => {
     expect(result.success).toBe(false);
     expect((result as { success: false; error: string }).error).not.toBe(
       "permission denied for table repair_order_line_movement_links"
+    );
+  });
+});
+
+/**
+ * Phase 10A: RepairOrdersService.reserveForLine /
+ * releaseReservationForLine / listReservationsForLine -- the RepairOrder
+ * domain's own wrapper around the existing, unmodified generic reservation
+ * engine (`inventory_create_reservation`/`inventory_release_reservation`).
+ * The engine's OWN real behavior (available-stock math, over-reservation
+ * rejection, release semantics, permission gating) is proven live in
+ * `098_repair_order_line_reservation_phase10a_test.sql` (17/17 passing) --
+ * these tests cover only this wrapper's own responsibilities: server-
+ * authoritative scope resolution (never trusting a caller-supplied org/
+ * branch), the no-variant guard, RPC param mapping, the release-ownership
+ * check (the central security property this wrapper adds on top of the
+ * generic engine), error normalization, event emission, and the read
+ * model's own outstanding-quantity formula.
+ */
+function buildReservationSupabaseMock(config: {
+  lineResult?: { data: unknown; error: unknown };
+  orderResult?: { data: unknown; error: unknown };
+  reservationLookupResult?: { data: unknown; error: unknown };
+  reservationsListResult?: { data: unknown; error: unknown };
+  rpcResult?: { data: unknown; error: unknown };
+}) {
+  const rpc = vi.fn().mockResolvedValue(config.rpcResult ?? { data: null, error: null });
+  const from = vi.fn().mockImplementation((table: string) => {
+    let result: { data: unknown; error: unknown } = { data: null, error: null };
+    if (table === "repair_order_lines") result = config.lineResult ?? result;
+    else if (table === "repair_orders") result = config.orderResult ?? result;
+    else if (table === "inventory_reservations") {
+      // releaseReservationForLine's own ownership lookup uses maybeSingle();
+      // listReservationsForLine's own query resolves via the thenable path.
+      result = config.reservationLookupResult ?? config.reservationsListResult ?? result;
+    }
+    const q: Record<string, unknown> = {};
+    for (const m of ["select", "eq", "is", "order"]) {
+      q[m] = vi.fn().mockImplementation(() => q);
+    }
+    q["maybeSingle"] = vi.fn().mockResolvedValue(result);
+    q["then"] = (onFulfilled: (v: unknown) => unknown) => Promise.resolve(result).then(onFulfilled);
+    return q;
+  });
+  return { from, rpc } as unknown as import("@supabase/supabase-js").SupabaseClient;
+}
+
+const RESERVATION_LINE_FOUND = {
+  data: { id: "line-1", repair_order_id: "ro-1", variant_id: "variant-1" },
+  error: null,
+};
+const RESERVATION_ORDER_FOUND = {
+  data: { id: "ro-1", organization_id: "org-1", branch_id: "branch-1" },
+  error: null,
+};
+
+describe("RepairOrdersService.reserveForLine", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("resolves org/branch/variant from the authoritative RepairOrderLine (never from the caller) and maps params to inventory_create_reservation correctly", async () => {
+    const supabase = buildReservationSupabaseMock({
+      lineResult: RESERVATION_LINE_FOUND,
+      orderResult: RESERVATION_ORDER_FOUND,
+      rpcResult: {
+        data: { reservation_id: "res-1", reservation_number: "RES-000001", status: "active" },
+        error: null,
+      },
+    });
+    (eventService.emit as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: true,
+      data: { id: "evt-1" },
+    });
+
+    const result = await RepairOrdersService.reserveForLine(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      locationId: "loc-1",
+      quantity: 5,
+    });
+
+    expect(supabase.rpc).toHaveBeenCalledWith("inventory_create_reservation", {
+      p_organization_id: "org-1",
+      p_branch_id: "branch-1",
+      p_lines: [
+        {
+          variant_id: "variant-1",
+          location_id: "loc-1",
+          quantity: 5,
+          lot_id: null,
+          serial_id: null,
+        },
+      ],
+      p_reference_type: "repair_order_line",
+      p_reference_id: "line-1",
+      p_reference_number: null,
+      p_expires_at: null,
+      p_notes: null,
+      p_actor_user_id: "user-1",
+    });
+    expect(result).toEqual({
+      success: true,
+      data: { reservationId: "res-1", reservationNumber: "RES-000001", status: "active" },
+    });
+  });
+
+  it("returns a not-found error and never calls the RPC when the RepairOrderLine does not exist", async () => {
+    const supabase = buildReservationSupabaseMock({
+      lineResult: { data: null, error: null },
+    });
+
+    const result = await RepairOrdersService.reserveForLine(supabase, "user-1", {
+      repairOrderLineId: "missing-line",
+      locationId: "loc-1",
+      quantity: 5,
+    });
+
+    expect(result).toEqual({ success: false, error: "RepairOrderLine not found" });
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it("rejects a line with no variant_id, without calling the RPC (cannot reserve stock with no product identity)", async () => {
+    const supabase = buildReservationSupabaseMock({
+      lineResult: {
+        data: { id: "line-1", repair_order_id: "ro-1", variant_id: null },
+        error: null,
+      },
+      orderResult: RESERVATION_ORDER_FOUND,
+    });
+
+    const result = await RepairOrdersService.reserveForLine(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      locationId: "loc-1",
+      quantity: 5,
+    });
+
+    expect(result.success).toBe(false);
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it("passes through a known reservation-engine error verbatim (Insufficient available stock)", async () => {
+    const supabase = buildReservationSupabaseMock({
+      lineResult: RESERVATION_LINE_FOUND,
+      orderResult: RESERVATION_ORDER_FOUND,
+      rpcResult: {
+        data: null,
+        error: { code: "P0001", message: "Insufficient available stock to reserve" },
+      },
+    });
+
+    const result = await RepairOrdersService.reserveForLine(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      locationId: "loc-1",
+      quantity: 999,
+    });
+
+    expect(result).toEqual({ success: false, error: "Insufficient available stock to reserve" });
+  });
+
+  it("normalizes an unexpected reservation-engine error, never leaking it raw", async () => {
+    const supabase = buildReservationSupabaseMock({
+      lineResult: RESERVATION_LINE_FOUND,
+      orderResult: RESERVATION_ORDER_FOUND,
+      rpcResult: {
+        data: null,
+        error: { code: "XX000", message: "connection terminated unexpectedly" },
+      },
+    });
+
+    const result = await RepairOrdersService.reserveForLine(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      locationId: "loc-1",
+      quantity: 5,
+    });
+
+    expect(result.success).toBe(false);
+    expect((result as { success: false; error: string }).error).not.toBe(
+      "connection terminated unexpectedly"
+    );
+  });
+
+  it("emits workshop.repair_orders.reservation_created on success", async () => {
+    const supabase = buildReservationSupabaseMock({
+      lineResult: RESERVATION_LINE_FOUND,
+      orderResult: RESERVATION_ORDER_FOUND,
+      rpcResult: {
+        data: { reservation_id: "res-1", reservation_number: "RES-000001", status: "active" },
+        error: null,
+      },
+    });
+    (eventService.emit as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: true,
+      data: { id: "evt-1" },
+    });
+
+    await RepairOrdersService.reserveForLine(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      locationId: "loc-1",
+      quantity: 5,
+    });
+
+    expect(eventService.emit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionKey: "workshop.repair_orders.reservation_created",
+        actorUserId: "user-1",
+        entityType: "repair_order_line",
+        entityId: "line-1",
+      })
+    );
+  });
+
+  it("does not fail the whole call when event emission itself fails (Mode A best-effort)", async () => {
+    const supabase = buildReservationSupabaseMock({
+      lineResult: RESERVATION_LINE_FOUND,
+      orderResult: RESERVATION_ORDER_FOUND,
+      rpcResult: {
+        data: { reservation_id: "res-1", reservation_number: "RES-000001", status: "active" },
+        error: null,
+      },
+    });
+    (eventService.emit as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: false,
+      error: "emit failed",
+    });
+
+    const result = await RepairOrdersService.reserveForLine(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      locationId: "loc-1",
+      quantity: 5,
+    });
+
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("RepairOrdersService.releaseReservationForLine", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("releases successfully when the reservation genuinely belongs to this line (matching org/branch/reference)", async () => {
+    const supabase = buildReservationSupabaseMock({
+      lineResult: RESERVATION_LINE_FOUND,
+      orderResult: RESERVATION_ORDER_FOUND,
+      reservationLookupResult: {
+        data: {
+          id: "res-1",
+          organization_id: "org-1",
+          branch_id: "branch-1",
+          reference_type: "repair_order_line",
+          reference_id: "line-1",
+        },
+        error: null,
+      },
+      rpcResult: { data: { reservation_id: "res-1", status: "cancelled" }, error: null },
+    });
+    (eventService.emit as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: true,
+      data: { id: "evt-1" },
+    });
+
+    const result = await RepairOrdersService.releaseReservationForLine(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      reservationId: "res-1",
+    });
+
+    expect(supabase.rpc).toHaveBeenCalledWith("inventory_release_reservation", {
+      p_reservation_id: "res-1",
+      p_actor_user_id: "user-1",
+      p_cancel: true,
+    });
+    expect(result).toEqual({
+      success: true,
+      data: { reservationId: "res-1", status: "cancelled" },
+    });
+  });
+
+  it("rejects releasing a reservation that belongs to a DIFFERENT RepairOrderLine (reference_id mismatch), without calling the release RPC", async () => {
+    const supabase = buildReservationSupabaseMock({
+      lineResult: RESERVATION_LINE_FOUND,
+      orderResult: RESERVATION_ORDER_FOUND,
+      reservationLookupResult: {
+        data: {
+          id: "res-1",
+          organization_id: "org-1",
+          branch_id: "branch-1",
+          reference_type: "repair_order_line",
+          reference_id: "some-other-line",
+        },
+        error: null,
+      },
+    });
+
+    const result = await RepairOrdersService.releaseReservationForLine(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      reservationId: "res-1",
+    });
+
+    expect(result).toEqual({ success: false, error: "Reservation not found" });
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it("rejects releasing a reservation from a DIFFERENT org/branch (cross-scope), without calling the release RPC", async () => {
+    const supabase = buildReservationSupabaseMock({
+      lineResult: RESERVATION_LINE_FOUND,
+      orderResult: RESERVATION_ORDER_FOUND,
+      reservationLookupResult: {
+        data: {
+          id: "res-1",
+          organization_id: "some-other-org",
+          branch_id: "branch-1",
+          reference_type: "repair_order_line",
+          reference_id: "line-1",
+        },
+        error: null,
+      },
+    });
+
+    const result = await RepairOrdersService.releaseReservationForLine(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      reservationId: "res-1",
+    });
+
+    expect(result).toEqual({ success: false, error: "Reservation not found" });
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it("rejects releasing a reservation that does not exist, with the same generic message as a mismatch (no existence leak)", async () => {
+    const supabase = buildReservationSupabaseMock({
+      lineResult: RESERVATION_LINE_FOUND,
+      orderResult: RESERVATION_ORDER_FOUND,
+      reservationLookupResult: { data: null, error: null },
+    });
+
+    const result = await RepairOrdersService.releaseReservationForLine(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      reservationId: "missing-res",
+    });
+
+    expect(result).toEqual({ success: false, error: "Reservation not found" });
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it("passes through a known reservation-engine release error verbatim", async () => {
+    const supabase = buildReservationSupabaseMock({
+      lineResult: RESERVATION_LINE_FOUND,
+      orderResult: RESERVATION_ORDER_FOUND,
+      reservationLookupResult: {
+        data: {
+          id: "res-1",
+          organization_id: "org-1",
+          branch_id: "branch-1",
+          reference_type: "repair_order_line",
+          reference_id: "line-1",
+        },
+        error: null,
+      },
+      rpcResult: { data: null, error: { code: "P0001", message: "Reservation not found" } },
+    });
+
+    const result = await RepairOrdersService.releaseReservationForLine(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      reservationId: "res-1",
+    });
+
+    expect(result).toEqual({ success: false, error: "Reservation not found" });
+  });
+
+  it("emits workshop.repair_orders.reservation_released on success", async () => {
+    const supabase = buildReservationSupabaseMock({
+      lineResult: RESERVATION_LINE_FOUND,
+      orderResult: RESERVATION_ORDER_FOUND,
+      reservationLookupResult: {
+        data: {
+          id: "res-1",
+          organization_id: "org-1",
+          branch_id: "branch-1",
+          reference_type: "repair_order_line",
+          reference_id: "line-1",
+        },
+        error: null,
+      },
+      rpcResult: { data: { reservation_id: "res-1", status: "cancelled" }, error: null },
+    });
+    (eventService.emit as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: true,
+      data: { id: "evt-1" },
+    });
+
+    await RepairOrdersService.releaseReservationForLine(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      reservationId: "res-1",
+    });
+
+    expect(eventService.emit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionKey: "workshop.repair_orders.reservation_released",
+        actorUserId: "user-1",
+        entityType: "repair_order_line",
+        entityId: "line-1",
+      })
+    );
+  });
+});
+
+describe("RepairOrdersService.listReservationsForLine", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("computes outstanding = reserved - released - fulfilled per line, and sums across multiple reservations for the same line", async () => {
+    const supabase = buildReservationSupabaseMock({
+      lineResult: RESERVATION_LINE_FOUND,
+      orderResult: RESERVATION_ORDER_FOUND,
+      reservationsListResult: {
+        data: [
+          {
+            id: "res-1",
+            reservation_number: "RES-000001",
+            status: "active",
+            expires_at: null,
+            created_at: "2026-01-01T00:00:00.000Z",
+            inventory_reservation_lines: [
+              {
+                id: "resline-1",
+                variant_id: "variant-1",
+                location_id: "loc-1",
+                lot_id: null,
+                serial_id: null,
+                reserved_quantity: 5,
+                released_quantity: 0,
+                fulfilled_quantity: 0,
+              },
+            ],
+          },
+          {
+            id: "res-2",
+            reservation_number: "RES-000002",
+            status: "active",
+            expires_at: null,
+            created_at: "2026-01-02T00:00:00.000Z",
+            inventory_reservation_lines: [
+              {
+                id: "resline-2",
+                variant_id: "variant-1",
+                location_id: "loc-1",
+                lot_id: null,
+                serial_id: null,
+                reserved_quantity: 2,
+                released_quantity: 1,
+                fulfilled_quantity: 0,
+              },
+            ],
+          },
+        ],
+        error: null,
+      },
+    });
+
+    const result = await RepairOrdersService.listReservationsForLine(supabase, "line-1");
+
+    expect(result.success).toBe(true);
+    const data = (result as { success: true; data: RepairOrderLineReservation[] }).data;
+    expect(data).toHaveLength(2);
+    expect(data[0].outstandingQuantity).toBe(5);
+    expect(data[1].outstandingQuantity).toBe(1);
+  });
+
+  it("returns an empty array (not an error, no existence leak) when the RepairOrderLine's own scope cannot be resolved", async () => {
+    const supabase = buildReservationSupabaseMock({
+      lineResult: { data: null, error: null },
+    });
+
+    const result = await RepairOrdersService.listReservationsForLine(supabase, "missing-line");
+
+    expect(result).toEqual({ success: true, data: [] });
+  });
+
+  it("returns an empty array when zero reservations exist for this line", async () => {
+    const supabase = buildReservationSupabaseMock({
+      lineResult: RESERVATION_LINE_FOUND,
+      orderResult: RESERVATION_ORDER_FOUND,
+      reservationsListResult: { data: [], error: null },
+    });
+
+    const result = await RepairOrdersService.listReservationsForLine(supabase, "line-1");
+
+    expect(result).toEqual({ success: true, data: [] });
+  });
+
+  it("error normalization: an unexpected query error is replaced with a generic message, never leaked raw", async () => {
+    const supabase = buildReservationSupabaseMock({
+      lineResult: RESERVATION_LINE_FOUND,
+      orderResult: RESERVATION_ORDER_FOUND,
+      reservationsListResult: {
+        data: null,
+        error: { code: "XX000", message: "connection terminated unexpectedly" },
+      },
+    });
+
+    const result = await RepairOrdersService.listReservationsForLine(supabase, "line-1");
+
+    expect(result.success).toBe(false);
+    expect((result as { success: false; error: string }).error).not.toBe(
+      "connection terminated unexpectedly"
     );
   });
 });

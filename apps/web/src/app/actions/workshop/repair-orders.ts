@@ -1,5 +1,6 @@
 "use server";
 
+import { z } from "zod";
 import { createClient } from "@/utils/supabase/server";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { checkPermission } from "@/lib/utils/permissions";
@@ -19,7 +20,15 @@ import {
   updateRepairOrderHeaderSchema,
   assignRepairOrderAdvisorSchema,
   changeRepairOrderStatusSchema,
+  reserveRepairOrderLineSchema,
+  releaseRepairOrderLineReservationSchema,
 } from "@/lib/validations/repair-orders";
+import { WAREHOUSE_INVENTORY_OPERATE } from "@repo/contracts/permissions";
+import type {
+  RepairOrderLineReservationResult,
+  RepairOrderLineReservationReleaseResult,
+  RepairOrderLineReservation,
+} from "@/server/services/repair-orders.service";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -245,6 +254,110 @@ export async function listAdvisorCandidatesAction(): Promise<
     if (!canManage) return { success: false, error: "Unauthorized" };
 
     return RepairOrdersService.listAdvisorCandidates(supabase, orgId);
+  } catch {
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Phase 10A -- reservation
+// ---------------------------------------------------------------------------
+
+/**
+ * Phase 10A -- reserve stock for one RepairOrderLine. Gated on
+ * `warehouse.inventory.operate` (matching decision 5 / the existing
+ * Warehouse-module `createInventoryReservationAction`'s own gate for the
+ * exact same underlying RPC) -- deliberately NOT gated on any
+ * `workshop.repair_orders.*` permission: being able to read/manage a
+ * RepairOrder does not, by itself, grant inventory-operation authority,
+ * and vice versa (section 23's own explicit requirement). Org/branch/
+ * variant scope is never taken from this action's own input -- resolved
+ * entirely server-side by `RepairOrdersService.reserveForLine` from the
+ * RepairOrderLine's own authoritative parent.
+ */
+export async function reserveRepairOrderLineAction(
+  rawInput: unknown
+): Promise<ActionResult<RepairOrderLineReservationResult>> {
+  try {
+    const { supabase, user, context } = await getAuthedContext();
+    if (!user) return { success: false, error: "Unauthenticated" };
+    if (!checkPermission(context?.user.permissionSnapshot, WAREHOUSE_INVENTORY_OPERATE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const parsed = reserveRepairOrderLineSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    return RepairOrdersService.reserveForLine(supabase, user.id, {
+      repairOrderLineId: parsed.data.repairOrderLineId,
+      locationId: parsed.data.locationId,
+      quantity: parsed.data.quantity,
+      notes: parsed.data.notes ?? null,
+    });
+  } catch {
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
+/**
+ * Phase 10A -- release a reservation previously created for one
+ * RepairOrderLine. Same `warehouse.inventory.operate` gate as reserving.
+ * Ownership (this reservation genuinely belongs to this exact line) is
+ * verified server-side by `RepairOrdersService.releaseReservationForLine`
+ * itself, not by this action.
+ */
+export async function releaseRepairOrderLineReservationAction(
+  rawInput: unknown
+): Promise<ActionResult<RepairOrderLineReservationReleaseResult>> {
+  try {
+    const { supabase, user, context } = await getAuthedContext();
+    if (!user) return { success: false, error: "Unauthenticated" };
+    if (!checkPermission(context?.user.permissionSnapshot, WAREHOUSE_INVENTORY_OPERATE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const parsed = releaseRepairOrderLineReservationSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    return RepairOrdersService.releaseReservationForLine(supabase, user.id, {
+      repairOrderLineId: parsed.data.repairOrderLineId,
+      reservationId: parsed.data.reservationId,
+      cancel: parsed.data.cancel,
+    });
+  } catch {
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
+/**
+ * Phase 10A read model -- fetched on demand (when a line's reservation
+ * popover opens), not eagerly for every line on initial page load, to
+ * avoid an N+1 query per RepairOrderLine. Gated only on being a genuine,
+ * authenticated caller with SOME read access to this Workshop module --
+ * the real data-visibility boundary is `inventory_reservations`' own RLS
+ * (`warehouse.inventory.read`), enforced independently underneath this
+ * call (a caller who can view the RepairOrder but lacks inventory-read
+ * simply sees an empty list, never an error -- fails closed, does not
+ * leak that a reservation exists).
+ */
+export async function listRepairOrderLineReservationsAction(
+  repairOrderLineId: string
+): Promise<ActionResult<RepairOrderLineReservation[]>> {
+  try {
+    const { supabase, user, context } = await getAuthedContext();
+    if (!user) return { success: false, error: "Unauthenticated" };
+    const snapshot = context?.user.permissionSnapshot;
+    const canView =
+      checkPermission(snapshot, WORKSHOP_REPAIR_ORDERS_READ) ||
+      checkPermission(snapshot, WORKSHOP_REPAIR_ORDERS_MANAGE_OWN) ||
+      checkPermission(snapshot, WORKSHOP_REPAIR_ORDERS_MANAGE_ALL);
+    if (!canView) return { success: false, error: "Unauthorized" };
+
+    if (!z.string().uuid().safeParse(repairOrderLineId).success) {
+      return { success: false, error: "Invalid repair order line id" };
+    }
+
+    return RepairOrdersService.listReservationsForLine(supabase, repairOrderLineId);
   } catch {
     return { success: false, error: "Unexpected error" };
   }

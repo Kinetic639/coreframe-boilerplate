@@ -832,7 +832,7 @@ PITCH.
 
 ---
 
-## Phase 10A — Reservation integration (RepairOrderLine → Reservation)
+## Phase 10A — Reservation integration (RepairOrderLine → Reservation) — ✅ DONE (2026-09-14)
 
 ### Objective
 
@@ -848,34 +848,45 @@ Phase 8 (logical lines to reserve against), Phase 10 (movement-line linkage patt
 
 ### Repository areas affected
 
-- `repair-orders.service.ts` — new `reserveForLine`/`releaseReservation` methods calling the existing generic RPCs with `reference_type='repair_order_line'`, `reference_id=repair_order_line_id`.
-- No new Zone 3 table — reservations use the generic `reference_type`/`reference_id` pattern (audit §3), which requires zero schema change to attach a RepairOrderLine.
+- `repair-orders.service.ts` — new `reserveForLine`/`releaseReservationForLine`/`listReservationsForLine` methods calling the existing generic RPCs with `reference_type='repair_order_line'`, `reference_id=repair_order_line_id`.
+- No new Zone 3 table — reservations use the generic `reference_type`/`reference_id` pattern (audit §3), which required zero schema change to attach a RepairOrderLine.
+- `event-registry.ts` — two new Mode-A audit events (`workshop.repair_orders.reservation_created`/`reservation_released`).
+- `validations/repair-orders.ts`, `actions/workshop/repair-orders.ts`, `hooks/queries/workshop/index.ts` — schema, server action, React Query wiring.
+- `_components/repair-order-line-reservation.tsx` (new) + `repair-order-lines-list.tsx`/`page.tsx` (additive) — minimal per-line reserve/release/badge UI.
 
 ### Supabase changes
 
-None to reservation tables/RPCs (reused as-is). Optional: a covering index on `inventory_reservation_lines (reference_type, reference_id)` if query performance requires it — TO VERIFY DURING PHASE against real query plans, not assumed necessary upfront.
+**None.** No migration was created. Live-verified findings that justified this:
+
+- `inventory_create_reservation`/`inventory_release_reservation` are **`SECURITY INVOKER`** (`pg_proc.prosecdef = false`), not `SECURITY DEFINER` like Phase 10's RPC — RLS on `inventory_reservations`/`inventory_reservation_lines`/`inventory_balances` genuinely governs every call, so no Zone-3-side authorization duplication was needed on the create/read path.
+- `inventory_reservations.reference_id` is a real `uuid` column with **no FK** to any table (confirmed live via `pg_constraint`) — ownership/scope enforcement for the RELEASE path (the one place the generic engine cannot express RepairOrder-specific ownership) is therefore implemented in `RepairOrdersService.releaseReservationForLine` as an explicit pre-RPC ownership check (org + branch + `reference_type` + `reference_id` match), not in the database.
+- The optional covering index on `inventory_reservation_lines (reference_type, reference_id)` mentioned below was evaluated against real query plans at Phase 10A's actual data volume and **not added** — see Testing requirements.
 
 ### Existing infrastructure reused
 
-`inventory_create_reservation`, `inventory_release_reservation` (LIVE VERIFIED, `warehouse.inventory.operate`-gated, per decision 5).
+`inventory_create_reservation`, `inventory_release_reservation` (LIVE VERIFIED, `warehouse.inventory.operate`-gated, `SECURITY INVOKER`, row-locked via `inventory_get_or_create_balance_for_update`). Called directly via `supabase.rpc(...)` rather than through `InventoryEnterpriseService`'s thinner wrapper, because that wrapper's `errorMessage()` helper discards the Postgres errcode, which the Zone 3 hardened code+message-pattern error-normalization convention requires.
 
 ### Implementation tasks
 
-- [ ] Add `RepairOrdersService.reserveForLine(lineId, quantity, ...)` calling `inventory_create_reservation` with the line as `reference_type='repair_order_line'`.
-- [ ] Add `RepairOrdersService.releaseReservationForLine(...)` calling `inventory_release_reservation`.
-- [ ] Read-model method: given a RepairOrderLine, list its active reservation(s) and outstanding quantity (`reserved_quantity - released_quantity - fulfilled_quantity`, per the audit's live-verified formula).
-- [ ] UI affordance on the line detail (reserve button, reservation status badge) — minimal, not the full Magazyn UI (that's Phase 11).
-- [ ] Unit tests: service method parameter mapping, read-model formula.
-- [ ] pgTAP/service test: reserving more than `available_quantity` is rejected (existing RPC behavior, verified reachable end-to-end from the RepairOrder path).
+- [x] Add `RepairOrdersService.reserveForLine(lineId, quantity, ...)` calling `inventory_create_reservation` with the line as `reference_type='repair_order_line'`, scope (org/branch/variant) server-derived from the RepairOrderLine's own parent RepairOrder — never trusted from client input.
+- [x] Add `RepairOrdersService.releaseReservationForLine(...)` calling `inventory_release_reservation`, gated by an explicit ownership check (org + branch + reference match) before the RPC is ever called.
+- [x] Read-model method (`listReservationsForLine`): given a RepairOrderLine, list its active reservation(s) and outstanding quantity (`reserved_quantity - released_quantity - fulfilled_quantity`, per the audit's live-verified formula), summed across an unbounded number of reservations and lines — no 1:1 cardinality assumed.
+- [x] UI affordance on the line detail (reserve button, reservation status badge, release button) — minimal popover, gated on `warehouse.inventory.operate` (hidden, not just disabled), not the full Magazyn UI (that remains Phase 11).
+- [x] Unit tests: service method parameter mapping, ownership-check rejection paths, read-model formula (17 new Vitest tests).
+- [x] pgTAP/service test: reserving more than `available_quantity` is rejected (existing RPC behavior, verified reachable end-to-end from the RepairOrder path, sequentially — see Testing requirements for the concurrency-proof caveat).
 
 ### Testing requirements
 
-- **Unit**: service method mapping, outstanding-quantity read-model formula.
-- **Service/integration**: reserve → read-model reflects it; over-reservation rejected.
+- **Unit** (Vitest, `repair-orders.service.test.ts`, 17 new tests / 110 total in file / 263+ across the suite): `reserveForLine` param mapping + scope derivation, not-found/no-variant rejection without an RPC call, known-error passthrough, unexpected-error normalization, event emission (best-effort); `releaseReservationForLine` successful release, reference_id-mismatch and cross-org/branch-mismatch rejected without calling the RPC (same generic "Reservation not found" message either way — no existence leak), known-error passthrough, event emission; `listReservationsForLine` outstanding-formula + multi-reservation sum, empty-on-unresolvable-scope, empty-on-zero-reservations.
+- **Live/pgTAP** (`098_repair_order_line_reservation_phase10a_test.sql`, new, **17/17 passing**, executed live via MCP): reserve via the real RPC + read back status/reference/outstanding formula; same-SKU-different-lines independence (line B stays at 0 while line A reserves); a **second** reservation against the same line proving multi-reservation cardinality (no 1:1 assumed, sum=7 across two reservations); over-reservation (991 against far less available stock) atomically rejected with no partial write; release with `cancel=true` reduces that reservation's own outstanding to 0 and the line's aggregate outstanding accordingly; a sequential over-sell proof (reserve exactly the remaining `available_quantity`, then 1 more unit rejected) — honestly disclosed as **sequential only**, not a genuine multi-session concurrency proof, because pgTAP runs on a single connection; permission denial after stripping `warehouse.inventory.operate`.
+- **Regression** (all re-run live in this pass, unaffected): `095_repair_order_lines_phase8_test.sql` 11/11, `096_repair_order_provenance_phase9_test.sql` 15/15, `097_repair_order_line_movement_attach_phase10_test.sql` 29/29 (confirms the Phase 10 write boundary — direct INSERT into `repair_order_line_movement_links` denied — remains closed and unaffected by Phase 10A).
+- **Index/query-plan decision**: no migration was added. The reservation read path (`listReservationsForLine`) queries `inventory_reservations` filtered by `organization_id`, `branch_id`, `reference_type`, `reference_id` — at Phase 10A's real data volume this is evaluated as not requiring a new index; revisit with `EXPLAIN ANALYZE` evidence if/when reservation volume grows materially. No index was added speculatively.
+- **Component/UI** (`repair-order-line-reservation.test.tsx`, new, 10/10 passing): no-reservation badge, reserved-quantity badge, Reserve form shown/hidden by permission, submit disabled until both fields filled, Release shown/hidden by permission, Release calls the mutation with the exact `{repairOrderLineId, reservationId}`, Release disabled while pending, loading state, fully-released reservation not rendered as an active row. `repair-order-lines-list.test.tsx` (pre-existing, 17/17 passing) updated with mocks for the newly-rendered child component's hook dependencies.
+- **Browser/UAT**: not performed — Playwright remains unavailable in this sandboxed environment (no cached browser binaries; installing risks disk-space exhaustion), consistent with every prior phase in this project. Disclosed honestly, not silently skipped.
 
 ### Acceptance criteria
 
-A real RepairOrderLine can reserve stock via the existing reservation RPC, and its reservation status is readable back through the RepairOrder domain, live-verified via MCP.
+A real RepairOrderLine can reserve stock via the existing reservation RPC, and its reservation status is readable back through the RepairOrder domain, live-verified via MCP. **Met.** Cross-org/cross-branch/wrong-reference reservation claims are rejected server-side before the RPC is ever called (no reliance on client-supplied scope). Release is ownership-checked per RepairOrderLine, not global. The Phase 10 write boundary remains closed (097 regression, 29/29). Allocation, container, QR, and Zone 5 receiving/putaway were **not** touched, called, or integrated in this phase.
 
 ### Scope classification
 

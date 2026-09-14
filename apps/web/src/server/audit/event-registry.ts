@@ -1575,6 +1575,53 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
     visibleTo: ["org_member", "org_admin", "auditor"],
     sensitiveFields: [],
   },
+
+  "workshop.repair_orders.reservation_created": {
+    actionKey: "workshop.repair_orders.reservation_created",
+    moduleSlug: "workshop",
+    eventTier: "baseline",
+    category: "STATE",
+    intent: "CREATE",
+    description:
+      "Stock was reserved for a RepairOrderLine via the generic inventory reservation engine (Phase 10A)",
+    metadataSchema: z.object({
+      reservationId: z.string().uuid(),
+      quantity: z.number().positive(),
+      locationId: z.string().uuid(),
+    }),
+    summaryTemplate: "Reserved {{quantity}} for a repair order line",
+    i18nKey: "events.workshop.repair_orders.reservation_created",
+    iconKey: "lock",
+    scope: "branch",
+    actorVisible: true,
+    selfVisible: true,
+    visibilityClass: "org_activity",
+    visibleTo: ["org_member", "org_admin", "auditor"],
+    sensitiveFields: [],
+  },
+
+  "workshop.repair_orders.reservation_released": {
+    actionKey: "workshop.repair_orders.reservation_released",
+    moduleSlug: "workshop",
+    eventTier: "baseline",
+    category: "STATE",
+    intent: "UPDATE",
+    description:
+      "A RepairOrderLine's stock reservation was released via the generic inventory reservation engine (Phase 10A)",
+    metadataSchema: z.object({
+      reservationId: z.string().uuid(),
+      status: z.string(),
+    }),
+    summaryTemplate: "Released a repair order line's reservation ({{status}})",
+    i18nKey: "events.workshop.repair_orders.reservation_released",
+    iconKey: "unlock",
+    scope: "branch",
+    actorVisible: true,
+    selfVisible: true,
+    visibilityClass: "org_activity",
+    visibleTo: ["org_member", "org_admin", "auditor"],
+    sensitiveFields: [],
+  },
 };
 
 // ---------------------------------------------------------------------------
