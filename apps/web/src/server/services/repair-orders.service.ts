@@ -112,6 +112,60 @@ function normalizeRepairOrderCrudError(
 }
 
 /**
+ * Phase 10: the atomic, fully-validated writer for
+ * `repair_order_line_movement_links` (`attach_repair_order_line_movement`,
+ * apps/web/supabase-target/supabase/migrations/20260912162802_repair_order_
+ * line_movement_attach_rpc.sql) RAISEs a small set of deliberately-authored,
+ * already-safe messages, each with a stable ERRCODE -- same allowlist
+ * pattern as normalizeMaterializationRpcError above (code AND message-shape
+ * match required, not errcode alone, for the same reason Finding E fixed
+ * there: several of these codes are broad Postgres error CLASSES a native,
+ * un-authored error could also raise).
+ */
+const REPAIR_ORDER_MOVEMENT_LINK_KNOWN_ERRORS: ReadonlyArray<{ code: string; pattern: RegExp }> = [
+  { code: "28000", pattern: /^p_actor_user_id must match the authenticated caller$/ },
+  { code: "22023", pattern: /^applied_quantity must be greater than zero$/ },
+  { code: "22023", pattern: /^relation_type must be receipt or issue$/ },
+  { code: "P0002", pattern: /^RepairOrderLine not found: / },
+  {
+    code: "42501",
+    pattern: /^Not authorized to attribute inventory movements for this branch$/,
+  },
+  { code: "P0002", pattern: /^Inventory movement line not found: / },
+  {
+    code: "42501",
+    pattern: /^Movement line organization\/branch does not match the RepairOrder$/,
+  },
+  {
+    code: "55000",
+    pattern: /^Only posted movement lines can be attributed to a RepairOrderLine$/,
+  },
+  { code: "22023", pattern: /^relation_type .* does not match movement category / },
+  { code: "55000", pattern: /^Movement is referenced to a different RepairOrder$/ },
+  {
+    code: "55000",
+    pattern: /^Movement line product\/variant does not match the RepairOrderLine's own variant$/,
+  },
+  {
+    code: "22023",
+    pattern: /^applied_quantity exceeds the movement line's own remaining quantity /,
+  },
+  {
+    code: "23505",
+    pattern:
+      /^This movement line is already attributed to this RepairOrderLine with this relation type$/,
+  },
+];
+
+function normalizeMovementLinkRpcError(error: { code?: string; message: string }): string {
+  const isKnown = REPAIR_ORDER_MOVEMENT_LINK_KNOWN_ERRORS.some(
+    (known) => error.code === known.code && known.pattern.test(error.message)
+  );
+  if (isKnown) return error.message;
+  return "Failed to attribute this movement to the repair order line due to an unexpected server error. Please try again or contact support.";
+}
+
+/**
  * Typed, clean result of a materialization call -- the raw jsonb shape
  * returned by the materialize_repair_orders_from_session RPC, mapped to a
  * domain type so callers never depend on the RPC's raw jsonb keys directly.
@@ -253,6 +307,20 @@ function mapRepairOrderListRow(row: RepairOrderListDbRow): RepairOrderListRow {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+/**
+ * Phase 10: the result of a successful `attachMovementToRepairOrderLine`
+ * call -- one real, persisted `repair_order_line_movement_links` row,
+ * mapped to a domain type so callers never depend on the RPC's raw jsonb
+ * key names directly.
+ */
+export interface RepairOrderLineMovementAttachment {
+  id: string;
+  repairOrderLineId: string;
+  inventoryMovementLineId: string;
+  appliedQuantity: number;
+  relationType: "receipt" | "issue";
 }
 
 /**
@@ -1492,5 +1560,110 @@ export class RepairOrdersService {
     }
 
     return { success: true, data: documents };
+  }
+
+  /**
+   * Phase 10: attribute one already-posted, real `inventory_movement_lines`
+   * row to a RepairOrderLine -- the ONLY writer this phase adds for
+   * `repair_order_line_movement_links`. Calls the atomic SECURITY DEFINER
+   * RPC `attach_repair_order_line_movement` (20260912162802_repair_order_
+   * line_movement_attach_rpc.sql), which is the single place every
+   * attribution validation rule lives (actor identity, branch permission,
+   * cross-org/branch movement-line match, posted-status, relation_type <->
+   * movement-category match, RepairOrder-reference consistency where the
+   * movement carries one, variant compatibility where the RepairOrderLine
+   * carries one, and the applied-quantity-never-exceeds-the-movement-line's
+   * -own-quantity cap, enforced under a row lock so concurrent attempts
+   * against the SAME movement line cannot race past the cap) -- see that
+   * migration's own comments for the exact rules. This method performs no
+   * additional validation of its own and makes no assumption about SKU:
+   * every RepairOrderLine/movement-line pairing is exactly what the caller
+   * explicitly passed in, never inferred.
+   *
+   * `relation_type: 'issue'` is accepted by the RPC's own signature (kept
+   * forward-compatible for Phase 10F, which will reuse this exact same
+   * primitive rather than needing a new one) but cannot succeed against any
+   * data live today -- LIVE VERIFIED this session: the target project has
+   * no `inventory_movement_types` row with `category = 'issue'` at all (the
+   * only live categories are `receipt`, `transfer`, `adjustment`,
+   * `bin_operation`), so the RPC's own category-match check rejects every
+   * real issue attempt today. This method does not fabricate an issue flow
+   * to work around that -- it is a genuine, disclosed, live-data-backed
+   * limitation, not a design choice made here.
+   *
+   * `relation_type: 'reversal'` is deliberately not accepted at all (the
+   * RPC rejects it outright) -- no netting/linkage semantics for it exist
+   * anywhere in the architecture, matching Phase 8's own read-side
+   * disclosed limitation (`listRepairOrderLines`'s own doc comment).
+   *
+   * Event emission (Mode A, best-effort, same pattern as
+   * materializeFromSession above): emitted AFTER the RPC commits; a failure
+   * to emit never rolls back or hides the already-successful attribution.
+   */
+  static async attachMovementToRepairOrderLine(
+    supabase: SupabaseClient,
+    actorUserId: string,
+    params: {
+      repairOrderLineId: string;
+      inventoryMovementLineId: string;
+      appliedQuantity: number;
+      relationType: "receipt" | "issue";
+    }
+  ): Promise<ServiceResult<RepairOrderLineMovementAttachment>> {
+    const { data, error } = await supabase.rpc("attach_repair_order_line_movement", {
+      p_actor_user_id: actorUserId,
+      p_repair_order_line_id: params.repairOrderLineId,
+      p_inventory_movement_line_id: params.inventoryMovementLineId,
+      p_applied_quantity: params.appliedQuantity,
+      p_relation_type: params.relationType,
+    });
+
+    if (error) {
+      console.error(
+        "[RepairOrdersService.attachMovementToRepairOrderLine] attach_repair_order_line_movement RPC error:",
+        error
+      );
+      return { success: false, error: normalizeMovementLinkRpcError(error) };
+    }
+
+    const row = data as {
+      id: string;
+      repair_order_line_id: string;
+      inventory_movement_line_id: string;
+      applied_quantity: number;
+      relation_type: string;
+    };
+    const result: RepairOrderLineMovementAttachment = {
+      id: row.id,
+      repairOrderLineId: row.repair_order_line_id,
+      inventoryMovementLineId: row.inventory_movement_line_id,
+      appliedQuantity: row.applied_quantity,
+      relationType: row.relation_type as "receipt" | "issue",
+    };
+
+    const emitResult = await eventService.emit({
+      actionKey: "workshop.repair_orders.movement_attributed",
+      actorType: "user",
+      actorUserId,
+      entityType: "repair_order_line",
+      entityId: result.repairOrderLineId,
+      metadata: {
+        inventoryMovementLineId: result.inventoryMovementLineId,
+        appliedQuantity: result.appliedQuantity,
+        relationType: result.relationType,
+      },
+      eventTier: "baseline",
+    });
+
+    if (!emitResult.success) {
+      // Best-effort per Mode A -- the domain write above already succeeded
+      // and is returned to the caller regardless of this failure.
+      console.error(
+        "[RepairOrdersService.attachMovementToRepairOrderLine] Failed to emit workshop.repair_orders.movement_attributed:",
+        (emitResult as { success: false; error: string }).error
+      );
+    }
+
+    return { success: true, data: result };
   }
 }

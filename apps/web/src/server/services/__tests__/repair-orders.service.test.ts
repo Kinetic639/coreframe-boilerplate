@@ -2060,3 +2060,226 @@ describe("RepairOrdersService.getRepairOrderProvenance", () => {
     );
   });
 });
+
+/**
+ * Phase 10: RepairOrdersService.attachMovementToRepairOrderLine -- the
+ * service-layer wrapper around the single, fully-validated RPC
+ * (attach_repair_order_line_movement,
+ * 20260912162802_repair_order_line_movement_attach_rpc.sql). Every
+ * validation RULE itself is proven live against the real RPC in
+ * 097_repair_order_line_movement_attach_phase10_test.sql (21/21 passing) --
+ * these tests cover only this method's own responsibilities: RPC param
+ * mapping, jsonb->domain-type mapping, Mode-A event emission on success,
+ * no emission on RPC error, and the curated error-normalization allowlist.
+ */
+describe("RepairOrdersService.attachMovementToRepairOrderLine", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const ATTACH_RPC_ROW = {
+    id: "link-1",
+    repair_order_line_id: "line-1",
+    inventory_movement_line_id: "ml-1",
+    applied_quantity: 2,
+    relation_type: "receipt",
+  };
+
+  it("calls the RPC with the correct params and maps the raw jsonb result to a typed RepairOrderLineMovementAttachment", async () => {
+    const supabase = buildSupabaseMock({ data: ATTACH_RPC_ROW, error: null });
+    (eventService.emit as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: true,
+      data: { id: "evt-1" },
+    });
+
+    const result = await RepairOrdersService.attachMovementToRepairOrderLine(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      inventoryMovementLineId: "ml-1",
+      appliedQuantity: 2,
+      relationType: "receipt",
+    });
+
+    expect(supabase.rpc).toHaveBeenCalledOnce();
+    expect(supabase.rpc).toHaveBeenCalledWith("attach_repair_order_line_movement", {
+      p_actor_user_id: "user-1",
+      p_repair_order_line_id: "line-1",
+      p_inventory_movement_line_id: "ml-1",
+      p_applied_quantity: 2,
+      p_relation_type: "receipt",
+    });
+
+    expect(result).toEqual({
+      success: true,
+      data: {
+        id: "link-1",
+        repairOrderLineId: "line-1",
+        inventoryMovementLineId: "ml-1",
+        appliedQuantity: 2,
+        relationType: "receipt",
+      },
+    });
+  });
+
+  it("emits workshop.repair_orders.movement_attributed on success, with the actor and link summary", async () => {
+    const supabase = buildSupabaseMock({ data: ATTACH_RPC_ROW, error: null });
+    (eventService.emit as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: true,
+      data: { id: "evt-1" },
+    });
+
+    await RepairOrdersService.attachMovementToRepairOrderLine(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      inventoryMovementLineId: "ml-1",
+      appliedQuantity: 2,
+      relationType: "receipt",
+    });
+
+    expect(eventService.emit).toHaveBeenCalledOnce();
+    expect(eventService.emit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionKey: "workshop.repair_orders.movement_attributed",
+        actorType: "user",
+        actorUserId: "user-1",
+        entityType: "repair_order_line",
+        entityId: "line-1",
+        eventTier: "baseline",
+        metadata: expect.objectContaining({
+          inventoryMovementLineId: "ml-1",
+          appliedQuantity: 2,
+          relationType: "receipt",
+        }),
+      })
+    );
+  });
+
+  it("does not fail the whole call when event emission itself fails (Mode A best-effort)", async () => {
+    const supabase = buildSupabaseMock({ data: ATTACH_RPC_ROW, error: null });
+    (eventService.emit as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: false,
+      error: "emit failed",
+    });
+
+    const result = await RepairOrdersService.attachMovementToRepairOrderLine(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      inventoryMovementLineId: "ml-1",
+      appliedQuantity: 2,
+      relationType: "receipt",
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("returns a failure result and does NOT emit an event when the RPC itself errors", async () => {
+    const supabase = buildSupabaseMock({
+      data: null,
+      error: { code: "P0002", message: "RepairOrderLine not found: missing-line" },
+    });
+
+    const result = await RepairOrdersService.attachMovementToRepairOrderLine(supabase, "user-1", {
+      repairOrderLineId: "missing-line",
+      inventoryMovementLineId: "ml-1",
+      appliedQuantity: 2,
+      relationType: "receipt",
+    });
+
+    expect(result).toEqual({
+      success: false,
+      error: "RepairOrderLine not found: missing-line",
+    });
+    expect(eventService.emit).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { code: "28000", message: "p_actor_user_id must match the authenticated caller" },
+    { code: "22023", message: "applied_quantity must be greater than zero" },
+    { code: "22023", message: "relation_type must be receipt or issue" },
+    { code: "P0002", message: "Inventory movement line not found: ml-x" },
+    {
+      code: "42501",
+      message: "Not authorized to attribute inventory movements for this branch",
+    },
+    {
+      code: "42501",
+      message: "Movement line organization/branch does not match the RepairOrder",
+    },
+    {
+      code: "55000",
+      message: "Only posted movement lines can be attributed to a RepairOrderLine",
+    },
+    { code: "22023", message: "relation_type issue does not match movement category receipt" },
+    { code: "55000", message: "Movement is referenced to a different RepairOrder" },
+    {
+      code: "55000",
+      message: "Movement line product/variant does not match the RepairOrderLine's own variant",
+    },
+    {
+      code: "22023",
+      message:
+        "applied_quantity exceeds the movement line's own remaining quantity (already applied 2, line quantity 2.000000)",
+    },
+    {
+      code: "23505",
+      message:
+        "This movement line is already attributed to this RepairOrderLine with this relation type",
+    },
+  ])(
+    "passes through the RPC's own known, safe error message verbatim ($code)",
+    async ({ code, message }) => {
+      const supabase = buildSupabaseMock({ data: null, error: { code, message } });
+
+      const result = await RepairOrdersService.attachMovementToRepairOrderLine(supabase, "user-1", {
+        repairOrderLineId: "line-1",
+        inventoryMovementLineId: "ml-1",
+        appliedQuantity: 2,
+        relationType: "receipt",
+      });
+
+      expect(result).toEqual({ success: false, error: message });
+    }
+  );
+
+  it("error normalization: an unexpected error is replaced with a generic message, never leaked raw", async () => {
+    const supabase = buildSupabaseMock({
+      data: null,
+      error: { code: "XX000", message: "connection terminated unexpectedly" },
+    });
+
+    const result = await RepairOrdersService.attachMovementToRepairOrderLine(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      inventoryMovementLineId: "ml-1",
+      appliedQuantity: 2,
+      relationType: "receipt",
+    });
+
+    expect(result.success).toBe(false);
+    expect((result as { success: false; error: string }).error).not.toBe(
+      "connection terminated unexpectedly"
+    );
+  });
+
+  it("error normalization: a same-errcode native error with an unrecognized message shape is NOT mistaken for a known RPC message", async () => {
+    // Same errcode as the "not authorized" RAISE (42501) but a different,
+    // native-Postgres-shaped message -- must fall through to the generic
+    // message, not be passed through verbatim (matches the hardening
+    // already applied to normalizeMaterializationRpcError).
+    const supabase = buildSupabaseMock({
+      data: null,
+      error: {
+        code: "42501",
+        message: "permission denied for table repair_order_line_movement_links",
+      },
+    });
+
+    const result = await RepairOrdersService.attachMovementToRepairOrderLine(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      inventoryMovementLineId: "ml-1",
+      appliedQuantity: 2,
+      relationType: "receipt",
+    });
+
+    expect(result.success).toBe(false);
+    expect((result as { success: false; error: string }).error).not.toBe(
+      "permission denied for table repair_order_line_movement_links"
+    );
+  });
+});

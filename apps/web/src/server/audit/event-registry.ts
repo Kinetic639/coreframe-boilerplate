@@ -1551,6 +1551,30 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
     visibleTo: ["org_member", "org_admin", "auditor"],
     sensitiveFields: [],
   },
+
+  "workshop.repair_orders.movement_attributed": {
+    actionKey: "workshop.repair_orders.movement_attributed",
+    moduleSlug: "workshop",
+    eventTier: "baseline",
+    category: "STATE",
+    intent: "CREATE",
+    description:
+      "A real, posted inventory movement line was attributed to a RepairOrderLine (Phase 10 linkage)",
+    metadataSchema: z.object({
+      inventoryMovementLineId: z.string().uuid(),
+      appliedQuantity: z.number().positive(),
+      relationType: z.enum(["receipt", "issue"]),
+    }),
+    summaryTemplate: "Attributed a {{relationType}} of {{appliedQuantity}} to a repair order line",
+    i18nKey: "events.workshop.repair_orders.movement_attributed",
+    iconKey: "link",
+    scope: "branch",
+    actorVisible: true,
+    selfVisible: true,
+    visibilityClass: "org_activity",
+    visibleTo: ["org_member", "org_admin", "auditor"],
+    sensitiveFields: [],
+  },
 };
 
 // ---------------------------------------------------------------------------
