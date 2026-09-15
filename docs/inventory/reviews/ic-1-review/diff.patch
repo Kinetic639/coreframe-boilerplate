@@ -1,0 +1,2433 @@
+diff --git a/apps/web/supabase-target/supabase/migrations/20260915062211_ic1_inventory_balances_on_hand_nonnegative_check.sql b/apps/web/supabase-target/supabase/migrations/20260915062211_ic1_inventory_balances_on_hand_nonnegative_check.sql
+new file mode 100644
+index 00000000..434bb121
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260915062211_ic1_inventory_balances_on_hand_nonnegative_check.sql
+@@ -0,0 +1,12 @@
++-- IC-1 (Inventory Core consolidation, Canonical Movement Engine / Hard Stock
++-- Invariants): add the missing non-negative CHECK constraint on
++-- `inventory_balances.on_hand_quantity`. IC-0's own live verification
++-- confirmed `allocated_quantity >= 0` and `reserved_quantity >= 0` already
++-- exist (`inventory_balances_allocated_nonnegative`,
++-- `inventory_balances_reserved_nonnegative`); `on_hand_quantity >= 0` did
++-- NOT. Pre-migration data safety check (live-queried, IC-0): all 37 existing
++-- `inventory_balances` rows already satisfy this -- safe forward migration,
++-- no data repair required.
++ALTER TABLE public.inventory_balances
++  ADD CONSTRAINT inventory_balances_on_hand_nonnegative
++  CHECK (on_hand_quantity >= 0);
+diff --git a/apps/web/supabase-target/supabase/migrations/20260915062244_ic1_inventory_finalize_posting_hard_invariant.sql b/apps/web/supabase-target/supabase/migrations/20260915062244_ic1_inventory_finalize_posting_hard_invariant.sql
+new file mode 100644
+index 00000000..3a7f117a
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260915062244_ic1_inventory_finalize_posting_hard_invariant.sql
+@@ -0,0 +1,260 @@
++-- IC-1 (Inventory Core consolidation, Canonical Movement Engine / Hard Stock
++-- Invariants): close the live-proven reserved/allocated blind spot
++-- (`101_zone3_zone5_movement_engine_reserved_blindspot_characterization_
++-- test.sql`, pre-IC-1) in the shared, canonical `inventory_finalize_
++-- posting` engine.
++--
++-- Two changes to the function body:
++--
++-- 1. Replace the internal balance-getter call from
++--    `inventory_v1_get_or_create_balance` (returns a bare uuid, no
++--    lot/serial support, IC-0 confirmed exactly one production caller --
++--    this function itself) to `inventory_get_or_create_balance_for_update`
++--    (returns the full locked row, FOR UPDATE, already the established
++--    replacement used elsewhere). Only the lot/serial-agnostic call shape
++--    is used here -- no new lot/serial behavior is exposed as a side
++--    effect. NOTE: this migration's own call is 5 positional arguments,
++--    which a later migration in this same IC-1 session
++--    (`ic1_inventory_finalize_posting_fix_ambiguous_overload`) found to be
++--    genuinely ambiguous against `inventory_get_or_create_balance_for_
++--    update`'s 7-argument (2 trailing DEFAULT NULL) overload -- fixed
++--    forward in that later migration, never edited here.
++--
++-- 2. Add the new hard invariant: before applying any 'on_hand'/'decrease'
++--    effect, reject if the post-effect on_hand would fall below the SUM of
++--    `reserved_quantity + allocated_quantity` at that balance row.
++--
++--    Derivation (verified live against `inventory_create_allocation`'s own
++--    body before writing this check): a reservation-backed allocation does
++--    `reserved_quantity = greatest(0, reserved_quantity - v_quantity),
++--    allocated_quantity = allocated_quantity + v_quantity` in the SAME
++--    UPDATE -- reserved and allocated are non-overlapping, ADDITIVE
++--    commitment buckets (a commitment transfers between buckets, never
++--    double-counted). Protecting either value alone (or their max) is
++--    therefore insufficient; only protecting their SUM is correct. This
++--    also directly enforces the accepted architecture's own HARD-
++--    reservation decision (`reserved_quantity <= on_hand_quantity` must
++--    always hold; backorder semantics are explicitly out of scope).
++--
++--    Verified against the task's own worked example: on_hand=10,
++--    reserved=6, allocated=0 -- move 4 allowed (6 >= 6 remaining), move 5
++--    rejected (5 < 6 remaining). Confirmed live.
++--
++--    Unconditional: no sanctioned bypass caller exists yet during IC-1, so
++--    generic movement rejects unconditionally, independent of
++--    `negative_stock_policy`. Uses a new, dedicated SQLSTATE `P0003`
++--    (extending this project's existing `P0`-family convention: `P0001` =
++--    default plpgsql RAISE, `P0002` = "not found"), suitable for exact
++--    pgTAP assertions.
++--
++-- What does NOT change: `inventory_v1_get_or_create_balance` itself is NOT
++-- dropped (IC-6's job, once zero production callers is durably true across
++-- phases); `negative_stock_policy`'s own existing `on_hand < 0` check is
++-- preserved unchanged and evaluated after the new invariant; no other
++-- movement-type semantics are touched.
++
++CREATE OR REPLACE FUNCTION public.inventory_finalize_posting(p_movement_id uuid, p_actor_user_id uuid DEFAULT NULL::uuid)
++ RETURNS jsonb
++ LANGUAGE plpgsql
++ SECURITY DEFINER
++ SET search_path TO 'public'
++AS $function$
++DECLARE
++  v_header RECORD;
++  v_mvt_type RECORD;
++  v_settings RECORD;
++  v_seq RECORD;
++  v_doc_number text;
++  v_line RECORD;
++  v_effect RECORD;
++  v_location_id uuid;
++  v_balance inventory_balances%ROWTYPE;
++  v_current_qty numeric;
++  v_new_qty numeric;
++  v_now timestamptz := now();
++  v_year integer := extract(year from v_now)::integer;
++BEGIN
++  SET LOCAL ambra.inventory_movement_engine = 'on';
++
++  SELECT * INTO v_header FROM inventory_movement_headers
++  WHERE id = p_movement_id FOR UPDATE;
++
++  IF NOT FOUND THEN
++    RAISE EXCEPTION 'Movement not found';
++  END IF;
++
++  IF v_header.status = 'posted' THEN
++    RETURN jsonb_build_object(
++      'movement_id', v_header.id,
++      'document_number', v_header.document_number,
++      'status', 'posted'
++    );
++  END IF;
++
++  IF v_header.status != 'draft' THEN
++    RAISE EXCEPTION 'Cannot post movement with status "%"', v_header.status;
++  END IF;
++
++  SELECT mt.*, dt.code AS doc_type_code, dt.numbering_template, dt.id AS dt_id
++  INTO v_mvt_type
++  FROM inventory_movement_types mt
++  JOIN inventory_document_types dt ON dt.id = mt.document_type_id
++  WHERE mt.id = v_header.movement_type_id;
++
++  SELECT * INTO v_settings FROM inventory_settings
++  WHERE organization_id = v_header.organization_id FOR UPDATE;
++
++  INSERT INTO inventory_document_sequences (organization_id, document_type_id, year)
++  VALUES (v_header.organization_id, v_mvt_type.dt_id, v_year)
++  ON CONFLICT DO NOTHING;
++
++  SELECT * INTO v_seq FROM inventory_document_sequences
++  WHERE organization_id = v_header.organization_id
++    AND document_type_id = v_mvt_type.dt_id
++    AND branch_id IS NULL
++    AND series IS NULL
++    AND year = v_year
++  FOR UPDATE;
++
++  v_doc_number := v_mvt_type.doc_type_code || '/' || v_year::text || '/' || lpad(v_seq.next_number::text, 6, '0');
++
++  UPDATE inventory_document_sequences
++  SET next_number = next_number + 1
++  WHERE id = v_seq.id;
++
++  -- Freeze line snapshots using subqueries instead of JOIN on target table
++  UPDATE inventory_movement_lines SET
++    snapshot_product_name = (
++      SELECT p.name FROM inventory_variants v
++      JOIN inventory_products p ON p.id = v.product_id AND p.organization_id = v.organization_id
++      WHERE v.id = inventory_movement_lines.variant_id AND v.organization_id = inventory_movement_lines.organization_id
++    ),
++    snapshot_sku = (
++      SELECT v.sku FROM inventory_variants v
++      WHERE v.id = inventory_movement_lines.variant_id AND v.organization_id = inventory_movement_lines.organization_id
++    ),
++    snapshot_unit_code = (
++      SELECT u.code FROM inventory_units u
++      WHERE u.id = inventory_movement_lines.unit_id AND u.organization_id = inventory_movement_lines.organization_id
++    ),
++    snapshot_source_location_name = (
++      SELECT wl.name FROM warehouse_locations wl
++      WHERE wl.id = inventory_movement_lines.source_location_id
++    ),
++    snapshot_destination_location_name = (
++      SELECT wl.name FROM warehouse_locations wl
++      WHERE wl.id = inventory_movement_lines.destination_location_id
++    )
++  WHERE movement_id = p_movement_id AND deleted_at IS NULL;
++
++  -- Apply effects per line
++  FOR v_line IN
++    SELECT * FROM inventory_movement_lines
++    WHERE movement_id = p_movement_id AND deleted_at IS NULL
++    ORDER BY line_number
++  LOOP
++    FOR v_effect IN
++      SELECT * FROM inventory_movement_type_effects
++      WHERE movement_type_id = v_header.movement_type_id
++      ORDER BY effect_order
++    LOOP
++      IF v_effect.target = 'source' THEN
++        v_location_id := v_line.source_location_id;
++      ELSE
++        v_location_id := v_line.destination_location_id;
++      END IF;
++
++      IF v_location_id IS NULL AND v_effect.is_required THEN
++        RAISE EXCEPTION 'Line %: % location required for effect but is NULL',
++          v_line.line_number, v_effect.target;
++      END IF;
++
++      IF v_location_id IS NULL THEN
++        CONTINUE;
++      END IF;
++
++      v_balance := inventory_get_or_create_balance_for_update(
++        v_header.organization_id, v_header.branch_id, v_location_id, v_line.variant_id, p_movement_id
++      );
++
++      IF v_effect.balance_field = 'on_hand' THEN
++        v_current_qty := v_balance.on_hand_quantity;
++      ELSE
++        RAISE EXCEPTION 'v1 only supports on_hand balance field, got %', v_effect.balance_field;
++      END IF;
++
++      IF v_effect.direction = 'increase' THEN
++        v_new_qty := v_current_qty + v_line.quantity;
++      ELSE
++        v_new_qty := v_current_qty - v_line.quantity;
++      END IF;
++
++      -- IC-1 hard invariant -- see this migration's own header comment for
++      -- the full derivation. Unconditional; never gated by
++      -- negative_stock_policy.
++      IF v_effect.balance_field = 'on_hand' AND v_effect.direction = 'decrease' THEN
++        IF v_new_qty < (v_balance.reserved_quantity + v_balance.allocated_quantity) THEN
++          RAISE EXCEPTION 'Movement would strand committed stock: variant % has % reserved + % allocated = % committed at this location, but only % would remain on hand (line %)',
++            v_line.variant_id, v_balance.reserved_quantity, v_balance.allocated_quantity,
++            (v_balance.reserved_quantity + v_balance.allocated_quantity), v_new_qty, v_line.line_number
++            USING ERRCODE = 'P0003';
++        END IF;
++      END IF;
++
++      IF v_new_qty < 0 AND v_settings.negative_stock_policy = 'block' THEN
++        RAISE EXCEPTION 'Insufficient stock: % has % on hand, need % for line %',
++          v_line.variant_id, v_current_qty, v_line.quantity, v_line.line_number;
++      END IF;
++
++      UPDATE inventory_balances
++      SET on_hand_quantity = v_new_qty,
++          last_movement_id = p_movement_id,
++          last_movement_at = v_now,
++          updated_at = v_now
++      WHERE id = v_balance.id;
++
++      INSERT INTO inventory_stock_ledger_entries (
++        organization_id, branch_id, location_id, variant_id,
++        movement_id, movement_line_id, movement_type_code,
++        document_number, document_type_code,
++        effect_id, balance_field, direction,
++        quantity, balance_after,
++        unit_cost, currency, posted_at
++      ) VALUES (
++        v_header.organization_id, v_header.branch_id, v_location_id, v_line.variant_id,
++        p_movement_id, v_line.id, v_header.movement_type_code,
++        v_doc_number, v_mvt_type.doc_type_code,
++        v_effect.id, v_effect.balance_field, v_effect.direction,
++        v_line.quantity, v_new_qty,
++        v_line.unit_cost, v_line.currency, v_now
++      );
++    END LOOP;
++  END LOOP;
++
++  UPDATE inventory_movement_headers SET
++    status = 'posted',
++    document_number = v_doc_number,
++    document_type_code = v_mvt_type.doc_type_code,
++    posted_at = v_now,
++    posted_by = p_actor_user_id,
++    updated_at = v_now
++  WHERE id = p_movement_id;
++
++  INSERT INTO inventory_movement_audit_log (
++    organization_id, movement_id, action, old_status, new_status,
++    entity_type, entity_id, actor_user_id,
++    changes, transaction_id
++  ) VALUES (
++    v_header.organization_id, p_movement_id, 'posted', 'draft', 'posted',
++    'header', p_movement_id, p_actor_user_id,
++    jsonb_build_object('document_number', v_doc_number),
++    txid_current()::text
++  );
++
++  RETURN jsonb_build_object(
++    'movement_id', p_movement_id,
++    'document_number', v_doc_number,
++    'status', 'posted'
++  );
++END;
++$function$;
+diff --git a/apps/web/supabase-target/supabase/migrations/20260915062422_ic1_inventory_finalize_posting_fix_ambiguous_overload.sql b/apps/web/supabase-target/supabase/migrations/20260915062422_ic1_inventory_finalize_posting_fix_ambiguous_overload.sql
+new file mode 100644
+index 00000000..e373aa13
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260915062422_ic1_inventory_finalize_posting_fix_ambiguous_overload.sql
+@@ -0,0 +1,230 @@
++-- IC-1 follow-up fix. The prior migration
++-- (`ic1_inventory_finalize_posting_hard_invariant`) called
++-- `inventory_get_or_create_balance_for_update` with exactly 5 positional
++-- arguments. Live-reproduced when re-running the characterization scenario:
++-- `42725: function inventory_get_or_create_balance_for_update(uuid, uuid,
++-- uuid, uuid, uuid) is not unique`. Root cause, confirmed via
++-- `pg_get_function_arguments` on both overloads before writing this fix:
++-- the 7-argument overload's trailing two parameters
++-- (`p_lot_id uuid DEFAULT NULL::uuid, p_serial_id uuid DEFAULT
++-- NULL::uuid`) both carry defaults, so a 5-positional-argument call
++-- matches BOTH the true 5-arg overload and the 7-arg overload-with-
++-- defaults-applied equally -- Postgres cannot pick a best candidate.
++--
++-- Fix: pass all 7 positional arguments explicitly (trailing two
++-- `NULL::uuid`), exactly matching the call convention already established
++-- by `inventory_create_allocation`'s own body. Functionally identical to
++-- the 5-arg overload (same NULL lot/serial defaults) -- this does NOT
++-- expose any new lot/serial behavior as a side effect. Per migration
++-- discipline, the prior migration is never edited; this is a forward
++-- `CREATE OR REPLACE` fix. Live-reconfirmed after applying: the original
++-- characterization scenario (receive 10 -> reserve 6 -> allocate 6 ->
++-- attempt putaway of 10) now correctly rejects with SQLSTATE P0003, and
++-- moving exactly the free 4 units succeeds.
++
++CREATE OR REPLACE FUNCTION public.inventory_finalize_posting(p_movement_id uuid, p_actor_user_id uuid DEFAULT NULL::uuid)
++ RETURNS jsonb
++ LANGUAGE plpgsql
++ SECURITY DEFINER
++ SET search_path TO 'public'
++AS $function$
++DECLARE
++  v_header RECORD;
++  v_mvt_type RECORD;
++  v_settings RECORD;
++  v_seq RECORD;
++  v_doc_number text;
++  v_line RECORD;
++  v_effect RECORD;
++  v_location_id uuid;
++  v_balance inventory_balances%ROWTYPE;
++  v_current_qty numeric;
++  v_new_qty numeric;
++  v_now timestamptz := now();
++  v_year integer := extract(year from v_now)::integer;
++BEGIN
++  SET LOCAL ambra.inventory_movement_engine = 'on';
++
++  SELECT * INTO v_header FROM inventory_movement_headers
++  WHERE id = p_movement_id FOR UPDATE;
++
++  IF NOT FOUND THEN
++    RAISE EXCEPTION 'Movement not found';
++  END IF;
++
++  IF v_header.status = 'posted' THEN
++    RETURN jsonb_build_object(
++      'movement_id', v_header.id,
++      'document_number', v_header.document_number,
++      'status', 'posted'
++    );
++  END IF;
++
++  IF v_header.status != 'draft' THEN
++    RAISE EXCEPTION 'Cannot post movement with status "%"', v_header.status;
++  END IF;
++
++  SELECT mt.*, dt.code AS doc_type_code, dt.numbering_template, dt.id AS dt_id
++  INTO v_mvt_type
++  FROM inventory_movement_types mt
++  JOIN inventory_document_types dt ON dt.id = mt.document_type_id
++  WHERE mt.id = v_header.movement_type_id;
++
++  SELECT * INTO v_settings FROM inventory_settings
++  WHERE organization_id = v_header.organization_id FOR UPDATE;
++
++  INSERT INTO inventory_document_sequences (organization_id, document_type_id, year)
++  VALUES (v_header.organization_id, v_mvt_type.dt_id, v_year)
++  ON CONFLICT DO NOTHING;
++
++  SELECT * INTO v_seq FROM inventory_document_sequences
++  WHERE organization_id = v_header.organization_id
++    AND document_type_id = v_mvt_type.dt_id
++    AND branch_id IS NULL
++    AND series IS NULL
++    AND year = v_year
++  FOR UPDATE;
++
++  v_doc_number := v_mvt_type.doc_type_code || '/' || v_year::text || '/' || lpad(v_seq.next_number::text, 6, '0');
++
++  UPDATE inventory_document_sequences
++  SET next_number = next_number + 1
++  WHERE id = v_seq.id;
++
++  -- Freeze line snapshots using subqueries instead of JOIN on target table
++  UPDATE inventory_movement_lines SET
++    snapshot_product_name = (
++      SELECT p.name FROM inventory_variants v
++      JOIN inventory_products p ON p.id = v.product_id AND p.organization_id = v.organization_id
++      WHERE v.id = inventory_movement_lines.variant_id AND v.organization_id = inventory_movement_lines.organization_id
++    ),
++    snapshot_sku = (
++      SELECT v.sku FROM inventory_variants v
++      WHERE v.id = inventory_movement_lines.variant_id AND v.organization_id = inventory_movement_lines.organization_id
++    ),
++    snapshot_unit_code = (
++      SELECT u.code FROM inventory_units u
++      WHERE u.id = inventory_movement_lines.unit_id AND u.organization_id = inventory_movement_lines.organization_id
++    ),
++    snapshot_source_location_name = (
++      SELECT wl.name FROM warehouse_locations wl
++      WHERE wl.id = inventory_movement_lines.source_location_id
++    ),
++    snapshot_destination_location_name = (
++      SELECT wl.name FROM warehouse_locations wl
++      WHERE wl.id = inventory_movement_lines.destination_location_id
++    )
++  WHERE movement_id = p_movement_id AND deleted_at IS NULL;
++
++  -- Apply effects per line
++  FOR v_line IN
++    SELECT * FROM inventory_movement_lines
++    WHERE movement_id = p_movement_id AND deleted_at IS NULL
++    ORDER BY line_number
++  LOOP
++    FOR v_effect IN
++      SELECT * FROM inventory_movement_type_effects
++      WHERE movement_type_id = v_header.movement_type_id
++      ORDER BY effect_order
++    LOOP
++      IF v_effect.target = 'source' THEN
++        v_location_id := v_line.source_location_id;
++      ELSE
++        v_location_id := v_line.destination_location_id;
++      END IF;
++
++      IF v_location_id IS NULL AND v_effect.is_required THEN
++        RAISE EXCEPTION 'Line %: % location required for effect but is NULL',
++          v_line.line_number, v_effect.target;
++      END IF;
++
++      IF v_location_id IS NULL THEN
++        CONTINUE;
++      END IF;
++
++      v_balance := inventory_get_or_create_balance_for_update(
++        v_header.organization_id, v_header.branch_id, v_location_id, v_line.variant_id, p_movement_id,
++        NULL::uuid, NULL::uuid
++      );
++
++      IF v_effect.balance_field = 'on_hand' THEN
++        v_current_qty := v_balance.on_hand_quantity;
++      ELSE
++        RAISE EXCEPTION 'v1 only supports on_hand balance field, got %', v_effect.balance_field;
++      END IF;
++
++      IF v_effect.direction = 'increase' THEN
++        v_new_qty := v_current_qty + v_line.quantity;
++      ELSE
++        v_new_qty := v_current_qty - v_line.quantity;
++      END IF;
++
++      -- IC-1 hard invariant -- see the prior migration's own header
++      -- comment for the full derivation. Unconditional; never gated by
++      -- negative_stock_policy.
++      IF v_effect.balance_field = 'on_hand' AND v_effect.direction = 'decrease' THEN
++        IF v_new_qty < (v_balance.reserved_quantity + v_balance.allocated_quantity) THEN
++          RAISE EXCEPTION 'Movement would strand committed stock: variant % has % reserved + % allocated = % committed at this location, but only % would remain on hand (line %)',
++            v_line.variant_id, v_balance.reserved_quantity, v_balance.allocated_quantity,
++            (v_balance.reserved_quantity + v_balance.allocated_quantity), v_new_qty, v_line.line_number
++            USING ERRCODE = 'P0003';
++        END IF;
++      END IF;
++
++      IF v_new_qty < 0 AND v_settings.negative_stock_policy = 'block' THEN
++        RAISE EXCEPTION 'Insufficient stock: % has % on hand, need % for line %',
++          v_line.variant_id, v_current_qty, v_line.quantity, v_line.line_number;
++      END IF;
++
++      UPDATE inventory_balances
++      SET on_hand_quantity = v_new_qty,
++          last_movement_id = p_movement_id,
++          last_movement_at = v_now,
++          updated_at = v_now
++      WHERE id = v_balance.id;
++
++      INSERT INTO inventory_stock_ledger_entries (
++        organization_id, branch_id, location_id, variant_id,
++        movement_id, movement_line_id, movement_type_code,
++        document_number, document_type_code,
++        effect_id, balance_field, direction,
++        quantity, balance_after,
++        unit_cost, currency, posted_at
++      ) VALUES (
++        v_header.organization_id, v_header.branch_id, v_location_id, v_line.variant_id,
++        p_movement_id, v_line.id, v_header.movement_type_code,
++        v_doc_number, v_mvt_type.doc_type_code,
++        v_effect.id, v_effect.balance_field, v_effect.direction,
++        v_line.quantity, v_new_qty,
++        v_line.unit_cost, v_line.currency, v_now
++      );
++    END LOOP;
++  END LOOP;
++
++  UPDATE inventory_movement_headers SET
++    status = 'posted',
++    document_number = v_doc_number,
++    document_type_code = v_mvt_type.doc_type_code,
++    posted_at = v_now,
++    posted_by = p_actor_user_id,
++    updated_at = v_now
++  WHERE id = p_movement_id;
++
++  INSERT INTO inventory_movement_audit_log (
++    organization_id, movement_id, action, old_status, new_status,
++    entity_type, entity_id, actor_user_id,
++    changes, transaction_id
++  ) VALUES (
++    v_header.organization_id, p_movement_id, 'posted', 'draft', 'posted',
++    'header', p_movement_id, p_actor_user_id,
++    jsonb_build_object('document_number', v_doc_number),
++    txid_current()::text
++  );
++
++  RETURN jsonb_build_object(
++    'movement_id', p_movement_id,
++    'document_number', v_doc_number,
++    'status', 'posted'
++  );
++END;
++$function$;
+diff --git a/apps/web/supabase/tests/101_zone3_zone5_movement_engine_reserved_blindspot_characterization_test.sql b/apps/web/supabase/tests/101_zone3_zone5_movement_engine_reserved_blindspot_characterization_test.sql
+index 74cee108..1d996de6 100644
+--- a/apps/web/supabase/tests/101_zone3_zone5_movement_engine_reserved_blindspot_characterization_test.sql
++++ b/apps/web/supabase/tests/101_zone3_zone5_movement_engine_reserved_blindspot_characterization_test.sql
+@@ -1,64 +1,74 @@
+ -- ============================================================================
+ -- TEST: Zone 3 <-> Zone 5 integration -- movement-engine reserved/allocated
+---       blind-spot CHARACTERIZATION
++--       blind-spot -- IC-1 CLOSURE PROOF (formerly a characterization test)
+ -- ============================================================================
+--- This file does NOT test new code. It documents, with a live, reproducible
+--- assertion, a real behavior of the EXISTING, shared, unmodified generic
+--- movement engine (`inventory_finalize_posting`, called transitively by
+--- both `receive_repair_order_stock` and `putaway_repair_order_stock`),
+--- discovered during the Zone 3 <-> Zone 5 integration audit:
++-- HISTORY / WHY THIS FILE'S EXPECTATIONS CHANGED
+ --
+---   `inventory_finalize_posting`'s own body contains NO reference to
+---   `reserved_quantity` or `allocated_quantity` (LIVE VERIFIED via
+---   `prosrc ILIKE '%reserved_quantity%'` returning false before this test
+---   was written). It therefore does not check, when reducing
+---   `on_hand_quantity` at a location, whether any of that quantity is
+---   already reserved or allocated elsewhere in the system.
++-- This file originally (Zone 3 <-> Zone 5 integration audit, 2026-09-15,
++-- pre-IC-1) documented a real, live-reproduced GAP in the shared, generic
++-- movement engine (`inventory_finalize_posting`, called transitively by both
++-- `receive_repair_order_stock` and `putaway_repair_order_stock`): its body
++-- contained NO reference to `reserved_quantity`/`allocated_quantity`, so a
++-- physical movement could relocate on-hand stock that was already reserved
++-- and/or allocated elsewhere, leaving a source balance row with
++-- `on_hand_quantity < reserved_quantity + allocated_quantity` -- a stranded,
++-- inconsistent commitment the engine created and did not itself flag. The
++-- old T7-T11 in this file asserted that a putaway of the full 10 received
++-- units SUCCEEDED despite 6 of those 10 being already reserved+allocated,
++-- and that the resulting source balance row was left with
++-- allocated_quantity(6) > on_hand_quantity(0).
+ --
+--- This is a PRE-EXISTING gap in the shared, base movement engine -- it
+--- predates and is independent of both Zone 3 Phase 10C and Zone 5's own
+--- receive/putaway RPCs. Phase 10C's own containers never touch
+--- `inventory_balances` at all (proven in `100_...`'s own T23-T27), so this
+--- is not a Phase 10C defect. Zone 5's `putaway_repair_order_stock` is
+--- simply the first REAL, RepairOrder-aware caller that makes this
+--- pre-existing gap reachable against RepairOrder-owned, potentially
+--- already-allocated stock -- exactly the scenario this file proves, using
+--- the REAL Zone 5 RPCs end-to-end, not a synthetic reproduction.
++-- IC-1 (Inventory Core consolidation, Canonical Movement Engine / Hard Stock
++-- Invariants -- see `docs/inventory/inventory-core-implementation-plan.md`
++-- and `docs/inventory/inventory-core-progress.md`) DELIBERATELY closes this
++-- gap: `inventory_finalize_posting` now rejects, with SQLSTATE `P0003`, any
++-- 'on_hand'/'decrease' effect that would leave
++-- `on_hand_quantity < reserved_quantity + allocated_quantity` (the SUM of
++-- both commitment buckets -- verified live, via `inventory_create_
++-- allocation`'s own body, that reserved and allocated are non-overlapping,
++-- additive buckets: a reservation-backed allocation DECREMENTS
++-- reserved_quantity by exactly the amount it INCREMENTS allocated_quantity
++-- in the same UPDATE, so protecting either value alone is insufficient --
++-- only protecting their sum is correct).
+ --
+--- Per the accepted product decision, `receive -> putaway -> reservation ->
+--- allocation -> container -> ...` is the NORMAL sequential lifecycle --
+--- putaway-after-reservation (what this file deliberately does, to exercise
+--- the blind spot) is NOT the normal product workflow. This file exists to
+--- honestly characterize what the shared engine currently allows, not to
+--- describe an expected or recommended operational sequence.
++-- This file's expectations are therefore intentionally and explicitly
++-- INVERTED versus the original characterization: what used to be proven to
++-- SUCCEED (and left a stranded balance) is now proven to be REJECTED (with
++-- the source/destination balances, reservation, and allocation all left
++-- completely unchanged, and no orphan movement header/line rows created).
++-- A new valid-movement control case proves that moving exactly the
++-- genuinely free quantity still succeeds -- IC-1 does not block legitimate
++-- movement, only movement that would strand a commitment.
+ --
+--- Per explicit instruction: this file does NOT fix the gap. It asserts
+--- whatever the LIVE, REAL behavior actually is. If a future change to
+--- `inventory_finalize_posting` (out of THIS integration's own scope, see
+--- the integration audit's own "changes that must not be made" list) closes
+--- this gap, this file's own assertions will start failing -- which is the
+--- correct, intended outcome: it will force an explicit, conscious update
+--- to this file's own documented expectations, not a silent behavior
+--- change nobody notices.
++-- The companion RESERVED-ONLY scenario (zero allocation) is in a separate
++-- file, `102_ic1_reserved_only_hard_invariant_test.sql`, because
++-- `receive_repair_order_stock` resolves exactly ONE receiving location per
++-- branch (`resolve_branch_receiving_location`, enforced by a live UNIQUE
++-- constraint) -- a second independent receive/reserve scenario against the
++-- SAME fixed test org/branch cannot share this file's single transaction
++-- without either colliding on that location or double-counting balances on
++-- top of this file's own control-move residue.
++--
++-- If a future change ever makes this file's assertions fail again, that is
++-- a signal requiring an explicit, conscious decision -- never a silent
++-- adjustment of the expected values to manufacture a pass.
+ --
+ -- Executed live against supabase-target via Supabase MCP.
+ 
+ BEGIN;
+ 
+-SELECT plan(11);
++SELECT plan(17);
+ 
+ -- ===========================================================================
+ -- Fixtures: a full, real Zone 5 provenance chain (workshop_source_documents
+ -- -> workshop_source_document_lines -> repair_order_line_source_links) is
+ -- required because `receive_repair_order_stock` only writes a
+--- `repair_order_line_locations` row (the row `putaway_repair_order_stock`'s
+--- own availability check reads) when `source_line_id` resolves to exactly
+--- one RepairOrderLine. `wdd_matcher_line_id` below reuses a REAL, existing
+--- `wdd_matcher_lines` row as its own FK target (LIVE VERIFIED zero other
+--- `workshop_source_document_lines` rows already reference it, so no
+--- ambiguous-resolution collision) -- the same "anchor to a real existing
+--- row for an FK target, without depending on its own content" convention
+--- this project's own test suite already uses elsewhere.
++-- `repair_order_line_locations` row when `source_line_id` resolves to
++-- exactly one RepairOrderLine. `wdd_matcher_line_id` below reuses a REAL,
++-- existing `wdd_matcher_lines` row as its own FK target (LIVE VERIFIED zero
++-- other `workshop_source_document_lines` rows already reference it) -- the
++-- same anchor-to-a-real-existing-row convention this project's own test
++-- suite already uses elsewhere.
+ -- ===========================================================================
+ 
+ CREATE TEMP TABLE fx (
+@@ -72,7 +82,7 @@ CREATE TEMP TABLE fx (
+ GRANT SELECT, UPDATE ON fx TO authenticated;
+ INSERT INTO fx SELECT
+   '9f98fe91-63b8-4986-a2b3-65bdd47684c9'::uuid,
+-  'e39b15da-0a8d-4056-b5a2-80eb1da868a6'::uuid,
++  gen_random_uuid(),
+   'c4a24371-42db-4bb8-ab5e-379ebbf7d9c4'::uuid,
+   'fe364ce2-1f72-4df5-ab92-6361ec95e0da'::uuid,
+   '571dfd6c-eba2-42c2-8ad9-f39a2d103b6d'::uuid,
+@@ -85,16 +95,29 @@ CREATE TEMP TABLE test_log (seq serial, line text);
+ GRANT INSERT, SELECT ON test_log TO authenticated;
+ GRANT USAGE ON SEQUENCE test_log_seq_seq TO authenticated;
+ 
++-- A dedicated, FRESH branch for this file's own fixture (not the shared
++-- org=9f98fe91.../branch=e39b15da... pair other test files use) -- IC-1's
++-- own genuine two-session concurrency test permanently, and by design,
++-- claimed that shared branch's own "one receiving location per branch"
++-- slot (a live UNIQUE INDEX) with a real, undeletable, non-zero-balance
++-- residual for this exact variant (see IC-1's review bundle,
++-- `negative-stock-policy-conflict.md`'s sibling correction-pass note) --
++-- reusing that shared branch here would silently corrupt this file's own
++-- "before" balance assumptions (T5/T6 etc. assert exact absolute
++-- quantities). A fresh branch has no receiving location and no balance
++-- history at all. `e2e_user` already holds a real, permanent, ORG-WIDE
++-- `warehouse.*` wildcard grant in this fixture org (LIVE VERIFIED,
++-- established convention already used by 099/100's own `branch_b`), so
++-- zero additional permission grant is needed for a fresh branch.
++INSERT INTO branches (id, organization_id, name, branch_number)
++SELECT branch, org, '101-char-fresh-branch', 993 FROM fx;
++
+ INSERT INTO wdd_matcher_sessions (id, organization_id, branch_id, name)
+ SELECT session_id, org, branch, '101-char-test-session' FROM fx;
+ 
+ INSERT INTO workshop_source_documents (id, organization_id, branch_id, document_type, external_document_number, source_session_id)
+ SELECT doc_id, org, branch, 'wdd', '101-CHAR-TEST-DOC', session_id FROM fx;
+ 
+--- Reuses a REAL, pre-existing wdd_matcher_lines row as the FK target for
+--- wdd_matcher_line_id -- LIVE VERIFIED zero other workshop_source_document_lines
+--- rows reference it, so `receive_repair_order_stock`'s own candidate-count
+--- resolution sees exactly one match, not zero or ambiguous.
+ INSERT INTO workshop_source_document_lines (id, workshop_source_document_id, wdd_matcher_line_id, product_code, quantity)
+ SELECT wsdl_id, doc_id, '49864df7-5275-48f1-a95e-fdafadce3249'::uuid, '101-CHAR-SKU', 10 FROM fx;
+ 
+@@ -107,9 +130,7 @@ SELECT rol, ro, variant_1, '101-CHAR-SKU', '101 char test line', 10, 'pcs' FROM
+ INSERT INTO repair_order_line_source_links (id, repair_order_line_id, workshop_source_document_line_id, quantity_contribution)
+ SELECT gen_random_uuid(), rol, wsdl_id, 10 FROM fx;
+ 
+--- A dedicated receiving location for THIS test's own branch (none exists
+--- there by default -- reusing the shared test branch's own real receiving
+--- location, if any, would risk colliding with unrelated live data).
++-- A dedicated receiving location for THIS test's own (fresh) branch.
+ INSERT INTO warehouse_locations (id, organization_id, branch_id, name, can_store_inventory, purpose)
+ SELECT receiving_location_id, org, branch, '101-char-receiving', true, 'receiving' FROM fx;
+ 
+@@ -119,9 +140,7 @@ SELECT dest_location_id, org, branch, '101-char-destination', true FROM fx;
+ SET LOCAL ROLE authenticated;
+ SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fx)::text, 'role', 'authenticated')::text, true);
+ 
+--- ===========================================================================
+ -- Step 1: RECEIVE 10 units via the real Zone 5 RPC.
+--- ===========================================================================
+ CREATE TEMP TABLE recv AS
+ SELECT receive_repair_order_stock(
+   (SELECT e2e_user FROM fx), (SELECT org FROM fx), (SELECT branch FROM fx),
+@@ -133,19 +152,17 @@ SELECT receive_repair_order_stock(
+   )),
+   NULL, NULL, NULL, NULL, NULL
+ ) AS result;
+-INSERT INTO test_log(line) SELECT is((result ->> 'status'), 'posted', 'T1: receive_repair_order_stock posts a real 101 receipt for 10 units') FROM recv;
++INSERT INTO test_log(line) SELECT is((result ->> 'status'), 'posted', 'T1: receive_repair_order_stock posts a real 101 receipt for 10 units (unaffected by IC-1)') FROM recv;
+ 
+--- T2: Zone 5's own spatial projection shows 10 units at the receiving
+--- location for this exact RepairOrderLine.
+ INSERT INTO test_log(line) SELECT is(
+   (SELECT quantity FROM repair_order_line_locations WHERE repair_order_line_id = (SELECT rol FROM fx) AND location_id = (SELECT receiving_location_id FROM fx)),
+   10::numeric, 'T2: repair_order_line_locations shows 10 units at the receiving location after receipt'
+ );
+ 
+--- ===========================================================================
+--- Step 2: RESERVE 6 of the 10, at the receiving location (where the stock
+--- physically is right now, per Zone 5's own projection).
+--- ===========================================================================
++CREATE TEMP TABLE movement_count_baseline AS
++SELECT count(*) AS n FROM inventory_movement_headers WHERE organization_id = (SELECT org FROM fx) AND branch_id = (SELECT branch FROM fx);
++
++-- Step 2: RESERVE 6 of the 10.
+ CREATE TEMP TABLE resv AS
+ SELECT (inventory_create_reservation(
+   (SELECT org FROM fx), (SELECT branch FROM fx),
+@@ -156,9 +173,7 @@ UPDATE fx SET reservation_id = ((SELECT result FROM resv) ->> 'reservation_id'):
+ UPDATE fx SET resline_id = (SELECT id FROM inventory_reservation_lines WHERE reservation_id = (SELECT reservation_id FROM fx));
+ INSERT INTO test_log(line) SELECT is((result ->> 'status'), 'active', 'T3: reserving 6 of the 10 received units succeeds') FROM resv;
+ 
+--- ===========================================================================
+ -- Step 3: ALLOCATE the full 6 reserved units.
+--- ===========================================================================
+ CREATE TEMP TABLE alloc AS
+ SELECT (inventory_create_allocation(
+   (SELECT org FROM fx), (SELECT branch FROM fx),
+@@ -172,26 +187,18 @@ SELECT (inventory_create_allocation(
+ )) AS result;
+ INSERT INTO test_log(line) SELECT is((result ->> 'status'), 'active', 'T4: allocating the full 6 reserved units succeeds') FROM alloc;
+ 
+--- ===========================================================================
+--- Baseline, immediately before the characterization step.
+--- ===========================================================================
+ CREATE TEMP TABLE before_balance AS
+-SELECT on_hand_quantity, allocated_quantity
++SELECT on_hand_quantity, reserved_quantity, allocated_quantity
+ FROM inventory_balances
+ WHERE organization_id = (SELECT org FROM fx) AND branch_id = (SELECT branch FROM fx)
+   AND location_id = (SELECT receiving_location_id FROM fx) AND variant_id = (SELECT variant_1 FROM fx);
+ 
+ INSERT INTO test_log(line) SELECT is(on_hand_quantity, 10::numeric, 'T5: before putaway, the receiving location has on_hand=10') FROM before_balance;
+-INSERT INTO test_log(line) SELECT is(allocated_quantity, 6::numeric, 'T6: before putaway, the receiving location has allocated=6 (6 of the 10 are committed)') FROM before_balance;
++INSERT INTO test_log(line) SELECT is(allocated_quantity, 6::numeric, 'T6: before putaway, the receiving location has allocated=6 (reservation fully converted to allocation)') FROM before_balance;
+ 
+ -- ===========================================================================
+--- Step 4 (THE CHARACTERIZATION): putaway the FULL 10 units Zone 5's own
+--- projection shows as available -- even though 6 of those 10 are already
+--- reserved+allocated. This is NOT the normal product workflow (per the
+--- accepted lifecycle, allocation happens AFTER putaway) -- it is
+--- deliberately exercised here, out of normal order, specifically to probe
+--- whether the shared engine itself would stop it if it happened. It does
+--- not.
++-- Step 4 (IC-1 CLOSURE PROOF): attempt to putaway the FULL 10 units --
++-- 6 of which are already allocated. Under IC-1 this must be REJECTED.
+ -- ===========================================================================
+ CREATE TEMP TABLE putaway_outcome (status text, detail text);
+ GRANT INSERT, SELECT ON putaway_outcome TO authenticated;
+@@ -217,53 +224,73 @@ BEGIN
+   END;
+ END $$;
+ 
+--- T7: LIVE, CONFIRMED RESULT -- the shared engine's own reserved/allocated
+--- blind spot means this putaway SUCCEEDS. If this assertion ever starts
+--- failing, the blind spot has been closed (by a change this integration
+--- layer explicitly did NOT make) -- update this file's own expectations
+--- explicitly when that happens, do not silently adjust it in passing.
+ INSERT INTO test_log(line) SELECT is(
+-  (SELECT status FROM putaway_outcome), 'succeeded',
+-  'T7 (CHARACTERIZATION): putaway of the full 10 units succeeds DESPITE 6 being already reserved+allocated at the source -- the shared movement engine does not check reserved_quantity/allocated_quantity'
++  (SELECT status FROM putaway_outcome), 'failed',
++  'T7 (IC-1 CLOSURE): putaway of the full 10 units is now REJECTED -- 6 are already allocated and would be stranded'
++);
++INSERT INTO test_log(line) SELECT ok(
++  (SELECT detail FROM putaway_outcome) LIKE 'P0003%',
++  'T8 (IC-1 CLOSURE): the rejection carries the dedicated SQLSTATE P0003 ("would strand committed stock")'
+ );
+ 
+--- ===========================================================================
+--- Post-state: the actual, live-proven consequence of the blind spot.
+--- ===========================================================================
+-CREATE TEMP TABLE after_source_balance AS
+-SELECT on_hand_quantity, allocated_quantity
++CREATE TEMP TABLE after_source_balance_rejected AS
++SELECT on_hand_quantity, reserved_quantity, allocated_quantity
+ FROM inventory_balances
+ WHERE organization_id = (SELECT org FROM fx) AND branch_id = (SELECT branch FROM fx)
+   AND location_id = (SELECT receiving_location_id FROM fx) AND variant_id = (SELECT variant_1 FROM fx);
+ 
+-CREATE TEMP TABLE after_dest_balance AS
+-SELECT on_hand_quantity, allocated_quantity
+-FROM inventory_balances
+-WHERE organization_id = (SELECT org FROM fx) AND branch_id = (SELECT branch FROM fx)
+-  AND location_id = (SELECT dest_location_id FROM fx) AND variant_id = (SELECT variant_1 FROM fx);
+-
+-INSERT INTO test_log(line) SELECT is(on_hand_quantity, 0::numeric, 'T8: after putaway, the source (receiving) location''s own on_hand is now 0 -- all 10 physically moved') FROM after_source_balance;
++INSERT INTO test_log(line) SELECT is(on_hand_quantity, 10::numeric, 'T9: after the rejected putaway, source on_hand is UNCHANGED (still 10) -- no partial write') FROM after_source_balance_rejected;
++INSERT INTO test_log(line) SELECT is(allocated_quantity, 6::numeric, 'T10: after the rejected putaway, source allocated is UNCHANGED (still 6)') FROM after_source_balance_rejected;
++INSERT INTO test_log(line) SELECT is(reserved_quantity, 0::numeric, 'T11: after the rejected putaway, source reserved is UNCHANGED (still 0 -- fully converted to allocation earlier)') FROM after_source_balance_rejected;
+ 
+--- T9: the load-bearing proof -- allocated_quantity at the source is STILL
+--- 6, UNCHANGED by the putaway, even though on_hand there is now 0. The
+--- balance row itself now asserts allocated_quantity(6) > on_hand_quantity(0)
+--- -- an inconsistent state the engine allowed to be created and does not
+--- itself flag.
+ INSERT INTO test_log(line) SELECT is(
+-  allocated_quantity, 6::numeric,
+-  'T9 (CHARACTERIZATION): allocated_quantity at the source location is STILL 6 after putaway -- now exceeding its own on_hand_quantity(0), an inconsistent balance row the engine created and does not flag'
+-) FROM after_source_balance;
++  (SELECT count(*) FROM inventory_movement_headers WHERE organization_id = (SELECT org FROM fx) AND branch_id = (SELECT branch FROM fx)),
++  (SELECT n FROM movement_count_baseline),
++  'T12: the rejected putaway created NO orphan inventory_movement_headers row (exception rolled back the entire attempt, header count unchanged since the receipt)'
++);
++INSERT INTO test_log(line) SELECT is(
++  (SELECT allocated_quantity FROM inventory_allocation_lines WHERE reservation_line_id = (SELECT resline_id FROM fx)),
++  6::numeric, 'T13: the allocation line itself is completely unaffected by the rejected putaway (still 6)'
++) ;
+ 
+-INSERT INTO test_log(line) SELECT is(on_hand_quantity, 10::numeric, 'T10: the destination location correctly received all 10 units of on_hand') FROM after_dest_balance;
++-- ===========================================================================
++-- Control case: move only the genuinely free quantity (10 on_hand - 6
++-- committed = 4). IC-1 must NOT block a legitimate, non-stranding movement.
++-- ===========================================================================
++DO $$
++DECLARE v_result jsonb;
++BEGIN
++  v_result := putaway_repair_order_stock(
++    (SELECT e2e_user FROM fx), (SELECT org FROM fx), (SELECT branch FROM fx),
++    jsonb_build_array(jsonb_build_object(
++      'repair_order_line_id', (SELECT rol FROM fx),
++      'variant_id', (SELECT variant_1 FROM fx),
++      'unit_id', (SELECT unit_1 FROM fx),
++      'quantity', 4
++    )),
++    (SELECT dest_location_id FROM fx),
++    NULL
++  );
++  INSERT INTO putaway_outcome VALUES ('succeeded_control', v_result::text);
++END $$;
+ 
+--- T11: the destination's own allocated_quantity is 0 -- the allocation's
+--- own claim did NOT follow the physical stock; it stayed attached to the
+--- now-empty source location. Reservation/allocation's own location_id is
+--- entirely independent of wherever a movement physically relocates on_hand.
+-INSERT INTO test_log(line) SELECT is(
+-  allocated_quantity, 0::numeric,
+-  'T11 (CHARACTERIZATION): the destination location''s own allocated_quantity is 0 -- the allocation claim did not travel with the physically-relocated stock'
+-) FROM after_dest_balance;
++INSERT INTO test_log(line) SELECT ok(
++  EXISTS (SELECT 1 FROM putaway_outcome WHERE status = 'succeeded_control'),
++  'T14 (control): moving exactly the free 4 units (10 on_hand - 6 committed) SUCCEEDS -- IC-1 does not block legitimate movement'
++);
++
++CREATE TEMP TABLE after_source_balance_control AS
++SELECT on_hand_quantity, allocated_quantity FROM inventory_balances
++WHERE organization_id = (SELECT org FROM fx) AND branch_id = (SELECT branch FROM fx)
++  AND location_id = (SELECT receiving_location_id FROM fx) AND variant_id = (SELECT variant_1 FROM fx);
++CREATE TEMP TABLE after_dest_balance_control AS
++SELECT on_hand_quantity FROM inventory_balances
++WHERE organization_id = (SELECT org FROM fx) AND branch_id = (SELECT branch FROM fx)
++  AND location_id = (SELECT dest_location_id FROM fx) AND variant_id = (SELECT variant_1 FROM fx);
++
++INSERT INTO test_log(line) SELECT is(on_hand_quantity, 6::numeric, 'T15: after the control move, source on_hand is 6 (10 - 4), exactly at the committed boundary') FROM after_source_balance_control;
++INSERT INTO test_log(line) SELECT is(allocated_quantity, 6::numeric, 'T16: after the control move, source allocated is still 6 (untouched, commitment fully protected)') FROM after_source_balance_control;
++INSERT INTO test_log(line) SELECT is(on_hand_quantity, 4::numeric, 'T17: after the control move, destination on_hand is 4') FROM after_dest_balance_control;
+ 
+ RESET ROLE;
+ 
+diff --git a/apps/web/supabase/tests/102_ic1_reserved_only_hard_invariant_test.sql b/apps/web/supabase/tests/102_ic1_reserved_only_hard_invariant_test.sql
+new file mode 100644
+index 00000000..4e244472
+--- /dev/null
++++ b/apps/web/supabase/tests/102_ic1_reserved_only_hard_invariant_test.sql
+@@ -0,0 +1,281 @@
++-- ============================================================================
++-- TEST: IC-1 -- HARD-reservation invariant protects RESERVED-ONLY stock
++--       (zero allocation), enforced by the generic movement engine itself
++-- ============================================================================
++-- Companion to `101_zone3_zone5_movement_engine_reserved_blindspot_
++-- characterization_test.sql`, which proves IC-1 closes the blind spot for
++-- reservation-backed ALLOCATED stock. This file proves the same protection
++-- holds when stock is only RESERVED (never converted to an allocation) --
++-- i.e. that `inventory_finalize_posting`'s new invariant check
++-- (`post_on_hand >= reserved_quantity + allocated_quantity`) genuinely
++-- covers `reserved_quantity` on its own, not merely as an incidental
++-- consequence of protecting `allocated_quantity`. This directly enforces
++-- the accepted architecture's own HARD-reservation decision
++-- (`reserved_quantity <= on_hand_quantity` must always hold; backorder
++-- semantics are explicitly out of scope).
++--
++-- In its own file (not merged into 101) because `receive_repair_order_
++-- stock` resolves exactly ONE receiving location per branch
++-- (`resolve_branch_receiving_location`, backed by a live UNIQUE constraint
++-- on (organization_id, branch_id) for purpose='receiving' locations) -- a
++-- second independent receive/reserve scenario against the same fixed test
++-- org/branch cannot share 101's single transaction.
++--
++-- SCENARIO C (added: IC-1 finalization pass, product-owner decision --
++-- `on_hand_quantity >= 0` ALWAYS is now the FINAL product contract,
++-- `negative_stock_policy='allow'`/`'allow_with_approval'` are superseded
++-- for on-hand behavior, see `inventory-core-architecture.md` §0 decision
++-- #20 and §5 invariant #1): this is no longer a diagnostic -- it documents
++-- the FINAL, accepted product contract. Proves both policy values produce
++-- the identical P0003 rejection for a bare on-hand decrease with ZERO
++-- commitment (reserved=0, allocated=0) -- i.e. that `negative_stock_
++-- policy` cannot bypass the hard invariant regardless of its value.
++--
++-- Executed live against supabase-target via Supabase MCP.
++
++BEGIN;
++
++SELECT plan(14);
++
++CREATE TEMP TABLE fxb (
++  org uuid, branch uuid, e2e_user uuid, variant_1 uuid, unit_1 uuid,
++  ro uuid, rol uuid, session_id uuid, doc_id uuid, wsdl_id uuid,
++  receiving_location_id uuid, dest_location_id uuid
++);
++GRANT SELECT ON fxb TO authenticated;
++INSERT INTO fxb SELECT
++  '9f98fe91-63b8-4986-a2b3-65bdd47684c9'::uuid,
++  gen_random_uuid(),
++  'c4a24371-42db-4bb8-ab5e-379ebbf7d9c4'::uuid,
++  'fe364ce2-1f72-4df5-ab92-6361ec95e0da'::uuid,
++  '571dfd6c-eba2-42c2-8ad9-f39a2d103b6d'::uuid,
++  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
++  gen_random_uuid(), gen_random_uuid();
++
++CREATE TEMP TABLE test_log (seq serial, line text);
++GRANT INSERT, SELECT ON test_log TO authenticated;
++GRANT USAGE ON SEQUENCE test_log_seq_seq TO authenticated;
++
++-- A dedicated, FRESH branch for this file's own fixture -- see 101's own
++-- identical note: IC-1's genuine concurrency test permanently claimed the
++-- shared org=9f98fe91.../branch=e39b15da... pair's own "one receiving
++-- location per branch" slot with a non-zero-balance residual for this same
++-- variant. `e2e_user` already holds a real, permanent, ORG-WIDE
++-- `warehouse.*` wildcard grant in this org, so a fresh branch needs no
++-- additional permission grant.
++INSERT INTO branches (id, organization_id, name, branch_number)
++SELECT branch, org, '102-resonly-fresh-branch', 994 FROM fxb;
++
++INSERT INTO wdd_matcher_sessions (id, organization_id, branch_id, name)
++SELECT session_id, org, branch, '102-reserved-only-session' FROM fxb;
++INSERT INTO workshop_source_documents (id, organization_id, branch_id, document_type, external_document_number, source_session_id)
++SELECT doc_id, org, branch, 'wdd', '102-RESONLY-DOC', session_id FROM fxb;
++INSERT INTO workshop_source_document_lines (id, workshop_source_document_id, wdd_matcher_line_id, product_code, quantity)
++SELECT wsdl_id, doc_id, '49864df7-5275-48f1-a95e-fdafadce3249'::uuid, '102-RESONLY-SKU', 10 FROM fxb;
++INSERT INTO repair_orders (id, organization_id, branch_id, order_number, status)
++SELECT ro, org, branch, '102-RESONLY-RO', 'open' FROM fxb;
++INSERT INTO repair_order_lines (id, repair_order_id, variant_id, product_code, product_name, ordered_quantity, unit)
++SELECT rol, ro, variant_1, '102-RESONLY-SKU', '102 reserved-only test line', 10, 'pcs' FROM fxb;
++INSERT INTO repair_order_line_source_links (id, repair_order_line_id, workshop_source_document_line_id, quantity_contribution)
++SELECT gen_random_uuid(), rol, wsdl_id, 10 FROM fxb;
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, can_store_inventory, purpose)
++SELECT receiving_location_id, org, branch, '102-resonly-receiving', true, 'receiving' FROM fxb;
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, can_store_inventory)
++SELECT dest_location_id, org, branch, '102-resonly-destination', true FROM fxb;
++
++SET LOCAL ROLE authenticated;
++SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fxb)::text, 'role', 'authenticated')::text, true);
++
++-- Receive 10, reserve 6 (NO allocation -- reserved_quantity=6, allocated_quantity=0).
++SELECT receive_repair_order_stock(
++  (SELECT e2e_user FROM fxb), (SELECT org FROM fxb), (SELECT branch FROM fxb),
++  jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxb), 'unit_id', (SELECT unit_1 FROM fxb), 'quantity', 10, 'source_line_id', '49864df7-5275-48f1-a95e-fdafadce3249')),
++  NULL, NULL, NULL, NULL, NULL
++);
++
++SELECT inventory_create_reservation(
++  (SELECT org FROM fxb), (SELECT branch FROM fxb),
++  jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxb), 'location_id', (SELECT receiving_location_id FROM fxb), 'quantity', 6)),
++  'repair_order_line', (SELECT rol FROM fxb), null, null, null, (SELECT e2e_user FROM fxb)
++);
++
++CREATE TEMP TABLE putaway_outcome_b (label text, status text, detail text);
++GRANT INSERT, SELECT ON putaway_outcome_b TO authenticated;
++
++-- Attempt to move all 10 -- must be REJECTED (only 4 are genuinely free).
++DO $$
++DECLARE v_result jsonb;
++BEGIN
++  BEGIN
++    v_result := putaway_repair_order_stock(
++      (SELECT e2e_user FROM fxb), (SELECT org FROM fxb), (SELECT branch FROM fxb),
++      jsonb_build_array(jsonb_build_object('repair_order_line_id', (SELECT rol FROM fxb), 'variant_id', (SELECT variant_1 FROM fxb), 'unit_id', (SELECT unit_1 FROM fxb), 'quantity', 10)),
++      (SELECT dest_location_id FROM fxb), NULL
++    );
++    INSERT INTO putaway_outcome_b VALUES ('move10', 'succeeded', v_result::text);
++  EXCEPTION WHEN OTHERS THEN
++    INSERT INTO putaway_outcome_b VALUES ('move10', 'failed', SQLSTATE || ' ' || SQLERRM);
++  END;
++END $$;
++
++-- Attempt to move 5 -- must ALSO be REJECTED (still exceeds the 4 free units).
++DO $$
++DECLARE v_result jsonb;
++BEGIN
++  BEGIN
++    v_result := putaway_repair_order_stock(
++      (SELECT e2e_user FROM fxb), (SELECT org FROM fxb), (SELECT branch FROM fxb),
++      jsonb_build_array(jsonb_build_object('repair_order_line_id', (SELECT rol FROM fxb), 'variant_id', (SELECT variant_1 FROM fxb), 'unit_id', (SELECT unit_1 FROM fxb), 'quantity', 5)),
++      (SELECT dest_location_id FROM fxb), NULL
++    );
++    INSERT INTO putaway_outcome_b VALUES ('move5', 'succeeded', v_result::text);
++  EXCEPTION WHEN OTHERS THEN
++    INSERT INTO putaway_outcome_b VALUES ('move5', 'failed', SQLSTATE || ' ' || SQLERRM);
++  END;
++END $$;
++
++INSERT INTO test_log(line) SELECT is((SELECT status FROM putaway_outcome_b WHERE label = 'move10'), 'failed', 'T1: moving all 10 with 6 reserved (0 allocated) is REJECTED -- HARD-reservation invariant enforced by the engine itself, independent of allocation');
++INSERT INTO test_log(line) SELECT ok((SELECT detail FROM putaway_outcome_b WHERE label = 'move10') LIKE 'P0003%', 'T2: rejection carries the dedicated SQLSTATE P0003');
++INSERT INTO test_log(line) SELECT is((SELECT status FROM putaway_outcome_b WHERE label = 'move5'), 'failed', 'T3: moving 5 (only 4 truly free: 10 on_hand - 6 reserved) is also REJECTED');
++
++CREATE TEMP TABLE after_balance_b_rejected AS
++SELECT on_hand_quantity, reserved_quantity FROM inventory_balances
++WHERE organization_id = (SELECT org FROM fxb) AND branch_id = (SELECT branch FROM fxb)
++  AND location_id = (SELECT receiving_location_id FROM fxb) AND variant_id = (SELECT variant_1 FROM fxb);
++INSERT INTO test_log(line) SELECT is(on_hand_quantity, 10::numeric, 'T4: after both rejected attempts, on_hand is UNCHANGED (still 10)') FROM after_balance_b_rejected;
++INSERT INTO test_log(line) SELECT is(reserved_quantity, 6::numeric, 'T5: after both rejected attempts, reserved is UNCHANGED (still 6)') FROM after_balance_b_rejected;
++
++-- Control: moving exactly the free amount (4) succeeds.
++SELECT putaway_repair_order_stock(
++  (SELECT e2e_user FROM fxb), (SELECT org FROM fxb), (SELECT branch FROM fxb),
++  jsonb_build_array(jsonb_build_object('repair_order_line_id', (SELECT rol FROM fxb), 'variant_id', (SELECT variant_1 FROM fxb), 'unit_id', (SELECT unit_1 FROM fxb), 'quantity', 4)),
++  (SELECT dest_location_id FROM fxb), NULL
++);
++
++CREATE TEMP TABLE after_balance_b_control AS
++SELECT on_hand_quantity, reserved_quantity FROM inventory_balances
++WHERE organization_id = (SELECT org FROM fxb) AND branch_id = (SELECT branch FROM fxb)
++  AND location_id = (SELECT receiving_location_id FROM fxb) AND variant_id = (SELECT variant_1 FROM fxb);
++INSERT INTO test_log(line) SELECT is(on_hand_quantity, 6::numeric, 'T6 (control): moving exactly the free 4 units succeeds -- source on_hand now 6, exactly at the reserved boundary') FROM after_balance_b_control;
++
++RESET ROLE;
++
++-- ===========================================================================
++-- SCENARIO C: FINAL PRODUCT CONTRACT -- negative_stock_policy cannot bypass
++-- the hard invariant, for either 'allow' or 'block', on completely
++-- uncommitted stock (reserved=0, allocated=0). A fresh, third isolated
++-- branch (same fresh-branch convention as Scenario B above) with a
++-- directly-seeded balance (on_hand=2, reserved=0, allocated=0) -- no
++-- receive/reserve RPC chain needed since this scenario tests the bare
++-- on-hand decrease path directly.
++-- ===========================================================================
++
++CREATE TEMP TABLE fxc (org uuid, branch uuid, e2e_user uuid, variant_1 uuid, unit_1 uuid, loc_a uuid, loc_b uuid);
++GRANT SELECT ON fxc TO authenticated;
++INSERT INTO fxc SELECT
++  '9f98fe91-63b8-4986-a2b3-65bdd47684c9'::uuid, gen_random_uuid(),
++  'c4a24371-42db-4bb8-ab5e-379ebbf7d9c4'::uuid, 'fe364ce2-1f72-4df5-ab92-6361ec95e0da'::uuid,
++  '571dfd6c-eba2-42c2-8ad9-f39a2d103b6d'::uuid, gen_random_uuid(), gen_random_uuid();
++
++INSERT INTO branches (id, organization_id, name, branch_number)
++SELECT branch, org, '102-finalcontract-fresh-branch', 995 FROM fxc;
++
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, can_store_inventory)
++SELECT loc_a, org, branch, '102-finalcontract-loc-a', true FROM fxc;
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, can_store_inventory)
++SELECT loc_b, org, branch, '102-finalcontract-loc-b', true FROM fxc;
++
++-- Seed the org's own inventory_settings row (INSERT ... ON CONFLICT DO
++-- NOTHING mirrors the engine's own warm-up pattern; this org already has a
++-- settings row from earlier fixtures in this same transaction/session).
++INSERT INTO inventory_settings (organization_id) VALUES ((SELECT org FROM fxc))
++ON CONFLICT (organization_id) DO NOTHING;
++
++SET LOCAL ambra.inventory_movement_engine = 'on';
++INSERT INTO inventory_balances (organization_id, branch_id, location_id, variant_id, on_hand_quantity, reserved_quantity, allocated_quantity)
++SELECT org, branch, loc_a, variant_1, 2, 0, 0 FROM fxc
++ON CONFLICT (organization_id, branch_id, location_id, variant_id, coalesce(lot_id, '00000000-0000-0000-0000-000000000000'::uuid), coalesce(serial_id, '00000000-0000-0000-0000-000000000000'::uuid))
++DO UPDATE SET on_hand_quantity = 2, reserved_quantity = 0, allocated_quantity = 0;
++
++CREATE TEMP TABLE movement_count_baseline_c AS
++SELECT count(*) AS n FROM inventory_movement_headers WHERE organization_id = (SELECT org FROM fxc) AND branch_id = (SELECT branch FROM fxc);
++GRANT SELECT ON movement_count_baseline_c TO authenticated;
++CREATE TEMP TABLE ledger_count_baseline_c AS
++SELECT count(*) AS n FROM inventory_stock_ledger_entries WHERE organization_id = (SELECT org FROM fxc) AND branch_id = (SELECT branch FROM fxc);
++GRANT SELECT ON ledger_count_baseline_c TO authenticated;
++
++SET LOCAL ROLE authenticated;
++SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fxc)::text, 'role', 'authenticated')::text, true);
++
++CREATE TEMP TABLE outcome_c (label text, status text, detail text);
++GRANT INSERT, SELECT ON outcome_c TO authenticated;
++
++-- policy='allow': attempt decrease 5 from on_hand=2 (zero commitment) -- MUST be rejected per the final product contract.
++RESET ROLE;
++UPDATE inventory_settings SET negative_stock_policy = 'allow' WHERE organization_id = (SELECT org FROM fxc);
++SET LOCAL ROLE authenticated;
++SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fxc)::text, 'role', 'authenticated')::text, true);
++
++DO $$
++DECLARE v_result jsonb;
++BEGIN
++  BEGIN
++    v_result := inventory_create_and_finalize(
++      (SELECT org FROM fxc), (SELECT branch FROM fxc), '402',
++      jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxc), 'unit_id', (SELECT unit_1 FROM fxc), 'quantity', 5, 'source_location_id', (SELECT loc_a FROM fxc), 'destination_location_id', NULL)),
++      NULL, NULL, NULL, NULL, NULL, NULL, (SELECT e2e_user FROM fxc)
++    );
++    INSERT INTO outcome_c VALUES ('allow', 'succeeded', v_result::text);
++  EXCEPTION WHEN OTHERS THEN
++    INSERT INTO outcome_c VALUES ('allow', 'failed', SQLSTATE || ' ' || SQLERRM);
++  END;
++END $$;
++
++INSERT INTO test_log(line) SELECT is((SELECT status FROM outcome_c WHERE label = 'allow'), 'failed', 'T7 (FINAL CONTRACT): with negative_stock_policy=''allow'', a bare on-hand decrease that would go negative (2-5) is REJECTED -- ''allow'' cannot bypass the hard invariant');
++INSERT INTO test_log(line) SELECT ok((SELECT detail FROM outcome_c WHERE label = 'allow') LIKE 'P0003%', 'T8: rejection carries SQLSTATE P0003 (not an accidental 23514 CHECK violation)');
++
++CREATE TEMP TABLE balance_after_allow AS
++SELECT on_hand_quantity FROM inventory_balances WHERE organization_id = (SELECT org FROM fxc) AND branch_id = (SELECT branch FROM fxc) AND location_id = (SELECT loc_a FROM fxc) AND variant_id = (SELECT variant_1 FROM fxc);
++INSERT INTO test_log(line) SELECT is(on_hand_quantity, 2::numeric, 'T9: on_hand remains UNCHANGED (still 2) after the rejected ''allow''-policy attempt') FROM balance_after_allow;
++INSERT INTO test_log(line) SELECT is(
++  (SELECT count(*) FROM inventory_movement_headers WHERE organization_id = (SELECT org FROM fxc) AND branch_id = (SELECT branch FROM fxc)),
++  (SELECT n FROM movement_count_baseline_c), 'T10: no orphan inventory_movement_headers row created'
++);
++INSERT INTO test_log(line) SELECT is(
++  (SELECT count(*) FROM inventory_stock_ledger_entries WHERE organization_id = (SELECT org FROM fxc) AND branch_id = (SELECT branch FROM fxc)),
++  (SELECT n FROM ledger_count_baseline_c), 'T11: no ledger mutation (inventory_stock_ledger_entries row count unchanged)'
++);
++
++-- policy='block': same fixture, same attempt -- must produce the byte-identical rejection.
++RESET ROLE;
++UPDATE inventory_settings SET negative_stock_policy = 'block' WHERE organization_id = (SELECT org FROM fxc);
++SET LOCAL ROLE authenticated;
++SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fxc)::text, 'role', 'authenticated')::text, true);
++
++DO $$
++DECLARE v_result jsonb;
++BEGIN
++  BEGIN
++    v_result := inventory_create_and_finalize(
++      (SELECT org FROM fxc), (SELECT branch FROM fxc), '402',
++      jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxc), 'unit_id', (SELECT unit_1 FROM fxc), 'quantity', 5, 'source_location_id', (SELECT loc_a FROM fxc), 'destination_location_id', NULL)),
++      NULL, NULL, NULL, NULL, NULL, NULL, (SELECT e2e_user FROM fxc)
++    );
++    INSERT INTO outcome_c VALUES ('block', 'succeeded', v_result::text);
++  EXCEPTION WHEN OTHERS THEN
++    INSERT INTO outcome_c VALUES ('block', 'failed', SQLSTATE || ' ' || SQLERRM);
++  END;
++END $$;
++
++INSERT INTO test_log(line) SELECT is((SELECT status FROM outcome_c WHERE label = 'block'), 'failed', 'T12 (FINAL CONTRACT): with negative_stock_policy=''block'', the identical attempt is also REJECTED');
++INSERT INTO test_log(line) SELECT ok((SELECT detail FROM outcome_c WHERE label = 'block') LIKE 'P0003%', 'T13: ''block''-policy rejection also carries SQLSTATE P0003 -- byte-identical behavior to ''allow''');
++
++CREATE TEMP TABLE balance_after_block AS
++SELECT on_hand_quantity FROM inventory_balances WHERE organization_id = (SELECT org FROM fxc) AND branch_id = (SELECT branch FROM fxc) AND location_id = (SELECT loc_a FROM fxc) AND variant_id = (SELECT variant_1 FROM fxc);
++INSERT INTO test_log(line) SELECT is(on_hand_quantity, 2::numeric, 'T14: on_hand remains UNCHANGED (still 2) after the rejected ''block''-policy attempt too') FROM balance_after_block;
++
++RESET ROLE;
++
++SELECT count(*) FILTER (WHERE line NOT LIKE 'ok %') AS not_ok_count, count(*) AS total_assertions FROM test_log;
++
++ROLLBACK;
+diff --git a/docs/inventory/inventory-core-architecture.md b/docs/inventory/inventory-core-architecture.md
+index e6df8b60..eb676727 100644
+--- a/docs/inventory/inventory-core-architecture.md
++++ b/docs/inventory/inventory-core-architecture.md
+@@ -62,6 +62,13 @@ match the assigning brief:
+     but must be atomic — not designed in detail yet (§7.2).
+ 19. **Phase 10D (QR) stays frozen** until Inventory Core consolidation is
+     completed and accepted.
++20. **Added during IC-1's finalization pass**: `on_hand_quantity >= 0`
++    ALWAYS, with no exception — Ambra does not support negative physical
++    on-hand stock. `inventory_settings.negative_stock_policy`'s `'allow'`/
++    `'allow_with_approval'` values are superseded/deprecated for on-hand
++    behavior and must never bypass this invariant or invariant #6. The
++    column is not removed yet — its dead values are owned by IC-6's own
++    cleanup scope.
+ 
+ ---
+ 
+@@ -227,12 +234,12 @@ than an implicit convention.
+ 
+ | #   | Invariant                                                                                                                                                                                                                                    | Enforced by                                                                                                                                                                                          |
+ | --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+-| 1   | `on_hand_quantity >= 0`                                                                                                                                                                                                                      | **CHECK** (add if not already present — not confirmed live during the audit; verify in IC-0)                                                                                                         |
+-| 2   | `reserved_quantity >= 0`                                                                                                                                                                                                                     | **CHECK**                                                                                                                                                                                            |
+-| 3   | `allocated_quantity >= 0`                                                                                                                                                                                                                    | **CHECK**                                                                                                                                                                                            |
++| 1   | `on_hand_quantity >= 0`, **ALWAYS, with no exception** — Ambra does not support negative physical on-hand stock                                                                                                                             | **CHECK**, ✅ ADDED (IC-1: `inventory_balances_on_hand_nonnegative`) — IC-0 live-confirmed it was genuinely absent before this. **Product-owner FINAL DECISION (IC-1 finalization pass, see `inventory-core-progress.md`'s own IC-1 change log for the date and full record)**: `inventory_settings.negative_stock_policy`'s `'allow'`/`'allow_with_approval'` values are **superseded/deprecated for on-hand behavior** — they must never bypass this CHECK or invariant #6 below. The column remains in the schema temporarily for backward-compatibility/cleanup sequencing only (retirement owned by IC-6, see the implementation plan's own IC-6 scope) — it must not be read as still meaningfully controlling canonical movement behavior. |
++| 2   | `reserved_quantity >= 0`                                                                                                                                                                                                                     | **CHECK** — IC-0 live-confirmed already present (`inventory_balances_reserved_nonnegative`)                                                                                                          |
++| 3   | `allocated_quantity >= 0`                                                                                                                                                                                                                    | **CHECK** — IC-0 live-confirmed already present (`inventory_balances_allocated_nonnegative`)                                                                                                         |
+ | 4   | `allocated_quantity <= reserved_quantity`                                                                                                                                                                                                    | **RPC transaction logic** (already enforced by `inventory_create_allocation`'s own row-locked check; a bare CHECK can't express "at the reservation-LINE level," which is where this actually lives) |
+ | 5   | `reserved_quantity <= on_hand_quantity` (decision #15, hard reservations)                                                                                                                                                                    | **RPC transaction logic** (`inventory_create_reservation`'s own row-locked check, already correct)                                                                                                   |
+-| 6   | No physical movement may strand a reserved/allocated commitment (i.e. a movement that would push `on_hand < reserved` or `on_hand < allocated` at that bucket is rejected, UNLESS it is a sanctioned atomic commitment-relocation operation) | **RPC transaction logic**, NEW — the core engine itself (IC-1), not a per-caller convention                                                                                                          |
++| 6   | No physical movement may strand a reserved/allocated commitment: a movement that would push `on_hand < reserved + allocated` at that bucket is rejected, UNLESS it is a sanctioned atomic commitment-relocation operation | **RPC transaction logic**, ✅ IMPLEMENTED (IC-1, `inventory_finalize_posting`) — the core engine itself, not a per-caller convention. **Corrected during IC-1 implementation** from this document's original `on_hand < reserved` OR `on_hand < allocated` phrasing: live-verified (`inventory_create_allocation`'s own body) that reserved and allocated are non-overlapping, ADDITIVE commitment buckets — a reservation-backed allocation decrements `reserved_quantity` by exactly the amount it increments `allocated_quantity` in the same UPDATE. The OR-of-either-alone formula is strictly weaker and was a genuine under-protection: e.g. reserved=6, allocated=4, on_hand=8 passes both `on_hand >= reserved` and `on_hand >= allocated` individually even though the true combined commitment (10) exceeds on_hand (8). Only the SUM is correct. See §6 below, also corrected to match. |                                                                                                          |
+ | 7   | Allocation cannot exceed its own reservation line                                                                                                                                                                                            | **RPC transaction logic** — already enforced (Phase 10B)                                                                                                                                             |
+ | 8   | Reservation cannot exceed currently-reservable physical stock (`on_hand - reserved` at reserve time, row-locked)                                                                                                                             | **RPC transaction logic** — already enforced (Phase 10A)                                                                                                                                             |
+ | 9   | Quantity conservation across container placement/removal (`SUM(active link qty) <= allocation_line.allocated_quantity`)                                                                                                                      | **RPC transaction logic** — already enforced, live-proven under real concurrency (Phase 10C)                                                                                                         |
+@@ -258,22 +265,32 @@ same standard.
+ 
+ ## 6. Sanctioned Movement of Committed Stock
+ 
+-**Default rule:**
++**Default rule (corrected during IC-1 implementation — see invariant #6's own
++note above for the full derivation):**
+ 
+ ```
+-available_to_move (generic physical movement) = on_hand_quantity - allocated_quantity
++available_to_move (generic physical movement) = on_hand_quantity - (reserved_quantity + allocated_quantity)
+ ```
+ 
+ A generic movement request that would reduce `on_hand_quantity` below
+-`allocated_quantity` at that bucket is **REJECTED** by the core engine itself
+-(invariant #6). Note this is deliberately `- allocated`, not `- reserved`:
+-reserved-but-not-allocated stock is still "available to move" in the sense
+-that no specific allocation has yet claimed a physical placement for it —
+-moving it only requires that the _reservation_ itself be re-pointed at the new
+-location (an operation the reservation domain, not the movement domain, must
+-eventually own if this becomes a real requirement; out of scope until a
+-concrete business need arises — **do not build reserved-stock relocation
+-speculatively**).
++`reserved_quantity + allocated_quantity` at that bucket is **REJECTED** by the
++core engine itself (invariant #6, live-implemented in IC-1 as SQLSTATE
++`P0003`). This document originally read `- allocated` only, on the theory that
++reserved-but-not-allocated stock was still "available to move." That theory is
++**superseded**: decision #15 (this document's own §0) establishes HARD
++reservations — `reserved_quantity <= on_hand_quantity` must ALWAYS hold, with
++backorder semantics explicitly out of scope — so a generic physical movement
++that would push `on_hand` below outstanding `reserved_quantity` (even with
++zero allocation against it) would itself violate decision #15, not merely
++create an inconvenience for a future re-pointing operation. IC-1's own live
++regression (`102_ic1_reserved_only_hard_invariant_test.sql`) proves the engine
++rejects such a movement even when `allocated_quantity = 0`. Re-pointing a
++reservation's own location without a physical move remains a separate,
++un-built reservation-domain operation (out of scope until a concrete business
++need arises — **do not build reserved-stock relocation speculatively**); the
++point corrected here is only that the movement engine itself must never permit
++a *physical* move to strand outstanding `reserved_quantity`, exactly as it
++must never permit one to strand `allocated_quantity`.
+ 
+ **A sanctioned operation instead performs, atomically, in ONE transaction:**
+ 
+diff --git a/docs/inventory/inventory-core-implementation-plan.md b/docs/inventory/inventory-core-implementation-plan.md
+index 9af65a01..572c1297 100644
+--- a/docs/inventory/inventory-core-implementation-plan.md
++++ b/docs/inventory/inventory-core-implementation-plan.md
+@@ -570,6 +570,19 @@ Action`, `relocateContainerAction`) — confirmed zero UI callers, twice,
+ - Re-confirm zero live callers for everything on this list immediately
+   before deleting (a repository/live re-check, not a re-use of this
+   document's own now-possibly-stale claim).
++- **Added during IC-1's finalization pass (product-owner decision,
++  see `inventory-core-progress.md`'s own IC-1 change log)**: retire
++  `inventory_settings.negative_stock_policy`'s `'allow'`/`'allow_with_
++  approval'` values. IC-1 made global non-negative `on_hand_quantity` the
++  final product contract; these values have been behaviorally superseded
++  since IC-1 (both now produce byte-identical rejection to `'block'`) and
++  carry zero live usage (confirmed: exactly 1 `inventory_settings` row
++  exists, already `'block'`) and zero production reachability (confirmed:
++  no UI/action anywhere reads or writes this column). Options at that time:
++  narrow the CHECK to `negative_stock_policy = 'block'` only (simplest,
++  matches the now-single supported value), or drop the column entirely if
++  nothing else depends on its 3-state shape by then — re-verify live before
++  choosing, per this phase's own established discipline.
+ 
+ **Tables/functions/files likely affected**: `ambra-location-inventory.ts`
+ (file edit — remove the 4 write actions, keep read-only exports if any UI
+diff --git a/docs/inventory/inventory-core-progress.md b/docs/inventory/inventory-core-progress.md
+index 8d0a1a8a..814e70e8 100644
+--- a/docs/inventory/inventory-core-progress.md
++++ b/docs/inventory/inventory-core-progress.md
+@@ -11,13 +11,14 @@ distinct from Zone 3's own Phase 10A-10F numbering).
+ **Priority:** P0 (blocks Phase 10D).
+ **Branch:** `zone3-zone5-integration-audit`.
+ **Architecture:** ✅ ACCEPTED (this session — `inventory-core-architecture.md`).
+-**Runtime status:** 🔴 NOT STARTED — planning/documentation only completed so
+-far. No IC phase implementation has been performed.
+-**Current phase:** IC-0 (planning + baseline capture) — **planning portion
+-DONE this session; the live-reverification portion of IC-0's own scope
+-(confirming the CHECK-constraint and RLS-policy facts listed in its own
+-"Live verification required" section) has NOT yet been performed** and must
+-be completed before IC-1 may begin.
++**Runtime status:** 🟢 IC-0 ✅ DONE. IC-1 ✅ DONE AND FINAL — commitment
++invariant, locking strategy, SUM formula, helper replacement, pgTAP evidence,
++concurrency proof (external review, accepted), AND the `negative_stock_
++policy` semantic-contract question (product-owner decision, 2026-09-15,
++OPTION A — see the finalization-pass change-log entry below) are all closed.
++IC-2 is NOT started.
++**Current phase:** IC-1 FINAL → IC-2 (Movement reversal) is the next
++authorized phase, NOT yet started.
+ **Pitch/pilot readiness:** N/A — this is base-engine work, not itself a
+ pitch-scoped feature; it BLOCKS Phase 10D, which IS pitch-scoped (see the
+ Zone 3 tracker's own cross-reference).
+@@ -27,10 +28,12 @@ Zone 3 tracker's own cross-reference).
+ 
+ ## Overall execution
+ 
+-- IC phases completed: 0 / 8 (IC-0's own documentation deliverable is done;
+-  IC-0's own live-reverification deliverable is not).
+-- No migration has been applied for any IC phase.
+-- No application code has been modified for any IC phase.
++- IC phases completed: 2 / 8 (IC-0, IC-1). IC-2 NOT started.
++- 3 forward migrations applied for IC-1 (all live-verified, all mirrored
++  locally under the exact live version/timestamp — see change log).
++- Application code: no TypeScript changes were required for IC-1 (the fix is
++  entirely inside `inventory_finalize_posting`'s own PL/pgSQL body); 2 pgTAP
++  test files added/rewritten (`101_...` rewritten, `102_...` new).
+ 
+ ---
+ 
+@@ -38,8 +41,8 @@ Zone 3 tracker's own cross-reference).
+ 
+ | Phase                                                                | Status         | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+ | -------------------------------------------------------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+-| IC-0 Architecture contract + baseline capture                        | 🟡 PARTIAL     | Documentation (this file, the architecture doc, the implementation plan, the Zone 3 tracker cross-reference) is DONE. The live-reverification half of IC-0's own scope (CHECK constraints on `inventory_balances`; raw-write RLS shape on `inventory_reservations`/`inventory_allocations` and their own line tables; whether a raw INSERT of a `posted`-status movement header is possible) has **NOT** been performed yet — do not mark IC-0 fully done until it is. |
+-| IC-1 Canonical movement engine / hard stock invariants               | ⬜ NOT STARTED | Recommended next phase — see the implementation plan's own "Recommended IC-1 Scope" section for the exact authorized prompt.                                                                                                                                                                                                                                                                                                                                           |
++| IC-0 Architecture contract + baseline capture                        | ✅ DONE        | Live verification closed 2026-09-15 — see change log for the exact findings. Gate decision: no contradiction with the accepted architecture; two genuine raw-write gaps found (reservation/allocation tables, movement headers) but neither defeats IC-1's own guarantee — both recorded as IC-7 blockers, not IC-1 blockers. |
++| IC-1 Canonical movement engine / hard stock invariants               | ✅ DONE, FINAL  | Hard invariant (`on_hand >= reserved_quantity + allocated_quantity`) live-implemented in `inventory_finalize_posting`, SQLSTATE `P0003`. Balance-getter replaced (v1 helper now zero production callers). `on_hand_quantity >= 0` CHECK added — **product-owner FINAL DECISION (2026-09-15, OPTION A)**: global non-negative on-hand is the permanent product contract; `negative_stock_policy='allow'`/`'allow_with_approval'` are superseded/deprecated for on-hand behavior, cannot bypass the invariant, column cleanup owned by IC-6. 133/133 pgTAP (102 extended to 14/14 with the finalized-contract regression) + 395/395 relevant Vitest clean (229 of those 395 re-confirmed live this finalization pass; the file set is identical to the original submission's own 395, not additive). Genuine two-session concurrency proven (3.68s real blocking). Architecture doc §0 (new decision #20) and §5 (invariant #1) updated. See the finalization-pass change-log entry below and `docs/inventory/reviews/ic-1-review/negative-stock-policy-conflict.md` (marked RESOLVED). |
+ | IC-2 Movement reversal                                               | ⬜ NOT STARTED | Depends on IC-1.                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+ | IC-3 Receiving consolidation                                         | ⬜ NOT STARTED | Depends on IC-1.                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+ | IC-4 Branch transfer / MMJ rebuild                                   | ⬜ NOT STARTED | Depends on IC-1, IC-3. Carries an open product-semantics question (see implementation plan's own IC-4 section: whether "in transit" should mean physically moving vs. merely reserved) that needs product-owner resolution before or during this phase.                                                                                                                                                                                                                |
+@@ -106,3 +109,430 @@ exist`, and would additionally violate a `NOT NULL` constraint and
+   modified. Phase 10D not started. Stopping point, per explicit instruction:
+   IC-1 was NOT started; its own exact authorized scope is recorded in the
+   implementation plan for the next turn's own explicit go-ahead.
++- **2026-09-15 (IC-0 live verification — CLOSED)**: performed the specific
++  live verification IC-0's own scope required, no inference from migration
++  files. (1) **CHECK constraints on `inventory_balances`**: `allocated_
++  quantity >= 0` and `reserved_quantity >= 0` already exist
++  (`inventory_balances_allocated_nonnegative`, `inventory_balances_
++  reserved_nonnegative`, live-fetched via `pg_get_constraintdef`) —
++  `on_hand_quantity >= 0` does **NOT** exist, confirming the architecture
++  doc's own predicted gap. (2) **Raw-write RLS on `inventory_reservations`/
++  `inventory_reservation_lines`/`inventory_allocations`/`inventory_
++  allocation_lines`**: all four have `relrowsecurity`/`relforcerowsecurity
++  = true`, but each carries only a single `PERMISSIVE ALL`-command policy
++  gated solely on `has_branch_permission(...,'warehouse.inventory.
++  operate')` — **no RESTRICTIVE, ownership-aware policy exists**, meaning
++  any authenticated caller holding that one permission can raw-INSERT/
++  UPDATE/DELETE these tables, bypassing every invariant `inventory_create_
++  reservation`/`inventory_create_allocation` themselves enforce. **Real gap,
++  confirmed** — but does NOT defeat IC-1's own guarantee, since IC-1's own
++  check reads `inventory_balances.reserved_quantity`/`allocated_quantity`
++  directly (a separately GUC-gated, still-protected table), never
++  recomputed from these line tables at check time. Recorded as an **IC-7
++  blocker**, matching the architecture doc's own security table. (3)
++  **`inventory_movement_headers` raw INSERT boundary**: **EMPIRICALLY
++  CONFIRMED** via a real, rolled-back live probe (not policy-text inference)
++  that an authenticated actor holding `warehouse.inventory.operate` CAN
++  directly `INSERT` a fully fabricated `status='posted'` header (fake
++  document number, no real movement lines, no ledger entries) — the
++  `inventory_movement_headers_insert` policy's own `WITH CHECK` is
++  permission-only, with zero awareness of the `status` column.
++  `inventory_movement_lines`' own INSERT policy has the identical shape.
++  **Real gap, confirmed** — but, live-verified, does **NOT** defeat IC-1's
++  own guarantee: no trigger on `inventory_movement_lines` auto-applies a
++  balance effect (confirmed via `pg_trigger` — only `BEFORE UPDATE/DELETE`
++  immutability triggers exist, no `AFTER INSERT` effect-application
++  trigger), and `inventory_balances` itself remains protected by its own
++  GUC-gated `inventory_guard_balance_write` trigger regardless of this raw
++  header/line insert path — so a fabricated "posted" header can never
++  actually move real stock or falsify what IC-1's own new check reads.
++  Recorded as an **IC-7 blocker** (a serious audit-trail/data-integrity
++  concern in its own right — fabricated posted-status records with real
++  document numbers), not an IC-1 blocker. (4) **Function signatures**:
++  `inventory_finalize_posting(p_movement_id uuid, p_actor_user_id uuid)`
++  (DEFINER, unchanged from the audit); `inventory_v1_get_or_create_balance
++  (p_org_id, p_branch_id, p_location_id, p_variant_id) RETURNS uuid`
++  (DEFINER, exactly one production caller — `inventory_finalize_posting`
++  itself, confirmed via `prosrc` search across every function, plus a
++  repo-wide grep confirming zero TypeScript callers); `inventory_get_or_
++  create_balance_for_update`'s own 5-argument overload (`p_organization_id,
++  p_branch_id, p_location_id, p_variant_id, p_movement_id) RETURNS
++  inventory_balances` (full row, `FOR UPDATE`-locked, defaults lot_id/
++  serial_id to NULL identically to v1's own implicit behavior, additionally
++  sets `last_movement_id`/`last_movement_at` on first creation) is
++  confirmed the exact correct, drop-in replacement overload — the
++  7-argument lot/serial-aware overload is deliberately NOT used, matching
++  the explicit "do not expose new lot/serial behavior as a side effect"
++  instruction. **Pre-migration data safety check**: live-queried all 37
++  existing `inventory_balances` rows — zero have `on_hand_quantity < 0`,
++  zero have `reserved_quantity > on_hand_quantity`, zero have `allocated_
++  quantity > reserved_quantity` — safe to add the missing CHECK constraint
++  and safe to implement the stronger invariant (below) without any
++  pre-existing violation. **IC-0 DECISION GATE: PASSED.** No finding
++  contradicts the accepted architecture or makes IC-1 unsafe to implement.
++  Proceeding immediately to IC-1, per explicit instruction.
++- **2026-09-15 (IC-1 — Canonical Movement Engine / Hard Stock Invariants —
++  DONE)**: implemented and live-proven the hard commitment invariant in the
++  shared, canonical `inventory_finalize_posting`, plus the balance-helper
++  replacement and the missing CHECK constraint IC-0 identified.
++
++  **Migrations applied (3, forward-only, all mirrored locally under their
++  exact live version/timestamp in `apps/web/supabase-target/supabase/
++  migrations/`)**:
++  1. `20260915062211_ic1_inventory_balances_on_hand_nonnegative_check` —
++     `ALTER TABLE inventory_balances ADD CONSTRAINT inventory_balances_
++     on_hand_nonnegative CHECK (on_hand_quantity >= 0)`. Pre-migration data
++     check: all 37 existing rows already satisfied it.
++  2. `20260915062244_ic1_inventory_finalize_posting_hard_invariant` —
++     `CREATE OR REPLACE` on `inventory_finalize_posting`: (a) replaced the
++     internal balance-getter call from `inventory_v1_get_or_create_balance`
++     (bare uuid return, no lot/serial support) to `inventory_get_or_create_
++     balance_for_update` (full locked row, already the established
++     replacement elsewhere — IC-0 confirmed exactly one production caller of
++     the old helper, this function itself); (b) added the new invariant
++     check.
++  3. `20260915062422_ic1_inventory_finalize_posting_fix_ambiguous_overload`
++     — same-day forward fix: the prior migration's balance-getter call used
++     5 positional arguments, genuinely ambiguous against `inventory_get_or_
++     create_balance_for_update`'s 7-argument overload (its trailing two
++     params both carry `DEFAULT NULL`, so Postgres cannot disambiguate a
++     5-arg positional call — live-reproduced as `42725: function ... is not
++     unique` when re-running the characterization scenario). Fixed by
++     passing all 7 positional args explicitly (trailing two `NULL::uuid`),
++     matching `inventory_create_allocation`'s own established call
++     convention. Functionally identical to the 5-arg call (same NULL
++     lot/serial defaults) — exposes no new lot/serial behavior. The first
++     migration was never edited in place, per migration discipline.
++
++  **The invariant, exactly as implemented**: before applying any
++  `balance_field='on_hand' AND direction='decrease'` effect,
++  `inventory_finalize_posting` now rejects (SQLSTATE `P0003`, message
++  "Movement would strand committed stock...") if the post-effect on_hand
++  would fall below `reserved_quantity + allocated_quantity` (the SUM) at
++  that balance row. Unconditional — evaluated before, and independent of,
++  the pre-existing `negative_stock_policy` check; no sanctioned bypass
++  caller exists yet, so generic movement rejects unconditionally whenever it
++  would strand a commitment.
++
++  **Correction made mid-implementation, before any migration was written**:
++  the architecture doc's own original invariant #6 phrasing (`on_hand <
++  reserved` OR `on_hand < allocated`, and §6's `available_to_move = on_hand
++  - allocated` formula) was checked against `inventory_create_allocation`'s
++  own live body and found to be a genuine under-protection — reserved and
++  allocated are non-overlapping, ADDITIVE commitment buckets (a
++  reservation-backed allocation decrements `reserved_quantity` by exactly
++  the amount it increments `allocated_quantity` in the same UPDATE), so
++  protecting either value alone (or their max, which the OR-formula
++  effectively is) is insufficient; only their SUM is correct — e.g.
++  reserved=6, allocated=4, on_hand=8 passes both individual checks even
++  though the true combined commitment (10) exceeds on_hand (8). The SUM
++  formula was implemented instead, verified against the task's own worked
++  example (on_hand=10, reserved=6, allocated=0: move 4 allowed, move 5
++  rejected — confirmed live, exact match), and `inventory-core-
++  architecture.md` §5 (invariant #6 row) and §6 (the sanctioned-movement
++  default rule and its own rationale paragraph) were both corrected in place
++  to match, so the architecture document and the implementation no longer
++  disagree.
++
++  **Live proof, both commitment paths** (both via the real Zone 5
++  `receive_repair_order_stock`/`putaway_repair_order_stock` RPCs, not a
++  synthetic reproduction):
++  - Allocated stock (`101_...` rewritten, 17/17): receive 10 → reserve 6 →
++    allocate 6 (fully converts reserved→allocated) → attempt putaway of 10
++    → **REJECTED** (P0003), source/destination balances, reservation,
++    allocation all provably unchanged, zero orphan `inventory_movement_
++    headers` rows created (header count identical before/after the rejected
++    attempt) → control case: putaway of exactly the free 4 units
++    **SUCCEEDS**, leaving on_hand=6 exactly at the commitment boundary.
++  - Reserved-only stock, zero allocation (`102_...`, new file, 6/6): receive
++    10 → reserve 6, no allocation → attempt putaway of 10 **REJECTED**
++    (P0003) → attempt putaway of 5 also **REJECTED** (still exceeds the 4
++    genuinely free units) → balance provably unchanged after both rejections
++    → control case: putaway of exactly 4 **SUCCEEDS**. This proves the
++    engine protects the architecture's own HARD-reservation decision
++    (`reserved_quantity <= on_hand_quantity`) as a first-class case, not
++    merely as an incidental consequence of protecting `allocated_quantity`.
++
++  **Legitimate-movement regression (live, via `inventory_create_and_
++  finalize` directly, genuinely free/uncommitted stock)**: 101 receipt
++  (destination-increase-only, never touches the new check's code path) —
++  succeeded; 401 surplus (destination-increase-only) — succeeded; 402
++  shortage against free stock (source-decrease, exercises the new check
++  with a PASS expected) — succeeded; 801 bin-to-bin against free stock
++  (source-decrease) — succeeded. Final balances matched arithmetic exactly
++  (20+3-5-6=12 at the source, 6 at the destination). No legitimate movement
++  broke.
++
++  **Genuine two-independent-PostgreSQL-connection concurrency proof** (real
++  `psql` binary, two separate OS-level connections against
++  `SUPABASE_TARGET_DB_URL`, not one transaction pretending to be
++  concurrent): a durable (committed) bucket was constructed — on_hand=10,
++  allocated=6 (4 genuinely free). Session A opened a transaction, called
++  `putaway_repair_order_stock` to move the exact free 4 units (succeeded,
++  56ms), then held the transaction open via `pg_sleep(5)` before COMMIT.
++  Session B, started ~1.5s later, attempted to move 4 units to a different
++  destination; its own call **genuinely blocked for 3683.937ms** (real wall
++  time, not overlap) waiting on Session A's row lock, resumed only after
++  Session A's COMMIT (06:39:55.117), and correctly re-evaluated the
++  invariant against A's now-updated balance (on_hand=6 after A's move,
++  6 still committed) — **REJECTED** with P0003 ("only 2.000000 would remain
++  on hand"). No deadlock. Final state: source=6, dest_a=4, dest_b has **no
++  balance row at all** (B's rejected attempt left zero footprint — not even
++  an empty balance row was created). This proves genuine lock-based
++  serialization: two concurrent physical moves against the same committed
++  bucket cannot both succeed if their combined effect would violate the
++  commitment, and the rejected side leaves no trace. Lock-acquisition order
++  in `inventory_finalize_posting` was inspected (not rewritten): a single
++  balance row is locked per (line, effect) via `inventory_get_or_create_
++  balance_for_update`'s own `FOR UPDATE`; no cross-row lock-ordering change
++  was needed or made in IC-1 — no deadlock risk was found for the
++  single-balance-row case this phase covers.
++
++  **Residual data from the concurrency test (disclosed, not silently
++  cleaned up)**: `inventory_movement_headers`/`inventory_movement_lines`
++  are immutable once posted (`inventory_prevent_line_modification` trigger,
++  the SAME protection IC-0 already documented) — attempting to DELETE them
++  during cleanup was correctly blocked by the database itself
++  (`P0001: Cannot delete lines of a finalized movement`), confirming the
++  protection is real and was correctly NOT bypassed. As a result, 2 real,
++  legitimately-posted movement headers (`PZ/2026/000020` the receipt,
++  `MM/2026/000004` Session A's move) and their lines, the 3
++  `ic1-concurrency-*` warehouse_locations rows they reference (undeletable
++  once referenced by immutable movement lines), and 2 `inventory_balances`
++  rows that accurately reflect that real, permanent history remain live —
++  clearly named/tagged, internally consistent with each other and with the
++  ledger, not orphaned or inconsistent, and not part of any production
++  RepairOrder/customer data. All other synthetic scaffolding for this test
++  (reservation, allocation, RepairOrder, RepairOrderLine, provenance chain,
++  matcher session) WAS successfully deleted. Every other live test/probe
++  this session ran inside `BEGIN ... ROLLBACK` and left zero residual data,
++  confirmed by direct query after each.
++
++  **Full regression**: pgTAP 097 (29/29), 098 (17/17), 099 (20/20), 100
++  (44/44), 101 rewritten (17/17), 102 new (6/6) — 133/133 total, 0 failures.
++  Vitest: `repair-orders.service.test.ts` (159/159), inventory-movement/
++  field-policy suite (31/31), broader inventory sibling suite (166/166),
++  CRM sibling suite (39/39) — 395/395 total, 0 failures. `pnpm type-check`:
++  0 errors. `pnpm lint`: 0 errors, 319 pre-existing warnings, all in
++  unrelated `temp/` scaffold directories (cycle-count, warehouse-movement-
++  editor prototypes), none touching any file this phase changed.
++
++  **Security observations carried forward to IC-7 (not fixed here, per
++  explicit IC-1 scope boundary)**: the two genuine raw-write RLS gaps IC-0
++  found (reservation/allocation tables' permissive-only policies;
++  movement-header status-blind INSERT policy) remain open — confirmed again
++  this phase that neither defeats IC-1's own guarantee (the new check reads
++  exclusively from the separately GUC-protected `inventory_balances` table).
++
++  **IC-1 review bundle**: `docs/inventory/reviews/ic-1-review/` (see below).
++
++  **IC-1 is FINAL pending external review.** IC-2 is NOT started. Phase 10D
++  is NOT started.
++- **2026-09-15 (IC-1 external review — CORRECTION PASS, narrow
++  semantic-contract question, STOPPED pending product-owner review)**:
++  external review accepted IC-1's core invariant, locking strategy, SUM
++  formula, helper replacement, pgTAP evidence, and concurrency proof
++  outright — **none of that was reopened or redesigned**. Review found one
++  unresolved behavioral contradiction, investigated in full this pass.
++
++  **Finding**: `inventory_settings.negative_stock_policy` is a real, live,
++  CHECK-validated 3-state column (`'block'` / `'allow'` /
++  `'allow_with_approval'`, default `'block'`) — NOT a hypothetical or dead
++  schema artifact. It was deliberately designed (see `docs/warehouse-
++  movements-refactor-plan.md:76,102,339-342,379`, the original v1 movement-
++  engine design doc, predating Inventory Core consolidation) as a per-org
++  control over whether `on_hand_quantity` may go negative. v1's own pre-IC-1
++  engine code only blocked on `negative_stock_policy = 'block'`, meaning
++  `'allow'`/`'allow_with_approval'` were intentionally meant to permit
++  negative on-hand.
++
++  IC-1's new CHECK (`inventory_balances_on_hand_nonnegative`) plus the new
++  unconditional SUM-based P0003 check together make `negative_stock_policy`
++  **completely inert** for on-hand decreases through the canonical engine —
++  live-proven (below) that `'allow'` and `'block'` now produce byte-identical
++  rejections. This was added under an **incorrect assumption**: IC-0's own
++  audit flagged the CHECK as "missing" without cross-referencing `negative_
++  stock_policy`'s own pre-existing, documented 3-state design at all.
++
++  **Diagnostic questions, answered from live + repo-wide evidence (not
++  inferred from the column/variable name)**:
++  - **A. Is `'allow'` a real currently-supported production mode?**
++    Structurally yes (valid CHECK value, pre-IC-1 engine code path existed
++    for it) — but **zero production UI or server action anywhere reads or
++    writes `negative_stock_policy`** (repo-wide grep: the only TypeScript
++    hit is a migration-content string-assertion test referencing the
++    *original* `allow_negative_stock` boolean column, not this one). It has
++    never been reachable by an actual user/org through the application.
++  - **B. Does any org/branch currently have `negative_stock_policy='allow'`
++    live?** No — live-queried: exactly 1 `inventory_settings` row exists
++    total, set to `'block'`.
++  - **C. Was the accepted Inventory Core architecture intentionally meant to
++    eliminate negative on-hand stock globally?** No — live-verified against
++    `inventory-core-architecture.md` §0's full list of the 19 closed
++    product-owner decisions: none mention `negative_stock_policy`, negative
++    on-hand, or physical-layer backorder/oversell. Decision #15 (HARD
++    reservations, `reserved <= on_hand`) is scoped specifically to
++    reservations, not to on-hand negativity for entirely free/uncommitted
++    stock — a materially different question.
++  - **D. Or was the CHECK added under an incorrect assumption that it would
++    not alter existing `'allow'` behavior?** **Yes — this is the accurate
++    diagnosis.** C is false, D is true.
++
++  **Live diagnostic** (transaction-scoped, `BEGIN...ROLLBACK`, fixture:
++  on_hand=2, reserved=0, allocated=0; attempted physical decrease of 5
++  through the real canonical engine via `inventory_create_and_finalize`):
++  - `negative_stock_policy='allow'`: **FAILED — `P0003`**, "0.000000
++    reserved + 0.000000 allocated = 0.000000 committed ... but only
++    -3.000000 would remain on hand." Balance unchanged after (on_hand still
++    2). Zero movement headers created.
++  - `negative_stock_policy='block'`: **FAILED — `P0003`**, byte-identical
++    message and behavior.
++  - **Conclusion**: the two policy values are now behaviorally
++    indistinguishable for on-hand decreases. No `23514` raw CHECK violation
++    ever surfaces from this path — the new P0003 check always fires first
++    (whenever `committed=0`, `v_new_qty < committed` reduces exactly to
++    `v_new_qty < 0`), so error semantics are already uniform (always P0003,
++    never an accidental constraint error) regardless of which option is
++    ultimately chosen.
++
++  **Decision: OPTION B — STOPPED, no further migration applied.** Per the
++  reviewer's own explicit branching: Option A's precondition ("Inventory
++  Core's accepted hard invariant really is `on_hand_quantity >= 0` ALWAYS")
++  is not established by any of the 19 closed decisions or any other accepted
++  document — question C is false. Since the conflict is real (a previously
++  intentional, documented production capability is now structurally
++  unreachable, without any explicit product-owner decision to deprecate it),
++  and since "removing/weakening an already-applied hard invariant is an
++  architecture decision" per explicit instruction, **no migration was
++  applied this pass** to alter the CHECK, the P0003 check, or `negative_
++  stock_policy` in any way. The conflict, its evidence, and a proposed
++  minimal correction for each possible resolution are recorded in
++  `docs/inventory/reviews/ic-1-review/negative-stock-policy-conflict.md`
++  for product-owner review.
++
++  **The commitment invariant itself is NOT weakened or in question**: `on_
++  hand >= reserved_quantity + allocated_quantity`, unconditional, remains
++  exactly as implemented and accepted. The open question is narrowly scoped
++  to the `committed=0` edge case only (whether on-hand may go negative for
++  entirely free/uncommitted stock when an org's policy says `'allow'`) —
++  never whether committed stock can be stranded, which remains impossible
++  regardless of policy, live-reconfirmed this pass.
++
++  **Documentation test-count drift, corrected**: the phase-tracker row
++  showed both "235/235" (a stale, incorrect draft figure left in mid-writing
++  the final report) and "395/395" (the actual, verified total — 159 + 31 +
++  166 + 39) in different places in this same document. 235/235 was never a
++  real historical measurement — it is corrected in place to 395/395
++  throughout; no separate historical entry is preserved for it since it was
++  never an actual test run, only a transcription error within this same
++  session.
++
++  **Regression re-run this pass — genuine finding, fixed**: re-running
++  101/102 via a fresh `psql` connection (rather than the original MCP
++  `execute_sql` session) hit a real, live `duplicate key value violates
++  unique constraint "warehouse_locations_one_receiving_per_branch"` error —
++  NOT a code regression. Root cause: IC-1's own genuine two-session
++  concurrency test permanently, by design, left a real `warehouse_locations`
++  row (`ic1-concurrency-receiving`) occupying the shared org=`9f98fe91-
++  63b8-4986-a2b3-65bdd47684c9`/branch=`e39b15da-0a8d-4056-b5a2-80eb1da868a6`
++  pair's own "one receiving location per branch" slot (a live partial
++  UNIQUE INDEX), carrying a real, non-zero, undeletable balance residual for
++  the SAME shared `variant_1` fixture UUID every Zone 3 pgTAP file uses.
++  101/102's own fixtures unconditionally `INSERT`ed a *new* receiving
++  location for that same shared branch, which now always collides — and
++  even a lookup-and-reuse fix would have silently corrupted their own
++  "before" balance assertions (T5/T6 etc. assert exact absolute quantities
++  against a location that already carries 6 on-hand / 6 allocated from the
++  concurrency residual). **Fixed**: both 101 and 102 now create their own
++  fresh, isolated `branches` row per run (mirroring 099/100's own established
++  `branch_b` convention; `e2e_user` already holds a real, permanent,
++  org-wide `warehouse.*` wildcard grant, so no new permission grant is
++  needed) instead of reusing the shared branch. Re-verified live after the
++  fix: 101 17/17, 102 6/6. Zero residual after re-run (fresh branches
++  correctly rolled back). This is a test-fixture robustness fix only — no
++  RPC, migration, or invariant logic was touched.
++
++  pgTAP totals, all clean: 101 (17/17), 102 (6/6), 097-100 (29/17/20/44) —
++  133/133 total. New negative-stock diagnostic: both policy branches proven
++  live (above). Vitest: `repair-orders.service.test.ts` (159/159),
++  inventory-movement/field-policy suite (31/31), broader inventory sibling
++  suite (166/166), CRM sibling suite (39/39) — 395/395 total, 0 failures
++  (unaffected — SQL-test-only fix). `pnpm type-check`: 0 errors. `pnpm
++  lint`: 0 errors, 319 pre-existing warnings, all in unrelated `temp/`
++  scaffold directories.
++
++  **Bundle updated** (same IC-1 baseline, no IC-2 bundle created):
++  `docs/inventory/reviews/ic-1-review/review-context.md`,
++  `changed-files.md`, and `diff.patch` updated to include this pass's doc
++  corrections; new `negative-stock-policy-conflict.md` added; no migration
++  was required so `migration-summary.md` is unchanged; `test-and-
++  concurrency-evidence.md` updated with the negative-stock diagnostic
++  section.
++
++  **IC-1 was FINAL for its own accepted core, with one open semantic-
++  contract question pending explicit product-owner resolution before IC-2
++  begins.** That question is now resolved — see the next change-log entry.
++  IC-2 is NOT started. Phase 10D is NOT started.
++- **2026-09-15 (IC-1 FINALIZATION PASS — `negative_stock_policy` decision
++  RESOLVED, product-owner decision recorded)**: the product owner chose
++  **OPTION A**. Final product contract, recorded verbatim:
++  1. `inventory_balances.on_hand_quantity` MUST NEVER be negative.
++  2. `reserved_quantity + allocated_quantity <= on_hand_quantity` MUST
++     ALWAYS hold.
++  3. `negative_stock_policy='allow'` and `'allow_with_approval'` are now
++     SUPERSEDED/DEPRECATED specifically for physical `on_hand` behavior.
++  4. They must NOT bypass the IC-1 hard invariant.
++  5. The column/CHECK values are NOT removed in this pass.
++  6. IC-2 does not begin until this decision is documented and
++     regression-tested (done, this entry).
++
++  **No DB/code change was required or made.** The current, already-applied
++  CHECK (`inventory_balances_on_hand_nonnegative`) and the already-applied
++  P0003 invariant in `inventory_finalize_posting` already implement exactly
++  this contract — confirmed by the correction pass's own live diagnostic
++  (both `'allow'` and `'block'` already produced byte-identical P0003
++  rejections). Nothing to migrate.
++
++  **Documentation updated** to state the decision explicitly and mark the
++  old `'allow'`/`'allow_with_approval'` semantics as historical/superseded
++  rather than currently meaningful:
++  - `inventory-core-architecture.md` §0 gained a new, 20th closed decision
++    recording this verbatim; §5 invariant #1's own row now states "ALWAYS,
++    with no exception" and cites the product-owner decision explicitly.
++  - `docs/inventory/inventory-core-implementation-plan.md`'s own IC-6 scope
++    (Legacy Writer/Helper Removal — the phase whose explicit goal is
++    "delete the confirmed-dead paths") gained an added scope item: retiring
++    `negative_stock_policy`'s dead `'allow'`/`'allow_with_approval'` values
++    (narrow the CHECK to `'block'` only, or drop the column, re-verify live
++    before choosing). IC-7 (security/write-boundary closure) was
++    considered and correctly NOT used — this is a dead-configuration
++    cleanup item, not a raw-write/RLS security gap, and IC-6's own stated
++    goal matches it directly.
++  - `docs/inventory/reviews/ic-1-review/negative-stock-policy-conflict.md`
++    marked **RESOLVED**, with the product-owner decision, its date, and a
++    pointer to this change-log entry.
++
++  **New permanent regression** (not a diagnostic — documents the FINAL
++  product contract): `102_ic1_reserved_only_hard_invariant_test.sql`
++  extended with a third scenario (plan 6 → 14): fixture on_hand=2,
++  reserved=0, allocated=0, in a fresh, isolated branch; attempts a decrease
++  of 5 under `negative_stock_policy='allow'` — **REJECTED, P0003**, balance
++  unchanged, zero orphan `inventory_movement_headers` row, zero
++  `inventory_stock_ledger_entries` mutation; then the byte-identical attempt
++  under `'block'` — same result. Live-verified: 14/14.
++
++  **Regression, full**: 101 (17/17, unaffected by this pass, re-verified),
++  102 (14/14, extended and re-verified), 098 (17/17, re-verified live via
++  MCP `execute_sql`), 097/099/100 unaffected by this pass (no code changed;
++  already re-verified against the current DB state earlier in the IC-1
++  session — 29/17/20/44) — 133/133 pgTAP total. Vitest: 229 of the
++  original 395 relevant tests re-confirmed live this pass
++  (`repair-orders.service.test.ts` 159, inventory-movement/field-policy +
++  inventory-actions suite 31, CRM sibling suite 39 — the file set is
++  identical to the original submission, not additive; the broader
++  inventory sibling suite's own 166 were not re-run since nothing in their
++  scope changed). `pnpm type-check`: 0 errors. `pnpm lint`: 0 errors, 319
++  pre-existing unrelated warnings (unchanged from every prior pass).
++
++  **IC-1 is now FINAL, in full — no open questions remain.** IC-2 is NOT
++  started. Phase 10D is NOT started.
+diff --git a/docs/inventory/reviews/ic-1-review/changed-files.md b/docs/inventory/reviews/ic-1-review/changed-files.md
+new file mode 100644
+index 00000000..51361ee0
+--- /dev/null
++++ b/docs/inventory/reviews/ic-1-review/changed-files.md
+@@ -0,0 +1,88 @@
++# IC-1 — Changed Files
++
++Branch: `zone3-zone5-integration-audit`. Baseline: HEAD at the start of the
++IC-1 implementation turn (`docs/inventory/inventory-core-progress.md` showed
++IC-0 planning-only as the last committed state). This file now also covers
++the same-day correction pass (external review + `negative_stock_policy`
++conflict investigation) AND the subsequent finalization pass (product-owner
++decision: OPTION A) — all against the **same IC-1 baseline**. No new IC-2
++bundle was created, per explicit instruction.
++
++## Finalization-pass files (modified — product-owner decision recorded, no migration)
++
++| File                                                       | Change                                                                                                    |
++| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
++| `docs/inventory/inventory-core-architecture.md`               | New closed decision #20 (§0) recording the product-owner decision verbatim; §5 invariant #1 row updated to "ALWAYS, with no exception" and cites the decision. |
++| `docs/inventory/inventory-core-implementation-plan.md`        | IC-6 (Legacy Writer/Helper Removal) scope gained one item: retiring `negative_stock_policy`'s dead `'allow'`/`'allow_with_approval'` values. |
++| `docs/inventory/inventory-core-progress.md`                  | Runtime status → IC-1 fully FINAL; new finalization-pass change-log entry recording the product decision, evidence, and full regression. |
++| `apps/web/supabase/tests/102_ic1_reserved_only_hard_invariant_test.sql` | Extended with Scenario C (T7-T14, plan 6→14): the FINAL, permanent regression proving `negative_stock_policy` cannot bypass the hard invariant for either `'allow'` or `'block'`. Live-verified 14/14. |
++| `docs/inventory/reviews/ic-1-review/negative-stock-policy-conflict.md` | Marked **RESOLVED** with the product-owner decision and date; original investigation preserved below as historical record. |
++| `docs/inventory/reviews/ic-1-review/review-context.md`       | Update notice revised: IC-1 is now fully final, no open questions remain.                                 |
++| `docs/inventory/reviews/ic-1-review/test-and-concurrency-evidence.md` | pgTAP/Vitest tables updated (133→141 total; 102 6/6→14/14); diagnostic section reframed as the final, permanent regression. |
++| `docs/inventory/reviews/ic-1-review/changed-files.md`         | This file.                                                                                                 |
++| `docs/inventory/reviews/ic-1-review/diff.patch`               | Regenerated to include all changes across all three passes.                                                |
++
++**No migration was applied.** The already-applied CHECK and P0003 invariant
++already implemented the product-owner's chosen contract exactly.
++`migration-summary.md` remains unchanged — it still accurately describes the
++3 migrations that were, and remain, the only ones applied for IC-1.
++
++## Correction-pass files (new, this pass — no migration applied)
++
++| File                                                                                   | Purpose                                                                                     |
++| ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
++| `docs/inventory/reviews/ic-1-review/negative-stock-policy-conflict.md`                     | Full investigation of the `negative_stock_policy` conflict; evidence; proposed corrections per outcome; not resolved unilaterally. |
++
++## Correction-pass files (modified, this pass)
++
++| File                                                       | Change                                                                                                    |
++| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
++| `docs/inventory/inventory-core-progress.md`                  | Corrected "235/235" → "395/395" test-count drift; IC-1 phase-tracker row marked "accepted core, one open contract question"; new change-log entry for this pass, including the receiving-location fixture finding below. |
++| `docs/inventory/reviews/ic-1-review/review-context.md`       | Added an update notice at the top pointing to the new conflict file.                                     |
++| `docs/inventory/reviews/ic-1-review/test-and-concurrency-evidence.md` | Added the `negative_stock_policy` live diagnostic section (allow vs. block, both P0003).         |
++| `docs/inventory/reviews/ic-1-review/changed-files.md`         | This file — updated to describe the correction pass.                                                      |
++| `docs/inventory/reviews/ic-1-review/diff.patch`               | Regenerated to include all of this pass's changes.                                                        |
++| `apps/web/supabase/tests/101_zone3_zone5_movement_engine_reserved_blindspot_characterization_test.sql` | **Test-fixture robustness fix** (not a logic/invariant change): now creates its own fresh, isolated branch instead of reusing the shared org/branch pair, which IC-1's own genuine concurrency test permanently left with a real, non-zero-balance receiving-location residual (see `negative-stock-policy-conflict.md`'s sibling note in the progress doc's change log). Re-verified live: 17/17. |
++| `apps/web/supabase/tests/102_ic1_reserved_only_hard_invariant_test.sql` | Same fresh-branch fixture fix. Re-verified live: 6/6.                                        |
++
++No migration was applied this pass. No `inventory_finalize_posting` change.
++No CHECK constraint change. `migration-summary.md` is unchanged from the
++original IC-1 submission — it describes the 3 migrations already applied and
++accepted; nothing new to add since none were applied this pass.
++
++---
++
++## Original IC-1 submission (unchanged, for reference)
++
++## New files (5)
++
++| File                                                                                                          | Purpose                                                                                             |
++| -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
++| `apps/web/supabase-target/supabase/migrations/20260915062211_ic1_inventory_balances_on_hand_nonnegative_check.sql` | Adds `inventory_balances_on_hand_nonnegative` CHECK constraint.                                     |
++| `apps/web/supabase-target/supabase/migrations/20260915062244_ic1_inventory_finalize_posting_hard_invariant.sql`   | `CREATE OR REPLACE` on `inventory_finalize_posting`: balance-helper replacement + new hard invariant. |
++| `apps/web/supabase-target/supabase/migrations/20260915062422_ic1_inventory_finalize_posting_fix_ambiguous_overload.sql` | Same-day forward fix for a genuine `42725` overload-ambiguity bug in the prior migration.       |
++| `apps/web/supabase/tests/102_ic1_reserved_only_hard_invariant_test.sql`                                          | New pgTAP file: proves the hard invariant protects reserved-only (zero-allocation) stock. 6/6.        |
++| `docs/inventory/reviews/ic-1-review/` (this directory)                                                           | Review bundle.                                                                                        |
++
++## Modified files (3)
++
++| File                                                                                                    | Change                                                                                                                                                    |
++| ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
++| `apps/web/supabase/tests/101_zone3_zone5_movement_engine_reserved_blindspot_characterization_test.sql` | Rewritten: expectations inverted (the old blind-spot SUCCESS case is now a REJECTION proof), plus a new valid-movement control case. 11→17 assertions.   |
++| `docs/inventory/inventory-core-architecture.md`                                                        | §5 invariant #1, #6 rows and §6's default-rule formula/rationale corrected to the verified SUM formula (see `review-context.md` for why this mattered).   |
++| `docs/inventory/inventory-core-progress.md`                                                            | IC-0 phase-tracker row/notes finalized; IC-1 phase-tracker row and full change-log entry added; header status updated.                                    |
++
++## No changes to
++
++- `inventory_create_reservation`, `inventory_release_reservation`,
++  `inventory_create_allocation`, `inventory_release_allocation` (untouched,
++  per explicit hard scope boundary).
++- Any Phase 10C container RPC.
++- `repair_order_line_locations`, `ambra-location-inventory.ts`, movement code
++  311, branch-transfer RPCs, reversal, receiving consolidation, QR, container
++  relocation, WZ/201 — none in scope for IC-1, none touched.
++- Any TypeScript application code. IC-1's fix is entirely inside
++  `inventory_finalize_posting`'s own PL/pgSQL body; no service, action, or
++  hook required a change.
++
++See `diff.patch` in this directory for the complete unified diff.
+diff --git a/docs/inventory/reviews/ic-1-review/migration-summary.md b/docs/inventory/reviews/ic-1-review/migration-summary.md
+new file mode 100644
+index 00000000..2ee486e1
+--- /dev/null
++++ b/docs/inventory/reviews/ic-1-review/migration-summary.md
+@@ -0,0 +1,79 @@
++# IC-1 — Migration Summary
++
++Three forward migrations, applied via Supabase MCP `apply_migration` against
++`supabase-target`, live-verified via `pg_get_functiondef`/`pg_get_
++constraintdef` after each apply, then mirrored locally under their exact
++live-reported version/timestamp. No already-applied migration was edited.
++
++## 1. `20260915062211_ic1_inventory_balances_on_hand_nonnegative_check`
++
++```sql
++ALTER TABLE public.inventory_balances
++  ADD CONSTRAINT inventory_balances_on_hand_nonnegative
++  CHECK (on_hand_quantity >= 0);
++```
++
++**Why**: IC-0 live-verified the two sibling CHECK constraints
++(`inventory_balances_allocated_nonnegative`, `inventory_balances_
++reserved_nonnegative`) already existed; `on_hand_quantity >= 0` did not.
++**Data safety**: all 37 existing `inventory_balances` rows live-queried
++before this migration — zero violate it. Safe forward migration, no data
++repair needed.
++
++## 2. `20260915062244_ic1_inventory_finalize_posting_hard_invariant`
++
++`CREATE OR REPLACE FUNCTION public.inventory_finalize_posting(...)`. Two
++changes to the existing, unmodified-otherwise function body:
++
++1. **Balance-getter replacement**: `v_balance_id := inventory_v1_get_or_
++   create_balance(...)` (bare uuid) → `v_balance := inventory_get_or_
++   create_balance_for_update(...)` (full row, `FOR UPDATE`-locked). IC-0
++   confirmed the v1 helper had exactly one production caller — this
++   function — and that the replacement's lot/serial-agnostic call shape is
++   behaviorally identical to v1's own implicit NULL/NULL behavior. The old
++   helper is NOT dropped (that's IC-6's job); this migration proves its
++   remaining caller count is now zero.
++
++2. **New hard invariant**, inserted immediately before the pre-existing
++   `on_hand < 0` check, evaluated only when `balance_field='on_hand' AND
++   direction='decrease'`:
++
++   ```sql
++   IF v_new_qty < (v_balance.reserved_quantity + v_balance.allocated_quantity) THEN
++     RAISE EXCEPTION 'Movement would strand committed stock: ...'
++       USING ERRCODE = 'P0003';
++   END IF;
++   ```
++
++   Unconditional (no `negative_stock_policy` gate — no sanctioned bypass
++   caller exists yet). New SQLSTATE `P0003`, extending the project's
++   existing `P0`-family convention (`P0001` default RAISE, `P0002`
++   "not found").
++
++## 3. `20260915062422_ic1_inventory_finalize_posting_fix_ambiguous_overload`
++
++Same-day forward fix. Migration 2's balance-getter call used 5 positional
++arguments. `inventory_get_or_create_balance_for_update` has two overloads —
++a true 5-arg one and a 7-arg one whose trailing two parameters
++(`p_lot_id`, `p_serial_id`) both default to `NULL`. A 5-positional-argument
++call is genuinely ambiguous between them (`42725: function ... is not
++unique`) — live-reproduced when re-running the characterization scenario
++immediately after migration 2 was applied, not a hypothetical. Fixed by
++passing all 7 positional arguments explicitly (trailing two `NULL::uuid`),
++matching the exact call convention `inventory_create_allocation`'s own body
++already uses. Functionally identical to the 5-arg call — no new lot/serial
++behavior exposed. Migration 2 itself was never edited.
++
++## Post-apply live verification performed
++
++- `pg_get_constraintdef` on the new CHECK — confirmed present, correct
++  definition, alongside the two pre-existing sibling constraints.
++- `pg_get_functiondef` on `inventory_finalize_posting` after each of
++  migrations 2 and 3 — confirmed `uses_new_helper=true`, `still_uses_
++  v1=false`, `has_new_invariant_code=true`, `has_sum_check=true`.
++- Re-ran the full receive→reserve→allocate→putaway characterization
++  scenario live after migration 3 — confirmed the fix resolved the
++  ambiguity and produces the exact expected rejection/success behavior (see
++  `review-context.md` item 1 for the full transcript).
++- Confirmed via `prosrc` search across every function that `inventory_v1_
++  get_or_create_balance` now has zero remaining production callers.
+diff --git a/docs/inventory/reviews/ic-1-review/negative-stock-policy-conflict.md b/docs/inventory/reviews/ic-1-review/negative-stock-policy-conflict.md
+new file mode 100644
+index 00000000..02cdc46c
+--- /dev/null
++++ b/docs/inventory/reviews/ic-1-review/negative-stock-policy-conflict.md
+@@ -0,0 +1,154 @@
++# IC-1 Correction Pass — `negative_stock_policy` Semantic-Contract Conflict
++
++**Status: ✅ RESOLVED — product-owner decision, 2026-09-15, OPTION A.**
++
++## Product-owner decision (2026-09-15)
++
++**OPTION A chosen.** Final product contract, recorded verbatim:
++
++1. `inventory_balances.on_hand_quantity` MUST NEVER be negative.
++2. `reserved_quantity + allocated_quantity <= on_hand_quantity` MUST ALWAYS
++   hold.
++3. `negative_stock_policy='allow'` and `'allow_with_approval'` are
++   SUPERSEDED/DEPRECATED specifically for physical `on_hand` behavior.
++4. They must NOT bypass the IC-1 hard invariant.
++5. The column/CHECK values are not removed in this pass.
++6. IC-2 does not begin until this decision is documented and
++   regression-tested — done, see `inventory-core-progress.md`'s own IC-1
++   finalization-pass change-log entry (same date).
++
++**No DB/code change was required.** The already-applied CHECK and P0003
++invariant already implement this contract exactly — confirmed by this
++document's own diagnostic below (both `'allow'` and `'block'` already
++produced byte-identical rejections before this decision was even made).
++
++**Cleanup ownership assigned**: retiring `negative_stock_policy`'s dead
++`'allow'`/`'allow_with_approval'` values is now IC-6's scope (Legacy
++Writer/Helper Removal — its own stated goal is "delete the confirmed-dead
++paths"; see the implementation plan's own IC-6 section for the added item).
++IC-7 (security/write-boundary closure) was considered and not used — this
++is dead-configuration cleanup, not a raw-write/RLS security gap.
++
++**New permanent regression** (documents the final contract, not a
++diagnostic): `102_ic1_reserved_only_hard_invariant_test.sql`'s own Scenario
++C (T7-T14, plan extended 6→14) — live-verified 14/14.
++
++---
++
++## Original investigation (below), preserved as historical record
++
++## The conflict, in one paragraph
++
++IC-1 added `CHECK (on_hand_quantity >= 0)` on `inventory_balances` and a new
++unconditional check in `inventory_finalize_posting` rejecting any decrease
++that would leave `on_hand < reserved_quantity + allocated_quantity`. When
++`reserved_quantity + allocated_quantity = 0`, that condition reduces exactly
++to `on_hand_quantity < 0` — meaning the new check now *also* prevents on-hand
++from ever going negative, for **any** stock, committed or not, regardless of
++`inventory_settings.negative_stock_policy`. That setting is a real, live,
++CHECK-validated 3-state column (`'block'` / `'allow'` / `'allow_with_
++approval'`) that was deliberately designed, in the original v1 movement
++engine plan, to let an org choose to permit negative on-hand. IC-1's own
++change makes `'allow'`/`'allow_with_approval'` behaviorally identical to
++`'block'` — the setting is now inert.
++
++## Evidence gathered (all live or repo-wide, not inferred)
++
++- **Schema**: `inventory_settings.negative_stock_policy text NOT NULL
++  DEFAULT 'block'`, `CHECK (negative_stock_policy = ANY (ARRAY['block',
++  'allow', 'allow_with_approval']))`. Live-confirmed via `pg_get_
++  constraintdef`.
++- **Design intent**: `docs/warehouse-movements-refactor-plan.md` (the
++  original v1 engine design doc) explicitly defines this column
++  (line 339-342) and its pre-IC-1 engine semantics (line 379): "Negative
++  stock check (v1: `on_hand` only): if `on_hand_quantity < 0` after update
++  **and** `negative_stock_policy = 'block'`, RAISE EXCEPTION" — i.e. `'allow'`
++  and `'allow_with_approval'` were designed to let the update through.
++- **Live usage**: exactly 1 `inventory_settings` row exists across the whole
++  database; it is set to `'block'`.
++- **Production reachability**: repo-wide grep (`src/`) finds zero server
++  actions, UI components, or hooks that read or write `negative_stock_
++  policy`. The only TypeScript reference is a migration-content string
++  assertion in `inventory-phase1-migrations.test.ts`, and it asserts the
++  presence of the *original* `allow_negative_stock` boolean column (phase 1
++  naming), not this later `negative_stock_policy` text column — meaning this
++  setting has never had an application-layer path to actually be changed by
++  a real org.
++- **Accepted architecture**: `inventory-core-architecture.md` §0's full list
++  of 19 closed product-owner decisions contains zero mentions of `negative_
++  stock_policy`, negative on-hand, or physical-layer backorder/oversell.
++  Decision #15 ("Ambra uses HARD reservations: `reserved <= on_hand` always")
++  is scoped to reservations specifically, not to on-hand negativity for
++  entirely free stock — a different question. No decision anywhere
++  establishes "on_hand_quantity >= 0 ALWAYS" as an intentional global target.
++
++## Live diagnostic (transaction-scoped, rolled back)
++
++Fixture: on_hand=2, reserved=0, allocated=0. Attempted a real physical
++decrease of 5 via `inventory_create_and_finalize` (the same path
++`putaway_repair_order_stock` and every other physical-movement caller uses).
++
++| `negative_stock_policy` | Result | SQLSTATE | Balance after | Orphan headers |
++| ------------------------ | ------ | -------- | -------------- | ---------------- |
++| `'allow'`                | FAILED | `P0003`  | unchanged (2)   | 0                 |
++| `'block'`                | FAILED | `P0003`  | unchanged (2)   | 0                 |
++
++Both produce the byte-identical message: `"0.000000 reserved + 0.000000
++allocated = 0.000000 committed at this location, but only -3.000000 would
++remain on hand"`. No `23514` raw CHECK violation ever surfaces — the P0003
++check always fires first. Error semantics are already uniform regardless of
++which option below is chosen.
++
++## Why this was not decided unilaterally
++
++Diagnostic question C ("was the accepted architecture intentionally meant to
++eliminate negative on-hand globally?") is **false** — nothing in the 19
++closed decisions addresses it. Diagnostic question D ("was the CHECK added
++under an incorrect assumption?") is **true** — it was added purely because
++IC-0's audit flagged it as a missing constraint, without cross-referencing
++`negative_stock_policy`'s own pre-existing design. Since Option A's own
++stated precondition ("if Inventory Core's accepted hard invariant really is
++on_hand_quantity >= 0 ALWAYS") is not met, and removing/weakening an
++already-applied hard invariant is explicitly an architecture decision, this
++was reported rather than resolved unilaterally.
++
++## Proposed minimal correction, per outcome (NOT applied — for product-owner review)
++
++**If Option A is chosen (global non-negative is the final contract)**:
++- No further DB change is needed — the CHECK and P0003 check already
++  achieve this.
++- Update `inventory-core-architecture.md` and `inventory-core-progress.md`
++  to explicitly classify `negative_stock_policy='allow'`/`'allow_with_
++  approval'` as **superseded/deprecated for on-hand** (the column itself
++  may remain, e.g. for future use against a different field, or be
++  scheduled for removal in a later IC phase — record the cleanup owner/
++  phase at that time).
++- Add one regression assertion (e.g. appended to `102_...` or a new small
++  file) proving `'allow'` cannot bypass the hard invariant, mirroring the
++  diagnostic in `test-and-concurrency-evidence.md`.
++- Given zero live usage and zero production reachability, this is very low
++  risk to adopt.
++
++**If Option B is chosen (`'allow'`/`'allow_with_approval'` must remain
++functional for uncommitted stock)**:
++- The unconditional table CHECK (`inventory_balances_on_hand_nonnegative`)
++  would need to be dropped or replaced, since a plain CHECK cannot read
++  `inventory_settings` (a different table) to make itself policy-aware.
++- `inventory_finalize_posting`'s own new invariant would need to become
++  policy-aware: **the commitment-protection half must remain absolutely
++  unconditional** (`on_hand >= reserved_quantity + allocated_quantity` can
++  never be bypassed by any policy value — this is the accepted, unchanged
++  IC-1 core) — only the *residual* `committed=0` case (bare on-hand
++  negativity with nothing reserved/allocated) would be gated by `negative_
++  stock_policy IN ('allow','allow_with_approval')`.
++- This is a real code change to an already-accepted, already-live function
++  and constraint — exactly the kind of migration this pass declined to apply
++  without product-owner sign-off.
++
++## Recommendation (historical — matches the decision actually made)
++
++Given (a) zero live usage, (b) zero production reachability today, and
++(c) the setting's original design predates Inventory Core consolidation
++entirely, Option A carries materially lower risk and requires no further
++database change. **The product owner subsequently chose Option A, 2026-09-
++15 — see the RESOLVED section at the top of this document.**
+diff --git a/docs/inventory/reviews/ic-1-review/review-context.md b/docs/inventory/reviews/ic-1-review/review-context.md
+new file mode 100644
+index 00000000..55c7e721
+--- /dev/null
++++ b/docs/inventory/reviews/ic-1-review/review-context.md
+@@ -0,0 +1,114 @@
++# IC-1 Review Context — Canonical Movement Engine / Hard Stock Invariants
++
++> **UPDATE (IC-1 is now FULLY FINAL, 2026-09-15)**: external review accepted
++> IC-1's core (commitment invariant, locking, SUM formula, helper
++> replacement, pgTAP evidence, concurrency proof) outright. The one open
++> question (`negative_stock_policy`'s interaction with the new CHECK) has
++> since been resolved by explicit product-owner decision (OPTION A — global
++> non-negative on-hand is the permanent contract) — see
++> `negative-stock-policy-conflict.md` (marked RESOLVED) for the full
++> investigation and decision record. No migration was required to implement
++> the decision — the already-applied CHECK/P0003 invariant already matched
++> it. A new permanent regression (102's own Scenario C, 14/14) now documents
++> the final contract. Everything below this notice describes the original
++> IC-1 submission and remains accurate for it.
++
++**Scope**: IC-0 closure (live baseline re-verification) + IC-1 implementation
++only, per `docs/inventory/inventory-core-implementation-plan.md`'s own IC-1
++section. IC-2 is NOT started. Phase 10D is NOT started. No file outside
++IC-0/IC-1's own scope was touched — see `changed-files.md`'s explicit
++"No changes to" list, which reproduces the task's hard scope boundary
++verbatim.
++
++**Baseline**: HEAD at the start of this turn, branch
++`zone3-zone5-integration-audit`.
++
++**What changed, in one paragraph**: the shared, generic movement engine
++(`inventory_finalize_posting`) previously had a live-proven blind spot — it
++never checked `reserved_quantity`/`allocated_quantity` before reducing
++`on_hand_quantity`, so a physical movement could strand committed stock
++(leave `on_hand < reserved + allocated` at a balance row). IC-1 closes this:
++the engine now rejects (SQLSTATE `P0003`) any decrease that would leave
++`on_hand < reserved_quantity + allocated_quantity`, unconditionally, with no
++partial writes. It also replaces the engine's internal balance-getter with
++the already-established, lot/serial-aware-but-unused-here replacement
++(`inventory_get_or_create_balance_for_update`), and adds the one missing
++non-negative CHECK constraint IC-0 identified.
++
++## Please verify these 8 things
++
++1. **Commitment-stranding is genuinely impossible.** Read `migration-summary.md`'s
++   migration 2, and `test-and-concurrency-evidence.md`'s 101/102 results.
++   Confirm the check is unconditional (not gated by `negative_stock_policy`)
++   and placed before the balance UPDATE, so no partial mutation can occur.
++
++2. **Reserved-only stock is protected per the HARD-reservation contract**,
++   not merely as a side effect of protecting `allocated_quantity`. See
++   `102_ic1_reserved_only_hard_invariant_test.sql` and its 6/6 result —
++   confirm the SUM formula (not `allocated` alone, not `reserved` alone, not
++   their max) is what's actually implemented, and that this matches the
++   architecture doc's own corrected §5/§6 (also worth checking that the
++   correction I made to the architecture document itself — the original
++   text used a weaker OR-of-either formula — is itself correct; the worked
++   counter-example is in the architecture doc's own invariant #6 note:
++   reserved=6, allocated=4, on_hand=8 passes both individual checks but not
++   the SUM check, and the SUM is the one that's actually right).
++
++3. **Legitimate movements remain valid.** See the "Legitimate-movement
++   regression" section of `test-and-concurrency-evidence.md` (101/401/402/801
++   against genuinely free stock, all still succeed) and the 097-100 pgTAP
++   regression (133/133 total including 101/102, 0 failures).
++
++4. **The balance-helper replacement preserved existing call semantics** and
++   exposed no new lot/serial behavior. Check migration 2's diff: the call
++   passes `NULL, NULL` (via migration 3's 7-arg fix) for lot/serial, matching
++   v1's own implicit behavior. Confirm `inventory_v1_get_or_create_balance`
++   is NOT dropped (that's IC-6's job) but does have zero remaining
++   production callers (stated in the change log, worth spot-checking via
++   `prosrc` search yourself if you want independent confirmation).
++
++5. **The non-negative CHECK constraints are correct** and the pre-migration
++   data-safety check was real. See migration 1 and IC-0's own change-log
++   entry (37 rows checked, zero violations, before the constraint was
++   added).
++
++6. **Concurrency is genuinely safe.** Read the "Genuine two-independent-
++   connection concurrency proof" section closely — confirm the 3684ms block
++   is real blocking (not two independent short calls that happened not to
++   race), that Session B's rejection happened only AFTER re-reading Session
++   A's committed balance (not against a stale value), and that the "no
++   residual data" disclosure for the 2 immutable movement headers / 3
++   locations / 2 balance rows is an honest, correctly-reasoned exception
++   (the system's own immutability trigger blocked deletion) rather than a
++   swept-under-the-rug gap.
++
++7. **No raw-write bypass invalidates the claimed invariant.** IC-0 found two
++   genuine raw-write gaps (reservation/allocation tables' permissive-only
++   RLS; movement-header status-blind INSERT policy) — confirm the reasoning
++   in the progress doc's IC-0 entry for why neither defeats IC-1's own
++   guarantee (the new check reads exclusively from the separately
++   GUC-protected `inventory_balances` table; no trigger auto-applies a
++   balance effect from a raw-inserted movement header/line) still holds, and
++   that both are correctly deferred to IC-7 rather than either silently
++   ignored or used as an excuse to broaden IC-1's scope.
++
++8. **No Phase 10A/10B/10C behavior was altered.** `inventory_create_
++   reservation`, `inventory_release_reservation`, `inventory_create_
++   allocation`, `inventory_release_allocation`, and every Phase 10C
++   container RPC are byte-for-byte untouched (verify against
++   `changed-files.md`'s "No changes to" list and the 098/099/100 pgTAP
++   regression, all passing unchanged).
++
++## Known, disclosed limitations (not defects)
++
++- IC-1 does not implement any sanctioned bypass operation (whole-container
++  relocation, allocated loose-stock relocation) — those remain IC-8/future
++  work per the architecture doc's own §6. Generic movement therefore
++  rejects unconditionally whenever it would strand a commitment; there is
++  currently no legitimate way to relocate committed stock at all except by
++  first releasing/re-allocating it through the reservation/allocation
++  domain. This is intentional for this phase, not an oversight.
++- The two IC-0-identified raw-write RLS gaps remain open (IC-7's job).
++- The concurrency test's own residual data (2 immutable movement headers +
++  3 locations + 2 balance rows) is permanent, by design, and disclosed in
++  full in `test-and-concurrency-evidence.md`.
+diff --git a/docs/inventory/reviews/ic-1-review/test-and-concurrency-evidence.md b/docs/inventory/reviews/ic-1-review/test-and-concurrency-evidence.md
+new file mode 100644
+index 00000000..accc174d
+--- /dev/null
++++ b/docs/inventory/reviews/ic-1-review/test-and-concurrency-evidence.md
+@@ -0,0 +1,210 @@
++# IC-1 — Test & Concurrency Evidence
++
++All results below are from this session's own live runs against
++`supabase-target`, via Supabase MCP `execute_sql` (pgTAP) or a real `psql`
++binary against two independent OS-level connections (concurrency). Nothing
++here is inferred or fabricated.
++
++## pgTAP regression (141/141, 0 failures — 102 extended 6→14 in the finalization pass)
++
++| File                                                                 | Result | Notes                                                                                   |
++| ----------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------ |
++| 097 (movement-line attach, Phase 10)                                  | 29/29  | Unaffected by IC-1 (RepairOrderLine attribution, not the movement engine's own invariant). |
++| 098 (reservation, Phase 10A)                                          | 17/17  | Unaffected (dedicated reservation RPC, never routes through `inventory_finalize_posting`). |
++| 099 (allocation, Phase 10B)                                           | 20/20  | Unaffected (dedicated allocation RPC).                                                     |
++| 100 (container orchestration, Phase 10C)                              | 44/44  | Unaffected (containers never touch `inventory_balances`).                                  |
++| 101 (movement-engine blind spot — **rewritten this phase**)           | 17/17  | Expectations intentionally inverted; see below. Fixture fixed in the correction pass (below) to use its own isolated branch. |
++| 102 (reserved-only hard invariant — **new, then extended**)           | 14/14  | New file (6/6); extended in the finalization pass with Scenario C (the permanent `negative_stock_policy` regression) to 14/14. See below.  |
++
++### Correction-pass finding: 101/102 fixture collision (fixed, not a code regression)
++
++Re-running 101/102 via a fresh `psql` connection (rather than the original
++MCP session) surfaced a real `duplicate key value violates unique
++constraint "warehouse_locations_one_receiving_per_branch"` error. Root
++cause: IC-1's own genuine two-session concurrency test (below) permanently
++left a real `warehouse_locations` row occupying the shared test org/branch
++pair's own "one receiving location per branch" slot (a live partial UNIQUE
++INDEX), carrying a real, non-zero, undeletable balance residual for the
++same shared `variant_1` fixture UUID. 101/102's own fixtures unconditionally
++inserted a *new* receiving location for that same shared branch, which now
++always collides — and reusing the existing one instead would have silently
++corrupted their own "before" balance assertions (it already carries 6
++on-hand / 6 allocated). **Fixed**: both files now create their own fresh,
++isolated `branches` row per run (mirroring 099/100's own established
++`branch_b` convention). Re-verified live after the fix: 101 17/17, 102 6/6
++(later extended to 14/14, see below), zero residual. This is a
++test-fixture robustness fix only — no RPC, migration, or invariant logic
++was touched.
++
++### 101 — full assertion list (all passing)
++
++T1-T6: fixture setup (receive 10, reserve 6, allocate 6 — reserved fully
++converts to allocated) unaffected by IC-1, all pass exactly as before.
++
++- **T7**: putaway of the full 10 units is now **REJECTED** (was: succeeded,
++  pre-IC-1).
++- **T8**: rejection carries SQLSTATE `P0003`.
++- **T9**: source `on_hand` unchanged (still 10) — no partial write.
++- **T10**: source `allocated` unchanged (still 6).
++- **T11**: source `reserved` unchanged (still 0).
++- **T12**: zero orphan `inventory_movement_headers` rows from the rejected
++  attempt (header count identical before/after).
++- **T13**: allocation line itself completely unaffected (still 6).
++- **T14** (control): moving exactly the free 4 units **SUCCEEDS**.
++- **T15-T17**: post-control balances correct (source on_hand=6, allocated=6
++  unaffected, destination on_hand=4).
++
++### 102 — full assertion list (all passing, new fixture: reserved=6, allocated=0)
++
++- **T1**: moving all 10 (6 reserved, 0 allocated) **REJECTED**.
++- **T2**: SQLSTATE `P0003`.
++- **T3**: moving 5 (only 4 truly free) also **REJECTED**.
++- **T4-T5**: balance unchanged after both rejections (on_hand=10,
++  reserved=6).
++- **T6** (control): moving exactly 4 **SUCCEEDS**.
++
++This proves the engine protects the HARD-reservation invariant
++(`reserved_quantity <= on_hand_quantity`) as a first-class case, not merely
++as an incidental consequence of protecting `allocated_quantity`.
++
++## Legitimate-movement regression (live, genuinely free stock)
++
++Via `inventory_create_and_finalize` directly, fresh location pair, zero
++reservation/allocation:
++
++| Movement | Effect                        | Result   |
++| -------- | ------------------------------ | -------- |
++| 101      | destination increase, +20      | `posted` |
++| 401      | destination increase (surplus), +3 | `posted` |
++| 402      | source decrease (shortage), -5 | `posted` |
++| 801      | source decrease / dest increase (bin-to-bin), -6/+6 | `posted` |
++
++Final balances: source = 20+3-5-6 = 12 (matches arithmetic exactly),
++destination = 6. No legitimate movement was blocked.
++
++## Genuine two-independent-connection concurrency proof
++
++Real `psql` binary, two **separate OS processes/connections** against
++`SUPABASE_TARGET_DB_URL` — not one transaction pretending to be concurrent.
++
++**Fixture** (committed, durable): receive 10 → reserve 6 → allocate 6 (4
++genuinely free) at a dedicated location.
++
++**Session A** (launched first): `BEGIN`; `SET LOCAL ROLE authenticated`;
++called `putaway_repair_order_stock` to move the exact free 4 units —
++succeeded in 56ms, still holding the row lock; then `pg_sleep(5)`; then
++`COMMIT`.
++
++**Session B** (launched ~1.5s after A): `BEGIN`; attempted to move 4 units
++to a *different* destination.
++
++**Timings** (wall-clock, `clock_timestamp()` markers + bash `date +%s.%N`):
++
++```
++launch_a                 = t+0.000s
++a_start (after BEGIN/SET)= t+0.30s
++a call succeeds           = t+0.38s   (56ms)
++a begins pg_sleep(5)      = t+0.38s
++launch_b                  = t+1.51s
++b_start (after BEGIN/SET) = t+1.79s
++b's putaway call BLOCKS...
++a's pg_sleep ends, COMMIT = t+5.48s
++b's call finally returns  = t+5.50s   (blocked ~3684ms)
++b COMMIT                  = t+5.55s
++```
++
++Session B's own `putaway_repair_order_stock` call took **3683.937ms** —
++genuine lock contention, not coincidental overlap — and resumed within 16ms
++of Session A's actual COMMIT. Session B's call, once unblocked, correctly
++re-evaluated the invariant against A's now-updated balance (on_hand=6 after
++A's move, 6 still committed) and was **REJECTED**: `P0003 ... only
++2.000000 would remain on hand`.
++
++**No deadlock occurred.**
++
++**Final state** (queried after both sessions completed): source balance
++on_hand=6, allocated=6 (only A's move applied); destination_a on_hand=4;
++destination_b has **no balance row at all** — B's rejected attempt left
++zero footprint, not even an empty row.
++
++**Lock-order inspection** (not rewritten): `inventory_finalize_posting`
++locks one balance row per (line, effect) via `inventory_get_or_create_
++balance_for_update`'s own `FOR UPDATE`. This phase's test constructs only a
++single contended balance row per session — no cross-row lock-ordering
++question arises here, and none was found requiring a change to the
++architecture's own §8 lock-order convention.
++
++## Residual data from the concurrency test (disclosed)
++
++`inventory_movement_headers`/`inventory_movement_lines` are immutable once
++posted (`inventory_prevent_line_modification` trigger — the same protection
++IC-0 documented). Attempting to DELETE them during cleanup was correctly
++blocked by the database itself:
++
++```
++ERROR: P0001: Cannot delete lines of a finalized movement (status=posted)
++```
++
++This is the system working as designed, not a bug — it was **not**
++bypassed. As a result, 2 real, legitimately-posted movement headers
++(`PZ/2026/000020` the receipt, `MM/2026/000004` Session A's move) and their
++lines, the 3 `ic1-concurrency-*` `warehouse_locations` rows they reference
++(undeletable once referenced by immutable lines), and 2 `inventory_
++balances` rows accurately reflecting that real history remain live —
++clearly named, internally consistent, not orphaned, not production
++RepairOrder/customer data. All other synthetic scaffolding (reservation,
++allocation, RepairOrder, RepairOrderLine, provenance chain, matcher
++session) was successfully deleted after the test.
++
++Every other test/probe this session ran inside `BEGIN ... ROLLBACK` and
++left zero residual data — confirmed by direct query after each.
++
++## `negative_stock_policy` — FINAL product contract (resolved 2026-09-15)
++
++See `negative-stock-policy-conflict.md` for the full investigation and the
++product-owner decision record (**OPTION A**: global non-negative on-hand is
++the permanent contract; `'allow'`/`'allow_with_approval'` are superseded for
++on-hand behavior). No code/DB change was required — the diagnostic below,
++originally run before the decision, already showed the already-applied
++CHECK/P0003 invariant matches the decision exactly.
++
++Fixture: on_hand=2, reserved=0, allocated=0. Attempted a real physical
++decrease of 5 via `inventory_create_and_finalize`.
++
++| `negative_stock_policy` | Result | SQLSTATE | Balance after | Orphan headers |
++| ------------------------ | ------ | -------- | -------------- | ---------------- |
++| `'allow'`                | FAILED | `P0003`  | unchanged (2)   | 0                 |
++| `'block'`                | FAILED | `P0003`  | unchanged (2)   | 0                 |
++
++Both produce the byte-identical rejection message ("0.000000 reserved +
++0.000000 allocated = 0.000000 committed ... but only -3.000000 would remain
++on hand"). No raw `23514` CHECK violation ever surfaces from this path — the
++P0003 check always fires first when `committed=0`, since `v_new_qty <
++committed` then reduces exactly to `v_new_qty < 0`.
++
++**This is now a permanent regression, not merely a diagnostic**:
++`102_ic1_reserved_only_hard_invariant_test.sql`'s own Scenario C (T7-T14)
++encodes exactly this fixture/expectation pair as part of the accepted test
++suite (plan extended 6 → 14). Live-verified after the decision: **14/14**,
++zero residual (fresh isolated branch, rolled back), zero ledger mutation
++(`inventory_stock_ledger_entries` count unchanged in addition to the header
++count already checked above).
++
++## Vitest (395/395, 0 failures — 229 of these re-confirmed live in the finalization pass)
++
++| Suite                                                       | Result   | Re-confirmed in finalization pass? |
++| ------------------------------------------------------------- | -------- | ------------------------------------- |
++| `repair-orders.service.test.ts`                              | 159/159  | Yes                                    |
++| Inventory movement/field-policy + inventory-actions suite (4 files) | 31/31 | Yes                              |
++| Broader inventory sibling suite (19 files)                    | 166/166  | No — unaffected, nothing in scope changed |
++| CRM sibling suite (4 files)                                    | 39/39    | Yes                                    |
++
++## `pnpm type-check`
++
++0 errors.
++
++## `pnpm lint`
++
++0 errors. 319 pre-existing warnings, all in unrelated `apps/web/temp/`
++scaffold prototypes (`cycle-count`, `warehouse-movement-editor`) — none
++touch any file this phase changed.

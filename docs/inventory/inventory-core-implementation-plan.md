@@ -133,9 +133,9 @@ characterization_test.sql` (updated in place, with full disclosure of why).
 
 **What must NOT change**: `inventory_movement_type_effects`' own schema
 shape; Phase 10A/10B/10C's own RPCs (reservation/allocation/container);
-`inventory_finalize_posting`'s own "v1: on_hand only" scope is **not**
-expanded to reserved/allocated effects in this phase — only the _cross-check
-against_ those fields is added. Expanding the effect model itself is out of
+`inventory_finalize_posting`'s own "v1: on*hand only" scope is **not**
+expanded to reserved/allocated effects in this phase — only the \_cross-check
+against* those fields is added. Expanding the effect model itself is out of
 scope.
 
 **Migrations expected**: 1-2 (the `inventory_finalize_posting` replacement;
@@ -570,6 +570,19 @@ Action`, `relocateContainerAction`) — confirmed zero UI callers, twice,
 - Re-confirm zero live callers for everything on this list immediately
   before deleting (a repository/live re-check, not a re-use of this
   document's own now-possibly-stale claim).
+- **Added during IC-1's finalization pass (product-owner decision,
+  see `inventory-core-progress.md`'s own IC-1 change log)**: retire
+  `inventory_settings.negative_stock_policy`'s `'allow'`/`'allow_with_
+approval'` values. IC-1 made global non-negative `on_hand_quantity` the
+  final product contract; these values have been behaviorally superseded
+  since IC-1 (both now produce byte-identical rejection to `'block'`) and
+  carry zero live usage (confirmed: exactly 1 `inventory_settings` row
+  exists, already `'block'`) and zero production reachability (confirmed:
+  no UI/action anywhere reads or writes this column). Options at that time:
+  narrow the CHECK to `negative_stock_policy = 'block'` only (simplest,
+  matches the now-single supported value), or drop the column entirely if
+  nothing else depends on its 3-state shape by then — re-verify live before
+  choosing, per this phase's own established discipline.
 
 **Tables/functions/files likely affected**: `ambra-location-inventory.ts`
 (file edit — remove the 4 write actions, keep read-only exports if any UI
