@@ -591,6 +591,90 @@ export interface RepairOrderContainerRemovalResult {
 }
 
 /**
+ * Zone 3 <-> Zone 5 integration layer (2026-09-15): one container's own
+ * contribution to a RepairOrderLine's stock at ONE location bucket --
+ * `quantity` is the sum of every active `inventory_allocation_container_links`
+ * row for this container, for this RepairOrderLine's own allocation lines
+ * whose own `location_id` equals the bucket's `locationId` (never the
+ * container's own total contents, which may include other allocation
+ * lines/RepairOrders entirely -- see `inventory_containers`' own
+ * many-allocation-lines-per-container cardinality, Phase 10C).
+ */
+export interface RepairOrderLinePhysicalStateContainer {
+  containerId: string;
+  containerCode: string;
+  quantity: number;
+  currentLocationId: string | null;
+  status: string;
+}
+
+/**
+ * One physical-location bucket in a RepairOrderLine's own reconciled state.
+ * `locationId` values are the UNION of every location either Zone 5's own
+ * `repair_order_line_locations` projection OR this line's own outstanding
+ * allocations claim -- a location present on only one side is still
+ * surfaced here (with the other side's own quantities at 0), which is
+ * exactly what makes a `location_mismatch`/`uncontainerized` bucket
+ * visible rather than silently dropped.
+ */
+export interface RepairOrderLinePhysicalStateLocation {
+  locationId: string;
+  /** Zone 5's own `repair_order_line_locations.quantity` at this location. */
+  physicalQuantity: number;
+  /** Sum of this line's own outstanding reservation-line quantity here. */
+  reservedQuantity: number;
+  /** Sum of this line's own outstanding allocation-line quantity here. */
+  allocatedQuantity: number;
+  /** Sum of active container-link quantity for allocation lines here. */
+  containerizedQuantity: number;
+  /** `allocatedQuantity - containerizedQuantity`, floored at 0. */
+  uncontainerizedAllocatedQuantity: number;
+  containers: RepairOrderLinePhysicalStateContainer[];
+}
+
+/**
+ * - `"consistent"`: every signal available agrees (or there is simply
+ *   nothing yet to disagree about -- e.g. Zone 5 has received stock but
+ *   nothing has been reserved yet).
+ * - `"uncontainerized"`: allocated stock exists that has not (yet) been
+ *   placed into any container -- a normal, expected mid-lifecycle state,
+ *   not an error.
+ * - `"location_mismatch"`: Zone 5's own spatial projection and this line's
+ *   own outstanding allocations name DIFFERENT, non-overlapping location
+ *   sets -- a real, reachable divergence (see the integration audit) since
+ *   nothing today wires a reservation's own `location_id` to wherever
+ *   Zone 5's putaway actually placed the stock.
+ * - `"unknown"`: either Zone 5's own attribution for a touched
+ *   (location, variant) bucket is explicitly marked uncertain
+ *   (`repair_order_location_attribution_uncertain` -- Zone 5's own
+ *   documented "treat as UNKNOWN regardless of what the projection
+ *   currently holds" contract, honored here verbatim), or this method
+ *   found an active container link whose own container disagrees with its
+ *   own allocation line's `location_id` (which the Phase 10C RPC itself
+ *   should never allow -- surfaced as `unknown`, not silently trusted,
+ *   per the "no guessing" requirement).
+ */
+export type RepairOrderLinePhysicalStateConsistency =
+  | "consistent"
+  | "uncontainerized"
+  | "location_mismatch"
+  | "unknown";
+
+/**
+ * Zone 3 <-> Zone 5 integration layer (2026-09-15): "what is the current
+ * physical stock state for this RepairOrderLine?", reconciling Zone 5's own
+ * spatial projection (`repair_order_line_locations`) with Phase 10's own
+ * reservation/allocation/container chain, WITHOUT mutating either side.
+ * See `RepairOrdersService.getPhysicalStateForLine`'s own doc comment for
+ * the full reconciliation algorithm and its "never guess" guarantee.
+ */
+export interface RepairOrderLinePhysicalState {
+  repairOrderLineId: string;
+  locations: RepairOrderLinePhysicalStateLocation[];
+  consistency: RepairOrderLinePhysicalStateConsistency;
+}
+
+/**
  * Phase 8: the logical RepairOrderLine read model -- the durable BUSINESS
  * line list (never grouped by source document; that is provenance, Phase
  * 9's own concern). See listRepairOrderLines' own doc comment for the full
@@ -3072,5 +3156,347 @@ export class RepairOrdersService {
     }
 
     return { success: true, data: result };
+  }
+
+  /**
+   * Zone 3 <-> Zone 5 integration layer (2026-09-15): "what is the current
+   * physical stock state for this RepairOrderLine?" -- reconciles Zone 5's
+   * own spatial projection (`repair_order_line_locations`, written by
+   * `receive_repair_order_stock`/`putaway_repair_order_stock`) with this
+   * line's own reservation/allocation/container chain (Phase 10A/10B/10C),
+   * a PURE READ, mutating neither side. Per the accepted integration
+   * decision: these are SEQUENTIAL stages of one normal lifecycle
+   * (101 receive -> 801 putaway -> reservation -> allocation -> container
+   * -> QR -> 801 relocation -> issue), not competing models -- this method
+   * is the first read layer that looks at both stages together.
+   *
+   * NEVER guesses. If the two sides' own physical-location claims disagree,
+   * or if Zone 5's own attribution for a touched (location, variant) bucket
+   * is explicitly marked uncertain, this returns an honest
+   * `"location_mismatch"`/`"unknown"` consistency value rather than
+   * silently preferring one side -- see `RepairOrderLinePhysicalStateConsistency`'s
+   * own doc comment for the exact rules and their precedence.
+   *
+   * NO hard schema coupling was added to produce this: no FK/trigger
+   * between `repair_order_line_locations` and
+   * `inventory_containers`/`inventory_allocation_container_links` -- this
+   * method reconciles them entirely in application code, reading each
+   * domain's own existing, unmodified tables/read-model methods.
+   *
+   * Org/branch/variant scope is resolved once from the RepairOrderLine's
+   * own authoritative row (`resolveRepairOrderLineScope`) and every query
+   * below is explicitly re-scoped by it -- never trusted from an FK alone
+   * (matches every other Zone 3 read method's own convention; also closes
+   * the specific cross-org/branch leak risk this integration layer's own
+   * task explicitly called out).
+   *
+   * Reuses `listReservationsForLine`/`listAllocationsForLine` rather than
+   * re-deriving the RepairOrderLine -> Reservation -> ReservationLine ->
+   * AllocationLine chain a third time -- both already enforce the accepted
+   * domain-integrity variant-identity filter (2026-09-14 correction), so
+   * this method inherits that guarantee for free.
+   *
+   * Returns `{ success: true, data: null }` (no error, no existence leak)
+   * for an unresolvable RepairOrderLine, matching `getByIdForWorkshop`'s
+   * own singular-read convention.
+   */
+  static async getPhysicalStateForLine(
+    supabase: SupabaseClient,
+    repairOrderLineId: string
+  ): Promise<ServiceResult<RepairOrderLinePhysicalState | null>> {
+    const scope = await RepairOrdersService.resolveRepairOrderLineScope(
+      supabase,
+      repairOrderLineId
+    );
+    if (!scope) {
+      return { success: true, data: null };
+    }
+
+    // ---- Zone 5's own spatial projection --------------------------------
+    const { data: zone5Rows, error: zone5Error } = await supabase
+      .from("repair_order_line_locations")
+      .select("location_id, quantity")
+      .eq("repair_order_line_id", repairOrderLineId)
+      .eq("organization_id", scope.organizationId)
+      .eq("branch_id", scope.branchId)
+      .eq("variant_id", scope.variantId)
+      .gt("quantity", 0);
+
+    if (zone5Error) {
+      console.error(
+        "[RepairOrdersService.getPhysicalStateForLine] repair_order_line_locations query error:",
+        zone5Error
+      );
+      return {
+        success: false,
+        error:
+          "Failed to load physical stock state due to an unexpected server error. Please try again or contact support.",
+      };
+    }
+
+    // ---- Phase 10A/10B: reservations and allocations, reused -----------
+    const reservationsResult = await RepairOrdersService.listReservationsForLine(
+      supabase,
+      repairOrderLineId
+    );
+    if (!reservationsResult.success) {
+      return {
+        success: false,
+        error: (reservationsResult as { success: false; error: string }).error,
+      };
+    }
+
+    const allocationsResult = await RepairOrdersService.listAllocationsForLine(
+      supabase,
+      repairOrderLineId
+    );
+    if (!allocationsResult.success) {
+      return {
+        success: false,
+        error: (allocationsResult as { success: false; error: string }).error,
+      };
+    }
+
+    // ---- Phase 10C: active container placements for this line's own
+    // allocation lines, via three plain sequential queries (matches this
+    // service's own established style elsewhere, rather than a fragile
+    // multi-level embed) -------------------------------------------------
+    const allocationLineIds = allocationsResult.data.map((a) => a.id);
+
+    type LinkRow = {
+      id: string;
+      quantity: number;
+      allocation_line_id: string;
+      container_line_id: string;
+    };
+    let linkRows: LinkRow[] = [];
+    if (allocationLineIds.length > 0) {
+      const { data, error } = await supabase
+        .from("inventory_allocation_container_links")
+        .select("id, quantity, allocation_line_id, container_line_id")
+        .eq("organization_id", scope.organizationId)
+        .eq("branch_id", scope.branchId)
+        .in("allocation_line_id", allocationLineIds)
+        .is("deleted_at", null);
+
+      if (error) {
+        console.error(
+          "[RepairOrdersService.getPhysicalStateForLine] inventory_allocation_container_links query error:",
+          error
+        );
+        return {
+          success: false,
+          error:
+            "Failed to load physical stock state due to an unexpected server error. Please try again or contact support.",
+        };
+      }
+      linkRows = (data ?? []) as LinkRow[];
+    }
+
+    type ContainerLineRow = { id: string; container_id: string };
+    let containerLineRows: ContainerLineRow[] = [];
+    const containerLineIds = [...new Set(linkRows.map((l) => l.container_line_id))];
+    if (containerLineIds.length > 0) {
+      const { data, error } = await supabase
+        .from("inventory_container_lines")
+        .select("id, container_id")
+        .eq("organization_id", scope.organizationId)
+        .eq("branch_id", scope.branchId)
+        .in("id", containerLineIds)
+        .is("deleted_at", null);
+
+      if (error) {
+        console.error(
+          "[RepairOrdersService.getPhysicalStateForLine] inventory_container_lines query error:",
+          error
+        );
+        return {
+          success: false,
+          error:
+            "Failed to load physical stock state due to an unexpected server error. Please try again or contact support.",
+        };
+      }
+      containerLineRows = (data ?? []) as ContainerLineRow[];
+    }
+
+    type ContainerRow = {
+      id: string;
+      code: string;
+      current_location_id: string | null;
+      status: string;
+    };
+    let containerRows: ContainerRow[] = [];
+    const containerIds = [...new Set(containerLineRows.map((cl) => cl.container_id))];
+    if (containerIds.length > 0) {
+      const { data, error } = await supabase
+        .from("inventory_containers")
+        .select("id, code, current_location_id, status")
+        .eq("organization_id", scope.organizationId)
+        .eq("branch_id", scope.branchId)
+        .in("id", containerIds)
+        .is("deleted_at", null);
+
+      if (error) {
+        console.error(
+          "[RepairOrdersService.getPhysicalStateForLine] inventory_containers query error:",
+          error
+        );
+        return {
+          success: false,
+          error:
+            "Failed to load physical stock state due to an unexpected server error. Please try again or contact support.",
+        };
+      }
+      containerRows = (data ?? []) as ContainerRow[];
+    }
+
+    const containerLineById = new Map(containerLineRows.map((cl) => [cl.id, cl]));
+    const containerById = new Map(containerRows.map((c) => [c.id, c]));
+    const allocationLineById = new Map(allocationsResult.data.map((a) => [a.id, a]));
+
+    // A soft-deleted container/container_line means the link's own chain is
+    // no longer active physical placement, even if the link row itself
+    // passed the `deleted_at IS NULL` filter above (e.g. a container
+    // deleted -- not a real path today, but defensively excluded, not
+    // assumed impossible) -- excluded here rather than trusted.
+    const activeLinks = linkRows
+      .map((link) => {
+        const containerLine = containerLineById.get(link.container_line_id);
+        const container = containerLine ? containerById.get(containerLine.container_id) : undefined;
+        const allocationLine = allocationLineById.get(link.allocation_line_id);
+        if (!containerLine || !container || !allocationLine) return null;
+        return { link, container, allocationLine };
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null);
+
+    // Internal Phase 10C consistency: an active link's own container must
+    // sit at the same location as its own allocation line (the invariant
+    // `inventory_add_to_container` itself enforces at placement time --
+    // see Phase 10C's own correction pass). If it ever doesn't, this
+    // method cannot trust either signal -- surfaced as "unknown", never
+    // silently picked.
+    const hasInternalPhase10cInconsistency = activeLinks.some(
+      ({ container, allocationLine }) => container.current_location_id !== allocationLine.locationId
+    );
+
+    // ---- Union of every location either side ever mentions -------------
+    const locationIds = new Set<string>();
+    for (const row of zone5Rows ?? []) locationIds.add(row.location_id as string);
+    for (const line of reservationsResult.data.flatMap((r) => r.lines)) {
+      if (line.locationId) locationIds.add(line.locationId);
+    }
+    for (const line of allocationsResult.data) locationIds.add(line.locationId);
+
+    // ---- Zone 5's own "treat as UNKNOWN regardless" marker -------------
+    let uncertainLocationIds = new Set<string>();
+    if (scope.variantId && locationIds.size > 0) {
+      const { data: uncertainRows, error: uncertainError } = await supabase
+        .from("repair_order_location_attribution_uncertain")
+        .select("location_id")
+        .eq("organization_id", scope.organizationId)
+        .eq("branch_id", scope.branchId)
+        .eq("variant_id", scope.variantId)
+        .in("location_id", [...locationIds]);
+
+      if (uncertainError) {
+        console.error(
+          "[RepairOrdersService.getPhysicalStateForLine] repair_order_location_attribution_uncertain query error:",
+          uncertainError
+        );
+        return {
+          success: false,
+          error:
+            "Failed to load physical stock state due to an unexpected server error. Please try again or contact support.",
+        };
+      }
+      uncertainLocationIds = new Set((uncertainRows ?? []).map((r) => r.location_id as string));
+    }
+
+    // ---- Build one bucket per location ----------------------------------
+    const locations: RepairOrderLinePhysicalStateLocation[] = [...locationIds]
+      .sort()
+      .map((locationId) => {
+        const physicalQuantity = (zone5Rows ?? [])
+          .filter((r) => r.location_id === locationId)
+          .reduce((sum, r) => sum + (r.quantity as number), 0);
+
+        const reservedQuantity = reservationsResult.data
+          .flatMap((r) => r.lines)
+          .filter((l) => l.locationId === locationId)
+          .reduce((sum, l) => sum + l.outstandingQuantity, 0);
+
+        const allocationLinesHere = allocationsResult.data.filter(
+          (l) => l.locationId === locationId
+        );
+        const allocatedQuantity = allocationLinesHere.reduce(
+          (sum, l) => sum + l.outstandingQuantity,
+          0
+        );
+
+        const linksHere = activeLinks.filter(({ allocationLine }) =>
+          allocationLinesHere.some((l) => l.id === allocationLine.id)
+        );
+        const containerizedQuantity = linksHere.reduce((sum, { link }) => sum + link.quantity, 0);
+
+        const containersByContainerId = new Map<string, RepairOrderLinePhysicalStateContainer>();
+        for (const { link, container } of linksHere) {
+          const existing = containersByContainerId.get(container.id);
+          if (existing) {
+            existing.quantity += link.quantity;
+          } else {
+            containersByContainerId.set(container.id, {
+              containerId: container.id,
+              containerCode: container.code,
+              quantity: link.quantity,
+              currentLocationId: container.current_location_id,
+              status: container.status,
+            });
+          }
+        }
+
+        return {
+          locationId,
+          physicalQuantity,
+          reservedQuantity,
+          allocatedQuantity,
+          containerizedQuantity,
+          uncontainerizedAllocatedQuantity: Math.max(0, allocatedQuantity - containerizedQuantity),
+          containers: [...containersByContainerId.values()],
+        };
+      });
+
+    // ---- Overall consistency (precedence: unknown > mismatch >
+    // uncontainerized > consistent) ---------------------------------------
+    let consistency: RepairOrderLinePhysicalStateConsistency;
+    const anyUncertain =
+      hasInternalPhase10cInconsistency ||
+      locations.some((loc) => uncertainLocationIds.has(loc.locationId));
+
+    const zone5LocationSet = new Set(
+      locations.filter((l) => l.physicalQuantity > 0).map((l) => l.locationId)
+    );
+    const allocatedLocationSet = new Set(
+      locations.filter((l) => l.allocatedQuantity > 0).map((l) => l.locationId)
+    );
+    const bothNonEmpty = zone5LocationSet.size > 0 && allocatedLocationSet.size > 0;
+    const setsDiffer =
+      bothNonEmpty &&
+      ([...zone5LocationSet].some((id) => !allocatedLocationSet.has(id)) ||
+        [...allocatedLocationSet].some((id) => !zone5LocationSet.has(id)));
+
+    if (anyUncertain) {
+      consistency = "unknown";
+    } else if (setsDiffer) {
+      consistency = "location_mismatch";
+    } else if (locations.some((l) => l.uncontainerizedAllocatedQuantity > 0)) {
+      consistency = "uncontainerized";
+    } else {
+      consistency = "consistent";
+    }
+
+    return {
+      success: true,
+      data: { repairOrderLineId, locations, consistency },
+    };
   }
 }
