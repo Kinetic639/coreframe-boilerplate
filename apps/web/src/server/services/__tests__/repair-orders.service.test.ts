@@ -3463,3 +3463,723 @@ describe("RepairOrdersService.listAllocationsForLine", () => {
     );
   });
 });
+
+/**
+ * Phase 10C: RepairOrdersService.createContainerForRepairOrder /
+ * placeAllocationInContainer / removeAllocationFromContainer -- the
+ * RepairOrder domain's own wrapper around the existing, unmodified
+ * generic container orchestration engine (`inventory_create_container`/
+ * `inventory_add_to_container`/`inventory_remove_from_container`). The
+ * engine's OWN real behavior (quantity conservation, empty<->active
+ * transitions, org/branch isolation, permission gating, raw-write
+ * boundary) is proven live in
+ * `100_repair_order_container_orchestration_phase10c_test.sql` (29/29
+ * passing) -- these tests cover only this wrapper's own responsibilities:
+ * server-authoritative scope resolution, RepairOrder-container ownership
+ * (a caller cannot place this RepairOrder's own allocation into a
+ * DIFFERENT RepairOrder's container merely by knowing its id), allocation-
+ * line ownership (reusing `listAllocationsForLine`'s own already-hardened
+ * logic rather than re-deriving the ownership chain), error normalization,
+ * and event emission.
+ */
+function buildContainerSupabaseMock(config: {
+  lineResult?: { data: unknown; error: unknown };
+  orderResult?: { data: unknown; error: unknown };
+  reservationsWithLinesResult?: { data: unknown; error: unknown };
+  allocationLinesResult?: { data: unknown; error: unknown };
+  containerResult?: { data: unknown; error: unknown };
+  linkResult?: { data: unknown; error: unknown };
+  rpcResult?: { data: unknown; error: unknown };
+}) {
+  const rpc = vi.fn().mockResolvedValue(config.rpcResult ?? { data: null, error: null });
+  const from = vi.fn().mockImplementation((table: string) => {
+    let result: { data: unknown; error: unknown } = { data: null, error: null };
+    let isSingle = false;
+    if (table === "repair_order_lines") {
+      result = config.lineResult ?? result;
+      isSingle = true;
+    } else if (table === "repair_orders") {
+      result = config.orderResult ?? result;
+      isSingle = true;
+    } else if (table === "inventory_reservations") {
+      result = config.reservationsWithLinesResult ?? result;
+    } else if (table === "inventory_allocation_lines") {
+      result = config.allocationLinesResult ?? result;
+    } else if (table === "inventory_containers") {
+      result = config.containerResult ?? result;
+      isSingle = true;
+    } else if (table === "inventory_allocation_container_links") {
+      result = config.linkResult ?? result;
+      isSingle = true;
+    }
+    const q: Record<string, unknown> = {};
+    for (const m of ["select", "eq", "is", "order", "in"]) {
+      q[m] = vi.fn().mockImplementation(() => q);
+    }
+    q["maybeSingle"] = vi.fn().mockResolvedValue(result);
+    q["then"] = (onFulfilled: (v: unknown) => unknown) => Promise.resolve(result).then(onFulfilled);
+    void isSingle;
+    return q;
+  });
+  return { from, rpc } as unknown as import("@supabase/supabase-js").SupabaseClient;
+}
+
+const CONTAINER_LINE_FOUND = {
+  data: { id: "line-1", repair_order_id: "ro-1", variant_id: "variant-1" },
+  error: null,
+};
+const CONTAINER_ORDER_FOUND = {
+  data: { id: "ro-1", organization_id: "org-1", branch_id: "branch-1" },
+  error: null,
+};
+/** One reservation, one line, variant matching -- feeds `listAllocationsForLine`'s own first query. */
+const CONTAINER_RESERVATIONS_WITH_LINES = {
+  data: [{ inventory_reservation_lines: [{ id: "resline-1", variant_id: "variant-1" }] }],
+  error: null,
+};
+/** One allocation line reachable through resline-1 -- feeds `listAllocationsForLine`'s own second query, giving this RepairOrderLine exactly ONE valid allocation line id: "allocline-1". */
+const CONTAINER_ALLOCATION_LINES = {
+  data: [
+    {
+      id: "allocline-1",
+      reservation_line_id: "resline-1",
+      variant_id: "variant-1",
+      location_id: "loc-1",
+      lot_id: null,
+      serial_id: null,
+      allocated_quantity: 10,
+      fulfilled_quantity: 0,
+      allocation: {
+        id: "alloc-1",
+        allocation_number: "ALLOC-000001",
+        status: "active",
+        deleted_at: null,
+      },
+    },
+  ],
+  error: null,
+};
+
+describe("RepairOrdersService.createContainerForRepairOrder", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("resolves org/branch from the authoritative RepairOrder (never from the caller) and maps params to inventory_create_container correctly", async () => {
+    const supabase = buildContainerSupabaseMock({
+      orderResult: CONTAINER_ORDER_FOUND,
+      rpcResult: {
+        data: { container_id: "container-1", code: "C-1", status: "empty" },
+        error: null,
+      },
+    });
+    (eventService.emit as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: true,
+      data: { id: "evt-1" },
+    });
+
+    const result = await RepairOrdersService.createContainerForRepairOrder(supabase, "user-1", {
+      repairOrderId: "ro-1",
+      code: "C-1",
+      currentLocationId: "loc-1",
+    });
+
+    expect(supabase.rpc).toHaveBeenCalledWith("inventory_create_container", {
+      p_actor_user_id: "user-1",
+      p_organization_id: "org-1",
+      p_branch_id: "branch-1",
+      p_code: "C-1",
+      p_current_location_id: "loc-1",
+      p_type: "container",
+      p_reference_type: "repair_order",
+      p_reference_id: "ro-1",
+    });
+    expect(result).toEqual({
+      success: true,
+      data: { containerId: "container-1", code: "C-1", status: "empty" },
+    });
+  });
+
+  it("returns a not-found error and never calls the RPC when the RepairOrder does not exist", async () => {
+    const supabase = buildContainerSupabaseMock({
+      orderResult: { data: null, error: null },
+    });
+
+    const result = await RepairOrdersService.createContainerForRepairOrder(supabase, "user-1", {
+      repairOrderId: "missing-ro",
+      code: "C-1",
+      currentLocationId: "loc-1",
+    });
+
+    expect(result).toEqual({ success: false, error: "RepairOrder not found" });
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it("passes through a known container-engine error verbatim (Only stockable bins can hold a container)", async () => {
+    const supabase = buildContainerSupabaseMock({
+      orderResult: CONTAINER_ORDER_FOUND,
+      rpcResult: {
+        data: null,
+        error: { code: "22023", message: "Only stockable bins can hold a container" },
+      },
+    });
+
+    const result = await RepairOrdersService.createContainerForRepairOrder(supabase, "user-1", {
+      repairOrderId: "ro-1",
+      code: "C-1",
+      currentLocationId: "loc-1",
+    });
+
+    expect(result).toEqual({
+      success: false,
+      error: "Only stockable bins can hold a container",
+    });
+  });
+
+  it("normalizes an unexpected container-engine error, never leaking it raw", async () => {
+    const supabase = buildContainerSupabaseMock({
+      orderResult: CONTAINER_ORDER_FOUND,
+      rpcResult: {
+        data: null,
+        error: { code: "XX000", message: "connection terminated unexpectedly" },
+      },
+    });
+
+    const result = await RepairOrdersService.createContainerForRepairOrder(supabase, "user-1", {
+      repairOrderId: "ro-1",
+      code: "C-1",
+      currentLocationId: "loc-1",
+    });
+
+    expect(result.success).toBe(false);
+    expect((result as { success: false; error: string }).error).not.toBe(
+      "connection terminated unexpectedly"
+    );
+  });
+
+  it("emits workshop.repair_orders.container_created on success", async () => {
+    const supabase = buildContainerSupabaseMock({
+      orderResult: CONTAINER_ORDER_FOUND,
+      rpcResult: {
+        data: { container_id: "container-1", code: "C-1", status: "empty" },
+        error: null,
+      },
+    });
+    (eventService.emit as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: true,
+      data: { id: "evt-1" },
+    });
+
+    await RepairOrdersService.createContainerForRepairOrder(supabase, "user-1", {
+      repairOrderId: "ro-1",
+      code: "C-1",
+      currentLocationId: "loc-1",
+    });
+
+    expect(eventService.emit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionKey: "workshop.repair_orders.container_created",
+        actorUserId: "user-1",
+        entityType: "repair_order",
+        entityId: "ro-1",
+      })
+    );
+  });
+});
+
+describe("RepairOrdersService.placeAllocationInContainer", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("resolves allocation ownership via listAllocationsForLine and container ownership via reference match, then maps params to inventory_add_to_container correctly", async () => {
+    const supabase = buildContainerSupabaseMock({
+      lineResult: CONTAINER_LINE_FOUND,
+      orderResult: CONTAINER_ORDER_FOUND,
+      reservationsWithLinesResult: CONTAINER_RESERVATIONS_WITH_LINES,
+      allocationLinesResult: CONTAINER_ALLOCATION_LINES,
+      containerResult: {
+        data: {
+          id: "container-1",
+          organization_id: "org-1",
+          branch_id: "branch-1",
+          reference_type: "repair_order",
+          reference_id: "ro-1",
+        },
+        error: null,
+      },
+      rpcResult: {
+        data: {
+          link_id: "link-1",
+          container_line_id: "cline-1",
+          quantity: 4,
+          container_status: "active",
+        },
+        error: null,
+      },
+    });
+    (eventService.emit as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: true,
+      data: { id: "evt-1" },
+    });
+
+    const result = await RepairOrdersService.placeAllocationInContainer(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      allocationLineId: "allocline-1",
+      containerId: "container-1",
+      quantity: 4,
+    });
+
+    expect(supabase.rpc).toHaveBeenCalledWith("inventory_add_to_container", {
+      p_actor_user_id: "user-1",
+      p_organization_id: "org-1",
+      p_branch_id: "branch-1",
+      p_container_id: "container-1",
+      p_allocation_line_id: "allocline-1",
+      p_quantity: 4,
+    });
+    expect(result).toEqual({
+      success: true,
+      data: {
+        linkId: "link-1",
+        containerLineId: "cline-1",
+        quantity: 4,
+        containerStatus: "active",
+      },
+    });
+  });
+
+  it("rejects an allocationLineId that is NOT among this RepairOrderLine's own allocations, without calling the RPC", async () => {
+    const supabase = buildContainerSupabaseMock({
+      lineResult: CONTAINER_LINE_FOUND,
+      orderResult: CONTAINER_ORDER_FOUND,
+      reservationsWithLinesResult: CONTAINER_RESERVATIONS_WITH_LINES,
+      allocationLinesResult: CONTAINER_ALLOCATION_LINES,
+    });
+
+    const result = await RepairOrdersService.placeAllocationInContainer(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      allocationLineId: "some-other-allocline",
+      containerId: "container-1",
+      quantity: 4,
+    });
+
+    expect(result).toEqual({
+      success: false,
+      error: "Allocation line not found for this RepairOrderLine",
+    });
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it("rejects a container whose own reference does NOT match this RepairOrder, without calling the RPC", async () => {
+    const supabase = buildContainerSupabaseMock({
+      lineResult: CONTAINER_LINE_FOUND,
+      orderResult: CONTAINER_ORDER_FOUND,
+      reservationsWithLinesResult: CONTAINER_RESERVATIONS_WITH_LINES,
+      allocationLinesResult: CONTAINER_ALLOCATION_LINES,
+      containerResult: {
+        data: {
+          id: "container-1",
+          organization_id: "org-1",
+          branch_id: "branch-1",
+          reference_type: "repair_order",
+          reference_id: "some-other-ro",
+        },
+        error: null,
+      },
+    });
+
+    const result = await RepairOrdersService.placeAllocationInContainer(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      allocationLineId: "allocline-1",
+      containerId: "container-1",
+      quantity: 4,
+    });
+
+    expect(result).toEqual({ success: false, error: "Container not found for this RepairOrder" });
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it("returns a not-found error and never calls the RPC when the RepairOrderLine does not exist", async () => {
+    const supabase = buildContainerSupabaseMock({
+      lineResult: { data: null, error: null },
+    });
+
+    const result = await RepairOrdersService.placeAllocationInContainer(supabase, "user-1", {
+      repairOrderLineId: "missing-line",
+      allocationLineId: "allocline-1",
+      containerId: "container-1",
+      quantity: 4,
+    });
+
+    expect(result).toEqual({ success: false, error: "RepairOrderLine not found" });
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it("passes through a known container-engine error verbatim (Placement quantity exceeds ...)", async () => {
+    const supabase = buildContainerSupabaseMock({
+      lineResult: CONTAINER_LINE_FOUND,
+      orderResult: CONTAINER_ORDER_FOUND,
+      reservationsWithLinesResult: CONTAINER_RESERVATIONS_WITH_LINES,
+      allocationLinesResult: CONTAINER_ALLOCATION_LINES,
+      containerResult: {
+        data: {
+          id: "container-1",
+          organization_id: "org-1",
+          branch_id: "branch-1",
+          reference_type: "repair_order",
+          reference_id: "ro-1",
+        },
+        error: null,
+      },
+      rpcResult: {
+        data: null,
+        error: {
+          code: "22023",
+          message:
+            "Placement quantity exceeds the allocation line's own allocated quantity (already placed 10, allocated 10)",
+        },
+      },
+    });
+
+    const result = await RepairOrdersService.placeAllocationInContainer(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      allocationLineId: "allocline-1",
+      containerId: "container-1",
+      quantity: 1,
+    });
+
+    expect(result).toEqual({
+      success: false,
+      error:
+        "Placement quantity exceeds the allocation line's own allocated quantity (already placed 10, allocated 10)",
+    });
+  });
+
+  it("passes through the RPC's own location-mismatch error verbatim (Phase 10C correction)", async () => {
+    const supabase = buildContainerSupabaseMock({
+      lineResult: CONTAINER_LINE_FOUND,
+      orderResult: CONTAINER_ORDER_FOUND,
+      reservationsWithLinesResult: CONTAINER_RESERVATIONS_WITH_LINES,
+      allocationLinesResult: CONTAINER_ALLOCATION_LINES,
+      containerResult: {
+        data: {
+          id: "container-1",
+          organization_id: "org-1",
+          branch_id: "branch-1",
+          reference_type: "repair_order",
+          reference_id: "ro-1",
+        },
+        error: null,
+      },
+      rpcResult: {
+        data: null,
+        error: {
+          code: "22023",
+          message: "Allocation location does not match the container's own current location",
+        },
+      },
+    });
+
+    const result = await RepairOrdersService.placeAllocationInContainer(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      allocationLineId: "allocline-1",
+      containerId: "container-1",
+      quantity: 1,
+    });
+
+    expect(result).toEqual({
+      success: false,
+      error: "Allocation location does not match the container's own current location",
+    });
+  });
+
+  it("passes through the RPC's own cross-RepairOrder-ownership error verbatim (Phase 10C correction, DB-level defense-in-depth)", async () => {
+    const supabase = buildContainerSupabaseMock({
+      lineResult: CONTAINER_LINE_FOUND,
+      orderResult: CONTAINER_ORDER_FOUND,
+      reservationsWithLinesResult: CONTAINER_RESERVATIONS_WITH_LINES,
+      allocationLinesResult: CONTAINER_ALLOCATION_LINES,
+      containerResult: {
+        data: {
+          id: "container-1",
+          organization_id: "org-1",
+          branch_id: "branch-1",
+          reference_type: "repair_order",
+          reference_id: "ro-1",
+        },
+        error: null,
+      },
+      rpcResult: {
+        data: null,
+        error: {
+          code: "P0002",
+          message: "Allocation does not belong to this container's own RepairOrder",
+        },
+      },
+    });
+
+    const result = await RepairOrdersService.placeAllocationInContainer(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      allocationLineId: "allocline-1",
+      containerId: "container-1",
+      quantity: 1,
+    });
+
+    expect(result).toEqual({
+      success: false,
+      error: "Allocation does not belong to this container's own RepairOrder",
+    });
+  });
+
+  it("emits workshop.repair_orders.stock_placed_in_container on success", async () => {
+    const supabase = buildContainerSupabaseMock({
+      lineResult: CONTAINER_LINE_FOUND,
+      orderResult: CONTAINER_ORDER_FOUND,
+      reservationsWithLinesResult: CONTAINER_RESERVATIONS_WITH_LINES,
+      allocationLinesResult: CONTAINER_ALLOCATION_LINES,
+      containerResult: {
+        data: {
+          id: "container-1",
+          organization_id: "org-1",
+          branch_id: "branch-1",
+          reference_type: "repair_order",
+          reference_id: "ro-1",
+        },
+        error: null,
+      },
+      rpcResult: {
+        data: {
+          link_id: "link-1",
+          container_line_id: "cline-1",
+          quantity: 4,
+          container_status: "active",
+        },
+        error: null,
+      },
+    });
+    (eventService.emit as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: true,
+      data: { id: "evt-1" },
+    });
+
+    await RepairOrdersService.placeAllocationInContainer(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      allocationLineId: "allocline-1",
+      containerId: "container-1",
+      quantity: 4,
+    });
+
+    expect(eventService.emit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionKey: "workshop.repair_orders.stock_placed_in_container",
+        actorUserId: "user-1",
+        entityType: "repair_order_line",
+        entityId: "line-1",
+      })
+    );
+  });
+});
+
+describe("RepairOrdersService.removeAllocationFromContainer", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("resolves link ownership via listAllocationsForLine and maps params to inventory_remove_from_container correctly", async () => {
+    const supabase = buildContainerSupabaseMock({
+      lineResult: CONTAINER_LINE_FOUND,
+      orderResult: CONTAINER_ORDER_FOUND,
+      reservationsWithLinesResult: CONTAINER_RESERVATIONS_WITH_LINES,
+      allocationLinesResult: CONTAINER_ALLOCATION_LINES,
+      linkResult: {
+        data: {
+          id: "link-1",
+          organization_id: "org-1",
+          branch_id: "branch-1",
+          allocation_line_id: "allocline-1",
+        },
+        error: null,
+      },
+      rpcResult: {
+        data: {
+          link_id: "link-1",
+          remaining_link_quantity: 2,
+          container_line_id: "cline-1",
+          remaining_container_line_quantity: 2,
+          container_status: "active",
+        },
+        error: null,
+      },
+    });
+    (eventService.emit as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: true,
+      data: { id: "evt-1" },
+    });
+
+    const result = await RepairOrdersService.removeAllocationFromContainer(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      containerId: "container-1",
+      linkId: "link-1",
+      quantity: 2,
+    });
+
+    expect(supabase.rpc).toHaveBeenCalledWith("inventory_remove_from_container", {
+      p_actor_user_id: "user-1",
+      p_organization_id: "org-1",
+      p_branch_id: "branch-1",
+      p_container_id: "container-1",
+      p_link_id: "link-1",
+      p_quantity: 2,
+    });
+    expect(result).toEqual({
+      success: true,
+      data: {
+        linkId: "link-1",
+        remainingLinkQuantity: 2,
+        containerLineId: "cline-1",
+        remainingContainerLineQuantity: 2,
+        containerStatus: "active",
+      },
+    });
+  });
+
+  it("rejects a link whose own allocation_line_id is NOT among this RepairOrderLine's own allocations, without calling the RPC", async () => {
+    const supabase = buildContainerSupabaseMock({
+      lineResult: CONTAINER_LINE_FOUND,
+      orderResult: CONTAINER_ORDER_FOUND,
+      reservationsWithLinesResult: CONTAINER_RESERVATIONS_WITH_LINES,
+      allocationLinesResult: CONTAINER_ALLOCATION_LINES,
+      linkResult: {
+        data: {
+          id: "link-1",
+          organization_id: "org-1",
+          branch_id: "branch-1",
+          allocation_line_id: "some-other-allocline",
+        },
+        error: null,
+      },
+    });
+
+    const result = await RepairOrdersService.removeAllocationFromContainer(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      containerId: "container-1",
+      linkId: "link-1",
+      quantity: 2,
+    });
+
+    expect(result).toEqual({
+      success: false,
+      error: "Container placement not found for this RepairOrderLine",
+    });
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it("returns the same generic not-found message when the link itself does not exist", async () => {
+    const supabase = buildContainerSupabaseMock({
+      lineResult: CONTAINER_LINE_FOUND,
+      orderResult: CONTAINER_ORDER_FOUND,
+      reservationsWithLinesResult: CONTAINER_RESERVATIONS_WITH_LINES,
+      allocationLinesResult: CONTAINER_ALLOCATION_LINES,
+      linkResult: { data: null, error: null },
+    });
+
+    const result = await RepairOrdersService.removeAllocationFromContainer(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      containerId: "container-1",
+      linkId: "missing-link",
+      quantity: 2,
+    });
+
+    expect(result).toEqual({
+      success: false,
+      error: "Container placement not found for this RepairOrderLine",
+    });
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it("passes through a known container-engine error verbatim (Cannot remove more than the currently linked quantity)", async () => {
+    const supabase = buildContainerSupabaseMock({
+      lineResult: CONTAINER_LINE_FOUND,
+      orderResult: CONTAINER_ORDER_FOUND,
+      reservationsWithLinesResult: CONTAINER_RESERVATIONS_WITH_LINES,
+      allocationLinesResult: CONTAINER_ALLOCATION_LINES,
+      linkResult: {
+        data: {
+          id: "link-1",
+          organization_id: "org-1",
+          branch_id: "branch-1",
+          allocation_line_id: "allocline-1",
+        },
+        error: null,
+      },
+      rpcResult: {
+        data: null,
+        error: {
+          code: "22023",
+          message: "Cannot remove more than the currently linked quantity (linked 2, requested 5)",
+        },
+      },
+    });
+
+    const result = await RepairOrdersService.removeAllocationFromContainer(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      containerId: "container-1",
+      linkId: "link-1",
+      quantity: 5,
+    });
+
+    expect(result).toEqual({
+      success: false,
+      error: "Cannot remove more than the currently linked quantity (linked 2, requested 5)",
+    });
+  });
+
+  it("emits workshop.repair_orders.stock_removed_from_container on success", async () => {
+    const supabase = buildContainerSupabaseMock({
+      lineResult: CONTAINER_LINE_FOUND,
+      orderResult: CONTAINER_ORDER_FOUND,
+      reservationsWithLinesResult: CONTAINER_RESERVATIONS_WITH_LINES,
+      allocationLinesResult: CONTAINER_ALLOCATION_LINES,
+      linkResult: {
+        data: {
+          id: "link-1",
+          organization_id: "org-1",
+          branch_id: "branch-1",
+          allocation_line_id: "allocline-1",
+        },
+        error: null,
+      },
+      rpcResult: {
+        data: {
+          link_id: "link-1",
+          remaining_link_quantity: 0,
+          container_line_id: "cline-1",
+          remaining_container_line_quantity: 0,
+          container_status: "empty",
+        },
+        error: null,
+      },
+    });
+    (eventService.emit as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: true,
+      data: { id: "evt-1" },
+    });
+
+    await RepairOrdersService.removeAllocationFromContainer(supabase, "user-1", {
+      repairOrderLineId: "line-1",
+      containerId: "container-1",
+      linkId: "link-1",
+      quantity: 2,
+    });
+
+    expect(eventService.emit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionKey: "workshop.repair_orders.stock_removed_from_container",
+        actorUserId: "user-1",
+        entityType: "repair_order_line",
+        entityId: "line-1",
+      })
+    );
+  });
+});

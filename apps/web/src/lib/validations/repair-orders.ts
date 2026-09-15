@@ -122,3 +122,38 @@ export const allocateRepairOrderLineSchema = z.object({
   quantity: z.number().positive(),
 });
 export type AllocateRepairOrderLineInput = z.infer<typeof allocateRepairOrderLineSchema>;
+
+/**
+ * Phase 10C -- create a physical container owned by a RepairOrder.
+ */
+export const createRepairOrderContainerSchema = z.object({
+  repairOrderId: z.string().uuid(),
+  code: z.string().trim().min(1, "Code is required").max(80),
+  currentLocationId: z.string().uuid(),
+  type: z.string().trim().max(40).optional(),
+});
+export type CreateRepairOrderContainerInput = z.infer<typeof createRepairOrderContainerSchema>;
+
+/**
+ * Phase 10C -- place an already-allocated quantity into a container.
+ */
+export const placeAllocationInContainerSchema = z.object({
+  repairOrderLineId: z.string().uuid(),
+  allocationLineId: z.string().uuid(),
+  containerId: z.string().uuid(),
+  quantity: z.number().positive(),
+});
+export type PlaceAllocationInContainerInput = z.infer<typeof placeAllocationInContainerSchema>;
+
+/**
+ * Phase 10C -- remove a previously placed quantity from a container.
+ */
+export const removeAllocationFromContainerSchema = z.object({
+  repairOrderLineId: z.string().uuid(),
+  containerId: z.string().uuid(),
+  linkId: z.string().uuid(),
+  quantity: z.number().positive(),
+});
+export type RemoveAllocationFromContainerInput = z.infer<
+  typeof removeAllocationFromContainerSchema
+>;

@@ -234,6 +234,66 @@ function normalizeAllocationRpcError(error: { code?: string; message: string }):
 }
 
 /**
+ * Phase 10C: `inventory_create_container`/`inventory_add_to_container`/
+ * `inventory_remove_from_container`/`inventory_seal_container`'s own known,
+ * safe error shapes -- every message below copied verbatim from
+ * `pg_get_functiondef` output (LIVE VERIFIED, not guessed), matched by
+ * code AND exact message pattern together. Unlike Phase 10/10A/10B's own
+ * RPCs (which let Postgres assign the default P0001 to every RAISE), these
+ * four RPCs each set an explicit, specific SQLSTATE per error
+ * (`USING ERRCODE = ...`) -- matched here accordingly. Some messages carry
+ * a `%`-substituted dynamic value (current status, or a quantity) -- those
+ * patterns match the surrounding literal text and allow any content in the
+ * substituted position, never the other way around.
+ *
+ * CORRECTION PASS (2026-09-14, external review): `inventory_add_to_container`
+ * gained two new checks -- allocation/container location-identity and
+ * RepairOrder-ownership identity (both LIVE VERIFIED via `pg_get_functiondef`
+ * re-fetched after applying the forward-migration fix) -- their exact error
+ * text is added below alongside the original set, unchanged otherwise.
+ */
+const REPAIR_ORDER_CONTAINER_KNOWN_ERRORS: ReadonlyArray<{ code: string; pattern: RegExp }> = [
+  { code: "28000", pattern: /^p_actor_user_id must match the authenticated caller$/ },
+  { code: "42501", pattern: /^Missing warehouse\.inventory\.operate permission$/ },
+  { code: "22023", pattern: /^Container code is required$/ },
+  { code: "P0002", pattern: /^Location not found$/ },
+  { code: "22023", pattern: /^Only stockable bins can hold a container$/ },
+  { code: "22023", pattern: /^Quantity must be positive$/ },
+  { code: "P0002", pattern: /^Container not found$/ },
+  { code: "55000", pattern: /^Container is not open for adding stock \(status: .+\)$/ },
+  { code: "55000", pattern: /^Container is not open for removing stock \(status: .+\)$/ },
+  { code: "P0002", pattern: /^Allocation line not found$/ },
+  {
+    code: "22023",
+    pattern: /^Allocation location does not match the container's own current location$/,
+  },
+  {
+    code: "P0002",
+    pattern: /^Allocation does not belong to this container's own RepairOrder$/,
+  },
+  {
+    code: "22023",
+    pattern:
+      /^Placement quantity exceeds the allocation line's own allocated quantity \(already placed .+, allocated .+\)$/,
+  },
+  { code: "P0002", pattern: /^Unable to resolve unit for this allocation line's own variant$/ },
+  { code: "P0002", pattern: /^Allocation-container link not found$/ },
+  {
+    code: "22023",
+    pattern: /^Cannot remove more than the currently linked quantity \(linked .+, requested .+\)$/,
+  },
+  { code: "55000", pattern: /^Container cannot be sealed from its current status \(.+\)$/ },
+];
+
+function normalizeContainerRpcError(error: { code?: string; message: string }): string {
+  const isKnown = REPAIR_ORDER_CONTAINER_KNOWN_ERRORS.some(
+    (known) => error.code === known.code && known.pattern.test(error.message)
+  );
+  if (isKnown) return error.message;
+  return "Failed to process this container request due to an unexpected server error. Please try again or contact support.";
+}
+
+/**
  * Typed, clean result of a materialization call -- the raw jsonb shape
  * returned by the materialize_repair_orders_from_session RPC, mapped to a
  * domain type so callers never depend on the RPC's raw jsonb keys directly.
@@ -494,6 +554,40 @@ export interface RepairOrderLineAllocationLine {
   allocatedQuantity: number;
   fulfilledQuantity: number;
   outstandingQuantity: number;
+}
+
+/**
+ * Phase 10C: the result of a successful `createContainerForRepairOrder`
+ * call -- the raw jsonb `inventory_create_container` returns, mapped to a
+ * domain type. A freshly created container always starts `status: "empty"`
+ * (LIVE VERIFIED, this RPC's own deliberate choice -- see its doc comment).
+ */
+export interface RepairOrderContainerResult {
+  containerId: string;
+  code: string;
+  status: string;
+}
+
+/**
+ * Phase 10C: the result of a successful `placeAllocationInContainer` call.
+ */
+export interface RepairOrderContainerPlacementResult {
+  linkId: string;
+  containerLineId: string;
+  quantity: number;
+  containerStatus: string;
+}
+
+/**
+ * Phase 10C: the result of a successful `removeAllocationFromContainer`
+ * call.
+ */
+export interface RepairOrderContainerRemovalResult {
+  linkId: string;
+  remainingLinkQuantity: number;
+  containerLineId: string;
+  remainingContainerLineQuantity: number;
+  containerStatus: string;
 }
 
 /**
@@ -1887,6 +1981,31 @@ export class RepairOrdersService {
   }
 
   /**
+   * Phase 10C: resolve a RepairOrder's own authoritative
+   * `organization_id`/`branch_id` directly (no logical-line hop needed --
+   * container ownership is at the RepairOrder header level, per decision:
+   * "one RepairOrder may own many containers; one container operationally
+   * belongs to one RepairOrder"). Same never-trust-client-supplied-scope
+   * convention as `resolveRepairOrderLineScope`. Returns `null` for a
+   * missing/soft-deleted RepairOrder.
+   */
+  private static async resolveRepairOrderScope(
+    supabase: SupabaseClient,
+    repairOrderId: string
+  ): Promise<{ organizationId: string; branchId: string } | null> {
+    const { data: order, error } = await supabase
+      .from("repair_orders")
+      .select("id, organization_id, branch_id")
+      .eq("id", repairOrderId)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (error || !order) return null;
+
+    return { organizationId: order.organization_id, branchId: order.branch_id };
+  }
+
+  /**
    * Phase 10A: reserve stock for one RepairOrderLine, via the existing,
    * unmodified generic `inventory_create_reservation` RPC (LIVE VERIFIED:
    * `SECURITY INVOKER`, gated by its own `has_branch_permission(...,
@@ -2601,5 +2720,357 @@ export class RepairOrdersService {
     }
 
     return { success: true, data: lines };
+  }
+
+  /**
+   * Phase 10C: create a real physical container owned by one RepairOrder,
+   * via the existing, unmodified generic `inventory_create_container` RPC
+   * (LIVE VERIFIED: `SECURITY DEFINER`, owner `postgres`, its own actor-
+   * identity check first, then `has_branch_permission(...,
+   * 'warehouse.inventory.operate')`).
+   *
+   * Ownership is server-authoritative: `organization_id`/`branch_id` are
+   * resolved from the RepairOrder's own row (`resolveRepairOrderScope`),
+   * never accepted from the caller. `reference_type = 'repair_order'` /
+   * `reference_id = repairOrderId` is the ONLY ownership signal ever
+   * written -- the same generic reference pattern reservations/allocations
+   * already use, requiring zero schema change. One RepairOrder may own
+   * many containers; this method never assumes 1:1.
+   *
+   * A freshly created container always starts `status: "empty"` (the
+   * RPC's own deliberate choice, LIVE VERIFIED -- an honestly empty
+   * container, not a nominally-"active"-but-actually-empty one).
+   */
+  static async createContainerForRepairOrder(
+    supabase: SupabaseClient,
+    actorUserId: string,
+    input: {
+      repairOrderId: string;
+      code: string;
+      currentLocationId: string;
+      type?: string;
+    }
+  ): Promise<ServiceResult<RepairOrderContainerResult>> {
+    const scope = await RepairOrdersService.resolveRepairOrderScope(supabase, input.repairOrderId);
+    if (!scope) {
+      return { success: false, error: "RepairOrder not found" };
+    }
+
+    const { data, error } = await supabase.rpc("inventory_create_container", {
+      p_actor_user_id: actorUserId,
+      p_organization_id: scope.organizationId,
+      p_branch_id: scope.branchId,
+      p_code: input.code,
+      p_current_location_id: input.currentLocationId,
+      p_type: input.type ?? "container",
+      p_reference_type: "repair_order",
+      p_reference_id: input.repairOrderId,
+    });
+
+    if (error) {
+      console.error(
+        "[RepairOrdersService.createContainerForRepairOrder] inventory_create_container RPC error:",
+        error
+      );
+      return { success: false, error: normalizeContainerRpcError(error) };
+    }
+
+    const row = data as { container_id: string; code: string; status: string };
+    const result: RepairOrderContainerResult = {
+      containerId: row.container_id,
+      code: row.code,
+      status: row.status,
+    };
+
+    const emitResult = await eventService.emit({
+      actionKey: "workshop.repair_orders.container_created",
+      actorType: "user",
+      actorUserId,
+      entityType: "repair_order",
+      entityId: input.repairOrderId,
+      metadata: { containerId: result.containerId, code: result.code },
+      eventTier: "baseline",
+    });
+    if (!emitResult.success) {
+      console.error(
+        "[RepairOrdersService.createContainerForRepairOrder] Failed to emit workshop.repair_orders.container_created:",
+        (emitResult as { success: false; error: string }).error
+      );
+    }
+
+    return { success: true, data: result };
+  }
+
+  /**
+   * Phase 10C: place a quantity of an already-allocated stock (one
+   * RepairOrderLine's own `AllocationLine`) into a real physical container,
+   * via the existing, unmodified generic `inventory_add_to_container` RPC.
+   * Pure physical grouping -- never touches `allocation_line.
+   * fulfilled_quantity`, `reservation_line.fulfilled_quantity`, or any
+   * `inventory_balances` quantity (LIVE VERIFIED against the RPC's own
+   * body, and proven live in `100_...`'s own T15a-e).
+   *
+   * Ownership (server-authoritative, never trusted from the caller):
+   * 1. The RepairOrderLine's own scope is resolved
+   *    (`resolveRepairOrderLineScope`).
+   * 2. `allocationLineId` must be one of THIS RepairOrderLine's own
+   *    allocation lines -- reuses `listAllocationsForLine` (which itself
+   *    already enforces the Phase 10B domain-integrity correction's exact
+   *    reservation-line-variant identity check) rather than re-deriving
+   *    the ownership chain a third time.
+   * 3. `containerId` must genuinely belong to the SAME RepairOrder
+   *    (`reference_type = 'repair_order'`, `reference_id =
+   *    repairOrderId`) -- a caller cannot place this RepairOrder's own
+   *    allocation into a DIFFERENT RepairOrder's container merely by
+   *    knowing its id.
+   *
+   * On any ownership mismatch, returns the same generic
+   * "Allocation line not found for this RepairOrderLine" /
+   * "Container not found for this RepairOrder" messages -- no existence
+   * leak, matching every other Zone 3 ownership check's own convention.
+   */
+  static async placeAllocationInContainer(
+    supabase: SupabaseClient,
+    actorUserId: string,
+    input: {
+      repairOrderLineId: string;
+      allocationLineId: string;
+      containerId: string;
+      quantity: number;
+    }
+  ): Promise<ServiceResult<RepairOrderContainerPlacementResult>> {
+    const scope = await RepairOrdersService.resolveRepairOrderLineScope(
+      supabase,
+      input.repairOrderLineId
+    );
+    if (!scope) {
+      return { success: false, error: "RepairOrderLine not found" };
+    }
+
+    const allocationsResult = await RepairOrdersService.listAllocationsForLine(
+      supabase,
+      input.repairOrderLineId
+    );
+    if (!allocationsResult.success) {
+      return {
+        success: false,
+        error: (allocationsResult as { success: false; error: string }).error,
+      };
+    }
+    const ownsAllocationLine = allocationsResult.data.some(
+      (line) => line.id === input.allocationLineId
+    );
+    if (!ownsAllocationLine) {
+      return { success: false, error: "Allocation line not found for this RepairOrderLine" };
+    }
+
+    const { data: container, error: containerError } = await supabase
+      .from("inventory_containers")
+      .select("id, organization_id, branch_id, reference_type, reference_id")
+      .eq("id", input.containerId)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (containerError) {
+      console.error(
+        "[RepairOrdersService.placeAllocationInContainer] container lookup error:",
+        containerError
+      );
+      return {
+        success: false,
+        error:
+          "Failed to process this container request due to an unexpected server error. Please try again or contact support.",
+      };
+    }
+
+    const belongsToThisRepairOrder =
+      container &&
+      container.organization_id === scope.organizationId &&
+      container.branch_id === scope.branchId &&
+      container.reference_type === "repair_order" &&
+      container.reference_id === scope.repairOrderId;
+
+    if (!belongsToThisRepairOrder) {
+      return { success: false, error: "Container not found for this RepairOrder" };
+    }
+
+    const { data, error } = await supabase.rpc("inventory_add_to_container", {
+      p_actor_user_id: actorUserId,
+      p_organization_id: scope.organizationId,
+      p_branch_id: scope.branchId,
+      p_container_id: input.containerId,
+      p_allocation_line_id: input.allocationLineId,
+      p_quantity: input.quantity,
+    });
+
+    if (error) {
+      console.error(
+        "[RepairOrdersService.placeAllocationInContainer] inventory_add_to_container RPC error:",
+        error
+      );
+      return { success: false, error: normalizeContainerRpcError(error) };
+    }
+
+    const row = data as {
+      link_id: string;
+      container_line_id: string;
+      quantity: number;
+      container_status: string;
+    };
+    const result: RepairOrderContainerPlacementResult = {
+      linkId: row.link_id,
+      containerLineId: row.container_line_id,
+      quantity: row.quantity,
+      containerStatus: row.container_status,
+    };
+
+    const emitResult = await eventService.emit({
+      actionKey: "workshop.repair_orders.stock_placed_in_container",
+      actorType: "user",
+      actorUserId,
+      entityType: "repair_order_line",
+      entityId: input.repairOrderLineId,
+      metadata: {
+        containerId: input.containerId,
+        allocationLineId: input.allocationLineId,
+        quantity: input.quantity,
+      },
+      eventTier: "baseline",
+    });
+    if (!emitResult.success) {
+      console.error(
+        "[RepairOrdersService.placeAllocationInContainer] Failed to emit workshop.repair_orders.stock_placed_in_container:",
+        (emitResult as { success: false; error: string }).error
+      );
+    }
+
+    return { success: true, data: result };
+  }
+
+  /**
+   * Phase 10C: remove (fully or partially) a previously placed quantity
+   * from a container, via the existing, unmodified generic
+   * `inventory_remove_from_container` RPC. Same physical-grouping-only
+   * guarantee as `placeAllocationInContainer` -- never touches fulfilled
+   * quantities or inventory balances.
+   *
+   * Ownership: the target link's own `allocation_line_id` must be one of
+   * THIS RepairOrderLine's own allocation lines (reusing
+   * `listAllocationsForLine`, same as `placeAllocationInContainer`) --
+   * a caller cannot remove stock from an unrelated RepairOrderLine's own
+   * container placement merely by knowing a link id.
+   */
+  static async removeAllocationFromContainer(
+    supabase: SupabaseClient,
+    actorUserId: string,
+    input: {
+      repairOrderLineId: string;
+      containerId: string;
+      linkId: string;
+      quantity: number;
+    }
+  ): Promise<ServiceResult<RepairOrderContainerRemovalResult>> {
+    const scope = await RepairOrdersService.resolveRepairOrderLineScope(
+      supabase,
+      input.repairOrderLineId
+    );
+    if (!scope) {
+      return { success: false, error: "RepairOrderLine not found" };
+    }
+
+    const allocationsResult = await RepairOrdersService.listAllocationsForLine(
+      supabase,
+      input.repairOrderLineId
+    );
+    if (!allocationsResult.success) {
+      return {
+        success: false,
+        error: (allocationsResult as { success: false; error: string }).error,
+      };
+    }
+    const validAllocationLineIds = new Set(allocationsResult.data.map((line) => line.id));
+
+    const { data: link, error: linkError } = await supabase
+      .from("inventory_allocation_container_links")
+      .select("id, organization_id, branch_id, allocation_line_id")
+      .eq("id", input.linkId)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (linkError) {
+      console.error(
+        "[RepairOrdersService.removeAllocationFromContainer] link lookup error:",
+        linkError
+      );
+      return {
+        success: false,
+        error:
+          "Failed to process this container request due to an unexpected server error. Please try again or contact support.",
+      };
+    }
+
+    const belongsToThisLine =
+      link &&
+      link.organization_id === scope.organizationId &&
+      link.branch_id === scope.branchId &&
+      validAllocationLineIds.has(link.allocation_line_id);
+
+    if (!belongsToThisLine) {
+      return { success: false, error: "Container placement not found for this RepairOrderLine" };
+    }
+
+    const { data, error } = await supabase.rpc("inventory_remove_from_container", {
+      p_actor_user_id: actorUserId,
+      p_organization_id: scope.organizationId,
+      p_branch_id: scope.branchId,
+      p_container_id: input.containerId,
+      p_link_id: input.linkId,
+      p_quantity: input.quantity,
+    });
+
+    if (error) {
+      console.error(
+        "[RepairOrdersService.removeAllocationFromContainer] inventory_remove_from_container RPC error:",
+        error
+      );
+      return { success: false, error: normalizeContainerRpcError(error) };
+    }
+
+    const row = data as {
+      link_id: string;
+      remaining_link_quantity: number;
+      container_line_id: string;
+      remaining_container_line_quantity: number;
+      container_status: string;
+    };
+    const result: RepairOrderContainerRemovalResult = {
+      linkId: row.link_id,
+      remainingLinkQuantity: row.remaining_link_quantity,
+      containerLineId: row.container_line_id,
+      remainingContainerLineQuantity: row.remaining_container_line_quantity,
+      containerStatus: row.container_status,
+    };
+
+    const emitResult = await eventService.emit({
+      actionKey: "workshop.repair_orders.stock_removed_from_container",
+      actorType: "user",
+      actorUserId,
+      entityType: "repair_order_line",
+      entityId: input.repairOrderLineId,
+      metadata: {
+        containerId: input.containerId,
+        linkId: input.linkId,
+        quantity: input.quantity,
+      },
+      eventTier: "baseline",
+    });
+    if (!emitResult.success) {
+      console.error(
+        "[RepairOrdersService.removeAllocationFromContainer] Failed to emit workshop.repair_orders.stock_removed_from_container:",
+        (emitResult as { success: false; error: string }).error
+      );
+    }
+
+    return { success: true, data: result };
   }
 }

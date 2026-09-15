@@ -23,6 +23,9 @@ import {
   reserveRepairOrderLineSchema,
   releaseRepairOrderLineReservationSchema,
   allocateRepairOrderLineSchema,
+  createRepairOrderContainerSchema,
+  placeAllocationInContainerSchema,
+  removeAllocationFromContainerSchema,
 } from "@/lib/validations/repair-orders";
 import { WAREHOUSE_INVENTORY_OPERATE } from "@repo/contracts/permissions";
 import type {
@@ -31,6 +34,9 @@ import type {
   RepairOrderLineReservation,
   RepairOrderLineAllocationResult,
   RepairOrderLineAllocationLine,
+  RepairOrderContainerResult,
+  RepairOrderContainerPlacementResult,
+  RepairOrderContainerRemovalResult,
 } from "@/server/services/repair-orders.service";
 
 // ---------------------------------------------------------------------------
@@ -436,6 +442,106 @@ export async function listRepairOrderLineAllocationsAction(
     }
 
     return RepairOrdersService.listAllocationsForLine(supabase, repairOrderLineId);
+  } catch {
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Phase 10C -- container orchestration
+// ---------------------------------------------------------------------------
+
+/**
+ * Phase 10C -- create a real physical container owned by a RepairOrder.
+ * Same `warehouse.inventory.operate` gate as reserve/allocate, deliberately
+ * NOT gated on any `workshop.repair_orders.*` permission (same rationale as
+ * every other Phase 10A-10C write action). Org/branch are never taken from
+ * this action's own input -- resolved entirely server-side by
+ * `RepairOrdersService.createContainerForRepairOrder` from the RepairOrder's
+ * own authoritative row.
+ */
+export async function createRepairOrderContainerAction(
+  rawInput: unknown
+): Promise<ActionResult<RepairOrderContainerResult>> {
+  try {
+    const { supabase, user, context } = await getAuthedContext();
+    if (!user) return { success: false, error: "Unauthenticated" };
+    if (!checkPermission(context?.user.permissionSnapshot, WAREHOUSE_INVENTORY_OPERATE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const parsed = createRepairOrderContainerSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    return RepairOrdersService.createContainerForRepairOrder(supabase, user.id, {
+      repairOrderId: parsed.data.repairOrderId,
+      code: parsed.data.code,
+      currentLocationId: parsed.data.currentLocationId,
+      type: parsed.data.type,
+    });
+  } catch {
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
+/**
+ * Phase 10C -- place an already-allocated quantity into a container.
+ * Allocation-line ownership (genuinely belongs to this exact
+ * RepairOrderLine, through the accepted RepairOrderLine->Reservation->
+ * Allocation chain) and container ownership (genuinely belongs to the same
+ * RepairOrder) are verified server-side by
+ * `RepairOrdersService.placeAllocationInContainer` itself, not by this
+ * action.
+ */
+export async function placeAllocationInContainerAction(
+  rawInput: unknown
+): Promise<ActionResult<RepairOrderContainerPlacementResult>> {
+  try {
+    const { supabase, user, context } = await getAuthedContext();
+    if (!user) return { success: false, error: "Unauthenticated" };
+    if (!checkPermission(context?.user.permissionSnapshot, WAREHOUSE_INVENTORY_OPERATE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const parsed = placeAllocationInContainerSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    return RepairOrdersService.placeAllocationInContainer(supabase, user.id, {
+      repairOrderLineId: parsed.data.repairOrderLineId,
+      allocationLineId: parsed.data.allocationLineId,
+      containerId: parsed.data.containerId,
+      quantity: parsed.data.quantity,
+    });
+  } catch {
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
+/**
+ * Phase 10C -- remove a previously placed quantity from a container. Link
+ * ownership (genuinely belongs to this exact RepairOrderLine's own
+ * allocation) is verified server-side by
+ * `RepairOrdersService.removeAllocationFromContainer` itself.
+ */
+export async function removeAllocationFromContainerAction(
+  rawInput: unknown
+): Promise<ActionResult<RepairOrderContainerRemovalResult>> {
+  try {
+    const { supabase, user, context } = await getAuthedContext();
+    if (!user) return { success: false, error: "Unauthenticated" };
+    if (!checkPermission(context?.user.permissionSnapshot, WAREHOUSE_INVENTORY_OPERATE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const parsed = removeAllocationFromContainerSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    return RepairOrdersService.removeAllocationFromContainer(supabase, user.id, {
+      repairOrderLineId: parsed.data.repairOrderLineId,
+      containerId: parsed.data.containerId,
+      linkId: parsed.data.linkId,
+      quantity: parsed.data.quantity,
+    });
   } catch {
     return { success: false, error: "Unexpected error" };
   }
