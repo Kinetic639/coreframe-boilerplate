@@ -11,13 +11,12 @@ distinct from Zone 3's own Phase 10A-10F numbering).
 **Priority:** P0 (blocks Phase 10D).
 **Branch:** `zone3-zone5-integration-audit`.
 **Architecture:** ✅ ACCEPTED (this session — `inventory-core-architecture.md`).
-**Runtime status:** 🟢 IC-0 ✅ DONE. IC-1 ✅ DONE AND FINAL — commitment
-invariant, locking strategy, SUM formula, helper replacement, pgTAP evidence,
-concurrency proof (external review, accepted), AND the `negative_stock_
-policy` semantic-contract question (product-owner decision, 2026-09-15,
-OPTION A — see the finalization-pass change-log entry below) are all closed.
-IC-2 is NOT started.
-**Current phase:** IC-1 FINAL → IC-2 (Movement reversal) is the next
+**Runtime status:** 🟢 IC-0 ✅ DONE. IC-1 ✅ DONE AND FINAL. IC-2 ✅ DONE —
+`inventory_reverse_movement` implemented, live-proven (receipt + 801
+reversal, all negative paths, genuine two-session concurrency), both open
+product decisions closed (A: no undo-an-undo; B: no RepairOrder netting).
+IC-3 is NOT started.
+**Current phase:** IC-2 DONE → IC-3 (Receiving consolidation) is the next
 authorized phase, NOT yet started.
 **Pitch/pilot readiness:** N/A — this is base-engine work, not itself a
 pitch-scoped feature; it BLOCKS Phase 10D, which IS pitch-scoped (see the
@@ -28,29 +27,33 @@ Zone 3 tracker's own cross-reference).
 
 ## Overall execution
 
-- IC phases completed: 2 / 8 (IC-0, IC-1). IC-2 NOT started.
-- 3 forward migrations applied for IC-1 (all live-verified, all mirrored
-  locally under the exact live version/timestamp — see change log).
-- Application code: no TypeScript changes were required for IC-1 (the fix is
-  entirely inside `inventory_finalize_posting`'s own PL/pgSQL body); 2 pgTAP
-  test files added/rewritten (`101_...` rewritten, `102_...` new).
+- IC phases completed: 3 / 8 (IC-0, IC-1, IC-2). IC-3 NOT started.
+- 3 forward migrations applied for IC-1; 9 forward migrations applied for
+  IC-2 (7 original + 2 from the security-boundary correction pass; all
+  live-verified, all mirrored locally under the exact live
+  version/timestamp — see change log).
+- Application code: no TypeScript changes were required for IC-1 or IC-2
+  (both are entirely PL/pgSQL); 2 pgTAP test files added/rewritten for
+  IC-1 (`101_...` rewritten, `102_...` new/extended); 1 new pgTAP file for
+  IC-2, extended in the security-boundary correction pass (`103_...`,
+  35/35).
 
 ---
 
 ## Phase tracker
 
-| Phase                                                                | Status         | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| -------------------------------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| IC-0 Architecture contract + baseline capture                        | ✅ DONE        | Live verification closed 2026-09-15 — see change log for the exact findings. Gate decision: no contradiction with the accepted architecture; two genuine raw-write gaps found (reservation/allocation tables, movement headers) but neither defeats IC-1's own guarantee — both recorded as IC-7 blockers, not IC-1 blockers.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| IC-1 Canonical movement engine / hard stock invariants               | ✅ DONE, FINAL | Hard invariant (`on_hand >= reserved_quantity + allocated_quantity`) live-implemented in `inventory_finalize_posting`, SQLSTATE `P0003`. Balance-getter replaced (v1 helper now zero production callers). `on_hand_quantity >= 0` CHECK added — **product-owner FINAL DECISION (2026-09-15, OPTION A)**: global non-negative on-hand is the permanent product contract; `negative_stock_policy='allow'`/`'allow_with_approval'` are superseded/deprecated for on-hand behavior, cannot bypass the invariant, column cleanup owned by IC-6. 133/133 pgTAP (102 extended to 14/14 with the finalized-contract regression) + 395/395 relevant Vitest clean (229 of those 395 re-confirmed live this finalization pass; the file set is identical to the original submission's own 395, not additive). Genuine two-session concurrency proven (3.68s real blocking). Architecture doc §0 (new decision #20) and §5 (invariant #1) updated. See the finalization-pass change-log entry below and `docs/inventory/reviews/ic-1-review/negative-stock-policy-conflict.md` (marked RESOLVED). |
-| IC-2 Movement reversal                                               | ⬜ NOT STARTED | Depends on IC-1.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| IC-3 Receiving consolidation                                         | ⬜ NOT STARTED | Depends on IC-1.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| IC-4 Branch transfer / MMJ rebuild                                   | ⬜ NOT STARTED | Depends on IC-1, IC-3. Carries an open product-semantics question (see implementation plan's own IC-4 section: whether "in transit" should mean physically moving vs. merely reserved) that needs product-owner resolution before or during this phase.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| IC-5 RepairOrder physical-location projection consolidation          | ⬜ NOT STARTED | Depends on IC-1, IC-3.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| IC-6 Legacy writer/helper removal                                    | ⬜ NOT STARTED | Depends on IC-1 (balance-getter replacement), IC-4 (311 disposition), IC-5 (Zone 5 direct-write removal).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| IC-7 Inventory security/write-boundary closure                       | ⬜ NOT STARTED | Depends on IC-0's own live findings plus whatever IC-4 already closed.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| IC-8 Full inventory regression / concurrency / performance hardening | ⬜ NOT STARTED | Final phase before the INVENTORY CORE FINAL GATE.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| **INVENTORY CORE FINAL GATE**                                        | ⬜ NOT REACHED | Required before Phase 10D (Container QR) may resume.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Phase                                                                | Status         | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| -------------------------------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| IC-0 Architecture contract + baseline capture                        | ✅ DONE        | Live verification closed 2026-09-15 — see change log for the exact findings. Gate decision: no contradiction with the accepted architecture; two genuine raw-write gaps found (reservation/allocation tables, movement headers) but neither defeats IC-1's own guarantee — both recorded as IC-7 blockers, not IC-1 blockers.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| IC-1 Canonical movement engine / hard stock invariants               | ✅ DONE, FINAL | Hard invariant (`on_hand >= reserved_quantity + allocated_quantity`) live-implemented in `inventory_finalize_posting`, SQLSTATE `P0003`. Balance-getter replaced (v1 helper now zero production callers). `on_hand_quantity >= 0` CHECK added — **product-owner FINAL DECISION (2026-09-15, OPTION A)**: global non-negative on-hand is the permanent product contract; `negative_stock_policy='allow'`/`'allow_with_approval'` are superseded/deprecated for on-hand behavior, cannot bypass the invariant, column cleanup owned by IC-6. 133/133 pgTAP (102 extended to 14/14 with the finalized-contract regression) + 395/395 relevant Vitest clean (229 of those 395 re-confirmed live this finalization pass; the file set is identical to the original submission's own 395, not additive). Genuine two-session concurrency proven (3.68s real blocking). Architecture doc §0 (new decision #20) and §5 (invariant #1) updated. See the finalization-pass change-log entry below and `docs/inventory/reviews/ic-1-review/negative-stock-policy-conflict.md` (marked RESOLVED).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| IC-2 Movement reversal                                               | ✅ DONE        | `inventory_reverse_movement(p_movement_id, p_actor_user_id, p_reason)` implemented and live-proven: receipt (101) and two-leg (801) reversal restore exact pre-movement balances; all negative paths (draft, already-reversed, reversal-of-reversal, IC-1 commitment block, reason validation, wrong actor, cross-org/no-permission indistinguishable) rejected with stable SQLSTATEs; genuine two-session concurrency proven (~5s real blocking, exactly one reversal survives, zero double-compensation); bidirectional linkage and distinct sequential `KOR/...` document numbering live-proven. New minimal movement type `900`/doc type `KOR` (system-only, zero effect rows of its own); `inventory_finalize_posting` gained one backward-compatible optional parameter (`p_explicit_effects`). Product decisions A (no undo-an-undo) and B (no RepairOrder netting) CLOSED. 3 live-caught defects fixed forward (overload ambiguity, reserved SQLSTATE P0004, Zone 5 attribution corruption) plus 1 grant-hardening fix (anon default-privilege re-exposure). **SECURITY-BOUNDARY CORRECTION PASS (2026-09-15)**: external review found `p_explicit_effects` was reachable on the externally-callable `inventory_finalize_posting` — live-confirmed P0 (on-hand doubled by an ordinary authenticated caller), fixed by internalizing the explicit-effects capability into a new EXECUTE-revoked-from-all-ordinary-roles `inventory_finalize_posting_internal`, reachable only via same-owner `SECURITY DEFINER` semantics from `inventory_reverse_movement`. A separate, pre-existing, NOT-fixed-this-pass finding (assigned to IC-7): the posted-header immutability trigger only checks its own GUC is `'on'`, not which columns changed — an ordinary permission-holding actor can self-set that GUC and rewrite any posted header's business content. pgTAP 35/35 (`103_...`, extended with Scenario E). Full regression 176/176. See change log for full evidence. |
+| IC-3 Receiving consolidation                                         | ⬜ NOT STARTED | Depends on IC-1, IC-2.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| IC-4 Branch transfer / MMJ rebuild                                   | ⬜ NOT STARTED | Depends on IC-1, IC-3. Carries an open product-semantics question (see implementation plan's own IC-4 section: whether "in transit" should mean physically moving vs. merely reserved) that needs product-owner resolution before or during this phase.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| IC-5 RepairOrder physical-location projection consolidation          | ⬜ NOT STARTED | Depends on IC-1, IC-3.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| IC-6 Legacy writer/helper removal                                    | ⬜ NOT STARTED | Depends on IC-1 (balance-getter replacement), IC-4 (311 disposition), IC-5 (Zone 5 direct-write removal).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| IC-7 Inventory security/write-boundary closure                       | ⬜ NOT STARTED | Depends on IC-0's own live findings plus whatever IC-4 already closed.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| IC-8 Full inventory regression / concurrency / performance hardening | ⬜ NOT STARTED | Final phase before the INVENTORY CORE FINAL GATE.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| **INVENTORY CORE FINAL GATE**                                        | ⬜ NOT REACHED | Required before Phase 10D (Container QR) may resume.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 
 ---
 
@@ -538,3 +541,363 @@ concurrency-evidence.md` updated with the negative-stock diagnostic
 
   **IC-1 is now FINAL, in full — no open questions remain.** IC-2 is NOT
   started. Phase 10D is NOT started.
+
+- **2026-09-15 (IC-2 — Movement Reversal — DONE)**: implemented and
+  live-proven `inventory_reverse_movement`, per the architecture doc §7
+  design, with both of its open questions closed as explicit product-owner
+  decisions BEFORE implementation began.
+
+  **Product decisions, verbatim, recorded in `inventory-core-architecture.md`
+  §0 (decisions #21, #22) and §7**:
+  - **A**: a posted original may be reversed at most once; a reversal
+    movement may never itself be reversed ("undo an undo" out of scope for
+    MVP/pitch).
+  - **B**: RepairOrder business-quantity attribution/netting for reversed
+    movements is NOT implemented in IC-2. `RepairOrdersService.
+listRepairOrderLines()`'s own formulas are unchanged; no
+    `repair_order_line_movement_links` row of any kind is created for a
+    reversal.
+
+  **Baseline note**: at the start of this phase, IC-1's own work was found
+  staged but not committed to git (per standing no-auto-commit policy, this
+  was not committed by this session either — flagged for the user's
+  awareness, not silently resolved). IC-2's own diff is built on top of
+  that staged state.
+
+  **Live schema findings before writing any code**: `inventory_movement_
+headers` already carries `original_movement_id`, `reversal_movement_id`,
+  `reversed_by`, `reversed_at`, and a `status` CHECK that already includes
+  `'reversed'` (with a `posted_pair_v2` CHECK requiring `posted_at IS NOT
+NULL` for both `'posted'` and `'reversed'`) — the schema had already
+  anticipated this exact phase. `inventory_prevent_header_modification`/
+  `_line_modification` already permit UPDATE on a `posted`/`cancelled`/
+  `reversed` header/line specifically when `ambra.inventory_movement_
+engine = 'on'` — the exact narrow mechanism needed for the bidirectional-
+  linkage UPDATE, requiring no trigger change. `inventory_document_types`
+  already carries `is_correction`/`corrects_document_type_code` columns,
+  unused until now — exactly the mechanism needed for the new `KOR`
+  document type. No dedicated `inventory_cancel_movement`/reversal RPC
+  existed yet; no reversal-capable movement type existed in the catalog.
+
+  **Genuine live discovery, resolved before implementation (not a silent
+  deviation)**: `inventory_movement_type_effects` is TYPE-level, not
+  INSTANCE-level. Live-checked the full catalog (101/311/401/402/801) —
+  no single existing type can serve as a correct, honestly-labeled inverse
+  for every other type (801 needs a combined source-increase+destination-
+  decrease pair that exists nowhere in the catalog; 402/311's own "source
+  decrease" has no "source increase" sibling). Resolved with the minimum
+  additive extension: ONE new, generic, system-only movement type
+  (`900`/`KOR`, `is_system=true`, `allows_manual_entry=false`, zero effect
+  rows of its own) plus a narrow, fully backward-compatible extension to
+  `inventory_finalize_posting` — one new optional trailing parameter,
+  `p_explicit_effects jsonb DEFAULT NULL`. NULL (every pre-existing 2-arg
+  caller) is byte-identical to before; non-NULL (only the reversal RPC)
+  supplies per-line, per-instance inverted effects instead of the
+  type-catalog lookup. This is the same engine, not a second one — per the
+  task's own explicit "STOP before inventing a shadow type system"
+  instruction, this finding justified the minimal extension rather than a
+  stop, and is recorded here for exactly that scrutiny.
+
+  **Final RPC**: `inventory_reverse_movement(p_movement_id uuid,
+p_actor_user_id uuid, p_reason text) RETURNS jsonb`. `SECURITY DEFINER`,
+  `search_path` hardened, granted to `authenticated`+`service_role` only
+  (no `anon` — see the live-caught defect below). Actor-identity spoofing
+  checked first (`28000`), independent of target existence. The original
+  is locked (`FOR UPDATE`) before any eligibility check, and every
+  eligibility condition (status, original*movement_id, reversal_movement*
+  id) is re-checked against the LOCKED row, never an earlier unlocked
+  read — this is what makes the concurrency proof below correct. A
+  genuinely nonexistent movement and one the actor lacks `warehouse.
+inventory.operate` on both raise the identical `P0002` "not found" —
+  deliberate: no existence leak. Reason is mandatory
+  (`NULLIF(TRIM(p_reason), '') IS NULL` rejects NULL and whitespace-only,
+  `22023`).
+
+  **Live-caught defects, all fixed forward (never editing an already-
+  applied migration), disclosed precisely**:
+  1. `CREATE OR REPLACE FUNCTION inventory_finalize_posting` with an added
+     3rd parameter created a NEW, additional overload rather than
+     replacing the 2-arg original (Postgres matches on full signature,
+     not just name) — live-reproduced as `42725: function ... is not
+unique` on the very first receipt-reversal test, breaking every
+     existing 2-arg caller (`inventory_create_and_finalize`). Fixed:
+     `DROP FUNCTION inventory_finalize_posting(uuid, uuid)`.
+  2. SQLSTATE `P0004` is a Postgres BUILT-IN reserved condition name
+     (`assign_string_too_long`, in the same "P0" class this project's own
+     custom convention uses) — live-reproduced that `RAISE ... USING
+ERRCODE = 'P0004'` is genuinely NOT caught by a surrounding `WHEN
+OTHERS` handler (confirmed via isolated probes: P0004 alone fails to
+     be caught; P0005/P0006/P0007 all catch correctly). The "not posted"
+     rejection code was moved to `P0007`.
+  3. **Zone 5 compatibility** (read-only investigation, per explicit
+     scope): reversing a `receive_repair_order_stock`-created movement was
+     live-proven to make Zone 5's own `repair_order_line_locations_
+ledger_sync` trigger (`repair_order_location_attribution_sync()`)
+     ACTIVELY CORRUPT `repair_order_line_locations` — it deleted then
+     immediately re-inserted the SAME quantity at the SAME location
+     (since the reversal line's own `destination_location_id`, copied
+     from the original, equals the location the ledger entry zeroes out),
+     leaving the table claiming 10 units physically present at a location
+     where `on_hand_quantity` is now genuinely 0. Fixed WITHOUT touching
+     Zone 5 itself: the reversal RPC sets the same `ambra.repair_order_
+attribution_authoritative` GUC `receive_repair_order_stock`/
+     `putaway_repair_order_stock` already set around their own ledger-
+     producing calls — converts active corruption into disclosed, known
+     STALENESS (an explicit, already-planned IC-5 concern per decision
+     #7), not resolved here. Live-reverified after the fix: the trigger's
+     own "authoritative" branch no longer mutates the table at all;
+     `repair_order_line_locations` is stale but no longer actively wrong.
+  4. **Grant hardening**: live-verified, TWICE, that `anon` regained
+     EXECUTE on `inventory_reverse_movement` after subsequent `CREATE OR
+REPLACE FUNCTION` calls, despite an explicit `REVOKE ALL FROM PUBLIC`
+     in the very first migration — this database applies a default-
+     privilege grant to `anon` on functions in schema `public` that
+     re-applies on every `CREATE OR REPLACE` of the same function (the
+     SAME pre-existing behavior already present on `inventory_finalize_
+posting`, unrelated to and predating IC-1/IC-2 — out of scope to fix
+     there). Fixed with a final, explicit `REVOKE ALL FROM PUBLIC; REVOKE
+ALL FROM anon; GRANT EXECUTE TO authenticated, service_role;` applied
+     as the last migration in this phase. Live-reverified: grantees now
+     exactly `{authenticated, service_role}`. Recorded as a new IC-7 item
+     (architecture doc §9): every canonical RPC's own grants need
+     re-verification as the LAST step after its own full migration
+     sequence, not just once after first creation.
+
+  **Live proof, both physical scenarios** (via the real canonical engine,
+  not a synthetic reproduction):
+  - Receipt (101) reversal: balance exactly restored to pre-receipt value
+    (0); original transitions to `status='reversed'`; bidirectional
+    linkage agrees both directions; reversal document number (`KOR/2026/
+000001`) genuinely distinct from the original (`PZ/2026/000021`);
+    audit log persists the exact reason text; exactly one compensating
+    ledger entry.
+  - 801 (two-leg relocation) reversal: BOTH legs invert correctly in one
+    transaction — source restored to exactly 10 (pre-move), destination
+    restored to exactly 0 (pre-move). No one-sided reversal.
+
+  **Live proof, all negative paths**: draft rejection (`P0007` — drafts use
+  cancellation, not reversal); already-reversed rejection (`P0007`, since
+  `status` transitions to `'reversed'` atomically with `reversal_movement_
+id` — the dedicated `P0006` "already reversed" check remains a
+  defensive second line of defense, not the path actually exercised
+  through this RPC, disclosed honestly rather than claimed as the primary
+  mechanism); reversal-of-reversal rejection (`P0005`); NULL-reason and
+  whitespace-only-reason rejection (`22023` both); wrong-actor/spoofing
+  rejection (`28000`); nonexistent-movement and no-permission rejection
+  (identical `P0002`, no existence leak, live-confirmed as genuinely
+  indistinguishable); **IC-1 commitment block** — reversing a receipt that
+  would strand reserved stock is rejected by the SAME `P0003` invariant
+  check reservations/allocations already rely on, atomically, with the
+  balance, reservation, original header, and `reversal_movement_id` all
+  provably unchanged and zero orphan reversal headers created.
+
+  **Genuine two-independent-PostgreSQL-connection concurrency proof** (real
+  `psql` binary, two separate OS processes, not one transaction pretending
+  to be concurrent): a durable (committed) posted receipt was constructed.
+  Session A opened a transaction, called `inventory_reverse_movement`
+  (succeeded in 691.6ms, `KOR/2026/000001`), then held the transaction open
+  via `pg_sleep(5)` before COMMIT. Session B, started ~1.5s later, attempted
+  to reverse the SAME movement; its own call **genuinely blocked for
+  5015.336ms** (real wall time, matching A's sleep almost exactly), resumed
+  only after A's COMMIT, and correctly re-evaluated eligibility against the
+  now-`'reversed'` status under its own lock — **REJECTED** with `P0007`.
+  Exactly ONE reversal header exists for the original; exactly one audit-
+  log `'reversed'` row. No deadlock. No double-compensation.
+
+  **Residual data from the concurrency test (disclosed, not silently
+  cleaned up)**: the same immutability protection IC-1's own concurrency
+  test encountered applies here — `inventory_movement_headers`/`_lines`
+  cannot be deleted once posted. Residual: 1 `ic2-concurrency-branch`
+  branch, 1 location, 2 immutable movement headers (`PZ/2026/000021` now
+  `status='reversed'`, `KOR/2026/000001` `status='posted'`) with their
+  lines/ledger entries, 1 balance row (accurately on_hand=0, matching the
+  real history), 2 audit-log rows. All other synthetic scaffolding
+  (branches, RepairOrders, etc. from every pgTAP scenario) ran inside
+  `BEGIN...ROLLBACK` and left zero residual data, confirmed by direct
+  query after each.
+
+  **Full regression**: pgTAP 097 (29/29), 098 (17/17), 099 (20/20), 100
+  (44/44), 101 (17/17), 102 (14/14), 103 new (28/28) — 169/169 total, 0
+  failures, none of 097-102 touched or affected by IC-2. Vitest: 378/378
+  (repair-orders service, inventory sibling suite, wdd-matcher, svwms,
+  inventory-actions, CRM sibling suite). `pnpm type-check`: 0 errors (no
+  TypeScript touched). `pnpm lint`: 0 errors, 319 pre-existing unrelated
+  warnings. `git diff --check`: clean, zero trailing-whitespace issues in
+  every file this phase touched.
+
+  **Migrations applied (7, forward-only, all mirrored locally under their
+  exact live version/timestamp)**:
+  1. `20260915155606_ic2_seed_reversal_document_movement_type` — extends
+     `inventory_seed_movement_types_internal` with `KOR`/`900`; backfills
+     all 4 existing orgs.
+  2. `20260915160118_ic2_inventory_finalize_posting_explicit_effects` —
+     adds `p_explicit_effects` parameter.
+  3. `20260915160414_ic2_inventory_reverse_movement_rpc` — the new RPC
+     (first version, `P0004`).
+  4. `20260915160444_ic2_drop_old_finalize_posting_overload` — corrective,
+     defect #1 above.
+  5. `20260915160902_ic2_inventory_reverse_movement_fix_p0004_reserved_code`
+     — corrective, defect #2 above.
+  6. `20260915161137_ic2_reverse_movement_zone5_attribution_guard` —
+     corrective, defect #3 above.
+  7. `20260915162826_ic2_reverse_movement_regrant_after_default_privilege_reapply`
+     — corrective, defect #4 above.
+
+  **Documentation updated**: `inventory-core-architecture.md` §0 (new
+  decisions #21, #22), §5 (invariant #15 now ✅ IMPLEMENTED), §7 (fully
+  rewritten from design to as-implemented, both product decisions closed,
+  all live findings recorded), §9 (two new IC-7 items: `repair_order_line_
+locations` staleness, `anon` default-privilege re-grant). `inventory-
+core-implementation-plan.md`'s own IC-2 section gained a RESULT addendum
+  (plan preserved as historical record, not silently rewritten).
+
+  **IC-2 review bundle**: `docs/inventory/reviews/ic-2-review/`.
+
+  **IC-2 is DONE and FINAL, pending external review.** IC-3 is NOT started.
+
+- **2026-09-15 (IC-2 — SECURITY-BOUNDARY CORRECTION PASS — DONE)**:
+  external review of the IC-2 submission above ACCEPTED the physical
+  reversal architecture but flagged a P0: the `p_explicit_effects`
+  parameter added to `inventory_finalize_posting(uuid,uuid,jsonb)` (see
+  migration 2 above) was added to the EXTERNALLY-CALLABLE canonical RPC,
+  not restricted to the internal reversal mechanism, and that function
+  carried live `anon` EXECUTE (a pre-existing default-privilege behavior,
+  unrelated to IC-2's own work).
+
+  **Live investigation (not assumed from the review alone)**: a safe,
+  transaction-scoped attack probe (`BEGIN...ROLLBACK`, no real data
+  touched) was run as an ordinary `authenticated` actor with no special
+  grant. Two early probe attempts were correctly recognized as NOT proof
+  of safety (one was blocked by IC-1's own P0003 stranded-commitment
+  check; one by an unrelated ledger uniqueness constraint) — neither
+  demonstrated the parameter itself was safe. A third, more careful probe
+  — supplying two DIFFERENT real effect ids (borrowed from movement types
+  `101` and `401`, both semantically "destination increase") against the
+  actor's own legitimately-created 10-unit draft receipt — **succeeded**:
+  the movement posted with `on_hand=20` (doubled), 2 ledger entries
+  created. **P0 conclusively confirmed live.**
+
+  **Fix (internalize explicit effects)**: logic moved to a new
+  `inventory_finalize_posting_internal(uuid,uuid,jsonb)`; `EXECUTE`
+  revoked from PUBLIC/`anon`/`authenticated`/`service_role` on the
+  internal function. The public `inventory_finalize_posting` was restored
+  to its original 2-argument, catalog-effects-only contract as a thin
+  wrapper. `inventory_reverse_movement` (already `SECURITY DEFINER`, owner
+  `postgres`) now calls the internal function directly — reachable only
+  via standard, same-owner `SECURITY DEFINER` privilege semantics (a
+  well-established Postgres mechanism, not a workaround), never via a GUC
+  or "trust the caller" convention. Two defense-in-depth checks were added
+  inside the internal function: (a) explicit effects are only accepted
+  when the movement's own REAL `movement_type_code` — read from the
+  locked row itself, never trusted from the caller — is exactly `'900'`
+  (the system reversal type), categorically ruling out the exact attack
+  above even for a hypothetical future internal caller; (b) each supplied
+  effect's `target`/`direction` is validated against its exact allowed
+  enumeration and rejected outright rather than silently falling through
+  the existing logic.
+
+  **Live-caught defect #5 (same recurring pitfall as defect #1 above)**:
+  recreating the public 2-arg `inventory_finalize_posting` did NOT remove
+  the still-live, vulnerable 3-arg overload — `CREATE OR REPLACE FUNCTION`
+  only replaces an EXACT arity match; a different arity creates an
+  additional overload, leaving the old one (with its own old grants) live.
+  Live-verified via `pg_proc`/`has_function_privilege` immediately after
+  the "fix" migration that the old 3-arg signature was STILL callable by
+  `authenticated`/`anon`/`service_role` — caught before being reported as
+  fixed, corrected with a second forward migration explicitly dropping the
+  exact old signature (`DROP FUNCTION IF EXISTS public.inventory_finalize_
+posting(uuid, uuid, jsonb)`).
+
+  **Post-fix live re-verification**: direct call to
+  `inventory_finalize_posting_internal` by an ordinary `authenticated`
+  actor → `42501` (permission denied), using the EXACT attack payload
+  proven exploitable pre-fix; the old 3-arg public-named signature →
+  `42883` (does not exist); ordinary 2-arg `inventory_finalize_posting`
+  (catalog effects) still succeeds correctly; full `inventory_reverse_
+movement` end-to-end (receipt reversal exact restoration, 801 both-legs
+  restoration, IC-1 commitment block) re-confirmed working correctly
+  post-fix; `has_function_privilege` confirms both `anon` and
+  `authenticated` hold zero `EXECUTE` on the internal function.
+
+  **`103_ic2_movement_reversal_test.sql` extended** with Scenario E
+  (T29-T35, plan 28→35): ordinary 2-arg finalize still succeeds (T29);
+  balance not exploitable via the public surface (T30); 3-arg call via the
+  public-named function fails `42883` (T31); direct call to the internal
+  function using the exact proven attack payload fails `42501` (T32);
+  balance remains un-exploited, zero footprint (T33); `has_function_
+privilege` confirms zero `EXECUTE` for `anon` (T34) and `authenticated`
+  (T35) on the internal function. All 35/35 assertions pass in the file's
+  own real execution (not merely the separate ad-hoc probes above).
+
+  **A separate, broader, NOT-fixed-this-pass finding**, surfaced while
+  verifying the pre-existing claim that "the original header is never
+  edited" for the documentation wording-correction requested by this same
+  pass: live-proven that the backing `inventory_prevent_header_
+modification` trigger only checks that its own session GUC
+  (`ambra.inventory_movement_engine`) is `'on'` — never which columns
+  changed. Since that GUC is an ordinary session-level custom parameter
+  (not superuser-restricted) and the `inventory_movement_headers` UPDATE
+  RLS policy has no `WITH CHECK` column restriction, any `authenticated`
+  actor already holding `warehouse.inventory.operate`/`.adjust`/`.reverse`
+  can set the GUC themselves and then raw-`UPDATE` **any** column of
+  **any** posted header (live-proven: rewrote `document_number` on a
+  posted receipt with no error). This is **pre-existing, not
+  IC-2-introduced** (both the GUC and the trigger predate IC-2) — a
+  sharper, UPDATE-side version of the raw-write gap already flagged in
+  architecture doc §9 (previously scoped to INSERT only). **Not fixed in
+  this pass** (out of IC-2's own narrow security-boundary scope, which
+  covers the brand-new `p_explicit_effects` capability IC-2 itself
+  introduced, not this old, pre-existing infrastructure) — explicitly
+  assigned to **IC-7**. Documentation wording corrected accordingly:
+  neither §5 invariant #13 nor §7's "never edited" line now overclaim a
+  database-enforced guarantee that does not, in fact, hold against an
+  ordinary permission-holding actor who knows the GUC's name.
+
+  **Regression**: full pgTAP re-run this pass — 097 (29/29), 098 (17/17),
+  099 (20/20, re-verified via Supabase MCP `execute_sql` after two
+  `psql`-path attempts hit the already-known, disclosed connection-pooler
+  GUC artifact — not a real regression), 100 (44/44), 101 (17/17), 102
+  (14/14), 103 (35/35 in its final, extended form) — **176/176 total, 0
+  failures**. Vitest: 159 (repair-orders service) + 63 (inventory-actions,
+  wdd-matcher-approval-actions, CRM contacts/module-migration/parties,
+  wdd-matcher service + movement-import-candidates, inventory
+  cross-branch-transfers, inventory-backend-hardening-migration) = 222/222,
+  0 failures. `pnpm type-check`: 0 errors. `pnpm lint`: 0 errors, 319
+  pre-existing warnings, all in unrelated `apps/web/temp/` scaffolds.
+  `git diff --check`: clean on every file this pass touched (the one flag
+  raised was inside the pre-existing `diff.patch` bundle artifact being
+  regenerated, not this pass's own source edits).
+
+  **Concurrency NOT re-run, reasoned**: `inventory_reverse_movement`'s own
+  row-locking of the original header (`SELECT ... FOR UPDATE`, first
+  action after actor/reason validation) is byte-identical before and after
+  this fix — only the internal call target of its own downstream
+  `inventory_finalize_posting_internal` invocation changed, not any lock
+  acquisition order or scope. The existing genuine two-session concurrency
+  proof (IC-2's own submission, ~5s real blocking, exactly one reversal
+  survives) remains valid evidence and was not repeated.
+
+  **Migrations applied (2, forward-only, mirrored locally under their
+  exact live version/timestamp)**: 8. `20260915170706_ic2_security_internalize_explicit_effects` — creates
+  `inventory_finalize_posting_internal`, adds the two defense-in-depth
+  checks, revokes all EXECUTE on it, restores the public 2-arg
+  `inventory_finalize_posting` as a thin wrapper, updates `inventory_
+   reverse_movement` to call the internal function directly. 9. `20260915170726_ic2_drop_vulnerable_public_named_three_arg_finalize_posting`
+  — corrective, live-caught defect #5 above.
+
+  **Documentation updated**: `inventory-core-architecture.md` §5 (invariant
+  #13 wording corrected), §7 (the "never edited" wording corrected with
+  full precision on what is/isn't DB-enforced), §9 (the `inventory_
+movement_headers` row sharpened with the live-proven UPDATE-bypass
+  finding; one new row added for the `p_explicit_effects` P0 and its fix).
+  `inventory-core-implementation-plan.md`'s own IC-2 RESULT addendum
+  extended with this pass's findings (not silently rewritten — appended).
+
+  **IC-2 review bundle updated** (same baseline SHA
+  `27d900071813c82cc7d6a20d97dadd42def21e8f`, not a new IC-3 bundle):
+  `docs/inventory/reviews/ic-2-review/`.
+
+  **IC-2, including this security-boundary correction pass, is DONE and
+  FINAL, pending external review.** IC-3 is NOT started. Phase 10D is NOT
+  started.
+  Phase 10D is NOT started.

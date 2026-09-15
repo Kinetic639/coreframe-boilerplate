@@ -232,6 +232,104 @@ or a direct balance query, shows the exact pre-receipt state restored.
 **Hard STOP condition before IC-3**: regression green, external review
 accepted.
 
+**RESULT (2026-09-15, IC-2 implemented and DONE)**: both open questions §7
+flagged were resolved as explicit, closed product-owner decisions BEFORE
+implementation began (not deferred to mid-implementation discovery):
+
+- **Reversal-of-reversal**: NOT supported for MVP/pitch. A posted original
+  may be reversed at most once (`reversal_movement_id IS NULL` required); a
+  reversal movement itself can never be reversed (`original_movement_id IS
+NOT NULL` on the target is an immediate rejection, SQLSTATE `P0005`).
+- **RepairOrder attribution `relation_type`**: NOT implemented. IC-2 does
+  not call `attach_repair_order_line_movement` for the reversal and does
+  not add a `relation_type='reversal'` link or any business-quantity
+  netting. `RepairOrdersService.listRepairOrderLines()`'s own received/
+  issued/outstanding/available formulas are untouched. This is an explicit
+  deferred integration concern, not an oversight — see the architecture
+  doc's own §7 update for the full reasoning.
+
+**Genuine live discovery beyond the original plan's own anticipation**: the
+movement-type/effect catalog is TYPE-level, not INSTANCE-level —
+`inventory_movement_type_effects` rows are keyed by `movement_type_id`
+alone, so no single existing type (101/311/401/402/801) can serve as a
+correct, honestly-labeled inverse for every other type (801 in particular
+needs a combined source-increase+destination-decrease pair that exists
+nowhere in the catalog). Resolved by adding ONE new, minimal, generic,
+system-only reversal type (`900`/`KOR`, `is_system=true`, `allows_manual_
+entry=false`, zero effect rows of its own) plus a narrow, additive,
+backward-compatible extension to `inventory_finalize_posting` itself (one
+new optional trailing parameter, `p_explicit_effects jsonb DEFAULT NULL` —
+every existing 2-argument caller is completely unaffected). This was
+verified live before implementation, per this document's own explicit
+"STOP before inventing a shadow type system" instruction — the finding
+justified the minimal extension rather than a stop.
+
+**Live-caught defects, fixed forward** (see `docs/inventory/reviews/ic-2-review/`
+for full detail): (1) `CREATE OR REPLACE FUNCTION` with an added parameter
+created a second overload rather than replacing the 2-arg
+`inventory_finalize_posting`, breaking every existing caller — fixed by
+dropping the old overload. (2) SQLSTATE `P0004` is a Postgres built-in
+reserved condition (`assign_string_too_long`) that is NOT caught by `WHEN
+OTHERS` — the "not posted" rejection code was moved to `P0007`. (3) Zone
+5's own spatial-attribution trigger reacted to a reversal's compensating
+ledger entries by actively corrupting `repair_order_line_locations` (a
+delete-then-reinsert of the same, now-physically-absent quantity) — fixed,
+without touching Zone 5 itself, by having the reversal RPC set the same
+`ambra.repair_order_attribution_authoritative` GUC `receive_repair_order_
+stock`/`putaway_repair_order_stock` already use, converting active
+corruption into disclosed, known staleness (an IC-5 concern). (4) A
+schema-level default-privilege grant re-exposed `inventory_reverse_
+movement` to `anon` after each `CREATE OR REPLACE` — fixed with an explicit
+final `REVOKE`/`GRANT` matching the established `authenticated`+
+`service_role`-only convention.
+
+**SECURITY-BOUNDARY CORRECTION PASS (2026-09-15, external review, P0
+found and fixed)**: external review flagged that the 3-arg
+`p_explicit_effects` extension above was added to the externally-callable
+canonical `inventory_finalize_posting(uuid,uuid,jsonb)`, not restricted to
+the internal reversal mechanism. Live investigation (a safe,
+transaction-scoped attack probe, `ROLLBACK`, no real data touched)
+**confirmed a genuine P0**: an ordinary `authenticated` caller could call
+the function directly on their own legitimately-created draft with a
+crafted `p_explicit_effects` payload (two real effect ids from unrelated
+movement types) and double `on_hand` (10 → 20) with no extra permission.
+Two live-caught defects during the fix itself: (5) the same
+arity-overload pitfall as defect (1) recurred — recreating a 2-arg
+`inventory_finalize_posting` did NOT remove the still-live, still-`anon`/
+`authenticated`-callable vulnerable 3-arg overload; fixed with a second
+forward migration explicitly dropping the exact old signature, live-
+reverified via `pg_proc`/`has_function_privilege` before proceeding.
+Fix: logic moved to `inventory_finalize_posting_internal(uuid,uuid,jsonb)`
+(`EXECUTE` revoked from every role except owner `postgres`); the public
+`inventory_finalize_posting` restored to its original 2-arg,
+catalog-effects-only contract; only `inventory_reverse_movement` (itself
+`SECURITY DEFINER`, owner `postgres`) can reach the internal function, via
+standard same-owner `SECURITY DEFINER` privilege semantics — not a GUC or
+"trust the caller" convention. Two defense-in-depth checks added inside
+the internal function: explicit effects are only accepted when the
+movement's own real (row-read, not caller-supplied) `movement_type_code`
+is `'900'`; each effect's `target`/`direction` is validated against its
+exact allowed enumeration rather than silently falling through. Live
+re-verified post-fix: direct internal-function call → `42501`; old 3-arg
+public signature → `42883` (no longer exists); ordinary 2-arg finalize and
+full reversal end-to-end unaffected; `anon`/`authenticated` confirmed to
+hold zero `EXECUTE` on the internal function. A SEPARATE, broader,
+**not-fixed-this-pass** finding surfaced while verifying the "original
+header is never edited" claim for documentation purposes: the backing
+immutability trigger only checks that its own GUC is `'on'`, never which
+columns changed, and the GUC is an ordinary session parameter any
+`authenticated` actor already holding `warehouse.inventory.operate` can
+set themselves — live-proven this permits a full raw-`UPDATE` rewrite of
+any posted header's business content (not just a status-blind INSERT, as
+previously scoped). Pre-existing, not IC-2-introduced; explicitly assigned
+to IC-7 (see architecture doc §7/§9 for the full finding and required
+fix design).
+
+Full test/concurrency evidence, migration list, and security findings are
+in `docs/inventory/inventory-core-progress.md`'s own IC-2 change-log entry
+and the `docs/inventory/reviews/ic-2-review/` bundle. **IC-2 is DONE,
+including the security-boundary correction pass.**
+
 ---
 
 ## IC-3 — Receiving Consolidation
