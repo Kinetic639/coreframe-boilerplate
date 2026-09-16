@@ -1,0 +1,1924 @@
+diff --git a/apps/web/supabase-target/supabase/migrations/20260916050440_ic7a_harden_inventory_create_draft.sql b/apps/web/supabase-target/supabase/migrations/20260916050440_ic7a_harden_inventory_create_draft.sql
+new file mode 100644
+index 00000000..0ca5053d
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260916050440_ic7a_harden_inventory_create_draft.sql
+@@ -0,0 +1,240 @@
++-- ============================================================================
++-- IC-7A EMERGENCY SECURITY PASS: harden inventory_create_draft
++-- ============================================================================
++-- LIVE-REPRODUCED P0 (fresh, this pass, not trusted from IC-3's own prior
++-- report): a fully unauthenticated `anon` role -- zero JWT claims, zero
++-- auth.uid(), zero session -- called inventory_create_draft AND inventory_
++-- finalize_posting AND inventory_create_and_finalize directly and posted
++-- real, immutable movements to an arbitrary organization/branch it merely
++-- named a UUID for. All three carried live anon EXECUTE (confirmed via
++-- has_function_privilege) and inventory_create_draft performed ZERO
++-- actor-identity or permission check of its own -- p_actor_user_id was
++-- accepted and used only to stamp created_by/actor_user_id audit columns,
++-- fully spoofable, and RLS (the only nominal protection) is structurally
++-- bypassed by this function's own SECURITY DEFINER/owner-postgres execution
++-- context (rolbypassrls=true).
++--
++-- CALLER-GRAPH-DRIVEN DESIGN DECISION (full audit performed before this
++-- migration, see review bundle): full internalization (revoking EXECUTE
++-- from `authenticated`) was REJECTED for this function specifically,
++-- because 5 real, reachable Next.js server actions
++-- (createDraftMovementAction, finalizePostingAction,
++-- createAndPostMovementAction, quickReceiptAction/receiveStockAction,
++-- quickBinMoveAction/transferStockAction) call inventory_create_draft/
++-- inventory_finalize_posting/inventory_create_and_finalize DIRECTLY via
++-- supabase.rpc(...) as the browser session's own `authenticated` role --
++-- NOT through any SQL-level SECURITY DEFINER wrapper. Additionally,
++-- inventory_approve_count_session (the live 401/402 adjustment flow) is
++-- itself NOT SECURITY DEFINER (confirmed live via pg_get_functiondef) --
++-- its own nested calls into inventory_create_draft/inventory_finalize_
++-- posting execute AS THE REAL INVOKING ROLE, not elevated. Revoking
++-- `authenticated` EXECUTE on these functions would have broken ALL of
++-- these real, legitimate, currently-working flows. The correct fix
++-- (Option B per this pass's own decision framework) is therefore to
++-- HARDEN the function in place: add the same actor-identity + permission
++-- checks every other canonical Inventory Core RPC already has, and close
++-- ONLY the `anon`/PUBLIC vector via REVOKE -- not `authenticated`.
++--
++-- ALSO CLOSES (per explicit instruction: "System-only movement types such
++-- as 900 MUST NOT become manually creatable"): this function previously
++-- validated only `deleted_at IS NULL AND is_active = true` for the
++-- requested movement_type_code -- it did NOT check `is_system`/`allows_
++-- manual_entry` at all, meaning any permitted caller could have supplied
++-- movement_type_code='900' (the system-only reversal type IC-2 added) and
++-- created a manually-fabricated, non-reversal-linked "KOR" movement
++-- header bypassing inventory_reverse_movement's own linkage machinery
++-- entirely. No real caller uses inventory_create_draft with a system
++-- type today (inventory_reverse_movement does its own raw INSERT for
++-- 900, never calling this function) -- this guard is additive and safe
++-- for every real caller found in the audit.
++--
++-- NOTE: this migration's own `is_system`-based guard was FOUND WRONG by
++-- live inspection immediately after applying it (is_system=true for
++-- EVERY seeded type, not just 900) and corrected in the very next forward
++-- migration (20260916050815_ic7a_fix_system_type_guard_overly_broad) --
++-- mirrored here as applied, historical record preserved, not edited.
++
++CREATE OR REPLACE FUNCTION public.inventory_create_draft(p_organization_id uuid, p_branch_id uuid, p_movement_type_code text, p_lines jsonb, p_operation_date date DEFAULT NULL::date, p_document_date date DEFAULT NULL::date, p_counterparty_name text DEFAULT NULL::text, p_external_reference text DEFAULT NULL::text, p_note text DEFAULT NULL::text, p_idempotency_key text DEFAULT NULL::text, p_actor_user_id uuid DEFAULT NULL::uuid)
++ RETURNS jsonb
++ LANGUAGE plpgsql
++ SECURITY DEFINER
++ SET search_path TO 'public', 'pg_temp'
++AS $function$
++DECLARE
++  v_mvt_type RECORD;
++  v_settings RECORD;
++  v_draft_number text;
++  v_header_id uuid;
++  v_line RECORD;
++  v_line_number integer := 0;
++  v_existing_id uuid;
++  v_existing_draft text;
++BEGIN
++  IF p_actor_user_id IS NULL OR p_actor_user_id IS DISTINCT FROM auth.uid() THEN
++    RAISE EXCEPTION 'p_actor_user_id must match the authenticated caller' USING ERRCODE = '28000';
++  END IF;
++
++  IF NOT (
++    public.has_branch_permission(p_organization_id, p_branch_id, 'warehouse.inventory.operate')
++    OR public.has_branch_permission(p_organization_id, p_branch_id, 'warehouse.inventory.adjust')
++  ) THEN
++    RAISE EXCEPTION 'Not authorized to create inventory movements for this branch' USING ERRCODE = '42501';
++  END IF;
++
++  SET LOCAL ambra.inventory_movement_engine = 'on';
++
++  -- Check idempotency
++  IF p_idempotency_key IS NOT NULL THEN
++    SELECT id, draft_number INTO v_existing_id, v_existing_draft
++    FROM inventory_movement_headers
++    WHERE organization_id = p_organization_id AND idempotency_key = p_idempotency_key;
++    IF FOUND THEN
++      RETURN jsonb_build_object('movement_id', v_existing_id, 'draft_number', v_existing_draft, 'status', 'draft');
++    END IF;
++  END IF;
++
++  -- Validate movement type
++  SELECT mt.id, mt.code, mt.document_type_id, mt.category,
++         mt.requires_source_location, mt.requires_destination_location,
++         mt.requires_reference, mt.requires_note,
++         mt.is_system, mt.allows_manual_entry,
++         dt.code AS doc_type_code
++  INTO v_mvt_type
++  FROM inventory_movement_types mt
++  JOIN inventory_document_types dt ON dt.id = mt.document_type_id
++  WHERE mt.organization_id = p_organization_id
++    AND mt.code = p_movement_type_code
++    AND mt.deleted_at IS NULL
++    AND mt.is_active = true;
++
++  IF NOT FOUND THEN
++    RAISE EXCEPTION 'Movement type "%" not found or inactive', p_movement_type_code;
++  END IF;
++
++  -- Defense in depth (this pass): system-only movement types (e.g. 900,
++  -- the reversal type) must never be manually/directly draftable. Real
++  -- system-generated movements of these types are created via their own
++  -- dedicated RPC (e.g. inventory_reverse_movement), which performs its
++  -- own raw INSERT and never calls this function.
++  IF v_mvt_type.is_system OR NOT v_mvt_type.allows_manual_entry THEN
++    RAISE EXCEPTION 'Movement type "%" is system-managed and cannot be manually created', p_movement_type_code
++      USING ERRCODE = '42501';
++  END IF;
++
++  -- Validate lines
++  IF p_lines IS NULL OR jsonb_array_length(p_lines) = 0 THEN
++    RAISE EXCEPTION 'At least one line is required';
++  END IF;
++
++  -- Validate field requirements
++  IF v_mvt_type.requires_reference AND (p_external_reference IS NULL OR length(trim(p_external_reference)) = 0) THEN
++    RAISE EXCEPTION 'External reference is required for movement type %', p_movement_type_code;
++  END IF;
++  IF v_mvt_type.requires_note AND (p_note IS NULL OR length(trim(p_note)) = 0) THEN
++    RAISE EXCEPTION 'Note is required for movement type %', p_movement_type_code;
++  END IF;
++
++  -- Generate draft number
++  SELECT * INTO v_settings FROM inventory_settings
++  WHERE organization_id = p_organization_id FOR UPDATE;
++
++  v_draft_number := v_settings.draft_number_prefix || '-' || lpad(v_settings.draft_number_next::text, 6, '0');
++
++  UPDATE inventory_settings
++  SET draft_number_next = draft_number_next + 1, updated_at = now()
++  WHERE organization_id = p_organization_id;
++
++  -- Insert header
++  INSERT INTO inventory_movement_headers (
++    organization_id, branch_id, movement_type_id, movement_type_code,
++    draft_number, status, operation_date, document_date,
++    counterparty_name, external_reference, note,
++    idempotency_key, created_by
++  ) VALUES (
++    p_organization_id, p_branch_id, v_mvt_type.id, v_mvt_type.code,
++    v_draft_number, 'draft', COALESCE(p_operation_date, CURRENT_DATE), p_document_date,
++    p_counterparty_name, p_external_reference, p_note,
++    p_idempotency_key, p_actor_user_id
++  ) RETURNING id INTO v_header_id;
++
++  -- Insert lines
++  FOR v_line IN SELECT * FROM jsonb_to_recordset(p_lines)
++    AS x(variant_id uuid, unit_id uuid, quantity numeric,
++         source_location_id uuid, destination_location_id uuid,
++         unit_cost numeric, note text)
++  LOOP
++    v_line_number := v_line_number + 1;
++
++    IF v_line.quantity IS NULL OR v_line.quantity <= 0 THEN
++      RAISE EXCEPTION 'Line % quantity must be positive', v_line_number;
++    END IF;
++
++    -- Validate source location
++    IF v_mvt_type.requires_source_location THEN
++      IF v_line.source_location_id IS NULL THEN
++        RAISE EXCEPTION 'Line %: source location required for type %', v_line_number, p_movement_type_code;
++      END IF;
++      IF NOT EXISTS (
++        SELECT 1 FROM warehouse_locations
++        WHERE id = v_line.source_location_id
++          AND organization_id = p_organization_id
++          AND branch_id = p_branch_id
++          AND can_store_inventory = true
++          AND deleted_at IS NULL
++      ) THEN
++        RAISE EXCEPTION 'Line %: source location is not a valid stockable bin in this branch', v_line_number;
++      END IF;
++    END IF;
++
++    -- Validate destination location
++    IF v_mvt_type.requires_destination_location THEN
++      IF v_line.destination_location_id IS NULL THEN
++        RAISE EXCEPTION 'Line %: destination location required for type %', v_line_number, p_movement_type_code;
++      END IF;
++      IF NOT EXISTS (
++        SELECT 1 FROM warehouse_locations
++        WHERE id = v_line.destination_location_id
++          AND organization_id = p_organization_id
++          AND branch_id = p_branch_id
++          AND can_store_inventory = true
++          AND deleted_at IS NULL
++      ) THEN
++        RAISE EXCEPTION 'Line %: destination location is not a valid stockable bin in this branch', v_line_number;
++      END IF;
++    END IF;
++
++    INSERT INTO inventory_movement_lines (
++      organization_id, branch_id, movement_id, line_number,
++      variant_id, unit_id, quantity,
++      source_location_id, destination_location_id,
++      unit_cost, note
++    ) VALUES (
++      p_organization_id, p_branch_id, v_header_id, v_line_number,
++      v_line.variant_id, v_line.unit_id, v_line.quantity,
++      v_line.source_location_id, v_line.destination_location_id,
++      v_line.unit_cost, v_line.note
++    );
++  END LOOP;
++
++  -- Audit log
++  INSERT INTO inventory_movement_audit_log (
++    organization_id, movement_id, action, new_status,
++    entity_type, entity_id, actor_user_id,
++    transaction_id
++  ) VALUES (
++    p_organization_id, v_header_id, 'created', 'draft',
++    'header', v_header_id, p_actor_user_id,
++    txid_current()::text
++  );
++
++  RETURN jsonb_build_object(
++    'movement_id', v_header_id,
++    'draft_number', v_draft_number,
++    'status', 'draft'
++  );
++END;
++$function$;
++
++REVOKE ALL ON FUNCTION public.inventory_create_draft(uuid, uuid, text, jsonb, date, date, text, text, text, text, uuid) FROM PUBLIC;
++REVOKE ALL ON FUNCTION public.inventory_create_draft(uuid, uuid, text, jsonb, date, date, text, text, text, text, uuid) FROM anon;
++GRANT EXECUTE ON FUNCTION public.inventory_create_draft(uuid, uuid, text, jsonb, date, date, text, text, text, text, uuid) TO authenticated, service_role;
+diff --git a/apps/web/supabase-target/supabase/migrations/20260916050528_ic7a_harden_inventory_finalize_posting_internal.sql b/apps/web/supabase-target/supabase/migrations/20260916050528_ic7a_harden_inventory_finalize_posting_internal.sql
+new file mode 100644
+index 00000000..db021fcd
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260916050528_ic7a_harden_inventory_finalize_posting_internal.sql
+@@ -0,0 +1,294 @@
++-- ============================================================================
++-- IC-7A EMERGENCY SECURITY PASS: harden inventory_finalize_posting_internal
++-- ============================================================================
++-- Same P0 as the companion inventory_create_draft migration: the public
++-- 2-arg inventory_finalize_posting(uuid,uuid) -- a thin pass-through to
++-- this internal function (IC-2's own frozen contract) -- performed ZERO
++-- actor-identity/permission check, and this internal function is the
++-- SINGLE shared choke point both the public wrapper AND inventory_
++-- reverse_movement call into. Hardening here, once, correctly protects
++-- both callers without duplicating the check in two places.
++--
++-- CALLER-GRAPH-DRIVEN DESIGN: same reasoning as inventory_create_draft --
++-- real Next.js server actions (finalizePostingAction, quickReceiptAction,
++-- quickBinMoveAction, createAndPostMovementAction) call the public 2-arg
++-- inventory_finalize_posting DIRECTLY as `authenticated`, and inventory_
++-- approve_count_session (NOT itself SECURITY DEFINER) calls it as the
++-- real, non-elevated invoking role too. `authenticated` EXECUTE on the
++-- PUBLIC wrapper is therefore kept. This internal function's own EXECUTE
++-- was already revoked from every ordinary role in IC-2 (verified
++-- unchanged below) -- it is reachable ONLY via the public wrapper or via
++-- inventory_reverse_movement, both same-owner SECURITY DEFINER calls.
++--
++-- SAFE FOR THE REVERSAL PATH (verified by reading inventory_reverse_
++-- movement's own body, unchanged): it already validates p_actor_user_id
++-- = auth.uid() and has_branch_permission(..., 'warehouse.inventory.
++-- operate') against the ORIGINAL movement's own org/branch BEFORE ever
++-- calling this internal function, and it passes that SAME actor_user_id
++-- through unchanged. The reversal movement it creates always shares the
++-- ORIGINAL's own organization_id/branch_id (INSERT ... VALUES (...,
++-- v_original.organization_id, v_original.branch_id, ...)), so the new
++-- checks added here -- re-validated against the movement actually being
++-- finalized -- pass trivially for this caller (redundant, not harmful).
++--
++-- Permission check placement: performed immediately after the header row
++-- lock/not-found check (org/branch must be read from the row first) and
++-- BEFORE the "already posted" short-circuit -- an unauthorized caller
++-- must not be able to learn a movement's existence/status before being
++-- rejected, matching the established P0002-style existence-non-leak
++-- convention already used by inventory_reverse_movement.
++
++CREATE OR REPLACE FUNCTION public.inventory_finalize_posting_internal(p_movement_id uuid, p_actor_user_id uuid DEFAULT NULL::uuid, p_explicit_effects jsonb DEFAULT NULL::jsonb)
++ RETURNS jsonb
++ LANGUAGE plpgsql
++ SECURITY DEFINER
++ SET search_path TO 'public'
++AS $function$
++DECLARE
++  v_header RECORD;
++  v_mvt_type RECORD;
++  v_settings RECORD;
++  v_seq RECORD;
++  v_doc_number text;
++  v_line RECORD;
++  v_effect RECORD;
++  v_location_id uuid;
++  v_balance inventory_balances%ROWTYPE;
++  v_current_qty numeric;
++  v_new_qty numeric;
++  v_now timestamptz := now();
++  v_year integer := extract(year from v_now)::integer;
++BEGIN
++  SET LOCAL ambra.inventory_movement_engine = 'on';
++
++  SELECT * INTO v_header FROM inventory_movement_headers
++  WHERE id = p_movement_id FOR UPDATE;
++
++  IF NOT FOUND THEN
++    RAISE EXCEPTION 'Movement not found';
++  END IF;
++
++  -- IC-7A: actor-identity + permission check, added this pass. Runs
++  -- BEFORE any status-based branching so an unauthorized caller cannot
++  -- distinguish "posted"/"draft"/"not found" from a permission denial.
++  IF p_actor_user_id IS NULL OR p_actor_user_id IS DISTINCT FROM auth.uid() THEN
++    RAISE EXCEPTION 'p_actor_user_id must match the authenticated caller' USING ERRCODE = '28000';
++  END IF;
++
++  IF NOT (
++    public.has_branch_permission(v_header.organization_id, v_header.branch_id, 'warehouse.inventory.operate')
++    OR public.has_branch_permission(v_header.organization_id, v_header.branch_id, 'warehouse.inventory.adjust')
++  ) THEN
++    RAISE EXCEPTION 'Not authorized to post inventory movements for this branch' USING ERRCODE = '42501';
++  END IF;
++
++  -- Defense in depth: explicit effects may ONLY ever apply to the system
++  -- reversal type. The movement's own real type_code is read from the
++  -- locked row itself, never trusted from any caller-supplied value.
++  IF p_explicit_effects IS NOT NULL AND v_header.movement_type_code <> '900' THEN
++    RAISE EXCEPTION 'Explicit effects are only permitted for system reversal movements (type 900)' USING ERRCODE = '42501';
++  END IF;
++
++  IF v_header.status = 'posted' THEN
++    RETURN jsonb_build_object(
++      'movement_id', v_header.id,
++      'document_number', v_header.document_number,
++      'status', 'posted'
++    );
++  END IF;
++
++  IF v_header.status != 'draft' THEN
++    RAISE EXCEPTION 'Cannot post movement with status "%"', v_header.status;
++  END IF;
++
++  SELECT mt.*, dt.code AS doc_type_code, dt.numbering_template, dt.id AS dt_id
++  INTO v_mvt_type
++  FROM inventory_movement_types mt
++  JOIN inventory_document_types dt ON dt.id = mt.document_type_id
++  WHERE mt.id = v_header.movement_type_id;
++
++  SELECT * INTO v_settings FROM inventory_settings
++  WHERE organization_id = v_header.organization_id FOR UPDATE;
++
++  INSERT INTO inventory_document_sequences (organization_id, document_type_id, year)
++  VALUES (v_header.organization_id, v_mvt_type.dt_id, v_year)
++  ON CONFLICT DO NOTHING;
++
++  SELECT * INTO v_seq FROM inventory_document_sequences
++  WHERE organization_id = v_header.organization_id
++    AND document_type_id = v_mvt_type.dt_id
++    AND branch_id IS NULL
++    AND series IS NULL
++    AND year = v_year
++  FOR UPDATE;
++
++  v_doc_number := v_mvt_type.doc_type_code || '/' || v_year::text || '/' || lpad(v_seq.next_number::text, 6, '0');
++
++  UPDATE inventory_document_sequences
++  SET next_number = next_number + 1
++  WHERE id = v_seq.id;
++
++  -- Freeze line snapshots using subqueries instead of JOIN on target table
++  UPDATE inventory_movement_lines SET
++    snapshot_product_name = (
++      SELECT p.name FROM inventory_variants v
++      JOIN inventory_products p ON p.id = v.product_id AND p.organization_id = v.organization_id
++      WHERE v.id = inventory_movement_lines.variant_id AND v.organization_id = inventory_movement_lines.organization_id
++    ),
++    snapshot_sku = (
++      SELECT v.sku FROM inventory_variants v
++      WHERE v.id = inventory_movement_lines.variant_id AND v.organization_id = inventory_movement_lines.organization_id
++    ),
++    snapshot_unit_code = (
++      SELECT u.code FROM inventory_units u
++      WHERE u.id = inventory_movement_lines.unit_id AND u.organization_id = inventory_movement_lines.organization_id
++    ),
++    snapshot_source_location_name = (
++      SELECT wl.name FROM warehouse_locations wl
++      WHERE wl.id = inventory_movement_lines.source_location_id
++    ),
++    snapshot_destination_location_name = (
++      SELECT wl.name FROM warehouse_locations wl
++      WHERE wl.id = inventory_movement_lines.destination_location_id
++    )
++  WHERE movement_id = p_movement_id AND deleted_at IS NULL;
++
++  -- Apply effects per line
++  FOR v_line IN
++    SELECT * FROM inventory_movement_lines
++    WHERE movement_id = p_movement_id AND deleted_at IS NULL
++    ORDER BY line_number
++  LOOP
++    FOR v_effect IN
++      SELECT id, target, balance_field, direction, effect_order, is_required
++      FROM inventory_movement_type_effects
++      WHERE movement_type_id = v_header.movement_type_id AND p_explicit_effects IS NULL
++      UNION ALL
++      SELECT
++        (e->>'id')::uuid,
++        (e->>'target')::text,
++        (e->>'balance_field')::text,
++        (e->>'direction')::text,
++        (e->>'effect_order')::integer,
++        COALESCE((e->>'is_required')::boolean, true)
++      FROM jsonb_array_elements(COALESCE(p_explicit_effects -> v_line.line_number::text, '[]'::jsonb)) e
++      WHERE p_explicit_effects IS NOT NULL
++      ORDER BY effect_order
++    LOOP
++      -- Defense in depth: reject any effect whose target/direction is not
++      -- exactly one of the supported domain values, rather than silently
++      -- defaulting via the fallthrough branches below.
++      IF v_effect.target NOT IN ('source', 'destination') THEN
++        RAISE EXCEPTION 'Invalid effect target "%" for line %', v_effect.target, v_line.line_number;
++      END IF;
++      IF v_effect.direction NOT IN ('increase', 'decrease') THEN
++        RAISE EXCEPTION 'Invalid effect direction "%" for line %', v_effect.direction, v_line.line_number;
++      END IF;
++
++      IF v_effect.target = 'source' THEN
++        v_location_id := v_line.source_location_id;
++      ELSE
++        v_location_id := v_line.destination_location_id;
++      END IF;
++
++      IF v_location_id IS NULL AND v_effect.is_required THEN
++        RAISE EXCEPTION 'Line %: % location required for effect but is NULL',
++          v_line.line_number, v_effect.target;
++      END IF;
++
++      IF v_location_id IS NULL THEN
++        CONTINUE;
++      END IF;
++
++      v_balance := inventory_get_or_create_balance_for_update(
++        v_header.organization_id, v_header.branch_id, v_location_id, v_line.variant_id, p_movement_id,
++        NULL::uuid, NULL::uuid
++      );
++
++      IF v_effect.balance_field = 'on_hand' THEN
++        v_current_qty := v_balance.on_hand_quantity;
++      ELSE
++        RAISE EXCEPTION 'v1 only supports on_hand balance field, got %', v_effect.balance_field;
++      END IF;
++
++      IF v_effect.direction = 'increase' THEN
++        v_new_qty := v_current_qty + v_line.quantity;
++      ELSE
++        v_new_qty := v_current_qty - v_line.quantity;
++      END IF;
++
++      IF v_effect.balance_field = 'on_hand' AND v_effect.direction = 'decrease' THEN
++        IF v_new_qty < (v_balance.reserved_quantity + v_balance.allocated_quantity) THEN
++          RAISE EXCEPTION 'Movement would strand committed stock: variant % has % reserved + % allocated = % committed at this location, but only % would remain on hand (line %)',
++            v_line.variant_id, v_balance.reserved_quantity, v_balance.allocated_quantity,
++            (v_balance.reserved_quantity + v_balance.allocated_quantity), v_new_qty, v_line.line_number
++            USING ERRCODE = 'P0003';
++        END IF;
++      END IF;
++
++      IF v_new_qty < 0 AND v_settings.negative_stock_policy = 'block' THEN
++        RAISE EXCEPTION 'Insufficient stock: % has % on hand, need % for line %',
++          v_line.variant_id, v_current_qty, v_line.quantity, v_line.line_number;
++      END IF;
++
++      UPDATE inventory_balances
++      SET on_hand_quantity = v_new_qty,
++          last_movement_id = p_movement_id,
++          last_movement_at = v_now,
++          updated_at = v_now
++      WHERE id = v_balance.id;
++
++      INSERT INTO inventory_stock_ledger_entries (
++        organization_id, branch_id, location_id, variant_id,
++        movement_id, movement_line_id, movement_type_code,
++        document_number, document_type_code,
++        effect_id, balance_field, direction,
++        quantity, balance_after,
++        unit_cost, currency, posted_at
++      ) VALUES (
++        v_header.organization_id, v_header.branch_id, v_location_id, v_line.variant_id,
++        p_movement_id, v_line.id, v_header.movement_type_code,
++        v_doc_number, v_mvt_type.doc_type_code,
++        v_effect.id, v_effect.balance_field, v_effect.direction,
++        v_line.quantity, v_new_qty,
++        v_line.unit_cost, v_line.currency, v_now
++      );
++    END LOOP;
++  END LOOP;
++
++  UPDATE inventory_movement_headers SET
++    status = 'posted',
++    document_number = v_doc_number,
++    document_type_code = v_mvt_type.doc_type_code,
++    posted_at = v_now,
++    posted_by = p_actor_user_id,
++    updated_at = v_now
++  WHERE id = p_movement_id;
++
++  INSERT INTO inventory_movement_audit_log (
++    organization_id, movement_id, action, old_status, new_status,
++    entity_type, entity_id, actor_user_id,
++    changes, transaction_id
++  ) VALUES (
++    v_header.organization_id, p_movement_id, 'posted', 'draft', 'posted',
++    'header', p_movement_id, p_actor_user_id,
++    jsonb_build_object('document_number', v_doc_number),
++    txid_current()::text
++  );
++
++  RETURN jsonb_build_object(
++    'movement_id', p_movement_id,
++    'document_number', v_doc_number,
++    'status', 'posted'
++  );
++END;
++$function$;
++
++REVOKE ALL ON FUNCTION public.inventory_finalize_posting_internal(uuid, uuid, jsonb) FROM PUBLIC;
++REVOKE ALL ON FUNCTION public.inventory_finalize_posting_internal(uuid, uuid, jsonb) FROM anon;
++REVOKE ALL ON FUNCTION public.inventory_finalize_posting_internal(uuid, uuid, jsonb) FROM authenticated;
++REVOKE ALL ON FUNCTION public.inventory_finalize_posting_internal(uuid, uuid, jsonb) FROM service_role;
++
++REVOKE ALL ON FUNCTION public.inventory_finalize_posting(uuid, uuid) FROM PUBLIC;
++REVOKE ALL ON FUNCTION public.inventory_finalize_posting(uuid, uuid) FROM anon;
++GRANT EXECUTE ON FUNCTION public.inventory_finalize_posting(uuid, uuid) TO authenticated, service_role;
+diff --git a/apps/web/supabase-target/supabase/migrations/20260916050557_ic7a_harden_inventory_create_and_finalize.sql b/apps/web/supabase-target/supabase/migrations/20260916050557_ic7a_harden_inventory_create_and_finalize.sql
+new file mode 100644
+index 00000000..7363586e
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260916050557_ic7a_harden_inventory_create_and_finalize.sql
+@@ -0,0 +1,59 @@
++-- ============================================================================
++-- IC-7A EMERGENCY SECURITY PASS: harden inventory_create_and_finalize
++-- ============================================================================
++-- The most important combined path (create + post in one call). Already
++-- transitively protected by this pass's own hardening of inventory_
++-- create_draft and inventory_finalize_posting_internal (both of which it
++-- calls), but per explicit instruction this function gets its own
++-- explicit actor-identity + permission check too, as defense in depth --
++-- not merely relying on the inner functions never being weakened
++-- independently in the future. REVOKE anon EXECUTE explicitly (was still
++-- live -- the inner functions' own new checks already made an anon call
++-- fail, but the grant itself remained open until now).
++--
++-- Same caller-graph reasoning as the companion migrations: `authenticated`
++-- EXECUTE is KEPT (real server actions -- createAndPostMovementAction --
++-- call this directly as the browser session's own authenticated role).
++
++CREATE OR REPLACE FUNCTION public.inventory_create_and_finalize(p_organization_id uuid, p_branch_id uuid, p_movement_type_code text, p_lines jsonb, p_operation_date date DEFAULT NULL::date, p_document_date date DEFAULT NULL::date, p_counterparty_name text DEFAULT NULL::text, p_external_reference text DEFAULT NULL::text, p_note text DEFAULT NULL::text, p_idempotency_key text DEFAULT NULL::text, p_actor_user_id uuid DEFAULT NULL::uuid)
++ RETURNS jsonb
++ LANGUAGE plpgsql
++ SECURITY DEFINER
++ SET search_path TO 'public'
++AS $function$
++DECLARE
++  v_draft jsonb;
++  v_movement_id uuid;
++  v_posted jsonb;
++BEGIN
++  IF p_actor_user_id IS NULL OR p_actor_user_id IS DISTINCT FROM auth.uid() THEN
++    RAISE EXCEPTION 'p_actor_user_id must match the authenticated caller' USING ERRCODE = '28000';
++  END IF;
++
++  IF NOT (
++    public.has_branch_permission(p_organization_id, p_branch_id, 'warehouse.inventory.operate')
++    OR public.has_branch_permission(p_organization_id, p_branch_id, 'warehouse.inventory.adjust')
++  ) THEN
++    RAISE EXCEPTION 'Not authorized to create inventory movements for this branch' USING ERRCODE = '42501';
++  END IF;
++
++  v_draft := inventory_create_draft(
++    p_organization_id, p_branch_id, p_movement_type_code, p_lines,
++    p_operation_date, p_document_date, p_counterparty_name, p_external_reference,
++    p_note, p_idempotency_key, p_actor_user_id
++  );
++
++  v_movement_id := (v_draft ->> 'movement_id')::uuid;
++
++  IF (v_draft ->> 'status') = 'posted' THEN
++    RETURN v_draft;
++  END IF;
++
++  v_posted := inventory_finalize_posting(v_movement_id, p_actor_user_id);
++  RETURN v_posted;
++END;
++$function$;
++
++REVOKE ALL ON FUNCTION public.inventory_create_and_finalize(uuid, uuid, text, jsonb, date, date, text, text, text, text, uuid) FROM PUBLIC;
++REVOKE ALL ON FUNCTION public.inventory_create_and_finalize(uuid, uuid, text, jsonb, date, date, text, text, text, text, uuid) FROM anon;
++GRANT EXECUTE ON FUNCTION public.inventory_create_and_finalize(uuid, uuid, text, jsonb, date, date, text, text, text, text, uuid) TO authenticated, service_role;
+diff --git a/apps/web/supabase-target/supabase/migrations/20260916050815_ic7a_fix_system_type_guard_overly_broad.sql b/apps/web/supabase-target/supabase/migrations/20260916050815_ic7a_fix_system_type_guard_overly_broad.sql
+new file mode 100644
+index 00000000..3415b696
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260916050815_ic7a_fix_system_type_guard_overly_broad.sql
+@@ -0,0 +1,200 @@
++-- ============================================================================
++-- IC-7A self-caught defect, fixed BEFORE any regression test ran: the
++-- previous migration's system-movement-type guard in inventory_create_
++-- draft used `is_system OR NOT allows_manual_entry`. Live-verified
++-- (queried inventory_movement_types directly) that `is_system=true` for
++-- EVERY seeded movement type in this catalog -- 101, 401, 402, 801, AND
++-- 900 -- it is a "this is a built-in/seeded type" marker, not a manual-
++-- entry restriction. Only `allows_manual_entry` (false ONLY for 900) is
++-- the correct, sole authoritative signal for "must never be manually
++-- created." The previous guard would have rejected manual creation of
++-- EVERY movement type, including the legitimate 101 receipt, 401/402
++-- adjustment, and 801 relocation flows -- a severe regression, caught by
++-- live inspection before any pgTAP test or real caller exercised it.
++
++CREATE OR REPLACE FUNCTION public.inventory_create_draft(p_organization_id uuid, p_branch_id uuid, p_movement_type_code text, p_lines jsonb, p_operation_date date DEFAULT NULL::date, p_document_date date DEFAULT NULL::date, p_counterparty_name text DEFAULT NULL::text, p_external_reference text DEFAULT NULL::text, p_note text DEFAULT NULL::text, p_idempotency_key text DEFAULT NULL::text, p_actor_user_id uuid DEFAULT NULL::uuid)
++ RETURNS jsonb
++ LANGUAGE plpgsql
++ SECURITY DEFINER
++ SET search_path TO 'public', 'pg_temp'
++AS $function$
++DECLARE
++  v_mvt_type RECORD;
++  v_settings RECORD;
++  v_draft_number text;
++  v_header_id uuid;
++  v_line RECORD;
++  v_line_number integer := 0;
++  v_existing_id uuid;
++  v_existing_draft text;
++BEGIN
++  IF p_actor_user_id IS NULL OR p_actor_user_id IS DISTINCT FROM auth.uid() THEN
++    RAISE EXCEPTION 'p_actor_user_id must match the authenticated caller' USING ERRCODE = '28000';
++  END IF;
++
++  IF NOT (
++    public.has_branch_permission(p_organization_id, p_branch_id, 'warehouse.inventory.operate')
++    OR public.has_branch_permission(p_organization_id, p_branch_id, 'warehouse.inventory.adjust')
++  ) THEN
++    RAISE EXCEPTION 'Not authorized to create inventory movements for this branch' USING ERRCODE = '42501';
++  END IF;
++
++  SET LOCAL ambra.inventory_movement_engine = 'on';
++
++  -- Check idempotency
++  IF p_idempotency_key IS NOT NULL THEN
++    SELECT id, draft_number INTO v_existing_id, v_existing_draft
++    FROM inventory_movement_headers
++    WHERE organization_id = p_organization_id AND idempotency_key = p_idempotency_key;
++    IF FOUND THEN
++      RETURN jsonb_build_object('movement_id', v_existing_id, 'draft_number', v_existing_draft, 'status', 'draft');
++    END IF;
++  END IF;
++
++  -- Validate movement type
++  SELECT mt.id, mt.code, mt.document_type_id, mt.category,
++         mt.requires_source_location, mt.requires_destination_location,
++         mt.requires_reference, mt.requires_note,
++         mt.is_system, mt.allows_manual_entry,
++         dt.code AS doc_type_code
++  INTO v_mvt_type
++  FROM inventory_movement_types mt
++  JOIN inventory_document_types dt ON dt.id = mt.document_type_id
++  WHERE mt.organization_id = p_organization_id
++    AND mt.code = p_movement_type_code
++    AND mt.deleted_at IS NULL
++    AND mt.is_active = true;
++
++  IF NOT FOUND THEN
++    RAISE EXCEPTION 'Movement type "%" not found or inactive', p_movement_type_code;
++  END IF;
++
++  -- Defense in depth (this pass): movement types explicitly flagged
++  -- `allows_manual_entry = false` (currently only 900, the system
++  -- reversal type) must never be manually/directly draftable. `is_system`
++  -- is a separate, unrelated flag (true for every seeded catalog type,
++  -- including 101/401/402/801) and must NOT be used as a manual-entry
++  -- gate -- live-verified before this fix; an earlier version of this
++  -- migration incorrectly rejected every seeded type using `is_system`.
++  IF NOT v_mvt_type.allows_manual_entry THEN
++    RAISE EXCEPTION 'Movement type "%" is system-managed and cannot be manually created', p_movement_type_code
++      USING ERRCODE = '42501';
++  END IF;
++
++  -- Validate lines
++  IF p_lines IS NULL OR jsonb_array_length(p_lines) = 0 THEN
++    RAISE EXCEPTION 'At least one line is required';
++  END IF;
++
++  -- Validate field requirements
++  IF v_mvt_type.requires_reference AND (p_external_reference IS NULL OR length(trim(p_external_reference)) = 0) THEN
++    RAISE EXCEPTION 'External reference is required for movement type %', p_movement_type_code;
++  END IF;
++  IF v_mvt_type.requires_note AND (p_note IS NULL OR length(trim(p_note)) = 0) THEN
++    RAISE EXCEPTION 'Note is required for movement type %', p_movement_type_code;
++  END IF;
++
++  -- Generate draft number
++  SELECT * INTO v_settings FROM inventory_settings
++  WHERE organization_id = p_organization_id FOR UPDATE;
++
++  v_draft_number := v_settings.draft_number_prefix || '-' || lpad(v_settings.draft_number_next::text, 6, '0');
++
++  UPDATE inventory_settings
++  SET draft_number_next = draft_number_next + 1, updated_at = now()
++  WHERE organization_id = p_organization_id;
++
++  -- Insert header
++  INSERT INTO inventory_movement_headers (
++    organization_id, branch_id, movement_type_id, movement_type_code,
++    draft_number, status, operation_date, document_date,
++    counterparty_name, external_reference, note,
++    idempotency_key, created_by
++  ) VALUES (
++    p_organization_id, p_branch_id, v_mvt_type.id, v_mvt_type.code,
++    v_draft_number, 'draft', COALESCE(p_operation_date, CURRENT_DATE), p_document_date,
++    p_counterparty_name, p_external_reference, p_note,
++    p_idempotency_key, p_actor_user_id
++  ) RETURNING id INTO v_header_id;
++
++  -- Insert lines
++  FOR v_line IN SELECT * FROM jsonb_to_recordset(p_lines)
++    AS x(variant_id uuid, unit_id uuid, quantity numeric,
++         source_location_id uuid, destination_location_id uuid,
++         unit_cost numeric, note text)
++  LOOP
++    v_line_number := v_line_number + 1;
++
++    IF v_line.quantity IS NULL OR v_line.quantity <= 0 THEN
++      RAISE EXCEPTION 'Line % quantity must be positive', v_line_number;
++    END IF;
++
++    -- Validate source location
++    IF v_mvt_type.requires_source_location THEN
++      IF v_line.source_location_id IS NULL THEN
++        RAISE EXCEPTION 'Line %: source location required for type %', v_line_number, p_movement_type_code;
++      END IF;
++      IF NOT EXISTS (
++        SELECT 1 FROM warehouse_locations
++        WHERE id = v_line.source_location_id
++          AND organization_id = p_organization_id
++          AND branch_id = p_branch_id
++          AND can_store_inventory = true
++          AND deleted_at IS NULL
++      ) THEN
++        RAISE EXCEPTION 'Line %: source location is not a valid stockable bin in this branch', v_line_number;
++      END IF;
++    END IF;
++
++    -- Validate destination location
++    IF v_mvt_type.requires_destination_location THEN
++      IF v_line.destination_location_id IS NULL THEN
++        RAISE EXCEPTION 'Line %: destination location required for type %', v_line_number, p_movement_type_code;
++      END IF;
++      IF NOT EXISTS (
++        SELECT 1 FROM warehouse_locations
++        WHERE id = v_line.destination_location_id
++          AND organization_id = p_organization_id
++          AND branch_id = p_branch_id
++          AND can_store_inventory = true
++          AND deleted_at IS NULL
++      ) THEN
++        RAISE EXCEPTION 'Line %: destination location is not a valid stockable bin in this branch', v_line_number;
++      END IF;
++    END IF;
++
++    INSERT INTO inventory_movement_lines (
++      organization_id, branch_id, movement_id, line_number,
++      variant_id, unit_id, quantity,
++      source_location_id, destination_location_id,
++      unit_cost, note
++    ) VALUES (
++      p_organization_id, p_branch_id, v_header_id, v_line_number,
++      v_line.variant_id, v_line.unit_id, v_line.quantity,
++      v_line.source_location_id, v_line.destination_location_id,
++      v_line.unit_cost, v_line.note
++    );
++  END LOOP;
++
++  -- Audit log
++  INSERT INTO inventory_movement_audit_log (
++    organization_id, movement_id, action, new_status,
++    entity_type, entity_id, actor_user_id,
++    transaction_id
++  ) VALUES (
++    p_organization_id, v_header_id, 'created', 'draft',
++    'header', v_header_id, p_actor_user_id,
++    txid_current()::text
++  );
++
++  RETURN jsonb_build_object(
++    'movement_id', v_header_id,
++    'draft_number', v_draft_number,
++    'status', 'draft'
++  );
++END;
++$function$;
++
++REVOKE ALL ON FUNCTION public.inventory_create_draft(uuid, uuid, text, jsonb, date, date, text, text, text, text, uuid) FROM PUBLIC;
++REVOKE ALL ON FUNCTION public.inventory_create_draft(uuid, uuid, text, jsonb, date, date, text, text, text, text, uuid) FROM anon;
++GRANT EXECUTE ON FUNCTION public.inventory_create_draft(uuid, uuid, text, jsonb, date, date, text, text, text, text, uuid) TO authenticated, service_role;
+diff --git a/apps/web/supabase/tests/103_ic2_movement_reversal_test.sql b/apps/web/supabase/tests/103_ic2_movement_reversal_test.sql
+index 2abcd1db..11c230a5 100644
+--- a/apps/web/supabase/tests/103_ic2_movement_reversal_test.sql
++++ b/apps/web/supabase/tests/103_ic2_movement_reversal_test.sql
+@@ -178,6 +178,122 @@ INSERT INTO test_log(line) SELECT is(
+ 
+ RESET ROLE;
+ 
++-- ===========================================================================
++-- SCENARIO E: security-boundary correction -- explicit effects cannot be
++-- reached or abused by any ordinary caller (external review P0, fixed).
++-- ===========================================================================
++-- REPOSITIONED (IC-7A emergency security pass, 2026-09-16): originally ran
++-- AFTER Scenario C. IC-7A added a genuine actor+permission check to
++-- inventory_create_draft itself (previously it had none at all) -- Scenario
++-- C's own final negative test (T22) strips e2e_user's inventory permission
++-- for the REST of this shared transaction (the established, documented
++-- convention: user_effective_permissions has no wildcard row, so a DELETE
++-- is a permanent, org-wide mutation). Scenario E's own draft_e creation
++-- (line ~321 below) previously succeeded regardless, since inventory_
++-- create_draft had no permission check to trip on the already-stripped
++-- e2e_user -- now that it correctly does, Scenario E must run BEFORE
++-- Scenario C's own strip, exactly mirroring the SAME reasoning already
++-- documented for Scenario D above. Only the POSITION of this block moved;
++-- not one assertion, fixture value, or line of Scenario E's own logic was
++-- changed -- see the review bundle's own migration-summary.md for the
++-- live-caught regression this reordering fixes.
++CREATE TEMP TABLE fxe (org uuid, branch uuid, e2e_user uuid, variant_1 uuid, unit_1 uuid, loc_a uuid);
++GRANT SELECT ON fxe TO authenticated, anon;
++INSERT INTO fxe SELECT
++  '9f98fe91-63b8-4986-a2b3-65bdd47684c9'::uuid, gen_random_uuid(),
++  'c4a24371-42db-4bb8-ab5e-379ebbf7d9c4'::uuid, 'fe364ce2-1f72-4df5-ab92-6361ec95e0da'::uuid,
++  '571dfd6c-eba2-42c2-8ad9-f39a2d103b6d'::uuid, gen_random_uuid();
++INSERT INTO branches (id, organization_id, name, branch_number) SELECT branch, org, '103-ic2-scenario-e', 974 FROM fxe;
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, can_store_inventory) SELECT loc_a, org, branch, '103-ic2-e-loc', true FROM fxe;
++
++SET LOCAL ROLE authenticated;
++SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fxe)::text, 'role', 'authenticated')::text, true);
++
++CREATE TEMP TABLE draft_e AS
++SELECT inventory_create_draft(
++  (SELECT org FROM fxe), (SELECT branch FROM fxe), '101',
++  jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxe), 'unit_id', (SELECT unit_1 FROM fxe), 'quantity', 10, 'source_location_id', NULL, 'destination_location_id', (SELECT loc_a FROM fxe))),
++  NULL, NULL, NULL, NULL, NULL, NULL, (SELECT e2e_user FROM fxe)
++) AS result;
++
++CREATE TEMP TABLE effect_101_e AS
++SELECT e.id FROM inventory_movement_type_effects e JOIN inventory_movement_types mt ON mt.id=e.movement_type_id
++WHERE mt.organization_id=(SELECT org FROM fxe) AND mt.code='101';
++CREATE TEMP TABLE effect_401_e AS
++SELECT e.id FROM inventory_movement_type_effects e JOIN inventory_movement_types mt ON mt.id=e.movement_type_id
++WHERE mt.organization_id=(SELECT org FROM fxe) AND mt.code='401';
++
++-- T29 (A): ordinary normal finalize still succeeds using catalog effects.
++CREATE TEMP TABLE normal_finalize_e AS
++SELECT inventory_finalize_posting(((SELECT result FROM draft_e)->>'movement_id')::uuid, (SELECT e2e_user FROM fxe)) AS result;
++INSERT INTO test_log(line) SELECT is((result->>'status'), 'posted', 'T29: ordinary 2-arg inventory_finalize_posting (catalog effects) still succeeds') FROM normal_finalize_e;
++
++INSERT INTO test_log(line) SELECT is(on_hand_quantity, 10::numeric, 'T30: balance is exactly the drafted quantity (10) -- not exploitable via the public 2-arg surface, which has no explicit-effects parameter at all') FROM inventory_balances
++WHERE organization_id=(SELECT org FROM fxe) AND branch_id=(SELECT branch FROM fxe) AND location_id=(SELECT loc_a FROM fxe) AND variant_id=(SELECT variant_1 FROM fxe);
++
++-- T31 (B): ordinary authenticated caller cannot supply arbitrary explicit
++-- effects -- the public function has no such parameter; attempting a 3-arg
++-- call fails because that signature no longer exists.
++CREATE TEMP TABLE draft_e2 AS
++SELECT inventory_create_draft(
++  (SELECT org FROM fxe), (SELECT branch FROM fxe), '101',
++  jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxe), 'unit_id', (SELECT unit_1 FROM fxe), 'quantity', 5, 'source_location_id', NULL, 'destination_location_id', (SELECT loc_a FROM fxe))),
++  NULL, NULL, NULL, NULL, NULL, NULL, (SELECT e2e_user FROM fxe)
++) AS result;
++
++DO $$
++DECLARE v_result jsonb;
++BEGIN
++  BEGIN
++    EXECUTE format('SELECT inventory_finalize_posting(%L::uuid, %L::uuid, %L::jsonb)',
++      ((SELECT result FROM draft_e2) ->> 'movement_id')::uuid, (SELECT e2e_user FROM fxe),
++      jsonb_build_object('1', jsonb_build_array(jsonb_build_object('id', (SELECT id FROM effect_101_e), 'target','destination','balance_field','on_hand','direction','increase','effect_order',1,'is_required',true)))::text
++    ) INTO v_result;
++    INSERT INTO test_log(line) SELECT fail('T31: expected the 3-arg public-named call to fail (signature does not exist), it succeeded instead (VULNERABLE)');
++  EXCEPTION WHEN OTHERS THEN
++    INSERT INTO test_log(line) SELECT is(SQLSTATE, '42883', 'T31: authenticated caller cannot supply explicit effects via the public surface -- 3-arg signature does not exist (42883)');
++  END;
++END $$;
++
++-- T32 (D): direct call to the internal custom-effects function is denied
++-- for authenticated (no EXECUTE grant -- confirmed via the exact live
++-- attack payload that was proven exploitable before this fix).
++DO $$
++DECLARE v_result jsonb;
++BEGIN
++  BEGIN
++    v_result := inventory_finalize_posting_internal(
++      ((SELECT result FROM draft_e2) ->> 'movement_id')::uuid,
++      (SELECT e2e_user FROM fxe),
++      jsonb_build_object('1', jsonb_build_array(
++        jsonb_build_object('id', (SELECT id FROM effect_101_e), 'target', 'destination', 'balance_field', 'on_hand', 'direction', 'increase', 'effect_order', 1, 'is_required', true),
++        jsonb_build_object('id', (SELECT id FROM effect_401_e), 'target', 'destination', 'balance_field', 'on_hand', 'direction', 'increase', 'effect_order', 2, 'is_required', true)
++      ))
++    );
++    INSERT INTO test_log(line) SELECT fail('T32: expected direct internal-function call to be denied, it succeeded instead (VULNERABLE -- this is the exact attack proven exploitable before the fix)');
++  EXCEPTION WHEN OTHERS THEN
++    INSERT INTO test_log(line) SELECT is(SQLSTATE, '42501', 'T32: authenticated caller is denied EXECUTE on inventory_finalize_posting_internal (42501) -- the exact live-proven attack path is now closed');
++  END;
++END $$;
++
++INSERT INTO test_log(line) SELECT is(on_hand_quantity, 10::numeric, 'T33: balance still exactly 10 (from T29) -- the draft_e2/draft_e2-targeted attack attempts left zero footprint, no doubling occurred') FROM inventory_balances
++WHERE organization_id=(SELECT org FROM fxe) AND branch_id=(SELECT branch FROM fxe) AND location_id=(SELECT loc_a FROM fxe) AND variant_id=(SELECT variant_1 FROM fxe);
++
++RESET ROLE;
++
++-- T34 (C): anon cannot reach the trusted explicit-effects path either --
++-- confirmed via has_function_privilege (the authoritative grant check;
++-- anon has no valid JWT/session in this pgTAP harness to actually invoke
++-- RPCs as, so grant-level proof is the correct, real verification here).
++INSERT INTO test_log(line) SELECT is(
++  has_function_privilege('anon', 'public.inventory_finalize_posting_internal(uuid,uuid,jsonb)'::regprocedure, 'EXECUTE'),
++  false, 'T34: anon has NO EXECUTE privilege on inventory_finalize_posting_internal'
++);
++INSERT INTO test_log(line) SELECT is(
++  has_function_privilege('authenticated', 'public.inventory_finalize_posting_internal(uuid,uuid,jsonb)'::regprocedure, 'EXECUTE'),
++  false, 'T35: authenticated also has NO EXECUTE privilege on inventory_finalize_posting_internal (only postgres, via same-owner SECURITY DEFINER calls, can reach it)'
++);
++
+ -- ===========================================================================
+ -- SCENARIO C: negative tests -- draft, already-reversed, reversal-of-reversal,
+ -- reason validation, wrong actor, not-found/no-permission indistinguishable.
+@@ -302,107 +418,6 @@ END $$;
+ 
+ RESET ROLE;
+ 
+--- ===========================================================================
+--- SCENARIO E: security-boundary correction -- explicit effects cannot be
+--- reached or abused by any ordinary caller (external review P0, fixed).
+--- ===========================================================================
+-CREATE TEMP TABLE fxe (org uuid, branch uuid, e2e_user uuid, variant_1 uuid, unit_1 uuid, loc_a uuid);
+-GRANT SELECT ON fxe TO authenticated, anon;
+-INSERT INTO fxe SELECT
+-  '9f98fe91-63b8-4986-a2b3-65bdd47684c9'::uuid, gen_random_uuid(),
+-  'c4a24371-42db-4bb8-ab5e-379ebbf7d9c4'::uuid, 'fe364ce2-1f72-4df5-ab92-6361ec95e0da'::uuid,
+-  '571dfd6c-eba2-42c2-8ad9-f39a2d103b6d'::uuid, gen_random_uuid();
+-INSERT INTO branches (id, organization_id, name, branch_number) SELECT branch, org, '103-ic2-scenario-e', 974 FROM fxe;
+-INSERT INTO warehouse_locations (id, organization_id, branch_id, name, can_store_inventory) SELECT loc_a, org, branch, '103-ic2-e-loc', true FROM fxe;
+-
+-SET LOCAL ROLE authenticated;
+-SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fxe)::text, 'role', 'authenticated')::text, true);
+-
+-CREATE TEMP TABLE draft_e AS
+-SELECT inventory_create_draft(
+-  (SELECT org FROM fxe), (SELECT branch FROM fxe), '101',
+-  jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxe), 'unit_id', (SELECT unit_1 FROM fxe), 'quantity', 10, 'source_location_id', NULL, 'destination_location_id', (SELECT loc_a FROM fxe))),
+-  NULL, NULL, NULL, NULL, NULL, NULL, (SELECT e2e_user FROM fxe)
+-) AS result;
+-
+-CREATE TEMP TABLE effect_101_e AS
+-SELECT e.id FROM inventory_movement_type_effects e JOIN inventory_movement_types mt ON mt.id=e.movement_type_id
+-WHERE mt.organization_id=(SELECT org FROM fxe) AND mt.code='101';
+-CREATE TEMP TABLE effect_401_e AS
+-SELECT e.id FROM inventory_movement_type_effects e JOIN inventory_movement_types mt ON mt.id=e.movement_type_id
+-WHERE mt.organization_id=(SELECT org FROM fxe) AND mt.code='401';
+-
+--- T29 (A): ordinary normal finalize still succeeds using catalog effects.
+-CREATE TEMP TABLE normal_finalize_e AS
+-SELECT inventory_finalize_posting(((SELECT result FROM draft_e)->>'movement_id')::uuid, (SELECT e2e_user FROM fxe)) AS result;
+-INSERT INTO test_log(line) SELECT is((result->>'status'), 'posted', 'T29: ordinary 2-arg inventory_finalize_posting (catalog effects) still succeeds') FROM normal_finalize_e;
+-
+-INSERT INTO test_log(line) SELECT is(on_hand_quantity, 10::numeric, 'T30: balance is exactly the drafted quantity (10) -- not exploitable via the public 2-arg surface, which has no explicit-effects parameter at all') FROM inventory_balances
+-WHERE organization_id=(SELECT org FROM fxe) AND branch_id=(SELECT branch FROM fxe) AND location_id=(SELECT loc_a FROM fxe) AND variant_id=(SELECT variant_1 FROM fxe);
+-
+--- T31 (B): ordinary authenticated caller cannot supply arbitrary explicit
+--- effects -- the public function has no such parameter; attempting a 3-arg
+--- call fails because that signature no longer exists.
+-CREATE TEMP TABLE draft_e2 AS
+-SELECT inventory_create_draft(
+-  (SELECT org FROM fxe), (SELECT branch FROM fxe), '101',
+-  jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxe), 'unit_id', (SELECT unit_1 FROM fxe), 'quantity', 5, 'source_location_id', NULL, 'destination_location_id', (SELECT loc_a FROM fxe))),
+-  NULL, NULL, NULL, NULL, NULL, NULL, (SELECT e2e_user FROM fxe)
+-) AS result;
+-
+-DO $$
+-DECLARE v_result jsonb;
+-BEGIN
+-  BEGIN
+-    EXECUTE format('SELECT inventory_finalize_posting(%L::uuid, %L::uuid, %L::jsonb)',
+-      ((SELECT result FROM draft_e2) ->> 'movement_id')::uuid, (SELECT e2e_user FROM fxe),
+-      jsonb_build_object('1', jsonb_build_array(jsonb_build_object('id', (SELECT id FROM effect_101_e), 'target','destination','balance_field','on_hand','direction','increase','effect_order',1,'is_required',true)))::text
+-    ) INTO v_result;
+-    INSERT INTO test_log(line) SELECT fail('T31: expected the 3-arg public-named call to fail (signature does not exist), it succeeded instead (VULNERABLE)');
+-  EXCEPTION WHEN OTHERS THEN
+-    INSERT INTO test_log(line) SELECT is(SQLSTATE, '42883', 'T31: authenticated caller cannot supply explicit effects via the public surface -- 3-arg signature does not exist (42883)');
+-  END;
+-END $$;
+-
+--- T32 (D): direct call to the internal custom-effects function is denied
+--- for authenticated (no EXECUTE grant -- confirmed via the exact live
+--- attack payload that was proven exploitable before this fix).
+-DO $$
+-DECLARE v_result jsonb;
+-BEGIN
+-  BEGIN
+-    v_result := inventory_finalize_posting_internal(
+-      ((SELECT result FROM draft_e2) ->> 'movement_id')::uuid,
+-      (SELECT e2e_user FROM fxe),
+-      jsonb_build_object('1', jsonb_build_array(
+-        jsonb_build_object('id', (SELECT id FROM effect_101_e), 'target', 'destination', 'balance_field', 'on_hand', 'direction', 'increase', 'effect_order', 1, 'is_required', true),
+-        jsonb_build_object('id', (SELECT id FROM effect_401_e), 'target', 'destination', 'balance_field', 'on_hand', 'direction', 'increase', 'effect_order', 2, 'is_required', true)
+-      ))
+-    );
+-    INSERT INTO test_log(line) SELECT fail('T32: expected direct internal-function call to be denied, it succeeded instead (VULNERABLE -- this is the exact attack proven exploitable before the fix)');
+-  EXCEPTION WHEN OTHERS THEN
+-    INSERT INTO test_log(line) SELECT is(SQLSTATE, '42501', 'T32: authenticated caller is denied EXECUTE on inventory_finalize_posting_internal (42501) -- the exact live-proven attack path is now closed');
+-  END;
+-END $$;
+-
+-INSERT INTO test_log(line) SELECT is(on_hand_quantity, 10::numeric, 'T33: balance still exactly 10 (from T29) -- the draft_e2/draft_e2-targeted attack attempts left zero footprint, no doubling occurred') FROM inventory_balances
+-WHERE organization_id=(SELECT org FROM fxe) AND branch_id=(SELECT branch FROM fxe) AND location_id=(SELECT loc_a FROM fxe) AND variant_id=(SELECT variant_1 FROM fxe);
+-
+-RESET ROLE;
+-
+--- T34 (C): anon cannot reach the trusted explicit-effects path either --
+--- confirmed via has_function_privilege (the authoritative grant check;
+--- anon has no valid JWT/session in this pgTAP harness to actually invoke
+--- RPCs as, so grant-level proof is the correct, real verification here).
+-INSERT INTO test_log(line) SELECT is(
+-  has_function_privilege('anon', 'public.inventory_finalize_posting_internal(uuid,uuid,jsonb)'::regprocedure, 'EXECUTE'),
+-  false, 'T34: anon has NO EXECUTE privilege on inventory_finalize_posting_internal'
+-);
+-INSERT INTO test_log(line) SELECT is(
+-  has_function_privilege('authenticated', 'public.inventory_finalize_posting_internal(uuid,uuid,jsonb)'::regprocedure, 'EXECUTE'),
+-  false, 'T35: authenticated also has NO EXECUTE privilege on inventory_finalize_posting_internal (only postgres, via same-owner SECURITY DEFINER calls, can reach it)'
+-);
+-
+ SELECT count(*) FILTER (WHERE line NOT LIKE 'ok %') AS not_ok_count, count(*) AS total_assertions FROM test_log;
+ 
+ ROLLBACK;
+diff --git a/apps/web/supabase/tests/105_ic7a_movement_engine_security_boundary_test.sql b/apps/web/supabase/tests/105_ic7a_movement_engine_security_boundary_test.sql
+new file mode 100644
+index 00000000..26776688
+--- /dev/null
++++ b/apps/web/supabase/tests/105_ic7a_movement_engine_security_boundary_test.sql
+@@ -0,0 +1,400 @@
++-- ============================================================================
++-- TEST: IC-7A -- Emergency Movement Engine Security Boundary
++-- ============================================================================
++-- Proves the P0 (a fully unauthenticated `anon` caller could post arbitrary
++-- physical inventory movements through inventory_create_draft/inventory_
++-- finalize_posting/inventory_create_and_finalize) is genuinely closed, that
++-- every real, legitimate production entry point still works, and that the
++-- new checks cannot be bypassed by actor impersonation, NULL-actor tricks,
++-- or manual creation of the system-only 900 movement type.
++--
++-- Does NOT re-prove IC-1/IC-2/IC-3's own business logic in full -- that is
++-- 097-104's own job, re-run unmodified as part of this pass's own full
++-- regression. This file is specifically about the NEW actor/permission
++-- boundary added to the three engine functions in this pass.
++--
++-- Executed live against supabase-target via Supabase MCP.
++
++BEGIN;
++
++SELECT plan(29);
++
++CREATE TEMP TABLE test_log (seq serial, line text);
++GRANT INSERT, SELECT ON test_log TO authenticated, anon;
++GRANT USAGE ON SEQUENCE test_log_seq_seq TO authenticated, anon;
++
++-- ============================================================================
++-- SCENARIO K: anon negatives (A-H) -- EXECUTE itself must be denied.
++-- ============================================================================
++-- No real fixtures needed: anon lacks the EXECUTE grant entirely on every
++-- one of these, so the denial happens before any argument is even
++-- evaluated meaningfully. Dummy UUIDs are sufficient.
++
++SET LOCAL ROLE anon;
++
++DO $$ BEGIN BEGIN
++  PERFORM inventory_create_draft(gen_random_uuid(), gen_random_uuid(), '101', '[]'::jsonb, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
++  INSERT INTO test_log(line) SELECT fail('K-A: expected EXECUTE denial on inventory_create_draft as anon, succeeded instead');
++EXCEPTION WHEN OTHERS THEN
++  INSERT INTO test_log(line) SELECT is(SQLSTATE, '42501', 'K-A: anon has no EXECUTE on inventory_create_draft (42501)');
++END; END $$;
++
++DO $$ BEGIN BEGIN
++  PERFORM inventory_finalize_posting(gen_random_uuid(), NULL);
++  INSERT INTO test_log(line) SELECT fail('K-B: expected EXECUTE denial on inventory_finalize_posting as anon, succeeded instead');
++EXCEPTION WHEN OTHERS THEN
++  INSERT INTO test_log(line) SELECT is(SQLSTATE, '42501', 'K-B: anon has no EXECUTE on inventory_finalize_posting (42501)');
++END; END $$;
++
++DO $$ BEGIN BEGIN
++  PERFORM inventory_create_and_finalize(gen_random_uuid(), gen_random_uuid(), '101', '[]'::jsonb, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
++  INSERT INTO test_log(line) SELECT fail('K-C: expected EXECUTE denial on inventory_create_and_finalize as anon, succeeded instead');
++EXCEPTION WHEN OTHERS THEN
++  INSERT INTO test_log(line) SELECT is(SQLSTATE, '42501', 'K-C: anon has no EXECUTE on inventory_create_and_finalize (42501)');
++END; END $$;
++
++DO $$ BEGIN BEGIN
++  PERFORM inventory_receive_stock(NULL, gen_random_uuid(), gen_random_uuid(), '[]'::jsonb, NULL, NULL, NULL, NULL, NULL);
++  INSERT INTO test_log(line) SELECT fail('K-D: expected EXECUTE denial on inventory_receive_stock as anon, succeeded instead');
++EXCEPTION WHEN OTHERS THEN
++  INSERT INTO test_log(line) SELECT is(SQLSTATE, '42501', 'K-D: anon has no EXECUTE on inventory_receive_stock (42501)');
++END; END $$;
++
++DO $$ BEGIN BEGIN
++  PERFORM receive_repair_order_stock(NULL, gen_random_uuid(), gen_random_uuid(), '[]'::jsonb, NULL, NULL, NULL, NULL, NULL);
++  INSERT INTO test_log(line) SELECT fail('K-E: expected EXECUTE denial on receive_repair_order_stock as anon, succeeded instead');
++EXCEPTION WHEN OTHERS THEN
++  INSERT INTO test_log(line) SELECT is(SQLSTATE, '42501', 'K-E: anon has no EXECUTE on receive_repair_order_stock (42501)');
++END; END $$;
++
++DO $$ BEGIN BEGIN
++  PERFORM inventory_receive_purchase_order(gen_random_uuid(), '[]'::jsonb, NULL, NULL);
++  INSERT INTO test_log(line) SELECT fail('K-F: expected EXECUTE denial on inventory_receive_purchase_order as anon, succeeded instead');
++EXCEPTION WHEN OTHERS THEN
++  INSERT INTO test_log(line) SELECT is(SQLSTATE, '42501', 'K-F: anon has no EXECUTE on inventory_receive_purchase_order (42501)');
++END; END $$;
++
++DO $$ BEGIN BEGIN
++  PERFORM inventory_reverse_movement(gen_random_uuid(), NULL, 'anon attempt');
++  INSERT INTO test_log(line) SELECT fail('K-G: expected EXECUTE denial on inventory_reverse_movement as anon, succeeded instead');
++EXCEPTION WHEN OTHERS THEN
++  INSERT INTO test_log(line) SELECT is(SQLSTATE, '42501', 'K-G: anon has no EXECUTE on inventory_reverse_movement (42501)');
++END; END $$;
++
++DO $$ BEGIN BEGIN
++  PERFORM inventory_finalize_posting_internal(gen_random_uuid(), NULL, NULL);
++  INSERT INTO test_log(line) SELECT fail('K-H: expected EXECUTE denial on inventory_finalize_posting_internal as anon, succeeded instead');
++EXCEPTION WHEN OTHERS THEN
++  INSERT INTO test_log(line) SELECT is(SQLSTATE, '42501', 'K-H: anon has no EXECUTE on inventory_finalize_posting_internal (42501)');
++END; END $$;
++
++RESET ROLE;
++
++-- ============================================================================
++-- SCENARIO Q: exploit replay -- the EXACT pre-fix P0 attack, as anon,
++-- inside this permanent regression file. Zero physical mutation.
++-- ============================================================================
++
++CREATE TEMP TABLE fxq (org uuid, branch uuid, variant_1 uuid, unit_1 uuid, loc_a uuid);
++GRANT SELECT ON fxq TO anon;
++INSERT INTO fxq SELECT
++  '9f98fe91-63b8-4986-a2b3-65bdd47684c9'::uuid, gen_random_uuid(),
++  'fe364ce2-1f72-4df5-ab92-6361ec95e0da'::uuid,
++  '571dfd6c-eba2-42c2-8ad9-f39a2d103b6d'::uuid, gen_random_uuid();
++INSERT INTO branches (id, organization_id, name, branch_number) SELECT branch, org, '105-ic7a-exploit-replay', 937 FROM fxq;
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, can_store_inventory) SELECT loc_a, org, branch, '105-exploit-replay-loc', true FROM fxq;
++
++SET LOCAL ROLE anon;
++DO $$ BEGIN BEGIN
++  PERFORM inventory_create_and_finalize(
++    (SELECT org FROM fxq), (SELECT branch FROM fxq), '101',
++    jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxq), 'unit_id', (SELECT unit_1 FROM fxq), 'quantity', 777, 'source_location_id', NULL, 'destination_location_id', (SELECT loc_a FROM fxq))),
++    NULL, NULL, NULL, NULL, NULL, NULL, NULL
++  );
++  INSERT INTO test_log(line) SELECT fail('Q1: expected the exact pre-fix P0 exploit to be rejected, it SUCCEEDED -- STILL VULNERABLE');
++EXCEPTION WHEN OTHERS THEN
++  INSERT INTO test_log(line) SELECT is(SQLSTATE, '42501', 'Q1: the exact pre-fix P0 exploit (unauthenticated anon, arbitrary org/branch, 777 units) is now rejected (42501)');
++END; END $$;
++RESET ROLE;
++
++INSERT INTO test_log(line) SELECT is(
++  (SELECT count(*) FROM inventory_movement_headers WHERE organization_id = (SELECT org FROM fxq) AND branch_id = (SELECT branch FROM fxq)),
++  0::bigint, 'Q2: zero movement headers exist -- the replayed exploit left no trace'
++);
++
++-- ============================================================================
++-- SCENARIO L: authenticated actor lacking inventory permission -- rejected
++-- by the NEW checks (not grant-level, since authenticated keeps EXECUTE).
++-- ============================================================================
++
++CREATE TEMP TABLE fxl (org uuid, branch uuid, e2e_user uuid, variant_1 uuid, unit_1 uuid, loc_a uuid, no_perm_user uuid);
++GRANT SELECT ON fxl TO authenticated;
++INSERT INTO fxl SELECT
++  '9f98fe91-63b8-4986-a2b3-65bdd47684c9'::uuid, gen_random_uuid(),
++  'c4a24371-42db-4bb8-ab5e-379ebbf7d9c4'::uuid, 'fe364ce2-1f72-4df5-ab92-6361ec95e0da'::uuid,
++  '571dfd6c-eba2-42c2-8ad9-f39a2d103b6d'::uuid, gen_random_uuid(),
++  gen_random_uuid();
++INSERT INTO branches (id, organization_id, name, branch_number) SELECT branch, org, '105-ic7a-scenario-l', 938 FROM fxl;
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, can_store_inventory) SELECT loc_a, org, branch, '105-l-loc', true FROM fxl;
++
++-- A real draft to attempt finalizing without permission (so the permission
++-- check, not a not-found error, is what's actually being proven).
++SET LOCAL ROLE authenticated;
++SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fxl)::text, 'role', 'authenticated')::text, true);
++CREATE TEMP TABLE dl AS SELECT inventory_create_draft(
++  (SELECT org FROM fxl), (SELECT branch FROM fxl), '101',
++  jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxl), 'unit_id', (SELECT unit_1 FROM fxl), 'quantity', 5, 'destination_location_id', (SELECT loc_a FROM fxl))),
++  NULL, NULL, NULL, NULL, NULL, NULL, (SELECT e2e_user FROM fxl)
++) AS result;
++RESET ROLE;
++
++-- Now impersonate a real, valid but permission-less user (no_perm_user has
++-- no user_effective_permissions rows at all in this org -- never granted).
++SET LOCAL ROLE authenticated;
++SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT no_perm_user FROM fxl)::text, 'role', 'authenticated')::text, true);
++
++DO $$ BEGIN BEGIN
++  PERFORM inventory_create_draft(
++    (SELECT org FROM fxl), (SELECT branch FROM fxl), '101',
++    jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxl), 'unit_id', (SELECT unit_1 FROM fxl), 'quantity', 1, 'destination_location_id', (SELECT loc_a FROM fxl))),
++    NULL, NULL, NULL, NULL, NULL, NULL, (SELECT no_perm_user FROM fxl)
++  );
++  INSERT INTO test_log(line) SELECT fail('L1: expected no-permission rejection on inventory_create_draft, succeeded instead');
++EXCEPTION WHEN OTHERS THEN
++  INSERT INTO test_log(line) SELECT is(SQLSTATE, '42501', 'L1: authenticated actor with zero inventory permission is rejected by inventory_create_draft (42501)');
++END; END $$;
++
++DO $$ BEGIN BEGIN
++  PERFORM inventory_finalize_posting(((SELECT result FROM dl)->>'movement_id')::uuid, (SELECT no_perm_user FROM fxl));
++  INSERT INTO test_log(line) SELECT fail('L2: expected no-permission rejection on inventory_finalize_posting, succeeded instead');
++EXCEPTION WHEN OTHERS THEN
++  INSERT INTO test_log(line) SELECT is(SQLSTATE, '42501', 'L2: authenticated actor with zero inventory permission is rejected by inventory_finalize_posting on a REAL existing draft (42501)');
++END; END $$;
++
++DO $$ BEGIN BEGIN
++  PERFORM inventory_create_and_finalize(
++    (SELECT org FROM fxl), (SELECT branch FROM fxl), '101',
++    jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxl), 'unit_id', (SELECT unit_1 FROM fxl), 'quantity', 1, 'destination_location_id', (SELECT loc_a FROM fxl))),
++    NULL, NULL, NULL, NULL, NULL, NULL, (SELECT no_perm_user FROM fxl)
++  );
++  INSERT INTO test_log(line) SELECT fail('L3: expected no-permission rejection on inventory_create_and_finalize, succeeded instead');
++EXCEPTION WHEN OTHERS THEN
++  INSERT INTO test_log(line) SELECT is(SQLSTATE, '42501', 'L3: authenticated actor with zero inventory permission is rejected by inventory_create_and_finalize (42501)');
++END; END $$;
++
++RESET ROLE;
++
++-- Confirm the draft dl created above was never posted by any of these
++-- rejected attempts. Runs as the connecting role (RLS-bypassing) --
++-- checking this as no_perm_user itself would incorrectly return NULL,
++-- since no_perm_user also lacks warehouse.inventory.read and the SELECT
++-- RLS policy would filter the row, not a security finding.
++INSERT INTO test_log(line) SELECT is(
++  (SELECT status FROM inventory_movement_headers WHERE id = ((SELECT result FROM dl)->>'movement_id')::uuid),
++  'draft', 'L4: the real draft remains status=draft -- the no-permission finalize attempt left no trace'
++);
++
++-- ============================================================================
++-- SCENARIO O: actor impersonation -- a real, valid, permissioned actor's
++-- OWN UUID cannot be borrowed by a DIFFERENT authenticated caller.
++-- ============================================================================
++
++SET LOCAL ROLE authenticated;
++-- Session actually authenticated as no_perm_user, but supplies e2e_user's
++-- own (privileged) UUID as p_actor_user_id.
++SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT no_perm_user FROM fxl)::text, 'role', 'authenticated')::text, true);
++
++DO $$ BEGIN BEGIN
++  PERFORM inventory_create_draft(
++    (SELECT org FROM fxl), (SELECT branch FROM fxl), '101',
++    jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxl), 'unit_id', (SELECT unit_1 FROM fxl), 'quantity', 1, 'destination_location_id', (SELECT loc_a FROM fxl))),
++    NULL, NULL, NULL, NULL, NULL, NULL, (SELECT e2e_user FROM fxl)
++  );
++  INSERT INTO test_log(line) SELECT fail('O1: expected actor-impersonation rejection on inventory_create_draft, succeeded instead');
++EXCEPTION WHEN OTHERS THEN
++  INSERT INTO test_log(line) SELECT is(SQLSTATE, '28000', 'O1: supplying a DIFFERENT (privileged) user''s UUID as p_actor_user_id is rejected (28000) -- no impersonation via borrowed UUID');
++END; END $$;
++
++DO $$ BEGIN BEGIN
++  PERFORM inventory_finalize_posting(((SELECT result FROM dl)->>'movement_id')::uuid, (SELECT e2e_user FROM fxl));
++  INSERT INTO test_log(line) SELECT fail('O2: expected actor-impersonation rejection on inventory_finalize_posting, succeeded instead');
++EXCEPTION WHEN OTHERS THEN
++  INSERT INTO test_log(line) SELECT is(SQLSTATE, '28000', 'O2: same impersonation attempt against inventory_finalize_posting is rejected (28000)');
++END; END $$;
++
++DO $$ BEGIN BEGIN
++  PERFORM inventory_create_and_finalize(
++    (SELECT org FROM fxl), (SELECT branch FROM fxl), '101',
++    jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxl), 'unit_id', (SELECT unit_1 FROM fxl), 'quantity', 1, 'destination_location_id', (SELECT loc_a FROM fxl))),
++    NULL, NULL, NULL, NULL, NULL, NULL, (SELECT e2e_user FROM fxl)
++  );
++  INSERT INTO test_log(line) SELECT fail('O3: expected actor-impersonation rejection on inventory_create_and_finalize, succeeded instead');
++EXCEPTION WHEN OTHERS THEN
++  INSERT INTO test_log(line) SELECT is(SQLSTATE, '28000', 'O3: same impersonation attempt against inventory_create_and_finalize is rejected (28000)');
++END; END $$;
++
++RESET ROLE;
++
++-- ============================================================================
++-- SCENARIO P: NULL actor -- omitting p_actor_user_id is not a bypass.
++-- ============================================================================
++
++SET LOCAL ROLE authenticated;
++SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fxl)::text, 'role', 'authenticated')::text, true);
++
++DO $$ BEGIN BEGIN
++  PERFORM inventory_create_draft(
++    (SELECT org FROM fxl), (SELECT branch FROM fxl), '101',
++    jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxl), 'unit_id', (SELECT unit_1 FROM fxl), 'quantity', 1, 'destination_location_id', (SELECT loc_a FROM fxl))),
++    NULL, NULL, NULL, NULL, NULL, NULL, NULL
++  );
++  INSERT INTO test_log(line) SELECT fail('P1: expected NULL-actor rejection on inventory_create_draft, succeeded instead');
++EXCEPTION WHEN OTHERS THEN
++  INSERT INTO test_log(line) SELECT is(SQLSTATE, '28000', 'P1: p_actor_user_id=NULL is rejected (28000), even from a genuinely authenticated session');
++END; END $$;
++
++DO $$ BEGIN BEGIN
++  PERFORM inventory_finalize_posting(((SELECT result FROM dl)->>'movement_id')::uuid, NULL);
++  INSERT INTO test_log(line) SELECT fail('P2: expected NULL-actor rejection on inventory_finalize_posting, succeeded instead');
++EXCEPTION WHEN OTHERS THEN
++  INSERT INTO test_log(line) SELECT is(SQLSTATE, '28000', 'P2: p_actor_user_id=NULL is rejected (28000) on inventory_finalize_posting too');
++END; END $$;
++
++RESET ROLE;
++
++-- ============================================================================
++-- SCENARIO R: system-only movement type 900 cannot be manually created,
++-- while every REAL manually-created type (101/401/402/801) still can.
++-- ============================================================================
++
++DO $$ BEGIN
++  SET LOCAL ROLE authenticated;
++  PERFORM set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fxl)::text, 'role', 'authenticated')::text, true);
++  BEGIN
++    PERFORM inventory_create_draft(
++      (SELECT org FROM fxl), (SELECT branch FROM fxl), '900',
++      jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxl), 'unit_id', (SELECT unit_1 FROM fxl), 'quantity', 1)),
++      NULL, NULL, NULL, NULL, NULL, NULL, (SELECT e2e_user FROM fxl)
++    );
++    INSERT INTO test_log(line) SELECT fail('R1: expected system-type-900 manual-creation rejection, succeeded instead');
++  EXCEPTION WHEN OTHERS THEN
++    INSERT INTO test_log(line) SELECT is(SQLSTATE, '42501', 'R1: manually creating a system-only 900 (reversal) draft is rejected (42501)');
++  END;
++END $$;
++RESET ROLE;
++
++-- ============================================================================
++-- SCENARIO M: every real, legitimate authenticated flow still works.
++-- ============================================================================
++
++SET LOCAL ROLE authenticated;
++SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fxl)::text, 'role', 'authenticated')::text, true);
++
++-- M1: generic 101 receipt via inventory_create_and_finalize, properly permissioned.
++CREATE TEMP TABLE m1 AS SELECT inventory_create_and_finalize(
++  (SELECT org FROM fxl), (SELECT branch FROM fxl), '101',
++  jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxl), 'unit_id', (SELECT unit_1 FROM fxl), 'quantity', 10, 'source_location_id', NULL, 'destination_location_id', (SELECT loc_a FROM fxl))),
++  NULL, NULL, NULL, NULL, NULL, NULL, (SELECT e2e_user FROM fxl)
++) AS result;
++INSERT INTO test_log(line) SELECT is((result->>'status'), 'posted', 'M1: generic 101 receipt via inventory_create_and_finalize still succeeds for a properly-permissioned actor') FROM m1;
++
++-- M2: IC-3 canonical primitive still works.
++CREATE TEMP TABLE m2loc AS SELECT gen_random_uuid() AS id;
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, can_store_inventory) SELECT id, (SELECT org FROM fxl), (SELECT branch FROM fxl), '105-m2-loc', true FROM m2loc;
++CREATE TEMP TABLE m2 AS SELECT inventory_receive_stock(
++  (SELECT e2e_user FROM fxl), (SELECT org FROM fxl), (SELECT branch FROM fxl),
++  jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxl), 'unit_id', (SELECT unit_1 FROM fxl), 'quantity', 8, 'destination_location_id', (SELECT id FROM m2loc))),
++  NULL, NULL, NULL, NULL, NULL
++) AS result;
++INSERT INTO test_log(line) SELECT is((result->>'status'), 'posted', 'M2: IC-3 canonical inventory_receive_stock (nested nested call through the newly-hardened engine) still succeeds') FROM m2;
++
++-- M3: two-step draft+finalize (matching quickReceiptAction's own real pattern) still works.
++CREATE TEMP TABLE m3draft AS SELECT inventory_create_draft(
++  (SELECT org FROM fxl), (SELECT branch FROM fxl), '101',
++  jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxl), 'unit_id', (SELECT unit_1 FROM fxl), 'quantity', 3, 'destination_location_id', (SELECT loc_a FROM fxl))),
++  NULL, NULL, NULL, NULL, NULL, NULL, (SELECT e2e_user FROM fxl)
++) AS result;
++CREATE TEMP TABLE m3 AS SELECT inventory_finalize_posting(((SELECT result FROM m3draft)->>'movement_id')::uuid, (SELECT e2e_user FROM fxl)) AS result;
++INSERT INTO test_log(line) SELECT is((result->>'status'), 'posted', 'M3: two-step create_draft + finalize_posting (the real quickReceiptAction pattern) still succeeds') FROM m3;
++
++-- M4: 401 adjustment increase still works (direct two-step, matching inventory_approve_count_session's own pattern).
++CREATE TEMP TABLE m4draft AS SELECT inventory_create_draft(
++  (SELECT org FROM fxl), (SELECT branch FROM fxl), '401',
++  jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxl), 'unit_id', (SELECT unit_1 FROM fxl), 'quantity', 2, 'destination_location_id', (SELECT loc_a FROM fxl))),
++  NULL, NULL, NULL, NULL, NULL, NULL, (SELECT e2e_user FROM fxl)
++) AS result;
++CREATE TEMP TABLE m4 AS SELECT inventory_finalize_posting(((SELECT result FROM m4draft)->>'movement_id')::uuid, (SELECT e2e_user FROM fxl)) AS result;
++INSERT INTO test_log(line) SELECT is((result->>'status'), 'posted', 'M4: 401 adjustment increase (create_draft + finalize_posting) still succeeds') FROM m4;
++
++-- M5: 402 adjustment decrease still works (stock now available from M1/M3/M4 at loc_a).
++CREATE TEMP TABLE m5draft AS SELECT inventory_create_draft(
++  (SELECT org FROM fxl), (SELECT branch FROM fxl), '402',
++  jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxl), 'unit_id', (SELECT unit_1 FROM fxl), 'quantity', 2, 'source_location_id', (SELECT loc_a FROM fxl))),
++  NULL, NULL, NULL, NULL, NULL, NULL, (SELECT e2e_user FROM fxl)
++) AS result;
++CREATE TEMP TABLE m5 AS SELECT inventory_finalize_posting(((SELECT result FROM m5draft)->>'movement_id')::uuid, (SELECT e2e_user FROM fxl)) AS result;
++INSERT INTO test_log(line) SELECT is((result->>'status'), 'posted', 'M5: 402 adjustment decrease (where stock permits) still succeeds') FROM m5;
++
++-- M6: 801 relocation still works.
++CREATE TEMP TABLE m6loc AS SELECT gen_random_uuid() AS id;
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, can_store_inventory) SELECT id, (SELECT org FROM fxl), (SELECT branch FROM fxl), '105-m6-loc', true FROM m6loc;
++CREATE TEMP TABLE m6 AS SELECT inventory_create_and_finalize(
++  (SELECT org FROM fxl), (SELECT branch FROM fxl), '801',
++  jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxl), 'unit_id', (SELECT unit_1 FROM fxl), 'quantity', 1, 'source_location_id', (SELECT loc_a FROM fxl), 'destination_location_id', (SELECT id FROM m6loc))),
++  NULL, NULL, NULL, NULL, NULL, NULL, (SELECT e2e_user FROM fxl)
++) AS result;
++INSERT INTO test_log(line) SELECT is((result->>'status'), 'posted', 'M6: 801 relocation via inventory_create_and_finalize still succeeds') FROM m6;
++
++-- M7: reversal still works (reverses M1's own receipt).
++CREATE TEMP TABLE m7 AS SELECT inventory_reverse_movement(((SELECT result FROM m1)->>'movement_id')::uuid, (SELECT e2e_user FROM fxl), '105 security-pass reversal regression') AS result;
++INSERT INTO test_log(line) SELECT is((result->>'status'), 'posted', 'M7: inventory_reverse_movement (nested call through the newly-hardened inventory_finalize_posting_internal) still succeeds') FROM m7;
++
++RESET ROLE;
++
++-- M8: RepairOrder receipt still works (unattributed line, matching the
++-- simplest real path -- full provenance re-proven by the 104 regression).
++CREATE TEMP TABLE fxm8 (org uuid, branch uuid, e2e_user uuid, variant_1 uuid, unit_1 uuid, receiving_loc uuid);
++GRANT SELECT ON fxm8 TO authenticated;
++INSERT INTO fxm8 SELECT
++  '9f98fe91-63b8-4986-a2b3-65bdd47684c9'::uuid, gen_random_uuid(),
++  'c4a24371-42db-4bb8-ab5e-379ebbf7d9c4'::uuid, 'fe364ce2-1f72-4df5-ab92-6361ec95e0da'::uuid,
++  '571dfd6c-eba2-42c2-8ad9-f39a2d103b6d'::uuid, gen_random_uuid();
++INSERT INTO branches (id, organization_id, name, branch_number) SELECT branch, org, '105-ic7a-m8', 939 FROM fxm8;
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, can_store_inventory, purpose) SELECT receiving_loc, org, branch, '105-m8-receiving', true, 'receiving' FROM fxm8;
++
++SET LOCAL ROLE authenticated;
++SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fxm8)::text, 'role', 'authenticated')::text, true);
++CREATE TEMP TABLE m8 AS SELECT receive_repair_order_stock(
++  (SELECT e2e_user FROM fxm8), (SELECT org FROM fxm8), (SELECT branch FROM fxm8),
++  jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxm8), 'unit_id', (SELECT unit_1 FROM fxm8), 'quantity', 4))
++) AS result;
++INSERT INTO test_log(line) SELECT is((result->>'status'), 'posted', 'M8: RepairOrder receipt via receive_repair_order_stock still succeeds') FROM m8;
++RESET ROLE;
++
++-- M9: PO receipt still works.
++CREATE TEMP TABLE fxm9 (org uuid, branch uuid, e2e_user uuid, variant_1 uuid, product_1 uuid, unit_1 uuid, loc_delivery uuid, supplier_1 uuid, po_1 uuid, poline_1 uuid);
++GRANT SELECT ON fxm9 TO authenticated;
++INSERT INTO fxm9 SELECT
++  '9f98fe91-63b8-4986-a2b3-65bdd47684c9'::uuid, gen_random_uuid(),
++  'c4a24371-42db-4bb8-ab5e-379ebbf7d9c4'::uuid, 'fe364ce2-1f72-4df5-ab92-6361ec95e0da'::uuid,
++  '72501d89-2de6-46bf-af3a-e4d063d3757c'::uuid, '571dfd6c-eba2-42c2-8ad9-f39a2d103b6d'::uuid,
++  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid();
++INSERT INTO branches (id, organization_id, name, branch_number) SELECT branch, org, '105-ic7a-m9', 941 FROM fxm9;
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, can_store_inventory) SELECT loc_delivery, org, branch, '105-m9-delivery', true FROM fxm9;
++INSERT INTO inventory_suppliers (id, organization_id, name) SELECT supplier_1, org, '105-M9-Supplier' FROM fxm9;
++INSERT INTO inventory_purchase_orders (id, organization_id, branch_id, po_number, supplier_id, status, delivery_location_id) SELECT po_1, org, branch, '105-PO-M9', supplier_1, 'ordered', loc_delivery FROM fxm9;
++INSERT INTO inventory_purchase_order_lines (id, organization_id, branch_id, purchase_order_id, line_number, product_id, variant_id, unit_id, ordered_quantity, unit_cost) SELECT poline_1, org, branch, po_1, 1, product_1, variant_1, unit_1, 10, 5.50 FROM fxm9;
++
++SET LOCAL ROLE authenticated;
++SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fxm9)::text, 'role', 'authenticated')::text, true);
++CREATE TEMP TABLE m9 AS SELECT inventory_receive_purchase_order(
++  (SELECT po_1 FROM fxm9),
++  jsonb_build_array(jsonb_build_object('purchase_order_line_id', (SELECT poline_1 FROM fxm9), 'quantity', 6)),
++  (SELECT e2e_user FROM fxm9), '105-m9-idem'
++) AS result;
++INSERT INTO test_log(line) SELECT is((result->>'status'), 'partially_received', 'M9: PO receipt via inventory_receive_purchase_order still succeeds') FROM m9;
++RESET ROLE;
++
++SELECT count(*) FILTER (WHERE line NOT LIKE 'ok %') AS not_ok_count, count(*) AS total_assertions FROM test_log;
++
++ROLLBACK;
+diff --git a/docs/inventory/inventory-core-architecture.md b/docs/inventory/inventory-core-architecture.md
+index c24519ab..c109f7f4 100644
+--- a/docs/inventory/inventory-core-architecture.md
++++ b/docs/inventory/inventory-core-architecture.md
+@@ -656,7 +656,7 @@ using direct writes.**
+ | `repair_order_line_locations` staleness after IC-2 reversal                                                                                                        | **New, IC-2-discovered**: reversing a RepairOrder-attributed receipt leaves this table stale (shows quantity at a location the canonical ledger now shows as physically empty) -- the active-corruption variant was fixed in IC-2 itself by GUC-gating the reversal's own ledger inserts, but the underlying staleness remains                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | **Resolve in IC-5** -- once `repair_order_line_locations` is a genuine derived projection (not a directly-written table), a reversal's own compensating ledger entries should correctly re-derive it, closing this gap structurally rather than via a GUC workaround                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+ | Function-level `anon` EXECUTE grants (new functions)                                                                                                               | **New, IC-2-discovered**: this database applies a default-privilege grant giving `anon` EXECUTE on functions in schema `public` -- it silently re-applies on every `CREATE OR REPLACE FUNCTION` of the SAME function, even after an explicit `REVOKE ALL FROM PUBLIC`. Live-confirmed on both `inventory_finalize_posting` (pre-existing, before IC-1/IC-2) and `inventory_reverse_movement` (re-appeared twice during IC-2's own iterative fixes, corrected with a final explicit re-grant)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | **Audit systematically in IC-7** -- every canonical Inventory Core RPC needs its EXECUTE grants re-verified as the LAST step after its own migration sequence is fully applied, not just once after first creation; consider whether the default privilege itself should be altered (`ALTER DEFAULT PRIVILEGES ... REVOKE EXECUTE ... FROM anon`) at the schema level to close this permanently rather than per-function                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+ | `inventory_finalize_posting`'s `p_explicit_effects` parameter (IC-2 security-boundary pass, 2026-09-15)                                                            | **P0, CLOSED this pass**: the 3-arg extension IC-2 originally added to the externally-callable canonical `inventory_finalize_posting(uuid,uuid,jsonb)` was live-proven exploitable by an ordinary `authenticated` caller — supplying two different real `destination`/`increase` effect ids against their own legitimately-created draft doubled `on_hand` (10 → 20) with zero extra permission. Root cause: `p_explicit_effects` had no caller-identity restriction of its own, and the function carried live `anon`/`authenticated` EXECUTE (the same default-privilege behavior in the row above).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | **Fixed**: logic moved to a new `inventory_finalize_posting_internal(uuid,uuid,jsonb)`, `EXECUTE` revoked from every role except its owner (`postgres`); the public `inventory_finalize_posting` was restored to its original 2-arg signature (catalog effects only, no explicit-effects capability at all) as a thin wrapper; the vulnerable public-named 3-arg overload was dropped outright (a `CREATE OR REPLACE` with a NEW arity does not remove an OLD-arity overload — this project's own recurring pitfall, hit again here and fixed forward). Only `inventory_reverse_movement` (itself `SECURITY DEFINER`, owner `postgres`) can reach the internal function — ordinary Postgres same-owner `SECURITY DEFINER` privilege semantics, not a GUC/trust convention. Live-reverified: direct call to the internal function by `authenticated` → `42501`; the old 3-arg public signature → `42883` (does not exist); `has_function_privilege('anon'/'authenticated', ...) = false` on the internal function; ordinary 2-arg finalize and full reversal end-to-end unaffected. Defense-in-depth added inside the internal function itself, narrow and not a second reversal engine: (a) `p_explicit_effects` may only be supplied when the movement's own REAL `movement_type_code` — read from the locked row itself, never trusted from the caller — is exactly `'900'` (the system reversal type), categorically ruling out the exact attack proven above (which targeted a `'101'` movement) even for a hypothetical future internal caller; (b) each supplied effect's `target`/`direction` is explicitly validated against its exact allowed domain (`{source,destination}`/`{increase,decrease}`) and rejected outright rather than silently falling through the existing CASE/IF logic. (`effect_id` itself is still backstopped only by the pre-existing `inventory_stock_ledger_entries.effect_id` FK — not a new check added this pass.) |
+-| `inventory_create_and_finalize`/`inventory_create_draft`/public `inventory_finalize_posting` — **CRITICAL, NEW, IC-3-discovered, 2026-09-16, NOT fixed this pass** | **The single most severe finding of this project to date.** All three carry live `anon` EXECUTE and perform **ZERO** actor-identity or permission check of their own — `inventory_create_draft` never checks `auth.uid()`, never calls `has_branch_permission`, relies entirely on RLS, which its own `SECURITY DEFINER`/owner-`postgres` execution context (`rolbypassrls=true`) **bypasses structurally**. Live-proven via a safe, transaction-scoped, rolled-back probe: a **fully unauthenticated** `anon` session — no JWT claims, no `auth.uid()`, no session of any kind — called `inventory_create_and_finalize` directly and posted a real, immutable 999-unit movement to an arbitrary organization/branch it merely named a UUID for. This is a **complete authentication bypass**, strictly worse than the IC-2 explicit-effects P0 (which at minimum required a valid authenticated session) and worse than the header-immutability GUC bypass above (which at minimum required holding a real warehouse permission) — it requires **no account of any kind**. Pre-existing: predates IC-1 entirely; not introduced or worsened by IC-3's own new code (`inventory_receive_stock` and both refactored wrappers each perform their own actor-identity + permission checks BEFORE ever calling down into this unguarded layer — live-verified `anon`/no-permission calls to all three IC-3 entry points are correctly rejected). But the unguarded layer remains directly reachable regardless of anything built on top of it. | **Close in IC-7 as the top-priority item**, ahead of the other rows in this table given its severity (zero authentication required, not merely a privilege-escalation-among-legitimate-users class of issue). Minimum fix: add the same actor-identity (`28000`) + `has_branch_permission` (`42501`) checks every other canonical RPC already has to `inventory_create_draft` itself (the shared root of both `inventory_create_and_finalize` and the public `inventory_finalize_posting`'s own draft-creation callers), then re-verify EVERY existing legitimate caller (all IC-1/IC-2/IC-3 wrappers, `InventoryMovementsService`, `ambra-location-inventory.ts`) still supplies a real actor/permission so the fix does not silently break them — an audit-sized undertaking, correctly out of IC-3's own narrow scope, but the highest-severity item on IC-7's own list.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
++| `inventory_create_and_finalize`/`inventory_create_draft`/public `inventory_finalize_posting` — **CRITICAL, IC-3-discovered 2026-09-16, CLOSED IC-7A 2026-09-16 (emergency pass, pulled forward out of roadmap order)** | Was: all three carried live `anon` EXECUTE and performed ZERO actor-identity or permission check of their own. Live-proven via a safe, rolled-back probe: a fully unauthenticated `anon` session posted a real, immutable movement to an arbitrary organization/branch. Full details of the original finding preserved below for historical record. | **CLOSED.** `inventory_create_draft` and `inventory_finalize_posting_internal` (the shared choke point both the public 2-arg finalize wrapper and `inventory_reverse_movement` call into) each gained the standard actor-identity (`28000`) + `has_branch_permission(...operate` OR `...adjust)` (`42501`) check. `inventory_create_and_finalize` gained the same checks directly too, as defense in depth (not merely relying on transitive protection via `inventory_create_draft`). `anon`/PUBLIC EXECUTE explicitly revoked from all three; `authenticated`/`service_role` EXECUTE KEPT (caller-graph audit found 5 real Next.js server actions and the non-`SECURITY DEFINER` `inventory_approve_count_session` call these three DIRECTLY as `authenticated` — full internalization would have broken them; hardening in place, not internalizing, was the correct fix here). Also closed: `inventory_create_draft` now rejects manual creation of `allows_manual_entry=false` movement types (currently only `900`) — a self-caught defect (an early draft of this same fix incorrectly used `is_system`, which is `true` for every seeded type including 101/401/402/801, and would have blocked all manual movement creation; corrected before any regression ran, via a same-day forward migration). Live-reverified: the exact original exploit payload replayed post-fix → `42501`, zero physical mutation. Full evidence: `docs/inventory/reviews/ic-7a-movement-engine-security-review/`. |
+ 
+ **Standing requirements for every canonical RPC (already the established
+ convention, restated as permanent policy):**
+@@ -676,6 +676,123 @@ FROM anon` (both, in the same migration — learned the hard way in Phase
+ 
+ ---
+ 
++## 9A. IC-7A — Emergency Movement Engine Security Boundary Closure
++
++**✅ CLOSED (IC-7A, 2026-09-16, emergency pass — NOT the full IC-7 phase)**.
++Pulled forward, out of roadmap order, because IC-3's own live verification
++proved the CRITICAL finding in §9's table above: a fully unauthenticated
++`anon` caller could post arbitrary physical inventory movements through
++the shared engine layer. This section documents ONLY this narrow closure
++— the broader IC-7 phase (header-immutability GUC bypass, reservation/
++allocation raw-write RLS, container generic raw-write policies, the
++systemic `anon` default-privilege re-grant behavior) remains fully OPEN
++and NOT addressed here, per explicit scope.
++
++**Reproduced live, fresh, not trusted from the prior report**: a safe,
++transaction-scoped, rolled-back probe confirmed all three functions
++(`inventory_create_draft`, `inventory_finalize_posting`, `inventory_
++create_and_finalize`) carried live `anon` EXECUTE and performed zero
++actor/permission check. Three separate exploit calls succeeded as a
++genuinely unauthenticated `anon` role (no JWT claims, no `auth.uid()`).
++
++**Caller-graph audit performed BEFORE any grant was touched** (per
++explicit instruction not to revoke blindly): 5 real, reachable Next.js
++server actions (`createDraftMovementAction`, `finalizePostingAction`,
++`createAndPostMovementAction`, `quickReceiptAction`/`receiveStockAction`,
++`quickBinMoveAction`/`transferStockAction`) call these three RPCs
++DIRECTLY via `supabase.rpc(...)` as the browser session's own
++`authenticated` role — not through any SQL-level wrapper. Additionally,
++`inventory_approve_count_session` (the live 401/402 adjustment flow) is
++itself **NOT** `SECURITY DEFINER` — its own nested calls into these
++functions execute as the real, non-elevated invoking role. This ruled out
++full internalization (revoking `authenticated` EXECUTE) as the fix — it
++would have broken every one of these real, working flows. **Option B**
++(harden in place) was the correct, caller-graph-driven choice, per this
++pass's own explicit decision framework.
++
++**Fix applied**: `inventory_create_draft` and `inventory_finalize_
++posting_internal` (the single shared choke point both the public 2-arg
++`inventory_finalize_posting` wrapper AND `inventory_reverse_movement`
++call into — hardening here once correctly protects both callers without
++duplicating the check) each gained the standard actor-identity (`28000`)
+++ `has_branch_permission(..., 'warehouse.inventory.operate') OR (...,
++'.adjust')` (`42501`) check, matching the established pattern every other
++canonical RPC already used. `inventory_create_and_finalize` gained the
++same checks directly too, as defense in depth. `REVOKE ALL FROM PUBLIC,
++anon` on all three; `authenticated`/`service_role` EXECUTE explicitly
++KEPT (required by the real caller graph above). `inventory_finalize_
++posting_internal`'s own EXECUTE remains revoked from every ordinary role
++(IC-2's own frozen contract, re-verified unchanged, never reopened).
++
++**Also closed**: `inventory_create_draft` now rejects manual creation of
++any movement type with `allows_manual_entry = false` (currently only
++`900`, the system reversal type) — closing the "system-only movement
++types must not become manually creatable" requirement. **Self-caught
++defect, fixed before any regression test ran**: the first version of this
++guard used `is_system OR NOT allows_manual_entry` — live inspection
++(queried `inventory_movement_types` directly) showed `is_system=true` for
++EVERY seeded catalog type, including 101/401/402/801, not just 900. That
++guard would have blocked ALL manual movement creation — caught by direct
++live inspection before any test exercised it, corrected the same day via
++a forward migration to use `allows_manual_entry` alone (the only column
++that is actually `false` exclusively for `900`).
++
++**Live-caught regression from the fix itself, also caught and fixed
++before final sign-off**: `103_ic2_movement_reversal_test.sql`'s own
++Scenario E (added in the prior IC-2 security-correction pass) ran AFTER
++Scenario C's own permission-stripping negative test, which is a
++permanent, org-wide mutation for the rest of that file's shared
++transaction (the established, documented convention). Scenario E's own
++`inventory_create_draft` call previously succeeded regardless of the
++already-stripped actor, since `inventory_create_draft` had no permission
++check to trip on before this pass. Now that it correctly does, Scenario E
++was **repositioned** (not rewritten — every assertion, fixture value, and
++line of its own logic is unchanged) to run immediately after Scenario D,
++mirroring Scenario D's own already-established "run before Scenario C's
++strip" pattern. Caught by the full regression suite itself (103 failed
++with a genuine `42501` at the exact new checkpoint), diagnosed, and fixed
++the same session.
++
++**Post-fix exploit replay** (required evidence the fix genuinely closes
++the live exploit, not merely the pgTAP-level assertions): the exact
++original attack (unauthenticated `anon`, arbitrary org/branch, 777 units)
++was replayed against the post-fix database — rejected with `42501`
++(`permission denied for function`, a grant-level denial, not even
++reaching the function body), zero movement headers created, zero balance
++rows created.
++
++**Deliberately NOT changed this pass** (per explicit scope, recorded for
++the full IC-7 phase):
++- The posted-header GUC UPDATE bypass (§9's own `inventory_movement_
++  headers`/`_lines` row) — its own mechanism is unrelated to this pass's
++  own actor/permission boundary and was not needed to close the P0.
++- `ALTER DEFAULT PRIVILEGES` for schema `public`/role `postgres` — root
++  cause investigated and CONFIRMED (`pg_default_acl` shows the exact
++  default-privilege rule granting `anon`/`authenticated`/`service_role`
++  EXECUTE on every future function `postgres` creates in `public`), but
++  NOT changed: altering it is schema-wide, not movement-engine-specific,
++  and this database has other legitimate, intentionally public-facing
++  RPC surfaces (QR platform, public warehouse maps) whose own reliance on
++  this same default privilege was not independently audited this pass —
++  changing it blind risked silently breaking unrelated, unaudited
++  functionality. Per the pass's own explicit fallback instruction, this
++  is reported rather than guessed at; each of this pass's own 4
++  migrations instead issues its own explicit, final `REVOKE`, matching
++  the already-proven-safe IC-2 pattern.
++- Reservation/allocation raw-write RLS, container generic raw-write
++  policies, and any other function's grants — untouched, remain full
++  IC-7 scope.
++
++**Concurrency**: no new algorithm, no new lock, no change to lock order
++or which rows are locked by any of the three hardened functions — the
++new checks are pure validation inserted before/immediately-after each
++function's own pre-existing row acquisition. IC-1/IC-2/IC-3's own genuine
++two-session concurrency proofs remain valid and were not re-run.
++
++**Full evidence**: `docs/inventory/reviews/ic-7a-movement-engine-security-review/`.
++
++---
++
+ ## 10. Performance Plan
+ 
+ - **No microservices, no event sourcing** — PostgreSQL/Supabase remains the
+diff --git a/docs/inventory/inventory-core-implementation-plan.md b/docs/inventory/inventory-core-implementation-plan.md
+index 98b6445e..2a44595b 100644
+--- a/docs/inventory/inventory-core-implementation-plan.md
++++ b/docs/inventory/inventory-core-implementation-plan.md
+@@ -490,6 +490,54 @@ inventory-core-progress.md`'s own IC-3 change-log entry and the
+ 
+ ---
+ 
++## IC-7A — Emergency Movement Engine Security Boundary Closure (2026-09-16)
++
++**This phase was NOT part of the original roadmap order.** It is a
++narrow, P0 security pass pulled forward from the full IC-7 phase (§IC-7
++below, which remains scheduled after IC-4/IC-5/IC-6 as originally
++planned) because IC-3's own live verification proved a CRITICAL,
++pre-existing finding: `inventory_create_draft`, the public `inventory_
++finalize_posting`, and `inventory_create_and_finalize` carried live
++`anon` EXECUTE and performed zero actor-identity or permission check of
++their own — a fully unauthenticated caller could post arbitrary physical
++inventory movements. This predates IC-1 and was not introduced by IC-3;
++IC-3 merely discovered and disclosed it while hardening its own new code.
++The severity (zero authentication required, not merely privilege
++escalation among legitimate users) was judged too severe to leave open
++while IC-4 (a substantial, unrelated rebuild) proceeded.
++
++**Why the roadmap was intentionally interrupted, not merely reordered**:
++every other IC phase to date has been built strictly in sequence on an
++explicit go-ahead. This phase breaks that sequence deliberately — the
++assigning brief itself named it an "EMERGENCY" pass and was explicit that
++it is NOT the full IC-7 phase, that IC-4 must NOT start until it
++completes, and that the broader IC-7 phase remains later in the roadmap
++unchanged. This is recorded here, explicitly, so the roadmap's own
++history is honest: IC-7A is a genuine, disclosed exception to the
++"strict sequence" rule, not a silent reordering.
++
++**Scope**: hardened exactly 3 functions (`inventory_create_draft`,
++`inventory_finalize_posting_internal`, `inventory_create_and_finalize`)
++plus one system-movement-type guard. Did NOT touch: receiving,
++reversal, reservations, allocations, containers, branch transfer,
++RepairOrder attribution, or Zone 5 — none of their own architecture was
++reopened. Did NOT fix: the posted-header GUC UPDATE bypass, reservation/
++allocation raw-write RLS, container generic raw-write policies, or the
++systemic `anon` default-privilege re-grant behavior — all remain
++explicitly OPEN, recorded for the full IC-7 phase below.
++
++**RESULT (2026-09-16, IC-7A implemented and DONE)**: full detail —
++live-reproduced exploit, caller-graph audit, the internalize-vs-harden-
++in-place decision, the self-caught system-type-guard defect, the
++103-scenario-reordering regression this pass's own fix surfaced and
++fixed, the post-fix exploit replay — is in `inventory-core-architecture.
++md` §9A and `docs/inventory/inventory-core-progress.md`'s own IC-7A
++change-log entry. Full evidence bundle: `docs/inventory/reviews/
++ic-7a-movement-engine-security-review/`. **IC-7A is DONE.** IC-4 may now
++proceed once separately authorized.
++
++---
++
+ ## IC-4 — Branch Transfer / MMJ Rebuild
+ 
+ **Goal**: repair the broken `inventory_accept_branch_transfer`/`inventory_
+@@ -841,6 +889,20 @@ status, live-verified.
+ **Hard STOP condition before IC-8**: regression green, external review
+ accepted.
+ 
++**NOTE (2026-09-16, added by IC-7A, does NOT mark this phase done)**: the
++single most severe item that was on this phase's own list —
++`inventory_create_draft`/public `inventory_finalize_posting`/`inventory_
++create_and_finalize` carrying live `anon` EXECUTE with zero actor/
++permission check, a full authentication bypass — was pulled forward and
++CLOSED early as IC-7A (see the dedicated section above, between IC-3 and
++IC-4). This phase's own remaining scope is UNCHANGED and still fully
++OPEN: the posted-header GUC UPDATE bypass, reservation/allocation
++raw-write RLS, container generic raw-write policies, the systemic `anon`
++default-privilege re-grant behavior (root cause confirmed by IC-7A but
++deliberately not changed, given its schema-wide blast radius), and
++`inventory_branch_transfers`/`_lines` (pending IC-4). **IC-7 itself is
++NOT done** — only the one item IC-7A closed early is done.
++
+ ---
+ 
+ ## IC-8 — Full Inventory Regression / Concurrency / Performance Hardening
+diff --git a/docs/inventory/inventory-core-progress.md b/docs/inventory/inventory-core-progress.md
+index f660036c..067f0e35 100644
+--- a/docs/inventory/inventory-core-progress.md
++++ b/docs/inventory/inventory-core-progress.md
+@@ -21,8 +21,15 @@ purchase_order` (live-confirmed dead/broken before this phase) fixed and
+ refactored onto it. A new CRITICAL, pre-existing security finding (fully
+ unauthenticated `anon` posting via the raw engine layer) was discovered
+ and assigned to IC-7 as its top-priority item — NOT fixed in IC-3.
+-**Current phase:** IC-3 DONE → IC-4 (Branch transfer / MMJ rebuild) is the
+-next phase in sequence, NOT yet authorized/started.
++**IC-7A ✅ DONE** — emergency pass, pulled forward out of roadmap order,
++closing exactly that CRITICAL finding: `inventory_create_draft`/public
++`inventory_finalize_posting`/`inventory_create_and_finalize` hardened
++with actor-identity + permission checks; `anon`/PUBLIC EXECUTE revoked;
++`authenticated`/`service_role` kept (required by the real caller graph).
++Post-fix exploit replay confirms the exact original attack now rejected.
++The broader IC-7 phase remains fully OPEN and unaffected.
++**Current phase:** IC-7A DONE → IC-4 (Branch transfer / MMJ rebuild) is
++the next phase in sequence, NOT yet authorized/started.
+ **Pitch/pilot readiness:** N/A — this is base-engine work, not itself a
+ pitch-scoped feature; it BLOCKS Phase 10D, which IS pitch-scoped (see the
+ Zone 3 tracker's own cross-reference).
+@@ -32,17 +39,21 @@ Zone 3 tracker's own cross-reference).
+ 
+ ## Overall execution
+ 
+-- IC phases completed: 4 / 8 (IC-0, IC-1, IC-2, IC-3). IC-4 NOT started.
++- IC phases completed: 4 / 8 (IC-0, IC-1, IC-2, IC-3), plus the
++  out-of-order IC-7A emergency pass. IC-4 NOT started.
+ - 3 forward migrations applied for IC-1; 9 forward migrations applied for
+   IC-2 (7 original + 2 from the security-boundary correction pass); 4
+-  forward migrations applied for IC-3 — all live-verified, all mirrored
+-  locally under the exact live version/timestamp — see change log.
+-- Application code: no TypeScript changes were required for IC-1, IC-2, or
+-  IC-3 (all entirely PL/pgSQL); 2 pgTAP test files added/rewritten for
+-  IC-1 (`101_...` rewritten, `102_...` new/extended); 1 new pgTAP file for
+-  IC-2, extended in the security-boundary correction pass (`103_...`,
+-  35/35); 1 new pgTAP file for IC-3 (`104_...`, 44/44), plus one genuine
+-  two-PostgreSQL-connection concurrency proof performed outside pgTAP.
++  forward migrations applied for IC-3; 4 forward migrations applied for
++  IC-7A — all live-verified, all mirrored locally under the exact live
++  version/timestamp — see change log.
++- Application code: no TypeScript changes were required for IC-1, IC-2,
++  IC-3, or IC-7A (all entirely PL/pgSQL); 2 pgTAP test files added/
++  rewritten for IC-1 (`101_...` rewritten, `102_...` new/extended); 1 new
++  pgTAP file for IC-2, extended in the security-boundary correction pass
++  (`103_...`, 35/35, its own Scenario E repositioned by IC-7A — see
++  below); 1 new pgTAP file for IC-3 (`104_...`, 44/44), plus one genuine
++  two-PostgreSQL-connection concurrency proof performed outside pgTAP; 1
++  new pgTAP file for IC-7A (`105_...`, 29/29).
+ 
+ ---
+ 
+@@ -54,7 +65,8 @@ Zone 3 tracker's own cross-reference).
+ | IC-1 Canonical movement engine / hard stock invariants               | ✅ DONE, FINAL | Hard invariant (`on_hand >= reserved_quantity + allocated_quantity`) live-implemented in `inventory_finalize_posting`, SQLSTATE `P0003`. Balance-getter replaced (v1 helper now zero production callers). `on_hand_quantity >= 0` CHECK added — **product-owner FINAL DECISION (2026-09-15, OPTION A)**: global non-negative on-hand is the permanent product contract; `negative_stock_policy='allow'`/`'allow_with_approval'` are superseded/deprecated for on-hand behavior, cannot bypass the invariant, column cleanup owned by IC-6. 133/133 pgTAP (102 extended to 14/14 with the finalized-contract regression) + 395/395 relevant Vitest clean (229 of those 395 re-confirmed live this finalization pass; the file set is identical to the original submission's own 395, not additive). Genuine two-session concurrency proven (3.68s real blocking). Architecture doc §0 (new decision #20) and §5 (invariant #1) updated. See the finalization-pass change-log entry below and `docs/inventory/reviews/ic-1-review/negative-stock-policy-conflict.md` (marked RESOLVED).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+ | IC-2 Movement reversal                                               | ✅ DONE        | `inventory_reverse_movement(p_movement_id, p_actor_user_id, p_reason)` implemented and live-proven: receipt (101) and two-leg (801) reversal restore exact pre-movement balances; all negative paths (draft, already-reversed, reversal-of-reversal, IC-1 commitment block, reason validation, wrong actor, cross-org/no-permission indistinguishable) rejected with stable SQLSTATEs; genuine two-session concurrency proven (~5s real blocking, exactly one reversal survives, zero double-compensation); bidirectional linkage and distinct sequential `KOR/...` document numbering live-proven. New minimal movement type `900`/doc type `KOR` (system-only, zero effect rows of its own); `inventory_finalize_posting` gained one backward-compatible optional parameter (`p_explicit_effects`). Product decisions A (no undo-an-undo) and B (no RepairOrder netting) CLOSED. 3 live-caught defects fixed forward (overload ambiguity, reserved SQLSTATE P0004, Zone 5 attribution corruption) plus 1 grant-hardening fix (anon default-privilege re-exposure). **SECURITY-BOUNDARY CORRECTION PASS (2026-09-15)**: external review found `p_explicit_effects` was reachable on the externally-callable `inventory_finalize_posting` — live-confirmed P0 (on-hand doubled by an ordinary authenticated caller), fixed by internalizing the explicit-effects capability into a new EXECUTE-revoked-from-all-ordinary-roles `inventory_finalize_posting_internal`, reachable only via same-owner `SECURITY DEFINER` semantics from `inventory_reverse_movement`. A separate, pre-existing, NOT-fixed-this-pass finding (assigned to IC-7): the posted-header immutability trigger only checks its own GUC is `'on'`, not which columns changed — an ordinary permission-holding actor can self-set that GUC and rewrite any posted header's business content. pgTAP 35/35 (`103_...`, extended with Scenario E). Full regression 176/176. See change log for full evidence. |
+ | IC-3 Receiving consolidation                                         | ✅ DONE        | New canonical `inventory_receive_stock` primitive (domain-agnostic, delegates through `inventory_create_and_finalize`/public `inventory_finalize_posting`, never touches `_internal`). `receive_repair_order_stock` refactored onto it, all business rules preserved byte-for-byte. `inventory_receive_purchase_order` was **live-confirmed dead/broken** (called two nonexistent functions, zero UI/service reachability) — fixed and refactored onto the primitive, business rules preserved, security model hardened (new `SECURITY DEFINER` + actor check, since there was no working contract before to weaken). Line-correlation by ordinal position only (never SKU/variant). Idempotency structurally safe (pre-existing unique index) AND gracefully handled on a genuine concurrent race (live-proven, real two-connection test: loser blocked 3560.950ms then returned the winner's own movement*id, zero double-post). Self-caught PO-wrapper idempotency/state-mutation-ordering defect fixed before any test ran. **New CRITICAL pre-existing security finding** (fully unauthenticated `anon` can post via the raw engine layer) discovered and assigned to IC-7, NOT fixed here. pgTAP 44/44 (`104*...`). Full regression 220/220. See change log for full evidence.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+-| IC-4 Branch transfer / MMJ rebuild                                   | ⬜ NOT STARTED | Depends on IC-1, IC-3. Carries an open product-semantics question (see implementation plan's own IC-4 section: whether "in transit" should mean physically moving vs. merely reserved) that needs product-owner resolution before or during this phase.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
++| **IC-7A** Emergency movement-engine security boundary closure         | ✅ DONE        | **Out-of-roadmap-order emergency pass**, pulled forward from full IC-7 because IC-3 live-verified a CRITICAL finding: `inventory_create_draft`/public `inventory_finalize_posting`/`inventory_create_and_finalize` carried live `anon` EXECUTE with zero actor/permission check — a fully unauthenticated caller could post arbitrary movements. Re-reproduced live, fresh (not trusted from the prior report). Caller-graph audit BEFORE any grant change found 5 real Next.js server actions and the non-`SECURITY DEFINER` `inventory_approve_count_session` call these 3 RPCs DIRECTLY as `authenticated` — full internalization would have broken them, so Option B (harden in place) was chosen. `inventory_create_draft`/`inventory_finalize_posting_internal` (shared finalize choke point) gained actor+permission checks; `inventory_create_and_finalize` hardened directly too as defense in depth; `anon`/PUBLIC EXECUTE revoked, `authenticated`/`service_role` kept. Manual creation of `allows_manual_entry=false` types (900) now blocked. 2 live-caught defects fixed forward (an overly-broad `is_system`-based type guard, caught before any test ran; `103_...`'s own Scenario E ordering assumption invalidated by the new check, caught by the regression suite itself, fixed by repositioning — not rewriting — the scenario). Post-fix exploit replay: exact original attack now `42501`, zero physical mutation. pgTAP 29/29 (`105_...`). Full regression 249/249. Full IC-7 phase remains OPEN — only this one item closed. See change log for full evidence. |
++| IC-4 Branch transfer / MMJ rebuild                                   | ⬜ NOT STARTED | Depends on IC-1, IC-3, IC-7A. Carries an open product-semantics question (see implementation plan's own IC-4 section: whether "in transit" should mean physically moving vs. merely reserved) that needs product-owner resolution before or during this phase.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+ | IC-5 RepairOrder physical-location projection consolidation          | ⬜ NOT STARTED | Depends on IC-1, IC-3.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+ | IC-6 Legacy writer/helper removal                                    | ⬜ NOT STARTED | Depends on IC-1 (balance-getter replacement), IC-4 (311 disposition), IC-5 (Zone 5 direct-write removal).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+ | IC-7 Inventory security/write-boundary closure                       | ⬜ NOT STARTED | Depends on IC-0's own live findings plus whatever IC-4 already closed.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+@@ -1135,3 +1147,185 @@ refactor` — `inventory_receive_purchase_order` fixed and refactored
+   **IC-3 review bundle**: `docs/inventory/reviews/ic-3-review/`.
+ 
+   **IC-3 is DONE.** IC-4 is NOT started. Phase 10D is NOT started.
++
++- **2026-09-16 (IC-7A — Emergency Movement Engine Security Boundary
++  Closure — DONE)**: implemented per the assigning brief's own explicit
++  "EMERGENCY, P0, narrow pass, NOT the full IC-7 phase" framing.
++  IC-0/IC-1/IC-2/IC-3 re-confirmed ACCEPTED/FINAL before touching
++  anything; their own architecture was not reopened. IC-4 was NOT
++  started, Phase 10D remains BLOCKED and untouched.
++
++  **Re-reproduced the P0, fresh, not trusted from IC-3's own prior
++  report**: a safe, transaction-scoped, rolled-back probe confirmed live
++  that `inventory_create_draft`, the public `inventory_finalize_posting`,
++  and `inventory_create_and_finalize` all carried `anon` EXECUTE and
++  performed zero actor-identity or permission check. Three separate
++  exploit calls succeeded as a genuinely unauthenticated `anon` role —
++  the third (`inventory_create_and_finalize`, 777 units, an arbitrary
++  fresh org/branch) posted a real, immutable movement, confirmed via
++  `document_number`/`on_hand_quantity` returned in the same probe.
++
++  **Caller-graph audit performed BEFORE any grant was touched** (per
++  explicit instruction not to revoke blindly): repo-wide TypeScript grep
++  plus a live `pg_proc` source-text sweep for every PL/pgSQL function
++  calling the three target RPCs by name. Found: `InventoryMovementsService
++  .createDraft/.finalizePosting/.createAndFinalize` call the three RPCs
++  DIRECTLY via `supabase.rpc(...)`, wrapped by 5 real, reachable Next.js
++  server actions (`createDraftMovementAction`, `finalizePostingAction`,
++  `createAndPostMovementAction`, `quickReceiptAction`/`receiveStockAction`,
++  `quickBinMoveAction`/`transferStockAction`) — all running as the
++  browser session's own `authenticated` role, never through a SQL-level
++  wrapper. `inventory_approve_count_session` (the live 401/402 adjustment
++  flow) is itself **NOT** `SECURITY DEFINER` — confirmed via
++  `pg_get_functiondef` — so its own nested calls into these functions
++  execute as the real, non-elevated invoking role. This definitively
++  ruled out full internalization (revoking `authenticated` EXECUTE): it
++  would have broken every one of these real, currently-working flows.
++  Also confirmed via the SAME sweep: `inventory_receive_stock`,
++  `receive_repair_order_stock`, `inventory_receive_purchase_order`, and
++  `putaway_repair_order_stock` are all themselves `SECURITY DEFINER`
++  owned by `postgres` — their own nested calls into the hardened
++  functions are unaffected by any grant change, by standard same-owner
++  `SECURITY DEFINER` privilege semantics. `inventory_accept_branch_
++  transfer`/`inventory_decline_branch_transfer` do not call any of the
++  three target functions at all — confirmed clean, IC-4's own future
++  scope untouched.
++
++  **Fix (Option B — harden in place, per the caller-graph finding
++  above)**: `inventory_create_draft` and `inventory_finalize_posting_
++  internal` (the SINGLE shared choke point both the public 2-arg
++  `inventory_finalize_posting` wrapper and `inventory_reverse_movement`
++  call into — hardening here once correctly protects both callers
++  without duplicating the check) each gained the standard actor-identity
++  (`p_actor_user_id = auth.uid()`, `28000`) + permission
++  (`has_branch_permission(..., 'warehouse.inventory.operate') OR (...,
++  '.adjust')`, `42501`) check, matching the established pattern already
++  used by every other canonical RPC in this project.
++  `inventory_create_and_finalize` gained the same checks directly too, as
++  explicit defense in depth (not merely relying on transitive protection
++  via `inventory_create_draft`). `REVOKE ALL FROM PUBLIC, anon` applied
++  to all three; `authenticated`/`service_role` EXECUTE explicitly KEPT
++  (required by the real caller graph). `inventory_finalize_posting_
++  internal`'s own EXECUTE remains revoked from every ordinary role —
++  IC-2's own frozen contract, re-verified unchanged, never reopened; grep
++  across every IC-7A file confirms zero references to it.
++
++  **Also closed**: `inventory_create_draft` now rejects manual creation
++  of any movement type with `allows_manual_entry = false` (currently only
++  `900`, the system reversal type), per the explicit "system-only
++  movement types must not become manually creatable" requirement.
++
++  **Live-caught defects, fixed forward, BOTH caught before any live
++  exploit or regression re-ran with the "final" fix in place**:
++  1. **Self-caught, fixed before any test ran**: the FIRST version of the
++     system-type guard used `is_system OR NOT allows_manual_entry`. Live
++     inspection (`SELECT code, is_system, allows_manual_entry FROM
++     inventory_movement_types`) — performed proactively, not prompted by
++     a failure — showed `is_system=true` for EVERY seeded catalog type
++     (101, 401, 402, 801, AND 900), not just 900; `allows_manual_entry`
++     is the only column that is actually `false` exclusively for 900.
++     The first guard would have rejected manual creation of every
++     movement type in the system, including the legitimate 101/401/402/
++     801 flows — caught by direct live inspection and smoke-tested
++     (101/401 drafts confirmed still succeed, 900 confirmed still
++     rejected) before writing a single pgTAP assertion, fixed the same
++     session via a second forward migration.
++  2. **Caught by the regression suite itself**: `103_ic2_movement_
++     reversal_test.sql`'s own Scenario E (added in the prior IC-2
++     security-correction pass) previously ran AFTER Scenario C's own
++     final negative test, which permanently strips the shared `e2e_user`
++     actor's inventory permission for the REST of that file's shared
++     transaction (the established, already-documented convention:
++     `user_effective_permissions` has no wildcard row, so a `DELETE` is a
++     permanent, org-wide mutation). Scenario E's own `inventory_create_
++     draft` call previously succeeded regardless, since that function had
++     no permission check to trip before this pass. Now that it correctly
++     does, running 103 in full surfaced a genuine `42501` at Scenario E's
++     own draft-creation call. Diagnosed (not assumed) by reading the
++     exact failing line; fixed by REPOSITIONING the entire Scenario E
++     block to run immediately after Scenario D — mirroring Scenario D's
++     own already-established "run before Scenario C's strip" pattern —
++     with every one of Scenario E's own assertions, fixture values, and
++     lines of logic left byte-for-byte unchanged. Re-run confirmed 35/35.
++
++  **Post-fix exploit replay** (required evidence, not merely pgTAP-level
++  assertions): the EXACT original attack (unauthenticated `anon`,
++  arbitrary fresh org/branch, 777 units, via `inventory_create_and_
++  finalize`) was replayed against the post-fix database in a fresh,
++  transaction-scoped probe — rejected with `42501` (`permission denied
++  for function`, a grant-level denial, not even reaching the function
++  body's own new checks), zero movement headers created, zero balance
++  rows created — confirmed via direct query in the same probe.
++
++  **Deliberately NOT fixed this pass** (recorded for the full IC-7 phase,
++  per explicit scope, not silently expanded into): the posted-header GUC
++  UPDATE bypass (IC-2's own prior finding — unrelated mechanism, not
++  needed to close this pass's own P0); reservation/allocation raw-write
++  RLS; container generic raw-write policies; the systemic `anon`
++  default-privilege re-grant behavior — root cause CONFIRMED this pass
++  (`pg_default_acl` shows `ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN
++  SCHEMA public GRANT EXECUTE ... TO anon, authenticated, service_role`
++  is schema-wide, not movement-engine-specific — this is exactly why
++  `CREATE OR REPLACE FUNCTION` keeps re-exposing `anon` on every replaced
++  function) but deliberately NOT changed, since this database has other,
++  unaudited, possibly-intentional public-facing RPC surfaces (QR
++  platform, public warehouse maps migrations exist) whose own reliance on
++  this same default privilege was not investigated this pass — altering
++  a schema-wide default blind risked silently breaking unrelated
++  functionality. Per the pass's own explicit fallback instruction, this
++  is reported, not guessed at; each of this pass's own 4 migrations
++  instead issues its own explicit, final `REVOKE`, matching the
++  already-proven-safe IC-2 pattern.
++
++  **Regression**: full pgTAP re-run this pass — 097 (29/29), 098 (17/17,
++  re-verified via Supabase MCP after the known, disclosed connection-
++  pooler GUC artifact hit the `psql` attempt), 099 (20/20), 100 (44/44,
++  re-verified via Supabase MCP for the same known reason), 101 (17/17),
++  102 (14/14), 103 (35/35, after the Scenario E repositioning fix above),
++  104 (44/44), 105 new (29/29) — **249/249 total, 0 failures**. Vitest:
++  288/288 (the same targeted Inventory/Zone3/CRM/PO subset as IC-3, plus
++  `inventory-count-sessions.service.test.ts` specifically because this
++  pass's own caller-graph audit centered on `inventory_approve_count_
++  session`). `pnpm type-check`: 0 errors (no TypeScript touched). `pnpm
++  lint`: 0 errors, 319 pre-existing unrelated warnings. `git diff
++  --check`: clean on every file this pass touched or modified.
++
++  **Concurrency**: NOT re-run, reasoned. None of this pass's own checks
++  add a new lock, change lock order, or change which rows any of the
++  three hardened functions acquire — the new checks are pure validation
++  inserted before (`inventory_create_draft`, `inventory_create_and_
++  finalize`) or immediately after (`inventory_finalize_posting_internal`,
++  which already locked the header row first) each function's own
++  pre-existing row acquisition. IC-1/IC-2/IC-3's own genuine two-session
++  concurrency proofs remain valid evidence and were not repeated.
++
++  **Migrations applied (4, forward-only, all mirrored locally under their
++  exact live version/timestamp)**:
++  1. `20260916050440_ic7a_harden_inventory_create_draft` — actor +
++     permission checks added; the FIRST (overly-broad, self-caught)
++     version of the system-type guard.
++  2. `20260916050528_ic7a_harden_inventory_finalize_posting_internal` —
++     actor + permission checks added to the shared finalize choke point;
++     public `inventory_finalize_posting`'s own grants re-confirmed.
++  3. `20260916050557_ic7a_harden_inventory_create_and_finalize` — actor +
++     permission checks added directly, as defense in depth.
++  4. `20260916050815_ic7a_fix_system_type_guard_overly_broad` —
++     corrective, live-caught defect #1 above.
++
++  **Documentation updated**: `inventory-core-architecture.md` gained a
++  new §9A ("IC-7A — Emergency Movement Engine Security Boundary
++  Closure," full finding/fix/evidence narrative) and had §9's own
++  CRITICAL table row updated from "NOT fixed" to "CLOSED" with a pointer
++  to §9A. `inventory-core-implementation-plan.md` gained a new,
++  explicitly out-of-roadmap-order "IC-7A" section positioned between IC-3
++  and IC-4, plus a note on the full IC-7 section clarifying that only
++  this one item closed early — IC-7 itself remains NOT done. This file's
++  own phase-tracker row (inserted between IC-3 and IC-4) and
++  overall-execution summary updated.
++
++  **IC-7A review bundle**: `docs/inventory/reviews/
++  ic-7a-movement-engine-security-review/`.
++
++  **IC-7A is DONE.** The full IC-7 phase remains NOT done — only this one
++  CRITICAL item closed early. IC-4 is NOT started. Phase 10D is NOT
++  started.

@@ -490,6 +490,54 @@ inventory-core-progress.md`'s own IC-3 change-log entry and the
 
 ---
 
+## IC-7A — Emergency Movement Engine Security Boundary Closure (2026-09-16)
+
+**This phase was NOT part of the original roadmap order.** It is a
+narrow, P0 security pass pulled forward from the full IC-7 phase (§IC-7
+below, which remains scheduled after IC-4/IC-5/IC-6 as originally
+planned) because IC-3's own live verification proved a CRITICAL,
+pre-existing finding: `inventory_create_draft`, the public `inventory_
+finalize_posting`, and `inventory_create_and_finalize` carried live
+`anon` EXECUTE and performed zero actor-identity or permission check of
+their own — a fully unauthenticated caller could post arbitrary physical
+inventory movements. This predates IC-1 and was not introduced by IC-3;
+IC-3 merely discovered and disclosed it while hardening its own new code.
+The severity (zero authentication required, not merely privilege
+escalation among legitimate users) was judged too severe to leave open
+while IC-4 (a substantial, unrelated rebuild) proceeded.
+
+**Why the roadmap was intentionally interrupted, not merely reordered**:
+every other IC phase to date has been built strictly in sequence on an
+explicit go-ahead. This phase breaks that sequence deliberately — the
+assigning brief itself named it an "EMERGENCY" pass and was explicit that
+it is NOT the full IC-7 phase, that IC-4 must NOT start until it
+completes, and that the broader IC-7 phase remains later in the roadmap
+unchanged. This is recorded here, explicitly, so the roadmap's own
+history is honest: IC-7A is a genuine, disclosed exception to the
+"strict sequence" rule, not a silent reordering.
+
+**Scope**: hardened exactly 3 functions (`inventory_create_draft`,
+`inventory_finalize_posting_internal`, `inventory_create_and_finalize`)
+plus one system-movement-type guard. Did NOT touch: receiving,
+reversal, reservations, allocations, containers, branch transfer,
+RepairOrder attribution, or Zone 5 — none of their own architecture was
+reopened. Did NOT fix: the posted-header GUC UPDATE bypass, reservation/
+allocation raw-write RLS, container generic raw-write policies, or the
+systemic `anon` default-privilege re-grant behavior — all remain
+explicitly OPEN, recorded for the full IC-7 phase below.
+
+**RESULT (2026-09-16, IC-7A implemented and DONE)**: full detail —
+live-reproduced exploit, caller-graph audit, the internalize-vs-harden-
+in-place decision, the self-caught system-type-guard defect, the
+103-scenario-reordering regression this pass's own fix surfaced and
+fixed, the post-fix exploit replay — is in `inventory-core-architecture.
+md` §9A and `docs/inventory/inventory-core-progress.md`'s own IC-7A
+change-log entry. Full evidence bundle: `docs/inventory/reviews/
+ic-7a-movement-engine-security-review/`. **IC-7A is DONE.** IC-4 may now
+proceed once separately authorized.
+
+---
+
 ## IC-4 — Branch Transfer / MMJ Rebuild
 
 **Goal**: repair the broken `inventory_accept_branch_transfer`/`inventory_
@@ -840,6 +888,20 @@ status, live-verified.
 
 **Hard STOP condition before IC-8**: regression green, external review
 accepted.
+
+**NOTE (2026-09-16, added by IC-7A, does NOT mark this phase done)**: the
+single most severe item that was on this phase's own list —
+`inventory_create_draft`/public `inventory_finalize_posting`/`inventory_
+create_and_finalize` carrying live `anon` EXECUTE with zero actor/
+permission check, a full authentication bypass — was pulled forward and
+CLOSED early as IC-7A (see the dedicated section above, between IC-3 and
+IC-4). This phase's own remaining scope is UNCHANGED and still fully
+OPEN: the posted-header GUC UPDATE bypass, reservation/allocation
+raw-write RLS, container generic raw-write policies, the systemic `anon`
+default-privilege re-grant behavior (root cause confirmed by IC-7A but
+deliberately not changed, given its schema-wide blast radius), and
+`inventory_branch_transfers`/`_lines` (pending IC-4). **IC-7 itself is
+NOT done** — only the one item IC-7A closed early is done.
 
 ---
 

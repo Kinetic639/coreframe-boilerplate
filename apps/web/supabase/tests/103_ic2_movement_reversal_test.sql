@@ -179,6 +179,122 @@ INSERT INTO test_log(line) SELECT is(
 RESET ROLE;
 
 -- ===========================================================================
+-- SCENARIO E: security-boundary correction -- explicit effects cannot be
+-- reached or abused by any ordinary caller (external review P0, fixed).
+-- ===========================================================================
+-- REPOSITIONED (IC-7A emergency security pass, 2026-09-16): originally ran
+-- AFTER Scenario C. IC-7A added a genuine actor+permission check to
+-- inventory_create_draft itself (previously it had none at all) -- Scenario
+-- C's own final negative test (T22) strips e2e_user's inventory permission
+-- for the REST of this shared transaction (the established, documented
+-- convention: user_effective_permissions has no wildcard row, so a DELETE
+-- is a permanent, org-wide mutation). Scenario E's own draft_e creation
+-- (line ~321 below) previously succeeded regardless, since inventory_
+-- create_draft had no permission check to trip on the already-stripped
+-- e2e_user -- now that it correctly does, Scenario E must run BEFORE
+-- Scenario C's own strip, exactly mirroring the SAME reasoning already
+-- documented for Scenario D above. Only the POSITION of this block moved;
+-- not one assertion, fixture value, or line of Scenario E's own logic was
+-- changed -- see the review bundle's own migration-summary.md for the
+-- live-caught regression this reordering fixes.
+CREATE TEMP TABLE fxe (org uuid, branch uuid, e2e_user uuid, variant_1 uuid, unit_1 uuid, loc_a uuid);
+GRANT SELECT ON fxe TO authenticated, anon;
+INSERT INTO fxe SELECT
+  '9f98fe91-63b8-4986-a2b3-65bdd47684c9'::uuid, gen_random_uuid(),
+  'c4a24371-42db-4bb8-ab5e-379ebbf7d9c4'::uuid, 'fe364ce2-1f72-4df5-ab92-6361ec95e0da'::uuid,
+  '571dfd6c-eba2-42c2-8ad9-f39a2d103b6d'::uuid, gen_random_uuid();
+INSERT INTO branches (id, organization_id, name, branch_number) SELECT branch, org, '103-ic2-scenario-e', 974 FROM fxe;
+INSERT INTO warehouse_locations (id, organization_id, branch_id, name, can_store_inventory) SELECT loc_a, org, branch, '103-ic2-e-loc', true FROM fxe;
+
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fxe)::text, 'role', 'authenticated')::text, true);
+
+CREATE TEMP TABLE draft_e AS
+SELECT inventory_create_draft(
+  (SELECT org FROM fxe), (SELECT branch FROM fxe), '101',
+  jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxe), 'unit_id', (SELECT unit_1 FROM fxe), 'quantity', 10, 'source_location_id', NULL, 'destination_location_id', (SELECT loc_a FROM fxe))),
+  NULL, NULL, NULL, NULL, NULL, NULL, (SELECT e2e_user FROM fxe)
+) AS result;
+
+CREATE TEMP TABLE effect_101_e AS
+SELECT e.id FROM inventory_movement_type_effects e JOIN inventory_movement_types mt ON mt.id=e.movement_type_id
+WHERE mt.organization_id=(SELECT org FROM fxe) AND mt.code='101';
+CREATE TEMP TABLE effect_401_e AS
+SELECT e.id FROM inventory_movement_type_effects e JOIN inventory_movement_types mt ON mt.id=e.movement_type_id
+WHERE mt.organization_id=(SELECT org FROM fxe) AND mt.code='401';
+
+-- T29 (A): ordinary normal finalize still succeeds using catalog effects.
+CREATE TEMP TABLE normal_finalize_e AS
+SELECT inventory_finalize_posting(((SELECT result FROM draft_e)->>'movement_id')::uuid, (SELECT e2e_user FROM fxe)) AS result;
+INSERT INTO test_log(line) SELECT is((result->>'status'), 'posted', 'T29: ordinary 2-arg inventory_finalize_posting (catalog effects) still succeeds') FROM normal_finalize_e;
+
+INSERT INTO test_log(line) SELECT is(on_hand_quantity, 10::numeric, 'T30: balance is exactly the drafted quantity (10) -- not exploitable via the public 2-arg surface, which has no explicit-effects parameter at all') FROM inventory_balances
+WHERE organization_id=(SELECT org FROM fxe) AND branch_id=(SELECT branch FROM fxe) AND location_id=(SELECT loc_a FROM fxe) AND variant_id=(SELECT variant_1 FROM fxe);
+
+-- T31 (B): ordinary authenticated caller cannot supply arbitrary explicit
+-- effects -- the public function has no such parameter; attempting a 3-arg
+-- call fails because that signature no longer exists.
+CREATE TEMP TABLE draft_e2 AS
+SELECT inventory_create_draft(
+  (SELECT org FROM fxe), (SELECT branch FROM fxe), '101',
+  jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxe), 'unit_id', (SELECT unit_1 FROM fxe), 'quantity', 5, 'source_location_id', NULL, 'destination_location_id', (SELECT loc_a FROM fxe))),
+  NULL, NULL, NULL, NULL, NULL, NULL, (SELECT e2e_user FROM fxe)
+) AS result;
+
+DO $$
+DECLARE v_result jsonb;
+BEGIN
+  BEGIN
+    EXECUTE format('SELECT inventory_finalize_posting(%L::uuid, %L::uuid, %L::jsonb)',
+      ((SELECT result FROM draft_e2) ->> 'movement_id')::uuid, (SELECT e2e_user FROM fxe),
+      jsonb_build_object('1', jsonb_build_array(jsonb_build_object('id', (SELECT id FROM effect_101_e), 'target','destination','balance_field','on_hand','direction','increase','effect_order',1,'is_required',true)))::text
+    ) INTO v_result;
+    INSERT INTO test_log(line) SELECT fail('T31: expected the 3-arg public-named call to fail (signature does not exist), it succeeded instead (VULNERABLE)');
+  EXCEPTION WHEN OTHERS THEN
+    INSERT INTO test_log(line) SELECT is(SQLSTATE, '42883', 'T31: authenticated caller cannot supply explicit effects via the public surface -- 3-arg signature does not exist (42883)');
+  END;
+END $$;
+
+-- T32 (D): direct call to the internal custom-effects function is denied
+-- for authenticated (no EXECUTE grant -- confirmed via the exact live
+-- attack payload that was proven exploitable before this fix).
+DO $$
+DECLARE v_result jsonb;
+BEGIN
+  BEGIN
+    v_result := inventory_finalize_posting_internal(
+      ((SELECT result FROM draft_e2) ->> 'movement_id')::uuid,
+      (SELECT e2e_user FROM fxe),
+      jsonb_build_object('1', jsonb_build_array(
+        jsonb_build_object('id', (SELECT id FROM effect_101_e), 'target', 'destination', 'balance_field', 'on_hand', 'direction', 'increase', 'effect_order', 1, 'is_required', true),
+        jsonb_build_object('id', (SELECT id FROM effect_401_e), 'target', 'destination', 'balance_field', 'on_hand', 'direction', 'increase', 'effect_order', 2, 'is_required', true)
+      ))
+    );
+    INSERT INTO test_log(line) SELECT fail('T32: expected direct internal-function call to be denied, it succeeded instead (VULNERABLE -- this is the exact attack proven exploitable before the fix)');
+  EXCEPTION WHEN OTHERS THEN
+    INSERT INTO test_log(line) SELECT is(SQLSTATE, '42501', 'T32: authenticated caller is denied EXECUTE on inventory_finalize_posting_internal (42501) -- the exact live-proven attack path is now closed');
+  END;
+END $$;
+
+INSERT INTO test_log(line) SELECT is(on_hand_quantity, 10::numeric, 'T33: balance still exactly 10 (from T29) -- the draft_e2/draft_e2-targeted attack attempts left zero footprint, no doubling occurred') FROM inventory_balances
+WHERE organization_id=(SELECT org FROM fxe) AND branch_id=(SELECT branch FROM fxe) AND location_id=(SELECT loc_a FROM fxe) AND variant_id=(SELECT variant_1 FROM fxe);
+
+RESET ROLE;
+
+-- T34 (C): anon cannot reach the trusted explicit-effects path either --
+-- confirmed via has_function_privilege (the authoritative grant check;
+-- anon has no valid JWT/session in this pgTAP harness to actually invoke
+-- RPCs as, so grant-level proof is the correct, real verification here).
+INSERT INTO test_log(line) SELECT is(
+  has_function_privilege('anon', 'public.inventory_finalize_posting_internal(uuid,uuid,jsonb)'::regprocedure, 'EXECUTE'),
+  false, 'T34: anon has NO EXECUTE privilege on inventory_finalize_posting_internal'
+);
+INSERT INTO test_log(line) SELECT is(
+  has_function_privilege('authenticated', 'public.inventory_finalize_posting_internal(uuid,uuid,jsonb)'::regprocedure, 'EXECUTE'),
+  false, 'T35: authenticated also has NO EXECUTE privilege on inventory_finalize_posting_internal (only postgres, via same-owner SECURITY DEFINER calls, can reach it)'
+);
+
+-- ===========================================================================
 -- SCENARIO C: negative tests -- draft, already-reversed, reversal-of-reversal,
 -- reason validation, wrong actor, not-found/no-permission indistinguishable.
 -- ===========================================================================
@@ -301,107 +417,6 @@ BEGIN
 END $$;
 
 RESET ROLE;
-
--- ===========================================================================
--- SCENARIO E: security-boundary correction -- explicit effects cannot be
--- reached or abused by any ordinary caller (external review P0, fixed).
--- ===========================================================================
-CREATE TEMP TABLE fxe (org uuid, branch uuid, e2e_user uuid, variant_1 uuid, unit_1 uuid, loc_a uuid);
-GRANT SELECT ON fxe TO authenticated, anon;
-INSERT INTO fxe SELECT
-  '9f98fe91-63b8-4986-a2b3-65bdd47684c9'::uuid, gen_random_uuid(),
-  'c4a24371-42db-4bb8-ab5e-379ebbf7d9c4'::uuid, 'fe364ce2-1f72-4df5-ab92-6361ec95e0da'::uuid,
-  '571dfd6c-eba2-42c2-8ad9-f39a2d103b6d'::uuid, gen_random_uuid();
-INSERT INTO branches (id, organization_id, name, branch_number) SELECT branch, org, '103-ic2-scenario-e', 974 FROM fxe;
-INSERT INTO warehouse_locations (id, organization_id, branch_id, name, can_store_inventory) SELECT loc_a, org, branch, '103-ic2-e-loc', true FROM fxe;
-
-SET LOCAL ROLE authenticated;
-SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fxe)::text, 'role', 'authenticated')::text, true);
-
-CREATE TEMP TABLE draft_e AS
-SELECT inventory_create_draft(
-  (SELECT org FROM fxe), (SELECT branch FROM fxe), '101',
-  jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxe), 'unit_id', (SELECT unit_1 FROM fxe), 'quantity', 10, 'source_location_id', NULL, 'destination_location_id', (SELECT loc_a FROM fxe))),
-  NULL, NULL, NULL, NULL, NULL, NULL, (SELECT e2e_user FROM fxe)
-) AS result;
-
-CREATE TEMP TABLE effect_101_e AS
-SELECT e.id FROM inventory_movement_type_effects e JOIN inventory_movement_types mt ON mt.id=e.movement_type_id
-WHERE mt.organization_id=(SELECT org FROM fxe) AND mt.code='101';
-CREATE TEMP TABLE effect_401_e AS
-SELECT e.id FROM inventory_movement_type_effects e JOIN inventory_movement_types mt ON mt.id=e.movement_type_id
-WHERE mt.organization_id=(SELECT org FROM fxe) AND mt.code='401';
-
--- T29 (A): ordinary normal finalize still succeeds using catalog effects.
-CREATE TEMP TABLE normal_finalize_e AS
-SELECT inventory_finalize_posting(((SELECT result FROM draft_e)->>'movement_id')::uuid, (SELECT e2e_user FROM fxe)) AS result;
-INSERT INTO test_log(line) SELECT is((result->>'status'), 'posted', 'T29: ordinary 2-arg inventory_finalize_posting (catalog effects) still succeeds') FROM normal_finalize_e;
-
-INSERT INTO test_log(line) SELECT is(on_hand_quantity, 10::numeric, 'T30: balance is exactly the drafted quantity (10) -- not exploitable via the public 2-arg surface, which has no explicit-effects parameter at all') FROM inventory_balances
-WHERE organization_id=(SELECT org FROM fxe) AND branch_id=(SELECT branch FROM fxe) AND location_id=(SELECT loc_a FROM fxe) AND variant_id=(SELECT variant_1 FROM fxe);
-
--- T31 (B): ordinary authenticated caller cannot supply arbitrary explicit
--- effects -- the public function has no such parameter; attempting a 3-arg
--- call fails because that signature no longer exists.
-CREATE TEMP TABLE draft_e2 AS
-SELECT inventory_create_draft(
-  (SELECT org FROM fxe), (SELECT branch FROM fxe), '101',
-  jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxe), 'unit_id', (SELECT unit_1 FROM fxe), 'quantity', 5, 'source_location_id', NULL, 'destination_location_id', (SELECT loc_a FROM fxe))),
-  NULL, NULL, NULL, NULL, NULL, NULL, (SELECT e2e_user FROM fxe)
-) AS result;
-
-DO $$
-DECLARE v_result jsonb;
-BEGIN
-  BEGIN
-    EXECUTE format('SELECT inventory_finalize_posting(%L::uuid, %L::uuid, %L::jsonb)',
-      ((SELECT result FROM draft_e2) ->> 'movement_id')::uuid, (SELECT e2e_user FROM fxe),
-      jsonb_build_object('1', jsonb_build_array(jsonb_build_object('id', (SELECT id FROM effect_101_e), 'target','destination','balance_field','on_hand','direction','increase','effect_order',1,'is_required',true)))::text
-    ) INTO v_result;
-    INSERT INTO test_log(line) SELECT fail('T31: expected the 3-arg public-named call to fail (signature does not exist), it succeeded instead (VULNERABLE)');
-  EXCEPTION WHEN OTHERS THEN
-    INSERT INTO test_log(line) SELECT is(SQLSTATE, '42883', 'T31: authenticated caller cannot supply explicit effects via the public surface -- 3-arg signature does not exist (42883)');
-  END;
-END $$;
-
--- T32 (D): direct call to the internal custom-effects function is denied
--- for authenticated (no EXECUTE grant -- confirmed via the exact live
--- attack payload that was proven exploitable before this fix).
-DO $$
-DECLARE v_result jsonb;
-BEGIN
-  BEGIN
-    v_result := inventory_finalize_posting_internal(
-      ((SELECT result FROM draft_e2) ->> 'movement_id')::uuid,
-      (SELECT e2e_user FROM fxe),
-      jsonb_build_object('1', jsonb_build_array(
-        jsonb_build_object('id', (SELECT id FROM effect_101_e), 'target', 'destination', 'balance_field', 'on_hand', 'direction', 'increase', 'effect_order', 1, 'is_required', true),
-        jsonb_build_object('id', (SELECT id FROM effect_401_e), 'target', 'destination', 'balance_field', 'on_hand', 'direction', 'increase', 'effect_order', 2, 'is_required', true)
-      ))
-    );
-    INSERT INTO test_log(line) SELECT fail('T32: expected direct internal-function call to be denied, it succeeded instead (VULNERABLE -- this is the exact attack proven exploitable before the fix)');
-  EXCEPTION WHEN OTHERS THEN
-    INSERT INTO test_log(line) SELECT is(SQLSTATE, '42501', 'T32: authenticated caller is denied EXECUTE on inventory_finalize_posting_internal (42501) -- the exact live-proven attack path is now closed');
-  END;
-END $$;
-
-INSERT INTO test_log(line) SELECT is(on_hand_quantity, 10::numeric, 'T33: balance still exactly 10 (from T29) -- the draft_e2/draft_e2-targeted attack attempts left zero footprint, no doubling occurred') FROM inventory_balances
-WHERE organization_id=(SELECT org FROM fxe) AND branch_id=(SELECT branch FROM fxe) AND location_id=(SELECT loc_a FROM fxe) AND variant_id=(SELECT variant_1 FROM fxe);
-
-RESET ROLE;
-
--- T34 (C): anon cannot reach the trusted explicit-effects path either --
--- confirmed via has_function_privilege (the authoritative grant check;
--- anon has no valid JWT/session in this pgTAP harness to actually invoke
--- RPCs as, so grant-level proof is the correct, real verification here).
-INSERT INTO test_log(line) SELECT is(
-  has_function_privilege('anon', 'public.inventory_finalize_posting_internal(uuid,uuid,jsonb)'::regprocedure, 'EXECUTE'),
-  false, 'T34: anon has NO EXECUTE privilege on inventory_finalize_posting_internal'
-);
-INSERT INTO test_log(line) SELECT is(
-  has_function_privilege('authenticated', 'public.inventory_finalize_posting_internal(uuid,uuid,jsonb)'::regprocedure, 'EXECUTE'),
-  false, 'T35: authenticated also has NO EXECUTE privilege on inventory_finalize_posting_internal (only postgres, via same-owner SECURITY DEFINER calls, can reach it)'
-);
 
 SELECT count(*) FILTER (WHERE line NOT LIKE 'ok %') AS not_ok_count, count(*) AS total_assertions FROM test_log;
 
