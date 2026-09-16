@@ -1,0 +1,1740 @@
+diff --git a/apps/web/supabase-target/supabase/migrations/20260915183918_ic3_canonical_receive_primitive.sql b/apps/web/supabase-target/supabase/migrations/20260915183918_ic3_canonical_receive_primitive.sql
+new file mode 100644
+index 00000000..72d56b13
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260915183918_ic3_canonical_receive_primitive.sql
+@@ -0,0 +1,186 @@
++-- ============================================================================
++-- IC-3: RECEIVING CONSOLIDATION — canonical physical receiving primitive
++-- ============================================================================
++-- Live-verified before writing this: `receive_repair_order_stock` (working,
++-- zero TS/UI callers today) posts through `inventory_create_and_finalize`
++-- correctly. `inventory_receive_purchase_order` (also zero TS/UI callers,
++-- confirmed via repo-wide grep) is DEAD/BROKEN -- it calls `inventory_
++-- create_draft_movement`/`inventory_post_movement`, neither of which EXISTS
++-- in this database (confirmed via pg_proc) -- so it fails 42883 on every
++-- real invocation today. Neither wrapper's refactor carries any live-data
++-- migration risk (0 rows in inventory_purchase_orders; both audit-confirmed
++-- to have zero UI callers).
++--
++-- SEPARATE, PRE-EXISTING, SEVERE finding recorded for IC-7 (NOT fixed here,
++-- per explicit IC-3 scope): `inventory_create_and_finalize`, `inventory_
++-- create_draft`, and the public `inventory_finalize_posting` all carry live
++-- `anon` EXECUTE and perform ZERO actor-identity or permission check of
++-- their own. Live-proven via a safe, transaction-scoped, rolled-back probe:
++-- a fully unauthenticated `anon` role (no JWT claims, no auth.uid(), no
++-- session) can call `inventory_create_and_finalize` directly and post a
++-- real, immutable movement to ANY organization/branch it can name a UUID
++-- for. This is a full authentication bypass -- strictly worse than the IC-2
++-- explicit-effects P0, which at minimum required a valid authenticated
++-- session. This primitive does NOT fix that gap (it is pre-existing,
++-- predates IC-1, and fixing it would mean auditing every legitimate current
++-- caller of these three functions -- an IC-7-sized undertaking). What THIS
++-- migration does do, per explicit instruction ("any NEW function created by
++-- IC-3 must be correctly secured now"): give this new primitive its OWN
++-- actor-identity + permission checks BEFORE it ever calls down into the
++-- unguarded engine layer, exactly matching the established pattern already
++-- proven in `receive_repair_order_stock`/`inventory_reverse_movement`.
++--
++-- DESIGN: domain-agnostic. Knows nothing about RepairOrders, Matcher
++-- provenance, or Purchase Orders. Accepts pre-resolved per-line destination
++-- locations (the underlying engine's own `inventory_movement_lines` shape)
++-- rather than a single top-level destination, because the two real wrappers
++-- resolve destination differently (RepairOrder: one branch receiving
++-- location for every line; PO: per-line override falling back to the PO's
++-- own delivery location) -- that resolution POLICY belongs in the wrapper,
++-- per the brief's own §13. Delegates ALL physical effects through the
++-- existing `inventory_create_and_finalize` -> `inventory_finalize_posting`
++-- (public, catalog-effects-only, frozen IC-2 contract) path -- no direct
++-- balance/ledger writes, no second posting engine, movement type is the
++-- existing canonical 101 receipt (live-confirmed single destination-
++-- increase effect, catalog-only, no explicit-effects involvement at all).
++--
++-- LOT/SERIAL: `inventory_movement_lines`/`inventory_balances` carry lot_id/
++-- serial_id columns, but `inventory_create_draft`'s own `jsonb_to_recordset`
++-- extraction does not read them from `p_lines`, and `inventory_finalize_
++-- posting_internal` hardcodes NULL::uuid for both when resolving the
++-- balance row (`inventory_get_or_create_balance_for_update(..., NULL::uuid,
++-- NULL::uuid)`) regardless of what a movement line carries. This is a
++-- pre-existing "v1: on_hand only, lot/serial-blind" engine limitation
++-- (already self-documented as v1 elsewhere in this engine) -- NOT something
++-- this primitive invents partial support for. `p_lines` therefore
++-- deliberately omits lot_id/serial_id/currency (any caller-supplied value
++-- would be silently dropped by the lower layer regardless), matching what
++-- the engine actually does today, honestly.
++--
++-- REFERENCE METADATA: `inventory_movement_headers.reference_type`/
++-- `reference_id` are NOT threaded through by this primitive. Neither real
++-- wrapper's current behavior sets them on a receiving movement (`receive_
++-- repair_order_stock` never has; the broken PO function's intended contract
++-- for them is unverifiable, since the functions it called never existed).
++-- Deliberately deferred rather than invented -- can be added later via a
++-- narrow, additive extension if a genuine need arises.
++--
++-- IDEMPOTENCY: `inventory_movement_headers_org_idempotency_uidx` (a partial
++-- UNIQUE index on (organization_id, idempotency_key) WHERE idempotency_key
++-- IS NOT NULL, pre-existing) already makes double-posting impossible even
++-- under genuine concurrent retries with the same key -- but `inventory_
++-- create_draft` does not catch the resulting `23505`, so the LOSING
++-- concurrent caller would otherwise see a raw, unhandled constraint
++-- violation. This primitive catches exactly that (identified via `GET
++-- STACKED DIAGNOSTICS ... CONSTRAINT_NAME`, not fragile message-text
++-- matching) and returns the WINNING caller's now-committed, already-posted
++-- movement gracefully instead -- a genuine idempotency behavior, not merely
++-- a sequential-retry short-circuit.
++
++CREATE OR REPLACE FUNCTION public.inventory_receive_stock(
++  p_actor_user_id uuid,
++  p_organization_id uuid,
++  p_branch_id uuid,
++  p_lines jsonb,
++  p_operation_date date DEFAULT NULL::date,
++  p_document_date date DEFAULT NULL::date,
++  p_external_reference text DEFAULT NULL::text,
++  p_note text DEFAULT NULL::text,
++  p_idempotency_key text DEFAULT NULL::text
++)
++RETURNS jsonb
++LANGUAGE plpgsql
++SECURITY DEFINER
++SET search_path TO 'public', 'pg_temp'
++AS $function$
++DECLARE
++  v_engine_lines jsonb := '[]'::jsonb;
++  v_line jsonb;
++  v_line_index integer := 0;
++  v_engine_result jsonb;
++  v_movement_id uuid;
++  v_existing_header_id uuid;
++  v_lines_out jsonb;
++  v_constraint text;
++BEGIN
++  IF p_actor_user_id IS NULL OR p_actor_user_id IS DISTINCT FROM auth.uid() THEN
++    RAISE EXCEPTION 'p_actor_user_id must match the authenticated caller' USING ERRCODE = '28000';
++  END IF;
++
++  IF NOT (
++    public.has_branch_permission(p_organization_id, p_branch_id, 'warehouse.inventory.operate')
++    OR public.has_branch_permission(p_organization_id, p_branch_id, 'warehouse.inventory.adjust')
++  ) THEN
++    RAISE EXCEPTION 'Not authorized to receive stock for this branch' USING ERRCODE = '42501';
++  END IF;
++
++  IF p_lines IS NULL OR jsonb_array_length(p_lines) = 0 THEN
++    RAISE EXCEPTION 'At least one line is required' USING ERRCODE = '22023';
++  END IF;
++
++  FOR v_line IN SELECT * FROM jsonb_array_elements(p_lines)
++  LOOP
++    v_line_index := v_line_index + 1;
++
++    IF NULLIF(v_line->>'destination_location_id', '') IS NULL THEN
++      RAISE EXCEPTION 'Line %: destination_location_id is required for a physical receipt', v_line_index USING ERRCODE = '22023';
++    END IF;
++
++    IF NULLIF(v_line->>'quantity', '') IS NULL OR (v_line->>'quantity')::numeric <= 0 THEN
++      RAISE EXCEPTION 'Line %: quantity must be positive', v_line_index USING ERRCODE = '22023';
++    END IF;
++
++    v_engine_lines := v_engine_lines || jsonb_build_array(jsonb_build_object(
++      'variant_id', v_line->>'variant_id',
++      'unit_id', v_line->>'unit_id',
++      'quantity', (v_line->>'quantity')::numeric,
++      'source_location_id', NULL,
++      'destination_location_id', v_line->>'destination_location_id',
++      'unit_cost', v_line->>'unit_cost',
++      'note', v_line->>'note'
++    ));
++  END LOOP;
++
++  BEGIN
++    v_engine_result := public.inventory_create_and_finalize(
++      p_organization_id, p_branch_id, '101', v_engine_lines,
++      p_operation_date, p_document_date, NULL, p_external_reference, p_note,
++      p_idempotency_key, p_actor_user_id
++    );
++  EXCEPTION WHEN unique_violation THEN
++    GET STACKED DIAGNOSTICS v_constraint = CONSTRAINT_NAME;
++    IF v_constraint IS DISTINCT FROM 'inventory_movement_headers_org_idempotency_uidx' THEN
++      RAISE;
++    END IF;
++
++    SELECT id INTO v_existing_header_id
++    FROM public.inventory_movement_headers
++    WHERE organization_id = p_organization_id AND idempotency_key = p_idempotency_key;
++
++    IF v_existing_header_id IS NULL THEN
++      RAISE;
++    END IF;
++
++    v_engine_result := public.inventory_finalize_posting(v_existing_header_id, p_actor_user_id);
++  END;
++
++  v_movement_id := (v_engine_result->>'movement_id')::uuid;
++
++  SELECT jsonb_agg(jsonb_build_object(
++    'line_number', line_number,
++    'movement_line_id', id,
++    'variant_id', variant_id,
++    'quantity', quantity,
++    'destination_location_id', destination_location_id
++  ) ORDER BY line_number)
++  INTO v_lines_out
++  FROM public.inventory_movement_lines
++  WHERE movement_id = v_movement_id AND deleted_at IS NULL;
++
++  RETURN v_engine_result || jsonb_build_object('lines', v_lines_out);
++END;
++$function$;
++
++REVOKE ALL ON FUNCTION public.inventory_receive_stock(uuid, uuid, uuid, jsonb, date, date, text, text, text) FROM PUBLIC;
++REVOKE ALL ON FUNCTION public.inventory_receive_stock(uuid, uuid, uuid, jsonb, date, date, text, text, text) FROM anon;
++GRANT EXECUTE ON FUNCTION public.inventory_receive_stock(uuid, uuid, uuid, jsonb, date, date, text, text, text) TO authenticated, service_role;
+diff --git a/apps/web/supabase-target/supabase/migrations/20260915184005_ic3_receive_repair_order_stock_wrapper_refactor.sql b/apps/web/supabase-target/supabase/migrations/20260915184005_ic3_receive_repair_order_stock_wrapper_refactor.sql
+new file mode 100644
+index 00000000..c32c4bd2
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260915184005_ic3_receive_repair_order_stock_wrapper_refactor.sql
+@@ -0,0 +1,163 @@
++-- ============================================================================
++-- IC-3: refactor `receive_repair_order_stock` into a thin business wrapper
++-- over the new canonical `inventory_receive_stock` primitive.
++-- ============================================================================
++-- KEPT EXACTLY UNCHANGED (byte-identical logic, just relocated): actor
++-- identity check; permission check (`.operate` OR `.adjust`); non-empty
++-- p_lines check; branch receiving-location resolution (`resolve_branch_
++-- receiving_location`); per-line `source_line_id` provenance resolution via
++-- `workshop_source_document_lines` -> `repair_order_line_source_links` ->
++-- `repair_order_lines` (0 candidates -> P0002, >1 -> 55000, wrong org/branch
++-- -> 42501, variant mismatch -> 22023); the `ambra.repair_order_attribution_
++-- authoritative` GUC set before posting; the post-posting loop calling
++-- `attach_repair_order_line_movement` and upserting `repair_order_line_
++-- locations` for every attributed line, skipping unattributed lines
++-- entirely (source_line_id = NULL stays unattributed, never fabricated).
++--
++-- CHANGED: the physical posting step. Previously called `inventory_create_
++-- and_finalize(..., '101', v_engine_lines, ...)` directly. Now calls the new
++-- `inventory_receive_stock(...)` primitive with the SAME resolved lines
++-- (each carrying `destination_location_id = v_receiving_location_id`, the
++-- one, already-resolved branch receiving location -- this wrapper's own
++-- policy, not the primitive's). The movement-line correlation that used to
++-- require a second SELECT against `inventory_movement_lines` now comes
++-- directly from the primitive's own returned `lines` array (already ordered
++-- by `line_number`, matching input array order exactly) -- one fewer query,
++-- same correlation guarantee (ordinal position, never SKU/variant alone).
++--
++-- Idempotency behavior is now ALSO hardened for this wrapper for free: a
++-- genuinely concurrent retry with the same `p_idempotency_key` that would
++-- previously have surfaced a raw, unhandled `23505` now returns the
++-- winning caller's already-posted movement gracefully (see the primitive's
++-- own migration for the mechanism) -- this wrapper's own downstream
++-- attribution step then correctly (and unchanged) rejects a genuine
++-- duplicate attribution attempt via `attach_repair_order_line_movement`'s
++-- own pre-existing `ON CONFLICT ... DO NOTHING` + explicit-raise behavior,
++-- which is preserved exactly, not altered.
++
++CREATE OR REPLACE FUNCTION public.receive_repair_order_stock(p_actor_user_id uuid, p_organization_id uuid, p_branch_id uuid, p_lines jsonb, p_operation_date date DEFAULT NULL::date, p_document_date date DEFAULT NULL::date, p_external_reference text DEFAULT NULL::text, p_note text DEFAULT NULL::text, p_idempotency_key text DEFAULT NULL::text)
++ RETURNS jsonb
++ LANGUAGE plpgsql
++ SECURITY DEFINER
++ SET search_path TO 'public', 'pg_temp'
++AS $function$
++DECLARE
++  v_receiving_location_id uuid;
++  v_engine_lines           jsonb := '[]'::jsonb;
++  v_line                    jsonb;
++  v_line_index              integer := 0;
++  v_source_line_id          uuid;
++  v_resolved_rol_id         uuid;
++  v_resolved_ro_id          uuid;
++  v_resolved_variant_id     uuid;
++  v_candidate_count         integer;
++  v_attribution             jsonb := '[]'::jsonb;  -- parallel array: repair_order_line_id or null, per input line order
++  v_engine_result           jsonb;
++  v_movement_id             uuid;
++  v_engine_line             jsonb;
++  v_movement_line_id        uuid;
++  v_i                       integer;
++  v_qty                     numeric;
++BEGIN
++  IF p_actor_user_id IS NULL OR p_actor_user_id IS DISTINCT FROM auth.uid() THEN
++    RAISE EXCEPTION 'p_actor_user_id must match the authenticated caller' USING ERRCODE = '28000';
++  END IF;
++
++  IF NOT (
++    public.has_branch_permission(p_organization_id, p_branch_id, 'warehouse.inventory.operate')
++    OR public.has_branch_permission(p_organization_id, p_branch_id, 'warehouse.inventory.adjust')
++  ) THEN
++    RAISE EXCEPTION 'Not authorized to receive stock for this branch' USING ERRCODE = '42501';
++  END IF;
++
++  IF p_lines IS NULL OR jsonb_array_length(p_lines) = 0 THEN
++    RAISE EXCEPTION 'At least one line is required' USING ERRCODE = '22023';
++  END IF;
++
++  v_receiving_location_id := public.resolve_branch_receiving_location(p_organization_id, p_branch_id);
++
++  FOR v_line IN SELECT * FROM jsonb_array_elements(p_lines)
++  LOOP
++    v_line_index := v_line_index + 1;
++    v_source_line_id := NULLIF(v_line->>'source_line_id', '')::uuid;
++    v_resolved_rol_id := NULL;
++    v_resolved_ro_id := NULL;
++    v_resolved_variant_id := NULL;
++
++    IF v_source_line_id IS NOT NULL THEN
++      SELECT count(*), min(rol.id::text)::uuid, min(rol.repair_order_id::text)::uuid, min(rol.variant_id::text)::uuid
++        INTO v_candidate_count, v_resolved_rol_id, v_resolved_ro_id, v_resolved_variant_id
++      FROM public.workshop_source_document_lines wsdl
++      JOIN public.repair_order_line_source_links rols ON rols.workshop_source_document_line_id = wsdl.id
++      JOIN public.repair_order_lines rol ON rol.id = rols.repair_order_line_id
++      WHERE wsdl.wdd_matcher_line_id = v_source_line_id;
++
++      IF v_candidate_count = 0 THEN
++        RAISE EXCEPTION 'source_line_id % (line %) did not resolve to any RepairOrderLine -- broken provenance must never be silently received as unattributed', v_source_line_id, v_line_index
++          USING ERRCODE = 'P0002';
++      ELSIF v_candidate_count > 1 THEN
++        RAISE EXCEPTION 'source_line_id % (line %) resolved ambiguously to % RepairOrderLine candidates -- ambiguous provenance must never be silently resolved by picking one', v_source_line_id, v_line_index, v_candidate_count
++          USING ERRCODE = '55000';
++      END IF;
++
++      IF NOT EXISTS (
++        SELECT 1 FROM public.repair_orders ro
++        WHERE ro.id = v_resolved_ro_id
++          AND ro.organization_id = p_organization_id AND ro.branch_id = p_branch_id
++      ) THEN
++        RAISE EXCEPTION 'Resolved RepairOrder for line % does not belong to the target organization/branch', v_line_index USING ERRCODE = '42501';
++      END IF;
++
++      IF v_resolved_variant_id IS NOT NULL AND v_resolved_variant_id IS DISTINCT FROM (v_line->>'variant_id')::uuid THEN
++        RAISE EXCEPTION 'Resolved RepairOrderLine variant for line % does not match the received variant', v_line_index USING ERRCODE = '22023';
++      END IF;
++    END IF;
++
++    v_engine_lines := v_engine_lines || jsonb_build_array(jsonb_build_object(
++      'variant_id', v_line->>'variant_id',
++      'unit_id', v_line->>'unit_id',
++      'quantity', (v_line->>'quantity')::numeric,
++      'destination_location_id', v_receiving_location_id,
++      'note', v_line->>'note'
++    ));
++    v_attribution := v_attribution || jsonb_build_array(v_resolved_rol_id);
++  END LOOP;
++
++  PERFORM set_config('ambra.repair_order_attribution_authoritative', 'on', true);
++
++  v_engine_result := public.inventory_receive_stock(
++    p_actor_user_id, p_organization_id, p_branch_id, v_engine_lines,
++    p_operation_date, p_document_date, p_external_reference, p_note, p_idempotency_key
++  );
++
++  v_movement_id := (v_engine_result->>'movement_id')::uuid;
++
++  FOR v_i IN 1..coalesce(jsonb_array_length(v_engine_result->'lines'), 0)
++  LOOP
++    v_resolved_rol_id := NULLIF(v_attribution->>(v_i - 1), 'null')::uuid;
++    CONTINUE WHEN v_resolved_rol_id IS NULL;
++
++    v_engine_line := (v_engine_result->'lines')->(v_i - 1);
++    v_movement_line_id := (v_engine_line->>'movement_line_id')::uuid;
++    v_qty := (v_engine_line->>'quantity')::numeric;
++    SELECT repair_order_id INTO v_resolved_ro_id FROM public.repair_order_lines WHERE id = v_resolved_rol_id;
++
++    PERFORM public.attach_repair_order_line_movement(
++      p_actor_user_id, v_resolved_rol_id, v_movement_line_id, v_qty, 'receipt'
++    );
++
++    INSERT INTO public.repair_order_line_locations
++      (organization_id, branch_id, repair_order_id, repair_order_line_id, variant_id, location_id, quantity)
++    VALUES (p_organization_id, p_branch_id, v_resolved_ro_id, v_resolved_rol_id,
++            (v_engine_line->>'variant_id')::uuid, v_receiving_location_id, v_qty)
++    ON CONFLICT (repair_order_line_id, location_id)
++    DO UPDATE SET quantity = public.repair_order_line_locations.quantity + EXCLUDED.quantity;
++  END LOOP;
++
++  RETURN v_engine_result || jsonb_build_object('receiving_location_id', v_receiving_location_id);
++END;
++$function$;
++
++REVOKE ALL ON FUNCTION public.receive_repair_order_stock(uuid, uuid, uuid, jsonb, date, date, text, text, text) FROM PUBLIC;
++REVOKE ALL ON FUNCTION public.receive_repair_order_stock(uuid, uuid, uuid, jsonb, date, date, text, text, text) FROM anon;
++GRANT EXECUTE ON FUNCTION public.receive_repair_order_stock(uuid, uuid, uuid, jsonb, date, date, text, text, text) TO authenticated, service_role;
+diff --git a/apps/web/supabase-target/supabase/migrations/20260915184050_ic3_inventory_receive_purchase_order_wrapper_refactor.sql b/apps/web/supabase-target/supabase/migrations/20260915184050_ic3_inventory_receive_purchase_order_wrapper_refactor.sql
+new file mode 100644
+index 00000000..2349e6bf
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260915184050_ic3_inventory_receive_purchase_order_wrapper_refactor.sql
+@@ -0,0 +1,171 @@
++-- ============================================================================
++-- IC-3: refactor/fix `inventory_receive_purchase_order` into a thin business
++-- wrapper over the new canonical `inventory_receive_stock` primitive.
++-- ============================================================================
++-- LIVE-CONFIRMED BEFORE THIS MIGRATION: the pre-existing body called
++-- `public.inventory_create_draft_movement(...)` and `public.inventory_post_
++-- movement(...)` -- NEITHER FUNCTION EXISTS in this database (confirmed via
++-- pg_proc; zero rows). Every real invocation of this RPC has therefore
++-- always failed with `42883: function ... does not exist`. Repo-wide grep
++-- confirms ZERO UI callers, ZERO server-action callers reached from any
++-- component, and the only test coverage is a static string-match against
++-- the migration file's own text (not a behavioral test) -- this function
++-- has never successfully posted a single real receipt. `inventory_purchase_
++-- orders` has 0 live rows. Per explicit instruction ("If the function is
++-- dead or materially broken: do not fake parity. Report it and still
++-- consolidate its valid business contract if appropriate"), this migration
++-- does NOT attempt to preserve the broken physical-posting call -- it
++-- replaces ONLY that step with the new canonical primitive, while keeping
++-- every genuine PO-specific business rule byte-identical to the original
++-- (deliberately intended, still-correct) source:
++--
++-- KEPT EXACTLY: PO row lock (`FOR UPDATE`) and not-found check;
++-- `warehouse.procurement.manage` permission check (a real, live permission
++-- slug, confirmed via the `permissions` table); PO status guard (`received`/
++-- `closed`/`cancelled` cannot be received again); non-empty p_lines check;
++-- per-line PO-line row lock and not-found check; quantity>0 and
++-- `received_quantity + qty > ordered_quantity` over-receipt rejection;
++-- destination resolution (`p_lines` per-line override, falling back to
++-- `v_po.delivery_location_id`) with a required-destination check;
++-- `received_quantity` increment on each PO line; final PO status
++-- recomputation (`received` iff no line remains open, else
++-- `partially_received`) using the SAME `inventory_purchase_orders_status_
++-- check` values the table's own CHECK constraint allows.
++--
++-- CHANGED (the physical-posting step only): the previous, always-broken
++-- calls to `inventory_create_draft_movement`/`inventory_post_movement` are
++-- replaced with a single call to `inventory_receive_stock`, passing each
++-- resolved receipt line (variant_id, unit_id, quantity,
++-- destination_location_id, unit_cost) through unchanged. `p_idempotency_key`
++-- is now a REAL, engine-enforced idempotency key (`'po-receipt-' ||
++-- po_id || '-' || a caller-supplied idempotency token`) rather than the
++-- previous body's own `clock_timestamp()`-suffixed value, which made the
++-- old (never-successfully-executing) call NEVER idempotent by construction
++-- -- this is a genuine improvement, not merely a compatibility shim, and is
++-- disclosed as such since there is no prior working behavior to regress
++-- against.
++--
++-- SECURITY MODEL HARDENED (new IC-3 code, not an IC-7 pre-existing-gap
++-- fix): the original function had NO `SECURITY DEFINER` clause (defaulted
++-- to INVOKER) and NO actor-identity check against `auth.uid()` at all --
++-- `p_actor_user_id` was accepted and used only for the `posted_by` stamp,
++-- fully spoofable. This migration makes it `SECURITY DEFINER` (owner
++-- `postgres`, matching every other canonical Inventory Core RPC) and adds
++-- the same actor-identity check every sibling RPC already uses. This does
++-- not "fake parity" with prior behavior -- the prior behavior could never
++-- successfully run past the physical-posting step, so there is no working
++-- security contract being weakened; this establishes the FIRST working one.
++
++CREATE OR REPLACE FUNCTION public.inventory_receive_purchase_order(p_purchase_order_id uuid, p_lines jsonb, p_actor_user_id uuid DEFAULT NULL::uuid, p_idempotency_key text DEFAULT NULL::text)
++ RETURNS jsonb
++ LANGUAGE plpgsql
++ SECURITY DEFINER
++ SET search_path TO 'public', 'pg_temp'
++AS $function$
++DECLARE
++  v_po public.inventory_purchase_orders%ROWTYPE;
++  v_line jsonb;
++  v_po_line public.inventory_purchase_order_lines%ROWTYPE;
++  v_receipt_lines jsonb := '[]'::jsonb;
++  v_qty numeric(18, 6);
++  v_location_id uuid;
++  v_movement jsonb;
++  v_remaining_open integer;
++  v_final_status text;
++BEGIN
++  IF p_actor_user_id IS NULL OR p_actor_user_id IS DISTINCT FROM auth.uid() THEN
++    RAISE EXCEPTION 'p_actor_user_id must match the authenticated caller' USING ERRCODE = '28000';
++  END IF;
++
++  SELECT * INTO v_po
++  FROM public.inventory_purchase_orders
++  WHERE id = p_purchase_order_id
++  FOR UPDATE;
++
++  IF NOT FOUND THEN
++    RAISE EXCEPTION 'Purchase order not found' USING ERRCODE = 'P0002';
++  END IF;
++
++  IF NOT public.has_branch_permission(v_po.organization_id, v_po.branch_id, 'warehouse.procurement.manage') THEN
++    RAISE EXCEPTION 'Missing warehouse.procurement.manage permission' USING ERRCODE = '42501';
++  END IF;
++
++  IF v_po.status IN ('received', 'closed', 'cancelled') THEN
++    RAISE EXCEPTION 'Purchase order cannot be received in current status' USING ERRCODE = '55000';
++  END IF;
++
++  IF jsonb_typeof(p_lines) <> 'array' OR jsonb_array_length(p_lines) = 0 THEN
++    RAISE EXCEPTION 'At least one receipt line is required' USING ERRCODE = '22023';
++  END IF;
++
++  FOR v_line IN SELECT * FROM jsonb_array_elements(p_lines)
++  LOOP
++    SELECT * INTO v_po_line
++    FROM public.inventory_purchase_order_lines
++    WHERE id = (v_line ->> 'purchase_order_line_id')::uuid
++      AND purchase_order_id = v_po.id
++    FOR UPDATE;
++
++    IF NOT FOUND THEN
++      RAISE EXCEPTION 'Purchase order line not found' USING ERRCODE = 'P0002';
++    END IF;
++
++    v_qty := (v_line ->> 'quantity')::numeric;
++    IF v_qty IS NULL OR v_qty <= 0 OR v_po_line.received_quantity + v_qty > v_po_line.ordered_quantity THEN
++      RAISE EXCEPTION 'Receipt quantity exceeds open purchase order quantity' USING ERRCODE = '22023';
++    END IF;
++
++    v_location_id := coalesce(nullif(v_line ->> 'destination_location_id', '')::uuid, v_po.delivery_location_id);
++    IF v_location_id IS NULL THEN
++      RAISE EXCEPTION 'Receipt destination location is required' USING ERRCODE = '22023';
++    END IF;
++
++    UPDATE public.inventory_purchase_order_lines
++    SET received_quantity = received_quantity + v_qty, updated_at = now()
++    WHERE id = v_po_line.id;
++
++    v_receipt_lines := v_receipt_lines || jsonb_build_array(jsonb_build_object(
++      'variant_id', v_po_line.variant_id,
++      'unit_id', v_po_line.unit_id,
++      'quantity', v_qty,
++      'destination_location_id', v_location_id,
++      'unit_cost', v_po_line.unit_cost
++    ));
++  END LOOP;
++
++  v_movement := public.inventory_receive_stock(
++    p_actor_user_id, v_po.organization_id, v_po.branch_id, v_receipt_lines,
++    NULL, NULL, NULL, 'Purchase order receipt',
++    CASE WHEN p_idempotency_key IS NOT NULL THEN 'po-receipt-' || v_po.id::text || '-' || p_idempotency_key ELSE NULL END
++  );
++
++  SELECT count(*) INTO v_remaining_open
++  FROM public.inventory_purchase_order_lines
++  WHERE purchase_order_id = v_po.id
++    AND received_quantity < ordered_quantity;
++
++  v_final_status := CASE WHEN v_remaining_open = 0 THEN 'received' ELSE 'partially_received' END;
++
++  UPDATE public.inventory_purchase_orders
++  SET status = v_final_status, updated_at = now()
++  WHERE id = v_po.id;
++
++  RETURN jsonb_build_object(
++    'purchase_order_id', v_po.id,
++    'status', v_final_status,
++    'movement_id', v_movement ->> 'movement_id',
++    'document_number', v_movement ->> 'document_number',
++    'lines', v_movement -> 'lines'
++  );
++END;
++$function$;
++
++REVOKE ALL ON FUNCTION public.inventory_receive_purchase_order(uuid, jsonb, uuid, text) FROM PUBLIC;
++REVOKE ALL ON FUNCTION public.inventory_receive_purchase_order(uuid, jsonb, uuid, text) FROM anon;
++GRANT EXECUTE ON FUNCTION public.inventory_receive_purchase_order(uuid, jsonb, uuid, text) TO authenticated, service_role;
++
++-- Live-caught pattern (same as IC-1/IC-2, hit repeatedly this project): adding
++-- a 4th parameter creates a NEW overload rather than replacing the old 3-arg
++-- signature. Drop the old, broken, insecure 3-arg overload explicitly so it
++-- cannot remain independently callable.
++DROP FUNCTION IF EXISTS public.inventory_receive_purchase_order(uuid, jsonb, uuid);
+diff --git a/apps/web/supabase-target/supabase/migrations/20260915184448_ic3_fix_po_wrapper_idempotency_state_mutation_race.sql b/apps/web/supabase-target/supabase/migrations/20260915184448_ic3_fix_po_wrapper_idempotency_state_mutation_race.sql
+new file mode 100644
+index 00000000..b9a7bba4
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260915184448_ic3_fix_po_wrapper_idempotency_state_mutation_race.sql
+@@ -0,0 +1,164 @@
++-- ============================================================================
++-- IC-3 self-caught defect, fixed BEFORE any test exercised it: the previous
++-- migration's `inventory_receive_purchase_order` incremented `received_
++-- quantity` (and validated over-receipt) BEFORE calling the idempotency-
++-- aware `inventory_receive_stock` primitive. A retry with the SAME derived
++-- idempotency key would therefore double-increment `received_quantity` even
++-- though the underlying PHYSICAL movement is correctly deduplicated by the
++-- primitive -- the wrapper's own business-state mutation was not idempotent,
++-- violating the explicit IC-3 requirement that "the wrapper must not
++-- duplicate business attribution/state writes" on an idempotent hit.
++--
++-- FIX: pre-check for an existing movement under the derived idempotency key
++-- IMMEDIATELY after acquiring the PO row's own `FOR UPDATE` lock (already
++-- present, unchanged) and BEFORE touching any PO line. If found, short-
++-- circuit and return the PO's current (already-correct) state without any
++-- further mutation. This is RACE-SAFE against two genuinely concurrent
++-- calls for the SAME purchase_order_id, not merely sequential-retry-safe:
++-- both sessions contend for the SAME `v_po` row lock at the very start of
++-- the function (unchanged from the original design), so a second, losing
++-- session blocks until the first COMMITS, then re-reads and correctly sees
++-- the now-committed movement row and takes the short-circuit path BEFORE
++-- any duplicate `received_quantity` increment -- the pre-existing PO-row
++-- lock is what makes this pattern safe, not a new locking mechanism.
++
++CREATE OR REPLACE FUNCTION public.inventory_receive_purchase_order(p_purchase_order_id uuid, p_lines jsonb, p_actor_user_id uuid DEFAULT NULL::uuid, p_idempotency_key text DEFAULT NULL::text)
++ RETURNS jsonb
++ LANGUAGE plpgsql
++ SECURITY DEFINER
++ SET search_path TO 'public', 'pg_temp'
++AS $function$
++DECLARE
++  v_po public.inventory_purchase_orders%ROWTYPE;
++  v_line jsonb;
++  v_po_line public.inventory_purchase_order_lines%ROWTYPE;
++  v_receipt_lines jsonb := '[]'::jsonb;
++  v_qty numeric(18, 6);
++  v_location_id uuid;
++  v_movement jsonb;
++  v_remaining_open integer;
++  v_final_status text;
++  v_derived_idempotency_key text;
++  v_existing_movement_id uuid;
++BEGIN
++  IF p_actor_user_id IS NULL OR p_actor_user_id IS DISTINCT FROM auth.uid() THEN
++    RAISE EXCEPTION 'p_actor_user_id must match the authenticated caller' USING ERRCODE = '28000';
++  END IF;
++
++  SELECT * INTO v_po
++  FROM public.inventory_purchase_orders
++  WHERE id = p_purchase_order_id
++  FOR UPDATE;
++
++  IF NOT FOUND THEN
++    RAISE EXCEPTION 'Purchase order not found' USING ERRCODE = 'P0002';
++  END IF;
++
++  IF NOT public.has_branch_permission(v_po.organization_id, v_po.branch_id, 'warehouse.procurement.manage') THEN
++    RAISE EXCEPTION 'Missing warehouse.procurement.manage permission' USING ERRCODE = '42501';
++  END IF;
++
++  v_derived_idempotency_key := CASE WHEN p_idempotency_key IS NOT NULL
++    THEN 'po-receipt-' || v_po.id::text || '-' || p_idempotency_key
++    ELSE NULL END;
++
++  IF v_derived_idempotency_key IS NOT NULL THEN
++    SELECT id INTO v_existing_movement_id
++    FROM public.inventory_movement_headers
++    WHERE organization_id = v_po.organization_id AND idempotency_key = v_derived_idempotency_key;
++
++    IF v_existing_movement_id IS NOT NULL THEN
++      -- Idempotent retry of an already-processed PO receipt (or the losing
++      -- side of a genuine concurrent race, now unblocked and re-reading
++      -- post-commit state under the same v_po row lock): return current
++      -- state without re-validating or re-mutating any PO line.
++      RETURN jsonb_build_object(
++        'purchase_order_id', v_po.id,
++        'status', v_po.status,
++        'movement_id', v_existing_movement_id,
++        'document_number', (SELECT document_number FROM public.inventory_movement_headers WHERE id = v_existing_movement_id),
++        'lines', (
++          SELECT jsonb_agg(jsonb_build_object(
++            'line_number', line_number, 'movement_line_id', id,
++            'variant_id', variant_id, 'quantity', quantity,
++            'destination_location_id', destination_location_id
++          ) ORDER BY line_number)
++          FROM public.inventory_movement_lines
++          WHERE movement_id = v_existing_movement_id AND deleted_at IS NULL
++        )
++      );
++    END IF;
++  END IF;
++
++  IF v_po.status IN ('received', 'closed', 'cancelled') THEN
++    RAISE EXCEPTION 'Purchase order cannot be received in current status' USING ERRCODE = '55000';
++  END IF;
++
++  IF jsonb_typeof(p_lines) <> 'array' OR jsonb_array_length(p_lines) = 0 THEN
++    RAISE EXCEPTION 'At least one receipt line is required' USING ERRCODE = '22023';
++  END IF;
++
++  FOR v_line IN SELECT * FROM jsonb_array_elements(p_lines)
++  LOOP
++    SELECT * INTO v_po_line
++    FROM public.inventory_purchase_order_lines
++    WHERE id = (v_line ->> 'purchase_order_line_id')::uuid
++      AND purchase_order_id = v_po.id
++    FOR UPDATE;
++
++    IF NOT FOUND THEN
++      RAISE EXCEPTION 'Purchase order line not found' USING ERRCODE = 'P0002';
++    END IF;
++
++    v_qty := (v_line ->> 'quantity')::numeric;
++    IF v_qty IS NULL OR v_qty <= 0 OR v_po_line.received_quantity + v_qty > v_po_line.ordered_quantity THEN
++      RAISE EXCEPTION 'Receipt quantity exceeds open purchase order quantity' USING ERRCODE = '22023';
++    END IF;
++
++    v_location_id := coalesce(nullif(v_line ->> 'destination_location_id', '')::uuid, v_po.delivery_location_id);
++    IF v_location_id IS NULL THEN
++      RAISE EXCEPTION 'Receipt destination location is required' USING ERRCODE = '22023';
++    END IF;
++
++    UPDATE public.inventory_purchase_order_lines
++    SET received_quantity = received_quantity + v_qty, updated_at = now()
++    WHERE id = v_po_line.id;
++
++    v_receipt_lines := v_receipt_lines || jsonb_build_array(jsonb_build_object(
++      'variant_id', v_po_line.variant_id,
++      'unit_id', v_po_line.unit_id,
++      'quantity', v_qty,
++      'destination_location_id', v_location_id,
++      'unit_cost', v_po_line.unit_cost
++    ));
++  END LOOP;
++
++  v_movement := public.inventory_receive_stock(
++    p_actor_user_id, v_po.organization_id, v_po.branch_id, v_receipt_lines,
++    NULL, NULL, NULL, 'Purchase order receipt', v_derived_idempotency_key
++  );
++
++  SELECT count(*) INTO v_remaining_open
++  FROM public.inventory_purchase_order_lines
++  WHERE purchase_order_id = v_po.id
++    AND received_quantity < ordered_quantity;
++
++  v_final_status := CASE WHEN v_remaining_open = 0 THEN 'received' ELSE 'partially_received' END;
++
++  UPDATE public.inventory_purchase_orders
++  SET status = v_final_status, updated_at = now()
++  WHERE id = v_po.id;
++
++  RETURN jsonb_build_object(
++    'purchase_order_id', v_po.id,
++    'status', v_final_status,
++    'movement_id', v_movement ->> 'movement_id',
++    'document_number', v_movement ->> 'document_number',
++    'lines', v_movement -> 'lines'
++  );
++END;
++$function$;
++
++REVOKE ALL ON FUNCTION public.inventory_receive_purchase_order(uuid, jsonb, uuid, text) FROM PUBLIC;
++REVOKE ALL ON FUNCTION public.inventory_receive_purchase_order(uuid, jsonb, uuid, text) FROM anon;
++GRANT EXECUTE ON FUNCTION public.inventory_receive_purchase_order(uuid, jsonb, uuid, text) TO authenticated, service_role;
+diff --git a/apps/web/supabase/tests/104_ic3_receiving_consolidation_test.sql b/apps/web/supabase/tests/104_ic3_receiving_consolidation_test.sql
+new file mode 100644
+index 00000000..5770ab2f
+--- /dev/null
++++ b/apps/web/supabase/tests/104_ic3_receiving_consolidation_test.sql
+@@ -0,0 +1,499 @@
++-- ============================================================================
++-- TEST: IC-3 -- Receiving Consolidation
++-- ============================================================================
++-- Proves the new canonical `inventory_receive_stock` primitive (Scenario F),
++-- the refactored `receive_repair_order_stock` wrapper (Scenario G), and the
++-- refactored/fixed `inventory_receive_purchase_order` wrapper (Scenario H)
++-- all behave correctly, atomically, and securely, on top of the SAME
++-- underlying canonical engine (`inventory_create_and_finalize` ->
++-- `inventory_finalize_posting`, the frozen IC-2 catalog-effects-only public
++-- contract -- `inventory_finalize_posting_internal` is never called by any
++-- of this phase's own code).
++--
++-- ORDERING NOTE (same convention as 099/103): `user_effective_permissions`
++-- has no wildcard row -- every granular permission is its own materialized
++-- exact-slug row, and DELETing one is a permanent, ORG-WIDE mutation for
++-- the rest of this shared transaction. Scenario J (permission negatives)
++-- therefore runs LAST, after every other scenario that depends on
++-- `warehouse.inventory.operate`/`.adjust`/`.reverse` or `warehouse.
++-- procurement.manage` has already run.
++--
++-- Executed live against supabase-target via Supabase MCP.
++
++BEGIN;
++
++SELECT plan(44);
++
++CREATE TEMP TABLE test_log (seq serial, line text);
++GRANT INSERT, SELECT ON test_log TO authenticated;
++GRANT USAGE ON SEQUENCE test_log_seq_seq TO authenticated;
++
++-- ============================================================================
++-- SCENARIO F: the canonical `inventory_receive_stock` primitive, directly.
++-- ============================================================================
++
++CREATE TEMP TABLE fxf (org uuid, branch uuid, e2e_user uuid, variant_1 uuid, unit_1 uuid, loc_a uuid, loc_b uuid, loc_c uuid);
++GRANT SELECT ON fxf TO authenticated;
++INSERT INTO fxf SELECT
++  '9f98fe91-63b8-4986-a2b3-65bdd47684c9'::uuid, gen_random_uuid(),
++  'c4a24371-42db-4bb8-ab5e-379ebbf7d9c4'::uuid, 'fe364ce2-1f72-4df5-ab92-6361ec95e0da'::uuid,
++  '571dfd6c-eba2-42c2-8ad9-f39a2d103b6d'::uuid, gen_random_uuid(), gen_random_uuid(), gen_random_uuid();
++
++INSERT INTO branches (id, organization_id, name, branch_number) SELECT branch, org, '104-ic3-scenario-f', 980 FROM fxf;
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, can_store_inventory) SELECT loc_a, org, branch, '104-f-loc-a', true FROM fxf;
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, can_store_inventory) SELECT loc_b, org, branch, '104-f-loc-b', true FROM fxf;
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, can_store_inventory) SELECT loc_c, org, branch, '104-f-loc-c', true FROM fxf;
++
++SET LOCAL ROLE authenticated;
++SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fxf)::text, 'role', 'authenticated')::text, true);
++
++-- F1-F4: two same-variant lines in one call.
++CREATE TEMP TABLE recv_f AS
++SELECT inventory_receive_stock(
++  (SELECT e2e_user FROM fxf), (SELECT org FROM fxf), (SELECT branch FROM fxf),
++  jsonb_build_array(
++    jsonb_build_object('variant_id', (SELECT variant_1 FROM fxf), 'unit_id', (SELECT unit_1 FROM fxf), 'quantity', 2, 'destination_location_id', (SELECT loc_a FROM fxf)),
++    jsonb_build_object('variant_id', (SELECT variant_1 FROM fxf), 'unit_id', (SELECT unit_1 FROM fxf), 'quantity', 3, 'destination_location_id', (SELECT loc_a FROM fxf))
++  ),
++  NULL, NULL, 'F-test', 'F note', 'f-idem-1'
++) AS result;
++
++INSERT INTO test_log(line) SELECT is((result->>'status'), 'posted', 'F1: two-line same-variant receive via the primitive posts successfully') FROM recv_f;
++INSERT INTO test_log(line) SELECT is(on_hand_quantity, 5::numeric, 'F2: aggregate balance is exactly 2+3=5') FROM inventory_balances WHERE organization_id=(SELECT org FROM fxf) AND branch_id=(SELECT branch FROM fxf) AND location_id=(SELECT loc_a FROM fxf) AND variant_id=(SELECT variant_1 FROM fxf);
++INSERT INTO test_log(line) SELECT is(jsonb_array_length(result->'lines'), 2, 'F3: returned lines array has exactly 2 entries') FROM recv_f;
++INSERT INTO test_log(line) SELECT isnt(((result->'lines'->0)->>'movement_line_id'), ((result->'lines'->1)->>'movement_line_id'), 'F4: the two same-variant lines map to two DISTINCT movement_line_ids (never merged)') FROM recv_f;
++
++-- F5-F6: sequential idempotent retry, same key -- no double-post.
++CREATE TEMP TABLE recv_f_retry AS
++SELECT inventory_receive_stock(
++  (SELECT e2e_user FROM fxf), (SELECT org FROM fxf), (SELECT branch FROM fxf),
++  jsonb_build_array(
++    jsonb_build_object('variant_id', (SELECT variant_1 FROM fxf), 'unit_id', (SELECT unit_1 FROM fxf), 'quantity', 2, 'destination_location_id', (SELECT loc_a FROM fxf)),
++    jsonb_build_object('variant_id', (SELECT variant_1 FROM fxf), 'unit_id', (SELECT unit_1 FROM fxf), 'quantity', 3, 'destination_location_id', (SELECT loc_a FROM fxf))
++  ),
++  NULL, NULL, 'F-test', 'F note', 'f-idem-1'
++) AS result;
++INSERT INTO test_log(line) SELECT is((result->>'movement_id'), (SELECT result->>'movement_id' FROM recv_f), 'F5: sequential retry with the SAME idempotency key returns the SAME movement_id') FROM recv_f_retry;
++INSERT INTO test_log(line) SELECT is(on_hand_quantity, 5::numeric, 'F6: balance still exactly 5 after the retry -- no double-post') FROM inventory_balances WHERE organization_id=(SELECT org FROM fxf) AND branch_id=(SELECT branch FROM fxf) AND location_id=(SELECT loc_a FROM fxf) AND variant_id=(SELECT variant_1 FROM fxf);
++
++-- F7: negative -- missing destination.
++DO $$ BEGIN BEGIN
++  PERFORM inventory_receive_stock((SELECT e2e_user FROM fxf), (SELECT org FROM fxf), (SELECT branch FROM fxf),
++    jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxf), 'unit_id', (SELECT unit_1 FROM fxf), 'quantity', 1)),
++    NULL, NULL, NULL, NULL, NULL);
++  INSERT INTO test_log(line) SELECT fail('F7: expected missing-destination rejection, succeeded instead');
++EXCEPTION WHEN OTHERS THEN
++  INSERT INTO test_log(line) SELECT is(SQLSTATE, '22023', 'F7: missing destination_location_id is rejected (22023)');
++END; END $$;
++
++-- F8: negative -- quantity <= 0.
++DO $$ BEGIN BEGIN
++  PERFORM inventory_receive_stock((SELECT e2e_user FROM fxf), (SELECT org FROM fxf), (SELECT branch FROM fxf),
++    jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxf), 'unit_id', (SELECT unit_1 FROM fxf), 'quantity', 0, 'destination_location_id', (SELECT loc_a FROM fxf))),
++    NULL, NULL, NULL, NULL, NULL);
++  INSERT INTO test_log(line) SELECT fail('F8: expected non-positive-quantity rejection, succeeded instead');
++EXCEPTION WHEN OTHERS THEN
++  INSERT INTO test_log(line) SELECT is(SQLSTATE, '22023', 'F8: quantity <= 0 is rejected (22023)');
++END; END $$;
++
++-- F9: negative -- wrong actor (spoof).
++DO $$ BEGIN BEGIN
++  PERFORM inventory_receive_stock(gen_random_uuid(), (SELECT org FROM fxf), (SELECT branch FROM fxf),
++    jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxf), 'unit_id', (SELECT unit_1 FROM fxf), 'quantity', 1, 'destination_location_id', (SELECT loc_a FROM fxf))),
++    NULL, NULL, NULL, NULL, NULL);
++  INSERT INTO test_log(line) SELECT fail('F9: expected wrong-actor rejection, succeeded instead');
++EXCEPTION WHEN OTHERS THEN
++  INSERT INTO test_log(line) SELECT is(SQLSTATE, '28000', 'F9: p_actor_user_id not matching auth.uid() is rejected (28000)');
++END; END $$;
++
++-- F10-F11: side-by-side equivalence, primitive vs. direct legacy engine call.
++CREATE TEMP TABLE recv_f_prim AS
++SELECT inventory_receive_stock((SELECT e2e_user FROM fxf), (SELECT org FROM fxf), (SELECT branch FROM fxf),
++  jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxf), 'unit_id', (SELECT unit_1 FROM fxf), 'quantity', 7, 'destination_location_id', (SELECT loc_b FROM fxf))),
++  NULL, NULL, NULL, NULL, NULL) AS result;
++
++CREATE TEMP TABLE recv_f_legacy AS
++SELECT inventory_create_and_finalize((SELECT org FROM fxf), (SELECT branch FROM fxf), '101',
++  jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxf), 'unit_id', (SELECT unit_1 FROM fxf), 'quantity', 7, 'source_location_id', NULL, 'destination_location_id', (SELECT loc_c FROM fxf))),
++  NULL, NULL, NULL, NULL, NULL, NULL, (SELECT e2e_user FROM fxf)) AS result;
++
++INSERT INTO test_log(line) SELECT is(
++  (SELECT on_hand_quantity FROM inventory_balances WHERE organization_id=(SELECT org FROM fxf) AND branch_id=(SELECT branch FROM fxf) AND location_id=(SELECT loc_b FROM fxf) AND variant_id=(SELECT variant_1 FROM fxf)),
++  (SELECT on_hand_quantity FROM inventory_balances WHERE organization_id=(SELECT org FROM fxf) AND branch_id=(SELECT branch FROM fxf) AND location_id=(SELECT loc_c FROM fxf) AND variant_id=(SELECT variant_1 FROM fxf)),
++  'F10: primitive-posted and legacy-direct-posted receipts of equal quantity produce equal on_hand balances (7 == 7)'
++);
++INSERT INTO test_log(line) SELECT is(
++  (SELECT count(*) FROM inventory_stock_ledger_entries WHERE movement_id = ((SELECT result FROM recv_f_prim)->>'movement_id')::uuid),
++  (SELECT count(*) FROM inventory_stock_ledger_entries WHERE movement_id = ((SELECT result FROM recv_f_legacy)->>'movement_id')::uuid),
++  'F11: both paths produce the same number of ledger entries (1 each, destination-increase-only per 101 semantics)'
++);
++
++-- F12-F13: atomicity -- a 2-line call where line 2 is invalid leaves NO trace.
++CREATE TEMP TABLE header_count_before_f13 AS SELECT count(*) AS n FROM inventory_movement_headers WHERE organization_id=(SELECT org FROM fxf) AND branch_id=(SELECT branch FROM fxf);
++DO $$ BEGIN BEGIN
++  PERFORM inventory_receive_stock((SELECT e2e_user FROM fxf), (SELECT org FROM fxf), (SELECT branch FROM fxf),
++    jsonb_build_array(
++      jsonb_build_object('variant_id', (SELECT variant_1 FROM fxf), 'unit_id', (SELECT unit_1 FROM fxf), 'quantity', 1, 'destination_location_id', (SELECT loc_a FROM fxf)),
++      jsonb_build_object('variant_id', (SELECT variant_1 FROM fxf), 'unit_id', (SELECT unit_1 FROM fxf), 'quantity', 1)
++    ),
++    NULL, NULL, NULL, NULL, NULL);
++  INSERT INTO test_log(line) SELECT fail('F12: expected atomic rejection of the whole 2-line call, succeeded instead');
++EXCEPTION WHEN OTHERS THEN
++  INSERT INTO test_log(line) SELECT is(SQLSTATE, '22023', 'F12: 2nd line missing destination rejects the WHOLE call (22023)');
++END; END $$;
++INSERT INTO test_log(line) SELECT is(
++  (SELECT count(*) FROM inventory_movement_headers WHERE organization_id=(SELECT org FROM fxf) AND branch_id=(SELECT branch FROM fxf)),
++  (SELECT n FROM header_count_before_f13),
++  'F13: no orphan movement header was created by the atomically-rejected call (header count unchanged)'
++);
++
++RESET ROLE;
++
++-- ============================================================================
++-- SCENARIO G: `receive_repair_order_stock` wrapper.
++-- ============================================================================
++
++CREATE TEMP TABLE fxg (
++  org uuid, branch uuid, branch2 uuid, e2e_user uuid, variant_1 uuid, variant_2 uuid, unit_1 uuid,
++  ro uuid, rol_a uuid, rol_b uuid, ro2 uuid, rol_wrongorg uuid, rol_wrongvariant uuid,
++  receiving_loc uuid, receiving_loc2 uuid,
++  session_id uuid, session_file_id uuid, block_id uuid, doc_id uuid, doc_id2 uuid,
++  ml_a uuid, ml_b uuid, ml_ambig uuid, ml_wrongorg uuid, ml_wrongvariant uuid,
++  wsdl_a uuid, wsdl_b uuid, wsdl_ambig uuid, wsdl_ambig2 uuid, wsdl_wrongorg uuid, wsdl_wrongvariant uuid
++);
++GRANT SELECT ON fxg TO authenticated;
++INSERT INTO fxg SELECT
++  '9f98fe91-63b8-4986-a2b3-65bdd47684c9'::uuid, gen_random_uuid(), gen_random_uuid(),
++  'c4a24371-42db-4bb8-ab5e-379ebbf7d9c4'::uuid, 'fe364ce2-1f72-4df5-ab92-6361ec95e0da'::uuid, 'e11a5012-d136-4551-952d-6b264023737c'::uuid,
++  '571dfd6c-eba2-42c2-8ad9-f39a2d103b6d'::uuid,
++  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
++  gen_random_uuid(), gen_random_uuid(),
++  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
++  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
++  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid();
++
++INSERT INTO branches (id, organization_id, name, branch_number) SELECT branch, org, '104-ic3-scenario-g', 981 FROM fxg;
++INSERT INTO branches (id, organization_id, name, branch_number) SELECT branch2, org, '104-ic3-scenario-g-b2', 982 FROM fxg;
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, can_store_inventory, purpose) SELECT receiving_loc, org, branch, '104-g-receiving', true, 'receiving' FROM fxg;
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, can_store_inventory, purpose) SELECT receiving_loc2, org, branch2, '104-g-receiving-b2', true, 'receiving' FROM fxg;
++
++INSERT INTO repair_orders (id, organization_id, branch_id, order_number, status) SELECT ro, org, branch, '104-G-RO', 'open' FROM fxg;
++INSERT INTO repair_order_lines (id, repair_order_id, variant_id, product_code, product_name, ordered_quantity, unit) SELECT rol_a, ro, variant_1, '104-G-SKU', '104 G line A', 10, 'pcs' FROM fxg;
++INSERT INTO repair_order_lines (id, repair_order_id, variant_id, product_code, product_name, ordered_quantity, unit) SELECT rol_b, ro, variant_1, '104-G-SKU', '104 G line B (same SKU as A)', 10, 'pcs' FROM fxg;
++
++INSERT INTO repair_orders (id, organization_id, branch_id, order_number, status) SELECT ro2, org, branch2, '104-G-RO2-OTHER-BRANCH', 'open' FROM fxg;
++INSERT INTO repair_order_lines (id, repair_order_id, variant_id, product_code, product_name, ordered_quantity, unit) SELECT rol_wrongorg, ro2, variant_1, '104-G-SKU', '104 G line wrong-branch', 10, 'pcs' FROM fxg;
++INSERT INTO repair_order_lines (id, repair_order_id, variant_id, product_code, product_name, ordered_quantity, unit) SELECT rol_wrongvariant, ro, variant_2, '104-G-SKU-V2', '104 G line wrong-variant (variant_2)', 10, 'pcs' FROM fxg;
++
++INSERT INTO wdd_matcher_sessions (id, organization_id, branch_id, name) SELECT session_id, org, branch, '104-g-session' FROM fxg;
++INSERT INTO wdd_matcher_session_files (id, session_id, organization_id, file_role, file_name) SELECT session_file_id, session_id, org, 'wdd', '104-g-file.pdf' FROM fxg;
++INSERT INTO wdd_matcher_blocks (id, session_file_id, session_id, organization_id, block_index, block_type) SELECT block_id, session_file_id, session_id, org, 1, 'wdd_source' FROM fxg;
++
++INSERT INTO wdd_matcher_lines (id, block_id, session_id, organization_id, line_number, product_code, quantity) SELECT ml_a, block_id, session_id, org, 1, '104-G-SKU', 6 FROM fxg;
++INSERT INTO wdd_matcher_lines (id, block_id, session_id, organization_id, line_number, product_code, quantity) SELECT ml_b, block_id, session_id, org, 2, '104-G-SKU', 4 FROM fxg;
++INSERT INTO wdd_matcher_lines (id, block_id, session_id, organization_id, line_number, product_code, quantity) SELECT ml_ambig, block_id, session_id, org, 3, '104-G-SKU', 1 FROM fxg;
++INSERT INTO wdd_matcher_lines (id, block_id, session_id, organization_id, line_number, product_code, quantity) SELECT ml_wrongorg, block_id, session_id, org, 4, '104-G-SKU', 1 FROM fxg;
++INSERT INTO wdd_matcher_lines (id, block_id, session_id, organization_id, line_number, product_code, quantity) SELECT ml_wrongvariant, block_id, session_id, org, 5, '104-G-SKU', 1 FROM fxg;
++
++INSERT INTO workshop_source_documents (id, organization_id, branch_id, document_type, external_document_number, source_session_id) SELECT doc_id, org, branch, 'wdd', '104-G-DOC', session_id FROM fxg;
++-- A SECOND, independent source document -- needed for the ambiguity test:
++-- `workshop_source_document_lines`'s own unique index is composite
++-- (workshop_source_document_id, wdd_matcher_line_id), so the SAME matcher
++-- line can legitimately appear once per DISTINCT document (e.g. two
++-- different uploaded files both mentioning the same physical line) --
++-- that is the real mechanism the ambiguity check in `receive_repair_order_
++-- stock` guards against, not two links from one document line (which
++-- `repair_order_line_source_links_source_line_unique` already forbids
++-- outright, live-discovered while building this fixture).
++INSERT INTO workshop_source_documents (id, organization_id, branch_id, document_type, external_document_number, source_session_id) SELECT doc_id2, org, branch, 'wdd', '104-G-DOC-2', session_id FROM fxg;
++
++INSERT INTO workshop_source_document_lines (id, workshop_source_document_id, wdd_matcher_line_id, product_code, quantity) SELECT wsdl_a, doc_id, ml_a, '104-G-SKU', 6 FROM fxg;
++INSERT INTO workshop_source_document_lines (id, workshop_source_document_id, wdd_matcher_line_id, product_code, quantity) SELECT wsdl_b, doc_id, ml_b, '104-G-SKU', 4 FROM fxg;
++INSERT INTO workshop_source_document_lines (id, workshop_source_document_id, wdd_matcher_line_id, product_code, quantity) SELECT wsdl_ambig, doc_id, ml_ambig, '104-G-SKU', 1 FROM fxg;
++INSERT INTO workshop_source_document_lines (id, workshop_source_document_id, wdd_matcher_line_id, product_code, quantity) SELECT wsdl_ambig2, doc_id2, ml_ambig, '104-G-SKU', 1 FROM fxg;
++INSERT INTO workshop_source_document_lines (id, workshop_source_document_id, wdd_matcher_line_id, product_code, quantity) SELECT wsdl_wrongorg, doc_id, ml_wrongorg, '104-G-SKU', 1 FROM fxg;
++INSERT INTO workshop_source_document_lines (id, workshop_source_document_id, wdd_matcher_line_id, product_code, quantity) SELECT wsdl_wrongvariant, doc_id, ml_wrongvariant, '104-G-SKU', 1 FROM fxg;
++
++INSERT INTO repair_order_line_source_links (id, repair_order_line_id, workshop_source_document_line_id, quantity_contribution) SELECT gen_random_uuid(), rol_a, wsdl_a, 6 FROM fxg;
++INSERT INTO repair_order_line_source_links (id, repair_order_line_id, workshop_source_document_line_id, quantity_contribution) SELECT gen_random_uuid(), rol_b, wsdl_b, 4 FROM fxg;
++-- Ambiguous: the SAME wdd_matcher_line_id (ml_ambig) is reachable via TWO
++-- different workshop_source_document_lines rows (one per document), each
++-- correctly, uniquely linked (1:1) to a DIFFERENT RepairOrderLine.
++INSERT INTO repair_order_line_source_links (id, repair_order_line_id, workshop_source_document_line_id, quantity_contribution) SELECT gen_random_uuid(), rol_a, wsdl_ambig, 1 FROM fxg;
++INSERT INTO repair_order_line_source_links (id, repair_order_line_id, workshop_source_document_line_id, quantity_contribution) SELECT gen_random_uuid(), rol_b, wsdl_ambig2, 1 FROM fxg;
++INSERT INTO repair_order_line_source_links (id, repair_order_line_id, workshop_source_document_line_id, quantity_contribution) SELECT gen_random_uuid(), rol_wrongorg, wsdl_wrongorg, 1 FROM fxg;
++INSERT INTO repair_order_line_source_links (id, repair_order_line_id, workshop_source_document_line_id, quantity_contribution) SELECT gen_random_uuid(), rol_wrongvariant, wsdl_wrongvariant, 1 FROM fxg;
++
++SET LOCAL ROLE authenticated;
++SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fxg)::text, 'role', 'authenticated')::text, true);
++
++-- G1-G8: happy path -- 3 lines: rol_a (6), rol_b (4, same SKU as A, different RepairOrderLine), and one UNATTRIBUTED line (5).
++CREATE TEMP TABLE recv_g AS
++SELECT receive_repair_order_stock(
++  (SELECT e2e_user FROM fxg), (SELECT org FROM fxg), (SELECT branch FROM fxg),
++  jsonb_build_array(
++    jsonb_build_object('source_line_id', (SELECT ml_a FROM fxg), 'variant_id', (SELECT variant_1 FROM fxg), 'unit_id', (SELECT unit_1 FROM fxg), 'quantity', 6),
++    jsonb_build_object('source_line_id', (SELECT ml_b FROM fxg), 'variant_id', (SELECT variant_1 FROM fxg), 'unit_id', (SELECT unit_1 FROM fxg), 'quantity', 4),
++    jsonb_build_object('variant_id', (SELECT variant_1 FROM fxg), 'unit_id', (SELECT unit_1 FROM fxg), 'quantity', 5)
++  )
++) AS result;
++
++INSERT INTO test_log(line) SELECT is((result->>'status'), 'posted', 'G1: 3-line RepairOrder receipt (2 attributed + 1 unattributed) posts successfully') FROM recv_g;
++INSERT INTO test_log(line) SELECT is(on_hand_quantity, 15::numeric, 'G2: receiving location stock increases by the exact sum (6+4+5=15)') FROM inventory_balances WHERE organization_id=(SELECT org FROM fxg) AND branch_id=(SELECT branch FROM fxg) AND location_id=(SELECT receiving_loc FROM fxg) AND variant_id=(SELECT variant_1 FROM fxg);
++INSERT INTO test_log(line) SELECT is(
++  (SELECT applied_quantity FROM repair_order_line_movement_links WHERE repair_order_line_id = (SELECT rol_a FROM fxg)),
++  6::numeric, 'G3: rol_a''s own attribution link carries applied_quantity=6 exactly'
++);
++INSERT INTO test_log(line) SELECT is(
++  (SELECT applied_quantity FROM repair_order_line_movement_links WHERE repair_order_line_id = (SELECT rol_b FROM fxg)),
++  4::numeric, 'G4: rol_b''s own attribution link carries applied_quantity=4 exactly (same-SKU line independence, never merged with rol_a)'
++);
++INSERT INTO test_log(line) SELECT isnt(
++  (SELECT inventory_movement_line_id FROM repair_order_line_movement_links WHERE repair_order_line_id = (SELECT rol_a FROM fxg)),
++  (SELECT inventory_movement_line_id FROM repair_order_line_movement_links WHERE repair_order_line_id = (SELECT rol_b FROM fxg)),
++  'G5: rol_a and rol_b are attributed to two DISTINCT movement lines (no cross-line contamination)'
++);
++INSERT INTO test_log(line) SELECT is(
++  (SELECT quantity FROM repair_order_line_locations WHERE repair_order_line_id = (SELECT rol_a FROM fxg) AND location_id = (SELECT receiving_loc FROM fxg)),
++  6::numeric, 'G6: repair_order_line_locations seeded correctly for rol_a (quantity=6)'
++);
++INSERT INTO test_log(line) SELECT is(
++  (SELECT quantity FROM repair_order_line_locations WHERE repair_order_line_id = (SELECT rol_b FROM fxg) AND location_id = (SELECT receiving_loc FROM fxg)),
++  4::numeric, 'G7: repair_order_line_locations seeded correctly for rol_b (quantity=4)'
++);
++INSERT INTO test_log(line) SELECT is(
++  (SELECT count(*)::int FROM repair_order_line_movement_links rolml JOIN inventory_movement_lines iml ON iml.id = rolml.inventory_movement_line_id WHERE iml.movement_id = ((SELECT result FROM recv_g)->>'movement_id')::uuid),
++  2, 'G8: exactly 2 attribution links exist for this movement (the 3rd, unattributed line created NO fabricated attribution)'
++);
++
++-- G9: negative -- nonexistent source_line_id.
++DO $$ BEGIN BEGIN
++  PERFORM receive_repair_order_stock((SELECT e2e_user FROM fxg), (SELECT org FROM fxg), (SELECT branch FROM fxg),
++    jsonb_build_array(jsonb_build_object('source_line_id', gen_random_uuid(), 'variant_id', (SELECT variant_1 FROM fxg), 'unit_id', (SELECT unit_1 FROM fxg), 'quantity', 1)));
++  INSERT INTO test_log(line) SELECT fail('G9: expected nonexistent-provenance rejection, succeeded instead');
++EXCEPTION WHEN OTHERS THEN
++  INSERT INTO test_log(line) SELECT is(SQLSTATE, 'P0002', 'G9: nonexistent source_line_id is rejected (P0002)');
++END; END $$;
++
++-- G10: negative -- ambiguous source_line_id (ml_ambig resolves to 2 RepairOrderLines).
++DO $$ BEGIN BEGIN
++  PERFORM receive_repair_order_stock((SELECT e2e_user FROM fxg), (SELECT org FROM fxg), (SELECT branch FROM fxg),
++    jsonb_build_array(jsonb_build_object('source_line_id', (SELECT ml_ambig FROM fxg), 'variant_id', (SELECT variant_1 FROM fxg), 'unit_id', (SELECT unit_1 FROM fxg), 'quantity', 1)));
++  INSERT INTO test_log(line) SELECT fail('G10: expected ambiguous-provenance rejection, succeeded instead');
++EXCEPTION WHEN OTHERS THEN
++  INSERT INTO test_log(line) SELECT is(SQLSTATE, '55000', 'G10: ambiguous source_line_id (2 RepairOrderLine candidates) is rejected (55000)');
++END; END $$;
++
++-- G11: negative -- source line resolves to a RepairOrder in a DIFFERENT branch than the call's own target.
++DO $$ BEGIN BEGIN
++  PERFORM receive_repair_order_stock((SELECT e2e_user FROM fxg), (SELECT org FROM fxg), (SELECT branch FROM fxg),
++    jsonb_build_array(jsonb_build_object('source_line_id', (SELECT ml_wrongorg FROM fxg), 'variant_id', (SELECT variant_1 FROM fxg), 'unit_id', (SELECT unit_1 FROM fxg), 'quantity', 1)));
++  INSERT INTO test_log(line) SELECT fail('G11: expected wrong-branch-provenance rejection, succeeded instead');
++EXCEPTION WHEN OTHERS THEN
++  INSERT INTO test_log(line) SELECT is(SQLSTATE, '42501', 'G11: source line resolving to a RepairOrder in a different branch is rejected (42501)');
++END; END $$;
++
++-- G12: negative -- resolved RepairOrderLine variant does not match the received variant.
++DO $$ BEGIN BEGIN
++  PERFORM receive_repair_order_stock((SELECT e2e_user FROM fxg), (SELECT org FROM fxg), (SELECT branch FROM fxg),
++    jsonb_build_array(jsonb_build_object('source_line_id', (SELECT ml_wrongvariant FROM fxg), 'variant_id', (SELECT variant_1 FROM fxg), 'unit_id', (SELECT unit_1 FROM fxg), 'quantity', 1)));
++  INSERT INTO test_log(line) SELECT fail('G12: expected variant-mismatch rejection, succeeded instead');
++EXCEPTION WHEN OTHERS THEN
++  INSERT INTO test_log(line) SELECT is(SQLSTATE, '22023', 'G12: resolved RepairOrderLine variant (variant_2) not matching received variant_1 is rejected (22023)');
++END; END $$;
++
++-- G13-G14: atomicity -- one good attributed line + one provenance-invalid line -> ZERO physical movement.
++CREATE TEMP TABLE header_count_before_g14 AS SELECT count(*) AS n FROM inventory_movement_headers WHERE organization_id=(SELECT org FROM fxg) AND branch_id=(SELECT branch FROM fxg);
++DO $$ BEGIN BEGIN
++  PERFORM receive_repair_order_stock((SELECT e2e_user FROM fxg), (SELECT org FROM fxg), (SELECT branch FROM fxg),
++    jsonb_build_array(
++      jsonb_build_object('variant_id', (SELECT variant_1 FROM fxg), 'unit_id', (SELECT unit_1 FROM fxg), 'quantity', 1),
++      jsonb_build_object('source_line_id', gen_random_uuid(), 'variant_id', (SELECT variant_1 FROM fxg), 'unit_id', (SELECT unit_1 FROM fxg), 'quantity', 1)
++    ));
++  INSERT INTO test_log(line) SELECT fail('G13: expected the whole 2-line call to be rejected atomically, succeeded instead');
++EXCEPTION WHEN OTHERS THEN
++  INSERT INTO test_log(line) SELECT is(SQLSTATE, 'P0002', 'G13: 2nd line''s bad provenance rejects the WHOLE call (P0002)');
++END; END $$;
++INSERT INTO test_log(line) SELECT is(
++  (SELECT count(*) FROM inventory_movement_headers WHERE organization_id=(SELECT org FROM fxg) AND branch_id=(SELECT branch FROM fxg)),
++  (SELECT n FROM header_count_before_g14),
++  'G14: no orphan movement header was created by the atomically-rejected call (header count unchanged)'
++);
++
++RESET ROLE;
++
++-- ============================================================================
++-- SCENARIO H: `inventory_receive_purchase_order` wrapper.
++-- ============================================================================
++
++CREATE TEMP TABLE fxh (
++  org uuid, branch uuid, e2e_user uuid, variant_1 uuid, product_1 uuid, unit_1 uuid,
++  loc_delivery uuid, loc_override uuid, supplier_1 uuid,
++  po_1 uuid, poline_1 uuid, po_2 uuid, poline_2 uuid, po_nodest uuid, poline_nodest uuid
++);
++GRANT SELECT ON fxh TO authenticated;
++INSERT INTO fxh SELECT
++  '9f98fe91-63b8-4986-a2b3-65bdd47684c9'::uuid, gen_random_uuid(),
++  'c4a24371-42db-4bb8-ab5e-379ebbf7d9c4'::uuid, 'fe364ce2-1f72-4df5-ab92-6361ec95e0da'::uuid,
++  '72501d89-2de6-46bf-af3a-e4d063d3757c'::uuid, '571dfd6c-eba2-42c2-8ad9-f39a2d103b6d'::uuid,
++  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
++  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid();
++
++INSERT INTO branches (id, organization_id, name, branch_number) SELECT branch, org, '104-ic3-scenario-h', 983 FROM fxh;
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, can_store_inventory) SELECT loc_delivery, org, branch, '104-h-delivery', true FROM fxh;
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, can_store_inventory) SELECT loc_override, org, branch, '104-h-override', true FROM fxh;
++INSERT INTO inventory_suppliers (id, organization_id, name) SELECT supplier_1, org, '104-H-Supplier' FROM fxh;
++
++INSERT INTO inventory_purchase_orders (id, organization_id, branch_id, po_number, supplier_id, status, delivery_location_id)
++  SELECT po_1, org, branch, '104-PO-0001', supplier_1, 'ordered', loc_delivery FROM fxh;
++INSERT INTO inventory_purchase_order_lines (id, organization_id, branch_id, purchase_order_id, line_number, product_id, variant_id, unit_id, ordered_quantity, unit_cost)
++  SELECT poline_1, org, branch, po_1, 1, product_1, variant_1, unit_1, 10, 5.50 FROM fxh;
++
++INSERT INTO inventory_purchase_orders (id, organization_id, branch_id, po_number, supplier_id, status, delivery_location_id)
++  SELECT po_2, org, branch, '104-PO-0002', supplier_1, 'ordered', loc_delivery FROM fxh;
++INSERT INTO inventory_purchase_order_lines (id, organization_id, branch_id, purchase_order_id, line_number, product_id, variant_id, unit_id, ordered_quantity, unit_cost)
++  SELECT poline_2, org, branch, po_2, 1, product_1, variant_1, unit_1, 5, 5.50 FROM fxh;
++
++-- A PO with NO delivery_location_id, for the missing-destination negative test.
++INSERT INTO inventory_purchase_orders (id, organization_id, branch_id, po_number, supplier_id, status, delivery_location_id)
++  SELECT po_nodest, org, branch, '104-PO-0003-NODEST', supplier_1, 'ordered', NULL FROM fxh;
++INSERT INTO inventory_purchase_order_lines (id, organization_id, branch_id, purchase_order_id, line_number, product_id, variant_id, unit_id, ordered_quantity, unit_cost)
++  SELECT poline_nodest, org, branch, po_nodest, 1, product_1, variant_1, unit_1, 5, 5.50 FROM fxh;
++
++SET LOCAL ROLE authenticated;
++SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fxh)::text, 'role', 'authenticated')::text, true);
++
++-- H1-H4: partial receive, then complete it -- status transitions correctly.
++CREATE TEMP TABLE recv_h1 AS
++SELECT inventory_receive_purchase_order(
++  (SELECT po_1 FROM fxh),
++  jsonb_build_array(jsonb_build_object('purchase_order_line_id', (SELECT poline_1 FROM fxh), 'quantity', 6)),
++  (SELECT e2e_user FROM fxh), 'h-idem-1'
++) AS result;
++INSERT INTO test_log(line) SELECT is((result->>'status'), 'partially_received', 'H1: partial PO receipt (6 of 10) transitions status to partially_received') FROM recv_h1;
++INSERT INTO test_log(line) SELECT is(received_quantity, 6::numeric, 'H2: PO line received_quantity is exactly 6 after the partial receipt') FROM inventory_purchase_order_lines WHERE id = (SELECT poline_1 FROM fxh);
++INSERT INTO test_log(line) SELECT is(on_hand_quantity, 6::numeric, 'H3: physical stock at the delivery location increased by exactly 6') FROM inventory_balances WHERE organization_id=(SELECT org FROM fxh) AND branch_id=(SELECT branch FROM fxh) AND location_id=(SELECT loc_delivery FROM fxh) AND variant_id=(SELECT variant_1 FROM fxh);
++
++CREATE TEMP TABLE recv_h1b AS
++SELECT inventory_receive_purchase_order(
++  (SELECT po_1 FROM fxh),
++  jsonb_build_array(jsonb_build_object('purchase_order_line_id', (SELECT poline_1 FROM fxh), 'quantity', 4)),
++  (SELECT e2e_user FROM fxh), 'h-idem-2'
++) AS result;
++INSERT INTO test_log(line) SELECT is((result->>'status'), 'received', 'H4: completing the remaining 4 units transitions PO status to received') FROM recv_h1b;
++
++-- H5: negative -- nonexistent PO.
++DO $$ BEGIN BEGIN
++  PERFORM inventory_receive_purchase_order(gen_random_uuid(), jsonb_build_array(jsonb_build_object('purchase_order_line_id', gen_random_uuid(), 'quantity', 1)), (SELECT e2e_user FROM fxh), NULL);
++  INSERT INTO test_log(line) SELECT fail('H5: expected nonexistent-PO rejection, succeeded instead');
++EXCEPTION WHEN OTHERS THEN
++  INSERT INTO test_log(line) SELECT is(SQLSTATE, 'P0002', 'H5: nonexistent purchase order is rejected (P0002)');
++END; END $$;
++
++-- H6: negative -- invalid line (line belongs to a DIFFERENT PO).
++DO $$ BEGIN BEGIN
++  PERFORM inventory_receive_purchase_order((SELECT po_2 FROM fxh), jsonb_build_array(jsonb_build_object('purchase_order_line_id', (SELECT poline_1 FROM fxh), 'quantity', 1)), (SELECT e2e_user FROM fxh), NULL);
++  INSERT INTO test_log(line) SELECT fail('H6: expected wrong-PO-line rejection, succeeded instead');
++EXCEPTION WHEN OTHERS THEN
++  INSERT INTO test_log(line) SELECT is(SQLSTATE, 'P0002', 'H6: a purchase_order_line_id belonging to a DIFFERENT PO is rejected (P0002)');
++END; END $$;
++
++-- H7: negative -- receive above remaining quantity.
++DO $$ BEGIN BEGIN
++  PERFORM inventory_receive_purchase_order((SELECT po_2 FROM fxh), jsonb_build_array(jsonb_build_object('purchase_order_line_id', (SELECT poline_2 FROM fxh), 'quantity', 999)), (SELECT e2e_user FROM fxh), NULL);
++  INSERT INTO test_log(line) SELECT fail('H7: expected over-receipt rejection, succeeded instead');
++EXCEPTION WHEN OTHERS THEN
++  INSERT INTO test_log(line) SELECT is(SQLSTATE, '22023', 'H7: receiving more than the remaining open quantity is rejected (22023)');
++END; END $$;
++
++-- H8: negative -- already fully received (po_1 is now 'received' from H4).
++DO $$ BEGIN BEGIN
++  PERFORM inventory_receive_purchase_order((SELECT po_1 FROM fxh), jsonb_build_array(jsonb_build_object('purchase_order_line_id', (SELECT poline_1 FROM fxh), 'quantity', 1)), (SELECT e2e_user FROM fxh), NULL);
++  INSERT INTO test_log(line) SELECT fail('H8: expected already-received rejection, succeeded instead');
++EXCEPTION WHEN OTHERS THEN
++  INSERT INTO test_log(line) SELECT is(SQLSTATE, '55000', 'H8: a PO already fully received is rejected from receiving again (55000)');
++END; END $$;
++
++-- H9: negative -- no delivery_location_id and no per-line override.
++DO $$ BEGIN BEGIN
++  PERFORM inventory_receive_purchase_order((SELECT po_nodest FROM fxh), jsonb_build_array(jsonb_build_object('purchase_order_line_id', (SELECT poline_nodest FROM fxh), 'quantity', 1)), (SELECT e2e_user FROM fxh), NULL);
++  INSERT INTO test_log(line) SELECT fail('H9: expected missing-destination rejection, succeeded instead');
++EXCEPTION WHEN OTHERS THEN
++  INSERT INTO test_log(line) SELECT is(SQLSTATE, '22023', 'H9: no delivery_location_id and no per-line override is rejected (22023)');
++END; END $$;
++
++-- H10: per-line destination override works (different from the PO's own delivery_location_id).
++CREATE TEMP TABLE recv_h10 AS
++SELECT inventory_receive_purchase_order(
++  (SELECT po_2 FROM fxh),
++  jsonb_build_array(jsonb_build_object('purchase_order_line_id', (SELECT poline_2 FROM fxh), 'quantity', 5, 'destination_location_id', (SELECT loc_override FROM fxh))),
++  (SELECT e2e_user FROM fxh), 'h-idem-override'
++) AS result;
++INSERT INTO test_log(line) SELECT is((result->>'status'), 'received', 'H10a: per-line destination_location_id override is honored and PO completes') FROM recv_h10;
++INSERT INTO test_log(line) SELECT is(on_hand_quantity, 5::numeric, 'H10b: stock landed at the OVERRIDE location, not the PO''s own default delivery_location_id') FROM inventory_balances WHERE organization_id=(SELECT org FROM fxh) AND branch_id=(SELECT branch FROM fxh) AND location_id=(SELECT loc_override FROM fxh) AND variant_id=(SELECT variant_1 FROM fxh);
++
++-- H11-H12: idempotent retry -- received_quantity NOT double-incremented, same movement_id.
++CREATE TEMP TABLE recv_h1_retry AS
++SELECT inventory_receive_purchase_order(
++  (SELECT po_1 FROM fxh),
++  jsonb_build_array(jsonb_build_object('purchase_order_line_id', (SELECT poline_1 FROM fxh), 'quantity', 6)),
++  (SELECT e2e_user FROM fxh), 'h-idem-1'
++) AS result;
++INSERT INTO test_log(line) SELECT is((result->>'movement_id'), (SELECT result->>'movement_id' FROM recv_h1), 'H11: retrying the FIRST partial receipt with the same idempotency token returns the SAME movement_id') FROM recv_h1_retry;
++INSERT INTO test_log(line) SELECT is(received_quantity, 10::numeric, 'H12: received_quantity is still exactly 10 (6+4) after the retry -- NOT double-incremented to 16') FROM inventory_purchase_order_lines WHERE id = (SELECT poline_1 FROM fxh);
++
++-- H13: PO wrapper never touches RepairOrder attribution tables.
++INSERT INTO test_log(line) SELECT is(
++  (SELECT count(*)::int FROM repair_order_line_movement_links rolml
++   JOIN inventory_movement_lines iml ON iml.id = rolml.inventory_movement_line_id
++   WHERE iml.organization_id = (SELECT org FROM fxh) AND iml.branch_id = (SELECT branch FROM fxh)),
++  0, 'H13: zero repair_order_line_movement_links rows reference any movement line created by the PO wrapper'
++);
++
++RESET ROLE;
++
++-- ============================================================================
++-- SCENARIO J: permission negatives (run LAST -- org-wide, permanent for the
++-- rest of this transaction once stripped).
++-- ============================================================================
++
++DELETE FROM user_effective_permissions
++WHERE organization_id = '9f98fe91-63b8-4986-a2b3-65bdd47684c9'::uuid
++  AND user_id = 'c4a24371-42db-4bb8-ab5e-379ebbf7d9c4'::uuid
++  AND permission_slug_exact IN ('warehouse.inventory.operate', 'warehouse.inventory.adjust', 'warehouse.inventory.reverse', 'warehouse.procurement.manage');
++
++SET LOCAL ROLE authenticated;
++SELECT set_config('request.jwt.claims', json_build_object('sub', 'c4a24371-42db-4bb8-ab5e-379ebbf7d9c4', 'role', 'authenticated')::text, true);
++
++-- J1: primitive rejects with no permission.
++DO $$ BEGIN BEGIN
++  PERFORM inventory_receive_stock('c4a24371-42db-4bb8-ab5e-379ebbf7d9c4'::uuid, (SELECT org FROM fxf), (SELECT branch FROM fxf),
++    jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxf), 'unit_id', (SELECT unit_1 FROM fxf), 'quantity', 1, 'destination_location_id', (SELECT loc_a FROM fxf))),
++    NULL, NULL, NULL, NULL, NULL);
++  INSERT INTO test_log(line) SELECT fail('J1: expected no-permission rejection on the primitive, succeeded instead');
++EXCEPTION WHEN OTHERS THEN
++  INSERT INTO test_log(line) SELECT is(SQLSTATE, '42501', 'J1: inventory_receive_stock rejects an actor lacking warehouse.inventory.operate/.adjust (42501)');
++END; END $$;
++
++-- J2: RepairOrder wrapper rejects with no permission.
++DO $$ BEGIN BEGIN
++  PERFORM receive_repair_order_stock('c4a24371-42db-4bb8-ab5e-379ebbf7d9c4'::uuid, (SELECT org FROM fxg), (SELECT branch FROM fxg),
++    jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxg), 'unit_id', (SELECT unit_1 FROM fxg), 'quantity', 1)));
++  INSERT INTO test_log(line) SELECT fail('J2: expected no-permission rejection on the RepairOrder wrapper, succeeded instead');
++EXCEPTION WHEN OTHERS THEN
++  INSERT INTO test_log(line) SELECT is(SQLSTATE, '42501', 'J2: receive_repair_order_stock rejects an actor lacking warehouse.inventory.operate/.adjust (42501)');
++END; END $$;
++
++-- J3: PO wrapper rejects with no permission.
++DO $$ BEGIN BEGIN
++  PERFORM inventory_receive_purchase_order((SELECT po_2 FROM fxh), jsonb_build_array(jsonb_build_object('purchase_order_line_id', (SELECT poline_2 FROM fxh), 'quantity', 1)), 'c4a24371-42db-4bb8-ab5e-379ebbf7d9c4'::uuid, NULL);
++  INSERT INTO test_log(line) SELECT fail('J3: expected no-permission rejection on the PO wrapper, succeeded instead');
++EXCEPTION WHEN OTHERS THEN
++  INSERT INTO test_log(line) SELECT is(SQLSTATE, '42501', 'J3: inventory_receive_purchase_order rejects an actor lacking warehouse.procurement.manage (42501)');
++END; END $$;
++
++RESET ROLE;
++
++SELECT count(*) FILTER (WHERE line NOT LIKE 'ok %') AS not_ok_count, count(*) AS total_assertions FROM test_log;
++
++ROLLBACK;
+diff --git a/docs/inventory/inventory-core-architecture.md b/docs/inventory/inventory-core-architecture.md
+index b6a62d56..dce0a2af 100644
+--- a/docs/inventory/inventory-core-architecture.md
++++ b/docs/inventory/inventory-core-architecture.md
+@@ -468,6 +468,139 @@ and is corrected here. Precisely:
+ 
+ ---
+ 
++## 7A. Receiving Consolidation
++
++**✅ IMPLEMENTED (IC-3, 2026-09-16)**. Decision #14 (§0) — "Purchase Order
++and RepairOrder receiving must share one physical receiving primitive" —
++is now live.
++
++**Canonical physical primitive**: `inventory_receive_stock(p_actor_user_id
++uuid, p_organization_id uuid, p_branch_id uuid, p_lines jsonb,
++p_operation_date date DEFAULT NULL, p_document_date date DEFAULT NULL,
++p_external_reference text DEFAULT NULL, p_note text DEFAULT NULL,
++p_idempotency_key text DEFAULT NULL) RETURNS jsonb`. `SECURITY DEFINER`,
++owner `postgres`, `SET search_path TO 'public', 'pg_temp'`. Domain-agnostic
++by design: knows nothing about RepairOrders, Matcher provenance, or
++Purchase Orders. Each `p_lines` entry is `{variant_id, unit_id, quantity,
++destination_location_id, unit_cost?, note?}` — a pre-resolved per-line
++destination, not a single top-level one, because the two real wrappers
++resolve destination differently (RepairOrder: one branch receiving
++location for every line, via `resolve_branch_receiving_location`; PO:
++per-line override falling back to the PO's own `delivery_location_id`) —
++that resolution POLICY lives in each wrapper, never in the primitive.
++Delegates every physical effect through the existing `inventory_create_
++and_finalize` → `inventory_finalize_posting` (public, catalog-effects-
++only, the frozen IC-2 contract) path — movement type is the existing
++canonical `101` receipt (single destination-increase effect,
++catalog-only). `inventory_finalize_posting_internal` is never called by
++any IC-3 code.
++
++**Security**: actor-identity check (`p_actor_user_id = auth.uid()`,
++`28000`) and `has_branch_permission(..., 'warehouse.inventory.operate')
++OR (..., 'warehouse.inventory.adjust')` (`42501`) run FIRST, before any
++call into the (separately, more severely exposed — see §9's new row
++below) lower engine layer. `REVOKE ALL FROM PUBLIC, anon; GRANT EXECUTE TO
++authenticated, service_role` — live-verified, no stale overload (this
++function's own arity never changed across its migrations).
++
++**Line-correlation contract**: the primitive returns `lines: [{line_number,
++movement_line_id, variant_id, quantity, destination_location_id}]`,
++ordered by `line_number`, in exact 1:1 input-array order — never by SKU/
++variant/product code (multiple same-variant lines are valid and are
++live-proven to map to distinct `movement_line_id`s, never merged). Both
++wrappers correlate their own input lines to created movement lines purely
++by this ordinal, matching the pre-existing convention `receive_repair_
++order_stock` already used.
++
++**Idempotency**: `inventory_movement_headers_org_idempotency_uidx` (a
++pre-existing partial UNIQUE index on `(organization_id, idempotency_key)
++WHERE idempotency_key IS NOT NULL`) already makes double-posting
++structurally impossible, even under genuine concurrency — but `inventory_
++create_draft` does not itself catch the resulting `23505`. The primitive
++catches it (via `GET STACKED DIAGNOSTICS ... CONSTRAINT_NAME`, not
++message-text matching) and returns the WINNING caller's now-committed
++movement gracefully. **Live-proven with a genuine two-PostgreSQL-
++connection race** (not merely reasoned about): Session A's call succeeded
++in 46ms, held its transaction open 5s (`pg_sleep`); Session B, launched
++~1.5s later with the SAME idempotency key, blocked for 3560.950ms on
++Session A's uncommitted index entry, then resumed and returned the
++IDENTICAL `movement_id` — zero double-post, zero raw/ugly error surfaced.
++Final on-hand balance: exactly the single-receipt quantity, confirmed via
++direct query.
++
++**RepairOrder wrapper** (`receive_repair_order_stock`, refactored):
++KEEPS EXACTLY its own pre-existing business rules — actor/permission
++checks, branch receiving-location resolution, `source_line_id` provenance
++resolution (`workshop_source_document_lines` → `repair_order_line_source_
++links` → `repair_order_lines`, hard-reject on 0 or >1 candidates, wrong
++org/branch, or variant mismatch), the `ambra.repair_order_attribution_
++authoritative` GUC (unchanged, needed by Zone 5's own trigger regardless
++of which function issues the ledger insert), the post-posting `attach_
++repair_order_line_movement` + `repair_order_line_locations` upsert loop.
++CHANGED ONLY the physical-posting call itself (now `inventory_receive_
++stock` instead of `inventory_create_and_finalize` directly) and the
++line-correlation source (the primitive's own returned array, instead of a
++second `SELECT` against `inventory_movement_lines`) — one fewer query,
++same correlation guarantee.
++
++**Purchase Order wrapper** (`inventory_receive_purchase_order`,
++refactored/fixed): **live-confirmed DEAD/BROKEN before this phase** — it
++called `inventory_create_draft_movement`/`inventory_post_movement`,
++neither of which exists in this database (`42883` on every real
++invocation, confirmed via `pg_proc`); zero UI callers, zero server-action
++callers reached from any component (confirmed via repo-wide grep); the
++only prior test coverage was a static string-match against the migration
++file's own text, never a behavioral test. Per explicit instruction not to
++fake parity with behavior that never worked, this phase fixed the
++physical-posting step (now `inventory_receive_stock`) while preserving
++every genuine, already-correct PO business rule byte-for-byte: PO row
++lock, `warehouse.procurement.manage` permission check, PO status guard
++(`received`/`closed`/`cancelled` reject), per-line PO-line lock and
++over-receipt rejection, destination resolution (per-line override falling
++back to `delivery_location_id`), `received_quantity` increment, final
++status recomputation (`received` iff no line remains open, else
++`partially_received`). Also hardened as genuinely NEW IC-3 code (not an
++IC-7 pre-existing-gap fix, since the prior code never had a working
++security contract to weaken): added `SECURITY DEFINER` (was implicitly
++INVOKER, with **zero** actor-identity check) and the same `auth.uid()`
++check every sibling canonical RPC uses. **Self-caught defect, fixed before
++any test exercised it**: the first refactor incremented `received_
++quantity` BEFORE calling the idempotency-aware primitive, so a retry with
++the same derived key would have double-counted PO received quantity even
++though the physical movement stayed correctly deduplicated. Fixed by
++pre-checking for an existing movement under the derived idempotency key
++immediately after acquiring the PO row's own `FOR UPDATE` lock (already
++present, unchanged) and BEFORE touching any PO line — this lock, not a
++new mechanism, is what makes the pre-check race-safe against a genuinely
++concurrent retry for the same PO.
++
++**Generic Warehouse Movements UI decision**: **left unchanged** (Option
++A). Live-verified (`createAndPostMovementAction` →
++`InventoryMovementsService.createAndFinalize` → `inventory_create_and_
++finalize`, reachable from `/dashboard/warehouse/inventory/movements/new`)
++that the generic UI already calls the correct underlying engine directly,
++with zero RepairOrder/PO coupling — routing it through the new named
++primitive would be a purely cosmetic rename with no behavior change and a
++real (if small) regression-testing cost, so it was not done. Documented
++as a considered, deliberate decision, not an oversight.
++
++**Lot/serial**: NOT exposed by the primitive's `p_lines` shape.
++Live-verified `inventory_create_draft`'s own `jsonb_to_recordset`
++extraction does not read `lot_id`/`serial_id`/`currency` from `p_lines` at
++all, and `inventory_finalize_posting_internal` hardcodes `NULL::uuid` for
++both when resolving/creating the balance row regardless of what a
++movement line carries — a pre-existing "v1: on_hand only, lot/serial-
++blind" engine limitation (already self-documented as v1 elsewhere in this
++engine), not something IC-3 invents partial support for. Honestly
++disclosed rather than silently worked around.
++
++**Reference metadata**: `inventory_movement_headers.reference_type`/
++`reference_id` are NOT threaded through by the primitive. Neither real
++wrapper's actual (working) behavior ever set them on a receiving movement
++before this phase; deliberately deferred rather than invented.
++
++---
++
+ ## 8. Global Lock-Order Convention
+ 
+ **One deterministic order, for every operation, regardless of domain:**
+@@ -523,6 +656,7 @@ using direct writes.**
+ | `repair_order_line_locations` staleness after IC-2 reversal                                             | **New, IC-2-discovered**: reversing a RepairOrder-attributed receipt leaves this table stale (shows quantity at a location the canonical ledger now shows as physically empty) -- the active-corruption variant was fixed in IC-2 itself by GUC-gating the reversal's own ledger inserts, but the underlying staleness remains                                                                                                                                                                                                                                                                                                                                              | **Resolve in IC-5** -- once `repair_order_line_locations` is a genuine derived projection (not a directly-written table), a reversal's own compensating ledger entries should correctly re-derive it, closing this gap structurally rather than via a GUC workaround                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+ | Function-level `anon` EXECUTE grants (new functions)                                                    | **New, IC-2-discovered**: this database applies a default-privilege grant giving `anon` EXECUTE on functions in schema `public` -- it silently re-applies on every `CREATE OR REPLACE FUNCTION` of the SAME function, even after an explicit `REVOKE ALL FROM PUBLIC`. Live-confirmed on both `inventory_finalize_posting` (pre-existing, before IC-1/IC-2) and `inventory_reverse_movement` (re-appeared twice during IC-2's own iterative fixes, corrected with a final explicit re-grant)                                                                                                                                                                                | **Audit systematically in IC-7** -- every canonical Inventory Core RPC needs its EXECUTE grants re-verified as the LAST step after its own migration sequence is fully applied, not just once after first creation; consider whether the default privilege itself should be altered (`ALTER DEFAULT PRIVILEGES ... REVOKE EXECUTE ... FROM anon`) at the schema level to close this permanently rather than per-function                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+ | `inventory_finalize_posting`'s `p_explicit_effects` parameter (IC-2 security-boundary pass, 2026-09-15) | **P0, CLOSED this pass**: the 3-arg extension IC-2 originally added to the externally-callable canonical `inventory_finalize_posting(uuid,uuid,jsonb)` was live-proven exploitable by an ordinary `authenticated` caller — supplying two different real `destination`/`increase` effect ids against their own legitimately-created draft doubled `on_hand` (10 → 20) with zero extra permission. Root cause: `p_explicit_effects` had no caller-identity restriction of its own, and the function carried live `anon`/`authenticated` EXECUTE (the same default-privilege behavior in the row above).                                                                       | **Fixed**: logic moved to a new `inventory_finalize_posting_internal(uuid,uuid,jsonb)`, `EXECUTE` revoked from every role except its owner (`postgres`); the public `inventory_finalize_posting` was restored to its original 2-arg signature (catalog effects only, no explicit-effects capability at all) as a thin wrapper; the vulnerable public-named 3-arg overload was dropped outright (a `CREATE OR REPLACE` with a NEW arity does not remove an OLD-arity overload — this project's own recurring pitfall, hit again here and fixed forward). Only `inventory_reverse_movement` (itself `SECURITY DEFINER`, owner `postgres`) can reach the internal function — ordinary Postgres same-owner `SECURITY DEFINER` privilege semantics, not a GUC/trust convention. Live-reverified: direct call to the internal function by `authenticated` → `42501`; the old 3-arg public signature → `42883` (does not exist); `has_function_privilege('anon'/'authenticated', ...) = false` on the internal function; ordinary 2-arg finalize and full reversal end-to-end unaffected. Defense-in-depth added inside the internal function itself, narrow and not a second reversal engine: (a) `p_explicit_effects` may only be supplied when the movement's own REAL `movement_type_code` — read from the locked row itself, never trusted from the caller — is exactly `'900'` (the system reversal type), categorically ruling out the exact attack proven above (which targeted a `'101'` movement) even for a hypothetical future internal caller; (b) each supplied effect's `target`/`direction` is explicitly validated against its exact allowed domain (`{source,destination}`/`{increase,decrease}`) and rejected outright rather than silently falling through the existing CASE/IF logic. (`effect_id` itself is still backstopped only by the pre-existing `inventory_stock_ledger_entries.effect_id` FK — not a new check added this pass.) |
++| `inventory_create_and_finalize`/`inventory_create_draft`/public `inventory_finalize_posting` — **CRITICAL, NEW, IC-3-discovered, 2026-09-16, NOT fixed this pass** | **The single most severe finding of this project to date.** All three carry live `anon` EXECUTE and perform **ZERO** actor-identity or permission check of their own — `inventory_create_draft` never checks `auth.uid()`, never calls `has_branch_permission`, relies entirely on RLS, which its own `SECURITY DEFINER`/owner-`postgres` execution context (`rolbypassrls=true`) **bypasses structurally**. Live-proven via a safe, transaction-scoped, rolled-back probe: a **fully unauthenticated** `anon` session — no JWT claims, no `auth.uid()`, no session of any kind — called `inventory_create_and_finalize` directly and posted a real, immutable 999-unit movement to an arbitrary organization/branch it merely named a UUID for. This is a **complete authentication bypass**, strictly worse than the IC-2 explicit-effects P0 (which at minimum required a valid authenticated session) and worse than the header-immutability GUC bypass above (which at minimum required holding a real warehouse permission) — it requires **no account of any kind**. Pre-existing: predates IC-1 entirely; not introduced or worsened by IC-3's own new code (`inventory_receive_stock` and both refactored wrappers each perform their own actor-identity + permission checks BEFORE ever calling down into this unguarded layer — live-verified `anon`/no-permission calls to all three IC-3 entry points are correctly rejected). But the unguarded layer remains directly reachable regardless of anything built on top of it. | **Close in IC-7 as the top-priority item**, ahead of the other rows in this table given its severity (zero authentication required, not merely a privilege-escalation-among-legitimate-users class of issue). Minimum fix: add the same actor-identity (`28000`) + `has_branch_permission` (`42501`) checks every other canonical RPC already has to `inventory_create_draft` itself (the shared root of both `inventory_create_and_finalize` and the public `inventory_finalize_posting`'s own draft-creation callers), then re-verify EVERY existing legitimate caller (all IC-1/IC-2/IC-3 wrappers, `InventoryMovementsService`, `ambra-location-inventory.ts`) still supplies a real actor/permission so the fix does not silently break them — an audit-sized undertaking, correctly out of IC-3's own narrow scope, but the highest-severity item on IC-7's own list. |
+ 
+ **Standing requirements for every canonical RPC (already the established
+ convention, restated as permanent policy):**
+diff --git a/docs/inventory/inventory-core-implementation-plan.md b/docs/inventory/inventory-core-implementation-plan.md
+index dd6760bb..98b6445e 100644
+--- a/docs/inventory/inventory-core-implementation-plan.md
++++ b/docs/inventory/inventory-core-implementation-plan.md
+@@ -417,6 +417,77 @@ either business wrapper.
+ **Hard STOP condition before IC-4**: regression green, external review
+ accepted.
+ 
++**RESULT (2026-09-16, IC-3 implemented and DONE)**: both real receiving
++paths were live-verified before any design decision, per this plan's own
++requirement — and the finding materially changed the phase's own risk
++profile. `receive_repair_order_stock` was working (posted through
++`inventory_create_and_finalize` correctly, zero TS/UI callers) and was
++refactored cleanly. `inventory_receive_purchase_order` was **live-
++confirmed dead/broken** — it called `inventory_create_draft_movement`/
++`inventory_post_movement`, neither of which exists in this database
++(`42883` on every real call), had zero UI/service reachability (repo-wide
++grep), and its only "test coverage" was a static string-match against the
++migration file's own text. Per this plan's own instruction not to fake
++parity with behavior that never worked, IC-3 fixed the PO wrapper's
++physical-posting step while preserving its own already-correct business
++rules byte-for-byte, and separately hardened its security model (it had
++no `SECURITY DEFINER`, no actor-identity check at all — genuinely new
++IC-3 code, not an IC-7 pre-existing-gap fix, since there was no working
++contract to weaken).
++
++**New canonical primitive**: `inventory_receive_stock` — domain-agnostic,
++delegates every physical effect through the existing `inventory_create_
++and_finalize` → `inventory_finalize_posting` (public, frozen IC-2
++contract) path. Full signature, security model, and line-correlation
++contract in `inventory-core-architecture.md` §7A.
++
++**Live-caught defects, fixed forward** (see `docs/inventory/reviews/
++ic-3-review/` for full detail): (1) building the ambiguous-provenance
++pgTAP fixture surfaced a real schema fact not previously documented —
++`repair_order_line_source_links.workshop_source_document_line_id` has its
++own UNIQUE constraint (one link per source line), so genuine ambiguity
++requires TWO distinct `workshop_source_document_lines` rows (one per
++document) referencing the SAME `wdd_matcher_line_id`, not two links from
++one source line — the test fixture was corrected, not the RPC. (2) a
++committed concurrency-test fixture's own `branch_number` (970) collided
++with an existing, unrelated `103_...` test file's own transaction-scoped
++branch number, breaking that file's own regression run — caught
++immediately via the regression suite itself and fixed by renumbering the
++committed fixture (940), not by touching `103_...`. (3) **self-caught
++before any test exercised it**: the PO wrapper's first draft incremented
++`received_quantity` BEFORE calling the idempotency-aware primitive, so a
++retry with the same derived key would have double-counted PO received
++quantity even though the physical movement stayed correctly deduplicated
++— fixed by pre-checking for an existing movement under the derived
++idempotency key immediately after acquiring the PO row's own pre-existing
++`FOR UPDATE` lock, before any PO-line mutation.
++
++**New, severe, pre-existing security finding, NOT fixed this pass**:
++verifying the primitive's own security model surfaced that the engine
++layer it delegates to (`inventory_create_and_finalize`/`inventory_create_
++draft`/public `inventory_finalize_posting`) has **zero actor-identity or
++permission check of its own** and carries live `anon` EXECUTE — live-
++proven via a safe, rolled-back probe that a fully unauthenticated `anon`
++session can post a real movement to any organization/branch it names a
++UUID for. Strictly worse than any prior finding this project has made
++(no account required at all). Pre-existing (predates IC-1); IC-3's own
++new code is unaffected (each of the 3 new/refactored entry points
++performs its own actor+permission check first) but the unguarded layer
++remains directly reachable regardless. Assigned to IC-7 as its top-
++priority item — see architecture doc §9's new table row for full detail.
++
++**Genuine two-PostgreSQL-connection concurrency proof** (idempotency
++race, not merely reasoned about): Session A's call succeeded in 46ms,
++held its transaction open 5s; Session B, launched ~1.5s later with the
++SAME idempotency key, blocked for 3560.950ms on Session A's uncommitted
++unique-index entry, then resumed and returned the IDENTICAL `movement_id`
++— zero double-post, zero raw/ugly error surfaced to the losing caller,
++final balance exactly the single-receipt quantity.
++
++Full test/migration/documentation summary is in `docs/inventory/
++inventory-core-progress.md`'s own IC-3 change-log entry and the
++`docs/inventory/reviews/ic-3-review/` bundle. **IC-3 is DONE.**
++
+ ---
+ 
+ ## IC-4 — Branch Transfer / MMJ Rebuild
+diff --git a/docs/inventory/inventory-core-progress.md b/docs/inventory/inventory-core-progress.md
+index b8c5dc6a..2bb3ba0a 100644
+--- a/docs/inventory/inventory-core-progress.md
++++ b/docs/inventory/inventory-core-progress.md
+@@ -15,28 +15,34 @@ distinct from Zone 3's own Phase 10A-10F numbering).
+ `inventory_reverse_movement` implemented, live-proven (receipt + 801
+ reversal, all negative paths, genuine two-session concurrency), both open
+ product decisions closed (A: no undo-an-undo; B: no RepairOrder netting).
+-IC-3 is NOT started.
+-**Current phase:** IC-2 DONE → IC-3 (Receiving consolidation) is the next
+-authorized phase, NOT yet started.
++IC-3 ✅ DONE — canonical `inventory_receive_stock` primitive implemented;
++`receive_repair_order_stock` refactored onto it; `inventory_receive_
++purchase_order` (live-confirmed dead/broken before this phase) fixed and
++refactored onto it. A new CRITICAL, pre-existing security finding (fully
++unauthenticated `anon` posting via the raw engine layer) was discovered
++and assigned to IC-7 as its top-priority item — NOT fixed in IC-3.
++**Current phase:** IC-3 DONE → IC-4 (Branch transfer / MMJ rebuild) is the
++next phase in sequence, NOT yet authorized/started.
+ **Pitch/pilot readiness:** N/A — this is base-engine work, not itself a
+ pitch-scoped feature; it BLOCKS Phase 10D, which IS pitch-scoped (see the
+ Zone 3 tracker's own cross-reference).
+-**Last updated:** 2026-09-15.
++**Last updated:** 2026-09-16.
+ 
+ ---
+ 
+ ## Overall execution
+ 
+-- IC phases completed: 3 / 8 (IC-0, IC-1, IC-2). IC-3 NOT started.
++- IC phases completed: 4 / 8 (IC-0, IC-1, IC-2, IC-3). IC-4 NOT started.
+ - 3 forward migrations applied for IC-1; 9 forward migrations applied for
+-  IC-2 (7 original + 2 from the security-boundary correction pass; all
+-  live-verified, all mirrored locally under the exact live
+-  version/timestamp — see change log).
+-- Application code: no TypeScript changes were required for IC-1 or IC-2
+-  (both are entirely PL/pgSQL); 2 pgTAP test files added/rewritten for
++  IC-2 (7 original + 2 from the security-boundary correction pass); 4
++  forward migrations applied for IC-3 — all live-verified, all mirrored
++  locally under the exact live version/timestamp — see change log.
++- Application code: no TypeScript changes were required for IC-1, IC-2, or
++  IC-3 (all entirely PL/pgSQL); 2 pgTAP test files added/rewritten for
+   IC-1 (`101_...` rewritten, `102_...` new/extended); 1 new pgTAP file for
+   IC-2, extended in the security-boundary correction pass (`103_...`,
+-  35/35).
++  35/35); 1 new pgTAP file for IC-3 (`104_...`, 44/44), plus one genuine
++  two-PostgreSQL-connection concurrency proof performed outside pgTAP.
+ 
+ ---
+ 
+@@ -47,7 +53,7 @@ Zone 3 tracker's own cross-reference).
+ | IC-0 Architecture contract + baseline capture                        | ✅ DONE        | Live verification closed 2026-09-15 — see change log for the exact findings. Gate decision: no contradiction with the accepted architecture; two genuine raw-write gaps found (reservation/allocation tables, movement headers) but neither defeats IC-1's own guarantee — both recorded as IC-7 blockers, not IC-1 blockers.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+ | IC-1 Canonical movement engine / hard stock invariants               | ✅ DONE, FINAL | Hard invariant (`on_hand >= reserved_quantity + allocated_quantity`) live-implemented in `inventory_finalize_posting`, SQLSTATE `P0003`. Balance-getter replaced (v1 helper now zero production callers). `on_hand_quantity >= 0` CHECK added — **product-owner FINAL DECISION (2026-09-15, OPTION A)**: global non-negative on-hand is the permanent product contract; `negative_stock_policy='allow'`/`'allow_with_approval'` are superseded/deprecated for on-hand behavior, cannot bypass the invariant, column cleanup owned by IC-6. 133/133 pgTAP (102 extended to 14/14 with the finalized-contract regression) + 395/395 relevant Vitest clean (229 of those 395 re-confirmed live this finalization pass; the file set is identical to the original submission's own 395, not additive). Genuine two-session concurrency proven (3.68s real blocking). Architecture doc §0 (new decision #20) and §5 (invariant #1) updated. See the finalization-pass change-log entry below and `docs/inventory/reviews/ic-1-review/negative-stock-policy-conflict.md` (marked RESOLVED).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+ | IC-2 Movement reversal                                               | ✅ DONE        | `inventory_reverse_movement(p_movement_id, p_actor_user_id, p_reason)` implemented and live-proven: receipt (101) and two-leg (801) reversal restore exact pre-movement balances; all negative paths (draft, already-reversed, reversal-of-reversal, IC-1 commitment block, reason validation, wrong actor, cross-org/no-permission indistinguishable) rejected with stable SQLSTATEs; genuine two-session concurrency proven (~5s real blocking, exactly one reversal survives, zero double-compensation); bidirectional linkage and distinct sequential `KOR/...` document numbering live-proven. New minimal movement type `900`/doc type `KOR` (system-only, zero effect rows of its own); `inventory_finalize_posting` gained one backward-compatible optional parameter (`p_explicit_effects`). Product decisions A (no undo-an-undo) and B (no RepairOrder netting) CLOSED. 3 live-caught defects fixed forward (overload ambiguity, reserved SQLSTATE P0004, Zone 5 attribution corruption) plus 1 grant-hardening fix (anon default-privilege re-exposure). **SECURITY-BOUNDARY CORRECTION PASS (2026-09-15)**: external review found `p_explicit_effects` was reachable on the externally-callable `inventory_finalize_posting` — live-confirmed P0 (on-hand doubled by an ordinary authenticated caller), fixed by internalizing the explicit-effects capability into a new EXECUTE-revoked-from-all-ordinary-roles `inventory_finalize_posting_internal`, reachable only via same-owner `SECURITY DEFINER` semantics from `inventory_reverse_movement`. A separate, pre-existing, NOT-fixed-this-pass finding (assigned to IC-7): the posted-header immutability trigger only checks its own GUC is `'on'`, not which columns changed — an ordinary permission-holding actor can self-set that GUC and rewrite any posted header's business content. pgTAP 35/35 (`103_...`, extended with Scenario E). Full regression 176/176. See change log for full evidence. |
+-| IC-3 Receiving consolidation                                         | ⬜ NOT STARTED | Depends on IC-1, IC-2.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
++| IC-3 Receiving consolidation                                         | ✅ DONE        | New canonical `inventory_receive_stock` primitive (domain-agnostic, delegates through `inventory_create_and_finalize`/public `inventory_finalize_posting`, never touches `_internal`). `receive_repair_order_stock` refactored onto it, all business rules preserved byte-for-byte. `inventory_receive_purchase_order` was **live-confirmed dead/broken** (called two nonexistent functions, zero UI/service reachability) — fixed and refactored onto the primitive, business rules preserved, security model hardened (new `SECURITY DEFINER` + actor check, since there was no working contract before to weaken). Line-correlation by ordinal position only (never SKU/variant). Idempotency structurally safe (pre-existing unique index) AND gracefully handled on a genuine concurrent race (live-proven, real two-connection test: loser blocked 3560.950ms then returned the winner's own movement_id, zero double-post). Self-caught PO-wrapper idempotency/state-mutation-ordering defect fixed before any test ran. **New CRITICAL pre-existing security finding** (fully unauthenticated `anon` can post via the raw engine layer) discovered and assigned to IC-7, NOT fixed here. pgTAP 44/44 (`104_...`). Full regression 220/220. See change log for full evidence. |
+ | IC-4 Branch transfer / MMJ rebuild                                   | ⬜ NOT STARTED | Depends on IC-1, IC-3. Carries an open product-semantics question (see implementation plan's own IC-4 section: whether "in transit" should mean physically moving vs. merely reserved) that needs product-owner resolution before or during this phase.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+ | IC-5 RepairOrder physical-location projection consolidation          | ⬜ NOT STARTED | Depends on IC-1, IC-3.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+ | IC-6 Legacy writer/helper removal                                    | ⬜ NOT STARTED | Depends on IC-1 (balance-getter replacement), IC-4 (311 disposition), IC-5 (Zone 5 direct-write removal).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+@@ -900,4 +906,232 @@ movement_headers` row sharpened with the live-proven UPDATE-bypass
+   **IC-2, including this security-boundary correction pass, is DONE and
+   FINAL, pending external review.** IC-3 is NOT started. Phase 10D is NOT
+   started.
+-  Phase 10D is NOT started.
++
++- **2026-09-16 (IC-3 — Receiving Consolidation — DONE)**: implemented per
++  the assigning brief's own extensive verify-first, implement, test,
++  document, package protocol. IC-0/IC-1/IC-2 re-confirmed ACCEPTED/FINAL
++  before touching anything; IC-2's own frozen security contract (public
++  2-arg `inventory_finalize_posting` catalog-effects-only; explicit
++  effects internal-only; `inventory_finalize_posting_internal` not
++  executable by ordinary roles) was re-verified live, unchanged, and never
++  reopened.
++
++  **Live-verification-first findings that materially shaped the design**:
++  read the CURRENT live definitions of `receive_repair_order_stock` and
++  `inventory_receive_purchase_order` before designing anything (not from
++  memory or the plan's own illustrative shape). `receive_repair_order_
++  stock` was working correctly (posts through `inventory_create_and_
++  finalize`, zero TS/UI callers today, confirmed via repo-wide grep).
++  `inventory_receive_purchase_order` was **live-confirmed dead/broken**:
++  it called `public.inventory_create_draft_movement`/`public.inventory_
++  post_movement` — **neither function exists in this database** (0 rows
++  in `pg_proc`) — so every real invocation has always failed `42883`.
++  Repo-wide grep confirmed zero UI callers, zero server-action callers
++  reached from any component (the wrapping service method and action
++  exist but nothing calls them), and the only "test coverage" was a
++  static string-match against the migration file's own raw text in
++  `inventory-phase2-migrations.test.ts` — never a behavioral test.
++  `inventory_purchase_orders` has 0 live rows. Per the brief's own
++  explicit instruction ("If the function is dead or materially broken: do
++  not fake parity. Report it and still consolidate its valid business
++  contract if appropriate"), the PO wrapper's physical-posting step was
++  replaced rather than "preserved," while its genuine, already-correct
++  business rules (PO row lock, `warehouse.procurement.manage` permission
++  check — confirmed a real, live permission slug — status guard, per-line
++  lock, over-receipt rejection, destination resolution, `received_
++  quantity` tracking, final status recomputation) were kept byte-for-byte.
++
++  **Separate, live-proven CRITICAL security finding, pre-existing, NOT
++  fixed this pass**: while designing the new primitive's own security
++  model, live-verified that `inventory_create_and_finalize`/`inventory_
++  create_draft`/the public `inventory_finalize_posting` carry live `anon`
++  EXECUTE and perform **zero** actor-identity or permission check of
++  their own (`inventory_create_draft` never calls `auth.uid()` or `has_
++  branch_permission` at all, relying entirely on RLS, which its own
++  `SECURITY DEFINER`/owner-`postgres` execution context bypasses
++  structurally). A safe, transaction-scoped, rolled-back probe proved a
++  **fully unauthenticated** `anon` session (zero JWT claims, zero
++  `auth.uid()`, zero session) can call `inventory_create_and_finalize`
++  directly and post a real, immutable 999-unit movement to an arbitrary
++  organization/branch it merely names a UUID for. This is a complete
++  authentication bypass — strictly more severe than the IC-2 explicit-
++  effects P0 (which required a real session) and the header-immutability
++  GUC bypass (which required a real warehouse permission), since it
++  requires no account at all. Pre-existing (predates IC-1); IC-3's own
++  three new/refactored entry points are unaffected (each performs its own
++  actor+permission check first, live-verified via Scenario J below) but
++  the raw engine layer itself remains directly reachable. Per explicit
++  instruction ("Do NOT fix IC-7 issues here... any NEW function created by
++  IC-3 must be correctly secured now"), this was NOT fixed — it is a
++  pre-existing gap in infrastructure that predates IC-3 by three phases,
++  not something IC-3 introduces or worsens. Assigned to **IC-7** as its
++  explicit top-priority item (see architecture doc §9's new table row).
++
++  **Final canonical primitive**: `inventory_receive_stock(p_actor_user_id,
++  p_organization_id, p_branch_id, p_lines, p_operation_date,
++  p_document_date, p_external_reference, p_note, p_idempotency_key)
++  RETURNS jsonb`. Domain-agnostic — knows nothing about RepairOrders,
++  Matcher provenance, or Purchase Orders. `p_lines` entries: `{variant_id,
++  unit_id, quantity, destination_location_id, unit_cost?, note?}` — a
++  pre-resolved PER-LINE destination (not a single top-level one), because
++  the two real wrappers resolve destination differently (RepairOrder: one
++  branch receiving location for every line; PO: per-line override falling
++  back to the PO's own delivery location) — that resolution POLICY lives
++  in each wrapper, per the brief's own §13. Delegates every physical
++  effect through `inventory_create_and_finalize` → the public, frozen
++  `inventory_finalize_posting` — no direct balance/ledger writes, no
++  second posting engine, movement type is the existing canonical `101`
++  receipt. `SECURITY DEFINER`, owner `postgres`, actor-identity +
++  `has_branch_permission('warehouse.inventory.operate' OR '.adjust')`
++  checks run first; `REVOKE ALL FROM PUBLIC, anon; GRANT EXECUTE TO
++  authenticated, service_role` — live-reverified after every `CREATE OR
++  REPLACE`, no stale overload.
++
++  **Line-correlation contract**: the primitive returns `lines:
++  [{line_number, movement_line_id, variant_id, quantity, destination_
++  location_id}]`, ordered by `line_number` in exact input-array order —
++  never by SKU/variant/product code. Live-proven: two same-variant lines
++  in one call map to two DISTINCT `movement_line_id`s (T3-T4 in
++  `104_...`); a RepairOrder receipt with two DIFFERENT RepairOrderLines
++  sharing the SAME variant/SKU are independently, correctly attributed
++  with zero cross-contamination (G3-G5 in `104_...`).
++
++  **Idempotency**: the pre-existing partial UNIQUE index `inventory_
++  movement_headers_org_idempotency_uidx` already makes double-posting
++  structurally impossible, but `inventory_create_draft` does not catch
++  its own resulting `23505`. The primitive catches it (via `GET STACKED
++  DIAGNOSTICS ... CONSTRAINT_NAME`, not message-text matching) and
++  returns the WINNING caller's already-committed movement gracefully.
++  **Live-proven sequentially** (F5-F6 in `104_...`: retry with the same
++  key returns the same `movement_id`, balance unchanged) **and via a
++  genuine two-PostgreSQL-connection race** (real `psql` binary, two
++  independent OS connections, not pgTAP): Session A's call succeeded in
++  46ms then held its transaction open 5s (`pg_sleep`); Session B, launched
++  ~1.5s later with the SAME idempotency key, **blocked for 3560.950ms**
++  on Session A's uncommitted index entry, then resumed within ~52ms of
++  Session A's commit and returned the IDENTICAL `movement_id` — zero
++  double-post, zero raw/ugly error surfaced to the losing caller. Final
++  state verified: `on_hand=10` (not 20), exactly one movement header
++  (`PZ/2026/000022`).
++
++  **RepairOrder wrapper** (`receive_repair_order_stock`, refactored):
++  every pre-existing business rule kept exactly — actor/permission
++  checks, branch receiving-location resolution, `source_line_id`
++  provenance resolution chain (`workshop_source_document_lines` →
++  `repair_order_line_source_links` → `repair_order_lines`), the `ambra.
++  repair_order_attribution_authoritative` GUC, the `attach_repair_order_
++  line_movement` + `repair_order_line_locations` upsert loop. Changed
++  only the physical-posting call (now the primitive) and the line-
++  correlation source (the primitive's own returned array, one fewer
++  query). Live-proven (`104_...` Scenario G, 14 assertions): 3-line happy
++  path (two attributed to different RepairOrderLines sharing one SKU, one
++  deliberately unattributed) posts correctly, exact `applied_quantity`
++  per line, `repair_order_line_locations` seeded correctly, zero
++  fabricated attribution for the unattributed line; all 4 provenance
++  negative paths preserved exactly (nonexistent `P0002`, ambiguous
++  `55000`, wrong-branch `42501`, wrong-variant `22023`); atomicity proven
++  (a 2-line call with one bad-provenance line creates ZERO movement
++  header, header count unchanged).
++
++  **Live schema finding while building the ambiguity fixture**:
++  `repair_order_line_source_links.workshop_source_document_line_id` has
++  its own UNIQUE constraint (`repair_order_line_source_links_source_line_
++  unique`) — one link per source line. Genuine ambiguity therefore
++  requires TWO distinct `workshop_source_document_lines` rows (one per
++  DISTINCT `workshop_source_document_id`, e.g. two uploaded files both
++  referencing the same physical line) sharing the SAME `wdd_matcher_line_
++  id`, not two links from one source line. The pgTAP fixture was
++  corrected to match this real mechanism, not the RPC.
++
++  **Purchase Order wrapper** (`inventory_receive_purchase_order`,
++  refactored/fixed): logic replaced (was calling nonexistent functions),
++  business rules preserved, security hardened (`SECURITY DEFINER` +
++  actor-identity check added — the prior code had neither). Live-proven
++  (`104_...` Scenario H, 13 assertions): partial receive → `partially_
++  received`, completing receipt → `received`; all negative paths (`P0002`
++  nonexistent PO, `P0002` wrong-PO line, `22023` over-receipt, `55000`
++  already-received, `22023` missing destination) proven with the ACTUAL
++  PO rules discovered live, not invented ones; per-line destination
++  override honored; idempotent retry does NOT double-increment `received_
++  quantity` (T H11-H12, proving the self-caught defect below is fixed);
++  zero RepairOrder attribution tables touched by any PO-wrapper movement.
++
++  **Live-caught defects, fixed forward** (see `docs/inventory/reviews/
++  ic-3-review/` for full detail): (1) the PO wrapper's own idempotency-
++  vs-state-mutation-ordering defect — **self-caught before any test
++  exercised it** — the first draft incremented `received_quantity` BEFORE
++  calling the idempotency-aware primitive, so a retry would have double-
++  counted PO received quantity even though the physical movement stayed
++  correctly deduplicated; fixed by pre-checking for an existing movement
++  under the derived idempotency key immediately after acquiring the PO
++  row's own pre-existing `FOR UPDATE` lock (this lock, not a new
++  mechanism, is what makes the pre-check race-safe against a genuinely
++  concurrent retry). (2) the ambiguous-provenance pgTAP fixture initially
++  violated a real UNIQUE constraint neither party had documented — caught
++  live via the DB's own error, fixture corrected (see schema finding
++  above). (3) a committed concurrency-test fixture's own `branch_number`
++  (970) collided with an existing, unrelated `103_...` test file's own
++  transaction-scoped branch number — caught by the regression suite
++  itself (103 failed `23505` on a `branches` unique constraint), fixed by
++  renumbering the committed fixture to 940, not by touching `103_...`.
++
++  **Generic Warehouse Movements UI decision**: left unchanged (Option A).
++  Live-verified `createAndPostMovementAction` → `InventoryMovementsService
++  .createAndFinalize` → `inventory_create_and_finalize`, reachable from
++  `/dashboard/warehouse/inventory/movements/new`, already calls the
++  correct underlying engine directly with zero RepairOrder/PO coupling —
++  routing it through the new named primitive would be a cosmetic rename
++  with a real regression-testing cost and no behavior change, so it was
++  not done. A deliberate, documented decision, not an oversight.
++
++  **Lot/serial**: honestly disclosed as NOT supported by the primitive's
++  `p_lines` shape — live-verified `inventory_create_draft`'s own `jsonb_
++  to_recordset` extraction never reads `lot_id`/`serial_id`/`currency`
++  from `p_lines`, and `inventory_finalize_posting_internal` hardcodes
++  `NULL::uuid` for both when resolving the balance row regardless of what
++  a movement line carries — a pre-existing "v1: on_hand only, lot/serial-
++  blind" engine limitation, not something IC-3 invents partial support
++  for.
++
++  **Full regression**: pgTAP 097 (29/29), 098 (17/17, re-verified via
++  Supabase MCP after the known, disclosed connection-pooler GUC artifact
++  hit two `psql` attempts), 099 (20/20), 100 (44/44, re-verified via
++  Supabase MCP for the same known reason), 101 (17/17), 102 (14/14), 103
++  (35/35, after the branch_number fix above), 104 new (44/44) — **220/220
++  total, 0 failures**. Vitest: 228/228 (repair-orders service,
++  inventory-actions, wdd-matcher-approval-actions, CRM contacts/module-
++  migration/parties, wdd-matcher service + movement-import-candidates,
++  inventory cross-branch-transfers, inventory-backend-hardening-
++  migration, inventory-phase2-migrations — the last of which specifically
++  exercises the PO migration text this phase's own PO fix builds on).
++  `pnpm type-check`: 0 errors (no TypeScript touched). `pnpm lint`: 0
++  errors, 319 pre-existing unrelated warnings. `git diff --check`: clean
++  on every file this phase touched.
++
++  **Migrations applied (4, forward-only, all mirrored locally under their
++  exact live version/timestamp)**:
++  1. `20260915183918_ic3_canonical_receive_primitive` — the new
++     `inventory_receive_stock` RPC.
++  2. `20260915184005_ic3_receive_repair_order_stock_wrapper_refactor` —
++     `receive_repair_order_stock` refactored onto the primitive.
++  3. `20260915184050_ic3_inventory_receive_purchase_order_wrapper_
++     refactor` — `inventory_receive_purchase_order` fixed and refactored
++     onto the primitive; old broken 3-arg overload dropped in the same
++     migration (learned from 3 prior overload-pitfall occurrences this
++     project).
++  4. `20260915184448_ic3_fix_po_wrapper_idempotency_state_mutation_race`
++     — corrective, self-caught defect #1 above.
++
++  **Documentation updated**: `inventory-core-architecture.md` gained a
++  new §7A ("Receiving Consolidation," full RPC contract, security model,
++  line-correlation contract, idempotency proof, both wrapper summaries,
++  the generic-UI decision, the lot/serial disclosure) and a new §9 table
++  row (the CRITICAL unauthenticated-posting finding, marked top-priority
++  for IC-7). `inventory-core-implementation-plan.md`'s own IC-3 section
++  gained a RESULT addendum (plan preserved as historical record, appended
++  below it). This file's own phase-tracker row and overall-execution
++  summary updated.
++
++  **IC-3 review bundle**: `docs/inventory/reviews/ic-3-review/`.
++
++  **IC-3 is DONE.** IC-4 is NOT started. Phase 10D is NOT started.

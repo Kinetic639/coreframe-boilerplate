@@ -417,6 +417,77 @@ either business wrapper.
 **Hard STOP condition before IC-4**: regression green, external review
 accepted.
 
+**RESULT (2026-09-16, IC-3 implemented and DONE)**: both real receiving
+paths were live-verified before any design decision, per this plan's own
+requirement — and the finding materially changed the phase's own risk
+profile. `receive_repair_order_stock` was working (posted through
+`inventory_create_and_finalize` correctly, zero TS/UI callers) and was
+refactored cleanly. `inventory_receive_purchase_order` was **live-
+confirmed dead/broken** — it called `inventory_create_draft_movement`/
+`inventory_post_movement`, neither of which exists in this database
+(`42883` on every real call), had zero UI/service reachability (repo-wide
+grep), and its only "test coverage" was a static string-match against the
+migration file's own text. Per this plan's own instruction not to fake
+parity with behavior that never worked, IC-3 fixed the PO wrapper's
+physical-posting step while preserving its own already-correct business
+rules byte-for-byte, and separately hardened its security model (it had
+no `SECURITY DEFINER`, no actor-identity check at all — genuinely new
+IC-3 code, not an IC-7 pre-existing-gap fix, since there was no working
+contract to weaken).
+
+**New canonical primitive**: `inventory_receive_stock` — domain-agnostic,
+delegates every physical effect through the existing `inventory_create_
+and_finalize` → `inventory_finalize_posting` (public, frozen IC-2
+contract) path. Full signature, security model, and line-correlation
+contract in `inventory-core-architecture.md` §7A.
+
+**Live-caught defects, fixed forward** (see `docs/inventory/reviews/
+ic-3-review/` for full detail): (1) building the ambiguous-provenance
+pgTAP fixture surfaced a real schema fact not previously documented —
+`repair_order_line_source_links.workshop_source_document_line_id` has its
+own UNIQUE constraint (one link per source line), so genuine ambiguity
+requires TWO distinct `workshop_source_document_lines` rows (one per
+document) referencing the SAME `wdd_matcher_line_id`, not two links from
+one source line — the test fixture was corrected, not the RPC. (2) a
+committed concurrency-test fixture's own `branch_number` (970) collided
+with an existing, unrelated `103_...` test file's own transaction-scoped
+branch number, breaking that file's own regression run — caught
+immediately via the regression suite itself and fixed by renumbering the
+committed fixture (940), not by touching `103_...`. (3) **self-caught
+before any test exercised it**: the PO wrapper's first draft incremented
+`received_quantity` BEFORE calling the idempotency-aware primitive, so a
+retry with the same derived key would have double-counted PO received
+quantity even though the physical movement stayed correctly deduplicated
+— fixed by pre-checking for an existing movement under the derived
+idempotency key immediately after acquiring the PO row's own pre-existing
+`FOR UPDATE` lock, before any PO-line mutation.
+
+**New, severe, pre-existing security finding, NOT fixed this pass**:
+verifying the primitive's own security model surfaced that the engine
+layer it delegates to (`inventory_create_and_finalize`/`inventory_create_
+draft`/public `inventory_finalize_posting`) has **zero actor-identity or
+permission check of its own** and carries live `anon` EXECUTE — live-
+proven via a safe, rolled-back probe that a fully unauthenticated `anon`
+session can post a real movement to any organization/branch it names a
+UUID for. Strictly worse than any prior finding this project has made
+(no account required at all). Pre-existing (predates IC-1); IC-3's own
+new code is unaffected (each of the 3 new/refactored entry points
+performs its own actor+permission check first) but the unguarded layer
+remains directly reachable regardless. Assigned to IC-7 as its top-
+priority item — see architecture doc §9's new table row for full detail.
+
+**Genuine two-PostgreSQL-connection concurrency proof** (idempotency
+race, not merely reasoned about): Session A's call succeeded in 46ms,
+held its transaction open 5s; Session B, launched ~1.5s later with the
+SAME idempotency key, blocked for 3560.950ms on Session A's uncommitted
+unique-index entry, then resumed and returned the IDENTICAL `movement_id`
+— zero double-post, zero raw/ugly error surfaced to the losing caller,
+final balance exactly the single-receipt quantity.
+
+Full test/migration/documentation summary is in `docs/inventory/
+inventory-core-progress.md`'s own IC-3 change-log entry and the
+`docs/inventory/reviews/ic-3-review/` bundle. **IC-3 is DONE.**
+
 ---
 
 ## IC-4 — Branch Transfer / MMJ Rebuild
