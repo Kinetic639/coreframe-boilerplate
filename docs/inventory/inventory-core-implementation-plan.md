@@ -805,6 +805,47 @@ accepted.
 
 ## IC-6 — Legacy Writer/Helper Removal
 
+**✅ DONE (2026-09-17)**. Every candidate named in this phase's own
+scope, plus several more surfaced by the required call-graph audit,
+were classified via the "four evidence sources" discipline (repo
+callers, live `pg_proc`/`prosrc` scan, application-export trace,
+tests/migrations/docs) before any deletion. Dropped: `inventory_v1_
+get_or_create_balance` (dead balance helper); the stale 5-arg
+`inventory_get_or_create_balance_for_update` overload (a genuine
+landmine — its own 7-arg replacement's trailing 2 params both carry
+DEFAULTs); `inventory_settings.negative_stock_policy` (Option A, full
+column drop — proven not just unused but structurally UNREACHABLE, see
+`inventory-core-architecture.md` §9D item 3); `ambra-location-
+inventory.ts`'s 4 dead write actions (`createLocationContainerAction`,
+`addItemsToContainerAction`, `removeItemFromContainerAction`,
+`relocateContainerAction` — confirmed zero callers a third time this
+session, matching this section's own pre-existing "confirmed twice"
+note). Movement code `311` re-confirmed already resolved by IC-4 (not
+touched again). Legacy movement-helper/numbering-helper audits (§6/§7)
+confirmed already-clean, documented only, nothing to drop. GUC audit
+(§10) retained both `ambra.inventory_movement_engine` and `ambra.
+repair_order_attribution_authoritative` as live/required — the known
+posted-header GUC bypass is explicitly left for full IC-7, not
+superficially patched here. A genuine regression was surfaced by the
+full-suite rerun: pgTAP `102_...`'s own Scenario C directly `UPDATE`d
+the now-dropped `negative_stock_policy` column — fixed by editing the
+TEST FILE (not a migration) to remove the now-meaningless two-policy
+comparison, collapsing to one unconditional assertion pass (`plan(14)`
+→ `plan(11)`), re-verified 11/11 live. New dedicated pgTAP file `108_
+ic6_legacy_cleanup_test.sql` (23/23) proves the cleanup boundaries
+(dropped functions absent, stale overload absent, canonical helpers
+still callable, internal functions still non-executable by ordinary
+roles, canonical receive/reverse/putaway/branch-transfer/RepairOrder-
+projection paths all still succeed unchanged). `ambra-location-
+inventory.ts`'s remaining 3 exported functions (`deletePutawayRuleAction`,
+`findContainersByReferenceAction`, `createLocationPutawayRuleAction`)
+are also dead but were deliberately RETAINED — out of this phase's
+narrow Inventory-Core-balance/ledger-writer charter (they touch
+`inventory_putaway_rules`, an unrelated table), disclosed as a future
+cleanup candidate rather than silently swept in. See `inventory-core-
+architecture.md` §9D and `docs/inventory/reviews/ic-6-review/` for the
+full as-implemented dead-path matrix, live evidence, and every finding.
+
 **Goal**: delete the confirmed-dead paths (decision #9, #10, #11).
 
 **Scope**:
@@ -963,6 +1004,21 @@ reached.
   trustworthy — this is preparatory design work for Phase 10E, explicitly
   NOT Phase 10E's own implementation (which remains gated behind the
   INVENTORY CORE FINAL GATE below).
+- **HARD GATE, assigned by IC-6/IC-6A (2026-09-17)**: from-scratch
+  migration reproducibility. IC-6 confirmed live and precisely that no
+  locally-mirrored migration creates `repair_order_line_locations`,
+  `repair_order_location_attribution_uncertain`, the attribution-sync
+  trigger binding, or the original `receive_repair_order_stock`/
+  `resolve_branch_receiving_location` definitions — these came from 7
+  live `zone5_*`-named migrations that predate this project's own
+  local-mirroring discipline and were never mirrored locally. A
+  `supabase db reset` (or equivalent) replayed against only the
+  currently-mirrored local migration tree would fail the first time it
+  reached a migration referencing one of these objects. IC-8 must
+  close this gap (via a safe baseline/snapshot mechanism or another
+  repository-supported solution — never by fabricating fake historical
+  timestamps) before the INVENTORY CORE FINAL GATE below can be
+  reached.
 
 **Tables/functions/files likely affected**: none new — this is a validation
 phase, not a feature phase. Any defect found gets its own small, targeted
@@ -986,8 +1042,11 @@ beyond defect fixes surfaced by the validation itself.
 **Rollback/recovery strategy**: N/A (validation phase).
 
 **Acceptance criteria**: the full test matrix passes; zero residual data
-after the full suite; the INVENTORY CORE FINAL GATE report (§below) is
-produced.
+after the full suite; **a clean database can be constructed from
+repository migrations alone (from-scratch reproducibility restored —
+see the HARD GATE bullet above; IC-8 must NOT be marked FINAL while
+this remains broken)**; the INVENTORY CORE FINAL GATE report (§below)
+is produced.
 
 **Hard STOP condition — INVENTORY CORE FINAL GATE**: explicit product-owner
 sign-off that the Inventory Core is complete and correct, before Phase 10D

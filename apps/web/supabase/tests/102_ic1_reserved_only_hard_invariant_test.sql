@@ -22,20 +22,19 @@
 -- org/branch cannot share 101's single transaction.
 --
 -- SCENARIO C (added: IC-1 finalization pass, product-owner decision --
--- `on_hand_quantity >= 0` ALWAYS is now the FINAL product contract,
--- `negative_stock_policy='allow'`/`'allow_with_approval'` are superseded
--- for on-hand behavior, see `inventory-core-architecture.md` §0 decision
--- #20 and §5 invariant #1): this is no longer a diagnostic -- it documents
--- the FINAL, accepted product contract. Proves both policy values produce
--- the identical P0003 rejection for a bare on-hand decrease with ZERO
--- commitment (reserved=0, allocated=0) -- i.e. that `negative_stock_
--- policy` cannot bypass the hard invariant regardless of its value.
+-- `on_hand_quantity >= 0` ALWAYS is now the FINAL product contract; IC-6
+-- (2026-09-17) subsequently dropped `negative_stock_policy` entirely once
+-- this very scenario had already proven it could never bypass the hard
+-- invariant -- see the scenario's own comment below for the full history):
+-- this is no longer a diagnostic -- it documents the FINAL, accepted
+-- product contract. Proves a bare on-hand decrease with ZERO commitment
+-- (reserved=0, allocated=0) is rejected unconditionally.
 --
 -- Executed live against supabase-target via Supabase MCP.
 
 BEGIN;
 
-SELECT plan(14);
+SELECT plan(11);
 
 CREATE TEMP TABLE fxb (
   org uuid, branch uuid, e2e_user uuid, variant_1 uuid, unit_1 uuid,
@@ -158,16 +157,30 @@ WHERE organization_id = (SELECT org FROM fxb) AND branch_id = (SELECT branch FRO
   AND location_id = (SELECT receiving_location_id FROM fxb) AND variant_id = (SELECT variant_1 FROM fxb);
 INSERT INTO test_log(line) SELECT is(on_hand_quantity, 6::numeric, 'T6 (control): moving exactly the free 4 units succeeds -- source on_hand now 6, exactly at the reserved boundary') FROM after_balance_b_control;
 
-RESET ROLE;
 
 -- ===========================================================================
--- SCENARIO C: FINAL PRODUCT CONTRACT -- negative_stock_policy cannot bypass
--- the hard invariant, for either 'allow' or 'block', on completely
--- uncommitted stock (reserved=0, allocated=0). A fresh, third isolated
--- branch (same fresh-branch convention as Scenario B above) with a
+-- SCENARIO C: FINAL PRODUCT CONTRACT -- the hard on-hand->=0 invariant is
+-- UNCONDITIONAL (no configurable policy exists at all). A fresh, third
+-- isolated branch (same fresh-branch convention as Scenario B above) with a
 -- directly-seeded balance (on_hand=2, reserved=0, allocated=0) -- no
 -- receive/reserve RPC chain needed since this scenario tests the bare
 -- on-hand decrease path directly.
+--
+-- IC-6 UPDATE (2026-09-17): `inventory_settings.negative_stock_policy` was
+-- dropped entirely (migration `20260917062301_ic6_drop_negative_stock_
+-- policy_column.sql`) and the now-dead `negative_stock_policy = 'block'`
+-- branch was removed from `inventory_finalize_posting_internal` (migration
+-- `20260917062247_...`). This is a direct, proven consequence of what this
+-- very scenario already established pre-IC-6: BOTH policy values ('allow'
+-- and 'block') produced the byte-identical P0003 rejection, because the
+-- P0003 strand-check (`post_on_hand >= reserved_quantity + allocated_
+-- quantity`) structurally always preempts the policy branch whenever
+-- `v_new_qty < 0` -- `reserved_quantity`/`allocated_quantity` can never be
+-- negative (both have their own `CHECK (>= 0)` constraints), so the
+-- policy-gated branch was provably unreachable dead code. This scenario
+-- previously ran the identical attempt twice (once per policy value) to
+-- prove parity; with the policy column gone there is only one behavior to
+-- prove, so the scenario now runs the attempt once.
 -- ===========================================================================
 
 CREATE TEMP TABLE fxc (org uuid, branch uuid, e2e_user uuid, variant_1 uuid, unit_1 uuid, loc_a uuid, loc_b uuid);
@@ -210,12 +223,7 @@ SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_use
 CREATE TEMP TABLE outcome_c (label text, status text, detail text);
 GRANT INSERT, SELECT ON outcome_c TO authenticated;
 
--- policy='allow': attempt decrease 5 from on_hand=2 (zero commitment) -- MUST be rejected per the final product contract.
-RESET ROLE;
-UPDATE inventory_settings SET negative_stock_policy = 'allow' WHERE organization_id = (SELECT org FROM fxc);
-SET LOCAL ROLE authenticated;
-SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fxc)::text, 'role', 'authenticated')::text, true);
-
+-- attempt decrease 5 from on_hand=2 (zero commitment) -- MUST be rejected unconditionally, per the final product contract.
 DO $$
 DECLARE v_result jsonb;
 BEGIN
@@ -225,18 +233,18 @@ BEGIN
       jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxc), 'unit_id', (SELECT unit_1 FROM fxc), 'quantity', 5, 'source_location_id', (SELECT loc_a FROM fxc), 'destination_location_id', NULL)),
       NULL, NULL, NULL, NULL, NULL, NULL, (SELECT e2e_user FROM fxc)
     );
-    INSERT INTO outcome_c VALUES ('allow', 'succeeded', v_result::text);
+    INSERT INTO outcome_c VALUES ('unconditional', 'succeeded', v_result::text);
   EXCEPTION WHEN OTHERS THEN
-    INSERT INTO outcome_c VALUES ('allow', 'failed', SQLSTATE || ' ' || SQLERRM);
+    INSERT INTO outcome_c VALUES ('unconditional', 'failed', SQLSTATE || ' ' || SQLERRM);
   END;
 END $$;
 
-INSERT INTO test_log(line) SELECT is((SELECT status FROM outcome_c WHERE label = 'allow'), 'failed', 'T7 (FINAL CONTRACT): with negative_stock_policy=''allow'', a bare on-hand decrease that would go negative (2-5) is REJECTED -- ''allow'' cannot bypass the hard invariant');
-INSERT INTO test_log(line) SELECT ok((SELECT detail FROM outcome_c WHERE label = 'allow') LIKE 'P0003%', 'T8: rejection carries SQLSTATE P0003 (not an accidental 23514 CHECK violation)');
+INSERT INTO test_log(line) SELECT is((SELECT status FROM outcome_c WHERE label = 'unconditional'), 'failed', 'T7 (FINAL CONTRACT): a bare on-hand decrease that would go negative (2-5) is REJECTED unconditionally -- no policy can bypass the hard invariant');
+INSERT INTO test_log(line) SELECT ok((SELECT detail FROM outcome_c WHERE label = 'unconditional') LIKE 'P0003%', 'T8: rejection carries SQLSTATE P0003 (not an accidental 23514 CHECK violation)');
 
-CREATE TEMP TABLE balance_after_allow AS
+CREATE TEMP TABLE balance_after_unconditional AS
 SELECT on_hand_quantity FROM inventory_balances WHERE organization_id = (SELECT org FROM fxc) AND branch_id = (SELECT branch FROM fxc) AND location_id = (SELECT loc_a FROM fxc) AND variant_id = (SELECT variant_1 FROM fxc);
-INSERT INTO test_log(line) SELECT is(on_hand_quantity, 2::numeric, 'T9: on_hand remains UNCHANGED (still 2) after the rejected ''allow''-policy attempt') FROM balance_after_allow;
+INSERT INTO test_log(line) SELECT is(on_hand_quantity, 2::numeric, 'T9: on_hand remains UNCHANGED (still 2) after the rejected attempt') FROM balance_after_unconditional;
 INSERT INTO test_log(line) SELECT is(
   (SELECT count(*) FROM inventory_movement_headers WHERE organization_id = (SELECT org FROM fxc) AND branch_id = (SELECT branch FROM fxc)),
   (SELECT n FROM movement_count_baseline_c), 'T10: no orphan inventory_movement_headers row created'
@@ -245,34 +253,6 @@ INSERT INTO test_log(line) SELECT is(
   (SELECT count(*) FROM inventory_stock_ledger_entries WHERE organization_id = (SELECT org FROM fxc) AND branch_id = (SELECT branch FROM fxc)),
   (SELECT n FROM ledger_count_baseline_c), 'T11: no ledger mutation (inventory_stock_ledger_entries row count unchanged)'
 );
-
--- policy='block': same fixture, same attempt -- must produce the byte-identical rejection.
-RESET ROLE;
-UPDATE inventory_settings SET negative_stock_policy = 'block' WHERE organization_id = (SELECT org FROM fxc);
-SET LOCAL ROLE authenticated;
-SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fxc)::text, 'role', 'authenticated')::text, true);
-
-DO $$
-DECLARE v_result jsonb;
-BEGIN
-  BEGIN
-    v_result := inventory_create_and_finalize(
-      (SELECT org FROM fxc), (SELECT branch FROM fxc), '402',
-      jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxc), 'unit_id', (SELECT unit_1 FROM fxc), 'quantity', 5, 'source_location_id', (SELECT loc_a FROM fxc), 'destination_location_id', NULL)),
-      NULL, NULL, NULL, NULL, NULL, NULL, (SELECT e2e_user FROM fxc)
-    );
-    INSERT INTO outcome_c VALUES ('block', 'succeeded', v_result::text);
-  EXCEPTION WHEN OTHERS THEN
-    INSERT INTO outcome_c VALUES ('block', 'failed', SQLSTATE || ' ' || SQLERRM);
-  END;
-END $$;
-
-INSERT INTO test_log(line) SELECT is((SELECT status FROM outcome_c WHERE label = 'block'), 'failed', 'T12 (FINAL CONTRACT): with negative_stock_policy=''block'', the identical attempt is also REJECTED');
-INSERT INTO test_log(line) SELECT ok((SELECT detail FROM outcome_c WHERE label = 'block') LIKE 'P0003%', 'T13: ''block''-policy rejection also carries SQLSTATE P0003 -- byte-identical behavior to ''allow''');
-
-CREATE TEMP TABLE balance_after_block AS
-SELECT on_hand_quantity FROM inventory_balances WHERE organization_id = (SELECT org FROM fxc) AND branch_id = (SELECT branch FROM fxc) AND location_id = (SELECT loc_a FROM fxc) AND variant_id = (SELECT variant_1 FROM fxc);
-INSERT INTO test_log(line) SELECT is(on_hand_quantity, 2::numeric, 'T14: on_hand remains UNCHANGED (still 2) after the rejected ''block''-policy attempt too') FROM balance_after_block;
 
 RESET ROLE;
 

@@ -1129,6 +1129,301 @@ per-file breakdown.
 
 ---
 
+## 9D. IC-6 — Legacy Writer/Helper Removal
+
+**✅ DONE (2026-09-17)**.
+
+**Goal**: cleanup/consolidation only — no new behavior. Identify every
+legacy/superseded Inventory write/helper/config path, prove whether it
+is genuinely dead (repo callers + live SQL-to-SQL callers + app
+callers + intentional test/doc references, not TypeScript-compiler
+non-use alone), delete/drop only confirmed-dead paths, and remove dead
+compatibility/config surface that no longer represents real product
+behavior. IC-0 through IC-5 and IC-7A's own accepted architecture was
+NOT reopened; full IC-7, IC-8, and Phase 10D were NOT started.
+
+**Call-graph method**: every canonical Inventory Core function was
+enumerated live from `pg_proc` (org/branch/movement/receiving/
+reservation/allocation/transfer/container/RepairOrder-projection
+surface), classified A (canonical active) / B (canonical internal) /
+C (compatibility wrapper still required) / D (confirmed dead) / E
+(uncertain, therefore untouched). SQL-to-SQL callers were found via a
+live `prosrc` scan across every function in `pg_proc` (not merely
+name-pattern matches) — this is the mechanism that caught the stale
+overload below, which a name-only audit would have missed entirely.
+
+**1. Old `inventory_v1_get_or_create_balance` helper (§4) — DROPPED,
+confirmed dead.** Re-verified live: a `prosrc` scan across every
+function in the database found zero SQL callers (IC-1 had already
+replaced every internal call site with `inventory_get_or_create_
+balance_for_update`, the lot/serial-aware replacement). A repo-wide
+grep found zero TypeScript callers — the only two repo hits were the
+auto-generated `target.types.ts` type declaration (generated metadata,
+not a caller) and IC-1's own historical migration text (evidence of
+evolution, not a live caller). Dropped via a forward migration;
+`to_regprocedure` confirmed absence live.
+
+**2. Stale `inventory_get_or_create_balance_for_update` 5-arg overload
+(§14) — DROPPED, confirmed dead.** This function carried TWO live
+overloads: a 5-arg form (no lot/serial support, hardcodes `lot_id IS
+NULL AND serial_id IS NULL`) and the canonical 7-arg form (`p_lot_id`/
+`p_serial_id`, both `DEFAULT NULL` — IC-1's own lot/serial-aware
+replacement). A live `prosrc` scan found all 6 real callers
+(`inventory_create_reservation`, `inventory_create_allocation`,
+`inventory_release_reservation`, `inventory_release_allocation`,
+`inventory_finalize_posting_internal`, `inventory_send_branch_
+transfer`) already call the 7-arg form explicitly, every time — zero
+callers of the 5-arg form exist. This was a genuine landmine: because
+the 7-arg form's own trailing 2 params both have `DEFAULT`s, a future
+5-positional-arg call would have resolved to the OLD, lot/serial-blind
+overload (Postgres prefers the exact-arity match), silently landing on
+stale logic. Dropped via a forward migration; exactly one overload
+remains live.
+
+**3. `negative_stock_policy` dead configuration (§5) — Option A
+chosen, column DROPPED entirely.** Re-verified the IC-1 finding is
+still true: zero application (TypeScript) readers or writers (repo-
+wide grep, zero hits); the column's own sole SQL reader was
+`inventory_finalize_posting_internal`'s own `IF v_new_qty < 0 AND
+v_settings.negative_stock_policy = 'block' THEN ...` branch. **Went
+further than "still unused" — proved it UNREACHABLE**: `inventory_
+balances` carries `CHECK (reserved_quantity >= 0)` and `CHECK
+(allocated_quantity >= 0)`, so `reserved_quantity + allocated_quantity`
+can never be negative; the P0003 "would strand committed stock" check
+immediately above the dead branch fires whenever `v_new_qty < (reserved
+
+- allocated)`, which is structurally guaranteed true whenever
+`v_new_qty`is negative (a negative number is always less than a
+non-negative one). The`negative_stock_policy='block'`branch could
+therefore never execute, for ANY value of the column, live or
+hypothetical — confirmed empirically by pgTAP 102's own Scenario C
+(T7/T8), which observed SQLSTATE`P0003`(the strand-check), never the
+dead branch's own bare`RAISE`, for a bare zero-commitment negative-
+on-hand attempt. Fixed forward in two migrations: (1) `CREATE OR
+  REPLACE` `inventory_finalize_posting_internal`removing only the
+3-line dead conditional — the`SELECT \* INTO v_settings ... FOR UPDATE`statement itself was preserved byte-for-byte in its own original
+position, since IC-6 must not alter locking/concurrency behavior and
+that row lock serves purposes independent of this one field; (2)`ALTER TABLE inventory_settings DROP COLUMN negative_stock_policy`(its own CHECK constraint dropped automatically with it). Data-impact
+proof: exactly one live row, value`'block'`(the column's own
+DEFAULT) — no meaningful state lost.`'allow'`/`'allow_with_approval'`
+no longer exist as a selectable value at all; IC-1's own hard invariant
+(`on_hand_quantity >= 0`always,`reserved+allocated <= on_hand`
+  always) is completely unchanged and unweakened.
+
+**Regression surfaced and fixed**: the full 097-107 pgTAP regression run
+(after the column drop) found that `102_ic1_reserved_only_hard_
+invariant_test.sql`'s own Scenario C directly `UPDATE`d the now-dropped
+`negative_stock_policy` column to prove parity between `'allow'` and
+`'block'` — a genuine SQL-to-SQL caller this audit's `prosrc`-scan
+methodology could not see, since raw column references from pgTAP test
+files are not `pg_proc` bodies. This is a real, disclosed consequence of
+Option A (column drop), not a silent breakage: the whole transaction
+aborted with `42703: column "negative_stock_policy" ... does not exist`
+before reaching Scenarios A/B's own tally, making the entire file
+unscored. Fixed by editing the TEST FILE (not a migration — test files
+are not subject to the immutable-migration rule): Scenario C's own two
+`UPDATE`-then-attempt passes (policy='allow', policy='block') were
+collapsed into a single unconditional pass, since there is no longer a
+policy value to vary — the assertion set (rejected, SQLSTATE P0003,
+on_hand unchanged, no orphan header/ledger row) is preserved, `plan(14)`
+reduced to `plan(11)` (T12-T14's own redundant second pass removed, T1-
+T9 renumbered as T1-T9, T10/T11 kept). Both the file's own top header
+comment and Scenario C's own comment block were updated to record this
+history. Re-run live: 11/11, 0 failures.
+
+**4. Legacy movement helpers (§6) — already absent, documented only.**
+`inventory_allocate_movement_number`, `inventory_create_draft_
+movement`, `inventory_post_movement` are all confirmed absent from
+live `pg_proc` — no DB action needed. **New, disclosed finding**: `src/
+server/services/inventory-products.service.ts`'s own `createOpeningStock
+Movement` private helper — called from the ACTIVE, UI-reachable
+`createEnhancedProduct` (via `src/app/actions/warehouse/inventory/
+index.ts`) whenever a product is created with `track_inventory` +
+`opening_location_id` — calls exactly these two nonexistent RPCs
+(`inventory_create_draft_movement`, `inventory_post_movement`). This is
+a genuine, currently-live PRODUCTION BUG (opening-stock-on-product-
+creation is currently broken, would fail with a Postgres "function does
+not exist" error), NOT fixed in this phase — fixing an application bug
+is out of IC-6's own explicit "no new behavior" charter. Flagged for a
+separate, appropriately-scoped fix.
+
+**5. Document-sequence/movement-number helpers (§7) — already
+consolidated, documented only.** No separate numbering helper function
+exists at all; the numbering logic (`inventory_document_sequences`
+lookup + `FOR UPDATE` lock + increment) already lives inline, once,
+inside `inventory_finalize_posting_internal` — the single canonical
+posting path. §7's own goal ("only one supported numbering path") was
+already satisfied before this phase began.
+
+**6. Direct balance/ledger writers (§8) — audited, all accounted for,
+one dead parallel writer found and removed.** A live `prosrc` regex scan
+confirmed exactly ONE function writes `inventory_balances.on_hand_
+quantity` and exactly ONE function inserts into `inventory_stock_
+ledger_entries` — both are `inventory_finalize_posting_internal`,
+matching accepted architecture exactly. Six functions write `reserved_
+quantity`/`allocated_quantity` directly — all are the accepted Phase
+10A/10B reservation/allocation engine (`inventory_create_reservation`,
+`inventory_release_reservation`, `inventory_create_allocation`,
+`inventory_release_allocation`, plus `inventory_finalize_posting_
+internal`'s own read path and `inventory_send_branch_transfer`'s own
+reservation-consumption step) — none superseded, none dead. **Finding,
+corrected mid-phase**: `src/app/actions/warehouse/ambra-location-
+inventory.ts` performed direct Supabase-client `.update({allocated_
+quantity: ...})`/`.insert(...)` calls against `inventory_balances`/
+`inventory_containers`/`inventory_container_lines`, entirely bypassing
+`inventory_create_allocation`/`inventory_release_allocation`. An
+initial draft of this section incorrectly judged this file "active,
+required" based on a half-remembered, unverified reference to an IC-4
+test comment. A fresh, independent caller-trace (grepping the exact
+exported function names, not the module path) found this was WRONG:
+`createLocationContainerAction`, `addItemsToContainerAction`,
+`removeItemFromContainerAction`, and `relocateContainerAction` have
+**zero callers anywhere in the repository** — the one real UI import
+from the "ambra-location-inventory" namespace
+(`src/app/[locale]/dashboard/warehouse/locations/page.tsx`) goes to a
+completely different, read-only file, `ambra-location-inventory.
+service.ts`, not the actions file with the writes. This matches the
+implementation plan's own pre-existing IC-6 scope note, which already
+named these same 4 functions as "confirmed zero UI callers, twice,
+across two separate audits" — this session's own trace is a third,
+independent confirmation. **Action taken**: all 4 functions, plus their
+exclusively-owned zod schemas (`createContainerSchema`, `addItemsSchema`,
+`removeItemSchema`, `relocateContainerSchema`) and the now-unused
+`InventoryMovementsService` import, were deleted from `ambra-location-
+inventory.ts` (618 → 218 lines). The remaining 3 exported functions in
+that file (`deletePutawayRuleAction`, `findContainersByReferenceAction`,
+`createLocationPutawayRuleAction`) are ALSO confirmed dead (zero callers)
+but were deliberately RETAINED: they write to/read `inventory_putaway_
+rules`/`inventory_containers` (find-only), an unrelated table outside
+this phase's "Inventory Core balance/ledger writer" charter, and are not
+named in the implementation plan's own IC-6 scope — removing them would
+be general dead-code cleanup, not Inventory Core legacy-writer removal.
+Disclosed as a retained-but-dead candidate for a future cleanup pass.
+`pnpm type-check`/`pnpm lint`/`pnpm build` all re-run clean after this
+deletion (0 type errors; 0 lint errors, 319 pre-existing warnings,
+unchanged baseline; production build succeeded including the `/dashboard/
+warehouse/locations` route). Full Vitest re-run (4500 tests) showed 32
+pre-existing failures across unrelated areas (auth/invitations/sidebar/
+QR-label rendering/org RLS) — confirmed via `git stash` on this one file
+that all 32 fail identically without this change, i.e. pre-existing
+baseline noise on this branch, not a regression introduced here.
+
+**7. RepairOrder/Zone-5 legacy writers (§9) — clean, nothing to
+remove.** Every `attach`/`putaway`/`rebuild`/`write_repair_order_line_
+movement_link_internal`/`repair_order_location_attribution_sync`
+function live is the CURRENT, accepted IC-5(-correction) version; no
+orphaned/superseded predecessor function was found still live.
+
+**8. GUC audit (§10) — both retained, justified, unchanged.** `ambra.
+inventory_movement_engine`: set by ~20 orchestrating RPCs, read by
+`inventory_guard_balance_write`/`inventory_guard_settings_write`
+(direct-write guard triggers) and the posted-header immutability
+triggers. **Explicitly NOT touched** — the posted-header GUC-bypass
+security gap this GUC is entangled with (an ordinary permission-holding
+actor can self-set it and rewrite posted-header business content) is a
+known, already-disclosed FULL IC-7 finding; superficially "cleaning up"
+its own surface here without fixing the actual security issue would be
+misleading. `ambra.repair_order_attribution_authoritative`: readers/
+setters reconfirmed as EXACTLY the accepted IC-5 set (`attach`,
+`putaway`, `receive_repair_order_stock`, the reversal-aware trigger,
+`inventory_reverse_movement`) — genuinely still required, unchanged.
+
+**9. Stale overloads (§14) — one found (item 2 above), fixed; audit
+otherwise clean.** Every other canonical Inventory Core function/helper
+name was confirmed to carry exactly one live signature.
+
+**10. TypeScript/application legacy paths (§16) — three findings,
+none removed this phase.** `InventoryProductsService.
+createEnhancedProductLegacy` (175 lines) has ZERO callers anywhere in
+the repository (not even tests) — genuinely dead code, but it is
+PRODUCT-creation scope, not Inventory Core movement/writer scope;
+retained and disclosed rather than removed, to keep this phase's own
+diff tightly scoped to the architecture this IC-phase project actually
+owns. `inventory_cancel_movement` (§2's own broader function audit) —
+**new, disclosed, security-relevant finding**: this function is ACTIVE
+(real caller: `InventoryMovementsService.cancelMovement`, reachable
+from a real server action and a real UI component,
+`inventory-movement-detail-panel.tsx`) but carries `anon` EXECUTE and
+performs NO actor-identity or permission check at all — the exact
+class of gap IC-7A closed on `inventory_create_draft`/`inventory_
+finalize_posting`/`inventory_create_and_finalize`, but on a function
+IC-7A's own narrow scope did not touch. A fully unauthenticated caller
+can currently cancel any DRAFT movement. Not fixed here — squarely full
+IC-7's own job — flagged prominently.
+
+**Third finding, confirmed not suspected**: `InventoryProductsService.
+createOpeningStockMovement` calls `.rpc("inventory_create_draft_
+movement", ...)` then `.rpc("inventory_post_movement", ...)`. A live
+`pg_proc` query for these exact two names returns ZERO rows — neither
+function exists under any signature; the only live functions in this
+name family are `inventory_create_draft(uuid,uuid,text,jsonb,date,
+date,text,text,text,text,uuid)` and `inventory_finalize_posting(uuid,
+uuid)` (different names entirely, not a renamed/re-aritied match).
+This is NOT dead code — the method is reachable via `createEnhanced
+Product` (the live, active product-creation path, called from a real
+server action) whenever any variant has `opening_quantity > 0`, and
+will throw a PostgREST "function not found" runtime error when
+exercised. Fixing it (repointing the calls at the correct current RPC
+names/signatures) is a BUG FIX, new behavior — explicitly out of IC-6's
+own "no architecture change" charter — not fixed here, flagged
+prominently for a dedicated fix.
+
+**11. Zone-5 local migration-mirroring gap (§17/§18) — Option A,
+documented, not fabricated.** Confirmed live and precisely: NO locally-
+mirrored migration creates the `repair_order_line_locations` or
+`repair_order_location_attribution_uncertain` TABLES, creates the
+`repair_order_location_attribution_sync` TRIGGER binding, or contains
+the ORIGINAL `CREATE FUNCTION` for `resolve_branch_receiving_location`
+or `receive_repair_order_stock` (IC-3's own locally-mirrored migration
+is a `CREATE OR REPLACE`, assuming a pre-existing definition). These
+objects were created by 7 live `zone5_*`-named migrations
+(`zone5_receiving_location_purpose`, `zone5_repair_order_spatial_
+attribution_schema`, `zone5_attribution_sync_trigger`, `zone5_
+attribution_sync_trigger_max_uuid_fix`, `zone5_receive_repair_order_
+stock_rpc_v2`, `zone5_putaway_repair_order_stock_rpc`, `zone5_receive_
+repair_order_stock_use_canonical_attach`) that exist live but were
+never locally mirrored — predates this IC-phase project's own
+mirroring discipline. **Decision**: leave the gap explicitly
+documented (this list) rather than fabricate a "baseline snapshot"
+migration reconstructing complex historical schema/RLS/trigger state
+from current live introspection — the risk of a subtle, silent
+omission in a hand-reconstructed baseline was judged higher than the
+cost of leaving an honestly-documented, precisely-itemized gap for a
+future phase to close deliberately. No fake historical timestamps were
+created.
+
+**12. From-scratch reproducibility (§18) — confirmed BROKEN,
+pre-existing, disclosed.** No local Docker/Supabase instance was
+available in this environment; the check performed was the strongest
+static one available: confirming, live, that the local migration tree
+lacks the schema-creation statements item 11 lists. A `supabase db
+reset` (or equivalent) replayed against ONLY the currently-mirrored
+migration files would fail once it reached the first migration
+referencing `repair_order_line_locations` (a "relation does not exist"
+error), because no local migration creates that table. This is a
+PRE-EXISTING condition (inherited from before this IC-phase project's
+own discipline began), not something IC-6 introduced or worsened — but
+it is now, for the first time, precisely itemized rather than merely
+"flagged."
+
+**13. Zero data destruction / zero residual test data.** No inventory
+table was dropped (none were even candidates — every table audited
+carries a confirmed accepted-architecture role). `107_...`'s own
+pgTAP file continues to run inside `BEGIN...ROLLBACK`; the new `108_
+ic6_legacy_cleanup_test.sql` likewise. The `negative_stock_policy`
+column drop is the only data-shape change in this phase, and its own
+data-impact proof (above) shows zero meaningful state lost.
+
+**14. No locking/concurrency change.** The one behavioral edit
+(`inventory_finalize_posting_internal`) preserved its own `FOR UPDATE`
+lock acquisition byte-for-byte; no new lock primitive was introduced;
+no dedicated concurrency test was required or performed (§23's own
+"only if cleanup forces a change" condition was never triggered).
+
+**Full evidence**: `docs/inventory/reviews/ic-6-review/`.
+
+---
+
 ## 10. Performance Plan
 
 - **No microservices, no event sourcing** — PostgreSQL/Supabase remains the

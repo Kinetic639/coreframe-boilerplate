@@ -81,45 +81,113 @@ centralizing all three behind one new internal canonical primitive,
 attach contract frozen to `receipt`/`issue` only). New pgTAP Scenarios
 Q/R/S/T (`107_...` 33/33 → 46/46). Full regression 097-107 re-run
 (097 specifically re-run in full), 382/382, 0 failures.
-**Current phase:** IC-5 DONE (correction applied) → IC-6 (Legacy
-writer/helper removal) is the next phase in sequence, NOT yet
-authorized/started.
+**IC-6 ✅ DONE** — Legacy Writer/Helper Removal. Every candidate named
+in the phase's own scope (decisions #9/#10/#11) plus everything
+surfaced by the required call-graph audit was classified via the
+"four evidence sources" discipline before deletion. Dropped:
+`inventory_v1_get_or_create_balance`; the stale 5-arg `inventory_get_
+or_create_balance_for_update` overload; `inventory_settings.negative_
+stock_policy` (Option A, full column drop, proven structurally
+UNREACHABLE not merely unused); `ambra-location-inventory.ts`'s 4 dead
+write actions (`createLocationContainerAction`, `addItemsToContainer
+Action`, `removeItemFromContainerAction`, `relocateContainerAction` —
+zero callers, confirmed a third independent time this phase after an
+initial DRAFT wrongly judged the file "active/required" based on an
+unverified memory; corrected mid-phase via a fresh caller-trace).
+Legacy movement/numbering-helper audits (§6/§7) confirmed already-clean.
+GUC audit (§10) retained both `ambra.inventory_movement_engine` and
+`ambra.repair_order_attribution_authoritative` — the known posted-
+header GUC bypass is explicitly left for full IC-7, not patched here.
+A genuine regression was surfaced by the full-suite rerun (pgTAP
+`102_...`'s own Scenario C directly referenced the dropped column) and
+fixed by editing the TEST FILE (not a migration) to remove the now-
+meaningless two-policy comparison. New dedicated pgTAP file `108_ic6_
+legacy_cleanup_test.sql` (23/23) proves the cleanup boundaries.
+`ambra-location-inventory.ts`'s remaining 3 functions are also dead but
+deliberately retained (out of this phase's narrow balance/ledger-writer
+charter). See `inventory-core-architecture.md` §9D and `docs/inventory/
+reviews/ic-6-review/` for the full dead-path matrix and evidence.
+**IC-6A ✅ DONE** — Opening Stock Active-Path Repair (narrow pre-IC-7
+correctness pass). IC-6 had discovered a live, active bug: `Inventory
+ProductsService.createOpeningStockMovement` (reachable from the ACTIVE
+`createEnhancedProduct` path whenever a new variant has `opening_
+quantity > 0`) called two RPCs that do not exist live (`inventory_
+create_draft_movement`, `inventory_post_movement`). Fixed by moving
+this one caller onto the canonical `inventory_create_and_finalize`
+entry point, movement type `401` ("Inventory Count Adjustment
+(Increase)" — the only seeded, active, manually-postable type whose
+own location requirements match opening stock's destination-only
+shape; no new type was seeded). No migration required (the canonical
+capability already existed live). Actor/permission behavior was
+verified already-correct at the action layer (`WAREHOUSE_INVENTORY_
+OPERATE`, an exact match to one of the two permissions the canonical
+RPC itself checks) and left unchanged. New pgTAP `109_ic6a_opening_
+stock_repair_test.sql` (16/16) proves the exact new call shape live —
+before/after balance, exactly-one-movement/exactly-one-ledger-entry,
+actor/audit metadata, and retry/idempotency safety (same idempotency
+key posted twice never double-applies the quantity). 5 new Vitest
+scenarios cover zero-quantity skip, correct RPC shape, error
+propagation + compensating cleanup, multi-variant independence, and
+variant-identity correctness under mixed zero/nonzero quantities. Full
+097-108 regression re-run clean (402/402); `105_ic7a_...` (29/29)
+re-confirms the hardened entry point remains closed to anon/no-
+permission/spoofed-actor callers for this exact call path.
+`createEnhancedProductLegacy` (confirmed dead, unrelated product-
+creation scope) deliberately NOT touched, per this pass's own narrow
+"ACTIVE createEnhancedProduct path" charter. See `docs/inventory/
+reviews/ic-6a-opening-stock-repair-review/` for full evidence.
+**Current phase:** IC-6A DONE → full IC-7 (Inventory Security /
+Write-Boundary Closure) is the next phase in sequence, NOT yet
+authorized/started. IC-8 and Phase 10D remain NOT started.
 **Pitch/pilot readiness:** N/A — this is base-engine work, not itself a
 pitch-scoped feature; it BLOCKS Phase 10D, which IS pitch-scoped (see the
 Zone 3 tracker's own cross-reference).
-**Last updated:** 2026-09-16.
+**Last updated:** 2026-09-17.
 
 ---
 
 ## Overall execution
 
-- IC phases completed: 6 / 8 (IC-0, IC-1, IC-2, IC-3, IC-4, IC-5), plus
-  the out-of-order IC-7A emergency pass. IC-6 NOT started.
+- IC phases completed: 7 / 8 (IC-0, IC-1, IC-2, IC-3, IC-4, IC-5, IC-6),
+  plus the out-of-order IC-7A emergency pass and the narrow IC-6A
+  correctness pass (opening-stock active-path repair). Full IC-7 and
+  IC-8 NOT started.
 - 3 forward migrations applied for IC-1; 9 forward migrations applied for
   IC-2 (7 original + 2 from the security-boundary correction pass); 4
   forward migrations applied for IC-3; 4 forward migrations applied for
   IC-7A; 14 forward migrations applied for IC-4 (12 original + 2 from
   the narrow correction pass); 17 forward migrations applied for IC-5
   (6 original + 5 self-caught correction/fix migrations + 6 from its own
-  narrow correction pass) — all live-verified, all mirrored locally
-  under the exact live version/timestamp — see change log.
+  narrow correction pass); 4 forward migrations applied for IC-6 (function
+  fix, column drop, stale-overload drop, dead-helper drop) — all
+  live-verified, all mirrored locally under the exact live
+  version/timestamp — see change log.
 - Application code: no TypeScript changes were required for IC-1, IC-2,
   IC-3, IC-7A, or IC-5 (all entirely PL/pgSQL). IC-4 required TypeScript
   changes (service methods, action layer, Zod schemas, event registry —
-  no UI), per its own explicit scope. 2 pgTAP test files added/
-  rewritten for IC-1 (`101_...` rewritten, `102_...` new/extended); 1 new
-  pgTAP file for IC-2, extended in the security-boundary correction pass
-  (`103_...`, 35/35, its own Scenario E repositioned by IC-7A — see
-  below); 1 new pgTAP file for IC-3 (`104_...`, 44/44), plus one genuine
-  two-PostgreSQL-connection concurrency proof performed outside pgTAP; 1
-  new pgTAP file for IC-7A (`105_...`, 29/29); 1 new pgTAP file for IC-4,
-  extended in its own narrow correction pass (`106_...`, 60/60 → 87/87),
-  plus three genuine two-PostgreSQL-connection concurrency proofs
-  (double-send, double-accept, accept-vs-generic-movement contention); 1
-  new pgTAP file for IC-5, extended in its own narrow correction pass
-  (`107_...`, 33/33 → 46/46) — no dedicated concurrency
-  test performed (structural lock-path argument instead, see change
-  log).
+  no UI), per its own explicit scope. IC-6 required one TypeScript
+  deletion (`ambra-location-inventory.ts`, 618 → 218 lines — 4 confirmed-
+  dead write actions removed; `pnpm build` re-run clean, required since
+  this was the first application/action TypeScript change since IC-4). 2
+  pgTAP test files added/rewritten for IC-1 (`101_...` rewritten,
+  `102_...` new/extended, then narrowed again by IC-6 after the
+  `negative_stock_policy` column it referenced was dropped — see IC-6's
+  own change-log entry); 1 new pgTAP file for IC-2, extended in the
+  security-boundary correction pass (`103_...`, 35/35, its own Scenario E
+  repositioned by IC-7A — see below); 1 new pgTAP file for IC-3
+  (`104_...`, 44/44), plus one genuine two-PostgreSQL-connection
+  concurrency proof performed outside pgTAP; 1 new pgTAP file for IC-7A
+  (`105_...`, 29/29); 1 new pgTAP file for IC-4, extended in its own
+  narrow correction pass (`106_...`, 60/60 → 87/87), plus three genuine
+  two-PostgreSQL-connection concurrency proofs (double-send,
+  double-accept, accept-vs-generic-movement contention); 1 new pgTAP
+  file for IC-5, extended in its own narrow correction pass (`107_...`,
+  33/33 → 46/46) — no dedicated concurrency test performed (structural
+  lock-path argument instead, see change log); 1 new pgTAP file for IC-6
+  (`108_ic6_legacy_cleanup_test.sql`, 23/23) — a dedicated cleanup-
+  boundary test, not a business-workflow retest, per IC-6's own narrow
+  scope; no new concurrency test (pure code removal, no new locking
+  behavior).
 
 ---
 
@@ -134,7 +202,8 @@ Zone 3 tracker's own cross-reference).
 | **IC-7A** Emergency movement-engine security boundary closure        | ✅ DONE        | **Out-of-roadmap-order emergency pass**, pulled forward from full IC-7 because IC-3 live-verified a CRITICAL finding: `inventory_create_draft`/public `inventory_finalize_posting`/`inventory_create_and_finalize` carried live `anon` EXECUTE with zero actor/permission check — a fully unauthenticated caller could post arbitrary movements. Re-reproduced live, fresh (not trusted from the prior report). Caller-graph audit BEFORE any grant change found 5 real Next.js server actions and the non-`SECURITY DEFINER` `inventory_approve_count_session` call these 3 RPCs DIRECTLY as `authenticated` — full internalization would have broken them, so Option B (harden in place) was chosen. `inventory_create_draft`/`inventory_finalize_posting_internal` (shared finalize choke point) gained actor+permission checks; `inventory_create_and_finalize` hardened directly too as defense in depth; `anon`/PUBLIC EXECUTE revoked, `authenticated`/`service_role` kept. Manual creation of `allows_manual_entry=false` types (900) now blocked. 2 live-caught defects fixed forward (an overly-broad `is_system`-based type guard, caught before any test ran; `103_...`'s own Scenario E ordering assumption invalidated by the new check, caught by the regression suite itself, fixed by repositioning — not rewriting — the scenario). Post-fix exploit replay: exact original attack now `42501`, zero physical mutation. pgTAP 29/29 (`105_...`). Full regression 249/249. Full IC-7 phase remains OPEN — only this one item closed. See change log for full evidence.                                                                                                                                                                                                                                                                                                                                                                                        |
 | **IC-4** Branch transfer / MMJ rebuild                               | ✅ DONE        | Closed product-owner decision implemented exactly: `in_transit` means physically shipped (a real posted `311` movement), never merely reserved. New `prepared` pre-shipment status; new `inventory_send_branch_transfer`/`inventory_cancel_branch_transfer` RPCs; `inventory_accept_branch_transfer`/`inventory_decline_branch_transfer` fully rebuilt off hand-written balance writes onto the canonical engine; a new, previously undisclosed `anon`-EXECUTE + unchecked-actor finding closed on all 5 branch-transfer RPCs; movement type `311` redefined (zero live rows) + new `312` seeded, both system-managed; new `inventory_branch_transfer_discrepancies` table for persisted partial-receipt shortfalls; raw-write RLS closed on both transfer tables. 3 genuine two-connection concurrency proofs (double-send, double-accept, accept-vs-generic-movement contention). pgTAP 60/60 (`106_...`). Full regression 309/309. See change log for full evidence.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | **IC-5** RepairOrder physical-location projection consolidation      | ✅ DONE        | One coherent projection derivation from canonical ledger (A) + attribution (B, `repair_order_line_movement_links`) → projection (C). Incremental fast path plus a new authoritative deterministic rebuild (`rebuild_repair_order_projection_bucket_internal` + public `rebuild_repair_order_location_projection`), proven equal by construction for reversal and empirically for every tested scenario (A-T). Reversal made projection-aware while `inventory_reverse_movement` itself stays fully RepairOrder-agnostic and untouched. IC-2 GUC retained, its staleness side-effect eliminated. `CHECK (quantity >= 0)` added; over-attribution/negative-rebuild hard-errors `P0008`, never clamped. Raw writes closed on both projection tables. **Same-day narrow correction pass**: fixed a BLOCKER (reversed putaway rebuilt the wrong projection bucket set -- the source/receiving bucket was left stale; buckets now derived from the reversal movement LINE's own source/destination columns, never from the firing ledger row) and centralized all three direct writers of `repair_order_line_movement_links` (attach/putaway/reversal-trigger) behind one new internal canonical primitive, `write_repair_order_line_movement_link_internal`, after external review found the original pass's own "attach is the sole writer" documentation claim had become false. Public attach contract frozen to `receipt`/`issue` only. pgTAP 46/46 (`107_...`, extended). Full regression 097-107, 382/382, 0 failures. See change log for full evidence.                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| IC-6 Legacy writer/helper removal                                    | ⬜ NOT STARTED | Depends on IC-1 (balance-getter replacement), IC-4 (311 disposition), IC-5 (Zone 5 direct-write removal).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| IC-6 Legacy writer/helper removal                                    | ✅ DONE        | Dropped: `inventory_v1_get_or_create_balance`, stale 5-arg `inventory_get_or_create_balance_for_update` overload, `inventory_settings.negative_stock_policy` (Option A, proven structurally UNREACHABLE not just unused), 4 dead `ambra-location-inventory.ts` write actions (zero callers, confirmed a 3rd independent time). Legacy movement/numbering-helper audits confirmed already-clean. Both GUCs retained (posted-header GUC bypass left for full IC-7). New pgTAP `108_...` (23/23); full regression 097-108 re-run after fixing a genuine regression in `102_...` (its own Scenario C referenced the dropped column — test file edited, not a migration). See `inventory-core-architecture.md` §9D and `docs/inventory/reviews/ic-6-review/`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| IC-6A Opening stock active-path repair                               | ✅ DONE        | Fixed a live, active bug IC-6 discovered: `createOpeningStockMovement` called 2 nonexistent RPCs. Moved onto `inventory_create_and_finalize` (movement type 401), no migration needed. New pgTAP `109_...` (16/16, live retry/idempotency proof); 5 new Vitest scenarios; full 097-108 regression re-run clean (402/402); `105_...` re-confirmed (29/29). From-scratch reproducibility gap (IC-6 finding) assigned as a HARD GATE to IC-8. See `docs/inventory/reviews/ic-6a-opening-stock-repair-review/`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | IC-7 Inventory security/write-boundary closure                       | ⬜ NOT STARTED | Depends on IC-0's own live findings plus whatever IC-4 already closed.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | IC-8 Full inventory regression / concurrency / performance hardening | ⬜ NOT STARTED | Final phase before the INVENTORY CORE FINAL GATE.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | **INVENTORY CORE FINAL GATE**                                        | ⬜ NOT REACHED | Required before Phase 10D (Container QR) may resume.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
@@ -2136,3 +2205,474 @@ md`'s own IC-5 section note updated to mention the correction pass.
   **IC-5 remains DONE, now with this correction applied.** IC-6 is NOT
   started. Full IC-7 remains NOT done. IC-8 is NOT started. Phase 10D
   is NOT started.
+
+---
+
+- **2026-09-17 (IC-6 — Legacy Writer/Helper Removal)**: full "legacy
+  writer/helper removal" cleanup/consolidation phase, per explicit
+  instruction; full IC-7, IC-8, and Phase 10D explicitly NOT started.
+  IC-0 through IC-5 and IC-7A remain ACCEPTED/FINAL, not reopened.
+
+  **Starting-state gate**: HEAD found at `daeba1132b05295bb3a8221f6d
+218e77bfb36487` ("ic6"), a clean, fully-committed tree containing
+  exactly the IC-4/IC-5(-correction) file set (53 files, matches the
+  prior session's own commit) — the commit's own label was pre-existing
+  and not authored this session; flagged explicitly, confirmed it
+  satisfies rather than violates the "IC-4/IC-5 must be committed"
+  prerequisite, and that no actual IC-6 work existed in it yet (no
+  `ic6_`-prefixed migrations, no `108_` file, no `ic-6-review/` bundle).
+
+  **Call-graph audit**: a single broad live `pg_proc` query (~55
+  Inventory-Core-pattern-matching functions, with signature/security*
+  definer/owner/anon-exec/authenticated-exec/service-exec columns)
+  plus targeted `prosrc` regex scans established the full picture.
+  Confirmed already-absent: `inventory_allocate_movement_number`,
+  `inventory_create_draft_movement`, `inventory_post_movement` (as
+  distinct legacy helpers — the identically-named `inventory_post*
+  movement`/`inventory_create_draft_movement` RPC names ARE still live,
+  but as the CURRENT canonical primitives, not legacy predecessors,
+  confirmed by reading their own bodies).
+
+  **1. Old `inventory_v1_get_or_create_balance` — DROPPED.** Live
+  `prosrc` scan across all of `pg_proc` found zero SQL callers; repo
+  grep found zero TypeScript callers. `DROP FUNCTION` applied
+  (`20260917062320_ic6_drop_dead_v1_balance_helper.sql`). Live-verified
+  `to_regprocedure(...)` returns NULL post-drop.
+
+  **2. Stale `inventory_get_or_create_balance_for_update` 5-arg
+  overload — DROPPED, canonical 7-arg form unchanged.** A dedicated
+  overload-duplicate-count query across every canonical Inventory
+  function name found exactly one case of this. Both overload bodies
+  were read and compared; all 6 real SQL callers (`inventory_create_
+  reservation`, `inventory_create_allocation`, `inventory_release_
+  reservation`, `inventory_release_allocation`, `inventory_finalize_
+  posting_internal`, `inventory_send_branch_transfer`) were confirmed
+  to use the 7-arg form exclusively. This was a genuine landmine: the
+  7-arg form's own trailing 2 params both carry DEFAULTs, so a
+  hypothetical future 5-positional-arg call would have silently
+  resolved to the OLD, lot/serial-blind overload. `DROP FUNCTION`
+  applied (`20260917062315_ic6_drop_stale_balance_helper_5arg_
+  overload.sql`). Live-verified: 5-arg signature's `to_regprocedure`
+  returns NULL, 7-arg signature unchanged, `pg_proc` count for the
+  proname = 1.
+
+  **3. `negative_stock_policy` — Option A chosen, column DROPPED
+  entirely.** Re-verified zero TypeScript readers/writers (repo-wide
+  grep). Went further than "unused" — proved the column's sole SQL
+  reader (`inventory_finalize_posting_internal`'s own dead `IF v_new_
+  qty < 0 AND v_settings.negative_stock_policy = 'block'` branch)
+  structurally UNREACHABLE: `inventory_balances` carries `CHECK
+  (reserved_quantity >= 0)`/`CHECK (allocated_quantity >= 0)`, so the
+  P0003 "would strand committed stock" check immediately above the dead
+  branch always fires first whenever `v_new_qty < 0`. Confirmed
+  empirically by pgTAP 102's own pre-existing Scenario C (T7/T8), which
+  already observed SQLSTATE P0003, never the dead branch's own bare
+  RAISE, for both policy values. Fixed forward in two migrations: (1)
+  `CREATE OR REPLACE inventory_finalize_posting_internal` removing only
+  the 3-line dead conditional — the `SELECT * INTO v_settings ... FOR
+  UPDATE` row-lock statement preserved byte-for-byte in its original
+  position (IC-6 must not alter locking/concurrency behavior, and that
+  lock serves purposes independent of this one field)
+  (`20260917062247_...`); (2) `ALTER TABLE inventory_settings DROP
+  COLUMN negative_stock_policy` (its own CHECK constraint dropped
+  automatically) (`20260917062301_...`). Data-impact proof: exactly one
+  live row, value `'block'` (the column's own DEFAULT) — no meaningful
+  state lost. IC-1's own hard invariant completely unchanged.
+
+  **Regression surfaced and fixed**: the full 097-107 pgTAP regression
+  run (via a background agent, after the column drop) found that
+  `102_ic1_reserved_only_hard_invariant_test.sql`'s own Scenario C
+  directly `UPDATE`d the now-dropped `negative_stock_policy` column — a
+  genuine SQL-to-SQL caller this audit's `prosrc`-scan methodology could
+  not see (raw column references from pgTAP test files are not
+  `pg_proc` bodies). The whole transaction aborted (`42703: column
+  "negative_stock_policy" ... does not exist`) before reaching
+  Scenarios A/B's own tally, making the entire file unscored — a real,
+  disclosed consequence of Option A, not a silent breakage. Fixed by
+  editing the TEST FILE (not a migration — test files are not subject
+  to the immutable-migration rule): Scenario C's own two `UPDATE`-then-
+  attempt passes (`'allow'`, `'block'`) were collapsed into one
+  unconditional pass, since there is no longer a policy value to vary;
+  the assertion set (rejected, SQLSTATE P0003, on_hand unchanged, no
+  orphan header/ledger row) fully preserved; `plan(14)` reduced to
+  `plan(11)`. Both the file's own top header comment and Scenario C's
+  own comment block updated to record this history. Re-run live: 11/11,
+  0 failures.
+
+  **4. Legacy movement helpers (§6) — already absent, documented
+  only.** `inventory_allocate_movement_number`, `inventory_create_
+  draft_movement`, `inventory_post_movement` (as distinct legacy
+  predecessors) do not exist in `pg_proc` at all.
+
+  **5. Document-sequence/movement-number helpers (§7) — already
+  consolidated, documented only.** No separate numbering helper exists;
+  numbering logic already lives inline, once, inside `inventory_
+  finalize_posting_internal`.
+
+  **6. Direct balance/ledger writers (§8) — audited, one dead parallel
+  writer found and removed.** Exactly ONE function writes `inventory_
+  balances.on_hand_quantity` and exactly ONE inserts into `inventory_
+  stock_ledger_entries` — both `inventory_finalize_posting_internal`,
+  matching accepted architecture. Six functions write `reserved_
+  quantity`/`allocated_quantity` directly — all the accepted Phase
+  10A/10B reservation/allocation engine, none dead. **Corrected mid-
+  phase**: `src/app/actions/warehouse/ambra-location-inventory.ts`
+  performed direct writes against `inventory_balances`/`inventory_
+  containers`/`inventory_container_lines`. An initial draft of this
+  session's own architecture-doc section incorrectly judged this file
+  "active, required" based on a half-remembered, unverified IC-4 test
+  comment reference. A fresh, independent caller-trace (grepping exact
+  EXPORTED FUNCTION NAMES, not the module path — the established
+  project-wide lesson for avoiding false-positive "it's used" results)
+  found this was WRONG: `createLocationContainerAction`,
+  `addItemsToContainerAction`, `removeItemFromContainerAction`,
+  `relocateContainerAction` have zero callers anywhere in the repo —
+  the one real UI import from the "ambra-location-inventory" namespace
+  (`locations/page.tsx`) goes to a completely different, read-only
+  file (`ambra-location-inventory.service.ts`), not the actions file
+  with the writes. This matches `inventory-core-implementation-plan.
+md`'s own pre-existing IC-6 scope note, which already named these same
+  4 functions as "confirmed zero UI callers, twice, across two separate
+  audits" — this session's own trace is a third, independent
+  confirmation. All 4 functions, plus their exclusively-owned zod
+  schemas and the now-unused `InventoryMovementsService` import, were
+  deleted (618 → 218 lines). The file's remaining 3 exported functions
+  (`deletePutawayRuleAction`, `findContainersByReferenceAction`,
+  `createLocationPutawayRuleAction`) are also dead but were deliberately
+  RETAINED — they touch `inventory_putaway_rules` (unrelated to
+  balance/ledger), not named in the implementation plan's own scope;
+  removing them would be general dead-code cleanup, not Inventory Core
+  legacy-writer removal. Disclosed as a future cleanup candidate.
+
+  **7. RepairOrder/Zone-5 legacy writers (§9) — clean, nothing to
+  remove.** Every `attach`/`putaway`/`rebuild`/`write_repair_order_
+  line_movement_link_internal`/`repair_order_location_attribution_
+  sync` function live is the CURRENT, accepted IC-5(-correction)
+  version; no orphaned predecessor found.
+
+  **8. GUC audit (§10)**: both `ambra.inventory_movement_engine` and
+  `ambra.repair_order_attribution_authoritative` re-confirmed live/
+  required (set by every legitimate writer, read by the balance-write
+  guard trigger and the RepairOrder projection sync respectively).
+  Neither is client-settable from outside a `SECURITY DEFINER`
+  function's own controlled `SET LOCAL`. The known posted-header GUC-
+  UPDATE-bypass security gap is explicitly NOT touched here — left for
+  full IC-7 to close, per this phase's own explicit non-goal.
+
+  **9. Movement code 311**: re-confirmed already resolved by IC-4's own
+  redefinition (zero live rows under the old semantics) — not touched
+  again this phase.
+
+  **10. Overload cleanup (§14)**: the one genuine stale-overload case
+  (item 2 above) was the only one found across every canonical
+  Inventory RPC/helper signature enumerated.
+
+  **11. Grant cleanup (§15)**: `has_function_privilege` re-verified for
+  every internal function that remains — `authenticated`/`anon` both
+  EXECUTE-denied on `inventory_finalize_posting_internal`, `write_
+  repair_order_line_movement_link_internal`, `rebuild_repair_order_
+  projection_bucket_internal` (see pgTAP `108_...` Scenario D). Dropping
+  the 2 legacy functions naturally closed whatever grant surface they
+  held (both confirmed absent from `pg_proc` entirely, not merely
+  revoked).
+
+  **12. Zone-5 local migration-mirroring gap (§17)**: unchanged from
+  IC-5's own disclosure — the 7 live `zone5_*`-named migrations that
+  were never locally mirrored remain a documented historical gap, not
+  fabricated. IC-6 added zero new instances of this gap (all 4 of its
+  own migrations were mirrored locally under their exact live
+  timestamps, per the established discipline). IC-6's own audit went
+  further than prior phases and precisely itemized exactly which live
+  objects these 7 migrations alone create (`repair_order_line_
+  locations`, `repair_order_location_attribution_uncertain`, the
+  attribution-sync trigger binding, the original `receive_repair_
+  order_stock`/`resolve_branch_receiving_location` definitions) —
+  confirming this DOES block from-scratch reproducibility (see item 13
+  below), correcting an earlier, looser mid-phase characterization that
+  had claimed otherwise. Decision unchanged from IC-5: (A) leave the
+  historical gap documented rather than fabricate a hand-reconstructed
+  baseline migration.
+
+  **13. From-scratch reproducibility (§18) — CONFIRMED BROKEN,
+  pre-existing, not caused or worsened by IC-6**: local Docker/Supabase
+  unavailable in this environment (unchanged constraint from every
+  prior IC phase); performed the strongest static check available — a
+  `supabase db reset` replayed against only the currently-mirrored
+  local migration tree would fail the first time it reached a
+  migration referencing one of the Zone-5 objects in item 12, since no
+  local migration creates them from scratch. This predates IC-6 (and
+  this whole IC-phase project's own local-mirroring discipline)
+  entirely; none of IC-6's own 4 migrations depend on anything from the
+  unmirrored set, so IC-6 makes this neither better nor worse — but
+  this file's own change log states the honest result rather than the
+  more comfortable-sounding "not blocked" claim an earlier mid-phase
+  draft used. IC-6's own 4 migrations were themselves applied in
+  correct dependency order (function fix before column drop, since the
+  function's own body had to stop referencing the column before the
+  column could be safely dropped), each step live-verified
+  independently before the next was applied, with no squash of applied
+  live migration history.
+
+  **14. No architecture change (§19)**: confirmed — every deletion was
+  either genuinely unreachable dead code or a genuinely zero-caller
+  TypeScript path; IC-1 through IC-5's own semantics (hard invariant,
+  reversal, receiving, transfers, projection, reservations, allocations,
+  containers) are byte-for-byte unchanged. No new locking/concurrency
+  behavior introduced — the one preserved `FOR UPDATE` statement in
+  `inventory_finalize_posting_internal` was kept unchanged specifically
+  to honor this constraint.
+
+  **New pgTAP file**: `108_ic6_legacy_cleanup_test.sql` — `plan(23)`,
+  final 23/23, 0 failures. Tests cleanup boundaries only (not a
+  business-workflow retest): Scenario A (old v1 helper absent),
+  Scenario B (stale overload absent, canonical 7-arg present, exactly 1
+  overload), Scenario C (negative*stock_policy column/constraint
+  absent, `inventory_finalize_posting_internal`'s own body no longer
+  references it), Scenario D (4 internal functions remain non-
+  executable by `authenticated`/`anon`), Scenario E (12 assertions:
+  full receive/reverse/branch-transfer/putaway/RepairOrder-projection-
+  rebuild/reversal lifecycle still succeeds unchanged end to end). Two
+  self-caught fixture bugs during authoring, both instances of already-
+  documented project-wide artifacts: (1) the GUC-persistence-across-
+  shared-transaction leak (`ambra.repair_order_attribution*
+  authoritative`set by an earlier reversal call in the same pgTAP
+  transaction silently suppressed a later standalone attach call's own
+  auto-rebuild — fixed with an explicit`set_config(..., 'off', true)`  reset before the affected scenario, same class of artifact as IC-5's
+  own bundle already documents); (2) the rebuild-vs-incremental zero-
+  quantity-row divergence (putaway's own direct UPDATE decrements a
+  receiving-location row to exactly 0 but does not delete it — a real,
+  disclosed, pre-existing characteristic already established in 107's
+  own Scenario D1 — fixed by scoping the before/after rebuild
+  comparison to`quantity > 0` rows only, matching the established
+  precedent rather than treating it as a new regression).
+
+  **Full regression**: 097-107 run once via a background agent
+  immediately after the 4 migrations were applied (before the 102 fix)
+  — 10 of 11 files clean (368/368, 0 failures); `102_...` correctly
+  identified as broken by the column drop (SQLSTATE 42703, not a
+  business-logic assertion failure) and fixed as described above,
+  re-verified 11/11 alone. A full sequential 097-108 re-run (12 files)
+  was then launched to reconfirm everything together as the phase's
+  final gate — see the addendum below this entry (or `docs/inventory/
+  reviews/ic-6-review/test-evidence.md`) for its own completed result,
+  appended once that run returned.
+
+  **Vitest**: full suite (4500 tests) run once after the `ambra-
+  location-inventory.ts` deletion — 32 pre-existing failures across
+  unrelated areas (auth/invitations/sidebar/QR-label rendering/org
+  RLS), confirmed via `git stash` on this one changed file that all 32
+  fail identically without the change — pre-existing baseline noise on
+  this branch, not a regression introduced by IC-6.
+
+  **Type-check/lint/build**: `pnpm type-check` 0 errors; `pnpm lint` 0
+  errors, 319 pre-existing warnings (unchanged baseline); `pnpm build`
+  succeeded cleanly (required and run, since `ambra-location-
+  inventory.ts` is real application/action TypeScript — the first such
+  change since IC-4), including the `/dashboard/warehouse/locations`
+  route that consumes the (untouched) read-only sibling service.
+
+  **Documentation updated**: `inventory-core-architecture.md` gained a
+  new §9D ("IC-6 — Legacy Writer/Helper Removal") covering all 14
+  numbered findings, corrected mid-writing once the `ambra-location-
+  inventory.ts` factual error was caught, plus the 102 regression note.
+  `inventory-core-implementation-plan.md`'s own pre-existing IC-6
+  section marked DONE with a summary. This file (`inventory-core-
+  progress.md`) updated: runtime-status header, "Current phase" line,
+  "Overall execution" bullets, phase-tracker row, this change-log
+  entry.
+
+  **Bundle**: `docs/inventory/reviews/ic-6-review/` — new bundle
+  (diff.patch, changed-files.md, review-context.md with the full
+  20-item external-review-questions list, migration-summary.md,
+  dead-path-matrix.md, test-evidence.md, reproducibility-evidence.md;
+  no concurrency-evidence.md, since no concurrency behavior changed).
+
+  **IC-6 is DONE.** Full IC-7 is NOT started. IC-8 is NOT started.
+  Phase 10D is NOT started.
+
+---
+
+- **2026-09-17 (IC-6A — Opening Stock Active-Path Repair)**: narrow
+  pre-IC-7 correctness pass, per explicit instruction; IC-0 through
+  IC-6 and IC-7A remain ACCEPTED/FINAL, not reopened; full IC-7, IC-8,
+  and Phase 10D explicitly NOT started; IC-6 itself explicitly NOT
+  reopened.
+
+  **Starting-state gate, two discrepancies disclosed**: (1) IC-6
+  remains uncommitted — HEAD is still the pre-existing `daeba1132...`
+  "ic6"-labeled commit that actually contains only IC-4/IC-5 work; all
+  of IC-6's real changes sit uncommitted in the working tree, per the
+  standing no-auto-commit policy; IC-6A was built directly on that
+  uncommitted-but-content-complete state. (2) the git INDEX was found
+  unexpectedly staged at the start of this pass (all of IC-6's own
+  files) even though IC-6's own close had explicitly unstaged
+  everything twice; `git log`/`git reflog` confirmed HEAD never moved
+  and no commit occurred — likely a side effect of a background
+  regression agent (full tool access) running `git add` unprompted;
+  corrected via `git restore --staged .` before any IC-6A work began.
+
+  **Bug reconfirmed independently**: `InventoryProductsService.
+createOpeningStockMovement`, reachable from the ACTIVE
+  `createEnhancedProduct` path (via the real
+  `createEnhancedInventoryProductAction` server action) whenever a new
+  variant has `opening_quantity > 0`, called `.rpc("inventory_create_
+draft_movement", ...)` then `.rpc("inventory_post_movement", ...)`.
+  A fresh live `pg_proc` query for both exact names returned zero rows.
+
+  **Fix**: `createOpeningStockMovement` rewritten to call `inventory_
+create_and_finalize` (read in full first — actor-identity check
+  `p_actor_user_id IS DISTINCT FROM auth.uid()` → `28000`, branch-
+  scoped permission check `warehouse.inventory.operate` OR `warehouse.
+inventory.adjust` → `42501`, both before movement-type validation
+  even runs) in a SINGLE atomic call, movement type `401` ("Inventory
+  Count Adjustment (Increase)"). Movement-type choice verified live: a
+  full catalog query confirmed `401` is the ONLY seeded, active,
+  `allows_manual_entry = true` type whose own location requirements
+  (destination required, source not) match opening stock's shape; a
+  dedicated query for any "opening"/"initial"-named type returned zero
+  rows, active or soft-deleted — no new type was seeded. `total_cost`/
+  `currency` dropped from the line payload (read `inventory_create_
+draft`'s own `jsonb_to_recordset` column list — neither field was
+  EVER consumed by any live RPC, broken or canonical; not a loss of
+  previously-working behavior). `reference_type`/`reference_id` (a
+  concept the OLD broken code targeted, and which DOES exist as columns
+  on `inventory_movement_headers`, but which neither `inventory_create_
+draft` nor `inventory_create_and_finalize` exposes a parameter for —
+  a genuine, disclosed old-helper/current-engine mismatch, per this
+  task's own §3) replaced with `p_external_reference = productId`, the
+  nearest available current substitute, preserving the same
+  traceability intent without inventing new schema. Idempotency key
+  strategy (`product-opening-stock-${productId}`, one key covering all
+  of a product's variant lines in one movement) was ALREADY correct
+  and deterministic — not modified. Actor/permission behavior verified
+  ALREADY correct at the action layer (`createEnhancedInventoryProduct
+Action` already required `WAREHOUSE_INVENTORY_OPERATE` — confirmed
+  via a real existing test assertion to equal the exact string
+  `"warehouse.inventory.operate"`, one of the two permissions the
+  canonical RPC itself checks — whenever opening-stock fields are set)
+  — not modified; the "product creation succeeds but opening stock
+  fails for permission reasons" scenario this task asked about is
+  already impossible today, since the action layer blocks the ENTIRE
+  operation up front.
+
+  **Atomicity**: unchanged/pre-existing characteristic explicitly not
+  broadened, per this pass's own "do not rewrite product-creation
+  architecture" instruction — `createEnhancedProduct`'s own product/
+  variant-creation RPC and the opening-stock RPC remain two separate
+  network calls with the EXISTING manual compensating-cleanup pattern
+  (`cleanupFailedEnhancedProductCreate`, archives the product/variants
+  on opening-stock failure) between them; this was already true before
+  the fix and is unchanged by it. A genuine, incidental atomicity
+  IMPROVEMENT did occur as a side effect of choosing the smallest
+  canonical primitive (Option A): the OLD two-call draft-then-post
+  RPC sequence could leave an orphaned draft on a network failure
+  between the two calls; the NEW single `inventory_create_and_finalize`
+  call cannot, since draft-creation and posting now happen inside one
+  Postgres function call (one transaction).
+
+  **Idempotency/retry proven live, not just read**: pgTAP `109_...`
+  Scenario F calls the IDENTICAL request (same idempotency key) twice —
+  `on_hand_quantity` remains exactly 5 (not 10), movement-header count
+  and ledger-entry count both stay at exactly 1. Root cause confirmed
+  by reading BOTH function bodies: `inventory_create_draft`'s own
+  idempotency lookup short-circuits to the existing header; `inventory_
+finalize_posting_internal` independently guards `IF v_header.status =
+'posted' THEN RETURN ... END IF` before any balance/ledger effect —
+  a second, independent safety net even if the draft-lookup path were
+  ever bypassed.
+
+  **New pgTAP file**: `109_ic6a_opening_stock_repair_test.sql` —
+  `plan(16)`, final 16/16, 0 failures. Proves the exact new call shape
+  live: before/after balance (0 → 5), exactly-one-movement (type 401,
+  correct `external_reference`, real generated `document_number`),
+  exactly-one-ledger-entry (direction=increase, quantity=5), actor/
+  audit metadata (`posted_by`, one `'posted'` audit-log row), and the
+  retry/idempotency proof above. One self-caught fixture bug during
+  authoring: temp tables created before `SET LOCAL ROLE authenticated`
+  need an explicit `GRANT SELECT ... TO authenticated` (this project's
+  own established convention) — omitted on the first draft, added
+  after a live `42501: permission denied` surfaced it.
+
+  **New Vitest scenarios**: 5, in `inventory-products.service.test.ts`,
+  covering exactly the task's own required A-E coverage: opening\_
+  quantity=0 (no RPC call), opening_quantity>0 (correct RPC shape,
+  explicit assertions the OLD broken RPC names are never called),
+  canonical-RPC-error propagation + compensating cleanup, multi-variant
+  independent quantities, and variant-identity correctness under a
+  mixed zero/nonzero-quantity variant list (proves no positional
+  mismatch after filtering). Focused file run: 15/15 (10 pre-existing +
+  5 new).
+
+  **Full regression**: 097-108 re-run via a background agent — 402/402
+  assertions, 0 failures, 12/12 files PASS, confirming zero SQL-layer
+  regression from this TypeScript-only change (no migration exists for
+  IC-6A). `105_ic7a_movement_engine_security_boundary_test.sql`
+  (29/29) specifically re-confirms anon/no-permission/actor-spoof
+  rejection on `inventory_create_and_finalize` and friends remains
+  fully closed for this exact call path (the security checks run
+  before movement-type validation, so this proof is movement-type-
+  agnostic). Combined IC-6A-relevant pgTAP total: 418/418, 0 failures.
+
+  **Vitest**: full suite re-run — 4456 passed / 32 failed / 8 skipped /
+  9 todo (4505 total). The 32 failures are the SAME pre-existing,
+  unrelated baseline already confirmed during IC-6 (auth/invitations/
+  sidebar/QR-label/org RLS) — zero overlap with the 2 files this pass
+  touched; the +5 over IC-6's own 4500-test baseline are exactly this
+  pass's own 5 new tests, all passing.
+
+  **Type-check/lint/build**: `pnpm type-check` 0 errors; `pnpm lint` 0
+  errors, 319 pre-existing warnings (unchanged baseline); `pnpm build`
+  succeeded cleanly (required and run — real application/service
+  TypeScript changed).
+
+  **Broken RPC names removed from all active code**: repo-wide grep
+  post-fix confirms zero references to `inventory_create_draft_
+movement`/`inventory_post_movement` anywhere in `src/` except (a)
+  historical-migration-text regression tests asserting on ALREADY-
+  APPLIED migration files' own SQL content (not active callers, left
+  untouched) and (b) one stale doc comment in `audits/[id]/report/
+page.tsx` describing `inventory_approve_count_session`'s own
+  internal implementation — verified live that this function does NOT
+  call the dead names internally (confirmed harmless, stale prose only,
+  disclosed but not edited since it's outside this pass's own narrow
+  "ACTIVE createEnhancedProduct path" scope).
+
+  **`createEnhancedProductLegacy`**: deliberately NOT touched, per
+  this pass's own explicit instruction — remains a confirmed-dead,
+  disclosed candidate for a future, dedicated product-cleanup pass, not
+  automatically swept in just because fixing a shared helper happened
+  nearby (the fixed method, `createOpeningStockMovement`, IS shared
+  between both `createEnhancedProduct` and `createEnhancedProduct
+Legacy`, but making it correct doesn't make the Legacy method itself
+  any less dead or any more in-scope for removal here).
+
+  **Migration discipline**: NO migration was created. The correct
+  current canonical capability (`inventory_create_and_finalize`,
+  movement type `401`, with a supported `p_lines` shape and a
+  supported `p_external_reference` substitute) already existed live in
+  full, confirmed via direct `pg_get_functiondef` reads BEFORE writing
+  any code — per this pass's own explicit "STOP and report before
+  inventing one" instruction, which was never triggered.
+
+  **From-scratch reproducibility**: NOT solved here (explicitly out of
+  this pass's own scope) — reconfirmed still OPEN and formally assigned
+  as a HARD GATE to IC-8 in `inventory-core-implementation-plan.md`'s
+  own existing IC-8 section (both its Scope and Acceptance Criteria
+  now explicitly state IC-8 must not be marked FINAL while a clean
+  database cannot be constructed from repository migrations alone).
+
+  **Documentation updated**: `inventory-core-implementation-plan.md`'s
+  own IC-8 section gained the HARD GATE bullet and an updated
+  acceptance-criteria line. This file (`inventory-core-progress.md`)
+  updated: runtime-status header (new IC-6A block), "Current phase"
+  line, "Overall execution" bullet, phase-tracker row, this change-log
+  entry. `inventory-core-architecture.md` was NOT touched this pass
+  (no architecture/schema change occurred).
+
+  **Bundle**: `docs/inventory/reviews/ic-6a-opening-stock-repair-
+review/` — 4 files (`diff.patch`, `changed-files.md`, `review-
+context.md`, `test-evidence.md`; no `migration-summary.md`, since no
+  migration occurred).
+
+  **IC-6A is DONE.** IC-6 remains DONE, not reopened. Full IC-7 is NOT
+  started. IC-8 is NOT started. Phase 10D is NOT started.

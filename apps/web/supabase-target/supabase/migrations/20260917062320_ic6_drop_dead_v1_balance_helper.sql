@@ -1,0 +1,14 @@
+-- IC-6 LEGACY CLEANUP -- inventory_v1_get_or_create_balance. IC-1
+-- (2026-09-15) replaced every internal call to this helper with
+-- inventory_get_or_create_balance_for_update (the lot/serial-aware
+-- replacement, decision #10). Re-verified NOW, live, as this task
+-- requires: a prosrc scan across EVERY function in pg_proc (not just
+-- inventory_-prefixed ones) found zero callers anywhere in the database.
+-- A repo-wide grep found zero TypeScript callers (the only two repo
+-- hits are the auto-generated `supabase/types/target.types.ts` type
+-- declaration, which is generated metadata reflecting the function's
+-- own live existence, not a caller, and will simply stop listing it on
+-- the next codegen run; and this historical IC-1 migration's own text,
+-- which is evidence of evolution, not a live caller). No trigger, view,
+-- FK, or other dependent object references it.
+DROP FUNCTION public.inventory_v1_get_or_create_balance(uuid, uuid, uuid, uuid);

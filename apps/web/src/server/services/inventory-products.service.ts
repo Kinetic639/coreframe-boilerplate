@@ -2283,6 +2283,29 @@ export class InventoryProductsService {
     variants: Array<{ id: string; variant: EnhancedVariantInput }>,
     userId: string
   ): Promise<ServiceResult<Record<string, unknown>>> {
+    // IC-6A: opening stock is a destination-only physical increase with no
+    // counterparty/source — movement type 401 ("Inventory Count Adjustment
+    // (Increase)") is the only seeded, active, manually-postable type whose
+    // own location requirements match this shape (destination required,
+    // source not); there is no dedicated "opening balance" type in the
+    // catalog and none is warranted for one narrow caller. Posted through
+    // the canonical engine's single atomic entry point (`inventory_create_
+    // and_finalize`) rather than the old two-call draft+post pattern, so a
+    // network failure between steps can no longer leave an orphaned draft.
+    //
+    // `total_cost`/`currency` are dropped here: `inventory_create_draft`'s
+    // own `p_lines` contract (`variant_id, unit_id, quantity, source_
+    // location_id, destination_location_id, unit_cost, note`) has never
+    // accepted either field — they were already-dead computed values under
+    // the old broken code too (its own target RPC never existed to consume
+    // them), not a loss of previously-working behavior.
+    //
+    // `reference_type`/`reference_id` (columns that exist on `inventory_
+    // movement_headers` but that neither `inventory_create_draft` nor
+    // `inventory_create_and_finalize` exposes a parameter for) are
+    // preserved via the one available substitute, `p_external_reference`,
+    // carrying the product id — the same traceability intent, adapted to
+    // the current canonical surface rather than inventing new schema.
     const lines = variants
       .filter(
         ({ variant }) => variant.opening_quantity != null && Number(variant.opening_quantity) > 0
@@ -2293,38 +2316,24 @@ export class InventoryProductsService {
         unit_id: unitId,
         quantity: variant.opening_quantity,
         unit_cost: variant.opening_unit_cost ?? variant.purchase_price ?? null,
-        total_cost:
-          variant.opening_unit_cost && variant.opening_quantity
-            ? Number(variant.opening_unit_cost) * Number(variant.opening_quantity)
-            : null,
-        currency: variant.price_currency ?? null,
         note: "Opening stock from product creation",
       }));
     if (lines.length === 0) return { success: true, data: { movement_id: null } };
 
-    const { data: draft, error: draftError } = await supabase.rpc(
-      "inventory_create_draft_movement",
-      {
-        p_organization_id: orgId,
-        p_branch_id: branchId,
-        p_movement_kind: "opening_balance",
-        p_lines: lines,
-        p_adjustment_direction: null,
-        p_reason_id: null,
-        p_note: "Opening stock from product creation",
-        p_reference_type: "inventory_product",
-        p_reference_id: productId,
-        p_idempotency_key: `product-opening-stock-${productId}`,
-        p_actor_user_id: userId,
-      }
-    );
-    if (draftError) return { success: false, error: draftError.message };
-
-    const { data: posted, error: postError } = await supabase.rpc("inventory_post_movement", {
-      p_movement_id: (draft as { movement_id: string }).movement_id,
+    const { data: posted, error } = await supabase.rpc("inventory_create_and_finalize", {
+      p_organization_id: orgId,
+      p_branch_id: branchId,
+      p_movement_type_code: "401",
+      p_lines: lines,
+      p_operation_date: null,
+      p_document_date: null,
+      p_counterparty_name: null,
+      p_external_reference: productId,
+      p_note: "Opening stock from product creation",
+      p_idempotency_key: `product-opening-stock-${productId}`,
       p_actor_user_id: userId,
     });
-    if (postError) return { success: false, error: postError.message };
+    if (error) return { success: false, error: error.message };
     return { success: true, data: posted as Record<string, unknown> };
   }
 

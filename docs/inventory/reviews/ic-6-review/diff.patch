@@ -1,0 +1,1955 @@
+diff --git a/apps/web/src/app/actions/warehouse/ambra-location-inventory.ts b/apps/web/src/app/actions/warehouse/ambra-location-inventory.ts
+index ab362d0d..bf7fe6ca 100644
+--- a/apps/web/src/app/actions/warehouse/ambra-location-inventory.ts
++++ b/apps/web/src/app/actions/warehouse/ambra-location-inventory.ts
+@@ -5,7 +5,6 @@ import { z } from "zod";
+ 
+ import { createClient } from "@/utils/supabase/server";
+ import { WAREHOUSE_INVENTORY_OPERATE } from "@/lib/constants/permissions";
+-import { InventoryMovementsService } from "@/server/services/inventory-movements.service";
+ import {
+   hasPermission,
+   mapUnexpected,
+@@ -16,12 +15,6 @@ import {
+ 
+ const uuidSchema = z.string().uuid("Invalid id");
+ 
+-const createContainerSchema = z.object({
+-  code: z.string().trim().min(1, "Code is required").max(80),
+-  type: z.string().trim().max(40).optional().default("container"),
+-  current_location_id: uuidSchema,
+-});
+-
+ const createPutawayRuleSchema = z
+   .object({
+     destination_location_id: uuidSchema,
+@@ -58,54 +51,6 @@ async function requireStockableLocation(
+   return { success: true };
+ }
+ 
+-export async function createLocationContainerAction(rawInput: unknown) {
+-  try {
+-    const auth = await requireWarehouseContext();
+-    if (!auth.success) return auth;
+-    if (!hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE)) {
+-      return { success: false as const, error: "Unauthorized" };
+-    }
+-    const branch = requireActiveBranch(auth);
+-    if (!branch.success) return branch;
+-
+-    const parsed = createContainerSchema.safeParse(rawInput);
+-    if (!parsed.success) return { success: false as const, error: parsed.error.errors[0].message };
+-
+-    const orgId = auth.context.app.activeOrgId;
+-    const userId = userIdFrom(auth);
+-    if (!userId) return { success: false as const, error: "User identity unavailable" };
+-
+-    const location = await requireStockableLocation(
+-      parsed.data.current_location_id,
+-      orgId,
+-      branch.branchId
+-    );
+-    if (!location.success) return location;
+-
+-    const supabase = await createClient();
+-    const client = supabase as any;
+-    const { data, error } = await client
+-      .from("inventory_containers")
+-      .insert({
+-        organization_id: orgId,
+-        branch_id: branch.branchId,
+-        code: parsed.data.code,
+-        type: parsed.data.type,
+-        current_location_id: parsed.data.current_location_id,
+-        created_by: userId,
+-        updated_by: userId,
+-      })
+-      .select("id")
+-      .single();
+-
+-    if (error) return { success: false as const, error: error.message };
+-    revalidatePath("/dashboard/warehouse/locations");
+-    return { success: true as const, data };
+-  } catch (error) {
+-    return mapUnexpected(error);
+-  }
+-}
+-
+ export async function deletePutawayRuleAction(rawInput: unknown) {
+   try {
+     const auth = await requireWarehouseContext();
+@@ -137,351 +82,6 @@ export async function deletePutawayRuleAction(rawInput: unknown) {
+   }
+ }
+ 
+-const addItemsSchema = z.object({
+-  container_id: uuidSchema,
+-  lines: z
+-    .array(
+-      z.object({
+-        variant_id: uuidSchema,
+-        unit_id: uuidSchema,
+-        quantity: z.number().positive("Quantity must be positive"),
+-      })
+-    )
+-    .min(1, "At least one item required"),
+-});
+-
+-export async function addItemsToContainerAction(rawInput: unknown) {
+-  try {
+-    const auth = await requireWarehouseContext();
+-    if (!auth.success) return auth;
+-    if (!hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE)) {
+-      return { success: false as const, error: "Unauthorized" };
+-    }
+-    const branch = requireActiveBranch(auth);
+-    if (!branch.success) return branch;
+-
+-    const parsed = addItemsSchema.safeParse(rawInput);
+-    if (!parsed.success) return { success: false as const, error: parsed.error.errors[0].message };
+-
+-    const orgId = auth.context.app.activeOrgId;
+-    const supabase = await createClient();
+-    const client = supabase as any;
+-
+-    const { data: container, error: containerError } = await client
+-      .from("inventory_containers")
+-      .select("id, status, current_location_id")
+-      .eq("id", parsed.data.container_id)
+-      .eq("organization_id", orgId)
+-      .eq("branch_id", branch.branchId)
+-      .is("deleted_at", null)
+-      .maybeSingle();
+-
+-    if (containerError) return { success: false as const, error: containerError.message };
+-    if (!container) return { success: false as const, error: "Container not found" };
+-    if (container.status === "archived") {
+-      return { success: false as const, error: "Cannot add items to an archived container" };
+-    }
+-
+-    const locationId = container.current_location_id as string;
+-
+-    for (const line of parsed.data.lines) {
+-      const { data: balance, error: balanceError } = await supabase
+-        .from("inventory_balances")
+-        .select("id, available_quantity, allocated_quantity")
+-        .eq("organization_id", orgId)
+-        .eq("branch_id", branch.branchId)
+-        .eq("location_id", locationId)
+-        .eq("variant_id", line.variant_id)
+-        .maybeSingle();
+-
+-      if (balanceError) return { success: false as const, error: balanceError.message };
+-      if (!balance) {
+-        return { success: false as const, error: `No stock found for this variant in this bin` };
+-      }
+-
+-      const available = Number(balance.available_quantity ?? 0);
+-      if (available < line.quantity) {
+-        return {
+-          success: false as const,
+-          error: `Not enough available stock (available: ${available}, requested: ${line.quantity})`,
+-        };
+-      }
+-
+-      const { error: updateError } = await supabase
+-        .from("inventory_balances")
+-        .update({
+-          allocated_quantity: Number(balance.allocated_quantity ?? 0) + line.quantity,
+-        })
+-        .eq("id", balance.id);
+-
+-      if (updateError) return { success: false as const, error: updateError.message };
+-    }
+-
+-    const rows = parsed.data.lines.map((line) => ({
+-      organization_id: orgId,
+-      branch_id: branch.branchId,
+-      container_id: parsed.data.container_id,
+-      variant_id: line.variant_id,
+-      unit_id: line.unit_id,
+-      quantity: line.quantity,
+-    }));
+-
+-    const { error } = await client.from("inventory_container_lines").insert(rows);
+-    if (error) return { success: false as const, error: error.message };
+-
+-    revalidatePath("/dashboard/warehouse/locations");
+-    return { success: true as const };
+-  } catch (error) {
+-    return mapUnexpected(error);
+-  }
+-}
+-
+-const removeItemSchema = z.object({
+-  container_id: uuidSchema,
+-  line_id: uuidSchema,
+-});
+-
+-export async function removeItemFromContainerAction(rawInput: unknown) {
+-  try {
+-    const auth = await requireWarehouseContext();
+-    if (!auth.success) return auth;
+-    if (!hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE)) {
+-      return { success: false as const, error: "Unauthorized" };
+-    }
+-    const branch = requireActiveBranch(auth);
+-    if (!branch.success) return branch;
+-
+-    const parsed = removeItemSchema.safeParse(rawInput);
+-    if (!parsed.success) return { success: false as const, error: parsed.error.errors[0].message };
+-
+-    const orgId = auth.context.app.activeOrgId;
+-    const userId = userIdFrom(auth);
+-    if (!userId) return { success: false as const, error: "User identity unavailable" };
+-    const supabase = await createClient();
+-    const client = supabase as any;
+-
+-    const { data: line, error: lineError } = await client
+-      .from("inventory_container_lines")
+-      .select("id, variant_id, unit_id, quantity, container_id")
+-      .eq("id", parsed.data.line_id)
+-      .eq("container_id", parsed.data.container_id)
+-      .eq("organization_id", orgId)
+-      .eq("branch_id", branch.branchId)
+-      .is("deleted_at", null)
+-      .maybeSingle();
+-
+-    if (lineError) return { success: false as const, error: lineError.message };
+-    if (!line) return { success: false as const, error: "Container line not found" };
+-
+-    const { data: container, error: containerError } = await client
+-      .from("inventory_containers")
+-      .select("id, current_location_id")
+-      .eq("id", parsed.data.container_id)
+-      .eq("organization_id", orgId)
+-      .eq("branch_id", branch.branchId)
+-      .is("deleted_at", null)
+-      .maybeSingle();
+-
+-    if (containerError) return { success: false as const, error: containerError.message };
+-    if (!container) return { success: false as const, error: "Container not found" };
+-
+-    const locationId = container.current_location_id as string;
+-    const qty = Number(line.quantity);
+-
+-    // v1: no issue movement type available yet — just release allocated qty
+-    const { data: balance } = await supabase
+-      .from("inventory_balances")
+-      .select("id, allocated_quantity")
+-      .eq("organization_id", orgId)
+-      .eq("branch_id", branch.branchId)
+-      .eq("location_id", locationId)
+-      .eq("variant_id", line.variant_id)
+-      .maybeSingle();
+-
+-    if (balance) {
+-      const newAllocated = Math.max(0, Number(balance.allocated_quantity ?? 0) - qty);
+-      await supabase
+-        .from("inventory_balances")
+-        .update({ allocated_quantity: newAllocated })
+-        .eq("id", balance.id);
+-    }
+-
+-    await client
+-      .from("inventory_container_lines")
+-      .update({ deleted_at: new Date().toISOString() })
+-      .eq("id", parsed.data.line_id)
+-      .eq("organization_id", orgId)
+-      .eq("branch_id", branch.branchId);
+-
+-    revalidatePath("/dashboard/warehouse/locations");
+-    return { success: true as const };
+-  } catch (error) {
+-    return mapUnexpected(error);
+-  }
+-}
+-
+-const relocateContainerSchema = z.object({
+-  container_id: uuidSchema,
+-  to_location_id: uuidSchema,
+-});
+-
+-export async function relocateContainerAction(rawInput: unknown) {
+-  try {
+-    const auth = await requireWarehouseContext();
+-    if (!auth.success) return auth;
+-    if (!hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE)) {
+-      return { success: false as const, error: "Unauthorized" };
+-    }
+-    const branch = requireActiveBranch(auth);
+-    if (!branch.success) return branch;
+-
+-    const parsed = relocateContainerSchema.safeParse(rawInput);
+-    if (!parsed.success) return { success: false as const, error: parsed.error.errors[0].message };
+-
+-    const orgId = auth.context.app.activeOrgId;
+-    const userId = userIdFrom(auth);
+-    if (!userId) return { success: false as const, error: "User identity unavailable" };
+-    const supabase = await createClient();
+-    const client = supabase as any;
+-
+-    const { data: container, error: containerError } = await client
+-      .from("inventory_containers")
+-      .select("id, current_location_id, status")
+-      .eq("id", parsed.data.container_id)
+-      .eq("organization_id", orgId)
+-      .eq("branch_id", branch.branchId)
+-      .is("deleted_at", null)
+-      .maybeSingle();
+-
+-    if (containerError) return { success: false as const, error: containerError.message };
+-    if (!container) return { success: false as const, error: "Container not found" };
+-    if (container.status === "archived") {
+-      return { success: false as const, error: "Cannot move an archived container" };
+-    }
+-
+-    const sourceLocationId = container.current_location_id as string;
+-    const destLocationId = parsed.data.to_location_id;
+-    if (sourceLocationId === destLocationId) {
+-      return { success: false as const, error: "Container is already at this location" };
+-    }
+-
+-    const destLocation = await requireStockableLocation(destLocationId, orgId, branch.branchId);
+-    if (!destLocation.success) return destLocation;
+-
+-    const { data: containerLines, error: linesError } = await client
+-      .from("inventory_container_lines")
+-      .select("id, variant_id, unit_id, quantity")
+-      .eq("container_id", parsed.data.container_id)
+-      .eq("organization_id", orgId)
+-      .eq("branch_id", branch.branchId)
+-      .is("deleted_at", null);
+-
+-    if (linesError) return { success: false as const, error: linesError.message };
+-
+-    const lines = (containerLines ?? []) as Array<{
+-      id: string;
+-      variant_id: string;
+-      unit_id: string;
+-      quantity: number | string;
+-    }>;
+-
+-    if (lines.length > 0) {
+-      const movementLines = lines.map((line) => ({
+-        variant_id: line.variant_id,
+-        source_location_id: sourceLocationId,
+-        destination_location_id: destLocationId,
+-        unit_id: line.unit_id,
+-        quantity: Number(line.quantity),
+-      }));
+-
+-      const draft = await InventoryMovementsService.createDraft(
+-        supabase,
+-        orgId,
+-        branch.branchId,
+-        {
+-          movement_type_code: "801",
+-          lines: movementLines,
+-          idempotency_key: crypto.randomUUID(),
+-        },
+-        userId
+-      );
+-      if (!draft.success)
+-        return {
+-          success: false as const,
+-          error: (draft as { success: false; error: string }).error,
+-        };
+-
+-      const posted = await InventoryMovementsService.finalizePosting(
+-        supabase,
+-        draft.data.movement_id,
+-        userId
+-      );
+-      if (!posted.success)
+-        return {
+-          success: false as const,
+-          error: (posted as { success: false; error: string }).error,
+-        };
+-
+-      for (const line of lines) {
+-        const qty = Number(line.quantity);
+-
+-        const { data: srcBalance } = await supabase
+-          .from("inventory_balances")
+-          .select("id, allocated_quantity")
+-          .eq("organization_id", orgId)
+-          .eq("branch_id", branch.branchId)
+-          .eq("location_id", sourceLocationId)
+-          .eq("variant_id", line.variant_id)
+-          .maybeSingle();
+-
+-        if (srcBalance) {
+-          await supabase
+-            .from("inventory_balances")
+-            .update({
+-              allocated_quantity: Math.max(0, Number(srcBalance.allocated_quantity ?? 0) - qty),
+-            })
+-            .eq("id", srcBalance.id);
+-        }
+-
+-        const { data: destBalance } = await supabase
+-          .from("inventory_balances")
+-          .select("id, allocated_quantity")
+-          .eq("organization_id", orgId)
+-          .eq("branch_id", branch.branchId)
+-          .eq("location_id", destLocationId)
+-          .eq("variant_id", line.variant_id)
+-          .maybeSingle();
+-
+-        if (destBalance) {
+-          await supabase
+-            .from("inventory_balances")
+-            .update({
+-              allocated_quantity: Number(destBalance.allocated_quantity ?? 0) + qty,
+-            })
+-            .eq("id", destBalance.id);
+-        }
+-      }
+-    }
+-
+-    const { error: updateError } = await client
+-      .from("inventory_containers")
+-      .update({
+-        current_location_id: destLocationId,
+-        updated_at: new Date().toISOString(),
+-      })
+-      .eq("id", parsed.data.container_id)
+-      .eq("organization_id", orgId)
+-      .eq("branch_id", branch.branchId);
+-
+-    if (updateError) return { success: false as const, error: updateError.message };
+-
+-    revalidatePath("/dashboard/warehouse/locations");
+-    return { success: true as const };
+-  } catch (error) {
+-    return mapUnexpected(error);
+-  }
+-}
+-
+ const findByReferenceSchema = z.object({
+   reference_type: z.string().trim().min(1),
+   reference_id: z.string().trim().min(1),
+diff --git a/apps/web/supabase-target/supabase/migrations/20260917062247_ic6_finalize_posting_remove_dead_negative_stock_policy_check.sql b/apps/web/supabase-target/supabase/migrations/20260917062247_ic6_finalize_posting_remove_dead_negative_stock_policy_check.sql
+new file mode 100644
+index 00000000..251b0f19
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260917062247_ic6_finalize_posting_remove_dead_negative_stock_policy_check.sql
+@@ -0,0 +1,264 @@
++-- IC-6 LEGACY CLEANUP -- negative_stock_policy dead-configuration removal,
++-- step 1 of 2 (must precede the column DROP in the next migration, since
++-- this function is the column's own ONLY runtime reader anywhere in the
++-- database -- confirmed via a live prosrc ILIKE scan across every
++-- function in pg_proc).
++--
++-- PROVEN UNREACHABLE, not merely "harmless": inventory_balances carries
++-- its own unconditional CHECK (on_hand_quantity >= 0) (from IC-1), and
++-- the P0003 "would strand committed stock" check immediately above this
++-- one fires whenever v_new_qty < 0, for ANY value of reserved_quantity/
++-- allocated_quantity -- because both of THOSE columns carry their own
++-- CHECK (>= 0) constraints, reserved_quantity + allocated_quantity can
++-- never be negative, so `v_new_qty < (reserved+allocated)` is ALWAYS
++-- true whenever v_new_qty is negative. The negative_stock_policy='block'
++-- branch below it can therefore never execute, for any live or possible
++-- future value of the column -- confirmed empirically by pgTAP 102's own
++-- Scenario C (T7/T8), which already observed SQLSTATE P0003, not this
++-- branch's own bare RAISE, for a bare zero-commitment negative-on-hand
++-- attempt.
++--
++-- Only the 3-line dead conditional is removed. The `SELECT * INTO
++-- v_settings FROM inventory_settings ... FOR UPDATE` statement itself is
++-- preserved BYTE-FOR-BYTE, unchanged, in its own original position --
++-- IC-6 must not alter locking/concurrency behavior, and this SELECT's
++-- own FOR UPDATE lock is retained exactly as before even though its own
++-- result's negative_stock_policy field will no longer be read after the
++-- next migration drops the column.
++CREATE OR REPLACE FUNCTION public.inventory_finalize_posting_internal(p_movement_id uuid, p_actor_user_id uuid DEFAULT NULL::uuid, p_explicit_effects jsonb DEFAULT NULL::jsonb)
++ RETURNS jsonb
++ LANGUAGE plpgsql
++ SECURITY DEFINER
++ SET search_path TO 'public'
++AS $function$
++DECLARE
++  v_header RECORD;
++  v_mvt_type RECORD;
++  v_settings RECORD;
++  v_seq RECORD;
++  v_doc_number text;
++  v_line RECORD;
++  v_effect RECORD;
++  v_location_id uuid;
++  v_balance inventory_balances%ROWTYPE;
++  v_current_qty numeric;
++  v_new_qty numeric;
++  v_now timestamptz := now();
++  v_year integer := extract(year from v_now)::integer;
++BEGIN
++  SET LOCAL ambra.inventory_movement_engine = 'on';
++
++  SELECT * INTO v_header FROM inventory_movement_headers
++  WHERE id = p_movement_id FOR UPDATE;
++
++  IF NOT FOUND THEN
++    RAISE EXCEPTION 'Movement not found';
++  END IF;
++
++  -- IC-7A: actor-identity + permission check, added this pass. Runs
++  -- BEFORE any status-based branching so an unauthorized caller cannot
++  -- distinguish "posted"/"draft"/"not found" from a permission denial.
++  IF p_actor_user_id IS NULL OR p_actor_user_id IS DISTINCT FROM auth.uid() THEN
++    RAISE EXCEPTION 'p_actor_user_id must match the authenticated caller' USING ERRCODE = '28000';
++  END IF;
++
++  IF NOT (
++    public.has_branch_permission(v_header.organization_id, v_header.branch_id, 'warehouse.inventory.operate')
++    OR public.has_branch_permission(v_header.organization_id, v_header.branch_id, 'warehouse.inventory.adjust')
++  ) THEN
++    RAISE EXCEPTION 'Not authorized to post inventory movements for this branch' USING ERRCODE = '42501';
++  END IF;
++
++  -- Defense in depth: explicit effects may ONLY ever apply to the system
++  -- reversal type. The movement's own real type_code is read from the
++  -- locked row itself, never trusted from any caller-supplied value.
++  IF p_explicit_effects IS NOT NULL AND v_header.movement_type_code <> '900' THEN
++    RAISE EXCEPTION 'Explicit effects are only permitted for system reversal movements (type 900)' USING ERRCODE = '42501';
++  END IF;
++
++  IF v_header.status = 'posted' THEN
++    RETURN jsonb_build_object(
++      'movement_id', v_header.id,
++      'document_number', v_header.document_number,
++      'status', 'posted'
++    );
++  END IF;
++
++  IF v_header.status != 'draft' THEN
++    RAISE EXCEPTION 'Cannot post movement with status "%"', v_header.status;
++  END IF;
++
++  SELECT mt.*, dt.code AS doc_type_code, dt.numbering_template, dt.id AS dt_id
++  INTO v_mvt_type
++  FROM inventory_movement_types mt
++  JOIN inventory_document_types dt ON dt.id = mt.document_type_id
++  WHERE mt.id = v_header.movement_type_id;
++
++  SELECT * INTO v_settings FROM inventory_settings
++  WHERE organization_id = v_header.organization_id FOR UPDATE;
++
++  INSERT INTO inventory_document_sequences (organization_id, document_type_id, year)
++  VALUES (v_header.organization_id, v_mvt_type.dt_id, v_year)
++  ON CONFLICT DO NOTHING;
++
++  SELECT * INTO v_seq FROM inventory_document_sequences
++  WHERE organization_id = v_header.organization_id
++    AND document_type_id = v_mvt_type.dt_id
++    AND branch_id IS NULL
++    AND series IS NULL
++    AND year = v_year
++  FOR UPDATE;
++
++  v_doc_number := v_mvt_type.doc_type_code || '/' || v_year::text || '/' || lpad(v_seq.next_number::text, 6, '0');
++
++  UPDATE inventory_document_sequences
++  SET next_number = next_number + 1
++  WHERE id = v_seq.id;
++
++  -- Freeze line snapshots using subqueries instead of JOIN on target table
++  UPDATE inventory_movement_lines SET
++    snapshot_product_name = (
++      SELECT p.name FROM inventory_variants v
++      JOIN inventory_products p ON p.id = v.product_id AND p.organization_id = v.organization_id
++      WHERE v.id = inventory_movement_lines.variant_id AND v.organization_id = inventory_movement_lines.organization_id
++    ),
++    snapshot_sku = (
++      SELECT v.sku FROM inventory_variants v
++      WHERE v.id = inventory_movement_lines.variant_id AND v.organization_id = inventory_movement_lines.organization_id
++    ),
++    snapshot_unit_code = (
++      SELECT u.code FROM inventory_units u
++      WHERE u.id = inventory_movement_lines.unit_id AND u.organization_id = inventory_movement_lines.organization_id
++    ),
++    snapshot_source_location_name = (
++      SELECT wl.name FROM warehouse_locations wl
++      WHERE wl.id = inventory_movement_lines.source_location_id
++    ),
++    snapshot_destination_location_name = (
++      SELECT wl.name FROM warehouse_locations wl
++      WHERE wl.id = inventory_movement_lines.destination_location_id
++    )
++  WHERE movement_id = p_movement_id AND deleted_at IS NULL;
++
++  -- Apply effects per line
++  FOR v_line IN
++    SELECT * FROM inventory_movement_lines
++    WHERE movement_id = p_movement_id AND deleted_at IS NULL
++    ORDER BY line_number
++  LOOP
++    FOR v_effect IN
++      SELECT id, target, balance_field, direction, effect_order, is_required
++      FROM inventory_movement_type_effects
++      WHERE movement_type_id = v_header.movement_type_id AND p_explicit_effects IS NULL
++      UNION ALL
++      SELECT
++        (e->>'id')::uuid,
++        (e->>'target')::text,
++        (e->>'balance_field')::text,
++        (e->>'direction')::text,
++        (e->>'effect_order')::integer,
++        COALESCE((e->>'is_required')::boolean, true)
++      FROM jsonb_array_elements(COALESCE(p_explicit_effects -> v_line.line_number::text, '[]'::jsonb)) e
++      WHERE p_explicit_effects IS NOT NULL
++      ORDER BY effect_order
++    LOOP
++      IF v_effect.target NOT IN ('source', 'destination') THEN
++        RAISE EXCEPTION 'Invalid effect target "%" for line %', v_effect.target, v_line.line_number;
++      END IF;
++      IF v_effect.direction NOT IN ('increase', 'decrease') THEN
++        RAISE EXCEPTION 'Invalid effect direction "%" for line %', v_effect.direction, v_line.line_number;
++      END IF;
++
++      IF v_effect.target = 'source' THEN
++        v_location_id := v_line.source_location_id;
++      ELSE
++        v_location_id := v_line.destination_location_id;
++      END IF;
++
++      IF v_location_id IS NULL AND v_effect.is_required THEN
++        RAISE EXCEPTION 'Line %: % location required for effect but is NULL',
++          v_line.line_number, v_effect.target;
++      END IF;
++
++      IF v_location_id IS NULL THEN
++        CONTINUE;
++      END IF;
++
++      v_balance := inventory_get_or_create_balance_for_update(
++        v_header.organization_id, v_header.branch_id, v_location_id, v_line.variant_id, p_movement_id,
++        NULL::uuid, NULL::uuid
++      );
++
++      IF v_effect.balance_field = 'on_hand' THEN
++        v_current_qty := v_balance.on_hand_quantity;
++      ELSE
++        RAISE EXCEPTION 'v1 only supports on_hand balance field, got %', v_effect.balance_field;
++      END IF;
++
++      IF v_effect.direction = 'increase' THEN
++        v_new_qty := v_current_qty + v_line.quantity;
++      ELSE
++        v_new_qty := v_current_qty - v_line.quantity;
++      END IF;
++
++      IF v_effect.balance_field = 'on_hand' AND v_effect.direction = 'decrease' THEN
++        IF v_new_qty < (v_balance.reserved_quantity + v_balance.allocated_quantity) THEN
++          RAISE EXCEPTION 'Movement would strand committed stock: variant % has % reserved + % allocated = % committed at this location, but only % would remain on hand (line %)',
++            v_line.variant_id, v_balance.reserved_quantity, v_balance.allocated_quantity,
++            (v_balance.reserved_quantity + v_balance.allocated_quantity), v_new_qty, v_line.line_number
++            USING ERRCODE = 'P0003';
++        END IF;
++      END IF;
++
++      UPDATE inventory_balances
++      SET on_hand_quantity = v_new_qty,
++          last_movement_id = p_movement_id,
++          last_movement_at = v_now,
++          updated_at = v_now
++      WHERE id = v_balance.id;
++
++      INSERT INTO inventory_stock_ledger_entries (
++        organization_id, branch_id, location_id, variant_id,
++        movement_id, movement_line_id, movement_type_code,
++        document_number, document_type_code,
++        effect_id, balance_field, direction,
++        quantity, balance_after,
++        unit_cost, currency, posted_at
++      ) VALUES (
++        v_header.organization_id, v_header.branch_id, v_location_id, v_line.variant_id,
++        p_movement_id, v_line.id, v_header.movement_type_code,
++        v_doc_number, v_mvt_type.doc_type_code,
++        v_effect.id, v_effect.balance_field, v_effect.direction,
++        v_line.quantity, v_new_qty,
++        v_line.unit_cost, v_line.currency, v_now
++      );
++    END LOOP;
++  END LOOP;
++
++  UPDATE inventory_movement_headers SET
++    status = 'posted',
++    document_number = v_doc_number,
++    document_type_code = v_mvt_type.doc_type_code,
++    posted_at = v_now,
++    posted_by = p_actor_user_id,
++    updated_at = v_now
++  WHERE id = p_movement_id;
++
++  INSERT INTO inventory_movement_audit_log (
++    organization_id, movement_id, action, old_status, new_status,
++    entity_type, entity_id, actor_user_id,
++    changes, transaction_id
++  ) VALUES (
++    v_header.organization_id, p_movement_id, 'posted', 'draft', 'posted',
++    'header', p_movement_id, p_actor_user_id,
++    jsonb_build_object('document_number', v_doc_number),
++    txid_current()::text
++  );
++
++  RETURN jsonb_build_object(
++    'movement_id', p_movement_id,
++    'document_number', v_doc_number,
++    'status', 'posted'
++  );
++END;
++$function$;
+diff --git a/apps/web/supabase-target/supabase/migrations/20260917062301_ic6_drop_negative_stock_policy_column.sql b/apps/web/supabase-target/supabase/migrations/20260917062301_ic6_drop_negative_stock_policy_column.sql
+new file mode 100644
+index 00000000..b07c9edb
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260917062301_ic6_drop_negative_stock_policy_column.sql
+@@ -0,0 +1,26 @@
++-- IC-6 LEGACY CLEANUP -- negative_stock_policy dead-configuration removal,
++-- step 2 of 2. Final product contract (IC-1, product-owner decision,
++-- 2026-09-15): on_hand_quantity >= 0 ALWAYS; reserved+allocated <=
++-- on_hand ALWAYS. 'allow'/'allow_with_approval' never bypassed this
++-- invariant and, per the prior migration's own proof, could NEVER have
++-- (the P0003 strand-check structurally preempts every negative-on-hand
++-- case regardless of this column's own value, and the DB-level CHECK
++-- (on_hand_quantity >= 0) on inventory_balances backstops it
++-- unconditionally either way).
++--
++-- OPTION A chosen (of the two the task offered): remove the misleading
++-- policy surface entirely, rather than preserve fake configurability.
++-- Zero application (TypeScript) readers or writers exist (confirmed via
++-- repo-wide grep, zero hits). Zero remaining SQL readers (confirmed by
++-- the prior migration -- inventory_finalize_posting_internal was the
++-- ONLY one, now fixed). Zero remaining CHECK/FK/trigger/view dependents
++-- other than the column's own CHECK constraint, which is dropped
++-- automatically with the column.
++--
++-- Data-impact proof: live query before this migration confirmed exactly
++-- ONE row in inventory_settings, with negative_stock_policy = 'block'
++-- (the column's own DEFAULT) -- i.e. the value was never anything other
++-- than its own default, and per the proof above, the value never once
++-- changed observable behavior. No meaningful state is lost.
++ALTER TABLE public.inventory_settings
++  DROP COLUMN negative_stock_policy;
+diff --git a/apps/web/supabase-target/supabase/migrations/20260917062315_ic6_drop_stale_balance_helper_5arg_overload.sql b/apps/web/supabase-target/supabase/migrations/20260917062315_ic6_drop_stale_balance_helper_5arg_overload.sql
+new file mode 100644
+index 00000000..c6fb80ab
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260917062315_ic6_drop_stale_balance_helper_5arg_overload.sql
+@@ -0,0 +1,21 @@
++-- IC-6 STALE OVERLOAD CLEANUP -- inventory_get_or_create_balance_for_
++-- update carries TWO live overloads: a 5-arg form (no lot/serial
++-- support, hardcodes "lot_id IS NULL AND serial_id IS NULL" in its own
++-- lookup) and the CURRENT canonical 7-arg form (p_lot_id/p_serial_id,
++-- both DEFAULT NULL -- the IC-1 "decision #10" lot/serial-aware
++-- replacement). A live prosrc scan across every function in pg_proc
++-- confirmed all 6 real callers (inventory_create_reservation,
++-- inventory_create_allocation, inventory_release_reservation,
++-- inventory_release_allocation, inventory_finalize_posting_internal,
++-- inventory_send_branch_transfer) already call the 7-arg form
++-- explicitly, every time -- zero callers of the 5-arg form exist
++-- anywhere.
++--
++-- This is exactly the class of landmine this project has repeatedly
++-- warned about: because the 7-arg form's own trailing 2 params both
++-- have DEFAULTs, a hypothetical FUTURE 5-positional-arg call would
++-- resolve to the OLD, lot/serial-blind overload (Postgres prefers the
++-- exact-arity match over the defaulted-tail match), silently landing on
++-- stale, superseded logic instead of the canonical one. Dropping it
++-- removes that ambiguity entirely -- exactly one signature remains.
++DROP FUNCTION public.inventory_get_or_create_balance_for_update(uuid, uuid, uuid, uuid, uuid);
+diff --git a/apps/web/supabase-target/supabase/migrations/20260917062320_ic6_drop_dead_v1_balance_helper.sql b/apps/web/supabase-target/supabase/migrations/20260917062320_ic6_drop_dead_v1_balance_helper.sql
+new file mode 100644
+index 00000000..5bd61821
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260917062320_ic6_drop_dead_v1_balance_helper.sql
+@@ -0,0 +1,14 @@
++-- IC-6 LEGACY CLEANUP -- inventory_v1_get_or_create_balance. IC-1
++-- (2026-09-15) replaced every internal call to this helper with
++-- inventory_get_or_create_balance_for_update (the lot/serial-aware
++-- replacement, decision #10). Re-verified NOW, live, as this task
++-- requires: a prosrc scan across EVERY function in pg_proc (not just
++-- inventory_-prefixed ones) found zero callers anywhere in the database.
++-- A repo-wide grep found zero TypeScript callers (the only two repo
++-- hits are the auto-generated `supabase/types/target.types.ts` type
++-- declaration, which is generated metadata reflecting the function's
++-- own live existence, not a caller, and will simply stop listing it on
++-- the next codegen run; and this historical IC-1 migration's own text,
++-- which is evidence of evolution, not a live caller). No trigger, view,
++-- FK, or other dependent object references it.
++DROP FUNCTION public.inventory_v1_get_or_create_balance(uuid, uuid, uuid, uuid);
+diff --git a/apps/web/supabase/tests/102_ic1_reserved_only_hard_invariant_test.sql b/apps/web/supabase/tests/102_ic1_reserved_only_hard_invariant_test.sql
+index 4e244472..e4311883 100644
+--- a/apps/web/supabase/tests/102_ic1_reserved_only_hard_invariant_test.sql
++++ b/apps/web/supabase/tests/102_ic1_reserved_only_hard_invariant_test.sql
+@@ -22,20 +22,19 @@
+ -- org/branch cannot share 101's single transaction.
+ --
+ -- SCENARIO C (added: IC-1 finalization pass, product-owner decision --
+--- `on_hand_quantity >= 0` ALWAYS is now the FINAL product contract,
+--- `negative_stock_policy='allow'`/`'allow_with_approval'` are superseded
+--- for on-hand behavior, see `inventory-core-architecture.md` §0 decision
+--- #20 and §5 invariant #1): this is no longer a diagnostic -- it documents
+--- the FINAL, accepted product contract. Proves both policy values produce
+--- the identical P0003 rejection for a bare on-hand decrease with ZERO
+--- commitment (reserved=0, allocated=0) -- i.e. that `negative_stock_
+--- policy` cannot bypass the hard invariant regardless of its value.
++-- `on_hand_quantity >= 0` ALWAYS is now the FINAL product contract; IC-6
++-- (2026-09-17) subsequently dropped `negative_stock_policy` entirely once
++-- this very scenario had already proven it could never bypass the hard
++-- invariant -- see the scenario's own comment below for the full history):
++-- this is no longer a diagnostic -- it documents the FINAL, accepted
++-- product contract. Proves a bare on-hand decrease with ZERO commitment
++-- (reserved=0, allocated=0) is rejected unconditionally.
+ --
+ -- Executed live against supabase-target via Supabase MCP.
+ 
+ BEGIN;
+ 
+-SELECT plan(14);
++SELECT plan(11);
+ 
+ CREATE TEMP TABLE fxb (
+   org uuid, branch uuid, e2e_user uuid, variant_1 uuid, unit_1 uuid,
+@@ -158,16 +157,30 @@ WHERE organization_id = (SELECT org FROM fxb) AND branch_id = (SELECT branch FRO
+   AND location_id = (SELECT receiving_location_id FROM fxb) AND variant_id = (SELECT variant_1 FROM fxb);
+ INSERT INTO test_log(line) SELECT is(on_hand_quantity, 6::numeric, 'T6 (control): moving exactly the free 4 units succeeds -- source on_hand now 6, exactly at the reserved boundary') FROM after_balance_b_control;
+ 
+-RESET ROLE;
+ 
+ -- ===========================================================================
+--- SCENARIO C: FINAL PRODUCT CONTRACT -- negative_stock_policy cannot bypass
+--- the hard invariant, for either 'allow' or 'block', on completely
+--- uncommitted stock (reserved=0, allocated=0). A fresh, third isolated
+--- branch (same fresh-branch convention as Scenario B above) with a
++-- SCENARIO C: FINAL PRODUCT CONTRACT -- the hard on-hand->=0 invariant is
++-- UNCONDITIONAL (no configurable policy exists at all). A fresh, third
++-- isolated branch (same fresh-branch convention as Scenario B above) with a
+ -- directly-seeded balance (on_hand=2, reserved=0, allocated=0) -- no
+ -- receive/reserve RPC chain needed since this scenario tests the bare
+ -- on-hand decrease path directly.
++--
++-- IC-6 UPDATE (2026-09-17): `inventory_settings.negative_stock_policy` was
++-- dropped entirely (migration `20260917062301_ic6_drop_negative_stock_
++-- policy_column.sql`) and the now-dead `negative_stock_policy = 'block'`
++-- branch was removed from `inventory_finalize_posting_internal` (migration
++-- `20260917062247_...`). This is a direct, proven consequence of what this
++-- very scenario already established pre-IC-6: BOTH policy values ('allow'
++-- and 'block') produced the byte-identical P0003 rejection, because the
++-- P0003 strand-check (`post_on_hand >= reserved_quantity + allocated_
++-- quantity`) structurally always preempts the policy branch whenever
++-- `v_new_qty < 0` -- `reserved_quantity`/`allocated_quantity` can never be
++-- negative (both have their own `CHECK (>= 0)` constraints), so the
++-- policy-gated branch was provably unreachable dead code. This scenario
++-- previously ran the identical attempt twice (once per policy value) to
++-- prove parity; with the policy column gone there is only one behavior to
++-- prove, so the scenario now runs the attempt once.
+ -- ===========================================================================
+ 
+ CREATE TEMP TABLE fxc (org uuid, branch uuid, e2e_user uuid, variant_1 uuid, unit_1 uuid, loc_a uuid, loc_b uuid);
+@@ -210,12 +223,7 @@ SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_use
+ CREATE TEMP TABLE outcome_c (label text, status text, detail text);
+ GRANT INSERT, SELECT ON outcome_c TO authenticated;
+ 
+--- policy='allow': attempt decrease 5 from on_hand=2 (zero commitment) -- MUST be rejected per the final product contract.
+-RESET ROLE;
+-UPDATE inventory_settings SET negative_stock_policy = 'allow' WHERE organization_id = (SELECT org FROM fxc);
+-SET LOCAL ROLE authenticated;
+-SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fxc)::text, 'role', 'authenticated')::text, true);
+-
++-- attempt decrease 5 from on_hand=2 (zero commitment) -- MUST be rejected unconditionally, per the final product contract.
+ DO $$
+ DECLARE v_result jsonb;
+ BEGIN
+@@ -225,18 +233,18 @@ BEGIN
+       jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxc), 'unit_id', (SELECT unit_1 FROM fxc), 'quantity', 5, 'source_location_id', (SELECT loc_a FROM fxc), 'destination_location_id', NULL)),
+       NULL, NULL, NULL, NULL, NULL, NULL, (SELECT e2e_user FROM fxc)
+     );
+-    INSERT INTO outcome_c VALUES ('allow', 'succeeded', v_result::text);
++    INSERT INTO outcome_c VALUES ('unconditional', 'succeeded', v_result::text);
+   EXCEPTION WHEN OTHERS THEN
+-    INSERT INTO outcome_c VALUES ('allow', 'failed', SQLSTATE || ' ' || SQLERRM);
++    INSERT INTO outcome_c VALUES ('unconditional', 'failed', SQLSTATE || ' ' || SQLERRM);
+   END;
+ END $$;
+ 
+-INSERT INTO test_log(line) SELECT is((SELECT status FROM outcome_c WHERE label = 'allow'), 'failed', 'T7 (FINAL CONTRACT): with negative_stock_policy=''allow'', a bare on-hand decrease that would go negative (2-5) is REJECTED -- ''allow'' cannot bypass the hard invariant');
+-INSERT INTO test_log(line) SELECT ok((SELECT detail FROM outcome_c WHERE label = 'allow') LIKE 'P0003%', 'T8: rejection carries SQLSTATE P0003 (not an accidental 23514 CHECK violation)');
++INSERT INTO test_log(line) SELECT is((SELECT status FROM outcome_c WHERE label = 'unconditional'), 'failed', 'T7 (FINAL CONTRACT): a bare on-hand decrease that would go negative (2-5) is REJECTED unconditionally -- no policy can bypass the hard invariant');
++INSERT INTO test_log(line) SELECT ok((SELECT detail FROM outcome_c WHERE label = 'unconditional') LIKE 'P0003%', 'T8: rejection carries SQLSTATE P0003 (not an accidental 23514 CHECK violation)');
+ 
+-CREATE TEMP TABLE balance_after_allow AS
++CREATE TEMP TABLE balance_after_unconditional AS
+ SELECT on_hand_quantity FROM inventory_balances WHERE organization_id = (SELECT org FROM fxc) AND branch_id = (SELECT branch FROM fxc) AND location_id = (SELECT loc_a FROM fxc) AND variant_id = (SELECT variant_1 FROM fxc);
+-INSERT INTO test_log(line) SELECT is(on_hand_quantity, 2::numeric, 'T9: on_hand remains UNCHANGED (still 2) after the rejected ''allow''-policy attempt') FROM balance_after_allow;
++INSERT INTO test_log(line) SELECT is(on_hand_quantity, 2::numeric, 'T9: on_hand remains UNCHANGED (still 2) after the rejected attempt') FROM balance_after_unconditional;
+ INSERT INTO test_log(line) SELECT is(
+   (SELECT count(*) FROM inventory_movement_headers WHERE organization_id = (SELECT org FROM fxc) AND branch_id = (SELECT branch FROM fxc)),
+   (SELECT n FROM movement_count_baseline_c), 'T10: no orphan inventory_movement_headers row created'
+@@ -246,34 +254,6 @@ INSERT INTO test_log(line) SELECT is(
+   (SELECT n FROM ledger_count_baseline_c), 'T11: no ledger mutation (inventory_stock_ledger_entries row count unchanged)'
+ );
+ 
+--- policy='block': same fixture, same attempt -- must produce the byte-identical rejection.
+-RESET ROLE;
+-UPDATE inventory_settings SET negative_stock_policy = 'block' WHERE organization_id = (SELECT org FROM fxc);
+-SET LOCAL ROLE authenticated;
+-SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fxc)::text, 'role', 'authenticated')::text, true);
+-
+-DO $$
+-DECLARE v_result jsonb;
+-BEGIN
+-  BEGIN
+-    v_result := inventory_create_and_finalize(
+-      (SELECT org FROM fxc), (SELECT branch FROM fxc), '402',
+-      jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxc), 'unit_id', (SELECT unit_1 FROM fxc), 'quantity', 5, 'source_location_id', (SELECT loc_a FROM fxc), 'destination_location_id', NULL)),
+-      NULL, NULL, NULL, NULL, NULL, NULL, (SELECT e2e_user FROM fxc)
+-    );
+-    INSERT INTO outcome_c VALUES ('block', 'succeeded', v_result::text);
+-  EXCEPTION WHEN OTHERS THEN
+-    INSERT INTO outcome_c VALUES ('block', 'failed', SQLSTATE || ' ' || SQLERRM);
+-  END;
+-END $$;
+-
+-INSERT INTO test_log(line) SELECT is((SELECT status FROM outcome_c WHERE label = 'block'), 'failed', 'T12 (FINAL CONTRACT): with negative_stock_policy=''block'', the identical attempt is also REJECTED');
+-INSERT INTO test_log(line) SELECT ok((SELECT detail FROM outcome_c WHERE label = 'block') LIKE 'P0003%', 'T13: ''block''-policy rejection also carries SQLSTATE P0003 -- byte-identical behavior to ''allow''');
+-
+-CREATE TEMP TABLE balance_after_block AS
+-SELECT on_hand_quantity FROM inventory_balances WHERE organization_id = (SELECT org FROM fxc) AND branch_id = (SELECT branch FROM fxc) AND location_id = (SELECT loc_a FROM fxc) AND variant_id = (SELECT variant_1 FROM fxc);
+-INSERT INTO test_log(line) SELECT is(on_hand_quantity, 2::numeric, 'T14: on_hand remains UNCHANGED (still 2) after the rejected ''block''-policy attempt too') FROM balance_after_block;
+-
+ RESET ROLE;
+ 
+ SELECT count(*) FILTER (WHERE line NOT LIKE 'ok %') AS not_ok_count, count(*) AS total_assertions FROM test_log;
+diff --git a/apps/web/supabase/tests/108_ic6_legacy_cleanup_test.sql b/apps/web/supabase/tests/108_ic6_legacy_cleanup_test.sql
+new file mode 100644
+index 00000000..9a3413d4
+--- /dev/null
++++ b/apps/web/supabase/tests/108_ic6_legacy_cleanup_test.sql
+@@ -0,0 +1,257 @@
++-- ============================================================================
++-- TEST: IC-6 -- Legacy Writer/Helper Removal (cleanup boundary proof)
++-- ============================================================================
++-- Does NOT retest 097-107's own business workflows from scratch -- those
++-- are re-run unmodified as part of this pass's own full regression. This
++-- file proves only the CLEANUP BOUNDARY itself: dropped objects are
++-- genuinely gone, stale overloads are genuinely gone, deprecated
++-- negative-stock configuration is genuinely unavailable, internal
++-- functions remain non-executable by ordinary callers, and every
++-- canonical path this phase touched (directly or by proximity) still
++-- succeeds end-to-end.
++--
++-- Executed live against supabase-target via Supabase MCP.
++
++BEGIN;
++
++SELECT plan(23);
++
++CREATE TEMP TABLE test_log (seq serial, line text);
++GRANT INSERT, SELECT ON test_log TO authenticated;
++GRANT USAGE ON SEQUENCE test_log_seq_seq TO authenticated;
++
++SET LOCAL ambra.inventory_movement_engine = 'on';
++
++-- ============================================================================
++-- SCENARIO A: dropped legacy helper genuinely absent.
++-- ============================================================================
++
++INSERT INTO test_log(line) SELECT is(
++  to_regprocedure('public.inventory_v1_get_or_create_balance(uuid,uuid,uuid,uuid)'),
++  NULL::regprocedure,
++  'A1: inventory_v1_get_or_create_balance is genuinely gone (to_regprocedure returns NULL)'
++);
++
++-- ============================================================================
++-- SCENARIO B: stale overload genuinely absent, canonical overload intact.
++-- ============================================================================
++
++INSERT INTO test_log(line) SELECT is(
++  to_regprocedure('public.inventory_get_or_create_balance_for_update(uuid,uuid,uuid,uuid,uuid)'),
++  NULL::regprocedure,
++  'B1: the stale 5-arg inventory_get_or_create_balance_for_update overload is genuinely gone'
++);
++INSERT INTO test_log(line) SELECT isnt(
++  to_regprocedure('public.inventory_get_or_create_balance_for_update(uuid,uuid,uuid,uuid,uuid,uuid,uuid)'),
++  NULL::regprocedure,
++  'B2: the canonical 7-arg (lot/serial-aware) overload remains callable'
++);
++INSERT INTO test_log(line) SELECT is(
++  (SELECT count(*)::int FROM pg_proc WHERE proname = 'inventory_get_or_create_balance_for_update'),
++  1,
++  'B3: exactly ONE overload of inventory_get_or_create_balance_for_update exists live (no stale duplicate)'
++);
++
++-- ============================================================================
++-- SCENARIO C: deprecated negative_stock_policy configuration is genuinely
++-- unavailable -- the column itself is gone, not merely unused.
++-- ============================================================================
++
++INSERT INTO test_log(line) SELECT is(
++  (SELECT count(*)::int FROM information_schema.columns
++   WHERE table_schema = 'public' AND table_name = 'inventory_settings' AND column_name = 'negative_stock_policy'),
++  0,
++  'C1: inventory_settings.negative_stock_policy column is genuinely gone'
++);
++INSERT INTO test_log(line) SELECT is(
++  (SELECT count(*)::int FROM pg_constraint
++   WHERE conrelid = 'public.inventory_settings'::regclass AND conname = 'inventory_settings_negative_stock_policy_check'),
++  0,
++  'C2: the column''s own CHECK constraint is genuinely gone (dropped automatically with the column)'
++);
++INSERT INTO test_log(line) SELECT ok(
++  (SELECT pg_get_functiondef('public.inventory_finalize_posting_internal'::regproc)) NOT ILIKE '%negative_stock_policy%',
++  'C3: inventory_finalize_posting_internal no longer references negative_stock_policy anywhere in its own body'
++);
++
++-- ============================================================================
++-- SCENARIO D: internal functions remain non-executable by ordinary roles.
++-- ============================================================================
++
++INSERT INTO test_log(line) SELECT is(
++  has_function_privilege('authenticated', 'public.inventory_finalize_posting_internal(uuid,uuid,jsonb)'::regprocedure, 'EXECUTE'),
++  false, 'D1: inventory_finalize_posting_internal remains non-executable by authenticated'
++);
++INSERT INTO test_log(line) SELECT is(
++  has_function_privilege('authenticated', 'public.write_repair_order_line_movement_link_internal(uuid,uuid,numeric,text,boolean)'::regprocedure, 'EXECUTE'),
++  false, 'D2: write_repair_order_line_movement_link_internal remains non-executable by authenticated'
++);
++INSERT INTO test_log(line) SELECT is(
++  has_function_privilege('authenticated', 'public.rebuild_repair_order_projection_bucket_internal(uuid,uuid,uuid,uuid)'::regprocedure, 'EXECUTE'),
++  false, 'D3: rebuild_repair_order_projection_bucket_internal remains non-executable by authenticated'
++);
++INSERT INTO test_log(line) SELECT is(
++  has_function_privilege('anon', 'public.inventory_finalize_posting_internal(uuid,uuid,jsonb)'::regprocedure, 'EXECUTE'),
++  false, 'D4: inventory_finalize_posting_internal remains non-executable by anon'
++);
++
++-- ============================================================================
++-- SCENARIO E: canonical movement/receive/reversal/transfer/RepairOrder
++-- paths all still succeed end-to-end after this phase's own cleanup.
++-- ============================================================================
++
++CREATE TEMP TABLE fx (
++  org uuid, e2e_user uuid, variant_1 uuid, unit_1 uuid,
++  branch uuid, dst_branch uuid, loc_a uuid, loc_b uuid, recv_loc uuid, dst_loc uuid,
++  ro uuid, rol uuid, shelf uuid
++);
++INSERT INTO fx SELECT
++  '9f98fe91-63b8-4986-a2b3-65bdd47684c9', 'c4a24371-42db-4bb8-ab5e-379ebbf7d9c4',
++  'fe364ce2-1f72-4df5-ab92-6361ec95e0da', '571dfd6c-eba2-42c2-8ad9-f39a2d103b6d',
++  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
++  gen_random_uuid(), gen_random_uuid(), gen_random_uuid();
++GRANT SELECT, UPDATE ON fx TO authenticated;
++
++INSERT INTO branches (id, organization_id, name, branch_number)
++SELECT branch, org, 'ic6-branch', 950 FROM fx
++UNION ALL SELECT dst_branch, org, 'ic6-dst-branch', 951 FROM fx;
++
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, code, can_store_inventory, purpose)
++SELECT recv_loc, org, branch, 'ic6-receiving', 'IC6R', true, 'receiving' FROM fx;
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, code, can_store_inventory)
++SELECT loc_a, org, branch, 'ic6-loc-a', 'IC6A', true FROM fx
++UNION ALL SELECT loc_b, org, branch, 'ic6-loc-b', 'IC6B', true FROM fx
++UNION ALL SELECT shelf, org, branch, 'ic6-shelf', 'IC6SH', true FROM fx;
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, code, can_store_inventory)
++SELECT dst_loc, org, dst_branch, 'ic6-dst-loc', 'IC6D', true FROM fx;
++
++INSERT INTO repair_orders (id, organization_id, branch_id, order_number, status)
++SELECT ro, org, branch, 'ic6-RO', 'open' FROM fx;
++INSERT INTO repair_order_lines (id, repair_order_id, variant_id, product_code, product_name, ordered_quantity, unit)
++SELECT rol, ro, variant_1, 'ic6-SKU', 'ic6 line', 5, 'pcs' FROM fx;
++
++SET LOCAL ROLE authenticated;
++SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fx)::text, 'role','authenticated')::text, true);
++
++-- E1: canonical generic movement (uses the 7-arg balance helper internally).
++CREATE TEMP TABLE e1 AS
++SELECT inventory_create_and_finalize(
++  (SELECT org FROM fx), (SELECT branch FROM fx), '101',
++  jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fx), 'unit_id', (SELECT unit_1 FROM fx), 'quantity', 10, 'destination_location_id', (SELECT loc_a FROM fx))),
++  NULL, NULL, NULL, NULL, NULL, NULL, (SELECT e2e_user FROM fx)
++) AS result;
++INSERT INTO test_log(line) SELECT is((result->>'status'), 'posted', 'E1: canonical inventory_create_and_finalize still succeeds after cleanup') FROM e1;
++
++-- E2: canonical receive primitive.
++CREATE TEMP TABLE e2 AS
++SELECT inventory_receive_stock(
++  (SELECT e2e_user FROM fx), (SELECT org FROM fx), (SELECT branch FROM fx),
++  jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fx), 'unit_id', (SELECT unit_1 FROM fx), 'quantity', 7, 'destination_location_id', (SELECT loc_b FROM fx))),
++  NULL, NULL, NULL, NULL, NULL
++) AS result;
++INSERT INTO test_log(line) SELECT is((result->>'status'), 'posted', 'E2: canonical inventory_receive_stock still succeeds after cleanup') FROM e2;
++
++-- E3: canonical reversal.
++CREATE TEMP TABLE e3 AS
++SELECT inventory_reverse_movement(((SELECT result FROM e2)->>'movement_id')::uuid, (SELECT e2e_user FROM fx), 'IC-6 cleanup regression reversal') AS result;
++INSERT INTO test_log(line) SELECT is((result->>'status'), 'posted', 'E3: canonical inventory_reverse_movement still succeeds after cleanup') FROM e3;
++INSERT INTO test_log(line) SELECT is(
++  (SELECT on_hand_quantity FROM inventory_balances WHERE organization_id=(SELECT org FROM fx) AND branch_id=(SELECT branch FROM fx) AND location_id=(SELECT loc_b FROM fx) AND variant_id=(SELECT variant_1 FROM fx)),
++  0::numeric, 'E4: the reversed receipt''s own balance is exactly restored to 0'
++);
++
++-- E5: canonical branch transfer (create -> send -> accept).
++CREATE TEMP TABLE e5a AS
++SELECT inventory_create_branch_transfer(
++  (SELECT org FROM fx), (SELECT branch FROM fx), (SELECT dst_branch FROM fx),
++  jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fx), 'source_location_id', (SELECT loc_a FROM fx), 'lot_id', NULL, 'serial_id', NULL, 'unit_id', (SELECT unit_1 FROM fx), 'quantity', 3)),
++  'IC-6 cleanup regression transfer', (SELECT e2e_user FROM fx)
++) AS result;
++CREATE TEMP TABLE e5b AS
++SELECT inventory_send_branch_transfer(((SELECT result FROM e5a)->>'transfer_id')::uuid, (SELECT e2e_user FROM fx)) AS result;
++CREATE TEMP TABLE e5c AS
++SELECT inventory_accept_branch_transfer(((SELECT result FROM e5a)->>'transfer_id')::uuid, (SELECT dst_loc FROM fx), (SELECT e2e_user FROM fx), NULL) AS result;
++INSERT INTO test_log(line) SELECT is((result->>'status'), 'accepted', 'E5: canonical branch-transfer lifecycle (create->send->accept) still succeeds after cleanup') FROM e5c;
++
++-- Reset the authoritative GUC before Scenario E6's own standalone attach
++-- call: E3's own inventory_reverse_movement call above sets `ambra.
++-- repair_order_attribution_authoritative = 'on'` via SET LOCAL, which
++-- persists for the REST OF THIS SHARED pgTAP TRANSACTION (a documented,
++-- test-harness-only artifact, not a production bug -- every real RPC
++-- call is its own transaction). Without this reset, E6's own standalone
++-- attach call would incorrectly defer its own auto-rebuild to a
++-- long-gone "authoritative caller", exactly the leak documented at
++-- length in the IC-5 review bundle's own test-evidence.md.
++SELECT set_config('ambra.repair_order_attribution_authoritative', 'off', true);
++
++-- E6: RepairOrder projection path -- a plain receipt + explicit attach,
++-- then putaway, then a full rebuild all succeed and agree, exercising
++-- attach's/putaway's/the trigger's own calls through write_repair_
++-- order_line_movement_link_internal. (A source_line_id-less receive_
++-- repair_order_stock call would leave the line unattributed -- explicit
++-- attach is used here instead, matching this project's own established
++-- fixture pattern.)
++CREATE TEMP TABLE e6recv AS
++SELECT inventory_create_and_finalize(
++  (SELECT org FROM fx), (SELECT branch FROM fx), '101',
++  jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fx), 'unit_id', (SELECT unit_1 FROM fx), 'quantity', 5, 'destination_location_id', (SELECT recv_loc FROM fx))),
++  NULL, NULL, NULL, NULL, NULL, NULL, (SELECT e2e_user FROM fx)
++) AS result;
++INSERT INTO test_log(line) SELECT is((result->>'status'), 'posted', 'E6: canonical receipt for the RepairOrder projection path still succeeds after cleanup') FROM e6recv;
++
++CREATE TEMP TABLE e6ml AS
++SELECT id AS movement_line_id FROM inventory_movement_lines WHERE movement_id = ((SELECT result FROM e6recv)->>'movement_id')::uuid;
++SELECT attach_repair_order_line_movement((SELECT e2e_user FROM fx), (SELECT rol FROM fx), (SELECT movement_line_id FROM e6ml), 5, 'receipt');
++
++INSERT INTO test_log(line) SELECT is(
++  (SELECT quantity FROM repair_order_line_locations WHERE repair_order_line_id=(SELECT rol FROM fx) AND location_id=(SELECT recv_loc FROM fx)),
++  5::numeric, 'E7: repair_order_line_locations correctly seeded (5) via the canonical attach path'
++);
++
++CREATE TEMP TABLE e6putaway AS
++SELECT putaway_repair_order_stock(
++  (SELECT e2e_user FROM fx), (SELECT org FROM fx), (SELECT branch FROM fx),
++  jsonb_build_array(jsonb_build_object('repair_order_line_id', (SELECT rol FROM fx), 'variant_id', (SELECT variant_1 FROM fx), 'unit_id', (SELECT unit_1 FROM fx), 'quantity', 5)),
++  (SELECT shelf FROM fx), NULL
++) AS result;
++INSERT INTO test_log(line) SELECT is((result->>'status'), 'posted', 'E8: putaway_repair_order_stock still succeeds after cleanup') FROM e6putaway;
++INSERT INTO test_log(line) SELECT is(
++  (SELECT quantity FROM repair_order_line_locations WHERE repair_order_line_id=(SELECT rol FROM fx) AND location_id=(SELECT shelf FROM fx)),
++  5::numeric, 'E9: putaway correctly moved 5 units to the shelf'
++);
++
++-- E10: rebuild equals incremental for the MEANINGFUL (nonzero) rows.
++-- Accepted, disclosed divergence (established since IC-5): putaway's own
++-- direct UPDATE decrements the receiving-location row to exactly 0 but
++-- does not delete it, while the rebuild path's own HAVING SUM(...) <> 0
++-- filter never recreates a zero-quantity row -- a quantity=0 row is
++-- semantically equivalent to absence, not a defect (see 107's own D1).
++-- The comparison is therefore scoped to quantity > 0 rows only.
++CREATE TEMP TABLE before_rebuild AS
++SELECT location_id, quantity FROM repair_order_line_locations WHERE repair_order_line_id = (SELECT rol FROM fx) AND quantity > 0;
++SELECT rebuild_repair_order_location_projection((SELECT e2e_user FROM fx), (SELECT org FROM fx), (SELECT branch FROM fx), (SELECT ro FROM fx));
++INSERT INTO test_log(line) SELECT is(
++  (SELECT count(*) FROM before_rebuild b WHERE NOT EXISTS (
++    SELECT 1 FROM repair_order_line_locations a
++    WHERE a.repair_order_line_id = (SELECT rol FROM fx) AND a.location_id = b.location_id AND a.quantity = b.quantity
++  )),
++  0::bigint, 'E10: a full-order rebuild after receive+putaway produces EXACTLY the same nonzero rows as the incremental path'
++);
++
++-- E11: reversing the putaway still correctly restores BOTH buckets (the
++-- exact IC-5-correction-pass bucket-derivation fix, reconfirmed intact).
++SELECT inventory_reverse_movement(((SELECT result FROM e6putaway)->>'movement_id')::uuid, (SELECT e2e_user FROM fx), 'IC-6 cleanup regression putaway reversal');
++INSERT INTO test_log(line) SELECT is(
++  (SELECT quantity FROM repair_order_line_locations WHERE repair_order_line_id=(SELECT rol FROM fx) AND location_id=(SELECT recv_loc FROM fx)),
++  5::numeric, 'E11: reversing the putaway restores the RECEIVING bucket to 5 (IC-5-correction bucket fix still intact)'
++);
++INSERT INTO test_log(line) SELECT is(
++  (SELECT count(*) FROM repair_order_line_locations WHERE repair_order_line_id=(SELECT rol FROM fx) AND location_id=(SELECT shelf FROM fx)),
++  0::bigint, 'E12: the shelf bucket is correctly cleared (0) after reversing the putaway'
++);
++
++RESET ROLE;
++
++SELECT count(*) FILTER (WHERE line NOT LIKE 'ok %') AS not_ok_count, count(*) AS total_assertions FROM test_log;
++
++ROLLBACK;
+diff --git a/docs/inventory/inventory-core-architecture.md b/docs/inventory/inventory-core-architecture.md
+index 284d3242..d97f65f3 100644
+--- a/docs/inventory/inventory-core-architecture.md
++++ b/docs/inventory/inventory-core-architecture.md
+@@ -1129,6 +1129,303 @@ per-file breakdown.
+ 
+ ---
+ 
++## 9D. IC-6 — Legacy Writer/Helper Removal
++
++**✅ DONE (2026-09-17)**.
++
++**Goal**: cleanup/consolidation only — no new behavior. Identify every
++legacy/superseded Inventory write/helper/config path, prove whether it
++is genuinely dead (repo callers + live SQL-to-SQL callers + app
++callers + intentional test/doc references, not TypeScript-compiler
++non-use alone), delete/drop only confirmed-dead paths, and remove dead
++compatibility/config surface that no longer represents real product
++behavior. IC-0 through IC-5 and IC-7A's own accepted architecture was
++NOT reopened; full IC-7, IC-8, and Phase 10D were NOT started.
++
++**Call-graph method**: every canonical Inventory Core function was
++enumerated live from `pg_proc` (org/branch/movement/receiving/
++reservation/allocation/transfer/container/RepairOrder-projection
++surface), classified A (canonical active) / B (canonical internal) /
++C (compatibility wrapper still required) / D (confirmed dead) / E
++(uncertain, therefore untouched). SQL-to-SQL callers were found via a
++live `prosrc` scan across every function in `pg_proc` (not merely
++name-pattern matches) — this is the mechanism that caught the stale
++overload below, which a name-only audit would have missed entirely.
++
++**1. Old `inventory_v1_get_or_create_balance` helper (§4) — DROPPED,
++confirmed dead.** Re-verified live: a `prosrc` scan across every
++function in the database found zero SQL callers (IC-1 had already
++replaced every internal call site with `inventory_get_or_create_
++balance_for_update`, the lot/serial-aware replacement). A repo-wide
++grep found zero TypeScript callers — the only two repo hits were the
++auto-generated `target.types.ts` type declaration (generated metadata,
++not a caller) and IC-1's own historical migration text (evidence of
++evolution, not a live caller). Dropped via a forward migration;
++`to_regprocedure` confirmed absence live.
++
++**2. Stale `inventory_get_or_create_balance_for_update` 5-arg overload
++(§14) — DROPPED, confirmed dead.** This function carried TWO live
++overloads: a 5-arg form (no lot/serial support, hardcodes `lot_id IS
++NULL AND serial_id IS NULL`) and the canonical 7-arg form (`p_lot_id`/
++`p_serial_id`, both `DEFAULT NULL` — IC-1's own lot/serial-aware
++replacement). A live `prosrc` scan found all 6 real callers
++(`inventory_create_reservation`, `inventory_create_allocation`,
++`inventory_release_reservation`, `inventory_release_allocation`,
++`inventory_finalize_posting_internal`, `inventory_send_branch_
++transfer`) already call the 7-arg form explicitly, every time — zero
++callers of the 5-arg form exist. This was a genuine landmine: because
++the 7-arg form's own trailing 2 params both have `DEFAULT`s, a future
++5-positional-arg call would have resolved to the OLD, lot/serial-blind
++overload (Postgres prefers the exact-arity match), silently landing on
++stale logic. Dropped via a forward migration; exactly one overload
++remains live.
++
++**3. `negative_stock_policy` dead configuration (§5) — Option A
++chosen, column DROPPED entirely.** Re-verified the IC-1 finding is
++still true: zero application (TypeScript) readers or writers (repo-
++wide grep, zero hits); the column's own sole SQL reader was
++`inventory_finalize_posting_internal`'s own `IF v_new_qty < 0 AND
++v_settings.negative_stock_policy = 'block' THEN ...` branch. **Went
++further than "still unused" — proved it UNREACHABLE**: `inventory_
++balances` carries `CHECK (reserved_quantity >= 0)` and `CHECK
++(allocated_quantity >= 0)`, so `reserved_quantity + allocated_quantity`
++can never be negative; the P0003 "would strand committed stock" check
++immediately above the dead branch fires whenever `v_new_qty < (reserved
+++ allocated)`, which is structurally guaranteed true whenever
++`v_new_qty` is negative (a negative number is always less than a
++non-negative one). The `negative_stock_policy='block'` branch could
++therefore never execute, for ANY value of the column, live or
++hypothetical — confirmed empirically by pgTAP 102's own Scenario C
++(T7/T8), which observed SQLSTATE `P0003` (the strand-check), never the
++dead branch's own bare `RAISE`, for a bare zero-commitment negative-
++on-hand attempt. Fixed forward in two migrations: (1) `CREATE OR
++REPLACE` `inventory_finalize_posting_internal` removing only the
++3-line dead conditional — the `SELECT * INTO v_settings ... FOR UPDATE`
++statement itself was preserved byte-for-byte in its own original
++position, since IC-6 must not alter locking/concurrency behavior and
++that row lock serves purposes independent of this one field; (2)
++`ALTER TABLE inventory_settings DROP COLUMN negative_stock_policy`
++(its own CHECK constraint dropped automatically with it). Data-impact
++proof: exactly one live row, value `'block'` (the column's own
++DEFAULT) — no meaningful state lost. `'allow'`/`'allow_with_approval'`
++no longer exist as a selectable value at all; IC-1's own hard invariant
++(`on_hand_quantity >= 0` always, `reserved+allocated <= on_hand`
++always) is completely unchanged and unweakened.
++
++**Regression surfaced and fixed**: the full 097-107 pgTAP regression run
++(after the column drop) found that `102_ic1_reserved_only_hard_
++invariant_test.sql`'s own Scenario C directly `UPDATE`d the now-dropped
++`negative_stock_policy` column to prove parity between `'allow'` and
++`'block'` — a genuine SQL-to-SQL caller this audit's `prosrc`-scan
++methodology could not see, since raw column references from pgTAP test
++files are not `pg_proc` bodies. This is a real, disclosed consequence of
++Option A (column drop), not a silent breakage: the whole transaction
++aborted with `42703: column "negative_stock_policy" ... does not exist`
++before reaching Scenarios A/B's own tally, making the entire file
++unscored. Fixed by editing the TEST FILE (not a migration — test files
++are not subject to the immutable-migration rule): Scenario C's own two
++`UPDATE`-then-attempt passes (policy='allow', policy='block') were
++collapsed into a single unconditional pass, since there is no longer a
++policy value to vary — the assertion set (rejected, SQLSTATE P0003,
++on_hand unchanged, no orphan header/ledger row) is preserved, `plan(14)`
++reduced to `plan(11)` (T12-T14's own redundant second pass removed, T1-
++T9 renumbered as T1-T9, T10/T11 kept). Both the file's own top header
++comment and Scenario C's own comment block were updated to record this
++history. Re-run live: 11/11, 0 failures.
++
++**4. Legacy movement helpers (§6) — already absent, documented only.**
++`inventory_allocate_movement_number`, `inventory_create_draft_
++movement`, `inventory_post_movement` are all confirmed absent from
++live `pg_proc` — no DB action needed. **New, disclosed finding**: `src/
++server/services/inventory-products.service.ts`'s own `createOpeningStock
++Movement` private helper — called from the ACTIVE, UI-reachable
++`createEnhancedProduct` (via `src/app/actions/warehouse/inventory/
++index.ts`) whenever a product is created with `track_inventory` +
++`opening_location_id` — calls exactly these two nonexistent RPCs
++(`inventory_create_draft_movement`, `inventory_post_movement`). This is
++a genuine, currently-live PRODUCTION BUG (opening-stock-on-product-
++creation is currently broken, would fail with a Postgres "function does
++not exist" error), NOT fixed in this phase — fixing an application bug
++is out of IC-6's own explicit "no new behavior" charter. Flagged for a
++separate, appropriately-scoped fix.
++
++**5. Document-sequence/movement-number helpers (§7) — already
++consolidated, documented only.** No separate numbering helper function
++exists at all; the numbering logic (`inventory_document_sequences`
++lookup + `FOR UPDATE` lock + increment) already lives inline, once,
++inside `inventory_finalize_posting_internal` — the single canonical
++posting path. §7's own goal ("only one supported numbering path") was
++already satisfied before this phase began.
++
++**6. Direct balance/ledger writers (§8) — audited, all accounted for,
++one dead parallel writer found and removed.** A live `prosrc` regex scan
++confirmed exactly ONE function writes `inventory_balances.on_hand_
++quantity` and exactly ONE function inserts into `inventory_stock_
++ledger_entries` — both are `inventory_finalize_posting_internal`,
++matching accepted architecture exactly. Six functions write `reserved_
++quantity`/`allocated_quantity` directly — all are the accepted Phase
++10A/10B reservation/allocation engine (`inventory_create_reservation`,
++`inventory_release_reservation`, `inventory_create_allocation`,
++`inventory_release_allocation`, plus `inventory_finalize_posting_
++internal`'s own read path and `inventory_send_branch_transfer`'s own
++reservation-consumption step) — none superseded, none dead. **Finding,
++corrected mid-phase**: `src/app/actions/warehouse/ambra-location-
++inventory.ts` performed direct Supabase-client `.update({allocated_
++quantity: ...})`/`.insert(...)` calls against `inventory_balances`/
++`inventory_containers`/`inventory_container_lines`, entirely bypassing
++`inventory_create_allocation`/`inventory_release_allocation`. An
++initial draft of this section incorrectly judged this file "active,
++required" based on a half-remembered, unverified reference to an IC-4
++test comment. A fresh, independent caller-trace (grepping the exact
++exported function names, not the module path) found this was WRONG:
++`createLocationContainerAction`, `addItemsToContainerAction`,
++`removeItemFromContainerAction`, and `relocateContainerAction` have
++**zero callers anywhere in the repository** — the one real UI import
++from the "ambra-location-inventory" namespace
++(`src/app/[locale]/dashboard/warehouse/locations/page.tsx`) goes to a
++completely different, read-only file, `ambra-location-inventory.
++service.ts`, not the actions file with the writes. This matches the
++implementation plan's own pre-existing IC-6 scope note, which already
++named these same 4 functions as "confirmed zero UI callers, twice,
++across two separate audits" — this session's own trace is a third,
++independent confirmation. **Action taken**: all 4 functions, plus their
++exclusively-owned zod schemas (`createContainerSchema`, `addItemsSchema`,
++`removeItemSchema`, `relocateContainerSchema`) and the now-unused
++`InventoryMovementsService` import, were deleted from `ambra-location-
++inventory.ts` (618 → 218 lines). The remaining 3 exported functions in
++that file (`deletePutawayRuleAction`, `findContainersByReferenceAction`,
++`createLocationPutawayRuleAction`) are ALSO confirmed dead (zero callers)
++but were deliberately RETAINED: they write to/read `inventory_putaway_
++rules`/`inventory_containers` (find-only), an unrelated table outside
++this phase's "Inventory Core balance/ledger writer" charter, and are not
++named in the implementation plan's own IC-6 scope — removing them would
++be general dead-code cleanup, not Inventory Core legacy-writer removal.
++Disclosed as a retained-but-dead candidate for a future cleanup pass.
++`pnpm type-check`/`pnpm lint`/`pnpm build` all re-run clean after this
++deletion (0 type errors; 0 lint errors, 319 pre-existing warnings,
++unchanged baseline; production build succeeded including the `/dashboard/
++warehouse/locations` route). Full Vitest re-run (4500 tests) showed 32
++pre-existing failures across unrelated areas (auth/invitations/sidebar/
++QR-label rendering/org RLS) — confirmed via `git stash` on this one file
++that all 32 fail identically without this change, i.e. pre-existing
++baseline noise on this branch, not a regression introduced here.
++
++**7. RepairOrder/Zone-5 legacy writers (§9) — clean, nothing to
++remove.** Every `attach`/`putaway`/`rebuild`/`write_repair_order_line_
++movement_link_internal`/`repair_order_location_attribution_sync`
++function live is the CURRENT, accepted IC-5(-correction) version; no
++orphaned/superseded predecessor function was found still live.
++
++**8. GUC audit (§10) — both retained, justified, unchanged.** `ambra.
++inventory_movement_engine`: set by ~20 orchestrating RPCs, read by
++`inventory_guard_balance_write`/`inventory_guard_settings_write`
++(direct-write guard triggers) and the posted-header immutability
++triggers. **Explicitly NOT touched** — the posted-header GUC-bypass
++security gap this GUC is entangled with (an ordinary permission-holding
++actor can self-set it and rewrite posted-header business content) is a
++known, already-disclosed FULL IC-7 finding; superficially "cleaning up"
++its own surface here without fixing the actual security issue would be
++misleading. `ambra.repair_order_attribution_authoritative`: readers/
++setters reconfirmed as EXACTLY the accepted IC-5 set (`attach`,
++`putaway`, `receive_repair_order_stock`, the reversal-aware trigger,
++`inventory_reverse_movement`) — genuinely still required, unchanged.
++
++**9. Stale overloads (§14) — one found (item 2 above), fixed; audit
++otherwise clean.** Every other canonical Inventory Core function/helper
++name was confirmed to carry exactly one live signature.
++
++**10. TypeScript/application legacy paths (§16) — three findings,
++none removed this phase.** `InventoryProductsService.
++createEnhancedProductLegacy` (175 lines) has ZERO callers anywhere in
++the repository (not even tests) — genuinely dead code, but it is
++PRODUCT-creation scope, not Inventory Core movement/writer scope;
++retained and disclosed rather than removed, to keep this phase's own
++diff tightly scoped to the architecture this IC-phase project actually
++owns. `inventory_cancel_movement` (§2's own broader function audit) —
++**new, disclosed, security-relevant finding**: this function is ACTIVE
++(real caller: `InventoryMovementsService.cancelMovement`, reachable
++from a real server action and a real UI component,
++`inventory-movement-detail-panel.tsx`) but carries `anon` EXECUTE and
++performs NO actor-identity or permission check at all — the exact
++class of gap IC-7A closed on `inventory_create_draft`/`inventory_
++finalize_posting`/`inventory_create_and_finalize`, but on a function
++IC-7A's own narrow scope did not touch. A fully unauthenticated caller
++can currently cancel any DRAFT movement. Not fixed here — squarely full
++IC-7's own job — flagged prominently.
++
++**Third finding, confirmed not suspected**: `InventoryProductsService.
++createOpeningStockMovement` calls `.rpc("inventory_create_draft_
++movement", ...)` then `.rpc("inventory_post_movement", ...)`. A live
++`pg_proc` query for these exact two names returns ZERO rows — neither
++function exists under any signature; the only live functions in this
++name family are `inventory_create_draft(uuid,uuid,text,jsonb,date,
++date,text,text,text,text,uuid)` and `inventory_finalize_posting(uuid,
++uuid)` (different names entirely, not a renamed/re-aritied match).
++This is NOT dead code — the method is reachable via `createEnhanced
++Product` (the live, active product-creation path, called from a real
++server action) whenever any variant has `opening_quantity > 0`, and
++will throw a PostgREST "function not found" runtime error when
++exercised. Fixing it (repointing the calls at the correct current RPC
++names/signatures) is a BUG FIX, new behavior — explicitly out of IC-6's
++own "no architecture change" charter — not fixed here, flagged
++prominently for a dedicated fix.
++
++**11. Zone-5 local migration-mirroring gap (§17/§18) — Option A,
++documented, not fabricated.** Confirmed live and precisely: NO locally-
++mirrored migration creates the `repair_order_line_locations` or
++`repair_order_location_attribution_uncertain` TABLES, creates the
++`repair_order_location_attribution_sync` TRIGGER binding, or contains
++the ORIGINAL `CREATE FUNCTION` for `resolve_branch_receiving_location`
++or `receive_repair_order_stock` (IC-3's own locally-mirrored migration
++is a `CREATE OR REPLACE`, assuming a pre-existing definition). These
++objects were created by 7 live `zone5_*`-named migrations
++(`zone5_receiving_location_purpose`, `zone5_repair_order_spatial_
++attribution_schema`, `zone5_attribution_sync_trigger`, `zone5_
++attribution_sync_trigger_max_uuid_fix`, `zone5_receive_repair_order_
++stock_rpc_v2`, `zone5_putaway_repair_order_stock_rpc`, `zone5_receive_
++repair_order_stock_use_canonical_attach`) that exist live but were
++never locally mirrored — predates this IC-phase project's own
++mirroring discipline. **Decision**: leave the gap explicitly
++documented (this list) rather than fabricate a "baseline snapshot"
++migration reconstructing complex historical schema/RLS/trigger state
++from current live introspection — the risk of a subtle, silent
++omission in a hand-reconstructed baseline was judged higher than the
++cost of leaving an honestly-documented, precisely-itemized gap for a
++future phase to close deliberately. No fake historical timestamps were
++created.
++
++**12. From-scratch reproducibility (§18) — confirmed BROKEN,
++pre-existing, disclosed.** No local Docker/Supabase instance was
++available in this environment; the check performed was the strongest
++static one available: confirming, live, that the local migration tree
++lacks the schema-creation statements item 11 lists. A `supabase db
++reset` (or equivalent) replayed against ONLY the currently-mirrored
++migration files would fail once it reached the first migration
++referencing `repair_order_line_locations` (a "relation does not exist"
++error), because no local migration creates that table. This is a
++PRE-EXISTING condition (inherited from before this IC-phase project's
++own discipline began), not something IC-6 introduced or worsened — but
++it is now, for the first time, precisely itemized rather than merely
++"flagged."
++
++**13. Zero data destruction / zero residual test data.** No inventory
++table was dropped (none were even candidates — every table audited
++carries a confirmed accepted-architecture role). `107_...`'s own
++pgTAP file continues to run inside `BEGIN...ROLLBACK`; the new `108_
++ic6_legacy_cleanup_test.sql` likewise. The `negative_stock_policy`
++column drop is the only data-shape change in this phase, and its own
++data-impact proof (above) shows zero meaningful state lost.
++
++**14. No locking/concurrency change.** The one behavioral edit
++(`inventory_finalize_posting_internal`) preserved its own `FOR UPDATE`
++lock acquisition byte-for-byte; no new lock primitive was introduced;
++no dedicated concurrency test was required or performed (§23's own
++"only if cleanup forces a change" condition was never triggered).
++
++**Full evidence**: `docs/inventory/reviews/ic-6-review/`.
++
++---
++
+ ## 10. Performance Plan
+ 
+ - **No microservices, no event sourcing** — PostgreSQL/Supabase remains the
+diff --git a/docs/inventory/inventory-core-implementation-plan.md b/docs/inventory/inventory-core-implementation-plan.md
+index df6dfbf8..15d56d5a 100644
+--- a/docs/inventory/inventory-core-implementation-plan.md
++++ b/docs/inventory/inventory-core-implementation-plan.md
+@@ -805,6 +805,47 @@ accepted.
+ 
+ ## IC-6 — Legacy Writer/Helper Removal
+ 
++**✅ DONE (2026-09-17)**. Every candidate named in this phase's own
++scope, plus several more surfaced by the required call-graph audit,
++were classified via the "four evidence sources" discipline (repo
++callers, live `pg_proc`/`prosrc` scan, application-export trace,
++tests/migrations/docs) before any deletion. Dropped: `inventory_v1_
++get_or_create_balance` (dead balance helper); the stale 5-arg
++`inventory_get_or_create_balance_for_update` overload (a genuine
++landmine — its own 7-arg replacement's trailing 2 params both carry
++DEFAULTs); `inventory_settings.negative_stock_policy` (Option A, full
++column drop — proven not just unused but structurally UNREACHABLE, see
++`inventory-core-architecture.md` §9D item 3); `ambra-location-
++inventory.ts`'s 4 dead write actions (`createLocationContainerAction`,
++`addItemsToContainerAction`, `removeItemFromContainerAction`,
++`relocateContainerAction` — confirmed zero callers a third time this
++session, matching this section's own pre-existing "confirmed twice"
++note). Movement code `311` re-confirmed already resolved by IC-4 (not
++touched again). Legacy movement-helper/numbering-helper audits (§6/§7)
++confirmed already-clean, documented only, nothing to drop. GUC audit
++(§10) retained both `ambra.inventory_movement_engine` and `ambra.
++repair_order_attribution_authoritative` as live/required — the known
++posted-header GUC bypass is explicitly left for full IC-7, not
++superficially patched here. A genuine regression was surfaced by the
++full-suite rerun: pgTAP `102_...`'s own Scenario C directly `UPDATE`d
++the now-dropped `negative_stock_policy` column — fixed by editing the
++TEST FILE (not a migration) to remove the now-meaningless two-policy
++comparison, collapsing to one unconditional assertion pass (`plan(14)`
++→ `plan(11)`), re-verified 11/11 live. New dedicated pgTAP file `108_
++ic6_legacy_cleanup_test.sql` (23/23) proves the cleanup boundaries
++(dropped functions absent, stale overload absent, canonical helpers
++still callable, internal functions still non-executable by ordinary
++roles, canonical receive/reverse/putaway/branch-transfer/RepairOrder-
++projection paths all still succeed unchanged). `ambra-location-
++inventory.ts`'s remaining 3 exported functions (`deletePutawayRuleAction`,
++`findContainersByReferenceAction`, `createLocationPutawayRuleAction`)
++are also dead but were deliberately RETAINED — out of this phase's
++narrow Inventory-Core-balance/ledger-writer charter (they touch
++`inventory_putaway_rules`, an unrelated table), disclosed as a future
++cleanup candidate rather than silently swept in. See `inventory-core-
++architecture.md` §9D and `docs/inventory/reviews/ic-6-review/` for the
++full as-implemented dead-path matrix, live evidence, and every finding.
++
+ **Goal**: delete the confirmed-dead paths (decision #9, #10, #11).
+ 
+ **Scope**:
+diff --git a/docs/inventory/inventory-core-progress.md b/docs/inventory/inventory-core-progress.md
+index d53a2b8c..e7b08cf4 100644
+--- a/docs/inventory/inventory-core-progress.md
++++ b/docs/inventory/inventory-core-progress.md
+@@ -81,45 +81,83 @@ centralizing all three behind one new internal canonical primitive,
+ attach contract frozen to `receipt`/`issue` only). New pgTAP Scenarios
+ Q/R/S/T (`107_...` 33/33 → 46/46). Full regression 097-107 re-run
+ (097 specifically re-run in full), 382/382, 0 failures.
+-**Current phase:** IC-5 DONE (correction applied) → IC-6 (Legacy
+-writer/helper removal) is the next phase in sequence, NOT yet
+-authorized/started.
++**IC-6 ✅ DONE** — Legacy Writer/Helper Removal. Every candidate named
++in the phase's own scope (decisions #9/#10/#11) plus everything
++surfaced by the required call-graph audit was classified via the
++"four evidence sources" discipline before deletion. Dropped:
++`inventory_v1_get_or_create_balance`; the stale 5-arg `inventory_get_
++or_create_balance_for_update` overload; `inventory_settings.negative_
++stock_policy` (Option A, full column drop, proven structurally
++UNREACHABLE not merely unused); `ambra-location-inventory.ts`'s 4 dead
++write actions (`createLocationContainerAction`, `addItemsToContainer
++Action`, `removeItemFromContainerAction`, `relocateContainerAction` —
++zero callers, confirmed a third independent time this phase after an
++initial DRAFT wrongly judged the file "active/required" based on an
++unverified memory; corrected mid-phase via a fresh caller-trace).
++Legacy movement/numbering-helper audits (§6/§7) confirmed already-clean.
++GUC audit (§10) retained both `ambra.inventory_movement_engine` and
++`ambra.repair_order_attribution_authoritative` — the known posted-
++header GUC bypass is explicitly left for full IC-7, not patched here.
++A genuine regression was surfaced by the full-suite rerun (pgTAP
++`102_...`'s own Scenario C directly referenced the dropped column) and
++fixed by editing the TEST FILE (not a migration) to remove the now-
++meaningless two-policy comparison. New dedicated pgTAP file `108_ic6_
++legacy_cleanup_test.sql` (23/23) proves the cleanup boundaries.
++`ambra-location-inventory.ts`'s remaining 3 functions are also dead but
++deliberately retained (out of this phase's narrow balance/ledger-writer
++charter). See `inventory-core-architecture.md` §9D and `docs/inventory/
++reviews/ic-6-review/` for the full dead-path matrix and evidence.
++**Current phase:** IC-6 DONE → full IC-7 (Inventory Security /
++Write-Boundary Closure) is the next phase in sequence, NOT yet
++authorized/started. IC-8 and Phase 10D remain NOT started.
+ **Pitch/pilot readiness:** N/A — this is base-engine work, not itself a
+ pitch-scoped feature; it BLOCKS Phase 10D, which IS pitch-scoped (see the
+ Zone 3 tracker's own cross-reference).
+-**Last updated:** 2026-09-16.
++**Last updated:** 2026-09-17.
+ 
+ ---
+ 
+ ## Overall execution
+ 
+-- IC phases completed: 6 / 8 (IC-0, IC-1, IC-2, IC-3, IC-4, IC-5), plus
+-  the out-of-order IC-7A emergency pass. IC-6 NOT started.
++- IC phases completed: 7 / 8 (IC-0, IC-1, IC-2, IC-3, IC-4, IC-5, IC-6),
++  plus the out-of-order IC-7A emergency pass. Full IC-7 and IC-8 NOT
++  started.
+ - 3 forward migrations applied for IC-1; 9 forward migrations applied for
+   IC-2 (7 original + 2 from the security-boundary correction pass); 4
+   forward migrations applied for IC-3; 4 forward migrations applied for
+   IC-7A; 14 forward migrations applied for IC-4 (12 original + 2 from
+   the narrow correction pass); 17 forward migrations applied for IC-5
+   (6 original + 5 self-caught correction/fix migrations + 6 from its own
+-  narrow correction pass) — all live-verified, all mirrored locally
+-  under the exact live version/timestamp — see change log.
++  narrow correction pass); 4 forward migrations applied for IC-6 (function
++  fix, column drop, stale-overload drop, dead-helper drop) — all
++  live-verified, all mirrored locally under the exact live
++  version/timestamp — see change log.
+ - Application code: no TypeScript changes were required for IC-1, IC-2,
+   IC-3, IC-7A, or IC-5 (all entirely PL/pgSQL). IC-4 required TypeScript
+   changes (service methods, action layer, Zod schemas, event registry —
+-  no UI), per its own explicit scope. 2 pgTAP test files added/
+-  rewritten for IC-1 (`101_...` rewritten, `102_...` new/extended); 1 new
+-  pgTAP file for IC-2, extended in the security-boundary correction pass
+-  (`103_...`, 35/35, its own Scenario E repositioned by IC-7A — see
+-  below); 1 new pgTAP file for IC-3 (`104_...`, 44/44), plus one genuine
+-  two-PostgreSQL-connection concurrency proof performed outside pgTAP; 1
+-  new pgTAP file for IC-7A (`105_...`, 29/29); 1 new pgTAP file for IC-4,
+-  extended in its own narrow correction pass (`106_...`, 60/60 → 87/87),
+-  plus three genuine two-PostgreSQL-connection concurrency proofs
+-  (double-send, double-accept, accept-vs-generic-movement contention); 1
+-  new pgTAP file for IC-5, extended in its own narrow correction pass
+-  (`107_...`, 33/33 → 46/46) — no dedicated concurrency
+-  test performed (structural lock-path argument instead, see change
+-  log).
++  no UI), per its own explicit scope. IC-6 required one TypeScript
++  deletion (`ambra-location-inventory.ts`, 618 → 218 lines — 4 confirmed-
++  dead write actions removed; `pnpm build` re-run clean, required since
++  this was the first application/action TypeScript change since IC-4). 2
++  pgTAP test files added/rewritten for IC-1 (`101_...` rewritten,
++  `102_...` new/extended, then narrowed again by IC-6 after the
++  `negative_stock_policy` column it referenced was dropped — see IC-6's
++  own change-log entry); 1 new pgTAP file for IC-2, extended in the
++  security-boundary correction pass (`103_...`, 35/35, its own Scenario E
++  repositioned by IC-7A — see below); 1 new pgTAP file for IC-3
++  (`104_...`, 44/44), plus one genuine two-PostgreSQL-connection
++  concurrency proof performed outside pgTAP; 1 new pgTAP file for IC-7A
++  (`105_...`, 29/29); 1 new pgTAP file for IC-4, extended in its own
++  narrow correction pass (`106_...`, 60/60 → 87/87), plus three genuine
++  two-PostgreSQL-connection concurrency proofs (double-send,
++  double-accept, accept-vs-generic-movement contention); 1 new pgTAP
++  file for IC-5, extended in its own narrow correction pass (`107_...`,
++  33/33 → 46/46) — no dedicated concurrency test performed (structural
++  lock-path argument instead, see change log); 1 new pgTAP file for IC-6
++  (`108_ic6_legacy_cleanup_test.sql`, 23/23) — a dedicated cleanup-
++  boundary test, not a business-workflow retest, per IC-6's own narrow
++  scope; no new concurrency test (pure code removal, no new locking
++  behavior).
+ 
+ ---
+ 
+@@ -134,7 +172,7 @@ Zone 3 tracker's own cross-reference).
+ | **IC-7A** Emergency movement-engine security boundary closure        | ✅ DONE        | **Out-of-roadmap-order emergency pass**, pulled forward from full IC-7 because IC-3 live-verified a CRITICAL finding: `inventory_create_draft`/public `inventory_finalize_posting`/`inventory_create_and_finalize` carried live `anon` EXECUTE with zero actor/permission check — a fully unauthenticated caller could post arbitrary movements. Re-reproduced live, fresh (not trusted from the prior report). Caller-graph audit BEFORE any grant change found 5 real Next.js server actions and the non-`SECURITY DEFINER` `inventory_approve_count_session` call these 3 RPCs DIRECTLY as `authenticated` — full internalization would have broken them, so Option B (harden in place) was chosen. `inventory_create_draft`/`inventory_finalize_posting_internal` (shared finalize choke point) gained actor+permission checks; `inventory_create_and_finalize` hardened directly too as defense in depth; `anon`/PUBLIC EXECUTE revoked, `authenticated`/`service_role` kept. Manual creation of `allows_manual_entry=false` types (900) now blocked. 2 live-caught defects fixed forward (an overly-broad `is_system`-based type guard, caught before any test ran; `103_...`'s own Scenario E ordering assumption invalidated by the new check, caught by the regression suite itself, fixed by repositioning — not rewriting — the scenario). Post-fix exploit replay: exact original attack now `42501`, zero physical mutation. pgTAP 29/29 (`105_...`). Full regression 249/249. Full IC-7 phase remains OPEN — only this one item closed. See change log for full evidence.                                                                                                                                                                                                                                                                                                                                                                                        |
+ | **IC-4** Branch transfer / MMJ rebuild                               | ✅ DONE        | Closed product-owner decision implemented exactly: `in_transit` means physically shipped (a real posted `311` movement), never merely reserved. New `prepared` pre-shipment status; new `inventory_send_branch_transfer`/`inventory_cancel_branch_transfer` RPCs; `inventory_accept_branch_transfer`/`inventory_decline_branch_transfer` fully rebuilt off hand-written balance writes onto the canonical engine; a new, previously undisclosed `anon`-EXECUTE + unchecked-actor finding closed on all 5 branch-transfer RPCs; movement type `311` redefined (zero live rows) + new `312` seeded, both system-managed; new `inventory_branch_transfer_discrepancies` table for persisted partial-receipt shortfalls; raw-write RLS closed on both transfer tables. 3 genuine two-connection concurrency proofs (double-send, double-accept, accept-vs-generic-movement contention). pgTAP 60/60 (`106_...`). Full regression 309/309. See change log for full evidence.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+ | **IC-5** RepairOrder physical-location projection consolidation      | ✅ DONE        | One coherent projection derivation from canonical ledger (A) + attribution (B, `repair_order_line_movement_links`) → projection (C). Incremental fast path plus a new authoritative deterministic rebuild (`rebuild_repair_order_projection_bucket_internal` + public `rebuild_repair_order_location_projection`), proven equal by construction for reversal and empirically for every tested scenario (A-T). Reversal made projection-aware while `inventory_reverse_movement` itself stays fully RepairOrder-agnostic and untouched. IC-2 GUC retained, its staleness side-effect eliminated. `CHECK (quantity >= 0)` added; over-attribution/negative-rebuild hard-errors `P0008`, never clamped. Raw writes closed on both projection tables. **Same-day narrow correction pass**: fixed a BLOCKER (reversed putaway rebuilt the wrong projection bucket set -- the source/receiving bucket was left stale; buckets now derived from the reversal movement LINE's own source/destination columns, never from the firing ledger row) and centralized all three direct writers of `repair_order_line_movement_links` (attach/putaway/reversal-trigger) behind one new internal canonical primitive, `write_repair_order_line_movement_link_internal`, after external review found the original pass's own "attach is the sole writer" documentation claim had become false. Public attach contract frozen to `receipt`/`issue` only. pgTAP 46/46 (`107_...`, extended). Full regression 097-107, 382/382, 0 failures. See change log for full evidence.                                                                                                                                                                                                                                                                                                                                                                                                                      |
+-| IC-6 Legacy writer/helper removal                                    | ⬜ NOT STARTED | Depends on IC-1 (balance-getter replacement), IC-4 (311 disposition), IC-5 (Zone 5 direct-write removal).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
++| IC-6 Legacy writer/helper removal                                    | ✅ DONE        | Dropped: `inventory_v1_get_or_create_balance`, stale 5-arg `inventory_get_or_create_balance_for_update` overload, `inventory_settings.negative_stock_policy` (Option A, proven structurally UNREACHABLE not just unused), 4 dead `ambra-location-inventory.ts` write actions (zero callers, confirmed a 3rd independent time). Legacy movement/numbering-helper audits confirmed already-clean. Both GUCs retained (posted-header GUC bypass left for full IC-7). New pgTAP `108_...` (23/23); full regression 097-108 re-run after fixing a genuine regression in `102_...` (its own Scenario C referenced the dropped column — test file edited, not a migration). See `inventory-core-architecture.md` §9D and `docs/inventory/reviews/ic-6-review/`. |
+ | IC-7 Inventory security/write-boundary closure                       | ⬜ NOT STARTED | Depends on IC-0's own live findings plus whatever IC-4 already closed.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+ | IC-8 Full inventory regression / concurrency / performance hardening | ⬜ NOT STARTED | Final phase before the INVENTORY CORE FINAL GATE.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+ | **INVENTORY CORE FINAL GATE**                                        | ⬜ NOT REACHED | Required before Phase 10D (Container QR) may resume.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+@@ -2136,3 +2174,288 @@ md`'s own IC-5 section note updated to mention the correction pass.
+   **IC-5 remains DONE, now with this correction applied.** IC-6 is NOT
+   started. Full IC-7 remains NOT done. IC-8 is NOT started. Phase 10D
+   is NOT started.
++
++---
++
++- **2026-09-17 (IC-6 — Legacy Writer/Helper Removal)**: full "legacy
++  writer/helper removal" cleanup/consolidation phase, per explicit
++  instruction; full IC-7, IC-8, and Phase 10D explicitly NOT started.
++  IC-0 through IC-5 and IC-7A remain ACCEPTED/FINAL, not reopened.
++
++  **Starting-state gate**: HEAD found at `daeba1132b05295bb3a8221f6d
++218e77bfb36487` ("ic6"), a clean, fully-committed tree containing
++  exactly the IC-4/IC-5(-correction) file set (53 files, matches the
++  prior session's own commit) — the commit's own label was pre-existing
++  and not authored this session; flagged explicitly, confirmed it
++  satisfies rather than violates the "IC-4/IC-5 must be committed"
++  prerequisite, and that no actual IC-6 work existed in it yet (no
++  `ic6_`-prefixed migrations, no `108_` file, no `ic-6-review/` bundle).
++
++  **Call-graph audit**: a single broad live `pg_proc` query (~55
++  Inventory-Core-pattern-matching functions, with signature/security_
++  definer/owner/anon-exec/authenticated-exec/service-exec columns)
++  plus targeted `prosrc` regex scans established the full picture.
++  Confirmed already-absent: `inventory_allocate_movement_number`,
++  `inventory_create_draft_movement`, `inventory_post_movement` (as
++  distinct legacy helpers — the identically-named `inventory_post_
++  movement`/`inventory_create_draft_movement` RPC names ARE still live,
++  but as the CURRENT canonical primitives, not legacy predecessors,
++  confirmed by reading their own bodies).
++
++  **1. Old `inventory_v1_get_or_create_balance` — DROPPED.** Live
++  `prosrc` scan across all of `pg_proc` found zero SQL callers; repo
++  grep found zero TypeScript callers. `DROP FUNCTION` applied
++  (`20260917062320_ic6_drop_dead_v1_balance_helper.sql`). Live-verified
++  `to_regprocedure(...)` returns NULL post-drop.
++
++  **2. Stale `inventory_get_or_create_balance_for_update` 5-arg
++  overload — DROPPED, canonical 7-arg form unchanged.** A dedicated
++  overload-duplicate-count query across every canonical Inventory
++  function name found exactly one case of this. Both overload bodies
++  were read and compared; all 6 real SQL callers (`inventory_create_
++  reservation`, `inventory_create_allocation`, `inventory_release_
++  reservation`, `inventory_release_allocation`, `inventory_finalize_
++  posting_internal`, `inventory_send_branch_transfer`) were confirmed
++  to use the 7-arg form exclusively. This was a genuine landmine: the
++  7-arg form's own trailing 2 params both carry DEFAULTs, so a
++  hypothetical future 5-positional-arg call would have silently
++  resolved to the OLD, lot/serial-blind overload. `DROP FUNCTION`
++  applied (`20260917062315_ic6_drop_stale_balance_helper_5arg_
++  overload.sql`). Live-verified: 5-arg signature's `to_regprocedure`
++  returns NULL, 7-arg signature unchanged, `pg_proc` count for the
++  proname = 1.
++
++  **3. `negative_stock_policy` — Option A chosen, column DROPPED
++  entirely.** Re-verified zero TypeScript readers/writers (repo-wide
++  grep). Went further than "unused" — proved the column's sole SQL
++  reader (`inventory_finalize_posting_internal`'s own dead `IF v_new_
++  qty < 0 AND v_settings.negative_stock_policy = 'block'` branch)
++  structurally UNREACHABLE: `inventory_balances` carries `CHECK
++  (reserved_quantity >= 0)`/`CHECK (allocated_quantity >= 0)`, so the
++  P0003 "would strand committed stock" check immediately above the dead
++  branch always fires first whenever `v_new_qty < 0`. Confirmed
++  empirically by pgTAP 102's own pre-existing Scenario C (T7/T8), which
++  already observed SQLSTATE P0003, never the dead branch's own bare
++  RAISE, for both policy values. Fixed forward in two migrations: (1)
++  `CREATE OR REPLACE inventory_finalize_posting_internal` removing only
++  the 3-line dead conditional — the `SELECT * INTO v_settings ... FOR
++  UPDATE` row-lock statement preserved byte-for-byte in its original
++  position (IC-6 must not alter locking/concurrency behavior, and that
++  lock serves purposes independent of this one field)
++  (`20260917062247_...`); (2) `ALTER TABLE inventory_settings DROP
++  COLUMN negative_stock_policy` (its own CHECK constraint dropped
++  automatically) (`20260917062301_...`). Data-impact proof: exactly one
++  live row, value `'block'` (the column's own DEFAULT) — no meaningful
++  state lost. IC-1's own hard invariant completely unchanged.
++
++  **Regression surfaced and fixed**: the full 097-107 pgTAP regression
++  run (via a background agent, after the column drop) found that
++  `102_ic1_reserved_only_hard_invariant_test.sql`'s own Scenario C
++  directly `UPDATE`d the now-dropped `negative_stock_policy` column — a
++  genuine SQL-to-SQL caller this audit's `prosrc`-scan methodology could
++  not see (raw column references from pgTAP test files are not
++  `pg_proc` bodies). The whole transaction aborted (`42703: column
++  "negative_stock_policy" ... does not exist`) before reaching
++  Scenarios A/B's own tally, making the entire file unscored — a real,
++  disclosed consequence of Option A, not a silent breakage. Fixed by
++  editing the TEST FILE (not a migration — test files are not subject
++  to the immutable-migration rule): Scenario C's own two `UPDATE`-then-
++  attempt passes (`'allow'`, `'block'`) were collapsed into one
++  unconditional pass, since there is no longer a policy value to vary;
++  the assertion set (rejected, SQLSTATE P0003, on_hand unchanged, no
++  orphan header/ledger row) fully preserved; `plan(14)` reduced to
++  `plan(11)`. Both the file's own top header comment and Scenario C's
++  own comment block updated to record this history. Re-run live: 11/11,
++  0 failures.
++
++  **4. Legacy movement helpers (§6) — already absent, documented
++  only.** `inventory_allocate_movement_number`, `inventory_create_
++  draft_movement`, `inventory_post_movement` (as distinct legacy
++  predecessors) do not exist in `pg_proc` at all.
++
++  **5. Document-sequence/movement-number helpers (§7) — already
++  consolidated, documented only.** No separate numbering helper exists;
++  numbering logic already lives inline, once, inside `inventory_
++  finalize_posting_internal`.
++
++  **6. Direct balance/ledger writers (§8) — audited, one dead parallel
++  writer found and removed.** Exactly ONE function writes `inventory_
++  balances.on_hand_quantity` and exactly ONE inserts into `inventory_
++  stock_ledger_entries` — both `inventory_finalize_posting_internal`,
++  matching accepted architecture. Six functions write `reserved_
++  quantity`/`allocated_quantity` directly — all the accepted Phase
++  10A/10B reservation/allocation engine, none dead. **Corrected mid-
++  phase**: `src/app/actions/warehouse/ambra-location-inventory.ts`
++  performed direct writes against `inventory_balances`/`inventory_
++  containers`/`inventory_container_lines`. An initial draft of this
++  session's own architecture-doc section incorrectly judged this file
++  "active, required" based on a half-remembered, unverified IC-4 test
++  comment reference. A fresh, independent caller-trace (grepping exact
++  EXPORTED FUNCTION NAMES, not the module path — the established
++  project-wide lesson for avoiding false-positive "it's used" results)
++  found this was WRONG: `createLocationContainerAction`,
++  `addItemsToContainerAction`, `removeItemFromContainerAction`,
++  `relocateContainerAction` have zero callers anywhere in the repo —
++  the one real UI import from the "ambra-location-inventory" namespace
++  (`locations/page.tsx`) goes to a completely different, read-only
++  file (`ambra-location-inventory.service.ts`), not the actions file
++  with the writes. This matches `inventory-core-implementation-plan.
++md`'s own pre-existing IC-6 scope note, which already named these same
++  4 functions as "confirmed zero UI callers, twice, across two separate
++  audits" — this session's own trace is a third, independent
++  confirmation. All 4 functions, plus their exclusively-owned zod
++  schemas and the now-unused `InventoryMovementsService` import, were
++  deleted (618 → 218 lines). The file's remaining 3 exported functions
++  (`deletePutawayRuleAction`, `findContainersByReferenceAction`,
++  `createLocationPutawayRuleAction`) are also dead but were deliberately
++  RETAINED — they touch `inventory_putaway_rules` (unrelated to
++  balance/ledger), not named in the implementation plan's own scope;
++  removing them would be general dead-code cleanup, not Inventory Core
++  legacy-writer removal. Disclosed as a future cleanup candidate.
++
++  **7. RepairOrder/Zone-5 legacy writers (§9) — clean, nothing to
++  remove.** Every `attach`/`putaway`/`rebuild`/`write_repair_order_
++  line_movement_link_internal`/`repair_order_location_attribution_
++  sync` function live is the CURRENT, accepted IC-5(-correction)
++  version; no orphaned predecessor found.
++
++  **8. GUC audit (§10)**: both `ambra.inventory_movement_engine` and
++  `ambra.repair_order_attribution_authoritative` re-confirmed live/
++  required (set by every legitimate writer, read by the balance-write
++  guard trigger and the RepairOrder projection sync respectively).
++  Neither is client-settable from outside a `SECURITY DEFINER`
++  function's own controlled `SET LOCAL`. The known posted-header GUC-
++  UPDATE-bypass security gap is explicitly NOT touched here — left for
++  full IC-7 to close, per this phase's own explicit non-goal.
++
++  **9. Movement code 311**: re-confirmed already resolved by IC-4's own
++  redefinition (zero live rows under the old semantics) — not touched
++  again this phase.
++
++  **10. Overload cleanup (§14)**: the one genuine stale-overload case
++  (item 2 above) was the only one found across every canonical
++  Inventory RPC/helper signature enumerated.
++
++  **11. Grant cleanup (§15)**: `has_function_privilege` re-verified for
++  every internal function that remains — `authenticated`/`anon` both
++  EXECUTE-denied on `inventory_finalize_posting_internal`, `write_
++  repair_order_line_movement_link_internal`, `rebuild_repair_order_
++  projection_bucket_internal` (see pgTAP `108_...` Scenario D). Dropping
++  the 2 legacy functions naturally closed whatever grant surface they
++  held (both confirmed absent from `pg_proc` entirely, not merely
++  revoked).
++
++  **12. Zone-5 local migration-mirroring gap (§17)**: unchanged from
++  IC-5's own disclosure — the 7 live `zone5_*`-named migrations that
++  were never locally mirrored remain a documented historical gap, not
++  fabricated. IC-6 added zero new instances of this gap (all 4 of its
++  own migrations were mirrored locally under their exact live
++  timestamps, per the established discipline). IC-6's own audit went
++  further than prior phases and precisely itemized exactly which live
++  objects these 7 migrations alone create (`repair_order_line_
++  locations`, `repair_order_location_attribution_uncertain`, the
++  attribution-sync trigger binding, the original `receive_repair_
++  order_stock`/`resolve_branch_receiving_location` definitions) —
++  confirming this DOES block from-scratch reproducibility (see item 13
++  below), correcting an earlier, looser mid-phase characterization that
++  had claimed otherwise. Decision unchanged from IC-5: (A) leave the
++  historical gap documented rather than fabricate a hand-reconstructed
++  baseline migration.
++
++  **13. From-scratch reproducibility (§18) — CONFIRMED BROKEN,
++  pre-existing, not caused or worsened by IC-6**: local Docker/Supabase
++  unavailable in this environment (unchanged constraint from every
++  prior IC phase); performed the strongest static check available — a
++  `supabase db reset` replayed against only the currently-mirrored
++  local migration tree would fail the first time it reached a
++  migration referencing one of the Zone-5 objects in item 12, since no
++  local migration creates them from scratch. This predates IC-6 (and
++  this whole IC-phase project's own local-mirroring discipline)
++  entirely; none of IC-6's own 4 migrations depend on anything from the
++  unmirrored set, so IC-6 makes this neither better nor worse — but
++  this file's own change log states the honest result rather than the
++  more comfortable-sounding "not blocked" claim an earlier mid-phase
++  draft used. IC-6's own 4 migrations were themselves applied in
++  correct dependency order (function fix before column drop, since the
++  function's own body had to stop referencing the column before the
++  column could be safely dropped), each step live-verified
++  independently before the next was applied, with no squash of applied
++  live migration history.
++
++  **14. No architecture change (§19)**: confirmed — every deletion was
++  either genuinely unreachable dead code or a genuinely zero-caller
++  TypeScript path; IC-1 through IC-5's own semantics (hard invariant,
++  reversal, receiving, transfers, projection, reservations, allocations,
++  containers) are byte-for-byte unchanged. No new locking/concurrency
++  behavior introduced — the one preserved `FOR UPDATE` statement in
++  `inventory_finalize_posting_internal` was kept unchanged specifically
++  to honor this constraint.
++
++  **New pgTAP file**: `108_ic6_legacy_cleanup_test.sql` — `plan(23)`,
++  final 23/23, 0 failures. Tests cleanup boundaries only (not a
++  business-workflow retest): Scenario A (old v1 helper absent),
++  Scenario B (stale overload absent, canonical 7-arg present, exactly 1
++  overload), Scenario C (negative_stock_policy column/constraint
++  absent, `inventory_finalize_posting_internal`'s own body no longer
++  references it), Scenario D (4 internal functions remain non-
++  executable by `authenticated`/`anon`), Scenario E (12 assertions:
++  full receive/reverse/branch-transfer/putaway/RepairOrder-projection-
++  rebuild/reversal lifecycle still succeeds unchanged end to end). Two
++  self-caught fixture bugs during authoring, both instances of already-
++  documented project-wide artifacts: (1) the GUC-persistence-across-
++  shared-transaction leak (`ambra.repair_order_attribution_
++  authoritative` set by an earlier reversal call in the same pgTAP
++  transaction silently suppressed a later standalone attach call's own
++  auto-rebuild — fixed with an explicit `set_config(..., 'off', true)`
++  reset before the affected scenario, same class of artifact as IC-5's
++  own bundle already documents); (2) the rebuild-vs-incremental zero-
++  quantity-row divergence (putaway's own direct UPDATE decrements a
++  receiving-location row to exactly 0 but does not delete it — a real,
++  disclosed, pre-existing characteristic already established in 107's
++  own Scenario D1 — fixed by scoping the before/after rebuild
++  comparison to `quantity > 0` rows only, matching the established
++  precedent rather than treating it as a new regression).
++
++  **Full regression**: 097-107 run once via a background agent
++  immediately after the 4 migrations were applied (before the 102 fix)
++  — 10 of 11 files clean (368/368, 0 failures); `102_...` correctly
++  identified as broken by the column drop (SQLSTATE 42703, not a
++  business-logic assertion failure) and fixed as described above,
++  re-verified 11/11 alone. A full sequential 097-108 re-run (12 files)
++  was then launched to reconfirm everything together as the phase's
++  final gate — see the addendum below this entry (or `docs/inventory/
++  reviews/ic-6-review/test-evidence.md`) for its own completed result,
++  appended once that run returned.
++
++  **Vitest**: full suite (4500 tests) run once after the `ambra-
++  location-inventory.ts` deletion — 32 pre-existing failures across
++  unrelated areas (auth/invitations/sidebar/QR-label rendering/org
++  RLS), confirmed via `git stash` on this one changed file that all 32
++  fail identically without the change — pre-existing baseline noise on
++  this branch, not a regression introduced by IC-6.
++
++  **Type-check/lint/build**: `pnpm type-check` 0 errors; `pnpm lint` 0
++  errors, 319 pre-existing warnings (unchanged baseline); `pnpm build`
++  succeeded cleanly (required and run, since `ambra-location-
++  inventory.ts` is real application/action TypeScript — the first such
++  change since IC-4), including the `/dashboard/warehouse/locations`
++  route that consumes the (untouched) read-only sibling service.
++
++  **Documentation updated**: `inventory-core-architecture.md` gained a
++  new §9D ("IC-6 — Legacy Writer/Helper Removal") covering all 14
++  numbered findings, corrected mid-writing once the `ambra-location-
++  inventory.ts` factual error was caught, plus the 102 regression note.
++  `inventory-core-implementation-plan.md`'s own pre-existing IC-6
++  section marked DONE with a summary. This file (`inventory-core-
++  progress.md`) updated: runtime-status header, "Current phase" line,
++  "Overall execution" bullets, phase-tracker row, this change-log
++  entry.
++
++  **Bundle**: `docs/inventory/reviews/ic-6-review/` — new bundle
++  (diff.patch, changed-files.md, review-context.md with the full
++  20-item external-review-questions list, migration-summary.md,
++  dead-path-matrix.md, test-evidence.md, reproducibility-evidence.md;
++  no concurrency-evidence.md, since no concurrency behavior changed).
++
++  **IC-6 is DONE.** Full IC-7 is NOT started. IC-8 is NOT started.
++  Phase 10D is NOT started.
