@@ -931,16 +931,48 @@ export class InventoryEnterpriseService {
     return { success: true, data: data as Record<string, unknown> };
   }
 
+  static async sendBranchTransfer(
+    supabase: SupabaseClient,
+    transferId: string,
+    actorUserId: string | null
+  ): Promise<ServiceResult<Record<string, unknown>>> {
+    const { data, error } = await supabase.rpc("inventory_send_branch_transfer", {
+      p_transfer_id: transferId,
+      p_actor_user_id: actorUserId,
+    });
+
+    if (error) return { success: false, error: errorMessage(error) };
+    return { success: true, data: data as Record<string, unknown> };
+  }
+
   static async acceptBranchTransfer(
     supabase: SupabaseClient,
     transferId: string,
     destinationLocationId: string,
-    actorUserId: string | null
+    actorUserId: string | null,
+    lineAcceptances?: Array<{ transfer_line_id: string; accepted_quantity: number }> | null
   ): Promise<ServiceResult<Record<string, unknown>>> {
     const { data, error } = await supabase.rpc("inventory_accept_branch_transfer", {
       p_transfer_id: transferId,
       p_destination_location_id: destinationLocationId,
       p_actor_user_id: actorUserId,
+      p_line_acceptances: lineAcceptances ?? null,
+    });
+
+    if (error) return { success: false, error: errorMessage(error) };
+    return { success: true, data: data as Record<string, unknown> };
+  }
+
+  static async cancelBranchTransfer(
+    supabase: SupabaseClient,
+    transferId: string,
+    actorUserId: string | null,
+    reason: string | null
+  ): Promise<ServiceResult<Record<string, unknown>>> {
+    const { data, error } = await supabase.rpc("inventory_cancel_branch_transfer", {
+      p_transfer_id: transferId,
+      p_actor_user_id: actorUserId,
+      p_reason: reason,
     });
 
     if (error) return { success: false, error: errorMessage(error) };

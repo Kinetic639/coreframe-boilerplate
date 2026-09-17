@@ -316,14 +316,29 @@ export const createBranchTransferSchema = z.object({
   notes: z.string().max(1000).nullable().optional(),
 });
 
+export const sendBranchTransferSchema = z.object({
+  id: uuidSchema,
+});
+
+const lineAcceptanceSchema = z.object({
+  transfer_line_id: uuidSchema,
+  accepted_quantity: z.number().min(0),
+});
+
 export const acceptBranchTransferSchema = z.object({
   id: uuidSchema,
   destination_location_id: uuidSchema,
+  line_acceptances: z.array(lineAcceptanceSchema).min(1).nullable().optional(),
 });
 
 export const declineBranchTransferSchema = z.object({
   id: uuidSchema,
   decline_reason: z.string().max(1000).nullable().optional(),
+});
+
+export const cancelBranchTransferSchema = z.object({
+  id: uuidSchema,
+  reason: z.string().max(1000).nullable().optional(),
 });
 
 export const adjustStockSchema = z.object({

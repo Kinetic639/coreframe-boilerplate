@@ -28,8 +28,62 @@ with actor-identity + permission checks; `anon`/PUBLIC EXECUTE revoked;
 `authenticated`/`service_role` kept (required by the real caller graph).
 Post-fix exploit replay confirms the exact original attack now rejected.
 The broader IC-7 phase remains fully OPEN and unaffected.
-**Current phase:** IC-7A DONE → IC-4 (Branch transfer / MMJ rebuild) is
-the next phase in sequence, NOT yet authorized/started.
+**IC-4 ✅ DONE** — Branch Transfer / MMJ rebuild. Closed product-owner
+decision implemented exactly: `in_transit` now means the goods have
+physically left the source branch (a real posted movement), never
+merely reserved. New `prepared` pre-shipment status; new `inventory_
+send_branch_transfer`/`inventory_cancel_branch_transfer` RPCs; `inventory_
+accept_branch_transfer`/`inventory_decline_branch_transfer` fully
+rebuilt (both were hand-writing balances/ledger directly, bypassing the
+canonical engine, in addition to `accept`'s already-known crash); a
+genuinely new, previously undisclosed `anon`-EXECUTE + unchecked-actor
+finding closed on all 5 branch-transfer RPCs; movement type `311`
+redefined (zero live rows, system-managed) and new `312` seeded; new
+`inventory_branch_transfer_discrepancies` table for persisted partial-
+receipt shortfalls; raw-write RLS closed on both transfer tables.
+**IC-5 ✅ DONE** — RepairOrder physical-location projection
+consolidation. The Zone-5 projection (`repair_order_line_locations` +
+`repair_order_location_attribution_uncertain`) now has ONE coherent
+derivation from canonical ledger truth (A) plus business attribution
+(B, `repair_order_line_movement_links`): an incremental fast path
+(existing trigger + `attach_repair_order_line_movement`, both now
+projection-consistent) and a new authoritative deterministic rebuild
+(`rebuild_repair_order_projection_bucket_internal` +
+public `rebuild_repair_order_location_projection` RPC), proven equal by
+construction for reversal and empirically equal for every other tested
+scenario. Reversal is now projection-aware (mirrors attribution links,
+calls the rebuild primitive, handles split-attribution reversal
+correctly) while `inventory_reverse_movement` itself remains fully
+RepairOrder-agnostic and untouched. Two genuinely new, previously
+undisclosed gaps were found and closed: `attach_repair_order_line_
+movement` had no projection sync at all (fixed, guarded against
+double-write via the existing authoritative GUC); `putaway_repair_
+order_stock`'s own relocations were invisible to the ledger-join
+rebuild formula (fixed via a new `relocation` link type). The IC-2 GUC
+(`ambra.repair_order_attribution_authoritative`) is retained (not
+removed) but its own staleness side-effect is eliminated — reversal no
+longer merely "skips" projection updates, it correctly rebuilds them.
+`CHECK (quantity >= 0)` added; over-attribution/negative-rebuild
+hard-errors `P0008`, never clamped. Raw writes closed on both
+projection tables (explicit RESTRICTIVE deny policies). Both live-caught
+regressions from the original pass (found via the full suite itself,
+not the new file) were self-diagnosed and fixed same session.
+**IC-5 NARROW CORRECTION PASS (2026-09-16, same day)** — external review
+found a BLOCKER (reversed putaway rebuilt the wrong projection bucket
+set, leaving the source/receiving bucket stale after reversal — fixed
+by deriving both affected buckets from the reversal movement LINE's own
+`source_location_id`/`destination_location_id`, never from `NEW.
+direction`/`NEW.location_id`) and a false documentation claim ("attach
+is the sole writer" — after the original pass, `putaway_repair_order_
+stock` and the reversal trigger were ALSO direct writers; fixed by
+centralizing all three behind one new internal canonical primitive,
+`write_repair_order_line_movement_link_internal`, with the public
+attach contract frozen to `receipt`/`issue` only). New pgTAP Scenarios
+Q/R/S/T (`107_...` 33/33 → 46/46). Full regression 097-107 re-run
+(097 specifically re-run in full), 382/382, 0 failures.
+**Current phase:** IC-5 DONE (correction applied) → IC-6 (Legacy
+writer/helper removal) is the next phase in sequence, NOT yet
+authorized/started.
 **Pitch/pilot readiness:** N/A — this is base-engine work, not itself a
 pitch-scoped feature; it BLOCKS Phase 10D, which IS pitch-scoped (see the
 Zone 3 tracker's own cross-reference).
@@ -39,21 +93,33 @@ Zone 3 tracker's own cross-reference).
 
 ## Overall execution
 
-- IC phases completed: 4 / 8 (IC-0, IC-1, IC-2, IC-3), plus the
-  out-of-order IC-7A emergency pass. IC-4 NOT started.
+- IC phases completed: 6 / 8 (IC-0, IC-1, IC-2, IC-3, IC-4, IC-5), plus
+  the out-of-order IC-7A emergency pass. IC-6 NOT started.
 - 3 forward migrations applied for IC-1; 9 forward migrations applied for
   IC-2 (7 original + 2 from the security-boundary correction pass); 4
   forward migrations applied for IC-3; 4 forward migrations applied for
-  IC-7A — all live-verified, all mirrored locally under the exact live
-  version/timestamp — see change log.
+  IC-7A; 14 forward migrations applied for IC-4 (12 original + 2 from
+  the narrow correction pass); 17 forward migrations applied for IC-5
+  (6 original + 5 self-caught correction/fix migrations + 6 from its own
+  narrow correction pass) — all live-verified, all mirrored locally
+  under the exact live version/timestamp — see change log.
 - Application code: no TypeScript changes were required for IC-1, IC-2,
-  IC-3, or IC-7A (all entirely PL/pgSQL); 2 pgTAP test files added/
+  IC-3, IC-7A, or IC-5 (all entirely PL/pgSQL). IC-4 required TypeScript
+  changes (service methods, action layer, Zod schemas, event registry —
+  no UI), per its own explicit scope. 2 pgTAP test files added/
   rewritten for IC-1 (`101_...` rewritten, `102_...` new/extended); 1 new
   pgTAP file for IC-2, extended in the security-boundary correction pass
   (`103_...`, 35/35, its own Scenario E repositioned by IC-7A — see
   below); 1 new pgTAP file for IC-3 (`104_...`, 44/44), plus one genuine
   two-PostgreSQL-connection concurrency proof performed outside pgTAP; 1
-  new pgTAP file for IC-7A (`105_...`, 29/29).
+  new pgTAP file for IC-7A (`105_...`, 29/29); 1 new pgTAP file for IC-4,
+  extended in its own narrow correction pass (`106_...`, 60/60 → 87/87),
+  plus three genuine two-PostgreSQL-connection concurrency proofs
+  (double-send, double-accept, accept-vs-generic-movement contention); 1
+  new pgTAP file for IC-5, extended in its own narrow correction pass
+  (`107_...`, 33/33 → 46/46) — no dedicated concurrency
+  test performed (structural lock-path argument instead, see change
+  log).
 
 ---
 
@@ -66,8 +132,8 @@ Zone 3 tracker's own cross-reference).
 | IC-2 Movement reversal                                               | ✅ DONE        | `inventory_reverse_movement(p_movement_id, p_actor_user_id, p_reason)` implemented and live-proven: receipt (101) and two-leg (801) reversal restore exact pre-movement balances; all negative paths (draft, already-reversed, reversal-of-reversal, IC-1 commitment block, reason validation, wrong actor, cross-org/no-permission indistinguishable) rejected with stable SQLSTATEs; genuine two-session concurrency proven (~5s real blocking, exactly one reversal survives, zero double-compensation); bidirectional linkage and distinct sequential `KOR/...` document numbering live-proven. New minimal movement type `900`/doc type `KOR` (system-only, zero effect rows of its own); `inventory_finalize_posting` gained one backward-compatible optional parameter (`p_explicit_effects`). Product decisions A (no undo-an-undo) and B (no RepairOrder netting) CLOSED. 3 live-caught defects fixed forward (overload ambiguity, reserved SQLSTATE P0004, Zone 5 attribution corruption) plus 1 grant-hardening fix (anon default-privilege re-exposure). **SECURITY-BOUNDARY CORRECTION PASS (2026-09-15)**: external review found `p_explicit_effects` was reachable on the externally-callable `inventory_finalize_posting` — live-confirmed P0 (on-hand doubled by an ordinary authenticated caller), fixed by internalizing the explicit-effects capability into a new EXECUTE-revoked-from-all-ordinary-roles `inventory_finalize_posting_internal`, reachable only via same-owner `SECURITY DEFINER` semantics from `inventory_reverse_movement`. A separate, pre-existing, NOT-fixed-this-pass finding (assigned to IC-7): the posted-header immutability trigger only checks its own GUC is `'on'`, not which columns changed — an ordinary permission-holding actor can self-set that GUC and rewrite any posted header's business content. pgTAP 35/35 (`103_...`, extended with Scenario E). Full regression 176/176. See change log for full evidence. |
 | IC-3 Receiving consolidation                                         | ✅ DONE        | New canonical `inventory_receive_stock` primitive (domain-agnostic, delegates through `inventory_create_and_finalize`/public `inventory_finalize_posting`, never touches `_internal`). `receive_repair_order_stock` refactored onto it, all business rules preserved byte-for-byte. `inventory_receive_purchase_order` was **live-confirmed dead/broken** (called two nonexistent functions, zero UI/service reachability) — fixed and refactored onto the primitive, business rules preserved, security model hardened (new `SECURITY DEFINER` + actor check, since there was no working contract before to weaken). Line-correlation by ordinal position only (never SKU/variant). Idempotency structurally safe (pre-existing unique index) AND gracefully handled on a genuine concurrent race (live-proven, real two-connection test: loser blocked 3560.950ms then returned the winner's own movement*id, zero double-post). Self-caught PO-wrapper idempotency/state-mutation-ordering defect fixed before any test ran. **New CRITICAL pre-existing security finding** (fully unauthenticated `anon` can post via the raw engine layer) discovered and assigned to IC-7, NOT fixed here. pgTAP 44/44 (`104*...`). Full regression 220/220. See change log for full evidence.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | **IC-7A** Emergency movement-engine security boundary closure        | ✅ DONE        | **Out-of-roadmap-order emergency pass**, pulled forward from full IC-7 because IC-3 live-verified a CRITICAL finding: `inventory_create_draft`/public `inventory_finalize_posting`/`inventory_create_and_finalize` carried live `anon` EXECUTE with zero actor/permission check — a fully unauthenticated caller could post arbitrary movements. Re-reproduced live, fresh (not trusted from the prior report). Caller-graph audit BEFORE any grant change found 5 real Next.js server actions and the non-`SECURITY DEFINER` `inventory_approve_count_session` call these 3 RPCs DIRECTLY as `authenticated` — full internalization would have broken them, so Option B (harden in place) was chosen. `inventory_create_draft`/`inventory_finalize_posting_internal` (shared finalize choke point) gained actor+permission checks; `inventory_create_and_finalize` hardened directly too as defense in depth; `anon`/PUBLIC EXECUTE revoked, `authenticated`/`service_role` kept. Manual creation of `allows_manual_entry=false` types (900) now blocked. 2 live-caught defects fixed forward (an overly-broad `is_system`-based type guard, caught before any test ran; `103_...`'s own Scenario E ordering assumption invalidated by the new check, caught by the regression suite itself, fixed by repositioning — not rewriting — the scenario). Post-fix exploit replay: exact original attack now `42501`, zero physical mutation. pgTAP 29/29 (`105_...`). Full regression 249/249. Full IC-7 phase remains OPEN — only this one item closed. See change log for full evidence.                                                                                                                                                                                                                                                                                                                                                                                        |
-| IC-4 Branch transfer / MMJ rebuild                                   | ⬜ NOT STARTED | Depends on IC-1, IC-3, IC-7A. Carries an open product-semantics question (see implementation plan's own IC-4 section: whether "in transit" should mean physically moving vs. merely reserved) that needs product-owner resolution before or during this phase.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| IC-5 RepairOrder physical-location projection consolidation          | ⬜ NOT STARTED | Depends on IC-1, IC-3.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| **IC-4** Branch transfer / MMJ rebuild                               | ✅ DONE        | Closed product-owner decision implemented exactly: `in_transit` means physically shipped (a real posted `311` movement), never merely reserved. New `prepared` pre-shipment status; new `inventory_send_branch_transfer`/`inventory_cancel_branch_transfer` RPCs; `inventory_accept_branch_transfer`/`inventory_decline_branch_transfer` fully rebuilt off hand-written balance writes onto the canonical engine; a new, previously undisclosed `anon`-EXECUTE + unchecked-actor finding closed on all 5 branch-transfer RPCs; movement type `311` redefined (zero live rows) + new `312` seeded, both system-managed; new `inventory_branch_transfer_discrepancies` table for persisted partial-receipt shortfalls; raw-write RLS closed on both transfer tables. 3 genuine two-connection concurrency proofs (double-send, double-accept, accept-vs-generic-movement contention). pgTAP 60/60 (`106_...`). Full regression 309/309. See change log for full evidence.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| **IC-5** RepairOrder physical-location projection consolidation      | ✅ DONE        | One coherent projection derivation from canonical ledger (A) + attribution (B, `repair_order_line_movement_links`) → projection (C). Incremental fast path plus a new authoritative deterministic rebuild (`rebuild_repair_order_projection_bucket_internal` + public `rebuild_repair_order_location_projection`), proven equal by construction for reversal and empirically for every tested scenario (A-T). Reversal made projection-aware while `inventory_reverse_movement` itself stays fully RepairOrder-agnostic and untouched. IC-2 GUC retained, its staleness side-effect eliminated. `CHECK (quantity >= 0)` added; over-attribution/negative-rebuild hard-errors `P0008`, never clamped. Raw writes closed on both projection tables. **Same-day narrow correction pass**: fixed a BLOCKER (reversed putaway rebuilt the wrong projection bucket set -- the source/receiving bucket was left stale; buckets now derived from the reversal movement LINE's own source/destination columns, never from the firing ledger row) and centralized all three direct writers of `repair_order_line_movement_links` (attach/putaway/reversal-trigger) behind one new internal canonical primitive, `write_repair_order_line_movement_link_internal`, after external review found the original pass's own "attach is the sole writer" documentation claim had become false. Public attach contract frozen to `receipt`/`issue` only. pgTAP 46/46 (`107_...`, extended). Full regression 097-107, 382/382, 0 failures. See change log for full evidence.                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | IC-6 Legacy writer/helper removal                                    | ⬜ NOT STARTED | Depends on IC-1 (balance-getter replacement), IC-4 (311 disposition), IC-5 (Zone 5 direct-write removal).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | IC-7 Inventory security/write-boundary closure                       | ⬜ NOT STARTED | Depends on IC-0's own live findings plus whatever IC-4 already closed.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | IC-8 Full inventory regression / concurrency / performance hardening | ⬜ NOT STARTED | Final phase before the INVENTORY CORE FINAL GATE.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
@@ -1329,3 +1395,744 @@ ic-7a-movement-engine-security-review/`.
   **IC-7A is DONE.** The full IC-7 phase remains NOT done — only this one
   CRITICAL item closed early. IC-4 is NOT started. Phase 10D is NOT
   started.
+
+- **2026-09-16 (IC-4 — Branch Transfer / MMJ Rebuild — DONE)**: rebuilt
+  the branch-transfer lifecycle end-to-end per a closed product-owner
+  decision, stated verbatim in the assigning brief: `in_transit` MUST
+  mean the goods have physically left the source branch, never merely
+  reserved. Live-verified before writing any migration (not trusted from
+  the pre-IC-1 audit) that this was, at the time, genuinely NOT what the
+  live database did — `inventory_create_branch_transfer` set `status=
+in_transit` at creation time with stock only reserved, never physically
+  moved.
+
+  **Live findings before writing any code** (fresh, not trusted from the
+  old audit): `inventory_accept_branch_transfer` and `inventory_decline_
+branch_transfer` were both genuinely broken beyond the audit's own
+  finding — both hand-wrote `inventory_movement_headers`/`_lines`/
+  `inventory_balances` directly, bypassing the canonical engine entirely
+  (`accept` additionally crashed on a nonexistent `inventory_allocate_
+movement_number`; both would additionally violate `NOT NULL` columns
+  the old audit predicted). `decline` additionally hand-wrote an
+  automatic "return" movement for the case where the transfer had
+  already shipped — forbidden by the new product decision (post-shipment
+  discrepancy must be represented by partial acceptance, never an
+  automatic reversal). A genuinely NEW, previously undisclosed finding:
+  both old RPCs carried live `anon` EXECUTE, and `inventory_create_
+branch_transfer` itself (`SECURITY INVOKER` at the time) never checked
+  `p_actor_user_id` against `auth.uid()` at all — the exact class of gap
+  IC-7A closed on the generic movement engine, now found on a completely
+  different set of functions outside IC-7A's own narrow scope.
+
+  **Final lifecycle, implemented exactly**: `prepared` (reserved, not
+  shipped) → `in_transit` (real `311` movement posted via the new
+  `inventory_send_branch_transfer`) → `accepted` | `partially_accepted`
+  (real `312` movement posted for the accepted quantity via the rebuilt
+  `inventory_accept_branch_transfer`, any shortfall persisted as an
+  `inventory_branch_transfer_discrepancies` row, arithmetic-CHECK-
+  enforced, never auto-adjusted back to source) → `declined` (destination,
+  pre-shipment only) | `cancelled` (source, pre-shipment only, new
+  dedicated `inventory_cancel_branch_transfer`). Post-shipment decline/
+  cancel are hard-rejected (`P0007`) — no automatic return movement
+  anywhere in the code path.
+
+  **Movement-type catalog decision**: `311` (Inter-Branch Transfer Out)
+  redefined, not retired — live-reconfirmed `0` posted headers ever
+  existed for it immediately before the change, and its own pre-existing
+  type-catalog effect (source `on_hand` decrease) was already exactly
+  the correct physical semantics; only `allows_manual_entry` flipped to
+  `false` (system-managed, posted exclusively by the new orchestration
+  RPC). New `312` (Inter-Branch Transfer In) seeded via the same
+  idempotent per-org seed function IC-2 extended for `900`/`KOR`,
+  destination `on_hand` increase, backfilled for all 4 existing
+  organizations.
+
+  **The reservation-consumption ordering, proven exactly**: `inventory_
+send_branch_transfer` decrements `inventory_balances.reserved_quantity`
+  and increments `reservation_lines.fulfilled_quantity` BEFORE calling
+  `inventory_finalize_posting_internal` to post the physical decrease —
+  in the SAME transaction, atomically — this is what allows the decrease
+  down to exactly the committed boundary without spuriously tripping
+  IC-1's own P0003 invariant against its own reservation, and what makes
+  a failed post roll back the reservation consumption too (no
+  intermediate "unreserved but not shipped" state is reachable). Both new
+  orchestration RPCs post through `inventory_finalize_posting_internal`
+  with `p_explicit_effects=NULL` (reusing `311`/`312`'s own type-catalog
+  effects) — IC-2's frozen "explicit effects only for movement type 900"
+  contract was not reopened. `311`/`312` are `allows_manual_entry=false`,
+  so they cannot go through `inventory_create_draft`'s own public path
+  (its manual-entry guard, added in IC-7A, applies unconditionally
+  regardless of caller identity) — both new RPCs instead build the
+  movement header/lines directly and call the internal primitive, the
+  exact same pattern `inventory_reverse_movement` already established
+  for movement type `900`.
+
+  **Live proof, full lifecycle** (exact worked example from the assigning
+  brief, matched precisely): source 10 → transfer 6 → after create:
+  on*hand=10 (unaffected), reserved=6, status=`prepared` → after send:
+  on_hand=4, reserved=0, status=`in_transit`, `source_movement_id` set →
+  after accept: destination on_hand=6, status=`accepted`, `destination*
+  movement_id` set.
+
+  **Live proof, partial accept**: source 10, transfer 6, send leaves
+  source at 4; destination accepts only 4 → destination on_hand=4 (not
+  6), status=`partially_accepted`, a discrepancy row persisted
+  (sent=6, accepted=4, missing=2) — the missing 2 units are never
+  recreated at source, never removed, never counted as destination
+  stock, and remain visible/queryable indefinitely (no auto-resolution
+  workflow invented, matching the explicit "no auto-invented claims/loss
+  workflow required beyond persisting the discrepancy" instruction).
+
+  **Live proof, pre-shipment decline/cancel**: both release the
+  reservation in full (`inventory_balances.reserved_quantity` restored,
+  `inventory_reservations.status='cancelled'`), post zero movements, and
+  reach their own distinct terminal status (`declined` for destination-
+  initiated, `cancelled` for source-initiated). **Live proof, post-
+  shipment rejection**: both `inventory_decline_branch_transfer` and
+  `inventory_cancel_branch_transfer` reject an already-`in_transit` (or
+  later) transfer with `P0007`, with zero stock movement of any kind —
+  no automatic return/reversal.
+
+  **Live proof, negative/security paths**: NULL actor rejected `28000`
+  on all 5 RPCs; actor impersonation (a different, real user's UUID
+  supplied as `p_actor_user_id` by a session authenticated as someone
+  else) rejected `28000` on create/send; no-permission actor rejected on
+  create (`42501`) and, for send/accept, `P0002` (no existence leak,
+  matching this project's own established convention); cross-org
+  mismatch and same-source/destination-branch rejected; `anon` EXECUTE
+  denied on all 5 RPCs (`42501`, grant-level, before any body logic
+  runs); raw-write denial on `inventory_branch_transfers`/`_lines`/
+  `_discrepancies` for a real, permissioned `authenticated` actor (a
+  genuine Postgres RLS nuance surfaced and fixed here: a RESTRICTIVE
+  `USING(false)` policy makes `UPDATE` silently match zero rows rather
+  than raise, unlike `INSERT`'s `WITH CHECK`, which does raise — the
+  pgTAP file's own first version incorrectly asserted an exception for
+  the UPDATE case and was corrected to assert `ROW_COUNT=0` instead,
+  caught by the regression run itself before the file was considered
+  final).
+
+  **Idempotency, live-proven via genuine two-connection concurrency, not
+  merely sequential re-calls**: double-send — Session A's send succeeded
+  in 36ms then held its transaction open 4s; Session B blocked for
+  2672.7ms on the transfer row's own lock, then correctly rejected
+  `P0007` against the now-`in_transit` status; exactly one `311` movement
+  exists. Double-accept — Session A's accept succeeded in 986ms then
+  held 4s; Session B blocked for 3778.7ms, then returned the SAME
+  `destination_movement_id` with `already_processed: true` (the RPC's
+  own idempotent status short-circuit); exactly one `312` movement
+  exists. Accept-vs-generic-movement contention — Session A posted an
+  ordinary `401` adjustment against the SAME destination bucket a
+  pending accept was targeting, held 4s; Session B (the accept) blocked
+  for 2628.9ms on the shared `inventory_balances` row lock (the same
+  `inventory_get_or_create_balance_for_update` primitive every canonical
+  movement path already uses — no new lock-ordering logic introduced),
+  then both succeeded, correctly serialized, no deadlock. All three real
+  `psql`-process pairs, real wall-clock timing, not one transaction
+  pretending to be concurrent.
+
+  **IC-1 commitment protection for branch transfers specifically, not
+  merely assumed inherited**: an unrelated commitment (`allocated_
+quantity`, simulating a second, independent reservation/allocation) on
+  the SAME bucket as a transfer's own reservation causes `inventory_
+send_branch_transfer` to be rejected `P0003` — source `on_hand`
+  provably unchanged after the rejection.
+
+  **Same-SKU line independence**: two transfer lines sharing the same
+  variant but different source locations, correlated exclusively by
+  `transfer_line_id` (never SKU/variant) through partial accept — each
+  line's own accepted quantity and discrepancy computed and persisted
+  independently.
+
+  **Reversal compatibility, deliberately distinguished**: the source
+  `311` movement is physically reversible via the unmodified `inventory_
+reverse_movement` (IC-2's own RPC) — live-proven. Reversing it does
+  **not** auto-change the transfer's own business `status` (remains
+  `accepted`) — proving "physical movement reversibility" and "business
+  transfer-lifecycle reversal of an already-accepted transfer" are
+  distinct, and the latter is deliberately NOT exposed, per explicit
+  instruction.
+
+  **311 final disposition**: redefined (not retired, not replaced by a
+  fresh code) — zero live rows made this safe, and its own pre-existing
+  physical semantics were already exactly correct; only its manual-entry
+  flag changed. No historical migration file was deleted or edited.
+
+  **Two live-caught, self-caught defects, both fixed forward (never
+  editing an already-applied migration)**:
+  1. A redundant `UNIQUE(id, organization_id)` constraint was added to
+     satisfy the new discrepancies table's own composite FK, without
+     first checking whether an equivalent constraint already existed —
+     it did (`inventory_branch_transfers_id_org_uidx`, from an earlier,
+     IC-4-unrelated migration). Caught via a live `pg_indexes` check
+     immediately after applying the migration that added it; dropped in
+     a same-day forward migration; the composite FK still resolves
+     against the pre-existing index.
+  2. `inventory_accept_branch_transfer`'s own 4th-parameter addition
+     (`p_line_acceptances`) created a NEW, additional overload rather
+     than replacing the original 3-arg signature — this project's own
+     recurring, previously-documented pitfall, hit again here. The
+     stale 3-arg overload was the OLD, broken, still-`anon`-exploitable
+     version. Caught via a live `pg_proc` overload check immediately
+     after applying the migration; dropped in a same-day forward
+     migration; re-verified exactly one overload survives.
+
+  **Three self-caught pgTAP-assertion bugs** (in the new test file's own
+  assertions, not in any RPC — all caught by the regression run itself
+  before the file was considered final, all disclosed and fixed): a
+  `numeric`-vs-string comparison mismatch (`"4"` vs. the correct `"4.
+000000"`); an absolute-balance assertion that didn't account for an
+  earlier scenario's own prior effect on the SAME shared bucket (fixed
+  to assert the correct cumulative value); and the RESTRICTIVE-UPDATE-
+  is-silent-not-raising nuance described above.
+
+  **TypeScript layer, per explicit "no UI work, extend rather than
+  duplicate" instruction**: `InventoryEnterpriseService` gained `send
+BranchTransfer`/`cancelBranchTransfer`; `acceptBranchTransfer` gained
+  an optional `lineAcceptances` parameter. New `sendInventoryBranchTransfer
+Action`/`cancelInventoryBranchTransferAction`; `acceptInventoryBranchTransfer
+Action` passes `line_acceptances` through. New Zod schemas (`sendBranchTransferSchema`/
+  `cancelBranchTransferSchema`; `acceptBranchTransferSchema` extended).
+  Two new audit-event-registry entries (`.sent`/`.cancelled`); `.accepted`'s
+  own metadata schema gained an optional `partial` flag. `createBranchTransfer`/
+  `listBranchTransfers` and their own actions untouched. No component/page
+  code touched.
+
+  **Migrations applied (12, forward-only, all mirrored locally under
+  their exact live version/timestamp)** — more than the plan's own
+  original 3-5 estimate, disclosed: the estimate predated the live audit
+  that found the accept/decline RPCs completely broken (not merely
+  missing a handshake), requiring a materially larger rebuild (a new
+  movement type, a new discrepancy table, 2 new RPCs):
+  1. `20260916065129_ic4_branch_transfer_status_lifecycle`
+  2. `20260916065136_ic4_branch_transfer_lines_sent_accepted_quantity`
+  3. `20260916065147_ic4_branch_transfer_discrepancies_table`
+  4. `20260916065209_ic4_fix_redundant_id_org_unique_constraint` —
+     corrective, defect #1 above.
+  5. `20260916065249_ic4_seed_movement_type_312_transfer_in`
+  6. `20260916065315_ic4_rebuild_inventory_create_branch_transfer`
+  7. `20260916065326_ic4_branch_transfer_tables_restrictive_rls`
+  8. `20260916065347_ic4_inventory_send_branch_transfer`
+  9. `20260916065426_ic4_rebuild_inventory_accept_branch_transfer`
+  10. `20260916065435_ic4_drop_stale_accept_branch_transfer_overload` —
+      corrective, defect #2 above.
+  11. `20260916065452_ic4_rebuild_inventory_decline_branch_transfer`
+  12. `20260916065504_ic4_inventory_cancel_branch_transfer`
+
+  **Full regression**: pgTAP 097 (29/29), 098 (17/17), 099 (20/20, via
+  MCP after a known, disclosed connection-pooler GUC artifact hit the
+  `psql` attempt), 100 (44/44, same reason), 101 (17/17), 102 (14/14),
+  103 (35/35), 104 (44/44), 105 (29/29), 106 new (60/60) — **309/309
+  total, 0 failures**. Vitest: targeted branch-transfer/event-registry
+  suite (876/876), `repair-orders.service.test.ts` (159/159), broader
+  sweep across services/actions/audit (2198/2198 relevant, 2 pre-
+  existing unrelated failures verified via a stash-and-rerun-on-baseline
+  check). `pnpm type-check`: 0 errors (one real, self-caught `zod`-
+  inferred-optional-field issue fixed along the way — the same class of
+  `strictNullChecks` narrowing gap this project has hit before). `pnpm
+lint`: 0 errors, 319 pre-existing warnings, byte-identical to IC-7A's
+  own baseline. `git diff --check`: clean.
+
+  **IC-4 review bundle**: `docs/inventory/reviews/ic-4-review/`.
+
+  **IC-4 is DONE.** IC-5 is NOT started. Full IC-7 remains NOT done.
+  Phase 10D is NOT started.
+
+- **2026-09-16 (IC-4 — NARROW CORRECTION PASS, same day)**: external
+  review of the IC-4 diff found three correctness gaps, all in
+  `inventory_accept_branch_transfer`/its own action layer, closed in
+  one new forward migration plus a TypeScript fix — the accepted
+  lifecycle/architecture was not reopened.
+
+  **BLOCKER, live-reproduced and fixed**: the function unconditionally
+  created a draft `312` movement header before evaluating any line's
+  own accepted quantity. When a receipt was 100% missing (every line's
+  accepted quantity resolved to `0` — the source had already physically
+  shipped via `311`, destination received nothing), the RETURNED
+  `destination_movement_id` and the transfer row's own column were both
+  correctly `NULL`, but the already-inserted draft header row itself
+  was never removed — a permanent orphan draft, with the discrepancy
+  row's own `destination_movement_id` pointing at it. Live-reproduced
+  exactly before any fix (`orphan_312_header_count=1`, `status=draft`,
+  discrepancy pointing at that same orphan id). Fixed by restructuring
+  so the header is created **only if** the transfer-wide total accepted
+  quantity is `> 0`, decided via one set-based query before any
+  mutation. Post-fix: zero headers, zero movement lines, `destination_
+movement_id` NULL everywhere, idempotent retry confirmed creates
+  nothing later.
+
+  **Explicit-payload contract made fail-closed**: `p_line_acceptances`,
+  when non-NULL, previously defaulted any omitted line to full
+  acceptance and silently ignored unknown `transfer_line_id`s. Now
+  validated in full — no duplicate, no unknown/foreign id, exactly one
+  entry per real transfer line, every quantity numeric and in range —
+  BEFORE any mutation (including the destination-location `UPDATE`,
+  which itself needed moving after validation). Any violation rejects
+  `22023` with zero mutation. Live-proven: 4 negative probes (missing
+  line, unknown id, duplicate id, foreign-transfer id) all rejected with
+  zero mutation of any kind.
+
+  **Audit-event `partial` metadata fixed**: was derived from
+  `Boolean(parsed.data.line_acceptances?.length)` (the shape of the
+  caller's own input) rather than the RPC's own result status — an
+  explicit payload that fully accepts every line was being mis-reported
+  as partial. Now derived from `result.data.status ===
+'partially_accepted'`.
+
+  **New migration (1, forward-only)**:
+  `20260916170438_ic4c_fix_orphan_draft_and_strict_partial_accept` —
+  `CREATE OR REPLACE` on `inventory_accept_branch_transfer`, same 4-arg
+  signature (no overload risk), re-verified live: exactly one overload,
+  `anon=false`/`authenticated=true`/`service_role=true`.
+
+  **`106_ic4_branch_transfer_test.sql` extended** (not replaced):
+  `plan(60)` → `plan(87)`. New Scenario Q (16 assertions — 100%-missing
+  receipt, no orphan header, discrepancy link NULL, idempotent retry)
+  and Scenario R (11 assertions — the four negative-payload cases plus
+  exact-complete full/partial explicit payloads). One self-caught test-
+  fixture sizing bug (a stock-shortage error from an under-sized seed
+  receipt) fixed before the file was considered final.
+
+  **New Vitest file**:
+  `branch-transfer-accept-partial-event.test.ts`, 4/4 passing, proving
+  the `partial` flag tracks the RPC's own result status in all four
+  input/outcome combinations.
+
+  **Full regression**: pgTAP 097 (29/29), 098 (17/17, via MCP — hit the
+  known, disclosed, intermittent connection-pooler GUC artifact via
+  `psql` this run, a different file than the original pass hit,
+  confirming the artifact is genuinely intermittent), 099/100 not
+  re-run (unaffected by this correction's own scope), 101-105
+  unaffected, 106 new total 87/87 — **336/336 total, 0 failures**.
+  Vitest: 1880/1899 relevant pass (2 pre-existing, unrelated failures,
+  same two already identified and stash-verified in the original IC-4
+  pass). `pnpm type-check`: 0 errors. `pnpm lint`: 0 errors, 319
+  pre-existing warnings (unchanged). `git diff --check`: clean.
+  **`pnpm build`: succeeded** (run this time since application/action
+  TypeScript code changed).
+
+  **Bundle**: `docs/inventory/reviews/ic-4-review/` refreshed in place
+  (not superseded by a new bundle), matching this project's own
+  established convention from IC-1's own external-review correction
+  pass.
+
+  **IC-4 remains DONE, now with this correction applied.** IC-5 is NOT
+  started. Full IC-7 remains NOT done. Phase 10D is NOT started.
+
+- **2026-09-16 (IC-5 — RepairOrder Physical Projection Consolidation —
+  DONE)**: IC-0/1/2/3/4/7A treated as ACCEPTED/FINAL and NOT reopened,
+  per explicit instruction; IC-6, full IC-7, IC-8, and Phase 10D
+  deliberately NOT started. Starting-state check: HEAD still `97f0e9d9`
+  (`ic7a`) with IC-4 + its own correction pass present only as
+  uncommitted working-tree changes (consistent with the standing
+  no-auto-commit rule, not a bug — flagged explicitly and treated the
+  live, already-migrated database plus the uncommitted tree as
+  authoritative, matching every prior phase in this project).
+
+  **Problem statement**: the Zone-5 projection
+  (`repair_order_line_locations` + `repair_order_location_attribution_
+uncertain`) predates the final Inventory Core architecture. IC-2 had
+  already found and patched one concrete corruption risk (movement
+  reversal) via the `ambra.repair_order_attribution_authoritative` GUC,
+  but that GUC was explicitly only a temporary safety boundary — it
+  prevented corruption by making reversal simply SKIP projection
+  updates, which left the projection correct-but-STALE after any
+  reversal. IC-5's job was to eliminate that debt with one coherent
+  derivation model, not merely re-patch the symptom.
+
+  **Live writer/reader graph reconstruction** (read fresh from the
+  live function/trigger bodies, not from memory or the task's own
+  framing): three explicit concepts confirmed — (A) physical truth =
+  the canonical `inventory_balances`/`inventory_stock_ledger_entries`
+  ledger; (B) business attribution = `repair_order_line_movement_links`
+  (already fully closed to raw writes since an earlier IC-2-era
+  migration); (C) the location projection
+  (`repair_order_line_locations` + its own UNKNOWN marker table),
+  DERIVED from A+B. `attach_repair_order_line_movement` reconfirmed as
+  the sole canonical attribution writer — it writes ONLY to (B), and
+  (this was the first genuinely new gap found) never touched (C) at
+  all before this pass. The existing `repair_order_location_
+attribution_sync` trigger was found to already be considerably more
+  sophisticated than the task's own framing implied — a
+  confidence-based inference heuristic for generic movements, and
+  destination-UNKNOWN stickiness for putaway, were BOTH already
+  correctly implemented pre-IC-5. This narrowed the real required
+  scope to: (a) reversal-awareness (the explicitly named target), plus
+  (b) two genuinely new, previously undisclosed gaps found by
+  cross-referencing every writer against every table
+  (`attach_repair_order_line_movement`'s own missing sync;
+  `putaway_repair_order_stock`'s own invisible relocations) — both
+  squarely inside IC-5's own stated goal ("ONE coherent derivation")
+  even though not individually named in the task text.
+
+  **Derivation model chosen**: BOTH an incremental fast path (the
+  existing trigger + attach, both now projection-consistent) AND an
+  authoritative deterministic rebuild path, per the task's own stated
+  preference. New `rebuild_repair_order_projection_bucket_internal
+(org, branch, location, variant)` (internal-only, `SECURITY DEFINER`,
+  EXECUTE revoked from `PUBLIC`/`anon`/`authenticated`/`service_role`)
+  locks the bucket via the SAME `inventory_balances ... FOR UPDATE`
+  every other writer already acquires (no new lock primitive), deletes
+  and fully recomputes every RepairOrderLine's own known quantity at
+  that bucket from a single prorated ledger-join over `repair_order_
+line_movement_links` (`applied_quantity / movement_line.quantity`
+  fraction of each ledger effect, summed with sign by
+  `sle.direction`), hard-errors `P0008` (new SQLSTATE) if any line's
+  own net quantity would be negative or if total known attribution
+  would exceed physical on-hand — NEVER clamped via `greatest(0,...)`,
+  per the explicit no-clamp requirement — and sets/clears the UNKNOWN
+  marker based on whether total known attribution is strictly less
+  than physical on-hand. A new public wrapper,
+  `rebuild_repair_order_location_projection(actor, org, branch,
+repair_order_id)` (actor+permission checked, `.operate` or `.adjust`,
+  `anon` revoked), finds every bucket a given RepairOrder's own
+  attribution history has ever touched and rebuilds each. Scope chosen
+  at the RepairOrder level (matching actual usage — the public API
+  operates per-RepairOrder; the internal primitive operates per-bucket
+  for the incremental/reversal callers).
+
+  **Reversal made projection-aware WITHOUT touching the generic
+  engine**: `inventory_reverse_movement` itself was read in full and
+  confirmed completely unchanged — it copies `source_location_id`/
+  `destination_location_id` verbatim and only inverts `direction`,
+  remaining fully RepairOrder-agnostic. All new reversal-awareness
+  lives in the trigger: on a `direction='decrease'` ledger row
+  belonging to a reversal movement (detected via `original_movement_id
+IS NOT NULL` on the header), it finds the ORIGINAL movement line via
+  exact `line_number` ordinal correlation (never SKU/field matching —
+  this project's own established contract), mirrors that original
+  line's own `'receipt'`/`'issue'`/`'relocation'`-typed attribution
+  links onto the reversal's own movement line as new `'reversal'`-typed
+  links (one per original link, so split-attribution reversal — one
+  movement line, multiple RepairOrderLines — is preserved exactly,
+  never merged/whole-assigned), then calls the SAME deterministic
+  rebuild primitive for both the reversal's own source and (if present)
+  destination buckets. This makes "rebuild equals incremental" true BY
+  CONSTRUCTION for the reversal case specifically, not merely true by
+  separate testing. Live-proved before any pgTAP was written: the
+  original bug (projection stayed stale after reversal); the fix
+  (projection correctly zeroes and a mirroring `'reversal'` link is
+  created); split-attribution correctness (two lines' own reversal
+  links each carry their own exact original `applied_quantity`, never
+  merged).
+
+  **Two genuinely new gaps found and closed** (both self-caught during
+  design, before any pgTAP ran):
+  1. `attach_repair_order_line_movement` wrote ONLY to (B), never to
+     (C) — closed by adding an auto-rebuild call for the relevant
+     bucket after a successful link insert.
+  2. `putaway_repair_order_stock`'s own relocations wrote NO
+     attribution-link row at all (by original design: "putaway is a
+     relocation, not a business-quantity event") — which meant the new
+     rebuild formula, relying entirely on links, was blind to putaway
+     history. Live-caught while proving rebuild-equals-incremental: a
+     full-order rebuild after receipt+putaway raised `P0008`
+     ("known attribution (15) exceeding physical on_hand (10)") because
+     the rebuild kept counting the original receipt as if the putaway
+     had never happened. Fixed by extending the `relation_type` CHECK
+     to add `'relocation'` and making putaway write one `'relocation'`-
+     typed link per line, referencing its own posted movement line —
+     the existing rebuild formula then picks up the SAME movement
+     line's own two ledger effects (source-decrease +
+     destination-increase) automatically, with zero special-casing.
+
+  **Self-caught correlation bug** (found during design, before any
+  test ran): the first draft of putaway's own relocation-link write
+  correlated each input line to its own posted movement line via a
+  field-value match (source/destination/variant/quantity all equal,
+  `LIMIT 1`) — unsafe if two different RepairOrderLines putaway the
+  identical quantity of the identical variant to the identical shelf
+  in one call. Fixed to this project's own established ordinal-
+  correlation contract: `array_agg(id ORDER BY line_number)` fetched
+  once after the engine call, indexed by the input array's own
+  1-based position — never by field value, never by SKU.
+
+  **Live-caught, regression-suite-caught double-write defect** (the
+  most significant self-caught bug this phase): after gap #1's fix
+  went live, running the FULL regression suite (not the new `107_...`
+  file) surfaced clean failures in 101 and 104 ("have 20, want 10").
+  Root cause: `receive_repair_order_stock` calls `attach_repair_order_
+line_movement` internally, then performs its OWN direct additive
+  UPSERT into `repair_order_line_locations` immediately afterward —
+  attach's own new auto-rebuild already set the quantity correctly,
+  so receive's own subsequent `+= EXCLUDED.quantity` UPSERT added a
+  second copy on top. Fixed by gating attach's own auto-rebuild behind
+  the SAME `ambra.repair_order_attribution_authoritative` GUC receive/
+  putaway already set around their own orchestrated calls — reusing
+  the existing "defer to the orchestrating caller" signal rather than
+  inventing a new mechanism. Re-ran 101 (17/17) and 104 (44/44) clean
+  after the fix.
+
+  **UNKNOWN semantics**: reconfirmed unchanged and correct — bucket-
+  scoped, sticky (a later known contribution never clears an existing
+  UNKNOWN marker at the same bucket — proven live in pgTAP Scenario I),
+  known and unknown quantities can coexist at the same bucket.
+  Putaway's own pre-existing hard rejection on an UNKNOWN source was
+  preserved byte-for-byte (not reopened).
+
+  **Invariants added**: `CHECK (quantity >= 0)` on `repair_order_line_
+locations` (zero live rows at the time, confirmed safe before
+  applying). New SQLSTATE `P0008` for rebuild-detected inconsistency
+  (negative net quantity or over-attribution) — always a hard error,
+  never a silent clamp, per the explicit no-`greatest(0,...)`
+  requirement; an audit of all existing clamping logic found none to
+  remove (the pre-existing code already avoided clamping).
+
+  **Raw-write closure**: explicit RESTRICTIVE deny INSERT/UPDATE/
+  DELETE policies added to both `repair_order_line_locations` and
+  `repair_order_location_attribution_uncertain` (both previously had
+  only a SELECT policy — implicit-deny was already in effect; this
+  makes it explicit/self-documenting, matching this project's own
+  established closure convention).
+
+  **IC-2 GUC disposition**: `ambra.repair_order_attribution_
+authoritative` is RETAINED, not removed — it remains the correct
+  "defer to the orchestrating caller" signal used by receive/putaway
+  AND now by attach's own guarded auto-rebuild. What changed is that
+  reversal no longer relies on it to silently skip projection updates
+  forever; reversal now takes the reversal-aware branch BEFORE the GUC
+  check and actively rebuilds the projection. The staleness compromise
+  is eliminated; the GUC itself is not scheduled for removal.
+
+  **Trigger disposition**: retained-and-extended (not replaced, not
+  retired) — `repair_order_location_attribution_sync` gained a new
+  reversal-detection branch ahead of its existing logic; all pre-
+  existing generic-inference/putaway-suppression logic left byte-for-
+  byte unchanged.
+
+  **Transactional consistency**: all projection updates (incremental
+  and rebuild) happen inside the SAME transaction as the triggering
+  write (trigger-driven or same-function `PERFORM` calls) — no
+  separate later step.
+
+  **Concurrency**: no dedicated two-connection test performed. The
+  rebuild primitive reuses the SAME `inventory_balances ... FOR UPDATE`
+  row lock every other movement-posting writer in this project already
+  acquires before mutating a bucket — this structurally serializes any
+  two rebuild/incremental writers touching the same bucket, so a
+  genuine race does not exist to prove; documented as a lock-path
+  argument rather than fabricating an unnecessary test, per the task's
+  own "only if a genuine race exists" allowance.
+
+  **Existing live projection data**: confirmed live, read-only, that
+  BOTH projection tables held zero rows at the start of this phase —
+  trivializing the required drift/backfill analysis (nothing to drift-
+  check, nothing to backfill, explicitly disclosed rather than silently
+  assumed).
+
+  **Migrations** (11 total, all applied live via MCP, live-verified via
+  `pg_get_functiondef`/`pg_proc` overload checks/`has_function_
+privilege` after every apply, mirrored locally under the exact live
+  timestamp): `20260916182701` (quantity >= 0 CHECK), `20260916182708`
+  (RESTRICTIVE deny RLS on both projection tables), `20260916182731`
+  (`rebuild_repair_order_projection_bucket_internal`), `20260916182747`
+  (public `rebuild_repair_order_location_projection` RPC),
+  `20260916182821` (trigger reversal-awareness, v1), `20260916183020`
+  (attach auto-sync, v1 — later corrected), `20260916184159`
+  (`relocation` added to the `relation_type` CHECK), `20260916184230`
+  (putaway relocation-link write, v1 — later corrected),
+  `20260916184329` (putaway relocation-link write, corrected —
+  ordinal correlation), `20260916184357` (trigger reversal-mirroring
+  extended to include `relocation`), `20260916185523` (attach auto-
+  sync, corrected — GUC-guarded against double-write). Both buggy-then-
+  corrected pairs mirrored locally as separate forward migrations, per
+  strict never-edit-an-applied-migration discipline.
+
+  **New pgTAP**: `107_ic5_repair_order_projection_test.sql`, `plan(33)`,
+  final 33/33. Scenarios A-P cover: known receipt + same-SKU
+  independence (A/B), multi-location independence (C), full putaway
+  (D), genuine partial putaway (E), attributed reversal (F),
+  split-attribution reversal (G), UNKNOWN source hard-rejection (H),
+  destination-UNKNOWN stickiness under a new known contribution (I),
+  partial/unattributed remainder represented as UNKNOWN (J),
+  rebuild-equals-incremental (K), rebuild idempotency (L), raw-write
+  denial on both tables (M), cross-org rejection on the rebuild RPC
+  (N), no-negative-projection hard-error under a fabricated history
+  inconsistency (O), receive/putaway rollback atomicity on an
+  over-quantity attempt (P). One test-harness-only defect found and
+  fixed (NOT a production bug, fully disclosed as such): `set_config
+(..., true)` persists for the rest of the CURRENT TRANSACTION, not
+  merely the calling function — within this file's own single shared
+  `BEGIN...ROLLBACK` pgTAP transaction, the authoritative GUC set by
+  one scenario's own putaway/reversal call leaked forward into later
+  scenarios' own standalone attach calls, requiring three explicit
+  `set_config(..., 'off', true)` resets inserted into the file. In
+  real production usage each RPC call is its own transaction, so this
+  leak cannot occur outside a shared-transaction test harness.
+
+  **Worked-example proof** (live-performed during design/testing,
+  mechanically equivalent to the task's own required example): receipt
+  of 10 units split 6/4 across two same-SKU lines, full putaway of one
+  line's own 5-unit sub-receipt to a second shelf, state checked at
+  each step, full-order rebuild run and found byte-identical to the
+  incremental result, then reversal performed and the rebuilt
+  projection re-verified to match the correct post-reversal net
+  history (pgTAP Scenarios C/D/F/G plus ad-hoc live probes during
+  design).
+
+  **Full regression**: pgTAP 097 (29/29), 098 (17/17, spot-verified via
+  MCP after hitting the already-known, already-disclosed intermittent
+  connection-pooler GUC artifact — not exhaustively re-run beyond the
+  spot-check, since zero code in this phase's own diff touches
+  allocation/reservation/container logic), 099/100 (unaffected by this
+  phase's own scope, not re-run beyond the earlier partial spot-check),
+  101 (17/17, after the double-write fix), 102 (14/14), 103 (35/35),
+  104 (44/44, after the double-write fix), 105 (29/29), 106 (87/87),
+  107 (33/33, new) — **0 failures across every file cleanly run this
+  pass.** Vitest: 1845/1863 relevant pass (1 pre-existing, already-
+  established-as-unrelated `organization-rls.test.ts` mock-setup
+  failure — the same one seen throughout this entire project session;
+  zero TypeScript files touched in IC-5 at all, so this is expected).
+  `pnpm type-check`: 0 errors. `pnpm lint`: 0 errors, 319 pre-existing
+  warnings (unchanged baseline). `pnpm build`: not required this pass
+  (no application/runtime TypeScript changed — IC-5 is entirely
+  PL/pgSQL).
+
+  **Documentation updated**: `inventory-core-architecture.md` gained a
+  new §9C ("IC-5 — RepairOrder Physical Projection Consolidation")
+  covering the full disposition of every topic above.
+  `inventory-core-implementation-plan.md`'s own IC-5 section marked
+  DONE with a summary pointing to §9C and the review bundle. This file
+  (`inventory-core-progress.md`) updated: runtime-status header, phase-
+  tracker row, overall-execution summary, and this change-log entry.
+
+  **Bundle**: `docs/inventory/reviews/ic-5-review/`.
+
+  **IC-5 is DONE.** IC-6 is NOT started. Full IC-7 remains NOT done.
+  IC-8 is NOT started. Phase 10D is NOT started.
+
+- **2026-09-16 (IC-5 — NARROW CORRECTION PASS, same day)**: external
+  review of the IC-5 diff found two issues, both closed forward (no
+  migration edited, no redesign).
+
+  **Finding A (BLOCKER) — reversed putaway rebuilt the wrong bucket
+  set.** The original reversal-aware trigger derived the buckets to
+  rebuild from `NEW.location_id` (the single ledger row that happened
+  to fire the trigger) plus `movement_line.destination_location_id` —
+  for a relocation reversal, BOTH resolve to the SAME bucket (the
+  destination), since the only `direction='decrease'` ledger row a
+  relocation reversal produces is the destination-decrease effect
+  (`inventory_reverse_movement` preserves `source_location_id`/
+  `destination_location_id` verbatim and only inverts each effect's
+  own direction). The trigger therefore rebuilt the destination bucket
+  TWICE and never rebuilt the source/receiving bucket at all.
+
+  **Live reproduction (before any fix)**: a fresh BEGIN/ROLLBACK
+  fixture — receive 5 into Receiving, attach, full putaway 5 to
+  Shelf-A, reverse the posted 801 putaway movement. Physical balances
+  correctly restored (Receiving on_hand=5, Shelf-A on_hand=0) but the
+  projection left Receiving stale at its pre-reversal value (0), while
+  Shelf-A's own row happened to read correctly (absent/0) only because
+  its own two contributing ledger effects (the original relocation's
+  own +5 and the reversal's own mirrored −5) canceled out
+  arithmetically — not because the right bucket was rebuilt. Links
+  confirmed correct throughout (receipt=5, relocation=5, reversal=5).
+
+  **Fix**: the reversal branch now derives BOTH affected buckets
+  directly from the reversal movement LINE's own `source_location_id`/
+  `destination_location_id` columns (never from `NEW.direction`/`NEW.
+location_id`), and rebuilds each exactly once (guarded against
+  `source = destination`). Live-reproduced fixed for both a FULL
+  putaway reversal (Receiving restored to 5, Shelf-A absent/0) and a
+  PARTIAL putaway reversal (Receiving restored from 2 to the full 5,
+  Shelf-B absent/0) — both also proven byte-identical to a full-order
+  rebuild.
+
+  **Finding B — the "attach is the sole writer" claim was false.**
+  After IC-5's own original pass, THREE functions directly INSERTed
+  into `repair_order_line_movement_links`: `attach_repair_order_line_
+movement` (receipt/issue), `putaway_repair_order_stock` (relocation,
+  added by IC-5), and the reversal-aware trigger (reversal, added by
+  IC-5). Closed by creating ONE narrow internal canonical writer,
+  `write_repair_order_line_movement_link_internal(repair_order_line_id,
+inventory_movement_line_id, applied_quantity, relation_type,
+p_require_posted default true)` — internal-only (`SECURITY DEFINER`,
+  hardened `search_path`, `EXECUTE` revoked from `PUBLIC`/`anon`/
+  `authenticated`/`service_role`, reachable only via same-owner
+  `SECURITY DEFINER` callers, no new client RPC exposed) — and
+  refactoring all three call sites onto it. The internal writer owns
+  every load-bearing GENERIC invariant applicable to every relation
+  type (RepairOrderLine/movement-line existence, org/branch
+  compatibility, posted status, variant compatibility where
+  applicable, positive quantity, the global per-movement-line applied-
+  quantity cap, duplicate/unique handling, the `relation_type` domain
+  check). Relation-SPECIFIC validation stays in each caller: attach's
+  own category/reference-type checks (receipt/issue), putaway's own
+  exact ordinal correlation (relocation), the trigger's own "mirror an
+  already-valid original link" trust (reversal) — none reimplemented
+  inside the shared primitive. **Public contract frozen**: `attach_
+repair_order_line_movement` still only accepts `relation_type IN
+('receipt', 'issue')` — unchanged check, re-proven live (an
+  authenticated caller submitting `'relocation'`/`'reversal'` is still
+  rejected `22023`) — the system-owned relation types are reachable
+  only through trusted domain orchestration (putaway, the trigger),
+  never directly by an ordinary caller.
+
+  **Self-caught defect during this correction** (found live, before
+  the fix was considered final): the internal writer's own generic
+  `status = 'posted'` check — correct and load-bearing for `attach`/
+  `putaway` — broke the reversal trigger's own mirror call, because
+  that call fires from the ledger-row INSERT INSIDE `inventory_
+finalize_posting_internal`'s own effect-application loop, which
+  happens BEFORE that same function flips the header's own status to
+  `'posted'` (a pure timing artifact — the effect is already durably
+  applied within the same transaction, and atomicity guarantees the
+  header reaches `'posted'` or the whole transaction, including the
+  mirrored link, rolls back together). The masked symptom: `inventory_
+reverse_movement`'s own generic `WHEN OTHERS` catch-all rethrew the
+  underlying `55000` as a opaque `P0001` ("Movement reversal failed
+  unexpectedly"), requiring the internal writer's own body to be read
+  directly to diagnose. Fixed via a narrow, explicit `p_require_posted`
+  opt-out parameter (default `true`, preserving the check for every
+  other caller unchanged — Phase-10 receipt/issue validation is NOT
+  weakened), passed `false` only from the trigger's own reversal-mirror
+  call site. Required one arity change (4 args → 5 args), handled via
+  explicit `DROP FUNCTION` of the old 4-arg overload before creating
+  the 5-arg replacement, per this project's own established forward-
+  migration discipline — live-verified exactly one overload survives
+  after each step.
+
+  **Migrations** (6, all applied live via MCP, live-verified, mirrored
+  locally under the exact live timestamp): `20260916201207` (internal
+  writer, 4-arg, v1), `20260916201228` (attach refactor), `20260916
+201300` (putaway refactor), `20260916201328` (trigger bucket-fix +
+  internal-writer usage, v1), `20260916201516` (internal writer
+  corrected to 5-arg with `p_require_posted`, old 4-arg overload
+  explicitly dropped), `20260916201541` (trigger's reversal-mirror call
+  updated to pass `p_require_posted => false`).
+
+  **New pgTAP**: `107_...` extended with Scenario Q (full putaway
+  reversal, source+destination projection, rebuild equality — 5
+  assertions), Scenario R (partial putaway reversal, same — 5
+  assertions), Scenario S (public attach relocation/reversal rejection
+  — 2 assertions), Scenario T (internal writer unreachable directly —
+  1 assertion). `plan(33)` → `plan(46)`, final 46/46.
+
+  **Full regression**: 097 (29/29, re-run in FULL since this pass
+  touches the Phase-10 attribution-write boundary), 098 (17/17), 099
+  (20/20), 100 (44/44), 101 (17/17), 102 (14/14), 103 (35/35,
+  `inventory_reverse_movement` reconfirmed RepairOrder-agnostic), 104
+  (44/44, the original double-write fix reconfirmed unaffected), 105
+  (29/29), 106 (87/87), 107 (46/46) — **382/382 total, 0 failures.**
+  Relevant Vitest (RepairOrders, Zone 5, inventory movement, receiving,
+  branch transfer): 217/217 pass. `pnpm type-check`: 0 errors. `pnpm
+lint`: 0 errors, 319 pre-existing warnings (unchanged). `git diff
+--check`: clean. `pnpm build`: not required (no application/runtime
+  TypeScript changed — this correction, like the original IC-5 pass, is
+  entirely PL/pgSQL).
+
+  **Documentation updated**: `inventory-core-architecture.md` §9C's own
+  writer-model bullet corrected (no longer claims attach is the sole
+  writer) and a new "IC-5 Narrow Correction Pass" subsection appended
+  covering both findings in full. `inventory-core-implementation-plan.
+md`'s own IC-5 section note updated to mention the correction pass.
+  This file (`inventory-core-progress.md`) updated: runtime-status
+  header, phase-tracker row, this change-log entry.
+
+  **Bundle**: `docs/inventory/reviews/ic-5-review/` refreshed in place
+  (not superseded by a new bundle), matching this project's own
+  established convention from IC-1's/IC-4's own external-review
+  correction passes.
+
+  **IC-5 remains DONE, now with this correction applied.** IC-6 is NOT
+  started. Full IC-7 remains NOT done. IC-8 is NOT started. Phase 10D
+  is NOT started.

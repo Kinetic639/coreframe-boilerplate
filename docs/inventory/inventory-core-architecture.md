@@ -111,10 +111,18 @@ public.inventory_allocate_movement_number(uuid, uuid) does not exist`, and
   would additionally fail on a missing `movement_kind` column and `NOT NULL`
   `movement_type_id`/`movement_type_code` violations even if that were fixed.
   Zero real callers exist (service + actions exist, zero `.tsx` callers).
+  **REBUILT IC-4, 2026-09-16 — see §9B**: both functions hand-wrote balances/
+  ledger entries directly, entirely bypassing the canonical engine; `accept`
+  fully rebuilt to route through it; `decline`'s own automatic-return-movement
+  branch (for the post-shipment case) removed entirely, per a closed product
+  decision that post-shipment discrepancy is represented by partial accept,
+  never an automatic reversal.
 - **Movement code 311** (`requires_destination_location = false`, one-sided
   `source` effect only) has **0 posted headers ever** — dead at the
   type-catalog level; the real (broken) inter-branch transfer logic bypasses
-  it entirely via hand-rolled `INSERT`s.
+  it entirely via hand-rolled `INSERT`s. **REDEFINED IC-4** (zero live rows
+  confirmed again immediately before the change): now `allows_manual_entry=
+false`, posted exclusively by `inventory_send_branch_transfer`. See §9B.
 - **No reversal RPC exists**, despite `inventory_movement_headers` already
   carrying `original_movement_id`/`reversal_movement_id` columns.
 - **Movement immutability is already DB-enforced**: `BEFORE UPDATE OR DELETE`
@@ -651,7 +659,7 @@ using direct writes.**
 | `inventory_reservations`/`_lines`, `inventory_allocations`/`_lines`                                                                                                                                                    | Not audited for raw-write policy shape this pass                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | **Verify in IC-0**; apply Phase 10C's own RESTRICTIVE-policy pattern if a gap is found                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `inventory_containers`/`_container_lines`                                                                                                                                                                              | Generic rows: existing PERMISSIVE `ALL`; RepairOrder-owned rows: RESTRICTIVE-closed (Phase 10C correction, already done)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | **Keep as-is** — already the correct target shape                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `inventory_allocation_container_links`                                                                                                                                                                                 | SELECT + explicit `INSERT ... WITH CHECK (false)`, no UPDATE/DELETE policy (implicit deny)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | **Keep as-is** — already correct                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| `inventory_branch_transfers`/`_lines`                                                                                                                                                                                  | Raw PERMISSIVE `ALL` policy (`_operate`) — **currently open**, though inert since nothing calls it raw today                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | **Close with RESTRICTIVE policies** as part of IC-4 (the branch-transfer rebuild), same pattern as Phase 10C                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `inventory_branch_transfers`/`_lines` — **CLOSED IC-4, 2026-09-16**                                                                                                                                                    | Was: raw PERMISSIVE `ALL` policy (`_operate`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | **Closed.** Old PERMISSIVE `ALL` policy dropped; explicit RESTRICTIVE `USING(false)`/`WITH CHECK(false)` policies added for INSERT/UPDATE/DELETE on both tables (scoped SELECT unchanged). The same pattern was applied to the new `inventory_branch_transfer_discrepancies` table from its own creation. See §9B.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `repair_order_line_locations`                                                                                                                                                                                          | Currently written directly by Zone 5's own RPCs (by design, pre-consolidation)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Once converted to a derived projection (IC-5), **no INSERT/UPDATE/DELETE policy for any role except the maintaining trigger's own `postgres` execution context**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `repair_order_line_locations` staleness after IC-2 reversal                                                                                                                                                            | **New, IC-2-discovered**: reversing a RepairOrder-attributed receipt leaves this table stale (shows quantity at a location the canonical ledger now shows as physically empty) -- the active-corruption variant was fixed in IC-2 itself by GUC-gating the reversal's own ledger inserts, but the underlying staleness remains                                                                                                                                                                                                                                                                                                                                              | **Resolve in IC-5** -- once `repair_order_line_locations` is a genuine derived projection (not a directly-written table), a reversal's own compensating ledger entries should correctly re-derive it, closing this gap structurally rather than via a GUC workaround                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | Function-level `anon` EXECUTE grants (new functions)                                                                                                                                                                   | **New, IC-2-discovered**: this database applies a default-privilege grant giving `anon` EXECUTE on functions in schema `public` -- it silently re-applies on every `CREATE OR REPLACE FUNCTION` of the SAME function, even after an explicit `REVOKE ALL FROM PUBLIC`. Live-confirmed on both `inventory_finalize_posting` (pre-existing, before IC-1/IC-2) and `inventory_reverse_movement` (re-appeared twice during IC-2's own iterative fixes, corrected with a final explicit re-grant)                                                                                                                                                                                | **Audit systematically in IC-7** -- every canonical Inventory Core RPC needs its EXECUTE grants re-verified as the LAST step after its own migration sequence is fully applied, not just once after first creation; consider whether the default privilege itself should be altered (`ALTER DEFAULT PRIVILEGES ... REVOKE EXECUTE ... FROM anon`) at the schema level to close this permanently rather than per-function                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
@@ -792,6 +800,332 @@ function's own pre-existing row acquisition. IC-1/IC-2/IC-3's own genuine
 two-session concurrency proofs remain valid and were not re-run.
 
 **Full evidence**: `docs/inventory/reviews/ic-7a-movement-engine-security-review/`.
+
+---
+
+## 9B. IC-4 — Branch Transfer / MMJ Rebuild
+
+**✅ DONE (2026-09-16)**. **Corrected (2026-09-16, narrow correction
+pass, same day)**: external review found `inventory_accept_branch_
+transfer` unconditionally created a draft `312` movement header before
+evaluating accepted quantities, leaving a permanent orphan draft (with
+a discrepancy row pointing at it) whenever a receipt was 100% missing.
+Fixed by gating header creation on `total_accepted > 0`, decided via a
+set-based query before any mutation. The same pass also made the
+explicit `p_line_acceptances` payload fail-closed (previously an
+incomplete/mistyped payload silently defaulted an omitted line to full
+acceptance) and fixed an audit-event metadata bug (`partial` was
+derived from the shape of the input, not the RPC's own result status).
+The accepted lifecycle/architecture itself was not touched. Full
+evidence: `docs/inventory/reviews/ic-4-review/` (updated in place).
+
+**Closed product-owner decision, implemented exactly**: `in_transit`
+means the goods have physically left the source branch, never merely
+reserved. Final lifecycle: `prepared` (reserved, not shipped) →
+`in_transit` (real `311` movement posted, source `SECURITY DEFINER` RPC
+`inventory_send_branch_transfer`) → `accepted` | `partially_accepted`
+(real `312` movement posted for the accepted quantity, any shortfall
+persisted as an `inventory_branch_transfer_discrepancies` row, never
+auto-adjusted back to source) → `declined` (destination, pre-shipment
+only) | `cancelled` (source, pre-shipment only, new dedicated RPC). Once
+shipped, decline/cancel are hard-rejected (`P0007`) — there is no
+automatic return movement; a post-shipment shortfall is represented
+exclusively by partial acceptance.
+
+**Both pre-existing accept/decline RPCs were fully rebuilt, not
+patched**: live inspection (not trusted from the pre-IC-1 audit) found
+both hand-wrote `inventory_movement_headers`/`_lines`/`inventory_
+balances` directly, bypassing the canonical engine entirely (in addition
+to `accept`'s already-known crash on a nonexistent function). Both are
+now `SECURITY DEFINER`, actor/permission-checked, and post exclusively
+through `inventory_finalize_posting_internal` with `p_explicit_effects=
+NULL` (reusing `311`/`312`'s own type-catalog effects — IC-2's frozen
+"explicit effects only for type 900" contract is untouched). A
+genuinely new, previously undisclosed finding: both old RPCs carried
+live `anon` EXECUTE, and `inventory_create_branch_transfer` itself never
+validated `p_actor_user_id` at all — the same class of gap IC-7A closed
+on the generic engine, on an entirely different set of functions IC-7A's
+own narrow scope did not touch. All five branch-transfer RPCs (create/
+send/accept/decline/cancel, the last two new) now carry the standard
+IC-7A-grade actor-identity + permission checks and `anon`-revoked
+grants.
+
+**Movement-type catalog**: `311` (Inter-Branch Transfer Out) redefined
+— zero live posted headers ever existed for it (re-confirmed live
+immediately before the change), and its own pre-existing effect (source
+`on_hand` decrease) was already exactly correct; only `allows_manual_
+entry` flipped to `false` (system-managed — the RPC posts it directly,
+bypassing `inventory_create_draft`'s own manual-entry guard, the same
+pattern `inventory_reverse_movement` already uses for `900`). New `312`
+(Inter-Branch Transfer In) seeded, same pattern, destination `on_hand`
+increase, backfilled for all 4 existing organizations.
+
+**Reservation handshake, proven exactly**: `inventory_send_branch_
+transfer` consumes the reservation (decrements `inventory_balances.
+reserved_quantity`, increments `reservation_lines.fulfilled_quantity`)
+BEFORE posting the physical decrease, in the same transaction — this is
+what allows the decrease down to exactly the committed boundary without
+tripping IC-1's own P0003 invariant against its own reservation, and
+what makes a failed post roll back the reservation consumption too (no
+intermediate "unreserved but not shipped" state possible). Live-proven
+worked example, exact match: on_hand=10/reserved=6 → after send:
+on_hand=4/reserved=0 → after accept: destination on_hand=6.
+
+**Raw-write RLS closed** on `inventory_branch_transfers`/`_lines` (old
+permissive `ALL` policy dropped, explicit RESTRICTIVE deny added) and on
+the new `inventory_branch_transfer_discrepancies` table (RPC-only write
+from its own creation).
+
+**Live-proven, all required scenarios**: full accept; partial accept
+with a persisted, arithmetic-CHECK-enforced discrepancy; pre-shipment
+decline and cancel (reservation released, zero movements); post-shipment
+decline/cancel hard-rejected; NULL-actor and actor-impersonation
+rejection on every RPC; no-permission rejection (source-side for create/
+send/cancel, destination-side for accept/decline); cross-org and
+same-branch rejection; `anon` EXECUTE denial on all five RPCs; raw-write
+denial on all three tables as a real permissioned actor; idempotent
+retry (double-send/double-accept both resolve to exactly one movement,
+proven via two genuinely independent PostgreSQL connections, not merely
+sequential re-calls); an unrelated commitment on the same bucket blocking
+`send` (IC-1 protection, not merely inherited by assumption); same-SKU
+line independence via `transfer_line_id` correlation (never SKU); the
+source `311` movement's own physical reversibility via the unmodified
+`inventory_reverse_movement`, explicitly distinguished from (and not
+exposing) a business-level transfer-lifecycle reversal.
+
+**Full evidence**: `docs/inventory/reviews/ic-4-review/`.
+
+---
+
+## 9C. IC-5 — RepairOrder Physical Projection Consolidation
+
+**✅ DONE (2026-09-16)**.
+
+**Three concepts, now explicit and never conflated**:
+
+- **A. Physical stock truth**: `inventory_balances`/`inventory_stock_
+ledger_entries` — unchanged, still the sole physical truth, IC-1's own
+  invariants untouched.
+- **B. RepairOrder business attribution**: `repair_order_line_movement_
+links` — the sole attribution-history TABLE (already fully closed to
+  raw writes since IC-2's own correction pass). **Corrected by the IC-5
+  narrow correction pass (2026-09-16, same day)**: this doc previously
+  claimed `attach_repair_order_line_movement` was the sole direct
+  INSERT writer of this table — false after IC-5's own original pass,
+  which added two more direct writers (`putaway_repair_order_stock` for
+  `'relocation'`, the reversal-aware trigger for `'reversal'`). All
+  THREE now funnel through one shared internal primitive,
+  `write_repair_order_line_movement_link_internal` — see the
+  correction-pass subsection below for the full writer-boundary model.
+  Now carries a 4th `relation_type`, `'relocation'` (see below),
+  alongside the pre-existing `'receipt'`/`'issue'`/`'reversal'`.
+- **C. RepairOrder location projection**: `repair_order_line_locations`
+  - `repair_order_location_attribution_uncertain` — now a genuinely
+    DERIVED projection of A joined through B, never an independent source
+    of truth, with a live-verified, deterministic, idempotent rebuild.
+
+**Derivation model**: both an incremental fast path (unchanged
+`receive_repair_order_stock`/`putaway_repair_order_stock` direct writes,
+plus the pre-existing ledger-sync trigger's own confidence-based
+inference for genuinely generic movements) AND an authoritative
+deterministic rebuild (new), exactly the "healthy design uses both"
+option. The rebuild formula: for every `repair_order_line_movement_
+links` row, join its own `inventory_movement_line_id` to the ledger rows
+that line produced at the target bucket, prorate the ledger's own
+physical quantity by `applied_quantity / movement_line.quantity`,
+signed by the ledger's own `direction`. `relation_type` does not need
+special-casing in this formula — a `'reversal'`-typed link's own
+ledger row already carries the inverted direction (from `inventory_
+finalize_posting_internal`'s own explicit-effects mechanism), and a
+`'relocation'`-typed link's own SINGLE movement line naturally produces
+BOTH a source-decrease and a destination-increase ledger row, netting
+correctly with zero extra logic.
+
+**Reversal-awareness (closes the IC-2 staleness compromise)**: the
+existing `repair_order_line_locations_ledger_sync` trigger (on
+`inventory_stock_ledger_entries`, unavoidably fires for every ledger row
+including reversal-generated ones) now detects a reversal (`header.
+original_movement_id IS NOT NULL`), finds the ORIGINAL movement's own
+corresponding line by ordinal position (`line_number` — never SKU),
+mirrors its own `receipt`/`issue`/`relocation` links onto the reversal's
+own movement line as new `'reversal'`-typed links (idempotent), and
+calls the SAME rebuild primitive for the affected bucket(s). Rebuild-
+equals-incremental holds BY CONSTRUCTION for reversal, not merely by
+separate testing, since the incremental reversal path literally IS a
+rebuild call. `inventory_reverse_movement` itself was NOT touched and
+remains entirely RepairOrder-agnostic — all of this logic lives inside
+the RepairOrder-domain trigger, which already existed and already
+contained significant domain logic before this pass.
+
+**Two genuinely new, previously undisclosed gaps found and closed** (not
+merely the reversal case the phase was scoped around):
+
+1. `attach_repair_order_line_movement` — a real, standalone, authenticated
+   -callable writer of business attribution — left the projection
+   completely untouched when called on its own (live-confirmed: 0 known
+   rows after a real attach call). Fixed to call the SAME rebuild
+   primitive for its own affected bucket, but ONLY when no authoritative
+   orchestrator (receive/putaway) is already managing the same
+   transaction (checked via the same GUC) — a live-caught, self-corrected
+   double-write defect (see review bundle) found this exact interaction
+   and fixed it forward.
+2. `putaway_repair_order_stock`'s own relocations were entirely invisible
+   to canonical business-attribution history (no link row written at
+   all), making a full rebuild AFTER a receipt+putaway sequence
+   incorrectly double-count the original receipt. Fixed by extending
+   `relation_type` to include `'relocation'` and having putaway record
+   its own relocation as a link, correlated to its own posted movement
+   line by ordinal position (this project's own established contract,
+   fixed forward after a self-caught field-matching correlation bug).
+
+**UNKNOWN semantics, reconfirmed unchanged**: bucket-scoped (`org`,
+`branch`, `location`, `variant`), never RepairOrder-scoped — a boolean
+marker, sticky (never cleared by a later known contribution alone,
+matching decision-accepted Zone-5 semantics), representable alongside
+known contributions at the same bucket (mixed known+unknown, live-
+proven). `putaway_repair_order_stock`'s own pre-existing hard-error
+UNKNOWN-source gate was NOT reopened.
+
+**Projection invariants added**: `CHECK (quantity >= 0)` on `repair_
+order_line_locations` (zero live rows at the time, safe) — the rebuild
+primitive never clamps a negative or over-attributed result, it raises
+`P0008` (a new, project-consistent SQLSTATE for projection-reconciliation
+inconsistencies). UNKNOWN marker uniqueness was already enforced (PK on
+`org, branch, location, variant`).
+
+**Raw-write closure**: both projection tables carried only a SELECT
+policy (implicit-deny already in effect for INSERT/UPDATE/DELETE) —
+explicit RESTRICTIVE deny policies added for self-documentation,
+matching the established pattern.
+
+**Rebuild API**: `rebuild_repair_order_projection_bucket_internal`
+(internal-only, one bucket) is the single authoritative derivation
+primitive; `rebuild_repair_order_location_projection` (public, actor/
+permission-checked, one RepairOrder — finds every bucket that order's
+own history has touched via the same ledger+links join) is the
+user-callable reconciliation entry point. Rebuild-vs-incremental
+equality and idempotency both live-proven. No genuine race was found
+between rebuild and live receive/putaway (each locks the SAME
+`inventory_balances` row every other writer already locks — no new lock
+primitive), so no dedicated two-connection concurrency test was required
+beyond that structural argument.
+
+**IC-2 GUC disposition**: `ambra.repair_order_attribution_authoritative`
+is NOT removed — it remains the correct, narrow "defer to the
+orchestrating caller" signal, now used consistently by three callers
+(receive, putaway, and — newly — a standalone attach call correctly
+NOT deferring). Its own staleness-causing SIDE EFFECT (silently skipping
+projection updates on reversal, forever) is eliminated: reversal is now
+detected independently of the GUC's own "on" value and always triggers
+a real rebuild. Full removal of the GUC itself is not warranted — it is
+still doing real, correct work — and is left as-is, not scheduled for
+IC-6.
+
+**Trigger disposition**: retained and extended (§18 option A), not
+replaced. The pre-existing generic-inference logic is untouched,
+byte-for-byte, for the genuinely-generic-movement case.
+
+**Live-caught defects, all fixed forward (never editing an already-
+applied migration)**: (1) a redundant `putaway_repair_order_stock`
+line↔movement-line correlation bug (field-value matching instead of
+ordinal position), self-caught before any pgTAP ran; (2) the attach/
+receive double-write interaction above, live-caught by the FULL
+regression suite itself (101/104 both broke: "have 20, want 10") and
+fixed forward the same session.
+
+### IC-5 Narrow Correction Pass (2026-09-16, same day)
+
+External review of the IC-5 diff found two issues, both closed forward
+(no migration edited, no redesign):
+
+**Finding A (BLOCKER) — reversed putaway rebuilt the wrong bucket
+set.** The original reversal-aware trigger derived the buckets to
+rebuild from `NEW.location_id` (the single ledger row that happened to
+fire the trigger) plus `movement_line.destination_location_id` — for a
+relocation reversal, BOTH of these resolve to the SAME bucket (the
+destination), since the only `direction='decrease'` ledger row a
+relocation reversal produces is the destination-decrease effect
+(`inventory_reverse_movement` preserves `source_location_id`/
+`destination_location_id` verbatim and only inverts each effect's own
+direction). The trigger therefore rebuilt the destination bucket
+TWICE and never rebuilt the source/receiving bucket at all — live-
+reproduced exactly before any fix: after reversing a full 5-unit
+putaway (Receiving→Shelf-A), physical balances correctly restored
+(Receiving=5, Shelf-A=0) but the projection left Receiving stale at
+its pre-reversal value (0) while Shelf-A's own row happened to read
+correctly (0) only because its own two contributing ledger effects
+(the original relocation's +5 and the reversal's own mirrored −5)
+canceled out arithmetically, not because the right bucket was
+rebuilt. **Fix**: the reversal branch now derives BOTH affected
+buckets directly from the reversal movement LINE's own
+`source_location_id`/`destination_location_id` columns (never from
+`NEW.direction`/`NEW.location_id`), and rebuilds each exactly once
+(guarded against `source = destination`). Live-reproduced fixed for
+both a FULL putaway reversal (Receiving restored to 5, Shelf-A
+absent/0) and a PARTIAL putaway reversal (Receiving restored from 2 to
+the full 5, Shelf-B absent/0) — both cases also proven byte-identical
+to a full-order rebuild. New pgTAP Scenarios Q/R in `107_...`.
+
+**Finding B — the "attach is the sole writer" claim was false.**
+After IC-5's own original pass, THREE functions directly INSERTed into
+`repair_order_line_movement_links`: `attach_repair_order_line_movement`
+(receipt/issue), `putaway_repair_order_stock` (relocation, added by
+IC-5), and the reversal-aware trigger (reversal, added by IC-5). This
+correction does not merely relabel the documentation — it creates ONE
+narrow internal canonical writer,
+`write_repair_order_line_movement_link_internal(repair_order_line_id,
+inventory_movement_line_id, applied_quantity, relation_type,
+p_require_posted default true)`, internal-only (`SECURITY DEFINER`,
+hardened `search_path`, `EXECUTE` revoked from `PUBLIC`/`anon`/
+`authenticated`/`service_role`, reachable only via same-owner
+`SECURITY DEFINER` callers — no new client RPC exposed), and refactors
+all three call sites onto it. The internal writer owns every
+load-bearing GENERIC invariant that applies to every relation type
+(RepairOrderLine/movement-line existence, org/branch compatibility,
+posted status, variant compatibility where applicable, positive
+quantity, the global per-movement-line applied-quantity cap, duplicate/
+unique handling, the `relation_type` domain check). Relation-SPECIFIC
+validation stays in each caller: `attach`'s own category/reference-type
+checks (receipt/issue), `putaway`'s own exact ordinal correlation
+(relocation), the trigger's own "mirror an already-valid original link"
+trust (reversal) — none of these are reimplemented inside the shared
+primitive. **Public contract frozen**: `attach_repair_order_line_
+movement` still only accepts `relation_type IN ('receipt', 'issue')` —
+unchanged check, re-proven live (an authenticated caller submitting
+`'relocation'`/`'reversal'` is still rejected `22023`, pgTAP Scenario
+S) — the system-owned relation types are reachable only through trusted
+domain orchestration (putaway, the trigger), never directly by an
+ordinary caller.
+
+**Self-caught defect during this correction** (found live, before the
+fix was considered final): the internal writer's own generic
+`status = 'posted'` check — correct and load-bearing for `attach`/
+`putaway` (both call it only against already-committed movement lines)
+— broke the reversal trigger's own mirror call, because that call
+fires from the ledger-row INSERT INSIDE `inventory_finalize_posting_
+internal`'s own effect-application loop, which happens BEFORE that
+same function flips the header's own status to `'posted'` (a pure
+timing artifact, not a business-meaningful draft state — the effect is
+already durably applied within the same transaction, and atomicity
+guarantees the header reaches `'posted'` or the whole transaction,
+including the mirrored link, rolls back together). Fixed via a narrow,
+explicit `p_require_posted` opt-out parameter (default `true`,
+preserving the check for every other caller unchanged — Phase-10
+receipt/issue validation is NOT weakened), passed `false` only from the
+trigger's own reversal-mirror call site. This required one arity
+change (4 args → 5 args), handled via explicit `DROP FUNCTION` of the
+old 4-arg overload before creating the 5-arg replacement, per this
+project's own established forward-migration discipline.
+
+New pgTAP: Scenarios Q (full putaway reversal, source+destination),
+R (partial putaway reversal, source+destination), S (public attach
+relocation/reversal rejection), T (internal writer unreachable
+directly) added to `107_...` (33/33 → 46/46). Full regression 097-107
+re-run, 097 specifically re-run in full (touches the Phase-10
+attribution-write boundary) — see `test-evidence.md` for the complete
+per-file breakdown.
+
+**Full evidence**: `docs/inventory/reviews/ic-5-review/`.
 
 ---
 

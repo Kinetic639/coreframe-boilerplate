@@ -46,6 +46,8 @@ import {
   adjustStockSchema,
   checkInventorySkuCollisionsSchema,
   createBranchTransferSchema,
+  sendBranchTransferSchema,
+  cancelBranchTransferSchema,
   createAllocationSchema,
   createCollectionSchema,
   createCustomFieldSchema,
@@ -3053,9 +3055,19 @@ export async function acceptInventoryBranchTransferAction(rawInput: unknown) {
       supabase,
       parsed.data.id!,
       parsed.data.destination_location_id!,
-      userId
+      userId,
+      (parsed.data.line_acceptances ?? null) as Array<{
+        transfer_line_id: string;
+        accepted_quantity: number;
+      }> | null
     );
     if (result.success) {
+      // IC-4 correction pass: `partial` must reflect the RPC's own
+      // result status, never the shape of the input payload -- an
+      // explicit line_acceptances payload can still fully accept every
+      // line (status='accepted'), and a NULL payload can still short-
+      // fall if sent/accepted quantities diverge some other way.
+      const resultStatus = (result.data as Record<string, unknown> | undefined)?.status;
       await emitInventoryEvent(auth, userId, {
         actionKey: "warehouse.inventory.branch_transfer.accepted",
         entityType: "inventory_branch_transfer",
@@ -3063,6 +3075,69 @@ export async function acceptInventoryBranchTransferAction(rawInput: unknown) {
         metadata: {
           transfer_id: parsed.data.id!,
           destination_location_id: parsed.data.destination_location_id!,
+          partial: resultStatus === "partially_accepted",
+        },
+      });
+    }
+    return result;
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function sendInventoryBranchTransferAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE))
+      return { success: false, error: "Unauthorized" };
+    const parsed = sendBranchTransferSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    const userId = userIdFrom(auth);
+    const supabase = await createClient();
+    const result = await InventoryEnterpriseService.sendBranchTransfer(
+      supabase,
+      parsed.data.id!,
+      userId
+    );
+    if (result.success) {
+      await emitInventoryEvent(auth, userId, {
+        actionKey: "warehouse.inventory.branch_transfer.sent",
+        entityType: "inventory_branch_transfer",
+        entityId: parsed.data.id!,
+        metadata: { transfer_id: parsed.data.id! },
+      });
+    }
+    return result;
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function cancelInventoryBranchTransferAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE))
+      return { success: false, error: "Unauthorized" };
+    const parsed = cancelBranchTransferSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    const userId = userIdFrom(auth);
+    const supabase = await createClient();
+    const result = await InventoryEnterpriseService.cancelBranchTransfer(
+      supabase,
+      parsed.data.id!,
+      userId,
+      parsed.data.reason ?? null
+    );
+    if (result.success) {
+      await emitInventoryEvent(auth, userId, {
+        actionKey: "warehouse.inventory.branch_transfer.cancelled",
+        entityType: "inventory_branch_transfer",
+        entityId: parsed.data.id!,
+        metadata: {
+          transfer_id: parsed.data.id!,
+          has_reason: Boolean(parsed.data.reason),
         },
       });
     }

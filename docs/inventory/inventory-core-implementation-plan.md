@@ -540,7 +540,21 @@ proceed once separately authorized.
 
 ## IC-4 — Branch Transfer / MMJ Rebuild
 
-**Goal**: repair the broken `inventory_accept_branch_transfer`/`inventory_
+**✅ DONE (2026-09-16)**. The "in*transit means reserved, not physically
+moving" open question below was resolved by an explicit, closed
+product-owner decision BEFORE this phase began (stated verbatim in the
+assigning brief): `in_transit` means the goods have PHYSICALLY LEFT the
+source branch. The plan below (written before that decision existed)
+described the OLD, now-superseded semantics as its own target shape —
+preserved here for historical record, but superseded in full by the
+actual implementation. See `inventory-core-architecture.md` §9B and
+`docs/inventory/reviews/ic-4-review/` for the final, as-implemented
+design (new `prepared` pre-shipment status, new `inventory_send_branch*
+transfer`/`inventory*cancel_branch_transfer`RPCs, redefined`311`+
+new`312`movement types, a dedicated`inventory_branch_transfer*
+discrepancies` table, and the full live/concurrency evidence).
+
+**Goal (as originally planned)**: repair the broken `inventory_accept_branch_transfer`/`inventory_
 decline_branch_transfer` (audit §7) by routing their own physical-effect
 legs through the now-hardened canonical engine (post-IC-1/IC-3), add
 explicit partial-receipt/discrepancy handling (decision #13), and close the
@@ -674,7 +688,28 @@ means reserved, not physically moving" semantic question flagged above.**
 
 ## IC-5 — RepairOrder Physical-Location Projection Consolidation
 
-**Goal**: convert `repair_order_line_locations` from an independently-
+**✅ DONE (2026-09-16, includes a same-day narrow correction pass)**.
+`repair_order_line_locations` is now a genuinely derived projection,
+deterministically rebuildable from canonical ledger + attribution
+history, reversal-aware without coupling the generic engine to
+RepairOrder domain logic. See `inventory-core-architecture.md` §9C
+(including its own "IC-5 Narrow Correction Pass" subsection) and
+`docs/inventory/reviews/ic-5-review/` for the full as-implemented
+design, live evidence, and every live-caught defect (all self-
+corrected same session). The correction pass fixed a BLOCKER (reversed
+putaway rebuilt the wrong projection bucket set, leaving the source/
+receiving bucket stale) and centralized all three direct writers of
+`repair_order_line_movement_links` (attach/putaway/reversal-trigger)
+behind one internal canonical primitive, after external review found
+the original pass's own documentation claim ("attach is the sole
+writer") had become false. `getPhysicalStateForLine`/read-model
+consumers were NOT touched (no UI/read-model work in this phase, per
+explicit scope) — the projection's own external shape
+(`repair_order_line_locations` rows + `repair_order_location_
+attribution_uncertain` markers) is unchanged, so existing consumers
+require no change.
+
+**Goal (as originally planned)**: convert `repair_order_line_locations` from an independently-
 written table into a derived projection (decision #7), and simplify/replace
 `getPhysicalStateForLine` accordingly (decision #8).
 
