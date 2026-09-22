@@ -12,6 +12,23 @@
 -- evidence.md for the full write-once/TOCTOU re-verification this pass
 -- performed live before implementing).
 --
+-- A7 FOLLOW-UP CORRECTION PASS (see docs/inventory/reviews/inventory-a7-
+-- correction-generic-container-eligibility-review/): scenario G2 below
+-- originally demonstrated a disclosed, accepted tradeoff -- a DIRECT call
+-- to inventory_add_to_container (bypassing the wrapper) with a cross-
+-- RepairOrder allocation into a RepairOrder-owned container succeeded,
+-- since the generic primitive had no opinion on container ownership at
+-- all. That tradeoff is now CLOSED: inventory_add_to_container itself
+-- was split into a thin public wrapper (a generic-eligibility gate: reject
+-- ANY container carrying reference_type/reference_id, domain-agnostic,
+-- not specifically RepairOrder) delegating to a new INTERNAL-ONLY helper,
+-- inventory_add_to_container_internal (unreachable by any role but the
+-- owner). repair_order_add_allocation_to_container was redirected to call
+-- this same internal helper directly. G2 (and J2's own downstream total)
+-- are updated accordingly -- see their own inline comments. A new,
+-- dedicated file, 115_a7_correction_generic_container_eligibility_test.sql,
+-- covers this correction's own full scenario set.
+--
 -- Executed live against supabase-target via Supabase MCP.
 
 BEGIN;
@@ -269,19 +286,29 @@ INSERT INTO test_log(line) SELECT is(
   false,
   'G1: inventory_add_to_container contains zero real FROM/JOIN references to repair_order_lines'
 );
--- G2: behavioral demonstration of the same fact -- a DIRECT call to the
--- generic primitive (bypassing the wrapper) with a cross-RepairOrder
--- allocation into a RepairOrder-owned container now SUCCEEDS, since the
--- generic primitive no longer evaluates ownership at all. This is the
--- disclosed, accepted design tradeoff (only wrapper callers enforce
--- RepairOrder ownership now; a direct, permissioned RPC caller bypassing
--- the wrapper does not) -- see boundary-evidence.md.
-CREATE TEMP TABLE gf2 AS
-SELECT (inventory_add_to_container(
-  (SELECT e2e_user FROM fx), (SELECT org FROM fx), (SELECT branch FROM fx),
-  (SELECT container_a FROM fx), (SELECT allocline_b FROM fx), 1
-)) AS result;
-INSERT INTO test_log(line) SELECT is((result ->> 'quantity')::numeric, 1::numeric, 'G2: a DIRECT call to the now-narrowed generic primitive no longer enforces RepairOrder ownership (disclosed, accepted tradeoff for callers that bypass the wrapper)') FROM gf2;
+-- G2: A7 FOLLOW-UP CORRECTION PASS -- the disclosed direct-caller
+-- tradeoff this scenario used to demonstrate (a direct call bypassing
+-- the wrapper could place a cross-RepairOrder allocation into a
+-- RepairOrder-owned container) is now CLOSED. The public generic API
+-- rejects ANY domain-owned/referenced container (not specifically
+-- RepairOrder -- see 115_a7_correction_generic_container_eligibility_
+-- test.sql's own G-series for the domain-agnostic proof) with the
+-- SAME P0002 "Container not found" message a genuinely nonexistent
+-- container gets -- non-leaking, no 42501 (the actor legitimately
+-- holds warehouse.inventory.operate; this is not a permission
+-- failure).
+DO $$
+BEGIN
+  BEGIN
+    PERFORM inventory_add_to_container(
+      (SELECT e2e_user FROM fx), (SELECT org FROM fx), (SELECT branch FROM fx),
+      (SELECT container_a FROM fx), (SELECT allocline_b FROM fx), 1
+    );
+    INSERT INTO test_log(line) SELECT fail('G2: expected the generic API to reject a RepairOrder-owned container, call succeeded instead');
+  EXCEPTION WHEN OTHERS THEN
+    INSERT INTO test_log(line) SELECT is(SQLSTATE, 'P0002', 'G2: a DIRECT call to the generic primitive with a RepairOrder-owned container is now rejected (P0002, generic-eligibility gate, A7 follow-up correction)');
+  END;
+END $$;
 
 -- ===========================================================================
 -- H. quantity/location validation remains enforced (by the nested generic
@@ -345,14 +372,19 @@ END $$;
 
 -- ===========================================================================
 -- J. atomic rollback -- a rejected wrapper call leaves zero container-link
--- mutation. Uses allocline_c specifically: it is ONLY ever attempted once
--- in this whole file (scenario H2, rejected for a location mismatch) and
--- never successfully placed anywhere -- unlike allocline_b, which DOES
--- have a real, successful placement elsewhere in this file (scenario G2's
--- own deliberate direct-generic-call demonstration), so checking
--- allocline_b here would conflate "the rejected wrapper attempt in
--- scenario B left no mutation" with "G2's own unrelated, intentionally
--- successful placement" -- allocline_c has no such ambiguity.
+-- mutation. Uses allocline_c: it is ONLY ever attempted once in this
+-- whole file (scenario H2, rejected for a location mismatch) and never
+-- successfully placed anywhere.
+--
+-- A7 FOLLOW-UP CORRECTION PASS note: prior to this correction, G2's own
+-- direct-generic-call demonstration was a deliberate SUCCESS case
+-- (the disclosed tradeoff), which contributed +1 to container_a's own
+-- total and required using allocline_c here instead of allocline_b to
+-- avoid conflating the two. G2 is now ALSO a rejection case (the fix),
+-- so allocline_b in fact has zero container-link rows too as of this
+-- correction -- allocline_c is kept here regardless, since it remains
+-- the cleanest, most narrowly-scoped choice for this specific
+-- atomicity proof.
 -- ===========================================================================
 INSERT INTO test_log(line) SELECT is(
   (SELECT COALESCE(SUM(quantity), 0) FROM inventory_allocation_container_links WHERE allocation_line_id = (SELECT allocline_c FROM fx) AND deleted_at IS NULL),
@@ -360,13 +392,13 @@ INSERT INTO test_log(line) SELECT is(
   'J1: allocline_c has zero container-link rows anywhere -- its only attempted placement (scenario H2, rejected for a location mismatch) left no partial mutation'
 );
 -- container_a's own total contents: 6+4=10 from allocline_a's two
--- successful wrapper placements (A, I1), plus 1 from allocline_b's own
--- unrelated, intentionally successful DIRECT generic-call placement (G2)
--- = 11. None of the rejected attempts (B, C, D, E, H1, H2, I2) contribute.
+-- successful wrapper placements (A, I1) only. G2 (now also a rejection
+-- case, post-correction) contributes nothing. None of the rejected
+-- attempts (B, C, D, E, G2, H1, H2, I2) contribute.
 INSERT INTO test_log(line) SELECT is(
   (SELECT COALESCE(SUM(quantity), 0) FROM inventory_container_lines WHERE container_id = (SELECT container_a FROM fx) AND deleted_at IS NULL),
-  11::numeric,
-  'J2: container_a''s own contents total exactly 11 (10 from allocline_a''s two successful wrapper placements + 1 from allocline_b''s own unrelated G2 direct placement) -- no stray rows from any rejected attempt (B, C, D, E, H1, H2, I2)'
+  10::numeric,
+  'J2: container_a''s own contents total exactly 10 (6+4 from allocline_a''s two successful wrapper placements only) -- no stray rows from any rejected attempt (B, C, D, E, G2, H1, H2, I2)'
 );
 
 RESET ROLE;

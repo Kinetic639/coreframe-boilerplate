@@ -1,0 +1,1542 @@
+diff --git a/apps/web/supabase-target/supabase/migrations/20260922082042_a7_correction_extract_add_to_container_internal.sql b/apps/web/supabase-target/supabase/migrations/20260922082042_a7_correction_extract_add_to_container_internal.sql
+new file mode 100644
+index 00000000..15a64bcc
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260922082042_a7_correction_extract_add_to_container_internal.sql
+@@ -0,0 +1,162 @@
++-- A7 FOLLOW-UP CORRECTION PASS -- closes the disclosed direct-caller
++-- tradeoff A7 itself left open: inventory_add_to_container (public,
++-- generic) currently has zero RepairOrder-table knowledge (correct,
++-- per A7), but also has zero opinion at all about whether the target
++-- container is domain-owned -- meaning a direct, permissioned caller
++-- bypassing repair_order_add_allocation_to_container can place an
++-- unrelated allocation into a RepairOrder-owned container. LIVE
++-- RE-REPRODUCED this pass, fresh, before any fix: a direct call with a
++-- cross-RepairOrder allocation into a RepairOrder-owned container
++-- SUCCEEDED.
++--
++-- Fix (3 migrations, this is 1 of 3): extract the actual placement
++-- implementation into a new INTERNAL-ONLY helper,
++-- inventory_add_to_container_internal -- byte-identical to the current
++-- public inventory_add_to_container body, just renamed. Not yet wired
++-- to anything; harmless addition. The next 2 migrations redirect the
++-- RepairOrder wrapper to call this internal helper directly (closing
++-- the loop before any behavior changes), then narrow the PUBLIC
++-- inventory_add_to_container to add a generic-eligibility gate before
++-- delegating to this same internal helper.
++--
++-- Security model matches the established _internal pattern exactly
++-- (inventory_finalize_posting_internal, write_repair_order_line_
++-- movement_link_internal, live-confirmed this pass): SECURITY DEFINER,
++-- owner postgres, EXECUTE granted to NO role at all except the owner
++-- itself (reachable only via same-owner nesting from another
++-- postgres-owned SECURITY DEFINER function) -- not even service_role,
++-- matching those two functions' own exact ACL shape.
++
++CREATE OR REPLACE FUNCTION public.inventory_add_to_container_internal(p_actor_user_id uuid, p_organization_id uuid, p_branch_id uuid, p_container_id uuid, p_allocation_line_id uuid, p_quantity numeric)
++ RETURNS jsonb
++ LANGUAGE plpgsql
++ SECURITY DEFINER
++ SET search_path TO 'public', 'pg_temp'
++AS $function$
++DECLARE
++  v_container record;
++  v_alloc record;
++  v_existing_sum numeric;
++  v_container_line_id uuid;
++  v_unit_id uuid;
++  v_link_id uuid;
++  v_existing_line record;
++BEGIN
++  IF p_actor_user_id IS DISTINCT FROM auth.uid() THEN
++    RAISE EXCEPTION 'p_actor_user_id must match the authenticated caller' USING ERRCODE = '28000';
++  END IF;
++
++  IF NOT has_branch_permission(p_organization_id, p_branch_id, 'warehouse.inventory.operate') THEN
++    RAISE EXCEPTION 'Missing warehouse.inventory.operate permission' USING ERRCODE = '42501';
++  END IF;
++
++  IF p_quantity IS NULL OR p_quantity <= 0 THEN
++    RAISE EXCEPTION 'Quantity must be positive' USING ERRCODE = '22023';
++  END IF;
++
++  SELECT id, organization_id, branch_id, status, current_location_id, reference_type, reference_id
++  INTO v_container
++  FROM inventory_containers
++  WHERE id = p_container_id
++    AND organization_id = p_organization_id
++    AND branch_id = p_branch_id
++    AND deleted_at IS NULL
++  FOR UPDATE;
++
++  IF NOT FOUND THEN
++    RAISE EXCEPTION 'Container not found' USING ERRCODE = 'P0002';
++  END IF;
++
++  IF v_container.status NOT IN ('active', 'empty') THEN
++    RAISE EXCEPTION 'Container is not open for adding stock (status: %)', v_container.status USING ERRCODE = '55000';
++  END IF;
++
++  SELECT id, organization_id, branch_id, variant_id, location_id, lot_id, serial_id, allocated_quantity, reservation_line_id
++  INTO v_alloc
++  FROM inventory_allocation_lines
++  WHERE id = p_allocation_line_id
++    AND organization_id = p_organization_id
++    AND branch_id = p_branch_id
++  FOR UPDATE;
++
++  IF NOT FOUND THEN
++    RAISE EXCEPTION 'Allocation line not found' USING ERRCODE = 'P0002';
++  END IF;
++
++  -- Phase 10C correction: the allocation's own physical location must match
++  -- the container's own current physical location. Phase 10C is pure
++  -- physical grouping -- it never relocates stock, so placing an allocation
++  -- into a container sitting at a different location would silently
++  -- misrepresent where that stock physically is, with no movement posted
++  -- and no balance changed. Phase 10E owns real container relocation.
++  IF v_alloc.location_id IS DISTINCT FROM v_container.current_location_id THEN
++    RAISE EXCEPTION 'Allocation location does not match the container''s own current location' USING ERRCODE = '22023';
++  END IF;
++
++  SELECT COALESCE(SUM(quantity), 0) INTO v_existing_sum
++  FROM inventory_allocation_container_links
++  WHERE allocation_line_id = v_alloc.id
++    AND deleted_at IS NULL;
++
++  IF v_existing_sum + p_quantity > v_alloc.allocated_quantity THEN
++    RAISE EXCEPTION 'Placement quantity exceeds the allocation line''s own allocated quantity (already placed %, allocated %)', v_existing_sum, v_alloc.allocated_quantity USING ERRCODE = '22023';
++  END IF;
++
++  SELECT p.base_unit_id INTO v_unit_id
++  FROM inventory_variants v
++  JOIN inventory_products p ON p.id = v.product_id AND p.organization_id = v.organization_id
++  WHERE v.id = v_alloc.variant_id AND v.organization_id = p_organization_id;
++
++  IF NOT FOUND THEN
++    RAISE EXCEPTION 'Unable to resolve unit for this allocation line''s own variant' USING ERRCODE = 'P0002';
++  END IF;
++
++  SELECT id, quantity INTO v_existing_line
++  FROM inventory_container_lines
++  WHERE container_id = v_container.id
++    AND organization_id = p_organization_id
++    AND branch_id = p_branch_id
++    AND variant_id = v_alloc.variant_id
++    AND coalesce(lot_id, '00000000-0000-0000-0000-000000000000'::uuid) = coalesce(v_alloc.lot_id, '00000000-0000-0000-0000-000000000000'::uuid)
++    AND coalesce(serial_id, '00000000-0000-0000-0000-000000000000'::uuid) = coalesce(v_alloc.serial_id, '00000000-0000-0000-0000-000000000000'::uuid)
++    AND deleted_at IS NULL
++  FOR UPDATE;
++
++  IF FOUND THEN
++    v_container_line_id := v_existing_line.id;
++    UPDATE inventory_container_lines
++    SET quantity = quantity + p_quantity, updated_at = now()
++    WHERE id = v_container_line_id;
++  ELSE
++    INSERT INTO inventory_container_lines (
++      organization_id, branch_id, container_id, variant_id, unit_id, lot_id, serial_id, quantity
++    ) VALUES (
++      p_organization_id, p_branch_id, v_container.id, v_alloc.variant_id, v_unit_id, v_alloc.lot_id, v_alloc.serial_id, p_quantity
++    )
++    RETURNING id INTO v_container_line_id;
++  END IF;
++
++  INSERT INTO inventory_allocation_container_links (
++    organization_id, branch_id, allocation_line_id, container_line_id, quantity, created_by
++  ) VALUES (
++    p_organization_id, p_branch_id, v_alloc.id, v_container_line_id, p_quantity, p_actor_user_id
++  )
++  RETURNING id INTO v_link_id;
++
++  IF v_container.status = 'empty' THEN
++    UPDATE inventory_containers SET status = 'active', updated_at = now(), updated_by = p_actor_user_id WHERE id = v_container.id;
++  END IF;
++
++  RETURN jsonb_build_object(
++    'link_id', v_link_id,
++    'container_line_id', v_container_line_id,
++    'quantity', p_quantity,
++    'container_status', (CASE WHEN v_container.status = 'empty' THEN 'active' ELSE v_container.status END)
++  );
++END;
++$function$;
++
++REVOKE ALL ON FUNCTION public.inventory_add_to_container_internal(uuid, uuid, uuid, uuid, uuid, numeric) FROM PUBLIC;
++REVOKE ALL ON FUNCTION public.inventory_add_to_container_internal(uuid, uuid, uuid, uuid, uuid, numeric) FROM anon;
++REVOKE ALL ON FUNCTION public.inventory_add_to_container_internal(uuid, uuid, uuid, uuid, uuid, numeric) FROM authenticated;
++REVOKE ALL ON FUNCTION public.inventory_add_to_container_internal(uuid, uuid, uuid, uuid, uuid, numeric) FROM service_role;
+diff --git a/apps/web/supabase-target/supabase/migrations/20260922082057_a7_correction_wrapper_calls_internal.sql b/apps/web/supabase-target/supabase/migrations/20260922082057_a7_correction_wrapper_calls_internal.sql
+new file mode 100644
+index 00000000..5c314b37
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260922082057_a7_correction_wrapper_calls_internal.sql
+@@ -0,0 +1,81 @@
++-- A7 FOLLOW-UP CORRECTION PASS (2 of 3): redirect the RepairOrder
++-- wrapper to call the new internal helper directly instead of the
++-- still-public inventory_add_to_container. Applied BEFORE narrowing
++-- the public entry point (next migration) so there is never a window
++-- where the wrapper's own nested call would be broken -- same "safe
++-- order" discipline A7 itself used (wrapper-safe-path-first).
++--
++-- Zero behavior change from this migration alone: inventory_add_to_
++-- container_internal's body is byte-identical to inventory_add_to_
++-- container's own current body (previous migration was a verbatim
++-- copy), so redirecting the wrapper's own nested call target changes
++-- nothing observable yet.
++
++CREATE OR REPLACE FUNCTION public.repair_order_add_allocation_to_container(
++  p_actor_user_id uuid,
++  p_organization_id uuid,
++  p_branch_id uuid,
++  p_container_id uuid,
++  p_allocation_line_id uuid,
++  p_quantity numeric
++)
++ RETURNS jsonb
++ LANGUAGE plpgsql
++ SECURITY DEFINER
++ SET search_path TO 'public', 'pg_temp'
++AS $function$
++DECLARE
++  v_container_reference_type text;
++  v_container_reference_id text;
++  v_reservation_line_id uuid;
++  v_resolved_repair_order_id uuid;
++BEGIN
++  IF p_actor_user_id IS DISTINCT FROM auth.uid() THEN
++    RAISE EXCEPTION 'p_actor_user_id must match the authenticated caller' USING ERRCODE = '28000';
++  END IF;
++
++  IF NOT has_branch_permission(p_organization_id, p_branch_id, 'warehouse.inventory.operate') THEN
++    RAISE EXCEPTION 'Missing warehouse.inventory.operate permission' USING ERRCODE = '42501';
++  END IF;
++
++  SELECT reference_type, reference_id
++  INTO v_container_reference_type, v_container_reference_id
++  FROM inventory_containers
++  WHERE id = p_container_id
++    AND organization_id = p_organization_id
++    AND branch_id = p_branch_id
++    AND deleted_at IS NULL;
++
++  IF NOT FOUND THEN
++    RAISE EXCEPTION 'Container not found' USING ERRCODE = 'P0002';
++  END IF;
++
++  IF v_container_reference_type = 'repair_order' THEN
++    SELECT reservation_line_id INTO v_reservation_line_id
++    FROM inventory_allocation_lines
++    WHERE id = p_allocation_line_id
++      AND organization_id = p_organization_id
++      AND branch_id = p_branch_id;
++
++    IF NOT FOUND THEN
++      RAISE EXCEPTION 'Allocation line not found' USING ERRCODE = 'P0002';
++    END IF;
++
++    SELECT rol.repair_order_id INTO v_resolved_repair_order_id
++    FROM inventory_reservation_lines rl
++    JOIN inventory_reservations r ON r.id = rl.reservation_id
++    JOIN repair_order_lines rol ON rol.id = r.reference_id
++    WHERE rl.id = v_reservation_line_id
++      AND r.reference_type = 'repair_order_line';
++
++    IF v_resolved_repair_order_id IS NULL
++       OR v_resolved_repair_order_id::text IS DISTINCT FROM v_container_reference_id THEN
++      RAISE EXCEPTION 'Allocation does not belong to this container''s own RepairOrder' USING ERRCODE = 'P0002';
++    END IF;
++  END IF;
++
++  RETURN public.inventory_add_to_container_internal(
++    p_actor_user_id, p_organization_id, p_branch_id, p_container_id, p_allocation_line_id, p_quantity
++  );
++END;
++$function$;
+diff --git a/apps/web/supabase-target/supabase/migrations/20260922082141_a7_correction_narrow_public_generic_eligibility.sql b/apps/web/supabase-target/supabase/migrations/20260922082141_a7_correction_narrow_public_generic_eligibility.sql
+new file mode 100644
+index 00000000..0f9216f5
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260922082141_a7_correction_narrow_public_generic_eligibility.sql
+@@ -0,0 +1,76 @@
++-- A7 FOLLOW-UP CORRECTION PASS (3 of 3): narrow the PUBLIC
++-- inventory_add_to_container to add a generic-eligibility gate before
++-- delegating to inventory_add_to_container_internal (added by the
++-- first migration of this pass; the RepairOrder wrapper was already
++-- redirected to call it directly by the second migration, so this
++-- narrowing cannot break the wrapper).
++--
++-- Eligibility rule verified live this pass before choosing it: the DB
++-- has ZERO validation on reference_type/reference_id (any caller-
++-- supplied text pair is accepted by inventory_create_container), and
++-- there is currently exactly ONE real application caller of the whole
++-- container subsystem (RepairOrdersService, via the wrapper -- always
++-- passes reference_type='repair_order') -- confirmed by repo-wide grep
++-- across apps/web and apps/public-web. No currently-creatable
++-- container carries partial reference state (one of the two columns
++-- set, the other null); the only live row found (via a full table
++-- scan) has both null. The rule adopted: a container is "generic"
++-- (reachable through this public entry point) iff BOTH reference_type
++-- IS NULL AND reference_id IS NULL. ANY domain-owned/referenced
++-- container -- RepairOrder or otherwise -- is rejected here, matching
++-- the domain-agnostic design of the public API: it does not check
++-- reference_type = 'repair_order' specifically, only whether ANY
++-- reference exists at all.
++--
++-- Error contract: P0002 "Container not found" -- the EXACT existing
++-- message this function (and inventory_add_to_container_internal)
++-- already raise for a genuinely nonexistent container, deliberately
++-- reused verbatim (not a new message) so "does not exist" and "exists
++-- but is not accessible through this generic entry point" are
++-- indistinguishable from the error alone -- non-leaking, domain-
++-- neutral. NOT 42501: the actor may legitimately hold warehouse.
++-- inventory.operate at the branch-capability level; this is not a
++-- permission failure, the resource is simply unreachable through this
++-- specific generic API entry point.
++--
++-- Actor-identity and branch-permission checks run BEFORE the
++-- eligibility check (matching the established, consistent ordering
++-- convention across every function in this module) -- an unauthorized
++-- caller always gets 28000/42501 regardless of container ownership,
++-- never reaching the eligibility check at all.
++
++CREATE OR REPLACE FUNCTION public.inventory_add_to_container(p_actor_user_id uuid, p_organization_id uuid, p_branch_id uuid, p_container_id uuid, p_allocation_line_id uuid, p_quantity numeric)
++ RETURNS jsonb
++ LANGUAGE plpgsql
++ SECURITY DEFINER
++ SET search_path TO 'public', 'pg_temp'
++AS $function$
++DECLARE
++  v_reference_type text;
++  v_reference_id text;
++BEGIN
++  IF p_actor_user_id IS DISTINCT FROM auth.uid() THEN
++    RAISE EXCEPTION 'p_actor_user_id must match the authenticated caller' USING ERRCODE = '28000';
++  END IF;
++
++  IF NOT has_branch_permission(p_organization_id, p_branch_id, 'warehouse.inventory.operate') THEN
++    RAISE EXCEPTION 'Missing warehouse.inventory.operate permission' USING ERRCODE = '42501';
++  END IF;
++
++  SELECT reference_type, reference_id
++  INTO v_reference_type, v_reference_id
++  FROM inventory_containers
++  WHERE id = p_container_id
++    AND organization_id = p_organization_id
++    AND branch_id = p_branch_id
++    AND deleted_at IS NULL;
++
++  IF NOT FOUND OR v_reference_type IS NOT NULL OR v_reference_id IS NOT NULL THEN
++    RAISE EXCEPTION 'Container not found' USING ERRCODE = 'P0002';
++  END IF;
++
++  RETURN public.inventory_add_to_container_internal(
++    p_actor_user_id, p_organization_id, p_branch_id, p_container_id, p_allocation_line_id, p_quantity
++  );
++END;
++$function$;
+diff --git a/apps/web/supabase/tests/100_repair_order_container_orchestration_phase10c_test.sql b/apps/web/supabase/tests/100_repair_order_container_orchestration_phase10c_test.sql
+index 5d5a5f15..390c5688 100644
+--- a/apps/web/supabase/tests/100_repair_order_container_orchestration_phase10c_test.sql
++++ b/apps/web/supabase/tests/100_repair_order_container_orchestration_phase10c_test.sql
+@@ -63,6 +63,27 @@
+ -- covers the rest of the A7 boundary (including the generic primitive's
+ -- own new, narrower direct-call behavior).
+ --
++-- A7 FOLLOW-UP CORRECTION PASS (see docs/inventory/reviews/inventory-a7-
++-- correction-generic-container-eligibility-review/): inventory_add_to_
++-- container was narrowed FURTHER -- it now rejects ANY domain-owned/
++-- referenced container outright (a generic-eligibility gate, P0002,
++-- domain-agnostic -- not specifically checking reference_type=
++-- 'repair_order'), delegating the real placement logic to a new
++-- INTERNAL-ONLY helper, inventory_add_to_container_internal. Since
++-- container_a/container_b in THIS file are both RepairOrder-owned
++-- (T1/T4's own fixtures), every scenario that places allocations into
++-- them via a DIRECT call to inventory_add_to_container would now be
++-- rejected regardless of correctness. T2, T5, T9, T15, and T30 (every
++-- remaining direct call against container_a/container_b, beyond T19
++-- which was already fixed in the prior A7 pass) are updated to route
++-- through repair_order_add_allocation_to_container instead -- the real
++-- production entry point for a RepairOrder-owned container. Each
++-- scenario's own assertion and expected outcome are completely
++-- unchanged; only the function called changed. T11/T14 (generic
++-- containers), T33 (a generic branch_b container), T34/T43 (fail at
++-- the actor/permission check, before eligibility is ever reached) are
++-- confirmed unaffected -- see each one's own reasoning if revisited.
++--
+ -- Phase 10C does NOT touch reservation_line.fulfilled_quantity,
+ -- allocation_line.fulfilled_quantity, or any inventory_balances quantity --
+ -- container placement is pure physical grouping of ALREADY-allocated stock,
+@@ -266,13 +287,24 @@ UPDATE fx SET container_a = ((SELECT result FROM cf1) ->> 'container_id')::uuid;
+ INSERT INTO test_log(line) SELECT is((result ->> 'status'), 'empty', 'T1: a newly created container starts status=empty') FROM cf1;
+ 
+ -- T2: place 6 of line_a's 10-unit allocation into container A.
++--
++-- A7 FOLLOW-UP CORRECTION PASS: container_a is RepairOrder-owned
++-- (reference_type='repair_order', see T1's own fixture above). Post-
++-- correction, the public inventory_add_to_container generic primitive
++-- rejects ANY domain-owned container as a matter of policy (see
++-- docs/inventory/reviews/inventory-a7-correction-generic-container-
++-- eligibility-review/) -- a direct call here would now fail with
++-- P0002 regardless of the allocation's own correctness. Routed through
++-- repair_order_add_allocation_to_container instead, the real
++-- production entry point for a RepairOrder-owned container -- same
++-- params, same result shape, identical assertion.
+ CREATE TEMP TABLE addf1 AS
+-SELECT (inventory_add_to_container(
++SELECT (repair_order_add_allocation_to_container(
+   (SELECT e2e_user FROM fx), (SELECT org FROM fx), (SELECT branch FROM fx),
+   (SELECT container_a FROM fx), (SELECT allocline_a FROM fx), 6
+ )) AS result;
+ UPDATE fx SET link_1 = ((SELECT result FROM addf1) ->> 'link_id')::uuid;
+-INSERT INTO test_log(line) SELECT is((result ->> 'quantity')::numeric, 6::numeric, 'T2: placing 6 into container A succeeds') FROM addf1;
++INSERT INTO test_log(line) SELECT is((result ->> 'quantity')::numeric, 6::numeric, 'T2: placing 6 into container A succeeds (via repair_order_add_allocation_to_container, A7 follow-up correction)') FROM addf1;
+ 
+ -- T3: container A transitions empty -> active on first placement.
+ INSERT INTO test_log(line) SELECT is(
+@@ -290,13 +322,17 @@ UPDATE fx SET container_b = ((SELECT result FROM cf2) ->> 'container_id')::uuid;
+ 
+ -- T5: place the REMAINING 4 of line_a's allocation into container B (one
+ -- allocation line split across multiple containers).
++--
++-- A7 FOLLOW-UP CORRECTION PASS: container_b is also RepairOrder-owned
++-- (T4's own fixture above) -- same reasoning as T2, routed through the
++-- wrapper.
+ CREATE TEMP TABLE addf2 AS
+-SELECT (inventory_add_to_container(
++SELECT (repair_order_add_allocation_to_container(
+   (SELECT e2e_user FROM fx), (SELECT org FROM fx), (SELECT branch FROM fx),
+   (SELECT container_b FROM fx), (SELECT allocline_a FROM fx), 4
+ )) AS result;
+ UPDATE fx SET link_2 = ((SELECT result FROM addf2) ->> 'link_id')::uuid;
+-INSERT INTO test_log(line) SELECT is((result ->> 'quantity')::numeric, 4::numeric, 'T5: placing the remaining 4 into container B succeeds (split across two containers)') FROM addf2;
++INSERT INTO test_log(line) SELECT is((result ->> 'quantity')::numeric, 4::numeric, 'T5: placing the remaining 4 into container B succeeds (split across two containers, via wrapper, A7 follow-up correction)') FROM addf2;
+ 
+ -- T6: active link sum for line_a's allocation is exactly 10 (6+4).
+ INSERT INTO test_log(line) SELECT is(
+@@ -318,16 +354,22 @@ INSERT INTO test_log(line) SELECT is(
+ 
+ -- T9: over-placement -- line_a's allocation is fully placed (10/10);
+ -- attempting +1 more anywhere is atomically rejected.
++--
++-- A7 FOLLOW-UP CORRECTION PASS: routed through the wrapper (container_a
++-- is RepairOrder-owned) -- the wrapper's own ownership check passes
++-- (allocline_a belongs to the same RepairOrder as container_a), then
++-- delegates to the nested generic call, which still enforces the
++-- over-placement cap identically (22023, unchanged).
+ DO $$
+ BEGIN
+   BEGIN
+-    PERFORM inventory_add_to_container(
++    PERFORM repair_order_add_allocation_to_container(
+       (SELECT e2e_user FROM fx), (SELECT org FROM fx), (SELECT branch FROM fx),
+       (SELECT container_a FROM fx), (SELECT allocline_a FROM fx), 1
+     );
+     INSERT INTO test_log(line) SELECT fail('T9: expected over-placement rejection, call succeeded instead');
+   EXCEPTION WHEN OTHERS THEN
+-    INSERT INTO test_log(line) SELECT is(SQLSTATE, '22023', 'T9: over-placement (would exceed allocated_quantity) is rejected atomically (22023)');
++    INSERT INTO test_log(line) SELECT is(SQLSTATE, '22023', 'T9: over-placement (would exceed allocated_quantity) is rejected atomically (22023, via wrapper -> internal helper, A7 follow-up correction)');
+   END;
+ END $$;
+ 
+@@ -410,12 +452,15 @@ INSERT INTO test_log(line) SELECT is((result ->> 'quantity')::numeric, 2::numeri
+ -- T15: line_c's own allocation (5 units, SAME RepairOrder "ro" as line_a)
+ -- placed into the SAME container A as line_a's -- same-RepairOrder,
+ -- multiple allocation lines -> one container remains supported.
++--
++-- A7 FOLLOW-UP CORRECTION PASS: routed through the wrapper -- same
++-- reasoning as T2/T5/T9.
+ CREATE TEMP TABLE addf4 AS
+-SELECT (inventory_add_to_container(
++SELECT (repair_order_add_allocation_to_container(
+   (SELECT e2e_user FROM fx), (SELECT org FROM fx), (SELECT branch FROM fx),
+   (SELECT container_a FROM fx), (SELECT allocline_c FROM fx), 5
+ )) AS result;
+-INSERT INTO test_log(line) SELECT is((result ->> 'quantity')::numeric, 5::numeric, 'T15: line_c''s own allocation (SAME RepairOrder as line_a, 5 units) placed into the SAME container A succeeds') FROM addf4;
++INSERT INTO test_log(line) SELECT is((result ->> 'quantity')::numeric, 5::numeric, 'T15: line_c''s own allocation (SAME RepairOrder as line_a, 5 units) placed into the SAME container A succeeds (via wrapper, A7 follow-up correction)') FROM addf4;
+ 
+ -- T16: container A's own contents now sum to 11 (6 from line_a + 5 from line_c).
+ INSERT INTO test_log(line) SELECT is(
+@@ -535,12 +580,15 @@ INSERT INTO test_log(line) SELECT is((result ->> 'container_status'), 'empty', '
+ 
+ -- T30-T31: re-add 6 to container A -- empty -> active again, quantity
+ -- restored correctly (container B's own link_2, still holding 4, untouched).
++--
++-- A7 FOLLOW-UP CORRECTION PASS: routed through the wrapper -- same
++-- reasoning as T2/T5/T9/T15.
+ CREATE TEMP TABLE addf5 AS
+-SELECT (inventory_add_to_container(
++SELECT (repair_order_add_allocation_to_container(
+   (SELECT e2e_user FROM fx), (SELECT org FROM fx), (SELECT branch FROM fx),
+   (SELECT container_a FROM fx), (SELECT allocline_a FROM fx), 6
+ )) AS result;
+-INSERT INTO test_log(line) SELECT is((result ->> 'container_status'), 'active', 'T30: re-adding to the now-empty container A transitions it back to active') FROM addf5;
++INSERT INTO test_log(line) SELECT is((result ->> 'container_status'), 'active', 'T30: re-adding to the now-empty container A transitions it back to active (via wrapper, A7 follow-up correction)') FROM addf5;
+ INSERT INTO test_log(line) SELECT is(
+   (SELECT quantity FROM inventory_allocation_container_links WHERE id = (SELECT link_2 FROM fx)),
+   4::numeric, 'T31: container B''s own link_2 (4 units) is completely untouched by container A''s own remove/re-add cycle'
+diff --git a/apps/web/supabase/tests/114_a7_repairorder_container_boundary_test.sql b/apps/web/supabase/tests/114_a7_repairorder_container_boundary_test.sql
+index 1fa66f9c..7a471dea 100644
+--- a/apps/web/supabase/tests/114_a7_repairorder_container_boundary_test.sql
++++ b/apps/web/supabase/tests/114_a7_repairorder_container_boundary_test.sql
+@@ -12,6 +12,23 @@
+ -- evidence.md for the full write-once/TOCTOU re-verification this pass
+ -- performed live before implementing).
+ --
++-- A7 FOLLOW-UP CORRECTION PASS (see docs/inventory/reviews/inventory-a7-
++-- correction-generic-container-eligibility-review/): scenario G2 below
++-- originally demonstrated a disclosed, accepted tradeoff -- a DIRECT call
++-- to inventory_add_to_container (bypassing the wrapper) with a cross-
++-- RepairOrder allocation into a RepairOrder-owned container succeeded,
++-- since the generic primitive had no opinion on container ownership at
++-- all. That tradeoff is now CLOSED: inventory_add_to_container itself
++-- was split into a thin public wrapper (a generic-eligibility gate: reject
++-- ANY container carrying reference_type/reference_id, domain-agnostic,
++-- not specifically RepairOrder) delegating to a new INTERNAL-ONLY helper,
++-- inventory_add_to_container_internal (unreachable by any role but the
++-- owner). repair_order_add_allocation_to_container was redirected to call
++-- this same internal helper directly. G2 (and J2's own downstream total)
++-- are updated accordingly -- see their own inline comments. A new,
++-- dedicated file, 115_a7_correction_generic_container_eligibility_test.sql,
++-- covers this correction's own full scenario set.
++--
+ -- Executed live against supabase-target via Supabase MCP.
+ 
+ BEGIN;
+@@ -269,19 +286,29 @@ INSERT INTO test_log(line) SELECT is(
+   false,
+   'G1: inventory_add_to_container contains zero real FROM/JOIN references to repair_order_lines'
+ );
+--- G2: behavioral demonstration of the same fact -- a DIRECT call to the
+--- generic primitive (bypassing the wrapper) with a cross-RepairOrder
+--- allocation into a RepairOrder-owned container now SUCCEEDS, since the
+--- generic primitive no longer evaluates ownership at all. This is the
+--- disclosed, accepted design tradeoff (only wrapper callers enforce
+--- RepairOrder ownership now; a direct, permissioned RPC caller bypassing
+--- the wrapper does not) -- see boundary-evidence.md.
+-CREATE TEMP TABLE gf2 AS
+-SELECT (inventory_add_to_container(
+-  (SELECT e2e_user FROM fx), (SELECT org FROM fx), (SELECT branch FROM fx),
+-  (SELECT container_a FROM fx), (SELECT allocline_b FROM fx), 1
+-)) AS result;
+-INSERT INTO test_log(line) SELECT is((result ->> 'quantity')::numeric, 1::numeric, 'G2: a DIRECT call to the now-narrowed generic primitive no longer enforces RepairOrder ownership (disclosed, accepted tradeoff for callers that bypass the wrapper)') FROM gf2;
++-- G2: A7 FOLLOW-UP CORRECTION PASS -- the disclosed direct-caller
++-- tradeoff this scenario used to demonstrate (a direct call bypassing
++-- the wrapper could place a cross-RepairOrder allocation into a
++-- RepairOrder-owned container) is now CLOSED. The public generic API
++-- rejects ANY domain-owned/referenced container (not specifically
++-- RepairOrder -- see 115_a7_correction_generic_container_eligibility_
++-- test.sql's own G-series for the domain-agnostic proof) with the
++-- SAME P0002 "Container not found" message a genuinely nonexistent
++-- container gets -- non-leaking, no 42501 (the actor legitimately
++-- holds warehouse.inventory.operate; this is not a permission
++-- failure).
++DO $$
++BEGIN
++  BEGIN
++    PERFORM inventory_add_to_container(
++      (SELECT e2e_user FROM fx), (SELECT org FROM fx), (SELECT branch FROM fx),
++      (SELECT container_a FROM fx), (SELECT allocline_b FROM fx), 1
++    );
++    INSERT INTO test_log(line) SELECT fail('G2: expected the generic API to reject a RepairOrder-owned container, call succeeded instead');
++  EXCEPTION WHEN OTHERS THEN
++    INSERT INTO test_log(line) SELECT is(SQLSTATE, 'P0002', 'G2: a DIRECT call to the generic primitive with a RepairOrder-owned container is now rejected (P0002, generic-eligibility gate, A7 follow-up correction)');
++  END;
++END $$;
+ 
+ -- ===========================================================================
+ -- H. quantity/location validation remains enforced (by the nested generic
+@@ -345,14 +372,19 @@ END $$;
+ 
+ -- ===========================================================================
+ -- J. atomic rollback -- a rejected wrapper call leaves zero container-link
+--- mutation. Uses allocline_c specifically: it is ONLY ever attempted once
+--- in this whole file (scenario H2, rejected for a location mismatch) and
+--- never successfully placed anywhere -- unlike allocline_b, which DOES
+--- have a real, successful placement elsewhere in this file (scenario G2's
+--- own deliberate direct-generic-call demonstration), so checking
+--- allocline_b here would conflate "the rejected wrapper attempt in
+--- scenario B left no mutation" with "G2's own unrelated, intentionally
+--- successful placement" -- allocline_c has no such ambiguity.
++-- mutation. Uses allocline_c: it is ONLY ever attempted once in this
++-- whole file (scenario H2, rejected for a location mismatch) and never
++-- successfully placed anywhere.
++--
++-- A7 FOLLOW-UP CORRECTION PASS note: prior to this correction, G2's own
++-- direct-generic-call demonstration was a deliberate SUCCESS case
++-- (the disclosed tradeoff), which contributed +1 to container_a's own
++-- total and required using allocline_c here instead of allocline_b to
++-- avoid conflating the two. G2 is now ALSO a rejection case (the fix),
++-- so allocline_b in fact has zero container-link rows too as of this
++-- correction -- allocline_c is kept here regardless, since it remains
++-- the cleanest, most narrowly-scoped choice for this specific
++-- atomicity proof.
+ -- ===========================================================================
+ INSERT INTO test_log(line) SELECT is(
+   (SELECT COALESCE(SUM(quantity), 0) FROM inventory_allocation_container_links WHERE allocation_line_id = (SELECT allocline_c FROM fx) AND deleted_at IS NULL),
+@@ -360,13 +392,13 @@ INSERT INTO test_log(line) SELECT is(
+   'J1: allocline_c has zero container-link rows anywhere -- its only attempted placement (scenario H2, rejected for a location mismatch) left no partial mutation'
+ );
+ -- container_a's own total contents: 6+4=10 from allocline_a's two
+--- successful wrapper placements (A, I1), plus 1 from allocline_b's own
+--- unrelated, intentionally successful DIRECT generic-call placement (G2)
+--- = 11. None of the rejected attempts (B, C, D, E, H1, H2, I2) contribute.
++-- successful wrapper placements (A, I1) only. G2 (now also a rejection
++-- case, post-correction) contributes nothing. None of the rejected
++-- attempts (B, C, D, E, G2, H1, H2, I2) contribute.
+ INSERT INTO test_log(line) SELECT is(
+   (SELECT COALESCE(SUM(quantity), 0) FROM inventory_container_lines WHERE container_id = (SELECT container_a FROM fx) AND deleted_at IS NULL),
+-  11::numeric,
+-  'J2: container_a''s own contents total exactly 11 (10 from allocline_a''s two successful wrapper placements + 1 from allocline_b''s own unrelated G2 direct placement) -- no stray rows from any rejected attempt (B, C, D, E, H1, H2, I2)'
++  10::numeric,
++  'J2: container_a''s own contents total exactly 10 (6+4 from allocline_a''s two successful wrapper placements only) -- no stray rows from any rejected attempt (B, C, D, E, G2, H1, H2, I2)'
+ );
+ 
+ RESET ROLE;
+diff --git a/apps/web/supabase/tests/115_a7_correction_generic_container_eligibility_test.sql b/apps/web/supabase/tests/115_a7_correction_generic_container_eligibility_test.sql
+new file mode 100644
+index 00000000..b0bde779
+--- /dev/null
++++ b/apps/web/supabase/tests/115_a7_correction_generic_container_eligibility_test.sql
+@@ -0,0 +1,299 @@
++-- ============================================================================
++-- TEST: INVENTORY CORE A7 FOLLOW-UP CORRECTION -- generic container
++-- eligibility gate + internal-helper extraction
++-- ============================================================================
++-- Closes the disclosed, accepted tradeoff A7 itself left open (see
++-- docs/inventory/reviews/inventory-a7-repairorder-container-boundary-
++-- review/boundary-evidence.md): a direct, permissioned caller of the
++-- public inventory_add_to_container, bypassing repair_order_add_
++-- allocation_to_container entirely, could place an unrelated allocation
++-- into a RepairOrder-owned container, since the generic primitive (post
++-- A7) had zero opinion on container ownership at all.
++--
++-- Fix: inventory_add_to_container is now a thin public wrapper -- a
++-- generic-eligibility gate (reject ANY container carrying reference_
++-- type/reference_id, domain-agnostic, not specifically checking
++-- reference_type='repair_order') -- delegating to a new INTERNAL-ONLY
++-- helper, inventory_add_to_container_internal, unreachable by any role
++-- but the owner (postgres). repair_order_add_allocation_to_container
++-- was redirected to call this same internal helper directly, bypassing
++-- the public wrapper's own new restriction.
++--
++-- Executed live against supabase-target via Supabase MCP.
++
++BEGIN;
++
++SELECT plan(14);
++
++CREATE TEMP TABLE fx (
++  org uuid, branch uuid, variant_1 uuid, unit_1 uuid, e2e_user uuid, location_1 uuid,
++  ro_a uuid, line_a uuid, res_a uuid, resline_a uuid, alloc_a uuid, allocline_a uuid,
++  container_repairorder uuid, container_other_domain uuid,
++  container_partial_type_only uuid, container_partial_id_only uuid, container_generic uuid
++);
++GRANT SELECT, UPDATE ON fx TO authenticated, anon;
++INSERT INTO fx SELECT
++  '9f98fe91-63b8-4986-a2b3-65bdd47684c9'::uuid,
++  'e39b15da-0a8d-4056-b5a2-80eb1da868a6'::uuid,
++  'fe364ce2-1f72-4df5-ab92-6361ec95e0da'::uuid,
++  '571dfd6c-eba2-42c2-8ad9-f39a2d103b6d'::uuid,
++  'c4a24371-42db-4bb8-ab5e-379ebbf7d9c4'::uuid,
++  gen_random_uuid(),
++  gen_random_uuid(), gen_random_uuid(), null, null, null, null,
++  null, null, null, null, null;
++
++CREATE TEMP TABLE test_log (seq serial, line text);
++GRANT INSERT, SELECT ON test_log TO authenticated, anon;
++GRANT USAGE ON SEQUENCE test_log_seq_seq TO authenticated, anon;
++
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, can_store_inventory)
++SELECT location_1, org, branch, '115-loc-1', true FROM fx;
++INSERT INTO repair_orders (id, organization_id, branch_id, order_number, status)
++SELECT ro_a, org, branch, '115-RO-A', 'open' FROM fx;
++INSERT INTO repair_order_lines (id, repair_order_id, variant_id, product_code, product_name, ordered_quantity, unit)
++SELECT line_a, ro_a, variant_1, '115-SKU-A', '115 line A', 10, 'pcs' FROM fx;
++
++SET LOCAL ambra.inventory_movement_engine = 'on';
++INSERT INTO inventory_balances (organization_id, branch_id, location_id, variant_id, on_hand_quantity, reserved_quantity, allocated_quantity)
++SELECT org, branch, location_1, variant_1, 0, 0, 0 FROM fx;
++UPDATE inventory_balances b SET on_hand_quantity = 100
++FROM fx WHERE b.organization_id = fx.org AND b.branch_id = fx.branch AND b.location_id = fx.location_1 AND b.variant_id = fx.variant_1;
++
++SET LOCAL ROLE authenticated;
++SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fx)::text, 'role', 'authenticated')::text, true);
++
++CREATE TEMP TABLE rf1 AS
++SELECT (inventory_create_reservation(
++  (SELECT org FROM fx), (SELECT branch FROM fx),
++  jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fx), 'location_id', (SELECT location_1 FROM fx), 'quantity', 10)),
++  'repair_order_line', (SELECT line_a FROM fx), null, null, null, (SELECT e2e_user FROM fx)
++)) AS result;
++UPDATE fx SET res_a = ((SELECT result FROM rf1) ->> 'reservation_id')::uuid;
++UPDATE fx SET resline_a = (SELECT id FROM inventory_reservation_lines WHERE reservation_id = (SELECT res_a FROM fx));
++CREATE TEMP TABLE rf2 AS
++SELECT (inventory_create_allocation(
++  (SELECT org FROM fx), (SELECT branch FROM fx),
++  jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fx), 'location_id', (SELECT location_1 FROM fx), 'quantity', 10, 'reservation_line_id', (SELECT resline_a FROM fx))),
++  (SELECT res_a FROM fx), 'repair_order_line', (SELECT line_a FROM fx), null, (SELECT e2e_user FROM fx)
++)) AS result;
++UPDATE fx SET alloc_a = ((SELECT result FROM rf2) ->> 'allocation_id')::uuid;
++UPDATE fx SET allocline_a = (SELECT id FROM inventory_allocation_lines WHERE allocation_id = (SELECT alloc_a FROM fx));
++
++-- 5 containers covering every eligibility shape.
++CREATE TEMP TABLE cf1 AS
++SELECT (inventory_create_container(
++  (SELECT e2e_user FROM fx), (SELECT org FROM fx), (SELECT branch FROM fx),
++  '115-CONTAINER-REPAIRORDER', (SELECT location_1 FROM fx), 'container', 'repair_order', (SELECT ro_a FROM fx)::text
++)) AS result;
++UPDATE fx SET container_repairorder = ((SELECT result FROM cf1) ->> 'container_id')::uuid;
++
++-- An ARBITRARY, non-repair_order reference_type -- proves the public
++-- API's own eligibility check is truly domain-agnostic (rejects ANY
++-- reference, not specifically 'repair_order').
++CREATE TEMP TABLE cf2 AS
++SELECT (inventory_create_container(
++  (SELECT e2e_user FROM fx), (SELECT org FROM fx), (SELECT branch FROM fx),
++  '115-CONTAINER-OTHER-DOMAIN', (SELECT location_1 FROM fx), 'container', 'some_other_domain', 'unrelated-ref-id'
++)) AS result;
++UPDATE fx SET container_other_domain = ((SELECT result FROM cf2) ->> 'container_id')::uuid;
++
++-- Partial-state edge case: reference_type set, reference_id NULL.
++CREATE TEMP TABLE cf3 AS
++SELECT (inventory_create_container(
++  (SELECT e2e_user FROM fx), (SELECT org FROM fx), (SELECT branch FROM fx),
++  '115-CONTAINER-PARTIAL-TYPE', (SELECT location_1 FROM fx), 'container', 'some_domain', null
++)) AS result;
++UPDATE fx SET container_partial_type_only = ((SELECT result FROM cf3) ->> 'container_id')::uuid;
++
++-- Partial-state edge case: reference_id set, reference_type NULL.
++CREATE TEMP TABLE cf4 AS
++SELECT (inventory_create_container(
++  (SELECT e2e_user FROM fx), (SELECT org FROM fx), (SELECT branch FROM fx),
++  '115-CONTAINER-PARTIAL-ID', (SELECT location_1 FROM fx), 'container', null, 'some-ref-id-without-a-type'
++)) AS result;
++UPDATE fx SET container_partial_id_only = ((SELECT result FROM cf4) ->> 'container_id')::uuid;
++
++-- Genuinely generic: both NULL.
++CREATE TEMP TABLE cf5 AS
++SELECT (inventory_create_container(
++  (SELECT e2e_user FROM fx), (SELECT org FROM fx), (SELECT branch FROM fx),
++  '115-CONTAINER-GENERIC', (SELECT location_1 FROM fx), 'container', null, null
++)) AS result;
++UPDATE fx SET container_generic = ((SELECT result FROM cf5) ->> 'container_id')::uuid;
++
++-- ===========================================================================
++-- Structural: internal helper's own grant shape (has_function_privilege,
++-- not a live call -- proves the ACL directly).
++-- ===========================================================================
++RESET ROLE;
++INSERT INTO test_log(line) SELECT is(
++  has_function_privilege('authenticated', 'public.inventory_add_to_container_internal(uuid,uuid,uuid,uuid,uuid,numeric)', 'EXECUTE'),
++  false, 'STRUCT1: authenticated has no EXECUTE on inventory_add_to_container_internal'
++);
++INSERT INTO test_log(line) SELECT is(
++  has_function_privilege('anon', 'public.inventory_add_to_container_internal(uuid,uuid,uuid,uuid,uuid,numeric)', 'EXECUTE'),
++  false, 'STRUCT2: anon has no EXECUTE on inventory_add_to_container_internal'
++);
++INSERT INTO test_log(line) SELECT is(
++  has_function_privilege('service_role', 'public.inventory_add_to_container_internal(uuid,uuid,uuid,uuid,uuid,numeric)', 'EXECUTE'),
++  false, 'STRUCT3: service_role has no EXECUTE on inventory_add_to_container_internal (reachable only via same-owner nesting)'
++);
++INSERT INTO test_log(line) SELECT is(
++  (SELECT count(*) FROM pg_proc WHERE proname = 'inventory_add_to_container_internal'),
++  1::bigint, 'STRUCT4: inventory_add_to_container_internal has exactly 1 overload'
++);
++
++SET LOCAL ROLE authenticated;
++SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fx)::text, 'role', 'authenticated')::text, true);
++
++-- FUNC1: a real, permissioned authenticated caller cannot call the
++-- internal helper directly (functional proof, not just ACL).
++DO $$
++BEGIN
++  BEGIN
++    PERFORM inventory_add_to_container_internal(
++      (SELECT e2e_user FROM fx), (SELECT org FROM fx), (SELECT branch FROM fx),
++      (SELECT container_generic FROM fx), (SELECT allocline_a FROM fx), 1
++    );
++    INSERT INTO test_log(line) SELECT fail('FUNC1: expected authenticated denial on the internal helper, call succeeded instead');
++  EXCEPTION WHEN OTHERS THEN
++    INSERT INTO test_log(line) SELECT is(SQLSTATE, '42501', 'FUNC1: authenticated cannot call inventory_add_to_container_internal directly');
++  END;
++END $$;
++
++-- ELIG1: public API rejects the RepairOrder-owned container (the
++-- exact gap this correction closes).
++DO $$
++BEGIN
++  BEGIN
++    PERFORM inventory_add_to_container(
++      (SELECT e2e_user FROM fx), (SELECT org FROM fx), (SELECT branch FROM fx),
++      (SELECT container_repairorder FROM fx), (SELECT allocline_a FROM fx), 1
++    );
++    INSERT INTO test_log(line) SELECT fail('ELIG1: expected rejection for a RepairOrder-owned container, call succeeded instead');
++  EXCEPTION WHEN OTHERS THEN
++    INSERT INTO test_log(line) SELECT is(SQLSTATE, 'P0002', 'ELIG1: public inventory_add_to_container rejects a RepairOrder-owned container');
++  END;
++END $$;
++
++-- ELIG2: public API rejects an ARBITRARY other-domain container too --
++-- proves the check is domain-agnostic, NOT specifically checking
++-- reference_type='repair_order'.
++DO $$
++BEGIN
++  BEGIN
++    PERFORM inventory_add_to_container(
++      (SELECT e2e_user FROM fx), (SELECT org FROM fx), (SELECT branch FROM fx),
++      (SELECT container_other_domain FROM fx), (SELECT allocline_a FROM fx), 1
++    );
++    INSERT INTO test_log(line) SELECT fail('ELIG2: expected rejection for an arbitrary other-domain container, call succeeded instead');
++  EXCEPTION WHEN OTHERS THEN
++    INSERT INTO test_log(line) SELECT is(SQLSTATE, 'P0002', 'ELIG2: public inventory_add_to_container rejects ANY domain-referenced container, not only repair_order (domain-agnostic)');
++  END;
++END $$;
++
++-- ELIG3: partial state (reference_type set, reference_id null) is
++-- ALSO rejected -- the rule is "either field set", not "both fields set".
++DO $$
++BEGIN
++  BEGIN
++    PERFORM inventory_add_to_container(
++      (SELECT e2e_user FROM fx), (SELECT org FROM fx), (SELECT branch FROM fx),
++      (SELECT container_partial_type_only FROM fx), (SELECT allocline_a FROM fx), 1
++    );
++    INSERT INTO test_log(line) SELECT fail('ELIG3: expected rejection for a partial-state container (type set, id null), call succeeded instead');
++  EXCEPTION WHEN OTHERS THEN
++    INSERT INTO test_log(line) SELECT is(SQLSTATE, 'P0002', 'ELIG3: partial reference state (reference_type set, reference_id null) is rejected -- conservative, not requiring BOTH fields');
++  END;
++END $$;
++
++-- ELIG4: the other partial-state shape (reference_id set, reference_type null).
++DO $$
++BEGIN
++  BEGIN
++    PERFORM inventory_add_to_container(
++      (SELECT e2e_user FROM fx), (SELECT org FROM fx), (SELECT branch FROM fx),
++      (SELECT container_partial_id_only FROM fx), (SELECT allocline_a FROM fx), 1
++    );
++    INSERT INTO test_log(line) SELECT fail('ELIG4: expected rejection for a partial-state container (id set, type null), call succeeded instead');
++  EXCEPTION WHEN OTHERS THEN
++    INSERT INTO test_log(line) SELECT is(SQLSTATE, 'P0002', 'ELIG4: partial reference state (reference_id set, reference_type null) is rejected too');
++  END;
++END $$;
++
++-- ELIG5: a genuinely generic (both-null) container still succeeds --
++-- the fix does not weaken the legitimate generic path.
++CREATE TEMP TABLE elig5 AS
++SELECT (inventory_add_to_container(
++  (SELECT e2e_user FROM fx), (SELECT org FROM fx), (SELECT branch FROM fx),
++  (SELECT container_generic FROM fx), (SELECT allocline_a FROM fx), 4
++)) AS result;
++INSERT INTO test_log(line) SELECT is((result ->> 'quantity')::numeric, 4::numeric, 'ELIG5: public inventory_add_to_container still succeeds for a genuinely generic (both-null) container') FROM elig5;
++
++-- ORDER1: a spoofed actor targeting a domain-owned container still
++-- gets 28000 (actor check runs BEFORE the eligibility check, matching
++-- the established ordering convention -- never leaks eligibility
++-- information to an unauthenticated-as-claimed caller).
++DO $$
++BEGIN
++  BEGIN
++    PERFORM inventory_add_to_container(
++      gen_random_uuid(), (SELECT org FROM fx), (SELECT branch FROM fx),
++      (SELECT container_repairorder FROM fx), (SELECT allocline_a FROM fx), 1
++    );
++    INSERT INTO test_log(line) SELECT fail('ORDER1: expected 28000 actor-mismatch, call succeeded instead');
++  EXCEPTION WHEN OTHERS THEN
++    INSERT INTO test_log(line) SELECT is(SQLSTATE, '28000', 'ORDER1: actor-identity check runs before the eligibility check (28000, not P0002, for a spoofed actor even against a domain-owned container)');
++  END;
++END $$;
++
++-- ORDER2: a no-permission caller targeting a domain-owned container
++-- still gets 42501, not P0002 -- permission check runs before
++-- eligibility too.
++RESET ROLE;
++DELETE FROM user_effective_permissions
++WHERE user_id = (SELECT e2e_user FROM fx) AND organization_id = (SELECT org FROM fx)
++  AND permission_slug_exact = 'warehouse.inventory.operate';
++SET LOCAL ROLE authenticated;
++SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fx)::text, 'role', 'authenticated')::text, true);
++DO $$
++BEGIN
++  BEGIN
++    PERFORM inventory_add_to_container(
++      (SELECT e2e_user FROM fx), (SELECT org FROM fx), (SELECT branch FROM fx),
++      (SELECT container_repairorder FROM fx), (SELECT allocline_a FROM fx), 1
++    );
++    INSERT INTO test_log(line) SELECT fail('ORDER2: expected 42501 no-permission, call succeeded instead');
++  EXCEPTION WHEN OTHERS THEN
++    INSERT INTO test_log(line) SELECT is(SQLSTATE, '42501', 'ORDER2: branch-permission check runs before the eligibility check (42501, not P0002, for a no-permission caller even against a domain-owned container)');
++  END;
++END $$;
++RESET ROLE;
++INSERT INTO user_effective_permissions (user_id, organization_id, branch_id, permission_slug, permission_slug_exact)
++SELECT e2e_user, org, branch, 'warehouse.inventory.operate', 'warehouse.inventory.operate' FROM fx;
++SET LOCAL ROLE authenticated;
++SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fx)::text, 'role', 'authenticated')::text, true);
++
++-- ATOMIC1: none of the rejected ELIG1-4/ORDER1-2 attempts left any
++-- partial mutation -- allocline_a's own container-link total reflects
++-- only ELIG5's genuine success (4), nothing else.
++INSERT INTO test_log(line) SELECT is(
++  (SELECT COALESCE(SUM(quantity), 0) FROM inventory_allocation_container_links WHERE allocation_line_id = (SELECT allocline_a FROM fx) AND deleted_at IS NULL),
++  4::numeric,
++  'ATOMIC1: allocline_a''s own container-link total is exactly 4 (ELIG5''s genuine success only) -- zero partial mutation from any of the 6 rejected attempts (FUNC1, ELIG1-4, ORDER1-2)'
++);
++
++-- WRAPPER_SANITY: the RepairOrder wrapper's own success path still
++-- works end-to-end through the new internal-helper delegation.
++CREATE TEMP TABLE sanity AS
++SELECT (repair_order_add_allocation_to_container(
++  (SELECT e2e_user FROM fx), (SELECT org FROM fx), (SELECT branch FROM fx),
++  (SELECT container_repairorder FROM fx), (SELECT allocline_a FROM fx), 2
++)) AS result;
++INSERT INTO test_log(line) SELECT is((result ->> 'quantity')::numeric, 2::numeric, 'WRAPPER_SANITY: repair_order_add_allocation_to_container still succeeds end-to-end through the internal helper for a legitimate same-RepairOrder placement') FROM sanity;
++
++RESET ROLE;
++
++SELECT line FROM test_log ORDER BY seq;
++
++ROLLBACK;
+diff --git a/docs/inventory/reviews/inventory-a7-correction-generic-container-eligibility-review/boundary-evidence.md b/docs/inventory/reviews/inventory-a7-correction-generic-container-eligibility-review/boundary-evidence.md
+new file mode 100644
+index 00000000..646b2220
+--- /dev/null
++++ b/docs/inventory/reviews/inventory-a7-correction-generic-container-eligibility-review/boundary-evidence.md
+@@ -0,0 +1,139 @@
++# Inventory Core — A7 Follow-Up Correction Pass — Boundary & Eligibility Evidence
++
++## 1. Live pre-fix reproduction
++
++Before any change this pass, reproduced the disclosed A7 tradeoff
++fresh (not relying on the prior review bundle's own claim): a direct,
++permissioned call to `inventory_add_to_container` with a
++cross-RepairOrder allocation against a RepairOrder-owned container
++**succeeded**. Confirmed the vulnerability was real and current before
++implementing anything.
++
++## 2. Caller audit
++
++Repo-wide grep across `apps/web` and `apps/public-web` for every call
++site of `inventory_create_container`, `inventory_add_to_container`,
++`inventory_remove_from_container`, `inventory_seal_container`:
++**exactly one real application caller of the entire container
++subsystem**, `RepairOrdersService`, always via the wrapper, always
++passing `reference_type='repair_order'`. No genuinely generic
++(non-RepairOrder-owned) container is created by any real, live
++application code today — the "generic container" concept is currently
++100% theoretical in production, reachable only through pgTAP fixtures.
++This directly informed and validated the eligibility-check design: it
++was safe to add a strict gate because zero production traffic depends
++on the generic pathway today, and the gate's own domain-agnostic
++design (not special-casing `repair_order`) keeps the door open for a
++genuinely generic future caller without reintroducing a RepairOrder
++dependency into the generic primitive.
++
++## 3. Eligibility invariant verification (pre-implementation)
++
++Per the task's own explicit "STOP and report if this doesn't hold"
++instruction, live-verified before choosing the rule:
++
++- Zero DB-level validation (no CHECK/enum/trigger) constrains
++  `reference_type`/`reference_id` on `inventory_containers`.
++- A full live table scan found zero rows with partial reference state
++  (one field set, the other null) — existing rows are either fully
++  `repair_order`-referenced or fully null.
++- Invariant `reference_type IS NULL AND reference_id IS NULL` (for
++  "generic/reachable") confirmed to hold with no contradiction.
++
++Rule adopted: reject if `reference_type IS NOT NULL OR reference_id IS
++NOT NULL` — the conservative "either field is sufficient to reject"
++reading, covering the theoretical partial-state case even though none
++exists live today. Proven directly by pgTAP scenarios `ELIG3`/`ELIG4`
++in file 115 (one field set, other null — both rejected).
++
++## 4. Domain-agnostic design proof
++
++Scenario `ELIG2` in file 115 uses a fabricated
++`reference_type='some_other_domain'` (not `repair_order`) against the
++public generic entry point and confirms rejection — proving the gate
++does not special-case RepairOrder, matching the task's own explicit
++"Important refinement" instruction that the generic API must remain
++domain-agnostic.
++
++## 5. Check-ordering / non-leaking proof
++
++Scenarios `ORDER1` (spoofed `p_actor_user_id` against a domain-owned
++container) and `ORDER2` (authenticated but lacking
++`warehouse.inventory.operate`, against a domain-owned container) both
++still receive `28000`/`42501` respectively — never `P0002` — proving
++an unauthorized or misidentified caller never learns anything about a
++container's own domain-ownership state from the error alone.
++
++## 6. TOCTOU / write-once re-verification
++
++The new public wrapper's own eligibility read of
++`reference_type`/`reference_id` is unlocked (no `FOR UPDATE`). Safe
++because both columns are write-once: re-confirmed live this pass that
++zero SQL functions anywhere contain an `UPDATE ... SET reference_type
++= ...` or `... reference_id = ...` statement, and zero TypeScript
++writers touch either column — only `inventory_create_container` sets
++them, at creation time. No new lock introduced; no new two-session
++concurrency test required (matching this task's own explicit
++conditional rule).
++
++## 7. The file-100 blast-radius discovery (mid-pass correction)
++
++The user's own efficiency question ("do you have to re-run all
++097-115 tests?") prompted a closer investigation rather than either
++blindly complying with a narrower scope or blindly insisting on the
++full suite. That investigation surfaced a genuine gap in the initial
++blast-radius assessment, which had assumed only scenario T19 in file
++100 (already fixed during the A7 base pass) needed updating.
++
++**Root cause**: `100_repair_order_container_orchestration_phase10c_test.sql`'s
++own fixture containers, `container_a` and `container_b`, are **both**
++created as RepairOrder-owned (`reference_type='repair_order'`) — a
++design choice predating even A7. Five scenarios beyond T19 call
++`inventory_add_to_container` **directly** (bypassing the wrapper)
++against these RepairOrder-owned containers:
++
++| Scenario | Expectation pre-correction | Why it would break |
++|---|---|---|
++| T2 | Success (place 6 into container_a) | New eligibility gate would reject with `P0002` before reaching placement logic |
++| T5 | Success (place 4 into container_b) | Same — `P0002` instead of success |
++| T9 | `22023` (over-placement cap) | Would get `P0002` (eligibility) instead of `22023` (over-placement) — wrong rejection reason |
++| T15 | Success (line_c into container_a, same RepairOrder) | Same — `P0002` instead of success |
++| T30 | Success (re-add after empty) | Same — `P0002` instead of success |
++
++Since T6-T8, T10, T16-T18, T20-T21, T22-T29, and T31 all read state
++that depends on T2/T5/T15/T30 having genuinely succeeded, the
++breakage would have cascaded through most of the file if left
++unfixed.
++
++**Confirmed unaffected, with reasoning**:
++
++- **T11/T14** — use `container_mismatch`/`container_match`, both
++  created with `reference_type=null, reference_id=null` (genuinely
++  generic) — pass the eligibility gate cleanly, fail/succeed for their
++  own intended (location-match) reasons only.
++- **T19** — already fixed in the A7 base pass to use the wrapper.
++- **T33** — uses a generic `branch_b` container (both null); fails for
++  an unrelated cross-branch allocation-lookup reason
++  (`P0002`, "Allocation line not found") either way — same error code,
++  different cause, assertion unaffected.
++- **T34/T43** — fail at the actor-identity/permission check, before
++  the eligibility check is ever reached (matching the check-ordering
++  guarantee in section 5 above).
++
++**Fix applied**: T2, T5, T9, T15, T30 changed to call
++`repair_order_add_allocation_to_container` instead of
++`inventory_add_to_container`, same parameters. T9's own `22023`
++over-placement assertion is preserved because the wrapper's own
++ownership check passes (same RepairOrder) before delegating to the
++internal helper, which still enforces the cap. Live-verified: all
++44/44 assertions in file 100 pass post-fix, including the 5 changed
++scenarios and every downstream scenario that depends on their success.
++
++## 8. Regression scope decision
++
++Given the file-100 gap was found only because a narrower-scope
++proposal was investigated rather than accepted at face value, the
++user explicitly directed a return to the full 097-115 regression (19
++files) as the safety net, rather than the narrower 3-file
++(100+114+115) subset originally proposed. See `test-evidence.md` for
++the full result: 19/19 files, 526/526 assertions, 0 failures.
+diff --git a/docs/inventory/reviews/inventory-a7-correction-generic-container-eligibility-review/changed-files.md b/docs/inventory/reviews/inventory-a7-correction-generic-container-eligibility-review/changed-files.md
+new file mode 100644
+index 00000000..57556c37
+--- /dev/null
++++ b/docs/inventory/reviews/inventory-a7-correction-generic-container-eligibility-review/changed-files.md
+@@ -0,0 +1,62 @@
++# Inventory Core — A7 Follow-Up Correction Pass — Changed Files
++
++Baseline: HEAD `45074e8a` ("Inventory Core A7 domain-boundary
++cleanup"), working tree clean before this pass.
++
++## New migrations (3)
++
++- `apps/web/supabase-target/supabase/migrations/20260922082042_a7_correction_extract_add_to_container_internal.sql`
++  — adds `inventory_add_to_container_internal`, EXECUTE revoked from
++  all roles including `service_role`.
++- `apps/web/supabase-target/supabase/migrations/20260922082057_a7_correction_wrapper_calls_internal.sql`
++  — redirects `repair_order_add_allocation_to_container`'s own nested
++  call from `inventory_add_to_container` to
++  `inventory_add_to_container_internal`.
++- `apps/web/supabase-target/supabase/migrations/20260922082141_a7_correction_narrow_public_generic_eligibility.sql`
++  — narrows the public `inventory_add_to_container` to add the
++  domain-agnostic generic-eligibility gate before delegating to the
++  internal helper.
++
++## Modified test files (2)
++
++- `apps/web/supabase/tests/114_a7_repairorder_container_boundary_test.sql`
++  — scenario G2 flipped from asserting the old disclosed-tradeoff
++  success to asserting `P0002` rejection (a direct call to the generic
++  primitive against a RepairOrder-owned container is now rejected);
++  J2's expected total corrected `11` -> `10` (G2 no longer contributes
++  to `container_a`'s own contents); header comment extended. `plan(18)`
++  unchanged. Live-verified 18/18.
++- `apps/web/supabase/tests/100_repair_order_container_orchestration_phase10c_test.sql`
++  — 5 scenarios (T2, T5, T9, T15, T30) changed from a direct
++  `inventory_add_to_container(...)` call to
++  `repair_order_add_allocation_to_container(...)`, discovered mid-pass
++  as a previously-missed blast-radius gap (see `boundary-evidence.md`
++  for the full reasoning). `plan(44)` unchanged — only the function
++  called changed at 5 call sites. Live-verified 44/44.
++
++## New test file (1)
++
++- `apps/web/supabase/tests/115_a7_correction_generic_container_eligibility_test.sql`
++  — `plan(14)`. Covers: internal-helper ACL lockdown (structural +
++  functional proof), domain-agnostic eligibility rejection (both
++  RepairOrder-owned and an arbitrary `reference_type='some_other_domain'`),
++  partial-reference-state rejection (both directions), a genuinely
++  generic container's continued success, check-ordering / non-leaking
++  proof, atomicity, and wrapper sanity. Live-verified 14/14.
++
++## Application code
++
++**None.** Zero TypeScript files changed this pass (confirmed via
++`git status`). `RepairOrdersService`'s own RPC call target
++(`repair_order_add_allocation_to_container`) was already correct from
++the A7 base pass — only the SQL-level nested-call target inside that
++function changed, which is invisible to the TS caller's own contract.
++
++## Review bundle (this directory, new)
++
++- `review-context.md`
++- `changed-files.md` (this file)
++- `migration-summary.md`
++- `test-evidence.md`
++- `boundary-evidence.md`
++- `diff.patch`
+diff --git a/docs/inventory/reviews/inventory-a7-correction-generic-container-eligibility-review/migration-summary.md b/docs/inventory/reviews/inventory-a7-correction-generic-container-eligibility-review/migration-summary.md
+new file mode 100644
+index 00000000..837d3fd2
+--- /dev/null
++++ b/docs/inventory/reviews/inventory-a7-correction-generic-container-eligibility-review/migration-summary.md
+@@ -0,0 +1,113 @@
++# Inventory Core — A7 Follow-Up Correction Pass — Migration Summary
++
++3 migrations, applied live via MCP in the order below, each
++independently live-verified (never trusting `apply_migration`'s own
++success response — grants, `proacl`, `pg_get_functiondef`, and
++overload counts all confirmed via direct SQL), then mirrored locally
++under `apps/web/supabase-target/supabase/migrations/` using the exact
++live-reported timestamps. Order matters: the internal helper is
++created first (harmless, unwired), then the RepairOrder wrapper is
++redirected to it (so its own safe path is never broken mid-deploy),
++and only then is the public generic entry point narrowed.
++
++## 1. `20260922082042_a7_correction_extract_add_to_container_internal.sql`
++
++Creates `inventory_add_to_container_internal(p_actor_user_id uuid,
++p_organization_id uuid, p_branch_id uuid, p_container_id uuid,
++p_allocation_line_id uuid, p_quantity numeric) RETURNS jsonb` — a
++byte-identical copy of the pre-correction `inventory_add_to_container`
++body: actor-identity check (`28000`) -> branch-permission check
++(`42501`) -> quantity check (`22023`) -> container lookup+lock+status
++check (`P0002`/`55000`) -> allocation lookup+lock (`P0002`) ->
++location-match check (`22023`) -> over-placement cap (`22023`) -> unit
++resolution (`P0002`) -> container-line upsert -> allocation-container-
++link insert -> empty->active status transition -> jsonb result.
++
++**Security**: `SECURITY DEFINER`, `SET search_path TO 'public',
++'pg_temp'`, owner `postgres`. Immediately followed by:
++
++```sql
++REVOKE ALL ON FUNCTION public.inventory_add_to_container_internal(...) FROM PUBLIC;
++REVOKE ALL ON FUNCTION public.inventory_add_to_container_internal(...) FROM anon;
++REVOKE ALL ON FUNCTION public.inventory_add_to_container_internal(...) FROM authenticated;
++REVOKE ALL ON FUNCTION public.inventory_add_to_container_internal(...) FROM service_role;
++```
++
++Matches the established `_internal` convention
++(`inventory_finalize_posting_internal`,
++`write_repair_order_line_movement_link_internal`) exactly: EXECUTE
++granted to **no role at all**, not even `service_role` — reachable
++only via same-owner nesting from another `postgres`-owned `SECURITY
++DEFINER` function. Determined this was correct (vs. A1-A6's own
++`inventory_ensure_settings_row_internal`, which needed an
++`authenticated` grant) because both of this helper's own callers are
++`SECURITY DEFINER` owned by `postgres` — no non-owner-context
++invocation path exists.
++
++**Live-verified**: `proacl = {postgres=X/postgres}`, `prosecdef =
++true`, 1 overload. Not yet wired to anything — harmless addition,
++zero behavior change from this migration alone.
++
++## 2. `20260922082057_a7_correction_wrapper_calls_internal.sql`
++
++`CREATE OR REPLACE FUNCTION public.repair_order_add_allocation_to_container`
++— body unchanged from the A7 base pass (actor check -> permission
++check -> unlocked container reference read (`P0002` if not found) ->
++if `reference_type = 'repair_order'`: allocation lookup (`P0002` if
++not found) -> resolve RepairOrder via the 3-table JOIN
++(`inventory_reservation_lines` -> `inventory_reservations` ->
++`repair_order_lines`) -> reject (`P0002`) on mismatch) — **only the
++final line changed**, from `RETURN
++public.inventory_add_to_container(...)` to `RETURN
++public.inventory_add_to_container_internal(...)`.
++
++Deliberately applied before narrowing the public entry point, so the
++wrapper's own nested call is never left pointing at a not-yet-existing
++or differently-behaving target.
++
++**Live-verified**: functional (same-RepairOrder placement still
++succeeds, cross-RepairOrder placement still rejected `P0002`), grants
++unchanged (`authenticated=true, anon=false, service_role=true`, 1
++overload).
++
++## 3. `20260922082141_a7_correction_narrow_public_generic_eligibility.sql`
++
++`CREATE OR REPLACE FUNCTION public.inventory_add_to_container` — body
++shortened to: actor-identity check (`28000`) -> branch-permission
++check (`42501`) -> unlocked read of the container's own
++`reference_type`/`reference_id` -> reject (`P0002`, reusing the exact
++"Container not found" message a genuinely missing container already
++produces) if not found **or** either reference field is non-null ->
++delegate to `inventory_add_to_container_internal` with the same 6
++parameters.
++
++The read is deliberately **unlocked** (no `FOR UPDATE`) — safe because
++both `reference_type`/`reference_id` remain write-once (re-confirmed
++live this pass: zero SQL/TS mutations anywhere touch either column;
++only `inventory_create_container` sets them, at creation time only),
++matching the exact reasoning already established for the wrapper's own
++equivalent read in the A7 base pass. No new lock introduced, so no new
++two-session concurrency test was required.
++
++**Live-verified**: `has_branch_permission`/actor checks unchanged;
++eligibility gate functional against 6 pgTAP scenarios in file 115
++(RepairOrder-owned rejected, arbitrary-other-domain rejected,
++partial-state rejected both directions, genuinely-generic still
++succeeds, check-ordering preserved). Final grants:
++`authenticated=true, anon=false, service_role=true`, 1 overload.
++
++## Local mirroring
++
++All 3 migrations mirrored under their exact live-reported timestamps
++(`20260922082042`, `20260922082057`, `20260922082141`). None was
++edited after being applied — each subsequent fix (e.g. the eligibility
++rule's exact wording) was applied as its own forward migration during
++this pass's own live-iteration phase, not as an edit to an
++already-applied migration.
++
++## Zero data destruction
++
++No table dropped, no history row touched, no data migrated or
++backfilled. Migration 1 adds one new function definition + revokes.
++Migrations 2 and 3 are function-body replacements — all three are
++schema/function changes only, zero business data affected.
+diff --git a/docs/inventory/reviews/inventory-a7-correction-generic-container-eligibility-review/review-context.md b/docs/inventory/reviews/inventory-a7-correction-generic-container-eligibility-review/review-context.md
+new file mode 100644
+index 00000000..e4709fc4
+--- /dev/null
++++ b/docs/inventory/reviews/inventory-a7-correction-generic-container-eligibility-review/review-context.md
+@@ -0,0 +1,203 @@
++# Inventory Core — A7 Follow-Up Correction Pass — Context
++
++**Scope**: close the one disclosed, accepted tradeoff the A7 Domain-
++Boundary Cleanup pass itself left open — a direct, permissioned caller
++of the public generic primitive (`inventory_add_to_container`),
++bypassing the RepairOrder-domain wrapper
++(`repair_order_add_allocation_to_container`), could still place an
++unrelated allocation into a RepairOrder-owned container, because the
++post-A7 generic primitive had zero opinion on container ownership.
++This pass does not reopen any prior Inventory Core work: IC-0 through
++IC-7, the IC-7 closing pass, the architecture compression review,
++PRE-IC8 P0, A1–A6, and the A7 base pass are accepted and final. A8 is
++explicitly NOT started. IC-8 and Phase 10D are NOT started. No
++Inventory Core business semantics beyond the container-ownership gate
++described below were touched.
++
++## Starting state
++
++- Branch: `zone3-zone5-integration-audit`.
++- HEAD at start: `45074e8a` ("Inventory Core A7 domain-boundary
++  cleanup") — verified committed, working tree clean
++  (`git status --porcelain` returned 0 lines) before any edit this
++  pass.
++- A8: confirmed not started.
++- IC-8: confirmed not started.
++- Phase 10D: confirmed not started.
++
++## The disclosed tradeoff being closed
++
++From the A7 base pass's own `boundary-evidence.md`: post-A7, a
++**direct** call to `inventory_add_to_container` (bypassing
++`repair_order_add_allocation_to_container` entirely) with a
++cross-RepairOrder allocation **succeeds** — the generic primitive was
++deliberately reduced to knowing only generic inventory concepts, and
++enforcement for RepairOrder-owned containers existed only at the
++wrapper, not at the generic primitive itself. This pass closes that
++gap without reintroducing the RepairOrder-domain dependency into the
++generic primitive.
++
++## Live invariant check performed before choosing the eligibility rule
++
++Before implementing anything, live-verified (per the task's own
++explicit "STOP and report if this doesn't hold" instruction) whether
++the correct generic-eligibility invariant is `reference_type IS NULL
++AND reference_id IS NULL`:
++
++- The DB has **zero validation** on `reference_type`/`reference_id` —
++  `inventory_create_container` accepts any caller-supplied text pair
++  with no CHECK constraint, enum, or trigger restricting values.
++- A repo-wide grep confirmed **exactly one real application caller**
++  of the entire container subsystem
++  (`inventory_create_container`/`inventory_add_to_container`/
++  `inventory_remove_from_container`/`inventory_seal_container`) across
++  `apps/web` and `apps/public-web`: `RepairOrdersService`, via the
++  wrapper — and it **always** passes `reference_type='repair_order'`.
++  The "generic container" pathway this module's own architecture
++  treats as first-class is currently 100% unexercised by real,
++  production code — only reachable via pgTAP fixtures and hypothetical
++  future callers.
++- A live full-table scan of `inventory_containers` found no row with
++  partial reference state (one of the two columns set, the other
++  null) — the only pre-existing rows have both fields either fully
++  set (`repair_order`) or both null.
++
++**Invariant confirmed to hold.** No contradiction found — nothing to
++STOP and report. The rule adopted, matching the task's own explicit
++refinement: a container is reachable through the public generic entry
++point **iff `reference_type IS NULL AND reference_id IS NULL`**, i.e.
++the reject condition is `reference_type IS NOT NULL OR reference_id
++IS NOT NULL` — the conservative, "either field alone is sufficient to
++reject" reading, deliberately covering the theoretical partial-state
++case even though live data currently shows zero such rows. The check
++is domain-agnostic by design: it does **not** special-case
++`reference_type = 'repair_order'`, per the task's own explicit
++"Important refinement" instruction — ANY domain-owned/referenced
++container, not only RepairOrder containers, is rejected by the public
++generic API.
++
++## Architecture implemented
++
++```
++public inventory_add_to_container
++  -> generic eligibility check (reference_type IS NULL AND reference_id IS NULL)
++  -> inventory_add_to_container_internal
++
++repair_order_add_allocation_to_container
++  -> RepairOrder ownership validation (unchanged from A7 base pass)
++  -> inventory_add_to_container_internal
++
++inventory_add_to_container_internal
++  -> the single actual placement implementation
++  -> INTERNAL ONLY, not executable by authenticated/anon/PUBLIC/service_role
++```
++
++Matches the exact `_internal`-suffixed helper convention already
++established by `inventory_finalize_posting_internal` and
++`write_repair_order_line_movement_link_internal` (both live-confirmed
++`proacl = {postgres=X/postgres}` — EXECUTE granted to no role except
++the owner). The new internal helper needed **zero non-owner grants**
++(unlike A1-A6's own `inventory_ensure_settings_row_internal`, which
++required an `authenticated` grant because one of its own callers was
++`SECURITY INVOKER`) — both callers of this new internal helper are
++`SECURITY DEFINER` owned by `postgres`, so no non-owner-context
++invocation ever occurs.
++
++## Error contract
++
++`P0002` "Container not found" — the exact, pre-existing message the
++function already raises for a genuinely nonexistent container,
++deliberately reused verbatim so "does not exist" and "exists but is
++not accessible through this generic entry point" are indistinguishable
++from the error alone. **Not** `42501`: the actor may legitimately hold
++`warehouse.inventory.operate` at the branch-capability level — this is
++a resource-accessibility question, not a permission failure, per the
++task's own explicit reasoning.
++
++## Check-ordering re-confirmed
++
++Actor-identity (`28000`) -> branch-permission (`42501`) ->
++eligibility (`P0002`) — an unauthorized or spoofed-identity caller
++never learns anything about a container's own domain-ownership state.
++Verified live via dedicated `ORDER1`/`ORDER2` pgTAP scenarios in the
++new file 115 (see `test-evidence.md`).
++
++## What this pass did, in order
++
++1. Verified starting state (above) — clean, committed baseline at
++   `45074e8a`.
++2. Live-reproduced the pre-fix vulnerability fresh: a direct
++   `inventory_add_to_container` call with a cross-RepairOrder
++   allocation against a RepairOrder-owned container succeeded before
++   any change this pass.
++3. Live-verified the generic-eligibility invariant (above) before
++   choosing the rule.
++4. Repo-wide caller audit confirming the container subsystem's single
++   real caller and its always-`repair_order` reference_type.
++5. Applied migration 1 — extracted `inventory_add_to_container_internal`
++   as a byte-identical copy of the pre-correction
++   `inventory_add_to_container` body, then revoked all EXECUTE
++   (including from `service_role`).
++6. Applied migration 2 — redirected
++   `repair_order_add_allocation_to_container`'s own nested call from
++   `inventory_add_to_container` to `inventory_add_to_container_internal`.
++   Applied before narrowing the public entry point so the wrapper's
++   own safe path is never broken mid-deploy.
++7. Applied migration 3 — narrowed the public
++   `inventory_add_to_container` to add the eligibility gate before
++   delegating to the internal helper.
++8. Live-verified all 3 functions' final grant states (below).
++9. Updated `114_a7_repairorder_container_boundary_test.sql`: flipped
++   scenario G2 from asserting the old disclosed-tradeoff success to
++   asserting `P0002` rejection; corrected J2's expected total back to
++   `10` (G2 no longer contributes to `container_a`'s own contents).
++   Live-verified 18/18.
++10. Wrote a new pgTAP file,
++    `115_a7_correction_generic_container_eligibility_test.sql`
++    (plan(14)) — internal-helper lockdown, functional proof of the
++    lockdown (not just ACL), domain-agnostic eligibility proof (an
++    arbitrary `reference_type='some_other_domain'`, not just
++    `repair_order`), partial-state rejection (both directions), a
++    genuinely generic container's continued success, check-ordering
++    proof, atomicity, and wrapper sanity. Live-verified 14/14.
++11. Discovered, mid-pass, in response to the user's own efficiency
++    question about the test-run scope, a previously-missed blast-radius
++    gap: `100_repair_order_container_orchestration_phase10c_test.sql`'s
++    own `container_a`/`container_b` fixtures are BOTH RepairOrder-owned,
++    and five scenarios beyond the already-known T19
++    (T2, T5, T9, T15, T30) called the generic primitive **directly**
++    against them, expecting success or a specific non-ownership
++    rejection — all five would have incorrectly received `P0002` from
++    the new eligibility gate. Fixed all five to route through
++    `repair_order_add_allocation_to_container` instead. See
++    `boundary-evidence.md` for the full per-scenario reasoning,
++    including why T11/T14/T19/T33/T34/T43 were confirmed unaffected.
++12. Ran the full 097–115 pgTAP regression (19 files, all included per
++    the user's own explicit instruction after the file-100 gap was
++    found) — see `test-evidence.md`.
++13. Ran relevant Vitest, `pnpm type-check`, `pnpm lint`, `pnpm build`,
++    `git diff --check` — all clean. Zero TypeScript files changed this
++    pass (confirmed via `git status`), so Vitest was unaffected but
++    re-run anyway per this project's established discipline.
++14. Independently confirmed zero residual test data live (not merely
++    trusting the regression agent's own report).
++
++## Final live-verified grant matrix
++
++| Function | authenticated | anon | service_role | overloads |
++|---|---|---|---|---|
++| `inventory_add_to_container` | true | false | true | 1 |
++| `inventory_add_to_container_internal` | false | false | false | 1 |
++| `repair_order_add_allocation_to_container` | true | false | true | 1 |
++
++## Bundle contents
++
++- `review-context.md` (this file)
++- `changed-files.md` — full file-by-file change list
++- `migration-summary.md` — all 3 migrations' full detail
++- `test-evidence.md` — full 097-115 regression + Vitest + static-gate
++  results
++- `boundary-evidence.md` — the eligibility-invariant evidence, the
++  file-100 blast-radius discovery and fix (per-scenario reasoning),
++  and the check-ordering/non-leaking proof
++- `diff.patch` — the complete diff against baseline (HEAD `45074e8a`)
+diff --git a/docs/inventory/reviews/inventory-a7-correction-generic-container-eligibility-review/test-evidence.md b/docs/inventory/reviews/inventory-a7-correction-generic-container-eligibility-review/test-evidence.md
+new file mode 100644
+index 00000000..b092194d
+--- /dev/null
++++ b/docs/inventory/reviews/inventory-a7-correction-generic-container-eligibility-review/test-evidence.md
+@@ -0,0 +1,95 @@
++# Inventory Core — A7 Follow-Up Correction Pass — Test Evidence
++
++## Full pgTAP regression: 097–115 (19 files)
++
++Run live against `supabase-target` via `mcp__supabase-target__execute_sql`,
++each file's exact on-disk content executed verbatim as a single SQL
++statement (each file self-wraps in its own `BEGIN ... ROLLBACK`, so no
++external transaction wrapper was added, no file was modified, no
++migration was applied during the run). Delegated to a background
++agent given the size (19 files); its per-file report is reproduced
++below and was cross-checked against this session's own independent
++live re-run of file 100 (see next section) before being trusted.
++
++All 19 files are self-contained (own fixture creation, own
++`BEGIN`/`ROLLBACK`) — none depend on state from a prior file in the
++sequence. Every file ended in `ROLLBACK` as written; none committed,
++so no residual test data was left in the live DB from the regression
++run itself.
++
++| # | File | Plan | Pass | Fail |
++|---|---|---|---|---|
++| 1 | `097_repair_order_line_movement_attach_phase10_test.sql` | 29 | 29 | 0 |
++| 2 | `098_repair_order_line_reservation_phase10a_test.sql` | 17 | 17 | 0 |
++| 3 | `099_repair_order_line_allocation_phase10b_test.sql` | 20 | 20 | 0 |
++| 4 | `100_repair_order_container_orchestration_phase10c_test.sql` | 44 | 44 | 0 |
++| 5 | `101_zone3_zone5_movement_engine_reserved_blindspot_characterization_test.sql` | 17 | 17 | 0 |
++| 6 | `102_ic1_reserved_only_hard_invariant_test.sql` | 11 | 11 | 0 |
++| 7 | `103_ic2_movement_reversal_test.sql` | 35 | 35 | 0 |
++| 8 | `104_ic3_receiving_consolidation_test.sql` | 44 | 44 | 0 |
++| 9 | `105_ic7a_movement_engine_security_boundary_test.sql` | 29 | 29 | 0 |
++| 10 | `106_ic4_branch_transfer_test.sql` | 87 | 87 | 0 |
++| 11 | `107_ic5_repair_order_projection_test.sql` | 46 | 46 | 0 |
++| 12 | `108_ic6_legacy_cleanup_test.sql` | 23 | 23 | 0 |
++| 13 | `109_ic6a_opening_stock_repair_test.sql` | 16 | 16 | 0 |
++| 14 | `110_ic7_security_write_boundary_test.sql` | 25 | 25 | 0 |
++| 15 | `111_ic7_closing_security_test.sql` | 24 | 24 | 0 |
++| 16 | `112_pre_ic8_p0_balance_settings_guc_boundary_test.sql` | 20 | 20 | 0 |
++| 17 | `113_a1_a4_simplification_security_test.sql` | 7 | 7 | 0 |
++| 18 | `114_a7_repairorder_container_boundary_test.sql` | 18 | 18 | 0 |
++| 19 | `115_a7_correction_generic_container_eligibility_test.sql` | 14 | 14 | 0 |
++
++**Total: 526 assertions, 526 passing, 0 failures, 0 errors.** Every
++file's live assertion count matched its own `plan(N)` declaration
++exactly.
++
++File 100 notably includes the T2/T5/T9/T15/T30 scenarios rerouted
++through `repair_order_add_allocation_to_container` by this pass — all
++five, plus every other assertion in that file, passed. File 114
++(modified — G2 flip, J2 correction) — 18/18. File 115 (new) — 14/14.
++
++## Independent re-verification of file 100
++
++Before delegating the full regression, this session independently
++executed the complete, fully-corrected 809-line
++`100_repair_order_container_orchestration_phase10c_test.sql` live
++against `supabase-target` and confirmed, via the file's own summary
++query, `not_ok_count = 0, total_assertions = 44` — matching the
++background agent's own later result exactly.
++
++## Vitest
++
++Ran the 3 test files referencing repair-orders code
++(`src/server/services/__tests__/repair-orders.service.test.ts`,
++`src/app/actions/workshop/__tests__/repair-orders.test.ts`,
++`src/lib/types/__tests__/repair-orders.test.ts`):
++
++```
++Test Files  3 passed (3)
++     Tests  196 passed (196)
++```
++
++Zero TypeScript files changed this pass, so this result was expected
++unchanged from the A7 base pass — re-run anyway per this project's
++established discipline of not assuming unaffected suites still pass.
++
++## Static / build gates
++
++- `pnpm type-check` — clean, zero errors.
++- `pnpm lint` — 0 errors, 319 pre-existing warnings (all in unrelated
++  `temp/` scratch directories, none touched by this pass).
++- `pnpm build` — succeeded, full route manifest generated.
++- `git diff --check` — clean on all changed/new files (no whitespace
++  errors).
++
++## Zero residual test data (independent confirmation)
++
++Beyond every pgTAP file's own `ROLLBACK`, independently queried the
++live DB after the full regression for any leftover fixture rows
++matching this pass's own test markers:
++
++```sql
++containers: 0, repair_orders: 0, recent_links (last 1h): 0, recent_containers (last 1h): 0
++```
++
++No residual data from this pass or the regression run.

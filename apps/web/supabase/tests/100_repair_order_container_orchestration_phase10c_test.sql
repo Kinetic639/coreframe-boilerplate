@@ -63,6 +63,27 @@
 -- covers the rest of the A7 boundary (including the generic primitive's
 -- own new, narrower direct-call behavior).
 --
+-- A7 FOLLOW-UP CORRECTION PASS (see docs/inventory/reviews/inventory-a7-
+-- correction-generic-container-eligibility-review/): inventory_add_to_
+-- container was narrowed FURTHER -- it now rejects ANY domain-owned/
+-- referenced container outright (a generic-eligibility gate, P0002,
+-- domain-agnostic -- not specifically checking reference_type=
+-- 'repair_order'), delegating the real placement logic to a new
+-- INTERNAL-ONLY helper, inventory_add_to_container_internal. Since
+-- container_a/container_b in THIS file are both RepairOrder-owned
+-- (T1/T4's own fixtures), every scenario that places allocations into
+-- them via a DIRECT call to inventory_add_to_container would now be
+-- rejected regardless of correctness. T2, T5, T9, T15, and T30 (every
+-- remaining direct call against container_a/container_b, beyond T19
+-- which was already fixed in the prior A7 pass) are updated to route
+-- through repair_order_add_allocation_to_container instead -- the real
+-- production entry point for a RepairOrder-owned container. Each
+-- scenario's own assertion and expected outcome are completely
+-- unchanged; only the function called changed. T11/T14 (generic
+-- containers), T33 (a generic branch_b container), T34/T43 (fail at
+-- the actor/permission check, before eligibility is ever reached) are
+-- confirmed unaffected -- see each one's own reasoning if revisited.
+--
 -- Phase 10C does NOT touch reservation_line.fulfilled_quantity,
 -- allocation_line.fulfilled_quantity, or any inventory_balances quantity --
 -- container placement is pure physical grouping of ALREADY-allocated stock,
@@ -266,13 +287,24 @@ UPDATE fx SET container_a = ((SELECT result FROM cf1) ->> 'container_id')::uuid;
 INSERT INTO test_log(line) SELECT is((result ->> 'status'), 'empty', 'T1: a newly created container starts status=empty') FROM cf1;
 
 -- T2: place 6 of line_a's 10-unit allocation into container A.
+--
+-- A7 FOLLOW-UP CORRECTION PASS: container_a is RepairOrder-owned
+-- (reference_type='repair_order', see T1's own fixture above). Post-
+-- correction, the public inventory_add_to_container generic primitive
+-- rejects ANY domain-owned container as a matter of policy (see
+-- docs/inventory/reviews/inventory-a7-correction-generic-container-
+-- eligibility-review/) -- a direct call here would now fail with
+-- P0002 regardless of the allocation's own correctness. Routed through
+-- repair_order_add_allocation_to_container instead, the real
+-- production entry point for a RepairOrder-owned container -- same
+-- params, same result shape, identical assertion.
 CREATE TEMP TABLE addf1 AS
-SELECT (inventory_add_to_container(
+SELECT (repair_order_add_allocation_to_container(
   (SELECT e2e_user FROM fx), (SELECT org FROM fx), (SELECT branch FROM fx),
   (SELECT container_a FROM fx), (SELECT allocline_a FROM fx), 6
 )) AS result;
 UPDATE fx SET link_1 = ((SELECT result FROM addf1) ->> 'link_id')::uuid;
-INSERT INTO test_log(line) SELECT is((result ->> 'quantity')::numeric, 6::numeric, 'T2: placing 6 into container A succeeds') FROM addf1;
+INSERT INTO test_log(line) SELECT is((result ->> 'quantity')::numeric, 6::numeric, 'T2: placing 6 into container A succeeds (via repair_order_add_allocation_to_container, A7 follow-up correction)') FROM addf1;
 
 -- T3: container A transitions empty -> active on first placement.
 INSERT INTO test_log(line) SELECT is(
@@ -290,13 +322,17 @@ UPDATE fx SET container_b = ((SELECT result FROM cf2) ->> 'container_id')::uuid;
 
 -- T5: place the REMAINING 4 of line_a's allocation into container B (one
 -- allocation line split across multiple containers).
+--
+-- A7 FOLLOW-UP CORRECTION PASS: container_b is also RepairOrder-owned
+-- (T4's own fixture above) -- same reasoning as T2, routed through the
+-- wrapper.
 CREATE TEMP TABLE addf2 AS
-SELECT (inventory_add_to_container(
+SELECT (repair_order_add_allocation_to_container(
   (SELECT e2e_user FROM fx), (SELECT org FROM fx), (SELECT branch FROM fx),
   (SELECT container_b FROM fx), (SELECT allocline_a FROM fx), 4
 )) AS result;
 UPDATE fx SET link_2 = ((SELECT result FROM addf2) ->> 'link_id')::uuid;
-INSERT INTO test_log(line) SELECT is((result ->> 'quantity')::numeric, 4::numeric, 'T5: placing the remaining 4 into container B succeeds (split across two containers)') FROM addf2;
+INSERT INTO test_log(line) SELECT is((result ->> 'quantity')::numeric, 4::numeric, 'T5: placing the remaining 4 into container B succeeds (split across two containers, via wrapper, A7 follow-up correction)') FROM addf2;
 
 -- T6: active link sum for line_a's allocation is exactly 10 (6+4).
 INSERT INTO test_log(line) SELECT is(
@@ -318,16 +354,22 @@ INSERT INTO test_log(line) SELECT is(
 
 -- T9: over-placement -- line_a's allocation is fully placed (10/10);
 -- attempting +1 more anywhere is atomically rejected.
+--
+-- A7 FOLLOW-UP CORRECTION PASS: routed through the wrapper (container_a
+-- is RepairOrder-owned) -- the wrapper's own ownership check passes
+-- (allocline_a belongs to the same RepairOrder as container_a), then
+-- delegates to the nested generic call, which still enforces the
+-- over-placement cap identically (22023, unchanged).
 DO $$
 BEGIN
   BEGIN
-    PERFORM inventory_add_to_container(
+    PERFORM repair_order_add_allocation_to_container(
       (SELECT e2e_user FROM fx), (SELECT org FROM fx), (SELECT branch FROM fx),
       (SELECT container_a FROM fx), (SELECT allocline_a FROM fx), 1
     );
     INSERT INTO test_log(line) SELECT fail('T9: expected over-placement rejection, call succeeded instead');
   EXCEPTION WHEN OTHERS THEN
-    INSERT INTO test_log(line) SELECT is(SQLSTATE, '22023', 'T9: over-placement (would exceed allocated_quantity) is rejected atomically (22023)');
+    INSERT INTO test_log(line) SELECT is(SQLSTATE, '22023', 'T9: over-placement (would exceed allocated_quantity) is rejected atomically (22023, via wrapper -> internal helper, A7 follow-up correction)');
   END;
 END $$;
 
@@ -410,12 +452,15 @@ INSERT INTO test_log(line) SELECT is((result ->> 'quantity')::numeric, 2::numeri
 -- T15: line_c's own allocation (5 units, SAME RepairOrder "ro" as line_a)
 -- placed into the SAME container A as line_a's -- same-RepairOrder,
 -- multiple allocation lines -> one container remains supported.
+--
+-- A7 FOLLOW-UP CORRECTION PASS: routed through the wrapper -- same
+-- reasoning as T2/T5/T9.
 CREATE TEMP TABLE addf4 AS
-SELECT (inventory_add_to_container(
+SELECT (repair_order_add_allocation_to_container(
   (SELECT e2e_user FROM fx), (SELECT org FROM fx), (SELECT branch FROM fx),
   (SELECT container_a FROM fx), (SELECT allocline_c FROM fx), 5
 )) AS result;
-INSERT INTO test_log(line) SELECT is((result ->> 'quantity')::numeric, 5::numeric, 'T15: line_c''s own allocation (SAME RepairOrder as line_a, 5 units) placed into the SAME container A succeeds') FROM addf4;
+INSERT INTO test_log(line) SELECT is((result ->> 'quantity')::numeric, 5::numeric, 'T15: line_c''s own allocation (SAME RepairOrder as line_a, 5 units) placed into the SAME container A succeeds (via wrapper, A7 follow-up correction)') FROM addf4;
 
 -- T16: container A's own contents now sum to 11 (6 from line_a + 5 from line_c).
 INSERT INTO test_log(line) SELECT is(
@@ -535,12 +580,15 @@ INSERT INTO test_log(line) SELECT is((result ->> 'container_status'), 'empty', '
 
 -- T30-T31: re-add 6 to container A -- empty -> active again, quantity
 -- restored correctly (container B's own link_2, still holding 4, untouched).
+--
+-- A7 FOLLOW-UP CORRECTION PASS: routed through the wrapper -- same
+-- reasoning as T2/T5/T9/T15.
 CREATE TEMP TABLE addf5 AS
-SELECT (inventory_add_to_container(
+SELECT (repair_order_add_allocation_to_container(
   (SELECT e2e_user FROM fx), (SELECT org FROM fx), (SELECT branch FROM fx),
   (SELECT container_a FROM fx), (SELECT allocline_a FROM fx), 6
 )) AS result;
-INSERT INTO test_log(line) SELECT is((result ->> 'container_status'), 'active', 'T30: re-adding to the now-empty container A transitions it back to active') FROM addf5;
+INSERT INTO test_log(line) SELECT is((result ->> 'container_status'), 'active', 'T30: re-adding to the now-empty container A transitions it back to active (via wrapper, A7 follow-up correction)') FROM addf5;
 INSERT INTO test_log(line) SELECT is(
   (SELECT quantity FROM inventory_allocation_container_links WHERE id = (SELECT link_2 FROM fx)),
   4::numeric, 'T31: container B''s own link_2 (4 units) is completely untouched by container A''s own remove/re-add cycle'
