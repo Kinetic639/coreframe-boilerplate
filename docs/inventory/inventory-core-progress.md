@@ -136,9 +136,43 @@ permission/spoofed-actor callers for this exact call path.
 creation scope) deliberately NOT touched, per this pass's own narrow
 "ACTIVE createEnhancedProduct path" charter. See `docs/inventory/
 reviews/ic-6a-opening-stock-repair-review/` for full evidence.
-**Current phase:** IC-6A DONE → full IC-7 (Inventory Security /
-Write-Boundary Closure) is the next phase in sequence, NOT yet
-authorized/started. IC-8 and Phase 10D remain NOT started.
+**IC-7 ✅ DONE** — Inventory Security / Write-Boundary Closure +
+Module-Boundary Audit. Closed every remaining raw-write gap
+architecture doc §9's own table listed as open (reservation/allocation/
+generic-container raw writes, the posted-header GUC bypass, the
+status-blind movement INSERT gap), plus 3 genuinely new CRITICAL
+findings this phase's own live audit discovered: (1) a systemic
+NULL-comparison bug meant `inventory_guard_balance_write`/`inventory_
+guard_settings_write` failed OPEN by default for any session that
+never touched the GUC at all — more severe than the already-known
+GUC-bypass, since no special knowledge was required; (2) `inventory_
+cancel_movement`/`inventory_save_draft`/`inventory_reconcile_balances`
+all carried live `anon` EXECUTE with zero actor/permission checks —
+fully unauthenticated, cross-tenant exploitable; (3) the 4 reservation/
+allocation RPCs were `SECURITY INVOKER` (not DEFINER) with no
+actor-identity check, discovered while applying the reservation/
+allocation RESTRICTIVE RLS fix (their own INVOKER status meant the new
+RLS would have blocked their own legitimate writes too) — converted to
+SECURITY DEFINER in the same phase. The posted-header GUC
+"authorization" was redesigned, not patched: the GUC is now removed
+entirely as an authorization signal — the immutability trigger
+validates the SUBSTANCE of any change (an exact, structurally-verified
+reversal-lifecycle delta, double-linked to a genuine, unforgeable
+system-reversal row) instead. A live default-privilege audit (going
+further than IC-7A's own deferred investigation) confirmed changing
+the schema-wide `anon` default is unsafe (dozens of unrelated,
+legitimately-public modules depend on it) — Option B chosen (per-
+function explicit REVOKE + an enforced pgTAP grant sweep). A module-
+boundary audit confirmed generic Inventory Core does not depend on
+RepairOrder/PurchaseOrder business logic (one narrow, disclosed,
+non-security exception), and the application's own entry-point shape
+is already correct (zero action-layer RPC bypass, zero duplicate entry
+points). 9 forward migrations, all live-verified; new pgTAP `110_ic7_
+security_write_boundary_test.sql` (25/25); full regression 097-110.
+See `docs/inventory/reviews/ic-7-review/` for full evidence.
+**Current phase:** IC-7 DONE → IC-8 (Full Inventory Regression /
+Concurrency / Performance Hardening) is the next phase in sequence, NOT
+yet authorized/started. Phase 10D remains NOT started.
 **Pitch/pilot readiness:** N/A — this is base-engine work, not itself a
 pitch-scoped feature; it BLOCKS Phase 10D, which IS pitch-scoped (see the
 Zone 3 tracker's own cross-reference).
@@ -148,10 +182,10 @@ Zone 3 tracker's own cross-reference).
 
 ## Overall execution
 
-- IC phases completed: 7 / 8 (IC-0, IC-1, IC-2, IC-3, IC-4, IC-5, IC-6),
-  plus the out-of-order IC-7A emergency pass and the narrow IC-6A
-  correctness pass (opening-stock active-path repair). Full IC-7 and
-  IC-8 NOT started.
+- IC phases completed: 8 / 8 (IC-0, IC-1, IC-2, IC-3, IC-4, IC-5, IC-6,
+  IC-7), plus the out-of-order IC-7A emergency pass and the narrow
+  IC-6A correctness pass (opening-stock active-path repair). IC-8 NOT
+  started.
 - 3 forward migrations applied for IC-1; 9 forward migrations applied for
   IC-2 (7 original + 2 from the security-boundary correction pass); 4
   forward migrations applied for IC-3; 4 forward migrations applied for
@@ -204,6 +238,7 @@ Zone 3 tracker's own cross-reference).
 | **IC-5** RepairOrder physical-location projection consolidation      | ✅ DONE        | One coherent projection derivation from canonical ledger (A) + attribution (B, `repair_order_line_movement_links`) → projection (C). Incremental fast path plus a new authoritative deterministic rebuild (`rebuild_repair_order_projection_bucket_internal` + public `rebuild_repair_order_location_projection`), proven equal by construction for reversal and empirically for every tested scenario (A-T). Reversal made projection-aware while `inventory_reverse_movement` itself stays fully RepairOrder-agnostic and untouched. IC-2 GUC retained, its staleness side-effect eliminated. `CHECK (quantity >= 0)` added; over-attribution/negative-rebuild hard-errors `P0008`, never clamped. Raw writes closed on both projection tables. **Same-day narrow correction pass**: fixed a BLOCKER (reversed putaway rebuilt the wrong projection bucket set -- the source/receiving bucket was left stale; buckets now derived from the reversal movement LINE's own source/destination columns, never from the firing ledger row) and centralized all three direct writers of `repair_order_line_movement_links` (attach/putaway/reversal-trigger) behind one new internal canonical primitive, `write_repair_order_line_movement_link_internal`, after external review found the original pass's own "attach is the sole writer" documentation claim had become false. Public attach contract frozen to `receipt`/`issue` only. pgTAP 46/46 (`107_...`, extended). Full regression 097-107, 382/382, 0 failures. See change log for full evidence.                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | IC-6 Legacy writer/helper removal                                    | ✅ DONE        | Dropped: `inventory_v1_get_or_create_balance`, stale 5-arg `inventory_get_or_create_balance_for_update` overload, `inventory_settings.negative_stock_policy` (Option A, proven structurally UNREACHABLE not just unused), 4 dead `ambra-location-inventory.ts` write actions (zero callers, confirmed a 3rd independent time). Legacy movement/numbering-helper audits confirmed already-clean. Both GUCs retained (posted-header GUC bypass left for full IC-7). New pgTAP `108_...` (23/23); full regression 097-108 re-run after fixing a genuine regression in `102_...` (its own Scenario C referenced the dropped column — test file edited, not a migration). See `inventory-core-architecture.md` §9D and `docs/inventory/reviews/ic-6-review/`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | IC-6A Opening stock active-path repair                               | ✅ DONE        | Fixed a live, active bug IC-6 discovered: `createOpeningStockMovement` called 2 nonexistent RPCs. Moved onto `inventory_create_and_finalize` (movement type 401), no migration needed. New pgTAP `109_...` (16/16, live retry/idempotency proof); 5 new Vitest scenarios; full 097-108 regression re-run clean (402/402); `105_...` re-confirmed (29/29). From-scratch reproducibility gap (IC-6 finding) assigned as a HARD GATE to IC-8. See `docs/inventory/reviews/ic-6a-opening-stock-repair-review/`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| IC-7 Security / write-boundary closure + module-boundary audit       | ✅ DONE        | Closed every open raw-write gap (reservation/allocation/generic-container RLS, posted-header GUC bypass, status-blind movement INSERT) plus 3 new CRITICAL findings: `inventory_guard_balance_write`/`_settings_write` NULL-comparison fail-open bug; `inventory_cancel_movement`/`inventory_save_draft`/`inventory_reconcile_balances` fully unauthenticated exploits; reservation/allocation RPCs were SECURITY INVOKER with no actor check. Posted-header trigger redesigned (GUC removed as authorization signal entirely). Default-privilege Option B chosen (schema-wide change confirmed unsafe). Module-boundary audit: generic core clean of RepairOrder/PO dependencies (1 disclosed exception). 9 migrations; new pgTAP `110_...` (25/25); full regression 097-110. See `docs/inventory/reviews/ic-7-review/`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | IC-7 Inventory security/write-boundary closure                       | ⬜ NOT STARTED | Depends on IC-0's own live findings plus whatever IC-4 already closed.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | IC-8 Full inventory regression / concurrency / performance hardening | ⬜ NOT STARTED | Final phase before the INVENTORY CORE FINAL GATE.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | **INVENTORY CORE FINAL GATE**                                        | ⬜ NOT REACHED | Required before Phase 10D (Container QR) may resume.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
@@ -2675,4 +2710,342 @@ context.md`, `test-evidence.md`; no `migration-summary.md`, since no
   migration occurred).
 
   **IC-6A is DONE.** IC-6 remains DONE, not reopened. Full IC-7 is NOT
+  started. IC-8 is NOT started. Phase 10D is NOT started.
+
+---
+
+- **2026-09-17 (IC-7 — Inventory Security / Write-Boundary Closure +
+  Module-Boundary / Public-Entry-Point Audit)**: full security-hardening
+  phase, per explicit instruction; IC-0 through IC-6A and IC-7A remain
+  ACCEPTED/FINAL, not reopened; IC-8 and Phase 10D explicitly NOT
+  started.
+
+  **Starting-state gate, disclosed**: HEAD at phase start was
+  `fb22529567cf029ea2dc6e6109f1f3d34216d477` ("ic6a" — the same combined
+  IC-6+IC-6A commit whose own out-of-band appearance was flagged during
+  IC-6A's own final report). Working tree confirmed clean of anything
+  except this phase's own new files before work began. IC-8/Phase 10D
+  re-confirmed NOT started.
+
+  **Read in full, not relied on as summaries alone**: `inventory-core-
+architecture.md` (all ~1600 lines), the existing IC-7 scope in
+  `inventory-core-implementation-plan.md`, and the IC-0 change-log
+  entry in this file — surfaced two genuine IC-0 findings (reservation/
+  allocation raw-write RLS gap; movement-header status-blind raw
+  INSERT) that had been recorded as "IC-7 blockers" but never actually
+  closed by any intervening phase. A background synthesis agent
+  independently confirmed and extended this picture across IC-1 through
+  IC-5/IC-7A's own review bundles (not re-read directly, per an
+  explicit instruction to trust the already-consolidated architecture
+  doc §9 table as primary and use the bundles as supporting provenance).
+
+  **Live write-surface enumeration**: a background investigation agent
+  performed a comprehensive, empirical live audit — full function/grant
+  matrix (~55 functions), `pg_default_acl` inspection, RLS-policy sweep
+  across all 20 tables named in this task's own §2, trigger inventory,
+  and a raw-DML probe matrix as a real `operate`-permissioned actor.
+  This surfaced the SYSTEMIC NULL-comparison fail-open bug (see below)
+  as its own headline finding — a class of defect neither this session
+  nor any prior phase had previously identified.
+
+  **1. `inventory_cancel_movement` — CRITICAL, fully unauthenticated,
+  cross-tenant exploit.** Live-confirmed: `SECURITY DEFINER` (bypasses
+  RLS), zero actor-identity check, zero permission check, live `anon`
+  EXECUTE. An unauthenticated `anon` session could cancel any DRAFT
+  movement in ANY organization. Fixed: standard actor-identity (`28000`)
+  - permission (`42501`, surfaced as the non-leaking `P0002` message
+    matching `inventory_reverse_movement`'s own established pattern)
+    checks added; `anon`/`PUBLIC` EXECUTE revoked. Live-reproduced closed:
+    `anon` call now `42501` at the grant level, spoofed actor now `28000`,
+    no-permission real actor now `P0002`.
+
+  **2. Posted-header GUC "authorization" — the single most
+  architecturally significant fix this phase.** The immutability
+  triggers (`inventory_prevent_header_modification`/`_line_
+modification`) previously relied ENTIRELY on `current_setting(
+'ambra.inventory_movement_engine', true) != 'on'` — a caller-settable
+  session GUC is never a real security boundary (this project's own
+  established principle, restated explicitly by this task). Redesigned:
+  the GUC is removed entirely as an authorization signal. Authorization
+  is now based on the SUBSTANCE of the change — once posted, the ONLY
+  value-changing transition ever permitted is EXACTLY the accepted
+  reversal lifecycle (verified via `to_jsonb(NEW) - {allowed keys} =
+to_jsonb(OLD) - {allowed keys}`, robust against future column
+  additions rather than hand-enumerating the table's 40 columns) AND
+  the new `reversal_movement_id` must genuinely double-link back to a
+  real, correctly-typed (`movement_type_code='900'`) row — which cannot
+  be forged, since `900`-type movements cannot be manually created
+  (IC-7A's own closed contract). This closes not just the known
+  document-number-rewrite bypass but a MORE severe variant this
+  session self-discovered: forging a completely fake "already reversed"
+  state pointing at an arbitrary/unrelated movement id. Lines: no
+  legitimate path ever updates/deletes an existing line post-posting
+  (verified against both `inventory_reverse_movement`'s and `inventory_
+finalize_posting_internal`'s own current bodies), so the GUC-gated
+  exception was removed entirely — unconditional denial.
+
+  **3. Systemic NULL-comparison fail-open bug — CRITICAL, newly
+  discovered this phase, arguably the most severe single finding.**
+  `inventory_guard_balance_write`/`inventory_guard_settings_write` used
+  a bare `<>` comparison against `current_setting(..., true)`. When the
+  GUC was NEVER SET AT ALL (the ordinary default for any raw client
+  connection — no bypass trick of any kind required), the comparison
+  evaluates to SQL NULL, which PL/pgSQL's `IF NULL THEN` treats as
+  FALSE — the guard failed OPEN, not closed. Live-reproduced (after
+  self-catching and correcting a FALSE NEGATIVE in the first test
+  attempt, caused by the exact same `SET LOCAL`-persists-for-the-rest-
+  of-the-transaction artifact this project has documented repeatedly —
+  re-tested in a properly isolated, zero-prior-GUC-contact transaction):
+  a fresh transaction's very first statement, a raw `UPDATE inventory_
+balances SET on_hand_quantity = 999999`, succeeded pre-fix as an
+  ordinary `operate`-permissioned actor. This meant IC-1's own hard
+  stock invariants — the reason this whole consolidation effort exists
+  — could be silently bypassed with a single raw UPDATE, no special
+  knowledge required. Fixed: `COALESCE(current_setting(...), 'off') <>
+'on'`. Every legitimate canonical RPC already explicitly sets this
+  GUC before writing, so zero legitimate behavior changed.
+
+  **4. `inventory_save_draft`/`inventory_reconcile_balances` — same
+  exploit class as item 1.** `inventory_save_draft`: identical fix
+  pattern. `inventory_reconcile_balances`: a pure read-only diagnostic
+  (`LANGUAGE sql`, no writes) but carried live `anon` EXECUTE with zero
+  checks — cross-tenant stock-drift read exposure for any org/branch id
+  supplied. Converted to `LANGUAGE plpgsql` solely to add the actor+
+  permission check (diagnostic query byte-for-byte unchanged); old
+  2-arg signature explicitly `DROP FUNCTION`ed after confirming zero
+  application callers (this project's own established "always check
+  before dropping an overload" discipline).
+
+  **5. Reservation/allocation/container raw-write RLS — IC-0's own
+  2026-09-15 finding, finally closed.** Re-confirmed still live this
+  phase (both by direct `pg_policies` inspection and an empirical
+  raw-DML probe): `inventory_reservations`/`_lines`/`inventory_
+allocations`/`_lines` each carried only a single `PERMISSIVE ALL`
+  policy, no `RESTRICTIVE` ownership-aware policy — any `operate`-
+  permissioned actor could raw-write these tables, bypassing every
+  invariant the canonical RPCs enforce. `inventory_containers`/
+  `_container_lines`'s own generic (non-RepairOrder) rows had the
+  identical gap. Closed with the exact, already-proven-safe
+  `RESTRICTIVE USING(false)/WITH CHECK(false)` pattern IC-4/IC-5 already
+  used. Container closure confirmed safe only because IC-6 already
+  deleted the sole legacy direct-writer (`ambra-location-inventory.ts`'s
+  own 4 write actions, disclosed and removed in IC-6).
+
+  **6. Reservation/allocation RPCs were SECURITY INVOKER — genuinely
+  new finding, self-caught live while applying item 5.** The FIRST
+  attempt to run the legitimate reservation-creation flow after
+  applying item 5's own RLS migration FAILED (`42501: new row violates
+row-level security policy`) — root-caused to `inventory_create_
+reservation`/`inventory_release_reservation`/`inventory_create_
+allocation`/`inventory_release_allocation` all being `SECURITY
+INVOKER` (the implicit Postgres default, never explicitly set), out
+  of compliance with this project's own standing "SECURITY DEFINER,
+  owner postgres" convention, with no actor-identity check on any of
+  the 4. Since INVOKER functions run AS the calling role and are
+  themselves subject to RLS, item 5's own new RESTRICTIVE policies
+  correctly blocked ordinary raw client writes but ALSO blocked these
+  4 RPCs' own legitimate writes. Fixed in the SAME phase, not deferred:
+  converted all 4 to `SECURITY DEFINER` with actor-identity checks
+  added; the two release functions' own cross-org existence-leak
+  (different error messages for "not found" vs. "no permission") was
+  ALSO unified to the same non-leaking `P0002` pattern while in there.
+  All business logic byte-for-byte unchanged. Confirmed all 6 real
+  TypeScript call sites (`InventoryEnterpriseService`'s 4 methods,
+  `RepairOrdersService`'s `reserveForLine`/`allocateForLine`/
+  `releaseReservationForLine`) already pass a genuine, session-resolved
+  actor id, so the new strict check breaks nothing.
+
+  **7. Movement-header/line status-blind raw INSERT — IC-0's own
+  finding, extended this phase.** Re-confirmed still live: an
+  `operate`-permissioned actor could raw-INSERT a fabricated
+  `status='posted'` header. Extended to a genuinely new discovery: since
+  the immutability trigger only fires on UPDATE/DELETE, a raw client
+  could previously INSERT a brand-new line under an EXISTING, genuinely-
+  posted `movement_id` without ever tripping the immutability guard.
+  Both closed with matching RESTRICTIVE `status='draft'`-only INSERT
+  policies.
+
+  **8. `inventory_approve_count_session`.** Added the standard actor-
+  identity check (closing a narrow audit-trail-attribution spoofing gap
+  on `approved_by` for zero-net-variance approvals); `anon`/`PUBLIC`
+  EXECUTE revoked. Remains `SECURITY INVOKER` — its own nested calls
+  into the hardened engine already provide the real boundary for any
+  non-trivial approval.
+
+  **9. Grant hygiene.** `inventory_get_or_create_balance_for_update`
+  (shared internal balance-getter) and 8 trigger functions had `anon`/
+  `PUBLIC` EXECUTE revoked — confirmed safe via same-owner `SECURITY
+DEFINER` nesting semantics (nested calls from a `postgres`-owned
+  DEFINER caller execute as `postgres`, which always implicitly has
+  EXECUTE on everything it owns, regardless of the callee's own
+  explicit grants).
+
+  **Default-privilege systemic decision (§16/17/22/23) — Option B.** A
+  live audit this phase (going further than IC-7A's own deferred
+  investigation) queried every `anon`-executable function OUTSIDE the
+  Inventory/RepairOrder domain and found dozens of genuinely,
+  deliberately public-facing functions across unrelated modules
+  (invitation acceptance, signup, org creation, plus warehouse-layout/
+  planning/CRM/helpdesk functions) that legitimately rely on the same
+  schema-wide `ALTER DEFAULT PRIVILEGES ... GRANT EXECUTE ... TO anon`
+  rule. Confirmed changing it schema-wide is unsafe within this phase's
+  own Inventory-only scope — auditing every one of those unrelated
+  modules is explicitly out of scope. Chose Option B: retain the
+  default; every Inventory Core function this phase touched received an
+  explicit per-function `REVOKE`; the new pgTAP file's own grant-
+  privilege assertions plus the full function-grant-matrix sweep serve
+  as the enforced, re-runnable regression check the task's own §36
+  requires, rather than relying on human migration discipline alone.
+
+  **Module-boundary audit (§3/§4/§25).** Generic Inventory Core does
+  NOT depend on RepairOrder or PurchaseOrder business logic in any
+  load-bearing way, with ONE narrow, disclosed, non-security-relevant
+  exception: `inventory_add_to_container`'s own inline RepairOrder-
+  ownership check (a real, direct `JOIN repair_order_lines`, guarding a
+  real, tested, already-accepted invariant from Phase 10C). Not touched
+  this phase (no security bypass involved); recorded as an
+  architecture-compression candidate. The TypeScript-layer dependency
+  direction is already fully correct: a repo-wide grep found ZERO
+  `.rpc("inventory_...")` calls anywhere outside `src/server/services/`,
+  and `RepairOrdersService` (business module) correctly calls generic
+  Inventory Core RPCs, never the reverse. `repair_order_line_locations_
+ledger_sync` (a RepairOrder-domain trigger on the generic
+  `inventory_stock_ledger_entries` table) is IC-5's own deliberate,
+  already-accepted design — recorded, not touched.
+
+  **Application entry-point audit (§5/§23/§24).** No duplicate entry
+  points found for the same physical write — the apparent overlap
+  between `InventoryEnterpriseService`'s generic reservation/allocation
+  methods and `RepairOrdersService`'s own line-specific methods is two
+  DISTINCT business operations (generic warehouse vs. RepairOrder-line-
+  specific, distinguished by `reference_type`) correctly sharing one
+  canonical RPC, not duplication — no consolidation recommended. Three
+  canonical RPCs (`receive_repair_order_stock`, `putaway_repair_order_
+stock`, `rebuild_repair_order_location_projection`) have zero current
+  TypeScript callers — fully built, fully hardened, but awaiting their
+  own UI; disclosed as an application-completeness observation for a
+  future feature-build phase, not a security or architecture finding.
+
+  **Architecture-compression candidates recorded (§41), none acted on
+  this phase**: the `inventory_add_to_container` coupling (above); the
+  `repair_order_line_locations_ledger_sync` trigger-on-core-table
+  design (deliberate, IC-5's own, keep); the 3 zero-caller canonical
+  RPCs (keep, defer UI); `createEnhancedProductLegacy` and `ambra-
+location-inventory.ts`'s remaining 3 dead functions (both already
+  disclosed by IC-6, restated not re-found); 7 product-catalog/
+  procurement/audit-domain functions still carrying default `anon`
+  EXECUTE without an explicit revoke (disclosed, deferred to a future
+  domain-specific hardening pass, outside this phase's own narrow
+  physical-stock-write charter).
+
+  **New pgTAP file**: `110_ic7_security_write_boundary_test.sql` —
+  `plan(25)`, final 25/25, 0 failures. One self-caught test-design bug
+  during authoring: the first draft created a reservation+allocation
+  against the SAME movement it then tried to reverse, correctly tripping
+  IC-1's own P0003 strand-check (proving the invariant still holds, but
+  breaking the test's own narrower "does the reversal lifecycle
+  transition still work" check) — fixed by adding a second, separate
+  receipt for the commitment scenarios, leaving the reversal target
+  movement fully uncommitted, matching the established fixture
+  discipline used throughout this whole project.
+
+  **Full regression**: 097 through 110 (14 files) delegated to a
+  background agent — see the addendum immediately below this entry (or
+  `docs/inventory/reviews/ic-7-review/test-evidence.md`) for the
+  completed result, appended once that run returned.
+
+  **Vitest/typecheck/lint/build**: no TypeScript/application file was
+  changed this phase (pure SQL/database security hardening) — `pnpm
+type-check`/`pnpm lint`/`pnpm build` were not re-run, per this
+  project's own established convention that a build is only required
+  when application/action TypeScript changes.
+
+  **Concurrency**: no new lock primitive introduced, no change to lock
+  order or which rows are locked by any hardened function — the new
+  checks are pure validation inserted before/around each function's own
+  pre-existing row acquisition (the trigger redesign preserved the
+  `FOR UPDATE` semantics of every legitimate caller unchanged).
+
+  **Documentation updated**: `inventory-core-architecture.md` §9's own
+  table updated in place (4 rows: movement headers/lines, the new
+  status-blind-INSERT row, reservations/allocations, containers) plus a
+  new §9E section covering the full phase; `inventory-core-
+implementation-plan.md`'s own pre-existing IC-7 section marked DONE
+  with a summary. This file (`inventory-core-progress.md`) updated:
+  runtime-status header, "Current phase" line, "Overall execution"
+  bullet, phase-tracker row, this change-log entry.
+
+  **Bundle**: `docs/inventory/reviews/ic-7-review/` — 11 files
+  (`diff.patch`, `changed-files.md`, `review-context.md`, `migration-
+summary.md`, `security-evidence.md`, `write-boundary-matrix.md`,
+  `function-grant-matrix.md`, `application-entry-point-matrix.md`,
+  `module-boundary-audit.md`, `compression-candidates.md`, `test-
+evidence.md`; no `concurrency-evidence.md`, since no concurrency
+  behavior changed).
+
+  **IC-7 is DONE.** IC-8 is NOT started. Phase 10D is NOT started. The
+  Zone-5 from-scratch-reproducibility gap remains explicitly assigned
+  to IC-8 as a hard gate (unchanged, not touched this phase, per
+  explicit instruction).
+
+- **2026-09-19 — IC-7 CLOSING PASS.** A narrow follow-up closed the 7
+  product/procurement/audit-domain functions full IC-7 had explicitly
+  disclosed and deferred (`inventory_create_enhanced_product`,
+  `inventory_create_product_with_default_variant`, `inventory_create_
+purchase_order`, `inventory_create_valuation_snapshot`, `inventory_
+create_count_session`, `inventory_count_session_list`, `inventory_
+find_sku_collisions`), plus 1 newly-found item during this pass's own
+  live classification sweep (`inventory_convert_quantity` — zero
+  permission check of any kind, a genuine tenant-configuration-data
+  exposure). IC-7's own core 10 findings and all 9 original migrations
+  remained completely frozen; none were reopened or touched.
+
+  **Genuine vulnerability found and closed**: actor-identity spoofing
+  on the 4 functions that accept `p_actor_user_id` — an authenticated
+  caller holding the correct business permission could forge
+  `created_by`/`updated_by` to an arbitrary, real, different user's
+  identity (live-reproduced with a genuine second real user, not a
+  synthetic UUID — a synthetic UUID only trips an unrelated FK
+  constraint and produces a false negative, an early pitfall this pass
+  self-caught and corrected). Fixed with the same established
+  `p_actor_user_id IS NULL OR IS DISTINCT FROM auth.uid() → 28000`
+  pattern IC-7 itself established.
+
+  **4 new migrations** (`20260919093552`, `20260919093630`,
+  `20260919093655`, `20260919093709`) — actor-identity checks on the 4
+  actor-bearing mutation functions plus `REVOKE ALL FROM PUBLIC, anon`
+  / `GRANT ... TO authenticated, service_role` on all 8 functions. None
+  were converted to `SECURITY DEFINER` (deliberately — none needed RLS
+  bypass, unlike the reservation/allocation RPCs in full IC-7; all
+  remain the correct `SECURITY INVOKER`, gated by RLS + their own
+  existing permission checks).
+
+  **Disclosed, out-of-scope, pre-existing defect found (NOT fixed, not
+  a regression, not a security bug)**: `inventory_create_valuation_
+snapshot`'s own body references `public.inventory_balance_analytics`,
+  which does not exist in this database. This function's body was not
+  edited this pass (grant-only change), so the bug predates the
+  closing pass entirely.
+
+  **New pgTAP**: `111_ic7_closing_security_test.sql`, `plan(24)`,
+  24/24. Includes a classification-based grant-regression check
+  (replacing a hardcoded function list) designed to fail automatically
+  if a future mutation RPC accidentally inherits `anon` EXECUTE from
+  the schema-wide default privilege.
+
+  **Full regression**: all 15 pgTAP files (097-111) re-run live,
+  467/467 assertions passing, 0 failures. Relevant Vitest: 8 files,
+  283/283 tests passing. `pnpm type-check`: clean. `pnpm lint`: 0
+  errors, 319 pre-existing warnings (unrelated `temp/` scaffold code).
+  `pnpm build`: succeeded. `git diff --check`: clean. Zero residual
+  test data confirmed live.
+
+  **Bundle**: `docs/inventory/reviews/ic-7-review/` refreshed in place
+  (not a new bundle) — `security-evidence.md`, `function-grant-
+matrix.md`, `test-evidence.md`, `review-context.md`, `changed-
+files.md`, `migration-summary.md`, `compression-candidates.md`, and
+  `diff.patch` all updated with the closing pass's own findings,
+  additive to (not replacing) the original IC-7 record.
+
+  **The closing pass is DONE.** Architecture compression is NOT
   started. IC-8 is NOT started. Phase 10D is NOT started.

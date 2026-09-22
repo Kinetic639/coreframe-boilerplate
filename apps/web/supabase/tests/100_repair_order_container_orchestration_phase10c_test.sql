@@ -29,11 +29,18 @@
 --   3. Two new RESTRICTIVE RLS policies (per command: INSERT/UPDATE/DELETE)
 --      on each of inventory_containers and inventory_container_lines deny
 --      direct authenticated DML against any row where the container (or its
---      own parent container) declares reference_type='repair_order'. Generic
---      (non-RepairOrder-owned) containers are completely unaffected -- their
---      own pre-existing permissive ALL policy still governs them unchanged,
---      preserving ambra-location-inventory.ts's own legacy behavior exactly
+--      own parent container) declares reference_type='repair_order'. At the
+--      time of THIS correction pass, generic (non-RepairOrder-owned)
+--      containers were left unaffected, preserving ambra-location-
+--      inventory.ts's own then-still-live legacy direct-write behavior
 --      (T37-T44 below).
+--      SUPERSEDED BY IC-7 (2026-09-17): IC-6 deleted ambra-location-
+--      inventory.ts's own 4 direct-write actions as confirmed-dead code,
+--      and IC-7's own live repo-wide grep confirmed zero remaining direct-
+--      table writes anywhere -- see T41/T42's own inline comment below for
+--      the full account. Raw writes are now closed for ALL
+--      inventory_containers/_container_lines rows, generic or RepairOrder-
+--      owned alike.
 --   4. A genuine two-PostgreSQL-connection concurrency proof was performed
 --      OUTSIDE this file (pgTAP is a single-connection tool and cannot
 --      express real concurrency) -- see migration-summary.md and the final
@@ -122,14 +129,26 @@ SELECT line_c, ro, variant_1, '100-SKU-X', '100 line C (SAME RepairOrder as line
 INSERT INTO repair_order_lines (id, repair_order_id, variant_id, product_code, product_name, ordered_quantity, unit)
 SELECT line_d, ro, variant_1, '100-SKU-X', '100 line D (location-mismatch probe)', 2, 'pcs' FROM fx;
 
+-- IC-7 note: inventory_guard_balance_write() now correctly fails closed
+-- (COALESCE(...,'off')) when the engine GUC is unset, so this raw fixture
+-- seed must set it first -- matching 102/106/107's own convention.
+-- PRE-IC8 P0 note: split into shape-compliant statements -- see 098's
+-- own identical note for the full rationale.
+SET LOCAL ambra.inventory_movement_engine = 'on';
 INSERT INTO inventory_balances (organization_id, branch_id, location_id, variant_id, on_hand_quantity, reserved_quantity, allocated_quantity)
-SELECT org, branch, location_1, variant_1, 1000, 0, 0 FROM fx
+SELECT org, branch, location_1, variant_1, 0, 0, 0 FROM fx
 ON CONFLICT (organization_id, branch_id, location_id, variant_id, coalesce(lot_id, '00000000-0000-0000-0000-000000000000'::uuid), coalesce(serial_id, '00000000-0000-0000-0000-000000000000'::uuid))
-DO UPDATE SET on_hand_quantity = 1000, reserved_quantity = 0, allocated_quantity = 0;
+DO NOTHING;
 INSERT INTO inventory_balances (organization_id, branch_id, location_id, variant_id, on_hand_quantity, reserved_quantity, allocated_quantity)
-SELECT org, branch, location_2, variant_1, 1000, 0, 0 FROM fx
+SELECT org, branch, location_2, variant_1, 0, 0, 0 FROM fx
 ON CONFLICT (organization_id, branch_id, location_id, variant_id, coalesce(lot_id, '00000000-0000-0000-0000-000000000000'::uuid), coalesce(serial_id, '00000000-0000-0000-0000-000000000000'::uuid))
-DO UPDATE SET on_hand_quantity = 1000, reserved_quantity = 0, allocated_quantity = 0;
+DO NOTHING;
+UPDATE inventory_balances SET reserved_quantity = 0, allocated_quantity = 0
+WHERE organization_id = (SELECT org FROM fx) AND branch_id = (SELECT branch FROM fx)
+  AND location_id IN ((SELECT location_1 FROM fx), (SELECT location_2 FROM fx)) AND variant_id = (SELECT variant_1 FROM fx);
+UPDATE inventory_balances SET on_hand_quantity = 1000
+WHERE organization_id = (SELECT org FROM fx) AND branch_id = (SELECT branch FROM fx)
+  AND location_id IN ((SELECT location_1 FROM fx), (SELECT location_2 FROM fx)) AND variant_id = (SELECT variant_1 FROM fx);
 
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fx)::text, 'role', 'authenticated')::text, true);
@@ -625,15 +644,30 @@ BEGIN
   END;
 END $$;
 
--- T41-T42: GENERIC (non-RepairOrder-owned) containers/lines are completely
--- unaffected -- the pre-existing legacy behavior ambra-location-inventory.ts
--- depends on is preserved exactly.
+-- T41-T42: SUPERSEDED BY IC-7 (2026-09-17). Phase 10C's own original intent
+-- (preserved here in this comment for history) was that GENERIC
+-- (non-RepairOrder-owned) containers/lines remain unaffected, because at
+-- the time ambra-location-inventory.ts's own 4 direct-write actions were
+-- still live legacy callers. IC-6 (2026-09-17, same day, earlier phase)
+-- deleted those 4 actions as confirmed-dead code; IC-7's own live repo-wide
+-- grep then confirmed ZERO remaining direct-table writes to these tables
+-- anywhere in the codebase (every real write goes through the canonical
+-- inventory_create_container/inventory_add_to_container/inventory_remove_
+-- from_container/inventory_seal_container RPCs). This made it safe, and a
+-- deliberate IC-7 decision (see
+-- docs/inventory/reviews/ic-7-review/write-boundary-matrix.md, "generic
+-- rows" row, and migration
+-- 20260917150706_ic7_reservation_allocation_container_restrictive_rls.sql's
+-- own header comment), to close the generic-row raw-write gap too, not
+-- just the RepairOrder-owned one. T41/T42 now assert the POST-IC-7
+-- contract: raw writes against ANY inventory_containers/_container_lines
+-- row -- generic or RepairOrder-owned -- are silently RLS-denied (0 rows).
 DO $$
 DECLARE v_rowcount int;
 BEGIN
   UPDATE inventory_containers SET code = '100-CONTAINER-MISMATCH-RENAMED' WHERE id = (SELECT container_mismatch FROM fx);
   GET DIAGNOSTICS v_rowcount = ROW_COUNT;
-  INSERT INTO test_log(line) SELECT is(v_rowcount, 1, 'T41: direct UPDATE against a GENERIC (non-RepairOrder) container still succeeds (legacy behavior preserved)');
+  INSERT INTO test_log(line) SELECT is(v_rowcount, 0, 'T41: direct UPDATE against a GENERIC (non-RepairOrder) container is now denied post-IC-7 (0 rows, RLS-filtered)');
 END $$;
 
 DO $$
@@ -642,7 +676,7 @@ BEGIN
   SELECT id INTO v_line_id FROM inventory_container_lines WHERE container_id = (SELECT container_match FROM fx) LIMIT 1;
   UPDATE inventory_container_lines SET quantity = quantity WHERE id = v_line_id;
   GET DIAGNOSTICS v_rowcount = ROW_COUNT;
-  INSERT INTO test_log(line) SELECT is(v_rowcount, 1, 'T42: direct UPDATE against a GENERIC container''s own line still succeeds (legacy behavior preserved)');
+  INSERT INTO test_log(line) SELECT is(v_rowcount, 0, 'T42: direct UPDATE against a GENERIC container''s own line is now denied post-IC-7 (0 rows, RLS-filtered)');
 END $$;
 
 -- T43: actor without warehouse.inventory.operate -> rejected.

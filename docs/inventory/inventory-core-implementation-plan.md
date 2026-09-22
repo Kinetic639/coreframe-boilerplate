@@ -919,6 +919,39 @@ accepted.
 
 ## IC-7 — Inventory Security / Write-Boundary Closure
 
+**✅ DONE (2026-09-17)**. Closed every remaining raw-write gap
+architecture doc §9's own table listed as open, plus 3 genuinely new
+findings surfaced by this phase's own live audit that were not
+previously disclosed: (1) a systemic NULL-comparison fail-open bug in
+`inventory_guard_balance_write`/`inventory_guard_settings_write` —
+these triggers failed OPEN, not merely GUC-bypassable, for any session
+that never touched the GUC at all; (2) `inventory_cancel_movement`/
+`inventory_save_draft`/`inventory_reconcile_balances` all carried live
+`anon` EXECUTE with zero actor/permission checks — fully unauthenticated,
+cross-tenant exploitable; (3) `inventory_create_reservation`/`inventory_
+release_reservation`/`inventory_create_allocation`/`inventory_release_
+allocation` were `SECURITY INVOKER` (not `SECURITY DEFINER`, out of
+compliance with this project's own standing convention) with no actor-
+identity check — discovered while applying this phase's own reservation/
+allocation RESTRICTIVE RLS fix (their own INVOKER status meant the new
+RLS would have blocked their own legitimate writes too), converted to
+`SECURITY DEFINER` in the same phase. The posted-header GUC "authorization"
+itself was redesigned, not patched: the GUC is now removed entirely as
+an authorization signal for header/line immutability — authorization is
+based on the SUBSTANCE of the change (an exact, structurally-validated
+reversal-lifecycle delta, double-linked to a genuine, unforgeable `900`-
+type reversal row) rather than a caller-settable session variable. 9
+forward migrations, all live-verified; new pgTAP `110_ic7_security_
+write_boundary_test.sql` (25/25). A live default-privilege audit
+(going further than IC-7A's own deferred investigation) found the
+schema-wide `anon` default grant is genuinely relied on by dozens of
+unrelated, legitimately-public modules (invitations, signup) —
+confirmed changing it is unsafe within this phase's own Inventory-only
+scope; Option B (per-function explicit `REVOKE` + an enforced pgTAP
+grant-privilege sweep) chosen instead. Full regression, module-boundary
+audit, and architecture-compression candidate list all delivered — see
+`docs/inventory/reviews/ic-7-review/` for complete evidence.
+
 **Goal**: close every remaining raw-write gap identified across IC-0 through
 IC-6 (architecture doc §9's own table), in one consolidated security pass.
 

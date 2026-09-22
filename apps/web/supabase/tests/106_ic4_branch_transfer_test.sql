@@ -487,7 +487,11 @@ UPDATE fx SET n_transfer_id = (SELECT (result->>'transfer_id')::uuid FROM n1);
 -- commitment (allocation) that must not be stranded by the transfer send.
 -- Done as the connecting (RLS-bypassing) role -- this is test-fixture
 -- setup, not something under test; the send rejection below is.
+-- PRE-IC8 P0 note: explicit GUC set for defense against any prior
+-- transaction-scoped state ambiguity -- this UPDATE is already
+-- shape-compliant (a pure commitment-only change, on_hand untouched).
 RESET ROLE;
+SET LOCAL ambra.inventory_movement_engine = 'on';
 UPDATE inventory_balances b
 SET allocated_quantity = allocated_quantity + 1
 FROM fx WHERE b.organization_id = fx.org AND b.branch_id = fx.src_branch AND b.location_id = fx.src_loc2 AND b.variant_id = fx.variant_2;

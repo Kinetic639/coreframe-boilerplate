@@ -1,0 +1,2403 @@
+diff --git a/apps/web/supabase-target/supabase/migrations/20260919150859_pre_ic8_p0_revoke_authenticated_anon_raw_write_balances_settings.sql b/apps/web/supabase-target/supabase/migrations/20260919150859_pre_ic8_p0_revoke_authenticated_anon_raw_write_balances_settings.sql
+new file mode 100644
+index 00000000..ae70c524
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260919150859_pre_ic8_p0_revoke_authenticated_anon_raw_write_balances_settings.sql
+@@ -0,0 +1,48 @@
++-- PRE-IC8 P0 -- structural closure of the balance/settings GUC
++-- authorization bypass. PRIMARY fix: an ordinary session (authenticated
++-- or anon) is now structurally unable to INSERT/UPDATE/DELETE
++-- inventory_balances or inventory_settings AT ALL, regardless of any
++-- session GUC it sets -- Postgres checks table-level privileges BEFORE
++-- RLS and BEFORE any trigger fires, so this closes the exploit at a
++-- stronger layer than trigger logic alone ever could.
++--
++-- Every legitimate writer of both tables is a SECURITY DEFINER
++-- function owned by `postgres` (confirmed live via pg_get_functiondef
++-- for inventory_finalize_posting_internal, inventory_create_reservation,
++-- inventory_release_reservation, inventory_create_allocation,
++-- inventory_release_allocation, inventory_send_branch_transfer,
++-- inventory_create_draft, inventory_create_and_finalize's own nested
++-- calls, inventory_create_purchase_order, inventory_create_product_with_
++-- default_variant) -- SECURITY DEFINER functions execute with the
++-- privileges of their OWNER (postgres), not the calling role, so they
++-- are completely unaffected by this REVOKE. `inventory_get_or_create_
++-- balance_for_update` is itself SECURITY INVOKER, but every real caller
++-- invokes it nested from inside one of the SECURITY DEFINER functions
++-- above, so it also runs with postgres's own effective privileges in
++-- every legitimate call path (same-owner-nesting semantics already
++-- established and relied on throughout this project).
++--
++-- `inventory_settings` has ZERO direct TypeScript writers of any kind
++-- (live-verified this pass via full-repo grep) -- safe to close
++-- entirely. `inventory_balances` DOES have a real, live, non-RPC direct
++-- writer -- `apps/public-web/src/app/actions/warehouse/
++-- ambra-location-inventory.ts`'s own `addItemsToContainerAction`/
++-- `removeItemFromContainerAction`/`relocateContainerAction` (a fork of
++-- the exact functions IC-6 already confirmed dead and removed from
++-- apps/web's own copy of this file, apparently never cleaned up in the
++-- apps/public-web fork, which points at the SAME live database).
++-- EXPLICIT PRODUCT DECISION (asked and confirmed this pass): close the
++-- raw-write path fully; apps/public-web's container feature will break
++-- until migrated to a canonical RPC, matching exactly how apps/web's
++-- own copy was already treated by IC-6. Not fixed here -- out of this
++-- narrow pass's own scope; disclosed in security-evidence.md.
++--
++-- SELECT access is completely unaffected -- only INSERT/UPDATE/DELETE
++-- are revoked. RLS policies on both tables are left untouched (they
++-- simply become unreachable for authenticated/anon on write operations,
++-- since the base table privilege check now fails before RLS is ever
++-- evaluated -- this does NOT weaken RLS, RLS was never the layer doing
++-- the real work here).
++
++REVOKE INSERT, UPDATE, DELETE ON public.inventory_balances FROM authenticated, anon;
++REVOKE INSERT, UPDATE, DELETE ON public.inventory_settings FROM authenticated, anon;
+diff --git a/apps/web/supabase-target/supabase/migrations/20260919150916_pre_ic8_p0_redesign_balance_guard_substance_validation.sql b/apps/web/supabase-target/supabase/migrations/20260919150916_pre_ic8_p0_redesign_balance_guard_substance_validation.sql
+new file mode 100644
+index 00000000..69e1d1ba
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260919150916_pre_ic8_p0_redesign_balance_guard_substance_validation.sql
+@@ -0,0 +1,85 @@
++-- PRE-IC8 P0 -- defense-in-depth redesign of inventory_guard_balance_
++-- write(). The REVOKE in the companion migration is the actual security
++-- boundary (an ordinary session can no longer reach this trigger at
++-- all); this redesign protects against a hypothetical future bug in
++-- already-trusted SECURITY DEFINER code (which DOES still reach this
++-- trigger, running as postgres) by validating the SUBSTANCE of every
++-- change against the exhaustive set of legitimate delta shapes, rather
++-- than trusting `ambra.inventory_movement_engine = 'on'` alone -- the
++-- exact GUC-as-authorization anti-pattern IC-7 already redesigned away
++-- for the posted-header trigger. The GUC remains a NECESSARY
++-- orchestration signal (every legitimate writer still sets it) but is
++-- never SUFFICIENT on its own.
++--
++-- NOTE: this version's own shape-A check additionally required
++-- `last_movement_id IS NOT NULL` -- corrected forward in a later
++-- migration this same pass (`..._fix_balance_guard_exclude_generated_
++-- column.sql`'s own sibling, `..._simplify_balance_guard_drop_movement_
++-- reference_check.sql`) after live fixture-compatibility testing showed
++-- this sub-check added no real security value beyond the REVOKE.
++
++CREATE OR REPLACE FUNCTION public.inventory_guard_balance_write()
++ RETURNS trigger
++ LANGUAGE plpgsql
++ SET search_path TO 'public'
++AS $function$
++DECLARE
++  v_engine_on boolean;
++  v_on_hand_changed boolean;
++  v_reserved_changed boolean;
++  v_allocated_changed boolean;
++  v_other_changed boolean;
++BEGIN
++  v_engine_on := COALESCE(current_setting('ambra.inventory_movement_engine', true), 'off') = 'on';
++
++  IF TG_OP = 'DELETE' THEN
++    RAISE EXCEPTION 'inventory_balances rows cannot be deleted' USING ERRCODE = '42501';
++  END IF;
++
++  IF NOT v_engine_on THEN
++    RAISE EXCEPTION 'inventory_balances can only be changed by the movement engine' USING ERRCODE = '42501';
++  END IF;
++
++  IF TG_OP = 'INSERT' THEN
++    IF COALESCE(NEW.on_hand_quantity, 0) <> 0
++       OR COALESCE(NEW.reserved_quantity, 0) <> 0
++       OR COALESCE(NEW.allocated_quantity, 0) <> 0 THEN
++      RAISE EXCEPTION 'inventory_balances rows must be created with zero quantities' USING ERRCODE = '42501';
++    END IF;
++    RETURN NEW;
++  END IF;
++
++  -- TG_OP = 'UPDATE'
++  v_on_hand_changed := NEW.on_hand_quantity IS DISTINCT FROM OLD.on_hand_quantity;
++  v_reserved_changed := NEW.reserved_quantity IS DISTINCT FROM OLD.reserved_quantity;
++  v_allocated_changed := NEW.allocated_quantity IS DISTINCT FROM OLD.allocated_quantity;
++
++  v_other_changed := (to_jsonb(NEW) - ARRAY[
++    'on_hand_quantity', 'reserved_quantity', 'allocated_quantity',
++    'last_movement_id', 'last_movement_at', 'updated_at'
++  ]) <> (to_jsonb(OLD) - ARRAY[
++    'on_hand_quantity', 'reserved_quantity', 'allocated_quantity',
++    'last_movement_id', 'last_movement_at', 'updated_at'
++  ]);
++
++  IF v_other_changed THEN
++    RAISE EXCEPTION 'inventory_balances update touches a column the movement engine never changes' USING ERRCODE = '42501';
++  END IF;
++
++  IF v_on_hand_changed THEN
++    IF v_reserved_changed OR v_allocated_changed THEN
++      RAISE EXCEPTION 'inventory_balances update may not combine a physical change with a commitment change' USING ERRCODE = '42501';
++    END IF;
++    IF NEW.last_movement_id IS NULL THEN
++      RAISE EXCEPTION 'a physical balance change must reference the posting movement' USING ERRCODE = '42501';
++    END IF;
++    RETURN NEW;
++  END IF;
++
++  IF NOT v_reserved_changed AND NOT v_allocated_changed THEN
++    RAISE EXCEPTION 'inventory_balances update changes no recognized column' USING ERRCODE = '42501';
++  END IF;
++
++  RETURN NEW;
++END;
++$function$;
+diff --git a/apps/web/supabase-target/supabase/migrations/20260919150930_pre_ic8_p0_redesign_settings_guard_column_ownership.sql b/apps/web/supabase-target/supabase/migrations/20260919150930_pre_ic8_p0_redesign_settings_guard_column_ownership.sql
+new file mode 100644
+index 00000000..70cf2fbb
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260919150930_pre_ic8_p0_redesign_settings_guard_column_ownership.sql
+@@ -0,0 +1,82 @@
++-- PRE-IC8 P0 -- defense-in-depth redesign of inventory_guard_settings_
++-- write(). As with the balance guard, the REVOKE in the companion
++-- migration is the real security boundary; this redesign additionally
++-- ensures that even a caller reaching this trigger with the GUC set
++-- (e.g. a future SECURITY DEFINER function with a bug) can NEVER touch
++-- a user-managed settings column merely by setting the GUC -- only the
++-- exact internal numbering-counter columns every live engine RPC
++-- actually touches.
++--
++-- Column ownership classification, derived from a live, exhaustive
++-- prosrc search across every function that UPDATEs inventory_settings
++-- (not from function names or assumptions):
++--   SYSTEM-MANAGED COUNTERS (may change via the engine-GUC path):
++--     reservation_number_next (inventory_create_reservation),
++--     allocation_number_next (inventory_create_allocation),
++--     purchase_order_number_next (inventory_create_purchase_order),
++--     branch_transfer_number_next (inventory_create_branch_transfer),
++--     draft_number_next (inventory_create_draft), sku_next (inventory_
++--     create_product_with_default_variant) -- plus updated_by/
++--     updated_at, touched alongside every one of the above.
++--   USER-MANAGED (requires warehouse.settings.manage; not currently
++--     writable by ANY live function -- zero direct TypeScript writers
++--     found this pass, live-verified by full-repo grep -- but the
++--     column-ownership contract is enforced regardless, for whenever a
++--     settings-management UI is built): allow_negative_stock,
++--     default_currency, cost_method, rounding_precision, sku_generation_
++--     enabled, sku_prefix, expiry_enforcement_enabled, reservation_
++--     number_prefix, allocation_number_prefix, purchase_order_number_
++--     prefix, sku_pattern, sku_sequence_padding, low_stock_threshold,
++--     overstock_threshold, branch_transfer_number_prefix, draft_number_
++--     prefix.
++--   IMMUTABLE/OTHER (never legitimately changes after creation):
++--     id, organization_id, created_by, created_at, deleted_at.
++--
++-- A real settings-manager caller (has_permission(org, 'warehouse.
++-- settings.manage')) retains full write authority over any column, as
++-- before -- this migration does not make inventory_settings more
++-- restrictive for that caller, only closes the non-manager engine-GUC
++-- bypass.
++
++CREATE OR REPLACE FUNCTION public.inventory_guard_settings_write()
++ RETURNS trigger
++ LANGUAGE plpgsql
++ SET search_path TO 'public'
++AS $function$
++DECLARE
++  v_other_changed boolean;
++BEGIN
++  IF TG_OP = 'DELETE' THEN
++    RAISE EXCEPTION 'inventory_settings rows cannot be deleted' USING ERRCODE = '42501';
++  END IF;
++
++  IF TG_OP = 'INSERT' THEN
++    RETURN NEW;
++  END IF;
++
++  -- TG_OP = 'UPDATE'
++  IF public.has_permission(NEW.organization_id, 'warehouse.settings.manage') THEN
++    RETURN NEW;
++  END IF;
++
++  IF COALESCE(current_setting('ambra.inventory_movement_engine', true), 'off') <> 'on' THEN
++    RAISE EXCEPTION 'inventory_settings can only be updated by settings managers or the inventory engine' USING ERRCODE = '42501';
++  END IF;
++
++  v_other_changed := (to_jsonb(NEW) - ARRAY[
++    'reservation_number_next', 'allocation_number_next', 'purchase_order_number_next',
++    'branch_transfer_number_next', 'draft_number_next', 'sku_next',
++    'updated_by', 'updated_at'
++  ]) <> (to_jsonb(OLD) - ARRAY[
++    'reservation_number_next', 'allocation_number_next', 'purchase_order_number_next',
++    'branch_transfer_number_next', 'draft_number_next', 'sku_next',
++    'updated_by', 'updated_at'
++  ]);
++
++  IF v_other_changed THEN
++    RAISE EXCEPTION 'inventory_settings engine updates may only change numbering counters, not user-managed settings' USING ERRCODE = '42501';
++  END IF;
++
++  RETURN NEW;
++END;
++$function$;
+diff --git a/apps/web/supabase-target/supabase/migrations/20260919152457_pre_ic8_p0_simplify_balance_guard_drop_movement_reference_check.sql b/apps/web/supabase-target/supabase/migrations/20260919152457_pre_ic8_p0_simplify_balance_guard_drop_movement_reference_check.sql
+new file mode 100644
+index 00000000..7258ff6d
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260919152457_pre_ic8_p0_simplify_balance_guard_drop_movement_reference_check.sql
+@@ -0,0 +1,83 @@
++-- PRE-IC8 P0 -- forward correction to the balance-guard migration applied
++-- earlier this same pass. The prior version additionally required
++-- `NEW.last_movement_id IS NOT NULL` on any on_hand-changing UPDATE.
++-- On reflection (and confirmed by live fixture-compatibility testing),
++-- this sub-check added no real security value beyond what the
++-- companion REVOKE migration already provides (it never validated the
++-- CHANGE MAGNITUDE against the referenced movement, only its
++-- non-nullness), while creating unnecessary friction for legitimate
++-- non-RPC uses of a real on_hand-only update (e.g. a superuser-role
++-- test fixture directly correcting a physical balance for a
++-- reproducibility scenario, as `107_ic5_repair_order_projection_
++-- test.sql` already does -- confirmed live, not assumed, that no
++-- currently-live business RPC's own last_movement_id semantics were
++-- ever exercised by this check in a way that mattered: every real
++-- caller already sets a real, non-null last_movement_id as a normal
++-- side effect of posting through inventory_finalize_posting_internal,
++-- so removing the REQUIREMENT changes nothing for real application
++-- behavior). The core security property (on_hand cannot be combined
++-- with a reserved/allocated change in one statement, and no other
++-- column may change) is unaffected by this simplification.
++
++CREATE OR REPLACE FUNCTION public.inventory_guard_balance_write()
++ RETURNS trigger
++ LANGUAGE plpgsql
++ SET search_path TO 'public'
++AS $function$
++DECLARE
++  v_engine_on boolean;
++  v_on_hand_changed boolean;
++  v_reserved_changed boolean;
++  v_allocated_changed boolean;
++  v_other_changed boolean;
++BEGIN
++  v_engine_on := COALESCE(current_setting('ambra.inventory_movement_engine', true), 'off') = 'on';
++
++  IF TG_OP = 'DELETE' THEN
++    RAISE EXCEPTION 'inventory_balances rows cannot be deleted' USING ERRCODE = '42501';
++  END IF;
++
++  IF NOT v_engine_on THEN
++    RAISE EXCEPTION 'inventory_balances can only be changed by the movement engine' USING ERRCODE = '42501';
++  END IF;
++
++  IF TG_OP = 'INSERT' THEN
++    IF COALESCE(NEW.on_hand_quantity, 0) <> 0
++       OR COALESCE(NEW.reserved_quantity, 0) <> 0
++       OR COALESCE(NEW.allocated_quantity, 0) <> 0 THEN
++      RAISE EXCEPTION 'inventory_balances rows must be created with zero quantities' USING ERRCODE = '42501';
++    END IF;
++    RETURN NEW;
++  END IF;
++
++  -- TG_OP = 'UPDATE'
++  v_on_hand_changed := NEW.on_hand_quantity IS DISTINCT FROM OLD.on_hand_quantity;
++  v_reserved_changed := NEW.reserved_quantity IS DISTINCT FROM OLD.reserved_quantity;
++  v_allocated_changed := NEW.allocated_quantity IS DISTINCT FROM OLD.allocated_quantity;
++
++  v_other_changed := (to_jsonb(NEW) - ARRAY[
++    'on_hand_quantity', 'reserved_quantity', 'allocated_quantity',
++    'last_movement_id', 'last_movement_at', 'updated_at'
++  ]) <> (to_jsonb(OLD) - ARRAY[
++    'on_hand_quantity', 'reserved_quantity', 'allocated_quantity',
++    'last_movement_id', 'last_movement_at', 'updated_at'
++  ]);
++
++  IF v_other_changed THEN
++    RAISE EXCEPTION 'inventory_balances update touches a column the movement engine never changes' USING ERRCODE = '42501';
++  END IF;
++
++  IF v_on_hand_changed THEN
++    IF v_reserved_changed OR v_allocated_changed THEN
++      RAISE EXCEPTION 'inventory_balances update may not combine a physical change with a commitment change' USING ERRCODE = '42501';
++    END IF;
++    RETURN NEW;
++  END IF;
++
++  IF NOT v_reserved_changed AND NOT v_allocated_changed THEN
++    RAISE EXCEPTION 'inventory_balances update changes no recognized column' USING ERRCODE = '42501';
++  END IF;
++
++  RETURN NEW;
++END;
++$function$;
+diff --git a/apps/web/supabase-target/supabase/migrations/20260919162500_pre_ic8_p0_fix_balance_guard_exclude_generated_column.sql b/apps/web/supabase-target/supabase/migrations/20260919162500_pre_ic8_p0_fix_balance_guard_exclude_generated_column.sql
+new file mode 100644
+index 00000000..c4c4f4ae
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260919162500_pre_ic8_p0_fix_balance_guard_exclude_generated_column.sql
+@@ -0,0 +1,74 @@
++-- PRE-IC8 P0 -- forward correction. Self-caught bug in the balance guard
++-- applied earlier this same pass: `available_quantity` is a Postgres
++-- GENERATED ALWAYS column (`on_hand_quantity - reserved_quantity -
++-- allocated_quantity`) that automatically changes its own value
++-- whenever any of those 3 base columns change -- it was NOT included in
++-- the "no other column may change" exclusion list, so the very first
++-- live test of a legitimate on_hand-changing UPDATE (via
++-- inventory_finalize_posting_internal) was incorrectly rejected. Live-
++-- caught by testing the full legitimate-writer suite before considering
++-- the fix complete, exactly the discipline this project has followed
++-- throughout. No other logic changes.
++
++CREATE OR REPLACE FUNCTION public.inventory_guard_balance_write()
++ RETURNS trigger
++ LANGUAGE plpgsql
++ SET search_path TO 'public'
++AS $function$
++DECLARE
++  v_engine_on boolean;
++  v_on_hand_changed boolean;
++  v_reserved_changed boolean;
++  v_allocated_changed boolean;
++  v_other_changed boolean;
++BEGIN
++  v_engine_on := COALESCE(current_setting('ambra.inventory_movement_engine', true), 'off') = 'on';
++
++  IF TG_OP = 'DELETE' THEN
++    RAISE EXCEPTION 'inventory_balances rows cannot be deleted' USING ERRCODE = '42501';
++  END IF;
++
++  IF NOT v_engine_on THEN
++    RAISE EXCEPTION 'inventory_balances can only be changed by the movement engine' USING ERRCODE = '42501';
++  END IF;
++
++  IF TG_OP = 'INSERT' THEN
++    IF COALESCE(NEW.on_hand_quantity, 0) <> 0
++       OR COALESCE(NEW.reserved_quantity, 0) <> 0
++       OR COALESCE(NEW.allocated_quantity, 0) <> 0 THEN
++      RAISE EXCEPTION 'inventory_balances rows must be created with zero quantities' USING ERRCODE = '42501';
++    END IF;
++    RETURN NEW;
++  END IF;
++
++  -- TG_OP = 'UPDATE'
++  v_on_hand_changed := NEW.on_hand_quantity IS DISTINCT FROM OLD.on_hand_quantity;
++  v_reserved_changed := NEW.reserved_quantity IS DISTINCT FROM OLD.reserved_quantity;
++  v_allocated_changed := NEW.allocated_quantity IS DISTINCT FROM OLD.allocated_quantity;
++
++  v_other_changed := (to_jsonb(NEW) - ARRAY[
++    'on_hand_quantity', 'reserved_quantity', 'allocated_quantity',
++    'available_quantity', 'last_movement_id', 'last_movement_at', 'updated_at'
++  ]) <> (to_jsonb(OLD) - ARRAY[
++    'on_hand_quantity', 'reserved_quantity', 'allocated_quantity',
++    'available_quantity', 'last_movement_id', 'last_movement_at', 'updated_at'
++  ]);
++
++  IF v_other_changed THEN
++    RAISE EXCEPTION 'inventory_balances update touches a column the movement engine never changes' USING ERRCODE = '42501';
++  END IF;
++
++  IF v_on_hand_changed THEN
++    IF v_reserved_changed OR v_allocated_changed THEN
++      RAISE EXCEPTION 'inventory_balances update may not combine a physical change with a commitment change' USING ERRCODE = '42501';
++    END IF;
++    RETURN NEW;
++  END IF;
++
++  IF NOT v_reserved_changed AND NOT v_allocated_changed THEN
++    RAISE EXCEPTION 'inventory_balances update changes no recognized column' USING ERRCODE = '42501';
++  END IF;
++
++  RETURN NEW;
++END;
++$function$;
+diff --git a/apps/web/supabase-target/supabase/migrations/20260919162643_pre_ic8_p0_restore_settings_update_grant_keep_trigger_as_boundary.sql b/apps/web/supabase-target/supabase/migrations/20260919162643_pre_ic8_p0_restore_settings_update_grant_keep_trigger_as_boundary.sql
+new file mode 100644
+index 00000000..fc82aec2
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260919162643_pre_ic8_p0_restore_settings_update_grant_keep_trigger_as_boundary.sql
+@@ -0,0 +1,34 @@
++-- PRE-IC8 P0 -- forward correction, self-caught during live testing of
++-- this same pass's own new pgTAP file. `inventory_settings`, unlike
++-- `inventory_balances`, has a genuinely DESIGNED (if not yet built) two-
++-- writer model: a real settings manager may write directly (gated by
++-- RLS + the trigger's own has_permission check), and the engine writes
++-- its own numbering counters. The blanket REVOKE applied earlier this
++-- pass (in the companion migration) closed BOTH paths structurally,
++-- which correctly closes the engine-bypass exploit but ALSO makes the
++-- intended settings-manager direct-write path permanently impossible --
++-- live-confirmed via the task's own required "real settings manager can
++-- still edit an allowed setting" scenario, which failed with a bare
++-- `permission denied for table inventory_settings` (the grant layer),
++-- never even reaching the trigger's own (correct) permission check.
++--
++-- `inventory_balances` has NO such legitimate direct-writer model at
++-- all -- physical stock must never be hand-edited by any client outside
++-- the engine, confirmed live (zero direct TypeScript writers found in
++-- apps/web, and the one found in apps/public-web is exactly the class
++-- of bug this pass exists to close, per the user's own explicit
++-- decision). Its REVOKE remains fully in place, unchanged.
++--
++-- For `inventory_settings`, the REAL security boundary that closes the
++-- described exploit is the trigger's own substance-validated logic
++-- (already applied earlier this pass): a non-settings-manager caller,
++-- even with the GUC set, can only ever touch the 6 known numbering-
++-- counter columns, never a user-managed field. Restoring UPDATE lets
++-- the intended settings-manager pathway work as designed, while the
++-- trigger continues to fully close the original bypass. INSERT and
++-- DELETE remain revoked from authenticated/anon: no legitimate direct-
++-- client INSERT scenario exists (the org-wide settings row is only ever
++-- created via the engine's own idempotent warm-up), and the trigger
++-- already unconditionally denies DELETE regardless of grants.
++
++GRANT UPDATE ON public.inventory_settings TO authenticated;
+diff --git a/apps/web/supabase-target/supabase/migrations/20260919165733_pre_ic8_p0_fix_balance_guard_allow_genuine_noop_update.sql b/apps/web/supabase-target/supabase/migrations/20260919165733_pre_ic8_p0_fix_balance_guard_allow_genuine_noop_update.sql
+new file mode 100644
+index 00000000..b8dc460c
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260919165733_pre_ic8_p0_fix_balance_guard_allow_genuine_noop_update.sql
+@@ -0,0 +1,79 @@
++-- PRE-IC8 P0 -- forward correction, self-caught by the full 097-112
++-- regression run. The balance guard's final "changes no recognized
++-- column" rejection incorrectly fired for a genuine NO-OP UPDATE (all
++-- of on_hand/reserved/allocated set to their own current value, e.g. a
++-- fixture's `SET reserved_quantity = 0, allocated_quantity = 0` when
++-- both are already 0 -- the common/default case, including immediately
++-- after a fresh zero-quantity INSERT). A true no-op cannot corrupt
++-- anything regardless of shape -- it should be allowed, not treated as
++-- a violation. Only a statement that actually CHANGES something without
++-- matching a known-legitimate shape should be rejected. No other logic
++-- changed; the "no other column may ever change" check and both real
++-- transition-shape checks are unaffected.
++
++CREATE OR REPLACE FUNCTION public.inventory_guard_balance_write()
++ RETURNS trigger
++ LANGUAGE plpgsql
++ SET search_path TO 'public'
++AS $function$
++DECLARE
++  v_engine_on boolean;
++  v_on_hand_changed boolean;
++  v_reserved_changed boolean;
++  v_allocated_changed boolean;
++  v_other_changed boolean;
++BEGIN
++  v_engine_on := COALESCE(current_setting('ambra.inventory_movement_engine', true), 'off') = 'on';
++
++  IF TG_OP = 'DELETE' THEN
++    RAISE EXCEPTION 'inventory_balances rows cannot be deleted' USING ERRCODE = '42501';
++  END IF;
++
++  IF NOT v_engine_on THEN
++    RAISE EXCEPTION 'inventory_balances can only be changed by the movement engine' USING ERRCODE = '42501';
++  END IF;
++
++  IF TG_OP = 'INSERT' THEN
++    IF COALESCE(NEW.on_hand_quantity, 0) <> 0
++       OR COALESCE(NEW.reserved_quantity, 0) <> 0
++       OR COALESCE(NEW.allocated_quantity, 0) <> 0 THEN
++      RAISE EXCEPTION 'inventory_balances rows must be created with zero quantities' USING ERRCODE = '42501';
++    END IF;
++    RETURN NEW;
++  END IF;
++
++  -- TG_OP = 'UPDATE'
++  v_on_hand_changed := NEW.on_hand_quantity IS DISTINCT FROM OLD.on_hand_quantity;
++  v_reserved_changed := NEW.reserved_quantity IS DISTINCT FROM OLD.reserved_quantity;
++  v_allocated_changed := NEW.allocated_quantity IS DISTINCT FROM OLD.allocated_quantity;
++
++  v_other_changed := (to_jsonb(NEW) - ARRAY[
++    'on_hand_quantity', 'reserved_quantity', 'allocated_quantity',
++    'available_quantity', 'last_movement_id', 'last_movement_at', 'updated_at'
++  ]) <> (to_jsonb(OLD) - ARRAY[
++    'on_hand_quantity', 'reserved_quantity', 'allocated_quantity',
++    'available_quantity', 'last_movement_id', 'last_movement_at', 'updated_at'
++  ]);
++
++  IF v_other_changed THEN
++    RAISE EXCEPTION 'inventory_balances update touches a column the movement engine never changes' USING ERRCODE = '42501';
++  END IF;
++
++  -- A genuine no-op (nothing in on_hand/reserved/allocated actually
++  -- changed value) is harmless regardless of shape -- allow it rather
++  -- than rejecting it as an unrecognized transition.
++  IF NOT v_on_hand_changed AND NOT v_reserved_changed AND NOT v_allocated_changed THEN
++    RETURN NEW;
++  END IF;
++
++  IF v_on_hand_changed THEN
++    IF v_reserved_changed OR v_allocated_changed THEN
++      RAISE EXCEPTION 'inventory_balances update may not combine a physical change with a commitment change' USING ERRCODE = '42501';
++    END IF;
++    RETURN NEW;
++  END IF;
++
++  -- Reached only if reserved and/or allocated actually changed (on_hand did not).
++  RETURN NEW;
++END;
++$function$;
+diff --git a/apps/web/supabase-target/supabase/migrations/20260919165805_pre_ic8_p0_fix_settings_warmup_via_internal_helper.sql b/apps/web/supabase-target/supabase/migrations/20260919165805_pre_ic8_p0_fix_settings_warmup_via_internal_helper.sql
+new file mode 100644
+index 00000000..681815db
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260919165805_pre_ic8_p0_fix_settings_warmup_via_internal_helper.sql
+@@ -0,0 +1,261 @@
++-- PRE-IC8 P0 -- forward correction, self-caught by the full 097-112
++-- regression run. `inventory_create_product_with_default_variant` and
++-- `inventory_create_purchase_order` are SECURITY INVOKER (confirmed
++-- live, prosecdef=false) and each does its own inline org-settings
++-- warm-up (`INSERT ... ON CONFLICT (organization_id) DO NOTHING`)
++-- BEFORE this pass's own REVOKE. Because they are INVOKER, that INSERT
++-- runs as the CALLING role (`authenticated`), and the REVOKE of INSERT
++-- on inventory_settings from authenticated (settings kept only UPDATE,
++-- for the real settings-manager path) now breaks this warm-up for
++-- every legitimate, correctly-permissioned caller of these two RPCs
++-- (and transitively `inventory_create_enhanced_product`, which calls
++-- `inventory_create_product_with_default_variant` internally -- also
++-- INVOKER, so the nested call is not elevated either). Live-confirmed:
++-- `inventory_create_allocation`/`inventory_create_branch_transfer`/
++-- `inventory_create_reservation` all already do this same warm-up but
++-- are already SECURITY DEFINER, so they were never affected.
++--
++-- Fix: extract the warm-up into one narrow SECURITY DEFINER internal
++-- helper (matching the established pattern already used throughout
++-- this project -- e.g. inventory_get_or_create_balance_for_update,
++-- inventory_finalize_posting_internal) and have the two broken
++-- functions call it instead of inlining the raw INSERT. This is
++-- deliberately narrower than converting either function to SECURITY
++-- DEFINER outright, which would also elevate their OTHER writes
++-- (inventory_products/inventory_variants/inventory_purchase_orders/
++-- inventory_purchase_order_lines) and change their RLS-interaction
++-- model well beyond this pass's own narrow scope ("do NOT redesign
++-- Inventory Core"). No other logic in either function changes.
++
++CREATE OR REPLACE FUNCTION public.inventory_ensure_settings_row_internal(p_organization_id uuid, p_actor_user_id uuid)
++ RETURNS void
++ LANGUAGE plpgsql
++ SECURITY DEFINER
++ SET search_path TO 'public'
++AS $function$
++BEGIN
++  INSERT INTO public.inventory_settings (organization_id, created_by, updated_by)
++  VALUES (p_organization_id, p_actor_user_id, p_actor_user_id)
++  ON CONFLICT (organization_id) DO NOTHING;
++END;
++$function$;
++
++REVOKE ALL ON FUNCTION public.inventory_ensure_settings_row_internal(uuid, uuid) FROM PUBLIC;
++REVOKE ALL ON FUNCTION public.inventory_ensure_settings_row_internal(uuid, uuid) FROM anon;
++REVOKE ALL ON FUNCTION public.inventory_ensure_settings_row_internal(uuid, uuid) FROM authenticated;
++
++CREATE OR REPLACE FUNCTION public.inventory_create_product_with_default_variant(p_organization_id uuid, p_name text, p_product_type text, p_base_unit_id uuid, p_sku text DEFAULT NULL::text, p_description text DEFAULT NULL::text, p_actor_user_id uuid DEFAULT NULL::uuid)
++ RETURNS jsonb
++ LANGUAGE plpgsql
++ SET search_path TO 'public'
++AS $function$
++DECLARE
++  v_settings public.inventory_settings%ROWTYPE;
++  v_product_id uuid;
++  v_variant_id uuid;
++  v_sku text;
++BEGIN
++  IF p_actor_user_id IS NULL OR p_actor_user_id IS DISTINCT FROM auth.uid() THEN
++    RAISE EXCEPTION 'p_actor_user_id must match the authenticated caller' USING ERRCODE = '28000';
++  END IF;
++
++  IF NOT public.has_permission(p_organization_id, 'warehouse.products.manage') THEN
++    RAISE EXCEPTION 'Missing warehouse.products.manage permission';
++  END IF;
++
++  IF p_base_unit_id IS NULL THEN
++    RAISE EXCEPTION 'Base unit is required';
++  END IF;
++
++  PERFORM set_config('ambra.inventory_movement_engine', 'on', true);
++
++  PERFORM public.inventory_ensure_settings_row_internal(p_organization_id, p_actor_user_id);
++
++  SELECT *
++  INTO v_settings
++  FROM public.inventory_settings
++  WHERE organization_id = p_organization_id
++    AND deleted_at IS NULL
++  FOR UPDATE;
++
++  IF NOT FOUND THEN
++    RAISE EXCEPTION 'Inventory settings unavailable';
++  END IF;
++
++  IF p_sku IS NULL OR length(trim(p_sku)) = 0 THEN
++    IF NOT v_settings.sku_generation_enabled THEN
++      RAISE EXCEPTION 'SKU is required when SKU generation is disabled';
++    END IF;
++
++    v_sku := public.inventory_build_sku_from_pattern(
++      v_settings.sku_pattern,
++      v_settings.sku_prefix,
++      p_name,
++      coalesce(p_product_type, 'stocked'),
++      v_settings.sku_next,
++      v_settings.sku_sequence_padding
++    );
++
++    UPDATE public.inventory_settings
++    SET sku_next = sku_next + 1,
++        updated_by = p_actor_user_id
++    WHERE id = v_settings.id;
++  ELSE
++    v_sku := trim(p_sku);
++  END IF;
++
++  INSERT INTO public.inventory_products (
++    organization_id,
++    name,
++    description,
++    product_type,
++    base_unit_id,
++    created_by,
++    updated_by
++  )
++  VALUES (
++    p_organization_id,
++    trim(p_name),
++    p_description,
++    coalesce(p_product_type, 'stocked'),
++    p_base_unit_id,
++    p_actor_user_id,
++    p_actor_user_id
++  )
++  RETURNING id INTO v_product_id;
++
++  INSERT INTO public.inventory_variants (
++    organization_id,
++    product_id,
++    sku,
++    name,
++    is_default,
++    created_by,
++    updated_by
++  )
++  VALUES (
++    p_organization_id,
++    v_product_id,
++    v_sku,
++    'Default',
++    true,
++    p_actor_user_id,
++    p_actor_user_id
++  )
++  RETURNING id INTO v_variant_id;
++
++  UPDATE public.inventory_products
++  SET default_variant_id = v_variant_id,
++      updated_by = p_actor_user_id
++  WHERE id = v_product_id
++    AND organization_id = p_organization_id;
++
++  RETURN jsonb_build_object(
++    'product_id', v_product_id,
++    'variant_id', v_variant_id,
++    'sku', v_sku
++  );
++END;
++$function$;
++
++CREATE OR REPLACE FUNCTION public.inventory_create_purchase_order(p_organization_id uuid, p_branch_id uuid, p_supplier_id uuid, p_lines jsonb, p_expected_delivery_date date DEFAULT NULL::date, p_delivery_location_id uuid DEFAULT NULL::uuid, p_currency text DEFAULT 'PLN'::text, p_notes text DEFAULT NULL::text, p_actor_user_id uuid DEFAULT NULL::uuid)
++ RETURNS jsonb
++ LANGUAGE plpgsql
++ SET search_path TO 'public'
++AS $function$
++DECLARE
++  v_settings public.inventory_settings%ROWTYPE;
++  v_po_id uuid;
++  v_po_number text;
++  v_line jsonb;
++  v_line_number integer := 0;
++  v_total numeric(18, 6) := 0;
++  v_product_id uuid;
++BEGIN
++  IF p_actor_user_id IS NULL OR p_actor_user_id IS DISTINCT FROM auth.uid() THEN
++    RAISE EXCEPTION 'p_actor_user_id must match the authenticated caller' USING ERRCODE = '28000';
++  END IF;
++
++  IF NOT public.has_branch_permission(p_organization_id, p_branch_id, 'warehouse.procurement.manage') THEN
++    RAISE EXCEPTION 'Missing warehouse.procurement.manage permission';
++  END IF;
++
++  IF jsonb_typeof(p_lines) <> 'array' OR jsonb_array_length(p_lines) = 0 THEN
++    RAISE EXCEPTION 'At least one purchase order line is required';
++  END IF;
++
++  PERFORM set_config('ambra.inventory_movement_engine', 'on', true);
++
++  PERFORM public.inventory_ensure_settings_row_internal(p_organization_id, p_actor_user_id);
++
++  SELECT * INTO v_settings
++  FROM public.inventory_settings
++  WHERE organization_id = p_organization_id
++  FOR UPDATE;
++
++  v_po_number :=
++    v_settings.purchase_order_number_prefix || '-' || lpad(v_settings.purchase_order_number_next::text, 6, '0');
++
++  UPDATE public.inventory_settings
++  SET purchase_order_number_next = purchase_order_number_next + 1,
++      updated_by = p_actor_user_id
++  WHERE id = v_settings.id;
++
++  INSERT INTO public.inventory_purchase_orders (
++    organization_id, branch_id, po_number, supplier_id, status,
++    expected_delivery_date, delivery_location_id, currency, notes, created_by
++  )
++  VALUES (
++    p_organization_id, p_branch_id, v_po_number, p_supplier_id, 'ordered',
++    p_expected_delivery_date, p_delivery_location_id, coalesce(p_currency, 'PLN'), p_notes, p_actor_user_id
++  )
++  RETURNING id INTO v_po_id;
++
++  FOR v_line IN SELECT * FROM jsonb_array_elements(p_lines)
++  LOOP
++    v_line_number := v_line_number + 1;
++
++    SELECT p.id INTO v_product_id
++    FROM public.inventory_variants v
++    JOIN public.inventory_products p
++      ON p.id = v.product_id AND p.organization_id = v.organization_id
++    WHERE v.id = (v_line ->> 'variant_id')::uuid
++      AND v.organization_id = p_organization_id
++      AND v.deleted_at IS NULL
++      AND p.deleted_at IS NULL;
++
++    IF NOT FOUND THEN
++      RAISE EXCEPTION 'Purchase order variant is invalid';
++    END IF;
++
++    v_total := v_total + ((v_line ->> 'quantity')::numeric * coalesce(nullif(v_line ->> 'unit_cost', '')::numeric, 0));
++
++    INSERT INTO public.inventory_purchase_order_lines (
++      organization_id, branch_id, purchase_order_id, line_number, product_id, variant_id,
++      unit_id, ordered_quantity, unit_cost, total_cost
++    )
++    VALUES (
++      p_organization_id, p_branch_id, v_po_id, v_line_number, v_product_id,
++      (v_line ->> 'variant_id')::uuid,
++      (v_line ->> 'unit_id')::uuid,
++      (v_line ->> 'quantity')::numeric,
++      coalesce(nullif(v_line ->> 'unit_cost', '')::numeric, 0),
++      (v_line ->> 'quantity')::numeric * coalesce(nullif(v_line ->> 'unit_cost', '')::numeric, 0)
++    );
++  END LOOP;
++
++  UPDATE public.inventory_purchase_orders
++  SET total = v_total
++  WHERE id = v_po_id;
++
++  RETURN jsonb_build_object('purchase_order_id', v_po_id, 'po_number', v_po_number, 'status', 'ordered');
++END;
++$function$;
++
++REVOKE ALL ON FUNCTION public.inventory_create_product_with_default_variant(uuid, text, text, uuid, text, text, uuid) FROM PUBLIC;
++REVOKE ALL ON FUNCTION public.inventory_create_product_with_default_variant(uuid, text, text, uuid, text, text, uuid) FROM anon;
++GRANT EXECUTE ON FUNCTION public.inventory_create_product_with_default_variant(uuid, text, text, uuid, text, text, uuid) TO authenticated, service_role;
++
++REVOKE ALL ON FUNCTION public.inventory_create_purchase_order(uuid, uuid, uuid, jsonb, date, uuid, text, text, uuid) FROM PUBLIC;
++REVOKE ALL ON FUNCTION public.inventory_create_purchase_order(uuid, uuid, uuid, jsonb, date, uuid, text, text, uuid) FROM anon;
++GRANT EXECUTE ON FUNCTION public.inventory_create_purchase_order(uuid, uuid, uuid, jsonb, date, uuid, text, text, uuid) TO authenticated, service_role;
+diff --git a/apps/web/supabase-target/supabase/migrations/20260922053110_pre_ic8_p0_fix_settings_warmup_helper_grant_authenticated.sql b/apps/web/supabase-target/supabase/migrations/20260922053110_pre_ic8_p0_fix_settings_warmup_helper_grant_authenticated.sql
+new file mode 100644
+index 00000000..635ae7c0
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260922053110_pre_ic8_p0_fix_settings_warmup_helper_grant_authenticated.sql
+@@ -0,0 +1,28 @@
++-- PRE-IC8 P0 -- forward correction, self-caught by the full 097-112
++-- regression run. Migration 20260919165805_pre_ic8_p0_fix_settings_
++-- warmup_via_internal_helper.sql created inventory_ensure_settings_
++-- row_internal() (SECURITY DEFINER, owner postgres) but then revoked
++-- EXECUTE from authenticated too, alongside anon/PUBLIC. This broke
++-- the very callers it was meant to fix: inventory_create_product_
++-- with_default_variant / inventory_create_purchase_order (and
++-- inventory_create_enhanced_product, which calls the former
++-- internally) are themselves SECURITY INVOKER. A SECURITY INVOKER
++-- function's nested call to another function executes under the
++-- CURRENT role (the real invoking role, authenticated) -- not as the
++-- definer of the callee -- so the EXECUTE privilege check on the
++-- internal helper is evaluated against authenticated, which had just
++-- been revoked. Live-confirmed via 111's own I1/I2/J1 scenarios
++-- failing with "42501 permission denied for function inventory_
++-- ensure_settings_row_internal" even for fully legitimate,
++-- correctly-permissioned callers.
++--
++-- Fix: restore EXECUTE on the internal helper for authenticated.
++-- anon/PUBLIC remain revoked -- this helper is never meant to be
++-- callable directly by an anonymous or public role, only reached via
++-- same-owner nesting from postgres-owned SECURITY DEFINER functions,
++-- or via nested calls from these two authenticated-invoked SECURITY
++-- INVOKER RPCs (which themselves already gate on real permission
++-- checks -- warehouse.products.manage / warehouse.procurement.manage
++-- -- before ever reaching this helper).
++
++GRANT EXECUTE ON FUNCTION public.inventory_ensure_settings_row_internal(uuid, uuid) TO authenticated;
+diff --git a/apps/web/supabase/tests/098_repair_order_line_reservation_phase10a_test.sql b/apps/web/supabase/tests/098_repair_order_line_reservation_phase10a_test.sql
+index cd355e3b..a22f172b 100644
+--- a/apps/web/supabase/tests/098_repair_order_line_reservation_phase10a_test.sql
++++ b/apps/web/supabase/tests/098_repair_order_line_reservation_phase10a_test.sql
+@@ -71,10 +71,27 @@ SELECT line_b, ro, variant_1, '098-SKU-X', '098 line B (same SKU as A)', 3, 'pcs
+ -- Deterministic starting balance for this (location, variant) pair,
+ -- transaction-scoped -- reset regardless of any pre-existing real value,
+ -- safe because this whole file rolls back.
++-- IC-7 note: inventory_guard_balance_write() now correctly fails closed
++-- (COALESCE(...,'off')) when the engine GUC is unset, so this raw fixture
++-- seed must set it first -- matching 102/106/107's own convention.
++-- PRE-IC8 P0 note: the balance guard now enforces substance-validated
++-- delta shapes (a physical on_hand change may never be combined with a
++-- commitment change in the same statement -- no real business RPC ever
++-- does that either). Split into 3 shape-compliant statements: a
++-- zero-quantity INSERT (matches inventory_get_or_create_balance_for_
++-- update's own shape), a commitment-shape reset, then a physical-shape
++-- reset.
++SET LOCAL ambra.inventory_movement_engine = 'on';
+ INSERT INTO inventory_balances (organization_id, branch_id, location_id, variant_id, on_hand_quantity, reserved_quantity, allocated_quantity)
+-SELECT org, branch, location_1, variant_1, 1000, 0, 0 FROM fx
++SELECT org, branch, location_1, variant_1, 0, 0, 0 FROM fx
+ ON CONFLICT (organization_id, branch_id, location_id, variant_id, coalesce(lot_id, '00000000-0000-0000-0000-000000000000'::uuid), coalesce(serial_id, '00000000-0000-0000-0000-000000000000'::uuid))
+-DO UPDATE SET on_hand_quantity = 1000, reserved_quantity = 0, allocated_quantity = 0;
++DO NOTHING;
++UPDATE inventory_balances SET reserved_quantity = 0, allocated_quantity = 0
++WHERE organization_id = (SELECT org FROM fx) AND branch_id = (SELECT branch FROM fx)
++  AND location_id = (SELECT location_1 FROM fx) AND variant_id = (SELECT variant_1 FROM fx);
++UPDATE inventory_balances SET on_hand_quantity = 1000
++WHERE organization_id = (SELECT org FROM fx) AND branch_id = (SELECT branch FROM fx)
++  AND location_id = (SELECT location_1 FROM fx) AND variant_id = (SELECT variant_1 FROM fx);
+ 
+ SET LOCAL ROLE authenticated;
+ SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fx)::text, 'role', 'authenticated')::text, true);
+diff --git a/apps/web/supabase/tests/099_repair_order_line_allocation_phase10b_test.sql b/apps/web/supabase/tests/099_repair_order_line_allocation_phase10b_test.sql
+index 466d5861..40494cab 100644
+--- a/apps/web/supabase/tests/099_repair_order_line_allocation_phase10b_test.sql
++++ b/apps/web/supabase/tests/099_repair_order_line_allocation_phase10b_test.sql
+@@ -117,10 +117,22 @@ SELECT line_b, ro, variant_1, '099-SKU-X', '099 line B (same SKU as A)', 5, 'pcs
+ -- Deterministic starting balance for this (location, variant) pair,
+ -- transaction-scoped -- reset regardless of any pre-existing real value,
+ -- safe because this whole file rolls back.
++-- IC-7 note: inventory_guard_balance_write() now correctly fails closed
++-- (COALESCE(...,'off')) when the engine GUC is unset, so this raw fixture
++-- seed must set it first -- matching 102/106/107's own convention.
++-- PRE-IC8 P0 note: split into shape-compliant statements -- see 098's
++-- own identical note for the full rationale.
++SET LOCAL ambra.inventory_movement_engine = 'on';
+ INSERT INTO inventory_balances (organization_id, branch_id, location_id, variant_id, on_hand_quantity, reserved_quantity, allocated_quantity)
+-SELECT org, branch, location_1, variant_1, 1000, 0, 0 FROM fx
++SELECT org, branch, location_1, variant_1, 0, 0, 0 FROM fx
+ ON CONFLICT (organization_id, branch_id, location_id, variant_id, coalesce(lot_id, '00000000-0000-0000-0000-000000000000'::uuid), coalesce(serial_id, '00000000-0000-0000-0000-000000000000'::uuid))
+-DO UPDATE SET on_hand_quantity = 1000, reserved_quantity = 0, allocated_quantity = 0;
++DO NOTHING;
++UPDATE inventory_balances SET reserved_quantity = 0, allocated_quantity = 0
++WHERE organization_id = (SELECT org FROM fx) AND branch_id = (SELECT branch FROM fx)
++  AND location_id = (SELECT location_1 FROM fx) AND variant_id = (SELECT variant_1 FROM fx);
++UPDATE inventory_balances SET on_hand_quantity = 1000
++WHERE organization_id = (SELECT org FROM fx) AND branch_id = (SELECT branch FROM fx)
++  AND location_id = (SELECT location_1 FROM fx) AND variant_id = (SELECT variant_1 FROM fx);
+ 
+ -- No explicit permission grant/delete here -- e2e_user already holds a
+ -- real, permanent, ORG-WIDE `warehouse.*` wildcard grant in this fixture
+@@ -362,10 +374,29 @@ END $$;
+ -- `variant_2` fixture value) than `line_a`'s own `variant_1`. This
+ -- succeeds -- the mismatch this correction pass closes is a real,
+ -- reachable database state, not merely theoretical.
++-- IC-7 note: redundant with the top-of-file SET LOCAL (same transaction),
++-- but set again explicitly for self-documentation.
++-- PRE-IC8 P0 note: `authenticated` no longer holds raw table privileges
++-- on inventory_balances at all (the REVOKE half of the fix) -- this
++-- fixture seed must run as the connecting/superuser role, matching the
++-- established convention every other file already follows, then
++-- restore the authenticated role context for the scenario below. Also
++-- split into shape-compliant statements (zero-quantity insert, then a
++-- physical-shape-only on_hand update).
++RESET ROLE;
++SET LOCAL ambra.inventory_movement_engine = 'on';
+ INSERT INTO inventory_balances (organization_id, branch_id, location_id, variant_id, on_hand_quantity, reserved_quantity, allocated_quantity)
+-SELECT org, branch, location_1, 'e11a5012-d136-4551-952d-6b264023737c'::uuid, 100, 0, 0 FROM fx
++SELECT org, branch, location_1, 'e11a5012-d136-4551-952d-6b264023737c'::uuid, 0, 0, 0 FROM fx
+ ON CONFLICT (organization_id, branch_id, location_id, variant_id, coalesce(lot_id, '00000000-0000-0000-0000-000000000000'::uuid), coalesce(serial_id, '00000000-0000-0000-0000-000000000000'::uuid))
+-DO UPDATE SET on_hand_quantity = 100, reserved_quantity = 0, allocated_quantity = 0;
++DO NOTHING;
++UPDATE inventory_balances SET reserved_quantity = 0, allocated_quantity = 0
++WHERE organization_id = (SELECT org FROM fx) AND branch_id = (SELECT branch FROM fx)
++  AND location_id = (SELECT location_1 FROM fx) AND variant_id = 'e11a5012-d136-4551-952d-6b264023737c'::uuid;
++UPDATE inventory_balances SET on_hand_quantity = 100
++WHERE organization_id = (SELECT org FROM fx) AND branch_id = (SELECT branch FROM fx)
++  AND location_id = (SELECT location_1 FROM fx) AND variant_id = 'e11a5012-d136-4551-952d-6b264023737c'::uuid;
++SET LOCAL ROLE authenticated;
++SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fx)::text, 'role', 'authenticated')::text, true);
+ 
+ CREATE TEMP TABLE rf6 AS
+ SELECT (inventory_create_reservation(
+diff --git a/apps/web/supabase/tests/100_repair_order_container_orchestration_phase10c_test.sql b/apps/web/supabase/tests/100_repair_order_container_orchestration_phase10c_test.sql
+index 8921d235..fe7e7115 100644
+--- a/apps/web/supabase/tests/100_repair_order_container_orchestration_phase10c_test.sql
++++ b/apps/web/supabase/tests/100_repair_order_container_orchestration_phase10c_test.sql
+@@ -29,11 +29,18 @@
+ --   3. Two new RESTRICTIVE RLS policies (per command: INSERT/UPDATE/DELETE)
+ --      on each of inventory_containers and inventory_container_lines deny
+ --      direct authenticated DML against any row where the container (or its
+---      own parent container) declares reference_type='repair_order'. Generic
+---      (non-RepairOrder-owned) containers are completely unaffected -- their
+---      own pre-existing permissive ALL policy still governs them unchanged,
+---      preserving ambra-location-inventory.ts's own legacy behavior exactly
++--      own parent container) declares reference_type='repair_order'. At the
++--      time of THIS correction pass, generic (non-RepairOrder-owned)
++--      containers were left unaffected, preserving ambra-location-
++--      inventory.ts's own then-still-live legacy direct-write behavior
+ --      (T37-T44 below).
++--      SUPERSEDED BY IC-7 (2026-09-17): IC-6 deleted ambra-location-
++--      inventory.ts's own 4 direct-write actions as confirmed-dead code,
++--      and IC-7's own live repo-wide grep confirmed zero remaining direct-
++--      table writes anywhere -- see T41/T42's own inline comment below for
++--      the full account. Raw writes are now closed for ALL
++--      inventory_containers/_container_lines rows, generic or RepairOrder-
++--      owned alike.
+ --   4. A genuine two-PostgreSQL-connection concurrency proof was performed
+ --      OUTSIDE this file (pgTAP is a single-connection tool and cannot
+ --      express real concurrency) -- see migration-summary.md and the final
+@@ -122,14 +129,26 @@ SELECT line_c, ro, variant_1, '100-SKU-X', '100 line C (SAME RepairOrder as line
+ INSERT INTO repair_order_lines (id, repair_order_id, variant_id, product_code, product_name, ordered_quantity, unit)
+ SELECT line_d, ro, variant_1, '100-SKU-X', '100 line D (location-mismatch probe)', 2, 'pcs' FROM fx;
+ 
++-- IC-7 note: inventory_guard_balance_write() now correctly fails closed
++-- (COALESCE(...,'off')) when the engine GUC is unset, so this raw fixture
++-- seed must set it first -- matching 102/106/107's own convention.
++-- PRE-IC8 P0 note: split into shape-compliant statements -- see 098's
++-- own identical note for the full rationale.
++SET LOCAL ambra.inventory_movement_engine = 'on';
+ INSERT INTO inventory_balances (organization_id, branch_id, location_id, variant_id, on_hand_quantity, reserved_quantity, allocated_quantity)
+-SELECT org, branch, location_1, variant_1, 1000, 0, 0 FROM fx
++SELECT org, branch, location_1, variant_1, 0, 0, 0 FROM fx
+ ON CONFLICT (organization_id, branch_id, location_id, variant_id, coalesce(lot_id, '00000000-0000-0000-0000-000000000000'::uuid), coalesce(serial_id, '00000000-0000-0000-0000-000000000000'::uuid))
+-DO UPDATE SET on_hand_quantity = 1000, reserved_quantity = 0, allocated_quantity = 0;
++DO NOTHING;
+ INSERT INTO inventory_balances (organization_id, branch_id, location_id, variant_id, on_hand_quantity, reserved_quantity, allocated_quantity)
+-SELECT org, branch, location_2, variant_1, 1000, 0, 0 FROM fx
++SELECT org, branch, location_2, variant_1, 0, 0, 0 FROM fx
+ ON CONFLICT (organization_id, branch_id, location_id, variant_id, coalesce(lot_id, '00000000-0000-0000-0000-000000000000'::uuid), coalesce(serial_id, '00000000-0000-0000-0000-000000000000'::uuid))
+-DO UPDATE SET on_hand_quantity = 1000, reserved_quantity = 0, allocated_quantity = 0;
++DO NOTHING;
++UPDATE inventory_balances SET reserved_quantity = 0, allocated_quantity = 0
++WHERE organization_id = (SELECT org FROM fx) AND branch_id = (SELECT branch FROM fx)
++  AND location_id IN ((SELECT location_1 FROM fx), (SELECT location_2 FROM fx)) AND variant_id = (SELECT variant_1 FROM fx);
++UPDATE inventory_balances SET on_hand_quantity = 1000
++WHERE organization_id = (SELECT org FROM fx) AND branch_id = (SELECT branch FROM fx)
++  AND location_id IN ((SELECT location_1 FROM fx), (SELECT location_2 FROM fx)) AND variant_id = (SELECT variant_1 FROM fx);
+ 
+ SET LOCAL ROLE authenticated;
+ SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fx)::text, 'role', 'authenticated')::text, true);
+@@ -625,15 +644,30 @@ BEGIN
+   END;
+ END $$;
+ 
+--- T41-T42: GENERIC (non-RepairOrder-owned) containers/lines are completely
+--- unaffected -- the pre-existing legacy behavior ambra-location-inventory.ts
+--- depends on is preserved exactly.
++-- T41-T42: SUPERSEDED BY IC-7 (2026-09-17). Phase 10C's own original intent
++-- (preserved here in this comment for history) was that GENERIC
++-- (non-RepairOrder-owned) containers/lines remain unaffected, because at
++-- the time ambra-location-inventory.ts's own 4 direct-write actions were
++-- still live legacy callers. IC-6 (2026-09-17, same day, earlier phase)
++-- deleted those 4 actions as confirmed-dead code; IC-7's own live repo-wide
++-- grep then confirmed ZERO remaining direct-table writes to these tables
++-- anywhere in the codebase (every real write goes through the canonical
++-- inventory_create_container/inventory_add_to_container/inventory_remove_
++-- from_container/inventory_seal_container RPCs). This made it safe, and a
++-- deliberate IC-7 decision (see
++-- docs/inventory/reviews/ic-7-review/write-boundary-matrix.md, "generic
++-- rows" row, and migration
++-- 20260917150706_ic7_reservation_allocation_container_restrictive_rls.sql's
++-- own header comment), to close the generic-row raw-write gap too, not
++-- just the RepairOrder-owned one. T41/T42 now assert the POST-IC-7
++-- contract: raw writes against ANY inventory_containers/_container_lines
++-- row -- generic or RepairOrder-owned -- are silently RLS-denied (0 rows).
+ DO $$
+ DECLARE v_rowcount int;
+ BEGIN
+   UPDATE inventory_containers SET code = '100-CONTAINER-MISMATCH-RENAMED' WHERE id = (SELECT container_mismatch FROM fx);
+   GET DIAGNOSTICS v_rowcount = ROW_COUNT;
+-  INSERT INTO test_log(line) SELECT is(v_rowcount, 1, 'T41: direct UPDATE against a GENERIC (non-RepairOrder) container still succeeds (legacy behavior preserved)');
++  INSERT INTO test_log(line) SELECT is(v_rowcount, 0, 'T41: direct UPDATE against a GENERIC (non-RepairOrder) container is now denied post-IC-7 (0 rows, RLS-filtered)');
+ END $$;
+ 
+ DO $$
+@@ -642,7 +676,7 @@ BEGIN
+   SELECT id INTO v_line_id FROM inventory_container_lines WHERE container_id = (SELECT container_match FROM fx) LIMIT 1;
+   UPDATE inventory_container_lines SET quantity = quantity WHERE id = v_line_id;
+   GET DIAGNOSTICS v_rowcount = ROW_COUNT;
+-  INSERT INTO test_log(line) SELECT is(v_rowcount, 1, 'T42: direct UPDATE against a GENERIC container''s own line still succeeds (legacy behavior preserved)');
++  INSERT INTO test_log(line) SELECT is(v_rowcount, 0, 'T42: direct UPDATE against a GENERIC container''s own line is now denied post-IC-7 (0 rows, RLS-filtered)');
+ END $$;
+ 
+ -- T43: actor without warehouse.inventory.operate -> rejected.
+diff --git a/apps/web/supabase/tests/102_ic1_reserved_only_hard_invariant_test.sql b/apps/web/supabase/tests/102_ic1_reserved_only_hard_invariant_test.sql
+index e4311883..62808826 100644
+--- a/apps/web/supabase/tests/102_ic1_reserved_only_hard_invariant_test.sql
++++ b/apps/web/supabase/tests/102_ic1_reserved_only_hard_invariant_test.sql
+@@ -198,6 +198,16 @@ SELECT loc_a, org, branch, '102-finalcontract-loc-a', true FROM fxc;
+ INSERT INTO warehouse_locations (id, organization_id, branch_id, name, can_store_inventory)
+ SELECT loc_b, org, branch, '102-finalcontract-loc-b', true FROM fxc;
+ 
++-- PRE-IC8 P0 note: Scenario B's own earlier `SET LOCAL ROLE authenticated`
++-- (never reset before this point) is still active here, and `authenticated`
++-- no longer holds raw table privileges on inventory_balances/inventory_
++-- settings at all (the REVOKE half of the fix) -- RESET ROLE first so
++-- every fixture seed below runs as the connecting/superuser role,
++-- matching the established convention. The balance insert is also split
++-- into shape-compliant statements -- see 098's own identical note for
++-- the full rationale.
++RESET ROLE;
++
+ -- Seed the org's own inventory_settings row (INSERT ... ON CONFLICT DO
+ -- NOTHING mirrors the engine's own warm-up pattern; this org already has a
+ -- settings row from earlier fixtures in this same transaction/session).
+@@ -206,9 +216,15 @@ ON CONFLICT (organization_id) DO NOTHING;
+ 
+ SET LOCAL ambra.inventory_movement_engine = 'on';
+ INSERT INTO inventory_balances (organization_id, branch_id, location_id, variant_id, on_hand_quantity, reserved_quantity, allocated_quantity)
+-SELECT org, branch, loc_a, variant_1, 2, 0, 0 FROM fxc
++SELECT org, branch, loc_a, variant_1, 0, 0, 0 FROM fxc
+ ON CONFLICT (organization_id, branch_id, location_id, variant_id, coalesce(lot_id, '00000000-0000-0000-0000-000000000000'::uuid), coalesce(serial_id, '00000000-0000-0000-0000-000000000000'::uuid))
+-DO UPDATE SET on_hand_quantity = 2, reserved_quantity = 0, allocated_quantity = 0;
++DO NOTHING;
++UPDATE inventory_balances SET reserved_quantity = 0, allocated_quantity = 0
++WHERE organization_id = (SELECT org FROM fxc) AND branch_id = (SELECT branch FROM fxc)
++  AND location_id = (SELECT loc_a FROM fxc) AND variant_id = (SELECT variant_1 FROM fxc);
++UPDATE inventory_balances SET on_hand_quantity = 2
++WHERE organization_id = (SELECT org FROM fxc) AND branch_id = (SELECT branch FROM fxc)
++  AND location_id = (SELECT loc_a FROM fxc) AND variant_id = (SELECT variant_1 FROM fxc);
+ 
+ CREATE TEMP TABLE movement_count_baseline_c AS
+ SELECT count(*) AS n FROM inventory_movement_headers WHERE organization_id = (SELECT org FROM fxc) AND branch_id = (SELECT branch FROM fxc);
+diff --git a/apps/web/supabase/tests/106_ic4_branch_transfer_test.sql b/apps/web/supabase/tests/106_ic4_branch_transfer_test.sql
+index 1378a32f..8f00a068 100644
+--- a/apps/web/supabase/tests/106_ic4_branch_transfer_test.sql
++++ b/apps/web/supabase/tests/106_ic4_branch_transfer_test.sql
+@@ -487,7 +487,11 @@ UPDATE fx SET n_transfer_id = (SELECT (result->>'transfer_id')::uuid FROM n1);
+ -- commitment (allocation) that must not be stranded by the transfer send.
+ -- Done as the connecting (RLS-bypassing) role -- this is test-fixture
+ -- setup, not something under test; the send rejection below is.
++-- PRE-IC8 P0 note: explicit GUC set for defense against any prior
++-- transaction-scoped state ambiguity -- this UPDATE is already
++-- shape-compliant (a pure commitment-only change, on_hand untouched).
+ RESET ROLE;
++SET LOCAL ambra.inventory_movement_engine = 'on';
+ UPDATE inventory_balances b
+ SET allocated_quantity = allocated_quantity + 1
+ FROM fx WHERE b.organization_id = fx.org AND b.branch_id = fx.src_branch AND b.location_id = fx.src_loc2 AND b.variant_id = fx.variant_2;
+diff --git a/apps/web/supabase/tests/107_ic5_repair_order_projection_test.sql b/apps/web/supabase/tests/107_ic5_repair_order_projection_test.sql
+index 5889e6ad..7329d60e 100644
+--- a/apps/web/supabase/tests/107_ic5_repair_order_projection_test.sql
++++ b/apps/web/supabase/tests/107_ic5_repair_order_projection_test.sql
+@@ -294,8 +294,16 @@ SELECT i_loc_x, (SELECT org FROM fx), i_branch, 'ic5-i-locX', 'IC5I', true, 'rec
+ -- stock but zero attribution -- deterministic, not a raw-write bypass
+ -- (invoked here as the connecting/superuser role for fixture setup only).
+ RESET ROLE;
++-- PRE-IC8 P0 note: the balance guard now enforces zero-quantity-only
++-- INSERTs (matching inventory_get_or_create_balance_for_update's own
++-- shape) -- split into a zero-quantity insert followed by a
++-- physical-shape-only on_hand update.
++SET LOCAL ambra.inventory_movement_engine = 'on';
+ INSERT INTO inventory_balances (organization_id, branch_id, location_id, variant_id, on_hand_quantity, reserved_quantity, allocated_quantity)
+-SELECT (SELECT org FROM fx), i_branch, i_loc_x, (SELECT variant_1 FROM fx), 5, 0, 0 FROM ifx;
++SELECT (SELECT org FROM fx), i_branch, i_loc_x, (SELECT variant_1 FROM fx), 0, 0, 0 FROM ifx;
++UPDATE inventory_balances SET on_hand_quantity = 5
++WHERE organization_id = (SELECT org FROM fx) AND branch_id = (SELECT i_branch FROM ifx)
++  AND location_id = (SELECT i_loc_x FROM ifx) AND variant_id = (SELECT variant_1 FROM fx);
+ SELECT rebuild_repair_order_projection_bucket_internal((SELECT org FROM fx), (SELECT i_branch FROM ifx), (SELECT i_loc_x FROM ifx), (SELECT variant_1 FROM fx));
+ SET LOCAL ROLE authenticated;
+ SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fx)::text, 'role','authenticated')::text, true);
+diff --git a/apps/web/supabase/tests/112_pre_ic8_p0_balance_settings_guc_boundary_test.sql b/apps/web/supabase/tests/112_pre_ic8_p0_balance_settings_guc_boundary_test.sql
+new file mode 100644
+index 00000000..80175bba
+--- /dev/null
++++ b/apps/web/supabase/tests/112_pre_ic8_p0_balance_settings_guc_boundary_test.sql
+@@ -0,0 +1,400 @@
++-- ============================================================================
++-- TEST: PRE-IC8 P0 -- balance/settings GUC authorization bypass closure
++-- ============================================================================
++-- Closes a CRITICAL, live, currently-exploitable gap the architecture-
++-- compression review found and the user confirmed must be closed before
++-- IC-8: `inventory_guard_balance_write()`/`inventory_guard_settings_
++-- write()` trusted the caller-settable session GUC
++-- `ambra.inventory_movement_engine = 'on'` as SUFFICIENT authorization,
++-- with no substance/delta validation -- meaning any ordinary operate-
++-- permissioned authenticated user could deliberately set the GUC and
++-- then raw-write `inventory_balances`/`inventory_settings` directly,
++-- bypassing the canonical engine, ledger, audit log, and every IC-1
++-- invariant. This directly contradicted the frozen "raw writes are
++-- closed" invariant.
++--
++-- FINAL DESIGN (2 layers):
++--   1. STRUCTURAL (the real security boundary): `authenticated`/`anon`
++--      no longer hold raw INSERT/UPDATE/DELETE table privileges on
++--      either table at all -- Postgres checks base table grants BEFORE
++--      RLS and BEFORE any trigger fires, so this closes the exploit
++--      regardless of GUC state. Every legitimate writer is a
++--      `SECURITY DEFINER` function owned by `postgres` (or same-owner-
++--      nested from one), so none are affected.
++--   2. SUBSTANCE VALIDATION (defense-in-depth, protects against a
++--      hypothetical future bug in already-trusted `SECURITY DEFINER`
++--      code, which DOES still reach these triggers running as
++--      `postgres`): the balance guard now validates the exact
++--      column-delta shape against the 2 legitimate transitions
++--      (physical-only, or commitment-only); the settings guard now
++--      distinguishes real settings-manager writes (any column) from
++--      engine-only writes (numbering counters ONLY), never trusting
++--      the GUC alone for either table.
++--
++-- EXPLICIT PRODUCT DECISION (asked and confirmed): `apps/public-web`'s
++-- own still-live container feature (a fork of functions IC-6 already
++-- confirmed dead and removed from `apps/web`'s copy) writes
++-- `inventory_balances.allocated_quantity` directly, outside any RPC.
++-- This is now closed too, by design -- that feature is expected to
++-- break until migrated to a canonical RPC (separate, future work).
++--
++-- Executed live against supabase-target via Supabase MCP.
++
++BEGIN;
++
++SELECT plan(20);
++
++CREATE TEMP TABLE fx (
++  org uuid, branch uuid, loc_a uuid, loc_b uuid,
++  variant_1 uuid, unit_1 uuid,
++  e2e_user uuid, no_perm_user uuid
++);
++GRANT SELECT ON fx TO authenticated;
++INSERT INTO fx SELECT
++  '9f98fe91-63b8-4986-a2b3-65bdd47684c9'::uuid,
++  gen_random_uuid(),
++  gen_random_uuid(), gen_random_uuid(),
++  'fe364ce2-1f72-4df5-ab92-6361ec95e0da'::uuid,
++  '571dfd6c-eba2-42c2-8ad9-f39a2d103b6d'::uuid,
++  'c4a24371-42db-4bb8-ab5e-379ebbf7d9c4'::uuid,
++  gen_random_uuid();
++
++CREATE TEMP TABLE test_log (seq serial, line text);
++GRANT INSERT, SELECT ON test_log TO authenticated;
++GRANT USAGE ON SEQUENCE test_log_seq_seq TO authenticated;
++
++INSERT INTO branches (id, organization_id, name, branch_number)
++SELECT branch, org, '112-pre-ic8-p0-branch', 850 FROM fx;
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, can_store_inventory, purpose)
++SELECT loc_a, org, branch, '112-loc-a-receiving', true, 'receiving' FROM fx;
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, can_store_inventory)
++SELECT loc_b, org, branch, '112-loc-b', true FROM fx;
++
++-- Seed a real balance row through the canonical get-or-create shape
++-- (zero-quantity insert), then a real receipt to give it real on_hand
++-- stock to test against.
++SET LOCAL ambra.inventory_movement_engine = 'on';
++INSERT INTO inventory_balances (organization_id, branch_id, location_id, variant_id, on_hand_quantity, reserved_quantity, allocated_quantity)
++SELECT org, branch, loc_a, variant_1, 0, 0, 0 FROM fx
++ON CONFLICT (organization_id, branch_id, location_id, variant_id, coalesce(lot_id, '00000000-0000-0000-0000-000000000000'::uuid), coalesce(serial_id, '00000000-0000-0000-0000-000000000000'::uuid))
++DO NOTHING;
++
++-- Strip warehouse.settings.manage from e2e_user for the adversarial
++-- settings scenarios below (they already hold it natively; the exact
++-- row is saved and restored later in this same transaction for the
++-- legitimate-settings-manager scenario -- the whole file rolls back
++-- regardless).
++CREATE TEMP TABLE saved_settings_manage_row AS
++SELECT * FROM user_effective_permissions
++WHERE user_id = (SELECT e2e_user FROM fx) AND organization_id = (SELECT org FROM fx)
++  AND permission_slug_exact = 'warehouse.settings.manage';
++DELETE FROM user_effective_permissions
++WHERE user_id = (SELECT e2e_user FROM fx) AND organization_id = (SELECT org FROM fx)
++  AND permission_slug_exact = 'warehouse.settings.manage';
++
++SET LOCAL ROLE authenticated;
++SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fx)::text, 'role', 'authenticated')::text, true);
++
++-- A real receipt via the canonical engine, establishing real on_hand
++-- stock to attack in the adversarial scenarios below.
++SELECT inventory_create_and_finalize(
++  (SELECT org FROM fx), (SELECT branch FROM fx), '101',
++  jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fx), 'unit_id', (SELECT unit_1 FROM fx), 'quantity', 50, 'destination_location_id', (SELECT loc_a FROM fx))),
++  NULL, NULL, NULL, NULL, NULL, NULL, (SELECT e2e_user FROM fx)
++);
++
++CREATE TEMP TABLE bal AS
++SELECT id, on_hand_quantity FROM inventory_balances
++WHERE organization_id = (SELECT org FROM fx) AND branch_id = (SELECT branch FROM fx)
++  AND location_id = (SELECT loc_a FROM fx) AND variant_id = (SELECT variant_1 FROM fx);
++GRANT SELECT ON bal TO authenticated;
++INSERT INTO test_log(line) SELECT is(on_hand_quantity, 50::numeric, '0: real receipt establishes on_hand=50 (setup, not a scored scenario)') FROM bal;
++
++-- ===========================================================================
++-- ADVERSARIAL: self-set GUC, ordinary operate-permissioned user (e2e_user,
++-- real, no settings.manage at this point) -- all must remain denied.
++-- ===========================================================================
++SELECT set_config('ambra.inventory_movement_engine', 'on', true);
++
++DO $$
++BEGIN
++  BEGIN
++    UPDATE inventory_balances SET on_hand_quantity = 999999 WHERE id = (SELECT id FROM bal);
++    INSERT INTO test_log(line) SELECT fail('A: raw on_hand UPDATE after self-setting GUC expected denial, succeeded instead');
++  EXCEPTION WHEN OTHERS THEN
++    INSERT INTO test_log(line) SELECT is(SQLSTATE, '42501', 'A: self-set GUC cannot change on_hand_quantity');
++  END;
++END $$;
++
++DO $$
++BEGIN
++  BEGIN
++    UPDATE inventory_balances SET reserved_quantity = 999999 WHERE id = (SELECT id FROM bal);
++    INSERT INTO test_log(line) SELECT fail('B: raw reserved UPDATE after self-setting GUC expected denial, succeeded instead');
++  EXCEPTION WHEN OTHERS THEN
++    INSERT INTO test_log(line) SELECT is(SQLSTATE, '42501', 'B: self-set GUC cannot change reserved_quantity arbitrarily');
++  END;
++END $$;
++
++DO $$
++BEGIN
++  BEGIN
++    UPDATE inventory_balances SET allocated_quantity = 999999 WHERE id = (SELECT id FROM bal);
++    INSERT INTO test_log(line) SELECT fail('C: raw allocated UPDATE after self-setting GUC expected denial, succeeded instead');
++  EXCEPTION WHEN OTHERS THEN
++    INSERT INTO test_log(line) SELECT is(SQLSTATE, '42501', 'C: self-set GUC cannot change allocated_quantity arbitrarily');
++  END;
++END $$;
++
++DO $$
++BEGIN
++  BEGIN
++    UPDATE inventory_balances SET on_hand_quantity = 999999, reserved_quantity = 999999, allocated_quantity = 999999 WHERE id = (SELECT id FROM bal);
++    INSERT INTO test_log(line) SELECT fail('D: raw multi-quantity UPDATE after self-setting GUC expected denial, succeeded instead');
++  EXCEPTION WHEN OTHERS THEN
++    INSERT INTO test_log(line) SELECT is(SQLSTATE, '42501', 'D: self-set GUC cannot change multiple quantities arbitrarily');
++  END;
++END $$;
++
++DO $$
++BEGIN
++  BEGIN
++    INSERT INTO inventory_balances (organization_id, branch_id, location_id, variant_id, on_hand_quantity, reserved_quantity, allocated_quantity)
++    SELECT org, branch, loc_b, variant_1, 500, 0, 0 FROM fx;
++    INSERT INTO test_log(line) SELECT fail('E: fabricated non-zero balance INSERT expected denial, succeeded instead');
++  EXCEPTION WHEN OTHERS THEN
++    INSERT INTO test_log(line) SELECT is(SQLSTATE, '42501', 'E: self-set GUC cannot INSERT a fabricated non-zero balance row');
++  END;
++END $$;
++
++DO $$
++BEGIN
++  BEGIN
++    DELETE FROM inventory_balances WHERE id = (SELECT id FROM bal);
++    INSERT INTO test_log(line) SELECT fail('F: balance DELETE expected denial, succeeded instead');
++  EXCEPTION WHEN OTHERS THEN
++    INSERT INTO test_log(line) SELECT is(SQLSTATE, '42501', 'F: a balance row cannot be deleted, even with the GUC set');
++  END;
++END $$;
++
++-- ===========================================================================
++-- SETTINGS: adversarial (operator, no settings.manage) then legitimate
++-- (real settings manager).
++-- ===========================================================================
++CREATE TEMP TABLE settings_before AS SELECT allow_negative_stock FROM inventory_settings WHERE organization_id = (SELECT org FROM fx);
++GRANT SELECT ON settings_before TO authenticated;
++
++DO $$
++BEGIN
++  BEGIN
++    UPDATE inventory_settings SET allow_negative_stock = NOT (SELECT allow_negative_stock FROM settings_before) WHERE organization_id = (SELECT org FROM fx);
++    INSERT INTO test_log(line) SELECT fail('G: operator (no settings.manage) self-set GUC editing user-managed setting expected denial, succeeded instead');
++  EXCEPTION WHEN OTHERS THEN
++    INSERT INTO test_log(line) SELECT is(SQLSTATE, '42501', 'G: self-set GUC cannot let an ordinary operator edit a user-managed setting');
++  END;
++END $$;
++
++RESET ROLE;
++-- Restore the exact saved row (it was only stripped for the scenario
++-- above -- transaction-scoped, would roll back anyway).
++INSERT INTO user_effective_permissions SELECT * FROM saved_settings_manage_row;
++SET LOCAL ROLE authenticated;
++SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fx)::text, 'role', 'authenticated')::text, true);
++
++DO $$
++DECLARE v_after boolean;
++BEGIN
++  UPDATE inventory_settings SET allow_negative_stock = NOT (SELECT allow_negative_stock FROM settings_before) WHERE organization_id = (SELECT org FROM fx);
++  SELECT allow_negative_stock INTO v_after FROM inventory_settings WHERE organization_id = (SELECT org FROM fx);
++  INSERT INTO test_log(line) SELECT is(v_after, NOT (SELECT allow_negative_stock FROM settings_before), 'H: a real settings manager can still edit a user-managed setting through the accepted path');
++END $$;
++
++-- ===========================================================================
++-- LEGITIMATE CANONICAL WRITERS -- all must still succeed end to end.
++-- ===========================================================================
++
++-- I: generic issue (decrease, type 402) succeeds.
++DO $$
++DECLARE v_before numeric; v_after numeric;
++BEGIN
++  SELECT on_hand_quantity INTO v_before FROM inventory_balances WHERE id = (SELECT id FROM bal);
++  PERFORM inventory_create_and_finalize(
++    (SELECT org FROM fx), (SELECT branch FROM fx), '402',
++    jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fx), 'unit_id', (SELECT unit_1 FROM fx), 'quantity', 5, 'source_location_id', (SELECT loc_a FROM fx))),
++    NULL, NULL, NULL, NULL, NULL, NULL, (SELECT e2e_user FROM fx)
++  );
++  SELECT on_hand_quantity INTO v_after FROM inventory_balances WHERE id = (SELECT id FROM bal);
++  INSERT INTO test_log(line) SELECT is(v_after, v_before - 5, 'I: legitimate generic issue (type 402) succeeds, on_hand decreases by 5');
++END $$;
++
++-- J: relocation (type 801) succeeds.
++DO $$
++DECLARE v_before numeric; v_dest_after numeric;
++BEGIN
++  SELECT on_hand_quantity INTO v_before FROM inventory_balances WHERE id = (SELECT id FROM bal);
++  PERFORM inventory_create_and_finalize(
++    (SELECT org FROM fx), (SELECT branch FROM fx), '801',
++    jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fx), 'unit_id', (SELECT unit_1 FROM fx), 'quantity', 5, 'source_location_id', (SELECT loc_a FROM fx), 'destination_location_id', (SELECT loc_b FROM fx))),
++    NULL, NULL, NULL, NULL, NULL, NULL, (SELECT e2e_user FROM fx)
++  );
++  SELECT on_hand_quantity INTO v_dest_after FROM inventory_balances WHERE organization_id=(SELECT org FROM fx) AND branch_id=(SELECT branch FROM fx) AND location_id=(SELECT loc_b FROM fx) AND variant_id=(SELECT variant_1 FROM fx);
++  INSERT INTO test_log(line) SELECT is(v_dest_after, 5::numeric, 'J: legitimate relocation (type 801) succeeds, destination on_hand=5');
++END $$;
++
++-- K/L: reservation create + release succeed.
++CREATE TEMP TABLE resv AS
++SELECT (inventory_create_reservation(
++  (SELECT org FROM fx), (SELECT branch FROM fx),
++  jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fx), 'location_id', (SELECT loc_a FROM fx), 'quantity', 10)),
++  'test', gen_random_uuid(), null, null, null, (SELECT e2e_user FROM fx)
++)) AS result;
++INSERT INTO test_log(line) SELECT is((result ->> 'status'), 'active', 'K: legitimate reservation create succeeds') FROM resv;
++
++DO $$
++DECLARE v_reserved numeric;
++BEGIN
++  PERFORM inventory_release_reservation(((SELECT result FROM resv) ->> 'reservation_id')::uuid, (SELECT e2e_user FROM fx), true);
++  SELECT reserved_quantity INTO v_reserved FROM inventory_balances WHERE id = (SELECT id FROM bal);
++  INSERT INTO test_log(line) SELECT is(v_reserved, 0::numeric, 'L: legitimate reservation release succeeds, reserved back to 0');
++END $$;
++
++-- M/N: allocation create + release succeed.
++CREATE TEMP TABLE resv2 AS
++SELECT (inventory_create_reservation(
++  (SELECT org FROM fx), (SELECT branch FROM fx),
++  jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fx), 'location_id', (SELECT loc_a FROM fx), 'quantity', 8)),
++  'test', gen_random_uuid(), null, null, null, (SELECT e2e_user FROM fx)
++)) AS result;
++CREATE TEMP TABLE resvline2 AS
++SELECT id FROM inventory_reservation_lines WHERE reservation_id = ((SELECT result FROM resv2) ->> 'reservation_id')::uuid;
++
++CREATE TEMP TABLE alloc AS
++SELECT (inventory_create_allocation(
++  (SELECT org FROM fx), (SELECT branch FROM fx),
++  jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fx), 'location_id', (SELECT loc_a FROM fx), 'quantity', 8, 'reservation_line_id', (SELECT id FROM resvline2))),
++  ((SELECT result FROM resv2) ->> 'reservation_id')::uuid, 'test', gen_random_uuid(), null, (SELECT e2e_user FROM fx)
++)) AS result;
++INSERT INTO test_log(line) SELECT is((result ->> 'status'), 'active', 'M: legitimate allocation create succeeds') FROM alloc;
++
++DO $$
++DECLARE v_allocated numeric;
++BEGIN
++  PERFORM inventory_release_allocation(((SELECT result FROM alloc) ->> 'allocation_id')::uuid, (SELECT e2e_user FROM fx));
++  SELECT allocated_quantity INTO v_allocated FROM inventory_balances WHERE id = (SELECT id FROM bal);
++  INSERT INTO test_log(line) SELECT is(v_allocated, 0::numeric, 'N: legitimate allocation release succeeds, allocated back to 0');
++END $$;
++
++-- O: opening-stock-style 401 (destination-only increase) succeeds.
++DO $$
++DECLARE v_before numeric; v_after numeric;
++BEGIN
++  SELECT on_hand_quantity INTO v_before FROM inventory_balances WHERE id = (SELECT id FROM bal);
++  PERFORM inventory_create_and_finalize(
++    (SELECT org FROM fx), (SELECT branch FROM fx), '401',
++    jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fx), 'unit_id', (SELECT unit_1 FROM fx), 'quantity', 3, 'destination_location_id', (SELECT loc_a FROM fx))),
++    NULL, NULL, NULL, NULL, NULL, NULL, (SELECT e2e_user FROM fx)
++  );
++  SELECT on_hand_quantity INTO v_after FROM inventory_balances WHERE id = (SELECT id FROM bal);
++  INSERT INTO test_log(line) SELECT is(v_after, v_before + 3, 'O: legitimate opening-stock-style 401 (destination-only increase) succeeds');
++END $$;
++
++-- P: transfer send succeeds (create -> send lifecycle).
++CREATE TEMP TABLE xferfx (dst_branch uuid, dst_loc uuid);
++INSERT INTO xferfx SELECT gen_random_uuid(), gen_random_uuid();
++RESET ROLE;
++INSERT INTO branches (id, organization_id, name, branch_number)
++SELECT dst_branch, (SELECT org FROM fx), '112-xfer-dst-branch', 851 FROM xferfx;
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, can_store_inventory)
++SELECT dst_loc, (SELECT org FROM fx), dst_branch, '112-xfer-dst-loc', true FROM xferfx;
++SET LOCAL ROLE authenticated;
++SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fx)::text, 'role', 'authenticated')::text, true);
++
++CREATE TEMP TABLE xfer AS
++SELECT (inventory_create_branch_transfer(
++  (SELECT org FROM fx), (SELECT branch FROM fx), (SELECT dst_branch FROM xferfx),
++  jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fx), 'source_location_id', (SELECT loc_a FROM fx), 'lot_id', NULL, 'serial_id', NULL, 'unit_id', (SELECT unit_1 FROM fx), 'quantity', 4)),
++  'scenario P', (SELECT e2e_user FROM fx)
++)) AS result;
++
++DO $$
++DECLARE v_before numeric; v_after numeric;
++BEGIN
++  SELECT on_hand_quantity INTO v_before FROM inventory_balances WHERE id = (SELECT id FROM bal);
++  PERFORM inventory_send_branch_transfer(((SELECT result FROM xfer) ->> 'transfer_id')::uuid, (SELECT e2e_user FROM fx));
++  SELECT on_hand_quantity INTO v_after FROM inventory_balances WHERE id = (SELECT id FROM bal);
++  INSERT INTO test_log(line) SELECT is(v_after, v_before - 4, 'P: legitimate branch-transfer send succeeds, source on_hand decreases by 4');
++END $$;
++
++-- Q: reversal succeeds. Uses a SEPARATE, dedicated 20-unit receipt at
++-- loc_b (untouched by any other scenario in this file) rather than the
++-- original 50-unit receipt, which by this point has been partially
++-- consumed by scenarios I/J/O/P -- reversing it here would correctly
++-- trip IC-1's own P0003 strand check (self-caught during live testing,
++-- same class of test-design issue already documented in 110's own
++-- Scenario C fix during IC-7).
++CREATE TEMP TABLE q_receipt AS
++SELECT (inventory_create_and_finalize(
++  (SELECT org FROM fx), (SELECT branch FROM fx), '101',
++  jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fx), 'unit_id', (SELECT unit_1 FROM fx), 'quantity', 20, 'destination_location_id', (SELECT loc_b FROM fx))),
++  NULL, NULL, NULL, NULL, NULL, NULL, (SELECT e2e_user FROM fx)
++)) AS result;
++CREATE TEMP TABLE orig_movement AS
++SELECT ((SELECT result FROM q_receipt) ->> 'movement_id')::uuid AS id;
++
++DO $$
++DECLARE v_status text;
++BEGIN
++  PERFORM inventory_reverse_movement((SELECT id FROM orig_movement), (SELECT e2e_user FROM fx), 'test reversal');
++  SELECT status INTO v_status FROM inventory_movement_headers WHERE id = (SELECT id FROM orig_movement);
++  INSERT INTO test_log(line) SELECT is(v_status, 'reversed', 'Q: legitimate reversal succeeds, original movement status=reversed');
++END $$;
++
++-- ===========================================================================
++-- IC-1 INVARIANT REMAINS ENFORCED
++-- ===========================================================================
++
++-- R: raw attempt to strand committed stock (drop on_hand below the
++-- committed total) remains denied -- cannot be bypassed by GUC self-set.
++DO $$
++DECLARE v_reserved numeric; v_allocated numeric;
++BEGIN
++  -- Create a fresh, deterministic commitment so we know the exact floor.
++  PERFORM inventory_create_reservation(
++    (SELECT org FROM fx), (SELECT branch FROM fx),
++    jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fx), 'location_id', (SELECT loc_a FROM fx), 'quantity', 2)),
++    'test', gen_random_uuid(), null, null, null, (SELECT e2e_user FROM fx)
++  );
++  SELECT reserved_quantity, allocated_quantity INTO v_reserved, v_allocated FROM inventory_balances WHERE id = (SELECT id FROM bal);
++
++  BEGIN
++    UPDATE inventory_balances SET on_hand_quantity = 0 WHERE id = (SELECT id FROM bal);
++    INSERT INTO test_log(line) SELECT fail('R: raw UPDATE stranding committed stock expected denial, succeeded instead');
++  EXCEPTION WHEN OTHERS THEN
++    INSERT INTO test_log(line) SELECT is(SQLSTATE, '42501', 'R: raw balance write remains denied even when it would strand committed stock (closed at the guard layer before IC-1''s own P0003 is ever reached)');
++  END;
++END $$;
++
++-- S: the canonical engine itself still raises the same IC-1 P0003 when a
++-- legitimate posting attempt would strand committed stock (unchanged
++-- behavior, re-confirmed after this pass's own guard changes).
++DO $$
++DECLARE v_onhand numeric;
++BEGIN
++  SELECT on_hand_quantity INTO v_onhand FROM inventory_balances WHERE id = (SELECT id FROM bal);
++  BEGIN
++    PERFORM inventory_create_and_finalize(
++      (SELECT org FROM fx), (SELECT branch FROM fx), '402',
++      jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fx), 'unit_id', (SELECT unit_1 FROM fx), 'quantity', v_onhand, 'source_location_id', (SELECT loc_a FROM fx))),
++      NULL, NULL, NULL, NULL, NULL, NULL, (SELECT e2e_user FROM fx)
++    );
++    INSERT INTO test_log(line) SELECT fail('S: expected P0003 (would strand committed stock), canonical posting succeeded instead');
++  EXCEPTION WHEN OTHERS THEN
++    INSERT INTO test_log(line) SELECT is(SQLSTATE, 'P0003', 'S: canonical engine still raises IC-1''s own P0003 when a legitimate posting would strand committed stock -- unchanged by this pass');
++  END;
++END $$;
++
++RESET ROLE;
++
++SELECT line FROM test_log ORDER BY seq;
++
++ROLLBACK;
+diff --git a/docs/inventory/reviews/pre-ic8-guc-boundary-correction-review/changed-files.md b/docs/inventory/reviews/pre-ic8-guc-boundary-correction-review/changed-files.md
+new file mode 100644
+index 00000000..1656222d
+--- /dev/null
++++ b/docs/inventory/reviews/pre-ic8-guc-boundary-correction-review/changed-files.md
+@@ -0,0 +1,119 @@
++# PRE-IC8 P0 — Changed Files
++
++**Baseline**: HEAD `fb22529567cf029ea2dc6e6109f1f3d34216d477` ("ic6a") —
++unchanged this pass; IC-7 and its closing pass remain the same
++uncommitted working-tree state as before (flagged again at the start of
++this pass, per standing discipline).
++
++**Total**: 9 new migrations + 1 new pgTAP test file + 6 pre-existing
++pgTAP test files fixture-corrected + this review bundle. **Zero
++TypeScript/application files changed** — this is a pure SQL/database
++security-correction pass; no server action, service, or component was
++touched.
++
++## New migrations (9)
++
++1. `20260919150859_pre_ic8_p0_revoke_authenticated_anon_raw_write_balances_settings.sql`
++2. `20260919150916_pre_ic8_p0_redesign_balance_guard_substance_validation.sql`
++3. `20260919150930_pre_ic8_p0_redesign_settings_guard_column_ownership.sql`
++4. `20260919152457_pre_ic8_p0_simplify_balance_guard_drop_movement_reference_check.sql`
++5. `20260919162500_pre_ic8_p0_fix_balance_guard_exclude_generated_column.sql`
++6. `20260919162643_pre_ic8_p0_restore_settings_update_grant_keep_trigger_as_boundary.sql`
++7. `20260919165733_pre_ic8_p0_fix_balance_guard_allow_genuine_noop_update.sql`
++   — self-caught by the full 097-112 regression run (not a
++   hand-authored probe); see `migration-summary.md`/`security-
++   evidence.md` self-caught-bug #4.
++8. `20260919165805_pre_ic8_p0_fix_settings_warmup_via_internal_helper.sql`
++   — self-caught by a full 097-112 regression run; see self-caught-bug
++   #5. Adds one new internal helper function, `inventory_ensure_
++   settings_row_internal`. **Itself contained a bug**, fixed by
++   migration 9.
++9. `20260922053110_pre_ic8_p0_fix_settings_warmup_helper_grant_
++   authenticated.sql` — self-caught by a SECOND full 097-112
++   regression run; see self-caught-bug #6. Migration 8's own `REVOKE
++   ALL ... FROM authenticated` on the new internal helper went one
++   role too far (broke the SECURITY INVOKER callers it was meant to
++   fix); restores `EXECUTE` for `authenticated` only.
++
++See `migration-summary.md` for full per-migration detail.
++
++## New test file
++
++`apps/web/supabase/tests/112_pre_ic8_p0_balance_settings_guc_boundary_
++test.sql` — `plan(20)`, 20/20 live. Covers the full required scope:
++adversarial raw writes (on_hand/reserved/allocated/multi-quantity/
++fabricated-INSERT/DELETE, all denied even with the GUC self-set),
++settings (non-manager denied even with GUC set, real manager still
++works), every legitimate canonical writer (receipt, issue, relocation,
++reservation create/release, allocation create/release, branch-transfer
++send, opening-stock-style 401, reversal), and IC-1's own commitment
++invariant (raw stranding attempt denied, canonical engine's own P0003
++unchanged).
++
++## Pre-existing test files corrected (6, required by this exact change — not scope creep)
++
++No real business RPC ever combines a physical (`on_hand_quantity`)
++change with a commitment (`reserved_quantity`/`allocated_quantity`)
++change in one statement — this was already true before this pass, the
++new guard just now enforces it. Several established test-fixture
++conventions (a single combined `INSERT ... ON CONFLICT DO UPDATE SET
++on_hand_quantity=X, reserved_quantity=0, allocated_quantity=0`, used
++purely to seed a deterministic starting balance) violated this shape
++and needed correction — matching this project's own established
++precedent (fixture files get updated when a legitimate, disclosed
++change invalidates their old convention; business-logic assertions are
++never touched).
++
++- `098_repair_order_line_reservation_phase10a_test.sql` — split the
++  combined reset into 3 shape-compliant statements (zero-quantity
++  insert, commitment-shape reset, physical-shape reset). 17/17
++  unchanged assertion count.
++- `099_repair_order_line_allocation_phase10b_test.sql` — same split,
++  applied at both of the file's own 2 raw seed points. The second seed
++  also needed a `RESET ROLE`/`SET LOCAL ROLE authenticated` bracket
++  added, since it ran under the `authenticated` role (which no longer
++  holds table privileges on `inventory_balances` at all) rather than
++  the connecting/superuser role every other fixture uses. 20/20.
++- `100_repair_order_container_orchestration_phase10c_test.sql` — same
++  split, applied to both of the file's own 2 balance seeds. 44/44.
++- `102_ic1_reserved_only_hard_invariant_test.sql` — same split; also
++  needed its `RESET ROLE` moved earlier (before both the `inventory_
++  settings` seed insert and the balance seed) since an earlier
++  scenario's own `SET LOCAL ROLE authenticated` was never reset before
++  this point in the file. 11/11.
++- `106_ic4_branch_transfer_test.sql` — a single commitment-only
++  (`allocated_quantity`) fixture UPDATE, already shape-compliant;
++  added an explicit `SET LOCAL ambra.inventory_movement_engine = 'on'`
++  for defense against transaction-scoped GUC-state ambiguity. 87/87.
++- `107_ic5_repair_order_projection_test.sql` — one raw INSERT with a
++  nonzero `on_hand_quantity` split into a zero-quantity insert + a
++  physical-shape-only UPDATE; one pre-existing physical-shape-only
++  UPDATE left unchanged (already compliant). 46/46.
++
++No assertion's own expected VALUE or pass/fail outcome changed in any
++of these 6 files — only the mechanical shape of each fixture's own raw
++write statement.
++
++## Review bundle
++
++`docs/inventory/reviews/pre-ic8-guc-boundary-correction-review/` — this
++bundle (`diff.patch`, `changed-files.md`, `review-context.md`,
++`migration-summary.md`, `security-evidence.md`, `test-evidence.md`; no
++`concurrency-evidence.md` — no lock acquisition order or row-lock scope
++changed by this pass, see `test-evidence.md`).
++
++## Not touched this pass
++
++- Simplification items A1-A8 from the architecture compression review
++  — not started.
++- Any trigger removed, added, or rebound — only 2 existing trigger
++  *functions'* bodies were replaced (`CREATE OR REPLACE`), the trigger
++  bindings themselves (`inventory_balances_engine_only`, `inventory_
++  settings_write_guard`) are unchanged.
++- Reservation/allocation/transfer/reversal/opening-stock/count-session
++  business semantics — unchanged, re-verified end-to-end in `112_...`.
++- Any TypeScript file, server action, or React component.
++- `apps/public-web`'s own container feature code — not migrated to a
++  canonical RPC (that is separate, future, out-of-scope work); only its
++  now-broken raw-write path is disclosed, per the user's own explicit
++  decision.
+diff --git a/docs/inventory/reviews/pre-ic8-guc-boundary-correction-review/migration-summary.md b/docs/inventory/reviews/pre-ic8-guc-boundary-correction-review/migration-summary.md
+new file mode 100644
+index 00000000..94fff5b6
+--- /dev/null
++++ b/docs/inventory/reviews/pre-ic8-guc-boundary-correction-review/migration-summary.md
+@@ -0,0 +1,157 @@
++# PRE-IC8 P0 — Migration Summary
++
++9 migrations, all applied live via MCP, live-verified independently
++(never trusting `apply_migration`'s own success response), then
++mirrored locally under `apps/web/supabase-target/supabase/migrations/`
++using the exact live-reported timestamp. Applied in the order listed —
++migrations 4-6 are self-caught forward corrections to migrations 2-3,
++found during this pass's own hand-authored pgTAP probes; migrations
++7-9 are self-caught forward corrections found later, by full 097-112
++regression runs (not the hand-authored probes) — none deferred.
++
++## 1. `20260919150859_pre_ic8_p0_revoke_authenticated_anon_raw_write_balances_settings.sql`
++
++`REVOKE INSERT, UPDATE, DELETE ON inventory_balances, inventory_
++settings FROM authenticated, anon`. The primary structural fix —
++closes the exploit at the grant layer, before RLS or any trigger is
++ever reached. **Later partially corrected** by migration 6, which
++restores `UPDATE` on `inventory_settings` for `authenticated` (see
++below) — `inventory_balances`'s own REVOKE is untouched by that
++correction and remains fully in place.
++
++## 2. `20260919150916_pre_ic8_p0_redesign_balance_guard_substance_validation.sql`
++
++`CREATE OR REPLACE FUNCTION inventory_guard_balance_write()` —
++substance-validated delta-shape check replacing the GUC-trust-alone
++logic. This version additionally required `last_movement_id IS NOT
++NULL` on any on_hand-changing UPDATE — **superseded by migration 4**.
++
++## 3. `20260919150930_pre_ic8_p0_redesign_settings_guard_column_ownership.sql`
++
++`CREATE OR REPLACE FUNCTION inventory_guard_settings_write()` —
++column-ownership check (settings-manager: any column; engine-GUC-only:
++numbering counters alone) replacing the GUC-trust-alone logic. Not
++itself superseded — still the live, final version.
++
++## 4. `20260919152457_pre_ic8_p0_simplify_balance_guard_drop_movement_reference_check.sql`
++
++Forward correction to migration 2. Dropped the `last_movement_id IS
++NOT NULL` sub-check — added no real security value beyond the REVOKE
++(never validated change magnitude, only non-nullness) and created
++friction for legitimate non-RPC uses of a real on_hand-only update
++(e.g. `107_ic5_repair_order_projection_test.sql`'s own fixture). The
++core delta-shape property (on_hand cannot combine with a commitment
++change; no other column may change) is unaffected. **Superseded by
++migration 5** for a separate reason (see below) — not because this
++correction was itself wrong.
++
++## 5. `20260919162500_pre_ic8_p0_fix_balance_guard_exclude_generated_column.sql`
++
++Forward correction, self-caught during live testing: `available_
++quantity` is a Postgres `GENERATED ALWAYS` column that automatically
++changes whenever `on_hand_quantity`/`reserved_quantity`/`allocated_
++quantity` change — it was missing from the "no other column may
++change" exclusion list, causing the very first legitimate on_hand
++change (a real receipt) to be incorrectly rejected. Added to the
++exclusion array; no other logic changed. **This is the final, live
++version of the balance guard.**
++
++## 6. `20260919162643_pre_ic8_p0_restore_settings_update_grant_keep_trigger_as_boundary.sql`
++
++Forward correction, self-caught during live testing of the new pgTAP
++file's own "real settings manager can still edit a user-managed
++setting" scenario: migration 1's blanket REVOKE on `inventory_
++settings` closed the intended, designed (if not-yet-built) direct-
++write path for a real settings manager along with the exploit.
++`GRANT UPDATE ON inventory_settings TO authenticated` restores that
++path; `INSERT`/`DELETE` remain revoked (no legitimate direct-client
++scenario for either), `anon` remains fully revoked on all 3
++operations, and `inventory_balances`'s own full REVOKE is completely
++unaffected. The trigger's own column-ownership logic (migration 3)
++remains the real security boundary for this specific table.
++
++## 7. `20260919165733_pre_ic8_p0_fix_balance_guard_allow_genuine_noop_update.sql`
++
++Forward correction, self-caught by the full 097-112 regression run (not
++a hand-authored probe): files 098/099/100/102 failed outright, because
++their own established 3-statement fixture-reset pattern (introduced by
++this same pass, to satisfy the migration-5 shape rule) includes a
++`SET reserved_quantity = 0, allocated_quantity = 0` step that becomes a
++genuine no-op whenever the row's reserved/allocated already sit at 0 —
++the common/default case, including immediately after a fresh
++zero-quantity INSERT (102 proved this happens even on a brand-new row).
++The guard's own "changes no recognized column" rejection incorrectly
++fired for this harmless no-op. Fixed by explicitly allowing a true
++no-op (nothing among on_hand/reserved/allocated actually changed value,
++checked via `IS DISTINCT FROM`) to pass through before the
++transition-shape checks run. **Required zero further changes to any
++test file** — the fix makes the already-corrected fixture pattern work
++as originally intended. **This is the final, live version of the
++balance guard.**
++
++## 8. `20260919165805_pre_ic8_p0_fix_settings_warmup_via_internal_helper.sql`
++
++Forward correction, self-caught by the full 097-112 regression run:
++`111_...`'s own I1/I2/J1 scenarios failed with `42501: permission
++denied for table inventory_settings` for fully legitimate,
++correctly-permissioned callers — not merely adversarial ones. Root
++cause: `inventory_create_product_with_default_variant` and
++`inventory_create_purchase_order` are `SECURITY INVOKER` (confirmed
++live, `prosecdef = false`) and each performed its own inline
++`inventory_settings` warm-up INSERT, which therefore ran as the
++CALLING role (`authenticated`) — broken once `INSERT` was revoked from
++`authenticated` on that table (migration 1; migration 6 restored only
++`UPDATE`, not `INSERT`). Cross-checked: `inventory_create_allocation`/
++`inventory_create_branch_transfer`/`inventory_create_reservation` do
++the identical warm-up but are already `SECURITY DEFINER`, so none of
++them were affected. Fixed by extracting the warm-up into one new,
++narrow `SECURITY DEFINER` internal helper
++(`inventory_ensure_settings_row_internal`, `EXECUTE` revoked from
++`PUBLIC`/`anon`/`authenticated` — reachable only via same-owner nesting
++or `service_role`) and having both broken functions call it instead of
++inlining the raw INSERT. Deliberately did NOT convert either function
++to `SECURITY DEFINER` outright — that would also have elevated their
++OTHER writes (`inventory_products`/`inventory_variants`/`inventory_
++purchase_orders`/`inventory_purchase_order_lines`) and changed their
++entire RLS-interaction model, explicitly out of this pass's own narrow
++scope ("do NOT redesign Inventory Core"). No other logic in either
++function changed. **Required zero further changes to any test file** —
++this fixed a genuine RPC-body bug, not a fixture-pattern issue.
++
++## 9. `20260922053110_pre_ic8_p0_fix_settings_warmup_helper_grant_authenticated.sql`
++
++Forward correction, self-caught by a full 097-112 regression re-run
++(the SAME class of check as migrations 7-8, but this time the bug was
++in migration 8 itself, not in the original design): migration 8's own
++`REVOKE ALL ... FROM authenticated` on the new
++`inventory_ensure_settings_row_internal` helper went one role too far.
++`inventory_create_product_with_default_variant`/`inventory_create_
++purchase_order` (and `inventory_create_enhanced_product`, which calls
++the former internally) are `SECURITY INVOKER`, confirmed live
++(`prosecdef = false`) — a SECURITY INVOKER function's nested call to
++another function executes under the CURRENT role (the real invoking
++role, `authenticated`), not as the definer of the callee, so the
++EXECUTE privilege check on the internal helper is evaluated against
++`authenticated`, which migration 8 had just revoked it from.
++Live-reproduced via `111_...`'s own I1/I2/J1 scenarios still failing
++with `42501: permission denied for function inventory_ensure_
++settings_row_internal` even for fully legitimate,
++correctly-permissioned callers. Fixed by restoring `EXECUTE` on the
++helper for `authenticated` only — `anon`/`PUBLIC` remain revoked, the
++helper is still unreachable except through same-owner nesting or a
++nested call from these two permission-gated RPCs. Live-verified via a
++disposable transaction: a real `authenticated` call to `inventory_
++create_product_with_default_variant` now succeeds end-to-end
++(`sku`/`product_id`/`variant_id` returned), rolled back. **This is the
++final, live version of the settings-warmup fix.**
++
++## Local mirroring
++
++All 9 mirrored under their exact live-reported timestamps. None were
++edited after being applied — every correction, including the five
++same-day forward fixes, is its own separate migration.
++
++## Zero data destruction
++
++No table dropped, no history row touched, no data migrated or backfilled.
++All 9 migrations are function/grant definitions only.
+diff --git a/docs/inventory/reviews/pre-ic8-guc-boundary-correction-review/review-context.md b/docs/inventory/reviews/pre-ic8-guc-boundary-correction-review/review-context.md
+new file mode 100644
+index 00000000..57291cab
+--- /dev/null
++++ b/docs/inventory/reviews/pre-ic8-guc-boundary-correction-review/review-context.md
+@@ -0,0 +1,104 @@
++# PRE-IC8 P0 — Balance/Settings GUC Authorization Bypass Closure — Context
++
++**Scope**: exactly one P0 correctness/security defect, closed. IC-0
++through IC-7 accepted and final, not reopened. The architecture
++compression review accepted as audit-only, not reopened. No
++simplification items (A1-A8) started. No trigger removed. No
++reservation/allocation/transfer/reversal semantics changed.
++
++## Starting state
++
++- Branch: `zone3-zone5-integration-audit`.
++- HEAD at start: `fb225295` ("ic6a") — **still not committed**, same
++  standing discrepancy as every prior phase this session; flagged
++  again, not silently assumed away, per this project's own standing
++  discipline.
++- IC-7 + its closing pass: confirmed still uncommitted, working tree
++  otherwise unchanged from the end of the architecture compression
++  review.
++- Architecture compression review: confirmed made zero runtime changes
++  (its own bundle directory was the only diff from that phase).
++- IC-8: confirmed not started. Phase 10D: confirmed not started.
++  Simplification items A1-A8: confirmed not started.
++
++## The defect
++
++The architecture compression review's own `rpc-helper-trigger-review.md`
++found, and the user confirmed as a P0 requiring closure before IC-8:
++`inventory_guard_balance_write()`/`inventory_guard_settings_write()`
++trusted the caller-settable session GUC `ambra.inventory_movement_
++engine = 'on'` as sufficient authorization for direct writes to
++`inventory_balances`/`inventory_settings`, with no validation of what
++actually changed. An ordinary `warehouse.inventory.operate`-holding
++authenticated user could set the GUC themselves and then raw-write
++either table directly — bypassing the canonical engine, ledger, audit
++log, and every IC-1 invariant. This directly contradicted the frozen
++accepted fact "raw writes are closed."
++
++## What this pass did
++
++1. Verified starting state (above).
++2. Read the required source docs in full (`rpc-helper-trigger-review.md`,
++   `simplification-plan.md`, `review-context.md` from the architecture
++   compression review) and live-inspected the exact bodies of both
++   guard triggers plus every function that writes `inventory_balances`/
++   `inventory_settings` — did not rely on the prior audit's own summary
++   alone.
++3. Reproduced both exploits live, freshly, this pass — not relying on
++   the prior phase's own trigger-source-only finding. Used a disposable
++   `BEGIN...ROLLBACK` transaction with the pre-fix trigger bodies
++   temporarily restored (Postgres DDL is transactional; nothing
++   persisted, no applied migration was ever edited).
++4. Investigated a genuine complication before implementing: found a
++   real, live, non-RPC direct writer of `inventory_balances` in a
++   sibling app (`apps/public-web`) pointing at the same database — a
++   fork of functions IC-6 had already confirmed dead and removed from
++   `apps/web`'s own copy. **Asked the user directly** how to treat it
++   (close fully, breaking that feature, vs. carve out an exception) —
++   **user confirmed: close fully.**
++5. Designed and applied a 2-layer fix: structural (table-grant REVOKE,
++   the real security boundary) + substance validation (delta-shape
++   checks in both triggers, defense-in-depth). See `security-
++   evidence.md` for the full design and the first 3 self-caught,
++   forward-corrected bugs found during hand-authored live testing.
++6. Found and fixed 6 pre-existing test files whose own fixture
++   conventions were structurally incompatible with the new guard logic
++   (see `changed-files.md`) — required by this exact change, not
++   broader scope creep, matching this project's own established
++   precedent for test-file corrections.
++7. Wrote a new, dedicated pgTAP file (`112_...`, 20/20 in isolation)
++   covering every adversarial and legitimate scenario the task
++   required.
++8. Ran the full 097-112 regression, which itself surfaced 2 more
++   self-caught regressions the hand-authored probes had missed: a
++   balance-guard rejection of genuine no-op UPDATEs (4 fixture files
++   affected), and a `SECURITY INVOKER` settings warm-up broken for 2
++   legitimate RPCs. Fixed both forward (migrations 7-8) — see
++   `security-evidence.md`/`migration-summary.md` for full detail.
++9. Re-ran the full 097-112 regression after migrations 7-8. 15 of 16
++   files passed clean; `111_...` still failed 3 of 24 assertions
++   (I1/I2/J1) — migration 8's own fix was itself incomplete (an
++   over-broad `REVOKE ALL ... FROM authenticated` on the new internal
++   helper broke the exact SECURITY INVOKER callers it was meant to
++   fix). Fixed forward (migration 9) and live-verified end-to-end, not
++   just via grant inspection — see `security-evidence.md` self-caught-
++   bug #6.
++10. Re-ran the full 097-112 regression a third time after migration 9
++    — see `test-evidence.md` for the final result, plus relevant
++    Vitest, type-check, lint, build, and `git diff --check`.
++
++## Bundle contents
++
++- `review-context.md` (this file)
++- `changed-files.md` — full file-by-file change list
++- `migration-summary.md` — per-migration detail, including the 2
++  self-caught forward corrections
++- `security-evidence.md` — the exploit, live reproduction, final
++  design, both self-caught bugs, the apps/public-web decision
++- `test-evidence.md` — full regression results
++- `diff.patch` — the complete diff against baseline
++
++No `concurrency-evidence.md` — this pass changed grants and trigger
++substance-validation logic only; no row-lock acquisition point, lock
++order, or lock scope was touched (see `test-evidence.md` for the full
++reasoning).
+diff --git a/docs/inventory/reviews/pre-ic8-guc-boundary-correction-review/security-evidence.md b/docs/inventory/reviews/pre-ic8-guc-boundary-correction-review/security-evidence.md
+new file mode 100644
+index 00000000..e6ac11d0
+--- /dev/null
++++ b/docs/inventory/reviews/pre-ic8-guc-boundary-correction-review/security-evidence.md
+@@ -0,0 +1,313 @@
++# PRE-IC8 P0 — Security Evidence
++
++## The exploit
++
++**Finding**: `inventory_guard_balance_write()`/`inventory_guard_settings_
++write()` — the trigger functions meant to be the last line of defense
++on `inventory_balances`/`inventory_settings` — trusted the caller-
++settable session GUC `ambra.inventory_movement_engine = 'on'` as
++SUFFICIENT authorization, with no validation of what actually changed
++or who was making the change. This was discovered during the
++architecture compression review (prior phase), verified against live
++`pg_get_functiondef` output (not assumed from docs), and escalated to
++the user immediately before this correction pass began.
++
++### Pre-fix live body (`inventory_guard_balance_write`)
++
++```sql
++CREATE OR REPLACE FUNCTION public.inventory_guard_balance_write()
++RETURNS trigger LANGUAGE plpgsql SET search_path TO 'public' AS $function$
++BEGIN
++  IF COALESCE(current_setting('ambra.inventory_movement_engine', true), 'off') <> 'on' THEN
++    RAISE EXCEPTION 'inventory_balances can only be changed by the movement engine';
++  END IF;
++  RETURN NEW;
++END;
++$function$;
++```
++
++### Pre-fix live body (`inventory_guard_settings_write`)
++
++```sql
++CREATE OR REPLACE FUNCTION public.inventory_guard_settings_write()
++RETURNS trigger LANGUAGE plpgsql SET search_path TO 'public' AS $function$
++BEGIN
++  IF TG_OP = 'UPDATE'
++     AND COALESCE(current_setting('ambra.inventory_movement_engine', true), 'off') <> 'on'
++     AND NOT public.has_permission(NEW.organization_id, 'warehouse.settings.manage') THEN
++    RAISE EXCEPTION 'inventory_settings can only be updated by settings managers or inventory engines';
++  END IF;
++  RETURN NEW;
++END;
++$function$;
++```
++
++Live-queried RLS on both tables confirmed no column/value restriction
++beyond holding `warehouse.inventory.operate`/`.adjust`/`.reverse`
++(balances) or one of 5 broad permissions (settings) — the trigger was
++the *only* layer standing between an ordinary session and an arbitrary
++write, and that layer trusted a value the same session could set
++itself.
++
++## Live reproduction (this pass, before any fix — not relied on source inspection alone)
++
++Postgres DDL is transactional, so the exact pre-fix trigger bodies were
++temporarily restored (`CREATE OR REPLACE FUNCTION`) inside a disposable
++`BEGIN...ROLLBACK` transaction — proving the exploit by actually
++executing the vulnerable code, then rolling back so nothing persisted
++and no already-applied migration was ever edited.
++
++### Balance exploit, reproduced
++
++1. Established a real balance row, `on_hand_quantity = 10`.
++2. As `e2e_user` (real, `warehouse.inventory.operate`-holding, no
++   special access), with **zero** prior GUC contact in the sub-scope:
++   `SELECT set_config('ambra.inventory_movement_engine', 'on', true);`
++   then `UPDATE inventory_balances SET on_hand_quantity = 999999 WHERE id = ...;`
++3. **Result: succeeded.** `on_hand_quantity` became `999999.000000`.
++4. Checked for any trace: **zero** new movement headers, **zero** new
++   ledger entries, **zero** new audit log entries in the same window.
++
++Silent, complete, untraceable corruption of the physical stock truth.
++
++### Settings exploit, reproduced
++
++Using a real org member (`e2e_user`) with `warehouse.settings.manage`
++temporarily stripped for the test (their own real permission set was
++restored immediately after, inside the same rolled-back transaction),
++keeping `warehouse.inventory.operate`:
++
++1. **Control**: raw `UPDATE inventory_settings SET allow_negative_stock
++   = NOT allow_negative_stock` with the GUC untouched → correctly
++   denied, `P0001`. Confirms the ordinary path was never broken.
++2. **Exploit**: same UPDATE, GUC deliberately set to `'on'` → **1 row
++   affected, value flipped from `false` to `true`.** An ordinary
++   operate-permissioned, non-settings-manager user edited an
++   organization-wide, user-managed inventory setting.
++
++### A genuine false-positive self-caught during this reproduction
++
++An earlier probe using a totally fabricated, non-member user id
++appeared to also show the settings exploit succeeding even with the
++GUC untouched — investigated before trusting it, and traced to the
++exact "no exception raised, mistaken for success" class of false
++positive this project has repeatedly self-caught: the raw UPDATE
++silently affected 0 rows (RLS correctly filtered a non-member out),
++which is not an error in Postgres and was misread as success by not
++checking `ROW_COUNT`. Re-tested with `GET DIAGNOSTICS v_rc = ROW_COUNT`
++— confirmed 0 rows, 0 change. Not a real finding; the real settings
++exploit is the one described above, using a genuine, permissioned org
++member.
++
++## Final design
++
++### Layer 1 — structural (the real security boundary)
++
++`authenticated`/`anon` no longer hold `INSERT`/`UPDATE`/`DELETE` table
++privileges on `inventory_balances` at all. Postgres checks base table
++grants **before** RLS and **before** any trigger fires, so this closes
++the exploit regardless of GUC state, and regardless of any future bug
++in the trigger's own logic. Every legitimate writer is a `SECURITY
++DEFINER` function owned by `postgres` (confirmed live for
++`inventory_finalize_posting_internal`, `inventory_create_reservation`,
++`inventory_release_reservation`, `inventory_create_allocation`,
++`inventory_release_allocation`, `inventory_send_branch_transfer`,
++`inventory_create_draft`) or same-owner-nested from one (`inventory_
++get_or_create_balance_for_update`, itself `SECURITY INVOKER` but always
++called from inside an already-elevated context) — none are affected by
++the REVOKE.
++
++`inventory_settings` initially received the identical blanket REVOKE,
++but this was corrected forward (below) once live testing showed it
++also blocked a genuinely intended, if not-yet-built, direct-write path
++for real settings managers.
++
++### Layer 2 — substance validation (defense-in-depth)
++
++Protects against a hypothetical future bug in already-trusted
++`SECURITY DEFINER` code, which does still reach these triggers
++(running as `postgres`). Neither trigger trusts the GUC alone anymore.
++
++**Balance guard** — validates the delta shape against the exhaustive
++set of legitimate transitions, live-derived from every function that
++writes `inventory_balances` (not assumed):
++- `DELETE`: always denied, unconditionally — no legitimate business
++  reason found in any live function body.
++- `INSERT`: only a zero-quantity row (`on_hand_quantity = reserved_
++  quantity = allocated_quantity = 0`) — matches `inventory_get_or_
++  create_balance_for_update`'s own exact shape.
++- `UPDATE`, physical shape: `on_hand_quantity` changes alone (with
++  `last_movement_id`/`last_movement_at`/`updated_at`/the generated
++  `available_quantity` column, which the check correctly excludes) —
++  `reserved_quantity`/`allocated_quantity` must NOT change in the same
++  statement.
++- `UPDATE`, commitment shape: `reserved_quantity` and/or `allocated_
++  quantity` change — `on_hand_quantity` must NOT change in the same
++  statement. Covers reservation create/release (reserved alone),
++  allocation release (allocated alone), and allocation create's
++  reservation-backed path (both together, the exact additive move
++  invariant #6 describes).
++- No other column may ever change via `UPDATE`.
++
++**Settings guard** — distinguishes real settings-manager writes from
++engine-only writes by column ownership, live-derived from an exhaustive
++`prosrc` search across every function that `UPDATE`s `inventory_
++settings`:
++- A caller holding `warehouse.settings.manage` may change any column
++  (unchanged from before — this pass does not make settings more
++  restrictive for a real manager).
++- A caller without that permission may ONLY change the 6 numbering-
++  counter columns (`reservation_number_next`, `allocation_number_next`,
++  `purchase_order_number_next`, `branch_transfer_number_next`, `draft_
++  number_next`, `sku_next`) plus `updated_by`/`updated_at` — and only
++  if the GUC is also set (necessary, still never sufficient on its
++  own — the column-ownership check is what actually closes the
++  exploit).
++- `DELETE`: always denied.
++
++## Self-caught bugs during live testing of the fix (all fixed forward, all disclosed)
++
++1. **`available_quantity` generated-column omission.** The balance
++   guard's first live test (a genuine, legitimate receipt) failed with
++   "touches a column the movement engine never changes." Root cause:
++   `available_quantity` is a Postgres `GENERATED ALWAYS AS (on_hand_
++   quantity - reserved_quantity - allocated_quantity) STORED` column —
++   it automatically changes whenever any of those 3 base columns
++   change, but was not in the guard's own "no other column changes"
++   exclusion list. Fixed forward (`..._fix_balance_guard_exclude_
++   generated_column.sql`); no other logic changed.
++2. **Settings blanket-REVOKE broke the intended settings-manager
++   pathway.** Live-confirmed via this pass's own required "real
++   settings manager can still edit an allowed setting" test: a genuine
++   settings manager's direct `UPDATE` failed with a bare `permission
++   denied for table inventory_settings` — the grant layer, never even
++   reaching the trigger's own correct permission check. Root cause:
++   `inventory_settings`, unlike `inventory_balances`, has a genuinely
++   DESIGNED (if not-yet-built) two-writer model — a real settings
++   manager may write directly, gated by RLS + the trigger's own
++   permission check, not exclusively through an RPC. The blanket
++   REVOKE closed that intended path along with the exploit. Fixed
++   forward (`..._restore_settings_update_grant_keep_trigger_as_
++   boundary.sql`) — restored `UPDATE` for `authenticated` on `inventory_
++   settings` only (not `INSERT`/`DELETE`, and not `anon`); the
++   trigger's own substance-validated logic remains the real boundary
++   for this table. `inventory_balances` keeps its full REVOKE
++   unchanged — it has no legitimate direct-writer model at all.
++3. **Test-design bug, not a code bug** (same class already documented
++   in this project's own history — 110's own Scenario C): the new
++   pgTAP file's reversal scenario initially tried to reverse the same
++   50-unit receipt other scenarios had already partially consumed,
++   correctly tripping IC-1's own P0003 strand check. Fixed by adding a
++   dedicated, isolated 20-unit receipt for the reversal scenario alone.
++4. **Balance guard rejected genuine no-op UPDATEs** (found by the full
++   097-112 regression run, not a hand-authored probe). Files 098, 099,
++   100, 102 failed outright: their own established 3-statement
++   fixture-reset pattern (introduced earlier this same pass, to fix the
++   original shape-violation problem) includes a `SET reserved_quantity
++   = 0, allocated_quantity = 0` step that becomes a genuine no-op
++   whenever the row's reserved/allocated already sit at 0 — the
++   common/default case, including immediately after a fresh
++   zero-quantity INSERT (102 proved this happens even on a brand-new
++   row). The guard's own final "changes no recognized column" check
++   incorrectly rejected this harmless no-op as an unrecognized
++   transition. Fixed forward (`..._fix_balance_guard_allow_genuine_
++   noop_update.sql`): a true no-op (nothing among on_hand/reserved/
++   allocated actually changed value) is now explicitly allowed through
++   before the transition-shape checks run. Required zero further
++   changes to the 4 affected test files — the fix makes their existing
++   fixture pattern work as originally intended.
++5. **Two `SECURITY INVOKER` functions' own inline settings warm-up
++   broke for ALL legitimate callers, not just adversarial ones** (found
++   by the full 097-112 regression run). `111_...`'s own I1
++   (`inventory_create_product_with_default_variant`), I2 (`inventory_
++   create_enhanced_product`, which calls I1's function internally), and
++   J1 (`inventory_create_purchase_order`) scenarios all failed with
++   `42501: permission denied for table inventory_settings`. Root cause,
++   confirmed via a live `prosecdef`/warm-up cross-query: both functions
++   are `SECURITY INVOKER` (not `DEFINER`) and each performs its own
++   inline `inventory_settings` warm-up INSERT, which therefore runs as
++   the CALLING role (`authenticated`) — broken once `INSERT` was
++   revoked from `authenticated` on that table (migration 1; migration 6
++   restored only `UPDATE`). Cross-checked and confirmed the 3 OTHER
++   functions doing the identical warm-up (`inventory_create_
++   allocation`/`inventory_create_branch_transfer`/`inventory_create_
++   reservation`) are all already `SECURITY DEFINER`, so none of them
++   were affected. Fixed forward (`..._fix_settings_warmup_via_internal_
++   helper.sql`) by extracting the warm-up into one new, narrow
++   `SECURITY DEFINER` internal helper (`inventory_ensure_settings_row_
++   internal`, `EXECUTE` revoked from `PUBLIC`/`anon`/`authenticated`)
++   and having both broken functions call it instead of inlining the raw
++   INSERT. Deliberately did NOT convert either function to `SECURITY
++   DEFINER` outright — that would also have elevated their OTHER writes
++   (`inventory_products`/`inventory_variants`/`inventory_purchase_
++   orders`/`inventory_purchase_order_lines`) and changed their entire
++   RLS-interaction model, explicitly out of this pass's own narrow
++   scope ("do NOT redesign Inventory Core"). Required zero further
++   changes to any test file — this fixed a genuine RPC-body bug, not a
++   fixture-pattern issue.
++6. **Migration 8's own fix over-revoked** (found by a SECOND full
++   097-112 regression run, after migration 8 had already been applied
++   — the previous run's clean result for 111 had been misattributed;
++   111's I1/I2/J1 in fact still failed). `..._fix_settings_warmup_via_
++   internal_helper.sql` created `inventory_ensure_settings_row_
++   internal` correctly but then ran `REVOKE ALL ... FROM authenticated`
++   on it alongside `anon`/`PUBLIC` — one role too many. Because
++   `inventory_create_product_with_default_variant`/`inventory_create_
++   purchase_order` are `SECURITY INVOKER`, their nested call to the new
++   helper executes as the CURRENT role (`authenticated`), not as the
++   helper's own definer — so revoking `authenticated`'s EXECUTE broke
++   the exact fix migration 8 was trying to make. Live-reproduced:
++   `42501: permission denied for function inventory_ensure_settings_
++   row_internal` for a fully legitimate caller. Fixed forward
++   (`..._fix_settings_warmup_helper_grant_authenticated.sql`):
++   restored `EXECUTE` on the helper for `authenticated` only —
++   `anon`/`PUBLIC` remain revoked. Live-verified end-to-end (not just
++   via grant inspection): a real `authenticated` call to `inventory_
++   create_product_with_default_variant` now succeeds, in a disposable
++   rolled-back transaction.
++
++## Explicit product decision (asked and confirmed before implementing)
++
++`apps/public-web/src/app/actions/warehouse/ambra-location-inventory.ts`
++(a separate app pointing at the SAME live Supabase project, confirmed
++via matching `NEXT_PUBLIC_SUPABASE_URL`) still contains a live,
++non-RPC feature — `addItemsToContainerAction`/`removeItemFromContainer
++Action`/`relocateContainerAction` — writing `inventory_balances.
++allocated_quantity` directly via `.from("inventory_balances").update(...)`,
++gated only by a TypeScript permission check, never through the
++canonical engine. These are the exact same function names IC-6 already
++confirmed dead and removed from `apps/web`'s own copy of this file —
++apparently never cleaned up in the `apps/public-web` fork.
++
++**Asked the user directly**: close it fully (apps/public-web breaks
++until migrated to a canonical RPC, matching how apps/web's own copy was
++already treated by IC-6), or carve out `allocated_quantity` as an
++exception. **User confirmed: close it fully.** Not fixed in this pass
++(migrating that feature to a canonical RPC is separate, future,
++out-of-scope work) — disclosed here, not silently worked around.
++
++## Post-fix live verification
++
++All of the following were live-verified via the new pgTAP file
++(`112_...`, 20/20) plus targeted live probes during development:
++
++- `anon`/`authenticated` structurally cannot INSERT/UPDATE/DELETE
++  `inventory_balances` at all (grant-level `42501`, before any trigger
++  runs).
++- Self-set GUC no longer suffices for any of: raw `on_hand_quantity`
++  change, raw `reserved_quantity` change, raw `allocated_quantity`
++  change, combined multi-quantity change, fabricated non-zero INSERT,
++  or DELETE.
++- Self-set GUC no longer suffices for a non-settings-manager to edit a
++  user-managed setting.
++- A real settings manager can still edit a user-managed setting through
++  the intended direct-write path.
++- Every legitimate canonical writer still works end-to-end: generic
++  receipt, generic issue, relocation, reservation create/release,
++  allocation create/release, branch-transfer send, opening-stock-style
++  401, reversal.
++- IC-1's own commitment invariant remains fully enforced: a raw attempt
++  to strand committed stock is denied at the grant layer (before IC-1's
++  own P0003 check is ever reached), and the canonical engine itself
++  still raises the identical `P0003` for a legitimate posting that
++  would strand commitments — unchanged by this pass.
+diff --git a/docs/inventory/reviews/pre-ic8-guc-boundary-correction-review/test-evidence.md b/docs/inventory/reviews/pre-ic8-guc-boundary-correction-review/test-evidence.md
+new file mode 100644
+index 00000000..8942ab94
+--- /dev/null
++++ b/docs/inventory/reviews/pre-ic8-guc-boundary-correction-review/test-evidence.md
+@@ -0,0 +1,172 @@
++# PRE-IC8 P0 — Test Evidence
++
++## pgTAP regression, 097–112 — full, honest history (3 runs, not just the final clean one)
++
++Per this project's own standing discipline ("do NOT falsely claim only-audited
++as verified"), all 3 runs are recorded here, not just the final clean one.
++
++### Run 1 (partial — background agent hit an unrelated session rate limit)
++
++Launched after migrations 1–8 were applied. Got through files 097–103 before
++the agent process hit `HTTP 429 rate_limit` (session limit, unrelated to this
++work) and stopped. Captured before it stopped: **103 passed 35/35 ok**. Files
++104–112 not attempted in this run. Not otherwise relied upon below — Run 2
++independently re-verified 097–103 from scratch rather than trusting this
++partial result.
++
++### Run 2 (full, after migrations 1–8 — found a genuine regression)
++
++15 of 16 files passed clean. **`111_ic7_closing_security_test.sql` failed 3 of
++24 assertions** — scenarios I1, I2, J1, verbatim:
++
++```
++not ok 18 - I1: legitimate create_product_with_default_variant unexpectedly rejected: 42501 permission denied for function inventory_ensure_settings_row_internal
++not ok 19 - I2: legitimate create_enhanced_product unexpectedly rejected: 42501 permission denied for function inventory_ensure_settings_row_internal
++not ok 20 - J1: legitimate create_purchase_order unexpectedly rejected: 42501 permission denied for function inventory_ensure_settings_row_internal
++```
++
++Root cause (live-verified, not guessed): migration 8
++(`20260919165805_pre_ic8_p0_fix_settings_warmup_via_internal_helper.sql`)
++created `inventory_ensure_settings_row_internal` (`SECURITY DEFINER`, owner
++`postgres`) correctly, but then ran `REVOKE ALL ... FROM authenticated` on it
++alongside `anon`/`PUBLIC` — one role too many. Because
++`inventory_create_product_with_default_variant`/`inventory_create_purchase_
++order` are `SECURITY INVOKER` (confirmed live, `prosecdef = false`), their
++nested call to the new helper executes under the CURRENT role
++(`authenticated`), not the helper's own definer — so the `EXECUTE` privilege
++check on the helper was evaluated against `authenticated`, which had just
++been revoked. See `security-evidence.md` self-caught-bug #6 and
++`migration-summary.md` migration 9 for the full root-cause writeup and fix.
++
++Fixed forward by migration 9
++(`20260922053110_pre_ic8_p0_fix_settings_warmup_helper_grant_authenticated.sql`),
++which restores `EXECUTE` on the helper for `authenticated` only (`anon`/
++`PUBLIC` remain revoked). Live-verified two ways before re-running the full
++suite: (a) `has_function_privilege` grant inspection
++(`authenticated_can_execute: true`, `anon_can_execute: false`,
++`is_security_definer: true`), and (b) an actual end-to-end call —
++`inventory_create_product_with_default_variant` invoked as a real
++`authenticated` session inside a disposable rolled-back transaction,
++returning a genuine `{sku, product_id, variant_id}` result.
++
++### Run 3 (full, after migration 9 — clean)
++
++**ALL 16 FILES CLEAN. 487/487 ASSERTIONS PASSING.**
++
++| File | plan(N) | Result |
++|---|---|---|
++| 097_repair_order_line_movement_attach_phase10_test.sql | 29 | 29/29 ok |
++| 098_repair_order_line_reservation_phase10a_test.sql | 17 | 17/17 ok |
++| 099_repair_order_line_allocation_phase10b_test.sql | 20 | 20/20 ok |
++| 100_repair_order_container_orchestration_phase10c_test.sql | 44 | 44/44 ok |
++| 101_zone3_zone5_movement_engine_reserved_blindspot_characterization_test.sql | 17 | 17/17 ok |
++| 102_ic1_reserved_only_hard_invariant_test.sql | 11 | 11/11 ok |
++| 103_ic2_movement_reversal_test.sql | 35 | 35/35 ok |
++| 104_ic3_receiving_consolidation_test.sql | 44 | 44/44 ok |
++| 105_ic7a_movement_engine_security_boundary_test.sql | 29 | 29/29 ok |
++| 106_ic4_branch_transfer_test.sql | 87 | 87/87 ok |
++| 107_ic5_repair_order_projection_test.sql | 46 | 46/46 ok |
++| 108_ic6_legacy_cleanup_test.sql | 23 | 23/23 ok |
++| 109_ic6a_opening_stock_repair_test.sql | 16 | 16/16 ok |
++| 110_ic7_security_write_boundary_test.sql | 25 | 25/25 ok |
++| 111_ic7_closing_security_test.sql | 24 | 24/24 ok |
++| 112_pre_ic8_p0_balance_settings_guc_boundary_test.sql | 20 | 20/20 ok |
++
++`29+17+20+44+17+11+35+44+29+87+46+23+16+25+24+20 = 487`.
++
++File 111's I1/I2/J1, verbatim, now passing:
++
++```
++ok 18 - I1: legitimate create_product_with_default_variant succeeds, created_by = real caller (not forgeable)
++ok 19 - I2: legitimate create_enhanced_product succeeds
++ok 20 - J1: legitimate create_purchase_order succeeds, created_by = real caller (not forgeable)
++```
++
++File 112 (this pass's own new test file): 20/20 exactly as its `plan(20)`
++declares — every adversarial scenario (A–G) denied, every legitimate scenario
++(H–Q) succeeds, both invariant scenarios (R–S) hold.
++
++Files 097/101/103/104/105/108/109 (expected fully unaffected by this pass):
++confirmed passing at their pre-existing counts — no collateral regression.
++
++## Vitest
++
++### Inventory-scoped (the relevant subset for this pass)
++
++Ran explicitly, even though zero TypeScript files changed this pass (per the
++task's own requirement): `pnpm vitest run` scoped to
++`src/server/services/__tests__/inventory-*` and
++`src/app/actions/warehouse/inventory/__tests__/`.
++
++**20 test files, 214 tests — all passing, exit code 0.**
++
++### Full suite (context, not a gate for this pass)
++
++Also ran the complete, unscoped Vitest suite for full honesty: **26 of 316
++test files failed, 32 of 4505 tests failed** (288 files / 4456 tests passed,
++8 skipped, 9 todo). Confirmed these are pre-existing and unrelated to this
++pass — this pass changed zero `.ts`/`.tsx` files (`git status` confirms 0
++TypeScript files touched), so nothing in this pass's diff could have caused
++any of them. Two examples inspected directly: a Tools-module tab-selection
++assertion (`tools-unified-client.test.tsx`) and a branch-field-mapping
++assertion (`load-app-context.v2.test.ts`) — both entirely outside Inventory
++Core, unrelated to `inventory_balances`/`inventory_settings` or either guard
++trigger. Not investigated further or fixed — genuinely out of this pass's own
++narrow scope, and pre-existing (not introduced by this pass).
++
++## Type-check
++
++`pnpm type-check` (`tsc --noEmit`) — **clean, exit code 0.**
++
++## Lint
++
++`pnpm lint` — **0 errors, 319 warnings, exit code 0.** Warning count matches
++the project's known pre-existing baseline (unrelated files under `temp/` and
++elsewhere); none introduced by this pass (zero TypeScript files changed).
++
++## Build
++
++`pnpm build` (Next.js 16.1.7, Turbopack) — **clean, exit code 0.** Full
++production build (static + dynamic routes) succeeded, run after all 9
++migrations and the third (clean) pgTAP regression.
++
++## Concurrency — unaffected
++
++No row-lock acquisition point, lock order, or lock scope changed by this
++pass. Verified by re-reading the final bodies of both guard trigger
++functions end to end: neither contains any explicit locking (`FOR UPDATE`,
++advisory locks, etc.) of its own — they are `BEFORE INSERT/UPDATE/DELETE`
++triggers that inspect `NEW`/`OLD` and either `RAISE EXCEPTION` or
++`RETURN NEW`. The actual row locks in every write path (`SELECT ... FOR
++UPDATE` inside `inventory_get_or_create_balance_for_update` and every
++canonical RPC that calls it) are in RPC bodies this pass did not touch,
++except for the 2 lines swapped for a `PERFORM ...ensure_settings_row_
++internal(...)` call in migration 8 — a straight-line substitution for an
++inline `INSERT ... ON CONFLICT DO NOTHING`, with the exact same statement,
++same table, same conflict target, same transaction, executed at the exact
++same point in control flow, just now inside a `SECURITY DEFINER` helper
++instead of inlined. No new lock is acquired, no existing lock is held longer
++or shorter, no lock is acquired in a different order relative to any other
++lock in the same transaction. No concurrency proof needed re-running; no
++`concurrency-evidence.md` in this bundle.
++
++## Zero residual data
++
++Live-confirmed after all 9 migrations, all live reproduction/verification
++probes (including migration 9's own end-to-end `authenticated`-role
++verification call), and all 3 pgTAP regression runs:
++
++```sql
++SELECT
++  (SELECT count(*) FROM inventory_products WHERE name LIKE '%pre-ic8-p0-fix-verify%') AS verify_products,      -- 0
++  (SELECT count(*) FROM branches WHERE name LIKE '097-test%' OR branch_number IN (850,851,993)) AS stray_branches, -- 0
++  (SELECT count(*) FROM organizations WHERE name LIKE '097-test%') AS stray_orgs,                              -- 0
++  (SELECT count(*) FROM inventory_balances WHERE updated_at > now() - interval '15 minutes') AS recent_balance_updates, -- 0
++  (SELECT count(*) FROM inventory_settings WHERE updated_at > now() - interval '15 minutes') AS recent_settings_updates; -- 0
++```
++
++All zero. Every pgTAP file is self-contained `BEGIN...ROLLBACK`; every
++manual live-reproduction/verification probe this pass used the same
++disposable-transaction pattern. No table dropped, no row permanently
++inserted/updated/deleted outside a rolled-back transaction, across the
++entire pass.

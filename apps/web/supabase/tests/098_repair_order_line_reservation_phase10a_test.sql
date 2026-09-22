@@ -71,10 +71,27 @@ SELECT line_b, ro, variant_1, '098-SKU-X', '098 line B (same SKU as A)', 3, 'pcs
 -- Deterministic starting balance for this (location, variant) pair,
 -- transaction-scoped -- reset regardless of any pre-existing real value,
 -- safe because this whole file rolls back.
+-- IC-7 note: inventory_guard_balance_write() now correctly fails closed
+-- (COALESCE(...,'off')) when the engine GUC is unset, so this raw fixture
+-- seed must set it first -- matching 102/106/107's own convention.
+-- PRE-IC8 P0 note: the balance guard now enforces substance-validated
+-- delta shapes (a physical on_hand change may never be combined with a
+-- commitment change in the same statement -- no real business RPC ever
+-- does that either). Split into 3 shape-compliant statements: a
+-- zero-quantity INSERT (matches inventory_get_or_create_balance_for_
+-- update's own shape), a commitment-shape reset, then a physical-shape
+-- reset.
+SET LOCAL ambra.inventory_movement_engine = 'on';
 INSERT INTO inventory_balances (organization_id, branch_id, location_id, variant_id, on_hand_quantity, reserved_quantity, allocated_quantity)
-SELECT org, branch, location_1, variant_1, 1000, 0, 0 FROM fx
+SELECT org, branch, location_1, variant_1, 0, 0, 0 FROM fx
 ON CONFLICT (organization_id, branch_id, location_id, variant_id, coalesce(lot_id, '00000000-0000-0000-0000-000000000000'::uuid), coalesce(serial_id, '00000000-0000-0000-0000-000000000000'::uuid))
-DO UPDATE SET on_hand_quantity = 1000, reserved_quantity = 0, allocated_quantity = 0;
+DO NOTHING;
+UPDATE inventory_balances SET reserved_quantity = 0, allocated_quantity = 0
+WHERE organization_id = (SELECT org FROM fx) AND branch_id = (SELECT branch FROM fx)
+  AND location_id = (SELECT location_1 FROM fx) AND variant_id = (SELECT variant_1 FROM fx);
+UPDATE inventory_balances SET on_hand_quantity = 1000
+WHERE organization_id = (SELECT org FROM fx) AND branch_id = (SELECT branch FROM fx)
+  AND location_id = (SELECT location_1 FROM fx) AND variant_id = (SELECT variant_1 FROM fx);
 
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fx)::text, 'role', 'authenticated')::text, true);

@@ -198,6 +198,16 @@ SELECT loc_a, org, branch, '102-finalcontract-loc-a', true FROM fxc;
 INSERT INTO warehouse_locations (id, organization_id, branch_id, name, can_store_inventory)
 SELECT loc_b, org, branch, '102-finalcontract-loc-b', true FROM fxc;
 
+-- PRE-IC8 P0 note: Scenario B's own earlier `SET LOCAL ROLE authenticated`
+-- (never reset before this point) is still active here, and `authenticated`
+-- no longer holds raw table privileges on inventory_balances/inventory_
+-- settings at all (the REVOKE half of the fix) -- RESET ROLE first so
+-- every fixture seed below runs as the connecting/superuser role,
+-- matching the established convention. The balance insert is also split
+-- into shape-compliant statements -- see 098's own identical note for
+-- the full rationale.
+RESET ROLE;
+
 -- Seed the org's own inventory_settings row (INSERT ... ON CONFLICT DO
 -- NOTHING mirrors the engine's own warm-up pattern; this org already has a
 -- settings row from earlier fixtures in this same transaction/session).
@@ -206,9 +216,15 @@ ON CONFLICT (organization_id) DO NOTHING;
 
 SET LOCAL ambra.inventory_movement_engine = 'on';
 INSERT INTO inventory_balances (organization_id, branch_id, location_id, variant_id, on_hand_quantity, reserved_quantity, allocated_quantity)
-SELECT org, branch, loc_a, variant_1, 2, 0, 0 FROM fxc
+SELECT org, branch, loc_a, variant_1, 0, 0, 0 FROM fxc
 ON CONFLICT (organization_id, branch_id, location_id, variant_id, coalesce(lot_id, '00000000-0000-0000-0000-000000000000'::uuid), coalesce(serial_id, '00000000-0000-0000-0000-000000000000'::uuid))
-DO UPDATE SET on_hand_quantity = 2, reserved_quantity = 0, allocated_quantity = 0;
+DO NOTHING;
+UPDATE inventory_balances SET reserved_quantity = 0, allocated_quantity = 0
+WHERE organization_id = (SELECT org FROM fxc) AND branch_id = (SELECT branch FROM fxc)
+  AND location_id = (SELECT loc_a FROM fxc) AND variant_id = (SELECT variant_1 FROM fxc);
+UPDATE inventory_balances SET on_hand_quantity = 2
+WHERE organization_id = (SELECT org FROM fxc) AND branch_id = (SELECT branch FROM fxc)
+  AND location_id = (SELECT loc_a FROM fxc) AND variant_id = (SELECT variant_1 FROM fxc);
 
 CREATE TEMP TABLE movement_count_baseline_c AS
 SELECT count(*) AS n FROM inventory_movement_headers WHERE organization_id = (SELECT org FROM fxc) AND branch_id = (SELECT branch FROM fxc);

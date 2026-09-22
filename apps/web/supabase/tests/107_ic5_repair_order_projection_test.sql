@@ -294,8 +294,16 @@ SELECT i_loc_x, (SELECT org FROM fx), i_branch, 'ic5-i-locX', 'IC5I', true, 'rec
 -- stock but zero attribution -- deterministic, not a raw-write bypass
 -- (invoked here as the connecting/superuser role for fixture setup only).
 RESET ROLE;
+-- PRE-IC8 P0 note: the balance guard now enforces zero-quantity-only
+-- INSERTs (matching inventory_get_or_create_balance_for_update's own
+-- shape) -- split into a zero-quantity insert followed by a
+-- physical-shape-only on_hand update.
+SET LOCAL ambra.inventory_movement_engine = 'on';
 INSERT INTO inventory_balances (organization_id, branch_id, location_id, variant_id, on_hand_quantity, reserved_quantity, allocated_quantity)
-SELECT (SELECT org FROM fx), i_branch, i_loc_x, (SELECT variant_1 FROM fx), 5, 0, 0 FROM ifx;
+SELECT (SELECT org FROM fx), i_branch, i_loc_x, (SELECT variant_1 FROM fx), 0, 0, 0 FROM ifx;
+UPDATE inventory_balances SET on_hand_quantity = 5
+WHERE organization_id = (SELECT org FROM fx) AND branch_id = (SELECT i_branch FROM ifx)
+  AND location_id = (SELECT i_loc_x FROM ifx) AND variant_id = (SELECT variant_1 FROM fx);
 SELECT rebuild_repair_order_projection_bucket_internal((SELECT org FROM fx), (SELECT i_branch FROM ifx), (SELECT i_loc_x FROM ifx), (SELECT variant_1 FROM fx));
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fx)::text, 'role','authenticated')::text, true);
