@@ -4197,14 +4197,17 @@ describe("RepairOrdersService.removeAllocationFromContainer", () => {
 /**
  * A per-table chainable query-builder mock, mirroring `makeTableQueryMock`'s
  * own established pattern (see `getMaterializationStatusForSession`'s own
- * tests) with `gt` added to the chain (the Zone 5 query's own
- * `.gt("quantity", 0)` call) -- `callsByTable` lets a test assert exactly
- * which scope values (`organization_id`/`branch_id`/etc.) a query was
- * actually filtered by, which is how the cross-org/branch test below
- * verifies real scope-safety rather than merely trusting the mocked data.
+ * tests), EXTENDED (A8) with an `rpc` mock for
+ * `get_repair_order_line_physical_state` -- the live-read RPC that replaced
+ * the removed `repair_order_line_locations` table query. `callsByTable`/
+ * `rpc.mock.calls` let a test assert exactly which scope values
+ * (`organization_id`/`branch_id`/etc.) a query was actually filtered by,
+ * which is how the cross-org/branch test below verifies real scope-safety
+ * rather than merely trusting the mocked data.
  */
 function buildPhysicalStateSupabaseMock(
-  tableResponses: Record<string, { data: unknown; error: unknown }>
+  tableResponses: Record<string, { data: unknown; error: unknown }>,
+  rpcResponse: { data: unknown; error: unknown } = PHYS_STATE_EMPTY_RESPONSE()
 ) {
   const callsByTable: Record<string, { method: string; args: unknown[] }[]> = {};
   const singleTables = new Set(["repair_order_lines", "repair_orders"]);
@@ -4224,10 +4227,40 @@ function buildPhysicalStateSupabaseMock(
     void singleTables;
     return q;
   });
-  return { from, callsByTable } as unknown as import("@supabase/supabase-js").SupabaseClient & {
+  const rpc = vi.fn().mockResolvedValue(rpcResponse);
+  return {
+    from,
+    rpc,
+    callsByTable,
+  } as unknown as import("@supabase/supabase-js").SupabaseClient & {
     callsByTable: Record<string, { method: string; args: unknown[] }[]>;
   };
 }
+
+/** Builds a `get_repair_order_line_physical_state` success response from a plain `{location_id, quantity}[]` list -- `variant_id` is fixed to `PHYS_LINE_FOUND`'s own `variant-1` since every scenario here resolves through that one fixture line. */
+function PHYS_STATE_SUCCESS(locations: { location_id: string; quantity: number }[]) {
+  return {
+    data: {
+      locations: locations.map((l) => ({
+        location_id: l.location_id,
+        variant_id: "variant-1",
+        quantity: l.quantity,
+      })),
+    },
+    error: null,
+  };
+}
+function PHYS_STATE_EMPTY_RESPONSE() {
+  return PHYS_STATE_SUCCESS([]);
+}
+const PHYS_STATE_INCONSISTENT_RESPONSE = {
+  data: null,
+  error: {
+    code: "P0008",
+    message:
+      "Physical-state computation found known attribution exceeding physical on_hand -- history inconsistency",
+  },
+};
 
 const PHYS_LINE_FOUND = {
   data: { id: "line-1", repair_order_id: "ro-1", variant_id: "variant-1" },
@@ -4241,8 +4274,6 @@ const PHYS_NO_RESERVATIONS = { data: [], error: null };
 const PHYS_NO_LINKS = { data: [], error: null };
 const PHYS_NO_CONTAINER_LINES = { data: [], error: null };
 const PHYS_NO_CONTAINERS = { data: [], error: null };
-const PHYS_NO_UNCERTAIN = { data: [], error: null };
-const PHYS_NO_ZONE5 = { data: [], error: null };
 
 describe("RepairOrdersService.getPhysicalStateForLine", () => {
   beforeEach(() => {
@@ -4260,16 +4291,17 @@ describe("RepairOrdersService.getPhysicalStateForLine", () => {
   });
 
   it("1. Zone 5 location only, no allocation/container -> consistent", async () => {
-    const supabase = buildPhysicalStateSupabaseMock({
-      repair_order_lines: PHYS_LINE_FOUND,
-      repair_orders: PHYS_ORDER_FOUND,
-      repair_order_line_locations: { data: [{ location_id: "loc-1", quantity: 10 }], error: null },
-      inventory_reservations: PHYS_NO_RESERVATIONS,
-      inventory_allocation_container_links: PHYS_NO_LINKS,
-      inventory_container_lines: PHYS_NO_CONTAINER_LINES,
-      inventory_containers: PHYS_NO_CONTAINERS,
-      repair_order_location_attribution_uncertain: PHYS_NO_UNCERTAIN,
-    });
+    const supabase = buildPhysicalStateSupabaseMock(
+      {
+        repair_order_lines: PHYS_LINE_FOUND,
+        repair_orders: PHYS_ORDER_FOUND,
+        inventory_reservations: PHYS_NO_RESERVATIONS,
+        inventory_allocation_container_links: PHYS_NO_LINKS,
+        inventory_container_lines: PHYS_NO_CONTAINER_LINES,
+        inventory_containers: PHYS_NO_CONTAINERS,
+      },
+      PHYS_STATE_SUCCESS([{ location_id: "loc-1", quantity: 10 }])
+    );
 
     const result = await RepairOrdersService.getPhysicalStateForLine(supabase, "line-1");
 
@@ -4294,40 +4326,41 @@ describe("RepairOrdersService.getPhysicalStateForLine", () => {
   });
 
   it("2. Reserved but not allocated -> consistent (reservation-only is a normal, earlier lifecycle stage)", async () => {
-    const supabase = buildPhysicalStateSupabaseMock({
-      repair_order_lines: PHYS_LINE_FOUND,
-      repair_orders: PHYS_ORDER_FOUND,
-      repair_order_line_locations: { data: [{ location_id: "loc-1", quantity: 10 }], error: null },
-      inventory_reservations: {
-        data: [
-          {
-            id: "res-1",
-            reservation_number: "RES-000001",
-            status: "active",
-            expires_at: null,
-            created_at: "2026-01-01T00:00:00Z",
-            inventory_reservation_lines: [
-              {
-                id: "resline-1",
-                variant_id: "variant-1",
-                location_id: "loc-1",
-                lot_id: null,
-                serial_id: null,
-                reserved_quantity: 6,
-                released_quantity: 0,
-                fulfilled_quantity: 0,
-              },
-            ],
-          },
-        ],
-        error: null,
+    const supabase = buildPhysicalStateSupabaseMock(
+      {
+        repair_order_lines: PHYS_LINE_FOUND,
+        repair_orders: PHYS_ORDER_FOUND,
+        inventory_reservations: {
+          data: [
+            {
+              id: "res-1",
+              reservation_number: "RES-000001",
+              status: "active",
+              expires_at: null,
+              created_at: "2026-01-01T00:00:00Z",
+              inventory_reservation_lines: [
+                {
+                  id: "resline-1",
+                  variant_id: "variant-1",
+                  location_id: "loc-1",
+                  lot_id: null,
+                  serial_id: null,
+                  reserved_quantity: 6,
+                  released_quantity: 0,
+                  fulfilled_quantity: 0,
+                },
+              ],
+            },
+          ],
+          error: null,
+        },
+        inventory_allocation_lines: PHYS_NO_LINKS,
+        inventory_allocation_container_links: PHYS_NO_LINKS,
+        inventory_container_lines: PHYS_NO_CONTAINER_LINES,
+        inventory_containers: PHYS_NO_CONTAINERS,
       },
-      inventory_allocation_lines: PHYS_NO_LINKS,
-      inventory_allocation_container_links: PHYS_NO_LINKS,
-      inventory_container_lines: PHYS_NO_CONTAINER_LINES,
-      inventory_containers: PHYS_NO_CONTAINERS,
-      repair_order_location_attribution_uncertain: PHYS_NO_UNCERTAIN,
-    });
+      PHYS_STATE_SUCCESS([{ location_id: "loc-1", quantity: 10 }])
+    );
 
     const result = await RepairOrdersService.getPhysicalStateForLine(supabase, "line-1");
 
@@ -4352,60 +4385,61 @@ describe("RepairOrdersService.getPhysicalStateForLine", () => {
   });
 
   it("3. Allocated but not containerized -> uncontainerized", async () => {
-    const supabase = buildPhysicalStateSupabaseMock({
-      repair_order_lines: PHYS_LINE_FOUND,
-      repair_orders: PHYS_ORDER_FOUND,
-      repair_order_line_locations: { data: [{ location_id: "loc-1", quantity: 10 }], error: null },
-      inventory_reservations: {
-        data: [
-          {
-            id: "res-1",
-            reservation_number: "RES-000001",
-            status: "active",
-            expires_at: null,
-            created_at: "2026-01-01T00:00:00Z",
-            inventory_reservation_lines: [
-              {
-                id: "resline-1",
-                variant_id: "variant-1",
-                location_id: "loc-1",
-                lot_id: null,
-                serial_id: null,
-                reserved_quantity: 6,
-                released_quantity: 0,
-                fulfilled_quantity: 0,
-              },
-            ],
-          },
-        ],
-        error: null,
-      },
-      inventory_allocation_lines: {
-        data: [
-          {
-            id: "allocline-1",
-            reservation_line_id: "resline-1",
-            variant_id: "variant-1",
-            location_id: "loc-1",
-            lot_id: null,
-            serial_id: null,
-            allocated_quantity: 6,
-            fulfilled_quantity: 0,
-            allocation: {
-              id: "alloc-1",
-              allocation_number: "ALLOC-000001",
+    const supabase = buildPhysicalStateSupabaseMock(
+      {
+        repair_order_lines: PHYS_LINE_FOUND,
+        repair_orders: PHYS_ORDER_FOUND,
+        inventory_reservations: {
+          data: [
+            {
+              id: "res-1",
+              reservation_number: "RES-000001",
               status: "active",
-              deleted_at: null,
+              expires_at: null,
+              created_at: "2026-01-01T00:00:00Z",
+              inventory_reservation_lines: [
+                {
+                  id: "resline-1",
+                  variant_id: "variant-1",
+                  location_id: "loc-1",
+                  lot_id: null,
+                  serial_id: null,
+                  reserved_quantity: 6,
+                  released_quantity: 0,
+                  fulfilled_quantity: 0,
+                },
+              ],
             },
-          },
-        ],
-        error: null,
+          ],
+          error: null,
+        },
+        inventory_allocation_lines: {
+          data: [
+            {
+              id: "allocline-1",
+              reservation_line_id: "resline-1",
+              variant_id: "variant-1",
+              location_id: "loc-1",
+              lot_id: null,
+              serial_id: null,
+              allocated_quantity: 6,
+              fulfilled_quantity: 0,
+              allocation: {
+                id: "alloc-1",
+                allocation_number: "ALLOC-000001",
+                status: "active",
+                deleted_at: null,
+              },
+            },
+          ],
+          error: null,
+        },
+        inventory_allocation_container_links: PHYS_NO_LINKS,
+        inventory_container_lines: PHYS_NO_CONTAINER_LINES,
+        inventory_containers: PHYS_NO_CONTAINERS,
       },
-      inventory_allocation_container_links: PHYS_NO_LINKS,
-      inventory_container_lines: PHYS_NO_CONTAINER_LINES,
-      inventory_containers: PHYS_NO_CONTAINERS,
-      repair_order_location_attribution_uncertain: PHYS_NO_UNCERTAIN,
-    });
+      PHYS_STATE_SUCCESS([{ location_id: "loc-1", quantity: 10 }])
+    );
 
     const result = await RepairOrdersService.getPhysicalStateForLine(supabase, "line-1");
 
@@ -4426,88 +4460,89 @@ describe("RepairOrdersService.getPhysicalStateForLine", () => {
   });
 
   it("4. Allocation split across multiple containers -> both containers surfaced, summed correctly", async () => {
-    const supabase = buildPhysicalStateSupabaseMock({
-      repair_order_lines: PHYS_LINE_FOUND,
-      repair_orders: PHYS_ORDER_FOUND,
-      repair_order_line_locations: { data: [{ location_id: "loc-1", quantity: 10 }], error: null },
-      inventory_reservations: {
-        data: [
-          {
-            id: "res-1",
-            reservation_number: "RES-000001",
-            status: "active",
-            expires_at: null,
-            created_at: "2026-01-01T00:00:00Z",
-            inventory_reservation_lines: [
-              {
-                id: "resline-1",
-                variant_id: "variant-1",
-                location_id: "loc-1",
-                lot_id: null,
-                serial_id: null,
-                reserved_quantity: 10,
-                released_quantity: 0,
-                fulfilled_quantity: 0,
-              },
-            ],
-          },
-        ],
-        error: null,
-      },
-      inventory_allocation_lines: {
-        data: [
-          {
-            id: "allocline-1",
-            reservation_line_id: "resline-1",
-            variant_id: "variant-1",
-            location_id: "loc-1",
-            lot_id: null,
-            serial_id: null,
-            allocated_quantity: 10,
-            fulfilled_quantity: 0,
-            allocation: {
-              id: "alloc-1",
-              allocation_number: "ALLOC-000001",
+    const supabase = buildPhysicalStateSupabaseMock(
+      {
+        repair_order_lines: PHYS_LINE_FOUND,
+        repair_orders: PHYS_ORDER_FOUND,
+        inventory_reservations: {
+          data: [
+            {
+              id: "res-1",
+              reservation_number: "RES-000001",
               status: "active",
-              deleted_at: null,
+              expires_at: null,
+              created_at: "2026-01-01T00:00:00Z",
+              inventory_reservation_lines: [
+                {
+                  id: "resline-1",
+                  variant_id: "variant-1",
+                  location_id: "loc-1",
+                  lot_id: null,
+                  serial_id: null,
+                  reserved_quantity: 10,
+                  released_quantity: 0,
+                  fulfilled_quantity: 0,
+                },
+              ],
             },
-          },
-        ],
-        error: null,
+          ],
+          error: null,
+        },
+        inventory_allocation_lines: {
+          data: [
+            {
+              id: "allocline-1",
+              reservation_line_id: "resline-1",
+              variant_id: "variant-1",
+              location_id: "loc-1",
+              lot_id: null,
+              serial_id: null,
+              allocated_quantity: 10,
+              fulfilled_quantity: 0,
+              allocation: {
+                id: "alloc-1",
+                allocation_number: "ALLOC-000001",
+                status: "active",
+                deleted_at: null,
+              },
+            },
+          ],
+          error: null,
+        },
+        inventory_allocation_container_links: {
+          data: [
+            {
+              id: "link-1",
+              quantity: 6,
+              allocation_line_id: "allocline-1",
+              container_line_id: "cl-1",
+            },
+            {
+              id: "link-2",
+              quantity: 4,
+              allocation_line_id: "allocline-1",
+              container_line_id: "cl-2",
+            },
+          ],
+          error: null,
+        },
+        inventory_container_lines: {
+          data: [
+            { id: "cl-1", container_id: "container-a" },
+            { id: "cl-2", container_id: "container-b" },
+          ],
+          error: null,
+        },
+        inventory_containers: {
+          data: [
+            { id: "container-a", code: "CONT-A", current_location_id: "loc-1", status: "active" },
+            { id: "container-b", code: "CONT-B", current_location_id: "loc-1", status: "active" },
+          ],
+          error: null,
+        },
       },
-      inventory_allocation_container_links: {
-        data: [
-          {
-            id: "link-1",
-            quantity: 6,
-            allocation_line_id: "allocline-1",
-            container_line_id: "cl-1",
-          },
-          {
-            id: "link-2",
-            quantity: 4,
-            allocation_line_id: "allocline-1",
-            container_line_id: "cl-2",
-          },
-        ],
-        error: null,
-      },
-      inventory_container_lines: {
-        data: [
-          { id: "cl-1", container_id: "container-a" },
-          { id: "cl-2", container_id: "container-b" },
-        ],
-        error: null,
-      },
-      inventory_containers: {
-        data: [
-          { id: "container-a", code: "CONT-A", current_location_id: "loc-1", status: "active" },
-          { id: "container-b", code: "CONT-B", current_location_id: "loc-1", status: "active" },
-        ],
-        error: null,
-      },
-      repair_order_location_attribution_uncertain: PHYS_NO_UNCERTAIN,
-    });
+      PHYS_STATE_SUCCESS([{ location_id: "loc-1", quantity: 10 }])
+    );
 
     const result = await RepairOrdersService.getPhysicalStateForLine(supabase, "line-1");
     expect(result.success).toBe(true);
@@ -4538,86 +4573,87 @@ describe("RepairOrdersService.getPhysicalStateForLine", () => {
   });
 
   it("5. Multiple allocations belonging to the same RepairOrderLine at the same location -> summed", async () => {
-    const supabase = buildPhysicalStateSupabaseMock({
-      repair_order_lines: PHYS_LINE_FOUND,
-      repair_orders: PHYS_ORDER_FOUND,
-      repair_order_line_locations: { data: [{ location_id: "loc-1", quantity: 10 }], error: null },
-      inventory_reservations: {
-        data: [
-          {
-            id: "res-1",
-            reservation_number: "RES-000001",
-            status: "active",
-            expires_at: null,
-            created_at: "2026-01-01T00:00:00Z",
-            inventory_reservation_lines: [
-              {
-                id: "resline-1",
-                variant_id: "variant-1",
-                location_id: "loc-1",
-                lot_id: null,
-                serial_id: null,
-                reserved_quantity: 6,
-                released_quantity: 0,
-                fulfilled_quantity: 0,
-              },
-              {
-                id: "resline-2",
-                variant_id: "variant-1",
-                location_id: "loc-1",
-                lot_id: null,
-                serial_id: null,
-                reserved_quantity: 4,
-                released_quantity: 0,
-                fulfilled_quantity: 0,
-              },
-            ],
-          },
-        ],
-        error: null,
-      },
-      inventory_allocation_lines: {
-        data: [
-          {
-            id: "allocline-1",
-            reservation_line_id: "resline-1",
-            variant_id: "variant-1",
-            location_id: "loc-1",
-            lot_id: null,
-            serial_id: null,
-            allocated_quantity: 6,
-            fulfilled_quantity: 0,
-            allocation: {
-              id: "alloc-1",
-              allocation_number: "ALLOC-000001",
+    const supabase = buildPhysicalStateSupabaseMock(
+      {
+        repair_order_lines: PHYS_LINE_FOUND,
+        repair_orders: PHYS_ORDER_FOUND,
+        inventory_reservations: {
+          data: [
+            {
+              id: "res-1",
+              reservation_number: "RES-000001",
               status: "active",
-              deleted_at: null,
+              expires_at: null,
+              created_at: "2026-01-01T00:00:00Z",
+              inventory_reservation_lines: [
+                {
+                  id: "resline-1",
+                  variant_id: "variant-1",
+                  location_id: "loc-1",
+                  lot_id: null,
+                  serial_id: null,
+                  reserved_quantity: 6,
+                  released_quantity: 0,
+                  fulfilled_quantity: 0,
+                },
+                {
+                  id: "resline-2",
+                  variant_id: "variant-1",
+                  location_id: "loc-1",
+                  lot_id: null,
+                  serial_id: null,
+                  reserved_quantity: 4,
+                  released_quantity: 0,
+                  fulfilled_quantity: 0,
+                },
+              ],
             },
-          },
-          {
-            id: "allocline-2",
-            reservation_line_id: "resline-2",
-            variant_id: "variant-1",
-            location_id: "loc-1",
-            lot_id: null,
-            serial_id: null,
-            allocated_quantity: 4,
-            fulfilled_quantity: 0,
-            allocation: {
-              id: "alloc-2",
-              allocation_number: "ALLOC-000002",
-              status: "active",
-              deleted_at: null,
+          ],
+          error: null,
+        },
+        inventory_allocation_lines: {
+          data: [
+            {
+              id: "allocline-1",
+              reservation_line_id: "resline-1",
+              variant_id: "variant-1",
+              location_id: "loc-1",
+              lot_id: null,
+              serial_id: null,
+              allocated_quantity: 6,
+              fulfilled_quantity: 0,
+              allocation: {
+                id: "alloc-1",
+                allocation_number: "ALLOC-000001",
+                status: "active",
+                deleted_at: null,
+              },
             },
-          },
-        ],
-        error: null,
+            {
+              id: "allocline-2",
+              reservation_line_id: "resline-2",
+              variant_id: "variant-1",
+              location_id: "loc-1",
+              lot_id: null,
+              serial_id: null,
+              allocated_quantity: 4,
+              fulfilled_quantity: 0,
+              allocation: {
+                id: "alloc-2",
+                allocation_number: "ALLOC-000002",
+                status: "active",
+                deleted_at: null,
+              },
+            },
+          ],
+          error: null,
+        },
+        inventory_allocation_container_links: PHYS_NO_LINKS,
+        inventory_container_lines: PHYS_NO_CONTAINER_LINES,
+        inventory_containers: PHYS_NO_CONTAINERS,
       },
-      inventory_allocation_container_links: PHYS_NO_LINKS,
-      inventory_container_lines: PHYS_NO_CONTAINER_LINES,
-      inventory_containers: PHYS_NO_CONTAINERS,
-      repair_order_location_attribution_uncertain: PHYS_NO_UNCERTAIN,
-    });
+      PHYS_STATE_SUCCESS([{ location_id: "loc-1", quantity: 10 }])
+    );
 
     const result = await RepairOrdersService.getPhysicalStateForLine(supabase, "line-1");
     expect(result.success).toBe(true);
@@ -4627,78 +4663,79 @@ describe("RepairOrdersService.getPhysicalStateForLine", () => {
   });
 
   it("6. Container location matching Zone 5 physical location -> consistent", async () => {
-    const supabase = buildPhysicalStateSupabaseMock({
-      repair_order_lines: PHYS_LINE_FOUND,
-      repair_orders: PHYS_ORDER_FOUND,
-      repair_order_line_locations: { data: [{ location_id: "loc-1", quantity: 10 }], error: null },
-      inventory_reservations: {
-        data: [
-          {
-            id: "res-1",
-            reservation_number: "RES-000001",
-            status: "active",
-            expires_at: null,
-            created_at: "2026-01-01T00:00:00Z",
-            inventory_reservation_lines: [
-              {
-                id: "resline-1",
-                variant_id: "variant-1",
-                location_id: "loc-1",
-                lot_id: null,
-                serial_id: null,
-                reserved_quantity: 10,
-                released_quantity: 0,
-                fulfilled_quantity: 0,
-              },
-            ],
-          },
-        ],
-        error: null,
-      },
-      inventory_allocation_lines: {
-        data: [
-          {
-            id: "allocline-1",
-            reservation_line_id: "resline-1",
-            variant_id: "variant-1",
-            location_id: "loc-1",
-            lot_id: null,
-            serial_id: null,
-            allocated_quantity: 10,
-            fulfilled_quantity: 0,
-            allocation: {
-              id: "alloc-1",
-              allocation_number: "ALLOC-000001",
+    const supabase = buildPhysicalStateSupabaseMock(
+      {
+        repair_order_lines: PHYS_LINE_FOUND,
+        repair_orders: PHYS_ORDER_FOUND,
+        inventory_reservations: {
+          data: [
+            {
+              id: "res-1",
+              reservation_number: "RES-000001",
               status: "active",
-              deleted_at: null,
+              expires_at: null,
+              created_at: "2026-01-01T00:00:00Z",
+              inventory_reservation_lines: [
+                {
+                  id: "resline-1",
+                  variant_id: "variant-1",
+                  location_id: "loc-1",
+                  lot_id: null,
+                  serial_id: null,
+                  reserved_quantity: 10,
+                  released_quantity: 0,
+                  fulfilled_quantity: 0,
+                },
+              ],
             },
-          },
-        ],
-        error: null,
+          ],
+          error: null,
+        },
+        inventory_allocation_lines: {
+          data: [
+            {
+              id: "allocline-1",
+              reservation_line_id: "resline-1",
+              variant_id: "variant-1",
+              location_id: "loc-1",
+              lot_id: null,
+              serial_id: null,
+              allocated_quantity: 10,
+              fulfilled_quantity: 0,
+              allocation: {
+                id: "alloc-1",
+                allocation_number: "ALLOC-000001",
+                status: "active",
+                deleted_at: null,
+              },
+            },
+          ],
+          error: null,
+        },
+        inventory_allocation_container_links: {
+          data: [
+            {
+              id: "link-1",
+              quantity: 10,
+              allocation_line_id: "allocline-1",
+              container_line_id: "cl-1",
+            },
+          ],
+          error: null,
+        },
+        inventory_container_lines: {
+          data: [{ id: "cl-1", container_id: "container-a" }],
+          error: null,
+        },
+        inventory_containers: {
+          data: [
+            { id: "container-a", code: "CONT-A", current_location_id: "loc-1", status: "active" },
+          ],
+          error: null,
+        },
       },
-      inventory_allocation_container_links: {
-        data: [
-          {
-            id: "link-1",
-            quantity: 10,
-            allocation_line_id: "allocline-1",
-            container_line_id: "cl-1",
-          },
-        ],
-        error: null,
-      },
-      inventory_container_lines: {
-        data: [{ id: "cl-1", container_id: "container-a" }],
-        error: null,
-      },
-      inventory_containers: {
-        data: [
-          { id: "container-a", code: "CONT-A", current_location_id: "loc-1", status: "active" },
-        ],
-        error: null,
-      },
-      repair_order_location_attribution_uncertain: PHYS_NO_UNCERTAIN,
-    });
+      PHYS_STATE_SUCCESS([{ location_id: "loc-1", quantity: 10 }])
+    );
 
     const result = await RepairOrdersService.getPhysicalStateForLine(supabase, "line-1");
     expect(result.success).toBe(true);
@@ -4707,60 +4744,61 @@ describe("RepairOrdersService.getPhysicalStateForLine", () => {
   });
 
   it("7. Container/location divergence (Zone 5 says loc-A, allocation is at loc-B) -> location_mismatch, never silently picks a side", async () => {
-    const supabase = buildPhysicalStateSupabaseMock({
-      repair_order_lines: PHYS_LINE_FOUND,
-      repair_orders: PHYS_ORDER_FOUND,
-      repair_order_line_locations: { data: [{ location_id: "loc-A", quantity: 10 }], error: null },
-      inventory_reservations: {
-        data: [
-          {
-            id: "res-1",
-            reservation_number: "RES-000001",
-            status: "active",
-            expires_at: null,
-            created_at: "2026-01-01T00:00:00Z",
-            inventory_reservation_lines: [
-              {
-                id: "resline-1",
-                variant_id: "variant-1",
-                location_id: "loc-B",
-                lot_id: null,
-                serial_id: null,
-                reserved_quantity: 10,
-                released_quantity: 0,
-                fulfilled_quantity: 0,
-              },
-            ],
-          },
-        ],
-        error: null,
-      },
-      inventory_allocation_lines: {
-        data: [
-          {
-            id: "allocline-1",
-            reservation_line_id: "resline-1",
-            variant_id: "variant-1",
-            location_id: "loc-B",
-            lot_id: null,
-            serial_id: null,
-            allocated_quantity: 10,
-            fulfilled_quantity: 0,
-            allocation: {
-              id: "alloc-1",
-              allocation_number: "ALLOC-000001",
+    const supabase = buildPhysicalStateSupabaseMock(
+      {
+        repair_order_lines: PHYS_LINE_FOUND,
+        repair_orders: PHYS_ORDER_FOUND,
+        inventory_reservations: {
+          data: [
+            {
+              id: "res-1",
+              reservation_number: "RES-000001",
               status: "active",
-              deleted_at: null,
+              expires_at: null,
+              created_at: "2026-01-01T00:00:00Z",
+              inventory_reservation_lines: [
+                {
+                  id: "resline-1",
+                  variant_id: "variant-1",
+                  location_id: "loc-B",
+                  lot_id: null,
+                  serial_id: null,
+                  reserved_quantity: 10,
+                  released_quantity: 0,
+                  fulfilled_quantity: 0,
+                },
+              ],
             },
-          },
-        ],
-        error: null,
+          ],
+          error: null,
+        },
+        inventory_allocation_lines: {
+          data: [
+            {
+              id: "allocline-1",
+              reservation_line_id: "resline-1",
+              variant_id: "variant-1",
+              location_id: "loc-B",
+              lot_id: null,
+              serial_id: null,
+              allocated_quantity: 10,
+              fulfilled_quantity: 0,
+              allocation: {
+                id: "alloc-1",
+                allocation_number: "ALLOC-000001",
+                status: "active",
+                deleted_at: null,
+              },
+            },
+          ],
+          error: null,
+        },
+        inventory_allocation_container_links: PHYS_NO_LINKS,
+        inventory_container_lines: PHYS_NO_CONTAINER_LINES,
+        inventory_containers: PHYS_NO_CONTAINERS,
       },
-      inventory_allocation_container_links: PHYS_NO_LINKS,
-      inventory_container_lines: PHYS_NO_CONTAINER_LINES,
-      inventory_containers: PHYS_NO_CONTAINERS,
-      repair_order_location_attribution_uncertain: PHYS_NO_UNCERTAIN,
-    });
+      PHYS_STATE_SUCCESS([{ location_id: "loc-A", quantity: 10 }])
+    );
 
     const result = await RepairOrdersService.getPhysicalStateForLine(supabase, "line-1");
     expect(result.success).toBe(true);
@@ -4774,27 +4812,28 @@ describe("RepairOrdersService.getPhysicalStateForLine", () => {
   });
 
   it("8. Cross-org/branch scope is explicitly applied to every query -- never trusted from an FK alone", async () => {
-    const supabase = buildPhysicalStateSupabaseMock({
-      repair_order_lines: PHYS_LINE_FOUND,
-      repair_orders: PHYS_ORDER_FOUND,
-      repair_order_line_locations: PHYS_NO_ZONE5,
-      inventory_reservations: PHYS_NO_RESERVATIONS,
-      inventory_allocation_container_links: PHYS_NO_LINKS,
-      inventory_container_lines: PHYS_NO_CONTAINER_LINES,
-      inventory_containers: PHYS_NO_CONTAINERS,
-      repair_order_location_attribution_uncertain: PHYS_NO_UNCERTAIN,
-    });
+    const supabase = buildPhysicalStateSupabaseMock(
+      {
+        repair_order_lines: PHYS_LINE_FOUND,
+        repair_orders: PHYS_ORDER_FOUND,
+        inventory_reservations: PHYS_NO_RESERVATIONS,
+        inventory_allocation_container_links: PHYS_NO_LINKS,
+        inventory_container_lines: PHYS_NO_CONTAINER_LINES,
+        inventory_containers: PHYS_NO_CONTAINERS,
+      },
+      PHYS_STATE_EMPTY_RESPONSE()
+    );
 
     await RepairOrdersService.getPhysicalStateForLine(supabase, "line-1");
 
-    const zone5Calls = supabase.callsByTable["repair_order_line_locations"] ?? [];
-    const zone5EqArgs = zone5Calls.filter((c) => c.method === "eq").map((c) => c.args);
-    expect(zone5EqArgs).toEqual(
-      expect.arrayContaining([
-        ["organization_id", "org-1"],
-        ["branch_id", "branch-1"],
-      ])
-    );
+    // The live-read RPC (A8) is called with explicit org/branch scope,
+    // never trusted from an FK alone -- the RPC itself re-scopes every
+    // join by these same two params (see its own migration).
+    expect(supabase.rpc).toHaveBeenCalledWith("get_repair_order_line_physical_state", {
+      p_organization_id: "org-1",
+      p_branch_id: "branch-1",
+      p_repair_order_line_id: "line-1",
+    });
 
     const linksCalls = supabase.callsByTable["inventory_allocation_container_links"] ?? [];
     // With zero allocation lines, the links/container_lines/containers
@@ -4805,75 +4844,76 @@ describe("RepairOrdersService.getPhysicalStateForLine", () => {
   });
 
   it("9. A link whose own container/container_line was excluded by the live deleted_at filter (not returned by the mocked query) does not count as active physical placement", async () => {
-    const supabase = buildPhysicalStateSupabaseMock({
-      repair_order_lines: PHYS_LINE_FOUND,
-      repair_orders: PHYS_ORDER_FOUND,
-      repair_order_line_locations: { data: [{ location_id: "loc-1", quantity: 10 }], error: null },
-      inventory_reservations: {
-        data: [
-          {
-            id: "res-1",
-            reservation_number: "RES-000001",
-            status: "active",
-            expires_at: null,
-            created_at: "2026-01-01T00:00:00Z",
-            inventory_reservation_lines: [
-              {
-                id: "resline-1",
-                variant_id: "variant-1",
-                location_id: "loc-1",
-                lot_id: null,
-                serial_id: null,
-                reserved_quantity: 6,
-                released_quantity: 0,
-                fulfilled_quantity: 0,
-              },
-            ],
-          },
-        ],
-        error: null,
-      },
-      inventory_allocation_lines: {
-        data: [
-          {
-            id: "allocline-1",
-            reservation_line_id: "resline-1",
-            variant_id: "variant-1",
-            location_id: "loc-1",
-            lot_id: null,
-            serial_id: null,
-            allocated_quantity: 6,
-            fulfilled_quantity: 0,
-            allocation: {
-              id: "alloc-1",
-              allocation_number: "ALLOC-000001",
+    const supabase = buildPhysicalStateSupabaseMock(
+      {
+        repair_order_lines: PHYS_LINE_FOUND,
+        repair_orders: PHYS_ORDER_FOUND,
+        inventory_reservations: {
+          data: [
+            {
+              id: "res-1",
+              reservation_number: "RES-000001",
               status: "active",
-              deleted_at: null,
+              expires_at: null,
+              created_at: "2026-01-01T00:00:00Z",
+              inventory_reservation_lines: [
+                {
+                  id: "resline-1",
+                  variant_id: "variant-1",
+                  location_id: "loc-1",
+                  lot_id: null,
+                  serial_id: null,
+                  reserved_quantity: 6,
+                  released_quantity: 0,
+                  fulfilled_quantity: 0,
+                },
+              ],
             },
-          },
-        ],
-        error: null,
+          ],
+          error: null,
+        },
+        inventory_allocation_lines: {
+          data: [
+            {
+              id: "allocline-1",
+              reservation_line_id: "resline-1",
+              variant_id: "variant-1",
+              location_id: "loc-1",
+              lot_id: null,
+              serial_id: null,
+              allocated_quantity: 6,
+              fulfilled_quantity: 0,
+              allocation: {
+                id: "alloc-1",
+                allocation_number: "ALLOC-000001",
+                status: "active",
+                deleted_at: null,
+              },
+            },
+          ],
+          error: null,
+        },
+        // The link row itself is still "active" by its own deleted_at, but
+        // its own container_line was soft-deleted -- the (separately
+        // deleted_at-filtered) container_lines query below simply never
+        // returns it, simulating exactly what the real `.is("deleted_at",
+        // null)` filter would do.
+        inventory_allocation_container_links: {
+          data: [
+            {
+              id: "link-1",
+              quantity: 6,
+              allocation_line_id: "allocline-1",
+              container_line_id: "cl-deleted",
+            },
+          ],
+          error: null,
+        },
+        inventory_container_lines: PHYS_NO_CONTAINER_LINES,
+        inventory_containers: PHYS_NO_CONTAINERS,
       },
-      // The link row itself is still "active" by its own deleted_at, but
-      // its own container_line was soft-deleted -- the (separately
-      // deleted_at-filtered) container_lines query below simply never
-      // returns it, simulating exactly what the real `.is("deleted_at",
-      // null)` filter would do.
-      inventory_allocation_container_links: {
-        data: [
-          {
-            id: "link-1",
-            quantity: 6,
-            allocation_line_id: "allocline-1",
-            container_line_id: "cl-deleted",
-          },
-        ],
-        error: null,
-      },
-      inventory_container_lines: PHYS_NO_CONTAINER_LINES,
-      inventory_containers: PHYS_NO_CONTAINERS,
-      repair_order_location_attribution_uncertain: PHYS_NO_UNCERTAIN,
-    });
+      PHYS_STATE_SUCCESS([{ location_id: "loc-1", quantity: 10 }])
+    );
 
     const result = await RepairOrdersService.getPhysicalStateForLine(supabase, "line-1");
     expect(result.success).toBe(true);
@@ -4884,20 +4924,131 @@ describe("RepairOrdersService.getPhysicalStateForLine", () => {
     expect(loc?.containers).toEqual([]);
   });
 
-  it("marks the bucket 'unknown' when Zone 5's own attribution-uncertain marker exists for a touched location", async () => {
-    const supabase = buildPhysicalStateSupabaseMock({
-      repair_order_lines: PHYS_LINE_FOUND,
-      repair_orders: PHYS_ORDER_FOUND,
-      repair_order_line_locations: { data: [{ location_id: "loc-1", quantity: 10 }], error: null },
-      inventory_reservations: PHYS_NO_RESERVATIONS,
-      inventory_allocation_container_links: PHYS_NO_LINKS,
-      inventory_container_lines: PHYS_NO_CONTAINER_LINES,
-      inventory_containers: PHYS_NO_CONTAINERS,
-      repair_order_location_attribution_uncertain: {
-        data: [{ location_id: "loc-1" }],
-        error: null,
+  it("10. get_repair_order_line_physical_state raising P0008 (bucket-level history inconsistency) surfaces as 'inconsistent_history', not a generic server-error failure", async () => {
+    const supabase = buildPhysicalStateSupabaseMock(
+      {
+        repair_order_lines: PHYS_LINE_FOUND,
+        repair_orders: PHYS_ORDER_FOUND,
+        inventory_reservations: PHYS_NO_RESERVATIONS,
+        inventory_allocation_container_links: PHYS_NO_LINKS,
+        inventory_container_lines: PHYS_NO_CONTAINER_LINES,
+        inventory_containers: PHYS_NO_CONTAINERS,
       },
-    });
+      PHYS_STATE_INCONSISTENT_RESPONSE
+    );
+
+    const result = await RepairOrdersService.getPhysicalStateForLine(supabase, "line-1");
+    expect(result.success).toBe(true);
+    if (!result.success) throw new Error("unreachable");
+    expect(result.data?.consistency).toBe("inconsistent_history");
+    // Zone 5's own physical-quantity signal is not trusted at all in this
+    // case -- the read failed, it was not merely empty -- so no location
+    // shows a nonzero physicalQuantity even though this scenario has zero
+    // reservations/allocations to otherwise populate the locations list.
+    expect(result.data?.locations).toEqual([]);
+  });
+
+  it("11. an actual RPC/network error (not P0008) still returns a generic server-error failure, not silently swallowed", async () => {
+    const supabase = buildPhysicalStateSupabaseMock(
+      {
+        repair_order_lines: PHYS_LINE_FOUND,
+        repair_orders: PHYS_ORDER_FOUND,
+        inventory_reservations: PHYS_NO_RESERVATIONS,
+        inventory_allocation_container_links: PHYS_NO_LINKS,
+        inventory_container_lines: PHYS_NO_CONTAINER_LINES,
+        inventory_containers: PHYS_NO_CONTAINERS,
+      },
+      {
+        data: null,
+        error: { code: "57014", message: "canceling statement due to statement timeout" },
+      }
+    );
+
+    const result = await RepairOrdersService.getPhysicalStateForLine(supabase, "line-1");
+    expect(result.success).toBe(false);
+    expect((result as { success: false; error: string }).error).toBe(
+      "Failed to load physical stock state due to an unexpected server error. Please try again or contact support."
+    );
+  });
+
+  it("12. marks the bucket 'unknown' when an active container link's own container disagrees with its own allocation line's location (Phase 10C internal inconsistency, never silently trusted)", async () => {
+    const supabase = buildPhysicalStateSupabaseMock(
+      {
+        repair_order_lines: PHYS_LINE_FOUND,
+        repair_orders: PHYS_ORDER_FOUND,
+        inventory_reservations: {
+          data: [
+            {
+              id: "res-1",
+              reservation_number: "RES-000001",
+              status: "active",
+              expires_at: null,
+              created_at: "2026-01-01T00:00:00Z",
+              inventory_reservation_lines: [
+                {
+                  id: "resline-1",
+                  variant_id: "variant-1",
+                  location_id: "loc-1",
+                  lot_id: null,
+                  serial_id: null,
+                  reserved_quantity: 10,
+                  released_quantity: 0,
+                  fulfilled_quantity: 0,
+                },
+              ],
+            },
+          ],
+          error: null,
+        },
+        inventory_allocation_lines: {
+          data: [
+            {
+              id: "allocline-1",
+              reservation_line_id: "resline-1",
+              variant_id: "variant-1",
+              location_id: "loc-1",
+              lot_id: null,
+              serial_id: null,
+              allocated_quantity: 10,
+              fulfilled_quantity: 0,
+              allocation: {
+                id: "alloc-1",
+                allocation_number: "ALLOC-000001",
+                status: "active",
+                deleted_at: null,
+              },
+            },
+          ],
+          error: null,
+        },
+        inventory_allocation_container_links: {
+          data: [
+            {
+              id: "link-1",
+              quantity: 10,
+              allocation_line_id: "allocline-1",
+              container_line_id: "cl-1",
+            },
+          ],
+          error: null,
+        },
+        inventory_container_lines: {
+          data: [{ id: "cl-1", container_id: "container-a" }],
+          error: null,
+        },
+        inventory_containers: {
+          // Deliberately mismatched: the container's own current_location_id
+          // (loc-2) disagrees with its own allocation line's locationId
+          // (loc-1) -- a state the Phase 10C RPC itself should never allow,
+          // surfaced as "unknown" rather than silently trusted.
+          data: [
+            { id: "container-a", code: "CONT-A", current_location_id: "loc-2", status: "active" },
+          ],
+          error: null,
+        },
+      },
+      PHYS_STATE_SUCCESS([{ location_id: "loc-1", quantity: 10 }])
+    );
 
     const result = await RepairOrdersService.getPhysicalStateForLine(supabase, "line-1");
     expect(result.success).toBe(true);

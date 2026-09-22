@@ -212,7 +212,7 @@ END $$;
 -- ============================================================================
 INSERT INTO test_log(line) SELECT ok(NOT has_function_privilege('authenticated', 'inventory_finalize_posting_internal(uuid,uuid,jsonb)', 'EXECUTE'), 'N1: inventory_finalize_posting_internal remains non-executable by authenticated');
 INSERT INTO test_log(line) SELECT ok(NOT has_function_privilege('authenticated', 'write_repair_order_line_movement_link_internal(uuid,uuid,numeric,text,boolean)', 'EXECUTE'), 'N2: write_repair_order_line_movement_link_internal remains non-executable by authenticated');
-INSERT INTO test_log(line) SELECT ok(NOT has_function_privilege('authenticated', 'rebuild_repair_order_projection_bucket_internal(uuid,uuid,uuid,uuid)', 'EXECUTE'), 'N3: rebuild_repair_order_projection_bucket_internal remains non-executable by authenticated');
+INSERT INTO test_log(line) SELECT is((SELECT count(*) FROM pg_proc WHERE proname = 'rebuild_repair_order_projection_bucket_internal'), 0::bigint, 'N3 (A8): rebuild_repair_order_projection_bucket_internal no longer exists at all (removed, not merely non-executable)');
 
 RESET ROLE;
 

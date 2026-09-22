@@ -62,9 +62,10 @@ SELECT plan(17);
 -- ===========================================================================
 -- Fixtures: a full, real Zone 5 provenance chain (workshop_source_documents
 -- -> workshop_source_document_lines -> repair_order_line_source_links) is
--- required because `receive_repair_order_stock` only writes a
--- `repair_order_line_locations` row when `source_line_id` resolves to
--- exactly one RepairOrderLine. `wdd_matcher_line_id` below reuses a REAL,
+-- required because `receive_repair_order_stock` only writes a canonical
+-- `repair_order_line_movement_links` attribution row (A8: live-read
+-- physical state derives from this, not a persisted projection) when
+-- `source_line_id` resolves to exactly one RepairOrderLine. `wdd_matcher_line_id` below reuses a REAL,
 -- existing `wdd_matcher_lines` row as its own FK target (LIVE VERIFIED zero
 -- other `workshop_source_document_lines` rows already reference it) -- the
 -- same anchor-to-a-real-existing-row convention this project's own test
@@ -155,8 +156,8 @@ SELECT receive_repair_order_stock(
 INSERT INTO test_log(line) SELECT is((result ->> 'status'), 'posted', 'T1: receive_repair_order_stock posts a real 101 receipt for 10 units (unaffected by IC-1)') FROM recv;
 
 INSERT INTO test_log(line) SELECT is(
-  (SELECT quantity FROM repair_order_line_locations WHERE repair_order_line_id = (SELECT rol FROM fx) AND location_id = (SELECT receiving_location_id FROM fx)),
-  10::numeric, 'T2: repair_order_line_locations shows 10 units at the receiving location after receipt'
+  (SELECT (loc->>'quantity')::numeric FROM fx, jsonb_array_elements(get_repair_order_line_physical_state(org, branch, rol)->'locations') loc WHERE loc->>'location_id' = receiving_location_id::text),
+  10::numeric, 'T2 (A8): live-read physical state shows 10 units at the receiving location after receipt'
 );
 
 CREATE TEMP TABLE movement_count_baseline AS

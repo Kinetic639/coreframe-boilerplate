@@ -627,7 +627,7 @@ export interface RepairOrderLinePhysicalStateContainer {
 /**
  * One physical-location bucket in a RepairOrderLine's own reconciled state.
  * `locationId` values are the UNION of every location either Zone 5's own
- * `repair_order_line_locations` projection OR this line's own outstanding
+ * live physical-state read (A8) OR this line's own outstanding
  * allocations claim -- a location present on only one side is still
  * surfaced here (with the other side's own quantities at 0), which is
  * exactly what makes a `location_mismatch`/`uncontainerized` bucket
@@ -635,7 +635,7 @@ export interface RepairOrderLinePhysicalStateContainer {
  */
 export interface RepairOrderLinePhysicalStateLocation {
   locationId: string;
-  /** Zone 5's own `repair_order_line_locations.quantity` at this location. */
+  /** Zone 5's own live-computed physical quantity at this location (A8: `get_repair_order_line_physical_state`, not a persisted projection). */
   physicalQuantity: number;
   /** Sum of this line's own outstanding reservation-line quantity here. */
   reservedQuantity: number;
@@ -660,27 +660,35 @@ export interface RepairOrderLinePhysicalStateLocation {
  *   sets -- a real, reachable divergence (see the integration audit) since
  *   nothing today wires a reservation's own `location_id` to wherever
  *   Zone 5's putaway actually placed the stock.
- * - `"unknown"`: either Zone 5's own attribution for a touched
- *   (location, variant) bucket is explicitly marked uncertain
- *   (`repair_order_location_attribution_uncertain` -- Zone 5's own
- *   documented "treat as UNKNOWN regardless of what the projection
- *   currently holds" contract, honored here verbatim), or this method
- *   found an active container link whose own container disagrees with its
- *   own allocation line's `location_id` (which the Phase 10C RPC itself
- *   should never allow -- surfaced as `unknown`, not silently trusted,
- *   per the "no guessing" requirement).
+ * - `"unknown"`: this method found an active container link whose own
+ *   container disagrees with its own allocation line's `location_id`
+ *   (which the Phase 10C RPC itself should never allow -- surfaced as
+ *   `unknown`, not silently trusted, per the "no guessing" requirement).
+ * - `"inconsistent_history"` (A8, 2026-09-22): Zone 5's own live physical-
+ *   state read (`get_repair_order_line_physical_state`) found a bucket
+ *   where canonical attribution history (`repair_order_line_movement_
+ *   links` + the ledger) is inconsistent with physical reality -- e.g. a
+ *   generic, non-RepairOrder-aware movement decreased stock at an
+ *   attributed bucket without recording a link. Reported explicitly,
+ *   never silently clamped or guessed; takes precedence over every other
+ *   consistency value, since Zone 5's own physical-quantity signal cannot
+ *   be trusted for this line's own locations at all when this fires (all
+ *   `physicalQuantity` values are 0 in this case -- the read failed, it
+ *   was not merely empty).
  */
 export type RepairOrderLinePhysicalStateConsistency =
   | "consistent"
   | "uncontainerized"
   | "location_mismatch"
-  | "unknown";
+  | "unknown"
+  | "inconsistent_history";
 
 /**
- * Zone 3 <-> Zone 5 integration layer (2026-09-15): "what is the current
- * physical stock state for this RepairOrderLine?", reconciling Zone 5's own
- * spatial projection (`repair_order_line_locations`) with Phase 10's own
- * reservation/allocation/container chain, WITHOUT mutating either side.
+ * Zone 3 <-> Zone 5 integration layer (2026-09-15, live-read since A8
+ * 2026-09-22): "what is the current physical stock state for this
+ * RepairOrderLine?", reconciling Zone 5's own live-computed physical
+ * state with Phase 10's own reservation/allocation/container chain,
+ * WITHOUT mutating either side.
  * See `RepairOrdersService.getPhysicalStateForLine`'s own doc comment for
  * the full reconciliation algorithm and its "never guess" guarantee.
  */
@@ -3210,26 +3218,30 @@ export class RepairOrdersService {
   }
 
   /**
-   * Zone 3 <-> Zone 5 integration layer (2026-09-15): "what is the current
-   * physical stock state for this RepairOrderLine?" -- reconciles Zone 5's
-   * own spatial projection (`repair_order_line_locations`, written by
-   * `receive_repair_order_stock`/`putaway_repair_order_stock`) with this
-   * line's own reservation/allocation/container chain (Phase 10A/10B/10C),
-   * a PURE READ, mutating neither side. Per the accepted integration
-   * decision: these are SEQUENTIAL stages of one normal lifecycle
-   * (101 receive -> 801 putaway -> reservation -> allocation -> container
-   * -> QR -> 801 relocation -> issue), not competing models -- this method
-   * is the first read layer that looks at both stages together.
+   * Zone 3 <-> Zone 5 integration layer (2026-09-15, live-read since A8
+   * 2026-09-22): "what is the current physical stock state for this
+   * RepairOrderLine?" -- reconciles Zone 5's own physical-location state,
+   * now computed LIVE on every call via `get_repair_order_line_physical_
+   * state` (no more persisted, incrementally-maintained projection table --
+   * see the A8 review bundle) with this line's own reservation/allocation/
+   * container chain (Phase 10A/10B/10C), a PURE READ, mutating neither
+   * side. Per the accepted integration decision: these are SEQUENTIAL
+   * stages of one normal lifecycle (101 receive -> 801 putaway ->
+   * reservation -> allocation -> container -> QR -> 801 relocation ->
+   * issue), not competing models -- this method is the first read layer
+   * that looks at both stages together.
    *
    * NEVER guesses. If the two sides' own physical-location claims disagree,
-   * or if Zone 5's own attribution for a touched (location, variant) bucket
-   * is explicitly marked uncertain, this returns an honest
-   * `"location_mismatch"`/`"unknown"` consistency value rather than
-   * silently preferring one side -- see `RepairOrderLinePhysicalStateConsistency`'s
-   * own doc comment for the exact rules and their precedence.
+   * this returns an honest `"location_mismatch"` consistency value rather
+   * than silently preferring one side. If the live read itself detects a
+   * bucket-level history inconsistency (canonical attribution exceeding
+   * physical reality), this returns `"inconsistent_history"` rather than
+   * silently clamping or guessing -- see
+   * `RepairOrderLinePhysicalStateConsistency`'s own doc comment for the
+   * exact rules and their precedence.
    *
    * NO hard schema coupling was added to produce this: no FK/trigger
-   * between `repair_order_line_locations` and
+   * between the live-read RPC and
    * `inventory_containers`/`inventory_allocation_container_links` -- this
    * method reconciles them entirely in application code, reading each
    * domain's own existing, unmodified tables/read-model methods.
@@ -3263,26 +3275,46 @@ export class RepairOrdersService {
       return { success: true, data: null };
     }
 
-    // ---- Zone 5's own spatial projection --------------------------------
-    const { data: zone5Rows, error: zone5Error } = await supabase
-      .from("repair_order_line_locations")
-      .select("location_id, quantity")
-      .eq("repair_order_line_id", repairOrderLineId)
-      .eq("organization_id", scope.organizationId)
-      .eq("branch_id", scope.branchId)
-      .eq("variant_id", scope.variantId)
-      .gt("quantity", 0);
+    // ---- Zone 5's own physical-location state, computed LIVE (A8) ------
+    const { data: physicalStateRow, error: physicalStateError } = await supabase.rpc(
+      "get_repair_order_line_physical_state",
+      {
+        p_organization_id: scope.organizationId,
+        p_branch_id: scope.branchId,
+        p_repair_order_line_id: repairOrderLineId,
+      }
+    );
 
-    if (zone5Error) {
-      console.error(
-        "[RepairOrdersService.getPhysicalStateForLine] repair_order_line_locations query error:",
-        zone5Error
-      );
-      return {
-        success: false,
-        error:
-          "Failed to load physical stock state due to an unexpected server error. Please try again or contact support.",
+    let zone5Rows: { location_id: string; quantity: number }[] = [];
+    let historyInconsistent = false;
+
+    if (physicalStateError) {
+      if (physicalStateError.code === "P0008") {
+        // A genuine, explicit history inconsistency (never silently
+        // clamped/guessed) -- surfaced as its own consistency value below,
+        // not treated as a generic server-error failure. Zone 5's own
+        // physical-quantity signal is not trusted for this line at all
+        // in this case (every location's own physicalQuantity is 0).
+        historyInconsistent = true;
+      } else {
+        console.error(
+          "[RepairOrdersService.getPhysicalStateForLine] get_repair_order_line_physical_state RPC error:",
+          physicalStateError
+        );
+        return {
+          success: false,
+          error:
+            "Failed to load physical stock state due to an unexpected server error. Please try again or contact support.",
+        };
+      }
+    } else {
+      const row = physicalStateRow as {
+        locations: { location_id: string; variant_id: string; quantity: number }[];
       };
+      zone5Rows = (row?.locations ?? []).map((l) => ({
+        location_id: l.location_id,
+        quantity: l.quantity,
+      }));
     }
 
     // ---- Phase 10A/10B: reservations and allocations, reused -----------
@@ -3438,31 +3470,6 @@ export class RepairOrdersService {
     }
     for (const line of allocationsResult.data) locationIds.add(line.locationId);
 
-    // ---- Zone 5's own "treat as UNKNOWN regardless" marker -------------
-    let uncertainLocationIds = new Set<string>();
-    if (scope.variantId && locationIds.size > 0) {
-      const { data: uncertainRows, error: uncertainError } = await supabase
-        .from("repair_order_location_attribution_uncertain")
-        .select("location_id")
-        .eq("organization_id", scope.organizationId)
-        .eq("branch_id", scope.branchId)
-        .eq("variant_id", scope.variantId)
-        .in("location_id", [...locationIds]);
-
-      if (uncertainError) {
-        console.error(
-          "[RepairOrdersService.getPhysicalStateForLine] repair_order_location_attribution_uncertain query error:",
-          uncertainError
-        );
-        return {
-          success: false,
-          error:
-            "Failed to load physical stock state due to an unexpected server error. Please try again or contact support.",
-        };
-      }
-      uncertainLocationIds = new Set((uncertainRows ?? []).map((r) => r.location_id as string));
-    }
-
     // ---- Build one bucket per location ----------------------------------
     const locations: RepairOrderLinePhysicalStateLocation[] = [...locationIds]
       .sort()
@@ -3516,12 +3523,9 @@ export class RepairOrdersService {
         };
       });
 
-    // ---- Overall consistency (precedence: unknown > mismatch >
-    // uncontainerized > consistent) ---------------------------------------
+    // ---- Overall consistency (precedence: inconsistent_history > unknown
+    // > mismatch > uncontainerized > consistent) --------------------------
     let consistency: RepairOrderLinePhysicalStateConsistency;
-    const anyUncertain =
-      hasInternalPhase10cInconsistency ||
-      locations.some((loc) => uncertainLocationIds.has(loc.locationId));
 
     const zone5LocationSet = new Set(
       locations.filter((l) => l.physicalQuantity > 0).map((l) => l.locationId)
@@ -3535,7 +3539,9 @@ export class RepairOrdersService {
       ([...zone5LocationSet].some((id) => !allocatedLocationSet.has(id)) ||
         [...allocatedLocationSet].some((id) => !zone5LocationSet.has(id)));
 
-    if (anyUncertain) {
+    if (historyInconsistent) {
+      consistency = "inconsistent_history";
+    } else if (hasInternalPhase10cInconsistency) {
       consistency = "unknown";
     } else if (setsDiffer) {
       consistency = "location_mismatch";

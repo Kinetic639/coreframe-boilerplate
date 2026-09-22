@@ -254,12 +254,12 @@ INSERT INTO test_log(line) SELECT isnt(
   'G5: rol_a and rol_b are attributed to two DISTINCT movement lines (no cross-line contamination)'
 );
 INSERT INTO test_log(line) SELECT is(
-  (SELECT quantity FROM repair_order_line_locations WHERE repair_order_line_id = (SELECT rol_a FROM fxg) AND location_id = (SELECT receiving_loc FROM fxg)),
-  6::numeric, 'G6: repair_order_line_locations seeded correctly for rol_a (quantity=6)'
+  (SELECT (loc->>'quantity')::numeric FROM fxg, jsonb_array_elements(get_repair_order_line_physical_state(org, branch, rol_a)->'locations') loc WHERE loc->>'location_id' = receiving_loc::text),
+  6::numeric, 'G6 (A8): live-read physical state correctly shows rol_a (quantity=6)'
 );
 INSERT INTO test_log(line) SELECT is(
-  (SELECT quantity FROM repair_order_line_locations WHERE repair_order_line_id = (SELECT rol_b FROM fxg) AND location_id = (SELECT receiving_loc FROM fxg)),
-  4::numeric, 'G7: repair_order_line_locations seeded correctly for rol_b (quantity=4)'
+  (SELECT (loc->>'quantity')::numeric FROM fxg, jsonb_array_elements(get_repair_order_line_physical_state(org, branch, rol_b)->'locations') loc WHERE loc->>'location_id' = receiving_loc::text),
+  4::numeric, 'G7 (A8): live-read physical state correctly shows rol_b (quantity=4)'
 );
 INSERT INTO test_log(line) SELECT is(
   (SELECT count(*)::int FROM repair_order_line_movement_links rolml JOIN inventory_movement_lines iml ON iml.id = rolml.inventory_movement_line_id WHERE iml.movement_id = ((SELECT result FROM recv_g)->>'movement_id')::uuid),
