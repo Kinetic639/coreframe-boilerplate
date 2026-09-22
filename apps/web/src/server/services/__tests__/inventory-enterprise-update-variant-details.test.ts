@@ -1,14 +1,14 @@
 /**
  * @vitest-environment node
  *
- * Focused unit test for InventoryEnterpriseService.updateVariantDetails,
+ * Focused unit test for InventoryProductsService.updateVariantDetails,
  * covering the default_supplier_id addition (stock-audit implementation
  * plan §10) — a plain column on inventory_variants, distinct from
  * preferred_supplier_id which is stored on the separate
  * inventory_reorder_rules table.
  */
 import { describe, expect, it, vi } from "vitest";
-import { InventoryEnterpriseService } from "../inventory-enterprise.service";
+import { InventoryProductsService } from "../inventory-products.service";
 
 const ORG_ID = "org-1";
 const VARIANT_ID = "variant-1";
@@ -34,11 +34,11 @@ function makeSupabaseMock(updateResult: { data: unknown; error: unknown }) {
   };
 }
 
-describe("InventoryEnterpriseService.updateVariantDetails", () => {
+describe("InventoryProductsService.updateVariantDetails", () => {
   it("includes default_supplier_id in the UPDATE payload when explicitly provided", async () => {
     const supabase = makeSupabaseMock({ data: { id: VARIANT_ID }, error: null });
 
-    const result = await InventoryEnterpriseService.updateVariantDetails(
+    const result = await InventoryProductsService.updateVariantDetails(
       supabase.client as never,
       ORG_ID,
       VARIANT_ID,
@@ -54,7 +54,7 @@ describe("InventoryEnterpriseService.updateVariantDetails", () => {
   it("includes default_supplier_id: null when explicitly clearing it", async () => {
     const supabase = makeSupabaseMock({ data: { id: VARIANT_ID }, error: null });
 
-    await InventoryEnterpriseService.updateVariantDetails(
+    await InventoryProductsService.updateVariantDetails(
       supabase.client as never,
       ORG_ID,
       VARIANT_ID,
@@ -73,7 +73,7 @@ describe("InventoryEnterpriseService.updateVariantDetails", () => {
   it("omits default_supplier_id from the UPDATE payload when not provided (leaves existing value untouched)", async () => {
     const supabase = makeSupabaseMock({ data: { id: VARIANT_ID }, error: null });
 
-    await InventoryEnterpriseService.updateVariantDetails(
+    await InventoryProductsService.updateVariantDetails(
       supabase.client as never,
       ORG_ID,
       VARIANT_ID,
@@ -89,7 +89,7 @@ describe("InventoryEnterpriseService.updateVariantDetails", () => {
   it("propagates a DB error", async () => {
     const supabase = makeSupabaseMock({ data: null, error: { message: "constraint violated" } });
 
-    const result = await InventoryEnterpriseService.updateVariantDetails(
+    const result = await InventoryProductsService.updateVariantDetails(
       supabase.client as never,
       ORG_ID,
       VARIANT_ID,

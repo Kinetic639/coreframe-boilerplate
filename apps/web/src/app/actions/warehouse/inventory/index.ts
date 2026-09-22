@@ -1851,7 +1851,7 @@ export async function createInventoryOptionGroupAction(rawInput: unknown) {
     if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
     const userId = userIdFrom(auth);
     const supabase = await createClient();
-    return InventoryEnterpriseService.createOptionGroup(supabase, auth.context.app.activeOrgId, {
+    return InventoryProductsService.createOptionGroup(supabase, auth.context.app.activeOrgId, {
       name: parsed.data.name!,
       display_order: parsed.data.display_order,
       actor_user_id: userId,
@@ -1871,7 +1871,7 @@ export async function createInventoryOptionValueAction(rawInput: unknown) {
     if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
     const userId = userIdFrom(auth);
     const supabase = await createClient();
-    return InventoryEnterpriseService.createOptionValue(supabase, auth.context.app.activeOrgId, {
+    return InventoryProductsService.createOptionValue(supabase, auth.context.app.activeOrgId, {
       option_group_id: parsed.data.option_group_id!,
       value: parsed.data.value!,
       display_order: parsed.data.display_order,
@@ -1892,7 +1892,7 @@ export async function generateInventoryVariantsAction(rawInput: unknown) {
     if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
     const userId = userIdFrom(auth);
     const supabase = await createClient();
-    return InventoryEnterpriseService.generateVariants(supabase, auth.context.app.activeOrgId, {
+    return InventoryProductsService.generateVariants(supabase, auth.context.app.activeOrgId, {
       product_id: parsed.data.product_id!,
       variants: (parsed.data.variants ?? []).map((variant) => ({
         sku: variant.sku!,
@@ -1920,7 +1920,7 @@ export async function updateInventoryVariantPricingAction(rawInput: unknown) {
     if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
     const userId = userIdFrom(auth);
     const supabase = await createClient();
-    return InventoryEnterpriseService.updateVariantPricing(
+    return InventoryProductsService.updateVariantPricing(
       supabase,
       auth.context.app.activeOrgId,
       parsed.data.variant_id!,
@@ -1961,7 +1961,7 @@ export async function updateInventoryVariantAction(rawInput: unknown) {
       };
     }
 
-    return InventoryEnterpriseService.updateVariantDetails(
+    return InventoryProductsService.updateVariantDetails(
       supabase,
       auth.context.app.activeOrgId,
       parsed.data.variant_id!,
@@ -2025,7 +2025,7 @@ export async function createInventoryLotAction(rawInput: unknown) {
     if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
     const userId = userIdFrom(auth);
     const supabase = await createClient();
-    return InventoryEnterpriseService.createLot(supabase, auth.context.app.activeOrgId, {
+    return InventoryProductsService.createLot(supabase, auth.context.app.activeOrgId, {
       product_id: parsed.data.product_id!,
       variant_id: parsed.data.variant_id!,
       lot_number: parsed.data.lot_number!,
@@ -2049,7 +2049,7 @@ export async function createInventorySerialAction(rawInput: unknown) {
     if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
     const userId = userIdFrom(auth);
     const supabase = await createClient();
-    return InventoryEnterpriseService.createSerial(supabase, auth.context.app.activeOrgId, {
+    return InventoryProductsService.createSerial(supabase, auth.context.app.activeOrgId, {
       product_id: parsed.data.product_id!,
       variant_id: parsed.data.variant_id!,
       serial_number: parsed.data.serial_number!,

@@ -1,0 +1,2067 @@
+diff --git a/apps/public-web/src/app/actions/warehouse/ambra-location-inventory.ts b/apps/public-web/src/app/actions/warehouse/ambra-location-inventory.ts
+index ab362d0d..d59c32b9 100644
+--- a/apps/public-web/src/app/actions/warehouse/ambra-location-inventory.ts
++++ b/apps/public-web/src/app/actions/warehouse/ambra-location-inventory.ts
+@@ -22,19 +22,6 @@ const createContainerSchema = z.object({
+   current_location_id: uuidSchema,
+ });
+ 
+-const createPutawayRuleSchema = z
+-  .object({
+-    destination_location_id: uuidSchema,
+-    variant_id: uuidSchema.nullable().optional(),
+-    product_id: uuidSchema.nullable().optional(),
+-    product_category: z.string().trim().max(120).nullable().optional(),
+-    priority: z.number().int().min(0).max(10000).optional().default(100),
+-  })
+-  .refine(
+-    (value) => Boolean(value.variant_id || value.product_id || value.product_category),
+-    "Select a variant, product, or category"
+-  );
+-
+ async function requireStockableLocation(
+   locationId: string,
+   orgId: string,
+@@ -106,37 +93,6 @@ export async function createLocationContainerAction(rawInput: unknown) {
+   }
+ }
+ 
+-export async function deletePutawayRuleAction(rawInput: unknown) {
+-  try {
+-    const auth = await requireWarehouseContext();
+-    if (!auth.success) return auth;
+-    if (!hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE)) {
+-      return { success: false as const, error: "Unauthorized" };
+-    }
+-    const branch = requireActiveBranch(auth);
+-    if (!branch.success) return branch;
+-
+-    const parsed = uuidSchema.safeParse(rawInput);
+-    if (!parsed.success) return { success: false as const, error: "Invalid rule id" };
+-
+-    const orgId = auth.context.app.activeOrgId;
+-    const supabase = await createClient();
+-    const client = supabase as any;
+-    const { error } = await client
+-      .from("inventory_putaway_rules")
+-      .update({ deleted_at: new Date().toISOString() })
+-      .eq("id", parsed.data)
+-      .eq("organization_id", orgId)
+-      .eq("branch_id", branch.branchId);
+-
+-    if (error) return { success: false as const, error: error.message };
+-    revalidatePath("/dashboard/warehouse/locations");
+-    return { success: true as const };
+-  } catch (error) {
+-    return mapUnexpected(error);
+-  }
+-}
+-
+ const addItemsSchema = z.object({
+   container_id: uuidSchema,
+   lines: z
+@@ -481,138 +437,3 @@ export async function relocateContainerAction(rawInput: unknown) {
+     return mapUnexpected(error);
+   }
+ }
+-
+-const findByReferenceSchema = z.object({
+-  reference_type: z.string().trim().min(1),
+-  reference_id: z.string().trim().min(1),
+-});
+-
+-export async function findContainersByReferenceAction(rawInput: unknown) {
+-  try {
+-    const auth = await requireWarehouseContext();
+-    if (!auth.success) return auth;
+-    const branch = requireActiveBranch(auth);
+-    if (!branch.success) return branch;
+-
+-    const parsed = findByReferenceSchema.safeParse(rawInput);
+-    if (!parsed.success) return { success: false as const, error: parsed.error.errors[0].message };
+-
+-    const orgId = auth.context.app.activeOrgId;
+-    const supabase = await createClient();
+-    const client = supabase as any;
+-
+-    const { data, error } = await client
+-      .from("inventory_containers")
+-      .select(
+-        "id, code, type, status, current_location_id, reference_type, reference_id, created_at, updated_at"
+-      )
+-      .eq("organization_id", orgId)
+-      .eq("branch_id", branch.branchId)
+-      .eq("reference_type", parsed.data.reference_type)
+-      .eq("reference_id", parsed.data.reference_id)
+-      .is("deleted_at", null)
+-      .neq("status", "archived")
+-      .order("updated_at", { ascending: false });
+-
+-    if (error) return { success: false as const, error: error.message };
+-
+-    const containers = (data ?? []) as Array<{
+-      id: string;
+-      code: string;
+-      type: string;
+-      status: string;
+-      current_location_id: string;
+-      reference_type: string | null;
+-      reference_id: string | null;
+-      created_at: string;
+-      updated_at: string;
+-    }>;
+-
+-    if (containers.length === 0) return { success: true as const, data: [] };
+-
+-    const locationIds = [...new Set(containers.map((c) => c.current_location_id))];
+-    const { data: locationsData } = await supabase
+-      .from("warehouse_locations")
+-      .select("id, name, code")
+-      .eq("organization_id", orgId)
+-      .in("id", locationIds);
+-
+-    const locationsById = new Map(
+-      ((locationsData ?? []) as Array<{ id: string; name: string; code: string }>).map((l) => [
+-        l.id,
+-        l,
+-      ])
+-    );
+-
+-    return {
+-      success: true as const,
+-      data: containers.map((c) => {
+-        const loc = locationsById.get(c.current_location_id);
+-        return {
+-          id: c.id,
+-          code: c.code,
+-          type: c.type,
+-          status: c.status,
+-          currentLocationId: c.current_location_id,
+-          currentLocationName: loc ? `${loc.code} - ${loc.name}` : null,
+-          referenceType: c.reference_type,
+-          referenceId: c.reference_id,
+-          createdAt: c.created_at,
+-          updatedAt: c.updated_at,
+-        };
+-      }),
+-    };
+-  } catch (error) {
+-    return mapUnexpected(error);
+-  }
+-}
+-
+-export async function createLocationPutawayRuleAction(rawInput: unknown) {
+-  try {
+-    const auth = await requireWarehouseContext();
+-    if (!auth.success) return auth;
+-    if (!hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE)) {
+-      return { success: false as const, error: "Unauthorized" };
+-    }
+-    const branch = requireActiveBranch(auth);
+-    if (!branch.success) return branch;
+-
+-    const parsed = createPutawayRuleSchema.safeParse(rawInput);
+-    if (!parsed.success) return { success: false as const, error: parsed.error.errors[0].message };
+-
+-    const orgId = auth.context.app.activeOrgId;
+-    const userId = userIdFrom(auth);
+-    if (!userId) return { success: false as const, error: "User identity unavailable" };
+-
+-    const location = await requireStockableLocation(
+-      parsed.data.destination_location_id,
+-      orgId,
+-      branch.branchId
+-    );
+-    if (!location.success) return location;
+-
+-    const supabase = await createClient();
+-    const client = supabase as any;
+-    const { data, error } = await client
+-      .from("inventory_putaway_rules")
+-      .insert({
+-        organization_id: orgId,
+-        branch_id: branch.branchId,
+-        destination_location_id: parsed.data.destination_location_id,
+-        variant_id: parsed.data.variant_id ?? null,
+-        product_id: parsed.data.product_id ?? null,
+-        product_category: parsed.data.product_category || null,
+-        priority: parsed.data.priority,
+-        created_by: userId,
+-        updated_by: userId,
+-      })
+-      .select("id")
+-      .single();
+-
+-    if (error) return { success: false as const, error: error.message };
+-    revalidatePath("/dashboard/warehouse/locations");
+-    return { success: true as const, data };
+-  } catch (error) {
+-    return mapUnexpected(error);
+-  }
+-}
+diff --git a/apps/public-web/src/server/services/inventory-products.service.ts b/apps/public-web/src/server/services/inventory-products.service.ts
+index 0184e23a..736ceb22 100644
+--- a/apps/public-web/src/server/services/inventory-products.service.ts
++++ b/apps/public-web/src/server/services/inventory-products.service.ts
+@@ -632,182 +632,6 @@ export class InventoryProductsService {
+     };
+   }
+ 
+-  static async createEnhancedProductLegacy(
+-    supabase: SupabaseClient,
+-    orgId: string,
+-    input: CreateEnhancedInventoryProductInput,
+-    userId: string
+-  ): Promise<ServiceResult<{ product_id: string; variant_ids: string[]; sku: string }>> {
+-    const variants = (input.variants ?? []).filter((variant) => variant.name.trim().length > 0);
+-    const firstVariant = variants[0];
+-    let productId: string | null = null;
+-    const createdVariantIds: string[] = [];
+-    const fail = async (
+-      error: string
+-    ): Promise<ServiceResult<{ product_id: string; variant_ids: string[]; sku: string }>> => {
+-      if (productId) {
+-        await InventoryProductsService.cleanupFailedEnhancedProductCreate(
+-          supabase,
+-          orgId,
+-          productId,
+-          userId
+-        );
+-      }
+-      return { success: false, error };
+-    };
+-
+-    const created = await InventoryProductsService.createProduct(
+-      supabase,
+-      orgId,
+-      {
+-        ...input,
+-        sku: firstVariant?.sku || input.sku,
+-      },
+-      userId
+-    );
+-    if (!created.success) return { success: false, error: serviceError(created) };
+-
+-    productId = created.data.product_id;
+-    const defaultVariantId = created.data.variant_id;
+-    const attributeValueIds = await InventoryProductsService.ensureAttributeValues(
+-      supabase,
+-      orgId,
+-      input.attributes ?? [],
+-      userId
+-    );
+-    if (!attributeValueIds.success) return fail(serviceError(attributeValueIds));
+-
+-    if (firstVariant) {
+-      const updateDefault = await InventoryProductsService.updateVariantForEnhancedCreate(
+-        supabase,
+-        orgId,
+-        defaultVariantId,
+-        firstVariant,
+-        userId
+-      );
+-      if (!updateDefault.success) return fail(serviceError(updateDefault));
+-      const optionResult = await InventoryProductsService.setVariantOptionValues(
+-        supabase,
+-        orgId,
+-        defaultVariantId,
+-        InventoryProductsService.optionValueIdsForVariant(firstVariant, attributeValueIds.data),
+-        userId
+-      );
+-      if (!optionResult.success) return fail(serviceError(optionResult));
+-      createdVariantIds.push(defaultVariantId);
+-    } else {
+-      createdVariantIds.push(defaultVariantId);
+-    }
+-
+-    const remainingVariants = variants.slice(1);
+-    for (const variant of remainingVariants) {
+-      const { data: inserted, error: insertError } = await supabase
+-        .from("inventory_variants")
+-        .insert({
+-          organization_id: orgId,
+-          product_id: productId,
+-          sku: variant.sku.trim(),
+-          name: variant.name.trim(),
+-          barcode: variant.barcode?.trim() || null,
+-          purchase_price: variant.purchase_price ?? null,
+-          sales_price: variant.sales_price ?? null,
+-          price_currency: variant.price_currency ?? null,
+-          created_by: userId,
+-          updated_by: userId,
+-        })
+-        .select("id")
+-        .single();
+-      if (insertError) return fail(insertError.message);
+-      const variantId = (inserted as { id: string }).id;
+-      const optionResult = await InventoryProductsService.setVariantOptionValues(
+-        supabase,
+-        orgId,
+-        variantId,
+-        InventoryProductsService.optionValueIdsForVariant(variant, attributeValueIds.data),
+-        userId
+-      );
+-      if (!optionResult.success) return fail(serviceError(optionResult));
+-      createdVariantIds.push(variantId);
+-    }
+-
+-    const variantsWithIds = variants.length
+-      ? variants.map((variant, index) => ({ variant, id: createdVariantIds[index] }))
+-      : [
+-          {
+-            variant: { sku: created.data.sku, name: input.name } as EnhancedVariantInput,
+-            id: defaultVariantId,
+-          },
+-        ];
+-
+-    const identifierResult = await InventoryProductsService.writeVariantIdentifiers(
+-      supabase,
+-      orgId,
+-      productId,
+-      variantsWithIds,
+-      userId
+-    );
+-    if (!identifierResult.success) return fail(serviceError(identifierResult));
+-
+-    if (input.branch_id) {
+-      const reorderResult = await InventoryProductsService.writeReorderRules(
+-        supabase,
+-        orgId,
+-        input.branch_id,
+-        input.preferred_supplier_id ?? null,
+-        variantsWithIds,
+-        userId
+-      );
+-      if (!reorderResult.success) return fail(serviceError(reorderResult));
+-    }
+-
+-    const tagResult = await InventoryProductsService.ensureTagsForProduct(
+-      supabase,
+-      orgId,
+-      productId,
+-      input.tags ?? [],
+-      userId
+-    );
+-    if (!tagResult.success) return fail(serviceError(tagResult));
+-
+-    const customFieldResult = await InventoryProductsService.writeCustomFieldValues(
+-      supabase,
+-      orgId,
+-      productId,
+-      variantsWithIds,
+-      input.custom_fields ?? [],
+-      userId
+-    );
+-    if (!customFieldResult.success) return fail(serviceError(customFieldResult));
+-
+-    const unitConversionResult = await InventoryProductsService.replaceProductUnitConversions(
+-      supabase,
+-      orgId,
+-      productId,
+-      input.unit_conversions ?? [],
+-      userId
+-    );
+-    if (!unitConversionResult.success) return fail(serviceError(unitConversionResult));
+-
+-    if (input.track_inventory && input.branch_id && input.opening_location_id) {
+-      const openingResult = await InventoryProductsService.createOpeningStockMovement(
+-        supabase,
+-        orgId,
+-        input.branch_id,
+-        input.opening_location_id,
+-        input.base_unit_id,
+-        productId,
+-        variantsWithIds,
+-        userId
+-      );
+-      if (!openingResult.success) return fail(serviceError(openingResult));
+-    }
+-
+-    return {
+-      success: true,
+-      data: { product_id: productId, variant_ids: createdVariantIds, sku: created.data.sku },
+-    };
+-  }
+-
+   static async updateProduct(
+     supabase: SupabaseClient,
+     orgId: string,
+@@ -1397,22 +1221,6 @@ export class InventoryProductsService {
+     };
+   }
+ 
+-  static async listSuppliers(
+-    supabase: SupabaseClient,
+-    orgId: string
+-  ): Promise<ServiceResult<Array<{ id: string; name: string }>>> {
+-    const { data, error } = await supabase
+-      .from("inventory_suppliers")
+-      .select("id, name")
+-      .eq("organization_id", orgId)
+-      .eq("status", "active")
+-      .is("deleted_at", null)
+-      .order("name", { ascending: true });
+-
+-    if (error) return { success: false, error: error.message };
+-    return { success: true, data: (data ?? []) as Array<{ id: string; name: string }> };
+-  }
+-
+   static async listOptionGroupsWithValues(
+     supabase: SupabaseClient,
+     orgId: string
+diff --git a/apps/web/src/app/actions/warehouse/ambra-location-inventory.ts b/apps/web/src/app/actions/warehouse/ambra-location-inventory.ts
+deleted file mode 100644
+index bf7fe6ca..00000000
+--- a/apps/web/src/app/actions/warehouse/ambra-location-inventory.ts
++++ /dev/null
+@@ -1,218 +0,0 @@
+-"use server";
+-
+-import { revalidatePath } from "next/cache";
+-import { z } from "zod";
+-
+-import { createClient } from "@/utils/supabase/server";
+-import { WAREHOUSE_INVENTORY_OPERATE } from "@/lib/constants/permissions";
+-import {
+-  hasPermission,
+-  mapUnexpected,
+-  requireActiveBranch,
+-  requireWarehouseContext,
+-  userIdFrom,
+-} from "./inventory/action-context";
+-
+-const uuidSchema = z.string().uuid("Invalid id");
+-
+-const createPutawayRuleSchema = z
+-  .object({
+-    destination_location_id: uuidSchema,
+-    variant_id: uuidSchema.nullable().optional(),
+-    product_id: uuidSchema.nullable().optional(),
+-    product_category: z.string().trim().max(120).nullable().optional(),
+-    priority: z.number().int().min(0).max(10000).optional().default(100),
+-  })
+-  .refine(
+-    (value) => Boolean(value.variant_id || value.product_id || value.product_category),
+-    "Select a variant, product, or category"
+-  );
+-
+-async function requireStockableLocation(
+-  locationId: string,
+-  orgId: string,
+-  branchId: string
+-): Promise<{ success: true } | { success: false; error: string }> {
+-  const supabase = await createClient();
+-  const { data, error } = await supabase
+-    .from("warehouse_locations")
+-    .select("id, can_store_inventory")
+-    .eq("id", locationId)
+-    .eq("organization_id", orgId)
+-    .eq("branch_id", branchId)
+-    .is("deleted_at", null)
+-    .maybeSingle();
+-
+-  if (error) return { success: false, error: error.message };
+-  if (!data) return { success: false, error: "Location not found" };
+-  if (!data.can_store_inventory) {
+-    return { success: false, error: "Only stockable bins can hold inventory placement" };
+-  }
+-  return { success: true };
+-}
+-
+-export async function deletePutawayRuleAction(rawInput: unknown) {
+-  try {
+-    const auth = await requireWarehouseContext();
+-    if (!auth.success) return auth;
+-    if (!hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE)) {
+-      return { success: false as const, error: "Unauthorized" };
+-    }
+-    const branch = requireActiveBranch(auth);
+-    if (!branch.success) return branch;
+-
+-    const parsed = uuidSchema.safeParse(rawInput);
+-    if (!parsed.success) return { success: false as const, error: "Invalid rule id" };
+-
+-    const orgId = auth.context.app.activeOrgId;
+-    const supabase = await createClient();
+-    const client = supabase as any;
+-    const { error } = await client
+-      .from("inventory_putaway_rules")
+-      .update({ deleted_at: new Date().toISOString() })
+-      .eq("id", parsed.data)
+-      .eq("organization_id", orgId)
+-      .eq("branch_id", branch.branchId);
+-
+-    if (error) return { success: false as const, error: error.message };
+-    revalidatePath("/dashboard/warehouse/locations");
+-    return { success: true as const };
+-  } catch (error) {
+-    return mapUnexpected(error);
+-  }
+-}
+-
+-const findByReferenceSchema = z.object({
+-  reference_type: z.string().trim().min(1),
+-  reference_id: z.string().trim().min(1),
+-});
+-
+-export async function findContainersByReferenceAction(rawInput: unknown) {
+-  try {
+-    const auth = await requireWarehouseContext();
+-    if (!auth.success) return auth;
+-    const branch = requireActiveBranch(auth);
+-    if (!branch.success) return branch;
+-
+-    const parsed = findByReferenceSchema.safeParse(rawInput);
+-    if (!parsed.success) return { success: false as const, error: parsed.error.errors[0].message };
+-
+-    const orgId = auth.context.app.activeOrgId;
+-    const supabase = await createClient();
+-    const client = supabase as any;
+-
+-    const { data, error } = await client
+-      .from("inventory_containers")
+-      .select(
+-        "id, code, type, status, current_location_id, reference_type, reference_id, created_at, updated_at"
+-      )
+-      .eq("organization_id", orgId)
+-      .eq("branch_id", branch.branchId)
+-      .eq("reference_type", parsed.data.reference_type)
+-      .eq("reference_id", parsed.data.reference_id)
+-      .is("deleted_at", null)
+-      .neq("status", "archived")
+-      .order("updated_at", { ascending: false });
+-
+-    if (error) return { success: false as const, error: error.message };
+-
+-    const containers = (data ?? []) as Array<{
+-      id: string;
+-      code: string;
+-      type: string;
+-      status: string;
+-      current_location_id: string;
+-      reference_type: string | null;
+-      reference_id: string | null;
+-      created_at: string;
+-      updated_at: string;
+-    }>;
+-
+-    if (containers.length === 0) return { success: true as const, data: [] };
+-
+-    const locationIds = [...new Set(containers.map((c) => c.current_location_id))];
+-    const { data: locationsData } = await supabase
+-      .from("warehouse_locations")
+-      .select("id, name, code")
+-      .eq("organization_id", orgId)
+-      .in("id", locationIds);
+-
+-    const locationsById = new Map(
+-      ((locationsData ?? []) as Array<{ id: string; name: string; code: string }>).map((l) => [
+-        l.id,
+-        l,
+-      ])
+-    );
+-
+-    return {
+-      success: true as const,
+-      data: containers.map((c) => {
+-        const loc = locationsById.get(c.current_location_id);
+-        return {
+-          id: c.id,
+-          code: c.code,
+-          type: c.type,
+-          status: c.status,
+-          currentLocationId: c.current_location_id,
+-          currentLocationName: loc ? `${loc.code} - ${loc.name}` : null,
+-          referenceType: c.reference_type,
+-          referenceId: c.reference_id,
+-          createdAt: c.created_at,
+-          updatedAt: c.updated_at,
+-        };
+-      }),
+-    };
+-  } catch (error) {
+-    return mapUnexpected(error);
+-  }
+-}
+-
+-export async function createLocationPutawayRuleAction(rawInput: unknown) {
+-  try {
+-    const auth = await requireWarehouseContext();
+-    if (!auth.success) return auth;
+-    if (!hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE)) {
+-      return { success: false as const, error: "Unauthorized" };
+-    }
+-    const branch = requireActiveBranch(auth);
+-    if (!branch.success) return branch;
+-
+-    const parsed = createPutawayRuleSchema.safeParse(rawInput);
+-    if (!parsed.success) return { success: false as const, error: parsed.error.errors[0].message };
+-
+-    const orgId = auth.context.app.activeOrgId;
+-    const userId = userIdFrom(auth);
+-    if (!userId) return { success: false as const, error: "User identity unavailable" };
+-
+-    const location = await requireStockableLocation(
+-      parsed.data.destination_location_id,
+-      orgId,
+-      branch.branchId
+-    );
+-    if (!location.success) return location;
+-
+-    const supabase = await createClient();
+-    const client = supabase as any;
+-    const { data, error } = await client
+-      .from("inventory_putaway_rules")
+-      .insert({
+-        organization_id: orgId,
+-        branch_id: branch.branchId,
+-        destination_location_id: parsed.data.destination_location_id,
+-        variant_id: parsed.data.variant_id ?? null,
+-        product_id: parsed.data.product_id ?? null,
+-        product_category: parsed.data.product_category || null,
+-        priority: parsed.data.priority,
+-        created_by: userId,
+-        updated_by: userId,
+-      })
+-      .select("id")
+-      .single();
+-
+-    if (error) return { success: false as const, error: error.message };
+-    revalidatePath("/dashboard/warehouse/locations");
+-    return { success: true as const, data };
+-  } catch (error) {
+-    return mapUnexpected(error);
+-  }
+-}
+diff --git a/apps/web/src/app/actions/warehouse/inventory/index.ts b/apps/web/src/app/actions/warehouse/inventory/index.ts
+index 9e33ae26..09efbd05 100644
+--- a/apps/web/src/app/actions/warehouse/inventory/index.ts
++++ b/apps/web/src/app/actions/warehouse/inventory/index.ts
+@@ -1851,7 +1851,7 @@ export async function createInventoryOptionGroupAction(rawInput: unknown) {
+     if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+     const userId = userIdFrom(auth);
+     const supabase = await createClient();
+-    return InventoryEnterpriseService.createOptionGroup(supabase, auth.context.app.activeOrgId, {
++    return InventoryProductsService.createOptionGroup(supabase, auth.context.app.activeOrgId, {
+       name: parsed.data.name!,
+       display_order: parsed.data.display_order,
+       actor_user_id: userId,
+@@ -1871,7 +1871,7 @@ export async function createInventoryOptionValueAction(rawInput: unknown) {
+     if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+     const userId = userIdFrom(auth);
+     const supabase = await createClient();
+-    return InventoryEnterpriseService.createOptionValue(supabase, auth.context.app.activeOrgId, {
++    return InventoryProductsService.createOptionValue(supabase, auth.context.app.activeOrgId, {
+       option_group_id: parsed.data.option_group_id!,
+       value: parsed.data.value!,
+       display_order: parsed.data.display_order,
+@@ -1892,7 +1892,7 @@ export async function generateInventoryVariantsAction(rawInput: unknown) {
+     if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+     const userId = userIdFrom(auth);
+     const supabase = await createClient();
+-    return InventoryEnterpriseService.generateVariants(supabase, auth.context.app.activeOrgId, {
++    return InventoryProductsService.generateVariants(supabase, auth.context.app.activeOrgId, {
+       product_id: parsed.data.product_id!,
+       variants: (parsed.data.variants ?? []).map((variant) => ({
+         sku: variant.sku!,
+@@ -1920,7 +1920,7 @@ export async function updateInventoryVariantPricingAction(rawInput: unknown) {
+     if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+     const userId = userIdFrom(auth);
+     const supabase = await createClient();
+-    return InventoryEnterpriseService.updateVariantPricing(
++    return InventoryProductsService.updateVariantPricing(
+       supabase,
+       auth.context.app.activeOrgId,
+       parsed.data.variant_id!,
+@@ -1961,7 +1961,7 @@ export async function updateInventoryVariantAction(rawInput: unknown) {
+       };
+     }
+ 
+-    return InventoryEnterpriseService.updateVariantDetails(
++    return InventoryProductsService.updateVariantDetails(
+       supabase,
+       auth.context.app.activeOrgId,
+       parsed.data.variant_id!,
+@@ -2025,7 +2025,7 @@ export async function createInventoryLotAction(rawInput: unknown) {
+     if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+     const userId = userIdFrom(auth);
+     const supabase = await createClient();
+-    return InventoryEnterpriseService.createLot(supabase, auth.context.app.activeOrgId, {
++    return InventoryProductsService.createLot(supabase, auth.context.app.activeOrgId, {
+       product_id: parsed.data.product_id!,
+       variant_id: parsed.data.variant_id!,
+       lot_number: parsed.data.lot_number!,
+@@ -2049,7 +2049,7 @@ export async function createInventorySerialAction(rawInput: unknown) {
+     if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+     const userId = userIdFrom(auth);
+     const supabase = await createClient();
+-    return InventoryEnterpriseService.createSerial(supabase, auth.context.app.activeOrgId, {
++    return InventoryProductsService.createSerial(supabase, auth.context.app.activeOrgId, {
+       product_id: parsed.data.product_id!,
+       variant_id: parsed.data.variant_id!,
+       serial_number: parsed.data.serial_number!,
+diff --git a/apps/web/src/server/services/__tests__/inventory-enterprise-update-variant-details.test.ts b/apps/web/src/server/services/__tests__/inventory-enterprise-update-variant-details.test.ts
+index f4552e49..c35fe332 100644
+--- a/apps/web/src/server/services/__tests__/inventory-enterprise-update-variant-details.test.ts
++++ b/apps/web/src/server/services/__tests__/inventory-enterprise-update-variant-details.test.ts
+@@ -1,14 +1,14 @@
+ /**
+  * @vitest-environment node
+  *
+- * Focused unit test for InventoryEnterpriseService.updateVariantDetails,
++ * Focused unit test for InventoryProductsService.updateVariantDetails,
+  * covering the default_supplier_id addition (stock-audit implementation
+  * plan §10) — a plain column on inventory_variants, distinct from
+  * preferred_supplier_id which is stored on the separate
+  * inventory_reorder_rules table.
+  */
+ import { describe, expect, it, vi } from "vitest";
+-import { InventoryEnterpriseService } from "../inventory-enterprise.service";
++import { InventoryProductsService } from "../inventory-products.service";
+ 
+ const ORG_ID = "org-1";
+ const VARIANT_ID = "variant-1";
+@@ -34,11 +34,11 @@ function makeSupabaseMock(updateResult: { data: unknown; error: unknown }) {
+   };
+ }
+ 
+-describe("InventoryEnterpriseService.updateVariantDetails", () => {
++describe("InventoryProductsService.updateVariantDetails", () => {
+   it("includes default_supplier_id in the UPDATE payload when explicitly provided", async () => {
+     const supabase = makeSupabaseMock({ data: { id: VARIANT_ID }, error: null });
+ 
+-    const result = await InventoryEnterpriseService.updateVariantDetails(
++    const result = await InventoryProductsService.updateVariantDetails(
+       supabase.client as never,
+       ORG_ID,
+       VARIANT_ID,
+@@ -54,7 +54,7 @@ describe("InventoryEnterpriseService.updateVariantDetails", () => {
+   it("includes default_supplier_id: null when explicitly clearing it", async () => {
+     const supabase = makeSupabaseMock({ data: { id: VARIANT_ID }, error: null });
+ 
+-    await InventoryEnterpriseService.updateVariantDetails(
++    await InventoryProductsService.updateVariantDetails(
+       supabase.client as never,
+       ORG_ID,
+       VARIANT_ID,
+@@ -73,7 +73,7 @@ describe("InventoryEnterpriseService.updateVariantDetails", () => {
+   it("omits default_supplier_id from the UPDATE payload when not provided (leaves existing value untouched)", async () => {
+     const supabase = makeSupabaseMock({ data: { id: VARIANT_ID }, error: null });
+ 
+-    await InventoryEnterpriseService.updateVariantDetails(
++    await InventoryProductsService.updateVariantDetails(
+       supabase.client as never,
+       ORG_ID,
+       VARIANT_ID,
+@@ -89,7 +89,7 @@ describe("InventoryEnterpriseService.updateVariantDetails", () => {
+   it("propagates a DB error", async () => {
+     const supabase = makeSupabaseMock({ data: null, error: { message: "constraint violated" } });
+ 
+-    const result = await InventoryEnterpriseService.updateVariantDetails(
++    const result = await InventoryProductsService.updateVariantDetails(
+       supabase.client as never,
+       ORG_ID,
+       VARIANT_ID,
+diff --git a/apps/web/src/server/services/inventory-enterprise.service.ts b/apps/web/src/server/services/inventory-enterprise.service.ts
+index e5528585..355ffee6 100644
+--- a/apps/web/src/server/services/inventory-enterprise.service.ts
++++ b/apps/web/src/server/services/inventory-enterprise.service.ts
+@@ -4,12 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
+ import type {
+   BranchTransferLineInput,
+   CreateCustomFieldInput,
+-  CreateLotInput,
+-  CreateOptionGroupInput,
+-  CreateOptionValueInput,
+   CreatePurchaseOrderInput,
+-  CreateSerialInput,
+-  GenerateVariantInput,
+   InventoryBranchTransferListRow,
+   ReceivePurchaseOrderInput,
+   StockHoldLineInput,
+@@ -17,12 +12,7 @@ import type {
+ export type {
+   BranchTransferLineInput,
+   CreateCustomFieldInput,
+-  CreateLotInput,
+-  CreateOptionGroupInput,
+-  CreateOptionValueInput,
+   CreatePurchaseOrderInput,
+-  CreateSerialInput,
+-  GenerateVariantInput,
+   InventoryBranchTransferListRow,
+   ReceivePurchaseOrderInput,
+   StockHoldLineInput,
+@@ -35,294 +25,6 @@ function errorMessage(error: { message?: string } | null | undefined) {
+ }
+ 
+ export class InventoryEnterpriseService {
+-  static async createOptionGroup(
+-    supabase: SupabaseClient,
+-    orgId: string,
+-    input: CreateOptionGroupInput
+-  ): Promise<ServiceResult<{ id: string }>> {
+-    const { data, error } = await supabase
+-      .from("inventory_option_groups")
+-      .insert({
+-        organization_id: orgId,
+-        name: input.name.trim(),
+-        display_order: input.display_order ?? 0,
+-        created_by: input.actor_user_id ?? null,
+-        updated_by: input.actor_user_id ?? null,
+-      })
+-      .select("id")
+-      .single();
+-
+-    if (error) return { success: false, error: errorMessage(error) };
+-    return { success: true, data: data as { id: string } };
+-  }
+-
+-  static async createOptionValue(
+-    supabase: SupabaseClient,
+-    orgId: string,
+-    input: CreateOptionValueInput
+-  ): Promise<ServiceResult<{ id: string }>> {
+-    const { data, error } = await supabase
+-      .from("inventory_option_values")
+-      .insert({
+-        organization_id: orgId,
+-        option_group_id: input.option_group_id,
+-        value: input.value.trim(),
+-        display_order: input.display_order ?? 0,
+-        created_by: input.actor_user_id ?? null,
+-        updated_by: input.actor_user_id ?? null,
+-      })
+-      .select("id")
+-      .single();
+-
+-    if (error) return { success: false, error: errorMessage(error) };
+-    return { success: true, data: data as { id: string } };
+-  }
+-
+-  static async generateVariants(
+-    supabase: SupabaseClient,
+-    orgId: string,
+-    input: GenerateVariantInput
+-  ): Promise<ServiceResult<{ variant_ids: string[] }>> {
+-    const { data: product, error: productError } = await supabase
+-      .from("inventory_products")
+-      .select("id")
+-      .eq("organization_id", orgId)
+-      .eq("id", input.product_id)
+-      .is("deleted_at", null)
+-      .single();
+-    if (productError || !product) return { success: false, error: errorMessage(productError) };
+-
+-    const valueIds = [...new Set(input.variants.flatMap((variant) => variant.option_value_ids))];
+-    const { data: values, error: valuesError } = valueIds.length
+-      ? await supabase
+-          .from("inventory_option_values")
+-          .select("id, option_group_id")
+-          .eq("organization_id", orgId)
+-          .in("id", valueIds)
+-      : { data: [], error: null };
+-    if (valuesError) return { success: false, error: errorMessage(valuesError) };
+-
+-    const valuesById = new Map(
+-      ((values ?? []) as Array<{ id: string; option_group_id: string }>).map((value) => [
+-        value.id,
+-        value,
+-      ])
+-    );
+-
+-    const createdVariantIds: string[] = [];
+-
+-    for (const variant of input.variants) {
+-      const optionRows = variant.option_value_ids.map((optionValueId) => {
+-        const optionValue = valuesById.get(optionValueId);
+-        if (!optionValue) return null;
+-        return optionValue;
+-      });
+-      if (optionRows.some((row) => row === null)) {
+-        return { success: false, error: "Generated variant contains an invalid option value" };
+-      }
+-
+-      const validOptionRows = optionRows as Array<{ id: string; option_group_id: string }>;
+-      const uniqueGroupCount = new Set(validOptionRows.map((row) => row.option_group_id)).size;
+-      if (uniqueGroupCount !== validOptionRows.length) {
+-        return {
+-          success: false,
+-          error: "Each generated variant can use only one value per option group",
+-        };
+-      }
+-
+-      const { data: created, error: createError } = await supabase
+-        .from("inventory_variants")
+-        .insert({
+-          organization_id: orgId,
+-          product_id: input.product_id,
+-          sku: variant.sku.trim(),
+-          name: variant.name.trim(),
+-          is_default: false,
+-          barcode: variant.barcode ?? null,
+-          purchase_price: variant.purchase_price ?? null,
+-          sales_price: variant.sales_price ?? null,
+-          price_currency: variant.price_currency ?? null,
+-          created_by: input.actor_user_id ?? null,
+-          updated_by: input.actor_user_id ?? null,
+-        })
+-        .select("id")
+-        .single();
+-
+-      if (createError) return { success: false, error: errorMessage(createError) };
+-      const variantId = (created as { id: string }).id;
+-      createdVariantIds.push(variantId);
+-
+-      if (validOptionRows.length > 0) {
+-        const { error: optionInsertError } = await supabase
+-          .from("inventory_variant_option_values")
+-          .insert(
+-            validOptionRows.map((row) => ({
+-              organization_id: orgId,
+-              variant_id: variantId,
+-              option_group_id: row.option_group_id,
+-              option_value_id: row.id,
+-            }))
+-          );
+-
+-        if (optionInsertError) return { success: false, error: errorMessage(optionInsertError) };
+-      }
+-    }
+-
+-    return { success: true, data: { variant_ids: createdVariantIds } };
+-  }
+-
+-  static async updateVariantPricing(
+-    supabase: SupabaseClient,
+-    orgId: string,
+-    variantId: string,
+-    input: {
+-      purchase_price?: number | null;
+-      sales_price?: number | null;
+-      price_currency?: string | null;
+-      actor_user_id?: string | null;
+-    }
+-  ): Promise<ServiceResult<{ id: string }>> {
+-    const { data, error } = await supabase
+-      .from("inventory_variants")
+-      .update({
+-        purchase_price: input.purchase_price,
+-        sales_price: input.sales_price,
+-        price_currency: input.price_currency,
+-        updated_by: input.actor_user_id ?? null,
+-      })
+-      .eq("organization_id", orgId)
+-      .eq("id", variantId)
+-      .select("id")
+-      .single();
+-
+-    if (error) return { success: false, error: errorMessage(error) };
+-    return { success: true, data: data as { id: string } };
+-  }
+-
+-  static async updateVariantDetails(
+-    supabase: SupabaseClient,
+-    orgId: string,
+-    variantId: string,
+-    input: {
+-      sku: string;
+-      name: string;
+-      status?: "active" | "archived" | "discontinued";
+-      barcode?: string | null;
+-      purchase_price?: number | null;
+-      sales_price?: number | null;
+-      price_currency?: string | null;
+-      reorder_point?: number | null;
+-      preferred_supplier_id?: string | null;
+-      /** Source of truth for audit-by-supplier scoping — lives directly on
+-       * inventory_variants (unlike preferred_supplier_id, which is stored on
+-       * the separate inventory_reorder_rules table below). See
+-       * apps/web/docs/stock-audit-implementation-plan.md §10. */
+-      default_supplier_id?: string | null;
+-      actor_user_id?: string | null;
+-    }
+-  ): Promise<ServiceResult<{ id: string }>> {
+-    const updates: Record<string, unknown> = {
+-      sku: input.sku.trim(),
+-      name: input.name.trim(),
+-      status: input.status,
+-      barcode: input.barcode?.trim() || null,
+-      purchase_price: input.purchase_price,
+-      sales_price: input.sales_price,
+-      price_currency: input.price_currency,
+-      updated_by: input.actor_user_id ?? null,
+-    };
+-    if (input.default_supplier_id !== undefined) {
+-      updates.default_supplier_id = input.default_supplier_id;
+-    }
+-
+-    const { data, error } = await supabase
+-      .from("inventory_variants")
+-      .update(updates)
+-      .eq("organization_id", orgId)
+-      .eq("id", variantId)
+-      .select("id")
+-      .single();
+-    if (error) return { success: false, error: errorMessage(error) };
+-
+-    if (input.reorder_point != null || input.preferred_supplier_id !== undefined) {
+-      const client = supabase as any;
+-      const { data: existingRule, error: existingError } = await client
+-        .from("inventory_reorder_rules")
+-        .select("id")
+-        .eq("organization_id", orgId)
+-        .eq("variant_id", variantId)
+-        .is("deleted_at", null)
+-        .order("created_at", { ascending: true })
+-        .limit(1)
+-        .maybeSingle();
+-      if (existingError) return { success: false, error: errorMessage(existingError) };
+-
+-      if (existingRule) {
+-        const { error: reorderError } = await client
+-          .from("inventory_reorder_rules")
+-          .update({
+-            reorder_point: input.reorder_point ?? 0,
+-            preferred_supplier_id: input.preferred_supplier_id ?? null,
+-            updated_by: input.actor_user_id ?? null,
+-          })
+-          .eq("id", (existingRule as { id: string }).id);
+-        if (reorderError) return { success: false, error: errorMessage(reorderError) };
+-      }
+-    }
+-
+-    return { success: true, data: data as { id: string } };
+-  }
+-
+-  static async createLot(
+-    supabase: SupabaseClient,
+-    orgId: string,
+-    input: CreateLotInput
+-  ): Promise<ServiceResult<{ id: string }>> {
+-    const { data, error } = await supabase
+-      .from("inventory_lots")
+-      .insert({
+-        organization_id: orgId,
+-        product_id: input.product_id,
+-        variant_id: input.variant_id,
+-        lot_number: input.lot_number.trim(),
+-        manufactured_at: input.manufactured_at ?? null,
+-        expires_at: input.expires_at ?? null,
+-        supplier_reference: input.supplier_reference ?? null,
+-        created_by: input.actor_user_id ?? null,
+-        updated_by: input.actor_user_id ?? null,
+-      })
+-      .select("id")
+-      .single();
+-
+-    if (error) return { success: false, error: errorMessage(error) };
+-    return { success: true, data: data as { id: string } };
+-  }
+-
+-  static async createSerial(
+-    supabase: SupabaseClient,
+-    orgId: string,
+-    input: CreateSerialInput
+-  ): Promise<ServiceResult<{ id: string }>> {
+-    const { data, error } = await supabase
+-      .from("inventory_serials")
+-      .insert({
+-        organization_id: orgId,
+-        product_id: input.product_id,
+-        variant_id: input.variant_id,
+-        serial_number: input.serial_number.trim(),
+-        lot_id: input.lot_id ?? null,
+-        current_branch_id: input.current_branch_id ?? null,
+-        current_location_id: input.current_location_id ?? null,
+-        created_by: input.actor_user_id ?? null,
+-        updated_by: input.actor_user_id ?? null,
+-      })
+-      .select("id")
+-      .single();
+-
+-    if (error) return { success: false, error: errorMessage(error) };
+-    return { success: true, data: data as { id: string } };
+-  }
+-
+   static async createReservation(
+     supabase: SupabaseClient,
+     orgId: string,
+diff --git a/apps/web/src/server/services/inventory-products.service.ts b/apps/web/src/server/services/inventory-products.service.ts
+index 23e3f4e5..d2694502 100644
+--- a/apps/web/src/server/services/inventory-products.service.ts
++++ b/apps/web/src/server/services/inventory-products.service.ts
+@@ -6,9 +6,14 @@ import type {
+   CreateEnhancedInventoryProductInput,
+   CreateInventoryProductInput,
+   CreateInventoryUnitInput,
++  CreateLotInput,
++  CreateOptionGroupInput,
++  CreateOptionValueInput,
++  CreateSerialInput,
+   EnhancedAttributeInput,
+   EnhancedCustomFieldValueInput,
+   EnhancedVariantInput,
++  GenerateVariantInput,
+   InventoryCustomFieldDefinition,
+   InventoryMasterDataRow,
+   InventoryProductDetail,
+@@ -30,9 +35,14 @@ export type {
+   CreateEnhancedInventoryProductInput,
+   CreateInventoryProductInput,
+   CreateInventoryUnitInput,
++  CreateLotInput,
++  CreateOptionGroupInput,
++  CreateOptionValueInput,
++  CreateSerialInput,
+   EnhancedAttributeInput,
+   EnhancedCustomFieldValueInput,
+   EnhancedVariantInput,
++  GenerateVariantInput,
+   InventoryCustomFieldDefinition,
+   InventoryMasterDataRow,
+   InventoryProductDetail,
+@@ -53,6 +63,14 @@ export type {
+ 
+ export type ServiceResult<T> = { success: true; data: T } | { success: false; error: string };
+ 
++/** A6 simplification pass: moved from inventory-enterprise.service.ts
++ *  alongside the 7 catalog methods below (they use it for identical
++ *  error-shaping behavior); that file keeps its own copy since ~25
++ *  other, non-catalog methods there still depend on it. */
++function errorMessage(error: { message?: string } | null | undefined) {
++  return error?.message ?? "Unexpected database error";
++}
++
+ type ProductRow = {
+   id: string;
+   name: string;
+@@ -632,182 +650,6 @@ export class InventoryProductsService {
+     };
+   }
+ 
+-  static async createEnhancedProductLegacy(
+-    supabase: SupabaseClient,
+-    orgId: string,
+-    input: CreateEnhancedInventoryProductInput,
+-    userId: string
+-  ): Promise<ServiceResult<{ product_id: string; variant_ids: string[]; sku: string }>> {
+-    const variants = (input.variants ?? []).filter((variant) => variant.name.trim().length > 0);
+-    const firstVariant = variants[0];
+-    let productId: string | null = null;
+-    const createdVariantIds: string[] = [];
+-    const fail = async (
+-      error: string
+-    ): Promise<ServiceResult<{ product_id: string; variant_ids: string[]; sku: string }>> => {
+-      if (productId) {
+-        await InventoryProductsService.cleanupFailedEnhancedProductCreate(
+-          supabase,
+-          orgId,
+-          productId,
+-          userId
+-        );
+-      }
+-      return { success: false, error };
+-    };
+-
+-    const created = await InventoryProductsService.createProduct(
+-      supabase,
+-      orgId,
+-      {
+-        ...input,
+-        sku: firstVariant?.sku || input.sku,
+-      },
+-      userId
+-    );
+-    if (!created.success) return { success: false, error: serviceError(created) };
+-
+-    productId = created.data.product_id;
+-    const defaultVariantId = created.data.variant_id;
+-    const attributeValueIds = await InventoryProductsService.ensureAttributeValues(
+-      supabase,
+-      orgId,
+-      input.attributes ?? [],
+-      userId
+-    );
+-    if (!attributeValueIds.success) return fail(serviceError(attributeValueIds));
+-
+-    if (firstVariant) {
+-      const updateDefault = await InventoryProductsService.updateVariantForEnhancedCreate(
+-        supabase,
+-        orgId,
+-        defaultVariantId,
+-        firstVariant,
+-        userId
+-      );
+-      if (!updateDefault.success) return fail(serviceError(updateDefault));
+-      const optionResult = await InventoryProductsService.setVariantOptionValues(
+-        supabase,
+-        orgId,
+-        defaultVariantId,
+-        InventoryProductsService.optionValueIdsForVariant(firstVariant, attributeValueIds.data),
+-        userId
+-      );
+-      if (!optionResult.success) return fail(serviceError(optionResult));
+-      createdVariantIds.push(defaultVariantId);
+-    } else {
+-      createdVariantIds.push(defaultVariantId);
+-    }
+-
+-    const remainingVariants = variants.slice(1);
+-    for (const variant of remainingVariants) {
+-      const { data: inserted, error: insertError } = await supabase
+-        .from("inventory_variants")
+-        .insert({
+-          organization_id: orgId,
+-          product_id: productId,
+-          sku: variant.sku.trim(),
+-          name: variant.name.trim(),
+-          barcode: variant.barcode?.trim() || null,
+-          purchase_price: variant.purchase_price ?? null,
+-          sales_price: variant.sales_price ?? null,
+-          price_currency: variant.price_currency ?? null,
+-          created_by: userId,
+-          updated_by: userId,
+-        })
+-        .select("id")
+-        .single();
+-      if (insertError) return fail(insertError.message);
+-      const variantId = (inserted as { id: string }).id;
+-      const optionResult = await InventoryProductsService.setVariantOptionValues(
+-        supabase,
+-        orgId,
+-        variantId,
+-        InventoryProductsService.optionValueIdsForVariant(variant, attributeValueIds.data),
+-        userId
+-      );
+-      if (!optionResult.success) return fail(serviceError(optionResult));
+-      createdVariantIds.push(variantId);
+-    }
+-
+-    const variantsWithIds = variants.length
+-      ? variants.map((variant, index) => ({ variant, id: createdVariantIds[index] }))
+-      : [
+-          {
+-            variant: { sku: created.data.sku, name: input.name } as EnhancedVariantInput,
+-            id: defaultVariantId,
+-          },
+-        ];
+-
+-    const identifierResult = await InventoryProductsService.writeVariantIdentifiers(
+-      supabase,
+-      orgId,
+-      productId,
+-      variantsWithIds,
+-      userId
+-    );
+-    if (!identifierResult.success) return fail(serviceError(identifierResult));
+-
+-    if (input.branch_id) {
+-      const reorderResult = await InventoryProductsService.writeReorderRules(
+-        supabase,
+-        orgId,
+-        input.branch_id,
+-        input.preferred_supplier_id ?? null,
+-        variantsWithIds,
+-        userId
+-      );
+-      if (!reorderResult.success) return fail(serviceError(reorderResult));
+-    }
+-
+-    const tagResult = await InventoryProductsService.ensureTagsForProduct(
+-      supabase,
+-      orgId,
+-      productId,
+-      input.tags ?? [],
+-      userId
+-    );
+-    if (!tagResult.success) return fail(serviceError(tagResult));
+-
+-    const customFieldResult = await InventoryProductsService.writeCustomFieldValues(
+-      supabase,
+-      orgId,
+-      productId,
+-      variantsWithIds,
+-      input.custom_fields ?? [],
+-      userId
+-    );
+-    if (!customFieldResult.success) return fail(serviceError(customFieldResult));
+-
+-    const unitConversionResult = await InventoryProductsService.replaceProductUnitConversions(
+-      supabase,
+-      orgId,
+-      productId,
+-      input.unit_conversions ?? [],
+-      userId
+-    );
+-    if (!unitConversionResult.success) return fail(serviceError(unitConversionResult));
+-
+-    if (input.track_inventory && input.branch_id && input.opening_location_id) {
+-      const openingResult = await InventoryProductsService.createOpeningStockMovement(
+-        supabase,
+-        orgId,
+-        input.branch_id,
+-        input.opening_location_id,
+-        input.base_unit_id,
+-        productId,
+-        variantsWithIds,
+-        userId
+-      );
+-      if (!openingResult.success) return fail(serviceError(openingResult));
+-    }
+-
+-    return {
+-      success: true,
+-      data: { product_id: productId, variant_ids: createdVariantIds, sku: created.data.sku },
+-    };
+-  }
+-
+   static async updateProduct(
+     supabase: SupabaseClient,
+     orgId: string,
+@@ -1397,22 +1239,6 @@ export class InventoryProductsService {
+     };
+   }
+ 
+-  static async listSuppliers(
+-    supabase: SupabaseClient,
+-    orgId: string
+-  ): Promise<ServiceResult<Array<{ id: string; name: string }>>> {
+-    const { data, error } = await supabase
+-      .from("inventory_suppliers")
+-      .select("id, name")
+-      .eq("organization_id", orgId)
+-      .eq("status", "active")
+-      .is("deleted_at", null)
+-      .order("name", { ascending: true });
+-
+-    if (error) return { success: false, error: error.message };
+-    return { success: true, data: (data ?? []) as Array<{ id: string; name: string }> };
+-  }
+-
+   static async listOptionGroupsWithValues(
+     supabase: SupabaseClient,
+     orgId: string
+@@ -1462,6 +1288,314 @@ export class InventoryProductsService {
+     };
+   }
+ 
++  /**
++   * A6 simplification pass: MOVED from InventoryEnterpriseService (the
++   * architecture compression review's own "kitchen sink" finding) --
++   * catalog-domain methods belong with the rest of product/variant CRUD.
++   * Body unchanged from the original, byte-for-byte other than swapping
++   * the shared `errorMessage` reference for this file's own local copy
++   * (see its own doc comment above).
++   */
++  static async createOptionGroup(
++    supabase: SupabaseClient,
++    orgId: string,
++    input: CreateOptionGroupInput
++  ): Promise<ServiceResult<{ id: string }>> {
++    const { data, error } = await supabase
++      .from("inventory_option_groups")
++      .insert({
++        organization_id: orgId,
++        name: input.name.trim(),
++        display_order: input.display_order ?? 0,
++        created_by: input.actor_user_id ?? null,
++        updated_by: input.actor_user_id ?? null,
++      })
++      .select("id")
++      .single();
++
++    if (error) return { success: false, error: errorMessage(error) };
++    return { success: true, data: data as { id: string } };
++  }
++
++  /** A6 simplification pass: MOVED from InventoryEnterpriseService, see
++   *  createOptionGroup's own doc comment above. */
++  static async createOptionValue(
++    supabase: SupabaseClient,
++    orgId: string,
++    input: CreateOptionValueInput
++  ): Promise<ServiceResult<{ id: string }>> {
++    const { data, error } = await supabase
++      .from("inventory_option_values")
++      .insert({
++        organization_id: orgId,
++        option_group_id: input.option_group_id,
++        value: input.value.trim(),
++        display_order: input.display_order ?? 0,
++        created_by: input.actor_user_id ?? null,
++        updated_by: input.actor_user_id ?? null,
++      })
++      .select("id")
++      .single();
++
++    if (error) return { success: false, error: errorMessage(error) };
++    return { success: true, data: data as { id: string } };
++  }
++
++  /** A6 simplification pass: MOVED from InventoryEnterpriseService, see
++   *  createOptionGroup's own doc comment above. */
++  static async generateVariants(
++    supabase: SupabaseClient,
++    orgId: string,
++    input: GenerateVariantInput
++  ): Promise<ServiceResult<{ variant_ids: string[] }>> {
++    const { data: product, error: productError } = await supabase
++      .from("inventory_products")
++      .select("id")
++      .eq("organization_id", orgId)
++      .eq("id", input.product_id)
++      .is("deleted_at", null)
++      .single();
++    if (productError || !product) return { success: false, error: errorMessage(productError) };
++
++    const valueIds = [...new Set(input.variants.flatMap((variant) => variant.option_value_ids))];
++    const { data: values, error: valuesError } = valueIds.length
++      ? await supabase
++          .from("inventory_option_values")
++          .select("id, option_group_id")
++          .eq("organization_id", orgId)
++          .in("id", valueIds)
++      : { data: [], error: null };
++    if (valuesError) return { success: false, error: errorMessage(valuesError) };
++
++    const valuesById = new Map(
++      ((values ?? []) as Array<{ id: string; option_group_id: string }>).map((value) => [
++        value.id,
++        value,
++      ])
++    );
++
++    const createdVariantIds: string[] = [];
++
++    for (const variant of input.variants) {
++      const optionRows = variant.option_value_ids.map((optionValueId) => {
++        const optionValue = valuesById.get(optionValueId);
++        if (!optionValue) return null;
++        return optionValue;
++      });
++      if (optionRows.some((row) => row === null)) {
++        return { success: false, error: "Generated variant contains an invalid option value" };
++      }
++
++      const validOptionRows = optionRows as Array<{ id: string; option_group_id: string }>;
++      const uniqueGroupCount = new Set(validOptionRows.map((row) => row.option_group_id)).size;
++      if (uniqueGroupCount !== validOptionRows.length) {
++        return {
++          success: false,
++          error: "Each generated variant can use only one value per option group",
++        };
++      }
++
++      const { data: created, error: createError } = await supabase
++        .from("inventory_variants")
++        .insert({
++          organization_id: orgId,
++          product_id: input.product_id,
++          sku: variant.sku.trim(),
++          name: variant.name.trim(),
++          is_default: false,
++          barcode: variant.barcode ?? null,
++          purchase_price: variant.purchase_price ?? null,
++          sales_price: variant.sales_price ?? null,
++          price_currency: variant.price_currency ?? null,
++          created_by: input.actor_user_id ?? null,
++          updated_by: input.actor_user_id ?? null,
++        })
++        .select("id")
++        .single();
++
++      if (createError) return { success: false, error: errorMessage(createError) };
++      const variantId = (created as { id: string }).id;
++      createdVariantIds.push(variantId);
++
++      if (validOptionRows.length > 0) {
++        const { error: optionInsertError } = await supabase
++          .from("inventory_variant_option_values")
++          .insert(
++            validOptionRows.map((row) => ({
++              organization_id: orgId,
++              variant_id: variantId,
++              option_group_id: row.option_group_id,
++              option_value_id: row.id,
++            }))
++          );
++
++        if (optionInsertError) return { success: false, error: errorMessage(optionInsertError) };
++      }
++    }
++
++    return { success: true, data: { variant_ids: createdVariantIds } };
++  }
++
++  /** A6 simplification pass: MOVED from InventoryEnterpriseService, see
++   *  createOptionGroup's own doc comment above. */
++  static async updateVariantPricing(
++    supabase: SupabaseClient,
++    orgId: string,
++    variantId: string,
++    input: {
++      purchase_price?: number | null;
++      sales_price?: number | null;
++      price_currency?: string | null;
++      actor_user_id?: string | null;
++    }
++  ): Promise<ServiceResult<{ id: string }>> {
++    const { data, error } = await supabase
++      .from("inventory_variants")
++      .update({
++        purchase_price: input.purchase_price,
++        sales_price: input.sales_price,
++        price_currency: input.price_currency,
++        updated_by: input.actor_user_id ?? null,
++      })
++      .eq("organization_id", orgId)
++      .eq("id", variantId)
++      .select("id")
++      .single();
++
++    if (error) return { success: false, error: errorMessage(error) };
++    return { success: true, data: data as { id: string } };
++  }
++
++  /** A6 simplification pass: MOVED from InventoryEnterpriseService, see
++   *  createOptionGroup's own doc comment above. */
++  static async updateVariantDetails(
++    supabase: SupabaseClient,
++    orgId: string,
++    variantId: string,
++    input: {
++      sku: string;
++      name: string;
++      status?: "active" | "archived" | "discontinued";
++      barcode?: string | null;
++      purchase_price?: number | null;
++      sales_price?: number | null;
++      price_currency?: string | null;
++      reorder_point?: number | null;
++      preferred_supplier_id?: string | null;
++      /** Source of truth for audit-by-supplier scoping — lives directly on
++       * inventory_variants (unlike preferred_supplier_id, which is stored on
++       * the separate inventory_reorder_rules table below). See
++       * apps/web/docs/stock-audit-implementation-plan.md §10. */
++      default_supplier_id?: string | null;
++      actor_user_id?: string | null;
++    }
++  ): Promise<ServiceResult<{ id: string }>> {
++    const updates: Record<string, unknown> = {
++      sku: input.sku.trim(),
++      name: input.name.trim(),
++      status: input.status,
++      barcode: input.barcode?.trim() || null,
++      purchase_price: input.purchase_price,
++      sales_price: input.sales_price,
++      price_currency: input.price_currency,
++      updated_by: input.actor_user_id ?? null,
++    };
++    if (input.default_supplier_id !== undefined) {
++      updates.default_supplier_id = input.default_supplier_id;
++    }
++
++    const { data, error } = await supabase
++      .from("inventory_variants")
++      .update(updates)
++      .eq("organization_id", orgId)
++      .eq("id", variantId)
++      .select("id")
++      .single();
++    if (error) return { success: false, error: errorMessage(error) };
++
++    if (input.reorder_point != null || input.preferred_supplier_id !== undefined) {
++      const client = supabase as any;
++      const { data: existingRule, error: existingError } = await client
++        .from("inventory_reorder_rules")
++        .select("id")
++        .eq("organization_id", orgId)
++        .eq("variant_id", variantId)
++        .is("deleted_at", null)
++        .order("created_at", { ascending: true })
++        .limit(1)
++        .maybeSingle();
++      if (existingError) return { success: false, error: errorMessage(existingError) };
++
++      if (existingRule) {
++        const { error: reorderError } = await client
++          .from("inventory_reorder_rules")
++          .update({
++            reorder_point: input.reorder_point ?? 0,
++            preferred_supplier_id: input.preferred_supplier_id ?? null,
++            updated_by: input.actor_user_id ?? null,
++          })
++          .eq("id", (existingRule as { id: string }).id);
++        if (reorderError) return { success: false, error: errorMessage(reorderError) };
++      }
++    }
++
++    return { success: true, data: data as { id: string } };
++  }
++
++  /** A6 simplification pass: MOVED from InventoryEnterpriseService, see
++   *  createOptionGroup's own doc comment above. */
++  static async createLot(
++    supabase: SupabaseClient,
++    orgId: string,
++    input: CreateLotInput
++  ): Promise<ServiceResult<{ id: string }>> {
++    const { data, error } = await supabase
++      .from("inventory_lots")
++      .insert({
++        organization_id: orgId,
++        product_id: input.product_id,
++        variant_id: input.variant_id,
++        lot_number: input.lot_number.trim(),
++        manufactured_at: input.manufactured_at ?? null,
++        expires_at: input.expires_at ?? null,
++        supplier_reference: input.supplier_reference ?? null,
++        created_by: input.actor_user_id ?? null,
++        updated_by: input.actor_user_id ?? null,
++      })
++      .select("id")
++      .single();
++
++    if (error) return { success: false, error: errorMessage(error) };
++    return { success: true, data: data as { id: string } };
++  }
++
++  /** A6 simplification pass: MOVED from InventoryEnterpriseService, see
++   *  createOptionGroup's own doc comment above. */
++  static async createSerial(
++    supabase: SupabaseClient,
++    orgId: string,
++    input: CreateSerialInput
++  ): Promise<ServiceResult<{ id: string }>> {
++    const { data, error } = await supabase
++      .from("inventory_serials")
++      .insert({
++        organization_id: orgId,
++        product_id: input.product_id,
++        variant_id: input.variant_id,
++        serial_number: input.serial_number.trim(),
++        lot_id: input.lot_id ?? null,
++        current_branch_id: input.current_branch_id ?? null,
++        current_location_id: input.current_location_id ?? null,
++        created_by: input.actor_user_id ?? null,
++        updated_by: input.actor_user_id ?? null,
++      })
++      .select("id")
++      .single();
++
++    if (error) return { success: false, error: errorMessage(error) };
++    return { success: true, data: data as { id: string } };
++  }
++
+   static async listTags(
+     supabase: SupabaseClient,
+     orgId: string
+diff --git a/apps/web/src/server/services/repair-orders.service.ts b/apps/web/src/server/services/repair-orders.service.ts
+index 8a46059c..aba393fe 100644
+--- a/apps/web/src/server/services/repair-orders.service.ts
++++ b/apps/web/src/server/services/repair-orders.service.ts
+@@ -72,12 +72,32 @@ const REPAIR_ORDER_RPC_KNOWN_ERRORS: ReadonlyArray<{ code: string; pattern: RegE
+   { code: "42501", pattern: /^Not authorized to materialize repair orders for this branch$/ },
+ ];
+ 
+-function normalizeMaterializationRpcError(error: { code?: string; message: string }): string {
+-  const isKnown = REPAIR_ORDER_RPC_KNOWN_ERRORS.some(
++/**
++ * A3 simplification pass: mechanical extraction of the identical 4-line
++ * "match against my own allowlist array, else null" shape previously
++ * repeated verbatim across 5 `normalize*RpcError` functions below,
++ * differing only in which allowlist array they closed over. Pure
++ * matcher -- returns the original (already-safe) message on a match, or
++ * `null` on no match -- so each of the 5 functions below keeps its own
++ * domain-specific fallback message, call signature, and call sites
++ * completely unchanged. Allowlist DATA (the 5 arrays) is intentionally
++ * NOT merged -- each stays its own independently-curated table.
++ */
++function normalizeKnownRpcError(
++  error: { code?: string; message: string },
++  knownErrors: ReadonlyArray<{ code: string; pattern: RegExp }>
++): string | null {
++  const isKnown = knownErrors.some(
+     (known) => error.code === known.code && known.pattern.test(error.message)
+   );
+-  if (isKnown) return error.message;
+-  return "Materialization failed due to an unexpected server error. Please try again or contact support.";
++  return isKnown ? error.message : null;
++}
++
++function normalizeMaterializationRpcError(error: { code?: string; message: string }): string {
++  return (
++    normalizeKnownRpcError(error, REPAIR_ORDER_RPC_KNOWN_ERRORS) ??
++    "Materialization failed due to an unexpected server error. Please try again or contact support."
++  );
+ }
+ 
+ /**
+@@ -158,11 +178,10 @@ const REPAIR_ORDER_MOVEMENT_LINK_KNOWN_ERRORS: ReadonlyArray<{ code: string; pat
+ ];
+ 
+ function normalizeMovementLinkRpcError(error: { code?: string; message: string }): string {
+-  const isKnown = REPAIR_ORDER_MOVEMENT_LINK_KNOWN_ERRORS.some(
+-    (known) => error.code === known.code && known.pattern.test(error.message)
++  return (
++    normalizeKnownRpcError(error, REPAIR_ORDER_MOVEMENT_LINK_KNOWN_ERRORS) ??
++    "Failed to attribute this movement to the repair order line due to an unexpected server error. Please try again or contact support."
+   );
+-  if (isKnown) return error.message;
+-  return "Failed to attribute this movement to the repair order line due to an unexpected server error. Please try again or contact support.";
+ }
+ 
+ /**
+@@ -197,11 +216,10 @@ const REPAIR_ORDER_RESERVATION_KNOWN_ERRORS: ReadonlyArray<{ code: string; patte
+ ];
+ 
+ function normalizeReservationRpcError(error: { code?: string; message: string }): string {
+-  const isKnown = REPAIR_ORDER_RESERVATION_KNOWN_ERRORS.some(
+-    (known) => error.code === known.code && known.pattern.test(error.message)
++  return (
++    normalizeKnownRpcError(error, REPAIR_ORDER_RESERVATION_KNOWN_ERRORS) ??
++    "Failed to process this reservation request due to an unexpected server error. Please try again or contact support."
+   );
+-  if (isKnown) return error.message;
+-  return "Failed to process this reservation request due to an unexpected server error. Please try again or contact support.";
+ }
+ 
+ /**
+@@ -226,11 +244,10 @@ const REPAIR_ORDER_ALLOCATION_KNOWN_ERRORS: ReadonlyArray<{ code: string; patter
+ ];
+ 
+ function normalizeAllocationRpcError(error: { code?: string; message: string }): string {
+-  const isKnown = REPAIR_ORDER_ALLOCATION_KNOWN_ERRORS.some(
+-    (known) => error.code === known.code && known.pattern.test(error.message)
++  return (
++    normalizeKnownRpcError(error, REPAIR_ORDER_ALLOCATION_KNOWN_ERRORS) ??
++    "Failed to process this allocation request due to an unexpected server error. Please try again or contact support."
+   );
+-  if (isKnown) return error.message;
+-  return "Failed to process this allocation request due to an unexpected server error. Please try again or contact support.";
+ }
+ 
+ /**
+@@ -286,11 +303,10 @@ const REPAIR_ORDER_CONTAINER_KNOWN_ERRORS: ReadonlyArray<{ code: string; pattern
+ ];
+ 
+ function normalizeContainerRpcError(error: { code?: string; message: string }): string {
+-  const isKnown = REPAIR_ORDER_CONTAINER_KNOWN_ERRORS.some(
+-    (known) => error.code === known.code && known.pattern.test(error.message)
++  return (
++    normalizeKnownRpcError(error, REPAIR_ORDER_CONTAINER_KNOWN_ERRORS) ??
++    "Failed to process this container request due to an unexpected server error. Please try again or contact support."
+   );
+-  if (isKnown) return error.message;
+-  return "Failed to process this container request due to an unexpected server error. Please try again or contact support.";
+ }
+ 
+ /**
+@@ -2064,6 +2080,36 @@ export class RepairOrdersService {
+     };
+   }
+ 
++  /**
++   * A2 simplification pass: mechanical extraction of the exact
++   * `belongsToThisLine` boolean previously copy-pasted verbatim in
++   * `releaseReservationForLine` and `allocateForLine`. Pure predicate --
++   * no error message, no side effect -- so each call site keeps its own
++   * (deliberately non-leaking, possibly per-site-different) failure
++   * message unchanged. `!!row` makes the return type strictly boolean;
++   * this is a pure runtime no-op since `row && ...` was only ever used
++   * in a truthy/falsy `if` check at both original sites, never compared
++   * for identity or serialized.
++   */
++  private static belongsToRepairOrderLine(
++    row: {
++      organization_id: string;
++      branch_id: string;
++      reference_type: string;
++      reference_id: string;
++    } | null,
++    scope: { organizationId: string; branchId: string },
++    repairOrderLineId: string
++  ): boolean {
++    return (
++      !!row &&
++      row.organization_id === scope.organizationId &&
++      row.branch_id === scope.branchId &&
++      row.reference_type === "repair_order_line" &&
++      row.reference_id === repairOrderLineId
++    );
++  }
++
+   /**
+    * Phase 10C: resolve a RepairOrder's own authoritative
+    * `organization_id`/`branch_id` directly (no logical-line hop needed --
+@@ -2268,12 +2314,11 @@ export class RepairOrdersService {
+       };
+     }
+ 
+-    const belongsToThisLine =
+-      reservation &&
+-      reservation.organization_id === scope.organizationId &&
+-      reservation.branch_id === scope.branchId &&
+-      reservation.reference_type === "repair_order_line" &&
+-      reservation.reference_id === input.repairOrderLineId;
++    const belongsToThisLine = RepairOrdersService.belongsToRepairOrderLine(
++      reservation,
++      scope,
++      input.repairOrderLineId
++    );
+ 
+     if (!belongsToThisLine) {
+       // Same message the RPC itself raises for a genuinely missing id --
+@@ -2553,12 +2598,11 @@ export class RepairOrdersService {
+       };
+     }
+ 
+-    const belongsToThisLine =
+-      reservation &&
+-      reservation.organization_id === scope.organizationId &&
+-      reservation.branch_id === scope.branchId &&
+-      reservation.reference_type === "repair_order_line" &&
+-      reservation.reference_id === input.repairOrderLineId;
++    const belongsToThisLine = RepairOrdersService.belongsToRepairOrderLine(
++      reservation,
++      scope,
++      input.repairOrderLineId
++    );
+ 
+     if (!belongsToThisLine) {
+       // Same message either way -- an unrelated/cross-scope reservation
+diff --git a/apps/web/supabase-target/supabase/migrations/20260922063007_a1_drop_dead_inventory_convert_quantity.sql b/apps/web/supabase-target/supabase/migrations/20260922063007_a1_drop_dead_inventory_convert_quantity.sql
+new file mode 100644
+index 00000000..aa887b7e
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260922063007_a1_drop_dead_inventory_convert_quantity.sql
+@@ -0,0 +1,14 @@
++-- A1 SIMPLIFICATION -- remove confirmed-dead code.
++-- inventory_convert_quantity(uuid,uuid,uuid,uuid,numeric): live-verified
++-- zero SQL callers (prosrc cross-search across all of pg_proc) and zero
++-- TS callers (repo grep across apps/web and apps/public-web, excluding
++-- generated type declarations and one migration-content test assertion
++-- which are not invocations). Its security exposure (anon/PUBLIC EXECUTE
++-- on a function with no body-level permission check) was already closed
++-- by the IC-7 closing pass's own grant hardening
++-- (20260919093709_ic7_closing_grant_hardening_valuation_and_sensitive_
++-- reads.sql); only the code-removal decision remained, deferred to this
++-- pass by the architecture compression review's own simplification-plan
++-- item A1.
++
++DROP FUNCTION IF EXISTS public.inventory_convert_quantity(uuid, uuid, uuid, uuid, numeric);
+diff --git a/apps/web/supabase-target/supabase/migrations/20260922063459_a4_revoke_authenticated_balance_lock_helper.sql b/apps/web/supabase-target/supabase/migrations/20260922063459_a4_revoke_authenticated_balance_lock_helper.sql
+new file mode 100644
+index 00000000..f553bc2f
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260922063459_a4_revoke_authenticated_balance_lock_helper.sql
+@@ -0,0 +1,19 @@
++-- A4 SIMPLIFICATION -- internalize inventory_get_or_create_balance_for_update.
++-- Live-confirmed: exactly 6 real callers (inventory_create_allocation,
++-- inventory_create_reservation, inventory_finalize_posting_internal,
++-- inventory_release_allocation, inventory_release_reservation,
++-- inventory_send_branch_transfer), all SECURITY DEFINER owned by
++-- postgres -- same-owner nesting, entirely unaffected by this REVOKE.
++-- Zero real TS/direct application callers (repo grep: only a doc
++-- comment and one migration-content test assertion, neither an
++-- invocation). This is the exact "genuine DRY helper, only its
++-- lingering authenticated grant is a simplification target" residual
++-- item the architecture compression review disclosed and deferred to
++-- this pass (simplification-plan.md item A4). The function itself is
++-- NOT converted to SECURITY DEFINER, NOT rewritten, and its locking
++-- semantics (FOR UPDATE on the balance row) are entirely unchanged --
++-- this is a grant-only change.
++
++REVOKE EXECUTE ON FUNCTION public.inventory_get_or_create_balance_for_update(uuid, uuid, uuid, uuid, uuid, uuid, uuid) FROM authenticated;
++REVOKE EXECUTE ON FUNCTION public.inventory_get_or_create_balance_for_update(uuid, uuid, uuid, uuid, uuid, uuid, uuid) FROM PUBLIC;
++REVOKE EXECUTE ON FUNCTION public.inventory_get_or_create_balance_for_update(uuid, uuid, uuid, uuid, uuid, uuid, uuid) FROM anon;
+diff --git a/apps/web/supabase/tests/111_ic7_closing_security_test.sql b/apps/web/supabase/tests/111_ic7_closing_security_test.sql
+index 3c0da93d..92d9ebf8 100644
+--- a/apps/web/supabase/tests/111_ic7_closing_security_test.sql
++++ b/apps/web/supabase/tests/111_ic7_closing_security_test.sql
+@@ -134,7 +134,12 @@ BEGIN
+     PERFORM public.inventory_convert_quantity(v_org, gen_random_uuid(), v_unit, v_unit, 1);
+     INSERT INTO test_log(line) SELECT fail('A8: anon convert_quantity expected denial, succeeded instead');
+   EXCEPTION WHEN OTHERS THEN
+-    INSERT INTO test_log(line) SELECT is(SQLSTATE, '42501', 'A8: anon cannot execute inventory_convert_quantity (zero-permission-check tenant read, closed this pass)');
++    -- A1 SIMPLIFICATION PASS (post-IC7-closing correction): inventory_
++    -- convert_quantity was confirmed dead (zero SQL/TS callers) and
++    -- DROP'd entirely -- a strictly stronger closure than the grant
++    -- hardening this scenario originally proved. Any caller, not just
++    -- anon, now gets 42883 (undefined_function) rather than 42501.
++    INSERT INTO test_log(line) SELECT is(SQLSTATE, '42883', 'A8: inventory_convert_quantity no longer exists (removed as dead code by the A1 simplification pass, superseding the grant-hardening closure this scenario originally proved)');
+   END;
+ 
+   RESET ROLE;
+diff --git a/apps/web/supabase/tests/113_a1_a4_simplification_security_test.sql b/apps/web/supabase/tests/113_a1_a4_simplification_security_test.sql
+new file mode 100644
+index 00000000..c6b387c9
+--- /dev/null
++++ b/apps/web/supabase/tests/113_a1_a4_simplification_security_test.sql
+@@ -0,0 +1,165 @@
++-- ============================================================================
++-- TEST: INVENTORY CORE A1/A4 SIMPLIFICATION PASS -- DB-level proof
++-- ============================================================================
++-- Permanent regression coverage for the two live DB changes this pass made:
++--
++-- A1: inventory_convert_quantity (confirmed dead -- zero SQL/TS callers,
++--     see docs/inventory/reviews/inventory-a1-a6-simplification-review/)
++--     was DROP'd entirely (migration a1_drop_dead_inventory_convert_
++--     quantity). Proven here: the function no longer exists for ANY role
++--     (not just anon -- a strictly stronger closure than the IC-7 closing
++--     pass's own grant hardening, which this supersedes for this one
++--     function; see 111_ic7_closing_security_test.sql's own corrected
++--     scenario A8).
++--
++-- A4: inventory_get_or_create_balance_for_update's lingering `authenticated`
++--     EXECUTE grant was revoked (migration a4_revoke_authenticated_
++--     balance_lock_helper) -- the exact residual item the architecture
++--     compression review disclosed and deferred to this pass. Live-
++--     confirmed pre-migration: 6 real callers, all SECURITY DEFINER owned
++--     by postgres (same-owner nesting, unaffected by this REVOKE), zero
++--     real TS/direct-application callers. Proven here: a direct
++--     authenticated call is now denied at the grant layer (before RLS or
++--     any function-body logic runs), while a representative canonical
++--     caller (inventory_create_reservation) still succeeds end-to-end for
++--     a real, permissioned authenticated user.
++--
++-- Executed live against supabase-target via Supabase MCP.
++
++BEGIN;
++
++SELECT plan(7);
++
++CREATE TEMP TABLE fx (
++  org uuid, branch uuid, variant_1 uuid, unit_1 uuid, e2e_user uuid, loc uuid
++);
++GRANT SELECT ON fx TO authenticated, anon;
++INSERT INTO fx SELECT
++  '9f98fe91-63b8-4986-a2b3-65bdd47684c9'::uuid,
++  'e39b15da-0a8d-4056-b5a2-80eb1da868a6'::uuid,
++  'fe364ce2-1f72-4df5-ab92-6361ec95e0da'::uuid,
++  '571dfd6c-eba2-42c2-8ad9-f39a2d103b6d'::uuid,
++  'c4a24371-42db-4bb8-ab5e-379ebbf7d9c4'::uuid,
++  gen_random_uuid();
++
++CREATE TEMP TABLE test_log (seq serial, line text);
++GRANT INSERT, SELECT ON test_log TO authenticated, anon;
++GRANT USAGE ON SEQUENCE test_log_seq_seq TO authenticated, anon;
++
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, code, can_store_inventory)
++SELECT loc, org, branch, '113-a4-probe-loc', '113-A4-PROBE', true FROM fx;
++
++SELECT set_config('ambra.inventory_movement_engine', 'on', true);
++INSERT INTO inventory_balances (organization_id, branch_id, location_id, variant_id, on_hand_quantity, reserved_quantity, allocated_quantity)
++SELECT org, branch, loc, variant_1, 0, 0, 0 FROM fx;
++UPDATE inventory_balances b SET on_hand_quantity = 50
++FROM fx WHERE b.organization_id = fx.org AND b.branch_id = fx.branch AND b.location_id = fx.loc AND b.variant_id = fx.variant_1;
++
++-- ===========================================================================
++-- A1: inventory_convert_quantity no longer exists, for any role
++-- ===========================================================================
++SET LOCAL ROLE anon;
++SELECT set_config('request.jwt.claims', '{}', true);
++DO $$
++BEGIN
++  BEGIN
++    PERFORM public.inventory_convert_quantity(
++      (SELECT org FROM fx), gen_random_uuid(), (SELECT unit_1 FROM fx), (SELECT unit_1 FROM fx), 1
++    );
++    INSERT INTO test_log(line) SELECT fail('A1: anon convert_quantity expected 42883 undefined_function, call succeeded instead');
++  EXCEPTION WHEN OTHERS THEN
++    INSERT INTO test_log(line) SELECT is(SQLSTATE, '42883', 'A1: inventory_convert_quantity no longer exists for anon (dropped as dead code)');
++  END;
++END $$;
++RESET ROLE;
++
++SET LOCAL ROLE authenticated;
++SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fx)::text, 'role', 'authenticated')::text, true);
++DO $$
++BEGIN
++  BEGIN
++    PERFORM public.inventory_convert_quantity(
++      (SELECT org FROM fx), gen_random_uuid(), (SELECT unit_1 FROM fx), (SELECT unit_1 FROM fx), 1
++    );
++    INSERT INTO test_log(line) SELECT fail('A2: authenticated convert_quantity expected 42883 undefined_function, call succeeded instead');
++  EXCEPTION WHEN OTHERS THEN
++    INSERT INTO test_log(line) SELECT is(SQLSTATE, '42883', 'A2: inventory_convert_quantity no longer exists for authenticated either (dropped as dead code, not merely re-gated)');
++  END;
++END $$;
++RESET ROLE;
++
++INSERT INTO test_log(line) SELECT is(
++  (SELECT count(*) FROM pg_proc WHERE proname = 'inventory_convert_quantity'),
++  0::bigint,
++  'A3: inventory_convert_quantity has zero rows in pg_proc -- fully removed, not just re-permissioned'
++);
++
++-- ===========================================================================
++-- A4: inventory_get_or_create_balance_for_update -- authenticated direct
++-- call denied, canonical caller still works, anon still denied (unchanged)
++-- ===========================================================================
++SET LOCAL ROLE authenticated;
++SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fx)::text, 'role', 'authenticated')::text, true);
++DO $$
++BEGIN
++  BEGIN
++    PERFORM public.inventory_get_or_create_balance_for_update(
++      (SELECT org FROM fx), (SELECT branch FROM fx), (SELECT loc FROM fx), (SELECT variant_1 FROM fx),
++      NULL, NULL, NULL
++    );
++    INSERT INTO test_log(line) SELECT fail('B1: authenticated direct call to the internal balance-lock helper expected 42501, succeeded instead');
++  EXCEPTION WHEN OTHERS THEN
++    INSERT INTO test_log(line) SELECT is(SQLSTATE, '42501', 'B1: authenticated can no longer directly call inventory_get_or_create_balance_for_update (A4 REVOKE)');
++  END;
++END $$;
++RESET ROLE;
++
++SET LOCAL ROLE anon;
++SELECT set_config('request.jwt.claims', '{}', true);
++DO $$
++BEGIN
++  BEGIN
++    PERFORM public.inventory_get_or_create_balance_for_update(
++      (SELECT org FROM fx), (SELECT branch FROM fx), (SELECT loc FROM fx), (SELECT variant_1 FROM fx),
++      NULL, NULL, NULL
++    );
++    INSERT INTO test_log(line) SELECT fail('B2: anon direct call to the internal balance-lock helper expected 42501, succeeded instead');
++  EXCEPTION WHEN OTHERS THEN
++    INSERT INTO test_log(line) SELECT is(SQLSTATE, '42501', 'B2: anon was already denied pre-pass and remains denied (unaffected by this pass, re-confirmed)');
++  END;
++END $$;
++RESET ROLE;
++
++-- B3: a representative canonical caller (inventory_create_reservation,
++-- SECURITY DEFINER owned by postgres, nests a call to the now-restricted
++-- helper) still succeeds end-to-end for a real, permissioned authenticated
++-- user -- proving same-owner nesting is genuinely unaffected by the REVOKE.
++SET LOCAL ROLE authenticated;
++SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fx)::text, 'role', 'authenticated')::text, true);
++DO $$
++DECLARE v_result jsonb;
++BEGIN
++  SELECT public.inventory_create_reservation(
++    (SELECT org FROM fx), (SELECT branch FROM fx),
++    jsonb_build_array(jsonb_build_object(
++      'variant_id', (SELECT variant_1 FROM fx), 'unit_id', (SELECT unit_1 FROM fx),
++      'location_id', (SELECT loc FROM fx), 'quantity', 5
++    )),
++    'generic', NULL, NULL, NULL, NULL, (SELECT e2e_user FROM fx)
++  ) INTO v_result;
++  INSERT INTO test_log(line) SELECT is(
++    (v_result ->> 'status'), 'active',
++    'B3: canonical caller inventory_create_reservation still succeeds end-to-end after A4 REVOKE (same-owner nesting unaffected)'
++  );
++END $$;
++RESET ROLE;
++
++INSERT INTO test_log(line) SELECT is(
++  (SELECT count(*) FROM pg_proc WHERE proname = 'inventory_get_or_create_balance_for_update'),
++  1::bigint,
++  'B4: inventory_get_or_create_balance_for_update still has exactly 1 overload -- grant-only change, function itself untouched'
++);
++
++SELECT line FROM test_log ORDER BY seq;
++
++ROLLBACK;

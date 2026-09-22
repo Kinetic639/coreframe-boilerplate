@@ -72,12 +72,32 @@ const REPAIR_ORDER_RPC_KNOWN_ERRORS: ReadonlyArray<{ code: string; pattern: RegE
   { code: "42501", pattern: /^Not authorized to materialize repair orders for this branch$/ },
 ];
 
-function normalizeMaterializationRpcError(error: { code?: string; message: string }): string {
-  const isKnown = REPAIR_ORDER_RPC_KNOWN_ERRORS.some(
+/**
+ * A3 simplification pass: mechanical extraction of the identical 4-line
+ * "match against my own allowlist array, else null" shape previously
+ * repeated verbatim across 5 `normalize*RpcError` functions below,
+ * differing only in which allowlist array they closed over. Pure
+ * matcher -- returns the original (already-safe) message on a match, or
+ * `null` on no match -- so each of the 5 functions below keeps its own
+ * domain-specific fallback message, call signature, and call sites
+ * completely unchanged. Allowlist DATA (the 5 arrays) is intentionally
+ * NOT merged -- each stays its own independently-curated table.
+ */
+function normalizeKnownRpcError(
+  error: { code?: string; message: string },
+  knownErrors: ReadonlyArray<{ code: string; pattern: RegExp }>
+): string | null {
+  const isKnown = knownErrors.some(
     (known) => error.code === known.code && known.pattern.test(error.message)
   );
-  if (isKnown) return error.message;
-  return "Materialization failed due to an unexpected server error. Please try again or contact support.";
+  return isKnown ? error.message : null;
+}
+
+function normalizeMaterializationRpcError(error: { code?: string; message: string }): string {
+  return (
+    normalizeKnownRpcError(error, REPAIR_ORDER_RPC_KNOWN_ERRORS) ??
+    "Materialization failed due to an unexpected server error. Please try again or contact support."
+  );
 }
 
 /**
@@ -158,11 +178,10 @@ const REPAIR_ORDER_MOVEMENT_LINK_KNOWN_ERRORS: ReadonlyArray<{ code: string; pat
 ];
 
 function normalizeMovementLinkRpcError(error: { code?: string; message: string }): string {
-  const isKnown = REPAIR_ORDER_MOVEMENT_LINK_KNOWN_ERRORS.some(
-    (known) => error.code === known.code && known.pattern.test(error.message)
+  return (
+    normalizeKnownRpcError(error, REPAIR_ORDER_MOVEMENT_LINK_KNOWN_ERRORS) ??
+    "Failed to attribute this movement to the repair order line due to an unexpected server error. Please try again or contact support."
   );
-  if (isKnown) return error.message;
-  return "Failed to attribute this movement to the repair order line due to an unexpected server error. Please try again or contact support.";
 }
 
 /**
@@ -197,11 +216,10 @@ const REPAIR_ORDER_RESERVATION_KNOWN_ERRORS: ReadonlyArray<{ code: string; patte
 ];
 
 function normalizeReservationRpcError(error: { code?: string; message: string }): string {
-  const isKnown = REPAIR_ORDER_RESERVATION_KNOWN_ERRORS.some(
-    (known) => error.code === known.code && known.pattern.test(error.message)
+  return (
+    normalizeKnownRpcError(error, REPAIR_ORDER_RESERVATION_KNOWN_ERRORS) ??
+    "Failed to process this reservation request due to an unexpected server error. Please try again or contact support."
   );
-  if (isKnown) return error.message;
-  return "Failed to process this reservation request due to an unexpected server error. Please try again or contact support.";
 }
 
 /**
@@ -226,11 +244,10 @@ const REPAIR_ORDER_ALLOCATION_KNOWN_ERRORS: ReadonlyArray<{ code: string; patter
 ];
 
 function normalizeAllocationRpcError(error: { code?: string; message: string }): string {
-  const isKnown = REPAIR_ORDER_ALLOCATION_KNOWN_ERRORS.some(
-    (known) => error.code === known.code && known.pattern.test(error.message)
+  return (
+    normalizeKnownRpcError(error, REPAIR_ORDER_ALLOCATION_KNOWN_ERRORS) ??
+    "Failed to process this allocation request due to an unexpected server error. Please try again or contact support."
   );
-  if (isKnown) return error.message;
-  return "Failed to process this allocation request due to an unexpected server error. Please try again or contact support.";
 }
 
 /**
@@ -286,11 +303,10 @@ const REPAIR_ORDER_CONTAINER_KNOWN_ERRORS: ReadonlyArray<{ code: string; pattern
 ];
 
 function normalizeContainerRpcError(error: { code?: string; message: string }): string {
-  const isKnown = REPAIR_ORDER_CONTAINER_KNOWN_ERRORS.some(
-    (known) => error.code === known.code && known.pattern.test(error.message)
+  return (
+    normalizeKnownRpcError(error, REPAIR_ORDER_CONTAINER_KNOWN_ERRORS) ??
+    "Failed to process this container request due to an unexpected server error. Please try again or contact support."
   );
-  if (isKnown) return error.message;
-  return "Failed to process this container request due to an unexpected server error. Please try again or contact support.";
 }
 
 /**
@@ -2065,6 +2081,36 @@ export class RepairOrdersService {
   }
 
   /**
+   * A2 simplification pass: mechanical extraction of the exact
+   * `belongsToThisLine` boolean previously copy-pasted verbatim in
+   * `releaseReservationForLine` and `allocateForLine`. Pure predicate --
+   * no error message, no side effect -- so each call site keeps its own
+   * (deliberately non-leaking, possibly per-site-different) failure
+   * message unchanged. `!!row` makes the return type strictly boolean;
+   * this is a pure runtime no-op since `row && ...` was only ever used
+   * in a truthy/falsy `if` check at both original sites, never compared
+   * for identity or serialized.
+   */
+  private static belongsToRepairOrderLine(
+    row: {
+      organization_id: string;
+      branch_id: string;
+      reference_type: string;
+      reference_id: string;
+    } | null,
+    scope: { organizationId: string; branchId: string },
+    repairOrderLineId: string
+  ): boolean {
+    return (
+      !!row &&
+      row.organization_id === scope.organizationId &&
+      row.branch_id === scope.branchId &&
+      row.reference_type === "repair_order_line" &&
+      row.reference_id === repairOrderLineId
+    );
+  }
+
+  /**
    * Phase 10C: resolve a RepairOrder's own authoritative
    * `organization_id`/`branch_id` directly (no logical-line hop needed --
    * container ownership is at the RepairOrder header level, per decision:
@@ -2268,12 +2314,11 @@ export class RepairOrdersService {
       };
     }
 
-    const belongsToThisLine =
-      reservation &&
-      reservation.organization_id === scope.organizationId &&
-      reservation.branch_id === scope.branchId &&
-      reservation.reference_type === "repair_order_line" &&
-      reservation.reference_id === input.repairOrderLineId;
+    const belongsToThisLine = RepairOrdersService.belongsToRepairOrderLine(
+      reservation,
+      scope,
+      input.repairOrderLineId
+    );
 
     if (!belongsToThisLine) {
       // Same message the RPC itself raises for a genuinely missing id --
@@ -2553,12 +2598,11 @@ export class RepairOrdersService {
       };
     }
 
-    const belongsToThisLine =
-      reservation &&
-      reservation.organization_id === scope.organizationId &&
-      reservation.branch_id === scope.branchId &&
-      reservation.reference_type === "repair_order_line" &&
-      reservation.reference_id === input.repairOrderLineId;
+    const belongsToThisLine = RepairOrdersService.belongsToRepairOrderLine(
+      reservation,
+      scope,
+      input.repairOrderLineId
+    );
 
     if (!belongsToThisLine) {
       // Same message either way -- an unrelated/cross-scope reservation

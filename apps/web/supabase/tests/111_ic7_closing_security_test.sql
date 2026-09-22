@@ -134,7 +134,12 @@ BEGIN
     PERFORM public.inventory_convert_quantity(v_org, gen_random_uuid(), v_unit, v_unit, 1);
     INSERT INTO test_log(line) SELECT fail('A8: anon convert_quantity expected denial, succeeded instead');
   EXCEPTION WHEN OTHERS THEN
-    INSERT INTO test_log(line) SELECT is(SQLSTATE, '42501', 'A8: anon cannot execute inventory_convert_quantity (zero-permission-check tenant read, closed this pass)');
+    -- A1 SIMPLIFICATION PASS (post-IC7-closing correction): inventory_
+    -- convert_quantity was confirmed dead (zero SQL/TS callers) and
+    -- DROP'd entirely -- a strictly stronger closure than the grant
+    -- hardening this scenario originally proved. Any caller, not just
+    -- anon, now gets 42883 (undefined_function) rather than 42501.
+    INSERT INTO test_log(line) SELECT is(SQLSTATE, '42883', 'A8: inventory_convert_quantity no longer exists (removed as dead code by the A1 simplification pass, superseding the grant-hardening closure this scenario originally proved)');
   END;
 
   RESET ROLE;

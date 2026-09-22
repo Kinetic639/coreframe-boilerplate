@@ -22,19 +22,6 @@ const createContainerSchema = z.object({
   current_location_id: uuidSchema,
 });
 
-const createPutawayRuleSchema = z
-  .object({
-    destination_location_id: uuidSchema,
-    variant_id: uuidSchema.nullable().optional(),
-    product_id: uuidSchema.nullable().optional(),
-    product_category: z.string().trim().max(120).nullable().optional(),
-    priority: z.number().int().min(0).max(10000).optional().default(100),
-  })
-  .refine(
-    (value) => Boolean(value.variant_id || value.product_id || value.product_category),
-    "Select a variant, product, or category"
-  );
-
 async function requireStockableLocation(
   locationId: string,
   orgId: string,
@@ -101,37 +88,6 @@ export async function createLocationContainerAction(rawInput: unknown) {
     if (error) return { success: false as const, error: error.message };
     revalidatePath("/dashboard/warehouse/locations");
     return { success: true as const, data };
-  } catch (error) {
-    return mapUnexpected(error);
-  }
-}
-
-export async function deletePutawayRuleAction(rawInput: unknown) {
-  try {
-    const auth = await requireWarehouseContext();
-    if (!auth.success) return auth;
-    if (!hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE)) {
-      return { success: false as const, error: "Unauthorized" };
-    }
-    const branch = requireActiveBranch(auth);
-    if (!branch.success) return branch;
-
-    const parsed = uuidSchema.safeParse(rawInput);
-    if (!parsed.success) return { success: false as const, error: "Invalid rule id" };
-
-    const orgId = auth.context.app.activeOrgId;
-    const supabase = await createClient();
-    const client = supabase as any;
-    const { error } = await client
-      .from("inventory_putaway_rules")
-      .update({ deleted_at: new Date().toISOString() })
-      .eq("id", parsed.data)
-      .eq("organization_id", orgId)
-      .eq("branch_id", branch.branchId);
-
-    if (error) return { success: false as const, error: error.message };
-    revalidatePath("/dashboard/warehouse/locations");
-    return { success: true as const };
   } catch (error) {
     return mapUnexpected(error);
   }
@@ -477,141 +433,6 @@ export async function relocateContainerAction(rawInput: unknown) {
 
     revalidatePath("/dashboard/warehouse/locations");
     return { success: true as const };
-  } catch (error) {
-    return mapUnexpected(error);
-  }
-}
-
-const findByReferenceSchema = z.object({
-  reference_type: z.string().trim().min(1),
-  reference_id: z.string().trim().min(1),
-});
-
-export async function findContainersByReferenceAction(rawInput: unknown) {
-  try {
-    const auth = await requireWarehouseContext();
-    if (!auth.success) return auth;
-    const branch = requireActiveBranch(auth);
-    if (!branch.success) return branch;
-
-    const parsed = findByReferenceSchema.safeParse(rawInput);
-    if (!parsed.success) return { success: false as const, error: parsed.error.errors[0].message };
-
-    const orgId = auth.context.app.activeOrgId;
-    const supabase = await createClient();
-    const client = supabase as any;
-
-    const { data, error } = await client
-      .from("inventory_containers")
-      .select(
-        "id, code, type, status, current_location_id, reference_type, reference_id, created_at, updated_at"
-      )
-      .eq("organization_id", orgId)
-      .eq("branch_id", branch.branchId)
-      .eq("reference_type", parsed.data.reference_type)
-      .eq("reference_id", parsed.data.reference_id)
-      .is("deleted_at", null)
-      .neq("status", "archived")
-      .order("updated_at", { ascending: false });
-
-    if (error) return { success: false as const, error: error.message };
-
-    const containers = (data ?? []) as Array<{
-      id: string;
-      code: string;
-      type: string;
-      status: string;
-      current_location_id: string;
-      reference_type: string | null;
-      reference_id: string | null;
-      created_at: string;
-      updated_at: string;
-    }>;
-
-    if (containers.length === 0) return { success: true as const, data: [] };
-
-    const locationIds = [...new Set(containers.map((c) => c.current_location_id))];
-    const { data: locationsData } = await supabase
-      .from("warehouse_locations")
-      .select("id, name, code")
-      .eq("organization_id", orgId)
-      .in("id", locationIds);
-
-    const locationsById = new Map(
-      ((locationsData ?? []) as Array<{ id: string; name: string; code: string }>).map((l) => [
-        l.id,
-        l,
-      ])
-    );
-
-    return {
-      success: true as const,
-      data: containers.map((c) => {
-        const loc = locationsById.get(c.current_location_id);
-        return {
-          id: c.id,
-          code: c.code,
-          type: c.type,
-          status: c.status,
-          currentLocationId: c.current_location_id,
-          currentLocationName: loc ? `${loc.code} - ${loc.name}` : null,
-          referenceType: c.reference_type,
-          referenceId: c.reference_id,
-          createdAt: c.created_at,
-          updatedAt: c.updated_at,
-        };
-      }),
-    };
-  } catch (error) {
-    return mapUnexpected(error);
-  }
-}
-
-export async function createLocationPutawayRuleAction(rawInput: unknown) {
-  try {
-    const auth = await requireWarehouseContext();
-    if (!auth.success) return auth;
-    if (!hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE)) {
-      return { success: false as const, error: "Unauthorized" };
-    }
-    const branch = requireActiveBranch(auth);
-    if (!branch.success) return branch;
-
-    const parsed = createPutawayRuleSchema.safeParse(rawInput);
-    if (!parsed.success) return { success: false as const, error: parsed.error.errors[0].message };
-
-    const orgId = auth.context.app.activeOrgId;
-    const userId = userIdFrom(auth);
-    if (!userId) return { success: false as const, error: "User identity unavailable" };
-
-    const location = await requireStockableLocation(
-      parsed.data.destination_location_id,
-      orgId,
-      branch.branchId
-    );
-    if (!location.success) return location;
-
-    const supabase = await createClient();
-    const client = supabase as any;
-    const { data, error } = await client
-      .from("inventory_putaway_rules")
-      .insert({
-        organization_id: orgId,
-        branch_id: branch.branchId,
-        destination_location_id: parsed.data.destination_location_id,
-        variant_id: parsed.data.variant_id ?? null,
-        product_id: parsed.data.product_id ?? null,
-        product_category: parsed.data.product_category || null,
-        priority: parsed.data.priority,
-        created_by: userId,
-        updated_by: userId,
-      })
-      .select("id")
-      .single();
-
-    if (error) return { success: false as const, error: error.message };
-    revalidatePath("/dashboard/warehouse/locations");
-    return { success: true as const, data };
   } catch (error) {
     return mapUnexpected(error);
   }
