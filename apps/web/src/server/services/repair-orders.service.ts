@@ -3022,7 +3022,14 @@ export class RepairOrdersService {
       return { success: false, error: "Container not found for this RepairOrder" };
     }
 
-    const { data, error } = await supabase.rpc("inventory_add_to_container", {
+    // A7 simplification pass: calls the RepairOrder-domain wrapper
+    // (repair_order_add_allocation_to_container) instead of the generic
+    // inventory_add_to_container primitive directly -- the generic
+    // primitive no longer contains RepairOrder-ownership knowledge (see
+    // docs/inventory/reviews/inventory-a7-repairorder-container-
+    // boundary-review/). Same params, same result shape, same
+    // transaction (the wrapper nests the generic call itself).
+    const { data, error } = await supabase.rpc("repair_order_add_allocation_to_container", {
       p_actor_user_id: actorUserId,
       p_organization_id: scope.organizationId,
       p_branch_id: scope.branchId,
@@ -3033,7 +3040,7 @@ export class RepairOrdersService {
 
     if (error) {
       console.error(
-        "[RepairOrdersService.placeAllocationInContainer] inventory_add_to_container RPC error:",
+        "[RepairOrdersService.placeAllocationInContainer] repair_order_add_allocation_to_container RPC error:",
         error
       );
       return { success: false, error: normalizeContainerRpcError(error) };

@@ -3469,8 +3469,13 @@ describe("RepairOrdersService.listAllocationsForLine", () => {
  * placeAllocationInContainer / removeAllocationFromContainer -- the
  * RepairOrder domain's own wrapper around the existing, unmodified
  * generic container orchestration engine (`inventory_create_container`/
- * `inventory_add_to_container`/`inventory_remove_from_container`). The
- * engine's OWN real behavior (quantity conservation, empty<->active
+ * `inventory_add_to_container`/`inventory_remove_from_container`).
+ * A7 SIMPLIFICATION PASS: placeAllocationInContainer now calls
+ * `repair_order_add_allocation_to_container` (a RepairOrder-domain SQL
+ * wrapper that itself nests a call to `inventory_add_to_container` in
+ * the same transaction) instead of the generic primitive directly --
+ * see docs/inventory/reviews/inventory-a7-repairorder-container-
+ * boundary-review/. The engine's OWN real behavior (quantity conservation, empty<->active
  * transitions, org/branch isolation, permission gating, raw-write
  * boundary) is proven live in
  * `100_repair_order_container_orchestration_phase10c_test.sql` (29/29
@@ -3692,7 +3697,7 @@ describe("RepairOrdersService.placeAllocationInContainer", () => {
     vi.clearAllMocks();
   });
 
-  it("resolves allocation ownership via listAllocationsForLine and container ownership via reference match, then maps params to inventory_add_to_container correctly", async () => {
+  it("resolves allocation ownership via listAllocationsForLine and container ownership via reference match, then maps params to repair_order_add_allocation_to_container correctly", async () => {
     const supabase = buildContainerSupabaseMock({
       lineResult: CONTAINER_LINE_FOUND,
       orderResult: CONTAINER_ORDER_FOUND,
@@ -3730,7 +3735,7 @@ describe("RepairOrdersService.placeAllocationInContainer", () => {
       quantity: 4,
     });
 
-    expect(supabase.rpc).toHaveBeenCalledWith("inventory_add_to_container", {
+    expect(supabase.rpc).toHaveBeenCalledWith("repair_order_add_allocation_to_container", {
       p_actor_user_id: "user-1",
       p_organization_id: "org-1",
       p_branch_id: "branch-1",

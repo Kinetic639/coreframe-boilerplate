@@ -47,6 +47,22 @@
 --      report for the full methodology and result. This file continues to
 --      prove the row-locking STRATEGY sequentially only, as before.
 --
+-- A7 SIMPLIFICATION PASS correction (see docs/inventory/reviews/inventory-
+-- a7-repairorder-container-boundary-review/): the RepairOrder-ownership
+-- check inventory_add_to_container used to enforce inline (point 2 above)
+-- was extracted into a new RepairOrder-domain wrapper,
+-- repair_order_add_allocation_to_container. inventory_add_to_container
+-- itself is now a domain-agnostic generic primitive with zero RepairOrder-
+-- table knowledge -- a direct call to it no longer enforces cross-
+-- RepairOrder rejection (disclosed, accepted tradeoff for any caller that
+-- bypasses the wrapper). T19's own call was updated to go through the new
+-- wrapper instead (the real production entry point RepairOrdersService now
+-- uses) so this file continues proving the same guarantee without
+-- weakening coverage -- see T19's own inline comment for the full account.
+-- A new, dedicated file, 114_a7_repairorder_container_boundary_test.sql,
+-- covers the rest of the A7 boundary (including the generic primitive's
+-- own new, narrower direct-call behavior).
+--
 -- Phase 10C does NOT touch reservation_line.fulfilled_quantity,
 -- allocation_line.fulfilled_quantity, or any inventory_balances quantity --
 -- container placement is pure physical grouping of ALREADY-allocated stock,
@@ -421,16 +437,34 @@ INSERT INTO test_log(line) SELECT is(
 
 -- T19: line_b's own allocation (DIFFERENT RepairOrder "ro_other") placed
 -- into container A (owned by "ro") is REJECTED.
+--
+-- A7 SIMPLIFICATION PASS correction: this RepairOrder-ownership check was
+-- extracted out of inventory_add_to_container (now a domain-agnostic
+-- generic primitive with zero RepairOrder-table knowledge -- see
+-- docs/inventory/reviews/inventory-a7-repairorder-container-boundary-
+-- review/) into a new RepairOrder-domain wrapper,
+-- repair_order_add_allocation_to_container, which RepairOrdersService now
+-- calls instead of the generic primitive directly. T19 is updated to call
+-- the new wrapper -- the REAL production enforcement point post-A7 -- so
+-- this scenario continues proving the exact same guarantee (cross-
+-- RepairOrder placement is rejected) without weakening coverage. T20/T21
+-- and everything downstream are UNCHANGED: the wrapper still rejects this
+-- exact case, so container A's own contents and line_b's own linked sum
+-- remain exactly as this file already asserted before this pass. A
+-- dedicated new file, 114_a7_repairorder_container_boundary_test.sql,
+-- additionally proves the generic primitive's own new, narrower behavior
+-- (a DIRECT call bypassing the wrapper no longer enforces ownership --
+-- disclosed, accepted design tradeoff, not tested here).
 DO $$
 BEGIN
   BEGIN
-    PERFORM inventory_add_to_container(
+    PERFORM repair_order_add_allocation_to_container(
       (SELECT e2e_user FROM fx), (SELECT org FROM fx), (SELECT branch FROM fx),
       (SELECT container_a FROM fx), (SELECT allocline_b FROM fx), 3
     );
     INSERT INTO test_log(line) SELECT fail('T19: expected cross-RepairOrder rejection, call succeeded instead');
   EXCEPTION WHEN OTHERS THEN
-    INSERT INTO test_log(line) SELECT is(SQLSTATE, 'P0002', 'T19: an allocation belonging to a DIFFERENT RepairOrder than the container''s own owner is rejected (P0002)');
+    INSERT INTO test_log(line) SELECT is(SQLSTATE, 'P0002', 'T19: an allocation belonging to a DIFFERENT RepairOrder than the container''s own owner is rejected (P0002), now enforced by the repair_order_add_allocation_to_container wrapper (A7)');
   END;
 END $$;
 
