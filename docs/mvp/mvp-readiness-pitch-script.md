@@ -1,5 +1,7 @@
 # Ambra — scenariusz prezentacji MVP
 
+> **⚠ SUPERSEDED (2026-09-23)** — this script covers only 2 of the now much larger P0 demo chain (originally "2 of 19 areas ready today," dated 2026-08-12). The current master presentation script is `docs/mvp/ambra-skrypt-prezentacji.md`. Kept for historical reference to the original QR+Help-Desk-only demo scope. See `docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/pitch-script-truth-matrix.md` for the current master-script determination.
+
 ## Cel dokumentu
 
 Scenariusz krok po kroku do prezentacji dwóch obszarów gotowych dziś do pokazania na żywo: **Obszar 1 — Etykiety QR i lokalizacje** oraz **Obszar 2 — Komunikacja doradca–części (Help Desk)**. Zakłada konfigurację opisaną w `docs/mvp-readiness-test-org-setup.md` (organizacja, 2 oddziały, 4 konta, 1 typ zgłoszenia). **Zrób próbny przebieg całości przed prawdziwą prezentacją** — ten dokument zakłada, że konfiguracja z tamtego pliku już istnieje i działa.

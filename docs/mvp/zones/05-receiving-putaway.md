@@ -1,5 +1,7 @@
 ### 5. Przyjęcie 101/PZ → import z Matchera → mobilne rozłożenie → zamknięcie → raport
 
+> **⚠ PARTIALLY STALE NOTICE (2026-09-23)** — this document's bottom-line verdict (mobile putaway does not exist; containers are disconnected from receiving) remains ACCURATE and CONFIRMED as of today via an independent code check. However, specific technical details below are outdated: `ambra-location-inventory.ts` (referenced here as the disconnected container-action file) was DELETED as confirmed-dead code during the Inventory Core closing pass; the real current Zone 5 RPCs are `receive_repair_order_stock`/`putaway_repair_order_stock` (built after this document, not named here); and a reversal RPC (`inventory_reverse_movement`) has existed since IC-2, contrary to this document's "no reversal RPC exists" claim (it exists but, like these RPCs, has zero UI callers). **This gap is now a CONFIRMED, UNCONDITIONAL presentation blocker** — the current master pitch script (`docs/mvp/ambra-skrypt-prezentacji.md`, §7) explicitly demos this live on a phone. See `docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/pitch-script-truth-matrix.md` for the full current determination.
+
 **Priorytet:** P0
 
 **Stan obecny:** 🟠 EARLY / DISCONNECTED

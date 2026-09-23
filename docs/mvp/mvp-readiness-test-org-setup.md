@@ -1,5 +1,7 @@
 # Ambra — testowa organizacja i użytkownicy do prezentacji MVP
 
+> **⚠ SUPERSEDED (2026-09-23) — needs a full replacement, not produced in this documentation-only pass.** This setup (dated 2026-08-12) covers only QR/locations + Help Desk and predates the current, much larger P0 demo chain entirely — it does not account for RepairOrders, Matcher approval/materialization, receiving/putaway, containers, or the issue flow. A fresh test-org-setup document reflecting the actual current pitch flow (per `docs/mvp/ambra-skrypt-prezentacji.md` and `docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/`) is required before rehearsal. See `documentation-ownership.md` in that bundle.
+
 ## Cel dokumentu
 
 Ten dokument opisuje, jaką organizację testową, oddziały, role i kont użytkowników trzeba przygotować w aplikacji (`apps/web`), aby móc na żywo zaprezentować obszary MVP, które są dziś gotowe do pokazania: **Obszar 1 — Etykiety QR i lokalizacje** oraz **Obszar 2 — Komunikacja doradca–części (Help Desk)**.

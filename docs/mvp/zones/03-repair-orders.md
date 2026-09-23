@@ -1,5 +1,7 @@
 ### 3. Repair Orders / Car Workshop — zlecenia naprawcze, pozycje, dokumenty magazynowe i załączniki
 
+> **⚠ SUPERSEDED STATUS NOTICE (2026-09-23)** — the "🔴 NOT IMPLEMENTED" verdict and pitch-readiness checklist below describe the state of the repository BEFORE 2026-09-11. Real implementation (schema, `RepairOrdersService`, and a full `/dashboard/workshop` UI — list, search, detail, create) landed 2026-09-11 through 2026-09-22, through Phase 10C, confirmed live and tested. **Do not use this document's own top-line status or checklist as current.** Current status: `docs/mvp/zones/03-repair-orders-progress.md` (the live tracker) and `docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/documentation-staleness-audit.md` (full reconciliation). The "Product clarification and final design" section further below in this same file (dated 2026-09-09, the `zl_number`/D-code business-identity analysis) remains valid, load-bearing design work that the actual implementation followed — that section is HISTORICAL-BUT-VALID, not stale, unlike the top-line status above it.
+
 **Priorytet:** P0
 
 **Stan obecny:** 🔴 NOT IMPLEMENTED

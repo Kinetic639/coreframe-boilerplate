@@ -1,0 +1,164 @@
+diff --git a/docs/inventory/reviews/inventory-core-final-pilot-freeze/pitch-handoff.md b/docs/inventory/reviews/inventory-core-final-pilot-freeze/pitch-handoff.md
+index dcf46e0c..d492018e 100644
+--- a/docs/inventory/reviews/inventory-core-final-pilot-freeze/pitch-handoff.md
++++ b/docs/inventory/reviews/inventory-core-final-pilot-freeze/pitch-handoff.md
+@@ -4,6 +4,20 @@ Input for the AMBRA PITCH READINESS AUDIT. This is the exhaustive list
+ of product-facing Inventory gaps IC-8 discovered — backend/UI status
+ per capability, not a re-litigation of the architecture itself.
+ 
++> **CORRECTION (2026-09-23, Pitch Readiness Re-Baseline Audit)** — item 2/3
++> below ("Pitch audit should check: does the pitch script demo RepairOrder
++> stock receiving specifically?") is now RESOLVED, not conditional: the
++> current master pitch script (`docs/mvp/ambra-skrypt-prezentacji.md`, §7)
++> explicitly and unconditionally demos live mobile receiving/putaway
++> (scan part → scan location → confirm → close session → generate
++> report). **This is confirmed as a PRESENTATION BLOCKER**, not a
++> deferred nice-to-have. See
++> `docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/pitch-script-truth-matrix.md`
++> for the full determination. This documentation-only correction does not
++> change any Inventory Core architecture, RPC, or migration — the backend
++> remains exactly as IC-8 left it; only the pitch-relevance classification
++> is updated.
++
+ ## 1. `inventory_reverse_movement`
+ 
+ - Backend: ✅ ready — secure, tested (IC-2 origin, re-verified through
+diff --git a/docs/mvp/mvp-readiness-audit.md b/docs/mvp/mvp-readiness-audit.md
+index df0c27c9..574d2036 100644
+--- a/docs/mvp/mvp-readiness-audit.md
++++ b/docs/mvp/mvp-readiness-audit.md
+@@ -1,5 +1,7 @@
+ # Ambra — audyt gotowości prezentacyjnej `apps/web`
+ 
++> **SUPERSESSION NOTICE (added 2026-09-23)** — this audit is dated 2026-09-07 and describes the original 19-area model. Its own evidentiary findings for that snapshot in time remain historically valid, but current status now lives in `docs/mvp/mvp-readiness.md` (the 11-zone master tracker) and, as of 2026-09-23, in `docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/` (a fresh, code-verified re-baseline). Do not treat any status claim in this document as current — in particular, its own framing of RepairOrders/Zone 3 as absent is now false; see the re-baseline bundle's `documentation-staleness-audit.md`. This document's own internal link to `mvp-readiness-pt.md` is a known, unfixed broken link — that file no longer exists at that path (archived at `docs/mvp/archive/mvp-readiness-pt-monolith.md`); the live tracker is `mvp-readiness.md`.
++
+ Data: **7 września 2026**. Wynik planistyczny: [tracker](mvp-readiness-pt.md). Źródło wymagań: [skrypt](ambra-skrypt-prezentacji.md), włącznie z propozycją pilotażu w §16–23.
+ 
+ ## Zakres i metoda
+diff --git a/docs/mvp/mvp-readiness-full-vision-pitch-script-refactored.md b/docs/mvp/mvp-readiness-full-vision-pitch-script-refactored.md
+index e7b6ca3a..027e016d 100644
+--- a/docs/mvp/mvp-readiness-full-vision-pitch-script-refactored.md
++++ b/docs/mvp/mvp-readiness-full-vision-pitch-script-refactored.md
+@@ -1,5 +1,7 @@
+ # AMBRA — MASTER PITCH & PILOT SCRIPT
+ 
++> **⚠ RELABELED (2026-09-23): FULL-VISION / INVESTOR-FRAMING ROADMAP DRAFT — NOT the authoritative current pitch script.** Despite being dated the same day as the current master tracker (2026-09-07), this document is not cross-referenced by `docs/mvp/mvp-readiness.md` and is not status-disciplined against current code (it presents unbuilt items, e.g. phone-based putaway, without the caveats the master tracker itself requires). The current, code-verified master presentation script is `docs/mvp/ambra-skrypt-prezentacji.md`. This document retains real value for external/investor framing (public-vs-internal narrative, budget ask, "four layers" model) and may be merged into future investor-facing material — do not use it standalone for an internal go/no-go pitch decision. See `docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/pitch-script-truth-matrix.md`.
++
+ ## Wersja po refaktoryzacji
+ 
+ ---
+diff --git a/docs/mvp/mvp-readiness-full-vision-pitch-script.md b/docs/mvp/mvp-readiness-full-vision-pitch-script.md
+index 6e093512..504dbd22 100644
+--- a/docs/mvp/mvp-readiness-full-vision-pitch-script.md
++++ b/docs/mvp/mvp-readiness-full-vision-pitch-script.md
+@@ -1,5 +1,7 @@
+ # Ambra — pełny scenariusz prezentacji (wizja docelowa, wszystkie 19 obszarów)
+ 
++> **⚠ HISTORICAL, self-labeled non-current at authoring time (2026-08-12) and still so today (2026-09-23).** The current master presentation script is `docs/mvp/ambra-skrypt-prezentacji.md`. See `docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/pitch-script-truth-matrix.md`.
++
+ ## Uwaga na start
+ 
+ **To NIE jest scenariusz tego, co działa dzisiaj.** To jest scenariusz na wypadek, gdyby wszystkie 19 obszarów z `docs/mvp-readiness-pt.md` było ukończonych i gotowych do prezentacji — czyli pełna wizja produktu, jaką opisuje `docs/mvp-readiness-plan.md`. Stan faktyczny na dziś: 2 z 19 obszarów są zweryfikowane jako gotowe (patrz `docs/mvp-readiness-pitch-script.md` — to jest scenariusz do faktycznego użycia teraz). Ten dokument służy do:
+diff --git a/docs/mvp/mvp-readiness-pitch-script.md b/docs/mvp/mvp-readiness-pitch-script.md
+index 7d408fe2..2fb0ca4d 100644
+--- a/docs/mvp/mvp-readiness-pitch-script.md
++++ b/docs/mvp/mvp-readiness-pitch-script.md
+@@ -1,5 +1,7 @@
+ # Ambra — scenariusz prezentacji MVP
+ 
++> **⚠ SUPERSEDED (2026-09-23)** — this script covers only 2 of the now much larger P0 demo chain (originally "2 of 19 areas ready today," dated 2026-08-12). The current master presentation script is `docs/mvp/ambra-skrypt-prezentacji.md`. Kept for historical reference to the original QR+Help-Desk-only demo scope. See `docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/pitch-script-truth-matrix.md` for the current master-script determination.
++
+ ## Cel dokumentu
+ 
+ Scenariusz krok po kroku do prezentacji dwóch obszarów gotowych dziś do pokazania na żywo: **Obszar 1 — Etykiety QR i lokalizacje** oraz **Obszar 2 — Komunikacja doradca–części (Help Desk)**. Zakłada konfigurację opisaną w `docs/mvp-readiness-test-org-setup.md` (organizacja, 2 oddziały, 4 konta, 1 typ zgłoszenia). **Zrób próbny przebieg całości przed prawdziwą prezentacją** — ten dokument zakłada, że konfiguracja z tamtego pliku już istnieje i działa.
+diff --git a/docs/mvp/mvp-readiness-test-org-setup.md b/docs/mvp/mvp-readiness-test-org-setup.md
+index 5f3ba788..6932a31c 100644
+--- a/docs/mvp/mvp-readiness-test-org-setup.md
++++ b/docs/mvp/mvp-readiness-test-org-setup.md
+@@ -1,5 +1,7 @@
+ # Ambra — testowa organizacja i użytkownicy do prezentacji MVP
+ 
++> **⚠ SUPERSEDED (2026-09-23) — needs a full replacement, not produced in this documentation-only pass.** This setup (dated 2026-08-12) covers only QR/locations + Help Desk and predates the current, much larger P0 demo chain entirely — it does not account for RepairOrders, Matcher approval/materialization, receiving/putaway, containers, or the issue flow. A fresh test-org-setup document reflecting the actual current pitch flow (per `docs/mvp/ambra-skrypt-prezentacji.md` and `docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/`) is required before rehearsal. See `documentation-ownership.md` in that bundle.
++
+ ## Cel dokumentu
+ 
+ Ten dokument opisuje, jaką organizację testową, oddziały, role i kont użytkowników trzeba przygotować w aplikacji (`apps/web`), aby móc na żywo zaprezentować obszary MVP, które są dziś gotowe do pokazania: **Obszar 1 — Etykiety QR i lokalizacje** oraz **Obszar 2 — Komunikacja doradca–części (Help Desk)**.
+diff --git a/docs/mvp/mvp-readiness.md b/docs/mvp/mvp-readiness.md
+index 508a3492..4bb8c061 100644
+--- a/docs/mvp/mvp-readiness.md
++++ b/docs/mvp/mvp-readiness.md
+@@ -1,5 +1,14 @@
+ # Ambra — gotowość do prezentacji i kontrolowanego pilotażu
+ 
++> **RE-BASELINE UPDATE (2026-09-23)** — a fresh, code-verified re-baseline audit found this document's own zone statuses materially out of date in several places. Authoritative current status: `docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/zone-readiness-matrix.md`. Key deltas since this document was last written (2026-09-07/08):
++> - **Zone 3 (RepairOrders) is now REAL** — schema, service, and a full `/dashboard/workshop` UI (list/search/detail/create) were built 2026-09-11 through 2026-09-22, through Phase 10C. This document's own "🔴 NOT IMPLEMENTED" framing for RepairOrders (inherited from `docs/mvp/zones/03-repair-orders.md`) is SUPERSEDED. Phases 10D (QR)/10E (relocation)/10F (issue) remain not started.
++> - **Phase 10D is no longer blocked by Inventory Core.** Inventory Core reached its Final Gate and was formally closed ("INVENTORY CORE FINAL FOR PILOT / ARCHITECTURE FROZEN," `docs/inventory/reviews/inventory-core-final-pilot-freeze/final-status.md`). The blocking condition this document may reference is resolved.
++> - **Zone 1 has three newly confirmed, code-level branch-switch/cache bugs** (root cause: the branch switcher never refreshes/invalidates client state after a switch) — see `zone1-branch-switch-audit.md`. This is a presentation blocker, not merely "needs verification."
++> - **Zone 7 (Normal Issue) and Zone 11 (Home Dashboard) are confirmed presentation blockers** — the accepted 201/WZ issue design remains entirely unbuilt (`issueStockAction` is still a hardcoded stub), and the home dashboard is still a 15-line empty placeholder, unchanged since this document was written despite two weeks of intervening engineering effort.
++> - **Receiving + mobile putaway is a confirmed, unconditional presentation blocker** — the current master pitch script (`docs/mvp/ambra-skrypt-prezentacji.md`, §7) explicitly demos this live on a phone; the backend RPCs exist but have zero UI callers.
++>
++> This document's own detailed zone-by-zone sections below were NOT rewritten in this pass (documentation-only scope, see the rebaseline bundle's own `documentation-ownership.md`) — read them as HISTORICAL CONTEXT and cross-check every status claim against the rebaseline bundle above before relying on it for a go/no-go decision.
++
+ Audyt repozytorium: **7 września 2026**. Produkt: **wyłącznie `apps/web`** (Strefa 2 sprawdza dodatkowo `apps/public-web` tam, gdzie to bezpośrednio dotyczy pokazu). Źródło zakresu: [skrypt prezentacji](ambra-skrypt-prezentacji.md). Dowody i ograniczenia: [audyt implementacji](mvp-readiness-audit.md). **Historycznie przeprowadzono pełny, szczegółowy audyt 19 pierwotnie ponumerowanych stref — patrz archiwum dla audytów dawnych stref, które od tego czasu zostały scalone/przeniesione/wycofane.** Aktywny model stref produktowych po kilku przebiegach restrukturyzacji dokumentacji (patrz „Zmiany strukturalne modelu stref" niżej) jest opisany w indeksie stref poniżej — to bieżący, aktywny zestaw domen produktowych, nie ten sam zestaw 19 numerów co w pierwotnym audycie. Ta sekcja to końcowe podsumowanie i plan pracy wynikający z historycznych audytów, utrzymywany na bieżąco przez kolejne przebiegi spójności/restrukturyzacji — nie nowa ocena kodu.
+ 
+ **Pełny scenariusz ze skryptu nie jest jeszcze gotowy.** Ambra ma realne fundamenty implementacyjne i kilka istotnych, działających w kodzie przepływów — tożsamość/organizacja/oddział/administracja członkostwami i rolami (Strefa 1, obejmująca też dawną Strefę 10), generyczny system komentarzy/załączników (reużywalna infrastruktura platformowa, dziś opisana w ramach Strefy 3 jako dawna Strefa 9), wyszukiwanie/lokalizacje/relokacja pojedynczej części (Strefa 6) i tickety (Strefa 8) — ale żaden z nich nie ma dziś świeżej ręcznej weryfikacji na aktualnym build, więc żadna strefa nie otrzymała w tym audycie statusu wyższego niż PARTIAL/EARLY. Największa brakująca praca to jeden centralny łańcuch biznesowy, nie rozproszone niedoróbki: **trwałe zlecenie naprawcze z pozycjami, dokumentami i załącznikami (Strefa 3, obejmuje dawną Strefę 9, dziś NOT IMPLEMENTED) → przyjęcie 101/PZ z importu Matchera rozszerzone o mobilne potwierdzenie lokalizacji, zamknięcie i raport z rzeczywistych lokalizacji (Strefa 5, dziś w połowie placeholder) → rzeczywista operacja zwykłego wydania części z polem odbiorcy (Strefa 7, dziś zaślepka UI)**. Strefa 9 (zadania/kalendarz/Kanban/cykliczność, obejmująca też dawną Strefę 14 w części dot. cykliczności) pozostaje świadomie drugorzędna/opcjonalna dla pitchu. [Product Roadmap](./planning/product-roadmap.md) (dawne Strefy 15–17 i 19) jest świadomie poza zakresem pitchu i poza zakresem wybranego pilotażu, chyba że [Controlled Pilot Planning](./planning/controlled-pilot.md) jawnie to zmieni. Dawna Strefa 18 — awaryjne wydania/zwroty/Customer Care — została wcześniej wycofana z aktywnego modelu stref i zachowana wyłącznie w archiwum. Strefa 10 (Notifications & Operational Alerts, powiadomienia z dawnej Strefy 14) nie jest wymagana dla pitchu, ale pozostaje aktywna jako potencjalnie istotna dla decyzji o zakresie kontrolowanego pilotażu. Strefa 11 (Home / Operational Dashboard) JEST aktywnym, wspierającym pitch zadaniem P1 — dzisiejszy `/dashboard/start` to czysty placeholder, a minimalny realny ekran startowy materialnie poprawia pierwsze wrażenie z pokazu. Pitch ma udowodnić dokładnie tę jedną ścieżkę pokazu (skrypt §6–11), nie kompletność całej Ambry; pilotaż ma zweryfikować, czy ta ścieżka daje realną wartość w codziennej pracy — nie potwierdzić, że produkt da się zbudować.
+diff --git a/docs/mvp/zones/03-repair-orders.md b/docs/mvp/zones/03-repair-orders.md
+index 9dd09170..783447bb 100644
+--- a/docs/mvp/zones/03-repair-orders.md
++++ b/docs/mvp/zones/03-repair-orders.md
+@@ -1,5 +1,7 @@
+ ### 3. Repair Orders / Car Workshop — zlecenia naprawcze, pozycje, dokumenty magazynowe i załączniki
+ 
++> **⚠ SUPERSEDED STATUS NOTICE (2026-09-23)** — the "🔴 NOT IMPLEMENTED" verdict and pitch-readiness checklist below describe the state of the repository BEFORE 2026-09-11. Real implementation (schema, `RepairOrdersService`, and a full `/dashboard/workshop` UI — list, search, detail, create) landed 2026-09-11 through 2026-09-22, through Phase 10C, confirmed live and tested. **Do not use this document's own top-line status or checklist as current.** Current status: `docs/mvp/zones/03-repair-orders-progress.md` (the live tracker) and `docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/documentation-staleness-audit.md` (full reconciliation). The "Product clarification and final design" section further below in this same file (dated 2026-09-09, the `zl_number`/D-code business-identity analysis) remains valid, load-bearing design work that the actual implementation followed — that section is HISTORICAL-BUT-VALID, not stale, unlike the top-line status above it.
++
+ **Priorytet:** P0
+ 
+ **Stan obecny:** 🔴 NOT IMPLEMENTED
+diff --git a/docs/mvp/zones/05-receiving-putaway.md b/docs/mvp/zones/05-receiving-putaway.md
+index 5034cbf0..fbb3414f 100644
+--- a/docs/mvp/zones/05-receiving-putaway.md
++++ b/docs/mvp/zones/05-receiving-putaway.md
+@@ -1,5 +1,7 @@
+ ### 5. Przyjęcie 101/PZ → import z Matchera → mobilne rozłożenie → zamknięcie → raport
+ 
++> **⚠ PARTIALLY STALE NOTICE (2026-09-23)** — this document's bottom-line verdict (mobile putaway does not exist; containers are disconnected from receiving) remains ACCURATE and CONFIRMED as of today via an independent code check. However, specific technical details below are outdated: `ambra-location-inventory.ts` (referenced here as the disconnected container-action file) was DELETED as confirmed-dead code during the Inventory Core closing pass; the real current Zone 5 RPCs are `receive_repair_order_stock`/`putaway_repair_order_stock` (built after this document, not named here); and a reversal RPC (`inventory_reverse_movement`) has existed since IC-2, contrary to this document's "no reversal RPC exists" claim (it exists but, like these RPCs, has zero UI callers). **This gap is now a CONFIRMED, UNCONDITIONAL presentation blocker** — the current master pitch script (`docs/mvp/ambra-skrypt-prezentacji.md`, §7) explicitly demos this live on a phone. See `docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/pitch-script-truth-matrix.md` for the full current determination.
++
+ **Priorytet:** P0
+ 
+ **Stan obecny:** 🟠 EARLY / DISCONNECTED
+diff --git a/docs/mvp/zones/07-normal-issue-and-legacy-stock-design.md b/docs/mvp/zones/07-normal-issue-and-legacy-stock-design.md
+index ff337c8e..c24b4ee9 100644
+--- a/docs/mvp/zones/07-normal-issue-and-legacy-stock-design.md
++++ b/docs/mvp/zones/07-normal-issue-and-legacy-stock-design.md
+@@ -1,5 +1,7 @@
+ # WU (Normal Issue) and Legacy Stock Entry — Movement Contract Design
+ 
++> **⚠ RE-VERIFIED STILL UNBUILT (2026-09-23)** — this design remains the accepted target and is explicitly self-classified PITCH-required by its own author, but as of today, two weeks after acceptance, ZERO items from its own Implementation Plan have been built (confirmed via fresh code inspection: `issueStockAction` is still a stub, movement type 201 is not seeded, `workshop_post_repair_order_issue` does not exist). This design's own explicit warning against reusing 402 as a normal issue remains the accepted, correct position — do not build a 402-based workaround. See `docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/zone-readiness-matrix.md` (Zone 7) for the current presentation-blocker determination and recommended narrow options for this week.
++
+ > **DESIGN DOCUMENT. Nothing in this document has been implemented.** No migrations were created or applied, no application code was changed, Supabase MCP was used strictly read-only throughout. This follows and builds directly on `docs/mvp/zones/07-normal-issue-movement-audit.md`.
+ >
+ > Evidence classification: **LIVE VERIFIED**, **REPO VERIFIED**, **HISTORICAL** (from `archive/web-legacy-snapshot/`, a superseded legacy system with a different table architecture — informative about intended conventions, not automatically binding on the current engine), **NEW CONVENTION** (proposed, no supporting evidence, requires product-owner sign-off).
+diff --git a/docs/mvp/zones/07-normal-issue.md b/docs/mvp/zones/07-normal-issue.md
+index 86287e54..c672b7ab 100644
+--- a/docs/mvp/zones/07-normal-issue.md
++++ b/docs/mvp/zones/07-normal-issue.md
+@@ -1,5 +1,7 @@
+ ### 7. Zwykłe wydanie części
+ 
++> **⚠ CURRENT — CONFIRMED PRESENTATION BLOCKER (re-verified 2026-09-23)** — this document's own verdict is unchanged and independently re-confirmed via fresh code inspection: `issueStockAction` is still a hardcoded stub, movement type 201/WZ is not seeded in the authoritative migration tree, and nothing from the accepted design's own implementation plan (see the sibling design document) has been built, despite two weeks of intervening engineering effort on adjacent work. See `docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/zone-readiness-matrix.md` (Zone 7) for the full current determination and why this is classified a hard presentation blocker, not deferred debt.
++
+ **Priorytet:** P0
+ 
+ **Stan obecny:** 🟠 EARLY / DISCONNECTED
+diff --git a/docs/mvp/zones/11-home-operational-dashboard.md b/docs/mvp/zones/11-home-operational-dashboard.md
+index 8f7bf745..8898a28a 100644
+--- a/docs/mvp/zones/11-home-operational-dashboard.md
++++ b/docs/mvp/zones/11-home-operational-dashboard.md
+@@ -1,5 +1,7 @@
+ ### 11. Home / Operational Dashboard
+ 
++> **⚠ CURRENT — CONFIRMED PRESENTATION BLOCKER, HIGHEST SCHEDULE RISK (re-verified 2026-09-23)** — this document's "🔴 NOT IMPLEMENTED" verdict is unchanged and independently re-confirmed via a fresh direct read of the live page file (still a 15-line static placeholder, zero data fetching). Zero code has touched this file, and zero scope decision has been made, since this document was written — despite two weeks of substantial engineering effort on adjacent work. This is the literal first screen every user sees after login. See `docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/zone-readiness-matrix.md` (Zone 11) — flagged as the single most schedule-risky finding across all 11 zones.
++
+ **Priorytet:** P1
+ 
+ **Stan obecny:** 🔴 NOT IMPLEMENTED

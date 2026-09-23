@@ -1,5 +1,7 @@
 ### 11. Home / Operational Dashboard
 
+> **⚠ CURRENT — CONFIRMED PRESENTATION BLOCKER, HIGHEST SCHEDULE RISK (re-verified 2026-09-23)** — this document's "🔴 NOT IMPLEMENTED" verdict is unchanged and independently re-confirmed via a fresh direct read of the live page file (still a 15-line static placeholder, zero data fetching). Zero code has touched this file, and zero scope decision has been made, since this document was written — despite two weeks of substantial engineering effort on adjacent work. This is the literal first screen every user sees after login. See `docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/zone-readiness-matrix.md` (Zone 11) — flagged as the single most schedule-risky finding across all 11 zones.
+
 **Priorytet:** P1
 
 **Stan obecny:** 🔴 NOT IMPLEMENTED

@@ -1,5 +1,7 @@
 ### 7. Zwykłe wydanie części
 
+> **⚠ CURRENT — CONFIRMED PRESENTATION BLOCKER (re-verified 2026-09-23)** — this document's own verdict is unchanged and independently re-confirmed via fresh code inspection: `issueStockAction` is still a hardcoded stub, movement type 201/WZ is not seeded in the authoritative migration tree, and nothing from the accepted design's own implementation plan (see the sibling design document) has been built, despite two weeks of intervening engineering effort on adjacent work. See `docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/zone-readiness-matrix.md` (Zone 7) for the full current determination and why this is classified a hard presentation blocker, not deferred debt.
+
 **Priorytet:** P0
 
 **Stan obecny:** 🟠 EARLY / DISCONNECTED

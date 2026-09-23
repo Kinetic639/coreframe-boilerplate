@@ -1,5 +1,7 @@
 # Ambra — pełny scenariusz prezentacji (wizja docelowa, wszystkie 19 obszarów)
 
+> **⚠ HISTORICAL, self-labeled non-current at authoring time (2026-08-12) and still so today (2026-09-23).** The current master presentation script is `docs/mvp/ambra-skrypt-prezentacji.md`. See `docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/pitch-script-truth-matrix.md`.
+
 ## Uwaga na start
 
 **To NIE jest scenariusz tego, co działa dzisiaj.** To jest scenariusz na wypadek, gdyby wszystkie 19 obszarów z `docs/mvp-readiness-pt.md` było ukończonych i gotowych do prezentacji — czyli pełna wizja produktu, jaką opisuje `docs/mvp-readiness-plan.md`. Stan faktyczny na dziś: 2 z 19 obszarów są zweryfikowane jako gotowe (patrz `docs/mvp-readiness-pitch-script.md` — to jest scenariusz do faktycznego użycia teraz). Ten dokument służy do:
