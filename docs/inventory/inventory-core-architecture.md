@@ -80,6 +80,23 @@ match the assigning brief:
 line_movement_links` row of any `relation_type` is created for a
     reversal. This remains an explicit, later, deliberately deferred
     integration concern.
+23. **Added at the Inventory Core Final Pilot Freeze (2026-09-23), following
+    IC-8's own REPRODUCIBILITY BLOCKED finding**: clean-room database
+    reproducibility (rebuilding the accepted live schema from an empty
+    database using only repository migration files) is **accepted as
+    technical debt and is NOT a blocker for pilot/pitch readiness.**
+    BLOCKER WAIVED FOR PILOT / PITCH, DEFERRED AS TECHNICAL DEBT — see
+    `docs/inventory/reviews/inventory-core-final-pilot-freeze/final-status.md`
+    and `accepted-technical-debt.md` for the full decision record. This does
+    **not** change IC-8's own historical BLOCKED verdict (`docs/inventory/
+reviews/ic-8-final-production-readiness-review/final-readiness-assessment.md`
+    is not edited or retracted) — it records a NEW, separate product-owner
+    disposition on top of that unchanged finding. The gap (149 live-applied
+    migration versions with no local file, 106 without even a name match,
+    predating this project's 2026-09-10 reliable-parity boundary) remains
+    real and unresolved, and **must be resolved before relying on clean-room
+    disaster recovery, new-environment bootstrap, or production migration
+    portability** — it is deferred, not fixed, and not forgotten.
 
 ---
 

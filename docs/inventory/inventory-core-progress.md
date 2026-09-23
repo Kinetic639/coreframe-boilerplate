@@ -170,13 +170,26 @@ is already correct (zero action-layer RPC bypass, zero duplicate entry
 points). 9 forward migrations, all live-verified; new pgTAP `110_ic7_
 security_write_boundary_test.sql` (25/25); full regression 097-110.
 See `docs/inventory/reviews/ic-7-review/` for full evidence.
-**Current phase:** IC-7 DONE → IC-8 (Full Inventory Regression /
-Concurrency / Performance Hardening) is the next phase in sequence, NOT
-yet authorized/started. Phase 10D remains NOT started.
-**Pitch/pilot readiness:** N/A — this is base-engine work, not itself a
-pitch-scoped feature; it BLOCKS Phase 10D, which IS pitch-scoped (see the
-Zone 3 tracker's own cross-reference).
-**Last updated:** 2026-09-17.
+**Current phase:** IC-7 DONE → A1-A8 (simplification + domain-boundary
+cleanup) DONE → IC-8 (Final Production Readiness Gate) DONE, verdict
+REPRODUCIBILITY BLOCKED → **Inventory Core Final Pilot Freeze (2026-09-23)
+DONE**. See `docs/inventory/reviews/inventory-a1-a6-simplification-review/`,
+`docs/inventory/reviews/inventory-a7-repairorder-container-boundary-review/`,
+`docs/inventory/reviews/ic-8-final-production-readiness-review/`, and
+`docs/inventory/reviews/inventory-core-final-pilot-freeze/` for full
+evidence of each. **Inventory Core architecture is now FROZEN — no further
+IC phases are planned.** Phase 10D remains NOT started; this closing pass
+did not start it and does not authorize starting it.
+**Pitch/pilot readiness:** **INVENTORY CORE FINAL FOR PILOT / ARCHITECTURE
+FROZEN.** Architecture final, live correctness/security/regression
+verified, application integration may continue. Clean-room reproducibility
+is accepted technical debt, deferred (NOT a pilot/pitch blocker — see
+architecture decision #23 above and `docs/inventory/reviews/inventory-
+core-final-pilot-freeze/accepted-technical-debt.md`). This unblocks Phase
+10D / pitch work to proceed on its own separate track (see the Zone 3
+tracker's own cross-reference) — this doc does not itself authorize
+starting that work.
+**Last updated:** 2026-09-23 (Inventory Core Final Pilot Freeze).
 
 ---
 
