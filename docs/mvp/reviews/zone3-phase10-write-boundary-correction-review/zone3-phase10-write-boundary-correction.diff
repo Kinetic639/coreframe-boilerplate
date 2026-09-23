@@ -1,0 +1,292 @@
+diff --git a/apps/web/supabase-target/supabase/migrations/20260914052934_repair_order_line_movement_links_close_direct_insert.sql b/apps/web/supabase-target/supabase/migrations/20260914052934_repair_order_line_movement_links_close_direct_insert.sql
+new file mode 100644
+index 00000000..36a18449
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260914052934_repair_order_line_movement_links_close_direct_insert.sql
+@@ -0,0 +1,26 @@
++-- Zone 3 Phase 10 correction pass: close the direct-client write boundary.
++--
++-- LIVE VERIFIED before this migration (transaction-scoped dry run, rolled
++-- back): with the Phase 2 permissive INSERT policy replaced by a deny-all
++-- policy, a direct authenticated client INSERT is rejected (42501, RLS
++-- violation) while the SAME actor's call to attach_repair_order_line_
++-- movement(...) still succeeds -- because that RPC is SECURITY DEFINER,
++-- owned by `postgres`, and `postgres` has rolbypassrls = true. The RPC's
++-- own internal INSERT has therefore NEVER depended on this table's INSERT
++-- policy at all -- it bypasses RLS unconditionally via role ownership, not
++-- because of anything FORCE ROW LEVEL SECURITY does for it. This is why
++-- closing the policy is safe and sufficient: no trigger duplication needed,
++-- one canonical implementation of the attribution invariants (the RPC)
++-- remains the only place they are enforced.
++--
++-- Final write boundary: a direct authenticated (or anon) client INSERT is
++-- now denied unconditionally; attach_repair_order_line_movement(...) is the
++-- only production write path. SELECT policy, DELETE-deny policy, and the
++-- (nonexistent) UPDATE policy are all left exactly as Phase 2 built them --
++-- only the INSERT policy is replaced.
++drop policy if exists repair_order_line_movement_links_insert on repair_order_line_movement_links;
++
++create policy repair_order_line_movement_links_insert_deny
++  on repair_order_line_movement_links
++  for insert
++  with check (false);
+diff --git a/apps/web/supabase/tests/097_repair_order_line_movement_attach_phase10_test.sql b/apps/web/supabase/tests/097_repair_order_line_movement_attach_phase10_test.sql
+index afa31994..27170674 100644
+--- a/apps/web/supabase/tests/097_repair_order_line_movement_attach_phase10_test.sql
++++ b/apps/web/supabase/tests/097_repair_order_line_movement_attach_phase10_test.sql
+@@ -28,10 +28,22 @@
+ -- through the RPC -- clearly separated below from every RPC-produced row.
+ --
+ -- Executed live against supabase-target via Supabase MCP.
++--
++-- CORRECTION PASS (2026-09-14): added T20-T27 below, proving (a) the
++-- cardinality contract this architecture intentionally permits -- ONE
++-- inventory_movement_line split across MANY RepairOrderLines, capped by the
++-- locked global SUM, proven both for the success split (T20-T22) and its
++-- over-cap inverse (T23-T25, no partial write) -- and (b) the corrected
++-- production write boundary: a direct authenticated client INSERT against
++-- repair_order_line_movement_links is now denied (T26), while the SAME
++-- actor's call to the canonical attach_repair_order_line_movement RPC still
++-- succeeds (T27) -- see migration 20260914052934_repair_order_line_
++-- movement_links_close_direct_insert.sql. Everything above T20 is UNCHANGED
++-- from the original Phase 10 pass (re-run and reconfirmed passing as-is).
+ 
+ BEGIN;
+ 
+-SELECT plan(21);
++SELECT plan(29);
+ 
+ CREATE TEMP TABLE fx (
+   org uuid, branch uuid, branch_b uuid, org_other uuid, branch_other uuid,
+@@ -44,7 +56,10 @@ CREATE TEMP TABLE fx (
+   hdr_r1 uuid, hdr_r2 uuid, hdr_r3 uuid, hdr_dup uuid, hdr_draft uuid,
+   hdr_sku_a uuid, hdr_sku_b uuid, hdr_branch_b uuid, hdr_wrong_ref uuid, hdr_variant_mismatch uuid, hdr_other_org uuid,
+   ml_r1 uuid, ml_r2 uuid, ml_r3 uuid, ml_dup uuid, ml_draft uuid,
+-  ml_sku_a uuid, ml_sku_b uuid, ml_branch_b uuid, ml_wrong_ref uuid, ml_variant_mismatch uuid, ml_other_org uuid
++  ml_sku_a uuid, ml_sku_b uuid, ml_branch_b uuid, ml_wrong_ref uuid, ml_variant_mismatch uuid, ml_other_org uuid,
++  line_split_a uuid, line_split_b uuid, hdr_split uuid, ml_split uuid,
++  line_cap_a uuid, line_cap_b uuid, hdr_overcap uuid, ml_overcap uuid,
++  line_rawinsert uuid, hdr_rawinsert uuid, ml_rawinsert uuid
+ );
+ GRANT SELECT ON fx TO authenticated;
+ INSERT INTO fx SELECT
+@@ -61,7 +76,10 @@ INSERT INTO fx SELECT
+   gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
+   gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
+   gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
+-  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid();
++  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
++  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
++  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
++  gen_random_uuid(), gen_random_uuid(), gen_random_uuid();
+ 
+ CREATE TEMP TABLE test_log (seq serial, line text);
+ GRANT INSERT, SELECT ON test_log TO authenticated;
+@@ -109,6 +127,20 @@ SELECT line_variant_check, ro, variant_1, '097-VARCHK', '097 variant-check line'
+ INSERT INTO repair_order_lines (id, repair_order_id, variant_id, product_code, product_name, ordered_quantity, unit)
+ SELECT line_dup_test, ro, variant_1, '097-DUP', '097 duplicate-attribution test line', 4, 'pcs' FROM fx;
+ 
++-- Cardinality proof fixtures (T20-T25, correction pass): two SAME-SKU
++-- RepairOrderLines, each attributing against the SAME movement line --
++-- proves attribution is RepairOrderLine-identity based, never SKU-based.
++INSERT INTO repair_order_lines (id, repair_order_id, variant_id, product_code, product_name, ordered_quantity, unit)
++SELECT line_split_a, ro, variant_1, '097-SPLIT-SKU', '097 split line A (same SKU as B)', 6, 'pcs' FROM fx;
++INSERT INTO repair_order_lines (id, repair_order_id, variant_id, product_code, product_name, ordered_quantity, unit)
++SELECT line_split_b, ro, variant_1, '097-SPLIT-SKU', '097 split line B (same SKU as A)', 4, 'pcs' FROM fx;
++INSERT INTO repair_order_lines (id, repair_order_id, variant_id, product_code, product_name, ordered_quantity, unit)
++SELECT line_cap_a, ro, variant_1, '097-CAP-SKU', '097 over-cap line A', 6, 'pcs' FROM fx;
++INSERT INTO repair_order_lines (id, repair_order_id, variant_id, product_code, product_name, ordered_quantity, unit)
++SELECT line_cap_b, ro, variant_1, '097-CAP-SKU', '097 over-cap line B', 5, 'pcs' FROM fx;
++INSERT INTO repair_order_lines (id, repair_order_id, variant_id, product_code, product_name, ordered_quantity, unit)
++SELECT line_rawinsert, ro, variant_1, '097-RAWINSERT', '097 raw-insert negative-test line', 5, 'pcs' FROM fx;
++
+ -- Real posted 101 movement headers + lines, all in fx.org/fx.branch unless
+ -- noted otherwise. Every header is fully posted (status='posted') except
+ -- hdr_draft, which stays 'draft' on purpose (T11).
+@@ -134,6 +166,12 @@ INSERT INTO inventory_movement_headers (id, organization_id, branch_id, status,
+ SELECT hdr_variant_mismatch, org, branch, 'posted', movement_type_receipt, '101', now() FROM fx;
+ INSERT INTO inventory_movement_headers (id, organization_id, branch_id, status, movement_type_id, movement_type_code, posted_at)
+ SELECT hdr_other_org, org_other, branch_other, 'posted', movement_type_other, '101', now() FROM fx;
++INSERT INTO inventory_movement_headers (id, organization_id, branch_id, status, movement_type_id, movement_type_code, posted_at)
++SELECT hdr_split, org, branch, 'posted', movement_type_receipt, '101', now() FROM fx;
++INSERT INTO inventory_movement_headers (id, organization_id, branch_id, status, movement_type_id, movement_type_code, posted_at)
++SELECT hdr_overcap, org, branch, 'posted', movement_type_receipt, '101', now() FROM fx;
++INSERT INTO inventory_movement_headers (id, organization_id, branch_id, status, movement_type_id, movement_type_code, posted_at)
++SELECT hdr_rawinsert, org, branch, 'posted', movement_type_receipt, '101', now() FROM fx;
+ 
+ INSERT INTO inventory_movement_lines (id, organization_id, branch_id, movement_id, line_number, variant_id, unit_id, quantity)
+ SELECT ml_r1, org, branch, hdr_r1, 1, variant_1, unit_1, 2 FROM fx;
+@@ -157,6 +195,12 @@ INSERT INTO inventory_movement_lines (id, organization_id, branch_id, movement_i
+ SELECT ml_variant_mismatch, org, branch, hdr_variant_mismatch, 1, variant_2, unit_1, 5 FROM fx;
+ INSERT INTO inventory_movement_lines (id, organization_id, branch_id, movement_id, line_number, variant_id, unit_id, quantity)
+ SELECT ml_other_org, org_other, branch_other, hdr_other_org, 1, variant_other, unit_other, 5 FROM fx;
++INSERT INTO inventory_movement_lines (id, organization_id, branch_id, movement_id, line_number, variant_id, unit_id, quantity)
++SELECT ml_split, org, branch, hdr_split, 1, variant_1, unit_1, 10 FROM fx;
++INSERT INTO inventory_movement_lines (id, organization_id, branch_id, movement_id, line_number, variant_id, unit_id, quantity)
++SELECT ml_overcap, org, branch, hdr_overcap, 1, variant_1, unit_1, 10 FROM fx;
++INSERT INTO inventory_movement_lines (id, organization_id, branch_id, movement_id, line_number, variant_id, unit_id, quantity)
++SELECT ml_rawinsert, org, branch, hdr_rawinsert, 1, variant_1, unit_1, 5 FROM fx;
+ 
+ -- LIVE-DISCOVERED FACT (this session): the shared e2e_user fixture already
+ -- holds a REAL, permanent warehouse.* wildcard grant in this org (org-wide,
+@@ -381,6 +425,90 @@ BEGIN
+   INSERT INTO test_log(line) SELECT is((v_result ->> 'applied_quantity')::numeric, 1::numeric, 'T15: RepairOrderLine with no variant_id set is not blocked by the variant-compatibility check');
+ END $$;
+ 
++-- ===========================================================================
++-- CORRECTION PASS (2026-09-14): missing cardinality proof (T20-T25) + the
++-- production write-boundary correction's own central acceptance proof
++-- (T26-T27). All via the real RPC / real RLS, same actor, same role.
++-- ===========================================================================
++
++-- T20/T21/T22: the architecture's own cardinality contract -- ONE
++-- inventory_movement_line (ml_split, quantity=10) split across TWO
++-- DIFFERENT, same-SKU RepairOrderLines. Proves attribution is
++-- RepairOrderLine-identity based, never SKU-identity based -- both lines
++-- share product_code '097-SPLIT-SKU', yet attribute independently against
++-- the SAME physical movement line, and the movement line's own total
++-- attributed sum reaches exactly its quantity (10), not more, not less.
++DO $$
++DECLARE v_result jsonb;
++BEGIN
++  SELECT attach_repair_order_line_movement((SELECT e2e_user FROM fx), (SELECT line_split_a FROM fx), (SELECT ml_split FROM fx), 6, 'receipt') INTO v_result;
++  INSERT INTO test_log(line) SELECT is((v_result ->> 'applied_quantity')::numeric, 6::numeric, 'T20: same movement line, RepairOrderLine A (same SKU as B) receives 6 -> succeeds');
++END $$;
++DO $$
++DECLARE v_result jsonb;
++BEGIN
++  SELECT attach_repair_order_line_movement((SELECT e2e_user FROM fx), (SELECT line_split_b FROM fx), (SELECT ml_split FROM fx), 4, 'receipt') INTO v_result;
++  INSERT INTO test_log(line) SELECT is((v_result ->> 'applied_quantity')::numeric, 4::numeric, 'T21: same movement line, RepairOrderLine B (same SKU as A) receives 4 -> succeeds');
++END $$;
++-- T22 (the read-back of the movement line's own total) is deferred to
++-- AFTER `RESET ROLE` below, alongside T16-T19/T25 -- this test's own actor
++-- is granted `warehouse.inventory.operate` (needed for the WRITE side) but
++-- NOT `workshop.repair_orders.read` (needed to SELECT the link rows back
++-- under this table's own RLS), so reading them back as `authenticated`
++-- here would read 0 regardless of what the RPC actually wrote -- exactly
++-- the same RLS-visibility artifact already relied on for T16-T19's own
++-- placement, not a data bug (this file's own first live run of this
++-- correction pass caught exactly this: T22 read 0, not 10, until moved).
++
++-- T23/T24/T25: the over-cap inverse -- SAME shape, but B's request (5)
++-- would push the movement line's total to 11 > 10 -> rejected. Proves no
++-- partial write: A's own row is untouched at 6, B's own contribution is
++-- entirely absent (not partially written), and the movement line's total
++-- stays at 6, not 6+5 and not some partial amount.
++DO $$
++DECLARE v_result jsonb;
++BEGIN
++  SELECT attach_repair_order_line_movement((SELECT e2e_user FROM fx), (SELECT line_cap_a FROM fx), (SELECT ml_overcap FROM fx), 6, 'receipt') INTO v_result;
++  INSERT INTO test_log(line) SELECT is((v_result ->> 'applied_quantity')::numeric, 6::numeric, 'T23: over-cap scenario, RepairOrderLine A receives 6 of 10 -> succeeds');
++END $$;
++DO $$
++DECLARE v_line uuid; v_ml uuid;
++BEGIN
++  SELECT line_cap_b, ml_overcap INTO v_line, v_ml FROM fx;
++  BEGIN
++    PERFORM attach_repair_order_line_movement(auth.uid(), v_line, v_ml, 5, 'receipt');
++    INSERT INTO test_log(line) SELECT fail('T24: expected 22023 over-cap rejection (6+5=11 > 10), call succeeded instead');
++  EXCEPTION WHEN OTHERS THEN
++    INSERT INTO test_log(line) SELECT is(SQLSTATE, '22023', 'T24: RepairOrderLine B attempts 5 more (6+5=11 > movement line quantity 10) -> rejected 22023, no partial write');
++  END;
++END $$;
++-- T25 (the read-back) is likewise deferred to after `RESET ROLE` -- see T22's own comment above for why.
++
++-- T26/T27: the central acceptance proof for this correction -- the SAME
++-- actor, holding the SAME warehouse.inventory.operate grant that used to
++-- satisfy the old permissive INSERT policy, can no longer write a
++-- repair_order_line_movement_links row by a direct client INSERT (the
++-- production write boundary is now closed -- migration 20260914052934),
++-- but the canonical RPC still succeeds for that identical actor and data.
++DO $$
++DECLARE v_line uuid; v_ml uuid;
++BEGIN
++  SELECT line_rawinsert, ml_rawinsert INTO v_line, v_ml FROM fx;
++  BEGIN
++    INSERT INTO repair_order_line_movement_links (repair_order_line_id, inventory_movement_line_id, applied_quantity, relation_type)
++    VALUES (v_line, v_ml, 2, 'receipt');
++    INSERT INTO test_log(line) SELECT fail('T26: expected the direct INSERT to be denied by RLS, it succeeded instead');
++  EXCEPTION WHEN OTHERS THEN
++    INSERT INTO test_log(line) SELECT is(SQLSTATE, '42501', 'T26: a direct authenticated client INSERT (same actor, same warehouse.inventory.operate grant that used to be sufficient) is now denied by RLS -- the RPC is the only production write path');
++  END;
++END $$;
++DO $$
++DECLARE v_result jsonb;
++BEGIN
++  SELECT attach_repair_order_line_movement((SELECT e2e_user FROM fx), (SELECT line_rawinsert FROM fx), (SELECT ml_rawinsert FROM fx), 2, 'receipt') INTO v_result;
++  INSERT INTO test_log(line) SELECT is((v_result ->> 'applied_quantity')::numeric, 2::numeric, 'T27: the SAME actor calling the canonical attach_repair_order_line_movement RPC still succeeds -- confirms the RPC never depended on the now-closed direct-INSERT policy (SECURITY DEFINER, owner=postgres, rolbypassrls=true)');
++END $$;
++
+ RESET ROLE;
+ 
+ -- ===========================================================================
+@@ -418,6 +546,22 @@ SELECT (SELECT line_worked FROM fx), ml_issue_1, 2, 'issue' FROM fx_issue;
+ INSERT INTO repair_order_line_movement_links (repair_order_line_id, inventory_movement_line_id, applied_quantity, relation_type)
+ SELECT (SELECT line_worked FROM fx), ml_issue_2, 1, 'issue' FROM fx_issue;
+ 
++-- T22 (deferred from the split-success block above -- see its own comment
++-- there for why this read happens post-RESET ROLE, as the unrestricted
++-- connecting role, exactly like T16-T19 below).
++INSERT INTO test_log(line) SELECT is(
++  (SELECT COALESCE(SUM(applied_quantity), 0) FROM repair_order_line_movement_links WHERE inventory_movement_line_id = (SELECT ml_split FROM fx)),
++  10::numeric,
++  'T22: the movement line''s own total attributed (across both RepairOrderLines) is exactly 10 (its own quantity) -- A=6 + B=4'
++);
++
++-- T25 (deferred from the over-cap block above -- same reason as T22).
++INSERT INTO test_log(line) SELECT is(
++  (SELECT COALESCE(SUM(applied_quantity), 0) FROM repair_order_line_movement_links WHERE inventory_movement_line_id = (SELECT ml_overcap FROM fx)),
++  6::numeric,
++  'T25: after the rejected over-cap attempt, the movement line''s own total attributed remains exactly 6 -- A''s row untouched, B''s row never created, no partial write'
++);
++
+ -- T16: receivedQuantity = 5 (real RPC-produced rows).
+ INSERT INTO test_log(line) SELECT is(
+   (SELECT COALESCE(SUM(applied_quantity) FILTER (WHERE relation_type = 'receipt'), 0)
+diff --git a/docs/mvp/zones/03-repair-orders-implementation-plan.md b/docs/mvp/zones/03-repair-orders-implementation-plan.md
+index 9e7de70b..5e448558 100644
+--- a/docs/mvp/zones/03-repair-orders-implementation-plan.md
++++ b/docs/mvp/zones/03-repair-orders-implementation-plan.md
+@@ -767,7 +767,13 @@ PITCH.
+ > - **The real, working receiving primitive on this branch is the generic Warehouse module's own 101-movement flow** (`InventoryMovementsService.createDraft/finalizePosting/createAndFinalize`, `inventory_create_draft`/`inventory_create_and_finalize`/`inventory_finalize_posting` RPCs) — confirmed live and REPO VERIFIED. This is a different module (Warehouse), not Zone 3 or Zone 5; extending its own UI with a RepairOrderLine-attribution picker was judged out of this narrow pass's scope (a cross-module UI change, not requested by this phase's own task list, and risking exactly the kind of broad redesign every prior phase's corrective reviews warned against). What this phase builds instead is the **attribution primitive** — a new, atomic, fully-validated write path that attributes an ALREADY-POSTED, real movement line to a RepairOrderLine — which a future receiving UI (in Warehouse, or a later Zone 5 build) can call without this phase guessing at its shape.
+ > - **LIVE VERIFIED: zero `inventory_movement_types` rows with `category = 'issue'` exist in the target project** (only `receipt`, `transfer`, `adjustment`, `bin_operation`). This settles, with live data rather than policy alone, that no real issue attribution can be produced today — confirming Phase 10F's ownership of the eventual 201/WZ issue path. This phase's own RPC accepts `relation_type: 'issue'` in its signature (forward-compatible for 10F to reuse without a second primitive) but cannot succeed against any real data yet, proven negatively in pgTAP (097, T11).
+ > - **Cardinality LIVE VERIFIED**: the Phase 2 unique constraint is `UNIQUE (repair_order_line_id, inventory_movement_line_id, relation_type)` — it does **not** prevent one `inventory_movement_line` from being split across several `repair_order_line_id`s. Splitting is therefore allowed, and this phase's RPC enforces the resulting invariant (`SUM(applied_quantity)` for one movement line, across every RepairOrderLine and relation type, never exceeds that movement line's own `quantity`) under a row lock (`FOR UPDATE OF iml`) to prevent a concurrent-insert race.
+-> - **The Phase 2 raw-INSERT RLS policy on `repair_order_line_movement_links` already existed and is permission-gated** (`warehouse.inventory.operate`/`.adjust`), but has no semantic validation of its own (no cross-org/branch check, no quantity cap, no category consistency) — a real, pre-existing (not introduced by this phase) gap. Rather than retrofitting a table-level trigger (which would have broken Phase 8/9's own already-shipped pgTAP fixtures, which insert synthetic rows directly against arbitrary real movement lines, explicitly anticipated at the time as stand-ins for this not-yet-built phase), every invariant is enforced inside the new RPC — the intended write path. The raw-insert gap is disclosed, not fixed, since fixing it was not requested and risks exactly the regression a trigger would cause.
++> - **The Phase 2 raw-INSERT RLS policy on `repair_order_line_movement_links` already existed and is permission-gated** (`warehouse.inventory.operate`/`.adjust`), but has no semantic validation of its own (no cross-org/branch check, no quantity cap, no category consistency) — a real, pre-existing (not introduced by this phase) gap. Rather than retrofitting a table-level trigger (which would have broken Phase 8/9's own already-shipped pgTAP fixtures, which insert synthetic rows directly against arbitrary real movement lines, explicitly anticipated at the time as stand-ins for this not-yet-built phase), every invariant is enforced inside the new RPC — the intended write path. ~~The raw-insert gap is disclosed, not fixed~~ — **CLOSED, see the 2026-09-14 correction pass immediately below.**
++
++> **CORRECTION PASS (2026-09-14, external review).** External review of Phase 10's RPC architecture (accepted as-is, not redesigned) found one real production write-boundary gap and one missing cardinality proof. Both closed narrowly:
++> - **Write boundary closed.** LIVE VERIFIED first (transaction-scoped dry run, rolled back before any real change): `attach_repair_order_line_movement`'s own internal INSERT has never depended on the Phase 2 permissive INSERT policy at all — the RPC is `SECURITY DEFINER`, owned by `postgres`, and `postgres` has `rolbypassrls = true`, so its INSERT bypasses RLS unconditionally regardless of what policy exists (this is a role-ownership fact, not anything FORCE ROW LEVEL SECURITY does). Confirmed live: with the permissive policy replaced by a deny-all policy, a direct authenticated client INSERT is rejected (42501) while the SAME actor's RPC call still succeeds. New forward migration `20260914052934_repair_order_line_movement_links_close_direct_insert.sql` replaces `repair_order_line_movement_links_insert` with `repair_order_line_movement_links_insert_deny` (`WITH CHECK (false)`) — a direct client INSERT (authenticated or anon) is now denied unconditionally; `attach_repair_order_line_movement(...)` is the **only** production write path. No table trigger was added (per explicit direction to prefer one canonical implementation over duplicating the RPC's own invariants) — policy closure alone was sufficient and live-proven. SELECT policy, DELETE-deny policy, and the (nonexistent) UPDATE policy are untouched.
++> - **Missing cardinality proof added.** pgTAP 097 gained T20-T22 (one real movement line, quantity=10, split across two DIFFERENT same-SKU RepairOrderLines — 6 + 4 — both via the real RPC, movement line's own total reaches exactly 10) and T23-T25 (the over-cap inverse — A receives 6, B's attempt at 5 more is rejected 22023, no partial write, movement line's total stays at exactly 6) plus T26-T27 (the write-boundary's own central acceptance proof: the same actor's direct INSERT is denied, the same actor's RPC call still succeeds). 29/29 passing live (was 21/21).
++> - **Old Phase 8/9 pgTAP fixtures were NOT preserved as a reason to keep the gap** — they were re-run UNMODIFIED after the policy closure (095: 11/11, 096: 15/15, both unaffected) because their own fixture INSERTs happen while still connected as the unrestricted connecting role (before any `SET LOCAL ROLE authenticated`), which — like the RPC — bypasses RLS via role ownership, not via the now-closed policy. No fixture technique needed to change.
++> - **Zone 5 reality update (was stale above as of 2026-09-12).** A parallel Zone 5 implementation now exists: LIVE VERIFIED via `list_migrations` that `zone5_receiving_location_purpose`, `zone5_repair_order_spatial_attribution_schema`, and `zone5_attribution_sync_trigger` are already applied to this same `supabase-target` project. Inspected (existence/shape only, not integrated): the sync trigger (`repair_order_location_attribution_sync`) writes to `repair_order_line_locations`/`repair_order_location_attribution_uncertain` — **not** `repair_order_line_movement_links` — so it does not conflict with this phase's own write-boundary closure. LIVE VERIFIED `receive_repair_order_stock()` itself does **not** exist on `supabase-target` yet (zero rows in `pg_proc`) — it exists only on the separate `pitch/zone5-receiving` git branch, not merged/applied here. A later integration pass is still required, whenever that branch's receiving orchestration lands, to route its own receipt-side attribution through this phase's canonical `attach_repair_order_line_movement` RPC rather than writing `repair_order_line_movement_links` independently — this is a known, explicitly deferred follow-up, not started in this pass. The bullet above (2026-09-12) describing Zone 5 as entirely absent is now historically accurate only for that date's baseline, not current reality — preserved as-is for the record, corrected here rather than silently rewritten.
+ 
+ ### Objective
+ 
+diff --git a/docs/mvp/zones/03-repair-orders-progress.md b/docs/mvp/zones/03-repair-orders-progress.md
+index eaf29e7c..d21827fc 100644
+--- a/docs/mvp/zones/03-repair-orders-progress.md
++++ b/docs/mvp/zones/03-repair-orders-progress.md
+@@ -6,7 +6,7 @@
+ **Priority:** P0
+ **Architecture:** ✅ APPROVED
+ **Runtime status:** 🟡 PARTIALLY IMPLEMENTED (schema, domain types, materialization RPC/service, Matcher approval, approve→materialize orchestration, a real Workshop list/search/detail UI, the full RepairOrder header/advisor/lifecycle/manual-creation flow, the logical RepairOrderLine read model/UI, the source-document/source-line provenance read model/UI, and now the real, fully-validated `attach_repair_order_line_movement` inventory movement-line attribution RPC (receipt side proven end-to-end against real posted movement lines; issue side genuinely blocked on live data pending Phase 10F) are all live and tested against real data — Phases 4-6 additionally manually confirmed in a real browser by the product owner; Phase 7's own manual UAT is still outstanding, in parallel with the product owner's review; Phase 8's, Phase 9's, and Phase 10's manual/browser UAT are also outstanding (Playwright unavailable this session — see each phase's own change-log entry; Phase 10 has no new UI to UAT, per its own narrow scope). Automated Playwright browser E2E remains a genuine, separate, explicitly-tracked follow-up item)
+-**Current phase:** Phase 10 ✅ DONE, base scope (2026-09-12 — inventory movement-line linkage: new `attach_repair_order_line_movement` SECURITY DEFINER RPC, the single fully-validated writer for `repair_order_line_movement_links`; RECEIPT implemented and proven live via the real RPC, ISSUE genuinely blocked on live data pending Phase 10F, READ MODEL verified via Phase 8 reuse; see the change log below) — next up: Phase 10A (Reservation integration), pending external review of Phase 10
++**Current phase:** Phase 10 ✅ DONE, base scope, write-boundary corrected (2026-09-14 — external review of the Phase 10 RPC architecture accepted it as-is; found and closed one real production write-boundary gap — a direct authenticated client INSERT against `repair_order_line_movement_links` no longer bypasses the RPC's own invariants, `attach_repair_order_line_movement(...)` is now the sole production write path — and added the missing cardinality proof (one movement line split across two RepairOrderLines, plus its over-cap inverse); see the change log below) — next up: Phase 10A (Reservation integration), pending external review of this correction
+ **Pitch readiness:** NOT YET (Phases 4-10 of the pitch-required work are now DONE; Phases 10A-13 — the container/reservation/allocation chain added 2026-09-10 — remain NOT STARTED and are required before DEMO READY can be claimed)
+ **Pilot readiness:** NOT READY
+ **Last updated:** 2026-09-12
+@@ -38,7 +38,7 @@
+ | 7 Header, advisor ownership, lifecycle, manual creation   | ✅ DONE        | PITCH              |     10/10 | Manual header creation, header edit, advisor assignment (manage_all-gated to match RLS), lifecycle transitions (race-safe conditional UPDATE), 5 new server actions, real UI (`/dashboard/workshop/new` + upgraded `[id]` detail page). **Found and fixed one CONFIRMED pre-existing live RLS bug** (the ownership subquery was itself blocked by `crm_contacts`' own RLS, silently locking out any `manage_own` advisor without separate `crm.contacts.read`). 55 new tests, all passing; 12/12 new pgTAP RLS assertions passing live. One open product decision flagged (advisor-picker "employee-role" scoping), not silently invented around. Manual browser UAT of this phase's UI remains outstanding.                                                                                                                      |
+ | 8 Logical RepairOrder lines                               | ✅ DONE        | PITCH              |       6/6 | `listRepairOrderLines` service method (2 bounded queries, no N+1, no new migration), `RepairOrderLineReadModel`, new line-list UI (desktop table + mobile cards). Same-SKU independence explicitly proven (never merges by SKU in the read layer, regardless of Phase 3's own upstream create-time merging). Worked-example derived quantities (`outstandingToReceive`/`availableForIssue`) proven correct both mocked and live. 20 new tests + 11/11 new live pgTAP assertions, all passing. Full real-world receipt/issue E2E remains dependent on Phase 10 (not built yet) — not claimed. Manual browser UAT outstanding. Phase 7 left untouched throughout.                                                                                                                                                                   |
+ | 9 Source documents, lines, provenance                     | ✅ DONE        | PITCH              |       5/5 | `getRepairOrderProvenance` service method (one hierarchical embedded-select, no N+1) + `groupProvenanceByRepairOrderLine` pure helper. New "Source documents" UI section (expand/collapse) + per-line "Sources (N)" affordance on Phase 8's own line rows. **Found and fixed one genuine cross-order contribution leak before shipping** (a document shared between two RepairOrders could otherwise leak the other order's logical-line reference) — filtered via an extra small, indexed query. 24 new tests + 15/15 new live pgTAP assertions, all passing. Traceable to real `wdd_matcher_lines` rows (id-reference only, no cross-module RLS join). No migration. Manual browser UAT outstanding. Phase 7/8 left untouched.                                                                                                  |
+-| 10 Movement-line linkage / warehouse read model            | ✅ DONE (base) | PITCH              |       7/8 | New `attach_repair_order_line_movement` SECURITY DEFINER RPC — the single, fully-validated writer for `repair_order_line_movement_links` (actor identity, branch permission, cross-org/branch, posted-status, category<->relation_type, RepairOrder-reference, variant compatibility, row-locked quantity cap, duplicate rejection). **RECEIPT: IMPLEMENTED**, proven live end-to-end via the real RPC against real posted movement lines (worked example 2+2+1=5). **ISSUE: DEPENDS ON PHASE 10F** — LIVE VERIFIED zero `category='issue'` movement types exist today, so no real issue attribution can succeed (proven negatively); not fabricated. **READ MODEL: VERIFIED** — Phase 8's `listRepairOrderLines` formulas reused unchanged. Zone 5 confirmed NOT implemented on this branch (no competing writer). 21/21 new live pgTAP (`097_...`) + 18 new service unit tests, **216/216 passing** across the full 16-file Zone 3 + CRM sibling suite; `pnpm type-check`/`pnpm lint` clean. Phase 8/9 pgTAP regression (095, 11/11) re-run and unaffected — no table trigger was added specifically to avoid breaking their disclosed fixture pattern. No new UI (out of this narrow pass's scope, disclosed). 10A-10F confirmed not started.                                                                                                                                                                                                                                                                                                                                                                                   |
++| 10 Movement-line linkage / warehouse read model            | ✅ DONE (base) | PITCH              |       7/8 | New `attach_repair_order_line_movement` SECURITY DEFINER RPC — the single, fully-validated writer for `repair_order_line_movement_links` (actor identity, branch permission, cross-org/branch, posted-status, category<->relation_type, RepairOrder-reference, variant compatibility, row-locked quantity cap, duplicate rejection). **RECEIPT: IMPLEMENTED**, proven live end-to-end via the real RPC against real posted movement lines (worked example 2+2+1=5). **ISSUE: DEPENDS ON PHASE 10F** — LIVE VERIFIED zero `category='issue'` movement types exist today, so no real issue attribution can succeed (proven negatively); not fabricated. **READ MODEL: VERIFIED** — Phase 8's `listRepairOrderLines` formulas reused unchanged. **WRITE BOUNDARY (2026-09-14 correction): CLOSED** — a direct authenticated client INSERT against `repair_order_line_movement_links` is now denied (42501); the RPC is the sole production write path, live-proven (LIVE VERIFIED the RPC's own SECURITY DEFINER + `postgres` `rolbypassrls=true` never depended on the old permissive policy in the first place). **CARDINALITY: PROVEN** — one movement line split across two same-SKU RepairOrderLines (6+4=10) and its over-cap inverse (6 succeeds, +5 rejected, no partial write), both via the real RPC. 29/29 live pgTAP (`097_...`, was 21/21) + 18 service unit tests, **233/233 passing** across the full 16-file Zone 3 + CRM sibling + Inventory-movement suite; `pnpm type-check` clean; no TypeScript file changed in the correction pass. Phase 8/9 pgTAP regression (095: 11/11, 096: 15/15) re-run UNMODIFIED and unaffected — their own fixture inserts happen as the unrestricted connecting role, which bypasses RLS via role ownership just like the RPC does, not via the now-closed policy. Zone 5 reality updated: a parallel spatial-attribution schema/trigger (writes to `repair_order_line_locations`, not this table) is now live on the shared target DB, but its `receive_repair_order_stock()` receiving orchestration exists only on a separate git branch, not merged here — a later integration pass is required, not started. No new UI. 10A-10F confirmed not started.                                                                                                                                                                                                                                                                                                                                                                                   |
+ | 10A Reservation integration                               | ⬜ NOT STARTED | PITCH              |       0/6 | NEW 2026-09-10. RepairOrderLine → Reservation, reuses live `inventory_create_reservation`/`inventory_release_reservation` as-is.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+ | 10B Allocation integration                                | ⬜ NOT STARTED | PITCH              |       0/4 | NEW 2026-09-10. Reservation → Allocation, reuses live `inventory_create_allocation` (reservation-first, per decision 2).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+ | 10C Container orchestration                               | ⬜ NOT STARTED | PITCH              |       0/9 | NEW 2026-09-10. Net-new RPCs (none exist today) + new `inventory_allocation_container_links` table + `'empty'` status value. Largest of the 6 new phases — the audit's biggest identified gap.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+@@ -537,3 +537,5 @@ None currently active.
+ - **2026-09-12 (Phase 9 — source documents, source lines, and provenance)**: verify-first pass, per explicit instruction not to blindly implement from the old plan text — re-read this tracker, the implementation plan, the architecture doc, Phase 2's schema, Phase 3's materialization RPC, Phase 7's (frozen, untouched) code, Phase 8's own read model/UI, and live Supabase schema/RLS/data for every provenance table before writing anything. Corrected two stale plan assumptions (method naming, matching this repo's established one-call-per-detail-read convention instead of the plan's own two-method text; the `wdd_matcher_lines`/`wdd_matcher_sessions` cross-module RLS boundary, live-verified to require a separate `wdd_matcher.read` permission). **Found and fixed one genuine cross-order contribution leak in this phase's own first-draft query, before it ever shipped**: `repair_order_source_document_links` is a genuine M:N link, and the source-line unique-ownership constraint only guarantees a source line contributes to at most ONE logical line total — never that a document shared between two RepairOrders has all its lines belonging to the same order. A naive fetch would have leaked one order's own logical-line reference into another order's provenance view. Fixed with one additional small, indexed query (this order's own logical-line ids), used to filter contribution data by ownership — proven both mocked and live (pgTAP T1-T3, reproducing the exact scenario with real rows). **Built**: `RepairOrdersService.getRepairOrderProvenance` (3 bounded queries, no N+1) + `groupProvenanceByRepairOrderLine` (pure re-index helper) + 3 new domain types; a new "Source documents" UI section (`repair-order-provenance.tsx`, expand/collapse via the existing `Collapsible` primitive) and a per-line "Sources (N)" popover affordance (`repair-order-line-sources.tsx`) added to Phase 8's own line rows, both distinguishing a genuine empty-provenance state (manual RepairOrder) from a load-error state, matching the exact pattern Phase 8's own external review had already corrected. Traceability to specific `wdd_matcher_lines` rows is satisfied via the raw id reference alone (no cross-module RLS join attempted, live-proven both that the reference is readable and that the target row's own content genuinely is not, for the same actor). **Testing**: 13 new service tests + 8 new `RepairOrderProvenance` component tests + 4 new line-affordance tests, **195/195 passing** across the full 14-file Zone 3 + CRM sibling suite; new `096_repair_order_provenance_phase9_test.sql`, **15/15 passing live** against `supabase-target` as the genuinely-RLS-enforced `authenticated` role using transaction-scoped fixtures (live data showed a perfect 26/26/26 document/order/link ratio — no real M:N/later-arrival scenario exists in production yet), zero residual data after `ROLLBACK`; `093_...`/`094_...`/`095_...` not re-run (zero migrations/DB changes this phase); `pnpm type-check`/`pnpm lint` clean. **No DB migration** — verified, not assumed, that every index this phase's queries need already existed from Phase 2. **Phase 10/11 boundary respected**: no movement attribution, no `repair_order_line_movement_links` writes, no WU/reservation/allocation/container work, no final Magazyn/Zamówienia-Przyjęcia sub-tabs — only the reusable provenance data + a compact inspection surface. **Phase 7/8 frozen, confirmed** — no file from either phase was modified beyond two small, additive, backward-compatible props added to Phase 8's own line-list component. **Browser/Playwright verification NOT performed, honestly disclosed** — still no cached browser binaries in this environment, installing one judged too risky given this session's earlier disk-space exhaustion incident (re-checked, ~2.2GB free); DB/domain correctness does not depend on this and stands on the Vitest/pgTAP evidence above independently. **Phase 9 is marked ✅ DONE (5/5)** for everything verified now; manual/browser UAT of this phase's UI remains outstanding, same as Phase 7's and Phase 8's own. **Stopping point, per explicit instruction: Phase 10 has NOT been started**, nor has Phase 11/12/13 or any Zone 5/8/11 work; Phase 7 and Phase 8 were not modified in any way beyond the two additive props noted above.
+ - **2026-09-12 (Phase 9 external-review fix — cross-order provenance leak was narrower than it needed to be)**: `mapProvenanceDocument`'s original cross-order fix filtered each source line's own `contributions` array to this order's owned logical lines, but still returned the SOURCE LINE ITSELF (product code/name/quantity/unit/`wddMatcherLineId`) for a line whose only contribution belongs to a DIFFERENT RepairOrder sharing the same document — confirmed exactly as external review described. **Fixed narrowly**: `doc.lines` itself is now filtered, not just each line's `contributions` — a source line with zero contributions to THIS order (never-linked, or linked only elsewhere) is omitted from the tree entirely; the document itself is always still returned (a real, genuine link) even with zero visible lines. UI updated to match: the now-unreachable "Not linked to a part on this order" branch and its i18n key were removed (dead code, not kept "just in case"). **Tests**: existing cross-order test rewritten to assert the foreign line is entirely absent (SKU/name/id/wddMatcherLineId all checked absent from the serialized response); new inverse test (order B excludes order A's line); "zero contributions" test rewritten from "empty array, not dropped" to "omitted"; new "document with zero own-order visible lines is still returned" test; component tests updated to match (defensive no-crash test replacing the removed "unlinked" test, plus a new never-renders-an-absent-line test). Sources (N) affordance re-verified as already correctly scoped, no fix needed there. **pgTAP not re-run** — this fix lives entirely in the TypeScript mapper, which pgTAP cannot exercise; its stale "13/13" header comment (left over from an earlier draft) was corrected to the actual `plan(15)`/15-assertion result. **Full Zone 3 + CRM sibling suite: 198/198 passing** (was 195); `pnpm type-check`/`pnpm lint` clean. No migration, no RLS change. Phase 9 review bundle regenerated against the same `HEAD` (`51175b67`) baseline. **Phase 9 remains ✅ DONE (5/5)**. **Stopping point: Phase 10+ was not started.**
+ - **2026-09-12 (Phase 10 — inventory movement-line linkage, base scope)**: verify-first pass, per explicit instruction — re-read this tracker, the implementation plan (including the 10A-10F container-chain banner), the architecture doc, Phase 2's schema/RLS, Phase 8/9's own code and review bundles, `docs/mvp/zones/07-normal-issue-and-legacy-stock-design.md`, `docs/mvp/zones/03-repair-orders-container-workflow-audit.md`, and searched the whole repo for any Zone 5 (Receiving/Putaway) implementation before writing anything. **Stale-assumption corrections** (see the implementation plan's own new Phase 10 verify-first note for the full writeup): Zone 5 does not exist on this branch at all (only an unimplemented frozen audit doc — confirmed via repo-wide search for `repair_order_line_locations`/`receive_repair_order_stock`/any RepairOrder-aware receiving code, zero hits); the real, working receiving primitive on this branch is the generic Warehouse module's own 101-movement flow (`InventoryMovementsService`, REPO VERIFIED), a different module from Zone 3/5; LIVE VERIFIED zero `inventory_movement_types` rows with `category='issue'` exist in the target project (only receipt/transfer/adjustment/bin_operation), settling with live data that no real issue attribution can be produced before Phase 10F; LIVE VERIFIED the Phase 2 unique constraint does not prevent one movement line from being split across several RepairOrderLines, so splitting is allowed and must be capped by SUM, not by the constraint alone; LIVE VERIFIED the Phase 2 raw-INSERT RLS policy on `repair_order_line_movement_links` already exists (permission-gated) but has no semantic validation of its own — a real, pre-existing gap, deliberately NOT retrofitted with a table-level trigger (would have broken Phase 8/9's own already-shipped pgTAP fixtures, which insert synthetic rows directly, explicitly anticipated at the time as stand-ins for this phase). **Built**: one new migration pair (`20260912162802_repair_order_line_movement_attach_rpc.sql` + a same-session corrective `..._revoke_anon.sql`, after LIVE VERIFYING the first migration's own `revoke all from public` did not remove a separate, automatic `anon` EXECUTE grant this project's schema default-privileges rule applies to new functions — confirmed this differs from the two sibling RPCs' own live grant shape, fixed to match exactly) adding `attach_repair_order_line_movement`, a single SECURITY DEFINER RPC that is now the ONLY writer this phase adds for `repair_order_line_movement_links`, enforcing every attribution-validation rule the task required (actor identity, branch permission, RepairOrderLine/movement-line existence, cross-org/branch match, posted-status requirement, `relation_type`<->movement-category consistency, RepairOrder-reference consistency where present, variant compatibility where the RepairOrderLine carries one, and a row-locked applied-quantity-never-exceeds-remaining-quantity cap preventing concurrent over-application) plus `RepairOrdersService.attachMovementToRepairOrderLine` (new service method, `RepairOrderLineMovementAttachment` type, `normalizeMovementLinkRpcError` — a 12-entry code+message-shape allowlist mirroring `normalizeMaterializationRpcError`'s own hardened pattern) and a new `workshop.repair_orders.movement_attributed` Mode-A event. Phase 8's `listRepairOrderLines` derived-quantity formulas were verified, not re-derived, to already be exactly what this phase needs — reused unchanged, zero modification. **Acceptance classification** (per the task's explicit mandate not to auto-mark DONE): **RECEIPT: IMPLEMENTED** — proven end-to-end via the real RPC against real, posted `inventory_movement_lines` fixtures created for this test (no receiving UI writes real movement lines through a RepairOrder-aware path yet, so this phase built its own realistic posted-movement fixtures rather than depending on one); the generic Warehouse module's own movement-editor UI was deliberately NOT extended with a RepairOrderLine picker (a cross-module UI change, not required by this phase's own testing requirements, judged out of this narrow pass's scope) — recorded as a genuine follow-up, not silently claimed done. **ISSUE: DEPENDS ON PHASE 10F** — genuinely blocked by live data (zero issue-category movement types exist today), proven negatively, not fabricated around. **READ MODEL: VERIFIED** — Phase 8 reuse confirmed correct. **Testing**: new `097_repair_order_line_movement_attach_phase10_test.sql`, **21/21 passing live** against `supabase-target` as the genuinely-RLS-enforced `authenticated` role — every positive assertion calls the REAL RPC (not a mocked/fixture insert) against real fixture movement lines this test creates itself, covering the canonical worked example (5 received via 3 real RPC calls, 3 issued via disclosed fixture rows since no real issue category exists), same-SKU independence, one-line→many-movement-lines, duplicate rejection, cross-org rejection, cross-branch rejection, applied-quantity-boundary rejection, not-posted rejection, category-mismatch rejection, RepairOrder-reference-mismatch rejection, variant-mismatch rejection, actor-identity-spoof rejection, and permission-denial (a live-discovered fact along the way: the shared e2e_user test fixture already holds a real, permanent `warehouse.*` wildcard grant in the fixture org, so the permission-denial test had to explicitly strip the two specific compiled permission rows for its own duration — recorded in the test file's own comments, not silently worked around). 18 new service unit tests (RPC param mapping, jsonb→domain mapping, Mode-A event emission + best-effort-on-emit-failure, 12-case error-normalization allowlist, unexpected-error non-leakage, same-errcode-different-message non-leakage). **Full Zone 3 + CRM sibling suite: 216/216 passing** (was 198); Phase 8's own `095_...` pgTAP regression re-run and confirmed unaffected (11/11, unchanged) — proving the deliberate choice not to add a table-level trigger was correct; `096_...` not re-run (disjoint tables/functions, zero risk, explicitly noted); relevant inventory-movement Vitest suites re-run and unaffected (17/17); one pre-existing, unrelated test failure (`event-visual-model.test.ts`, a stale `QR` category mapping gap) confirmed via `git stash` to already exist on the Phase-9 baseline commit, not introduced by this phase; `pnpm type-check`/`pnpm lint` clean on every changed file. **No new UI** — disclosed, not silently assumed complete; this phase's own testing requirements never called for one. **Phase 10 (base scope) is marked ✅ DONE (7/8)** — the 8th task (extending a real issuing flow) is honestly left unchecked, genuinely blocked, not weakened. **Stopping point, per explicit instruction: Phase 10A-10F have NOT been started** — no reservation, allocation, container, container QR, 801 relocation, or 201/WZ issue logic was touched; Zone 5 was not redesigned (it does not exist to redesign); Phase 7/8/9 were not modified.
++
++- **2026-09-14 (Phase 10 correction pass — write-boundary closure + missing cardinality proof, external review)**: external review accepted Phase 10's core RPC architecture as-is (not redesigned) and found two narrow gaps: (1) a real production write-boundary/security gap — the Phase 2 permissive `repair_order_line_movement_links_insert` RLS policy (gated on `warehouse.inventory.operate`/`.adjust`) performed none of Phase 10's own semantic validation, so an authorized client could bypass `attach_repair_order_line_movement(...)` entirely via a raw INSERT; (2) a missing live proof of the architecture's own intentionally-permitted cardinality contract (one `inventory_movement_line` split across many `RepairOrderLine`s, capped by the locked global SUM). Both fixed narrowly, nothing else touched (RPC validation semantics, signature, `relation_type` model, issue classification, reversal behavior, quantity formulas, event emission, error normalization, the inventory movement engine, and Phase 10A-10F were all left exactly as they were). **Write-boundary fix**: before changing anything, LIVE VERIFIED (transaction-scoped dry run, rolled back) the actual FORCE-RLS/function-owner mechanics rather than assuming SECURITY DEFINER alone solved it — confirmed `repair_order_line_movement_links`' owner is `postgres`, `postgres` has `rolbypassrls = true`, and `attach_repair_order_line_movement` is owned by `postgres` too, so the RPC's own internal INSERT has NEVER depended on the table's INSERT policy at all (it bypasses RLS unconditionally via role ownership). Proved this directly: with the permissive policy swapped for a deny-all policy inside the dry-run transaction, a direct authenticated INSERT was rejected (42501) while the SAME actor's RPC call still succeeded, returning a real persisted row. Applied for real as new forward migration `20260914052934_repair_order_line_movement_links_close_direct_insert.sql` — `repair_order_line_movement_links_insert` (permissive) replaced by `repair_order_line_movement_links_insert_deny` (`WITH CHECK (false)`); SELECT policy, DELETE-deny policy, and the absent UPDATE policy are untouched. No table trigger was added — per explicit direction to prefer one canonical implementation (the RPC) over duplicating its invariants in a second place, and because policy closure alone was live-proven sufficient. **Old Phase 8/9 pgTAP fixtures were NOT kept as a reason to preserve the gap** — re-run completely UNMODIFIED after the policy closure (`095_repair_order_lines_phase8_test.sql`: 11/11, `096_repair_order_provenance_phase9_test.sql`: 15/15, both unaffected) because their own fixture INSERTs happen while still connected as the unrestricted connecting role (before any `SET LOCAL ROLE authenticated`), which bypasses RLS via the exact same role-ownership mechanism the RPC uses, not via the now-closed policy — no fixture technique had to change. **Cardinality proof added**: `097_repair_order_line_movement_attach_phase10_test.sql` gained T20-T22 (a real movement line, quantity=10, split across two DIFFERENT same-SKU RepairOrderLines — 6 then 4, both via the real RPC — proving attribution is RepairOrderLine-identity based, never SKU-based; movement line's own total reaches exactly 10) and T23-T25 (the over-cap inverse: A receives 6, B's attempt at 5 more is rejected 22023, no partial write, total stays at exactly 6) plus T26-T27 (the write-boundary's own central acceptance proof: the same actor's direct INSERT is denied, the same actor's RPC call still succeeds) — **29/29 passing live** (was 21/21), transaction-scoped, zero residual data. Two of the new read-back assertions (T22, T25) initially failed on first live run (read 0, not their real values) — not a data bug: this test's own actor holds `warehouse.inventory.operate` (needed for the writes) but not `workshop.repair_orders.read` (needed to read the link rows back under that table's own SELECT RLS), so those two reads were moved to run after `RESET ROLE`, alongside the pre-existing T16-T19 worked-example reads, which already used the same placement for the same reason — caught and fixed before reporting, not silently left broken. **Zone 5 knowledge update**: LIVE VERIFIED via `list_migrations` that a parallel Zone 5 schema (`zone5_receiving_location_purpose`, `zone5_repair_order_spatial_attribution_schema`, `zone5_attribution_sync_trigger`) is already applied to this same `supabase-target` project — inspected only to confirm existence/shape (not integrated): its sync trigger writes to `repair_order_line_locations`/`repair_order_location_attribution_uncertain`, a completely different table from `repair_order_line_movement_links`, so it does not conflict with this correction's own write-boundary closure. LIVE VERIFIED `receive_repair_order_stock()` itself does not exist on `supabase-target` (zero rows in `pg_proc`) — it exists only on the separate `pitch/zone5-receiving` git branch, not merged/applied here. The implementation plan's and this tracker's own "Zone 5 does not exist" claims (accurate as of the 2026-09-12 Phase 10 baseline) are corrected to record current reality: a partial Zone 5 schema is live, its full receiving orchestration is not, and a later integration pass (routing Zone 5's own receipt-side attribution through this phase's canonical RPC) remains required and explicitly not started. **Testing**: 29/29 pgTAP live; full Zone 3 + CRM sibling + Inventory-movement Vitest suite **233/233 passing** (was 216, +17 inventory-movement tests included in this run's scope, zero new TypeScript files touched this pass so no new Vitest tests were added); `pnpm type-check` clean; zero TypeScript files modified in this correction (RPC/RLS + pgTAP + docs only). Local migration file for `20260914052934` created to mirror the live-applied version exactly, matching every prior Zone 3 migration's own workflow. **New narrow correction bundle** created at `docs/mvp/reviews/zone3-phase10-write-boundary-correction-review/` (diff/manifest/review-context/migration-summary), baselined against the exact completed Phase 10 state immediately before this correction — the original `zone3-phase10-review/` bundle was left untouched, not regenerated, per explicit instruction not to rewrite history. **Phase 10 remains ✅ DONE (base scope), now with its write boundary corrected and its cardinality contract proven.** **Stopping point, per explicit instruction: Phase 10A has NOT been started, Zone 5 integration has NOT been started** (existence-only verification, no code/schema touched on the Zone 5 side) — this pass closed exactly the two items external review named, nothing else.

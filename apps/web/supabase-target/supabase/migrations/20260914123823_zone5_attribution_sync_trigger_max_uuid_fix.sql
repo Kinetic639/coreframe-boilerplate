@@ -1,0 +1,17 @@
+-- ============================================================================
+-- IC-8 REPRODUCIBILITY RECONSTRUCTION -- DISCLOSED PLACEHOLDER (2026-09-22)
+-- ============================================================================
+-- This slot corresponds to a historically-applied live migration
+-- (`zone5_attribution_sync_trigger_max_uuid_fix`) whose own exact content
+-- could not be separately recovered from its immediate predecessor,
+-- `zone5_attribution_sync_trigger`. Both are represented by the
+-- reconstruction at that migration's own timestamp
+-- (`20260912174602_zone5_attribution_sync_trigger.sql`), which already
+-- reflects this fix's own end state -- see that file's own header comment
+-- for the full reasoning and evidence. Preserved here as its own empty
+-- migration, at its own original historical timestamp, so the repository's
+-- migration sequence numbering is not altered and no locally-mirrored
+-- migration needs to be renumbered or rewritten to compensate.
+--
+-- Intentionally a no-op: applying this migration changes nothing.
+SELECT 1;

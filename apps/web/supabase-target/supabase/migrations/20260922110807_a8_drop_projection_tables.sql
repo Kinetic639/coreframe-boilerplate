@@ -1,0 +1,43 @@
+-- INVENTORY CORE A8 -- REPAIR ORDER PROJECTION SIMPLIFICATION (7 of 7)
+--
+-- Drops both projection tables: repair_order_line_locations and
+-- repair_order_location_attribution_uncertain.
+--
+-- DISPOSITION DECISION: immediate removal, not staged deprecation --
+-- documented explicitly per this pass's own decision framework (the
+-- default preference is staged safety; immediate removal is allowed when
+-- live/repo evidence proves absolutely no dependency AND dropping now
+-- meaningfully simplifies migration/reproducibility). Both conditions are
+-- met here, with unusually strong evidence:
+--
+--   - Live row counts, queried immediately before this migration: ZERO
+--     rows in either table, in any organization, ever (not merely "no
+--     recent writes" -- no row has EVER been written to either table by
+--     real application code, since the only real caller of the entire
+--     container/receiving/putaway subsystem in production is a workshop
+--     flow that, per a full repo audit this pass performed, has zero
+--     production callers wiring it up yet).
+--   - Zero TypeScript readers remain after this migration set's own
+--     changes: RepairOrdersService.getPhysicalStateForLine (the only
+--     production-code reader of either table) was updated in this same
+--     pass to call get_repair_order_line_physical_state instead (see the
+--     accompanying application-code change).
+--   - Zero SQL readers/writers remain: the trigger and both rebuild RPCs
+--     (the only SQL-side readers/writers) were dropped in the prior two
+--     migrations of this set.
+--   - No external/reporting/BI path reads these tables (repo-wide grep,
+--     this pass).
+--
+-- Given zero rows were EVER written (not just zero currently), staging
+-- these tables "unwritten for one release cycle" as extra insurance adds
+-- no real safety margin beyond what already exists -- there is no live
+-- business data to protect, and keeping two empty, permanently-inert
+-- tables with their own RLS policies/grants/indexes around indefinitely
+-- is exactly the kind of dead-weight complexity this pass exists to
+-- remove. Immediate removal was judged, deliberately, to meaningfully
+-- simplify this migration and the resulting schema, per the task's own
+-- explicit "if... dropping them now meaningfully simplifies migration/
+-- reproducibility, immediate removal is allowed" exception clause.
+
+DROP TABLE public.repair_order_location_attribution_uncertain;
+DROP TABLE public.repair_order_line_locations;

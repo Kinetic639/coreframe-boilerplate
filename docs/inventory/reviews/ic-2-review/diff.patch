@@ -1,0 +1,2819 @@
+diff --git a/apps/web/supabase-target/supabase/migrations/20260915155606_ic2_seed_reversal_document_movement_type.sql b/apps/web/supabase-target/supabase/migrations/20260915155606_ic2_seed_reversal_document_movement_type.sql
+new file mode 100644
+index 00000000..d1fa1922
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260915155606_ic2_seed_reversal_document_movement_type.sql
+@@ -0,0 +1,256 @@
++-- ============================================================================
++-- IC-2: Movement Reversal
++-- ============================================================================
++-- Adds:
++--   1. A new, generic, system-only reversal document type ('KOR') and
++--      movement type ('900') -- seeded via the existing per-org seeding
++--      function (`inventory_seed_movement_types_internal`), matching the
++--      established convention. `is_system=true`, `allows_manual_entry=
++--      false`/`is_correction=true` so it can never be created through any
++--      generic manual-entry UI path -- only `inventory_reverse_movement`
++--      creates headers of this type. Deliberately carries NO rows in
++--      `inventory_movement_type_effects` -- a reversal's own effects are
++--      computed per-instance (the exact inverse of whatever the ORIGINAL
++--      movement's own type-catalog effects were), which the existing
++--      type-level effects model cannot express. Live-verified: none of the
++--      5 existing movement types (101/311/401/402/801) can serve as a
++--      correct, honestly-labeled inverse for every other type (in
++--      particular 801 needs a combined source-increase+destination-decrease
++--      effect pair that does not exist as any single type, and 402/311's
++--      own "source decrease" has no "source increase" sibling type) -- so
++--      this narrow, additive extension was required per the task's own
++--      explicit "STOP before inventing a shadow type system" / "create the
++--      minimum generic representation" guidance.
++--
++-- Product decisions (frozen, recorded in inventory-core-architecture.md):
++--   A. A posted ORIGINAL may be reversed at most once; a reversal itself
++--      may never be reversed ("undo an undo" is out of scope for MVP).
++--   B. RepairOrder business-quantity attribution/netting (received/
++--      issued/outstanding/available formulas) is NOT touched by IC-2 --
++--      physical reversal is implemented correctly and independently of
++--      that read model, which remains a later, explicit integration
++--      concern.
++CREATE OR REPLACE FUNCTION public.inventory_seed_movement_types_internal(p_organization_id uuid, p_actor_user_id uuid DEFAULT NULL::uuid)
++ RETURNS void
++ LANGUAGE plpgsql
++ SECURITY DEFINER
++ SET search_path TO 'public'
++AS $function$
++DECLARE
++  v_pz_doc_id uuid;
++  v_mm_doc_id uuid;
++  v_inw_doc_id uuid;
++  v_kor_doc_id uuid;
++  v_type_101_id uuid;
++  v_type_801_id uuid;
++  v_type_401_id uuid;
++  v_type_402_id uuid;
++  v_type_311_id uuid;
++  v_type_900_id uuid;
++BEGIN
++  INSERT INTO inventory_document_types (
++    organization_id, code, name, name_pl, name_en, category, numbering_template, is_system
++  )
++  VALUES (
++    p_organization_id, 'PZ', 'External Receipt', 'Przyjęcie Zewnętrzne',
++    'External Receipt', 'receipt', 'PZ/{year}/{seq:6}', true
++  )
++  ON CONFLICT (organization_id, code) WHERE deleted_at IS NULL DO NOTHING
++  RETURNING id INTO v_pz_doc_id;
++
++  IF v_pz_doc_id IS NULL THEN
++    SELECT id INTO v_pz_doc_id
++    FROM inventory_document_types
++    WHERE organization_id = p_organization_id AND code = 'PZ' AND deleted_at IS NULL;
++  END IF;
++
++  INSERT INTO inventory_document_types (
++    organization_id, code, name, name_pl, name_en, category, numbering_template, is_system
++  )
++  VALUES (
++    p_organization_id, 'MM', 'Internal Transfer', 'Przesunięcie Międzymagazynowe',
++    'Internal Transfer', 'transfer', 'MM/{year}/{seq:6}', true
++  )
++  ON CONFLICT (organization_id, code) WHERE deleted_at IS NULL DO NOTHING
++  RETURNING id INTO v_mm_doc_id;
++
++  IF v_mm_doc_id IS NULL THEN
++    SELECT id INTO v_mm_doc_id
++    FROM inventory_document_types
++    WHERE organization_id = p_organization_id AND code = 'MM' AND deleted_at IS NULL;
++  END IF;
++
++  INSERT INTO inventory_document_types (
++    organization_id, code, name, name_pl, name_en, category, numbering_template, is_system
++  )
++  VALUES (
++    p_organization_id, 'INW', 'Inventory Adjustment', 'Korekta Inwentaryzacyjna',
++    'Inventory Adjustment', 'adjustment', 'INW/{year}/{seq:6}', true
++  )
++  ON CONFLICT (organization_id, code) WHERE deleted_at IS NULL DO NOTHING
++  RETURNING id INTO v_inw_doc_id;
++
++  IF v_inw_doc_id IS NULL THEN
++    SELECT id INTO v_inw_doc_id
++    FROM inventory_document_types
++    WHERE organization_id = p_organization_id AND code = 'INW' AND deleted_at IS NULL;
++  END IF;
++
++  -- IC-2: generic reversal/correction document type. is_correction=true,
++  -- corrects_document_type_code=NULL (generic -- applies regardless of
++  -- which document type the original movement carried; building one
++  -- correction document type per original type would violate the "minimum
++  -- generic representation" instruction).
++  INSERT INTO inventory_document_types (
++    organization_id, code, name, name_pl, name_en, category, numbering_template,
++    is_system, is_correction, corrects_document_type_code
++  )
++  VALUES (
++    p_organization_id, 'KOR', 'Movement Reversal', 'Korekta / Storno Ruchu',
++    'Movement Reversal', 'other', 'KOR/{year}/{seq:6}', true, true, NULL
++  )
++  ON CONFLICT (organization_id, code) WHERE deleted_at IS NULL DO NOTHING
++  RETURNING id INTO v_kor_doc_id;
++
++  IF v_kor_doc_id IS NULL THEN
++    SELECT id INTO v_kor_doc_id
++    FROM inventory_document_types
++    WHERE organization_id = p_organization_id AND code = 'KOR' AND deleted_at IS NULL;
++  END IF;
++
++  INSERT INTO inventory_movement_types (
++    organization_id, code, document_type_id, name, name_pl, name_en, category,
++    requires_source_location, requires_destination_location, cost_impact, is_system
++  )
++  VALUES (
++    p_organization_id, '101', v_pz_doc_id, 'Goods Receipt (PZ)',
++    'Przyjęcie z zamówienia', 'Goods Receipt from PO', 'receipt',
++    false, true, 'increase', true
++  )
++  ON CONFLICT (organization_id, code) WHERE deleted_at IS NULL DO NOTHING
++  RETURNING id INTO v_type_101_id;
++
++  IF v_type_101_id IS NULL THEN
++    SELECT id INTO v_type_101_id
++    FROM inventory_movement_types
++    WHERE organization_id = p_organization_id AND code = '101' AND deleted_at IS NULL;
++  END IF;
++
++  INSERT INTO inventory_movement_types (
++    organization_id, code, document_type_id, name, name_pl, name_en, category,
++    requires_source_location, requires_destination_location, cost_impact, is_system
++  )
++  VALUES (
++    p_organization_id, '801', v_mm_doc_id, 'Bin-to-Bin Move (MMZ)',
++    'Przesunięcie BIN', 'Bin-to-Bin Move', 'bin_operation',
++    true, true, 'neutral', true
++  )
++  ON CONFLICT (organization_id, code) WHERE deleted_at IS NULL DO NOTHING
++  RETURNING id INTO v_type_801_id;
++
++  IF v_type_801_id IS NULL THEN
++    SELECT id INTO v_type_801_id
++    FROM inventory_movement_types
++    WHERE organization_id = p_organization_id AND code = '801' AND deleted_at IS NULL;
++  END IF;
++
++  INSERT INTO inventory_movement_types (
++    organization_id, code, document_type_id, name, name_pl, name_en, category,
++    requires_source_location, requires_destination_location, cost_impact, is_system
++  )
++  VALUES (
++    p_organization_id, '401', v_inw_doc_id, 'Inventory Count Adjustment (Increase)',
++    'Korekta z inwentaryzacji (nadwyżka)', 'Inventory Count Adjustment (Increase)',
++    'adjustment', false, true, 'increase', true
++  )
++  ON CONFLICT (organization_id, code) WHERE deleted_at IS NULL DO NOTHING
++  RETURNING id INTO v_type_401_id;
++
++  IF v_type_401_id IS NULL THEN
++    SELECT id INTO v_type_401_id
++    FROM inventory_movement_types
++    WHERE organization_id = p_organization_id AND code = '401' AND deleted_at IS NULL;
++  END IF;
++
++  INSERT INTO inventory_movement_types (
++    organization_id, code, document_type_id, name, name_pl, name_en, category,
++    requires_source_location, requires_destination_location, cost_impact, is_system
++  )
++  VALUES (
++    p_organization_id, '402', v_inw_doc_id, 'Inventory Count Adjustment (Decrease)',
++    'Korekta z inwentaryzacji (niedobór)', 'Inventory Count Adjustment (Decrease)',
++    'adjustment', true, false, 'decrease', true
++  )
++  ON CONFLICT (organization_id, code) WHERE deleted_at IS NULL DO NOTHING
++  RETURNING id INTO v_type_402_id;
++
++  IF v_type_402_id IS NULL THEN
++    SELECT id INTO v_type_402_id
++    FROM inventory_movement_types
++    WHERE organization_id = p_organization_id AND code = '402' AND deleted_at IS NULL;
++  END IF;
++
++  INSERT INTO inventory_movement_types (
++    organization_id, code, document_type_id, name, name_pl, name_en, category,
++    requires_source_location, requires_destination_location, cost_impact, is_system
++  )
++  VALUES (
++    p_organization_id, '311', v_mm_doc_id, 'Inter-Branch Transfer Out',
++    'Transfer między oddziałami - wydanie', 'Inter-Branch Transfer Out',
++    'transfer', true, false, 'neutral', true
++  )
++  ON CONFLICT (organization_id, code) WHERE deleted_at IS NULL DO NOTHING
++  RETURNING id INTO v_type_311_id;
++
++  IF v_type_311_id IS NULL THEN
++    SELECT id INTO v_type_311_id
++    FROM inventory_movement_types
++    WHERE organization_id = p_organization_id AND code = '311' AND deleted_at IS NULL;
++  END IF;
++
++  -- IC-2: generic system reversal movement type. is_system=true,
++  -- allows_manual_entry=false -- can only ever be created by
++  -- `inventory_reverse_movement`, never through a generic "create draft
++  -- movement" UI/action path. Deliberately no requires_source_location/
++  -- requires_destination_location enforcement (each reversal line's own
++  -- locations are copied directly from the original line it reverses) and
++  -- deliberately NO `inventory_movement_type_effects` rows (effects are
++  -- computed per-instance by the reversal RPC itself, passed explicitly to
++  -- `inventory_finalize_posting`'s new `p_explicit_effects` parameter).
++  INSERT INTO inventory_movement_types (
++    organization_id, code, document_type_id, name, name_pl, name_en, category,
++    requires_source_location, requires_destination_location, cost_impact,
++    is_system, allows_manual_entry
++  )
++  VALUES (
++    p_organization_id, '900', v_kor_doc_id, 'System Reversal',
++    'Storno Systemowe', 'System Reversal', 'other',
++    false, false, 'neutral', true, false
++  )
++  ON CONFLICT (organization_id, code) WHERE deleted_at IS NULL DO NOTHING
++  RETURNING id INTO v_type_900_id;
++
++  INSERT INTO inventory_movement_type_effects (
++    movement_type_id, effect_order, target, balance_field, direction, is_required, description
++  )
++  VALUES
++    (v_type_101_id, 1, 'destination', 'on_hand', 'increase', true, 'Receive stock into destination bin'),
++    (v_type_801_id, 1, 'source', 'on_hand', 'decrease', true, 'Remove from source bin'),
++    (v_type_801_id, 2, 'destination', 'on_hand', 'increase', true, 'Place into destination bin'),
++    (v_type_401_id, 1, 'destination', 'on_hand', 'increase', true, 'Apply inventory count surplus to location'),
++    (v_type_402_id, 1, 'source', 'on_hand', 'decrease', true, 'Apply inventory count shortage to location'),
++    (v_type_311_id, 1, 'source', 'on_hand', 'decrease', true, 'Issue stock from source branch')
++  ON CONFLICT (movement_type_id, effect_order) DO NOTHING;
++END;
++$function$;
++
++-- Backfill the new KOR/900 types for every org that already had the
++-- original seed run (idempotent -- ON CONFLICT DO NOTHING guards every
++-- insert inside the function).
++DO $$
++DECLARE v_org RECORD;
++BEGIN
++  FOR v_org IN SELECT id FROM organizations WHERE deleted_at IS NULL LOOP
++    PERFORM public.inventory_seed_movement_types_internal(v_org.id);
++  END LOOP;
++END $$;
+diff --git a/apps/web/supabase-target/supabase/migrations/20260915160118_ic2_inventory_finalize_posting_explicit_effects.sql b/apps/web/supabase-target/supabase/migrations/20260915160118_ic2_inventory_finalize_posting_explicit_effects.sql
+new file mode 100644
+index 00000000..1a30d7fb
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260915160118_ic2_inventory_finalize_posting_explicit_effects.sql
+@@ -0,0 +1,242 @@
++-- IC-2 (Movement Reversal): `inventory_finalize_posting` gains ONE new,
++-- optional, trailing parameter: `p_explicit_effects jsonb DEFAULT NULL`.
++-- When NULL (the default -- every existing caller, unchanged), behavior is
++-- byte-identical to before: effects come from `inventory_movement_type_
++-- effects`, keyed by movement type. When NOT NULL (used only by
++-- `inventory_reverse_movement`), effects for each line come from the
++-- caller-supplied JSON instead, keyed per line_number as an array of
++-- {id, target, balance_field, direction, effect_order, is_required}
++-- objects -- everything else (locking, the IC-1 hard invariant, ledger
++-- insert, audit log, document numbering) is the exact same, shared code
++-- path. This is NOT a second posting engine -- it is the same one,
++-- narrowly extended. The `id` field lets the ledger's own NOT NULL
++-- `effect_id` FK (to `inventory_movement_type_effects`) correctly
++-- reference the ORIGINAL effect a reversal's own compensating entry
++-- undoes, since the new '900' reversal movement type deliberately carries
++-- no effect rows of its own.
++CREATE OR REPLACE FUNCTION public.inventory_finalize_posting(p_movement_id uuid, p_actor_user_id uuid DEFAULT NULL::uuid, p_explicit_effects jsonb DEFAULT NULL::jsonb)
++ RETURNS jsonb
++ LANGUAGE plpgsql
++ SECURITY DEFINER
++ SET search_path TO 'public'
++AS $function$
++DECLARE
++  v_header RECORD;
++  v_mvt_type RECORD;
++  v_settings RECORD;
++  v_seq RECORD;
++  v_doc_number text;
++  v_line RECORD;
++  v_effect RECORD;
++  v_location_id uuid;
++  v_balance inventory_balances%ROWTYPE;
++  v_current_qty numeric;
++  v_new_qty numeric;
++  v_now timestamptz := now();
++  v_year integer := extract(year from v_now)::integer;
++BEGIN
++  SET LOCAL ambra.inventory_movement_engine = 'on';
++
++  SELECT * INTO v_header FROM inventory_movement_headers
++  WHERE id = p_movement_id FOR UPDATE;
++
++  IF NOT FOUND THEN
++    RAISE EXCEPTION 'Movement not found';
++  END IF;
++
++  IF v_header.status = 'posted' THEN
++    RETURN jsonb_build_object(
++      'movement_id', v_header.id,
++      'document_number', v_header.document_number,
++      'status', 'posted'
++    );
++  END IF;
++
++  IF v_header.status != 'draft' THEN
++    RAISE EXCEPTION 'Cannot post movement with status "%"', v_header.status;
++  END IF;
++
++  SELECT mt.*, dt.code AS doc_type_code, dt.numbering_template, dt.id AS dt_id
++  INTO v_mvt_type
++  FROM inventory_movement_types mt
++  JOIN inventory_document_types dt ON dt.id = mt.document_type_id
++  WHERE mt.id = v_header.movement_type_id;
++
++  SELECT * INTO v_settings FROM inventory_settings
++  WHERE organization_id = v_header.organization_id FOR UPDATE;
++
++  INSERT INTO inventory_document_sequences (organization_id, document_type_id, year)
++  VALUES (v_header.organization_id, v_mvt_type.dt_id, v_year)
++  ON CONFLICT DO NOTHING;
++
++  SELECT * INTO v_seq FROM inventory_document_sequences
++  WHERE organization_id = v_header.organization_id
++    AND document_type_id = v_mvt_type.dt_id
++    AND branch_id IS NULL
++    AND series IS NULL
++    AND year = v_year
++  FOR UPDATE;
++
++  v_doc_number := v_mvt_type.doc_type_code || '/' || v_year::text || '/' || lpad(v_seq.next_number::text, 6, '0');
++
++  UPDATE inventory_document_sequences
++  SET next_number = next_number + 1
++  WHERE id = v_seq.id;
++
++  -- Freeze line snapshots using subqueries instead of JOIN on target table
++  UPDATE inventory_movement_lines SET
++    snapshot_product_name = (
++      SELECT p.name FROM inventory_variants v
++      JOIN inventory_products p ON p.id = v.product_id AND p.organization_id = v.organization_id
++      WHERE v.id = inventory_movement_lines.variant_id AND v.organization_id = inventory_movement_lines.organization_id
++    ),
++    snapshot_sku = (
++      SELECT v.sku FROM inventory_variants v
++      WHERE v.id = inventory_movement_lines.variant_id AND v.organization_id = inventory_movement_lines.organization_id
++    ),
++    snapshot_unit_code = (
++      SELECT u.code FROM inventory_units u
++      WHERE u.id = inventory_movement_lines.unit_id AND u.organization_id = inventory_movement_lines.organization_id
++    ),
++    snapshot_source_location_name = (
++      SELECT wl.name FROM warehouse_locations wl
++      WHERE wl.id = inventory_movement_lines.source_location_id
++    ),
++    snapshot_destination_location_name = (
++      SELECT wl.name FROM warehouse_locations wl
++      WHERE wl.id = inventory_movement_lines.destination_location_id
++    )
++  WHERE movement_id = p_movement_id AND deleted_at IS NULL;
++
++  -- Apply effects per line
++  FOR v_line IN
++    SELECT * FROM inventory_movement_lines
++    WHERE movement_id = p_movement_id AND deleted_at IS NULL
++    ORDER BY line_number
++  LOOP
++    -- IC-2: when p_explicit_effects is supplied (reversal path only), use
++    -- the caller-computed per-line inverse effects instead of the
++    -- type-catalog lookup. Exactly one branch below is non-empty for any
++    -- given call -- every existing caller passes NULL and is completely
++    -- unaffected (byte-identical to pre-IC-2 behavior).
++    FOR v_effect IN
++      SELECT id, target, balance_field, direction, effect_order, is_required
++      FROM inventory_movement_type_effects
++      WHERE movement_type_id = v_header.movement_type_id AND p_explicit_effects IS NULL
++      UNION ALL
++      SELECT
++        (e->>'id')::uuid,
++        (e->>'target')::text,
++        (e->>'balance_field')::text,
++        (e->>'direction')::text,
++        (e->>'effect_order')::integer,
++        COALESCE((e->>'is_required')::boolean, true)
++      FROM jsonb_array_elements(COALESCE(p_explicit_effects -> v_line.line_number::text, '[]'::jsonb)) e
++      WHERE p_explicit_effects IS NOT NULL
++      ORDER BY effect_order
++    LOOP
++      IF v_effect.target = 'source' THEN
++        v_location_id := v_line.source_location_id;
++      ELSE
++        v_location_id := v_line.destination_location_id;
++      END IF;
++
++      IF v_location_id IS NULL AND v_effect.is_required THEN
++        RAISE EXCEPTION 'Line %: % location required for effect but is NULL',
++          v_line.line_number, v_effect.target;
++      END IF;
++
++      IF v_location_id IS NULL THEN
++        CONTINUE;
++      END IF;
++
++      v_balance := inventory_get_or_create_balance_for_update(
++        v_header.organization_id, v_header.branch_id, v_location_id, v_line.variant_id, p_movement_id,
++        NULL::uuid, NULL::uuid
++      );
++
++      IF v_effect.balance_field = 'on_hand' THEN
++        v_current_qty := v_balance.on_hand_quantity;
++      ELSE
++        RAISE EXCEPTION 'v1 only supports on_hand balance field, got %', v_effect.balance_field;
++      END IF;
++
++      IF v_effect.direction = 'increase' THEN
++        v_new_qty := v_current_qty + v_line.quantity;
++      ELSE
++        v_new_qty := v_current_qty - v_line.quantity;
++      END IF;
++
++      -- IC-1 hard invariant -- unconditional; never gated by
++      -- negative_stock_policy (product-owner FINAL decision, IC-1
++      -- finalization pass: on_hand_quantity >= 0 ALWAYS, negative_stock_
++      -- policy='allow'/'allow_with_approval' are superseded for on-hand
++      -- behavior). This check applies identically whether this effect came
++      -- from the type catalog or from an IC-2 explicit reversal effect --
++      -- a reversal can NEVER bypass this invariant.
++      IF v_effect.balance_field = 'on_hand' AND v_effect.direction = 'decrease' THEN
++        IF v_new_qty < (v_balance.reserved_quantity + v_balance.allocated_quantity) THEN
++          RAISE EXCEPTION 'Movement would strand committed stock: variant % has % reserved + % allocated = % committed at this location, but only % would remain on hand (line %)',
++            v_line.variant_id, v_balance.reserved_quantity, v_balance.allocated_quantity,
++            (v_balance.reserved_quantity + v_balance.allocated_quantity), v_new_qty, v_line.line_number
++            USING ERRCODE = 'P0003';
++        END IF;
++      END IF;
++
++      IF v_new_qty < 0 AND v_settings.negative_stock_policy = 'block' THEN
++        RAISE EXCEPTION 'Insufficient stock: % has % on hand, need % for line %',
++          v_line.variant_id, v_current_qty, v_line.quantity, v_line.line_number;
++      END IF;
++
++      UPDATE inventory_balances
++      SET on_hand_quantity = v_new_qty,
++          last_movement_id = p_movement_id,
++          last_movement_at = v_now,
++          updated_at = v_now
++      WHERE id = v_balance.id;
++
++      INSERT INTO inventory_stock_ledger_entries (
++        organization_id, branch_id, location_id, variant_id,
++        movement_id, movement_line_id, movement_type_code,
++        document_number, document_type_code,
++        effect_id, balance_field, direction,
++        quantity, balance_after,
++        unit_cost, currency, posted_at
++      ) VALUES (
++        v_header.organization_id, v_header.branch_id, v_location_id, v_line.variant_id,
++        p_movement_id, v_line.id, v_header.movement_type_code,
++        v_doc_number, v_mvt_type.doc_type_code,
++        v_effect.id, v_effect.balance_field, v_effect.direction,
++        v_line.quantity, v_new_qty,
++        v_line.unit_cost, v_line.currency, v_now
++      );
++    END LOOP;
++  END LOOP;
++
++  UPDATE inventory_movement_headers SET
++    status = 'posted',
++    document_number = v_doc_number,
++    document_type_code = v_mvt_type.doc_type_code,
++    posted_at = v_now,
++    posted_by = p_actor_user_id,
++    updated_at = v_now
++  WHERE id = p_movement_id;
++
++  INSERT INTO inventory_movement_audit_log (
++    organization_id, movement_id, action, old_status, new_status,
++    entity_type, entity_id, actor_user_id,
++    changes, transaction_id
++  ) VALUES (
++    v_header.organization_id, p_movement_id, 'posted', 'draft', 'posted',
++    'header', p_movement_id, p_actor_user_id,
++    jsonb_build_object('document_number', v_doc_number),
++    txid_current()::text
++  );
++
++  RETURN jsonb_build_object(
++    'movement_id', p_movement_id,
++    'document_number', v_doc_number,
++    'status', 'posted'
++  );
++END;
++$function$;
+diff --git a/apps/web/supabase-target/supabase/migrations/20260915160414_ic2_inventory_reverse_movement_rpc.sql b/apps/web/supabase-target/supabase/migrations/20260915160414_ic2_inventory_reverse_movement_rpc.sql
+new file mode 100644
+index 00000000..b8607bb7
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260915160414_ic2_inventory_reverse_movement_rpc.sql
+@@ -0,0 +1,197 @@
++-- IC-2 (Movement Reversal): the new canonical reversal RPC.
++--
++-- Eligibility (re-checked against the row-locked original, never an
++-- earlier unlocked read): status must be 'posted'; original_movement_id
++-- must be NULL (a reversal movement cannot itself be reversed -- product
++-- decision A); reversal_movement_id must be NULL (a posted original may be
++-- reversed at most once -- product decision A). Actor identity is checked
++-- first (28000 on mismatch, unrelated to the target's own existence). A
++-- non-blank reason is mandatory (22023). A genuinely nonexistent movement
++-- and one the actor lacks warehouse.inventory.operate on both raise the
++-- SAME P0002 "not found" -- wrong-org/wrong-branch/inaccessible movements
++-- must not leak existence via a distinguishable error.
++--
++-- The reversal is a brand-new movement (type '900'/KOR, see the sibling
++-- seeding migration), built by copying each original line's own variant,
++-- unit, lot, serial, and source/destination location identity, with each
++-- of the original TYPE's own effects inverted (increase<->decrease) and
++-- passed explicitly to `inventory_finalize_posting`'s new
++-- `p_explicit_effects` parameter -- reusing the exact same canonical
++-- engine (same locking, same IC-1 hard invariant, same ledger insert, same
++-- document-number allocator), never a second posting engine.
++--
++-- After the reversal posts, bidirectional linkage is set in the SAME
++-- transaction: original.status='reversed', original.reversal_movement_id
++-- = the new movement's id (the reversal's own original_movement_id was
++-- already set at INSERT time). This is the only mutation to an
++-- already-posted header, permitted narrowly because `ambra.inventory_
++-- movement_engine = 'on'` is set for this same transaction, matching
++-- `inventory_prevent_header_modification`'s own existing, narrowly-scoped
++-- allowance -- no trigger is disabled or weakened.
++CREATE OR REPLACE FUNCTION public.inventory_reverse_movement(
++  p_movement_id uuid,
++  p_actor_user_id uuid,
++  p_reason text
++)
++ RETURNS jsonb
++ LANGUAGE plpgsql
++ SECURITY DEFINER
++ SET search_path TO 'public', 'pg_temp'
++AS $function$
++DECLARE
++  v_original RECORD;
++  v_reason text;
++  v_reversal_id uuid := gen_random_uuid();
++  v_reversal_type_id uuid;
++  v_line RECORD;
++  v_line_number integer := 0;
++  v_line_effects jsonb;
++  v_orig_effect RECORD;
++  v_inverse_direction text;
++  v_explicit_effects jsonb := '{}'::jsonb;
++  v_finalize_result jsonb;
++BEGIN
++  IF p_actor_user_id IS NULL OR p_actor_user_id IS DISTINCT FROM auth.uid() THEN
++    RAISE EXCEPTION 'p_actor_user_id must match the authenticated caller' USING ERRCODE = '28000';
++  END IF;
++
++  v_reason := NULLIF(TRIM(p_reason), '');
++  IF v_reason IS NULL THEN
++    RAISE EXCEPTION 'A non-blank reason is required to reverse a movement' USING ERRCODE = '22023';
++  END IF;
++
++  SELECT * INTO v_original FROM inventory_movement_headers
++  WHERE id = p_movement_id
++  FOR UPDATE;
++
++  IF NOT FOUND THEN
++    RAISE EXCEPTION 'Movement not found or not accessible' USING ERRCODE = 'P0002';
++  END IF;
++
++  IF NOT public.has_branch_permission(v_original.organization_id, v_original.branch_id, 'warehouse.inventory.operate') THEN
++    RAISE EXCEPTION 'Movement not found or not accessible' USING ERRCODE = 'P0002';
++  END IF;
++
++  IF v_original.status <> 'posted' THEN
++    RAISE EXCEPTION 'Only posted movements can be reversed (status=%). Draft movements use cancellation, not reversal.', v_original.status
++      USING ERRCODE = 'P0004';
++  END IF;
++
++  IF v_original.original_movement_id IS NOT NULL THEN
++    RAISE EXCEPTION 'A reversal movement cannot itself be reversed' USING ERRCODE = 'P0005';
++  END IF;
++
++  IF v_original.reversal_movement_id IS NOT NULL THEN
++    RAISE EXCEPTION 'Movement has already been reversed (reversal_movement_id=%)', v_original.reversal_movement_id
++      USING ERRCODE = 'P0006';
++  END IF;
++
++  SELECT id INTO v_reversal_type_id
++  FROM inventory_movement_types
++  WHERE organization_id = v_original.organization_id AND code = '900' AND deleted_at IS NULL;
++
++  IF v_reversal_type_id IS NULL THEN
++    RAISE EXCEPTION 'Reversal movement type not configured for this organization' USING ERRCODE = 'P0002';
++  END IF;
++
++  SET LOCAL ambra.inventory_movement_engine = 'on';
++
++  INSERT INTO inventory_movement_headers (
++    id, organization_id, branch_id, movement_type_id, movement_type_code,
++    status, reference_type, reference_id, original_movement_id, created_by
++  ) VALUES (
++    v_reversal_id, v_original.organization_id, v_original.branch_id, v_reversal_type_id, '900',
++    'draft', 'movement_reversal', v_original.id::text, v_original.id, p_actor_user_id
++  );
++
++  FOR v_line IN
++    SELECT * FROM inventory_movement_lines
++    WHERE movement_id = v_original.id AND deleted_at IS NULL
++    ORDER BY line_number
++  LOOP
++    v_line_number := v_line_number + 1;
++
++    INSERT INTO inventory_movement_lines (
++      id, movement_id, organization_id, branch_id, line_number,
++      variant_id, unit_id, quantity,
++      source_location_id, destination_location_id,
++      lot_id, serial_id, unit_cost, currency, note
++    ) VALUES (
++      gen_random_uuid(), v_reversal_id, v_original.organization_id, v_original.branch_id, v_line_number,
++      v_line.variant_id, v_line.unit_id, v_line.quantity,
++      v_line.source_location_id, v_line.destination_location_id,
++      v_line.lot_id, v_line.serial_id, v_line.unit_cost, v_line.currency,
++      'Reversal of ' || v_original.document_number || ' line ' || v_line.line_number
++    );
++
++    v_line_effects := '[]'::jsonb;
++    FOR v_orig_effect IN
++      SELECT * FROM inventory_movement_type_effects
++      WHERE movement_type_id = v_original.movement_type_id
++      ORDER BY effect_order
++    LOOP
++      v_inverse_direction := CASE v_orig_effect.direction
++        WHEN 'increase' THEN 'decrease'
++        WHEN 'decrease' THEN 'increase'
++        ELSE v_orig_effect.direction
++      END;
++      v_line_effects := v_line_effects || jsonb_build_array(jsonb_build_object(
++        'id', v_orig_effect.id,
++        'target', v_orig_effect.target,
++        'balance_field', v_orig_effect.balance_field,
++        'direction', v_inverse_direction,
++        'effect_order', v_orig_effect.effect_order,
++        'is_required', v_orig_effect.is_required
++      ));
++    END LOOP;
++
++    IF jsonb_array_length(v_line_effects) = 0 THEN
++      RAISE EXCEPTION 'Original movement type has no effects to invert for line %', v_line.line_number USING ERRCODE = 'P0002';
++    END IF;
++
++    v_explicit_effects := v_explicit_effects || jsonb_build_object(v_line_number::text, v_line_effects);
++  END LOOP;
++
++  IF v_line_number = 0 THEN
++    RAISE EXCEPTION 'Original movement has no lines to reverse' USING ERRCODE = 'P0002';
++  END IF;
++
++  v_finalize_result := public.inventory_finalize_posting(v_reversal_id, p_actor_user_id, v_explicit_effects);
++
++  UPDATE inventory_movement_headers
++  SET status = 'reversed',
++      reversal_movement_id = v_reversal_id,
++      reversed_by = p_actor_user_id,
++      reversed_at = now(),
++      updated_at = now()
++  WHERE id = v_original.id;
++
++  INSERT INTO inventory_movement_audit_log (
++    organization_id, movement_id, action, old_status, new_status,
++    entity_type, entity_id, actor_user_id, reason_text,
++    changes, transaction_id
++  ) VALUES (
++    v_original.organization_id, v_original.id, 'reversed', 'posted', 'reversed',
++    'header', v_original.id, p_actor_user_id, v_reason,
++    jsonb_build_object('reversal_movement_id', v_reversal_id, 'reversal_document_number', v_finalize_result->>'document_number'),
++    txid_current()::text
++  );
++
++  RETURN jsonb_build_object(
++    'status', 'posted',
++    'reversal_movement_id', v_reversal_id,
++    'reversal_document_number', v_finalize_result->>'document_number',
++    'original_movement_id', v_original.id,
++    'original_document_number', v_original.document_number
++  );
++EXCEPTION
++  WHEN OTHERS THEN
++    IF SQLSTATE IN ('28000', '22023', 'P0002', 'P0003', 'P0004', 'P0005', 'P0006') THEN
++      RAISE;
++    END IF;
++    RAISE EXCEPTION 'Movement reversal failed unexpectedly' USING ERRCODE = 'P0001';
++END;
++$function$;
++
++REVOKE ALL ON FUNCTION public.inventory_reverse_movement(uuid, uuid, text) FROM PUBLIC;
++GRANT EXECUTE ON FUNCTION public.inventory_reverse_movement(uuid, uuid, text) TO authenticated, service_role;
+diff --git a/apps/web/supabase-target/supabase/migrations/20260915160444_ic2_drop_old_finalize_posting_overload.sql b/apps/web/supabase-target/supabase/migrations/20260915160444_ic2_drop_old_finalize_posting_overload.sql
+new file mode 100644
+index 00000000..660ac001
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260915160444_ic2_drop_old_finalize_posting_overload.sql
+@@ -0,0 +1,14 @@
++-- Live-caught defect (same pattern as IC-1's own overload-ambiguity bug):
++-- CREATE OR REPLACE FUNCTION with an added parameter creates a NEW,
++-- additional overload rather than replacing the original when arity
++-- changes -- Postgres matches on (name, parameter types), and adding a
++-- 3rd parameter changes the signature. The old 2-arg
++-- inventory_finalize_posting(uuid, uuid) was left behind alongside the
++-- new inventory_finalize_posting(uuid, uuid, jsonb), making every existing
++-- 2-argument call site (inventory_create_and_finalize, and any other
++-- caller) ambiguous: "function inventory_finalize_posting(uuid, uuid) is
++-- not unique". Live-reproduced immediately when re-running the receipt-
++-- reversal live test. Fix: drop the old 2-arg overload -- the 3-arg
++-- version's own DEFAULT NULL on p_explicit_effects makes it a fully
++-- backward-compatible drop-in replacement for every existing 2-arg call.
++DROP FUNCTION IF EXISTS public.inventory_finalize_posting(uuid, uuid);
+diff --git a/apps/web/supabase-target/supabase/migrations/20260915160902_ic2_inventory_reverse_movement_fix_p0004_reserved_code.sql b/apps/web/supabase-target/supabase/migrations/20260915160902_ic2_inventory_reverse_movement_fix_p0004_reserved_code.sql
+new file mode 100644
+index 00000000..7c64d20c
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260915160902_ic2_inventory_reverse_movement_fix_p0004_reserved_code.sql
+@@ -0,0 +1,172 @@
++-- Live-caught defect: 'P0004' is a Postgres BUILT-IN reserved condition
++-- name/SQLSTATE in the "P0" (PL/pgSQL) class (assign_string_too_long) --
++-- live-reproduced that RAISE ... USING ERRCODE = 'P0004' is NOT caught by
++-- a surrounding `WHEN OTHERS` handler the way every other custom P0-family
++-- code in this project (P0001/P0002/P0003, and P0005/P0006/P0007,
++-- live-verified individually) is. The "not posted" rejection code is
++-- changed from P0004 to P0007, matching the pattern the rest of this
++-- function already establishes.
++CREATE OR REPLACE FUNCTION public.inventory_reverse_movement(
++  p_movement_id uuid,
++  p_actor_user_id uuid,
++  p_reason text
++)
++ RETURNS jsonb
++ LANGUAGE plpgsql
++ SECURITY DEFINER
++ SET search_path TO 'public', 'pg_temp'
++AS $function$
++DECLARE
++  v_original RECORD;
++  v_reason text;
++  v_reversal_id uuid := gen_random_uuid();
++  v_reversal_type_id uuid;
++  v_line RECORD;
++  v_line_number integer := 0;
++  v_line_effects jsonb;
++  v_orig_effect RECORD;
++  v_inverse_direction text;
++  v_explicit_effects jsonb := '{}'::jsonb;
++  v_finalize_result jsonb;
++BEGIN
++  IF p_actor_user_id IS NULL OR p_actor_user_id IS DISTINCT FROM auth.uid() THEN
++    RAISE EXCEPTION 'p_actor_user_id must match the authenticated caller' USING ERRCODE = '28000';
++  END IF;
++
++  v_reason := NULLIF(TRIM(p_reason), '');
++  IF v_reason IS NULL THEN
++    RAISE EXCEPTION 'A non-blank reason is required to reverse a movement' USING ERRCODE = '22023';
++  END IF;
++
++  SELECT * INTO v_original FROM inventory_movement_headers
++  WHERE id = p_movement_id
++  FOR UPDATE;
++
++  IF NOT FOUND THEN
++    RAISE EXCEPTION 'Movement not found or not accessible' USING ERRCODE = 'P0002';
++  END IF;
++
++  IF NOT public.has_branch_permission(v_original.organization_id, v_original.branch_id, 'warehouse.inventory.operate') THEN
++    RAISE EXCEPTION 'Movement not found or not accessible' USING ERRCODE = 'P0002';
++  END IF;
++
++  IF v_original.status <> 'posted' THEN
++    RAISE EXCEPTION 'Only posted movements can be reversed (status=%). Draft movements use cancellation, not reversal.', v_original.status
++      USING ERRCODE = 'P0007';
++  END IF;
++
++  IF v_original.original_movement_id IS NOT NULL THEN
++    RAISE EXCEPTION 'A reversal movement cannot itself be reversed' USING ERRCODE = 'P0005';
++  END IF;
++
++  IF v_original.reversal_movement_id IS NOT NULL THEN
++    RAISE EXCEPTION 'Movement has already been reversed (reversal_movement_id=%)', v_original.reversal_movement_id
++      USING ERRCODE = 'P0006';
++  END IF;
++
++  SELECT id INTO v_reversal_type_id
++  FROM inventory_movement_types
++  WHERE organization_id = v_original.organization_id AND code = '900' AND deleted_at IS NULL;
++
++  IF v_reversal_type_id IS NULL THEN
++    RAISE EXCEPTION 'Reversal movement type not configured for this organization' USING ERRCODE = 'P0002';
++  END IF;
++
++  SET LOCAL ambra.inventory_movement_engine = 'on';
++
++  INSERT INTO inventory_movement_headers (
++    id, organization_id, branch_id, movement_type_id, movement_type_code,
++    status, reference_type, reference_id, original_movement_id, created_by
++  ) VALUES (
++    v_reversal_id, v_original.organization_id, v_original.branch_id, v_reversal_type_id, '900',
++    'draft', 'movement_reversal', v_original.id::text, v_original.id, p_actor_user_id
++  );
++
++  FOR v_line IN
++    SELECT * FROM inventory_movement_lines
++    WHERE movement_id = v_original.id AND deleted_at IS NULL
++    ORDER BY line_number
++  LOOP
++    v_line_number := v_line_number + 1;
++
++    INSERT INTO inventory_movement_lines (
++      id, movement_id, organization_id, branch_id, line_number,
++      variant_id, unit_id, quantity,
++      source_location_id, destination_location_id,
++      lot_id, serial_id, unit_cost, currency, note
++    ) VALUES (
++      gen_random_uuid(), v_reversal_id, v_original.organization_id, v_original.branch_id, v_line_number,
++      v_line.variant_id, v_line.unit_id, v_line.quantity,
++      v_line.source_location_id, v_line.destination_location_id,
++      v_line.lot_id, v_line.serial_id, v_line.unit_cost, v_line.currency,
++      'Reversal of ' || v_original.document_number || ' line ' || v_line.line_number
++    );
++
++    v_line_effects := '[]'::jsonb;
++    FOR v_orig_effect IN
++      SELECT * FROM inventory_movement_type_effects
++      WHERE movement_type_id = v_original.movement_type_id
++      ORDER BY effect_order
++    LOOP
++      v_inverse_direction := CASE v_orig_effect.direction
++        WHEN 'increase' THEN 'decrease'
++        WHEN 'decrease' THEN 'increase'
++        ELSE v_orig_effect.direction
++      END;
++      v_line_effects := v_line_effects || jsonb_build_array(jsonb_build_object(
++        'id', v_orig_effect.id,
++        'target', v_orig_effect.target,
++        'balance_field', v_orig_effect.balance_field,
++        'direction', v_inverse_direction,
++        'effect_order', v_orig_effect.effect_order,
++        'is_required', v_orig_effect.is_required
++      ));
++    END LOOP;
++
++    IF jsonb_array_length(v_line_effects) = 0 THEN
++      RAISE EXCEPTION 'Original movement type has no effects to invert for line %', v_line.line_number USING ERRCODE = 'P0002';
++    END IF;
++
++    v_explicit_effects := v_explicit_effects || jsonb_build_object(v_line_number::text, v_line_effects);
++  END LOOP;
++
++  IF v_line_number = 0 THEN
++    RAISE EXCEPTION 'Original movement has no lines to reverse' USING ERRCODE = 'P0002';
++  END IF;
++
++  v_finalize_result := public.inventory_finalize_posting(v_reversal_id, p_actor_user_id, v_explicit_effects);
++
++  UPDATE inventory_movement_headers
++  SET status = 'reversed',
++      reversal_movement_id = v_reversal_id,
++      reversed_by = p_actor_user_id,
++      reversed_at = now(),
++      updated_at = now()
++  WHERE id = v_original.id;
++
++  INSERT INTO inventory_movement_audit_log (
++    organization_id, movement_id, action, old_status, new_status,
++    entity_type, entity_id, actor_user_id, reason_text,
++    changes, transaction_id
++  ) VALUES (
++    v_original.organization_id, v_original.id, 'reversed', 'posted', 'reversed',
++    'header', v_original.id, p_actor_user_id, v_reason,
++    jsonb_build_object('reversal_movement_id', v_reversal_id, 'reversal_document_number', v_finalize_result->>'document_number'),
++    txid_current()::text
++  );
++
++  RETURN jsonb_build_object(
++    'status', 'posted',
++    'reversal_movement_id', v_reversal_id,
++    'reversal_document_number', v_finalize_result->>'document_number',
++    'original_movement_id', v_original.id,
++    'original_document_number', v_original.document_number
++  );
++EXCEPTION
++  WHEN OTHERS THEN
++    IF SQLSTATE IN ('28000', '22023', 'P0002', 'P0003', 'P0005', 'P0006', 'P0007') THEN
++      RAISE;
++    END IF;
++    RAISE EXCEPTION 'Movement reversal failed unexpectedly' USING ERRCODE = 'P0001';
++END;
++$function$;
+diff --git a/apps/web/supabase-target/supabase/migrations/20260915161137_ic2_reverse_movement_zone5_attribution_guard.sql b/apps/web/supabase-target/supabase/migrations/20260915161137_ic2_reverse_movement_zone5_attribution_guard.sql
+new file mode 100644
+index 00000000..f9b7b8df
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260915161137_ic2_reverse_movement_zone5_attribution_guard.sql
+@@ -0,0 +1,195 @@
++-- Live-proven finding (read-only Zone 5 compatibility check, per explicit
++-- IC-2 scope): reversing a receive_repair_order_stock-created movement
++-- caused inventory_stock_ledger_entries' own AFTER INSERT trigger
++-- (repair_order_line_locations_ledger_sync ->
++-- repair_order_location_attribution_sync()) to ACTIVELY CORRUPT
++-- repair_order_line_locations -- it deleted then immediately re-inserted
++-- the same quantity at the same location (since the reversal line's own
++-- destination_location_id, copied from the original, equals the location
++-- being zeroed out), leaving repair_order_line_locations claiming 10 units
++-- physically present at a location where on_hand_quantity is now
++-- genuinely 0. Live-reproduced before this fix.
++--
++-- Per explicit instruction, Zone 5 itself (the trigger, the table, any
++-- Zone 5 RPC) is NOT modified. Instead, inventory_reverse_movement sets
++-- the SAME `ambra.repair_order_attribution_authoritative` GUC that
++-- receive_repair_order_stock/putaway_repair_order_stock already set around
++-- their own ledger-producing calls -- an existing, established mechanism,
++-- not new Zone 5 code. This makes the trigger take its own "authoritative
++-- caller" branch, which does NOT attempt its own heuristic re-attribution
++-- (avoiding the active corruption) but also does NOT itself update
++-- repair_order_line_locations to reflect the reversal (since this RPC does
++-- not write that table). The result is DISCLOSED, KNOWN STALENESS
++-- (repair_order_line_locations may continue to show quantity at a location
++-- IC-2 has reversed) rather than silent corruption -- staleness is an
++-- explicit, already-planned IC-5 concern (architecture decision #7:
++-- repair_order_line_locations must become a derived projection), not an
++-- IC-2 one. IC-2 does not attempt to resolve it here.
++CREATE OR REPLACE FUNCTION public.inventory_reverse_movement(
++  p_movement_id uuid,
++  p_actor_user_id uuid,
++  p_reason text
++)
++ RETURNS jsonb
++ LANGUAGE plpgsql
++ SECURITY DEFINER
++ SET search_path TO 'public', 'pg_temp'
++AS $function$
++DECLARE
++  v_original RECORD;
++  v_reason text;
++  v_reversal_id uuid := gen_random_uuid();
++  v_reversal_type_id uuid;
++  v_line RECORD;
++  v_line_number integer := 0;
++  v_line_effects jsonb;
++  v_orig_effect RECORD;
++  v_inverse_direction text;
++  v_explicit_effects jsonb := '{}'::jsonb;
++  v_finalize_result jsonb;
++BEGIN
++  IF p_actor_user_id IS NULL OR p_actor_user_id IS DISTINCT FROM auth.uid() THEN
++    RAISE EXCEPTION 'p_actor_user_id must match the authenticated caller' USING ERRCODE = '28000';
++  END IF;
++
++  v_reason := NULLIF(TRIM(p_reason), '');
++  IF v_reason IS NULL THEN
++    RAISE EXCEPTION 'A non-blank reason is required to reverse a movement' USING ERRCODE = '22023';
++  END IF;
++
++  SELECT * INTO v_original FROM inventory_movement_headers
++  WHERE id = p_movement_id
++  FOR UPDATE;
++
++  IF NOT FOUND THEN
++    RAISE EXCEPTION 'Movement not found or not accessible' USING ERRCODE = 'P0002';
++  END IF;
++
++  IF NOT public.has_branch_permission(v_original.organization_id, v_original.branch_id, 'warehouse.inventory.operate') THEN
++    RAISE EXCEPTION 'Movement not found or not accessible' USING ERRCODE = 'P0002';
++  END IF;
++
++  IF v_original.status <> 'posted' THEN
++    RAISE EXCEPTION 'Only posted movements can be reversed (status=%). Draft movements use cancellation, not reversal.', v_original.status
++      USING ERRCODE = 'P0007';
++  END IF;
++
++  IF v_original.original_movement_id IS NOT NULL THEN
++    RAISE EXCEPTION 'A reversal movement cannot itself be reversed' USING ERRCODE = 'P0005';
++  END IF;
++
++  IF v_original.reversal_movement_id IS NOT NULL THEN
++    RAISE EXCEPTION 'Movement has already been reversed (reversal_movement_id=%)', v_original.reversal_movement_id
++      USING ERRCODE = 'P0006';
++  END IF;
++
++  SELECT id INTO v_reversal_type_id
++  FROM inventory_movement_types
++  WHERE organization_id = v_original.organization_id AND code = '900' AND deleted_at IS NULL;
++
++  IF v_reversal_type_id IS NULL THEN
++    RAISE EXCEPTION 'Reversal movement type not configured for this organization' USING ERRCODE = 'P0002';
++  END IF;
++
++  SET LOCAL ambra.inventory_movement_engine = 'on';
++  -- See this migration's own header comment: prevents Zone 5's spatial-
++  -- attribution trigger from actively corrupting repair_order_line_locations
++  -- in response to this reversal's own compensating ledger entries.
++  SET LOCAL ambra.repair_order_attribution_authoritative = 'on';
++
++  INSERT INTO inventory_movement_headers (
++    id, organization_id, branch_id, movement_type_id, movement_type_code,
++    status, reference_type, reference_id, original_movement_id, created_by
++  ) VALUES (
++    v_reversal_id, v_original.organization_id, v_original.branch_id, v_reversal_type_id, '900',
++    'draft', 'movement_reversal', v_original.id::text, v_original.id, p_actor_user_id
++  );
++
++  FOR v_line IN
++    SELECT * FROM inventory_movement_lines
++    WHERE movement_id = v_original.id AND deleted_at IS NULL
++    ORDER BY line_number
++  LOOP
++    v_line_number := v_line_number + 1;
++
++    INSERT INTO inventory_movement_lines (
++      id, movement_id, organization_id, branch_id, line_number,
++      variant_id, unit_id, quantity,
++      source_location_id, destination_location_id,
++      lot_id, serial_id, unit_cost, currency, note
++    ) VALUES (
++      gen_random_uuid(), v_reversal_id, v_original.organization_id, v_original.branch_id, v_line_number,
++      v_line.variant_id, v_line.unit_id, v_line.quantity,
++      v_line.source_location_id, v_line.destination_location_id,
++      v_line.lot_id, v_line.serial_id, v_line.unit_cost, v_line.currency,
++      'Reversal of ' || v_original.document_number || ' line ' || v_line.line_number
++    );
++
++    v_line_effects := '[]'::jsonb;
++    FOR v_orig_effect IN
++      SELECT * FROM inventory_movement_type_effects
++      WHERE movement_type_id = v_original.movement_type_id
++      ORDER BY effect_order
++    LOOP
++      v_inverse_direction := CASE v_orig_effect.direction
++        WHEN 'increase' THEN 'decrease'
++        WHEN 'decrease' THEN 'increase'
++        ELSE v_orig_effect.direction
++      END;
++      v_line_effects := v_line_effects || jsonb_build_array(jsonb_build_object(
++        'id', v_orig_effect.id,
++        'target', v_orig_effect.target,
++        'balance_field', v_orig_effect.balance_field,
++        'direction', v_inverse_direction,
++        'effect_order', v_orig_effect.effect_order,
++        'is_required', v_orig_effect.is_required
++      ));
++    END LOOP;
++
++    IF jsonb_array_length(v_line_effects) = 0 THEN
++      RAISE EXCEPTION 'Original movement type has no effects to invert for line %', v_line.line_number USING ERRCODE = 'P0002';
++    END IF;
++
++    v_explicit_effects := v_explicit_effects || jsonb_build_object(v_line_number::text, v_line_effects);
++  END LOOP;
++
++  IF v_line_number = 0 THEN
++    RAISE EXCEPTION 'Original movement has no lines to reverse' USING ERRCODE = 'P0002';
++  END IF;
++
++  v_finalize_result := public.inventory_finalize_posting(v_reversal_id, p_actor_user_id, v_explicit_effects);
++
++  UPDATE inventory_movement_headers
++  SET status = 'reversed',
++      reversal_movement_id = v_reversal_id,
++      reversed_by = p_actor_user_id,
++      reversed_at = now(),
++      updated_at = now()
++  WHERE id = v_original.id;
++
++  INSERT INTO inventory_movement_audit_log (
++    organization_id, movement_id, action, old_status, new_status,
++    entity_type, entity_id, actor_user_id, reason_text,
++    changes, transaction_id
++  ) VALUES (
++    v_original.organization_id, v_original.id, 'reversed', 'posted', 'reversed',
++    'header', v_original.id, p_actor_user_id, v_reason,
++    jsonb_build_object('reversal_movement_id', v_reversal_id, 'reversal_document_number', v_finalize_result->>'document_number'),
++    txid_current()::text
++  );
++
++  RETURN jsonb_build_object(
++    'status', 'posted',
++    'reversal_movement_id', v_reversal_id,
++    'reversal_document_number', v_finalize_result->>'document_number',
++    'original_movement_id', v_original.id,
++    'original_document_number', v_original.document_number
++  );
++EXCEPTION
++  WHEN OTHERS THEN
++    IF SQLSTATE IN ('28000', '22023', 'P0002', 'P0003', 'P0005', 'P0006', 'P0007') THEN
++      RAISE;
++    END IF;
++    RAISE EXCEPTION 'Movement reversal failed unexpectedly' USING ERRCODE = 'P0001';
++END;
++$function$;
+diff --git a/apps/web/supabase-target/supabase/migrations/20260915162826_ic2_reverse_movement_regrant_after_default_privilege_reapply.sql b/apps/web/supabase-target/supabase/migrations/20260915162826_ic2_reverse_movement_regrant_after_default_privilege_reapply.sql
+new file mode 100644
+index 00000000..56c45b86
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260915162826_ic2_reverse_movement_regrant_after_default_privilege_reapply.sql
+@@ -0,0 +1,20 @@
++-- Live-caught defect: `anon` regained EXECUTE on inventory_reverse_movement
++-- despite the explicit REVOKE ALL FROM PUBLIC / GRANT TO authenticated,
++-- service_role issued in the very first IC-2 migration for this function.
++-- Live-verified: this database applies a default-privilege grant (anon
++-- EXECUTE on newly-created/replaced functions in schema public) that
++-- re-applies on each subsequent CREATE OR REPLACE FUNCTION call -- the two
++-- later migrations in this same IC-2 phase (the P0004 fix, the Zone 5
++-- attribution guard) each silently re-exposed the function to anon. This
++-- is the SAME pre-existing default-privilege behavior already observed on
++-- `inventory_finalize_posting` (anon has held EXECUTE on it since before
++-- IC-1/IC-2 -- out of scope to fix here, a pre-existing condition).
++-- `inventory_reverse_movement` itself is a NEW, IC-2-owned RPC with an
++-- explicit, narrower intended security model matching the established
++-- Phase 10C/Zone 5 convention (authenticated + service_role only, e.g.
++-- putaway_repair_order_stock, inventory_create_container) -- this
++-- corrective migration re-applies that intent as the final word after
++-- every CREATE OR REPLACE in this phase.
++REVOKE ALL ON FUNCTION public.inventory_reverse_movement(uuid, uuid, text) FROM PUBLIC;
++REVOKE ALL ON FUNCTION public.inventory_reverse_movement(uuid, uuid, text) FROM anon;
++GRANT EXECUTE ON FUNCTION public.inventory_reverse_movement(uuid, uuid, text) TO authenticated, service_role;
+diff --git a/apps/web/supabase-target/supabase/migrations/20260915170706_ic2_security_internalize_explicit_effects.sql b/apps/web/supabase-target/supabase/migrations/20260915170706_ic2_security_internalize_explicit_effects.sql
+new file mode 100644
+index 00000000..bee1861e
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260915170706_ic2_security_internalize_explicit_effects.sql
+@@ -0,0 +1,467 @@
++-- ============================================================================
++-- IC-2 SECURITY-BOUNDARY CORRECTION (P0, external review)
++-- ============================================================================
++-- CONFIRMED LIVE, before any code change: `inventory_finalize_posting(uuid,
++-- uuid, jsonb)` had zero caller-identity or permission checks (no auth.uid()
++-- verification, no has_branch_permission call, p_actor_user_id used only to
++-- stamp the audit log) and `anon` held live EXECUTE on it (a pre-existing
++-- default-privilege behavior, unrelated to IC-2). A safe, transaction-scoped
++-- attack probe (ROLLBACK, no real data touched) proved an ordinary
++-- `authenticated` caller could call the function DIRECTLY on an existing,
++-- legitimately-created draft 101 receipt (quantity=10) with a crafted
++-- `p_explicit_effects` payload supplying TWO real effect ids (borrowed from
++-- two different movement types' own catalog rows) instead of 101's own
++-- single catalog effect -- the movement posted with on_hand=20 (double the
++-- drafted quantity), fully bypassing the type-catalog's own effect
++-- definition. This is a genuine, live-confirmed P0.
++--
++-- FIX: split the function. `inventory_finalize_posting(uuid, uuid)` is
++-- restored as the PUBLIC/CANONICAL 2-argument contract (catalog-defined
++-- effects only, no explicit-effects capability at all). The actual
++-- implementation moves to `inventory_finalize_posting_internal(uuid, uuid,
++-- jsonb)`, which has ALL EXECUTE revoked from PUBLIC/anon/authenticated/
++-- service_role -- it is reachable ONLY via a direct function call from
++-- another SECURITY DEFINER function owned by `postgres` (privilege checks
++-- for calls made from inside a SECURITY DEFINER function's body are
++-- performed as the function's OWNER, not the original invoking role --
++-- standard, well-established Postgres semantics, not a workaround).
++-- `inventory_reverse_movement` (already SECURITY DEFINER, owner postgres)
++-- is updated to call the internal function directly.
++--
++-- DEFENSE IN DEPTH inside the internal function (narrow, does not create a
++-- second reversal engine): when p_explicit_effects is supplied, the
++-- movement's own REAL type_code (read from the row itself, never trusted
++-- from the caller) must be exactly '900' (the system reversal type) --
++-- categorically prevents the exact attack proven above (which targeted a
++-- '101' movement) even if some future internal caller misused the
++-- parameter. Each supplied effect's own `target`/`direction` is validated
++-- against its exact allowed domain ({source,destination} /
++-- {increase,decrease}) and rejected explicitly rather than silently
++-- defaulting via the pre-existing CASE/IF fallthrough.
++--
++-- The broader, pre-existing default-privilege/EXECUTE-audit problem
++-- (anon on inventory_finalize_posting(uuid,uuid) itself, and on other
++-- Inventory Core functions generally) remains IC-7's own scope -- NOT
++-- solved here. What IS closed here, unconditionally, is the NEW
++-- explicit-effects capability IC-2 itself introduced.
++
++CREATE OR REPLACE FUNCTION public.inventory_finalize_posting_internal(p_movement_id uuid, p_actor_user_id uuid DEFAULT NULL::uuid, p_explicit_effects jsonb DEFAULT NULL::jsonb)
++ RETURNS jsonb
++ LANGUAGE plpgsql
++ SECURITY DEFINER
++ SET search_path TO 'public'
++AS $function$
++DECLARE
++  v_header RECORD;
++  v_mvt_type RECORD;
++  v_settings RECORD;
++  v_seq RECORD;
++  v_doc_number text;
++  v_line RECORD;
++  v_effect RECORD;
++  v_location_id uuid;
++  v_balance inventory_balances%ROWTYPE;
++  v_current_qty numeric;
++  v_new_qty numeric;
++  v_now timestamptz := now();
++  v_year integer := extract(year from v_now)::integer;
++BEGIN
++  SET LOCAL ambra.inventory_movement_engine = 'on';
++
++  SELECT * INTO v_header FROM inventory_movement_headers
++  WHERE id = p_movement_id FOR UPDATE;
++
++  IF NOT FOUND THEN
++    RAISE EXCEPTION 'Movement not found';
++  END IF;
++
++  -- Defense in depth: explicit effects may ONLY ever apply to the system
++  -- reversal type. The movement's own real type_code is read from the
++  -- locked row itself, never trusted from any caller-supplied value.
++  IF p_explicit_effects IS NOT NULL AND v_header.movement_type_code <> '900' THEN
++    RAISE EXCEPTION 'Explicit effects are only permitted for system reversal movements (type 900)' USING ERRCODE = '42501';
++  END IF;
++
++  IF v_header.status = 'posted' THEN
++    RETURN jsonb_build_object(
++      'movement_id', v_header.id,
++      'document_number', v_header.document_number,
++      'status', 'posted'
++    );
++  END IF;
++
++  IF v_header.status != 'draft' THEN
++    RAISE EXCEPTION 'Cannot post movement with status "%"', v_header.status;
++  END IF;
++
++  SELECT mt.*, dt.code AS doc_type_code, dt.numbering_template, dt.id AS dt_id
++  INTO v_mvt_type
++  FROM inventory_movement_types mt
++  JOIN inventory_document_types dt ON dt.id = mt.document_type_id
++  WHERE mt.id = v_header.movement_type_id;
++
++  SELECT * INTO v_settings FROM inventory_settings
++  WHERE organization_id = v_header.organization_id FOR UPDATE;
++
++  INSERT INTO inventory_document_sequences (organization_id, document_type_id, year)
++  VALUES (v_header.organization_id, v_mvt_type.dt_id, v_year)
++  ON CONFLICT DO NOTHING;
++
++  SELECT * INTO v_seq FROM inventory_document_sequences
++  WHERE organization_id = v_header.organization_id
++    AND document_type_id = v_mvt_type.dt_id
++    AND branch_id IS NULL
++    AND series IS NULL
++    AND year = v_year
++  FOR UPDATE;
++
++  v_doc_number := v_mvt_type.doc_type_code || '/' || v_year::text || '/' || lpad(v_seq.next_number::text, 6, '0');
++
++  UPDATE inventory_document_sequences
++  SET next_number = next_number + 1
++  WHERE id = v_seq.id;
++
++  -- Freeze line snapshots using subqueries instead of JOIN on target table
++  UPDATE inventory_movement_lines SET
++    snapshot_product_name = (
++      SELECT p.name FROM inventory_variants v
++      JOIN inventory_products p ON p.id = v.product_id AND p.organization_id = v.organization_id
++      WHERE v.id = inventory_movement_lines.variant_id AND v.organization_id = inventory_movement_lines.organization_id
++    ),
++    snapshot_sku = (
++      SELECT v.sku FROM inventory_variants v
++      WHERE v.id = inventory_movement_lines.variant_id AND v.organization_id = inventory_movement_lines.organization_id
++    ),
++    snapshot_unit_code = (
++      SELECT u.code FROM inventory_units u
++      WHERE u.id = inventory_movement_lines.unit_id AND u.organization_id = inventory_movement_lines.organization_id
++    ),
++    snapshot_source_location_name = (
++      SELECT wl.name FROM warehouse_locations wl
++      WHERE wl.id = inventory_movement_lines.source_location_id
++    ),
++    snapshot_destination_location_name = (
++      SELECT wl.name FROM warehouse_locations wl
++      WHERE wl.id = inventory_movement_lines.destination_location_id
++    )
++  WHERE movement_id = p_movement_id AND deleted_at IS NULL;
++
++  -- Apply effects per line
++  FOR v_line IN
++    SELECT * FROM inventory_movement_lines
++    WHERE movement_id = p_movement_id AND deleted_at IS NULL
++    ORDER BY line_number
++  LOOP
++    FOR v_effect IN
++      SELECT id, target, balance_field, direction, effect_order, is_required
++      FROM inventory_movement_type_effects
++      WHERE movement_type_id = v_header.movement_type_id AND p_explicit_effects IS NULL
++      UNION ALL
++      SELECT
++        (e->>'id')::uuid,
++        (e->>'target')::text,
++        (e->>'balance_field')::text,
++        (e->>'direction')::text,
++        (e->>'effect_order')::integer,
++        COALESCE((e->>'is_required')::boolean, true)
++      FROM jsonb_array_elements(COALESCE(p_explicit_effects -> v_line.line_number::text, '[]'::jsonb)) e
++      WHERE p_explicit_effects IS NOT NULL
++      ORDER BY effect_order
++    LOOP
++      -- Defense in depth: reject any effect whose target/direction is not
++      -- exactly one of the supported domain values, rather than silently
++      -- defaulting via the fallthrough branches below.
++      IF v_effect.target NOT IN ('source', 'destination') THEN
++        RAISE EXCEPTION 'Invalid effect target "%" for line %', v_effect.target, v_line.line_number;
++      END IF;
++      IF v_effect.direction NOT IN ('increase', 'decrease') THEN
++        RAISE EXCEPTION 'Invalid effect direction "%" for line %', v_effect.direction, v_line.line_number;
++      END IF;
++
++      IF v_effect.target = 'source' THEN
++        v_location_id := v_line.source_location_id;
++      ELSE
++        v_location_id := v_line.destination_location_id;
++      END IF;
++
++      IF v_location_id IS NULL AND v_effect.is_required THEN
++        RAISE EXCEPTION 'Line %: % location required for effect but is NULL',
++          v_line.line_number, v_effect.target;
++      END IF;
++
++      IF v_location_id IS NULL THEN
++        CONTINUE;
++      END IF;
++
++      v_balance := inventory_get_or_create_balance_for_update(
++        v_header.organization_id, v_header.branch_id, v_location_id, v_line.variant_id, p_movement_id,
++        NULL::uuid, NULL::uuid
++      );
++
++      IF v_effect.balance_field = 'on_hand' THEN
++        v_current_qty := v_balance.on_hand_quantity;
++      ELSE
++        RAISE EXCEPTION 'v1 only supports on_hand balance field, got %', v_effect.balance_field;
++      END IF;
++
++      IF v_effect.direction = 'increase' THEN
++        v_new_qty := v_current_qty + v_line.quantity;
++      ELSE
++        v_new_qty := v_current_qty - v_line.quantity;
++      END IF;
++
++      IF v_effect.balance_field = 'on_hand' AND v_effect.direction = 'decrease' THEN
++        IF v_new_qty < (v_balance.reserved_quantity + v_balance.allocated_quantity) THEN
++          RAISE EXCEPTION 'Movement would strand committed stock: variant % has % reserved + % allocated = % committed at this location, but only % would remain on hand (line %)',
++            v_line.variant_id, v_balance.reserved_quantity, v_balance.allocated_quantity,
++            (v_balance.reserved_quantity + v_balance.allocated_quantity), v_new_qty, v_line.line_number
++            USING ERRCODE = 'P0003';
++        END IF;
++      END IF;
++
++      IF v_new_qty < 0 AND v_settings.negative_stock_policy = 'block' THEN
++        RAISE EXCEPTION 'Insufficient stock: % has % on hand, need % for line %',
++          v_line.variant_id, v_current_qty, v_line.quantity, v_line.line_number;
++      END IF;
++
++      UPDATE inventory_balances
++      SET on_hand_quantity = v_new_qty,
++          last_movement_id = p_movement_id,
++          last_movement_at = v_now,
++          updated_at = v_now
++      WHERE id = v_balance.id;
++
++      INSERT INTO inventory_stock_ledger_entries (
++        organization_id, branch_id, location_id, variant_id,
++        movement_id, movement_line_id, movement_type_code,
++        document_number, document_type_code,
++        effect_id, balance_field, direction,
++        quantity, balance_after,
++        unit_cost, currency, posted_at
++      ) VALUES (
++        v_header.organization_id, v_header.branch_id, v_location_id, v_line.variant_id,
++        p_movement_id, v_line.id, v_header.movement_type_code,
++        v_doc_number, v_mvt_type.doc_type_code,
++        v_effect.id, v_effect.balance_field, v_effect.direction,
++        v_line.quantity, v_new_qty,
++        v_line.unit_cost, v_line.currency, v_now
++      );
++    END LOOP;
++  END LOOP;
++
++  UPDATE inventory_movement_headers SET
++    status = 'posted',
++    document_number = v_doc_number,
++    document_type_code = v_mvt_type.doc_type_code,
++    posted_at = v_now,
++    posted_by = p_actor_user_id,
++    updated_at = v_now
++  WHERE id = p_movement_id;
++
++  INSERT INTO inventory_movement_audit_log (
++    organization_id, movement_id, action, old_status, new_status,
++    entity_type, entity_id, actor_user_id,
++    changes, transaction_id
++  ) VALUES (
++    v_header.organization_id, p_movement_id, 'posted', 'draft', 'posted',
++    'header', p_movement_id, p_actor_user_id,
++    jsonb_build_object('document_number', v_doc_number),
++    txid_current()::text
++  );
++
++  RETURN jsonb_build_object(
++    'movement_id', p_movement_id,
++    'document_number', v_doc_number,
++    'status', 'posted'
++  );
++END;
++$function$;
++
++REVOKE ALL ON FUNCTION public.inventory_finalize_posting_internal(uuid, uuid, jsonb) FROM PUBLIC;
++REVOKE ALL ON FUNCTION public.inventory_finalize_posting_internal(uuid, uuid, jsonb) FROM anon;
++REVOKE ALL ON FUNCTION public.inventory_finalize_posting_internal(uuid, uuid, jsonb) FROM authenticated;
++REVOKE ALL ON FUNCTION public.inventory_finalize_posting_internal(uuid, uuid, jsonb) FROM service_role;
++
++CREATE OR REPLACE FUNCTION public.inventory_finalize_posting(p_movement_id uuid, p_actor_user_id uuid DEFAULT NULL::uuid)
++ RETURNS jsonb
++ LANGUAGE plpgsql
++ SECURITY DEFINER
++ SET search_path TO 'public'
++AS $function$
++BEGIN
++  RETURN public.inventory_finalize_posting_internal(p_movement_id, p_actor_user_id, NULL::jsonb);
++END;
++$function$;
++
++REVOKE ALL ON FUNCTION public.inventory_finalize_posting(uuid, uuid) FROM PUBLIC;
++GRANT EXECUTE ON FUNCTION public.inventory_finalize_posting(uuid, uuid) TO anon, authenticated, service_role;
++
++CREATE OR REPLACE FUNCTION public.inventory_reverse_movement(
++  p_movement_id uuid,
++  p_actor_user_id uuid,
++  p_reason text
++)
++ RETURNS jsonb
++ LANGUAGE plpgsql
++ SECURITY DEFINER
++ SET search_path TO 'public', 'pg_temp'
++AS $function$
++DECLARE
++  v_original RECORD;
++  v_reason text;
++  v_reversal_id uuid := gen_random_uuid();
++  v_reversal_type_id uuid;
++  v_line RECORD;
++  v_line_number integer := 0;
++  v_line_effects jsonb;
++  v_orig_effect RECORD;
++  v_inverse_direction text;
++  v_explicit_effects jsonb := '{}'::jsonb;
++  v_finalize_result jsonb;
++BEGIN
++  IF p_actor_user_id IS NULL OR p_actor_user_id IS DISTINCT FROM auth.uid() THEN
++    RAISE EXCEPTION 'p_actor_user_id must match the authenticated caller' USING ERRCODE = '28000';
++  END IF;
++
++  v_reason := NULLIF(TRIM(p_reason), '');
++  IF v_reason IS NULL THEN
++    RAISE EXCEPTION 'A non-blank reason is required to reverse a movement' USING ERRCODE = '22023';
++  END IF;
++
++  SELECT * INTO v_original FROM inventory_movement_headers
++  WHERE id = p_movement_id
++  FOR UPDATE;
++
++  IF NOT FOUND THEN
++    RAISE EXCEPTION 'Movement not found or not accessible' USING ERRCODE = 'P0002';
++  END IF;
++
++  IF NOT public.has_branch_permission(v_original.organization_id, v_original.branch_id, 'warehouse.inventory.operate') THEN
++    RAISE EXCEPTION 'Movement not found or not accessible' USING ERRCODE = 'P0002';
++  END IF;
++
++  IF v_original.status <> 'posted' THEN
++    RAISE EXCEPTION 'Only posted movements can be reversed (status=%). Draft movements use cancellation, not reversal.', v_original.status
++      USING ERRCODE = 'P0007';
++  END IF;
++
++  IF v_original.original_movement_id IS NOT NULL THEN
++    RAISE EXCEPTION 'A reversal movement cannot itself be reversed' USING ERRCODE = 'P0005';
++  END IF;
++
++  IF v_original.reversal_movement_id IS NOT NULL THEN
++    RAISE EXCEPTION 'Movement has already been reversed (reversal_movement_id=%)', v_original.reversal_movement_id
++      USING ERRCODE = 'P0006';
++  END IF;
++
++  SELECT id INTO v_reversal_type_id
++  FROM inventory_movement_types
++  WHERE organization_id = v_original.organization_id AND code = '900' AND deleted_at IS NULL;
++
++  IF v_reversal_type_id IS NULL THEN
++    RAISE EXCEPTION 'Reversal movement type not configured for this organization' USING ERRCODE = 'P0002';
++  END IF;
++
++  SET LOCAL ambra.inventory_movement_engine = 'on';
++  SET LOCAL ambra.repair_order_attribution_authoritative = 'on';
++
++  INSERT INTO inventory_movement_headers (
++    id, organization_id, branch_id, movement_type_id, movement_type_code,
++    status, reference_type, reference_id, original_movement_id, created_by
++  ) VALUES (
++    v_reversal_id, v_original.organization_id, v_original.branch_id, v_reversal_type_id, '900',
++    'draft', 'movement_reversal', v_original.id::text, v_original.id, p_actor_user_id
++  );
++
++  FOR v_line IN
++    SELECT * FROM inventory_movement_lines
++    WHERE movement_id = v_original.id AND deleted_at IS NULL
++    ORDER BY line_number
++  LOOP
++    v_line_number := v_line_number + 1;
++
++    INSERT INTO inventory_movement_lines (
++      id, movement_id, organization_id, branch_id, line_number,
++      variant_id, unit_id, quantity,
++      source_location_id, destination_location_id,
++      lot_id, serial_id, unit_cost, currency, note
++    ) VALUES (
++      gen_random_uuid(), v_reversal_id, v_original.organization_id, v_original.branch_id, v_line_number,
++      v_line.variant_id, v_line.unit_id, v_line.quantity,
++      v_line.source_location_id, v_line.destination_location_id,
++      v_line.lot_id, v_line.serial_id, v_line.unit_cost, v_line.currency,
++      'Reversal of ' || v_original.document_number || ' line ' || v_line.line_number
++    );
++
++    v_line_effects := '[]'::jsonb;
++    FOR v_orig_effect IN
++      SELECT * FROM inventory_movement_type_effects
++      WHERE movement_type_id = v_original.movement_type_id
++      ORDER BY effect_order
++    LOOP
++      v_inverse_direction := CASE v_orig_effect.direction
++        WHEN 'increase' THEN 'decrease'
++        WHEN 'decrease' THEN 'increase'
++        ELSE v_orig_effect.direction
++      END;
++      v_line_effects := v_line_effects || jsonb_build_array(jsonb_build_object(
++        'id', v_orig_effect.id,
++        'target', v_orig_effect.target,
++        'balance_field', v_orig_effect.balance_field,
++        'direction', v_inverse_direction,
++        'effect_order', v_orig_effect.effect_order,
++        'is_required', v_orig_effect.is_required
++      ));
++    END LOOP;
++
++    IF jsonb_array_length(v_line_effects) = 0 THEN
++      RAISE EXCEPTION 'Original movement type has no effects to invert for line %', v_line.line_number USING ERRCODE = 'P0002';
++    END IF;
++
++    v_explicit_effects := v_explicit_effects || jsonb_build_object(v_line_number::text, v_line_effects);
++  END LOOP;
++
++  IF v_line_number = 0 THEN
++    RAISE EXCEPTION 'Original movement has no lines to reverse' USING ERRCODE = 'P0002';
++  END IF;
++
++  v_finalize_result := public.inventory_finalize_posting_internal(v_reversal_id, p_actor_user_id, v_explicit_effects);
++
++  UPDATE inventory_movement_headers
++  SET status = 'reversed',
++      reversal_movement_id = v_reversal_id,
++      reversed_by = p_actor_user_id,
++      reversed_at = now(),
++      updated_at = now()
++  WHERE id = v_original.id;
++
++  INSERT INTO inventory_movement_audit_log (
++    organization_id, movement_id, action, old_status, new_status,
++    entity_type, entity_id, actor_user_id, reason_text,
++    changes, transaction_id
++  ) VALUES (
++    v_original.organization_id, v_original.id, 'reversed', 'posted', 'reversed',
++    'header', v_original.id, p_actor_user_id, v_reason,
++    jsonb_build_object('reversal_movement_id', v_reversal_id, 'reversal_document_number', v_finalize_result->>'document_number'),
++    txid_current()::text
++  );
++
++  RETURN jsonb_build_object(
++    'status', 'posted',
++    'reversal_movement_id', v_reversal_id,
++    'reversal_document_number', v_finalize_result->>'document_number',
++    'original_movement_id', v_original.id,
++    'original_document_number', v_original.document_number
++  );
++EXCEPTION
++  WHEN OTHERS THEN
++    IF SQLSTATE IN ('28000', '22023', 'P0002', 'P0003', 'P0005', 'P0006', 'P0007') THEN
++      RAISE;
++    END IF;
++    RAISE EXCEPTION 'Movement reversal failed unexpectedly' USING ERRCODE = 'P0001';
++END;
++$function$;
++
++REVOKE ALL ON FUNCTION public.inventory_reverse_movement(uuid, uuid, text) FROM PUBLIC;
++REVOKE ALL ON FUNCTION public.inventory_reverse_movement(uuid, uuid, text) FROM anon;
++GRANT EXECUTE ON FUNCTION public.inventory_reverse_movement(uuid, uuid, text) TO authenticated, service_role;
+diff --git a/apps/web/supabase-target/supabase/migrations/20260915170726_ic2_drop_vulnerable_public_named_three_arg_finalize_posting.sql b/apps/web/supabase-target/supabase/migrations/20260915170726_ic2_drop_vulnerable_public_named_three_arg_finalize_posting.sql
+new file mode 100644
+index 00000000..79054f0a
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260915170726_ic2_drop_vulnerable_public_named_three_arg_finalize_posting.sql
+@@ -0,0 +1,22 @@
++-- Live-caught defect (same overload pattern hit twice before in this
++-- project): the previous migration's `CREATE OR REPLACE FUNCTION public.
++-- inventory_finalize_posting(p_movement_id uuid, p_actor_user_id uuid
++-- DEFAULT NULL)` (2 args) did NOT replace the existing 3-arg `inventory_
++-- finalize_posting(uuid, uuid, jsonb)` -- different arity means Postgres
++-- treats it as a distinct overload. The OLD, vulnerable, public-named
++-- 3-arg function (the exact one the external review's P0 finding is
++-- about, and the live attack probe exploited) was THEREFORE STILL LIVE,
++-- STILL CALLABLE by anon/authenticated/service_role, immediately after the
++-- security-correction migration that was meant to close it. Live-verified
++-- before this fix: `has_function_privilege` showed `{authenticated, anon,
++-- service_role}` still able to execute
++-- `inventory_finalize_posting(uuid,uuid,jsonb)`.
++--
++-- Its logic has already been fully moved to `inventory_finalize_posting_
++-- internal(uuid, uuid, jsonb)` (all EXECUTE already revoked from every
++-- ordinary role) in the prior migration. This migration drops the old,
++-- now-fully-superseded, public-named 3-arg overload entirely -- nothing
++-- calls it any more (inventory_reverse_movement was already updated to
++-- call inventory_finalize_posting_internal directly in the same prior
++-- migration).
++DROP FUNCTION IF EXISTS public.inventory_finalize_posting(uuid, uuid, jsonb);
+diff --git a/apps/web/supabase/tests/103_ic2_movement_reversal_test.sql b/apps/web/supabase/tests/103_ic2_movement_reversal_test.sql
+new file mode 100644
+index 00000000..2abcd1db
+--- /dev/null
++++ b/apps/web/supabase/tests/103_ic2_movement_reversal_test.sql
+@@ -0,0 +1,408 @@
++-- ============================================================================
++-- TEST: IC-2 -- Movement Reversal (inventory_reverse_movement)
++-- ============================================================================
++-- Proves the new canonical reversal RPC end-to-end: receipt reversal, 801
++-- (two-leg) reversal, draft/already-reversed/reversal-of-reversal rejection,
++-- reason validation, the IC-1 commitment invariant applying automatically
++-- to reversals, permission gating, structural linkage, ledger correctness,
++-- audit correctness, and distinct sequential document numbering.
++--
++-- SCENARIO E (added: IC-2 security-boundary correction pass, external
++-- review P0): proves the explicit-effects capability IC-2 introduced on
++-- `inventory_finalize_posting` cannot be reached or abused by any ordinary
++-- caller after the fix -- the implementation was split into a PUBLIC,
++-- catalog-only 2-arg `inventory_finalize_posting(uuid, uuid)` and a fully
++-- locked-down `inventory_finalize_posting_internal(uuid, uuid, jsonb)`
++-- (EXECUTE revoked from PUBLIC/anon/authenticated/service_role, reachable
++-- only via a same-owner SECURITY DEFINER call from `inventory_reverse_
++-- movement`). A live, transaction-scoped attack probe (documented in the
++-- IC-2 review bundle) proved the vulnerability was real BEFORE this fix:
++-- an ordinary `authenticated` caller doubled a drafted 10-unit receipt to
++-- on_hand=20 via a crafted `p_explicit_effects` payload.
++--
++-- Each scenario uses its own fresh, isolated branch (mirroring the IC-1
++-- correction pass's own established convention) to avoid colliding with
++-- the shared test org/branch's own single "one receiving location per
++-- branch" slot and any prior committed residue.
++--
++-- Executed live against supabase-target via Supabase MCP.
++
++BEGIN;
++
++SELECT plan(35);
++
++CREATE TEMP TABLE test_log (seq serial, line text);
++GRANT INSERT, SELECT ON test_log TO authenticated;
++GRANT USAGE ON SEQUENCE test_log_seq_seq TO authenticated;
++
++-- ===========================================================================
++-- SCENARIO A: Receipt (101) reversal -- exact balance restoration.
++-- ===========================================================================
++CREATE TEMP TABLE fxa (org uuid, branch uuid, e2e_user uuid, variant_1 uuid, unit_1 uuid, loc_a uuid);
++GRANT SELECT ON fxa TO authenticated;
++INSERT INTO fxa SELECT
++  '9f98fe91-63b8-4986-a2b3-65bdd47684c9'::uuid, gen_random_uuid(),
++  'c4a24371-42db-4bb8-ab5e-379ebbf7d9c4'::uuid, 'fe364ce2-1f72-4df5-ab92-6361ec95e0da'::uuid,
++  '571dfd6c-eba2-42c2-8ad9-f39a2d103b6d'::uuid, gen_random_uuid();
++
++INSERT INTO branches (id, organization_id, name, branch_number) SELECT branch, org, '103-ic2-scenario-a', 970 FROM fxa;
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, can_store_inventory) SELECT loc_a, org, branch, '103-ic2-a-loc', true FROM fxa;
++
++SET LOCAL ROLE authenticated;
++SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fxa)::text, 'role', 'authenticated')::text, true);
++
++CREATE TEMP TABLE r101a AS
++SELECT inventory_create_and_finalize(
++  (SELECT org FROM fxa), (SELECT branch FROM fxa), '101',
++  jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxa), 'unit_id', (SELECT unit_1 FROM fxa), 'quantity', 10, 'source_location_id', NULL, 'destination_location_id', (SELECT loc_a FROM fxa))),
++  NULL, NULL, NULL, NULL, NULL, NULL, (SELECT e2e_user FROM fxa)
++) AS result;
++INSERT INTO test_log(line) SELECT is((result->>'status'), 'posted', 'T1: receipt of 10 posts successfully') FROM r101a;
++
++CREATE TEMP TABLE reva AS
++SELECT inventory_reverse_movement(((SELECT result FROM r101a)->>'movement_id')::uuid, (SELECT e2e_user FROM fxa), 'pgTAP receipt reversal') AS result;
++INSERT INTO test_log(line) SELECT is((result->>'status'), 'posted', 'T2: reversal itself posts successfully') FROM reva;
++INSERT INTO test_log(line) SELECT isnt((result->>'reversal_document_number'), (SELECT (result->>'document_number') FROM r101a), 'T3: reversal document number is genuinely distinct from the original') FROM reva;
++INSERT INTO test_log(line) SELECT ok((SELECT result FROM reva)->>'reversal_document_number' LIKE 'KOR/%', 'T4: reversal document number carries the KOR prefix (real sequential allocator, not a client-side suffix)') ;
++
++INSERT INTO test_log(line) SELECT is(on_hand_quantity, 0::numeric, 'T5: balance exactly restored to pre-receipt value (0) after reversal') FROM inventory_balances
++WHERE organization_id=(SELECT org FROM fxa) AND branch_id=(SELECT branch FROM fxa) AND location_id=(SELECT loc_a FROM fxa) AND variant_id=(SELECT variant_1 FROM fxa);
++
++INSERT INTO test_log(line) SELECT is(status, 'reversed', 'T6: original header transitions to status=reversed') FROM inventory_movement_headers WHERE id = ((SELECT result FROM r101a)->>'movement_id')::uuid;
++INSERT INTO test_log(line) SELECT is(reversal_movement_id, ((SELECT result FROM reva)->>'reversal_movement_id')::uuid, 'T7: original.reversal_movement_id points to the new reversal') FROM inventory_movement_headers WHERE id = ((SELECT result FROM r101a)->>'movement_id')::uuid;
++INSERT INTO test_log(line) SELECT is(original_movement_id, ((SELECT result FROM r101a)->>'movement_id')::uuid, 'T8: reversal.original_movement_id points back to the original -- bidirectional linkage agrees') FROM inventory_movement_headers WHERE id = ((SELECT result FROM reva)->>'reversal_movement_id')::uuid;
++INSERT INTO test_log(line) SELECT is(status, 'posted', 'T9: the reversal movement itself is posted, not reversed') FROM inventory_movement_headers WHERE id = ((SELECT result FROM reva)->>'reversal_movement_id')::uuid;
++
++INSERT INTO test_log(line) SELECT is(reason_text, 'pgTAP receipt reversal', 'T10: audit log persists the exact reason text') FROM inventory_movement_audit_log WHERE movement_id = ((SELECT result FROM r101a)->>'movement_id')::uuid AND action = 'reversed';
++INSERT INTO test_log(line) SELECT is(
++  (SELECT count(*) FROM inventory_stock_ledger_entries WHERE movement_id = ((SELECT result FROM reva)->>'reversal_movement_id')::uuid),
++  1::bigint, 'T11: reversal produces exactly one compensating ledger entry'
++);
++
++-- ===========================================================================
++-- SCENARIO B: 801 (two-leg) reversal -- both legs invert correctly.
++-- ===========================================================================
++CREATE TEMP TABLE fxb (org uuid, branch uuid, e2e_user uuid, variant_1 uuid, unit_1 uuid, loc_a uuid, loc_b uuid);
++GRANT SELECT ON fxb TO authenticated;
++RESET ROLE;
++INSERT INTO fxb SELECT
++  '9f98fe91-63b8-4986-a2b3-65bdd47684c9'::uuid, gen_random_uuid(),
++  'c4a24371-42db-4bb8-ab5e-379ebbf7d9c4'::uuid, 'fe364ce2-1f72-4df5-ab92-6361ec95e0da'::uuid,
++  '571dfd6c-eba2-42c2-8ad9-f39a2d103b6d'::uuid, gen_random_uuid(), gen_random_uuid();
++INSERT INTO branches (id, organization_id, name, branch_number) SELECT branch, org, '103-ic2-scenario-b', 971 FROM fxb;
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, can_store_inventory) SELECT loc_a, org, branch, '103-ic2-b-loc-a', true FROM fxb;
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, can_store_inventory) SELECT loc_b, org, branch, '103-ic2-b-loc-b', true FROM fxb;
++
++SET LOCAL ROLE authenticated;
++SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fxb)::text, 'role', 'authenticated')::text, true);
++
++SELECT inventory_create_and_finalize(
++  (SELECT org FROM fxb), (SELECT branch FROM fxb), '101',
++  jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxb), 'unit_id', (SELECT unit_1 FROM fxb), 'quantity', 10, 'source_location_id', NULL, 'destination_location_id', (SELECT loc_a FROM fxb))),
++  NULL, NULL, NULL, NULL, NULL, NULL, (SELECT e2e_user FROM fxb)
++);
++
++CREATE TEMP TABLE r801b AS
++SELECT inventory_create_and_finalize(
++  (SELECT org FROM fxb), (SELECT branch FROM fxb), '801',
++  jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxb), 'unit_id', (SELECT unit_1 FROM fxb), 'quantity', 4, 'source_location_id', (SELECT loc_a FROM fxb), 'destination_location_id', (SELECT loc_b FROM fxb))),
++  NULL, NULL, NULL, NULL, NULL, NULL, (SELECT e2e_user FROM fxb)
++) AS result;
++
++SELECT inventory_reverse_movement(((SELECT result FROM r801b)->>'movement_id')::uuid, (SELECT e2e_user FROM fxb), 'pgTAP 801 reversal');
++
++INSERT INTO test_log(line) SELECT is(on_hand_quantity, 10::numeric, 'T12: 801 reversal restores source (loc_a) exactly to pre-move value (10)') FROM inventory_balances
++WHERE organization_id=(SELECT org FROM fxb) AND branch_id=(SELECT branch FROM fxb) AND location_id=(SELECT loc_a FROM fxb) AND variant_id=(SELECT variant_1 FROM fxb);
++INSERT INTO test_log(line) SELECT is(on_hand_quantity, 0::numeric, 'T13: 801 reversal restores destination (loc_b) exactly to pre-move value (0)') FROM inventory_balances
++WHERE organization_id=(SELECT org FROM fxb) AND branch_id=(SELECT branch FROM fxb) AND location_id=(SELECT loc_b FROM fxb) AND variant_id=(SELECT variant_1 FROM fxb);
++
++-- ===========================================================================
++-- SCENARIO D: IC-1 commitment invariant applies automatically to reversals.
++-- Runs BEFORE Scenario C deliberately: Scenario C's own final negative test
++-- (T22, no-permission) strips e2e_user's warehouse.inventory.* grants at
++-- the ORG level for the rest of this transaction (no wildcard row exists
++-- in user_effective_permissions -- every slug, including `warehouse.
++-- inventory.operate`, is its own materialized exact-slug row) -- running
++-- Scenario D afterward would spuriously fail on the reservation setup call.
++-- ===========================================================================
++CREATE TEMP TABLE fxd (org uuid, branch uuid, e2e_user uuid, variant_1 uuid, unit_1 uuid, loc_a uuid);
++GRANT SELECT ON fxd TO authenticated;
++RESET ROLE;
++INSERT INTO fxd SELECT
++  '9f98fe91-63b8-4986-a2b3-65bdd47684c9'::uuid, gen_random_uuid(),
++  'c4a24371-42db-4bb8-ab5e-379ebbf7d9c4'::uuid, 'fe364ce2-1f72-4df5-ab92-6361ec95e0da'::uuid,
++  '571dfd6c-eba2-42c2-8ad9-f39a2d103b6d'::uuid, gen_random_uuid();
++INSERT INTO branches (id, organization_id, name, branch_number) SELECT branch, org, '103-ic2-scenario-d', 973 FROM fxd;
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, can_store_inventory) SELECT loc_a, org, branch, '103-ic2-d-loc', true FROM fxd;
++
++SET LOCAL ROLE authenticated;
++SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fxd)::text, 'role', 'authenticated')::text, true);
++
++CREATE TEMP TABLE r101d AS
++SELECT inventory_create_and_finalize(
++  (SELECT org FROM fxd), (SELECT branch FROM fxd), '101',
++  jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxd), 'unit_id', (SELECT unit_1 FROM fxd), 'quantity', 10, 'source_location_id', NULL, 'destination_location_id', (SELECT loc_a FROM fxd))),
++  NULL, NULL, NULL, NULL, NULL, NULL, (SELECT e2e_user FROM fxd)
++) AS result;
++
++CREATE TEMP TABLE movement_count_baseline_d AS
++SELECT count(*) AS n FROM inventory_movement_headers WHERE organization_id = (SELECT org FROM fxd) AND branch_id = (SELECT branch FROM fxd);
++
++SELECT (inventory_create_reservation(
++  (SELECT org FROM fxd), (SELECT branch FROM fxd),
++  jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxd), 'location_id', (SELECT loc_a FROM fxd), 'quantity', 6)),
++  'movement_reversal_test', gen_random_uuid(), null, null, null, (SELECT e2e_user FROM fxd)
++));
++
++DO $$
++BEGIN
++  BEGIN
++    PERFORM inventory_reverse_movement(((SELECT result FROM r101d)->>'movement_id')::uuid, (SELECT e2e_user FROM fxd), 'commitment block test');
++    INSERT INTO test_log(line) SELECT fail('T23: expected IC-1 commitment block, succeeded instead');
++  EXCEPTION WHEN OTHERS THEN
++    INSERT INTO test_log(line) SELECT is(SQLSTATE, 'P0003', 'T23: reversing a receipt that would strand reserved stock is rejected by the SAME IC-1 P0003 invariant');
++  END;
++END $$;
++
++INSERT INTO test_log(line) SELECT is(on_hand_quantity, 10::numeric, 'T24: balance unchanged after the blocked reversal attempt') FROM inventory_balances
++WHERE organization_id=(SELECT org FROM fxd) AND branch_id=(SELECT branch FROM fxd) AND location_id=(SELECT loc_a FROM fxd) AND variant_id=(SELECT variant_1 FROM fxd);
++INSERT INTO test_log(line) SELECT is(reserved_quantity, 6::numeric, 'T25: reservation unchanged after the blocked reversal attempt') FROM inventory_balances
++WHERE organization_id=(SELECT org FROM fxd) AND branch_id=(SELECT branch FROM fxd) AND location_id=(SELECT loc_a FROM fxd) AND variant_id=(SELECT variant_1 FROM fxd);
++INSERT INTO test_log(line) SELECT is(status, 'posted', 'T26: original remains posted (not reversed) after the blocked attempt') FROM inventory_movement_headers WHERE id = ((SELECT result FROM r101d)->>'movement_id')::uuid;
++INSERT INTO test_log(line) SELECT is(reversal_movement_id, NULL::uuid, 'T27: original.reversal_movement_id remains NULL after the blocked attempt') FROM inventory_movement_headers WHERE id = ((SELECT result FROM r101d)->>'movement_id')::uuid;
++INSERT INTO test_log(line) SELECT is(
++  (SELECT count(*) FROM inventory_movement_headers WHERE organization_id = (SELECT org FROM fxd) AND branch_id = (SELECT branch FROM fxd)),
++  (SELECT n FROM movement_count_baseline_d),
++  'T28: no orphan reversal header was created by the blocked attempt (header count unchanged)'
++);
++
++RESET ROLE;
++
++-- ===========================================================================
++-- SCENARIO C: negative tests -- draft, already-reversed, reversal-of-reversal,
++-- reason validation, wrong actor, not-found/no-permission indistinguishable.
++-- ===========================================================================
++CREATE TEMP TABLE fxc (org uuid, branch uuid, e2e_user uuid, variant_1 uuid, unit_1 uuid, loc_a uuid);
++GRANT SELECT ON fxc TO authenticated;
++RESET ROLE;
++INSERT INTO fxc SELECT
++  '9f98fe91-63b8-4986-a2b3-65bdd47684c9'::uuid, gen_random_uuid(),
++  'c4a24371-42db-4bb8-ab5e-379ebbf7d9c4'::uuid, 'fe364ce2-1f72-4df5-ab92-6361ec95e0da'::uuid,
++  '571dfd6c-eba2-42c2-8ad9-f39a2d103b6d'::uuid, gen_random_uuid();
++INSERT INTO branches (id, organization_id, name, branch_number) SELECT branch, org, '103-ic2-scenario-c', 972 FROM fxc;
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, can_store_inventory) SELECT loc_a, org, branch, '103-ic2-c-loc', true FROM fxc;
++
++SET LOCAL ROLE authenticated;
++SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fxc)::text, 'role', 'authenticated')::text, true);
++
++CREATE TEMP TABLE draft_c AS
++SELECT inventory_create_draft(
++  (SELECT org FROM fxc), (SELECT branch FROM fxc), '101',
++  jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxc), 'unit_id', (SELECT unit_1 FROM fxc), 'quantity', 5, 'source_location_id', NULL, 'destination_location_id', (SELECT loc_a FROM fxc))),
++  NULL, NULL, NULL, NULL, NULL, NULL, (SELECT e2e_user FROM fxc)
++) AS result;
++
++DO $$
++BEGIN
++  BEGIN
++    PERFORM inventory_reverse_movement(((SELECT result FROM draft_c)->>'movement_id')::uuid, (SELECT e2e_user FROM fxc), 'draft test');
++    INSERT INTO test_log(line) SELECT fail('T14: expected draft rejection, succeeded instead');
++  EXCEPTION WHEN OTHERS THEN
++    INSERT INTO test_log(line) SELECT is(SQLSTATE, 'P0007', 'T14: draft movement rejected (P0007) -- drafts use cancellation, not reversal');
++  END;
++END $$;
++
++CREATE TEMP TABLE r101c AS
++SELECT inventory_create_and_finalize(
++  (SELECT org FROM fxc), (SELECT branch FROM fxc), '101',
++  jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxc), 'unit_id', (SELECT unit_1 FROM fxc), 'quantity', 10, 'source_location_id', NULL, 'destination_location_id', (SELECT loc_a FROM fxc))),
++  NULL, NULL, NULL, NULL, NULL, NULL, (SELECT e2e_user FROM fxc)
++) AS result;
++
++CREATE TEMP TABLE revc AS
++SELECT inventory_reverse_movement(((SELECT result FROM r101c)->>'movement_id')::uuid, (SELECT e2e_user FROM fxc), 'first reversal') AS result;
++INSERT INTO test_log(line) SELECT is((result->>'status'), 'posted', 'T15: first reversal of a fresh posted movement succeeds') FROM revc;
++
++DO $$
++BEGIN
++  BEGIN
++    PERFORM inventory_reverse_movement(((SELECT result FROM r101c)->>'movement_id')::uuid, (SELECT e2e_user FROM fxc), 'double reversal attempt');
++    INSERT INTO test_log(line) SELECT fail('T16: expected already-reversed rejection, succeeded instead');
++  EXCEPTION WHEN OTHERS THEN
++    INSERT INTO test_log(line) SELECT is(SQLSTATE, 'P0007', 'T16: reversing an already-reversed original is rejected (P0007, status=reversed -- the status transition itself is the authoritative already-reversed signal)');
++  END;
++END $$;
++
++DO $$
++BEGIN
++  BEGIN
++    PERFORM inventory_reverse_movement(((SELECT result FROM revc)->>'reversal_movement_id')::uuid, (SELECT e2e_user FROM fxc), 'undo an undo attempt');
++    INSERT INTO test_log(line) SELECT fail('T17: expected reversal-of-reversal rejection, succeeded instead');
++  EXCEPTION WHEN OTHERS THEN
++    INSERT INTO test_log(line) SELECT is(SQLSTATE, 'P0005', 'T17: reversing a reversal movement itself is rejected (P0005) -- product decision A, undo-an-undo out of scope for MVP');
++  END;
++END $$;
++
++DO $$
++BEGIN
++  BEGIN
++    PERFORM inventory_reverse_movement(((SELECT result FROM r101c)->>'movement_id')::uuid, (SELECT e2e_user FROM fxc), NULL);
++    INSERT INTO test_log(line) SELECT fail('T18: expected NULL-reason rejection, succeeded instead');
++  EXCEPTION WHEN OTHERS THEN
++    INSERT INTO test_log(line) SELECT is(SQLSTATE, '22023', 'T18: NULL reason is rejected');
++  END;
++END $$;
++
++DO $$
++BEGIN
++  BEGIN
++    PERFORM inventory_reverse_movement(((SELECT result FROM r101c)->>'movement_id')::uuid, (SELECT e2e_user FROM fxc), '   ');
++    INSERT INTO test_log(line) SELECT fail('T19: expected whitespace-reason rejection, succeeded instead');
++  EXCEPTION WHEN OTHERS THEN
++    INSERT INTO test_log(line) SELECT is(SQLSTATE, '22023', 'T19: whitespace-only reason is rejected');
++  END;
++END $$;
++
++DO $$
++BEGIN
++  BEGIN
++    PERFORM inventory_reverse_movement(((SELECT result FROM r101c)->>'movement_id')::uuid, gen_random_uuid(), 'spoof test');
++    INSERT INTO test_log(line) SELECT fail('T20: expected wrong-actor rejection, succeeded instead');
++  EXCEPTION WHEN OTHERS THEN
++    INSERT INTO test_log(line) SELECT is(SQLSTATE, '28000', 'T20: p_actor_user_id not matching auth.uid() is rejected');
++  END;
++END $$;
++
++DO $$
++BEGIN
++  BEGIN
++    PERFORM inventory_reverse_movement(gen_random_uuid(), (SELECT e2e_user FROM fxc), 'nonexistent test');
++    INSERT INTO test_log(line) SELECT fail('T21: expected not-found rejection, succeeded instead');
++  EXCEPTION WHEN OTHERS THEN
++    INSERT INTO test_log(line) SELECT is(SQLSTATE, 'P0002', 'T21: a nonexistent movement id is rejected (P0002)');
++  END;
++END $$;
++
++RESET ROLE;
++DELETE FROM user_effective_permissions
++WHERE user_id = (SELECT e2e_user FROM fxc) AND organization_id = (SELECT org FROM fxc)
++  AND permission_slug_exact IN ('warehouse.inventory.operate', 'warehouse.inventory.adjust', 'warehouse.inventory.reverse');
++SET LOCAL ROLE authenticated;
++SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fxc)::text, 'role', 'authenticated')::text, true);
++
++DO $$
++BEGIN
++  BEGIN
++    PERFORM inventory_reverse_movement(((SELECT result FROM r101c)->>'movement_id')::uuid, (SELECT e2e_user FROM fxc), 'no permission test');
++    INSERT INTO test_log(line) SELECT fail('T22: expected no-permission rejection, succeeded instead');
++  EXCEPTION WHEN OTHERS THEN
++    INSERT INTO test_log(line) SELECT is(SQLSTATE, 'P0002', 'T22: actor lacking warehouse.inventory.operate is rejected with the SAME P0002 as not-found -- no existence leak');
++  END;
++END $$;
++
++RESET ROLE;
++
++-- ===========================================================================
++-- SCENARIO E: security-boundary correction -- explicit effects cannot be
++-- reached or abused by any ordinary caller (external review P0, fixed).
++-- ===========================================================================
++CREATE TEMP TABLE fxe (org uuid, branch uuid, e2e_user uuid, variant_1 uuid, unit_1 uuid, loc_a uuid);
++GRANT SELECT ON fxe TO authenticated, anon;
++INSERT INTO fxe SELECT
++  '9f98fe91-63b8-4986-a2b3-65bdd47684c9'::uuid, gen_random_uuid(),
++  'c4a24371-42db-4bb8-ab5e-379ebbf7d9c4'::uuid, 'fe364ce2-1f72-4df5-ab92-6361ec95e0da'::uuid,
++  '571dfd6c-eba2-42c2-8ad9-f39a2d103b6d'::uuid, gen_random_uuid();
++INSERT INTO branches (id, organization_id, name, branch_number) SELECT branch, org, '103-ic2-scenario-e', 974 FROM fxe;
++INSERT INTO warehouse_locations (id, organization_id, branch_id, name, can_store_inventory) SELECT loc_a, org, branch, '103-ic2-e-loc', true FROM fxe;
++
++SET LOCAL ROLE authenticated;
++SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT e2e_user FROM fxe)::text, 'role', 'authenticated')::text, true);
++
++CREATE TEMP TABLE draft_e AS
++SELECT inventory_create_draft(
++  (SELECT org FROM fxe), (SELECT branch FROM fxe), '101',
++  jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxe), 'unit_id', (SELECT unit_1 FROM fxe), 'quantity', 10, 'source_location_id', NULL, 'destination_location_id', (SELECT loc_a FROM fxe))),
++  NULL, NULL, NULL, NULL, NULL, NULL, (SELECT e2e_user FROM fxe)
++) AS result;
++
++CREATE TEMP TABLE effect_101_e AS
++SELECT e.id FROM inventory_movement_type_effects e JOIN inventory_movement_types mt ON mt.id=e.movement_type_id
++WHERE mt.organization_id=(SELECT org FROM fxe) AND mt.code='101';
++CREATE TEMP TABLE effect_401_e AS
++SELECT e.id FROM inventory_movement_type_effects e JOIN inventory_movement_types mt ON mt.id=e.movement_type_id
++WHERE mt.organization_id=(SELECT org FROM fxe) AND mt.code='401';
++
++-- T29 (A): ordinary normal finalize still succeeds using catalog effects.
++CREATE TEMP TABLE normal_finalize_e AS
++SELECT inventory_finalize_posting(((SELECT result FROM draft_e)->>'movement_id')::uuid, (SELECT e2e_user FROM fxe)) AS result;
++INSERT INTO test_log(line) SELECT is((result->>'status'), 'posted', 'T29: ordinary 2-arg inventory_finalize_posting (catalog effects) still succeeds') FROM normal_finalize_e;
++
++INSERT INTO test_log(line) SELECT is(on_hand_quantity, 10::numeric, 'T30: balance is exactly the drafted quantity (10) -- not exploitable via the public 2-arg surface, which has no explicit-effects parameter at all') FROM inventory_balances
++WHERE organization_id=(SELECT org FROM fxe) AND branch_id=(SELECT branch FROM fxe) AND location_id=(SELECT loc_a FROM fxe) AND variant_id=(SELECT variant_1 FROM fxe);
++
++-- T31 (B): ordinary authenticated caller cannot supply arbitrary explicit
++-- effects -- the public function has no such parameter; attempting a 3-arg
++-- call fails because that signature no longer exists.
++CREATE TEMP TABLE draft_e2 AS
++SELECT inventory_create_draft(
++  (SELECT org FROM fxe), (SELECT branch FROM fxe), '101',
++  jsonb_build_array(jsonb_build_object('variant_id', (SELECT variant_1 FROM fxe), 'unit_id', (SELECT unit_1 FROM fxe), 'quantity', 5, 'source_location_id', NULL, 'destination_location_id', (SELECT loc_a FROM fxe))),
++  NULL, NULL, NULL, NULL, NULL, NULL, (SELECT e2e_user FROM fxe)
++) AS result;
++
++DO $$
++DECLARE v_result jsonb;
++BEGIN
++  BEGIN
++    EXECUTE format('SELECT inventory_finalize_posting(%L::uuid, %L::uuid, %L::jsonb)',
++      ((SELECT result FROM draft_e2) ->> 'movement_id')::uuid, (SELECT e2e_user FROM fxe),
++      jsonb_build_object('1', jsonb_build_array(jsonb_build_object('id', (SELECT id FROM effect_101_e), 'target','destination','balance_field','on_hand','direction','increase','effect_order',1,'is_required',true)))::text
++    ) INTO v_result;
++    INSERT INTO test_log(line) SELECT fail('T31: expected the 3-arg public-named call to fail (signature does not exist), it succeeded instead (VULNERABLE)');
++  EXCEPTION WHEN OTHERS THEN
++    INSERT INTO test_log(line) SELECT is(SQLSTATE, '42883', 'T31: authenticated caller cannot supply explicit effects via the public surface -- 3-arg signature does not exist (42883)');
++  END;
++END $$;
++
++-- T32 (D): direct call to the internal custom-effects function is denied
++-- for authenticated (no EXECUTE grant -- confirmed via the exact live
++-- attack payload that was proven exploitable before this fix).
++DO $$
++DECLARE v_result jsonb;
++BEGIN
++  BEGIN
++    v_result := inventory_finalize_posting_internal(
++      ((SELECT result FROM draft_e2) ->> 'movement_id')::uuid,
++      (SELECT e2e_user FROM fxe),
++      jsonb_build_object('1', jsonb_build_array(
++        jsonb_build_object('id', (SELECT id FROM effect_101_e), 'target', 'destination', 'balance_field', 'on_hand', 'direction', 'increase', 'effect_order', 1, 'is_required', true),
++        jsonb_build_object('id', (SELECT id FROM effect_401_e), 'target', 'destination', 'balance_field', 'on_hand', 'direction', 'increase', 'effect_order', 2, 'is_required', true)
++      ))
++    );
++    INSERT INTO test_log(line) SELECT fail('T32: expected direct internal-function call to be denied, it succeeded instead (VULNERABLE -- this is the exact attack proven exploitable before the fix)');
++  EXCEPTION WHEN OTHERS THEN
++    INSERT INTO test_log(line) SELECT is(SQLSTATE, '42501', 'T32: authenticated caller is denied EXECUTE on inventory_finalize_posting_internal (42501) -- the exact live-proven attack path is now closed');
++  END;
++END $$;
++
++INSERT INTO test_log(line) SELECT is(on_hand_quantity, 10::numeric, 'T33: balance still exactly 10 (from T29) -- the draft_e2/draft_e2-targeted attack attempts left zero footprint, no doubling occurred') FROM inventory_balances
++WHERE organization_id=(SELECT org FROM fxe) AND branch_id=(SELECT branch FROM fxe) AND location_id=(SELECT loc_a FROM fxe) AND variant_id=(SELECT variant_1 FROM fxe);
++
++RESET ROLE;
++
++-- T34 (C): anon cannot reach the trusted explicit-effects path either --
++-- confirmed via has_function_privilege (the authoritative grant check;
++-- anon has no valid JWT/session in this pgTAP harness to actually invoke
++-- RPCs as, so grant-level proof is the correct, real verification here).
++INSERT INTO test_log(line) SELECT is(
++  has_function_privilege('anon', 'public.inventory_finalize_posting_internal(uuid,uuid,jsonb)'::regprocedure, 'EXECUTE'),
++  false, 'T34: anon has NO EXECUTE privilege on inventory_finalize_posting_internal'
++);
++INSERT INTO test_log(line) SELECT is(
++  has_function_privilege('authenticated', 'public.inventory_finalize_posting_internal(uuid,uuid,jsonb)'::regprocedure, 'EXECUTE'),
++  false, 'T35: authenticated also has NO EXECUTE privilege on inventory_finalize_posting_internal (only postgres, via same-owner SECURITY DEFINER calls, can reach it)'
++);
++
++SELECT count(*) FILTER (WHERE line NOT LIKE 'ok %') AS not_ok_count, count(*) AS total_assertions FROM test_log;
++
++ROLLBACK;
+diff --git a/docs/inventory/inventory-core-architecture.md b/docs/inventory/inventory-core-architecture.md
+index 6d7d174f..8cdcf0f9 100644
+--- a/docs/inventory/inventory-core-architecture.md
++++ b/docs/inventory/inventory-core-architecture.md
+@@ -69,6 +69,17 @@ match the assigning brief:
+     behavior and must never bypass this invariant or invariant #6. The
+     column is not removed yet — its dead values are owned by IC-6's own
+     cleanup scope.
++21. **Added for IC-2 (product decision A)**: a posted ORIGINAL movement may
++    be reversed at most once; a reversal movement may never itself be
++    reversed ("undo an undo" is explicitly out of scope for MVP/pitch, not
++    an open question).
++22. **Added for IC-2 (product decision B)**: RepairOrder business-quantity
++    attribution/netting for reversed movements is NOT implemented in IC-2.
++    `RepairOrdersService.listRepairOrderLines()`'s own received/issued/
++    outstanding/available formulas remain unchanged; no `repair_order_
++    line_movement_links` row of any `relation_type` is created for a
++    reversal. This remains an explicit, later, deliberately deferred
++    integration concern.
+ 
+ ---
+ 
+@@ -246,9 +257,9 @@ than an implicit convention.
+ | 10  | Container contents cannot claim a different physical location than the allocation/stock they represent                                                                                                                    | **RPC transaction logic** — already enforced (Phase 10C's own correction pass: `container.current_location_id = allocation_line.location_id` at placement time)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+ | 11  | Cross-org mixing impossible                                                                                                                                                                                               | **RLS + explicit re-scoping in every RPC** — already the established, consistent pattern                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+ | 12  | Branch/location ownership valid                                                                                                                                                                                           | **FK** (composite `(id, organization_id, branch_id)` pattern, already established)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+-| 13  | Posted movement history immutable                                                                                                                                                                                         | **trigger** — already enforced (`inventory_prevent_header/line_modification`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
++| 13  | Posted movement history immutable — **wording corrected, IC-2 security-boundary pass, 2026-09-15, see §7 and §9 for the full finding** | **trigger, but WEAKER than previously documented**: `inventory_prevent_header/line_modification` blocks any UPDATE/DELETE on a `posted`/`cancelled`/`reversed` row **unless** the session-level GUC `ambra.inventory_movement_engine = 'on'` is set — but the trigger only checks THAT the GUC is on, never WHICH columns changed. Live-proven this pass: an ordinary `authenticated` actor holding `warehouse.inventory.operate`/`.adjust`/`.reverse` (the RLS `UPDATE` policy's own `with_check` has no column restriction) can call `set_config('ambra.inventory_movement_engine','on',true)` themselves and then raw-`UPDATE` **any** column, including `document_number`, on a posted header — the trigger does not distinguish this from a canonical RPC's own internal use of the same GUC. This is a **pre-existing, not IC-2-introduced** gap (the GUC and the trigger both predate IC-2) — owned by IC-7 (see §9), not fixed in this pass. |
+ | 14  | Idempotent retry does not double-post                                                                                                                                                                                     | **UNIQUE INDEX** on `idempotency_key` + **RPC transaction logic** (existence check before insert) — already the established pattern                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+-| 15  | Reversal is structurally linked to the original movement                                                                                                                                                                  | **FK** (`original_movement_id`/`reversal_movement_id`, columns exist, no RPC yet — IC-2)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
++| 15  | Reversal is structurally linked to the original movement                                                                                                                                                                  | **FK** + **RPC**, ✅ IMPLEMENTED (IC-2, `inventory_reverse_movement`) — bidirectional linkage live-proven to agree; a reversal may happen at most once per original, and a reversal itself can never be reversed (product decision A, §7)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+ | 16  | No destructive deletion of posted inventory history                                                                                                                                                                       | **RLS** (`_delete_deny` policies, already present on movement headers/lines) + **trigger**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+ | 17  | Deterministic lock ordering                                                                                                                                                                                               | **RPC transaction logic**, formalized as a documented convention (§8) — not itself a DB mechanism, but must be followed identically by every RPC that touches more than one lockable row                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+ | 18  | Partial transaction failure rolls back every inventory mutation                                                                                                                                                           | **Postgres transactional guarantee** — already true for every audited RPC (single PL/pgSQL function body = one transaction)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+@@ -320,55 +331,140 @@ not implement either in IC-1**):
+ 
+ ## 7. Reversals
+ 
+-**Mandatory before Inventory Core is production-grade** (decision, this
+-brief). Uses the existing `original_movement_id`/`reversal_movement_id`
+-columns — no new columns required.
++**✅ IMPLEMENTED (IC-2, 2026-09-15)**. Uses the existing `original_
++movement_id`/`reversal_movement_id` columns — no new columns required.
+ 
+-**`inventory_reverse_movement(p_movement_id, p_actor_user_id, p_reason)`**
+-(exact signature to be finalized in IC-2):
++**`inventory_reverse_movement(p_movement_id uuid, p_actor_user_id uuid,
++p_reason text) RETURNS jsonb`** — final signature, as implemented:
+ 
+ - **Which statuses may be reversed**: only `posted`. A `draft` movement is
+   cancelled (`inventory_cancel_movement`, already exists), never "reversed" —
+   reversal is specifically for undoing a _posted_, immutable effect.
++  Rejected with SQLSTATE `P0007` (see the P0004-reserved-code note below
++  for why not `P0004`).
+ - **Who may reverse**: same permission gate as posting
+-  (`warehouse.inventory.operate`), plus (recommend, confirm with product
+-  owner in IC-2) a mandatory reason — see audit requirement below.
+-- **Can an already-reversed movement be reversed again?** No — a movement with
+-  a non-null `reversal_movement_id` is rejected (`already reversed`,
+-  idempotent-safe: reversing twice must never double-compensate). A
+-  _reversal_ movement itself (one with a non-null `original_movement_id`) can
+-  be reversed once more (this is how you "undo an undo," i.e. re-apply the
+-  original effect) — but this needs explicit product confirmation in IC-2,
+-  flagged here as an open question, not assumed.
++  (`warehouse.inventory.operate`), plus a mandatory reason. Actor-identity
++  spoofing (`p_actor_user_id != auth.uid()`) is rejected first, `28000`,
++  independent of the target movement's own existence. A genuinely
++  nonexistent movement and one the actor lacks branch permission on both
++  raise the identical `P0002` "not found" — this is deliberate:
++  wrong-org/wrong-branch/inaccessible movements must not leak existence via
++  a distinguishable error.
++- **PRODUCT DECISION A (CLOSED, 2026-09-15)** — reversal-of-reversal is
++  **NOT supported for MVP/pitch**: `original.reversal_movement_id IS NOT
++  NULL` → reject as already reversed (`P0006` at the constraint level; in
++  practice the original's own `status` transitions to `'reversed'`
++  atomically with `reversal_movement_id`, so this manifests live as the
++  same `P0007` "not posted" rejection — `P0006` remains a defensive
++  second check, not the primary path, live-verified). `movement.original_
++  movement_id IS NOT NULL` → reject, `P0005` — a reversal movement can
++  never itself be reversed. "Undo an undo" is explicitly out of scope for
++  MVP, not an open question.
+ - **How quantity/effects are inverted**: for every `inventory_movement_type_
+-effects` row the original posting applied, create the exact inverse
+-  (`direction` flipped) against the same location/variant/lot/serial, in a
+-  NEW movement header linked via `original_movement_id`, posted through the
+-  SAME `inventory_finalize_posting` path (not a bespoke balance write) so
+-  every invariant (§5) is re-checked on the reversal too.
+-- **Ledger entries**: created exactly as any other posting would — the ledger
+-  itself needs no special-casing; its own `movement_id` naturally points at
+-  the reversal movement.
+-- **Document numbering**: the reversal gets its own real, sequential document
+-  number (via the existing `inventory_document_sequences` mechanism) — never
+-  reuses or mutates the original's own number.
+-- **Idempotency**: same `idempotency_key` convention as every other canonical
+-  writer.
+-- **Audit reason/comment**: **mandatory**, not optional — `p_reason` should be
+-  `NOT NULL` at the RPC boundary, recorded in `inventory_movement_audit_log`.
+-- **Relationship to reservations/allocations**: a reversal must itself respect
+-  invariant #6 (cannot strand a commitment) — if reversing a receipt would
+-  pull `on_hand` below stock already allocated from that receipt, the
+-  reversal is rejected with a clear error, not silently forced through.
+-- **Relationship to RepairOrder movement attribution**: if the original
+-  movement line had a `repair_order_line_movement_links` row
+-  (`relation_type='receipt'`), the reversal should create a symmetric
+-  `relation_type='reversal'` (or similar — exact `relation_type` value to be
+-  finalized in IC-2) row via the SAME canonical `attach_repair_order_line_
+-movement` RPC, never a raw insert.
+-
+-**Never**: delete or edit posted history. The reversal is always a new,
+-forward-only, fully-audited row.
++  effects` row the original posting applied, the reversal RPC computes the
++  exact inverse (`direction` flipped; `target`/`balance_field` unchanged)
++  against the same location/variant/lot/serial/unit as the original line,
++  in a NEW movement header (type `900`/`KOR` — see the movement-type note
++  below) linked via `original_movement_id`, posted through the SAME
++  `inventory_finalize_posting` path (not a bespoke balance write) so every
++  invariant (§5) is re-checked on the reversal too — **live-proven**: a
++  reversal that would strand a reserved/allocated commitment is rejected
++  by the identical `P0003` check, atomically, no partial writes.
++  **Live discovery**: `inventory_movement_type_effects` is TYPE-level, not
++  INSTANCE-level — no existing type (101/311/401/402/801) can serve as a
++  correct inverse for every other type (801 needs a combined source-
++  increase+destination-decrease pair that exists nowhere in the catalog).
++  Resolved with a narrow, additive, fully backward-compatible extension:
++  `inventory_finalize_posting` gained one new optional trailing parameter,
++  `p_explicit_effects jsonb DEFAULT NULL` — NULL (every pre-existing
++  caller) is byte-identical to before; non-NULL (only the reversal RPC)
++  supplies per-line, per-instance effects instead of the type-catalog
++  lookup. This is the same engine, not a second one.
++- **Ledger entries**: created exactly as any other posting would. The
++  ledger's own `effect_id` (NOT NULL, FK to `inventory_movement_type_
++  effects`) is populated with the ORIGINAL effect's own id (since the new
++  `900` type deliberately carries zero effect rows of its own) — correctly
++  traces which original effect each compensating entry undoes.
++- **Document numbering**: the reversal gets its own real, sequential
++  document number, live-proven distinct from the original (e.g.
++  `PZ/2026/000021` reversed by `KOR/2026/000001`) — a new, minimal,
++  generic, system-only document type (`KOR`, `is_correction=true`,
++  `corrects_document_type_code=NULL` — generic, not one per original type)
++  and movement type (`900`, `is_system=true`, `allows_manual_entry=false`)
++  were added via the existing per-org seeding function (`inventory_seed_
++  movement_types_internal`), never reusing or mutating the original's own
++  number.
++- **Audit reason/comment**: **mandatory**, enforced (`NULLIF(TRIM(...), '')
++  IS NULL` rejects NULL and whitespace-only, `22023`), recorded verbatim in
++  `inventory_movement_audit_log.reason_text`.
++- **Relationship to reservations/allocations**: a reversal must itself
++  respect invariant #6 (cannot strand a commitment) — **live-proven**: if
++  reversing a receipt would pull `on_hand` below stock already reserved/
++  allocated from it, the reversal is rejected (`P0003`) atomically, no
++  partial writes, original remains `posted`, `reversal_movement_id`
++  remains NULL.
++- **PRODUCT DECISION B (CLOSED, 2026-09-15) — RepairOrder movement
++  attribution**: IC-2 does **NOT** call `attach_repair_order_line_movement`
++  for the reversal and does **NOT** create any `repair_order_line_
++  movement_links` row (`relation_type='reversal'` or otherwise) for it.
++  `RepairOrdersService.listRepairOrderLines()`'s own `receivedQuantity`/
++  `issuedQuantity`/`outstandingToReceive`/`availableForIssue` formulas are
++  completely unchanged — they already, intentionally, exclude any
++  `relation_type='reversal'` netting (there is no explicit linkage
++  identifying which receipt/issue link a reversal reverses). Physical
++  reversal is correct and complete independently of this read model.
++  RepairOrder business-quantity attribution/netting for reversals remains
++  an explicit, later, deliberately deferred integration concern — IC-2
++  does not invent it.
++- **Zone 5 compatibility (live-verified, read-only investigation per
++  explicit scope)**: reversing a `receive_repair_order_stock`-created
++  movement was found to make Zone 5's own `repair_order_line_locations_
++  ledger_sync` trigger actively corrupt `repair_order_line_locations`
++  (delete-then-reinsert the same, now-physically-absent quantity at the
++  same location). Fixed WITHOUT touching Zone 5 itself: the reversal RPC
++  sets the same `ambra.repair_order_attribution_authoritative` GUC
++  `receive_repair_order_stock`/`putaway_repair_order_stock` already use
++  around their own ledger-producing calls, converting active corruption
++  into disclosed, known staleness (`repair_order_line_locations` may
++  continue showing quantity at a location IC-2 has physically reversed) —
++  an explicit, already-planned IC-5 concern (decision #7: `repair_order_
++  line_locations` must become a derived projection), not resolved here.
++
++**Never (via `inventory_reverse_movement` itself)**: delete or edit posted
++business content. The reversal is always a new, forward-only, fully-audited
++row. **Wording correction (IC-2 security-boundary pass, 2026-09-15)**: the
++prior wording — "the original is never edited" — was technically imprecise
++and is corrected here. Precisely:
++
++- **`inventory_reverse_movement`'s own only UPDATE to the original** is
++  narrowly limited to four reversal-lifecycle columns: `status`,
++  `reversal_movement_id`, `reversed_by`, `reversed_at`. No quantity, type,
++  source/destination, document-identity, or other business-content column
++  is ever touched by this RPC — live-verified by reading its own body
++  (`pg_get_functiondef`).
++- **This is a statement about `inventory_reverse_movement`'s own code, not
++  a database-enforced guarantee.** The backing trigger
++  (`inventory_prevent_header_modification`, see invariant #13 in §5 and
++  §9) does not itself restrict which columns may change once its own GUC
++  gate is open — it only checks that the GUC is `'on'`. Live-proven this
++  pass: because `ambra.inventory_movement_engine` is an ordinary
++  session-level custom parameter (not a superuser-only setting) and the
++  `inventory_movement_headers` UPDATE RLS policy imposes no `WITH CHECK`
++  column restriction, any `authenticated` actor already holding
++  `warehouse.inventory.operate`/`.adjust`/`.reverse` on the branch — the
++  same permission required to post or reverse a movement legitimately —
++  can set that GUC themselves and then raw-`UPDATE` **any** column
++  (including `document_number`, quantities, or type) of **any** posted
++  header, bypassing the trigger entirely. **This is a pre-existing gap,
++  not introduced by IC-2** (both the GUC convention and the trigger
++  predate IC-2's own work) — it is the same class of raw-write exposure
++  already flagged in §9's table (previously scoped to INSERT; this pass's
++  live probe additionally proves the UPDATE side). **Not fixed in this
++  pass** — out of IC-2's own narrow security-boundary scope (the P0 fixed
++  this pass was a brand-new capability IC-2 itself introduced;
++  this is old, pre-existing infrastructure). Ownership: **IC-7**, which
++  already owns the broader raw-write/RLS-hardening audit for Inventory
++  Core (see §9).
+ 
+ ---
+ 
+@@ -418,12 +514,15 @@ using direct writes.**
+ | Table                                                               | Current raw-write exposure                                                                                                                                     | Target                                                                                                                                                                                                    |
+ | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+ | `inventory_balances`                                                | GUC-gated trigger already blocks it structurally                                                                                                               | **Keep** — this is the strongest mechanism available and already correct                                                                                                                                  |
+-| `inventory_movement_headers`/`_lines`                               | INSERT/UPDATE policies exist but posting-immutability trigger backstops UPDATE/DELETE; INSERT itself is only meaningful through the canonical RPCs in practice | **Verify** INSERT policy is permission-gated only (not ownership-aware) — if a raw INSERT of a `posted`-status row is possible, close it in IC-1/IC-7 the same way Phase 10C closed its own container gap |
++| `inventory_movement_headers`/`_lines`                               | **Sharpened, IC-2 security-boundary pass, 2026-09-15**: the posting-immutability trigger backstops UPDATE/DELETE only by checking that `ambra.inventory_movement_engine='on'` — it does NOT check which columns changed. Live-proven: any `authenticated` actor holding `warehouse.inventory.operate`/`.adjust`/`.reverse` (the UPDATE RLS policy's own permission set, no `WITH CHECK` column restriction) can self-set that ordinary session GUC and then raw-UPDATE **any** column of **any** posted header — full business-content rewrite, not just a status-blind INSERT. Pre-existing (not IC-2-introduced); see §7's own corrected wording and invariant #13 in §5. | **Close in IC-7**: the trigger must be redesigned to either (a) restrict which columns may change even when the GUC is on (e.g. only allow the canonical RPCs' own known column sets via a second, non-guessable signal), or (b) move the GUC to a mechanism ordinary roles cannot set (e.g. a `SECURITY DEFINER` wrapper, or checking `session_user`/a claim only `postgres`-owned functions can assert) — a bare custom GUC name is not a security boundary. Also close the previously-flagged INSERT-side gap in the same pass. |
+ | `inventory_reservations`/`_lines`, `inventory_allocations`/`_lines` | Not audited for raw-write policy shape this pass                                                                                                               | **Verify in IC-0**; apply Phase 10C's own RESTRICTIVE-policy pattern if a gap is found                                                                                                                    |
+ | `inventory_containers`/`_container_lines`                           | Generic rows: existing PERMISSIVE `ALL`; RepairOrder-owned rows: RESTRICTIVE-closed (Phase 10C correction, already done)                                       | **Keep as-is** — already the correct target shape                                                                                                                                                         |
+ | `inventory_allocation_container_links`                              | SELECT + explicit `INSERT ... WITH CHECK (false)`, no UPDATE/DELETE policy (implicit deny)                                                                     | **Keep as-is** — already correct                                                                                                                                                                          |
+ | `inventory_branch_transfers`/`_lines`                               | Raw PERMISSIVE `ALL` policy (`_operate`) — **currently open**, though inert since nothing calls it raw today                                                   | **Close with RESTRICTIVE policies** as part of IC-4 (the branch-transfer rebuild), same pattern as Phase 10C                                                                                              |
+ | `repair_order_line_locations`                                       | Currently written directly by Zone 5's own RPCs (by design, pre-consolidation)                                                                                 | Once converted to a derived projection (IC-5), **no INSERT/UPDATE/DELETE policy for any role except the maintaining trigger's own `postgres` execution context**                                          |
++| `repair_order_line_locations` staleness after IC-2 reversal          | **New, IC-2-discovered**: reversing a RepairOrder-attributed receipt leaves this table stale (shows quantity at a location the canonical ledger now shows as physically empty) -- the active-corruption variant was fixed in IC-2 itself by GUC-gating the reversal's own ledger inserts, but the underlying staleness remains | **Resolve in IC-5** -- once `repair_order_line_locations` is a genuine derived projection (not a directly-written table), a reversal's own compensating ledger entries should correctly re-derive it, closing this gap structurally rather than via a GUC workaround |
++| Function-level `anon` EXECUTE grants (new functions)                | **New, IC-2-discovered**: this database applies a default-privilege grant giving `anon` EXECUTE on functions in schema `public` -- it silently re-applies on every `CREATE OR REPLACE FUNCTION` of the SAME function, even after an explicit `REVOKE ALL FROM PUBLIC`. Live-confirmed on both `inventory_finalize_posting` (pre-existing, before IC-1/IC-2) and `inventory_reverse_movement` (re-appeared twice during IC-2's own iterative fixes, corrected with a final explicit re-grant) | **Audit systematically in IC-7** -- every canonical Inventory Core RPC needs its EXECUTE grants re-verified as the LAST step after its own migration sequence is fully applied, not just once after first creation; consider whether the default privilege itself should be altered (`ALTER DEFAULT PRIVILEGES ... REVOKE EXECUTE ... FROM anon`) at the schema level to close this permanently rather than per-function |
++| `inventory_finalize_posting`'s `p_explicit_effects` parameter (IC-2 security-boundary pass, 2026-09-15) | **P0, CLOSED this pass**: the 3-arg extension IC-2 originally added to the externally-callable canonical `inventory_finalize_posting(uuid,uuid,jsonb)` was live-proven exploitable by an ordinary `authenticated` caller — supplying two different real `destination`/`increase` effect ids against their own legitimately-created draft doubled `on_hand` (10 → 20) with zero extra permission. Root cause: `p_explicit_effects` had no caller-identity restriction of its own, and the function carried live `anon`/`authenticated` EXECUTE (the same default-privilege behavior in the row above). | **Fixed**: logic moved to a new `inventory_finalize_posting_internal(uuid,uuid,jsonb)`, `EXECUTE` revoked from every role except its owner (`postgres`); the public `inventory_finalize_posting` was restored to its original 2-arg signature (catalog effects only, no explicit-effects capability at all) as a thin wrapper; the vulnerable public-named 3-arg overload was dropped outright (a `CREATE OR REPLACE` with a NEW arity does not remove an OLD-arity overload — this project's own recurring pitfall, hit again here and fixed forward). Only `inventory_reverse_movement` (itself `SECURITY DEFINER`, owner `postgres`) can reach the internal function — ordinary Postgres same-owner `SECURITY DEFINER` privilege semantics, not a GUC/trust convention. Live-reverified: direct call to the internal function by `authenticated` → `42501`; the old 3-arg public signature → `42883` (does not exist); `has_function_privilege('anon'/'authenticated', ...) = false` on the internal function; ordinary 2-arg finalize and full reversal end-to-end unaffected. Defense-in-depth added inside the internal function itself, narrow and not a second reversal engine: (a) `p_explicit_effects` may only be supplied when the movement's own REAL `movement_type_code` — read from the locked row itself, never trusted from the caller — is exactly `'900'` (the system reversal type), categorically ruling out the exact attack proven above (which targeted a `'101'` movement) even for a hypothetical future internal caller; (b) each supplied effect's `target`/`direction` is explicitly validated against its exact allowed domain (`{source,destination}`/`{increase,decrease}`) and rejected outright rather than silently falling through the existing CASE/IF logic. (`effect_id` itself is still backstopped only by the pre-existing `inventory_stock_ledger_entries.effect_id` FK — not a new check added this pass.) |
+ 
+ **Standing requirements for every canonical RPC (already the established
+ convention, restated as permanent policy):**
+diff --git a/docs/inventory/inventory-core-implementation-plan.md b/docs/inventory/inventory-core-implementation-plan.md
+index a7c6ff9b..2a9a0a62 100644
+--- a/docs/inventory/inventory-core-implementation-plan.md
++++ b/docs/inventory/inventory-core-implementation-plan.md
+@@ -232,6 +232,104 @@ or a direct balance query, shows the exact pre-receipt state restored.
+ **Hard STOP condition before IC-3**: regression green, external review
+ accepted.
+ 
++**RESULT (2026-09-15, IC-2 implemented and DONE)**: both open questions §7
++flagged were resolved as explicit, closed product-owner decisions BEFORE
++implementation began (not deferred to mid-implementation discovery):
++
++- **Reversal-of-reversal**: NOT supported for MVP/pitch. A posted original
++  may be reversed at most once (`reversal_movement_id IS NULL` required); a
++  reversal movement itself can never be reversed (`original_movement_id IS
++  NOT NULL` on the target is an immediate rejection, SQLSTATE `P0005`).
++- **RepairOrder attribution `relation_type`**: NOT implemented. IC-2 does
++  not call `attach_repair_order_line_movement` for the reversal and does
++  not add a `relation_type='reversal'` link or any business-quantity
++  netting. `RepairOrdersService.listRepairOrderLines()`'s own received/
++  issued/outstanding/available formulas are untouched. This is an explicit
++  deferred integration concern, not an oversight — see the architecture
++  doc's own §7 update for the full reasoning.
++
++**Genuine live discovery beyond the original plan's own anticipation**: the
++movement-type/effect catalog is TYPE-level, not INSTANCE-level —
++`inventory_movement_type_effects` rows are keyed by `movement_type_id`
++alone, so no single existing type (101/311/401/402/801) can serve as a
++correct, honestly-labeled inverse for every other type (801 in particular
++needs a combined source-increase+destination-decrease pair that exists
++nowhere in the catalog). Resolved by adding ONE new, minimal, generic,
++system-only reversal type (`900`/`KOR`, `is_system=true`, `allows_manual_
++entry=false`, zero effect rows of its own) plus a narrow, additive,
++backward-compatible extension to `inventory_finalize_posting` itself (one
++new optional trailing parameter, `p_explicit_effects jsonb DEFAULT NULL` —
++every existing 2-argument caller is completely unaffected). This was
++verified live before implementation, per this document's own explicit
++"STOP before inventing a shadow type system" instruction — the finding
++justified the minimal extension rather than a stop.
++
++**Live-caught defects, fixed forward** (see `docs/inventory/reviews/ic-2-review/`
++for full detail): (1) `CREATE OR REPLACE FUNCTION` with an added parameter
++created a second overload rather than replacing the 2-arg
++`inventory_finalize_posting`, breaking every existing caller — fixed by
++dropping the old overload. (2) SQLSTATE `P0004` is a Postgres built-in
++reserved condition (`assign_string_too_long`) that is NOT caught by `WHEN
++OTHERS` — the "not posted" rejection code was moved to `P0007`. (3) Zone
++5's own spatial-attribution trigger reacted to a reversal's compensating
++ledger entries by actively corrupting `repair_order_line_locations` (a
++delete-then-reinsert of the same, now-physically-absent quantity) — fixed,
++without touching Zone 5 itself, by having the reversal RPC set the same
++`ambra.repair_order_attribution_authoritative` GUC `receive_repair_order_
++stock`/`putaway_repair_order_stock` already use, converting active
++corruption into disclosed, known staleness (an IC-5 concern). (4) A
++schema-level default-privilege grant re-exposed `inventory_reverse_
++movement` to `anon` after each `CREATE OR REPLACE` — fixed with an explicit
++final `REVOKE`/`GRANT` matching the established `authenticated`+
++`service_role`-only convention.
++
++**SECURITY-BOUNDARY CORRECTION PASS (2026-09-15, external review, P0
++found and fixed)**: external review flagged that the 3-arg
++`p_explicit_effects` extension above was added to the externally-callable
++canonical `inventory_finalize_posting(uuid,uuid,jsonb)`, not restricted to
++the internal reversal mechanism. Live investigation (a safe,
++transaction-scoped attack probe, `ROLLBACK`, no real data touched)
++**confirmed a genuine P0**: an ordinary `authenticated` caller could call
++the function directly on their own legitimately-created draft with a
++crafted `p_explicit_effects` payload (two real effect ids from unrelated
++movement types) and double `on_hand` (10 → 20) with no extra permission.
++Two live-caught defects during the fix itself: (5) the same
++arity-overload pitfall as defect (1) recurred — recreating a 2-arg
++`inventory_finalize_posting` did NOT remove the still-live, still-`anon`/
++`authenticated`-callable vulnerable 3-arg overload; fixed with a second
++forward migration explicitly dropping the exact old signature, live-
++reverified via `pg_proc`/`has_function_privilege` before proceeding.
++Fix: logic moved to `inventory_finalize_posting_internal(uuid,uuid,jsonb)`
++(`EXECUTE` revoked from every role except owner `postgres`); the public
++`inventory_finalize_posting` restored to its original 2-arg,
++catalog-effects-only contract; only `inventory_reverse_movement` (itself
++`SECURITY DEFINER`, owner `postgres`) can reach the internal function, via
++standard same-owner `SECURITY DEFINER` privilege semantics — not a GUC or
++"trust the caller" convention. Two defense-in-depth checks added inside
++the internal function: explicit effects are only accepted when the
++movement's own real (row-read, not caller-supplied) `movement_type_code`
++is `'900'`; each effect's `target`/`direction` is validated against its
++exact allowed enumeration rather than silently falling through. Live
++re-verified post-fix: direct internal-function call → `42501`; old 3-arg
++public signature → `42883` (no longer exists); ordinary 2-arg finalize and
++full reversal end-to-end unaffected; `anon`/`authenticated` confirmed to
++hold zero `EXECUTE` on the internal function. A SEPARATE, broader,
++**not-fixed-this-pass** finding surfaced while verifying the "original
++header is never edited" claim for documentation purposes: the backing
++immutability trigger only checks that its own GUC is `'on'`, never which
++columns changed, and the GUC is an ordinary session parameter any
++`authenticated` actor already holding `warehouse.inventory.operate` can
++set themselves — live-proven this permits a full raw-`UPDATE` rewrite of
++any posted header's business content (not just a status-blind INSERT, as
++previously scoped). Pre-existing, not IC-2-introduced; explicitly assigned
++to IC-7 (see architecture doc §7/§9 for the full finding and required
++fix design).
++
++Full test/concurrency evidence, migration list, and security findings are
++in `docs/inventory/inventory-core-progress.md`'s own IC-2 change-log entry
++and the `docs/inventory/reviews/ic-2-review/` bundle. **IC-2 is DONE,
++including the security-boundary correction pass.**
++
+ ---
+ 
+ ## IC-3 — Receiving Consolidation
+diff --git a/docs/inventory/inventory-core-progress.md b/docs/inventory/inventory-core-progress.md
+index afa94a8a..fd31ee57 100644
+--- a/docs/inventory/inventory-core-progress.md
++++ b/docs/inventory/inventory-core-progress.md
+@@ -11,13 +11,12 @@ distinct from Zone 3's own Phase 10A-10F numbering).
+ **Priority:** P0 (blocks Phase 10D).
+ **Branch:** `zone3-zone5-integration-audit`.
+ **Architecture:** ✅ ACCEPTED (this session — `inventory-core-architecture.md`).
+-**Runtime status:** 🟢 IC-0 ✅ DONE. IC-1 ✅ DONE AND FINAL — commitment
+-invariant, locking strategy, SUM formula, helper replacement, pgTAP evidence,
+-concurrency proof (external review, accepted), AND the `negative_stock_
+-policy` semantic-contract question (product-owner decision, 2026-09-15,
+-OPTION A — see the finalization-pass change-log entry below) are all closed.
+-IC-2 is NOT started.
+-**Current phase:** IC-1 FINAL → IC-2 (Movement reversal) is the next
++**Runtime status:** 🟢 IC-0 ✅ DONE. IC-1 ✅ DONE AND FINAL. IC-2 ✅ DONE —
++`inventory_reverse_movement` implemented, live-proven (receipt + 801
++reversal, all negative paths, genuine two-session concurrency), both open
++product decisions closed (A: no undo-an-undo; B: no RepairOrder netting).
++IC-3 is NOT started.
++**Current phase:** IC-2 DONE → IC-3 (Receiving consolidation) is the next
+ authorized phase, NOT yet started.
+ **Pitch/pilot readiness:** N/A — this is base-engine work, not itself a
+ pitch-scoped feature; it BLOCKS Phase 10D, which IS pitch-scoped (see the
+@@ -28,12 +27,16 @@ Zone 3 tracker's own cross-reference).
+ 
+ ## Overall execution
+ 
+-- IC phases completed: 2 / 8 (IC-0, IC-1). IC-2 NOT started.
+-- 3 forward migrations applied for IC-1 (all live-verified, all mirrored
+-  locally under the exact live version/timestamp — see change log).
+-- Application code: no TypeScript changes were required for IC-1 (the fix is
+-  entirely inside `inventory_finalize_posting`'s own PL/pgSQL body); 2 pgTAP
+-  test files added/rewritten (`101_...` rewritten, `102_...` new).
++- IC phases completed: 3 / 8 (IC-0, IC-1, IC-2). IC-3 NOT started.
++- 3 forward migrations applied for IC-1; 9 forward migrations applied for
++  IC-2 (7 original + 2 from the security-boundary correction pass; all
++  live-verified, all mirrored locally under the exact live
++  version/timestamp — see change log).
++- Application code: no TypeScript changes were required for IC-1 or IC-2
++  (both are entirely PL/pgSQL); 2 pgTAP test files added/rewritten for
++  IC-1 (`101_...` rewritten, `102_...` new/extended); 1 new pgTAP file for
++  IC-2, extended in the security-boundary correction pass (`103_...`,
++  35/35).
+ 
+ ---
+ 
+@@ -43,8 +46,8 @@ Zone 3 tracker's own cross-reference).
+ | -------------------------------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+ | IC-0 Architecture contract + baseline capture                        | ✅ DONE        | Live verification closed 2026-09-15 — see change log for the exact findings. Gate decision: no contradiction with the accepted architecture; two genuine raw-write gaps found (reservation/allocation tables, movement headers) but neither defeats IC-1's own guarantee — both recorded as IC-7 blockers, not IC-1 blockers.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+ | IC-1 Canonical movement engine / hard stock invariants               | ✅ DONE, FINAL | Hard invariant (`on_hand >= reserved_quantity + allocated_quantity`) live-implemented in `inventory_finalize_posting`, SQLSTATE `P0003`. Balance-getter replaced (v1 helper now zero production callers). `on_hand_quantity >= 0` CHECK added — **product-owner FINAL DECISION (2026-09-15, OPTION A)**: global non-negative on-hand is the permanent product contract; `negative_stock_policy='allow'`/`'allow_with_approval'` are superseded/deprecated for on-hand behavior, cannot bypass the invariant, column cleanup owned by IC-6. 133/133 pgTAP (102 extended to 14/14 with the finalized-contract regression) + 395/395 relevant Vitest clean (229 of those 395 re-confirmed live this finalization pass; the file set is identical to the original submission's own 395, not additive). Genuine two-session concurrency proven (3.68s real blocking). Architecture doc §0 (new decision #20) and §5 (invariant #1) updated. See the finalization-pass change-log entry below and `docs/inventory/reviews/ic-1-review/negative-stock-policy-conflict.md` (marked RESOLVED). |
+-| IC-2 Movement reversal                                               | ⬜ NOT STARTED | Depends on IC-1.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+-| IC-3 Receiving consolidation                                         | ⬜ NOT STARTED | Depends on IC-1.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
++| IC-2 Movement reversal                                               | ✅ DONE        | `inventory_reverse_movement(p_movement_id, p_actor_user_id, p_reason)` implemented and live-proven: receipt (101) and two-leg (801) reversal restore exact pre-movement balances; all negative paths (draft, already-reversed, reversal-of-reversal, IC-1 commitment block, reason validation, wrong actor, cross-org/no-permission indistinguishable) rejected with stable SQLSTATEs; genuine two-session concurrency proven (~5s real blocking, exactly one reversal survives, zero double-compensation); bidirectional linkage and distinct sequential `KOR/...` document numbering live-proven. New minimal movement type `900`/doc type `KOR` (system-only, zero effect rows of its own); `inventory_finalize_posting` gained one backward-compatible optional parameter (`p_explicit_effects`). Product decisions A (no undo-an-undo) and B (no RepairOrder netting) CLOSED. 3 live-caught defects fixed forward (overload ambiguity, reserved SQLSTATE P0004, Zone 5 attribution corruption) plus 1 grant-hardening fix (anon default-privilege re-exposure). **SECURITY-BOUNDARY CORRECTION PASS (2026-09-15)**: external review found `p_explicit_effects` was reachable on the externally-callable `inventory_finalize_posting` — live-confirmed P0 (on-hand doubled by an ordinary authenticated caller), fixed by internalizing the explicit-effects capability into a new EXECUTE-revoked-from-all-ordinary-roles `inventory_finalize_posting_internal`, reachable only via same-owner `SECURITY DEFINER` semantics from `inventory_reverse_movement`. A separate, pre-existing, NOT-fixed-this-pass finding (assigned to IC-7): the posted-header immutability trigger only checks its own GUC is `'on'`, not which columns changed — an ordinary permission-holding actor can self-set that GUC and rewrite any posted header's business content. pgTAP 35/35 (`103_...`, extended with Scenario E). Full regression 176/176. See change log for full evidence. |
++| IC-3 Receiving consolidation                                         | ⬜ NOT STARTED | Depends on IC-1, IC-2.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+ | IC-4 Branch transfer / MMJ rebuild                                   | ⬜ NOT STARTED | Depends on IC-1, IC-3. Carries an open product-semantics question (see implementation plan's own IC-4 section: whether "in transit" should mean physically moving vs. merely reserved) that needs product-owner resolution before or during this phase.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+ | IC-5 RepairOrder physical-location projection consolidation          | ⬜ NOT STARTED | Depends on IC-1, IC-3.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+ | IC-6 Legacy writer/helper removal                                    | ⬜ NOT STARTED | Depends on IC-1 (balance-getter replacement), IC-4 (311 disposition), IC-5 (Zone 5 direct-write removal).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+@@ -538,3 +541,364 @@ concurrency-evidence.md` updated with the negative-stock diagnostic
+ 
+   **IC-1 is now FINAL, in full — no open questions remain.** IC-2 is NOT
+   started. Phase 10D is NOT started.
++- **2026-09-15 (IC-2 — Movement Reversal — DONE)**: implemented and
++  live-proven `inventory_reverse_movement`, per the architecture doc §7
++  design, with both of its open questions closed as explicit product-owner
++  decisions BEFORE implementation began.
++
++  **Product decisions, verbatim, recorded in `inventory-core-architecture.md`
++  §0 (decisions #21, #22) and §7**:
++  - **A**: a posted original may be reversed at most once; a reversal
++    movement may never itself be reversed ("undo an undo" out of scope for
++    MVP/pitch).
++  - **B**: RepairOrder business-quantity attribution/netting for reversed
++    movements is NOT implemented in IC-2. `RepairOrdersService.
++    listRepairOrderLines()`'s own formulas are unchanged; no
++    `repair_order_line_movement_links` row of any kind is created for a
++    reversal.
++
++  **Baseline note**: at the start of this phase, IC-1's own work was found
++  staged but not committed to git (per standing no-auto-commit policy, this
++  was not committed by this session either — flagged for the user's
++  awareness, not silently resolved). IC-2's own diff is built on top of
++  that staged state.
++
++  **Live schema findings before writing any code**: `inventory_movement_
++  headers` already carries `original_movement_id`, `reversal_movement_id`,
++  `reversed_by`, `reversed_at`, and a `status` CHECK that already includes
++  `'reversed'` (with a `posted_pair_v2` CHECK requiring `posted_at IS NOT
++  NULL` for both `'posted'` and `'reversed'`) — the schema had already
++  anticipated this exact phase. `inventory_prevent_header_modification`/
++  `_line_modification` already permit UPDATE on a `posted`/`cancelled`/
++  `reversed` header/line specifically when `ambra.inventory_movement_
++  engine = 'on'` — the exact narrow mechanism needed for the bidirectional-
++  linkage UPDATE, requiring no trigger change. `inventory_document_types`
++  already carries `is_correction`/`corrects_document_type_code` columns,
++  unused until now — exactly the mechanism needed for the new `KOR`
++  document type. No dedicated `inventory_cancel_movement`/reversal RPC
++  existed yet; no reversal-capable movement type existed in the catalog.
++
++  **Genuine live discovery, resolved before implementation (not a silent
++  deviation)**: `inventory_movement_type_effects` is TYPE-level, not
++  INSTANCE-level. Live-checked the full catalog (101/311/401/402/801) —
++  no single existing type can serve as a correct, honestly-labeled inverse
++  for every other type (801 needs a combined source-increase+destination-
++  decrease pair that exists nowhere in the catalog; 402/311's own "source
++  decrease" has no "source increase" sibling). Resolved with the minimum
++  additive extension: ONE new, generic, system-only movement type
++  (`900`/`KOR`, `is_system=true`, `allows_manual_entry=false`, zero effect
++  rows of its own) plus a narrow, fully backward-compatible extension to
++  `inventory_finalize_posting` — one new optional trailing parameter,
++  `p_explicit_effects jsonb DEFAULT NULL`. NULL (every pre-existing 2-arg
++  caller) is byte-identical to before; non-NULL (only the reversal RPC)
++  supplies per-line, per-instance inverted effects instead of the
++  type-catalog lookup. This is the same engine, not a second one — per the
++  task's own explicit "STOP before inventing a shadow type system"
++  instruction, this finding justified the minimal extension rather than a
++  stop, and is recorded here for exactly that scrutiny.
++
++  **Final RPC**: `inventory_reverse_movement(p_movement_id uuid,
++  p_actor_user_id uuid, p_reason text) RETURNS jsonb`. `SECURITY DEFINER`,
++  `search_path` hardened, granted to `authenticated`+`service_role` only
++  (no `anon` — see the live-caught defect below). Actor-identity spoofing
++  checked first (`28000`), independent of target existence. The original
++  is locked (`FOR UPDATE`) before any eligibility check, and every
++  eligibility condition (status, original_movement_id, reversal_movement_
++  id) is re-checked against the LOCKED row, never an earlier unlocked
++  read — this is what makes the concurrency proof below correct. A
++  genuinely nonexistent movement and one the actor lacks `warehouse.
++  inventory.operate` on both raise the identical `P0002` "not found" —
++  deliberate: no existence leak. Reason is mandatory
++  (`NULLIF(TRIM(p_reason), '') IS NULL` rejects NULL and whitespace-only,
++  `22023`).
++
++  **Live-caught defects, all fixed forward (never editing an already-
++  applied migration), disclosed precisely**:
++  1. `CREATE OR REPLACE FUNCTION inventory_finalize_posting` with an added
++     3rd parameter created a NEW, additional overload rather than
++     replacing the 2-arg original (Postgres matches on full signature,
++     not just name) — live-reproduced as `42725: function ... is not
++     unique` on the very first receipt-reversal test, breaking every
++     existing 2-arg caller (`inventory_create_and_finalize`). Fixed:
++     `DROP FUNCTION inventory_finalize_posting(uuid, uuid)`.
++  2. SQLSTATE `P0004` is a Postgres BUILT-IN reserved condition name
++     (`assign_string_too_long`, in the same "P0" class this project's own
++     custom convention uses) — live-reproduced that `RAISE ... USING
++     ERRCODE = 'P0004'` is genuinely NOT caught by a surrounding `WHEN
++     OTHERS` handler (confirmed via isolated probes: P0004 alone fails to
++     be caught; P0005/P0006/P0007 all catch correctly). The "not posted"
++     rejection code was moved to `P0007`.
++  3. **Zone 5 compatibility** (read-only investigation, per explicit
++     scope): reversing a `receive_repair_order_stock`-created movement was
++     live-proven to make Zone 5's own `repair_order_line_locations_
++     ledger_sync` trigger (`repair_order_location_attribution_sync()`)
++     ACTIVELY CORRUPT `repair_order_line_locations` — it deleted then
++     immediately re-inserted the SAME quantity at the SAME location
++     (since the reversal line's own `destination_location_id`, copied
++     from the original, equals the location the ledger entry zeroes out),
++     leaving the table claiming 10 units physically present at a location
++     where `on_hand_quantity` is now genuinely 0. Fixed WITHOUT touching
++     Zone 5 itself: the reversal RPC sets the same `ambra.repair_order_
++     attribution_authoritative` GUC `receive_repair_order_stock`/
++     `putaway_repair_order_stock` already set around their own ledger-
++     producing calls — converts active corruption into disclosed, known
++     STALENESS (an explicit, already-planned IC-5 concern per decision
++     #7), not resolved here. Live-reverified after the fix: the trigger's
++     own "authoritative" branch no longer mutates the table at all;
++     `repair_order_line_locations` is stale but no longer actively wrong.
++  4. **Grant hardening**: live-verified, TWICE, that `anon` regained
++     EXECUTE on `inventory_reverse_movement` after subsequent `CREATE OR
++     REPLACE FUNCTION` calls, despite an explicit `REVOKE ALL FROM PUBLIC`
++     in the very first migration — this database applies a default-
++     privilege grant to `anon` on functions in schema `public` that
++     re-applies on every `CREATE OR REPLACE` of the same function (the
++     SAME pre-existing behavior already present on `inventory_finalize_
++     posting`, unrelated to and predating IC-1/IC-2 — out of scope to fix
++     there). Fixed with a final, explicit `REVOKE ALL FROM PUBLIC; REVOKE
++     ALL FROM anon; GRANT EXECUTE TO authenticated, service_role;` applied
++     as the last migration in this phase. Live-reverified: grantees now
++     exactly `{authenticated, service_role}`. Recorded as a new IC-7 item
++     (architecture doc §9): every canonical RPC's own grants need
++     re-verification as the LAST step after its own full migration
++     sequence, not just once after first creation.
++
++  **Live proof, both physical scenarios** (via the real canonical engine,
++  not a synthetic reproduction):
++  - Receipt (101) reversal: balance exactly restored to pre-receipt value
++    (0); original transitions to `status='reversed'`; bidirectional
++    linkage agrees both directions; reversal document number (`KOR/2026/
++    000001`) genuinely distinct from the original (`PZ/2026/000021`);
++    audit log persists the exact reason text; exactly one compensating
++    ledger entry.
++  - 801 (two-leg relocation) reversal: BOTH legs invert correctly in one
++    transaction — source restored to exactly 10 (pre-move), destination
++    restored to exactly 0 (pre-move). No one-sided reversal.
++
++  **Live proof, all negative paths**: draft rejection (`P0007` — drafts use
++  cancellation, not reversal); already-reversed rejection (`P0007`, since
++  `status` transitions to `'reversed'` atomically with `reversal_movement_
++  id` — the dedicated `P0006` "already reversed" check remains a
++  defensive second line of defense, not the path actually exercised
++  through this RPC, disclosed honestly rather than claimed as the primary
++  mechanism); reversal-of-reversal rejection (`P0005`); NULL-reason and
++  whitespace-only-reason rejection (`22023` both); wrong-actor/spoofing
++  rejection (`28000`); nonexistent-movement and no-permission rejection
++  (identical `P0002`, no existence leak, live-confirmed as genuinely
++  indistinguishable); **IC-1 commitment block** — reversing a receipt that
++  would strand reserved stock is rejected by the SAME `P0003` invariant
++  check reservations/allocations already rely on, atomically, with the
++  balance, reservation, original header, and `reversal_movement_id` all
++  provably unchanged and zero orphan reversal headers created.
++
++  **Genuine two-independent-PostgreSQL-connection concurrency proof** (real
++  `psql` binary, two separate OS processes, not one transaction pretending
++  to be concurrent): a durable (committed) posted receipt was constructed.
++  Session A opened a transaction, called `inventory_reverse_movement`
++  (succeeded in 691.6ms, `KOR/2026/000001`), then held the transaction open
++  via `pg_sleep(5)` before COMMIT. Session B, started ~1.5s later, attempted
++  to reverse the SAME movement; its own call **genuinely blocked for
++  5015.336ms** (real wall time, matching A's sleep almost exactly), resumed
++  only after A's COMMIT, and correctly re-evaluated eligibility against the
++  now-`'reversed'` status under its own lock — **REJECTED** with `P0007`.
++  Exactly ONE reversal header exists for the original; exactly one audit-
++  log `'reversed'` row. No deadlock. No double-compensation.
++
++  **Residual data from the concurrency test (disclosed, not silently
++  cleaned up)**: the same immutability protection IC-1's own concurrency
++  test encountered applies here — `inventory_movement_headers`/`_lines`
++  cannot be deleted once posted. Residual: 1 `ic2-concurrency-branch`
++  branch, 1 location, 2 immutable movement headers (`PZ/2026/000021` now
++  `status='reversed'`, `KOR/2026/000001` `status='posted'`) with their
++  lines/ledger entries, 1 balance row (accurately on_hand=0, matching the
++  real history), 2 audit-log rows. All other synthetic scaffolding
++  (branches, RepairOrders, etc. from every pgTAP scenario) ran inside
++  `BEGIN...ROLLBACK` and left zero residual data, confirmed by direct
++  query after each.
++
++  **Full regression**: pgTAP 097 (29/29), 098 (17/17), 099 (20/20), 100
++  (44/44), 101 (17/17), 102 (14/14), 103 new (28/28) — 169/169 total, 0
++  failures, none of 097-102 touched or affected by IC-2. Vitest: 378/378
++  (repair-orders service, inventory sibling suite, wdd-matcher, svwms,
++  inventory-actions, CRM sibling suite). `pnpm type-check`: 0 errors (no
++  TypeScript touched). `pnpm lint`: 0 errors, 319 pre-existing unrelated
++  warnings. `git diff --check`: clean, zero trailing-whitespace issues in
++  every file this phase touched.
++
++  **Migrations applied (7, forward-only, all mirrored locally under their
++  exact live version/timestamp)**:
++  1. `20260915155606_ic2_seed_reversal_document_movement_type` — extends
++     `inventory_seed_movement_types_internal` with `KOR`/`900`; backfills
++     all 4 existing orgs.
++  2. `20260915160118_ic2_inventory_finalize_posting_explicit_effects` —
++     adds `p_explicit_effects` parameter.
++  3. `20260915160414_ic2_inventory_reverse_movement_rpc` — the new RPC
++     (first version, `P0004`).
++  4. `20260915160444_ic2_drop_old_finalize_posting_overload` — corrective,
++     defect #1 above.
++  5. `20260915160902_ic2_inventory_reverse_movement_fix_p0004_reserved_code`
++     — corrective, defect #2 above.
++  6. `20260915161137_ic2_reverse_movement_zone5_attribution_guard` —
++     corrective, defect #3 above.
++  7. `20260915162826_ic2_reverse_movement_regrant_after_default_privilege_reapply`
++     — corrective, defect #4 above.
++
++  **Documentation updated**: `inventory-core-architecture.md` §0 (new
++  decisions #21, #22), §5 (invariant #15 now ✅ IMPLEMENTED), §7 (fully
++  rewritten from design to as-implemented, both product decisions closed,
++  all live findings recorded), §9 (two new IC-7 items: `repair_order_line_
++  locations` staleness, `anon` default-privilege re-grant). `inventory-
++  core-implementation-plan.md`'s own IC-2 section gained a RESULT addendum
++  (plan preserved as historical record, not silently rewritten).
++
++  **IC-2 review bundle**: `docs/inventory/reviews/ic-2-review/`.
++
++  **IC-2 is DONE and FINAL, pending external review.** IC-3 is NOT started.
++
++- **2026-09-15 (IC-2 — SECURITY-BOUNDARY CORRECTION PASS — DONE)**:
++  external review of the IC-2 submission above ACCEPTED the physical
++  reversal architecture but flagged a P0: the `p_explicit_effects`
++  parameter added to `inventory_finalize_posting(uuid,uuid,jsonb)` (see
++  migration 2 above) was added to the EXTERNALLY-CALLABLE canonical RPC,
++  not restricted to the internal reversal mechanism, and that function
++  carried live `anon` EXECUTE (a pre-existing default-privilege behavior,
++  unrelated to IC-2's own work).
++
++  **Live investigation (not assumed from the review alone)**: a safe,
++  transaction-scoped attack probe (`BEGIN...ROLLBACK`, no real data
++  touched) was run as an ordinary `authenticated` actor with no special
++  grant. Two early probe attempts were correctly recognized as NOT proof
++  of safety (one was blocked by IC-1's own P0003 stranded-commitment
++  check; one by an unrelated ledger uniqueness constraint) — neither
++  demonstrated the parameter itself was safe. A third, more careful probe
++  — supplying two DIFFERENT real effect ids (borrowed from movement types
++  `101` and `401`, both semantically "destination increase") against the
++  actor's own legitimately-created 10-unit draft receipt — **succeeded**:
++  the movement posted with `on_hand=20` (doubled), 2 ledger entries
++  created. **P0 conclusively confirmed live.**
++
++  **Fix (internalize explicit effects)**: logic moved to a new
++  `inventory_finalize_posting_internal(uuid,uuid,jsonb)`; `EXECUTE`
++  revoked from PUBLIC/`anon`/`authenticated`/`service_role` on the
++  internal function. The public `inventory_finalize_posting` was restored
++  to its original 2-argument, catalog-effects-only contract as a thin
++  wrapper. `inventory_reverse_movement` (already `SECURITY DEFINER`, owner
++  `postgres`) now calls the internal function directly — reachable only
++  via standard, same-owner `SECURITY DEFINER` privilege semantics (a
++  well-established Postgres mechanism, not a workaround), never via a GUC
++  or "trust the caller" convention. Two defense-in-depth checks were added
++  inside the internal function: (a) explicit effects are only accepted
++  when the movement's own REAL `movement_type_code` — read from the
++  locked row itself, never trusted from the caller — is exactly `'900'`
++  (the system reversal type), categorically ruling out the exact attack
++  above even for a hypothetical future internal caller; (b) each supplied
++  effect's `target`/`direction` is validated against its exact allowed
++  enumeration and rejected outright rather than silently falling through
++  the existing logic.
++
++  **Live-caught defect #5 (same recurring pitfall as defect #1 above)**:
++  recreating the public 2-arg `inventory_finalize_posting` did NOT remove
++  the still-live, vulnerable 3-arg overload — `CREATE OR REPLACE FUNCTION`
++  only replaces an EXACT arity match; a different arity creates an
++  additional overload, leaving the old one (with its own old grants) live.
++  Live-verified via `pg_proc`/`has_function_privilege` immediately after
++  the "fix" migration that the old 3-arg signature was STILL callable by
++  `authenticated`/`anon`/`service_role` — caught before being reported as
++  fixed, corrected with a second forward migration explicitly dropping the
++  exact old signature (`DROP FUNCTION IF EXISTS public.inventory_finalize_
++  posting(uuid, uuid, jsonb)`).
++
++  **Post-fix live re-verification**: direct call to
++  `inventory_finalize_posting_internal` by an ordinary `authenticated`
++  actor → `42501` (permission denied), using the EXACT attack payload
++  proven exploitable pre-fix; the old 3-arg public-named signature →
++  `42883` (does not exist); ordinary 2-arg `inventory_finalize_posting`
++  (catalog effects) still succeeds correctly; full `inventory_reverse_
++  movement` end-to-end (receipt reversal exact restoration, 801 both-legs
++  restoration, IC-1 commitment block) re-confirmed working correctly
++  post-fix; `has_function_privilege` confirms both `anon` and
++  `authenticated` hold zero `EXECUTE` on the internal function.
++
++  **`103_ic2_movement_reversal_test.sql` extended** with Scenario E
++  (T29-T35, plan 28→35): ordinary 2-arg finalize still succeeds (T29);
++  balance not exploitable via the public surface (T30); 3-arg call via the
++  public-named function fails `42883` (T31); direct call to the internal
++  function using the exact proven attack payload fails `42501` (T32);
++  balance remains un-exploited, zero footprint (T33); `has_function_
++  privilege` confirms zero `EXECUTE` for `anon` (T34) and `authenticated`
++  (T35) on the internal function. All 35/35 assertions pass in the file's
++  own real execution (not merely the separate ad-hoc probes above).
++
++  **A separate, broader, NOT-fixed-this-pass finding**, surfaced while
++  verifying the pre-existing claim that "the original header is never
++  edited" for the documentation wording-correction requested by this same
++  pass: live-proven that the backing `inventory_prevent_header_
++  modification` trigger only checks that its own session GUC
++  (`ambra.inventory_movement_engine`) is `'on'` — never which columns
++  changed. Since that GUC is an ordinary session-level custom parameter
++  (not superuser-restricted) and the `inventory_movement_headers` UPDATE
++  RLS policy has no `WITH CHECK` column restriction, any `authenticated`
++  actor already holding `warehouse.inventory.operate`/`.adjust`/`.reverse`
++  can set the GUC themselves and then raw-`UPDATE` **any** column of
++  **any** posted header (live-proven: rewrote `document_number` on a
++  posted receipt with no error). This is **pre-existing, not
++  IC-2-introduced** (both the GUC and the trigger predate IC-2) — a
++  sharper, UPDATE-side version of the raw-write gap already flagged in
++  architecture doc §9 (previously scoped to INSERT only). **Not fixed in
++  this pass** (out of IC-2's own narrow security-boundary scope, which
++  covers the brand-new `p_explicit_effects` capability IC-2 itself
++  introduced, not this old, pre-existing infrastructure) — explicitly
++  assigned to **IC-7**. Documentation wording corrected accordingly:
++  neither §5 invariant #13 nor §7's "never edited" line now overclaim a
++  database-enforced guarantee that does not, in fact, hold against an
++  ordinary permission-holding actor who knows the GUC's name.
++
++  **Regression**: full pgTAP re-run this pass — 097 (29/29), 098 (17/17),
++  099 (20/20, re-verified via Supabase MCP `execute_sql` after two
++  `psql`-path attempts hit the already-known, disclosed connection-pooler
++  GUC artifact — not a real regression), 100 (44/44), 101 (17/17), 102
++  (14/14), 103 (35/35 in its final, extended form) — **176/176 total, 0
++  failures**. Vitest: 159 (repair-orders service) + 63 (inventory-actions,
++  wdd-matcher-approval-actions, CRM contacts/module-migration/parties,
++  wdd-matcher service + movement-import-candidates, inventory
++  cross-branch-transfers, inventory-backend-hardening-migration) = 222/222,
++  0 failures. `pnpm type-check`: 0 errors. `pnpm lint`: 0 errors, 319
++  pre-existing warnings, all in unrelated `apps/web/temp/` scaffolds.
++  `git diff --check`: clean on every file this pass touched (the one flag
++  raised was inside the pre-existing `diff.patch` bundle artifact being
++  regenerated, not this pass's own source edits).
++
++  **Concurrency NOT re-run, reasoned**: `inventory_reverse_movement`'s own
++  row-locking of the original header (`SELECT ... FOR UPDATE`, first
++  action after actor/reason validation) is byte-identical before and after
++  this fix — only the internal call target of its own downstream
++  `inventory_finalize_posting_internal` invocation changed, not any lock
++  acquisition order or scope. The existing genuine two-session concurrency
++  proof (IC-2's own submission, ~5s real blocking, exactly one reversal
++  survives) remains valid evidence and was not repeated.
++
++  **Migrations applied (2, forward-only, mirrored locally under their
++  exact live version/timestamp)**:
++  8. `20260915170706_ic2_security_internalize_explicit_effects` — creates
++     `inventory_finalize_posting_internal`, adds the two defense-in-depth
++     checks, revokes all EXECUTE on it, restores the public 2-arg
++     `inventory_finalize_posting` as a thin wrapper, updates `inventory_
++     reverse_movement` to call the internal function directly.
++  9. `20260915170726_ic2_drop_vulnerable_public_named_three_arg_finalize_posting`
++     — corrective, live-caught defect #5 above.
++
++  **Documentation updated**: `inventory-core-architecture.md` §5 (invariant
++  #13 wording corrected), §7 (the "never edited" wording corrected with
++  full precision on what is/isn't DB-enforced), §9 (the `inventory_
++  movement_headers` row sharpened with the live-proven UPDATE-bypass
++  finding; one new row added for the `p_explicit_effects` P0 and its fix).
++  `inventory-core-implementation-plan.md`'s own IC-2 RESULT addendum
++  extended with this pass's findings (not silently rewritten — appended).
++
++  **IC-2 review bundle updated** (same baseline SHA
++  `27d900071813c82cc7d6a20d97dadd42def21e8f`, not a new IC-3 bundle):
++  `docs/inventory/reviews/ic-2-review/`.
++
++  **IC-2, including this security-boundary correction pass, is DONE and
++  FINAL, pending external review.** IC-3 is NOT started. Phase 10D is NOT
++  started.
++  Phase 10D is NOT started.

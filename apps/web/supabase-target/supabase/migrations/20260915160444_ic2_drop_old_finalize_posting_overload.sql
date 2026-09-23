@@ -1,0 +1,14 @@
+-- Live-caught defect (same pattern as IC-1's own overload-ambiguity bug):
+-- CREATE OR REPLACE FUNCTION with an added parameter creates a NEW,
+-- additional overload rather than replacing the original when arity
+-- changes -- Postgres matches on (name, parameter types), and adding a
+-- 3rd parameter changes the signature. The old 2-arg
+-- inventory_finalize_posting(uuid, uuid) was left behind alongside the
+-- new inventory_finalize_posting(uuid, uuid, jsonb), making every existing
+-- 2-argument call site (inventory_create_and_finalize, and any other
+-- caller) ambiguous: "function inventory_finalize_posting(uuid, uuid) is
+-- not unique". Live-reproduced immediately when re-running the receipt-
+-- reversal live test. Fix: drop the old 2-arg overload -- the 3-arg
+-- version's own DEFAULT NULL on p_explicit_effects makes it a fully
+-- backward-compatible drop-in replacement for every existing 2-arg call.
+DROP FUNCTION IF EXISTS public.inventory_finalize_posting(uuid, uuid);

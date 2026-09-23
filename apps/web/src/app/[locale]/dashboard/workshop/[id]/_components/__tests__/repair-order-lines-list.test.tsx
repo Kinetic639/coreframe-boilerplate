@@ -23,7 +23,33 @@ vi.mock("next-intl", () => ({
 
 const LINE_TRANSLATIONS: Record<string, string> = {
   sourcesPopoverTitle: "Source lines for this part",
+  badgeNone: "No reservation",
 };
+
+// RepairOrderLineReservation (Phase 10A, a client subcomponent rendered
+// inside this server component alongside LineSourcesPopover) depends on
+// react-query hooks and the permissions store -- mocked wholesale here,
+// matching this repo's own established convention (see
+// repair-order-header-editor.test.tsx). Defaults to canOperate: false and
+// zero reservations/locations -- individual behavior is this component's
+// OWN test file's concern (repair-order-line-reservation.test.tsx), not
+// this list's.
+vi.mock("@/hooks/v2/use-permissions", () => ({
+  usePermissions: () => ({
+    can: () => false,
+    cannot: () => true,
+    canAny: () => false,
+    canAll: () => false,
+  }),
+}));
+vi.mock("@/hooks/queries/workshop", () => ({
+  useRepairOrderLineReservationsQuery: () => ({ data: [], isLoading: false }),
+  useReserveRepairOrderLineMutation: () => ({ mutate: vi.fn(), isPending: false }),
+  useReleaseRepairOrderLineReservationMutation: () => ({ mutate: vi.fn(), isPending: false }),
+}));
+vi.mock("@/hooks/queries/warehouse", () => ({
+  useWarehouseLocationsQuery: () => ({ data: [] }),
+}));
 
 const TRANSLATIONS: Record<string, string> = {
   title: "Parts lines",

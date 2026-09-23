@@ -3146,7 +3146,23 @@
             "loadFailed": "Nie udało się wczytać pozycji części"
           },
           "sourcesButton": "Źródła ({count})",
-          "sourcesPopoverTitle": "Pozycje źródłowe tej części"
+          "sourcesPopoverTitle": "Pozycje źródłowe tej części",
+          "reservation": {
+            "badgeReserved": "Zarezerwowano {quantity}",
+            "badgeNone": "Brak rezerwacji",
+            "badgeUnknown": "Rezerwacja",
+            "popoverTitle": "Rezerwacja towaru dla tej pozycji",
+            "loading": "Wczytywanie rezerwacji…",
+            "errorState": "Nie udało się wczytać stanu rezerwacji. Spróbuj ponownie.",
+            "emptyState": "Brak aktywnej rezerwacji dla tej pozycji.",
+            "outstandingLabel": "Pozostało: {quantity}",
+            "reserve": "Zarezerwuj towar",
+            "release": "Zwolnij",
+            "confirmReserve": "Potwierdź",
+            "cancel": "Anuluj",
+            "quantityPlaceholder": "Ilość",
+            "locationPlaceholder": "Lokalizacja"
+          }
         },
         "provenance": {
           "title": "Dokumenty źródłowe",
@@ -3171,7 +3187,9 @@
           "createSuccess": "Zlecenie naprawy utworzone",
           "updateSuccess": "Zlecenie naprawy zaktualizowane",
           "advisorAssignedSuccess": "Doradca zaktualizowany",
-          "statusChangedSuccess": "Status zaktualizowany"
+          "statusChangedSuccess": "Status zaktualizowany",
+          "reservationCreatedSuccess": "Towar zarezerwowany",
+          "reservationReleasedSuccess": "Rezerwacja zwolniona"
         }
       }
     },

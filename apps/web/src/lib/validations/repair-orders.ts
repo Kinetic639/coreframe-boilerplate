@@ -75,3 +75,85 @@ export const changeRepairOrderStatusSchema = z.object({
   toStatus: repairOrderStatusSchema,
 });
 export type ChangeRepairOrderStatusInput = z.infer<typeof changeRepairOrderStatusSchema>;
+
+/**
+ * Phase 10A -- reserve stock for one RepairOrderLine via the existing
+ * generic reservation engine. `locationId` is a hard requirement of the
+ * underlying `inventory_create_reservation` RPC itself (LIVE VERIFIED:
+ * "Phase 2 hard reservations require location_id") -- never defaulted or
+ * inferred here.
+ */
+export const reserveRepairOrderLineSchema = z.object({
+  repairOrderLineId: z.string().uuid(),
+  locationId: z.string().uuid(),
+  quantity: z.number().positive(),
+  notes: z.string().trim().max(500).nullable().optional(),
+});
+export type ReserveRepairOrderLineInput = z.infer<typeof reserveRepairOrderLineSchema>;
+
+/**
+ * Phase 10A -- release a reservation previously created for one
+ * RepairOrderLine. `cancel` defaults to true (release + mark cancelled) --
+ * the only granularity the underlying `inventory_release_reservation` RPC
+ * actually offers (LIVE VERIFIED: whole-reservation release, no
+ * partial-quantity primitive exists).
+ */
+export const releaseRepairOrderLineReservationSchema = z.object({
+  repairOrderLineId: z.string().uuid(),
+  reservationId: z.string().uuid(),
+  cancel: z.boolean().optional(),
+});
+export type ReleaseRepairOrderLineReservationInput = z.infer<
+  typeof releaseRepairOrderLineReservationSchema
+>;
+
+/**
+ * Phase 10B -- convert an existing reservation line into an allocation.
+ * Deliberately no `locationId` field: the target location is ALWAYS
+ * derived server-side from the reservation line itself
+ * (`RepairOrdersService.allocateForLine`'s own doc comment has the full
+ * rationale) -- accepting one here would let a client submit a value that
+ * is silently ignored at best, or misleadingly imply client control over
+ * something the server never actually honors, at worst.
+ */
+export const allocateRepairOrderLineSchema = z.object({
+  repairOrderLineId: z.string().uuid(),
+  reservationLineId: z.string().uuid(),
+  quantity: z.number().positive(),
+});
+export type AllocateRepairOrderLineInput = z.infer<typeof allocateRepairOrderLineSchema>;
+
+/**
+ * Phase 10C -- create a physical container owned by a RepairOrder.
+ */
+export const createRepairOrderContainerSchema = z.object({
+  repairOrderId: z.string().uuid(),
+  code: z.string().trim().min(1, "Code is required").max(80),
+  currentLocationId: z.string().uuid(),
+  type: z.string().trim().max(40).optional(),
+});
+export type CreateRepairOrderContainerInput = z.infer<typeof createRepairOrderContainerSchema>;
+
+/**
+ * Phase 10C -- place an already-allocated quantity into a container.
+ */
+export const placeAllocationInContainerSchema = z.object({
+  repairOrderLineId: z.string().uuid(),
+  allocationLineId: z.string().uuid(),
+  containerId: z.string().uuid(),
+  quantity: z.number().positive(),
+});
+export type PlaceAllocationInContainerInput = z.infer<typeof placeAllocationInContainerSchema>;
+
+/**
+ * Phase 10C -- remove a previously placed quantity from a container.
+ */
+export const removeAllocationFromContainerSchema = z.object({
+  repairOrderLineId: z.string().uuid(),
+  containerId: z.string().uuid(),
+  linkId: z.string().uuid(),
+  quantity: z.number().positive(),
+});
+export type RemoveAllocationFromContainerInput = z.infer<
+  typeof removeAllocationFromContainerSchema
+>;

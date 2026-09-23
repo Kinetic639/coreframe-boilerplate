@@ -123,7 +123,12 @@ export default async function RepairOrderDetailPage({ params }: PageProps) {
         updatedAtLabel={new Date(order.updatedAt).toLocaleString(locale)}
       />
 
-      <RepairOrderLinesList lines={lines} loadError={linesLoadError} provenance={provenance} />
+      <RepairOrderLinesList
+        lines={lines}
+        loadError={linesLoadError}
+        provenance={provenance}
+        branchId={branchId}
+      />
 
       <RepairOrderProvenance documents={provenance} loadError={provenanceLoadError} />
 

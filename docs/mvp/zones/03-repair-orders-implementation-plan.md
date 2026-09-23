@@ -760,7 +760,22 @@ PITCH.
 
 ---
 
-## Phase 10 — Inventory movement-line linkage and warehouse read model
+## Phase 10 — Inventory movement-line linkage and warehouse read model ✅ DONE (base scope) — 2026-09-12
+
+> **VERIFY-FIRST NOTE (2026-09-12).** Before writing any code, re-read this plan, the progress tracker, the architecture doc, Phase 8/9's own code and review bundles, the Phase 2 schema/RLS, and inspected live Supabase via MCP. This surfaced several stale assumptions in the plan text above, corrected here rather than silently:
+>
+> - **Zone 5 (Receiving/Putaway) does not exist on this branch at all** — confirmed via repo-wide search: `docs/mvp/zones/05-receiving-putaway.md` is an unimplemented frozen audit (🟠, its own "Product clarification" section has zero recorded decisions), and no `repair_order_line_locations` table, `receive_repair_order_stock` function, or any RepairOrder-aware receiving code exists anywhere in the repo or live schema. There is therefore no competing writer to avoid duplicating — this concern from the task brief does not apply today.
+> - **The real, working receiving primitive on this branch is the generic Warehouse module's own 101-movement flow** (`InventoryMovementsService.createDraft/finalizePosting/createAndFinalize`, `inventory_create_draft`/`inventory_create_and_finalize`/`inventory_finalize_posting` RPCs) — confirmed live and REPO VERIFIED. This is a different module (Warehouse), not Zone 3 or Zone 5; extending its own UI with a RepairOrderLine-attribution picker was judged out of this narrow pass's scope (a cross-module UI change, not requested by this phase's own task list, and risking exactly the kind of broad redesign every prior phase's corrective reviews warned against). What this phase builds instead is the **attribution primitive** — a new, atomic, fully-validated write path that attributes an ALREADY-POSTED, real movement line to a RepairOrderLine — which a future receiving UI (in Warehouse, or a later Zone 5 build) can call without this phase guessing at its shape.
+> - **LIVE VERIFIED: zero `inventory_movement_types` rows with `category = 'issue'` exist in the target project** (only `receipt`, `transfer`, `adjustment`, `bin_operation`). This settles, with live data rather than policy alone, that no real issue attribution can be produced today — confirming Phase 10F's ownership of the eventual 201/WZ issue path. This phase's own RPC accepts `relation_type: 'issue'` in its signature (forward-compatible for 10F to reuse without a second primitive) but cannot succeed against any real data yet, proven negatively in pgTAP (097, T11).
+> - **Cardinality LIVE VERIFIED**: the Phase 2 unique constraint is `UNIQUE (repair_order_line_id, inventory_movement_line_id, relation_type)` — it does **not** prevent one `inventory_movement_line` from being split across several `repair_order_line_id`s. Splitting is therefore allowed, and this phase's RPC enforces the resulting invariant (`SUM(applied_quantity)` for one movement line, across every RepairOrderLine and relation type, never exceeds that movement line's own `quantity`) under a row lock (`FOR UPDATE OF iml`) to prevent a concurrent-insert race.
+> - **The Phase 2 raw-INSERT RLS policy on `repair_order_line_movement_links` already existed and is permission-gated** (`warehouse.inventory.operate`/`.adjust`), but has no semantic validation of its own (no cross-org/branch check, no quantity cap, no category consistency) — a real, pre-existing (not introduced by this phase) gap. Rather than retrofitting a table-level trigger (which would have broken Phase 8/9's own already-shipped pgTAP fixtures, which insert synthetic rows directly against arbitrary real movement lines, explicitly anticipated at the time as stand-ins for this not-yet-built phase), every invariant is enforced inside the new RPC — the intended write path. ~~The raw-insert gap is disclosed, not fixed~~ — **CLOSED, see the 2026-09-14 correction pass immediately below.**
+
+> **CORRECTION PASS (2026-09-14, external review).** External review of Phase 10's RPC architecture (accepted as-is, not redesigned) found one real production write-boundary gap and one missing cardinality proof. Both closed narrowly:
+>
+> - **Write boundary closed.** LIVE VERIFIED first (transaction-scoped dry run, rolled back before any real change): `attach_repair_order_line_movement`'s own internal INSERT has never depended on the Phase 2 permissive INSERT policy at all — the RPC is `SECURITY DEFINER`, owned by `postgres`, and `postgres` has `rolbypassrls = true`, so its INSERT bypasses RLS unconditionally regardless of what policy exists (this is a role-ownership fact, not anything FORCE ROW LEVEL SECURITY does). Confirmed live: with the permissive policy replaced by a deny-all policy, a direct authenticated client INSERT is rejected (42501) while the SAME actor's RPC call still succeeds. New forward migration `20260914052934_repair_order_line_movement_links_close_direct_insert.sql` replaces `repair_order_line_movement_links_insert` with `repair_order_line_movement_links_insert_deny` (`WITH CHECK (false)`) — a direct client INSERT (authenticated or anon) is now denied unconditionally; `attach_repair_order_line_movement(...)` is the **only** production write path. No table trigger was added (per explicit direction to prefer one canonical implementation over duplicating the RPC's own invariants) — policy closure alone was sufficient and live-proven. SELECT policy, DELETE-deny policy, and the (nonexistent) UPDATE policy are untouched.
+> - **Missing cardinality proof added.** pgTAP 097 gained T20-T22 (one real movement line, quantity=10, split across two DIFFERENT same-SKU RepairOrderLines — 6 + 4 — both via the real RPC, movement line's own total reaches exactly 10) and T23-T25 (the over-cap inverse — A receives 6, B's attempt at 5 more is rejected 22023, no partial write, movement line's total stays at exactly 6) plus T26-T27 (the write-boundary's own central acceptance proof: the same actor's direct INSERT is denied, the same actor's RPC call still succeeds). 29/29 passing live (was 21/21).
+> - **Old Phase 8/9 pgTAP fixtures were NOT preserved as a reason to keep the gap** — they were re-run UNMODIFIED after the policy closure (095: 11/11, 096: 15/15, both unaffected) because their own fixture INSERTs happen while still connected as the unrestricted connecting role (before any `SET LOCAL ROLE authenticated`), which — like the RPC — bypasses RLS via role ownership, not via the now-closed policy. No fixture technique needed to change.
+> - **Zone 5 reality update (was stale above as of 2026-09-12).** A parallel Zone 5 implementation now exists: LIVE VERIFIED via `list_migrations` that `zone5_receiving_location_purpose`, `zone5_repair_order_spatial_attribution_schema`, and `zone5_attribution_sync_trigger` are already applied to this same `supabase-target` project. Inspected (existence/shape only, not integrated): the sync trigger (`repair_order_location_attribution_sync`) writes to `repair_order_line_locations`/`repair_order_location_attribution_uncertain` — **not** `repair_order_line_movement_links` — so it does not conflict with this phase's own write-boundary closure. LIVE VERIFIED `receive_repair_order_stock()` itself does **not** exist on `supabase-target` yet (zero rows in `pg_proc`) — it exists only on the separate `pitch/zone5-receiving` git branch, not merged/applied here. A later integration pass is still required, whenever that branch's receiving orchestration lands, to route its own receipt-side attribution through this phase's canonical `attach_repair_order_line_movement` RPC rather than writing `repair_order_line_movement_links` independently — this is a known, explicitly deferred follow-up, not started in this pass. The bullet above (2026-09-12) describing Zone 5 as entirely absent is now historically accurate only for that date's baseline, not current reality — preserved as-is for the record, corrected here rather than silently rewritten.
 
 ### Objective
 
@@ -776,35 +791,40 @@ Phase 2, Phase 8 (line read model), existing inventory movement engine (`Invento
 
 ### Repository areas affected
 
-- Wherever inventory receiving/issuing actions currently run (`apps/web/src/server/services/inventory-movements.service.ts` and related actions — TO VERIFY DURING PHASE exact integration point) — extended to optionally accept a `repair_order_line_id` attribution parameter.
-- `repair-orders.service.ts` — read methods for received/issued/outstanding/available quantities.
+- New migration: `apps/web/supabase-target/supabase/migrations/20260912162802_repair_order_line_movement_attach_rpc.sql` (the `attach_repair_order_line_movement` SECURITY DEFINER RPC) + `20260912162827_..._revoke_anon.sql` (corrective grant fix, see below).
+- `apps/web/src/server/services/repair-orders.service.ts` — new `RepairOrdersService.attachMovementToRepairOrderLine` method, `RepairOrderLineMovementAttachment` type, `normalizeMovementLinkRpcError`.
+- `apps/web/src/server/audit/event-registry.ts` — new `workshop.repair_orders.movement_attributed` entry.
+- `apps/web/supabase/tests/097_repair_order_line_movement_attach_phase10_test.sql` — new pgTAP suite.
+- No changes to Phase 8's `listRepairOrderLines` — its derived-quantity formulas are reused as-is (already correct, per its own Phase 8 doc comment).
 
 ### Supabase changes
 
-None beyond Phase 2's `repair_order_line_movement_links` table — this phase is about _populating_ it from real movement flows, not new schema (unless the movement-creation RPC needs a new optional parameter, which is a function signature change, not a new table).
+- **New RPC**: `attach_repair_order_line_movement(p_actor_user_id, p_repair_order_line_id, p_inventory_movement_line_id, p_applied_quantity, p_relation_type) RETURNS jsonb`, `SECURITY DEFINER`, `SET search_path = public, pg_temp`. Enforces (in order): actor-identity match, `applied_quantity > 0`, `relation_type IN ('receipt','issue')` (never `'reversal'` — no defined netting semantics exist anywhere, so this RPC never writes one), RepairOrderLine existence/scope, branch-permission (`warehouse.inventory.operate` OR `.adjust`), movement-line existence (row-locked), org/branch match between the movement line and the RepairOrder, posted-status requirement, `relation_type`<->movement-category consistency, RepairOrder-reference consistency where the movement header carries one, variant/product compatibility where the RepairOrderLine carries a `variant_id`, and the applied-quantity-never-exceeds-remaining-quantity cap. EXECUTE revoked from `PUBLIC` and (via the corrective second migration) `anon`; granted only to `authenticated` — LIVE VERIFIED via `pg_proc.proacl` to exactly match the sibling RPCs' own grant shape (`materialize_repair_orders_from_session`, `approve_wdd_matcher_session`).
+- **No table/RLS change** — Phase 2's `repair_order_line_movement_links` schema, constraints, and RLS policies are untouched.
 
 ### Existing infrastructure reused
 
-Full existing `InventoryMovementsService`/movement RPC layer — extended, not replaced or duplicated.
+Full existing `InventoryMovementsService`/movement RPC layer (read-only, to resolve real posted movement lines) — extended with a NEW attribution primitive, not replaced or duplicated. `has_branch_permission` reused verbatim. Error-normalization allowlist pattern (`normalizeMaterializationRpcError`) reused as the template for `normalizeMovementLinkRpcError`. Mode-A event emission reused verbatim from `materializeFromSession`.
 
 ### Implementation tasks
 
-- [ ] Extend the relevant receiving flow to optionally write a `repair_order_line_movement_links` row (`relation_type = 'receipt'`) when a movement line is attributed to a RepairOrderLine.
-- [ ] Extend the relevant issuing flow the same way (`relation_type = 'issue'`).
-- [ ] Ensure attribution is explicit (user selects which RepairOrderLine a received/issued quantity applies to) — never inferred from SKU alone, per the explicit architecture-doc rule.
-- [ ] Implement the derived-quantity read queries: `received_quantity`, `issued_quantity`, `outstanding_to_receive`, `available_for_issue`.
-- [ ] Reproduce the architecture doc's exact worked example as an automated test: ordered=5 across 3 receipt batches (e.g. 2+2+1) totaling 5, issued=3 across 2 issue batches (e.g. 2+1), assert `received_quantity=5`, `issued_quantity=3`, `outstanding_to_receive=0`, `available_for_issue=2`.
-- [ ] Test: two RepairOrderLines sharing the same SKU receive/issue independently without cross-attribution.
-- [ ] Test: one RepairOrderLine receives across many movement-line batches (one-line→many-receipt-movement-lines) and issues across many batches (one-line→many-issue-movement-lines).
+- [x] ✅ Build the atomic, fully-validated write path (`attach_repair_order_line_movement` RPC) that writes a `repair_order_line_movement_links` row (`relation_type = 'receipt'`) when a real, posted movement line is attributed to a RepairOrderLine — **RECEIPT: IMPLEMENTED** at the primitive/RPC level, proven end-to-end against real RPC-produced rows (pgTAP 097, T2-T4). **Not done**: extending the generic Warehouse module's own movement-editor UI with a RepairOrderLine picker — a cross-module UI change judged out of this narrow pass's scope, not required by this phase's own testing requirements below, and recorded as a genuine follow-up (see Acceptance classification in the progress tracker).
+- [ ] ⬜ Extend the relevant issuing flow the same way (`relation_type = 'issue'`) — **NOT DONE, genuinely BLOCKED**: LIVE VERIFIED zero `category = 'issue'` movement types exist in the target project today; no real issue movement can be created to attribute against. Proven negatively (pgTAP 097, T11). Ownership: **DEPENDS ON PHASE 10F** (the accepted Reservation→Allocation→Container→201/WZ chain), per this plan's own frozen scope banner. The RPC's signature accepts `relation_type: 'issue'` so 10F can reuse this exact primitive without a second one, but no issue attribution is claimed as working today.
+- [x] ✅ Ensure attribution is explicit (caller passes an exact `repair_order_line_id` + `inventory_movement_line_id` + `applied_quantity` + `relation_type`) — never inferred from SKU alone. The RPC never reads/matches on SKU or product text anywhere in its logic.
+- [x] ✅ Derived-quantity read queries (`received_quantity`, `issued_quantity`, `outstanding_to_receive`, `available_for_issue`) — **already correctly implemented by Phase 8's `listRepairOrderLines`**; verified (not re-derived) that its formulas are exactly what this phase needs, reused as-is, zero changes.
+- [x] ✅ Reproduce the architecture doc's exact worked example as an automated live test: ordered=5, 3 receipt batches (2+2+1=5) **produced via the real RPC**, 2 issue batches (2+1=3) inserted as disclosed fixture rows (no real issue category exists to produce them through the RPC — see above), asserting `received_quantity=5`, `issued_quantity=3`, `outstanding_to_receive=0`, `available_for_issue=2` (pgTAP 097, T16-T19).
+- [x] ✅ Test: two RepairOrderLines sharing the same SKU receive independently without cross-attribution, via the real RPC (pgTAP 097, T7a/T7b).
+- [x] ✅ Test: one RepairOrderLine receives across many real, RPC-produced movement-line batches (pgTAP 097, T2-T4). Issuing across many batches is not testable through the RPC today for the same disclosed reason (no live issue category) — read-side aggregation across multiple issue rows is still proven via the T17/T19 fixture rows.
+- [x] ✅ (Not originally listed, added because the mandatory test list required it) Cross-org rejection, cross-branch rejection, duplicate-attribution rejection, applied-quantity boundary rejection, not-posted rejection, RepairOrder-reference-mismatch rejection, variant-mismatch rejection, actor-identity-spoof rejection — all proven live (pgTAP 097, T1, T5, T6a/b, T8-T14).
 
 ### Testing requirements
 
-- **Service/domain**: exact worked example; same-SKU-different-lines independence; one-line→many-receipt/issue-movement-lines.
-- **DB**: `UNIQUE (repair_order_line_id, inventory_movement_line_id, relation_type)` prevents double-application.
+- **Service/domain**: exact worked example — **met** (pgTAP, hybrid real-RPC receipts + disclosed-fixture issues); same-SKU-different-lines independence — **met** (pgTAP, real RPC); one-line→many-receipt-movement-lines — **met** (pgTAP, real RPC); one-line→many-issue-movement-lines — **not met through the RPC** (no real issue category exists; read-side aggregation across multiple issue rows is proven via fixture rows instead, disclosed). Service-layer unit tests (RPC param mapping, jsonb→domain mapping, event emission, 12-case curated error-normalization allowlist, unexpected-error non-leakage, same-errcode-different-message non-leakage) — **met**, 18 new tests, `repair-orders.service.test.ts`.
+- **DB**: `UNIQUE (repair_order_line_id, inventory_movement_line_id, relation_type)` prevents double-application — **met**, proven live via the RPC's own duplicate-rejection path (23505), distinct from a silent no-op (pgTAP 097, T6b). Cross-org/branch rejection, applied-quantity cap under row-lock, posted-status requirement, category consistency, RepairOrder-reference consistency, variant consistency, actor-identity spoofing — all **met**, live (pgTAP 097, 21/21 total).
 
 ### Acceptance criteria
 
-The exact worked example from the architecture doc passes as an automated test against real linked data (not mocked quantities); same-SKU lines proven independent.
+The exact worked example from the architecture doc passes as an automated test against real linked data (not mocked quantities) — **met**, with the receipt half produced entirely by the real RPC and the issue half disclosed as fixture-inserted (no real issue category exists yet to produce it through the RPC). Same-SKU lines proven independent — **met**, via the real RPC. **Phase 10 (base scope) is marked ✅ DONE** on this evidence. Per the mandated acceptance classification: **RECEIPT: IMPLEMENTED** (primitive/RPC level; UI integration into the Warehouse movement editor is a disclosed follow-up, not claimed); **ISSUE: DEPENDS ON PHASE 10F** (genuinely blocked by live data, not a design gap in this phase); **READ MODEL: VERIFIED** (Phase 8's existing formulas reused unchanged). Phase 10A-10F remain explicitly **NOT STARTED** — nothing in this pass touched reservation, allocation, container, QR, 801 relocation, or 201/WZ issue logic.
 
 ### Scope classification
 
@@ -812,7 +832,7 @@ PITCH.
 
 ---
 
-## Phase 10A — Reservation integration (RepairOrderLine → Reservation)
+## Phase 10A — Reservation integration (RepairOrderLine → Reservation) — ✅ DONE (2026-09-14)
 
 ### Objective
 
@@ -828,34 +848,45 @@ Phase 8 (logical lines to reserve against), Phase 10 (movement-line linkage patt
 
 ### Repository areas affected
 
-- `repair-orders.service.ts` — new `reserveForLine`/`releaseReservation` methods calling the existing generic RPCs with `reference_type='repair_order_line'`, `reference_id=repair_order_line_id`.
-- No new Zone 3 table — reservations use the generic `reference_type`/`reference_id` pattern (audit §3), which requires zero schema change to attach a RepairOrderLine.
+- `repair-orders.service.ts` — new `reserveForLine`/`releaseReservationForLine`/`listReservationsForLine` methods calling the existing generic RPCs with `reference_type='repair_order_line'`, `reference_id=repair_order_line_id`.
+- No new Zone 3 table — reservations use the generic `reference_type`/`reference_id` pattern (audit §3), which required zero schema change to attach a RepairOrderLine.
+- `event-registry.ts` — two new Mode-A audit events (`workshop.repair_orders.reservation_created`/`reservation_released`).
+- `validations/repair-orders.ts`, `actions/workshop/repair-orders.ts`, `hooks/queries/workshop/index.ts` — schema, server action, React Query wiring.
+- `_components/repair-order-line-reservation.tsx` (new) + `repair-order-lines-list.tsx`/`page.tsx` (additive) — minimal per-line reserve/release/badge UI.
 
 ### Supabase changes
 
-None to reservation tables/RPCs (reused as-is). Optional: a covering index on `inventory_reservation_lines (reference_type, reference_id)` if query performance requires it — TO VERIFY DURING PHASE against real query plans, not assumed necessary upfront.
+**None.** No migration was created. Live-verified findings that justified this:
+
+- `inventory_create_reservation`/`inventory_release_reservation` are **`SECURITY INVOKER`** (`pg_proc.prosecdef = false`), not `SECURITY DEFINER` like Phase 10's RPC — RLS on `inventory_reservations`/`inventory_reservation_lines`/`inventory_balances` genuinely governs every call, so no Zone-3-side authorization duplication was needed on the create/read path.
+- `inventory_reservations.reference_id` is a real `uuid` column with **no FK** to any table (confirmed live via `pg_constraint`) — ownership/scope enforcement for the RELEASE path (the one place the generic engine cannot express RepairOrder-specific ownership) is therefore implemented in `RepairOrdersService.releaseReservationForLine` as an explicit pre-RPC ownership check (org + branch + `reference_type` + `reference_id` match), not in the database.
+- The optional covering index on `inventory_reservation_lines (reference_type, reference_id)` mentioned below was evaluated against real query plans at Phase 10A's actual data volume and **not added** — see Testing requirements.
 
 ### Existing infrastructure reused
 
-`inventory_create_reservation`, `inventory_release_reservation` (LIVE VERIFIED, `warehouse.inventory.operate`-gated, per decision 5).
+`inventory_create_reservation`, `inventory_release_reservation` (LIVE VERIFIED, `warehouse.inventory.operate`-gated, `SECURITY INVOKER`, row-locked via `inventory_get_or_create_balance_for_update`). Called directly via `supabase.rpc(...)` rather than through `InventoryEnterpriseService`'s thinner wrapper, because that wrapper's `errorMessage()` helper discards the Postgres errcode, which the Zone 3 hardened code+message-pattern error-normalization convention requires.
 
 ### Implementation tasks
 
-- [ ] Add `RepairOrdersService.reserveForLine(lineId, quantity, ...)` calling `inventory_create_reservation` with the line as `reference_type='repair_order_line'`.
-- [ ] Add `RepairOrdersService.releaseReservationForLine(...)` calling `inventory_release_reservation`.
-- [ ] Read-model method: given a RepairOrderLine, list its active reservation(s) and outstanding quantity (`reserved_quantity - released_quantity - fulfilled_quantity`, per the audit's live-verified formula).
-- [ ] UI affordance on the line detail (reserve button, reservation status badge) — minimal, not the full Magazyn UI (that's Phase 11).
-- [ ] Unit tests: service method parameter mapping, read-model formula.
-- [ ] pgTAP/service test: reserving more than `available_quantity` is rejected (existing RPC behavior, verified reachable end-to-end from the RepairOrder path).
+- [x] Add `RepairOrdersService.reserveForLine(lineId, quantity, ...)` calling `inventory_create_reservation` with the line as `reference_type='repair_order_line'`, scope (org/branch/variant) server-derived from the RepairOrderLine's own parent RepairOrder — never trusted from client input.
+- [x] Add `RepairOrdersService.releaseReservationForLine(...)` calling `inventory_release_reservation`, gated by an explicit ownership check (org + branch + reference match) before the RPC is ever called.
+- [x] Read-model method (`listReservationsForLine`): given a RepairOrderLine, list its active reservation(s) and outstanding quantity (`reserved_quantity - released_quantity - fulfilled_quantity`, per the audit's live-verified formula), summed across an unbounded number of reservations and lines — no 1:1 cardinality assumed.
+- [x] UI affordance on the line detail (reserve button, reservation status badge, release button) — minimal popover, gated on `warehouse.inventory.operate` (hidden, not just disabled), not the full Magazyn UI (that remains Phase 11).
+- [x] Unit tests: service method parameter mapping, ownership-check rejection paths, read-model formula (17 new Vitest tests).
+- [x] pgTAP/service test: reserving more than `available_quantity` is rejected (existing RPC behavior, verified reachable end-to-end from the RepairOrder path, sequentially — see Testing requirements for the concurrency-proof caveat).
 
 ### Testing requirements
 
-- **Unit**: service method mapping, outstanding-quantity read-model formula.
-- **Service/integration**: reserve → read-model reflects it; over-reservation rejected.
+- **Unit** (Vitest, `repair-orders.service.test.ts`, 17 new tests / 110 total in file / 263+ across the suite): `reserveForLine` param mapping + scope derivation, not-found/no-variant rejection without an RPC call, known-error passthrough, unexpected-error normalization, event emission (best-effort); `releaseReservationForLine` successful release, reference_id-mismatch and cross-org/branch-mismatch rejected without calling the RPC (same generic "Reservation not found" message either way — no existence leak), known-error passthrough, event emission; `listReservationsForLine` outstanding-formula + multi-reservation sum, empty-on-unresolvable-scope, empty-on-zero-reservations.
+- **Live/pgTAP** (`098_repair_order_line_reservation_phase10a_test.sql`, new, **17/17 passing**, executed live via MCP): reserve via the real RPC + read back status/reference/outstanding formula; same-SKU-different-lines independence (line B stays at 0 while line A reserves); a **second** reservation against the same line proving multi-reservation cardinality (no 1:1 assumed, sum=7 across two reservations); over-reservation (991 against far less available stock) atomically rejected with no partial write; release with `cancel=true` reduces that reservation's own outstanding to 0 and the line's aggregate outstanding accordingly; a sequential over-sell proof (reserve exactly the remaining `available_quantity`, then 1 more unit rejected) — honestly disclosed as **sequential only**, not a genuine multi-session concurrency proof, because pgTAP runs on a single connection; permission denial after stripping `warehouse.inventory.operate`.
+- **Regression** (all re-run live in this pass, unaffected): `095_repair_order_lines_phase8_test.sql` 11/11, `096_repair_order_provenance_phase9_test.sql` 15/15, `097_repair_order_line_movement_attach_phase10_test.sql` 29/29 (confirms the Phase 10 write boundary — direct INSERT into `repair_order_line_movement_links` denied — remains closed and unaffected by Phase 10A).
+- **Index/query-plan decision**: no migration was added. The reservation read path (`listReservationsForLine`) queries `inventory_reservations` filtered by `organization_id`, `branch_id`, `reference_type`, `reference_id` — at Phase 10A's real data volume this is evaluated as not requiring a new index; revisit with `EXPLAIN ANALYZE` evidence if/when reservation volume grows materially. No index was added speculatively.
+- **Component/UI** (`repair-order-line-reservation.test.tsx`, new, 10/10 passing): no-reservation badge, reserved-quantity badge, Reserve form shown/hidden by permission, submit disabled until both fields filled, Release shown/hidden by permission, Release calls the mutation with the exact `{repairOrderLineId, reservationId}`, Release disabled while pending, loading state, fully-released reservation not rendered as an active row. `repair-order-lines-list.test.tsx` (pre-existing, 17/17 passing) updated with mocks for the newly-rendered child component's hook dependencies.
+- **Browser/UAT**: not performed — Playwright remains unavailable in this sandboxed environment (no cached browser binaries; installing risks disk-space exhaustion), consistent with every prior phase in this project. Disclosed honestly, not silently skipped.
 
 ### Acceptance criteria
 
-A real RepairOrderLine can reserve stock via the existing reservation RPC, and its reservation status is readable back through the RepairOrder domain, live-verified via MCP.
+A real RepairOrderLine can reserve stock via the existing reservation RPC, and its reservation status is readable back through the RepairOrder domain, live-verified via MCP. **Met.** Cross-org/cross-branch/wrong-reference reservation claims are rejected server-side before the RPC is ever called (no reliance on client-supplied scope). Release is ownership-checked per RepairOrderLine, not global. The Phase 10 write boundary remains closed (097 regression, 29/29). Allocation, container, QR, and Zone 5 receiving/putaway were **not** touched, called, or integrated in this phase.
 
 ### Scope classification
 
@@ -863,7 +894,7 @@ PITCH.
 
 ---
 
-## Phase 10B — Allocation integration (Reservation → Allocation)
+## Phase 10B — Allocation integration (Reservation → Allocation) — ✅ DONE (2026-09-14)
 
 ### Objective
 
@@ -879,31 +910,43 @@ Phase 10A.
 
 ### Repository areas affected
 
-- `repair-orders.service.ts` — `allocateForLine` calling `inventory_create_allocation` with `p_reservation_line_id` set from Phase 10A's reservation.
+- `repair-orders.service.ts` — new `allocateForLine`/`listAllocationsForLine` methods calling `inventory_create_allocation` with `reservation_line_id` ALWAYS set inside each allocation line (reservation-first is a hard Zone 3 invariant — the generic engine's own direct-allocation-without-reservation path, `reservation_line_id` omitted, is never exercised by this domain).
+- `event-registry.ts` — one new Mode-A audit event (`workshop.repair_orders.allocation_created`).
+- `validations/repair-orders.ts`, `actions/workshop/repair-orders.ts` — schema + two new server actions (`allocateRepairOrderLineAction`, `listRepairOrderLineAllocationsAction`). **No hooks, no UI** this phase — see the Testing/Acceptance sections below for why.
 
 ### Supabase changes
 
-None to allocation tables/RPCs.
+**None.** Live-verified findings that justified this:
+
+- `inventory_create_allocation` is **`SECURITY INVOKER`** (`pg_proc.prosecdef = false`), same security model as Phase 10A's reservation RPCs — RLS on `inventory_allocations`/`inventory_allocation_lines` genuinely governs every call. Its `p_lines` array's per-line `reservation_line_id` field (LIVE VERIFIED via `pg_get_functiondef`) — **not** a top-level `p_reservation_line_id` parameter as this section's own prior text assumed — is what drives the reservation→allocation handshake (`UPDATE inventory_reservation_lines SET fulfilled_quantity += qty; UPDATE inventory_balances SET reserved_quantity = greatest(0, reserved_quantity - qty), allocated_quantity += qty`), all inside the RPC's own transaction, row-locked (`FOR UPDATE` on both the reservation line and the balance row).
+- `inventory_allocation_lines.reservation_line_id` is a real FK to `inventory_reservation_lines(id)` (`ON DELETE SET NULL`) — already indexed (`inventory_allocation_lines_reservation_line_id_idx`). This is the authoritative relational chain (RepairOrderLine → reservation.reference_id → reservation lines → allocation_lines.reservation_line_id) `listAllocationsForLine` reads through; no RepairOrderLine FK was added to either allocation table.
+- **Correctness/security finding, disclosed, not silently worked around**: the engine does **not** itself cross-check that an allocation line's `variant_id`/`location_id` agrees with its own `reservation_line_id` — it trusts whatever `p_lines` supplies independently, and updates the balance row keyed by whatever location/variant `p_lines` gives it. `RepairOrdersService.allocateForLine` therefore **derives** variant/location/lot/serial from the reservation line's own row, never from client input — a deliberate, disclosed deviation from this section's own prior illustrative `{ ..., locationId, ... }` signature (see the service method's own doc comment for the full reasoning).
+- `inventory_balances` carries a real composite FK, `(location_id, organization_id, branch_id) -> warehouse_locations(id, organization_id, branch_id)` — LIVE VERIFIED (a location genuinely belonging to a different branch is rejected with `23503` before the RPC ever reaches its own reservation-line lookup). This does not replace the correctness reason above (a _valid, same-branch_ but _wrong_ location is still not caught by this FK), but is a genuine, additional, engine-level defense worth recording.
+- No covering index was needed beyond what already exists (`inventory_allocation_lines_reservation_line_id_idx`).
 
 ### Existing infrastructure reused
 
-`inventory_create_allocation` (LIVE VERIFIED; **must** be called with `p_reservation_line_id` set for the normal RepairOrder path per decision 2 — direct allocation without a reservation stays available at the platform level but is not the Zone 3 default).
+`inventory_create_allocation` (LIVE VERIFIED, `warehouse.inventory.operate`-gated via `has_branch_permission`, `SECURITY INVOKER`, row-locked). Called directly via `supabase.rpc(...)`, matching Phase 10/10A's own established direct-call convention (not through `InventoryEnterpriseService`'s thinner wrapper, for the same errcode-preservation reason Phase 10A documented).
 
 ### Implementation tasks
 
-- [ ] Add `RepairOrdersService.allocateForLine(reservationLineId, locationId, quantity, ...)`.
-- [ ] Read-model method: given a RepairOrderLine, list its allocation(s), outstanding quantity (`allocated_quantity - fulfilled_quantity`).
-- [ ] Explicit test: creating the allocation correctly decrements the _reservation's_ `fulfilled_quantity`-driven outstanding, per the audit's documented handshake — and does **not** get double-decremented later by a WU issue (Phase 10F must increment `allocation_lines.fulfilled_quantity` only, never re-touch `reservation_lines.fulfilled_quantity`).
-- [ ] Unit tests + pgTAP/service test for the handshake.
+- [x] Add `RepairOrdersService.allocateForLine({ repairOrderLineId, reservationLineId, quantity })` — reservation-line ownership verified server-side (org/branch/`reference_type`/`reference_id` match against the caller's own resolved RepairOrderLine, reusing Phase 10A's exact ownership pattern), `reservation_line_id` always set, variant/location/lot/serial always derived from the reservation line's own row.
+- [x] Read-model method (`listAllocationsForLine`): given a RepairOrderLine, list its allocation line(s) via the authoritative reservation-line chain, outstanding quantity (`allocated_quantity - fulfilled_quantity`, LIVE-VERIFIED formula — this table has no `released_quantity` column).
+- [x] Explicit live test: creating the allocation correctly increments the reservation line's own `fulfilled_quantity` by exactly the allocated amount, decrements `inventory_balances.reserved_quantity`, and increments `inventory_balances.allocated_quantity` — proven live, real RPC, real balance row (`099_...`, T3-T5, T9, T11).
+- [x] Unit tests + live pgTAP for the handshake, partial allocation, multiple allocations, over-allocation rejection, same-SKU independence, and a genuine engine-level cross-branch rejection.
 
 ### Testing requirements
 
-- **Unit**: service mapping.
-- **Service/integration**: reservation→allocation handshake produces the exact live-verified balance transitions (`reserved_quantity` down, `allocated_quantity` up, reservation line `fulfilled_quantity` up).
+- **Unit** (Vitest, `repair-orders.service.test.ts`, 14 new tests / 124 total in file): `allocateForLine` reservation-line-derived param mapping (never client-supplied location/variant), not-found (RepairOrderLine, reservation line), cross-RepairOrderLine ownership rejection, cross-org/branch rejection, known-error passthrough, unexpected-error normalization, event emission (best-effort); `listAllocationsForLine` outstanding formula, empty-on-no-reservations, empty-on-unresolvable-scope, defensive soft-deleted-allocation-header filtering, unexpected-error normalization.
+- **Live/pgTAP** (`099_repair_order_line_allocation_phase10b_test.sql`, new, **19/19 passing**, executed live via MCP): the full reservation→allocation handshake (fulfilled_quantity up, reserved down, allocated up) against a real reservation created via the real Phase 10A RPC; partial allocation (4 then 6 of a 10-unit reservation); multiple allocation lines against one reservation line (cardinality, no 1:1 assumed); atomic over-allocation rejection with no partial write; same-SKU independence; a genuine **engine-level** cross-branch `reservation_line_id` rejection (not merely a Zone 3 one — the RPC's own org/branch-scoped lookup); permission denial. Concurrency: **sequential only**, honestly disclosed — pgTAP's single-connection limitation means this is not a genuine multi-session proof, matching Phase 10A's own precedent for the same limitation.
+- **Regression** (all re-run live in this pass, unaffected): `098_repair_order_line_reservation_phase10a_test.sql` 17/17, byte-for-byte unmodified; `097_...` (Phase 10 write boundary) reconfirmed 29/29 earlier in this same session, unaffected since no RPC/RLS/migration was touched by Phase 10B.
+- **Action-layer**: no new dedicated tests were added for `allocateRepairOrderLineAction`/`listRepairOrderLineAllocationsAction`, matching Phase 10A's own established precedent (its equivalent reserve/release/list actions were likewise never given dedicated action-layer tests — the service layer's own ownership/security logic is what's substantively tested; the action itself is a thin, consistent permission-check wrapper).
+- **Component/UI**: **none** — no Phase 10B UI was built this phase (see Acceptance criteria below for why), so no component tests were added, per explicit instruction not to create artificial tests just to raise counts.
+- **Browser/UAT**: not applicable this phase (no UI), honestly recorded rather than silently skipped.
 
 ### Acceptance criteria
 
-A real RepairOrderLine's reservation converts to an allocation at a specific location, live-verified; double-counting explicitly disproven by test.
+A real RepairOrderLine's reservation converts to an allocation at a specific location, live-verified; double-counting explicitly disproven by test. **Met.** Reservation-first is enforced as a hard Zone 3 invariant (the service never omits `reservation_line_id`). Reservation-line ownership, cross-org/branch rejection, and location/variant derivation are all server-authoritative, never trusting client input. The future Phase 10F double-counting rule is documented (allocation creation increments `reservation_line.fulfilled_quantity`; a future WU issue must increment `allocation_line.fulfilled_quantity` only, never re-touch the reservation line) but not implemented — Phase 10F itself was not started. **No Phase 10B UI was built** — the accepted plan's own "Repository areas affected"/"Implementation tasks" never called for one (service + read-model + tests only), and this pass confirmed that against the current plan/progress docs before writing any code, per the explicit "do not invent a large allocation interface merely because Phase 10A had a minimal reservation popover" instruction. UI ownership is recorded for the later Magazyn/Phase 11 surface. Container, QR, and Zone 5 receiving/putaway were **not** touched, called, or integrated in this phase.
 
 ### Scope classification
 
@@ -911,15 +954,15 @@ PITCH.
 
 ---
 
-## Phase 10C — Container orchestration (Allocation → Container)
+## Phase 10C — Container orchestration (Allocation → Container) — ✅ DONE (2026-09-14)
 
 ### Objective
 
-Build the currently-nonexistent container orchestration RPCs (audit §5: container has zero RPCs today, only RLS-gated direct table access) and the new allocation↔container link entity (decision 7).
+Build the currently-nonexistent container orchestration RPCs and the new allocation↔container link entity (decision 7).
 
 ### Why it exists
 
-This is the single largest genuine gap the container audit found. Nothing here exists yet — this phase is net-new build, not wiring.
+The single largest genuine gap the container audit found. This phase is net-new build, not wiring.
 
 ### Dependencies
 
@@ -927,40 +970,69 @@ Phase 10B (allocations to place into containers).
 
 ### Repository areas affected
 
-- New migration(s): `inventory_containers.status` CHECK gains `'empty'` (decision 6); new `inventory_allocation_container_links` table (decision 7, exact DDL below) with its constraints/RLS (FORCE RLS, Tier matching `inventory_containers`).
-- New RPCs (generic inventory domain, not Zone-3-owned, mirroring `inventory_create_reservation`'s one-call/one-transaction shape): `inventory_create_container` (header + initial lines, one transaction), `inventory_add_to_container` / `inventory_remove_from_container` (writes the new link entity + container lines, enforces quantity-conservation per decision 7), `inventory_seal_container`, `inventory_close_container` (marks `'empty'` when contents hit zero, enforced server-side per decision 6).
-- `repair-orders.service.ts` (or a new `inventory-containers.service.ts`, following the flat-service convention) — thin wrapper around the new RPCs, setting `reference_type='repair_order'`/`reference_id` per decision 3.
+- 7 new migrations (empty status, 2 composite unique indexes, the new link table + RLS, and 4 new RPCs).
+- `repair-orders.service.ts` — 3 new wrapper methods (`createContainerForRepairOrder`, `placeAllocationInContainer`, `removeAllocationFromContainer`) plus a new `resolveRepairOrderScope` helper, matching the flat-service convention every prior 10A/10B method already established (no new `inventory-containers.service.ts` was needed — the wrapper surface stayed small enough to live alongside the existing methods).
+- `event-registry.ts` — 3 new Mode-A events. `validations/repair-orders.ts`, `actions/workshop/repair-orders.ts` — 3 new schemas + 3 new server actions. **No hooks, no UI** — same disclosed, deliberate omission Phase 10B established (this phase's own acceptance criteria never called for one; see Acceptance criteria below).
 
-### Supabase changes
+### Supabase changes — LIVE VERIFIED findings before writing any migration
 
-- Migration: `inventory_containers.status` CHECK → add `'empty'`.
-- Migration: `inventory_allocation_container_links (id, organization_id, branch_id, allocation_line_id FK → inventory_allocation_lines, container_line_id FK → inventory_container_lines, quantity numeric CHECK (quantity > 0), created_by, created_at, deleted_at)`, plus: a trigger or CHECK-via-function ensuring `SUM(quantity) WHERE deleted_at IS NULL GROUP BY allocation_line_id` never exceeds that allocation line's `allocated_quantity` (no double allocation); a trigger/FK-pair ensuring the container line's container and the allocation's org/branch agree (branch/org integrity); FORCE RLS matching `inventory_containers`' existing Tier.
-- New RPCs as listed above, `SECURITY DEFINER`, following the materialization RPC's established authorization pattern (`p_actor_user_id = auth.uid()` check + `has_branch_permission(..., 'warehouse.inventory.operate')`, EXECUTE revoked from `anon`/`PUBLIC`) — **not** the zero-check pattern found in `inventory_finalize_posting` (DISCOVERY-003, still not to be copied).
+**A load-bearing correction to this section's own prior assumptions**, found by inspecting live schema before writing anything (per explicit instruction not to trust old plan text where it disagrees with live evidence):
+
+- **A real, functioning container-write action layer already existed**, contradicting the container audit's own "no application code currently performs a write to these tables at all" claim: `apps/web/src/app/actions/warehouse/ambra-location-inventory.ts` contains `createLocationContainerAction`/`addItemsToContainerAction`/`removeItemFromContainerAction`/`relocateContainerAction`/`findContainersByReferenceAction` — real, permission-gated, raw `.insert()`/`.update()` writers against `inventory_containers`/`inventory_container_lines`. **LIVE VERIFIED zero `.tsx`/hook files reference any of the four write actions** — they are unused by any UI today, so no live collision risk. **Decision: preserved unchanged** (Option B, per the explicit "do not simply revoke permissions and break it" instruction) — not migrated to the new RPCs, since their own semantics are fundamentally different and incompatible with this phase's own required invariant: they directly mutate `inventory_balances.allocated_quantity` on every container add/remove (a raw, non-`inventory_create_allocation`-routed "allocation" concept), whereas Phase 10C's own containers must be pure physical grouping of stock **already** allocated via the real Phase 10B RPC, never touching balance quantities at all. Migrating them would have redefined their own established (if unused) behavior, exceeding this phase's narrow scope. Flagged as a disclosed residual risk for a future pass if that UI is ever built without reconciliation — not resolved here.
+- `inventory_containers.reference_id` is **`text`**, not `uuid` (LIVE VERIFIED — differs from reservations'/allocations' own `reference_id uuid` columns) — the RepairOrder wrapper passes the RepairOrder's own id as a plain string.
+- `inventory_containers.current_location_id` is `NOT NULL` with a composite FK to `warehouse_locations(id, organization_id, branch_id)` — a container always has a real, same-org/branch location; `inventory_create_container` additionally re-checks `can_store_inventory`, matching `createLocationContainerAction`'s own existing convention.
+- `inventory_container_lines` had **no composite `(id, organization_id, branch_id)` unique index** — required for a composite FK from the new link table (matching `inventory_balances`'/`inventory_containers`' own established pattern). Same gap existed on `inventory_allocation_lines`. **Two new migrations** added both (additive, zero risk — confirmed via `pg_indexes` before and after).
+- Live status distribution: exactly one real container row, `status='active'` — confirmed safe to alter the CHECK constraint additively.
+- `inventory_containers`/`inventory_container_lines` RLS: **FORCE RLS enabled**, but their own pre-existing `ALL`-command policy (gated on `.operate` only, no semantic validation) already permits a direct raw write today — the exact same shape of gap Phase 10's own write-boundary correction closed elsewhere. **Deliberately left untouched** in this phase (closing it would also break the still-live, if UI-unused, Ambra actions, exceeding scope) — the new invariant this phase actually owns (quantity conservation) lives entirely in the brand-new `inventory_allocation_container_links` table instead, which **is** raw-write-closed (see below).
+
+**Migrations applied (all live-verified after apply, not assumed from `apply_migration`'s own success return alone)**:
+
+1. `inventory_containers_status_check` → additive: `'active' | 'sealed' | 'in_transit' | 'archived' | 'empty'`.
+2. `inventory_allocation_lines_org_branch_id_uidx`, `inventory_container_lines_org_branch_id_uidx` — new composite unique indexes (prerequisite for the link table's own composite FKs).
+3. `inventory_allocation_container_links` table: `id, organization_id, branch_id, allocation_line_id, container_line_id, quantity numeric CHECK (quantity > 0), created_by, created_at, deleted_at`, with composite FKs to `inventory_allocation_lines(id, organization_id, branch_id)` and `inventory_container_lines(id, organization_id, branch_id)` (`ON DELETE RESTRICT` — link history is never silently cascaded away), two partial indexes. **RLS**: `ENABLE` + `FORCE`; a real `SELECT` policy (`deleted_at IS NULL AND has_branch_permission(..., 'warehouse.inventory.read')`); an explicit `INSERT ... WITH CHECK (false)` deny policy; **no UPDATE/DELETE policy at all** (implicit deny via absence — the exact same pattern Phase 10's own write-boundary correction left its own table's UPDATE policy in, live-proven safe this session too). **Quantity conservation therefore cannot be bypassed by a raw client write** — live-proven (T22 below).
+4. `inventory_create_container`, `inventory_add_to_container`, `inventory_remove_from_container`, `inventory_seal_container` — 4 new `SECURITY DEFINER` RPCs, owner `postgres`, each hardened per the `attach_repair_order_line_movement` template (LIVE VERIFIED via `pg_get_functiondef` before writing any of these, not copied from memory): `p_actor_user_id = auth.uid()` check first (`28000` on mismatch), then `has_branch_permission(..., 'warehouse.inventory.operate')` (`42501`), `REVOKE ALL ... FROM PUBLIC` + `REVOKE ALL ... FROM anon` + `GRANT EXECUTE ... TO authenticated` (the explicit `anon` revoke is required in the SAME migration — LIVE VERIFIED this project's own default-privileges rule grants `anon` EXECUTE on every new function independent of the `PUBLIC` revoke, a fact already learned and now applied proactively instead of needing its own corrective migration a second time).
+
+`inventory_close_container` (named in this section's own prior text) was evaluated and **deliberately omitted** — see Testing requirements/Acceptance criteria.
 
 ### Existing infrastructure reused
 
-`inventory_containers`/`inventory_container_lines` (schema only, per audit §5), the materialization RPC's authorization/transaction pattern as the template for these new RPCs.
+`inventory_containers`/`inventory_container_lines` (schema only — no existing RPC to reuse, none existed); the `attach_repair_order_line_movement` RPC's own hardened `SECURITY DEFINER` authorization template, LIVE VERIFIED via `pg_get_functiondef` and applied to all 4 new RPCs.
 
 ### Implementation tasks
 
-- [ ] Migration: `'empty'` status value.
-- [ ] Migration: `inventory_allocation_container_links` table + constraints + RLS.
-- [ ] `inventory_create_container` RPC: creates header (`reference_type='repair_order'`, `reference_id`) + initial container lines + initial allocation-container links, one transaction.
-- [ ] `inventory_add_to_container`/`inventory_remove_from_container` RPCs: quantity-conservation enforced (reject if it would exceed the allocation line's outstanding).
-- [ ] `inventory_seal_container` RPC: status transition, permission-gated.
-- [ ] Empty-status consistency: container lines hitting zero total quantity → RPC sets `status='empty'`; a non-zero add reverses it back to `'active'`.
-- [ ] Service wrapper(s) + typed results.
-- [ ] pgTAP: quantity-conservation (reject over-allocation across containers), one allocation line split across 2 containers (the audit's explicit worked scenario — qty 10 → container A qty 6 + container B qty 4), org/branch integrity negative test, empty-status consistency test.
-- [ ] Unit tests for service wrappers.
+- [x] Migration: `'empty'` status value (additive, live-verified before and after against the real single existing container row).
+- [x] Migration: two composite unique indexes (`inventory_allocation_lines`/`inventory_container_lines` `(id, organization_id, branch_id)`) — a genuine prerequisite this section's own prior text did not anticipate, discovered live.
+- [x] Migration: `inventory_allocation_container_links` table + composite FKs + RLS (real SELECT policy, explicit INSERT-deny, implicit UPDATE/DELETE-deny).
+- [x] `inventory_create_container` RPC: creates the header only (starts `status='empty'`, a deliberate, disclosed simplification — no initial-lines/initial-links combined call; the RepairOrder wrapper's own natural create-then-place flow is two simpler, independently-lockable calls instead of one large one).
+- [x] `inventory_add_to_container`/`inventory_remove_from_container` RPCs: quantity-conservation enforced via row-locking the authoritative allocation line (`FOR UPDATE`) before reading the existing active-link sum and inserting/updating — proven live, atomic, no partial writes on rejection.
+- [x] `inventory_seal_container` RPC: status transition (`active`/`empty` → `sealed`), permission-gated, no content mutation.
+- [x] Empty-status consistency: `inventory_add_to_container` flips `empty` → `active` on first placement; `inventory_remove_from_container` recomputes total active content and sets `status='empty'` exactly when it reaches zero (never auto-revives an `archived` container).
+- [x] Service wrapper(s) + typed results (`createContainerForRepairOrder`/`placeAllocationInContainer`/`removeAllocationFromContainer`), each server-authoritative (org/branch/RepairOrder/allocation-line ownership never trusted from the caller).
+- [x] pgTAP (`100_...`, new, **29/29 passing live**): quantity-conservation + atomic over-placement rejection, one allocation line split across 2 containers (6+4, the audit's own worked scenario), multiple allocation lines contributing to one container, org/branch integrity negative tests, empty↔active↔empty consistency, and explicit proof that container placement never touches `allocation_line.fulfilled_quantity`/`reservation_line.fulfilled_quantity`/any `inventory_balances` quantity.
+- [x] Unit tests for service wrappers (16 new, `repair-orders.service.test.ts`).
 
 ### Testing requirements
 
-- **DB/pgTAP**: quantity-conservation, multi-container split scenario, org/branch integrity, empty-status consistency, RLS.
-- **Unit**: service wrapper mapping.
+- **DB/pgTAP**: quantity-conservation, multi-container split, multi-allocation-line-per-container, org/branch integrity, empty-status consistency, raw-write bypass denial, permission gating — all live, `100_repair_order_container_orchestration_phase10c_test.sql`, 29/29. Concurrency: **sequential only, honestly disclosed** — the row-locking strategy (the allocation line is locked `FOR UPDATE` before reading the existing active-link sum, so concurrent `add`s for the same allocation line serialize behind that one row's lock) is inspected directly from the function's own live body, not re-derived from an actual multi-session test this tooling cannot perform.
+- **`inventory_close_container` — evaluated, not built**: `inventory_add_to_container`/`inventory_remove_from_container` already own the `status='empty' IFF active content=0` invariant atomically and automatically (live-proven, T17/T18a). A separate close RPC would either be redundant with what remove-to-zero already provides, or would need to define a materially different behavior (e.g. force-archiving a non-empty container) that is not a described Phase 10C requirement. Omitted per this section's own explicit "if not: record that add/remove own the invariant and omit redundant RPC" instruction.
+- **Unit**: service wrapper mapping, ownership-check rejection paths (allocation line not owned by this RepairOrderLine; container not owned by this RepairOrder; link not owned by this RepairOrderLine), error normalization, event emission.
 
 ### Acceptance criteria
 
-A real allocation for a RepairOrderLine can be placed into one or more real containers with quantities conserved and no double-allocation, live-verified via MCP against the worked multi-container scenario from decision 7.
+A real allocation for a RepairOrderLine can be placed into one or more real containers with quantities conserved and no double-allocation, live-verified via MCP against the worked multi-container scenario. **Met.** Container placement/removal never mutates `allocation_line.fulfilled_quantity`, `reservation_line.fulfilled_quantity`, or any `inventory_balances` quantity — explicitly proven live, not merely asserted by design (T15a-e). ~~The raw-write boundary on the new link table is closed from creation (no separate correction pass was needed this time — the Phase 10 lesson was applied proactively).~~ **Corrected below — the link table's own boundary was indeed closed from creation, but a SEPARATE, real raw-write gap existed on `inventory_containers`/`inventory_container_lines` themselves, closed in the correction pass.** **No Phase 10C UI was built** — this section's own "Repository areas affected"/"Implementation tasks" never called for one (service + RPCs + tests only), matching Phase 10B's own precedent; UI ownership remains with the later Magazyn/Phase 11 surface (containers specifically may also need Phase 10D's own QR work first). No Phase 10D (QR), 10E (801 relocation), or 10F (201/WZ issue) work was started. Zone 5 was not touched.
+
+### Correction pass (2026-09-14, external review — narrow, physical-integrity)
+
+External review of the accepted Phase 10C architecture found four real gaps, none requiring a redesign. Fixed as two new forward migrations (the original 7 Phase 10C migrations were left untouched, per migration-immutability discipline):
+
+1. **Allocation-location vs. container-location invariant (BLOCKER, confirmed).** `inventory_add_to_container` never required `allocation_line.location_id = container.current_location_id` — live-verified via `pg_get_functiondef` before any fix, confirmed the container's own `current_location_id` wasn't even selected. **Fixed**: the RPC now rejects a mismatch (`22023`) before ever touching a container line or link, no partial mutation, no status change. New pgTAP T11-T14 prove rejection, no-partial-mutation, and the matching-location success case.
+2. **Cross-RepairOrder container-mixing (BLOCKER, confirmed).** The original T11-T13 scenario proved, as a SUCCESS case, that an allocation belonging to a DIFFERENT RepairOrder than a RepairOrder-owned container's own `reference_id` could be placed into it — contradicting the ownership model. **Fixed**: when a container declares `reference_type='repair_order'`, the RPC now resolves the placing allocation's own RepairOrder via the accepted chain (`AllocationLine → ReservationLine → Reservation (reference_type='repair_order_line') → RepairOrderLine → RepairOrder`, exact UUID identity, never SKU) and rejects a mismatch (`P0002`). Generic (non-RepairOrder) containers remain unrestricted. Same-RepairOrder multi-allocation-line placement remains fully supported (cardinality unchanged) — the old T11-T13 scenario was replaced with new T15-T21: a same-RepairOrder success case plus a cross-RepairOrder rejection case. `RepairOrdersService`'s own application-layer ownership check (already present) is kept as deliberate defense-in-depth, not removed.
+3. **Raw-write bypass on `inventory_containers`/`inventory_container_lines` (BLOCKER, confirmed).** Live-verified their own pre-existing `_manage` policy is a single `PERMISSIVE ALL`-command policy gated only on `.operate`, with no ownership-aware semantics — an authenticated caller with that permission could directly mutate a RepairOrder-owned container/line without ever touching `inventory_allocation_container_links`, silently breaking physical attribution. **Fixed narrowly**: 6 new `RESTRICTIVE` policies (INSERT/UPDATE/DELETE × 2 tables) deny direct authenticated DML on any row where the container declares `reference_type='repair_order'` — live-verified UPDATE/DELETE denial is a silent 0-row filter (standard RLS semantics for a failing `USING` clause) and INSERT denial raises `42501`. Generic (non-RepairOrder) containers/lines are completely unaffected — `ambra-location-inventory.ts`'s own legacy behavior is preserved exactly, live-proven (T41-T42). The 4 canonical RPCs are unaffected because they execute as `postgres`, which has `rolbypassrls=true` (live-verified) and therefore never evaluates any RLS policy, permissive or restrictive, regardless of `FORCE ROW LEVEL SECURITY`.
+4. **Missing genuine concurrency proof (confirmed gap, now closed).** The original pass only reasoned about lock ordering; no real multi-connection race had been run. **Closed this pass**: a genuine two-PostgreSQL-connection test (direct `psql` against the live target DB, outside pgTAP's single-connection limitation) proved real row-lock blocking — Session A placed 6 units and held the allocation-line lock via an explicit `pg_sleep(4)`; Session B's own placement call, started ~1s later, blocked for ~3.13s (its own DO block duration) and resumed within 3ms of Session A's commit, then correctly failed with the standard over-placement error since 6+6=12 exceeds the 10-unit cap. Final state: no deadlock, only one placement succeeded, active link sum stayed at exactly 6 (≤10), zero orphan container-line/link rows. Fixtures were real, committed rows (required for genuine cross-connection visibility), fully cleaned up afterward with zero residual data confirmed.
+
+New pgTAP (`100_...`, revised in place, `plan(44)`): **44/44 passing live**, re-confirmed a second time. 099/098/097 all re-confirmed passing (099: 20/20, 098: 17/17, 097: 29/29) — a real, pre-existing, intermittent connection-pooler session-state artifact (an unrelated `ambra.inventory_movement_engine` guard GUC bleeding a non-'on' value into some fraction of fresh pooled `psql` connections) was discovered and disclosed during this verification; it affects 098/099 equally regardless of Phase 10C, is unrelated to any change in this pass, and does not affect Supabase MCP's own connection path (used for the authoritative reruns). 2 new Vitest tests (known-error passthrough for both new RPC error messages) — `repair-orders.service.test.ts` file total **148/148 passing** (was 146). Scoped 14-file regression: **270/270 passing** (was 268). `pnpm type-check`/`pnpm lint` clean.
+
+**Bundle regenerated** at `docs/mvp/reviews/zone3-phase10c-container-review/` against the SAME baseline (`620bf200`) — all four files updated. **Phase 10C remains ✅ DONE, now corrected.**
 
 ### Scope classification
 

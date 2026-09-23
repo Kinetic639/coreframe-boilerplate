@@ -6,9 +6,14 @@ import type {
   CreateEnhancedInventoryProductInput,
   CreateInventoryProductInput,
   CreateInventoryUnitInput,
+  CreateLotInput,
+  CreateOptionGroupInput,
+  CreateOptionValueInput,
+  CreateSerialInput,
   EnhancedAttributeInput,
   EnhancedCustomFieldValueInput,
   EnhancedVariantInput,
+  GenerateVariantInput,
   InventoryCustomFieldDefinition,
   InventoryMasterDataRow,
   InventoryProductDetail,
@@ -30,9 +35,14 @@ export type {
   CreateEnhancedInventoryProductInput,
   CreateInventoryProductInput,
   CreateInventoryUnitInput,
+  CreateLotInput,
+  CreateOptionGroupInput,
+  CreateOptionValueInput,
+  CreateSerialInput,
   EnhancedAttributeInput,
   EnhancedCustomFieldValueInput,
   EnhancedVariantInput,
+  GenerateVariantInput,
   InventoryCustomFieldDefinition,
   InventoryMasterDataRow,
   InventoryProductDetail,
@@ -52,6 +62,14 @@ export type {
 } from "@/lib/warehouse/inventory-types";
 
 export type ServiceResult<T> = { success: true; data: T } | { success: false; error: string };
+
+/** A6 simplification pass: moved from inventory-enterprise.service.ts
+ *  alongside the 7 catalog methods below (they use it for identical
+ *  error-shaping behavior); that file keeps its own copy since ~25
+ *  other, non-catalog methods there still depend on it. */
+function errorMessage(error: { message?: string } | null | undefined) {
+  return error?.message ?? "Unexpected database error";
+}
 
 type ProductRow = {
   id: string;
@@ -629,182 +647,6 @@ export class InventoryProductsService {
     return {
       success: true,
       data: { product_id: created.product_id, variant_ids: createdVariantIds, sku: created.sku },
-    };
-  }
-
-  static async createEnhancedProductLegacy(
-    supabase: SupabaseClient,
-    orgId: string,
-    input: CreateEnhancedInventoryProductInput,
-    userId: string
-  ): Promise<ServiceResult<{ product_id: string; variant_ids: string[]; sku: string }>> {
-    const variants = (input.variants ?? []).filter((variant) => variant.name.trim().length > 0);
-    const firstVariant = variants[0];
-    let productId: string | null = null;
-    const createdVariantIds: string[] = [];
-    const fail = async (
-      error: string
-    ): Promise<ServiceResult<{ product_id: string; variant_ids: string[]; sku: string }>> => {
-      if (productId) {
-        await InventoryProductsService.cleanupFailedEnhancedProductCreate(
-          supabase,
-          orgId,
-          productId,
-          userId
-        );
-      }
-      return { success: false, error };
-    };
-
-    const created = await InventoryProductsService.createProduct(
-      supabase,
-      orgId,
-      {
-        ...input,
-        sku: firstVariant?.sku || input.sku,
-      },
-      userId
-    );
-    if (!created.success) return { success: false, error: serviceError(created) };
-
-    productId = created.data.product_id;
-    const defaultVariantId = created.data.variant_id;
-    const attributeValueIds = await InventoryProductsService.ensureAttributeValues(
-      supabase,
-      orgId,
-      input.attributes ?? [],
-      userId
-    );
-    if (!attributeValueIds.success) return fail(serviceError(attributeValueIds));
-
-    if (firstVariant) {
-      const updateDefault = await InventoryProductsService.updateVariantForEnhancedCreate(
-        supabase,
-        orgId,
-        defaultVariantId,
-        firstVariant,
-        userId
-      );
-      if (!updateDefault.success) return fail(serviceError(updateDefault));
-      const optionResult = await InventoryProductsService.setVariantOptionValues(
-        supabase,
-        orgId,
-        defaultVariantId,
-        InventoryProductsService.optionValueIdsForVariant(firstVariant, attributeValueIds.data),
-        userId
-      );
-      if (!optionResult.success) return fail(serviceError(optionResult));
-      createdVariantIds.push(defaultVariantId);
-    } else {
-      createdVariantIds.push(defaultVariantId);
-    }
-
-    const remainingVariants = variants.slice(1);
-    for (const variant of remainingVariants) {
-      const { data: inserted, error: insertError } = await supabase
-        .from("inventory_variants")
-        .insert({
-          organization_id: orgId,
-          product_id: productId,
-          sku: variant.sku.trim(),
-          name: variant.name.trim(),
-          barcode: variant.barcode?.trim() || null,
-          purchase_price: variant.purchase_price ?? null,
-          sales_price: variant.sales_price ?? null,
-          price_currency: variant.price_currency ?? null,
-          created_by: userId,
-          updated_by: userId,
-        })
-        .select("id")
-        .single();
-      if (insertError) return fail(insertError.message);
-      const variantId = (inserted as { id: string }).id;
-      const optionResult = await InventoryProductsService.setVariantOptionValues(
-        supabase,
-        orgId,
-        variantId,
-        InventoryProductsService.optionValueIdsForVariant(variant, attributeValueIds.data),
-        userId
-      );
-      if (!optionResult.success) return fail(serviceError(optionResult));
-      createdVariantIds.push(variantId);
-    }
-
-    const variantsWithIds = variants.length
-      ? variants.map((variant, index) => ({ variant, id: createdVariantIds[index] }))
-      : [
-          {
-            variant: { sku: created.data.sku, name: input.name } as EnhancedVariantInput,
-            id: defaultVariantId,
-          },
-        ];
-
-    const identifierResult = await InventoryProductsService.writeVariantIdentifiers(
-      supabase,
-      orgId,
-      productId,
-      variantsWithIds,
-      userId
-    );
-    if (!identifierResult.success) return fail(serviceError(identifierResult));
-
-    if (input.branch_id) {
-      const reorderResult = await InventoryProductsService.writeReorderRules(
-        supabase,
-        orgId,
-        input.branch_id,
-        input.preferred_supplier_id ?? null,
-        variantsWithIds,
-        userId
-      );
-      if (!reorderResult.success) return fail(serviceError(reorderResult));
-    }
-
-    const tagResult = await InventoryProductsService.ensureTagsForProduct(
-      supabase,
-      orgId,
-      productId,
-      input.tags ?? [],
-      userId
-    );
-    if (!tagResult.success) return fail(serviceError(tagResult));
-
-    const customFieldResult = await InventoryProductsService.writeCustomFieldValues(
-      supabase,
-      orgId,
-      productId,
-      variantsWithIds,
-      input.custom_fields ?? [],
-      userId
-    );
-    if (!customFieldResult.success) return fail(serviceError(customFieldResult));
-
-    const unitConversionResult = await InventoryProductsService.replaceProductUnitConversions(
-      supabase,
-      orgId,
-      productId,
-      input.unit_conversions ?? [],
-      userId
-    );
-    if (!unitConversionResult.success) return fail(serviceError(unitConversionResult));
-
-    if (input.track_inventory && input.branch_id && input.opening_location_id) {
-      const openingResult = await InventoryProductsService.createOpeningStockMovement(
-        supabase,
-        orgId,
-        input.branch_id,
-        input.opening_location_id,
-        input.base_unit_id,
-        productId,
-        variantsWithIds,
-        userId
-      );
-      if (!openingResult.success) return fail(serviceError(openingResult));
-    }
-
-    return {
-      success: true,
-      data: { product_id: productId, variant_ids: createdVariantIds, sku: created.data.sku },
     };
   }
 
@@ -1397,22 +1239,6 @@ export class InventoryProductsService {
     };
   }
 
-  static async listSuppliers(
-    supabase: SupabaseClient,
-    orgId: string
-  ): Promise<ServiceResult<Array<{ id: string; name: string }>>> {
-    const { data, error } = await supabase
-      .from("inventory_suppliers")
-      .select("id, name")
-      .eq("organization_id", orgId)
-      .eq("status", "active")
-      .is("deleted_at", null)
-      .order("name", { ascending: true });
-
-    if (error) return { success: false, error: error.message };
-    return { success: true, data: (data ?? []) as Array<{ id: string; name: string }> };
-  }
-
   static async listOptionGroupsWithValues(
     supabase: SupabaseClient,
     orgId: string
@@ -1460,6 +1286,314 @@ export class InventoryProductsService {
         values: valuesByGroup.get(group.id) ?? [],
       })),
     };
+  }
+
+  /**
+   * A6 simplification pass: MOVED from InventoryEnterpriseService (the
+   * architecture compression review's own "kitchen sink" finding) --
+   * catalog-domain methods belong with the rest of product/variant CRUD.
+   * Body unchanged from the original, byte-for-byte other than swapping
+   * the shared `errorMessage` reference for this file's own local copy
+   * (see its own doc comment above).
+   */
+  static async createOptionGroup(
+    supabase: SupabaseClient,
+    orgId: string,
+    input: CreateOptionGroupInput
+  ): Promise<ServiceResult<{ id: string }>> {
+    const { data, error } = await supabase
+      .from("inventory_option_groups")
+      .insert({
+        organization_id: orgId,
+        name: input.name.trim(),
+        display_order: input.display_order ?? 0,
+        created_by: input.actor_user_id ?? null,
+        updated_by: input.actor_user_id ?? null,
+      })
+      .select("id")
+      .single();
+
+    if (error) return { success: false, error: errorMessage(error) };
+    return { success: true, data: data as { id: string } };
+  }
+
+  /** A6 simplification pass: MOVED from InventoryEnterpriseService, see
+   *  createOptionGroup's own doc comment above. */
+  static async createOptionValue(
+    supabase: SupabaseClient,
+    orgId: string,
+    input: CreateOptionValueInput
+  ): Promise<ServiceResult<{ id: string }>> {
+    const { data, error } = await supabase
+      .from("inventory_option_values")
+      .insert({
+        organization_id: orgId,
+        option_group_id: input.option_group_id,
+        value: input.value.trim(),
+        display_order: input.display_order ?? 0,
+        created_by: input.actor_user_id ?? null,
+        updated_by: input.actor_user_id ?? null,
+      })
+      .select("id")
+      .single();
+
+    if (error) return { success: false, error: errorMessage(error) };
+    return { success: true, data: data as { id: string } };
+  }
+
+  /** A6 simplification pass: MOVED from InventoryEnterpriseService, see
+   *  createOptionGroup's own doc comment above. */
+  static async generateVariants(
+    supabase: SupabaseClient,
+    orgId: string,
+    input: GenerateVariantInput
+  ): Promise<ServiceResult<{ variant_ids: string[] }>> {
+    const { data: product, error: productError } = await supabase
+      .from("inventory_products")
+      .select("id")
+      .eq("organization_id", orgId)
+      .eq("id", input.product_id)
+      .is("deleted_at", null)
+      .single();
+    if (productError || !product) return { success: false, error: errorMessage(productError) };
+
+    const valueIds = [...new Set(input.variants.flatMap((variant) => variant.option_value_ids))];
+    const { data: values, error: valuesError } = valueIds.length
+      ? await supabase
+          .from("inventory_option_values")
+          .select("id, option_group_id")
+          .eq("organization_id", orgId)
+          .in("id", valueIds)
+      : { data: [], error: null };
+    if (valuesError) return { success: false, error: errorMessage(valuesError) };
+
+    const valuesById = new Map(
+      ((values ?? []) as Array<{ id: string; option_group_id: string }>).map((value) => [
+        value.id,
+        value,
+      ])
+    );
+
+    const createdVariantIds: string[] = [];
+
+    for (const variant of input.variants) {
+      const optionRows = variant.option_value_ids.map((optionValueId) => {
+        const optionValue = valuesById.get(optionValueId);
+        if (!optionValue) return null;
+        return optionValue;
+      });
+      if (optionRows.some((row) => row === null)) {
+        return { success: false, error: "Generated variant contains an invalid option value" };
+      }
+
+      const validOptionRows = optionRows as Array<{ id: string; option_group_id: string }>;
+      const uniqueGroupCount = new Set(validOptionRows.map((row) => row.option_group_id)).size;
+      if (uniqueGroupCount !== validOptionRows.length) {
+        return {
+          success: false,
+          error: "Each generated variant can use only one value per option group",
+        };
+      }
+
+      const { data: created, error: createError } = await supabase
+        .from("inventory_variants")
+        .insert({
+          organization_id: orgId,
+          product_id: input.product_id,
+          sku: variant.sku.trim(),
+          name: variant.name.trim(),
+          is_default: false,
+          barcode: variant.barcode ?? null,
+          purchase_price: variant.purchase_price ?? null,
+          sales_price: variant.sales_price ?? null,
+          price_currency: variant.price_currency ?? null,
+          created_by: input.actor_user_id ?? null,
+          updated_by: input.actor_user_id ?? null,
+        })
+        .select("id")
+        .single();
+
+      if (createError) return { success: false, error: errorMessage(createError) };
+      const variantId = (created as { id: string }).id;
+      createdVariantIds.push(variantId);
+
+      if (validOptionRows.length > 0) {
+        const { error: optionInsertError } = await supabase
+          .from("inventory_variant_option_values")
+          .insert(
+            validOptionRows.map((row) => ({
+              organization_id: orgId,
+              variant_id: variantId,
+              option_group_id: row.option_group_id,
+              option_value_id: row.id,
+            }))
+          );
+
+        if (optionInsertError) return { success: false, error: errorMessage(optionInsertError) };
+      }
+    }
+
+    return { success: true, data: { variant_ids: createdVariantIds } };
+  }
+
+  /** A6 simplification pass: MOVED from InventoryEnterpriseService, see
+   *  createOptionGroup's own doc comment above. */
+  static async updateVariantPricing(
+    supabase: SupabaseClient,
+    orgId: string,
+    variantId: string,
+    input: {
+      purchase_price?: number | null;
+      sales_price?: number | null;
+      price_currency?: string | null;
+      actor_user_id?: string | null;
+    }
+  ): Promise<ServiceResult<{ id: string }>> {
+    const { data, error } = await supabase
+      .from("inventory_variants")
+      .update({
+        purchase_price: input.purchase_price,
+        sales_price: input.sales_price,
+        price_currency: input.price_currency,
+        updated_by: input.actor_user_id ?? null,
+      })
+      .eq("organization_id", orgId)
+      .eq("id", variantId)
+      .select("id")
+      .single();
+
+    if (error) return { success: false, error: errorMessage(error) };
+    return { success: true, data: data as { id: string } };
+  }
+
+  /** A6 simplification pass: MOVED from InventoryEnterpriseService, see
+   *  createOptionGroup's own doc comment above. */
+  static async updateVariantDetails(
+    supabase: SupabaseClient,
+    orgId: string,
+    variantId: string,
+    input: {
+      sku: string;
+      name: string;
+      status?: "active" | "archived" | "discontinued";
+      barcode?: string | null;
+      purchase_price?: number | null;
+      sales_price?: number | null;
+      price_currency?: string | null;
+      reorder_point?: number | null;
+      preferred_supplier_id?: string | null;
+      /** Source of truth for audit-by-supplier scoping — lives directly on
+       * inventory_variants (unlike preferred_supplier_id, which is stored on
+       * the separate inventory_reorder_rules table below). See
+       * apps/web/docs/stock-audit-implementation-plan.md §10. */
+      default_supplier_id?: string | null;
+      actor_user_id?: string | null;
+    }
+  ): Promise<ServiceResult<{ id: string }>> {
+    const updates: Record<string, unknown> = {
+      sku: input.sku.trim(),
+      name: input.name.trim(),
+      status: input.status,
+      barcode: input.barcode?.trim() || null,
+      purchase_price: input.purchase_price,
+      sales_price: input.sales_price,
+      price_currency: input.price_currency,
+      updated_by: input.actor_user_id ?? null,
+    };
+    if (input.default_supplier_id !== undefined) {
+      updates.default_supplier_id = input.default_supplier_id;
+    }
+
+    const { data, error } = await supabase
+      .from("inventory_variants")
+      .update(updates)
+      .eq("organization_id", orgId)
+      .eq("id", variantId)
+      .select("id")
+      .single();
+    if (error) return { success: false, error: errorMessage(error) };
+
+    if (input.reorder_point != null || input.preferred_supplier_id !== undefined) {
+      const client = supabase as any;
+      const { data: existingRule, error: existingError } = await client
+        .from("inventory_reorder_rules")
+        .select("id")
+        .eq("organization_id", orgId)
+        .eq("variant_id", variantId)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (existingError) return { success: false, error: errorMessage(existingError) };
+
+      if (existingRule) {
+        const { error: reorderError } = await client
+          .from("inventory_reorder_rules")
+          .update({
+            reorder_point: input.reorder_point ?? 0,
+            preferred_supplier_id: input.preferred_supplier_id ?? null,
+            updated_by: input.actor_user_id ?? null,
+          })
+          .eq("id", (existingRule as { id: string }).id);
+        if (reorderError) return { success: false, error: errorMessage(reorderError) };
+      }
+    }
+
+    return { success: true, data: data as { id: string } };
+  }
+
+  /** A6 simplification pass: MOVED from InventoryEnterpriseService, see
+   *  createOptionGroup's own doc comment above. */
+  static async createLot(
+    supabase: SupabaseClient,
+    orgId: string,
+    input: CreateLotInput
+  ): Promise<ServiceResult<{ id: string }>> {
+    const { data, error } = await supabase
+      .from("inventory_lots")
+      .insert({
+        organization_id: orgId,
+        product_id: input.product_id,
+        variant_id: input.variant_id,
+        lot_number: input.lot_number.trim(),
+        manufactured_at: input.manufactured_at ?? null,
+        expires_at: input.expires_at ?? null,
+        supplier_reference: input.supplier_reference ?? null,
+        created_by: input.actor_user_id ?? null,
+        updated_by: input.actor_user_id ?? null,
+      })
+      .select("id")
+      .single();
+
+    if (error) return { success: false, error: errorMessage(error) };
+    return { success: true, data: data as { id: string } };
+  }
+
+  /** A6 simplification pass: MOVED from InventoryEnterpriseService, see
+   *  createOptionGroup's own doc comment above. */
+  static async createSerial(
+    supabase: SupabaseClient,
+    orgId: string,
+    input: CreateSerialInput
+  ): Promise<ServiceResult<{ id: string }>> {
+    const { data, error } = await supabase
+      .from("inventory_serials")
+      .insert({
+        organization_id: orgId,
+        product_id: input.product_id,
+        variant_id: input.variant_id,
+        serial_number: input.serial_number.trim(),
+        lot_id: input.lot_id ?? null,
+        current_branch_id: input.current_branch_id ?? null,
+        current_location_id: input.current_location_id ?? null,
+        created_by: input.actor_user_id ?? null,
+        updated_by: input.actor_user_id ?? null,
+      })
+      .select("id")
+      .single();
+
+    if (error) return { success: false, error: errorMessage(error) };
+    return { success: true, data: data as { id: string } };
   }
 
   static async listTags(
@@ -2283,6 +2417,29 @@ export class InventoryProductsService {
     variants: Array<{ id: string; variant: EnhancedVariantInput }>,
     userId: string
   ): Promise<ServiceResult<Record<string, unknown>>> {
+    // IC-6A: opening stock is a destination-only physical increase with no
+    // counterparty/source — movement type 401 ("Inventory Count Adjustment
+    // (Increase)") is the only seeded, active, manually-postable type whose
+    // own location requirements match this shape (destination required,
+    // source not); there is no dedicated "opening balance" type in the
+    // catalog and none is warranted for one narrow caller. Posted through
+    // the canonical engine's single atomic entry point (`inventory_create_
+    // and_finalize`) rather than the old two-call draft+post pattern, so a
+    // network failure between steps can no longer leave an orphaned draft.
+    //
+    // `total_cost`/`currency` are dropped here: `inventory_create_draft`'s
+    // own `p_lines` contract (`variant_id, unit_id, quantity, source_
+    // location_id, destination_location_id, unit_cost, note`) has never
+    // accepted either field — they were already-dead computed values under
+    // the old broken code too (its own target RPC never existed to consume
+    // them), not a loss of previously-working behavior.
+    //
+    // `reference_type`/`reference_id` (columns that exist on `inventory_
+    // movement_headers` but that neither `inventory_create_draft` nor
+    // `inventory_create_and_finalize` exposes a parameter for) are
+    // preserved via the one available substitute, `p_external_reference`,
+    // carrying the product id — the same traceability intent, adapted to
+    // the current canonical surface rather than inventing new schema.
     const lines = variants
       .filter(
         ({ variant }) => variant.opening_quantity != null && Number(variant.opening_quantity) > 0
@@ -2293,38 +2450,24 @@ export class InventoryProductsService {
         unit_id: unitId,
         quantity: variant.opening_quantity,
         unit_cost: variant.opening_unit_cost ?? variant.purchase_price ?? null,
-        total_cost:
-          variant.opening_unit_cost && variant.opening_quantity
-            ? Number(variant.opening_unit_cost) * Number(variant.opening_quantity)
-            : null,
-        currency: variant.price_currency ?? null,
         note: "Opening stock from product creation",
       }));
     if (lines.length === 0) return { success: true, data: { movement_id: null } };
 
-    const { data: draft, error: draftError } = await supabase.rpc(
-      "inventory_create_draft_movement",
-      {
-        p_organization_id: orgId,
-        p_branch_id: branchId,
-        p_movement_kind: "opening_balance",
-        p_lines: lines,
-        p_adjustment_direction: null,
-        p_reason_id: null,
-        p_note: "Opening stock from product creation",
-        p_reference_type: "inventory_product",
-        p_reference_id: productId,
-        p_idempotency_key: `product-opening-stock-${productId}`,
-        p_actor_user_id: userId,
-      }
-    );
-    if (draftError) return { success: false, error: draftError.message };
-
-    const { data: posted, error: postError } = await supabase.rpc("inventory_post_movement", {
-      p_movement_id: (draft as { movement_id: string }).movement_id,
+    const { data: posted, error } = await supabase.rpc("inventory_create_and_finalize", {
+      p_organization_id: orgId,
+      p_branch_id: branchId,
+      p_movement_type_code: "401",
+      p_lines: lines,
+      p_operation_date: null,
+      p_document_date: null,
+      p_counterparty_name: null,
+      p_external_reference: productId,
+      p_note: "Opening stock from product creation",
+      p_idempotency_key: `product-opening-stock-${productId}`,
       p_actor_user_id: userId,
     });
-    if (postError) return { success: false, error: postError.message };
+    if (error) return { success: false, error: error.message };
     return { success: true, data: posted as Record<string, unknown> };
   }
 

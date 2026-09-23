@@ -1,0 +1,28 @@
+-- PRE-IC8 P0 -- forward correction, self-caught by the full 097-112
+-- regression run. Migration 20260919165805_pre_ic8_p0_fix_settings_
+-- warmup_via_internal_helper.sql created inventory_ensure_settings_
+-- row_internal() (SECURITY DEFINER, owner postgres) but then revoked
+-- EXECUTE from authenticated too, alongside anon/PUBLIC. This broke
+-- the very callers it was meant to fix: inventory_create_product_
+-- with_default_variant / inventory_create_purchase_order (and
+-- inventory_create_enhanced_product, which calls the former
+-- internally) are themselves SECURITY INVOKER. A SECURITY INVOKER
+-- function's nested call to another function executes under the
+-- CURRENT role (the real invoking role, authenticated) -- not as the
+-- definer of the callee -- so the EXECUTE privilege check on the
+-- internal helper is evaluated against authenticated, which had just
+-- been revoked. Live-confirmed via 111's own I1/I2/J1 scenarios
+-- failing with "42501 permission denied for function inventory_
+-- ensure_settings_row_internal" even for fully legitimate,
+-- correctly-permissioned callers.
+--
+-- Fix: restore EXECUTE on the internal helper for authenticated.
+-- anon/PUBLIC remain revoked -- this helper is never meant to be
+-- callable directly by an anonymous or public role, only reached via
+-- same-owner nesting from postgres-owned SECURITY DEFINER functions,
+-- or via nested calls from these two authenticated-invoked SECURITY
+-- INVOKER RPCs (which themselves already gate on real permission
+-- checks -- warehouse.products.manage / warehouse.procurement.manage
+-- -- before ever reaching this helper).
+
+GRANT EXECUTE ON FUNCTION public.inventory_ensure_settings_row_internal(uuid, uuid) TO authenticated;

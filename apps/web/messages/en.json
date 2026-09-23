@@ -3175,7 +3175,23 @@
             "loadFailed": "Failed to load parts lines"
           },
           "sourcesButton": "Sources ({count})",
-          "sourcesPopoverTitle": "Source lines for this part"
+          "sourcesPopoverTitle": "Source lines for this part",
+          "reservation": {
+            "badgeReserved": "Reserved {quantity}",
+            "badgeNone": "No reservation",
+            "badgeUnknown": "Reservation",
+            "popoverTitle": "Stock reservation for this part",
+            "loading": "Loading reservations…",
+            "errorState": "Couldn't load reservation status. Try again.",
+            "emptyState": "No active reservation for this part.",
+            "outstandingLabel": "Outstanding: {quantity}",
+            "reserve": "Reserve stock",
+            "release": "Release",
+            "confirmReserve": "Confirm",
+            "cancel": "Cancel",
+            "quantityPlaceholder": "Quantity",
+            "locationPlaceholder": "Location"
+          }
         },
         "provenance": {
           "title": "Source documents",
@@ -3200,7 +3216,9 @@
           "createSuccess": "Repair order created",
           "updateSuccess": "Repair order updated",
           "advisorAssignedSuccess": "Advisor updated",
-          "statusChangedSuccess": "Status updated"
+          "statusChangedSuccess": "Status updated",
+          "reservationCreatedSuccess": "Stock reserved",
+          "reservationReleasedSuccess": "Reservation released"
         }
       }
     },

@@ -1,0 +1,26 @@
+-- IC-6 LEGACY CLEANUP -- negative_stock_policy dead-configuration removal,
+-- step 2 of 2. Final product contract (IC-1, product-owner decision,
+-- 2026-09-15): on_hand_quantity >= 0 ALWAYS; reserved+allocated <=
+-- on_hand ALWAYS. 'allow'/'allow_with_approval' never bypassed this
+-- invariant and, per the prior migration's own proof, could NEVER have
+-- (the P0003 strand-check structurally preempts every negative-on-hand
+-- case regardless of this column's own value, and the DB-level CHECK
+-- (on_hand_quantity >= 0) on inventory_balances backstops it
+-- unconditionally either way).
+--
+-- OPTION A chosen (of the two the task offered): remove the misleading
+-- policy surface entirely, rather than preserve fake configurability.
+-- Zero application (TypeScript) readers or writers exist (confirmed via
+-- repo-wide grep, zero hits). Zero remaining SQL readers (confirmed by
+-- the prior migration -- inventory_finalize_posting_internal was the
+-- ONLY one, now fixed). Zero remaining CHECK/FK/trigger/view dependents
+-- other than the column's own CHECK constraint, which is dropped
+-- automatically with the column.
+--
+-- Data-impact proof: live query before this migration confirmed exactly
+-- ONE row in inventory_settings, with negative_stock_policy = 'block'
+-- (the column's own DEFAULT) -- i.e. the value was never anything other
+-- than its own default, and per the proof above, the value never once
+-- changed observable behavior. No meaningful state is lost.
+ALTER TABLE public.inventory_settings
+  DROP COLUMN negative_stock_policy;

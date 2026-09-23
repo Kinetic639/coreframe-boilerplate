@@ -1,0 +1,22 @@
+-- Live-caught defect (same overload pattern hit twice before in this
+-- project): the previous migration's `CREATE OR REPLACE FUNCTION public.
+-- inventory_finalize_posting(p_movement_id uuid, p_actor_user_id uuid
+-- DEFAULT NULL)` (2 args) did NOT replace the existing 3-arg `inventory_
+-- finalize_posting(uuid, uuid, jsonb)` -- different arity means Postgres
+-- treats it as a distinct overload. The OLD, vulnerable, public-named
+-- 3-arg function (the exact one the external review's P0 finding is
+-- about, and the live attack probe exploited) was THEREFORE STILL LIVE,
+-- STILL CALLABLE by anon/authenticated/service_role, immediately after the
+-- security-correction migration that was meant to close it. Live-verified
+-- before this fix: `has_function_privilege` showed `{authenticated, anon,
+-- service_role}` still able to execute
+-- `inventory_finalize_posting(uuid,uuid,jsonb)`.
+--
+-- Its logic has already been fully moved to `inventory_finalize_posting_
+-- internal(uuid, uuid, jsonb)` (all EXECUTE already revoked from every
+-- ordinary role) in the prior migration. This migration drops the old,
+-- now-fully-superseded, public-named 3-arg overload entirely -- nothing
+-- calls it any more (inventory_reverse_movement was already updated to
+-- call inventory_finalize_posting_internal directly in the same prior
+-- migration).
+DROP FUNCTION IF EXISTS public.inventory_finalize_posting(uuid, uuid, jsonb);

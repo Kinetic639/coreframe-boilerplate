@@ -14,9 +14,15 @@ import type {
 } from "@/server/services/repair-orders.service";
 import { groupProvenanceByRepairOrderLine } from "@/server/services/repair-orders.service";
 import { LineSourcesPopover, type LineSourceEntry } from "./repair-order-line-sources";
+import { RepairOrderLineReservation } from "./repair-order-line-reservation";
 
 type Props = {
   lines: RepairOrderLineReadModel[];
+  /** Phase 10A: passed straight through to each line's own reservation
+   * affordance -- never trusted as an authorization boundary (the
+   * server-side actions resolve their own scope independently), only used
+   * to scope the location picker and the reservations query cache key. */
+  branchId?: string | null;
   /**
    * True when `RepairOrdersService.listRepairOrderLines` itself failed
    * (a genuine query error, already normalized server-side -- never the
@@ -62,7 +68,12 @@ type Props = {
  * would misrepresent the line's true state; the numeric received/
  * outstanding/available columns are this phase's truthful signal instead).
  */
-export async function RepairOrderLinesList({ lines, loadError = false, provenance = [] }: Props) {
+export async function RepairOrderLinesList({
+  lines,
+  loadError = false,
+  provenance = [],
+  branchId = null,
+}: Props) {
   const t = await getTranslations("modules.workshop.repairOrders.lines");
 
   function sourcesFor(lineId: string): LineSourceEntry[] {
@@ -128,7 +139,13 @@ export async function RepairOrderLinesList({ lines, loadError = false, provenanc
                       <div className="truncate" title={line.productName}>
                         {line.productName}
                       </div>
-                      <LineSourcesPopover sources={sourcesFor(line.id)} />
+                      <div className="flex items-center gap-2">
+                        <LineSourcesPopover sources={sourcesFor(line.id)} />
+                        <RepairOrderLineReservation
+                          repairOrderLineId={line.id}
+                          branchId={branchId}
+                        />
+                      </div>
                     </TableCell>
                     <TableCell className="text-right font-mono text-xs">
                       {formatQuantity(line.orderedQuantity)}
@@ -165,7 +182,10 @@ export async function RepairOrderLinesList({ lines, loadError = false, provenanc
                       {line.productName}
                     </p>
                     <p className="text-muted-foreground font-mono text-xs">{line.sku ?? "—"}</p>
-                    <LineSourcesPopover sources={sourcesFor(line.id)} />
+                    <div className="flex items-center gap-2">
+                      <LineSourcesPopover sources={sourcesFor(line.id)} />
+                      <RepairOrderLineReservation repairOrderLineId={line.id} branchId={branchId} />
+                    </div>
                   </div>
                   {line.unit && (
                     <span className="text-muted-foreground shrink-0 text-xs">{line.unit}</span>

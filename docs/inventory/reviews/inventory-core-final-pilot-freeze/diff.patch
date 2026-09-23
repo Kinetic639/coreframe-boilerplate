@@ -1,0 +1,511 @@
+diff --git a/apps/public-web/src/app/actions/warehouse/ambra-location-inventory.ts b/apps/public-web/src/app/actions/warehouse/ambra-location-inventory.ts
+deleted file mode 100644
+index d59c32b9..00000000
+--- a/apps/public-web/src/app/actions/warehouse/ambra-location-inventory.ts
++++ /dev/null
+@@ -1,439 +0,0 @@
+-"use server";
+-
+-import { revalidatePath } from "next/cache";
+-import { z } from "zod";
+-
+-import { createClient } from "@/utils/supabase/server";
+-import { WAREHOUSE_INVENTORY_OPERATE } from "@/lib/constants/permissions";
+-import { InventoryMovementsService } from "@/server/services/inventory-movements.service";
+-import {
+-  hasPermission,
+-  mapUnexpected,
+-  requireActiveBranch,
+-  requireWarehouseContext,
+-  userIdFrom,
+-} from "./inventory/action-context";
+-
+-const uuidSchema = z.string().uuid("Invalid id");
+-
+-const createContainerSchema = z.object({
+-  code: z.string().trim().min(1, "Code is required").max(80),
+-  type: z.string().trim().max(40).optional().default("container"),
+-  current_location_id: uuidSchema,
+-});
+-
+-async function requireStockableLocation(
+-  locationId: string,
+-  orgId: string,
+-  branchId: string
+-): Promise<{ success: true } | { success: false; error: string }> {
+-  const supabase = await createClient();
+-  const { data, error } = await supabase
+-    .from("warehouse_locations")
+-    .select("id, can_store_inventory")
+-    .eq("id", locationId)
+-    .eq("organization_id", orgId)
+-    .eq("branch_id", branchId)
+-    .is("deleted_at", null)
+-    .maybeSingle();
+-
+-  if (error) return { success: false, error: error.message };
+-  if (!data) return { success: false, error: "Location not found" };
+-  if (!data.can_store_inventory) {
+-    return { success: false, error: "Only stockable bins can hold inventory placement" };
+-  }
+-  return { success: true };
+-}
+-
+-export async function createLocationContainerAction(rawInput: unknown) {
+-  try {
+-    const auth = await requireWarehouseContext();
+-    if (!auth.success) return auth;
+-    if (!hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE)) {
+-      return { success: false as const, error: "Unauthorized" };
+-    }
+-    const branch = requireActiveBranch(auth);
+-    if (!branch.success) return branch;
+-
+-    const parsed = createContainerSchema.safeParse(rawInput);
+-    if (!parsed.success) return { success: false as const, error: parsed.error.errors[0].message };
+-
+-    const orgId = auth.context.app.activeOrgId;
+-    const userId = userIdFrom(auth);
+-    if (!userId) return { success: false as const, error: "User identity unavailable" };
+-
+-    const location = await requireStockableLocation(
+-      parsed.data.current_location_id,
+-      orgId,
+-      branch.branchId
+-    );
+-    if (!location.success) return location;
+-
+-    const supabase = await createClient();
+-    const client = supabase as any;
+-    const { data, error } = await client
+-      .from("inventory_containers")
+-      .insert({
+-        organization_id: orgId,
+-        branch_id: branch.branchId,
+-        code: parsed.data.code,
+-        type: parsed.data.type,
+-        current_location_id: parsed.data.current_location_id,
+-        created_by: userId,
+-        updated_by: userId,
+-      })
+-      .select("id")
+-      .single();
+-
+-    if (error) return { success: false as const, error: error.message };
+-    revalidatePath("/dashboard/warehouse/locations");
+-    return { success: true as const, data };
+-  } catch (error) {
+-    return mapUnexpected(error);
+-  }
+-}
+-
+-const addItemsSchema = z.object({
+-  container_id: uuidSchema,
+-  lines: z
+-    .array(
+-      z.object({
+-        variant_id: uuidSchema,
+-        unit_id: uuidSchema,
+-        quantity: z.number().positive("Quantity must be positive"),
+-      })
+-    )
+-    .min(1, "At least one item required"),
+-});
+-
+-export async function addItemsToContainerAction(rawInput: unknown) {
+-  try {
+-    const auth = await requireWarehouseContext();
+-    if (!auth.success) return auth;
+-    if (!hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE)) {
+-      return { success: false as const, error: "Unauthorized" };
+-    }
+-    const branch = requireActiveBranch(auth);
+-    if (!branch.success) return branch;
+-
+-    const parsed = addItemsSchema.safeParse(rawInput);
+-    if (!parsed.success) return { success: false as const, error: parsed.error.errors[0].message };
+-
+-    const orgId = auth.context.app.activeOrgId;
+-    const supabase = await createClient();
+-    const client = supabase as any;
+-
+-    const { data: container, error: containerError } = await client
+-      .from("inventory_containers")
+-      .select("id, status, current_location_id")
+-      .eq("id", parsed.data.container_id)
+-      .eq("organization_id", orgId)
+-      .eq("branch_id", branch.branchId)
+-      .is("deleted_at", null)
+-      .maybeSingle();
+-
+-    if (containerError) return { success: false as const, error: containerError.message };
+-    if (!container) return { success: false as const, error: "Container not found" };
+-    if (container.status === "archived") {
+-      return { success: false as const, error: "Cannot add items to an archived container" };
+-    }
+-
+-    const locationId = container.current_location_id as string;
+-
+-    for (const line of parsed.data.lines) {
+-      const { data: balance, error: balanceError } = await supabase
+-        .from("inventory_balances")
+-        .select("id, available_quantity, allocated_quantity")
+-        .eq("organization_id", orgId)
+-        .eq("branch_id", branch.branchId)
+-        .eq("location_id", locationId)
+-        .eq("variant_id", line.variant_id)
+-        .maybeSingle();
+-
+-      if (balanceError) return { success: false as const, error: balanceError.message };
+-      if (!balance) {
+-        return { success: false as const, error: `No stock found for this variant in this bin` };
+-      }
+-
+-      const available = Number(balance.available_quantity ?? 0);
+-      if (available < line.quantity) {
+-        return {
+-          success: false as const,
+-          error: `Not enough available stock (available: ${available}, requested: ${line.quantity})`,
+-        };
+-      }
+-
+-      const { error: updateError } = await supabase
+-        .from("inventory_balances")
+-        .update({
+-          allocated_quantity: Number(balance.allocated_quantity ?? 0) + line.quantity,
+-        })
+-        .eq("id", balance.id);
+-
+-      if (updateError) return { success: false as const, error: updateError.message };
+-    }
+-
+-    const rows = parsed.data.lines.map((line) => ({
+-      organization_id: orgId,
+-      branch_id: branch.branchId,
+-      container_id: parsed.data.container_id,
+-      variant_id: line.variant_id,
+-      unit_id: line.unit_id,
+-      quantity: line.quantity,
+-    }));
+-
+-    const { error } = await client.from("inventory_container_lines").insert(rows);
+-    if (error) return { success: false as const, error: error.message };
+-
+-    revalidatePath("/dashboard/warehouse/locations");
+-    return { success: true as const };
+-  } catch (error) {
+-    return mapUnexpected(error);
+-  }
+-}
+-
+-const removeItemSchema = z.object({
+-  container_id: uuidSchema,
+-  line_id: uuidSchema,
+-});
+-
+-export async function removeItemFromContainerAction(rawInput: unknown) {
+-  try {
+-    const auth = await requireWarehouseContext();
+-    if (!auth.success) return auth;
+-    if (!hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE)) {
+-      return { success: false as const, error: "Unauthorized" };
+-    }
+-    const branch = requireActiveBranch(auth);
+-    if (!branch.success) return branch;
+-
+-    const parsed = removeItemSchema.safeParse(rawInput);
+-    if (!parsed.success) return { success: false as const, error: parsed.error.errors[0].message };
+-
+-    const orgId = auth.context.app.activeOrgId;
+-    const userId = userIdFrom(auth);
+-    if (!userId) return { success: false as const, error: "User identity unavailable" };
+-    const supabase = await createClient();
+-    const client = supabase as any;
+-
+-    const { data: line, error: lineError } = await client
+-      .from("inventory_container_lines")
+-      .select("id, variant_id, unit_id, quantity, container_id")
+-      .eq("id", parsed.data.line_id)
+-      .eq("container_id", parsed.data.container_id)
+-      .eq("organization_id", orgId)
+-      .eq("branch_id", branch.branchId)
+-      .is("deleted_at", null)
+-      .maybeSingle();
+-
+-    if (lineError) return { success: false as const, error: lineError.message };
+-    if (!line) return { success: false as const, error: "Container line not found" };
+-
+-    const { data: container, error: containerError } = await client
+-      .from("inventory_containers")
+-      .select("id, current_location_id")
+-      .eq("id", parsed.data.container_id)
+-      .eq("organization_id", orgId)
+-      .eq("branch_id", branch.branchId)
+-      .is("deleted_at", null)
+-      .maybeSingle();
+-
+-    if (containerError) return { success: false as const, error: containerError.message };
+-    if (!container) return { success: false as const, error: "Container not found" };
+-
+-    const locationId = container.current_location_id as string;
+-    const qty = Number(line.quantity);
+-
+-    // v1: no issue movement type available yet — just release allocated qty
+-    const { data: balance } = await supabase
+-      .from("inventory_balances")
+-      .select("id, allocated_quantity")
+-      .eq("organization_id", orgId)
+-      .eq("branch_id", branch.branchId)
+-      .eq("location_id", locationId)
+-      .eq("variant_id", line.variant_id)
+-      .maybeSingle();
+-
+-    if (balance) {
+-      const newAllocated = Math.max(0, Number(balance.allocated_quantity ?? 0) - qty);
+-      await supabase
+-        .from("inventory_balances")
+-        .update({ allocated_quantity: newAllocated })
+-        .eq("id", balance.id);
+-    }
+-
+-    await client
+-      .from("inventory_container_lines")
+-      .update({ deleted_at: new Date().toISOString() })
+-      .eq("id", parsed.data.line_id)
+-      .eq("organization_id", orgId)
+-      .eq("branch_id", branch.branchId);
+-
+-    revalidatePath("/dashboard/warehouse/locations");
+-    return { success: true as const };
+-  } catch (error) {
+-    return mapUnexpected(error);
+-  }
+-}
+-
+-const relocateContainerSchema = z.object({
+-  container_id: uuidSchema,
+-  to_location_id: uuidSchema,
+-});
+-
+-export async function relocateContainerAction(rawInput: unknown) {
+-  try {
+-    const auth = await requireWarehouseContext();
+-    if (!auth.success) return auth;
+-    if (!hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE)) {
+-      return { success: false as const, error: "Unauthorized" };
+-    }
+-    const branch = requireActiveBranch(auth);
+-    if (!branch.success) return branch;
+-
+-    const parsed = relocateContainerSchema.safeParse(rawInput);
+-    if (!parsed.success) return { success: false as const, error: parsed.error.errors[0].message };
+-
+-    const orgId = auth.context.app.activeOrgId;
+-    const userId = userIdFrom(auth);
+-    if (!userId) return { success: false as const, error: "User identity unavailable" };
+-    const supabase = await createClient();
+-    const client = supabase as any;
+-
+-    const { data: container, error: containerError } = await client
+-      .from("inventory_containers")
+-      .select("id, current_location_id, status")
+-      .eq("id", parsed.data.container_id)
+-      .eq("organization_id", orgId)
+-      .eq("branch_id", branch.branchId)
+-      .is("deleted_at", null)
+-      .maybeSingle();
+-
+-    if (containerError) return { success: false as const, error: containerError.message };
+-    if (!container) return { success: false as const, error: "Container not found" };
+-    if (container.status === "archived") {
+-      return { success: false as const, error: "Cannot move an archived container" };
+-    }
+-
+-    const sourceLocationId = container.current_location_id as string;
+-    const destLocationId = parsed.data.to_location_id;
+-    if (sourceLocationId === destLocationId) {
+-      return { success: false as const, error: "Container is already at this location" };
+-    }
+-
+-    const destLocation = await requireStockableLocation(destLocationId, orgId, branch.branchId);
+-    if (!destLocation.success) return destLocation;
+-
+-    const { data: containerLines, error: linesError } = await client
+-      .from("inventory_container_lines")
+-      .select("id, variant_id, unit_id, quantity")
+-      .eq("container_id", parsed.data.container_id)
+-      .eq("organization_id", orgId)
+-      .eq("branch_id", branch.branchId)
+-      .is("deleted_at", null);
+-
+-    if (linesError) return { success: false as const, error: linesError.message };
+-
+-    const lines = (containerLines ?? []) as Array<{
+-      id: string;
+-      variant_id: string;
+-      unit_id: string;
+-      quantity: number | string;
+-    }>;
+-
+-    if (lines.length > 0) {
+-      const movementLines = lines.map((line) => ({
+-        variant_id: line.variant_id,
+-        source_location_id: sourceLocationId,
+-        destination_location_id: destLocationId,
+-        unit_id: line.unit_id,
+-        quantity: Number(line.quantity),
+-      }));
+-
+-      const draft = await InventoryMovementsService.createDraft(
+-        supabase,
+-        orgId,
+-        branch.branchId,
+-        {
+-          movement_type_code: "801",
+-          lines: movementLines,
+-          idempotency_key: crypto.randomUUID(),
+-        },
+-        userId
+-      );
+-      if (!draft.success)
+-        return {
+-          success: false as const,
+-          error: (draft as { success: false; error: string }).error,
+-        };
+-
+-      const posted = await InventoryMovementsService.finalizePosting(
+-        supabase,
+-        draft.data.movement_id,
+-        userId
+-      );
+-      if (!posted.success)
+-        return {
+-          success: false as const,
+-          error: (posted as { success: false; error: string }).error,
+-        };
+-
+-      for (const line of lines) {
+-        const qty = Number(line.quantity);
+-
+-        const { data: srcBalance } = await supabase
+-          .from("inventory_balances")
+-          .select("id, allocated_quantity")
+-          .eq("organization_id", orgId)
+-          .eq("branch_id", branch.branchId)
+-          .eq("location_id", sourceLocationId)
+-          .eq("variant_id", line.variant_id)
+-          .maybeSingle();
+-
+-        if (srcBalance) {
+-          await supabase
+-            .from("inventory_balances")
+-            .update({
+-              allocated_quantity: Math.max(0, Number(srcBalance.allocated_quantity ?? 0) - qty),
+-            })
+-            .eq("id", srcBalance.id);
+-        }
+-
+-        const { data: destBalance } = await supabase
+-          .from("inventory_balances")
+-          .select("id, allocated_quantity")
+-          .eq("organization_id", orgId)
+-          .eq("branch_id", branch.branchId)
+-          .eq("location_id", destLocationId)
+-          .eq("variant_id", line.variant_id)
+-          .maybeSingle();
+-
+-        if (destBalance) {
+-          await supabase
+-            .from("inventory_balances")
+-            .update({
+-              allocated_quantity: Number(destBalance.allocated_quantity ?? 0) + qty,
+-            })
+-            .eq("id", destBalance.id);
+-        }
+-      }
+-    }
+-
+-    const { error: updateError } = await client
+-      .from("inventory_containers")
+-      .update({
+-        current_location_id: destLocationId,
+-        updated_at: new Date().toISOString(),
+-      })
+-      .eq("id", parsed.data.container_id)
+-      .eq("organization_id", orgId)
+-      .eq("branch_id", branch.branchId);
+-
+-    if (updateError) return { success: false as const, error: updateError.message };
+-
+-    revalidatePath("/dashboard/warehouse/locations");
+-    return { success: true as const };
+-  } catch (error) {
+-    return mapUnexpected(error);
+-  }
+-}
+diff --git a/docs/inventory/inventory-core-architecture.md b/docs/inventory/inventory-core-architecture.md
+index d055c4f3..73b6bd1f 100644
+--- a/docs/inventory/inventory-core-architecture.md
++++ b/docs/inventory/inventory-core-architecture.md
+@@ -80,6 +80,23 @@ match the assigning brief:
+ line_movement_links` row of any `relation_type` is created for a
+     reversal. This remains an explicit, later, deliberately deferred
+     integration concern.
++23. **Added at the Inventory Core Final Pilot Freeze (2026-09-23), following
++    IC-8's own REPRODUCIBILITY BLOCKED finding**: clean-room database
++    reproducibility (rebuilding the accepted live schema from an empty
++    database using only repository migration files) is **accepted as
++    technical debt and is NOT a blocker for pilot/pitch readiness.**
++    BLOCKER WAIVED FOR PILOT / PITCH, DEFERRED AS TECHNICAL DEBT — see
++    `docs/inventory/reviews/inventory-core-final-pilot-freeze/final-status.md`
++    and `accepted-technical-debt.md` for the full decision record. This does
++    **not** change IC-8's own historical BLOCKED verdict (`docs/inventory/
++reviews/ic-8-final-production-readiness-review/final-readiness-assessment.md`
++    is not edited or retracted) — it records a NEW, separate product-owner
++    disposition on top of that unchanged finding. The gap (149 live-applied
++    migration versions with no local file, 106 without even a name match,
++    predating this project's 2026-09-10 reliable-parity boundary) remains
++    real and unresolved, and **must be resolved before relying on clean-room
++    disaster recovery, new-environment bootstrap, or production migration
++    portability** — it is deferred, not fixed, and not forgotten.
+ 
+ ---
+ 
+diff --git a/docs/inventory/inventory-core-progress.md b/docs/inventory/inventory-core-progress.md
+index 4df7edc6..385530bd 100644
+--- a/docs/inventory/inventory-core-progress.md
++++ b/docs/inventory/inventory-core-progress.md
+@@ -170,13 +170,26 @@ is already correct (zero action-layer RPC bypass, zero duplicate entry
+ points). 9 forward migrations, all live-verified; new pgTAP `110_ic7_
+ security_write_boundary_test.sql` (25/25); full regression 097-110.
+ See `docs/inventory/reviews/ic-7-review/` for full evidence.
+-**Current phase:** IC-7 DONE → IC-8 (Full Inventory Regression /
+-Concurrency / Performance Hardening) is the next phase in sequence, NOT
+-yet authorized/started. Phase 10D remains NOT started.
+-**Pitch/pilot readiness:** N/A — this is base-engine work, not itself a
+-pitch-scoped feature; it BLOCKS Phase 10D, which IS pitch-scoped (see the
+-Zone 3 tracker's own cross-reference).
+-**Last updated:** 2026-09-17.
++**Current phase:** IC-7 DONE → A1-A8 (simplification + domain-boundary
++cleanup) DONE → IC-8 (Final Production Readiness Gate) DONE, verdict
++REPRODUCIBILITY BLOCKED → **Inventory Core Final Pilot Freeze (2026-09-23)
++DONE**. See `docs/inventory/reviews/inventory-a1-a6-simplification-review/`,
++`docs/inventory/reviews/inventory-a7-repairorder-container-boundary-review/`,
++`docs/inventory/reviews/ic-8-final-production-readiness-review/`, and
++`docs/inventory/reviews/inventory-core-final-pilot-freeze/` for full
++evidence of each. **Inventory Core architecture is now FROZEN — no further
++IC phases are planned.** Phase 10D remains NOT started; this closing pass
++did not start it and does not authorize starting it.
++**Pitch/pilot readiness:** **INVENTORY CORE FINAL FOR PILOT / ARCHITECTURE
++FROZEN.** Architecture final, live correctness/security/regression
++verified, application integration may continue. Clean-room reproducibility
++is accepted technical debt, deferred (NOT a pilot/pitch blocker — see
++architecture decision #23 above and `docs/inventory/reviews/inventory-
++core-final-pilot-freeze/accepted-technical-debt.md`). This unblocks Phase
++10D / pitch work to proceed on its own separate track (see the Zone 3
++tracker's own cross-reference) — this doc does not itself authorize
++starting that work.
++**Last updated:** 2026-09-23 (Inventory Core Final Pilot Freeze).
+ 
+ ---
+ 
