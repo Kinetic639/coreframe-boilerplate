@@ -1,6 +1,17 @@
 ### 11. Home / Operational Dashboard
 
-> **⚠ CURRENT — CONFIRMED PRESENTATION BLOCKER, HIGHEST SCHEDULE RISK (re-verified 2026-09-23)** — this document's "🔴 NOT IMPLEMENTED" verdict is unchanged and independently re-confirmed via a fresh direct read of the live page file (still a 15-line static placeholder, zero data fetching). Zero code has touched this file, and zero scope decision has been made, since this document was written — despite two weeks of substantial engineering effort on adjacent work. This is the literal first screen every user sees after login. See `docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/zone-readiness-matrix.md` (Zone 11) — flagged as the single most schedule-risky finding across all 11 zones.
+# CURRENT STATUS — 2026-09-23
+
+**CORRECTED CLASSIFICATION (2026-09-23): PITCH SHOULD / HIGH FIRST-IMPRESSION RISK, not a hard functional blocker.** The current master pitch script (`docs/mvp/ambra-skrypt-prezentacji.md`) does NOT itself require a dashboard demo — the script choreography moves directly from login into the Matcher/RepairOrder flow, not "remain visibly on `/dashboard/start`." Re-classify only as a hard blocker if the actual rehearsed choreography explicitly requires lingering on the start screen.
+
+The underlying finding is unchanged and re-confirmed: `/dashboard/start` is still a 15-line static placeholder, zero data fetching, zero scope decision made, unchanged since this document was written despite two weeks of substantial adjacent engineering effort. This IS the literal first screen every user sees after login, and a placeholder here materially affects first impression even if it's never lingered on — it should ideally receive a minimal, honest implementation before the pitch. Advanced analytics/BI remain roadmap, out of scope for this minimal version.
+
+# CURRENT REMAINING WORK
+
+1. Scope decision: which minimal widgets/summaries (active-branch context, real recent-activity data, a small set of useful quick actions — not fabricated metrics, not full BI).
+2. Build a server-fetched component replacing the current static placeholder.
+
+# HISTORICAL AUDIT / DESIGN RECORD
 
 **Priorytet:** P1
 

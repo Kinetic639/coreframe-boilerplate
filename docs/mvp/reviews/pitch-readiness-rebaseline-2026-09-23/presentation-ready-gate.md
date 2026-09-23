@@ -2,51 +2,96 @@
 
 Only what must exist to safely perform the internal pitch this week. Pilot-only requirements are explicitly excluded — see `pilot-ready-gate.md`.
 
+> **CORRECTED 2026-09-23** (Final MVP/Pitch Documentation Consolidation pass) — two corrections from the original version of this gate: (1) Container QR (Phase 10D), container relocation (Phase 10E), and 201/WZ issue (Phase 10F) are **PITCH REQUIRED**, confirmed by the product owner's own 2026-09-10 scope-expansion directive — no longer presented as "narrow the script instead" optional decisions. (2) The home dashboard is reclassified from a hard blocker to **PITCH SHOULD / HIGH FIRST-IMPRESSION RISK** — the current master script does not itself require lingering on the dashboard screen.
+
 ## Current verdict: **NOT READY**
 
 ## PRESENTATION BLOCKERS (complete ordered list — must be resolved before rehearsal)
 
-1. **Zone 1 — branch-switch cache/refresh bugs.** Three confirmed bugs (root cause: `SidebarBranchSwitcher` never refreshes/invalidates after switch) would show stale-branch data live on screen for Matcher sessions and all three flagship Warehouse lists. See `zone1-branch-switch-audit.md`. **Size: S** (one root-cause fix + 2 query-key corrections, proven pattern already exists in-codebase).
-2. **Receiving + mobile putaway UI.** The current master script (`ambra-skrypt-prezentacji.md`, §7) explicitly demos a live phone flow (scan part/kit → scan location → confirm → close session → generate report). Backend (`receive_repair_order_stock`/`putaway_repair_order_stock`) is ready; **zero UI exists** — both mobile routes are confirmed placeholders. See `pitch-script-truth-matrix.md`. **Size: L** (new mobile-oriented screen(s), real scan/confirm flow, session-close, report generation from real movement/location data).
-3. **Home dashboard is a 15-line empty placeholder.** The literal first screen after login. Zero scope decision made, zero implementation. See `zone-readiness-matrix.md` (Zone 11). **Size: M** (needs a scope decision FIRST, then a real-data server component — even a minimal, honest "quick links + recent activity" version is far better than the current blank welcome message).
-4. **QR scope decision for parts/containers.** The script's own literal text ("skanuję część albo zestaw") implies part-level QR scanning, but no part/container QR target type exists (only location, ticket, task). The master tracker's OWN recommendation is to narrow the demo (pick from a list, scan only the destination location) rather than build this — **this is a decision, not necessarily a build item**, but it must be explicitly made and the script/choreography updated to match. **Size: XS** (decision + script wording update) OR **M** (if the decision is instead to build a minimal QR target type).
-5. **201/WZ issue path.** The accepted design explicitly rejects using a 402 adjustment as a normal issue, but nothing from its own implementation plan is built — `issueStockAction` is a hardcoded stub. If the pitch's §10 "register an issue" step is performed live via the only working path today (generic movement editor), it will produce exactly the mislabeled 402 the design warns against. **Size: M** (seed 201/WZ movement type + minimal issue UI) OR **XS** (narrow the demo to not perform this step live, present it narratively instead).
+### 1. Zone 1 — branch-switch cache/refresh bugs
+
+- **Current state**: `SidebarBranchSwitcher` never calls `router.refresh()`/invalidates React Query cache after a switch — breaks Matcher session history and all three flagship Warehouse lists (Locations/Movements/Balances).
+- **Target state**: branch switch immediately refreshes all branch-scoped UI, no manual reload needed.
+- **Dependency**: none — fully independent.
+- **Size**: S.
+- **Test required**: unit test on 2 affected query-key factories.
+- **Manual UAT required**: YES — switch branch while parked on each affected screen (Matcher, Locations, Movements, Balances), confirm content updates without reload.
+- **Done criterion**: all 3 confirmed bugs in `zone1-branch-switch-audit.md` fixed and manually re-verified on current build.
+
+### 2. Phase 10D — Container QR
+
+- **Current state**: NOT STARTED. QR target registry has exactly 3 types (location, ticket, task) — no container type.
+- **Target state**: a container can be assigned/printed a QR label and scanned to resolve to its own contents view.
+- **Dependency**: none technically (Inventory Core's `inventory_containers` model and QR platform both exist independently) — Inventory Core architecture change NOT expected (this is additive: a new QR target-registry entry + resolver, following the existing 3-type pattern).
+- **Size**: M.
+- **Test required**: unit test on the new registry entry/resolver; manual UAT.
+- **Manual UAT required**: YES, on presentation phone.
+- **Done criterion**: container QR create→print→scan→resolve cycle works end-to-end on the presentation device.
+
+### 3. Receiving + mobile putaway UI
+
+- **Current state**: `receive_repair_order_stock`/`putaway_repair_order_stock` RPCs ready and tested; zero UI. Mobile routes are confirmed placeholders.
+- **Target state**: a real mobile flow — select delivery item → scan destination location → confirm → close session → generate report from real movement/location data.
+- **Dependency**: none technically; sequence after item 1 (branch-switch fix) so its own UAT isn't confounded by a stale-branch display bug.
+- **Size**: L — the largest single item.
+- **Test required**: lightweight Vitest for new actions' request validation; manual phone UAT (mandatory, this is a live phone demo item).
+- **Done criterion**: full scan→confirm→close→report cycle performed live on the presentation phone with real data.
+
+### 4. Phase 10E — Container relocation
+
+- **Current state**: NOT STARTED. `relocateContainerAction` exists server-side, zero UI callers.
+- **Target state**: scan container QR → scan new location → contents relocate together.
+- **Dependency**: Phase 10D (container QR) must land first — relocation via QR scan needs the QR target to exist.
+- **Size**: S-M (backend RPC already exists; this is UI wiring, once Phase 10D provides the QR scan entry point).
+- **Test required**: manual UAT.
+- **Done criterion**: container relocation performed live via QR scan on the presentation device.
+
+### 5. Phase 10F — 201/WZ issue
+
+- **Current state**: NOT STARTED. `issueStockAction` is a hardcoded stub. The accepted design explicitly rejects a 402-adjustment workaround.
+- **Target state**: a real issue operation via movement type 201/WZ, with a recipient field.
+- **Dependency**: none technically — additive (new movement type + field policy), matching the accepted design's own scope; no Inventory Core architecture change.
+- **Size**: M.
+- **Test required**: a couple of pgTAP/Vitest cases + manual UAT.
+- **Done criterion**: a live issue operation recorded via 201/WZ (not 402) with a real recipient, on stage.
 
 ## PRESENTATION SHOULD-FIX (ordered, materially reduces demo risk but not a hard blocker)
 
-1. **Zone 6 — SKU search bug.** Product search matches name only, never SKU — a visible failure if the presenter searches by SKU on stage. **Size: XS.**
-2. **Zone 6 — movement-kind label bug.** History never renders "transfer" for movement codes 801/311 due to a raw-code-vs-label string comparison bug. **Size: XS.**
-3. **Zone 6 — missing `posted_by` in history.** Acting user never shown in location history — reduces the "who did what" story. **Size: XS.**
-4. **Zone 4 — stale manual QR verification.** Last recorded manual pass is 6+ weeks old (2026-08-06), predates all the RepairOrder/Inventory-Core backend churn including IC-8/A7 container-ownership changes. Needs a fresh pass, not a code change. **Size: XS** (verification only).
-5. **Zone 3 — fresh manual UAT for Phase 7+.** The RepairOrder tracker's own last entry (2026-09-15) still shows Phase 7's manual UAT outstanding. **Size: XS-S** (verification pass, possibly small bug-fixing if issues surface).
-6. **Zone 2 — confirm whether the pitch script specifically demos the Approve→RepairOrder-materialization click**, not just Matcher session creation. If yes, this is functionally ready (real, tested) but has never been manually rehearsed. **Size: XS** (rehearsal/verification).
+1. **Zone 11 — minimal home dashboard.** High first-impression risk (literal first screen after login), but not a hard blocker since the current master script doesn't itself linger there. **Size: M** (scope decision, then a real-data server component).
+2. **Zone 6 — SKU search bug.** Product search matches name only, never SKU. **Size: XS.**
+3. **Zone 6 — movement-kind label bug.** History never renders "transfer" for codes 801/311. **Size: XS.**
+4. **Zone 6 — missing `posted_by` in history.** **Size: XS.**
+5. **Zone 4 — stale manual QR verification.** Last recorded pass is 6+ weeks old. **Size: XS** (verification only).
+6. **Zone 3 — fresh manual UAT for Phase 7+.** **Size: XS-S.**
+7. **Zone 2 — confirm/rehearse the Approve→RepairOrder-materialization click**, not just Matcher session creation. **Size: XS** (rehearsal).
 
 ## OPTIONAL pitch polish
 
 - Zone 8 (Tickets) — functional as-is; a short, narrow two-account demo scenario is safe without further work.
 - Zone 9 (Planning) — at most one small, pre-verified example; does not need to extend beyond that.
-- Zone 6 — container relocation UI: backend-only today; either build a minimal UI or explicitly keep the demo to single-part relocation (already functional).
 
 ## Explicitly NOT required for presentation-ready
 
 - Zone 10 (Notifications) — DEFER, explicitly ROADMAP ONLY. **Presenter must not click into the notification bell** — it looks complete but shows entirely fabricated example data.
-- Full migration reproducibility (Inventory Core's own accepted, deferred technical debt — see `docs/inventory/reviews/inventory-core-final-pilot-freeze/accepted-technical-debt.md`).
+- Full migration reproducibility (Inventory Core's own accepted, deferred technical debt).
 - `inventory_reverse_movement` UI — only relevant if the script demos correcting a posted mistake; current master script does not.
-- Container QR/relocation permanent build — covered by the narrowing decision above.
-- Any Zone 1 item beyond the pitch-path subset (last-owner protection, self-demotion guard, full privilege-escalation matrix, migration/schema-drift reconciliation — all explicitly listed as "NOT REQUIRED FOR DEMO READY" in Zone 1's own doc).
+- Any Zone 1 item beyond the pitch-path subset (last-owner protection, self-demotion guard, full privilege-escalation matrix, migration/schema-drift reconciliation).
 - Full automated test coverage for any zone — manual UAT of the exact demo path is what the gate requires, not test-suite completeness.
+- Permanent per-piece QR identity — the accepted architecture explicitly does not require this (containers/locations are the QR identity units).
 
 ## Estimated remaining work (XS/S/M/L packages only, no time promises)
 
-| Item                         | Size    | Parallelizable with other P0 items?                                                           |
-| ---------------------------- | ------- | --------------------------------------------------------------------------------------------- |
-| Zone 1 branch-switch fix     | S       | Yes — independent of all other blockers                                                       |
-| Receiving/putaway mobile UI  | L       | Yes — independent, but the largest single item                                                |
-| Home dashboard               | M       | Yes — independent                                                                             |
-| QR scope decision            | XS or M | Decision first (XS), blocks nothing else; build (if chosen) can run parallel                  |
-| 201/WZ issue path            | M or XS | Decision first, then parallel build or narrate-only                                           |
-| Zone 6 small fixes (3 items) | XS each | Yes — fully independent, trivial                                                              |
-| Zone 4 fresh QR manual pass  | XS      | Depends on nothing else being broken first — do last, after other Zone 4-touching work if any |
-| Zone 3 fresh manual UAT      | XS-S    | Independent                                                                                   |
+| Item                           | Size    | Dependency                                     | Parallelizable? |
+| ------------------------------ | ------- | ---------------------------------------------- | --------------- |
+| Zone 1 branch-switch fix       | S       | None                                           | Yes             |
+| Phase 10D Container QR         | M       | None                                           | Yes             |
+| Receiving/putaway mobile UI    | L       | None (sequence after Zone 1 fix for clean UAT) | Yes             |
+| Phase 10E Container relocation | S-M     | Phase 10D                                      | No — after 10D  |
+| Phase 10F 201/WZ issue         | M       | None                                           | Yes             |
+| Zone 11 minimal dashboard      | M       | None                                           | Yes             |
+| Zone 6 small fixes (3 items)   | XS each | None                                           | Yes             |
+| Zone 4 fresh QR manual pass    | XS      | Ideally after Zone 1 fix                       | Mostly          |
+| Zone 3 fresh manual UAT        | XS-S    | None                                           | Yes             |
+| Zone 2 Approve-flow rehearsal  | XS      | None                                           | Yes             |
 
 See `this-week-execution-plan.md` for the full sequenced, prioritized plan.

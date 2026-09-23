@@ -1,6 +1,20 @@
 ### 3. Repair Orders / Car Workshop — zlecenia naprawcze, pozycje, dokumenty magazynowe i załączniki
 
-> **⚠ SUPERSEDED STATUS NOTICE (2026-09-23)** — the "🔴 NOT IMPLEMENTED" verdict and pitch-readiness checklist below describe the state of the repository BEFORE 2026-09-11. Real implementation (schema, `RepairOrdersService`, and a full `/dashboard/workshop` UI — list, search, detail, create) landed 2026-09-11 through 2026-09-22, through Phase 10C, confirmed live and tested. **Do not use this document's own top-line status or checklist as current.** Current status: `docs/mvp/zones/03-repair-orders-progress.md` (the live tracker) and `docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/documentation-staleness-audit.md` (full reconciliation). The "Product clarification and final design" section further below in this same file (dated 2026-09-09, the `zl_number`/D-code business-identity analysis) remains valid, load-bearing design work that the actual implementation followed — that section is HISTORICAL-BUT-VALID, not stale, unlike the top-line status above it.
+# CURRENT STATUS — 2026-09-23
+
+The "🔴 NOT IMPLEMENTED" verdict and pitch-readiness checklist below (HISTORICAL AUDIT section) describe the state of the repository BEFORE 2026-09-11 — **SUPERSEDED, do not use as current.** Real implementation (schema, `RepairOrdersService`, and a full `/dashboard/workshop` UI — list, search, detail, create) landed 2026-09-11 through 2026-09-22, through **Phase 10C ✅ DONE**, confirmed live and tested. **Phase 10D is now READY TO START** — the Inventory Core blocking condition (2026-09-15) is satisfied as of the Inventory Core Final Pilot Freeze. Phases 10D (Container QR), 10E (relocation), 10F (201/WZ issue) are confirmed **PITCH REQUIRED** (2026-09-10 product-owner scope expansion), NOT STARTED. Phases 11, 12, 13: NOT STARTED. Phase 7's own manual UAT remains outstanding. Authoritative live tracker: `docs/mvp/zones/03-repair-orders-progress.md`.
+
+# CURRENT REMAINING WORK
+
+1. Fresh manual UAT for Phase 7 onward (outstanding since 2026-09-15).
+2. Phase 10D — Container QR (PITCH REQUIRED, NOT STARTED).
+3. Phase 10E — 801 whole-container relocation (PITCH REQUIRED, NOT STARTED).
+4. Phase 10F — 201/WZ issue from container (PITCH REQUIRED, NOT STARTED).
+5. Phases 11-13 and Phase 14/15 (pilot bootstrap/hardening) — see `docs/mvp/reviews/pitch-documentation-consolidation-2026-09-23/pilot-scope-reconciliation.md`.
+
+# HISTORICAL AUDIT / DESIGN RECORD
+
+The "Product clarification and final design" section further below in this same file (dated 2026-09-09, the `zl_number`/D-code business-identity analysis) remains valid, load-bearing design work that the actual implementation followed — HISTORICAL-BUT-VALID, not stale, unlike the top-line status immediately below this notice.
 
 **Priorytet:** P0
 

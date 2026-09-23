@@ -1,14 +1,69 @@
 # Ambra — gotowość do prezentacji i kontrolowanego pilotażu
 
-> **RE-BASELINE UPDATE (2026-09-23)** — a fresh, code-verified re-baseline audit found this document's own zone statuses materially out of date in several places. Authoritative current status: `docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/zone-readiness-matrix.md`. Key deltas since this document was last written (2026-09-07/08):
->
-> - **Zone 3 (RepairOrders) is now REAL** — schema, service, and a full `/dashboard/workshop` UI (list/search/detail/create) were built 2026-09-11 through 2026-09-22, through Phase 10C. This document's own "🔴 NOT IMPLEMENTED" framing for RepairOrders (inherited from `docs/mvp/zones/03-repair-orders.md`) is SUPERSEDED. Phases 10D (QR)/10E (relocation)/10F (issue) remain not started.
-> - **Phase 10D is no longer blocked by Inventory Core.** Inventory Core reached its Final Gate and was formally closed ("INVENTORY CORE FINAL FOR PILOT / ARCHITECTURE FROZEN," `docs/inventory/reviews/inventory-core-final-pilot-freeze/final-status.md`). The blocking condition this document may reference is resolved.
-> - **Zone 1 has three newly confirmed, code-level branch-switch/cache bugs** (root cause: the branch switcher never refreshes/invalidates client state after a switch) — see `zone1-branch-switch-audit.md`. This is a presentation blocker, not merely "needs verification."
-> - **Zone 7 (Normal Issue) and Zone 11 (Home Dashboard) are confirmed presentation blockers** — the accepted 201/WZ issue design remains entirely unbuilt (`issueStockAction` is still a hardcoded stub), and the home dashboard is still a 15-line empty placeholder, unchanged since this document was written despite two weeks of intervening engineering effort.
-> - **Receiving + mobile putaway is a confirmed, unconditional presentation blocker** — the current master pitch script (`docs/mvp/ambra-skrypt-prezentacji.md`, §7) explicitly demos this live on a phone; the backend RPCs exist but have zero UI callers.
->
-> This document's own detailed zone-by-zone sections below were NOT rewritten in this pass (documentation-only scope, see the rebaseline bundle's own `documentation-ownership.md`) — read them as HISTORICAL CONTEXT and cross-check every status claim against the rebaseline bundle above before relying on it for a go/no-go decision.
+# Current status — 2026-09-23
+
+> This section is the TRUE CURRENT MASTER STATUS, current as of the Final MVP/Pitch Documentation Consolidation pass. Everything below this section (the original 2026-09-07/08 audit and its own operational sections) is HISTORICAL CONTEXT — preserved for its detailed evidence trail, not for its own top-line status claims. Full evidence for every claim below: `docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/` and `docs/mvp/reviews/pitch-documentation-consolidation-2026-09-23/`.
+
+## Goal
+
+Presentation-ready THIS WEEK.
+
+## Current overall verdict
+
+**NOT READY.**
+
+## Architecture status
+
+Inventory Core: **FINAL FOR PILOT / ARCHITECTURE FROZEN** (unchanged, see `docs/inventory/reviews/inventory-core-final-pilot-freeze/final-status.md`). Clean-room database reproducibility is accepted, deferred technical debt — not a pitch or pilot blocker absent a new operational reason. Phase 10D (Zone 3 container QR) is no longer blocked by Inventory Core — the blocking condition from 2026-09-15 is satisfied; Phase 10D itself has not been implemented (the block on STARTING it is lifted, the work itself has not begun).
+
+## Current presentation blockers
+
+1. **Zone 1 — branch-switch / client-cache consistency.** Three confirmed, file-and-line-cited bugs (root cause: the branch switcher never calls `router.refresh()`/invalidates React Query cache after a switch), affecting Matcher session history and all three flagship Warehouse lists.
+2. **Phase 10D — Container QR.** Confirmed **PITCH REQUIRED** by the product owner's own 2026-09-10 scope-expansion directive (supersedes this document's own earlier "narrow the demo instead" recommendation below — see the correction notice in "Otwarte decyzje zakresu" further down). Not started.
+3. **Receiving + mobile putaway UI.** The current master script (`ambra-skrypt-prezentacji.md`, §7) explicitly demos this live on a phone. Backend RPCs (`receive_repair_order_stock`/`putaway_repair_order_stock`) are ready and tested; zero UI exists.
+4. **Phase 10E — Container relocation.** Confirmed **PITCH REQUIRED** by the same 2026-09-10 directive. Backend RPC exists; zero UI callers.
+5. **Phase 10F — 201/WZ issue.** Confirmed **PITCH REQUIRED** by the same directive. The accepted design explicitly rejects a 402-adjustment workaround; nothing from its own implementation plan is built — `issueStockAction` is still a hardcoded stub.
+
+## Presentation should-fix
+
+- Minimal, honest home dashboard (Zone 11) — today's `/dashboard/start` is a 15-line static placeholder. High first-impression risk, not a hard functional blocker (the current master script does not itself require a dashboard demo) — see the corrected Zone 11 classification below.
+- Zone 6 SKU search fix (product search matches name only, never SKU).
+- Zone 6 movement-kind label fix (history never renders "transfer" for codes 801/311).
+- Zone 6 `posted_by`/history visibility (acting user never shown).
+- Fresh QR manual UAT (Zone 4) — last recorded pass is 6+ weeks old, predates significant backend churn.
+- Fresh RepairOrder manual UAT (Zone 3, Phase 7+) — tracker's own last entry still shows this outstanding.
+- Matcher Approve→RepairOrder-materialization rehearsal (Zone 2) — real, tested, never manually rehearsed.
+
+## Optional
+
+- Tickets (Zone 8) narrow two-account demo — functional as-is.
+- Planning (Zone 9) narrow demo — at most one small, pre-verified example.
+- Other polish not listed above.
+
+## Explicitly excluded
+
+- Notifications (Zone 10) live demo — explicitly ROADMAP ONLY; presenter must not click into the bell (fabricated example data).
+- Migration-history archaeology (Inventory Core's own accepted, deferred technical debt).
+- Advanced analytics / VMI / broader dashboard BI beyond the minimal home-dashboard scope.
+- Pilot-only hardening (last-owner protection, full privilege-escalation matrix, AutoStacja live sync, concurrency/idempotency hardening, migration-tree reconciliation) — see `pilot-ready-gate.md`.
+
+## Current 11-zone matrix
+
+| Zone | Area                      | Pitch classification                                                          | Pilot classification                           | Current blockers                                            |
+| ---- | ------------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------- | ----------------------------------------------------------- |
+| 1    | Identity/Access/Branch    | PITCH BLOCKER                                                                 | Additional hardening required                  | 3 confirmed branch-switch/cache bugs                        |
+| 2    | Matcher                   | PITCH SHOULD (verify Approve rehearsal)                                       | Save-path hardening                            | None blocking; rehearsal needed                             |
+| 3    | Repair Orders             | PITCH SHOULD (Phase 7+ UAT) — core DONE through 10C                           | Phases 14/15 required                          | Fresh manual UAT outstanding                                |
+| 4    | Locations/QR/Labels       | PITCH BLOCKER (Phase 10D container QR)                                        | Missing `qr_codes`/`qr_assignments` migrations | Container QR not started; stale manual pass                 |
+| 5    | Receiving/Putaway         | PITCH BLOCKER (unconditional)                                                 | UX/idempotency hardening                       | Zero UI for tested backend RPCs                             |
+| 6    | Search/Relocation/History | PITCH SHOULD (3 small fixes) + PITCH BLOCKER (Phase 10E container relocation) | Pagination/concurrency hardening               | SKU search, label bug, `posted_by`; container relocation UI |
+| 7    | Normal Issue              | PITCH BLOCKER (Phase 10F, 201/WZ)                                             | N/A beyond pitch build                         | `issueStockAction` still a stub                             |
+| 8    | Tickets                   | OPTIONAL                                                                      | Branch RLS, test coverage                      | None blocking                                               |
+| 9    | Planning                  | OPTIONAL                                                                      | Scope TBD                                      | None blocking                                               |
+| 10   | Notifications             | DEFER (roadmap only)                                                          | Producer→delivery pair if scoped in            | Must not be demoed                                          |
+| 11   | Home Dashboard            | PITCH SHOULD / HIGH FIRST-IMPRESSION RISK                                     | N/A beyond pitch build                         | Empty placeholder, no scope decision yet                    |
+
+---
 
 Audyt repozytorium: **7 września 2026**. Produkt: **wyłącznie `apps/web`** (Strefa 2 sprawdza dodatkowo `apps/public-web` tam, gdzie to bezpośrednio dotyczy pokazu). Źródło zakresu: [skrypt prezentacji](ambra-skrypt-prezentacji.md). Dowody i ograniczenia: [audyt implementacji](mvp-readiness-audit.md). **Historycznie przeprowadzono pełny, szczegółowy audyt 19 pierwotnie ponumerowanych stref — patrz archiwum dla audytów dawnych stref, które od tego czasu zostały scalone/przeniesione/wycofane.** Aktywny model stref produktowych po kilku przebiegach restrukturyzacji dokumentacji (patrz „Zmiany strukturalne modelu stref" niżej) jest opisany w indeksie stref poniżej — to bieżący, aktywny zestaw domen produktowych, nie ten sam zestaw 19 numerów co w pierwotnym audycie. Ta sekcja to końcowe podsumowanie i plan pracy wynikający z historycznych audytów, utrzymywany na bieżąco przez kolejne przebiegi spójności/restrukturyzacji — nie nowa ocena kodu.
 
@@ -136,7 +191,7 @@ Poza numeracją stref produktowych: **Controlled Pilot Planning** (dawna Strefa 
 
 - Zadania, kalendarz, Kanban i cykliczność (Strefa 9, obejmuje dawną Strefę 14 w części cykliczności): istniejący, stabilny przykład albo sama wzmianka; cykliczność sama w sobie nie istnieje i nie jest pokazywana.
 - Zaawansowana funkcjonalność Car Workshop wykraczająca poza minimalny model zlecenia wymagany przez Strefę 3 (pełny edytor zleceń, historia serwisowa, integracja z pojazdami, harmonogramowanie) — sam minimalny model zlecenia (nagłówek/pozycje/dokumenty magazynowe) NIE może pozostać częściowy, jeśli demo zachowuje obecny scenariusz P0.
-- Relokacja zestawu/kontenera (Strefy 4 i 6), jeśli finalny scenariusz demo świadomie jej nie obejmuje.
+- ~~Relokacja zestawu/kontenera (Strefy 4 i 6), jeśli finalny scenariusz demo świadomie jej nie obejmuje.~~ **NIEAKTUALNE (2026-09-23): relokacja kontenera jest teraz PITCH REQUIRED (Faza 10E), nie opcjonalna — patrz „Otwarte decyzje zakresu" wyżej.**
 - Rozszerzone typy ticketów, akcja odrzucenia, pełny katalog i wyszukiwanie poza dokładnym scenariuszem P0/P1. Nieukończone warianty nie blokują sprawdzonej ścieżki.
 
 ### DO NOT SPEND TIME ON BEFORE PITCH
@@ -180,12 +235,12 @@ Ta tabela to wyłącznie nawigacja dla aktywnych stref produktowych — prioryte
 
 ## Otwarte decyzje zakresu przed kodowaniem
 
-Audyt Stref 1–19 zostawił decyzje biznesowe, które muszą zapaść **przed** implementacją, nie w jej trakcie — bo zmieniają zależności i zakres pracy.
+> **⚠ DECYZJE 1–3 PONIŻEJ SĄ ROZSTRZYGNIĘTE — nie są już otwarte (skorygowano 2026-09-23).** Ten dokument (2026-09-07/08) rekomendował zawężenie/usunięcie QR części, QR kontenera i relokacji kontenera z demo. Produkt-owner **przeciwnie** — dyrektywą z 2026-09-10 (`docs/mvp/zones/03-repair-orders-progress.md`, „SCOPE EXPANSION") jednoznacznie zdecydował: **pełny fizyczny workflow kontenera (RepairOrderLine → Reservation → Allocation → Container → Container QR → Container location → 801 relocation → WU 201/WZ → issue) jest PITCH, nie PILOT.** Ta decyzja jest PÓŹNIEJSZA niż rekomendacje niżej i je zastępuje. Rekomendacje 1–3 poniżej są zachowane wyłącznie jako HISTORYCZNY zapis pierwotnego rozumowania — nie stosować ich. Aktualny, obowiązujący zakres: `docs/mvp/reviews/pitch-documentation-consolidation-2026-09-23/current-pitch-scope.md`.
 
-1. **QR części.** Decyzja wymagana: TAK. Zbudować minimalny cel QR dla części, ALBO usunąć z demo obietnicę „skanuję część". Rekomendacja: usunąć/zawęzić — koszt nowego typu celu QR przewyższa wartość tego jednego kroku demo; scenariusz może polegać na wyborze pozycji z listy przed skanem lokalizacji docelowej. Jeśli zbudowane: Strefa 4 przechodzi z VERIFY do IMPLEMENT i wydłuża ścieżkę krytyczną.
-2. **QR zestawu/kontenera.** Decyzja wymagana: TAK, razem z punktem 1. Zbudować minimalny cel QR dla kontenera, ALBO usunąć „przenoszę zestaw" z demo. Rekomendacja: usunąć, z tych samych powodów.
-3. **Relokacja kontenera.** Decyzja wymagana: TAK. Funkcja serwerowa istnieje (Strefa 6), ale bez wejścia UI. Zbudować proste UI wywołujące istniejącą funkcję, ALBO usunąć „przenoszę zestaw" z demo. Rekomendacja: usunąć, chyba że punkty 1–2 zostaną zbudowane — bez fizycznej identyfikacji zestawu samo UI relokacji nie ma czego spójnie demonstrować.
-4. **Zwykłe wydanie.** Decyzja wymagana: TAK. Podłączyć uśpioną gałąź `movement_kind='issue'` do prawdziwego wejścia UI z polem odbiorcy, ALBO tymczasowo nadać typowi 402 pole odbiorcy z jasną etykietą w scenariuszu. Rekomendacja: podłączyć `movement_kind='issue'` — poprawna semantyka biznesowa, nie nadużycie typu korekty inwentaryzacyjnej. Nie używać 402 jako trwałego rozwiązania w żadnym wypadku.
+1. ~~**QR części.**~~ **ROZSTRZYGNIĘTE (2026-09-10): QR nie dotyczy pojedynczej części — dotyczy KONTENERA** (fizycznego zestawu zgrupowanych części) oraz lokalizacji. Trwała cyfrowa identyfikacja pojedynczej części nie jest budowana — to nie jest to samo pytanie co QR kontenera, poniżej. (Historyczna rekomendacja tego dokumentu, zawężyć/usunąć „skanuję część" z demo, pozostaje trafna i JEST już odzwierciedlona w skorygowanym skrypcie prezentacji — patrz `docs/mvp/ambra-skrypt-prezentacji.md` §7.)
+2. ~~**QR zestawu/kontenera.**~~ **ROZSTRZYGNIĘTE (2026-09-10): TAK, budować.** Container QR jest Fazą 10D Strefy 3, PITCH REQUIRED. Strefa 4 przechodzi z VERIFY do IMPLEMENT — patrz zaktualizowana klasyfikacja w „Current presentation blockers" wyżej.
+3. ~~**Relokacja kontenera.**~~ **ROZSTRZYGNIĘTE (2026-09-10): TAK, budować.** Relokacja kontenera jest Fazą 10E Strefy 3, PITCH REQUIRED — nie „usunąć z demo, chyba że 1-2 zostaną zbudowane" jak sugerowała pierwotna rekomendacja; punkty 1-2 SĄ budowane (jako Container QR, punkt 2 wyżej), więc ten warunek jest spełniony wprost przez decyzję produktową, nie przez domyślne zawężenie.
+4. **Zwykłe wydanie.** Decyzja wymagana: TAK. Podłączyć uśpioną gałąź `movement_kind='issue'` do prawdziwego wejścia UI z polem odbiorcy, ALBO tymczasowo nadać typowi 402 pole odbiorcy z jasną etykietą w scenariuszu. Rekomendacja: podłączyć `movement_kind='issue'` — poprawna semantyka biznesowa, nie nadużycie typu korekty inwentaryzacyjnej. Nie używać 402 jako trwałego rozwiązania w żadnym wypadku. **Potwierdzone 2026-09-10: to jest Faza 10F Strefy 3, również PITCH REQUIRED** — ta pozycja była już poprawnie sformułowana w pierwotnym dokumencie, zachowana bez zmian.
 5. **Tożsamość źródłowa zlecenia (Dxxxx).** Decyzja wymagana: TAK, jako część projektowania Strefy 3. Dziś parser nie wyodrębnia kontekstu warsztatu/magazynu jako niezależnej wartości (tylko wyliczana etykieta w generatorze PDF). Rekomendacja: przy budowie Strefy 3 potwierdzić na rzeczywistych danych Matchera, czy kontekst da się realnie wyekstrahować z dokumentów źródłowych, zanim złożony klucz tożsamości zlecenia (organizacja/oddział + kontekst + numer) zostanie na nim oparty — jeśli nie, złożony klucz może wymagać innego składnika lub jawnego ograniczenia demo (np. jeden kontekst warsztatowy na oddział).
 6. **Minimalny model oczekiwane-vs-potwierdzone przy przyjęciu.** Decyzja wymagana: TAK, jako część Strefy 5. Dziś brak jakiegokolwiek rozróżnienia. Rekomendacja: nie budować pełnego silnika rozbieżności — wystarczy prosty stan na pozycji przyjęcia (oczekiwana/potwierdzona ilość + jawny brak/wyjątek), spójny z tym, co i tak trzeba zapisać przy mobilnym potwierdzeniu lokalizacji.
 7. **Zamknięcie przyjęcia.** Decyzja wymagana: TAK, jako część Strefy 5. Dziś brak dedykowanej operacji odrębnej od ogólnego przejścia draft→posted. Rekomendacja: minimalna walidacja — nie pozwolić zamknąć, jeśli wymagane pozycje nie mają potwierdzonej lokalizacji (punkt 6); nie budować pełnego cyklu życia dokumentu ponad to.

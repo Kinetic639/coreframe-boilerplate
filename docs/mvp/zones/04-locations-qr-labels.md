@@ -1,5 +1,23 @@
 ### 4. Lokalizacje, QR, etykiety i fizyczna identyfikacja części/zestawów
 
+# CURRENT STATUS — 2026-09-23
+
+**Lokalizacja: CURRENT, dokładna.** Kompletna, realna ścieżka (rekord → QR → etykieta → resolver → logowanie → powrót) — wymaga wyłącznie świeżej ręcznej weryfikacji (6+ tygodni od ostatniej próby, 6 sierpnia).
+
+**Kontener QR (Faza 10D): DECYZJA ROZSTRZYGNIĘTA, IMPLEMENTACJA NOT STARTED.** Ten dokument (poniżej) formułuje QR kontenera jako otwartą decyzję „build czy zawęzić". **Ta decyzja została rozstrzygnięta 2026-09-10** dyrektywą produkt-ownera: pełny fizyczny workflow kontenera, łącznie z Container QR, jest **PITCH REQUIRED** (`docs/mvp/zones/03-repair-orders-progress.md`, „SCOPE EXPANSION"; `docs/mvp/reviews/pitch-documentation-consolidation-2026-09-23/current-pitch-scope.md`). Nie stosować już rekomendacji „usunąć/zawęzić" poniżej dla kontenera — pozostaje wyłącznie dla pojedynczej części (ta rekomendacja jest nadal aktualna i odzwierciedlona w skorygowanym skrypcie, `ambra-skrypt-prezentacji.md` §7/§9).
+
+**Część (pojedyncza, trwała cyfrowa identyfikacja): DECYZJA ROZSTRZYGNIĘTA — NIE budować.** Zgodnie z zaakceptowaną architekturą, jednostką fizycznej identyfikacji jest lokalizacja i kontener, nigdy pojedyncza część. Rekomendacja „zawęzić scenariusz" poniżej dla części pozostaje aktualna i wdrożona w skrypcie.
+
+# CURRENT REMAINING WORK
+
+1. Zbudować Container QR (Faza 10D Strefy 3) — nowy wpis w `target-registry.ts` dla kontenera + resolver + etykieta.
+2. Świeża ręczna weryfikacja ścieżki lokalizacji na aktualnym build.
+3. (Pilot) Odtworzyć brakujące migracje `qr_codes`/`qr_assignments`/`inventory_containers`.
+
+# HISTORICAL AUDIT / DESIGN RECORD
+
+Poniższy audyt (2026-09-07/08) opisuje stan przed decyzją z 2026-09-10. Jego dowody kodowe (rejestr celów QR, ścieżka lokalizacji, brak kolumny QR na kontenerze) pozostają dokładne i aktualne — wyłącznie jego REKOMENDACJA („zawęzić/usunąć kontener z demo") jest nieaktualna dla kontenera, patrz wyżej. Rekomendacja dla pojedynczej części pozostaje trafna.
+
 **Priorytet:** P0
 
 **Stan obecny:** 🟠 EARLY / DISCONNECTED

@@ -1,6 +1,17 @@
 ### 5. Przyjęcie 101/PZ → import z Matchera → mobilne rozłożenie → zamknięcie → raport
 
-> **⚠ PARTIALLY STALE NOTICE (2026-09-23)** — this document's bottom-line verdict (mobile putaway does not exist; containers are disconnected from receiving) remains ACCURATE and CONFIRMED as of today via an independent code check. However, specific technical details below are outdated: `ambra-location-inventory.ts` (referenced here as the disconnected container-action file) was DELETED as confirmed-dead code during the Inventory Core closing pass; the real current Zone 5 RPCs are `receive_repair_order_stock`/`putaway_repair_order_stock` (built after this document, not named here); and a reversal RPC (`inventory_reverse_movement`) has existed since IC-2, contrary to this document's "no reversal RPC exists" claim (it exists but, like these RPCs, has zero UI callers). **This gap is now a CONFIRMED, UNCONDITIONAL presentation blocker** — the current master pitch script (`docs/mvp/ambra-skrypt-prezentacji.md`, §7) explicitly demos this live on a phone. See `docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/pitch-script-truth-matrix.md` for the full current determination.
+# CURRENT STATUS — 2026-09-23
+
+**CONFIRMED, UNCONDITIONAL PRESENTATION BLOCKER.** This document's bottom-line verdict (mobile putaway does not exist; containers are disconnected from receiving) remains ACCURATE, independently re-confirmed via fresh code inspection. The current master pitch script (`docs/mvp/ambra-skrypt-prezentacji.md`, §7) explicitly demos scan→confirm mobile putaway live on a phone — this is not a conditional/optional gap. Backend is real and tested: canonical Inventory Core exists (frozen, see `docs/inventory/reviews/inventory-core-final-pilot-freeze/`); `receive_repair_order_stock` exists and is tested; `putaway_repair_order_stock` exists and is tested; the A8 physical-state read (`get_repair_order_line_physical_state`) exists. **Zero UI callers for any of these.** Mobile routes `/warehouse/deliveries` and `/warehouse/scanning/delivery` are confirmed placeholders.
+
+Superseded technical details from the original audit below: `ambra-location-inventory.ts` (cited below as the disconnected container-action file) was DELETED as confirmed-dead code during the Inventory Core closing pass; `inventory_reverse_movement` has existed since IC-2 (the audit's "no reversal RPC exists" claim is outdated — it exists, but like the RPCs above has zero UI callers).
+
+# CURRENT REMAINING WORK
+
+1. Build mobile receiving/putaway UI (scan/select item → scan location → confirm → close session → generate report from real movement/location data) calling the existing, tested `receive_repair_order_stock`/`putaway_repair_order_stock` RPCs.
+2. No DB/RPC/architecture change required — this is UI + service-integration work only.
+
+# HISTORICAL AUDIT / DESIGN RECORD
 
 **Priorytet:** P0
 
