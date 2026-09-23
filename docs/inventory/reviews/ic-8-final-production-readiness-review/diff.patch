@@ -1,0 +1,841 @@
+diff --git a/apps/web/supabase-target/supabase/migrations/20260912174011_zone5_receiving_location_purpose.sql b/apps/web/supabase-target/supabase/migrations/20260912174011_zone5_receiving_location_purpose.sql
+new file mode 100644
+index 00000000..c9a9d94f
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260912174011_zone5_receiving_location_purpose.sql
+@@ -0,0 +1,70 @@
++-- ============================================================================
++-- IC-8 REPRODUCIBILITY RECONSTRUCTION (2026-09-22)
++-- ============================================================================
++-- This migration was historically applied live but never locally mirrored
++-- (the "Zone-5 local migration-mirroring gap" disclosed since IC-5, and
++-- carried as a HARD reproducibility gate into IC-8 per IC-6A's own
++-- assignment). It is reconstructed here, at its own original live
++-- timestamp/name, from cross-validated evidence -- NOT invented:
++--
++--   - `resolve_branch_receiving_location`'s own CURRENT live body was
++--     fetched via `pg_get_functiondef` and found to be referenced only as
++--     a CALLER by every later migration that touches it (`ic3_receive_
++--     repair_order_stock_wrapper_refactor`, the various `ic5*_putaway_*`
++--     migrations, `a8_receive_remove_projection_write`, `a8_putaway_live_
++--     attribution_check`) -- none of them ever `CREATE OR REPLACE` it.
++--     This proves the live body below is byte-identical to what this
++--     migration originally created.
++--   - The partial unique index `warehouse_locations_one_receiving_per_
++--     branch` is live-confirmed and matches the "resolves exactly ONE
++--     receiving location per branch" invariant this whole project's own
++--     test suite and documentation have consistently described since
++--     phase 10 (e.g. `101_..._characterization_test.sql`'s own header
++--     comment).
++--   - `warehouse_locations.purpose` (text, NOT NULL, default 'standard')
++--     is live-confirmed; no CHECK constraint exists on its values live
++--     today, so none is added here.
++--
++-- CONFIDENCE: HIGH for both the column/index/function shape (multiply
++-- cross-validated against live state and every later caller) and the
++-- function body (currently live, unmodified, byte-for-byte).
++--
++-- See docs/inventory/reviews/ic-8-final-production-readiness-review/
++-- migration-reproducibility.md for the full evidence trail.
++
++ALTER TABLE public.warehouse_locations
++  ADD COLUMN IF NOT EXISTS purpose text NOT NULL DEFAULT 'standard';
++
++CREATE UNIQUE INDEX IF NOT EXISTS warehouse_locations_one_receiving_per_branch
++  ON public.warehouse_locations (organization_id, branch_id)
++  WHERE (purpose = 'receiving' AND deleted_at IS NULL);
++
++CREATE OR REPLACE FUNCTION public.resolve_branch_receiving_location(p_organization_id uuid, p_branch_id uuid)
++ RETURNS uuid
++ LANGUAGE plpgsql
++ STABLE SECURITY DEFINER
++ SET search_path TO 'public', 'pg_temp'
++AS $function$
++DECLARE
++  v_location_id uuid;
++BEGIN
++  SELECT id INTO v_location_id
++  FROM public.warehouse_locations
++  WHERE organization_id = p_organization_id
++    AND branch_id = p_branch_id
++    AND purpose = 'receiving'
++    AND deleted_at IS NULL
++    AND can_store_inventory = true;
++
++  IF v_location_id IS NULL THEN
++    RAISE EXCEPTION 'No active receiving location configured for this branch (organization_id=%, branch_id=%). An admin must designate one on the Locations page before receiving can post.', p_organization_id, p_branch_id
++      USING ERRCODE = 'P0002';
++  END IF;
++
++  RETURN v_location_id;
++END;
++$function$;
++
++REVOKE ALL ON FUNCTION public.resolve_branch_receiving_location(uuid, uuid) FROM PUBLIC;
++REVOKE ALL ON FUNCTION public.resolve_branch_receiving_location(uuid, uuid) FROM anon;
++REVOKE ALL ON FUNCTION public.resolve_branch_receiving_location(uuid, uuid) FROM authenticated;
+diff --git a/apps/web/supabase-target/supabase/migrations/20260912174155_zone5_repair_order_spatial_attribution_schema.sql b/apps/web/supabase-target/supabase/migrations/20260912174155_zone5_repair_order_spatial_attribution_schema.sql
+new file mode 100644
+index 00000000..cd51892c
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260912174155_zone5_repair_order_spatial_attribution_schema.sql
+@@ -0,0 +1,74 @@
++-- ============================================================================
++-- IC-8 REPRODUCIBILITY RECONSTRUCTION (2026-09-22)
++-- ============================================================================
++-- Historically applied live, never locally mirrored (see the sibling
++-- reconstruction `20260912174011_zone5_receiving_location_purpose.sql`
++-- for the full context). Reconstructed at its own original timestamp.
++--
++-- Both tables were DROPPED by `20260922110807_a8_drop_projection_tables.sql`
++-- (Inventory Core A8, same day as this reconstruction), so they no longer
++-- exist live -- this reconstruction exists SOLELY to make the repository's
++-- own migration history replayable from scratch; a clean replay will
++-- create these tables here and then correctly drop them again via A8's
++-- own already-mirrored migration, exactly reproducing the accepted live
++-- end state.
++--
++-- CONFIDENCE: HIGH. Column lists were captured live via
++-- `information_schema.columns` before A8 dropped these tables, and
++-- independently cross-validated against every later, already-mirrored
++-- migration that references specific columns on either table by name
++-- (`ic5_rebuild_repair_order_projection_bucket_internal`'s own INSERT
++-- statements name every column below explicitly; `20260916182708_ic5_
++-- projection_tables_restrictive_rls.sql`'s own header comment states
++-- "carried only a SELECT policy each" prior to that migration, confirming
++-- the SELECT-only RLS shape created here). The SELECT policy's own exact
++-- predicate is reconstructed from the live, byte-identical pattern used
++-- by every other org/branch-scoped derived-state table in this schema
++-- (`inventory_containers_select`, fetched live), matching this table
++-- pair's own identical column shape (direct `organization_id`/
++-- `branch_id` columns, no `deleted_at`).
++--
++-- See docs/inventory/reviews/ic-8-final-production-readiness-review/
++-- migration-reproducibility.md for the full evidence trail.
++
++CREATE TABLE public.repair_order_line_locations (
++  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
++  organization_id uuid NOT NULL,
++  branch_id uuid NOT NULL,
++  repair_order_id uuid NOT NULL,
++  repair_order_line_id uuid NOT NULL,
++  variant_id uuid,
++  location_id uuid NOT NULL,
++  quantity numeric NOT NULL DEFAULT 0,
++  created_at timestamptz NOT NULL DEFAULT now(),
++  updated_at timestamptz NOT NULL DEFAULT now(),
++  CONSTRAINT repair_order_line_locations_unique UNIQUE (repair_order_line_id, location_id)
++);
++
++CREATE TABLE public.repair_order_location_attribution_uncertain (
++  organization_id uuid NOT NULL,
++  branch_id uuid NOT NULL,
++  location_id uuid NOT NULL,
++  variant_id uuid NOT NULL,
++  first_uncertain_at timestamptz NOT NULL DEFAULT now(),
++  CONSTRAINT repair_order_location_attribution_uncertain_pkey
++    PRIMARY KEY (organization_id, branch_id, location_id, variant_id)
++);
++
++ALTER TABLE public.repair_order_line_locations ENABLE ROW LEVEL SECURITY;
++ALTER TABLE public.repair_order_line_locations FORCE ROW LEVEL SECURITY;
++ALTER TABLE public.repair_order_location_attribution_uncertain ENABLE ROW LEVEL SECURITY;
++ALTER TABLE public.repair_order_location_attribution_uncertain FORCE ROW LEVEL SECURITY;
++
++CREATE POLICY repair_order_line_locations_select
++  ON public.repair_order_line_locations FOR SELECT
++  TO authenticated
++  USING (has_branch_permission(organization_id, branch_id, 'warehouse.inventory.read'));
++
++CREATE POLICY repair_order_location_attribution_uncertain_select
++  ON public.repair_order_location_attribution_uncertain FOR SELECT
++  TO authenticated
++  USING (has_branch_permission(organization_id, branch_id, 'warehouse.inventory.read'));
++
++GRANT SELECT ON public.repair_order_line_locations TO authenticated;
++GRANT SELECT ON public.repair_order_location_attribution_uncertain TO authenticated;
+diff --git a/apps/web/supabase-target/supabase/migrations/20260912174602_zone5_attribution_sync_trigger.sql b/apps/web/supabase-target/supabase/migrations/20260912174602_zone5_attribution_sync_trigger.sql
+new file mode 100644
+index 00000000..a2b7ca89
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260912174602_zone5_attribution_sync_trigger.sql
+@@ -0,0 +1,179 @@
++-- ============================================================================
++-- IC-8 REPRODUCIBILITY RECONSTRUCTION (2026-09-22)
++-- ============================================================================
++-- Historically applied live, never locally mirrored. Reconstructed at its
++-- own original timestamp.
++--
++-- COLLAPSES TWO HISTORICAL MIGRATIONS INTO ONE, DISCLOSED EXPLICITLY:
++-- the live migration history additionally shows
++-- `20260914123823_zone5_attribution_sync_trigger_max_uuid_fix`, applied
++-- ~2 days after this one, fixing an unknown defect in this same function
++-- (name suggests a `max()`-over-`uuid`-cast issue in the confidence-
++-- inference aggregate below). Its EXACT original (pre-fix) text is not
++-- recoverable: no locally-mirrored migration shows a diff against it
++-- specifically (the next migration to touch this function,
++-- `ic5_repair_order_location_attribution_sync_reversal_aware`, replaces
++-- the WHOLE function body and is itself already correct/final on this
++-- point). Per this pass's own explicit instruction to never invent
++-- semantics, this reconstruction represents the function in its
++-- ALREADY-FIXED shape directly (i.e. as of immediately before IC-5's own
++-- reversal-aware rewrite) rather than fabricate a plausible bug. The
++-- sibling placeholder file at the original `max_uuid_fix` timestamp
++-- documents this collapse explicitly and makes no further schema change.
++--
++-- CONFIDENCE: HIGH for everything below the (absent, by design) reversal
++-- branch. `docs/inventory/reviews/ic-5-review/migration-summary.md`'s own
++-- item 5 states, of the reversal-aware rewrite that immediately follows
++-- this reconstruction in migration order: "Adds a reversal-detection
++-- branch ahead of the existing logic... All pre-existing logic
++-- (confidence-based inference, putaway UNKNOWN-stickiness) left
++-- byte-for-byte unchanged below this branch." The body below is that
++-- exact "pre-existing logic," extracted by removing ONLY the reversal-
++-- detection branch from the function's own final, live-captured body
++-- (captured via `pg_get_functiondef` earlier in the A8 pass, before A8
++-- dropped this function) -- not independently re-derived.
++--
++-- See docs/inventory/reviews/ic-8-final-production-readiness-review/
++-- migration-reproducibility.md for the full evidence trail.
++
++CREATE OR REPLACE FUNCTION public.repair_order_location_attribution_sync()
++ RETURNS trigger
++ LANGUAGE plpgsql
++ SECURITY DEFINER
++ SET search_path TO 'public', 'pg_temp'
++AS $function$
++DECLARE
++  v_pre_effect_on_hand numeric;
++  v_attributed_sum     numeric;
++  v_distinct_lines     integer;
++  v_dest               uuid;
++  v_source             uuid;
++  v_line_id            uuid;
++  v_ro_id               uuid;
++  v_source_was_unknown boolean;
++  v_confident_known    boolean;
++BEGIN
++  IF NEW.balance_field IS DISTINCT FROM 'on_hand' THEN
++    RETURN NULL;
++  END IF;
++
++  IF NEW.direction <> 'decrease' THEN
++    RETURN NULL;
++  END IF;
++
++  IF current_setting('ambra.repair_order_attribution_authoritative', true) = 'on' THEN
++    RETURN NULL;
++  END IF;
++
++  IF NOT EXISTS (
++    SELECT 1 FROM public.repair_order_line_locations
++    WHERE organization_id = NEW.organization_id AND branch_id = NEW.branch_id
++      AND location_id = NEW.location_id AND variant_id = NEW.variant_id
++  ) AND NOT EXISTS (
++    SELECT 1 FROM public.repair_order_location_attribution_uncertain
++    WHERE organization_id = NEW.organization_id AND branch_id = NEW.branch_id
++      AND location_id = NEW.location_id AND variant_id = NEW.variant_id
++  ) THEN
++    RETURN NULL;
++  END IF;
++
++  SELECT destination_location_id INTO v_dest
++  FROM public.inventory_movement_lines
++  WHERE id = NEW.movement_line_id;
++
++  SELECT EXISTS (
++    SELECT 1 FROM public.repair_order_location_attribution_uncertain
++    WHERE organization_id = NEW.organization_id AND branch_id = NEW.branch_id
++      AND location_id = NEW.location_id AND variant_id = NEW.variant_id
++    FOR UPDATE
++  ) INTO v_source_was_unknown;
++
++  v_confident_known := false;
++  IF NOT v_source_was_unknown THEN
++    v_pre_effect_on_hand := NEW.balance_after + NEW.quantity;
++
++    WITH locked_rows AS (
++      SELECT quantity, repair_order_line_id, repair_order_id
++      FROM public.repair_order_line_locations
++      WHERE organization_id = NEW.organization_id AND branch_id = NEW.branch_id
++        AND location_id = NEW.location_id AND variant_id = NEW.variant_id
++      FOR UPDATE
++    )
++    SELECT sum(quantity), count(DISTINCT repair_order_line_id),
++           max(repair_order_line_id::text)::uuid, max(repair_order_id::text)::uuid
++      INTO v_attributed_sum, v_distinct_lines, v_line_id, v_ro_id
++      FROM locked_rows;
++
++    v_confident_known := (v_attributed_sum IS NOT DISTINCT FROM v_pre_effect_on_hand) AND v_distinct_lines = 1;
++  END IF;
++
++  IF NEW.balance_after = 0 THEN
++    DELETE FROM public.repair_order_line_locations
++      WHERE organization_id = NEW.organization_id AND branch_id = NEW.branch_id
++        AND location_id = NEW.location_id AND variant_id = NEW.variant_id;
++
++    DELETE FROM public.repair_order_location_attribution_uncertain
++      WHERE organization_id = NEW.organization_id AND branch_id = NEW.branch_id
++        AND location_id = NEW.location_id AND variant_id = NEW.variant_id;
++
++    IF v_dest IS NOT NULL THEN
++      IF v_confident_known THEN
++        INSERT INTO public.repair_order_line_locations
++          (organization_id, branch_id, repair_order_id, repair_order_line_id, variant_id, location_id, quantity)
++        VALUES (NEW.organization_id, NEW.branch_id, v_ro_id, v_line_id, NEW.variant_id, v_dest, NEW.quantity)
++        ON CONFLICT (repair_order_line_id, location_id)
++        DO UPDATE SET quantity = public.repair_order_line_locations.quantity + NEW.quantity;
++      ELSE
++        INSERT INTO public.repair_order_location_attribution_uncertain (organization_id, branch_id, location_id, variant_id)
++          VALUES (NEW.organization_id, NEW.branch_id, v_dest, NEW.variant_id)
++          ON CONFLICT (organization_id, branch_id, location_id, variant_id) DO NOTHING;
++      END IF;
++    END IF;
++    RETURN NULL;
++  END IF;
++
++  IF v_source_was_unknown THEN
++    INSERT INTO public.repair_order_location_attribution_uncertain (organization_id, branch_id, location_id, variant_id)
++      VALUES (NEW.organization_id, NEW.branch_id, NEW.location_id, NEW.variant_id)
++      ON CONFLICT (organization_id, branch_id, location_id, variant_id) DO NOTHING;
++    IF v_dest IS NOT NULL THEN
++      INSERT INTO public.repair_order_location_attribution_uncertain (organization_id, branch_id, location_id, variant_id)
++        VALUES (NEW.organization_id, NEW.branch_id, v_dest, NEW.variant_id)
++        ON CONFLICT (organization_id, branch_id, location_id, variant_id) DO NOTHING;
++    END IF;
++    RETURN NULL;
++  END IF;
++
++  IF NOT v_confident_known THEN
++    INSERT INTO public.repair_order_location_attribution_uncertain (organization_id, branch_id, location_id, variant_id)
++      VALUES (NEW.organization_id, NEW.branch_id, NEW.location_id, NEW.variant_id)
++      ON CONFLICT (organization_id, branch_id, location_id, variant_id) DO NOTHING;
++    IF v_dest IS NOT NULL THEN
++      INSERT INTO public.repair_order_location_attribution_uncertain (organization_id, branch_id, location_id, variant_id)
++        VALUES (NEW.organization_id, NEW.branch_id, v_dest, NEW.variant_id)
++        ON CONFLICT (organization_id, branch_id, location_id, variant_id) DO NOTHING;
++    END IF;
++    RETURN NULL;
++  END IF;
++
++  UPDATE public.repair_order_line_locations
++    SET quantity = quantity - NEW.quantity
++    WHERE repair_order_line_id = v_line_id AND location_id = NEW.location_id;
++
++  IF v_dest IS NOT NULL THEN
++    INSERT INTO public.repair_order_line_locations
++      (organization_id, branch_id, repair_order_id, repair_order_line_id, variant_id, location_id, quantity)
++    VALUES (NEW.organization_id, NEW.branch_id, v_ro_id, v_line_id, NEW.variant_id, v_dest, NEW.quantity)
++    ON CONFLICT (repair_order_line_id, location_id)
++    DO UPDATE SET quantity = public.repair_order_line_locations.quantity + NEW.quantity;
++  END IF;
++
++  RETURN NULL;
++END;
++$function$;
++
++REVOKE ALL ON FUNCTION public.repair_order_location_attribution_sync() FROM PUBLIC, anon, authenticated;
++
++CREATE TRIGGER repair_order_line_locations_ledger_sync
++  AFTER INSERT ON public.inventory_stock_ledger_entries
++  FOR EACH ROW EXECUTE FUNCTION public.repair_order_location_attribution_sync();
+diff --git a/apps/web/supabase-target/supabase/migrations/20260914123823_zone5_attribution_sync_trigger_max_uuid_fix.sql b/apps/web/supabase-target/supabase/migrations/20260914123823_zone5_attribution_sync_trigger_max_uuid_fix.sql
+new file mode 100644
+index 00000000..7e525734
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260914123823_zone5_attribution_sync_trigger_max_uuid_fix.sql
+@@ -0,0 +1,17 @@
++-- ============================================================================
++-- IC-8 REPRODUCIBILITY RECONSTRUCTION -- DISCLOSED PLACEHOLDER (2026-09-22)
++-- ============================================================================
++-- This slot corresponds to a historically-applied live migration
++-- (`zone5_attribution_sync_trigger_max_uuid_fix`) whose own exact content
++-- could not be separately recovered from its immediate predecessor,
++-- `zone5_attribution_sync_trigger`. Both are represented by the
++-- reconstruction at that migration's own timestamp
++-- (`20260912174602_zone5_attribution_sync_trigger.sql`), which already
++-- reflects this fix's own end state -- see that file's own header comment
++-- for the full reasoning and evidence. Preserved here as its own empty
++-- migration, at its own original historical timestamp, so the repository's
++-- migration sequence numbering is not altered and no locally-mirrored
++-- migration needs to be renumbered or rewritten to compensate.
++--
++-- Intentionally a no-op: applying this migration changes nothing.
++SELECT 1;
+diff --git a/apps/web/supabase-target/supabase/migrations/20260914124640_zone5_receive_repair_order_stock_rpc_v2.sql b/apps/web/supabase-target/supabase/migrations/20260914124640_zone5_receive_repair_order_stock_rpc_v2.sql
+new file mode 100644
+index 00000000..99e3ae66
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260914124640_zone5_receive_repair_order_stock_rpc_v2.sql
+@@ -0,0 +1,20 @@
++-- ============================================================================
++-- IC-8 REPRODUCIBILITY RECONSTRUCTION -- DISCLOSED PLACEHOLDER (2026-09-22)
++-- ============================================================================
++-- This slot corresponds to a historically-applied live migration
++-- (`zone5_receive_repair_order_stock_rpc_v2`), the original creation of
++-- `receive_repair_order_stock`. Its own exact original attribution-writing
++-- mechanism could not be separately recovered from its immediate successor
++-- (~49 minutes later live), `zone5_receive_repair_order_stock_use_
++-- canonical_attach`. Both are represented by the reconstruction at that
++-- later migration's own timestamp
++-- (`20260914173843_zone5_receive_repair_order_stock_use_canonical_attach.sql`),
++-- which already reflects this function in its "use canonical attach" end
++-- state -- see that file's own header comment for the full reasoning and
++-- evidence. Preserved here as its own empty migration, at its own
++-- original historical timestamp, so the repository's migration sequence
++-- numbering is not altered and no locally-mirrored migration needs to be
++-- renumbered or rewritten to compensate.
++--
++-- Intentionally a no-op: applying this migration changes nothing.
++SELECT 1;
+diff --git a/apps/web/supabase-target/supabase/migrations/20260914125451_zone5_putaway_repair_order_stock_rpc.sql b/apps/web/supabase-target/supabase/migrations/20260914125451_zone5_putaway_repair_order_stock_rpc.sql
+new file mode 100644
+index 00000000..150436cc
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260914125451_zone5_putaway_repair_order_stock_rpc.sql
+@@ -0,0 +1,186 @@
++-- ============================================================================
++-- IC-8 REPRODUCIBILITY RECONSTRUCTION (2026-09-22)
++-- ============================================================================
++-- Historically applied live, never locally mirrored. Reconstructed at its
++-- own original timestamp -- the first creation of `putaway_repair_order_
++-- stock`; no earlier local migration references this function name.
++--
++-- CONFIDENCE: HIGH. `docs/inventory/reviews/ic-5-review/migration-
++-- summary.md`'s own item 8 describes the immediately-following,
++-- already-mirrored migration (`20260916184230_ic5_putaway_repair_order_
++-- stock_relocation_link.sql`) as adding "putaway's own relocation as
++-- canonical business-attribution history... inserted directly" on top of
++-- "putaway's own existing direct projection write" -- i.e. everything
++-- ELSE in that migration's own body is this function's own pre-existing,
++-- unmodified logic. This reconstruction is that same migration's own
++-- body with ONLY the disclosed addition (the movement-line correlation
++-- lookup and the `repair_order_line_movement_links` INSERT) removed --
++-- not independently re-derived. Signature, grants (authenticated=true,
++-- anon=false, service_role=true) cross-validated against every later
++-- `CREATE OR REPLACE` of this same function, all of which keep the
++-- identical 6-argument signature (confirmed via `pg_proc` today: exactly
++-- one live overload).
++--
++-- See docs/inventory/reviews/ic-8-final-production-readiness-review/
++-- migration-reproducibility.md for the full evidence trail.
++
++CREATE OR REPLACE FUNCTION public.putaway_repair_order_stock(p_actor_user_id uuid, p_organization_id uuid, p_branch_id uuid, p_lines jsonb, p_destination_location_id uuid, p_idempotency_key text DEFAULT NULL::text)
++ RETURNS jsonb
++ LANGUAGE plpgsql
++ SECURITY DEFINER
++ SET search_path TO 'public', 'pg_temp'
++AS $function$
++DECLARE
++  v_receiving_location_id uuid;
++  v_line                   jsonb;
++  v_line_index             integer := 0;
++  v_rol_id                 uuid;
++  v_ro_id                  uuid;
++  v_line_variant_id        uuid;
++  v_qty                    numeric;
++  v_available_qty          numeric;
++  v_engine_lines           jsonb := '[]'::jsonb;
++  v_engine_result          jsonb;
++  v_movement_id            uuid;
++BEGIN
++  IF p_actor_user_id IS NULL OR p_actor_user_id IS DISTINCT FROM auth.uid() THEN
++    RAISE EXCEPTION 'p_actor_user_id must match the authenticated caller' USING ERRCODE = '28000';
++  END IF;
++
++  IF NOT (
++    public.has_branch_permission(p_organization_id, p_branch_id, 'warehouse.inventory.operate')
++    OR public.has_branch_permission(p_organization_id, p_branch_id, 'warehouse.inventory.adjust')
++  ) THEN
++    RAISE EXCEPTION 'Not authorized to putaway stock for this branch' USING ERRCODE = '42501';
++  END IF;
++
++  IF p_lines IS NULL OR jsonb_array_length(p_lines) = 0 THEN
++    RAISE EXCEPTION 'At least one line is required' USING ERRCODE = '22023';
++  END IF;
++  IF p_destination_location_id IS NULL THEN
++    RAISE EXCEPTION 'A destination location is required' USING ERRCODE = '22023';
++  END IF;
++
++  v_receiving_location_id := public.resolve_branch_receiving_location(p_organization_id, p_branch_id);
++
++  IF NOT EXISTS (
++    SELECT 1 FROM public.warehouse_locations
++    WHERE id = p_destination_location_id AND organization_id = p_organization_id
++      AND branch_id = p_branch_id AND deleted_at IS NULL AND can_store_inventory = true
++  ) THEN
++    RAISE EXCEPTION 'Destination location % is not a valid stockable location for this branch', p_destination_location_id USING ERRCODE = '22023';
++  END IF;
++  IF p_destination_location_id = v_receiving_location_id THEN
++    RAISE EXCEPTION 'Destination cannot be the receiving location itself' USING ERRCODE = '22023';
++  END IF;
++
++  FOR v_line IN SELECT * FROM jsonb_array_elements(p_lines)
++  LOOP
++    v_line_index := v_line_index + 1;
++    v_rol_id := (v_line->>'repair_order_line_id')::uuid;
++    v_qty := (v_line->>'quantity')::numeric;
++    v_line_variant_id := (v_line->>'variant_id')::uuid;
++
++    IF v_rol_id IS NULL THEN
++      RAISE EXCEPTION 'Line % is missing repair_order_line_id -- putaway always names an exact line, never inferred' , v_line_index USING ERRCODE = '22023';
++    END IF;
++    IF v_qty IS NULL OR v_qty <= 0 THEN
++      RAISE EXCEPTION 'Line % quantity must be positive', v_line_index USING ERRCODE = '22023';
++    END IF;
++
++    SELECT rol.repair_order_id INTO v_ro_id
++    FROM public.repair_order_lines rol
++    JOIN public.repair_orders ro ON ro.id = rol.repair_order_id
++    WHERE rol.id = v_rol_id AND ro.organization_id = p_organization_id AND ro.branch_id = p_branch_id;
++
++    IF v_ro_id IS NULL THEN
++      RAISE EXCEPTION 'repair_order_line_id % (line %) does not belong to this organization/branch', v_rol_id, v_line_index USING ERRCODE = '42501';
++    END IF;
++
++    IF EXISTS (
++      SELECT 1 FROM public.repair_order_lines WHERE id = v_rol_id AND variant_id IS NOT NULL AND variant_id IS DISTINCT FROM v_line_variant_id
++    ) THEN
++      RAISE EXCEPTION 'Line % variant does not match the RepairOrderLine''s own variant', v_line_index USING ERRCODE = '22023';
++    END IF;
++
++    IF EXISTS (
++      SELECT 1 FROM public.repair_order_location_attribution_uncertain
++      WHERE organization_id = p_organization_id AND branch_id = p_branch_id
++        AND location_id = v_receiving_location_id AND variant_id = v_line_variant_id
++    ) THEN
++      RAISE EXCEPTION 'Line %: the receiving location''s attribution for this variant is UNKNOWN (a prior generic movement made it ambiguous) -- putaway is not permitted until it is reconciled', v_line_index
++        USING ERRCODE = '55000';
++    END IF;
++
++    SELECT quantity INTO v_available_qty
++    FROM public.repair_order_line_locations
++    WHERE repair_order_line_id = v_rol_id AND location_id = v_receiving_location_id;
++
++    IF v_available_qty IS NULL OR v_available_qty < v_qty THEN
++      RAISE EXCEPTION 'Line % requests % but only % is currently attributed to this RepairOrderLine at the receiving location', v_line_index, v_qty, coalesce(v_available_qty, 0) USING ERRCODE = '22023';
++    END IF;
++
++    v_engine_lines := v_engine_lines || jsonb_build_array(jsonb_build_object(
++      'variant_id', v_line_variant_id,
++      'unit_id', v_line->>'unit_id',
++      'quantity', v_qty,
++      'source_location_id', v_receiving_location_id,
++      'destination_location_id', p_destination_location_id,
++      'note', NULL
++    ));
++  END LOOP;
++
++  PERFORM set_config('ambra.repair_order_attribution_authoritative', 'on', true);
++
++  v_engine_result := public.inventory_create_and_finalize(
++    p_organization_id, p_branch_id, '801', v_engine_lines,
++    NULL, NULL, NULL, NULL, NULL, p_idempotency_key, p_actor_user_id
++  );
++  v_movement_id := (v_engine_result->>'movement_id')::uuid;
++
++  v_line_index := 0;
++  FOR v_line IN SELECT * FROM jsonb_array_elements(p_lines)
++  LOOP
++    v_line_index := v_line_index + 1;
++    v_rol_id := (v_line->>'repair_order_line_id')::uuid;
++    v_qty := (v_line->>'quantity')::numeric;
++    v_line_variant_id := (v_line->>'variant_id')::uuid;
++    SELECT repair_order_id INTO v_ro_id FROM public.repair_order_lines WHERE id = v_rol_id;
++
++    IF EXISTS (
++      SELECT 1 FROM public.repair_order_location_attribution_uncertain
++      WHERE organization_id = p_organization_id AND branch_id = p_branch_id
++        AND location_id = v_receiving_location_id AND variant_id = v_line_variant_id
++      FOR UPDATE
++    ) THEN
++      RAISE EXCEPTION 'Line %: the receiving location''s attribution for this variant is UNKNOWN (a prior generic movement made it ambiguous) -- putaway is not permitted until it is reconciled', v_line_index
++        USING ERRCODE = '55000';
++    END IF;
++
++    SELECT quantity INTO v_available_qty
++    FROM public.repair_order_line_locations
++    WHERE repair_order_line_id = v_rol_id AND location_id = v_receiving_location_id
++    FOR UPDATE;
++
++    IF v_available_qty IS NULL OR v_available_qty < v_qty THEN
++      RAISE EXCEPTION 'Line % requests % but only % is currently attributed to this RepairOrderLine at the receiving location', v_line_index, v_qty, coalesce(v_available_qty, 0) USING ERRCODE = '22023';
++    END IF;
++
++    UPDATE public.repair_order_line_locations
++      SET quantity = quantity - v_qty
++      WHERE repair_order_line_id = v_rol_id AND location_id = v_receiving_location_id;
++
++    INSERT INTO public.repair_order_line_locations
++      (organization_id, branch_id, repair_order_id, repair_order_line_id, variant_id, location_id, quantity)
++    VALUES (p_organization_id, p_branch_id, v_ro_id, v_rol_id, v_line_variant_id, p_destination_location_id, v_qty)
++    ON CONFLICT (repair_order_line_id, location_id)
++    DO UPDATE SET quantity = public.repair_order_line_locations.quantity + EXCLUDED.quantity;
++  END LOOP;
++
++  RETURN v_engine_result || jsonb_build_object('source_location_id', v_receiving_location_id, 'destination_location_id', p_destination_location_id);
++END;
++$function$;
++
++REVOKE ALL ON FUNCTION public.putaway_repair_order_stock(uuid, uuid, uuid, jsonb, uuid, text) FROM PUBLIC;
++REVOKE ALL ON FUNCTION public.putaway_repair_order_stock(uuid, uuid, uuid, jsonb, uuid, text) FROM anon;
++GRANT EXECUTE ON FUNCTION public.putaway_repair_order_stock(uuid, uuid, uuid, jsonb, uuid, text) TO authenticated, service_role;
+diff --git a/apps/web/supabase-target/supabase/migrations/20260914173843_zone5_receive_repair_order_stock_use_canonical_attach.sql b/apps/web/supabase-target/supabase/migrations/20260914173843_zone5_receive_repair_order_stock_use_canonical_attach.sql
+new file mode 100644
+index 00000000..ed732a89
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260914173843_zone5_receive_repair_order_stock_use_canonical_attach.sql
+@@ -0,0 +1,179 @@
++-- ============================================================================
++-- IC-8 REPRODUCIBILITY RECONSTRUCTION (2026-09-22)
++-- ============================================================================
++-- Historically applied live, never locally mirrored. Reconstructed at its
++-- own original timestamp.
++--
++-- COLLAPSES TWO HISTORICAL MIGRATIONS INTO ONE, DISCLOSED EXPLICITLY: the
++-- live migration history additionally shows `zone5_receive_repair_order_
++-- stock_rpc_v2` (this function's own original creation, ~49 minutes
++-- earlier). Its own exact original attribution-writing mechanism (before
++-- being changed to "use canonical attach", per this migration's own name)
++-- is not recoverable: no locally-mirrored migration shows what it looked
++-- like beforehand, and `write_repair_order_line_movement_link_internal`
++-- (the eventual canonical attribution writer) did not exist yet at that
++-- point in history either (it was extracted later, by the already-
++-- mirrored `ic5c_write_repair_order_line_movement_link_internal`).
++-- Reconstructing v2's own exact original body would require inventing
++-- semantics this pass's own instructions explicitly forbid. Both
++-- migrations are therefore represented by this single reconstruction,
++-- which reflects the function in its "use canonical attach" end state
++-- (i.e. calling `attach_repair_order_line_movement`, already the
++-- established shared writer at this point in history via the
++-- already-mirrored `repair_order_line_movement_attach_rpc`). The sibling
++-- placeholder file at the `rpc_v2` timestamp documents this collapse.
++--
++-- CONFIDENCE: HIGH for this function's own end state at this point in
++-- history. `docs/inventory/reviews/ic-3-review/` and this migration's own
++-- immediate successor, `20260915184005_ic3_receive_repair_order_stock_
++-- wrapper_refactor.sql` (already mirrored), state explicitly in its own
++-- header comment: "KEPT EXACTLY UNCHANGED (byte-identical logic, just
++-- relocated): actor identity check; permission check...; branch
++-- receiving-location resolution...; per-line source_line_id provenance
++-- resolution...; the ambra.repair_order_attribution_authoritative GUC set
++-- before posting; the post-posting loop calling attach_repair_order_
++-- line_movement and upserting repair_order_line_locations... CHANGED: the
++-- physical posting step. Previously called inventory_create_and_finalize
++-- (..., '101', v_engine_lines, ...) directly. Now calls the new
++-- inventory_receive_stock(...) primitive..." This reconstruction is that
++-- later migration's own body with ONLY that one disclosed change reverted
++-- (the physical-posting call reverted to `inventory_create_and_finalize`,
++-- movement-line correlation reverted to the pre-existing re-SELECT
++-- against `inventory_movement_lines` by ordinal position within the
++-- posted movement) -- not independently re-derived.
++--
++-- See docs/inventory/reviews/ic-8-final-production-readiness-review/
++-- migration-reproducibility.md for the full evidence trail.
++
++CREATE OR REPLACE FUNCTION public.receive_repair_order_stock(p_actor_user_id uuid, p_organization_id uuid, p_branch_id uuid, p_lines jsonb, p_operation_date date DEFAULT NULL::date, p_document_date date DEFAULT NULL::date, p_external_reference text DEFAULT NULL::text, p_note text DEFAULT NULL::text, p_idempotency_key text DEFAULT NULL::text)
++ RETURNS jsonb
++ LANGUAGE plpgsql
++ SECURITY DEFINER
++ SET search_path TO 'public', 'pg_temp'
++AS $function$
++DECLARE
++  v_receiving_location_id uuid;
++  v_engine_lines           jsonb := '[]'::jsonb;
++  v_line                    jsonb;
++  v_line_index              integer := 0;
++  v_source_line_id          uuid;
++  v_resolved_rol_id         uuid;
++  v_resolved_ro_id          uuid;
++  v_resolved_variant_id     uuid;
++  v_candidate_count         integer;
++  v_attribution             jsonb := '[]'::jsonb;
++  v_engine_result           jsonb;
++  v_movement_id             uuid;
++  v_movement_line_id        uuid;
++  v_i                       integer;
++  v_qty                     numeric;
++BEGIN
++  IF p_actor_user_id IS NULL OR p_actor_user_id IS DISTINCT FROM auth.uid() THEN
++    RAISE EXCEPTION 'p_actor_user_id must match the authenticated caller' USING ERRCODE = '28000';
++  END IF;
++
++  IF NOT (
++    public.has_branch_permission(p_organization_id, p_branch_id, 'warehouse.inventory.operate')
++    OR public.has_branch_permission(p_organization_id, p_branch_id, 'warehouse.inventory.adjust')
++  ) THEN
++    RAISE EXCEPTION 'Not authorized to receive stock for this branch' USING ERRCODE = '42501';
++  END IF;
++
++  IF p_lines IS NULL OR jsonb_array_length(p_lines) = 0 THEN
++    RAISE EXCEPTION 'At least one line is required' USING ERRCODE = '22023';
++  END IF;
++
++  v_receiving_location_id := public.resolve_branch_receiving_location(p_organization_id, p_branch_id);
++
++  FOR v_line IN SELECT * FROM jsonb_array_elements(p_lines)
++  LOOP
++    v_line_index := v_line_index + 1;
++    v_source_line_id := NULLIF(v_line->>'source_line_id', '')::uuid;
++    v_resolved_rol_id := NULL;
++    v_resolved_ro_id := NULL;
++    v_resolved_variant_id := NULL;
++
++    IF v_source_line_id IS NOT NULL THEN
++      SELECT count(*), min(rol.id::text)::uuid, min(rol.repair_order_id::text)::uuid, min(rol.variant_id::text)::uuid
++        INTO v_candidate_count, v_resolved_rol_id, v_resolved_ro_id, v_resolved_variant_id
++      FROM public.workshop_source_document_lines wsdl
++      JOIN public.repair_order_line_source_links rols ON rols.workshop_source_document_line_id = wsdl.id
++      JOIN public.repair_order_lines rol ON rol.id = rols.repair_order_line_id
++      WHERE wsdl.wdd_matcher_line_id = v_source_line_id;
++
++      IF v_candidate_count = 0 THEN
++        RAISE EXCEPTION 'source_line_id % (line %) did not resolve to any RepairOrderLine -- broken provenance must never be silently received as unattributed', v_source_line_id, v_line_index
++          USING ERRCODE = 'P0002';
++      ELSIF v_candidate_count > 1 THEN
++        RAISE EXCEPTION 'source_line_id % (line %) resolved ambiguously to % RepairOrderLine candidates -- ambiguous provenance must never be silently resolved by picking one', v_source_line_id, v_line_index, v_candidate_count
++          USING ERRCODE = '55000';
++      END IF;
++
++      IF NOT EXISTS (
++        SELECT 1 FROM public.repair_orders ro
++        WHERE ro.id = v_resolved_ro_id
++          AND ro.organization_id = p_organization_id AND ro.branch_id = p_branch_id
++      ) THEN
++        RAISE EXCEPTION 'Resolved RepairOrder for line % does not belong to the target organization/branch', v_line_index USING ERRCODE = '42501';
++      END IF;
++
++      IF v_resolved_variant_id IS NOT NULL AND v_resolved_variant_id IS DISTINCT FROM (v_line->>'variant_id')::uuid THEN
++        RAISE EXCEPTION 'Resolved RepairOrderLine variant for line % does not match the received variant', v_line_index USING ERRCODE = '22023';
++      END IF;
++    END IF;
++
++    v_engine_lines := v_engine_lines || jsonb_build_array(jsonb_build_object(
++      'variant_id', v_line->>'variant_id',
++      'unit_id', v_line->>'unit_id',
++      'quantity', (v_line->>'quantity')::numeric,
++      'destination_location_id', v_receiving_location_id,
++      'note', v_line->>'note'
++    ));
++    v_attribution := v_attribution || jsonb_build_array(v_resolved_rol_id);
++  END LOOP;
++
++  PERFORM set_config('ambra.repair_order_attribution_authoritative', 'on', true);
++
++  v_engine_result := public.inventory_create_and_finalize(
++    p_organization_id, p_branch_id, '101', v_engine_lines,
++    p_operation_date, p_document_date, NULL, p_external_reference, p_note, p_idempotency_key, p_actor_user_id
++  );
++
++  v_movement_id := (v_engine_result->>'movement_id')::uuid;
++
++  v_i := 0;
++  FOR v_line IN SELECT * FROM jsonb_array_elements(p_lines)
++  LOOP
++    v_i := v_i + 1;
++    v_resolved_rol_id := NULLIF(v_attribution->>(v_i - 1), 'null')::uuid;
++    CONTINUE WHEN v_resolved_rol_id IS NULL;
++
++    v_qty := (v_line->>'quantity')::numeric;
++
++    SELECT id INTO v_movement_line_id
++    FROM public.inventory_movement_lines
++    WHERE movement_id = v_movement_id
++    ORDER BY line_number
++    OFFSET (v_i - 1) LIMIT 1;
++
++    SELECT repair_order_id INTO v_resolved_ro_id FROM public.repair_order_lines WHERE id = v_resolved_rol_id;
++
++    PERFORM public.attach_repair_order_line_movement(
++      p_actor_user_id, v_resolved_rol_id, v_movement_line_id, v_qty, 'receipt'
++    );
++
++    INSERT INTO public.repair_order_line_locations
++      (organization_id, branch_id, repair_order_id, repair_order_line_id, variant_id, location_id, quantity)
++    VALUES (p_organization_id, p_branch_id, v_resolved_ro_id, v_resolved_rol_id,
++            (v_line->>'variant_id')::uuid, v_receiving_location_id, v_qty)
++    ON CONFLICT (repair_order_line_id, location_id)
++    DO UPDATE SET quantity = public.repair_order_line_locations.quantity + EXCLUDED.quantity;
++  END LOOP;
++
++  RETURN v_engine_result || jsonb_build_object('receiving_location_id', v_receiving_location_id);
++END;
++$function$;
++
++REVOKE ALL ON FUNCTION public.receive_repair_order_stock(uuid, uuid, uuid, jsonb, date, date, text, text, text) FROM PUBLIC;
++REVOKE ALL ON FUNCTION public.receive_repair_order_stock(uuid, uuid, uuid, jsonb, date, date, text, text, text) FROM anon;
++GRANT EXECUTE ON FUNCTION public.receive_repair_order_stock(uuid, uuid, uuid, jsonb, date, date, text, text, text) TO authenticated, service_role;
+diff --git a/apps/web/supabase-target/supabase/migrations/20260922172118_ic8_close_stock_ledger_raw_insert_bypass.sql b/apps/web/supabase-target/supabase/migrations/20260922172118_ic8_close_stock_ledger_raw_insert_bypass.sql
+new file mode 100644
+index 00000000..31e4fac3
+--- /dev/null
++++ b/apps/web/supabase-target/supabase/migrations/20260922172118_ic8_close_stock_ledger_raw_insert_bypass.sql
+@@ -0,0 +1,68 @@
++-- INVENTORY CORE IC-8 -- HARD BLOCKER FIX (narrow, per Section 37's own
++-- explicit allowance: "narrow fixes to defects that are genuine HARD
++-- blockers for the accepted final architecture").
++--
++-- FINDING: inventory_stock_ledger_entries had NO trigger guarding INSERT
++-- at all (only a BEFORE UPDATE/DELETE append-only trigger existed). Its
++-- own INSERT policy, `inventory_stock_ledger_insert`, only checked
++-- `has_branch_permission(organization_id, branch_id,
++-- 'warehouse.inventory.operate')` -- an ORDINARY, widely-granted
++-- operational permission, not an admin-only one.
++--
++-- REPRODUCTION (live, BEGIN/ROLLBACK, before this fix): an authenticated
++-- user holding only the ordinary `warehouse.inventory.operate` permission
++-- could (1) raw-INSERT a movement header in 'draft' status (already
++-- permitted by design -- drafts don't affect balances), (2) raw-INSERT a
++-- line on it, then (3) raw-INSERT an `inventory_stock_ledger_entries` row
++-- referencing that DRAFT, NEVER-FINALIZED movement line, with entirely
++-- self-chosen `balance_field`/`direction`/`quantity`/`balance_after`
++-- values -- completely bypassing `inventory_finalize_posting_internal`
++-- (the sole intended physical writer) and `inventory_balances` itself
++-- was not touched or updated to match. This creates a "phantom" ledger
++-- row: a fabricated entry in what this project's entire architecture
++-- treats as the immutable, append-only, canonical source of physical
++-- history (Concept A) -- corrupting audit-trail integrity even though it
++-- does not, by itself, let the same user move REAL on_hand_quantity
++-- (that column remains separately protected per PRE-IC8 P0's own
++-- hardening).
++--
++-- ROOT CAUSE: the ledger table's own closure work (this project's
++-- IC-1/IC-7/PRE-IC8-P0 passes) closed `inventory_balances`/
++-- `inventory_settings` raw-write paths explicitly, but this specific
++-- table's own INSERT policy was never tightened to require the same
++-- "only the canonical SECURITY DEFINER engine may write this" boundary
++-- -- an oversight, not a deliberate design choice (no review bundle
++-- anywhere in this project's own history discloses this as an accepted
++-- risk).
++--
++-- SMALLEST FIX: replace the permissive, branch-permission-based INSERT
++-- policy with an unconditional deny, matching the EXACT pattern already
++-- established and proven for every other canonical-writer-only table in
++-- this schema (e.g. `repair_order_line_movement_links_insert_deny`,
++-- `repair_order_line_locations_deny_insert` pre-A8). This is safe and
++-- sufficient because the ONLY legitimate writer,
++-- `inventory_finalize_posting_internal`, is `SECURITY DEFINER` owned by
++-- `postgres`, and `postgres` has `rolbypassrls = true` -- it has never
++-- depended on this policy to write, exactly the same reasoning already
++-- documented for `repair_order_line_movement_links`'s own equivalent
++-- closure.
++--
++-- REGRESSION (live-verified immediately after applying): the exact same
++-- 3-step bypass chain now fails at step 3 with `42501` (RLS violation).
++-- The canonical engine path (`inventory_create_and_finalize` ->
++-- `inventory_finalize_posting_internal`) still posts correctly (balance
++-- updated to the exact expected value, exactly one ledger row created).
++-- `inventory_reverse_movement`'s own reversal path (which posts via the
++-- same internal engine) also re-verified working end-to-end, balance
++-- correctly restored to 0 after reversing the same test movement.
++--
++-- See docs/inventory/reviews/ic-8-final-production-readiness-review/
++-- security-evidence.md for the full reproduction/fix/regression
++-- transcript.
++
++DROP POLICY IF EXISTS inventory_stock_ledger_insert ON public.inventory_stock_ledger_entries;
++
++CREATE POLICY inventory_stock_ledger_insert_deny
++  ON public.inventory_stock_ledger_entries
++  FOR INSERT
++  WITH CHECK (false);
