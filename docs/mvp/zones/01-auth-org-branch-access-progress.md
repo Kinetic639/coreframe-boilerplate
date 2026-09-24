@@ -6,7 +6,7 @@
 - **Priority:** P0
 - **Architecture:** APPROVED
 - **Runtime status:** PARTIAL / IMPLEMENTATION IN PROGRESS
-- **Current phase:** Phase 4 DONE (2026-09-24) — Phase 5 — Systematic branch-state re-sweep is next (not started)
+- **Current phase:** Phase 5 DONE (2026-09-24) — Phase 6 — Cross-branch warehouse.location deep-link/QR is next (not started)
 - **Pitch readiness:** NOT YET
 - **Pilot readiness:** NOT READY
 - **Last updated:** 2026-09-24
@@ -17,11 +17,11 @@
 
 Computed directly from checkbox counts in `01-auth-org-branch-access-implementation-plan.md`. Recompute whenever a phase's task list changes.
 
-- **Total implementation tasks (DEMO + PILOT): 28/95**
-- **Pitch-required tasks (Phases 0-8): 28/49**
+- **Total implementation tasks (DEMO + PILOT): 32/95**
+- **Pitch-required tasks (Phases 0-8): 32/49**
 - **Pilot-required tasks (Phases A-I): 0/46**
 
-Breakdown by phase (task count = number of checkboxes in that phase's "Implementation tasks" section in the plan, recomputed by direct grep against the plan file, not estimated). Phase 1 gained a 6th task (the CLAUDE.md fix, moved in from Phase E) on 2026-09-24; Phase E's own count dropped to 5 accordingly. Phases 2, 3, and 4 completed 2026-09-24 — see the change log for all four.
+Breakdown by phase (task count = number of checkboxes in that phase's "Implementation tasks" section in the plan, recomputed by direct grep against the plan file, not estimated). Phase 1 gained a 6th task (the CLAUDE.md fix, moved in from Phase E) on 2026-09-24; Phase E's own count dropped to 5 accordingly. Phases 2, 3, 4, and 5 completed 2026-09-24 — see the change log for all five.
 
 | Phase     | Task count | Completed |
 | --------- | ---------- | --------- |
@@ -30,7 +30,7 @@ Breakdown by phase (task count = number of checkboxes in that phase's "Implement
 | 2         | 4          | 4         |
 | 3         | 5          | 5         |
 | 4         | 4          | 4         |
-| 5         | 4          | 0         |
+| 5         | 4          | 4         |
 | 6         | 6          | 0         |
 | 7         | 6          | 0         |
 | 8         | 5          | 0         |
@@ -43,7 +43,7 @@ Breakdown by phase (task count = number of checkboxes in that phase's "Implement
 | G         | 4          | 0         |
 | H         | 6          | 0         |
 | I         | 4          | 0         |
-| **Total** | **95**     | **28**    |
+| **Total** | **95**     | **32**    |
 
 ---
 
@@ -56,7 +56,7 @@ Breakdown by phase (task count = number of checkboxes in that phase's "Implement
 | 2 — DataView/query-key foundation   | ✅ DONE (2026-09-24) | PITCH              | 4/4       | Foundation only — no consumer migrated. See "Phase 2 — detailed tracking" below.                  |
 | 3 — Migrate DataView consumers      | ✅ DONE (2026-09-24) | PITCH              | 5/5       | All 4 confirmed consumers wired. See "Phase 3 — detailed tracking" below.                         |
 | 4 — Matcher query key               | ✅ DONE (2026-09-24) | PITCH              | 4/4       | Session-list cache bug closed. See "Phase 4 — detailed tracking" below.                           |
-| 5 — Branch-state re-sweep           | NOT STARTED          | PITCH gate         | 0/4       | Depends on Phases 1-4.                                                                            |
+| 5 — Branch-state re-sweep           | ✅ DONE (2026-09-24) | PITCH gate         | 4/4       | Zero new bugs found. See "Phase 5 — detailed tracking" below.                                     |
 | 6 — Cross-branch QR/deep-link       | NOT STARTED          | PITCH              | 0/6       | Depends on Phase 1.                                                                               |
 | 7 — Automated closeout              | NOT STARTED          | PITCH gate         | 0/6       | Depends on Phases 1-6.                                                                            |
 | 8 — Manual DEMO READY UAT           | NOT STARTED          | PITCH gate         | 0/5       | Depends on Phases 1-7. Only after this: 🔵 DEMO READY.                                            |
@@ -162,6 +162,29 @@ Copied from the implementation plan's own task list when the phase started (2026
 
 ---
 
+## Phase 5 — detailed tracking
+
+Copied from the implementation plan's own task list when the phase started (2026-09-24), per the tracker's own "current/started phase gets full detail" rule. Phase completed same day. **Verification-only phase — zero runtime files changed.**
+
+- [x] Re-sweep all useQuery/useMutation/DataView call sites.
+  - Evidence: full app-wide grep for every `<DataView>` consumer (16 found, not just the 4 previously known Warehouse ones) — see `docs/mvp/reviews/zone1-phase5-systematic-resweep-2026-09-24/branch-sensitive-surface-matrix.md` for the complete classification. 4 already branch-aware (Phase 3); 12 confirmed ORG-SCOPED BY DESIGN or NOT PITCH-RELEVANT (Help Desk ticket types, Help Desk tickets — `branchId` confirmed a manual filter not active-branch scoping, CRM contacts/parties, the internal data-view-demo page, Roles/Invitations/Members/Positions/Branches admin screens, QR management, Planning tasks). Zero new branch-scoped-but-unfixed consumers found. Every query-key-factory module under `hooks/queries/` also inspected (`attachments`, `comments`, `organization`, `tools`, `user-preferences`, `help-desk`, `warehouse` incl. `audits.ts`, `workshop`, `v2/use-branch-permissions-query.ts`) — see `query-key-resweep.md`. Every direct `invalidateQueries`/`setQueryData`/`getQueryData`/`removeQueries`/`prefetchQuery` call site app-wide inspected — zero stale static-key leftovers found.
+- [x] Confirm no RSC-rendered route remains stranded after a branch switch.
+  - Evidence: `git log` confirms `RepairOrder` list/detail (`dashboard/workshop/page.tsx`, `dashboard/workshop/[id]/page.tsx`) and Movement detail/edit (`movements/[movementId]/page.tsx`) have not been touched by any commit since before Zone 1 Phase 1 began. Phase 1's own redirect (`sidebar-branch-switcher.tsx`) is unconditional — fires on every successful switch regardless of the current route — so by construction no branch-bound RSC route can remain mounted post-switch. The previously-documented `notFound()` compounding risk is now moot, since the user is redirected away before ever attempting to re-render the stale page.
+- [x] Confirm no alternate branch-switch entry point exists that bypasses the Phase 1 fix.
+  - Evidence: exhaustive app-wide grep for `changeBranch(` and `setActiveBranch(` found exactly 2 real call sites for each. `changeBranch(`: the action's own definition, and exactly one caller (`SidebarBranchSwitcher`, the Phase-1-fixed centralized transition). `setActiveBranch(`: the switcher's own call (part of the accepted transition), and `_providers.tsx`'s session-hydration `useEffect` (fires only in response to an already-fresh SSR `context` prop, reconciling the per-tab `sessionStorage`-persisted branch preference against a stale session entry — not a user-facing switch action, and safely compatible with the Phases 2-4 branch-aware-key architecture, since any reactive `activeBranchId` change automatically produces a different query key regardless of which code path changed it). Zero bypass paths found. The Phase-6-specific cross-check named in the plan's own task wording ("once that lands") cannot be performed yet since Phase 6 has not started — explicitly deferred to Phase 6's own implementation, not a Phase 5 gap.
+- [x] Confirm permission-context-after-switch remains correct.
+  - Evidence: `git log` confirms `permissions-sync.tsx` and `use-branch-permissions-query.ts` have not been touched by any commit since before Zone 1 Phase 1 began. Both files' existing test suites re-run this phase and pass (12/12 total across the two files — see test-results.md).
+
+**Full regression suite re-run this phase** (Section 14 requirement): 12 test files, 118 tests, 100% pass — `sidebar-branch-switcher.test.tsx`, `permissions-sync.test.tsx`, `use-branch-permissions-query.test.tsx`, `use-data-view-query.test.ts`, `data-view.test.tsx`, all 4 warehouse-consumer `*.branch-wiring.test.tsx` files, `wdd-matcher.test.ts`, `extraction-review-approval.test.tsx`, `movement-import-boundary.test.ts`. `pnpm type-check`: clean.
+
+**Verdict: the systemic branch-state/cache bug class is closed.** Zero new same-class bugs found across an exhaustive, app-wide re-sweep (not limited to previously-known files, per explicit instruction). One already-known, already-deferred ambiguity re-confirmed (Help Desk branch-scoping — PILOT Phase D's own scope, BLOCKER-Z1-010) — not reopened, not guessed at, correctly left AMBIGUOUS/DEFERRED per the task's own explicit instruction.
+
+**Tests:** no new tests added (verification-only phase, no new bug found requiring a fix) — per the task's own explicit "do not invent tests purely to create code churn" instruction. The full existing regression suite was re-run instead (above).
+
+**Blocker:** none. Phase 5 completed with no BLOCKED state, zero runtime files changed, zero DB/schema/RLS changes.
+
+---
+
 ## Active blockers
 
 Stable IDs, once assigned, are never reused. None of the items below block Phase 1 (the next phase to implement) from starting — they are recorded so they are not forgotten, per the task's own explicit instruction not to let known gaps disappear from view after the presentation.
@@ -248,6 +271,13 @@ Zone 3 discipline: date, phase, finding, evidence, classification, resolution, w
 - **Discovery (not a bug, dead code):** `useCreateAutoSessionMutation` has zero callers anywhere in the codebase — confirmed via a full-codebase grep before and after the fix. Updated anyway for consistency (closing the bug class fully inside Matcher, per Section 16's own static-re-sweep requirement), but this hook is not exercised by any live UI path today.
 - **PILOT-scope Matcher RLS gap:** encountered in the pre-implementation evidence while re-reading `branch-state-cache-inventory.md`/`admin-security-verification.md` ahead of implementation. Explicitly recorded as already-known/deferred (BLOCKER-Z1-010, owner PILOT Phase D) — not reopened, not touched, per this phase's own explicit "client cache correctness only" scope boundary.
 - **No blockers encountered.** No implementation evidence contradicted the accepted architecture. Zero DataView, QR, warehouse consumer, SidebarBranchSwitcher, or DB/schema/RLS files touched — confirmed via `git status` before closing the phase.
+
+### 2026-09-24 — Phase 5 systematic re-sweep
+
+- **Verification finding: systemic bug class closed.** A full, app-wide re-sweep (not limited to the files Phases 1-4 already touched, per explicit instruction) found zero new branch-scoped-cache bugs. 16 total `<DataView>` consumers classified (up from the 4 previously known — the other 12 were not individually enumerated in the pre-implementation audit, which relied on a documented but non-exhaustive "13 DataView call sites" estimate); every query-key-factory module under `hooks/queries/` inspected; every direct cache-operation call site app-wide inspected. Evidence: `docs/mvp/reviews/zone1-phase5-systematic-resweep-2026-09-24/`. Classification: CONFIRMED CLOSURE, satisfies acceptance criteria 1-2 and 9 of Phase 5's own definition. No product-owner decision needed.
+- **Finding: exactly one branch-switch path exists.** Exhaustive grep for `changeBranch(`/`setActiveBranch(` found only the Phase-1-fixed `SidebarBranchSwitcher` path plus one non-switch session-hydration reconciliation effect (`_providers.tsx`), confirmed safe and unrelated. No alternate/bypassing user-facing switch path exists today. The plan's own task wording anticipated a Phase-6 cross-check ("once that lands") that cannot yet be performed since Phase 6 has not started — explicitly deferred, not a gap in this phase's own closure.
+- **Re-confirmed, not re-designed: Help Desk branch-scoping remains an open PILOT-scope product decision.** `tickets-client.tsx`'s `branchId` filter is confirmed still a manual, user-selectable filter, not automatic active-branch scoping — matching the pre-implementation audit's own finding exactly, unchanged. Correctly left AMBIGUOUS/DEFERRED, not "fixed" into branch-scoping, per the task's own explicit instruction not to invent branch scoping for Help Desk. No new decision made; BLOCKER-Z1-010 (PILOT Phase D) unchanged.
+- **No blockers encountered.** No implementation evidence contradicted the accepted architecture. Zero runtime files changed this phase — confirmed via `git status` throughout.
 
 ---
 
