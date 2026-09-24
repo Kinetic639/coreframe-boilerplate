@@ -1119,6 +1119,14 @@
     "listView": {
       "treeView": "Widok drzewa",
       "listView": "Widok listy",
+      "crossBranchDialog": {
+        "title": "Przełączyć oddział, aby zobaczyć tę lokalizację?",
+        "description": "Ta lokalizacja należy do innego oddziału. Przełączyć się na ten oddział, aby ją zobaczyć?",
+        "confirm": "Przełącz oddział",
+        "cancel": "Anuluj",
+        "switching": "Przełączanie...",
+        "switchFailed": "Nie udało się przełączyć oddziału. Spróbuj ponownie."
+      },
       "code": "Kod",
       "name": "Nazwa",
       "path": "Ścieżka",

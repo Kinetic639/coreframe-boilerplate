@@ -3,10 +3,24 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryState, parseAsString } from "nuqs";
+import { toast } from "react-toastify";
+import { useRouter } from "@/i18n/navigation";
 import { getQrAssignmentForLocationAction } from "@/app/actions/qr/assign-location";
+import { changeBranch } from "@/app/actions/shared/changeBranch";
+import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
 import { AnimatePresence, motion } from "motion/react";
 import { List, TreePine } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 
 import {
@@ -54,13 +68,80 @@ export function AmbraLocationsClient({
   canCreateLocation,
 }: AmbraLocationsClientProps) {
   const t = useTranslations("warehouseLocations.listView");
+  const router = useRouter();
   const [viewParam, setViewParam] = useQueryState("view", parseAsString.withDefault("tree"));
   const viewMode = (viewParam === "list" ? "list" : "tree") as "tree" | "list";
 
-  const [treeSelectedId, setTreeSelectedId] = useState<string | null>(() => {
-    if (typeof window === "undefined") return null;
-    return new URL(window.location.href).searchParams.get("selected") || null;
+  // Zone 1 / Phase 6: read the QR resolver's cross-branch deep-link hint once,
+  // on initial mount, alongside the existing `selected` param. If present, we
+  // deliberately do NOT seed `treeSelectedId` with the cross-branch target's
+  // own ID -- that ID belongs to a DIFFERENT branch's location list, and
+  // passing it straight into LocationsPage's own controlled prop would let
+  // its existing reset-effect immediately overwrite it with a same-branch
+  // fallback before the user ever sees the confirm dialog below. The pending
+  // target is held separately instead, and only becomes `selected` after a
+  // server-confirmed branch switch.
+  const [initialUrlState] = useState(() => {
+    if (typeof window === "undefined") return { selected: null, crossBranch: null };
+    const params = new URL(window.location.href).searchParams;
+    return {
+      selected: params.get("selected") || null,
+      crossBranch: params.get("crossBranch") || null,
+    };
   });
+
+  const [treeSelectedId, setTreeSelectedId] = useState<string | null>(
+    initialUrlState.crossBranch ? null : initialUrlState.selected
+  );
+
+  const [pendingCrossBranch, setPendingCrossBranch] = useState<{
+    targetBranchId: string;
+    targetLocationId: string;
+  } | null>(
+    initialUrlState.crossBranch && initialUrlState.selected
+      ? { targetBranchId: initialUrlState.crossBranch, targetLocationId: initialUrlState.selected }
+      : null
+  );
+  const [isSwitchingBranch, setIsSwitchingBranch] = useState(false);
+
+  const handleCancelCrossBranch = useCallback(() => {
+    setPendingCrossBranch(null);
+    // Clear the crossBranch param; `selected` (if present) is left exactly as
+    // today's existing reset-effect already handles it -- silently dropped in
+    // favor of the current branch's own first location. No branch switch, no
+    // target opened, matching the plan's own explicit cancel contract.
+    const url = new URL(window.location.href);
+    url.searchParams.delete("crossBranch");
+    window.history.replaceState(null, "", url.toString());
+  }, []);
+
+  const handleConfirmCrossBranch = useCallback(async () => {
+    if (!pendingCrossBranch) return;
+    setIsSwitchingBranch(true);
+    try {
+      // Reuses the SAME authoritative server action and transition contract as
+      // the centralized sidebar switcher (Zone 1 Phase 1) -- server-confirmed
+      // switch only, then client store update, then a safe navigation +
+      // refresh. The only difference from the sidebar's own flow is the
+      // destination: the exact intended location, not the generic safe-start
+      // route, since the whole point of this flow is preserving deep-link intent.
+      const result = await changeBranch(pendingCrossBranch.targetBranchId);
+      if (!result.success) {
+        toast.error("error" in result ? result.error : t("crossBranchDialog.switchFailed"));
+        setIsSwitchingBranch(false);
+        return;
+      }
+      useAppStoreV2.getState().setActiveBranch(pendingCrossBranch.targetBranchId);
+      router.replace({
+        pathname: "/dashboard/warehouse/locations",
+        query: { selected: pendingCrossBranch.targetLocationId, view: "tree" },
+      });
+      router.refresh();
+    } catch {
+      toast.error(t("crossBranchDialog.switchFailed"));
+      setIsSwitchingBranch(false);
+    }
+  }, [pendingCrossBranch, router, t]);
 
   const selectedLocationId = viewMode === "tree" ? treeSelectedId : null;
 
@@ -237,6 +318,48 @@ export function AmbraLocationsClient({
           </AnimatePresence>
         )}
       </div>
+
+      <AlertDialog
+        open={!!pendingCrossBranch}
+        onOpenChange={(open) => {
+          if (!open && !isSwitchingBranch) handleCancelCrossBranch();
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("crossBranchDialog.title")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("crossBranchDialog.description")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            {/* AlertDialogCancel/Action are Radix DialogPrimitive.Close under the
+                hood, which fires onOpenChange(false) itself on every click --
+                preventDefault() stops that so OUR handlers stay the single
+                source of truth for closing (critical for Action: without this,
+                a FAILED switch would still have its dialog silently closed by
+                Radix before handleConfirmCrossBranch's async result comes back). */}
+            <AlertDialogCancel
+              onClick={(e) => {
+                e.preventDefault();
+                handleCancelCrossBranch();
+              }}
+              disabled={isSwitchingBranch}
+            >
+              {t("crossBranchDialog.cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleConfirmCrossBranch();
+              }}
+              disabled={isSwitchingBranch}
+            >
+              {isSwitchingBranch
+                ? t("crossBranchDialog.switching")
+                : t("crossBranchDialog.confirm")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

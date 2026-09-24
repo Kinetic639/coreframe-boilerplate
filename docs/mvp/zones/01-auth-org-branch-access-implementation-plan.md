@@ -466,7 +466,7 @@ If this sweep finds a genuinely new, non-trivial bug (not a variant of the alrea
 
 ### Status
 
-NOT STARTED
+DONE (2026-09-24), CORRECTED (2026-09-24, same day, pre-commit review) — see `docs/mvp/reviews/zone1-phase6-cross-branch-location-qr-2026-09-24/` for full evidence, including `phase6-closeout.md`'s "Correction pass summary".
 
 ### Scope classification
 
@@ -487,7 +487,9 @@ Phase 1 (the confirm-then-switch flow should land on the Phase-1-fixed, correctl
 ### Repository areas affected
 
 - apps/web/src/server/qr/public-token-resolver.ts (resolvePublicQrToken)
-- apps/web/src/app/[locale]/dashboard/warehouse/locations/\_ambra/components/locations/LocationsPage.tsx (the existing reset-effect at ~line 485-490 is the interception point)
+- apps/web/src/server/qr/target-registry.ts (QrTargetDescriptor.validate() JSDoc correction)
+- **Factual correction (implemented 2026-09-24):** the plan's original interception point (`LocationsPage.tsx`'s reset-effect at ~line 485-490) is a purely presentational, controlled child. The actual owner of URL-derived selection state, branch context, and navigation is `apps/web/src/app/[locale]/dashboard/warehouse/locations/_components/ambra-locations-client.tsx` (`AmbraLocationsClient`) — confirmed as `LocationsPage`'s only consumer via grep. The confirm-then-switch dialog and all new state (`pendingCrossBranch`, `isSwitchingBranch`) live there instead. `LocationsPage.tsx` itself was not modified.
+- apps/web/src/app/[locale]/dashboard/warehouse/locations/page.tsx — **not anticipated by the original plan.** Required a `key={branchId ?? "no-branch"}` prop on `<AmbraLocationsClient>` (the Server Component parent). Next.js's `router.refresh()` re-executes Server Components but does not reset an already-mounted client component's own `useState` — since this flow stays on the same route (to preserve the deep-link target) rather than navigating away like Phase 1's sidebar switch, no natural remount would otherwise occur after a same-route branch switch. Keying on `branchId` forces React to remount `AmbraLocationsClient` on every branch change, guaranteeing fresh state.
 
 ### Supabase changes
 
@@ -499,26 +501,40 @@ The already-correct, already-validated changeBranch() server action (no new auth
 
 ### Implementation tasks
 
-- [ ] resolvePublicQrToken: for a logged-in caller, read their current active branch (requires reading user_preferences, which this currently-fully-anonymous resolver doesn't do today — TO VERIFY DURING PHASE exact mechanism).
-- [ ] Encode a crossBranch=<targetBranchId> flag on the redirect when the target's branch differs from the caller's active branch (logged-in callers only; anonymous/logged-out flow unaffected).
-- [ ] LocationsPage's reset-effect: when crossBranch is present, render a confirm dialog instead of silently falling back to locations[0].
-- [ ] On confirm: call changeBranch(), then re-navigate to the target location.
-- [ ] On cancel: clear the param, preserving today's existing silent-drop-to-current-branch behavior as the cancel outcome.
-- [ ] Correct the stale QrTargetDescriptor.validate() JSDoc claim that this resolver "runs with the authenticated Supabase client (RLS enforced)" — factually incorrect for this caller today.
+- [x] resolvePublicQrToken: for a logged-in caller, read their current active branch. Mechanism: a second, separate RLS-scoped client (`createClient()` from `@/utils/supabase/server`, kept apart from the pre-existing service-role client) calls `.auth.getUser()` then reads the caller's own `user_preferences.default_branch_id` row. `getUser()` resolves to no user for anonymous/logged-out scans, making this block a safe no-op in that case.
+- [x] Encode a crossBranch=<targetBranchId> flag on the redirect when the target's branch differs from the caller's active branch (logged-in callers only; anonymous/logged-out flow unaffected).
+- [x] `AmbraLocationsClient` (not `LocationsPage` — see factual correction above): when `crossBranch` is present, render a confirm dialog instead of silently falling back to locations[0]. The pending target is deliberately held outside `treeSelectedId` (in a separate `pendingCrossBranch` state) so the pre-existing reset-effect never overwrites it before the user responds.
+- [x] On confirm: call changeBranch(), then re-navigate to the target location.
+- [x] On cancel: clear the param, preserving today's existing silent-drop-to-current-branch behavior as the cancel outcome.
+- [x] Correct the stale QrTargetDescriptor.validate() JSDoc claim that this resolver "runs with the authenticated Supabase client (RLS enforced)" — factually incorrect for this caller today (it's a service-role client; the JSDoc now says so).
 
 ### Testing requirements
 
-- Unit/service: a test for resolvePublicQrToken's new cross-branch-flag behavior.
-- Component: a test for the new confirm dialog in LocationsPage.
-- Manual UAT (formal, Phase 8): on the actual presentation phone — scan a location QR belonging to a different branch, confirm the dialog appears, confirm switching works, confirm cancel leaves the user safely on the original branch.
+- Unit/service: a test for resolvePublicQrToken's new cross-branch-flag behavior. DONE — `apps/web/src/server/qr/__tests__/public-token-resolver.test.ts` (5 tests).
+- Component: a test for the new confirm dialog. DONE — `apps/web/src/app/[locale]/dashboard/warehouse/locations/_components/__tests__/ambra-locations-client.cross-branch.test.tsx` (6 tests, targets `AmbraLocationsClient` per the corrected component ownership above).
+- Manual UAT (formal, Phase 8): on the actual presentation phone — scan a location QR belonging to a different branch, confirm the dialog appears, confirm switching works, confirm cancel leaves the user safely on the original branch. NOT YET PERFORMED — deferred to Phase 8 as originally planned.
 
 ### Acceptance criteria
 
-1. Scanning a QR for a Branch-B location while active branch is A, with access to B: a confirm dialog appears (not a silent fallback).
-2. Confirming switches to Branch B and opens the exact target location.
-3. Cancelling leaves the user on Branch A with no location selected/opened.
-4. Scanning a QR for a Branch-B location without access to B: behavior is unchanged from today (safe, no leak, no dialog implying access that doesn't exist).
-5. Logged-out scan behavior is unchanged.
+1. Scanning a QR for a Branch-B location while active branch is A, with access to B: a confirm dialog appears (not a silent fallback). PASS.
+2. Confirming switches to Branch B and opens the exact target location. PASS.
+3. Cancelling leaves the user on Branch A with no location selected/opened. PASS.
+4. Scanning a QR for a Branch-B location without access to B: behavior is unchanged from today (safe, no leak, no dialog implying access that doesn't exist). PASS.
+5. Logged-out scan behavior is unchanged. PASS.
+
+### Bug found and fixed during implementation (not anticipated by the plan)
+
+Radix UI's `AlertDialogAction`/`AlertDialogCancel` are thin wrappers over `DialogPrimitive.Close`, which fires the dialog's own `onOpenChange(false)` on every click via `composeEventHandlers`, independent of any custom `onClick` handler. This meant clicking "Confirm" always triggered `handleCancelCrossBranch()` (clearing `pendingCrossBranch` and the URL) synchronously, before the async `changeBranch()` result was known — so a **failed** switch would silently close the dialog with no visible error/retry path, even though `isSwitchingBranch`/`pendingCrossBranch` state was written to stay open on failure. Caught by the "failed switch" component test (initially red). Fixed by calling `event.preventDefault()` in both buttons' `onClick` handlers, which Radix's `composeEventHandlers` respects (`checkForDefaultPrevented` defaults to `true`), making the app's own handlers the sole source of truth for closing the dialog.
+
+### Correction pass (2026-09-24, same day, pre-commit review)
+
+Before commit, review found two contract gaps and required a correction pass. Both are recorded here as factual additions to the phase's own contract — the implementation tasks above remain checked off/DONE unchanged; this is a refinement of task 2 (the cross-branch flag logic) and task 1's downstream consequences, not new scope.
+
+**Correction A — access-aware hint.** The original implementation appended the `crossBranch` hint for ANY same-org branch mismatch, regardless of whether the caller could actually access the target branch — relying on `changeBranch()` to reject an inaccessible target only after the user clicked "Switch branch". Corrected: the resolver now calls `isBranchAccessible()` (extracted from `changeBranch()`'s own inline check into `apps/web/src/lib/utils/branch-access.ts`, so the hint decision and the real authorization decision share one implementation) before appending the hint. An inaccessible target now returns the resolver's existing `{ok:false, error:"TARGET_NOT_FOUND"}` shape instead — no switch offer is ever shown for a target that can never succeed.
+
+**Correction B — logged-out auth-return re-evaluation.** The original implementation proved the logged-out redirect string was byte-for-byte unchanged, but never traced what happens next. Tracing found that `dashboard/layout.tsx`'s own returnUrl mechanism preserves only the request pathname (`x-pathname` = `request.nextUrl.pathname`, which excludes the query string) — so an anonymous caller's `selected=<id>` would have been silently dropped on the sign-in round trip, and the branch-aware hint logic would never have run under an authenticated context. Corrected: an anonymous caller (`loadDashboardContextV2()` returns `null`) is now redirected to `/sign-in?returnUrl=/qr/<token>` (the QR page itself, which has no query string to lose) instead of the pre-computed dashboard path — guaranteeing `resolvePublicQrToken` re-runs in full, under a real authenticated context, before any dashboard redirect is ever computed. `dashboard/layout.tsx` and `signInAction` were read and traced but not modified — this correction only changes what the QR resolver redirects an anonymous caller TO.
+
+Both corrections re-use `validation.branchId` as their gate, exactly like the original implementation — no scope expansion beyond `warehouse.location`. Full detail, evidence, and the corrected 21-item acceptance-criteria walkthrough: `docs/mvp/reviews/zone1-phase6-cross-branch-location-qr-2026-09-24/phase6-closeout.md`.
 
 ### Out of scope
 
@@ -526,7 +542,7 @@ Generalizing this to helpdesk.ticket/planning.task — noted as a future extensi
 
 ### Blocker rule
 
-If reading the caller's active branch from within resolvePublicQrToken turns out to require a larger authentication-context change than anticipated, STOP and report — this phase should remain a narrow UI/service addition, not a resolver-architecture change.
+If reading the caller's active branch from within resolvePublicQrToken turns out to require a larger authentication-context change than anticipated, STOP and report — this phase should remain a narrow UI/service addition, not a resolver-architecture change. (Not triggered — `loadDashboardContextV2()`, the existing authoritative context loader, proved sufficient for both the original implementation and this correction pass.)
 
 ---
 

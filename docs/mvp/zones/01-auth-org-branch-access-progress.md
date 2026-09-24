@@ -6,7 +6,7 @@
 - **Priority:** P0
 - **Architecture:** APPROVED
 - **Runtime status:** PARTIAL / IMPLEMENTATION IN PROGRESS
-- **Current phase:** Phase 5 DONE (2026-09-24) — Phase 6 — Cross-branch warehouse.location deep-link/QR is next (not started)
+- **Current phase:** Phase 6 DONE, CORRECTED (2026-09-24, same day, pre-commit review) — Phase 7 — Automated closeout is next (not started)
 - **Pitch readiness:** NOT YET
 - **Pilot readiness:** NOT READY
 - **Last updated:** 2026-09-24
@@ -17,11 +17,11 @@
 
 Computed directly from checkbox counts in `01-auth-org-branch-access-implementation-plan.md`. Recompute whenever a phase's task list changes.
 
-- **Total implementation tasks (DEMO + PILOT): 32/95**
-- **Pitch-required tasks (Phases 0-8): 32/49**
+- **Total implementation tasks (DEMO + PILOT): 38/95**
+- **Pitch-required tasks (Phases 0-8): 38/49**
 - **Pilot-required tasks (Phases A-I): 0/46**
 
-Breakdown by phase (task count = number of checkboxes in that phase's "Implementation tasks" section in the plan, recomputed by direct grep against the plan file, not estimated). Phase 1 gained a 6th task (the CLAUDE.md fix, moved in from Phase E) on 2026-09-24; Phase E's own count dropped to 5 accordingly. Phases 2, 3, 4, and 5 completed 2026-09-24 — see the change log for all five.
+Breakdown by phase (task count = number of checkboxes in that phase's "Implementation tasks" section in the plan, recomputed by direct grep against the plan file, not estimated). Phase 1 gained a 6th task (the CLAUDE.md fix, moved in from Phase E) on 2026-09-24; Phase E's own count dropped to 5 accordingly. Phases 2, 3, 4, 5, and 6 completed 2026-09-24 — see the change log for all six.
 
 | Phase     | Task count | Completed |
 | --------- | ---------- | --------- |
@@ -31,7 +31,7 @@ Breakdown by phase (task count = number of checkboxes in that phase's "Implement
 | 3         | 5          | 5         |
 | 4         | 4          | 4         |
 | 5         | 4          | 4         |
-| 6         | 6          | 0         |
+| 6         | 6          | 6         |
 | 7         | 6          | 0         |
 | 8         | 5          | 0         |
 | A         | 8          | 0         |
@@ -43,32 +43,32 @@ Breakdown by phase (task count = number of checkboxes in that phase's "Implement
 | G         | 4          | 0         |
 | H         | 6          | 0         |
 | I         | 4          | 0         |
-| **Total** | **95**     | **32**    |
+| **Total** | **95**     | **38**    |
 
 ---
 
 ## Phase tracker table
 
-| Phase                               | Status               | Pitch/Pilot        | Completed | Notes                                                                                             |
-| ----------------------------------- | -------------------- | ------------------ | --------- | ------------------------------------------------------------------------------------------------- |
-| 0 — Implementation baseline         | DONE (2026-09-23)    | PITCH prerequisite | 9/9       | Satisfied entirely by the pre-implementation verification bundle, committed at `5dfce9d3`.        |
-| 1 — Centralized branch transition   | ✅ DONE (2026-09-24) | PITCH              | 6/6       | Root-cause fix for the branch-switch bug, landed. See "Phase 1 — detailed tracking" below.        |
-| 2 — DataView/query-key foundation   | ✅ DONE (2026-09-24) | PITCH              | 4/4       | Foundation only — no consumer migrated. See "Phase 2 — detailed tracking" below.                  |
-| 3 — Migrate DataView consumers      | ✅ DONE (2026-09-24) | PITCH              | 5/5       | All 4 confirmed consumers wired. See "Phase 3 — detailed tracking" below.                         |
-| 4 — Matcher query key               | ✅ DONE (2026-09-24) | PITCH              | 4/4       | Session-list cache bug closed. See "Phase 4 — detailed tracking" below.                           |
-| 5 — Branch-state re-sweep           | ✅ DONE (2026-09-24) | PITCH gate         | 4/4       | Zero new bugs found. See "Phase 5 — detailed tracking" below.                                     |
-| 6 — Cross-branch QR/deep-link       | NOT STARTED          | PITCH              | 0/6       | Depends on Phase 1.                                                                               |
-| 7 — Automated closeout              | NOT STARTED          | PITCH gate         | 0/6       | Depends on Phases 1-6.                                                                            |
-| 8 — Manual DEMO READY UAT           | NOT STARTED          | PITCH gate         | 0/5       | Depends on Phases 1-7. Only after this: 🔵 DEMO READY.                                            |
-| A — Ownership invariants            | NOT STARTED          | PILOT              | 0/8       | Not scheduled this week.                                                                          |
-| B — Anti-escalation                 | NOT STARTED          | PILOT              | 0/6       | Not scheduled this week.                                                                          |
-| C — Invitation + one-org invariant  | NOT STARTED          | PILOT              | 0/3       | Not scheduled this week.                                                                          |
-| D — Branch RLS hardening            | NOT STARTED          | PILOT              | 0/5       | Not scheduled this week.                                                                          |
-| E — Schema reconciliation           | NOT STARTED          | PILOT              | 0/6       | Not scheduled this week. CLAUDE.md project-ref fix moved out — completed in Phase 1 (2026-09-24). |
-| F — Unsaved-work safety             | NOT STARTED          | PILOT              | 0/5       | Not scheduled this week.                                                                          |
-| G — Live test infrastructure        | NOT STARTED          | PILOT              | 0/4       | Not scheduled this week.                                                                          |
-| H — Administrative auditability     | NOT STARTED          | PILOT              | 0/6       | Not scheduled this week.                                                                          |
-| I — PILOT READY manual verification | NOT STARTED          | PILOT gate         | 0/4       | Depends on Phases A-H. Only after this: 🟢 PILOT READY.                                           |
+| Phase                               | Status               | Pitch/Pilot        | Completed | Notes                                                                                                         |
+| ----------------------------------- | -------------------- | ------------------ | --------- | ------------------------------------------------------------------------------------------------------------- |
+| 0 — Implementation baseline         | DONE (2026-09-23)    | PITCH prerequisite | 9/9       | Satisfied entirely by the pre-implementation verification bundle, committed at `5dfce9d3`.                    |
+| 1 — Centralized branch transition   | ✅ DONE (2026-09-24) | PITCH              | 6/6       | Root-cause fix for the branch-switch bug, landed. See "Phase 1 — detailed tracking" below.                    |
+| 2 — DataView/query-key foundation   | ✅ DONE (2026-09-24) | PITCH              | 4/4       | Foundation only — no consumer migrated. See "Phase 2 — detailed tracking" below.                              |
+| 3 — Migrate DataView consumers      | ✅ DONE (2026-09-24) | PITCH              | 5/5       | All 4 confirmed consumers wired. See "Phase 3 — detailed tracking" below.                                     |
+| 4 — Matcher query key               | ✅ DONE (2026-09-24) | PITCH              | 4/4       | Session-list cache bug closed. See "Phase 4 — detailed tracking" below.                                       |
+| 5 — Branch-state re-sweep           | ✅ DONE (2026-09-24) | PITCH gate         | 4/4       | Zero new bugs found. See "Phase 5 — detailed tracking" below.                                                 |
+| 6 — Cross-branch QR/deep-link       | ✅ DONE (2026-09-24) | PITCH              | 6/6       | Confirm-then-switch dialog landed; Radix auto-close bug found+fixed. See "Phase 6 — detailed tracking" below. |
+| 7 — Automated closeout              | NOT STARTED          | PITCH gate         | 0/6       | Depends on Phases 1-6.                                                                                        |
+| 8 — Manual DEMO READY UAT           | NOT STARTED          | PITCH gate         | 0/5       | Depends on Phases 1-7. Only after this: 🔵 DEMO READY.                                                        |
+| A — Ownership invariants            | NOT STARTED          | PILOT              | 0/8       | Not scheduled this week.                                                                                      |
+| B — Anti-escalation                 | NOT STARTED          | PILOT              | 0/6       | Not scheduled this week.                                                                                      |
+| C — Invitation + one-org invariant  | NOT STARTED          | PILOT              | 0/3       | Not scheduled this week.                                                                                      |
+| D — Branch RLS hardening            | NOT STARTED          | PILOT              | 0/5       | Not scheduled this week.                                                                                      |
+| E — Schema reconciliation           | NOT STARTED          | PILOT              | 0/6       | Not scheduled this week. CLAUDE.md project-ref fix moved out — completed in Phase 1 (2026-09-24).             |
+| F — Unsaved-work safety             | NOT STARTED          | PILOT              | 0/5       | Not scheduled this week.                                                                                      |
+| G — Live test infrastructure        | NOT STARTED          | PILOT              | 0/4       | Not scheduled this week.                                                                                      |
+| H — Administrative auditability     | NOT STARTED          | PILOT              | 0/6       | Not scheduled this week.                                                                                      |
+| I — PILOT READY manual verification | NOT STARTED          | PILOT gate         | 0/4       | Depends on Phases A-H. Only after this: 🟢 PILOT READY.                                                       |
 
 ---
 
@@ -185,6 +185,66 @@ Copied from the implementation plan's own task list when the phase started (2026
 
 ---
 
+## Phase 6 — detailed tracking
+
+Copied from the implementation plan's own task list when the phase started (2026-09-24). Phase completed same day.
+
+- [x] resolvePublicQrToken: for a logged-in caller, read their current active branch.
+  - Evidence: a second, RLS-scoped client (`createClient()` from `@/utils/supabase/server`) calls `.auth.getUser()` then reads the caller's own `user_preferences.default_branch_id` row, kept entirely separate from the pre-existing service-role client used for target resolution. `getUser()` safely resolves to no user for anonymous/logged-out scans, making the block a no-op (byte-for-byte identical redirect to pre-Phase-6 behavior) — verified by a dedicated test.
+- [x] Encode a `crossBranch=<targetBranchId>` flag on the redirect when the target's branch differs from the caller's active branch.
+  - Evidence: `apps/web/src/server/qr/__tests__/public-token-resolver.test.ts` (5 tests) — flag present only when logged-in + branch mismatch; absent for same-branch, logged-out, no-resolved-preference, and cross-org-rejected cases.
+- [x] Render a confirm dialog instead of silently falling back to locations[0] when `crossBranch` is present.
+  - **Factual correction:** the plan's anticipated interception point (`LocationsPage.tsx`'s reset-effect) is not where this lives — `LocationsPage` is a purely presentational, controlled child. The actual owner of URL-derived selection state is `AmbraLocationsClient` (`apps/web/src/app/[locale]/dashboard/warehouse/locations/_components/ambra-locations-client.tsx`), confirmed as `LocationsPage`'s only consumer via grep. New state (`pendingCrossBranch`, `isSwitchingBranch`) and the shadcn/ui `AlertDialog` were added there. The pending target is deliberately kept out of `treeSelectedId` until a successful switch, so the pre-existing reset-effect can never race ahead of the dialog.
+- [x] On confirm: call `changeBranch()`, then re-navigate to the target location.
+  - Evidence: `handleConfirmCrossBranch` calls `changeBranch(pendingCrossBranch.targetBranchId)`, and only on `result.success` updates `useAppStoreV2`'s active branch, then `router.replace({pathname: "/dashboard/warehouse/locations", query: {selected, view: "tree"}})` + `router.refresh()`. No client-provided branchId is ever trusted as authorization — `changeBranch()` re-validates access fresh, exactly as Phase 1's sidebar switch does.
+- [x] On cancel: clear the param, preserving today's existing silent-drop-to-current-branch behavior.
+  - Evidence: `handleCancelCrossBranch` clears `pendingCrossBranch` and strips `crossBranch` from the URL via `history.replaceState`; no `changeBranch` call, no branch-state mutation. Covered by test.
+- [x] Correct the stale `QrTargetDescriptor.validate()` JSDoc claim.
+  - Evidence: `apps/web/src/server/qr/target-registry.ts` — JSDoc now correctly states the resolver passes a service-role client, not an authenticated/RLS-enforced one. Closes BLOCKER-Z1-018.
+
+**Unplanned fix required — `page.tsx` `key` prop.** Not in the original task list, but necessary for correctness: `apps/web/src/app/[locale]/dashboard/warehouse/locations/page.tsx` now passes `key={branchId ?? "no-branch"}` to `<AmbraLocationsClient>`. Next.js's `router.refresh()` re-executes Server Components but does not reset an already-mounted client component's own `useState` — Phase 1's sidebar switch always navigates to a different route (`/dashboard/start`), guaranteeing a natural remount, but this QR flow deliberately stays on the same route to preserve the deep-link target, so no remount would otherwise occur after a same-route branch switch. Keying on `branchId` forces the remount. Self-caught via reasoning about documented Next.js semantics before any test was written; not surfaced by a runtime failure.
+
+**Bug found and fixed — Radix `AlertDialogAction`/`AlertDialogCancel` auto-close.** Both are thin wrappers over `DialogPrimitive.Close` (confirmed by reading `@radix-ui/react-alert-dialog`'s and `@radix-ui/react-dialog`'s source in `node_modules`), which fire the dialog's own `onOpenChange(false)` via `composeEventHandlers` on every click, independent of any custom `onClick`. This meant clicking "Confirm" always synchronously triggered `handleCancelCrossBranch()` (clearing `pendingCrossBranch` and the URL) before the async `changeBranch()` result was known — so a **failed** switch silently closed the dialog with no visible error/retry path, even though the handler's own logic was written to keep `pendingCrossBranch` set on failure. Caught by the "failed switch" component test (initially red — `screen.getByRole("alertdialog")` found no dialog after the confirm click). Fixed by calling `event.preventDefault()` in both buttons' `onClick` handlers; `composeEventHandlers`'s `checkForDefaultPrevented` defaults to `true`, so this makes the app's own handlers the sole source of truth for closing the dialog, and does not affect Escape-key dismissal (handled separately via the `AlertDialog`'s own controlled `onOpenChange`, unaffected by button-level `preventDefault`).
+
+**Tests added this phase:**
+
+- `apps/web/src/server/qr/__tests__/public-token-resolver.test.ts` (5 tests, new) — cross-branch flag logic.
+- `apps/web/src/app/[locale]/dashboard/warehouse/locations/_components/__tests__/ambra-locations-client.cross-branch.test.tsx` (6 tests, new) — same-branch (no dialog), accessible cross-branch (dialog appears / cancel / confirm-success / no-silent-switch-on-mount), failed switch (safe error, dialog stays open, no false branch state).
+
+**Full regression suite re-run this phase:** resolver tests (5), new cross-branch client tests (6), Phase 3's `locations-data-view.branch-wiring.test.tsx` (2), `sidebar-branch-switcher.test.tsx`, `changeBranch.test.ts`, `permission-v2.service.test.ts`, `sign-in-form.test.tsx`, sign-in `page.test.tsx` — 8 files, 81 tests, 100% pass (2 pre-existing skips, unrelated). `pnpm type-check`: clean. `pnpm lint` (whole repo): 0 errors, 0 new warnings; touched files individually: 0 warnings.
+
+**Security review:** no client-provided branchId trusted for authorization (the `crossBranch` hint is a UX signal only; `changeBranch()` re-validates fresh); no metadata leak for inaccessible targets (the caller-branch lookup only runs after the target already passed org-scoped validation — confirmed by a test asserting the auth client is never even called for a rejected target); no open redirect (path construction is internal-only, reusing the pre-existing `localizeDashboardPath`); no silent branch switch (confirmed by test: `changeBranch` never called before user confirms); no `changeBranch` bypass; no QR token scope expansion; no `inventory.container`/Phase 10D touch; no per-part QR; no DB/schema/RLS change.
+
+**Blocker:** none. Phase 6 completed with no BLOCKED state. One real bug found and fixed during implementation (the Radix auto-close issue above) — caught by the phase's own required tests before being reported as complete, not left for a later phase.
+
+**(Everything above this line is the original 2026-09-24 implementation writeup, preserved unchanged. The correction below was applied the same day, before commit, following a pre-commit review.)**
+
+### Phase 6 — correction pass (2026-09-24, same day, pre-commit review)
+
+Review of the completed-but-uncommitted Phase 6 found two contract gaps:
+
+1. **Correction A — inaccessible cross-branch target still offered a switch dialog.** The original implementation (above) appended `crossBranch` for any same-org branch mismatch, regardless of whether the caller could access the target branch, relying on `changeBranch()` to reject it only after the user clicked Confirm. Not a leak (see the original security review above — still accurate as a "no leak occurred" analysis), but not the accepted product contract, which requires no switch offer at all for a target that can never succeed.
+   - **Fix:** extracted `isBranchAccessible(branchId, accessibleBranches, permissionSnapshot)` from `changeBranch()`'s own inline authorization check into a new shared file, `apps/web/src/lib/utils/branch-access.ts` — the hint decision and the real authorization decision now share one implementation and can never drift apart. `changeBranch()` itself was refactored (not behaviorally changed) to call this same helper; `changeBranch.test.ts` re-run unchanged and passes, confirming behavior preservation.
+   - **Resolver change:** `resolvePublicQrToken` now calls `isBranchAccessible()` before appending `crossBranch`. When it returns false, the resolver returns `{ok:false, error:"TARGET_NOT_FOUND"}` — the exact same failure shape already used for a cross-org or soft-deleted target — instead of appending the hint. The caller lands on the QR page's own existing "not found" card; `AmbraLocationsClient` never mounts for this scenario.
+   - **Evidence:** `public-token-resolver.test.ts` → "Correction A — inaccessible cross-branch: does NOT add crossBranch..." and "...denial reveals nothing beyond the existing TARGET_NOT_FOUND shape" (asserts the result object has exactly `{error, ok, token}` keys). `ambra-locations-client.cross-branch.test.tsx` → new "inaccessible cross-branch target (Correction A)" test, documenting that this scenario now collapses to the same client-observable behavior as same-branch (no `crossBranch` param ever reaches the client for this case).
+
+2. **Correction B — logged-out flow only proven to preserve the redirect string, not proven to re-evaluate branch access after login.** The original implementation (above) proved the anonymous-caller redirect path was byte-for-byte unchanged, but never traced what happens to that redirect next.
+   - **Finding from tracing the real flow:** `apps/web/src/app/[locale]/dashboard/layout.tsx`'s own auth gate (unmodified, pre-existing) redirects an unauthenticated request to `/sign-in?returnUrl=<pathname>`, where `<pathname>` is `x-pathname` — set in `apps/web/src/proxy.ts` from `request.nextUrl.pathname`, which **excludes the query string** by construction (confirmed by reading `proxy.ts` directly). This means the original Phase 6 flow would have silently dropped `selected=<id>` (and never even had a chance to compute `crossBranch`, since that computation only ran for an already-authenticated caller) the moment an anonymous QR scan's redirect hit the dashboard layout's auth gate. This is a real, pre-existing gap in the generic returnUrl mechanism — not introduced by Phase 6, but newly surfaced by tracing the flow end-to-end as this correction required, rather than stopping at "the redirect string is unchanged."
+   - **Fix:** `resolvePublicQrToken` now calls `loadDashboardContextV2()` (replacing the original's bespoke `createClient()` + raw `user_preferences.default_branch_id` read) for any target with a `branchId`. Its documented contract ("returns null when no session exists") is used directly: when `null`, the resolver returns `{ok: true, redirectPath: "/sign-in?returnUrl=/qr/<token>"}` (or the localized `/<locale>/qr/<token>` equivalent) instead of the pre-computed dashboard path. The QR page's own URL has no query string to lose (the intent lives entirely in the `token` path segment), so the sign-in round trip preserves it losslessly. The existing, unmodified `signInAction` (`apps/web/src/app/[locale]/actions.ts`) then redirects back to that `returnUrl` after login — its own same-origin validation (`startsWith("/")`, not `startsWith("//")`) untouched. The browser re-requests `/qr/<token>`, calling `resolvePublicQrToken` again — this time authenticated, so the branch-aware logic (Case A/B/Correction-A-gated-C) runs correctly before any dashboard redirect is ever computed.
+   - **`activeBranchId` consolidation:** as a side effect of switching to `loadDashboardContextV2()`, the "caller's own active branch" read for the same-branch/cross-branch comparison also moved from a raw `user_preferences.default_branch_id` read to `loadDashboardContextV2().app.activeBranchId` — the same authoritative, re-validated value every dashboard page and `changeBranch()` itself already use (more correct than the raw preference, which could reference a branch the user no longer has access to).
+   - **Evidence:** `public-token-resolver.test.ts` → "Correction B — logged-out caller" describe block: sign-in redirect shape, localized variant, open-redirect safety (dedicated test asserting the produced `returnUrl` starts with `/`, never `//`), plus three "real auth-return integration" tests that call `resolvePublicQrToken` twice with the same token (anonymous, then simulating a post-login re-invocation) and assert the second call correctly reaches the same-branch / accessible-cross-branch / inaccessible-cross-branch outcomes. The final browser-level proof (a real login round trip in a real browser) remains deferred to Phase 8's manual UAT, as originally planned for the whole phase — this correction proves the mechanism at the strongest boundary available without a running browser.
+   - **Open-redirect protection:** NOT weakened. `dashboard/layout.tsx` and `signInAction` are read/traced but unmodified. The new `qrPath` is always prefixed with a hardcoded `/qr/` (or `/<locale>/qr/`), so it can never become a protocol-relative or cross-origin string regardless of `token` content; `encodeURIComponent` additionally protects the query-string structure; `signInAction`'s own existing same-origin check is a second, independent layer.
+
+**Full regression suite re-run after correction:** resolver tests (13, up from 5), cross-branch client tests (7, up from 6), Phase 3's `locations-data-view.branch-wiring.test.tsx` (2), `sidebar-branch-switcher.test.tsx` (5), `changeBranch.test.ts` (all — directly exercises the `isBranchAccessible()` extraction), `permission-v2.service.test.ts`, `sign-in-form.test.tsx`, sign-in `page.test.tsx` — 8 files, 90 tests pass, 2 pre-existing/unrelated skips (92 total). `pnpm type-check`: clean. `pnpm lint` (whole repo): 0 errors, 0 new warnings; correction-touched files individually: 0 warnings.
+
+**Security recheck after correction:** inaccessible target no longer gets a switch dialog (Correction A, verified by test); no target metadata leak (denial shape verified to contain only `{error, ok, token}`); no client branchId trusted for authorization (unchanged principle, now enforced at two independent points via the same `isBranchAccessible()` helper); `changeBranch()` still authoritative (refactored, not bypassed — its own test suite re-run unchanged and passes); no open redirect (new dedicated test, plus `signInAction`'s own unmodified protection); no QR scope expansion; no container QR; no per-part QR; no DB/RLS change (confirmed via `git status`; both correction helpers read only already-fetched in-memory data / pre-existing queries `changeBranch()` already performed).
+
+**Documentation updated:** all 9 files in `docs/mvp/reviews/zone1-phase6-cross-branch-location-qr-2026-09-24/` — `qr-flow-contract.md` (Cases C and D rewritten with explicit before/after), `cross-branch-flow.md` (Case C sequence diagram corrected), `security-review.md` (re-run in full plus correction-specific analysis), `test-results.md` (rewritten for the 13+7 corrected test suites), `phase6-closeout.md` (correction summary + corrected 21-item acceptance-criteria walkthrough), `changed-files.md` and `diff.patch` (regenerated to include `branch-access.ts` and the refactored `changeBranch.ts`). `implementation-summary.md` and `same-branch-flow.md` left unchanged (Cases A/B untouched by this correction).
+
+**Blocker:** none. Correction completed with no BLOCKED state. Phase 6 remains ✅ DONE — corrected before commit, exactly as the correction task required ("Phase 6 may remain ✅ DONE but note that its final accepted behavior was corrected before commit").
+
+---
+
 ## Active blockers
 
 Stable IDs, once assigned, are never reused. None of the items below block Phase 1 (the next phase to implement) from starting — they are recorded so they are not forgotten, per the task's own explicit instruction not to let known gaps disappear from view after the presentation.
@@ -194,7 +254,7 @@ Stable IDs, once assigned, are never reused. None of the items below block Phase
 - **BLOCKER-Z1-001** — Branch switch performs no `router.refresh()`/navigation/cache invalidation (`SidebarBranchSwitcher.handleBranchSelect`). Owner: Phase 1. Status: **RESOLVED (2026-09-24)** — see Phase 1 detailed tracking above.
 - **BLOCKER-Z1-002** — 4 confirmed consumers (Locations, Inventory Balances, Inventory Movements, Inventory Products) have branch-agnostic cache keys. Owner: Phases 2-3. Status: **RESOLVED (2026-09-24)** — all 4 consumers now pass a live `branchId` into `<DataView>`, verified by dedicated consumer-wiring tests. See Phase 3 detailed tracking above.
 - **BLOCKER-Z1-003** — `wddMatcherKeys.sessions()` is branch-agnostic; zero test coverage exists for this key. Owner: Phase 4. Status: **RESOLVED (2026-09-24)** — branch-aware, 12 new tests. See Phase 4 detailed tracking above.
-- **BLOCKER-Z1-004** — `warehouse.location` QR/deep-link silently drops cross-branch intent instead of confirm-then-switch (safe, not a leak, but a missing UX requirement). Owner: Phase 6. Status: OPEN, not yet started.
+- **BLOCKER-Z1-004** — `warehouse.location` QR/deep-link silently drops cross-branch intent instead of confirm-then-switch (safe, not a leak, but a missing UX requirement). Owner: Phase 6. Status: **RESOLVED (2026-09-24), CORRECTED (2026-09-24, same day)** — original fix showed a switch dialog for inaccessible targets too; corrected to a safe denial instead. See Phase 6 detailed tracking above, "Phase 6 — correction pass" subsection.
 - **BLOCKER-Z1-005** — 2 Zone-1-relevant test files carry mock/fixture drift (`organization-rls.test.ts`'s `createBranch` test, `load-app-context.v2.test.ts`'s branch-field fixture). Owner: Phase 7. Status: OPEN, not yet started.
 
 ### PILOT security blockers (real vulnerabilities, deliberately deferred past the presentation)
@@ -213,7 +273,7 @@ Stable IDs, once assigned, are never reused. None of the items below block Phase
 - **BLOCKER-Z1-014** — `warehouse_locations`/`app_attachments` migrations missing from the authoritative target tree (live-correct, paper-trail-only gap). Owner: PILOT Phase E.
 - **BLOCKER-Z1-015** — `qr_codes`/`qr_assignments` have no committed migration source in either tree at all; live schema was applied out-of-band. Owner: PILOT Phase E.
 - **BLOCKER-Z1-017** — 3 Zone-1-relevant client test suites (`roles-client`, `invitations-client`, `members-client`) crash on load due to an unrelated `nuqs`/`parseAsJson` version mismatch in the shared `data-view-url-state.ts` module — masks their own coverage. Owner: none assigned (explicitly out of Zone 1 scope; flagged for whoever owns the shared `data-view` component).
-- **BLOCKER-Z1-018** — `QrTargetDescriptor.validate()`'s JSDoc incorrectly claims `resolvePublicQrToken` runs with an authenticated, RLS-enforced client — it does not (service-role, zero auth check, by design). Stale comment, not a live security issue. Owner: Phase 6 (fixed as part of that phase's own QR work).
+- **BLOCKER-Z1-018** — `QrTargetDescriptor.validate()`'s JSDoc incorrectly claims `resolvePublicQrToken` runs with an authenticated, RLS-enforced client — it does not (service-role, zero auth check, by design). Stale comment, not a live security issue. Owner: Phase 6. Status: **RESOLVED (2026-09-24)** — see Phase 6 detailed tracking above.
 
 ### No-longer-blocking findings
 
@@ -278,6 +338,19 @@ Zone 3 discipline: date, phase, finding, evidence, classification, resolution, w
 - **Finding: exactly one branch-switch path exists.** Exhaustive grep for `changeBranch(`/`setActiveBranch(` found only the Phase-1-fixed `SidebarBranchSwitcher` path plus one non-switch session-hydration reconciliation effect (`_providers.tsx`), confirmed safe and unrelated. No alternate/bypassing user-facing switch path exists today. The plan's own task wording anticipated a Phase-6 cross-check ("once that lands") that cannot yet be performed since Phase 6 has not started — explicitly deferred, not a gap in this phase's own closure.
 - **Re-confirmed, not re-designed: Help Desk branch-scoping remains an open PILOT-scope product decision.** `tickets-client.tsx`'s `branchId` filter is confirmed still a manual, user-selectable filter, not automatic active-branch scoping — matching the pre-implementation audit's own finding exactly, unchanged. Correctly left AMBIGUOUS/DEFERRED, not "fixed" into branch-scoping, per the task's own explicit instruction not to invent branch scoping for Help Desk. No new decision made; BLOCKER-Z1-010 (PILOT Phase D) unchanged.
 - **No blockers encountered.** No implementation evidence contradicted the accepted architecture. Zero runtime files changed this phase — confirmed via `git status` throughout.
+
+### 2026-09-24 — Phase 6 implementation
+
+- **Factual correction:** the plan's anticipated interception point (`LocationsPage.tsx`'s own reset-effect) is not the actual owner of URL-derived selection/branch state — `LocationsPage` is a purely presentational, controlled child. `AmbraLocationsClient` (`ambra-locations-client.tsx`) is, confirmed as `LocationsPage`'s only consumer via grep before writing any code. All new state and the confirm dialog were added there instead. Recorded with history preserved in the plan (original wording annotated as corrected, not deleted).
+- **Unplanned fix, not anticipated by the plan:** `page.tsx` needed `key={branchId ?? "no-branch"}` on `<AmbraLocationsClient>`. `router.refresh()` does not reset an already-mounted client component's own `useState`; Phase 1's sidebar switch always navigates away (guaranteeing a natural remount), but this QR flow deliberately stays on the same route to preserve the deep-link target, so nothing would otherwise force a remount after a same-route branch switch. Self-caught via reasoning about documented Next.js semantics, before any test was written.
+- **Bug found and fixed during implementation:** Radix UI's `AlertDialogAction`/`AlertDialogCancel` are thin wrappers over `DialogPrimitive.Close`, which fire the dialog's own `onOpenChange(false)` on every click regardless of any custom `onClick` handler (confirmed by reading the Radix source in `node_modules`). This caused a **failed** branch switch to silently close the confirm dialog before the async result was known, defeating the intended "stay open for retry on failure" behavior. Caught by the phase's own required "failed switch" component test (initially red), fixed with `event.preventDefault()` in both buttons' click handlers. Evidence: Phase 6 detailed tracking above.
+- **No blockers encountered.** No implementation evidence contradicted the accepted architecture (`changeBranch()` remains the sole authorization-checked switch mechanism; no client-supplied branchId is ever trusted). Zero DB/schema/RLS files touched — confirmed via `git status`. Zero `inventory.container`/Phase 10D files touched. Zero per-part QR added.
+
+### 2026-09-24 — Phase 6 correction pass (same day, pre-commit review)
+
+- **Finding: inaccessible cross-branch target showed an impossible switch offer.** The above implementation appended `crossBranch` for any same-org branch mismatch, not gated on the caller's actual access — the dialog would appear and offer "Switch branch" even when `changeBranch()` was certain to reject it. Not a leak (already analyzed as safe above), but not the accepted product contract. Evidence: correction task's own review. Classification: CONFIRMED GAP, contract violation not security violation. Resolution: gated the hint on a new shared `isBranchAccessible()` helper (`apps/web/src/lib/utils/branch-access.ts`), extracted from `changeBranch()`'s own existing check — not a new access model. Architecture unaffected (reuses the exact existing mechanism). No product-owner decision needed (the correction restores the already-accepted contract, doesn't change it).
+- **Finding: logged-out flow's query-string loss on the sign-in round trip.** Tracing the real flow (not just re-checking the redirect string) found `dashboard/layout.tsx`'s returnUrl mechanism (`x-pathname` = `request.nextUrl.pathname`) excludes the query string by construction — a pre-existing gap in the generic returnUrl mechanism, not introduced by Phase 6, first surfaced by this correction's required tracing. Evidence: direct reading of `proxy.ts` and `dashboard/layout.tsx`. Classification: CONFIRMED GAP, data-loss/UX not authorization. Resolution: anonymous QR callers now redirect to sign-in with `returnUrl=/qr/<token>` (the QR page itself, no query string to lose) instead of the pre-computed dashboard path, guaranteeing the resolver re-runs under an authenticated context before any dashboard redirect is computed. `dashboard/layout.tsx` and `signInAction` read/traced, not modified. Architecture unaffected. No product-owner decision needed.
+- **No blockers encountered.** No implementation evidence contradicted the accepted architecture. `changeBranch()`'s own test suite re-run unchanged and passes after the `isBranchAccessible()` refactor, confirming behavior preservation. Zero DB/schema/RLS files touched. Zero `inventory.container`/Phase 10D files touched. Zero per-part QR added.
 
 ---
 
