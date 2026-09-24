@@ -463,6 +463,12 @@ describe("loadAppContextV2", () => {
       organization_id: BRANCH_1.organization_id,
       slug: BRANCH_1.slug,
       created_at: BRANCH_1.created_at,
+      // loadAppContextV2 now selects and maps these 2 additional branch
+      // fields (see load-app-context.v2.ts); BRANCH_1's own fixture doesn't
+      // set branch_number, so it maps through as undefined, and
+      // public_warehouse_maps_enabled falls back to its `?? false` default.
+      branch_number: undefined,
+      public_warehouse_maps_enabled: false,
     });
   });
 

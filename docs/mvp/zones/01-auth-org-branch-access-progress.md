@@ -6,7 +6,7 @@
 - **Priority:** P0
 - **Architecture:** APPROVED
 - **Runtime status:** PARTIAL / IMPLEMENTATION IN PROGRESS
-- **Current phase:** Phase 6 DONE, CORRECTED (2026-09-24, same day, pre-commit review) — Phase 7 — Automated closeout is next (not started)
+- **Current phase:** Phase 7 DONE (2026-09-24, uncommitted — left for review) — Phase 8 — Manual DEMO READY UAT is next (not started)
 - **Pitch readiness:** NOT YET
 - **Pilot readiness:** NOT READY
 - **Last updated:** 2026-09-24
@@ -17,11 +17,11 @@
 
 Computed directly from checkbox counts in `01-auth-org-branch-access-implementation-plan.md`. Recompute whenever a phase's task list changes.
 
-- **Total implementation tasks (DEMO + PILOT): 38/95**
-- **Pitch-required tasks (Phases 0-8): 38/49**
+- **Total implementation tasks (DEMO + PILOT): 44/95**
+- **Pitch-required tasks (Phases 0-8): 44/49**
 - **Pilot-required tasks (Phases A-I): 0/46**
 
-Breakdown by phase (task count = number of checkboxes in that phase's "Implementation tasks" section in the plan, recomputed by direct grep against the plan file, not estimated). Phase 1 gained a 6th task (the CLAUDE.md fix, moved in from Phase E) on 2026-09-24; Phase E's own count dropped to 5 accordingly. Phases 2, 3, 4, 5, and 6 completed 2026-09-24 — see the change log for all six.
+Breakdown by phase (task count = number of checkboxes in that phase's "Implementation tasks" section in the plan, recomputed by direct grep against the plan file, not estimated). Phase 1 gained a 6th task (the CLAUDE.md fix, moved in from Phase E) on 2026-09-24; Phase E's own count dropped to 5 accordingly. Phases 2, 3, 4, 5, 6, and 7 completed 2026-09-24 — see the change log for all seven.
 
 | Phase     | Task count | Completed |
 | --------- | ---------- | --------- |
@@ -32,7 +32,7 @@ Breakdown by phase (task count = number of checkboxes in that phase's "Implement
 | 4         | 4          | 4         |
 | 5         | 4          | 4         |
 | 6         | 6          | 6         |
-| 7         | 6          | 0         |
+| 7         | 6          | 6         |
 | 8         | 5          | 0         |
 | A         | 8          | 0         |
 | B         | 6          | 0         |
@@ -43,7 +43,7 @@ Breakdown by phase (task count = number of checkboxes in that phase's "Implement
 | G         | 4          | 0         |
 | H         | 6          | 0         |
 | I         | 4          | 0         |
-| **Total** | **95**     | **38**    |
+| **Total** | **95**     | **44**    |
 
 ---
 
@@ -58,7 +58,7 @@ Breakdown by phase (task count = number of checkboxes in that phase's "Implement
 | 4 — Matcher query key               | ✅ DONE (2026-09-24) | PITCH              | 4/4       | Session-list cache bug closed. See "Phase 4 — detailed tracking" below.                                       |
 | 5 — Branch-state re-sweep           | ✅ DONE (2026-09-24) | PITCH gate         | 4/4       | Zero new bugs found. See "Phase 5 — detailed tracking" below.                                                 |
 | 6 — Cross-branch QR/deep-link       | ✅ DONE (2026-09-24) | PITCH              | 6/6       | Confirm-then-switch dialog landed; Radix auto-close bug found+fixed. See "Phase 6 — detailed tracking" below. |
-| 7 — Automated closeout              | NOT STARTED          | PITCH gate         | 0/6       | Depends on Phases 1-6.                                                                                        |
+| 7 — Automated closeout              | ✅ DONE (2026-09-24) | PITCH gate         | 6/6       | Both BLOCKER-Z1-005 drift fixes landed, full regression clean. See "Phase 7 — detailed tracking" below.       |
 | 8 — Manual DEMO READY UAT           | NOT STARTED          | PITCH gate         | 0/5       | Depends on Phases 1-7. Only after this: 🔵 DEMO READY.                                                        |
 | A — Ownership invariants            | NOT STARTED          | PILOT              | 0/8       | Not scheduled this week.                                                                                      |
 | B — Anti-escalation                 | NOT STARTED          | PILOT              | 0/6       | Not scheduled this week.                                                                                      |
@@ -243,6 +243,39 @@ Review of the completed-but-uncommitted Phase 6 found two contract gaps:
 
 **Blocker:** none. Correction completed with no BLOCKED state. Phase 6 remains ✅ DONE — corrected before commit, exactly as the correction task required ("Phase 6 may remain ✅ DONE but note that its final accepted behavior was corrected before commit").
 
+**Post-commit documentation consistency pass (2026-09-24, same day, before Phase 7 started):** a fresh read of the Phase 6 review bundle found `implementation-summary.md` still described the ORIGINAL, pre-correction design (bespoke `createClient()` lookup, "logged-out behavior is unchanged", inaccessible targets relying on `changeBranch()` rejection) — the correction pass above had updated `qr-flow-contract.md`, `cross-branch-flow.md`, `security-review.md`, `test-results.md`, `phase6-closeout.md`, and `changed-files.md`, but missed `implementation-summary.md` and one stale test-name citation in `same-branch-flow.md`. Both rewritten to describe the final, corrected architecture (history preserved via an explicit "Issues found and fixed during implementation and correction" section, not deleted). A full 9-file sweep for other stale active claims (`createClient`, `user_preferences.default_branch_id`, `getUser()`, inaccessible-target-shows-dialog, old test names) found every remaining occurrence already correctly framed as historical ("Before:"/"Original (incomplete) behavior:"), not a live claim — no further changes needed. `changed-files.md`'s own "implementation-summary.md and same-branch-flow.md unchanged" line was also corrected. `diff.patch` confirmed unaffected (verified byte-identical after regeneration) since it covers only runtime/test files, not the review bundle's own prose. This was folded into the same commit as the Phase 6 correction (`55e20f0e`) — see the commit for the final, consistent bundle.
+
+**Phase 6 committed:** `55e20f0e` — "fix: complete cross-branch location QR flow". 21 files changed (2514 insertions, 55 deletions). Working tree confirmed clean after commit.
+
+---
+
+## Phase 7 — detailed tracking
+
+Copied from the implementation plan's own task list when the phase started (2026-09-24, immediately after Phase 6's commit). Phase completed same day.
+
+- [x] Fix organization-rls.test.ts's mock client to stub .rpc for the branch-numbering call.
+  - **Reproduced first:** `TypeError: supabase.rpc is not a function` in `OrgBranchesService.createBranch`'s "returns structured failure when RLS denies INSERT" test. Root cause confirmed by reading `organization.service.ts:1230`: `createBranch` now calls `supabase.rpc("reserve_organization_entity_number", ...)` to reserve a branch number before the INSERT — functionality that postdates this test's `makeRlsDeniedClient()` mock, which only stubs `.from()`/`.storage.from()`. Classified: **STALE MOCK** (test/mock drift, not a runtime regression — the runtime code's own RPC call is legitimate, already-existing branch-numbering behavior).
+  - **Fix:** added `rpc: vi.fn().mockResolvedValue(errResult)` to `makeRlsDeniedClient()` (same RLS-denial-shaped error the rest of the mock already returns), so the RPC call now fails the same way a direct table operation under RLS denial would — the test's own assertion (`result.success === false`) is unchanged, not weakened.
+- [x] Fix load-app-context.v2.test.ts's fixture to expect the 2 additional branch fields.
+  - **Reproduced first:** `"maps branch data fields correctly"` — `toEqual` mismatch, received object had extra `branch_number: undefined, public_warehouse_maps_enabled: false` keys the expected object didn't have. Root cause confirmed by reading `load-app-context.v2.ts:171-193`: `loadAppContextV2` selects and maps these 2 fields into every `availableBranches` entry (intentional, already-existing behavior — `public_warehouse_maps_enabled` defaults via `?? false`), but the test's own `BRANCH_1`/`BRANCH_2` fixtures predate this mapping and the test's expected-object literal was never updated. Classified: **STALE EXPECTATION** (test drift, not a runtime regression).
+  - **Fix:** added `branch_number: undefined, public_warehouse_maps_enabled: false` to the one affected test's own expected-object literal (left the shared `BRANCH_1`/`BRANCH_2` fixture constants untouched, since other tests in the file reference them without `toEqual` on the full object — adding fields there would have risked unrelated breakage for no benefit). Assertion strength unchanged — still verifies the exact mapped shape, just now the complete one.
+- [x] Re-run every test file touched by Phases 1-6 plus the 2 fixed here; confirm all pass.
+  - 21 test files, 264 tests total, 262 pass, 2 pre-existing/unrelated skips. Zero failures. Full list and results in the Phase 7 review bundle's `full-regression-results.md`.
+- [x] Run pnpm type-check (whole apps/web); confirm clean.
+  - Clean, 0 errors.
+- [x] Run pnpm lint (whole apps/web); confirm 0 errors.
+  - 0 errors, 319 pre-existing warnings (all in `temp/` scaffolding directories, none in any Zone-1-relevant file, unchanged from before this phase).
+- [x] Note, do NOT fix, the 3 client-suite crashes caused by the unrelated nuqs/parseAsJson library mismatch — flag in the progress tracker as a known, pre-existing, out-of-Zone-1-scope test-infrastructure issue.
+  - Re-confirmed still crashing exactly as documented: `roles-client.test.tsx`, `invitations-client.test.tsx`, `members-client.test.tsx` all fail with `TypeError: parseAsJson is not a function` in the shared `data-view-url-state.ts` module (unrelated nuqs version mismatch). Not touched — BLOCKER-Z1-017 remains open, owner unassigned, exactly as before.
+
+**Blocker resolution this phase:** BLOCKER-Z1-005 → RESOLVED. Both fixes confirmed pure test/mock drift, no runtime regression found or hidden. `changeBranch()`, `organization.service.ts`, and `load-app-context.v2.ts` themselves were not modified — only the 2 test files' own mocks/expectations.
+
+**No DB/schema/RLS changes.** Confirmed via `git status` — only the 2 named test files were touched.
+
+**PILOT blockers (BLOCKER-Z1-006 through BLOCKER-Z1-013) left open/deferred, not touched, per this phase's own explicit scope boundary.**
+
+**Blocker:** none. Phase 7 completed with no BLOCKED state. Full review bundle: `docs/mvp/reviews/zone1-phase7-automated-closeout-2026-09-24/`.
+
 ---
 
 ## Active blockers
@@ -255,7 +288,7 @@ Stable IDs, once assigned, are never reused. None of the items below block Phase
 - **BLOCKER-Z1-002** — 4 confirmed consumers (Locations, Inventory Balances, Inventory Movements, Inventory Products) have branch-agnostic cache keys. Owner: Phases 2-3. Status: **RESOLVED (2026-09-24)** — all 4 consumers now pass a live `branchId` into `<DataView>`, verified by dedicated consumer-wiring tests. See Phase 3 detailed tracking above.
 - **BLOCKER-Z1-003** — `wddMatcherKeys.sessions()` is branch-agnostic; zero test coverage exists for this key. Owner: Phase 4. Status: **RESOLVED (2026-09-24)** — branch-aware, 12 new tests. See Phase 4 detailed tracking above.
 - **BLOCKER-Z1-004** — `warehouse.location` QR/deep-link silently drops cross-branch intent instead of confirm-then-switch (safe, not a leak, but a missing UX requirement). Owner: Phase 6. Status: **RESOLVED (2026-09-24), CORRECTED (2026-09-24, same day)** — original fix showed a switch dialog for inaccessible targets too; corrected to a safe denial instead. See Phase 6 detailed tracking above, "Phase 6 — correction pass" subsection.
-- **BLOCKER-Z1-005** — 2 Zone-1-relevant test files carry mock/fixture drift (`organization-rls.test.ts`'s `createBranch` test, `load-app-context.v2.test.ts`'s branch-field fixture). Owner: Phase 7. Status: OPEN, not yet started.
+- **BLOCKER-Z1-005** — 2 Zone-1-relevant test files carry mock/fixture drift (`organization-rls.test.ts`'s `createBranch` test, `load-app-context.v2.test.ts`'s branch-field fixture). Owner: Phase 7. Status: **RESOLVED (2026-09-24)** — both were confirmed pure test/mock drift (no runtime regression); see Phase 7 detailed tracking below.
 
 ### PILOT security blockers (real vulnerabilities, deliberately deferred past the presentation)
 
@@ -351,6 +384,14 @@ Zone 3 discipline: date, phase, finding, evidence, classification, resolution, w
 - **Finding: inaccessible cross-branch target showed an impossible switch offer.** The above implementation appended `crossBranch` for any same-org branch mismatch, not gated on the caller's actual access — the dialog would appear and offer "Switch branch" even when `changeBranch()` was certain to reject it. Not a leak (already analyzed as safe above), but not the accepted product contract. Evidence: correction task's own review. Classification: CONFIRMED GAP, contract violation not security violation. Resolution: gated the hint on a new shared `isBranchAccessible()` helper (`apps/web/src/lib/utils/branch-access.ts`), extracted from `changeBranch()`'s own existing check — not a new access model. Architecture unaffected (reuses the exact existing mechanism). No product-owner decision needed (the correction restores the already-accepted contract, doesn't change it).
 - **Finding: logged-out flow's query-string loss on the sign-in round trip.** Tracing the real flow (not just re-checking the redirect string) found `dashboard/layout.tsx`'s returnUrl mechanism (`x-pathname` = `request.nextUrl.pathname`) excludes the query string by construction — a pre-existing gap in the generic returnUrl mechanism, not introduced by Phase 6, first surfaced by this correction's required tracing. Evidence: direct reading of `proxy.ts` and `dashboard/layout.tsx`. Classification: CONFIRMED GAP, data-loss/UX not authorization. Resolution: anonymous QR callers now redirect to sign-in with `returnUrl=/qr/<token>` (the QR page itself, no query string to lose) instead of the pre-computed dashboard path, guaranteeing the resolver re-runs under an authenticated context before any dashboard redirect is computed. `dashboard/layout.tsx` and `signInAction` read/traced, not modified. Architecture unaffected. No product-owner decision needed.
 - **No blockers encountered.** No implementation evidence contradicted the accepted architecture. `changeBranch()`'s own test suite re-run unchanged and passes after the `isBranchAccessible()` refactor, confirming behavior preservation. Zero DB/schema/RLS files touched. Zero `inventory.container`/Phase 10D files touched. Zero per-part QR added.
+
+### 2026-09-24 — Phase 7 automated closeout
+
+- **Finding: `organization-rls.test.ts`'s `createBranch` RLS-denial test throws before reaching its own assertion.** Reproduced fresh: `TypeError: supabase.rpc is not a function`. Root cause: `OrgBranchesService.createBranch` (`organization.service.ts:1230`) calls `supabase.rpc("reserve_organization_entity_number", ...)` — legitimate, already-existing branch-numbering functionality that postdates this test's mock client, which only stubs `.from()`. Evidence: direct reading of the service method plus the mock builder. Classification: STALE MOCK (test drift), not a runtime regression. Resolution: added an `.rpc()` stub to the mock, resolving with the same RLS-denial shape the rest of the mock already uses. Architecture/runtime code unaffected — only the test's own mock changed. No product-owner decision needed.
+- **Finding: `load-app-context.v2.test.ts`'s "maps branch data fields correctly" test expects an incomplete branch shape.** Reproduced fresh: `toEqual` mismatch on 2 extra keys (`branch_number`, `public_warehouse_maps_enabled`). Root cause: `loadAppContextV2` (`load-app-context.v2.ts:171-193`) has selected and mapped these 2 fields into `availableBranches` for some time (intentional); the test's own fixtures and expected-object literal were never updated to match. Evidence: direct reading of the loader's mapping code. Classification: STALE EXPECTATION (test drift), not a runtime regression. Resolution: added the 2 fields (with their actual computed values) to the one affected test's own expected-object literal only — the shared `BRANCH_1`/`BRANCH_2` fixture constants were left untouched since other tests reference them without asserting the full object shape. Assertion strength unchanged. No product-owner decision needed.
+- **Full Zone-1-relevant regression re-run:** 21 test files (Phase 1: SidebarBranchSwitcher, changeBranch; Permissions: PermissionsSync, useBranchPermissionsQuery, permission-v2.service; Phase 2/3: use-data-view-query, DataView, all 4 branch-wiring consumer tests; Phase 4: wdd-matcher, extraction-review-approval, movement-import-boundary; Phase 6: public-token-resolver, ambra-locations-client.cross-branch, sign-in-form, sign-in page; Context: load-app-context.v2, load-dashboard-context.v2, organization-rls) — 264 tests total, 262 pass, 2 pre-existing/unrelated live-DB-only skips (`permission-v2.service.test.ts`'s `T-REVOKE-DB`/`T-10K-DB`). Zero failures. `pnpm type-check`: clean. `pnpm lint`: 0 errors, 319 pre-existing warnings (none Zone-1-relevant). Evidence: `docs/mvp/reviews/zone1-phase7-automated-closeout-2026-09-24/full-regression-results.md`.
+- **Re-confirmed, not fixed: the 3 nuqs/parseAsJson client-suite crashes (BLOCKER-Z1-017).** `roles-client.test.tsx`, `invitations-client.test.tsx`, `members-client.test.tsx` re-run fresh, all 3 still crash with `TypeError: parseAsJson is not a function` in the shared `data-view-url-state.ts` module. Confirmed unrelated to Zone 1 (a shared `data-view` component library-version issue), left untouched exactly as the plan's own "Out of scope" section requires. No product-owner decision needed.
+- **No blockers encountered.** No actual runtime regression was found or hidden behind either test fix — both were confirmed pure test/mock/fixture drift by reading the corresponding runtime code first. Zero DB/schema/RLS files touched. PILOT blockers (BLOCKER-Z1-006 through 013) left open/deferred, not touched.
 
 ---
 

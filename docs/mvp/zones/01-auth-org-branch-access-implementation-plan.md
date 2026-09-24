@@ -550,7 +550,7 @@ If reading the caller's active branch from within resolvePublicQrToken turns out
 
 ### Status
 
-NOT STARTED
+DONE (2026-09-24) — see `docs/mvp/reviews/zone1-phase7-automated-closeout-2026-09-24/` for full evidence.
 
 ### Scope classification
 
@@ -583,12 +583,12 @@ N/A.
 
 ### Implementation tasks
 
-- [ ] Fix organization-rls.test.ts's mock client to stub .rpc for the branch-numbering call.
-- [ ] Fix load-app-context.v2.test.ts's fixture to expect the 2 additional branch fields.
-- [ ] Re-run every test file touched by Phases 1-6 plus the 2 fixed here; confirm all pass.
-- [ ] Run pnpm type-check (whole apps/web); confirm clean.
-- [ ] Run pnpm lint (whole apps/web); confirm 0 errors.
-- [ ] Note, do NOT fix, the 3 client-suite crashes caused by the unrelated nuqs/parseAsJson library mismatch — flag in the progress tracker as a known, pre-existing, out-of-Zone-1-scope test-infrastructure issue.
+- [x] Fix organization-rls.test.ts's mock client to stub .rpc for the branch-numbering call.
+- [x] Fix load-app-context.v2.test.ts's fixture to expect the 2 additional branch fields.
+- [x] Re-run every test file touched by Phases 1-6 plus the 2 fixed here; confirm all pass.
+- [x] Run pnpm type-check (whole apps/web); confirm clean.
+- [x] Run pnpm lint (whole apps/web); confirm 0 errors.
+- [x] Note, do NOT fix, the 3 client-suite crashes caused by the unrelated nuqs/parseAsJson library mismatch — flag in the progress tracker as a known, pre-existing, out-of-Zone-1-scope test-infrastructure issue.
 
 ### Testing requirements
 

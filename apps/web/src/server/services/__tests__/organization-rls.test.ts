@@ -85,6 +85,12 @@ function makeRlsDeniedClient() {
   return {
     from: vi.fn().mockImplementation(() => makeChainable()),
     storage: { from: vi.fn() },
+    // createBranch() now reserves a branch_number via RPC before the INSERT
+    // (reserve_organization_entity_number) -- under RLS denial this call
+    // itself is expected to fail the same way a direct table operation
+    // would, so createBranch's own early-return on numberError still
+    // exercises the "RLS denies" path this client models.
+    rpc: vi.fn().mockResolvedValue(errResult),
   };
 }
 
