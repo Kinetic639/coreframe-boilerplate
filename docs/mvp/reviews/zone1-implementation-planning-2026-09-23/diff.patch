@@ -1,0 +1,1449 @@
+diff --git a/docs/mvp/reviews/zone1-implementation-planning-2026-09-23/demo-phase-map.md b/docs/mvp/reviews/zone1-implementation-planning-2026-09-23/demo-phase-map.md
+new file mode 100644
+index 00000000..727eb4ef
+--- /dev/null
++++ b/docs/mvp/reviews/zone1-implementation-planning-2026-09-23/demo-phase-map.md
+@@ -0,0 +1,41 @@
++# Zone 1 — DEMO READY Phase Map
++
++Quick-reference summary of the 9 DEMO READY phases. Full detail lives in `01-auth-org-branch-access-implementation-plan.md`; this file is a navigation aid for the review bundle only.
++
++| Phase | Name | Depends on | Repo surface | DB change? | Status |
++|---|---|---|---|---|---|
++| 0 | Implementation baseline / frozen boundary | — | docs only | NONE | DONE (2026-09-23) |
++| 1 | Centralized branch transition | 0 | `sidebar-branch-switcher.tsx` | NONE | NOT STARTED |
++| 2 | Branch-aware DataView/query-key foundation | 0 | `use-data-view-query.ts`, `data-view/types.ts` | NONE | NOT STARTED |
++| 3 | Migrate confirmed branch-scoped DataView consumers | 2 | 4 warehouse client components | NONE | NOT STARTED |
++| 4 | Matcher branch-aware query key | 0 | `wdd-matcher.ts`, Matcher UI | NONE | NOT STARTED |
++| 5 | Systematic branch-state re-sweep | 1, 2, 3, 4 | verification only | NONE | NOT STARTED |
++| 6 | Cross-branch warehouse.location deep-link/QR | 1 | `public-token-resolver.ts`, `LocationsPage.tsx` | NONE | NOT STARTED |
++| 7 | DEMO READY automated closeout | 1-6 | 2 test files | NONE | NOT STARTED |
++| 8 | Manual DEMO READY UAT | 1-7 | none (verification) | NONE | NOT STARTED |
++
++## Dependency graph
++
++```
++Phase 0 (DONE)
++  |-- Phase 1 --------\
++  |-- Phase 2 -- Phase 3 \
++  |-- Phase 4 -----------> Phase 5 -- Phase 7 -- Phase 8
++        Phase 1 --> Phase 6 --------/
++```
++
++Phases 1, 2, 4 can start in parallel immediately after Phase 0. Phase 3 needs Phase 2. Phase 6 needs Phase 1. Phase 5 needs all of 1-4. Phase 7 needs Phase 5 and Phase 6. Phase 8 needs Phase 7.
++
++## No DB changes across the entire DEMO track
++
++Every one of Phases 1-8 is explicitly `Supabase changes: NONE`. This is intentional and load-bearing: DEMO READY should be reachable with zero live-DB mutation risk, confirming the "DEMO-relevant" gaps identified in the pre-implementation audit are all application-layer bugs (cache identity, transition orchestration, UX), not schema or RLS defects. All schema/RLS work is PILOT-only (Phases D and E).
++
++## Recommended implementation order (not just dependency order)
++
++1. Phase 1 first — highest pitch-impact, smallest diff, unblocks Phase 6.
++2. Phase 2 and Phase 4 in parallel with or immediately after Phase 1 — independent, low-risk foundation work.
++3. Phase 3 once Phase 2 lands.
++4. Phase 6 once Phase 1 lands.
++5. Phase 5 once 1-4 are all done — the systemic-closure gate.
++6. Phase 7 — automated closeout.
++7. Phase 8 — manual UAT, the final gate to DEMO READY.
+diff --git a/docs/mvp/reviews/zone1-implementation-planning-2026-09-23/pilot-phase-map.md b/docs/mvp/reviews/zone1-implementation-planning-2026-09-23/pilot-phase-map.md
+new file mode 100644
+index 00000000..f2f9819b
+--- /dev/null
++++ b/docs/mvp/reviews/zone1-implementation-planning-2026-09-23/pilot-phase-map.md
+@@ -0,0 +1,46 @@
++# Zone 1 — PILOT READY Phase Map
++
++Quick-reference summary of the 9 PILOT READY phases. Full detail lives in `01-auth-org-branch-access-implementation-plan.md`; this file is a navigation aid for the review bundle only. None of these are scheduled this week.
++
++| Phase | Name | Depends on | Repo surface | DB change? | Severity of gap closed |
++|---|---|---|---|---|---|
++| A | Ownership invariants | 0 (sequenced after Phase 8) | `roles.ts`, `organization.service.ts`, RLS, RPC | Migration + RPC | HIGH |
++| B | Anti-escalation / role administration | 0 | `roles.ts`, `organization.service.ts`, RLS | Migration | HIGH |
++| C | Invitation + one-org invariant | 0 | `accept_invitation_and_join_org` RPC | Migration + RPC | MEDIUM |
++| D | Branch RLS hardening | (E related, not blocking) | new migrations only | Migration | MEDIUM-HIGH |
++| E | Schema source-of-truth reconciliation | 0 | new migrations, `CLAUDE.md` | Migration (catch-up only) | Debt, not vulnerability |
++| F | Unsaved-work / navigation safety | 1 (DEMO phase) | new shared hook, 2 forms | NONE | LOW-MEDIUM |
++| G | Live security/integration test infrastructure | 0 | `vitest.config.ts`, CI config | NONE | Confidence gap |
++| H | Administrative auditability | 0 (sequenced after A/B) | action files, possibly new table | Possibly migration | MEDIUM |
++| I | PILOT READY manual verification | A-H | none (verification) | NONE | Gate |
++
++## Dependency graph
++
++```
++Phase 0 (DONE, shared with DEMO track)
++  |-- Phase A --\
++  |-- Phase B ---\
++  |-- Phase C ----\
++  |-- Phase D -----+-- Phase H --\
++  |-- Phase E --/                 \
++  |-- Phase F (needs DEMO Phase 1) \
++  |-- Phase G --------------------- Phase I
++```
++
++Phases A, B, C, D, E, G can start independently once Phase 0 is done (and, by product-sequencing choice, once DEMO Phase 8 is reached — not a hard technical dependency). Phase F needs DEMO Phase 1's branch-switch handler to exist. Phase H is sequenced after A/B so it logs the final, hardened action shapes rather than a soon-to-change unguarded version. Phase I needs all of A-H.
++
++## Why these 9, not the task's own 8-letter (A-H) hypothesis
++
++The task's own starting hypothesis listed PILOT Phase H as "PILOT READY manual verification." This plan instead makes manual verification Phase I, and inserts "Administrative auditability" as its own Phase H — because `admin-security-verification.md`'s own findings and Zone 1's own accepted architecture implications name auditability as a distinct, real requirement (not a byproduct of ownership/escalation hardening), and folding it into Phase A or B would mix a cross-cutting logging concern into two phases that are each already scoped around a specific vulnerability class. This is exactly the kind of "verify whether that is the best actual shape" refinement the task instructed, not a deviation from it.
++
++## Severity summary (for stakeholders skimming this map)
++
++**HIGH severity, must precede any real pilot use:** Phase A (no owner-only gate, no last-owner protection), Phase B (no anti-escalation checks anywhere in role management).
++
++**MEDIUM-HIGH:** Phase D (Matcher/Help Desk branch RLS not forced).
++
++**MEDIUM:** Phase C (invitation one-org re-validation), Phase H (no admin audit trail).
++
++**LOW-MEDIUM:** Phase F (unsaved-work loss risk, not a security hole).
++
++**Debt, not vulnerability:** Phase E (missing migration source for live-correct tables), Phase G (test infrastructure gap masking confidence, not itself exploitable).
+diff --git a/docs/mvp/reviews/zone1-implementation-planning-2026-09-23/requirement-to-phase-matrix.md b/docs/mvp/reviews/zone1-implementation-planning-2026-09-23/requirement-to-phase-matrix.md
+new file mode 100644
+index 00000000..766c366e
+--- /dev/null
++++ b/docs/mvp/reviews/zone1-implementation-planning-2026-09-23/requirement-to-phase-matrix.md
+@@ -0,0 +1,55 @@
++# Zone 1 — Requirement/Finding to Phase Ownership Matrix
++
++Every item from the task's own Step 19 checklist, plus every confirmed finding from the pre-implementation verification bundle. Each row has exactly one phase owner (or an explicit "ALREADY CORRECT" / "OUT OF SCOPE" status, which is also a single, non-duplicated classification).
++
++| Requirement / finding | Phase owner | Pitch/Pilot | Dependency | Acceptance evidence |
++|---|---|---|---|---|
++| Branch-switch centralized transition (refresh/redirect) | Phase 1 | PITCH | Phase 0 | Acceptance criteria 1-2 in Phase 1 |
++| Safe route after switch | Phase 1 | PITCH | Phase 0 | Acceptance criterion 1 in Phase 1 |
++| Router refresh / RSC reload | Phase 1 | PITCH | Phase 0 | Acceptance criteria 1-2 in Phase 1 |
++| DataView branch-aware key convention (foundation) | Phase 2 | PITCH | Phase 0 | Acceptance criteria 1-3 in Phase 2 |
++| Locations cache fix | Phase 3 | PITCH | Phase 2 | Acceptance criterion 1 in Phase 3 |
++| Inventory Balances cache fix | Phase 3 | PITCH | Phase 2 | Acceptance criterion 2 in Phase 3 |
++| Inventory Movements cache fix | Phase 3 | PITCH | Phase 2 | Acceptance criterion 3 in Phase 3 |
++| Inventory Products cache fix | Phase 3 | PITCH | Phase 2 | Acceptance criterion 4 in Phase 3 |
++| Matcher sessions cache key fix | Phase 4 | PITCH | Phase 0 | Acceptance criteria 1-2 in Phase 4 |
++| Systematic re-sweep (no remaining static-key surfaces) | Phase 5 | PITCH gate | Phases 1-4 | Acceptance criterion 1 in Phase 5 |
++| warehouse.location cross-branch QR/deep-link confirm-then-switch | Phase 6 | PITCH | Phase 1 | Acceptance criteria 1-3 in Phase 6 |
++| Regression tests (unit/component for Phases 1-6) | Distributed — each phase owns its own tests (Phases 1-6) | PITCH | — | Each phase's own "Testing requirements" |
++| Type-check / lint clean | Phase 7 | PITCH gate | Phases 1-6 | Acceptance criteria 3-4 in Phase 7 |
++| Manual laptop UAT | Phase 8 | PITCH gate | Phase 7 | Phase 8 acceptance criterion |
++| Manual presentation-phone QR UAT | Phase 8 | PITCH gate | Phase 7 | Phase 8 implementation task (QR portion) |
++| Admin-demo choreography restriction (don't exercise unguarded admin actions) | Progress tracker "Active blockers" section (not a phase — a standing operational constraint) | PITCH gate | — | Noted in the plan's "Known confirmed gaps" section and every PILOT-phase blocker's own demo-safety caveat |
++| Owner-only org_owner grant/revoke | PILOT Phase A | PILOT | Phase 0 | Acceptance criterion 1 in Phase A |
++| Last-owner invariant | PILOT Phase A | PILOT | Phase 0 | Acceptance criterion 3 in Phase A |
++| Self-demotion protection/warning | PILOT Phase A | PILOT | Phase 0 | Acceptance criterion 4 in Phase A |
++| Anti-escalation (role creation/edit/assignment) | PILOT Phase B | PILOT | Phase 0 | Acceptance criteria 1-2 in Phase B |
++| Invitation accept-time one-org revalidation | PILOT Phase C | PILOT | Phase 0 | Acceptance criterion 1 in Phase C |
++| One-org DB enforcement | PILOT Phase C | PILOT | Phase 0 | Acceptance criterion 2 in Phase C |
++| Matcher branch RLS (FORCE + branch-scoped policies) | PILOT Phase D | PILOT | — | Acceptance criterion 1 in Phase D |
++| Help Desk branch RLS (if applicable) | PILOT Phase D | PILOT | — | Acceptance criterion 2 in Phase D (contingent on an explicit open product decision, recorded in Phase D's own blocker rule) |
++| Schema/migration reconciliation (warehouse_locations, wdd_matcher_*, app_attachments, qr_codes, qr_assignments) | PILOT Phase E | PILOT | Phase 0 | Acceptance criterion 1 in Phase E |
++| apps/web/CLAUDE.md stale project-ref fix | PILOT Phase E | PILOT | Phase 0 | Acceptance criterion 2 in Phase E |
++| Live-RLS tests that actually run (env-loading fix) | PILOT Phase G | PILOT | Phase 0 | Acceptance criteria 1-2 in Phase G |
++| Unsaved-work generalization | PILOT Phase F | PILOT | DEMO Phase 1 | Acceptance criteria 1-3 in Phase F |
++| Administrative auditability | PILOT Phase H | PILOT | Phase 0 | Acceptance criteria 1-2 in Phase H |
++| Representative pilot-role E2E | PILOT Phase I | PILOT gate | Phases A-H | Phase I implementation tasks |
++| PILOT READY manual verification | PILOT Phase I | PILOT gate | Phases A-H | Phase I acceptance criterion |
++| **changeBranch server validation** | ALREADY CORRECT — do not touch | — | — | Verified in `authorization-model-verification.md`, cited in plan's "Verified-current foundation summary" |
++| **app/dashboard loaders** | ALREADY CORRECT — do not touch | — | — | Same |
++| **Permission context bridge (PermissionsSync)** | ALREADY CORRECT — do not touch | — | — | Same; explicitly re-checked (not re-implemented) in Phase 5 |
++| **Multi-role union (compile_user_permissions)** | ALREADY CORRECT — do not touch | — | — | Same |
++| **Wildcard/NULL-branch inheritance** | ALREADY CORRECT — do not touch | — | — | Same |
++| **Member removal** | ALREADY CORRECT — do not touch | — | — | Same |
++| **Next-request revocation** | ALREADY CORRECT — do not touch | — | — | Same |
++| **Historical identity preservation** | ALREADY CORRECT — do not touch | — | — | Same |
++| **session-branch.ts** | ALREADY CORRECT — do not touch | — | — | Same |
++| QrTargetDescriptor.validate() stale JSDoc | Phase 6 (small doc-comment fix bundled into that phase's own QR work) | PITCH | Phase 1 | Phase 6 implementation task list, final item |
++| 2 test/mock-drift failures (organization-rls.test.ts, load-app-context.v2.test.ts) | Phase 7 | PITCH gate | Phases 1-6 | Phase 7 implementation tasks 1-2 |
++| 3 nuqs/parseAsJson client-suite crashes | OUT OF SCOPE — explicitly not owned by any Zone 1 phase; flagged in progress tracker BLOCKER-Z1-017 for the shared data-view component's own owner | — | — | Phase 7's own "Out of scope" section; progress tracker blocker list |
++| rls-permission-invariants.test.ts VMI-wildcard failure | OUT OF SCOPE — pre-existing, unrelated to Zone 1 | — | — | Phase 7's own "Out of scope" section |
++| Inventory Core clean-room reproducibility gap (broader) | OUT OF SCOPE — Inventory Core's own separately-accepted, already-deferred debt | — | — | PILOT Phase E's own "Out of scope" section |
++
++## Ownership uniqueness check
++
++Every requirement above appears in exactly one "Phase owner" cell. No requirement is listed twice with two different owners. The "ALREADY CORRECT" and "OUT OF SCOPE" rows are deliberately non-phase classifications (per the task's own Section 19 instruction that every item needs "a clear owner phase or explicit deferred status") — each such item is a single foundation the plan explicitly commits not to rework, cited once in the plan's "Verified-current foundation summary" and cross-referenced, not duplicated, wherever a later phase's dependency section might otherwise be tempted to re-verify it (e.g. Phase 5's re-sweep explicitly re-CONFIRMS rather than RE-IMPLEMENTS the permission-context bridge).
+diff --git a/docs/mvp/reviews/zone1-implementation-planning-2026-09-23/review-context.md b/docs/mvp/reviews/zone1-implementation-planning-2026-09-23/review-context.md
+new file mode 100644
+index 00000000..e28bc994
+--- /dev/null
++++ b/docs/mvp/reviews/zone1-implementation-planning-2026-09-23/review-context.md
+@@ -0,0 +1,33 @@
++# Zone 1 Implementation Planning Pass — Review Context
++
++**Date:** 2026-09-23
++**Branch:** zone3-zone5-integration-audit
++**Starting HEAD:** 5dfce9d3 "docs: Zone 1 pre-implementation verification"
++
++## Task
++
++Planning/verification/documentation task only. Turn the completed Zone 1 architecture doc (`docs/mvp/zones/01-auth-org-branch-access.md`) and the completed Zone 1 Pre-Implementation Verification bundle into a disciplined, phase-based execution plan and live progress tracker, modeled on Zone 3's (RepairOrders) proven execution pattern.
++
++Explicitly forbidden in this task: implementing any Zone 1 runtime change, modifying application code/tests/SQL/migrations/RPCs/RLS/packages/runtime config, mutating the live Supabase DB, beginning Phase 10D or any other presentation blocker, committing without explicit instruction.
++
++## Step 0 — starting-state confirmation
++
++- Branch: `zone3-zone5-integration-audit`. Main: `main`.
++- Working tree: clean at task start (confirmed via `git status`), containing only the previous task's committed output.
++- HEAD: `5dfce9d3` — "docs: Zone 1 pre-implementation verification" (11-file bundle, committed earlier this session per explicit user instruction).
++- Inventory Core: confirmed remaining FINAL FOR PILOT / ARCHITECTURE FROZEN — no commits since `4ea0cb04`/`0eb58f2e` touch Inventory Core scope.
++- Zone 1 implementation: confirmed NOT STARTED — no application code, test, migration, or RLS change exists anywhere in the repository for any of the gaps identified in the verification bundle. Verified by the fact that `docs/mvp/zones/01-auth-org-branch-access-implementation-plan.md` and `...-progress.md` did not exist before this task and by the untouched state of every file path named in the verification bundle's own findings.
++- Phase 10D (Zone 3's Container QR phase) and every other presentation blocker: confirmed NOT STARTED — `03-repair-orders-implementation-plan.md`'s own Phase 10D/10E/10F headers carry no `DONE` status suffix (re-confirmed via grep this task).
++- No unrelated presentation-blocker implementation found in progress.
++
++## Methodology
++
++1. Read the Zone 3 execution-discipline reference files in full: `03-repair-orders-phase0a-baseline.md`, `03-repair-orders-container-workflow-audit.md`, plus (from earlier in this session) `03-repair-orders.md`, `03-repair-orders-progress.md`, `03-repair-orders-implementation-plan.md` (all previously read in full across this session's earlier tasks), `03-05-integration.md`. Confirmed the phase-header/status-suffix convention (`## Phase N — Name` + optional inline `DONE (date — details)`) via a fresh grep across the full 24-entry phase list.
++2. Re-read the complete Zone 1 basis: `01-auth-org-branch-access.md` (read in full in an earlier task this session) and all 11 files of the Zone 1 Pre-Implementation Verification bundle (`docs/mvp/reviews/zone1-preimplementation-verification-2026-09-23/`) — re-read in full or by targeted section this task: `environment-verification.md`, `branch-state-cache-inventory.md`, `authorization-model-verification.md`, `admin-security-verification.md`, `deep-link-qr-verification.md`, `test-results.md`, `gap-matrix.md`, `demo-vs-pilot-boundary.md`, `recommended-implementation-pass.md`, `changed-files.md`, `review-context.md` (that bundle's own).
++3. Re-evaluated the 3-change recommendation from `recommended-implementation-pass.md` against the required A-H topic separation, producing a more granular 9-phase DEMO sequence and a 9-phase PILOT sequence (see `zone1-phase-boundary-analysis.md`).
++4. Wrote `01-auth-org-branch-access-implementation-plan.md` and `01-auth-org-branch-access-progress.md` per the required templates.
++5. Cross-checked every known finding from the verification bundle against the new plan for exactly-one-owner coverage (see `requirement-to-phase-matrix.md`).
++
++## Scope discipline maintained
++
++Docs-only. No file under `apps/**`, `packages/**`, or `supabase/**` was touched. `apps/web/CLAUDE.md`'s stale project-ref instruction was deliberately NOT fixed in this pass (per explicit task instruction) — it is assigned to PILOT Phase E instead. No commit was made without explicit instruction (none given yet for this task's output).
+diff --git a/docs/mvp/reviews/zone1-implementation-planning-2026-09-23/zone1-phase-boundary-analysis.md b/docs/mvp/reviews/zone1-implementation-planning-2026-09-23/zone1-phase-boundary-analysis.md
+new file mode 100644
+index 00000000..90439407
+--- /dev/null
++++ b/docs/mvp/reviews/zone1-implementation-planning-2026-09-23/zone1-phase-boundary-analysis.md
+@@ -0,0 +1,50 @@
++# Zone 1 Phase Boundary Analysis
++
++Re-evaluates `recommended-implementation-pass.md`'s 3-change recommendation against the required A-H topic separation and Zone 3's own granular-phase precedent, per this task's explicit instruction not to blindly reuse the 3-change grouping.
++
++## The 3 original recommended changes, and why each was split
++
++### Change 1 (branch-transition fix) → stays as ONE phase (Phase 1)
++
++Single call site (`SidebarBranchSwitcher.handleBranchSelect`), single coherent concern (complete the atomic transition contract already specified in decision 22), small diff. Splitting further would be ceremony — there is no independently-valuable sub-slice smaller than "add refresh + redirect after switch." Kept as-is.
++
++### Change 2 (systematic branch-scoped query-key convention) → split into 3 phases (2, 3, 4)
++
++The original recommendation bundled: (a) adding a `branchId` mechanism to the shared `DataView` type, (b) migrating 4 concrete `DataView` consumers, and (c) fixing Matcher's own, architecturally separate query-key module — all as one change. Splitting rationale:
++
++- **Phase 2 (foundation) vs. Phase 3 (consumers) split**: the foundation (type + key-building function) is independently reviewable and testable in isolation from any consumer migration — a reviewer can verify the key-building logic is correct without needing to trust 4 separate UI diffs at the same time. This also lets Phase 2 land and be regression-tested against existing org-scoped `DataView` screens BEFORE any consumer starts depending on it, catching a foundation-level mistake before it propagates into 4 places.
++- **Phase 3 kept as ONE phase for all 4 consumers, not 4 phases**: each of the 4 fixes is the mechanically identical change (thread `branchId` into an existing `queryKey` prop) against the same already-verified foundation. Zone 3's own "does it mix unrelated things without necessity" test argues against further splitting here — there is no shared-mechanism benefit to be gained by reviewing them separately, only ceremony. (Contrast this with Phase 3 vs. Phase 4 below, where a REAL architectural difference justifies the split.)
++- **Phase 4 (Matcher) split out from Phase 3 entirely**: `wdd-matcher.ts` is a hand-written hook module, not a `DataView` consumer — a structurally different code pattern. Combining it with Phase 3 would force one diff to touch two unrelated component families for no shared-mechanism benefit (unlike the 4 DataView consumers, which genuinely share one foundation). Keeping it separate also isolates its own zero-test-coverage gap (confirmed in `test-results.md`) as an independently reviewable fix.
++
++### Change 3 (QR confirm-then-switch) → stays as ONE phase (Phase 6), with an explicit dependency on Phase 1
++
++Single coherent concern (extend the existing QR/deep-link resolver + one page's reset-effect to use the confirm-then-switch pattern), reuses `changeBranch()` with no new authorization primitive. Not split further — the resolver change and the confirm-dialog UI change are two halves of one indivisible UX contract (a dialog with no resolver-side flag to trigger it is meaningless, and a resolver flag with no dialog is dead code). Given an explicit dependency on Phase 1, since the confirm-then-switch flow should land on the already-fixed, correctly-refreshing branch-switch behavior.
++
++## Additional phases beyond the original 3 changes
++
++- **Phase 0 (baseline)**: not present in the original 3-change recommendation at all — added per this task's own required template (every phase needs a Status/Dependencies/etc. block) and per Zone 3's own Phase 0A precedent (a baseline phase closes on verification evidence, establishing the frozen starting boundary every other phase depends on).
++- **Phase 5 (systematic re-sweep)**: not present in the original recommendation. Added because the pre-implementation audit itself demonstrated that a systematic sweep finds real things a targeted check misses (the Inventory Products discovery) — a post-implementation re-sweep is the closing half of that same discipline, verifying Phases 1-4 actually closed the systemic problem rather than trusting the original 4-plus-1 enumeration was exhaustive.
++- **Phase 7 (automated closeout) and Phase 8 (manual UAT)**: not present as separate phases in the original recommendation (it had "tests"/"UAT" as per-change fields, not standalone phases). Split out into their own phases per Zone 3's own precedent (a dedicated pitch-E2E/DEMO-READY-verification phase, separate from and gated behind the implementation phases) and per this task's explicit Section 10 instruction that manual UAT must be its own phase, never folded into "tests passing."
++
++## The required A-H separation, mapped
++
++| Required topic | Zone 1 phase(s) |
++|---|---|
++| A. Environment/implementation baseline | Phase 0 |
++| B. Central branch-transition behavior | Phase 1 |
++| C. Branch-aware query/cache identity | Phases 2, 3, 4 |
++| D. Cross-branch deep-link/QR behavior | Phase 6 |
++| E. Automated regression verification | Phase 7 |
++| F. Manual DEMO READY UAT | Phase 8 |
++| G. Pilot-grade IAM/security hardening | PILOT Phases A, B, C |
++| H. Pilot-grade RLS/schema/test hardening | PILOT Phases D, E, G |
++
++(Phase 5 — systematic re-sweep — sits between C and D/E as a closing gate specific to the query-key work; PILOT Phases F, H, I cover unsaved-work safety, auditability, and final manual verification respectively, extending beyond the minimum A-H list because the evidence in `admin-security-verification.md` and `branch-state-cache-inventory.md` supports them as distinct, real requirements, per this task's own "may split further if evidence supports it" instruction.)
++
++## Seven-question test applied to every phase
++
++For each phase: (1) independently reviewable — yes, each phase's repository-areas-affected list is a small, bounded diff; (2) provable correct before moving on — yes, every phase has binary acceptance criteria, not "works correctly"; (3) does the next phase depend on it — dependencies are stated explicitly per phase, and are mostly shallow (Phase 2/3/4 are mutually independent of Phase 1; only Phase 5 depends on all of 1-4, only Phase 6 depends on Phase 1, only Phases 7/8 depend on everything before them); (4) does it mix UI/cache/auth/DB unnecessarily — no phase combines more than one of these without an explicit, stated reason (Phase 6 combines resolver + UI because they're one indivisible contract, not because of ceremony-avoidance); (5) can it split smaller without ceremony — checked case-by-case above, most phases explicitly justify staying as one unit; (6) clear acceptance criteria — every phase has numbered, binary criteria; (7) can Claude implement it in one focused task without losing context — every phase's repository-areas-affected list is 1-5 files, small enough for a single focused implementation pass.
++
++## Verdict
++
++The re-evaluated 9-phase DEMO sequence (0-8) and 9-phase PILOT sequence (A-I) is more granular than the original 3-change recommendation, matches Zone 3's own demonstrated preference for many small phases over few large ones, and satisfies every item in the required A-H separation plus the 7-question phase-design test.
+diff --git a/docs/mvp/reviews/zone1-implementation-planning-2026-09-23/zone3-pattern-analysis.md b/docs/mvp/reviews/zone1-implementation-planning-2026-09-23/zone3-pattern-analysis.md
+new file mode 100644
+index 00000000..b16e53fd
+--- /dev/null
++++ b/docs/mvp/reviews/zone1-implementation-planning-2026-09-23/zone3-pattern-analysis.md
+@@ -0,0 +1,39 @@
++# Zone 3 Execution Pattern Analysis
++
++Source files studied: `03-repair-orders.md`, `03-repair-orders-implementation-plan.md`, `03-repair-orders-progress.md`, `03-repair-orders-phase0a-baseline.md`, `03-repair-orders-container-workflow-audit.md`, `03-05-integration.md`.
++
++## Three-file separation
++
++- **`03-repair-orders.md`** — frozen architecture/product source of truth. Owns accepted decisions, workflows, domain model. Not a daily log.
++- **`03-repair-orders-implementation-plan.md`** — owns phase structure: 24 phases (0A, 0B, 1-13, 10A-10F, 14, 15), each with a strict per-phase template.
++- **`03-repair-orders-progress.md`** — owns live execution state: phase table, mechanical task counts, evidence, blockers, "SCOPE EXPANSION"/"SCOPE CORRECTION" banners recording later product-owner directives without rewriting history.
++
++This exact three-way separation is reproduced for Zone 1.
++
++## Phase header convention (confirmed via grep)
++
++`## Phase N — Name`, with an optional inline suffix once complete: `DONE (date — details)`, e.g. `## Phase 10C — Container orchestration (Allocation to Container) — DONE (2026-09-14)`. No suffix = not started. Phases 10D/10E/10F carry no suffix, confirming they remain not started — directly relevant since this task's own instructions single out Phase 10D by name as a boundary not to be touched.
++
++## Phase granularity discipline
++
++24 phases for one zone (RepairOrders) — proof that Zone 3's own discipline favors MANY small, single-concern phases over a handful of large multi-surface ones. Phase 10 alone was split into 6 sub-phases (10A-10F) precisely because container orchestration, container QR, and container relocation are distinct concerns with different risk profiles and different completion dates (10A-10C done 2026-09-14, 10D-10F still not started). This is the strongest direct evidence against blindly reusing Zone 1's own 3-change recommendation as final phase structure — Zone 3's own precedent is granular, not consolidated.
++
++## Baseline/reconciliation report pattern (Phase 0A)
++
++`03-repair-orders-phase0a-baseline.md`: a point-in-time, read-only report that closes a Phase 0 WITHOUT attempting full historical migration reconciliation. Corrected an earlier overstated drift claim (172 live migrations, 125/171 name-matched = 73%, not "only 1 matches"). Explicitly rejects "replay/rewrite all N missing migrations" as disproportionate; accepts residual drift as documented, out-of-scope debt; commits going forward to live-verify every new migration. Directly reused for Zone 1's own Phase 0 (marked DONE citing the pre-implementation verification bundle) and for PILOT Phase E's own scoping ("this phase only needs to close THESE specific 6 tables' own missing-source problem," explicitly not reopening Inventory Core's separately-accepted reproducibility gap).
++
++## Open-decisions-block-further-design, not earlier phases (container workflow audit, section 29)
++
++`03-repair-orders-container-workflow-audit.md` section 29 lists 7 numbered "Open Product Decisions (blocking further design, not blocking Phase 3 itself)". This is the template reused for Zone 1's own confirmed-but-deferred security gaps (owner-only gating, anti-escalation, etc.) — they are real, they are recorded, but they do not block the DEMO-READY phase sequence, per this task's own Section 9 instruction. Reused concretely in PILOT Phase D's blocker rule (Help Desk branch-scoping is an explicit open product decision) and in the progress tracker's own change-log entry for that same finding.
++
++## Manual UAT as its own phase, separate from implementation
++
++Zone 3's plan includes a distinct pitch-E2E/DEMO-READY-verification phase, separate from and dependent on the implementation phases preceding it — passing automated tests is a gate INTO that phase, not a substitute for it. Directly reused as Zone 1's Phase 8 (DEMO READY UAT) and PILOT Phase I (PILOT READY verification), each preceded by its own dedicated automated-closeout gate phase (Phase 7 for DEMO; folded into each PILOT phase's own testing requirements for PILOT, since PILOT phases are far enough out that a single closeout gate phase would be premature to define in detail now).
++
++## Mechanical task counts, never rounded percentages
++
++Zone 3's progress tracker keeps exact X/Y counts recomputed from actual checkbox counts. Reused exactly for Zone 1's progress tracker — verified this task by grep-counting checkboxes directly from the implementation plan file rather than estimating (9/95 total, 9/48 pitch-required, 0/47 pilot-required).
++
++## What was deliberately NOT copied
++
++Zone 3's specific phase NAMES/numbers (0A/0B/10A-10F etc.) are domain-specific to RepairOrders/container workflow and were not mechanically reused — Zone 1's own phase names (0-8, A-I) were derived from Zone 1's own gap matrix, not from Zone 3's naming scheme. The "SCOPE EXPANSION" banner pattern was noted but not needed yet for Zone 1, since no product-owner directive has yet superseded any part of this plan — the mechanism is documented as available (see the progress tracker's own change-log section, structured to support such banners later without restructuring).
+diff --git a/docs/mvp/zones/01-auth-org-branch-access-implementation-plan.md b/docs/mvp/zones/01-auth-org-branch-access-implementation-plan.md
+new file mode 100644
+index 00000000..3418535f
+--- /dev/null
++++ b/docs/mvp/zones/01-auth-org-branch-access-implementation-plan.md
+@@ -0,0 +1,981 @@
++# Zone 1 — Identity / Access / Branch / Authorization Implementation Plan
++
++- **Zone:** 1
++- **Priority:** P0
++- **Architecture status:** APPROVED
++- **Runtime status:** PARTIAL
++- **Plan status:** ACTIVE
++- **Primary goal:** DEMO READY first, then PILOT READY
++- **Last updated:** 2026-09-23
++
++## Source-of-truth hierarchy
++
++`docs/mvp/zones/01-auth-org-branch-access.md` is the approved product/architecture source of truth — accepted product decisions, intended workflows, IAM/branch/security architecture, DEMO READY and PILOT READY gates, scope boundaries. It is NOT a daily implementation log and is not edited by phase work.
++
++This file (`01-auth-org-branch-access-implementation-plan.md`) owns: phase structure, dependencies, tasks, acceptance criteria, testing requirements, repository areas, DB impact, pitch/pilot classification, implementation sequence.
++
++`docs/mvp/zones/01-auth-org-branch-access-progress.md` owns: current phase, phase statuses, mechanical task counts, implementation evidence, test results, blockers, discoveries, UAT evidence, current DEMO READY / PILOT READY state.
++
++**If implementation evidence contradicts the accepted architecture: STOP that phase. Record the exact evidence, the BLOCKED reason, and the product/architecture decision needed. Never silently redesign.** This mirrors Zone 3's own established discipline exactly.
++
++## Approved architecture summary
++
++Per `01-auth-org-branch-access.md`'s own "Product decisions" section (44 numbered decisions, all DECIDED, not reopened here): one org per user; org is the tenant boundary; `org_owner` is a protected system role requiring `ownerCount >= 1` always; branch access and branch permissions are conceptually separate; multi-branch, multi-role, union-permission model; active branch is the operational context and branch switching must be atomic (validate → handle unsaved work → persist → refresh permissions → invalidate cache → safe redirect → reload); cross-branch deep links use one shared confirm-then-switch (accessible) / safe-deny (inaccessible) rule; server-side authorization is mandatory, RLS is an additional hard boundary; revocation applies on the next protected request; invitations require accept-time one-org re-validation as defense-in-depth; member removal preserves historical identity.
++
++## Verified-current foundation summary
++
++Per the completed Zone 1 Pre-Implementation Verification (`docs/mvp/reviews/zone1-preimplementation-verification-2026-09-23/`), the following are **VERIFIED CORRECT and must not be reworked**:
++
++`changeBranch` server-side validation; `resolveActiveBranch`'s safe fallback + explicit re-validation; the permission-context-after-switch bridge (`PermissionsSync` → `useBranchPermissionsQuery` → Zustand), proven correct with a concrete Manager-A/Worker-B scenario; multi-role union (`compile_user_permissions`); org-wide wildcard/NULL-branch inheritance; branch-scope containment (cannot escalate to org-wide via a branch role); member removal, next-request revocation, and historical-identity preservation; `session-branch.ts` per-tab isolation; the Warehouse Map page and `workshopKeys.lineReservations` as reference implementations of the correct branch-keyed query pattern; the `warehouse.location` QR/deep-link resolver's cross-org rejection, no-metadata-leak, and open-redirect protection.
++
++## Known confirmed gaps
++
++**DEMO-relevant** (implementation-required this week): the branch-switch root-cause bug — `SidebarBranchSwitcher.handleBranchSelect` updates Zustand only, with no `router.refresh()`, no cache invalidation, no navigation, stranding RSC-rendered pages; 5 confirmed branch-agnostic query-key bugs (Matcher sessions, Locations, Inventory Balances, Inventory Movements, Inventory Products — the last confirmed newly during this audit); the cross-branch `warehouse.location` QR/deep-link missing confirm-then-switch UX (safe today — no leak, no unwanted switch — but the deep-link intent is silently dropped instead of honored).
++
++**PILOT-only** (real, confirmed, explicitly NOT implemented this week per the accepted demo-vs-pilot boundary): no owner-only gate on granting/revoking `org_owner` (plus a weaker route via invitation acceptance); no last-owner-count enforcement at any layer; no self-demotion warning; no anti-privilege-escalation checks anywhere in role creation/editing/assignment; invitation acceptance doesn't re-validate the one-org invariant; one-org-per-user is app-level only, not DB-enforced; Matcher/Help Desk RLS is enabled but not forced, org-scoped only despite live `branch_id` columns; `warehouse_locations`/`wdd_matcher_*`/`app_attachments`/`helpdesk_tickets` migrations missing from the authoritative target tree (though `warehouse_locations`/`app_attachments` are live-correct — paper-trail-only gaps); `qr_codes`/`qr_assignments` have no committed source in either tree at all; the one existing live-DB RLS integration test file is structurally skipped under the project's own test command; no shared unsaved-work/navigation-guard mechanism exists; administrative auditability is absent; `apps/web/CLAUDE.md` has a stale project-ref instruction.
++
++**These are real vulnerabilities, not minimized.** They are deferred per Zone 1's own already-accepted scope note, on the explicit condition that demo choreography never exercises self-demotion, owner removal/grant beyond one pre-rehearsed action, or role-creation-beyond-authority. See "Active blockers" in the progress tracker.
++
++---
++
++# PHASE ROADMAP
++
++## DEMO READY phases (in execution order)
++
++| Phase | Name | Scope classification |
++|---|---|---|
++| 0 | Implementation baseline / frozen boundary | PITCH prerequisite |
++| 1 | Centralized branch transition | PITCH |
++| 2 | Branch-aware DataView/query-key foundation | PITCH |
++| 3 | Migrate confirmed branch-scoped DataView consumers | PITCH |
++| 4 | Matcher branch-aware query key | PITCH |
++| 5 | Systematic branch-state re-sweep | PITCH gate |
++| 6 | Cross-branch warehouse.location deep-link/QR | PITCH |
++| 7 | DEMO READY automated closeout | PITCH gate |
++| 8 | Manual DEMO READY UAT | PITCH gate |
++
++## PILOT READY phases (after DEMO READY, in execution order)
++
++| Phase | Name | Scope classification |
++|---|---|---|
++| A | Ownership invariants | PILOT |
++| B | Anti-escalation / role administration | PILOT |
++| C | Invitation + one-org invariant | PILOT |
++| D | Branch RLS hardening | PILOT |
++| E | Schema source-of-truth reconciliation | PILOT |
++| F | Unsaved-work / navigation safety | PILOT |
++| G | Live security/integration test infrastructure | PILOT |
++| H | Administrative auditability | PILOT |
++| I | PILOT READY manual verification | PILOT gate |
++
++---
++
++# DEMO READY PHASES — DETAIL
++
++## Phase 0 — Implementation baseline / frozen boundary
++
++### Status
++**DONE (2026-09-23)** — verification/documentation phase, already satisfied by the completed pre-implementation audit. No runtime implementation occurs in this phase.
++
++### Scope classification
++PITCH prerequisite
++
++### Objective
++Lock the current-state baseline: authoritative Supabase target, current schema drift, current authorization-model correctness, current branch/cache bug inventory, current test state, and the exact demo-vs-pilot boundary — so every later phase builds on verified ground truth, not assumption.
++
++### Why it exists
++Mirrors Zone 3's own Phase 0A discipline: establish a trustworthy, scoped baseline without attempting a disproportionate full reconciliation, and explicitly accept residual out-of-scope drift as documented debt rather than silently ignoring it.
++
++### Dependencies
++None.
++
++### Repository areas affected
++None — documentation only.
++
++### Supabase changes
++NONE.
++
++### Existing infrastructure reused
++N/A.
++
++### Implementation tasks
++- [x] Environment/schema verification — environment-verification.md
++- [x] Systematic branch-state/cache inventory — branch-state-cache-inventory.md
++- [x] Authorization-model verification — authorization-model-verification.md
++- [x] Admin/security verification — admin-security-verification.md
++- [x] Cross-branch QR/deep-link verification — deep-link-qr-verification.md
++- [x] Existing test execution — test-results.md
++- [x] Gap matrix synthesis — gap-matrix.md
++- [x] Demo-vs-pilot boundary — demo-vs-pilot-boundary.md
++- [x] Recommended implementation pass (input/evidence only, not blindly reused for phase structure) — recommended-implementation-pass.md
++
++### Testing requirements
++N/A — this phase IS the verification.
++
++### Acceptance criteria
++The Zone 1 pre-implementation verification bundle (11 files) exists, is committed (5dfce9d3), and its findings are cross-referenced by every phase below. **Met.**
++
++### Out of scope
++Any runtime implementation. Any fix to apps/web/CLAUDE.md's stale project-ref instruction — assigned to PILOT Phase E instead.
++
++### Blocker rule
++N/A — phase complete, no blockers found.
++
++---
++
++## Phase 1 — Centralized branch transition
++
++### Status
++NOT STARTED
++
++### Scope classification
++PITCH
++
++### Objective
++SidebarBranchSwitcher correctly completes the atomic branch-switch transition: after a successful changeBranch() call, refresh the server-rendered tree and navigate to a safe route, so no RSC-rendered page remains stranded showing the old branch's data.
++
++### Why it exists
++Closes the confirmed root-cause bug: SidebarBranchSwitcher.handleBranchSelect only updates the Zustand store today — no router.refresh(), no cache invalidation, no navigation. This is the single highest-pitch-impact bug found.
++
++### Dependencies
++Phase 0.
++
++### Repository areas affected
++- apps/web/src/app/[locale]/dashboard/_components/sidebar-branch-switcher.tsx
++- Possibly a new small shared helper (e.g. apps/web/src/lib/branch-transition.ts) if the logic doesn't fit cleanly inline — TO VERIFY DURING PHASE.
++
++### Supabase changes
++NONE.
++
++### Existing infrastructure reused
++changeBranch server action (already correct, do not modify); Next.js router.refresh()/navigation primitives.
++
++### Implementation tasks
++- [ ] Determine the safe start route to redirect to after a switch. TO VERIFY DURING PHASE.
++- [ ] Add router.refresh() call to handleBranchSelect after a successful changeBranch() call.
++- [ ] Add navigation to the safe start route after a successful switch.
++- [ ] Confirm the toast/loading state UX is not broken by the added navigation.
++- [ ] Update sidebar-branch-switcher.test.tsx to assert router.refresh()/navigation is called on success.
++
++### Testing requirements
++- Unit/component: extend the existing (currently passing) sidebar-branch-switcher.test.tsx.
++- Manual UAT: deferred to Phase 8, but a developer-level sanity check is expected before marking this phase DONE.
++
++### Acceptance criteria
++1. Switching branches while on a RepairOrder detail page for an ID belonging to the OLD branch results in the user being redirected to the safe start route, not a broken/404 page and not a stale render.
++2. Switching branches while on an Inventory Movement detail/edit page for an ID belonging to the OLD branch behaves the same way.
++3. sidebar-branch-switcher.test.tsx passes with the new assertions.
++4. pnpm type-check and pnpm lint remain clean for the touched files.
++
++### Out of scope
++Any DataView/query-key work (Phase 2/3). Any QR/deep-link work (Phase 6). Any unsaved-work protection (PILOT Phase F).
++
++### Blocker rule
++If the "safe start route" decision cannot be resolved from the existing architecture doc without a genuine new product decision, STOP and record the exact question.
++
++---
++
++## Phase 2 — Branch-aware DataView/query-key foundation
++
++### Status
++NOT STARTED
++
++### Scope classification
++PITCH
++
++### Objective
++DataViewListParams/use-data-view-query.ts gain a systematic, optional branchId mechanism that any caller CAN use to get correctly branch-scoped cache identity — closing this bug class for every future DataView-based screen, not just the 4 confirmed instances.
++
++### Why it exists
++4 of 4 branch-scoped DataView consumers checked in the pre-implementation audit have the identical static-key bug, because the underlying shared type has no branchId field at all — a structural gap, not 4 independent oversights. Fixing the foundation once prevents a 5th instance next month.
++
++### Dependencies
++Phase 0. Independent of Phase 1 (can run in parallel), though its own manual verification is more useful once Phase 1 has also landed.
++
++### Repository areas affected
++- apps/web/src/components/data-view/use-data-view-query.ts
++- apps/web/src/lib/data-view/types.ts (DataViewListParams)
++- Possibly apps/web/src/components/data-view/data-view-provider.tsx/data-view.tsx — TO VERIFY DURING PHASE.
++
++### Supabase changes
++NONE.
++
++### Existing infrastructure reused
++The already-correct workshopKeys.lineReservations(branchId, lineId) pattern as the reference shape.
++
++### Implementation tasks
++- [ ] Add an optional branchId field to DataViewListParams.
++- [ ] Update use-data-view-query.ts's own key-building logic to merge branchId into the query key when present, leaving it unaffected when absent (backward-compatible for org-scoped screens).
++- [ ] Write a unit test for the key-building function: same params + different branchId => different key; branchId absent => unchanged from today's behavior.
++- [ ] Spot-check 1-2 correctly org-scoped DataView screens (e.g. Tickets) to confirm they are unaffected.
++
++### Testing requirements
++- Unit: the new key-building test above.
++- Regression: confirm 1-2 org-scoped DataView screens still pass their own existing tests unmodified.
++
++### Acceptance criteria
++1. DataViewListParams accepts an optional branchId.
++2. A unit test proves two calls differing only in branchId produce different query keys.
++3. A unit test (or existing test re-run) proves an org-scoped DataView call with no branchId produces the exact same key as before this change.
++4. pnpm type-check and pnpm lint remain clean.
++
++### Out of scope
++Actually migrating any consumer to pass branchId — that is Phase 3. This phase only builds the mechanism.
++
++### Blocker rule
++If threading branchId through the provider layer turns out to require a broader refactor than a type addition + key-merge, STOP and report the exact obstruction rather than forcing an oversized change into what should be a small foundation phase.
++
++---
++
++## Phase 3 — Migrate confirmed branch-scoped DataView consumers
++
++### Status
++NOT STARTED
++
++### Scope classification
++PITCH
++
++### Objective
++The 4 confirmed branch-scoped DataView consumers pass branchId (read live from useAppStoreV2, not a stale SSR prop) into their own queryKey, using the Phase 2 foundation.
++
++### Why it exists
++Closes 4 confirmed bugs: Locations, Inventory Balances, Inventory Movements, Inventory Products. Grouped into one phase rather than 4 separate phases because all 4 are the identical mechanical fix against the identical foundation from Phase 2 — splitting further would be ceremony without a corresponding risk-reduction benefit.
++
++### Dependencies
++Phase 2 (the foundation must exist first). Independent of Phase 1 and Phase 4.
++
++### Repository areas affected
++- apps/web/src/app/[locale]/dashboard/warehouse/locations/_components/locations-data-view.tsx
++- apps/web/src/app/[locale]/dashboard/warehouse/inventory/_components/inventory-client.tsx
++- apps/web/src/app/[locale]/dashboard/warehouse/inventory/movements/_components/inventory-movements-client.tsx
++- apps/web/src/app/[locale]/dashboard/warehouse/inventory/_components/inventory-products-client.tsx (confirmed location: inventory-products-client.tsx:42,324)
++
++### Supabase changes
++NONE.
++
++### Existing infrastructure reused
++Phase 2's foundation; the live activeBranchId read pattern already correctly used by map-list-client.tsx.
++
++### Implementation tasks
++- [ ] Locations: read live activeBranchId from useAppStoreV2, pass into the DataView's queryKey.
++- [ ] Inventory Balances: same.
++- [ ] Inventory Movements: same. Also confirm InventoryMovementsClient's own activeBranchId prop usage is corrected to read live from the store rather than a frozen SSR prop.
++- [ ] Inventory Products: same, fixing INVENTORY_PRODUCTS_QUERY_KEY = ["inventory-products"] to include branchId.
++- [ ] For each of the 4: manual developer-level check that switching branches while viewing the list updates the content without a manual reload.
++
++### Testing requirements
++- Manual UAT (developer-level sanity, full formal UAT is Phase 8): switch branch on each of the 4 screens, confirm content updates.
++- No new automated test type needed beyond what Phase 2 already covers at the foundation level.
++
++### Acceptance criteria
++1. Switch Branch A to B while viewing Locations: the list shows Branch B's locations without a manual reload.
++2. Same for Inventory Balances (stock quantities correctly reflect Branch B).
++3. Same for Inventory Movements.
++4. Same for Inventory Products (stock-quantity columns correctly reflect Branch B, not stale Branch A values).
++5. pnpm type-check and pnpm lint remain clean for all 4 touched files.
++
++### Out of scope
++Matcher (Phase 4). Any other DataView consumer not confirmed as branch-scoped in the gap matrix.
++
++### Blocker rule
++If any of the 4 consumers turns out to have additional, previously-undiscovered branch-scoping issues beyond the query key itself, STOP and record the exact finding — this would contradict the pre-implementation verification's own "server always derives branch context fresh" finding and needs to be understood before proceeding, not silently patched.
++
++---
++
++## Phase 4 — Matcher branch-aware query key
++
++### Status
++NOT STARTED
++
++### Scope classification
++PITCH
++
++### Objective
++wddMatcherKeys.sessions() becomes wddMatcherKeys.sessions(branchId), threaded through useSessionsQuery and its callers/invalidation sites, following the exact pattern already proven correct in workshopKeys.lineReservations(branchId, lineId).
++
++### Why it exists
++Closes the confirmed Matcher session-list bug — the exact instance the product owner personally suspected before any audit began. Matcher is a headline pitch feature, and test-results.md confirms zero test coverage exists for this key today.
++
++### Dependencies
++Phase 0. Kept as its OWN phase, separate from Phase 3, deliberately — wdd-matcher.ts is an architecturally distinct module (a purpose-built hook file, not the generic DataView component), so combining it with Phase 3 would mix two different code patterns in one diff for no shared-mechanism benefit. Independent of Phase 1, 2, 3.
++
++### Repository areas affected
++- apps/web/src/hooks/queries/tools/wdd-matcher.ts (wddMatcherKeys.sessions(), useSessionsQuery, the 2-3 invalidateQueries call sites referencing it)
++- apps/web/src/components/tools/svwms-wdd-matcher/index.tsx (the consumer)
++
++### Supabase changes
++NONE.
++
++### Existing infrastructure reused
++workshopKeys.lineReservations(branchId, lineId)'s own pattern.
++
++### Implementation tasks
++- [ ] Change wddMatcherKeys.sessions to accept branchId.
++- [ ] Update useSessionsQuery to read live activeBranchId and pass it in.
++- [ ] Update the 2-3 invalidateQueries({queryKey: wddMatcherKeys.sessions()}) call sites to match the new key shape.
++- [ ] Add a unit test on the key factory (branch change => different key) — closing the confirmed zero-coverage gap.
++
++### Testing requirements
++- Unit: the new key-factory test.
++- Manual UAT (developer-level sanity, formal UAT is Phase 8): open Matcher in Branch A, switch to Branch B, confirm the session list updates.
++
++### Acceptance criteria
++1. wddMatcherKeys.sessions(branchId) produces different keys for different branches.
++2. Switching branches while Matcher is open updates the "Past uploads" list without a manual reload.
++3. A new unit test for the key factory exists and passes.
++4. pnpm type-check and pnpm lint remain clean.
++
++### Out of scope
++Any other Matcher query key (results, extractedData, etc.) — these are keyed by globally-unique sessionId and were classified as correctly safe (no cross-branch leak); not touched here.
++
++### Blocker rule
++Standard — if evidence contradicts the pre-implementation finding, stop and report.
++
++---
++
++## Phase 5 — Systematic branch-state re-sweep
++
++### Status
++NOT STARTED
++
++### Scope classification
++PITCH gate
++
++### Objective
++Verification-only phase proving Phases 1-4 closed the systemic problem, not just the originally-known instances — re-run the same systematic sweep methodology from the pre-implementation audit AFTER the fixes land, to catch anything missed and confirm no regression.
++
++### Why it exists
++The pre-implementation audit itself found a bug (Inventory Products) that an earlier, narrower check would have missed — proving the systemic-sweep discipline finds real things a targeted-only check would not. This phase re-applies that discipline once, after implementation, as a closing gate rather than trusting the original enumeration was perfectly complete.
++
++### Dependencies
++Phases 1, 2, 3, 4 (all must be complete).
++
++### Repository areas affected
++None (verification only) unless the sweep finds something, in which case: TO VERIFY DURING PHASE.
++
++### Supabase changes
++NONE expected.
++
++### Existing infrastructure reused
++The exact grep/trace methodology from branch-state-cache-inventory.md.
++
++### Implementation tasks
++- [ ] Re-sweep all useQuery/useMutation/DataView call sites in apps/web/src for any branch-scoped surface not covered by Phases 1-4.
++- [ ] Confirm no RSC-rendered route remains stranded after a branch switch (spot-check RepairOrder and Movement detail pages again, post-Phase-1 fix).
++- [ ] Confirm no alternate branch-switch entry point exists that bypasses the Phase 1 fix (cross-check against Phase 6's own QR flow once that lands).
++- [ ] Confirm permission-context-after-switch remains correct (regression check against the already-verified-correct PermissionsSync bridge).
++
++### Testing requirements
++Read-only code sweep; no new automated tests expected unless a new gap is found.
++
++### Acceptance criteria
++1. Zero additional CONFIRMED BUG-classified branch-scoped surfaces found beyond what Phases 1-4 already fixed.
++2. Zero stranded RSC routes found on re-check.
++3. Zero alternate branch-switch bypass paths found.
++4. Permission-context-after-switch re-confirmed correct.
++
++### Out of scope
++Fixing anything PILOT-classified (that's Phases A-I). Expanding scope to non-pitch-relevant screens.
++
++### Blocker rule
++If this sweep finds a genuinely new, non-trivial bug (not a variant of the already-fixed pattern), STOP, record it, and treat it as requiring its own small follow-up phase rather than silently folding it into this verification-only phase's own scope.
++
++---
++
++## Phase 6 — Cross-branch warehouse.location deep-link / QR
++
++### Status
++NOT STARTED
++
++### Scope classification
++PITCH
++
++### Objective
++Scanning/opening a warehouse.location QR/deep-link for an object in a DIFFERENT branch than the current active one prompts a confirm-then-switch dialog (if accessible) instead of silently falling back to the wrong branch's first location; inaccessible-branch targets remain safely denied exactly as today.
++
++### Why it exists
++Closes the confirmed UX gap — currently safe (no leak, no unwanted switch) but not per Zone 1 decisions 24-27, and this degrades the pitch's own QR-scan moment.
++
++### Dependencies
++Phase 1 (the confirm-then-switch flow should land on the Phase-1-fixed, correctly-refreshing branch-switch behavior, not an unfixed one).
++
++### Repository areas affected
++- apps/web/src/server/qr/public-token-resolver.ts (resolvePublicQrToken)
++- apps/web/src/app/[locale]/dashboard/warehouse/locations/_ambra/components/locations/LocationsPage.tsx (the existing reset-effect at ~line 485-490 is the interception point)
++
++### Supabase changes
++NONE.
++
++### Existing infrastructure reused
++The already-correct, already-validated changeBranch() server action (no new authorization primitive needed).
++
++### Implementation tasks
++- [ ] resolvePublicQrToken: for a logged-in caller, read their current active branch (requires reading user_preferences, which this currently-fully-anonymous resolver doesn't do today — TO VERIFY DURING PHASE exact mechanism).
++- [ ] Encode a crossBranch=<targetBranchId> flag on the redirect when the target's branch differs from the caller's active branch (logged-in callers only; anonymous/logged-out flow unaffected).
++- [ ] LocationsPage's reset-effect: when crossBranch is present, render a confirm dialog instead of silently falling back to locations[0].
++- [ ] On confirm: call changeBranch(), then re-navigate to the target location.
++- [ ] On cancel: clear the param, preserving today's existing silent-drop-to-current-branch behavior as the cancel outcome.
++- [ ] Correct the stale QrTargetDescriptor.validate() JSDoc claim that this resolver "runs with the authenticated Supabase client (RLS enforced)" — factually incorrect for this caller today.
++
++### Testing requirements
++- Unit/service: a test for resolvePublicQrToken's new cross-branch-flag behavior.
++- Component: a test for the new confirm dialog in LocationsPage.
++- Manual UAT (formal, Phase 8): on the actual presentation phone — scan a location QR belonging to a different branch, confirm the dialog appears, confirm switching works, confirm cancel leaves the user safely on the original branch.
++
++### Acceptance criteria
++1. Scanning a QR for a Branch-B location while active branch is A, with access to B: a confirm dialog appears (not a silent fallback).
++2. Confirming switches to Branch B and opens the exact target location.
++3. Cancelling leaves the user on Branch A with no location selected/opened.
++4. Scanning a QR for a Branch-B location without access to B: behavior is unchanged from today (safe, no leak, no dialog implying access that doesn't exist).
++5. Logged-out scan behavior is unchanged.
++
++### Out of scope
++Generalizing this to helpdesk.ticket/planning.task — noted as a future extension, not built now.
++
++### Blocker rule
++If reading the caller's active branch from within resolvePublicQrToken turns out to require a larger authentication-context change than anticipated, STOP and report — this phase should remain a narrow UI/service addition, not a resolver-architecture change.
++
++---
++
++## Phase 7 — DEMO READY automated closeout
++
++### Status
++NOT STARTED
++
++### Scope classification
++PITCH gate
++
++### Objective
++All Zone-1-relevant automated tests pass (or are correctly classified as pre-existing/unrelated), pnpm type-check and pnpm lint are clean, and the 2 confirmed Zone-1-relevant test/mock-drift failures found in the pre-implementation audit are fixed.
++
++### Why it exists
++Zone 1's own "Status change rules" state passing automated tests alone cannot promote DEMO READY — but a genuinely clean automated baseline is still a required GATE before the manual UAT phase, not optional.
++
++### Dependencies
++Phases 1-6.
++
++### Repository areas affected
++- apps/web/src/server/services/__tests__/organization-rls.test.ts (fix the supabase.rpc mock gap for the createBranch test)
++- apps/web/src/server/loaders/v2/__tests__/load-app-context.v2.test.ts (fix the fixture to expect branch_number, public_warehouse_maps_enabled)
++
++### Supabase changes
++NONE.
++
++### Existing infrastructure reused
++N/A.
++
++### Implementation tasks
++- [ ] Fix organization-rls.test.ts's mock client to stub .rpc for the branch-numbering call.
++- [ ] Fix load-app-context.v2.test.ts's fixture to expect the 2 additional branch fields.
++- [ ] Re-run every test file touched by Phases 1-6 plus the 2 fixed here; confirm all pass.
++- [ ] Run pnpm type-check (whole apps/web); confirm clean.
++- [ ] Run pnpm lint (whole apps/web); confirm 0 errors.
++- [ ] Note, do NOT fix, the 3 client-suite crashes caused by the unrelated nuqs/parseAsJson library mismatch — flag in the progress tracker as a known, pre-existing, out-of-Zone-1-scope test-infrastructure issue.
++
++### Testing requirements
++Covered above — this phase IS the testing gate.
++
++### Acceptance criteria
++1. Both identified test/mock-drift fixes land and their own test files pass.
++2. Every test file touched or newly added by Phases 1-6 passes.
++3. pnpm type-check clean.
++4. pnpm lint clean (0 errors).
++5. The 3 unrelated nuqs-crash files and their masking of Zone-1-relevant coverage are explicitly documented in the progress tracker.
++
++### Out of scope
++Fixing the nuqs/parseAsJson library issue itself. Fixing the organization-rls-integration.test.ts env-loading gap (that's PILOT Phase G). Fixing the unrelated rls-permission-invariants.test.ts VMI-wildcard test.
++
++### Blocker rule
++Standard.
++
++---
++
++## Phase 8 — Manual DEMO READY UAT
++
++### Status
++NOT STARTED
++
++### Scope classification
++PITCH gate
++
++### Objective
++Execute Zone 1's own already-defined "Gate to DEMO READY" integrated manual scenario on the current build, on the actual presentation laptop and phone, with prepared accounts, and record PASS/FAIL per step with date/build/environment/accounts/result.
++
++### Why it exists
++Zone 1's own "Status change rules" are explicit: static inspection and passing automated tests alone CANNOT promote DEMO READY. Only this manual pass can.
++
++### Dependencies
++Phases 1-7 (all must be complete and green).
++
++### Repository areas affected
++None (no code changes in this phase, unless a UAT failure exposes an in-scope regression from Phases 1-7).
++
++### Supabase changes
++NONE.
++
++### Existing infrastructure reused
++N/A.
++
++### Implementation tasks
++- [ ] Prepare accounts per docs/mvp/presentation-demo-setup.md (at least 2 branches, presenter/admin + warehouse-worker accounts with genuinely different roles/access).
++- [ ] Execute the integrated "Gate to DEMO READY" scenario (login, org/branch confirm, distinct-role accounts shown, restricted operation denied, branch switch with immediate data+permission change with no refresh, one administrative action, cross-branch QR confirm/deny, optional revocation check).
++- [ ] Execute on the actual presentation laptop.
++- [ ] Execute the QR/login-path portion specifically on the presentation phone.
++- [ ] Record date, build/commit SHA, environment, accounts/roles used, and PASS/FAIL per step.
++
++### Testing requirements
++Manual only, by design.
++
++### Acceptance criteria
++Every pitch-critical step of the scenario passes on the current build, on both devices, with recorded evidence.
++
++### Out of scope
++Last-owner/self-demotion negative tests (deferred to PILOT Phase I). Full privilege-escalation matrix. Any PILOT-scope verification.
++
++### Blocker rule
++If any step fails and the cause is a regression from Phases 1-6, fix it, re-run Phase 7's automated gate, then re-run this entire manual scenario from the top. If any step fails and the cause is a genuine architecture question, STOP and report.
++
++### Only after this phase passes may Zone 1 be marked DEMO READY.
++
++---
++
++# PILOT READY PHASES — DETAIL
++
++These are deliberately NOT scheduled or estimated for this week. Detailed here so Zone 1 does not need to be redesigned after the presentation.
++
++## PILOT Phase A — Ownership invariants
++
++### Status
++NOT STARTED
++
++### Scope classification
++PILOT
++
++### Objective
++org_owner grant/revoke is gated to existing owners only (both the direct role-assignment path and the weaker invitation-acceptance path); ownerCount >= 1 is enforced transactionally, not just assumed; self-demotion shows a warning.
++
++### Why it exists
++Closes the confirmed vulnerabilities: no owner-only gate exists anywhere today (app, RLS, or DB-trigger level), including a second, independently weaker route via invites.create.
++
++### Dependencies
++Depends on Phase 0 only; should follow DEMO READY (Phase 8) being reached, per this plan's own DEMO-then-PILOT sequencing.
++
++### Repository areas affected
++- apps/web/src/app/actions/organization/roles.ts (assignRoleToUserAction/removeRoleFromUserAction)
++- Live RLS policies "V2 assign roles"/"V2 delete role assignments" on user_role_assignments (new migration)
++- accept_invitation_and_join_org RPC (new migration — add an owner-grant authorization re-check)
++- OrgMembersService.removeMember (organization.service.ts)
++- A DB-level mechanism for ownerCount >= 1 — TO VERIFY DURING PHASE: trigger vs. deferred constraint vs. transactional application-layer check; the existing is_org_owner() RPC may be reusable.
++
++### Supabase changes
++Migration (RLS policy update to special-case org_owner role assignment/revocation), RPC changes (accept_invitation_and_join_org re-check; possibly a new trigger or constraint for last-owner enforcement).
++
++### Existing infrastructure reused
++is_org_owner() RPC (currently orphaned from role-management — this phase is the natural place to actually wire it in).
++
++### Implementation tasks
++- [ ] Add an owner-only check to the org_owner grant path (RLS and/or RPC layer — TO VERIFY DURING PHASE).
++- [ ] Add the same to the revoke path.
++- [ ] Add owner-count check to OrgMembersService.removeMember when the target holds org_owner.
++- [ ] Add owner-count check to the revoke path.
++- [ ] Add an authorization re-check to accept_invitation_and_join_org for any org_owner role assignment being accepted.
++- [ ] Add a last-owner DB-level enforcement mechanism.
++- [ ] Add a self-demotion UI warning.
++- [ ] pgTAP tests: owner-only grant/revoke, last-owner rejection on removal/revocation/self-demotion, invitation-path owner-grant rejection.
++
++### Testing requirements
++pgTAP (live-DB), Vitest for any new action-layer logic, manual UAT (Phase I).
++
++### Acceptance criteria
++1. A members.manage-only (non-owner) actor cannot grant or revoke org_owner, at any layer (app, RLS).
++2. An invitation carrying an org_owner role assignment is rejected at acceptance unless the original inviter was themselves an owner.
++3. Removing/revoking the last owner is rejected server-side, with evidence it cannot be bypassed by a direct RPC/RLS-level call.
++4. Self-demotion of the last owner is rejected; self-demotion of a non-last owner succeeds with a UI warning shown first.
++
++### Out of scope
++Anti-escalation for non-owner roles (Phase B). Invitation one-org re-validation (Phase C).
++
++### Blocker rule
++Standard.
++
++## PILOT Phase B — Anti-escalation / role administration
++
++### Status
++NOT STARTED
++
++### Scope classification
++PILOT
++
++### Objective
++Role creation, role editing, and role assignment (org and branch scope) all compare the requested grant against the acting user's own compiled effective permissions before persisting — closing the confirmed "any members.manage holder can grant themselves or others broader permissions than they hold" vulnerability.
++
++### Why it exists
++3 confirmed vulnerabilities, all sharing the same root cause (no actor-vs-grant comparison anywhere in role management).
++
++### Dependencies
++Phase 0. Logically related to Phase A but kept separate since Phase A is specifically about the org_owner special case while this phase is about the general N-role escalation problem.
++
++### Repository areas affected
++- apps/web/src/app/actions/organization/roles.ts (createRoleAction, updateRoleAction, assignRoleToUserAction)
++- OrgRolesService.setRolePermissions / equivalent (organization.service.ts)
++- Live RLS policies roles_insert_permission, roles_update_permission, role_permissions_insert_permission, "V2 assign roles" (new migrations)
++
++### Supabase changes
++Migration (RLS policy updates); possibly a new DB function comparing a proposed permission set against the actor's own compiled user_effective_permissions.
++
++### Existing infrastructure reused
++user_effective_permissions/compile_user_permissions (already correct, read from — not rewritten).
++
++### Implementation tasks
++- [ ] Design the actor-vs-grant comparison mechanism (a DB function callable from both RLS and RPC contexts is likely cleanest — TO VERIFY DURING PHASE).
++- [ ] Apply it to role creation.
++- [ ] Apply it to role editing.
++- [ ] Apply it to role assignment, org scope.
++- [ ] Apply it to role assignment, branch scope (respecting the already-correct branch-scope containment).
++- [ ] pgTAP tests for all 4 paths, both self-target and other-target.
++
++### Testing requirements
++pgTAP, Vitest, manual UAT (Phase I).
++
++### Acceptance criteria
++1. An actor holding only members.manage cannot create a role containing a permission they don't themselves hold.
++2. An actor cannot assign a role (to self or other) whose permission set exceeds their own.
++3. Branch-scope containment (already correct) remains unaffected — a regression test confirms this.
++4. org_owner grant/revoke (Phase A's own scope) is unaffected by this phase's changes.
++
++### Out of scope
++org_owner-specific handling (Phase A already covers this narrower case).
++
++### Blocker rule
++Standard.
++
++## PILOT Phase C — Invitation + one-org invariant
++
++### Status
++NOT STARTED
++
++### Scope classification
++PILOT
++
++### Objective
++Invitation acceptance re-validates the one-organization-per-user invariant (defense-in-depth, matching the already-working creation-time check); the invariant is additionally enforced at the DB level, not app-level-only.
++
++### Why it exists
++Confirmed gap: accept_invitation_and_join_org never re-checks; confirmed gap: no DB constraint prevents a user from belonging to 2 orgs.
++
++### Dependencies
++Phase 0. Independent of Phases A/B.
++
++### Repository areas affected
++- accept_invitation_and_join_org RPC (new migration — add the re-check, reusing check_invitation_eligibility's own logic)
++- A DB-level one-org enforcement mechanism (unique index or trigger — TO VERIFY DURING PHASE)
++
++### Supabase changes
++Migration (RPC update + new constraint/trigger).
++
++### Existing infrastructure reused
++check_invitation_eligibility()'s own ALREADY_IN_ORG logic (already correct at creation time — reused, not rewritten, at acceptance time).
++
++### Implementation tasks
++- [ ] Add a re-check of check_invitation_eligibility (or equivalent) inside accept_invitation_and_join_org, before the membership upsert.
++- [ ] Design and add DB-level one-org enforcement.
++- [ ] pgTAP tests: the exact race condition (invite to org A, join org B, then attempt to accept org A's invite) is now rejected.
++
++### Testing requirements
++pgTAP (live-DB, race-condition-shaped test), manual UAT (Phase I).
++
++### Acceptance criteria
++1. Accepting an invitation to org A while already an active member of org B is rejected.
++2. A direct INSERT INTO organization_members creating a second active org for an existing user is rejected at the DB level.
++3. The existing, correct creation-time check remains unaffected (regression test).
++
++### Out of scope
++Any change to the invitation UI/UX beyond what's needed to surface the new rejection case gracefully.
++
++### Blocker rule
++Standard.
++
++## PILOT Phase D — Branch RLS hardening
++
++### Status
++NOT STARTED
++
++### Scope classification
++PILOT
++
++### Objective
++wdd_matcher_* and helpdesk_tickets (if Help Desk is in pilot scope) get FORCE RLS and genuine branch-scoped policies, closing the confirmed "any org member can read/act on another branch's session/ticket" gap.
++
++### Why it exists
++Both confirmed live today: RLS enabled but NOT forced, org-scoped only despite live branch_id columns.
++
++### Dependencies
++Phase E is related (schema source-of-truth) but not a hard dependency.
++
++### Repository areas affected
++New migrations only — no application code expected to change if the existing app-layer code already correctly derives activeBranchId (TO VERIFY DURING PHASE specifically for Matcher and Help Desk's own action layers — Help Desk's own actions never reference activeBranchId at all today, which may be intentional or may need reconsideration).
++
++### Supabase changes
++Migration (RLS policy rewrite + FORCE RLS on both table groups).
++
++### Existing infrastructure reused
++The already-correct warehouse_locations FORCE-RLS pattern as the template.
++
++### Implementation tasks
++- [ ] Product decision: confirm Help Desk should genuinely become branch-scoped (today it's deliberately org-wide with an optional manual branch filter — this may be correct by design).
++- [ ] Write new RLS policies for wdd_matcher_* requiring branch-permission match, not just org-permission.
++- [ ] FORCE ROW LEVEL SECURITY on all 4 Matcher tables.
++- [ ] If Help Desk is confirmed in scope: same treatment for helpdesk_tickets.
++- [ ] pgTAP live-DB RLS tests: cross-branch read/write denial for both table groups.
++
++### Testing requirements
++pgTAP (live-DB RLS), manual UAT (Phase I).
++
++### Acceptance criteria
++1. A user without access to Branch B cannot read/write Branch B's Matcher sessions, even with a valid org-level Matcher permission.
++2. Same for Help Desk tickets, IF confirmed in scope.
++3. FORCE ROW LEVEL SECURITY is set on all affected tables, live-verified.
++
++### Out of scope
++Any other table's RLS not named here.
++
++### Blocker rule
++If the Help Desk branch-scoping product decision cannot be resolved from existing documentation, STOP and report it as a genuine open product decision.
++
++## PILOT Phase E — Schema source-of-truth reconciliation
++
++### Status
++NOT STARTED
++
++### Scope classification
++PILOT
++
++### Objective
++warehouse_locations, wdd_matcher_*, app_attachments get their CREATE TABLE migrations authored into the authoritative target tree (reconstructed from live schema). qr_codes/qr_assignments get a from-scratch reconstruction since no source exists anywhere.
++
++### Why it exists
++The authoritative tree is missing source for 4 confirmed live tables, and has NO source at all (in either tree) for 2 more.
++
++### Dependencies
++Phase 0. Should ideally precede or run alongside Phase D — TO VERIFY DURING PHASE which sequencing is cleaner.
++
++### Repository areas affected
++New migration files only, in apps/web/supabase-target/supabase/migrations. Also: apps/web/CLAUDE.md's stale project-ref instruction (deferred from Phase 0, fixed here).
++
++### Supabase changes
++New migrations (schema reconstruction, applied idempotently against the ALREADY-LIVE schema).
++
++### Existing infrastructure reused
++The exact reconstruction methodology already proven in this project's own Inventory Core IC-8 work.
++
++### Implementation tasks
++- [ ] Reconstruct warehouse_locations's CREATE TABLE + RLS from live schema, as a new migration in the target tree.
++- [ ] Reconstruct all 4 wdd_matcher_* tables' CREATE TABLE + RLS, same approach.
++- [ ] Reconstruct app_attachments's CREATE TABLE + RLS, same approach.
++- [ ] Reconstruct qr_codes/qr_assignments from scratch (no source anywhere) — pure information_schema/pg_catalog reverse-engineering, explicitly disclosed as such.
++- [ ] Fix apps/web/CLAUDE.md's stale "always use zlcnlalwfmmtusigeuyk" instruction to reference the actual live target ref (rjeraydumwechpjjzrus).
++- [ ] Cross-verify every reconstructed migration replays cleanly, without claiming to resolve the BROADER clean-room reproducibility gap Inventory Core already found and deferred.
++
++### Testing requirements
++Live schema diff/comparison; no new Vitest/pgTAP expected since no application behavior changes.
++
++### Acceptance criteria
++1. All 6 tables have a reviewable CREATE TABLE + RLS migration in the authoritative target tree.
++2. apps/web/CLAUDE.md correctly references the live target project ref.
++3. This work does not claim to resolve Inventory Core's own separately-accepted, broader clean-room reproducibility gap.
++
++### Out of scope
++The broader clean-room reproducibility reconciliation (Inventory Core's own accepted, deferred debt).
++
++### Blocker rule
++If exact historical reconstruction cannot be proven for any of these 6 tables, report that specific table as blocked rather than fabricating a plausible-but-unproven definition.
++
++## PILOT Phase F — Unsaved-work / navigation safety
++
++### Status
++NOT STARTED
++
++### Scope classification
++PILOT
++
++### Objective
++A shared, reusable "is this form dirty" mechanism exists and is wired into the branch-switch handler (confirm-before-switch if dirty), closing the gap found in the Movement Editor and RepairOrder creation form.
++
++### Why it exists
++Confirmed absent as a shared mechanism; real risk for real multi-tasking pilot users, even though low-risk for this week's rehearsed demo.
++
++### Dependencies
++Phase 1 (the branch-switch handler this hooks into).
++
++### Repository areas affected
++- New shared hook, e.g. apps/web/src/hooks/use-unsaved-work-guard.ts — TO VERIFY DURING PHASE.
++- sidebar-branch-switcher.tsx (wire the confirm check in).
++- Movement Editor and RepairOrder creation form, as the first 2 consumers.
++
++### Supabase changes
++NONE.
++
++### Existing infrastructure reused
++The one existing local pattern (Warehouse Map editor's own isDirty flag) as a reference shape, generalized into a shared mechanism.
++
++### Implementation tasks
++- [ ] Design the shared dirty-state-registry mechanism.
++- [ ] Wire it into SidebarBranchSwitcher.
++- [ ] Wire the Movement Editor into it.
++- [ ] Wire the RepairOrder creation form into it.
++- [ ] (Optional stretch) a generic beforeunload guard for hard navigation/tab-close.
++
++### Testing requirements
++Component tests for the new hook; manual UAT (Phase I).
++
++### Acceptance criteria
++1. A dirty Movement Editor blocks a branch switch with a confirm dialog.
++2. A dirty RepairOrder creation form does the same.
++3. A non-dirty form does not block the switch (no false positives).
++
++### Out of scope
++Generalizing to every form in the app.
++
++### Blocker rule
++Standard.
++
++## PILOT Phase G — Live security/integration test infrastructure
++
++### Status
++NOT STARTED
++
++### Scope classification
++PILOT
++
++### Objective
++organization-rls-integration.test.ts (and any new live-DB RLS tests added by Phases A-D) actually run under the project's own documented test command, closing the confirmed env-loading gap.
++
++### Why it exists
++Confirmed: the one existing live-DB RLS integration test file is structurally skipped today because .env.local values aren't loaded into process.env by plain vitest.
++
++### Dependencies
++Phase 0. Should ideally land before or alongside Phases A-D's own pgTAP work.
++
++### Repository areas affected
++- apps/web/vitest.config.ts (add env loading)
++- CI configuration if the fix needs to extend there too — TO VERIFY DURING PHASE
++
++### Supabase changes
++NONE.
++
++### Existing infrastructure reused
++The existing organization-rls-integration.test.ts file itself.
++
++### Implementation tasks
++- [ ] Add env-loading to vitest.config.ts so .env.local values populate process.env under pnpm test:run.
++- [ ] Confirm organization-rls-integration.test.ts's 4 tests actually run and pass.
++- [ ] Confirm CI runs this file too.
++- [ ] Extend this same infrastructure to cover the new live-DB RLS tests added by Phases A/C/D.
++
++### Testing requirements
++This phase IS test-infrastructure work.
++
++### Acceptance criteria
++1. organization-rls-integration.test.ts runs (not skipped) and passes under pnpm test:run.
++2. The same is true in CI.
++3. No unintended side effect on other test files' env handling.
++
++### Out of scope
++Fixing the unrelated nuqs/parseAsJson crash.
++
++### Blocker rule
++Standard.
++
++## PILOT Phase H — Administrative auditability
++
++### Status
++NOT STARTED
++
++### Scope classification
++PILOT
++
++### Objective
++Sensitive admin actions (role change, branch reassignment, invitation creation, owner grant/revoke) are recorded in an auditable trail.
++
++### Why it exists
++Zone 1's own accepted architecture implication that sensitive administrative changes should be recorded for later investigation — currently absent.
++
++### Dependencies
++Phase 0. Naturally sequenced after Phases A/B.
++
++### Repository areas affected
++- The same action files touched by Phases A/B (roles.ts, invitations.ts, members.ts) — add audit-log emission.
++- Likely reuses the existing platform_events/eventService.emit() pattern — TO VERIFY DURING PHASE whether that fits admin-security events or a dedicated table is warranted.
++
++### Supabase changes
++Possibly a new migration if a dedicated audit table/view is chosen.
++
++### Existing infrastructure reused
++platform_events/eventService.emit(), if confirmed as the right fit.
++
++### Implementation tasks
++- [ ] Decide the audit-storage mechanism.
++- [ ] Add audit emission to role assignment/revocation.
++- [ ] Add audit emission to owner grant/revoke.
++- [ ] Add audit emission to branch access reassignment.
++- [ ] Add audit emission to invitation creation.
++- [ ] A minimal admin-facing view/query to read the trail — TO VERIFY DURING PHASE whether UI is needed or write-side is sufficient.
++
++### Testing requirements
++Unit/service tests confirming each named action emits the expected audit event; manual UAT (Phase I).
++
++### Acceptance criteria
++1. Each of the 4 named sensitive action types produces a recorded audit entry when performed.
++2. The entry includes actor, target, action, and timestamp at minimum.
++
++### Out of scope
++A full audit-log browsing UI (write-side only, unless evidence during the phase shows the read-side is trivially small enough to include).
++
++### Blocker rule
++Standard.
++
++## PILOT Phase I — PILOT READY manual verification
++
++### Status
++NOT STARTED
++
++### Scope classification
++PILOT gate
++
++### Objective
++Execute Zone 1's own "Gate to PILOT READY" checklist with representative pilot roles on real/representative data, recording evidence exactly as Phase 8 did for DEMO READY.
++
++### Why it exists
++Mirrors Phase 8's own discipline — pilot readiness requires manual verification beyond automated tests, extended to the pilot-grade scenario set (last-owner negative test, self-demotion, privilege-escalation matrix subset, concurrent role/branch mutation, representative multi-role E2E).
++
++### Dependencies
++Phases A-H (all must be complete and green).
++
++### Repository areas affected
++None (verification only, same pattern as Phase 8).
++
++### Supabase changes
++NONE.
++
++### Existing infrastructure reused
++N/A.
++
++### Implementation tasks
++- [ ] Execute Zone 1's own "Gate to PILOT READY" checklist in full.
++- [ ] Include the last-owner negative test (deliberately deferred from Phase 8).
++- [ ] Include a representative multi-role pilot E2E (owner/manager/warehouse-worker/advisor-equivalent accounts).
++- [ ] Record date/build/environment/accounts/scenario/result for every item.
++
++### Testing requirements
++Manual only, by design.
++
++### Acceptance criteria
++Every item in Zone 1's own Gate to PILOT READY checklist is checked with recorded evidence.
++
++### Out of scope
++N/A — this is the final gate.
++
++### Blocker rule
++Same as Phase 8 — fix-and-re-run-from-the-top on any failure caused by a Phases A-H regression; STOP-and-report on any genuine new architecture question.
++
++### Only after this phase passes may Zone 1 be marked PILOT READY.
+diff --git a/docs/mvp/zones/01-auth-org-branch-access-progress.md b/docs/mvp/zones/01-auth-org-branch-access-progress.md
+new file mode 100644
+index 00000000..bb328eb6
+--- /dev/null
++++ b/docs/mvp/zones/01-auth-org-branch-access-progress.md
+@@ -0,0 +1,156 @@
++# Zone 1 — Identity / Access / Branch / Authorization Progress Tracker
++
++> **Live execution tracker.** This file records CURRENT execution state only — phase statuses, evidence, blockers, discoveries, task counts. It does not own product/architecture decisions (see `01-auth-org-branch-access.md`) or phase design/task definitions (see `01-auth-org-branch-access-implementation-plan.md`). Update this file as work happens; do not let it drift from the plan's own checkbox counts.
++
++- **Zone:** 1
++- **Priority:** P0
++- **Architecture:** APPROVED
++- **Runtime status:** PARTIAL
++- **Current phase:** Phase 0 DONE — Phase 1 is next (not started)
++- **Pitch readiness:** NOT YET
++- **Pilot readiness:** NOT READY
++- **Last updated:** 2026-09-23
++
++---
++
++## Mechanical task counts
++
++Computed directly from checkbox counts in `01-auth-org-branch-access-implementation-plan.md`. Recompute whenever a phase's task list changes.
++
++- **Total implementation tasks (DEMO + PILOT): 9/95**
++- **Pitch-required tasks (Phases 0-8): 9/48**
++- **Pilot-required tasks (Phases A-I): 0/47**
++
++Breakdown by phase (task count = number of checkboxes in that phase's "Implementation tasks" section in the plan):
++
++| Phase | Task count | Completed |
++|---|---|---|
++| 0 | 9 | 9 |
++| 1 | 5 | 0 |
++| 2 | 4 | 0 |
++| 3 | 5 | 0 |
++| 4 | 4 | 0 |
++| 5 | 4 | 0 |
++| 6 | 6 | 0 |
++| 7 | 6 | 0 |
++| 8 | 5 | 0 |
++| A | 8 | 0 |
++| B | 6 | 0 |
++| C | 3 | 0 |
++| D | 5 | 0 |
++| E | 6 | 0 |
++| F | 5 | 0 |
++| G | 4 | 0 |
++| H | 6 | 0 |
++| I | 4 | 0 |
++| **Total** | **95** | **9** |
++
++---
++
++## Phase tracker table
++
++| Phase | Status | Pitch/Pilot | Completed | Notes |
++|---|---|---|---|---|
++| 0 — Implementation baseline | DONE (2026-09-23) | PITCH prerequisite | 9/9 | Satisfied entirely by the pre-implementation verification bundle, committed at `5dfce9d3`. |
++| 1 — Centralized branch transition | NOT STARTED | PITCH | 0/5 | Next phase. Root-cause fix for the branch-switch bug. |
++| 2 — DataView/query-key foundation | NOT STARTED | PITCH | 0/4 | Independent of Phase 1; can run in parallel. |
++| 3 — Migrate DataView consumers | NOT STARTED | PITCH | 0/5 | Depends on Phase 2. |
++| 4 — Matcher query key | NOT STARTED | PITCH | 0/4 | Independent of Phases 1-3. |
++| 5 — Branch-state re-sweep | NOT STARTED | PITCH gate | 0/4 | Depends on Phases 1-4. |
++| 6 — Cross-branch QR/deep-link | NOT STARTED | PITCH | 0/6 | Depends on Phase 1. |
++| 7 — Automated closeout | NOT STARTED | PITCH gate | 0/6 | Depends on Phases 1-6. |
++| 8 — Manual DEMO READY UAT | NOT STARTED | PITCH gate | 0/5 | Depends on Phases 1-7. Only after this: 🔵 DEMO READY. |
++| A — Ownership invariants | NOT STARTED | PILOT | 0/8 | Not scheduled this week. |
++| B — Anti-escalation | NOT STARTED | PILOT | 0/6 | Not scheduled this week. |
++| C — Invitation + one-org invariant | NOT STARTED | PILOT | 0/3 | Not scheduled this week. |
++| D — Branch RLS hardening | NOT STARTED | PILOT | 0/5 | Not scheduled this week. |
++| E — Schema reconciliation | NOT STARTED | PILOT | 0/6 | Not scheduled this week. Includes the CLAUDE.md project-ref fix. |
++| F — Unsaved-work safety | NOT STARTED | PILOT | 0/5 | Not scheduled this week. |
++| G — Live test infrastructure | NOT STARTED | PILOT | 0/4 | Not scheduled this week. |
++| H — Administrative auditability | NOT STARTED | PILOT | 0/6 | Not scheduled this week. |
++| I — PILOT READY manual verification | NOT STARTED | PILOT gate | 0/4 | Depends on Phases A-H. Only after this: 🟢 PILOT READY. |
++
++---
++
++## Active blockers
++
++Stable IDs, once assigned, are never reused. None of the items below block Phase 1 (the next phase to implement) from starting — they are recorded so they are not forgotten, per the task's own explicit instruction not to let known gaps disappear from view after the presentation.
++
++### PITCH implementation gaps (block DEMO READY, not yet started)
++
++- **BLOCKER-Z1-001** — Branch switch performs no `router.refresh()`/navigation/cache invalidation (`SidebarBranchSwitcher.handleBranchSelect`). Owner: Phase 1. Status: OPEN, not yet started.
++- **BLOCKER-Z1-002** — `DataViewListParams` has no `branchId` field; 4 confirmed consumers (Locations, Inventory Balances, Inventory Movements, Inventory Products) have branch-agnostic cache keys. Owner: Phases 2-3. Status: OPEN, not yet started.
++- **BLOCKER-Z1-003** — `wddMatcherKeys.sessions()` is branch-agnostic; zero test coverage exists for this key. Owner: Phase 4. Status: OPEN, not yet started.
++- **BLOCKER-Z1-004** — `warehouse.location` QR/deep-link silently drops cross-branch intent instead of confirm-then-switch (safe, not a leak, but a missing UX requirement). Owner: Phase 6. Status: OPEN, not yet started.
++- **BLOCKER-Z1-005** — 2 Zone-1-relevant test files carry mock/fixture drift (`organization-rls.test.ts`'s `createBranch` test, `load-app-context.v2.test.ts`'s branch-field fixture). Owner: Phase 7. Status: OPEN, not yet started.
++
++### PILOT security blockers (real vulnerabilities, deliberately deferred past the presentation)
++
++- **BLOCKER-Z1-006** — No owner-only gate on granting/revoking `org_owner`; a second, weaker route exists via invitation acceptance (`accept_invitation_and_join_org` performs zero re-check). Owner: PILOT Phase A. Severity: HIGH. Demo-safe only because current choreography never exercises owner grant/revoke beyond one pre-rehearsed action.
++- **BLOCKER-Z1-007** — No `ownerCount >= 1` enforcement at any layer; the last owner of an org can be removed/demoted with no protection. Owner: PILOT Phase A. Severity: HIGH.
++- **BLOCKER-Z1-008** — No anti-privilege-escalation check anywhere in role creation/editing/assignment; any `members.manage` holder can grant themselves or others permissions broader than their own (branch-scope containment is the one safe exception). Owner: PILOT Phase B. Severity: HIGH.
++- **BLOCKER-Z1-009** — Invitation acceptance does not re-validate the one-org-per-user invariant; the invariant is app-level only, not DB-enforced. Owner: PILOT Phase C. Severity: MEDIUM.
++- **BLOCKER-Z1-010** — `wdd_matcher_*` and `helpdesk_tickets` have RLS enabled but NOT forced, org-scoped only despite live `branch_id` columns — any org member can read/act on another branch's Matcher session or Help Desk ticket. Owner: PILOT Phase D. Severity: MEDIUM-HIGH.
++- **BLOCKER-Z1-011** — `organization-rls-integration.test.ts` (the only live-DB RLS integration coverage for org membership/roles) is structurally skipped under the project's own test command; likely also skipped in CI. Owner: PILOT Phase G. Severity: MEDIUM (masks confidence, not itself a runtime vulnerability).
++- **BLOCKER-Z1-012** — No shared unsaved-work/navigation-guard mechanism; a dirty Movement Editor or RepairOrder creation form can silently lose data on a branch switch. Owner: PILOT Phase F. Severity: LOW-MEDIUM (data-loss risk, not a security hole).
++- **BLOCKER-Z1-013** — No administrative auditability for sensitive admin actions (role change, branch reassignment, invitation creation, owner grant/revoke). Owner: PILOT Phase H. Severity: MEDIUM.
++
++### Accepted deferred technical debt (not security-critical, tracked so it isn't lost)
++
++- **BLOCKER-Z1-014** — `warehouse_locations`/`app_attachments` migrations missing from the authoritative target tree (live-correct, paper-trail-only gap). Owner: PILOT Phase E.
++- **BLOCKER-Z1-015** — `qr_codes`/`qr_assignments` have no committed migration source in either tree at all; live schema was applied out-of-band. Owner: PILOT Phase E.
++- **BLOCKER-Z1-016** — `apps/web/CLAUDE.md` line 19 instructs use of the stale legacy project ref (`zlcnlalwfmmtusigeuyk`) instead of the live target (`rjeraydumwechpjjzrus`). Owner: PILOT Phase E.
++- **BLOCKER-Z1-017** — 3 Zone-1-relevant client test suites (`roles-client`, `invitations-client`, `members-client`) crash on load due to an unrelated `nuqs`/`parseAsJson` version mismatch in the shared `data-view-url-state.ts` module — masks their own coverage. Owner: none assigned (explicitly out of Zone 1 scope; flagged for whoever owns the shared `data-view` component).
++- **BLOCKER-Z1-018** — `QrTargetDescriptor.validate()`'s JSDoc incorrectly claims `resolvePublicQrToken` runs with an authenticated, RLS-enforced client — it does not (service-role, zero auth check, by design). Stale comment, not a live security issue. Owner: Phase 6 (fixed as part of that phase's own QR work).
++
++### No-longer-blocking findings
++
++None yet — no phase has completed re-verification work since the baseline.
++
++---
++
++## Change log / discoveries
++
++Zone 3 discipline: date, phase, finding, evidence, classification, resolution, whether architecture changed, whether a product-owner decision was needed. Starts with the discoveries already made by the completed pre-implementation verification; does not rewrite that history.
++
++### 2026-09-23 — Pre-implementation verification (Phase 0)
++
++- **Finding:** `apps/web/CLAUDE.md` instructs the wrong Supabase project ref (legacy `zlcnlalwfmmtusigeuyk` instead of live target `rjeraydumwechpjjzrus`). Evidence: `environment-verification.md`. Classification: documentation debt, not a runtime bug. Resolution: assigned to PILOT Phase E (not fixed in Phase 0's own verification pass, per explicit scope instruction). Architecture unaffected. No product-owner decision needed.
++- **Finding:** Inventory Products (`inventory-products-client.tsx:42,324`) has the identical branch-agnostic query-key bug as the 3 previously-known instances — a 4th, newly-confirmed instance, found only because the audit re-applied a systematic sweep rather than checking only the already-suspected surfaces. Evidence: `branch-state-cache-inventory.md`. Classification: CONFIRMED BUG, PITCH-relevant. Resolution: assigned to Phase 3. Architecture unaffected (fits the already-accepted branch-keyed query pattern). No product-owner decision needed.
++- **Finding:** `qr_codes`/`qr_assignments` have no committed migration source in EITHER migration tree — worse than previously documented (prior belief was "missing from target, present in legacy"). Live `list_migrations` shows 3 applied entries whose filenames exist nowhere in the repository, implying out-of-band schema application. Evidence: `environment-verification.md`. Classification: PILOT schema-integrity gap, not itself a runtime vulnerability (the live tables are RLS-enabled). Resolution: assigned to PILOT Phase E, explicitly requiring from-scratch `information_schema`/`pg_catalog` reconstruction rather than any tree lookup. Architecture unaffected. No product-owner decision needed yet (a decision may be needed later if reconstruction proves impossible for some object — not yet reached).
++- **Finding:** `resolvePublicQrToken` performs zero authentication and zero permission check by design (a public, anonymous-safe resolver) — but `QrTargetDescriptor.validate()`'s own JSDoc incorrectly claims it runs with an authenticated, RLS-enforced client. Evidence: `deep-link-qr-verification.md`. Classification: stale/misleading doc comment, not a live security issue (verified: no metadata leak, no unsafe silent switch, cross-org check present). Resolution: assigned to Phase 6 as a small doc-comment correction alongside that phase's own QR work. Architecture unaffected. No product-owner decision needed.
++- **Finding:** `organization-rls-integration.test.ts` — the ONLY live-DB RLS integration coverage that exists for org membership/roles — never actually runs under the project's documented `pnpm vitest run` command, because `.env.local` values are never loaded into `process.env` (no dotenv, no `vitest.config.ts` env loading, no CI injection found). Evidence: `test-results.md`. Classification: PILOT test-infrastructure gap; likely also silently skipped in CI. Resolution: assigned to PILOT Phase G. Architecture unaffected. No product-owner decision needed.
++- **Finding:** Help Desk's own action layer never references `activeBranchId` at all today, despite `helpdesk_tickets` having a live `branch_id` column and RLS-enabled-but-not-forced org-scoped policies. Evidence: `branch-state-cache-inventory.md`, `environment-verification.md`. Classification: ambiguous — may be intentional (Help Desk deliberately org-wide with optional manual branch filter) or may be an oversight. **Product-owner decision needed before PILOT Phase D can proceed on the Help Desk half of its scope** — explicitly flagged as an open question in that phase's own task list and blocker rule, not resolved here.
++
++### 2026-09-23 — Zone 1 implementation planning pass (this task)
++
++- **Decision:** Re-evaluated `recommended-implementation-pass.md`'s 3-change recommendation and expanded it into 9 DEMO-READY phases (0-8) plus 9 PILOT-READY phases (A-I), per the required A-H topic separation and the "one coherent concern per phase" discipline modeled on Zone 3's 22-phase pattern. Rationale recorded in the phase-boundary analysis (`docs/mvp/reviews/zone1-implementation-planning-2026-09-23/zone1-phase-boundary-analysis.md`). Not a redesign of the underlying fixes themselves — the 3 recommended code changes map onto Phases 1 (branch transition), 2+3+4 (query-key foundation + 4 DataView consumers + Matcher, split from one change into 3 phases because DataView and Matcher are architecturally distinct modules and the 4 DataView consumers share one mechanical fix pattern), and 6 (QR confirm-then-switch). Architecture (the product decisions in `01-auth-org-branch-access.md`) is unaffected — this is purely an execution-sequencing decision. No product-owner decision was needed for this split itself.
++- **Decision:** Phase 0 is marked DONE immediately, citing the pre-implementation verification bundle as its own acceptance evidence, following the exact precedent Zone 3's own Phase 0A set (a baseline/reconciliation phase can close on verification evidence alone, without a corresponding code change).
++
++---
++
++## DEMO READY gate
++
++Not yet reached. Requires Phases 1-8 all DONE, with Phase 8's manual UAT evidence recorded (date, build/commit SHA, environment, accounts, PASS/FAIL per scenario step) directly in this section once it happens. Placeholder — to be filled in when Phase 8 executes:
++
++```
++Manual DEMO READY UAT — NOT YET RUN
++Date: —
++Build/commit: —
++Environment: —
++Accounts used: —
++Result: —
++```
++
++## PILOT READY gate
++
++Not yet reached. Requires Phases A-I all DONE, with Phase I's manual verification evidence recorded here once it happens. Placeholder:
++
++```
++Manual PILOT READY verification — NOT YET RUN
++Date: —
++Build/commit: —
++Environment: —
++Accounts used: —
++Result: —
++```
