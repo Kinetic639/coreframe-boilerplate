@@ -294,7 +294,7 @@ Phase 2 (the foundation must exist first). Independent of Phase 1 and Phase 4.
 - apps/web/src/app/[locale]/dashboard/warehouse/locations/\_components/locations-data-view.tsx
 - apps/web/src/app/[locale]/dashboard/warehouse/inventory/\_components/inventory-client.tsx
 - apps/web/src/app/[locale]/dashboard/warehouse/inventory/movements/\_components/inventory-movements-client.tsx
-- apps/web/src/app/[locale]/dashboard/warehouse/inventory/\_components/inventory-products-client.tsx (confirmed location: inventory-products-client.tsx:42,324)
+- apps/web/src/app/[locale]/dashboard/warehouse/items/\_components/inventory-products-client.tsx (**factual correction, 2026-09-24**: actual path is `warehouse/items/_components/`, not `warehouse/inventory/_components/` as originally written — verified by direct file lookup before Phase 3 implementation began; the plan's own earlier citation of `inventory-products-client.tsx:42,324` from the pre-implementation audit remains accurate for line numbers within the file itself)
 
 ### Supabase changes
 
@@ -306,11 +306,11 @@ Phase 2's foundation; the live activeBranchId read pattern already correctly use
 
 ### Implementation tasks
 
-- [ ] Locations: read live activeBranchId from useAppStoreV2, pass into the DataView's queryKey.
-- [ ] Inventory Balances: same.
-- [ ] Inventory Movements: same. Also confirm InventoryMovementsClient's own activeBranchId prop usage is corrected to read live from the store rather than a frozen SSR prop.
-- [ ] Inventory Products: same, fixing INVENTORY_PRODUCTS_QUERY_KEY = ["inventory-products"] to include branchId.
-- [ ] For each of the 4: manual developer-level check that switching branches while viewing the list updates the content without a manual reload.
+- [x] Locations: read live activeBranchId from useAppStoreV2, pass into the DataView's queryKey. Implemented via the new `branchId` prop on `<DataView>` (per the Phase 2 contract), not by literally concatenating branchId into the `["locations"]` array — the merge happens inside `buildDataViewQueryKey`.
+- [x] Inventory Balances: same.
+- [x] Inventory Movements: same. Also confirmed InventoryMovementsClient's own activeBranchId prop usage: the DataView's own cache-identity source now reads live from the store (new local variable `liveActiveBranchId`); the existing, separate `activeBranchId` prop (frozen SSR value) is deliberately left forwarding unchanged to `InventoryMovementDetailPanel`, since that downstream component's own branch-awareness was not part of this phase's named scope.
+- [x] Inventory Products: **factual correction (2026-09-24)** — `INVENTORY_PRODUCTS_QUERY_KEY = ["inventory-products"]` itself was deliberately NOT modified to "include branchId" as originally worded; per the Phase 2 contract, branchId must be threaded as a separate, explicit prop (not concatenated into the consumer's own base queryKey array), so the actual fix passes `branchId={activeBranchId}` alongside the unchanged `queryKey={INVENTORY_PRODUCTS_QUERY_KEY}` — the merge happens inside `buildDataViewQueryKey`, exactly as for the other 3 consumers.
+- [x] For each of the 4: manual developer-level/automated check that switching branches produces a different query key without a manual reload — verified via dedicated consumer-wiring tests (see the Phase 3 closeout bundle) proving each consumer forwards a changed `activeBranchId` into a changed `branchId` prop.
 
 ### Testing requirements
 

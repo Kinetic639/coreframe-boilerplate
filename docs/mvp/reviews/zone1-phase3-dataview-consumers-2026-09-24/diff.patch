@@ -1,0 +1,819 @@
+diff --git a/apps/web/src/app/[locale]/dashboard/warehouse/inventory/_components/__tests__/inventory-client.branch-wiring.test.tsx b/apps/web/src/app/[locale]/dashboard/warehouse/inventory/_components/__tests__/inventory-client.branch-wiring.test.tsx
+new file mode 100644
+index 00000000..36e06636
+--- /dev/null
++++ b/apps/web/src/app/[locale]/dashboard/warehouse/inventory/_components/__tests__/inventory-client.branch-wiring.test.tsx
+@@ -0,0 +1,86 @@
++/**
++ * @vitest-environment jsdom
++ *
++ * InventoryClient (Inventory Balances) — branch-aware DataView wiring
++ * (Zone 1 / Phase 3)
++ *
++ * Tests the CONSUMER WIRING only: does this component read the live active
++ * branch from the store and forward it to <DataView branchId={...}>?
++ */
++
++import { describe, it, expect, vi, beforeEach } from "vitest";
++import { render } from "@testing-library/react";
++
++const { mockDataViewSpy, mockActiveBranchId } = vi.hoisted(() => ({
++  mockDataViewSpy: vi.fn(),
++  mockActiveBranchId: { current: "branch-a" as string | null },
++}));
++
++vi.mock("next-intl", () => ({
++  useTranslations: () => (key: string) => key,
++}));
++
++vi.mock("@/lib/stores/v2/app-store", () => ({
++  useAppStoreV2: (selector: (state: { activeBranchId: string | null }) => unknown) =>
++    selector({ activeBranchId: mockActiveBranchId.current }),
++}));
++
++vi.mock("@/components/data-view/data-view", () => ({
++  DataView: (props: Record<string, unknown>) => {
++    mockDataViewSpy(props);
++    return null;
++  },
++}));
++
++vi.mock("@/app/actions/warehouse/inventory", () => ({
++  adjustStockAction: vi.fn(),
++  getInventoryBalanceAction: vi.fn(),
++  issueStockAction: vi.fn(),
++  listInventoryBalancesAction: vi.fn(),
++  receiveStockAction: vi.fn(),
++  transferStockAction: vi.fn(),
++}));
++
++import { InventoryClient } from "../inventory-client";
++
++const initialData = { rows: [], totalCount: 0, page: 1, pageSize: 20 };
++
++describe("InventoryClient (Inventory Balances) — branch-aware wiring", () => {
++  beforeEach(() => {
++    mockDataViewSpy.mockClear();
++  });
++
++  it("forwards the live active branch to DataView's branchId prop", () => {
++    mockActiveBranchId.current = "branch-a";
++
++    render(
++      <InventoryClient
++        initialData={initialData as never}
++        variants={[]}
++        locations={[]}
++        canOperate={false}
++        canAdjust={false}
++      />
++    );
++
++    expect(mockDataViewSpy).toHaveBeenCalledWith(
++      expect.objectContaining({ queryKey: ["inventory-balances"], branchId: "branch-a" })
++    );
++  });
++
++  it("forwards a different branchId when the active branch changes", () => {
++    mockActiveBranchId.current = "branch-b";
++
++    render(
++      <InventoryClient
++        initialData={initialData as never}
++        variants={[]}
++        locations={[]}
++        canOperate={false}
++        canAdjust={false}
++      />
++    );
++
++    expect(mockDataViewSpy).toHaveBeenCalledWith(expect.objectContaining({ branchId: "branch-b" }));
++  });
++});
+diff --git a/apps/web/src/app/[locale]/dashboard/warehouse/inventory/_components/inventory-client.tsx b/apps/web/src/app/[locale]/dashboard/warehouse/inventory/_components/inventory-client.tsx
+index 079e7409..7eb1f1c6 100644
+--- a/apps/web/src/app/[locale]/dashboard/warehouse/inventory/_components/inventory-client.tsx
++++ b/apps/web/src/app/[locale]/dashboard/warehouse/inventory/_components/inventory-client.tsx
+@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
+ import { useTranslations } from "next-intl";
+ import { ArrowDownToLine, ArrowRightLeft, ArrowUpFromLine, SlidersHorizontal } from "lucide-react";
+ import { DataView } from "@/components/data-view/data-view";
++import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
+ import type { DataViewColumnDef, DataViewListParams, PaginatedResult } from "@/lib/data-view/types";
+ import { Button } from "@/components/ui/button";
+ import { Input } from "@/components/ui/input";
+@@ -120,6 +121,7 @@ export function InventoryClient({
+   const tList = useTranslations("warehouseInventory.list");
+   const [message, setMessage] = useState<string | null>(null);
+   const [isPending, startTransition] = useTransition();
++  const activeBranchId = useAppStoreV2((s) => s.activeBranchId);
+ 
+   const columns = useMemo<DataViewColumnDef<InventoryBalanceListRow>[]>(
+     () => [
+@@ -333,6 +335,7 @@ export function InventoryClient({
+         columns={columns}
+         initialData={initialData}
+         queryKey={["inventory-balances"]}
++        branchId={activeBranchId}
+         listFetcher={listFetcher}
+         detailFetcher={detailFetcher}
+         getRowId={(row) => row.id}
+diff --git a/apps/web/src/app/[locale]/dashboard/warehouse/inventory/movements/_components/__tests__/inventory-movements-client.branch-wiring.test.tsx b/apps/web/src/app/[locale]/dashboard/warehouse/inventory/movements/_components/__tests__/inventory-movements-client.branch-wiring.test.tsx
+new file mode 100644
+index 00000000..193a6c7d
+--- /dev/null
++++ b/apps/web/src/app/[locale]/dashboard/warehouse/inventory/movements/_components/__tests__/inventory-movements-client.branch-wiring.test.tsx
+@@ -0,0 +1,125 @@
++/**
++ * @vitest-environment jsdom
++ *
++ * InventoryMovementsClient — branch-aware DataView wiring (Zone 1 / Phase 3)
++ *
++ * Tests the CONSUMER WIRING only: does this component read the live active
++ * branch from the store and forward it to <DataView branchId={...}>?
++ *
++ * This consumer also has a pre-existing `activeBranchId` PROP (a frozen SSR
++ * value forwarded to InventoryMovementDetailPanel) which Phase 3 deliberately
++ * leaves unchanged — only the DataView's own cache-identity source was
++ * switched to a live store read. Both are asserted here so a future change
++ * can't accidentally conflate or regress either one.
++ */
++
++import { describe, it, expect, vi, beforeEach } from "vitest";
++import { render } from "@testing-library/react";
++import React from "react";
++
++const { mockDataViewSpy, mockDetailPanelSpy, mockActiveBranchId } = vi.hoisted(() => ({
++  mockDataViewSpy: vi.fn(),
++  mockDetailPanelSpy: vi.fn(),
++  mockActiveBranchId: { current: "branch-a" as string | null },
++}));
++
++vi.mock("next-intl", () => ({
++  useTranslations: () => (key: string) => key,
++}));
++
++vi.mock("@/i18n/navigation", () => ({
++  Link: ({ children }: { children: React.ReactNode }) => <>{children}</>,
++}));
++
++vi.mock("@/lib/stores/v2/app-store", () => ({
++  useAppStoreV2: (selector: (state: { activeBranchId: string | null }) => unknown) =>
++    selector({ activeBranchId: mockActiveBranchId.current }),
++}));
++
++vi.mock("@/components/data-view/data-view", () => ({
++  DataView: (props: Record<string, unknown>) => {
++    mockDataViewSpy(props);
++    return null;
++  },
++}));
++
++vi.mock("../inventory-movement-detail-panel", () => ({
++  InventoryMovementDetailPanel: (props: Record<string, unknown>) => {
++    mockDetailPanelSpy(props);
++    return null;
++  },
++}));
++
++vi.mock("@/app/actions/warehouse/inventory", () => ({
++  getInventoryMovementAction: vi.fn(),
++  listInventoryMovementsAction: vi.fn(),
++}));
++
++import { InventoryMovementsClient } from "../inventory-movements-client";
++
++const initialData = { rows: [], totalCount: 0, page: 1, pageSize: 20 };
++
++describe("InventoryMovementsClient — branch-aware wiring", () => {
++  beforeEach(() => {
++    mockDataViewSpy.mockClear();
++    mockDetailPanelSpy.mockClear();
++  });
++
++  it("forwards the LIVE active branch to DataView's branchId prop, independent of the frozen SSR prop", () => {
++    mockActiveBranchId.current = "branch-live";
++
++    render(
++      <InventoryMovementsClient
++        initialData={initialData as never}
++        activeBranchId="branch-frozen-ssr"
++        locations={[]}
++        canOperate={false}
++      />
++    );
++
++    expect(mockDataViewSpy).toHaveBeenCalledWith(
++      expect.objectContaining({ queryKey: ["inventory-movements"], branchId: "branch-live" })
++    );
++  });
++
++  it("forwards a different live branchId when the active branch changes", () => {
++    mockActiveBranchId.current = "branch-b";
++
++    render(
++      <InventoryMovementsClient
++        initialData={initialData as never}
++        activeBranchId="branch-frozen-ssr"
++        locations={[]}
++        canOperate={false}
++      />
++    );
++
++    expect(mockDataViewSpy).toHaveBeenCalledWith(expect.objectContaining({ branchId: "branch-b" }));
++  });
++
++  it("still forwards the original frozen SSR activeBranchId prop to InventoryMovementDetailPanel, unchanged", () => {
++    mockActiveBranchId.current = "branch-live";
++
++    render(
++      <InventoryMovementsClient
++        initialData={initialData as never}
++        activeBranchId="branch-frozen-ssr"
++        locations={[]}
++        canOperate={false}
++      />
++    );
++
++    // DataView is mocked out, so its own renderDetail prop is never invoked by
++    // React — call it manually to get the JSX it would produce, then render
++    // that, to prove the detail panel still receives the untouched,
++    // pre-existing prop value, not the new live store value.
++    const renderDetail = mockDataViewSpy.mock.calls[0][0].renderDetail as (
++      detail: unknown
++    ) => React.ReactElement;
++    render(renderDetail({}));
++
++    expect(mockDetailPanelSpy).toHaveBeenCalledWith(
++      expect.objectContaining({ activeBranchId: "branch-frozen-ssr" })
++    );
++  });
++});
+diff --git a/apps/web/src/app/[locale]/dashboard/warehouse/inventory/movements/_components/inventory-movements-client.tsx b/apps/web/src/app/[locale]/dashboard/warehouse/inventory/movements/_components/inventory-movements-client.tsx
+index 81a2dfea..5bfe6fcd 100644
+--- a/apps/web/src/app/[locale]/dashboard/warehouse/inventory/movements/_components/inventory-movements-client.tsx
++++ b/apps/web/src/app/[locale]/dashboard/warehouse/inventory/movements/_components/inventory-movements-client.tsx
+@@ -4,6 +4,7 @@ import { useMemo } from "react";
+ import { useTranslations } from "next-intl";
+ import { PackagePlus } from "lucide-react";
+ import { DataView } from "@/components/data-view/data-view";
++import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
+ import type {
+   DataViewColumnDef,
+   DataViewFilterDef,
+@@ -69,6 +70,10 @@ export function InventoryMovementsClient({
+   const t = useTranslations("warehouseInventory.movements");
+   const td = useTranslations("warehouseInventory.movementDetail");
+   const tc = useTranslations("warehouseInventory.common");
++  // Live store value for the DataView's own cache identity — NOT the same as
++  // the `activeBranchId` prop above, which is the frozen SSR value forwarded
++  // unchanged to InventoryMovementDetailPanel (out of this phase's scope).
++  const liveActiveBranchId = useAppStoreV2((s) => s.activeBranchId);
+ 
+   const STATUS_KEYS: Record<string, string> = {
+     draft: "statusDraft",
+@@ -189,6 +194,7 @@ export function InventoryMovementsClient({
+         filters={filters}
+         initialData={initialData}
+         queryKey={["inventory-movements"]}
++        branchId={liveActiveBranchId}
+         listFetcher={listFetcher}
+         detailFetcher={detailFetcher}
+         getRowId={(row) => row.route_key}
+diff --git a/apps/web/src/app/[locale]/dashboard/warehouse/items/_components/__tests__/inventory-products-client.branch-wiring.test.tsx b/apps/web/src/app/[locale]/dashboard/warehouse/items/_components/__tests__/inventory-products-client.branch-wiring.test.tsx
+new file mode 100644
+index 00000000..1960420b
+--- /dev/null
++++ b/apps/web/src/app/[locale]/dashboard/warehouse/items/_components/__tests__/inventory-products-client.branch-wiring.test.tsx
+@@ -0,0 +1,87 @@
++/**
++ * @vitest-environment jsdom
++ *
++ * InventoryProductsClient — branch-aware DataView wiring (Zone 1 / Phase 3)
++ *
++ * Tests the CONSUMER WIRING only: does this component read the live active
++ * branch from the store and forward it to <DataView branchId={...}>? Also
++ * covers the exact newly-discovered bug from the pre-implementation audit —
++ * `INVENTORY_PRODUCTS_QUERY_KEY` staying static across a branch switch.
++ */
++
++import { describe, it, expect, vi, beforeEach } from "vitest";
++import { render } from "@testing-library/react";
++import React from "react";
++
++const { mockDataViewSpy, mockActiveBranchId } = vi.hoisted(() => ({
++  mockDataViewSpy: vi.fn(),
++  mockActiveBranchId: { current: "branch-a" as string | null },
++}));
++
++vi.mock("next-intl", () => ({
++  useTranslations: () => (key: string) => key,
++}));
++
++vi.mock("@/i18n/navigation", () => ({
++  Link: ({ children }: { children: React.ReactNode }) => <>{children}</>,
++}));
++
++vi.mock("@/lib/stores/v2/app-store", () => ({
++  useAppStoreV2: (selector: (state: { activeBranchId: string | null }) => unknown) =>
++    selector({ activeBranchId: mockActiveBranchId.current }),
++}));
++
++vi.mock("@/components/data-view/data-view", () => ({
++  DataView: (props: Record<string, unknown>) => {
++    mockDataViewSpy(props);
++    return null;
++  },
++}));
++
++vi.mock("@/app/actions/warehouse/inventory", () => ({
++  exportInventoryProductsCsvAction: vi.fn(),
++  getInventoryProductAction: vi.fn(),
++  listInventoryProductsAction: vi.fn(),
++}));
++
++import { InventoryProductsClient } from "../inventory-products-client";
++
++const initialData = { rows: [], totalCount: 0, page: 1, pageSize: 20 };
++
++describe("InventoryProductsClient — branch-aware wiring", () => {
++  beforeEach(() => {
++    mockDataViewSpy.mockClear();
++  });
++
++  it("forwards the live active branch to DataView's branchId prop", () => {
++    mockActiveBranchId.current = "branch-a";
++
++    render(
++      <InventoryProductsClient
++        initialData={initialData as never}
++        customFields={[]}
++        canManageProducts={false}
++        canImportProducts={false}
++      />
++    );
++
++    expect(mockDataViewSpy).toHaveBeenCalledWith(
++      expect.objectContaining({ queryKey: ["inventory-products"], branchId: "branch-a" })
++    );
++  });
++
++  it("forwards a different branchId when the active branch changes", () => {
++    mockActiveBranchId.current = "branch-b";
++
++    render(
++      <InventoryProductsClient
++        initialData={initialData as never}
++        customFields={[]}
++        canManageProducts={false}
++        canImportProducts={false}
++      />
++    );
++
++    expect(mockDataViewSpy).toHaveBeenCalledWith(expect.objectContaining({ branchId: "branch-b" }));
++  });
++});
+diff --git a/apps/web/src/app/[locale]/dashboard/warehouse/items/_components/inventory-products-client.tsx b/apps/web/src/app/[locale]/dashboard/warehouse/items/_components/inventory-products-client.tsx
+index f75fda45..01ee8849 100644
+--- a/apps/web/src/app/[locale]/dashboard/warehouse/items/_components/inventory-products-client.tsx
++++ b/apps/web/src/app/[locale]/dashboard/warehouse/items/_components/inventory-products-client.tsx
+@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
+ import { ChevronDown, ChevronRight, Download, PackagePlus, Upload } from "lucide-react";
+ import { Link } from "@/i18n/navigation";
+ import { DataView } from "@/components/data-view/data-view";
++import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
+ import type {
+   DataViewColumnDef,
+   DataViewFilterDef,
+@@ -67,6 +68,7 @@ export function InventoryProductsClient({
+   const tList = useTranslations("warehouseInventory.list");
+   const [expandedProductIds, setExpandedProductIds] = useState<Record<string, true>>({});
+   const [listMessage, setListMessage] = useState<string | null>(null);
++  const activeBranchId = useAppStoreV2((s) => s.activeBranchId);
+ 
+   const toggleExpanded = useCallback((id: string) => {
+     setExpandedProductIds((current) => {
+@@ -322,6 +324,7 @@ export function InventoryProductsClient({
+         filters={filters}
+         initialData={initialData}
+         queryKey={INVENTORY_PRODUCTS_QUERY_KEY}
++        branchId={activeBranchId}
+         listFetcher={listFetcher}
+         detailFetcher={detailFetcher}
+         getRowId={getRowId}
+diff --git a/apps/web/src/app/[locale]/dashboard/warehouse/locations/_components/__tests__/locations-data-view.branch-wiring.test.tsx b/apps/web/src/app/[locale]/dashboard/warehouse/locations/_components/__tests__/locations-data-view.branch-wiring.test.tsx
+new file mode 100644
+index 00000000..325c1b7f
+--- /dev/null
++++ b/apps/web/src/app/[locale]/dashboard/warehouse/locations/_components/__tests__/locations-data-view.branch-wiring.test.tsx
+@@ -0,0 +1,99 @@
++/**
++ * @vitest-environment jsdom
++ *
++ * LocationsDataView — branch-aware DataView wiring (Zone 1 / Phase 3)
++ *
++ * Tests the CONSUMER WIRING only: does this component read the live active
++ * branch from the store and forward it to <DataView branchId={...}>? The
++ * DataView/query-key contract itself is already covered by Phase 2's own
++ * tests — not re-tested here.
++ */
++
++import { describe, it, expect, vi, beforeEach } from "vitest";
++import { render } from "@testing-library/react";
++import React from "react";
++
++const { mockDataViewSpy, mockActiveBranchId } = vi.hoisted(() => ({
++  mockDataViewSpy: vi.fn(),
++  mockActiveBranchId: { current: "branch-a" as string | null },
++}));
++
++vi.mock("next-intl", () => ({
++  useTranslations: () => (key: string) => key,
++}));
++
++vi.mock("@/i18n/navigation", () => ({
++  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
++  Link: ({ children }: { children: React.ReactNode }) => <>{children}</>,
++}));
++
++vi.mock("@/lib/stores/v2/app-store", () => ({
++  useAppStoreV2: (selector: (state: { activeBranchId: string | null }) => unknown) =>
++    selector({ activeBranchId: mockActiveBranchId.current }),
++}));
++
++vi.mock("@/components/data-view/data-view", () => ({
++  DataView: (props: Record<string, unknown>) => {
++    mockDataViewSpy(props);
++    return null;
++  },
++}));
++
++vi.mock("../print-location-labels-dialog", () => ({
++  PrintLocationLabelsDialog: () => null,
++}));
++
++vi.mock("@/app/actions/warehouse/locations", () => ({
++  listLocationsPaginatedAction: vi.fn(),
++  getLocationDetailAction: vi.fn(),
++}));
++
++vi.mock("@/app/actions/qr/assign-location", () => ({
++  getQrAssignmentForLocationAction: vi.fn(),
++}));
++
++import { LocationsDataView } from "../locations-data-view";
++
++const initialData = { rows: [], totalCount: 0, page: 1, pageSize: 20 };
++
++describe("LocationsDataView — branch-aware wiring", () => {
++  beforeEach(() => {
++    mockDataViewSpy.mockClear();
++  });
++
++  it("forwards the live active branch to DataView's branchId prop", () => {
++    mockActiveBranchId.current = "branch-a";
++
++    render(
++      <LocationsDataView
++        initialData={initialData as never}
++        allLocations={[]}
++        ambraLocations={[]}
++        inventorySnapshot={{} as never}
++        variantOptions={[]}
++        qrCache={new Map()}
++      />
++    );
++
++    expect(mockDataViewSpy).toHaveBeenCalledWith(
++      expect.objectContaining({ queryKey: ["locations"], branchId: "branch-a" })
++    );
++  });
++
++  it("forwards a different branchId when the active branch changes", () => {
++    mockActiveBranchId.current = "branch-b";
++
++    render(
++      <LocationsDataView
++        initialData={initialData as never}
++        allLocations={[]}
++        ambraLocations={[]}
++        inventorySnapshot={{} as never}
++        variantOptions={[]}
++        qrCache={new Map()}
++      />
++    );
++
++    expect(mockDataViewSpy).toHaveBeenCalledWith(expect.objectContaining({ branchId: "branch-b" }));
++  });
++});
+diff --git a/apps/web/src/app/[locale]/dashboard/warehouse/locations/_components/locations-data-view.tsx b/apps/web/src/app/[locale]/dashboard/warehouse/locations/_components/locations-data-view.tsx
+index 0a1ce20c..bd1e6894 100644
+--- a/apps/web/src/app/[locale]/dashboard/warehouse/locations/_components/locations-data-view.tsx
++++ b/apps/web/src/app/[locale]/dashboard/warehouse/locations/_components/locations-data-view.tsx
+@@ -4,6 +4,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
+ import { useTranslations } from "next-intl";
+ import { Check, ClipboardCheck, LayoutGrid, LayoutList, Printer, X } from "lucide-react";
+ import { useRouter } from "@/i18n/navigation";
++import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
+ import { DataView } from "@/components/data-view/data-view";
+ import { Button } from "@/components/ui/button";
+ import type {
+@@ -70,6 +71,7 @@ export function LocationsDataView({
+   const t = useTranslations("warehouseLocations.listView");
+   const tAmbra = useTranslations("ambraLocations");
+   const router = useRouter();
++  const activeBranchId = useAppStoreV2((s) => s.activeBranchId);
+   const [isCompactMode, setIsCompactMode] = useState(false);
+   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+   const [printDialogOpen, setPrintDialogOpen] = useState(false);
+@@ -300,6 +302,7 @@ export function LocationsDataView({
+         filters={filters}
+         initialData={initialData}
+         queryKey={["locations"]}
++        branchId={activeBranchId}
+         listFetcher={listFetcher}
+         detailFetcher={detailFetcher}
+         getRowId={(row) => row.id}
+diff --git a/apps/web/src/components/data-view/__tests__/data-view.test.tsx b/apps/web/src/components/data-view/__tests__/data-view.test.tsx
+index e393daf8..58eb9db6 100644
+--- a/apps/web/src/components/data-view/__tests__/data-view.test.tsx
++++ b/apps/web/src/components/data-view/__tests__/data-view.test.tsx
+@@ -853,3 +853,62 @@ describe("T-DV-CLOSE-BTN: detail panel has close button", () => {
+     });
+   });
+ });
++
++// ---------------------------------------------------------------------------
++// T-DV-BRANCH: DataViewProps.branchId reaches both the list and sidebar
++// query paths (Zone 1 / Phase 3 — generic consumer-facing plumbing).
++// The DataView/query-key contract itself is Phase 2's own concern (see
++// use-data-view-query.test.ts); this only proves the new branchId prop
++// actually threads through DataView -> DataViewProvider -> both hooks.
++// ---------------------------------------------------------------------------
++
++describe("T-DV-BRANCH: branchId prop reaches list and sidebar query paths", () => {
++  beforeEach(() => {
++    vi.clearAllMocks();
++    localStorageMock.clear();
++    mockDetailFetcher.mockResolvedValue(MOCK_DETAILS["p1"]);
++  });
++
++  it("fetches the list normally when branchId is provided (org-scoped screens remain unaffected by omission)", async () => {
++    renderDataView({ branchId: "branch-a" });
++    await waitFor(() => expect(mockListFetcher).toHaveBeenCalled());
++  });
++
++  it("opens the sidebar (branch-aware infinite query path) when a row is selected, with branchId provided", async () => {
++    renderDataView({ branchId: "branch-a" }, { selected: "p1" });
++    await waitFor(() => {
++      expect(screen.getByTestId("data-view-sidebar")).toBeInTheDocument();
++    });
++  });
++
++  it("refetches the list when branchId changes on the same mounted DataView instance", async () => {
++    nuqsState.params = new Map();
++    const queryClient = makeQueryClient();
++    const { rerender } = render(
++      <QueryClientProvider client={queryClient}>
++        <DataView {...defaultProps} branchId="branch-a" />
++      </QueryClientProvider>
++    );
++    await waitFor(() => expect(mockListFetcher).toHaveBeenCalledTimes(1));
++
++    rerender(
++      <QueryClientProvider client={queryClient}>
++        <DataView {...defaultProps} branchId="branch-b" />
++      </QueryClientProvider>
++    );
++
++    // A different branchId is a structurally different query key, not a
++    // staleness re-check of the same one — it must fetch again immediately,
++    // proving cache identity actually changed with the branch. (DataView
++    // itself mounts once here, so its internal per-mount QueryClient is
++    // unaffected by this rerender — only the branchId prop changes.)
++    await waitFor(() => expect(mockListFetcher).toHaveBeenCalledTimes(2));
++  });
++
++  it("omitting branchId (org-scoped usage) does not affect list rendering", async () => {
++    renderDataView({ branchId: undefined });
++    await waitFor(() => {
++      expect(screen.getByText("Widget A")).toBeInTheDocument();
++    });
++  });
++});
+diff --git a/apps/web/src/components/data-view/data-view-provider.tsx b/apps/web/src/components/data-view/data-view-provider.tsx
+index 809a15a6..94d5c9ea 100644
+--- a/apps/web/src/components/data-view/data-view-provider.tsx
++++ b/apps/web/src/components/data-view/data-view-provider.tsx
+@@ -100,6 +100,7 @@ type DataViewProviderProps<TListRow, TDetail> = Pick<
+   | "filters"
+   | "initialData"
+   | "queryKey"
++  | "branchId"
+   | "listFetcher"
+   | "detailFetcher"
+   | "resolveSelectedPage"
+@@ -122,6 +123,7 @@ export function DataViewProvider<TListRow, TDetail>({
+   filters = [],
+   initialData,
+   queryKey,
++  branchId,
+   listFetcher,
+   detailFetcher,
+   resolveSelectedPage,
+@@ -154,6 +156,7 @@ export function DataViewProvider<TListRow, TDetail>({
+     listFetcher,
+     listParams: urlState.listParams,
+     initialData,
++    branchId,
+   });
+ 
+   const detailQuery = useDataViewDetailQuery<TDetail>({
+@@ -177,6 +180,7 @@ export function DataViewProvider<TListRow, TDetail>({
+     listParams: urlState.listParams,
+     initialPageData: resolvedListData,
+     enabled: isDetailOpen,
++    branchId,
+   });
+ 
+   const sidebarRows = useMemo(() => {
+diff --git a/apps/web/src/components/data-view/data-view.tsx b/apps/web/src/components/data-view/data-view.tsx
+index 5e0966f9..40f626f4 100644
+--- a/apps/web/src/components/data-view/data-view.tsx
++++ b/apps/web/src/components/data-view/data-view.tsx
+@@ -30,6 +30,7 @@ export function DataView<TListRow, TDetail>({
+   filters,
+   initialData,
+   queryKey,
++  branchId,
+   listFetcher,
+   detailFetcher,
+   resolveSelectedPage,
+@@ -55,6 +56,7 @@ export function DataView<TListRow, TDetail>({
+         filters={filters}
+         initialData={initialData}
+         queryKey={queryKey}
++        branchId={branchId}
+         listFetcher={listFetcher}
+         detailFetcher={detailFetcher}
+         resolveSelectedPage={resolveSelectedPage}
+diff --git a/apps/web/src/lib/data-view/types.ts b/apps/web/src/lib/data-view/types.ts
+index 9c0f2f85..836058c1 100644
+--- a/apps/web/src/lib/data-view/types.ts
++++ b/apps/web/src/lib/data-view/types.ts
+@@ -78,6 +78,13 @@ export type DataViewProps<TListRow, TDetail> = {
+   filters?: DataViewFilterDef[];
+   initialData: PaginatedResult<TListRow>;
+   queryKey: string[];
++  /**
++   * Optional branch scope for React Query cache identity only — never sent to
++   * listFetcher/detailFetcher as part of the request payload, and never used
++   * for authorization. Omit for org-scoped DataViews (current behavior is
++   * unchanged). See docs/mvp/reviews/zone1-phase2-dataview-foundation-2026-09-24/query-key-contract.md.
++   */
++  branchId?: string | null;
+   listFetcher: (params: DataViewListParams) => Promise<PaginatedResult<TListRow>>;
+   detailFetcher: (id: string) => Promise<TDetail | null>;
+   resolveSelectedPage?: (args: {
+diff --git a/docs/mvp/zones/01-auth-org-branch-access-implementation-plan.md b/docs/mvp/zones/01-auth-org-branch-access-implementation-plan.md
+index 87a1f93e..7c845dc7 100644
+--- a/docs/mvp/zones/01-auth-org-branch-access-implementation-plan.md
++++ b/docs/mvp/zones/01-auth-org-branch-access-implementation-plan.md
+@@ -294,7 +294,7 @@ Phase 2 (the foundation must exist first). Independent of Phase 1 and Phase 4.
+ - apps/web/src/app/[locale]/dashboard/warehouse/locations/\_components/locations-data-view.tsx
+ - apps/web/src/app/[locale]/dashboard/warehouse/inventory/\_components/inventory-client.tsx
+ - apps/web/src/app/[locale]/dashboard/warehouse/inventory/movements/\_components/inventory-movements-client.tsx
+-- apps/web/src/app/[locale]/dashboard/warehouse/inventory/\_components/inventory-products-client.tsx (confirmed location: inventory-products-client.tsx:42,324)
++- apps/web/src/app/[locale]/dashboard/warehouse/items/\_components/inventory-products-client.tsx (**factual correction, 2026-09-24**: actual path is `warehouse/items/_components/`, not `warehouse/inventory/_components/` as originally written — verified by direct file lookup before Phase 3 implementation began; the plan's own earlier citation of `inventory-products-client.tsx:42,324` from the pre-implementation audit remains accurate for line numbers within the file itself)
+ 
+ ### Supabase changes
+ 
+@@ -306,11 +306,11 @@ Phase 2's foundation; the live activeBranchId read pattern already correctly use
+ 
+ ### Implementation tasks
+ 
+-- [ ] Locations: read live activeBranchId from useAppStoreV2, pass into the DataView's queryKey.
+-- [ ] Inventory Balances: same.
+-- [ ] Inventory Movements: same. Also confirm InventoryMovementsClient's own activeBranchId prop usage is corrected to read live from the store rather than a frozen SSR prop.
+-- [ ] Inventory Products: same, fixing INVENTORY_PRODUCTS_QUERY_KEY = ["inventory-products"] to include branchId.
+-- [ ] For each of the 4: manual developer-level check that switching branches while viewing the list updates the content without a manual reload.
++- [x] Locations: read live activeBranchId from useAppStoreV2, pass into the DataView's queryKey. Implemented via the new `branchId` prop on `<DataView>` (per the Phase 2 contract), not by literally concatenating branchId into the `["locations"]` array — the merge happens inside `buildDataViewQueryKey`.
++- [x] Inventory Balances: same.
++- [x] Inventory Movements: same. Also confirmed InventoryMovementsClient's own activeBranchId prop usage: the DataView's own cache-identity source now reads live from the store (new local variable `liveActiveBranchId`); the existing, separate `activeBranchId` prop (frozen SSR value) is deliberately left forwarding unchanged to `InventoryMovementDetailPanel`, since that downstream component's own branch-awareness was not part of this phase's named scope.
++- [x] Inventory Products: **factual correction (2026-09-24)** — `INVENTORY_PRODUCTS_QUERY_KEY = ["inventory-products"]` itself was deliberately NOT modified to "include branchId" as originally worded; per the Phase 2 contract, branchId must be threaded as a separate, explicit prop (not concatenated into the consumer's own base queryKey array), so the actual fix passes `branchId={activeBranchId}` alongside the unchanged `queryKey={INVENTORY_PRODUCTS_QUERY_KEY}` — the merge happens inside `buildDataViewQueryKey`, exactly as for the other 3 consumers.
++- [x] For each of the 4: manual developer-level/automated check that switching branches produces a different query key without a manual reload — verified via dedicated consumer-wiring tests (see the Phase 3 closeout bundle) proving each consumer forwards a changed `activeBranchId` into a changed `branchId` prop.
+ 
+ ### Testing requirements
+ 
+diff --git a/docs/mvp/zones/01-auth-org-branch-access-progress.md b/docs/mvp/zones/01-auth-org-branch-access-progress.md
+index 2cec4cb0..d4feb75c 100644
+--- a/docs/mvp/zones/01-auth-org-branch-access-progress.md
++++ b/docs/mvp/zones/01-auth-org-branch-access-progress.md
+@@ -6,7 +6,7 @@
+ - **Priority:** P0
+ - **Architecture:** APPROVED
+ - **Runtime status:** PARTIAL / IMPLEMENTATION IN PROGRESS
+-- **Current phase:** Phase 2 DONE (2026-09-24) — Phase 3 — Migrate confirmed branch-scoped DataView consumers is next (not started)
++- **Current phase:** Phase 3 DONE (2026-09-24) — Phase 4 — Matcher branch-aware query key is next (not started)
+ - **Pitch readiness:** NOT YET
+ - **Pilot readiness:** NOT READY
+ - **Last updated:** 2026-09-24
+@@ -17,18 +17,18 @@
+ 
+ Computed directly from checkbox counts in `01-auth-org-branch-access-implementation-plan.md`. Recompute whenever a phase's task list changes.
+ 
+-- **Total implementation tasks (DEMO + PILOT): 19/95**
+-- **Pitch-required tasks (Phases 0-8): 19/49**
++- **Total implementation tasks (DEMO + PILOT): 24/95**
++- **Pitch-required tasks (Phases 0-8): 24/49**
+ - **Pilot-required tasks (Phases A-I): 0/46**
+ 
+-Breakdown by phase (task count = number of checkboxes in that phase's "Implementation tasks" section in the plan, recomputed by direct grep against the plan file, not estimated). Phase 1 gained a 6th task (the CLAUDE.md fix, moved in from Phase E) on 2026-09-24; Phase E's own count dropped to 5 accordingly. Phase 2 completed 2026-09-24 — see the change log for both.
++Breakdown by phase (task count = number of checkboxes in that phase's "Implementation tasks" section in the plan, recomputed by direct grep against the plan file, not estimated). Phase 1 gained a 6th task (the CLAUDE.md fix, moved in from Phase E) on 2026-09-24; Phase E's own count dropped to 5 accordingly. Phases 2 and 3 completed 2026-09-24 — see the change log for all three.
+ 
+ | Phase     | Task count | Completed |
+ | --------- | ---------- | --------- |
+ | 0         | 9          | 9         |
+ | 1         | 6          | 6         |
+ | 2         | 4          | 4         |
+-| 3         | 5          | 0         |
++| 3         | 5          | 5         |
+ | 4         | 4          | 0         |
+ | 5         | 4          | 0         |
+ | 6         | 6          | 0         |
+@@ -43,7 +43,7 @@ Breakdown by phase (task count = number of checkboxes in that phase's "Implement
+ | G         | 4          | 0         |
+ | H         | 6          | 0         |
+ | I         | 4          | 0         |
+-| **Total** | **95**     | **19**    |
++| **Total** | **95**     | **24**    |
+ 
+ ---
+ 
+@@ -54,7 +54,7 @@ Breakdown by phase (task count = number of checkboxes in that phase's "Implement
+ | 0 — Implementation baseline         | DONE (2026-09-23)    | PITCH prerequisite | 9/9       | Satisfied entirely by the pre-implementation verification bundle, committed at `5dfce9d3`.        |
+ | 1 — Centralized branch transition   | ✅ DONE (2026-09-24) | PITCH              | 6/6       | Root-cause fix for the branch-switch bug, landed. See "Phase 1 — detailed tracking" below.        |
+ | 2 — DataView/query-key foundation   | ✅ DONE (2026-09-24) | PITCH              | 4/4       | Foundation only — no consumer migrated. See "Phase 2 — detailed tracking" below.                  |
+-| 3 — Migrate DataView consumers      | NOT STARTED          | PITCH              | 0/5       | Depends on Phase 2.                                                                               |
++| 3 — Migrate DataView consumers      | ✅ DONE (2026-09-24) | PITCH              | 5/5       | All 4 confirmed consumers wired. See "Phase 3 — detailed tracking" below.                         |
+ | 4 — Matcher query key               | NOT STARTED          | PITCH              | 0/4       | Independent of Phases 1-3.                                                                        |
+ | 5 — Branch-state re-sweep           | NOT STARTED          | PITCH gate         | 0/4       | Depends on Phases 1-4.                                                                            |
+ | 6 — Cross-branch QR/deep-link       | NOT STARTED          | PITCH              | 0/6       | Depends on Phase 1.                                                                               |
+@@ -114,6 +114,31 @@ Copied from the implementation plan's own task list when the phase started (2026
+ 
+ ---
+ 
++## Phase 3 — detailed tracking
++
++Copied from the implementation plan's own task list when the phase started (2026-09-24), per the tracker's own "current/started phase gets full detail" rule. Phase completed same day.
++
++- [x] Locations: read live activeBranchId from useAppStoreV2, pass into the DataView's queryKey.
++  - Evidence: `locations-data-view.tsx` — added `const activeBranchId = useAppStoreV2((s) => s.activeBranchId);`, passed as `branchId={activeBranchId}` to `<DataView queryKey={["locations"]} branchId={activeBranchId} ...>`. Required new plumbing: `branchId?: string | null` added to `DataViewProps` (`src/lib/data-view/types.ts`), threaded through `DataView` (`data-view.tsx`) and `DataViewProvider` (`data-view-provider.tsx`) into both `useDataViewListQuery` and `useDataViewSidebarInfiniteQuery`. Fully optional/additive — no existing prop removed or renamed.
++- [x] Inventory Balances: same.
++  - Evidence: `inventory-client.tsx` — identical pattern, `branchId={activeBranchId}` on `<DataView queryKey={["inventory-balances"]} ...>`.
++- [x] Inventory Movements: same, plus corrected activeBranchId source for the DataView's own key.
++  - Evidence: `inventory-movements-client.tsx` — added a NEW live-read local (`liveActiveBranchId`, via `useAppStoreV2`), used for `<DataView branchId={liveActiveBranchId}>`. The pre-existing `activeBranchId` PROP (frozen SSR value) is left completely unchanged, still forwarded to `InventoryMovementDetailPanel` — verified by a dedicated test asserting both values independently.
++- [x] Inventory Products: same (branchId threaded as a separate prop, not baked into the base queryKey constant — see the plan's own factual correction).
++  - Evidence: `inventory-products-client.tsx` — `INVENTORY_PRODUCTS_QUERY_KEY` constant untouched; `branchId={activeBranchId}` added as a new, separate prop to `<DataView queryKey={INVENTORY_PRODUCTS_QUERY_KEY} branchId={activeBranchId} ...>`.
++- [x] For each of the 4: verify switching branches produces a different query key.
++  - Evidence: 4 new consumer-wiring test files (one per consumer, `*.branch-wiring.test.tsx`), each proving the consumer forwards the live store's `activeBranchId` into `DataView`'s `branchId` prop, and that a different active branch produces a different forwarded value. Plus a new generic `T-DV-BRANCH` block in `data-view.test.tsx` proving the underlying plumbing itself (`branchId` prop → list query AND sidebar query, both reachable; a branchId change on an already-mounted `DataView` triggers an immediate additional fetch, proving the cache key genuinely changed, not just a staleness re-check).
++
++**Plumbing added (not originally itemized as a separate checkbox, but required — see plan's own Section 4 in the task prompt "Phase 3 now owns that consumer-facing plumbing if required"):** `DataViewProps.branchId` (types.ts) → `DataView` (data-view.tsx) → `DataViewProvider` (data-view-provider.tsx) → `useDataViewListQuery`/`useDataViewSidebarInfiniteQuery` (already accepted `branchId` since Phase 2). The generic `DataView` internals still never read `useAppStoreV2()` or any global store directly — `branchId` is always explicit, passed in from each concrete consumer. The `refreshToken`-based invalidation effect in `DataViewProvider` was left unchanged (uses the raw, un-branched `queryKey` prop) — React Query's default prefix-matching invalidation (`exact: false`) already correctly matches the new, longer, branch-scoped keys without needing to be branch-aware itself.
++
++**Mutation invalidation review (see `docs/mvp/reviews/zone1-phase3-dataview-consumers-2026-09-24/mutation-invalidation-review.md` for full detail):** none of the 4 consumer files contain any `invalidateQueries`/`useQueryClient`/`refreshToken` usage today — confirmed by grep across all 4 files and their sibling detail-panel components. Classification: "no relevant mutation-invalidation logic exists to become incompatible" for all 4. One pre-existing gap was discovered and explicitly NOT fixed (out of this phase's scope): `inventory-client.tsx`'s stock receive/issue/transfer/adjust mutations do not invalidate or refresh the balances list at all today — a pre-existing UX gap unrelated to branch-awareness, not introduced or worsened by this phase.
++
++**Tests:** 4 new consumer-wiring test files (9 tests total) — all pass. Generic `data-view.test.tsx` — 42/42 pass (38 pre-existing + 4 new `T-DV-BRANCH` tests). Phase 2's own `use-data-view-query.test.ts` — 12/12 pass (regression, unmodified). `pnpm type-check`: clean. `eslint` across all touched files: 0 errors, 4 pre-existing warnings (confirmed via a stash/diff comparison — identical line offsets before this phase's changes).
++
++**Blocker:** none. Phase 3 completed with no BLOCKED state. One factual correction to the plan's task wording was needed (branchId threads as a separate prop per the Phase 2 contract, not concatenated into the base queryKey array) and one file-path correction (`inventory-products-client.tsx` actually lives under `warehouse/items/_components/`, not `warehouse/inventory/_components/`) — both recorded in the implementation plan with history preserved, not silently redesigned.
++
++---
++
+ ## Active blockers
+ 
+ Stable IDs, once assigned, are never reused. None of the items below block Phase 1 (the next phase to implement) from starting — they are recorded so they are not forgotten, per the task's own explicit instruction not to let known gaps disappear from view after the presentation.
+@@ -121,7 +146,7 @@ Stable IDs, once assigned, are never reused. None of the items below block Phase
+ ### PITCH implementation gaps (block DEMO READY, not yet started)
+ 
+ - **BLOCKER-Z1-001** — Branch switch performs no `router.refresh()`/navigation/cache invalidation (`SidebarBranchSwitcher.handleBranchSelect`). Owner: Phase 1. Status: **RESOLVED (2026-09-24)** — see Phase 1 detailed tracking above.
+-- **BLOCKER-Z1-002** — 4 confirmed consumers (Locations, Inventory Balances, Inventory Movements, Inventory Products) have branch-agnostic cache keys. Owner: Phases 2-3. Status: **PARTIALLY RESOLVED (2026-09-24)** — the branch-aware query-key foundation landed in Phase 2 (`use-data-view-query.ts`'s `buildDataViewQueryKey` + optional `branchId` on the query hooks); the 4 consumers themselves remain unmigrated and the bug remains live for all 4 until Phase 3 wires them in. Do not mark fully RESOLVED until Phase 3 completes.
++- **BLOCKER-Z1-002** — 4 confirmed consumers (Locations, Inventory Balances, Inventory Movements, Inventory Products) have branch-agnostic cache keys. Owner: Phases 2-3. Status: **RESOLVED (2026-09-24)** — all 4 consumers now pass a live `branchId` into `<DataView>`, verified by dedicated consumer-wiring tests. See Phase 3 detailed tracking above.
+ - **BLOCKER-Z1-003** — `wddMatcherKeys.sessions()` is branch-agnostic; zero test coverage exists for this key. Owner: Phase 4. Status: OPEN, not yet started.
+ - **BLOCKER-Z1-004** — `warehouse.location` QR/deep-link silently drops cross-branch intent instead of confirm-then-switch (safe, not a leak, but a missing UX requirement). Owner: Phase 6. Status: OPEN, not yet started.
+ - **BLOCKER-Z1-005** — 2 Zone-1-relevant test files carry mock/fixture drift (`organization-rls.test.ts`'s `createBranch` test, `load-app-context.v2.test.ts`'s branch-field fixture). Owner: Phase 7. Status: OPEN, not yet started.
+@@ -182,6 +207,16 @@ Zone 3 discipline: date, phase, finding, evidence, classification, resolution, w
+ - **Decision:** `useDataViewDetailQuery` was deliberately left untouched (no `branchId` support added) — detail queries are keyed by a presumably-globally-unique `selectedId`, matching the same "safe because globally unique" pattern already verified for Matcher's `results`/`extractedData` query keys in the pre-implementation audit. No confirmed bug in the gap matrix involves a detail-type query. Adding branchId there would have been speculative scope beyond the evidenced problem.
+ - **No blockers encountered.** No implementation evidence contradicted the accepted architecture. Zero consumer files, Matcher, or QR code touched — confirmed via `git status` before closing the phase.
+ 
++### 2026-09-24 — Phase 3 implementation
++
++- **Plumbing decision:** Phase 2 deliberately left `DataViewProps`/`DataView`/`DataViewProvider` untouched, so Phase 3 needed to add the consumer-facing plumbing itself before any of the 4 consumers could actually opt in. Added `branchId?: string | null` to `DataViewProps` (`src/lib/data-view/types.ts`), threaded unchanged through `DataView` and `DataViewProvider` into both `useDataViewListQuery` and `useDataViewSidebarInfiniteQuery` (which already accepted it since Phase 2). Fully additive — no existing prop changed shape or meaning. Evidence: `apps/web/src/lib/data-view/types.ts`, `apps/web/src/components/data-view/data-view.tsx`, `apps/web/src/components/data-view/data-view-provider.tsx`. Classification: CONFIRMED, in-scope plumbing per the task's own explicit instruction ("Phase 3 now owns that consumer-facing plumbing if required"). No product-owner decision needed.
++- **Finding/fix:** all 4 confirmed consumers (Locations, Inventory Balances, Inventory Movements, Inventory Products) now read the live `activeBranchId` from `useAppStoreV2` and forward it as `<DataView branchId={...}>`. Evidence: the 4 consumer files, plus 4 new dedicated wiring tests and 4 new generic `T-DV-BRANCH` tests in `data-view.test.tsx`. Classification: CONFIRMED FIX, closes BLOCKER-Z1-002 (all 4 instances). Architecture unaffected — server-side branch authorization/filtering was not touched; `branchId` remains cache-identity-only, verified structurally (no consumer forwards it into any server action or `listFetcher` call) and by Phase 2's own already-passing request-payload-isolation tests, which remain valid since the request-payload code path itself was not touched in Phase 3.
++- **Factual correction (evidence-based, not a scope change):** Inventory Products' plan task said "fixing INVENTORY_PRODUCTS_QUERY_KEY ... to include branchId" — implemented instead as `branchId` being a separate, explicit prop alongside the UNCHANGED `INVENTORY_PRODUCTS_QUERY_KEY` constant, per the Phase 2 contract's own explicit rule that branchId must never be concatenated into a consumer's base queryKey array by the consumer itself (that merge happens once, centrally, inside `buildDataViewQueryKey`). Recorded in the plan with history preserved.
++- **Factual correction (file path):** `inventory-products-client.tsx` actually lives at `apps/web/src/app/[locale]/dashboard/warehouse/items/_components/`, not `warehouse/inventory/_components/` as the plan originally stated. Verified by direct file lookup before implementation began. Recorded in the plan.
++- **Decision:** `InventoryMovementsClient`'s pre-existing `activeBranchId` PROP (a frozen SSR value forwarded to `InventoryMovementDetailPanel`) was deliberately left unchanged — only the DataView's OWN cache-identity source was switched to a new, separate live-read local variable (`liveActiveBranchId`). Fixing the detail panel's own branch-awareness was judged out of this phase's named scope ("InventoryMovementsClient's own activeBranchId prop usage" refers to the list's own query key, not the full prop-forwarding chain) and no evidence in the gap matrix flags the detail panel itself as a confirmed bug. Verified by a dedicated test asserting both values remain independently correct.
++- **Mutation invalidation review finding (discovered, explicitly not fixed):** `inventory-client.tsx`'s stock receive/issue/transfer/adjust mutations do not invalidate or refresh the DataView's list at all today — no `invalidateQueries`, no `refreshToken`, no `router.refresh()`. This is a pre-existing UX gap, unrelated to and not worsened by branch-awareness (nothing invalidated the OLD static key either, so nothing became newly incompatible with the NEW branch-scoped key). Not fixed in this phase — recorded here so it isn't silently lost. No other consumer or sibling detail/panel component has any invalidation logic at all (confirmed via grep across all 4 consumer directories).
++- **No blockers encountered.** No implementation evidence contradicted the accepted architecture. Zero Matcher or QR code touched, zero DB/schema/RLS changes — confirmed via `git status` before closing the phase.
++
+ ---
+ 
+ ## DEMO READY gate

@@ -78,6 +78,13 @@ export type DataViewProps<TListRow, TDetail> = {
   filters?: DataViewFilterDef[];
   initialData: PaginatedResult<TListRow>;
   queryKey: string[];
+  /**
+   * Optional branch scope for React Query cache identity only — never sent to
+   * listFetcher/detailFetcher as part of the request payload, and never used
+   * for authorization. Omit for org-scoped DataViews (current behavior is
+   * unchanged). See docs/mvp/reviews/zone1-phase2-dataview-foundation-2026-09-24/query-key-contract.md.
+   */
+  branchId?: string | null;
   listFetcher: (params: DataViewListParams) => Promise<PaginatedResult<TListRow>>;
   detailFetcher: (id: string) => Promise<TDetail | null>;
   resolveSelectedPage?: (args: {

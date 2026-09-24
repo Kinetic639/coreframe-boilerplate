@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { ChevronDown, ChevronRight, Download, PackagePlus, Upload } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { DataView } from "@/components/data-view/data-view";
+import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
 import type {
   DataViewColumnDef,
   DataViewFilterDef,
@@ -67,6 +68,7 @@ export function InventoryProductsClient({
   const tList = useTranslations("warehouseInventory.list");
   const [expandedProductIds, setExpandedProductIds] = useState<Record<string, true>>({});
   const [listMessage, setListMessage] = useState<string | null>(null);
+  const activeBranchId = useAppStoreV2((s) => s.activeBranchId);
 
   const toggleExpanded = useCallback((id: string) => {
     setExpandedProductIds((current) => {
@@ -322,6 +324,7 @@ export function InventoryProductsClient({
         filters={filters}
         initialData={initialData}
         queryKey={INVENTORY_PRODUCTS_QUERY_KEY}
+        branchId={activeBranchId}
         listFetcher={listFetcher}
         detailFetcher={detailFetcher}
         getRowId={getRowId}

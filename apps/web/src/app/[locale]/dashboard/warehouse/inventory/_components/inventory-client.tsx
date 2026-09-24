@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { ArrowDownToLine, ArrowRightLeft, ArrowUpFromLine, SlidersHorizontal } from "lucide-react";
 import { DataView } from "@/components/data-view/data-view";
+import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
 import type { DataViewColumnDef, DataViewListParams, PaginatedResult } from "@/lib/data-view/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -120,6 +121,7 @@ export function InventoryClient({
   const tList = useTranslations("warehouseInventory.list");
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const activeBranchId = useAppStoreV2((s) => s.activeBranchId);
 
   const columns = useMemo<DataViewColumnDef<InventoryBalanceListRow>[]>(
     () => [
@@ -333,6 +335,7 @@ export function InventoryClient({
         columns={columns}
         initialData={initialData}
         queryKey={["inventory-balances"]}
+        branchId={activeBranchId}
         listFetcher={listFetcher}
         detailFetcher={detailFetcher}
         getRowId={(row) => row.id}

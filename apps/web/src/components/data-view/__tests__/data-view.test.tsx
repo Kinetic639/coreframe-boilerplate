@@ -853,3 +853,62 @@ describe("T-DV-CLOSE-BTN: detail panel has close button", () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// T-DV-BRANCH: DataViewProps.branchId reaches both the list and sidebar
+// query paths (Zone 1 / Phase 3 — generic consumer-facing plumbing).
+// The DataView/query-key contract itself is Phase 2's own concern (see
+// use-data-view-query.test.ts); this only proves the new branchId prop
+// actually threads through DataView -> DataViewProvider -> both hooks.
+// ---------------------------------------------------------------------------
+
+describe("T-DV-BRANCH: branchId prop reaches list and sidebar query paths", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorageMock.clear();
+    mockDetailFetcher.mockResolvedValue(MOCK_DETAILS["p1"]);
+  });
+
+  it("fetches the list normally when branchId is provided (org-scoped screens remain unaffected by omission)", async () => {
+    renderDataView({ branchId: "branch-a" });
+    await waitFor(() => expect(mockListFetcher).toHaveBeenCalled());
+  });
+
+  it("opens the sidebar (branch-aware infinite query path) when a row is selected, with branchId provided", async () => {
+    renderDataView({ branchId: "branch-a" }, { selected: "p1" });
+    await waitFor(() => {
+      expect(screen.getByTestId("data-view-sidebar")).toBeInTheDocument();
+    });
+  });
+
+  it("refetches the list when branchId changes on the same mounted DataView instance", async () => {
+    nuqsState.params = new Map();
+    const queryClient = makeQueryClient();
+    const { rerender } = render(
+      <QueryClientProvider client={queryClient}>
+        <DataView {...defaultProps} branchId="branch-a" />
+      </QueryClientProvider>
+    );
+    await waitFor(() => expect(mockListFetcher).toHaveBeenCalledTimes(1));
+
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <DataView {...defaultProps} branchId="branch-b" />
+      </QueryClientProvider>
+    );
+
+    // A different branchId is a structurally different query key, not a
+    // staleness re-check of the same one — it must fetch again immediately,
+    // proving cache identity actually changed with the branch. (DataView
+    // itself mounts once here, so its internal per-mount QueryClient is
+    // unaffected by this rerender — only the branchId prop changes.)
+    await waitFor(() => expect(mockListFetcher).toHaveBeenCalledTimes(2));
+  });
+
+  it("omitting branchId (org-scoped usage) does not affect list rendering", async () => {
+    renderDataView({ branchId: undefined });
+    await waitFor(() => {
+      expect(screen.getByText("Widget A")).toBeInTheDocument();
+    });
+  });
+});

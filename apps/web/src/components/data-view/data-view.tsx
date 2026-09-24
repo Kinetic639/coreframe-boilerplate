@@ -30,6 +30,7 @@ export function DataView<TListRow, TDetail>({
   filters,
   initialData,
   queryKey,
+  branchId,
   listFetcher,
   detailFetcher,
   resolveSelectedPage,
@@ -55,6 +56,7 @@ export function DataView<TListRow, TDetail>({
         filters={filters}
         initialData={initialData}
         queryKey={queryKey}
+        branchId={branchId}
         listFetcher={listFetcher}
         detailFetcher={detailFetcher}
         resolveSelectedPage={resolveSelectedPage}

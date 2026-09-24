@@ -100,6 +100,7 @@ type DataViewProviderProps<TListRow, TDetail> = Pick<
   | "filters"
   | "initialData"
   | "queryKey"
+  | "branchId"
   | "listFetcher"
   | "detailFetcher"
   | "resolveSelectedPage"
@@ -122,6 +123,7 @@ export function DataViewProvider<TListRow, TDetail>({
   filters = [],
   initialData,
   queryKey,
+  branchId,
   listFetcher,
   detailFetcher,
   resolveSelectedPage,
@@ -154,6 +156,7 @@ export function DataViewProvider<TListRow, TDetail>({
     listFetcher,
     listParams: urlState.listParams,
     initialData,
+    branchId,
   });
 
   const detailQuery = useDataViewDetailQuery<TDetail>({
@@ -177,6 +180,7 @@ export function DataViewProvider<TListRow, TDetail>({
     listParams: urlState.listParams,
     initialPageData: resolvedListData,
     enabled: isDetailOpen,
+    branchId,
   });
 
   const sidebarRows = useMemo(() => {

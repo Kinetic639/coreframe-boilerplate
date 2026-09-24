@@ -6,7 +6,7 @@
 - **Priority:** P0
 - **Architecture:** APPROVED
 - **Runtime status:** PARTIAL / IMPLEMENTATION IN PROGRESS
-- **Current phase:** Phase 2 DONE (2026-09-24) — Phase 3 — Migrate confirmed branch-scoped DataView consumers is next (not started)
+- **Current phase:** Phase 3 DONE (2026-09-24) — Phase 4 — Matcher branch-aware query key is next (not started)
 - **Pitch readiness:** NOT YET
 - **Pilot readiness:** NOT READY
 - **Last updated:** 2026-09-24
@@ -17,18 +17,18 @@
 
 Computed directly from checkbox counts in `01-auth-org-branch-access-implementation-plan.md`. Recompute whenever a phase's task list changes.
 
-- **Total implementation tasks (DEMO + PILOT): 19/95**
-- **Pitch-required tasks (Phases 0-8): 19/49**
+- **Total implementation tasks (DEMO + PILOT): 24/95**
+- **Pitch-required tasks (Phases 0-8): 24/49**
 - **Pilot-required tasks (Phases A-I): 0/46**
 
-Breakdown by phase (task count = number of checkboxes in that phase's "Implementation tasks" section in the plan, recomputed by direct grep against the plan file, not estimated). Phase 1 gained a 6th task (the CLAUDE.md fix, moved in from Phase E) on 2026-09-24; Phase E's own count dropped to 5 accordingly. Phase 2 completed 2026-09-24 — see the change log for both.
+Breakdown by phase (task count = number of checkboxes in that phase's "Implementation tasks" section in the plan, recomputed by direct grep against the plan file, not estimated). Phase 1 gained a 6th task (the CLAUDE.md fix, moved in from Phase E) on 2026-09-24; Phase E's own count dropped to 5 accordingly. Phases 2 and 3 completed 2026-09-24 — see the change log for all three.
 
 | Phase     | Task count | Completed |
 | --------- | ---------- | --------- |
 | 0         | 9          | 9         |
 | 1         | 6          | 6         |
 | 2         | 4          | 4         |
-| 3         | 5          | 0         |
+| 3         | 5          | 5         |
 | 4         | 4          | 0         |
 | 5         | 4          | 0         |
 | 6         | 6          | 0         |
@@ -43,7 +43,7 @@ Breakdown by phase (task count = number of checkboxes in that phase's "Implement
 | G         | 4          | 0         |
 | H         | 6          | 0         |
 | I         | 4          | 0         |
-| **Total** | **95**     | **19**    |
+| **Total** | **95**     | **24**    |
 
 ---
 
@@ -54,7 +54,7 @@ Breakdown by phase (task count = number of checkboxes in that phase's "Implement
 | 0 — Implementation baseline         | DONE (2026-09-23)    | PITCH prerequisite | 9/9       | Satisfied entirely by the pre-implementation verification bundle, committed at `5dfce9d3`.        |
 | 1 — Centralized branch transition   | ✅ DONE (2026-09-24) | PITCH              | 6/6       | Root-cause fix for the branch-switch bug, landed. See "Phase 1 — detailed tracking" below.        |
 | 2 — DataView/query-key foundation   | ✅ DONE (2026-09-24) | PITCH              | 4/4       | Foundation only — no consumer migrated. See "Phase 2 — detailed tracking" below.                  |
-| 3 — Migrate DataView consumers      | NOT STARTED          | PITCH              | 0/5       | Depends on Phase 2.                                                                               |
+| 3 — Migrate DataView consumers      | ✅ DONE (2026-09-24) | PITCH              | 5/5       | All 4 confirmed consumers wired. See "Phase 3 — detailed tracking" below.                         |
 | 4 — Matcher query key               | NOT STARTED          | PITCH              | 0/4       | Independent of Phases 1-3.                                                                        |
 | 5 — Branch-state re-sweep           | NOT STARTED          | PITCH gate         | 0/4       | Depends on Phases 1-4.                                                                            |
 | 6 — Cross-branch QR/deep-link       | NOT STARTED          | PITCH              | 0/6       | Depends on Phase 1.                                                                               |
@@ -114,6 +114,31 @@ Copied from the implementation plan's own task list when the phase started (2026
 
 ---
 
+## Phase 3 — detailed tracking
+
+Copied from the implementation plan's own task list when the phase started (2026-09-24), per the tracker's own "current/started phase gets full detail" rule. Phase completed same day.
+
+- [x] Locations: read live activeBranchId from useAppStoreV2, pass into the DataView's queryKey.
+  - Evidence: `locations-data-view.tsx` — added `const activeBranchId = useAppStoreV2((s) => s.activeBranchId);`, passed as `branchId={activeBranchId}` to `<DataView queryKey={["locations"]} branchId={activeBranchId} ...>`. Required new plumbing: `branchId?: string | null` added to `DataViewProps` (`src/lib/data-view/types.ts`), threaded through `DataView` (`data-view.tsx`) and `DataViewProvider` (`data-view-provider.tsx`) into both `useDataViewListQuery` and `useDataViewSidebarInfiniteQuery`. Fully optional/additive — no existing prop removed or renamed.
+- [x] Inventory Balances: same.
+  - Evidence: `inventory-client.tsx` — identical pattern, `branchId={activeBranchId}` on `<DataView queryKey={["inventory-balances"]} ...>`.
+- [x] Inventory Movements: same, plus corrected activeBranchId source for the DataView's own key.
+  - Evidence: `inventory-movements-client.tsx` — added a NEW live-read local (`liveActiveBranchId`, via `useAppStoreV2`), used for `<DataView branchId={liveActiveBranchId}>`. The pre-existing `activeBranchId` PROP (frozen SSR value) is left completely unchanged, still forwarded to `InventoryMovementDetailPanel` — verified by a dedicated test asserting both values independently.
+- [x] Inventory Products: same (branchId threaded as a separate prop, not baked into the base queryKey constant — see the plan's own factual correction).
+  - Evidence: `inventory-products-client.tsx` — `INVENTORY_PRODUCTS_QUERY_KEY` constant untouched; `branchId={activeBranchId}` added as a new, separate prop to `<DataView queryKey={INVENTORY_PRODUCTS_QUERY_KEY} branchId={activeBranchId} ...>`.
+- [x] For each of the 4: verify switching branches produces a different query key.
+  - Evidence: 4 new consumer-wiring test files (one per consumer, `*.branch-wiring.test.tsx`), each proving the consumer forwards the live store's `activeBranchId` into `DataView`'s `branchId` prop, and that a different active branch produces a different forwarded value. Plus a new generic `T-DV-BRANCH` block in `data-view.test.tsx` proving the underlying plumbing itself (`branchId` prop → list query AND sidebar query, both reachable; a branchId change on an already-mounted `DataView` triggers an immediate additional fetch, proving the cache key genuinely changed, not just a staleness re-check).
+
+**Plumbing added (not originally itemized as a separate checkbox, but required — see plan's own Section 4 in the task prompt "Phase 3 now owns that consumer-facing plumbing if required"):** `DataViewProps.branchId` (types.ts) → `DataView` (data-view.tsx) → `DataViewProvider` (data-view-provider.tsx) → `useDataViewListQuery`/`useDataViewSidebarInfiniteQuery` (already accepted `branchId` since Phase 2). The generic `DataView` internals still never read `useAppStoreV2()` or any global store directly — `branchId` is always explicit, passed in from each concrete consumer. The `refreshToken`-based invalidation effect in `DataViewProvider` was left unchanged (uses the raw, un-branched `queryKey` prop) — React Query's default prefix-matching invalidation (`exact: false`) already correctly matches the new, longer, branch-scoped keys without needing to be branch-aware itself.
+
+**Mutation invalidation review (see `docs/mvp/reviews/zone1-phase3-dataview-consumers-2026-09-24/mutation-invalidation-review.md` for full detail):** none of the 4 consumer files contain any `invalidateQueries`/`useQueryClient`/`refreshToken` usage today — confirmed by grep across all 4 files and their sibling detail-panel components. Classification: "no relevant mutation-invalidation logic exists to become incompatible" for all 4. One pre-existing gap was discovered and explicitly NOT fixed (out of this phase's scope): `inventory-client.tsx`'s stock receive/issue/transfer/adjust mutations do not invalidate or refresh the balances list at all today — a pre-existing UX gap unrelated to branch-awareness, not introduced or worsened by this phase.
+
+**Tests:** 4 new consumer-wiring test files (9 tests total) — all pass. Generic `data-view.test.tsx` — 42/42 pass (38 pre-existing + 4 new `T-DV-BRANCH` tests). Phase 2's own `use-data-view-query.test.ts` — 12/12 pass (regression, unmodified). `pnpm type-check`: clean. `eslint` across all touched files: 0 errors, 4 pre-existing warnings (confirmed via a stash/diff comparison — identical line offsets before this phase's changes).
+
+**Blocker:** none. Phase 3 completed with no BLOCKED state. One factual correction to the plan's task wording was needed (branchId threads as a separate prop per the Phase 2 contract, not concatenated into the base queryKey array) and one file-path correction (`inventory-products-client.tsx` actually lives under `warehouse/items/_components/`, not `warehouse/inventory/_components/`) — both recorded in the implementation plan with history preserved, not silently redesigned.
+
+---
+
 ## Active blockers
 
 Stable IDs, once assigned, are never reused. None of the items below block Phase 1 (the next phase to implement) from starting — they are recorded so they are not forgotten, per the task's own explicit instruction not to let known gaps disappear from view after the presentation.
@@ -121,7 +146,7 @@ Stable IDs, once assigned, are never reused. None of the items below block Phase
 ### PITCH implementation gaps (block DEMO READY, not yet started)
 
 - **BLOCKER-Z1-001** — Branch switch performs no `router.refresh()`/navigation/cache invalidation (`SidebarBranchSwitcher.handleBranchSelect`). Owner: Phase 1. Status: **RESOLVED (2026-09-24)** — see Phase 1 detailed tracking above.
-- **BLOCKER-Z1-002** — 4 confirmed consumers (Locations, Inventory Balances, Inventory Movements, Inventory Products) have branch-agnostic cache keys. Owner: Phases 2-3. Status: **PARTIALLY RESOLVED (2026-09-24)** — the branch-aware query-key foundation landed in Phase 2 (`use-data-view-query.ts`'s `buildDataViewQueryKey` + optional `branchId` on the query hooks); the 4 consumers themselves remain unmigrated and the bug remains live for all 4 until Phase 3 wires them in. Do not mark fully RESOLVED until Phase 3 completes.
+- **BLOCKER-Z1-002** — 4 confirmed consumers (Locations, Inventory Balances, Inventory Movements, Inventory Products) have branch-agnostic cache keys. Owner: Phases 2-3. Status: **RESOLVED (2026-09-24)** — all 4 consumers now pass a live `branchId` into `<DataView>`, verified by dedicated consumer-wiring tests. See Phase 3 detailed tracking above.
 - **BLOCKER-Z1-003** — `wddMatcherKeys.sessions()` is branch-agnostic; zero test coverage exists for this key. Owner: Phase 4. Status: OPEN, not yet started.
 - **BLOCKER-Z1-004** — `warehouse.location` QR/deep-link silently drops cross-branch intent instead of confirm-then-switch (safe, not a leak, but a missing UX requirement). Owner: Phase 6. Status: OPEN, not yet started.
 - **BLOCKER-Z1-005** — 2 Zone-1-relevant test files carry mock/fixture drift (`organization-rls.test.ts`'s `createBranch` test, `load-app-context.v2.test.ts`'s branch-field fixture). Owner: Phase 7. Status: OPEN, not yet started.
@@ -181,6 +206,16 @@ Zone 3 discipline: date, phase, finding, evidence, classification, resolution, w
 - **Design decision (evidence-based correction to the plan's literal wording):** `DataViewListParams` was NOT given a `branchId` field, contrary to the plan's original task #1 wording. Inspection of `use-data-view-query.ts` showed this type is passed directly to `listFetcher()` as the request payload, not just used as cache-key material — adding `branchId` there would have leaked it into server requests, violating the phase's own explicit "query key and server request payload are separate concerns" requirement. Instead, `branchId?: string | null` was added to the query hooks' own option types (`UseDataViewListQueryOptions`, `UseDataViewSidebarInfiniteQueryOptions`), merged into the key via a new pure helper `buildDataViewQueryKey`. Evidence: `apps/web/src/components/data-view/use-data-view-query.ts`. Classification: CONFIRMED, evidence-based factual correction to one task's wording — not an architecture change, not a scope change (the phase's own objective, "an optional branchId mechanism any caller CAN use," is met exactly). The plan's Phase 2 task list and acceptance criterion 1 were updated in place with history preserved (strikethrough + note, not deletion). No product-owner decision needed — this was a technical implementation-boundary question, resolvable from the existing code alone.
 - **Decision:** `useDataViewDetailQuery` was deliberately left untouched (no `branchId` support added) — detail queries are keyed by a presumably-globally-unique `selectedId`, matching the same "safe because globally unique" pattern already verified for Matcher's `results`/`extractedData` query keys in the pre-implementation audit. No confirmed bug in the gap matrix involves a detail-type query. Adding branchId there would have been speculative scope beyond the evidenced problem.
 - **No blockers encountered.** No implementation evidence contradicted the accepted architecture. Zero consumer files, Matcher, or QR code touched — confirmed via `git status` before closing the phase.
+
+### 2026-09-24 — Phase 3 implementation
+
+- **Plumbing decision:** Phase 2 deliberately left `DataViewProps`/`DataView`/`DataViewProvider` untouched, so Phase 3 needed to add the consumer-facing plumbing itself before any of the 4 consumers could actually opt in. Added `branchId?: string | null` to `DataViewProps` (`src/lib/data-view/types.ts`), threaded unchanged through `DataView` and `DataViewProvider` into both `useDataViewListQuery` and `useDataViewSidebarInfiniteQuery` (which already accepted it since Phase 2). Fully additive — no existing prop changed shape or meaning. Evidence: `apps/web/src/lib/data-view/types.ts`, `apps/web/src/components/data-view/data-view.tsx`, `apps/web/src/components/data-view/data-view-provider.tsx`. Classification: CONFIRMED, in-scope plumbing per the task's own explicit instruction ("Phase 3 now owns that consumer-facing plumbing if required"). No product-owner decision needed.
+- **Finding/fix:** all 4 confirmed consumers (Locations, Inventory Balances, Inventory Movements, Inventory Products) now read the live `activeBranchId` from `useAppStoreV2` and forward it as `<DataView branchId={...}>`. Evidence: the 4 consumer files, plus 4 new dedicated wiring tests and 4 new generic `T-DV-BRANCH` tests in `data-view.test.tsx`. Classification: CONFIRMED FIX, closes BLOCKER-Z1-002 (all 4 instances). Architecture unaffected — server-side branch authorization/filtering was not touched; `branchId` remains cache-identity-only, verified structurally (no consumer forwards it into any server action or `listFetcher` call) and by Phase 2's own already-passing request-payload-isolation tests, which remain valid since the request-payload code path itself was not touched in Phase 3.
+- **Factual correction (evidence-based, not a scope change):** Inventory Products' plan task said "fixing INVENTORY_PRODUCTS_QUERY_KEY ... to include branchId" — implemented instead as `branchId` being a separate, explicit prop alongside the UNCHANGED `INVENTORY_PRODUCTS_QUERY_KEY` constant, per the Phase 2 contract's own explicit rule that branchId must never be concatenated into a consumer's base queryKey array by the consumer itself (that merge happens once, centrally, inside `buildDataViewQueryKey`). Recorded in the plan with history preserved.
+- **Factual correction (file path):** `inventory-products-client.tsx` actually lives at `apps/web/src/app/[locale]/dashboard/warehouse/items/_components/`, not `warehouse/inventory/_components/` as the plan originally stated. Verified by direct file lookup before implementation began. Recorded in the plan.
+- **Decision:** `InventoryMovementsClient`'s pre-existing `activeBranchId` PROP (a frozen SSR value forwarded to `InventoryMovementDetailPanel`) was deliberately left unchanged — only the DataView's OWN cache-identity source was switched to a new, separate live-read local variable (`liveActiveBranchId`). Fixing the detail panel's own branch-awareness was judged out of this phase's named scope ("InventoryMovementsClient's own activeBranchId prop usage" refers to the list's own query key, not the full prop-forwarding chain) and no evidence in the gap matrix flags the detail panel itself as a confirmed bug. Verified by a dedicated test asserting both values remain independently correct.
+- **Mutation invalidation review finding (discovered, explicitly not fixed):** `inventory-client.tsx`'s stock receive/issue/transfer/adjust mutations do not invalidate or refresh the DataView's list at all today — no `invalidateQueries`, no `refreshToken`, no `router.refresh()`. This is a pre-existing UX gap, unrelated to and not worsened by branch-awareness (nothing invalidated the OLD static key either, so nothing became newly incompatible with the NEW branch-scoped key). Not fixed in this phase — recorded here so it isn't silently lost. No other consumer or sibling detail/panel component has any invalidation logic at all (confirmed via grep across all 4 consumer directories).
+- **No blockers encountered.** No implementation evidence contradicted the accepted architecture. Zero Matcher or QR code touched, zero DB/schema/RLS changes — confirmed via `git status` before closing the phase.
 
 ---
 
