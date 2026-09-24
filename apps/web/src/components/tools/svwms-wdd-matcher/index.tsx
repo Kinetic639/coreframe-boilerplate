@@ -9,6 +9,7 @@ import { UploadZone } from "./upload-zone";
 import { ExtractionReviewView } from "./extraction-review-view";
 import { PIPELINE_STEPS, type WddMatcherPipelineState } from "./pipeline-progress";
 import { wddMatcherKeys, useSessionsQuery } from "@/hooks/queries/tools/wdd-matcher";
+import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
 import {
   getEnhancedPdfDataAction,
   getSessionResultsAction,
@@ -50,7 +51,8 @@ export function SvwmsWddMatcher() {
 
   const t = useTranslations("modules.tools.wddMatcher");
   const queryClient = useQueryClient();
-  const { data: sessions } = useSessionsQuery();
+  const activeBranchId = useAppStoreV2((s) => s.activeBranchId);
+  const { data: sessions } = useSessionsQuery(activeBranchId);
 
   const runBackgroundPersistence = useCallback(
     async (session: WddMatcherSession, files: File[], extractedFiles: ExtractedFileData[]) => {
@@ -79,7 +81,7 @@ export function SvwmsWddMatcher() {
         queryClient.setQueryData(wddMatcherKeys.results(sessionId), results);
         queryClient.setQueryData(wddMatcherKeys.enhancedPdfData(sessionId), pdfBlocks);
         if (sessionsResult.success) {
-          queryClient.setQueryData(wddMatcherKeys.sessions(), sessionsResult.data);
+          queryClient.setQueryData(wddMatcherKeys.sessions(activeBranchId), sessionsResult.data);
           const updatedSession = sessionsResult.data.find((item) => item.id === sessionId);
           if (updatedSession) setMatchedSession(updatedSession);
         }
@@ -101,7 +103,7 @@ export function SvwmsWddMatcher() {
         toast.error(msg);
       }
     },
-    [queryClient]
+    [queryClient, activeBranchId]
   );
 
   const processFiles = useCallback(
@@ -119,7 +121,7 @@ export function SvwmsWddMatcher() {
         queryClient.setQueryData(wddMatcherKeys.results(sessionId), prepared.results);
         queryClient.setQueryData(wddMatcherKeys.enhancedPdfData(sessionId), prepared.pdfBlocks);
         queryClient.setQueryData<WddMatcherSession[] | undefined>(
-          wddMatcherKeys.sessions(),
+          wddMatcherKeys.sessions(activeBranchId),
           (current) => [prepared.session, ...(current ?? [])]
         );
 
@@ -133,7 +135,7 @@ export function SvwmsWddMatcher() {
         setIsPreparingSession(false);
       }
     },
-    [queryClient, runBackgroundPersistence]
+    [queryClient, runBackgroundPersistence, activeBranchId]
   );
 
   const goHome = useCallback(() => {

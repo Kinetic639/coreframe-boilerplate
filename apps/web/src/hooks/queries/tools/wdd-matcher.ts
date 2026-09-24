@@ -30,7 +30,16 @@ import type { MaterializationResult } from "@/server/services/repair-orders.serv
 
 export const wddMatcherKeys = {
   all: ["svwms-wdd-matcher"] as const,
-  sessions: () => [...wddMatcherKeys.all, "sessions"] as const,
+  /**
+   * Zone 1 / Phase 4: branchId is part of the query key (cache identity
+   * only, never an authorization parameter) -- the session list is
+   * branch-scoped server-side, and its cache identity must be too, matching
+   * the already-proven workshopKeys.lineReservations(branchId, lineId)
+   * pattern. `null` is a valid, deterministic key segment for "no active
+   * branch yet" -- the query itself stays disabled in that state (see
+   * useSessionsQuery), so this bucket is never actually populated.
+   */
+  sessions: (branchId: string | null) => [...wddMatcherKeys.all, "sessions", branchId] as const,
   results: (sessionId: string) => [...wddMatcherKeys.all, "results", sessionId] as const,
   extractedData: (sessionId: string) =>
     [...wddMatcherKeys.all, "extracted-data", sessionId] as const,
@@ -53,11 +62,12 @@ function unwrap<T>(result: { success: true; data: T } | { success: false; error:
 // Queries
 // ---------------------------------------------------------------------------
 
-export function useSessionsQuery(initialData?: WddMatcherSession[]) {
+export function useSessionsQuery(branchId: string | null, initialData?: WddMatcherSession[]) {
   return useQuery({
-    queryKey: wddMatcherKeys.sessions(),
+    queryKey: wddMatcherKeys.sessions(branchId),
     queryFn: () => listSessionsAction().then(unwrap),
     initialData,
+    enabled: !!branchId,
     staleTime: 2 * 60 * 1000,
   });
 }
@@ -84,13 +94,16 @@ export function useSessionResultsQuery(sessionId: string | null) {
 // Mutations
 // ---------------------------------------------------------------------------
 
-export function useCreateAutoSessionMutation(onCreated: (session: WddMatcherSession) => void) {
+export function useCreateAutoSessionMutation(
+  onCreated: (session: WddMatcherSession) => void,
+  branchId: string | null
+) {
   const qc = useQueryClient();
 
   return useMutation({
     mutationFn: () => createAutoSessionAction().then(unwrap),
     onSuccess: (session) => {
-      qc.invalidateQueries({ queryKey: wddMatcherKeys.sessions() });
+      qc.invalidateQueries({ queryKey: wddMatcherKeys.sessions(branchId) });
       onCreated(session);
     },
     onError: (err: Error) => toast.error(err.message),
@@ -104,14 +117,14 @@ export function useUploadAndParseFileMutation() {
   });
 }
 
-export function useRunMatchingMutation(onComplete?: () => void) {
+export function useRunMatchingMutation(branchId: string | null, onComplete?: () => void) {
   const qc = useQueryClient();
   const t = useTranslations("modules.tools.wddMatcher");
 
   return useMutation({
     mutationFn: (sessionId: string) => runMatchingAction(sessionId).then(unwrap),
     onSuccess: (_data, sessionId) => {
-      qc.invalidateQueries({ queryKey: wddMatcherKeys.sessions() });
+      qc.invalidateQueries({ queryKey: wddMatcherKeys.sessions(branchId) });
       qc.invalidateQueries({ queryKey: wddMatcherKeys.results(sessionId) });
       toast.success(t("toasts.matchingComplete"));
       onComplete?.();
@@ -160,7 +173,7 @@ export function useMaterializationStatusQuery(sessionId: string | null, enabled:
  * render the "Approved / Materialization failed" state from the payload,
  * not from useMutation's onError.
  */
-export function useApproveAndMaterializeSessionMutation() {
+export function useApproveAndMaterializeSessionMutation(branchId: string | null) {
   const qc = useQueryClient();
   const t = useTranslations("modules.tools.wddMatcher");
 
@@ -168,7 +181,7 @@ export function useApproveAndMaterializeSessionMutation() {
     mutationFn: (sessionId: string) =>
       approveAndMaterializeSessionAction({ sessionId }).then(unwrap),
     onSuccess: (result: ApproveAndMaterializeResult) => {
-      qc.invalidateQueries({ queryKey: wddMatcherKeys.sessions() });
+      qc.invalidateQueries({ queryKey: wddMatcherKeys.sessions(branchId) });
       // Finding F (corrective review, CONFIRMED BUG, fixed here): this
       // previously seeded repairOrderCount from createdRepairOrders alone,
       // undercounting whenever materialization reused an existing

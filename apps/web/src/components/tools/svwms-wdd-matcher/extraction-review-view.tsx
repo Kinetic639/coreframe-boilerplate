@@ -48,6 +48,7 @@ import {
   useMaterializationStatusQuery,
 } from "@/hooks/queries/tools/wdd-matcher";
 import { listSessionsAction } from "@/app/actions/tools/wdd-matcher";
+import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
 import type {
   WddMatcherSession,
   WddMatcherBlock,
@@ -240,11 +241,12 @@ export function ExtractionReviewView({
   const previewUrlRef = useRef<string | null>(null);
   const autoOpenedResultsRef = useRef(false);
 
-  const runMatching = useRunMatchingMutation();
+  const activeBranchId = useAppStoreV2((s) => s.activeBranchId);
+  const runMatching = useRunMatchingMutation(activeBranchId);
   const exportCsv = useExportCsvMutation(sessionId);
   const { can } = usePermissions();
   const canApprove = can(PERMISSION_WDD_MATCHER_APPROVE);
-  const approveAndMaterialize = useApproveAndMaterializeSessionMutation();
+  const approveAndMaterialize = useApproveAndMaterializeSessionMutation(activeBranchId);
   const retryMaterialization = useRetryMaterializationMutation();
   const isApprovedStatus = matchedSession?.status === "approved";
   const {

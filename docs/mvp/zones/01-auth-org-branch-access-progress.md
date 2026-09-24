@@ -6,7 +6,7 @@
 - **Priority:** P0
 - **Architecture:** APPROVED
 - **Runtime status:** PARTIAL / IMPLEMENTATION IN PROGRESS
-- **Current phase:** Phase 3 DONE (2026-09-24) — Phase 4 — Matcher branch-aware query key is next (not started)
+- **Current phase:** Phase 4 DONE (2026-09-24) — Phase 5 — Systematic branch-state re-sweep is next (not started)
 - **Pitch readiness:** NOT YET
 - **Pilot readiness:** NOT READY
 - **Last updated:** 2026-09-24
@@ -17,11 +17,11 @@
 
 Computed directly from checkbox counts in `01-auth-org-branch-access-implementation-plan.md`. Recompute whenever a phase's task list changes.
 
-- **Total implementation tasks (DEMO + PILOT): 24/95**
-- **Pitch-required tasks (Phases 0-8): 24/49**
+- **Total implementation tasks (DEMO + PILOT): 28/95**
+- **Pitch-required tasks (Phases 0-8): 28/49**
 - **Pilot-required tasks (Phases A-I): 0/46**
 
-Breakdown by phase (task count = number of checkboxes in that phase's "Implementation tasks" section in the plan, recomputed by direct grep against the plan file, not estimated). Phase 1 gained a 6th task (the CLAUDE.md fix, moved in from Phase E) on 2026-09-24; Phase E's own count dropped to 5 accordingly. Phases 2 and 3 completed 2026-09-24 — see the change log for all three.
+Breakdown by phase (task count = number of checkboxes in that phase's "Implementation tasks" section in the plan, recomputed by direct grep against the plan file, not estimated). Phase 1 gained a 6th task (the CLAUDE.md fix, moved in from Phase E) on 2026-09-24; Phase E's own count dropped to 5 accordingly. Phases 2, 3, and 4 completed 2026-09-24 — see the change log for all four.
 
 | Phase     | Task count | Completed |
 | --------- | ---------- | --------- |
@@ -29,7 +29,7 @@ Breakdown by phase (task count = number of checkboxes in that phase's "Implement
 | 1         | 6          | 6         |
 | 2         | 4          | 4         |
 | 3         | 5          | 5         |
-| 4         | 4          | 0         |
+| 4         | 4          | 4         |
 | 5         | 4          | 0         |
 | 6         | 6          | 0         |
 | 7         | 6          | 0         |
@@ -43,7 +43,7 @@ Breakdown by phase (task count = number of checkboxes in that phase's "Implement
 | G         | 4          | 0         |
 | H         | 6          | 0         |
 | I         | 4          | 0         |
-| **Total** | **95**     | **24**    |
+| **Total** | **95**     | **28**    |
 
 ---
 
@@ -55,7 +55,7 @@ Breakdown by phase (task count = number of checkboxes in that phase's "Implement
 | 1 — Centralized branch transition   | ✅ DONE (2026-09-24) | PITCH              | 6/6       | Root-cause fix for the branch-switch bug, landed. See "Phase 1 — detailed tracking" below.        |
 | 2 — DataView/query-key foundation   | ✅ DONE (2026-09-24) | PITCH              | 4/4       | Foundation only — no consumer migrated. See "Phase 2 — detailed tracking" below.                  |
 | 3 — Migrate DataView consumers      | ✅ DONE (2026-09-24) | PITCH              | 5/5       | All 4 confirmed consumers wired. See "Phase 3 — detailed tracking" below.                         |
-| 4 — Matcher query key               | NOT STARTED          | PITCH              | 0/4       | Independent of Phases 1-3.                                                                        |
+| 4 — Matcher query key               | ✅ DONE (2026-09-24) | PITCH              | 4/4       | Session-list cache bug closed. See "Phase 4 — detailed tracking" below.                           |
 | 5 — Branch-state re-sweep           | NOT STARTED          | PITCH gate         | 0/4       | Depends on Phases 1-4.                                                                            |
 | 6 — Cross-branch QR/deep-link       | NOT STARTED          | PITCH              | 0/6       | Depends on Phase 1.                                                                               |
 | 7 — Automated closeout              | NOT STARTED          | PITCH gate         | 0/6       | Depends on Phases 1-6.                                                                            |
@@ -139,6 +139,29 @@ Copied from the implementation plan's own task list when the phase started (2026
 
 ---
 
+## Phase 4 — detailed tracking
+
+Copied from the implementation plan's own task list when the phase started (2026-09-24), per the tracker's own "current/started phase gets full detail" rule. Phase completed same day.
+
+- [x] Change wddMatcherKeys.sessions to accept branchId.
+  - Evidence: `wdd-matcher.ts` — `sessions: (branchId: string | null) => [...wddMatcherKeys.all, "sessions", branchId] as const`. `branchId` typed `string | null` (not optional/omittable), matching the exact, already-proven `workshopKeys.lineReservations(branchId: string | null, lineId)` reference signature — `null` is a valid, deterministic key segment (for "no active branch yet"), not specially omitted, since the query itself is gated off in that state (see next item) so the bucket is never actually populated with data.
+- [x] Update useSessionsQuery to read live activeBranchId and pass it in.
+  - Evidence: `useSessionsQuery(branchId: string | null, initialData?)` — `branchId` is now a required, caller-supplied parameter (not read internally via `useAppStoreV2()` inside the hook), matching the established convention exactly (the hook itself must stay free of global-store coupling — only concrete consumers opt in explicitly). Added `enabled: !!branchId`, per the plan's own explicit "prefer the existing enabled/guard pattern" instruction for the null-branch case — the query simply does not fire until a real branch is active, rather than inventing ambiguous fallback behavior. Both consumer components (`index.tsx`'s `SvwmsWddMatcher`, and `extraction-review-view.tsx`'s `ExtractionReviewView`) now independently read `useAppStoreV2((s) => s.activeBranchId)` at their own top level and pass it down to the hooks they call — matching the "each Matcher consumer reads the existing live active branch context" instruction literally, without introducing prop-drilling between the two sibling view components.
+- [x] Update the invalidateQueries call sites to match the new key shape.
+  - Evidence: **factual correction discovered during implementation** — the actual surface was larger than the plan's own "2-3 invalidateQueries call sites" estimate. Full reconciliation, 6 call sites across 3 files: `useSessionsQuery`'s own query (1), 3 `invalidateQueries` call sites (`useCreateAutoSessionMutation` — confirmed dead code via a full-codebase grep, zero callers anywhere, fixed anyway for consistency and to close the bug class; `useRunMatchingMutation`; `useApproveAndMaterializeSessionMutation`), and 2 direct `queryClient.setQueryData(wddMatcherKeys.sessions(...), ...)` cache-write call sites inside `index.tsx` (`runBackgroundPersistence`, `processFiles`) not named in the plan's original repository-areas note. All 3 mutation hooks now accept `branchId: string | null` as an explicit parameter and invalidate only `wddMatcherKeys.sessions(branchId)` — the narrowest correct behavior (Section 6 of the task prompt), proven by a dedicated test showing a Branch-A mutation does NOT invalidate Branch B's cached session-list query state. `extraction-review-view.tsx` (a second consumer file, not named in the plan's original repository-areas note) was found and updated, since it calls `useRunMatchingMutation`/`useApproveAndMaterializeSessionMutation` and needed its own live `activeBranchId` read to supply them.
+- [x] Add a unit test on the key factory (branch change => different key) — closing the confirmed zero-coverage gap.
+  - Evidence: new file `apps/web/src/hooks/queries/tools/__tests__/wdd-matcher.test.ts` — 12 tests: 4 direct key-factory contract tests (different branches → different keys; same branch → stable key; `null` → deterministic, distinct from any real branch; exact key shape); 4 `useSessionsQuery` integration tests (different branchId → distinct cache entries; disabled/no-fetch when branchId is null; branchId never forwarded to `listSessionsAction`'s request payload; branch switch on an already-mounted hook triggers a new fetch, proving the cache identity genuinely changed); 4 invalidation tests (each of the 3 mutations invalidates only its own branch's key, via `vi.spyOn(queryClient, "invalidateQueries")`; a dedicated cross-branch-isolation test proving a Branch-A mutation leaves Branch B's cached query state un-invalidated).
+
+**Static re-sweep inside Matcher (Section 16):** re-grepped for `wddMatcherKeys.sessions()` (zero-arg), hard-coded `["svwms-wdd-matcher", "sessions"]`/`["wdd-matcher", "sessions"]` arrays, and alternate session-list hooks bypassing the factory — all clean. Every one of the 6 real call sites now requires a branch argument. `extraction-review-view.tsx`'s own direct `listSessionsAction()` call (line ~338) is a local-state-only fetch, never touches the React Query cache, confirmed not a consumer of the key factory at all — correctly left unchanged.
+
+**Other Matcher keys, inspected and intentionally left unchanged:** `wddMatcherKeys.results/.extractedData/.enhancedPdfData/.materializationStatus(sessionId)` — all keyed by a globally-unique `sessionId`, no cross-branch leak possible by construction, matching the pre-implementation audit's own classification. Explicitly out of scope per the plan's own "Out of scope" section; not touched.
+
+**Tests:** `wdd-matcher.test.ts` (new) — 12/12 pass. `extraction-review-approval.test.tsx` + `movement-import-boundary.test.ts` (regression) — 14/14 pass, unmodified. `pnpm type-check`: clean (confirms every real caller was found and updated — `branchId` is a required parameter with no default, so a missed caller would have failed type-check). `eslint` across all 4 touched files: 0 errors, 0 warnings.
+
+**Blocker:** none. Phase 4 completed with no BLOCKED state. No authorization/RLS change — confirmed by inspection (zero touches to `approve_wdd_matcher_session`, Matcher permissions, or server-side branch filtering) and by design (branchId is structurally cache-identity-only: never passed to any server action). The documented PILOT-scope Matcher RLS gap (branch isolation weaker than target) was encountered in the pre-implementation evidence during re-reading and is recorded here as already-known/deferred, per explicit instruction — not reopened, not touched.
+
+---
+
 ## Active blockers
 
 Stable IDs, once assigned, are never reused. None of the items below block Phase 1 (the next phase to implement) from starting — they are recorded so they are not forgotten, per the task's own explicit instruction not to let known gaps disappear from view after the presentation.
@@ -147,7 +170,7 @@ Stable IDs, once assigned, are never reused. None of the items below block Phase
 
 - **BLOCKER-Z1-001** — Branch switch performs no `router.refresh()`/navigation/cache invalidation (`SidebarBranchSwitcher.handleBranchSelect`). Owner: Phase 1. Status: **RESOLVED (2026-09-24)** — see Phase 1 detailed tracking above.
 - **BLOCKER-Z1-002** — 4 confirmed consumers (Locations, Inventory Balances, Inventory Movements, Inventory Products) have branch-agnostic cache keys. Owner: Phases 2-3. Status: **RESOLVED (2026-09-24)** — all 4 consumers now pass a live `branchId` into `<DataView>`, verified by dedicated consumer-wiring tests. See Phase 3 detailed tracking above.
-- **BLOCKER-Z1-003** — `wddMatcherKeys.sessions()` is branch-agnostic; zero test coverage exists for this key. Owner: Phase 4. Status: OPEN, not yet started.
+- **BLOCKER-Z1-003** — `wddMatcherKeys.sessions()` is branch-agnostic; zero test coverage exists for this key. Owner: Phase 4. Status: **RESOLVED (2026-09-24)** — branch-aware, 12 new tests. See Phase 4 detailed tracking above.
 - **BLOCKER-Z1-004** — `warehouse.location` QR/deep-link silently drops cross-branch intent instead of confirm-then-switch (safe, not a leak, but a missing UX requirement). Owner: Phase 6. Status: OPEN, not yet started.
 - **BLOCKER-Z1-005** — 2 Zone-1-relevant test files carry mock/fixture drift (`organization-rls.test.ts`'s `createBranch` test, `load-app-context.v2.test.ts`'s branch-field fixture). Owner: Phase 7. Status: OPEN, not yet started.
 
@@ -216,6 +239,15 @@ Zone 3 discipline: date, phase, finding, evidence, classification, resolution, w
 - **Decision:** `InventoryMovementsClient`'s pre-existing `activeBranchId` PROP (a frozen SSR value forwarded to `InventoryMovementDetailPanel`) was deliberately left unchanged — only the DataView's OWN cache-identity source was switched to a new, separate live-read local variable (`liveActiveBranchId`). Fixing the detail panel's own branch-awareness was judged out of this phase's named scope ("InventoryMovementsClient's own activeBranchId prop usage" refers to the list's own query key, not the full prop-forwarding chain) and no evidence in the gap matrix flags the detail panel itself as a confirmed bug. Verified by a dedicated test asserting both values remain independently correct.
 - **Mutation invalidation review finding (discovered, explicitly not fixed):** `inventory-client.tsx`'s stock receive/issue/transfer/adjust mutations do not invalidate or refresh the DataView's list at all today — no `invalidateQueries`, no `refreshToken`, no `router.refresh()`. This is a pre-existing UX gap, unrelated to and not worsened by branch-awareness (nothing invalidated the OLD static key either, so nothing became newly incompatible with the NEW branch-scoped key). Not fixed in this phase — recorded here so it isn't silently lost. No other consumer or sibling detail/panel component has any invalidation logic at all (confirmed via grep across all 4 consumer directories).
 - **No blockers encountered.** No implementation evidence contradicted the accepted architecture. Zero Matcher or QR code touched, zero DB/schema/RLS changes — confirmed via `git status` before closing the phase.
+
+### 2026-09-24 — Phase 4 implementation
+
+- **Design decision:** `branchId` threaded as an explicit, caller-supplied parameter on every affected hook (`useSessionsQuery`, `useCreateAutoSessionMutation`, `useRunMatchingMutation`, `useApproveAndMaterializeSessionMutation`) rather than read internally via `useAppStoreV2()` inside `wdd-matcher.ts` itself — exactly matching the already-proven `workshopKeys.lineReservations`/`useRepairOrderLineReservationsQuery` reference pattern's own convention (verified by direct inspection before writing any code, not assumed). Evidence: `apps/web/src/hooks/queries/workshop/index.ts` lines 118-175. Classification: CONFIRMED, matches the plan's own explicit "following the exact pattern already proven correct in workshopKeys.lineReservations" objective. No product-owner decision needed.
+- **Finding/fix:** the confirmed Matcher session-list branch-cache bug is closed. `wddMatcherKeys.sessions(branchId)` produces genuinely different React Query cache keys per branch; `useSessionsQuery` now gates on `enabled: !!branchId` (no ambiguous null-bucket query firing); all 3 mutations that previously invalidated a branch-agnostic key now invalidate only the current branch's key, proven not to touch other branches' cached state. Evidence: `apps/web/src/hooks/queries/tools/wdd-matcher.ts`, plus 12 new tests. Classification: CONFIRMED FIX, closes BLOCKER-Z1-003. Architecture unaffected — no authorization/RLS/server-action change; `branchId` verified structurally and by test to never reach `listSessionsAction`'s request payload.
+- **Factual correction (evidence-based, not a scope change):** the plan's own "2-3 invalidateQueries call sites" estimate undercounted the real surface. Actual reconciliation required 6 call sites across 3 files (not 2-3 across 2 files) — see the "Update the invalidateQueries call sites" task's own evidence note above for the full breakdown. A second consumer file (`extraction-review-view.tsx`) was discovered and updated; it was not named in the plan's original repository-areas list. Recorded in the plan with history preserved (the original estimate is kept, annotated as corrected, not deleted).
+- **Discovery (not a bug, dead code):** `useCreateAutoSessionMutation` has zero callers anywhere in the codebase — confirmed via a full-codebase grep before and after the fix. Updated anyway for consistency (closing the bug class fully inside Matcher, per Section 16's own static-re-sweep requirement), but this hook is not exercised by any live UI path today.
+- **PILOT-scope Matcher RLS gap:** encountered in the pre-implementation evidence while re-reading `branch-state-cache-inventory.md`/`admin-security-verification.md` ahead of implementation. Explicitly recorded as already-known/deferred (BLOCKER-Z1-010, owner PILOT Phase D) — not reopened, not touched, per this phase's own explicit "client cache correctness only" scope boundary.
+- **No blockers encountered.** No implementation evidence contradicted the accepted architecture. Zero DataView, QR, warehouse consumer, SidebarBranchSwitcher, or DB/schema/RLS files touched — confirmed via `git status` before closing the phase.
 
 ---
 

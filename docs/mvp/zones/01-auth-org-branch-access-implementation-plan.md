@@ -361,6 +361,7 @@ Phase 0. Kept as its OWN phase, separate from Phase 3, deliberately — wdd-matc
 
 - apps/web/src/hooks/queries/tools/wdd-matcher.ts (wddMatcherKeys.sessions(), useSessionsQuery, the 2-3 invalidateQueries call sites referencing it)
 - apps/web/src/components/tools/svwms-wdd-matcher/index.tsx (the consumer)
+- **Factual correction (2026-09-24, implementation evidence):** the actual consumer surface is larger than originally itemized. `wdd-matcher.ts` has exactly 3 `invalidateQueries` call sites referencing `wddMatcherKeys.sessions()` (`useCreateAutoSessionMutation` — confirmed dead code, zero callers anywhere in the codebase, but fixed for consistency and to close the bug class; `useRunMatchingMutation`; `useApproveAndMaterializeSessionMutation`), not merely "the main list hook." `index.tsx` additionally has 2 direct `queryClient.setQueryData(wddMatcherKeys.sessions(), ...)` cache-write call sites (in `runBackgroundPersistence` and `processFiles`) not named in the original repository-areas note. A second consumer file, `apps/web/src/components/tools/svwms-wdd-matcher/extraction-review-view.tsx`, was also found and updated — it calls `useRunMatchingMutation`/`useApproveAndMaterializeSessionMutation` and needed its own live `activeBranchId` read to supply them. All 6 call sites (1 query + 3 invalidations + 2 cache writes) across 3 files were reconciled — see the Phase 4 closeout bundle's `consumer-invalidation-matrix.md` for the complete, verified list.
 
 ### Supabase changes
 
@@ -372,10 +373,10 @@ workshopKeys.lineReservations(branchId, lineId)'s own pattern.
 
 ### Implementation tasks
 
-- [ ] Change wddMatcherKeys.sessions to accept branchId.
-- [ ] Update useSessionsQuery to read live activeBranchId and pass it in.
-- [ ] Update the 2-3 invalidateQueries({queryKey: wddMatcherKeys.sessions()}) call sites to match the new key shape.
-- [ ] Add a unit test on the key factory (branch change => different key) — closing the confirmed zero-coverage gap.
+- [x] Change wddMatcherKeys.sessions to accept branchId.
+- [x] Update useSessionsQuery to read live activeBranchId and pass it in. Implemented as an explicit `branchId` parameter (caller-supplied), matching the established `workshopKeys.lineReservations`/`useRepairOrderLineReservationsQuery` convention exactly — not read internally via `useAppStoreV2()` inside the hook itself, per the standing "no global store coupling inside query hooks" rule.
+- [x] Update the 2-3 invalidateQueries({queryKey: wddMatcherKeys.sessions()}) call sites to match the new key shape. Actual count: 3 invalidateQueries + 2 setQueryData call sites — see the factual correction above.
+- [x] Add a unit test on the key factory (branch change => different key) — closing the confirmed zero-coverage gap. 12 tests added in total (key factory + query behavior + invalidation semantics) — see the Phase 4 closeout bundle.
 
 ### Testing requirements
 
