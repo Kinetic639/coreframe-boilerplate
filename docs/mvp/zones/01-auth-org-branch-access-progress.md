@@ -5,11 +5,11 @@
 - **Zone:** 1
 - **Priority:** P0
 - **Architecture:** APPROVED
-- **Runtime status:** PARTIAL
-- **Current phase:** Phase 0 DONE — Phase 1 is next (not started)
+- **Runtime status:** PARTIAL / IMPLEMENTATION IN PROGRESS
+- **Current phase:** Phase 1 DONE (2026-09-24) — Phase 2 — Branch-aware DataView/query-key foundation is next (not started)
 - **Pitch readiness:** NOT YET
 - **Pilot readiness:** NOT READY
-- **Last updated:** 2026-09-23
+- **Last updated:** 2026-09-24
 
 ---
 
@@ -17,16 +17,16 @@
 
 Computed directly from checkbox counts in `01-auth-org-branch-access-implementation-plan.md`. Recompute whenever a phase's task list changes.
 
-- **Total implementation tasks (DEMO + PILOT): 9/95**
-- **Pitch-required tasks (Phases 0-8): 9/48**
-- **Pilot-required tasks (Phases A-I): 0/47**
+- **Total implementation tasks (DEMO + PILOT): 15/95**
+- **Pitch-required tasks (Phases 0-8): 15/49**
+- **Pilot-required tasks (Phases A-I): 0/46**
 
-Breakdown by phase (task count = number of checkboxes in that phase's "Implementation tasks" section in the plan):
+Breakdown by phase (task count = number of checkboxes in that phase's "Implementation tasks" section in the plan). Phase 1 gained a 6th task (the CLAUDE.md fix, moved in from Phase E) on 2026-09-24; Phase E's own count dropped to 5 accordingly — see the change log.
 
 | Phase     | Task count | Completed |
 | --------- | ---------- | --------- |
 | 0         | 9          | 9         |
-| 1         | 5          | 0         |
+| 1         | 6          | 6         |
 | 2         | 4          | 0         |
 | 3         | 5          | 0         |
 | 4         | 4          | 0         |
@@ -38,37 +38,60 @@ Breakdown by phase (task count = number of checkboxes in that phase's "Implement
 | B         | 6          | 0         |
 | C         | 3          | 0         |
 | D         | 5          | 0         |
-| E         | 6          | 0         |
+| E         | 5          | 0         |
 | F         | 5          | 0         |
 | G         | 4          | 0         |
 | H         | 6          | 0         |
 | I         | 4          | 0         |
-| **Total** | **95**     | **9**     |
+| **Total** | **95**     | **15**    |
 
 ---
 
 ## Phase tracker table
 
-| Phase                               | Status            | Pitch/Pilot        | Completed | Notes                                                                                      |
-| ----------------------------------- | ----------------- | ------------------ | --------- | ------------------------------------------------------------------------------------------ |
-| 0 — Implementation baseline         | DONE (2026-09-23) | PITCH prerequisite | 9/9       | Satisfied entirely by the pre-implementation verification bundle, committed at `5dfce9d3`. |
-| 1 — Centralized branch transition   | NOT STARTED       | PITCH              | 0/5       | Next phase. Root-cause fix for the branch-switch bug.                                      |
-| 2 — DataView/query-key foundation   | NOT STARTED       | PITCH              | 0/4       | Independent of Phase 1; can run in parallel.                                               |
-| 3 — Migrate DataView consumers      | NOT STARTED       | PITCH              | 0/5       | Depends on Phase 2.                                                                        |
-| 4 — Matcher query key               | NOT STARTED       | PITCH              | 0/4       | Independent of Phases 1-3.                                                                 |
-| 5 — Branch-state re-sweep           | NOT STARTED       | PITCH gate         | 0/4       | Depends on Phases 1-4.                                                                     |
-| 6 — Cross-branch QR/deep-link       | NOT STARTED       | PITCH              | 0/6       | Depends on Phase 1.                                                                        |
-| 7 — Automated closeout              | NOT STARTED       | PITCH gate         | 0/6       | Depends on Phases 1-6.                                                                     |
-| 8 — Manual DEMO READY UAT           | NOT STARTED       | PITCH gate         | 0/5       | Depends on Phases 1-7. Only after this: 🔵 DEMO READY.                                     |
-| A — Ownership invariants            | NOT STARTED       | PILOT              | 0/8       | Not scheduled this week.                                                                   |
-| B — Anti-escalation                 | NOT STARTED       | PILOT              | 0/6       | Not scheduled this week.                                                                   |
-| C — Invitation + one-org invariant  | NOT STARTED       | PILOT              | 0/3       | Not scheduled this week.                                                                   |
-| D — Branch RLS hardening            | NOT STARTED       | PILOT              | 0/5       | Not scheduled this week.                                                                   |
-| E — Schema reconciliation           | NOT STARTED       | PILOT              | 0/6       | Not scheduled this week. Includes the CLAUDE.md project-ref fix.                           |
-| F — Unsaved-work safety             | NOT STARTED       | PILOT              | 0/5       | Not scheduled this week.                                                                   |
-| G — Live test infrastructure        | NOT STARTED       | PILOT              | 0/4       | Not scheduled this week.                                                                   |
-| H — Administrative auditability     | NOT STARTED       | PILOT              | 0/6       | Not scheduled this week.                                                                   |
-| I — PILOT READY manual verification | NOT STARTED       | PILOT gate         | 0/4       | Depends on Phases A-H. Only after this: 🟢 PILOT READY.                                    |
+| Phase                               | Status               | Pitch/Pilot        | Completed | Notes                                                                                             |
+| ----------------------------------- | -------------------- | ------------------ | --------- | ------------------------------------------------------------------------------------------------- |
+| 0 — Implementation baseline         | DONE (2026-09-23)    | PITCH prerequisite | 9/9       | Satisfied entirely by the pre-implementation verification bundle, committed at `5dfce9d3`.        |
+| 1 — Centralized branch transition   | ✅ DONE (2026-09-24) | PITCH              | 6/6       | Root-cause fix for the branch-switch bug, landed. See "Phase 1 — detailed tracking" below.        |
+| 2 — DataView/query-key foundation   | NOT STARTED          | PITCH              | 0/4       | Independent of Phase 1; can run in parallel.                                                      |
+| 3 — Migrate DataView consumers      | NOT STARTED          | PITCH              | 0/5       | Depends on Phase 2.                                                                               |
+| 4 — Matcher query key               | NOT STARTED          | PITCH              | 0/4       | Independent of Phases 1-3.                                                                        |
+| 5 — Branch-state re-sweep           | NOT STARTED          | PITCH gate         | 0/4       | Depends on Phases 1-4.                                                                            |
+| 6 — Cross-branch QR/deep-link       | NOT STARTED          | PITCH              | 0/6       | Depends on Phase 1.                                                                               |
+| 7 — Automated closeout              | NOT STARTED          | PITCH gate         | 0/6       | Depends on Phases 1-6.                                                                            |
+| 8 — Manual DEMO READY UAT           | NOT STARTED          | PITCH gate         | 0/5       | Depends on Phases 1-7. Only after this: 🔵 DEMO READY.                                            |
+| A — Ownership invariants            | NOT STARTED          | PILOT              | 0/8       | Not scheduled this week.                                                                          |
+| B — Anti-escalation                 | NOT STARTED          | PILOT              | 0/6       | Not scheduled this week.                                                                          |
+| C — Invitation + one-org invariant  | NOT STARTED          | PILOT              | 0/3       | Not scheduled this week.                                                                          |
+| D — Branch RLS hardening            | NOT STARTED          | PILOT              | 0/5       | Not scheduled this week.                                                                          |
+| E — Schema reconciliation           | NOT STARTED          | PILOT              | 0/6       | Not scheduled this week. CLAUDE.md project-ref fix moved out — completed in Phase 1 (2026-09-24). |
+| F — Unsaved-work safety             | NOT STARTED          | PILOT              | 0/5       | Not scheduled this week.                                                                          |
+| G — Live test infrastructure        | NOT STARTED          | PILOT              | 0/4       | Not scheduled this week.                                                                          |
+| H — Administrative auditability     | NOT STARTED          | PILOT              | 0/6       | Not scheduled this week.                                                                          |
+| I — PILOT READY manual verification | NOT STARTED          | PILOT gate         | 0/4       | Depends on Phases A-H. Only after this: 🟢 PILOT READY.                                           |
+
+---
+
+## Phase 1 — detailed tracking
+
+Copied from the implementation plan's own task list when the phase started (2026-09-24), per the tracker's own "current/started phase gets full detail" rule. Phase completed same day.
+
+- [x] Determine the safe start route to redirect to after a switch.
+  - Evidence: Selected `/dashboard/start` — a static page with zero data fetching or branch-bound dynamic segments (`apps/web/src/app/[locale]/dashboard/start/page.tsx`), already used elsewhere in the codebase as the canonical "go home" destination (`components/v2/layout/quick-switcher.tsx`'s own default "Go to dashboard home" action). Satisfies every constraint in the task spec: exists today, valid for normal authenticated users, no object-ID dependency, cannot 404 under any branch context, no new page created.
+- [x] Add `router.refresh()` call to `handleBranchSelect` after a successful `changeBranch()` call.
+  - Evidence: `sidebar-branch-switcher.tsx:70`. Uses `useRouter` from `@/i18n/navigation` (the codebase's locale-aware wrapper), matching the import pattern already used by sibling dashboard components (`sidebar-org-header.tsx`, `dashboard-shell.tsx`, `quick-switcher.tsx`).
+- [x] Add navigation to the safe start route after a successful switch.
+  - Evidence: `sidebar-branch-switcher.tsx:69`, `router.replace(SAFE_ROUTE_AFTER_BRANCH_SWITCH)`. Used `replace` (not `push`) deliberately — a branch switch invalidates the previous route as a valid back-button target (going back would just re-surface the same stale-branch-object problem this phase closes), so no history entry should be kept for it, per the task's own "avoid unnecessary history entries" instruction. Ordering (`replace` before `refresh`) matches the one existing precedent for this exact pattern in the codebase (`inventory-movement-new-client.tsx:269-270`), and avoids briefly re-rendering the old, soon-to-be-abandoned branch-bound route before navigating away.
+- [x] Confirm the toast/loading state UX is not broken by the added navigation.
+  - Evidence: reviewed by inspection — `isPending`/`startTransition` (disables the switcher's buttons during the async operation) and the `toast.success`/`toast.error` calls are unchanged in structure; `router.replace`/`router.refresh` are synchronous calls scheduled inside the same `startTransition` callback and do not block or delay the toast, which is rendered via `react-toastify`'s own global portal (unaffected by client-side navigation within the same app tree).
+- [x] Update `sidebar-branch-switcher.test.tsx` to assert `router.refresh()`/navigation is called on success.
+  - Evidence: `sidebar-branch-switcher.test.tsx` — added a `useRouter` mock (`@/i18n/navigation`) and 3 new/updated tests: successful switch asserts `replace("/dashboard/start")` + `refresh()`; a dedicated ordering test proves `replace` is invoked before `refresh` via `mock.invocationCallOrder`; failure test asserts zero navigation/refresh/state-change occurred. Also added a same-branch no-op test (pre-existing behavior, now explicitly covered).
+- [x] (Added 2026-09-24, moved from PILOT Phase E) Fix `apps/web/CLAUDE.md`'s stale project-ref instruction.
+  - Evidence: `apps/web/CLAUDE.md:19` now reads `rjeraydumwechpjjzrus` and names the authoritative migration tree (`apps/web/supabase-target/supabase/migrations`), replacing the stale legacy ref (`zlcnlalwfmmtusigeuyk`). No other line in `CLAUDE.md` touched.
+
+**Tests:** `sidebar-branch-switcher.test.tsx` — 5/5 pass. Regression suite (`changeBranch.test.ts`, `permissions-sync.test.tsx`, `use-branch-permissions-query.test.tsx`, `load-dashboard-context.v2.test.ts`, `load-app-context.v2.test.ts`) — 54/55 pass; the 1 failure is the pre-existing, already-documented `load-app-context.v2.test.ts` fixture-drift failure (BLOCKER-Z1-005, owned by Phase 7 — unrelated file, not touched by this phase). `pnpm type-check`: clean. `pnpm eslint` on both touched files: 0 errors/warnings.
+
+**Blocker:** none. Phase 1 completed with no BLOCKED state and no architecture question raised.
 
 ---
 
@@ -78,7 +101,7 @@ Stable IDs, once assigned, are never reused. None of the items below block Phase
 
 ### PITCH implementation gaps (block DEMO READY, not yet started)
 
-- **BLOCKER-Z1-001** — Branch switch performs no `router.refresh()`/navigation/cache invalidation (`SidebarBranchSwitcher.handleBranchSelect`). Owner: Phase 1. Status: OPEN, not yet started.
+- **BLOCKER-Z1-001** — Branch switch performs no `router.refresh()`/navigation/cache invalidation (`SidebarBranchSwitcher.handleBranchSelect`). Owner: Phase 1. Status: **RESOLVED (2026-09-24)** — see Phase 1 detailed tracking above.
 - **BLOCKER-Z1-002** — `DataViewListParams` has no `branchId` field; 4 confirmed consumers (Locations, Inventory Balances, Inventory Movements, Inventory Products) have branch-agnostic cache keys. Owner: Phases 2-3. Status: OPEN, not yet started.
 - **BLOCKER-Z1-003** — `wddMatcherKeys.sessions()` is branch-agnostic; zero test coverage exists for this key. Owner: Phase 4. Status: OPEN, not yet started.
 - **BLOCKER-Z1-004** — `warehouse.location` QR/deep-link silently drops cross-branch intent instead of confirm-then-switch (safe, not a leak, but a missing UX requirement). Owner: Phase 6. Status: OPEN, not yet started.
@@ -99,13 +122,12 @@ Stable IDs, once assigned, are never reused. None of the items below block Phase
 
 - **BLOCKER-Z1-014** — `warehouse_locations`/`app_attachments` migrations missing from the authoritative target tree (live-correct, paper-trail-only gap). Owner: PILOT Phase E.
 - **BLOCKER-Z1-015** — `qr_codes`/`qr_assignments` have no committed migration source in either tree at all; live schema was applied out-of-band. Owner: PILOT Phase E.
-- **BLOCKER-Z1-016** — `apps/web/CLAUDE.md` line 19 instructs use of the stale legacy project ref (`zlcnlalwfmmtusigeuyk`) instead of the live target (`rjeraydumwechpjjzrus`). Owner: PILOT Phase E.
 - **BLOCKER-Z1-017** — 3 Zone-1-relevant client test suites (`roles-client`, `invitations-client`, `members-client`) crash on load due to an unrelated `nuqs`/`parseAsJson` version mismatch in the shared `data-view-url-state.ts` module — masks their own coverage. Owner: none assigned (explicitly out of Zone 1 scope; flagged for whoever owns the shared `data-view` component).
 - **BLOCKER-Z1-018** — `QrTargetDescriptor.validate()`'s JSDoc incorrectly claims `resolvePublicQrToken` runs with an authenticated, RLS-enforced client — it does not (service-role, zero auth check, by design). Stale comment, not a live security issue. Owner: Phase 6 (fixed as part of that phase's own QR work).
 
 ### No-longer-blocking findings
 
-None yet — no phase has completed re-verification work since the baseline.
+- **BLOCKER-Z1-016** (formerly listed under "Accepted deferred technical debt", owner PILOT Phase E) — `apps/web/CLAUDE.md` line 19's stale legacy project ref. **RESOLVED 2026-09-24** — fixed as a small operational-safety correction bundled into Phase 1 once implementation began, per explicit instruction, rather than waiting for PILOT Phase E. See Phase 1 detailed tracking above and the change log below.
 
 ---
 
@@ -126,6 +148,13 @@ Zone 3 discipline: date, phase, finding, evidence, classification, resolution, w
 
 - **Decision:** Re-evaluated `recommended-implementation-pass.md`'s 3-change recommendation and expanded it into 9 DEMO-READY phases (0-8) plus 9 PILOT-READY phases (A-I), per the required A-H topic separation and the "one coherent concern per phase" discipline modeled on Zone 3's 22-phase pattern. Rationale recorded in the phase-boundary analysis (`docs/mvp/reviews/zone1-implementation-planning-2026-09-23/zone1-phase-boundary-analysis.md`). Not a redesign of the underlying fixes themselves — the 3 recommended code changes map onto Phases 1 (branch transition), 2+3+4 (query-key foundation + 4 DataView consumers + Matcher, split from one change into 3 phases because DataView and Matcher are architecturally distinct modules and the 4 DataView consumers share one mechanical fix pattern), and 6 (QR confirm-then-switch). Architecture (the product decisions in `01-auth-org-branch-access.md`) is unaffected — this is purely an execution-sequencing decision. No product-owner decision was needed for this split itself.
 - **Decision:** Phase 0 is marked DONE immediately, citing the pre-implementation verification bundle as its own acceptance evidence, following the exact precedent Zone 3's own Phase 0A set (a baseline/reconciliation phase can close on verification evidence alone, without a corresponding code change).
+
+### 2026-09-24 — Phase 1 implementation
+
+- **Finding/fix:** `SidebarBranchSwitcher.handleBranchSelect` closed exactly as designed — added `router.replace("/dashboard/start")` then `router.refresh()` after a server-confirmed `changeBranch()` success, using the codebase's own `useRouter` (`@/i18n/navigation`) and matching the one existing in-codebase precedent for this exact ordering (`inventory-movement-new-client.tsx`). Evidence: `apps/web/src/app/[locale]/dashboard/_components/sidebar-branch-switcher.tsx`. Classification: CONFIRMED FIX, closes BLOCKER-Z1-001. Architecture unaffected — `changeBranch` itself, authorization, and all "already correct" foundations named in the plan were not touched. No product-owner decision needed.
+- **Decision:** Selected `/dashboard/start` as the safe start route (Zone 1 decision 22's "safe start screen"), based on it already being the codebase's own canonical "go home" destination (`quick-switcher.tsx`) and being fully static/branch-neutral (no data fetching, no dynamic segments) — resolved without needing a new product-owner decision, since it was directly derivable from existing code and the architecture doc.
+- **Scope correction (not a redesign):** Per explicit instruction, the `apps/web/CLAUDE.md` stale-project-ref housekeeping fix — originally deferred to PILOT Phase E in the 2026-09-23 planning pass — was moved to and completed in Phase 1 instead, since implementation had now begun. PILOT Phase E's own schema-reconciliation scope is unchanged; only this one unrelated housekeeping task moved. Both the implementation plan and this tracker were updated to reflect the new ownership (Phase E's task count: 6→5; Phase 1's task count: 5→6). This mirrors Zone 3's own "SCOPE CORRECTION" banner discipline — recorded here rather than silently editing the original 2026-09-23 planning-pass entry above.
+- **No blockers encountered.** No implementation evidence contradicted the accepted architecture; no STOP condition was triggered.
 
 ---
 

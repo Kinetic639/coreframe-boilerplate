@@ -128,7 +128,7 @@ The Zone 1 pre-implementation verification bundle (11 files) exists, is committe
 
 ### Out of scope
 
-Any runtime implementation. Any fix to apps/web/CLAUDE.md's stale project-ref instruction — assigned to PILOT Phase E instead.
+Any runtime implementation. Any fix to apps/web/CLAUDE.md's stale project-ref instruction — originally assigned to PILOT Phase E; moved to Phase 1 and fixed there on 2026-09-24 as a tiny operational-safety documentation correction once implementation began (see Phase 1's own "Implementation tasks" and PILOT Phase E's updated scope note below).
 
 ### Blocker rule
 
@@ -178,6 +178,7 @@ changeBranch server action (already correct, do not modify); Next.js router.refr
 - [ ] Add navigation to the safe start route after a successful switch.
 - [ ] Confirm the toast/loading state UX is not broken by the added navigation.
 - [ ] Update sidebar-branch-switcher.test.tsx to assert router.refresh()/navigation is called on success.
+- [ ] (Added 2026-09-24, moved from PILOT Phase E per explicit instruction once implementation began) Fix apps/web/CLAUDE.md's stale "always use zlcnlalwfmmtusigeuyk" project-reference instruction to reference the live target ref (rjeraydumwechpjjzrus) and the authoritative migration tree (apps/web/supabase-target/supabase/migrations). Tiny operational-safety documentation correction only — not part of Phase 1's own runtime logic, and does not touch PILOT Phase E's actual schema-reconciliation scope.
 
 ### Testing requirements
 
@@ -935,7 +936,7 @@ Phase 0. Should ideally precede or run alongside Phase D — TO VERIFY DURING PH
 
 ### Repository areas affected
 
-New migration files only, in apps/web/supabase-target/supabase/migrations. Also: apps/web/CLAUDE.md's stale project-ref instruction (deferred from Phase 0, fixed here).
+New migration files only, in apps/web/supabase-target/supabase/migrations. (The apps/web/CLAUDE.md stale project-ref fix originally planned for this phase was moved to and completed in Phase 1 on 2026-09-24, once implementation began — see that phase's own task list. This phase's own schema-reconciliation scope below is unaffected by that move.)
 
 ### Supabase changes
 
@@ -951,8 +952,9 @@ The exact reconstruction methodology already proven in this project's own Invent
 - [ ] Reconstruct all 4 wdd*matcher*\* tables' CREATE TABLE + RLS, same approach.
 - [ ] Reconstruct app_attachments's CREATE TABLE + RLS, same approach.
 - [ ] Reconstruct qr_codes/qr_assignments from scratch (no source anywhere) — pure information_schema/pg_catalog reverse-engineering, explicitly disclosed as such.
-- [ ] Fix apps/web/CLAUDE.md's stale "always use zlcnlalwfmmtusigeuyk" instruction to reference the actual live target ref (rjeraydumwechpjjzrus).
 - [ ] Cross-verify every reconstructed migration replays cleanly, without claiming to resolve the BROADER clean-room reproducibility gap Inventory Core already found and deferred.
+
+(The task "fix apps/web/CLAUDE.md's stale project-ref instruction," originally listed here, was moved to and completed in Phase 1 on 2026-09-24 once implementation began — removed from this list; this phase now has 5 implementation tasks, not 6. See Phase 1's own task list for the completed item.)
 
 ### Testing requirements
 
@@ -961,8 +963,9 @@ Live schema diff/comparison; no new Vitest/pgTAP expected since no application b
 ### Acceptance criteria
 
 1. All 6 tables have a reviewable CREATE TABLE + RLS migration in the authoritative target tree.
-2. apps/web/CLAUDE.md correctly references the live target project ref.
-3. This work does not claim to resolve Inventory Core's own separately-accepted, broader clean-room reproducibility gap.
+2. This work does not claim to resolve Inventory Core's own separately-accepted, broader clean-room reproducibility gap.
+
+(The original acceptance criterion 2 — apps/web/CLAUDE.md correctly references the live target project ref — was met early, in Phase 1 on 2026-09-24, and is no longer this phase's own criterion to satisfy.)
 
 ### Out of scope
 
