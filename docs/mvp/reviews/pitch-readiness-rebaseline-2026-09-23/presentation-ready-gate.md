@@ -3,6 +3,8 @@
 Only what must exist to safely perform the internal pitch this week. Pilot-only requirements are explicitly excluded — see `pilot-ready-gate.md`.
 
 > **CORRECTED 2026-09-23** (Final MVP/Pitch Documentation Consolidation pass) — two corrections from the original version of this gate: (1) Container QR (Phase 10D), container relocation (Phase 10E), and 201/WZ issue (Phase 10F) are **PITCH REQUIRED**, confirmed by the product owner's own 2026-09-10 scope-expansion directive — no longer presented as "narrow the script instead" optional decisions. (2) The home dashboard is reclassified from a hard blocker to **PITCH SHOULD / HIGH FIRST-IMPRESSION RISK** — the current master script does not itself require lingering on the dashboard screen.
+>
+> **CORRECTED AGAIN 2026-09-24** (Dashboard/Container Product Clarification pass) — the home dashboard's "PITCH SHOULD" item below (item 1 in "PRESENTATION SHOULD-FIX") is now **REMOVED**: product-owner decision, current dashboard experience is DEMO SUFFICIENT, no further work required before pitch. See `docs/mvp/reviews/dashboard-container-product-clarification-2026-09-24/dashboard-current-status.md`. The Phase 10D/10E/10F PITCH REQUIRED classification from the correction above is unchanged and unaffected by this pass.
 
 ## Current verdict: **NOT READY**
 
@@ -57,7 +59,7 @@ Only what must exist to safely perform the internal pitch this week. Pilot-only 
 
 ## PRESENTATION SHOULD-FIX (ordered, materially reduces demo risk but not a hard blocker)
 
-1. **Zone 11 — minimal home dashboard.** High first-impression risk (literal first screen after login), but not a hard blocker since the current master script doesn't itself linger there. **Size: M** (scope decision, then a real-data server component).
+1. ~~**Zone 11 — minimal home dashboard.**~~ **REMOVED 2026-09-24** — product-owner decision: DEMO SUFFICIENT, no pitch work required. See `docs/mvp/reviews/dashboard-container-product-clarification-2026-09-24/dashboard-current-status.md`.
 2. **Zone 6 — SKU search bug.** Product search matches name only, never SKU. **Size: XS.**
 3. **Zone 6 — movement-kind label bug.** History never renders "transfer" for codes 801/311. **Size: XS.**
 4. **Zone 6 — missing `posted_by` in history.** **Size: XS.**
@@ -81,17 +83,17 @@ Only what must exist to safely perform the internal pitch this week. Pilot-only 
 
 ## Estimated remaining work (XS/S/M/L packages only, no time promises)
 
-| Item                           | Size    | Dependency                                     | Parallelizable? |
-| ------------------------------ | ------- | ---------------------------------------------- | --------------- |
-| Zone 1 branch-switch fix       | S       | None                                           | Yes             |
-| Phase 10D Container QR         | M       | None                                           | Yes             |
-| Receiving/putaway mobile UI    | L       | None (sequence after Zone 1 fix for clean UAT) | Yes             |
-| Phase 10E Container relocation | S-M     | Phase 10D                                      | No — after 10D  |
-| Phase 10F 201/WZ issue         | M       | None                                           | Yes             |
-| Zone 11 minimal dashboard      | M       | None                                           | Yes             |
-| Zone 6 small fixes (3 items)   | XS each | None                                           | Yes             |
-| Zone 4 fresh QR manual pass    | XS      | Ideally after Zone 1 fix                       | Mostly          |
-| Zone 3 fresh manual UAT        | XS-S    | None                                           | Yes             |
-| Zone 2 Approve-flow rehearsal  | XS      | None                                           | Yes             |
+| Item                                             | Size    | Dependency                                     | Parallelizable? |
+| ------------------------------------------------ | ------- | ---------------------------------------------- | --------------- |
+| Zone 1 branch-switch fix                         | S       | None                                           | Yes             |
+| Phase 10D Container QR                           | M       | None                                           | Yes             |
+| Receiving/putaway mobile UI                      | L       | None (sequence after Zone 1 fix for clean UAT) | Yes             |
+| Phase 10E Container relocation                   | S-M     | Phase 10D                                      | No — after 10D  |
+| Phase 10F 201/WZ issue                           | M       | None                                           | Yes             |
+| ~~Zone 11 minimal dashboard~~ REMOVED 2026-09-24 | —       | —                                              | —               |
+| Zone 6 small fixes (3 items)                     | XS each | None                                           | Yes             |
+| Zone 4 fresh QR manual pass                      | XS      | Ideally after Zone 1 fix                       | Mostly          |
+| Zone 3 fresh manual UAT                          | XS-S    | None                                           | Yes             |
+| Zone 2 Approve-flow rehearsal                    | XS      | None                                           | Yes             |
 
 See `this-week-execution-plan.md` for the full sequenced, prioritized plan.

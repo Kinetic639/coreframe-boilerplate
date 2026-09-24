@@ -3,6 +3,8 @@
 Optimized for the product owner's explicit goal: presentation-ready THIS WEEK. Relative sizing only (XS/S/M/L) — no calendar-hour promises.
 
 > **CORRECTED 2026-09-23**: order now reflects the confirmed PITCH-REQUIRED status of container QR/relocation/issue (Phases 10D-F), and Zone 1's fix runs first since it is the smallest, fully independent item and unblocks clean UAT for everything else.
+>
+> **CORRECTED 2026-09-24**: the "Zone 11 minimal home dashboard" row below is REMOVED — product-owner decision, current dashboard experience is DEMO SUFFICIENT, no pitch work required. See `docs/mvp/reviews/dashboard-container-product-clarification-2026-09-24/dashboard-current-status.md`. All other P0/P1 items in this plan are unaffected.
 
 ## P0-1. Zone 1 branch-switch/cache fix
 
@@ -66,15 +68,14 @@ Optimized for the product owner's explicit goal: presentation-ready THIS WEEK. R
 
 ## P1 — should finish because it materially reduces demo risk
 
-| Item                             | Dependency                  | Area                                    | Migration? | Architecture change? | Nature                            | Size | Parallel?             | Test          | Manual UAT? |
-| -------------------------------- | --------------------------- | --------------------------------------- | ---------- | -------------------- | --------------------------------- | ---- | --------------------- | ------------- | ----------- |
-| Zone 11 minimal home dashboard   | None (scope decision first) | `dashboard/start/page.tsx`              | No         | No                   | Scope decision, then UI + service | M    | Yes                   | Manual        | Yes         |
-| Zone 6 SKU search fix            | None                        | `InventoryProductsService.listProducts` | No         | No                   | Bug fix                           | XS   | Yes                   | Unit + manual | Yes         |
-| Zone 6 movement-kind label fix   | None                        | `location-detail-panel.tsx` (~line 311) | No         | No                   | Bug fix                           | XS   | Yes                   | Unit + manual | Recommended |
-| Zone 6 `posted_by` display       | None                        | Location history component              | No         | No                   | UI addition                       | XS   | Yes                   | Manual        | Recommended |
-| Zone 4 fresh QR manual pass      | Ideally after P0-1          | N/A — verification only                 | No         | No                   | Verification                      | XS   | Mostly, sequence last | Manual only   | YES         |
-| Zone 3 fresh Phase 7+ manual UAT | None                        | N/A — verification only                 | No         | No                   | Verification                      | XS-S | Yes                   | Manual only   | YES         |
-| Zone 2 Approve-flow rehearsal    | None                        | N/A — verification only                 | No         | No                   | Verification                      | XS   | Yes                   | Manual only   | YES         |
+| Item                             | Dependency         | Area                                    | Migration? | Architecture change? | Nature       | Size | Parallel?             | Test          | Manual UAT? |
+| -------------------------------- | ------------------ | --------------------------------------- | ---------- | -------------------- | ------------ | ---- | --------------------- | ------------- | ----------- |
+| Zone 6 SKU search fix            | None               | `InventoryProductsService.listProducts` | No         | No                   | Bug fix      | XS   | Yes                   | Unit + manual | Yes         |
+| Zone 6 movement-kind label fix   | None               | `location-detail-panel.tsx` (~line 311) | No         | No                   | Bug fix      | XS   | Yes                   | Unit + manual | Recommended |
+| Zone 6 `posted_by` display       | None               | Location history component              | No         | No                   | UI addition  | XS   | Yes                   | Manual        | Recommended |
+| Zone 4 fresh QR manual pass      | Ideally after P0-1 | N/A — verification only                 | No         | No                   | Verification | XS   | Mostly, sequence last | Manual only   | YES         |
+| Zone 3 fresh Phase 7+ manual UAT | None               | N/A — verification only                 | No         | No                   | Verification | XS-S | Yes                   | Manual only   | YES         |
+| Zone 2 Approve-flow rehearsal    | None               | N/A — verification only                 | No         | No                   | Verification | XS   | Yes                   | Manual only   | YES         |
 
 ## P2 — polish only
 
@@ -96,9 +97,9 @@ Optimized for the product owner's explicit goal: presentation-ready THIS WEEK. R
 
 ## Suggested execution order (respecting dependencies, maximizing parallelism)
 
-1. **Immediately, in parallel**: P0-1 (Zone 1 fix), P0-2 (Container QR), P0-3 (Receiving/putaway — start early given its size), P0-5 (201/WZ issue), Zone 11 scope decision.
+1. **Immediately, in parallel**: P0-1 (Zone 1 fix), P0-2 (Container QR), P0-3 (Receiving/putaway — start early given its size), P0-5 (201/WZ issue).
 2. **Once P0-2 lands**: P0-4 (Container relocation).
-3. **In parallel throughout**: all P1 small bug fixes (Zone 6 ×3) and Zone 11's own build once scoped.
+3. **In parallel throughout**: all P1 small bug fixes (Zone 6 ×3).
 4. **Last, after everything else affecting the same screens is done**: fresh manual UAT passes — Zone 1 (after P0-1), Zone 4 QR (after P0-1 and P0-2), Zone 3 Phase 7+, Zone 2 Approve-flow, and finally a full end-to-end rehearsal of the entire minimum pitch flow.
 
 ## Safe to start the first implementation/fix pass?

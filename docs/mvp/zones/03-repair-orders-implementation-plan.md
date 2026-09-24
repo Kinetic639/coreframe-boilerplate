@@ -1093,6 +1093,8 @@ PITCH.
 
 ## Phase 10E — 801 whole-container relocation
 
+> **Product clarification (2026-09-24)**: this phase's scope is confirmed CORRECT and unchanged — it covers WHOLE-container relocation only (same container ID, new location), exactly matching the accepted container operating model's own "moving the whole container" decision. A DIFFERENT, currently unscoped workflow — partial move from a container, which creates a NEW container inheriting the source's RepairOrder — was clarified this pass and is NOT covered by this phase or any other existing phase. Recorded as a planning finding, not designed or scheduled here: see `docs/mvp/zones/03-repair-orders-container-workflow-audit.md` §31.C and `docs/mvp/reviews/dashboard-container-product-clarification-2026-09-24/container-product-decisions.md`.
+
 ### Objective
 
 Build the container-relocation RPC per decision 1 (container-as-movement-carrier): one atomic operation that posts a real 801 movement for the container's contents AND updates `inventory_containers.current_location_id` together.
@@ -1147,6 +1149,8 @@ PITCH.
 ---
 
 ## Phase 10F — 201/WZ issue from container
+
+> **Product clarification (2026-09-24)**: this phase's scope is confirmed CORRECT and unchanged — the accepted container operating model requires both whole-container issue (issue all remaining contents, container may end `status='empty'`) and partial issue (selected lines/quantities leave, remainder stays in the same container), and this phase's existing design ("decrements the container line's quantity... container reaching zero contents → status='empty'") already supports both. No task wording or acceptance criteria changed. See `docs/mvp/zones/03-repair-orders-container-workflow-audit.md` §31.F.
 
 ### Objective
 

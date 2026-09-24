@@ -12,13 +12,14 @@ Consolidates `presentation-ready-gate.md` (rewritten this pass) into a single re
 
 ## PRESENTATION SHOULD-FIX
 
-1. Zone 11 minimal home dashboard — high first-impression risk, NOT a hard blocker (script doesn't require lingering there). Size M.
-2. Zone 6 SKU search fix. Size XS.
-3. Zone 6 movement-kind label fix. Size XS.
-4. Zone 6 `posted_by` history display. Size XS.
-5. Zone 4 fresh QR manual UAT (6+ weeks stale). Size XS.
-6. Zone 3 fresh Phase 7+ manual UAT. Size XS-S.
-7. Zone 2 Approve→RepairOrder rehearsal. Size XS.
+<!-- "Zone 11 minimal home dashboard" removed 2026-09-24 — product-owner decision: current dashboard is DEMO SUFFICIENT, no pitch work required. See docs/mvp/reviews/dashboard-container-product-clarification-2026-09-24/dashboard-current-status.md. -->
+
+1. Zone 6 SKU search fix. Size XS.
+2. Zone 6 movement-kind label fix. Size XS.
+3. Zone 6 `posted_by` history display. Size XS.
+4. Zone 4 fresh QR manual UAT (6+ weeks stale). Size XS.
+5. Zone 3 fresh Phase 7+ manual UAT. Size XS-S.
+6. Zone 2 Approve→RepairOrder rehearsal. Size XS.
 
 ## OPTIONAL
 

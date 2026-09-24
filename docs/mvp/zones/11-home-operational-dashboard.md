@@ -1,15 +1,22 @@
 ### 11. Home / Operational Dashboard
 
-# CURRENT STATUS — 2026-09-23
+# CURRENT STATUS — 2026-09-24
 
-**CORRECTED CLASSIFICATION (2026-09-23): PITCH SHOULD / HIGH FIRST-IMPRESSION RISK, not a hard functional blocker.** The current master pitch script (`docs/mvp/ambra-skrypt-prezentacji.md`) does NOT itself require a dashboard demo — the script choreography moves directly from login into the Matcher/RepairOrder flow, not "remain visibly on `/dashboard/start`." Re-classify only as a hard blocker if the actual rehearsed choreography explicitly requires lingering on the start screen.
+**CURRENT STATUS — DEMO SUFFICIENT / NO PITCH WORK REQUIRED.** Product-owner clarification (2026-09-24, recorded in full in `docs/mvp/reviews/dashboard-container-product-clarification-2026-09-24/dashboard-current-status.md`): the current Ambra dashboard _experience_ — active branch/org context (sidebar, always visible across every dashboard page), the live activity feed (`DashboardStatusBar.tsx`, real data via `getLatestActivityAction()`, present on every dashboard page), and the adjacent real, working modules one click away (Kanban board, Tickets, Tasks/Planning) — is accepted as sufficient for the pitch. This is NOT a presentation blocker, NOT a "PITCH SHOULD" item, and NOT a required pre-presentation task. It may receive later polish, but no further implementation is required before the pitch.
 
-The underlying finding is unchanged and re-confirmed: `/dashboard/start` is still a 15-line static placeholder, zero data fetching, zero scope decision made, unchanged since this document was written despite two weeks of substantial adjacent engineering effort. This IS the literal first screen every user sees after login, and a placeholder here materially affects first impression even if it's never lingered on — it should ideally receive a minimal, honest implementation before the pitch. Advanced analytics/BI remain roadmap, out of scope for this minimal version.
+**This does not change the underlying, still-accurate code fact, preserved below as historical/technical evidence**: `/dashboard/start/page.tsx` itself remains, as of 2026-09-24, the exact same 15-line static placeholder described by the original audit (live-reverified: file unchanged since 2026-03-21, zero data fetching, zero server component). The product-owner decision is a judgment call that the surrounding operational shell and adjacent modules already make a strong-enough first impression without that one specific landing route being rebuilt — it is not a claim that the placeholder file itself was replaced with widgets. If a future pass rebuilds `/dashboard/start` as a real, data-driven landing screen, that remains a legitimate polish item, just not one gating the pitch.
 
 # CURRENT REMAINING WORK
 
+None required before pitch. `/dashboard/start`'s own placeholder-to-real-landing-screen rebuild (the two items previously listed here) remains a legitimate future polish item, not pitch-blocking work — see the CURRENT STATUS banner above.
+
+<details>
+<summary>HISTORICAL — previously listed as required pre-pitch work (2026-09-23), superseded by the 2026-09-24 product-owner acceptance above</summary>
+
 1. Scope decision: which minimal widgets/summaries (active-branch context, real recent-activity data, a small set of useful quick actions — not fabricated metrics, not full BI).
 2. Build a server-fetched component replacing the current static placeholder.
+
+</details>
 
 # HISTORICAL AUDIT / DESIGN RECORD
 
@@ -69,7 +76,7 @@ _To be reviewed together before implementation._
 
 ### Product decisions
 
-_No final decisions recorded yet._
+**DECIDED (2026-09-24, product-owner clarification):** the current dashboard experience is accepted as DEMO SUFFICIENT for the pitch — no further implementation is required beforehand. See the CURRENT STATUS banner at the top of this file and `docs/mvp/reviews/dashboard-container-product-clarification-2026-09-24/dashboard-current-status.md` for the full record. This decision covers pitch readiness only — it does not resolve widget scope/design for a future real `/dashboard/start` rebuild, which remains open, undecided, non-blocking future polish.
 
 ### Final intended workflow
 
@@ -85,7 +92,7 @@ _To be rebuilt after clarification._
 
 ### Final pitch scope
 
-_To be defined after clarification._
+**DECIDED (2026-09-24):** none. No dashboard implementation work is in the pitch scope. The existing operational shell (branch/org context, activity feed, adjacent real modules) is what will be shown.
 
 ### Final controlled-pilot scope
 

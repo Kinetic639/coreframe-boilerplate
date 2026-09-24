@@ -269,13 +269,33 @@ Net-new: a `RepairOrdersService`/RPC surface for reserving stock for a RepairOrd
 
 ## 29. Open Product Decisions (blocking further design, not blocking Phase 3 itself)
 
-1. **Container relocation model** — §10 option 1 (movement-carrier, reuses 801/engine) vs option 2 (independent pointer, dedicated RPC). This determines whether `inventory_balances` stays the sole ledger or whether container location becomes a second source of truth that must be kept consistent.
-2. **Does allocation require a prior reservation for the RepairOrder flow**, or can RepairOrderLine go straight to allocation (schema already supports both — `reservation_id` is nullable on `inventory_allocations`)?
-3. **RepairOrder close behavior** on outstanding reservations/allocations/containers (§21) — auto-release vs. manual.
-4. **Empty container semantics** — add `'empty'` status vs. derive from line sum (§22).
-5. **Container ownership/custody** — is this in scope at all for pitch, or is "current_location_id" sufficient (§23)?
-6. **Per-part QR** vs. container-only QR (§7) — confirm pitch only needs container-level scanning.
-7. **Permission granularity** — accept `warehouse.inventory.operate` covering reserve/allocate/container-manage for pitch, or split now (§16)?
+1. **Container relocation model** — §10 option 1 (movement-carrier, reuses 801/engine) vs option 2 (independent pointer, dedicated RPC). **RESOLVED** — option 1 selected; this is exactly what Phase 10E's own design implements (one atomic operation posting a real 801 movement + updating `current_location_id` together).
+2. **Does allocation require a prior reservation for the RepairOrder flow**, or can RepairOrderLine go straight to allocation (schema already supports both — `reservation_id` is nullable on `inventory_allocations`)? Still open.
+3. **RepairOrder close behavior** on outstanding reservations/allocations/containers (§21) — auto-release vs. manual. Still open.
+4. **Empty container semantics** — add `'empty'` status vs. derive from line sum (§22). **RESOLVED** — Phase 10C implemented the `'empty'` status, with `inventory_add_to_container`/`inventory_remove_from_container` maintaining it atomically as an invariant.
+5. **Container ownership/custody** — is this in scope at all for pitch, or is "current_location_id" sufficient (§23)? Still open.
+6. **Per-part QR** vs. container-only QR (§7) — confirm pitch only needs container-level scanning. **RESOLVED 2026-09-24** (product-owner clarification) — pitch scope remains location QR + container QR only. Free/standalone stock may get unit-level QR in a future PILOT-or-later pass, but this is explicitly NOT pitch scope. See §31 below.
+7. **Permission granularity** — accept `warehouse.inventory.operate` covering reserve/allocate/container-manage for pitch, or split now (§16)? Still open.
+
+---
+
+## 31. Product Clarification — Container Operating Model (2026-09-24)
+
+Full record and rationale: `docs/mvp/reviews/dashboard-container-product-clarification-2026-09-24/container-product-decisions.md` and `container-user-flows.md`. Summary of the accepted decisions (applies specifically to RepairOrder-assigned stock — does NOT redefine the model for generic free stock, see item G below):
+
+**A. RepairOrder stock must be containerized.** Parts assigned to a RepairOrder must not be stored loose as a normal operational state. Normal lifecycle: RepairOrder part → container → location. A RepairOrder may have multiple containers; a container belongs operationally to one RepairOrder. **Consistent with the existing accepted architecture** — Phase 10C already established containers as the physical-grouping mechanism and its own correction pass already closed cross-RepairOrder container mixing (see item E below). This decision formalizes containerization as the NORMAL path, not merely an available option; it does not change any already-built RPC or schema.
+
+**B. No normal "store loose" user action for RepairOrder parts.** The system may still technically observe uncontainerized states internally (transitional, legacy/import, diagnostic read-model inconsistency) — this is not removed or newly forbidden at the technical level — but it must not be presented as the intended normal user workflow. No existing implementation currently offers such an action (Phase 10C explicitly built no UI at all yet), so this is a forward-looking UX constraint on future Phase 10D+ UI work, not a correction to anything already shipped.
+
+**C. Partial move from a container creates a NEW container, inheriting the same RepairOrder.** Worker selects lines/quantities from a source container, scans/selects a destination, confirms "move selected parts and create a new container." Result: a new container is created, auto-assigned to the SAME RepairOrder as the source (never re-asked), the moved quantities are removed from the source container and assigned to the new one, the new container gets the destination location and a newly generated QR/label, and the source container remains at its original location with its remaining contents. **This is a genuinely new workflow, not currently covered by any existing phase.** Phase 10E as currently scoped ONLY covers whole-container relocation (§D below) — it has no concept of splitting a container's contents into a new container during a move. **Recorded here as a planning finding, per explicit instruction not to invent its design in a documentation-only pass.** A future phase (tentatively "Phase 10E-partial" or similar — name and scope not decided here) would need to design: the new-container-creation RPC, its atomicity with the source-container quantity decrement, QR/label generation timing, and its own pgTAP coverage — none of which is designed or scheduled by this clarification pass.
+
+**D. Whole-container relocation is unchanged.** Scan/open container → choose Move Container → scan/select destination → confirm → the whole container and all its contents move together, same container ID, new location, no new container created. **Exactly matches Phase 10E's existing design** — no correction needed.
+
+**E. Adding parts to an existing container: same-RepairOrder only, already enforced.** A worker may add additional parts belonging to the SAME RepairOrder to an existing container of that RepairOrder, or create a new one. Mixing parts from different RepairOrders into one RepairOrder-owned container remains forbidden. **Already implemented and live-tested** — Phase 10C's own correction pass (2026-09-14, finding 2) closed exactly this cross-RepairOrder mixing gap in `inventory_add_to_container`, proven via pgTAP T15-T21. Referenced here, not redesigned.
+
+**F. Issue from container: both whole and partial are intended.** Worker may issue the entire remaining container contents (container may end `status='empty'`) or only selected lines/quantities (remainder stays in the same container). **Consistent with Phase 10F's existing design** — "decrements the container line's quantity... container reaching zero contents → status='empty'" already supports both modes; Phase 10F's own task wording is accurate and needs no correction. Exact runtime implementation remains Phase 10F, not built here.
+
+**G. Free stock / non-RepairOrder stock is a distinct concept.** The mandatory-containerization rule (A/B above) applies only to RepairOrder-assigned stock. Free stock may exist without a RepairOrder, but must still have a known warehouse location — no stock should exist operationally without identification. Future scope (explicitly NOT pitch scope) may extend QR identification to standalone stock units for unit-level traceability, usable as an action context (create Ticket, create Task, move, assign to RepairOrder, add to container, view history). **Consistent with this audit's own §7 recommendation** ("scope the pitch to container-level QR only... unless product confirms a genuine need to scan a single loose part... that would be new surface, not a wiring gap") — this clarification confirms that need has NOT been confirmed for pitch; per-part/standalone-unit QR remains future/PILOT-or-later scope. Resolves Open Product Decision #6 above.
 
 ---
 
