@@ -6,7 +6,7 @@
 - **Priority:** P0
 - **Architecture:** APPROVED
 - **Runtime status:** PARTIAL / IMPLEMENTATION IN PROGRESS
-- **Current phase:** Phase 1 DONE (2026-09-24) — Phase 2 — Branch-aware DataView/query-key foundation is next (not started)
+- **Current phase:** Phase 2 DONE (2026-09-24) — Phase 3 — Migrate confirmed branch-scoped DataView consumers is next (not started)
 - **Pitch readiness:** NOT YET
 - **Pilot readiness:** NOT READY
 - **Last updated:** 2026-09-24
@@ -17,17 +17,17 @@
 
 Computed directly from checkbox counts in `01-auth-org-branch-access-implementation-plan.md`. Recompute whenever a phase's task list changes.
 
-- **Total implementation tasks (DEMO + PILOT): 15/95**
-- **Pitch-required tasks (Phases 0-8): 15/49**
+- **Total implementation tasks (DEMO + PILOT): 19/95**
+- **Pitch-required tasks (Phases 0-8): 19/49**
 - **Pilot-required tasks (Phases A-I): 0/46**
 
-Breakdown by phase (task count = number of checkboxes in that phase's "Implementation tasks" section in the plan). Phase 1 gained a 6th task (the CLAUDE.md fix, moved in from Phase E) on 2026-09-24; Phase E's own count dropped to 5 accordingly — see the change log.
+Breakdown by phase (task count = number of checkboxes in that phase's "Implementation tasks" section in the plan, recomputed by direct grep against the plan file, not estimated). Phase 1 gained a 6th task (the CLAUDE.md fix, moved in from Phase E) on 2026-09-24; Phase E's own count dropped to 5 accordingly. Phase 2 completed 2026-09-24 — see the change log for both.
 
 | Phase     | Task count | Completed |
 | --------- | ---------- | --------- |
 | 0         | 9          | 9         |
 | 1         | 6          | 6         |
-| 2         | 4          | 0         |
+| 2         | 4          | 4         |
 | 3         | 5          | 0         |
 | 4         | 4          | 0         |
 | 5         | 4          | 0         |
@@ -43,7 +43,7 @@ Breakdown by phase (task count = number of checkboxes in that phase's "Implement
 | G         | 4          | 0         |
 | H         | 6          | 0         |
 | I         | 4          | 0         |
-| **Total** | **95**     | **15**    |
+| **Total** | **95**     | **19**    |
 
 ---
 
@@ -53,7 +53,7 @@ Breakdown by phase (task count = number of checkboxes in that phase's "Implement
 | ----------------------------------- | -------------------- | ------------------ | --------- | ------------------------------------------------------------------------------------------------- |
 | 0 — Implementation baseline         | DONE (2026-09-23)    | PITCH prerequisite | 9/9       | Satisfied entirely by the pre-implementation verification bundle, committed at `5dfce9d3`.        |
 | 1 — Centralized branch transition   | ✅ DONE (2026-09-24) | PITCH              | 6/6       | Root-cause fix for the branch-switch bug, landed. See "Phase 1 — detailed tracking" below.        |
-| 2 — DataView/query-key foundation   | NOT STARTED          | PITCH              | 0/4       | Independent of Phase 1; can run in parallel.                                                      |
+| 2 — DataView/query-key foundation   | ✅ DONE (2026-09-24) | PITCH              | 4/4       | Foundation only — no consumer migrated. See "Phase 2 — detailed tracking" below.                  |
 | 3 — Migrate DataView consumers      | NOT STARTED          | PITCH              | 0/5       | Depends on Phase 2.                                                                               |
 | 4 — Matcher query key               | NOT STARTED          | PITCH              | 0/4       | Independent of Phases 1-3.                                                                        |
 | 5 — Branch-state re-sweep           | NOT STARTED          | PITCH gate         | 0/4       | Depends on Phases 1-4.                                                                            |
@@ -95,6 +95,25 @@ Copied from the implementation plan's own task list when the phase started (2026
 
 ---
 
+## Phase 2 — detailed tracking
+
+Copied from the implementation plan's own task list when the phase started (2026-09-24), per the tracker's own "current/started phase gets full detail" rule. Phase completed same day. Note (2026-09-24, correction): Phase 1's own checkboxes were left unchecked in the implementation plan when Phase 1 was first marked DONE earlier this session — this tracker's own summary numbers were briefly stated from memory rather than the plan's actual checkbox state, contrary to this tracker's own "never estimate" rule. Corrected before Phase 2's own count was computed; the plan's Phase 1 checkboxes are now marked `[x]` to match reality, and all counts above are freshly recomputed by direct grep against the plan file.
+
+- [x] Add an optional branchId field to DataViewListParams.
+  - Evidence: **deviated from the literal plan wording — corrected, not implemented as originally written.** Inspection of `use-data-view-query.ts` showed `DataViewListParams` is passed directly to every `listFetcher(listParams)` call — i.e. it IS the server request payload, not purely cache-key material. Adding `branchId` there would have leaked it into request payloads, violating the explicit "query key and server request payload are separate concerns" requirement. Instead, `branchId?: string | null` was added to `UseDataViewListQueryOptions` and `UseDataViewSidebarInfiniteQueryOptions` directly (the hook-options layer), merged into the query key via a new pure helper. `DataViewListParams` itself (`src/lib/data-view/types.ts`) was left untouched. See the implementation plan's own updated Phase 2 task list and `docs/mvp/reviews/zone1-phase2-dataview-foundation-2026-09-24/query-key-contract.md` for the full contract and rationale.
+- [x] Update use-data-view-query.ts's own key-building logic to merge branchId into the query key when present, leaving it unaffected when absent (backward-compatible for org-scoped screens).
+  - Evidence: `apps/web/src/components/data-view/use-data-view-query.ts` — new exported `buildDataViewQueryKey(baseKey, branchId)`; used inside `useDataViewListQuery` and `useDataViewSidebarInfiniteQuery`. `useDataViewDetailQuery` deliberately left untouched (detail is keyed by a presumably-globally-unique `selectedId`, matching the already-verified-safe pattern for Matcher's `results`/`extractedData` keys — no confirmed bug involves a detail query).
+- [x] Write a unit test for the key-building function: same params + different branchId => different key; branchId absent => unchanged from today's behavior.
+  - Evidence: new file `apps/web/src/components/data-view/__tests__/use-data-view-query.test.ts` — 9 tests: 6 direct contract tests on `buildDataViewQueryKey` (append, differs-by-branch, stable-for-same-branch, omits-on-undefined, omits-on-null identically to undefined, does-not-mutate-input) + 3 integration tests via `renderHook` (different branchId → 2 distinct cache entries for identical params; branchId never forwarded to `listFetcher`'s request payload; omitted branchId reproduces the exact pre-Phase-2 key shape).
+- [x] Spot-check 1-2 correctly org-scoped DataView screens (e.g. Tickets) to confirm they are unaffected.
+  - Evidence: inspected `roles-client.tsx` (`ROLES_DV_KEY`) and `tasks-client.tsx` (`PLANNING_TASKS_QUERY_KEY`) — both pass a static `queryKey` with no `branchId`; since neither consumer nor `DataView`/`DataViewProvider` was touched, they cannot be affected by this phase's change at all (the new parameter isn't even reachable from their call sites yet). Full regression: `data-view.test.tsx` (38 pre-existing tests covering the `DataView` component end-to-end using a `["test-products"]`-style org-scoped key) — 38/38 pass, unmodified.
+
+**Tests:** `use-data-view-query.test.ts` — 9/9 pass. `data-view.test.tsx` (regression) — 38/38 pass, unmodified. `pnpm type-check`: clean. `eslint` on both touched files: 0 errors/warnings.
+
+**Blocker:** none. Phase 2 completed with no BLOCKED state; one factual planning-detail correction was needed and is recorded above and in the implementation plan (per Section 18's own "update only the factual detail, preserve history" rule) — not a redesign, not an architecture change.
+
+---
+
 ## Active blockers
 
 Stable IDs, once assigned, are never reused. None of the items below block Phase 1 (the next phase to implement) from starting — they are recorded so they are not forgotten, per the task's own explicit instruction not to let known gaps disappear from view after the presentation.
@@ -102,7 +121,7 @@ Stable IDs, once assigned, are never reused. None of the items below block Phase
 ### PITCH implementation gaps (block DEMO READY, not yet started)
 
 - **BLOCKER-Z1-001** — Branch switch performs no `router.refresh()`/navigation/cache invalidation (`SidebarBranchSwitcher.handleBranchSelect`). Owner: Phase 1. Status: **RESOLVED (2026-09-24)** — see Phase 1 detailed tracking above.
-- **BLOCKER-Z1-002** — `DataViewListParams` has no `branchId` field; 4 confirmed consumers (Locations, Inventory Balances, Inventory Movements, Inventory Products) have branch-agnostic cache keys. Owner: Phases 2-3. Status: OPEN, not yet started.
+- **BLOCKER-Z1-002** — 4 confirmed consumers (Locations, Inventory Balances, Inventory Movements, Inventory Products) have branch-agnostic cache keys. Owner: Phases 2-3. Status: **PARTIALLY RESOLVED (2026-09-24)** — the branch-aware query-key foundation landed in Phase 2 (`use-data-view-query.ts`'s `buildDataViewQueryKey` + optional `branchId` on the query hooks); the 4 consumers themselves remain unmigrated and the bug remains live for all 4 until Phase 3 wires them in. Do not mark fully RESOLVED until Phase 3 completes.
 - **BLOCKER-Z1-003** — `wddMatcherKeys.sessions()` is branch-agnostic; zero test coverage exists for this key. Owner: Phase 4. Status: OPEN, not yet started.
 - **BLOCKER-Z1-004** — `warehouse.location` QR/deep-link silently drops cross-branch intent instead of confirm-then-switch (safe, not a leak, but a missing UX requirement). Owner: Phase 6. Status: OPEN, not yet started.
 - **BLOCKER-Z1-005** — 2 Zone-1-relevant test files carry mock/fixture drift (`organization-rls.test.ts`'s `createBranch` test, `load-app-context.v2.test.ts`'s branch-field fixture). Owner: Phase 7. Status: OPEN, not yet started.
@@ -155,6 +174,13 @@ Zone 3 discipline: date, phase, finding, evidence, classification, resolution, w
 - **Decision:** Selected `/dashboard/start` as the safe start route (Zone 1 decision 22's "safe start screen"), based on it already being the codebase's own canonical "go home" destination (`quick-switcher.tsx`) and being fully static/branch-neutral (no data fetching, no dynamic segments) — resolved without needing a new product-owner decision, since it was directly derivable from existing code and the architecture doc.
 - **Scope correction (not a redesign):** Per explicit instruction, the `apps/web/CLAUDE.md` stale-project-ref housekeeping fix — originally deferred to PILOT Phase E in the 2026-09-23 planning pass — was moved to and completed in Phase 1 instead, since implementation had now begun. PILOT Phase E's own schema-reconciliation scope is unchanged; only this one unrelated housekeeping task moved. Both the implementation plan and this tracker were updated to reflect the new ownership (Phase E's task count: 6→5; Phase 1's task count: 5→6). This mirrors Zone 3's own "SCOPE CORRECTION" banner discipline — recorded here rather than silently editing the original 2026-09-23 planning-pass entry above.
 - **No blockers encountered.** No implementation evidence contradicted the accepted architecture; no STOP condition was triggered.
+- **Tracker correction:** this tracker briefly stated Phase 1's mechanical task count (6/6, 15/95 total) from memory rather than from the implementation plan's own checkbox state — the plan's Phase 1 checkboxes were left unchecked (`[ ]`) even though the work was done. Caught and corrected before Phase 2's own count was computed. All counts are now freshly recomputed by direct grep against the plan file for both phases, per this tracker's own "never estimate" rule.
+
+### 2026-09-24 — Phase 2 implementation
+
+- **Design decision (evidence-based correction to the plan's literal wording):** `DataViewListParams` was NOT given a `branchId` field, contrary to the plan's original task #1 wording. Inspection of `use-data-view-query.ts` showed this type is passed directly to `listFetcher()` as the request payload, not just used as cache-key material — adding `branchId` there would have leaked it into server requests, violating the phase's own explicit "query key and server request payload are separate concerns" requirement. Instead, `branchId?: string | null` was added to the query hooks' own option types (`UseDataViewListQueryOptions`, `UseDataViewSidebarInfiniteQueryOptions`), merged into the key via a new pure helper `buildDataViewQueryKey`. Evidence: `apps/web/src/components/data-view/use-data-view-query.ts`. Classification: CONFIRMED, evidence-based factual correction to one task's wording — not an architecture change, not a scope change (the phase's own objective, "an optional branchId mechanism any caller CAN use," is met exactly). The plan's Phase 2 task list and acceptance criterion 1 were updated in place with history preserved (strikethrough + note, not deletion). No product-owner decision needed — this was a technical implementation-boundary question, resolvable from the existing code alone.
+- **Decision:** `useDataViewDetailQuery` was deliberately left untouched (no `branchId` support added) — detail queries are keyed by a presumably-globally-unique `selectedId`, matching the same "safe because globally unique" pattern already verified for Matcher's `results`/`extractedData` query keys in the pre-implementation audit. No confirmed bug in the gap matrix involves a detail-type query. Adding branchId there would have been speculative scope beyond the evidenced problem.
+- **No blockers encountered.** No implementation evidence contradicted the accepted architecture. Zero consumer files, Matcher, or QR code touched — confirmed via `git status` before closing the phase.
 
 ---
 

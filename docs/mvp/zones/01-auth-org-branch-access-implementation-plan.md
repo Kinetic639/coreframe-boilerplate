@@ -173,12 +173,12 @@ changeBranch server action (already correct, do not modify); Next.js router.refr
 
 ### Implementation tasks
 
-- [ ] Determine the safe start route to redirect to after a switch. TO VERIFY DURING PHASE.
-- [ ] Add router.refresh() call to handleBranchSelect after a successful changeBranch() call.
-- [ ] Add navigation to the safe start route after a successful switch.
-- [ ] Confirm the toast/loading state UX is not broken by the added navigation.
-- [ ] Update sidebar-branch-switcher.test.tsx to assert router.refresh()/navigation is called on success.
-- [ ] (Added 2026-09-24, moved from PILOT Phase E per explicit instruction once implementation began) Fix apps/web/CLAUDE.md's stale "always use zlcnlalwfmmtusigeuyk" project-reference instruction to reference the live target ref (rjeraydumwechpjjzrus) and the authoritative migration tree (apps/web/supabase-target/supabase/migrations). Tiny operational-safety documentation correction only — not part of Phase 1's own runtime logic, and does not touch PILOT Phase E's actual schema-reconciliation scope.
+- [x] Determine the safe start route to redirect to after a switch. TO VERIFY DURING PHASE.
+- [x] Add router.refresh() call to handleBranchSelect after a successful changeBranch() call.
+- [x] Add navigation to the safe start route after a successful switch.
+- [x] Confirm the toast/loading state UX is not broken by the added navigation.
+- [x] Update sidebar-branch-switcher.test.tsx to assert router.refresh()/navigation is called on success.
+- [x] (Added 2026-09-24, moved from PILOT Phase E per explicit instruction once implementation began) Fix apps/web/CLAUDE.md's stale "always use zlcnlalwfmmtusigeuyk" project-reference instruction to reference the live target ref (rjeraydumwechpjjzrus) and the authoritative migration tree (apps/web/supabase-target/supabase/migrations). Tiny operational-safety documentation correction only — not part of Phase 1's own runtime logic, and does not touch PILOT Phase E's actual schema-reconciliation scope.
 
 ### Testing requirements
 
@@ -240,10 +240,10 @@ The already-correct workshopKeys.lineReservations(branchId, lineId) pattern as t
 
 ### Implementation tasks
 
-- [ ] Add an optional branchId field to DataViewListParams.
-- [ ] Update use-data-view-query.ts's own key-building logic to merge branchId into the query key when present, leaving it unaffected when absent (backward-compatible for org-scoped screens).
-- [ ] Write a unit test for the key-building function: same params + different branchId => different key; branchId absent => unchanged from today's behavior.
-- [ ] Spot-check 1-2 correctly org-scoped DataView screens (e.g. Tickets) to confirm they are unaffected.
+- [x] ~~Add an optional branchId field to DataViewListParams.~~ **Factual correction (2026-09-24, evidence-based):** `DataViewListParams` is not purely cache-key material — it is also the exact object passed as the request payload to every `listFetcher`. Adding `branchId` there would have leaked it into server request payloads, violating the query-key/request-payload separation. Instead, `branchId?: string | null` was added directly to `UseDataViewListQueryOptions`/`UseDataViewSidebarInfiniteQueryOptions` in `use-data-view-query.ts` (the hook layer, not the shared request-payload type), merged into the query key via a new pure, exported helper `buildDataViewQueryKey(baseKey, branchId)`. `DataViewListParams` itself was left untouched. See `docs/mvp/reviews/zone1-phase2-dataview-foundation-2026-09-24/query-key-contract.md` for the full contract.
+- [x] Update use-data-view-query.ts's own key-building logic to merge branchId into the query key when present, leaving it unaffected when absent (backward-compatible for org-scoped screens).
+- [x] Write a unit test for the key-building function: same params + different branchId => different key; branchId absent => unchanged from today's behavior.
+- [x] Spot-check 1-2 correctly org-scoped DataView screens (e.g. Tickets) to confirm they are unaffected.
 
 ### Testing requirements
 
@@ -252,7 +252,7 @@ The already-correct workshopKeys.lineReservations(branchId, lineId) pattern as t
 
 ### Acceptance criteria
 
-1. DataViewListParams accepts an optional branchId.
+1. ~~DataViewListParams accepts an optional branchId.~~ Superseded by the factual correction above: the DataView query hook options (`UseDataViewListQueryOptions`, `UseDataViewSidebarInfiniteQueryOptions`) accept an optional `branchId`, not `DataViewListParams`.
 2. A unit test proves two calls differing only in branchId produce different query keys.
 3. A unit test (or existing test re-run) proves an org-scoped DataView call with no branchId produces the exact same key as before this change.
 4. pnpm type-check and pnpm lint remain clean.

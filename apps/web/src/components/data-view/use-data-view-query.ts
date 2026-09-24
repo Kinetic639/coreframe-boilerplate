@@ -4,11 +4,26 @@ import { useQuery } from "@tanstack/react-query";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import type { PaginatedResult, DataViewListParams, InfinitePaginatedData } from "./data-view.types";
 
+/**
+ * Merges an optional branch identity into a DataView's base query key.
+ *
+ * branchId participates in React Query CACHE IDENTITY ONLY — it is never
+ * forwarded to a listFetcher/detailFetcher as part of the request payload
+ * (that stays governed entirely by DataViewListParams). Omitting branchId
+ * (null/undefined) returns baseKey unchanged, so existing org-scoped callers
+ * that never pass it keep the exact key shape they have today.
+ */
+export function buildDataViewQueryKey(baseKey: string[], branchId?: string | null): string[] {
+  return branchId == null ? baseKey : [...baseKey, branchId];
+}
+
 type UseDataViewListQueryOptions<TListRow> = {
   queryKey: string[];
   listFetcher: (params: DataViewListParams) => Promise<PaginatedResult<TListRow>>;
   listParams: DataViewListParams;
   initialData: PaginatedResult<TListRow>;
+  /** Optional branch scope for cache identity only — see buildDataViewQueryKey. */
+  branchId?: string | null;
 };
 
 export function useDataViewListQuery<TListRow>({
@@ -16,9 +31,10 @@ export function useDataViewListQuery<TListRow>({
   listFetcher,
   listParams,
   initialData,
+  branchId,
 }: UseDataViewListQueryOptions<TListRow>) {
   return useQuery({
-    queryKey: [...queryKey, listParams],
+    queryKey: [...buildDataViewQueryKey(queryKey, branchId), listParams],
     queryFn: () => listFetcher(listParams),
     // IMPORTANT: Do NOT use `initialData` here.
     // TanStack Query v5 sets dataUpdatedAt = Date.now() when initialData is provided
@@ -58,6 +74,8 @@ type UseDataViewSidebarInfiniteQueryOptions<TListRow> = {
   listParams: DataViewListParams;
   initialPageData: PaginatedResult<TListRow>;
   enabled: boolean;
+  /** Optional branch scope for cache identity only — see buildDataViewQueryKey. */
+  branchId?: string | null;
 };
 
 export function useDataViewSidebarInfiniteQuery<TListRow>({
@@ -66,6 +84,7 @@ export function useDataViewSidebarInfiniteQuery<TListRow>({
   listParams,
   initialPageData,
   enabled,
+  branchId,
 }: UseDataViewSidebarInfiniteQueryOptions<TListRow>) {
   const canSeedFromInitialPage =
     initialPageData.page === listParams.page && initialPageData.pageSize === listParams.pageSize;
@@ -78,7 +97,7 @@ export function useDataViewSidebarInfiniteQuery<TListRow>({
     number
   >({
     queryKey: [
-      ...queryKey,
+      ...buildDataViewQueryKey(queryKey, branchId),
       "sidebar",
       {
         search: listParams.search,
