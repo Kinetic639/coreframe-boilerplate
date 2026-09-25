@@ -6,7 +6,7 @@
 - **Priority:** P0
 - **Architecture:** APPROVED
 - **Runtime status:** PARTIAL / IMPLEMENTATION IN PROGRESS
-- **Current phase:** Phase 7 DONE (2026-09-24, uncommitted — left for review) — Phase 8 — Manual DEMO READY UAT is next (not started)
+- **Current phase:** Phase 7 DONE (committed b017e662, 2026-09-24) — Phase 8 — Manual DEMO READY UAT — 🔵 AWAITING HUMAN UAT (started 2026-09-24; no prepared demo environment exists yet, and this agent has no presentation-phone/interactive-browser access — see the Phase 8 review bundle)
 - **Pitch readiness:** NOT YET
 - **Pilot readiness:** NOT READY
 - **Last updated:** 2026-09-24
@@ -49,26 +49,26 @@ Breakdown by phase (task count = number of checkboxes in that phase's "Implement
 
 ## Phase tracker table
 
-| Phase                               | Status               | Pitch/Pilot        | Completed | Notes                                                                                                         |
-| ----------------------------------- | -------------------- | ------------------ | --------- | ------------------------------------------------------------------------------------------------------------- |
-| 0 — Implementation baseline         | DONE (2026-09-23)    | PITCH prerequisite | 9/9       | Satisfied entirely by the pre-implementation verification bundle, committed at `5dfce9d3`.                    |
-| 1 — Centralized branch transition   | ✅ DONE (2026-09-24) | PITCH              | 6/6       | Root-cause fix for the branch-switch bug, landed. See "Phase 1 — detailed tracking" below.                    |
-| 2 — DataView/query-key foundation   | ✅ DONE (2026-09-24) | PITCH              | 4/4       | Foundation only — no consumer migrated. See "Phase 2 — detailed tracking" below.                              |
-| 3 — Migrate DataView consumers      | ✅ DONE (2026-09-24) | PITCH              | 5/5       | All 4 confirmed consumers wired. See "Phase 3 — detailed tracking" below.                                     |
-| 4 — Matcher query key               | ✅ DONE (2026-09-24) | PITCH              | 4/4       | Session-list cache bug closed. See "Phase 4 — detailed tracking" below.                                       |
-| 5 — Branch-state re-sweep           | ✅ DONE (2026-09-24) | PITCH gate         | 4/4       | Zero new bugs found. See "Phase 5 — detailed tracking" below.                                                 |
-| 6 — Cross-branch QR/deep-link       | ✅ DONE (2026-09-24) | PITCH              | 6/6       | Confirm-then-switch dialog landed; Radix auto-close bug found+fixed. See "Phase 6 — detailed tracking" below. |
-| 7 — Automated closeout              | ✅ DONE (2026-09-24) | PITCH gate         | 6/6       | Both BLOCKER-Z1-005 drift fixes landed, full regression clean. See "Phase 7 — detailed tracking" below.       |
-| 8 — Manual DEMO READY UAT           | NOT STARTED          | PITCH gate         | 0/5       | Depends on Phases 1-7. Only after this: 🔵 DEMO READY.                                                        |
-| A — Ownership invariants            | NOT STARTED          | PILOT              | 0/8       | Not scheduled this week.                                                                                      |
-| B — Anti-escalation                 | NOT STARTED          | PILOT              | 0/6       | Not scheduled this week.                                                                                      |
-| C — Invitation + one-org invariant  | NOT STARTED          | PILOT              | 0/3       | Not scheduled this week.                                                                                      |
-| D — Branch RLS hardening            | NOT STARTED          | PILOT              | 0/5       | Not scheduled this week.                                                                                      |
-| E — Schema reconciliation           | NOT STARTED          | PILOT              | 0/6       | Not scheduled this week. CLAUDE.md project-ref fix moved out — completed in Phase 1 (2026-09-24).             |
-| F — Unsaved-work safety             | NOT STARTED          | PILOT              | 0/5       | Not scheduled this week.                                                                                      |
-| G — Live test infrastructure        | NOT STARTED          | PILOT              | 0/4       | Not scheduled this week.                                                                                      |
-| H — Administrative auditability     | NOT STARTED          | PILOT              | 0/6       | Not scheduled this week.                                                                                      |
-| I — PILOT READY manual verification | NOT STARTED          | PILOT gate         | 0/4       | Depends on Phases A-H. Only after this: 🟢 PILOT READY.                                                       |
+| Phase                               | Status                | Pitch/Pilot        | Completed | Notes                                                                                                            |
+| ----------------------------------- | --------------------- | ------------------ | --------- | ---------------------------------------------------------------------------------------------------------------- |
+| 0 — Implementation baseline         | DONE (2026-09-23)     | PITCH prerequisite | 9/9       | Satisfied entirely by the pre-implementation verification bundle, committed at `5dfce9d3`.                       |
+| 1 — Centralized branch transition   | ✅ DONE (2026-09-24)  | PITCH              | 6/6       | Root-cause fix for the branch-switch bug, landed. See "Phase 1 — detailed tracking" below.                       |
+| 2 — DataView/query-key foundation   | ✅ DONE (2026-09-24)  | PITCH              | 4/4       | Foundation only — no consumer migrated. See "Phase 2 — detailed tracking" below.                                 |
+| 3 — Migrate DataView consumers      | ✅ DONE (2026-09-24)  | PITCH              | 5/5       | All 4 confirmed consumers wired. See "Phase 3 — detailed tracking" below.                                        |
+| 4 — Matcher query key               | ✅ DONE (2026-09-24)  | PITCH              | 4/4       | Session-list cache bug closed. See "Phase 4 — detailed tracking" below.                                          |
+| 5 — Branch-state re-sweep           | ✅ DONE (2026-09-24)  | PITCH gate         | 4/4       | Zero new bugs found. See "Phase 5 — detailed tracking" below.                                                    |
+| 6 — Cross-branch QR/deep-link       | ✅ DONE (2026-09-24)  | PITCH              | 6/6       | Confirm-then-switch dialog landed; Radix auto-close bug found+fixed. See "Phase 6 — detailed tracking" below.    |
+| 7 — Automated closeout              | ✅ DONE (2026-09-24)  | PITCH gate         | 6/6       | Both BLOCKER-Z1-005 drift fixes landed, full regression clean. See "Phase 7 — detailed tracking" below.          |
+| 8 — Manual DEMO READY UAT           | 🔵 AWAITING HUMAN UAT | PITCH gate         | 0/5       | No demo environment exists yet; no phone/browser access for this agent. See "Phase 8 — detailed tracking" below. |
+| A — Ownership invariants            | NOT STARTED           | PILOT              | 0/8       | Not scheduled this week.                                                                                         |
+| B — Anti-escalation                 | NOT STARTED           | PILOT              | 0/6       | Not scheduled this week.                                                                                         |
+| C — Invitation + one-org invariant  | NOT STARTED           | PILOT              | 0/3       | Not scheduled this week.                                                                                         |
+| D — Branch RLS hardening            | NOT STARTED           | PILOT              | 0/5       | Not scheduled this week.                                                                                         |
+| E — Schema reconciliation           | NOT STARTED           | PILOT              | 0/6       | Not scheduled this week. CLAUDE.md project-ref fix moved out — completed in Phase 1 (2026-09-24).                |
+| F — Unsaved-work safety             | NOT STARTED           | PILOT              | 0/5       | Not scheduled this week.                                                                                         |
+| G — Live test infrastructure        | NOT STARTED           | PILOT              | 0/4       | Not scheduled this week.                                                                                         |
+| H — Administrative auditability     | NOT STARTED           | PILOT              | 0/6       | Not scheduled this week.                                                                                         |
+| I — PILOT READY manual verification | NOT STARTED           | PILOT gate         | 0/4       | Depends on Phases A-H. Only after this: 🟢 PILOT READY.                                                          |
 
 ---
 
@@ -276,6 +276,31 @@ Copied from the implementation plan's own task list when the phase started (2026
 
 **Blocker:** none. Phase 7 completed with no BLOCKED state. Full review bundle: `docs/mvp/reviews/zone1-phase7-automated-closeout-2026-09-24/`.
 
+**Phase 7 committed:** `b017e662` — "test: close Zone 1 automated demo gate". 13 files changed (530 insertions, 15 deletions). Working tree confirmed clean after commit.
+
+---
+
+## Phase 8 — detailed tracking
+
+Started 2026-09-24, immediately after Phase 7's commit. **Not completed — AWAITING HUMAN UAT, not DONE.**
+
+- [ ] Prepare accounts per `docs/mvp/presentation-demo-setup.md`.
+  - **Finding:** no prepared demo environment exists. A read-only check of the live target Supabase project (`rjeraydumwechpjjzrus`) found only unrelated scratch/test organizations ("Anna's Organization", "Grupa", "Grupa cichy-Zasada", "Diff Org name") — none matching `presentation-demo-setup.md`'s required org/branch/role/data shape, all of which are marked `CREATE BEFORE REHEARSAL` in that document (which explicitly states it "does NOT create the data"). Not attempted unilaterally this phase — creating real accounts/org data on the shared live Supabase project was judged to warrant the user's explicit go-ahead rather than being assumed as implied scope, given its nontrivial, semi-irreversible nature on shared infrastructure.
+- [ ] Execute the integrated "Gate to DEMO READY" scenario.
+  - **Blocked** by the above — no environment to execute it in.
+- [ ] Execute on the actual presentation laptop.
+  - **Blocked** — this agent has no interactive browser or presentation laptop access; it operates in a headless, terminal-only environment.
+- [ ] Execute the QR/login-path portion on the presentation phone.
+  - **Blocked** — this agent has no physical device access under any circumstance, independent of environment prep.
+- [ ] Record date/build/environment/accounts/PASS-FAIL per step.
+  - **Partially done, honestly:** the Phase 8 review bundle (`docs/mvp/reviews/zone1-phase8-manual-uat-2026-09-24/`) records the actual state — every one of the 17 required scenarios marked AWAITING HUMAN UAT with exact instructions for the human tester, not fabricated PASS results.
+
+**What WAS done this phase (Claude-executable subset, per the task's own explicit allowance):** started the local dev server (`pnpm dev`) against this exact SHA, connected to the real target Supabase project, and ran a small set of non-authenticated, environment-independent route checks: home-route locale redirect (307), sign-in page renders (200) and correctly preserves a `returnUrl` query param in its hidden form field (validates Phase 6 Correction B's client-side mechanism live), the QR error page renders the correct `TARGET_NOT_FOUND`-equivalent "not found" card for a nonexistent token against the real `qr_codes` table (validates the resolver's error path, and by extension Correction A's reused denial shape, live), and the dashboard route's auth gate redirects an unauthenticated request to sign-in. Dev server stopped immediately after (confirmed via `lsof`), per this repo's own "always kill the dev server" instruction. Zero bugs found in what was checked; one non-bug observation recorded (dashboard's own generic returnUrl didn't show a query param in a curl-based check — likely a curl/dev-server artifact, doesn't affect the QR flow's own separate mechanism, flagged for the human tester to casually re-check with a real browser). Full detail: `docs/mvp/reviews/zone1-phase8-manual-uat-2026-09-24/desktop-browser-results.md`.
+
+**Zero mutations to the live Supabase project.** All checks were read-only (SQL `SELECT`s) or non-authenticated HTTP GETs against a locally-running dev server. No organization, branch, user, or other row was created, updated, or deleted.
+
+**Blocker:** Phase 8 cannot proceed to DONE without either (a) the user or another human preparing the demo environment and executing the manual scenarios themselves using the bundle's own instructions, or (b) explicit instruction to this agent to prepare the demo data via the application's own real signup/admin flows (still leaving the phone-dependent scenarios themselves for a human). This is an environment/access blocker, not a code defect — Zone 1's own code-level readiness (Phases 1-7) is unaffected and remains green.
+
 ---
 
 ## Active blockers
@@ -393,19 +418,26 @@ Zone 3 discipline: date, phase, finding, evidence, classification, resolution, w
 - **Re-confirmed, not fixed: the 3 nuqs/parseAsJson client-suite crashes (BLOCKER-Z1-017).** `roles-client.test.tsx`, `invitations-client.test.tsx`, `members-client.test.tsx` re-run fresh, all 3 still crash with `TypeError: parseAsJson is not a function` in the shared `data-view-url-state.ts` module. Confirmed unrelated to Zone 1 (a shared `data-view` component library-version issue), left untouched exactly as the plan's own "Out of scope" section requires. No product-owner decision needed.
 - **No blockers encountered.** No actual runtime regression was found or hidden behind either test fix — both were confirmed pure test/mock/fixture drift by reading the corresponding runtime code first. Zero DB/schema/RLS files touched. PILOT blockers (BLOCKER-Z1-006 through 013) left open/deferred, not touched.
 
+### 2026-09-24 — Phase 8 manual UAT attempt
+
+- **Finding: the presentation demo environment specified in `docs/mvp/presentation-demo-setup.md` does not exist yet.** A read-only check of the live target Supabase project found only unrelated scratch/test organizations, none matching the required org/branch/presenter/warehouse-worker/advisor/location/product shape — every row in that document's own setup table is still marked `CREATE BEFORE REHEARSAL`. Evidence: `docs/mvp/reviews/zone1-phase8-manual-uat-2026-09-24/uat-environment.md`. Classification: ENVIRONMENT GAP, not a code defect. Resolution: NOT fixed this phase — deliberately not created unilaterally, since real account/org creation on the shared live Supabase project was judged to need the user's explicit go-ahead. Flagged for the user with a concrete recommendation. Architecture unaffected. Product-owner decision needed: whether to have this agent prepare the environment via the app's own real signup/admin flows, or have a human do it, before Phase 8 can proceed further.
+- **Finding: this agent has no presentation-phone or interactive-browser access.** A hard capability boundary of a headless, terminal-only agent — independent of environment prep, the phone-dependent scenarios (12, 13, 14 partially, 15, 17) can never be marked PASS by this agent under any circumstance. Classification: AGENT CAPABILITY BOUNDARY, not a code defect, not something further effort in this session could resolve.
+- **What was done instead:** the Claude-executable subset explicitly permitted by the task — local dev server started against the tested SHA, real (non-authenticated, environment-independent) route checks run against it, confirming Phase 6/6-correction code paths execute correctly live. Zero bugs found. See `docs/mvp/reviews/zone1-phase8-manual-uat-2026-09-24/desktop-browser-results.md`.
+- **No blockers in the sense of code defects.** Zero runtime files touched, zero DB/schema/RLS changes, zero data mutated in the live Supabase project. Phase 8 is BLOCKED from completion only by environment/access, not by any finding about Zone 1's own code.
+
 ---
 
 ## DEMO READY gate
 
-Not yet reached. Requires Phases 1-8 all DONE, with Phase 8's manual UAT evidence recorded (date, build/commit SHA, environment, accounts, PASS/FAIL per scenario step) directly in this section once it happens. Placeholder — to be filled in when Phase 8 executes:
+Not yet reached. Requires Phases 1-8 all DONE, with Phase 8's manual UAT evidence recorded (date, build/commit SHA, environment, accounts, PASS/FAIL per scenario step) directly in this section once it happens.
 
 ```
-Manual DEMO READY UAT — NOT YET RUN
-Date: —
-Build/commit: —
-Environment: —
-Accounts used: —
-Result: —
+Manual DEMO READY UAT — AWAITING HUMAN UAT (attempted 2026-09-24)
+Date: 2026-09-24
+Build/commit: b017e6622e584ffcfb6fffb0d8917bd919b76b9b (branch zone3-zone5-integration-audit)
+Environment: presentation demo environment NOT YET CREATED (see docs/mvp/presentation-demo-setup.md, all rows still CREATE BEFORE REHEARSAL); live target Supabase project rjeraydumwechpjjzrus checked read-only, contains only unrelated scratch/test orgs
+Accounts used: none (no presenter/warehouse-worker/advisor accounts exist yet)
+Result: 0/17 required manual scenarios executed. All AWAITING HUMAN UAT (see docs/mvp/reviews/zone1-phase8-manual-uat-2026-09-24/ for the full scenario-by-scenario disposition and exact instructions for the human tester). A small Claude-executable, non-authenticated route-check subset was run against a locally-started instance of the tested SHA (see that bundle's desktop-browser-results.md) — zero bugs found in what was checked, but this does not satisfy any of the 17 required scenarios.
 ```
 
 ## PILOT READY gate
