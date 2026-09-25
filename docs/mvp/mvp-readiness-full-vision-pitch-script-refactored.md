@@ -1,5 +1,7 @@
 # AMBRA — MASTER PITCH & PILOT SCRIPT
 
+> **⚠ RELABELED (2026-09-23): FULL-VISION / INVESTOR-FRAMING ROADMAP DRAFT — NOT the authoritative current pitch script.** Despite being dated the same day as the current master tracker (2026-09-07), this document is not cross-referenced by `docs/mvp/mvp-readiness.md` and is not status-disciplined against current code (it presents unbuilt items, e.g. phone-based putaway, without the caveats the master tracker itself requires). The current, code-verified master presentation script is `docs/mvp/ambra-skrypt-prezentacji.md`. This document retains real value for external/investor framing (public-vs-internal narrative, budget ask, "four layers" model) and may be merged into future investor-facing material — do not use it standalone for an internal go/no-go pitch decision. See `docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/pitch-script-truth-matrix.md`.
+
 ## Wersja po refaktoryzacji
 
 ---

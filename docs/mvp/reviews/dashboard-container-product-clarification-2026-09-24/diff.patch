@@ -1,0 +1,308 @@
+diff --git a/docs/mvp/mvp-readiness.md b/docs/mvp/mvp-readiness.md
+index 7f6e51dc..22dda2f8 100644
+--- a/docs/mvp/mvp-readiness.md
++++ b/docs/mvp/mvp-readiness.md
+@@ -26,7 +26,7 @@ Inventory Core: **FINAL FOR PILOT / ARCHITECTURE FROZEN** (unchanged, see `docs/
+ 
+ ## Presentation should-fix
+ 
+-- Minimal, honest home dashboard (Zone 11) — today's `/dashboard/start` is a 15-line static placeholder. High first-impression risk, not a hard functional blocker (the current master script does not itself require a dashboard demo) — see the corrected Zone 11 classification below.
++<!-- Zone 11 (Home Dashboard) removed from this list 2026-09-24 — product-owner decision: DEMO SUFFICIENT, no pitch work required. See docs/mvp/reviews/dashboard-container-product-clarification-2026-09-24/dashboard-current-status.md. -->
+ - Zone 6 SKU search fix (product search matches name only, never SKU).
+ - Zone 6 movement-kind label fix (history never renders "transfer" for codes 801/311).
+ - Zone 6 `posted_by`/history visibility (acting user never shown).
+@@ -61,7 +61,7 @@ Inventory Core: **FINAL FOR PILOT / ARCHITECTURE FROZEN** (unchanged, see `docs/
+ | 8    | Tickets                   | OPTIONAL                                                                      | Branch RLS, test coverage                      | None blocking                                               |
+ | 9    | Planning                  | OPTIONAL                                                                      | Scope TBD                                      | None blocking                                               |
+ | 10   | Notifications             | DEFER (roadmap only)                                                          | Producer→delivery pair if scoped in            | Must not be demoed                                          |
+-| 11   | Home Dashboard            | PITCH SHOULD / HIGH FIRST-IMPRESSION RISK                                     | N/A beyond pitch build                         | Empty placeholder, no scope decision yet                    |
++| 11   | Home Dashboard            | DEMO SUFFICIENT (2026-09-24 product-owner decision, no pitch work required)   | N/A                                            | Historical: `/dashboard/start` remains a static placeholder, but the overall dashboard experience (context, activity, adjacent modules) is accepted for pitch |
+ 
+ ---
+ 
+@@ -163,7 +163,7 @@ Po reorganizacji priorytety dotyczą wyłącznie aktywnych domen produktowych, p
+ | P0        | 6. Szukanie, zawartość lokalizacji, relokacja części/zestawu i historia                                                     | DEMO READY                                    | Obiecana codzienna praca w §9; rdzeń działa, wymaga naprawy wyszukiwania i decyzji o relokacji zestawu                                                                                                                                |
+ | P0        | 7. Zwykłe wydanie części                                                                                                    | DEMO READY                                    | Domknięcie cyklu części, §10–11; wymaga rzeczywistej operacji wydania, nie obejścia korektą magazynową                                                                                                                                |
+ | P1        | 8. Tickety: komunikacja, akceptacja i problemowa część z QR                                                                 | DEMO READY dla krótkiego pokazu               | Drugi, krótki pokaz w §12–13; QR to etykieta ticketu na części, nie cyfrowa identyfikacja samej części                                                                                                                                |
+-| P1        | 11. Home / Operational Dashboard                                                                                            | DEMO READY                                    | Dzisiejszy `/dashboard/start` to czysty placeholder; wspólny ekran startowy każdego użytkownika, minimalna realna wersja materialnie poprawia pierwsze wrażenie z pokazu — nie blokuje głównego łańcucha magazynowego                 |
++| P1        | 11. Home / Operational Dashboard                                                                                            | **DEMO SUFFICIENT (2026-09-24)** — no pitch work required, see [Strefa 11](./zones/11-home-operational-dashboard.md) | Product-owner decision 2026-09-24: current dashboard experience (context, activity, adjacent modules) accepted for pitch; historical note preserved in the zone file: `/dashboard/start` itself remains a static placeholder |
+ | P2        | 9. Planning & Work Organization — zadania, kalendarz, Kanban i cykliczność (obejmuje dawną Strefę 14 w części cykliczności) | PARTIALLY READY                               | §14 zapowiada kierunek, bez kolejnego dużego demo                                                                                                                                                                                     |
+ | P3        | 10. Notifications & Operational Alerts (dawna Strefa 14, część powiadomień)                                                 | NOT REQUIRED / DO NOT SPEND TIME BEFORE PITCH | Nie blokuje pitchu; realne prymitywy istnieją, ale bez spójnego dostarczania — potencjalnie istotne dla zakresu kontrolowanego pilotażu, do ustalenia później                                                                         |
+ 
+@@ -183,7 +183,7 @@ Poza numeracją stref produktowych: **Controlled Pilot Planning** (dawna Strefa
+ 
+ ### SHOULD FINISH BEFORE PITCH
+ 
+-- [IMPLEMENT] + [VERIFY] Minimalny, realny wspólny pulpit startowy (Strefa 11) — dzisiejszy `/dashboard/start` to czysty, statyczny placeholder bez żadnych danych; wymagany stan DEMO READY. Zakres: kontekst aktywnego oddziału widoczny, dane rzeczywiste (nie fikcyjne metryki), niewielka liczba użytecznych podsumowań operacyjnych i/lub szybkich akcji respektujących uprawnienia/oddział — nie pełna analityka/BI (ta pozostaje w [Product Roadmap](./planning/product-roadmap.md)). Dokładne widżety do ustalenia w product clarification tej strefy.
++<!-- Strefa 11 (Home Dashboard) removed from this list 2026-09-24 — product-owner decision: DEMO SUFFICIENT, no pitch work required. See docs/mvp/reviews/dashboard-container-product-clarification-2026-09-24/dashboard-current-status.md and docs/mvp/zones/11-home-operational-dashboard.md. -->
+ - [PREPARE] + [NARROW CLAIM] Wąski przepływ ticketu (Strefa 8): utworzenie → przypisanie → komentarz → akceptacja → ponowne otwarcie z trwałą historią → skan QR ticketu; bez obietnicy odrzucenia (nie istnieje) i bez sugerowania cyfrowej relacji ticket↔zlecenie/część/zestaw (nie istnieje).
+ - [VERIFY] Materiał o stanie początkowym magazynu i kontrolowanym pilotażu ([Controlled Pilot Planning](./planning/controlled-pilot.md), dawna Strefa 12): treść już dojrzała i uczciwa, wymaga przećwiczenia na głos oraz jawnego uwzględnienia w zakresie miesiąca 1 tego, co Strefy 3/5/7 pokazały jako dziś brakujące.
+ 
+@@ -277,7 +277,7 @@ Dokładne scenariusze do wykonania na aktualnym build przed pitchem, w kolejnoś
+ | Scenariusz                                 | Warunek wstępny                                                                        | Konto/rola                          | Urządzenie                               | Oczekiwany wynik                                                                                                                           | Dowód do zapisania                       |
+ | ------------------------------------------ | -------------------------------------------------------------------------------------- | ----------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------- |
+ | A — Dostęp                                 | Strefa 1                                                                               | demonstrator, właściwy oddział      | komputer + telefon                       | logowanie, aktywny oddział, odmowa dla konta bez dostępu                                                                                   | zrzut ekranu, wersja/środowisko, data    |
+-| A2 — Pulpit startowy                       | Strefa 11 (po implementacji), stan z A                                                 | demonstrator, właściwy oddział      | komputer                                 | ekran startowy pokazuje kontekst oddziału i rzeczywiste dane (nie placeholder), bez fikcyjnych metryk                                      | zrzut ekranu                             |
++| A2 — Pulpit startowy (NIEWYMAGANE, 2026-09-24) | ~~Strefa 11 (po implementacji), stan z A~~ — usunięte: product owner zaakceptował bieżący pulpit jako wystarczający do pitchu, implementacja nie jest już wymagana | —                                    | —                                         | N/A — scenariusz nieaktualny, patrz `docs/mvp/zones/11-home-operational-dashboard.md`                                                       | —                                         |
+ | B — Matcher / tryb publiczny               | Strefa 2 (podprzepływ publiczny), przygotowane dokumenty demo                          | brak (bez logowania)                | komputer/telefon prezentacyjny           | upload → dopasowanie → wynik zgodny z dokumentami                                                                                          | nagranie zapasowe                        |
+ | C — Matcher / tryb zalogowany/persystentny | Strefa 2 (podprzepływ zalogowany/persystentny, dawna Strefa 3), te same dokumenty co B | demonstrator                        | komputer                                 | sesja zapisana, wynik zgodny z B, przetrwa odświeżenie                                                                                     | identyfikator sesji, zrzut               |
+ | D — Zlecenie naprawcze i załączniki        | Strefa 3 (po implementacji, obejmuje dawną Strefę 9)                                   | demonstrator                        | komputer + telefon (zdjęcie)             | wyszukanie zlecenia, nagłówek/pozycje/dokumenty magazynowe widoczne; upload podpisanego dokumentu do zlecenia widoczny po ponownym wejściu | identyfikator zlecenia, zrzut załącznika |
+@@ -340,6 +340,6 @@ Dotyczy wyłącznie wybranych workflow z aktywnego rdzenia (Strefy 1, 2, 3, 4, 5
+ 
+ ## Decyzja o gotowości
+ 
+-- [ ] **Gotowy do pitchu:** bramka „Pitch Go/No-Go" spełniona w całości, w tym wszystkie scenariusze globalnego planu weryfikacji (łącznie ze scenariuszem K — pełną próbą generalną). Obecnie **niepotwierdzone / blokery otwarte** — Strefy 3, 5, 7 to najgłębsze braki implementacyjne; Strefa 11 (Home Dashboard) to nowa, wymagana przed pitchem praca implementacyjna; Strefa 1 wymaga ograniczonych napraw (propagacja/cache po zmianie oddziału, odświeżenie kontekstu uprawnień, bezpieczna nawigacja między oddziałami) obok świeżej weryfikacji, nie tylko weryfikacji; Strefy 2, 4, 6 wymagają swojej własnej mieszanki weryfikacji/naprawy/integracji opisanej w ich plikach.
++- [ ] **Gotowy do pitchu:** bramka „Pitch Go/No-Go" spełniona w całości, w tym wszystkie scenariusze globalnego planu weryfikacji (łącznie ze scenariuszem K — pełną próbą generalną). Obecnie **niepotwierdzone / blokery otwarte** — Strefy 3, 5, 7 to najgłębsze braki implementacyjne; Strefa 1 wymaga ograniczonych napraw (propagacja/cache po zmianie oddziału, odświeżenie kontekstu uprawnień, bezpieczna nawigacja między oddziałami) obok świeżej weryfikacji, nie tylko weryfikacji; Strefy 2, 4, 6 wymagają swojej własnej mieszanki weryfikacji/naprawy/integracji opisanej w ich plikach. (Strefa 11, Home Dashboard, usunięta z tej listy 2026-09-24 — decyzja product ownera: DEMO SUFFICIENT, brak wymaganej pracy przed pitchem.)
+ - [ ] **Gotowy do kontrolowanego pilotażu:** osobno spełniona bramka „Controlled Pilot Go/No-Go". Gotowy pokaz nie oznacza tej zgody — to dwie różne decyzje.
+ - [ ] **Gotowy do rozszerzania produkcji:** wyniki pilotażu i bramka „Post-pilot / dalsza produkcja" dla uzgodnionego zakresu. Nie wymaga się ukończenia wszystkich obecnych aktywnych stref produktowych (patrz indeks stref wyżej — dziś inny, mniejszy zestaw niż pierwotnie zaudytowane 19 numerów) przed prezentacją ani przed pilotażem.
+diff --git a/docs/mvp/reviews/pitch-documentation-consolidation-2026-09-23/presentation-blockers.md b/docs/mvp/reviews/pitch-documentation-consolidation-2026-09-23/presentation-blockers.md
+index b7f07c70..3ed735cb 100644
+--- a/docs/mvp/reviews/pitch-documentation-consolidation-2026-09-23/presentation-blockers.md
++++ b/docs/mvp/reviews/pitch-documentation-consolidation-2026-09-23/presentation-blockers.md
+@@ -12,13 +12,14 @@ Consolidates `presentation-ready-gate.md` (rewritten this pass) into a single re
+ 
+ ## PRESENTATION SHOULD-FIX
+ 
+-1. Zone 11 minimal home dashboard — high first-impression risk, NOT a hard blocker (script doesn't require lingering there). Size M.
+-2. Zone 6 SKU search fix. Size XS.
+-3. Zone 6 movement-kind label fix. Size XS.
+-4. Zone 6 `posted_by` history display. Size XS.
+-5. Zone 4 fresh QR manual UAT (6+ weeks stale). Size XS.
+-6. Zone 3 fresh Phase 7+ manual UAT. Size XS-S.
+-7. Zone 2 Approve→RepairOrder rehearsal. Size XS.
++<!-- "Zone 11 minimal home dashboard" removed 2026-09-24 — product-owner decision: current dashboard is DEMO SUFFICIENT, no pitch work required. See docs/mvp/reviews/dashboard-container-product-clarification-2026-09-24/dashboard-current-status.md. -->
++
++1. Zone 6 SKU search fix. Size XS.
++2. Zone 6 movement-kind label fix. Size XS.
++3. Zone 6 `posted_by` history display. Size XS.
++4. Zone 4 fresh QR manual UAT (6+ weeks stale). Size XS.
++5. Zone 3 fresh Phase 7+ manual UAT. Size XS-S.
++6. Zone 2 Approve→RepairOrder rehearsal. Size XS.
+ 
+ ## OPTIONAL
+ 
+diff --git a/docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/presentation-ready-gate.md b/docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/presentation-ready-gate.md
+index f838169f..b3fbe3c4 100644
+--- a/docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/presentation-ready-gate.md
++++ b/docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/presentation-ready-gate.md
+@@ -3,6 +3,8 @@
+ Only what must exist to safely perform the internal pitch this week. Pilot-only requirements are explicitly excluded — see `pilot-ready-gate.md`.
+ 
+ > **CORRECTED 2026-09-23** (Final MVP/Pitch Documentation Consolidation pass) — two corrections from the original version of this gate: (1) Container QR (Phase 10D), container relocation (Phase 10E), and 201/WZ issue (Phase 10F) are **PITCH REQUIRED**, confirmed by the product owner's own 2026-09-10 scope-expansion directive — no longer presented as "narrow the script instead" optional decisions. (2) The home dashboard is reclassified from a hard blocker to **PITCH SHOULD / HIGH FIRST-IMPRESSION RISK** — the current master script does not itself require lingering on the dashboard screen.
++>
++> **CORRECTED AGAIN 2026-09-24** (Dashboard/Container Product Clarification pass) — the home dashboard's "PITCH SHOULD" item below (item 1 in "PRESENTATION SHOULD-FIX") is now **REMOVED**: product-owner decision, current dashboard experience is DEMO SUFFICIENT, no further work required before pitch. See `docs/mvp/reviews/dashboard-container-product-clarification-2026-09-24/dashboard-current-status.md`. The Phase 10D/10E/10F PITCH REQUIRED classification from the correction above is unchanged and unaffected by this pass.
+ 
+ ## Current verdict: **NOT READY**
+ 
+@@ -57,7 +59,7 @@ Only what must exist to safely perform the internal pitch this week. Pilot-only
+ 
+ ## PRESENTATION SHOULD-FIX (ordered, materially reduces demo risk but not a hard blocker)
+ 
+-1. **Zone 11 — minimal home dashboard.** High first-impression risk (literal first screen after login), but not a hard blocker since the current master script doesn't itself linger there. **Size: M** (scope decision, then a real-data server component).
++1. ~~**Zone 11 — minimal home dashboard.**~~ **REMOVED 2026-09-24** — product-owner decision: DEMO SUFFICIENT, no pitch work required. See `docs/mvp/reviews/dashboard-container-product-clarification-2026-09-24/dashboard-current-status.md`.
+ 2. **Zone 6 — SKU search bug.** Product search matches name only, never SKU. **Size: XS.**
+ 3. **Zone 6 — movement-kind label bug.** History never renders "transfer" for codes 801/311. **Size: XS.**
+ 4. **Zone 6 — missing `posted_by` in history.** **Size: XS.**
+@@ -88,7 +90,7 @@ Only what must exist to safely perform the internal pitch this week. Pilot-only
+ | Receiving/putaway mobile UI    | L       | None (sequence after Zone 1 fix for clean UAT) | Yes             |
+ | Phase 10E Container relocation | S-M     | Phase 10D                                      | No — after 10D  |
+ | Phase 10F 201/WZ issue         | M       | None                                           | Yes             |
+-| Zone 11 minimal dashboard      | M       | None                                           | Yes             |
++| ~~Zone 11 minimal dashboard~~ REMOVED 2026-09-24 | — | — | — |
+ | Zone 6 small fixes (3 items)   | XS each | None                                           | Yes             |
+ | Zone 4 fresh QR manual pass    | XS      | Ideally after Zone 1 fix                       | Mostly          |
+ | Zone 3 fresh manual UAT        | XS-S    | None                                           | Yes             |
+diff --git a/docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/this-week-execution-plan.md b/docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/this-week-execution-plan.md
+index c108edfc..22d230a9 100644
+--- a/docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/this-week-execution-plan.md
++++ b/docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/this-week-execution-plan.md
+@@ -3,6 +3,8 @@
+ Optimized for the product owner's explicit goal: presentation-ready THIS WEEK. Relative sizing only (XS/S/M/L) — no calendar-hour promises.
+ 
+ > **CORRECTED 2026-09-23**: order now reflects the confirmed PITCH-REQUIRED status of container QR/relocation/issue (Phases 10D-F), and Zone 1's fix runs first since it is the smallest, fully independent item and unblocks clean UAT for everything else.
++>
++> **CORRECTED 2026-09-24**: the "Zone 11 minimal home dashboard" row below is REMOVED — product-owner decision, current dashboard experience is DEMO SUFFICIENT, no pitch work required. See `docs/mvp/reviews/dashboard-container-product-clarification-2026-09-24/dashboard-current-status.md`. All other P0/P1 items in this plan are unaffected.
+ 
+ ## P0-1. Zone 1 branch-switch/cache fix
+ 
+@@ -68,7 +70,6 @@ Optimized for the product owner's explicit goal: presentation-ready THIS WEEK. R
+ 
+ | Item                             | Dependency                  | Area                                    | Migration? | Architecture change? | Nature                            | Size | Parallel?             | Test          | Manual UAT? |
+ | -------------------------------- | --------------------------- | --------------------------------------- | ---------- | -------------------- | --------------------------------- | ---- | --------------------- | ------------- | ----------- |
+-| Zone 11 minimal home dashboard   | None (scope decision first) | `dashboard/start/page.tsx`              | No         | No                   | Scope decision, then UI + service | M    | Yes                   | Manual        | Yes         |
+ | Zone 6 SKU search fix            | None                        | `InventoryProductsService.listProducts` | No         | No                   | Bug fix                           | XS   | Yes                   | Unit + manual | Yes         |
+ | Zone 6 movement-kind label fix   | None                        | `location-detail-panel.tsx` (~line 311) | No         | No                   | Bug fix                           | XS   | Yes                   | Unit + manual | Recommended |
+ | Zone 6 `posted_by` display       | None                        | Location history component              | No         | No                   | UI addition                       | XS   | Yes                   | Manual        | Recommended |
+@@ -96,9 +97,9 @@ Optimized for the product owner's explicit goal: presentation-ready THIS WEEK. R
+ 
+ ## Suggested execution order (respecting dependencies, maximizing parallelism)
+ 
+-1. **Immediately, in parallel**: P0-1 (Zone 1 fix), P0-2 (Container QR), P0-3 (Receiving/putaway — start early given its size), P0-5 (201/WZ issue), Zone 11 scope decision.
++1. **Immediately, in parallel**: P0-1 (Zone 1 fix), P0-2 (Container QR), P0-3 (Receiving/putaway — start early given its size), P0-5 (201/WZ issue).
+ 2. **Once P0-2 lands**: P0-4 (Container relocation).
+-3. **In parallel throughout**: all P1 small bug fixes (Zone 6 ×3) and Zone 11's own build once scoped.
++3. **In parallel throughout**: all P1 small bug fixes (Zone 6 ×3).
+ 4. **Last, after everything else affecting the same screens is done**: fresh manual UAT passes — Zone 1 (after P0-1), Zone 4 QR (after P0-1 and P0-2), Zone 3 Phase 7+, Zone 2 Approve-flow, and finally a full end-to-end rehearsal of the entire minimum pitch flow.
+ 
+ ## Safe to start the first implementation/fix pass?
+diff --git a/docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/zone-readiness-matrix.md b/docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/zone-readiness-matrix.md
+index 447ef4e7..475969b5 100644
+--- a/docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/zone-readiness-matrix.md
++++ b/docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/zone-readiness-matrix.md
+@@ -65,9 +65,11 @@ Classification key: PITCH BLOCKER / PITCH SHOULD / OPTIONAL / PILOT / DEFER. Ind
+ 
+ ## Zone 11 — Home / Operational Dashboard
+ 
+-**Doc status:** 🔴 NOT IMPLEMENTED — CURRENT, independently re-confirmed via direct read of the live page file (a 15-line static component: one `<PageHeaderV2>` with a generic welcome message, zero data fetching, zero widgets).
+-**Current verdict — CRITICAL FINDING:** this is the literal first screen every user sees immediately after login. Zero code has touched this file since the zone doc was written (2026-09-08) despite 29 intervening commits and roughly two weeks of engineering effort on adjacent work. Even the doc's own minimal "product clarification" section (which widgets to build) remains entirely unanswered — there is no scope decision yet, let alone an implementation.
+-**Classification: CORRECTED 2026-09-23 — PITCH SHOULD / HIGH FIRST-IMPRESSION RISK, not a hard blocker.** The current master pitch script (`ambra-skrypt-prezentacji.md`) does not itself require lingering on `/dashboard/start` — the choreography moves directly into the Matcher/RepairOrder flow after login. Still flagged as the single highest first-impression risk across all 11 zones given the imminent "this week" deadline and that both a scope decision AND implementation are still fully outstanding — but not classified a hard blocker unless the rehearsed choreography changes to require it.
++**CURRENT STATUS (2026-09-24): DEMO SUFFICIENT / NO PITCH WORK REQUIRED — product-owner decision.** See `docs/mvp/reviews/dashboard-container-product-clarification-2026-09-24/dashboard-current-status.md` for the full record. The classification below (CORRECTED 2026-09-23, PITCH SHOULD / HIGH FIRST-IMPRESSION RISK) and the underlying code finding are preserved below as HISTORICAL evidence — the code fact remains true (re-verified 2026-09-24: `/dashboard/start/page.tsx` is unchanged) but is no longer classified as pitch-relevant work, since the product owner has accepted the surrounding dashboard experience as sufficient.
++
++**HISTORICAL — Doc status (2026-09-23):** 🔴 NOT IMPLEMENTED — CURRENT, independently re-confirmed via direct read of the live page file (a 15-line static component: one `<PageHeaderV2>` with a generic welcome message, zero data fetching, zero widgets).
++**HISTORICAL — Current verdict (2026-09-23):** this is the literal first screen every user sees immediately after login. Zero code has touched this file since the zone doc was written (2026-09-08) despite 29 intervening commits and roughly two weeks of engineering effort on adjacent work. Even the doc's own minimal "product clarification" section (which widgets to build) remains entirely unanswered — there is no scope decision yet, let alone an implementation.
++**HISTORICAL — Classification (2026-09-23, superseded 2026-09-24):** PITCH SHOULD / HIGH FIRST-IMPRESSION RISK, not a hard blocker. The current master pitch script (`ambra-skrypt-prezentacji.md`) does not itself require lingering on `/dashboard/start` — the choreography moves directly into the Matcher/RepairOrder flow after login. Was flagged as the single highest first-impression risk across all 11 zones given the imminent "this week" deadline — see the CURRENT STATUS banner above for why this is no longer pitch-relevant work.
+ 
+ ## Cross-zone pattern (noted by Agent 3, confirmed consistent with this session's own Inventory Core findings)
+ 
+diff --git a/docs/mvp/zones/03-05-integration.md b/docs/mvp/zones/03-05-integration.md
+index a04ee5f7..65781292 100644
+--- a/docs/mvp/zones/03-05-integration.md
++++ b/docs/mvp/zones/03-05-integration.md
+@@ -87,7 +87,7 @@ export interface RepairOrderLinePhysicalState {
+ 6. **Consistency, in precedence order:**
+    - **`unknown`** — either (a) Zone 5's own `repair_order_location_attribution_uncertain` marker exists for a touched (location, variant) bucket (Zone 5's own documented "treat as UNKNOWN regardless of what the projection currently holds" contract, honored verbatim), or (b) an active container link's own container disagrees with its own allocation line's `location_id` (an internal Phase 10C invariant that should never be violated given the correction pass — if it ever is, this method refuses to guess which side is right).
+    - **`location_mismatch`** — the set of locations Zone 5 claims (`physicalQuantity > 0`) and the set of locations this line's own outstanding allocations claim (`allocatedQuantity > 0`) are both non-empty and differ.
+-   - **`uncontainerized`** — allocated stock exists that has not (yet) been placed into any container — a normal, expected mid-lifecycle state.
++   - **`uncontainerized`** — allocated stock exists that has not (yet) been placed into any container — a normal, expected mid-lifecycle read-model state (this bucket, not a user-facing workflow choice). **Clarified 2026-09-24**: per the accepted container operating model (`03-repair-orders-container-workflow-audit.md` §31.B), this diagnostic bucket describes a transitional technical state a RepairOrder allocation may pass through — it is not, and must not be presented as, an intended normal END state; the normal user workflow always continues on to container placement.
+    - **`consistent`** — everything available agrees, or there is simply nothing yet to disagree about.
+ 
+ ### No hard schema coupling
+diff --git a/docs/mvp/zones/03-repair-orders-container-workflow-audit.md b/docs/mvp/zones/03-repair-orders-container-workflow-audit.md
+index 9e70b771..c1a2c3fa 100644
+--- a/docs/mvp/zones/03-repair-orders-container-workflow-audit.md
++++ b/docs/mvp/zones/03-repair-orders-container-workflow-audit.md
+@@ -269,13 +269,33 @@ Net-new: a `RepairOrdersService`/RPC surface for reserving stock for a RepairOrd
+ 
+ ## 29. Open Product Decisions (blocking further design, not blocking Phase 3 itself)
+ 
+-1. **Container relocation model** — §10 option 1 (movement-carrier, reuses 801/engine) vs option 2 (independent pointer, dedicated RPC). This determines whether `inventory_balances` stays the sole ledger or whether container location becomes a second source of truth that must be kept consistent.
+-2. **Does allocation require a prior reservation for the RepairOrder flow**, or can RepairOrderLine go straight to allocation (schema already supports both — `reservation_id` is nullable on `inventory_allocations`)?
+-3. **RepairOrder close behavior** on outstanding reservations/allocations/containers (§21) — auto-release vs. manual.
+-4. **Empty container semantics** — add `'empty'` status vs. derive from line sum (§22).
+-5. **Container ownership/custody** — is this in scope at all for pitch, or is "current_location_id" sufficient (§23)?
+-6. **Per-part QR** vs. container-only QR (§7) — confirm pitch only needs container-level scanning.
+-7. **Permission granularity** — accept `warehouse.inventory.operate` covering reserve/allocate/container-manage for pitch, or split now (§16)?
++1. **Container relocation model** — §10 option 1 (movement-carrier, reuses 801/engine) vs option 2 (independent pointer, dedicated RPC). **RESOLVED** — option 1 selected; this is exactly what Phase 10E's own design implements (one atomic operation posting a real 801 movement + updating `current_location_id` together).
++2. **Does allocation require a prior reservation for the RepairOrder flow**, or can RepairOrderLine go straight to allocation (schema already supports both — `reservation_id` is nullable on `inventory_allocations`)? Still open.
++3. **RepairOrder close behavior** on outstanding reservations/allocations/containers (§21) — auto-release vs. manual. Still open.
++4. **Empty container semantics** — add `'empty'` status vs. derive from line sum (§22). **RESOLVED** — Phase 10C implemented the `'empty'` status, with `inventory_add_to_container`/`inventory_remove_from_container` maintaining it atomically as an invariant.
++5. **Container ownership/custody** — is this in scope at all for pitch, or is "current_location_id" sufficient (§23)? Still open.
++6. **Per-part QR** vs. container-only QR (§7) — confirm pitch only needs container-level scanning. **RESOLVED 2026-09-24** (product-owner clarification) — pitch scope remains location QR + container QR only. Free/standalone stock may get unit-level QR in a future PILOT-or-later pass, but this is explicitly NOT pitch scope. See §31 below.
++7. **Permission granularity** — accept `warehouse.inventory.operate` covering reserve/allocate/container-manage for pitch, or split now (§16)? Still open.
++
++---
++
++## 31. Product Clarification — Container Operating Model (2026-09-24)
++
++Full record and rationale: `docs/mvp/reviews/dashboard-container-product-clarification-2026-09-24/container-product-decisions.md` and `container-user-flows.md`. Summary of the accepted decisions (applies specifically to RepairOrder-assigned stock — does NOT redefine the model for generic free stock, see item G below):
++
++**A. RepairOrder stock must be containerized.** Parts assigned to a RepairOrder must not be stored loose as a normal operational state. Normal lifecycle: RepairOrder part → container → location. A RepairOrder may have multiple containers; a container belongs operationally to one RepairOrder. **Consistent with the existing accepted architecture** — Phase 10C already established containers as the physical-grouping mechanism and its own correction pass already closed cross-RepairOrder container mixing (see item E below). This decision formalizes containerization as the NORMAL path, not merely an available option; it does not change any already-built RPC or schema.
++
++**B. No normal "store loose" user action for RepairOrder parts.** The system may still technically observe uncontainerized states internally (transitional, legacy/import, diagnostic read-model inconsistency) — this is not removed or newly forbidden at the technical level — but it must not be presented as the intended normal user workflow. No existing implementation currently offers such an action (Phase 10C explicitly built no UI at all yet), so this is a forward-looking UX constraint on future Phase 10D+ UI work, not a correction to anything already shipped.
++
++**C. Partial move from a container creates a NEW container, inheriting the same RepairOrder.** Worker selects lines/quantities from a source container, scans/selects a destination, confirms "move selected parts and create a new container." Result: a new container is created, auto-assigned to the SAME RepairOrder as the source (never re-asked), the moved quantities are removed from the source container and assigned to the new one, the new container gets the destination location and a newly generated QR/label, and the source container remains at its original location with its remaining contents. **This is a genuinely new workflow, not currently covered by any existing phase.** Phase 10E as currently scoped ONLY covers whole-container relocation (§D below) — it has no concept of splitting a container's contents into a new container during a move. **Recorded here as a planning finding, per explicit instruction not to invent its design in a documentation-only pass.** A future phase (tentatively "Phase 10E-partial" or similar — name and scope not decided here) would need to design: the new-container-creation RPC, its atomicity with the source-container quantity decrement, QR/label generation timing, and its own pgTAP coverage — none of which is designed or scheduled by this clarification pass.
++
++**D. Whole-container relocation is unchanged.** Scan/open container → choose Move Container → scan/select destination → confirm → the whole container and all its contents move together, same container ID, new location, no new container created. **Exactly matches Phase 10E's existing design** — no correction needed.
++
++**E. Adding parts to an existing container: same-RepairOrder only, already enforced.** A worker may add additional parts belonging to the SAME RepairOrder to an existing container of that RepairOrder, or create a new one. Mixing parts from different RepairOrders into one RepairOrder-owned container remains forbidden. **Already implemented and live-tested** — Phase 10C's own correction pass (2026-09-14, finding 2) closed exactly this cross-RepairOrder mixing gap in `inventory_add_to_container`, proven via pgTAP T15-T21. Referenced here, not redesigned.
++
++**F. Issue from container: both whole and partial are intended.** Worker may issue the entire remaining container contents (container may end `status='empty'`) or only selected lines/quantities (remainder stays in the same container). **Consistent with Phase 10F's existing design** — "decrements the container line's quantity... container reaching zero contents → status='empty'" already supports both modes; Phase 10F's own task wording is accurate and needs no correction. Exact runtime implementation remains Phase 10F, not built here.
++
++**G. Free stock / non-RepairOrder stock is a distinct concept.** The mandatory-containerization rule (A/B above) applies only to RepairOrder-assigned stock. Free stock may exist without a RepairOrder, but must still have a known warehouse location — no stock should exist operationally without identification. Future scope (explicitly NOT pitch scope) may extend QR identification to standalone stock units for unit-level traceability, usable as an action context (create Ticket, create Task, move, assign to RepairOrder, add to container, view history). **Consistent with this audit's own §7 recommendation** ("scope the pitch to container-level QR only... unless product confirms a genuine need to scan a single loose part... that would be new surface, not a wiring gap") — this clarification confirms that need has NOT been confirmed for pitch; per-part/standalone-unit QR remains future/PILOT-or-later scope. Resolves Open Product Decision #6 above.
+ 
+ ---
+ 
+diff --git a/docs/mvp/zones/03-repair-orders-implementation-plan.md b/docs/mvp/zones/03-repair-orders-implementation-plan.md
+index 3a939ee9..802cf3c5 100644
+--- a/docs/mvp/zones/03-repair-orders-implementation-plan.md
++++ b/docs/mvp/zones/03-repair-orders-implementation-plan.md
+@@ -1093,6 +1093,8 @@ PITCH.
+ 
+ ## Phase 10E — 801 whole-container relocation
+ 
++> **Product clarification (2026-09-24)**: this phase's scope is confirmed CORRECT and unchanged — it covers WHOLE-container relocation only (same container ID, new location), exactly matching the accepted container operating model's own "moving the whole container" decision. A DIFFERENT, currently unscoped workflow — partial move from a container, which creates a NEW container inheriting the source's RepairOrder — was clarified this pass and is NOT covered by this phase or any other existing phase. Recorded as a planning finding, not designed or scheduled here: see `docs/mvp/zones/03-repair-orders-container-workflow-audit.md` §31.C and `docs/mvp/reviews/dashboard-container-product-clarification-2026-09-24/container-product-decisions.md`.
++
+ ### Objective
+ 
+ Build the container-relocation RPC per decision 1 (container-as-movement-carrier): one atomic operation that posts a real 801 movement for the container's contents AND updates `inventory_containers.current_location_id` together.
+@@ -1148,6 +1150,8 @@ PITCH.
+ 
+ ## Phase 10F — 201/WZ issue from container
+ 
++> **Product clarification (2026-09-24)**: this phase's scope is confirmed CORRECT and unchanged — the accepted container operating model requires both whole-container issue (issue all remaining contents, container may end `status='empty'`) and partial issue (selected lines/quantities leave, remainder stays in the same container), and this phase's existing design ("decrements the container line's quantity... container reaching zero contents → status='empty'") already supports both. No task wording or acceptance criteria changed. See `docs/mvp/zones/03-repair-orders-container-workflow-audit.md` §31.F.
++
+ ### Objective
+ 
+ Implement the WU (201/WZ) movement type per `07-normal-issue-and-legacy-stock-design.md`'s already-accepted contract, and wire "issue from a specific container" against an allocation.
+diff --git a/docs/mvp/zones/03-repair-orders-progress.md b/docs/mvp/zones/03-repair-orders-progress.md
+index 805b5dfd..6521531f 100644
+--- a/docs/mvp/zones/03-repair-orders-progress.md
++++ b/docs/mvp/zones/03-repair-orders-progress.md
+@@ -15,6 +15,8 @@
+ 
+ > **SCOPE EXPANSION (2026-09-10, product owner directive):** the full physical container workflow (`RepairOrderLine → Reservation → Allocation → Container → Container QR → Container location → 801 relocation → WU 201/WZ → issue history`) is now **PITCH**, not PILOT — this supersedes the container-workflow audit's (`03-repair-orders-container-workflow-audit.md`) own PILOT classification, which was based solely on the then-active pitch script omitting the workflow. Generic reversal and Legacy Stock 105/PZ-I remain PILOT. Seven frozen architecture decisions and six new implementation phases (10A–10F) were added to `03-repair-orders-implementation-plan.md` — see that file's new "Container/Reservation/Allocation architecture decisions" section. This is a scope/plan update only; none of 10A–10F has started.
+ 
++> **PRODUCT CLARIFICATION (2026-09-24, product-owner directive, documentation-only pass, no implementation):** the core RepairOrder-stock container operating model is now explicitly recorded — mandatory containerization (no normal "store loose" flow for RepairOrder parts), whole-container relocation (Phase 10E, unchanged), partial-move-creates-a-new-container (a genuinely new workflow, NOT covered by any existing phase — recorded as a planning finding, not designed or scheduled), same-RepairOrder-only container additions (already enforced by Phase 10C's own correction pass), whole/partial issue from a container (Phase 10F, unchanged), and free-stock/per-part-QR scope boundaries (per-part QR confirmed NOT pitch scope). Full record: `03-repair-orders-container-workflow-audit.md` §31 and `docs/mvp/reviews/dashboard-container-product-clarification-2026-09-24/`. This is a documentation-only clarification pass — no phase status, task list, or acceptance criteria changed except small pointer notes in Phase 10E/10F confirming their existing scope is correct; 10D/10E/10F remain NOT STARTED.
++
+ ### Overall execution
+ 
+ - Completed tasks: 114 / 167 (mechanical count of every implementation-task checkbox across the implementation plan's 22 phases, recomputed via `grep -c` after this pass's Phase 10C work — +10 from the 104/166 Phase-10B baseline: Phase 10C 10/10, +1 new task item vs. the plan's own pre-implementation draft — a composite-unique-index migration step discovered live and not anticipated by the stale planning text — so the total denominator moves 166→167)
+diff --git a/docs/mvp/zones/11-home-operational-dashboard.md b/docs/mvp/zones/11-home-operational-dashboard.md
+index d5be3e58..22ce1e2f 100644
+--- a/docs/mvp/zones/11-home-operational-dashboard.md
++++ b/docs/mvp/zones/11-home-operational-dashboard.md
+@@ -1,16 +1,23 @@
+ ### 11. Home / Operational Dashboard
+ 
+-# CURRENT STATUS — 2026-09-23
++# CURRENT STATUS — 2026-09-24
+ 
+-**CORRECTED CLASSIFICATION (2026-09-23): PITCH SHOULD / HIGH FIRST-IMPRESSION RISK, not a hard functional blocker.** The current master pitch script (`docs/mvp/ambra-skrypt-prezentacji.md`) does NOT itself require a dashboard demo — the script choreography moves directly from login into the Matcher/RepairOrder flow, not "remain visibly on `/dashboard/start`." Re-classify only as a hard blocker if the actual rehearsed choreography explicitly requires lingering on the start screen.
++**CURRENT STATUS — DEMO SUFFICIENT / NO PITCH WORK REQUIRED.** Product-owner clarification (2026-09-24, recorded in full in `docs/mvp/reviews/dashboard-container-product-clarification-2026-09-24/dashboard-current-status.md`): the current Ambra dashboard *experience* — active branch/org context (sidebar, always visible across every dashboard page), the live activity feed (`DashboardStatusBar.tsx`, real data via `getLatestActivityAction()`, present on every dashboard page), and the adjacent real, working modules one click away (Kanban board, Tickets, Tasks/Planning) — is accepted as sufficient for the pitch. This is NOT a presentation blocker, NOT a "PITCH SHOULD" item, and NOT a required pre-presentation task. It may receive later polish, but no further implementation is required before the pitch.
+ 
+-The underlying finding is unchanged and re-confirmed: `/dashboard/start` is still a 15-line static placeholder, zero data fetching, zero scope decision made, unchanged since this document was written despite two weeks of substantial adjacent engineering effort. This IS the literal first screen every user sees after login, and a placeholder here materially affects first impression even if it's never lingered on — it should ideally receive a minimal, honest implementation before the pitch. Advanced analytics/BI remain roadmap, out of scope for this minimal version.
++**This does not change the underlying, still-accurate code fact, preserved below as historical/technical evidence**: `/dashboard/start/page.tsx` itself remains, as of 2026-09-24, the exact same 15-line static placeholder described by the original audit (live-reverified: file unchanged since 2026-03-21, zero data fetching, zero server component). The product-owner decision is a judgment call that the surrounding operational shell and adjacent modules already make a strong-enough first impression without that one specific landing route being rebuilt — it is not a claim that the placeholder file itself was replaced with widgets. If a future pass rebuilds `/dashboard/start` as a real, data-driven landing screen, that remains a legitimate polish item, just not one gating the pitch.
+ 
+ # CURRENT REMAINING WORK
+ 
++None required before pitch. `/dashboard/start`'s own placeholder-to-real-landing-screen rebuild (the two items previously listed here) remains a legitimate future polish item, not pitch-blocking work — see the CURRENT STATUS banner above.
++
++<details>
++<summary>HISTORICAL — previously listed as required pre-pitch work (2026-09-23), superseded by the 2026-09-24 product-owner acceptance above</summary>
++
+ 1. Scope decision: which minimal widgets/summaries (active-branch context, real recent-activity data, a small set of useful quick actions — not fabricated metrics, not full BI).
+ 2. Build a server-fetched component replacing the current static placeholder.
+ 
++</details>
++
+ # HISTORICAL AUDIT / DESIGN RECORD
+ 
+ **Priorytet:** P1
+@@ -69,7 +76,7 @@ _To be reviewed together before implementation._
+ 
+ ### Product decisions
+ 
+-_No final decisions recorded yet._
++**DECIDED (2026-09-24, product-owner clarification):** the current dashboard experience is accepted as DEMO SUFFICIENT for the pitch — no further implementation is required beforehand. See the CURRENT STATUS banner at the top of this file and `docs/mvp/reviews/dashboard-container-product-clarification-2026-09-24/dashboard-current-status.md` for the full record. This decision covers pitch readiness only — it does not resolve widget scope/design for a future real `/dashboard/start` rebuild, which remains open, undecided, non-blocking future polish.
+ 
+ ### Final intended workflow
+ 
+@@ -85,7 +92,7 @@ _To be rebuilt after clarification._
+ 
+ ### Final pitch scope
+ 
+-_To be defined after clarification._
++**DECIDED (2026-09-24):** none. No dashboard implementation work is in the pitch scope. The existing operational shell (branch/org context, activity feed, adjacent real modules) is what will be shown.
+ 
+ ### Final controlled-pilot scope
+ 

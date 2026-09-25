@@ -87,7 +87,7 @@ export interface RepairOrderLinePhysicalState {
 6. **Consistency, in precedence order:**
    - **`unknown`** — either (a) Zone 5's own `repair_order_location_attribution_uncertain` marker exists for a touched (location, variant) bucket (Zone 5's own documented "treat as UNKNOWN regardless of what the projection currently holds" contract, honored verbatim), or (b) an active container link's own container disagrees with its own allocation line's `location_id` (an internal Phase 10C invariant that should never be violated given the correction pass — if it ever is, this method refuses to guess which side is right).
    - **`location_mismatch`** — the set of locations Zone 5 claims (`physicalQuantity > 0`) and the set of locations this line's own outstanding allocations claim (`allocatedQuantity > 0`) are both non-empty and differ.
-   - **`uncontainerized`** — allocated stock exists that has not (yet) been placed into any container — a normal, expected mid-lifecycle state.
+   - **`uncontainerized`** — allocated stock exists that has not (yet) been placed into any container — a normal, expected mid-lifecycle read-model state (this bucket, not a user-facing workflow choice). **Clarified 2026-09-24**: per the accepted container operating model (`03-repair-orders-container-workflow-audit.md` §31.B), this diagnostic bucket describes a transitional technical state a RepairOrder allocation may pass through — it is not, and must not be presented as, an intended normal END state; the normal user workflow always continues on to container placement.
    - **`consistent`** — everything available agrees, or there is simply nothing yet to disagree about.
 
 ### No hard schema coupling

@@ -1,5 +1,19 @@
 ### 6. Szukanie, zawartość lokalizacji, relokacja części/zestawu i historia
 
+# CURRENT STATUS — 2026-09-23
+
+Poniższy audyt (2026-09-08) jest CURRENT — zero dryfu kodu potwierdzonego świeżym `git log --since` na każdym cytowanym pliku (`docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/zone-readiness-matrix.md`). Jedna korekta klasyfikacji: **relokacja kontenera (dziś martwy kod, `relocateContainerAction`) jest teraz PITCH REQUIRED (Faza 10E Strefy 3)**, nie opcjonalna „usunąć z demo" — dyrektywa produkt-ownera z 2026-09-10, patrz `docs/mvp/zones/03-repair-orders-progress.md`. Generyczne wyszukiwanie/relokacja pojedynczej części (opisane niżej) pozostają osobną, już działającą zdolnością, niezależną od Fazy 10E.
+
+# CURRENT REMAINING WORK
+
+1. Naprawić wyszukiwanie po SKU (dziś filtruje tylko po nazwie).
+2. Naprawić etykietę „przeniesienie" w historii (błąd porównania `movementKind === "transfer"`).
+3. Dodać `posted_by` do widoku historii.
+4. Zbudować UI dla relokacji kontenera, wywołujące istniejące `relocateContainerAction` (Faza 10E, PITCH REQUIRED).
+5. Świeża ręczna weryfikacja całej ścieżki na aktualnym build.
+
+# HISTORICAL AUDIT / DESIGN RECORD
+
 **Priorytet:** P0
 
 **Stan obecny:** 🟡 PARTIAL

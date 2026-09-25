@@ -1,0 +1,360 @@
+diff --git a/apps/web/CLAUDE.md b/apps/web/CLAUDE.md
+index d7e692c2..def49102 100644
+--- a/apps/web/CLAUDE.md
++++ b/apps/web/CLAUDE.md
+@@ -16,7 +16,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
+ 
+ ## Supabase Commands
+ 
+-**IMPORTANT: NEVER run local Supabase. Always use remote project ID: zlcnlalwfmmtusigeuyk**
++**IMPORTANT: NEVER run local Supabase. Always use remote project ID: rjeraydumwechpjjzrus. The authoritative migration tree is `apps/web/supabase-target/supabase/migrations`.**
+ 
+ - `pnpm supabase:link:dev` - Link to development Supabase project
+ - `pnpm supabase:link:prod` - Link to production Supabase project
+diff --git a/apps/web/src/app/[locale]/dashboard/_components/__tests__/sidebar-branch-switcher.test.tsx b/apps/web/src/app/[locale]/dashboard/_components/__tests__/sidebar-branch-switcher.test.tsx
+index 1ac50c7c..93c9f7ac 100644
+--- a/apps/web/src/app/[locale]/dashboard/_components/__tests__/sidebar-branch-switcher.test.tsx
++++ b/apps/web/src/app/[locale]/dashboard/_components/__tests__/sidebar-branch-switcher.test.tsx
+@@ -1,11 +1,20 @@
+ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+ import { beforeEach, describe, expect, it, vi } from "vitest";
+ 
+-const { mockChangeBranch, mockSuccess, mockError, mockSetActiveBranch } = vi.hoisted(() => ({
++const {
++  mockChangeBranch,
++  mockSuccess,
++  mockError,
++  mockSetActiveBranch,
++  mockReplace,
++  mockRefresh,
++} = vi.hoisted(() => ({
+   mockChangeBranch: vi.fn(),
+   mockSuccess: vi.fn(),
+   mockError: vi.fn(),
+   mockSetActiveBranch: vi.fn(),
++  mockReplace: vi.fn(),
++  mockRefresh: vi.fn(),
+ }));
+ 
+ vi.mock("@/components/ui/dropdown-menu", () => ({
+@@ -62,6 +71,13 @@ vi.mock("@/app/actions/shared/changeBranch", () => ({
+   changeBranch: (...args: unknown[]) => mockChangeBranch(...args),
+ }));
+ 
++vi.mock("@/i18n/navigation", () => ({
++  useRouter: () => ({
++    replace: mockReplace,
++    refresh: mockRefresh,
++  }),
++}));
++
+ vi.mock("react-toastify", () => ({
+   toast: {
+     success: mockSuccess,
+@@ -87,7 +103,7 @@ describe("SidebarBranchSwitcher", () => {
+     expect(screen.getAllByText("Warsaw")).toHaveLength(2);
+   });
+ 
+-  it("switches branches successfully", async () => {
++  it("switches branches successfully and completes the transition", async () => {
+     mockChangeBranch.mockResolvedValue({ success: true });
+ 
+     render(<SidebarBranchSwitcher branches={branches} activeBranchId="b-1" />);
+@@ -98,10 +114,28 @@ describe("SidebarBranchSwitcher", () => {
+       expect(mockChangeBranch).toHaveBeenCalledWith("b-2");
+       expect(mockSetActiveBranch).toHaveBeenCalledWith("b-2");
+       expect(mockSuccess).toHaveBeenCalledWith("Branch switched successfully");
++      expect(mockReplace).toHaveBeenCalledWith("/dashboard/start");
++      expect(mockRefresh).toHaveBeenCalledTimes(1);
+     });
+   });
+ 
+-  it("shows an error toast when the action fails", async () => {
++  it("navigates to the safe route before refreshing (ordering)", async () => {
++    mockChangeBranch.mockResolvedValue({ success: true });
++
++    render(<SidebarBranchSwitcher branches={branches} activeBranchId="b-1" />);
++
++    fireEvent.click(screen.getByRole("button", { name: /berlin/i }));
++
++    await waitFor(() => {
++      expect(mockRefresh).toHaveBeenCalled();
++    });
++
++    const replaceOrder = mockReplace.mock.invocationCallOrder[0];
++    const refreshOrder = mockRefresh.mock.invocationCallOrder[0];
++    expect(replaceOrder).toBeLessThan(refreshOrder);
++  });
++
++  it("shows an error toast when the action fails and performs no transition", async () => {
+     mockChangeBranch.mockResolvedValue({ success: false, error: "Nope" });
+ 
+     render(<SidebarBranchSwitcher branches={branches} activeBranchId="b-1" />);
+@@ -111,5 +145,27 @@ describe("SidebarBranchSwitcher", () => {
+     await waitFor(() => {
+       expect(mockError).toHaveBeenCalledWith("Nope");
+     });
++
++    // Server rejected the switch — no client state, navigation, or refresh
++    // should occur; the previous branch must remain active.
++    expect(mockSetActiveBranch).not.toHaveBeenCalled();
++    expect(mockReplace).not.toHaveBeenCalled();
++    expect(mockRefresh).not.toHaveBeenCalled();
++    expect(mockSuccess).not.toHaveBeenCalled();
++  });
++
++  it("does nothing when selecting the already-active branch", async () => {
++    mockChangeBranch.mockResolvedValue({ success: true });
++
++    render(<SidebarBranchSwitcher branches={branches} activeBranchId="b-1" />);
++
++    // Both the trigger and the Warsaw dropdown item show "Warsaw" text; the
++    // dropdown item (the actually-selectable one) is the second match.
++    const warsawButtons = screen.getAllByRole("button", { name: /warsaw/i });
++    fireEvent.click(warsawButtons[1]);
++
++    expect(mockChangeBranch).not.toHaveBeenCalled();
++    expect(mockReplace).not.toHaveBeenCalled();
++    expect(mockRefresh).not.toHaveBeenCalled();
+   });
+ });
+diff --git a/apps/web/src/app/[locale]/dashboard/_components/sidebar-branch-switcher.tsx b/apps/web/src/app/[locale]/dashboard/_components/sidebar-branch-switcher.tsx
+index 43ce5bd8..cd84cae3 100644
+--- a/apps/web/src/app/[locale]/dashboard/_components/sidebar-branch-switcher.tsx
++++ b/apps/web/src/app/[locale]/dashboard/_components/sidebar-branch-switcher.tsx
+@@ -18,9 +18,16 @@ import {
+ } from "@/components/ui/sidebar";
+ import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
+ import { changeBranch } from "@/app/actions/shared/changeBranch";
++import { useRouter } from "@/i18n/navigation";
+ import { toast } from "react-toastify";
+ import type { BranchDataV2 } from "@/lib/stores/v2/app-store";
+ 
++// Branch-neutral safe route to land on after a switch. Static (no branch-bound
++// data), so it can never 404 or resolve to a stale/inaccessible object under
++// the new branch context. Already used elsewhere as the canonical "go home"
++// destination (see components/v2/layout/quick-switcher.tsx).
++const SAFE_ROUTE_AFTER_BRANCH_SWITCH = "/dashboard/start";
++
+ interface SidebarBranchSwitcherProps {
+   /** Server-computed accessible branches for the current user */
+   branches: BranchDataV2[];
+@@ -31,6 +38,7 @@ interface SidebarBranchSwitcherProps {
+ export function SidebarBranchSwitcher({ branches, activeBranchId }: SidebarBranchSwitcherProps) {
+   const { isMobile } = useSidebar();
+   const [isPending, startTransition] = useTransition();
++  const router = useRouter();
+ 
+   // Branch list comes from server-computed props — NOT from the store.
+   // activeBranchId from the store is used for display (updated optimistically on switch).
+@@ -51,8 +59,15 @@ export function SidebarBranchSwitcher({ branches, activeBranchId }: SidebarBranc
+           toast.error("error" in result ? result.error : "Failed to switch branch");
+           return;
+         }
++
++        // Server-confirmed switch only past this point. Update the client store,
++        // then move off any branch-bound object route and force Server Components
++        // to re-render against the new active branch — otherwise the sidebar shows
++        // the new branch while the page body keeps rendering the old one.
+         setActiveBranch(branchId);
+         toast.success("Branch switched successfully");
++        router.replace(SAFE_ROUTE_AFTER_BRANCH_SWITCH);
++        router.refresh();
+       } catch (error) {
+         console.error("Failed to change branch:", error);
+         toast.error("Failed to switch branch");
+diff --git a/docs/mvp/zones/01-auth-org-branch-access-implementation-plan.md b/docs/mvp/zones/01-auth-org-branch-access-implementation-plan.md
+index 3a56f145..df29459e 100644
+--- a/docs/mvp/zones/01-auth-org-branch-access-implementation-plan.md
++++ b/docs/mvp/zones/01-auth-org-branch-access-implementation-plan.md
+@@ -128,7 +128,7 @@ The Zone 1 pre-implementation verification bundle (11 files) exists, is committe
+ 
+ ### Out of scope
+ 
+-Any runtime implementation. Any fix to apps/web/CLAUDE.md's stale project-ref instruction — assigned to PILOT Phase E instead.
++Any runtime implementation. Any fix to apps/web/CLAUDE.md's stale project-ref instruction — originally assigned to PILOT Phase E; moved to Phase 1 and fixed there on 2026-09-24 as a tiny operational-safety documentation correction once implementation began (see Phase 1's own "Implementation tasks" and PILOT Phase E's updated scope note below).
+ 
+ ### Blocker rule
+ 
+@@ -178,6 +178,7 @@ changeBranch server action (already correct, do not modify); Next.js router.refr
+ - [ ] Add navigation to the safe start route after a successful switch.
+ - [ ] Confirm the toast/loading state UX is not broken by the added navigation.
+ - [ ] Update sidebar-branch-switcher.test.tsx to assert router.refresh()/navigation is called on success.
++- [ ] (Added 2026-09-24, moved from PILOT Phase E per explicit instruction once implementation began) Fix apps/web/CLAUDE.md's stale "always use zlcnlalwfmmtusigeuyk" project-reference instruction to reference the live target ref (rjeraydumwechpjjzrus) and the authoritative migration tree (apps/web/supabase-target/supabase/migrations). Tiny operational-safety documentation correction only — not part of Phase 1's own runtime logic, and does not touch PILOT Phase E's actual schema-reconciliation scope.
+ 
+ ### Testing requirements
+ 
+@@ -935,7 +936,7 @@ Phase 0. Should ideally precede or run alongside Phase D — TO VERIFY DURING PH
+ 
+ ### Repository areas affected
+ 
+-New migration files only, in apps/web/supabase-target/supabase/migrations. Also: apps/web/CLAUDE.md's stale project-ref instruction (deferred from Phase 0, fixed here).
++New migration files only, in apps/web/supabase-target/supabase/migrations. (The apps/web/CLAUDE.md stale project-ref fix originally planned for this phase was moved to and completed in Phase 1 on 2026-09-24, once implementation began — see that phase's own task list. This phase's own schema-reconciliation scope below is unaffected by that move.)
+ 
+ ### Supabase changes
+ 
+@@ -951,9 +952,10 @@ The exact reconstruction methodology already proven in this project's own Invent
+ - [ ] Reconstruct all 4 wdd*matcher*\* tables' CREATE TABLE + RLS, same approach.
+ - [ ] Reconstruct app_attachments's CREATE TABLE + RLS, same approach.
+ - [ ] Reconstruct qr_codes/qr_assignments from scratch (no source anywhere) — pure information_schema/pg_catalog reverse-engineering, explicitly disclosed as such.
+-- [ ] Fix apps/web/CLAUDE.md's stale "always use zlcnlalwfmmtusigeuyk" instruction to reference the actual live target ref (rjeraydumwechpjjzrus).
+ - [ ] Cross-verify every reconstructed migration replays cleanly, without claiming to resolve the BROADER clean-room reproducibility gap Inventory Core already found and deferred.
+ 
++(The task "fix apps/web/CLAUDE.md's stale project-ref instruction," originally listed here, was moved to and completed in Phase 1 on 2026-09-24 once implementation began — removed from this list; this phase now has 5 implementation tasks, not 6. See Phase 1's own task list for the completed item.)
++
+ ### Testing requirements
+ 
+ Live schema diff/comparison; no new Vitest/pgTAP expected since no application behavior changes.
+@@ -961,8 +963,9 @@ Live schema diff/comparison; no new Vitest/pgTAP expected since no application b
+ ### Acceptance criteria
+ 
+ 1. All 6 tables have a reviewable CREATE TABLE + RLS migration in the authoritative target tree.
+-2. apps/web/CLAUDE.md correctly references the live target project ref.
+-3. This work does not claim to resolve Inventory Core's own separately-accepted, broader clean-room reproducibility gap.
++2. This work does not claim to resolve Inventory Core's own separately-accepted, broader clean-room reproducibility gap.
++
++(The original acceptance criterion 2 — apps/web/CLAUDE.md correctly references the live target project ref — was met early, in Phase 1 on 2026-09-24, and is no longer this phase's own criterion to satisfy.)
+ 
+ ### Out of scope
+ 
+diff --git a/docs/mvp/zones/01-auth-org-branch-access-progress.md b/docs/mvp/zones/01-auth-org-branch-access-progress.md
+index 846df690..0bf3b7a1 100644
+--- a/docs/mvp/zones/01-auth-org-branch-access-progress.md
++++ b/docs/mvp/zones/01-auth-org-branch-access-progress.md
+@@ -5,11 +5,11 @@
+ - **Zone:** 1
+ - **Priority:** P0
+ - **Architecture:** APPROVED
+-- **Runtime status:** PARTIAL
+-- **Current phase:** Phase 0 DONE — Phase 1 is next (not started)
++- **Runtime status:** PARTIAL / IMPLEMENTATION IN PROGRESS
++- **Current phase:** Phase 1 DONE (2026-09-24) — Phase 2 — Branch-aware DataView/query-key foundation is next (not started)
+ - **Pitch readiness:** NOT YET
+ - **Pilot readiness:** NOT READY
+-- **Last updated:** 2026-09-23
++- **Last updated:** 2026-09-24
+ 
+ ---
+ 
+@@ -17,16 +17,16 @@
+ 
+ Computed directly from checkbox counts in `01-auth-org-branch-access-implementation-plan.md`. Recompute whenever a phase's task list changes.
+ 
+-- **Total implementation tasks (DEMO + PILOT): 9/95**
+-- **Pitch-required tasks (Phases 0-8): 9/48**
+-- **Pilot-required tasks (Phases A-I): 0/47**
++- **Total implementation tasks (DEMO + PILOT): 15/95**
++- **Pitch-required tasks (Phases 0-8): 15/49**
++- **Pilot-required tasks (Phases A-I): 0/46**
+ 
+-Breakdown by phase (task count = number of checkboxes in that phase's "Implementation tasks" section in the plan):
++Breakdown by phase (task count = number of checkboxes in that phase's "Implementation tasks" section in the plan). Phase 1 gained a 6th task (the CLAUDE.md fix, moved in from Phase E) on 2026-09-24; Phase E's own count dropped to 5 accordingly — see the change log.
+ 
+ | Phase     | Task count | Completed |
+ | --------- | ---------- | --------- |
+ | 0         | 9          | 9         |
+-| 1         | 5          | 0         |
++| 1         | 6          | 6         |
+ | 2         | 4          | 0         |
+ | 3         | 5          | 0         |
+ | 4         | 4          | 0         |
+@@ -38,12 +38,12 @@ Breakdown by phase (task count = number of checkboxes in that phase's "Implement
+ | B         | 6          | 0         |
+ | C         | 3          | 0         |
+ | D         | 5          | 0         |
+-| E         | 6          | 0         |
++| E         | 5          | 0         |
+ | F         | 5          | 0         |
+ | G         | 4          | 0         |
+ | H         | 6          | 0         |
+ | I         | 4          | 0         |
+-| **Total** | **95**     | **9**     |
++| **Total** | **95**     | **15**    |
+ 
+ ---
+ 
+@@ -52,7 +52,7 @@ Breakdown by phase (task count = number of checkboxes in that phase's "Implement
+ | Phase                               | Status            | Pitch/Pilot        | Completed | Notes                                                                                      |
+ | ----------------------------------- | ----------------- | ------------------ | --------- | ------------------------------------------------------------------------------------------ |
+ | 0 — Implementation baseline         | DONE (2026-09-23) | PITCH prerequisite | 9/9       | Satisfied entirely by the pre-implementation verification bundle, committed at `5dfce9d3`. |
+-| 1 — Centralized branch transition   | NOT STARTED       | PITCH              | 0/5       | Next phase. Root-cause fix for the branch-switch bug.                                      |
++| 1 — Centralized branch transition   | ✅ DONE (2026-09-24) | PITCH | 6/6       | Root-cause fix for the branch-switch bug, landed. See "Phase 1 — detailed tracking" below.          |
+ | 2 — DataView/query-key foundation   | NOT STARTED       | PITCH              | 0/4       | Independent of Phase 1; can run in parallel.                                               |
+ | 3 — Migrate DataView consumers      | NOT STARTED       | PITCH              | 0/5       | Depends on Phase 2.                                                                        |
+ | 4 — Matcher query key               | NOT STARTED       | PITCH              | 0/4       | Independent of Phases 1-3.                                                                 |
+@@ -64,7 +64,7 @@ Breakdown by phase (task count = number of checkboxes in that phase's "Implement
+ | B — Anti-escalation                 | NOT STARTED       | PILOT              | 0/6       | Not scheduled this week.                                                                   |
+ | C — Invitation + one-org invariant  | NOT STARTED       | PILOT              | 0/3       | Not scheduled this week.                                                                   |
+ | D — Branch RLS hardening            | NOT STARTED       | PILOT              | 0/5       | Not scheduled this week.                                                                   |
+-| E — Schema reconciliation           | NOT STARTED       | PILOT              | 0/6       | Not scheduled this week. Includes the CLAUDE.md project-ref fix.                           |
++| E — Schema reconciliation           | NOT STARTED       | PILOT              | 0/6       | Not scheduled this week. CLAUDE.md project-ref fix moved out — completed in Phase 1 (2026-09-24). |
+ | F — Unsaved-work safety             | NOT STARTED       | PILOT              | 0/5       | Not scheduled this week.                                                                   |
+ | G — Live test infrastructure        | NOT STARTED       | PILOT              | 0/4       | Not scheduled this week.                                                                   |
+ | H — Administrative auditability     | NOT STARTED       | PILOT              | 0/6       | Not scheduled this week.                                                                   |
+@@ -72,13 +72,36 @@ Breakdown by phase (task count = number of checkboxes in that phase's "Implement
+ 
+ ---
+ 
++## Phase 1 — detailed tracking
++
++Copied from the implementation plan's own task list when the phase started (2026-09-24), per the tracker's own "current/started phase gets full detail" rule. Phase completed same day.
++
++- [x] Determine the safe start route to redirect to after a switch.
++  - Evidence: Selected `/dashboard/start` — a static page with zero data fetching or branch-bound dynamic segments (`apps/web/src/app/[locale]/dashboard/start/page.tsx`), already used elsewhere in the codebase as the canonical "go home" destination (`components/v2/layout/quick-switcher.tsx`'s own default "Go to dashboard home" action). Satisfies every constraint in the task spec: exists today, valid for normal authenticated users, no object-ID dependency, cannot 404 under any branch context, no new page created.
++- [x] Add `router.refresh()` call to `handleBranchSelect` after a successful `changeBranch()` call.
++  - Evidence: `sidebar-branch-switcher.tsx:70`. Uses `useRouter` from `@/i18n/navigation` (the codebase's locale-aware wrapper), matching the import pattern already used by sibling dashboard components (`sidebar-org-header.tsx`, `dashboard-shell.tsx`, `quick-switcher.tsx`).
++- [x] Add navigation to the safe start route after a successful switch.
++  - Evidence: `sidebar-branch-switcher.tsx:69`, `router.replace(SAFE_ROUTE_AFTER_BRANCH_SWITCH)`. Used `replace` (not `push`) deliberately — a branch switch invalidates the previous route as a valid back-button target (going back would just re-surface the same stale-branch-object problem this phase closes), so no history entry should be kept for it, per the task's own "avoid unnecessary history entries" instruction. Ordering (`replace` before `refresh`) matches the one existing precedent for this exact pattern in the codebase (`inventory-movement-new-client.tsx:269-270`), and avoids briefly re-rendering the old, soon-to-be-abandoned branch-bound route before navigating away.
++- [x] Confirm the toast/loading state UX is not broken by the added navigation.
++  - Evidence: reviewed by inspection — `isPending`/`startTransition` (disables the switcher's buttons during the async operation) and the `toast.success`/`toast.error` calls are unchanged in structure; `router.replace`/`router.refresh` are synchronous calls scheduled inside the same `startTransition` callback and do not block or delay the toast, which is rendered via `react-toastify`'s own global portal (unaffected by client-side navigation within the same app tree).
++- [x] Update `sidebar-branch-switcher.test.tsx` to assert `router.refresh()`/navigation is called on success.
++  - Evidence: `sidebar-branch-switcher.test.tsx` — added a `useRouter` mock (`@/i18n/navigation`) and 3 new/updated tests: successful switch asserts `replace("/dashboard/start")` + `refresh()`; a dedicated ordering test proves `replace` is invoked before `refresh` via `mock.invocationCallOrder`; failure test asserts zero navigation/refresh/state-change occurred. Also added a same-branch no-op test (pre-existing behavior, now explicitly covered).
++- [x] (Added 2026-09-24, moved from PILOT Phase E) Fix `apps/web/CLAUDE.md`'s stale project-ref instruction.
++  - Evidence: `apps/web/CLAUDE.md:19` now reads `rjeraydumwechpjjzrus` and names the authoritative migration tree (`apps/web/supabase-target/supabase/migrations`), replacing the stale legacy ref (`zlcnlalwfmmtusigeuyk`). No other line in `CLAUDE.md` touched.
++
++**Tests:** `sidebar-branch-switcher.test.tsx` — 5/5 pass. Regression suite (`changeBranch.test.ts`, `permissions-sync.test.tsx`, `use-branch-permissions-query.test.tsx`, `load-dashboard-context.v2.test.ts`, `load-app-context.v2.test.ts`) — 54/55 pass; the 1 failure is the pre-existing, already-documented `load-app-context.v2.test.ts` fixture-drift failure (BLOCKER-Z1-005, owned by Phase 7 — unrelated file, not touched by this phase). `pnpm type-check`: clean. `pnpm eslint` on both touched files: 0 errors/warnings.
++
++**Blocker:** none. Phase 1 completed with no BLOCKED state and no architecture question raised.
++
++---
++
+ ## Active blockers
+ 
+ Stable IDs, once assigned, are never reused. None of the items below block Phase 1 (the next phase to implement) from starting — they are recorded so they are not forgotten, per the task's own explicit instruction not to let known gaps disappear from view after the presentation.
+ 
+ ### PITCH implementation gaps (block DEMO READY, not yet started)
+ 
+-- **BLOCKER-Z1-001** — Branch switch performs no `router.refresh()`/navigation/cache invalidation (`SidebarBranchSwitcher.handleBranchSelect`). Owner: Phase 1. Status: OPEN, not yet started.
++- **BLOCKER-Z1-001** — Branch switch performs no `router.refresh()`/navigation/cache invalidation (`SidebarBranchSwitcher.handleBranchSelect`). Owner: Phase 1. Status: **RESOLVED (2026-09-24)** — see Phase 1 detailed tracking above.
+ - **BLOCKER-Z1-002** — `DataViewListParams` has no `branchId` field; 4 confirmed consumers (Locations, Inventory Balances, Inventory Movements, Inventory Products) have branch-agnostic cache keys. Owner: Phases 2-3. Status: OPEN, not yet started.
+ - **BLOCKER-Z1-003** — `wddMatcherKeys.sessions()` is branch-agnostic; zero test coverage exists for this key. Owner: Phase 4. Status: OPEN, not yet started.
+ - **BLOCKER-Z1-004** — `warehouse.location` QR/deep-link silently drops cross-branch intent instead of confirm-then-switch (safe, not a leak, but a missing UX requirement). Owner: Phase 6. Status: OPEN, not yet started.
+@@ -99,13 +122,12 @@ Stable IDs, once assigned, are never reused. None of the items below block Phase
+ 
+ - **BLOCKER-Z1-014** — `warehouse_locations`/`app_attachments` migrations missing from the authoritative target tree (live-correct, paper-trail-only gap). Owner: PILOT Phase E.
+ - **BLOCKER-Z1-015** — `qr_codes`/`qr_assignments` have no committed migration source in either tree at all; live schema was applied out-of-band. Owner: PILOT Phase E.
+-- **BLOCKER-Z1-016** — `apps/web/CLAUDE.md` line 19 instructs use of the stale legacy project ref (`zlcnlalwfmmtusigeuyk`) instead of the live target (`rjeraydumwechpjjzrus`). Owner: PILOT Phase E.
+ - **BLOCKER-Z1-017** — 3 Zone-1-relevant client test suites (`roles-client`, `invitations-client`, `members-client`) crash on load due to an unrelated `nuqs`/`parseAsJson` version mismatch in the shared `data-view-url-state.ts` module — masks their own coverage. Owner: none assigned (explicitly out of Zone 1 scope; flagged for whoever owns the shared `data-view` component).
+ - **BLOCKER-Z1-018** — `QrTargetDescriptor.validate()`'s JSDoc incorrectly claims `resolvePublicQrToken` runs with an authenticated, RLS-enforced client — it does not (service-role, zero auth check, by design). Stale comment, not a live security issue. Owner: Phase 6 (fixed as part of that phase's own QR work).
+ 
+ ### No-longer-blocking findings
+ 
+-None yet — no phase has completed re-verification work since the baseline.
++- **BLOCKER-Z1-016** (formerly listed under "Accepted deferred technical debt", owner PILOT Phase E) — `apps/web/CLAUDE.md` line 19's stale legacy project ref. **RESOLVED 2026-09-24** — fixed as a small operational-safety correction bundled into Phase 1 once implementation began, per explicit instruction, rather than waiting for PILOT Phase E. See Phase 1 detailed tracking above and the change log below.
+ 
+ ---
+ 
+@@ -127,6 +149,13 @@ Zone 3 discipline: date, phase, finding, evidence, classification, resolution, w
+ - **Decision:** Re-evaluated `recommended-implementation-pass.md`'s 3-change recommendation and expanded it into 9 DEMO-READY phases (0-8) plus 9 PILOT-READY phases (A-I), per the required A-H topic separation and the "one coherent concern per phase" discipline modeled on Zone 3's 22-phase pattern. Rationale recorded in the phase-boundary analysis (`docs/mvp/reviews/zone1-implementation-planning-2026-09-23/zone1-phase-boundary-analysis.md`). Not a redesign of the underlying fixes themselves — the 3 recommended code changes map onto Phases 1 (branch transition), 2+3+4 (query-key foundation + 4 DataView consumers + Matcher, split from one change into 3 phases because DataView and Matcher are architecturally distinct modules and the 4 DataView consumers share one mechanical fix pattern), and 6 (QR confirm-then-switch). Architecture (the product decisions in `01-auth-org-branch-access.md`) is unaffected — this is purely an execution-sequencing decision. No product-owner decision was needed for this split itself.
+ - **Decision:** Phase 0 is marked DONE immediately, citing the pre-implementation verification bundle as its own acceptance evidence, following the exact precedent Zone 3's own Phase 0A set (a baseline/reconciliation phase can close on verification evidence alone, without a corresponding code change).
+ 
++### 2026-09-24 — Phase 1 implementation
++
++- **Finding/fix:** `SidebarBranchSwitcher.handleBranchSelect` closed exactly as designed — added `router.replace("/dashboard/start")` then `router.refresh()` after a server-confirmed `changeBranch()` success, using the codebase's own `useRouter` (`@/i18n/navigation`) and matching the one existing in-codebase precedent for this exact ordering (`inventory-movement-new-client.tsx`). Evidence: `apps/web/src/app/[locale]/dashboard/_components/sidebar-branch-switcher.tsx`. Classification: CONFIRMED FIX, closes BLOCKER-Z1-001. Architecture unaffected — `changeBranch` itself, authorization, and all "already correct" foundations named in the plan were not touched. No product-owner decision needed.
++- **Decision:** Selected `/dashboard/start` as the safe start route (Zone 1 decision 22's "safe start screen"), based on it already being the codebase's own canonical "go home" destination (`quick-switcher.tsx`) and being fully static/branch-neutral (no data fetching, no dynamic segments) — resolved without needing a new product-owner decision, since it was directly derivable from existing code and the architecture doc.
++- **Scope correction (not a redesign):** Per explicit instruction, the `apps/web/CLAUDE.md` stale-project-ref housekeeping fix — originally deferred to PILOT Phase E in the 2026-09-23 planning pass — was moved to and completed in Phase 1 instead, since implementation had now begun. PILOT Phase E's own schema-reconciliation scope is unchanged; only this one unrelated housekeeping task moved. Both the implementation plan and this tracker were updated to reflect the new ownership (Phase E's task count: 6→5; Phase 1's task count: 5→6). This mirrors Zone 3's own "SCOPE CORRECTION" banner discipline — recorded here rather than silently editing the original 2026-09-23 planning-pass entry above.
++- **No blockers encountered.** No implementation evidence contradicted the accepted architecture; no STOP condition was triggered.
++
+ ---
+ 
+ ## DEMO READY gate

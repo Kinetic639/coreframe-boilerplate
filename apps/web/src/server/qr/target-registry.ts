@@ -28,7 +28,13 @@ export interface QrTargetDescriptor {
   /**
    * Validates that the target exists, belongs to the stated org,
    * and is not soft-deleted. Returns derived branchId on success.
-   * Runs with the authenticated Supabase client (RLS enforced).
+   *
+   * Corrected (Zone 1 / Phase 6): the public QR resolver (the only caller
+   * today, `resolvePublicQrToken`) passes a SERVICE-ROLE client here, not an
+   * authenticated/RLS-enforced one -- by design, since token resolution must
+   * work for anonymous scans. Do not assume RLS is active inside `validate()`;
+   * each implementation's own explicit org-id comparison is the only
+   * enforcement performed at this layer.
    */
   validate(params: {
     supabase: SupabaseClient;

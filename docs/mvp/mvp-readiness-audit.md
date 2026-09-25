@@ -1,5 +1,7 @@
 # Ambra — audyt gotowości prezentacyjnej `apps/web`
 
+> **SUPERSESSION NOTICE (added 2026-09-23)** — this audit is dated 2026-09-07 and describes the original 19-area model. Its own evidentiary findings for that snapshot in time remain historically valid, but current status now lives in `docs/mvp/mvp-readiness.md` (the 11-zone master tracker) and, as of 2026-09-23, in `docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/` (a fresh, code-verified re-baseline). Do not treat any status claim in this document as current — in particular, its own framing of RepairOrders/Zone 3 as absent is now false; see the re-baseline bundle's `documentation-staleness-audit.md`. This document's own internal link to `mvp-readiness-pt.md` is a known, unfixed broken link — that file no longer exists at that path (archived at `docs/mvp/archive/mvp-readiness-pt-monolith.md`); the live tracker is `mvp-readiness.md`.
+
 Data: **7 września 2026**. Wynik planistyczny: [tracker](mvp-readiness-pt.md). Źródło wymagań: [skrypt](ambra-skrypt-prezentacji.md), włącznie z propozycją pilotażu w §16–23.
 
 ## Zakres i metoda

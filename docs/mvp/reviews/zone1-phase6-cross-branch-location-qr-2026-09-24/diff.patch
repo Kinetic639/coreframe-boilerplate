@@ -1,0 +1,990 @@
+diff --git a/apps/web/messages/en.json b/apps/web/messages/en.json
+index 5d5f5c02..da557b6b 100644
+--- a/apps/web/messages/en.json
++++ b/apps/web/messages/en.json
+@@ -1070,6 +1070,14 @@
+     "listView": {
+       "treeView": "Tree View",
+       "listView": "List View",
++      "crossBranchDialog": {
++        "title": "Switch branch to view this location?",
++        "description": "This location belongs to a different branch. Switch to that branch to view it?",
++        "confirm": "Switch branch",
++        "cancel": "Cancel",
++        "switching": "Switching...",
++        "switchFailed": "Could not switch branch. Please try again."
++      },
+       "code": "Code",
+       "name": "Name",
+       "path": "Path",
+diff --git a/apps/web/messages/pl.json b/apps/web/messages/pl.json
+index aa857894..d9924f3f 100644
+--- a/apps/web/messages/pl.json
++++ b/apps/web/messages/pl.json
+@@ -1119,6 +1119,14 @@
+     "listView": {
+       "treeView": "Widok drzewa",
+       "listView": "Widok listy",
++      "crossBranchDialog": {
++        "title": "Przełączyć oddział, aby zobaczyć tę lokalizację?",
++        "description": "Ta lokalizacja należy do innego oddziału. Przełączyć się na ten oddział, aby ją zobaczyć?",
++        "confirm": "Przełącz oddział",
++        "cancel": "Anuluj",
++        "switching": "Przełączanie...",
++        "switchFailed": "Nie udało się przełączyć oddziału. Spróbuj ponownie."
++      },
+       "code": "Kod",
+       "name": "Nazwa",
+       "path": "Ścieżka",
+diff --git a/apps/web/src/app/[locale]/dashboard/warehouse/locations/_components/__tests__/ambra-locations-client.cross-branch.test.tsx b/apps/web/src/app/[locale]/dashboard/warehouse/locations/_components/__tests__/ambra-locations-client.cross-branch.test.tsx
+new file mode 100644
+index 00000000..c6e241f3
+--- /dev/null
++++ b/apps/web/src/app/[locale]/dashboard/warehouse/locations/_components/__tests__/ambra-locations-client.cross-branch.test.tsx
+@@ -0,0 +1,230 @@
++/**
++ * @vitest-environment jsdom
++ *
++ * AmbraLocationsClient — cross-branch warehouse.location deep-link/QR
++ * (Zone 1 / Phase 6)
++ *
++ * Tests the CONSUMER-LEVEL confirm-then-switch flow only: does this component
++ * read the `crossBranch`/`selected` URL hint left by the QR resolver, render
++ * a confirm dialog instead of silently falling back, and correctly drive the
++ * existing authoritative `changeBranch()` action on confirm? The resolver's
++ * own cross-branch-flag logic is covered separately in
++ * `src/server/qr/__tests__/public-token-resolver.test.ts`.
++ */
++
++import { describe, it, expect, vi, beforeEach } from "vitest";
++import { render, screen, fireEvent, waitFor } from "@testing-library/react";
++import React from "react";
++
++const {
++  mockChangeBranch,
++  mockSetActiveBranch,
++  mockReplace,
++  mockRefresh,
++  mockToastError,
++  mockLocationsPageSpy,
++} = vi.hoisted(() => ({
++  mockChangeBranch: vi.fn(),
++  mockSetActiveBranch: vi.fn(),
++  mockReplace: vi.fn(),
++  mockRefresh: vi.fn(),
++  mockToastError: vi.fn(),
++  mockLocationsPageSpy: vi.fn(),
++}));
++
++vi.mock("next-intl", () => ({
++  useTranslations: () => (key: string) => key,
++}));
++
++vi.mock("@/i18n/navigation", () => ({
++  useRouter: () => ({ replace: mockReplace, refresh: mockRefresh, push: vi.fn() }),
++}));
++
++vi.mock("nuqs", () => ({
++  parseAsString: { withDefault: (d: string) => ({ _default: d }) },
++  useQueryState: (_key: string, parser: { _default?: string }) => [
++    parser._default ?? "tree",
++    vi.fn(),
++  ],
++}));
++
++vi.mock("react-toastify", () => ({
++  toast: { error: mockToastError, success: vi.fn() },
++}));
++
++vi.mock("@/app/actions/shared/changeBranch", () => ({
++  changeBranch: (...args: unknown[]) => mockChangeBranch(...args),
++}));
++
++vi.mock("@/lib/stores/v2/app-store", () => ({
++  useAppStoreV2: Object.assign(vi.fn(), {
++    getState: () => ({ setActiveBranch: mockSetActiveBranch }),
++  }),
++}));
++
++vi.mock("@/app/actions/qr/assign-location", () => ({
++  getQrAssignmentForLocationAction: vi.fn().mockResolvedValue({ success: true, data: null }),
++}));
++
++vi.mock("@/hooks/queries/warehouse", () => ({
++  useCreateLocationMutation: () => ({ mutateAsync: vi.fn() }),
++  useUpdateLocationMutation: () => ({ mutateAsync: vi.fn() }),
++  useDeleteLocationMutation: () => ({ mutateAsync: vi.fn() }),
++}));
++
++vi.mock("../../_ambra/components/locations/LocationsPage", () => ({
++  default: (props: Record<string, unknown>) => {
++    mockLocationsPageSpy(props);
++    return <div data-testid="locations-page">{String(props.selectedLocationId ?? "none")}</div>;
++  },
++}));
++
++vi.mock("../locations-data-view", () => ({
++  LocationsDataView: () => <div data-testid="locations-data-view" />,
++}));
++
++import { AmbraLocationsClient } from "../ambra-locations-client";
++
++const BRANCH_A = "branch-a";
++const BRANCH_B = "branch-b";
++const LOCATION_B_ID = "loc-b-1";
++
++const defaultProps = {
++  activeBranch: { id: BRANCH_A, name: "Branch A" } as never,
++  initialLocations: [],
++  rawLocations: [],
++  initialInventorySnapshot: {} as never,
++  variantOptions: [],
++  initialListData: { rows: [], totalCount: 0, page: 1, pageSize: 25 } as never,
++  canCreateLocation: false,
++};
++
++function setUrl(url: string) {
++  window.history.replaceState(null, "", url);
++}
++
++describe("AmbraLocationsClient — cross-branch QR/deep-link (Zone 1 / Phase 6)", () => {
++  beforeEach(() => {
++    vi.clearAllMocks();
++    setUrl("http://localhost/dashboard/warehouse/locations?view=tree");
++  });
++
++  describe("same-branch flow", () => {
++    it("opens the exact target normally with no confirmation dialog when no crossBranch hint is present", () => {
++      setUrl(
++        `http://localhost/dashboard/warehouse/locations?selected=loc-a-1&view=tree`
++      );
++
++      render(<AmbraLocationsClient {...defaultProps} />);
++
++      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
++      expect(mockLocationsPageSpy).toHaveBeenCalledWith(
++        expect.objectContaining({ selectedLocationId: "loc-a-1" })
++      );
++      expect(mockChangeBranch).not.toHaveBeenCalled();
++    });
++  });
++
++  describe("inaccessible cross-branch target (Correction A, 2026-09-24)", () => {
++    // As of the Phase 6 correction, resolvePublicQrToken() never emits a
++    // crossBranch hint for a target the caller cannot access -- it returns a
++    // safe TARGET_NOT_FOUND denial instead (see
++    // public-token-resolver.test.ts's "Correction A" tests), so the browser
++    // never even reaches this component for such a target: it lands on the
++    // QR page's own existing "not found" card instead. This component
++    // therefore has no way to distinguish "same branch" from "inaccessible
++    // branch, hint suppressed server-side" -- both produce a URL with no
++    // crossBranch param, which is exactly the point: the client is never
++    // trusted with (or even shown) an impossible-to-act-on offer. This test
++    // exercises that URL shape under the inaccessible scenario's own label,
++    // as its own dedicated assertion rather than folding it silently into
++    // "same-branch flow", so a future change that reintroduces a client-side
++    // hint for inaccessible targets fails a test with the right name.
++    it("renders no switch dialog, calls no changeBranch, opens no target, and exposes no target-branch metadata", () => {
++      setUrl(`http://localhost/dashboard/warehouse/locations?view=tree`);
++
++      render(<AmbraLocationsClient {...defaultProps} />);
++
++      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
++      expect(screen.queryByText("crossBranchDialog.confirm")).not.toBeInTheDocument();
++      expect(mockChangeBranch).not.toHaveBeenCalled();
++      expect(mockLocationsPageSpy).toHaveBeenCalledWith(
++        expect.objectContaining({ selectedLocationId: null })
++      );
++    });
++  });
++
++  describe("accessible cross-branch flow", () => {
++    function renderWithCrossBranchHint() {
++      setUrl(
++        `http://localhost/dashboard/warehouse/locations?selected=${LOCATION_B_ID}&crossBranch=${BRANCH_B}&view=tree`
++      );
++      return render(<AmbraLocationsClient {...defaultProps} />);
++    }
++
++    it("renders a confirmation dialog instead of silently opening the target", () => {
++      renderWithCrossBranchHint();
++
++      expect(screen.getByRole("alertdialog")).toBeInTheDocument();
++      // The target must NOT be passed down as selected while the dialog is
++      // pending -- otherwise LocationsPage's own reset-effect would silently
++      // fall back before the user ever responds to the prompt.
++      expect(mockLocationsPageSpy).toHaveBeenCalledWith(
++        expect.objectContaining({ selectedLocationId: null })
++      );
++    });
++
++    it("CANCEL: no branch switch occurs, target stays closed, current branch remains", () => {
++      renderWithCrossBranchHint();
++
++      fireEvent.click(screen.getByText("crossBranchDialog.cancel"));
++
++      expect(mockChangeBranch).not.toHaveBeenCalled();
++      expect(mockSetActiveBranch).not.toHaveBeenCalled();
++      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
++      expect(window.location.search).not.toContain("crossBranch");
++    });
++
++    it("CONFIRM: calls the authoritative changeBranch, updates client branch state, and navigates to the exact target", async () => {
++      mockChangeBranch.mockResolvedValue({ success: true });
++      renderWithCrossBranchHint();
++
++      fireEvent.click(screen.getByText("crossBranchDialog.confirm"));
++
++      await waitFor(() => expect(mockChangeBranch).toHaveBeenCalledWith(BRANCH_B));
++      expect(mockSetActiveBranch).toHaveBeenCalledWith(BRANCH_B);
++      expect(mockReplace).toHaveBeenCalledWith({
++        pathname: "/dashboard/warehouse/locations",
++        query: { selected: LOCATION_B_ID, view: "tree" },
++      });
++      expect(mockRefresh).toHaveBeenCalledTimes(1);
++    });
++
++    it("no silent switch occurs on mount -- changeBranch is never called before the user confirms", () => {
++      renderWithCrossBranchHint();
++      expect(mockChangeBranch).not.toHaveBeenCalled();
++    });
++  });
++
++  describe("failed switch", () => {
++    it("leaves the old branch authoritative, opens nothing, and shows a safe error", async () => {
++      mockChangeBranch.mockResolvedValue({ success: false, error: "You do not have access to this branch" });
++      setUrl(
++        `http://localhost/dashboard/warehouse/locations?selected=${LOCATION_B_ID}&crossBranch=${BRANCH_B}&view=tree`
++      );
++
++      render(<AmbraLocationsClient {...defaultProps} />);
++      fireEvent.click(screen.getByText("crossBranchDialog.confirm"));
++
++      await waitFor(() =>
++        expect(mockToastError).toHaveBeenCalledWith("You do not have access to this branch")
++      );
++      expect(mockSetActiveBranch).not.toHaveBeenCalled();
++      expect(mockReplace).not.toHaveBeenCalled();
++      expect(mockRefresh).not.toHaveBeenCalled();
++      // Dialog remains open (current branch is still authoritative; user may
++      // retry or cancel explicitly) -- not silently dismissed on failure.
++      expect(screen.getByRole("alertdialog")).toBeInTheDocument();
++    });
++  });
++});
+diff --git a/apps/web/src/app/[locale]/dashboard/warehouse/locations/_components/ambra-locations-client.tsx b/apps/web/src/app/[locale]/dashboard/warehouse/locations/_components/ambra-locations-client.tsx
+index 0eebb2c3..9171bdf6 100644
+--- a/apps/web/src/app/[locale]/dashboard/warehouse/locations/_components/ambra-locations-client.tsx
++++ b/apps/web/src/app/[locale]/dashboard/warehouse/locations/_components/ambra-locations-client.tsx
+@@ -3,10 +3,24 @@
+ import { useCallback, useEffect, useMemo, useState } from "react";
+ import { useTranslations } from "next-intl";
+ import { useQueryState, parseAsString } from "nuqs";
++import { toast } from "react-toastify";
++import { useRouter } from "@/i18n/navigation";
+ import { getQrAssignmentForLocationAction } from "@/app/actions/qr/assign-location";
++import { changeBranch } from "@/app/actions/shared/changeBranch";
++import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
+ import { AnimatePresence, motion } from "motion/react";
+ import { List, TreePine } from "lucide-react";
+ import { Button } from "@/components/ui/button";
++import {
++  AlertDialog,
++  AlertDialogAction,
++  AlertDialogCancel,
++  AlertDialogContent,
++  AlertDialogDescription,
++  AlertDialogFooter,
++  AlertDialogHeader,
++  AlertDialogTitle,
++} from "@/components/ui/alert-dialog";
+ import { cn } from "@/lib/utils";
+ 
+ import {
+@@ -54,14 +68,81 @@ export function AmbraLocationsClient({
+   canCreateLocation,
+ }: AmbraLocationsClientProps) {
+   const t = useTranslations("warehouseLocations.listView");
++  const router = useRouter();
+   const [viewParam, setViewParam] = useQueryState("view", parseAsString.withDefault("tree"));
+   const viewMode = (viewParam === "list" ? "list" : "tree") as "tree" | "list";
+ 
+-  const [treeSelectedId, setTreeSelectedId] = useState<string | null>(() => {
+-    if (typeof window === "undefined") return null;
+-    return new URL(window.location.href).searchParams.get("selected") || null;
++  // Zone 1 / Phase 6: read the QR resolver's cross-branch deep-link hint once,
++  // on initial mount, alongside the existing `selected` param. If present, we
++  // deliberately do NOT seed `treeSelectedId` with the cross-branch target's
++  // own ID -- that ID belongs to a DIFFERENT branch's location list, and
++  // passing it straight into LocationsPage's own controlled prop would let
++  // its existing reset-effect immediately overwrite it with a same-branch
++  // fallback before the user ever sees the confirm dialog below. The pending
++  // target is held separately instead, and only becomes `selected` after a
++  // server-confirmed branch switch.
++  const [initialUrlState] = useState(() => {
++    if (typeof window === "undefined") return { selected: null, crossBranch: null };
++    const params = new URL(window.location.href).searchParams;
++    return {
++      selected: params.get("selected") || null,
++      crossBranch: params.get("crossBranch") || null,
++    };
+   });
+ 
++  const [treeSelectedId, setTreeSelectedId] = useState<string | null>(
++    initialUrlState.crossBranch ? null : initialUrlState.selected
++  );
++
++  const [pendingCrossBranch, setPendingCrossBranch] = useState<{
++    targetBranchId: string;
++    targetLocationId: string;
++  } | null>(
++    initialUrlState.crossBranch && initialUrlState.selected
++      ? { targetBranchId: initialUrlState.crossBranch, targetLocationId: initialUrlState.selected }
++      : null
++  );
++  const [isSwitchingBranch, setIsSwitchingBranch] = useState(false);
++
++  const handleCancelCrossBranch = useCallback(() => {
++    setPendingCrossBranch(null);
++    // Clear the crossBranch param; `selected` (if present) is left exactly as
++    // today's existing reset-effect already handles it -- silently dropped in
++    // favor of the current branch's own first location. No branch switch, no
++    // target opened, matching the plan's own explicit cancel contract.
++    const url = new URL(window.location.href);
++    url.searchParams.delete("crossBranch");
++    window.history.replaceState(null, "", url.toString());
++  }, []);
++
++  const handleConfirmCrossBranch = useCallback(async () => {
++    if (!pendingCrossBranch) return;
++    setIsSwitchingBranch(true);
++    try {
++      // Reuses the SAME authoritative server action and transition contract as
++      // the centralized sidebar switcher (Zone 1 Phase 1) -- server-confirmed
++      // switch only, then client store update, then a safe navigation +
++      // refresh. The only difference from the sidebar's own flow is the
++      // destination: the exact intended location, not the generic safe-start
++      // route, since the whole point of this flow is preserving deep-link intent.
++      const result = await changeBranch(pendingCrossBranch.targetBranchId);
++      if (!result.success) {
++        toast.error("error" in result ? result.error : t("crossBranchDialog.switchFailed"));
++        setIsSwitchingBranch(false);
++        return;
++      }
++      useAppStoreV2.getState().setActiveBranch(pendingCrossBranch.targetBranchId);
++      router.replace({
++        pathname: "/dashboard/warehouse/locations",
++        query: { selected: pendingCrossBranch.targetLocationId, view: "tree" },
++      });
++      router.refresh();
++    } catch {
++      toast.error(t("crossBranchDialog.switchFailed"));
++      setIsSwitchingBranch(false);
++    }
++  }, [pendingCrossBranch, router, t]);
++
+   const selectedLocationId = viewMode === "tree" ? treeSelectedId : null;
+ 
+   const setSelectedLocationId = useCallback((id: string | null) => setTreeSelectedId(id), []);
+@@ -237,6 +318,46 @@ export function AmbraLocationsClient({
+           </AnimatePresence>
+         )}
+       </div>
++
++      <AlertDialog
++        open={!!pendingCrossBranch}
++        onOpenChange={(open) => {
++          if (!open && !isSwitchingBranch) handleCancelCrossBranch();
++        }}
++      >
++        <AlertDialogContent>
++          <AlertDialogHeader>
++            <AlertDialogTitle>{t("crossBranchDialog.title")}</AlertDialogTitle>
++            <AlertDialogDescription>{t("crossBranchDialog.description")}</AlertDialogDescription>
++          </AlertDialogHeader>
++          <AlertDialogFooter>
++            {/* AlertDialogCancel/Action are Radix DialogPrimitive.Close under the
++                hood, which fires onOpenChange(false) itself on every click --
++                preventDefault() stops that so OUR handlers stay the single
++                source of truth for closing (critical for Action: without this,
++                a FAILED switch would still have its dialog silently closed by
++                Radix before handleConfirmCrossBranch's async result comes back). */}
++            <AlertDialogCancel
++              onClick={(e) => {
++                e.preventDefault();
++                handleCancelCrossBranch();
++              }}
++              disabled={isSwitchingBranch}
++            >
++              {t("crossBranchDialog.cancel")}
++            </AlertDialogCancel>
++            <AlertDialogAction
++              onClick={(e) => {
++                e.preventDefault();
++                handleConfirmCrossBranch();
++              }}
++              disabled={isSwitchingBranch}
++            >
++              {isSwitchingBranch ? t("crossBranchDialog.switching") : t("crossBranchDialog.confirm")}
++            </AlertDialogAction>
++          </AlertDialogFooter>
++        </AlertDialogContent>
++      </AlertDialog>
+     </div>
+   );
+ }
+diff --git a/apps/web/src/app/[locale]/dashboard/warehouse/locations/page.tsx b/apps/web/src/app/[locale]/dashboard/warehouse/locations/page.tsx
+index 3d5ed507..4f2620b8 100644
+--- a/apps/web/src/app/[locale]/dashboard/warehouse/locations/page.tsx
++++ b/apps/web/src/app/[locale]/dashboard/warehouse/locations/page.tsx
+@@ -80,6 +80,15 @@ export default async function AmbraWarehouseLocationsPage({ searchParams }: Page
+ 
+   return (
+     <AmbraLocationsClient
++      // Zone 1 / Phase 6: keying on branchId forces a full remount whenever the
++      // active branch changes. router.refresh() re-executes this Server
++      // Component and passes fresh props down, but by design does NOT reset an
++      // already-mounted client component's own useState (locations,
++      // treeSelectedId, etc.) -- without this key, a same-route branch switch
++      // (the new cross-branch QR confirm flow) would leave this component
++      // showing stale, wrong-branch client state even after a successful,
++      // server-confirmed switch.
++      key={branchId ?? "no-branch"}
+       activeBranch={createAmbraBranch(branchId, context.app.activeBranch?.name)}
+       initialLocations={
+         locationsResult.success ? warehouseLocationsToAmbra(locationsResult.data) : []
+diff --git a/apps/web/src/app/actions/shared/changeBranch.ts b/apps/web/src/app/actions/shared/changeBranch.ts
+index f72324c2..e8b4d3ae 100644
+--- a/apps/web/src/app/actions/shared/changeBranch.ts
++++ b/apps/web/src/app/actions/shared/changeBranch.ts
+@@ -3,7 +3,8 @@
+ import { createClient } from "@/utils/supabase/server";
+ import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
+ import { checkPermission } from "@/lib/utils/permissions";
+-import { BRANCHES_VIEW_UPDATE_ANY, BRANCHES_VIEW_REMOVE_ANY } from "@/lib/constants/permissions";
++import { BRANCHES_VIEW_REMOVE_ANY } from "@/lib/constants/permissions";
++import { isBranchAccessible } from "@/lib/utils/branch-access";
+ 
+ type ActionResult = { success: true } | { success: false; error: string };
+ 
+@@ -58,10 +59,7 @@ export async function changeBranch(branchId: string): Promise<ActionResult> {
+   }
+ 
+   // 2. Authorization check
+-  const canSwitchToAny = checkPermission(permissionSnapshot, BRANCHES_VIEW_UPDATE_ANY);
+-  const isAccessible = accessibleBranches.some((b) => b.id === branchId);
+-
+-  if (!canSwitchToAny && !isAccessible) {
++  if (!isBranchAccessible(branchId, accessibleBranches, permissionSnapshot)) {
+     return { success: false, error: "You do not have access to this branch" };
+   }
+ 
+diff --git a/apps/web/src/lib/utils/branch-access.ts b/apps/web/src/lib/utils/branch-access.ts
+new file mode 100644
+index 00000000..94a248bd
+--- /dev/null
++++ b/apps/web/src/lib/utils/branch-access.ts
+@@ -0,0 +1,24 @@
++import { checkPermission } from "@/lib/utils/permissions";
++import { BRANCHES_VIEW_UPDATE_ANY } from "@/lib/constants/permissions";
++import type { BranchDataV2 } from "@/lib/stores/v2/app-store";
++import type { PermissionSnapshot } from "@/lib/types/permissions";
++
++/**
++ * Zone 1 / Phase 6 correction: the single authoritative "may this user access
++ * this branch" check, extracted from `changeBranch()` (apps/web/src/app/actions/shared/changeBranch.ts)
++ * so the QR resolver's UX-hint logic and the actual authorization check can
++ * never drift apart. `changeBranch()` remains the only place that ACTS on
++ * this decision (it still re-validates fully server-side on every call) --
++ * this helper only answers the question, it never authorizes anything by
++ * itself.
++ */
++export function isBranchAccessible(
++  branchId: string,
++  accessibleBranches: BranchDataV2[],
++  permissionSnapshot: PermissionSnapshot
++): boolean {
++  return (
++    checkPermission(permissionSnapshot, BRANCHES_VIEW_UPDATE_ANY) ||
++    accessibleBranches.some((b) => b.id === branchId)
++  );
++}
+diff --git a/apps/web/src/server/qr/__tests__/public-token-resolver.test.ts b/apps/web/src/server/qr/__tests__/public-token-resolver.test.ts
+new file mode 100644
+index 00000000..4494bc52
+--- /dev/null
++++ b/apps/web/src/server/qr/__tests__/public-token-resolver.test.ts
+@@ -0,0 +1,351 @@
++/**
++ * @vitest-environment node
++ *
++ * Zone 1 / Phase 6 — resolvePublicQrToken's cross-branch flag behavior,
++ * CORRECTED 2026-09-24 to close two contract gaps found in review:
++ *
++ * Correction A: the crossBranch=<targetBranchId> UX hint is now emitted only
++ * when the caller actually has access to the target branch (reusing
++ * isBranchAccessible(), the exact same check changeBranch() itself uses, via
++ * loadDashboardContextV2() — not a bespoke lookup). An inaccessible
++ * cross-branch target now returns a safe TARGET_NOT_FOUND denial instead of
++ * offering an impossible "switch branch" confirmation.
++ *
++ * Correction B: a logged-out caller is now redirected to sign-in with a
++ * returnUrl pointing back at the qr page itself (/qr/<token>), not at the
++ * pre-computed dashboard path — because dashboard/layout.tsx's own returnUrl
++ * mechanism only preserves the request pathname (excludes the query string),
++ * so the previous behavior would have silently dropped `selected=<id>` (and
++ * any crossBranch hint) on the sign-in round trip. Returning to the qr page
++ * re-enters this resolver in full under the authenticated context.
++ *
++ * Does not re-test the pre-existing QR/cross-org validation logic (unchanged,
++ * not touched by this phase).
++ */
++
++import { describe, it, expect, vi } from "vitest";
++import type { BranchDataV2 } from "@/lib/stores/v2/app-store";
++import type { PermissionSnapshot } from "@/lib/types/permissions";
++
++const ORG_ID = "org-1";
++const QR_ID = "qr-1";
++const TOKEN = "AbCdEfGhIjKlMnOpQrSt12";
++const LOCATION_ID = "loc-1";
++const BRANCH_A = "branch-a";
++const BRANCH_B = "branch-b";
++
++type TableResult = { data: unknown; error?: unknown };
++
++function chainable(result: TableResult) {
++  const chain: Record<string, unknown> = {};
++  chain.select = () => chain;
++  chain.eq = () => chain;
++  chain.is = () => chain;
++  chain.maybeSingle = () => Promise.resolve(result);
++  return chain;
++}
++
++function makeServiceClient(
++  overrides: {
++    locationBranchId?: string | null;
++    locationOrgId?: string;
++  } = {}
++) {
++  const tables: Record<string, TableResult> = {
++    qr_codes: {
++      data: { id: QR_ID, token: TOKEN, organization_id: ORG_ID, status: "active", deleted_at: null },
++    },
++    qr_assignments: {
++      data: { target_type: "warehouse.location", target_id: LOCATION_ID, branch_id: null },
++    },
++    warehouse_locations: {
++      data: {
++        id: LOCATION_ID,
++        organization_id: overrides.locationOrgId ?? ORG_ID,
++        branch_id: overrides.locationBranchId ?? BRANCH_B,
++        deleted_at: null,
++      },
++    },
++    organizations: { data: { slug: "ambra" } },
++    branches: { data: { slug: "warsaw" } },
++  };
++  return { from: (table: string) => chainable(tables[table] ?? { data: null }) };
++}
++
++function branch(id: string): BranchDataV2 {
++  return {
++    id,
++    name: id,
++    organization_id: ORG_ID,
++    slug: id,
++    created_at: new Date().toISOString(),
++  };
++}
++
++const NO_WILDCARD_SNAPSHOT: PermissionSnapshot = { allow: ["warehouse.locations.read"], deny: [] };
++const WILDCARD_SWITCH_SNAPSHOT: PermissionSnapshot = { allow: ["branches.*"], deny: [] };
++
++function makeDashboardContext(options: {
++  activeBranchId: string | null;
++  accessibleBranches?: BranchDataV2[];
++  permissionSnapshot?: PermissionSnapshot;
++}) {
++  return {
++    app: {
++      activeBranchId: options.activeBranchId,
++      accessibleBranches: options.accessibleBranches ?? [],
++    },
++    user: {
++      permissionSnapshot: options.permissionSnapshot ?? NO_WILDCARD_SNAPSHOT,
++    },
++  };
++}
++
++vi.mock("@/i18n/routing", () => ({
++  routing: { pathnames: { "/sign-in": { en: "/sign-in", pl: "/logowanie" } } },
++}));
++
++const { mockCreateServiceClient, mockLoadDashboardContextV2 } = vi.hoisted(() => ({
++  mockCreateServiceClient: vi.fn(),
++  mockLoadDashboardContextV2: vi.fn(),
++}));
++
++vi.mock("@/utils/supabase/service", () => ({
++  createServiceClient: () => mockCreateServiceClient(),
++}));
++
++vi.mock("@/server/loaders/v2/load-dashboard-context.v2", () => ({
++  loadDashboardContextV2: () => mockLoadDashboardContextV2(),
++}));
++
++import { resolvePublicQrToken } from "../public-token-resolver";
++
++describe("resolvePublicQrToken — cross-branch deep-link hint (Zone 1 / Phase 6, corrected)", () => {
++  it("same branch: no crossBranch hint, target opens directly", async () => {
++    mockCreateServiceClient.mockReturnValue(makeServiceClient({ locationBranchId: BRANCH_A }));
++    mockLoadDashboardContextV2.mockResolvedValue(
++      makeDashboardContext({ activeBranchId: BRANCH_A, accessibleBranches: [branch(BRANCH_A)] })
++    );
++
++    const result = await resolvePublicQrToken(TOKEN);
++
++    expect(result.ok).toBe(true);
++    if (result.ok) {
++      expect(result.redirectPath).toBe(`/dashboard/warehouse/locations?selected=${LOCATION_ID}&view=tree`);
++      expect(result.redirectPath).not.toContain("crossBranch");
++    }
++  });
++
++  it("accessible cross-branch: adds crossBranch when caller has an accessible-branch assignment for the target branch", async () => {
++    mockCreateServiceClient.mockReturnValue(makeServiceClient({ locationBranchId: BRANCH_B }));
++    mockLoadDashboardContextV2.mockResolvedValue(
++      makeDashboardContext({
++        activeBranchId: BRANCH_A,
++        accessibleBranches: [branch(BRANCH_A), branch(BRANCH_B)],
++      })
++    );
++
++    const result = await resolvePublicQrToken(TOKEN);
++
++    expect(result.ok).toBe(true);
++    if (result.ok) {
++      expect(result.redirectPath).toContain(`selected=${LOCATION_ID}`);
++      expect(result.redirectPath).toContain(`crossBranch=${BRANCH_B}`);
++    }
++  });
++
++  it("accessible cross-branch via wildcard permission: adds crossBranch even without a direct branch assignment", async () => {
++    mockCreateServiceClient.mockReturnValue(makeServiceClient({ locationBranchId: BRANCH_B }));
++    mockLoadDashboardContextV2.mockResolvedValue(
++      makeDashboardContext({
++        activeBranchId: BRANCH_A,
++        accessibleBranches: [branch(BRANCH_A)], // BRANCH_B NOT in accessibleBranches
++        permissionSnapshot: WILDCARD_SWITCH_SNAPSHOT, // but caller holds branches.*
++      })
++    );
++
++    const result = await resolvePublicQrToken(TOKEN);
++
++    expect(result.ok).toBe(true);
++    if (result.ok) {
++      expect(result.redirectPath).toContain(`crossBranch=${BRANCH_B}`);
++    }
++  });
++
++  it("Correction A — inaccessible cross-branch: does NOT add crossBranch, returns safe denial instead of an impossible switch offer", async () => {
++    mockCreateServiceClient.mockReturnValue(makeServiceClient({ locationBranchId: BRANCH_B }));
++    mockLoadDashboardContextV2.mockResolvedValue(
++      makeDashboardContext({
++        activeBranchId: BRANCH_A,
++        accessibleBranches: [branch(BRANCH_A)], // BRANCH_B not accessible, no wildcard
++      })
++    );
++
++    const result = await resolvePublicQrToken(TOKEN);
++
++    expect(result.ok).toBe(false);
++    if (!result.ok) {
++      expect((result as { error: string }).error).toBe("TARGET_NOT_FOUND");
++    }
++  });
++
++  it("Correction A — inaccessible cross-branch denial reveals nothing beyond the existing TARGET_NOT_FOUND shape (no distinct error code, no metadata)", async () => {
++    mockCreateServiceClient.mockReturnValue(makeServiceClient({ locationBranchId: BRANCH_B }));
++    mockLoadDashboardContextV2.mockResolvedValue(
++      makeDashboardContext({ activeBranchId: BRANCH_A, accessibleBranches: [branch(BRANCH_A)] })
++    );
++
++    const result = await resolvePublicQrToken(TOKEN);
++
++    // Same failure shape as a cross-org or soft-deleted target — no new error
++    // variant, no branch name/slug/metadata leaked in the result.
++    expect(Object.keys(result).sort()).toEqual(["error", "ok", "token"]);
++  });
++
++  it("no resolved active branch: no crossBranch, unmodified redirect (safe fallback, unchanged)", async () => {
++    mockCreateServiceClient.mockReturnValue(makeServiceClient({ locationBranchId: BRANCH_B }));
++    mockLoadDashboardContextV2.mockResolvedValue(
++      makeDashboardContext({ activeBranchId: null, accessibleBranches: [] })
++    );
++
++    const result = await resolvePublicQrToken(TOKEN);
++
++    expect(result.ok).toBe(true);
++    if (result.ok) {
++      expect(result.redirectPath).not.toContain("crossBranch");
++    }
++  });
++
++  describe("Correction B — logged-out caller", () => {
++    it("redirects to sign-in with a returnUrl pointing back at the qr page itself, not the dashboard target", async () => {
++      mockCreateServiceClient.mockReturnValue(makeServiceClient({ locationBranchId: BRANCH_B }));
++      mockLoadDashboardContextV2.mockResolvedValue(null);
++
++      const result = await resolvePublicQrToken(TOKEN);
++
++      expect(result.ok).toBe(true);
++      if (result.ok) {
++        expect(result.redirectPath).toBe(`/sign-in?returnUrl=${encodeURIComponent(`/qr/${TOKEN}`)}`);
++        // Must NOT be the pre-computed dashboard path -- that's exactly the
++        // query-string-losing shape this correction replaces.
++        expect(result.redirectPath).not.toContain("/dashboard/warehouse/locations");
++        expect(result.redirectPath).not.toContain("selected=");
++      }
++    });
++
++    it("localizes the sign-in path and the qr returnUrl target when a locale is provided", async () => {
++      mockCreateServiceClient.mockReturnValue(makeServiceClient({ locationBranchId: BRANCH_B }));
++      mockLoadDashboardContextV2.mockResolvedValue(null);
++
++      const result = await resolvePublicQrToken(TOKEN, { locale: "pl" });
++
++      expect(result.ok).toBe(true);
++      if (result.ok) {
++        expect(result.redirectPath).toBe(
++          `/logowanie?returnUrl=${encodeURIComponent(`/pl/qr/${TOKEN}`)}`
++        );
++      }
++    });
++
++    it("the returnUrl is same-origin and safe (starts with '/', never '//') — no open-redirect regression", async () => {
++      mockCreateServiceClient.mockReturnValue(makeServiceClient({ locationBranchId: BRANCH_B }));
++      mockLoadDashboardContextV2.mockResolvedValue(null);
++
++      const result = await resolvePublicQrToken(TOKEN);
++
++      expect(result.ok).toBe(true);
++      if (result.ok) {
++        const url = new URL(result.redirectPath, "http://localhost");
++        const returnUrl = url.searchParams.get("returnUrl") ?? "";
++        expect(returnUrl.startsWith("/")).toBe(true);
++        expect(returnUrl.startsWith("//")).toBe(false);
++      }
++    });
++
++    it("real auth-return integration: the SAME resolver call, re-invoked after login with the SAME token, correctly re-evaluates branch access under the now-authenticated context", async () => {
++      mockCreateServiceClient.mockReturnValue(makeServiceClient({ locationBranchId: BRANCH_B }));
++
++      // Step 1: anonymous scan -> sign-in redirect (not the dashboard target).
++      mockLoadDashboardContextV2.mockResolvedValueOnce(null);
++      const anonymousResult = await resolvePublicQrToken(TOKEN);
++      expect(anonymousResult.ok).toBe(true);
++      if (anonymousResult.ok) {
++        expect(anonymousResult.redirectPath).toContain("/sign-in?returnUrl=");
++      }
++
++      // Step 2: the returnUrl points back at /qr/<token>, so signInAction's
++      // existing, unmodified redirect (tested separately) re-enters this same
++      // page, which calls resolvePublicQrToken again -- this time the caller
++      // is authenticated with access to the target branch.
++      mockLoadDashboardContextV2.mockResolvedValueOnce(
++        makeDashboardContext({
++          activeBranchId: BRANCH_A,
++          accessibleBranches: [branch(BRANCH_A), branch(BRANCH_B)],
++        })
++      );
++      const authenticatedResult = await resolvePublicQrToken(TOKEN);
++      expect(authenticatedResult.ok).toBe(true);
++      if (authenticatedResult.ok) {
++        expect(authenticatedResult.redirectPath).toContain(`selected=${LOCATION_ID}`);
++        expect(authenticatedResult.redirectPath).toContain(`crossBranch=${BRANCH_B}`);
++      }
++    });
++
++    it("real auth-return integration: an inaccessible target reaches safe denial after login, not the dashboard target", async () => {
++      mockCreateServiceClient.mockReturnValue(makeServiceClient({ locationBranchId: BRANCH_B }));
++
++      mockLoadDashboardContextV2.mockResolvedValueOnce(null);
++      const anonymousResult = await resolvePublicQrToken(TOKEN);
++      expect(anonymousResult.ok).toBe(true);
++
++      mockLoadDashboardContextV2.mockResolvedValueOnce(
++        makeDashboardContext({ activeBranchId: BRANCH_A, accessibleBranches: [branch(BRANCH_A)] })
++      );
++      const authenticatedResult = await resolvePublicQrToken(TOKEN);
++      expect(authenticatedResult.ok).toBe(false);
++      if (!authenticatedResult.ok) {
++        expect((authenticatedResult as { error: string }).error).toBe("TARGET_NOT_FOUND");
++      }
++    });
++
++    it("real auth-return integration: a same-branch target opens normally after login", async () => {
++      mockCreateServiceClient.mockReturnValue(makeServiceClient({ locationBranchId: BRANCH_A }));
++
++      mockLoadDashboardContextV2.mockResolvedValueOnce(null);
++      const anonymousResult = await resolvePublicQrToken(TOKEN);
++      expect(anonymousResult.ok).toBe(true);
++
++      mockLoadDashboardContextV2.mockResolvedValueOnce(
++        makeDashboardContext({ activeBranchId: BRANCH_A, accessibleBranches: [branch(BRANCH_A)] })
++      );
++      const authenticatedResult = await resolvePublicQrToken(TOKEN);
++      expect(authenticatedResult.ok).toBe(true);
++      if (authenticatedResult.ok) {
++        expect(authenticatedResult.redirectPath).toBe(
++          `/dashboard/warehouse/locations?selected=${LOCATION_ID}&view=tree`
++        );
++        expect(authenticatedResult.redirectPath).not.toContain("crossBranch");
++      }
++    });
++  });
++
++  it("cross-org rejection remains unaffected by the branch-access lookup", async () => {
++    mockCreateServiceClient.mockReturnValue(
++      makeServiceClient({ locationBranchId: BRANCH_B, locationOrgId: "other-org" })
++    );
++    mockLoadDashboardContextV2.mockResolvedValue(
++      makeDashboardContext({ activeBranchId: BRANCH_A, accessibleBranches: [branch(BRANCH_A)] })
++    );
++
++    const result = await resolvePublicQrToken(TOKEN);
++
++    expect(result.ok).toBe(false);
++    if (!result.ok) {
++      expect((result as { error: string }).error).toBe("TARGET_NOT_FOUND");
++    }
++    // The branch-access lookup must never run for a target that already
++    // failed validation -- confirms no unnecessary context load on a
++    // rejected target.
++    expect(mockLoadDashboardContextV2).not.toHaveBeenCalled();
++  });
++});
+diff --git a/apps/web/src/server/qr/public-token-resolver.ts b/apps/web/src/server/qr/public-token-resolver.ts
+index 1ed07264..b77450c5 100644
+--- a/apps/web/src/server/qr/public-token-resolver.ts
++++ b/apps/web/src/server/qr/public-token-resolver.ts
+@@ -2,6 +2,8 @@ import "server-only";
+ 
+ import { routing } from "@/i18n/routing";
+ import { createServiceClient } from "@/utils/supabase/service";
++import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
++import { isBranchAccessible } from "@/lib/utils/branch-access";
+ import { getTargetDescriptor } from "@/server/qr/target-registry";
+ 
+ type ResolveError =
+@@ -107,7 +109,7 @@ export async function resolvePublicQrToken(
+   orgSlug = (orgRow as { slug?: string | null } | null)?.slug ?? orgSlug;
+   branchSlug = (branchResult.data as { slug?: string | null } | null)?.slug ?? null;
+ 
+-  const rawPath = descriptor.resolvePathAsync
++  let rawPath = descriptor.resolvePathAsync
+     ? await descriptor.resolvePathAsync({
+         supabase: client,
+         targetId: assignment.target_id,
+@@ -120,6 +122,80 @@ export async function resolvePublicQrToken(
+         branchSlug,
+       });
+ 
++  // Cross-branch deep-link UX hint (Zone 1 / Phase 6, corrected 2026-09-24):
++  // if the target belongs to a branch other than the caller's own currently
++  // active branch, and the caller actually has access to that branch, flag
++  // it so the destination page can offer a confirm-then-switch prompt
++  // instead of silently discarding the deep-link intent. This is a UX signal
++  // only -- never authorization evidence. The actual branch switch still
++  // goes through the existing, authoritative changeBranch() server action,
++  // which always re-validates access fresh; nothing here grants or implies
++  // access. `isBranchAccessible` is the same check changeBranch() itself
++  // uses (extracted to `@/lib/utils/branch-access`, not reimplemented), so
++  // the UX hint and the actual authorization decision can never drift apart.
++  //
++  // Uses loadDashboardContextV2() -- the same authoritative, request-cached
++  // context loader every dashboard page and changeBranch() itself already
++  // use -- rather than a bespoke lookup, so "is this caller logged in" and
++  // "what can they access" are both answered by the one existing mechanism.
++  // Returns null for an anonymous caller, in which case this block redirects
++  // to sign-in instead (see Correction B below) rather than proceeding.
++  if (validation.branchId) {
++    const dashboardContext = await loadDashboardContextV2();
++
++    if (!dashboardContext) {
++      // Correction B (2026-09-24): send the caller through sign-in with a
++      // returnUrl pointing back at THIS qr page, not at the pre-computed
++      // dashboard path. dashboard/layout.tsx's own returnUrl mechanism only
++      // preserves the request PATHNAME (x-pathname is
++      // request.nextUrl.pathname, which excludes the query string) -- so
++      // redirecting straight to `rawPath` (which carries `selected=...`)
++      // would silently lose that query string the moment the dashboard
++      // layout's auth gate bounces the still-unauthenticated request to
++      // sign-in. The qr page itself has no query string to lose (the token
++      // lives in the path), so returning here after login re-enters this
++      // resolver in full, under the now-authenticated context, before any
++      // dashboard redirect is ever computed -- guaranteeing the branch-aware
++      // logic above always runs before the target opens, and guaranteeing
++      // the exact target survives the round trip.
++      const qrPath = options?.locale ? `/${options.locale}/qr/${token}` : `/qr/${token}`;
++      const signInPath = `/sign-in?returnUrl=${encodeURIComponent(qrPath)}`;
++      return {
++        ok: true,
++        redirectPath: localizeDashboardPath(signInPath, options?.locale),
++        token,
++        targetType: assignment.target_type,
++        targetId: assignment.target_id,
++      };
++    }
++
++    const callerActiveBranchId = dashboardContext.app.activeBranchId;
++
++    if (callerActiveBranchId && callerActiveBranchId !== validation.branchId) {
++      const hasAccess = isBranchAccessible(
++        validation.branchId,
++        dashboardContext.app.accessibleBranches,
++        dashboardContext.user.permissionSnapshot
++      );
++
++      if (hasAccess) {
++        const separator = rawPath.includes("?") ? "&" : "?";
++        rawPath = `${rawPath}${separator}crossBranch=${validation.branchId}`;
++      } else {
++        // Correction A (2026-09-24): the caller cannot access the target's
++        // branch. Do NOT offer a "switch branch" confirmation -- changeBranch()
++        // would always reject it, so the dialog would be an impossible-UX
++        // action, and its mere appearance would reveal "a location exists in
++        // a branch you can't access" as an actionable-looking offer, which
++        // the accepted contract explicitly forbids. Reuse the resolver's own
++        // existing TARGET_NOT_FOUND failure shape (already used for
++        // cross-org and soft-deleted targets) rather than inventing a new
++        // error variant -- reveals nothing beyond "not available".
++        return { ok: false, error: "TARGET_NOT_FOUND", token };
++      }
++    }
++  }
++
+   return {
+     ok: true,
+     redirectPath: localizeDashboardPath(rawPath, options?.locale),
+diff --git a/apps/web/src/server/qr/target-registry.ts b/apps/web/src/server/qr/target-registry.ts
+index faa919ae..87c59158 100644
+--- a/apps/web/src/server/qr/target-registry.ts
++++ b/apps/web/src/server/qr/target-registry.ts
+@@ -28,7 +28,13 @@ export interface QrTargetDescriptor {
+   /**
+    * Validates that the target exists, belongs to the stated org,
+    * and is not soft-deleted. Returns derived branchId on success.
+-   * Runs with the authenticated Supabase client (RLS enforced).
++   *
++   * Corrected (Zone 1 / Phase 6): the public QR resolver (the only caller
++   * today, `resolvePublicQrToken`) passes a SERVICE-ROLE client here, not an
++   * authenticated/RLS-enforced one -- by design, since token resolution must
++   * work for anonymous scans. Do not assume RLS is active inside `validate()`;
++   * each implementation's own explicit org-id comparison is the only
++   * enforcement performed at this layer.
+    */
+   validate(params: {
+     supabase: SupabaseClient;

@@ -18,8 +18,15 @@ import {
 } from "@/components/ui/sidebar";
 import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
 import { changeBranch } from "@/app/actions/shared/changeBranch";
+import { useRouter } from "@/i18n/navigation";
 import { toast } from "react-toastify";
 import type { BranchDataV2 } from "@/lib/stores/v2/app-store";
+
+// Branch-neutral safe route to land on after a switch. Static (no branch-bound
+// data), so it can never 404 or resolve to a stale/inaccessible object under
+// the new branch context. Already used elsewhere as the canonical "go home"
+// destination (see components/v2/layout/quick-switcher.tsx).
+const SAFE_ROUTE_AFTER_BRANCH_SWITCH = "/dashboard/start";
 
 interface SidebarBranchSwitcherProps {
   /** Server-computed accessible branches for the current user */
@@ -31,6 +38,7 @@ interface SidebarBranchSwitcherProps {
 export function SidebarBranchSwitcher({ branches, activeBranchId }: SidebarBranchSwitcherProps) {
   const { isMobile } = useSidebar();
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   // Branch list comes from server-computed props — NOT from the store.
   // activeBranchId from the store is used for display (updated optimistically on switch).
@@ -51,8 +59,15 @@ export function SidebarBranchSwitcher({ branches, activeBranchId }: SidebarBranc
           toast.error("error" in result ? result.error : "Failed to switch branch");
           return;
         }
+
+        // Server-confirmed switch only past this point. Update the client store,
+        // then move off any branch-bound object route and force Server Components
+        // to re-render against the new active branch — otherwise the sidebar shows
+        // the new branch while the page body keeps rendering the old one.
         setActiveBranch(branchId);
         toast.success("Branch switched successfully");
+        router.replace(SAFE_ROUTE_AFTER_BRANCH_SWITCH);
+        router.refresh();
       } catch (error) {
         console.error("Failed to change branch:", error);
         toast.error("Failed to switch branch");

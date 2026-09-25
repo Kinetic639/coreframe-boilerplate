@@ -4,6 +4,20 @@ Input for the AMBRA PITCH READINESS AUDIT. This is the exhaustive list
 of product-facing Inventory gaps IC-8 discovered — backend/UI status
 per capability, not a re-litigation of the architecture itself.
 
+> **CORRECTION (2026-09-23, Pitch Readiness Re-Baseline Audit)** — item 2/3
+> below ("Pitch audit should check: does the pitch script demo RepairOrder
+> stock receiving specifically?") is now RESOLVED, not conditional: the
+> current master pitch script (`docs/mvp/ambra-skrypt-prezentacji.md`, §7)
+> explicitly and unconditionally demos live mobile receiving/putaway
+> (scan part → scan location → confirm → close session → generate
+> report). **This is confirmed as a PRESENTATION BLOCKER**, not a
+> deferred nice-to-have. See
+> `docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/pitch-script-truth-matrix.md`
+> for the full determination. This documentation-only correction does not
+> change any Inventory Core architecture, RPC, or migration — the backend
+> remains exactly as IC-8 left it; only the pitch-relevance classification
+> is updated.
+
 ## 1. `inventory_reverse_movement`
 
 - Backend: ✅ ready — secure, tested (IC-2 origin, re-verified through

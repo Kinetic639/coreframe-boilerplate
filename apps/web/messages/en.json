@@ -1077,6 +1077,14 @@
     "listView": {
       "treeView": "Tree View",
       "listView": "List View",
+      "crossBranchDialog": {
+        "title": "Switch branch to view this location?",
+        "description": "This location belongs to a different branch. Switch to that branch to view it?",
+        "confirm": "Switch branch",
+        "cancel": "Cancel",
+        "switching": "Switching...",
+        "switchFailed": "Could not switch branch. Please try again."
+      },
       "code": "Code",
       "name": "Name",
       "path": "Path",

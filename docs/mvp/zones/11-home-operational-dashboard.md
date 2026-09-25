@@ -1,5 +1,27 @@
 ### 11. Home / Operational Dashboard
 
+# CURRENT STATUS — 2026-09-25 (updated during main ↔ Zone 1 integration)
+
+**CURRENT STATUS — IMPLEMENTED, DEMO SUFFICIENT.** `/dashboard/start` has been rebuilt (independently, on `main`, via the Zone 11 "operational home dashboard" workstream — see the HISTORICAL AUDIT / DESIGN RECORD section below for the full, detailed record) into a real, server-rendered operational dashboard: active org/branch context, a real ticket-attention queue, a real personal-activity feed, and a Planning widget (today's calendar, branch-scoped tasks, a Kanban preview). It is no longer the static placeholder described in this document's own historical audit excerpts below.
+
+**Separately, a 2026-09-24 product-owner clarification** (recorded in full in `docs/mvp/reviews/dashboard-container-product-clarification-2026-09-24/dashboard-current-status.md`) had already accepted the dashboard as DEMO SUFFICIENT / NO PITCH WORK REQUIRED — based on the _placeholder_ state that existed at the time. The surrounding operational shell (sidebar branch/org context, the activity feed already present on every dashboard page, and the adjacent real modules one click away) was judged sufficient for the pitch even without `/dashboard/start` itself being rebuilt. **That decision is not reversed or reopened by the rebuild landing — it remains valid, and is now strictly stronger**, since the actual page is real rather than a placeholder. This is an improvement, not a contradiction, and does not reintroduce any pitch-blocking requirement.
+
+**Open presentation-choreography question (explicitly NOT a development blocker):** the original guidance not to linger on the dashboard screen during the pitch (`docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/presentation-ready-gate.md`) was calibrated against the old placeholder. Now that a real, tested dashboard exists, the presenter/product owner may want to reconsider showcasing it rather than avoiding it. This is recorded here as an open choreography question for whoever plans the final pitch run-through — it does not change the DEMO SUFFICIENT status above, and no implementation work is implied by raising it.
+
+# CURRENT REMAINING WORK
+
+None required before pitch — neither on the dashboard's own implementation (complete, see "Readiness progression plan" below, except one explicitly out-of-scope, pre-existing full-`next build` issue) nor as a pitch-readiness requirement (the DEMO SUFFICIENT decision stands independently of the rebuild). See the CURRENT STATUS banner above.
+
+<details>
+<summary>HISTORICAL — previously listed as required pre-pitch work (2026-09-23), superseded first by the 2026-09-24 product-owner acceptance, and now further superseded by the actual rebuild landing on <code>main</code> ("feat(dashboard): refine operational home dashboard")</summary>
+
+1. Scope decision: which minimal widgets/summaries (active-branch context, real recent-activity data, a small set of useful quick actions — not fabricated metrics, not full BI). **RESOLVED** — see "Product decisions" below.
+2. Build a server-fetched component replacing the current static placeholder. **DONE** — see "Readiness progression plan" below.
+
+</details>
+
+# HISTORICAL AUDIT / DESIGN RECORD
+
 **Priorytet:** P1
 
 **Stan obecny:** 🟡 PARTIAL — IMPLEMENTED AND TESTED; GLOBAL BUILD GATE OPEN
@@ -42,6 +64,8 @@ Dokładne widżety/zakres NIE są tu decydowane — to zadanie dla właściwego 
 
 - Dashboard: potwierdzone bez zmian względem Strefy 16 — `/dashboard/start` to statyczny nagłówek; brak jakiejkolwiek trasy zbiorczego/podsumowującego pulpitu operacyjnego pod `/dashboard/warehouse/` (tylko strony poszczególnych encji) ani gdziekolwiek indziej w aplikacji.
 
+**Note (added 2026-09-25, during main ↔ Zone 1 integration):** the four excerpts above describe the state of `/dashboard/start` BEFORE the rebuild recorded in this document. They are preserved verbatim as historical evidence of the pre-implementation audit finding, not as a claim about the current state of the code — see the CURRENT STATUS banner at the top of this file for what is actually true today.
+
 ---
 
 ## Product clarification and final design
@@ -61,6 +85,10 @@ Dokładne widżety/zakres NIE są tu decydowane — to zadanie dla właściwego 
 - Pełny build `apps/web` blokuje istniejąca, niezwiązana ze Strefą 11 trasa `src/app/auth/auth-code-error/page.tsx`, która nie ma root layoutu. Strona Strefy 11 kompiluje się w aktualnym serwerze Next; osobny `tsc --noEmit` obejmuje aplikację.
 
 ### Product decisions
+
+**DECIDED (2026-09-24, product-owner clarification):** the current dashboard experience is accepted as DEMO SUFFICIENT for the pitch — no further implementation is required beforehand. See the CURRENT STATUS banner at the top of this file and `docs/mvp/reviews/dashboard-container-product-clarification-2026-09-24/dashboard-current-status.md` for the full record. This decision predates, and is unaffected by, the dashboard rebuild described below — it covered pitch readiness under the OLD placeholder state and remains valid now that a real dashboard exists (see the "Open presentation-choreography question" note at the top of this file for the one open, non-blocking follow-up question this raises).
+
+The following are the actual design decisions made during the dashboard's own implementation (landed on `main`, "feat(dashboard): refine operational home dashboard"):
 
 - Pulpit pozostaje krótką stroną operacyjną, bez wykresów, trendów i marketingowego hero.
 - Widoczny, ogólny nagłówek „Pulpit” i opis powitalny usunięto po przeglądzie produktu; strona zaczyna się bezpośrednio od kontekstu pracy. Semantyczny `h1` pozostaje dostępny dla czytników ekranu.
@@ -112,6 +140,8 @@ Dokładne widżety/zakres NIE są tu decydowane — to zadanie dla właściwego 
 - [ ] Pełny build całej aplikacji przechodzi — obecnie blokuje go istniejący route-level problem poza Strefą 11 opisany wyżej.
 
 ### Final pitch scope
+
+**DECIDED (2026-09-24):** no dashboard IMPLEMENTATION work is required in the pitch scope — this remains true and is unaffected by the rebuild described below. Separately, now that a real dashboard exists, the actual pitch choreography MAY show it (see the "Open presentation-choreography question" note at the top of this file — an open question, not a decision made here). If shown, the shape to show is the one actually built:
 
 Pokazać krótko: aktywny oddział → cztery dozwolone wejścia do pracy → realny plan dnia, zadania i snapshot Kanban → kolejka ważnych ticketów → osobista ostatnia aktywność. Podkreślić, że każdy element prowadzi do działania. Nie nazywać tego analityką całego warsztatu, nie pokazywać trendów i nie obiecywać jeszcze podsumowań RepairOrders/dostaw ani zadań cyklicznych.
 
