@@ -13,6 +13,7 @@ import {
 } from "./use-data-view";
 import { DataViewFilters } from "./data-view-filters";
 import { DataViewSearchControl } from "./data-view-search-control";
+import { invalidateDataViewEntity } from "./data-view-query-keys";
 
 // Both toolbar variants use this height so the body area never shifts vertically.
 const TOOLBAR_CLS =
@@ -23,14 +24,14 @@ type DataViewToolbarProps = {
 };
 
 export function DataViewToolbar({ mode = "list" }: DataViewToolbarProps) {
-  const { renderToolbarControls, queryKey } = useDataViewStatic();
+  const { renderToolbarControls, entity, scope } = useDataViewStatic();
   const { closeDetail, isClosingDetail } = useDataViewDetail();
   const { listIsTransitioning } = useDataViewList();
   const queryClient = useQueryClient();
 
   const handleRefresh = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey });
-  }, [queryClient, queryKey]);
+    void invalidateDataViewEntity(queryClient, entity, scope);
+  }, [queryClient, entity, scope]);
   const {
     selectedRowCount,
     keepOnlySelected,

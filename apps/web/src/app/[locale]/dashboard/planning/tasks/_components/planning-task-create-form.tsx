@@ -35,8 +35,15 @@ interface Member {
   email: string | null;
 }
 
+interface BranchOption {
+  id: string;
+  name: string;
+}
+
 interface PlanningTaskCreateFormProps {
   members: Member[];
+  branches: BranchOption[];
+  activeBranchId: string | null;
   currentUserId: string;
   canAssign: boolean;
   onCreated: (task: PlanningTaskDetail) => void;
@@ -51,6 +58,8 @@ interface PlanningTaskCreateFormProps {
 
 export function PlanningTaskCreateForm({
   members,
+  branches,
+  activeBranchId,
   currentUserId,
   canAssign,
   onCreated,
@@ -68,6 +77,7 @@ export function PlanningTaskCreateForm({
   const [descriptionRich, setDescriptionRich] = useState<RichTextValue>(createEmptyRichText);
   const [priority, setPriority] = useState<TaskPriority>("normal");
   const [assignedTo, setAssignedTo] = useState<string>("__unassigned__");
+  const [taskScope, setTaskScope] = useState<string>(activeBranchId ?? "__organization__");
   const [dueAt, setDueAt] = useState<string>(initialDueAt ?? "");
   const [titleError, setTitleError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -86,6 +96,7 @@ export function PlanningTaskCreateForm({
     setDescriptionRich(createEmptyRichText);
     setPriority("normal");
     setAssignedTo("__unassigned__");
+    setTaskScope(activeBranchId ?? "__organization__");
     setDueAt(initialDueAt ?? "");
     setTitleError(null);
   }
@@ -109,6 +120,7 @@ export function PlanningTaskCreateForm({
         description_plain: hasDescription ? descriptionPlain : undefined,
         description_rich: hasDescription ? JSON.stringify(descriptionRich) : undefined,
         priority,
+        branch_id: taskScope === "__organization__" ? null : taskScope,
         assigned_to: assignToMe
           ? currentUserId
           : assignedTo === "__unassigned__"
@@ -223,6 +235,24 @@ export function PlanningTaskCreateForm({
               </SelectContent>
             </Select>
           </div>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label>{t("scope")}</Label>
+          <Select value={taskScope} onValueChange={setTaskScope} disabled={submitting}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__organization__">{t("organizationScope")}</SelectItem>
+              {branches.map((branch) => (
+                <SelectItem key={branch.id} value={branch.id}>
+                  {branch.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">{t("scopeHelp")}</p>
         </div>
 
         {/* Due date */}

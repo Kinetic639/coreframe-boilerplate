@@ -90,6 +90,7 @@ const BRANCH_B = "branch-b";
 const LOCATION_B_ID = "loc-b-1";
 
 const defaultProps = {
+  organizationId: "org-1",
   activeBranch: { id: BRANCH_A, name: "Branch A" } as never,
   initialLocations: [],
   rawLocations: [],

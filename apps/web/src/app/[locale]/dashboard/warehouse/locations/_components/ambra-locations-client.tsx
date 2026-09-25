@@ -48,6 +48,7 @@ import {
 import { LocationsDataView } from "./locations-data-view";
 
 type AmbraLocationsClientProps = {
+  organizationId: string;
   activeBranch: Branch;
   initialLocations: LogicalLocation[];
   rawLocations: WarehouseLocation[];
@@ -59,6 +60,7 @@ type AmbraLocationsClientProps = {
 };
 
 export function AmbraLocationsClient({
+  organizationId,
   activeBranch,
   initialLocations,
   rawLocations,
@@ -272,6 +274,8 @@ export function AmbraLocationsClient({
       <div className="flex-1 min-h-0">
         {viewMode === "list" ? (
           <LocationsDataView
+            organizationId={organizationId}
+            branchId={activeBranch.id}
             initialData={initialListData}
             allLocations={rawLocations}
             ambraLocations={branchLocations}

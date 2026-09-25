@@ -29,18 +29,19 @@ export function DataViewPagination() {
   const t = useTranslations("dataView");
 
   const totalPages = keepOnlySelected ? 1 : Math.max(1, Math.ceil(totalCount / pageSize));
-  const pageDisplay = keepOnlySelected ? 1 : page;
+  const validPage = keepOnlySelected ? 1 : Math.min(Math.max(page, 1), totalPages);
+  const pageDisplay = validPage;
   const from = keepOnlySelected
     ? selectedRowCount === 0
       ? 0
       : 1
     : totalCount === 0
       ? 0
-      : (page - 1) * pageSize + 1;
-  const to = keepOnlySelected ? selectedRowCount : Math.min(page * pageSize, totalCount);
+      : (validPage - 1) * pageSize + 1;
+  const to = keepOnlySelected ? selectedRowCount : Math.min(validPage * pageSize, totalCount);
 
-  const canPrev = !keepOnlySelected && page > 1;
-  const canNext = !keepOnlySelected && page < totalPages;
+  const canPrev = !keepOnlySelected && validPage > 1;
+  const canNext = !keepOnlySelected && validPage < totalPages;
 
   const handleMeaningfulInteraction = () => {
     if (returnHighlightId) {
@@ -111,7 +112,7 @@ export function DataViewPagination() {
             className="h-8 w-8"
             onClick={() => {
               handleMeaningfulInteraction();
-              urlState.setPage(page - 1);
+              urlState.setPage(validPage - 1);
             }}
             disabled={!canPrev || keepOnlySelected}
             aria-label={t("pagination.previousPageAria")}
@@ -127,7 +128,7 @@ export function DataViewPagination() {
             className="h-8 w-8"
             onClick={() => {
               handleMeaningfulInteraction();
-              urlState.setPage(page + 1);
+              urlState.setPage(validPage + 1);
             }}
             disabled={!canNext || keepOnlySelected}
             aria-label={t("pagination.nextPageAria")}

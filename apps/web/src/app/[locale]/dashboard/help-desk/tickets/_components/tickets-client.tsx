@@ -18,6 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { DataView } from "@/components/data-view/data-view";
+import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
 import type {
   DataViewColumnDef,
   DataViewFilterDef,
@@ -55,6 +56,7 @@ const HELPDESK_TICKETS_QUERY_KEY = ["helpdesk-tickets-dataview"];
 
 interface TicketsClientProps {
   initialData: PaginatedResult<HelpdeskTicketListRow>;
+  initialDataUpdatedAt?: number;
   ticketTypes: HelpdeskTicketType[];
   members: Array<{ user_id: string; name: string | null; email: string | null }>;
   branches: Array<{ id: string; name: string }>;
@@ -106,6 +108,12 @@ function TicketDetailPanel({
     });
   }, [detail.id]);
 
+  useEffect(() => {
+    setActivity(detail.activity);
+    setAcceptedAt(detail.accepted_at);
+    setAcceptedByName(detail.accepted_by_name);
+  }, [detail.accepted_at, detail.accepted_by_name, detail.activity]);
+
   const handleRevokeQr = async () => {
     if (!qrAssignment) return;
     setIsRevokingQr(true);
@@ -124,7 +132,7 @@ function TicketDetailPanel({
     }
   };
 
-  const acceptMutation = useAcceptTicketMutation(detail.ticket_number);
+  const acceptMutation = useAcceptTicketMutation(detail.ticket_number, detail.org_id);
   const canComment = detail.status !== "closed" && detail.status !== "cancelled";
   const canAccept =
     detail.requires_acceptance &&
@@ -323,24 +331,7 @@ function TicketDetailPanel({
                   size="sm"
                   className="w-full"
                   disabled={acceptMutation.isPending}
-                  onClick={() =>
-                    acceptMutation.mutate(
-                      { ticket_id: detail.id },
-                      {
-                        onSuccess: async () => {
-                          const fresh = await getTicketDetailAction(
-                            detail.ticket_number,
-                            detail.org_id
-                          );
-                          if (fresh.success && fresh.data) {
-                            setAcceptedAt(fresh.data.accepted_at);
-                            setAcceptedByName(fresh.data.accepted_by_name);
-                            setActivity(fresh.data.activity);
-                          }
-                        },
-                      }
-                    )
-                  }
+                  onClick={() => acceptMutation.mutate({ ticket_id: detail.id })}
                 >
                   {acceptMutation.isPending ? (
                     <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
@@ -474,6 +465,7 @@ function AssigneeAvatars({ assignees }: { assignees: HelpdeskTicketListRow["assi
 
 export function TicketsClient({
   initialData,
+  initialDataUpdatedAt,
   ticketTypes,
   members,
   branches,
@@ -499,7 +491,7 @@ export function TicketsClient({
   const detailFetcher = useCallback(
     async (ticketNumber: string): Promise<HelpdeskTicketDetail | null> => {
       const result = await getTicketDetailAction(ticketNumber, orgId);
-      if (!result.success) return null;
+      if (!result.success) throw new Error((result as { success: false; error: string }).error);
       return result.data;
     },
     [orgId]
@@ -800,9 +792,11 @@ export function TicketsClient({
       <div className="min-h-0 flex-1">
         <DataView<HelpdeskTicketListRow, HelpdeskTicketDetail>
           entity="helpdesk-tickets"
+          scope={dataViewScope.organization(orgId)}
           columns={columns}
           filters={filters}
           initialData={initialData}
+          initialDataUpdatedAt={initialDataUpdatedAt}
           queryKey={HELPDESK_TICKETS_QUERY_KEY}
           listFetcher={listFetcher}
           detailFetcher={detailFetcher}

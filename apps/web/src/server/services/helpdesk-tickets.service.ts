@@ -240,6 +240,30 @@ function displayName(
   return full || email || null;
 }
 
+/**
+ * Builds a safe `ilike` pattern for use inside a PostgREST `.or(...)` filter
+ * string, e.g. `title.ilike.${ilikeOrValue(search)}`.
+ *
+ * Two independent escaping passes are needed because raw user input passes
+ * through two different parsers before it reaches the database:
+ *
+ * 1. Postgres LIKE/ILIKE treats `%` and `_` as wildcards and `\` as its own
+ *    escape character, so a user typing a literal `%`, `_`, or `\` would
+ *    otherwise get broader-than-intended matches. Escaping them here (in
+ *    the order backslash, then %, then _) makes them match literally.
+ * 2. PostgREST's `or()`/`and()` logic-tree grammar uses unquoted `,` and
+ *    `)` as structural delimiters between conditions — a value containing
+ *    either one (unquoted) either breaks the whole filter (comma) or
+ *    silently truncates it (closing paren). Wrapping the value in double
+ *    quotes makes `,` and `)` literal again; inside quotes the only two
+ *    characters that still need escaping are `\` and `"` themselves.
+ */
+function ilikeOrValue(raw: string): string {
+  const likeSafe = raw.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
+  const quoted = likeSafe.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  return `"%${quoted}%"`;
+}
+
 // ---------------------------------------------------------------------------
 // Service
 // ---------------------------------------------------------------------------
@@ -329,7 +353,10 @@ export class HelpdeskTicketsService {
     if (filters.createdAtFrom) query = query.gte("created_at", filters.createdAtFrom as string);
     if (filters.createdAtTo) query = query.lte("created_at", filters.createdAtTo as string);
     if (assignedToTicketIds) query = query.in("id", assignedToTicketIds);
-    if (search) query = query.ilike("title", `%${search}%`);
+    if (search) {
+      const pattern = ilikeOrValue(search);
+      query = query.or(`title.ilike.${pattern},ticket_number.ilike.${pattern}`);
+    }
 
     // Sort
     const sortField = sort?.field ?? "created_at";
@@ -494,7 +521,7 @@ export class HelpdeskTicketsService {
     supabase: SupabaseClient,
     orgId: string,
     ticketNumber: string
-  ): Promise<ServiceResult<HelpdeskTicketDetail>> {
+  ): Promise<ServiceResult<HelpdeskTicketDetail | null>> {
     // Ticket + type + creator — look up by human-readable ticket_number
     const { data: ticketRaw, error } = await supabase
       .from("helpdesk_tickets")
@@ -508,9 +535,10 @@ export class HelpdeskTicketsService {
       .eq("ticket_number", ticketNumber)
       .eq("org_id", orgId)
       .is("deleted_at", null)
-      .single();
+      .maybeSingle();
 
     if (error) return { success: false, error: error.message };
+    if (!ticketRaw) return { success: true, data: null };
 
     const ticket = ticketRaw as any;
     // Sub-queries join on the internal UUID FK, not the human-readable ticket_number
@@ -1002,7 +1030,10 @@ export class HelpdeskTicketsService {
         .limit(params.unscheduledLimit + 1);
 
       if (params.unscheduledSearch) {
-        unscheduledQuery = unscheduledQuery.ilike("title", `%${params.unscheduledSearch}%`);
+        const pattern = ilikeOrValue(params.unscheduledSearch);
+        unscheduledQuery = unscheduledQuery.or(
+          `title.ilike.${pattern},ticket_number.ilike.${pattern}`
+        );
       }
 
       const { data: unscheduledData, error: unscheduledError } = await unscheduledQuery;

@@ -2,27 +2,21 @@
  * @vitest-environment jsdom
  *
  * InventoryClient (Inventory Balances) — branch-aware DataView wiring
- * (Zone 1 / Phase 3)
+ * (Zone 1 / Phase 3, updated post main-integration to the canonical
+ * `scope`/`dataViewScope.branch` contract — see
+ * docs/mvp/reviews/main-zone1-integration-resolution-2026-09-25/).
  *
- * Tests the CONSUMER WIRING only: does this component read the live active
- * branch from the store and forward it to <DataView branchId={...}>?
+ * Tests the CONSUMER WIRING only: does this component forward its own
+ * `organizationId`/`branchId` props into <DataView scope={dataViewScope.branch(...)}>?
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render } from "@testing-library/react";
 
-const { mockDataViewSpy, mockActiveBranchId } = vi.hoisted(() => ({
-  mockDataViewSpy: vi.fn(),
-  mockActiveBranchId: { current: "branch-a" as string | null },
-}));
+const mockDataViewSpy = vi.fn();
 
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
-}));
-
-vi.mock("@/lib/stores/v2/app-store", () => ({
-  useAppStoreV2: (selector: (state: { activeBranchId: string | null }) => unknown) =>
-    selector({ activeBranchId: mockActiveBranchId.current }),
 }));
 
 vi.mock("@/components/data-view/data-view", () => ({
@@ -44,17 +38,18 @@ vi.mock("@/app/actions/warehouse/inventory", () => ({
 import { InventoryClient } from "../inventory-client";
 
 const initialData = { rows: [], totalCount: 0, page: 1, pageSize: 20 };
+const ORG_ID = "org-1";
 
-describe("InventoryClient (Inventory Balances) — branch-aware wiring", () => {
+describe("InventoryClient (Inventory Balances) — branch-aware wiring (scope contract)", () => {
   beforeEach(() => {
     mockDataViewSpy.mockClear();
   });
 
-  it("forwards the live active branch to DataView's branchId prop", () => {
-    mockActiveBranchId.current = "branch-a";
-
+  it("forwards its own organizationId/branchId props into DataView's scope", () => {
     render(
       <InventoryClient
+        organizationId={ORG_ID}
+        branchId="branch-a"
         initialData={initialData as never}
         variants={[]}
         locations={[]}
@@ -64,15 +59,17 @@ describe("InventoryClient (Inventory Balances) — branch-aware wiring", () => {
     );
 
     expect(mockDataViewSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ queryKey: ["inventory-balances"], branchId: "branch-a" })
+      expect.objectContaining({
+        scope: { kind: "branch", organizationId: ORG_ID, branchId: "branch-a" },
+      })
     );
   });
 
-  it("forwards a different branchId when the active branch changes", () => {
-    mockActiveBranchId.current = "branch-b";
-
+  it("forwards a different scope when the branchId prop changes", () => {
     render(
       <InventoryClient
+        organizationId={ORG_ID}
+        branchId="branch-b"
         initialData={initialData as never}
         variants={[]}
         locations={[]}
@@ -81,6 +78,10 @@ describe("InventoryClient (Inventory Balances) — branch-aware wiring", () => {
       />
     );
 
-    expect(mockDataViewSpy).toHaveBeenCalledWith(expect.objectContaining({ branchId: "branch-b" }));
+    expect(mockDataViewSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scope: { kind: "branch", organizationId: ORG_ID, branchId: "branch-b" },
+      })
+    );
   });
 });

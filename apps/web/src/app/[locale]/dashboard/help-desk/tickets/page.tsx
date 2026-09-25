@@ -1,4 +1,5 @@
 import { redirect } from "@/i18n/navigation";
+import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { getLocale } from "next-intl/server";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { checkPermission } from "@/lib/utils/permissions";
@@ -12,6 +13,13 @@ import { HelpdeskTicketsService } from "@/server/services/helpdesk-tickets.servi
 import { HelpdeskTicketTypesService } from "@/server/services/helpdesk-ticket-types.service";
 import { OrgMembersService } from "@/server/services/organization.service";
 import { parseDataViewSearchParams } from "@/components/data-view/data-view-search-params";
+import {
+  createDataViewServerQueryClient,
+  prefetchDataViewDetail,
+  prefetchDataViewList,
+} from "@/components/data-view/data-view-ssr";
+import { dataViewKeys } from "@/components/data-view/data-view-query-keys";
+import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
 import { TicketsClient } from "./_components/tickets-client";
 
 type PageProps = {
@@ -37,17 +45,64 @@ export default async function HelpDeskTicketsPage({ searchParams }: PageProps = 
   const params = parseDataViewSearchParams(searchParams ? await searchParams : {});
   const supabase = await createClient();
   const orgId = context.app.activeOrgId;
+  const queryClient = createDataViewServerQueryClient();
+  const entity = "helpdesk-tickets";
+  const scope = dataViewScope.organization(orgId);
 
-  const [ticketsResult, ticketTypesResult, membersResult, settingsResult] = await Promise.all([
-    HelpdeskTicketsService.listForDataView(supabase, orgId, params),
+  const prefetches: Promise<unknown>[] = [
+    prefetchDataViewList({
+      queryClient,
+      entity,
+      scope,
+      params,
+      fetcher: async () => {
+        const result = await HelpdeskTicketsService.listForDataView(supabase, orgId, params);
+        if (!result.success) throw new Error((result as { success: false; error: string }).error);
+        return result.data;
+      },
+    }),
     HelpdeskTicketTypesService.list(supabase, orgId, false),
     OrgMembersService.listMembers(supabase, orgId),
     HelpdeskTicketTypesService.getSettings(supabase, orgId),
-  ]);
+  ];
 
-  const initialData = ticketsResult.success
-    ? ticketsResult.data
-    : { rows: [], totalCount: 0, page: params.page, pageSize: params.pageSize };
+  if (params.selected) {
+    prefetches.push(
+      prefetchDataViewDetail({
+        queryClient,
+        entity,
+        scope,
+        selectedId: params.selected,
+        fetcher: async () => {
+          const result = await HelpdeskTicketsService.getDetail(supabase, orgId, params.selected!);
+          if (!result.success) throw new Error((result as { success: false; error: string }).error);
+          return result.data;
+        },
+      })
+    );
+  }
+
+  const results = await Promise.all(prefetches);
+  const ticketTypesResult = results[1] as Awaited<
+    ReturnType<typeof HelpdeskTicketTypesService.list>
+  >;
+  const membersResult = results[2] as Awaited<ReturnType<typeof OrgMembersService.listMembers>>;
+  const settingsResult = results[3] as Awaited<
+    ReturnType<typeof HelpdeskTicketTypesService.getSettings>
+  >;
+
+  const initialData = queryClient.getQueryData<
+    Awaited<ReturnType<typeof HelpdeskTicketsService.listForDataView>> extends { data: infer T }
+      ? T
+      : never
+  >(dataViewKeys.list(entity, scope, params)) ?? {
+    rows: [],
+    totalCount: 0,
+    page: params.page,
+    pageSize: params.pageSize,
+  };
+  const initialDataUpdatedAt =
+    queryClient.getQueryState(dataViewKeys.list(entity, scope, params))?.dataUpdatedAt ?? 0;
 
   const ticketTypes = ticketTypesResult.success ? ticketTypesResult.data : [];
 
@@ -62,17 +117,20 @@ export default async function HelpDeskTicketsPage({ searchParams }: PageProps = 
   const settings = settingsResult.success ? settingsResult.data : null;
 
   return (
-    <TicketsClient
-      initialData={initialData}
-      ticketTypes={ticketTypes}
-      members={members}
-      branches={context.app.availableBranches.map((b) => ({ id: b.id, name: b.name }))}
-      canCreate={checkPermission(context.user.permissionSnapshot, HELPDESK_TICKETS_CREATE)}
-      canManage={checkPermission(context.user.permissionSnapshot, HELPDESK_TICKETS_MANAGE)}
-      currentUserId={context.user.user?.id ?? ""}
-      orgId={orgId}
-      statusConfigs={settings?.status_configs ?? null}
-      priorityConfigs={settings?.priority_configs ?? null}
-    />
+    <HydrationBoundary state={dehydrate(queryClient)}>
+      <TicketsClient
+        initialData={initialData}
+        initialDataUpdatedAt={initialDataUpdatedAt}
+        ticketTypes={ticketTypes}
+        members={members}
+        branches={context.app.availableBranches.map((b) => ({ id: b.id, name: b.name }))}
+        canCreate={checkPermission(context.user.permissionSnapshot, HELPDESK_TICKETS_CREATE)}
+        canManage={checkPermission(context.user.permissionSnapshot, HELPDESK_TICKETS_MANAGE)}
+        currentUserId={context.user.user?.id ?? ""}
+        orgId={orgId}
+        statusConfigs={settings?.status_configs ?? null}
+        priorityConfigs={settings?.priority_configs ?? null}
+      />
+    </HydrationBoundary>
   );
 }

@@ -63,6 +63,10 @@ export type DataViewListParams = {
   filters: Record<string, string | string[] | boolean | null>;
 };
 
+export type DataViewScopePrimitive = string | number | boolean | null;
+
+export type DataViewScope = Readonly<Record<string, DataViewScopePrimitive>>;
+
 export type DataViewColumnDef<TRow> = {
   key: string;
   header: string;
@@ -74,17 +78,13 @@ export type DataViewColumnDef<TRow> = {
 
 export type DataViewProps<TListRow, TDetail> = {
   entity: string;
+  scope: DataViewScope;
   columns: DataViewColumnDef<TListRow>[];
   filters?: DataViewFilterDef[];
   initialData: PaginatedResult<TListRow>;
+  initialDataUpdatedAt?: number;
+  /** @deprecated Canonical cache keys are derived from `entity`; retained for consumer compatibility. */
   queryKey: string[];
-  /**
-   * Optional branch scope for React Query cache identity only — never sent to
-   * listFetcher/detailFetcher as part of the request payload, and never used
-   * for authorization. Omit for org-scoped DataViews (current behavior is
-   * unchanged). See docs/mvp/reviews/zone1-phase2-dataview-foundation-2026-09-24/query-key-contract.md.
-   */
-  branchId?: string | null;
   listFetcher: (params: DataViewListParams) => Promise<PaginatedResult<TListRow>>;
   detailFetcher: (id: string) => Promise<TDetail | null>;
   resolveSelectedPage?: (args: {

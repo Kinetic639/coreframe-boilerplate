@@ -39,5 +39,7 @@ export default async function RolesPage({ searchParams }: PageProps) {
   });
   const initialData = paginateRoles(filtered, urlState.page, urlState.pageSize);
 
-  return <RolesClient initialData={initialData} allRoles={allRoles} />;
+  return (
+    <RolesClient orgId={context.app.activeOrgId} initialData={initialData} allRoles={allRoles} />
+  );
 }

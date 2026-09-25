@@ -87,9 +87,12 @@ function makeInitialData(branches: OrgBranch[] = []): PaginatedResult<OrgBranch>
 }
 
 function renderClient(branches: OrgBranch[] = []) {
-  return render(<BranchesClient initialData={makeInitialData(branches)} allBranches={branches} />, {
-    wrapper: createWrapper(),
-  });
+  return render(
+    <BranchesClient orgId="org-1" initialData={makeInitialData(branches)} allBranches={branches} />,
+    {
+      wrapper: createWrapper(),
+    }
+  );
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────

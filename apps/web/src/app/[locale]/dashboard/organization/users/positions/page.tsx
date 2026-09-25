@@ -36,5 +36,11 @@ export default async function PositionsPage({ searchParams }: PageProps) {
   });
   const initialData = paginatePositions(filtered, urlState.page, urlState.pageSize);
 
-  return <PositionsClient initialData={initialData} allPositions={allPositions} />;
+  return (
+    <PositionsClient
+      orgId={context.app.activeOrgId}
+      initialData={initialData}
+      allPositions={allPositions}
+    />
+  );
 }

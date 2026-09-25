@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 import { ChevronDown, ChevronRight, Download, PackagePlus, Upload } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { DataView } from "@/components/data-view/data-view";
-import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
+import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
 import type {
   DataViewColumnDef,
   DataViewFilterDef,
@@ -25,6 +25,7 @@ import {
   getInventoryProductAction,
   listInventoryProductsAction,
 } from "@/app/actions/warehouse/inventory";
+import { getInventoryProductIdFromSelection } from "@/lib/warehouse/inventory-product-selection";
 import {
   ExpandedVariantRows,
   ProductDetailPanel,
@@ -34,7 +35,10 @@ import {
 } from "./inventory-product-display";
 
 type InventoryProductsClientProps = {
+  organizationId: string;
+  branchId: string | null;
   initialData: PaginatedResult<InventoryProductListRow>;
+  initialDataUpdatedAt?: number;
   customFields: InventoryCustomFieldDefinition[];
   canManageProducts: boolean;
   canImportProducts: boolean;
@@ -51,7 +55,7 @@ async function listFetcher(params: DataViewListParams) {
 
 async function detailFetcher(id: string) {
   const result = await getInventoryProductAction({
-    id: id.includes("::") ? id.split("::")[0] : id,
+    id: getInventoryProductIdFromSelection(id),
   });
   if (!result.success || !("data" in result))
     throw new Error("error" in result ? result.error : "unauthorized");
@@ -59,7 +63,10 @@ async function detailFetcher(id: string) {
 }
 
 export function InventoryProductsClient({
+  organizationId,
+  branchId,
   initialData,
+  initialDataUpdatedAt,
   customFields,
   canManageProducts,
   canImportProducts,
@@ -68,7 +75,6 @@ export function InventoryProductsClient({
   const tList = useTranslations("warehouseInventory.list");
   const [expandedProductIds, setExpandedProductIds] = useState<Record<string, true>>({});
   const [listMessage, setListMessage] = useState<string | null>(null);
-  const activeBranchId = useAppStoreV2((s) => s.activeBranchId);
 
   const toggleExpanded = useCallback((id: string) => {
     setExpandedProductIds((current) => {
@@ -92,7 +98,7 @@ export function InventoryProductsClient({
     anchor.download = result.data.file_name;
     anchor.click();
     URL.revokeObjectURL(url);
-  }, []);
+  }, [tList]);
 
   const columns = useMemo<DataViewColumnDef<InventoryProductListRow>[]>(
     () => [
@@ -320,11 +326,12 @@ export function InventoryProductsClient({
 
       <DataView<InventoryProductListRow, InventoryProductDetail>
         entity="inventory-products"
+        scope={dataViewScope.branch(organizationId, branchId)}
         columns={columns}
         filters={filters}
         initialData={initialData}
+        initialDataUpdatedAt={initialDataUpdatedAt}
         queryKey={INVENTORY_PRODUCTS_QUERY_KEY}
-        branchId={activeBranchId}
         listFetcher={listFetcher}
         detailFetcher={detailFetcher}
         getRowId={getRowId}

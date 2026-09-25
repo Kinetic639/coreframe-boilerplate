@@ -75,6 +75,8 @@ export default async function WarehouseInventoryPage({ searchParams }: PageProps
       </div>
       <div className="min-h-0 flex-1">
         <InventoryClient
+          organizationId={context.app.activeOrgId}
+          branchId={branchId ?? null}
           initialData={initialData}
           variants={variantsResult.success ? variantsResult.data : []}
           locations={

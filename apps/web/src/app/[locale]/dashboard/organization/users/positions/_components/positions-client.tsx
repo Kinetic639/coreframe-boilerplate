@@ -26,6 +26,7 @@ import {
 } from "@/hooks/queries/organization";
 import type { OrgPosition } from "@/server/services/organization.service";
 import { DataView } from "@/components/data-view/data-view";
+import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
 import type {
   DataViewColumnDef,
   DataViewListParams,
@@ -36,6 +37,7 @@ import { filterSortPositions, paginatePositions } from "../_utils/data-view";
 const POSITIONS_DV_KEY = ["org-positions-dataview"];
 
 interface PositionsClientProps {
+  orgId: string;
   initialData: PaginatedResult<OrgPosition>;
   allPositions: OrgPosition[];
 }
@@ -43,6 +45,7 @@ interface PositionsClientProps {
 type DialogMode = "create" | "edit" | null;
 
 export function PositionsClient({
+  orgId,
   initialData,
   allPositions: initialAllPositions,
 }: PositionsClientProps) {
@@ -245,6 +248,7 @@ export function PositionsClient({
       <div className="flex-1 overflow-hidden">
         <DataView<OrgPosition, OrgPosition>
           entity="org-positions"
+          scope={dataViewScope.organization(orgId)}
           columns={columns}
           initialData={initialData}
           queryKey={POSITIONS_DV_KEY}

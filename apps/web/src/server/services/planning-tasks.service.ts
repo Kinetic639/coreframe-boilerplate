@@ -248,6 +248,7 @@ function normalizeFilters(params: DataViewListParams, filters: TaskListFilters):
     priority:
       filters.priority ?? (stringArrayFilter(rawFilters.priority) as TaskPriority[] | undefined),
     branch_id: filters.branch_id ?? nullableStringFilter(rawFilters.branch_id),
+    branch_id_or_global: filters.branch_id_or_global,
     assigned_to: filters.assigned_to ?? nullableStringFilter(rawFilters.assigned_to),
   };
 }
@@ -342,6 +343,12 @@ export const PlanningTasksService = {
       const pageSize = params.pageSize ?? 20;
       const offset = (page - 1) * pageSize;
       const resolvedFilters = normalizeFilters(params, filters);
+      if (
+        resolvedFilters.branch_id_or_global &&
+        !looksLikeUuid(resolvedFilters.branch_id_or_global)
+      ) {
+        return { success: false, error: "Invalid branch scope" };
+      }
 
       let query = supabase
         .from("planning_tasks")
@@ -359,14 +366,15 @@ export const PlanningTasksService = {
       if (resolvedFilters.status?.length) query = query.in("status", resolvedFilters.status);
       if (resolvedFilters.priority?.length) query = query.in("priority", resolvedFilters.priority);
       if (resolvedFilters.branch_id !== undefined) {
-        resolvedFilters.branch_id === null
-          ? (query = query.is("branch_id", null))
-          : (query = query.eq("branch_id", resolvedFilters.branch_id));
+        if (resolvedFilters.branch_id === null) query = query.is("branch_id", null);
+        else query = query.eq("branch_id", resolvedFilters.branch_id);
+      }
+      if (resolvedFilters.branch_id_or_global) {
+        query = query.or(`branch_id.is.null,branch_id.eq.${resolvedFilters.branch_id_or_global}`);
       }
       if (resolvedFilters.assigned_to !== undefined) {
-        resolvedFilters.assigned_to === null
-          ? (query = query.is("assigned_to", null))
-          : (query = query.eq("assigned_to", resolvedFilters.assigned_to));
+        if (resolvedFilters.assigned_to === null) query = query.is("assigned_to", null);
+        else query = query.eq("assigned_to", resolvedFilters.assigned_to);
       }
       if (resolvedFilters.search) {
         query = query.or(

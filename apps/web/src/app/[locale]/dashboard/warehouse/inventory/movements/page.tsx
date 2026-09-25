@@ -63,6 +63,7 @@ export default async function WarehouseInventoryMovementsPage({ searchParams }: 
       </div>
       <div className="min-h-0 flex-1">
         <InventoryMovementsClient
+          organizationId={context.app.activeOrgId}
           initialData={
             movementsResult.success
               ? movementsResult.data

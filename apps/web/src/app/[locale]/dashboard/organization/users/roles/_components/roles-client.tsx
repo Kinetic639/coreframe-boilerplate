@@ -49,6 +49,7 @@ import {
 } from "@/hooks/queries/organization";
 import type { OrgRole } from "@/server/services/organization.service";
 import { DataView } from "@/components/data-view/data-view";
+import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
 import type {
   DataViewColumnDef,
   DataViewFilterDef,
@@ -60,6 +61,7 @@ import { filterSortRoles, paginateRoles } from "../_utils/data-view";
 const ROLES_DV_KEY = ["org-roles-dataview"];
 
 interface RolesClientProps {
+  orgId: string;
   initialData: PaginatedResult<OrgRole>;
   allRoles: OrgRole[];
 }
@@ -86,7 +88,7 @@ function ScopeBadge({ scopeType, tBadge }: { scopeType: string; tBadge: (k: stri
   return null;
 }
 
-export function RolesClient({ initialData, allRoles: initialAllRoles }: RolesClientProps) {
+export function RolesClient({ orgId, initialData, allRoles: initialAllRoles }: RolesClientProps) {
   const t = useTranslations("modules.organizationManagement.roles");
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -539,6 +541,7 @@ export function RolesClient({ initialData, allRoles: initialAllRoles }: RolesCli
         <div className="flex-1 overflow-hidden">
           <DataView<OrgRole, OrgRole>
             entity="org-roles"
+            scope={dataViewScope.organization(orgId)}
             columns={columns}
             filters={filters}
             initialData={initialData}

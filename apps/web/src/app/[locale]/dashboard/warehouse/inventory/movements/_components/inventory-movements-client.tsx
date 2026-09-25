@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { PackagePlus } from "lucide-react";
 import { DataView } from "@/components/data-view/data-view";
-import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
+import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
 import type {
   DataViewColumnDef,
   DataViewFilterDef,
@@ -31,6 +31,7 @@ type LocationOption = {
 };
 
 type InventoryMovementsClientProps = {
+  organizationId: string;
   initialData: PaginatedResult<InventoryMovementListRow>;
   activeBranchId: string | null;
   locations: LocationOption[];
@@ -62,6 +63,7 @@ const statusVariant: Record<string, "default" | "secondary" | "destructive" | "o
 };
 
 export function InventoryMovementsClient({
+  organizationId,
   initialData,
   activeBranchId,
   locations,
@@ -70,10 +72,6 @@ export function InventoryMovementsClient({
   const t = useTranslations("warehouseInventory.movements");
   const td = useTranslations("warehouseInventory.movementDetail");
   const tc = useTranslations("warehouseInventory.common");
-  // Live store value for the DataView's own cache identity — NOT the same as
-  // the `activeBranchId` prop above, which is the frozen SSR value forwarded
-  // unchanged to InventoryMovementDetailPanel (out of this phase's scope).
-  const liveActiveBranchId = useAppStoreV2((s) => s.activeBranchId);
 
   const STATUS_KEYS: Record<string, string> = {
     draft: "statusDraft",
@@ -190,11 +188,11 @@ export function InventoryMovementsClient({
       </div>
       <DataView<InventoryMovementListRow, InventoryMovementDetail>
         entity="inventory-movements"
+        scope={dataViewScope.branch(organizationId, activeBranchId)}
         columns={columns}
         filters={filters}
         initialData={initialData}
         queryKey={["inventory-movements"]}
-        branchId={liveActiveBranchId}
         listFetcher={listFetcher}
         detailFetcher={detailFetcher}
         getRowId={(row) => row.route_key}

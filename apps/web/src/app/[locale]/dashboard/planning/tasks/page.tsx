@@ -78,6 +78,11 @@ export default async function PlanningTasksPage({ searchParams }: PageProps = {}
       canAssign={canAssign}
       canDelete={canDelete}
       members={members}
+      branches={context.app.accessibleBranches.map((branch) => ({
+        id: branch.id,
+        name: branch.name,
+      }))}
+      activeBranchId={context.app.activeBranchId}
       currentUserId={currentUserId}
       orgId={orgId}
       statusConfigs={settings?.status_configs ?? null}

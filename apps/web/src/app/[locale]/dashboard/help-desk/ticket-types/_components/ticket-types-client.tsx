@@ -18,6 +18,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { DataView } from "@/components/data-view/data-view";
+import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
 import type {
   DataViewColumnDef,
   DataViewListParams,
@@ -211,6 +212,7 @@ export function TicketTypesClient({
       <div className="min-h-0 flex-1">
         <DataView<HelpdeskTicketTypeWithDetails, HelpdeskTicketTypeWithDetails>
           entity="helpdesk-ticket-types"
+          scope={dataViewScope.organization(orgId)}
           columns={columns}
           filters={[]}
           initialData={initialData}

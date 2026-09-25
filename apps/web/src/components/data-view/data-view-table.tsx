@@ -40,7 +40,7 @@ interface DataViewTableProps {
 export function DataViewTable({ primaryOnly = false }: DataViewTableProps) {
   const { columns: colDefs, getRowId, renderExpandedRow, renderRowControl } = useDataViewStatic();
   const { urlState } = useDataViewUrl();
-  const { listData, listIsLoading, listIsTransitioning } = useDataViewList();
+  const { listData, listIsLoading, listIsTransitioning, listError } = useDataViewList();
   const { columnVisibility } = useDataViewColumns();
   const { returnHighlightId, clearReturnHighlight } = useDataViewDetail();
   const {
@@ -168,6 +168,13 @@ export function DataViewTable({ primaryOnly = false }: DataViewTableProps) {
       onWheelCapture={handleMeaningfulInteraction}
       onKeyDownCapture={handleMeaningfulInteraction}
     >
+      {listIsTransitioning ? (
+        <div
+          className="absolute inset-x-0 top-0 z-20 h-0.5 animate-pulse bg-primary/60"
+          role="status"
+          aria-label={t("table.updating")}
+        />
+      ) : null}
       <Table
         containerClassName="overflow-visible"
         className="[&_thead_th]:sticky [&_thead_th]:top-0 [&_thead_th]:z-10 [&_thead_th]:bg-background"
@@ -235,7 +242,7 @@ export function DataViewTable({ primaryOnly = false }: DataViewTableProps) {
           ))}
         </TableHeader>
         <TableBody>
-          {listIsTransitioning ? (
+          {listIsLoading ? (
             Array.from({ length: skeletonRowCount }).map((_, rowIndex) => (
               <TableRow
                 key={`skeleton-row-${rowIndex}`}
@@ -255,7 +262,17 @@ export function DataViewTable({ primaryOnly = false }: DataViewTableProps) {
                 ) : null}
               </TableRow>
             ))
-          ) : table.getRowModel().rows.length === 0 && !listIsLoading ? (
+          ) : listError ? (
+            <TableRow>
+              <TableCell
+                colSpan={totalColumnCount}
+                className="py-10 text-center text-destructive"
+                role="alert"
+              >
+                {t("table.error")}
+              </TableCell>
+            </TableRow>
+          ) : table.getRowModel().rows.length === 0 ? (
             <TableRow>
               <TableCell
                 colSpan={totalColumnCount}

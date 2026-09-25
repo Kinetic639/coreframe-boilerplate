@@ -21,7 +21,7 @@
  *  - no service-role bypass — all queries respect RLS
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { PlanningTasksService } from "../planning-tasks.service";
 import type { PlanningTaskListRow, PlanningTaskDetail } from "../planning-tasks.service";
 import type { DataViewListParams } from "@/lib/data-view/types";
@@ -198,6 +198,33 @@ describe("PlanningTasksService", () => {
       expect((result as any).error).toBe("DB error");
     });
 
+    it("can include organization-wide tasks with one active branch", async () => {
+      const supabase = makeSupabaseMock();
+      const branchId = "11111111-1111-4111-8111-111111111111";
+      supabase._chain.range.mockResolvedValueOnce({ data: [], error: null, count: 0 });
+
+      await PlanningTasksService.listForDataView(supabase as any, ORG_ID, DEFAULT_PARAMS, {
+        branch_id_or_global: branchId,
+        status: ["open", "in_progress"],
+      });
+
+      expect(supabase._chain.or).toHaveBeenCalledWith(`branch_id.is.null,branch_id.eq.${branchId}`);
+      expect(supabase._chain.in).toHaveBeenCalledWith("status", ["open", "in_progress"]);
+    });
+
+    it("rejects an invalid combined branch scope before building a PostgREST filter", async () => {
+      const supabase = makeSupabaseMock();
+      const result = await PlanningTasksService.listForDataView(
+        supabase as any,
+        ORG_ID,
+        DEFAULT_PARAMS,
+        { branch_id_or_global: "branch.eq.anything),status.eq.completed" }
+      );
+
+      expect(result).toEqual({ success: false, error: "Invalid branch scope" });
+      expect(supabase.from).not.toHaveBeenCalled();
+    });
+
     it("T-RLS: 42501 error propagates as failure", async () => {
       const supabase = makeSupabaseMock();
       supabase._chain.range.mockResolvedValueOnce({
@@ -332,6 +359,31 @@ describe("PlanningTasksService", () => {
       expect(result.data.status).toBe("open");
       // Verify insert was called at least twice (task + activity)
       expect(supabase._chain.insert).toHaveBeenCalledTimes(2);
+    });
+
+    it("persists an explicitly selected branch scope", async () => {
+      const supabase = makeSupabaseMock();
+      const branchId = "11111111-1111-4111-8111-111111111111";
+      supabase._chain.maybeSingle.mockResolvedValueOnce({ data: { id: branchId }, error: null });
+      supabase._chain.single.mockResolvedValueOnce({
+        data: {
+          ...makeTaskDetail({ branch_id: branchId }),
+          assignee: null,
+          creator: null,
+        },
+        error: null,
+      });
+
+      const result = await PlanningTasksService.create(supabase as any, ORG_ID, USER_ID, {
+        title: "Branch Task",
+        priority: "normal",
+        branch_id: branchId,
+      });
+
+      expect(result.success).toBe(true);
+      expect(supabase._chain.insert).toHaveBeenCalledWith(
+        expect.objectContaining({ organization_id: ORG_ID, branch_id: branchId })
+      );
     });
 
     it("returns failure when DB insert fails", async () => {

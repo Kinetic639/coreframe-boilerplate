@@ -50,6 +50,7 @@ export default async function InvitationsPage({ searchParams }: PageProps) {
 
   return (
     <InvitationsClient
+      orgId={context.app.activeOrgId}
       initialData={initialData}
       allInvitations={allInvitations}
       initialRoles={rolesResult.success ? rolesResult.data : []}

@@ -13,10 +13,17 @@ interface Member {
   email: string | null;
 }
 
+interface BranchOption {
+  id: string;
+  name: string;
+}
+
 interface PlanningTaskCreateDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   members: Member[];
+  branches: BranchOption[];
+  activeBranchId: string | null;
   currentUserId: string;
   canAssign: boolean;
   onCreated: (task: PlanningTaskDetail) => void;
@@ -28,6 +35,8 @@ export function PlanningTaskCreateDialog({
   open,
   onOpenChange,
   members,
+  branches,
+  activeBranchId,
   currentUserId,
   canAssign,
   onCreated,
@@ -52,6 +61,8 @@ export function PlanningTaskCreateDialog({
 
         <PlanningTaskCreateForm
           members={members}
+          branches={branches}
+          activeBranchId={activeBranchId}
           currentUserId={currentUserId}
           canAssign={canAssign}
           priorityConfigs={priorityConfigs}

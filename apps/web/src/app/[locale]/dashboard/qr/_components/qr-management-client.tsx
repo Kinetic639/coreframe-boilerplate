@@ -28,6 +28,7 @@ import { createQrBatchAction } from "@/app/actions/qr/create-batch";
 import { revokeQrAction } from "@/app/actions/qr/revoke";
 import { PRIMARY_FIELD_KEY, TOKEN_FIELD_KEY, SCAN_URL_FIELD_KEY } from "@/lib/qr/label-config";
 import { DataView } from "@/components/data-view/data-view";
+import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
 import type {
   DataViewColumnDef,
   DataViewFilterDef,
@@ -140,6 +141,7 @@ function QrDetailPanel({ qr, canRevoke, isRevoking, onRevoke, t }: QrDetailPanel
 // ---------------------------------------------------------------------------
 
 interface Props {
+  orgId: string;
   initialData: PaginatedResult<QrCodeWithStatus>;
   allCodes: QrCodeWithStatus[];
 }
@@ -148,7 +150,7 @@ interface Props {
 // Main component
 // ---------------------------------------------------------------------------
 
-export function QrManagementClient({ initialData, allCodes: initialAllCodes }: Props) {
+export function QrManagementClient({ orgId, initialData, allCodes: initialAllCodes }: Props) {
   const t = useTranslations("modules.qr.management");
   const tDesigner = useTranslations("modules.qr.designer");
   const { can } = usePermissions();
@@ -466,6 +468,7 @@ export function QrManagementClient({ initialData, allCodes: initialAllCodes }: P
             <div className="min-h-0 flex-1 overflow-hidden">
               <DataView<QrCodeWithStatus, QrCodeWithStatus>
                 entity="qr-codes"
+                scope={dataViewScope.organization(orgId)}
                 columns={columns}
                 filters={filters}
                 initialData={initialData}

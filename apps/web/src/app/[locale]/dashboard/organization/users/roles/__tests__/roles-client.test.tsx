@@ -75,9 +75,12 @@ function makeInitialData(roles: OrgRole[] = []): PaginatedResult<OrgRole> {
 }
 
 function renderClient(roles: OrgRole[] = []) {
-  return render(<RolesClient initialData={makeInitialData(roles)} allRoles={roles} />, {
-    wrapper: createWrapper(),
-  });
+  return render(
+    <RolesClient orgId="org-1" initialData={makeInitialData(roles)} allRoles={roles} />,
+    {
+      wrapper: createWrapper(),
+    }
+  );
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────

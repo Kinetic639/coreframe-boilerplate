@@ -36,7 +36,7 @@ export default async function QrCodesPage({ searchParams }: PageProps) {
         <p className="text-sm text-muted-foreground">{t("description")}</p>
       </div>
       <div className="min-h-0 flex-1 overflow-hidden">
-        <QrManagementClient initialData={initialData} allCodes={allCodes} />
+        <QrManagementClient orgId={orgId} initialData={initialData} allCodes={allCodes} />
       </div>
     </div>
   );

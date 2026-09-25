@@ -21,7 +21,10 @@ export const test = baseTest.extend({
     await page.getByRole("textbox", { name: "Hasło" }).fill(E2E_TEST_PASSWORD!);
     await page.getByRole("button", { name: "Zaloguj się" }).click();
     await page.waitForURL(/\/dashboard\/start/);
+    await expect(page.getByTestId("home-dashboard")).toBeVisible({ timeout: 30_000 });
 
+    // Playwright's fixture continuation is named `use`; it is not a React Hook.
+    // eslint-disable-next-line react-hooks/rules-of-hooks
     await use(page);
   },
 });

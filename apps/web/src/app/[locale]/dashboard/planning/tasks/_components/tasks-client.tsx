@@ -10,6 +10,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { PageLoader } from "@/components/page-loader";
 import { DataView } from "@/components/data-view/data-view";
+import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
 import { DataViewFilters } from "@/components/data-view/data-view-filters";
 import { DataViewSearchControl } from "@/components/data-view/data-view-search-control";
 import {
@@ -58,6 +59,11 @@ interface Member {
   email: string | null;
 }
 
+interface BranchOption {
+  id: string;
+  name: string;
+}
+
 interface TasksClientProps {
   initialData: PaginatedResult<PlanningTaskListRow>;
   initialKanbanTasks: PlanningTaskListRow[];
@@ -66,6 +72,8 @@ interface TasksClientProps {
   canAssign: boolean;
   canDelete: boolean;
   members: Member[];
+  branches: BranchOption[];
+  activeBranchId: string | null;
   currentUserId: string;
   orgId: string;
   statusConfigs: Record<string, PlanningStatusBadgeConfig> | null;
@@ -80,6 +88,8 @@ export function TasksClient({
   canAssign,
   canDelete,
   members,
+  branches,
+  activeBranchId,
   currentUserId,
   orgId,
   statusConfigs,
@@ -316,6 +326,7 @@ export function TasksClient({
         {viewMode === "list" ? (
           <DataView<PlanningTaskListRow, PlanningTaskDetail>
             entity="planning-tasks"
+            scope={dataViewScope.organization(orgId)}
             columns={columns}
             filters={filters}
             initialData={dataViewData}
@@ -378,6 +389,7 @@ export function TasksClient({
           />
         ) : (
           <TaskKanbanView
+            orgId={orgId}
             tasks={kanbanTasks}
             canUpdate={canUpdate}
             statusLabel={statusLabel}
@@ -402,6 +414,8 @@ export function TasksClient({
         open={createOpen}
         onOpenChange={setCreateOpen}
         members={members}
+        branches={branches}
+        activeBranchId={activeBranchId}
         currentUserId={currentUserId}
         canAssign={canAssign}
         onCreated={handleCreated}
@@ -412,6 +426,7 @@ export function TasksClient({
 }
 
 interface TaskKanbanViewProps {
+  orgId: string;
   tasks: PlanningTaskListRow[];
   canUpdate: boolean;
   canAssign: boolean;
@@ -428,21 +443,23 @@ interface TaskKanbanViewProps {
 }
 
 interface TaskKanbanDataViewToolbarProps {
+  orgId: string;
   filters: DataViewFilterDef[];
   urlState: DataViewUrlStateHook;
 }
 
-function TaskKanbanDataViewToolbar({ filters, urlState }: TaskKanbanDataViewToolbarProps) {
+function TaskKanbanDataViewToolbar({ orgId, filters, urlState }: TaskKanbanDataViewToolbarProps) {
   const staticValue = useMemo(
     () => ({
       entity: "planning-tasks",
+      scope: dataViewScope.organization(orgId),
       queryKey: PLANNING_TASKS_QUERY_KEY,
       columns: [],
       filters,
       getRowId: (row: PlanningTaskListRow) => row.task_number,
       renderDetail: () => null,
     }),
-    [filters]
+    [filters, orgId]
   );
 
   const urlValue = useMemo(
@@ -466,6 +483,7 @@ function TaskKanbanDataViewToolbar({ filters, urlState }: TaskKanbanDataViewTool
 }
 
 function TaskKanbanView({
+  orgId,
   tasks,
   canUpdate,
   canAssign,
@@ -590,7 +608,7 @@ function TaskKanbanView({
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
-      <TaskKanbanDataViewToolbar filters={filters} urlState={urlState} />
+      <TaskKanbanDataViewToolbar orgId={orgId} filters={filters} urlState={urlState} />
 
       <KanbanBoard
         columns={columns}

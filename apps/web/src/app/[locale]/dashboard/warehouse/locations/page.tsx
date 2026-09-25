@@ -89,6 +89,7 @@ export default async function AmbraWarehouseLocationsPage({ searchParams }: Page
       // showing stale, wrong-branch client state even after a successful,
       // server-confirmed switch.
       key={branchId ?? "no-branch"}
+      organizationId={context.app.activeOrgId}
       activeBranch={createAmbraBranch(branchId, context.app.activeBranch?.name)}
       initialLocations={
         locationsResult.success ? warehouseLocationsToAmbra(locationsResult.data) : []

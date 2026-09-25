@@ -51,6 +51,7 @@ import type {
   OrgBranch,
 } from "@/server/services/organization.service";
 import { DataView } from "@/components/data-view/data-view";
+import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
 import type {
   DataViewColumnDef,
   DataViewFilterDef,
@@ -62,6 +63,7 @@ import { filterSortMembers, paginateMembers } from "../_utils/data-view";
 const MEMBERS_DV_KEY = ["org-members-dataview"];
 
 interface MembersClientProps {
+  orgId: string;
   initialData: PaginatedResult<OrgMember>;
   allMembers: OrgMember[];
   initialPositions: OrgPosition[];
@@ -73,6 +75,7 @@ interface MembersClientProps {
 type RoleScopeConfig = { scope: "org" | "branch"; branchIds: string[] };
 
 export function MembersClient({
+  orgId,
   initialData,
   allMembers: initialAllMembers,
   initialPositions,
@@ -691,6 +694,7 @@ export function MembersClient({
         <div className="flex-1 overflow-hidden">
           <DataView<OrgMember, OrgMember>
             entity="org-members"
+            scope={dataViewScope.organization(orgId)}
             columns={columns}
             filters={filters}
             initialData={initialData}
