@@ -2,22 +2,74 @@
 
 Defines the exact demo environment required for the current pitch, per `docs/mvp/ambra-skrypt-prezentacji.md` and `docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/`. **Supersedes `docs/mvp/mvp-readiness-test-org-setup.md`** (2026-08-12, covered only QR/locations + Help Desk — predates RepairOrders/Matcher-approval/receiving/putaway/containers/issue entirely).
 
-**This document does NOT create the data.** It specifies what must exist before rehearsal.
+This document specifies what must exist before rehearsal. The organization, branches and user accounts **were created on 2026-09-29** (see "Created demo environment" below). The data rows are still to be created.
+
+## Created demo environment (2026-09-29)
+
+Project: live Supabase target `rjeraydumwechpjjzrus`. App: `https://app.ambra-system.com`.
+
+| Item         | Value                                                                                                                                         |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Organization | **Ambra Demo Serwis** (slug `ambra-demo-serwis`, id `2c5aa49a-cc3d-4166-8c5f-f6c94307103f`), plan **Professional** (10 branches, all modules) |
+| Branch #1    | **Warszawa** (`5f1d2311-99c0-44b9-9f24-3af573a3af36`), presenter's default branch                                                             |
+| Branch #2    | **Kraków** (`cc67f108-33f1-4e80-98a4-15fc799d1a41`)                                                                                           |
+
+| Account                                | Name             | Roles                                                 | Branch access   | Verified in app                                    |
+| -------------------------------------- | ---------------- | ----------------------------------------------------- | --------------- | -------------------------------------------------- |
+| `michal.stepien36+presenter@gmail.com` | Prezenter Demo   | `org_owner`                                           | both            | dashboard on Warszawa; switch to Kraków took 2.0 s |
+| `michal.stepien36+warehouse@gmail.com` | Magazynier Demo  | `org_member` + **Magazynier** (branch-scoped, Kraków) | **Kraków only** | switcher lists only Kraków                         |
+| `michal.stepien36+advisor@gmail.com`   | Doradca Demo     | `org_member` + **Doradca** (org)                      | both            | Warszawa + Kraków; Workshop visible                |
+| `michal.stepien36+helpdesk@gmail.com`  | Zgłaszający Demo | `org_member` + **Zgłaszający (Help Desk)** (org)      | both            | Warszawa + Kraków                                  |
+
+**Custom roles:**
+
+- **Magazynier:** `module.warehouse.access`, `module.tools.access`, `warehouse.*`, `qr.*`, `tools.read`, `branches.read`.
+- **Doradca:**
+  - `module.workshop.access`, `workshop.*`;
+  - `module.helpdesk.access` plus every concrete `helpdesk.*` slug;
+  - `module.planning.access` plus every concrete `planning.*` slug;
+  - `module.warehouse.access`, `warehouse.read`, `warehouse.inventory.read`, `warehouse.locations.read`, `warehouse.products.read`;
+  - `module.tools.access`, `tools.read`;
+  - `wdd_matcher.read` / `review` / `approve`;
+  - `branches.view.any`.
+
+  The Help Desk and Planning wildcards are expanded into explicit slugs on purpose (see bug 4 below).
+
+- **Zgłaszający (Help Desk):** `module.helpdesk.access`, `helpdesk.read`, `helpdesk.tickets.read`, `helpdesk.tickets.create`, `branches.view.any`.
+
+Passwords are set by the product owner and are **not** recorded here. They were shared in a working session, so change them before rehearsal.
+
+**How it was created:**
+
+- The presenter signed up through the real production sign-up form, with registration switched on for about a minute and then off again.
+- The org and branches were created directly in the database, replicating `create_organization_for_current_user` plus branch numbering (bug 1 below).
+- The roles were created in the admin Roles page, and their module permissions were added in the database (bug 3).
+- The three users were invited from the admin Invitations page and accepted their invitations in the real app.
+
+**Bugs found during setup** (not fixed; registration and onboarding are out of scope for the coming months):
+
+1. **Onboarding can't create an organization:** `create_organization_for_current_user` inserts `branches` without the NOT NULL `branch_number`.
+2. **Auth email links 404:** confirmation and recovery links point to `https://www.ambra-system.com/auth/confirm…`, which returns 404. The same path on `app.ambra-system.com` works. Likely fix: set `NEXT_PUBLIC_SITE_URL=https://app.ambra-system.com` in Vercel.
+3. **Roles page can't assign module permissions.** The permission picker lists only Organization Management permissions.
+4. **Permission compile fails on overlapping wildcards.** `compile_user_permissions` hits "ON CONFLICT DO UPDATE command cannot affect row a second time" when a role's wildcard (e.g. `helpdesk.*`) expands to a slug that `org_member` grants explicitly. `accept_invitation_and_join_org` hides this as `INTERNAL_ERROR`.
+5. **Invitation sign-up shows a false error.** After a successful invitation sign-up, the redirect back to `/rejestracja` drops the `invitation` param, so the page shows "Registration disabled".
+6. Org-scoped roles give no branch access without `branches.view.any`, so users see "No accessible branch". This is expected by design but easy to miss when creating roles.
+7. `org_member` alone makes Warehouse, Planning and CRM appear in the sidebar for the Help Desk user. Review before the demo if that user is shown.
 
 ## Organization
 
-- One demo organization.
+- One demo organization. **CREATED**: Ambra Demo Serwis.
 
 ## Branches
 
-- **At least two branches**, so Zone 1 branch switching can be demonstrated/verified live (this is the exact mechanism the confirmed Zone 1 bugs affect — the demo itself must exercise a real branch switch, not merely claim the capability). CREATE BEFORE REHEARSAL.
+- **At least two branches**, so Zone 1 branch switching can be demonstrated and verified live. This is the exact mechanism the confirmed Zone 1 bugs affect: the demo itself must exercise a real branch switch, not merely claim the capability. **CREATED**: Warszawa, Kraków.
 
 ## Users
 
-- **Presenter/admin** — full access, the account driving most of the demo. CREATE BEFORE REHEARSAL.
-- **Warehouse user** — a distinct role from admin, used to demonstrate role-scoped access and the branch-switch scenario. CREATE BEFORE REHEARSAL.
-- **Advisor/acceptor** — a second, contrasting role, used if the chosen Zone 1 administrative scenario (role change or invitation) needs a second account. CREATE BEFORE REHEARSAL.
-- **Optional Help Desk second user** — only if Zone 8's two-account ticket scenario (create → comment → accept) is included in the final choreography. CREATE BEFORE REHEARSAL if used.
+- **Presenter/admin:** full access, the account driving most of the demo. **CREATED** (`+presenter`).
+- **Warehouse user:** a role distinct from admin, used to demonstrate role-scoped access and the branch-switch scenario. **CREATED** (`+warehouse`, Kraków only).
+- **Advisor/acceptor:** a second, contrasting role, used if the chosen Zone 1 administrative scenario (role change or invitation) needs a second account. **CREATED** (`+advisor`).
+- **Optional Help Desk second user:** only if Zone 8's two-account ticket scenario (create → comment → accept) is included in the final choreography. **CREATED** (`+helpdesk`).
 
 ## Data
 
