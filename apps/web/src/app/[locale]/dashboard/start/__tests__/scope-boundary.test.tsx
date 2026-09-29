@@ -49,5 +49,41 @@ describe("tab-local branch boundary", () => {
     await act(async () => rerender(view("b")));
     expect(screen.getByText("Private branch content")).toBeInTheDocument();
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("home-branch-loader")).not.toBeInTheDocument();
+  });
+});
+
+describe("branch-switch loading presentation", () => {
+  it("enters the branded loading state when the shell switches to another branch", async () => {
+    const { rerender } = render(view());
+    expect(screen.queryByTestId("home-branch-loader")).not.toBeInTheDocument();
+
+    // Server-confirmed switch: the store moves to "b" while the server children are still "a".
+    mocks.state.activeBranchId = "b";
+    await act(async () => rerender(view()));
+
+    expect(screen.getByTestId("home-branch-loader")).toBeInTheDocument();
+    expect(screen.getByTestId("home-dashboard")).toHaveAttribute("aria-busy", "true");
+  });
+
+  it("renders the existing Ambra BrandLoader, not the old plain text line", () => {
+    mocks.state.activeBranchId = "b";
+    render(view());
+    const status = screen.getByRole("status");
+    expect(status).toBe(screen.getByTestId("home-branch-loader"));
+    // Old presentation was a bare <p role="status">; the status is now the branded loader
+    // (animated crystal logo SVG) with the label as its caption.
+    expect(status.tagName).not.toBe("P");
+    expect(status.querySelector("svg")).not.toBeNull();
+    expect(screen.getByText("Changing branch").tagName).toBe("P");
+    expect(screen.getByText("Changing branch").closest("[role='status']")).toBe(status);
+  });
+
+  it("shows no loader and keeps the current branch content when no switch happened (failed switch leaves the store unchanged)", () => {
+    render(view());
+    expect(screen.queryByTestId("home-branch-loader")).not.toBeInTheDocument();
+    expect(screen.getByText("Private branch content")).toBeInTheDocument();
+    expect(screen.getByTestId("home-dashboard")).toHaveAttribute("aria-busy", "false");
+    expect(mocks.replace).not.toHaveBeenCalled();
   });
 });

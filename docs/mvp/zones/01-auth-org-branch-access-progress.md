@@ -425,6 +425,36 @@ Zone 3 discipline: date, phase, finding, evidence, classification, resolution, w
 - **What was done instead:** the Claude-executable subset explicitly permitted by the task — local dev server started against the tested SHA, real (non-authenticated, environment-independent) route checks run against it, confirming Phase 6/6-correction code paths execute correctly live. Zero bugs found. See `docs/mvp/reviews/zone1-phase8-manual-uat-2026-09-24/desktop-browser-results.md`.
 - **No blockers in the sense of code defects.** Zero runtime files touched, zero DB/schema/RLS changes, zero data mutated in the live Supabase project. Phase 8 is BLOCKED from completion only by environment/access, not by any finding about Zone 1's own code.
 
+### 2026-09-28 → 2026-09-29: Branch-switch performance (production UAT finding): RESOLVED FOR DEMO
+
+**Finding (2026-09-28).** Human UAT on the production Vercel deployment of `main` measured a sidebar branch switch at ~15–25 s end to end:
+
+- ~10–15 s before the success toast;
+- ~5–10 s more before `/dashboard/start` showed the new branch.
+
+The switch was functionally correct. Investigation evidence: `docs/mvp/reviews/branch-switch-performance-audit-2026-09-28/` and `docs/mvp/reviews/branch-switch-performance-design-2026-09-28/`.
+
+**Resolution (2026-09-29).** Infrastructure topology only. The Vercel Function Region moved `iad1` → **`dub1`** (Supabase stays **`eu-west-1`**; Fluid Compute **ON**). The product owner's repeated manual production testing then showed:
+
+- switches complete in **~1–2 s**;
+- loading feedback usually appears in <1 s;
+- no recurring 10–25 s delays.
+
+This meets the DEMO target. Status: **`BRANCH SWITCH PERFORMANCE BLOCKER — RESOLVED FOR DEMO`**. Reason: Vercel/Supabase regional co-location removed the dominant production latency multiplier.
+
+**What this does not claim.** It doesn't claim the other hypothesized causes were false. The deeper inefficiencies are unchanged but are no longer a presentation blocker:
+
+- serial context loaders;
+- duplicate `getUser`;
+- two serial renders per switch;
+- server-action queue contention.
+
+**Deferred.** Design Stages 2/3/4 are **OPTIONAL / POST-DEMO**, by product-owner decision, unless production performance regresses or the regions stop being co-located. See `docs/mvp/reviews/branch-switch-performance-closeout-2026-09-29/deferred-performance-work.md`.
+
+**Loader UX.** The only runtime change: `HomeScopeBoundary`'s plain-text branch-switch placeholder now renders Ambra's existing `BrandLoader`, presented as the dashboard route loader does. There are no authorization, navigation or state changes. Evidence: `docs/mvp/reviews/branch-switch-performance-closeout-2026-09-29/`.
+
+**Constraints.** No DB/RLS changes. `changeBranch` authorization is unchanged.
+
 ---
 
 ## DEMO READY gate

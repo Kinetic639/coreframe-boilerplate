@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useTransition, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { RefreshCw } from "lucide-react";
+import { BrandLoader } from "@/components/branding";
 import { Button } from "@/components/ui/button";
 import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
 
@@ -44,9 +45,19 @@ export function HomeScopeBoundary({
         data-testid="home-dashboard"
       >
         {mismatch ? (
-          <p role="status" className="py-10 text-sm text-muted-foreground">
-            {loadingLabel}
-          </p>
+          // Same branded loader presentation as the dashboard route `loading.tsx` (PageLoader).
+          <div
+            role="status"
+            data-testid="home-branch-loader"
+            className="flex min-h-[calc(100vh-10rem)] items-center justify-center"
+          >
+            <BrandLoader
+              variant="beacon_swap"
+              label={loadingLabel}
+              showWordmark={false}
+              logoClassName="h-[7.68rem] w-[7.68rem]"
+            />
+          </div>
         ) : (
           children
         )}

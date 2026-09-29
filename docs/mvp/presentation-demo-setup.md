@@ -43,6 +43,13 @@ Defines the exact demo environment required for the current pitch, per `docs/mvp
 - **Presentation phone** — required for: QR scanning (location + container once Phase 10D lands), mobile putaway (once built, P0-3), ticket QR scan (if Zone 8 shown). Must be tested at the actual presentation location beforehand (camera permissions, HTTPS, lighting) — per `mvp-readiness.md`'s own risk table.
 - **Printer** — only if label printing itself will be demonstrated live; otherwise labels are pre-printed (see Data table above) and the printer is not part of the live demo path.
 
+## Deployment topology (required for demo performance)
+
+- **Vercel Function Region: `dub1` (Dublin). Supabase: `eu-west-1`. Fluid Compute: ON.** Confirmed 2026-09-29.
+- Keep the functions co-located with Supabase. With the previous `iad1` region, a branch switch took ~15–25 s in production; after the move to `dub1` it takes ~1–2 s.
+- Before the presentation, re-check that neither region has changed.
+- Evidence: `docs/mvp/reviews/branch-switch-performance-closeout-2026-09-29/`. Deeper optimizations are deferred post-demo; see `deferred-performance-work.md` there.
+
 ## Sequencing note
 
 This setup document assumes the P0 blockers in `presentation-ready-gate.md` are resolved before rehearsal — several data rows above (container, container QR, mobile putaway session) depend on code that does not exist yet as of 2026-09-23. Do not attempt to prepare those specific data rows until the corresponding P0 item has landed.
