@@ -1,0 +1,137 @@
+diff --git a/apps/web/src/app/[locale]/dashboard/start/__tests__/scope-boundary.test.tsx b/apps/web/src/app/[locale]/dashboard/start/__tests__/scope-boundary.test.tsx
+index 9c017891..edbac72e 100644
+--- a/apps/web/src/app/[locale]/dashboard/start/__tests__/scope-boundary.test.tsx
++++ b/apps/web/src/app/[locale]/dashboard/start/__tests__/scope-boundary.test.tsx
+@@ -49,5 +49,41 @@ describe("tab-local branch boundary", () => {
+     await act(async () => rerender(view("b")));
+     expect(screen.getByText("Private branch content")).toBeInTheDocument();
+     expect(screen.queryByRole("status")).not.toBeInTheDocument();
++    expect(screen.queryByTestId("home-branch-loader")).not.toBeInTheDocument();
++  });
++});
++
++describe("branch-switch loading presentation", () => {
++  it("enters the branded loading state when the shell switches to another branch", async () => {
++    const { rerender } = render(view());
++    expect(screen.queryByTestId("home-branch-loader")).not.toBeInTheDocument();
++
++    // Server-confirmed switch: the store moves to "b" while the server children are still "a".
++    mocks.state.activeBranchId = "b";
++    await act(async () => rerender(view()));
++
++    expect(screen.getByTestId("home-branch-loader")).toBeInTheDocument();
++    expect(screen.getByTestId("home-dashboard")).toHaveAttribute("aria-busy", "true");
++  });
++
++  it("renders the existing Ambra BrandLoader, not the old plain text line", () => {
++    mocks.state.activeBranchId = "b";
++    render(view());
++    const status = screen.getByRole("status");
++    expect(status).toBe(screen.getByTestId("home-branch-loader"));
++    // Old presentation was a bare <p role="status">; the status is now the branded loader
++    // (animated crystal logo SVG) with the label as its caption.
++    expect(status.tagName).not.toBe("P");
++    expect(status.querySelector("svg")).not.toBeNull();
++    expect(screen.getByText("Changing branch").tagName).toBe("P");
++    expect(screen.getByText("Changing branch").closest("[role='status']")).toBe(status);
++  });
++
++  it("shows no loader and keeps the current branch content when no switch happened (failed switch leaves the store unchanged)", () => {
++    render(view());
++    expect(screen.queryByTestId("home-branch-loader")).not.toBeInTheDocument();
++    expect(screen.getByText("Private branch content")).toBeInTheDocument();
++    expect(screen.getByTestId("home-dashboard")).toHaveAttribute("aria-busy", "false");
++    expect(mocks.replace).not.toHaveBeenCalled();
+   });
+ });
+diff --git a/apps/web/src/app/[locale]/dashboard/start/_components/scope-boundary.tsx b/apps/web/src/app/[locale]/dashboard/start/_components/scope-boundary.tsx
+index de5425bd..3023dad2 100644
+--- a/apps/web/src/app/[locale]/dashboard/start/_components/scope-boundary.tsx
++++ b/apps/web/src/app/[locale]/dashboard/start/_components/scope-boundary.tsx
+@@ -3,6 +3,7 @@
+ import { createContext, useContext, useEffect, useTransition, type ReactNode } from "react";
+ import { usePathname, useRouter, useSearchParams } from "next/navigation";
+ import { RefreshCw } from "lucide-react";
++import { BrandLoader } from "@/components/branding";
+ import { Button } from "@/components/ui/button";
+ import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
+ 
+@@ -44,9 +45,19 @@ export function HomeScopeBoundary({
+         data-testid="home-dashboard"
+       >
+         {mismatch ? (
+-          <p role="status" className="py-10 text-sm text-muted-foreground">
+-            {loadingLabel}
+-          </p>
++          // Same branded loader presentation as the dashboard route `loading.tsx` (PageLoader).
++          <div
++            role="status"
++            data-testid="home-branch-loader"
++            className="flex min-h-[calc(100vh-10rem)] items-center justify-center"
++          >
++            <BrandLoader
++              variant="beacon_swap"
++              label={loadingLabel}
++              showWordmark={false}
++              logoClassName="h-[7.68rem] w-[7.68rem]"
++            />
++          </div>
+         ) : (
+           children
+         )}
+diff --git a/docs/mvp/presentation-demo-setup.md b/docs/mvp/presentation-demo-setup.md
+index cf79951a..96e8e008 100644
+--- a/docs/mvp/presentation-demo-setup.md
++++ b/docs/mvp/presentation-demo-setup.md
+@@ -43,6 +43,13 @@ Defines the exact demo environment required for the current pitch, per `docs/mvp
+ - **Presentation phone** — required for: QR scanning (location + container once Phase 10D lands), mobile putaway (once built, P0-3), ticket QR scan (if Zone 8 shown). Must be tested at the actual presentation location beforehand (camera permissions, HTTPS, lighting) — per `mvp-readiness.md`'s own risk table.
+ - **Printer** — only if label printing itself will be demonstrated live; otherwise labels are pre-printed (see Data table above) and the printer is not part of the live demo path.
+ 
++## Deployment topology (required for demo performance)
++
++- **Vercel Function Region: `dub1` (Dublin). Supabase: `eu-west-1`. Fluid Compute: ON.** Confirmed 2026-09-29.
++- Keep the functions co-located with Supabase. With the previous `iad1` region, a branch switch took ~15–25 s in production; after the move to `dub1` it takes ~1–2 s.
++- Before the presentation, re-check that neither region has changed.
++- Evidence: `docs/mvp/reviews/branch-switch-performance-closeout-2026-09-29/`. Deeper optimizations are deferred post-demo; see `deferred-performance-work.md` there.
++
+ ## Sequencing note
+ 
+ This setup document assumes the P0 blockers in `presentation-ready-gate.md` are resolved before rehearsal — several data rows above (container, container QR, mobile putaway session) depend on code that does not exist yet as of 2026-09-23. Do not attempt to prepare those specific data rows until the corresponding P0 item has landed.
+diff --git a/docs/mvp/zones/01-auth-org-branch-access-progress.md b/docs/mvp/zones/01-auth-org-branch-access-progress.md
+index 384f60bf..5d0ab7b8 100644
+--- a/docs/mvp/zones/01-auth-org-branch-access-progress.md
++++ b/docs/mvp/zones/01-auth-org-branch-access-progress.md
+@@ -425,6 +425,33 @@ Zone 3 discipline: date, phase, finding, evidence, classification, resolution, w
+ - **What was done instead:** the Claude-executable subset explicitly permitted by the task — local dev server started against the tested SHA, real (non-authenticated, environment-independent) route checks run against it, confirming Phase 6/6-correction code paths execute correctly live. Zero bugs found. See `docs/mvp/reviews/zone1-phase8-manual-uat-2026-09-24/desktop-browser-results.md`.
+ - **No blockers in the sense of code defects.** Zero runtime files touched, zero DB/schema/RLS changes, zero data mutated in the live Supabase project. Phase 8 is BLOCKED from completion only by environment/access, not by any finding about Zone 1's own code.
+ 
++### 2026-09-28 → 2026-09-29: Branch-switch performance (production UAT finding): RESOLVED FOR DEMO
++
++**Finding (2026-09-28).** Human UAT on the production Vercel deployment of `main` measured a sidebar branch switch at ~15–25 s end to end:
++- ~10–15 s before the success toast;
++- ~5–10 s more before `/dashboard/start` showed the new branch.
++
++The switch was functionally correct. Investigation evidence: `docs/mvp/reviews/branch-switch-performance-audit-2026-09-28/` and `docs/mvp/reviews/branch-switch-performance-design-2026-09-28/`.
++
++**Resolution (2026-09-29).** Infrastructure topology only. The Vercel Function Region moved `iad1` → **`dub1`** (Supabase stays **`eu-west-1`**; Fluid Compute **ON**). The product owner's repeated manual production testing then showed:
++- switches complete in **~1–2 s**;
++- loading feedback usually appears in <1 s;
++- no recurring 10–25 s delays.
++
++This meets the DEMO target. Status: **`BRANCH SWITCH PERFORMANCE BLOCKER — RESOLVED FOR DEMO`**. Reason: Vercel/Supabase regional co-location removed the dominant production latency multiplier.
++
++**What this does not claim.** It doesn't claim the other hypothesized causes were false. The deeper inefficiencies are unchanged but are no longer a presentation blocker:
++- serial context loaders;
++- duplicate `getUser`;
++- two serial renders per switch;
++- server-action queue contention.
++
++**Deferred.** Design Stages 2/3/4 are **OPTIONAL / POST-DEMO**, by product-owner decision, unless production performance regresses or the regions stop being co-located. See `docs/mvp/reviews/branch-switch-performance-closeout-2026-09-29/deferred-performance-work.md`.
++
++**Loader UX.** The only runtime change: `HomeScopeBoundary`'s plain-text branch-switch placeholder now renders Ambra's existing `BrandLoader`, presented as the dashboard route loader does. There are no authorization, navigation or state changes. Evidence: `docs/mvp/reviews/branch-switch-performance-closeout-2026-09-29/`.
++
++**Constraints.** No DB/RLS changes. `changeBranch` authorization is unchanged.
++
+ ---
+ 
+ ## DEMO READY gate
