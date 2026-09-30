@@ -3,10 +3,15 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "react-toastify";
-import { Printer, QrCode } from "lucide-react";
+import { Camera, Printer, QrCode } from "lucide-react";
 import { useRouter } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
-import { createAndAssignQrToContainerAction } from "@/app/actions/qr/assign-container";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  assignQrToContainerAction,
+  createAndAssignQrToContainerAction,
+} from "@/app/actions/qr/assign-container";
+import { QrCameraScanner, type QrScanLookup } from "@/components/features/qr/qr-camera-scanner";
 
 type Props = {
   containerId: string;
@@ -36,6 +41,27 @@ export function ContainerQrCard({
   const router = useRouter();
   const [generating, setGenerating] = useState(false);
   const [printing, setPrinting] = useState(false);
+  const [scanOpen, setScanOpen] = useState(false);
+  const [scannerKey, setScannerKey] = useState(0);
+
+  // Pre-printed sticker flow (same contract as the ticket QR dialog): the
+  // shared scanner resolves the token and rejects unknown/revoked codes; an
+  // already-assigned code is refused here with a clear message. Returning a
+  // string keeps the scanner open to try another sticker.
+  async function handleScanned(lookup: QrScanLookup): Promise<string | null> {
+    if (lookup.assignment) {
+      return lookup.assignment.target_type === "inventory.container" &&
+        lookup.assignment.target_id === containerId
+        ? t("alreadyThis")
+        : t("alreadyOther");
+    }
+    const result = await assignQrToContainerAction({ qrCodeId: lookup.id, containerId });
+    if (!result.success) return t("assignError");
+    toast.success(t("assignedToast"));
+    setScanOpen(false);
+    router.refresh();
+    return null;
+  }
 
   async function handleGenerate() {
     setGenerating(true);
@@ -116,21 +142,52 @@ export function ContainerQrCard({
             {t("none")}
           </p>
           {canAssign ? (
-            <Button
-              type="button"
-              onClick={handleGenerate}
-              disabled={generating}
-              className="w-full sm:w-fit"
-              data-testid="container-qr-generate"
-            >
-              <QrCode className="mr-2 h-4 w-4" />
-              {generating ? t("generating") : t("generate")}
-            </Button>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button
+                type="button"
+                onClick={() => {
+                  setScannerKey((k) => k + 1);
+                  setScanOpen(true);
+                }}
+                className="w-full sm:w-fit"
+                data-testid="container-qr-scan"
+              >
+                <Camera className="mr-2 h-4 w-4" />
+                {t("scan")}
+              </Button>
+              <Button
+                variant="outline"
+                type="button"
+                onClick={handleGenerate}
+                disabled={generating}
+                className="w-full sm:w-fit"
+                data-testid="container-qr-generate"
+              >
+                <QrCode className="mr-2 h-4 w-4" />
+                {generating ? t("generating") : t("generate")}
+              </Button>
+            </div>
           ) : (
             <p className="text-muted-foreground text-xs">{t("noPermission")}</p>
           )}
         </>
       )}
+      <Dialog open={scanOpen} onOpenChange={setScanOpen}>
+        <DialogContent className="w-[min(420px,calc(100vw-2rem))]" style={{ maxWidth: "none" }}>
+          <DialogHeader>
+            <DialogTitle>{t("scanTitle")}</DialogTitle>
+          </DialogHeader>
+          {scanOpen && (
+            <QrCameraScanner
+              key={scannerKey}
+              onScanned={handleScanned}
+              onBack={() => setScanOpen(false)}
+              backLabel={t("scanBack")}
+              hintLabel={t("scanHint")}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

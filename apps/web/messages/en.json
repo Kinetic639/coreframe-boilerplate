@@ -2794,7 +2794,16 @@
           "generated": "QR code generated and assigned.",
           "error": "Could not generate the QR code.",
           "printError": "Could not prepare the label.",
-          "noPermission": "You don't have permission to assign QR codes."
+          "noPermission": "You don't have permission to assign QR codes.",
+          "scan": "Scan QR sticker",
+          "scanTitle": "Assign a QR sticker to the container",
+          "scanHint": "Scan a printed, unassigned QR sticker to assign it to this container.",
+          "scanBack": "Cancel",
+          "orGenerate": "or generate a new code",
+          "assignedToast": "QR sticker assigned to the container.",
+          "alreadyThis": "This sticker is already assigned to this container.",
+          "alreadyOther": "This sticker is already assigned to something else.",
+          "assignError": "Could not assign the sticker."
         },
         "crossBranch": {
           "title": "Container in another branch",
@@ -7581,5 +7590,15 @@
         "construction": "Construction"
       }
     }
+  },
+  "qrScanner": {
+    "back": "Back",
+    "tryAgain": "Try again",
+    "hint": "Point the camera at a QR label to scan it automatically.",
+    "invalidToken": "Could not read a valid QR token. Try again.",
+    "lookingUp": "Looking up QR code…",
+    "notFound": "QR code not found in this organisation.",
+    "revoked": "This QR code has been revoked.",
+    "cameraError": "Camera access denied or unavailable."
   }
 }

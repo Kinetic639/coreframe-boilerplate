@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { ArrowLeft, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getQrCodeByTokenAction } from "@/app/actions/qr/assign";
@@ -40,6 +41,7 @@ function extractToken(scannedText: string): string | null {
 }
 
 export function QrCameraScanner({ onScanned, onBack, backLabel, hintLabel }: QrCameraScannerProps) {
+  const t = useTranslations("qrScanner");
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -66,16 +68,16 @@ export function QrCameraScanner({ onScanned, onBack, backLabel, hintLabel }: QrC
 
       const token = extractToken(scannedText);
       if (!token) {
-        setScanStatus("Could not read a valid QR token. Try again.");
+        setScanStatus(t("invalidToken"));
         processingRef.current = false;
         return;
       }
 
-      setScanStatus("Looking up QR code…");
+      setScanStatus(t("lookingUp"));
       const lookup = await getQrCodeByTokenAction(token);
 
       if (!lookup.success || !lookup.data) {
-        setScanStatus("QR code not found in this organisation.");
+        setScanStatus(t("notFound"));
         processingRef.current = false;
         return;
       }
@@ -83,7 +85,7 @@ export function QrCameraScanner({ onScanned, onBack, backLabel, hintLabel }: QrC
       const { id, label, status, assignment } = lookup.data;
 
       if (status !== "active") {
-        setScanStatus("This QR code has been revoked.");
+        setScanStatus(t("revoked"));
         processingRef.current = false;
         return;
       }
@@ -97,7 +99,7 @@ export function QrCameraScanner({ onScanned, onBack, backLabel, hintLabel }: QrC
         processingRef.current = false;
       }
     },
-    [onScanned, stopCamera]
+    [onScanned, stopCamera, t]
   );
 
   useEffect(() => {
@@ -119,7 +121,7 @@ export function QrCameraScanner({ onScanned, onBack, backLabel, hintLabel }: QrC
         }
         startScanLoop();
       } catch {
-        if (!cancelled) setCameraError("Camera access denied or unavailable.");
+        if (!cancelled) setCameraError(t("cameraError"));
       }
     }
 
@@ -160,13 +162,13 @@ export function QrCameraScanner({ onScanned, onBack, backLabel, hintLabel }: QrC
       cancelled = true;
       stopCamera();
     };
-  }, [handleScanned, stopCamera]);
+  }, [handleScanned, stopCamera, t]);
 
   return (
     <div className="flex flex-col gap-3">
       <Button variant="ghost" size="sm" className="self-start -ml-1" onClick={onBack}>
         <ArrowLeft className="mr-1.5 h-4 w-4" />
-        {backLabel ?? "Back"}
+        {backLabel ?? t("back")}
       </Button>
 
       {cameraError ? (
@@ -194,14 +196,12 @@ export function QrCameraScanner({ onScanned, onBack, backLabel, hintLabel }: QrC
 
       {scanStatus && !busy && (
         <Button variant="outline" size="sm" onClick={onBack}>
-          Try again
+          {t("tryAgain")}
         </Button>
       )}
 
       {!scanStatus && !cameraError && (
-        <p className="text-center text-xs text-muted-foreground">
-          {hintLabel ?? "Point the camera at a QR label to scan it automatically."}
-        </p>
+        <p className="text-center text-xs text-muted-foreground">{hintLabel ?? t("hint")}</p>
       )}
     </div>
   );

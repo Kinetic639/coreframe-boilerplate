@@ -14,6 +14,9 @@ vi.mock("next-intl", () => ({
 
 const h = vi.hoisted(() => ({
   createAndAssign: vi.fn(),
+  assign: vi.fn(),
+  scanLookup: { current: null as unknown },
+  scanResult: { current: undefined as string | null | undefined },
   changeBranch: vi.fn(),
   setActiveBranch: vi.fn(),
   refresh: vi.fn(),
@@ -24,6 +27,21 @@ const h = vi.hoisted(() => ({
 vi.mock("react-toastify", () => ({ toast: { error: h.toastError, success: h.toastSuccess } }));
 vi.mock("@/app/actions/qr/assign-container", () => ({
   createAndAssignQrToContainerAction: (...args: unknown[]) => h.createAndAssign(...args),
+  assignQrToContainerAction: (...args: unknown[]) => h.assign(...args),
+}));
+// The shared camera scanner is replaced by a button that "scans" the lookup
+// prepared by each test and records what onScanned returned.
+vi.mock("@/components/features/qr/qr-camera-scanner", () => ({
+  QrCameraScanner: ({ onScanned }: { onScanned: (l: unknown) => Promise<string | null> }) => (
+    <button
+      data-testid="fake-scan"
+      onClick={async () => {
+        h.scanResult.current = await onScanned(h.scanLookup.current);
+      }}
+    >
+      scan
+    </button>
+  ),
 }));
 vi.mock("@/app/actions/shared/changeBranch", () => ({
   changeBranch: (...args: unknown[]) => h.changeBranch(...args),
@@ -133,6 +151,65 @@ describe("ContainerQrCard", () => {
     );
     await waitFor(() => expect(openMock).toHaveBeenCalledWith("blob:label", "_blank", "noopener"));
     vi.unstubAllGlobals();
+  });
+});
+
+describe("ContainerQrCard — scan a pre-printed sticker", () => {
+  function renderAndScan(lookup: unknown) {
+    h.scanLookup.current = lookup;
+    render(
+      <ContainerQrCard
+        containerId={CONTAINER_ID}
+        containerCode="K-184213-01"
+        qrCodeId={null}
+        canAssign
+        canPrint
+      />
+    );
+    fireEvent.click(screen.getByTestId("container-qr-scan"));
+    fireEvent.click(screen.getByTestId("fake-scan"));
+  }
+
+  it("assigns an unassigned sticker to this container and refreshes", async () => {
+    h.assign.mockResolvedValue({ success: true, data: { id: "as-1" } });
+    renderAndScan({ id: "qr-9", token: "tok", label: null, status: "active", assignment: null });
+    await waitFor(() =>
+      expect(h.assign).toHaveBeenCalledWith({ qrCodeId: "qr-9", containerId: CONTAINER_ID })
+    );
+    await waitFor(() => expect(h.refresh).toHaveBeenCalled());
+    expect(h.toastSuccess).toHaveBeenCalledWith("assignedToast");
+    expect(h.scanResult.current).toBeNull();
+  });
+
+  it("refuses a sticker already assigned to this container", async () => {
+    renderAndScan({
+      id: "qr-9",
+      token: "tok",
+      label: null,
+      status: "active",
+      assignment: { target_type: "inventory.container", target_id: CONTAINER_ID },
+    });
+    await waitFor(() => expect(h.scanResult.current).toBe("alreadyThis"));
+    expect(h.assign).not.toHaveBeenCalled();
+  });
+
+  it("refuses a sticker already assigned to something else", async () => {
+    renderAndScan({
+      id: "qr-9",
+      token: "tok",
+      label: null,
+      status: "active",
+      assignment: { target_type: "warehouse.location", target_id: "loc-1" },
+    });
+    await waitFor(() => expect(h.scanResult.current).toBe("alreadyOther"));
+    expect(h.assign).not.toHaveBeenCalled();
+  });
+
+  it("keeps the scanner open with a message when the server rejects the assignment", async () => {
+    h.assign.mockResolvedValue({ success: false, error: "Unauthorized" });
+    renderAndScan({ id: "qr-9", token: "tok", label: null, status: "active", assignment: null });
+    await waitFor(() => expect(h.scanResult.current).toBe("assignError"));
+    expect(h.refresh).not.toHaveBeenCalled();
   });
 });
 

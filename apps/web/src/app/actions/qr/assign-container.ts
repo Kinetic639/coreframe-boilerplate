@@ -9,6 +9,11 @@ import { QrAssignmentsService } from "@/server/services/qr.service";
 
 const CONTAINER_TARGET_TYPE = "inventory.container";
 
+const assignSchema = z.object({
+  qrCodeId: z.string().uuid(),
+  containerId: z.string().uuid(),
+});
+
 const createAndAssignSchema = z.object({
   containerId: z.string().uuid(),
   label: z.string().max(200).nullable().optional(),
@@ -21,6 +26,42 @@ export type ContainerQrAssignment = {
   label: string | null;
   status: string;
 };
+
+/**
+ * Phase 10D -- assign an existing (pre-printed) QR sticker to a container,
+ * e.g. right after scanning it. Same compound gate as generate-and-assign.
+ * `QrAssignmentsService.assignToTarget` loads the QR row itself (org derived
+ * from it, must be active), validates the container via the registry, and
+ * rejects a code that is already assigned (unique active assignment).
+ */
+export async function assignQrToContainerAction(rawInput: unknown) {
+  try {
+    const context = await loadDashboardContextV2();
+    if (!context?.app.activeOrgId)
+      return { success: false as const, error: "No active organization" };
+
+    if (
+      !checkPermission(context.user.permissionSnapshot, QR_ASSIGN) ||
+      !checkPermission(context.user.permissionSnapshot, WAREHOUSE_INVENTORY_OPERATE)
+    ) {
+      return { success: false as const, error: "Unauthorized" };
+    }
+
+    const parsed = assignSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false as const, error: "Invalid input" };
+
+    const supabase = await createClient();
+    return QrAssignmentsService.assignToTarget(supabase, {
+      qrCodeId: parsed.data.qrCodeId,
+      targetType: CONTAINER_TARGET_TYPE,
+      targetId: parsed.data.containerId,
+      assignedBy: context.user.user?.id ?? "",
+      permissionSnapshot: context.user.permissionSnapshot,
+    });
+  } catch {
+    return { success: false as const, error: "Unexpected error" };
+  }
+}
 
 /**
  * Phase 10D -- generate a new QR code and assign it to a container in one
