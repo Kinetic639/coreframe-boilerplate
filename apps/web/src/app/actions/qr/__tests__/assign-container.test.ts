@@ -11,21 +11,28 @@ const CONTAINER_ID = "11111111-1111-4111-8111-111111111111";
 const ORG_ID = "org-1";
 const USER_ID = "user-1";
 
-const { mockLoadContext, mockCreateAndAssign, mockCreateClient } = vi.hoisted(() => ({
-  mockLoadContext: vi.fn(),
-  mockCreateAndAssign: vi.fn(),
-  mockCreateClient: vi.fn(),
-}));
+const { mockLoadContext, mockCreateAndAssign, mockAssignToTarget, mockCreateClient } = vi.hoisted(
+  () => ({
+    mockLoadContext: vi.fn(),
+    mockCreateAndAssign: vi.fn(),
+    mockAssignToTarget: vi.fn(),
+    mockCreateClient: vi.fn(),
+  })
+);
 
 vi.mock("@/server/loaders/v2/load-dashboard-context.v2", () => ({
   loadDashboardContextV2: () => mockLoadContext(),
 }));
 vi.mock("@/utils/supabase/server", () => ({ createClient: () => mockCreateClient() }));
 vi.mock("@/server/services/qr.service", () => ({
-  QrAssignmentsService: { createAndAssign: (...args: unknown[]) => mockCreateAndAssign(...args) },
+  QrAssignmentsService: {
+    createAndAssign: (...args: unknown[]) => mockCreateAndAssign(...args),
+    assignToTarget: (...args: unknown[]) => mockAssignToTarget(...args),
+  },
 }));
 
 import {
+  assignQrToContainerAction,
   createAndAssignQrToContainerAction,
   getQrAssignmentForContainerAction,
 } from "../assign-container";
@@ -105,6 +112,52 @@ describe("createAndAssignQrToContainerAction", () => {
     mockCreateAndAssign.mockResolvedValue({ success: false, error: "Unauthorized" });
     const result = await createAndAssignQrToContainerAction({ containerId: CONTAINER_ID });
     expect(result).toEqual({ success: false, error: "Unauthorized" });
+  });
+});
+
+describe("assignQrToContainerAction (scanned pre-printed sticker)", () => {
+  const QR_ID = "33333333-3333-4333-8333-333333333333";
+
+  it("rejects a caller without qr.assign or warehouse.inventory.operate", async () => {
+    mockLoadContext.mockResolvedValue(context(["qr.assign"]));
+    expect(await assignQrToContainerAction({ qrCodeId: QR_ID, containerId: CONTAINER_ID })).toEqual(
+      {
+        success: false,
+        error: "Unauthorized",
+      }
+    );
+    mockLoadContext.mockResolvedValue(context(["warehouse.inventory.operate"]));
+    expect(await assignQrToContainerAction({ qrCodeId: QR_ID, containerId: CONTAINER_ID })).toEqual(
+      {
+        success: false,
+        error: "Unauthorized",
+      }
+    );
+    expect(mockAssignToTarget).not.toHaveBeenCalled();
+  });
+
+  it("rejects invalid ids", async () => {
+    mockLoadContext.mockResolvedValue(context(["qr.assign", "warehouse.inventory.operate"]));
+    expect(await assignQrToContainerAction({ qrCodeId: "x", containerId: CONTAINER_ID })).toEqual({
+      success: false,
+      error: "Invalid input",
+    });
+  });
+
+  it("assigns the scanned code to the container as inventory.container", async () => {
+    mockLoadContext.mockResolvedValue(context(["qr.assign", "warehouse.inventory.operate"]));
+    mockAssignToTarget.mockResolvedValue({ success: true, data: { id: "as-2" } });
+    const result = await assignQrToContainerAction({ qrCodeId: QR_ID, containerId: CONTAINER_ID });
+    expect(mockAssignToTarget).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        qrCodeId: QR_ID,
+        targetType: "inventory.container",
+        targetId: CONTAINER_ID,
+        assignedBy: USER_ID,
+      })
+    );
+    expect(result).toEqual({ success: true, data: { id: "as-2" } });
   });
 });
 

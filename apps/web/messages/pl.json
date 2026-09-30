@@ -2765,7 +2765,16 @@
           "generated": "Kod QR został wygenerowany i przypisany.",
           "error": "Nie udało się wygenerować kodu QR.",
           "printError": "Nie udało się przygotować etykiety.",
-          "noPermission": "Nie masz uprawnień do przypisywania kodów QR."
+          "noPermission": "Nie masz uprawnień do przypisywania kodów QR.",
+          "scan": "Zeskanuj naklejkę QR",
+          "scanTitle": "Przypisz naklejkę QR do kontenera",
+          "scanHint": "Zeskanuj wydrukowaną, nieprzypisaną naklejkę QR — zostanie przypisana do tego kontenera.",
+          "scanBack": "Anuluj",
+          "orGenerate": "lub wygeneruj nowy kod",
+          "assignedToast": "Naklejka QR została przypisana do kontenera.",
+          "alreadyThis": "Ta naklejka jest już przypisana do tego kontenera.",
+          "alreadyOther": "Ta naklejka jest już przypisana do innego obiektu.",
+          "assignError": "Nie udało się przypisać naklejki."
         },
         "crossBranch": {
           "title": "Kontener w innym oddziale",
@@ -7555,5 +7564,15 @@
         "construction": "Budownictwo"
       }
     }
+  },
+  "qrScanner": {
+    "back": "Wstecz",
+    "tryAgain": "Spróbuj ponownie",
+    "hint": "Skieruj aparat na naklejkę z kodem QR, a zostanie odczytana automatycznie.",
+    "invalidToken": "Nie udało się odczytać kodu QR. Spróbuj ponownie.",
+    "lookingUp": "Sprawdzanie kodu QR…",
+    "notFound": "Nie znaleziono tego kodu QR w organizacji.",
+    "revoked": "Ten kod QR został unieważniony.",
+    "cameraError": "Brak dostępu do aparatu albo aparat jest niedostępny."
   }
 }
