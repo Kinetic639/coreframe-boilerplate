@@ -18,7 +18,12 @@ Inventory Core: **FINAL FOR PILOT / ARCHITECTURE FROZEN** (unchanged, see `docs/
 
 ## Current presentation blockers
 
-1. **Zone 1 — branch-switch / client-cache consistency.** Three confirmed, file-and-line-cited bugs (root cause: the branch switcher never calls `router.refresh()`/invalidates React Query cache after a switch), affecting Matcher session history and all three flagship Warehouse lists.
+1. ~~**Zone 1 — branch-switch / client-cache consistency.**~~ **Code fixed (Zone 1 Phases 1–7, 2026-09-24); demo environment created and partially UAT-ed on production (2026-09-30).** Branch-switch performance is resolved for the demo (Vercel `dub1`). The remaining Zone 1 gap:
+   - the rest of the Phase 8 manual UAT;
+   - accepted tech debt BLOCKER-Z1-019: switch branch from `/dashboard/start` during the demo.
+
+   See `docs/mvp/zones/01-auth-org-branch-access-progress.md`. Original entry, kept for history: three confirmed branch-switch/cache bugs (the switcher never called `router.refresh()`/invalidated React Query), affecting Matcher session history and all three flagship Warehouse lists.
+
 2. **Phase 10D — Container QR.** Confirmed **PITCH REQUIRED** by the product owner's own 2026-09-10 scope-expansion directive (supersedes this document's own earlier "narrow the demo instead" recommendation below — see the correction notice in "Otwarte decyzje zakresu" further down). Not started.
 3. **Receiving + mobile putaway UI.** The current master script (`ambra-skrypt-prezentacji.md`, §7) explicitly demos this live on a phone. Backend RPCs (`receive_repair_order_stock`/`putaway_repair_order_stock`) are ready and tested; zero UI exists.
 4. **Phase 10E — Container relocation.** Confirmed **PITCH REQUIRED** by the same 2026-09-10 directive. Backend RPC exists; zero UI callers.
@@ -52,7 +57,7 @@ Inventory Core: **FINAL FOR PILOT / ARCHITECTURE FROZEN** (unchanged, see `docs/
 
 | Zone | Area                      | Pitch classification                                                          | Pilot classification                           | Current blockers                                                                                                                                              |
 | ---- | ------------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | Identity/Access/Branch    | PITCH BLOCKER                                                                 | Additional hardening required                  | 3 confirmed branch-switch/cache bugs                                                                                                                          |
+| 1    | Identity/Access/Branch    | PITCH: code done, manual UAT partial (2026-09-30)                             | Additional hardening required                  | BLOCKER-Z1-019 (switch from /dashboard/start in demo); rest of Phase 8 UAT                                                                                    |
 | 2    | Matcher                   | PITCH SHOULD (verify Approve rehearsal)                                       | Save-path hardening                            | None blocking; rehearsal needed                                                                                                                               |
 | 3    | Repair Orders             | PITCH SHOULD (Phase 7+ UAT) — core DONE through 10C                           | Phases 14/15 required                          | Fresh manual UAT outstanding                                                                                                                                  |
 | 4    | Locations/QR/Labels       | PITCH BLOCKER (Phase 10D container QR)                                        | Missing `qr_codes`/`qr_assignments` migrations | Container QR not started; stale manual pass                                                                                                                   |

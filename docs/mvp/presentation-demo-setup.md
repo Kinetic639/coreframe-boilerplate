@@ -134,10 +134,11 @@ The branch ids are unchanged, so all data, roles and access carried over.
 - Client names, VINs and order numbers are fictional.
 - Verified in the app: Warsztat → Zlecenia naprawy lists each branch's own orders.
 
-**Still to do, by a human:**
+**Done by a human (2026-09-30):** location QR labels printed and tested with a phone; they open the right location.
 
-- generate and print the location QR labels on the presentation printer, then test them with the phone;
-- change all demo passwords before rehearsal.
+**Still to do, by a human:** change all demo passwords before rehearsal.
+
+**Demo choreography rule (BLOCKER-Z1-019, accepted tech debt):** always switch branch while on **Pulpit (`/dashboard/start`)**. From any other page the switch hangs: the toast appears, but there's no redirect until the next manual navigation.
 
 ## Organization
 
