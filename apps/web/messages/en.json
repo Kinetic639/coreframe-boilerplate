@@ -2757,6 +2757,53 @@
       "placeholder": {
         "comingSoon": "This section is coming soon.",
         "moduleShell": "This placeholder is intentionally part of the Warehouse V2 module shell."
+      },
+      "containers": {
+        "back": "Back to repair order",
+        "backToWarehouse": "Back to locations",
+        "title": "Container",
+        "status": {
+          "empty": "Empty",
+          "active": "In use",
+          "sealed": "Sealed",
+          "in_transit": "In transit",
+          "archived": "Archived"
+        },
+        "repairOrder": "Repair order",
+        "noRepairOrder": "This container is not linked to a repair order.",
+        "client": "Client",
+        "vehicle": "Vehicle",
+        "vin": "VIN",
+        "location": "Location",
+        "noLocation": "No location",
+        "contents": "Contents",
+        "contentsEmpty": "The container is empty.",
+        "columns": {
+          "sku": "Part number",
+          "name": "Name",
+          "quantity": "Quantity"
+        },
+        "qr": {
+          "title": "Container QR code",
+          "none": "This container has no QR code yet.",
+          "assigned": "QR code assigned",
+          "generate": "Generate QR code",
+          "generating": "Generating…",
+          "print": "Print label",
+          "printing": "Preparing label…",
+          "generated": "QR code generated and assigned.",
+          "error": "Could not generate the QR code.",
+          "printError": "Could not prepare the label.",
+          "noPermission": "You don't have permission to assign QR codes."
+        },
+        "crossBranch": {
+          "title": "Container in another branch",
+          "description": "This container belongs to branch {branch}. Switch your active branch to open it?",
+          "confirm": "Switch branch",
+          "cancel": "Cancel",
+          "switching": "Switching…",
+          "error": "Could not switch branch."
+        }
       }
     },
     "teams": {
@@ -3199,6 +3246,26 @@
             "cancel": "Cancel",
             "quantityPlaceholder": "Quantity",
             "locationPlaceholder": "Location"
+          },
+          "container": {
+            "trigger": "Container",
+            "popoverTitle": "Allocation and container for this line",
+            "loading": "Loading…",
+            "errorState": "Could not load data. Please try again.",
+            "reservedToAllocate": "Reserved: {quantity}",
+            "allocate": "Allocate",
+            "allocated": "Allocated: {quantity}",
+            "noReservation": "Reserve stock for this line first.",
+            "addToContainer": "Add to container",
+            "containerPlaceholder": "Choose a container",
+            "noContainers": "Create a container for this order first.",
+            "quantityPlaceholder": "Quantity",
+            "confirmAdd": "Add",
+            "cancel": "Cancel",
+            "allocateError": "Could not allocate stock.",
+            "addError": "Could not add to the container.",
+            "added": "Added to the container.",
+            "allocatedToast": "Stock allocated."
           }
         },
         "provenance": {
@@ -3227,6 +3294,30 @@
           "statusChangedSuccess": "Status updated",
           "reservationCreatedSuccess": "Stock reserved",
           "reservationReleasedSuccess": "Reservation released"
+        },
+        "containers": {
+          "title": "Repair order containers",
+          "subtitle": "The order's parts are stored in containers. Each container has its own QR code.",
+          "empty": "This repair order has no containers yet.",
+          "loadError": "Could not load containers.",
+          "columns": {
+            "code": "Code",
+            "location": "Location",
+            "contents": "Contents",
+            "status": "Status"
+          },
+          "contentsSummary": "{lines} lines",
+          "create": "Create container",
+          "createTitle": "New container",
+          "codeLabel": "Container code",
+          "locationLabel": "Location",
+          "locationPlaceholder": "Choose a location",
+          "confirmCreate": "Create",
+          "creating": "Creating…",
+          "cancel": "Cancel",
+          "created": "Container {code} created.",
+          "createError": "Could not create the container.",
+          "open": "Open"
         }
       }
     },
@@ -7041,7 +7132,8 @@
       "itemRemoved": "Item removed from container.",
       "containerMoved": "Container moved to new location.",
       "ruleDeleted": "Putaway rule deleted.",
-      "deleteRule": "Delete rule"
+      "deleteRule": "Delete rule",
+      "openContainer": "Open container"
     },
     "history": {
       "recentMovements": "Recent movements",

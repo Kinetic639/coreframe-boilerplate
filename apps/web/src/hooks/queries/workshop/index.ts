@@ -12,6 +12,10 @@ import {
   reserveRepairOrderLineAction,
   releaseRepairOrderLineReservationAction,
   listRepairOrderLineReservationsAction,
+  allocateRepairOrderLineAction,
+  listRepairOrderLineAllocationsAction,
+  createRepairOrderContainerAction,
+  placeAllocationInContainerAction,
 } from "@/app/actions/workshop/repair-orders";
 import type {
   RepairOrderHeader,
@@ -19,6 +23,10 @@ import type {
   RepairOrderLineReservation,
   RepairOrderLineReservationResult,
   RepairOrderLineReservationReleaseResult,
+  RepairOrderLineAllocationLine,
+  RepairOrderLineAllocationResult,
+  RepairOrderContainerResult,
+  RepairOrderContainerPlacementResult,
 } from "@/server/services/repair-orders.service";
 
 // ---------------------------------------------------------------------------
@@ -41,6 +49,9 @@ export const workshopKeys = {
    */
   lineReservations: (branchId: string | null, lineId: string) =>
     [...workshopKeys.all, "line-reservations", branchId, lineId] as const,
+  /** Phase 10D: same branch-scoped cache-identity rule as lineReservations. */
+  lineAllocations: (branchId: string | null, lineId: string) =>
+    [...workshopKeys.all, "line-allocations", branchId, lineId] as const,
 };
 
 // ---------------------------------------------------------------------------
@@ -171,6 +182,79 @@ export function useReleaseRepairOrderLineReservationMutation(
       qc.invalidateQueries({ queryKey: workshopKeys.lineReservations(branchId, lineId) });
     },
     onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+/**
+ * Phase 10D: a RepairOrderLine's allocation lines, lazily (only when the
+ * line's container affordance is open), branch-scoped key.
+ */
+export function useRepairOrderLineAllocationsQuery(
+  lineId: string,
+  enabled: boolean,
+  branchId: string | null
+) {
+  return useQuery<RepairOrderLineAllocationLine[]>({
+    queryKey: workshopKeys.lineAllocations(branchId, lineId),
+    queryFn: () => listRepairOrderLineAllocationsAction(lineId).then(unwrap),
+    enabled,
+    staleTime: 0,
+  });
+}
+
+/** Phase 10D: allocate a reservation line (whole outstanding quantity by
+ * default, chosen by the caller). Refreshes both the line's reservations and
+ * allocations, since allocating consumes reserved quantity. */
+export function useAllocateRepairOrderLineMutation(lineId: string, branchId: string | null) {
+  const t = useTranslations("modules.workshop.repairOrders.lines.container");
+  const qc = useQueryClient();
+
+  return useMutation<RepairOrderLineAllocationResult, Error, unknown>({
+    mutationFn: (input: unknown) => allocateRepairOrderLineAction(input).then(unwrap),
+    onSuccess: () => {
+      toast.success(t("allocatedToast"));
+      qc.invalidateQueries({ queryKey: workshopKeys.lineReservations(branchId, lineId) });
+      qc.invalidateQueries({ queryKey: workshopKeys.lineAllocations(branchId, lineId) });
+    },
+    onError: () => toast.error(t("allocateError")),
+  });
+}
+
+/** Phase 10D: place an allocated quantity into one of the RepairOrder's
+ * own containers. The container list itself is server-rendered on the
+ * detail page, so `onPlaced` lets the caller refresh it. */
+export function usePlaceAllocationInContainerMutation(
+  lineId: string,
+  branchId: string | null,
+  onPlaced?: () => void
+) {
+  const t = useTranslations("modules.workshop.repairOrders.lines.container");
+  const qc = useQueryClient();
+
+  return useMutation<RepairOrderContainerPlacementResult, Error, unknown>({
+    mutationFn: (input: unknown) => placeAllocationInContainerAction(input).then(unwrap),
+    onSuccess: () => {
+      toast.success(t("added"));
+      qc.invalidateQueries({ queryKey: workshopKeys.lineAllocations(branchId, lineId) });
+      onPlaced?.();
+    },
+    onError: () => toast.error(t("addError")),
+  });
+}
+
+/** Phase 10D: create a container owned by a RepairOrder. */
+export function useCreateRepairOrderContainerMutation(
+  onCreated?: (container: RepairOrderContainerResult) => void
+) {
+  const t = useTranslations("modules.workshop.repairOrders.containers");
+
+  return useMutation<RepairOrderContainerResult, Error, unknown>({
+    mutationFn: (input: unknown) => createRepairOrderContainerAction(input).then(unwrap),
+    onSuccess: (container) => {
+      toast.success(t("created", { code: container.code }));
+      onCreated?.(container);
+    },
+    onError: () => toast.error(t("createError")),
   });
 }
 

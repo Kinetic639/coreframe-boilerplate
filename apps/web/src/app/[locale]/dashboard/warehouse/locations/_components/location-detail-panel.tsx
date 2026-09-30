@@ -2,6 +2,7 @@
 
 import React, { useCallback, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import {
   Archive,
@@ -203,6 +204,16 @@ function ContainerList({
                   <span className="text-[10px] text-muted-foreground">
                     {container.lines.length} {t("inventory.items")}
                   </span>
+                  <Link
+                    href={{
+                      pathname: "/dashboard/warehouse/containers/[id]",
+                      params: { id: container.id },
+                    }}
+                    className="text-[10px] font-medium text-primary underline-offset-2 hover:underline"
+                    data-testid="location-container-open"
+                  >
+                    {t("inventory.openContainer")}
+                  </Link>
                 </div>
               </div>
               <p className="mt-1 pl-5 text-muted-foreground">

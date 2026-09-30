@@ -15,6 +15,7 @@ import type {
 import { groupProvenanceByRepairOrderLine } from "@/server/services/repair-orders.service";
 import { LineSourcesPopover, type LineSourceEntry } from "./repair-order-line-sources";
 import { RepairOrderLineReservation } from "./repair-order-line-reservation";
+import { RepairOrderLineContainer, type LineContainerOption } from "./repair-order-line-container";
 
 type Props = {
   lines: RepairOrderLineReadModel[];
@@ -48,6 +49,9 @@ type Props = {
    * something that needs its own error state layered onto Phase 8's list.
    */
   provenance?: RepairOrderProvenanceDocument[];
+  /** Phase 10D: this RepairOrder's own containers (id + code), for each
+   * line's "add to container" affordance. Defaults to none. */
+  containers?: LineContainerOption[];
 };
 
 /**
@@ -73,6 +77,7 @@ export async function RepairOrderLinesList({
   loadError = false,
   provenance = [],
   branchId = null,
+  containers = [],
 }: Props) {
   const t = await getTranslations("modules.workshop.repairOrders.lines");
 
@@ -145,6 +150,11 @@ export async function RepairOrderLinesList({
                           repairOrderLineId={line.id}
                           branchId={branchId}
                         />
+                        <RepairOrderLineContainer
+                          repairOrderLineId={line.id}
+                          branchId={branchId}
+                          containers={containers}
+                        />
                       </div>
                     </TableCell>
                     <TableCell className="text-right font-mono text-xs">
@@ -185,6 +195,11 @@ export async function RepairOrderLinesList({
                     <div className="flex items-center gap-2">
                       <LineSourcesPopover sources={sourcesFor(line.id)} />
                       <RepairOrderLineReservation repairOrderLineId={line.id} branchId={branchId} />
+                      <RepairOrderLineContainer
+                        repairOrderLineId={line.id}
+                        branchId={branchId}
+                        containers={containers}
+                      />
                     </div>
                   </div>
                   {line.unit && (

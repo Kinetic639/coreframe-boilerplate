@@ -46,6 +46,13 @@ vi.mock("@/hooks/queries/workshop", () => ({
   useRepairOrderLineReservationsQuery: () => ({ data: [], isLoading: false }),
   useReserveRepairOrderLineMutation: () => ({ mutate: vi.fn(), isPending: false }),
   useReleaseRepairOrderLineReservationMutation: () => ({ mutate: vi.fn(), isPending: false }),
+  // Phase 10D: RepairOrderLineContainer (also rendered per line).
+  useRepairOrderLineAllocationsQuery: () => ({ data: [], isLoading: false }),
+  useAllocateRepairOrderLineMutation: () => ({ mutate: vi.fn(), isPending: false }),
+  usePlaceAllocationInContainerMutation: () => ({ mutate: vi.fn(), isPending: false }),
+}));
+vi.mock("@/i18n/navigation", () => ({
+  useRouter: () => ({ refresh: vi.fn(), push: vi.fn(), replace: vi.fn() }),
 }));
 vi.mock("@/hooks/queries/warehouse", () => ({
   useWarehouseLocationsQuery: () => ({ data: [] }),
