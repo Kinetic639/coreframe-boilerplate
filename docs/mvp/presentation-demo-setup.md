@@ -8,18 +8,18 @@ This document specifies what must exist before rehearsal. The organization, bran
 
 Project: live Supabase target `rjeraydumwechpjjzrus`. App: `https://app.ambra-system.com`.
 
-| Item         | Value                                                                                                                                         |
-| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| Organization | **Ambra Demo Serwis** (slug `ambra-demo-serwis`, id `2c5aa49a-cc3d-4166-8c5f-f6c94307103f`), plan **Professional** (10 branches, all modules) |
-| Branch #1    | **Warszawa** (`5f1d2311-99c0-44b9-9f24-3af573a3af36`), presenter's default branch                                                             |
-| Branch #2    | **Kraków** (`cc67f108-33f1-4e80-98a4-15fc799d1a41`)                                                                                           |
+| Item         | Value                                                                                                                                                |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Organization | **Grupa Cichy-Zasada – CNP** (slug `ambra-demo-serwis`, id `2c5aa49a-cc3d-4166-8c5f-f6c94307103f`), plan **Professional** (10 branches, all modules) |
+| Branch #1    | **CNP Piaseczno** (`5f1d2311-99c0-44b9-9f24-3af573a3af36`), presenter's default branch                                                               |
+| Branch #2    | **CNP Poznań** (`cc67f108-33f1-4e80-98a4-15fc799d1a41`)                                                                                              |
 
-| Account                                | Name             | Roles                                                 | Branch access   | Verified in app                                    |
-| -------------------------------------- | ---------------- | ----------------------------------------------------- | --------------- | -------------------------------------------------- |
-| `michal.stepien36+presenter@gmail.com` | Prezenter Demo   | `org_owner`                                           | both            | dashboard on Warszawa; switch to Kraków took 2.0 s |
-| `michal.stepien36+warehouse@gmail.com` | Magazynier Demo  | `org_member` + **Magazynier** (branch-scoped, Kraków) | **Kraków only** | switcher lists only Kraków                         |
-| `michal.stepien36+advisor@gmail.com`   | Doradca Demo     | `org_member` + **Doradca** (org)                      | both            | Warszawa + Kraków; Workshop visible                |
-| `michal.stepien36+helpdesk@gmail.com`  | Zgłaszający Demo | `org_member` + **Zgłaszający (Help Desk)** (org)      | both            | Warszawa + Kraków                                  |
+| Account                                | Name             | Roles                                                     | Branch access       | Verified in app                                             |
+| -------------------------------------- | ---------------- | --------------------------------------------------------- | ------------------- | ----------------------------------------------------------- |
+| `michal.stepien36+presenter@gmail.com` | Prezenter Demo   | `org_owner`                                               | both                | dashboard on CNP Piaseczno; switch to CNP Poznań took 2.0 s |
+| `michal.stepien36+warehouse@gmail.com` | Magazynier Demo  | `org_member` + **Magazynier** (branch-scoped, CNP Poznań) | **CNP Poznań only** | switcher lists only CNP Poznań                              |
+| `michal.stepien36+advisor@gmail.com`   | Doradca Demo     | `org_member` + **Doradca** (org)                          | both                | CNP Piaseczno + CNP Poznań; Workshop visible                |
+| `michal.stepien36+helpdesk@gmail.com`  | Zgłaszający Demo | `org_member` + **Zgłaszający (Help Desk)** (org)          | both                | CNP Piaseczno + CNP Poznań                                  |
 
 **Custom roles:**
 
@@ -94,29 +94,63 @@ Modelled on a VW Group **blacharnia-lakiernia** (body and paint shop, the Grupa 
 
 **Stock (4 posted PZ documents, received straight onto the target shelves):**
 
-| Branch   | Documents                                                                                   | SKUs in stock | Stock value (purchase) |
-| -------- | ------------------------------------------------------------------------------------------- | ------------- | ---------------------- |
-| Warszawa | PZ/2026/000001 (`VGP/2026/09/4812`, części), PZ/2026/000002 (`LAK/2026/09/0317`, materiały) | 43            | 44 411,20 zł           |
-| Kraków   | PZ/2026/000003 (`VGP/2026/09/4827`), PZ/2026/000004 (`LAK/2026/09/0322`)                    | 41            | 34 499,80 zł           |
+| Branch        | Documents                                                                                   | SKUs in stock | Stock value (purchase) |
+| ------------- | ------------------------------------------------------------------------------------------- | ------------- | ---------------------- |
+| CNP Piaseczno | PZ/2026/000001 (`VGP/2026/09/4812`, części), PZ/2026/000002 (`LAK/2026/09/0317`, materiały) | 43            | 44 411,20 zł           |
+| CNP Poznań    | PZ/2026/000003 (`VGP/2026/09/4827`), PZ/2026/000004 (`LAK/2026/09/0322`)                    | 41            | 34 499,80 zł           |
 
 - Stock levels deliberately differ between branches, so a branch switch shows a visible difference.
-  - Warszawa only: e.g. Golf VIII rear bumper, bonnet, left headlight, Audi A3 bumper.
-  - Kraków only: e.g. Passat B8 rear bumper, Polo VI door, Octavia IV headlight.
+  - CNP Piaseczno only: e.g. Golf VIII rear bumper, bonnet, left headlight, Audi A3 bumper.
+  - CNP Poznań only: e.g. Passat B8 rear bumper, Polo VI door, Octavia IV headlight.
 - Verified in the app as the presenter: Produkty lists 46/46 with per-branch "Na stanie"; the Lokalizacje tree shows the layout with quantities.
 - **App UI gap noticed** (not data): the product list shows the type and status values in English ("Stocked", "active"), and dates in US format.
 
+## Names, suppliers and repair orders (2026-09-30)
+
+**Renamed** to mirror a Grupa Cichy-Zasada Centrum Napraw Powypadkowych:
+
+- organization "Ambra Demo Serwis" → **Grupa Cichy-Zasada – CNP** (slug unchanged);
+- branch "Warszawa" → **CNP Piaseczno** (`cnp-piaseczno`), still the presenter's default;
+- branch "Kraków" → **CNP Poznań** (`cnp-poznan`).
+
+The branch ids are unchanged, so all data, roles and access carried over.
+
+**Suppliers:**
+
+- **Volkswagen Group Polska – Dystrybucja Części:** default supplier of the 31 body parts and fasteners.
+- **Hurtownia lakiernicza – materiały i ścierniwa:** default supplier of the 15 paint-shop materials.
+
+**Repair orders:** created as the presenter, like the app's manual create (`RepairOrdersService.createRepairOrder` + lines). All are `open` and `resolved`, and every line is `pending`.
+
+| ZL     | Order no.  | Branch        | Vehicle / VIN                         | Client                  | Lines                                                                        |
+| ------ | ---------- | ------------- | ------------------------------------- | ----------------------- | ---------------------------------------------------------------------------- |
+| 184213 | 4500418823 | CNP Piaseczno | VW Golf VIII, `WVWZZZCDZNW012487`     | Tomasz Wiśniewski       | zderzak przedni, błotnik lewy, reflektor LED lewy, 2× uchwyt PDC, 10× spinka |
+| 184257 | 4500418861 | CNP Piaseczno | Škoda Octavia IV, `TMBJR7NX3MY054219` | Anna Zielińska          | zderzak przedni, błotnik prawy, listwa progowa, 6× klips                     |
+| 184301 | 4500418907 | CNP Piaseczno | Audi A3 8Y, `WAUZZZGY6NA031552`       | Flota-Serwis Sp. z o.o. | zderzak przedni, atrapa, 2× czujnik PDC                                      |
+| 191044 | 4500421115 | CNP Poznań    | VW Polo VI, `WVWZZZAWZKU087341`       | Marek Nowicki           | drzwi przednie lewe, 4× klips                                                |
+| 191078 | 4500421152 | CNP Poznań    | VW Tiguan II, `WVGZZZ5NZKW102938`     | Katarzyna Lewandowska   | zderzak przedni, błotnik prawy, 2× czujnik PDC, 8× spinka nadkola            |
+
+- `dealer_name` holds a 4-digit dealer code (`0214` Piaseczno, `0187` Poznań), following existing data.
+- Client names, VINs and order numbers are fictional.
+- Verified in the app: Warsztat → Zlecenia naprawy lists each branch's own orders.
+
+**Still to do, by a human:**
+
+- generate and print the location QR labels on the presentation printer, then test them with the phone;
+- change all demo passwords before rehearsal.
+
 ## Organization
 
-- One demo organization. **CREATED**: Ambra Demo Serwis.
+- One demo organization. **CREATED**: Grupa Cichy-Zasada – CNP.
 
 ## Branches
 
-- **At least two branches**, so Zone 1 branch switching can be demonstrated and verified live. This is the exact mechanism the confirmed Zone 1 bugs affect: the demo itself must exercise a real branch switch, not merely claim the capability. **CREATED**: Warszawa, Kraków.
+- **At least two branches**, so Zone 1 branch switching can be demonstrated and verified live. This is the exact mechanism the confirmed Zone 1 bugs affect: the demo itself must exercise a real branch switch, not merely claim the capability. **CREATED**: CNP Piaseczno, CNP Poznań.
 
 ## Users
 
 - **Presenter/admin:** full access, the account driving most of the demo. **CREATED** (`+presenter`).
-- **Warehouse user:** a role distinct from admin, used to demonstrate role-scoped access and the branch-switch scenario. **CREATED** (`+warehouse`, Kraków only).
+- **Warehouse user:** a role distinct from admin, used to demonstrate role-scoped access and the branch-switch scenario. **CREATED** (`+warehouse`, CNP Poznań only).
 - **Advisor/acceptor:** a second, contrasting role, used if the chosen Zone 1 administrative scenario (role change or invitation) needs a second account. **CREATED** (`+advisor`).
 - **Optional Help Desk second user:** only if Zone 8's two-account ticket scenario (create → comment → accept) is included in the final choreography. **CREATED** (`+helpdesk`).
 
