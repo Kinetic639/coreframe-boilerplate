@@ -2,7 +2,7 @@
 
 Defines the exact demo environment required for the current pitch, per `docs/mvp/ambra-skrypt-prezentacji.md` and `docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/`. **Supersedes `docs/mvp/mvp-readiness-test-org-setup.md`** (2026-08-12, covered only QR/locations + Help Desk — predates RepairOrders/Matcher-approval/receiving/putaway/containers/issue entirely).
 
-This document specifies what must exist before rehearsal. The organization, branches and user accounts **were created on 2026-09-29** (see "Created demo environment" below). The data rows are still to be created.
+This document specifies what must exist before rehearsal. The organization, branches, user accounts and base warehouse data **were created on 2026-09-29** (see "Created demo environment" and "Created warehouse data" below). The remaining data rows are still to be created.
 
 ## Created demo environment (2026-09-29)
 
@@ -56,6 +56,55 @@ Passwords are set by the product owner and are **not** recorded here. They were 
 6. Org-scoped roles give no branch access without `branches.view.any`, so users see "No accessible branch". This is expected by design but easy to miss when creating roles.
 7. `org_member` alone makes Warehouse, Planning and CRM appear in the sidebar for the Help Desk user. Review before the demo if that user is shown.
 
+## Created warehouse data (2026-09-29)
+
+Modelled on a VW Group **blacharnia-lakiernia** (body and paint shop, the Grupa Cichy-Zasada Centrum Napraw Powypadkowych profile). All names are in Polish.
+
+- **How it was created:** as the presenter, through the same database functions the app calls:
+  - `inventory_seed_movement_types`;
+  - `inventory_create_product_with_default_variant`;
+  - `inventory_receive_stock` (101/PZ).
+
+  Stock therefore has a proper posted ledger, not direct balance writes.
+
+- **Movement types:** the org's standard 7 were seeded (101, 311, 312, 401, 402, 801, 900).
+- **Units:** SZT (sztuka), KPL (komplet), OP (opakowanie), ROL (rolka), L (litr), ML (mililitr), KG (kilogram), M (metr).
+
+**Locations:** the same 26-node layout in each branch (codes are unique per branch):
+
+| Code                    | Name                                                                                                    |
+| ----------------------- | ------------------------------------------------------------------------------------------------------- |
+| `PRZ`                   | Strefa przyjęć dostaw (**receiving location**)                                                          |
+| `MC`                    | Magazyn części blacharskich                                                                             |
+| `MC/R01` (`R01-A..C`)   | Regał R01: drobnica i elementy mocujące                                                                 |
+| `MC/R02` (`R02-A..C`)   | Regał R02: oświetlenie i lusterka                                                                       |
+| `MC/R03` (`R03-A..B`)   | Regał R03: atrapy, listwy, osłony                                                                       |
+| `MC/GAB`                | Strefa gabarytów: `GAB-01` zderzaki, `GAB-02` błotniki, `GAB-03` maski i drzwi                          |
+| `MC/ZLC` (`ZLC-01..03`) | Regał zleceń: części skompletowane                                                                      |
+| `LAK`                   | Magazyn lakierni: `LAK-A` lakiery i utwardzacze, `LAK-B` podkłady i szpachle, `LAK-C` ścierniwa i taśmy |
+| `ZWR`                   | Zwroty i reklamacje                                                                                     |
+
+**Products (46):**
+
+- **Body parts (26):** VW-format part numbers as SKUs, no spaces, `GRU` = gruntowany (primed). Models: VW Golf VIII (`5H0…`/`5H1…`), Tiguan II (`5NA…`), Passat B8 Variant (`3G9…`), Polo VI (`2G4…`), T-Roc (`2GA…`); Škoda Octavia IV (`5E3…`); Audi A3 8Y (`8Y0…`). Examples: `5H0807221HGRU` zderzak przedni Golf VIII, `5H1941005B` reflektor Full LED lewy Golf VIII, `5E3821106` błotnik przedni prawy Octavia IV.
+- **Fasteners (5):** e.g. `WHT005263`, `3C0853585`.
+- **Paint-shop materials (15):** internal codes. Base coats mixed to VW colours `LC9X` Deep Black Perłowy, `LB9A` Pure White and `LA7W` Reflex Silver; clear coat HS 2K; hardener; thinner; primer 2K; putty; degreaser; abrasive discs P320/P500/P800; masking tape and film; tack cloths.
+- **Data details:** purchase prices in PLN; brand set to Volkswagen / Škoda / Audi for parts.
+- **Research sources for the numbering pattern and example numbers:** public parts listings (Allegro, 2407.pl, motoplatforma.com). The numbers are realistic demo data, not a verified catalogue.
+
+**Stock (4 posted PZ documents, received straight onto the target shelves):**
+
+| Branch   | Documents                                                                                   | SKUs in stock | Stock value (purchase) |
+| -------- | ------------------------------------------------------------------------------------------- | ------------- | ---------------------- |
+| Warszawa | PZ/2026/000001 (`VGP/2026/09/4812`, części), PZ/2026/000002 (`LAK/2026/09/0317`, materiały) | 43            | 44 411,20 zł           |
+| Kraków   | PZ/2026/000003 (`VGP/2026/09/4827`), PZ/2026/000004 (`LAK/2026/09/0322`)                    | 41            | 34 499,80 zł           |
+
+- Stock levels deliberately differ between branches, so a branch switch shows a visible difference.
+  - Warszawa only: e.g. Golf VIII rear bumper, bonnet, left headlight, Audi A3 bumper.
+  - Kraków only: e.g. Passat B8 rear bumper, Polo VI door, Octavia IV headlight.
+- Verified in the app as the presenter: Produkty lists 46/46 with per-branch "Na stanie"; the Lokalizacje tree shows the layout with quantities.
+- **App UI gap noticed** (not data): the product list shows the type and status values in English ("Stocked", "active"), and dates in US format.
+
 ## Organization
 
 - One demo organization. **CREATED**: Ambra Demo Serwis.
@@ -75,9 +124,9 @@ Passwords are set by the product owner and are **not** recorded here. They were 
 
 | Datum                                                                   | Timing                                                                                                                                                          |
 | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Representative products/SKUs                                            | CREATE BEFORE REHEARSAL                                                                                                                                         |
-| Warehouse locations (a small, named set with unique codes)              | CREATE BEFORE REHEARSAL                                                                                                                                         |
-| Receiving location (designated per branch)                              | CREATE BEFORE REHEARSAL                                                                                                                                         |
+| Representative products/SKUs                                            | **CREATED 2026-09-29**: 46 products (see "Created warehouse data")                                                                                              |
+| Warehouse locations (a small, named set with unique codes)              | **CREATED 2026-09-29**: 26 per branch                                                                                                                           |
+| Receiving location (designated per branch)                              | **CREATED 2026-09-29**: `PRZ` in each branch                                                                                                                    |
 | One RepairOrder with representative lines                               | CREATE BEFORE REHEARSAL (or live during Matcher demo — see below)                                                                                               |
 | One Matcher source session that materializes into the RepairOrder above | CREATE DURING DEMO (this is the live-demoed step itself — §3/§6 of the script)                                                                                  |
 | One reservation                                                         | CREATE DURING DEMO (part of the live container-workflow chain, once Phase 10D/10E land)                                                                         |
@@ -85,7 +134,7 @@ Passwords are set by the product owner and are **not** recorded here. They were 
 | One container                                                           | CREATE DURING DEMO (same chain)                                                                                                                                 |
 | Container QR (after Phase 10D lands)                                    | CREATE DURING DEMO — printed/assigned live as part of the container step                                                                                        |
 | Location QR (printed labels for the demo location set)                  | CREATE BEFORE REHEARSAL — must be physically printed and tested on the presentation printer ahead of time, not generated live                                   |
-| Stock sufficient for putaway/relocation/issue                           | CREATE BEFORE REHEARSAL (the underlying delivery/receiving quantities); the putaway/relocation/issue operations THEMSELVES are performed live                   |
+| Stock sufficient for putaway/relocation/issue                           | **Base stock CREATED 2026-09-29** (4 posted PZ documents); the putaway/relocation/issue operations THEMSELVES are performed live                                |
 | One ticket, if Help Desk is shown                                       | CREATE DURING DEMO (the create step is itself part of the Zone 8 demo) — or CREATE BEFORE REHEARSAL if the chosen choreography instead opens an existing ticket |
 | One planning task, only if Planning is shown                            | CREATE BEFORE REHEARSAL, if the narrow Zone 9 example is included                                                                                               |
 
