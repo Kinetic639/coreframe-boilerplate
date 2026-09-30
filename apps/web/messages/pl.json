@@ -2728,6 +2728,53 @@
       "placeholder": {
         "comingSoon": "Ta sekcja będzie wkrótce dostępna.",
         "moduleShell": "Ten placeholder jest celową częścią szkieletu Warehouse V2."
+      },
+      "containers": {
+        "back": "Wróć do zlecenia",
+        "backToWarehouse": "Wróć do lokalizacji",
+        "title": "Kontener",
+        "status": {
+          "empty": "Pusty",
+          "active": "W użyciu",
+          "sealed": "Zamknięty",
+          "in_transit": "W transporcie",
+          "archived": "Zarchiwizowany"
+        },
+        "repairOrder": "Zlecenie naprawy",
+        "noRepairOrder": "Kontener nie jest powiązany ze zleceniem.",
+        "client": "Klient",
+        "vehicle": "Pojazd",
+        "vin": "VIN",
+        "location": "Lokalizacja",
+        "noLocation": "Brak lokalizacji",
+        "contents": "Zawartość",
+        "contentsEmpty": "Kontener jest pusty.",
+        "columns": {
+          "sku": "Numer części",
+          "name": "Nazwa",
+          "quantity": "Ilość"
+        },
+        "qr": {
+          "title": "Kod QR kontenera",
+          "none": "Kontener nie ma jeszcze kodu QR.",
+          "assigned": "Kod QR przypisany",
+          "generate": "Wygeneruj kod QR",
+          "generating": "Generowanie…",
+          "print": "Drukuj etykietę",
+          "printing": "Przygotowywanie etykiety…",
+          "generated": "Kod QR został wygenerowany i przypisany.",
+          "error": "Nie udało się wygenerować kodu QR.",
+          "printError": "Nie udało się przygotować etykiety.",
+          "noPermission": "Nie masz uprawnień do przypisywania kodów QR."
+        },
+        "crossBranch": {
+          "title": "Kontener w innym oddziale",
+          "description": "Ten kontener należy do oddziału {branch}. Przełączyć aktywny oddział, aby go otworzyć?",
+          "confirm": "Przełącz oddział",
+          "cancel": "Anuluj",
+          "switching": "Przełączanie…",
+          "error": "Nie udało się przełączyć oddziału."
+        }
       }
     },
     "teams": {
@@ -3170,6 +3217,26 @@
             "cancel": "Anuluj",
             "quantityPlaceholder": "Ilość",
             "locationPlaceholder": "Lokalizacja"
+          },
+          "container": {
+            "trigger": "Kontener",
+            "popoverTitle": "Przydział i kontener dla tej pozycji",
+            "loading": "Wczytywanie…",
+            "errorState": "Nie udało się wczytać danych. Spróbuj ponownie.",
+            "reservedToAllocate": "Zarezerwowano: {quantity}",
+            "allocate": "Przydziel",
+            "allocated": "Przydzielono: {quantity}",
+            "noReservation": "Najpierw zarezerwuj towar dla tej pozycji.",
+            "addToContainer": "Dodaj do kontenera",
+            "containerPlaceholder": "Wybierz kontener",
+            "noContainers": "Najpierw utwórz kontener dla zlecenia.",
+            "quantityPlaceholder": "Ilość",
+            "confirmAdd": "Dodaj",
+            "cancel": "Anuluj",
+            "allocateError": "Nie udało się przydzielić towaru.",
+            "addError": "Nie udało się dodać do kontenera.",
+            "added": "Dodano do kontenera.",
+            "allocatedToast": "Przydzielono towar."
           }
         },
         "provenance": {
@@ -3198,6 +3265,30 @@
           "statusChangedSuccess": "Status zaktualizowany",
           "reservationCreatedSuccess": "Towar zarezerwowany",
           "reservationReleasedSuccess": "Rezerwacja zwolniona"
+        },
+        "containers": {
+          "title": "Kontenery zlecenia",
+          "subtitle": "Części zlecenia są przechowywane w kontenerach. Każdy kontener ma własny kod QR.",
+          "empty": "To zlecenie nie ma jeszcze kontenerów.",
+          "loadError": "Nie udało się wczytać kontenerów.",
+          "columns": {
+            "code": "Kod",
+            "location": "Lokalizacja",
+            "contents": "Zawartość",
+            "status": "Status"
+          },
+          "contentsSummary": "{lines} poz.",
+          "create": "Utwórz kontener",
+          "createTitle": "Nowy kontener",
+          "codeLabel": "Kod kontenera",
+          "locationLabel": "Lokalizacja",
+          "locationPlaceholder": "Wybierz lokalizację",
+          "confirmCreate": "Utwórz",
+          "creating": "Tworzenie…",
+          "cancel": "Anuluj",
+          "created": "Utworzono kontener {code}.",
+          "createError": "Nie udało się utworzyć kontenera.",
+          "open": "Otwórz"
         }
       }
     },
@@ -7015,7 +7106,8 @@
       "itemRemoved": "Pozycja usunięta z kontenera.",
       "containerMoved": "Kontener przeniesiony do nowej lokalizacji.",
       "ruleDeleted": "Reguła składowania usunięta.",
-      "deleteRule": "Usuń regułę"
+      "deleteRule": "Usuń regułę",
+      "openContainer": "Otwórz kontener"
     },
     "history": {
       "recentMovements": "Ostatnie ruchy",

@@ -284,8 +284,15 @@ Copied from the implementation plan's own task list when the phase started (2026
 
 Started 2026-09-24, immediately after Phase 7's commit. **Not completed — AWAITING HUMAN UAT, not DONE.**
 
-- [ ] Prepare accounts per `docs/mvp/presentation-demo-setup.md`.
-  - **Finding:** no prepared demo environment exists. A read-only check of the live target Supabase project (`rjeraydumwechpjjzrus`) found only unrelated scratch/test organizations ("Anna's Organization", "Grupa", "Grupa cichy-Zasada", "Diff Org name") — none matching `presentation-demo-setup.md`'s required org/branch/role/data shape, all of which are marked `CREATE BEFORE REHEARSAL` in that document (which explicitly states it "does NOT create the data"). Not attempted unilaterally this phase — creating real accounts/org data on the shared live Supabase project was judged to warrant the user's explicit go-ahead rather than being assumed as implied scope, given its nontrivial, semi-irreversible nature on shared infrastructure.
+- [x] Prepare accounts per `docs/mvp/presentation-demo-setup.md`. **DONE 2026-09-29/30:**
+  - org **Grupa Cichy-Zasada – CNP**, branches **CNP Piaseczno** / **CNP Poznań**;
+  - presenter, warehouse, advisor and help desk accounts;
+  - base warehouse data, suppliers, 5 repair orders;
+  - printed and working location QR labels.
+
+  Full record in `presentation-demo-setup.md`. The original 2026-09-24 finding below is kept for history.
+  - **Finding (2026-09-24):** no prepared demo environment exists. A read-only check of the live target Supabase project (`rjeraydumwechpjjzrus`) found only unrelated scratch/test organizations ("Anna's Organization", "Grupa", "Grupa cichy-Zasada", "Diff Org name") — none matching `presentation-demo-setup.md`'s required org/branch/role/data shape, all of which are marked `CREATE BEFORE REHEARSAL` in that document (which explicitly states it "does NOT create the data"). Not attempted unilaterally this phase — creating real accounts/org data on the shared live Supabase project was judged to warrant the user's explicit go-ahead rather than being assumed as implied scope, given its nontrivial, semi-irreversible nature on shared infrastructure.
+
 - [ ] Execute the integrated "Gate to DEMO READY" scenario.
   - **Blocked** by the above — no environment to execute it in.
 - [ ] Execute on the actual presentation laptop.
@@ -299,7 +306,17 @@ Started 2026-09-24, immediately after Phase 7's commit. **Not completed — AWAI
 
 **Zero mutations to the live Supabase project.** All checks were read-only (SQL `SELECT`s) or non-authenticated HTTP GETs against a locally-running dev server. No organization, branch, user, or other row was created, updated, or deleted.
 
-**Blocker:** Phase 8 cannot proceed to DONE without either (a) the user or another human preparing the demo environment and executing the manual scenarios themselves using the bundle's own instructions, or (b) explicit instruction to this agent to prepare the demo data via the application's own real signup/admin flows (still leaving the phone-dependent scenarios themselves for a human). This is an environment/access blocker, not a code defect — Zone 1's own code-level readiness (Phases 1-7) is unaffected and remains green.
+**Update 2026-09-30: partial human UAT on production.** The product owner tested with the demo accounts, and the agent reproduced one finding in a cloud browser (Browserbase):
+
+- **PASS:** login works for the created accounts.
+- **PASS:** the warehouse user (`+warehouse`, Magazynier @ CNP Poznań) sees only CNP Poznań.
+- **PASS:** printed location QR labels scan and open the right location.
+- **PASS (from `/dashboard/start` only):** the branch switch is fast (~1–2 s) and lands on the new branch's dashboard.
+- **FAIL, accepted as tech debt:** switching from any other page hangs → **BLOCKER-Z1-019**. The product owner decided on 2026-09-30 that it doesn't block the demo.
+
+The remaining Phase 8 scenarios (bundle `docs/mvp/reviews/zone1-phase8-manual-uat-2026-09-24/`) are still to be executed and recorded.
+
+**Blocker (2026-09-24, now resolved for environment prep):** Phase 8 cannot proceed to DONE without either (a) the user or another human preparing the demo environment and executing the manual scenarios themselves using the bundle's own instructions, or (b) explicit instruction to this agent to prepare the demo data via the application's own real signup/admin flows (still leaving the phone-dependent scenarios themselves for a human). This is an environment/access blocker, not a code defect — Zone 1's own code-level readiness (Phases 1-7) is unaffected and remains green.
 
 ---
 
@@ -331,6 +348,15 @@ Stable IDs, once assigned, are never reused. None of the items below block Phase
 - **BLOCKER-Z1-014** — `warehouse_locations`/`app_attachments` migrations missing from the authoritative target tree (live-correct, paper-trail-only gap). Owner: PILOT Phase E.
 - **BLOCKER-Z1-015** — `qr_codes`/`qr_assignments` have no committed migration source in either tree at all; live schema was applied out-of-band. Owner: PILOT Phase E.
 - **BLOCKER-Z1-017** — 3 Zone-1-relevant client test suites (`roles-client`, `invitations-client`, `members-client`) crash on load due to an unrelated `nuqs`/`parseAsJson` version mismatch in the shared `data-view-url-state.ts` module — masks their own coverage. Owner: none assigned (explicitly out of Zone 1 scope; flagged for whoever owns the shared `data-view` component).
+- **BLOCKER-Z1-019:** the branch switch hangs when started from any page other than `/dashboard/start`. Found in production UAT on 2026-09-30.
+  - **Symptom:** the success toast appears and the switcher changes its label, but it stays disabled. There is no redirect to `/dashboard/start` and the page body doesn't change. The first manual navigation afterwards shows the new branch correctly, and everything is consistent from then on.
+  - **Reproduced** in a cloud browser from Warsztat (`/dashboard/workshop`) and Lokalizacje (`/dashboard/warehouse/locations`). The `changeBranch` POST succeeds, and the RSC GET for `/dashboard/start` returns 200 from `dub1`, but the navigation never commits: the URL stays unchanged and the switcher transition stays pending more than 12 s later.
+  - **Isolated:** `router.replace("/dashboard/start")` + `router.refresh()` called directly (outside the switcher's async transition, with no branch-state change) navigate correctly. No component calls `history.replaceState`/`pushState` during the failing switch.
+  - **Leading hypothesis (not confirmed):** the navigation is entangled with the switcher's async `startTransition`. The old page reacts to `setActiveBranch(B)`, e.g. a DataView refetch for the new branch scope that is queued behind the navigation in the router action queue, and suspends, so the entangled transition never commits.
+  - **Why `/dashboard/start` works:** `HomeScopeBoundary` performs its own `router.replace(?branch=…)` there, which supersedes the stuck navigation.
+  - **Demo workaround:** switch branch from `/dashboard/start`.
+  - **Next step when picked up:** test the switch from a page without DataView (e.g. Narzędzia) to confirm or refute the hypothesis, then fix. Candidates: move `setActiveBranch` after the navigation, run the navigation outside the async transition, or use a full-document navigation after a successful `changeBranch`.
+  - **Owner:** post-demo. **Severity:** LOW for demo (workaround exists), MEDIUM for pilot. No authorization impact: the server-side branch and the data are always correct.
 - **BLOCKER-Z1-018** — `QrTargetDescriptor.validate()`'s JSDoc incorrectly claims `resolvePublicQrToken` runs with an authenticated, RLS-enforced client — it does not (service-role, zero auth check, by design). Stale comment, not a live security issue. Owner: Phase 6. Status: **RESOLVED (2026-09-24)** — see Phase 6 detailed tracking above.
 
 ### No-longer-blocking findings
@@ -468,6 +494,21 @@ Build/commit: b017e6622e584ffcfb6fffb0d8917bd919b76b9b (branch zone3-zone5-integ
 Environment: presentation demo environment NOT YET CREATED (see docs/mvp/presentation-demo-setup.md, all rows still CREATE BEFORE REHEARSAL); live target Supabase project rjeraydumwechpjjzrus checked read-only, contains only unrelated scratch/test orgs
 Accounts used: none (no presenter/warehouse-worker/advisor accounts exist yet)
 Result: 0/17 required manual scenarios executed. All AWAITING HUMAN UAT (see docs/mvp/reviews/zone1-phase8-manual-uat-2026-09-24/ for the full scenario-by-scenario disposition and exact instructions for the human tester). A small Claude-executable, non-authenticated route-check subset was run against a locally-started instance of the tested SHA (see that bundle's desktop-browser-results.md) — zero bugs found in what was checked, but this does not satisfy any of the 17 required scenarios.
+```
+
+```
+Manual DEMO READY UAT — PARTIAL (2026-09-30)
+Date: 2026-09-30
+Build/commit: production Vercel deployment of main (a9720e44 + later docs-only commits), region dub1
+Environment: Grupa Cichy-Zasada – CNP (CNP Piaseczno, CNP Poznań) on Supabase target rjeraydumwechpjjzrus — see docs/mvp/presentation-demo-setup.md
+Accounts used: +presenter (org_owner), +warehouse (Magazynier @ CNP Poznań)
+Result:
+- PASS login (real production auth)
+- PASS warehouse user sees only CNP Poznań
+- PASS printed location QR labels scan and open the correct location
+- PASS branch switch from /dashboard/start (~1–2 s, lands on the new branch's dashboard)
+- FAIL branch switch from any other page hangs → BLOCKER-Z1-019 (accepted as tech debt for the demo; workaround: switch from /dashboard/start)
+Remaining 17-scenario bundle items: still to be executed and recorded.
 ```
 
 ## PILOT READY gate

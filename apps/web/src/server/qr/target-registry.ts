@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { WAREHOUSE_LOCATIONS_MANAGE, WAREHOUSE_LOCATIONS_READ } from "@/lib/constants/permissions";
 import { HELPDESK_TICKETS_MANAGE, HELPDESK_TICKETS_READ } from "@/lib/constants/permissions";
 import { PLANNING_TASKS_UPDATE, PLANNING_TASKS_READ } from "@/lib/constants/permissions";
+import { WAREHOUSE_INVENTORY_OPERATE, WAREHOUSE_INVENTORY_READ } from "@/lib/constants/permissions";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -253,6 +254,78 @@ export const QR_TARGET_REGISTRY: Readonly<Record<string, QrTargetDescriptor>> = 
         primaryText: task?.task_number ?? targetId,
         secondaryText: task?.title ?? undefined,
         tertiaryText: task ? `Status: ${task.status}` : "Planning Task",
+      };
+    },
+  },
+
+  // Phase 10D: a physical container (a RepairOrder's grouped parts). Branch
+  // is always the container's own row, so the resolver's existing
+  // cross-branch hint / inaccessible-branch denial applies unchanged.
+  "inventory.container": {
+    type: "inventory.container",
+
+    async validate({ supabase, targetId, orgId }) {
+      const { data, error } = await supabase
+        .from("inventory_containers")
+        .select("id, organization_id, branch_id, deleted_at")
+        .eq("id", targetId)
+        .maybeSingle();
+
+      if (error || !data) {
+        return { valid: false, organizationId: null, branchId: null, error: "NOT_FOUND" };
+      }
+      if (data.deleted_at !== null) {
+        return { valid: false, organizationId: null, branchId: null, error: "SOFT_DELETED" };
+      }
+      if (data.organization_id !== orgId) {
+        return { valid: false, organizationId: null, branchId: null, error: "WRONG_ORG" };
+      }
+      return {
+        valid: true,
+        organizationId: data.organization_id as string,
+        branchId: data.branch_id as string | null,
+      };
+    },
+
+    requiredAssignPermission: WAREHOUSE_INVENTORY_OPERATE,
+    requiredReadPermission: WAREHOUSE_INVENTORY_READ,
+
+    resolverPath({ targetId }) {
+      return `/dashboard/warehouse/containers/${targetId}`;
+    },
+
+    async getLabelContext({ supabase, targetId }) {
+      const { data } = await supabase
+        .from("inventory_containers")
+        .select("code, reference_type, reference_id")
+        .eq("id", targetId)
+        .maybeSingle();
+
+      const container = data as {
+        code: string;
+        reference_type: string | null;
+        reference_id: string | null;
+      } | null;
+
+      let repairOrderText: string | undefined;
+      if (container?.reference_type === "repair_order" && container.reference_id) {
+        const { data: order } = await supabase
+          .from("repair_orders")
+          .select("zl_number, vehicle_brand")
+          .eq("id", container.reference_id)
+          .maybeSingle();
+        const ro = order as { zl_number: string | null; vehicle_brand: string | null } | null;
+        if (ro?.zl_number) {
+          repairOrderText = ro.vehicle_brand
+            ? `ZL ${ro.zl_number} · ${ro.vehicle_brand}`
+            : `ZL ${ro.zl_number}`;
+        }
+      }
+
+      return {
+        primaryText: container?.code ?? targetId,
+        secondaryText: repairOrderText,
+        tertiaryText: "Kontener",
       };
     },
   },
