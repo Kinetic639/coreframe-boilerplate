@@ -3410,6 +3410,36 @@
           "created": "Container {code} created.",
           "createError": "Could not create the container.",
           "open": "Open"
+        },
+        "issue": {
+          "open": "Issue parts (RW)",
+          "title": "Issue parts to repair order {zl}",
+          "description": "Internal issue (RW) — parts handed to the body/paint technician for the repair. Stock goes down and the lines stay linked to the order.",
+          "loading": "Loading parts to issue…",
+          "loadError": "Could not load parts to issue.",
+          "empty": "No parts ready to issue. Put the delivery away or reserve parts first.",
+          "groupPrepare": "To prepare (from containers)",
+          "groupTickOff": "To tick off (reserved at a location)",
+          "groupTickOffHint": "E.g. clips and bulk material from bins — issued on the same RW, mechanics take them themselves.",
+          "fromContainers": "{containers} · {location}",
+          "fromLocation": "{location}",
+          "quantity": "Quantity",
+          "recipient": "Recipient (issued to)",
+          "recipientPlaceholder": "e.g. John Smith — body technician",
+          "note": "Note (optional)",
+          "cancel": "Cancel",
+          "confirm": "{count, plural, one {Issue # line} other {Issue # lines}}",
+          "issuing": "Issuing…",
+          "issued": "Issued — document {number}.",
+          "errors": {
+            "unauthorized": "You are not allowed to issue parts in this branch.",
+            "not_found": "Item not found — refresh the page.",
+            "not_enough": "Already issued or the quantity changed — refresh the list.",
+            "recipient_required": "Enter a recipient.",
+            "insufficient_stock": "Not enough stock at the location — check the warehouse.",
+            "invalid_input": "Invalid issue request.",
+            "unexpected": "Could not issue the parts. Please try again."
+          }
         }
       }
     },

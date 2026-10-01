@@ -3381,6 +3381,36 @@
           "created": "Utworzono kontener {code}.",
           "createError": "Nie udało się utworzyć kontenera.",
           "open": "Otwórz"
+        },
+        "issue": {
+          "open": "Wydaj części (RW)",
+          "title": "Wydanie części na zlecenie {zl}",
+          "description": "Rozchód wewnętrzny (RW) — części wydawane blacharzowi/lakiernikowi do naprawy. Stan schodzi z magazynu, a pozycje zostają powiązane ze zleceniem.",
+          "loading": "Wczytywanie części do wydania…",
+          "loadError": "Nie udało się wczytać części do wydania.",
+          "empty": "Brak części gotowych do wydania. Najpierw rozlokuj dostawę lub zarezerwuj części.",
+          "groupPrepare": "Do przygotowania (z kontenerów)",
+          "groupTickOff": "Do odhaczenia (zarezerwowane na lokalizacji)",
+          "groupTickOffHint": "Np. klipsy i materiały z kuwet — schodzą ze stanu na tym samym RW, mechanik bierze je sam.",
+          "fromContainers": "{containers} · {location}",
+          "fromLocation": "{location}",
+          "quantity": "Ilość",
+          "recipient": "Odbiorca (komu wydano)",
+          "recipientPlaceholder": "np. Jan Kowalski — blacharz",
+          "note": "Uwagi (opcjonalnie)",
+          "cancel": "Anuluj",
+          "confirm": "{count, plural, one {Wydaj # pozycję} few {Wydaj # pozycje} many {Wydaj # pozycji} other {Wydaj # pozycji}}",
+          "issuing": "Wydawanie…",
+          "issued": "Wydano — dokument {number}.",
+          "errors": {
+            "unauthorized": "Nie masz uprawnień do wydawania części w tym oddziale.",
+            "not_found": "Nie znaleziono pozycji — odśwież stronę.",
+            "not_enough": "Część została już wydana lub zmieniła się ilość — odśwież listę.",
+            "recipient_required": "Podaj odbiorcę.",
+            "insufficient_stock": "Na lokalizacji brakuje stanu do wydania — sprawdź magazyn.",
+            "invalid_input": "Nieprawidłowe dane wydania.",
+            "unexpected": "Nie udało się wydać części. Spróbuj ponownie."
+          }
         }
       }
     },
