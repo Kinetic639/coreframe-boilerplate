@@ -401,7 +401,11 @@ function MovementHistoryList({ movements, t }: { movements: LocationMovementLine
           >
             <div>
               <p className="font-semibold text-foreground">
-                {isRelocation ? t("history.internalRelocation") : movement.movementKind}
+                {isRelocation
+                  ? t("history.internalRelocation")
+                  : t.has(`history.kind.${movement.movementKind}`)
+                    ? t(`history.kind.${movement.movementKind}`)
+                    : movement.movementKind}
               </p>
               <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">
                 {movement.movementNumber}
@@ -421,6 +425,7 @@ function MovementHistoryList({ movements, t }: { movements: LocationMovementLine
               </p>
               <p className="mt-0.5 text-muted-foreground">
                 {new Date(movement.postedAt ?? movement.createdAt).toLocaleString()}
+                {movement.actorName ? ` · ${movement.actorName}` : ""}
               </p>
             </div>
             <p className="font-mono text-foreground">

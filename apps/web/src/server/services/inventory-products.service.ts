@@ -188,6 +188,16 @@ function formatCustomFieldDisplayValue(row: {
   return "";
 }
 
+/**
+ * ILIKE pattern for a free-text search that is safe inside a PostgREST
+ * `or=(...)` filter: the characters that delimit or-filters and wildcards
+ * are neutralised so a part number like "5H0-807-221" or "N 123" still
+ * matches, and nothing the user types can change the filter structure.
+ */
+function searchPattern(search: string) {
+  return `%${search.replace(/[,()*%\\]/g, " ").trim()}%`;
+}
+
 function serviceError(result: ServiceResult<unknown>) {
   return (result as { success: false; error: string }).error;
 }
@@ -208,7 +218,23 @@ export class InventoryProductsService {
       .is("deleted_at", null);
 
     if (params.search) {
-      query = query.ilike("name", `%${params.search}%`);
+      // Zone 6: match the product name OR any of its variants' part number
+      // (SKU) / barcode -- a warehouse search is usually by part number.
+      const pattern = searchPattern(params.search);
+      const { data: variantHits } = await supabase
+        .from("inventory_variants")
+        .select("product_id")
+        .eq("organization_id", orgId)
+        .is("deleted_at", null)
+        .or(`sku.ilike.${pattern},barcode.ilike.${pattern}`)
+        .limit(500);
+      const ids = [
+        ...new Set(((variantHits ?? []) as Array<{ product_id: string }>).map((v) => v.product_id)),
+      ];
+      query =
+        ids.length > 0
+          ? query.or(`name.ilike.${pattern},id.in.(${ids.join(",")})`)
+          : query.ilike("name", pattern);
     }
 
     const status = params.filters.status;
@@ -297,7 +323,10 @@ export class InventoryProductsService {
       .eq("organization_id", orgId);
 
     if (params.search) {
-      indexQuery = indexQuery.ilike("product_name", `%${params.search}%`);
+      const pattern = searchPattern(params.search);
+      indexQuery = indexQuery.or(
+        `product_name.ilike.${pattern},variant_name.ilike.${pattern},variant_sku.ilike.${pattern}`
+      );
     }
 
     const status = params.filters.status;

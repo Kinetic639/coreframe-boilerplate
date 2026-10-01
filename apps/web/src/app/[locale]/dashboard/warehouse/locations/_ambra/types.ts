@@ -177,6 +177,8 @@ export interface LocationMovementLine {
   movementId: string;
   movementNumber: string;
   movementKind: "receipt" | "issue" | "transfer" | "adjustment" | "opening_balance" | string;
+  /** Raw movement type code (101, 801, 261 ...). */
+  movementTypeCode?: string;
   status: string;
   variantId: string;
   sku: string;
@@ -191,6 +193,8 @@ export interface LocationMovementLine {
   containerCode?: string | null;
   createdAt: string;
   postedAt: string | null;
+  /** Who posted the movement (or created it, if not posted). */
+  actorName?: string | null;
 }
 
 export interface ContainerLine {

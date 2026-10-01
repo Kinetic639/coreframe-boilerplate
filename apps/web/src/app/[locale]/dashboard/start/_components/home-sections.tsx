@@ -6,6 +6,7 @@ import {
   ListTodo,
   Activity,
   CircleCheck,
+  Inbox,
 } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { Card, CardContent, CardHeader, CardDescription } from "@/components/ui/card";
@@ -17,6 +18,7 @@ import type { HomeAction } from "../_lib/model";
 const actionConfig = {
   tools: { href: "/dashboard/tools", icon: ScanLine },
   locations: { href: "/dashboard/warehouse/locations", icon: MapPin },
+  putaway: { href: "/dashboard/warehouse/putaway", icon: Inbox },
   tickets: { href: "/dashboard/help-desk/tickets", icon: Ticket },
   tasks: { href: "/dashboard/planning/tasks", icon: ListTodo },
 } as const;

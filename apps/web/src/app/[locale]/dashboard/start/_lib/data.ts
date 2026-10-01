@@ -19,6 +19,7 @@ import { checkPermission } from "@/lib/utils/permissions";
 import { PLANNING_BOARDS_READ } from "@/lib/constants/permissions";
 import { getPersonalActivityAction } from "@/app/actions/audit/get-personal-activity";
 import { createClient } from "@/utils/supabase/server";
+import { InventoryReceivingService } from "@/server/services/inventory-receiving.service";
 import type { PaginatedResult } from "@/lib/data-view/types";
 import { attentionFilters, getHomeActions, readWidget } from "./model";
 import type { HomePlanningSummary } from "./model";
@@ -103,6 +104,24 @@ export async function loadOpenTaskCount(orgId: string, branchId: string) {
 
     if ("error" in result) return result;
     return { success: true as const, data: { totalCount: result.data.totalCount } };
+  });
+}
+
+/** Zone 5: how many items wait in the branch's receiving zone. */
+export async function loadPutawayCount(orgId: string, branchId: string) {
+  return readWidget(async () => {
+    const result = await InventoryReceivingService.listPending(
+      await createClient(),
+      orgId,
+      branchId
+    );
+    if (!result.success) {
+      return {
+        success: false as const,
+        error: (result as { success: false; error: string }).error,
+      };
+    }
+    return { success: true as const, data: { totalCount: result.data.items.length } };
   });
 }
 

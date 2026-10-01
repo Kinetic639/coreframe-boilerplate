@@ -7297,7 +7297,14 @@
       "recentMovements": "Recent movements",
       "noActivity": "No activity recorded",
       "internalRelocation": "Internal relocation",
-      "external": "External"
+      "external": "External",
+      "kind": {
+        "receipt": "Goods receipt (PZ)",
+        "transfer": "Transfer (MM)",
+        "issue": "Issue to repair order (RW)",
+        "adjustment": "Adjustment (INW)",
+        "reversal": "Reversal"
+      }
     },
     "export": {
       "title": "Location data export",

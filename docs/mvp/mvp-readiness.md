@@ -33,9 +33,9 @@ Inventory Core: **FINAL FOR PILOT / ARCHITECTURE FROZEN** (unchanged, see `docs/
 
 <!-- Zone 11 (Home Dashboard) removed from this list 2026-09-24 — product-owner decision: DEMO SUFFICIENT, no pitch work required. See docs/mvp/reviews/dashboard-container-product-clarification-2026-09-24/dashboard-current-status.md. -->
 
-- Zone 6 SKU search fix (product search matches name only, never SKU).
-- Zone 6 movement-kind label fix (history never renders "transfer" for codes 801/311).
-- Zone 6 `posted_by`/history visibility (acting user never shown).
+- ~~Zone 6 SKU search fix~~ **DONE 2026-10-01**: product search matches the name OR any variant SKU/barcode (both grouped and per-variant lists).
+- ~~Zone 6 movement-kind label fix~~ **DONE 2026-10-01**: location history maps codes to kinds (801/311/312 → przesunięcie / "Relokacja wewnętrzna", 101 → PZ, 261 → RW, 401/402 → INW, 900 → storno).
+- ~~Zone 6 `posted_by`/history visibility~~ **DONE 2026-10-01**: location history shows who posted (or created) each movement.
 - Fresh QR manual UAT (Zone 4) — last recorded pass is 6+ weeks old, predates significant backend churn.
 - Fresh RepairOrder manual UAT (Zone 3, Phase 7+) — tracker's own last entry still shows this outstanding.
 - Matcher Approve→RepairOrder-materialization rehearsal (Zone 2) — real, tested, never manually rehearsed.

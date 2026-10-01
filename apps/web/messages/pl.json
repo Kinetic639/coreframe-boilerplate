@@ -7271,7 +7271,14 @@
       "recentMovements": "Ostatnie ruchy",
       "noActivity": "Brak zarejestrowanej aktywności",
       "internalRelocation": "Relokacja wewnętrzna",
-      "external": "Zewnętrzne"
+      "external": "Zewnętrzne",
+      "kind": {
+        "receipt": "Przyjęcie (PZ)",
+        "transfer": "Przesunięcie (MM)",
+        "issue": "Wydanie na zlecenie (RW)",
+        "adjustment": "Korekta (INW)",
+        "reversal": "Storno"
+      }
     },
     "export": {
       "title": "Eksport danych lokalizacji",
