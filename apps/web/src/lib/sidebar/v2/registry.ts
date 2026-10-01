@@ -108,6 +108,17 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
             },
           },
           {
+            id: "warehouse.putaway",
+            title: "Putaway",
+            titleKey: "modules.warehouse.items.putaway",
+            iconKey: "truck",
+            href: "/dashboard/warehouse/putaway",
+            match: { startsWith: "/dashboard/warehouse/putaway" },
+            visibility: {
+              requiresPermissions: [WAREHOUSE_INVENTORY_READ],
+            },
+          },
+          {
             id: "warehouse.items",
             title: "Items",
             titleKey: "modules.warehouse.items.products.title",

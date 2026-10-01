@@ -213,11 +213,13 @@ export function RepairOrderLineReservation({ repairOrderLineId, branchId }: Prop
                   <SelectValue placeholder={t("locationPlaceholder")} />
                 </SelectTrigger>
                 <SelectContent>
-                  {(locationsQuery.data ?? []).map((loc) => (
-                    <SelectItem key={loc.id} value={loc.id}>
-                      {loc.name}
-                    </SelectItem>
-                  ))}
+                  {(locationsQuery.data ?? [])
+                    .filter((loc) => loc.purpose !== "receiving")
+                    .map((loc) => (
+                      <SelectItem key={loc.id} value={loc.id}>
+                        {loc.name}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
               <div className="flex gap-2">

@@ -97,7 +97,7 @@ export interface UpdateLocationInput {
 // ─── Column select ────────────────────────────────────────────────────────────
 
 const LOCATION_COLUMNS =
-  "id, organization_id, branch_id, name, code, description, icon_name, color, parent_id, group_id, inherit_group_color, inherit_parent_color, physical_width_m, physical_depth_m, physical_height_m, physical_elevation_start_m, elevation_level, map_role, storage_mode, allow_top_storage, can_store_inventory, level, sort_order, qr_code, created_by, updated_by, created_at, updated_at, deleted_at" as const;
+  "id, organization_id, branch_id, name, code, description, icon_name, color, parent_id, group_id, inherit_group_color, inherit_parent_color, physical_width_m, physical_depth_m, physical_height_m, physical_elevation_start_m, elevation_level, map_role, storage_mode, allow_top_storage, can_store_inventory, purpose, level, sort_order, qr_code, created_by, updated_by, created_at, updated_at, deleted_at" as const;
 
 const GROUP_SCOPE_COLUMNS =
   "id, organization_id, branch_id, parent_location_id, deleted_at" as const;

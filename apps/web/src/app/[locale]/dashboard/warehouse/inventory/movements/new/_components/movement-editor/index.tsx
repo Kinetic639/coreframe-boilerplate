@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "react-toastify";
 import { FileText, Layers } from "lucide-react";
@@ -33,6 +33,7 @@ export function MovementDocumentForm({
   units,
   canManageProducts,
   initialValues,
+  receivingLocationId = null,
 }: MovementFormProps) {
   const t = useTranslations("warehouseInventory.movementEditor");
   const today = new Date().toISOString().split("T")[0];
@@ -74,6 +75,14 @@ export function MovementDocumentForm({
     validation,
     initialValues
   );
+
+  // Zone 5: a PZ always goes to the receiving zone (the server enforces it
+  // too); keep the routing in sync so validation and the summary agree.
+  const lockedDestinationId = form.isPZ ? receivingLocationId : null;
+  const { dstLoc, setDstLoc } = form;
+  useEffect(() => {
+    if (lockedDestinationId && dstLoc !== lockedDestinationId) setDstLoc(lockedDestinationId);
+  }, [lockedDestinationId, dstLoc, setDstLoc]);
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -212,6 +221,7 @@ export function MovementDocumentForm({
               is801={form.is801}
               srcLoc={form.srcLoc}
               dstLoc={form.dstLoc}
+              lockedDestinationId={lockedDestinationId}
               stockableLocations={stockableLocations}
               lines={form.lines}
               pickerDisabled={pickerDisabled}

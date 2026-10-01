@@ -102,6 +102,8 @@ export type MovementFormProps = {
   units: InventoryUnitRow[];
   canManageProducts: boolean;
   initialValues?: MovementFormInitialValues;
+  /** Zone 5: a PZ always lands here (the branch's receiving zone). */
+  receivingLocationId?: string | null;
 };
 
 export type ValidationResult = {

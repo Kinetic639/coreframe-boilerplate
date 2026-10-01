@@ -42,6 +42,8 @@ export function useMovementSubmission(
         source_location_id: requiresSourceLocation ? l.source_location_id || srcLoc || null : null,
         destination_location_id: l.destination_location_id || dstLoc || null,
         note: l.note ?? null,
+        source_type: l.source_type ?? null,
+        source_line_id: l.source_line_id ?? null,
       })),
     [lines, requiresSourceLocation, srcLoc, dstLoc]
   );

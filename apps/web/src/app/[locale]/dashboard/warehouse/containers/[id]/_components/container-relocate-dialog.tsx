@@ -61,7 +61,10 @@ export function ContainerRelocateDialog({
   const destinations = useMemo(
     () =>
       (locationsQuery.data ?? []).filter(
-        (loc) => loc.can_store_inventory !== false && loc.id !== currentLocationId
+        (loc) =>
+          loc.can_store_inventory !== false &&
+          loc.purpose !== "receiving" &&
+          loc.id !== currentLocationId
       ),
     [locationsQuery.data, currentLocationId]
   );

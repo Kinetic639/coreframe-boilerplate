@@ -14,6 +14,7 @@ import { InventoryProductsService } from "@/server/services/inventory-products.s
 import { InventoryMovementsService } from "@/server/services/inventory-movements.service";
 import { InventoryMovementFieldPoliciesService } from "@/server/services/inventory-movement-field-policies.service";
 import { WarehouseLocationsService } from "@/server/services/warehouse-locations.service";
+import { InventoryReceivingService } from "@/server/services/inventory-receiving.service";
 import { MovementDocumentForm } from "./_components/movement-document-form";
 
 export default async function WarehouseInventoryNewMovementPage() {
@@ -58,6 +59,12 @@ export default async function WarehouseInventoryNewMovementPage() {
       InventoryMovementFieldPoliciesService.listForOrganization(supabase, context.app.activeOrgId),
     ]);
 
+  const receivingLocationId = await InventoryReceivingService.getReceivingLocationId(
+    supabase,
+    context.app.activeOrgId,
+    branchId
+  );
+
   const stockableLocations = locationsResult.success
     ? locationsResult.data
         .filter((loc) => loc.can_store_inventory)
@@ -87,6 +94,7 @@ export default async function WarehouseInventoryNewMovementPage() {
       movementTypes={typesResult.success ? typesResult.data : []}
       fieldPolicies={policiesResult.success ? policiesResult.data : {}}
       stockableLocations={stockableLocations}
+      receivingLocationId={receivingLocationId}
       variants={variantsResult.success ? variantsResult.data : []}
       units={unitsResult.success ? unitsResult.data : []}
       canManageProducts={checkPermission(

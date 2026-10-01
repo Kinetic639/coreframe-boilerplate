@@ -59,6 +59,14 @@ BEGIN;
 
 SELECT plan(17);
 
+-- Zone 5 (2026-10-01): reservations/allocations at a receiving location are
+-- now blocked by trigger (receiving-zone stock is not available). This file
+-- deliberately reserves AT the receiving location to prove the IC-1
+-- strand-protection invariant, so it disables those two triggers for this
+-- transaction only (rolled back at the end). 118_ covers the new block.
+ALTER TABLE inventory_reservation_lines DISABLE TRIGGER inventory_reservation_lines_not_at_receiving;
+ALTER TABLE inventory_allocation_lines DISABLE TRIGGER inventory_allocation_lines_not_at_receiving;
+
 -- ===========================================================================
 -- Fixtures: a full, real Zone 5 provenance chain (workshop_source_documents
 -- -> workshop_source_document_lines -> repair_order_line_source_links) is

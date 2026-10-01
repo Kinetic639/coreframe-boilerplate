@@ -2712,7 +2712,8 @@
         "purchases": {
           "title": "Zakupy",
           "orders": "Zamówienia Zakupu"
-        }
+        },
+        "putaway": "Do rozlokowania"
       },
       "partnerTypes": {
         "vendor": "Dostawca",
@@ -2810,6 +2811,61 @@
             "invalid_input": "Nieprawidłowe dane przeniesienia.",
             "unexpected": "Nie udało się przenieść kontenera. Spróbuj ponownie."
           }
+        }
+      },
+      "putaway": {
+        "title": "Do rozlokowania",
+        "subtitle": "Towar w strefie przyjęć nie jest dostępny, dopóki nie zostanie rozłożony na lokalizację lub do kontenera.",
+        "noBranch": "Wybierz aktywny oddział.",
+        "loadError": "Nie udało się wczytać strefy przyjęć.",
+        "noReceivingLocation": "Ten oddział nie ma skonfigurowanej strefy przyjęć. Administrator może ją wskazać na stronie Lokalizacje.",
+        "empty": "Strefa przyjęć jest pusta — wszystko zostało rozlokowane.",
+        "summary": "{count, plural, one {# pozycja czeka na rozlokowanie} few {# pozycje czekają na rozlokowanie} many {# pozycji czeka na rozlokowanie} other {# pozycji czeka na rozlokowanie}}",
+        "freeGroup": "Wolne (bez zlecenia)",
+        "bulkBadge": "Materiał zbiorczy",
+        "putaway": "Rozłóż",
+        "suggest": {
+          "container": "Do kontenera {code} ({location})",
+          "newContainer": "Nowy kontener zlecenia w lokalizacji, którą zeskanujesz",
+          "bulkFixed": "Stała lokalizacja: {location}",
+          "bulkNoFixed": "Materiał zbiorczy — brak stałej lokalizacji, zeskanuj miejsce",
+          "freeFixed": "Stała lokalizacja: {location}",
+          "free": "Dowolna lokalizacja"
+        },
+        "dialog": {
+          "scan": "Zeskanuj lokalizację",
+          "scanHint": "Zeskanuj naklejkę QR lokalizacji, na którą odkładasz część.",
+          "scanBack": "Wróć",
+          "scanNotLocation": "To nie jest naklejka lokalizacji. Zeskanuj naklejkę lokalizacji.",
+          "scanNotAvailable": "Tej lokalizacji nie można użyć — należy do innego oddziału albo nie przechowuje towaru.",
+          "scanIsReceiving": "To strefa przyjęć — zeskanuj lokalizację docelową.",
+          "orPick": "lub wybierz z listy",
+          "placeholder": "Wybierz lokalizację",
+          "loading": "Wczytywanie lokalizacji…",
+          "quantity": "Ilość (maks. {max} {unit})",
+          "outcome": {
+            "pickFirst": "Zeskanuj lub wybierz lokalizację.",
+            "intoContainer": "Trafi do kontenera {code} tego zlecenia.",
+            "newContainer": "Powstanie nowy kontener tego zlecenia w tej lokalizacji.",
+            "bulkReserved": "Materiał zbiorczy: odłożony bez kontenera i zarezerwowany dla zlecenia.",
+            "loose": "Odłożony luzem na lokalizację."
+          },
+          "confirm": "Potwierdź",
+          "confirming": "Zapisywanie…",
+          "cancel": "Anuluj",
+          "doneContainer": "Włożono do kontenera {code} ({location}).",
+          "doneNewContainer": "Utworzono kontener {code} w {location} i włożono część.",
+          "doneLocation": "Rozłożono na {location}."
+        },
+        "errors": {
+          "unauthorized": "Nie masz uprawnień do rozlokowania w tym oddziale.",
+          "not_found": "Nie znaleziono pozycji — odśwież listę.",
+          "invalid_destination": "Tej lokalizacji nie można użyć jako miejsca odłożenia.",
+          "not_enough": "W strefie przyjęć nie ma już takiej ilości — odśwież listę.",
+          "wrong_item": "Ta część nie pasuje do pozycji zlecenia.",
+          "no_receiving_location": "Ten oddział nie ma skonfigurowanej strefy przyjęć.",
+          "invalid_input": "Nieprawidłowe dane.",
+          "unexpected": "Nie udało się rozlokować. Spróbuj ponownie."
         }
       }
     },
@@ -5854,7 +5910,25 @@
       "manufacturer": "Producent",
       "unitConversions": "Konwersje jednostek",
       "noProductConversions": "Brak konwersji jednostek dla produktu.",
-      "profileTitle": "Profil produktu"
+      "profileTitle": "Profil produktu",
+      "handling": {
+        "title": "Rozlokowanie w oddziale {branch}",
+        "modeLabel": "Sposób obsługi",
+        "mode": {
+          "standard": "Standard (do kontenera zlecenia)",
+          "bulk": "Materiał zbiorczy (stała lokalizacja)"
+        },
+        "locationLabel": "Stała lokalizacja",
+        "noLocation": "Brak",
+        "help": {
+          "standard": "Część przyjęta pod zlecenie trafia do kontenera tego zlecenia.",
+          "bulk": "Klipsy, spinki, materiały: odkładane do stałej lokalizacji (kuweta, regał, szafa) bez kontenera, ale nadal zarezerwowane pod zlecenie i odhaczane na wydaniu."
+        },
+        "save": "Zapisz",
+        "saving": "Zapisywanie…",
+        "saved": "Zapisano sposób obsługi części.",
+        "saveError": "Nie udało się zapisać."
+      }
     },
     "inventory": {
       "title": "Magazyn",
@@ -6081,7 +6155,8 @@
       "colProductBrand": "Produkt / Marka",
       "colUnit": "Jedn.",
       "colAvail": "Dost.",
-      "colQuantity": "Ilość"
+      "colQuantity": "Ilość",
+      "receivingZoneHint": "PZ zawsze trafia do strefy przyjęć. Towar stanie się dostępny po rozlokowaniu (Magazyn → Do rozlokowania)."
     },
     "itemPicker": {
       "title": "Selektor pozycji WMS",
@@ -6934,6 +7009,23 @@
         "reorderTitle": "Sugestie uzupełnienia stanów",
         "reorderViewAll": "Zobacz pełny raport uzupełnień",
         "reorderEmpty": "Żadna pozycja w zakresie tej inwentaryzacji nie jest poniżej progu zamówienia."
+      }
+    },
+    "receiptReport": {
+      "title": "Rozlokowanie dostawy",
+      "subtitle": "Gdzie trafiła każda pozycja tego PZ — dane do aktualizacji DMS/AutoStacji.",
+      "statusDone": "Wszystko rozlokowane",
+      "statusWaiting": "W strefie przyjęć: {waiting} z {total}",
+      "csv": "Eksport CSV",
+      "print": "Drukuj",
+      "columns": {
+        "sku": "Numer części",
+        "name": "Nazwa",
+        "quantity": "Ilość",
+        "zl": "ZL",
+        "location": "Rozłożono na",
+        "container": "Kontener",
+        "pending": "Czeka w PRZ"
       }
     }
   },

@@ -1,6 +1,10 @@
 ### 5. Przyjęcie 101/PZ → import z Matchera → mobilne rozłożenie → zamknięcie → raport
 
-# CURRENT STATUS — 2026-09-23
+# CURRENT STATUS — 2026-10-01: 🔵 IMPLEMENTED, awaiting live verification
+
+Product decisions are recorded at the end of this file. Implementation, tests and known limits: `docs/mvp/reviews/zone5-receiving-putaway-2026-10-01/summary.md`. Open: live run of pgTAP 118 (and re-run of 101/102), deploy, live E2E with a real Matcher session.
+
+# PREVIOUS STATUS — 2026-09-23
 
 **CONFIRMED, UNCONDITIONAL PRESENTATION BLOCKER.** This document's bottom-line verdict (mobile putaway does not exist; containers are disconnected from receiving) remains ACCURATE, independently re-confirmed via fresh code inspection. The current master pitch script (`docs/mvp/ambra-skrypt-prezentacji.md`, §7) explicitly demos scan→confirm mobile putaway live on a phone — this is not a conditional/optional gap. Backend is real and tested: canonical Inventory Core exists (frozen, see `docs/inventory/reviews/inventory-core-final-pilot-freeze/`); `receive_repair_order_stock` exists and is tested; `putaway_repair_order_stock` exists and is tested; the A8 physical-state read (`get_repair_order_line_physical_state`) exists. **Zero UI callers for any of these.** Mobile routes `/warehouse/deliveries` and `/warehouse/scanning/delivery` are confirmed placeholders.
 
@@ -135,28 +139,43 @@ Ponieważ bramka pitchu dla tej strefy już wymaga zbudowania większości braku
 
 ### Open questions
 
-_To be reviewed together before implementation._
+None open for the pitch build (resolved with the product owner, 2026-10-01).
 
 ### Problems / ambiguities
 
-_To be reviewed together before implementation._
+- The previous plan coupled receiving, putaway, closing and the report into one "Matcher delivery session" flow. That plan is rejected in favour of independent functions.
+- `receive_repair_order_stock` / `putaway_repair_order_stock` exist but nothing calls them. The generic movement editor's Matcher import posts a 101 that loses the link from Matcher line to RepairOrderLine.
 
-### Product decisions
+### Product decisions (2026-10-01, product owner)
 
-_No final decisions recorded yet._
+1. **Receiving (PZ/101) is just a stock movement.** It is entered manually or imported from any source; the SVWMS Matcher is one import adapter among others. When posted, a Matcher-imported PZ keeps the link from Matcher line to RepairOrderLine.
+2. **Putaway is a separate, independent function.** It works for free stock and RepairOrder stock alike. Its data source is the PZ, i.e. what physically sits in the receiving zone; manual entry is also possible. Putaway does not read the Matcher directly. This matches SAP EWM (GR, then putaway tasks), Odoo (two-step reception) and Dynamics 365 (registration, then put-away work).
+3. **Receiving zone = waiting room.** A PZ always lands in the branch's receiving location (`purpose='receiving'`, e.g. PRZ). Stock there is not available: it cannot be reserved, allocated or issued until it is put away. A "Do rozlokowania" view shows what is waiting, from which PZ and for which repair order. Unattributed lines can be assigned to a repair order there.
+4. **Putaway confirmation on the phone:** pick the item from the list → scan the location → confirm.
+   - A RepairOrder part (standard handling) goes into that RepairOrder's container at the scanned location: the existing one if present, otherwise a new `K-<ZL>-NN`. This applies decision A of 2026-09-24.
+   - A free part goes loose to the location.
+5. **Bulk material (klipsy, spinki, materiały) with a fixed location.** Each product has a per-branch handling mode, either `standard` or `bulk`, and an optional fixed location.
+   - Bulk material that arrived for a RepairOrder is put away to its fixed location (bin/shelf/cabinet) without a container, and stays reserved for that RepairOrder there. This is a narrow exception to decision A of 2026-09-24.
+   - At issue (Phase 10F) bulk lines are ticked off on the same issue document. A WZ is posted from the fixed location, but the material is not handed over physically: mechanics take it themselves.
+   - Discrepancies are settled by stock-taking (inventory counts).
+6. **Report for DMS/AutoStacja** is generated from the PZ and its putaway (PZ number, lines, ZL, actual locations/containers), never from the Matcher document alone.
 
 ### Final intended workflow
 
-_To be defined after product clarification._
+Matcher (or a manual entry, or another source) → PZ into PRZ, attributed to RepairOrderLines → "Do rozlokowania" (desktop + phone) → per item: suggestion (RO container / new container / fixed location), scan location, confirm → progress "rozłożono X z Y" → report from the PZ.
 
 ### Architecture implications
 
-_To be defined after the intended workflow is agreed._
+- DB: a trigger blocks reservation/allocation lines at a receiving location. pgTAP 101/102, which reserve at a receiving location to prove IC-1, switch the fixture location to `standard` after receiving.
+- DB: new `inventory_product_branch_settings` table (handling mode and fixed location, per product per branch).
+- DB: new `inventory_putaway_from_receiving` RPC: 801 out of PRZ; for RepairOrder stock, attribution, reservation, and (standard handling) allocation and container placement, all atomic.
+- DB: new `inventory_receiving_pending` read function, listing what is waiting in PRZ, per RepairOrderLine or free.
+- App: a 101 always goes to PRZ. The Matcher import carries the Matcher line id and attributes lines on post.
 
 ### Final pitch scope
 
-_To be defined after clarification._
+The decisions above, with one PZ from a Matcher session shown live, putaway on a phone for a standard part (into a container) and a bulk part (to its fixed bin), and the PZ report. Ticking off bulk lines on an issue belongs to Phase 10F.
 
 ### Final controlled-pilot scope
 
-_To be defined after clarification._
+As the pitch scope, plus the pilot checklist above (idempotency, double-import guard, partial deliveries, corrections).
