@@ -2741,7 +2741,8 @@
         "purchases": {
           "title": "Purchases",
           "orders": "Purchase Orders"
-        }
+        },
+        "putaway": "Putaway"
       },
       "partnerTypes": {
         "vendor": "Supplier",
@@ -2839,6 +2840,61 @@
             "invalid_input": "Invalid move request.",
             "unexpected": "Could not move the container. Please try again."
           }
+        }
+      },
+      "putaway": {
+        "title": "Putaway",
+        "subtitle": "Stock in the receiving zone is not available until it is put away to a location or into a container.",
+        "noBranch": "Select an active branch.",
+        "loadError": "Could not load the receiving zone.",
+        "noReceivingLocation": "This branch has no receiving zone configured. An admin can designate one on the Locations page.",
+        "empty": "The receiving zone is empty — everything has been put away.",
+        "summary": "{count, plural, one {# item waits to be put away} other {# items wait to be put away}}",
+        "freeGroup": "Free stock (no repair order)",
+        "bulkBadge": "Bulk material",
+        "putaway": "Put away",
+        "suggest": {
+          "container": "Into container {code} ({location})",
+          "newContainer": "New repair-order container at the location you scan",
+          "bulkFixed": "Fixed location: {location}",
+          "bulkNoFixed": "Bulk material — no fixed location, scan a place",
+          "freeFixed": "Fixed location: {location}",
+          "free": "Any location"
+        },
+        "dialog": {
+          "scan": "Scan location",
+          "scanHint": "Scan the QR sticker of the location you put the part on.",
+          "scanBack": "Back",
+          "scanNotLocation": "This is not a location sticker. Scan a location sticker.",
+          "scanNotAvailable": "This location can't be used — it belongs to another branch or does not hold stock.",
+          "scanIsReceiving": "That is the receiving zone — scan the destination location.",
+          "orPick": "or pick from the list",
+          "placeholder": "Choose a location",
+          "loading": "Loading locations…",
+          "quantity": "Quantity (max {max} {unit})",
+          "outcome": {
+            "pickFirst": "Scan or choose a location.",
+            "intoContainer": "Goes into this repair order's container {code}.",
+            "newContainer": "A new container for this repair order is created at this location.",
+            "bulkReserved": "Bulk material: stored without a container and reserved for the repair order.",
+            "loose": "Stored loose on the location."
+          },
+          "confirm": "Confirm",
+          "confirming": "Saving…",
+          "cancel": "Cancel",
+          "doneContainer": "Placed into container {code} ({location}).",
+          "doneNewContainer": "Created container {code} at {location} and placed the part.",
+          "doneLocation": "Put away to {location}."
+        },
+        "errors": {
+          "unauthorized": "You are not allowed to put away stock in this branch.",
+          "not_found": "Item not found — refresh the list.",
+          "invalid_destination": "This location can't be used as a putaway destination.",
+          "not_enough": "The receiving zone no longer holds that quantity — refresh the list.",
+          "wrong_item": "This part does not match the repair-order line.",
+          "no_receiving_location": "This branch has no receiving zone configured.",
+          "invalid_input": "Invalid input.",
+          "unexpected": "Could not put away. Please try again."
         }
       }
     },
@@ -3354,6 +3410,36 @@
           "created": "Container {code} created.",
           "createError": "Could not create the container.",
           "open": "Open"
+        },
+        "issue": {
+          "open": "Issue parts (RW)",
+          "title": "Issue parts to repair order {zl}",
+          "description": "Internal issue (RW) — parts handed to the body/paint technician for the repair. Stock goes down and the lines stay linked to the order.",
+          "loading": "Loading parts to issue…",
+          "loadError": "Could not load parts to issue.",
+          "empty": "No parts ready to issue. Put the delivery away or reserve parts first.",
+          "groupPrepare": "To prepare (from containers)",
+          "groupTickOff": "To tick off (reserved at a location)",
+          "groupTickOffHint": "E.g. clips and bulk material from bins — issued on the same RW, mechanics take them themselves.",
+          "fromContainers": "{containers} · {location}",
+          "fromLocation": "{location}",
+          "quantity": "Quantity",
+          "recipient": "Recipient (issued to)",
+          "recipientPlaceholder": "e.g. John Smith — body technician",
+          "note": "Note (optional)",
+          "cancel": "Cancel",
+          "confirm": "{count, plural, one {Issue # line} other {Issue # lines}}",
+          "issuing": "Issuing…",
+          "issued": "Issued — document {number}.",
+          "errors": {
+            "unauthorized": "You are not allowed to issue parts in this branch.",
+            "not_found": "Item not found — refresh the page.",
+            "not_enough": "Already issued or the quantity changed — refresh the list.",
+            "recipient_required": "Enter a recipient.",
+            "insufficient_stock": "Not enough stock at the location — check the warehouse.",
+            "invalid_input": "Invalid issue request.",
+            "unexpected": "Could not issue the parts. Please try again."
+          }
         }
       }
     },
@@ -5880,7 +5966,25 @@
       "manufacturer": "Manufacturer",
       "unitConversions": "Unit conversions",
       "noProductConversions": "No product-specific conversions.",
-      "profileTitle": "Product profile"
+      "profileTitle": "Product profile",
+      "handling": {
+        "title": "Putaway in branch {branch}",
+        "modeLabel": "Handling",
+        "mode": {
+          "standard": "Standard (into the repair-order container)",
+          "bulk": "Bulk material (fixed location)"
+        },
+        "locationLabel": "Fixed location",
+        "noLocation": "None",
+        "help": {
+          "standard": "A part received for a repair order goes into that order's container.",
+          "bulk": "Clips, consumables: stored at a fixed location (bin, shelf, cabinet) without a container, still reserved for the order and ticked off on the issue."
+        },
+        "save": "Save",
+        "saving": "Saving…",
+        "saved": "Product handling saved.",
+        "saveError": "Could not save."
+      }
     },
     "inventory": {
       "title": "Inventory",
@@ -6107,7 +6211,8 @@
       "colProductBrand": "Product / Brand",
       "colUnit": "Unit",
       "colAvail": "Avail.",
-      "colQuantity": "Quantity"
+      "colQuantity": "Quantity",
+      "receivingZoneHint": "A goods receipt always lands in the receiving zone. Stock becomes available once it is put away (Warehouse → Putaway)."
     },
     "itemPicker": {
       "title": "WMS Item Picker",
@@ -6961,6 +7066,23 @@
         "reorderViewAll": "View full reorder report",
         "reorderEmpty": "No items in this audit's scope are below their reorder point."
       }
+    },
+    "receiptReport": {
+      "title": "Delivery putaway",
+      "subtitle": "Where each line of this goods receipt went — data for updating DMS/AutoStacja.",
+      "statusDone": "Everything put away",
+      "statusWaiting": "In the receiving zone: {waiting} of {total}",
+      "csv": "Export CSV",
+      "print": "Print",
+      "columns": {
+        "sku": "Part number",
+        "name": "Name",
+        "quantity": "Quantity",
+        "zl": "ZL",
+        "location": "Put away to",
+        "container": "Container",
+        "pending": "Waiting in receiving"
+      }
     }
   },
   "warehouseReports": {
@@ -7175,7 +7297,14 @@
       "recentMovements": "Recent movements",
       "noActivity": "No activity recorded",
       "internalRelocation": "Internal relocation",
-      "external": "External"
+      "external": "External",
+      "kind": {
+        "receipt": "Goods receipt (PZ)",
+        "transfer": "Transfer (MM)",
+        "issue": "Issue to repair order (RW)",
+        "adjustment": "Adjustment (INW)",
+        "reversal": "Reversal"
+      }
     },
     "export": {
       "title": "Location data export",

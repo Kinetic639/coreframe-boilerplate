@@ -1,5 +1,7 @@
 ### 11. Home / Operational Dashboard
 
+> **2026-10-01:** the home dashboard gained a "Do rozlokowania" summary tile and quick action (count of items waiting in the branch's receiving zone, Zone 5), gated on the warehouse module + `warehouse.inventory.read` + an active branch.
+
 # CURRENT STATUS — 2026-09-25 (updated during main ↔ Zone 1 integration)
 
 **CURRENT STATUS — IMPLEMENTED, DEMO SUFFICIENT.** `/dashboard/start` has been rebuilt (independently, on `main`, via the Zone 11 "operational home dashboard" workstream — see the HISTORICAL AUDIT / DESIGN RECORD section below for the full, detailed record) into a real, server-rendered operational dashboard: active org/branch context, a real ticket-attention queue, a real personal-activity feed, and a Planning widget (today's calendar, branch-scoped tasks, a Kanban preview). It is no longer the static placeholder described in this document's own historical audit excerpts below.

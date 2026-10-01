@@ -130,11 +130,13 @@ export function RepairOrderContainers({
                 <SelectValue placeholder={t("locationPlaceholder")} />
               </SelectTrigger>
               <SelectContent>
-                {(locationsQuery.data ?? []).map((loc) => (
-                  <SelectItem key={loc.id} value={loc.id}>
-                    {loc.code ? `${loc.code} · ${loc.name}` : loc.name}
-                  </SelectItem>
-                ))}
+                {(locationsQuery.data ?? [])
+                  .filter((loc) => loc.can_store_inventory !== false && loc.purpose !== "receiving")
+                  .map((loc) => (
+                    <SelectItem key={loc.id} value={loc.id}>
+                      {loc.code ? `${loc.code} · ${loc.name}` : loc.name}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </div>

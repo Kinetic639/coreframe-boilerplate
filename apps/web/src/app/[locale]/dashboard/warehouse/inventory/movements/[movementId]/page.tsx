@@ -14,6 +14,8 @@ import { createClient } from "@/utils/supabase/server";
 import { InventoryMovementsService } from "@/server/services/inventory-movements.service";
 import { WarehouseLocationsService } from "@/server/services/warehouse-locations.service";
 import { InventoryMovementDetailPanel } from "../_components/inventory-movement-detail-panel";
+import { InventoryReceivingService } from "@/server/services/inventory-receiving.service";
+import { ReceiptPutawayReport } from "./_components/receipt-putaway-report";
 
 type PageProps = {
   params: Promise<{ movementId: string }>;
@@ -52,6 +54,22 @@ export default async function WarehouseInventoryMovementDetailPage({ params }: P
 
   if (!movementResult.success || !movementResult.data) notFound();
 
+  const detail = movementResult.data;
+  // Zone 5: a posted PZ shows where each of its lines was put away.
+  const reportResult =
+    detail.movement_type_code === "101" && detail.status === "posted"
+      ? await InventoryReceivingService.getReceiptReport(
+          supabase,
+          context.app.activeOrgId,
+          branchId,
+          {
+            movementId: detail.id,
+            postedAt: detail.posted_at,
+            lines: detail.lines,
+          }
+        )
+      : null;
+
   const stockableLocations = locationsResult.success
     ? locationsResult.data
         .filter((loc) => loc.can_store_inventory)
@@ -77,6 +95,10 @@ export default async function WarehouseInventoryMovementDetailPage({ params }: P
           showPrintAction
         />
       </section>
+
+      {reportResult?.success && (
+        <ReceiptPutawayReport documentNumber={detail.document_number} lines={reportResult.data} />
+      )}
     </div>
   );
 }

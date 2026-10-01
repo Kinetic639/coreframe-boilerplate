@@ -41,7 +41,35 @@ type MovementHeaderRow = {
   status: string;
   created_at: string;
   posted_at: string | null;
+  posted_by: string | null;
+  created_by: string | null;
 };
+
+/**
+ * Zone 6: the history shows what a movement IS, not its numeric code --
+ * 801 / 311 / 312 move stock between locations, 261 issues it to a repair
+ * order, and so on. Unknown codes fall through unchanged.
+ */
+export function movementKindForCode(code: string): string {
+  switch (code) {
+    case "101":
+      return "receipt";
+    case "801":
+    case "311":
+    case "312":
+      return "transfer";
+    case "261":
+    case "201":
+      return "issue";
+    case "401":
+    case "402":
+      return "adjustment";
+    case "900":
+      return "reversal";
+    default:
+      return code;
+  }
+}
 
 function toNumber(value: number | string | null | undefined): number {
   if (value == null) return 0;
@@ -231,7 +259,7 @@ export class AmbraLocationInventoryService {
     const { data: headersData, error: headersError } = await supabase
       .from("inventory_movement_headers")
       .select(
-        "id, document_number, draft_number, movement_type_code, status, created_at, posted_at"
+        "id, document_number, draft_number, movement_type_code, status, created_at, posted_at, posted_by, created_by"
       )
       .eq("organization_id", orgId)
       .eq("branch_id", branchId)
@@ -276,6 +304,28 @@ export class AmbraLocationInventoryService {
     const headersById = new Map(
       ((headersData ?? []) as MovementHeaderRow[]).map((row) => [row.id, row])
     );
+
+    // Zone 6: who performed each movement (posted_by, else the creator).
+    const actorIds = [
+      ...new Set(
+        ((headersData ?? []) as MovementHeaderRow[])
+          .map((row) => row.posted_by ?? row.created_by)
+          .filter((id): id is string => Boolean(id))
+      ),
+    ];
+    const { data: actorsData } = actorIds.length
+      ? await supabase.from("users").select("id, first_name, last_name, email").in("id", actorIds)
+      : { data: [] };
+    const actorNameById = new Map(
+      (
+        (actorsData ?? []) as Array<{
+          id: string;
+          first_name: string | null;
+          last_name: string | null;
+          email: string | null;
+        }>
+      ).map((u) => [u.id, [u.first_name, u.last_name].filter(Boolean).join(" ") || u.email || null])
+    );
     const variantsById = new Map(variants.map((variant) => [variant.id, variant]));
     const productsById = new Map(
       ((productsData ?? []) as Array<{ id: string; name: string }>).map((product) => [
@@ -305,7 +355,8 @@ export class AmbraLocationInventoryService {
             id: line.id,
             movementId: line.movement_id,
             movementNumber: header.document_number ?? header.draft_number ?? "",
-            movementKind: header.movement_type_code,
+            movementKind: movementKindForCode(header.movement_type_code),
+            movementTypeCode: header.movement_type_code,
             status: header.status,
             variantId: line.variant_id,
             sku: variant?.sku ?? "",
@@ -324,6 +375,7 @@ export class AmbraLocationInventoryService {
             containerCode: null,
             createdAt: header.created_at,
             postedAt: header.posted_at,
+            actorName: actorNameById.get(header.posted_by ?? header.created_by ?? "") ?? null,
           };
         })
         .filter((line): line is LocationMovementLine => line !== null),

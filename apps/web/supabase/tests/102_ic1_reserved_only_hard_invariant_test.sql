@@ -36,6 +36,14 @@ BEGIN;
 
 SELECT plan(11);
 
+-- Zone 5 (2026-10-01): reservations/allocations at a receiving location are
+-- now blocked by trigger (receiving-zone stock is not available). This file
+-- deliberately reserves AT the receiving location to prove the IC-1
+-- strand-protection invariant, so it disables those two triggers for this
+-- transaction only (rolled back at the end). 118_ covers the new block.
+ALTER TABLE inventory_reservation_lines DISABLE TRIGGER inventory_reservation_lines_not_at_receiving;
+ALTER TABLE inventory_allocation_lines DISABLE TRIGGER inventory_allocation_lines_not_at_receiving;
+
 CREATE TEMP TABLE fxb (
   org uuid, branch uuid, e2e_user uuid, variant_1 uuid, unit_1 uuid,
   ro uuid, rol uuid, session_id uuid, doc_id uuid, wsdl_id uuid,

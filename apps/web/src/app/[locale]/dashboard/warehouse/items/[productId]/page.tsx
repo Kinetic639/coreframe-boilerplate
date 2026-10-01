@@ -27,6 +27,8 @@ import {
   WarehouseItemSuppliersService,
   type WarehouseItemSupplierRow,
 } from "@/server/services/warehouse-item-suppliers.service";
+import { InventoryReceivingService } from "@/server/services/inventory-receiving.service";
+import { ProductHandlingCard } from "./_components/product-handling-card";
 
 type PageProps = {
   params: Promise<{ productId: string }>;
@@ -77,6 +79,11 @@ export default async function WarehouseItemDetailPage({ params }: PageProps) {
   const productImages = product.images.filter((image) => !image.variant_id);
   const canManage = checkPermission(context.user.permissionSnapshot, WAREHOUSE_PRODUCTS_MANAGE);
   const hasVisibleVariants = product.variant_count > 1;
+  const activeBranchId = context.app.activeBranchId ?? null;
+  const handlingResult = activeBranchId
+    ? await InventoryReceivingService.getProductSettings(supabase, activeBranchId, product.id)
+    : null;
+  const handling = handlingResult?.success ? handlingResult.data : null;
 
   return (
     <div className="mx-auto grid w-full max-w-7xl gap-6 p-6">
@@ -111,6 +118,17 @@ export default async function WarehouseItemDetailPage({ params }: PageProps) {
           </Button>
         ) : null}
       </div>
+
+      {activeBranchId && handling && (
+        <ProductHandlingCard
+          productId={product.id}
+          branchId={activeBranchId}
+          branchName={context.app.activeBranch?.name ?? ""}
+          handlingMode={handling.handlingMode}
+          defaultLocationId={handling.defaultLocationId}
+          canManage={canManage}
+        />
+      )}
 
       <section className="grid items-start gap-4 lg:grid-cols-[minmax(220px,320px)_minmax(0,1fr)]">
         <div className="grid min-w-0 gap-3">

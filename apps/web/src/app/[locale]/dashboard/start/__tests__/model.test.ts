@@ -18,13 +18,23 @@ import {
 
 const modules = [MODULE_WAREHOUSE, MODULE_HELPDESK, MODULE_PLANNING];
 describe("home access and composition", () => {
-  it("shows only the four implemented entry points for an entitled owner", () => {
+  it("shows only the implemented entry points for an entitled owner", () => {
     expect(getHomeActions({ allow: ["*"], deny: [] }, modules, true)).toEqual([
       "tools",
       "locations",
+      "putaway",
       "tickets",
       "tasks",
     ]);
+  });
+  it("shows putaway only with warehouse inventory read", () => {
+    const actions = getHomeActions(
+      { allow: ["module.warehouse.access", "warehouse.locations.read"], deny: [] },
+      modules,
+      true
+    );
+    expect(actions).toContain("locations");
+    expect(actions).not.toContain("putaway");
   });
   it("does not interpret permissions as module entitlement", () => {
     expect(getHomeActions({ allow: ["*"], deny: [] }, [], true)).toEqual(["tools"]);

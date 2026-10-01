@@ -202,6 +202,10 @@ const movementLineSchema = z.object({
     .nullable()
     .optional(),
   note: z.string().max(500).nullable().optional(),
+  // Import provenance (Zone 5): which source line this movement line came
+  // from, e.g. a Matcher line -- used to attribute a posted PZ to RepairOrders.
+  source_type: z.string().max(60).nullable().optional(),
+  source_line_id: nullableUuidSchema,
 });
 
 const partyDetailsSchema = z

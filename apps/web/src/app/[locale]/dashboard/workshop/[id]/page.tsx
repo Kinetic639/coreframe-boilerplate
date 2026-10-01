@@ -9,6 +9,7 @@ import {
   WORKSHOP_REPAIR_ORDERS_MANAGE_ALL,
 } from "@/lib/constants/permissions";
 import { createClient } from "@/utils/supabase/server";
+import { WAREHOUSE_INVENTORY_OPERATE as WAREHOUSE_INVENTORY_OPERATE_PERMISSION } from "@/lib/constants/permissions";
 import { RepairOrdersService } from "@/server/services/repair-orders.service";
 import { ArrowLeft } from "lucide-react";
 import { RepairOrderStatusBadge } from "../_components/repair-order-status-badge";
@@ -16,6 +17,7 @@ import { RepairOrderHeaderEditor } from "./_components/repair-order-header-edito
 import { RepairOrderLinesList } from "./_components/repair-order-lines-list";
 import { RepairOrderProvenance } from "./_components/repair-order-provenance";
 import { RepairOrderContainers } from "./_components/repair-order-containers";
+import { RepairOrderIssue } from "./_components/repair-order-issue";
 import { InventoryContainersService } from "@/server/services/inventory-containers.service";
 
 type PageProps = { params: Promise<{ id: string }> };
@@ -138,6 +140,12 @@ export default async function RepairOrderDetailPage({ params }: PageProps) {
         ownAdvisorContactId={ownAdvisorContactId}
         createdAtLabel={new Date(order.createdAt).toLocaleString(locale)}
         updatedAtLabel={new Date(order.updatedAt).toLocaleString(locale)}
+      />
+
+      <RepairOrderIssue
+        repairOrderId={order.id}
+        zlNumber={order.zlNumber}
+        canOperate={checkPermission(snapshot, WAREHOUSE_INVENTORY_OPERATE_PERMISSION)}
       />
 
       <RepairOrderLinesList

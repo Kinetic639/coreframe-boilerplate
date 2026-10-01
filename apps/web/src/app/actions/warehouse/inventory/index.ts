@@ -20,6 +20,7 @@ import { InventoryProductsService } from "@/server/services/inventory-products.s
 import { InventoryProductImportsService } from "@/server/services/inventory-product-imports.service";
 import { InventoryBalancesService } from "@/server/services/inventory-balances.service";
 import { InventoryMovementsService } from "@/server/services/inventory-movements.service";
+import { InventoryReceivingService } from "@/server/services/inventory-receiving.service";
 import { InventoryMovementImportsService } from "@/server/services/inventory-movement-imports.service";
 import { InventoryEnterpriseService } from "@/server/services/inventory-enterprise.service";
 import { CrmPartiesService } from "@/server/services/crm-parties.service";
@@ -1303,6 +1304,12 @@ export async function createDraftMovementAction(rawInput: unknown) {
     if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
 
     const supabase = await createClient();
+    const receivingLocationId = await receivingDestinationFor(
+      supabase,
+      auth.context.app.activeOrgId,
+      branch.branchId,
+      parsed.data.movement_type_code!
+    );
     return InventoryMovementsService.createDraft(
       supabase,
       auth.context.app.activeOrgId,
@@ -1312,7 +1319,7 @@ export async function createDraftMovementAction(rawInput: unknown) {
         lines: parsed.data.lines!.map((line) => ({
           variant_id: line.variant_id!,
           source_location_id: line.source_location_id ?? null,
-          destination_location_id: line.destination_location_id ?? null,
+          destination_location_id: receivingLocationId ?? line.destination_location_id ?? null,
           unit_id: line.unit_id!,
           quantity: line.quantity!,
           unit_cost: line.unit_cost ?? null,
@@ -1622,7 +1629,13 @@ export async function createAndPostMovementAction(rawInput: unknown) {
     if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
 
     const supabase = await createClient();
-    return InventoryMovementsService.createAndFinalize(
+    const receivingLocationId = await receivingDestinationFor(
+      supabase,
+      auth.context.app.activeOrgId,
+      branch.branchId,
+      parsed.data.movement_type_code!
+    );
+    const result = await InventoryMovementsService.createAndFinalize(
       supabase,
       auth.context.app.activeOrgId,
       branch.branchId,
@@ -1633,7 +1646,7 @@ export async function createAndPostMovementAction(rawInput: unknown) {
           unit_id: line.unit_id!,
           quantity: line.quantity!,
           source_location_id: line.source_location_id ?? null,
-          destination_location_id: line.destination_location_id ?? null,
+          destination_location_id: receivingLocationId ?? line.destination_location_id ?? null,
           unit_cost: line.unit_cost ?? null,
           total_cost: line.total_cost ?? null,
           currency: line.currency ?? null,
@@ -1651,8 +1664,68 @@ export async function createAndPostMovementAction(rawInput: unknown) {
       },
       userId
     );
+    if (result.success && receivingLocationId) {
+      await attributeImportedReceipt(
+        supabase,
+        userId,
+        (result.data as { movement_id: string }).movement_id,
+        parsed.data.lines!
+      );
+    }
+    return result;
   } catch (error) {
     return mapUnexpected(error);
+  }
+}
+
+/**
+ * Zone 5: a PZ (101) always lands in the branch's receiving zone, which
+ * holds stock that is not yet available until it is put away. Returns the
+ * receiving location to force as destination, or null when this is not a
+ * 101 or the branch has no receiving location configured.
+ */
+async function receivingDestinationFor(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orgId: string,
+  branchId: string,
+  movementTypeCode: string
+): Promise<string | null> {
+  if (movementTypeCode !== "101") return null;
+  return InventoryReceivingService.getReceivingLocationId(supabase, orgId, branchId);
+}
+
+/**
+ * Zone 5: link a just-posted PZ's Matcher-imported lines to their
+ * RepairOrderLines. Best effort after posting -- the PZ stands either way;
+ * an unlinked line simply shows up as free stock in the receiving zone.
+ */
+async function attributeImportedReceipt(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  movementId: string,
+  lines: Array<{ source_type?: string | null; source_line_id?: string | null }>
+) {
+  if (!lines.some((l) => l.source_type === "svwms_wdd_matcher" && l.source_line_id)) return;
+  const { data } = await supabase
+    .from("inventory_movement_lines")
+    .select("id, line_number")
+    .eq("movement_id", movementId)
+    .is("deleted_at", null)
+    .order("line_number", { ascending: true });
+  const posted = (data ?? []) as Array<{ id: string; line_number: number }>;
+  const attribution = lines.flatMap((line, index) =>
+    line.source_type === "svwms_wdd_matcher" && line.source_line_id && posted[index]
+      ? [{ movementLineId: posted[index].id, sourceLineId: line.source_line_id }]
+      : []
+  );
+  const result = await InventoryReceivingService.attributeReceipt(
+    supabase,
+    userId,
+    movementId,
+    attribution
+  );
+  if (!result.success) {
+    console.error("[createAndPostMovementAction] receipt attribution failed:", movementId);
   }
 }
 

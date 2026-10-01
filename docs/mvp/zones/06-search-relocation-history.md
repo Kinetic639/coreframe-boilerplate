@@ -1,5 +1,7 @@
 ### 6. Szukanie, zawartość lokalizacji, relokacja części/zestawu i historia
 
+> **2026-10-01 — three pitch fixes DONE** (awaiting deploy + live check): product search also matches SKU/barcode (`InventoryProductsService.listProducts`, both paths); location history labels movements by kind via `movementKindForCode` (801/311/312 now render as "Relokacja wewnętrzna"); history shows the acting user (`posted_by`, else `created_by`). Container relocation is Phase 10E (implemented). Tests: `src/server/services/__tests__/zone6-search-history.test.ts`.
+
 # CURRENT STATUS — 2026-09-23
 
 Poniższy audyt (2026-09-08) jest CURRENT — zero dryfu kodu potwierdzonego świeżym `git log --since` na każdym cytowanym pliku (`docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/zone-readiness-matrix.md`). Jedna korekta klasyfikacji: **relokacja kontenera (dziś martwy kod, `relocateContainerAction`) jest teraz PITCH REQUIRED (Faza 10E Strefy 3)**, nie opcjonalna „usunąć z demo" — dyrektywa produkt-ownera z 2026-09-10, patrz `docs/mvp/zones/03-repair-orders-progress.md`. Generyczne wyszukiwanie/relokacja pojedynczej części (opisane niżej) pozostają osobną, już działającą zdolnością, niezależną od Fazy 10E.
