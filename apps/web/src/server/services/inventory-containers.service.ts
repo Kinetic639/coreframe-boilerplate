@@ -50,6 +50,41 @@ export interface RepairOrderContainerSummary {
   totalQuantity: number;
 }
 
+export interface ContainerRelocationResult {
+  containerId: string;
+  /** Null when the container was empty (only its pointer moved). */
+  movementId: string | null;
+  documentNumber: string | null;
+  sourceLocationId: string | null;
+  destinationLocationId: string;
+  lineCount: number;
+}
+
+/** Stable relocation error codes; the UI owns the wording. */
+export type ContainerRelocationError =
+  | "unauthorized"
+  | "not_found"
+  | "not_movable"
+  | "same_location"
+  | "invalid_destination"
+  | "inconsistent"
+  | "unexpected";
+
+function mapRelocationError(error: { code?: string; message: string }): ContainerRelocationError {
+  const message = error.message ?? "";
+  if (error.code === "28000" || error.code === "42501") return "unauthorized";
+  if (error.code === "P0002") return "not_found";
+  if (error.code === "55000") return "not_movable";
+  if (/already at this location/.test(message)) return "same_location";
+  if (/destination/i.test(message)) return "invalid_destination";
+  if (/do not match their allocations|does not match the container/.test(message)) {
+    return "inconsistent";
+  }
+  // P0003: the move would strand stock committed to something else.
+  if (error.code === "P0003") return "inconsistent";
+  return "unexpected";
+}
+
 type ContainerRow = {
   id: string;
   organization_id: string;
@@ -190,6 +225,51 @@ export class InventoryContainersService {
           totalQuantity: lines.reduce((sum, line) => sum + line.quantity, 0),
         };
       }),
+    };
+  }
+
+  /**
+   * Phase 10E -- move a whole container (and everything in it) to another
+   * location of its branch via `inventory_relocate_container`: a real 801
+   * for the contents, the allocated commitment following the stock, and the
+   * container pointer, all in one transaction. Authorization, container and
+   * destination validation live in the RPC; errors come back as stable codes
+   * the UI translates.
+   */
+  static async relocate(
+    supabase: SupabaseClient,
+    input: {
+      actorUserId: string;
+      organizationId: string;
+      branchId: string;
+      containerId: string;
+      destinationLocationId: string;
+    }
+  ): Promise<ServiceResult<ContainerRelocationResult>> {
+    const { data, error } = await supabase.rpc("inventory_relocate_container", {
+      p_actor_user_id: input.actorUserId,
+      p_organization_id: input.organizationId,
+      p_branch_id: input.branchId,
+      p_container_id: input.containerId,
+      p_destination_location_id: input.destinationLocationId,
+      p_note: null,
+    });
+
+    if (error) return { success: false, error: mapRelocationError(error) };
+
+    const result = (data ?? {}) as Record<string, unknown>;
+    return {
+      success: true,
+      data: {
+        containerId: String(result.container_id ?? input.containerId),
+        movementId: (result.movement_id as string | null) ?? null,
+        documentNumber: (result.document_number as string | null) ?? null,
+        sourceLocationId: (result.source_location_id as string | null) ?? null,
+        destinationLocationId: String(
+          result.destination_location_id ?? input.destinationLocationId
+        ),
+        lineCount: Number(result.line_count ?? 0),
+      },
     };
   }
 

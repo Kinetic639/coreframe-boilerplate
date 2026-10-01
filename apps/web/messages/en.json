@@ -2812,6 +2812,33 @@
           "cancel": "Cancel",
           "switching": "Switching…",
           "error": "Could not switch branch."
+        },
+        "relocate": {
+          "open": "Move container",
+          "title": "Move container {code}",
+          "description": "The whole container and its contents move to the chosen location. The container's QR code stays the same.",
+          "scan": "Scan location sticker",
+          "scanHint": "Scan the QR sticker of the destination location.",
+          "scanBack": "Back",
+          "scanNotLocation": "This is not a location sticker. Scan the destination location's sticker.",
+          "scanNotAvailable": "This location can't be used here — it belongs to another branch or does not hold stock.",
+          "orPick": "or pick from the list",
+          "placeholder": "Choose the destination location",
+          "loading": "Loading locations…",
+          "confirm": "Move",
+          "moving": "Moving…",
+          "cancel": "Cancel",
+          "movedToast": "Container {code} moved to {location}.",
+          "errors": {
+            "unauthorized": "You are not allowed to move containers in this branch.",
+            "not_found": "Container not found in the active branch.",
+            "not_movable": "This container can't be moved in its current state.",
+            "same_location": "The container is already at this location.",
+            "invalid_destination": "The chosen location can't hold stock.",
+            "inconsistent": "The container's contents don't match their part allocations — the move was blocked. Contact an administrator.",
+            "invalid_input": "Invalid move request.",
+            "unexpected": "Could not move the container. Please try again."
+          }
         }
       }
     },

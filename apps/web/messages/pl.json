@@ -2783,6 +2783,33 @@
           "cancel": "Anuluj",
           "switching": "Przełączanie…",
           "error": "Nie udało się przełączyć oddziału."
+        },
+        "relocate": {
+          "open": "Przenieś kontener",
+          "title": "Przenieś kontener {code}",
+          "description": "Cały kontener razem z zawartością trafi do wybranej lokalizacji. Kod QR kontenera się nie zmienia.",
+          "scan": "Zeskanuj naklejkę lokalizacji",
+          "scanHint": "Zeskanuj naklejkę QR lokalizacji docelowej.",
+          "scanBack": "Wróć",
+          "scanNotLocation": "To nie jest naklejka lokalizacji. Zeskanuj naklejkę lokalizacji docelowej.",
+          "scanNotAvailable": "Tej lokalizacji nie można tu użyć — należy do innego oddziału albo nie przechowuje towaru.",
+          "orPick": "lub wybierz z listy",
+          "placeholder": "Wybierz lokalizację docelową",
+          "loading": "Wczytywanie lokalizacji…",
+          "confirm": "Przenieś",
+          "moving": "Przenoszenie…",
+          "cancel": "Anuluj",
+          "movedToast": "Kontener {code} przeniesiono do {location}.",
+          "errors": {
+            "unauthorized": "Nie masz uprawnień do przenoszenia kontenerów w tym oddziale.",
+            "not_found": "Nie znaleziono kontenera w aktywnym oddziale.",
+            "not_movable": "Tego kontenera nie można przenieść w obecnym stanie.",
+            "same_location": "Kontener już jest w tej lokalizacji.",
+            "invalid_destination": "Wybrana lokalizacja nie może przechowywać towaru.",
+            "inconsistent": "Stan kontenera nie zgadza się z przydziałami części — przeniesienie zablokowano. Skontaktuj się z administratorem.",
+            "invalid_input": "Nieprawidłowe dane przeniesienia.",
+            "unexpected": "Nie udało się przenieść kontenera. Spróbuj ponownie."
+          }
         }
       }
     },

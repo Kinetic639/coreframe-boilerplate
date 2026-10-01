@@ -25,8 +25,12 @@ import {
 } from "@/components/ui/table";
 import { ContainerQrCard } from "./_components/container-qr-card";
 import { ContainerCrossBranchPrompt } from "./_components/container-cross-branch-prompt";
+import { ContainerRelocateDialog } from "./_components/container-relocate-dialog";
 
 type PageProps = { params: Promise<{ id: string }> };
+
+/** Statuses `inventory_relocate_container` accepts. */
+const RELOCATABLE_STATUSES = new Set(["active", "empty", "sealed"]);
 
 /**
  * Phase 10D -- the container detail screen, the target of a container QR
@@ -95,6 +99,9 @@ export default async function ContainerDetailPage({ params }: PageProps) {
   const canAssignQr =
     checkPermission(snapshot, QR_ASSIGN) && checkPermission(snapshot, WAREHOUSE_INVENTORY_OPERATE);
   const canPrintQr = checkPermission(snapshot, QR_EXPORT);
+  const canRelocate =
+    checkPermission(snapshot, WAREHOUSE_INVENTORY_OPERATE) &&
+    RELOCATABLE_STATUSES.has(container.status);
 
   const statusLabel = t.has(`status.${container.status}`)
     ? t(`status.${container.status}`)
@@ -196,6 +203,21 @@ export default async function ContainerDetailPage({ params }: PageProps) {
             </Link>
           ) : (
             <p className="text-muted-foreground text-sm">{t("noLocation")}</p>
+          )}
+          {canRelocate && (
+            <ContainerRelocateDialog
+              containerId={container.id}
+              containerCode={container.code}
+              branchId={container.branchId}
+              currentLocationId={location?.id ?? null}
+              currentLocationLabel={
+                location
+                  ? location.code
+                    ? `${location.code} · ${location.name}`
+                    : location.name
+                  : null
+              }
+            />
           )}
         </div>
       </div>

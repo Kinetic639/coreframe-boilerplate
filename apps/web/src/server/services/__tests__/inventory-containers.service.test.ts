@@ -193,3 +193,91 @@ describe("InventoryContainersService.listForRepairOrder", () => {
     expect(result).toEqual({ success: true, data: [] });
   });
 });
+
+describe("InventoryContainersService.relocate (Phase 10E)", () => {
+  const input = {
+    actorUserId: "user-1",
+    organizationId: ORG,
+    branchId: BRANCH,
+    containerId: CONTAINER,
+    destinationLocationId: "loc-b",
+  };
+
+  function rpcClient(result: { data?: unknown; error?: { code?: string; message: string } }) {
+    const rpc = vi
+      .fn()
+      .mockResolvedValue({ data: result.data ?? null, error: result.error ?? null });
+    return { client: { rpc } as never, rpc };
+  }
+
+  it("calls inventory_relocate_container with server-provided identity and maps the result", async () => {
+    const { client, rpc } = rpcClient({
+      data: {
+        container_id: CONTAINER,
+        movement_id: "mv-1",
+        document_number: "MM/2026/000007",
+        source_location_id: "loc-a",
+        destination_location_id: "loc-b",
+        line_count: 2,
+      },
+    });
+    const result = await InventoryContainersService.relocate(client, input);
+    expect(rpc).toHaveBeenCalledWith("inventory_relocate_container", {
+      p_actor_user_id: "user-1",
+      p_organization_id: ORG,
+      p_branch_id: BRANCH,
+      p_container_id: CONTAINER,
+      p_destination_location_id: "loc-b",
+      p_note: null,
+    });
+    expect(result).toEqual({
+      success: true,
+      data: {
+        containerId: CONTAINER,
+        movementId: "mv-1",
+        documentNumber: "MM/2026/000007",
+        sourceLocationId: "loc-a",
+        destinationLocationId: "loc-b",
+        lineCount: 2,
+      },
+    });
+  });
+
+  it("an empty container returns no movement", async () => {
+    const { client } = rpcClient({
+      data: {
+        container_id: CONTAINER,
+        movement_id: null,
+        destination_location_id: "loc-b",
+        line_count: 0,
+      },
+    });
+    const result = await InventoryContainersService.relocate(client, input);
+    expect(result.success && result.data.movementId).toBeNull();
+  });
+
+  it.each([
+    [{ code: "42501", message: "Missing warehouse.inventory.operate permission" }, "unauthorized"],
+    [
+      { code: "28000", message: "p_actor_user_id must match the authenticated caller" },
+      "unauthorized",
+    ],
+    [{ code: "P0002", message: "Container not found" }, "not_found"],
+    [{ code: "55000", message: "Container cannot be relocated (status: archived)" }, "not_movable"],
+    [{ code: "22023", message: "Container is already at this location" }, "same_location"],
+    [
+      { code: "22023", message: "Destination is not a valid stockable location in this branch" },
+      "invalid_destination",
+    ],
+    [
+      { code: "22023", message: "Container contents do not match their allocations" },
+      "inconsistent",
+    ],
+    [{ code: "P0003", message: "Movement would strand committed stock: …" }, "inconsistent"],
+    [{ code: "XX000", message: "boom" }, "unexpected"],
+  ])("maps %o to %s", async (error, expected) => {
+    const { client } = rpcClient({ error });
+    const result = await InventoryContainersService.relocate(client, input);
+    expect(result).toEqual({ success: false, error: expected });
+  });
+});
