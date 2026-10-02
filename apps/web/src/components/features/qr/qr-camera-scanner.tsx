@@ -25,6 +25,8 @@ interface QrCameraScannerProps {
   onBack: () => void;
   backLabel?: string;
   hintLabel?: string;
+  /** "Try again" after a failed scan; defaults to onBack. */
+  onRetry?: () => void;
 }
 
 function extractToken(scannedText: string): string | null {
@@ -40,7 +42,13 @@ function extractToken(scannedText: string): string | null {
   }
 }
 
-export function QrCameraScanner({ onScanned, onBack, backLabel, hintLabel }: QrCameraScannerProps) {
+export function QrCameraScanner({
+  onScanned,
+  onBack,
+  backLabel,
+  hintLabel,
+  onRetry,
+}: QrCameraScannerProps) {
   const t = useTranslations("qrScanner");
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -195,7 +203,7 @@ export function QrCameraScanner({ onScanned, onBack, backLabel, hintLabel }: QrC
       )}
 
       {scanStatus && !busy && (
-        <Button variant="outline" size="sm" onClick={onBack}>
+        <Button variant="outline" size="sm" onClick={onRetry ?? onBack}>
           {t("tryAgain")}
         </Button>
       )}
