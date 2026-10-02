@@ -2908,7 +2908,7 @@
           "close": "Close",
           "back": "Back",
           "scanHint": "Container, blank sticker or location",
-          "scanExplain": "Container — add its order's parts. Blank sticker — new container. Location — see what is there.",
+          "scanExplain": "Aim at a code: a container — add its order's parts; a blank sticker — new container; a location — see what is there. Scanning pauses after each code; tap the bar on top to scan again.",
           "newWithoutScan": "New container without scanning",
           "containerNotHere": "This container does not belong to a repair order in this branch.",
           "locationNotHere": "This location is not in the active branch.",
@@ -2975,7 +2975,13 @@
           "orderContainers": "Order containers ({count})",
           "orderNoContainers": "This order has no containers yet.",
           "newWithSticker": "New container — scan a sticker",
-          "newOversize": "No sticker (oversize part)"
+          "newOversize": "No sticker (oversize part)",
+          "strip": {
+            "checking": "Checking the code…",
+            "paused": "Tap to scan",
+            "sleeping": "Camera asleep — tap to resume",
+            "cameraError": "No camera access — tap to try again"
+          }
         },
         "changes": {
           "range": {

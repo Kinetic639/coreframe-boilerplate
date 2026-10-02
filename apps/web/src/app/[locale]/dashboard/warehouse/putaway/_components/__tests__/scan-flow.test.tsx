@@ -51,11 +51,23 @@ vi.mock("@/hooks/queries/warehouse", () => ({
   }),
 }));
 vi.mock("@/components/features/qr/qr-camera-scanner", () => ({
-  QrCameraScanner: ({ onScanned }: { onScanned: (l: unknown) => Promise<string | null> }) => (
+  SharedCameraProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  useSharedCamera: () => null,
+  resolveScannedQr: async () => ({ ok: true, lookup: h.scanLookup.current }),
+}));
+vi.mock("../scan-strip", () => ({
+  ScanStrip: ({
+    onCode,
+    armed,
+  }: {
+    onCode: (text: string) => Promise<string | null>;
+    armed: boolean;
+  }) => (
     <button
       data-testid="fake-scan"
+      data-armed={armed ? "true" : "false"}
       onClick={async () => {
-        h.scanResult.current = await onScanned(h.scanLookup.current);
+        h.scanResult.current = await onCode("scanned-text");
       }}
     >
       scan
@@ -286,5 +298,44 @@ describe("ScanFlow", () => {
     await scan({ id: "qr1", assignment: { target_type: "inventory.container", target_id: "c1" } });
     fireEvent.click(await screen.findByTestId("scan-flow-confirm"));
     await waitFor(() => expect(h.toastError).toHaveBeenCalledWith("mixed_orders"));
+  });
+});
+
+describe("ScanFlow camera strip arming", () => {
+  it("starts armed, pauses after a taken code, and re-arms after the putaway", async () => {
+    h.getContainer.mockResolvedValue({
+      success: true,
+      data: {
+        id: "c1",
+        code: "K-0042-01",
+        status: "active",
+        location: { id: "zlc", code: "ZLC-01", name: "Regał" },
+        repairOrderId: "ro-1",
+        zlNumber: "0042",
+        clientName: null,
+        vehicleBrand: null,
+      },
+    });
+    renderFlow();
+    expect(screen.getByTestId("fake-scan")).toHaveAttribute("data-armed", "true");
+    await scan({ id: "qr1", assignment: { target_type: "inventory.container", target_id: "c1" } });
+    await screen.findByTestId("scan-flow-container");
+    expect(screen.getByTestId("fake-scan")).toHaveAttribute("data-armed", "false");
+
+    fireEvent.click(screen.getByTestId("scan-flow-confirm"));
+    await waitFor(() => expect(h.batch).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(screen.getByTestId("fake-scan")).toHaveAttribute("data-armed", "true")
+    );
+  });
+
+  it("touching the form pauses scanning; a refused code keeps it armed", async () => {
+    renderFlow();
+    await scan({ id: "y", assignment: { target_type: "crm.party", target_id: "p" } });
+    expect(h.scanResult.current).toBe("unknownCode");
+    expect(screen.getByTestId("fake-scan")).toHaveAttribute("data-armed", "true");
+
+    fireEvent.pointerDown(screen.getByTestId("scan-flow-idle"));
+    expect(screen.getByTestId("fake-scan")).toHaveAttribute("data-armed", "false");
   });
 });

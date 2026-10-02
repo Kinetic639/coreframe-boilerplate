@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "react-toastify";
 import {
@@ -27,7 +27,13 @@ import {
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { useWarehouseLocationsQuery } from "@/hooks/queries/warehouse";
-import { QrCameraScanner, type QrScanLookup } from "@/components/features/qr/qr-camera-scanner";
+import {
+  SharedCameraProvider,
+  resolveScannedQr,
+  type QrScanLookup,
+} from "@/components/features/qr/qr-camera-scanner";
+import { ScanStrip } from "./scan-strip";
+import { unlockScanSound } from "./scan-feedback";
 import {
   getLocationContentsAction,
   getScannedContainerAction,
@@ -81,13 +87,8 @@ type Props = {
 const CONTAINER_TARGET = "inventory.container";
 const LOCATION_TARGET = "warehouse.location";
 
-function buzz() {
-  try {
-    navigator.vibrate?.(40);
-  } catch {
-    /* not supported */
-  }
-}
+/** Steps that wait for a code: the camera strip arms itself on them. */
+const SCAN_STEPS = new Set<Step["kind"]>(["scan", "scanLocation", "scanSticker"]);
 
 /**
  * The scan-driven putaway, in a bottom sheet sized for a phone. One scan
@@ -116,9 +117,14 @@ export function ScanFlow({
   });
   const [busy, setBusy] = useState(false);
   const [query, setQuery] = useState("");
-  // Bumped to remount the scanner (restart the camera) after a failed scan.
-  const [scanAttempt, setScanAttempt] = useState(0);
-  const retry = () => setScanAttempt((n) => n + 1);
+  const tScan = useTranslations("qrScanner");
+  // Armed: the next code read is taken. Re-armed whenever a step waits for
+  // a code (start, "scan location", "scan sticker" -- also right after a
+  // putaway), paused by any read and by touching the form below.
+  const [armed, setArmed] = useState(SCAN_STEPS.has((initialStep ?? { kind: "scan" }).kind));
+  useEffect(() => {
+    if (SCAN_STEPS.has(step.kind)) setArmed(true);
+  }, [step]);
   const locationsQuery = useWarehouseLocationsQuery(open ? branchId : null);
   const locations = useMemo(
     () =>
@@ -180,7 +186,6 @@ export function ScanFlow({
   };
 
   async function handleStartScan(lookup: QrScanLookup): Promise<string | null> {
-    buzz();
     const target = lookup.assignment;
     if (!target) {
       startNew({ qrCodeId: lookup.id });
@@ -208,7 +213,6 @@ export function ScanFlow({
     back: Extract<Step, { kind: "new" }>,
     lookup: QrScanLookup
   ): Promise<string | null> {
-    buzz();
     if (lookup.assignment?.target_type !== LOCATION_TARGET) return t("scanNotLocation");
     if (lookup.assignment.target_id === receivingLocationId) return t("scanIsReceiving");
     const match = locations.find((l) => l.id === lookup.assignment?.target_id);
@@ -221,10 +225,26 @@ export function ScanFlow({
     back: Extract<Step, { kind: "new" }>,
     lookup: QrScanLookup
   ): Promise<string | null> {
-    buzz();
     if (lookup.assignment) return t("stickerTaken");
     setStep({ ...back, qrCodeId: lookup.id });
     return null;
+  }
+
+  async function handleCode(text: string): Promise<string | null> {
+    const resolved = await resolveScannedQr(text);
+    if (!resolved.ok) {
+      return tScan((resolved as Extract<typeof resolved, { ok: false }>).reason);
+    }
+    const lookup = (resolved as Extract<typeof resolved, { ok: true }>).lookup;
+    const error =
+      step.kind === "scanLocation"
+        ? await handleLocationScan(step.back, lookup)
+        : step.kind === "scanSticker"
+          ? await handleStickerScan(step.back, lookup)
+          : await handleStartScan(lookup);
+    // One scan, one action: pause after a taken code.
+    if (!error) setArmed(false);
+    return error;
   }
 
   async function submit(input: {
@@ -298,16 +318,8 @@ export function ScanFlow({
 
   if (step.kind === "scan") {
     body = (
-      <div className="flex flex-col gap-3 p-4">
-        <QrCameraScanner
-          key={scanAttempt}
-          onRetry={retry}
-          onScanned={handleStartScan}
-          onBack={() => onOpenChange(false)}
-          backLabel={t("close")}
-          hintLabel={t("scanHint")}
-        />
-        <p className="text-muted-foreground text-center text-xs">{t("scanExplain")}</p>
+      <div className="flex flex-col gap-3 p-4" data-testid="scan-flow-idle">
+        <p className="text-muted-foreground text-sm">{t("scanExplain")}</p>
         <Button
           type="button"
           variant="outline"
@@ -325,19 +337,11 @@ export function ScanFlow({
     const back = step.back;
     title = step.kind === "scanLocation" ? t("scanLocationTitle") : t("scanStickerTitle");
     body = (
-      <div className="p-4">
-        <QrCameraScanner
-          key={scanAttempt}
-          onRetry={retry}
-          onScanned={(lookup) =>
-            step.kind === "scanLocation"
-              ? handleLocationScan(back, lookup)
-              : handleStickerScan(back, lookup)
-          }
-          onBack={() => setStep(back)}
-          backLabel={t("back")}
-          hintLabel={step.kind === "scanLocation" ? t("scanLocationHint") : t("scanStickerHint")}
-        />
+      <div className="flex flex-col gap-3 p-4" data-testid={`scan-flow-${step.kind}`}>
+        {backButton(() => setStep(back))}
+        <p className="text-sm">
+          {step.kind === "scanLocation" ? t("scanLocationHint") : t("scanStickerHint")}
+        </p>
       </div>
     );
   } else if (step.kind === "order") {
@@ -819,8 +823,36 @@ export function ScanFlow({
           </SheetTitle>
           <SheetDescription className="sr-only">{t("description")}</SheetDescription>
         </SheetHeader>
-        <div className="flex-1 overflow-y-auto overscroll-contain">{body}</div>
-        {foot}
+        {/* One camera session for the whole sheet: scanning again (next
+            container, a location, a sticker) reuses it instead of asking the
+            browser for the camera -- and showing its notice -- every time. */}
+        <SharedCameraProvider>
+          <ScanStrip
+            armed={armed}
+            onArm={() => setArmed(true)}
+            onCode={handleCode}
+            hint={
+              step.kind === "scanLocation"
+                ? t("scanLocationHint")
+                : step.kind === "scanSticker"
+                  ? t("scanStickerHint")
+                  : t("scanHint")
+            }
+          />
+          {/* Working on the form pauses scanning, so nothing in the
+              background is picked up by accident. */}
+          <div
+            className="flex-1 overflow-y-auto overscroll-contain"
+            onPointerDownCapture={() => {
+              unlockScanSound();
+              setArmed(false);
+            }}
+            onFocusCapture={() => setArmed(false)}
+          >
+            {body}
+          </div>
+          {foot}
+        </SharedCameraProvider>
       </SheetContent>
     </Sheet>
   );
