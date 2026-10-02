@@ -225,6 +225,7 @@ export function MovementImportDialog({
   const [variantOptions, setVariantOptions] = useState(variants);
   const [unitOptions, setUnitOptions] = useState(units);
   const [skippedProductKeys, setSkippedProductKeys] = useState<Set<string>>(() => new Set());
+  const [excludedZls, setExcludedZls] = useState<Set<string>>(() => new Set());
   const [showManualReview, setShowManualReview] = useState(false);
   const [productMismatchActions, setProductMismatchActions] = useState<
     Record<string, ProductMismatchAction>
@@ -238,11 +239,21 @@ export function MovementImportDialog({
   const isSvwmsSessionImport = preview?.source_type === "svwms_wdd_matcher";
   const showDocumentSelector = documents.length > 1 && !isSvwmsSessionImport;
   const deferLocationValidation = isSvwmsSessionImport;
+  // Lines of repair orders unchecked in "Zlecenia z tej dostawy" stay out of
+  // the PZ entirely -- not listed, not validated, not filled into the form.
+  const orderLines = useMemo(
+    () =>
+      (selectedDocument?.lines ?? []).filter((line) => {
+        if (!isSvwmsSessionImport) return true;
+        const zl = rawMetadataString(line, "zl_number");
+        return !zl || !excludedZls.has(zl);
+      }),
+    [excludedZls, isSvwmsSessionImport, selectedDocument]
+  );
   const selectedActiveLines = useMemo(() => {
-    const lines = selectedDocument?.lines ?? [];
-    if (!isSvwmsSessionImport) return lines;
-    return lines.filter((line) => !skippedProductKeys.has(rawProductKey(line)));
-  }, [isSvwmsSessionImport, selectedDocument, skippedProductKeys]);
+    if (!isSvwmsSessionImport) return orderLines;
+    return orderLines.filter((line) => !skippedProductKeys.has(rawProductKey(line)));
+  }, [isSvwmsSessionImport, orderLines, skippedProductKeys]);
   const selectedDocumentErrors = useMemo(
     () => [...new Set(selectedActiveLines.flatMap((line) => line.validation_errors))],
     [selectedActiveLines]
@@ -671,7 +682,7 @@ export function MovementImportDialog({
   );
   const svwmsLines = useMemo(() => {
     if (!selectedDocument || !isSvwmsSessionImport) return [];
-    return [...selectedDocument.lines]
+    return [...orderLines]
       .filter((line) => !skippedProductKeys.has(rawProductKey(line)))
       .sort((left, right) => {
         const leftOrder = lineOrderNumber(left) ?? "\uffff";
@@ -686,11 +697,11 @@ export function MovementImportDialog({
           left.source_line_id.localeCompare(right.source_line_id)
         );
       });
-  }, [isSvwmsSessionImport, selectedDocument, skippedProductKeys]);
+  }, [isSvwmsSessionImport, orderLines, selectedDocument, skippedProductKeys]);
   const svwmsUnitExceptionGroups = useMemo(() => {
     if (!selectedDocument || !isSvwmsSessionImport) return [];
     const groups = new Map<string, UnitExceptionGroup>();
-    for (const line of selectedDocument.lines) {
+    for (const line of orderLines) {
       if (skippedProductKeys.has(rawProductKey(line))) continue;
       if (!line.variant_id) continue;
       if (line.unit_id) continue;
@@ -708,7 +719,7 @@ export function MovementImportDialog({
       groups.set(key, current);
     }
     return Array.from(groups.values());
-  }, [isSvwmsSessionImport, selectedDocument, skippedProductKeys]);
+  }, [isSvwmsSessionImport, orderLines, selectedDocument, skippedProductKeys]);
   const svwmsMissingUnitGroups = useMemo(
     () => svwmsUnitExceptionGroups.filter((group) => !group.ambiguous),
     [svwmsUnitExceptionGroups]
@@ -720,7 +731,7 @@ export function MovementImportDialog({
   const svwmsProductExceptionGroups = useMemo(() => {
     if (!selectedDocument || !isSvwmsSessionImport) return [];
     const groups = new Map<string, ProductExceptionGroup>();
-    for (const line of selectedDocument.lines) {
+    for (const line of orderLines) {
       if (line.variant_id || !line.raw_product_code) continue;
       const key = rawProductKey(line);
       if (!key) continue;
@@ -741,7 +752,7 @@ export function MovementImportDialog({
       groups.set(key, current);
     }
     return Array.from(groups.values());
-  }, [isSvwmsSessionImport, selectedDocument, skippedProductKeys]);
+  }, [isSvwmsSessionImport, orderLines, selectedDocument, skippedProductKeys]);
   const svwmsMissingProductGroups = useMemo(
     () => svwmsProductExceptionGroups.filter((group) => !group.ambiguous && !group.skipped),
     [svwmsProductExceptionGroups]
@@ -771,9 +782,8 @@ export function MovementImportDialog({
     canManageProducts && selectedCreateProductGroups.length > 0 && quickCreatePendingKey === null;
   const svwmsSkippedLineCount = useMemo(() => {
     if (!selectedDocument || !isSvwmsSessionImport) return 0;
-    return selectedDocument.lines.filter((line) => skippedProductKeys.has(rawProductKey(line)))
-      .length;
-  }, [isSvwmsSessionImport, selectedDocument, skippedProductKeys]);
+    return orderLines.filter((line) => skippedProductKeys.has(rawProductKey(line))).length;
+  }, [isSvwmsSessionImport, orderLines, selectedDocument, skippedProductKeys]);
   const svwmsResolvedLineCount = useMemo(
     () => selectedActiveLines.filter(isImportLineReady).length,
     [selectedActiveLines]
@@ -950,6 +960,8 @@ export function MovementImportDialog({
                       sourceInput={{ session_id: selectedDocument.source_metadata.session_id }}
                       canApply
                       compact
+                      mode="receipt"
+                      onSelectionChange={(zls) => setExcludedZls(new Set(zls))}
                     />
                   </section>
                 )}

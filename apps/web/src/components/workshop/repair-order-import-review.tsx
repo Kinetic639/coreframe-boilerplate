@@ -26,6 +26,14 @@ type Props = {
   /** Reports the preview so a host (e.g. the PZ import) can react to it. */
   onPreview?: (preview: RepairOrderImportPreview | null) => void;
   compact?: boolean;
+  /**
+   * "import" (Workshop): pick which orders to create/update.
+   * "receipt" (PZ import): every order is a checkbox -- unchecking one also
+   * keeps its parts out of the PZ (reported through onSelectionChange).
+   */
+  mode?: "import" | "receipt";
+  /** ZL numbers the user unchecked (receipt mode: exclude from the PZ). */
+  onSelectionChange?: (excludedZlNumbers: string[]) => void;
 };
 
 function lineSummary(order: RepairOrderImportPreviewOrder) {
@@ -49,6 +57,8 @@ export function RepairOrderImportReview({
   onApplied,
   onPreview,
   compact = false,
+  mode = "import",
+  onSelectionChange,
 }: Props) {
   const t = useTranslations("modules.workshop.repairOrders.import");
   const [preview, setPreview] = useState<RepairOrderImportPreview | null>(null);
@@ -59,6 +69,15 @@ export function RepairOrderImportReview({
   const inputKey = JSON.stringify(sourceInput);
   const onPreviewRef = useRef(onPreview);
   onPreviewRef.current = onPreview;
+  const onSelectionRef = useRef(onSelectionChange);
+  onSelectionRef.current = onSelectionChange;
+  const initialized = useRef(false);
+
+  const selectable = useMemo(
+    () => (order: RepairOrderImportPreviewOrder) =>
+      !!order.zlNumber && (mode === "receipt" || (order.willChange && canApply)),
+    [mode, canApply]
+  );
 
   const load = useMemo(
     () => async () => {
@@ -77,14 +96,18 @@ export function RepairOrderImportReview({
         return;
       }
       setPreview(result.data);
-      setSelected(
-        new Set(
-          result.data.orders.filter((o) => o.willChange && o.zlNumber).map((o) => o.zlNumber!)
-        )
+      const pickable = result.data.orders.filter(selectable).map((o) => o.zlNumber!);
+      // First load selects everything; a reload (after importing) keeps the
+      // user's choices instead of re-checking what they unchecked.
+      // Read the flag now: the updater runs later, after it is set.
+      const reload = initialized.current;
+      initialized.current = true;
+      setSelected((current) =>
+        reload ? new Set(pickable.filter((zl) => current.has(zl))) : new Set(pickable)
       );
       onPreviewRef.current?.(result.data);
     },
-    [sourceType, inputKey]
+    [sourceType, inputKey, selectable]
   );
 
   useEffect(() => {
@@ -99,13 +122,28 @@ export function RepairOrderImportReview({
       return next;
     });
 
+  useEffect(() => {
+    if (!preview) return;
+    onSelectionRef.current?.(
+      preview.orders
+        .filter((o) => selectable(o) && !selected.has(o.zlNumber!))
+        .map((o) => o.zlNumber!)
+    );
+  }, [preview, selected, selectable]);
+
+  const toApply = preview
+    ? preview.orders.filter((o) => o.willChange && o.zlNumber && selected.has(o.zlNumber))
+    : [];
+  const pickableZls = preview ? preview.orders.filter(selectable).map((o) => o.zlNumber!) : [];
+  const allSelected = pickableZls.length > 0 && pickableZls.every((zl) => selected.has(zl));
+
   const apply = () => {
-    if (selected.size === 0) return;
+    if (toApply.length === 0) return;
     startTransition(async () => {
       const result = await applyRepairOrderImportAction({
         source_type: sourceType,
         source_input: JSON.parse(inputKey),
-        zl_numbers: [...selected],
+        zl_numbers: toApply.map((o) => o.zlNumber!),
       });
       if (!result.success) {
         const code = (result as { error: string }).error;
@@ -167,6 +205,23 @@ export function RepairOrderImportReview({
         )}
       </div>
 
+      {pickableZls.length > 1 && (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setSelected(allSelected ? new Set() : new Set(pickableZls))}
+            data-testid="ro-import-toggle-all"
+          >
+            {allSelected ? t("uncheckAll") : t("checkAll", { count: pickableZls.length })}
+          </Button>
+          {mode === "receipt" && (
+            <span className="text-muted-foreground text-xs">{t("receiptHint")}</span>
+          )}
+        </div>
+      )}
+
       <div className={compact ? "max-h-72 overflow-y-auto" : ""}>
         <table className="w-full text-sm">
           <thead className="text-muted-foreground text-left text-xs">
@@ -185,15 +240,18 @@ export function RepairOrderImportReview({
               return (
                 <tr
                   key={zl ?? `missing-${index}`}
-                  className="border-t align-top"
+                  className={
+                    "border-t align-top" +
+                    (mode === "receipt" && zl && !selected.has(zl) ? " opacity-50" : "")
+                  }
                   data-testid="ro-import-row"
                 >
                   <td className="py-2">
-                    {zl && order.willChange && canApply && (
+                    {selectable(order) && (
                       <Checkbox
-                        checked={selected.has(zl)}
-                        onCheckedChange={(v) => toggle(zl, v === true)}
-                        aria-label={zl}
+                        checked={selected.has(zl!)}
+                        onCheckedChange={(v) => toggle(zl!, v === true)}
+                        aria-label={zl!}
                       />
                     )}
                   </td>
@@ -237,7 +295,7 @@ export function RepairOrderImportReview({
           <Button
             type="button"
             onClick={apply}
-            disabled={selected.size === 0 || isPending}
+            disabled={toApply.length === 0 || isPending}
             data-testid="ro-import-apply"
           >
             {isPending ? (
@@ -245,7 +303,7 @@ export function RepairOrderImportReview({
             ) : (
               <PlusCircle className="mr-2 h-4 w-4" />
             )}
-            {t("apply", { count: selected.size })}
+            {t("apply", { count: toApply.length })}
           </Button>
         </div>
       )}

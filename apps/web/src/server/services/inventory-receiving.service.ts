@@ -65,6 +65,8 @@ export type PutawayError =
   | "not_enough"
   | "wrong_item"
   | "no_receiving_location"
+  /** A repair-order part goes into a container of its order, not loose. */
+  | "use_container"
   | "unexpected";
 
 export interface ProductBranchSettings {

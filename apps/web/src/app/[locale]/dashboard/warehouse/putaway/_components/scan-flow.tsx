@@ -61,7 +61,11 @@ type Step =
   | { kind: "location"; contents: LocationContents }
   | { kind: "loose"; location: LocationRef }
   | { kind: "scanLocation"; back: Extract<Step, { kind: "new" }> }
-  | { kind: "scanSticker"; back: Extract<Step, { kind: "new" }> };
+  | { kind: "scanSticker"; back: Extract<Step, { kind: "new" }> }
+  /** Putting away one order's part from the list: pick its container. */
+  | { kind: "order"; repairOrderId: string; focusKey: string | null };
+
+export type ScanFlowStep = Step;
 
 type Props = {
   open: boolean;
@@ -105,7 +109,11 @@ export function ScanFlow({
   const tErr = useTranslations("modules.warehouse.putaway.scan.errors");
   const router = useRouter();
   const [step, setStep] = useState<Step>(initialStep ?? { kind: "scan" });
-  const [pick, setPick] = useState<PickState>({});
+  const [pick, setPick] = useState<PickState>(() => {
+    if (initialStep?.kind !== "order" || !initialStep.focusKey) return {};
+    const focused = items.find((i) => itemKey(i) === initialStep.focusKey);
+    return focused ? { [initialStep.focusKey]: { checked: true, quantity: focused.quantity } } : {};
+  });
   const [busy, setBusy] = useState(false);
   const [query, setQuery] = useState("");
   // Bumped to remount the scanner (restart the camera) after a failed scan.
@@ -330,6 +338,89 @@ export function ScanFlow({
           backLabel={t("back")}
           hintLabel={step.kind === "scanLocation" ? t("scanLocationHint") : t("scanStickerHint")}
         />
+      </div>
+    );
+  } else if (step.kind === "order") {
+    const s = step;
+    const info = orders[s.repairOrderId];
+    const containers = (info?.containers ?? []).filter((c) => !!c.location);
+    const newStep = {
+      kind: "new" as const,
+      qrCodeId: null,
+      location: null,
+      repairOrderId: s.repairOrderId,
+    };
+    title = `ZL ${info?.zlNumber ?? containerPartsByOrder.get(s.repairOrderId)?.[0]?.zlNumber ?? "—"}`;
+    body = (
+      <div className="flex flex-col gap-4 p-4" data-testid="scan-flow-order-step">
+        <p className="text-muted-foreground text-sm">
+          {[info?.clientName, info?.vehicleBrand].filter(Boolean).join(" · ")}
+        </p>
+        <p className="text-sm">{t("orderNeedsContainer")}</p>
+
+        <section className="flex flex-col gap-2">
+          <h3 className="text-sm font-semibold">
+            {t("orderContainers", { count: containers.length })}
+          </h3>
+          {containers.length === 0 && (
+            <p className="text-muted-foreground text-sm">{t("orderNoContainers")}</p>
+          )}
+          {containers.map((c) => (
+            <div
+              key={c.id}
+              className="flex items-center justify-between gap-3 rounded-lg border p-3"
+            >
+              <div className="min-w-0">
+                <p className="font-mono text-sm font-semibold">{c.code}</p>
+                <p className="text-muted-foreground flex items-center gap-1 truncate text-xs">
+                  <MapPin className="h-3 w-3 shrink-0" />
+                  {locLabel(c.location!.code, c.location!.name)}
+                </p>
+              </div>
+              <Button
+                type="button"
+                className="h-11 shrink-0"
+                onClick={() =>
+                  openContainer({
+                    id: c.id,
+                    code: c.code,
+                    status: c.status,
+                    location: c.location,
+                    repairOrderId: s.repairOrderId,
+                    zlNumber: info?.zlNumber ?? null,
+                    clientName: info?.clientName ?? null,
+                    vehicleBrand: info?.vehicleBrand ?? null,
+                  })
+                }
+                data-testid="scan-flow-order-add-to"
+              >
+                {t("addTo")}
+              </Button>
+            </div>
+          ))}
+        </section>
+
+        <section className="flex flex-col gap-2">
+          <Button
+            type="button"
+            className="h-12"
+            onClick={() => setStep({ kind: "scanSticker", back: newStep })}
+            data-testid="scan-flow-order-new-sticker"
+          >
+            <Tag className="mr-2 h-4 w-4" />
+            {t("newWithSticker")}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-12"
+            onClick={() => setStep(newStep)}
+            data-testid="scan-flow-order-new-oversize"
+          >
+            <PackagePlus className="mr-2 h-4 w-4" />
+            {t("newOversize")}
+          </Button>
+        </section>
       </div>
     );
   } else if (step.kind === "container") {

@@ -70,6 +70,30 @@ export async function putawayFromReceivingAction(
     if (!parsed.success) return { success: false, error: "invalid_input" };
 
     const supabase = await createClient();
+
+    // A repair-order part is only put away here when it is bulk material
+    // (reserved at its bin). Any other RO part goes into a container of its
+    // order through the scan flow -- never silently onto a shelf.
+    if (parsed.data.repairOrderLineId) {
+      const { data: variant } = await supabase
+        .from("inventory_variants")
+        .select("product_id")
+        .eq("id", parsed.data.variantId!)
+        .maybeSingle();
+      const productId = (variant as { product_id?: string } | null)?.product_id;
+      const { data: settings } = productId
+        ? await supabase
+            .from("inventory_product_branch_settings")
+            .select("handling_mode")
+            .eq("product_id", productId)
+            .eq("branch_id", scope.branchId)
+            .maybeSingle()
+        : { data: null };
+      if ((settings as { handling_mode?: string } | null)?.handling_mode !== "bulk") {
+        return { success: false, error: "use_container" };
+      }
+    }
+
     const result = await InventoryReceivingService.putaway(supabase, {
       actorUserId: scope.userId,
       organizationId: scope.orgId,

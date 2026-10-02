@@ -2865,7 +2865,8 @@
           "wrong_item": "Ta część nie pasuje do pozycji zlecenia.",
           "no_receiving_location": "Ten oddział nie ma skonfigurowanej strefy przyjęć.",
           "invalid_input": "Nieprawidłowe dane.",
-          "unexpected": "Nie udało się rozlokować. Spróbuj ponownie."
+          "unexpected": "Nie udało się rozlokować. Spróbuj ponownie.",
+          "use_container": "Część zlecenia wkłada się do kontenera zlecenia — użyj skanowania kontenera albo nowego kontenera z naklejką."
         },
         "tabs": {
           "pending": "Do rozłożenia ({count})",
@@ -2940,7 +2941,12 @@
             "order_not_open": "Zlecenie nie jest otwarte.",
             "invalid_input": "Sprawdź wybrane pozycje.",
             "unexpected": "Nie udało się rozłożyć. Spróbuj ponownie."
-          }
+          },
+          "orderNeedsContainer": "Część zlecenia trafia do kontenera tego zlecenia — dołóż ją do istniejącego albo załóż nowy z naklejką.",
+          "orderContainers": "Kontenery zlecenia ({count})",
+          "orderNoContainers": "To zlecenie nie ma jeszcze kontenerów.",
+          "newWithSticker": "Nowy kontener — skanuj naklejkę",
+          "newOversize": "Bez naklejki (gabaryt)"
         },
         "changes": {
           "range": {
@@ -3541,7 +3547,10 @@
             "unauthorized": "Brak uprawnień do importu zleceń w tym oddziale.",
             "invalid_input": "Nieprawidłowe dane importu.",
             "unexpected": "Import zleceń nie powiódł się."
-          }
+          },
+          "checkAll": "Zaznacz wszystkie ({count})",
+          "uncheckAll": "Odznacz wszystkie",
+          "receiptHint": "Odznaczone zlecenie nie trafi do PZ razem ze swoimi częściami."
         }
       }
     },

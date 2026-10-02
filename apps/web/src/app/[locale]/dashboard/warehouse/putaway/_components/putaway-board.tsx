@@ -8,9 +8,15 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { ReceivingPendingItem } from "@/server/services/inventory-receiving.service";
 import { PutawayDialog } from "./putaway-dialog";
-import { ScanFlow } from "./scan-flow";
+import { ScanFlow, type ScanFlowStep } from "./scan-flow";
 import { LocationChanges } from "./location-changes";
-import { formatQty, itemKey, locLabel, type RepairOrderInfo } from "./putaway-utils";
+import {
+  formatQty,
+  isContainerPart,
+  itemKey,
+  locLabel,
+  type RepairOrderInfo,
+} from "./putaway-utils";
 
 export { itemKey } from "./putaway-utils";
 
@@ -43,6 +49,26 @@ export function PutawayBoard({
   const [tab, setTab] = useState<"pending" | "changes">("pending");
   const [active, setActive] = useState<ReceivingPendingItem | null>(null);
   const [scanOpen, setScanOpen] = useState(false);
+  const [scanStep, setScanStep] = useState<ScanFlowStep | undefined>(undefined);
+  const [scanSession, setScanSession] = useState(0);
+
+  const openScan = (step?: ScanFlowStep) => {
+    setScanStep(step);
+    setScanSession((n) => n + 1);
+    setScanOpen(true);
+  };
+
+  // A repair-order part never goes onto a shelf on its own: it goes into a
+  // container of its order (existing, new with a sticker, or -- knowingly --
+  // a stickerless one for oversize parts). Only free stock and bulk
+  // material use the plain "scan a location" putaway.
+  const putAway = (item: ReceivingPendingItem) => {
+    if (isContainerPart(item) && item.repairOrderId) {
+      openScan({ kind: "order", repairOrderId: item.repairOrderId, focusKey: itemKey(item) });
+    } else {
+      setActive(item);
+    }
+  };
 
   const groups = useMemo(() => {
     const byOrder = new Map<
@@ -122,7 +148,7 @@ export function PutawayBoard({
               type="button"
               size="sm"
               variant="outline"
-              onClick={() => setActive(item)}
+              onClick={() => putAway(item)}
               data-testid="putaway-open"
               className="h-9"
             >
@@ -138,7 +164,7 @@ export function PutawayBoard({
 
   return (
     <div className="flex min-h-full flex-col" data-testid="putaway-board">
-      <div className="flex flex-col gap-4 p-4 sm:p-6">
+      <div className="flex flex-col gap-4 p-4 pb-28 sm:p-6 sm:pb-28">
         <div>
           <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">{t("title")}</h1>
           <p className="text-muted-foreground mt-1 text-sm">{t("subtitle")}</p>
@@ -243,21 +269,22 @@ export function PutawayBoard({
       </div>
 
       {canOperate && ready && tab === "pending" && items.length > 0 && (
-        <div className="bg-background/95 sticky bottom-0 mt-auto border-t p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
-          <Button
-            type="button"
-            className="h-14 w-full text-base"
-            onClick={() => setScanOpen(true)}
-            data-testid="putaway-scan-start"
-          >
-            <ScanLine className="mr-2 h-5 w-5" />
-            {t("scanCta")}
-          </Button>
-        </div>
+        <Button
+          type="button"
+          size="icon"
+          className="fixed right-4 bottom-[calc(1.25rem+env(safe-area-inset-bottom))] z-40 h-16 w-16 rounded-full shadow-lg sm:right-6 sm:bottom-6"
+          onClick={() => openScan()}
+          aria-label={t("scanCta")}
+          data-testid="putaway-scan-start"
+        >
+          <ScanLine className="h-7 w-7" />
+        </Button>
       )}
 
       {scanOpen && (
         <ScanFlow
+          key={scanSession}
+          initialStep={scanStep}
           open={scanOpen}
           onOpenChange={setScanOpen}
           branchId={branchId}

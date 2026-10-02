@@ -176,36 +176,17 @@ describe("PutawayDialog", () => {
     fireEvent.click(screen.getByTestId("putaway-open"));
   }
 
-  it("preselects the RO container's location and confirms into that container", async () => {
-    h.putaway.mockResolvedValue({
-      success: true,
-      data: { mode: "container", containerCode: "K-184213-02", containerCreated: false },
-    });
+  it("a repair-order part does not go onto a shelf by a location scan: it opens its order's containers", () => {
     openFor(bumper);
-    expect(screen.getByTestId("putaway-outcome")).toHaveTextContent(
-      'outcome.intoContainer:{"code":"K-184213-02"}'
-    );
-    fireEvent.click(screen.getByTestId("putaway-confirm"));
-    await waitFor(() =>
-      expect(h.putaway).toHaveBeenCalledWith({
-        variantId: "v-bumper",
-        quantity: 1,
-        destinationLocationId: "zlc",
-        repairOrderLineId: "rol-1",
-      })
-    );
-    await waitFor(() => expect(h.refresh).toHaveBeenCalled());
-    expect(h.toastSuccess).toHaveBeenCalledWith(
-      'doneContainer:{"code":"K-184213-02","location":"ZLC-01 · Regał"}'
-    );
+    expect(screen.queryByTestId("putaway-dialog")).not.toBeInTheDocument();
+    expect(screen.getByTestId("scan-flow-order-step")).toBeInTheDocument();
+    expect(screen.getByTestId("scan-flow-order-new-sticker")).toBeInTheDocument();
+    expect(screen.getByTestId("scan-flow-order-new-oversize")).toBeInTheDocument();
   });
 
-  it("a scanned location sticker becomes the destination (new RO container there)", async () => {
-    h.putaway.mockResolvedValue({
-      success: true,
-      data: { mode: "container", containerCode: "K-184257-01", containerCreated: true },
-    });
-    openFor(fender);
+  it("free stock: a scanned location sticker becomes the destination", async () => {
+    h.putaway.mockResolvedValue({ success: true, data: { mode: "free" } });
+    openFor(free);
     expect(screen.getByTestId("putaway-confirm")).toBeDisabled();
     h.scanLookup.current = {
       id: "q",
@@ -217,17 +198,23 @@ describe("PutawayDialog", () => {
     fireEvent.click(screen.getByTestId("putaway-scan"));
     fireEvent.click(screen.getByTestId("fake-scan"));
     await waitFor(() => expect(h.scanResult.current).toBeNull());
-    expect(screen.getByTestId("putaway-outcome")).toHaveTextContent("outcome.newContainer");
+    expect(screen.getByTestId("putaway-outcome")).toHaveTextContent("outcome.loose");
     fireEvent.click(screen.getByTestId("putaway-confirm"));
     await waitFor(() =>
-      expect(h.toastSuccess).toHaveBeenCalledWith(
-        'doneNewContainer:{"code":"K-184257-01","location":"ZLC-01 · Regał"}'
-      )
+      expect(h.putaway).toHaveBeenCalledWith({
+        variantId: "v-free",
+        quantity: 3,
+        destinationLocationId: "zlc",
+        repairOrderLineId: null,
+      })
+    );
+    await waitFor(() =>
+      expect(h.toastSuccess).toHaveBeenCalledWith('doneLocation:{"location":"ZLC-01 · Regał"}')
     );
   });
 
   it("refuses the receiving zone and non-location stickers", async () => {
-    openFor(fender);
+    openFor(free);
     fireEvent.click(screen.getByTestId("putaway-scan"));
     h.scanLookup.current = {
       id: "q",
@@ -269,7 +256,7 @@ describe("PutawayDialog", () => {
 
   it("shows the translated error and keeps the list on a rejected putaway", async () => {
     h.putaway.mockResolvedValue({ success: false, error: "not_enough" });
-    openFor(bumper);
+    openFor(clips);
     fireEvent.click(screen.getByTestId("putaway-confirm"));
     await waitFor(() => expect(h.toastError).toHaveBeenCalledWith("not_enough"));
     expect(h.refresh).not.toHaveBeenCalled();

@@ -2894,7 +2894,8 @@
           "wrong_item": "This part does not match the repair-order line.",
           "no_receiving_location": "This branch has no receiving zone configured.",
           "invalid_input": "Invalid input.",
-          "unexpected": "Could not put away. Please try again."
+          "unexpected": "Could not put away. Please try again.",
+          "use_container": "A repair-order part goes into a container of its order — scan a container or start a new one with a sticker."
         },
         "tabs": {
           "pending": "To put away ({count})",
@@ -2969,7 +2970,12 @@
             "order_not_open": "The repair order is not open.",
             "invalid_input": "Check the selected items.",
             "unexpected": "Putaway failed. Try again."
-          }
+          },
+          "orderNeedsContainer": "A repair-order part goes into a container of its order — add it to an existing one or start a new one with a sticker.",
+          "orderContainers": "Order containers ({count})",
+          "orderNoContainers": "This order has no containers yet.",
+          "newWithSticker": "New container — scan a sticker",
+          "newOversize": "No sticker (oversize part)"
         },
         "changes": {
           "range": {
@@ -3570,7 +3576,10 @@
             "unauthorized": "You cannot import repair orders in this branch.",
             "invalid_input": "Invalid import input.",
             "unexpected": "The repair-order import failed."
-          }
+          },
+          "checkAll": "Select all ({count})",
+          "uncheckAll": "Clear all",
+          "receiptHint": "An unchecked order stays out of the PZ together with its parts."
         }
       }
     },

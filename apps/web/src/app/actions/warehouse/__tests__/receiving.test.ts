@@ -22,7 +22,27 @@ const h = vi.hoisted(() => ({
 vi.mock("@/server/loaders/v2/load-dashboard-context.v2", () => ({
   loadDashboardContextV2: () => h.loadContext(),
 }));
-vi.mock("@/utils/supabase/server", () => ({ createClient: () => Promise.resolve({}) }));
+const handling = vi.hoisted(() => ({ mode: "bulk" as string | null }));
+vi.mock("@/utils/supabase/server", () => ({
+  createClient: () =>
+    Promise.resolve({
+      from(table: string) {
+        const chain: Record<string, unknown> = {};
+        chain.select = () => chain;
+        chain.eq = () => chain;
+        chain.maybeSingle = () =>
+          Promise.resolve({
+            data:
+              table === "inventory_variants"
+                ? { product_id: "p-1" }
+                : handling.mode
+                  ? { handling_mode: handling.mode }
+                  : null,
+          });
+        return chain;
+      },
+    }),
+}));
 vi.mock("@/server/services/inventory-receiving.service", () => ({
   InventoryReceivingService: {
     listPending: (...a: unknown[]) => h.listPending(...a),
@@ -95,7 +115,18 @@ describe("putawayFromReceivingAction", () => {
     });
   });
 
-  it("puts away with identity from server context", async () => {
+  it("refuses a non-bulk repair-order part: it goes into a container", async () => {
+    h.loadContext.mockResolvedValue(context(["warehouse.inventory.operate"]));
+    handling.mode = null;
+    expect(await putawayFromReceivingAction(input)).toEqual({
+      success: false,
+      error: "use_container",
+    });
+    expect(h.putaway).not.toHaveBeenCalled();
+    handling.mode = "bulk";
+  });
+
+  it("puts away (bulk repair-order part) with identity from server context", async () => {
     h.loadContext.mockResolvedValue(context(["warehouse.inventory.operate"]));
     h.putaway.mockResolvedValue({ success: true, data: { mode: "container" } });
     const result = await putawayFromReceivingAction(input);
