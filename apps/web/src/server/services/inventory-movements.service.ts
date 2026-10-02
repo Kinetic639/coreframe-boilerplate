@@ -539,7 +539,14 @@ export class InventoryMovementsService {
     if (isUuid) {
       query = query.eq("id", movementIdentifier);
     } else {
-      query = query.or(`route_key.eq.${movementIdentifier},draft_number.eq.${movementIdentifier}`);
+      // A posted header is immutable, so the route_key saved after posting
+      // is often missing; fall back to the document number it was derived
+      // from (PZ-2026-000006 <- PZ/2026/000006).
+      const safe = movementIdentifier.replace(/[^A-Za-z0-9\-_]/g, "");
+      const documentNumber = safe.replace(/-/g, "/");
+      query = query.or(
+        `route_key.eq.${safe},draft_number.eq.${safe},document_number.eq."${documentNumber}"`
+      );
     }
     const { data: header, error: headerError } = await query.maybeSingle();
 
