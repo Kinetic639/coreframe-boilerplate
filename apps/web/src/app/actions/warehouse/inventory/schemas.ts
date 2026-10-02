@@ -206,6 +206,10 @@ const movementLineSchema = z.object({
   // from, e.g. a Matcher line -- used to attribute a posted PZ to RepairOrders.
   source_type: z.string().max(60).nullable().optional(),
   source_line_id: nullableUuidSchema,
+  // The repair order (ZL) and part code the line was delivered for; the
+  // posted PZ is attributed to repair orders by these two.
+  source_order_number: z.string().max(120).nullable().optional(),
+  source_product_code: z.string().max(120).nullable().optional(),
 });
 
 const partyDetailsSchema = z

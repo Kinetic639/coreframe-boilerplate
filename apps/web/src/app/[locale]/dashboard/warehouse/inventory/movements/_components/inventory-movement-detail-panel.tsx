@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { Check, ExternalLink, Loader2, Pencil, Printer, Send, X, XCircle } from "lucide-react";
 import { toast } from "react-toastify";
@@ -17,6 +17,11 @@ import {
   declineInventoryBranchTransferAction,
   finalizePostingAction,
 } from "@/app/actions/warehouse/inventory";
+import { MovementReverseDialog } from "./movement-reverse-dialog";
+
+// Inter-branch transfers have their own accept/decline flow; a storno
+// cannot itself be reversed.
+const NOT_REVERSIBLE_TYPES = new Set(["311", "312", "900"]);
 
 type LocationOption = { id: string; name: string; code: string | null };
 
@@ -27,6 +32,8 @@ type InventoryMovementDetailPanelProps = {
   canOperate: boolean;
   showOpenPageAction?: boolean;
   showPrintAction?: boolean;
+  /** Extra header actions (e.g. KPZ on a posted PZ). */
+  extraActions?: ReactNode;
 };
 
 const statusVariant: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
@@ -46,6 +53,7 @@ export function InventoryMovementDetailPanel({
   canOperate,
   showOpenPageAction = true,
   showPrintAction = false,
+  extraActions,
 }: InventoryMovementDetailPanelProps) {
   const t = useTranslations("warehouseInventory.movements");
   const td = useTranslations("warehouseInventory.movementDetail");
@@ -56,6 +64,12 @@ export function InventoryMovementDetailPanel({
   const [isPending, startTransition] = useTransition();
   const isDraft = detail.status === "draft";
   const canRespondToTransfer = canOperate && detail.status === "in_transit";
+  const related = detail.related_movements ?? [];
+  const canReverse =
+    canOperate &&
+    detail.status === "posted" &&
+    !NOT_REVERSIBLE_TYPES.has(detail.movement_type_code) &&
+    !related.some((r) => r.relation === "reversed_by" || r.relation === "reversal_of");
 
   const STATUS_KEYS: Record<string, string> = {
     draft: "statusDraft",
@@ -138,6 +152,10 @@ export function InventoryMovementDetailPanel({
           <p className="text-sm text-muted-foreground">{detail.movement_type_name}</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {extraActions}
+          {canReverse && (
+            <MovementReverseDialog movementId={detail.id} documentNumber={detail.document_number} />
+          )}
           {showPrintAction && (
             <Button type="button" variant="outline" size="sm" onClick={() => window.print()}>
               <Printer className="mr-1.5 h-3.5 w-3.5" />
@@ -154,6 +172,26 @@ export function InventoryMovementDetailPanel({
           )}
         </div>
       </div>
+
+      {related.length > 0 && (
+        <div className="flex flex-wrap gap-2 text-sm" data-testid="movement-related">
+          {related.map((r) => (
+            <Link
+              key={`${r.relation}:${r.id}`}
+              href={getMovementDetailHref({
+                status: r.status,
+                route_key: r.route_key,
+                document_number: r.document_number,
+                draft_number: null,
+              })}
+              className="bg-muted/40 hover:bg-muted rounded-md border px-2 py-1"
+            >
+              {td(`related.${r.relation}` as any)}{" "}
+              <span className="font-mono font-medium">{r.document_number ?? "—"}</span>
+            </Link>
+          ))}
+        </div>
+      )}
 
       {/* Draft Actions */}
       {isDraft && canOperate && (

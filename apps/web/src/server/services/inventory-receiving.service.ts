@@ -108,7 +108,17 @@ export interface ReceiptReportInput {
 
 export interface ReceiptAttributionLine {
   movementLineId: string;
-  sourceLineId: string;
+  /** ZL the line was delivered for. */
+  zlNumber: string;
+  productCode: string;
+}
+
+export interface ReceiptAttributionSummary {
+  /** Lines received onto a repair order (possibly only part of the quantity). */
+  attributed: number;
+  /** Lines (or their excess) left as free stock, by reason. */
+  skipped: number;
+  skippedReasons: Record<string, number>;
 }
 
 function mapPutawayError(error: { code?: string; message: string }): PutawayError {
@@ -241,21 +251,33 @@ export class InventoryReceivingService {
     actorUserId: string,
     movementId: string,
     lines: ReceiptAttributionLine[]
-  ): Promise<ServiceResult<{ attributed: number; skipped: number }>> {
-    if (lines.length === 0) return { success: true, data: { attributed: 0, skipped: 0 } };
-    const { data, error } = await supabase.rpc("inventory_attribute_receipt_lines", {
+  ): Promise<ServiceResult<ReceiptAttributionSummary>> {
+    if (lines.length === 0) {
+      return { success: true, data: { attributed: 0, skipped: 0, skippedReasons: {} } };
+    }
+    const { data, error } = await supabase.rpc("inventory_attribute_receipt_to_repair_orders", {
       p_actor_user_id: actorUserId,
       p_movement_id: movementId,
       p_lines: lines.map((l) => ({
         movement_line_id: l.movementLineId,
-        source_line_id: l.sourceLineId,
+        zl_number: l.zlNumber,
+        product_code: l.productCode,
       })),
     });
     if (error) return { success: false, error: "Failed to link the receipt to repair orders" };
-    const r = (data ?? {}) as { attributed?: unknown[]; skipped?: unknown[] };
+    const r = (data ?? {}) as { attributed?: unknown[]; skipped?: Array<{ reason?: string }> };
+    const skippedReasons: Record<string, number> = {};
+    for (const s of r.skipped ?? []) {
+      const reason = s.reason ?? "unknown";
+      skippedReasons[reason] = (skippedReasons[reason] ?? 0) + 1;
+    }
     return {
       success: true,
-      data: { attributed: r.attributed?.length ?? 0, skipped: r.skipped?.length ?? 0 },
+      data: {
+        attributed: r.attributed?.length ?? 0,
+        skipped: r.skipped?.length ?? 0,
+        skippedReasons,
+      },
     };
   }
 

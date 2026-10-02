@@ -22,28 +22,10 @@ function render(ui: ReactElement) {
   return rtlRender(ui, { wrapper: Wrapper });
 }
 
-const {
-  mockApproveMutate,
-  mockRetryMutate,
-  mockCan,
-  mockRefetchMaterializationStatus,
-  approveMutationState,
-  retryMutationState,
-  materializationStatusState,
-} = vi.hoisted(() => ({
+const { mockApproveMutate, mockCan, approveMutationState } = vi.hoisted(() => ({
   mockApproveMutate: vi.fn(),
-  mockRetryMutate: vi.fn(),
   mockCan: vi.fn(() => true),
-  mockRefetchMaterializationStatus: vi.fn(),
   approveMutationState: { isPending: false, data: undefined as unknown },
-  retryMutationState: { isPending: false },
-  materializationStatusState: {
-    data: undefined as { materialized: boolean; repairOrderCount: number } | undefined,
-    isLoading: false,
-    // Finding F (corrective review, second pass): the query-error state,
-    // previously untested at the component level.
-    isError: false,
-  },
 }));
 
 vi.mock("next-intl", () => ({
@@ -82,18 +64,10 @@ vi.mock("@/hooks/queries/tools/wdd-matcher", () => ({
   useRunMatchingMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useExportCsvMutation: () => ({ mutate: vi.fn(), isPending: false }),
   useEnhancedPdfDataMutation: () => ({ mutate: vi.fn(), isPending: false }),
-  useApproveAndMaterializeSessionMutation: () => ({
+  useApproveSessionMutation: () => ({
     mutate: mockApproveMutate,
     isPending: approveMutationState.isPending,
     data: approveMutationState.data,
-  }),
-  useRetryMaterializationMutation: () => ({
-    mutate: mockRetryMutate,
-    isPending: retryMutationState.isPending,
-  }),
-  useMaterializationStatusQuery: () => ({
-    ...materializationStatusState,
-    refetch: mockRefetchMaterializationStatus,
   }),
 }));
 
@@ -123,12 +97,8 @@ describe("ExtractionReviewView -- approval UI (Phase 4/5)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockCan.mockReturnValue(true);
-    materializationStatusState.isError = false;
     approveMutationState.isPending = false;
     approveMutationState.data = undefined;
-    retryMutationState.isPending = false;
-    materializationStatusState.data = undefined;
-    materializationStatusState.isLoading = false;
   });
 
   it("shows the Approve button when the session is ready_for_review and the caller can approve", () => {
@@ -174,7 +144,7 @@ describe("ExtractionReviewView -- approval UI (Phase 4/5)", () => {
     expect(screen.queryByTestId("approval-status-strip")).not.toBeInTheDocument();
   });
 
-  it("calls the approve-and-materialize mutation when the Approve button is clicked, and shows its loading state", () => {
+  it("marks the session reviewed when the button is clicked, and shows its loading state", () => {
     const { rerender } = render(
       <ExtractionReviewView
         sessionId="session-1"
@@ -199,9 +169,7 @@ describe("ExtractionReviewView -- approval UI (Phase 4/5)", () => {
     expect(screen.getByTestId("approve-session-button")).toBeDisabled();
   });
 
-  it("shows the successful 'Approved' state (no retry control) once materialization status resolves as materialized", () => {
-    materializationStatusState.data = { materialized: true, repairOrderCount: 2 };
-
+  it("shows the reviewed state pointing to the repair-order import (the Matcher creates no orders)", () => {
     render(
       <ExtractionReviewView
         sessionId="session-1"
@@ -212,82 +180,11 @@ describe("ExtractionReviewView -- approval UI (Phase 4/5)", () => {
     );
 
     expect(screen.getByTestId("approval-status-strip")).toBeInTheDocument();
+    expect(screen.getByText("approval.goToRepairOrderImport").closest("a")).toHaveAttribute(
+      "href",
+      "/dashboard/workshop/import"
+    );
     expect(screen.queryByTestId("retry-materialization-button")).not.toBeInTheDocument();
-    // No duplicate approve action once approved.
     expect(screen.queryByTestId("approve-session-button")).not.toBeInTheDocument();
-  });
-
-  it("shows the 'Materialization failed' state with a Retry control when the status query reports not-yet-materialized", () => {
-    materializationStatusState.data = { materialized: false, repairOrderCount: 0 };
-
-    render(
-      <ExtractionReviewView
-        sessionId="session-1"
-        matchedSession={makeSession({ status: "approved", approved_by: "user-1" })}
-        onMatchingComplete={noop}
-        onBack={noop}
-      />
-    );
-
-    expect(screen.getByTestId("approval-status-strip")).toBeInTheDocument();
-    expect(screen.getByTestId("retry-materialization-button")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByTestId("retry-materialization-button"));
-    expect(mockRetryMutate).toHaveBeenCalledWith("session-1");
-  });
-
-  /**
-   * Finding F (corrective review, second pass): the amber "status
-   * unavailable" branch had no dedicated component test. A genuine
-   * materialization-status query error (isError: true, no data) must
-   * render as a distinct third state -- never as the green "Approved"
-   * success state -- and must offer a status refresh, not a
-   * materialization retry (the actual materialization outcome is unknown,
-   * not known-failed).
-   */
-  it("shows the amber 'status unavailable' state (not the green success state, not the retry button) when the materialization-status query errors", () => {
-    materializationStatusState.data = undefined;
-    materializationStatusState.isLoading = false;
-    materializationStatusState.isError = true;
-
-    render(
-      <ExtractionReviewView
-        sessionId="session-1"
-        matchedSession={makeSession({ status: "approved", approved_by: "user-1" })}
-        onMatchingComplete={noop}
-        onBack={noop}
-      />
-    );
-
-    const strip = screen.getByTestId("approval-status-strip");
-    expect(strip).toBeInTheDocument();
-    expect(strip).toHaveTextContent("approval.approvedStatusUnavailable");
-    expect(strip).not.toHaveTextContent("approval.approvedAndMaterialized");
-    expect(screen.queryByTestId("retry-materialization-button")).not.toBeInTheDocument();
-
-    const refreshButton = screen.getByTestId("refresh-materialization-status-button");
-    expect(refreshButton).toBeInTheDocument();
-    fireEvent.click(refreshButton);
-    expect(mockRefetchMaterializationStatus).toHaveBeenCalled();
-  });
-
-  it("shows the failure state immediately after a just-completed approve call that reported a materializationError, without waiting for the status query", () => {
-    approveMutationState.data = {
-      session: makeSession({ status: "approved" }),
-      materialization: null,
-      materializationError: "Not authorized to materialize repair orders for this branch",
-    };
-    materializationStatusState.isLoading = true; // status query hasn't resolved yet
-
-    render(
-      <ExtractionReviewView
-        sessionId="session-1"
-        matchedSession={makeSession({ status: "approved", approved_by: "user-1" })}
-        onMatchingComplete={noop}
-        onBack={noop}
-      />
-    );
-
-    expect(screen.getByTestId("retry-materialization-button")).toBeInTheDocument();
   });
 });

@@ -10,7 +10,7 @@ import {
 } from "@/lib/constants/permissions";
 import { createClient } from "@/utils/supabase/server";
 import { RepairOrdersService } from "@/server/services/repair-orders.service";
-import { Wrench, FileSearch, ChevronRight, Plus } from "lucide-react";
+import { Wrench, FileSearch, ChevronRight, Plus, Upload } from "lucide-react";
 import { RepairOrdersSearch } from "./_components/repair-orders-search";
 import { RepairOrderStatusBadge } from "./_components/repair-order-status-badge";
 import { Button } from "@/components/ui/button";
@@ -95,6 +95,14 @@ export default async function WorkshopOverviewPage({ searchParams }: PageProps =
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <RepairOrdersSearch initialQuery={query} />
+          {canCreate && (
+            <Button asChild size="sm" variant="outline" data-testid="import-repair-orders-link">
+              <Link href="/dashboard/workshop/import">
+                <Upload className="mr-1.5 h-4 w-4" />
+                {t("import.cta")}
+              </Link>
+            </Button>
+          )}
           {canCreate && (
             <Button asChild size="sm" data-testid="new-repair-order-link">
               <Link href="/dashboard/workshop/new">

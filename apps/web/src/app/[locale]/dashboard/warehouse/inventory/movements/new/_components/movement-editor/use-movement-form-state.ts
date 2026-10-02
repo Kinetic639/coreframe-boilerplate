@@ -400,6 +400,7 @@ export function useMovementFormState(
           source_label: line.source_label ?? null,
           source_line_id: line.source_line_id ?? null,
           source_order_number: line.source_order_number ?? null,
+          source_product_code: line.source_product_code ?? null,
           variant_id: line.variant_id,
           unit_id: line.unit_id,
           sku: variant?.sku ?? line.sku ?? line.variant_id,

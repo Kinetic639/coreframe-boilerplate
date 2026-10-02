@@ -20,7 +20,10 @@ import { InventoryProductsService } from "@/server/services/inventory-products.s
 import { InventoryProductImportsService } from "@/server/services/inventory-product-imports.service";
 import { InventoryBalancesService } from "@/server/services/inventory-balances.service";
 import { InventoryMovementsService } from "@/server/services/inventory-movements.service";
-import { InventoryReceivingService } from "@/server/services/inventory-receiving.service";
+import {
+  InventoryReceivingService,
+  type ReceiptAttributionSummary,
+} from "@/server/services/inventory-receiving.service";
 import { InventoryMovementImportsService } from "@/server/services/inventory-movement-imports.service";
 import { InventoryEnterpriseService } from "@/server/services/inventory-enterprise.service";
 import { CrmPartiesService } from "@/server/services/crm-parties.service";
@@ -1394,6 +1397,97 @@ export async function cancelMovementAction(rawInput: unknown) {
   }
 }
 
+const reverseMovementWithReasonSchema = z.object({
+  id: z.string().uuid(),
+  reason: z.string().trim().min(1).max(500),
+});
+
+/** Storno of a posted movement in the active branch, with a required reason. */
+export async function reverseMovementAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE)) {
+      return { success: false, error: "unauthorized" };
+    }
+    const branch = requireActiveBranch(auth);
+    if (!branch.success) return branch;
+
+    const parsed = reverseMovementWithReasonSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: "reason_required" };
+    const userId = userIdFrom(auth);
+    if (!userId) return { success: false, error: "unauthorized" };
+
+    const supabase = await createClient();
+    const { data: header } = await supabase
+      .from("inventory_movement_headers")
+      .select("id")
+      .eq("id", parsed.data.id!)
+      .eq("organization_id", auth.context.app.activeOrgId)
+      .eq("branch_id", branch.branchId)
+      .maybeSingle();
+    if (!header) return { success: false, error: "not_found" };
+
+    return InventoryMovementsService.reverseMovement(
+      supabase,
+      parsed.data.id!,
+      userId,
+      parsed.data.reason!
+    );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+const receiptCorrectionSchema = z.object({
+  movement_id: z.string().uuid(),
+  reason: z.string().trim().min(1).max(500),
+  lines: z
+    .array(z.object({ original_line_id: z.string().uuid(), quantity: z.number().positive() }))
+    .min(1)
+    .max(500),
+});
+
+/** KPZ: correct a posted PZ of the active branch downwards, line by line. */
+export async function postReceiptCorrectionAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE)) {
+      return { success: false, error: "unauthorized" };
+    }
+    const branch = requireActiveBranch(auth);
+    if (!branch.success) return branch;
+
+    const parsed = receiptCorrectionSchema.safeParse(rawInput);
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: parsed.error.errors.some((e) => e.path[0] === "reason")
+          ? "reason_required"
+          : "invalid_input",
+      };
+    }
+    const userId = userIdFrom(auth);
+    if (!userId) return { success: false, error: "unauthorized" };
+
+    const supabase = await createClient();
+    return InventoryMovementsService.postReceiptCorrection(supabase, {
+      actorUserId: userId,
+      organizationId: auth.context.app.activeOrgId,
+      branchId: branch.branchId,
+      movementId: parsed.data.movement_id!,
+      reason: parsed.data.reason!,
+      lines: parsed.data.lines!.map((l) => ({
+        originalLineId: l.original_line_id!,
+        quantity: l.quantity!,
+      })),
+    });
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
 export async function addLinesToDraftAction(rawInput: unknown) {
   try {
     const auth = await requireWarehouseContext();
@@ -1665,12 +1759,13 @@ export async function createAndPostMovementAction(rawInput: unknown) {
       userId
     );
     if (result.success && receivingLocationId) {
-      await attributeImportedReceipt(
+      const attribution = await attributeImportedReceipt(
         supabase,
         userId,
         (result.data as { movement_id: string }).movement_id,
         parsed.data.lines!
       );
+      return { ...result, data: { ...(result.data as object), attribution } };
     }
     return result;
   } catch (error) {
@@ -1695,17 +1790,18 @@ async function receivingDestinationFor(
 }
 
 /**
- * Zone 5: link a just-posted PZ's Matcher-imported lines to their
- * RepairOrderLines. Best effort after posting -- the PZ stands either way;
- * an unlinked line simply shows up as free stock in the receiving zone.
+ * Link a just-posted PZ's lines to repair orders by ZL + part code (any
+ * import source that knows the ZL). Best effort after posting -- the PZ
+ * stands either way; an unlinked line shows up as free stock in the
+ * receiving zone. Returns the summary so the editor can say what happened.
  */
 async function attributeImportedReceipt(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
   movementId: string,
-  lines: Array<{ source_type?: string | null; source_line_id?: string | null }>
-) {
-  if (!lines.some((l) => l.source_type === "svwms_wdd_matcher" && l.source_line_id)) return;
+  lines: Array<{ source_order_number?: string | null; source_product_code?: string | null }>
+): Promise<ReceiptAttributionSummary | null> {
+  if (!lines.some((l) => l.source_order_number && l.source_product_code)) return null;
   const { data } = await supabase
     .from("inventory_movement_lines")
     .select("id, line_number")
@@ -1714,8 +1810,14 @@ async function attributeImportedReceipt(
     .order("line_number", { ascending: true });
   const posted = (data ?? []) as Array<{ id: string; line_number: number }>;
   const attribution = lines.flatMap((line, index) =>
-    line.source_type === "svwms_wdd_matcher" && line.source_line_id && posted[index]
-      ? [{ movementLineId: posted[index].id, sourceLineId: line.source_line_id }]
+    line.source_order_number && line.source_product_code && posted[index]
+      ? [
+          {
+            movementLineId: posted[index].id,
+            zlNumber: line.source_order_number,
+            productCode: line.source_product_code,
+          },
+        ]
       : []
   );
   const result = await InventoryReceivingService.attributeReceipt(
@@ -1726,7 +1828,9 @@ async function attributeImportedReceipt(
   );
   if (!result.success) {
     console.error("[createAndPostMovementAction] receipt attribution failed:", movementId);
+    return null;
   }
+  return result.data;
 }
 
 export async function searchPickerItemsAction(rawInput: unknown) {
@@ -1909,10 +2013,6 @@ export async function adjustStockAction(_rawInput: unknown) {
 
 // Legacy alias
 export const postMovementAction = finalizePostingAction;
-export const reverseMovementAction = async (_rawInput: unknown) => ({
-  success: false as const,
-  error: "Reversal not available in v1.",
-});
 
 export async function createInventoryOptionGroupAction(rawInput: unknown) {
   try {

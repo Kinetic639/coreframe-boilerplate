@@ -63,6 +63,7 @@ export function movementKindForCode(code: string): string {
       return "issue";
     case "401":
     case "402":
+    case "102":
       return "adjustment";
     case "900":
       return "reversal";
