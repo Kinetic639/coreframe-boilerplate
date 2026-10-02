@@ -1,10 +1,83 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useTranslations } from "next-intl";
 import { ArrowLeft, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getQrCodeByTokenAction } from "@/app/actions/qr/assign";
+
+type SharedCamera = {
+  acquire: () => Promise<MediaStream>;
+  /** Stop the shared stream now (e.g. idle sleep); the next acquire reopens it. */
+  release: () => void;
+};
+
+const SharedCameraContext = createContext<SharedCamera | null>(null);
+
+function requestCamera() {
+  return navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+}
+
+/**
+ * Keeps ONE camera stream for every QrCameraScanner rendered inside it
+ * (e.g. a scan-after-scan putaway sheet). Each start of a camera makes the
+ * browser announce "camera access granted" -- with a shared stream that
+ * happens once per session instead of on every scan. The stream stops when
+ * the provider unmounts.
+ */
+export function SharedCameraProvider({ children }: { children: ReactNode }) {
+  const pendingRef = useRef<Promise<MediaStream> | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  useEffect(
+    () => () => {
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+      pendingRef.current = null;
+    },
+    []
+  );
+
+  const value = useMemo<SharedCamera>(
+    () => ({
+      acquire() {
+        // Re-open only if the stream ended (e.g. the phone locked).
+        const live = streamRef.current?.getVideoTracks().some((t) => t.readyState === "live");
+        if (!live) pendingRef.current = null;
+        if (!pendingRef.current) {
+          pendingRef.current = requestCamera().then(
+            (stream) => {
+              streamRef.current = stream;
+              return stream;
+            },
+            (error) => {
+              pendingRef.current = null;
+              throw error;
+            }
+          );
+        }
+        return pendingRef.current;
+      },
+      release() {
+        streamRef.current?.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+        pendingRef.current = null;
+      },
+    }),
+    []
+  );
+
+  return <SharedCameraContext.Provider value={value}>{children}</SharedCameraContext.Provider>;
+}
 
 export interface QrScanLookup {
   id: string;
@@ -29,6 +102,26 @@ interface QrCameraScannerProps {
   onRetry?: () => void;
 }
 
+/** The shared camera of the nearest SharedCameraProvider, or null. */
+export function useSharedCamera() {
+  return useContext(SharedCameraContext);
+}
+
+export type ResolvedScan =
+  | { ok: true; lookup: QrScanLookup }
+  | { ok: false; reason: "invalidToken" | "notFound" | "revoked" };
+
+/** Scanned text (a /qr/<token> URL or a bare token) -> the active QR code. */
+export async function resolveScannedQr(scannedText: string): Promise<ResolvedScan> {
+  const token = extractToken(scannedText);
+  if (!token) return { ok: false, reason: "invalidToken" };
+  const lookup = await getQrCodeByTokenAction(token);
+  if (!lookup.success || !lookup.data) return { ok: false, reason: "notFound" };
+  const { id, label, status, assignment } = lookup.data;
+  if (status !== "active") return { ok: false, reason: "revoked" };
+  return { ok: true, lookup: { id, token, label, status, assignment } };
+}
+
 function extractToken(scannedText: string): string | null {
   try {
     const url = new URL(scannedText);
@@ -50,6 +143,7 @@ export function QrCameraScanner({
   onRetry,
 }: QrCameraScannerProps) {
   const t = useTranslations("qrScanner");
+  const shared = useContext(SharedCameraContext);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -115,14 +209,13 @@ export function QrCameraScanner({
 
     async function startCamera() {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" },
-        });
+        const stream = shared ? await shared.acquire() : await requestCamera();
         if (cancelled) {
-          stream.getTracks().forEach((t) => t.stop());
+          if (!shared) stream.getTracks().forEach((t) => t.stop());
           return;
         }
-        streamRef.current = stream;
+        // A shared stream is owned by the provider: never stopped here.
+        if (!shared) streamRef.current = stream;
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           await videoRef.current.play();
@@ -170,7 +263,7 @@ export function QrCameraScanner({
       cancelled = true;
       stopCamera();
     };
-  }, [handleScanned, stopCamera, t]);
+  }, [handleScanned, shared, stopCamera, t]);
 
   return (
     <div className="flex flex-col gap-3">

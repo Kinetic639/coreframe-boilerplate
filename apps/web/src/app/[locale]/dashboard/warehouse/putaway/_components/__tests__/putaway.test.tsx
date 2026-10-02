@@ -43,6 +43,9 @@ vi.mock("@/hooks/queries/warehouse", () => ({
   }),
 }));
 vi.mock("@/components/features/qr/qr-camera-scanner", () => ({
+  SharedCameraProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  useSharedCamera: () => null,
+  resolveScannedQr: vi.fn(),
   QrCameraScanner: ({ onScanned }: { onScanned: (l: unknown) => Promise<string | null> }) => (
     <button
       data-testid="fake-scan"

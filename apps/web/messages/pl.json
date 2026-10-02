@@ -2879,7 +2879,7 @@
           "close": "Zamknij",
           "back": "Wstecz",
           "scanHint": "Kontener, pusta naklejka albo lokalizacja",
-          "scanExplain": "Kontener — dołożysz części jego zlecenia. Pusta naklejka — nowy kontener. Lokalizacja — zobaczysz, co tam leży.",
+          "scanExplain": "Wyceluj w kod: kontener — dołożysz części jego zlecenia, pusta naklejka — nowy kontener, lokalizacja — zobaczysz, co tam leży. Po każdym kodzie skanowanie się wstrzymuje; stuknij pasek u góry, aby skanować dalej.",
           "newWithoutScan": "Nowy kontener bez skanowania",
           "containerNotHere": "Ten kontener nie należy do zlecenia w tym oddziale.",
           "locationNotHere": "Ta lokalizacja nie należy do aktywnego oddziału.",
@@ -2946,7 +2946,13 @@
           "orderContainers": "Kontenery zlecenia ({count})",
           "orderNoContainers": "To zlecenie nie ma jeszcze kontenerów.",
           "newWithSticker": "Nowy kontener — skanuj naklejkę",
-          "newOversize": "Bez naklejki (gabaryt)"
+          "newOversize": "Bez naklejki (gabaryt)",
+          "strip": {
+            "checking": "Sprawdzam kod…",
+            "paused": "Stuknij, aby skanować",
+            "sleeping": "Kamera uśpiona — stuknij, aby wznowić",
+            "cameraError": "Brak dostępu do kamery — stuknij, aby spróbować ponownie"
+          }
         },
         "changes": {
           "range": {

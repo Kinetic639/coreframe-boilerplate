@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import type { ReceivingPendingItem } from "@/server/services/inventory-receiving.service";
 import { PutawayDialog } from "./putaway-dialog";
 import { ScanFlow, type ScanFlowStep } from "./scan-flow";
+import { unlockScanSound } from "./scan-feedback";
 import { LocationChanges } from "./location-changes";
 import {
   formatQty,
@@ -273,7 +274,11 @@ export function PutawayBoard({
           type="button"
           size="icon"
           className="fixed right-4 bottom-[calc(1.25rem+env(safe-area-inset-bottom))] z-40 h-16 w-16 rounded-full shadow-lg sm:right-6 sm:bottom-6"
-          onClick={() => openScan()}
+          onClick={() => {
+            // The tap that opens the sheet also unlocks scan sounds on iOS.
+            unlockScanSound();
+            openScan();
+          }}
           aria-label={t("scanCta")}
           data-testid="putaway-scan-start"
         >
