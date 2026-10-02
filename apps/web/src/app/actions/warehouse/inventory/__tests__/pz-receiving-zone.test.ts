@@ -73,6 +73,8 @@ const matcherLine = {
   destination_location_id: SHELF,
   source_type: "svwms_wdd_matcher",
   source_line_id: MATCHER_LINE,
+  source_order_number: "ZL/0042/2026/0301/BL",
+  source_product_code: "N91158501",
 };
 
 beforeEach(() => {
@@ -110,8 +112,8 @@ describe("PZ lands in the receiving zone", () => {
   });
 });
 
-describe("Matcher-imported PZ is attributed after posting", () => {
-  it("pairs posted lines (by position) with their Matcher source lines", async () => {
+describe("Imported PZ is attributed to repair orders after posting", () => {
+  it("pairs posted lines (by position) with their ZL and part code", async () => {
     h.postedLines = [
       { id: "ml-1", line_number: 1 },
       { id: "ml-2", line_number: 2 },
@@ -124,7 +126,7 @@ describe("Matcher-imported PZ is attributed after posting", () => {
     };
     await createAndPostMovementAction(payload("101", [manual, matcherLine]));
     expect(h.attributeReceipt).toHaveBeenCalledWith(expect.anything(), "user-1", "mv-1", [
-      { movementLineId: "ml-2", sourceLineId: MATCHER_LINE },
+      { movementLineId: "ml-2", zlNumber: "ZL/0042/2026/0301/BL", productCode: "N91158501" },
     ]);
   });
 

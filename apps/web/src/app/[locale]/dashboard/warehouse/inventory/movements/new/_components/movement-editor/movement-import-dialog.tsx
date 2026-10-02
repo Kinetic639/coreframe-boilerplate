@@ -6,6 +6,7 @@ import { AlertCircle, CheckCircle2, Loader2, PlusCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ImportCopyButton } from "@/components/warehouse/import-copy-button";
 import { WarehouseImportReviewTable } from "@/components/warehouse/import-review-table";
+import { RepairOrderImportReview } from "@/components/workshop/repair-order-import-review";
 import {
   Dialog,
   DialogContent,
@@ -129,6 +130,12 @@ function documentWithRevalidatedLines(
     validation_errors: [...new Set(lines.flatMap((line) => line.validation_errors))],
     lines,
   };
+}
+
+// Server actions fail with HTTP 200, so the toast is the only place the reason shows.
+function withActionError(message: string, result: unknown) {
+  const error = (result as { error?: unknown } | null)?.error;
+  return typeof error === "string" && error.trim() ? `${message}: ${error}` : message;
 }
 
 function locationLabel(location: LocationOption) {
@@ -257,7 +264,7 @@ export function MovementImportDialog({
         movement_type_code: movementTypeCode,
       });
       if (!result.success || !("data" in result)) {
-        toast.error("Could not load movement import sources");
+        toast.error(withActionError("Could not load movement import sources", result));
         return;
       }
       setSources(result.data);
@@ -297,7 +304,7 @@ export function MovementImportDialog({
         movement_type_code: movementTypeCode,
       });
       if (!result.success || !("data" in result)) {
-        toast.error("Could not preview movement import");
+        toast.error(withActionError("Could not preview movement import", result));
         return;
       }
       const nextDeferLocationValidation = result.data.source_type === "svwms_wdd_matcher";
@@ -451,6 +458,17 @@ export function MovementImportDialog({
     );
   };
 
+  // Most delivery lines share one unit (szt), so set it once for every
+  // missing-product row that has none yet.
+  const applyUnitToAllProducts = (unitId: string) => {
+    if (!unitId) return;
+    const targetKeys = new Set(svwmsActiveProductExceptionGroups.map((group) => group.key));
+    updateMatchingLines(
+      (candidate) => targetKeys.has(rawProductKey(candidate)) && !candidate.unit_id,
+      { unit_id: unitId }
+    );
+  };
+
   const copyFirstProductActionToAll = () => {
     const firstGroup = svwmsActiveProductExceptionGroups[0];
     if (!firstGroup) return;
@@ -490,7 +508,7 @@ export function MovementImportDialog({
     });
     setQuickCreatePendingKey(null);
     if (!result.success || !("data" in result)) {
-      toast.error("Could not create missing units");
+      toast.error(withActionError("Could not create missing units", result));
       return;
     }
     const created = new Map<string, InventoryUnitRow>(
@@ -553,7 +571,7 @@ export function MovementImportDialog({
     });
     setQuickCreatePendingKey(null);
     if (!result.success || !("data" in result)) {
-      toast.error("Could not create missing products");
+      toast.error(withActionError("Could not create missing products", result));
       return;
     }
     const created = new Map<string, InventoryVariantOption>(
@@ -639,6 +657,7 @@ export function MovementImportDialog({
           source_label: preview?.source_label ?? null,
           source_line_id: line.source_line_id,
           source_order_number: isSvwmsSessionImport ? lineOrderNumber(line) : null,
+          source_product_code: line.normalized_product_code ?? line.raw_product_code ?? null,
         };
       }),
     });
@@ -918,6 +937,23 @@ export function MovementImportDialog({
                 </div>
               ) : null}
 
+              {isSvwmsSessionImport &&
+                typeof selectedDocument?.source_metadata?.session_id === "string" && (
+                  <section className="rounded-md border p-3" data-testid="import-repair-orders">
+                    <h3 className="text-sm font-semibold">Zlecenia z tej dostawy</h3>
+                    <p className="text-muted-foreground mb-3 text-xs">
+                      Części trafią do zleceń po numerze ZL i kodzie części. Utwórz brakujące
+                      zlecenia przed zaksięgowaniem PZ — inaczej ich części zostaną wolnym towarem.
+                    </p>
+                    <RepairOrderImportReview
+                      sourceType="svwms_wdd_matcher"
+                      sourceInput={{ session_id: selectedDocument.source_metadata.session_id }}
+                      canApply
+                      compact
+                    />
+                  </section>
+                )}
+
               {isSvwmsSessionImport && dialogView === "review_ready" && (
                 <div className="flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-700">
                   <CheckCircle2 className="h-4 w-4" />
@@ -1166,6 +1202,28 @@ export function MovementImportDialog({
                               },
                             ]}
                           />
+                        )}
+
+                        {svwmsActiveProductExceptionGroups.some((group) => !groupUnitId(group)) && (
+                          <div
+                            className="flex flex-wrap items-center gap-2 rounded-md border bg-background p-3 text-sm"
+                            data-testid="import-bulk-unit"
+                          >
+                            <span className="font-medium">Set unit for all rows without one</span>
+                            <select
+                              value=""
+                              onChange={(event) => applyUnitToAllProducts(event.target.value)}
+                              className="h-9 min-w-56 rounded-md border bg-background px-2 text-sm"
+                              aria-label="Unit for all rows"
+                            >
+                              <option value="">Select unit</option>
+                              {unitOptions.map((unit) => (
+                                <option key={unit.id} value={unit.id}>
+                                  {unit.code} - {unit.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
                         )}
 
                         {svwmsActiveProductExceptionGroups.length > 0 && (

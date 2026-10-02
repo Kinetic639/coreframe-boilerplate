@@ -3440,6 +3440,48 @@
             "invalid_input": "Invalid issue request.",
             "unexpected": "Could not issue the parts. Please try again."
           }
+        },
+        "import": {
+          "cta": "Import repair orders",
+          "title": "Import repair orders",
+          "subtitle": "Pick a source, see which orders already exist, and create the missing ones.",
+          "back": "Back to repair orders",
+          "noBranch": "Select an active branch.",
+          "source": "Source",
+          "choose": "Choose…",
+          "pickSource": "Pick a source and document to see its repair orders.",
+          "loading": "Checking repair orders…",
+          "empty": "This source has no orders with a ZL number.",
+          "allPresent": "All orders already exist.",
+          "counts": {
+            "existing": "Existing: {count}",
+            "new": "New: {count}",
+            "conflict": "Conflicts: {count}"
+          },
+          "columns": {
+            "zl": "ZL",
+            "client": "Client / vehicle",
+            "status": "State",
+            "parts": "Parts"
+          },
+          "status": {
+            "new": "To create",
+            "existing": "Exists",
+            "existingChanges": "Exists · new parts"
+          },
+          "conflict": {
+            "missing_zl": "No ZL number",
+            "repair_order_closed": "Order closed",
+            "repair_order_archived": "Order archived"
+          },
+          "parts": "{added} new · {adds} top-up · {present} present",
+          "apply": "Import selected ({count})",
+          "applied": "Created: {created}, updated: {updated}",
+          "errors": {
+            "unauthorized": "You cannot import repair orders in this branch.",
+            "invalid_input": "Invalid import input.",
+            "unexpected": "The repair-order import failed."
+          }
         }
       }
     },
@@ -4317,7 +4359,12 @@
           "goToWorkshop": "Go to Workshop",
           "approvedStatusUnavailable": "Approved — Status unavailable",
           "statusUnavailableDescription": "Could not check whether repair orders were created. This may not mean anything is wrong — refresh to check again.",
-          "refreshStatus": "Refresh Status"
+          "refreshStatus": "Refresh Status",
+          "markReviewed": "Mark as reviewed",
+          "reviewed": "Session reviewed",
+          "reviewedHint": "The Matcher does not create repair orders. Create them in Workshop → Import repair orders, or while importing a PZ from this session.",
+          "goToRepairOrderImport": "Import repair orders",
+          "reviewedToast": "Session marked as reviewed"
         },
         "extractionReview": {
           "title": "Extraction Preview",
@@ -6212,7 +6259,8 @@
       "colUnit": "Unit",
       "colAvail": "Avail.",
       "colQuantity": "Quantity",
-      "receivingZoneHint": "A goods receipt always lands in the receiving zone. Stock becomes available once it is put away (Warehouse → Putaway)."
+      "receivingZoneHint": "A goods receipt always lands in the receiving zone. Stock becomes available once it is put away (Warehouse → Putaway).",
+      "receiptAttribution": "Linked to repair orders: {attributed} lines. Left as free stock: {skipped} lines (no order, part not on the order, or already received)."
     },
     "itemPicker": {
       "title": "WMS Item Picker",
@@ -6289,7 +6337,55 @@
       "actionDeclined": "Declined",
       "actionUpdated": "Updated",
       "actionDraftUpdated": "Draft Updated",
-      "actionDraftSaved": "Draft Saved"
+      "actionDraftSaved": "Draft Saved",
+      "reverse": {
+        "open": "Reverse",
+        "title": "Reverse document {number}",
+        "description": "A reversal posts an inverse document (900) that takes back every line of this document as if it never happened. The original stays in history marked as reversed. It only works while the stock is still where this document put it and is not reserved.",
+        "reason": "Reason",
+        "reasonPlaceholder": "e.g. delivery posted by mistake",
+        "cancel": "Cancel",
+        "confirm": "Reverse",
+        "done": "Posted reversal {number}",
+        "errors": {
+          "unauthorized": "You cannot reverse movements in this branch.",
+          "not_found": "Document not found in the active branch.",
+          "reason_required": "Enter a reason.",
+          "not_posted": "Only a posted document can be reversed.",
+          "already_reversed": "This document has already been reversed.",
+          "is_reversal": "A reversal cannot itself be reversed.",
+          "stock_moved": "Cannot reverse: some of this document's stock has already been put away, issued or reserved.",
+          "unexpected": "The reversal failed."
+        }
+      },
+      "related": {
+        "reversed_by": "Reversed by",
+        "reversal_of": "Reversal of",
+        "corrected_by": "Correction",
+        "correction_of": "Correction of"
+      },
+      "correction": {
+        "open": "Correction (KPZ)",
+        "title": "Correct document {number}",
+        "description": "A KPZ is a separate document linked to this PZ. It takes the entered quantity back out of the place the PZ put it — e.g. a short delivery or a wrong or damaged part. Free stock is corrected first, the repair-order receipt only after that. The original PZ does not change.",
+        "lineInfo": "Received {quantity} {unit} · correctable {correctable}",
+        "quantity": "Quantity to correct",
+        "reason": "Reason",
+        "reasonPlaceholder": "e.g. supplier sent 1 pc less",
+        "cancel": "Cancel",
+        "confirm": "Post KPZ ({count})",
+        "done": "Posted correction {number}",
+        "errors": {
+          "unauthorized": "You cannot correct movements in this branch.",
+          "not_found": "PZ not found in the active branch.",
+          "not_correctable": "Only a posted PZ can be corrected.",
+          "reason_required": "Enter a reason.",
+          "too_much": "The quantity exceeds what is left to correct.",
+          "invalid_input": "Check the quantities.",
+          "stock_moved": "Cannot correct: the stock has already been put away, issued or reserved.",
+          "unexpected": "The correction failed."
+        }
+      }
     },
     "transfers": {
       "title": "Branch transfers",

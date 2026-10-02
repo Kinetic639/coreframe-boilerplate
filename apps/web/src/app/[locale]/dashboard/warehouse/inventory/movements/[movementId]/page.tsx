@@ -16,6 +16,7 @@ import { WarehouseLocationsService } from "@/server/services/warehouse-locations
 import { InventoryMovementDetailPanel } from "../_components/inventory-movement-detail-panel";
 import { InventoryReceivingService } from "@/server/services/inventory-receiving.service";
 import { ReceiptPutawayReport } from "./_components/receipt-putaway-report";
+import { ReceiptCorrectionDialog } from "./_components/receipt-correction-dialog";
 
 type PageProps = {
   params: Promise<{ movementId: string }>;
@@ -70,6 +71,24 @@ export default async function WarehouseInventoryMovementDetailPage({ params }: P
         )
       : null;
 
+  const canOperate = checkPermission(context.user.permissionSnapshot, WAREHOUSE_INVENTORY_OPERATE);
+  // KPZ: a posted PZ can be corrected downwards, line by line.
+  const correctedResult =
+    canOperate && detail.movement_type_code === "101" && detail.status === "posted"
+      ? await InventoryMovementsService.getCorrectableReceiptLines(supabase, detail.id)
+      : null;
+  const correctionLines = correctedResult?.success
+    ? detail.lines.map((line) => ({
+        id: line.id,
+        lineNumber: line.line_number,
+        sku: line.sku,
+        productName: line.product_name,
+        unitCode: line.unit_code,
+        quantity: line.quantity,
+        correctable: Math.max(line.quantity - (correctedResult.data[line.id] ?? 0), 0),
+      }))
+    : null;
+
   const stockableLocations = locationsResult.success
     ? locationsResult.data
         .filter((loc) => loc.can_store_inventory)
@@ -90,9 +109,18 @@ export default async function WarehouseInventoryMovementDetailPage({ params }: P
           detail={movementResult.data}
           activeBranchId={branchId}
           locations={stockableLocations}
-          canOperate={checkPermission(context.user.permissionSnapshot, WAREHOUSE_INVENTORY_OPERATE)}
+          canOperate={canOperate}
           showOpenPageAction={false}
           showPrintAction
+          extraActions={
+            correctionLines ? (
+              <ReceiptCorrectionDialog
+                movementId={detail.id}
+                documentNumber={detail.document_number}
+                lines={correctionLines}
+              />
+            ) : null
+          }
         />
       </section>
 

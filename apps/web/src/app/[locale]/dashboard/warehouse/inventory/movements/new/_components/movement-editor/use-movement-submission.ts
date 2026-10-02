@@ -44,6 +44,8 @@ export function useMovementSubmission(
         note: l.note ?? null,
         source_type: l.source_type ?? null,
         source_line_id: l.source_line_id ?? null,
+        source_order_number: l.source_order_number ?? null,
+        source_product_code: l.source_product_code ?? l.sku ?? null,
       })),
     [lines, requiresSourceLocation, srcLoc, dstLoc]
   );
@@ -114,6 +116,18 @@ export function useMovementSubmission(
               return;
             }
             toast.success(t("documentPosted", { number: r.data?.document_number ?? "" }));
+            const attribution = r.data?.attribution as
+              | { attributed: number; skipped: number }
+              | null
+              | undefined;
+            if (attribution) {
+              (attribution.skipped > 0 ? toast.warning : toast.info)(
+                t("receiptAttribution", {
+                  attributed: attribution.attributed,
+                  skipped: attribution.skipped,
+                })
+              );
+            }
             router.push(
               detailPath(r.data?.route_key ?? toMovementRouteKey(r.data?.document_number))
             );

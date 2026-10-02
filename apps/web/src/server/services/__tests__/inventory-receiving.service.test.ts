@@ -184,22 +184,39 @@ describe("InventoryReceivingService.attributeReceipt", () => {
     const { client, rpc } = rpcClient({});
     const result = await InventoryReceivingService.attributeReceipt(client, "user", "mv", []);
     expect(rpc).not.toHaveBeenCalled();
-    expect(result).toEqual({ success: true, data: { attributed: 0, skipped: 0 } });
+    expect(result).toEqual({
+      success: true,
+      data: { attributed: 0, skipped: 0, skippedReasons: {} },
+    });
   });
 
-  it("sends movement/source line pairs and counts the outcome", async () => {
+  it("attributes by ZL + part code and counts skipped reasons", async () => {
     const { client, rpc } = rpcClient({
-      data: { attributed: [{}, {}], skipped: [{ reason: "ambiguous" }] },
+      data: {
+        attributed: [{}, {}],
+        skipped: [
+          { reason: "no_repair_order" },
+          { reason: "no_repair_order" },
+          { reason: "already_received" },
+        ],
+      },
     });
     const result = await InventoryReceivingService.attributeReceipt(client, "user", "mv", [
-      { movementLineId: "ml1", sourceLineId: "m1" },
+      { movementLineId: "ml1", zlNumber: "ZL/1/2026", productCode: "N911" },
     ]);
-    expect(rpc).toHaveBeenCalledWith("inventory_attribute_receipt_lines", {
+    expect(rpc).toHaveBeenCalledWith("inventory_attribute_receipt_to_repair_orders", {
       p_actor_user_id: "user",
       p_movement_id: "mv",
-      p_lines: [{ movement_line_id: "ml1", source_line_id: "m1" }],
+      p_lines: [{ movement_line_id: "ml1", zl_number: "ZL/1/2026", product_code: "N911" }],
     });
-    expect(result).toEqual({ success: true, data: { attributed: 2, skipped: 1 } });
+    expect(result).toEqual({
+      success: true,
+      data: {
+        attributed: 2,
+        skipped: 3,
+        skippedReasons: { no_repair_order: 2, already_received: 1 },
+      },
+    });
   });
 });
 

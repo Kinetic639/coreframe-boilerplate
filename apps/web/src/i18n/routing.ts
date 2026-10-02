@@ -305,6 +305,10 @@ export const routing = defineRouting({
       en: "/dashboard/workshop/new",
       pl: "/dashboard/warsztat/nowe",
     },
+    "/dashboard/workshop/import": {
+      en: "/dashboard/workshop/import",
+      pl: "/dashboard/warsztat/import",
+    },
     "/dashboard/workshop/[id]": {
       en: "/dashboard/workshop/[id]",
       pl: "/dashboard/warsztat/[id]",

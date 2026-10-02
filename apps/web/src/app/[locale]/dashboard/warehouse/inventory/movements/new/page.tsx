@@ -17,6 +17,8 @@ import { WarehouseLocationsService } from "@/server/services/warehouse-locations
 import { InventoryReceivingService } from "@/server/services/inventory-receiving.service";
 import { MovementDocumentForm } from "./_components/movement-document-form";
 
+const FLOW_ONLY_MOVEMENT_TYPES = new Set(["102", "261", "900"]);
+
 export default async function WarehouseInventoryNewMovementPage() {
   const locale = await getLocale();
   const context = await loadDashboardContextV2();
@@ -91,7 +93,13 @@ export default async function WarehouseInventoryNewMovementPage() {
         context.user.user?.email ||
         ""
       }
-      movementTypes={typesResult.success ? typesResult.data : []}
+      movementTypes={
+        // KPZ (102), RW (261) and storno (900) are posted by their own flows
+        // (PZ correction, repair-order issue, reversal), not composed here.
+        typesResult.success
+          ? typesResult.data.filter((type) => !FLOW_ONLY_MOVEMENT_TYPES.has(type.code))
+          : []
+      }
       fieldPolicies={policiesResult.success ? policiesResult.data : {}}
       stockableLocations={stockableLocations}
       receivingLocationId={receivingLocationId}

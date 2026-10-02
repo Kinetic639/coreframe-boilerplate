@@ -13,6 +13,7 @@ import {
   exportCsvAction,
   getEnhancedPdfDataAction,
   approveAndMaterializeSessionAction,
+  approveSessionAction,
   retryMaterializationAction,
   getMaterializationStatusAction,
   type ApproveAndMaterializeResult,
@@ -162,6 +163,25 @@ export function useMaterializationStatusQuery(sessionId: string | null, enabled:
     queryFn: () => getMaterializationStatusAction(sessionId!).then(unwrap),
     enabled: !!sessionId && enabled,
     staleTime: 10 * 1000,
+  });
+}
+
+/**
+ * Mark a session as reviewed. Product decision 2026-10-02: the Matcher only
+ * parses, matches and saves -- repair orders are created by the Workshop
+ * repair-order import (or the PZ import), never by this button.
+ */
+export function useApproveSessionMutation(branchId: string | null) {
+  const qc = useQueryClient();
+  const t = useTranslations("modules.tools.wddMatcher");
+
+  return useMutation({
+    mutationFn: (sessionId: string) => approveSessionAction({ sessionId }).then(unwrap),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: wddMatcherKeys.sessions(branchId) });
+      toast.success(t("approval.reviewedToast"));
+    },
+    onError: (err: Error) => toast.error(err.message),
   });
 }
 

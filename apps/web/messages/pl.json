@@ -3411,6 +3411,48 @@
             "invalid_input": "Nieprawidłowe dane wydania.",
             "unexpected": "Nie udało się wydać części. Spróbuj ponownie."
           }
+        },
+        "import": {
+          "cta": "Importuj zlecenia",
+          "title": "Import zleceń",
+          "subtitle": "Wybierz źródło, sprawdź, które zlecenia już istnieją, i utwórz brakujące.",
+          "back": "Wróć do zleceń",
+          "noBranch": "Wybierz aktywny oddział.",
+          "source": "Źródło",
+          "choose": "Wybierz…",
+          "pickSource": "Wybierz źródło i dokument, aby zobaczyć zlecenia.",
+          "loading": "Sprawdzam zlecenia…",
+          "empty": "W tym źródle nie ma zleceń z numerem ZL.",
+          "allPresent": "Wszystkie zlecenia są już w systemie.",
+          "counts": {
+            "existing": "Istniejące: {count}",
+            "new": "Nowe: {count}",
+            "conflict": "Konflikty: {count}"
+          },
+          "columns": {
+            "zl": "ZL",
+            "client": "Klient / pojazd",
+            "status": "Stan",
+            "parts": "Części"
+          },
+          "status": {
+            "new": "Do utworzenia",
+            "existing": "Istnieje",
+            "existingChanges": "Istnieje · nowe części"
+          },
+          "conflict": {
+            "missing_zl": "Brak numeru ZL",
+            "repair_order_closed": "Zlecenie zamknięte",
+            "repair_order_archived": "Zlecenie zarchiwizowane"
+          },
+          "parts": "{added} nowe · {adds} uzupełnienie · {present} już są",
+          "apply": "Importuj zaznaczone ({count})",
+          "applied": "Utworzono zleceń: {created}, uzupełniono: {updated}",
+          "errors": {
+            "unauthorized": "Brak uprawnień do importu zleceń w tym oddziale.",
+            "invalid_input": "Nieprawidłowe dane importu.",
+            "unexpected": "Import zleceń nie powiódł się."
+          }
         }
       }
     },
@@ -4288,7 +4330,12 @@
           "goToWorkshop": "Przejdź do Warsztatu",
           "approvedStatusUnavailable": "Zatwierdzono — Status niedostępny",
           "statusUnavailableDescription": "Nie udało się sprawdzić, czy zlecenia naprawy zostały utworzone. Niekoniecznie oznacza to problem — odśwież, aby sprawdzić ponownie.",
-          "refreshStatus": "Odśwież status"
+          "refreshStatus": "Odśwież status",
+          "markReviewed": "Oznacz jako sprawdzoną",
+          "reviewed": "Sesja sprawdzona",
+          "reviewedHint": "Matcher nie tworzy zleceń. Utwórz je w Warsztacie → Import zleceń albo przy imporcie PZ z tej sesji.",
+          "goToRepairOrderImport": "Import zleceń",
+          "reviewedToast": "Sesja oznaczona jako sprawdzona"
         },
         "extractionReview": {
           "title": "Podgląd ekstrakcji",
@@ -6186,7 +6233,8 @@
       "colUnit": "Jedn.",
       "colAvail": "Dost.",
       "colQuantity": "Ilość",
-      "receivingZoneHint": "PZ zawsze trafia do strefy przyjęć. Towar stanie się dostępny po rozlokowaniu (Magazyn → Do rozlokowania)."
+      "receivingZoneHint": "PZ zawsze trafia do strefy przyjęć. Towar stanie się dostępny po rozlokowaniu (Magazyn → Do rozlokowania).",
+      "receiptAttribution": "Przypięto do zleceń: {attributed} poz. Jako wolny towar: {skipped} poz. (brak zlecenia, brak części na zleceniu lub już przyjęte)."
     },
     "itemPicker": {
       "title": "Selektor pozycji WMS",
@@ -6263,7 +6311,55 @@
       "actionDeclined": "Odrzucono",
       "actionUpdated": "Zaktualizowano",
       "actionDraftUpdated": "Szkic zaktualizowany",
-      "actionDraftSaved": "Szkic zapisany"
+      "actionDraftSaved": "Szkic zapisany",
+      "reverse": {
+        "open": "Storno",
+        "title": "Storno dokumentu {number}",
+        "description": "Storno księguje dokument odwrotny (900), który cofa wszystkie pozycje tego dokumentu, jakby się nie wydarzył. Oryginał zostaje w historii jako wycofany. Działa tylko, jeśli towar z dokumentu wciąż jest w tym samym miejscu i nie jest zarezerwowany.",
+        "reason": "Powód storna",
+        "reasonPlaceholder": "np. błędnie zaksięgowana dostawa",
+        "cancel": "Anuluj",
+        "confirm": "Wykonaj storno",
+        "done": "Zaksięgowano storno {number}",
+        "errors": {
+          "unauthorized": "Brak uprawnień do storna w tym oddziale.",
+          "not_found": "Nie znaleziono dokumentu w aktywnym oddziale.",
+          "reason_required": "Podaj powód storna.",
+          "not_posted": "Stornować można tylko zaksięgowany dokument.",
+          "already_reversed": "Ten dokument został już wycofany.",
+          "is_reversal": "Dokumentu storna nie można stornować.",
+          "stock_moved": "Nie można stornować: część towaru z tego dokumentu została już rozlokowana, wydana lub jest zarezerwowana.",
+          "unexpected": "Nie udało się wykonać storna."
+        }
+      },
+      "related": {
+        "reversed_by": "Wycofany dokumentem",
+        "reversal_of": "Storno dokumentu",
+        "corrected_by": "Korekta",
+        "correction_of": "Korekta dokumentu"
+      },
+      "correction": {
+        "open": "Korekta (KPZ)",
+        "title": "Korekta dokumentu {number}",
+        "description": "KPZ to osobny dokument powiązany z tym PZ. Zdejmuje ze stanu wpisaną ilość z miejsca, w które PZ ją przyjął — np. gdy dostawa była niepełna albo część jest błędna lub uszkodzona. Najpierw koryguje wolny towar, dopiero potem przyjęcie na zlecenie. Oryginalny PZ się nie zmienia.",
+        "lineInfo": "Przyjęto {quantity} {unit} · do skorygowania {correctable}",
+        "quantity": "Ilość do korekty",
+        "reason": "Powód korekty",
+        "reasonPlaceholder": "np. dostawca przysłał 1 szt. mniej",
+        "cancel": "Anuluj",
+        "confirm": "Zaksięguj KPZ ({count})",
+        "done": "Zaksięgowano korektę {number}",
+        "errors": {
+          "unauthorized": "Brak uprawnień do korekty w tym oddziale.",
+          "not_found": "Nie znaleziono PZ w aktywnym oddziale.",
+          "not_correctable": "Korygować można tylko zaksięgowany PZ.",
+          "reason_required": "Podaj powód korekty.",
+          "too_much": "Ilość przekracza to, co zostało do skorygowania.",
+          "invalid_input": "Sprawdź wpisane ilości.",
+          "stock_moved": "Nie można skorygować: towar został już rozlokowany, wydany lub zarezerwowany. Skoryguj go tam, gdzie teraz jest.",
+          "unexpected": "Nie udało się zaksięgować korekty."
+        }
+      }
     },
     "transfers": {
       "title": "Przesunięcia między oddziałami",

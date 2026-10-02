@@ -9,6 +9,8 @@ import type {
   InventoryMovementType,
   InventoryMovementAuditEntry,
   InventoryPickerItem,
+  InventoryRelatedMovement,
+  InventoryRelatedMovementRelation,
   LocationVariantStock,
 } from "@/lib/warehouse/inventory-types";
 import { toMovementRouteKey } from "@/lib/warehouse/movement-route-key";
@@ -20,6 +22,110 @@ export type {
 } from "@/lib/warehouse/inventory-types";
 
 export type ServiceResult<T> = { success: true; data: T } | { success: false; error: string };
+
+/**
+ * Storno (900, via original/reversal ids) and KPZ (reference_type
+ * 'movement_correction' pointing at the corrected PZ) links for one header.
+ */
+async function loadRelatedMovements(
+  supabase: SupabaseClient,
+  h: any
+): Promise<InventoryRelatedMovement[]> {
+  const columns = "id, document_number, route_key, movement_type_code, status, posted_at";
+  const directIds = [
+    h.reversal_movement_id ? { id: h.reversal_movement_id, relation: "reversed_by" } : null,
+    h.original_movement_id ? { id: h.original_movement_id, relation: "reversal_of" } : null,
+    h.reference_type === "movement_correction" && h.reference_id
+      ? { id: h.reference_id, relation: "correction_of" }
+      : null,
+  ].filter(Boolean) as Array<{ id: string; relation: InventoryRelatedMovementRelation }>;
+
+  const [directRes, correctionsRes] = await Promise.all([
+    directIds.length
+      ? supabase
+          .from("inventory_movement_headers")
+          .select(columns)
+          .in(
+            "id",
+            directIds.map((d) => d.id)
+          )
+      : Promise.resolve({ data: [] }),
+    supabase
+      .from("inventory_movement_headers")
+      .select(columns)
+      .eq("reference_type", "movement_correction")
+      .eq("reference_id", h.id)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: true }),
+  ]);
+
+  const byId = new Map(((directRes.data ?? []) as any[]).map((r) => [r.id, r]));
+  const toRelated = (r: any, relation: InventoryRelatedMovementRelation) => ({
+    id: r.id,
+    relation,
+    document_number: r.document_number ?? null,
+    route_key: r.route_key ?? null,
+    movement_type_code: r.movement_type_code ?? null,
+    status: r.status,
+    posted_at: r.posted_at ?? null,
+  });
+  return [
+    ...directIds.flatMap((d) => (byId.has(d.id) ? [toRelated(byId.get(d.id), d.relation)] : [])),
+    ...((correctionsRes.data ?? []) as any[]).map((r) => toRelated(r, "corrected_by")),
+  ];
+}
+
+export type ReversalError =
+  | "unauthorized"
+  | "not_found"
+  | "reason_required"
+  | "not_posted"
+  | "already_reversed"
+  | "is_reversal"
+  | "stock_moved"
+  | "unexpected";
+
+function mapReversalError(error: { code?: string; message?: string }): ReversalError {
+  switch (error.code) {
+    case "28000":
+    case "42501":
+      return "unauthorized";
+    case "P0002":
+      return "not_found";
+    case "22023":
+      return "reason_required";
+    case "P0007":
+      return "not_posted";
+    case "P0006":
+      return "already_reversed";
+    case "P0005":
+      return "is_reversal";
+    case "P0003":
+      return "stock_moved";
+    default:
+      return "unexpected";
+  }
+}
+
+export type CorrectionError =
+  | "unauthorized"
+  | "not_found"
+  | "not_correctable"
+  | "reason_required"
+  | "too_much"
+  | "stock_moved"
+  | "unexpected";
+
+function mapCorrectionError(error: { code?: string; message?: string }): CorrectionError {
+  const message = error.message ?? "";
+  if (error.code === "28000" || error.code === "42501") return "unauthorized";
+  if (error.code === "P0002") return "not_found";
+  if (error.code === "55000") return "not_correctable";
+  if (error.code === "P0003") return "stock_moved";
+  if (/reason is required/i.test(message)) return "reason_required";
+  if (/left to correct/i.test(message)) return "too_much";
+  return "unexpected";
+}
 
 export class InventoryMovementsService {
   private static async _saveRouteKey(
@@ -234,6 +340,95 @@ export class InventoryMovementsService {
     });
     if (error) return { success: false, error: error.message };
     return { success: true, data: data as any };
+  }
+
+  /**
+   * Storno: inventory_reverse_movement posts a 900 with the inverse effect
+   * of every line and marks the original 'reversed'; RepairOrder receipt
+   * links are mirrored by the attribution trigger. Refused when the stock
+   * it would take back has moved on or is committed.
+   */
+  static async reverseMovement(
+    supabase: SupabaseClient,
+    movementId: string,
+    userId: string,
+    reason: string
+  ): Promise<ServiceResult<{ reversalMovementId: string; reversalDocumentNumber: string | null }>> {
+    const { data, error } = await supabase.rpc("inventory_reverse_movement", {
+      p_movement_id: movementId,
+      p_actor_user_id: userId,
+      p_reason: reason,
+    });
+    if (error) return { success: false, error: mapReversalError(error) };
+    const r = (data ?? {}) as Record<string, unknown>;
+    return {
+      success: true,
+      data: {
+        reversalMovementId: String(r.reversal_movement_id),
+        reversalDocumentNumber: (r.reversal_document_number as string | null) ?? null,
+      },
+    };
+  }
+
+  /**
+   * KPZ: how much of each line of a posted PZ can still be corrected
+   * (line quantity minus earlier posted KPZs).
+   */
+  static async getCorrectableReceiptLines(
+    supabase: SupabaseClient,
+    movementId: string
+  ): Promise<ServiceResult<Record<string, number>>> {
+    const { data, error } = await supabase
+      .from("inventory_movement_correction_lines")
+      .select(
+        "original_line_id, quantity, correction:inventory_movement_headers!correction_movement_id(status)"
+      )
+      .eq("original_movement_id", movementId);
+    if (error) return { success: false, error: "Failed to load corrections" };
+    const corrected: Record<string, number> = {};
+    for (const row of (data ?? []) as any[]) {
+      const status = Array.isArray(row.correction)
+        ? row.correction[0]?.status
+        : row.correction?.status;
+      if (status !== "posted") continue;
+      corrected[row.original_line_id] =
+        (corrected[row.original_line_id] ?? 0) + Number(row.quantity);
+    }
+    return { success: true, data: corrected };
+  }
+
+  /** KPZ: post a correction (102) against a posted PZ; see inventory_post_receipt_correction. */
+  static async postReceiptCorrection(
+    supabase: SupabaseClient,
+    input: {
+      actorUserId: string;
+      organizationId: string;
+      branchId: string;
+      movementId: string;
+      reason: string;
+      lines: Array<{ originalLineId: string; quantity: number }>;
+    }
+  ): Promise<ServiceResult<{ movementId: string; documentNumber: string | null }>> {
+    const { data, error } = await supabase.rpc("inventory_post_receipt_correction", {
+      p_actor_user_id: input.actorUserId,
+      p_organization_id: input.organizationId,
+      p_branch_id: input.branchId,
+      p_movement_id: input.movementId,
+      p_lines: input.lines.map((l) => ({
+        original_line_id: l.originalLineId,
+        quantity: l.quantity,
+      })),
+      p_reason: input.reason,
+    });
+    if (error) return { success: false, error: mapCorrectionError(error) };
+    const r = (data ?? {}) as Record<string, unknown>;
+    return {
+      success: true,
+      data: {
+        movementId: String(r.movement_id),
+        documentNumber: (r.document_number as string | null) ?? null,
+      },
+    };
   }
 
   static async listMovements(
@@ -517,6 +712,7 @@ export class InventoryMovementsService {
         branch_name: branchName,
         created_by_name: createdByName,
         lines: enrichedLines,
+        related_movements: await loadRelatedMovements(supabase, h),
         audit_log: auditEntries.map((e: any) => {
           const actor = e.actor_user_id ? auditActorsById.get(e.actor_user_id) : null;
           const actorName = actor

@@ -20,6 +20,7 @@ export type LineDraft = {
   source_label?: string | null;
   source_line_id?: string | null;
   source_order_number?: string | null;
+  source_product_code?: string | null;
   variant_id: string;
   unit_id: string;
   sku: string;
@@ -81,6 +82,7 @@ export type ImportedMovementDocumentDraft = {
     source_label?: string | null;
     source_line_id?: string | null;
     source_order_number?: string | null;
+    source_product_code?: string | null;
   }>;
 };
 

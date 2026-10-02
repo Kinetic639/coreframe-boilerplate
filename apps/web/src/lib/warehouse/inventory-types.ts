@@ -609,6 +609,24 @@ export type InventoryMovementDetail = InventoryMovementListRow & {
     note: string | null;
   }>;
   audit_log: InventoryMovementAuditEntry[];
+  /** Storno (900) and KPZ links, both directions. */
+  related_movements: InventoryRelatedMovement[];
+};
+
+export type InventoryRelatedMovementRelation =
+  | "reversed_by"
+  | "reversal_of"
+  | "corrected_by"
+  | "correction_of";
+
+export type InventoryRelatedMovement = {
+  id: string;
+  relation: InventoryRelatedMovementRelation;
+  document_number: string | null;
+  route_key: string | null;
+  movement_type_code: string | null;
+  status: string;
+  posted_at: string | null;
 };
 
 export type CreateOptionGroupInput = {
