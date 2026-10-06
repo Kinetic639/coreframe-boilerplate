@@ -404,8 +404,7 @@ export type OrderLookup =
 
 /**
  * Finds the repair order behind "nr zlecenia + magazyn". The DMS prefix (ZL / ZLEC) depends
- * on the warehouse, so the full number is looked up, never composed. Orders the user may not
- * read (RLS on repair_orders) come back as not found -- see D8 in the plan.
+ * on the warehouse, so the full number is looked up, never composed.
  */
 export async function lookupOrder(
   supabase: PortalSupabase,
@@ -413,14 +412,18 @@ export async function lookupOrder(
   orderNumber: string,
   warehouse: string
 ): Promise<OrderLookup> {
-  const { data } = await supabase
-    .from("repair_orders")
-    .select("id, zl_number, branch_id")
-    .eq("organization_id", ctx.org.id)
-    .ilike("zl_number", `%/${orderNumber}/%/${warehouse}/%`)
-    .is("deleted_at", null)
-    .order("created_at", { ascending: false })
-    .limit(1);
+  // portal_find_repair_order (migration 20261006104839, D8) returns only id, full number and
+  // branch, for branches where the caller may file tickets -- advisors lack workshop read.
+  // Not in the generated types yet, hence the narrowed rpc signature.
+  const rpc = supabase.rpc as unknown as (
+    fn: "portal_find_repair_order",
+    args: { p_org_id: string; p_order_number: string; p_warehouse: string }
+  ) => Promise<{ data: Array<{ id: string; zl_number: string | null; branch_id: string }> | null }>;
+  const { data } = await rpc.call(supabase, "portal_find_repair_order", {
+    p_org_id: ctx.org.id,
+    p_order_number: orderNumber,
+    p_warehouse: warehouse,
+  });
   const ro = data?.[0];
   if (!ro?.zl_number) return { found: false };
   return {
