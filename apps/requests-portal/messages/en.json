@@ -1,0 +1,49 @@
+{
+  "app": {
+    "name": "Ambra Zapytania",
+    "tagline": "Requests to the parts department — repair orders, warehouse, organisational matters",
+    "scaffold": "The request list arrives in the next step.",
+    "signedInAs": "Signed in as {email}"
+  },
+  "auth": {
+    "signOut": "Sign out",
+    "signIn": {
+      "title": "Sign in",
+      "subtitle": "Use your Ambra account.",
+      "emailLabel": "Email",
+      "emailPlaceholder": "you@email.com",
+      "passwordLabel": "Password",
+      "passwordPlaceholder": "Your password",
+      "forgotPassword": "Forgot your password?",
+      "submit": "Sign in",
+      "pending": "Signing in..."
+    },
+    "forgotPassword": {
+      "title": "Reset password",
+      "emailLabel": "Email",
+      "emailPlaceholder": "email@example.com",
+      "submit": "Send reset link",
+      "sending": "Sending...",
+      "remembered": "Remember your password?",
+      "signIn": "Sign in"
+    },
+    "errors": {
+      "invalidCredentials": "Invalid email or password.",
+      "invalidEmail": "Enter a valid email address."
+    },
+    "success": {
+      "resetSent": "If an account with this email exists, you will receive a password reset link."
+    }
+  },
+  "portal": {
+    "title": "Requests",
+    "account": "Account: {name}",
+    "branch": {
+      "all": "All branches"
+    },
+    "noAccess": {
+      "title": "No access to requests",
+      "body": "The account {email} has no access to Ambra Zapytania. Ask your manager for the “Doradca (portal)” role in your branch."
+    }
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "app": {
+    "name": "Ambra Zapytania",
+    "tagline": "Zapytania do działu części — zlecenia, magazyn, sprawy organizacyjne",
+    "scaffold": "Lista zapytań pojawi się w kolejnym kroku.",
+    "signedInAs": "Zalogowano jako {email}"
+  },
+  "auth": {
+    "signOut": "Wyloguj",
+    "signIn": {
+      "title": "Logowanie",
+      "subtitle": "Zaloguj się kontem Ambry.",
+      "emailLabel": "Email",
+      "emailPlaceholder": "twoj@email.com",
+      "passwordLabel": "Hasło",
+      "passwordPlaceholder": "Twoje hasło",
+      "forgotPassword": "Zapomniałeś hasła?",
+      "submit": "Zaloguj się",
+      "pending": "Logowanie..."
+    },
+    "forgotPassword": {
+      "title": "Zresetuj hasło",
+      "emailLabel": "Email",
+      "emailPlaceholder": "email@przyklad.com",
+      "submit": "Wyślij link resetujący",
+      "sending": "Wysyłanie...",
+      "remembered": "Pamiętasz hasło?",
+      "signIn": "Zaloguj się"
+    },
+    "errors": {
+      "invalidCredentials": "Nieprawidłowy email lub hasło.",
+      "invalidEmail": "Podaj prawidłowy adres email."
+    },
+    "success": {
+      "resetSent": "Jeśli konto z tym adresem istnieje, otrzymasz link do zresetowania hasła."
+    }
+  },
+  "portal": {
+    "title": "Zapytania",
+    "account": "Konto: {name}",
+    "branch": {
+      "all": "Wszystkie oddziały"
+    },
+    "noAccess": {
+      "title": "Brak dostępu do zapytań",
+      "body": "Konto {email} nie ma uprawnień do Ambra Zapytania. Poproś kierownika o rolę „Doradca (portal)” w swoim oddziale."
+    }
+  }
+}

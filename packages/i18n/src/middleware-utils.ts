@@ -46,7 +46,7 @@ export function resolveAcceptLanguageLocale<T extends string>(
     .map((part) => {
       const [tag, qPart] = part.trim().split(";q=");
       const q = qPart ? parseFloat(qPart) : 1;
-      return { tag: tag.trim().toLowerCase(), q: Number.isNaN(q) ? 1 : q };
+      return { tag: (tag ?? "").trim().toLowerCase(), q: Number.isNaN(q) ? 1 : q };
     })
     .sort((a, b) => b.q - a.q);
 
