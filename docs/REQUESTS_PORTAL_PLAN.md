@@ -28,10 +28,12 @@ Szczegóły kroków: sekcja 8. Zmiany w bazie: sekcja 7.
   - [x] szczegóły z wątkiem i załącznikami
   - [ ] na listach i w szczegółach: awatar zgłaszającego, kolorowy typ, status, tagi, status akceptacji
   - [ ] ustawienia (z `helpdesk.ticket-types.manage`): typy, kto rozwiązuje, akceptacja, tagi
-- [ ] **5a. Baza: uprawnienia per oddział** (D3, D4, D6)
-  - [ ] RLS ticketów, komentarzy i załączników na `has_branch_permission` po `branch_id` ticketu
-  - [ ] doradca zamyka/anuluje tylko swoje zgłoszenia (status `closed`/`cancelled`), a jego komentarz w `resolved` przywraca `open`
-  - [ ] testy pgTAP: doradca widzi tylko swój oddział, nie widzi komentarzy wewnętrznych; obsługa oddziału A nie widzi oddziału B
+- [~] **5a. Baza: uprawnienia per oddział** (D3, D4, D8) — migracja `20261006104839_requests_portal_branch_scope` zastosowana 2026-10-06; test pgTAP `119_requests_portal_branch_scope_test.sql` do uruchomienia (MCP odrzuca zapisy testowe)
+  - [x] RLS ticketów i tabel powiązanych na `has_branch_permission` po `branch_id` ticketu; `helpdesk_create_ticket` i `helpdesk_accept_ticket` per oddział; obsługa w `can_access_comment_target` per oddział
+  - [x] wyzwalacz `helpdesk_tickets_requester_update_guard`: autor bez obsługi tylko zamyka/wycofuje, przywraca `resolved` → `open`, zmienia termin; akceptujący zapisuje akceptację
+  - [ ] testy pgTAP (napisane, 17 asercji): autor nie edytuje, obsługa oddziału A nie dotyka oddziału B, notatki wewnętrzne ukryte, akceptacja, D8, wsteczna zgodność — **do uruchomienia w SQL Editorze**
+  - [x] D8 `portal_find_repair_order(org, nr, mag)`
+  - **Decyzja 2026-10-06:** na demo `org_member` nadal daje odczyt/tworzenie zgłoszeń na całą organizację (widoczność wszystkich oddziałów); per oddział działa obsługa. Wątek zgłoszenia widzą jak dotąd autor, obsługa i przypisani. Odebranie odczytu `org_member` — decyzja przed pilotem.
 - [ ] **5b. Help Desk w Ambrze (obsługa kolejki, sekcja 3a)**
   - [ ] dwa przyciski komentarza: „Odpowiedz doradcy” / „Notatka wewnętrzna”
   - [ ] „Biorę”: przypisanie do siebie + status `in_progress`
