@@ -27,7 +27,7 @@ Szczegóły kroków: sekcja 8. Zmiany w bazie: sekcja 7.
   - [x] nowe zapytanie
   - [x] szczegóły z wątkiem i załącznikami
   - [ ] na listach i w szczegółach: awatar zgłaszającego, kolorowy typ, status, tagi, status akceptacji
-  - [ ] ustawienia (z `helpdesk.ticket-types.manage`): typy, kto rozwiązuje, akceptacja, tagi
+  - [x] ~~ustawienia w portalu~~ — **decyzja 2026-10-06:** wszystkie ustawienia (typy, osoby rozwiązujące, akceptacja, tagi, ustawienia Help Desku, role) są w module Help Desk / organizacji w Ambrze; portal nie ma ekranu ustawień
 - [x] **5a. Baza: uprawnienia per oddział** (D3, D4, D8) — migracja `20261006104839_requests_portal_branch_scope` zastosowana 2026-10-06; zachowanie sprawdzone na kontach demo (11/11), test pgTAP `119_…` do uruchomienia ręcznie
   - [x] RLS ticketów i tabel powiązanych na `has_branch_permission` po `branch_id` ticketu; `helpdesk_create_ticket` i `helpdesk_accept_ticket` per oddział; obsługa w `can_access_comment_target` per oddział
   - [x] wyzwalacz `helpdesk_tickets_requester_update_guard`: autor bez obsługi tylko zamyka/wycofuje, przywraca `resolved` → `open`, zmienia termin; akceptujący zapisuje akceptację
@@ -35,6 +35,7 @@ Szczegóły kroków: sekcja 8. Zmiany w bazie: sekcja 7.
   - [x] D8 `portal_find_repair_order(org, nr, mag)`
   - **Decyzja 2026-10-06:** na demo `org_member` nadal daje odczyt/tworzenie zgłoszeń na całą organizację (widoczność wszystkich oddziałów); per oddział działa obsługa. Wątek zgłoszenia widzą jak dotąd autor, obsługa i przypisani. Odebranie odczytu `org_member` — decyzja przed pilotem.
 - [ ] **5b. Help Desk w Ambrze (obsługa kolejki, sekcja 3a)**
+  - [ ] zarządzanie tagami (D7) w ustawieniach Help Desku
   - [ ] dwa przyciski komentarza: „Odpowiedz doradcy” / „Notatka wewnętrzna”
   - [ ] „Biorę”: przypisanie do siebie + status `in_progress`
   - [ ] widoki: Nieprzypisane w moim oddziale, Moje, Czeka na doradcę, Czeka na VGP / dostawcę
