@@ -37,7 +37,14 @@ export default async function ForgotPasswordPage({ params, searchParams }: Props
         <div className="mt-4 flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="email">{t("emailLabel")}</Label>
-            <Input id="email" name="email" type="email" autoComplete="email" required placeholder={t("emailPlaceholder")} />
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              required
+              placeholder={t("emailPlaceholder")}
+            />
           </div>
           <SubmitButton pendingText={t("sending")}>{t("submit")}</SubmitButton>
           <FormMessage message={{ error, success }} />

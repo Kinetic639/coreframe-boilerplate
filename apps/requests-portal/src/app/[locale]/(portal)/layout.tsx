@@ -7,7 +7,11 @@ import { redirect } from "@/i18n/navigation";
 import { loadPortalContext } from "@/server/portal-context";
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
-  const [result, t, locale] = await Promise.all([loadPortalContext(), getTranslations(), getLocale()]);
+  const [result, t, locale] = await Promise.all([
+    loadPortalContext(),
+    getTranslations(),
+    getLocale(),
+  ]);
 
   if (result.status === "signed-out") return redirect({ href: "/sign-in", locale });
 

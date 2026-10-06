@@ -52,7 +52,11 @@ export function BranchSwitcher({
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         {branches.map((b) => (
-          <DropdownMenuItem key={b.id} onSelect={() => pick(b.id)} className="justify-between gap-6">
+          <DropdownMenuItem
+            key={b.id}
+            onSelect={() => pick(b.id)}
+            className="justify-between gap-6"
+          >
             {b.name}
             {b.id === activeBranchId && <Check className="h-4 w-4" />}
           </DropdownMenuItem>

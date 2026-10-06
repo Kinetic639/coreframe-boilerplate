@@ -33,11 +33,25 @@ export default async function SignInPage({ params, searchParams }: Props) {
         <div className="mt-4 flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="email">{t("emailLabel")}</Label>
-            <Input id="email" name="email" type="email" autoComplete="email" required placeholder={t("emailPlaceholder")} />
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              required
+              placeholder={t("emailPlaceholder")}
+            />
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="password">{t("passwordLabel")}</Label>
-            <Input id="password" name="password" type="password" autoComplete="current-password" required placeholder={t("passwordPlaceholder")} />
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              required
+              placeholder={t("passwordPlaceholder")}
+            />
             <Link className="self-end text-xs text-foreground underline" href="/forgot-password">
               {t("forgotPassword")}
             </Link>
