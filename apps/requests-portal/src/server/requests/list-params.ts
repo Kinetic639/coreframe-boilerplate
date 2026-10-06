@@ -1,6 +1,9 @@
 import { REQUEST_FILTERS, type RequestFilter } from "./types";
 import type { ListRequestsInput } from "./requests.service";
 
+/** Request header carrying the URL query to the persistent requests layout (set in proxy.ts). */
+export const LIST_QUERY_HEADER = "x-portal-list-query";
+
 export type ListSearchParams = Record<string, string | string[] | undefined>;
 
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
@@ -36,4 +39,11 @@ export function toQuery(
   if (v.sort === "newest") q.sort = "newest";
   if (v.page > 1) q.p = String(v.page);
   return q;
+}
+
+/** Stable identity of a list query (server layout and client list compare it). */
+export function listKey(query: Record<string, string>): string {
+  return new URLSearchParams(
+    Object.entries(query).sort(([a], [b]) => a.localeCompare(b))
+  ).toString();
 }

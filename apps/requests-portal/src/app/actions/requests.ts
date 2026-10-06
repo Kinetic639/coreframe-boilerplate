@@ -14,12 +14,15 @@ import {
 import { requirePortalContext } from "@/server/portal-context";
 import { uploadAttachment } from "@/server/requests/attachments.service";
 import { addComment } from "@/server/requests/comments.service";
+import { parseListParams, type ListSearchParams } from "@/server/requests/list-params";
 import {
   closeOwnRequest,
   createRequest,
+  listRequests,
   lookupOrder,
   type OrderLookup,
 } from "@/server/requests/requests.service";
+import type { RequestListItem } from "@/server/requests/types";
 import { createClient } from "@/utils/supabase/server";
 
 export type ActionState = { error?: string; fieldErrors?: Record<string, string> } | null;
@@ -113,4 +116,13 @@ export async function closeRequestAction(
   if (!res.ok) return { error: res.error };
   revalidatePath("/", "layout");
   return null;
+}
+
+/** List page data for the client list (filters changed without a page navigation). */
+export async function listRequestsAction(
+  query: ListSearchParams
+): Promise<{ items: RequestListItem[]; total: number } | null> {
+  const ctx = await requirePortalContext();
+  const res = await listRequests(await createClient(), ctx, parseListParams(query));
+  return res.ok ? res.data : null;
 }

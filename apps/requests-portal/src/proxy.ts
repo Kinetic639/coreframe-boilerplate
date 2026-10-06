@@ -1,9 +1,10 @@
 import createIntlMiddleware from "next-intl/middleware";
-import { type NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { pathnameWithoutLocale, resolveAcceptLanguageLocale } from "@repo/i18n/middleware-utils";
 import { authPathnames } from "@repo/i18n/auth-pathnames";
 import { routing } from "./i18n/routing";
 import { updateSession } from "./utils/supabase/proxy";
+import { LIST_QUERY_HEADER } from "./server/requests/list-params";
 
 type Locale = (typeof routing.locales)[number];
 
@@ -49,7 +50,11 @@ export async function proxy(request: NextRequest) {
   } else if (user && signInPaths.includes(pathname)) {
     response = NextResponse.redirect(new URL(localized("/", locale), request.url));
   } else {
-    response = intlMiddleware(request);
+    // The requests layout persists across ticket navigation and has no searchParams, so it
+    // gets the list query (filters) from this header for its first server render.
+    const headers = new Headers(request.headers);
+    headers.set(LIST_QUERY_HEADER, request.nextUrl.search);
+    response = intlMiddleware(new NextRequest(request, { headers }));
   }
 
   for (const { name, value, ...options } of sessionResponse.cookies.getAll()) {
