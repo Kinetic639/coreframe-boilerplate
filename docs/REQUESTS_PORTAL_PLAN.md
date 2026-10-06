@@ -22,10 +22,10 @@ Szczegóły kroków: sekcja 8. Zmiany w bazie: sekcja 7.
   - [x] tworzenie (`helpdesk_create_ticket` + referencja ZL)
   - [x] komentarze (bez wewnętrznych)
   - [x] załączniki
-- [ ] **5. Ekrany (mobile-first):**
-  - [ ] lista zapytań
-  - [ ] nowe zapytanie
-  - [ ] szczegóły z wątkiem i załącznikami
+- [x] **5. Ekrany (mobile-first)** — 2026-10-06; tagi (D7) i liczniki przy chipach jeszcze nie:
+  - [x] lista zapytań
+  - [x] nowe zapytanie
+  - [x] szczegóły z wątkiem i załącznikami
   - [ ] na listach i w szczegółach: awatar zgłaszającego, kolorowy typ, status, tagi, status akceptacji
   - [ ] ustawienia (z `helpdesk.ticket-types.manage`): typy, kto rozwiązuje, akceptacja, tagi
 - [ ] **5a. Baza: uprawnienia per oddział** (D3, D4, D6)
@@ -188,6 +188,8 @@ W portalu doradca pisze tylko odpowiedzi.
 - Zgodnie z `docs/package-ownership.md` **klient Supabase i dostęp do ciasteczek zostają lokalnie w każdej aplikacji**, a do pakietów trafia tylko kod bez I/O.
 
 ## 5. Architektura `apps/requests-portal`
+
+**Zasady (2026-10-06):** SSR first, bez TanStack Query i React Hook Form. Dane pobierają komponenty serwerowe (`Promise.all`, React `cache` dla kontekstu); stan listy w parametrach URL, oddział w ciasteczku; zapisy przez Server Actions + `revalidatePath`; formularze przez `useActionState` i wspólne schematy zod (`src/lib/validation`); `loading.tsx` ze szkieletami, natychmiastowy podgląd wysyłanej odpowiedzi, odświeżanie widocznej karty co 30 s (`router.refresh()`). Obsługa zapytań przez dział części zostaje w Help Desku Ambry (krok 5b); ewentualny tryb obsługi w portalu po demo.
 
 ```
 apps/requests-portal/

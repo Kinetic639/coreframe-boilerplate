@@ -4,6 +4,13 @@ import { revalidatePath } from "next/cache";
 import { getLocale } from "next-intl/server";
 import { z } from "zod";
 import { redirect } from "@/i18n/navigation";
+import {
+  commentSchema,
+  createRequestSchema,
+  LIMITS,
+  orderNumberSchema,
+  warehouseSchema,
+} from "@/lib/validation/requests";
 import { requirePortalContext } from "@/server/portal-context";
 import { uploadAttachment } from "@/server/requests/attachments.service";
 import { addComment } from "@/server/requests/comments.service";
@@ -17,32 +24,11 @@ import { createClient } from "@/utils/supabase/server";
 
 export type ActionState = { error?: string; fieldErrors?: Record<string, string> } | null;
 
-const orderNumber = z
-  .string()
-  .trim()
-  .regex(/^\d{3,8}$/, "orderNumber");
-const warehouse = z
-  .string()
-  .trim()
-  .regex(/^\d{4}$/, "warehouse");
-
-const createSchema = z
-  .object({
-    branchId: z.string().uuid(),
-    typeId: z.string().uuid("type"),
-    title: z.string().trim().min(3, "title").max(200, "title"),
-    description: z.string().trim().max(5000).optional(),
-    orderNumber: orderNumber.optional().or(z.literal("")),
-    warehouse: warehouse.optional().or(z.literal("")),
-  })
-  .refine((v) => !v.orderNumber || !!v.warehouse, { path: ["warehouse"], message: "warehouse" })
-  .refine((v) => !v.warehouse || !!v.orderNumber, {
-    path: ["orderNumber"],
-    message: "orderNumber",
-  });
-
 function filesFrom(formData: FormData): File[] {
-  return formData.getAll("files").filter((f): f is File => f instanceof File && f.size > 0);
+  return formData
+    .getAll("files")
+    .filter((f): f is File => f instanceof File && f.size > 0)
+    .slice(0, LIMITS.maxFiles);
 }
 
 export async function createRequestAction(
@@ -50,7 +36,7 @@ export async function createRequestAction(
   formData: FormData
 ): Promise<ActionState> {
   const ctx = await requirePortalContext();
-  const parsed = createSchema.safeParse(Object.fromEntries(formData));
+  const parsed = createRequestSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
     const fieldErrors: Record<string, string> = {};
     for (const issue of parsed.error.issues) fieldErrors[String(issue.path[0])] = issue.message;
@@ -72,7 +58,7 @@ export async function createRequestAction(
   });
   if (!created.ok) return { error: created.error };
 
-  for (const file of filesFrom(formData).slice(0, 10)) {
+  for (const file of filesFrom(formData)) {
     const up = await uploadAttachment(supabase, ctx, created.data.id, file);
     if (!up.ok) console.error("[createRequestAction] attachment failed:", up.error);
   }
@@ -86,17 +72,12 @@ export async function createRequestAction(
 }
 
 export async function lookupOrderAction(nr: string, mag: string): Promise<OrderLookup | null> {
-  const n = orderNumber.safeParse(nr);
-  const m = warehouse.safeParse(mag);
+  const n = orderNumberSchema.safeParse(nr);
+  const m = warehouseSchema.safeParse(mag);
   if (!n.success || !m.success) return null;
   const ctx = await requirePortalContext();
   return lookupOrder(await createClient(), ctx, n.data, m.data);
 }
-
-const commentSchema = z.object({
-  ticketId: z.string().uuid(),
-  body: z.string().trim().max(5000),
-});
 
 export async function addCommentAction(
   _prev: ActionState,
@@ -104,7 +85,7 @@ export async function addCommentAction(
 ): Promise<ActionState> {
   const ctx = await requirePortalContext();
   const parsed = commentSchema.safeParse(Object.fromEntries(formData));
-  const files = filesFrom(formData).slice(0, 10);
+  const files = filesFrom(formData);
   if (!parsed.success || (!parsed.data.body && files.length === 0)) return { error: "empty" };
 
   const supabase = await createClient();

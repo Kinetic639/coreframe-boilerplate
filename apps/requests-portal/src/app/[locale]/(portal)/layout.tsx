@@ -1,9 +1,9 @@
-import { LogOut, MessageSquareText, ShieldOff } from "lucide-react";
+import { LogOut, MessageSquareText, Plus, ShieldOff } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
 import { signOutAction } from "@/app/actions/auth";
 import { BranchSwitcher } from "@/components/portal/branch-switcher";
 import { UserMenu } from "@/components/portal/user-menu";
-import { redirect } from "@/i18n/navigation";
+import { Link, redirect } from "@/i18n/navigation";
 import { loadPortalContext } from "@/server/portal-context";
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
@@ -48,6 +48,13 @@ export default async function PortalLayout({ children }: { children: React.React
           <MessageSquareText className="h-4 w-4" strokeWidth={2.2} />
         </span>
         <span className="flex-1 text-[17px] font-semibold tracking-tight">{t("portal.title")}</span>
+        <Link
+          href="/new"
+          className="hidden h-9 items-center gap-1.5 rounded-lg bg-primary pl-2.5 pr-3.5 text-[13px] font-semibold text-stone-900 lg:flex"
+        >
+          <Plus className="h-4 w-4" strokeWidth={2.4} />
+          {t("requests.newLabel")}
+        </Link>
         <BranchSwitcher branches={branches} activeBranchId={activeBranchId} />
         <UserMenu displayName={user.displayName} email={user.email} initials={user.initials} />
       </header>

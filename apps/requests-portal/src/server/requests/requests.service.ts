@@ -322,6 +322,21 @@ export async function getRequest(
   };
 }
 
+/** Active types of the org, for the list filter. */
+export async function listTypeOptions(
+  supabase: PortalSupabase,
+  ctx: PortalContext
+): Promise<TicketTypeRef[]> {
+  const { data } = await supabase
+    .from("helpdesk_ticket_types")
+    .select("id, name, color, icon")
+    .eq("org_id", ctx.org.id)
+    .eq("is_active", true)
+    .is("deleted_at", null)
+    .order("sort_order", { ascending: true });
+  return data ?? [];
+}
+
 export type PortalTicketType = TicketTypeRef & {
   description: string | null;
   requiresAcceptance: boolean;

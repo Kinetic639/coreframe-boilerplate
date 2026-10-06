@@ -45,5 +45,135 @@
       "title": "No access to requests",
       "body": "The account {email} has no access to Ambra Zapytania. Ask your manager for the “Doradca (portal)” role in your branch."
     }
+  },
+  "requests": {
+    "noType": "No type",
+    "today": "today",
+    "yesterday": "yesterday",
+    "order": "Order",
+    "warehouse": "Wh.",
+    "number": "No.",
+    "noOrder": "no order",
+    "comments": "{count, plural, one {# message} other {# messages}}",
+    "state": {
+      "approval": "Awaiting approval",
+      "new": "New",
+      "progress": "In progress",
+      "vendor": "Waiting for VGP",
+      "yourTurn": "Waiting for you",
+      "answered": "Answered",
+      "closed": "Closed",
+      "cancelled": "Withdrawn"
+    },
+    "search": "Search",
+    "searchPlaceholder": "Search: title, number, order no.",
+    "scope": {
+      "mine": "Mine",
+      "branch": "Whole branch"
+    },
+    "type": "Type",
+    "allTypes": "All types",
+    "filter": {
+      "open": "Open",
+      "yourTurn": "Your turn",
+      "approval": "Awaiting approval",
+      "answered": "Answered",
+      "closed": "Closed"
+    },
+    "empty": {
+      "title": "No requests",
+      "body": "There are no requests yet. Create one with “New request”.",
+      "search": "Nothing matches your search."
+    },
+    "pageOf": "Page {page} of {pages} · {total} requests",
+    "prev": "Previous page",
+    "next": "Next page",
+    "new": {
+      "heading": "New request",
+      "cancel": "Cancel",
+      "noCreate": "You cannot create requests in your branches.",
+      "branch": "Branch",
+      "type": "Request type",
+      "typesAvailable": "{count} available",
+      "noTypes": "No request types are configured for this branch.",
+      "acceptance": "approval",
+      "solvedBy": "Handled by:",
+      "toQueue": "Goes to the branch parts department queue.",
+      "order": "Order",
+      "optional": "optional",
+      "orderNumber": "Order no.",
+      "warehouse": "Warehouse",
+      "recent": "Recent:",
+      "looking": "Looking up the order…",
+      "found": "Found in Ambra",
+      "notFound": "Not found in Ambra — the number and warehouse will be saved.",
+      "title": "Title",
+      "titlePlaceholder": "e.g. When will the bumper arrive?",
+      "description": "Description",
+      "descriptionPlaceholder": "What is needed and by when?",
+      "photo": "Take a photo",
+      "file": "Add a file",
+      "removeFile": "Remove {name}",
+      "sending": "Sending…",
+      "submit": "Send request",
+      "errors": {
+        "typeId": "Choose a request type.",
+        "title": "The title must be 3–200 characters.",
+        "orderNumber": "Enter the order number (digits only).",
+        "warehouse": "Enter the 4-digit warehouse.",
+        "branchId": "Choose a branch.",
+        "forbidden": "You cannot create requests in this branch.",
+        "unknown_type": "This request type is no longer available.",
+        "generic": "Could not send the request. Try again."
+      }
+    },
+    "pickOne": "Pick a request from the list",
+    "back": "Requests",
+    "someone": "Someone",
+    "you": "You",
+    "partsDept": "parts department",
+    "events": {
+      "accepted": "{who} approved the request",
+      "closed": "{who} closed the request",
+      "cancelled": "{who} withdrew the request"
+    },
+    "detail": {
+      "type": "Type",
+      "requester": "Requested by",
+      "order": "Order",
+      "orderParts": "no. {nr} · wh. {mag}",
+      "responders": "Handled by",
+      "queue": "parts department queue",
+      "acceptance": "Approval",
+      "accepted": "approved {date}",
+      "awaiting": "waiting for: {names}",
+      "noMessages": "No messages.",
+      "attachments": "Attachments",
+      "closedNote": "This request is closed."
+    },
+    "composer": {
+      "removeFile": "Remove {name}",
+      "attach": "Add photo or file",
+      "label": "Reply",
+      "placeholder": "Write a reply…",
+      "send": "Send",
+      "errors": {
+        "empty": "Write a reply or add a file.",
+        "closed": "This request is closed.",
+        "attachment": "Could not add the file (images and PDF up to 10 MB).",
+        "not_found": "Request not found.",
+        "generic": "Could not send. Try again."
+      },
+      "sending": "sending…",
+      "filesOnly": "{count, plural, one {# file} other {# files}}"
+    },
+    "close": {
+      "close": "Resolved",
+      "cancel": "Withdraw",
+      "confirmClose": "Close the request as resolved?",
+      "confirmCancel": "Withdraw the request?",
+      "failed": "Could not change the status."
+    },
+    "newLabel": "New request"
   }
 }

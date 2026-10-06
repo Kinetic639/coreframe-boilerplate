@@ -1,32 +1,37 @@
+import { MousePointerClick } from "lucide-react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
+import { AutoRefresh } from "@/components/requests/auto-refresh";
+import { ListPane } from "@/components/requests/list-pane";
+import { NewRequestFab } from "@/components/requests/new-request-fab";
 import { requirePortalContext } from "@/server/portal-context";
+import type { ListSearchParams } from "@/server/requests/list-params";
 
-export default async function HomePage({ params }: { params: Promise<{ locale: string }> }) {
+export default async function RequestsPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: string }>;
+  searchParams: Promise<ListSearchParams>;
+}) {
   const { locale } = await params;
   setRequestLocale(locale);
-  const [ctx, t] = await Promise.all([requirePortalContext(), getTranslations("app")]);
-  const inScope = ctx.branches.filter((b) => ctx.scopeBranchIds.includes(b.id));
+  const [ctx, sp, t] = await Promise.all([
+    requirePortalContext(),
+    searchParams,
+    getTranslations("requests"),
+  ]);
 
-  // Temporary summary until the request list (step 4) replaces this page.
   return (
-    <main className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-3 p-4">
-      <p className="text-sm text-stone-600">{t("signedInAs", { email: ctx.user.email })}</p>
-      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 rounded-xl bg-white p-4 text-sm ring-1 ring-stone-200">
-        <dt className="text-stone-500">Org</dt>
-        <dd>{ctx.org.name}</dd>
-        {inScope.map((b) => (
-          <div key={b.id} className="contents">
-            <dt className="text-stone-500">{b.name}</dt>
-            <dd className="font-mono text-xs">
-              {ctx.can.create(b.id) ? "create " : ""}
-              {ctx.can.manage(b.id) ? "manage" : ""}
-            </dd>
-          </div>
-        ))}
-      </dl>
-      <p className="rounded-lg border border-dashed border-stone-300 p-3 text-xs text-stone-500">
-        {t("scaffold")}
-      </p>
-    </main>
+    <div className="flex flex-1 lg:grid lg:grid-cols-[minmax(380px,480px)_1fr]">
+      <div className="min-w-0 flex-1 lg:border-r lg:border-stone-200">
+        <ListPane ctx={ctx} searchParams={sp} />
+      </div>
+      <div className="hidden flex-col items-center justify-center gap-2 text-stone-500 lg:flex">
+        <MousePointerClick className="h-7 w-7 text-stone-400" />
+        <p className="text-sm">{t("pickOne")}</p>
+      </div>
+      <NewRequestFab />
+      <AutoRefresh />
+    </div>
   );
 }
