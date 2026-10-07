@@ -1,4 +1,4 @@
-import type { RequestAttachment, RequestComment } from "@/server/requests/types";
+import type { RequestAttachment, RequestComment, RequestListItem } from "@/server/requests/types";
 
 type Result = { ok: true } | { ok: false; error: string };
 
@@ -23,6 +23,18 @@ export const threadApi = {
   ): Promise<{ comments: RequestComment[]; attachments: RequestAttachment[] } | null> {
     try {
       const res = await fetch(`/api/requests/${ticketId}/thread`, { cache: "no-store" });
+      return res.ok ? await res.json() : null;
+    } catch {
+      return null;
+    }
+  },
+  async list(
+    query: Record<string, string>
+  ): Promise<{ items: RequestListItem[]; total: number } | null> {
+    try {
+      const res = await fetch(`/api/requests/list?${new URLSearchParams(query)}`, {
+        cache: "no-store",
+      });
       return res.ok ? await res.json() : null;
     } catch {
       return null;

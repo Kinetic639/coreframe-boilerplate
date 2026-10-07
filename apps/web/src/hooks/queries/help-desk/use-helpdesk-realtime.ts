@@ -33,7 +33,10 @@ export function useHelpdeskRealtime(
     };
 
     const channel = supabase
-      .channel(`helpdesk:${orgId}`)
+      // Unique topic: supabase-js reuses a channel with the same topic, so the detail view
+      // mounted right after the list would attach to the list's channel while it is being
+      // removed and receive nothing.
+      .channel(`helpdesk:${orgId}:${crypto.randomUUID()}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "helpdesk_tickets", filter: `org_id=eq.${orgId}` },

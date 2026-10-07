@@ -5,12 +5,13 @@ import { useParams } from "next/navigation";
 import { ChevronLeft, ChevronRight, Inbox, Loader2, Plus, Search } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { parseAsInteger, parseAsString, parseAsStringLiteral, useQueryStates } from "nuqs";
-import { listRequestsAction } from "@/app/actions/requests";
 import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
 import { listKey, parseListParams, toQuery } from "@/server/requests/list-params";
 import { REQUEST_FILTERS, type RequestListItem, type TicketTypeRef } from "@/server/requests/types";
+import { LIST_CHANGED_EVENT } from "./live-events";
 import { RequestCard } from "./request-card";
+import { threadApi } from "./thread-api";
 
 const PAGE_SIZE = 25;
 
@@ -80,12 +81,24 @@ export function RequestsShell({
     if (key === loadedKey) return;
     const seq = ++requestSeq.current;
     startTransition(async () => {
-      const next = await listRequestsAction(query);
+      const next = await threadApi.list(query);
       if (seq !== requestSeq.current || !next) return;
       setData(next);
       setLoadedKey(key);
     });
   }, [key, loadedKey, query]);
+
+  // Realtime: something in the list changed -- refetch the current page in the background.
+  useEffect(() => {
+    const onChange = async () => {
+      const seq = ++requestSeq.current;
+      const next = await threadApi.list(query);
+      if (seq !== requestSeq.current || !next) return;
+      setData(next);
+    };
+    window.addEventListener(LIST_CHANGED_EVENT, onChange);
+    return () => window.removeEventListener(LIST_CHANGED_EVENT, onChange);
+  }, [query]);
 
   const [searchText, setSearchText] = useState(qs.q ?? "");
   useEffect(() => {

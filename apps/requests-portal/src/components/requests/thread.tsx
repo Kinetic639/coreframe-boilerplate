@@ -11,6 +11,7 @@ import {
   normalizeRichText,
   type RichTextValue,
 } from "@repo/rich-text";
+import { THREAD_CHANGED_EVENT } from "./live-events";
 import { threadApi } from "./thread-api";
 import { formatBytes, formatWhen } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -18,9 +19,6 @@ import { LIMITS } from "@/lib/validation/requests";
 import type { PersonRef, RequestAttachment, RequestComment } from "@/server/requests/types";
 import { Avatar } from "./avatar";
 import { Composer } from "./composer";
-
-/** Fired by RealtimeRefresh when a comment/attachment of `ticketId` changes. */
-export const THREAD_CHANGED_EVENT = "portal:thread-changed";
 
 export type ThreadEvent = { id: string; at: string; text: string };
 
