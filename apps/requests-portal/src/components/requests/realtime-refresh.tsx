@@ -1,56 +1,71 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef } from "react";
+import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
-import { THREAD_CHANGED_EVENT } from "./thread";
+import { LIST_CHANGED_EVENT, THREAD_CHANGED_EVENT } from "./live-events";
 
 /**
  * Live updates through Supabase Realtime (RLS applies, so only readable rows arrive).
- * - comments / attachments: the open thread reloads itself (no page re-render);
- * - tickets / activity (status, new request, taken): re-render the server tree, coalesced.
- * Also refreshes when the tab becomes visible again.
+ * Nothing here re-renders the whole page for changes elsewhere:
+ * - comments / attachments: the open thread reloads itself;
+ * - tickets / activity: the list refetches itself; only a change to the open ticket
+ *   (status, taken) re-renders the server tree, for its header.
+ * Coming back to the tab refetches the list and the open thread the same way.
  */
 export function RealtimeRefresh({ orgId }: { orgId: string }) {
   const router = useRouter();
+  const { ticketId } = useParams<{ ticketId?: string }>();
+  const openTicket = useRef(ticketId);
+  openTicket.current = ticketId;
 
   useEffect(() => {
     const supabase = createClient();
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const refresh = () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => router.refresh(), 400);
+    let listTimer: ReturnType<typeof setTimeout> | undefined;
+    let detailTimer: ReturnType<typeof setTimeout> | undefined;
+    const listChanged = () => {
+      clearTimeout(listTimer);
+      listTimer = setTimeout(() => window.dispatchEvent(new Event(LIST_CHANGED_EVENT)), 300);
     };
-    const threadChanged = (payload: { new: unknown; old: unknown }) => {
+    const threadChanged = (id: string) =>
+      window.dispatchEvent(new CustomEvent(THREAD_CHANGED_EVENT, { detail: { ticketId: id } }));
+    const ticketChanged = (id: string | undefined) => {
+      listChanged();
+      if (!id || id !== openTicket.current) return;
+      clearTimeout(detailTimer);
+      detailTimer = setTimeout(() => router.refresh(), 300);
+    };
+    const commentChanged = (payload: { new: unknown; old: unknown }) => {
       const row = (payload.new ?? payload.old) as { target_type?: string; target_id?: string };
       if (row?.target_type !== "helpdesk.ticket" || !row.target_id) return;
-      window.dispatchEvent(
-        new CustomEvent(THREAD_CHANGED_EVENT, { detail: { ticketId: row.target_id } })
-      );
+      threadChanged(row.target_id);
+      listChanged(); // comment count / unread dot
     };
     const filter = `org_id=eq.${orgId}`;
 
+    // Unique topic: supabase-js reuses a channel with the same topic, so a remount could
+    // attach to the channel that is still being removed and receive nothing.
     const channel = supabase
-      .channel(`portal-helpdesk:${orgId}`)
+      .channel(`portal-helpdesk:${orgId}:${crypto.randomUUID()}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "helpdesk_tickets", filter },
-        refresh
+        (payload) => ticketChanged(((payload.new ?? payload.old) as { id?: string })?.id)
       )
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "helpdesk_ticket_activity", filter },
-        refresh
+        (payload) => ticketChanged((payload.new as { ticket_id?: string }).ticket_id)
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "app_comments", filter },
-        threadChanged
+        commentChanged
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "app_attachments", filter },
-        threadChanged
+        commentChanged
       );
     // The browser client does not hand the session to Realtime by itself; without this the
     // socket joins as anon and RLS filters out every change.
@@ -60,12 +75,15 @@ export function RealtimeRefresh({ orgId }: { orgId: string }) {
     });
 
     const onVisible = () => {
-      if (document.visibilityState === "visible") refresh();
+      if (document.visibilityState !== "visible") return;
+      listChanged();
+      if (openTicket.current) threadChanged(openTicket.current);
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => {
       active = false;
-      clearTimeout(timer);
+      clearTimeout(listTimer);
+      clearTimeout(detailTimer);
       document.removeEventListener("visibilitychange", onVisible);
       void supabase.removeChannel(channel);
     };
