@@ -8,7 +8,13 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://zapytania.ambra-sys
 /** Ambra Zapytania -- doradcy -> dział części. Backend: the shared Ambra Supabase project. */
 const nextConfig = {
   reactStrictMode: true,
-  transpilePackages: ["@repo/ui", "@repo/i18n", "@repo/contracts", "@repo/domain"],
+  transpilePackages: [
+    "@repo/ui",
+    "@repo/i18n",
+    "@repo/contracts",
+    "@repo/domain",
+    "@repo/rich-text",
+  ],
   allowedDevOrigins: ["localhost:3004", "127.0.0.1:3004", "*.cloudworkstations.dev", "*.idx.dev"],
   turbopack: {
     root: repoRoot,

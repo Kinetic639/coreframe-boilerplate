@@ -1,0 +1,49 @@
+{
+  "name": "@repo/rich-text",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts",
+    "./rich-text-types": "./src/rich-text-types.ts",
+    "./rich-text-utils": "./src/rich-text-utils.ts",
+    "./rich-text-extensions": "./src/rich-text-extensions.ts",
+    "./rich-text-editor-field": "./src/rich-text-editor-field.tsx",
+    "./rich-text-renderer": "./src/rich-text-renderer.tsx",
+    "./rich-text-toolbar": "./src/rich-text-toolbar.tsx",
+    "./comments": "./src/comments/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint . --max-warnings 0",
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@radix-ui/react-separator": "^1.1.8",
+    "@radix-ui/react-toggle": "^1.1.10",
+    "@repo/ui": "workspace:*",
+    "@tiptap/core": "^3.23.6",
+    "@tiptap/extension-character-count": "^3.23.6",
+    "@tiptap/extension-link": "^3.23.6",
+    "@tiptap/extension-placeholder": "^3.23.6",
+    "@tiptap/extension-text-align": "^3.23.6",
+    "@tiptap/extension-underline": "^3.23.6",
+    "@tiptap/pm": "^3.23.6",
+    "@tiptap/react": "^3.23.6",
+    "@tiptap/starter-kit": "^3.23.6",
+    "class-variance-authority": "^0.7.1",
+    "lucide-react": "^0.468.0"
+  },
+  "peerDependencies": {
+    "next-intl": "^4.8.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "@types/react": "^19.2.10",
+    "@types/react-dom": "19.2.2",
+    "eslint": "^9.39.2",
+    "next-intl": "^4.8.0",
+    "typescript": "^5.9.2"
+  }
+}
