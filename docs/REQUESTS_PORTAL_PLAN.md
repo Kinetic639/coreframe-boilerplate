@@ -34,13 +34,15 @@ Szczegóły kroków: sekcja 8. Zmiany w bazie: sekcja 7.
   - [x] sprawdzenie na kontach demo 2026-10-06 (11/11): autor nie edytuje i nie zmienia statusu, obsługa CNP Poznań nie dotyka CNP Piaseczno, notatki wewnętrzne ukryte przed autorem, D8 dla doradcy; pgTAP `119_requests_portal_branch_scope_test.sql` (17 asercji) do uruchomienia w SQL Editorze
   - [x] D8 `portal_find_repair_order(org, nr, mag)`
   - **Decyzja 2026-10-06:** na demo `org_member` nadal daje odczyt/tworzenie zgłoszeń na całą organizację (widoczność wszystkich oddziałów); per oddział działa obsługa. Wątek zgłoszenia widzą jak dotąd autor, obsługa i przypisani. Odebranie odczytu `org_member` — decyzja przed pilotem.
-- [ ] **5b. Help Desk w Ambrze (obsługa kolejki, sekcja 3a)**
+- [~] **5b. Help Desk w Ambrze (obsługa kolejki, sekcja 3a)** — 2026-10-06: zrobione poza tagami; zapisy sprawdzone na kontach demo (8/8), interfejs Ambry nie sprawdzony w przeglądarce
   - [ ] zarządzanie tagami (D7) w ustawieniach Help Desku
-  - [ ] dwa przyciski komentarza: „Odpowiedz doradcy” / „Notatka wewnętrzna”
-  - [ ] „Biorę”: przypisanie do siebie + status `in_progress`
-  - [ ] widoki: Nieprzypisane w moim oddziale, Moje, Czeka na doradcę, Czeka na VGP / dostawcę
-  - [ ] przełącznik oddziału (kolejka per oddział)
-  - [ ] polskie nazwy statusów (sekcja 3a)
+  - [x] dwa przyciski komentarza: „Odpowiedz doradcy” / „Notatka wewnętrzna” — opcja `internal` we wspólnym `CommentsThread`, domyślnie wyłączona
+  - [x] „Biorę”: przypisanie do siebie + status `in_progress` — wpis `ticket_taken` w historii; zmiana statusu przez obsługę zapisuje `status_changed`, portal pokazuje oba w wątku
+  - [x] widoki: Nieprzypisane w moim oddziale, Moje, Czeka na doradcę, Czeka na VGP / dostawcę — zakładki `QueueTabs` jako presety filtrów DataView (nowy filtr `unassigned`)
+  - [x] przełącznik oddziału (kolejka per oddział) — kolejki używają aktywnego oddziału Ambry; `canManage` w szczegółach liczone dla oddziału zgłoszenia
+  - [x] polskie nazwy statusów (sekcja 3a)
+- [x] **Realtime (2026-10-07):** migracja `20261007052024_helpdesk_realtime` (tickets, komentarze, historia, załączniki w `supabase_realtime`); Ambra unieważnia zapytania TanStack (`useHelpdeskRealtime`), portal robi `router.refresh()` (`RealtimeRefresh`) zamiast odpytywania co 30 s; sprawdzone: zdarzenia przechodzą przez RLS, notatki wewnętrzne nie trafiają do autora
+- [x] **Edytor jak w Ambrze (2026-10-07):** edytor i renderer Tiptap przeniesione do `packages/rich-text` (`@repo/rich-text`); stare ścieżki w Ambrze to re-eksporty (awatar komentarza z `UserAvatar` przez slot); portal używa `CommentEditor` w odpowiedziach i `RichTextRenderer` w wątku i opisie, zapisuje `body_rich`
 - [ ] **6. Dane demo:**
   - [x] rola „Doradca (portal)” (D1) i rola „Obsługa zapytań” (D6) — utworzone w CNP 2026-10-06
   - [ ] przypisania: Marcin Kowalski → Doradca (portal) na CNP Poznań; Prezenter i Jan Kowalski → Obsługa zapytań na CNP Poznań — **zrobione:** Jan Kowalski i Prezenter → Obsługa zapytań na CNP Poznań; **czeka:** konto doradcy (Marcin ma szeroką rolę „Doradca” z `tickets.manage`)
