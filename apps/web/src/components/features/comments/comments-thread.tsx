@@ -27,6 +27,12 @@ interface CommentsThreadProps extends Partial<CommentsProviderValue> {
   contentClassName?: string;
   showTitle?: boolean;
   onCommentAdded?: (comment: AppComment) => void | Promise<void>;
+  /**
+   * Opt-in internal notes (Help Desk handlers): adds a second submit button that posts with
+   * visibility "internal" and highlights internal comments. Off by default, so other
+   * targets (planning) are unchanged. Who may post or read them is enforced server-side.
+   */
+  internal?: { noteLabel: string; badge: string };
 }
 
 function formatCommentDate(iso: string): string {
@@ -115,7 +121,7 @@ export function CommentsThread(props: CommentsThreadProps) {
   }, [commentsQuery.data]);
 
   const handleSubmit = useCallback(
-    (value: RichTextValue) => {
+    (value: RichTextValue, visibility: "default" | "internal" = "default") => {
       const bodyPlain = extractPlainText(value);
       if (!bodyPlain.trim()) return;
 
@@ -125,7 +131,7 @@ export function CommentsThread(props: CommentsThreadProps) {
           targetId: config.targetId,
           bodyPlain: bodyPlain.trim(),
           bodyRich: value,
-          visibility: "default",
+          visibility,
         },
         {
           onSuccess: (comment) => {
@@ -191,9 +197,25 @@ export function CommentsThread(props: CommentsThreadProps) {
           {rows.map((comment) => (
             <CommentRenderer
               key={comment.id}
+              className={
+                comment.visibility === "internal"
+                  ? "rounded-lg bg-amber-50 p-2 ring-1 ring-amber-200 dark:bg-amber-950/30 dark:ring-amber-900"
+                  : undefined
+              }
               value={normalizeRichText(comment.body_rich) ?? undefined}
               author={commentAuthor(comment, labels.formerMember)}
-              createdAt={formatCommentDate(comment.created_at)}
+              createdAt={
+                comment.visibility === "internal" && props.internal ? (
+                  <span className="inline-flex items-center gap-2">
+                    {formatCommentDate(comment.created_at)}
+                    <span className="rounded bg-amber-200 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900 dark:bg-amber-900 dark:text-amber-100">
+                      {props.internal.badge}
+                    </span>
+                  </span>
+                ) : (
+                  formatCommentDate(comment.created_at)
+                )
+              }
               editedLabel={comment.updated_at !== comment.created_at ? labels.edited : undefined}
               emptyText={comment.body_plain}
               density={config.density}
@@ -227,6 +249,20 @@ export function CommentsThread(props: CommentsThreadProps) {
             submittingLabel={labels.submitting}
             submitting={addCommentMutation.isPending}
             density={config.density}
+            actions={
+              props.internal ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size={compact ? "sm" : "default"}
+                  className="border-amber-300 text-amber-900 hover:bg-amber-50 dark:text-amber-200"
+                  onClick={() => handleSubmit(draft, "internal")}
+                  disabled={addCommentMutation.isPending || !extractPlainText(draft).trim()}
+                >
+                  {props.internal.noteLabel}
+                </Button>
+              ) : undefined
+            }
           />
         </div>
       )}

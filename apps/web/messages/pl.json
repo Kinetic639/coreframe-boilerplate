@@ -3590,13 +3590,13 @@
       },
       "tickets": {
         "status": {
-          "open": "Otwarte",
-          "in_progress": "W toku",
-          "waiting": "Oczekujące",
-          "waiting_response": "Oczekuje na odpowiedź",
-          "resolved": "Rozwiązane",
+          "open": "Nowe",
+          "in_progress": "W trakcie",
+          "waiting": "Czeka na VGP / dostawcę",
+          "waiting_response": "Czeka na doradcę",
+          "resolved": "Odpowiedziano",
           "closed": "Zamknięte",
-          "cancelled": "Anulowane"
+          "cancelled": "Wycofane"
         },
         "priority": {
           "low": "Niski",
@@ -3679,7 +3679,8 @@
           "ticket_accepted": "zaakceptował(a) zgłoszenie",
           "status_changed": "zmienił(a) status",
           "assignee_added": "dodał(a) osobę odpowiedzialną",
-          "assignee_removed": "usunął(a) osobę odpowiedzialną"
+          "assignee_removed": "usunął(a) osobę odpowiedzialną",
+          "ticket_taken": "przejął(-ęła) zgłoszenie"
         },
         "acceptance": {
           "label": "Akceptacja",
@@ -3689,6 +3690,25 @@
           "acceptSuccess": "Zgłoszenie zostało zaakceptowane.",
           "acceptedBy": "Zaakceptowane przez",
           "authorizedAcceptors": "Osoby upoważnione"
+        },
+        "handling": {
+          "title": "Obsługa",
+          "take": "Biorę",
+          "status": "Status",
+          "replyToRequester": "Odpowiedz doradcy",
+          "internalNote": "Notatka wewnętrzna",
+          "internalBadge": "wewnętrzna",
+          "statusChanged": "Status zmieniony",
+          "taken": "Zgłoszenie przypisane do Ciebie",
+          "failed": "Nie udało się zapisać zmiany"
+        },
+        "queues": {
+          "label": "Kolejki",
+          "unassigned": "Nieprzypisane w oddziale",
+          "mine": "Moje",
+          "waitingRequester": "Czeka na doradcę",
+          "waitingVendor": "Czeka na VGP / dostawcę",
+          "all": "Wszystkie"
         }
       },
       "features": {

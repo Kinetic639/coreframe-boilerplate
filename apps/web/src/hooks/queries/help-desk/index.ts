@@ -11,12 +11,16 @@ import {
   createTicketAction,
   getTicketDetailAction,
   closeTicketAction,
+  setTicketStatusAction,
+  takeTicketAction,
   acceptTicketAction,
 } from "@/app/actions/help-desk";
 import type {
   AcceptTicketInput,
   CreateTicketInput,
   CloseTicketInput,
+  SetTicketStatusInput,
+  TakeTicketInput,
 } from "@/lib/validations/helpdesk";
 import type { HelpdeskTicketDetail } from "@/server/services/helpdesk-tickets.service";
 import {
@@ -182,6 +186,60 @@ export function useCloseTicketMutation(ticketNumber: string, orgId: string) {
     },
     onError: (err: Error) => {
       toast.error(err.message || t("errors.closeFailed"));
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Handling: status and "take" (step 5b)
+// ---------------------------------------------------------------------------
+
+export function useSetTicketStatusMutation(ticketNumber: string, orgId: string) {
+  const queryClient = useQueryClient();
+  const t = useTranslations("modules.helpDesk");
+
+  return useMutation({
+    mutationFn: async (input: SetTicketStatusInput) => {
+      const result = await setTicketStatusAction(input);
+      if (!result.success) throw new Error((result as { success: false; error: string }).error);
+      return result.data;
+    },
+    onSuccess: () => {
+      void invalidateDataViewEntity(
+        queryClient,
+        "helpdesk-tickets",
+        dataViewScope.organization(orgId),
+        ticketNumber
+      );
+      toast.success(t("tickets.handling.statusChanged"));
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || t("tickets.handling.failed"));
+    },
+  });
+}
+
+export function useTakeTicketMutation(ticketNumber: string, orgId: string) {
+  const queryClient = useQueryClient();
+  const t = useTranslations("modules.helpDesk");
+
+  return useMutation({
+    mutationFn: async (input: TakeTicketInput) => {
+      const result = await takeTicketAction(input);
+      if (!result.success) throw new Error((result as { success: false; error: string }).error);
+      return result.data;
+    },
+    onSuccess: () => {
+      void invalidateDataViewEntity(
+        queryClient,
+        "helpdesk-tickets",
+        dataViewScope.organization(orgId),
+        ticketNumber
+      );
+      toast.success(t("tickets.handling.taken"));
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || t("tickets.handling.failed"));
     },
   });
 }

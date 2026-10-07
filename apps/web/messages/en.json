@@ -3619,13 +3619,13 @@
       },
       "tickets": {
         "status": {
-          "open": "Open",
-          "in_progress": "In Progress",
-          "waiting": "Waiting",
-          "waiting_response": "Waiting for Response",
-          "resolved": "Resolved",
+          "open": "New",
+          "in_progress": "In progress",
+          "waiting": "Waiting for VGP / supplier",
+          "waiting_response": "Waiting for requester",
+          "resolved": "Answered",
           "closed": "Closed",
-          "cancelled": "Cancelled"
+          "cancelled": "Withdrawn"
         },
         "priority": {
           "low": "Low",
@@ -3708,7 +3708,8 @@
           "ticket_accepted": "accepted the ticket",
           "status_changed": "changed the status",
           "assignee_added": "added a responder",
-          "assignee_removed": "removed a responder"
+          "assignee_removed": "removed a responder",
+          "ticket_taken": "took the ticket"
         },
         "acceptance": {
           "label": "Acceptance",
@@ -3718,6 +3719,25 @@
           "acceptSuccess": "Ticket accepted successfully.",
           "acceptedBy": "Accepted by",
           "authorizedAcceptors": "Authorized Acceptors"
+        },
+        "handling": {
+          "title": "Handling",
+          "take": "Take it",
+          "status": "Status",
+          "replyToRequester": "Reply to requester",
+          "internalNote": "Internal note",
+          "internalBadge": "internal",
+          "statusChanged": "Status changed",
+          "taken": "Ticket assigned to you",
+          "failed": "Could not save the change"
+        },
+        "queues": {
+          "label": "Queues",
+          "unassigned": "Unassigned in branch",
+          "mine": "Mine",
+          "waitingRequester": "Waiting for requester",
+          "waitingVendor": "Waiting for VGP / supplier",
+          "all": "All"
         }
       },
       "features": {

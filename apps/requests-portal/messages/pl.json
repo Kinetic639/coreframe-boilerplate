@@ -1,0 +1,211 @@
+{
+  "app": {
+    "name": "Ambra Zapytania",
+    "tagline": "Zapytania do działu części — zlecenia, magazyn, sprawy organizacyjne",
+    "scaffold": "Lista zapytań pojawi się w kolejnym kroku.",
+    "signedInAs": "Zalogowano jako {email}"
+  },
+  "auth": {
+    "signOut": "Wyloguj",
+    "signIn": {
+      "title": "Logowanie",
+      "subtitle": "Zaloguj się kontem Ambry.",
+      "emailLabel": "Email",
+      "emailPlaceholder": "twoj@email.com",
+      "passwordLabel": "Hasło",
+      "passwordPlaceholder": "Twoje hasło",
+      "forgotPassword": "Zapomniałeś hasła?",
+      "submit": "Zaloguj się",
+      "pending": "Logowanie..."
+    },
+    "forgotPassword": {
+      "title": "Zresetuj hasło",
+      "emailLabel": "Email",
+      "emailPlaceholder": "email@przyklad.com",
+      "submit": "Wyślij link resetujący",
+      "sending": "Wysyłanie...",
+      "remembered": "Pamiętasz hasło?",
+      "signIn": "Zaloguj się"
+    },
+    "errors": {
+      "invalidCredentials": "Nieprawidłowy email lub hasło.",
+      "invalidEmail": "Podaj prawidłowy adres email."
+    },
+    "success": {
+      "resetSent": "Jeśli konto z tym adresem istnieje, otrzymasz link do zresetowania hasła."
+    }
+  },
+  "portal": {
+    "title": "Zapytania",
+    "account": "Konto: {name}",
+    "branch": {
+      "all": "Wszystkie oddziały"
+    },
+    "noAccess": {
+      "title": "Brak dostępu do zapytań",
+      "body": "Konto {email} nie ma uprawnień do Ambra Zapytania. Poproś kierownika o rolę „Doradca (portal)” w swoim oddziale."
+    }
+  },
+  "requests": {
+    "noType": "Bez typu",
+    "today": "dziś",
+    "yesterday": "wczoraj",
+    "order": "Zlecenie",
+    "warehouse": "Mag.",
+    "number": "Nr",
+    "noOrder": "bez zlecenia",
+    "comments": "{count, plural, one {# wiadomość} few {# wiadomości} many {# wiadomości} other {# wiadomości}}",
+    "state": {
+      "approval": "Do akceptacji",
+      "new": "Nowe",
+      "progress": "W trakcie",
+      "vendor": "Czeka na VGP",
+      "yourTurn": "Czeka na Ciebie",
+      "answered": "Odpowiedziano",
+      "closed": "Zamknięte",
+      "cancelled": "Wycofane"
+    },
+    "search": "Szukaj",
+    "searchPlaceholder": "Szukaj: tytuł, numer, nr zlecenia",
+    "scope": {
+      "mine": "Moje",
+      "branch": "Cały oddział"
+    },
+    "type": "Typ",
+    "allTypes": "Wszystkie typy",
+    "filter": {
+      "open": "Otwarte",
+      "yourTurn": "Twoja kolej",
+      "approval": "Do akceptacji",
+      "answered": "Odpowiedziano",
+      "closed": "Zamknięte"
+    },
+    "empty": {
+      "title": "Brak zapytań",
+      "body": "Nie ma tu jeszcze zapytań. Załóż nowe przyciskiem „Nowe zapytanie”.",
+      "search": "Nic nie pasuje do wyszukiwania."
+    },
+    "pageOf": "Strona {page} z {pages} · {total} zapytań",
+    "prev": "Poprzednia strona",
+    "next": "Następna strona",
+    "new": {
+      "heading": "Nowe zapytanie",
+      "cancel": "Anuluj",
+      "noCreate": "Nie masz uprawnień do zakładania zapytań w swoich oddziałach.",
+      "branch": "Oddział",
+      "type": "Typ zapytania",
+      "typesAvailable": "{count, plural, one {# dostępny} few {# dostępne} many {# dostępnych} other {# dostępnych}}",
+      "noTypes": "Brak skonfigurowanych typów zapytań w tym oddziale.",
+      "acceptance": "akceptacja",
+      "solvedBy": "Rozwiążą:",
+      "toQueue": "Trafi do kolejki działu części w oddziale.",
+      "order": "Zlecenie",
+      "optional": "opcjonalnie",
+      "orderNumber": "Nr zlecenia",
+      "warehouse": "Magazyn",
+      "recent": "Ostatnio:",
+      "looking": "Szukam zlecenia…",
+      "found": "Znalezione w Ambrze",
+      "notFound": "Nie znaleziono w Ambrze — zapiszemy nr i magazyn.",
+      "title": "Tytuł",
+      "titlePlaceholder": "np. Kiedy zderzak do zlecenia?",
+      "description": "Opis",
+      "descriptionPlaceholder": "Co jest potrzebne i na kiedy?",
+      "photo": "Zrób zdjęcie",
+      "file": "Dodaj plik",
+      "removeFile": "Usuń {name}",
+      "sending": "Wysyłanie…",
+      "submit": "Wyślij zapytanie",
+      "errors": {
+        "typeId": "Wybierz typ zapytania.",
+        "title": "Tytuł musi mieć od 3 do 200 znaków.",
+        "orderNumber": "Podaj nr zlecenia (same cyfry).",
+        "warehouse": "Podaj 4-cyfrowy magazyn.",
+        "branchId": "Wybierz oddział.",
+        "forbidden": "Brak uprawnień do zakładania zapytań w tym oddziale.",
+        "unknown_type": "Ten typ zapytania nie jest już dostępny.",
+        "generic": "Nie udało się wysłać zapytania. Spróbuj ponownie."
+      }
+    },
+    "pickOne": "Wybierz zapytanie z listy",
+    "back": "Zapytania",
+    "someone": "Ktoś",
+    "you": "Ty",
+    "partsDept": "dział części",
+    "events": {
+      "accepted": "{who} zaakceptował(a) zapytanie",
+      "closed": "{who} zamknął(-ęła) zapytanie",
+      "cancelled": "{who} wycofał(a) zapytanie",
+      "taken": "{who} przejął(-ęła) zapytanie",
+      "status": "{who} zmienił(a) status: {status}"
+    },
+    "detail": {
+      "type": "Typ",
+      "requester": "Zgłasza",
+      "order": "Zlecenie",
+      "orderParts": "nr {nr} · mag {mag}",
+      "responders": "Rozwiązują",
+      "queue": "kolejka działu części",
+      "acceptance": "Akceptacja",
+      "accepted": "zaakceptowane {date}",
+      "awaiting": "czeka na: {names}",
+      "noMessages": "Brak wiadomości.",
+      "attachments": "Załączniki",
+      "closedNote": "Zapytanie jest zamknięte."
+    },
+    "composer": {
+      "removeFile": "Usuń {name}",
+      "attach": "Dodaj zdjęcie lub plik",
+      "label": "Odpowiedź",
+      "placeholder": "Napisz odpowiedź…",
+      "send": "Wyślij",
+      "errors": {
+        "empty": "Wpisz odpowiedź albo dodaj plik.",
+        "closed": "Zapytanie jest zamknięte.",
+        "attachment": "Nie udało się dodać pliku (dozwolone: zdjęcia i PDF do 10 MB).",
+        "not_found": "Nie znaleziono zapytania.",
+        "generic": "Nie udało się wysłać. Spróbuj ponownie."
+      },
+      "sending": "wysyłanie…",
+      "filesOnly": "{count, plural, one {# plik} few {# pliki} other {# plików}}",
+      "attachShort": "Zdjęcie"
+    },
+    "close": {
+      "close": "Sprawa załatwiona",
+      "cancel": "Wycofaj",
+      "confirmClose": "Zamknąć zapytanie jako załatwione?",
+      "confirmCancel": "Wycofać zapytanie?",
+      "failed": "Nie udało się zmienić statusu."
+    },
+    "newLabel": "Nowe zapytanie",
+    "thread": {
+      "edit": "Edytuj",
+      "edited": "edytowano",
+      "save": "Zapisz",
+      "saving": "Zapisywanie…",
+      "saveFailed": "Nie udało się zapisać zmian.",
+      "addFile": "Dodaj plik",
+      "removeFile": "Usuń {name}",
+      "restoreFile": "Przywróć {name}",
+      "sending": "Wysyłanie…",
+      "notSent": "Nie wysłano",
+      "retry": "Ponów",
+      "discard": "Odrzuć"
+    }
+  },
+  "components": {
+    "comments": {
+      "title": "Komentarze",
+      "empty": "Brak komentarzy.",
+      "loading": "Ładowanie komentarzy...",
+      "placeholder": "Napisz komentarz...",
+      "submit": "Dodaj komentarz",
+      "submitting": "Dodawanie...",
+      "cancel": "Anuluj",
+      "loadMore": "Załaduj więcej",
+      "edited": "edytowano",
+      "formerMember": "Były członek",
+      "addFailed": "Nie udało się dodać komentarza"
+    }
+  }
+}
