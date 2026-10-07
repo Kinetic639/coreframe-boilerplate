@@ -51,14 +51,20 @@ export function RealtimeRefresh({ orgId }: { orgId: string }) {
         "postgres_changes",
         { event: "*", schema: "public", table: "app_attachments", filter },
         threadChanged
-      )
-      .subscribe();
+      );
+    // The browser client does not hand the session to Realtime by itself; without this the
+    // socket joins as anon and RLS filters out every change.
+    let active = true;
+    void supabase.realtime.setAuth().finally(() => {
+      if (active) channel.subscribe();
+    });
 
     const onVisible = () => {
       if (document.visibilityState === "visible") refresh();
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => {
+      active = false;
       clearTimeout(timer);
       document.removeEventListener("visibilitychange", onVisible);
       void supabase.removeChannel(channel);
