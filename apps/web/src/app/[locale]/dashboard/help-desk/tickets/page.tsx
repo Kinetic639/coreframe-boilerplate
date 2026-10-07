@@ -127,6 +127,7 @@ export default async function HelpDeskTicketsPage({ searchParams }: PageProps = 
         canCreate={checkPermission(context.user.permissionSnapshot, HELPDESK_TICKETS_CREATE)}
         canManage={checkPermission(context.user.permissionSnapshot, HELPDESK_TICKETS_MANAGE)}
         currentUserId={context.user.user?.id ?? ""}
+        activeBranchId={context.app.activeBranchId ?? null}
         orgId={orgId}
         statusConfigs={settings?.status_configs ?? null}
         priorityConfigs={settings?.priority_configs ?? null}

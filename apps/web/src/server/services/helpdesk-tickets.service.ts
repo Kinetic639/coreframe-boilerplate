@@ -336,6 +336,10 @@ export class HelpdeskTicketsService {
         query = query.eq("ticket_type_id", filters.ticketTypeId as string);
       }
     }
+    // Handler queue "Nieprzypisane": nobody has taken the ticket yet.
+    if (filters.unassigned === true) {
+      query = query.is("assigned_to", null);
+    }
     if (filters.branchId) {
       if (Array.isArray(filters.branchId)) {
         query = query.in("branch_id", filters.branchId as string[]);
@@ -864,6 +868,134 @@ export class HelpdeskTicketsService {
         updated_at: data.updated_at as string,
       },
     };
+  }
+
+  // ── Handling (Ambra Zapytania, step 5b) ─────────────────────────────────────
+
+  /**
+   * Whether the user may handle tickets of a branch: helpdesk.tickets.manage granted on the
+   * organization or on that branch (mirrors has_branch_permission, which RLS enforces).
+   */
+  static async canManageBranch(
+    supabase: SupabaseClient,
+    orgId: string,
+    userId: string,
+    branchId: string | null
+  ): Promise<boolean> {
+    let q = supabase
+      .from("user_effective_permissions")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("organization_id", orgId)
+      .eq("permission_slug_exact", "helpdesk.tickets.manage")
+      .limit(1);
+    q = branchId ? q.or(`branch_id.is.null,branch_id.eq.${branchId}`) : q.is("branch_id", null);
+    const { data } = await q;
+    return (data ?? []).length > 0;
+  }
+
+  /** Handler changes the status; logged so the requester sees it in the portal thread. */
+  static async setStatus(
+    supabase: SupabaseClient,
+    orgId: string,
+    userId: string,
+    ticketId: string,
+    status: TicketStatus
+  ): Promise<ServiceResult<{ id: string; status: TicketStatus }>> {
+    const { data: current, error: readError } = await supabase
+      .from("helpdesk_tickets")
+      .select("id, status")
+      .eq("id", ticketId)
+      .eq("org_id", orgId)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (readError) return { success: false, error: readError.message };
+    if (!current) return { success: false, error: "Ticket not found" };
+    if (current.status === status) return { success: true, data: { id: ticketId, status } };
+
+    const now = new Date().toISOString();
+    const patch: Record<string, unknown> = { status, updated_at: now };
+    if (status === "resolved") patch.resolved_at = now;
+    if (status === "closed" || status === "cancelled") {
+      patch.closed_at = now;
+      patch.closed_by = userId;
+    } else {
+      patch.closed_at = null;
+      patch.closed_by = null;
+    }
+
+    const { data, error } = await supabase
+      .from("helpdesk_tickets")
+      .update(patch)
+      .eq("id", ticketId)
+      .eq("org_id", orgId)
+      .select("id")
+      .maybeSingle();
+    if (error) return { success: false, error: error.message };
+    if (!data) return { success: false, error: "Insufficient permissions" };
+
+    await supabase.from("helpdesk_ticket_activity").insert({
+      ticket_id: ticketId,
+      org_id: orgId,
+      actor_id: userId,
+      event_type: "status_changed",
+      payload: { from: current.status, to: status },
+    });
+    return { success: true, data: { id: ticketId, status } };
+  }
+
+  /** "Biorę": assign the ticket to me and move it to in_progress. */
+  static async takeTicket(
+    supabase: SupabaseClient,
+    orgId: string,
+    userId: string,
+    ticketId: string
+  ): Promise<ServiceResult<{ id: string }>> {
+    const { data: current, error: readError } = await supabase
+      .from("helpdesk_tickets")
+      .select("id, status")
+      .eq("id", ticketId)
+      .eq("org_id", orgId)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (readError) return { success: false, error: readError.message };
+    if (!current) return { success: false, error: "Ticket not found" };
+    if (current.status === "closed" || current.status === "cancelled") {
+      return { success: false, error: "Ticket is closed" };
+    }
+
+    const now = new Date().toISOString();
+    const { data, error } = await supabase
+      .from("helpdesk_tickets")
+      .update({ assigned_to: userId, status: "in_progress", updated_at: now })
+      .eq("id", ticketId)
+      .eq("org_id", orgId)
+      .select("id")
+      .maybeSingle();
+    if (error) return { success: false, error: error.message };
+    if (!data) return { success: false, error: "Insufficient permissions" };
+
+    await supabase.from("helpdesk_ticket_assignees").upsert(
+      {
+        org_id: orgId,
+        ticket_id: ticketId,
+        user_id: userId,
+        role: "responder",
+        status: "assigned",
+        assigned_by: userId,
+        deleted_at: null,
+      },
+      { onConflict: "ticket_id,user_id" }
+    );
+
+    await supabase.from("helpdesk_ticket_activity").insert({
+      ticket_id: ticketId,
+      org_id: orgId,
+      actor_id: userId,
+      event_type: "ticket_taken",
+      payload: { from: current.status, to: "in_progress" },
+    });
+    return { success: true, data: { id: ticketId } };
   }
 
   // ── Accept Ticket ──────────────────────────────────────────────────────────

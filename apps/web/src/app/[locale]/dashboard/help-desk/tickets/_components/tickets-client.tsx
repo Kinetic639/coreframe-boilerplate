@@ -18,6 +18,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { DataView } from "@/components/data-view/data-view";
+import { QueueTabs } from "./queue-tabs";
+import { useHelpdeskRealtime } from "@/hooks/queries/help-desk/use-helpdesk-realtime";
 import { dataViewScope } from "@/lib/data-view/ambra-data-view-scope";
 import type {
   DataViewColumnDef,
@@ -63,6 +65,7 @@ interface TicketsClientProps {
   canCreate: boolean;
   canManage: boolean;
   currentUserId: string;
+  activeBranchId: string | null;
   orgId: string;
   statusConfigs: Record<string, StatusBadgeConfig> | null;
   priorityConfigs: Record<string, PriorityBadgeConfig> | null;
@@ -472,12 +475,14 @@ export function TicketsClient({
   canCreate,
   canManage,
   currentUserId,
+  activeBranchId,
   orgId,
   statusConfigs,
   priorityConfigs,
 }: TicketsClientProps) {
   const t = useTranslations("modules.helpDesk");
   const router = useRouter();
+  useHelpdeskRealtime(orgId);
 
   const listFetcher = useCallback(
     async (params: DataViewListParams): Promise<PaginatedResult<HelpdeskTicketListRow>> => {
@@ -788,6 +793,8 @@ export function TicketsClient({
           </Button>
         )}
       </div>
+
+      {canManage && <QueueTabs currentUserId={currentUserId} activeBranchId={activeBranchId} />}
 
       <div className="min-h-0 flex-1">
         <DataView<HelpdeskTicketListRow, HelpdeskTicketDetail>

@@ -29,12 +29,16 @@ import {
   createTicketSchema,
   acceptTicketSchema,
   closeTicketSchema,
+  setTicketStatusSchema,
+  takeTicketSchema,
   saveHelpdeskSettingsSchema,
   type AcceptTicketInput,
   type CreateTicketTypeInput,
   type UpdateTicketTypeInput,
   type CreateTicketInput,
   type CloseTicketInput,
+  type SetTicketStatusInput,
+  type TakeTicketInput,
   type SaveHelpdeskSettingsInput,
 } from "@/lib/validations/helpdesk";
 import { OrgMembersService, type OrgMember } from "@/server/services/organization.service";
@@ -232,6 +236,74 @@ export async function closeTicketAction(
     }
 
     return HelpdeskTicketsService.closeTicket(ctx.supabase, ctx.orgId, ctx.userId, parsed.data);
+  } catch {
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Handling: status and "take" (Ambra Zapytania, step 5b)
+// Allowed with helpdesk.tickets.manage on the organization or on the ticket's branch;
+// RLS (has_branch_permission on the ticket's branch) enforces the same rule.
+// ---------------------------------------------------------------------------
+
+async function canManageTicket(
+  ctx: NonNullable<Awaited<ReturnType<typeof getAuthedContext>>>,
+  ticketId: string
+): Promise<boolean> {
+  const { data } = await ctx.supabase
+    .from("helpdesk_tickets")
+    .select("branch_id")
+    .eq("id", ticketId)
+    .eq("org_id", ctx.orgId)
+    .maybeSingle();
+  if (!data) return false;
+  return HelpdeskTicketsService.canManageBranch(
+    ctx.supabase,
+    ctx.orgId,
+    ctx.userId,
+    (data as { branch_id: string | null }).branch_id
+  );
+}
+
+export async function setTicketStatusAction(
+  input: SetTicketStatusInput
+): Promise<ActionResult<{ id: string; status: string }>> {
+  try {
+    const ctx = await getAuthedContext();
+    if (!ctx) return { success: false, error: "Unauthorized" };
+    const parsed = setTicketStatusSchema.safeParse(input);
+    if (!parsed.success) return { success: false, error: parsed.error.message };
+    if (!(await canManageTicket(ctx, parsed.data.ticket_id)))
+      return { success: false, error: "Insufficient permissions" };
+    return HelpdeskTicketsService.setStatus(
+      ctx.supabase,
+      ctx.orgId,
+      ctx.userId,
+      parsed.data.ticket_id,
+      parsed.data.status
+    );
+  } catch {
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
+export async function takeTicketAction(
+  input: TakeTicketInput
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const ctx = await getAuthedContext();
+    if (!ctx) return { success: false, error: "Unauthorized" };
+    const parsed = takeTicketSchema.safeParse(input);
+    if (!parsed.success) return { success: false, error: parsed.error.message };
+    if (!(await canManageTicket(ctx, parsed.data.ticket_id)))
+      return { success: false, error: "Insufficient permissions" };
+    return HelpdeskTicketsService.takeTicket(
+      ctx.supabase,
+      ctx.orgId,
+      ctx.userId,
+      parsed.data.ticket_id
+    );
   } catch {
     return { success: false, error: "Unexpected error" };
   }

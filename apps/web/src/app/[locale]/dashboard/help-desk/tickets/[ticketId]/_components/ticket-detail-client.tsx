@@ -14,9 +14,18 @@ import {
   QrCode,
   Link2Off,
   Plus,
+  Hand,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { TICKET_STATUSES, type TicketStatus } from "@/lib/validations/helpdesk";
 import {
   TicketStatusBadge,
   type StatusBadgeConfig,
@@ -35,9 +44,12 @@ import {
   useTicketDetailQuery,
   useCloseTicketMutation,
   useAcceptTicketMutation,
+  useSetTicketStatusMutation,
+  useTakeTicketMutation,
 } from "@/hooks/queries/help-desk";
 import { revokeQrAction } from "@/app/actions/qr/revoke";
 import { AssignQrDialog } from "./assign-qr-dialog";
+import { useHelpdeskRealtime } from "@/hooks/queries/help-desk/use-helpdesk-realtime";
 
 type QrAssignmentInfo = {
   assignmentId: string;
@@ -77,6 +89,10 @@ export function TicketDetailClient({
     initialTicket.org_id,
     initialTicket
   );
+  useHelpdeskRealtime(initialTicket.org_id, {
+    id: initialTicket.id,
+    ticketNumber: initialTicket.ticket_number,
+  });
   const closeTicketMutation = useCloseTicketMutation(
     initialTicket.ticket_number,
     initialTicket.org_id
@@ -85,6 +101,17 @@ export function TicketDetailClient({
     initialTicket.ticket_number,
     initialTicket.org_id
   );
+
+  const setStatusMutation = useSetTicketStatusMutation(
+    initialTicket.ticket_number,
+    initialTicket.org_id
+  );
+  const takeTicketMutation = useTakeTicketMutation(
+    initialTicket.ticket_number,
+    initialTicket.org_id
+  );
+  const isOpenTicket = ticket.status !== "closed" && ticket.status !== "cancelled";
+  const isMineToHandle = ticket.assignees.some((a) => a.user_id === currentUserId);
 
   const canAccept =
     ticket.requires_acceptance &&
@@ -204,8 +231,16 @@ export function TicketDetailClient({
               title: t("tickets.comments"),
               empty: t("tickets.noComments"),
               placeholder: t("tickets.commentPlaceholder"),
-              submit: t("tickets.addComment"),
+              submit: canManage ? t("tickets.handling.replyToRequester") : t("tickets.addComment"),
             }}
+            internal={
+              canManage
+                ? {
+                    noteLabel: t("tickets.handling.internalNote"),
+                    badge: t("tickets.handling.internalBadge"),
+                  }
+                : undefined
+            }
             density="compact"
           />
         </div>
@@ -260,6 +295,51 @@ export function TicketDetailClient({
               <p className="text-xs text-muted-foreground">No QR code assigned.</p>
             )}
           </div>
+
+          {/* Handling: take + status (helpdesk.tickets.manage on the ticket's branch) */}
+          {canManage && (
+            <div className="rounded-lg border p-4 space-y-3">
+              <h3 className="text-sm font-semibold">{t("tickets.handling.title")}</h3>
+              {isOpenTicket && !isMineToHandle && (
+                <Button
+                  className="w-full"
+                  onClick={() => takeTicketMutation.mutate({ ticket_id: ticket.id })}
+                  disabled={takeTicketMutation.isPending}
+                >
+                  {takeTicketMutation.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Hand className="mr-2 h-4 w-4" />
+                  )}
+                  {t("tickets.handling.take")}
+                </Button>
+              )}
+              <div className="space-y-1">
+                <p className="text-muted-foreground text-xs">{t("tickets.handling.status")}</p>
+                <Select
+                  value={ticket.status}
+                  onValueChange={(status) =>
+                    setStatusMutation.mutate({
+                      ticket_id: ticket.id,
+                      status: status as TicketStatus,
+                    })
+                  }
+                  disabled={setStatusMutation.isPending}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TICKET_STATUSES.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {t(`tickets.status.${s}`)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
 
           {/* Close button */}
           {canClose && (
