@@ -135,7 +135,9 @@
     "events": {
       "accepted": "{who} zaakceptował(a) zapytanie",
       "closed": "{who} zamknął(-ęła) zapytanie",
-      "cancelled": "{who} wycofał(a) zapytanie"
+      "cancelled": "{who} wycofał(a) zapytanie",
+      "taken": "{who} przejął(-ęła) zapytanie",
+      "status": "{who} zmienił(a) status: {status}"
     },
     "detail": {
       "type": "Typ",
@@ -165,7 +167,8 @@
         "generic": "Nie udało się wysłać. Spróbuj ponownie."
       },
       "sending": "wysyłanie…",
-      "filesOnly": "{count, plural, one {# plik} few {# pliki} other {# plików}}"
+      "filesOnly": "{count, plural, one {# plik} few {# pliki} other {# plików}}",
+      "attachShort": "Zdjęcie"
     },
     "close": {
       "close": "Sprawa załatwiona",
@@ -174,6 +177,35 @@
       "confirmCancel": "Wycofać zapytanie?",
       "failed": "Nie udało się zmienić statusu."
     },
-    "newLabel": "Nowe zapytanie"
+    "newLabel": "Nowe zapytanie",
+    "thread": {
+      "edit": "Edytuj",
+      "edited": "edytowano",
+      "save": "Zapisz",
+      "saving": "Zapisywanie…",
+      "saveFailed": "Nie udało się zapisać zmian.",
+      "addFile": "Dodaj plik",
+      "removeFile": "Usuń {name}",
+      "restoreFile": "Przywróć {name}",
+      "sending": "Wysyłanie…",
+      "notSent": "Nie wysłano",
+      "retry": "Ponów",
+      "discard": "Odrzuć"
+    }
+  },
+  "components": {
+    "comments": {
+      "title": "Komentarze",
+      "empty": "Brak komentarzy.",
+      "loading": "Ładowanie komentarzy...",
+      "placeholder": "Napisz komentarz...",
+      "submit": "Dodaj komentarz",
+      "submitting": "Dodawanie...",
+      "cancel": "Anuluj",
+      "loadMore": "Załaduj więcej",
+      "edited": "edytowano",
+      "formerMember": "Były członek",
+      "addFailed": "Nie udało się dodać komentarza"
+    }
   }
 }

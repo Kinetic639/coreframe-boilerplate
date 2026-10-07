@@ -135,7 +135,9 @@
     "events": {
       "accepted": "{who} approved the request",
       "closed": "{who} closed the request",
-      "cancelled": "{who} withdrew the request"
+      "cancelled": "{who} withdrew the request",
+      "taken": "{who} took the request",
+      "status": "{who} changed the status: {status}"
     },
     "detail": {
       "type": "Type",
@@ -165,7 +167,8 @@
         "generic": "Could not send. Try again."
       },
       "sending": "sending…",
-      "filesOnly": "{count, plural, one {# file} other {# files}}"
+      "filesOnly": "{count, plural, one {# file} other {# files}}",
+      "attachShort": "Photo"
     },
     "close": {
       "close": "Resolved",
@@ -174,6 +177,35 @@
       "confirmCancel": "Withdraw the request?",
       "failed": "Could not change the status."
     },
-    "newLabel": "New request"
+    "newLabel": "New request",
+    "thread": {
+      "edit": "Edit",
+      "edited": "edited",
+      "save": "Save",
+      "saving": "Saving…",
+      "saveFailed": "Could not save the changes.",
+      "addFile": "Add file",
+      "removeFile": "Remove {name}",
+      "restoreFile": "Restore {name}",
+      "sending": "Sending…",
+      "notSent": "Not sent",
+      "retry": "Retry",
+      "discard": "Discard"
+    }
+  },
+  "components": {
+    "comments": {
+      "title": "Comments",
+      "empty": "No comments yet.",
+      "loading": "Loading comments...",
+      "placeholder": "Write a comment...",
+      "submit": "Post comment",
+      "submitting": "Posting...",
+      "cancel": "Cancel",
+      "loadMore": "Load more",
+      "edited": "edited",
+      "formerMember": "Former member",
+      "addFailed": "Failed to add comment"
+    }
   }
 }

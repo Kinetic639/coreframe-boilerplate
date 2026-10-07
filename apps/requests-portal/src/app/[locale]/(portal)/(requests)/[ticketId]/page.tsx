@@ -46,6 +46,12 @@ export default async function RequestPage({ params }: Props) {
       attachments={attachments.ok ? attachments.data : []}
       events={events}
       branchName={ctx.branches.find((b) => b.id === request.branchId)?.name ?? null}
+      viewer={{
+        id: ctx.user.id,
+        name: ctx.user.displayName,
+        initials: ctx.user.initials,
+        avatarUrl: ctx.user.avatarUrl,
+      }}
     />
   );
 }

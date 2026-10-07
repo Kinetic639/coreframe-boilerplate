@@ -99,12 +99,19 @@ export type RequestComment = {
   id: string;
   author: PersonRef | null;
   bodyPlain: string;
+  /** Tiptap document (same format Ambra writes and renders). */
+  bodyRich: unknown | null;
   createdAt: string;
+  /** Differs from createdAt once the author edited the comment. */
+  updatedAt: string;
   isMine: boolean;
 };
 
 export type RequestAttachment = {
   id: string;
+  /** Comment the file was sent with (app_attachments.metadata.comment_id); null = request-level. */
+  commentId: string | null;
+  isMine: boolean;
   fileName: string;
   contentType: string;
   sizeBytes: number;

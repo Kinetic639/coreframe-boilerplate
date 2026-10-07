@@ -1,3 +1,4 @@
+import type { Json } from "@repo/supabase/database";
 import type { PortalSupabase } from "@/utils/supabase/server";
 import type { PortalContext } from "@/server/portal-context";
 import { plainToRichDoc, TICKET_TARGET, toPerson } from "./requests.service";
@@ -13,7 +14,7 @@ export async function listComments(
 ): Promise<ServiceResult<RequestComment[]>> {
   const { data, error } = await supabase
     .from("app_comments")
-    .select("id, body_plain, created_by, created_at")
+    .select("id, body_plain, body_rich, created_by, created_at, updated_at")
     .eq("org_id", ctx.org.id)
     .eq("target_type", TICKET_TARGET)
     .eq("target_id", ticketId)
@@ -35,7 +36,9 @@ export async function listComments(
       id: r.id,
       author: (r.created_by && byId.get(r.created_by)) || null,
       bodyPlain: r.body_plain ?? "",
+      bodyRich: r.body_rich ?? null,
       createdAt: r.created_at,
+      updatedAt: r.updated_at,
       isMine: r.created_by === ctx.user.id,
     })),
   };
@@ -49,7 +52,8 @@ export async function addComment(
   supabase: PortalSupabase,
   ctx: PortalContext,
   ticketId: string,
-  body: string
+  body: string,
+  bodyRich?: unknown
 ): Promise<ServiceResult<{ id: string }>> {
   const { data: ticket } = await supabase
     .from("helpdesk_tickets")
@@ -70,7 +74,7 @@ export async function addComment(
       target_type: TICKET_TARGET,
       target_id: ticketId,
       body_plain: body,
-      body_rich: plainToRichDoc(body),
+      body_rich: (bodyRich ?? plainToRichDoc(body)) as Json,
       visibility: "default",
       kind: "comment",
       created_by: ctx.user.id,
@@ -97,4 +101,49 @@ export async function addComment(
   ]);
 
   return { ok: true, data: { id: data.id } };
+}
+
+/** Author edits their own public comment (RLS: created_by = auth.uid()). */
+export async function updateOwnComment(
+  supabase: PortalSupabase,
+  ctx: PortalContext,
+  commentId: string,
+  body: string,
+  bodyRich: unknown
+): Promise<ServiceResult<RequestComment>> {
+  const { data, error } = await supabase
+    .from("app_comments")
+    .update({
+      body_plain: body,
+      body_rich: bodyRich as Json,
+      updated_by: ctx.user.id,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", commentId)
+    .eq("org_id", ctx.org.id)
+    .eq("target_type", TICKET_TARGET)
+    .eq("created_by", ctx.user.id)
+    .neq("visibility", "internal")
+    .is("deleted_at", null)
+    .select("id, body_plain, body_rich, created_at, updated_at")
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "not_found" };
+  return {
+    ok: true,
+    data: {
+      id: data.id,
+      author: {
+        id: ctx.user.id,
+        name: ctx.user.displayName,
+        initials: ctx.user.initials,
+        avatarUrl: ctx.user.avatarUrl,
+      },
+      bodyPlain: data.body_plain ?? "",
+      bodyRich: data.body_rich ?? null,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
+      isMine: true,
+    },
+  };
 }

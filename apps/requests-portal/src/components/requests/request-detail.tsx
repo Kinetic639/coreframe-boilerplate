@@ -1,8 +1,9 @@
-import { ChevronLeft, FileText, ShieldCheck } from "lucide-react";
+import { ChevronLeft, ShieldCheck } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
-import { formatBytes, formatWhen, inkFor } from "@/lib/format";
+import { formatWhen, inkFor } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { requestState } from "@/server/requests/types";
 import type {
   PersonRef,
   RequestAttachment,
@@ -12,19 +13,8 @@ import type {
 } from "@/server/requests/types";
 import { Avatar } from "./avatar";
 import { CloseActions } from "./close-actions";
-import { Composer } from "./composer";
+import { Thread, type ThreadEvent } from "./thread";
 import { STATE_STYLE, StateDot } from "./status";
-
-type ThreadEntry =
-  | {
-      kind: "message";
-      at: string;
-      author: PersonRef | null;
-      body: string;
-      mine: boolean;
-      staff: boolean;
-    }
-  | { kind: "event"; at: string; text: string };
 
 export async function RequestDetailView({
   request: r,
@@ -32,12 +22,14 @@ export async function RequestDetailView({
   attachments,
   events,
   branchName,
+  viewer,
 }: {
   request: RequestDetail;
   comments: RequestComment[];
   attachments: RequestAttachment[];
   events: RequestEvent[];
   branchName: string | null;
+  viewer: PersonRef;
 }) {
   const t = await getTranslations("requests");
   const locale = await getLocale();
@@ -45,42 +37,26 @@ export async function RequestDetailView({
     formatWhen(iso, locale, { today: t("today"), yesterday: t("yesterday") });
   const state = STATE_STYLE[r.state];
   const isOpen = r.state !== "closed" && r.state !== "cancelled";
-  const requesterId = r.requester?.id;
 
-  const thread: ThreadEntry[] = [];
-  if (r.descriptionPlain?.trim()) {
-    thread.push({
-      kind: "message",
-      at: r.createdAt,
-      author: r.requester,
-      body: r.descriptionPlain,
-      mine: r.isMine,
-      staff: false,
-    });
-  }
-  for (const c of comments) {
-    thread.push({
-      kind: "message",
-      at: c.createdAt,
-      author: c.author,
-      body: c.bodyPlain,
-      mine: c.isMine,
-      staff: !!c.author && c.author.id !== requesterId,
-    });
-  }
+  const threadEvents: ThreadEvent[] = [];
   for (const e of events) {
     const who = e.actor?.name ?? t("someone");
-    if (e.type === "ticket_accepted")
-      thread.push({ kind: "event", at: e.createdAt, text: t("events.accepted", { who }) });
-    if (e.type === "ticket_closed") {
-      const status = e.payload.status === "cancelled" ? "cancelled" : "closed";
-      thread.push({ kind: "event", at: e.createdAt, text: t(`events.${status}`, { who }) });
+    let text: string | null = null;
+    if (e.type === "ticket_accepted") text = t("events.accepted", { who });
+    if (e.type === "ticket_taken") text = t("events.taken", { who });
+    if (e.type === "status_changed" && typeof e.payload.to === "string") {
+      const s = requestState({
+        status: e.payload.to,
+        requires_acceptance: false,
+        accepted_at: null,
+      });
+      text = t("events.status", { who, status: t(`state.${s}`) });
     }
+    if (e.type === "ticket_closed") {
+      text = t(`events.${e.payload.status === "cancelled" ? "cancelled" : "closed"}`, { who });
+    }
+    if (text) threadEvents.push({ id: e.id, at: e.createdAt, text });
   }
-  thread.sort((a, b) => a.at.localeCompare(b.at));
-
-  const images = attachments.filter((a) => a.contentType.startsWith("image/") && a.url);
-  const files = attachments.filter((a) => !a.contentType.startsWith("image/") || !a.url);
 
   return (
     <article className="flex min-h-full flex-col">
@@ -177,84 +153,26 @@ export async function RequestDetailView({
         )}
       </header>
 
-      <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-3 px-4 py-4 lg:px-7">
-        {thread.length === 0 && (
-          <p className="py-6 text-center text-sm text-stone-500">{t("detail.noMessages")}</p>
-        )}
-        {thread.map((entry, i) =>
-          entry.kind === "event" ? (
-            <p key={`e${i}`} className="flex items-center gap-2 pl-2 text-xs text-stone-500">
-              <span className="h-1.5 w-1.5 rounded-full bg-stone-300" />
-              {entry.text} · {when(entry.at)}
-            </p>
-          ) : (
-            <div key={`m${i}`} className="flex gap-2.5">
-              <Avatar person={entry.author} size={28} className="mt-0.5" />
-              <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <div className="text-[12.5px]">
-                  <b className="font-semibold">{entry.mine ? t("you") : entry.author?.name}</b>{" "}
-                  <span className="text-stone-500">
-                    · {entry.staff ? `${t("partsDept")} · ` : ""}
-                    {when(entry.at)}
-                  </span>
-                </div>
-                <div
-                  className={cn(
-                    "whitespace-pre-line rounded-[4px_14px_14px_14px] border px-3 py-2.5 text-sm leading-relaxed",
-                    entry.staff ? "border-[#F6E3B4] bg-[#FFF8E6]" : "border-stone-200 bg-white"
-                  )}
-                >
-                  {entry.body}
-                </div>
-              </div>
-            </div>
-          )
-        )}
-
-        {attachments.length > 0 && (
-          <section aria-label={t("detail.attachments")} className="flex flex-col gap-2 pl-[38px]">
-            {images.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {images.map((a) => (
-                  <a
-                    key={a.id}
-                    href={a.url!}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="block overflow-hidden rounded-lg ring-1 ring-stone-200"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={a.url!} alt={a.fileName} className="h-24 w-24 object-cover" />
-                  </a>
-                ))}
-              </div>
-            )}
-            {files.map((a) => (
-              <a
-                key={a.id}
-                href={a.url ?? undefined}
-                target="_blank"
-                rel="noreferrer"
-                className="flex w-fit items-center gap-2 rounded-lg bg-white px-2.5 py-1.5 text-[12.5px] ring-1 ring-stone-200"
-              >
-                <FileText className="h-4 w-4 text-stone-500" />
-                <span className="max-w-[14rem] truncate font-medium">{a.fileName}</span>
-                <span className="text-stone-500">{formatBytes(a.sizeBytes, locale)}</span>
-              </a>
-            ))}
-          </section>
-        )}
-      </div>
-
-      <div className="sticky bottom-0 mx-auto w-full max-w-3xl lg:px-7 lg:pb-5">
-        {isOpen ? (
-          <Composer ticketId={r.id} />
-        ) : (
-          <p className="border-t border-stone-200 bg-white px-4 py-4 text-center text-sm text-stone-500 lg:rounded-xl lg:border">
-            {t("detail.closedNote")}
-          </p>
-        )}
-      </div>
+      <Thread
+        ticketId={r.id}
+        isOpen={isOpen}
+        requesterId={r.requester?.id ?? null}
+        viewer={viewer}
+        description={
+          r.descriptionPlain?.trim()
+            ? {
+                at: r.createdAt,
+                author: r.requester,
+                plain: r.descriptionPlain,
+                rich: r.descriptionRich,
+                mine: r.isMine,
+              }
+            : null
+        }
+        initialComments={comments}
+        initialAttachments={attachments}
+        events={threadEvents}
+      />
     </article>
   );
 }

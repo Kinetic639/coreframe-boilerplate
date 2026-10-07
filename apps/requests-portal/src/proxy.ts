@@ -49,6 +49,8 @@ export async function proxy(request: NextRequest) {
     response = NextResponse.redirect(url);
   } else if (user && signInPaths.includes(pathname)) {
     response = NextResponse.redirect(new URL(localized("/", locale), request.url));
+  } else if (request.headers.has("next-action")) {
+    response = NextResponse.next({ request });
   } else {
     // The requests layout persists across ticket navigation and has no searchParams, so it
     // gets the list query (filters) from this header for its first server render.

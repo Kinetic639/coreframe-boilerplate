@@ -23,7 +23,9 @@ export async function listAttachments(
 ): Promise<ServiceResult<RequestAttachment[]>> {
   const { data, error } = await supabase
     .from("app_attachments")
-    .select("id, storage_path, file_name, content_type, size_bytes, created_at")
+    .select(
+      "id, storage_path, file_name, content_type, size_bytes, metadata, created_by, created_at"
+    )
     .eq("org_id", ctx.org.id)
     .eq("target_type", TICKET_TARGET)
     .eq("target_id", ticketId)
@@ -44,6 +46,11 @@ export async function listAttachments(
     ok: true,
     data: rows.map((r) => ({
       id: r.id,
+      commentId:
+        typeof (r.metadata as Record<string, unknown> | null)?.comment_id === "string"
+          ? ((r.metadata as Record<string, unknown>).comment_id as string)
+          : null,
+      isMine: r.created_by === ctx.user.id,
       fileName: r.file_name,
       contentType: r.content_type,
       sizeBytes: Number(r.size_bytes),
@@ -63,7 +70,8 @@ export async function uploadAttachment(
   supabase: PortalSupabase,
   ctx: PortalContext,
   ticketId: string,
-  file: File
+  file: File,
+  opts: { commentId?: string } = {}
 ): Promise<ServiceResult<{ id: string }>> {
   if (file.size === 0) return { ok: false, error: "empty" };
   if (file.size > MAX_ATTACHMENT_BYTES) return { ok: false, error: "too_large" };
@@ -88,6 +96,7 @@ export async function uploadAttachment(
       file_name: file.name.slice(0, 200),
       content_type: file.type,
       size_bytes: file.size,
+      metadata: opts.commentId ? { comment_id: opts.commentId } : {},
       created_by: ctx.user.id,
     })
     .select("id")
@@ -105,4 +114,37 @@ export async function uploadAttachment(
     payload: { file_name: file.name, attachment_id: data.id },
   });
   return { ok: true, data: { id: data.id } };
+}
+
+/** Author removes their own file (soft delete + storage object), like Ambra's softDelete. */
+export async function deleteOwnAttachment(
+  supabase: PortalSupabase,
+  ctx: PortalContext,
+  attachmentId: string
+): Promise<ServiceResult<null>> {
+  // Only the author's own files from the portal (moderation stays in Ambra).
+  const { data: row } = await supabase
+    .from("app_attachments")
+    .select("id")
+    .eq("id", attachmentId)
+    .eq("org_id", ctx.org.id)
+    .eq("target_type", TICKET_TARGET)
+    .eq("created_by", ctx.user.id)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (!row) return { ok: false, error: "not_found" };
+
+  // A plain UPDATE of deleted_at fails RLS (the SELECT policy hides deleted rows), hence the
+  // soft_delete_app_attachment function (migration 20261007063558). It returns the storage path.
+  // Not in the generated types yet, hence the narrowed rpc signature.
+  const rpc = supabase.rpc as unknown as (
+    fn: "soft_delete_app_attachment",
+    args: { p_attachment_id: string }
+  ) => Promise<{ data: string | null; error: { message: string } | null }>;
+  const { data: path, error } = await rpc.call(supabase, "soft_delete_app_attachment", {
+    p_attachment_id: attachmentId,
+  });
+  if (error) return { ok: false, error: error.message };
+  if (path) await supabase.storage.from(ATTACHMENTS_BUCKET).remove([path]);
+  return { ok: true, data: null };
 }

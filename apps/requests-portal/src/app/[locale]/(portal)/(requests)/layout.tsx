@@ -1,5 +1,5 @@
 import { headers } from "next/headers";
-import { AutoRefresh } from "@/components/requests/auto-refresh";
+import { RealtimeRefresh } from "@/components/requests/realtime-refresh";
 import { RequestsShell } from "@/components/requests/requests-shell";
 import { requirePortalContext } from "@/server/portal-context";
 import {
@@ -31,7 +31,7 @@ export default async function RequestsLayout({ children }: { children: React.Rea
       <RequestsShell initial={list.data} initialKey={listKey(toQuery(input))} types={types}>
         {children}
       </RequestsShell>
-      <AutoRefresh />
+      <RealtimeRefresh orgId={ctx.org.id} />
     </>
   );
 }

@@ -99,14 +99,15 @@ export function RequestsShell({
   const pages = Math.max(1, Math.ceil(data.total / PAGE_SIZE));
 
   return (
-    <div className="flex flex-1 lg:grid lg:grid-cols-[minmax(380px,480px)_1fr]">
+    // Desktop: the list stays put and only the ticket detail scrolls (each pane scrolls itself).
+    <div className="flex flex-1 lg:grid lg:min-h-0 lg:grid-cols-[minmax(380px,480px)_1fr] lg:overflow-hidden">
       <section
         className={cn(
-          "min-w-0 flex-1 flex-col lg:flex lg:border-r lg:border-stone-200",
+          "min-w-0 flex-1 flex-col lg:flex lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain lg:border-r lg:border-stone-200",
           ticketId ? "hidden" : "flex"
         )}
       >
-        <div className="flex flex-col gap-2.5 border-b border-stone-200 bg-white px-4 pb-3 pt-1">
+        <div className="flex flex-col gap-2.5 border-b lg:sticky lg:top-0 lg:z-10 border-stone-200 bg-white px-4 pb-3 pt-1">
           <label
             className="flex h-10 items-center gap-2 rounded-[10px] bg-stone-100 px-3 text-stone-500"
             role="search"
@@ -236,7 +237,7 @@ export function RequestsShell({
 
       <div
         className={cn(
-          "min-w-0 flex-1 bg-stone-50 lg:flex lg:flex-col",
+          "min-w-0 flex-1 bg-stone-50 lg:flex lg:min-h-0 lg:flex-col lg:overflow-y-auto lg:overscroll-contain",
           ticketId ? "flex flex-col" : "hidden"
         )}
       >

@@ -35,4 +35,6 @@ export const createRequestSchema = z
 export const commentSchema = z.object({
   ticketId: z.string().uuid(),
   body: z.string().trim().max(LIMITS.bodyMax),
+  /** JSON of the Tiptap document from the shared editor (optional; plain text otherwise). */
+  bodyRich: z.string().max(200_000).optional(),
 });

@@ -5,7 +5,6 @@ import { getLocale } from "next-intl/server";
 import { z } from "zod";
 import { redirect } from "@/i18n/navigation";
 import {
-  commentSchema,
   createRequestSchema,
   LIMITS,
   orderNumberSchema,
@@ -13,7 +12,6 @@ import {
 } from "@/lib/validation/requests";
 import { requirePortalContext } from "@/server/portal-context";
 import { uploadAttachment } from "@/server/requests/attachments.service";
-import { addComment } from "@/server/requests/comments.service";
 import { parseListParams, type ListSearchParams } from "@/server/requests/list-params";
 import {
   closeOwnRequest,
@@ -80,29 +78,6 @@ export async function lookupOrderAction(nr: string, mag: string): Promise<OrderL
   if (!n.success || !m.success) return null;
   const ctx = await requirePortalContext();
   return lookupOrder(await createClient(), ctx, n.data, m.data);
-}
-
-export async function addCommentAction(
-  _prev: ActionState,
-  formData: FormData
-): Promise<ActionState> {
-  const ctx = await requirePortalContext();
-  const parsed = commentSchema.safeParse(Object.fromEntries(formData));
-  const files = filesFrom(formData);
-  if (!parsed.success || (!parsed.data.body && files.length === 0)) return { error: "empty" };
-
-  const supabase = await createClient();
-  const { ticketId, body } = parsed.data;
-  if (body) {
-    const res = await addComment(supabase, ctx, ticketId, body);
-    if (!res.ok) return { error: res.error };
-  }
-  for (const file of files) {
-    const up = await uploadAttachment(supabase, ctx, ticketId, file);
-    if (!up.ok) return { error: `attachment:${up.error}` };
-  }
-  revalidatePath("/", "layout");
-  return null;
 }
 
 export async function closeRequestAction(

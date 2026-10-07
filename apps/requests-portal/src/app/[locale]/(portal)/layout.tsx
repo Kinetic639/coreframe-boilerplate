@@ -42,7 +42,8 @@ export default async function PortalLayout({ children }: { children: React.React
 
   const { user, branches, activeBranchId } = result.context;
   return (
-    <div className="flex min-h-dvh flex-col bg-stone-100 text-stone-900">
+    // Desktop: app shell of one screen height; the panes below scroll on their own.
+    <div className="flex min-h-dvh flex-col bg-stone-100 text-stone-900 lg:h-dvh">
       <header className="sticky top-0 z-20 flex items-center gap-2.5 border-b border-stone-200 bg-white px-4 py-2.5">
         <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-lg bg-primary text-stone-900">
           <MessageSquareText className="h-4 w-4" strokeWidth={2.2} />
@@ -58,7 +59,7 @@ export default async function PortalLayout({ children }: { children: React.React
         <BranchSwitcher branches={branches} activeBranchId={activeBranchId} />
         <UserMenu displayName={user.displayName} email={user.email} initials={user.initials} />
       </header>
-      {children}
+      <div className="flex flex-1 flex-col lg:min-h-0 lg:overflow-y-auto">{children}</div>
     </div>
   );
 }
