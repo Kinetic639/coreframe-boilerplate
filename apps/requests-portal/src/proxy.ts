@@ -34,6 +34,13 @@ function localized(path: "/" | "/sign-in", locale: Locale): string {
   return path === "/" ? `/${locale}` : `/${locale}${slug}`;
 }
 
+/** Same response (rewrite / next signals included) minus its Set-Cookie headers. */
+function withoutCookies(res: NextResponse): NextResponse {
+  const headers = new Headers(res.headers);
+  headers.delete("set-cookie");
+  return new NextResponse(res.body, { status: res.status, headers });
+}
+
 // Every page except sign-in / forgot-password needs a signed-in user.
 export async function proxy(request: NextRequest) {
   const { response: sessionResponse, user } = await updateSession(request);
@@ -49,14 +56,15 @@ export async function proxy(request: NextRequest) {
     response = NextResponse.redirect(url);
   } else if (user && signInPaths.includes(pathname)) {
     response = NextResponse.redirect(new URL(localized("/", locale), request.url));
-  } else if (request.headers.has("next-action")) {
-    response = NextResponse.next({ request });
   } else {
     // The requests layout persists across ticket navigation and has no searchParams, so it
     // gets the list query (filters) from this header for its first server render.
     const headers = new Headers(request.headers);
     headers.set(LIST_QUERY_HEADER, request.nextUrl.search);
     response = intlMiddleware(new NextRequest(request, { headers }));
+    // Server Actions still need next-intl's rewrite ("/" -> "/pl") but not its locale
+    // cookie: any cookie in an action response makes Next re-render the whole route.
+    if (request.headers.has("next-action")) response = withoutCookies(response);
   }
 
   for (const { name, value, ...options } of sessionResponse.cookies.getAll()) {
