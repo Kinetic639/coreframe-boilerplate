@@ -74,10 +74,16 @@ export function useHelpdeskRealtime(
             queryKey: attachmentsKeys.target(TICKET_TARGET, row.target_id),
           });
         }
-      )
-      .subscribe();
+      );
+    // The browser client does not hand the session to Realtime by itself; without this the
+    // socket joins as anon and RLS filters out every change.
+    let active = true;
+    void supabase.realtime.setAuth().finally(() => {
+      if (active) channel.subscribe();
+    });
 
     return () => {
+      active = false;
       void supabase.removeChannel(channel);
     };
   }, [orgId, openId, openNumber, queryClient]);
