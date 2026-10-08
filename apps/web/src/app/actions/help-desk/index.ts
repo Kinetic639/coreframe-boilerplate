@@ -193,6 +193,26 @@ export async function getTicketDetailAction(
   }
 }
 
+/** Whether the current user may handle (take, set status, internal notes) tickets of a branch. */
+export async function canManageTicketBranchAction(
+  orgId: string,
+  branchId: string | null
+): Promise<ActionResult<boolean>> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Unauthorized" };
+    return {
+      success: true,
+      data: await HelpdeskTicketsService.canManageBranch(supabase, orgId, user.id, branchId),
+    };
+  } catch {
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
 export async function createTicketAction(
   input: CreateTicketInput
 ): Promise<ActionResult<{ id: string; ticket_number: string }>> {
