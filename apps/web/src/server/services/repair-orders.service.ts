@@ -616,6 +616,34 @@ export interface RepairOrderContainerRemovalResult {
  * lines/RepairOrders entirely -- see `inventory_containers`' own
  * many-allocation-lines-per-container cardinality, Phase 10C).
  */
+/** Zone 3 / Phase 11: one PZ / RW document line attributed to a RepairOrderLine. */
+export interface RepairOrderWarehouseDocument {
+  movementId: string;
+  documentNumber: string | null;
+  /** PZ, RW, … (falls back to the movement type code, e.g. 101 / 261). */
+  documentTypeCode: string | null;
+  status: string;
+  date: string | null;
+  quantity: number;
+  /** Destination for a receipt, source for an issue (snapshot at posting). */
+  locationName: string | null;
+}
+
+/** Zone 3 / Phase 11: warehouse state of one RepairOrderLine for the RO page tabs. */
+export interface RepairOrderLineWarehouseView {
+  repairOrderLineId: string;
+  receipts: RepairOrderWarehouseDocument[];
+  issues: RepairOrderWarehouseDocument[];
+  locations: {
+    locationId: string;
+    locationName: string | null;
+    quantity: number;
+    containerCodes: string[];
+  }[];
+  /** Current locations could not be loaded (documents are still shown). */
+  locationsError: boolean;
+}
+
 export interface RepairOrderLinePhysicalStateContainer {
   containerId: string;
   containerCode: string;
@@ -3555,5 +3583,167 @@ export class RepairOrdersService {
       success: true,
       data: { repairOrderLineId, locations, consistency },
     };
+  }
+
+  /**
+   * Zone 3 / Phase 11: per-line warehouse documents and current locations, for the
+   * "Zamówienia-Przyjęcia" and "Magazyn" tabs of the RepairOrder page.
+   *
+   * Same parent-scope check as `listRepairOrderLines` (an inaccessible / wrong-branch /
+   * soft-deleted order yields an empty list, never an error or a leak). Documents come from
+   * `repair_order_line_movement_links` (receipt and issue relations) in one embedded select
+   * through the movement line to its header; current locations reuse
+   * `getPhysicalStateForLine` per line (a RepairOrder has a handful of lines) plus one query
+   * for the location names.
+   */
+  static async getWarehouseView(
+    supabase: SupabaseClient,
+    orgId: string,
+    branchId: string | null,
+    repairOrderId: string
+  ): Promise<ServiceResult<RepairOrderLineWarehouseView[]>> {
+    let parentQuery = supabase
+      .from("repair_orders")
+      .select("id")
+      .eq("id", repairOrderId)
+      .eq("organization_id", orgId)
+      .is("deleted_at", null);
+    if (branchId) parentQuery = parentQuery.eq("branch_id", branchId);
+    const { data: parent, error: parentError } = await parentQuery.maybeSingle();
+    if (parentError) {
+      return {
+        success: false,
+        error: normalizeRepairOrderCrudError("getWarehouseView", parentError),
+      };
+    }
+    if (!parent) return { success: true, data: [] };
+
+    const { data: lineRows, error: linesError } = await supabase
+      .from("repair_order_lines")
+      .select("id")
+      .eq("repair_order_id", repairOrderId)
+      .is("deleted_at", null);
+    if (linesError) {
+      return {
+        success: false,
+        error: normalizeRepairOrderCrudError("getWarehouseView", linesError),
+      };
+    }
+    const lineIds = (lineRows ?? []).map((r) => (r as { id: string }).id);
+    if (lineIds.length === 0) return { success: true, data: [] };
+
+    const [linksResult, physicalResults] = await Promise.all([
+      supabase
+        .from("repair_order_line_movement_links")
+        .select(
+          `repair_order_line_id, applied_quantity, relation_type, created_at,
+           inventory_movement_lines(
+             snapshot_source_location_name, snapshot_destination_location_name,
+             inventory_movement_headers!inventory_movement_lines_header_fk(
+               id, document_number, draft_number, movement_type_code, document_type_code,
+               status, posted_at, document_date
+             )
+           )`
+        )
+        .in("repair_order_line_id", lineIds)
+        .in("relation_type", ["receipt", "issue"]),
+      Promise.all(lineIds.map((id) => RepairOrdersService.getPhysicalStateForLine(supabase, id))),
+    ]);
+    if (linksResult.error) {
+      return {
+        success: false,
+        error: normalizeRepairOrderCrudError("getWarehouseView", linksResult.error),
+      };
+    }
+
+    type LinkRow = {
+      repair_order_line_id: string;
+      applied_quantity: number;
+      relation_type: string;
+      created_at: string;
+      inventory_movement_lines: {
+        snapshot_source_location_name: string | null;
+        snapshot_destination_location_name: string | null;
+        inventory_movement_headers: {
+          id: string;
+          document_number: string | null;
+          draft_number: string | null;
+          movement_type_code: string | null;
+          document_type_code: string | null;
+          status: string;
+          posted_at: string | null;
+          document_date: string | null;
+        } | null;
+      } | null;
+    };
+
+    const view = new Map<string, RepairOrderLineWarehouseView>(
+      lineIds.map((id) => [
+        id,
+        { repairOrderLineId: id, receipts: [], issues: [], locations: [], locationsError: false },
+      ])
+    );
+
+    for (const link of (linksResult.data ?? []) as unknown as LinkRow[]) {
+      const line = view.get(link.repair_order_line_id);
+      const header = link.inventory_movement_lines?.inventory_movement_headers;
+      if (!line || !header) continue;
+      const isIssue = link.relation_type === "issue";
+      const doc: RepairOrderWarehouseDocument = {
+        movementId: header.id,
+        documentNumber: header.document_number ?? header.draft_number,
+        documentTypeCode: header.document_type_code ?? header.movement_type_code,
+        status: header.status,
+        date: header.posted_at ?? header.document_date ?? link.created_at,
+        quantity: Number(link.applied_quantity),
+        locationName: isIssue
+          ? (link.inventory_movement_lines?.snapshot_source_location_name ?? null)
+          : (link.inventory_movement_lines?.snapshot_destination_location_name ?? null),
+      };
+      (isIssue ? line.issues : line.receipts).push(doc);
+    }
+
+    const locationIds = new Set<string>();
+    physicalResults.forEach((r, i) => {
+      const line = view.get(lineIds[i]!)!;
+      if (!r.success) {
+        line.locationsError = true;
+        return;
+      }
+      for (const loc of r.data?.locations ?? []) {
+        if (loc.physicalQuantity <= 0) continue;
+        locationIds.add(loc.locationId);
+        line.locations.push({
+          locationId: loc.locationId,
+          locationName: null,
+          quantity: loc.physicalQuantity,
+          containerCodes: loc.containers.map((c) => c.containerCode),
+        });
+      }
+    });
+
+    if (locationIds.size > 0) {
+      const { data: locs } = await supabase
+        .from("warehouse_locations")
+        .select("id, name, code")
+        .in("id", [...locationIds]);
+      const names = new Map(
+        ((locs ?? []) as { id: string; name: string; code: string | null }[]).map((l) => [
+          l.id,
+          l.code ? `${l.code} · ${l.name}` : l.name,
+        ])
+      );
+      for (const line of view.values()) {
+        for (const loc of line.locations) loc.locationName = names.get(loc.locationId) ?? null;
+      }
+    }
+
+    const byDateDesc = (a: RepairOrderWarehouseDocument, b: RepairOrderWarehouseDocument) =>
+      (b.date ?? "").localeCompare(a.date ?? "");
+    for (const line of view.values()) {
+      line.receipts.sort(byDateDesc);
+      line.issues.sort(byDateDesc);
+    }
+    return { success: true, data: lineIds.map((id) => view.get(id)!) };
   }
 }

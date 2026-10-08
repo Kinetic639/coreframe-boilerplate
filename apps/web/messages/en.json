@@ -3588,6 +3588,25 @@
           "checkAll": "Select all ({count})",
           "uncheckAll": "Clear all",
           "receiptHint": "An unchecked order stays out of the PZ together with its parts."
+        },
+        "warehouse": {
+          "title": "Warehouse and deliveries",
+          "subtitle": "What was ordered and received (PZ), where the parts are now and what was issued (RW).",
+          "loadFailed": "Could not load the order's warehouse documents.",
+          "tabs": {
+            "receiving": "Orders & receipts",
+            "stock": "Warehouse"
+          },
+          "ordered": "Ordered",
+          "received": "Received",
+          "complete": "Complete",
+          "outstanding": "{quantity} missing",
+          "noReceipts": "No receipts.",
+          "available": "Available to issue",
+          "issued": "Issued",
+          "notInStock": "Not in stock.",
+          "locationsFailed": "Could not load locations.",
+          "noIssues": "No issues."
         }
       }
     },

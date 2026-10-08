@@ -3559,6 +3559,25 @@
           "checkAll": "Zaznacz wszystkie ({count})",
           "uncheckAll": "Odznacz wszystkie",
           "receiptHint": "Odznaczone zlecenie nie trafi do PZ razem ze swoimi częściami."
+        },
+        "warehouse": {
+          "title": "Magazyn i dostawy",
+          "subtitle": "Co zamówiono i przyjęto (PZ) oraz gdzie części są teraz i co wydano (RW).",
+          "loadFailed": "Nie udało się wczytać dokumentów magazynowych zlecenia.",
+          "tabs": {
+            "receiving": "Zamówienia-Przyjęcia",
+            "stock": "Magazyn"
+          },
+          "ordered": "Zamówiono",
+          "received": "Przyjęto",
+          "complete": "Komplet",
+          "outstanding": "Brakuje {quantity}",
+          "noReceipts": "Brak przyjęć.",
+          "available": "Do wydania",
+          "issued": "Wydano",
+          "notInStock": "Nie ma na stanie.",
+          "locationsFailed": "Nie udało się wczytać lokalizacji.",
+          "noIssues": "Brak wydań."
         }
       }
     },

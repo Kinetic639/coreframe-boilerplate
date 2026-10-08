@@ -18,6 +18,7 @@ import { RepairOrderLinesList } from "./_components/repair-order-lines-list";
 import { RepairOrderProvenance } from "./_components/repair-order-provenance";
 import { RepairOrderContainers } from "./_components/repair-order-containers";
 import { RepairOrderIssue } from "./_components/repair-order-issue";
+import { RepairOrderWarehouse } from "./_components/repair-order-warehouse";
 import { InventoryContainersService } from "@/server/services/inventory-containers.service";
 import { AttachmentsPanel } from "@/components/features/attachments";
 
@@ -75,6 +76,7 @@ export default async function RepairOrderDetailPage({ params }: PageProps) {
     linesResult,
     provenanceResult,
     containersResult,
+    warehouseResult,
   ] = await Promise.all([
     RepairOrdersService.getByIdForWorkshop(supabase, orgId, branchId, id),
     canManageAll
@@ -88,6 +90,8 @@ export default async function RepairOrderDetailPage({ params }: PageProps) {
     // Phase 10D: RLS (warehouse.inventory.read) is the real visibility
     // boundary -- a viewer without it simply sees no containers.
     InventoryContainersService.listForRepairOrder(supabase, orgId, branchId, id),
+    // Phase 11: PZ / RW documents and current locations per line
+    RepairOrdersService.getWarehouseView(supabase, orgId, branchId, id),
   ]);
 
   if (!orderResult.success || !orderResult.data) {
@@ -155,6 +159,12 @@ export default async function RepairOrderDetailPage({ params }: PageProps) {
         provenance={provenance}
         branchId={branchId}
         containers={containers.map((c) => ({ id: c.id, code: c.code }))}
+      />
+
+      <RepairOrderWarehouse
+        lines={lines}
+        view={warehouseResult.success ? warehouseResult.data : []}
+        loadError={!warehouseResult.success}
       />
 
       <RepairOrderContainers
