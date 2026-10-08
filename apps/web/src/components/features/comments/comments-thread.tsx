@@ -5,6 +5,10 @@ import { Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { CommentEditor, CommentRenderer } from "@/components/primitives/comments";
+import { TypingIndicator, useTypingIndicator } from "@repo/rich-text/comments";
+import { isRichTextEmpty } from "@repo/rich-text/rich-text-utils";
+import { createClient } from "@/utils/supabase/client";
+import { useUserStoreV2 } from "@/lib/stores/v2/user-store";
 import type { RichTextValue } from "@/components/primitives/rich-text/rich-text-types";
 import {
   createEmptyRichText,
@@ -33,6 +37,11 @@ interface CommentsThreadProps extends Partial<CommentsProviderValue> {
    * targets (planning) are unchanged. Who may post or read them is enforced server-side.
    */
   internal?: { noteLabel: string; badge: string };
+  /**
+   * Realtime channel for "is typing" (e.g. helpdeskTicketTypingTopic(id)); needs an RLS
+   * policy on realtime.messages for the topic. Omit to keep the indicator off.
+   */
+  typingTopic?: string | null;
 }
 
 function formatCommentDate(iso: string): string {
@@ -120,10 +129,29 @@ export function CommentsThread(props: CommentsThreadProps) {
     setTotalCount(commentsQuery.data.totalCount);
   }, [commentsQuery.data]);
 
+  const [supabase] = useState(createClient);
+  const user = useUserStoreV2((state) => state.user);
+  const typingMe = useMemo(
+    () =>
+      user
+        ? {
+            id: user.id,
+            name: [user.first_name, user.last_name].filter(Boolean).join(" ") || user.email,
+          }
+        : null,
+    [user]
+  );
+  const { typing, notifyTyping, notifyStopped } = useTypingIndicator({
+    client: supabase,
+    topic: props.typingTopic ?? null,
+    me: typingMe,
+  });
+
   const handleSubmit = useCallback(
     (value: RichTextValue, visibility: "default" | "internal" = "default") => {
       const bodyPlain = extractPlainText(value);
       if (!bodyPlain.trim()) return;
+      notifyStopped();
 
       addCommentMutation.mutate(
         {
@@ -145,7 +173,7 @@ export function CommentsThread(props: CommentsThreadProps) {
         }
       );
     },
-    [addCommentMutation, config.targetId, config.targetType, onCommentAdded, rows]
+    [addCommentMutation, config.targetId, config.targetType, notifyStopped, onCommentAdded, rows]
   );
 
   const handleLoadMore = useCallback(async () => {
@@ -238,11 +266,17 @@ export function CommentsThread(props: CommentsThreadProps) {
         </Button>
       )}
 
+      <TypingIndicator people={typing} />
+
       {config.canComment && (
         <div className="pt-1">
           <CommentEditor
             value={draft}
-            onChange={setDraft}
+            onChange={(next) => {
+              setDraft(next);
+              if (isRichTextEmpty(next)) notifyStopped();
+              else notifyTyping();
+            }}
             onSubmit={handleSubmit}
             placeholder={labels.placeholder}
             submitLabel={labels.submit}

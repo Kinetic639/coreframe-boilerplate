@@ -37,6 +37,7 @@ import {
 import type { HelpdeskTicketDetail } from "@/server/services/helpdesk-tickets.service";
 import { AttachmentsPanel } from "@/components/features/attachments";
 import { CommentsThread } from "@/components/features/comments";
+import { helpdeskTicketTypingTopic } from "@repo/rich-text/comments";
 import { UserAvatar } from "@/components/primitives/avatar/user-avatar";
 import { RichTextRenderer } from "@/components/primitives/rich-text/rich-text-renderer";
 import { normalizeRichText } from "@/components/primitives/rich-text/rich-text-utils";
@@ -222,6 +223,7 @@ export function TicketDetailClient({
             targetType="helpdesk.ticket"
             targetId={ticket.id}
             canComment={ticket.status !== "closed" && ticket.status !== "cancelled"}
+            typingTopic={isOpenTicket ? helpdeskTicketTypingTopic(ticket.id) : null}
             initialData={{
               rows: ticket.comments,
               totalCount: ticket.comments.length,

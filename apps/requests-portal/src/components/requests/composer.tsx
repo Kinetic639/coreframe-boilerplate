@@ -14,8 +14,11 @@ import { LIMITS } from "@/lib/validation/requests";
  */
 export function Composer({
   onSend,
+  onDraftChange,
 }: {
   onSend: (rich: RichTextValue | null, files: File[]) => void;
+  /** Every edit of the text (drives "is typing" for the other side). */
+  onDraftChange?: (value: RichTextValue) => void;
 }) {
   const t = useTranslations("requests.composer");
   const [value, setValue] = useState<RichTextValue>(createEmptyRichText);
@@ -54,7 +57,10 @@ export function Composer({
       )}
       <CommentEditor
         value={value}
-        onChange={setValue}
+        onChange={(next) => {
+          setValue(next);
+          onDraftChange?.(next);
+        }}
         onSubmit={submit}
         placeholder={t("placeholder")}
         submitLabel={t("send")}

@@ -205,7 +205,9 @@
       "loadMore": "Load more",
       "edited": "edited",
       "formerMember": "Former member",
-      "addFailed": "Failed to add comment"
+      "addFailed": "Failed to add comment",
+      "typing": "{name} is typing…",
+      "typingMany": "{count} people are typing…"
     }
   }
 }
