@@ -7,7 +7,11 @@ import { createRequestAction, lookupOrderAction, type ActionState } from "@/app/
 import { cn } from "@/lib/utils";
 import { LIMITS } from "@/lib/validation/requests";
 import type { PortalBranch } from "@/server/portal-context";
-import type { OrderLookup, PortalTicketType } from "@/server/requests/requests.service";
+import type {
+  OrderLookup,
+  PortalTicketType,
+  PortalWarehouse,
+} from "@/server/requests/requests.service";
 import { Avatar } from "./avatar";
 import { TypeIcon } from "./type-icon";
 
@@ -34,10 +38,13 @@ function rememberWarehouse(mag: string) {
 export function NewRequestForm({
   branches,
   typesByBranch,
+  warehousesByBranch = {},
   defaultBranchId,
 }: {
   branches: PortalBranch[];
   typesByBranch: Record<string, PortalTicketType[]>;
+  /** DMS warehouses per branch (Ambra branch settings), offered as shortcuts. */
+  warehousesByBranch?: Record<string, PortalWarehouse[]>;
   defaultBranchId: string;
 }) {
   const t = useTranslations("requests.new");
@@ -50,6 +57,7 @@ export function NewRequestForm({
   const [nr, setNr] = useState("");
   const [mag, setMag] = useState("");
   const [recent, setRecent] = useState<string[]>([]);
+  const branchWarehouses = warehousesByBranch[branchId] ?? [];
   const [lookup, setLookup] = useState<OrderLookup | null>(null);
   const [looking, startLookup] = useTransition();
   const [files, setFiles] = useState<File[]>([]);
@@ -238,25 +246,46 @@ export function NewRequestForm({
             />
           </label>
         </div>
-        {recent.length > 0 && (
-          <div className="flex items-center gap-1.5 text-[11.5px] text-stone-500">
-            {t("recent")}
-            {recent.map((m) => (
+        {branchWarehouses.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-1.5 text-[11.5px] text-stone-500">
+            {branchWarehouses.map((w) => (
               <button
-                key={m}
+                key={w.code}
                 type="button"
-                onClick={() => setMag(m)}
+                onClick={() => setMag(w.code)}
                 className={cn(
-                  "h-6 rounded-md border px-2 font-mono text-[11.5px]",
-                  mag === m
+                  "h-7 rounded-md border px-2 text-[11.5px]",
+                  mag === w.code
                     ? "border-stone-900 bg-stone-900 text-white"
                     : "border-stone-200 bg-white text-stone-700"
                 )}
               >
-                {m}
+                <span className="font-mono">{w.code}</span>
+                {w.name ? <span className="ml-1">{w.name}</span> : null}
               </button>
             ))}
           </div>
+        ) : (
+          recent.length > 0 && (
+            <div className="flex items-center gap-1.5 text-[11.5px] text-stone-500">
+              {t("recent")}
+              {recent.map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMag(m)}
+                  className={cn(
+                    "h-6 rounded-md border px-2 font-mono text-[11.5px]",
+                    mag === m
+                      ? "border-stone-900 bg-stone-900 text-white"
+                      : "border-stone-200 bg-white text-stone-700"
+                  )}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+          )
         )}
         {err("orderNumber") ?? err("warehouse")}
         {looking && (
