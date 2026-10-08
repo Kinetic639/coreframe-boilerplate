@@ -33,6 +33,7 @@ import type {
   PaginatedResult,
 } from "@/components/data-view/data-view.types";
 import { listBranchesAction } from "@/app/actions/organization/branches";
+import { BranchWarehousesPanel } from "./branch-warehouses-panel";
 import { filterSortBranches, paginateBranches } from "../_utils/branches-data-view";
 
 const BRANCHES_DV_QUERY_KEY = ["org-branches-dataview"];
@@ -296,6 +297,8 @@ export function BranchesClient({
           <span className="break-all font-mono text-xs text-muted-foreground">{branch.id}</span>
         </div>
       </div>
+
+      <BranchWarehousesPanel key={branch.id} branchId={branch.id} canManage={canUpdate} />
 
       {(canUpdate || canDelete) && (
         <div className="flex gap-2 border-t pt-3">

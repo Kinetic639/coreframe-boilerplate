@@ -21,6 +21,7 @@ import { RepairOrderIssue } from "./_components/repair-order-issue";
 import { RepairOrderWarehouse } from "./_components/repair-order-warehouse";
 import { InventoryContainersService } from "@/server/services/inventory-containers.service";
 import { AttachmentsPanel } from "@/components/features/attachments";
+import { BranchWarehousesService } from "@/server/services/branch-warehouses.service";
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -77,6 +78,7 @@ export default async function RepairOrderDetailPage({ params }: PageProps) {
     provenanceResult,
     containersResult,
     warehouseResult,
+    branchWarehousesResult,
   ] = await Promise.all([
     RepairOrdersService.getByIdForWorkshop(supabase, orgId, branchId, id),
     canManageAll
@@ -92,6 +94,7 @@ export default async function RepairOrderDetailPage({ params }: PageProps) {
     InventoryContainersService.listForRepairOrder(supabase, orgId, branchId, id),
     // Phase 11: PZ / RW documents and current locations per line
     RepairOrdersService.getWarehouseView(supabase, orgId, branchId, id),
+    BranchWarehousesService.list(supabase, orgId, branchId),
   ]);
 
   if (!orderResult.success || !orderResult.data) {
@@ -114,6 +117,10 @@ export default async function RepairOrderDetailPage({ params }: PageProps) {
   const provenance = provenanceResult.success ? provenanceResult.data : [];
   const provenanceLoadError = !provenanceResult.success;
   const containers = containersResult.success ? containersResult.data : [];
+  const warehouseLabel =
+    (branchWarehousesResult.success ? branchWarehousesResult.data : []).find(
+      (w) => w.code === order.warehouseCode
+    )?.name ?? null;
   const containersLoadError = !containersResult.success;
   const suggestedContainerCode = InventoryContainersService.suggestCode(
     order.zlNumber,
@@ -131,9 +138,18 @@ export default async function RepairOrderDetailPage({ params }: PageProps) {
       </Link>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-mono text-2xl font-semibold tracking-tight">
-          {order.zlNumber ?? t("detail.unresolvedTitle")}
-        </h1>
+        <div>
+          <h1 className="font-mono text-2xl font-semibold tracking-tight">
+            {order.orderNo ?? order.zlNumber ?? t("detail.unresolvedTitle")}
+          </h1>
+          {order.warehouseCode && (
+            <p className="text-muted-foreground mt-0.5 text-sm">
+              <span className="font-mono">{order.zlNumber}</span> · {t("columns.warehouse")}{" "}
+              <span className="text-foreground font-mono font-medium">{order.warehouseCode}</span>
+              {warehouseLabel ? ` · ${warehouseLabel}` : ""}
+            </p>
+          )}
+        </div>
         <RepairOrderStatusBadge status={order.status} />
       </div>
 

@@ -1129,9 +1129,33 @@ function extractBlwk(rows: VisualRow[]): string | null {
 function extractZl(rows: VisualRow[]): string | null {
   for (const row of rows) {
     const match = row.text.match(ZL_NUMBER_RE);
-    if (match) return `${match[1].toUpperCase()}/${match[2]}`;
+    if (match) {
+      const zl = `${match[1].toUpperCase()}/${match[2]}`;
+      const p = zlNumberParts(zl);
+      // Canonical form when the number is in DMS format: ZL/<number>/<yy>/<warehouse>/BL.
+      return p.zl_order_no
+        ? `${p.zl_prefix}/${p.zl_order_no}/${String(p.zl_year).padStart(2, "0")}/${p.zl_warehouse_code}/BL`
+        : zl;
+    }
   }
   return null;
+}
+
+/**
+ * The parts of a repair-order number (ZL/<number>/<year>/<warehouse>/BL) as separate metadata
+ * fields: the same number exists in several DMS warehouses (e.g. 3112 and 3332), so the
+ * warehouse must travel with it. Nulls when the number is not in DMS format. Same rule as
+ * lib/workshop/repair-order-number.ts and public.parse_repair_order_number (kept inline so
+ * the parser stays dependency-free).
+ */
+function zlNumberParts(zl: string | null) {
+  const m = zl?.trim().match(/^(ZLEC|ZL)\/([0-9]+)\/([0-9]{2,4})\/([0-9]{3,5})(\/|$)/i);
+  return {
+    zl_prefix: m ? m[1].toUpperCase() : null,
+    zl_order_no: m ? m[2] : null,
+    zl_year: m ? Number(m[3]) % 100 : null,
+    zl_warehouse_code: m ? m[4] : null,
+  };
 }
 
 function extractWddGroupName(rows: VisualRow[]): string | null {
@@ -2332,6 +2356,7 @@ function parseBcBlockV4(
       order_number: extractBlwk(preHeaderRows),
       vin: extractVin(vinSearchRows),
       zl_number: extractZl(vinSearchRows),
+      ...zlNumberParts(extractZl(vinSearchRows)),
       client_name: extractClientLineFromHeaderRows(allHeaderRows),
       manual_note: extractManualNoteFromHeaderRows(allHeaderRows),
       parts_count: lines.length,
@@ -2576,6 +2601,7 @@ function parseBrandBlockV4(
     metadata: {
       zw_number,
       zl_number,
+      ...zlNumberParts(zl_number),
       order_number,
       vin,
       client_name,

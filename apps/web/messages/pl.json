@@ -3094,6 +3094,27 @@
           "saving": "Zapisywanie…",
           "create": "Utwórz",
           "save": "Zapisz"
+        },
+        "warehouses": {
+          "title": "Magazyny (DMS)",
+          "subtitle": "Kody magazynów tego oddziału z numerów zleceń, np. 3112 Volkswagen. Prefiks numeru: ZL albo ZLEC.",
+          "add": "Dodaj",
+          "edit": "Edytuj",
+          "remove": "Usuń",
+          "cancel": "Anuluj",
+          "empty": "Brak magazynów.",
+          "code": "Kod",
+          "codePlaceholder": "3112",
+          "name": "Nazwa / marka",
+          "namePlaceholder": "np. Volkswagen",
+          "prefix": "Prefiks numeru",
+          "confirmRemove": "Usunąć magazyn {code} z oddziału?",
+          "errors": {
+            "duplicate_code": "Ten kod magazynu jest już przypisany w organizacji.",
+            "invalid_code": "Kod magazynu to 3–5 cyfr.",
+            "forbidden": "Brak uprawnień do zmiany oddziałów.",
+            "generic": "Nie udało się zapisać magazynu."
+          }
         }
       },
       "roles": {
@@ -3337,7 +3358,8 @@
           "vin": "VIN",
           "status": "Status",
           "advisor": "Doradca",
-          "created": "Utworzono"
+          "created": "Utworzono",
+          "warehouse": "Magazyn"
         },
         "status": {
           "open": "Otwarte",
@@ -3451,7 +3473,11 @@
           "zlNumberPlaceholder": "Pozostaw puste, jeśli jeszcze nieznany",
           "zlNumberHint": "Opcjonalne. Bez numeru ZL zlecenie zaczyna się jako „Nierozwiązane” i może zostać rozwiązane później.",
           "assignToSelf": "Przypisz to zlecenie do mnie",
-          "submit": "Utwórz zlecenie naprawy"
+          "submit": "Utwórz zlecenie naprawy",
+          "orderNo": "Numer zlecenia, magazyn i rok",
+          "year": "Rok",
+          "orderNoHint": "Wpisz numer z DMS, np. 178024, i wybierz magazyn.",
+          "composedNumber": "Pełny numer: {number}"
         },
         "toasts": {
           "createSuccess": "Zlecenie naprawy utworzone",
@@ -3546,7 +3572,8 @@
           "conflict": {
             "missing_zl": "Brak numeru ZL",
             "repair_order_closed": "Zlecenie zamknięte",
-            "repair_order_archived": "Zlecenie zarchiwizowane"
+            "repair_order_archived": "Zlecenie zarchiwizowane",
+            "warehouse_not_in_branch": "Magazyn spoza tego oddziału"
           },
           "parts": "{added} nowe · {adds} uzupełnienie · {present} już są",
           "apply": "Importuj zaznaczone ({count})",
@@ -3578,6 +3605,10 @@
           "notInStock": "Nie ma na stanie.",
           "locationsFailed": "Nie udało się wczytać lokalizacji.",
           "noIssues": "Brak wydań."
+        },
+        "warehouseFilter": {
+          "all": "Wszystkie magazyny",
+          "label": "Magazyn"
         }
       }
     },

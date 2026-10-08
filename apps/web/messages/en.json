@@ -3123,6 +3123,27 @@
           "saving": "Saving…",
           "create": "Create",
           "save": "Save"
+        },
+        "warehouses": {
+          "title": "Warehouses (DMS)",
+          "subtitle": "Warehouse codes of this branch used in repair-order numbers, e.g. 3112 Volkswagen. Number prefix: ZL or ZLEC.",
+          "add": "Add",
+          "edit": "Edit",
+          "remove": "Remove",
+          "cancel": "Cancel",
+          "empty": "No warehouses.",
+          "code": "Code",
+          "codePlaceholder": "3112",
+          "name": "Name / brand",
+          "namePlaceholder": "e.g. Volkswagen",
+          "prefix": "Number prefix",
+          "confirmRemove": "Remove warehouse {code} from the branch?",
+          "errors": {
+            "duplicate_code": "This warehouse code is already assigned in the organization.",
+            "invalid_code": "A warehouse code has 3–5 digits.",
+            "forbidden": "You may not change branches.",
+            "generic": "Could not save the warehouse."
+          }
         }
       },
       "roles": {
@@ -3366,7 +3387,8 @@
           "vin": "VIN",
           "status": "Status",
           "advisor": "Advisor",
-          "created": "Created"
+          "created": "Created",
+          "warehouse": "Warehouse"
         },
         "status": {
           "open": "Open",
@@ -3480,7 +3502,11 @@
           "zlNumberPlaceholder": "Leave empty if not yet known",
           "zlNumberHint": "Optional. Without a ZL number the order starts as \"Unresolved\" and can be resolved later.",
           "assignToSelf": "Assign this order to me",
-          "submit": "Create repair order"
+          "submit": "Create repair order",
+          "orderNo": "Order number, warehouse and year",
+          "year": "Year",
+          "orderNoHint": "Enter the DMS number, e.g. 178024, and pick the warehouse.",
+          "composedNumber": "Full number: {number}"
         },
         "toasts": {
           "createSuccess": "Repair order created",
@@ -3575,7 +3601,8 @@
           "conflict": {
             "missing_zl": "No ZL number",
             "repair_order_closed": "Order closed",
-            "repair_order_archived": "Order archived"
+            "repair_order_archived": "Order archived",
+            "warehouse_not_in_branch": "Warehouse of another branch"
           },
           "parts": "{added} new · {adds} top-up · {present} present",
           "apply": "Import selected ({count})",
@@ -3607,6 +3634,10 @@
           "notInStock": "Not in stock.",
           "locationsFailed": "Could not load locations.",
           "noIssues": "No issues."
+        },
+        "warehouseFilter": {
+          "all": "All warehouses",
+          "label": "Warehouse"
         }
       }
     },
