@@ -18,7 +18,9 @@ import { RepairOrderLinesList } from "./_components/repair-order-lines-list";
 import { RepairOrderProvenance } from "./_components/repair-order-provenance";
 import { RepairOrderContainers } from "./_components/repair-order-containers";
 import { RepairOrderIssue } from "./_components/repair-order-issue";
+import { RepairOrderWarehouse } from "./_components/repair-order-warehouse";
 import { InventoryContainersService } from "@/server/services/inventory-containers.service";
+import { AttachmentsPanel } from "@/components/features/attachments";
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -74,6 +76,7 @@ export default async function RepairOrderDetailPage({ params }: PageProps) {
     linesResult,
     provenanceResult,
     containersResult,
+    warehouseResult,
   ] = await Promise.all([
     RepairOrdersService.getByIdForWorkshop(supabase, orgId, branchId, id),
     canManageAll
@@ -87,6 +90,8 @@ export default async function RepairOrderDetailPage({ params }: PageProps) {
     // Phase 10D: RLS (warehouse.inventory.read) is the real visibility
     // boundary -- a viewer without it simply sees no containers.
     InventoryContainersService.listForRepairOrder(supabase, orgId, branchId, id),
+    // Phase 11: PZ / RW documents and current locations per line
+    RepairOrdersService.getWarehouseView(supabase, orgId, branchId, id),
   ]);
 
   if (!orderResult.success || !orderResult.data) {
@@ -156,6 +161,12 @@ export default async function RepairOrderDetailPage({ params }: PageProps) {
         containers={containers.map((c) => ({ id: c.id, code: c.code }))}
       />
 
+      <RepairOrderWarehouse
+        lines={lines}
+        view={warehouseResult.success ? warehouseResult.data : []}
+        loadError={!warehouseResult.success}
+      />
+
       <RepairOrderContainers
         repairOrderId={order.id}
         branchId={branchId}
@@ -165,6 +176,16 @@ export default async function RepairOrderDetailPage({ params }: PageProps) {
       />
 
       <RepairOrderProvenance documents={provenance} loadError={provenanceLoadError} />
+
+      {/* Phase 12: signed delivery documents, photos (generic attachments, target workshop.repair_order) */}
+      <section className="rounded-lg border p-4">
+        <AttachmentsPanel
+          targetType="workshop.repair_order"
+          targetId={order.id}
+          canUpload={order.status !== "archived"}
+          canDelete={canManageAll}
+        />
+      </section>
 
       <p className="text-muted-foreground max-w-2xl text-xs">{t("detail.futurePhasesNote")}</p>
     </div>

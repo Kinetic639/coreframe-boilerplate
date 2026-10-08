@@ -231,4 +231,15 @@ INSERT INTO test_log(line) SELECT ok(
 
 SELECT count(*) FILTER (WHERE line NOT LIKE 'ok %') AS not_ok_count, count(*) AS total_assertions FROM test_log;
 
+-- Report the result as an error so it shows up in the SQL Editor (which only displays the
+-- last statement); the error also aborts the transaction, so nothing is kept.
+DO $$
+BEGIN
+  RAISE EXCEPTION 'PGTAP 118 (rolled back): not ok = %, total = %. Failing: %',
+    (SELECT count(*) FILTER (WHERE line NOT LIKE 'ok %') FROM test_log),
+    (SELECT count(*) FROM test_log),
+    COALESCE((SELECT string_agg(split_part(line, E'\n', 1), ' | ' ORDER BY seq)
+              FROM test_log WHERE line NOT LIKE 'ok %'), 'none');
+END $$;
+
 ROLLBACK;

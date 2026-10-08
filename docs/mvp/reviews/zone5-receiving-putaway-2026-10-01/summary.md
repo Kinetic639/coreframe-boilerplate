@@ -42,7 +42,7 @@ it does not need them, because all objects are new.
 
 ## Tests
 
-- **pgTAP:** `apps/web/supabase/tests/118_zone5_receiving_putaway_test.sql` has 22 assertions covering the full chain on a fresh branch. **Not yet run live**: the run via MCP was declined by the same confirmation issue. It needs a run with the user present.
+- **pgTAP:** `apps/web/supabase/tests/118_zone5_receiving_putaway_test.sql` has 22 assertions covering the full chain on a fresh branch. **Run live 2026-10-08: 22/22 pass**, rolled back, by the product owner in the Supabase SQL Editor (MCP declines the script). The file now ends with a `RAISE EXCEPTION` that reports the result, because the SQL Editor shows only the last statement; the error also aborts the transaction.
 - **pgTAP 101 and 102** reserve at a receiving location on purpose, to prove IC-1. They now disable the two new triggers inside their own transaction, which is rolled back. Not yet re-run live.
 - **Vitest (new):**
   - `inventory-receiving.service.test.ts`: pending mapping, putaway arguments and result, 9 error mappings, attribution, report tracing;
