@@ -203,7 +203,9 @@
       "loadMore": "Załaduj więcej",
       "edited": "edytowano",
       "formerMember": "Były członek",
-      "addFailed": "Nie udało się dodać komentarza"
+      "addFailed": "Nie udało się dodać komentarza",
+      "typing": "{name} pisze…",
+      "typingMany": "{count, plural, few {# osoby piszą…} other {# osób pisze…}}"
     },
     "attachments": {
       "title": "Załączniki",

@@ -3,14 +3,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { FileText, Paperclip, Pencil, RotateCw, Undo2, X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
-import { CommentEditor } from "@repo/rich-text/comments";
+import {
+  CommentEditor,
+  helpdeskTicketTypingTopic,
+  TypingIndicator,
+  useTypingIndicator,
+} from "@repo/rich-text/comments";
 import { RichTextRenderer } from "@repo/rich-text/rich-text-renderer";
 import {
   createEmptyRichText,
   extractPlainText,
+  isRichTextEmpty,
   normalizeRichText,
   type RichTextValue,
 } from "@repo/rich-text";
+import { createClient } from "@/utils/supabase/client";
 import { THREAD_CHANGED_EVENT } from "./live-events";
 import { threadApi } from "./thread-api";
 import { formatBytes, formatWhen } from "@/lib/format";
@@ -93,6 +100,14 @@ export function Thread({
   // Replies in flight; realtime reloads wait for them so a reply is never shown twice.
   const inFlight = useRef(0);
 
+  const [supabase] = useState(createClient);
+  const typingMe = useMemo(() => ({ id: viewer.id, name: viewer.name }), [viewer.id, viewer.name]);
+  const { typing, notifyTyping, notifyStopped } = useTypingIndicator({
+    client: supabase,
+    topic: isOpen ? helpdeskTicketTypingTopic(ticketId) : null,
+    me: typingMe,
+  });
+
   // A server re-render (status change etc.) brings fresh data for the same ticket.
   useEffect(() => setComments(initialComments), [initialComments]);
   useEffect(() => setAttachments(initialAttachments), [initialAttachments]);
@@ -145,6 +160,7 @@ export function Thread({
   );
 
   const send = (rich: RichTextValue | null, files: File[]) => {
+    notifyStopped();
     const p: PendingReply = {
       key: crypto.randomUUID(),
       rich,
@@ -289,10 +305,15 @@ export function Thread({
         />
       ))}
 
+      <TypingIndicator people={typing} className="pl-[38px] text-stone-500" />
+
       {!editingId && (
         <div className="pt-1">
           {isOpen ? (
-            <Composer onSend={send} />
+            <Composer
+              onSend={send}
+              onDraftChange={(v) => (isRichTextEmpty(v) ? notifyStopped() : notifyTyping())}
+            />
           ) : (
             <p className="rounded-xl border border-stone-200 bg-white px-4 py-4 text-sm text-stone-500">
               {t("detail.closedNote")}
