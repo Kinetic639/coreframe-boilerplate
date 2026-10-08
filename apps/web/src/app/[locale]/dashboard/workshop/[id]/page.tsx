@@ -19,6 +19,7 @@ import { RepairOrderProvenance } from "./_components/repair-order-provenance";
 import { RepairOrderContainers } from "./_components/repair-order-containers";
 import { RepairOrderIssue } from "./_components/repair-order-issue";
 import { InventoryContainersService } from "@/server/services/inventory-containers.service";
+import { AttachmentsPanel } from "@/components/features/attachments";
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -165,6 +166,16 @@ export default async function RepairOrderDetailPage({ params }: PageProps) {
       />
 
       <RepairOrderProvenance documents={provenance} loadError={provenanceLoadError} />
+
+      {/* Phase 12: signed delivery documents, photos (generic attachments, target workshop.repair_order) */}
+      <section className="rounded-lg border p-4">
+        <AttachmentsPanel
+          targetType="workshop.repair_order"
+          targetId={order.id}
+          canUpload={order.status !== "archived"}
+          canDelete={canManageAll}
+        />
+      </section>
 
       <p className="text-muted-foreground max-w-2xl text-xs">{t("detail.futurePhasesNote")}</p>
     </div>
