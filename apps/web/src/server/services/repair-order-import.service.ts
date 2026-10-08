@@ -1,6 +1,12 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { BranchWarehousesService } from "./branch-warehouses.service";
+import {
+  normalizeRepairOrderNumber,
+  parseRepairOrderNumber,
+  repairOrderNumberKey,
+} from "@/lib/workshop/repair-order-number";
 import { svwmsWddMatcherRepairOrderImportAdapter } from "./repair-order-import-adapters/svwms-wdd-matcher.adapter";
 import type {
   CanonicalRepairOrderImportOrder,
@@ -41,7 +47,14 @@ export type RepairOrderImportLineState =
 export type RepairOrderImportPreviewOrder = {
   zlNumber: string | null;
   status: "new" | "existing" | "conflict";
-  conflictReason: "missing_zl" | "repair_order_closed" | "repair_order_archived" | null;
+  conflictReason:
+    | "missing_zl"
+    | "repair_order_closed"
+    | "repair_order_archived"
+    | "warehouse_not_in_branch"
+    | null;
+  /** Warehouse code from the number (e.g. 3122); null when the number is not in DMS format. */
+  warehouseCode: string | null;
   repairOrderId: string | null;
   orderNumber: string | null;
   vin: string | null;
@@ -89,9 +102,10 @@ function groupByZl(orders: CanonicalRepairOrderImportOrder[]) {
       missing.push(order);
       continue;
     }
-    const list = groups.get(order.zlNumber) ?? [];
-    list.push(order);
-    groups.set(order.zlNumber, list);
+    const zl = normalizeRepairOrderNumber(order.zlNumber);
+    const list = groups.get(zl) ?? [];
+    list.push({ ...order, zlNumber: zl });
+    groups.set(zl, list);
   }
   return { groups, missing };
 }
@@ -144,21 +158,48 @@ export class RepairOrderImportService {
     const { groups, missing } = groupByZl(loaded.data);
     const zlNumbers = [...groups.keys()];
 
-    const { data: roRows, error: roError } = zlNumbers.length
-      ? await supabase
-          .from("repair_orders")
-          .select("id, zl_number, status")
-          .eq("organization_id", orgId)
-          .eq("branch_id", branchId)
-          .in("zl_number", zlNumbers)
-          .is("deleted_at", null)
-      : { data: [], error: null };
-    if (roError) return { success: false, error: "Nie udało się sprawdzić istniejących zleceń" };
-    const roByZl = new Map(
-      ((roRows ?? []) as Array<{ id: string; zl_number: string; status: string }>).map((r) => [
-        r.zl_number,
-        r,
-      ])
+    const orderNos = [
+      ...new Set(
+        zlNumbers.map((zl) => parseRepairOrderNumber(zl)?.orderNo).filter((n): n is string => !!n)
+      ),
+    ];
+    const [byNumber, byParts, branchWarehouses] = await Promise.all([
+      zlNumbers.length
+        ? supabase
+            .from("repair_orders")
+            .select("id, zl_number, status")
+            .eq("organization_id", orgId)
+            .eq("branch_id", branchId)
+            .in("zl_number", zlNumbers)
+            .is("deleted_at", null)
+        : Promise.resolve({ data: [], error: null }),
+      // Same warehouse + number + year written differently (e.g. case, spacing).
+      orderNos.length
+        ? supabase
+            .from("repair_orders")
+            .select("id, zl_number, status")
+            .eq("organization_id", orgId)
+            .eq("branch_id", branchId)
+            .in("order_no", orderNos)
+            .is("deleted_at", null)
+        : Promise.resolve({ data: [], error: null }),
+      BranchWarehousesService.list(supabase, orgId, branchId),
+    ]);
+    if (byNumber.error || byParts.error) {
+      return { success: false, error: "Nie udało się sprawdzić istniejących zleceń" };
+    }
+    type RoRow = { id: string; zl_number: string; status: string };
+    const roByKey = new Map<string, RoRow>();
+    for (const r of [...((byParts.data ?? []) as RoRow[]), ...((byNumber.data ?? []) as RoRow[])]) {
+      roByKey.set(repairOrderNumberKey(r.zl_number) ?? r.zl_number, r);
+    }
+    const roByZl = new Map<string, RoRow>();
+    for (const zl of zlNumbers) {
+      const r = roByKey.get(repairOrderNumberKey(zl) ?? zl);
+      if (r) roByZl.set(zl, r);
+    }
+    const warehouseCodes = new Set(
+      (branchWarehouses.success ? branchWarehouses.data : []).map((w) => w.code)
     );
 
     const roIds = [...roByZl.values()].map((r) => r.id);
@@ -201,7 +242,12 @@ export class RepairOrderImportService {
       const ro = roByZl.get(zl) ?? null;
       const first = parts[0];
       const existingCodes = new Set(ro ? (codesByRo.get(ro.id) ?? []) : []);
-      const conflict = ro && ro.status !== "open";
+      const warehouseCode = parseRepairOrderNumber(zl)?.warehouseCode ?? null;
+      // With warehouses configured for the branch, an order of another warehouse (i.e. of
+      // another branch) is never imported here.
+      const wrongBranch =
+        warehouseCodes.size > 0 && warehouseCode !== null && !warehouseCodes.has(warehouseCode);
+      const conflict = wrongBranch || (ro && ro.status !== "open");
       const lines = parts.flatMap((part) =>
         part.lines.map((line) => {
           const code = normalizeProductCode(line.productCode);
@@ -226,11 +272,14 @@ export class RepairOrderImportService {
       orders.push({
         zlNumber: zl,
         status: conflict ? "conflict" : ro ? "existing" : "new",
-        conflictReason: conflict
-          ? ro.status === "archived"
-            ? "repair_order_archived"
-            : "repair_order_closed"
-          : null,
+        conflictReason: wrongBranch
+          ? "warehouse_not_in_branch"
+          : conflict && ro
+            ? ro.status === "archived"
+              ? "repair_order_archived"
+              : "repair_order_closed"
+            : null,
+        warehouseCode,
         repairOrderId: ro?.id ?? null,
         orderNumber: first.orderNumber,
         vin: first.vin,
@@ -245,6 +294,7 @@ export class RepairOrderImportService {
         zlNumber: null,
         status: "conflict",
         conflictReason: "missing_zl",
+        warehouseCode: null,
         repairOrderId: null,
         orderNumber: order.orderNumber,
         vin: order.vin,
@@ -302,9 +352,26 @@ export class RepairOrderImportService {
       input.sourceInput
     );
     if (!loaded.success) return { success: false, error: serviceError(loaded) };
-    const wanted = new Set(input.zlNumbers);
-    const orders = loaded.data.filter((o) => o.zlNumber && wanted.has(o.zlNumber));
+    const wanted = new Set(input.zlNumbers.map(normalizeRepairOrderNumber));
+    const orders = loaded.data
+      .filter((o) => o.zlNumber && wanted.has(normalizeRepairOrderNumber(o.zlNumber)))
+      .map((o) => ({ ...o, zlNumber: normalizeRepairOrderNumber(o.zlNumber!) }));
     if (orders.length === 0) return { success: false, error: "Nie wybrano żadnego zlecenia" };
+    const warehouses = await BranchWarehousesService.list(
+      supabase,
+      input.organizationId,
+      input.branchId
+    );
+    const codes = new Set((warehouses.success ? warehouses.data : []).map((w) => w.code));
+    if (
+      codes.size > 0 &&
+      orders.some((o) => {
+        const code = parseRepairOrderNumber(o.zlNumber)?.warehouseCode;
+        return code !== undefined && !codes.has(code);
+      })
+    ) {
+      return { success: false, error: "warehouse_not_in_branch" };
+    }
 
     const { data, error } = await supabase.rpc("repair_orders_import", {
       p_actor_user_id: input.actorUserId,

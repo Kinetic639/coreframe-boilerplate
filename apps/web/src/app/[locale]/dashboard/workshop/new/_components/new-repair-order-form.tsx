@@ -20,6 +20,8 @@ import { useCreateRepairOrderMutation } from "@/hooks/queries/workshop";
 
 interface NewRepairOrderFormProps {
   advisorCandidates: RepairOrderAdvisorCandidate[];
+  /** DMS warehouses of the active branch; with them the number is entered as number + warehouse. */
+  warehouses?: { code: string; name: string | null; orderPrefix: "ZL" | "ZLEC" }[];
   canManageAll: boolean;
   ownAdvisorContactId: string | null;
 }
@@ -28,6 +30,7 @@ const UNASSIGNED = "__unassigned__";
 
 export function NewRepairOrderForm({
   advisorCandidates,
+  warehouses = [],
   canManageAll,
   ownAdvisorContactId,
 }: NewRepairOrderFormProps) {
@@ -35,6 +38,16 @@ export function NewRepairOrderForm({
   const router = useRouter();
 
   const [zlNumber, setZlNumber] = useState("");
+  // Number + warehouse + year -> full DMS number (ZL/178024/26/3112/BL), prefix from the warehouse.
+  const [orderNo, setOrderNo] = useState("");
+  const [warehouseCode, setWarehouseCode] = useState(warehouses[0]?.code ?? "");
+  const [year, setYear] = useState(String(new Date().getFullYear() % 100).padStart(2, "0"));
+  const warehouse = warehouses.find((w) => w.code === warehouseCode) ?? null;
+  const composedNumber =
+    warehouse && orderNo && /^\d{2}$/.test(year)
+      ? `${warehouse.orderPrefix}/${orderNo}/${year}/${warehouse.code}/BL`
+      : null;
+  const useWarehouses = warehouses.length > 0;
   const [orderNumber, setOrderNumber] = useState("");
   const [vin, setVin] = useState("");
   const [vehicleBrand, setVehicleBrand] = useState("");
@@ -58,7 +71,7 @@ export function NewRepairOrderForm({
         : null;
 
     createMutation.mutate({
-      zl_number: zlNumber || null,
+      zl_number: useWarehouses ? composedNumber : zlNumber || null,
       order_number: orderNumber || null,
       vin: vin || null,
       vehicle_brand: vehicleBrand || null,
@@ -73,17 +86,58 @@ export function NewRepairOrderForm({
       <p className="text-muted-foreground text-sm">{t("newOrder.description")}</p>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="ro-zl-number">{t("columns.zlNumber")}</Label>
-          <Input
-            id="ro-zl-number"
-            value={zlNumber}
-            onChange={(e) => setZlNumber(e.target.value)}
-            placeholder={t("newOrder.zlNumberPlaceholder")}
-            className="font-mono"
-          />
-          <span className="text-muted-foreground text-xs">{t("newOrder.zlNumberHint")}</span>
-        </div>
+        {useWarehouses ? (
+          <div className="flex flex-col gap-1.5 sm:col-span-2">
+            <Label htmlFor="ro-order-no">{t("newOrder.orderNo")}</Label>
+            <div className="flex flex-wrap gap-2">
+              <Input
+                id="ro-order-no"
+                value={orderNo}
+                onChange={(e) => setOrderNo(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                placeholder="178024"
+                inputMode="numeric"
+                className="w-36 font-mono"
+              />
+              <Select value={warehouseCode} onValueChange={setWarehouseCode}>
+                <SelectTrigger className="w-56" aria-label={t("columns.warehouse")}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {warehouses.map((w) => (
+                    <SelectItem key={w.code} value={w.code}>
+                      {t("columns.warehouse")} {w.code}
+                      {w.name ? ` · ${w.name}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input
+                value={year}
+                onChange={(e) => setYear(e.target.value.replace(/\D/g, "").slice(0, 2))}
+                inputMode="numeric"
+                className="w-16 font-mono"
+                aria-label={t("newOrder.year")}
+              />
+            </div>
+            <span className="text-muted-foreground text-xs">
+              {composedNumber
+                ? t("newOrder.composedNumber", { number: composedNumber })
+                : t("newOrder.orderNoHint")}
+            </span>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="ro-zl-number">{t("columns.zlNumber")}</Label>
+            <Input
+              id="ro-zl-number"
+              value={zlNumber}
+              onChange={(e) => setZlNumber(e.target.value)}
+              placeholder={t("newOrder.zlNumberPlaceholder")}
+              className="font-mono"
+            />
+            <span className="text-muted-foreground text-xs">{t("newOrder.zlNumberHint")}</span>
+          </div>
+        )}
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="ro-order-number">{t("columns.orderNumber")}</Label>
           <Input

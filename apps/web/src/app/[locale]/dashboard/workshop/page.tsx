@@ -12,6 +12,8 @@ import { createClient } from "@/utils/supabase/server";
 import { RepairOrdersService } from "@/server/services/repair-orders.service";
 import { Wrench, FileSearch, ChevronRight, Plus, Upload } from "lucide-react";
 import { RepairOrdersSearch } from "./_components/repair-orders-search";
+import { RepairOrdersWarehouseFilter } from "./_components/repair-orders-warehouse-filter";
+import { BranchWarehousesService } from "@/server/services/branch-warehouses.service";
 import { RepairOrderStatusBadge } from "./_components/repair-order-status-badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -61,6 +63,7 @@ export default async function WorkshopOverviewPage({ searchParams }: PageProps =
   const t = await getTranslations("modules.workshop.repairOrders");
   const resolvedParams = searchParams ? await searchParams : {};
   const query = firstValue(resolvedParams.q).trim();
+  const warehouseFilter = firstValue(resolvedParams.mag).trim() || null;
   const canCreate =
     checkPermission(context.user.permissionSnapshot, WORKSHOP_REPAIR_ORDERS_MANAGE_OWN) ||
     checkPermission(context.user.permissionSnapshot, WORKSHOP_REPAIR_ORDERS_MANAGE_ALL);
@@ -69,12 +72,12 @@ export default async function WorkshopOverviewPage({ searchParams }: PageProps =
   const orgId = context.app.activeOrgId;
   const branchId = context.app.activeBranchId ?? null;
 
-  const listResult = await RepairOrdersService.listForWorkshop(
-    supabase,
-    orgId,
-    branchId,
-    query || null
-  );
+  const [listResult, warehousesResult] = await Promise.all([
+    RepairOrdersService.listForWorkshop(supabase, orgId, branchId, query || null, warehouseFilter),
+    BranchWarehousesService.list(supabase, orgId, branchId),
+  ]);
+  const warehouses = warehousesResult.success ? warehousesResult.data : [];
+  const warehouseName = new Map(warehouses.map((w) => [w.code, w.name]));
   const rows = listResult.success ? listResult.data : [];
   // Cast needed: apps/web's tsconfig strictNullChecks setup does not narrow
   // ServiceResult<T> from `listResult.success ? ... : ...` alone (known
@@ -95,6 +98,10 @@ export default async function WorkshopOverviewPage({ searchParams }: PageProps =
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <RepairOrdersSearch initialQuery={query} />
+          <RepairOrdersWarehouseFilter
+            warehouses={warehouses.map((w) => ({ code: w.code, name: w.name }))}
+            value={warehouseFilter}
+          />
           {canCreate && (
             <Button asChild size="sm" variant="outline" data-testid="import-repair-orders-link">
               <Link href="/dashboard/workshop/import">
@@ -128,6 +135,7 @@ export default async function WorkshopOverviewPage({ searchParams }: PageProps =
               <TableHeader>
                 <TableRow>
                   <TableHead>{t("columns.zlNumber")}</TableHead>
+                  <TableHead>{t("columns.warehouse")}</TableHead>
                   <TableHead>{t("columns.orderNumber")}</TableHead>
                   <TableHead>{t("columns.vin")}</TableHead>
                   <TableHead>{t("columns.status")}</TableHead>
@@ -139,8 +147,30 @@ export default async function WorkshopOverviewPage({ searchParams }: PageProps =
               <TableBody>
                 {rows.map((row) => (
                   <TableRow key={row.id} data-testid="repair-order-row">
-                    <TableCell className="font-mono text-xs font-medium">
-                      {row.zlNumber ?? "—"}
+                    <TableCell className="font-mono text-xs">
+                      {row.orderNo ? (
+                        <>
+                          <span className="text-sm font-semibold">{row.orderNo}</span>
+                          <span className="text-muted-foreground block">{row.zlNumber}</span>
+                        </>
+                      ) : (
+                        <span className="font-medium">{row.zlNumber ?? "—"}</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-xs">
+                      {row.warehouseCode ? (
+                        <>
+                          <span className="font-mono font-medium">{row.warehouseCode}</span>
+                          {warehouseName.get(row.warehouseCode) && (
+                            <span className="text-muted-foreground">
+                              {" "}
+                              · {warehouseName.get(row.warehouseCode)}
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        "—"
+                      )}
                     </TableCell>
                     <TableCell className="font-mono text-xs">{row.orderNumber ?? "—"}</TableCell>
                     <TableCell className="font-mono text-xs">{row.vin ?? "—"}</TableCell>
@@ -176,7 +206,18 @@ export default async function WorkshopOverviewPage({ searchParams }: PageProps =
                 data-testid="repair-order-card"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-mono text-sm font-semibold">{row.zlNumber ?? "—"}</span>
+                  <span className="font-mono text-sm font-semibold">
+                    {row.orderNo ?? row.zlNumber ?? "—"}
+                    {row.warehouseCode && (
+                      <span className="text-muted-foreground font-normal">
+                        {" "}
+                        · {t("columns.warehouse").toLowerCase()} {row.warehouseCode}
+                        {warehouseName.get(row.warehouseCode)
+                          ? ` ${warehouseName.get(row.warehouseCode)}`
+                          : ""}
+                      </span>
+                    )}
+                  </span>
                   <RepairOrderStatusBadge status={row.status} />
                 </div>
                 <div className="text-muted-foreground grid grid-cols-2 gap-x-3 gap-y-1 text-xs">

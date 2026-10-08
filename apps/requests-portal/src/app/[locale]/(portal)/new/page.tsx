@@ -3,7 +3,11 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { NewRequestForm } from "@/components/requests/new-request-form";
 import { Link } from "@/i18n/navigation";
 import { requirePortalContext } from "@/server/portal-context";
-import { listTicketTypes, type PortalTicketType } from "@/server/requests/requests.service";
+import {
+  listBranchWarehouses,
+  listTicketTypes,
+  type PortalTicketType,
+} from "@/server/requests/requests.service";
 import { createClient } from "@/utils/supabase/server";
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }) {
@@ -29,6 +33,11 @@ export default async function NewRequestPage({ params }: { params: Promise<{ loc
       typesByBranch[b.id] = res.ok ? res.data : [];
     })
   );
+  const warehousesByBranch = await listBranchWarehouses(
+    supabase,
+    ctx,
+    branches.map((b) => b.id)
+  );
   const defaultBranchId =
     (ctx.activeBranchId &&
       branches.some((b) => b.id === ctx.activeBranchId) &&
@@ -53,6 +62,7 @@ export default async function NewRequestPage({ params }: { params: Promise<{ loc
             <NewRequestForm
               branches={branches}
               typesByBranch={typesByBranch}
+              warehousesByBranch={warehousesByBranch}
               defaultBranchId={defaultBranchId}
             />
           ) : (

@@ -1,3 +1,4 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PortalSupabase } from "@/utils/supabase/server";
 import type { PortalContext } from "@/server/portal-context";
 import {
@@ -544,4 +545,33 @@ export async function closeOwnRequest(
     payload: { resolution_note: null, status: outcome, source: "requests-portal" },
   });
   return { ok: true, data: null };
+}
+
+export type PortalWarehouse = { code: string; name: string | null };
+
+/**
+ * DMS warehouses (magazyny) of the given branches, e.g. 3112 Volkswagen (Ambra branch settings,
+ * table branch_warehouses). Offered as shortcuts next to the warehouse field. Not in the
+ * generated types yet, hence the cast.
+ */
+export async function listBranchWarehouses(
+  supabase: PortalSupabase,
+  ctx: PortalContext,
+  branchIds: string[]
+): Promise<Record<string, PortalWarehouse[]>> {
+  const out: Record<string, PortalWarehouse[]> = Object.fromEntries(
+    branchIds.map((id) => [id, []])
+  );
+  if (branchIds.length === 0) return out;
+  const { data } = await (supabase as unknown as SupabaseClient)
+    .from("branch_warehouses")
+    .select("branch_id, code, name")
+    .eq("organization_id", ctx.org.id)
+    .in("branch_id", branchIds)
+    .is("deleted_at", null)
+    .order("code", { ascending: true });
+  for (const r of (data ?? []) as { branch_id: string; code: string; name: string | null }[]) {
+    out[r.branch_id]?.push({ code: r.code, name: r.name });
+  }
+  return out;
 }

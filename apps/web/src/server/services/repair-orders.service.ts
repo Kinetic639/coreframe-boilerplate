@@ -370,6 +370,10 @@ export interface MaterializationStatus {
 export interface RepairOrderListRow {
   id: string;
   zlNumber: string | null;
+  /** Parts of zlNumber (ZL/<orderNo>/<orderYear>/<warehouseCode>/BL), set by the DB trigger. */
+  orderNo: string | null;
+  orderYear: number | null;
+  warehouseCode: string | null;
   orderNumber: string | null;
   vin: string | null;
   status: string;
@@ -383,6 +387,9 @@ export interface RepairOrderListRow {
 interface RepairOrderListDbRow {
   id: string;
   zl_number: string | null;
+  order_no: string | null;
+  order_year: number | null;
+  warehouse_code: string | null;
   order_number: string | null;
   vin: string | null;
   status: string;
@@ -433,7 +440,7 @@ function mapRepairOrderHeader(row: RepairOrderHeaderDbRow): RepairOrderHeader {
   };
 }
 
-const HEADER_COLUMNS = `id, zl_number, order_number, vin, vehicle_brand, client_name, dealer_name,
+const HEADER_COLUMNS = `id, zl_number, order_no, order_year, warehouse_code, order_number, vin, vehicle_brand, client_name, dealer_name,
    status, identity_status, advisor_contact_id, created_by, created_at, updated_at,
    advisor:crm_contacts!repair_orders_advisor_contact_id_fkey(display_name)`;
 
@@ -442,6 +449,9 @@ function mapRepairOrderListRow(row: RepairOrderListDbRow): RepairOrderListRow {
   return {
     id: row.id,
     zlNumber: row.zl_number,
+    orderNo: row.order_no,
+    orderYear: row.order_year,
+    warehouseCode: row.warehouse_code,
     orderNumber: row.order_number,
     vin: row.vin,
     status: row.status,
@@ -1208,12 +1218,14 @@ export class RepairOrdersService {
     supabase: SupabaseClient,
     orgId: string,
     branchId: string | null,
-    search: string | null
+    search: string | null,
+    /** DMS warehouse code (e.g. 3112): the same order number exists in several warehouses. */
+    warehouseCode: string | null = null
   ): Promise<ServiceResult<RepairOrderListRow[]>> {
     let query = supabase
       .from("repair_orders")
       .select(
-        `id, zl_number, order_number, vin, status, identity_status, advisor_contact_id, created_at, updated_at,
+        `id, zl_number, order_no, order_year, warehouse_code, order_number, vin, status, identity_status, advisor_contact_id, created_at, updated_at,
          advisor:crm_contacts!repair_orders_advisor_contact_id_fkey(display_name)`
       )
       .eq("organization_id", orgId)
@@ -1221,6 +1233,7 @@ export class RepairOrdersService {
       .order("created_at", { ascending: false });
 
     if (branchId) query = query.eq("branch_id", branchId);
+    if (warehouseCode) query = query.eq("warehouse_code", warehouseCode);
 
     const trimmed = search?.trim();
     if (trimmed) {
