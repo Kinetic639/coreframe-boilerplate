@@ -81,8 +81,19 @@ export function useHelpdeskRealtime(
     // The browser client does not hand the session to Realtime by itself; without this the
     // socket joins as anon and RLS filters out every change.
     let active = true;
+    let joined = false;
     void supabase.realtime.setAuth().finally(() => {
-      if (active) channel.subscribe();
+      if (!active) return;
+      channel.subscribe((status) => {
+        if (status !== "SUBSCRIBED") return;
+        // Re-joined after a dropped connection: changes made meanwhile were not delivered.
+        if (joined) {
+          void queryClient.invalidateQueries({ queryKey: commentsKeys.all });
+          void queryClient.invalidateQueries({ queryKey: attachmentsKeys.all });
+          refreshTicket(openId, openNumber);
+        }
+        joined = true;
+      });
     });
 
     return () => {

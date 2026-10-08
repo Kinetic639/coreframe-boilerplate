@@ -70,14 +70,23 @@ export function RealtimeRefresh({ orgId }: { orgId: string }) {
     // The browser client does not hand the session to Realtime by itself; without this the
     // socket joins as anon and RLS filters out every change.
     let active = true;
+    let joined = false;
     void supabase.realtime.setAuth().finally(() => {
-      if (active) channel.subscribe();
+      if (!active) return;
+      channel.subscribe((status) => {
+        if (status !== "SUBSCRIBED") return;
+        // Re-joined after a dropped connection: changes made meanwhile were not delivered.
+        if (joined) catchUp();
+        joined = true;
+      });
     });
 
-    const onVisible = () => {
-      if (document.visibilityState !== "visible") return;
+    const catchUp = () => {
       listChanged();
       if (openTicket.current) threadChanged(openTicket.current);
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible") catchUp();
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => {
