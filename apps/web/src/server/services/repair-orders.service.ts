@@ -937,14 +937,18 @@ interface ProvenanceDbRow {
       unit: string | null;
       raw_text: string | null;
       wdd_matcher_line_id: string | null;
-      line_links: Array<{
-        repair_order_line_id: string;
-        quantity_contribution: number;
-        linked_at: string;
-      }> | null;
+      /** An array -- or a single object: the unique index on
+       * workshop_source_document_line_id (2026-10-02) makes PostgREST embed it as 1:1. */
+      line_links: ProvenanceLineLink[] | ProvenanceLineLink | null;
     }> | null;
   } | null;
 }
+
+type ProvenanceLineLink = {
+  repair_order_line_id: string;
+  quantity_contribution: number;
+  linked_at: string;
+};
 
 function mapProvenanceDocument(
   row: ProvenanceDbRow,
@@ -969,7 +973,12 @@ function mapProvenanceDocument(
     // anywhere in the architecture doc calls for the latter (checked, not
     // assumed, before applying this fix) -- the line-level content itself
     // is therefore filtered, not just the contribution reference inside it.
-    const ownContributions = (line.line_links ?? [])
+    const links = Array.isArray(line.line_links)
+      ? line.line_links
+      : line.line_links
+        ? [line.line_links]
+        : [];
+    const ownContributions = links
       .filter((link) => ownLineIds.has(link.repair_order_line_id))
       .map((link) => ({
         repairOrderLineId: link.repair_order_line_id,
