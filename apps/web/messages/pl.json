@@ -8002,5 +8002,131 @@
     "notFound": "Nie znaleziono tego kodu QR w organizacji.",
     "revoked": "Ten kod QR został unieważniony.",
     "cameraError": "Brak dostępu do aparatu albo aparat jest niedostępny."
+  },
+  "globalSearch": {
+    "triggerLabel": "Szukaj zleceń, części, lokalizacji, osób…",
+    "triggerAria": "Szukaj ({shortcut})",
+    "dialogTitle": "Szukaj w Ambrze",
+    "dialogDescription": "Wyszukaj stronę lub akcję. Wpisz > aby pokazać tylko akcje.",
+    "placeholder": "Szukaj zleceń, części, lokalizacji, dokumentów, osób… albo wpisz > aby wykonać akcję",
+    "actionsPlaceholder": "Wpisz nazwę akcji…",
+    "actionsModeBadge": "> Akcje",
+    "cancel": "Anuluj",
+    "empty": "Brak wyników. Spróbuj innego słowa.",
+    "switchBranch": "Przełącz oddział na: {name}",
+    "branchSwitched": "Przełączono na oddział {name}",
+    "branchSwitchFailed": "Nie udało się przełączyć oddziału",
+    "hints": {
+      "navigate": "wybierz",
+      "open": "otwórz",
+      "newTab": "nowa karta",
+      "close": "zamknij",
+      "actionsMode": "> tylko akcje",
+      "backToSearch": "Backspace — wróć do wyszukiwania"
+    },
+    "groups": {
+      "quickActions": "Szybkie akcje",
+      "goTo": "Przejdź do",
+      "pages": "Strony",
+      "actions": "Akcje",
+      "exact": "Dokładne trafienie",
+      "recent": "Ostatnio otwierane"
+    },
+    "sections": {
+      "warehouse": "Magazyn",
+      "workshop": "Warsztat",
+      "helpDesk": "Help Desk",
+      "planning": "Planowanie",
+      "crm": "CRM",
+      "organization": "Organizacja",
+      "analytics": "Analityka",
+      "tools": "Narzędzia",
+      "account": "Konto",
+      "general": "Ogólne"
+    },
+    "entries": {
+      "warehouseMap": "Mapa magazynu",
+      "warehouseItemsImport": "Import kartoteki",
+      "warehouseCustomFields": "Pola własne części",
+      "warehouseReorder": "Raport uzupełnień",
+      "organizationMembers": "Członkowie organizacji",
+      "organizationInvitations": "Zaproszenia",
+      "organizationRoles": "Role i uprawnienia",
+      "organizationPositions": "Stanowiska",
+      "organizationPublicProfile": "Profil publiczny organizacji",
+      "accountProfile": "Mój profil",
+      "accountPreferences": "Preferencje i wygląd",
+      "accountNotifications": "Powiadomienia"
+    },
+    "actions": {
+      "newRepairOrder": "Nowe zlecenie",
+      "importRepairOrders": "Import zleceń z Matchera",
+      "newMovement": "Nowy ruch magazynowy (PZ, RW, MM…)",
+      "putaway": "Rozlokuj dostawę",
+      "newItem": "Nowa część w kartotece",
+      "newAudit": "Nowa inwentaryzacja",
+      "newTicket": "Nowe zapytanie",
+      "inviteMember": "Zaproś osobę do organizacji",
+      "toggleTheme": "Przełącz motyw jasny / ciemny",
+      "toggleLocale": "Zmień język (polski / angielski)",
+      "signOut": "Wyloguj się"
+    },
+    "searching": "Szukam…",
+    "hitTypes": {
+      "repairOrder": "Zlecenie",
+      "ticket": "Zapytanie",
+      "task": "Zadanie",
+      "document": "Dokument magazynowy",
+      "container": "Kontener",
+      "location": "Lokalizacja",
+      "item": "Część",
+      "person": "Osoba"
+    },
+    "statuses": {
+      "open": "otwarte",
+      "closed": "zamknięte",
+      "waiting": "oczekuje",
+      "waiting_response": "czeka na odpowiedź",
+      "in_progress": "w toku",
+      "resolved": "rozwiązane",
+      "completed": "zakończone",
+      "cancelled": "anulowane",
+      "posted": "zaksięgowany",
+      "draft": "szkic",
+      "reversed": "wycofany",
+      "active": "aktywny"
+    },
+    "dataGroups": {
+      "repairOrder": "Zlecenia",
+      "item": "Części",
+      "container": "Kontenery",
+      "location": "Lokalizacje",
+      "document": "Dokumenty magazynowe",
+      "ticket": "Zapytania",
+      "task": "Zadania",
+      "person": "Osoby"
+    },
+    "details": {
+      "warehouse": "mag {code}",
+      "containsPart": "zawiera {code}",
+      "stock": "stan {onHand} · dostępne {available}",
+      "noStock": "brak na stanie w tym oddziale",
+      "location": "lokalizacja {code}"
+    },
+    "scopes": {
+      "repairOrders": "Zlecenia",
+      "items": "Części",
+      "containers": "Kontenery",
+      "locations": "Lokalizacje",
+      "documents": "Dokumenty",
+      "tickets": "Zapytania",
+      "tasks": "Zadania",
+      "people": "Osoby"
+    },
+    "scopeAll": "Wszystko",
+    "scopeActions": "Akcje",
+    "scopesLabel": "Zakres wyszukiwania",
+    "scopePlaceholder": "Szukaj: {scope}…",
+    "typeMore": "Wpisz co najmniej 3 znaki."
   }
 }
