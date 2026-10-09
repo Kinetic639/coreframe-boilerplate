@@ -74,14 +74,29 @@ export function withPalettePrefix(raw: string, prefix: string | null): string {
   return prefix ? `${prefix} ${text}` : text;
 }
 
-function rank(items: PaletteItem[], text: string): PaletteItem[] {
+/** Usage score per item id (frecency); 0 when never opened */
+export type PaletteUsage = (id: string) => number;
+
+const NO_USAGE: PaletteUsage = () => 0;
+/** How much one usage point weighs against text relevance */
+const USAGE_WEIGHT = 2;
+
+function rank(items: PaletteItem[], text: string, usage: PaletteUsage): PaletteItem[] {
   return items
-    .map((item, index) => ({
-      item,
-      index,
-      score: scoreSearchMatch(text, item.label, item.keywords),
-    }))
+    .map((item, index) => {
+      const relevance = scoreSearchMatch(text, item.label, item.keywords);
+      // Usage only reorders matches, it never makes a non-match appear
+      return { item, index, score: relevance > 0 ? relevance + usage(item.id) * USAGE_WEIGHT : 0 };
+    })
     .filter((row) => row.score > 0)
+    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .map((row) => row.item);
+}
+
+/** Most used first; registry order among equally used items */
+function byUsage(items: PaletteItem[], usage: PaletteUsage): PaletteItem[] {
+  return items
+    .map((item, index) => ({ item, index, score: usage(item.id) }))
     .sort((a, b) => b.score - a.score || a.index - b.index)
     .map((row) => row.item);
 }
@@ -108,7 +123,8 @@ function bySection(items: PaletteItem[]): PaletteGroup[] {
 export function buildPaletteGroups(
   rawQuery: string,
   items: PaletteItem[],
-  allowedScopes?: readonly SearchSourceId[]
+  allowedScopes?: readonly SearchSourceId[],
+  usage: PaletteUsage = NO_USAGE
 ): PaletteGroup[] {
   const { actionsMode, scope, text } = parsePaletteQuery(rawQuery, allowedScopes);
   const pages = items.filter((item) => item.kind === "page");
@@ -118,23 +134,26 @@ export function buildPaletteGroups(
   if (scope) return [];
 
   if (actionsMode) {
-    return bySection(text ? rank(actions, text) : actions);
+    return bySection(text ? rank(actions, text, usage) : byUsage(actions, usage));
   }
 
   if (!text) {
     const groups: PaletteGroup[] = [
       {
         id: "quickActions",
-        items: actions.filter((item) => item.section !== "general").slice(0, EMPTY_QUICK_ACTIONS),
+        items: byUsage(
+          actions.filter((item) => item.section !== "general"),
+          usage
+        ).slice(0, EMPTY_QUICK_ACTIONS),
       },
-      { id: "goTo", items: pages.slice(0, EMPTY_PAGES) },
+      { id: "goTo", items: byUsage(pages, usage).slice(0, EMPTY_PAGES) },
     ];
     return groups.filter((group) => group.items.length > 0);
   }
 
   const groups: PaletteGroup[] = [
-    { id: "pages", items: rank(pages, text).slice(0, RESULT_PAGES) },
-    { id: "actions", items: rank(actions, text).slice(0, RESULT_ACTIONS) },
+    { id: "pages", items: rank(pages, text, usage).slice(0, RESULT_PAGES) },
+    { id: "actions", items: rank(actions, text, usage).slice(0, RESULT_ACTIONS) },
   ];
   return groups.filter((group) => group.items.length > 0);
 }

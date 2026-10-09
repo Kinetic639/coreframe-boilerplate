@@ -12,6 +12,7 @@ const setTheme = vi.fn();
 const changeBranchMock = vi.fn();
 const findExactHitsMock = vi.fn();
 const previewMock = vi.fn();
+const setColorThemeMock = vi.fn();
 
 vi.mock("next-intl", () => ({
   useLocale: () => "pl",
@@ -49,8 +50,9 @@ vi.mock("@/lib/stores/v2/user-store", () => ({
     selector({ user: { id: "u1" } }),
 }));
 vi.mock("@/lib/stores/v2/ui-store", () => ({
-  useUiStoreV2: (selector: (s: { setTheme: () => void }) => unknown) =>
-    selector({ setTheme: vi.fn() }),
+  useUiStoreV2: (
+    selector: (s: { setTheme: () => void; setColorTheme: (n: string) => void }) => unknown
+  ) => selector({ setTheme: vi.fn(), setColorTheme: setColorThemeMock }),
 }));
 vi.mock("@/app/actions/shared/changeBranch", () => ({
   changeBranch: (id: string) => changeBranchMock(id),
@@ -62,6 +64,18 @@ vi.mock("@/app/actions/global-search", () => ({
   getSearchPreviewAction: (...args: unknown[]) => previewMock(...args),
 }));
 vi.mock("@/hooks/use-debounce", () => ({ useDebounce: <T,>(value: T) => value }));
+vi.mock("../global-search-scanner", () => ({
+  GlobalSearchScanner: ({ onDetected }: { onDetected: (code: unknown) => void }) => (
+    <div>
+      <button type="button" onClick={() => onDetected({ kind: "text", text: "2K5807221KGRU" })}>
+        fake-scan-text
+      </button>
+      <button type="button" onClick={() => onDetected({ kind: "ambraQr", token: "tok1" })}>
+        fake-scan-qr
+      </button>
+    </div>
+  ),
+}));
 
 function renderDialog() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -97,6 +111,15 @@ const entries: SearchEntry[] = [
     title: "Nowe zlecenie",
     iconKey: "car",
     href: "/dashboard/workshop/new",
+  },
+  {
+    id: "search.action.pickColorTheme",
+    kind: "action",
+    section: "general",
+    title: "Zmień motyw kolorystyczny",
+    iconKey: "preferences",
+    command: "colorTheme.pick",
+    keywords: ["motyw", "kolory"],
   },
   {
     id: "search.action.toggleTheme",
@@ -264,7 +287,10 @@ describe("GlobalSearchDialog", () => {
     openPalette();
     type(">");
 
-    expect(screen.getByText("actionsModeBadge")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "scopeActions" })).toHaveAttribute(
+      "aria-selected",
+      "true"
+    );
     expect(screen.queryByText(byText("Zlecenia"))).not.toBeInTheDocument();
     expect(screen.getByText(byText("Nowe zlecenie"))).toBeInTheDocument();
     expect(screen.getByText(byText("switchBranch:CNP Piaseczno"))).toBeInTheDocument();
@@ -310,10 +336,13 @@ describe("GlobalSearchDialog", () => {
     renderDialog();
     openPalette();
     type("2K5807");
-    fireEvent.click(screen.getByRole("button", { name: /scopes.items/ }));
+    fireEvent.click(screen.getByRole("tab", { name: "scopes.items" }));
 
     expect(screen.getByRole("combobox")).toHaveValue("cz: 2K5807");
-    expect(screen.getByText("cz: scopes.items")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "scopes.items" })).toHaveAttribute(
+      "aria-selected",
+      "true"
+    );
     // Pages and actions are hidden in a scope
     expect(screen.queryByText(byText("Zlecenia"))).not.toBeInTheDocument();
 
@@ -323,8 +352,8 @@ describe("GlobalSearchDialog", () => {
   it("shows only chips of searchable sources", () => {
     renderDialog();
     openPalette();
-    expect(screen.getByRole("button", { name: /scopes.repairOrders/ })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /scopes.people/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "scopes.repairOrders" })).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "scopes.people" })).not.toBeInTheDocument();
   });
 
   it("remembers opened pages and lists them when the query is empty", () => {
@@ -449,5 +478,96 @@ describe("GlobalSearchDialog", () => {
     // Order rows in the preview open the order
     fireEvent.click(screen.getByText(byText("174232")));
     expect(push).toHaveBeenCalledWith("/dashboard/workshop/ro9");
+  });
+
+  it("searches a scanned barcode and opens an Ambra QR label on its QR page", async () => {
+    renderDialog();
+    openPalette();
+    fireEvent.click(screen.getByRole("button", { name: "scanner.open" }));
+    fireEvent.click(screen.getByText("fake-scan-text"));
+    expect(screen.getByRole("combobox")).toHaveValue("2K5807221KGRU");
+    await waitFor(() =>
+      expect(findExactHitsMock).toHaveBeenLastCalledWith("2K5807221KGRU", undefined)
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "scanner.open" }));
+    fireEvent.click(screen.getByText("fake-scan-qr"));
+    expect(push).toHaveBeenCalledWith("/qr/tok1");
+    expect(useGlobalSearchStore.getState().open).toBe(false);
+  });
+
+  it("previews colour themes while browsing, restores on Esc and saves on Enter", () => {
+    document.documentElement.setAttribute("data-theme", "default");
+    renderDialog();
+    openPalette();
+    type("kolory");
+    fireEvent.click(screen.getByText(byText("Zmień motyw kolorystyczny")));
+
+    expect(screen.getByText("colorTheme.heading")).toBeInTheDocument();
+    const input = screen.getByRole("combobox");
+    // Arrow down highlights the next theme and previews it, nothing saved yet
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    expect(document.documentElement.getAttribute("data-theme")).toBe("sunset");
+    expect(setColorThemeMock).not.toHaveBeenCalled();
+
+    // Esc restores the theme the picker opened with and goes back to the search
+    fireEvent.keyDown(input, { key: "Escape" });
+    expect(document.documentElement.getAttribute("data-theme")).toBe("default");
+    expect(screen.queryByText("colorTheme.heading")).not.toBeInTheDocument();
+    expect(useGlobalSearchStore.getState().open).toBe(true);
+
+    // Pick again, filter, Enter saves
+    type("kolory");
+    fireEvent.click(screen.getByText(byText("Zmień motyw kolorystyczny")));
+    type("graph");
+    fireEvent.keyDown(screen.getByRole("combobox"), { key: "Enter" });
+    expect(setColorThemeMock).toHaveBeenCalledWith("graphite");
+    expect(document.documentElement.getAttribute("data-theme")).toBe("graphite");
+    expect(useGlobalSearchStore.getState().open).toBe(false);
+  });
+
+  it("undoes an unsaved theme preview when the palette closes", () => {
+    document.documentElement.setAttribute("data-theme", "default");
+    renderDialog();
+    openPalette();
+    type("kolory");
+    fireEvent.click(screen.getByText(byText("Zmień motyw kolorystyczny")));
+    fireEvent.keyDown(screen.getByRole("combobox"), { key: "ArrowDown" });
+    expect(document.documentElement.getAttribute("data-theme")).toBe("sunset");
+
+    openPalette(); // Ctrl+K closes
+    expect(document.documentElement.getAttribute("data-theme")).toBe("default");
+    expect(setColorThemeMock).not.toHaveBeenCalled();
+  });
+
+  it("cycles the search scope with Tab and Shift+Tab and paints the prefix", async () => {
+    renderDialog();
+    openPalette();
+    type("2K5807");
+    const input = screen.getByRole("combobox");
+
+    fireEvent.keyDown(input, { key: "Tab" });
+    expect(input).toHaveValue("zl: 2K5807");
+    expect(screen.getByRole("tab", { name: "scopes.repairOrders" })).toHaveAttribute(
+      "aria-selected",
+      "true"
+    );
+    await waitFor(() =>
+      expect(findExactHitsMock).toHaveBeenLastCalledWith("2K5807", "repairOrders")
+    );
+
+    fireEvent.keyDown(input, { key: "Tab" });
+    expect(input).toHaveValue("cz: 2K5807");
+    fireEvent.keyDown(input, { key: "Tab", shiftKey: true });
+    expect(input).toHaveValue("zl: 2K5807");
+
+    // The typed prefix is painted in the accent colour, no badge beside the input
+    expect(screen.getByText("zl:").className).toContain("text-primary");
+    expect(screen.queryByText("actionsModeBadge")).not.toBeInTheDocument();
+
+    // Shift+Tab from "all" wraps to the actions mode
+    fireEvent.keyDown(input, { key: "Tab", shiftKey: true });
+    fireEvent.keyDown(input, { key: "Tab", shiftKey: true });
+    expect(input).toHaveValue("> 2K5807");
   });
 });

@@ -8049,7 +8049,8 @@
       "close": "close",
       "actionsMode": "> actions only",
       "backToSearch": "Backspace — back to search",
-      "preview": "actions"
+      "preview": "actions",
+      "scope": "scope"
     },
     "groups": {
       "quickActions": "Quick actions",
@@ -8096,7 +8097,8 @@
       "inviteMember": "Invite someone to the organization",
       "toggleTheme": "Toggle light / dark theme",
       "toggleLocale": "Change language (Polish / English)",
-      "signOut": "Sign out"
+      "signOut": "Sign out",
+      "pickColorTheme": "Change colour theme…"
     },
     "searching": "Searching…",
     "hitTypes": {
@@ -8107,7 +8109,18 @@
       "container": "Container",
       "location": "Location",
       "item": "Item",
-      "person": "Person"
+      "person": "Person",
+      "party": "Business partner",
+      "contact": "Contact",
+      "audit": "Stock count",
+      "matcherSession": "Matcher session",
+      "qrCode": "QR code",
+      "board": "Board",
+      "map": "Warehouse map",
+      "ticketType": "Request type",
+      "invitation": "Invitation",
+      "comment": "Comment",
+      "attachment": "Attachment"
     },
     "statuses": {
       "open": "open",
@@ -8121,7 +8134,18 @@
       "posted": "posted",
       "draft": "draft",
       "reversed": "reversed",
-      "active": "active"
+      "active": "active",
+      "counting": "counting",
+      "submitted": "to review",
+      "approved": "approved",
+      "pending": "pending",
+      "ready_for_review": "ready for review",
+      "revoked": "revoked",
+      "inactive": "inactive",
+      "accepted": "accepted",
+      "declined": "declined",
+      "expired": "expired",
+      "published": "published"
     },
     "dataGroups": {
       "repairOrder": "Repair orders",
@@ -8131,14 +8155,41 @@
       "document": "Stock documents",
       "ticket": "Requests",
       "task": "Tasks",
-      "person": "People"
+      "person": "People",
+      "party": "Partners and suppliers",
+      "contact": "Contacts",
+      "audit": "Stock counts",
+      "matcherSession": "Matcher sessions",
+      "qrCode": "QR codes",
+      "board": "Boards",
+      "map": "Warehouse maps",
+      "ticketType": "Request types",
+      "invitation": "Invitations",
+      "comment": "Comments",
+      "attachment": "Attachments"
     },
     "details": {
       "warehouse": "warehouse {code}",
       "containsPart": "contains {code}",
       "stock": "on hand {onHand} · available {available}",
       "noStock": "no stock in this branch",
-      "location": "location {code}"
+      "location": "location {code}",
+      "due": "due {date}",
+      "qrUnassigned": "unassigned",
+      "roles": {
+        "supplier": "supplier",
+        "customer": "customer",
+        "carrier": "carrier"
+      },
+      "qrTargets": {
+        "warehouse_location": "location",
+        "inventory_container": "container",
+        "helpdesk_ticket": "request",
+        "planning_task": "task",
+        "workshop_repair_order": "repair order",
+        "planning_kanban_card": "board card"
+      },
+      "expires": "valid until {date}"
     },
     "scopes": {
       "repairOrders": "Orders",
@@ -8148,7 +8199,18 @@
       "documents": "Documents",
       "tickets": "Requests",
       "tasks": "Tasks",
-      "people": "People"
+      "people": "People",
+      "parties": "Partners",
+      "contacts": "Contacts",
+      "audits": "Stock counts",
+      "matcherSessions": "Matcher",
+      "qrCodes": "QR codes",
+      "boards": "Boards",
+      "maps": "Maps",
+      "ticketTypes": "Request types",
+      "invitations": "Invitations",
+      "comments": "Comments",
+      "attachments": "Attachments"
     },
     "scopeAll": "All",
     "scopeActions": "Actions",
@@ -8183,6 +8245,24 @@
       "lines": "Lines",
       "linkedLines": "Linked to items",
       "firstLines": "First lines"
+    },
+    "scanner": {
+      "open": "Scan a code",
+      "cta": "Scan a QR code or barcode",
+      "back": "Back to search",
+      "hint": "Point the camera at a QR code, a part barcode or a label",
+      "cameraError": "No camera access. Allow the camera in the browser settings.",
+      "unsupported": "This browser does not support the camera."
+    },
+    "colorTheme": {
+      "badge": "Theme",
+      "heading": "Colour theme",
+      "placeholder": "Pick a theme — arrows preview it",
+      "current": "current",
+      "applied": "Theme: {name}",
+      "hintPreview": "preview",
+      "hintApply": "save",
+      "hintRestore": "restore previous"
     }
   }
 }

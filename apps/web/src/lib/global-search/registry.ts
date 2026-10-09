@@ -75,6 +75,7 @@ export const SEARCH_EXCLUDED_HREFS: ReadonlySet<string> = new Set([
 
 /** Search keywords for sidebar items, keyed by sidebar item id */
 export const SIDEBAR_SEARCH_KEYWORDS: Record<string, string[]> = {
+  home: ["start", "panel główny", "pulpit", "strona główna", "dashboard", "home"],
   "warehouse.inventory": ["stany", "stan", "zapas", "stock", "inventory"],
   "warehouse.inventory.movements": ["ruchy", "dokumenty", "pz", "rw", "mm", "wz", "movements"],
   "warehouse.putaway": ["rozlokowanie", "rozlokuj", "przyjecie", "dostawa", "putaway"],
@@ -345,6 +346,17 @@ export const SEARCH_ACTIONS: SearchEntry[] = [
     "tryb nocny",
     "theme",
     "dark mode",
+  ]),
+  action("pickColorTheme", "general", "preferences", { command: "colorTheme.pick" }, undefined, [
+    "motyw",
+    "motyw kolorystyczny",
+    "kolory",
+    "kolorystyka",
+    "wygląd",
+    "paleta",
+    "color theme",
+    "colors",
+    "appearance",
   ]),
   action("toggleLocale", "general", "preferences", { command: "locale.toggle" }, undefined, [
     "jezyk",

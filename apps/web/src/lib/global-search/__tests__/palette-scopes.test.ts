@@ -9,12 +9,20 @@ import {
 } from "../recent";
 import { resolveSearchSources } from "../sources";
 import {
+  CRM_CONTACTS_READ,
+  CRM_PARTIES_READ,
   MEMBERS_READ,
+  MODULE_CRM_ACCESS,
+  PERMISSION_TOOLS_READ,
   MODULE_ORGANIZATION_MANAGEMENT_ACCESS,
   MODULE_WORKSHOP_ACCESS,
   WORKSHOP_REPAIR_ORDERS_READ,
 } from "@/lib/constants/permissions";
-import { MODULE_ORGANIZATION_MANAGEMENT, MODULE_WORKSHOP } from "@/lib/constants/modules";
+import {
+  MODULE_CRM,
+  MODULE_ORGANIZATION_MANAGEMENT,
+  MODULE_WORKSHOP,
+} from "@/lib/constants/modules";
 
 describe("scope prefixes", () => {
   it("recognizes scope prefixes case-insensitively", () => {
@@ -25,6 +33,8 @@ describe("scope prefixes", () => {
     });
     expect(parsePaletteQuery("@kowal")).toMatchObject({ scope: "people", text: "kowal" });
     expect(parsePaletteQuery("cz:2K5")).toMatchObject({ scope: "items", text: "2K5" });
+    expect(parsePaletteQuery("kh: 5260")).toMatchObject({ scope: "parties", text: "5260" });
+    expect(parsePaletteQuery("k: K-17")).toMatchObject({ scope: "containers", text: "K-17" });
   });
 
   it("ignores prefixes of sources the user may not search", () => {
@@ -50,19 +60,32 @@ describe("scope prefixes", () => {
   });
 });
 
+/** Comments and attachments: no gate of their own, RLS of their target decides */
+const ALWAYS = ["comments", "attachments"];
+
 describe("resolveSearchSources", () => {
+  it("gates CRM by module and permission, the Matcher by the tools permission only", () => {
+    expect(resolveSearchSources({ allow: [PERMISSION_TOOLS_READ], deny: [] }, [])).toEqual([
+      "matcherSessions",
+      ...ALWAYS,
+    ]);
+    const crm = { allow: [MODULE_CRM_ACCESS, CRM_PARTIES_READ, CRM_CONTACTS_READ], deny: [] };
+    expect(resolveSearchSources(crm, [])).toEqual(ALWAYS);
+    expect(resolveSearchSources(crm, [MODULE_CRM])).toEqual(["parties", "contacts", ...ALWAYS]);
+  });
+
   it("needs both the module and the permissions", () => {
     const snapshot = {
       allow: [MODULE_WORKSHOP_ACCESS, WORKSHOP_REPAIR_ORDERS_READ, MEMBERS_READ],
       deny: [],
     };
-    expect(resolveSearchSources(snapshot, [MODULE_WORKSHOP])).toEqual(["repairOrders"]);
+    expect(resolveSearchSources(snapshot, [MODULE_WORKSHOP])).toEqual(["repairOrders", ...ALWAYS]);
     expect(
       resolveSearchSources(
         { ...snapshot, allow: [...snapshot.allow, MODULE_ORGANIZATION_MANAGEMENT_ACCESS] },
         [MODULE_WORKSHOP, MODULE_ORGANIZATION_MANAGEMENT]
       )
-    ).toEqual(["repairOrders", "people"]);
+    ).toEqual(["repairOrders", "people", ...ALWAYS]);
   });
 });
 

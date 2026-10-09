@@ -25,7 +25,18 @@ export type ExactHitType =
   | "container"
   | "location"
   | "item"
-  | "person";
+  | "person"
+  | "party"
+  | "contact"
+  | "audit"
+  | "matcherSession"
+  | "qrCode"
+  | "board"
+  | "map"
+  | "ticketType"
+  | "invitation"
+  | "comment"
+  | "attachment";
 
 export interface SearchExactHit {
   type: ExactHitType;
@@ -48,6 +59,9 @@ const BRANCH_BOUND_SOURCES: SearchSourceId[] = [
   "locations",
   "containers",
   "documents",
+  "audits",
+  "matcherSessions",
+  "maps",
 ];
 const OTHER_BRANCHES_LIMIT = 10;
 
@@ -107,6 +121,18 @@ const TEXT_SOURCES: SearchSourceId[] = [
   "documents",
   "tickets",
   "people",
+  "tasks",
+  "parties",
+  "contacts",
+  "audits",
+  "matcherSessions",
+  "qrCodes",
+  "boards",
+  "maps",
+  "ticketTypes",
+  "invitations",
+  "comments",
+  "attachments",
 ];
 
 interface SearchGlobalRow {
@@ -118,7 +144,24 @@ interface SearchGlobalRow {
   meta: Record<string, string | number> | null;
 }
 
-function hrefFor(type: ExactHitType, id: string): Pick<SearchExactHit, "href" | "query"> {
+/** Page of the object a comment or an attachment belongs to */
+function targetHref(meta: SearchGlobalRow["meta"]): Pick<SearchExactHit, "href" | "query"> {
+  const targetId = typeof meta?.targetId === "string" ? meta.targetId : "";
+  switch (meta?.targetType) {
+    case "helpdesk.ticket":
+      return { href: `/dashboard/help-desk/tickets/${targetId}` };
+    case "planning.task":
+      return { href: `/dashboard/planning/tasks/${targetId}` };
+    case "workshop.repair_order":
+      return { href: `/dashboard/workshop/${targetId}` };
+    default:
+      // Kanban cards (and future targets) open their module
+      return { href: "/dashboard/planning/boards" };
+  }
+}
+
+function hrefFor(row: SearchGlobalRow): Pick<SearchExactHit, "href" | "query"> {
+  const { type, id, code } = row;
   switch (type) {
     case "repairOrder":
       return { href: `/dashboard/workshop/${id}` };
@@ -136,6 +179,32 @@ function hrefFor(type: ExactHitType, id: string): Pick<SearchExactHit, "href" | 
       return { href: `/dashboard/warehouse/items/${id}` };
     case "person":
       return { href: `/dashboard/organization/users/members/${id}` };
+    case "party":
+      return { href: "/dashboard/crm/parties", query: { selected: id } };
+    case "contact":
+      return { href: "/dashboard/crm/contacts", query: { selected: id } };
+    case "audit":
+      return { href: `/dashboard/warehouse/audits/${id}/count` };
+    case "matcherSession":
+      // The Matcher tool lists its sessions; it has no per-session URL yet
+      return { href: "/dashboard/tools/svwms-wdd-matcher" };
+    case "qrCode":
+      // The QR page resolves the code's assignment (and its branch)
+      return { href: `/qr/${encodeURIComponent(code ?? id)}` };
+    case "board":
+      return { href: "/dashboard/planning/boards", query: { board: id } };
+    case "map":
+      return { href: `/dashboard/warehouse/map/${id}` };
+    case "ticketType":
+      return { href: `/dashboard/help-desk/ticket-types/${id}` };
+    case "invitation":
+      return {
+        href: "/dashboard/organization/users/invitations",
+        query: { search: row.title ?? "" },
+      };
+    case "comment":
+    case "attachment":
+      return targetHref(row.meta);
   }
 }
 
@@ -435,7 +504,7 @@ export class GlobalSearchService {
       subtitle: null,
       status: row.status,
       meta: row.meta ?? undefined,
-      ...hrefFor(row.type, row.id),
+      ...hrefFor(row),
     }));
   }
 

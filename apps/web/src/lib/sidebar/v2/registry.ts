@@ -70,6 +70,20 @@ import {
  * Main navigation sections
  */
 export const MAIN_NAV_ITEMS: SidebarItem[] = [
+  // ── Group: home ─────────────────────────────────────────────────────────
+
+  // Start dashboard: every signed-in member of the organization, no gates
+  // (the same branch-neutral page the branch switcher lands on)
+  {
+    id: "home",
+    group: "home",
+    title: "Start",
+    titleKey: "modules.home.title",
+    iconKey: "home",
+    href: "/dashboard/start",
+    match: { exact: "/dashboard/start" },
+  },
+
   // ── Group: workspace (Warehouse + Tools) ────────────────────────────────
 
   // Warehouse (plan-gated: MODULE_WAREHOUSE must be in enabled_modules,
