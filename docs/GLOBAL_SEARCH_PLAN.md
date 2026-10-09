@@ -1,7 +1,7 @@
 # Globalne wyszukiwanie Ambra (Ctrl+K) — plan wdrożenia
 
 > Jedno okno do szukania stron, akcji i danych w całej aplikacji. Otwierane przyciskiem w nagłówku albo Ctrl+K / ⌘K.
-> Design (5 ekranów): https://claude.ai/artifact/UEn159tzoFc16ximVo3oSS
+> Design (5 ekranów): https://claude.ai/artifact/KuBvUjKLWscBZQPpWEESW7
 > Ten plik jest trackerem na żywo — checkboxy odhaczamy w trakcie pracy, nie na koniec sesji.
 
 ## Progress
@@ -14,9 +14,9 @@
 | F3   | Rozpoznanie wklejonego ID                     | ✅ kod + testy, czeka na test ręczny |
 | F4   | Dane P1 (RPC + indeksy)                       | ✅ kod + testy, czeka na test ręczny |
 | F5   | UX wyników: grupy, chipy, podgląd, ostatnie   | ✅ kod + testy, czeka na test ręczny |
-| F6   | Telefon + skaner                              | ⬜                                   |
-| F7   | Dane P2                                       | ⬜                                   |
-| F8   | Ranking i P3                                  | ⬜                                   |
+| F6   | Telefon + skaner                              | ✅ kod + testy, czeka na test ręczny |
+| F7   | Dane P2                                       | ✅ kod + testy, czeka na test ręczny |
+| F8   | Ranking i P3                                  | ✅ kod + testy, czeka na test ręczny |
 
 - [x] **F0** — fundament
   - [x] Typ `SearchEntry` + rejestr (`lib/global-search/`)
@@ -39,7 +39,7 @@
   - [x] Server action `findSearchExactHitsAction` — bramki modułu + uprawnień per źródło, zapytania przez RLS, aktywny oddział
   - [x] Grupa „Dokładne trafienie” na górze, zaznaczona od razu → Enter otwiera obiekt, Ctrl+Enter w nowej karcie
   - [x] Testy parserów i palety
-  - [ ] Kod QR ze skanera → F6
+  - [x] Kod QR ze skanera (F6)
 - [x] **F4** — dane P1
   - [x] Migracja `20261009060958_global_search` (nałożona przez MCP): indeksy trigramowe GIN (`pg_trgm` już był)
   - [x] RPC `search_global` (SECURITY INVOKER, limit na źródło, `%`/`_` w zapytaniu dosłownie)
@@ -56,20 +56,23 @@
   - [x] Ostatnio otwierane w pustym stanie (6 pozycji, localStorage per użytkownik + organizacja, tylko linki `/dashboard/…`)
   - [x] Ctrl+Enter — nowa karta
   - [x] Trafienia w innych oddziałach (zlecenia, lokalizacje, kontenery, dokumenty; tylko oddziały dostępne użytkownikowi) — przycisk przełącza oddział
-- [ ] **F6** — telefon
-  - [ ] Pełny ekran, duże cele dotyku, chipy przewijane w poziomie
-  - [ ] Przycisk skanowania QR / kodu kreskowego → rozpoznanie ID
-- [ ] **F7** — dane P2
-  - [ ] Kontrahenci i kontakty (CRM)
-  - [ ] Dostawcy
-  - [ ] Zadania (Planowanie)
-  - [ ] Inwentaryzacje
-  - [ ] Sesje Matchera
-  - [ ] Kody QR
-- [ ] **F8** — ranking i P3
-  - [ ] Ranking według częstości / ostatniego użycia
-  - [ ] Tablice kanban, mapy magazynu, typy zgłoszeń, zaproszenia
-  - [ ] Treść komentarzy i nazwy załączników (pełnotekstowo)
+- [x] **F6** — telefon
+  - [x] Pełny ekran, duże cele dotyku (wiersze ≥ 48 px, chipy 36 px), chipy przewijane w poziomie, „Anuluj”
+  - [x] Skaner w palecie (ikona przy polu + duży przycisk na dole na telefonie): QR, DataMatrix, Code 128/39, EAN-13/8, UPC-A (zxing-wasm, ładowany przy otwarciu). Etykieta QR Ambry (`…/qr/<token>`) → strona `/qr/[token]` (rozpoznaje cel i oddział); każdy inny kod → pole wyszukiwania → dokładne trafienie
+- [x] **F7** — dane P2 (migracja `20261009094004_global_search_more_sources`, te same warstwy: prefiks B-tree „C” → contains z limitem)
+  - [x] Kontrahenci CRM (`kh:`) — nazwa, nazwa prawna, NIP/VAT (prefiks po odcisku), e-mail, telefon; rola widoczna w wyniku
+  - [x] Dostawcy — to kontrahenci z rolą `supplier` (`crm_party_roles`), w tym samym źródle z oznaczeniem „dostawca”
+  - [x] Kontakty CRM (`kon:`) — imię, nazwisko, e-mail, telefon, stanowisko
+  - [x] Zadania (`pt:`) — także po treści tytułu, nie tylko po numerze PT-
+  - [x] Inwentaryzacje (`inw:`) — numer CNT-…, notatki; link do liczenia
+  - [x] Sesje Matchera (`wdd:`) — po nazwie; link do narzędzia (narzędzie nie ma jeszcze adresu pojedynczej sesji)
+  - [x] Kody QR (`qr:`) — token, etykieta, typ przypisania; link na `/qr/[token]`
+  - [x] Bramki: CRM = moduł + `crm.parties.read` / `crm.contacts.read`; inwentaryzacje = `warehouse.audits.read`; Matcher = `tools.read` (bez modułu, jak w menu); QR = magazyn + `warehouse.locations.read`
+- [x] **F8** — ranking i P3 (migracja `20261009094736_global_search_p3_sources`)
+  - [x] Ranking według użycia („frecency”): licznik otwarć z wygasaniem (dzień / tydzień / miesiąc), localStorage per użytkownik + organizacja, same identyfikatory. Podnosi strony i akcje w wynikach i w pustym stanie oraz rekordy w obrębie grupy; nigdy nie dodaje wyniku, który nie pasuje
+  - [x] Tablice kanban (`tab:`, link `?board=`), mapy magazynu (`mapa:`), typy zgłoszeń (`typ:`, uprawnienie zarządzania), zaproszenia (`zapr:`)
+  - [x] Treść komentarzy (`kom:`) i nazwy załączników (`zal:`) — prowadzą do zgłoszenia / zadania / zlecenia; widoczność przez istniejące RLS celu (komentarze wewnętrzne zostają wewnętrzne)
+  - [x] Pomiar: 19 źródeł naraz, RLS, prawdziwe tabele — 13–36 ms
 
 ---
 

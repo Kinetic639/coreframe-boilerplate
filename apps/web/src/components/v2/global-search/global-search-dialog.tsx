@@ -10,26 +10,40 @@ import {
   Boxes,
   Building2,
   Car,
+  Check,
   CheckSquare,
+  ClipboardList,
+  Contact,
   CornerDownLeft,
+  FileSearch,
+  KanbanSquare,
+  MailPlus,
+  Map as MapIcon,
+  MessageSquare,
+  Paperclip,
+  Tags,
   History,
   FileText,
   MapPin,
   Package,
+  QrCode,
+  ScanLine,
+  Search,
   Ticket,
   UserRound,
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "react-toastify";
+import { Command as CommandPrimitive } from "cmdk";
 import {
   Command,
   CommandEmpty,
   CommandGroup,
-  CommandInput,
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { getPathname, usePathname, useRouter } from "@/i18n/navigation";
 import { toUnsafeI18nHref } from "@/lib/i18n/unsafe-href";
@@ -47,24 +61,33 @@ import {
   withPalettePrefix,
   type PaletteItem,
 } from "@/lib/global-search/palette";
-import { highlightRanges } from "@/lib/global-search/match";
+import { highlightRanges, scoreSearchMatch } from "@/lib/global-search/match";
 import {
   pushRecentSearch,
   readRecentSearches,
   type RecentSearchItem,
 } from "@/lib/global-search/recent";
 import { SEARCH_SCOPES, type SearchSourceId } from "@/lib/global-search/sources";
+import { readUsage, recordUsage, usageScore } from "@/lib/global-search/frecency";
+import {
+  applyColorTheme,
+  getActiveColorTheme,
+  previewColorTheme,
+} from "@/lib/global-search/color-theme";
+import { COLOR_THEMES } from "@/lib/constants/color-themes";
 import type { SearchEntry } from "@/lib/global-search/types";
 import { useDebounce } from "@/hooks/use-debounce";
 import { globalSearchAction, type GlobalSearchResult } from "@/app/actions/global-search";
 import type { ExactHitType, SearchExactHit } from "@/server/services/global-search.service";
 import { useGlobalSearchStore } from "./global-search-store";
 import { GlobalSearchPreview } from "./global-search-preview";
+import { GlobalSearchScanner, type ScannedCode } from "./global-search-scanner";
 
 // Same landing route as the sidebar branch switcher: branch-neutral, never 404s.
 const SAFE_ROUTE_AFTER_BRANCH_SWITCH = "/dashboard/start";
 const BRANCH_ITEM_PREFIX = "branch:";
 const HIT_ITEM_PREFIX = "hit:";
+const THEME_ITEM_PREFIX = "theme:";
 const SEARCH_DEBOUNCE_MS = 200;
 const MIN_DATA_QUERY = 3;
 const EMPTY_RESULT: GlobalSearchResult = { exact: [], results: [], otherBranches: [] };
@@ -82,6 +105,10 @@ const SHOW_ALL_LISTS: Partial<Record<ExactHitType, { href: string; param: string
   ticket: { href: "/dashboard/help-desk/tickets", param: "search" },
   task: { href: "/dashboard/planning/tasks", param: "search" },
   person: { href: "/dashboard/organization/users/members", param: "search" },
+  party: { href: "/dashboard/crm/parties", param: "search" },
+  contact: { href: "/dashboard/crm/contacts", param: "search" },
+  qrCode: { href: "/dashboard/qr", param: "search" },
+  invitation: { href: "/dashboard/organization/users/invitations", param: "search" },
 };
 
 const HIT_ICONS: Record<ExactHitType, LucideIcon> = {
@@ -93,6 +120,17 @@ const HIT_ICONS: Record<ExactHitType, LucideIcon> = {
   location: MapPin,
   item: Package,
   person: UserRound,
+  party: Building2,
+  contact: Contact,
+  audit: ClipboardList,
+  matcherSession: FileSearch,
+  qrCode: QrCode,
+  board: KanbanSquare,
+  map: MapIcon,
+  ticketType: Tags,
+  invitation: MailPlus,
+  comment: MessageSquare,
+  attachment: Paperclip,
 };
 
 /** Order of the data groups below the pages and actions */
@@ -104,7 +142,18 @@ const DATA_GROUP_ORDER: ExactHitType[] = [
   "document",
   "ticket",
   "task",
+  "audit",
+  "matcherSession",
+  "qrCode",
+  "party",
+  "contact",
   "person",
+  "board",
+  "map",
+  "ticketType",
+  "invitation",
+  "comment",
+  "attachment",
 ];
 
 type Target =
@@ -181,7 +230,11 @@ function Kbd({ children }: { children: React.ReactNode }) {
   );
 }
 
-function ScopeChip({
+/**
+ * One search scope in the scope bar: a tab (underlined when active), the
+ * prefix it types shown in a tooltip. Tab / Shift+Tab in the input cycles them.
+ */
+function ScopeTab({
   active,
   hint,
   onClick,
@@ -192,30 +245,33 @@ function ScopeChip({
   onClick: () => void;
   children: React.ReactNode;
 }) {
-  return (
+  const tab = (
     <button
       type="button"
-      aria-pressed={active}
+      role="tab"
+      aria-selected={active}
+      data-active={active || undefined}
+      tabIndex={-1}
       onClick={onClick}
       className={cn(
-        "flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-sm transition-colors",
+        "relative flex h-10 shrink-0 items-center whitespace-nowrap px-3 text-sm transition-colors",
+        "after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:rounded-full after:transition-colors",
         active
-          ? "border-foreground bg-foreground text-background"
-          : "bg-background text-foreground hover:bg-accent"
+          ? "font-medium text-foreground after:bg-primary"
+          : "text-muted-foreground after:bg-transparent hover:text-foreground"
       )}
     >
       {children}
-      {hint ? (
-        <span
-          className={cn(
-            "font-mono text-[11px]",
-            active ? "text-background/70" : "text-muted-foreground"
-          )}
-        >
-          {hint}
-        </span>
-      ) : null}
     </button>
+  );
+  if (!hint) return tab;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{tab}</TooltipTrigger>
+      <TooltipContent side="bottom" className="font-mono text-xs">
+        {hint}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -250,6 +306,53 @@ function hitDetails(hit: SearchExactHit, t: GlobalSearchTranslator, withType: bo
     case "person":
       parts.push(meta.email ? String(meta.email) : null);
       break;
+    case "party":
+      for (const role of String(meta.roles ?? "")
+        .split(",")
+        .filter(Boolean)) {
+        parts.push(t.has(`details.roles.${role}`) ? t(`details.roles.${role}`) : role);
+      }
+      parts.push(meta.email ? String(meta.email) : null);
+      parts.push(meta.phone ? String(meta.phone) : null);
+      break;
+    case "contact":
+      parts.push(meta.jobTitle ? String(meta.jobTitle) : null);
+      parts.push(meta.phone ? String(meta.phone) : null);
+      parts.push(meta.email ? String(meta.email) : null);
+      break;
+    case "task":
+      if (meta.date) parts.push(t("details.due", { date: String(meta.date) }));
+      break;
+    case "audit":
+    case "matcherSession":
+      parts.push(meta.date ? String(meta.date) : null);
+      break;
+    case "invitation":
+      parts.push(meta.name ? String(meta.name) : null);
+      if (meta.date) parts.push(t("details.expires", { date: String(meta.date) }));
+      break;
+    case "comment":
+    case "attachment": {
+      const target = meta.targetType ? String(meta.targetType).replace(/\./g, "_") : null;
+      parts.push(
+        target && t.has(`details.qrTargets.${target}`) ? t(`details.qrTargets.${target}`) : null
+      );
+      parts.push(meta.date ? String(meta.date) : null);
+      if (typeof meta.size === "number")
+        parts.push(`${Math.max(1, Math.round(meta.size / 1024))} KB`);
+      break;
+    }
+    case "qrCode": {
+      const target = meta.targetType ? String(meta.targetType) : null;
+      parts.push(
+        target
+          ? t.has(`details.qrTargets.${target.replace(/\./g, "_")}`)
+            ? t(`details.qrTargets.${target.replace(/\./g, "_")}`)
+            : target
+          : t("details.qrUnassigned")
+      );
+      break;
+    }
   }
   parts.push(hit.subtitle);
   return parts.filter(Boolean).join(" · ");
@@ -327,17 +430,34 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
   const params = useParams();
   const { resolvedTheme, setTheme } = useTheme();
   const setStoreTheme = useUiStoreV2((s) => s.setTheme);
+  const setStoreColorTheme = useUiStoreV2((s) => s.setColorTheme);
+  /**
+   * Colour theme picker: the theme that was active when the picker opened.
+   * Highlighting a theme previews it; Esc / closing restores this one.
+   */
+  const [themeOriginal, setThemeOriginal] = useState<string | null>(null);
+  const themeMode = themeOriginal !== null;
   const { accessibleBranches, activeBranchId, activeOrgId, setActiveBranch } = useAppStoreV2();
   const userId = useUserStoreV2((s) => s.user?.id ?? null);
   const { open, initialQuery, setOpen, toggle } = useGlobalSearchStore();
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState("");
   const [recent, setRecent] = useState<RecentSearchItem[]>([]);
+  const [usage, setUsage] = useState<ReturnType<typeof readUsage>>({});
+  const [scanning, setScanning] = useState(false);
+
+  // Every opening starts in the search, never in the camera
+  useEffect(() => {
+    if (!open) setScanning(false);
+  }, [open]);
   const [isPending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (open && userId && activeOrgId) setRecent(readRecentSearches(userId, activeOrgId));
+    if (open && userId && activeOrgId) {
+      setRecent(readRecentSearches(userId, activeOrgId));
+      setUsage(readUsage(userId, activeOrgId));
+    }
   }, [open, userId, activeOrgId]);
 
   const remember = useCallback(
@@ -346,6 +466,15 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
     },
     [userId, activeOrgId]
   );
+
+  /** Frecency: every opening makes the item rank higher next time */
+  const track = useCallback(
+    (id: string) => {
+      if (userId && activeOrgId) setUsage(recordUsage(userId, activeOrgId, id));
+    },
+    [userId, activeOrgId]
+  );
+  const usageOf = useCallback((id: string) => usageScore(usage, id), [usage]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -401,7 +530,10 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
     return { items: list, targets: targetMap };
   }, [entries, accessibleBranches, activeBranchId, label, t]);
 
-  const groups = useMemo(() => buildPaletteGroups(query, items, sources), [query, items, sources]);
+  const groups = useMemo(
+    () => buildPaletteGroups(query, items, sources, usageOf),
+    [query, items, sources, usageOf]
+  );
   const parsed = parsePaletteQuery(query, sources);
   const { actionsMode } = parsed;
   const isEmptyQuery = !parsed.prefix && !parsed.text;
@@ -412,7 +544,7 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
   const debounced = parsePaletteQuery(debouncedQuery, sources);
   const dataText = debounced.actionsMode ? "" : debounced.text;
   const dataEnabled =
-    open && !actionsMode && sources.length > 0 && dataText.length >= MIN_DATA_QUERY;
+    open && !actionsMode && !themeMode && sources.length > 0 && dataText.length >= MIN_DATA_QUERY;
   const dataQuery = useQuery({
     queryKey: ["global-search", "data", activeBranchId, debounced.scope ?? "all", dataText],
     queryFn: async () => {
@@ -432,7 +564,12 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
   const dataGroups = useMemo(
     () =>
       DATA_GROUP_ORDER.map((type) => {
-        const hits = data.results.filter((hit) => hit.type === type);
+        // Server relevance order, with the records the user opens most moved up
+        const hits = data.results
+          .filter((hit) => hit.type === type)
+          .map((hit, index) => ({ hit, index, score: usageOf(hitItemId(hit)) }))
+          .sort((a, b) => b.score - a.score || a.index - b.index)
+          .map((row) => row.hit);
         const list = SHOW_ALL_LISTS[type];
         // A full group probably has more: link to the module list with the query
         const showAll =
@@ -445,7 +582,7 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
             : null;
         return { type, hits, showAll };
       }).filter((group) => group.hits.length > 0),
-    [data.results, dataText]
+    [data.results, dataText, usageOf]
   );
 
   // Recently opened: shown for an empty query only
@@ -542,6 +679,13 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
           );
           return;
         }
+        case "colorTheme.pick": {
+          const current = getActiveColorTheme();
+          setThemeOriginal(current);
+          setQuery("");
+          setSelected(`${THEME_ITEM_PREFIX}${current}`);
+          return;
+        }
         case "auth.signOut":
           close();
           startTransition(() => signOutAction());
@@ -588,12 +732,56 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
     [label, t]
   );
 
+  /** Leaves the colour theme picker; `revert` restores the theme it opened with */
+  const exitThemeMode = useCallback(
+    (revert: boolean) => {
+      if (revert && themeOriginal) previewColorTheme(themeOriginal);
+      setThemeOriginal(null);
+      setQuery("");
+    },
+    [themeOriginal]
+  );
+
+  // However the palette closes (Esc, outside click, Ctrl+K), an unsaved preview is undone
+  useEffect(() => {
+    if (!open && themeOriginal) {
+      previewColorTheme(themeOriginal);
+      setThemeOriginal(null);
+    }
+  }, [open, themeOriginal]);
+
+  // Highlighting a theme (arrows or pointer) previews it, without saving
+  useEffect(() => {
+    if (themeMode && selected.startsWith(THEME_ITEM_PREFIX)) {
+      previewColorTheme(selected.slice(THEME_ITEM_PREFIX.length));
+    }
+  }, [selected, themeMode]);
+
+  const handleOpenChange = useCallback(
+    (next: boolean) => {
+      // Closing the palette while picking keeps the theme the user had
+      if (!next && themeOriginal) exitThemeMode(true);
+      setOpen(next);
+    },
+    [exitThemeMode, setOpen, themeOriginal]
+  );
+
   const select = useCallback(
     (id: string) => {
+      if (id.startsWith(THEME_ITEM_PREFIX)) {
+        const name = id.slice(THEME_ITEM_PREFIX.length);
+        applyColorTheme(name, setStoreColorTheme);
+        setThemeOriginal(null);
+        const theme = COLOR_THEMES.find((item) => item.name === name);
+        toast.success(t("colorTheme.applied", { name: theme?.label ?? name }));
+        close();
+        return;
+      }
       const target = allTargets.get(id);
       if (!target) return;
       const recentItem = recentFor(target);
       if (recentItem) remember(recentItem);
+      track(target.type === "recent" ? target.item.id : id);
       if (target.type === "branch") switchBranch(target.branchId, target.name);
       else if (target.type === "hit" || target.type === "recent") {
         close();
@@ -603,7 +791,18 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
         router.push(routeHref(target.href, target.query));
       } else runEntry(target.entry);
     },
-    [allTargets, close, recentFor, remember, router, runEntry, switchBranch]
+    [
+      allTargets,
+      close,
+      recentFor,
+      remember,
+      router,
+      runEntry,
+      setStoreColorTheme,
+      switchBranch,
+      t,
+      track,
+    ]
   );
 
   const openInNewTab = useCallback(
@@ -618,11 +817,12 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
       if (!href || !target) return false;
       const recentItem = recentFor(target);
       if (recentItem) remember(recentItem);
+      track(target.type === "recent" ? target.item.id : id);
       window.open(getPathname({ href, locale }), "_blank", "noopener");
       close();
       return true;
     },
-    [allTargets, close, locale, recentFor, remember]
+    [allTargets, close, locale, recentFor, remember, track]
   );
 
   const applyPrefix = useCallback(
@@ -631,6 +831,61 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
       inputRef.current?.focus();
     },
     [query]
+  );
+
+  /** Scope order for Tab / Shift+Tab: all, each searchable source, actions */
+  const scopeCycle = useMemo(
+    () => [
+      null,
+      ...SEARCH_SCOPES.filter((scope) => sources.includes(scope.source)).map(
+        (scope) => scope.prefix
+      ),
+      ACTIONS_PREFIX,
+    ],
+    [sources]
+  );
+  const activeScopeIndex = parsed.actionsMode
+    ? scopeCycle.length - 1
+    : parsed.prefix
+      ? Math.max(0, scopeCycle.indexOf(parsed.prefix))
+      : 0;
+
+  // Keep the active scope tab in view while Tab moves through them
+  const scopeBarRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    scopeBarRef.current
+      ?.querySelector<HTMLElement>("[data-active]")
+      ?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+  }, [activeScopeIndex]);
+
+  // Mode prefix as typed (leading spaces included), painted in the accent colour
+  const prefixLength = parsed.prefix
+    ? query.length - query.trimStart().length + parsed.prefix.length
+    : 0;
+  const [inputScroll, setInputScroll] = useState(0);
+  const syncInputScroll = useCallback(
+    (event: React.SyntheticEvent<HTMLInputElement>) =>
+      setInputScroll(event.currentTarget.scrollLeft),
+    []
+  );
+
+  /**
+   * A scanned code: an Ambra QR label opens its QR page (which resolves the
+   * location / container / … and handles other branches); any other code is
+   * searched, so a part number, order number or VIN gets its exact hit.
+   */
+  const onScanned = useCallback(
+    (code: ScannedCode) => {
+      setScanning(false);
+      if (code.kind === "ambraQr") {
+        close();
+        router.push(toUnsafeI18nHref(`/qr/${encodeURIComponent(code.token)}`));
+        return;
+      }
+      setQuery(code.text);
+      requestAnimationFrame(() => inputRef.current?.focus());
+    },
+    [close, router]
   );
 
   const copyCode = useCallback(
@@ -645,6 +900,14 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
   );
 
   const onKeyDown = (event: React.KeyboardEvent) => {
+    // Tab / Shift+Tab in the input switch the search scope (and search right away)
+    if (event.key === "Tab" && event.target === inputRef.current && !themeMode && !scanning) {
+      event.preventDefault();
+      const step = event.shiftKey ? -1 : 1;
+      const next = (activeScopeIndex + step + scopeCycle.length) % scopeCycle.length;
+      applyPrefix(scopeCycle[next] ?? null);
+      return;
+    }
     if (event.key === "Enter" && (event.ctrlKey || event.metaKey) && selected) {
       if (openInNewTab(selected)) event.preventDefault();
     }
@@ -675,6 +938,12 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
         firstAction.focus();
       }
     }
+    // Backspace on an empty theme picker leaves it (theme restored)
+    if (event.key === "Backspace" && themeMode && !query) {
+      event.preventDefault();
+      exitThemeMode(true);
+      return;
+    }
     // Backspace on a bare prefix (">", "zl: ") leaves the mode
     if (event.key === "Backspace" && parsed.prefix && !parsed.text) {
       event.preventDefault();
@@ -682,19 +951,20 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
     }
   };
 
-  const modeBadge = parsed.actionsMode
-    ? t("actionsModeBadge")
-    : parsed.scope
-      ? `${parsed.prefix} ${t(`scopes.${parsed.scope}`)}`
-      : null;
-
   const groupHeading = (id: string) =>
     t.has(`groups.${id}`) ? t(`groups.${id}`) : t(`sections.${id}`);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         hideClose
+        onEscapeKeyDown={(event) => {
+          // First Esc in the theme picker restores the theme and goes back to the search
+          if (themeMode) {
+            event.preventDefault();
+            exitThemeMode(true);
+          }
+        }}
         className="top-0 flex h-dvh max-w-none translate-y-0 flex-col gap-0 overflow-hidden rounded-none p-0 sm:top-[12vh] sm:h-auto sm:max-h-[76vh] sm:max-w-2xl sm:rounded-xl lg:max-w-4xl"
       >
         <VisuallyHidden>
@@ -708,28 +978,49 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
           onKeyDown={onKeyDown}
           className="flex min-h-0 flex-1 flex-col [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:pb-1.5 [&_[cmdk-group-heading]]:pt-3 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wide [&_[cmdk-group-heading]]:text-muted-foreground"
         >
-          <div className="flex items-center border-b pr-3 [&_[data-cmdk-input-wrapper]]:border-0">
-            {modeBadge ? (
-              <span className="ml-3 shrink-0 rounded-md bg-primary/10 px-2 py-0.5 font-mono text-xs font-semibold text-primary">
-                {modeBadge}
-              </span>
-            ) : null}
-            <div className="flex-1">
-              <CommandInput
+          <div className="flex items-center gap-2 border-b pl-4 pr-3">
+            <Search className="size-5 shrink-0 text-muted-foreground" aria-hidden />
+            {/* The input's own text is transparent; this mirror paints it, the mode prefix in the accent colour */}
+            <div className="relative min-w-0 flex-1">
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0 flex items-center overflow-hidden whitespace-pre text-base"
+              >
+                <span style={{ transform: `translateX(-${inputScroll}px)` }}>
+                  <span className="font-medium text-primary">{query.slice(0, prefixLength)}</span>
+                  <span className="text-foreground">{query.slice(prefixLength)}</span>
+                </span>
+              </div>
+              <CommandPrimitive.Input
                 ref={inputRef}
                 value={query}
                 onValueChange={setQuery}
+                onScroll={syncInputScroll}
+                onSelect={syncInputScroll}
+                onKeyUp={syncInputScroll}
                 placeholder={
-                  actionsMode
-                    ? t("actionsPlaceholder")
-                    : parsed.scope
-                      ? t("scopePlaceholder", { scope: t(`scopes.${parsed.scope}`) })
-                      : t("placeholder")
+                  themeMode
+                    ? t("colorTheme.placeholder")
+                    : actionsMode
+                      ? t("actionsPlaceholder")
+                      : parsed.scope
+                        ? t("scopePlaceholder", { scope: t(`scopes.${parsed.scope}`) })
+                        : t("placeholder")
                 }
                 aria-label={t("dialogTitle")}
-                className="h-14 text-base"
+                className="relative h-14 w-full bg-transparent text-base text-transparent caret-foreground outline-none selection:bg-primary/25 placeholder:text-muted-foreground"
               />
             </div>
+            <button
+              type="button"
+              onClick={() => setScanning((value) => !value)}
+              aria-label={t("scanner.open")}
+              aria-pressed={scanning}
+              title={t("scanner.open")}
+              className="mr-2 flex size-10 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground aria-pressed:bg-primary/10 aria-pressed:text-primary"
+            >
+              <ScanLine className="size-5" />
+            </button>
             <button
               type="button"
               onClick={close}
@@ -739,209 +1030,287 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
             </button>
           </div>
 
-          {/* Scope chips: same as typing the prefix */}
-          <div
-            role="toolbar"
-            aria-label={t("scopesLabel")}
-            className="flex gap-1.5 overflow-x-auto border-b px-3 py-2 [scrollbar-width:none]"
-          >
-            <ScopeChip active={!parsed.prefix} onClick={() => applyPrefix(null)}>
-              {t("scopeAll")}
-            </ScopeChip>
-            {SEARCH_SCOPES.filter((scope) => sources.includes(scope.source)).map((scope) => (
-              <ScopeChip
-                key={scope.source}
-                active={parsed.scope === scope.source}
-                hint={scope.prefix}
-                onClick={() => applyPrefix(scope.prefix)}
-              >
-                {t(`scopes.${scope.source}`)}
-              </ScopeChip>
-            ))}
-            <ScopeChip
-              active={actionsMode}
-              hint={ACTIONS_PREFIX}
-              onClick={() => applyPrefix(ACTIONS_PREFIX)}
-            >
-              {t("scopeActions")}
-            </ScopeChip>
-          </div>
-
-          <div className="flex min-h-0 flex-1">
-            <CommandList className="!max-h-none min-h-0 min-w-0 flex-1 overflow-y-auto px-2 pb-2 sm:!max-h-[60vh]">
-              <CommandEmpty className="py-10 text-center text-sm text-muted-foreground">
-                {dataLoading
-                  ? t("searching")
-                  : parsed.scope && parsed.text.length < MIN_DATA_QUERY
-                    ? t("typeMore")
-                    : t("empty")}
-              </CommandEmpty>
-              {recentItems.length > 0 ? (
-                <CommandGroup heading={t("groups.recent")}>
-                  {recentItems.map((item) => {
-                    const Icon = recentIcon(item);
-                    return (
-                      <CommandItem
-                        key={recentItemId(item)}
-                        value={recentItemId(item)}
-                        onSelect={select}
-                        className="group gap-3 rounded-lg px-2 py-2.5 data-[selected=true]:bg-primary/10"
-                      >
-                        <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground group-data-[selected=true]:bg-background group-data-[selected=true]:text-primary">
-                          <Icon className="size-4" />
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-medium">
-                            {item.code ? <span className="font-mono">{item.code}</span> : null}
-                            {item.code && item.label ? " · " : null}
-                            {item.label}
-                          </span>
-                          {item.subtitle ? (
-                            <span className="block truncate text-xs text-muted-foreground">
-                              {item.subtitle}
-                            </span>
-                          ) : null}
-                        </span>
-                        <CornerDownLeft className="hidden size-4 text-muted-foreground group-data-[selected=true]:block" />
-                      </CommandItem>
-                    );
-                  })}
-                </CommandGroup>
-              ) : null}
-              {exactHits.length > 0 ? (
-                <CommandGroup heading={t("groups.exact")}>
-                  {exactHits.map((hit) => (
-                    <HitRow
-                      key={hitItemId(hit)}
-                      hit={hit}
-                      exact
-                      onSelect={select}
-                      t={t}
-                      statusLabel={statusLabel}
-                      query={parsed.text}
-                    />
-                  ))}
-                </CommandGroup>
-              ) : null}
-              {groups.map((group) => (
-                <CommandGroup key={group.id} heading={groupHeading(group.id)}>
-                  {group.items.map((item) => {
-                    const target = allTargets.get(item.id);
-                    const Icon =
-                      target?.type === "entry" ? getIconComponent(target.entry.iconKey) : Building2;
-                    const shortcut = target?.type === "entry" ? target.entry.shortcut : undefined;
-                    return (
-                      <CommandItem
-                        key={item.id}
-                        value={item.id}
-                        onSelect={select}
-                        disabled={isPending}
-                        className="group gap-3 rounded-lg px-2 py-2.5 data-[selected=true]:bg-primary/10"
-                      >
-                        <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground group-data-[selected=true]:bg-background group-data-[selected=true]:text-primary">
-                          <Icon className="size-4" />
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-medium">
-                            <Highlighted text={item.label} query={parsed.text} />
-                          </span>
-                          {item.subtitle ? (
-                            <span className="block truncate text-xs text-muted-foreground">
-                              {item.subtitle}
-                            </span>
-                          ) : null}
-                        </span>
-                        {shortcut ? <Kbd>{shortcut}</Kbd> : null}
-                        <CornerDownLeft className="hidden size-4 text-muted-foreground group-data-[selected=true]:block" />
-                      </CommandItem>
-                    );
-                  })}
-                </CommandGroup>
-              ))}
-              {dataGroups.map((group) => (
-                <CommandGroup key={group.type} heading={t(`dataGroups.${group.type}`)}>
-                  {group.hits.map((hit) => (
-                    <HitRow
-                      key={hitItemId(hit)}
-                      hit={hit}
-                      exact={false}
-                      onSelect={select}
-                      t={t}
-                      statusLabel={statusLabel}
-                      query={parsed.text}
-                    />
-                  ))}
-                  {group.showAll ? (
+          {scanning ? (
+            <GlobalSearchScanner onDetected={onScanned} onBack={() => setScanning(false)} />
+          ) : themeMode ? (
+            <>
+              <CommandList className="!max-h-none min-h-0 flex-1 overflow-y-auto px-2 pb-2 sm:!max-h-[60vh]">
+                <CommandEmpty className="py-10 text-center text-sm text-muted-foreground">
+                  {t("empty")}
+                </CommandEmpty>
+                <CommandGroup heading={t("colorTheme.heading")}>
+                  {COLOR_THEMES.filter(
+                    (theme) =>
+                      !query.trim() || scoreSearchMatch(query, theme.label, [theme.name]) > 0
+                  ).map((theme) => (
                     <CommandItem
-                      value={group.showAll.id}
+                      key={theme.name}
+                      value={`${THEME_ITEM_PREFIX}${theme.name}`}
                       onSelect={select}
-                      className="gap-2 rounded-lg px-2 py-2 text-sm text-primary data-[selected=true]:bg-primary/10"
+                      className="group gap-3 rounded-lg px-2 py-2.5 data-[selected=true]:bg-primary/10"
                     >
-                      <ArrowRight className="size-4" />
-                      {t("showAll", { group: t(`dataGroups.${group.type}`) })}
+                      <span className="flex shrink-0 overflow-hidden rounded-md border" aria-hidden>
+                        {theme.colors.map((color) => (
+                          <span
+                            key={color}
+                            className="h-8 w-3"
+                            style={{ backgroundColor: color }}
+                          />
+                        ))}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                        {theme.label}
+                      </span>
+                      {theme.name === themeOriginal ? (
+                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Check className="size-3.5" /> {t("colorTheme.current")}
+                        </span>
+                      ) : null}
+                      <CornerDownLeft className="hidden size-4 text-muted-foreground group-data-[selected=true]:block" />
                     </CommandItem>
-                  ) : null}
+                  ))}
                 </CommandGroup>
-              ))}
-            </CommandList>
-            {previewHit ? (
-              <GlobalSearchPreview
-                ref={actionsRef}
-                hit={previewHit}
-                details={hitDetails(previewHit, t, false)}
-                statusLabel={statusLabel}
-                onOpen={() => select(hitItemId(previewHit))}
-                onOpenNewTab={() => openInNewTab(hitItemId(previewHit))}
-                onCopy={() => copyCode(previewHit)}
-                onNavigate={(link) => {
-                  close();
-                  router.push(routeHref(link.href, link.query));
-                }}
-                onBack={() => inputRef.current?.focus()}
-              />
-            ) : null}
-          </div>
-
-          {showData && otherBranches.length > 0 ? (
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-t px-4 py-2 text-xs text-muted-foreground">
-              <span>{t("otherBranches")}</span>
-              {otherBranches.map((row) => (
-                <button
-                  key={row.branchId}
-                  type="button"
-                  disabled={isPending}
-                  onClick={() => switchBranch(row.branchId, row.name)}
-                  className="rounded-full border bg-background px-2 py-0.5 text-foreground hover:bg-accent"
-                  title={t("switchBranch", { name: row.name })}
+              </CommandList>
+              <div className="flex items-center gap-4 border-t bg-muted/40 px-4 py-2.5 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                  <Kbd>↑↓</Kbd> {t("colorTheme.hintPreview")}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Kbd>↵</Kbd> {t("colorTheme.hintApply")}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Kbd>Esc</Kbd> {t("colorTheme.hintRestore")}
+                </span>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Scope chips: same as typing the prefix */}
+              <TooltipProvider delayDuration={300}>
+                <div
+                  ref={scopeBarRef}
+                  role="tablist"
+                  aria-label={t("scopesLabel")}
+                  className="flex overflow-x-auto border-b px-2 [scrollbar-width:none]"
                 >
-                  {t("otherBranchCount", { name: row.name, count: row.count })}
-                </button>
-              ))}
-            </div>
-          ) : null}
+                  <ScopeTab active={!parsed.prefix} onClick={() => applyPrefix(null)}>
+                    {t("scopeAll")}
+                  </ScopeTab>
+                  {SEARCH_SCOPES.filter((scope) => sources.includes(scope.source)).map((scope) => (
+                    <ScopeTab
+                      key={scope.source}
+                      active={parsed.scope === scope.source}
+                      hint={scope.prefix}
+                      onClick={() => applyPrefix(scope.prefix)}
+                    >
+                      {t(`scopes.${scope.source}`)}
+                    </ScopeTab>
+                  ))}
+                  <ScopeTab
+                    active={actionsMode}
+                    hint={ACTIONS_PREFIX}
+                    onClick={() => applyPrefix(ACTIONS_PREFIX)}
+                  >
+                    {t("scopeActions")}
+                  </ScopeTab>
+                </div>
+              </TooltipProvider>
 
-          <div className="hidden items-center gap-4 border-t bg-muted/40 px-4 py-2.5 text-xs text-muted-foreground sm:flex">
-            <span className="flex items-center gap-1.5">
-              <Kbd>↑↓</Kbd> {t("hints.navigate")}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Kbd>↵</Kbd> {t("hints.open")}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Kbd>Ctrl ↵</Kbd> {t("hints.newTab")}
-            </span>
-            {previewHit ? (
-              <span className="hidden items-center gap-1.5 lg:flex">
-                <Kbd>→</Kbd> {t("hints.preview")}
-              </span>
-            ) : null}
-            <span className="flex items-center gap-1.5">
-              <Kbd>Esc</Kbd> {t("hints.close")}
-            </span>
-            <span className="ml-auto">
-              {parsed.prefix ? t("hints.backToSearch") : t("hints.actionsMode")}
-            </span>
-          </div>
+              <div className="flex min-h-0 flex-1">
+                <CommandList className="!max-h-none min-h-0 min-w-0 flex-1 overflow-y-auto px-2 pb-2 sm:!max-h-[60vh]">
+                  <CommandEmpty className="py-10 text-center text-sm text-muted-foreground">
+                    {dataLoading
+                      ? t("searching")
+                      : parsed.scope && parsed.text.length < MIN_DATA_QUERY
+                        ? t("typeMore")
+                        : t("empty")}
+                  </CommandEmpty>
+                  {recentItems.length > 0 ? (
+                    <CommandGroup heading={t("groups.recent")}>
+                      {recentItems.map((item) => {
+                        const Icon = recentIcon(item);
+                        return (
+                          <CommandItem
+                            key={recentItemId(item)}
+                            value={recentItemId(item)}
+                            onSelect={select}
+                            className="group gap-3 rounded-lg px-2 py-2.5 data-[selected=true]:bg-primary/10"
+                          >
+                            <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground group-data-[selected=true]:bg-background group-data-[selected=true]:text-primary">
+                              <Icon className="size-4" />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-sm font-medium">
+                                {item.code ? <span className="font-mono">{item.code}</span> : null}
+                                {item.code && item.label ? " · " : null}
+                                {item.label}
+                              </span>
+                              {item.subtitle ? (
+                                <span className="block truncate text-xs text-muted-foreground">
+                                  {item.subtitle}
+                                </span>
+                              ) : null}
+                            </span>
+                            <CornerDownLeft className="hidden size-4 text-muted-foreground group-data-[selected=true]:block" />
+                          </CommandItem>
+                        );
+                      })}
+                    </CommandGroup>
+                  ) : null}
+                  {exactHits.length > 0 ? (
+                    <CommandGroup heading={t("groups.exact")}>
+                      {exactHits.map((hit) => (
+                        <HitRow
+                          key={hitItemId(hit)}
+                          hit={hit}
+                          exact
+                          onSelect={select}
+                          t={t}
+                          statusLabel={statusLabel}
+                          query={parsed.text}
+                        />
+                      ))}
+                    </CommandGroup>
+                  ) : null}
+                  {groups.map((group) => (
+                    <CommandGroup key={group.id} heading={groupHeading(group.id)}>
+                      {group.items.map((item) => {
+                        const target = allTargets.get(item.id);
+                        const Icon =
+                          target?.type === "entry"
+                            ? getIconComponent(target.entry.iconKey)
+                            : Building2;
+                        const shortcut =
+                          target?.type === "entry" ? target.entry.shortcut : undefined;
+                        return (
+                          <CommandItem
+                            key={item.id}
+                            value={item.id}
+                            onSelect={select}
+                            disabled={isPending}
+                            className="group gap-3 rounded-lg px-2 py-2.5 data-[selected=true]:bg-primary/10"
+                          >
+                            <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground group-data-[selected=true]:bg-background group-data-[selected=true]:text-primary">
+                              <Icon className="size-4" />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-sm font-medium">
+                                <Highlighted text={item.label} query={parsed.text} />
+                              </span>
+                              {item.subtitle ? (
+                                <span className="block truncate text-xs text-muted-foreground">
+                                  {item.subtitle}
+                                </span>
+                              ) : null}
+                            </span>
+                            {shortcut ? <Kbd>{shortcut}</Kbd> : null}
+                            <CornerDownLeft className="hidden size-4 text-muted-foreground group-data-[selected=true]:block" />
+                          </CommandItem>
+                        );
+                      })}
+                    </CommandGroup>
+                  ))}
+                  {dataGroups.map((group) => (
+                    <CommandGroup key={group.type} heading={t(`dataGroups.${group.type}`)}>
+                      {group.hits.map((hit) => (
+                        <HitRow
+                          key={hitItemId(hit)}
+                          hit={hit}
+                          exact={false}
+                          onSelect={select}
+                          t={t}
+                          statusLabel={statusLabel}
+                          query={parsed.text}
+                        />
+                      ))}
+                      {group.showAll ? (
+                        <CommandItem
+                          value={group.showAll.id}
+                          onSelect={select}
+                          className="gap-2 rounded-lg px-2 py-2 text-sm text-primary data-[selected=true]:bg-primary/10"
+                        >
+                          <ArrowRight className="size-4" />
+                          {t("showAll", { group: t(`dataGroups.${group.type}`) })}
+                        </CommandItem>
+                      ) : null}
+                    </CommandGroup>
+                  ))}
+                </CommandList>
+                {previewHit ? (
+                  <GlobalSearchPreview
+                    ref={actionsRef}
+                    hit={previewHit}
+                    details={hitDetails(previewHit, t, false)}
+                    statusLabel={statusLabel}
+                    onOpen={() => select(hitItemId(previewHit))}
+                    onOpenNewTab={() => openInNewTab(hitItemId(previewHit))}
+                    onCopy={() => copyCode(previewHit)}
+                    onNavigate={(link) => {
+                      close();
+                      router.push(routeHref(link.href, link.query));
+                    }}
+                    onBack={() => inputRef.current?.focus()}
+                  />
+                ) : null}
+              </div>
+
+              {showData && otherBranches.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-t px-4 py-2 text-xs text-muted-foreground">
+                  <span>{t("otherBranches")}</span>
+                  {otherBranches.map((row) => (
+                    <button
+                      key={row.branchId}
+                      type="button"
+                      disabled={isPending}
+                      onClick={() => switchBranch(row.branchId, row.name)}
+                      className="rounded-full border bg-background px-2 py-0.5 text-foreground hover:bg-accent"
+                      title={t("switchBranch", { name: row.name })}
+                    >
+                      {t("otherBranchCount", { name: row.name, count: row.count })}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+
+              <div className="hidden items-center gap-4 border-t bg-muted/40 px-4 py-2.5 text-xs text-muted-foreground sm:flex">
+                <span className="flex items-center gap-1.5">
+                  <Kbd>↑↓</Kbd> {t("hints.navigate")}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Kbd>↵</Kbd> {t("hints.open")}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Kbd>Ctrl ↵</Kbd> {t("hints.newTab")}
+                </span>
+                {previewHit ? (
+                  <span className="hidden items-center gap-1.5 lg:flex">
+                    <Kbd>→</Kbd> {t("hints.preview")}
+                  </span>
+                ) : null}
+                <span className="flex items-center gap-1.5">
+                  <Kbd>Tab</Kbd> {t("hints.scope")}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Kbd>Esc</Kbd> {t("hints.close")}
+                </span>
+                <span className="ml-auto">
+                  {parsed.prefix ? t("hints.backToSearch") : t("hints.actionsMode")}
+                </span>
+              </div>
+
+              {/* Phones: the scanner is the main way in on the shop floor */}
+              <div className="border-t bg-muted/40 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:hidden">
+                <button
+                  type="button"
+                  onClick={() => setScanning(true)}
+                  className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border bg-background text-base font-medium"
+                >
+                  <ScanLine className="size-5" />
+                  {t("scanner.cta")}
+                </button>
+              </div>
+            </>
+          )}
         </Command>
       </DialogContent>
     </Dialog>

@@ -8023,7 +8023,8 @@
       "close": "zamknij",
       "actionsMode": "> tylko akcje",
       "backToSearch": "Backspace — wróć do wyszukiwania",
-      "preview": "akcje"
+      "preview": "akcje",
+      "scope": "zakres"
     },
     "groups": {
       "quickActions": "Szybkie akcje",
@@ -8070,7 +8071,8 @@
       "inviteMember": "Zaproś osobę do organizacji",
       "toggleTheme": "Przełącz motyw jasny / ciemny",
       "toggleLocale": "Zmień język (polski / angielski)",
-      "signOut": "Wyloguj się"
+      "signOut": "Wyloguj się",
+      "pickColorTheme": "Zmień motyw kolorystyczny…"
     },
     "searching": "Szukam…",
     "hitTypes": {
@@ -8081,7 +8083,18 @@
       "container": "Kontener",
       "location": "Lokalizacja",
       "item": "Część",
-      "person": "Osoba"
+      "person": "Osoba",
+      "party": "Kontrahent",
+      "contact": "Kontakt",
+      "audit": "Inwentaryzacja",
+      "matcherSession": "Sesja Matchera",
+      "qrCode": "Kod QR",
+      "board": "Tablica",
+      "map": "Mapa magazynu",
+      "ticketType": "Typ zgłoszenia",
+      "invitation": "Zaproszenie",
+      "comment": "Komentarz",
+      "attachment": "Załącznik"
     },
     "statuses": {
       "open": "otwarte",
@@ -8095,7 +8108,18 @@
       "posted": "zaksięgowany",
       "draft": "szkic",
       "reversed": "wycofany",
-      "active": "aktywny"
+      "active": "aktywny",
+      "counting": "liczenie",
+      "submitted": "do weryfikacji",
+      "approved": "zatwierdzone",
+      "pending": "oczekuje",
+      "ready_for_review": "do przeglądu",
+      "revoked": "unieważniony",
+      "inactive": "nieaktywny",
+      "accepted": "przyjęte",
+      "declined": "odrzucone",
+      "expired": "wygasło",
+      "published": "opublikowana"
     },
     "dataGroups": {
       "repairOrder": "Zlecenia",
@@ -8105,14 +8129,41 @@
       "document": "Dokumenty magazynowe",
       "ticket": "Zapytania",
       "task": "Zadania",
-      "person": "Osoby"
+      "person": "Osoby",
+      "party": "Kontrahenci i dostawcy",
+      "contact": "Kontakty",
+      "audit": "Inwentaryzacje",
+      "matcherSession": "Sesje Matchera",
+      "qrCode": "Kody QR",
+      "board": "Tablice",
+      "map": "Mapy magazynu",
+      "ticketType": "Typy zgłoszeń",
+      "invitation": "Zaproszenia",
+      "comment": "Komentarze",
+      "attachment": "Załączniki"
     },
     "details": {
       "warehouse": "mag {code}",
       "containsPart": "zawiera {code}",
       "stock": "stan {onHand} · dostępne {available}",
       "noStock": "brak na stanie w tym oddziale",
-      "location": "lokalizacja {code}"
+      "location": "lokalizacja {code}",
+      "due": "termin {date}",
+      "qrUnassigned": "nieprzypisany",
+      "roles": {
+        "supplier": "dostawca",
+        "customer": "klient",
+        "carrier": "przewoźnik"
+      },
+      "qrTargets": {
+        "warehouse_location": "lokalizacja",
+        "inventory_container": "kontener",
+        "helpdesk_ticket": "zapytanie",
+        "planning_task": "zadanie",
+        "workshop_repair_order": "zlecenie",
+        "planning_kanban_card": "karta tablicy"
+      },
+      "expires": "ważne do {date}"
     },
     "scopes": {
       "repairOrders": "Zlecenia",
@@ -8122,7 +8173,18 @@
       "documents": "Dokumenty",
       "tickets": "Zapytania",
       "tasks": "Zadania",
-      "people": "Osoby"
+      "people": "Osoby",
+      "parties": "Kontrahenci",
+      "contacts": "Kontakty",
+      "audits": "Inwentaryzacje",
+      "matcherSessions": "Matcher",
+      "qrCodes": "Kody QR",
+      "boards": "Tablice",
+      "maps": "Mapy",
+      "ticketTypes": "Typy zgłoszeń",
+      "invitations": "Zaproszenia",
+      "comments": "Komentarze",
+      "attachments": "Załączniki"
     },
     "scopeAll": "Wszystko",
     "scopeActions": "Akcje",
@@ -8157,6 +8219,24 @@
       "lines": "Pozycje",
       "linkedLines": "Powiązane z kartoteką",
       "firstLines": "Pierwsze pozycje"
+    },
+    "scanner": {
+      "open": "Skanuj kod",
+      "cta": "Zeskanuj kod QR lub kreskowy",
+      "back": "Wróć do wyszukiwania",
+      "hint": "Skieruj aparat na kod QR, kod kreskowy części albo etykietę",
+      "cameraError": "Brak dostępu do aparatu. Zezwól na aparat w ustawieniach przeglądarki.",
+      "unsupported": "Ta przeglądarka nie obsługuje aparatu."
+    },
+    "colorTheme": {
+      "badge": "Motyw",
+      "heading": "Motyw kolorystyczny",
+      "placeholder": "Wybierz motyw — strzałki pokazują podgląd",
+      "current": "obecny",
+      "applied": "Motyw: {name}",
+      "hintPreview": "podgląd",
+      "hintApply": "zapisz",
+      "hintRestore": "przywróć poprzedni"
     }
   }
 }

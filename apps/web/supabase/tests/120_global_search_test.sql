@@ -79,7 +79,7 @@ INSERT INTO results SELECT 'loc', public.search_global(org, branch, 'qzx', ARRAY
 INSERT INTO results SELECT 'loc_all_branches', public.search_global(org, NULL, 'qzx', ARRAY['locations'], 5) FROM fx;
 INSERT INTO results SELECT 'ro_client', public.search_global(org, branch, 'klient szukany', ARRAY['repairOrders'], 5) FROM fx;
 INSERT INTO results SELECT 'ro_part', public.search_global(org, branch, '9QZ 807-7221', ARRAY['repairOrders'], 5) FROM fx;
-INSERT INTO results SELECT 'foreign', public.search_global(foreign_org, NULL, 'qzx', ARRAY['locations', 'repairOrders'], 5) FROM fx;
+INSERT INTO results SELECT 'foreign', public.search_global(foreign_org, NULL, 'qzx', ARRAY['locations', 'repairOrders', 'comments', 'attachments', 'parties', 'contacts'], 5) FROM fx;
 INSERT INTO results SELECT 'wildcard', public.search_global(org, branch, '120_QZX', ARRAY['locations'], 5) FROM fx;
 INSERT INTO results SELECT 'sources', public.search_global(org, branch, 'qzx', ARRAY['tickets'], 5) FROM fx;
 INSERT INTO results SELECT 'short', public.search_global(org, branch, 'qz', ARRAY['locations'], 5) FROM fx;
@@ -119,7 +119,7 @@ INSERT INTO test_log (line) SELECT is(
 INSERT INTO test_log (line) SELECT is(
   (SELECT r FROM results WHERE k = 'foreign'),
   '[]'::jsonb,
-  'another organization returns nothing'
+  'another organization returns nothing (incl. comments, attachments, CRM)'
 );
 INSERT INTO test_log (line) SELECT is(
   (SELECT r FROM results WHERE k = 'wildcard'),

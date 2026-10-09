@@ -25,7 +25,7 @@ export type SearchEntrySection =
  * Client-side commands an action entry can run. Navigation actions use `href`
  * instead; a command is only needed when an action does more than navigate.
  */
-export type SearchCommandId = "theme.toggle" | "locale.toggle" | "auth.signOut";
+export type SearchCommandId = "theme.toggle" | "colorTheme.pick" | "locale.toggle" | "auth.signOut";
 
 /**
  * A page or action the palette can show without a database query.
