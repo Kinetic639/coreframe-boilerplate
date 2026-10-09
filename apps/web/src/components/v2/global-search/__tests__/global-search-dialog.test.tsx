@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SearchEntry } from "@/lib/global-search/types";
@@ -11,6 +11,7 @@ const refresh = vi.fn();
 const setTheme = vi.fn();
 const changeBranchMock = vi.fn();
 const findExactHitsMock = vi.fn();
+const previewMock = vi.fn();
 
 vi.mock("next-intl", () => ({
   useLocale: () => "pl",
@@ -58,6 +59,7 @@ vi.mock("@/app/[locale]/actions", () => ({ signOutAction: vi.fn() }));
 vi.mock("react-toastify", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/app/actions/global-search", () => ({
   globalSearchAction: (...args: unknown[]) => findExactHitsMock(...args),
+  getSearchPreviewAction: (...args: unknown[]) => previewMock(...args),
 }));
 vi.mock("@/hooks/use-debounce", () => ({ useDebounce: <T,>(value: T) => value }));
 
@@ -136,7 +138,11 @@ describe("GlobalSearchDialog", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    findExactHitsMock.mockResolvedValue({ success: true, data: { exact: [], results: [] } });
+    findExactHitsMock.mockResolvedValue({
+      success: true,
+      data: { exact: [], results: [], otherBranches: [] },
+    });
+    previewMock.mockResolvedValue({ success: true, data: null });
     useGlobalSearchStore.setState({ open: false, initialQuery: "" });
     window.localStorage.clear();
   });
@@ -165,13 +171,16 @@ describe("GlobalSearchDialog", () => {
           },
         ],
         results: [],
+        otherBranches: [],
       },
     });
     renderDialog();
     openPalette();
     type("HD-12");
 
-    expect(await screen.findByText(byText("HD-000012"))).toBeInTheDocument();
+    expect(
+      await within(screen.getByRole("listbox")).findByText(byText("HD-000012"))
+    ).toBeInTheDocument();
     expect(screen.getByText("groups.exact")).toBeInTheDocument();
     expect(findExactHitsMock).toHaveBeenCalledWith("HD-12", undefined);
 
@@ -206,6 +215,7 @@ describe("GlobalSearchDialog", () => {
             meta: { warehouseCode: "3122", matchedPart: "2K5807221KGRU" },
           },
         ],
+        otherBranches: [],
       },
     });
     renderDialog();
@@ -215,9 +225,11 @@ describe("GlobalSearchDialog", () => {
     expect(await screen.findByText("dataGroups.repairOrder")).toBeInTheDocument();
     expect(screen.getByText("dataGroups.item")).toBeInTheDocument();
     expect(screen.getByText("details.stock")).toBeInTheDocument();
-    expect(screen.getByText("details.warehouse · details.containsPart")).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("listbox")).getByText("details.warehouse · details.containsPart")
+    ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByText(byText("2K5807221KGRU")));
+    fireEvent.click(within(screen.getByRole("listbox")).getByText(byText("2K5807221KGRU")));
     expect(push).toHaveBeenCalledWith("/dashboard/warehouse/items/p1");
   });
 
@@ -334,5 +346,108 @@ describe("GlobalSearchDialog", () => {
     type("zlec");
     const mark = screen.getAllByText("Zlec").find((el) => el.tagName === "MARK");
     expect(mark).toBeDefined();
+  });
+
+  const orderHit = (n: number) => ({
+    type: "repairOrder",
+    id: `ro${n}`,
+    code: `17423${n}`,
+    title: `Klient ${n}`,
+    subtitle: null,
+    status: "open",
+    href: `/dashboard/workshop/ro${n}`,
+    meta: {},
+  });
+
+  it("adds a show-all row to a full group that opens the module list with the query", async () => {
+    findExactHitsMock.mockResolvedValue({
+      success: true,
+      data: { exact: [], results: [1, 2, 3, 4, 5].map(orderHit), otherBranches: [] },
+    });
+    renderDialog();
+    openPalette();
+    type("17423");
+
+    fireEvent.click(await screen.findByText("showAll"));
+    expect(push).toHaveBeenCalledWith({ pathname: "/dashboard/workshop", query: { q: "17423" } });
+  });
+
+  it("lists matches in other branches and switches branch on click", async () => {
+    changeBranchMock.mockResolvedValue({ success: true });
+    findExactHitsMock.mockResolvedValue({
+      success: true,
+      data: {
+        exact: [],
+        results: [orderHit(1)],
+        otherBranches: [
+          { branchId: "b2", count: 3 },
+          { branchId: "unknown", count: 1 },
+        ],
+      },
+    });
+    renderDialog();
+    openPalette();
+    type("17423");
+
+    expect(await screen.findByText("otherBranches")).toBeInTheDocument();
+    // Only branches the user can access are offered
+    expect(screen.getAllByText(/^otherBranchCount/)).toHaveLength(1);
+    await act(async () => {
+      fireEvent.click(screen.getByText("otherBranchCount:CNP Piaseczno"));
+    });
+    expect(changeBranchMock).toHaveBeenCalledWith("b2");
+  });
+
+  it("previews the highlighted part with stock and offers copy and → into the actions", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    findExactHitsMock.mockResolvedValue({
+      success: true,
+      data: {
+        exact: [
+          {
+            type: "item",
+            id: "p1",
+            code: "2K5807221KGRU",
+            title: "Poszycie zderzaka",
+            subtitle: null,
+            status: null,
+            href: "/dashboard/warehouse/items/p1",
+          },
+        ],
+        results: [],
+        otherBranches: [],
+      },
+    });
+    previewMock.mockResolvedValue({
+      success: true,
+      data: {
+        type: "item",
+        name: "Poszycie zderzaka",
+        brand: null,
+        skus: ["2K5807221KGRU"],
+        onHand: 2,
+        committed: 1,
+        available: 1,
+        locations: [{ code: "MC/GAB-01", name: "Zderzaki", onHand: 2 }],
+        orders: [
+          { id: "ro9", code: "174232", client: "Lakomecki", warehouseCode: "3122", quantity: 1 },
+        ],
+      },
+    });
+    renderDialog();
+    openPalette();
+    type("2K5807221KGRU");
+
+    expect(await screen.findByText(byText("MC/GAB-01"))).toBeInTheDocument();
+    expect(previewMock).toHaveBeenCalledWith("item", "p1");
+
+    const input = screen.getByRole("combobox") as HTMLInputElement;
+    fireEvent.keyDown(input, { key: "c", ctrlKey: true, shiftKey: true });
+    expect(writeText).toHaveBeenCalledWith("2K5807221KGRU");
+
+    // Order rows in the preview open the order
+    fireEvent.click(screen.getByText(byText("174232")));
+    expect(push).toHaveBeenCalledWith("/dashboard/workshop/ro9");
   });
 });

@@ -16,17 +16,17 @@
 
 BEGIN;
 
-SELECT plan(15);
+SELECT plan(20);
 
 CREATE TEMP TABLE fx (org uuid, foreign_org uuid, branch uuid, other_branch uuid, e2e_user uuid,
-                      loc uuid, other_loc uuid, ro uuid);
+                      loc uuid, other_loc uuid, ro uuid, foreign_ro uuid);
 GRANT SELECT ON fx TO authenticated;
 INSERT INTO fx SELECT
   '9f98fe91-63b8-4986-a2b3-65bdd47684c9'::uuid,
   '2c5aa49a-cc3d-4166-8c5f-f6c94307103f'::uuid,
   gen_random_uuid(), gen_random_uuid(),
   'c4a24371-42db-4bb8-ab5e-379ebbf7d9c4'::uuid,
-  gen_random_uuid(), gen_random_uuid(), gen_random_uuid();
+  gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid();
 
 CREATE TEMP TABLE results (k text, r jsonb);
 CREATE TEMP TABLE test_log (seq serial, line text);
@@ -46,6 +46,12 @@ INSERT INTO repair_orders (id, organization_id, branch_id, zl_number, client_nam
 SELECT ro, org, branch, '120998', '120 Klient Szukany', 'open' FROM fx;
 INSERT INTO repair_order_lines (repair_order_id, product_code, product_name, ordered_quantity, unit)
 SELECT ro, '9QZ8077221KGRU', '120 część', 1, 'szt' FROM fx;
+-- A repair order in an organization the caller is not a member of
+INSERT INTO repair_orders (id, organization_id, branch_id, zl_number, client_name, status)
+SELECT foreign_ro, foreign_org,
+  (SELECT id FROM branches WHERE organization_id = foreign_org AND deleted_at IS NULL LIMIT 1),
+  '120997', '120 Obcy Klient', 'open'
+FROM fx;
 
 INSERT INTO test_log (line) SELECT ok(
   NOT has_function_privilege('anon', 'public.search_global(uuid,uuid,text,text[],integer)', 'EXECUTE'),
@@ -58,6 +64,11 @@ INSERT INTO test_log (line) SELECT ok(
 INSERT INTO test_log (line) SELECT ok(
   NOT has_function_privilege('anon', 'public.search_global_candidates(uuid,uuid,text,text,integer)', 'EXECUTE'),
   'anon cannot execute search_global_candidates'
+);
+INSERT INTO test_log (line) SELECT ok(
+  NOT has_function_privilege('anon', 'public.search_preview_item(uuid,uuid)', 'EXECUTE')
+    AND NOT has_function_privilege('anon', 'public.search_preview_repair_order(uuid)', 'EXECUTE'),
+  'anon cannot execute the preview functions'
 );
 
 SET LOCAL ROLE authenticated;
@@ -79,6 +90,9 @@ INSERT INTO results SELECT 'prefix_part', public.search_global(org, branch, '9qz
 INSERT INTO results SELECT 'foreign_candidates',
   to_jsonb((SELECT count(*) FROM public.search_global_candidates(foreign_org, NULL, 'reg', 'locations', 50)))
 FROM fx;
+
+INSERT INTO results SELECT 'preview_own', public.search_preview_repair_order(ro) FROM fx;
+INSERT INTO results SELECT 'preview_foreign', coalesce(public.search_preview_repair_order(foreign_ro), 'null'::jsonb) FROM fx;
 
 RESET ROLE;
 
@@ -141,6 +155,27 @@ INSERT INTO test_log (line) SELECT is(
   (SELECT r -> 0 -> 'meta' ->> 'matchedPart' FROM results WHERE k = 'prefix_part'),
   '9QZ8077221KGRU',
   'repair order found by a part-number prefix on its line'
+);
+INSERT INTO test_log (line) SELECT is(
+  (SELECT r ->> 'lineCount' FROM results WHERE k = 'preview_own'),
+  '1',
+  'preview of an own repair order shows its lines'
+);
+INSERT INTO test_log (line) SELECT is(
+  (SELECT r FROM results WHERE k = 'preview_foreign'),
+  'null'::jsonb,
+  'preview of another organization''s repair order is empty (RLS)'
+);
+INSERT INTO test_log (line) SELECT is(
+  (SELECT jsonb_path_query_array(r, '$[*].meta.branchId') FROM results WHERE k = 'loc') -> 0 #>> '{}',
+  (SELECT branch::text FROM fx),
+  'branch-bound rows carry meta.branchId'
+);
+INSERT INTO test_log (line) SELECT is(
+  (SELECT count(DISTINCT x) FROM results, jsonb_array_elements_text(jsonb_path_query_array(r, '$[*].meta.branchId')) x
+   WHERE k = 'loc_all_branches'),
+  2::bigint,
+  'without p_branch both branches are reported (other-branch counts)'
 );
 
 -- Report the result as an error so it shows up in the SQL Editor (which only displays the

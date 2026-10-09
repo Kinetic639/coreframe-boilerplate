@@ -13,7 +13,7 @@
 | F2   | Akcje (`>`)                                   | ✅ kod + testy, czeka na test ręczny |
 | F3   | Rozpoznanie wklejonego ID                     | ✅ kod + testy, czeka na test ręczny |
 | F4   | Dane P1 (RPC + indeksy)                       | ✅ kod + testy, czeka na test ręczny |
-| F5   | UX wyników: grupy, chipy, podgląd, ostatnie   | 🟡 chipy, ostatnie, podświetlanie    |
+| F5   | UX wyników: grupy, chipy, podgląd, ostatnie   | ✅ kod + testy, czeka na test ręczny |
 | F6   | Telefon + skaner                              | ⬜                                   |
 | F7   | Dane P2                                       | ⬜                                   |
 | F8   | Ranking i P3                                  | ⬜                                   |
@@ -29,7 +29,7 @@
   - [x] Strony z sidebaru + strony spoza menu (mapa, import kartoteki, role, zaproszenia, konto…), polskie etykiety i synonimy
   - [x] Filtr: moduł aktywny (entitlements) + uprawnienia — ten sam resolver co sidebar, po stronie serwera
   - [x] Zaślepki „wkrótce” wyłączone (`SEARCH_EXCLUDED_HREFS`)
-  - [ ] Zakładki szczegółów (np. zlecenie → Magazyn) jako akcje na wyniku → przeniesione do F5
+  - [ ] Zakładki szczegółów (np. zlecenie → Magazyn) jako akcje na wyniku — strona zlecenia nie przyjmuje parametru zakładki; do zrobienia razem z nim
 - [x] **F2** — akcje
   - [x] Tryb `>` z grupami modułów, Backspace wraca do wyszukiwania
   - [x] Akcje tworzenia i magazynowe, przełączanie oddziału (każdy oddział osobno), motyw, język, wyloguj
@@ -48,14 +48,14 @@
   - [x] pgTAP 120: 9/9 na żywej bazie (anon bez EXECUTE, oddział, cudza organizacja, część ze spacjami, `_` dosłownie)
   - [x] Debounce 200 ms, poprzednie wyniki zostają na ekranie do czasu nowych (bez migotania)
   - [x] Wydajność (migracje `20261009062628`, `20261009063706`) — patrz „Wydajność” niżej
-- [ ] **F5** — UX wyników
-  - [ ] Grupy z licznikami, limit + „Pokaż wszystkie”
+- [x] **F5** — UX wyników
+  - [x] Limit 5 na grupę + „Pokaż wszystkie: …” → lista modułu z frazą (`?q=` warsztat, `?search=` listy data-view); kontenery bez listy
   - [x] Chipy zakresu i prefiksy (`zl:` `cz:` `k:` `lok:` `dok:` `hd:` `pt:` `@` `>`) — chipy tylko dla źródeł, do których użytkownik ma dostęp; zakres zawęża też zapytanie na serwerze; Backspace na samym prefiksie wraca do wyszukiwania
   - [x] Podświetlanie dopasowania (bez polskich znaków w zapytaniu też: „przyjecie” → „Przyjęcie”)
-  - [ ] Panel podglądu (część, zlecenie) + akcje na wyniku (→)
+  - [x] Panel podglądu (desktop ≥ lg): część — stan / zarezerw. / dostępne, lokalizacje w oddziale, otwarte zlecenia z tą częścią; zlecenie — klient, marka, VIN, magazyn, status, liczba pozycji, pierwsze pozycje (`search_preview_item`, `search_preview_repair_order`, SECURITY INVOKER + RLS). Akcje: Otwórz ↵, Nowa karta Ctrl ↵, Kopiuj numer Ctrl ⇧ C, Historia ruchów; → z pola wejścia do akcji, ← z powrotem
   - [x] Ostatnio otwierane w pustym stanie (6 pozycji, localStorage per użytkownik + organizacja, tylko linki `/dashboard/…`)
   - [x] Ctrl+Enter — nowa karta
-  - [ ] Informacja o trafieniach w innych oddziałach
+  - [x] Trafienia w innych oddziałach (zlecenia, lokalizacje, kontenery, dokumenty; tylko oddziały dostępne użytkownikowi) — przycisk przełącza oddział
 - [ ] **F6** — telefon
   - [ ] Pełny ekran, duże cele dotyku, chipy przewijane w poziomie
   - [ ] Przycisk skanowania QR / kodu kreskowego → rozpoznanie ID

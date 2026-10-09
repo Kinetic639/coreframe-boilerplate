@@ -8048,7 +8048,8 @@
       "newTab": "new tab",
       "close": "close",
       "actionsMode": "> actions only",
-      "backToSearch": "Backspace — back to search"
+      "backToSearch": "Backspace — back to search",
+      "preview": "actions"
     },
     "groups": {
       "quickActions": "Quick actions",
@@ -8153,6 +8154,35 @@
     "scopeActions": "Actions",
     "scopesLabel": "Search scope",
     "scopePlaceholder": "Search: {scope}…",
-    "typeMore": "Type at least 3 characters."
+    "typeMore": "Type at least 3 characters.",
+    "showAll": "Show all: {group}",
+    "otherBranches": "In other branches:",
+    "otherBranchCount": "{name} ({count})",
+    "copied": "Copied {code}",
+    "copyFailed": "Could not copy",
+    "preview": {
+      "title": "Result preview",
+      "loading": "Loading…",
+      "actions": "Result actions",
+      "open": "Open",
+      "openNewTab": "In a new tab",
+      "copy": "Copy number",
+      "movements": "Movement history",
+      "onHand": "On hand",
+      "committed": "Reserved",
+      "available": "Available",
+      "locations": "Where it is",
+      "noStock": "No stock in this branch",
+      "openOrders": "On open repair orders",
+      "noOrders": "Not on open repair orders",
+      "client": "Client",
+      "vehicle": "Brand",
+      "vin": "VIN",
+      "warehouse": "Warehouse",
+      "status": "Status",
+      "lines": "Lines",
+      "linkedLines": "Linked to items",
+      "firstLines": "First lines"
+    }
   }
 }
