@@ -230,6 +230,22 @@ function Kbd({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** How many visible results get a quick key (Alt+1 … Alt+9) */
+const QUICK_KEY_COUNT = 9;
+
+/** The quick key of a result row, shown at its right edge */
+function QuickKey({ label }: { label: string | null | undefined }) {
+  if (!label) return null;
+  return (
+    <kbd
+      className="shrink-0 rounded border bg-background px-1.5 py-0.5 font-mono text-[11px] font-medium text-muted-foreground group-data-[selected=true]:border-primary/40 group-data-[selected=true]:text-primary"
+      data-testid="quick-key"
+    >
+      {label}
+    </kbd>
+  );
+}
+
 /**
  * One search scope in the scope bar: a tab (underlined when active), the
  * prefix it types shown in a tooltip. Tab / Shift+Tab in the input cycles them.
@@ -366,9 +382,11 @@ interface HitRowProps {
   statusLabel: (status: string) => string;
   /** Query text (without the mode prefix) to highlight */
   query: string;
+  /** Quick key label ("Alt 3"), for the first results */
+  quickKey?: string | null;
 }
 
-function HitRow({ hit, exact, onSelect, t, statusLabel, query }: HitRowProps) {
+function HitRow({ hit, exact, onSelect, t, statusLabel, query, quickKey }: HitRowProps) {
   const Icon = HIT_ICONS[hit.type];
   const details = hitDetails(hit, t, exact);
   return (
@@ -409,6 +427,7 @@ function HitRow({ hit, exact, onSelect, t, statusLabel, query }: HitRowProps) {
           {statusLabel(hit.status)}
         </span>
       ) : null}
+      <QuickKey label={quickKey} />
       <CornerDownLeft className="hidden size-4 text-muted-foreground group-data-[selected=true]:block" />
     </CommandItem>
   );
@@ -445,6 +464,10 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
   const [recent, setRecent] = useState<RecentSearchItem[]>([]);
   const [usage, setUsage] = useState<ReturnType<typeof readUsage>>({});
   const [scanning, setScanning] = useState(false);
+  const [isMac, setIsMac] = useState(false);
+  useEffect(() => {
+    setIsMac(navigator.platform.toUpperCase().includes("MAC"));
+  }, []);
 
   // Every opening starts in the search, never in the camera
   useEffect(() => {
@@ -605,6 +628,29 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
     }
     return map;
   }, [data.results, dataGroups, exactHits, recentItems, targets]);
+
+  /**
+   * Quick keys: Alt+1 … Alt+9 open the first nine results as listed (recent,
+   * exact, pages and actions, data), so a result needs no arrowing to.
+   */
+  const quickIds = useMemo(
+    () =>
+      [
+        ...recentItems.map(recentItemId),
+        ...exactHits.map(hitItemId),
+        ...groups.flatMap((group) => group.items.map((item) => item.id)),
+        ...dataGroups.flatMap((group) => [
+          ...group.hits.map(hitItemId),
+          ...(group.showAll ? [group.showAll.id] : []),
+        ]),
+      ].slice(0, QUICK_KEY_COUNT),
+    [dataGroups, exactHits, groups, recentItems]
+  );
+  const quickKeyLabel = (id: string) => {
+    const index = quickIds.indexOf(id);
+    if (index < 0) return null;
+    return isMac ? `⌥${index + 1}` : `Alt ${index + 1}`;
+  };
 
   // Preview pane follows the highlighted data result (debounced: ↑↓ moves fast)
   const previewSelected = useDebounce(selected, PREVIEW_DEBOUNCE_MS);
@@ -903,10 +949,23 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
     // Tab / Shift+Tab in the input switch the search scope (and search right away)
     if (event.key === "Tab" && event.target === inputRef.current && !themeMode && !scanning) {
       event.preventDefault();
+      // Keep the dialog's focus trap out of it: on the first field it would move
+      // Shift+Tab focus to the last button (the scanner) instead
+      event.stopPropagation();
       const step = event.shiftKey ? -1 : 1;
       const next = (activeScopeIndex + step + scopeCycle.length) % scopeCycle.length;
       applyPrefix(scopeCycle[next] ?? null);
       return;
+    }
+    // Alt+1 … Alt+9 open the n-th listed result (event.code: on a Mac ⌥ changes the key)
+    const quickDigit = /^Digit([1-9])$/.exec(event.code)?.[1];
+    if (quickDigit && event.altKey && !event.ctrlKey && !event.metaKey && !themeMode && !scanning) {
+      const id = quickIds[Number(quickDigit) - 1];
+      if (id) {
+        event.preventDefault();
+        if (!isPending) select(id);
+        return;
+      }
     }
     if (event.key === "Enter" && (event.ctrlKey || event.metaKey) && selected) {
       if (openInNewTab(selected)) event.preventDefault();
@@ -963,6 +1022,12 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
           if (themeMode) {
             event.preventDefault();
             exitThemeMode(true);
+            return;
+          }
+          // In a scope (or the actions mode) Esc first goes back to "all", text kept
+          if (parsed.prefix && !scanning) {
+            event.preventDefault();
+            applyPrefix(null);
           }
         }}
         className="top-0 flex h-dvh max-w-none translate-y-0 flex-col gap-0 overflow-hidden rounded-none p-0 sm:top-[12vh] sm:h-auto sm:max-h-[76vh] sm:max-w-2xl sm:rounded-xl lg:max-w-4xl"
@@ -1151,6 +1216,7 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
                                 </span>
                               ) : null}
                             </span>
+                            <QuickKey label={quickKeyLabel(recentItemId(item))} />
                             <CornerDownLeft className="hidden size-4 text-muted-foreground group-data-[selected=true]:block" />
                           </CommandItem>
                         );
@@ -1163,6 +1229,7 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
                         <HitRow
                           key={hitItemId(hit)}
                           hit={hit}
+                          quickKey={quickKeyLabel(hitItemId(hit))}
                           exact
                           onSelect={select}
                           t={t}
@@ -1204,6 +1271,7 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
                               ) : null}
                             </span>
                             {shortcut ? <Kbd>{shortcut}</Kbd> : null}
+                            <QuickKey label={quickKeyLabel(item.id)} />
                             <CornerDownLeft className="hidden size-4 text-muted-foreground group-data-[selected=true]:block" />
                           </CommandItem>
                         );
@@ -1216,6 +1284,7 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
                         <HitRow
                           key={hitItemId(hit)}
                           hit={hit}
+                          quickKey={quickKeyLabel(hitItemId(hit))}
                           exact={false}
                           onSelect={select}
                           t={t}
@@ -1227,10 +1296,13 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
                         <CommandItem
                           value={group.showAll.id}
                           onSelect={select}
-                          className="gap-2 rounded-lg px-2 py-2 text-sm text-primary data-[selected=true]:bg-primary/10"
+                          className="group gap-2 rounded-lg px-2 py-2 text-sm text-primary data-[selected=true]:bg-primary/10"
                         >
                           <ArrowRight className="size-4" />
-                          {t("showAll", { group: t(`dataGroups.${group.type}`) })}
+                          <span className="flex-1">
+                            {t("showAll", { group: t(`dataGroups.${group.type}`) })}
+                          </span>
+                          <QuickKey label={quickKeyLabel(group.showAll.id)} />
                         </CommandItem>
                       ) : null}
                     </CommandGroup>
@@ -1279,7 +1351,7 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
                 <span className="flex items-center gap-1.5">
                   <Kbd>↵</Kbd> {t("hints.open")}
                 </span>
-                <span className="flex items-center gap-1.5">
+                <span className="hidden items-center gap-1.5 md:flex">
                   <Kbd>Ctrl ↵</Kbd> {t("hints.newTab")}
                 </span>
                 {previewHit ? (
@@ -1287,15 +1359,18 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
                     <Kbd>→</Kbd> {t("hints.preview")}
                   </span>
                 ) : null}
+                {quickIds.length > 0 ? (
+                  <span className="flex items-center gap-1.5">
+                    <Kbd>{isMac ? "⌥1–9" : "Alt 1–9"}</Kbd> {t("hints.quickPick")}
+                  </span>
+                ) : null}
                 <span className="flex items-center gap-1.5">
                   <Kbd>Tab</Kbd> {t("hints.scope")}
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <Kbd>Esc</Kbd> {t("hints.close")}
+                  <Kbd>Esc</Kbd> {parsed.prefix ? t("hints.clearScope") : t("hints.close")}
                 </span>
-                <span className="ml-auto">
-                  {parsed.prefix ? t("hints.backToSearch") : t("hints.actionsMode")}
-                </span>
+                <span className="ml-auto">{parsed.prefix ? null : t("hints.actionsMode")}</span>
               </div>
 
               {/* Phones: the scanner is the main way in on the shop floor */}

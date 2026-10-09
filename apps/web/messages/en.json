@@ -8050,7 +8050,9 @@
       "actionsMode": "> actions only",
       "backToSearch": "Backspace — back to search",
       "preview": "actions",
-      "scope": "scope"
+      "scope": "scope",
+      "quickPick": "quick pick",
+      "clearScope": "all results"
     },
     "groups": {
       "quickActions": "Quick actions",
