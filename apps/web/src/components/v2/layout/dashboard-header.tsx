@@ -5,6 +5,7 @@ import { Separator } from "@/components/ui/separator";
 import { GlobalSearchDialog } from "@/components/v2/global-search/global-search-dialog";
 import { GlobalSearchTrigger } from "@/components/v2/global-search/global-search-trigger";
 import type { SearchEntry } from "@/lib/global-search/types";
+import type { SearchSourceId } from "@/lib/global-search/sources";
 import { HeaderNotifications } from "./header-notifications";
 import { HeaderMessages } from "./header-messages";
 import { HeaderContacts } from "./header-contacts";
@@ -34,9 +35,14 @@ import { HeaderQuickAdd } from "./header-quick-add";
 interface DashboardHeaderV2Props {
   /** Server-resolved global search entries (pages + actions) */
   searchEntries?: SearchEntry[];
+  /** Data sources the user may search (scope chips) */
+  searchSources?: SearchSourceId[];
 }
 
-export function DashboardHeaderV2({ searchEntries = [] }: DashboardHeaderV2Props) {
+export function DashboardHeaderV2({
+  searchEntries = [],
+  searchSources = [],
+}: DashboardHeaderV2Props) {
   return (
     <header className="sticky top-0 z-50 flex h-12 shrink-0 items-center gap-2 bg-muted shadow-sm transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
       <div className="flex items-center gap-2 px-6">
@@ -63,7 +69,7 @@ export function DashboardHeaderV2({ searchEntries = [] }: DashboardHeaderV2Props
       </div>
 
       {/* Mounted once: both triggers open this palette */}
-      <GlobalSearchDialog entries={searchEntries} />
+      <GlobalSearchDialog entries={searchEntries} sources={searchSources} />
     </header>
   );
 }

@@ -13,7 +13,7 @@
 | F2   | Akcje (`>`)                                   | ✅ kod + testy, czeka na test ręczny |
 | F3   | Rozpoznanie wklejonego ID                     | ✅ kod + testy, czeka na test ręczny |
 | F4   | Dane P1 (RPC + indeksy)                       | ✅ kod + testy, czeka na test ręczny |
-| F5   | UX wyników: grupy, chipy, podgląd, ostatnie   | ⬜                                   |
+| F5   | UX wyników: grupy, chipy, podgląd, ostatnie   | 🟡 chipy, ostatnie, podświetlanie    |
 | F6   | Telefon + skaner                              | ⬜                                   |
 | F7   | Dane P2                                       | ⬜                                   |
 | F8   | Ranking i P3                                  | ⬜                                   |
@@ -50,11 +50,11 @@
   - [x] Wydajność (migracje `20261009062628`, `20261009063706`) — patrz „Wydajność” niżej
 - [ ] **F5** — UX wyników
   - [ ] Grupy z licznikami, limit + „Pokaż wszystkie”
-  - [ ] Chipy zakresu i prefiksy (`zl:` `cz:` `k:` `lok:` `dok:` `hd:` `@` `>`)
-  - [ ] Podświetlanie dopasowania
+  - [x] Chipy zakresu i prefiksy (`zl:` `cz:` `k:` `lok:` `dok:` `hd:` `pt:` `@` `>`) — chipy tylko dla źródeł, do których użytkownik ma dostęp; zakres zawęża też zapytanie na serwerze; Backspace na samym prefiksie wraca do wyszukiwania
+  - [x] Podświetlanie dopasowania (bez polskich znaków w zapytaniu też: „przyjecie” → „Przyjęcie”)
   - [ ] Panel podglądu (część, zlecenie) + akcje na wyniku (→)
-  - [ ] Ostatnio otwierane w pustym stanie
-  - [ ] Ctrl+Enter — nowa karta
+  - [x] Ostatnio otwierane w pustym stanie (6 pozycji, localStorage per użytkownik + organizacja, tylko linki `/dashboard/…`)
+  - [x] Ctrl+Enter — nowa karta
   - [ ] Informacja o trafieniach w innych oddziałach
 - [ ] **F6** — telefon
   - [ ] Pełny ekran, duże cele dotyku, chipy przewijane w poziomie

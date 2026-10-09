@@ -96,7 +96,7 @@ describe("buildPaletteGroups", () => {
   ];
 
   it("parses the > actions prefix", () => {
-    expect(parsePaletteQuery(" > nowe ")).toEqual({ actionsMode: true, text: "nowe" });
+    expect(parsePaletteQuery(" > nowe ")).toMatchObject({ actionsMode: true, text: "nowe" });
     expect(parsePaletteQuery("zl")).toEqual({ actionsMode: false, text: "zl" });
   });
 

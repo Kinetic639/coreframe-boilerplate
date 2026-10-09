@@ -8,6 +8,7 @@ import { loadAdminContextV2 } from "@/server/loaders/v2/load-admin-context.v2";
 import { EntitlementsService } from "@/server/services/entitlements-service";
 import { buildSidebarModel } from "@/server/sidebar/build-sidebar-model";
 import { buildSearchEntries } from "@/lib/global-search/build-entries";
+import { resolveSearchSources } from "@/lib/global-search/sources";
 import { createClient } from "@/utils/supabase/server";
 import { UserToolsService } from "@/server/services/tools.service";
 import { getLatestActivityAction } from "@/app/actions/audit/get-latest-activity";
@@ -158,6 +159,12 @@ export default async function DashboardV2Layout({ children }: { children: React.
     },
   });
 
+  // Data sources the user may search (scope chips); the server action re-checks them
+  const searchSources = resolveSearchSources(
+    context.user.permissionSnapshot,
+    entitlements?.enabled_modules ?? []
+  );
+
   // Check admin entitlements to show Admin Panel link in the user menu
   const adminContext = await loadAdminContextV2();
   const isAdmin = adminContext?.adminEntitlements?.enabled ?? false;
@@ -175,6 +182,7 @@ export default async function DashboardV2Layout({ children }: { children: React.
         <DashboardShell
           sidebarModel={sidebarModel}
           searchEntries={searchEntries}
+          searchSources={searchSources}
           isAdmin={isAdmin}
           accessibleBranches={context.app.accessibleBranches}
           activeBranchId={context.app.activeBranchId}

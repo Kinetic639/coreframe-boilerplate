@@ -1,5 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { DetectedSearchId } from "@/lib/global-search/id-patterns";
+import type { SearchSourceId } from "@/lib/global-search/sources";
+
+export type { SearchSourceId };
 
 /**
  * Global search over operational data.
@@ -13,16 +16,6 @@ import type { DetectedSearchId } from "@/lib/global-search/id-patterns";
  * gates decided by the caller. Branch-bound objects are looked up in the active
  * branch only; tickets, tasks and people follow their organization-wide RLS.
  */
-
-export type SearchSourceId =
-  | "repairOrders"
-  | "tickets"
-  | "tasks"
-  | "documents"
-  | "containers"
-  | "locations"
-  | "items"
-  | "people";
 
 export type ExactHitType =
   | "repairOrder"

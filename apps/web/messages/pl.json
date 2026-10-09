@@ -8029,7 +8029,8 @@
       "goTo": "Przejdź do",
       "pages": "Strony",
       "actions": "Akcje",
-      "exact": "Dokładne trafienie"
+      "exact": "Dokładne trafienie",
+      "recent": "Ostatnio otwierane"
     },
     "sections": {
       "warehouse": "Magazyn",
@@ -8111,6 +8112,21 @@
       "stock": "stan {onHand} · dostępne {available}",
       "noStock": "brak na stanie w tym oddziale",
       "location": "lokalizacja {code}"
-    }
+    },
+    "scopes": {
+      "repairOrders": "Zlecenia",
+      "items": "Części",
+      "containers": "Kontenery",
+      "locations": "Lokalizacje",
+      "documents": "Dokumenty",
+      "tickets": "Zapytania",
+      "tasks": "Zadania",
+      "people": "Osoby"
+    },
+    "scopeAll": "Wszystko",
+    "scopeActions": "Akcje",
+    "scopesLabel": "Zakres wyszukiwania",
+    "scopePlaceholder": "Szukaj: {scope}…",
+    "typeMore": "Wpisz co najmniej 3 znaki."
   }
 }

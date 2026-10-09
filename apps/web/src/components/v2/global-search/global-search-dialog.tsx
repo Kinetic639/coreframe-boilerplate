@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
@@ -11,6 +11,7 @@ import {
   Car,
   CheckSquare,
   CornerDownLeft,
+  History,
   FileText,
   MapPin,
   Package,
@@ -34,14 +35,24 @@ import { toUnsafeI18nHref } from "@/lib/i18n/unsafe-href";
 import { getIconComponent } from "@/lib/sidebar/v2/icon-map";
 import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
 import { useUiStoreV2 } from "@/lib/stores/v2/ui-store";
+import { useUserStoreV2 } from "@/lib/stores/v2/user-store";
 import { changeBranch } from "@/app/actions/shared/changeBranch";
 import { signOutAction } from "@/app/[locale]/actions";
+import { cn } from "@/lib/utils";
 import {
   ACTIONS_PREFIX,
   buildPaletteGroups,
   parsePaletteQuery,
+  withPalettePrefix,
   type PaletteItem,
 } from "@/lib/global-search/palette";
+import { highlightRanges } from "@/lib/global-search/match";
+import {
+  pushRecentSearch,
+  readRecentSearches,
+  type RecentSearchItem,
+} from "@/lib/global-search/recent";
+import { SEARCH_SCOPES, type SearchSourceId } from "@/lib/global-search/sources";
 import type { SearchEntry } from "@/lib/global-search/types";
 import { useDebounce } from "@/hooks/use-debounce";
 import { globalSearchAction, type GlobalSearchResult } from "@/app/actions/global-search";
@@ -82,20 +93,66 @@ const DATA_GROUP_ORDER: ExactHitType[] = [
 type Target =
   | { type: "entry"; entry: SearchEntry }
   | { type: "branch"; branchId: string; name: string }
-  | { type: "hit"; hit: SearchExactHit };
+  | { type: "hit"; hit: SearchExactHit }
+  | { type: "recent"; item: RecentSearchItem };
+
+const RECENT_ITEM_PREFIX = "recent:";
 
 function hitItemId(hit: SearchExactHit): string {
   return `${HIT_ITEM_PREFIX}${hit.type}:${hit.id}`;
 }
 
+function recentItemId(item: RecentSearchItem): string {
+  return `${RECENT_ITEM_PREFIX}${item.id}`;
+}
+
+function routeHref(href: string, query?: Record<string, string>) {
+  const pathname = toUnsafeI18nHref(href);
+  return query ? { pathname, query } : pathname;
+}
+
 function hitHref(hit: SearchExactHit) {
-  const pathname = toUnsafeI18nHref(hit.href);
-  return hit.query ? { pathname, query: hit.query } : pathname;
+  return routeHref(hit.href, hit.query);
+}
+
+function recentHref(item: RecentSearchItem) {
+  return routeHref(item.href, item.query);
+}
+
+function recentIcon(
+  item: RecentSearchItem
+): LucideIcon | React.ComponentType<{ className?: string }> {
+  if (item.kind === "hit" && item.icon in HIT_ICONS) return HIT_ICONS[item.icon as ExactHitType];
+  return item.kind === "page" ? getIconComponent(item.icon) : History;
+}
+
+/** Text with the query words highlighted */
+function Highlighted({ text, query }: { text: string; query: string }) {
+  const ranges = highlightRanges(text, query);
+  if (ranges.length === 0) return <>{text}</>;
+  const parts: React.ReactNode[] = [];
+  let cursor = 0;
+  ranges.forEach(([start, end], index) => {
+    if (start > cursor) parts.push(text.slice(cursor, start));
+    parts.push(
+      <mark
+        key={index}
+        className="rounded-sm bg-amber-200/70 px-0 text-inherit dark:bg-amber-400/30"
+      >
+        {text.slice(start, end)}
+      </mark>
+    );
+    cursor = end;
+  });
+  if (cursor < text.length) parts.push(text.slice(cursor));
+  return <>{parts}</>;
 }
 
 interface GlobalSearchDialogProps {
   /** Server-resolved pages and actions the user may open */
   entries: SearchEntry[];
+  /** Data sources the user may search (scope chips and prefixes) */
+  sources?: SearchSourceId[];
 }
 
 function Kbd({ children }: { children: React.ReactNode }) {
@@ -103,6 +160,44 @@ function Kbd({ children }: { children: React.ReactNode }) {
     <kbd className="rounded border bg-background px-1.5 py-0.5 font-mono text-[11px] font-medium text-muted-foreground">
       {children}
     </kbd>
+  );
+}
+
+function ScopeChip({
+  active,
+  hint,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  hint?: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={cn(
+        "flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-sm transition-colors",
+        active
+          ? "border-foreground bg-foreground text-background"
+          : "bg-background text-foreground hover:bg-accent"
+      )}
+    >
+      {children}
+      {hint ? (
+        <span
+          className={cn(
+            "font-mono text-[11px]",
+            active ? "text-background/70" : "text-muted-foreground"
+          )}
+        >
+          {hint}
+        </span>
+      ) : null}
+    </button>
   );
 }
 
@@ -148,9 +243,11 @@ interface HitRowProps {
   onSelect: (value: string) => void;
   t: GlobalSearchTranslator;
   statusLabel: (status: string) => string;
+  /** Query text (without the mode prefix) to highlight */
+  query: string;
 }
 
-function HitRow({ hit, exact, onSelect, t, statusLabel }: HitRowProps) {
+function HitRow({ hit, exact, onSelect, t, statusLabel, query }: HitRowProps) {
   const Icon = HIT_ICONS[hit.type];
   const details = hitDetails(hit, t, exact);
   return (
@@ -174,9 +271,13 @@ function HitRow({ hit, exact, onSelect, t, statusLabel }: HitRowProps) {
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-medium">
-          {hit.code ? <span className="font-mono">{hit.code}</span> : null}
+          {hit.code ? (
+            <span className="font-mono">
+              <Highlighted text={hit.code} query={query} />
+            </span>
+          ) : null}
           {hit.code && hit.title ? " · " : null}
-          {hit.title}
+          {hit.title ? <Highlighted text={hit.title} query={query} /> : null}
         </span>
         {details ? (
           <span className="block truncate text-xs text-muted-foreground">{details}</span>
@@ -199,7 +300,7 @@ function HitRow({ hit, exact, onSelect, t, statusLabel }: HitRowProps) {
  * server-side; `>` switches to the actions mode. Enter opens, Ctrl+Enter opens
  * a page in a new tab, Esc closes (focus returns to where it was).
  */
-export function GlobalSearchDialog({ entries }: GlobalSearchDialogProps) {
+export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialogProps) {
   const t = useTranslations("globalSearch");
   const tRoot = useTranslations();
   const locale = useLocale();
@@ -208,11 +309,25 @@ export function GlobalSearchDialog({ entries }: GlobalSearchDialogProps) {
   const params = useParams();
   const { resolvedTheme, setTheme } = useTheme();
   const setStoreTheme = useUiStoreV2((s) => s.setTheme);
-  const { accessibleBranches, activeBranchId, setActiveBranch } = useAppStoreV2();
+  const { accessibleBranches, activeBranchId, activeOrgId, setActiveBranch } = useAppStoreV2();
+  const userId = useUserStoreV2((s) => s.user?.id ?? null);
   const { open, initialQuery, setOpen, toggle } = useGlobalSearchStore();
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState("");
+  const [recent, setRecent] = useState<RecentSearchItem[]>([]);
   const [isPending, startTransition] = useTransition();
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (open && userId && activeOrgId) setRecent(readRecentSearches(userId, activeOrgId));
+  }, [open, userId, activeOrgId]);
+
+  const remember = useCallback(
+    (item: RecentSearchItem) => {
+      if (userId && activeOrgId) setRecent(pushRecentSearch(userId, activeOrgId, item));
+    },
+    [userId, activeOrgId]
+  );
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -268,18 +383,22 @@ export function GlobalSearchDialog({ entries }: GlobalSearchDialogProps) {
     return { items: list, targets: targetMap };
   }, [entries, accessibleBranches, activeBranchId, label, t]);
 
-  const groups = useMemo(() => buildPaletteGroups(query, items), [query, items]);
-  const { actionsMode } = parsePaletteQuery(query);
+  const groups = useMemo(() => buildPaletteGroups(query, items, sources), [query, items, sources]);
+  const parsed = parsePaletteQuery(query, sources);
+  const { actionsMode } = parsed;
+  const isEmptyQuery = !parsed.prefix && !parsed.text;
 
   // Data: exact hits for a recognized identifier (ZL, VIN, HD-, PZ/…, code) and
   // fragment matches across orders, parts, locations, … — one server call
   const debouncedQuery = useDebounce(query, SEARCH_DEBOUNCE_MS);
-  const dataText = parsePaletteQuery(debouncedQuery).actionsMode ? "" : debouncedQuery.trim();
-  const dataEnabled = open && !actionsMode && dataText.length >= MIN_DATA_QUERY;
+  const debounced = parsePaletteQuery(debouncedQuery, sources);
+  const dataText = debounced.actionsMode ? "" : debounced.text;
+  const dataEnabled =
+    open && !actionsMode && sources.length > 0 && dataText.length >= MIN_DATA_QUERY;
   const dataQuery = useQuery({
-    queryKey: ["global-search", "data", activeBranchId, dataText],
+    queryKey: ["global-search", "data", activeBranchId, debounced.scope ?? "all", dataText],
     queryFn: async () => {
-      const result = await globalSearchAction(dataText);
+      const result = await globalSearchAction(dataText, debounced.scope);
       return result.success ? result.data : EMPTY_RESULT;
     },
     enabled: dataEnabled,
@@ -287,7 +406,7 @@ export function GlobalSearchDialog({ entries }: GlobalSearchDialogProps) {
     // Keep the previous results on screen while the next query loads
     placeholderData: (previous) => previous,
   });
-  const showData = dataEnabled && query.trim().length >= MIN_DATA_QUERY;
+  const showData = dataEnabled && parsed.text.length >= MIN_DATA_QUERY;
   const data = showData ? (dataQuery.data ?? EMPTY_RESULT) : EMPTY_RESULT;
   const exactHits = data.exact;
   const dataLoading = dataEnabled && dataQuery.isFetching;
@@ -301,14 +420,17 @@ export function GlobalSearchDialog({ entries }: GlobalSearchDialogProps) {
     [data.results]
   );
 
+  // Recently opened: shown for an empty query only
+  const recentItems = useMemo(() => (isEmptyQuery ? recent : []), [isEmptyQuery, recent]);
+
   const allTargets = useMemo(() => {
-    if (exactHits.length === 0 && data.results.length === 0) return targets;
     const map = new Map(targets);
     for (const hit of [...exactHits, ...data.results]) {
       map.set(hitItemId(hit), { type: "hit", hit });
     }
+    for (const item of recentItems) map.set(recentItemId(item), { type: "recent", item });
     return map;
-  }, [data.results, exactHits, targets]);
+  }, [data.results, exactHits, recentItems, targets]);
 
   const statusLabel = useCallback(
     (status: string) =>
@@ -379,17 +501,51 @@ export function GlobalSearchDialog({ entries }: GlobalSearchDialogProps) {
     [close, locale, params, pathname, resolvedTheme, router, setStoreTheme, setTheme]
   );
 
+  /** What "recently opened" keeps for a target (pages and data; not commands) */
+  const recentFor = useCallback(
+    (target: Target): RecentSearchItem | null => {
+      if (target.type === "recent") return target.item;
+      if (target.type === "hit") {
+        return {
+          id: hitItemId(target.hit),
+          kind: "hit",
+          label: target.hit.title ?? "",
+          code: target.hit.code,
+          subtitle: t(`hitTypes.${target.hit.type}`),
+          icon: target.hit.type,
+          href: target.hit.href,
+          query: target.hit.query,
+        };
+      }
+      if (target.type === "entry" && target.entry.kind === "page" && target.entry.href) {
+        const parent = label(target.entry.parentTitleKey, target.entry.parentTitle);
+        return {
+          id: target.entry.id,
+          kind: "page",
+          label: label(target.entry.titleKey, target.entry.title),
+          subtitle: parent || undefined,
+          icon: target.entry.iconKey,
+          href: target.entry.href,
+        };
+      }
+      return null;
+    },
+    [label, t]
+  );
+
   const select = useCallback(
     (id: string) => {
       const target = allTargets.get(id);
       if (!target) return;
+      const recentItem = recentFor(target);
+      if (recentItem) remember(recentItem);
       if (target.type === "branch") switchBranch(target.branchId, target.name);
-      else if (target.type === "hit") {
+      else if (target.type === "hit" || target.type === "recent") {
         close();
-        router.push(hitHref(target.hit));
+        router.push(target.type === "hit" ? hitHref(target.hit) : recentHref(target.item));
       } else runEntry(target.entry);
     },
-    [allTargets, close, router, runEntry, switchBranch]
+    [allTargets, close, recentFor, remember, router, runEntry, switchBranch]
   );
 
   const openInNewTab = useCallback(
@@ -397,25 +553,43 @@ export function GlobalSearchDialog({ entries }: GlobalSearchDialogProps) {
       const target = allTargets.get(id);
       let href;
       if (target?.type === "hit") href = hitHref(target.hit);
+      else if (target?.type === "recent") href = recentHref(target.item);
       else if (target?.type === "entry" && target.entry.href && !target.entry.command)
         href = toUnsafeI18nHref(target.entry.href);
-      if (!href) return false;
+      if (!href || !target) return false;
+      const recentItem = recentFor(target);
+      if (recentItem) remember(recentItem);
       window.open(getPathname({ href, locale }), "_blank", "noopener");
       close();
       return true;
     },
-    [allTargets, close, locale]
+    [allTargets, close, locale, recentFor, remember]
+  );
+
+  const applyPrefix = useCallback(
+    (prefix: string | null) => {
+      setQuery(withPalettePrefix(query, prefix));
+      inputRef.current?.focus();
+    },
+    [query]
   );
 
   const onKeyDown = (event: React.KeyboardEvent) => {
     if (event.key === "Enter" && (event.ctrlKey || event.metaKey) && selected) {
       if (openInNewTab(selected)) event.preventDefault();
     }
-    if (event.key === "Backspace" && query === ACTIONS_PREFIX) {
+    // Backspace on a bare prefix (">", "zl: ") leaves the mode
+    if (event.key === "Backspace" && parsed.prefix && !parsed.text) {
       event.preventDefault();
       setQuery("");
     }
   };
+
+  const modeBadge = parsed.actionsMode
+    ? t("actionsModeBadge")
+    : parsed.scope
+      ? `${parsed.prefix} ${t(`scopes.${parsed.scope}`)}`
+      : null;
 
   const groupHeading = (id: string) =>
     t.has(`groups.${id}`) ? t(`groups.${id}`) : t(`sections.${id}`);
@@ -438,16 +612,23 @@ export function GlobalSearchDialog({ entries }: GlobalSearchDialogProps) {
           className="flex min-h-0 flex-1 flex-col [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:pb-1.5 [&_[cmdk-group-heading]]:pt-3 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wide [&_[cmdk-group-heading]]:text-muted-foreground"
         >
           <div className="flex items-center border-b pr-3 [&_[data-cmdk-input-wrapper]]:border-0">
-            {actionsMode ? (
+            {modeBadge ? (
               <span className="ml-3 shrink-0 rounded-md bg-primary/10 px-2 py-0.5 font-mono text-xs font-semibold text-primary">
-                {t("actionsModeBadge")}
+                {modeBadge}
               </span>
             ) : null}
             <div className="flex-1">
               <CommandInput
+                ref={inputRef}
                 value={query}
                 onValueChange={setQuery}
-                placeholder={actionsMode ? t("actionsPlaceholder") : t("placeholder")}
+                placeholder={
+                  actionsMode
+                    ? t("actionsPlaceholder")
+                    : parsed.scope
+                      ? t("scopePlaceholder", { scope: t(`scopes.${parsed.scope}`) })
+                      : t("placeholder")
+                }
                 aria-label={t("dialogTitle")}
                 className="h-14 text-base"
               />
@@ -461,10 +642,74 @@ export function GlobalSearchDialog({ entries }: GlobalSearchDialogProps) {
             </button>
           </div>
 
+          {/* Scope chips: same as typing the prefix */}
+          <div
+            role="toolbar"
+            aria-label={t("scopesLabel")}
+            className="flex gap-1.5 overflow-x-auto border-b px-3 py-2 [scrollbar-width:none]"
+          >
+            <ScopeChip active={!parsed.prefix} onClick={() => applyPrefix(null)}>
+              {t("scopeAll")}
+            </ScopeChip>
+            {SEARCH_SCOPES.filter((scope) => sources.includes(scope.source)).map((scope) => (
+              <ScopeChip
+                key={scope.source}
+                active={parsed.scope === scope.source}
+                hint={scope.prefix}
+                onClick={() => applyPrefix(scope.prefix)}
+              >
+                {t(`scopes.${scope.source}`)}
+              </ScopeChip>
+            ))}
+            <ScopeChip
+              active={actionsMode}
+              hint={ACTIONS_PREFIX}
+              onClick={() => applyPrefix(ACTIONS_PREFIX)}
+            >
+              {t("scopeActions")}
+            </ScopeChip>
+          </div>
+
           <CommandList className="!max-h-none min-h-0 flex-1 overflow-y-auto px-2 pb-2 sm:!max-h-[60vh]">
             <CommandEmpty className="py-10 text-center text-sm text-muted-foreground">
-              {dataLoading ? t("searching") : t("empty")}
+              {dataLoading
+                ? t("searching")
+                : parsed.scope && parsed.text.length < MIN_DATA_QUERY
+                  ? t("typeMore")
+                  : t("empty")}
             </CommandEmpty>
+            {recentItems.length > 0 ? (
+              <CommandGroup heading={t("groups.recent")}>
+                {recentItems.map((item) => {
+                  const Icon = recentIcon(item);
+                  return (
+                    <CommandItem
+                      key={recentItemId(item)}
+                      value={recentItemId(item)}
+                      onSelect={select}
+                      className="group gap-3 rounded-lg px-2 py-2.5 data-[selected=true]:bg-primary/10"
+                    >
+                      <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground group-data-[selected=true]:bg-background group-data-[selected=true]:text-primary">
+                        <Icon className="size-4" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium">
+                          {item.code ? <span className="font-mono">{item.code}</span> : null}
+                          {item.code && item.label ? " · " : null}
+                          {item.label}
+                        </span>
+                        {item.subtitle ? (
+                          <span className="block truncate text-xs text-muted-foreground">
+                            {item.subtitle}
+                          </span>
+                        ) : null}
+                      </span>
+                      <CornerDownLeft className="hidden size-4 text-muted-foreground group-data-[selected=true]:block" />
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
+            ) : null}
             {exactHits.length > 0 ? (
               <CommandGroup heading={t("groups.exact")}>
                 {exactHits.map((hit) => (
@@ -475,6 +720,7 @@ export function GlobalSearchDialog({ entries }: GlobalSearchDialogProps) {
                     onSelect={select}
                     t={t}
                     statusLabel={statusLabel}
+                    query={parsed.text}
                   />
                 ))}
               </CommandGroup>
@@ -498,7 +744,9 @@ export function GlobalSearchDialog({ entries }: GlobalSearchDialogProps) {
                         <Icon className="size-4" />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium">{item.label}</span>
+                        <span className="block truncate text-sm font-medium">
+                          <Highlighted text={item.label} query={parsed.text} />
+                        </span>
                         {item.subtitle ? (
                           <span className="block truncate text-xs text-muted-foreground">
                             {item.subtitle}
@@ -522,6 +770,7 @@ export function GlobalSearchDialog({ entries }: GlobalSearchDialogProps) {
                     onSelect={select}
                     t={t}
                     statusLabel={statusLabel}
+                    query={parsed.text}
                   />
                 ))}
               </CommandGroup>
@@ -542,7 +791,7 @@ export function GlobalSearchDialog({ entries }: GlobalSearchDialogProps) {
               <Kbd>Esc</Kbd> {t("hints.close")}
             </span>
             <span className="ml-auto">
-              {actionsMode ? t("hints.backToSearch") : t("hints.actionsMode")}
+              {parsed.prefix ? t("hints.backToSearch") : t("hints.actionsMode")}
             </span>
           </div>
         </Command>

@@ -68,3 +68,41 @@ export function scoreSearchMatch(query: string, label: string, keywords: string[
   if (normalizedLabel.startsWith(q)) total += 20;
   return total;
 }
+
+/**
+ * Character ranges of `label` matched by the query words, diacritics-insensitive
+ * ("przyjecie" highlights "Przyjęcie"). Ranges are [start, end) and merged.
+ */
+export function highlightRanges(label: string, query: string): [number, number][] {
+  const tokens = words(normalizeSearchText(query)).filter((token) => token.length > 0);
+  if (tokens.length === 0) return [];
+
+  // Normalized text with, for each of its characters, the index in `label`
+  let normalized = "";
+  const origin: number[] = [];
+  for (let i = 0; i < label.length; i += 1) {
+    const raw = label[i]!;
+    const ch = /\s/.test(raw) ? " " : normalizeSearchText(raw);
+    for (const c of ch) {
+      normalized += c;
+      origin.push(i);
+    }
+  }
+
+  const ranges: [number, number][] = [];
+  for (const token of tokens) {
+    let from = normalized.indexOf(token);
+    while (from !== -1) {
+      ranges.push([origin[from]!, origin[from + token.length - 1]! + 1]);
+      from = normalized.indexOf(token, from + token.length);
+    }
+  }
+  ranges.sort((a, b) => a[0] - b[0]);
+  const merged: [number, number][] = [];
+  for (const range of ranges) {
+    const last = merged[merged.length - 1];
+    if (last && range[0] <= last[1]) last[1] = Math.max(last[1], range[1]);
+    else merged.push([...range]);
+  }
+  return merged;
+}

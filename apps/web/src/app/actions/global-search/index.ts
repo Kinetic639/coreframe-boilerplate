@@ -3,73 +3,17 @@
 import { createClient } from "@/utils/supabase/server";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { EntitlementsService } from "@/server/services/entitlements-service";
-import { checkPermission } from "@/lib/utils/permissions";
-import {
-  HELPDESK_TICKETS_READ,
-  MEMBERS_READ,
-  MODULE_HELPDESK_ACCESS,
-  MODULE_ORGANIZATION_MANAGEMENT_ACCESS,
-  MODULE_PLANNING_ACCESS,
-  MODULE_WAREHOUSE_ACCESS,
-  MODULE_WORKSHOP_ACCESS,
-  PLANNING_TASKS_READ,
-  WAREHOUSE_INVENTORY_READ,
-  WAREHOUSE_LOCATIONS_READ,
-  WAREHOUSE_PRODUCTS_READ,
-  WORKSHOP_REPAIR_ORDERS_READ,
-} from "@/lib/constants/permissions";
-import {
-  MODULE_HELPDESK,
-  MODULE_ORGANIZATION_MANAGEMENT,
-  MODULE_PLANNING,
-  MODULE_WAREHOUSE,
-  MODULE_WORKSHOP,
-} from "@/lib/constants/modules";
 import { detectSearchIds } from "@/lib/global-search/id-patterns";
+import { resolveSearchSources, type SearchSourceId } from "@/lib/global-search/sources";
 import {
   GlobalSearchService,
   MIN_TEXT_QUERY,
   type SearchExactHit,
-  type SearchSourceId,
 } from "@/server/services/global-search.service";
 
 type ActionResult<T> = { success: true; data: T } | { success: false; error: string };
 
 const MAX_QUERY_LENGTH = 80;
-
-/** Module + permissions each source needs (mirrors the target pages' guards) */
-const SOURCE_GATES: Record<SearchSourceId, { module: string; permissions: string[] }> = {
-  repairOrders: {
-    module: MODULE_WORKSHOP,
-    permissions: [MODULE_WORKSHOP_ACCESS, WORKSHOP_REPAIR_ORDERS_READ],
-  },
-  tickets: {
-    module: MODULE_HELPDESK,
-    permissions: [MODULE_HELPDESK_ACCESS, HELPDESK_TICKETS_READ],
-  },
-  tasks: { module: MODULE_PLANNING, permissions: [MODULE_PLANNING_ACCESS, PLANNING_TASKS_READ] },
-  documents: {
-    module: MODULE_WAREHOUSE,
-    permissions: [MODULE_WAREHOUSE_ACCESS, WAREHOUSE_INVENTORY_READ],
-  },
-  containers: {
-    module: MODULE_WAREHOUSE,
-    permissions: [MODULE_WAREHOUSE_ACCESS, WAREHOUSE_INVENTORY_READ],
-  },
-  locations: {
-    module: MODULE_WAREHOUSE,
-    permissions: [MODULE_WAREHOUSE_ACCESS, WAREHOUSE_LOCATIONS_READ],
-  },
-  items: {
-    module: MODULE_WAREHOUSE,
-    permissions: [MODULE_WAREHOUSE_ACCESS, WAREHOUSE_PRODUCTS_READ],
-  },
-  // People link to the member page, which requires members.read
-  people: {
-    module: MODULE_ORGANIZATION_MANAGEMENT,
-    permissions: [MODULE_ORGANIZATION_MANAGEMENT_ACCESS, MEMBERS_READ],
-  },
-};
 
 export interface GlobalSearchResult {
   /** Objects whose identifier equals the query (ZL, VIN, HD-, PZ/…, code) */
@@ -88,9 +32,13 @@ const EMPTY: GlobalSearchResult = { exact: [], results: [] };
  * code, SKU or barcode) plus fragment matches across orders, parts, locations,
  * containers, documents, requests and people. Each source is searched only
  * when the module is enabled and the user holds its permissions; RLS applies.
+ *
+ * @param scope optional single source (palette scope prefix such as `zl:`);
+ *   it can only narrow the allowed sources, never widen them.
  */
 export async function globalSearchAction(
-  rawQuery: string
+  rawQuery: string,
+  scope?: SearchSourceId
 ): Promise<ActionResult<GlobalSearchResult>> {
   try {
     const query = rawQuery.trim().slice(0, MAX_QUERY_LENGTH);
@@ -103,27 +51,18 @@ export async function globalSearchAction(
     if (!context || !orgId) return { success: false, error: "Unauthorized" };
 
     const entitlements = await EntitlementsService.loadEntitlements(orgId);
-    const enabledModules = new Set(entitlements?.enabled_modules ?? []);
-    const snapshot = context.user.permissionSnapshot;
-    const sources = new Set<SearchSourceId>();
-    for (const [source, gate] of Object.entries(SOURCE_GATES) as [
-      SearchSourceId,
-      (typeof SOURCE_GATES)[SearchSourceId],
-    ][]) {
-      if (
-        enabledModules.has(gate.module) &&
-        gate.permissions.every((permission) => checkPermission(snapshot, permission))
-      ) {
-        sources.add(source);
-      }
-    }
+    const allowed = resolveSearchSources(
+      context.user.permissionSnapshot,
+      entitlements?.enabled_modules ?? []
+    );
+    const sources = new Set(scope ? allowed.filter((source) => source === scope) : allowed);
     if (sources.size === 0) return { success: true, data: EMPTY };
 
-    const scope = { orgId, branchId: context.app.activeBranchId, sources };
+    const searchScope = { orgId, branchId: context.app.activeBranchId, sources };
     const [exact, text] = await Promise.all([
-      detected.length ? GlobalSearchService.findExactHits(supabase, scope, detected) : [],
+      detected.length ? GlobalSearchService.findExactHits(supabase, searchScope, detected) : [],
       // A slow or failed fragment search must not hide the exact hits
-      GlobalSearchService.searchText(supabase, scope, query).catch((error: unknown) => {
+      GlobalSearchService.searchText(supabase, searchScope, query).catch((error: unknown) => {
         console.error("[globalSearchAction] text search", error);
         return [];
       }),

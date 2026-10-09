@@ -8055,7 +8055,8 @@
       "goTo": "Go to",
       "pages": "Pages",
       "actions": "Actions",
-      "exact": "Exact match"
+      "exact": "Exact match",
+      "recent": "Recently opened"
     },
     "sections": {
       "warehouse": "Warehouse",
@@ -8137,6 +8138,21 @@
       "stock": "on hand {onHand} · available {available}",
       "noStock": "no stock in this branch",
       "location": "location {code}"
-    }
+    },
+    "scopes": {
+      "repairOrders": "Orders",
+      "items": "Items",
+      "containers": "Containers",
+      "locations": "Locations",
+      "documents": "Documents",
+      "tickets": "Requests",
+      "tasks": "Tasks",
+      "people": "People"
+    },
+    "scopeAll": "All",
+    "scopeActions": "Actions",
+    "scopesLabel": "Search scope",
+    "scopePlaceholder": "Search: {scope}…",
+    "typeMore": "Type at least 3 characters."
   }
 }
