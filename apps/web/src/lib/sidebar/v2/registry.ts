@@ -99,78 +99,51 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
       requiresPermissions: [MODULE_WAREHOUSE_ACCESS],
     },
     children: [
+      // Flat list (no Inventory / Purchases sub-groups): inventory, movements,
+      // putaway and items sit directly under Warehouse
       {
         id: "warehouse.inventory",
         title: "Inventory",
         titleKey: "modules.warehouse.items.inventory.title",
         iconKey: "clipboard",
         href: "/dashboard/warehouse/inventory",
-        match: { startsWith: "/dashboard/warehouse/inventory" },
+        match: { exact: "/dashboard/warehouse/inventory" },
         visibility: {
           requiresPermissions: [WAREHOUSE_INVENTORY_READ],
         },
-        children: [
-          {
-            id: "warehouse.inventory.movements",
-            title: "Stock Movements",
-            titleKey: "modules.warehouse.items.inventory.movements",
-            iconKey: "transfers",
-            href: "/dashboard/warehouse/inventory/movements",
-            match: { startsWith: "/dashboard/warehouse/inventory/movements" },
-            visibility: {
-              requiresPermissions: [WAREHOUSE_INVENTORY_READ],
-            },
-          },
-          {
-            id: "warehouse.putaway",
-            title: "Putaway",
-            titleKey: "modules.warehouse.items.putaway",
-            iconKey: "truck",
-            href: "/dashboard/warehouse/putaway",
-            match: { startsWith: "/dashboard/warehouse/putaway" },
-            visibility: {
-              requiresPermissions: [WAREHOUSE_INVENTORY_READ],
-            },
-          },
-          {
-            id: "warehouse.items",
-            title: "Items",
-            titleKey: "modules.warehouse.items.products.title",
-            iconKey: "products",
-            href: "/dashboard/warehouse/items",
-            match: { startsWith: "/dashboard/warehouse/items" },
-            visibility: {
-              requiresPermissions: [WAREHOUSE_PRODUCTS_READ],
-            },
-          },
-        ],
       },
-
       {
-        id: "warehouse.purchases",
-        title: "Purchases",
-        titleKey: "modules.warehouse.items.purchases.title",
+        id: "warehouse.inventory.movements",
+        title: "Stock Movements",
+        titleKey: "modules.warehouse.items.inventory.movements",
+        iconKey: "transfers",
+        href: "/dashboard/warehouse/inventory/movements",
+        match: { startsWith: "/dashboard/warehouse/inventory/movements" },
+        visibility: {
+          requiresPermissions: [WAREHOUSE_INVENTORY_READ],
+        },
+      },
+      {
+        id: "warehouse.putaway",
+        title: "Putaway",
+        titleKey: "modules.warehouse.items.putaway",
         iconKey: "truck",
-        href: "/dashboard/warehouse/purchases",
-        match: { startsWith: "/dashboard/warehouse/purchases" },
-        children: [
-          {
-            id: "warehouse.deliveries",
-            title: "Deliveries",
-            titleKey: "modules.warehouse.items.deliveries.title",
-            iconKey: "truck",
-            href: "/dashboard/warehouse/deliveries",
-            match: { startsWith: "/dashboard/warehouse/deliveries" },
-          },
-          {
-            id: "warehouse.suppliers",
-            title: "Suppliers",
-            titleKey: "modules.warehouse.items.suppliers.title",
-            iconKey: "building",
-            href: "/dashboard/warehouse/suppliers",
-            match: { startsWith: "/dashboard/warehouse/suppliers" },
-          },
-        ],
+        href: "/dashboard/warehouse/putaway",
+        match: { startsWith: "/dashboard/warehouse/putaway" },
+        visibility: {
+          requiresPermissions: [WAREHOUSE_INVENTORY_READ],
+        },
+      },
+      {
+        id: "warehouse.items",
+        title: "Items",
+        titleKey: "modules.warehouse.items.products.title",
+        iconKey: "products",
+        href: "/dashboard/warehouse/items",
+        match: { startsWith: "/dashboard/warehouse/items" },
+        visibility: {
+          requiresPermissions: [WAREHOUSE_PRODUCTS_READ],
+        },
       },
       {
         id: "warehouse.audits",

@@ -8232,6 +8232,8 @@
       "openNewTab": "In a new tab",
       "copy": "Copy number",
       "movements": "Movement history",
+      "tabReceiving": "Orders & receipts tab",
+      "tabStock": "Warehouse tab",
       "onHand": "On hand",
       "committed": "Reserved",
       "available": "Available",

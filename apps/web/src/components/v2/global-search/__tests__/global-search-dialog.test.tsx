@@ -427,6 +427,34 @@ describe("GlobalSearchDialog", () => {
     expect(changeBranchMock).toHaveBeenCalledWith("b2");
   });
 
+  it("opens a repair order straight on one of its warehouse tabs from the preview", async () => {
+    findExactHitsMock.mockResolvedValue({
+      success: true,
+      data: {
+        exact: [
+          {
+            type: "repairOrder",
+            id: "ro1",
+            code: "ZL/174232",
+            title: "Lakomecki",
+            subtitle: null,
+            status: "open",
+            href: "/dashboard/workshop/ro1",
+          },
+        ],
+        results: [],
+        otherBranches: [],
+      },
+    });
+    renderDialog();
+    openPalette();
+    type("174232");
+
+    fireEvent.click(await screen.findByRole("button", { name: "preview.tabStock" }));
+    expect(push).toHaveBeenCalledWith("/dashboard/workshop/ro1?tab=stock#warehouse");
+    expect(useGlobalSearchStore.getState().open).toBe(false);
+  });
+
   it("previews the highlighted part with stock and offers copy and → into the actions", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
