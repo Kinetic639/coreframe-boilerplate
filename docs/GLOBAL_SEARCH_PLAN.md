@@ -13,7 +13,7 @@
 | F2   | Akcje (`>`)                                   | ✅ kod + testy, czeka na test ręczny |
 | F3   | Rozpoznanie wklejonego ID                     | ✅ kod + testy, czeka na test ręczny |
 | F4   | Dane P1 (RPC + indeksy)                       | ✅ kod + testy, czeka na test ręczny |
-| F5   | UX wyników: grupy, chipy, podgląd, ostatnie   | 🟡 chipy, ostatnie, podświetlanie    |
+| F5   | UX wyników: grupy, chipy, podgląd, ostatnie   | ✅ kod + testy, czeka na test ręczny |
 | F6   | Telefon + skaner                              | ⬜                                   |
 | F7   | Dane P2                                       | ⬜                                   |
 | F8   | Ranking i P3                                  | ⬜                                   |
@@ -29,7 +29,7 @@
   - [x] Strony z sidebaru + strony spoza menu (mapa, import kartoteki, role, zaproszenia, konto…), polskie etykiety i synonimy
   - [x] Filtr: moduł aktywny (entitlements) + uprawnienia — ten sam resolver co sidebar, po stronie serwera
   - [x] Zaślepki „wkrótce” wyłączone (`SEARCH_EXCLUDED_HREFS`)
-  - [ ] Zakładki szczegółów (np. zlecenie → Magazyn) jako akcje na wyniku → przeniesione do F5
+  - [ ] Zakładki szczegółów (np. zlecenie → Magazyn) jako akcje na wyniku — strona zlecenia nie przyjmuje parametru zakładki; do zrobienia razem z nim
 - [x] **F2** — akcje
   - [x] Tryb `>` z grupami modułów, Backspace wraca do wyszukiwania
   - [x] Akcje tworzenia i magazynowe, przełączanie oddziału (każdy oddział osobno), motyw, język, wyloguj
@@ -48,14 +48,14 @@
   - [x] pgTAP 120: 9/9 na żywej bazie (anon bez EXECUTE, oddział, cudza organizacja, część ze spacjami, `_` dosłownie)
   - [x] Debounce 200 ms, poprzednie wyniki zostają na ekranie do czasu nowych (bez migotania)
   - [x] Wydajność (migracje `20261009062628`, `20261009063706`) — patrz „Wydajność” niżej
-- [ ] **F5** — UX wyników
-  - [ ] Grupy z licznikami, limit + „Pokaż wszystkie”
+- [x] **F5** — UX wyników
+  - [x] Limit 5 na grupę + „Pokaż wszystkie: …” → lista modułu z frazą (`?q=` warsztat, `?search=` listy data-view); kontenery bez listy
   - [x] Chipy zakresu i prefiksy (`zl:` `cz:` `k:` `lok:` `dok:` `hd:` `pt:` `@` `>`) — chipy tylko dla źródeł, do których użytkownik ma dostęp; zakres zawęża też zapytanie na serwerze; Backspace na samym prefiksie wraca do wyszukiwania
   - [x] Podświetlanie dopasowania (bez polskich znaków w zapytaniu też: „przyjecie” → „Przyjęcie”)
-  - [ ] Panel podglądu (część, zlecenie) + akcje na wyniku (→)
+  - [x] Panel podglądu (desktop ≥ lg): część — stan / zarezerw. / dostępne, lokalizacje w oddziale, otwarte zlecenia z tą częścią; zlecenie — klient, marka, VIN, magazyn, status, liczba pozycji, pierwsze pozycje (`search_preview_item`, `search_preview_repair_order`, SECURITY INVOKER + RLS). Akcje: Otwórz ↵, Nowa karta Ctrl ↵, Kopiuj numer Ctrl ⇧ C, Historia ruchów; → z pola wejścia do akcji, ← z powrotem
   - [x] Ostatnio otwierane w pustym stanie (6 pozycji, localStorage per użytkownik + organizacja, tylko linki `/dashboard/…`)
   - [x] Ctrl+Enter — nowa karta
-  - [ ] Informacja o trafieniach w innych oddziałach
+  - [x] Trafienia w innych oddziałach (zlecenia, lokalizacje, kontenery, dokumenty; tylko oddziały dostępne użytkownikowi) — przycisk przełącza oddział
 - [ ] **F6** — telefon
   - [ ] Pełny ekran, duże cele dotyku, chipy przewijane w poziomie
   - [ ] Przycisk skanowania QR / kodu kreskowego → rozpoznanie ID
@@ -168,8 +168,41 @@ Wzorce sprawdzane przed wyszukiwaniem tekstowym, w kolejności: kod QR → pełn
 - **Rozwiązanie — dwa etapy**: `search_global_candidates()` (SECURITY DEFINER, tylko id + ranking, odmawia osobom spoza organizacji) znajduje kandydatów indeksami trigramowymi; `search_global()` (SECURITY INVOKER) czyta ich po kluczu głównym i **RLS decyduje** o każdym wierszu — liczony dla kilkudziesięciu wierszy zamiast całej tabeli.
 - Fragmenty krótsze niż 3 znaki nie są szukane (indeks trigramowy ich nie obsłuży); kandydaci zbierani `UNION` per indeks zamiast `OR`; stan części liczony po `LIMIT`.
 - Serwer aplikacji przerywa wyszukiwanie tekstowe po 3 s; dokładne trafienia przychodzą niezależnie. Baza ma twardy limit 8 s dla roli `authenticated`.
-- **Pomiar** (jako zalogowany użytkownik, RLS, wszystkie 7 źródeł, 30 tys. części, 20 tys. zleceń, 80 tys. pozycji, 10 tys. lokalizacji): typowo **40–140 ms**; frazy pasujące do tysięcy rekordów („WVWZZZ” = każde zlecenie) 200–300 ms; zimny cache po masowym imporcie jednorazowo ~1,3 s.
-- Do obserwacji przy większej skali: sortowanie bardzo szerokich trafień (ranking po nazwie części) — jeśli zacznie przeszkadzać, ranking bez pełnego sortowania.
+- Pomiar v1 (RLS, 7 źródeł, 30 tys. części, 20 tys. zleceń): typowo 40–140 ms, szerokie frazy 200–300 ms.
+
+#### Skala produkcyjna (v2, migracja `20261009080116_global_search_prefix_tiers`)
+
+Cel: ~150 tys. zleceń na markę × 5 marek ≈ **750 tys. zleceń w organizacji**, miliony pozycji zleceń, setki tysięcy części, klienci, pracownicy.
+
+Research (najważniejsze wnioski):
+
+- `LIKE/ILIKE` nie są leakproof → pod RLS indeksy GIN/GiST nie są używane ([pgsql-general, Tom Lane](https://www.postgresql.org/message-id/14241.1565725716%40sss.pgh.pa.us), [Postgres RLS gotchas](https://dev.to/olyop/postgres-rls-gotchas-4olm)). Obejście przez `ALTER FUNCTION textlike LEAKPROOF` wymaga superusera → na Supabase niedostępne. Stąd etap kandydatów jako SECURITY DEFINER zwracający tylko id ([Supabase: RLS performance](https://supabase.com/docs/guides/troubleshooting/rls-performance-and-best-practices-Z5Jjwv)).
+- Częsty trigram = ogromna lista w GIN; bitmapa budowana w całości zanim zadziała `LIMIT` (zgłoszony przypadek: 45 s indeksem vs 29 ms seq scan + LIMIT — [pgsql-general](https://postgresql.org/message-id/5587F6DD.6000307%40networkz.ch)). Planner wybierze dobrze tylko widząc konkretny wzorzec → dynamiczny SQL z literałami (plan per zapytanie).
+- Prefiks identyfikatorów (kody, numery) to zadanie dla B-tree, nie trigramów ([EDB: wybór metody wyszukiwania](https://www.enterprisedb.com/blog/choosing-postgresql-text-search-method)); ERP-y (Odoo) szukają kodu prefiksowo, nazwy przez `ilike` + trigram ([Odoo contributors](https://odoo-community.org/groups/contributors-15/contributors-194297)).
+- Gdy baza nie wystarcza: GitLab przechodzi na Elasticsearch („Advanced Search”) dopiero dla przeszukiwania całej instancji i kodu ([GitLab docs](https://archives.docs.gitlab.com/15.7/ee/user/search/advanced_search.html)); Linear trzyma dane lokalnie u klienta (sync engine). Dla naszej skali (≤ kilka mln wierszy na tabelę, filtr organizacja + oddział) Postgres z poniższym podziałem jest wystarczający.
+
+Benchmark etapu kandydatów (tabele tymczasowe, 100 tys. zleceń / 400 tys. pozycji, ciepły cache):
+
+| Zapytanie                           | v1: contains + sortowanie               | prefiks `text_pattern_ops`             | prefiks B-tree `COLLATE "C"` | contains z limitem 300 |
+| ----------------------------------- | --------------------------------------- | -------------------------------------- | ---------------------------- | ---------------------- |
+| szerokie („kowal”, „WVW”, „TMBZZZ”) | ~51 ms, liniowo (≈400 ms przy 750 tys.) | 35–41 ms (sortuje wszystkie trafienia) | **0,13 ms**                  | **3 ms**, stałe        |
+| wąskie („1742”, „17423”)            | 0,1–0,4 ms                              | 0,2–0,3 ms                             | 0,04–0,1 ms                  | 0,4–0,6 ms             |
+
+v2 — warstwy na źródło (najlepsze pierwsze, bez duplikatów):
+
+1. prefiks identyfikatora przez B-tree `COLLATE "C"` z organizacją (+ oddziałem) na początku: nr zlecenia, ZL, VIN, nr zamówienia, odcisk numeru części, kod lokalizacji / kontenera, nr dokumentu, HD- — koszt logarytmiczny, ten sam przy 750 tys.;
+2. część na pozycji zlecenia: prefiks odcisku (B-tree „C”), „zawiera” dopiero od 5 znaków, z limitem;
+3. „zawiera” (trigramy) z limitem 300 przed rankingiem.
+
+Pomiar całości v2 (RLS, wszystkie 7 źródeł, prawdziwe tabele, 15 tys. zleceń / 60 tys. pozycji / 20 tys. części): **17–52 ms** (te same frazy w v1: do 200–300 ms).
+
+Wdrożenie i infrastruktura:
+
+- **Indeksy na produkcji z dużymi tabelami budować `CREATE INDEX CONCURRENTLY IF NOT EXISTS …` w SQL Editorze przed migracją** (migracja przez MCP działa w transakcji i zablokowałaby zapisy na czas budowy). Migracja znajdzie je jako istniejące.
+- **Rozmiar instancji**: obecna baza ma `shared_buffers` 224 MB (instancja Micro). Benchmark przy 750 tys. zleceń / 3 mln pozycji na tej instancji chwilowo ją przeciążył (brak połączeń przez ~1–2 min). Przy danych produkcyjnej skali potrzebna jest większa instancja (min. Small/Medium), żeby indeksy mieściły się w pamięci — dotyczy całej aplikacji, nie tylko wyszukiwania.
+- Pełny test na 750 tys. zleceń: na osobnym środowisku (Supabase branch / kopia), nie na produkcji.
+- Do zrobienia przy skali wielu dużych organizacji: kolumna `organization_id` w `repair_order_lines` (dziś prefiks numeru części szuka po wszystkich organizacjach i filtruje złączeniem).
+- Pozostałość benchmarku do usunięcia w SQL Editorze: `DROP SCHEMA search_bench CASCADE;` (pusta tabela wyników, schemat niewystawiony w API).
 
 ## 4. Weryfikacja
 

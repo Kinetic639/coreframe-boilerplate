@@ -42,6 +42,58 @@ export interface SearchExactHit {
   meta?: Record<string, string | number>;
 }
 
+/** Sources whose rows belong to one branch (the palette searches the active one) */
+const BRANCH_BOUND_SOURCES: SearchSourceId[] = [
+  "repairOrders",
+  "locations",
+  "containers",
+  "documents",
+];
+const OTHER_BRANCHES_LIMIT = 10;
+
+export interface OtherBranchCount {
+  branchId: string;
+  /** Matches found (at least; capped per source) */
+  count: number;
+}
+
+export interface ItemPreviewData {
+  name: string | null;
+  brand: string | null;
+  skus: string[];
+  onHand: number;
+  committed: number;
+  available: number;
+  locations: { code: string | null; name: string | null; onHand: number }[];
+  orders: {
+    id: string;
+    code: string | null;
+    client: string | null;
+    warehouseCode: string | null;
+    quantity: number;
+  }[];
+}
+
+export interface RepairOrderPreviewData {
+  code: string | null;
+  zlNumber: string | null;
+  orderYear: number | null;
+  warehouseCode: string | null;
+  client: string | null;
+  dealer: string | null;
+  vehicleBrand: string | null;
+  vin: string | null;
+  status: string;
+  createdAt: string;
+  lineCount: number;
+  linkedLineCount: number;
+  lines: { code: string | null; name: string | null; quantity: number; unit: string | null }[];
+}
+
+export type SearchPreview =
+  | ({ type: "item" } & ItemPreviewData)
+  | ({ type: "repairOrder" } & RepairOrderPreviewData);
+
 /** Shortest fragment search_global() searches (mirrors the SQL function) */
 export const MIN_TEXT_QUERY = 3;
 const TEXT_SEARCH_TIMEOUT_MS = 3000;
@@ -291,6 +343,64 @@ async function items(db: Db, scope: ExactSearchScope, value: string) {
 }
 
 export class GlobalSearchService {
+  /**
+   * How many fragment matches of branch-bound sources live in OTHER branches
+   * the user can see (RLS decides), per branch. Capped: at most
+   * OTHER_BRANCHES_LIMIT rows per source are looked at, so counts are "at least".
+   */
+  static async countOtherBranches(
+    supabase: SupabaseClient,
+    scope: ExactSearchScope,
+    query: string
+  ): Promise<OtherBranchCount[]> {
+    const sources = BRANCH_BOUND_SOURCES.filter((source) => scope.sources.has(source));
+    if (!scope.branchId || sources.length === 0 || query.trim().length < MIN_TEXT_QUERY) {
+      return [];
+    }
+
+    const { data, error } = await supabase
+      .rpc("search_global", {
+        p_org: scope.orgId,
+        p_branch: null,
+        p_query: query,
+        p_sources: sources,
+        p_limit: OTHER_BRANCHES_LIMIT,
+      })
+      .abortSignal(AbortSignal.timeout(TEXT_SEARCH_TIMEOUT_MS));
+    if (error) throw new Error(error.message);
+
+    const counts = new Map<string, number>();
+    for (const row of (data ?? []) as SearchGlobalRow[]) {
+      const branchId = row.meta?.branchId;
+      if (typeof branchId !== "string" || branchId === scope.branchId) continue;
+      counts.set(branchId, (counts.get(branchId) ?? 0) + 1);
+    }
+    return [...counts.entries()]
+      .map(([branchId, count]) => ({ branchId, count }))
+      .sort((a, b) => b.count - a.count);
+  }
+
+  /**
+   * Preview pane data for an item or a repair order. Read under RLS through
+   * SECURITY INVOKER functions; null when the row is not visible.
+   */
+  static async getPreview(
+    supabase: SupabaseClient,
+    branchId: string | null,
+    type: "item" | "repairOrder",
+    id: string
+  ): Promise<SearchPreview | null> {
+    const { data, error } =
+      type === "item"
+        ? await supabase.rpc("search_preview_item", { p_product: id, p_branch: branchId })
+        : await supabase.rpc("search_preview_repair_order", { p_order: id });
+    if (error) throw new Error(error.message);
+    if (!data) return null;
+    return type === "item"
+      ? { type: "item", ...(data as ItemPreviewData) }
+      : { type: "repairOrder", ...(data as RepairOrderPreviewData) };
+  }
+
   /**
    * Fragment search across every allowed source, `limit` rows per source.
    * Needs MIN_TEXT_QUERY characters (trigram indexes cannot serve shorter

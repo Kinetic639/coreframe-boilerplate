@@ -6,6 +6,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
 import { useQuery } from "@tanstack/react-query";
 import {
+  ArrowRight,
   Boxes,
   Building2,
   Car,
@@ -58,6 +59,7 @@ import { useDebounce } from "@/hooks/use-debounce";
 import { globalSearchAction, type GlobalSearchResult } from "@/app/actions/global-search";
 import type { ExactHitType, SearchExactHit } from "@/server/services/global-search.service";
 import { useGlobalSearchStore } from "./global-search-store";
+import { GlobalSearchPreview } from "./global-search-preview";
 
 // Same landing route as the sidebar branch switcher: branch-neutral, never 404s.
 const SAFE_ROUTE_AFTER_BRANCH_SWITCH = "/dashboard/start";
@@ -65,7 +67,22 @@ const BRANCH_ITEM_PREFIX = "branch:";
 const HIT_ITEM_PREFIX = "hit:";
 const SEARCH_DEBOUNCE_MS = 200;
 const MIN_DATA_QUERY = 3;
-const EMPTY_RESULT: GlobalSearchResult = { exact: [], results: [] };
+const EMPTY_RESULT: GlobalSearchResult = { exact: [], results: [], otherBranches: [] };
+/** Rows per data group from the server; a full group gets a "show all" row */
+const DATA_GROUP_LIMIT = 5;
+const SHOW_ALL_PREFIX = "all:";
+const PREVIEW_DEBOUNCE_MS = 120;
+
+/** Module list a data group's "show all" opens, with the query as its search */
+const SHOW_ALL_LISTS: Partial<Record<ExactHitType, { href: string; param: string }>> = {
+  repairOrder: { href: "/dashboard/workshop", param: "q" },
+  item: { href: "/dashboard/warehouse/items", param: "search" },
+  location: { href: "/dashboard/warehouse/locations", param: "search" },
+  document: { href: "/dashboard/warehouse/inventory/movements", param: "search" },
+  ticket: { href: "/dashboard/help-desk/tickets", param: "search" },
+  task: { href: "/dashboard/planning/tasks", param: "search" },
+  person: { href: "/dashboard/organization/users/members", param: "search" },
+};
 
 const HIT_ICONS: Record<ExactHitType, LucideIcon> = {
   repairOrder: Car,
@@ -94,7 +111,8 @@ type Target =
   | { type: "entry"; entry: SearchEntry }
   | { type: "branch"; branchId: string; name: string }
   | { type: "hit"; hit: SearchExactHit }
-  | { type: "recent"; item: RecentSearchItem };
+  | { type: "recent"; item: RecentSearchItem }
+  | { type: "link"; href: string; query?: Record<string, string> };
 
 const RECENT_ITEM_PREFIX = "recent:";
 
@@ -413,11 +431,21 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
 
   const dataGroups = useMemo(
     () =>
-      DATA_GROUP_ORDER.map((type) => ({
-        type,
-        hits: data.results.filter((hit) => hit.type === type),
-      })).filter((group) => group.hits.length > 0),
-    [data.results]
+      DATA_GROUP_ORDER.map((type) => {
+        const hits = data.results.filter((hit) => hit.type === type);
+        const list = SHOW_ALL_LISTS[type];
+        // A full group probably has more: link to the module list with the query
+        const showAll =
+          list && hits.length >= DATA_GROUP_LIMIT
+            ? {
+                id: `${SHOW_ALL_PREFIX}${type}`,
+                href: list.href,
+                query: { [list.param]: dataText },
+              }
+            : null;
+        return { type, hits, showAll };
+      }).filter((group) => group.hits.length > 0),
+    [data.results, dataText]
   );
 
   // Recently opened: shown for an empty query only
@@ -429,8 +457,35 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
       map.set(hitItemId(hit), { type: "hit", hit });
     }
     for (const item of recentItems) map.set(recentItemId(item), { type: "recent", item });
+    for (const group of dataGroups) {
+      if (group.showAll) {
+        map.set(group.showAll.id, {
+          type: "link",
+          href: group.showAll.href,
+          query: group.showAll.query,
+        });
+      }
+    }
     return map;
-  }, [data.results, exactHits, recentItems, targets]);
+  }, [data.results, dataGroups, exactHits, recentItems, targets]);
+
+  // Preview pane follows the highlighted data result (debounced: ↑↓ moves fast)
+  const previewSelected = useDebounce(selected, PREVIEW_DEBOUNCE_MS);
+  const previewTarget = allTargets.get(previewSelected);
+  const previewHit = previewTarget?.type === "hit" ? previewTarget.hit : null;
+  const actionsRef = useRef<HTMLDivElement>(null);
+
+  // Other branches: matches the user can open after switching branch
+  const otherBranches = useMemo(
+    () =>
+      data.otherBranches
+        .map((row) => ({
+          ...row,
+          name: accessibleBranches.find((branch) => branch.id === row.branchId)?.name,
+        }))
+        .filter((row): row is typeof row & { name: string } => Boolean(row.name)),
+    [accessibleBranches, data.otherBranches]
+  );
 
   const statusLabel = useCallback(
     (status: string) =>
@@ -543,6 +598,9 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
       else if (target.type === "hit" || target.type === "recent") {
         close();
         router.push(target.type === "hit" ? hitHref(target.hit) : recentHref(target.item));
+      } else if (target.type === "link") {
+        close();
+        router.push(routeHref(target.href, target.query));
       } else runEntry(target.entry);
     },
     [allTargets, close, recentFor, remember, router, runEntry, switchBranch]
@@ -554,6 +612,7 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
       let href;
       if (target?.type === "hit") href = hitHref(target.hit);
       else if (target?.type === "recent") href = recentHref(target.item);
+      else if (target?.type === "link") href = routeHref(target.href, target.query);
       else if (target?.type === "entry" && target.entry.href && !target.entry.command)
         href = toUnsafeI18nHref(target.entry.href);
       if (!href || !target) return false;
@@ -574,9 +633,47 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
     [query]
   );
 
+  const copyCode = useCallback(
+    (hit: SearchExactHit) => {
+      if (!hit.code) return;
+      navigator.clipboard
+        ?.writeText(hit.code)
+        .then(() => toast.success(t("copied", { code: hit.code ?? "" })))
+        .catch(() => toast.error(t("copyFailed")));
+    },
+    [t]
+  );
+
   const onKeyDown = (event: React.KeyboardEvent) => {
     if (event.key === "Enter" && (event.ctrlKey || event.metaKey) && selected) {
       if (openInNewTab(selected)) event.preventDefault();
+    }
+    const selectedTarget = allTargets.get(selected);
+    const selectedHit = selectedTarget?.type === "hit" ? selectedTarget.hit : null;
+    // Ctrl+Shift+C copies the highlighted result's number
+    if (
+      selectedHit &&
+      event.key.toLowerCase() === "c" &&
+      (event.ctrlKey || event.metaKey) &&
+      event.shiftKey
+    ) {
+      event.preventDefault();
+      copyCode(selectedHit);
+    }
+    // → at the end of the input moves into the preview actions
+    const input = inputRef.current;
+    if (
+      event.key === "ArrowRight" &&
+      selectedHit &&
+      input &&
+      event.target === input &&
+      input.selectionStart === input.value.length
+    ) {
+      const firstAction = actionsRef.current?.querySelector("button");
+      if (firstAction && firstAction.offsetParent !== null) {
+        event.preventDefault();
+        firstAction.focus();
+      }
     }
     // Backspace on a bare prefix (">", "zl: ") leaves the mode
     if (event.key === "Backspace" && parsed.prefix && !parsed.text) {
@@ -598,7 +695,7 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent
         hideClose
-        className="top-0 flex h-dvh max-w-none translate-y-0 flex-col gap-0 overflow-hidden rounded-none p-0 sm:top-[12vh] sm:h-auto sm:max-h-[76vh] sm:max-w-2xl sm:rounded-xl"
+        className="top-0 flex h-dvh max-w-none translate-y-0 flex-col gap-0 overflow-hidden rounded-none p-0 sm:top-[12vh] sm:h-auto sm:max-h-[76vh] sm:max-w-2xl sm:rounded-xl lg:max-w-4xl"
       >
         <VisuallyHidden>
           <DialogTitle>{t("dialogTitle")}</DialogTitle>
@@ -670,112 +767,158 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
             </ScopeChip>
           </div>
 
-          <CommandList className="!max-h-none min-h-0 flex-1 overflow-y-auto px-2 pb-2 sm:!max-h-[60vh]">
-            <CommandEmpty className="py-10 text-center text-sm text-muted-foreground">
-              {dataLoading
-                ? t("searching")
-                : parsed.scope && parsed.text.length < MIN_DATA_QUERY
-                  ? t("typeMore")
-                  : t("empty")}
-            </CommandEmpty>
-            {recentItems.length > 0 ? (
-              <CommandGroup heading={t("groups.recent")}>
-                {recentItems.map((item) => {
-                  const Icon = recentIcon(item);
-                  return (
-                    <CommandItem
-                      key={recentItemId(item)}
-                      value={recentItemId(item)}
-                      onSelect={select}
-                      className="group gap-3 rounded-lg px-2 py-2.5 data-[selected=true]:bg-primary/10"
-                    >
-                      <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground group-data-[selected=true]:bg-background group-data-[selected=true]:text-primary">
-                        <Icon className="size-4" />
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium">
-                          {item.code ? <span className="font-mono">{item.code}</span> : null}
-                          {item.code && item.label ? " · " : null}
-                          {item.label}
+          <div className="flex min-h-0 flex-1">
+            <CommandList className="!max-h-none min-h-0 min-w-0 flex-1 overflow-y-auto px-2 pb-2 sm:!max-h-[60vh]">
+              <CommandEmpty className="py-10 text-center text-sm text-muted-foreground">
+                {dataLoading
+                  ? t("searching")
+                  : parsed.scope && parsed.text.length < MIN_DATA_QUERY
+                    ? t("typeMore")
+                    : t("empty")}
+              </CommandEmpty>
+              {recentItems.length > 0 ? (
+                <CommandGroup heading={t("groups.recent")}>
+                  {recentItems.map((item) => {
+                    const Icon = recentIcon(item);
+                    return (
+                      <CommandItem
+                        key={recentItemId(item)}
+                        value={recentItemId(item)}
+                        onSelect={select}
+                        className="group gap-3 rounded-lg px-2 py-2.5 data-[selected=true]:bg-primary/10"
+                      >
+                        <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground group-data-[selected=true]:bg-background group-data-[selected=true]:text-primary">
+                          <Icon className="size-4" />
                         </span>
-                        {item.subtitle ? (
-                          <span className="block truncate text-xs text-muted-foreground">
-                            {item.subtitle}
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-medium">
+                            {item.code ? <span className="font-mono">{item.code}</span> : null}
+                            {item.code && item.label ? " · " : null}
+                            {item.label}
                           </span>
-                        ) : null}
-                      </span>
-                      <CornerDownLeft className="hidden size-4 text-muted-foreground group-data-[selected=true]:block" />
-                    </CommandItem>
-                  );
-                })}
-              </CommandGroup>
-            ) : null}
-            {exactHits.length > 0 ? (
-              <CommandGroup heading={t("groups.exact")}>
-                {exactHits.map((hit) => (
-                  <HitRow
-                    key={hitItemId(hit)}
-                    hit={hit}
-                    exact
-                    onSelect={select}
-                    t={t}
-                    statusLabel={statusLabel}
-                    query={parsed.text}
-                  />
-                ))}
-              </CommandGroup>
-            ) : null}
-            {groups.map((group) => (
-              <CommandGroup key={group.id} heading={groupHeading(group.id)}>
-                {group.items.map((item) => {
-                  const target = allTargets.get(item.id);
-                  const Icon =
-                    target?.type === "entry" ? getIconComponent(target.entry.iconKey) : Building2;
-                  const shortcut = target?.type === "entry" ? target.entry.shortcut : undefined;
-                  return (
-                    <CommandItem
-                      key={item.id}
-                      value={item.id}
-                      onSelect={select}
-                      disabled={isPending}
-                      className="group gap-3 rounded-lg px-2 py-2.5 data-[selected=true]:bg-primary/10"
-                    >
-                      <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground group-data-[selected=true]:bg-background group-data-[selected=true]:text-primary">
-                        <Icon className="size-4" />
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium">
-                          <Highlighted text={item.label} query={parsed.text} />
+                          {item.subtitle ? (
+                            <span className="block truncate text-xs text-muted-foreground">
+                              {item.subtitle}
+                            </span>
+                          ) : null}
                         </span>
-                        {item.subtitle ? (
-                          <span className="block truncate text-xs text-muted-foreground">
-                            {item.subtitle}
+                        <CornerDownLeft className="hidden size-4 text-muted-foreground group-data-[selected=true]:block" />
+                      </CommandItem>
+                    );
+                  })}
+                </CommandGroup>
+              ) : null}
+              {exactHits.length > 0 ? (
+                <CommandGroup heading={t("groups.exact")}>
+                  {exactHits.map((hit) => (
+                    <HitRow
+                      key={hitItemId(hit)}
+                      hit={hit}
+                      exact
+                      onSelect={select}
+                      t={t}
+                      statusLabel={statusLabel}
+                      query={parsed.text}
+                    />
+                  ))}
+                </CommandGroup>
+              ) : null}
+              {groups.map((group) => (
+                <CommandGroup key={group.id} heading={groupHeading(group.id)}>
+                  {group.items.map((item) => {
+                    const target = allTargets.get(item.id);
+                    const Icon =
+                      target?.type === "entry" ? getIconComponent(target.entry.iconKey) : Building2;
+                    const shortcut = target?.type === "entry" ? target.entry.shortcut : undefined;
+                    return (
+                      <CommandItem
+                        key={item.id}
+                        value={item.id}
+                        onSelect={select}
+                        disabled={isPending}
+                        className="group gap-3 rounded-lg px-2 py-2.5 data-[selected=true]:bg-primary/10"
+                      >
+                        <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground group-data-[selected=true]:bg-background group-data-[selected=true]:text-primary">
+                          <Icon className="size-4" />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-medium">
+                            <Highlighted text={item.label} query={parsed.text} />
                           </span>
-                        ) : null}
-                      </span>
-                      {shortcut ? <Kbd>{shortcut}</Kbd> : null}
-                      <CornerDownLeft className="hidden size-4 text-muted-foreground group-data-[selected=true]:block" />
+                          {item.subtitle ? (
+                            <span className="block truncate text-xs text-muted-foreground">
+                              {item.subtitle}
+                            </span>
+                          ) : null}
+                        </span>
+                        {shortcut ? <Kbd>{shortcut}</Kbd> : null}
+                        <CornerDownLeft className="hidden size-4 text-muted-foreground group-data-[selected=true]:block" />
+                      </CommandItem>
+                    );
+                  })}
+                </CommandGroup>
+              ))}
+              {dataGroups.map((group) => (
+                <CommandGroup key={group.type} heading={t(`dataGroups.${group.type}`)}>
+                  {group.hits.map((hit) => (
+                    <HitRow
+                      key={hitItemId(hit)}
+                      hit={hit}
+                      exact={false}
+                      onSelect={select}
+                      t={t}
+                      statusLabel={statusLabel}
+                      query={parsed.text}
+                    />
+                  ))}
+                  {group.showAll ? (
+                    <CommandItem
+                      value={group.showAll.id}
+                      onSelect={select}
+                      className="gap-2 rounded-lg px-2 py-2 text-sm text-primary data-[selected=true]:bg-primary/10"
+                    >
+                      <ArrowRight className="size-4" />
+                      {t("showAll", { group: t(`dataGroups.${group.type}`) })}
                     </CommandItem>
-                  );
-                })}
-              </CommandGroup>
-            ))}
-            {dataGroups.map((group) => (
-              <CommandGroup key={group.type} heading={t(`dataGroups.${group.type}`)}>
-                {group.hits.map((hit) => (
-                  <HitRow
-                    key={hitItemId(hit)}
-                    hit={hit}
-                    exact={false}
-                    onSelect={select}
-                    t={t}
-                    statusLabel={statusLabel}
-                    query={parsed.text}
-                  />
-                ))}
-              </CommandGroup>
-            ))}
-          </CommandList>
+                  ) : null}
+                </CommandGroup>
+              ))}
+            </CommandList>
+            {previewHit ? (
+              <GlobalSearchPreview
+                ref={actionsRef}
+                hit={previewHit}
+                details={hitDetails(previewHit, t, false)}
+                statusLabel={statusLabel}
+                onOpen={() => select(hitItemId(previewHit))}
+                onOpenNewTab={() => openInNewTab(hitItemId(previewHit))}
+                onCopy={() => copyCode(previewHit)}
+                onNavigate={(link) => {
+                  close();
+                  router.push(routeHref(link.href, link.query));
+                }}
+                onBack={() => inputRef.current?.focus()}
+              />
+            ) : null}
+          </div>
+
+          {showData && otherBranches.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-t px-4 py-2 text-xs text-muted-foreground">
+              <span>{t("otherBranches")}</span>
+              {otherBranches.map((row) => (
+                <button
+                  key={row.branchId}
+                  type="button"
+                  disabled={isPending}
+                  onClick={() => switchBranch(row.branchId, row.name)}
+                  className="rounded-full border bg-background px-2 py-0.5 text-foreground hover:bg-accent"
+                  title={t("switchBranch", { name: row.name })}
+                >
+                  {t("otherBranchCount", { name: row.name, count: row.count })}
+                </button>
+              ))}
+            </div>
+          ) : null}
 
           <div className="hidden items-center gap-4 border-t bg-muted/40 px-4 py-2.5 text-xs text-muted-foreground sm:flex">
             <span className="flex items-center gap-1.5">
@@ -787,6 +930,11 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
             <span className="flex items-center gap-1.5">
               <Kbd>Ctrl ↵</Kbd> {t("hints.newTab")}
             </span>
+            {previewHit ? (
+              <span className="hidden items-center gap-1.5 lg:flex">
+                <Kbd>→</Kbd> {t("hints.preview")}
+              </span>
+            ) : null}
             <span className="flex items-center gap-1.5">
               <Kbd>Esc</Kbd> {t("hints.close")}
             </span>
