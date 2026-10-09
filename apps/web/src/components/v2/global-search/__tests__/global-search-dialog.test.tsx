@@ -570,4 +570,48 @@ describe("GlobalSearchDialog", () => {
     fireEvent.keyDown(input, { key: "Tab", shiftKey: true });
     expect(input).toHaveValue("> 2K5807");
   });
+
+  it("keeps the focus in the input on Shift+Tab (never jumps to the scanner)", () => {
+    renderDialog();
+    openPalette();
+    const input = screen.getByRole("combobox");
+    input.focus();
+
+    fireEvent.keyDown(input, { key: "Tab", shiftKey: true });
+    expect(input).toHaveValue("> ");
+    expect(document.activeElement).toBe(input);
+    expect(screen.getByRole("button", { name: "scanner.open" })).not.toHaveFocus();
+  });
+
+  it("goes back to all results on Esc in a scope, then closes on the next Esc", () => {
+    renderDialog();
+    openPalette();
+    type("cz: 2K5807");
+    const input = screen.getByRole("combobox");
+
+    fireEvent.keyDown(input, { key: "Escape" });
+    expect(input).toHaveValue("2K5807");
+    expect(screen.getByRole("tab", { name: "scopeAll" })).toHaveAttribute("aria-selected", "true");
+    expect(useGlobalSearchStore.getState().open).toBe(true);
+
+    fireEvent.keyDown(input, { key: "Escape" });
+    expect(useGlobalSearchStore.getState().open).toBe(false);
+  });
+
+  it("numbers the first results and opens one with Alt+digit", () => {
+    renderDialog();
+    openPalette();
+    type("zlec");
+
+    const keys = screen.getAllByTestId("quick-key");
+    expect(keys.map((key) => key.textContent)).toEqual(keys.map((_, i) => `Alt ${i + 1}`));
+    const second = keys[1]?.closest("[cmdk-item]")?.textContent ?? "";
+    const href = second.includes("Nowe zlecenie")
+      ? "/dashboard/workshop/new"
+      : "/dashboard/workshop";
+
+    fireEvent.keyDown(screen.getByRole("combobox"), { key: "2", code: "Digit2", altKey: true });
+    expect(push).toHaveBeenCalledWith(href);
+    expect(useGlobalSearchStore.getState().open).toBe(false);
+  });
 });

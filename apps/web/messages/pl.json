@@ -8024,7 +8024,9 @@
       "actionsMode": "> tylko akcje",
       "backToSearch": "Backspace — wróć do wyszukiwania",
       "preview": "akcje",
-      "scope": "zakres"
+      "scope": "zakres",
+      "quickPick": "szybki wybór",
+      "clearScope": "wszystko"
     },
     "groups": {
       "quickActions": "Szybkie akcje",
