@@ -8060,7 +8060,8 @@
       "organizationPublicProfile": "Profil publiczny organizacji",
       "accountProfile": "Mój profil",
       "accountPreferences": "Preferencje i wygląd",
-      "accountNotifications": "Powiadomienia"
+      "accountNotifications": "Powiadomienia",
+      "messages": "Wiadomości"
     },
     "actions": {
       "newRepairOrder": "Nowe zlecenie",
@@ -8241,6 +8242,109 @@
       "hintPreview": "podgląd",
       "hintApply": "zapisz",
       "hintRestore": "przywróć poprzedni"
+    }
+  },
+  "chat": {
+    "bar": {
+      "label": "Wiadomości",
+      "expand": "Wiadomości — rozwiń pasek",
+      "collapse": "Zwiń do paska",
+      "openPage": "Otwórz stronę Wiadomości",
+      "newConversation": "Nowa rozmowa",
+      "search": "Szukaj osoby lub grupy",
+      "unread": "Nieprzeczytane",
+      "recent": "Ostatnie",
+      "groups": "Grupy",
+      "empty": "Brak rozmów",
+      "emptyHint": "Zacznij rozmowę z kimś z zespołu.",
+      "noResults": "Nic nie znaleziono",
+      "loadFailed": "Nie udało się wczytać rozmów"
+    },
+    "window": {
+      "openFull": "Otwórz w pełnym widoku",
+      "collapse": "Zwiń okno",
+      "expand": "Rozwiń okno",
+      "close": "Zamknij okno",
+      "placeholder": "Napisz wiadomość…",
+      "send": "Wyślij",
+      "attach": "Załącz plik",
+      "read": "Przeczytane",
+      "readBy": "Przeczytane przez {count}",
+      "sending": "Wysyłanie…",
+      "failed": "Nie wysłano — kliknij, aby ponowić",
+      "loadOlder": "Wcześniejsze wiadomości",
+      "empty": "Napisz pierwszą wiadomość",
+      "members": "{count, plural, one {# osoba} few {# osoby} many {# osób} other {# osoby}}",
+      "online": "Aktywny teraz",
+      "offline": "Nieaktywny",
+      "you": "Ty",
+      "today": "Dzisiaj",
+      "yesterday": "Wczoraj",
+      "deleted": "Wiadomość usunięta",
+      "hint": "Enter wyślij · Shift+Enter nowa linia",
+      "uploading": "Wysyłanie plików…",
+      "loadFailed": "Nie udało się wczytać wiadomości",
+      "retry": "Spróbuj ponownie"
+    },
+    "system": {
+      "created": "{actor} utworzył(a) grupę „{name}”",
+      "added": "{actor} dodał(a): {users}",
+      "removed": "{actor} usunął(-ęła): {users}",
+      "left": "{actor} opuścił(a) grupę",
+      "renamed": "{actor} zmienił(a) nazwę grupy na „{name}”",
+      "someone": "Ktoś"
+    },
+    "preview": {
+      "you": "Ty: ",
+      "attachment": "Załącznik",
+      "attachments": "{count, plural, one {# załącznik} few {# załączniki} many {# załączników} other {# załącznika}}",
+      "system": "Zmiana w grupie",
+      "empty": "Brak wiadomości"
+    },
+    "newConversation": {
+      "title": "Nowa rozmowa",
+      "search": "Szukaj osoby",
+      "groupName": "Nazwa grupy",
+      "groupNamePlaceholder": "np. Magazyn CNP Poznań",
+      "start": "Napisz",
+      "createGroup": "Utwórz grupę",
+      "selected": "Wybrane: {count}",
+      "empty": "Brak osób",
+      "cancel": "Anuluj",
+      "hint": "Jedna osoba — rozmowa 1:1, kilka osób — grupa"
+    },
+    "errors": {
+      "forbidden": "Brak dostępu do rozmowy",
+      "invalid": "Nieprawidłowe dane",
+      "tooLong": "Wiadomość jest za długa",
+      "notFound": "Nie znaleziono rozmowy",
+      "failed": "Coś poszło nie tak. Spróbuj ponownie."
+    },
+    "page": {
+      "title": "Wiadomości",
+      "filters": {
+        "all": "Wszystkie",
+        "unread": "Nieprzeczytane",
+        "groups": "Grupy"
+      },
+      "selectConversation": "Wybierz rozmowę z listy albo zacznij nową.",
+      "details": "Szczegóły",
+      "members": "Członkowie",
+      "files": "Pliki",
+      "noFiles": "Brak plików",
+      "owner": "Właściciel",
+      "addMembers": "Dodaj osoby",
+      "add": "Dodaj",
+      "rename": "Zmień nazwę",
+      "save": "Zapisz",
+      "cancel": "Anuluj",
+      "leave": "Opuść grupę",
+      "confirmLeave": "Opuścić grupę „{name}”? Nie zobaczysz już jej wiadomości.",
+      "remove": "Usuń z grupy",
+      "mute": "Wycisz",
+      "unmute": "Włącz powiadomienia",
+      "muted": "Wyciszona",
+      "back": "Wróć do listy"
     }
   }
 }

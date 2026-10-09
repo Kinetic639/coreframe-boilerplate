@@ -8086,7 +8086,8 @@
       "organizationPublicProfile": "Organization public profile",
       "accountProfile": "My profile",
       "accountPreferences": "Preferences and appearance",
-      "accountNotifications": "Notifications"
+      "accountNotifications": "Notifications",
+      "messages": "Messages"
     },
     "actions": {
       "newRepairOrder": "New repair order",
@@ -8267,6 +8268,109 @@
       "hintPreview": "preview",
       "hintApply": "save",
       "hintRestore": "restore previous"
+    }
+  },
+  "chat": {
+    "bar": {
+      "label": "Messages",
+      "expand": "Messages — expand the bar",
+      "collapse": "Collapse to the bar",
+      "openPage": "Open the Messages page",
+      "newConversation": "New conversation",
+      "search": "Search people or groups",
+      "unread": "Unread",
+      "recent": "Recent",
+      "groups": "Groups",
+      "empty": "No conversations",
+      "emptyHint": "Start a conversation with someone on your team.",
+      "noResults": "Nothing found",
+      "loadFailed": "Could not load conversations"
+    },
+    "window": {
+      "openFull": "Open in full view",
+      "collapse": "Collapse window",
+      "expand": "Expand window",
+      "close": "Close window",
+      "placeholder": "Write a message…",
+      "send": "Send",
+      "attach": "Attach a file",
+      "read": "Seen",
+      "readBy": "Seen by {count}",
+      "sending": "Sending…",
+      "failed": "Not sent — click to retry",
+      "loadOlder": "Earlier messages",
+      "empty": "Write the first message",
+      "members": "{count, plural, one {# person} other {# people}}",
+      "online": "Active now",
+      "offline": "Inactive",
+      "you": "You",
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "deleted": "Message deleted",
+      "hint": "Enter to send · Shift+Enter new line",
+      "uploading": "Uploading files…",
+      "loadFailed": "Could not load messages",
+      "retry": "Try again"
+    },
+    "system": {
+      "created": "{actor} created the group “{name}”",
+      "added": "{actor} added: {users}",
+      "removed": "{actor} removed: {users}",
+      "left": "{actor} left the group",
+      "renamed": "{actor} renamed the group to “{name}”",
+      "someone": "Someone"
+    },
+    "preview": {
+      "you": "You: ",
+      "attachment": "Attachment",
+      "attachments": "{count, plural, one {# attachment} other {# attachments}}",
+      "system": "Group change",
+      "empty": "No messages"
+    },
+    "newConversation": {
+      "title": "New conversation",
+      "search": "Search people",
+      "groupName": "Group name",
+      "groupNamePlaceholder": "e.g. Warehouse CNP Poznań",
+      "start": "Message",
+      "createGroup": "Create group",
+      "selected": "Selected: {count}",
+      "empty": "No people",
+      "cancel": "Cancel",
+      "hint": "One person — a 1:1 conversation, several — a group"
+    },
+    "errors": {
+      "forbidden": "No access to this conversation",
+      "invalid": "Invalid data",
+      "tooLong": "The message is too long",
+      "notFound": "Conversation not found",
+      "failed": "Something went wrong. Try again."
+    },
+    "page": {
+      "title": "Messages",
+      "filters": {
+        "all": "All",
+        "unread": "Unread",
+        "groups": "Groups"
+      },
+      "selectConversation": "Pick a conversation from the list or start a new one.",
+      "details": "Details",
+      "members": "Members",
+      "files": "Files",
+      "noFiles": "No files",
+      "owner": "Owner",
+      "addMembers": "Add people",
+      "add": "Add",
+      "rename": "Rename",
+      "save": "Save",
+      "cancel": "Cancel",
+      "leave": "Leave group",
+      "confirmLeave": "Leave the group “{name}”? You will no longer see its messages.",
+      "remove": "Remove from group",
+      "mute": "Mute",
+      "unmute": "Unmute",
+      "muted": "Muted",
+      "back": "Back to the list"
     }
   }
 }

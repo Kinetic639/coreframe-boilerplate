@@ -241,6 +241,10 @@ export const PLANNING_BOARDS_UPDATE = "planning.boards.update" as const;
 export const PLANNING_BOARDS_DELETE = "planning.boards.delete" as const;
 export const PLANNING_SETTINGS_MANAGE = "planning.settings.manage" as const;
 
+// Messages (chat between employees) — every member (org_member + org_owner basic roles)
+// Seeded in migration 20261009193050_chat_foundation.sql.
+export const MESSAGES_USE = "messages.use" as const;
+
 // CRM / Kontrahenci Permissions (org+branch-scoped — Professional/Enterprise)
 // crm.*                 — wildcard for org_owner; compiler expands to all concrete crm.X slugs
 // crm.read              — view the CRM module shell and overview
@@ -422,6 +426,7 @@ export type PermissionSlug =
   | typeof PLANNING_BOARDS_UPDATE
   | typeof PLANNING_BOARDS_DELETE
   | typeof PLANNING_SETTINGS_MANAGE
+  | typeof MESSAGES_USE
   | typeof MODULE_CRM_ACCESS
   | typeof CRM_WILDCARD
   | typeof CRM_READ

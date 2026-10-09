@@ -7,7 +7,6 @@ import { GlobalSearchTrigger } from "@/components/v2/global-search/global-search
 import type { SearchEntry } from "@/lib/global-search/types";
 import type { SearchSourceId } from "@/lib/global-search/sources";
 import { HeaderNotifications } from "./header-notifications";
-import { HeaderMessages } from "./header-messages";
 import { HeaderContacts } from "./header-contacts";
 import { HeaderQuickAdd } from "./header-quick-add";
 
@@ -20,14 +19,13 @@ import { HeaderQuickAdd } from "./header-quick-add";
  * Features:
  * - Sidebar toggle button (integrated from shadcn)
  * - Global search palette (Ctrl+K / ⌘K) — pages and actions resolved server-side
- * - Messages drawer
  * - Notifications drawer
  * - Contacts drawer
  *
  * Layout:
  * - Left: Sidebar trigger + separator
  * - Center: Search bar
- * - Right: Contacts + Messages + Notifications
+ * - Right: Contacts + Notifications (messages live in the right bar)
  *
  * Note: Recent activity is accessible via the status bar at the bottom.
  * Note: User menu is available in the sidebar footer.
@@ -55,7 +53,7 @@ export function DashboardHeaderV2({
         <GlobalSearchTrigger variant="bar" />
       </div>
 
-      {/* Right: Quick Add + Contacts + Messages + Notifications */}
+      {/* Right: Quick Add + Contacts + Notifications */}
       <div className="flex items-center gap-2 ml-auto px-6">
         {/* Mobile: Search icon */}
         <div className="md:hidden">
@@ -64,7 +62,6 @@ export function DashboardHeaderV2({
 
         <HeaderQuickAdd />
         <HeaderContacts />
-        <HeaderMessages />
         <HeaderNotifications />
       </div>
 
