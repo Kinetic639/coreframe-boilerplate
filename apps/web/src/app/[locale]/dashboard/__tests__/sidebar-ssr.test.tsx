@@ -483,10 +483,19 @@ describe("Sidebar SSR Integration", () => {
     expect(findItemById(model, "warehouse.inventory.movements")).toBeDefined();
     expect(findItemById(model, "warehouse.items")).toBeDefined();
     expect(findItemById(model, "warehouse.locations")).toBeDefined();
-    expect(findItemById(model, "warehouse.purchases")).toBeDefined();
-    expect(findItemById(model, "warehouse.deliveries")).toBeDefined();
-    expect(findItemById(model, "warehouse.suppliers")).toBeDefined();
     expect(findItemById(model, "warehouse.settings")).toBeDefined();
+    // Flat list: no Purchases group, inventory pages sit directly under Warehouse
+    expect(findItemById(model, "warehouse.purchases")).toBeUndefined();
+    expect(findItemById(model, "warehouse.deliveries")).toBeUndefined();
+    expect(warehouseGroup?.children?.map((item) => item.id)).toEqual(
+      expect.arrayContaining([
+        "warehouse.inventory",
+        "warehouse.inventory.movements",
+        "warehouse.putaway",
+        "warehouse.items",
+      ])
+    );
+    expect(findItemById(model, "warehouse.inventory")?.children).toBeUndefined();
   });
 
   // wh-2: warehouse group absent when MODULE_WAREHOUSE is NOT in enabled_modules

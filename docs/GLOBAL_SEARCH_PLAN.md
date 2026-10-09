@@ -6,17 +6,17 @@
 
 ## Progress
 
-| Faza | Zakres                                        | Status                               |
-| ---- | --------------------------------------------- | ------------------------------------ |
-| F0   | Fundament: paleta, rejestr źródeł, klawiatura | ✅ kod + testy, czeka na test ręczny |
-| F1   | Strony i zakładki                             | ✅ kod + testy, czeka na test ręczny |
-| F2   | Akcje (`>`)                                   | ✅ kod + testy, czeka na test ręczny |
-| F3   | Rozpoznanie wklejonego ID                     | ✅ kod + testy, czeka na test ręczny |
-| F4   | Dane P1 (RPC + indeksy)                       | ✅ kod + testy, czeka na test ręczny |
-| F5   | UX wyników: grupy, chipy, podgląd, ostatnie   | ✅ kod + testy, czeka na test ręczny |
-| F6   | Telefon + skaner                              | ✅ kod + testy, czeka na test ręczny |
-| F7   | Dane P2                                       | ✅ kod + testy, czeka na test ręczny |
-| F8   | Ranking i P3                                  | ✅ kod + testy, czeka na test ręczny |
+| Faza | Zakres                                        | Status                           |
+| ---- | --------------------------------------------- | -------------------------------- |
+| F0   | Fundament: paleta, rejestr źródeł, klawiatura | ✅ gotowe, przetestowane ręcznie |
+| F1   | Strony i zakładki                             | ✅ gotowe, przetestowane ręcznie |
+| F2   | Akcje (`>`)                                   | ✅ gotowe, przetestowane ręcznie |
+| F3   | Rozpoznanie wklejonego ID                     | ✅ gotowe, przetestowane ręcznie |
+| F4   | Dane P1 (RPC + indeksy)                       | ✅ gotowe, przetestowane ręcznie |
+| F5   | UX wyników: grupy, chipy, podgląd, ostatnie   | ✅ gotowe, przetestowane ręcznie |
+| F6   | Telefon + skaner                              | ✅ gotowe, przetestowane ręcznie |
+| F7   | Dane P2                                       | ✅ gotowe, przetestowane ręcznie |
+| F8   | Ranking i P3                                  | ✅ gotowe, przetestowane ręcznie |
 
 - [x] **F0** — fundament
   - [x] Typ `SearchEntry` + rejestr (`lib/global-search/`)
@@ -24,12 +24,12 @@
   - [x] Ctrl+K / ⌘K przełącza, Esc zamyka, focus wraca na element
   - [x] Stopka ze skrótami, i18n pl/en
   - [x] Testy komponentu (otwieranie, klawiatura, pusty stan)
-  - [ ] Test ręczny na deployu
+  - [x] Test ręczny na deployu (2026-10-09)
 - [x] **F1** — strony i zakładki
   - [x] Strony z sidebaru + strony spoza menu (mapa, import kartoteki, role, zaproszenia, konto…), polskie etykiety i synonimy
   - [x] Filtr: moduł aktywny (entitlements) + uprawnienia — ten sam resolver co sidebar, po stronie serwera
   - [x] Zaślepki „wkrótce” wyłączone (`SEARCH_EXCLUDED_HREFS`)
-  - [ ] Zakładki szczegółów (np. zlecenie → Magazyn) jako akcje na wyniku — strona zlecenia nie przyjmuje parametru zakładki; do zrobienia razem z nim
+  - [x] Zakładki szczegółów jako akcje na wyniku: podgląd zlecenia ma „Zakładka Zamówienia-Przyjęcia” i „Zakładka Magazyn” (`?tab=receiving|stock#warehouse` na stronie zlecenia)
 - [x] **F2** — akcje
   - [x] Tryb `>` z grupami modułów, Backspace wraca do wyszukiwania
   - [x] Akcje tworzenia i magazynowe, przełączanie oddziału (każdy oddział osobno), motyw, język, wyloguj

@@ -8206,6 +8206,8 @@
       "openNewTab": "W nowej karcie",
       "copy": "Kopiuj numer",
       "movements": "Historia ruchów",
+      "tabReceiving": "Zakładka Zamówienia-Przyjęcia",
+      "tabStock": "Zakładka Magazyn",
       "onHand": "Na stanie",
       "committed": "Zarezerw.",
       "available": "Dostępne",

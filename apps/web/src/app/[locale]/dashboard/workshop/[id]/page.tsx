@@ -18,12 +18,19 @@ import { RepairOrderLinesList } from "./_components/repair-order-lines-list";
 import { RepairOrderProvenance } from "./_components/repair-order-provenance";
 import { RepairOrderContainers } from "./_components/repair-order-containers";
 import { RepairOrderIssue } from "./_components/repair-order-issue";
-import { RepairOrderWarehouse } from "./_components/repair-order-warehouse";
+import {
+  RepairOrderWarehouse,
+  isRepairOrderWarehouseTab,
+} from "./_components/repair-order-warehouse";
 import { InventoryContainersService } from "@/server/services/inventory-containers.service";
 import { AttachmentsPanel } from "@/components/features/attachments";
 import { BranchWarehousesService } from "@/server/services/branch-warehouses.service";
 
-type PageProps = { params: Promise<{ id: string }> };
+type PageProps = {
+  params: Promise<{ id: string }>;
+  /** `?tab=stock` / `?tab=receiving` opens that warehouse tab (links from the global search) */
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
 
 /**
  * Phase 7 -- the real RepairOrder header/detail view: editable business
@@ -42,8 +49,10 @@ type PageProps = { params: Promise<{ id: string }> };
  * remain later phases (10/11), per the work order's explicit scope
  * boundary.
  */
-export default async function RepairOrderDetailPage({ params }: PageProps) {
+export default async function RepairOrderDetailPage({ params, searchParams }: PageProps) {
   const { id } = await params;
+  const tabParam = (searchParams ? await searchParams : {}).tab;
+  const warehouseTab = isRepairOrderWarehouseTab(tabParam) ? tabParam : undefined;
   const locale = await getLocale();
   const context = await loadDashboardContextV2();
 
@@ -181,6 +190,7 @@ export default async function RepairOrderDetailPage({ params }: PageProps) {
         lines={lines}
         view={warehouseResult.success ? warehouseResult.data : []}
         loadError={!warehouseResult.success}
+        initialTab={warehouseTab}
       />
 
       <RepairOrderContainers

@@ -9,10 +9,19 @@ import type {
   RepairOrderWarehouseDocument,
 } from "@/server/services/repair-orders.service";
 
+export const REPAIR_ORDER_WAREHOUSE_TABS = ["receiving", "stock"] as const;
+export type RepairOrderWarehouseTab = (typeof REPAIR_ORDER_WAREHOUSE_TABS)[number];
+
+export function isRepairOrderWarehouseTab(value: unknown): value is RepairOrderWarehouseTab {
+  return REPAIR_ORDER_WAREHOUSE_TABS.includes(value as RepairOrderWarehouseTab);
+}
+
 type Props = {
   lines: RepairOrderLineReadModel[];
   view: RepairOrderLineWarehouseView[];
   loadError: boolean;
+  /** Tab to open with (`?tab=` in the URL); "receiving" by default */
+  initialTab?: RepairOrderWarehouseTab;
 };
 
 /**
@@ -23,7 +32,7 @@ type Props = {
  *   RW documents that issued it.
  * Every document links to its movement detail.
  */
-export async function RepairOrderWarehouse({ lines, view, loadError }: Props) {
+export async function RepairOrderWarehouse({ lines, view, loadError, initialTab }: Props) {
   const t = await getTranslations("modules.workshop.repairOrders.warehouse");
   const locale = await getLocale();
   const byLine = new Map(view.map((v) => [v.repairOrderLineId, v]));
@@ -39,7 +48,11 @@ export async function RepairOrderWarehouse({ lines, view, loadError }: Props) {
   if (lines.length === 0) return null;
 
   return (
-    <section className="flex flex-col gap-3" data-testid="repair-order-warehouse">
+    <section
+      id="warehouse"
+      className="flex scroll-mt-20 flex-col gap-3"
+      data-testid="repair-order-warehouse"
+    >
       <div>
         <h2 className="text-lg font-semibold tracking-tight">{t("title")}</h2>
         <p className="text-muted-foreground mt-0.5 text-sm">{t("subtitle")}</p>
@@ -51,7 +64,7 @@ export async function RepairOrderWarehouse({ lines, view, loadError }: Props) {
         </div>
       )}
 
-      <Tabs defaultValue="receiving">
+      <Tabs defaultValue={initialTab ?? "receiving"}>
         <TabsList>
           <TabsTrigger value="receiving">{t("tabs.receiving")}</TabsTrigger>
           <TabsTrigger value="stock">{t("tabs.stock")}</TabsTrigger>

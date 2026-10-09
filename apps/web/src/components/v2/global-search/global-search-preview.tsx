@@ -3,7 +3,15 @@
 import { forwardRef } from "react";
 import { useTranslations } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
-import { Copy, CornerDownLeft, ExternalLink, History, Loader2 } from "lucide-react";
+import {
+  ArrowDownToLine,
+  Copy,
+  CornerDownLeft,
+  ExternalLink,
+  History,
+  Loader2,
+  Package,
+} from "lucide-react";
 import { getSearchPreviewAction } from "@/app/actions/global-search";
 import type { SearchExactHit, SearchPreview } from "@/server/services/global-search.service";
 
@@ -25,6 +33,11 @@ interface GlobalSearchPreviewProps {
   onNavigate: (link: PreviewLink) => void;
   /** ArrowLeft from the actions returns to the search input */
   onBack: () => void;
+}
+
+/** A repair order opened on one of its warehouse tabs, scrolled to that section */
+export function repairOrderTabHref(id: string, tab: "receiving" | "stock"): string {
+  return `/dashboard/workshop/${id}?tab=${tab}#warehouse`;
 }
 
 const PREVIEW_TYPES = new Set<SearchExactHit["type"]>(["item", "repairOrder"]);
@@ -300,6 +313,22 @@ export const GlobalSearchPreview = forwardRef<HTMLDivElement, GlobalSearchPrevie
               onClick={onCopy}
               onBack={onBack}
             />
+          ) : null}
+          {hit.type === "repairOrder" ? (
+            <>
+              <ActionButton
+                icon={ArrowDownToLine}
+                label={t("preview.tabReceiving")}
+                onClick={() => onNavigate({ href: repairOrderTabHref(hit.id, "receiving") })}
+                onBack={onBack}
+              />
+              <ActionButton
+                icon={Package}
+                label={t("preview.tabStock")}
+                onClick={() => onNavigate({ href: repairOrderTabHref(hit.id, "stock") })}
+                onBack={onBack}
+              />
+            </>
           ) : null}
           {firstSku ? (
             <ActionButton
