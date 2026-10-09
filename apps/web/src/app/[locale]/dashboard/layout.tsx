@@ -7,6 +7,7 @@ import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-conte
 import { loadAdminContextV2 } from "@/server/loaders/v2/load-admin-context.v2";
 import { EntitlementsService } from "@/server/services/entitlements-service";
 import { buildSidebarModel } from "@/server/sidebar/build-sidebar-model";
+import { buildSearchEntries } from "@/lib/global-search/build-entries";
 import { createClient } from "@/utils/supabase/server";
 import { UserToolsService } from "@/server/services/tools.service";
 import { getLatestActivityAction } from "@/app/actions/audit/get-latest-activity";
@@ -144,6 +145,19 @@ export default async function DashboardV2Layout({ children }: { children: React.
     context.user?.user?.id ?? ""
   );
 
+  // Global search (Ctrl+K): sidebar pages + search-only pages and actions,
+  // filtered with the same permissions and entitlements as the sidebar
+  const searchEntries = buildSearchEntries(sidebarModel, {
+    locale,
+    permissionSnapshot: context.user.permissionSnapshot,
+    entitlements,
+    context: {
+      activeOrgId: context.app.activeOrgId,
+      activeBranchId: context.app.activeBranchId,
+      userModules: context.app.userModules,
+    },
+  });
+
   // Check admin entitlements to show Admin Panel link in the user menu
   const adminContext = await loadAdminContextV2();
   const isAdmin = adminContext?.adminEntitlements?.enabled ?? false;
@@ -160,6 +174,7 @@ export default async function DashboardV2Layout({ children }: { children: React.
       <DashboardV2Providers context={context}>
         <DashboardShell
           sidebarModel={sidebarModel}
+          searchEntries={searchEntries}
           isAdmin={isAdmin}
           accessibleBranches={context.app.accessibleBranches}
           activeBranchId={context.app.activeBranchId}

@@ -8028,5 +8028,97 @@
     "notFound": "QR code not found in this organisation.",
     "revoked": "This QR code has been revoked.",
     "cameraError": "Camera access denied or unavailable."
+  },
+  "globalSearch": {
+    "triggerLabel": "Search pages, actions, numbers…",
+    "triggerAria": "Search ({shortcut})",
+    "dialogTitle": "Search Ambra",
+    "dialogDescription": "Find a page or an action. Type > to show actions only.",
+    "placeholder": "Search pages and actions, paste an order number, VIN, HD-, PZ/… or type > to run an action",
+    "actionsPlaceholder": "Type an action name…",
+    "actionsModeBadge": "> Actions",
+    "cancel": "Cancel",
+    "empty": "No results. Try another word.",
+    "switchBranch": "Switch branch to: {name}",
+    "branchSwitched": "Switched to branch {name}",
+    "branchSwitchFailed": "Failed to switch branch",
+    "hints": {
+      "navigate": "select",
+      "open": "open",
+      "newTab": "new tab",
+      "close": "close",
+      "actionsMode": "> actions only",
+      "backToSearch": "Backspace — back to search"
+    },
+    "groups": {
+      "quickActions": "Quick actions",
+      "goTo": "Go to",
+      "pages": "Pages",
+      "actions": "Actions",
+      "exact": "Exact match"
+    },
+    "sections": {
+      "warehouse": "Warehouse",
+      "workshop": "Workshop",
+      "helpDesk": "Help Desk",
+      "planning": "Planning",
+      "crm": "CRM",
+      "organization": "Organization",
+      "analytics": "Analytics",
+      "tools": "Tools",
+      "account": "Account",
+      "general": "General"
+    },
+    "entries": {
+      "warehouseMap": "Warehouse map",
+      "warehouseItemsImport": "Import items",
+      "warehouseCustomFields": "Item custom fields",
+      "warehouseReorder": "Reorder report",
+      "organizationMembers": "Organization members",
+      "organizationInvitations": "Invitations",
+      "organizationRoles": "Roles and permissions",
+      "organizationPositions": "Positions",
+      "organizationPublicProfile": "Organization public profile",
+      "accountProfile": "My profile",
+      "accountPreferences": "Preferences and appearance",
+      "accountNotifications": "Notifications"
+    },
+    "actions": {
+      "newRepairOrder": "New repair order",
+      "importRepairOrders": "Import repair orders from Matcher",
+      "newMovement": "New stock movement (receipt, issue, transfer…)",
+      "putaway": "Put away a delivery",
+      "newItem": "New item",
+      "newAudit": "New stock count",
+      "newTicket": "New request",
+      "inviteMember": "Invite someone to the organization",
+      "toggleTheme": "Toggle light / dark theme",
+      "toggleLocale": "Change language (Polish / English)",
+      "signOut": "Sign out"
+    },
+    "searching": "Searching…",
+    "hitTypes": {
+      "repairOrder": "Repair order",
+      "ticket": "Request",
+      "task": "Task",
+      "document": "Stock document",
+      "container": "Container",
+      "location": "Location",
+      "item": "Item"
+    },
+    "statuses": {
+      "open": "open",
+      "closed": "closed",
+      "waiting": "waiting",
+      "waiting_response": "awaiting response",
+      "in_progress": "in progress",
+      "resolved": "resolved",
+      "completed": "completed",
+      "cancelled": "cancelled",
+      "posted": "posted",
+      "draft": "draft",
+      "reversed": "reversed",
+      "active": "active"
+    }
   }
 }

@@ -31,6 +31,7 @@ import { useUiStoreV2 } from "@/lib/stores/v2/ui-store";
 import { getUserDisplayName } from "@/utils/user-helpers";
 import { DashboardStatusBar } from "@/components/Dashboard/DashboardStatusBar";
 import { DashboardHeaderV2 } from "@/components/v2/layout/dashboard-header";
+import type { SearchEntry } from "@/lib/global-search/types";
 import { cn } from "@/lib/utils";
 import { usePathname, Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
@@ -939,6 +940,8 @@ function AppSidebar({
 interface DashboardShellProps {
   children: React.ReactNode;
   sidebarModel: SidebarModel;
+  /** Server-resolved global search entries (pages + actions) */
+  searchEntries?: SearchEntry[];
   isAdmin?: boolean;
   /** Server-computed accessible branches — passed through to the branch switcher */
   accessibleBranches: BranchDataV2[];
@@ -951,6 +954,7 @@ interface DashboardShellProps {
 export function DashboardShell({
   children,
   sidebarModel,
+  searchEntries,
   isAdmin,
   accessibleBranches,
   activeBranchId,
@@ -973,7 +977,7 @@ export function DashboardShell({
         activeBranchId={activeBranchId}
       />
       <SidebarInset className="flex h-svh min-h-0 flex-col overflow-hidden">
-        <DashboardHeaderV2 />
+        <DashboardHeaderV2 searchEntries={searchEntries} />
         <main
           className={
             flushContent
