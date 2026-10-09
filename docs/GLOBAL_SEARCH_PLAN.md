@@ -12,7 +12,7 @@
 | F1   | Strony i zakładki                             | ✅ kod + testy, czeka na test ręczny |
 | F2   | Akcje (`>`)                                   | ✅ kod + testy, czeka na test ręczny |
 | F3   | Rozpoznanie wklejonego ID                     | ✅ kod + testy, czeka na test ręczny |
-| F4   | Dane P1 (RPC + indeksy)                       | ⬜                                   |
+| F4   | Dane P1 (RPC + indeksy)                       | ✅ kod + testy, czeka na test ręczny |
 | F5   | UX wyników: grupy, chipy, podgląd, ostatnie   | ⬜                                   |
 | F6   | Telefon + skaner                              | ⬜                                   |
 | F7   | Dane P2                                       | ⬜                                   |
@@ -40,13 +40,14 @@
   - [x] Grupa „Dokładne trafienie” na górze, zaznaczona od razu → Enter otwiera obiekt, Ctrl+Enter w nowej karcie
   - [x] Testy parserów i palety
   - [ ] Kod QR ze skanera → F6
-- [ ] **F4** — dane P1
-  - [ ] Migracja: `pg_trgm` + indeksy trigramowe
-  - [ ] RPC `search_global` (SECURITY INVOKER, limit na grupę)
-  - [ ] Źródła: zlecenia, części, kontenery, lokalizacje, dokumenty, zapytania, osoby
-  - [ ] Server action z kontrolą uprawnień per źródło
-  - [ ] pgTAP: RLS — brak wyników z cudzej organizacji / oddziału bez dostępu
-  - [ ] Debounce ~150 ms, anulowanie starych zapytań
+- [x] **F4** — dane P1
+  - [x] Migracja `20261009060958_global_search` (nałożona przez MCP): indeksy trigramowe GIN (`pg_trgm` już był)
+  - [x] RPC `search_global` (SECURITY INVOKER, limit na źródło, `%`/`_` w zapytaniu dosłownie)
+  - [x] Źródła: zlecenia (też po numerze części na pozycji), części (numer porównywany przez `inventory_sku_fingerprint`, stan w oddziale), kontenery, lokalizacje, dokumenty, zapytania, osoby
+  - [x] `globalSearchAction`: jedno wywołanie = dokładne trafienia + wyniki tekstowe, bramki modułu + uprawnień per źródło
+  - [x] pgTAP 120: 9/9 na żywej bazie (anon bez EXECUTE, oddział, cudza organizacja, część ze spacjami, `_` dosłownie)
+  - [x] Debounce 200 ms, poprzednie wyniki zostają na ekranie do czasu nowych (bez migotania)
+  - [x] Wydajność (migracje `20261009062628`, `20261009063706`) — patrz „Wydajność” niżej
 - [ ] **F5** — UX wyników
   - [ ] Grupy z licznikami, limit + „Pokaż wszystkie”
   - [ ] Chipy zakresu i prefiksy (`zl:` `cz:` `k:` `lok:` `dok:` `hd:` `@` `>`)
@@ -97,7 +98,7 @@ Wzorce z innych aplikacji (research): GitHub i GitLab (paleta i prefiksy), Linea
 | Zapytania     | `HD-…`, tytuł, zlecenie, zgłaszający                                      | status, prowadzący                | `hd:`   | oddział        | `helpdesk.tickets.read`       |
 | Osoby         | imię, nazwisko, e-mail, stanowisko                                        | rola, oddział                     | `@`     | organizacja    | członkostwo w org             |
 
-Nazwy uprawnień do potwierdzenia w tabeli `permissions` w F4.
+Uprawnienia w kodzie (`SOURCE_GATES` w `app/actions/global-search`): kontenery i dokumenty — `warehouse.inventory.read`; osoby — `members.read` (link prowadzi na stronę członka).
 
 ### Dane P2
 
@@ -160,6 +161,15 @@ Wzorce sprawdzane przed wyszukiwaniem tekstowym, w kolejności: kod QR → pełn
 - Zastępuje [header-search.tsx](../apps/web/src/components/v2/layout/header-search.tsx) (dziś tylko moduły, etykiety po angielsku); `cmdk` i `components/ui/command.tsx` są już w projekcie.
 - Debounce ~150 ms, anulowanie poprzedniego zapytania, cache ostatnich wyników (TanStack Query).
 - Ostatnio otwierane: lokalnie per użytkownik + organizacja (do 8 pozycji).
+
+### Wydajność (zmierzone 2026-10-09)
+
+- **Problem**: pod RLS Postgres nie może sprawdzić `ILIKE` indeksem przed politykami (operator nie jest leakproof) — liczył `has_branch_permission()` dla każdego wiersza tabeli. 3 tys. zleceń: ~620 ms na zapytanie, nawet bez trafień.
+- **Rozwiązanie — dwa etapy**: `search_global_candidates()` (SECURITY DEFINER, tylko id + ranking, odmawia osobom spoza organizacji) znajduje kandydatów indeksami trigramowymi; `search_global()` (SECURITY INVOKER) czyta ich po kluczu głównym i **RLS decyduje** o każdym wierszu — liczony dla kilkudziesięciu wierszy zamiast całej tabeli.
+- Fragmenty krótsze niż 3 znaki nie są szukane (indeks trigramowy ich nie obsłuży); kandydaci zbierani `UNION` per indeks zamiast `OR`; stan części liczony po `LIMIT`.
+- Serwer aplikacji przerywa wyszukiwanie tekstowe po 3 s; dokładne trafienia przychodzą niezależnie. Baza ma twardy limit 8 s dla roli `authenticated`.
+- **Pomiar** (jako zalogowany użytkownik, RLS, wszystkie 7 źródeł, 30 tys. części, 20 tys. zleceń, 80 tys. pozycji, 10 tys. lokalizacji): typowo **40–140 ms**; frazy pasujące do tysięcy rekordów („WVWZZZ” = każde zlecenie) 200–300 ms; zimny cache po masowym imporcie jednorazowo ~1,3 s.
+- Do obserwacji przy większej skali: sortowanie bardzo szerokich trafień (ranking po nazwie części) — jeśli zacznie przeszkadzać, ranking bez pełnego sortowania.
 
 ## 4. Weryfikacja
 

@@ -2,12 +2,16 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { DetectedSearchId } from "@/lib/global-search/id-patterns";
 
 /**
- * Global search — exact hits for identifiers recognized in the query
- * (repair order number, VIN, HD-/PT- numbers, document numbers, codes).
+ * Global search over operational data.
+ *
+ * - findExactHits: identifiers recognized in the query (repair order number,
+ *   VIN, HD-/PT- numbers, document numbers, codes) → the object itself.
+ * - searchText: fragment search through the search_global() RPC (trigram
+ *   indexes, part numbers compared by fingerprint, orders found by their lines).
  *
  * Runs with the user's Supabase client, so RLS applies on top of the source
  * gates decided by the caller. Branch-bound objects are looked up in the active
- * branch only; tickets and tasks follow their organization-wide RLS.
+ * branch only; tickets, tasks and people follow their organization-wide RLS.
  */
 
 export type SearchSourceId =
@@ -17,7 +21,8 @@ export type SearchSourceId =
   | "documents"
   | "containers"
   | "locations"
-  | "items";
+  | "items"
+  | "people";
 
 export type ExactHitType =
   | "repairOrder"
@@ -26,19 +31,67 @@ export type ExactHitType =
   | "document"
   | "container"
   | "location"
-  | "item";
+  | "item"
+  | "person";
 
 export interface SearchExactHit {
   type: ExactHitType;
   id: string;
-  /** Main identifier shown in mono (number, code, SKU) */
-  code: string;
+  /** Main identifier shown in mono (number, code, SKU); null for people */
+  code: string | null;
   title: string | null;
   subtitle: string | null;
   status: string | null;
   /** Internal route (next-intl pathname) */
   href: string;
   query?: Record<string, string>;
+  /** Raw details formatted by the palette (stock, warehouse, matched part, …) */
+  meta?: Record<string, string | number>;
+}
+
+/** Shortest fragment search_global() searches (mirrors the SQL function) */
+export const MIN_TEXT_QUERY = 3;
+const TEXT_SEARCH_TIMEOUT_MS = 3000;
+
+/** Sources searched by search_global() (tasks only have exact hits for now) */
+const TEXT_SOURCES: SearchSourceId[] = [
+  "repairOrders",
+  "items",
+  "locations",
+  "containers",
+  "documents",
+  "tickets",
+  "people",
+];
+
+interface SearchGlobalRow {
+  type: ExactHitType;
+  id: string;
+  code: string | null;
+  title: string | null;
+  status: string | null;
+  meta: Record<string, string | number> | null;
+}
+
+function hrefFor(type: ExactHitType, id: string): Pick<SearchExactHit, "href" | "query"> {
+  switch (type) {
+    case "repairOrder":
+      return { href: `/dashboard/workshop/${id}` };
+    case "ticket":
+      return { href: `/dashboard/help-desk/tickets/${id}` };
+    case "task":
+      return { href: `/dashboard/planning/tasks/${id}` };
+    case "document":
+      return { href: `/dashboard/warehouse/inventory/movements/${id}` };
+    case "container":
+      return { href: `/dashboard/warehouse/containers/${id}` };
+    case "location":
+      return { href: "/dashboard/warehouse/locations", query: { selected: id, view: "tree" } };
+    case "item":
+      return { href: `/dashboard/warehouse/items/${id}` };
+    case "person":
+      return { href: `/dashboard/organization/users/members/${id}` };
+  }
 }
 
 export interface ExactSearchScope {
@@ -245,6 +298,44 @@ async function items(db: Db, scope: ExactSearchScope, value: string) {
 }
 
 export class GlobalSearchService {
+  /**
+   * Fragment search across every allowed source, `limit` rows per source.
+   * Needs MIN_TEXT_QUERY characters (trigram indexes cannot serve shorter
+   * patterns). Gives up after TEXT_SEARCH_TIMEOUT_MS: a palette that waits
+   * longer is useless, and exact hits are returned independently.
+   */
+  static async searchText(
+    supabase: SupabaseClient,
+    scope: ExactSearchScope,
+    query: string,
+    limit = 5
+  ): Promise<SearchExactHit[]> {
+    const sources = TEXT_SOURCES.filter((source) => scope.sources.has(source));
+    if (sources.length === 0 || query.trim().length < MIN_TEXT_QUERY) return [];
+
+    const { data, error } = await supabase
+      .rpc("search_global", {
+        p_org: scope.orgId,
+        p_branch: scope.branchId,
+        p_query: query,
+        p_sources: sources,
+        p_limit: limit,
+      })
+      .abortSignal(AbortSignal.timeout(TEXT_SEARCH_TIMEOUT_MS));
+    if (error) throw new Error(error.message);
+
+    return ((data ?? []) as SearchGlobalRow[]).map((row) => ({
+      type: row.type,
+      id: row.id,
+      code: row.code,
+      title: row.title,
+      subtitle: null,
+      status: row.status,
+      meta: row.meta ?? undefined,
+      ...hrefFor(row.type, row.id),
+    }));
+  }
+
   static async findExactHits(
     supabase: SupabaseClient,
     scope: ExactSearchScope,

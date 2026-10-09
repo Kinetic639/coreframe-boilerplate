@@ -6,7 +6,9 @@ import { EntitlementsService } from "@/server/services/entitlements-service";
 import { checkPermission } from "@/lib/utils/permissions";
 import {
   HELPDESK_TICKETS_READ,
+  MEMBERS_READ,
   MODULE_HELPDESK_ACCESS,
+  MODULE_ORGANIZATION_MANAGEMENT_ACCESS,
   MODULE_PLANNING_ACCESS,
   MODULE_WAREHOUSE_ACCESS,
   MODULE_WORKSHOP_ACCESS,
@@ -18,6 +20,7 @@ import {
 } from "@/lib/constants/permissions";
 import {
   MODULE_HELPDESK,
+  MODULE_ORGANIZATION_MANAGEMENT,
   MODULE_PLANNING,
   MODULE_WAREHOUSE,
   MODULE_WORKSHOP,
@@ -25,6 +28,7 @@ import {
 import { detectSearchIds } from "@/lib/global-search/id-patterns";
 import {
   GlobalSearchService,
+  MIN_TEXT_QUERY,
   type SearchExactHit,
   type SearchSourceId,
 } from "@/server/services/global-search.service";
@@ -60,19 +64,38 @@ const SOURCE_GATES: Record<SearchSourceId, { module: string; permissions: string
     module: MODULE_WAREHOUSE,
     permissions: [MODULE_WAREHOUSE_ACCESS, WAREHOUSE_PRODUCTS_READ],
   },
+  // People link to the member page, which requires members.read
+  people: {
+    module: MODULE_ORGANIZATION_MANAGEMENT,
+    permissions: [MODULE_ORGANIZATION_MANAGEMENT_ACCESS, MEMBERS_READ],
+  },
 };
 
+export interface GlobalSearchResult {
+  /** Objects whose identifier equals the query (ZL, VIN, HD-, PZ/…, code) */
+  exact: SearchExactHit[];
+  /** Fragment matches, at most a few per source, exact hits excluded */
+  results: SearchExactHit[];
+}
+
+const EMPTY: GlobalSearchResult = { exact: [], results: [] };
+
 /**
- * Exact hits for an identifier typed, pasted or scanned into the global search
+ * Data search for the global search palette.
+ *
+ * Exact hits for an identifier typed, pasted or scanned into the palette
  * (ZL number, VIN, HD-/PT- number, PZ/RW/MM document, container / location
- * code, SKU or barcode). Returns an empty list when nothing is recognized.
+ * code, SKU or barcode) plus fragment matches across orders, parts, locations,
+ * containers, documents, requests and people. Each source is searched only
+ * when the module is enabled and the user holds its permissions; RLS applies.
  */
-export async function findSearchExactHitsAction(
-  query: string
-): Promise<ActionResult<SearchExactHit[]>> {
+export async function globalSearchAction(
+  rawQuery: string
+): Promise<ActionResult<GlobalSearchResult>> {
   try {
-    const detected = detectSearchIds(query.slice(0, MAX_QUERY_LENGTH));
-    if (detected.length === 0) return { success: true, data: [] };
+    const query = rawQuery.trim().slice(0, MAX_QUERY_LENGTH);
+    if (query.length < MIN_TEXT_QUERY) return { success: true, data: EMPTY };
+    const detected = detectSearchIds(query);
 
     const supabase = await createClient();
     const context = await loadDashboardContextV2();
@@ -94,16 +117,22 @@ export async function findSearchExactHitsAction(
         sources.add(source);
       }
     }
-    if (sources.size === 0) return { success: true, data: [] };
+    if (sources.size === 0) return { success: true, data: EMPTY };
 
-    const hits = await GlobalSearchService.findExactHits(
-      supabase,
-      { orgId, branchId: context.app.activeBranchId, sources },
-      detected
-    );
-    return { success: true, data: hits };
+    const scope = { orgId, branchId: context.app.activeBranchId, sources };
+    const [exact, text] = await Promise.all([
+      detected.length ? GlobalSearchService.findExactHits(supabase, scope, detected) : [],
+      // A slow or failed fragment search must not hide the exact hits
+      GlobalSearchService.searchText(supabase, scope, query).catch((error: unknown) => {
+        console.error("[globalSearchAction] text search", error);
+        return [];
+      }),
+    ]);
+    const exactKeys = new Set(exact.map((hit) => `${hit.type}:${hit.id}`));
+    const results = text.filter((hit) => !exactKeys.has(`${hit.type}:${hit.id}`));
+    return { success: true, data: { exact, results } };
   } catch (error) {
-    console.error("[findSearchExactHitsAction]", error);
+    console.error("[globalSearchAction]", error);
     return { success: false, error: "Search failed" };
   }
 }

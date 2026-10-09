@@ -15,6 +15,7 @@ import {
   MapPin,
   Package,
   Ticket,
+  UserRound,
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "react-toastify";
@@ -42,9 +43,8 @@ import {
   type PaletteItem,
 } from "@/lib/global-search/palette";
 import type { SearchEntry } from "@/lib/global-search/types";
-import { detectSearchIds } from "@/lib/global-search/id-patterns";
 import { useDebounce } from "@/hooks/use-debounce";
-import { findSearchExactHitsAction } from "@/app/actions/global-search";
+import { globalSearchAction, type GlobalSearchResult } from "@/app/actions/global-search";
 import type { ExactHitType, SearchExactHit } from "@/server/services/global-search.service";
 import { useGlobalSearchStore } from "./global-search-store";
 
@@ -52,7 +52,9 @@ import { useGlobalSearchStore } from "./global-search-store";
 const SAFE_ROUTE_AFTER_BRANCH_SWITCH = "/dashboard/start";
 const BRANCH_ITEM_PREFIX = "branch:";
 const HIT_ITEM_PREFIX = "hit:";
-const EXACT_DEBOUNCE_MS = 150;
+const SEARCH_DEBOUNCE_MS = 200;
+const MIN_DATA_QUERY = 3;
+const EMPTY_RESULT: GlobalSearchResult = { exact: [], results: [] };
 
 const HIT_ICONS: Record<ExactHitType, LucideIcon> = {
   repairOrder: Car,
@@ -62,7 +64,20 @@ const HIT_ICONS: Record<ExactHitType, LucideIcon> = {
   container: Boxes,
   location: MapPin,
   item: Package,
+  person: UserRound,
 };
+
+/** Order of the data groups below the pages and actions */
+const DATA_GROUP_ORDER: ExactHitType[] = [
+  "repairOrder",
+  "item",
+  "container",
+  "location",
+  "document",
+  "ticket",
+  "task",
+  "person",
+];
 
 type Target =
   | { type: "entry"; entry: SearchEntry }
@@ -88,6 +103,92 @@ function Kbd({ children }: { children: React.ReactNode }) {
     <kbd className="rounded border bg-background px-1.5 py-0.5 font-mono text-[11px] font-medium text-muted-foreground">
       {children}
     </kbd>
+  );
+}
+
+type GlobalSearchTranslator = ReturnType<typeof useTranslations<"globalSearch">>;
+
+/** Second line of a data row: stock, warehouse, matched part, location, date, e-mail */
+function hitDetails(hit: SearchExactHit, t: GlobalSearchTranslator, withType: boolean): string {
+  const meta = hit.meta ?? {};
+  const parts: (string | null | undefined)[] = [withType ? t(`hitTypes.${hit.type}`) : null];
+  switch (hit.type) {
+    case "repairOrder":
+      if (meta.warehouseCode) parts.push(t("details.warehouse", { code: meta.warehouseCode }));
+      if (meta.vin) parts.push(String(meta.vin));
+      if (meta.matchedPart) parts.push(t("details.containsPart", { code: meta.matchedPart }));
+      break;
+    case "item":
+      if (meta.onHand !== undefined) {
+        parts.push(
+          t("details.stock", { onHand: meta.onHand, available: meta.available ?? meta.onHand })
+        );
+      } else {
+        parts.push(t("details.noStock"));
+      }
+      break;
+    case "container":
+      if (meta.locationCode) parts.push(t("details.location", { code: meta.locationCode }));
+      break;
+    case "document":
+      parts.push(meta.documentType ? String(meta.documentType) : null);
+      parts.push(meta.date ? String(meta.date) : null);
+      break;
+    case "person":
+      parts.push(meta.email ? String(meta.email) : null);
+      break;
+  }
+  parts.push(hit.subtitle);
+  return parts.filter(Boolean).join(" · ");
+}
+
+interface HitRowProps {
+  hit: SearchExactHit;
+  exact: boolean;
+  onSelect: (value: string) => void;
+  t: GlobalSearchTranslator;
+  statusLabel: (status: string) => string;
+}
+
+function HitRow({ hit, exact, onSelect, t, statusLabel }: HitRowProps) {
+  const Icon = HIT_ICONS[hit.type];
+  const details = hitDetails(hit, t, exact);
+  return (
+    <CommandItem
+      value={hitItemId(hit)}
+      onSelect={onSelect}
+      className={
+        exact
+          ? "group gap-3 rounded-lg border border-transparent px-2 py-2.5 data-[selected=true]:border-primary/40 data-[selected=true]:bg-primary/10"
+          : "group gap-3 rounded-lg px-2 py-2.5 data-[selected=true]:bg-primary/10"
+      }
+    >
+      <span
+        className={
+          exact
+            ? "flex size-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground"
+            : "flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground group-data-[selected=true]:bg-background group-data-[selected=true]:text-primary"
+        }
+      >
+        <Icon className="size-4" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-medium">
+          {hit.code ? <span className="font-mono">{hit.code}</span> : null}
+          {hit.code && hit.title ? " · " : null}
+          {hit.title}
+        </span>
+        {details ? (
+          <span className="block truncate text-xs text-muted-foreground">{details}</span>
+        ) : null}
+      </span>
+      {hit.status ? (
+        <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+          {statusLabel(hit.status)}
+        </span>
+      ) : null}
+      <CornerDownLeft className="hidden size-4 text-muted-foreground group-data-[selected=true]:block" />
+    </CommandItem>
   );
 }
 
@@ -170,32 +271,50 @@ export function GlobalSearchDialog({ entries }: GlobalSearchDialogProps) {
   const groups = useMemo(() => buildPaletteGroups(query, items), [query, items]);
   const { actionsMode } = parsePaletteQuery(query);
 
-  // Exact hits: a recognized identifier (ZL, VIN, HD-, PZ/…, code) is looked up server-side
-  const debouncedQuery = useDebounce(query, EXACT_DEBOUNCE_MS);
-  const exactText = parsePaletteQuery(debouncedQuery).actionsMode ? "" : debouncedQuery.trim();
-  const exactEnabled =
-    open && !actionsMode && exactText.length > 0 && detectSearchIds(exactText).length > 0;
-  const exactQuery = useQuery({
-    queryKey: ["global-search", "exact", activeBranchId, exactText],
+  // Data: exact hits for a recognized identifier (ZL, VIN, HD-, PZ/…, code) and
+  // fragment matches across orders, parts, locations, … — one server call
+  const debouncedQuery = useDebounce(query, SEARCH_DEBOUNCE_MS);
+  const dataText = parsePaletteQuery(debouncedQuery).actionsMode ? "" : debouncedQuery.trim();
+  const dataEnabled = open && !actionsMode && dataText.length >= MIN_DATA_QUERY;
+  const dataQuery = useQuery({
+    queryKey: ["global-search", "data", activeBranchId, dataText],
     queryFn: async () => {
-      const result = await findSearchExactHitsAction(exactText);
-      return result.success ? result.data : [];
+      const result = await globalSearchAction(dataText);
+      return result.success ? result.data : EMPTY_RESULT;
     },
-    enabled: exactEnabled,
+    enabled: dataEnabled,
     staleTime: 30_000,
+    // Keep the previous results on screen while the next query loads
+    placeholderData: (previous) => previous,
   });
-  const exactHits = useMemo(
-    () => (exactEnabled && query.trim() ? (exactQuery.data ?? []) : []),
-    [exactEnabled, exactQuery.data, query]
+  const showData = dataEnabled && query.trim().length >= MIN_DATA_QUERY;
+  const data = showData ? (dataQuery.data ?? EMPTY_RESULT) : EMPTY_RESULT;
+  const exactHits = data.exact;
+  const dataLoading = dataEnabled && dataQuery.isFetching;
+
+  const dataGroups = useMemo(
+    () =>
+      DATA_GROUP_ORDER.map((type) => ({
+        type,
+        hits: data.results.filter((hit) => hit.type === type),
+      })).filter((group) => group.hits.length > 0),
+    [data.results]
   );
-  const exactLoading = exactEnabled && exactQuery.isFetching;
 
   const allTargets = useMemo(() => {
-    if (exactHits.length === 0) return targets;
+    if (exactHits.length === 0 && data.results.length === 0) return targets;
     const map = new Map(targets);
-    for (const hit of exactHits) map.set(hitItemId(hit), { type: "hit", hit });
+    for (const hit of [...exactHits, ...data.results]) {
+      map.set(hitItemId(hit), { type: "hit", hit });
+    }
     return map;
-  }, [exactHits, targets]);
+  }, [data.results, exactHits, targets]);
+
+  const statusLabel = useCallback(
+    (status: string) =>
+      tRoot.has(`globalSearch.statuses.${status}`) ? t(`statuses.${status}`) : status,
+    [t, tRoot]
+  );
 
   // A pasted number should open its object on Enter: highlight the first exact hit
   const firstHitId = exactHits[0] ? hitItemId(exactHits[0]) : null;
@@ -344,43 +463,20 @@ export function GlobalSearchDialog({ entries }: GlobalSearchDialogProps) {
 
           <CommandList className="!max-h-none min-h-0 flex-1 overflow-y-auto px-2 pb-2 sm:!max-h-[60vh]">
             <CommandEmpty className="py-10 text-center text-sm text-muted-foreground">
-              {exactLoading ? t("searching") : t("empty")}
+              {dataLoading ? t("searching") : t("empty")}
             </CommandEmpty>
             {exactHits.length > 0 ? (
               <CommandGroup heading={t("groups.exact")}>
-                {exactHits.map((hit) => {
-                  const Icon = HIT_ICONS[hit.type];
-                  const details = [t(`hitTypes.${hit.type}`), hit.subtitle].filter(Boolean);
-                  return (
-                    <CommandItem
-                      key={hitItemId(hit)}
-                      value={hitItemId(hit)}
-                      onSelect={select}
-                      className="group gap-3 rounded-lg border border-transparent px-2 py-2.5 data-[selected=true]:border-primary/40 data-[selected=true]:bg-primary/10"
-                    >
-                      <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
-                        <Icon className="size-4" />
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium">
-                          <span className="font-mono">{hit.code}</span>
-                          {hit.title ? ` · ${hit.title}` : null}
-                        </span>
-                        <span className="block truncate text-xs text-muted-foreground">
-                          {details.join(" · ")}
-                        </span>
-                      </span>
-                      {hit.status ? (
-                        <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                          {tRoot.has(`globalSearch.statuses.${hit.status}`)
-                            ? t(`statuses.${hit.status}`)
-                            : hit.status}
-                        </span>
-                      ) : null}
-                      <CornerDownLeft className="hidden size-4 text-muted-foreground group-data-[selected=true]:block" />
-                    </CommandItem>
-                  );
-                })}
+                {exactHits.map((hit) => (
+                  <HitRow
+                    key={hitItemId(hit)}
+                    hit={hit}
+                    exact
+                    onSelect={select}
+                    t={t}
+                    statusLabel={statusLabel}
+                  />
+                ))}
               </CommandGroup>
             ) : null}
             {groups.map((group) => (
@@ -414,6 +510,20 @@ export function GlobalSearchDialog({ entries }: GlobalSearchDialogProps) {
                     </CommandItem>
                   );
                 })}
+              </CommandGroup>
+            ))}
+            {dataGroups.map((group) => (
+              <CommandGroup key={group.type} heading={t(`dataGroups.${group.type}`)}>
+                {group.hits.map((hit) => (
+                  <HitRow
+                    key={hitItemId(hit)}
+                    hit={hit}
+                    exact={false}
+                    onSelect={select}
+                    t={t}
+                    statusLabel={statusLabel}
+                  />
+                ))}
               </CommandGroup>
             ))}
           </CommandList>

@@ -52,7 +52,7 @@ vi.mock("@/app/actions/shared/changeBranch", () => ({
 vi.mock("@/app/[locale]/actions", () => ({ signOutAction: vi.fn() }));
 vi.mock("react-toastify", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/app/actions/global-search", () => ({
-  findSearchExactHitsAction: (query: string) => findExactHitsMock(query),
+  globalSearchAction: (query: string) => findExactHitsMock(query),
 }));
 vi.mock("@/hooks/use-debounce", () => ({ useDebounce: <T,>(value: T) => value }));
 
@@ -123,31 +123,35 @@ describe("GlobalSearchDialog", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    findExactHitsMock.mockResolvedValue({ success: true, data: [] });
+    findExactHitsMock.mockResolvedValue({ success: true, data: { exact: [], results: [] } });
     useGlobalSearchStore.setState({ open: false, initialQuery: "" });
   });
 
-  it("does not query the database for plain words", () => {
+  it("does not search data for one character or in > mode", () => {
     renderDialog();
     openPalette();
-    type("stany");
+    type("z");
+    type("> nowe");
     expect(findExactHitsMock).not.toHaveBeenCalled();
   });
 
   it("shows an exact hit for a pasted number and opens it on Enter", async () => {
     findExactHitsMock.mockResolvedValue({
       success: true,
-      data: [
-        {
-          type: "ticket",
-          id: "t1",
-          code: "HD-000012",
-          title: "Brak podpórki",
-          subtitle: null,
-          status: "open",
-          href: "/dashboard/help-desk/tickets/t1",
-        },
-      ],
+      data: {
+        exact: [
+          {
+            type: "ticket",
+            id: "t1",
+            code: "HD-000012",
+            title: "Brak podpórki",
+            subtitle: null,
+            status: "open",
+            href: "/dashboard/help-desk/tickets/t1",
+          },
+        ],
+        results: [],
+      },
     });
     renderDialog();
     openPalette();
@@ -159,6 +163,48 @@ describe("GlobalSearchDialog", () => {
 
     fireEvent.keyDown(screen.getByRole("combobox"), { key: "Enter" });
     expect(push).toHaveBeenCalledWith("/dashboard/help-desk/tickets/t1");
+  });
+
+  it("groups data results by type below pages, with stock and matched part details", async () => {
+    findExactHitsMock.mockResolvedValue({
+      success: true,
+      data: {
+        exact: [],
+        results: [
+          {
+            type: "item",
+            id: "p1",
+            code: "2K5807221KGRU",
+            title: "Poszycie zderzaka",
+            subtitle: null,
+            status: null,
+            href: "/dashboard/warehouse/items/p1",
+            meta: { onHand: 2, available: 1 },
+          },
+          {
+            type: "repairOrder",
+            id: "ro1",
+            code: "174232",
+            title: "Lakomecki",
+            subtitle: null,
+            status: "open",
+            href: "/dashboard/workshop/ro1",
+            meta: { warehouseCode: "3122", matchedPart: "2K5807221KGRU" },
+          },
+        ],
+      },
+    });
+    renderDialog();
+    openPalette();
+    type("2K5807");
+
+    expect(await screen.findByText("dataGroups.repairOrder")).toBeInTheDocument();
+    expect(screen.getByText("dataGroups.item")).toBeInTheDocument();
+    expect(screen.getByText("details.stock")).toBeInTheDocument();
+    expect(screen.getByText("details.warehouse · details.containsPart")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("2K5807221KGRU"));
+    expect(push).toHaveBeenCalledWith("/dashboard/warehouse/items/p1");
   });
 
   it("toggles with Ctrl+K and shows quick actions and pages when empty", () => {

@@ -8030,11 +8030,11 @@
     "cameraError": "Camera access denied or unavailable."
   },
   "globalSearch": {
-    "triggerLabel": "Search pages, actions, numbers…",
+    "triggerLabel": "Search orders, parts, locations, people…",
     "triggerAria": "Search ({shortcut})",
     "dialogTitle": "Search Ambra",
     "dialogDescription": "Find a page or an action. Type > to show actions only.",
-    "placeholder": "Search pages and actions, paste an order number, VIN, HD-, PZ/… or type > to run an action",
+    "placeholder": "Search orders, parts, locations, documents, people… or type > to run an action",
     "actionsPlaceholder": "Type an action name…",
     "actionsModeBadge": "> Actions",
     "cancel": "Cancel",
@@ -8104,7 +8104,8 @@
       "document": "Stock document",
       "container": "Container",
       "location": "Location",
-      "item": "Item"
+      "item": "Item",
+      "person": "Person"
     },
     "statuses": {
       "open": "open",
@@ -8119,6 +8120,23 @@
       "draft": "draft",
       "reversed": "reversed",
       "active": "active"
+    },
+    "dataGroups": {
+      "repairOrder": "Repair orders",
+      "item": "Items",
+      "container": "Containers",
+      "location": "Locations",
+      "document": "Stock documents",
+      "ticket": "Requests",
+      "task": "Tasks",
+      "person": "People"
+    },
+    "details": {
+      "warehouse": "warehouse {code}",
+      "containsPart": "contains {code}",
+      "stock": "on hand {onHand} · available {available}",
+      "noStock": "no stock in this branch",
+      "location": "location {code}"
     }
   }
 }

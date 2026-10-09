@@ -8004,11 +8004,11 @@
     "cameraError": "Brak dostępu do aparatu albo aparat jest niedostępny."
   },
   "globalSearch": {
-    "triggerLabel": "Szukaj stron, akcji, numerów…",
+    "triggerLabel": "Szukaj zleceń, części, lokalizacji, osób…",
     "triggerAria": "Szukaj ({shortcut})",
     "dialogTitle": "Szukaj w Ambrze",
     "dialogDescription": "Wyszukaj stronę lub akcję. Wpisz > aby pokazać tylko akcje.",
-    "placeholder": "Szukaj stron i akcji, wklej numer zlecenia, VIN, HD-, PZ/… albo wpisz > aby wykonać akcję",
+    "placeholder": "Szukaj zleceń, części, lokalizacji, dokumentów, osób… albo wpisz > aby wykonać akcję",
     "actionsPlaceholder": "Wpisz nazwę akcji…",
     "actionsModeBadge": "> Akcje",
     "cancel": "Anuluj",
@@ -8078,7 +8078,8 @@
       "document": "Dokument magazynowy",
       "container": "Kontener",
       "location": "Lokalizacja",
-      "item": "Część"
+      "item": "Część",
+      "person": "Osoba"
     },
     "statuses": {
       "open": "otwarte",
@@ -8093,6 +8094,23 @@
       "draft": "szkic",
       "reversed": "wycofany",
       "active": "aktywny"
+    },
+    "dataGroups": {
+      "repairOrder": "Zlecenia",
+      "item": "Części",
+      "container": "Kontenery",
+      "location": "Lokalizacje",
+      "document": "Dokumenty magazynowe",
+      "ticket": "Zapytania",
+      "task": "Zadania",
+      "person": "Osoby"
+    },
+    "details": {
+      "warehouse": "mag {code}",
+      "containsPart": "zawiera {code}",
+      "stock": "stan {onHand} · dostępne {available}",
+      "noStock": "brak na stanie w tym oddziale",
+      "location": "lokalizacja {code}"
     }
   }
 }
