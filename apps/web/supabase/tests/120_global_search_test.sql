@@ -10,11 +10,13 @@
 --   - p_branch limits branch-bound data; another organization returns nothing
 --   - LIKE wildcards in the query are literal; p_sources limits the sources
 --   - fragments shorter than 3 characters are not searched (no trigram index → full scan)
+--   - identifier prefixes (location code, order number, part number on a line) are found
+--     through the "C" b-tree tier
 -- Everything rolls back.
 
 BEGIN;
 
-SELECT plan(12);
+SELECT plan(15);
 
 CREATE TEMP TABLE fx (org uuid, foreign_org uuid, branch uuid, other_branch uuid, e2e_user uuid,
                       loc uuid, other_loc uuid, ro uuid);
@@ -70,6 +72,9 @@ INSERT INTO results SELECT 'foreign', public.search_global(foreign_org, NULL, 'q
 INSERT INTO results SELECT 'wildcard', public.search_global(org, branch, '120_QZX', ARRAY['locations'], 5) FROM fx;
 INSERT INTO results SELECT 'sources', public.search_global(org, branch, 'qzx', ARRAY['tickets'], 5) FROM fx;
 INSERT INTO results SELECT 'short', public.search_global(org, branch, 'qz', ARRAY['locations'], 5) FROM fx;
+INSERT INTO results SELECT 'prefix_loc', public.search_global(org, branch, '120-qzx', ARRAY['locations'], 5) FROM fx;
+INSERT INTO results SELECT 'prefix_ro', public.search_global(org, branch, '12099', ARRAY['repairOrders'], 5) FROM fx;
+INSERT INTO results SELECT 'prefix_part', public.search_global(org, branch, '9qz807', ARRAY['repairOrders'], 5) FROM fx;
 -- Demo org locations exist ('R…' codes are common); the caller is not a member there
 INSERT INTO results SELECT 'foreign_candidates',
   to_jsonb((SELECT count(*) FROM public.search_global_candidates(foreign_org, NULL, 'reg', 'locations', 50)))
@@ -121,6 +126,21 @@ INSERT INTO test_log (line) SELECT is(
   (SELECT r FROM results WHERE k = 'foreign_candidates'),
   '0'::jsonb,
   'candidate lookup refuses an organization the caller is not a member of'
+);
+INSERT INTO test_log (line) SELECT is(
+  (SELECT jsonb_path_query_array(r, '$[*].code') FROM results WHERE k = 'prefix_loc'),
+  '["120-QZX-01"]'::jsonb,
+  'location code prefix (case-insensitive) through the "C" b-tree'
+);
+INSERT INTO test_log (line) SELECT is(
+  (SELECT jsonb_path_query_array(r, '$[*].code') FROM results WHERE k = 'prefix_ro'),
+  '["120998"]'::jsonb,
+  'repair order number prefix'
+);
+INSERT INTO test_log (line) SELECT is(
+  (SELECT r -> 0 -> 'meta' ->> 'matchedPart' FROM results WHERE k = 'prefix_part'),
+  '9QZ8077221KGRU',
+  'repair order found by a part-number prefix on its line'
 );
 
 -- Report the result as an error so it shows up in the SQL Editor (which only displays the
