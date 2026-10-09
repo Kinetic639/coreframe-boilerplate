@@ -1,4 +1,5 @@
 import {
+  MESSAGES_USE,
   HELPDESK_TICKETS_CREATE,
   INVITES_CREATE,
   INVITES_READ,
@@ -222,6 +223,14 @@ export const SEARCH_EXTRA_PAGES: SearchEntry[] = [
     "building",
     { ...ORGANIZATION, requiresPermissions: [MODULE_ORGANIZATION_MANAGEMENT_ACCESS, ORG_READ] },
     ["profil publiczny", "wizytowka", "public profile"]
+  ),
+  page(
+    "messages",
+    "general",
+    "/dashboard/messages",
+    "chat",
+    { requiresPermissions: [MESSAGES_USE] },
+    ["wiadomosci", "czat", "rozmowy", "napisz", "messages", "chat"]
   ),
   page("accountProfile", "account", "/dashboard/account/profile", "profile", undefined, [
     "moj profil",

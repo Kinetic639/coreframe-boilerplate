@@ -31,6 +31,7 @@ import { useUiStoreV2 } from "@/lib/stores/v2/ui-store";
 import { getUserDisplayName } from "@/utils/user-helpers";
 import { DashboardStatusBar } from "@/components/Dashboard/DashboardStatusBar";
 import { DashboardHeaderV2 } from "@/components/v2/layout/dashboard-header";
+import { MessagesRoot } from "@/components/v2/messages/messages-root";
 import type { SearchEntry } from "@/lib/global-search/types";
 import type { SearchSourceId } from "@/lib/global-search/sources";
 import { cn } from "@/lib/utils";
@@ -980,19 +981,22 @@ export function DashboardShell({
         accessibleBranches={accessibleBranches}
         activeBranchId={activeBranchId}
       />
-      <SidebarInset className="flex h-svh min-h-0 flex-col overflow-hidden">
-        <DashboardHeaderV2 searchEntries={searchEntries} searchSources={searchSources} />
-        <main
-          className={
-            flushContent
-              ? "flex min-h-0 flex-1 flex-col overflow-hidden"
-              : "min-h-0 flex-1 overflow-auto p-4 pb-12"
-          }
-        >
-          {children}
-        </main>
-        <DashboardStatusBar initialLatestEvent={initialLatestEvent} />
-      </SidebarInset>
+      {/* Messages: the right bar and chat windows sit next to the page (users with messages.use) */}
+      <MessagesRoot>
+        <SidebarInset className="flex h-svh min-h-0 flex-col overflow-hidden">
+          <DashboardHeaderV2 searchEntries={searchEntries} searchSources={searchSources} />
+          <main
+            className={
+              flushContent
+                ? "flex min-h-0 flex-1 flex-col overflow-hidden"
+                : "min-h-0 flex-1 overflow-auto p-4 pb-12"
+            }
+          >
+            {children}
+          </main>
+          <DashboardStatusBar initialLatestEvent={initialLatestEvent} />
+        </SidebarInset>
+      </MessagesRoot>
     </SidebarProvider>
   );
 }

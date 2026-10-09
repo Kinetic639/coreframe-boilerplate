@@ -349,6 +349,10 @@ export const routing = defineRouting({
       en: "/dashboard/planning",
       pl: "/dashboard/planowanie",
     },
+    "/dashboard/messages": {
+      en: "/dashboard/messages",
+      pl: "/dashboard/wiadomosci",
+    },
     "/dashboard/planning/tasks": {
       en: "/dashboard/planning/tasks",
       pl: "/dashboard/planowanie/zadania",
