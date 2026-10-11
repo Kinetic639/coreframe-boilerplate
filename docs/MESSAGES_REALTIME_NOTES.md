@@ -6,9 +6,9 @@
 
 ## Do zrobienia po demo (skrót)
 
-- [ ] Obecność (online): nie ogłaszać jej na poziomie całej organizacji przy każdej otwartej karcie (§5.1)
-- [ ] „Przeczytane” w dużych grupach: bez rozsyłania na żywo powyżej ok. 15 osób (§5.2)
-- [ ] Oznaczanie przeczytania: w paczkach co 2–3 s zamiast przy każdej wiadomości (§5.3)
+- [ ] Obecność (online): nie ogłaszać jej na poziomie całej organizacji przy każdej otwartej karcie (§5.1) — **czeka na decyzję**: obie opcje zmieniają znaczenie zielonego znacznika
+- [x] „Przeczytane” w dużych grupach: bez rozsyłania na żywo powyżej 15 osób (§5.2) — migracja `20261011191633_chat_read_receipts_large_groups` (11.10.2026; gałąź > 15 osób niesprawdzona na prawdziwej grupie — w organizacji testowej są 3 konta)
+- [x] Oznaczanie przeczytania: w paczkach co 2,5 s zamiast przy każdej wiadomości (§5.3) — `lib/messages/read-batcher.ts` (11.10.2026)
 - [ ] Pomiar listy rozmów i wątku na tymczasowym zestawie danych — **nie na produkcji** (§5.4)
 - [ ] Sprawdzić w panelu Supabase realne zużycie komunikatów Realtime po 1–2 tygodniach używania (§4)
 - [ ] Zweryfikować limity i ceny w aktualnym cenniku Supabase (liczby w §4 są z pamięci)

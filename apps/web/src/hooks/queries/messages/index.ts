@@ -13,20 +13,26 @@ import {
   listChatPeopleAction,
   listConversationsAction,
   listMessagesAction,
+  deleteMessageAction,
+  editMessageAction,
   markConversationReadAction,
   sendMessageAction,
   type ChatPerson,
 } from "@/app/actions/messages";
 import {
+  applyMessageUpdateToList,
   clearUnread,
+  replaceMessage,
   flattenMessages,
   upsertMessage,
   type MessagesInfiniteData,
   type PendingChatMessage,
 } from "@/lib/messages/cache";
+import { createReadBatcher } from "@/lib/messages/read-batcher";
 import type {
   ChatConversationDetail,
   ChatConversationSummary,
+  ChatMessage,
   ChatMessageCursor,
   ChatMessagesPage,
 } from "@/lib/messages/types";
@@ -154,7 +160,51 @@ export function useSendMessage(meId: string | null | undefined) {
   });
 }
 
-/** Marks a conversation read (server + local unread count) */
+/** Edit and delete of an own message; the stored row replaces the cached one */
+export function useMessageChanges(orgId: string | null | undefined) {
+  const queryClient = useQueryClient();
+  const apply = useCallback(
+    (message: ChatMessage) => {
+      queryClient.setQueryData<MessagesInfiniteData>(
+        messagesKeys.thread(message.conversation_id),
+        (data) => replaceMessage(data, message)
+      );
+      if (orgId) {
+        queryClient.setQueryData<ChatConversationSummary[]>(
+          messagesKeys.conversations(orgId),
+          (list) => applyMessageUpdateToList(list, message)
+        );
+      }
+    },
+    [orgId, queryClient]
+  );
+  const editMessage = useMutation({
+    mutationFn: async (variables: { messageId: string; bodyPlain: string; bodyRich?: unknown }) => {
+      const result = await editMessageAction(variables);
+      if (!result.success) throw new Error((result as { error: string }).error);
+      return result.data;
+    },
+    onSuccess: apply,
+  });
+  const deleteMessage = useMutation({
+    mutationFn: async (messageId: string) => {
+      const result = await deleteMessageAction({ messageId });
+      if (!result.success) throw new Error((result as { error: string }).error);
+      return result.data;
+    },
+    onSuccess: apply,
+  });
+  return { editMessage, deleteMessage };
+}
+
+const readBatcher = createReadBatcher((conversationId) => {
+  void markConversationReadAction({ conversationId });
+});
+if (typeof window !== "undefined") {
+  window.addEventListener("pagehide", () => readBatcher.flush());
+}
+
+/** Marks a conversation read: the local unread count at once, the server in batches */
 export function useMarkConversationRead(orgId: string | null | undefined) {
   const queryClient = useQueryClient();
   return useCallback(
@@ -164,7 +214,8 @@ export function useMarkConversationRead(orgId: string | null | undefined) {
         messagesKeys.conversations(orgId),
         (list) => clearUnread(list, conversationId)
       );
-      void markConversationReadAction({ conversationId });
+      // The server call is batched: at most one per conversation every 2.5 s
+      readBatcher.request(conversationId);
     },
     [orgId, queryClient]
   );

@@ -9,6 +9,8 @@ import {
   MessageSquare,
   Search,
   SquarePen,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -16,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { normalizeSearchText } from "@/lib/global-search/match";
 import { useConversations } from "@/hooks/queries/messages";
 import { unreadConversations } from "@/lib/messages/cache";
+import { useChatSound } from "@/lib/messages/sound";
 import { conversationInitials, conversationTitle, directPeer } from "@/lib/messages/display";
 import type { ChatConversationSummary } from "@/lib/messages/types";
 import { useChatWindowsStore } from "@/lib/stores/v2/chat-windows-store";
@@ -194,6 +197,7 @@ function ExpandedList({
   const t = useTranslations("chat");
   const { meId } = useChat();
   const [query, setQuery] = useState("");
+  const [soundOn, setSoundOn] = useChatSound();
 
   const sections = useMemo(() => {
     const q = normalizeSearchText(query.trim());
@@ -229,6 +233,16 @@ function ExpandedList({
           </span>
         ) : null}
         <span className="flex-1" />
+        <button
+          type="button"
+          aria-label={soundOn ? t("bar.soundOff") : t("bar.soundOn")}
+          title={soundOn ? t("bar.soundOff") : t("bar.soundOn")}
+          aria-pressed={soundOn}
+          onClick={() => setSoundOn(!soundOn)}
+          className="flex size-7 items-center justify-center rounded-md text-foreground/80 hover:bg-sidebar-accent"
+        >
+          {soundOn ? <Volume2 className="size-3.5" /> : <VolumeX className="size-3.5" />}
+        </button>
         <NewConversationPopover onCreated={onOpen} side="bottom">
           <button
             type="button"

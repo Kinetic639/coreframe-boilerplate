@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyMessageUpdateToList,
+  replaceMessage,
   applyMessageToList,
   applyReadReceipt,
   clearUnread,
@@ -82,6 +84,45 @@ describe("upsertMessage", () => {
 
   it("leaves an unloaded thread alone", () => {
     expect(upsertMessage(undefined, message({}))).toBeUndefined();
+  });
+});
+
+describe("edited and deleted messages", () => {
+  it("replaces a loaded message and ignores one that is not loaded", () => {
+    const data = thread(message({ id: "m1", body_plain: "stara" }));
+    const edited = message({ id: "m1", body_plain: "nowa", edited_at: "2026-10-11T10:05:00Z" });
+    expect(flattenMessages(replaceMessage(data, edited)).map((m) => m.body_plain)).toEqual([
+      "nowa",
+    ]);
+    expect(replaceMessage(data, message({ id: "other" }))).toBe(data);
+    expect(replaceMessage(undefined, edited)).toBeUndefined();
+  });
+
+  it("the list preview follows an edit or a delete of the last message only", () => {
+    const list = [
+      conversation({
+        id: "c1",
+        unread_count: 2,
+        last_message: {
+          id: "m1",
+          author_id: "u2",
+          kind: "text",
+          body_plain: "stara",
+          system_event: null,
+          attachment_count: 0,
+          created_at: "2026-10-11T10:00:00Z",
+          deleted: false,
+        },
+      }),
+    ];
+    const deleted = message({ id: "m1", body_plain: "", deleted_at: "2026-10-11T10:06:00Z" });
+    const after = applyMessageUpdateToList(list, deleted)!;
+    expect(after[0].last_message).toMatchObject({ body_plain: "", deleted: true });
+    // Never counts as a new message
+    expect(after[0].unread_count).toBe(2);
+    expect(
+      applyMessageUpdateToList(list, message({ id: "older" }))![0].last_message?.body_plain
+    ).toBe("stara");
   });
 });
 

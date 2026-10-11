@@ -136,6 +136,29 @@ export class ChatService {
     return { success: true, data: data as ChatMessage };
   }
 
+  static async editMessage(
+    supabase: SupabaseClient,
+    input: { messageId: string; bodyPlain: string; bodyRich?: unknown | null; mentions?: unknown[] }
+  ): Promise<ServiceResult<ChatMessage>> {
+    const { data, error } = await supabase.rpc("chat_edit_message", {
+      p_message_id: input.messageId,
+      p_body_plain: input.bodyPlain,
+      p_body_rich: input.bodyRich ?? null,
+      p_mentions: input.mentions ?? [],
+    });
+    if (error) return fail(error, "editMessage");
+    return { success: true, data: data as ChatMessage };
+  }
+
+  static async deleteMessage(
+    supabase: SupabaseClient,
+    messageId: string
+  ): Promise<ServiceResult<ChatMessage>> {
+    const { data, error } = await supabase.rpc("chat_delete_message", { p_message_id: messageId });
+    if (error) return fail(error, "deleteMessage");
+    return { success: true, data: data as ChatMessage };
+  }
+
   static async markRead(
     supabase: SupabaseClient,
     conversationId: string,

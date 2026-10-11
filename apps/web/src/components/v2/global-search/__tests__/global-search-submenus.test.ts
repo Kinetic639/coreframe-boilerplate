@@ -137,4 +137,27 @@ describe("palette submenus", () => {
     expect(submenu.select("newTab")).toBe("close");
     expect(ctx.openInNewTab).toHaveBeenCalledWith("hit:item:p1");
   });
+
+  it("a person: 'send a message' first, only when messages are available", () => {
+    const person = {
+      type: "hit",
+      hit: {
+        type: "person",
+        id: "u1",
+        code: null,
+        title: "Anna Nowak",
+        subtitle: null,
+        status: null,
+        href: "/dashboard/organization/users/members/u1",
+      },
+    } as const;
+    const messagePerson = vi.fn();
+    const menu = resolveSubmenu("hit:person:u1", person, context({ messagePerson }));
+    expect(menu?.options.map((option) => option.id)).toEqual(["message", "newTab"]);
+    expect(menu?.select("message")).toBe("close");
+    expect(messagePerson).toHaveBeenCalledWith("u1");
+
+    const without = resolveSubmenu("hit:person:u1", person, context());
+    expect(without?.options.map((option) => option.id)).toEqual(["newTab"]);
+  });
 });

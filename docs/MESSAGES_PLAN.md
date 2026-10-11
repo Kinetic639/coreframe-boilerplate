@@ -74,14 +74,17 @@
   - [ ] Powiadomienie o wzmiance w opisie zadania / zgłoszenia (dziś tylko czat i komentarze)
   - [ ] Pozostałe pola `RichTextEditorField` (karta Kanban, notatki dokumentów magazynowych, opis towaru)
   - [ ] Portal Ambra Zapytania: tylko jeśli zdecydujemy o zakresie źródeł dla klientów portalu (domyślnie bez wzmianek; wzmianka z komentarza publicznego widoczna tam jako zwykły tekst `@…`)
-- [ ] **M5** — po demo
-  - [ ] Optymalizacje realtime (obecność, „przeczytane” w grupach, paczkowanie oznaczania, pomiar) — lista i wyjaśnienie w `docs/MESSAGES_REALTIME_NOTES.md`
+- [ ] **M5** — dopracowanie (część zrobiona 11.10, kod + testy, czeka na test ręczny)
+  - [x] Ctrl+K: przy osobie akcja „Napisz wiadomość” (podmenu wyniku) otwiera rozmowę 1:1
+  - [ ] Ctrl+K: źródło „Rozmowy”
+  - [x] Dźwięk nowej wiadomości (wyłączalny na pasku, pamiętany w przeglądarce), licznik rozmów z nieprzeczytanymi w tytule karty
+  - [x] Edycja własnej wiadomości (15 min od wysłania, w polu wiadomości) i usuwanie (znacznik „Wiadomość usunięta”); na żywo u pozostałych (zdarzenie `message_updated`); migracja `20261011190404_chat_edit_delete_message`, pgTAP `127` 8/8
+  - [ ] Odpowiedź na wiadomość
+  - [x] E-mail o nieprzeczytanych wiadomościach: po 15 min, jedna wiadomość na serię nieprzeczytanych (do czasu przeczytania), bez wyciszonych rozmów; ta sama kolejka i ustawienia co powiadomienia (migracja `20261011191047_chat_unread_email_queue`, pgTAP `128` 7/7). **Włączenie: `docs/NOTIFICATIONS_CRON_SETUP.md`**
+  - [x] Optymalizacje realtime: oznaczanie przeczytania w paczkach (2,5 s), bez „przeczytane” na żywo w grupach > 15 osób (migracja `20261011191633`) — `docs/MESSAGES_REALTIME_NOTES.md`
+  - [ ] Obecność (online) — wymaga decyzji, patrz `docs/MESSAGES_REALTIME_NOTES.md` §5.1
   - [ ] Telefon: lista i rozmowa na pełnym ekranie (bez paska i okienek), wejście z nagłówka / dolnej nawigacji
-  - [ ] Ctrl+K: źródło „Osoby → napisz wiadomość”, źródło „Rozmowy”
-  - [ ] Dźwięk nowej wiadomości (wyłączalny), licznik w tytule karty przeglądarki
-  - [ ] Edycja i usuwanie własnej wiadomości (okno czasowe), odpowiedź na wiadomość
-  - [ ] E-mail, gdy wiadomość nieprzeczytana 15 min i odbiorca offline (Resend, `@react-email`)
-  - [ ] Ustawienia wiadomości (design: „Stany”): otwieranie okienka, dźwięk, e-mail offline, „piszę” / „przeczytane”
+  - [ ] Ustawienia wiadomości (design: „Stany”): otwieranie okienka, „piszę” / „przeczytane”
 
 ## 1. Cel i zasady
 

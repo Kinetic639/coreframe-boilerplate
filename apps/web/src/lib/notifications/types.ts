@@ -11,7 +11,8 @@ export type NotificationType =
   | "comment"
   | "mention"
   | "task.assigned"
-  | "task.status";
+  | "task.status"
+  | "task.due";
 
 export type NotificationTargetType =
   | "helpdesk.ticket"

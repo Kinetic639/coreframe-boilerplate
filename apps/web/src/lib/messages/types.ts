@@ -98,6 +98,8 @@ export interface ChatMessagesPage {
 /** Events on the private "user:<uid>:inbox" channel (sent by database triggers) */
 export type ChatInboxEvent =
   | { type: "message"; conversation_id: string; message: ChatMessage }
+  /** An existing message was edited or deleted (never counts as unread) */
+  | { type: "message_updated"; conversation_id: string; message: ChatMessage }
   | { type: "read"; conversation_id: string; user_id: string; last_read_at: string }
   | { type: "membership"; conversation_id: string; active: boolean };
 
@@ -107,3 +109,5 @@ export type ChatErrorCode = "forbidden" | "invalid" | "tooLong" | "notFound" | "
 export const CHAT_MESSAGE_MAX_LENGTH = 8000;
 export const CHAT_GROUP_NAME_MAX_LENGTH = 80;
 export const CHAT_MESSAGES_PAGE_SIZE = 40;
+/** The author may edit a message this long after sending (enforced by chat_edit_message) */
+export const CHAT_EDIT_WINDOW_MS = 15 * 60_000;

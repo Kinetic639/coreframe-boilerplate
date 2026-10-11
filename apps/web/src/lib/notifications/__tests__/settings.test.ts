@@ -12,6 +12,7 @@ describe("notification settings per event", () => {
       "ticket.assigned",
       "task.assigned",
       "mention",
+      "chat.message",
     ]);
   });
 

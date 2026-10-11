@@ -53,6 +53,11 @@ const sendSchema = z.object({
 /** A rich body is a small document; anything bigger is not a chat message */
 const RICH_BODY_MAX_BYTES = 64_000;
 const MENTIONS_MAX = 50;
+const editSchema = z.object({
+  messageId: uuid,
+  bodyPlain: z.string().max(CHAT_MESSAGE_MAX_LENGTH),
+  bodyRich: z.unknown().nullish(),
+});
 const markReadSchema = z.object({ conversationId: uuid, until: isoDate.nullish() });
 const openDirectSchema = z.object({ userId: uuid });
 const createGroupSchema = z.object({
@@ -128,27 +133,66 @@ export async function listMessagesAction(
   );
 }
 
+/**
+ * Body of a message as stored. With a document, the document is the source of
+ * truth: the plain text (previews, search) and the list of mentions (who gets
+ * notified) are read from it here, never taken from the client.
+ */
+function messageBody(input: { bodyPlain: string; bodyRich?: unknown | null }):
+  | {
+      ok: true;
+      bodyPlain: string;
+      bodyRich: unknown | null;
+      mentions: { type: string; id: string }[];
+    }
+  | { ok: false; error: ChatErrorCode } {
+  if (input.bodyRich == null) {
+    return { ok: true, bodyPlain: input.bodyPlain, bodyRich: null, mentions: [] };
+  }
+  const bodyRich = normalizeRichText(input.bodyRich);
+  if (!bodyRich || JSON.stringify(bodyRich).length > RICH_BODY_MAX_BYTES) {
+    return { ok: false, error: "invalid" };
+  }
+  const bodyPlain = extractPlainText(bodyRich);
+  if (bodyPlain.length > CHAT_MESSAGE_MAX_LENGTH) return { ok: false, error: "tooLong" };
+  const mentions = extractMentions(bodyRich)
+    .filter((mention) => UUID_RE.test(mention.id) && mention.type.length <= 40)
+    .slice(0, MENTIONS_MAX)
+    .map((mention) => ({ type: mention.type, id: mention.id }));
+  return { ok: true, bodyPlain, bodyRich, mentions };
+}
+
 export async function sendMessageAction(rawInput: unknown): Promise<ActionResult<ChatMessage>> {
   return run(sendSchema, rawInput, "send", async (ctx, rawSend) => {
     const input = rawSend as SendChatMessageInput;
-    if (input.bodyRich == null) {
-      return ChatService.send(ctx.supabase, { ...input, bodyRich: null, mentions: [] });
-    }
-    // The document is the source of truth: the plain text (previews, search) and
-    // the list of mentions (who gets notified) are read from it here, never
-    // taken from the client.
-    const bodyRich = normalizeRichText(input.bodyRich);
-    if (!bodyRich || JSON.stringify(bodyRich).length > RICH_BODY_MAX_BYTES) {
-      return { success: false, error: "invalid" };
-    }
-    const bodyPlain = extractPlainText(bodyRich);
-    if (bodyPlain.length > CHAT_MESSAGE_MAX_LENGTH) return { success: false, error: "tooLong" };
-    const mentions = extractMentions(bodyRich)
-      .filter((mention) => UUID_RE.test(mention.id) && mention.type.length <= 40)
-      .slice(0, MENTIONS_MAX)
-      .map((mention) => ({ type: mention.type, id: mention.id }));
+    const body = messageBody(input);
+    if (body.ok === false) return { success: false, error: body.error };
+    const { bodyPlain, bodyRich, mentions } = body;
     return ChatService.send(ctx.supabase, { ...input, bodyPlain, bodyRich, mentions });
   });
+}
+
+/** Edits an own message (the database allows it for 15 minutes after sending) */
+export async function editMessageAction(rawInput: unknown): Promise<ActionResult<ChatMessage>> {
+  return run(editSchema, rawInput, "edit", async (ctx, rawEdit) => {
+    const input = rawEdit as { messageId: string; bodyPlain: string; bodyRich?: unknown | null };
+    const body = messageBody(input);
+    if (body.ok === false) return { success: false, error: body.error };
+    const { bodyPlain, bodyRich, mentions } = body;
+    return ChatService.editMessage(ctx.supabase, {
+      messageId: input.messageId,
+      bodyPlain,
+      bodyRich,
+      mentions,
+    });
+  });
+}
+
+/** Deletes an own message; a "message deleted" placeholder stays in the thread */
+export async function deleteMessageAction(rawInput: unknown): Promise<ActionResult<ChatMessage>> {
+  return run(z.object({ messageId: uuid }), rawInput, "delete", (ctx, input) =>
+    ChatService.deleteMessage(ctx.supabase, (input as { messageId: string }).messageId)
+  );
 }
 
 export async function markConversationReadAction(rawInput: unknown): Promise<ActionResult<string>> {

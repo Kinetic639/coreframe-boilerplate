@@ -253,6 +253,7 @@ function ConversationPane({
           conversation={detail.data}
           typing={typing}
           onRetry={(message) => composerRef.current?.retry(message)}
+          onEdit={(message) => composerRef.current?.edit(message)}
           density="comfortable"
         />
         <ChatComposer

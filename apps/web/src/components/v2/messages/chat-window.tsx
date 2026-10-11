@@ -160,6 +160,7 @@ export function ChatWindow({ state }: { state: ChatWindowState }) {
             conversation={detail.data}
             typing={typing}
             onRetry={(message) => composerRef.current?.retry(message)}
+            onEdit={(message) => composerRef.current?.edit(message)}
           />
           <ChatComposer
             ref={composerRef}
