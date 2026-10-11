@@ -7,31 +7,13 @@ import { useTheme } from "next-themes";
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowRight,
-  Boxes,
   ChevronRight,
   Building2,
-  Car,
   Check,
-  CheckSquare,
-  ClipboardList,
-  Contact,
   CornerDownLeft,
-  FileSearch,
-  KanbanSquare,
-  MailPlus,
-  Map as MapIcon,
-  MessageSquare,
-  Paperclip,
-  Tags,
   History,
-  FileText,
-  MapPin,
-  Package,
-  QrCode,
   ScanLine,
   Search,
-  Ticket,
-  UserRound,
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "react-toastify";
@@ -62,7 +44,6 @@ import {
   withPalettePrefix,
   type PaletteItem,
 } from "@/lib/global-search/palette";
-import { highlightRanges } from "@/lib/global-search/match";
 import {
   pushRecentSearch,
   readRecentSearches,
@@ -74,7 +55,12 @@ import { applyColorTheme } from "@/lib/global-search/color-theme";
 import { COLOR_THEMES } from "@/lib/constants/color-themes";
 import type { SearchEntry } from "@/lib/global-search/types";
 import { useDebounce } from "@/hooks/use-debounce";
-import { globalSearchAction, type GlobalSearchResult } from "@/app/actions/global-search";
+import {
+  EMPTY_SEARCH_RESULT,
+  ENTITY_SEARCH_DEBOUNCE_MS,
+  MIN_ENTITY_QUERY,
+  entitySearchQuery,
+} from "@/lib/global-search/entity-search";
 import type { ExactHitType, SearchExactHit } from "@/server/services/global-search.service";
 import { useGlobalSearchStore } from "./global-search-store";
 import { GlobalSearchPreview } from "./global-search-preview";
@@ -86,14 +72,15 @@ import {
   type PaletteSubmenu,
   type SubmenuContext,
 } from "./global-search-submenus";
+import { HIT_ICONS, Highlighted, hitDetails, type GlobalSearchTranslator } from "./hit-display";
 
 // Same landing route as the sidebar branch switcher: branch-neutral, never 404s.
 const SAFE_ROUTE_AFTER_BRANCH_SWITCH = "/dashboard/start";
 const BRANCH_ITEM_PREFIX = "branch:";
 const HIT_ITEM_PREFIX = "hit:";
-const SEARCH_DEBOUNCE_MS = 200;
-const MIN_DATA_QUERY = 3;
-const EMPTY_RESULT: GlobalSearchResult = { exact: [], results: [], otherBranches: [] };
+const SEARCH_DEBOUNCE_MS = ENTITY_SEARCH_DEBOUNCE_MS;
+const MIN_DATA_QUERY = MIN_ENTITY_QUERY;
+const EMPTY_RESULT = EMPTY_SEARCH_RESULT;
 /** Rows per data group from the server; a full group gets a "show all" row */
 const DATA_GROUP_LIMIT = 5;
 const SHOW_ALL_PREFIX = "all:";
@@ -112,28 +99,6 @@ const SHOW_ALL_LISTS: Partial<Record<ExactHitType, { href: string; param: string
   contact: { href: "/dashboard/crm/contacts", param: "search" },
   qrCode: { href: "/dashboard/qr", param: "search" },
   invitation: { href: "/dashboard/organization/users/invitations", param: "search" },
-};
-
-const HIT_ICONS: Record<ExactHitType, LucideIcon> = {
-  repairOrder: Car,
-  ticket: Ticket,
-  task: CheckSquare,
-  document: FileText,
-  container: Boxes,
-  location: MapPin,
-  item: Package,
-  person: UserRound,
-  party: Building2,
-  contact: Contact,
-  audit: ClipboardList,
-  matcherSession: FileSearch,
-  qrCode: QrCode,
-  board: KanbanSquare,
-  map: MapIcon,
-  ticketType: Tags,
-  invitation: MailPlus,
-  comment: MessageSquare,
-  attachment: Paperclip,
 };
 
 /** Order of the data groups below the pages and actions */
@@ -194,28 +159,6 @@ function recentIcon(
 ): LucideIcon | React.ComponentType<{ className?: string }> {
   if (item.kind === "hit" && item.icon in HIT_ICONS) return HIT_ICONS[item.icon as ExactHitType];
   return item.kind === "page" ? getIconComponent(item.icon) : History;
-}
-
-/** Text with the query words highlighted */
-function Highlighted({ text, query }: { text: string; query: string }) {
-  const ranges = highlightRanges(text, query);
-  if (ranges.length === 0) return <>{text}</>;
-  const parts: React.ReactNode[] = [];
-  let cursor = 0;
-  ranges.forEach(([start, end], index) => {
-    if (start > cursor) parts.push(text.slice(cursor, start));
-    parts.push(
-      <mark
-        key={index}
-        className="rounded-sm bg-amber-200/70 px-0 text-inherit dark:bg-amber-400/30"
-      >
-        {text.slice(start, end)}
-      </mark>
-    );
-    cursor = end;
-  });
-  if (cursor < text.length) parts.push(text.slice(cursor));
-  return <>{parts}</>;
 }
 
 interface GlobalSearchDialogProps {
@@ -292,89 +235,6 @@ function ScopeTab({
       </TooltipContent>
     </Tooltip>
   );
-}
-
-type GlobalSearchTranslator = ReturnType<typeof useTranslations<"globalSearch">>;
-
-/** Second line of a data row: stock, warehouse, matched part, location, date, e-mail */
-function hitDetails(hit: SearchExactHit, t: GlobalSearchTranslator, withType: boolean): string {
-  const meta = hit.meta ?? {};
-  const parts: (string | null | undefined)[] = [withType ? t(`hitTypes.${hit.type}`) : null];
-  switch (hit.type) {
-    case "repairOrder":
-      if (meta.warehouseCode) parts.push(t("details.warehouse", { code: meta.warehouseCode }));
-      if (meta.vin) parts.push(String(meta.vin));
-      if (meta.matchedPart) parts.push(t("details.containsPart", { code: meta.matchedPart }));
-      break;
-    case "item":
-      if (meta.onHand !== undefined) {
-        parts.push(
-          t("details.stock", { onHand: meta.onHand, available: meta.available ?? meta.onHand })
-        );
-      } else {
-        parts.push(t("details.noStock"));
-      }
-      break;
-    case "container":
-      if (meta.locationCode) parts.push(t("details.location", { code: meta.locationCode }));
-      break;
-    case "document":
-      parts.push(meta.documentType ? String(meta.documentType) : null);
-      parts.push(meta.date ? String(meta.date) : null);
-      break;
-    case "person":
-      parts.push(meta.email ? String(meta.email) : null);
-      break;
-    case "party":
-      for (const role of String(meta.roles ?? "")
-        .split(",")
-        .filter(Boolean)) {
-        parts.push(t.has(`details.roles.${role}`) ? t(`details.roles.${role}`) : role);
-      }
-      parts.push(meta.email ? String(meta.email) : null);
-      parts.push(meta.phone ? String(meta.phone) : null);
-      break;
-    case "contact":
-      parts.push(meta.jobTitle ? String(meta.jobTitle) : null);
-      parts.push(meta.phone ? String(meta.phone) : null);
-      parts.push(meta.email ? String(meta.email) : null);
-      break;
-    case "task":
-      if (meta.date) parts.push(t("details.due", { date: String(meta.date) }));
-      break;
-    case "audit":
-    case "matcherSession":
-      parts.push(meta.date ? String(meta.date) : null);
-      break;
-    case "invitation":
-      parts.push(meta.name ? String(meta.name) : null);
-      if (meta.date) parts.push(t("details.expires", { date: String(meta.date) }));
-      break;
-    case "comment":
-    case "attachment": {
-      const target = meta.targetType ? String(meta.targetType).replace(/\./g, "_") : null;
-      parts.push(
-        target && t.has(`details.qrTargets.${target}`) ? t(`details.qrTargets.${target}`) : null
-      );
-      parts.push(meta.date ? String(meta.date) : null);
-      if (typeof meta.size === "number")
-        parts.push(`${Math.max(1, Math.round(meta.size / 1024))} KB`);
-      break;
-    }
-    case "qrCode": {
-      const target = meta.targetType ? String(meta.targetType) : null;
-      parts.push(
-        target
-          ? t.has(`details.qrTargets.${target.replace(/\./g, "_")}`)
-            ? t(`details.qrTargets.${target.replace(/\./g, "_")}`)
-            : target
-          : t("details.qrUnassigned")
-      );
-      break;
-    }
-  }
-  parts.push(hit.subtitle);
-  return parts.filter(Boolean).join(" · ");
 }
 
 interface HitRowProps {
@@ -613,13 +473,8 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
   const dataEnabled =
     open && !actionsMode && sources.length > 0 && dataText.length >= MIN_DATA_QUERY;
   const dataQuery = useQuery({
-    queryKey: ["global-search", "data", activeBranchId, debounced.scope ?? "all", dataText],
-    queryFn: async () => {
-      const result = await globalSearchAction(dataText, debounced.scope);
-      return result.success ? result.data : EMPTY_RESULT;
-    },
+    ...entitySearchQuery(activeBranchId, debounced.scope, dataText),
     enabled: dataEnabled,
-    staleTime: 30_000,
     // Keep the previous results on screen while the next query loads
     placeholderData: (previous) => previous,
   });

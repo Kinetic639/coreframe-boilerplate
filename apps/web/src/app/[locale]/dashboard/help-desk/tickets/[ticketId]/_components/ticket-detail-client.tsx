@@ -39,7 +39,7 @@ import { AttachmentsPanel } from "@/components/features/attachments";
 import { CommentsThread } from "@/components/features/comments";
 import { helpdeskTicketTypingTopic } from "@repo/rich-text/comments";
 import { UserAvatar } from "@/components/primitives/avatar/user-avatar";
-import { RichTextRenderer } from "@/components/primitives/rich-text/rich-text-renderer";
+import { RichTextWithMentions } from "@/components/v2/mentions/rich-text-with-mentions";
 import { normalizeRichText } from "@/components/primitives/rich-text/rich-text-utils";
 import {
   useTicketDetailQuery,
@@ -199,7 +199,7 @@ export function TicketDetailClient({
               <p className="text-muted-foreground mb-1 text-xs font-medium uppercase tracking-wide">
                 {t("tickets.description")}
               </p>
-              <RichTextRenderer
+              <RichTextWithMentions
                 value={normalizeRichText(ticket.description_rich)}
                 emptyText={ticket.description_plain ?? undefined}
                 prose

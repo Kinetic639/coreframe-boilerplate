@@ -1,6 +1,9 @@
 "use server";
 
 import { z } from "zod";
+import { extractMentions } from "@repo/rich-text/mention-utils";
+import { extractPlainText, normalizeRichText } from "@repo/rich-text/rich-text-utils";
+import { UUID_RE } from "@/lib/mentions";
 import { createClient } from "@/utils/supabase/server";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { checkPermission } from "@/lib/utils/permissions";
@@ -46,8 +49,10 @@ const sendSchema = z.object({
   bodyRich: z.unknown().nullish(),
   clientId: uuid.nullish(),
   attachmentIds: z.array(uuid).max(10).optional(),
-  mentions: z.array(z.unknown()).max(50).optional(),
 });
+/** A rich body is a small document; anything bigger is not a chat message */
+const RICH_BODY_MAX_BYTES = 64_000;
+const MENTIONS_MAX = 50;
 const markReadSchema = z.object({ conversationId: uuid, until: isoDate.nullish() });
 const openDirectSchema = z.object({ userId: uuid });
 const createGroupSchema = z.object({
@@ -124,9 +129,26 @@ export async function listMessagesAction(
 }
 
 export async function sendMessageAction(rawInput: unknown): Promise<ActionResult<ChatMessage>> {
-  return run(sendSchema, rawInput, "send", (ctx, input) =>
-    ChatService.send(ctx.supabase, input as SendChatMessageInput)
-  );
+  return run(sendSchema, rawInput, "send", async (ctx, rawSend) => {
+    const input = rawSend as SendChatMessageInput;
+    if (input.bodyRich == null) {
+      return ChatService.send(ctx.supabase, { ...input, bodyRich: null, mentions: [] });
+    }
+    // The document is the source of truth: the plain text (previews, search) and
+    // the list of mentions (who gets notified) are read from it here, never
+    // taken from the client.
+    const bodyRich = normalizeRichText(input.bodyRich);
+    if (!bodyRich || JSON.stringify(bodyRich).length > RICH_BODY_MAX_BYTES) {
+      return { success: false, error: "invalid" };
+    }
+    const bodyPlain = extractPlainText(bodyRich);
+    if (bodyPlain.length > CHAT_MESSAGE_MAX_LENGTH) return { success: false, error: "tooLong" };
+    const mentions = extractMentions(bodyRich)
+      .filter((mention) => UUID_RE.test(mention.id) && mention.type.length <= 40)
+      .slice(0, MENTIONS_MAX)
+      .map((mention) => ({ type: mention.type, id: mention.id }));
+    return ChatService.send(ctx.supabase, { ...input, bodyPlain, bodyRich, mentions });
+  });
 }
 
 export async function markConversationReadAction(rawInput: unknown): Promise<ActionResult<string>> {

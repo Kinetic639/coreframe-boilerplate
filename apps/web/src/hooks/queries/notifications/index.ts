@@ -20,6 +20,7 @@ import {
   type NotificationsInfiniteData,
 } from "@/lib/notifications/cache";
 import {
+  NOTIFICATION_FILTERS,
   NOTIFICATIONS_UNREAD_CAP,
   type AppNotification,
   type NotificationCursor,
@@ -27,8 +28,6 @@ import {
   type NotificationsPage,
 } from "@/lib/notifications/types";
 import { createClient } from "@/utils/supabase/client";
-
-const FILTERS: NotificationFilter[] = ["all", "unread", "assigned"];
 
 export const notificationsKeys = {
   all: ["notifications"] as const,
@@ -84,7 +83,7 @@ function patchLists(
     filter: NotificationFilter
   ) => NotificationsInfiniteData | undefined
 ) {
-  for (const filter of FILTERS) {
+  for (const filter of NOTIFICATION_FILTERS) {
     queryClient.setQueryData<NotificationsInfiniteData>(
       notificationsKeys.list(orgId, filter),
       (data) => patch(data, filter)
@@ -166,8 +165,11 @@ export function useNotificationsRealtime(
         .on("broadcast", { event: "notification" }, ({ payload }) => {
           const notification = payload as AppNotification;
           if (!notification?.id || notification.organization_id !== orgId) return;
+          // "Assigned" is decided by the database (reloaded below); "mentions" by the type
           patchLists(queryClient, orgId, (data, filter) =>
-            filter === "assigned" ? data : prependNotification(data, notification)
+            filter === "assigned" || (filter === "mentions" && notification.type !== "mention")
+              ? data
+              : prependNotification(data, notification)
           );
           void queryClient.invalidateQueries({
             queryKey: notificationsKeys.list(orgId, "assigned"),

@@ -85,14 +85,15 @@ export function NotificationsSection({ preferences }: NotificationsSectionProps)
   const handleEmailToggle = (checked: boolean) => {
     setEmailEnabled(checked);
     updateNotifications.mutate({
-      email: { enabled: checked },
+      // The whole channel object: the server merges one level deep (keeps the per-event choices)
+      email: { ...notifSettings.email, enabled: checked },
     });
   };
 
   const handleInAppToggle = (checked: boolean) => {
     setInAppEnabled(checked);
     updateNotifications.mutate({
-      inApp: { enabled: checked },
+      inApp: { ...notifSettings.inApp, enabled: checked },
     });
   };
 

@@ -6,7 +6,7 @@ import { Link } from "@/i18n/navigation";
 import { toUnsafeI18nHref } from "@/lib/i18n/unsafe-href";
 import { cn } from "@/lib/utils";
 import { formatNotificationTime } from "@/lib/notifications/cache";
-import { notificationHref, type AppNotification } from "@/lib/notifications/types";
+import { notificationRoute, type AppNotification } from "@/lib/notifications/types";
 import { describeNotification } from "./notification-text";
 
 /**
@@ -27,7 +27,11 @@ export function NotificationRow({
   const locale = useLocale();
   const { actor, text, module, icon: Icon } = describeNotification(notification, t);
   const unread = notification.read_at === null;
-  const href = notificationHref(notification);
+  const route = notificationRoute(notification);
+  // A 1:1 conversation has no name of its own
+  const title =
+    notification.title ||
+    (notification.target_type === "chat.conversation" ? t("directConversation") : "");
   const toggleLabel = unread ? t("markRead") : t("markUnread");
 
   const body = (
@@ -50,7 +54,7 @@ export function NotificationRow({
               {notification.target_code}
             </span>
           ) : null}
-          <span className="truncate text-[11px] text-foreground/80">{notification.title}</span>
+          <span className="truncate text-[11px] text-foreground/80">{title}</span>
         </span>
         {notification.snippet ? (
           <span className="mt-0.5 line-clamp-2 rounded-md border bg-muted/40 px-2 py-1 text-[11px] leading-4 text-muted-foreground">
@@ -75,9 +79,13 @@ export function NotificationRow({
       data-testid="notification-row"
       data-unread={unread ? "true" : "false"}
     >
-      {href ? (
+      {route ? (
         <Link
-          href={toUnsafeI18nHref(href)}
+          href={
+            route.query
+              ? { pathname: toUnsafeI18nHref(route.pathname), query: route.query }
+              : toUnsafeI18nHref(route.pathname)
+          }
           onClick={() => onOpen(notification)}
           className={cn(
             bodyClass,

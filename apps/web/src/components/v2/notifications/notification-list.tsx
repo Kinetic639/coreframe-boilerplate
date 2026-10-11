@@ -56,7 +56,8 @@ export function NotificationList({
     );
   }
   if (list.notifications.length === 0) {
-    const empty = filter === "unread" ? "emptyUnread" : "empty";
+    const empty =
+      filter === "unread" ? "emptyUnread" : filter === "mentions" ? "emptyMentions" : "empty";
     return (
       <div
         className="m-3 flex flex-col gap-1.5 border-y bg-muted/20 p-4"

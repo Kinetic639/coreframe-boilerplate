@@ -10,7 +10,7 @@ type ActionResult<T> = { success: true; data: T } | { success: false; error: str
 
 const uuid = z.string().uuid();
 const listSchema = z.object({
-  filter: z.enum(["all", "unread", "assigned"]).optional(),
+  filter: z.enum(["all", "unread", "mentions", "assigned"]).optional(),
   before: z.object({ createdAt: z.string().datetime({ offset: true }), id: uuid }).nullish(),
 });
 const setReadSchema = z.object({ ids: z.array(uuid).min(1).max(100), read: z.boolean() });

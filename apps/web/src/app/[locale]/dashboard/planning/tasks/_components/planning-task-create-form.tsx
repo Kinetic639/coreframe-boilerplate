@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { RichTextEditorField } from "@/components/primitives/rich-text/rich-text-editor-field";
+import { ENTITY_MENTIONS } from "@/components/v2/mentions/mention-suggestion-list";
 import type { RichTextValue } from "@/components/primitives/rich-text/rich-text-types";
 import {
   createEmptyRichText,
@@ -191,6 +192,7 @@ export function PlanningTaskCreateForm({
               onChange={setDescriptionRich}
               placeholder={t("descriptionPlaceholder")}
               disabled={submitting}
+              mention={ENTITY_MENTIONS}
             />
           </div>
         </div>

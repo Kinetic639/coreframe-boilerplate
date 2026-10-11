@@ -1,12 +1,17 @@
 "use client";
 
-import { Fragment, useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { AlertCircle, CheckCheck, FileText, Loader2 } from "lucide-react";
 import { TypingIndicator, type TypingPerson } from "@repo/rich-text/comments";
+import type { MentionItem } from "@repo/rich-text/mention-utils";
+import { RichTextRenderer } from "@repo/rich-text/rich-text-renderer";
+import { normalizeRichText } from "@repo/rich-text/rich-text-utils";
 import { cn } from "@/lib/utils";
 import { useAttachmentsQuery } from "@/hooks/queries/attachments";
 import { useMessages } from "@/hooks/queries/messages";
+import { useMentionAccess } from "@/hooks/queries/mentions";
+import { MentionChip } from "@/components/v2/mentions/mention-chip";
 import type { PendingChatMessage } from "@/lib/messages/cache";
 import { memberName } from "@/lib/messages/display";
 import {
@@ -42,7 +47,7 @@ export function ChatThread({
 }) {
   const t = useTranslations("chat");
   const locale = useLocale();
-  const { meId } = useChat();
+  const { meId, orgId } = useChat();
   const thread = useMessages(conversationId);
   const { messages } = thread;
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -64,6 +69,19 @@ export function ChatThread({
   useEffect(() => {
     if (missingAttachment && !attachments.isFetching) void refetchAttachments();
   }, [attachments.isFetching, missingAttachment, refetchAttachments]);
+
+  // Mentioned objects link only when the reader may open them (one batched check)
+  const richBodies = useMemo(
+    () => messages.filter((m) => m.body_rich && !m.deleted_at).map((m) => m.body_rich),
+    [messages]
+  );
+  const mentionAccess = useMentionAccess(orgId, richBodies);
+  const renderMention = useCallback(
+    (mention: MentionItem) => (
+      <MentionChip mention={mention} access={mentionAccess(mention)} meId={meId} />
+    ),
+    [meId, mentionAccess]
+  );
 
   const members = useMemo(() => conversation?.members ?? [], [conversation?.members]);
   const others = members.filter((m) => m.user_id !== meId && !m.left_at);
@@ -199,12 +217,21 @@ export function ChatThread({
                     ) : (
                       <>
                         {message.body_plain ? (
-                          <button
-                            type="button"
-                            disabled={!message.failed}
-                            onClick={() => onRetry(message)}
+                          // A failed message is a button (retry); a sent one is text with links
+                          <div
+                            role={message.failed ? "button" : undefined}
+                            tabIndex={message.failed ? 0 : undefined}
+                            onClick={message.failed ? () => onRetry(message) : undefined}
+                            onKeyDown={
+                              message.failed
+                                ? (event) => {
+                                    if (event.key === "Enter") onRetry(message);
+                                  }
+                                : undefined
+                            }
                             className={cn(
-                              "max-w-[86%] whitespace-pre-wrap break-words rounded-md border px-2 py-1 text-left text-xs leading-[17px] disabled:cursor-text",
+                              "max-w-[86%] whitespace-pre-wrap break-words rounded-md border px-2 py-1 text-left text-xs leading-[17px]",
+                              message.failed && "cursor-pointer",
                               comfortable && "text-[13px] leading-[19px]",
                               mine
                                 ? "border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40"
@@ -213,8 +240,17 @@ export function ChatThread({
                               message.failed && "border-destructive/60"
                             )}
                           >
-                            {message.body_plain}
-                          </button>
+                            {normalizeRichText(message.body_rich) ? (
+                              <RichTextRenderer
+                                value={normalizeRichText(message.body_rich)}
+                                prose={false}
+                                renderMention={renderMention}
+                                className="text-[length:inherit] [&_p]:leading-[inherit]"
+                              />
+                            ) : (
+                              message.body_plain
+                            )}
+                          </div>
                         ) : null}
                         {message.attachment_ids.map((id) => {
                           const file = attachmentById.get(id);
