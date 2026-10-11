@@ -66,7 +66,8 @@ export function MessagesBar() {
     <TooltipProvider delayDuration={300}>
       <aside
         aria-label={t("bar.label")}
-        className="hidden h-svh shrink-0 flex-col border-l bg-sidebar text-sidebar-foreground transition-[width] duration-200 ease-linear lg:flex"
+        // A light wash of the theme colour over the sidebar surface sets the bar apart from the page
+        className="relative isolate hidden h-svh shrink-0 flex-col border-l border-l-primary/30 bg-sidebar text-sidebar-foreground transition-[width] duration-200 ease-linear before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:bg-primary/[0.06] lg:flex"
         style={{ width: expanded ? MESSAGES_BAR_EXPANDED_WIDTH : MESSAGES_BAR_COLLAPSED_WIDTH }}
         data-testid="messages-bar"
         data-expanded={expanded ? "true" : "false"}
@@ -88,12 +89,12 @@ export function MessagesBar() {
               onClick={() => setExpanded(true)}
               testId="messages-bar-toggle"
             >
-              <MessageSquare className="size-4" />
+              <MessageSquare className="size-4 text-primary" />
               {unread > 0 ? (
                 <ChatCountBadge count={unread} className="absolute right-0 top-0.5" />
               ) : null}
             </RailButton>
-            <span className="my-1 h-px w-6 bg-border" />
+            <span className="my-1 h-px w-6 bg-primary/30" />
             <div className="flex min-h-0 w-full flex-1 flex-col items-center gap-1 overflow-y-auto [scrollbar-width:none]">
               {conversations.isLoading ? (
                 <Loader2 className="mt-2 size-4 animate-spin text-muted-foreground" />
@@ -164,7 +165,7 @@ function RailButton({
           data-testid={testId}
           className={cn(
             "relative flex size-9 shrink-0 items-center justify-center rounded-md text-foreground/80 hover:bg-sidebar-accent",
-            active && "bg-primary/10"
+            active && "bg-primary/15 ring-1 ring-inset ring-primary/40"
           )}
         >
           {children}
@@ -225,7 +226,8 @@ function ExpandedList({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex h-12 shrink-0 items-center gap-1.5 border-b pl-3 pr-1.5">
+      <div className="flex h-12 shrink-0 items-center gap-1.5 border-b border-b-primary/20 bg-primary/[0.06] pl-3 pr-1.5">
+        <MessageSquare className="size-4 shrink-0 text-primary" aria-hidden />
         <span className="text-[13px] font-semibold">{t("bar.label")}</span>
         {unread > 0 ? (
           <span className="flex h-[18px] items-center rounded bg-primary/15 px-1.5 text-[11px] font-semibold text-primary">

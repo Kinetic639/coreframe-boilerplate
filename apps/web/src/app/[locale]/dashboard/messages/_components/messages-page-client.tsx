@@ -86,7 +86,7 @@ function MessagesPageBody({ initialConversationId }: { initialConversationId: st
           selectedId ? "hidden md:flex" : "flex"
         )}
       >
-        <div className="flex h-12 shrink-0 items-center gap-2 border-b px-3">
+        <div className="flex h-12 shrink-0 items-center gap-2 border-b border-b-primary/20 bg-primary/[0.05] px-3">
           <h1 className="text-[13px] font-semibold">{t("page.title")}</h1>
           <span className="flex-1" />
           <NewConversationPopover onCreated={(id) => select(id)} side="bottom" align="end">
@@ -211,7 +211,7 @@ function ConversationPane({
   return (
     <>
       <section className="flex min-w-0 flex-1 flex-col">
-        <div className="flex h-12 shrink-0 items-center gap-2 border-b px-3">
+        <div className="flex h-12 shrink-0 items-center gap-2 border-b border-b-primary/20 bg-primary/[0.05] px-3">
           <button
             type="button"
             onClick={onBack}

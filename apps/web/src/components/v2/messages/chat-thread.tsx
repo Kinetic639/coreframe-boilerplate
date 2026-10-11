@@ -303,9 +303,7 @@ export function ChatThread({
                                 "max-w-[86%] whitespace-pre-wrap break-words rounded-md border px-2 py-1 text-left text-xs leading-[17px]",
                                 message.failed && "cursor-pointer",
                                 comfortable && "text-[13px] leading-[19px]",
-                                mine
-                                  ? "border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40"
-                                  : "bg-muted/60",
+                                mine ? "border-primary/30 bg-primary/15" : "bg-muted/60",
                                 message.pending && "opacity-60",
                                 message.failed && "border-destructive/60"
                               )}

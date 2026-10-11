@@ -162,7 +162,7 @@ export const ChatComposer = forwardRef<
   const busy = upload.isPending;
 
   return (
-    <div className={cn("border-t bg-background", comfortable ? "p-3" : "p-1.5")}>
+    <div className={cn("border-t border-t-primary/20 bg-card", comfortable ? "p-3" : "p-1.5")}>
       {editingId ? (
         <div className="mb-1 flex items-center gap-1.5 rounded bg-primary/10 px-1.5 py-0.5 text-[11px] text-primary">
           <Pencil className="size-3 shrink-0" />
@@ -198,7 +198,7 @@ export const ChatComposer = forwardRef<
           ))}
         </div>
       ) : null}
-      <div className="flex items-end gap-0.5 rounded-md border px-2 py-[3px] pr-[3px] focus-within:ring-1 focus-within:ring-ring">
+      <div className="flex items-end gap-0.5 rounded-md border bg-background px-2 py-[3px] pr-[3px] focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/50">
         <MentionScopeProvider value={mentionScope}>
           <CompactEditor
             ref={editorRef}
