@@ -8422,5 +8422,74 @@
     "loadFailed": "Could not load contacts",
     "retry": "Try again",
     "openModule": "Open the Contacts module"
+  },
+  "notificationCenter": {
+    "title": "Notifications",
+    "description": "Assignments and changes in your work, live.",
+    "open": "Notifications",
+    "newCount": "{count} new",
+    "markAll": "Mark all read",
+    "tabsLabel": "Notification filter",
+    "tabs": {
+      "all": "All",
+      "unread": "Unread",
+      "assigned": "Assigned to me"
+    },
+    "groups": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "earlier": "Earlier"
+    },
+    "empty": {
+      "title": "No notifications",
+      "description": "When someone assigns you a ticket or a task, or comments on your work, you will see it here right away."
+    },
+    "emptyUnread": {
+      "title": "All caught up",
+      "description": "New notifications appear here right away, without a refresh."
+    },
+    "loadFailed": "Could not load notifications",
+    "retry": "Try again",
+    "loadMore": "Earlier notifications",
+    "markRead": "Mark as read",
+    "markUnread": "Mark as unread",
+    "settings": "Notification settings",
+    "allNotifications": "All notifications",
+    "system": "System",
+    "toast": {
+      "open": "Open",
+      "markRead": "Mark as read"
+    },
+    "modules": {
+      "helpdesk_ticket": "Help Desk",
+      "planning_task": "Planning",
+      "workshop_repair_order": "Workshop",
+      "other": "Ambra"
+    },
+    "text": {
+      "ticket_new": "created a ticket for you",
+      "ticket_assigned": "assigned a ticket to you",
+      "ticket_closed": "closed the ticket",
+      "ticket_accepted": "accepted the ticket",
+      "ticket_status": "changed the ticket status",
+      "comment_ticket": "commented on the ticket",
+      "comment_task": "commented on the task",
+      "comment_order": "commented on the order",
+      "comment": "added a comment",
+      "mention": "mentioned you",
+      "task_assigned": "assigned a task to you",
+      "task_status": "changed the task status: {status}",
+      "unknown": "— new notification"
+    },
+    "taskStatus": {
+      "open": "open",
+      "in_progress": "in progress",
+      "completed": "completed",
+      "cancelled": "cancelled"
+    },
+    "page": {
+      "title": "Notifications",
+      "subtitle": "All your notifications in this organization."
+    }
   }
 }

@@ -8396,5 +8396,74 @@
     "loadFailed": "Nie udało się wczytać kontaktów",
     "retry": "Spróbuj ponownie",
     "openModule": "Otwórz moduł Kontakty"
+  },
+  "notificationCenter": {
+    "title": "Powiadomienia",
+    "description": "Przypisania i zmiany w Twoich sprawach, na żywo.",
+    "open": "Powiadomienia",
+    "newCount": "{count} nowe",
+    "markAll": "Oznacz wszystkie",
+    "tabsLabel": "Filtr powiadomień",
+    "tabs": {
+      "all": "Wszystkie",
+      "unread": "Nieprzeczytane",
+      "assigned": "Przypisane do mnie"
+    },
+    "groups": {
+      "today": "Dzisiaj",
+      "yesterday": "Wczoraj",
+      "earlier": "Wcześniej"
+    },
+    "empty": {
+      "title": "Brak powiadomień",
+      "description": "Gdy ktoś przypisze Ci zgłoszenie lub zadanie albo skomentuje Twoją sprawę, zobaczysz to tutaj od razu."
+    },
+    "emptyUnread": {
+      "title": "Wszystko przeczytane",
+      "description": "Nowe powiadomienia pojawią się tu od razu, bez odświeżania."
+    },
+    "loadFailed": "Nie udało się wczytać powiadomień",
+    "retry": "Spróbuj ponownie",
+    "loadMore": "Wcześniejsze powiadomienia",
+    "markRead": "Oznacz jako przeczytane",
+    "markUnread": "Oznacz jako nieprzeczytane",
+    "settings": "Ustawienia powiadomień",
+    "allNotifications": "Wszystkie powiadomienia",
+    "system": "System",
+    "toast": {
+      "open": "Otwórz",
+      "markRead": "Oznacz jako przeczytane"
+    },
+    "modules": {
+      "helpdesk_ticket": "Help Desk",
+      "planning_task": "Planowanie",
+      "workshop_repair_order": "Warsztat",
+      "other": "Ambra"
+    },
+    "text": {
+      "ticket_new": "utworzył(a) zgłoszenie dla Ciebie",
+      "ticket_assigned": "przypisał(a) Ci zgłoszenie",
+      "ticket_closed": "zamknął(-ęła) zgłoszenie",
+      "ticket_accepted": "zaakceptował(a) zgłoszenie",
+      "ticket_status": "zmienił(a) status zgłoszenia",
+      "comment_ticket": "skomentował(a) zgłoszenie",
+      "comment_task": "skomentował(a) zadanie",
+      "comment_order": "skomentował(a) zlecenie",
+      "comment": "dodał(a) komentarz",
+      "mention": "wspomniał(a) o Tobie",
+      "task_assigned": "przypisał(a) Ci zadanie",
+      "task_status": "zmienił(a) status zadania: {status}",
+      "unknown": "— nowe powiadomienie"
+    },
+    "taskStatus": {
+      "open": "otwarte",
+      "in_progress": "w toku",
+      "completed": "ukończone",
+      "cancelled": "anulowane"
+    },
+    "page": {
+      "title": "Powiadomienia",
+      "subtitle": "Wszystkie Twoje powiadomienia w tej organizacji."
+    }
   }
 }

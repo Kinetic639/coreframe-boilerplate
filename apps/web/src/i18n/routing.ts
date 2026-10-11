@@ -353,6 +353,10 @@ export const routing = defineRouting({
       en: "/dashboard/messages",
       pl: "/dashboard/wiadomosci",
     },
+    "/dashboard/notifications": {
+      en: "/dashboard/notifications",
+      pl: "/dashboard/powiadomienia",
+    },
     "/dashboard/planning/tasks": {
       en: "/dashboard/planning/tasks",
       pl: "/dashboard/planowanie/zadania",
