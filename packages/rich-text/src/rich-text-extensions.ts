@@ -6,13 +6,16 @@ import CharacterCount from "@tiptap/extension-character-count";
 import TextAlign from "@tiptap/extension-text-align";
 import type { AnyExtension } from "@tiptap/core";
 import type { EditorMode } from "./rich-text-types";
+import { buildEntityMention } from "./mention/entity-mention";
+import type { MentionOptions } from "./mention/mention-types";
 
 export function buildExtensions(options: {
   mode: EditorMode;
   placeholder?: string;
   maxLength?: number;
+  mention?: MentionOptions;
 }): AnyExtension[] {
-  const { mode, placeholder, maxLength } = options;
+  const { mode, placeholder, maxLength, mention } = options;
 
   const extensions: AnyExtension[] = [
     StarterKit.configure({
@@ -32,6 +35,10 @@ export function buildExtensions(options: {
 
   if (maxLength !== undefined) {
     extensions.push(CharacterCount.configure({ limit: maxLength }));
+  }
+
+  if (mention) {
+    extensions.push(buildEntityMention(mention));
   }
 
   if (mode === "full") {

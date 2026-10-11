@@ -13,8 +13,8 @@
 | M1   | Prawy pasek (zwinięty / rozsunięty)                        | ✅ kod + testy, czeka na test ręczny |
 | M2   | Okienka czatów (jak Messenger)                             | ✅ kod + testy, czeka na test ręczny |
 | M3   | Pełna strona, nowa rozmowa, zarządzanie grupą              | ✅ kod + testy, czeka na test ręczny |
-| M4   | Wzmianki `@`: osoby i obiekty z wyszukiwarki (Tiptap)      | ⬜                                   |
-| M4b  | Wzmianki w komentarzach i innych edytorach                 | ⬜                                   |
+| M4   | Wzmianki `@`: osoby i obiekty z wyszukiwarki (Tiptap)      | ✅ kod + testy, czeka na test ręczny |
+| M4b  | Wzmianki w komentarzach i innych edytorach                 | ✅ kod + testy, czeka na test ręczny |
 | M5   | Telefon, Ctrl+K, dźwięk, edycja wiadomości, e-mail offline | ⬜                                   |
 
 **Na demo (15.10):** M0–M3. M4, M4b i M5 po demo (M4 wcześniej, jeśli zostanie czas).
@@ -51,20 +51,29 @@
   - [x] Wejście z okienka i z paska („otwórz w pełnym widoku”) na konkretną rozmowę (`?c=<id>`)
   - [x] Strona w wyszukiwarce (Ctrl+K znajduje „Wiadomości”, uprawnienie `messages.use`)
   - [ ] Test ręczny na deployu: dwie przeglądarki, 1:1 i grupa, „pisze…”, przeczytane, załącznik
-- [ ] **M4** — wzmianki `@`: osoby i obiekty z całej aplikacji (§3.3)
-  - [ ] **Silnik wyszukiwania jako wspólna warstwa:** wydzielić z Ctrl+K rdzeń danych (`globalSearchAction` → `search_global_candidates` / `search_global`, bramki źródeł z `lib/global-search/sources.ts`, zakresy `SEARCH_SCOPES` z prefiksami, `hitDetails`, ikony typów, frecency) do modułu `lib/entity-search/` — Ctrl+K i wzmianki korzystają z tego samego, bez kopiowania zapytań
-  - [ ] Wspólny komponent wyników (`EntityResultList`: wiersz z ikoną, numerem mono, opisem, podświetleniem) używany przez paletę Ctrl+K i okienko wzmianek
-  - [ ] Lista źródeł do wzmianek (`MENTION_SOURCES`): osoby, zlecenia, towary, kontenery, lokalizacje, dokumenty magazynowe, zgłoszenia, zadania, kontrahenci, kontakty, inwentaryzacje, sesje Matchera; każdy edytor może ją zawęzić
-  - [ ] Tiptap: `@tiptap/extension-mention` + `@tiptap/suggestion` w `packages/rich-text` jako rozszerzenie `EntityMention` (atrybuty `{ type, id, code, label }`) z wstrzykiwanym dostawcą wyników — pakiet nie zna bazy, aplikacja podaje funkcję wyszukiwania
-  - [ ] Okienko po `@`: zakładki zakresów jak w Ctrl+K (Wszystko / Osoby / Zlecenia / Towary / …), Tab / Shift+Tab zmienia zakres, prefiksy działają (`@zl:174232`, `@cz:2K5807`), ↑↓ i Enter wstawia, Esc zamyka; osoby od pierwszej litery (lista członków lokalnie, najpierw członkowie rozmowy), dane od 3 znaków z debounce; ostatnio wspominane na górze
-  - [ ] Wstawiona wzmianka: znacznik w tekście (ikona typu + numer / imię i nazwisko), klik otwiera obiekt (`hrefFor()` z wyszukiwarki), w okienku czatu karta obiektu jak w designie (ZL/… · opis · status)
-  - [ ] Bezpieczeństwo: przy wyświetlaniu wzmianki rozwiązywane wsadowo akcją `resolveMentionsAction(refs)` przez RLS oglądającego; brak dostępu → neutralny znacznik „brak dostępu” bez nazwy obiektu; `body_plain` zawiera tylko numery / imiona (podgląd na liście rozmów)
-  - [ ] Serwer: `extractMentions(body_rich)` → `chat_messages.mentions` (`[{ type, id }]`, indeks GIN) + „Powiązane w rozmowie” w panelu szczegółów
-  - [ ] Testy: parser i ekstrakcja, rozszerzenie Tiptap (wstawianie, klawiatura, Tab zakresów), okienko wyników, rozwiązywanie z brakiem dostępu
-- [ ] **M4b** — wzmianki w pozostałych edytorach (po M4, każdy edytor osobno)
-  - [ ] Komentarze (`CommentEditor`: Help Desk, zlecenia, zadania) — bez zmian w tabelach, `body_rich` niesie wzmianki
-  - [ ] Opisy zadań i zgłoszeń, inne pola `RichTextEditorField`
-  - [ ] Portal Ambra Zapytania: tylko jeśli zdecydujemy o zakresie źródeł dla klientów portalu (domyślnie bez wzmianek)
+- [x] **M4** — wzmianki `@`: osoby i obiekty z całej aplikacji (§3.3) — kod + testy, czeka na test ręczny
+  - [x] **Silnik wyszukiwania jako wspólna warstwa:** jedno zapytanie `entitySearchQuery()` (`lib/global-search/entity-search.ts`) dla Ctrl+K i wzmianek (ten sam klucz cache, `globalSearchAction`, bramki źródeł, prefiksy `parsePaletteQuery`); źródła użytkownika w `SearchSourcesProvider` (dostępne w każdym edytorze)
+  - [x] Wspólny wygląd wyników: `hit-display.tsx` (ikony typów, `hitDetails`, podświetlenie) używany przez paletę i okienko wzmianek
+  - [x] Lista źródeł do wzmianek (`MENTION_SOURCES` w `lib/mentions`): osoby, zlecenia, części, zapytania, zadania, dokumenty magazynowe, kontenery, lokalizacje, kontrahenci, kontakty; edytor może ją zawęzić (`MentionScopeProvider`)
+  - [ ] Inwentaryzacje i sesje Matchera jako źródła wzmianek (dziś pominięte)
+  - [x] Tiptap: `@tiptap/extension-mention` + `@tiptap/suggestion` w `packages/rich-text` (`buildEntityMention`, atrybuty `{ type, id, label, code, href }`); pakiet nie zna bazy — aplikacja podaje komponent listy (`ENTITY_MENTIONS`)
+  - [x] Kompaktowy edytor czatu `CompactEditor` (Enter wysyła, Shift+Enter nowa linia, pogrubienie / kursywa, wzmianki) zamiast pola tekstowego
+  - [x] Okienko po `@`: zakładki zakresów (Wszystko / Osoby / Zlecenia / Części / …), Tab / Shift+Tab, prefiksy (`@zl:174232`), ↑↓, Enter, Esc; osoby od pierwszej litery (najpierw członkowie rozmowy), dane od 3 znaków; ostatnio wspominane obiekty przy pustym `@`
+  - [x] Wstawiona wzmianka: znacznik (osoba: imię i nazwisko; obiekt: ikona typu + numer), klik otwiera obiekt; własna wzmianka wyróżniona
+  - [ ] Karta obiektu w okienku czatu jak w designie (ZL/… · opis · status) — dziś znacznik z numerem i tytułem w podpowiedzi
+  - [x] Bezpieczeństwo: `resolveMentionsAction(refs)` sprawdza wsadowo dostęp przez RLS oglądającego; brak dostępu → „brak dostępu” bez numeru i nazwy; link tylko do ścieżek `/dashboard/…`; `body_plain` zawiera numery / imiona
+  - [x] Serwer: `sendMessageAction` sam wylicza `body_plain` i `mentions` (`[{ type, id }]`) z dokumentu — nie ufa klientowi
+  - [ ] Indeks GIN na `mentions` + „Powiązane w rozmowie” w panelu szczegółów
+  - [x] Powiadomienie o wzmiance osoby (migracja `20261011181736_chat_mention_notifications`): tylko aktywni członkowie rozmowy, bez autora; zakładka „Wzmianki” w dzwonku
+  - [x] Testy: vitest (ekstrakcja, bezpieczne linki, lista podpowiedzi, znacznik, edytor: Enter / wstawianie / Esc), pgTAP `124_chat_mentions_test.sql` (9/9)
+  - [ ] Test ręczny na deployu: dwa konta — wzmianka osoby (dzwonek + toast), wzmianka zlecenia (link), konto bez dostępu do obiektu
+- [x] **M4b** — wzmianki w pozostałych edytorach — kod + testy, czeka na test ręczny
+  - [x] Komentarze (`CommentEditor` / `CommentsThread`: Help Desk, zlecenia, zadania) — bez zmian w tabelach, `body_rich` niesie wzmianki; walidacja serwera przepuszcza węzeł `mention` tylko z uuid i linkiem `/dashboard/…`
+  - [x] Powiadomienie o wzmiance w komentarzu (migracja `20261011183106_comment_mention_notifications`, pgTAP `125` 8/8): tylko gdy wspomniany może czytać obiekt (ta sama funkcja co RLS, liczona dla niego); wspomniany uczestnik dostaje jedno powiadomienie (wzmianka zamiast „skomentował”)
+  - [x] Opisy zadań (Planowanie) i zgłoszeń (Help Desk): edytor ze wzmiankami, widok ze znacznikami (`RichTextWithMentions`)
+  - [ ] Powiadomienie o wzmiance w opisie zadania / zgłoszenia (dziś tylko czat i komentarze)
+  - [ ] Pozostałe pola `RichTextEditorField` (karta Kanban, notatki dokumentów magazynowych, opis towaru)
+  - [ ] Portal Ambra Zapytania: tylko jeśli zdecydujemy o zakresie źródeł dla klientów portalu (domyślnie bez wzmianek; wzmianka z komentarza publicznego widoczna tam jako zwykły tekst `@…`)
 - [ ] **M5** — po demo
   - [ ] Optymalizacje realtime (obecność, „przeczytane” w grupach, paczkowanie oznaczania, pomiar) — lista i wyjaśnienie w `docs/MESSAGES_REALTIME_NOTES.md`
   - [ ] Telefon: lista i rozmowa na pełnym ekranie (bez paska i okienek), wejście z nagłówka / dolnej nawigacji

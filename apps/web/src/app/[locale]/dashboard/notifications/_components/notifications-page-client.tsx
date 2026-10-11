@@ -9,10 +9,10 @@ import {
   useNotificationReadActions,
   useUnreadNotificationsCount,
 } from "@/hooks/queries/notifications";
-import type { NotificationFilter } from "@/lib/notifications/types";
+import { NOTIFICATION_FILTERS, type NotificationFilter } from "@/lib/notifications/types";
 import { NotificationList } from "@/components/v2/notifications/notification-list";
 
-const FILTERS: NotificationFilter[] = ["all", "unread", "assigned"];
+const FILTERS = NOTIFICATION_FILTERS;
 
 /** Full list of notifications: the same rows as the drawer, with more room */
 export function NotificationsPageClient({ orgId }: { orgId: string }) {

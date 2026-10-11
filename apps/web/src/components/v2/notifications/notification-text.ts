@@ -39,7 +39,9 @@ export function describeNotification(
         ? t("modules.planning_task")
         : target === "workshop.repair_order"
           ? t("modules.workshop_repair_order")
-          : t("modules.other");
+          : target === "chat.conversation"
+            ? t("modules.chat_conversation")
+            : t("modules.other");
 
   switch (notification.type) {
     case "ticket.new":
@@ -68,7 +70,12 @@ export function describeNotification(
       return { actor, module, icon: MessageSquare, text: t(key) };
     }
     case "mention":
-      return { actor, module, icon: AtSign, text: t("text.mention") };
+      return {
+        actor,
+        module,
+        icon: AtSign,
+        text: t(target === "chat.conversation" ? "text.mention_chat" : "text.mention"),
+      };
     case "task.assigned":
       return { actor, module, icon: ListTodo, text: t("text.task_assigned") };
     case "task.status": {

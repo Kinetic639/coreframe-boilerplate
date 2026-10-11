@@ -10,7 +10,10 @@
     "./rich-text-editor-field": "./src/rich-text-editor-field.tsx",
     "./rich-text-renderer": "./src/rich-text-renderer.tsx",
     "./rich-text-toolbar": "./src/rich-text-toolbar.tsx",
-    "./comments": "./src/comments/index.ts"
+    "./comments": "./src/comments/index.ts",
+    "./mention": "./src/mention/index.ts",
+    "./compact-editor": "./src/compact-editor.tsx",
+    "./mention-utils": "./src/mention/mention-utils.ts"
   },
   "scripts": {
     "lint": "eslint . --max-warnings 0",
@@ -23,12 +26,14 @@
     "@tiptap/core": "^3.23.6",
     "@tiptap/extension-character-count": "^3.23.6",
     "@tiptap/extension-link": "^3.23.6",
+    "@tiptap/extension-mention": "^3.27.3",
     "@tiptap/extension-placeholder": "^3.23.6",
     "@tiptap/extension-text-align": "^3.23.6",
     "@tiptap/extension-underline": "^3.23.6",
     "@tiptap/pm": "^3.23.6",
     "@tiptap/react": "^3.23.6",
     "@tiptap/starter-kit": "^3.23.6",
+    "@tiptap/suggestion": "^3.27.3",
     "class-variance-authority": "^0.7.1",
     "lucide-react": "^0.468.0"
   },

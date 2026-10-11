@@ -27,6 +27,7 @@ export function CommentEditor({
   editorClassName,
   actions,
   id,
+  mention,
 }: CommentEditorProps) {
   const t = useTranslations("components.comments");
   const empty = isRichTextEmpty(value);
@@ -47,6 +48,7 @@ export function CommentEditor({
         placeholder={resolvedPlaceholder}
         disabled={disabled || submitting}
         maxLength={maxLength}
+        mention={mention}
         className={editorClassName}
         contentClassName={cn(
           compact

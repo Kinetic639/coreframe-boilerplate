@@ -3,6 +3,10 @@ import type { JSONContent } from "@tiptap/core";
 import { cn } from "@repo/ui/utils";
 import { isRichTextEmpty } from "./rich-text-utils";
 import type { RichTextRendererProps } from "./rich-text-types";
+import { mentionFromAttrs, mentionText } from "./mention/mention-utils";
+import type { MentionItem } from "./mention/mention-types";
+
+type RenderMention = ((mention: MentionItem) => ReactNode) | undefined;
 
 function safeHref(value: string | undefined): string | null {
   if (!value) return null;
@@ -51,8 +55,8 @@ function applyMarks(text: string, marks: JSONContent[] | undefined): ReactNode {
   }, text as ReactNode);
 }
 
-function renderNode(node: JSONContent, index: number): ReactNode {
-  const children = node.content?.map((child, i) => renderNode(child, i));
+function renderNode(node: JSONContent, index: number, renderMention: RenderMention): ReactNode {
+  const children = node.content?.map((child, i) => renderNode(child, i, renderMention));
   const textAlign = (node.attrs as Record<string, unknown> | undefined)?.textAlign as
     | CSSProperties["textAlign"]
     | undefined;
@@ -134,6 +138,22 @@ function renderNode(node: JSONContent, index: number): ReactNode {
     case "hardBreak":
       return <br key={index} />;
 
+    case "mention": {
+      const mention = mentionFromAttrs(node.attrs as Record<string, unknown> | undefined);
+      if (!mention) return null;
+      return (
+        <Fragment key={index}>
+          {renderMention ? (
+            renderMention(mention)
+          ) : (
+            <span className="rounded bg-primary/10 px-1 py-px font-medium text-primary">
+              {mentionText(mention)}
+            </span>
+          )}
+        </Fragment>
+      );
+    }
+
     case "horizontalRule":
       return <hr key={index} className="border-border my-2" />;
 
@@ -147,13 +167,14 @@ export function RichTextRenderer({
   className,
   prose = true,
   emptyText,
+  renderMention,
 }: RichTextRendererProps) {
   if (isRichTextEmpty(value)) {
     if (!emptyText) return null;
     return <p className={cn("text-muted-foreground text-sm", className)}>{emptyText}</p>;
   }
 
-  const nodes = value!.content?.map((node, i) => renderNode(node, i));
+  const nodes = value!.content?.map((node, i) => renderNode(node, i, renderMention));
 
   return (
     <div

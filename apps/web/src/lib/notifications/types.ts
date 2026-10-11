@@ -13,9 +13,16 @@ export type NotificationType =
   | "task.assigned"
   | "task.status";
 
-export type NotificationTargetType = "helpdesk.ticket" | "planning.task" | "workshop.repair_order";
+export type NotificationTargetType =
+  | "helpdesk.ticket"
+  | "planning.task"
+  | "workshop.repair_order"
+  | "chat.conversation";
 
-export type NotificationFilter = "all" | "unread" | "assigned";
+export type NotificationFilter = "all" | "unread" | "mentions" | "assigned";
+
+/** Tabs of the bell and of the notifications page, in order */
+export const NOTIFICATION_FILTERS: NotificationFilter[] = ["all", "unread", "mentions", "assigned"];
 
 export interface NotificationActor {
   user_id: string;
@@ -56,18 +63,34 @@ export const NOTIFICATIONS_PAGE_SIZE = 30;
 /** The unread count is capped by the database */
 export const NOTIFICATIONS_UNREAD_CAP = 100;
 
-/** Path of the object a notification is about, or null for unknown targets */
-export function notificationHref(
+export interface NotificationRoute {
+  pathname: string;
+  query?: Record<string, string>;
+}
+
+/** Route of the object a notification is about, or null for unknown targets */
+export function notificationRoute(
   notification: Pick<AppNotification, "target_type" | "target_id">
-): string | null {
+): NotificationRoute | null {
   switch (notification.target_type) {
     case "helpdesk.ticket":
-      return `/dashboard/help-desk/tickets/${notification.target_id}`;
+      return { pathname: `/dashboard/help-desk/tickets/${notification.target_id}` };
     case "planning.task":
-      return `/dashboard/planning/tasks/${notification.target_id}`;
+      return { pathname: `/dashboard/planning/tasks/${notification.target_id}` };
     case "workshop.repair_order":
-      return `/dashboard/workshop/${notification.target_id}`;
+      return { pathname: `/dashboard/workshop/${notification.target_id}` };
+    case "chat.conversation":
+      return { pathname: "/dashboard/messages", query: { c: notification.target_id } };
     default:
       return null;
   }
+}
+
+/** Same as notificationRoute, as one string (tests, plain links) */
+export function notificationHref(
+  notification: Pick<AppNotification, "target_type" | "target_id">
+): string | null {
+  const route = notificationRoute(notification);
+  if (!route) return null;
+  return route.query ? `${route.pathname}?${new URLSearchParams(route.query)}` : route.pathname;
 }

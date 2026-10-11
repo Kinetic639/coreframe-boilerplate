@@ -22,7 +22,8 @@ import {
   useUnreadNotificationsCount,
 } from "@/hooks/queries/notifications";
 import {
-  notificationHref,
+  NOTIFICATION_FILTERS,
+  notificationRoute,
   type AppNotification,
   type NotificationFilter,
 } from "@/lib/notifications/types";
@@ -31,7 +32,7 @@ import { useUserStoreV2 } from "@/lib/stores/v2/user-store";
 import { NotificationList } from "@/components/v2/notifications/notification-list";
 import { describeNotification } from "@/components/v2/notifications/notification-text";
 
-const FILTERS: NotificationFilter[] = ["all", "unread", "assigned"];
+const FILTERS = NOTIFICATION_FILTERS;
 
 /**
  * Bell in the header with the notifications drawer.
@@ -56,7 +57,10 @@ export function HeaderNotifications() {
     (notification: AppNotification) => {
       if (openRef.current) return;
       const { actor, text, icon: Icon } = describeNotification(notification, t);
-      const href = notificationHref(notification);
+      const route = notificationRoute(notification);
+      const title =
+        notification.title ||
+        (notification.target_type === "chat.conversation" ? t("directConversation") : "");
       toast(
         ({ closeToast }) => (
           <div className="flex gap-2.5" data-testid="notification-toast">
@@ -71,15 +75,19 @@ export function HeaderNotifications() {
                 {notification.target_code ? (
                   <span className="font-mono">{notification.target_code} · </span>
                 ) : null}
-                {notification.title}
+                {title}
               </p>
               <div className="mt-1.5 flex gap-1.5">
-                {href ? (
+                {route ? (
                   <button
                     type="button"
                     onClick={() => {
                       void setRead(notification, true);
-                      router.push(toUnsafeI18nHref(href));
+                      router.push(
+                        route.query
+                          ? { pathname: toUnsafeI18nHref(route.pathname), query: route.query }
+                          : toUnsafeI18nHref(route.pathname)
+                      );
                       closeToast();
                     }}
                     className="h-6 rounded bg-foreground px-2 text-[11px] font-medium text-background"

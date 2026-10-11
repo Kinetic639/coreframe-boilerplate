@@ -20,11 +20,12 @@ export function RichTextEditorField({
   label,
   error,
   id,
+  mention,
 }: RichTextEditorFieldProps) {
   const isInternalUpdate = useRef(false);
 
   const editor = useEditor({
-    extensions: buildExtensions({ mode, placeholder, maxLength }),
+    extensions: buildExtensions({ mode, placeholder, maxLength, mention }),
     content: value ?? createEmptyRichText(),
     immediatelyRender: false,
     editable: !disabled,

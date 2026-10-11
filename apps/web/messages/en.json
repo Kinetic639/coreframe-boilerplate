@@ -8423,6 +8423,20 @@
     "retry": "Try again",
     "openModule": "Open the Contacts module"
   },
+  "mentions": {
+    "tabsLabel": "Mention scope",
+    "all": "All",
+    "people": "People",
+    "groupPeople": "People",
+    "groupRecent": "Recently mentioned",
+    "groupResults": "Results",
+    "empty": "No results",
+    "typeMore": "Type at least 3 characters to search orders, parts and other objects",
+    "searching": "Searching…",
+    "hint": "↑↓ select · Enter insert · Tab scope · Esc close",
+    "noAccess": "no access",
+    "inConversation": "in conversation"
+  },
   "notificationCenter": {
     "title": "Notifications",
     "description": "Assignments and changes in your work, live.",
@@ -8433,6 +8447,7 @@
     "tabs": {
       "all": "All",
       "unread": "Unread",
+      "mentions": "Mentions",
       "assigned": "Assigned to me"
     },
     "groups": {
@@ -8464,7 +8479,8 @@
       "helpdesk_ticket": "Help Desk",
       "planning_task": "Planning",
       "workshop_repair_order": "Workshop",
-      "other": "Ambra"
+      "other": "Ambra",
+      "chat_conversation": "Messages"
     },
     "text": {
       "ticket_new": "created a ticket for you",
@@ -8479,7 +8495,8 @@
       "mention": "mentioned you",
       "task_assigned": "assigned a task to you",
       "task_status": "changed the task status: {status}",
-      "unknown": "— new notification"
+      "unknown": "— new notification",
+      "mention_chat": "mentioned you in a conversation"
     },
     "taskStatus": {
       "open": "open",
@@ -8490,6 +8507,35 @@
     "page": {
       "title": "Notifications",
       "subtitle": "All your notifications in this organization."
+    },
+    "directConversation": "Direct conversation",
+    "emptyMentions": {
+      "title": "No mentions",
+      "description": "When someone mentions you with @ in a conversation or a comment, you will see it here."
+    },
+    "settingsPage": {
+      "title": "Events",
+      "description": "Choose what you want to hear about and through which channel. Changes are saved right away.",
+      "event": "Event",
+      "inApp": "In the app",
+      "email": "E-mail",
+      "emailSoon": "E-mail delivery will be switched on soon — your choice is already saved.",
+      "channelOff": "The channel is switched off above",
+      "toggle": "{event} — {channel}",
+      "groups": {
+        "helpdesk": "Help Desk",
+        "planning": "Planning",
+        "conversations": "Comments and mentions"
+      },
+      "events": {
+        "ticket_new": "A new ticket for me",
+        "ticket_assigned": "Assigned to a ticket",
+        "ticket_status": "Status change of my ticket",
+        "task_assigned": "Task assigned to me",
+        "task_status": "Status change of my task",
+        "comment": "A comment on my case",
+        "mention": "A mention of me (@) in a conversation or a comment"
+      }
     }
   }
 }

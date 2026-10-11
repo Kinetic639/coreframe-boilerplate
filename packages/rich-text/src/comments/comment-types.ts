@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { EditorMode, RichTextValue } from "../rich-text-types";
+import type { MentionItem, MentionOptions } from "../mention/mention-types";
 
 export type CommentDensity = "default" | "compact";
 
@@ -32,6 +33,8 @@ export interface CommentEditorProps {
   editorClassName?: string;
   actions?: ReactNode;
   id?: string;
+  /** "@" mentions of people and objects; off when omitted */
+  mention?: MentionOptions;
 }
 
 export interface CommentRendererProps {
@@ -47,4 +50,6 @@ export interface CommentRendererProps {
   className?: string;
   contentClassName?: string;
   actions?: ReactNode;
+  /** How a mention is shown (link, access check); a plain "@label" tag by default */
+  renderMention?: (mention: MentionItem) => ReactNode;
 }

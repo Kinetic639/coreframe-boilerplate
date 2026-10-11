@@ -12,7 +12,7 @@
 | N0   | Tabela, RLS, `notify()`, kanał realtime               | ✅                                   |
 | N1   | Źródła zdarzeń (tickety, komentarze, zadania, portal) | ✅ (wzmianki po M4)                  |
 | N2   | Szuflada, licznik, toast, strona                      | ✅ kod + testy, czeka na test ręczny |
-| N3   | Ustawienia, e-mail, przypomnienia, retencja           | ⬜                                   |
+| N3   | Ustawienia, e-mail, przypomnienia, retencja           | 🟡 ustawienia gotowe, reszta czeka   |
 
 - [x] **N0** — fundament (migracja `20261011054231_notifications`, wdrożona)
   - [x] Tabela `notifications` (§3.1), indeksy, RLS „tylko adresat” (select), bez zapisu z klienta
@@ -26,7 +26,8 @@
   - [x] Portal Ambra Zapytania: nowe zapytanie tworzy przypisania odpowiadających, więc dostają `ticket.new`
   - [x] Komentarze (`app_comments`): zgłaszający i przypisani (ticket; komentarz `internal` tylko do przypisanych), wykonawca i autor (zadanie), doradca (zlecenie)
   - [x] Zadania: przypisanie / zmiana wykonawcy (`planning_tasks.assigned_to`), zmiana statusu dla autora i wykonawcy
-  - [ ] Wzmianka `@` w komentarzu i w czacie — po fazie M4 wiadomości (edytor ze wzmiankami); typ `mention` i filtr są już w bazie
+  - [x] Wzmianka `@` w czacie (migracja `20261011181736_chat_mention_notifications`, pgTAP `124` 9/9): wspomniany aktywny członek rozmowy, bez autora; cel `chat.conversation` otwiera rozmowę
+  - [x] Wzmianka `@` w komentarzu (migracja `20261011183106_comment_mention_notifications`, pgTAP `125` 8/8): wspomniany dostaje ją tylko, gdy może czytać obiekt; jedno powiadomienie na osobę i komentarz
   - [ ] Zlecenia: obserwujący (model nie istnieje — dziś powiadomienie dostaje doradca)
   - [ ] Magazyn (P2): przyjęta dostawa z pozycjami do rozłożenia → osoby z uprawnieniem rozkładania w oddziale
 - [x] **N2** — UI (kompaktowy styl jak wiadomości)
@@ -38,10 +39,10 @@
   - [x] Toast przy nowym (react-toastify): Otwórz / Oznacz jako przeczytane; bez toastu, gdy szuflada otwarta
   - [x] Strona `/dashboard/powiadomienia` (pełna lista, filtry), link w stopce szuflady
   - [x] Pusty stan, błąd, ładowanie; i18n pl/en; testy komponentów
-  - [ ] Zakładka „Wzmianki” — razem ze wzmiankami (N1)
+  - [x] Zakładka „Wzmianki” (dzwonek i strona), pusty stan, na żywo
   - [ ] Test ręczny na deployu: dwa konta, przypisanie ticketu i komentarz → dzwonek i toast bez odświeżania
 - [ ] **N3** — ustawienia i e-mail
-  - [ ] Ustawienia na `/dashboard/account/notifications`: zdarzenie × kanał (W aplikacji / E-mail), `user_preferences.notification_settings`
+  - [x] Ustawienia na `/dashboard/account/notifications`: zdarzenie × kanał (W aplikacji / E-mail), `user_preferences.notification_settings` (`inApp.disabledTypes` czytane przez `_notify()`, `email.types` z domyślnymi: przypisania i wzmianki); naprawione nadpisywanie wyborów przez przełącznik kanału
   - [ ] E-mail (Resend, `@react-email`): przypisanie i wzmianka, z opóźnieniem (np. 10 min), wysyłane tylko gdy nieprzeczytane; cisza nocna
   - [ ] Przypomnienia terminów zadań (pg_cron: „Termin mija dziś o 15:00”)
   - [ ] Retencja: przeczytane starsze niż 90 dni usuwane (pg_cron)

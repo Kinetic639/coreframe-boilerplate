@@ -9,6 +9,11 @@ import { TypingIndicator, useTypingIndicator } from "@repo/rich-text/comments";
 import { isRichTextEmpty } from "@repo/rich-text/rich-text-utils";
 import { createClient } from "@/utils/supabase/client";
 import { useUserStoreV2 } from "@/lib/stores/v2/user-store";
+import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
+import type { MentionItem } from "@repo/rich-text/mention-utils";
+import { useMentionAccess } from "@/hooks/queries/mentions";
+import { MentionChip } from "@/components/v2/mentions/mention-chip";
+import { ENTITY_MENTIONS } from "@/components/v2/mentions/mention-suggestion-list";
 import type { RichTextValue } from "@/components/primitives/rich-text/rich-text-types";
 import {
   createEmptyRichText,
@@ -116,6 +121,18 @@ export function CommentsThread(props: CommentsThreadProps) {
       pageSize: config.pageSize ?? 50,
     }),
     [config.targetType, config.targetId, config.pageSize]
+  );
+
+  // Mentioned objects link only when the reader may open them (one batched check)
+  const orgId = useAppStoreV2((s) => s.activeOrgId);
+  const meId = useUserStoreV2((s) => s.user?.id ?? null);
+  const richBodies = useMemo(() => rows.map((row) => row.body_rich).filter(Boolean), [rows]);
+  const mentionAccess = useMentionAccess(orgId, richBodies);
+  const renderMention = useCallback(
+    (mention: MentionItem) => (
+      <MentionChip mention={mention} access={mentionAccess(mention)} meId={meId} />
+    ),
+    [meId, mentionAccess]
   );
 
   const commentsQuery = useCommentsQuery(queryInput, props.initialData);
@@ -248,6 +265,7 @@ export function CommentsThread(props: CommentsThreadProps) {
               emptyText={comment.body_plain}
               density={config.density}
               isOwn={comment.is_own}
+              renderMention={renderMention}
             />
           ))}
         </div>
@@ -271,6 +289,7 @@ export function CommentsThread(props: CommentsThreadProps) {
       {config.canComment && (
         <div className="pt-1">
           <CommentEditor
+            mention={ENTITY_MENTIONS}
             value={draft}
             onChange={(next) => {
               setDraft(next);

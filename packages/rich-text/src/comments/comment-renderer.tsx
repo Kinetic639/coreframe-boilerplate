@@ -16,6 +16,7 @@ export function CommentRenderer({
   contentClassName,
   actions,
   avatar,
+  renderMention,
 }: CommentRendererProps) {
   const compact = density === "compact";
 
@@ -57,7 +58,13 @@ export function CommentRenderer({
       </div>
 
       <div className={cn(compact ? "ml-10" : "ml-12", "py-2 text-sm", contentClassName)}>
-        <RichTextRenderer value={value} emptyText={emptyText} prose className="break-words" />
+        <RichTextRenderer
+          value={value}
+          emptyText={emptyText}
+          prose
+          className="break-words"
+          renderMention={renderMention}
+        />
       </div>
     </article>
   );

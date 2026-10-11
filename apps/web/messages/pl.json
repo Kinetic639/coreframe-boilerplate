@@ -8397,6 +8397,20 @@
     "retry": "Spróbuj ponownie",
     "openModule": "Otwórz moduł Kontakty"
   },
+  "mentions": {
+    "tabsLabel": "Zakres wzmianki",
+    "all": "Wszystko",
+    "people": "Osoby",
+    "groupPeople": "Osoby",
+    "groupRecent": "Ostatnio wspominane",
+    "groupResults": "Wyniki",
+    "empty": "Brak wyników",
+    "typeMore": "Wpisz co najmniej 3 znaki, aby szukać zleceń, części i innych obiektów",
+    "searching": "Szukam…",
+    "hint": "↑↓ wybór · Enter wstaw · Tab zakres · Esc zamknij",
+    "noAccess": "brak dostępu",
+    "inConversation": "w rozmowie"
+  },
   "notificationCenter": {
     "title": "Powiadomienia",
     "description": "Przypisania i zmiany w Twoich sprawach, na żywo.",
@@ -8407,7 +8421,8 @@
     "tabs": {
       "all": "Wszystkie",
       "unread": "Nieprzeczytane",
-      "assigned": "Przypisane do mnie"
+      "mentions": "Wzmianki",
+      "assigned": "Przypisane"
     },
     "groups": {
       "today": "Dzisiaj",
@@ -8438,7 +8453,8 @@
       "helpdesk_ticket": "Help Desk",
       "planning_task": "Planowanie",
       "workshop_repair_order": "Warsztat",
-      "other": "Ambra"
+      "other": "Ambra",
+      "chat_conversation": "Wiadomości"
     },
     "text": {
       "ticket_new": "utworzył(a) zgłoszenie dla Ciebie",
@@ -8453,7 +8469,8 @@
       "mention": "wspomniał(a) o Tobie",
       "task_assigned": "przypisał(a) Ci zadanie",
       "task_status": "zmienił(a) status zadania: {status}",
-      "unknown": "— nowe powiadomienie"
+      "unknown": "— nowe powiadomienie",
+      "mention_chat": "wspomniał(a) o Tobie w rozmowie"
     },
     "taskStatus": {
       "open": "otwarte",
@@ -8464,6 +8481,35 @@
     "page": {
       "title": "Powiadomienia",
       "subtitle": "Wszystkie Twoje powiadomienia w tej organizacji."
+    },
+    "directConversation": "Rozmowa prywatna",
+    "emptyMentions": {
+      "title": "Brak wzmianek",
+      "description": "Gdy ktoś wspomni o Tobie przez @ w rozmowie lub komentarzu, zobaczysz to tutaj."
+    },
+    "settingsPage": {
+      "title": "Zdarzenia",
+      "description": "Wybierz, o czym chcesz wiedzieć i jakim kanałem. Zmiany zapisują się od razu.",
+      "event": "Zdarzenie",
+      "inApp": "W aplikacji",
+      "email": "E-mail",
+      "emailSoon": "Wysyłka e-mail zostanie włączona wkrótce — wybór jest już zapisywany.",
+      "channelOff": "Kanał jest wyłączony powyżej",
+      "toggle": "{event} — {channel}",
+      "groups": {
+        "helpdesk": "Help Desk",
+        "planning": "Planowanie",
+        "conversations": "Komentarze i wzmianki"
+      },
+      "events": {
+        "ticket_new": "Nowe zgłoszenie dla mnie",
+        "ticket_assigned": "Przypisanie do zgłoszenia",
+        "ticket_status": "Zmiana statusu mojego zgłoszenia",
+        "task_assigned": "Przypisanie zadania",
+        "task_status": "Zmiana statusu mojego zadania",
+        "comment": "Komentarz w mojej sprawie",
+        "mention": "Wzmianka o mnie (@) w rozmowie lub komentarzu"
+      }
     }
   }
 }

@@ -85,6 +85,10 @@ describe("notifications cache", () => {
     expect(notificationHref({ target_type: "workshop.repair_order", target_id: "r1" })).toBe(
       "/dashboard/workshop/r1"
     );
+    // A chat mention opens its conversation on the Messages page
+    expect(notificationHref({ target_type: "chat.conversation", target_id: "c1" })).toBe(
+      "/dashboard/messages?c=c1"
+    );
     expect(notificationHref({ target_type: "something.else", target_id: "x" })).toBeNull();
   });
 });

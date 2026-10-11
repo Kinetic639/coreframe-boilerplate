@@ -20,6 +20,7 @@ import { MemberSelector, type MemberOption } from "@/components/help-desk/member
 import type { HelpdeskTicketType } from "@/server/services/helpdesk-ticket-types.service";
 import { TICKET_PRIORITIES, type TicketPriority } from "@/lib/validations/helpdesk";
 import { RichTextEditorField } from "@/components/primitives/rich-text/rich-text-editor-field";
+import { ENTITY_MENTIONS } from "@/components/v2/mentions/mention-suggestion-list";
 import type { RichTextValue } from "@/components/primitives/rich-text/rich-text-types";
 import {
   createEmptyRichText,
@@ -354,6 +355,7 @@ export function NewTicketForm({
             placeholder={t("tickets.fields.descriptionPlaceholder")}
             disabled={createTicketMutation.isPending}
             maxLength={10000}
+            mention={ENTITY_MENTIONS}
           />
         </div>
 
