@@ -12,6 +12,7 @@ import { useConversation, useConversations } from "@/hooks/queries/messages";
 import { conversationInitials, conversationTitle, directPeer } from "@/lib/messages/display";
 import { ChatAvatar } from "@/components/v2/messages/chat-avatar";
 import { ChatComposer, type ChatComposerHandle } from "@/components/v2/messages/chat-composer";
+import { ChatInvitations } from "@/components/v2/messages/chat-invitations";
 import { useOptionalChat } from "@/components/v2/messages/chat-provider";
 import { ChatThread } from "@/components/v2/messages/chat-thread";
 import { chatTypingTopic, useReadWhileVisible } from "@/components/v2/messages/chat-window";
@@ -133,6 +134,7 @@ function MessagesPageBody({ initialConversationId }: { initialConversationId: st
           </div>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-1.5 py-1.5">
+          <ChatInvitations onJoined={select} />
           {list.length === 0 && !conversations.isLoading ? (
             <p className="px-2 py-6 text-center text-xs text-muted-foreground">
               {conversations.data?.length ? t("bar.noResults") : t("bar.empty")}

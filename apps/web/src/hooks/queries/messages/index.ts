@@ -10,7 +10,9 @@ import {
 } from "@tanstack/react-query";
 import {
   getConversationAction,
+  listChatInvitationsAction,
   listChatPeopleAction,
+  listPendingChatInvitesAction,
   listConversationsAction,
   listMessagesAction,
   deleteMessageAction,
@@ -32,7 +34,9 @@ import { createReadBatcher } from "@/lib/messages/read-batcher";
 import type {
   ChatConversationDetail,
   ChatConversationSummary,
+  ChatInvitation,
   ChatMessage,
+  ChatPendingInvite,
   ChatMessageCursor,
   ChatMessagesPage,
 } from "@/lib/messages/types";
@@ -43,6 +47,9 @@ export const messagesKeys = {
   conversation: (conversationId: string) => ["messages", "conversation", conversationId] as const,
   thread: (conversationId: string) => ["messages", "thread", conversationId] as const,
   people: (orgId: string) => ["messages", "people", orgId] as const,
+  invitations: (orgId: string) => ["messages", "invitations", orgId] as const,
+  pendingInvites: (conversationId: string) =>
+    ["messages", "pending-invites", conversationId] as const,
 };
 
 export function useConversations(orgId: string | null | undefined) {
@@ -89,6 +96,34 @@ export function useMessages(conversationId: string | null | undefined) {
     staleTime: 60_000,
   });
   return { ...query, messages: flattenMessages(query.data as MessagesInfiniteData | undefined) };
+}
+
+/** Groups the user was invited to and has not answered yet */
+export function useChatInvitations(orgId: string | null | undefined) {
+  return useQuery({
+    queryKey: messagesKeys.invitations(orgId ?? ""),
+    queryFn: async (): Promise<ChatInvitation[]> => {
+      const result = await listChatInvitationsAction();
+      if (!result.success) throw new Error((result as { error: string }).error);
+      return result.data;
+    },
+    enabled: !!orgId,
+    staleTime: 60_000,
+  });
+}
+
+/** People invited to a conversation who have not answered yet */
+export function usePendingChatInvites(conversationId: string | null | undefined, enabled = true) {
+  return useQuery({
+    queryKey: messagesKeys.pendingInvites(conversationId ?? ""),
+    queryFn: async (): Promise<ChatPendingInvite[]> => {
+      const result = await listPendingChatInvitesAction({ conversationId });
+      if (!result.success) throw new Error((result as { error: string }).error);
+      return result.data;
+    },
+    enabled: !!conversationId && enabled,
+    staleTime: 30_000,
+  });
 }
 
 export function useChatPeople(orgId: string | null | undefined) {

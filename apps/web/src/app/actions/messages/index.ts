@@ -16,6 +16,8 @@ import {
   type ChatConversationDetail,
   type ChatConversationSummary,
   type ChatErrorCode,
+  type ChatInvitation,
+  type ChatPendingInvite,
   type ChatMessage,
   type ChatMessageCursor,
   type ChatMessagesPage,
@@ -217,6 +219,41 @@ export async function createGroupConversationAction(
   );
 }
 
+/** Groups the user was invited to (pending) */
+export async function listChatInvitationsAction(): Promise<ActionResult<ChatInvitation[]>> {
+  return run(z.object({}).optional(), undefined, "listInvitations", (ctx) =>
+    ChatService.listInvitations(ctx.supabase, ctx.orgId)
+  );
+}
+
+/** Joins or declines a group invitation */
+export async function respondToChatInvitationAction(
+  rawInput: unknown
+): Promise<ActionResult<null>> {
+  return run(
+    z.object({ conversationId: uuid, accept: z.boolean() }),
+    rawInput,
+    "respondToInvitation",
+    (ctx, input) => {
+      const { conversationId, accept } = input as { conversationId: string; accept: boolean };
+      return ChatService.respondToInvitation(ctx.supabase, conversationId, accept);
+    }
+  );
+}
+
+/** People invited to a conversation who have not answered yet */
+export async function listPendingChatInvitesAction(
+  rawInput: unknown
+): Promise<ActionResult<ChatPendingInvite[]>> {
+  return run(z.object({ conversationId: uuid }), rawInput, "listPendingInvites", (ctx, input) =>
+    ChatService.listPendingInvites(
+      ctx.supabase,
+      (input as { conversationId: string }).conversationId
+    )
+  );
+}
+
+/** Invites people to a group; each of them decides whether to join */
 export async function addConversationMembersAction(rawInput: unknown): Promise<ActionResult<null>> {
   return run(membersSchema, rawInput, "addMembers", (ctx, input) =>
     ChatService.addMembers(ctx.supabase, input.conversationId, input.userIds)

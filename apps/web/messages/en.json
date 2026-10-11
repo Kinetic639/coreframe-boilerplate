@@ -8358,7 +8358,10 @@
       "removed": "{actor} removed: {users}",
       "left": "{actor} left the group",
       "renamed": "{actor} renamed the group to “{name}”",
-      "someone": "Someone"
+      "someone": "Someone",
+      "invited": "{actor} invited: {users}",
+      "joined": "{actor} joined the group",
+      "declined": "{actor} declined the invitation"
     },
     "preview": {
       "you": "You: ",
@@ -8368,16 +8371,22 @@
       "empty": "No messages"
     },
     "newConversation": {
-      "title": "New conversation",
+      "title": "New message",
       "search": "Search people",
       "groupName": "Group name",
       "groupNamePlaceholder": "e.g. Warehouse CNP Poznań",
       "start": "Message",
-      "createGroup": "Create group",
+      "createGroup": "Create a group",
       "selected": "Selected: {count}",
       "empty": "No people",
       "cancel": "Cancel",
-      "hint": "One person — a 1:1 conversation, several — a group"
+      "hint": "Pick the person you want to write to",
+      "groupTitle": "New group",
+      "groupHint": "The people you pick get an invitation and decide themselves whether to join",
+      "sendInvites": "Create and invite",
+      "invitesSent": "{count, plural, one {# invitation sent} other {# invitations sent}}",
+      "back": "Back to a private message",
+      "keys": "↑↓ select · Enter opens the conversation"
     },
     "errors": {
       "forbidden": "No access to this conversation",
@@ -8399,7 +8408,7 @@
       "files": "Files",
       "noFiles": "No files",
       "owner": "Owner",
-      "addMembers": "Add people",
+      "addMembers": "Invite people",
       "add": "Add",
       "rename": "Rename",
       "save": "Save",
@@ -8410,7 +8419,16 @@
       "mute": "Mute",
       "unmute": "Unmute",
       "muted": "Muted",
-      "back": "Back to the list"
+      "back": "Back to the list",
+      "invite": "Invite",
+      "invited": "Invited — waiting for an answer"
+    },
+    "invitations": {
+      "title": "Group invitations",
+      "from": "Invited by {name}",
+      "fromUnknown": "Group invitation",
+      "join": "Join",
+      "decline": "Decline"
     }
   },
   "contactsDrawer": {

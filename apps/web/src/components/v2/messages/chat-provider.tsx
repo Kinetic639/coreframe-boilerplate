@@ -126,7 +126,16 @@ export function ChatProvider({
     };
 
     const handle = (event: ChatInboxEvent) => {
-      if (event.type === "message") onMessage(event.message);
+      if (event.type === "message") {
+        onMessage(event.message);
+        // Someone answered an invitation: the list of people still invited changes
+        const action = event.message.system_event?.action;
+        if (action === "joined" || action === "declined" || action === "invited") {
+          void queryClient.invalidateQueries({
+            queryKey: messagesKeys.pendingInvites(event.conversation_id),
+          });
+        }
+      }
       if (event.type === "message_updated") {
         queryClient.setQueryData<MessagesInfiniteData>(
           messagesKeys.thread(event.conversation_id),
@@ -148,6 +157,9 @@ export function ChatProvider({
               : conversation
           )
         );
+      }
+      if (event.type === "invitation") {
+        void queryClient.invalidateQueries({ queryKey: messagesKeys.invitations(orgId) });
       }
       if (event.type === "membership") {
         void queryClient.invalidateQueries({ queryKey: listKey });

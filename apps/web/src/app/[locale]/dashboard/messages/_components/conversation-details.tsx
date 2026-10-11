@@ -25,7 +25,7 @@ import {
   renameConversationAction,
 } from "@/app/actions/messages";
 import { useAttachmentsQuery } from "@/hooks/queries/attachments";
-import { messagesKeys, useChatPeople } from "@/hooks/queries/messages";
+import { messagesKeys, useChatPeople, usePendingChatInvites } from "@/hooks/queries/messages";
 import { memberInitials, memberName } from "@/lib/messages/display";
 import {
   CHAT_GROUP_NAME_MAX_LENGTH,
@@ -59,8 +59,12 @@ export function ConversationDetails({
 
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: messagesKeys.conversation(conversation.id) });
+    void queryClient.invalidateQueries({
+      queryKey: messagesKeys.pendingInvites(conversation.id),
+    });
     void queryClient.invalidateQueries({ queryKey: messagesKeys.conversations(orgId) });
   };
+  const pending = usePendingChatInvites(conversation.id, isGroup).data ?? [];
   const run = async (action: () => Promise<{ success: boolean }>) => {
     const result = await action();
     if (!result.success) {
@@ -153,7 +157,8 @@ export function ConversationDetails({
           <span className="flex-1" />
           {isGroup ? (
             <AddMembersPopover
-              existing={active.map((m) => m.user_id)}
+              // Members and people already invited cannot be invited again
+              existing={[...active.map((m) => m.user_id), ...pending.map((p) => p.user_id)]}
               onAdd={(userIds) =>
                 run(() =>
                   addConversationMembersAction({ conversationId: conversation.id, userIds })
@@ -200,6 +205,21 @@ export function ConversationDetails({
                   <UserMinus className="size-3.5" />
                 </button>
               ) : null}
+            </li>
+          ))}
+          {/* Invited, not answered yet: they join only if they accept */}
+          {pending.map((person) => (
+            <li key={person.user_id} className="flex items-center gap-2 opacity-70">
+              <ChatAvatar
+                initials={memberInitials(person)}
+                src={person.avatar_url}
+                size={26}
+                ringClassName="ring-background"
+              />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-xs font-medium">{memberName(person)}</span>
+                <span className="block text-[11px] text-muted-foreground">{t("page.invited")}</span>
+              </span>
             </li>
           ))}
         </ul>
@@ -377,7 +397,7 @@ function AddMembersPopover({
             }}
             className="h-7 rounded-md bg-primary px-2.5 text-[11px] font-semibold text-primary-foreground disabled:opacity-50"
           >
-            {t("page.add")}
+            {t("page.invite")}
           </button>
         </div>
       </PopoverContent>

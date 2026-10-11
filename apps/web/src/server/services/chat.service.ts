@@ -6,6 +6,8 @@ import {
   CHAT_MESSAGES_PAGE_SIZE,
   type ChatConversationDetail,
   type ChatConversationSummary,
+  type ChatInvitation,
+  type ChatPendingInvite,
   type ChatErrorCode,
   type ChatMessage,
   type ChatMessageCursor,
@@ -211,6 +213,42 @@ export class ChatService {
     });
     if (error) return fail(error, "addMembers");
     return { success: true, data: null };
+  }
+
+  /** Groups the user was invited to and has not answered yet */
+  static async listInvitations(
+    supabase: SupabaseClient,
+    orgId: string
+  ): Promise<ServiceResult<ChatInvitation[]>> {
+    const { data, error } = await supabase.rpc("chat_list_invitations", { p_org: orgId });
+    if (error) return fail(error, "listInvitations");
+    return { success: true, data: (data ?? []) as ChatInvitation[] };
+  }
+
+  /** Joins (accept) or declines a group invitation */
+  static async respondToInvitation(
+    supabase: SupabaseClient,
+    conversationId: string,
+    accept: boolean
+  ): Promise<ServiceResult<null>> {
+    const { error } = await supabase.rpc("chat_invitation_respond", {
+      p_conversation_id: conversationId,
+      p_accept: accept,
+    });
+    if (error) return fail(error, "respondToInvitation");
+    return { success: true, data: null };
+  }
+
+  /** People invited to a conversation who have not answered (members only) */
+  static async listPendingInvites(
+    supabase: SupabaseClient,
+    conversationId: string
+  ): Promise<ServiceResult<ChatPendingInvite[]>> {
+    const { data, error } = await supabase.rpc("chat_pending_invitations", {
+      p_conversation_id: conversationId,
+    });
+    if (error) return fail(error, "listPendingInvites");
+    return { success: true, data: (data ?? []) as ChatPendingInvite[] };
   }
 
   /** Owner removes a member; removing oneself leaves the group */

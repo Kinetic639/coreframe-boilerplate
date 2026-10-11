@@ -76,6 +76,9 @@
   - [ ] Portal Ambra Zapytania: tylko jeśli zdecydujemy o zakresie źródeł dla klientów portalu (domyślnie bez wzmianek; wzmianka z komentarza publicznego widoczna tam jako zwykły tekst `@…`)
 - [ ] **M5** — dopracowanie (część zrobiona 11.10, kod + testy, czeka na test ręczny)
   - [x] Ctrl+K: przy osobie akcja „Napisz wiadomość” (podmenu wyniku) otwiera rozmowę 1:1
+  - [x] „Nowa wiadomość” (przycisk na pasku): domyślnie wiadomość prywatna — lista osób, ↑↓ i Enter albo klik otwiera rozmowę 1:1; osobny tryb „Utwórz grupę” z polami wyboru i nazwą
+  - [x] Zaproszenia do grup zamiast dodawania na siłę: tworzenie grupy i „Zaproś osoby” wysyłają zaproszenie, członkiem zostaje się po „Dołącz”; do tego czasu zaproszony nie widzi rozmowy. Sekcja „Zaproszenia do grup” na pasku i na stronie Wiadomości, „Zaproszono — czeka na odpowiedź” w szczegółach grupy (migracja `20261011202425_chat_group_invitations`, pgTAP `129` 10/10)
+  - [ ] Wycofanie zaproszenia przez właściciela grupy
   - [ ] Ctrl+K: źródło „Rozmowy”
   - [x] Dźwięk nowej wiadomości (wyłączalny na pasku, pamiętany w przeglądarce), licznik rozmów z nieprzeczytanymi w tytule karty
   - [x] Edycja własnej wiadomości (15 min od wysłania, w polu wiadomości) i usuwanie (znacznik „Wiadomość usunięta”); na żywo u pozostałych (zdarzenie `message_updated`); migracja `20261011190404_chat_edit_delete_message`, pgTAP `127` 8/8

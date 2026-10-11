@@ -8332,7 +8332,10 @@
       "removed": "{actor} usunął(-ęła): {users}",
       "left": "{actor} opuścił(a) grupę",
       "renamed": "{actor} zmienił(a) nazwę grupy na „{name}”",
-      "someone": "Ktoś"
+      "someone": "Ktoś",
+      "invited": "{actor} zaprosił(a): {users}",
+      "joined": "{actor} dołączył(a) do grupy",
+      "declined": "{actor} odrzucił(a) zaproszenie"
     },
     "preview": {
       "you": "Ty: ",
@@ -8342,7 +8345,7 @@
       "empty": "Brak wiadomości"
     },
     "newConversation": {
-      "title": "Nowa rozmowa",
+      "title": "Nowa wiadomość",
       "search": "Szukaj osoby",
       "groupName": "Nazwa grupy",
       "groupNamePlaceholder": "np. Magazyn CNP Poznań",
@@ -8351,7 +8354,13 @@
       "selected": "Wybrane: {count}",
       "empty": "Brak osób",
       "cancel": "Anuluj",
-      "hint": "Jedna osoba — rozmowa 1:1, kilka osób — grupa"
+      "hint": "Wybierz osobę, do której chcesz napisać",
+      "groupTitle": "Nowa grupa",
+      "groupHint": "Wybrane osoby dostaną zaproszenie i same zdecydują, czy dołączyć",
+      "sendInvites": "Utwórz i zaproś",
+      "invitesSent": "{count, plural, one {Wysłano # zaproszenie} few {Wysłano # zaproszenia} many {Wysłano # zaproszeń} other {Wysłano # zaproszenia}}",
+      "back": "Wróć do wiadomości prywatnej",
+      "keys": "↑↓ wybór · Enter otwiera rozmowę"
     },
     "errors": {
       "forbidden": "Brak dostępu do rozmowy",
@@ -8373,7 +8382,7 @@
       "files": "Pliki",
       "noFiles": "Brak plików",
       "owner": "Właściciel",
-      "addMembers": "Dodaj osoby",
+      "addMembers": "Zaproś osoby",
       "add": "Dodaj",
       "rename": "Zmień nazwę",
       "save": "Zapisz",
@@ -8384,7 +8393,16 @@
       "mute": "Wycisz",
       "unmute": "Włącz powiadomienia",
       "muted": "Wyciszona",
-      "back": "Wróć do listy"
+      "back": "Wróć do listy",
+      "invite": "Zaproś",
+      "invited": "Zaproszono — czeka na odpowiedź"
+    },
+    "invitations": {
+      "title": "Zaproszenia do grup",
+      "from": "Zaprasza: {name}",
+      "fromUnknown": "Zaproszenie do grupy",
+      "join": "Dołącz",
+      "decline": "Odrzuć"
     }
   },
   "contactsDrawer": {

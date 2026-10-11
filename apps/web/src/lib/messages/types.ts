@@ -20,12 +20,48 @@ export interface ChatMemberProfile {
   muted_until?: string | null;
 }
 
-export type ChatSystemAction = "created" | "added" | "removed" | "left" | "renamed";
+export type ChatSystemAction =
+  | "created"
+  | "added"
+  | "removed"
+  | "left"
+  | "renamed"
+  | "invited"
+  | "joined"
+  | "declined";
 
 export interface ChatSystemEvent {
   action: ChatSystemAction;
+  /** Group name (created, renamed) or the person's name (joined, declined) */
   name?: string;
   user_ids?: string[];
+  /** Names of the invited people, in the order of user_ids (they are not members yet) */
+  names?: string[];
+}
+
+/** An invitation to a group waiting for the user's answer */
+export interface ChatInvitation {
+  conversation_id: string;
+  name: string | null;
+  created_at: string;
+  member_count: number;
+  invited_by: {
+    user_id: string;
+    first_name: string | null;
+    last_name: string | null;
+    email: string | null;
+    avatar_url: string | null;
+  } | null;
+}
+
+/** A person invited to a conversation who has not answered yet */
+export interface ChatPendingInvite {
+  user_id: string;
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
+  avatar_url: string | null;
+  created_at: string;
 }
 
 export interface ChatLastMessage {
@@ -101,7 +137,9 @@ export type ChatInboxEvent =
   /** An existing message was edited or deleted (never counts as unread) */
   | { type: "message_updated"; conversation_id: string; message: ChatMessage }
   | { type: "read"; conversation_id: string; user_id: string; last_read_at: string }
-  | { type: "membership"; conversation_id: string; active: boolean };
+  | { type: "membership"; conversation_id: string; active: boolean }
+  /** The user was invited to a group */
+  | { type: "invitation"; conversation_id: string };
 
 /** Error codes the chat actions return (mapped from Postgres errors) */
 export type ChatErrorCode = "forbidden" | "invalid" | "tooLong" | "notFound" | "failed";
