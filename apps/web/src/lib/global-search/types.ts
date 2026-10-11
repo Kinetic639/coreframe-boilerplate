@@ -27,6 +27,15 @@ export type SearchEntrySection =
  */
 export type SearchCommandId = "theme.toggle" | "colorTheme.pick" | "locale.toggle" | "auth.signOut";
 
+/** One link in an entry's static submenu */
+export interface SearchSubLink {
+  id: string;
+  title: string;
+  titleKey?: string;
+  href: string;
+  query?: Record<string, string>;
+}
+
 /**
  * A page or action the palette can show without a database query.
  *
@@ -42,6 +51,11 @@ export interface SearchEntry extends SidebarItem {
   command?: SearchCommandId;
   /** Shortcut hint shown on the row (display only) */
   shortcut?: string;
+  /**
+   * Static submenu of the entry (links shown when the row is expanded with →).
+   * Commands with choices (themes, language) get theirs from a submenu provider.
+   */
+  submenu?: SearchSubLink[];
   /** Parent page title key, shown as the row subtitle ("Magazyn › Ruchy") */
   parentTitleKey?: string;
   parentTitle?: string;

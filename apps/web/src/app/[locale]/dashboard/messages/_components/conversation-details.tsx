@@ -34,9 +34,7 @@ import {
 } from "@/lib/messages/types";
 import { ChatAvatar } from "@/components/v2/messages/chat-avatar";
 import { useChat } from "@/components/v2/messages/chat-provider";
-
-/** Muting has no end date in the UI; far enough to mean "until unmuted" */
-const MUTED_UNTIL = "2100-01-01T00:00:00.000Z";
+import { CHAT_MUTED_UNTIL } from "@/components/v2/messages/chat-window-options";
 
 /** Right panel of the Messages page: members, files and the group's settings */
 export function ConversationDetails({
@@ -118,7 +116,7 @@ export function ConversationDetails({
                   void run(() =>
                     muteConversationAction({
                       conversationId: conversation.id,
-                      until: muted ? null : MUTED_UNTIL,
+                      until: muted ? null : CHAT_MUTED_UNTIL,
                     })
                   )
                 }
@@ -139,7 +137,7 @@ export function ConversationDetails({
               void run(() =>
                 muteConversationAction({
                   conversationId: conversation.id,
-                  until: muted ? null : MUTED_UNTIL,
+                  until: muted ? null : CHAT_MUTED_UNTIL,
                 })
               )
             }

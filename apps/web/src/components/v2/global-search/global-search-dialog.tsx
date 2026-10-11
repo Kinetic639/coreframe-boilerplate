@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
@@ -8,6 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   ArrowRight,
   Boxes,
+  ChevronRight,
   Building2,
   Car,
   Check,
@@ -61,7 +62,7 @@ import {
   withPalettePrefix,
   type PaletteItem,
 } from "@/lib/global-search/palette";
-import { highlightRanges, scoreSearchMatch } from "@/lib/global-search/match";
+import { highlightRanges } from "@/lib/global-search/match";
 import {
   pushRecentSearch,
   readRecentSearches,
@@ -69,11 +70,7 @@ import {
 } from "@/lib/global-search/recent";
 import { SEARCH_SCOPES, type SearchSourceId } from "@/lib/global-search/sources";
 import { readUsage, recordUsage, usageScore } from "@/lib/global-search/frecency";
-import {
-  applyColorTheme,
-  getActiveColorTheme,
-  previewColorTheme,
-} from "@/lib/global-search/color-theme";
+import { applyColorTheme } from "@/lib/global-search/color-theme";
 import { COLOR_THEMES } from "@/lib/constants/color-themes";
 import type { SearchEntry } from "@/lib/global-search/types";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -82,12 +79,18 @@ import type { ExactHitType, SearchExactHit } from "@/server/services/global-sear
 import { useGlobalSearchStore } from "./global-search-store";
 import { GlobalSearchPreview } from "./global-search-preview";
 import { GlobalSearchScanner, type ScannedCode } from "./global-search-scanner";
+import {
+  resolveSubmenu,
+  subItemId,
+  subOptionOf,
+  type PaletteSubmenu,
+  type SubmenuContext,
+} from "./global-search-submenus";
 
 // Same landing route as the sidebar branch switcher: branch-neutral, never 404s.
 const SAFE_ROUTE_AFTER_BRANCH_SWITCH = "/dashboard/start";
 const BRANCH_ITEM_PREFIX = "branch:";
 const HIT_ITEM_PREFIX = "hit:";
-const THEME_ITEM_PREFIX = "theme:";
 const SEARCH_DEBOUNCE_MS = 200;
 const MIN_DATA_QUERY = 3;
 const EMPTY_RESULT: GlobalSearchResult = { exact: [], results: [], otherBranches: [] };
@@ -384,9 +387,11 @@ interface HitRowProps {
   query: string;
   /** Quick key label ("Alt 3"), for the first results */
   quickKey?: string | null;
+  /** Extra control at the right edge (the submenu chevron) */
+  trailing?: React.ReactNode;
 }
 
-function HitRow({ hit, exact, onSelect, t, statusLabel, query, quickKey }: HitRowProps) {
+function HitRow({ hit, exact, onSelect, t, statusLabel, query, quickKey, trailing }: HitRowProps) {
   const Icon = HIT_ICONS[hit.type];
   const details = hitDetails(hit, t, exact);
   return (
@@ -428,8 +433,46 @@ function HitRow({ hit, exact, onSelect, t, statusLabel, query, quickKey }: HitRo
         </span>
       ) : null}
       <QuickKey label={quickKey} />
-      <CornerDownLeft className="hidden size-4 text-muted-foreground group-data-[selected=true]:block" />
+      {trailing ?? (
+        <CornerDownLeft className="hidden size-4 text-muted-foreground group-data-[selected=true]:block" />
+      )}
     </CommandItem>
+  );
+}
+
+/** Chevron at the right edge of a row that has a submenu; rotates when it is open */
+function SubmenuChevron({
+  open,
+  label,
+  current,
+  onToggle,
+}: {
+  open: boolean;
+  label: string;
+  /** Value in effect, shown before the chevron ("Bursztyn") */
+  current?: string;
+  onToggle: () => void;
+}) {
+  return (
+    <span className="flex shrink-0 items-center gap-1.5">
+      {current ? <span className="text-xs text-muted-foreground">{current}</span> : null}
+      <button
+        type="button"
+        aria-label={label}
+        aria-expanded={open}
+        title={label}
+        tabIndex={-1}
+        onClick={(event) => {
+          // The row's own click would run it (or toggle twice)
+          event.stopPropagation();
+          onToggle();
+        }}
+        className="flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-background hover:text-foreground"
+        data-testid="palette-submenu-toggle"
+      >
+        <ChevronRight className={cn("size-4 transition-transform", open && "rotate-90")} />
+      </button>
+    </span>
   );
 }
 
@@ -447,15 +490,16 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
   const router = useRouter();
   const pathname = usePathname();
   const params = useParams();
-  const { resolvedTheme, setTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const setStoreTheme = useUiStoreV2((s) => s.setTheme);
   const setStoreColorTheme = useUiStoreV2((s) => s.setColorTheme);
   /**
-   * Colour theme picker: the theme that was active when the picker opened.
-   * Highlighting a theme previews it; Esc / closing restores this one.
+   * Submenu expanded under an item (accordion), and how to undo its previews.
+   * Any item can have one: see global-search-submenus.tsx.
    */
-  const [themeOriginal, setThemeOriginal] = useState<string | null>(null);
-  const themeMode = themeOriginal !== null;
+  const [expanded, setExpanded] = useState<{ id: string; restore: (() => void) | null } | null>(
+    null
+  );
   const { accessibleBranches, activeBranchId, activeOrgId, setActiveBranch } = useAppStoreV2();
   const userId = useUserStoreV2((s) => s.user?.id ?? null);
   const { open, initialQuery, setOpen, toggle } = useGlobalSearchStore();
@@ -567,7 +611,7 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
   const debounced = parsePaletteQuery(debouncedQuery, sources);
   const dataText = debounced.actionsMode ? "" : debounced.text;
   const dataEnabled =
-    open && !actionsMode && !themeMode && sources.length > 0 && dataText.length >= MIN_DATA_QUERY;
+    open && !actionsMode && sources.length > 0 && dataText.length >= MIN_DATA_QUERY;
   const dataQuery = useQuery({
     queryKey: ["global-search", "data", activeBranchId, debounced.scope ?? "all", dataText],
     queryFn: async () => {
@@ -633,19 +677,19 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
    * Quick keys: Alt+1 … Alt+9 open the first nine results as listed (recent,
    * exact, pages and actions, data), so a result needs no arrowing to.
    */
-  const quickIds = useMemo(
-    () =>
-      [
-        ...recentItems.map(recentItemId),
-        ...exactHits.map(hitItemId),
-        ...groups.flatMap((group) => group.items.map((item) => item.id)),
-        ...dataGroups.flatMap((group) => [
-          ...group.hits.map(hitItemId),
-          ...(group.showAll ? [group.showAll.id] : []),
-        ]),
-      ].slice(0, QUICK_KEY_COUNT),
+  const listedIds = useMemo(
+    () => [
+      ...recentItems.map(recentItemId),
+      ...exactHits.map(hitItemId),
+      ...groups.flatMap((group) => group.items.map((item) => item.id)),
+      ...dataGroups.flatMap((group) => [
+        ...group.hits.map(hitItemId),
+        ...(group.showAll ? [group.showAll.id] : []),
+      ]),
+    ],
     [dataGroups, exactHits, groups, recentItems]
   );
+  const quickIds = useMemo(() => listedIds.slice(0, QUICK_KEY_COUNT), [listedIds]);
   const quickKeyLabel = (id: string) => {
     const index = quickIds.indexOf(id);
     if (index < 0) return null;
@@ -709,29 +753,6 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
   const runEntry = useCallback(
     (entry: SearchEntry) => {
       switch (entry.command) {
-        case "theme.toggle": {
-          const next = resolvedTheme === "dark" ? "light" : "dark";
-          setTheme(next);
-          setStoreTheme(next);
-          close();
-          return;
-        }
-        case "locale.toggle": {
-          close();
-          router.replace(
-            // @ts-expect-error -- pathname and params come from the current route
-            { pathname, params },
-            { locale: locale === "pl" ? "en" : "pl" }
-          );
-          return;
-        }
-        case "colorTheme.pick": {
-          const current = getActiveColorTheme();
-          setThemeOriginal(current);
-          setQuery("");
-          setSelected(`${THEME_ITEM_PREFIX}${current}`);
-          return;
-        }
         case "auth.signOut":
           close();
           startTransition(() => signOutAction());
@@ -743,7 +764,7 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
           }
       }
     },
-    [close, locale, params, pathname, resolvedTheme, router, setStoreTheme, setTheme]
+    [close, router]
   );
 
   /** What "recently opened" keeps for a target (pages and data; not commands) */
@@ -778,51 +799,29 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
     [label, t]
   );
 
-  /** Leaves the colour theme picker; `revert` restores the theme it opened with */
-  const exitThemeMode = useCallback(
-    (revert: boolean) => {
-      if (revert && themeOriginal) previewColorTheme(themeOriginal);
-      setThemeOriginal(null);
-      setQuery("");
+  const handleOpenChange = useCallback(
+    (next: boolean) => {
+      // Closing the palette with a submenu open undoes its unsaved preview
+      if (!next && expanded) {
+        expanded.restore?.();
+        setExpanded(null);
+      }
+      setOpen(next);
     },
-    [themeOriginal]
+    [expanded, setOpen]
   );
 
   // However the palette closes (Esc, outside click, Ctrl+K), an unsaved preview is undone
   useEffect(() => {
-    if (!open && themeOriginal) {
-      previewColorTheme(themeOriginal);
-      setThemeOriginal(null);
+    if (!open && expanded) {
+      expanded.restore?.();
+      setExpanded(null);
     }
-  }, [open, themeOriginal]);
+  }, [open, expanded]);
 
-  // Highlighting a theme (arrows or pointer) previews it, without saving
-  useEffect(() => {
-    if (themeMode && selected.startsWith(THEME_ITEM_PREFIX)) {
-      previewColorTheme(selected.slice(THEME_ITEM_PREFIX.length));
-    }
-  }, [selected, themeMode]);
-
-  const handleOpenChange = useCallback(
-    (next: boolean) => {
-      // Closing the palette while picking keeps the theme the user had
-      if (!next && themeOriginal) exitThemeMode(true);
-      setOpen(next);
-    },
-    [exitThemeMode, setOpen, themeOriginal]
-  );
-
-  const select = useCallback(
+  /** Runs an item's own action (open, navigate, command) */
+  const runItem = useCallback(
     (id: string) => {
-      if (id.startsWith(THEME_ITEM_PREFIX)) {
-        const name = id.slice(THEME_ITEM_PREFIX.length);
-        applyColorTheme(name, setStoreColorTheme);
-        setThemeOriginal(null);
-        const theme = COLOR_THEMES.find((item) => item.name === name);
-        toast.success(t("colorTheme.applied", { name: theme?.label ?? name }));
-        close();
-        return;
-      }
       const target = allTargets.get(id);
       if (!target) return;
       const recentItem = recentFor(target);
@@ -837,18 +836,7 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
         router.push(routeHref(target.href, target.query));
       } else runEntry(target.entry);
     },
-    [
-      allTargets,
-      close,
-      recentFor,
-      remember,
-      router,
-      runEntry,
-      setStoreColorTheme,
-      switchBranch,
-      t,
-      track,
-    ]
+    [allTargets, close, recentFor, remember, router, runEntry, switchBranch, track]
   );
 
   const openInNewTab = useCallback(
@@ -945,9 +933,109 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
     [t]
   );
 
+  // ── Submenus (accordion under an item) ──────────────────────────────────
+  const submenuCtx: SubmenuContext = {
+    t: (key, values) => t(key as never, values as never),
+    label,
+    locale,
+    theme,
+    setThemeMode: (mode, save) => {
+      setTheme(mode);
+      if (save) setStoreTheme(mode);
+    },
+    saveColorTheme: (name) => {
+      applyColorTheme(name, setStoreColorTheme);
+      const picked = COLOR_THEMES.find((item) => item.name === name);
+      toast.success(t("colorTheme.applied", { name: picked?.label ?? name }));
+    },
+    switchLocale: (next) => {
+      close();
+      router.replace(
+        // @ts-expect-error -- pathname and params come from the current route
+        { pathname, params },
+        { locale: next }
+      );
+    },
+    navigate: (href, linkQuery) => {
+      close();
+      router.push(routeHref(href, linkQuery));
+    },
+    openInNewTab,
+    copyCode,
+  };
+  const submenuOf = (id: string | null | undefined): PaletteSubmenu | null =>
+    id ? resolveSubmenu(id, allTargets.get(id), submenuCtx) : null;
+  const openSubmenu = submenuOf(expanded?.id);
+  const selectedSubmenu = expanded ? null : submenuOf(selected);
+
+  const expand = (id: string): boolean => {
+    const submenu = submenuOf(id);
+    if (!submenu) return false;
+    expanded?.restore?.();
+    const restore = submenu.begin?.() || null;
+    setExpanded({ id, restore });
+    const initial =
+      submenu.initialOptionId ??
+      submenu.options.find((option) => option.current)?.id ??
+      submenu.options[0]?.id ??
+      "";
+    setSelected(subItemId(id, initial));
+    return true;
+  };
+  /** Back to the row; `revert` undoes previews (nothing was picked) */
+  const collapse = (revert: boolean) => {
+    if (!expanded) return;
+    if (revert) expanded.restore?.();
+    setSelected(expanded.id);
+    setExpanded(null);
+  };
+  const toggleSubmenu = (id: string) => {
+    if (expanded?.id === id) collapse(true);
+    else expand(id);
+  };
+
+  const select = (id: string) => {
+    const optionId = subOptionOf(id, expanded?.id ?? null);
+    if (expanded && optionId !== null) {
+      const outcome = openSubmenu?.select(optionId) ?? "collapse";
+      if (outcome === "close") {
+        setExpanded(null);
+        close();
+      } else collapse(false);
+      return;
+    }
+    // A row that is only a choice (theme, language) opens its submenu
+    if (submenuOf(id)?.primary) {
+      toggleSubmenu(id);
+      return;
+    }
+    if (expanded) {
+      expanded.restore?.();
+      setExpanded(null);
+    }
+    runItem(id);
+  };
+
+  // Highlighting an option (arrows or pointer) previews it, without saving
+  const previewOption = subOptionOf(selected, expanded?.id ?? null);
+  useEffect(() => {
+    if (previewOption !== null) openSubmenu?.preview?.(previewOption);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the submenu is rebuilt every render
+  }, [previewOption, expanded?.id]);
+
+  // The expanded row left the list (query changed): undo and collapse
+  const expandedGone = !!expanded && !listedIds.includes(expanded.id);
+  useEffect(() => {
+    if (!expandedGone) return;
+    setExpanded((current) => {
+      current?.restore?.();
+      return null;
+    });
+  }, [expandedGone]);
+
   const onKeyDown = (event: React.KeyboardEvent) => {
     // Tab / Shift+Tab in the input switch the search scope (and search right away)
-    if (event.key === "Tab" && event.target === inputRef.current && !themeMode && !scanning) {
+    if (event.key === "Tab" && event.target === inputRef.current && !expanded && !scanning) {
       event.preventDefault();
       // Keep the dialog's focus trap out of it: on the first field it would move
       // Shift+Tab focus to the last button (the scanner) instead
@@ -957,9 +1045,30 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
       applyPrefix(scopeCycle[next] ?? null);
       return;
     }
+    // Inside a submenu: ↑↓ stay within its options, ← goes back to the row
+    if (expanded && openSubmenu && !scanning) {
+      const ids = openSubmenu.options.map((option) => subItemId(expanded.id, option.id));
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        const index = ids.indexOf(selected);
+        const step = event.key === "ArrowDown" ? 1 : -1;
+        setSelected(ids[(index + step + ids.length) % ids.length] ?? ids[0] ?? selected);
+        return;
+      }
+      const field = inputRef.current;
+      if (
+        event.key === "ArrowLeft" &&
+        event.target === field &&
+        (field?.selectionStart ?? 0) === 0
+      ) {
+        event.preventDefault();
+        collapse(true);
+        return;
+      }
+    }
     // Alt+1 … Alt+9 open the n-th listed result (event.code: on a Mac ⌥ changes the key)
     const quickDigit = /^Digit([1-9])$/.exec(event.code)?.[1];
-    if (quickDigit && event.altKey && !event.ctrlKey && !event.metaKey && !themeMode && !scanning) {
+    if (quickDigit && event.altKey && !event.ctrlKey && !event.metaKey && !expanded && !scanning) {
       const id = quickIds[Number(quickDigit) - 1];
       if (id) {
         event.preventDefault();
@@ -982,32 +1091,84 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
       event.preventDefault();
       copyCode(selectedHit);
     }
-    // → at the end of the input moves into the preview actions
+    // → at the end of the input opens the item's submenu (else the preview actions)
     const input = inputRef.current;
     if (
       event.key === "ArrowRight" &&
-      selectedHit &&
+      !expanded &&
       input &&
       event.target === input &&
       input.selectionStart === input.value.length
     ) {
+      if (expand(selected)) {
+        event.preventDefault();
+        return;
+      }
       const firstAction = actionsRef.current?.querySelector("button");
       if (firstAction && firstAction.offsetParent !== null) {
         event.preventDefault();
         firstAction.focus();
       }
     }
-    // Backspace on an empty theme picker leaves it (theme restored)
-    if (event.key === "Backspace" && themeMode && !query) {
-      event.preventDefault();
-      exitThemeMode(true);
-      return;
-    }
     // Backspace on a bare prefix (">", "zl: ") leaves the mode
     if (event.key === "Backspace" && parsed.prefix && !parsed.text) {
       event.preventDefault();
       setQuery("");
     }
+  };
+
+  /** Chevron for a row with a submenu (null for rows without one) */
+  const submenuToggle = (id: string) => {
+    const submenu = submenuOf(id);
+    if (!submenu) return null;
+    return (
+      <SubmenuChevron
+        open={expanded?.id === id}
+        label={t("submenu.toggle")}
+        current={submenu.currentLabel}
+        onToggle={() => toggleSubmenu(id)}
+      />
+    );
+  };
+
+  /** Options of the expanded row, indented under it */
+  const submenuRows = (id: string) => {
+    if (expanded?.id !== id || !openSubmenu) return null;
+    return (
+      <div className="my-0.5 ml-6 border-l pl-2" role="group" data-testid="palette-submenu">
+        {openSubmenu.options.map((option) => {
+          const OptionIcon = option.icon;
+          return (
+            <CommandItem
+              key={option.id}
+              value={subItemId(id, option.id)}
+              onSelect={select}
+              className="group gap-2.5 rounded-lg px-2 py-1.5 text-sm data-[selected=true]:bg-primary/10"
+            >
+              {option.swatch ? (
+                <span className="flex shrink-0 overflow-hidden rounded border" aria-hidden>
+                  {option.swatch.map((color) => (
+                    <span key={color} className="h-5 w-2" style={{ backgroundColor: color }} />
+                  ))}
+                </span>
+              ) : OptionIcon ? (
+                <OptionIcon className="size-4 shrink-0 text-muted-foreground group-data-[selected=true]:text-primary" />
+              ) : null}
+              <span className="min-w-0 flex-1 truncate">{option.label}</span>
+              {option.subtitle ? (
+                <span className="truncate text-xs text-muted-foreground">{option.subtitle}</span>
+              ) : null}
+              {option.current ? (
+                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Check className="size-3.5" /> {t("colorTheme.current")}
+                </span>
+              ) : null}
+              <CornerDownLeft className="hidden size-4 text-muted-foreground group-data-[selected=true]:block" />
+            </CommandItem>
+          );
+        })}
+      </div>
+    );
   };
 
   const groupHeading = (id: string) =>
@@ -1018,10 +1179,10 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
       <DialogContent
         hideClose
         onEscapeKeyDown={(event) => {
-          // First Esc in the theme picker restores the theme and goes back to the search
-          if (themeMode) {
+          // First Esc in a submenu undoes its preview and goes back to the row
+          if (expanded) {
             event.preventDefault();
-            exitThemeMode(true);
+            collapse(true);
             return;
           }
           // In a scope (or the actions mode) Esc first goes back to "all", text kept
@@ -1064,13 +1225,11 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
                 onSelect={syncInputScroll}
                 onKeyUp={syncInputScroll}
                 placeholder={
-                  themeMode
-                    ? t("colorTheme.placeholder")
-                    : actionsMode
-                      ? t("actionsPlaceholder")
-                      : parsed.scope
-                        ? t("scopePlaceholder", { scope: t(`scopes.${parsed.scope}`) })
-                        : t("placeholder")
+                  actionsMode
+                    ? t("actionsPlaceholder")
+                    : parsed.scope
+                      ? t("scopePlaceholder", { scope: t(`scopes.${parsed.scope}`) })
+                      : t("placeholder")
                 }
                 aria-label={t("dialogTitle")}
                 className="relative h-14 w-full bg-transparent text-base text-transparent caret-foreground outline-none selection:bg-primary/25 placeholder:text-muted-foreground"
@@ -1097,57 +1256,6 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
 
           {scanning ? (
             <GlobalSearchScanner onDetected={onScanned} onBack={() => setScanning(false)} />
-          ) : themeMode ? (
-            <>
-              <CommandList className="!max-h-none min-h-0 flex-1 overflow-y-auto px-2 pb-2 sm:!max-h-[60vh]">
-                <CommandEmpty className="py-10 text-center text-sm text-muted-foreground">
-                  {t("empty")}
-                </CommandEmpty>
-                <CommandGroup heading={t("colorTheme.heading")}>
-                  {COLOR_THEMES.filter(
-                    (theme) =>
-                      !query.trim() || scoreSearchMatch(query, theme.label, [theme.name]) > 0
-                  ).map((theme) => (
-                    <CommandItem
-                      key={theme.name}
-                      value={`${THEME_ITEM_PREFIX}${theme.name}`}
-                      onSelect={select}
-                      className="group gap-3 rounded-lg px-2 py-2.5 data-[selected=true]:bg-primary/10"
-                    >
-                      <span className="flex shrink-0 overflow-hidden rounded-md border" aria-hidden>
-                        {theme.colors.map((color) => (
-                          <span
-                            key={color}
-                            className="h-8 w-3"
-                            style={{ backgroundColor: color }}
-                          />
-                        ))}
-                      </span>
-                      <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                        {theme.label}
-                      </span>
-                      {theme.name === themeOriginal ? (
-                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Check className="size-3.5" /> {t("colorTheme.current")}
-                        </span>
-                      ) : null}
-                      <CornerDownLeft className="hidden size-4 text-muted-foreground group-data-[selected=true]:block" />
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              </CommandList>
-              <div className="flex items-center gap-4 border-t bg-muted/40 px-4 py-2.5 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1.5">
-                  <Kbd>↑↓</Kbd> {t("colorTheme.hintPreview")}
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <Kbd>↵</Kbd> {t("colorTheme.hintApply")}
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <Kbd>Esc</Kbd> {t("colorTheme.hintRestore")}
-                </span>
-              </div>
-            </>
           ) : (
             <>
               {/* Scope chips: same as typing the prefix */}
@@ -1226,16 +1334,19 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
                   {exactHits.length > 0 ? (
                     <CommandGroup heading={t("groups.exact")}>
                       {exactHits.map((hit) => (
-                        <HitRow
-                          key={hitItemId(hit)}
-                          hit={hit}
-                          quickKey={quickKeyLabel(hitItemId(hit))}
-                          exact
-                          onSelect={select}
-                          t={t}
-                          statusLabel={statusLabel}
-                          query={parsed.text}
-                        />
+                        <Fragment key={hitItemId(hit)}>
+                          <HitRow
+                            hit={hit}
+                            quickKey={quickKeyLabel(hitItemId(hit))}
+                            exact
+                            onSelect={select}
+                            t={t}
+                            statusLabel={statusLabel}
+                            query={parsed.text}
+                            trailing={submenuToggle(hitItemId(hit))}
+                          />
+                          {submenuRows(hitItemId(hit))}
+                        </Fragment>
                       ))}
                     </CommandGroup>
                   ) : null}
@@ -1249,31 +1360,36 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
                             : Building2;
                         const shortcut =
                           target?.type === "entry" ? target.entry.shortcut : undefined;
+                        const toggle = submenuToggle(item.id);
                         return (
-                          <CommandItem
-                            key={item.id}
-                            value={item.id}
-                            onSelect={select}
-                            disabled={isPending}
-                            className="group gap-3 rounded-lg px-2 py-2.5 data-[selected=true]:bg-primary/10"
-                          >
-                            <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground group-data-[selected=true]:bg-background group-data-[selected=true]:text-primary">
-                              <Icon className="size-4" />
-                            </span>
-                            <span className="min-w-0 flex-1">
-                              <span className="block truncate text-sm font-medium">
-                                <Highlighted text={item.label} query={parsed.text} />
+                          <Fragment key={item.id}>
+                            <CommandItem
+                              value={item.id}
+                              onSelect={select}
+                              disabled={isPending}
+                              className="group gap-3 rounded-lg px-2 py-2.5 data-[selected=true]:bg-primary/10"
+                            >
+                              <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground group-data-[selected=true]:bg-background group-data-[selected=true]:text-primary">
+                                <Icon className="size-4" />
                               </span>
-                              {item.subtitle ? (
-                                <span className="block truncate text-xs text-muted-foreground">
-                                  {item.subtitle}
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate text-sm font-medium">
+                                  <Highlighted text={item.label} query={parsed.text} />
                                 </span>
-                              ) : null}
-                            </span>
-                            {shortcut ? <Kbd>{shortcut}</Kbd> : null}
-                            <QuickKey label={quickKeyLabel(item.id)} />
-                            <CornerDownLeft className="hidden size-4 text-muted-foreground group-data-[selected=true]:block" />
-                          </CommandItem>
+                                {item.subtitle ? (
+                                  <span className="block truncate text-xs text-muted-foreground">
+                                    {item.subtitle}
+                                  </span>
+                                ) : null}
+                              </span>
+                              {shortcut ? <Kbd>{shortcut}</Kbd> : null}
+                              <QuickKey label={quickKeyLabel(item.id)} />
+                              {toggle ?? (
+                                <CornerDownLeft className="hidden size-4 text-muted-foreground group-data-[selected=true]:block" />
+                              )}
+                            </CommandItem>
+                            {submenuRows(item.id)}
+                          </Fragment>
                         );
                       })}
                     </CommandGroup>
@@ -1281,16 +1397,19 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
                   {dataGroups.map((group) => (
                     <CommandGroup key={group.type} heading={t(`dataGroups.${group.type}`)}>
                       {group.hits.map((hit) => (
-                        <HitRow
-                          key={hitItemId(hit)}
-                          hit={hit}
-                          quickKey={quickKeyLabel(hitItemId(hit))}
-                          exact={false}
-                          onSelect={select}
-                          t={t}
-                          statusLabel={statusLabel}
-                          query={parsed.text}
-                        />
+                        <Fragment key={hitItemId(hit)}>
+                          <HitRow
+                            hit={hit}
+                            quickKey={quickKeyLabel(hitItemId(hit))}
+                            exact={false}
+                            onSelect={select}
+                            t={t}
+                            statusLabel={statusLabel}
+                            query={parsed.text}
+                            trailing={submenuToggle(hitItemId(hit))}
+                          />
+                          {submenuRows(hitItemId(hit))}
+                        </Fragment>
                       ))}
                       {group.showAll ? (
                         <CommandItem
@@ -1344,7 +1463,28 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
                 </div>
               ) : null}
 
-              <div className="hidden items-center gap-4 border-t bg-muted/40 px-4 py-2.5 text-xs text-muted-foreground sm:flex">
+              {expanded ? (
+                <div
+                  className="hidden items-center gap-4 border-t bg-muted/40 px-4 py-2.5 text-xs text-muted-foreground sm:flex"
+                  data-testid="palette-submenu-hints"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Kbd>↑↓</Kbd> {t("hints.navigate")}
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <Kbd>↵</Kbd> {t("submenu.pick")}
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <Kbd>Esc</Kbd> {t("submenu.back")}
+                  </span>
+                </div>
+              ) : null}
+              <div
+                className={cn(
+                  "hidden items-center gap-4 border-t bg-muted/40 px-4 py-2.5 text-xs text-muted-foreground",
+                  !expanded && "sm:flex"
+                )}
+              >
                 <span className="flex items-center gap-1.5">
                   <Kbd>↑↓</Kbd> {t("hints.navigate")}
                 </span>
@@ -1354,9 +1494,9 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
                 <span className="hidden items-center gap-1.5 md:flex">
                   <Kbd>Ctrl ↵</Kbd> {t("hints.newTab")}
                 </span>
-                {previewHit ? (
+                {selectedSubmenu ? (
                   <span className="hidden items-center gap-1.5 lg:flex">
-                    <Kbd>→</Kbd> {t("hints.preview")}
+                    <Kbd>→</Kbd> {t("submenu.open")}
                   </span>
                 ) : null}
                 {quickIds.length > 0 ? (

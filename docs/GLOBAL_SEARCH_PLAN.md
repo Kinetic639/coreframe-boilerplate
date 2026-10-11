@@ -207,6 +207,14 @@ Wdrożenie i infrastruktura:
 - Do zrobienia przy skali wielu dużych organizacji: kolumna `organization_id` w `repair_order_lines` (dziś prefiks numeru części szuka po wszystkich organizacjach i filtruje złączeniem).
 - Pozostałość benchmarku do usunięcia w SQL Editorze: `DROP SCHEMA search_bench CASCADE;` (pusta tabela wyników, schemat niewystawiony w API).
 
+### Podmenu pozycji (2026-10-10)
+
+Każda pozycja palety (strona, akcja, wynik danych) może mieć podmenu rozwijane pod nią jak akordeon. To ogólny mechanizm, nie funkcja jednej akcji:
+
+- **Skąd się bierze:** dostawcy w `components/v2/global-search/global-search-submenus.tsx` (`PROVIDERS`). Pierwszy, który odpowie, wygrywa. Dziś: statyczne linki pozycji (`SearchEntry.submenu` w rejestrze), motyw kolorystyczny, jasny / ciemny / systemowy, język, akcje na wyniku danych (nowa karta, kopiuj numer, zakładki zlecenia, historia ruchów).
+- **Jak dodać:** nowy dostawca zwraca `PaletteSubmenu` (`options`, `select`, opcjonalnie `begin` / `preview` do podglądu z cofnięciem, `primary` gdy pozycja nie ma własnej akcji). Okna wyszukiwarki nie trzeba ruszać.
+- **Zachowanie (wspólne):** `→` albo strzałka przy pozycji rozwija; pozycja typu „wybór” rozwija się też Enterem / kliknięciem. W środku `↑↓` chodzą tylko po opcjach, Enter wybiera, `Esc` / `←` cofa podgląd i wraca na pozycję, kolejny `Esc` zamyka paletę. Zmiana zapytania, która usuwa pozycję z listy, zwija podmenu i cofa podgląd.
+
 ## 4. Weryfikacja
 
 - Vitest: parsery ID, rejestr i filtr uprawnień, klawiatura palety.

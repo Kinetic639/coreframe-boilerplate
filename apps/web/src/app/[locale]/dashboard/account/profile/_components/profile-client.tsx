@@ -239,6 +239,7 @@ export function ProfileClient({ avatarSignedUrl, translations }: ProfileClientPr
                 placeholder={t("phonePlaceholder")}
                 maxLength={20}
               />
+              <p className="text-xs text-muted-foreground">{t("phoneHint")}</p>
             </div>
 
             {/* Email (read-only) */}

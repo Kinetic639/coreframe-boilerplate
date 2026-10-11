@@ -6,6 +6,7 @@ import { GlobalSearchDialog } from "@/components/v2/global-search/global-search-
 import { GlobalSearchTrigger } from "@/components/v2/global-search/global-search-trigger";
 import type { SearchEntry } from "@/lib/global-search/types";
 import type { SearchSourceId } from "@/lib/global-search/sources";
+import { HeaderMessagesLink } from "@/components/v2/messages/header-messages-link";
 import { HeaderNotifications } from "./header-notifications";
 import { HeaderContacts } from "./header-contacts";
 import { HeaderQuickAdd } from "./header-quick-add";
@@ -25,7 +26,7 @@ import { HeaderQuickAdd } from "./header-quick-add";
  * Layout:
  * - Left: Sidebar trigger + separator
  * - Center: Search bar
- * - Right: Contacts + Notifications (messages live in the right bar)
+ * - Right: Contacts + Notifications (messages live in the right bar; below lg a header icon)
  *
  * Note: Recent activity is accessible via the status bar at the bottom.
  * Note: User menu is available in the sidebar footer.
@@ -62,6 +63,8 @@ export function DashboardHeaderV2({
 
         <HeaderQuickAdd />
         <HeaderContacts />
+        {/* Below lg the messages bar is hidden: the icon opens the Messages page */}
+        <HeaderMessagesLink />
         <HeaderNotifications />
       </div>
 
