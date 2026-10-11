@@ -47,4 +47,12 @@ describe("NotificationEventsSection", () => {
     expect(screen.getByRole("checkbox", { name: "events.mention|email" })).toBeDisabled();
     expect(screen.getByRole("checkbox", { name: "events.mention|inApp" })).toBeEnabled();
   });
+
+  it("unread chat messages exist only as an e-mail event", () => {
+    render(<NotificationEventsSection preferences={preferences({})} />);
+    expect(screen.getByRole("checkbox", { name: "events.chat_message|email" })).toBeChecked();
+    expect(
+      screen.queryByRole("checkbox", { name: "events.chat_message|inApp" })
+    ).not.toBeInTheDocument();
+  });
 });

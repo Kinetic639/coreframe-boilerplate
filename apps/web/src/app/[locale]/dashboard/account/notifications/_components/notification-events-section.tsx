@@ -78,16 +78,22 @@ export function NotificationEventsSection({
                       <td className="py-1.5 pr-2">{label}</td>
                       {CHANNELS.map((channel) => (
                         <td key={channel} className="py-1.5 text-center">
-                          <Checkbox
-                            aria-label={t("toggle", { event: label, channel: t(channel) })}
-                            checked={isEventOn(settings, channel, event.type)}
-                            disabled={!channelOn[channel] || update.isPending}
-                            onCheckedChange={(checked) =>
-                              update.mutate(
-                                toggleEvent(settings, channel, event.type, checked === true)
-                              )
-                            }
-                          />
+                          {event.channels && !event.channels.includes(channel) ? (
+                            <span className="text-muted-foreground" aria-hidden>
+                              —
+                            </span>
+                          ) : (
+                            <Checkbox
+                              aria-label={t("toggle", { event: label, channel: t(channel) })}
+                              checked={isEventOn(settings, channel, event.type)}
+                              disabled={!channelOn[channel] || update.isPending}
+                              onCheckedChange={(checked) =>
+                                update.mutate(
+                                  toggleEvent(settings, channel, event.type, checked === true)
+                                )
+                              }
+                            />
+                          )}
                         </td>
                       ))}
                     </tr>

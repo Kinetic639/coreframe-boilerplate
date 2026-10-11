@@ -94,7 +94,9 @@ export function ChatWindow({ state }: { state: ChatWindowState }) {
     <section
       aria-label={title}
       className={cn(
-        "pointer-events-auto flex w-[300px] flex-col overflow-hidden rounded-t-md border border-b-0 bg-background shadow-[0_-2px_12px_rgba(17,24,39,0.08)]",
+        // Accent of the colour theme (top line, tinted header, border) and a lift off the page:
+        // a window must be noticed over content that uses the same neutral surfaces
+        "pointer-events-auto flex w-[300px] flex-col overflow-hidden rounded-t-md border border-b-0 border-primary/35 border-t-2 border-t-primary bg-card shadow-[0_-8px_28px_-6px_rgba(0,0,0,0.35)]",
         collapsed ? "h-[38px]" : "h-[400px]"
       )}
       data-testid="chat-window"
@@ -102,7 +104,8 @@ export function ChatWindow({ state }: { state: ChatWindowState }) {
       <div
         className={cn(
           "flex h-[38px] shrink-0 items-center gap-1.5 border-b pl-2 pr-1",
-          unread ? "bg-amber-50 dark:bg-amber-950/40" : "bg-background"
+          "border-b-primary/20",
+          unread ? "bg-primary/25" : "bg-primary/10"
         )}
       >
         <ChatAvatar
@@ -160,6 +163,7 @@ export function ChatWindow({ state }: { state: ChatWindowState }) {
             conversation={detail.data}
             typing={typing}
             onRetry={(message) => composerRef.current?.retry(message)}
+            onEdit={(message) => composerRef.current?.edit(message)}
           />
           <ChatComposer
             ref={composerRef}

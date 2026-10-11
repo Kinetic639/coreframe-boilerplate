@@ -8265,7 +8265,8 @@
       "status": "Status",
       "lines": "Lines",
       "linkedLines": "Linked to items",
-      "firstLines": "First lines"
+      "firstLines": "First lines",
+      "message": "Send a message"
     },
     "scanner": {
       "open": "Scan a code",
@@ -8311,7 +8312,9 @@
       "empty": "No conversations",
       "emptyHint": "Start a conversation with someone on your team.",
       "noResults": "Nothing found",
-      "loadFailed": "Could not load conversations"
+      "loadFailed": "Could not load conversations",
+      "soundOn": "Turn on the new message sound",
+      "soundOff": "Turn off the new message sound"
     },
     "window": {
       "openFull": "Open in full view",
@@ -8339,7 +8342,15 @@
       "loadFailed": "Could not load messages",
       "retry": "Try again",
       "options": "Conversation options",
-      "manageGroup": "Members and group settings"
+      "manageGroup": "Members and group settings",
+      "edit": "Edit message",
+      "delete": "Delete message",
+      "deleteConfirm": "Delete?",
+      "edited": "edited",
+      "editing": "Editing a message",
+      "cancelEdit": "Cancel editing",
+      "save": "Save",
+      "editClosed": "A message can be edited for 15 minutes after sending"
     },
     "system": {
       "created": "{actor} created the group “{name}”",
@@ -8496,7 +8507,8 @@
       "task_assigned": "assigned a task to you",
       "task_status": "changed the task status: {status}",
       "unknown": "— new notification",
-      "mention_chat": "mentioned you in a conversation"
+      "mention_chat": "mentioned you in a conversation",
+      "task_due": "a task is due today"
     },
     "taskStatus": {
       "open": "open",
@@ -8534,8 +8546,32 @@
         "task_assigned": "Task assigned to me",
         "task_status": "Status change of my task",
         "comment": "A comment on my case",
-        "mention": "A mention of me (@) in a conversation or a comment"
+        "mention": "A mention of me (@) in a conversation or a comment",
+        "task_due": "My task is due today",
+        "chat_message": "An unread chat message (after 15 minutes)"
       }
+    },
+    "reminder": "Reminder:",
+    "email": {
+      "subjectOne": "{actor} {text}",
+      "subjectMany": "You have {count} unread notifications in Ambra",
+      "preview": "Unread notifications in {organization}",
+      "heading": "Notifications are waiting for you",
+      "greeting": "Hi {name},",
+      "intro": "these notifications in {organization} are still unread:",
+      "open": "Open",
+      "openAll": "See all notifications",
+      "settings": "You receive this message because e-mail notifications are on. You can change that in the notification settings:",
+      "footer": "© Ambra System",
+      "chatSubject": "You have {count, plural, one {# unread message} other {# unread messages}} in Ambra",
+      "chatHeading": "Unread messages",
+      "chatIntro": "messages are waiting for you in {organization}:",
+      "chatDirect": "{name} — {count, plural, one {# new message} other {# new messages}}",
+      "chatGroup": "Group “{name}” — {count, plural, one {# new message} other {# new messages}}",
+      "chatAttachments": "{count, plural, one {# attachment} other {# attachments}}",
+      "chatSomeone": "Someone",
+      "chatModule": "Messages",
+      "chatOpenAll": "Open Messages"
     }
   }
 }

@@ -55,6 +55,7 @@ import { applyColorTheme } from "@/lib/global-search/color-theme";
 import { COLOR_THEMES } from "@/lib/constants/color-themes";
 import type { SearchEntry } from "@/lib/global-search/types";
 import { useDebounce } from "@/hooks/use-debounce";
+import { useStartDirectChat } from "@/components/v2/messages/use-start-direct-chat";
 import {
   EMPTY_SEARCH_RESULT,
   ENTITY_SEARCH_DEBOUNCE_MS,
@@ -789,6 +790,7 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
   );
 
   // ── Submenus (accordion under an item) ──────────────────────────────────
+  const startDirectChat = useStartDirectChat();
   const submenuCtx: SubmenuContext = {
     t: (key, values) => t(key as never, values as never),
     label,
@@ -817,6 +819,12 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
     },
     openInNewTab,
     copyCode,
+    messagePerson: startDirectChat
+      ? (userId) => {
+          close();
+          void startDirectChat(userId);
+        }
+      : undefined,
   };
   const submenuOf = (id: string | null | undefined): PaletteSubmenu | null =>
     id ? resolveSubmenu(id, allTargets.get(id), submenuCtx) : null;

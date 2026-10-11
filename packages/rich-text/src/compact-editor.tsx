@@ -16,6 +16,8 @@ export interface CompactEditorHandle {
   focus: () => void;
   clear: () => void;
   getValue: () => RichTextValue;
+  /** Replaces the content (editing an existing message) and puts the caret at the end */
+  setValue: (value: RichTextValue) => void;
 }
 
 export interface CompactEditorProps {
@@ -121,6 +123,8 @@ export const CompactEditor = forwardRef<CompactEditorHandle, CompactEditorProps>
         focus: () => editor?.commands.focus("end"),
         clear: () => editor?.commands.clearContent(true),
         getValue: () => editor?.getJSON() ?? createEmptyRichText(),
+        setValue: (value) =>
+          editor?.chain().setContent(value, { emitUpdate: true }).focus("end").run(),
       }),
       [editor]
     );

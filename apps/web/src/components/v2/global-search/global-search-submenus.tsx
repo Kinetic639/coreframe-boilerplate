@@ -7,6 +7,7 @@ import {
   ExternalLink,
   History,
   Languages,
+  MessageSquare,
   Monitor,
   Moon,
   Package,
@@ -91,6 +92,8 @@ export interface SubmenuContext {
   navigate: (href: string, query?: Record<string, string>) => void;
   openInNewTab: (itemId: string) => boolean;
   copyCode: (hit: SearchExactHit) => void;
+  /** Opens a 1:1 chat with a person; absent when the user has no messages */
+  messagePerson?: (userId: string) => void;
 }
 
 export type SubmenuTarget =
@@ -211,9 +214,12 @@ const language: Provider = (_id, target, ctx) => {
 const hitActions: Provider = (itemId, target, ctx) => {
   if (!isHit(target)) return null;
   const { hit } = target;
-  const options: PaletteSubOption[] = [
-    { id: "newTab", label: ctx.t("preview.openNewTab"), icon: ExternalLink },
-  ];
+  const options: PaletteSubOption[] = [];
+  // "Napisz do…" first: the reason people are searched for most often
+  if (hit.type === "person" && ctx.messagePerson) {
+    options.push({ id: "message", label: ctx.t("preview.message"), icon: MessageSquare });
+  }
+  options.push({ id: "newTab", label: ctx.t("preview.openNewTab"), icon: ExternalLink });
   if (hit.code) options.push({ id: "copy", label: ctx.t("preview.copy"), icon: Copy });
   if (hit.type === "repairOrder") {
     options.push(
@@ -229,6 +235,9 @@ const hitActions: Provider = (itemId, target, ctx) => {
     options,
     select: (optionId) => {
       switch (optionId) {
+        case "message":
+          ctx.messagePerson?.(hit.id);
+          return "close";
         case "newTab":
           ctx.openInNewTab(itemId);
           return "close";

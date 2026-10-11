@@ -8,6 +8,7 @@ import { usePermissions } from "@/hooks/v2/use-permissions";
 import { MESSAGES_USE } from "@/lib/constants/permissions";
 import { useChatWindowsStore } from "@/lib/stores/v2/chat-windows-store";
 import { getUserDisplayName } from "@/utils/user-helpers";
+import { ChatAttention } from "./chat-attention";
 import { ChatProvider, useChat } from "./chat-provider";
 import { ChatWindow } from "./chat-window";
 import {
@@ -44,6 +45,7 @@ export function MessagesRoot({ children }: { children: ReactNode }) {
       meName={getUserDisplayName(user.first_name, user.last_name) || user.email || ""}
     >
       {children}
+      <ChatAttention />
       <MessagesBar />
       <ChatWindowsDock />
     </ChatProvider>

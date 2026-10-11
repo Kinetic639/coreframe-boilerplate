@@ -54,6 +54,45 @@ export function upsertMessage(
   return { ...data, pages: [{ ...newest, messages }, ...rest] };
 }
 
+/** Replaces a loaded message after an edit or a delete; unknown messages are ignored */
+export function replaceMessage(
+  data: MessagesInfiniteData | undefined,
+  message: ChatMessage
+): MessagesInfiniteData | undefined {
+  if (!data) return data;
+  let found = false;
+  const pages = data.pages.map((page) => {
+    const index = page.messages.findIndex((existing) => existing.id === message.id);
+    if (index < 0) return page;
+    found = true;
+    const messages = page.messages.slice();
+    messages[index] = message;
+    return { ...page, messages };
+  });
+  return found ? { ...data, pages } : data;
+}
+
+/** Conversation list after an edit or a delete: only the preview of that message changes */
+export function applyMessageUpdateToList(
+  list: ChatConversationSummary[] | undefined,
+  message: ChatMessage
+): ChatConversationSummary[] | undefined {
+  if (!list) return list;
+  return list.map((conversation) =>
+    conversation.last_message?.id === message.id
+      ? {
+          ...conversation,
+          last_message: {
+            ...conversation.last_message,
+            body_plain: message.body_plain.slice(0, 200),
+            attachment_count: message.attachment_ids.length,
+            deleted: !!message.deleted_at,
+          },
+        }
+      : conversation
+  );
+}
+
 /** All loaded messages, oldest first */
 export function flattenMessages(data: MessagesInfiniteData | undefined): PendingChatMessage[] {
   if (!data) return [];

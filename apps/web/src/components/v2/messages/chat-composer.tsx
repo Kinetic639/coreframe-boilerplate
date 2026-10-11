@@ -2,13 +2,13 @@
 
 import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Loader2, Paperclip, X } from "lucide-react";
+import { Loader2, Paperclip, Pencil, X } from "lucide-react";
 import { toast } from "react-toastify";
 import { CompactEditor, type CompactEditorHandle } from "@repo/rich-text/compact-editor";
-import { extractPlainText } from "@repo/rich-text/rich-text-utils";
+import { extractPlainText, normalizeRichText } from "@repo/rich-text/rich-text-utils";
 import { cn } from "@/lib/utils";
 import { useUploadAttachmentsMutation } from "@/hooks/queries/attachments";
-import { useConversation, useSendMessage } from "@/hooks/queries/messages";
+import { useConversation, useMessageChanges, useSendMessage } from "@/hooks/queries/messages";
 import { isPlainDocument } from "@/lib/mentions";
 import { ENTITY_MENTIONS } from "@/components/v2/mentions/mention-suggestion-list";
 import { MentionScopeProvider } from "@/components/v2/mentions/mention-scope";
@@ -22,6 +22,8 @@ export interface ChatComposerHandle {
   focus: () => void;
   /** Sends a failed message again (same client id: stored once) */
   retry: (message: PendingChatMessage) => void;
+  /** Loads an own message into the box; sending then saves the change */
+  edit: (message: PendingChatMessage) => void;
 }
 
 /**
@@ -41,8 +43,10 @@ export const ChatComposer = forwardRef<
   }
 >(function ChatComposer({ conversationId, onTyping, onStopped, autoFocus, size = "compact" }, ref) {
   const t = useTranslations("chat");
-  const { meId } = useChat();
+  const { meId, orgId } = useChat();
   const send = useSendMessage(meId);
+  const { editMessage } = useMessageChanges(orgId);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const upload = useUploadAttachmentsMutation(CHAT_TARGET, conversationId);
   // Plain text of the draft: enables "Send" and drives the typing pings
   const [draft, setDraft] = useState("");
@@ -81,6 +85,24 @@ export const ChatComposer = forwardRef<
     if ((!body && files.length === 0) || upload.isPending) return;
     // Text only: the plain body is enough; mentions and formatting travel as a document
     const bodyRich = body && value && !isPlainDocument(value) ? value : null;
+    if (editingId) {
+      if (!body || editMessage.isPending) return;
+      try {
+        await editMessage.mutateAsync({ messageId: editingId, bodyPlain: body, bodyRich });
+        cancelEdit();
+      } catch (error) {
+        const code = (error instanceof Error ? error.message : "failed") as ChatErrorCode;
+        // "invalid" here is the closed edit window (15 minutes)
+        toast.error(
+          code === "invalid"
+            ? t("window.editClosed")
+            : t.has(`errors.${code}`)
+              ? t(`errors.${code}`)
+              : t("errors.failed")
+        );
+      }
+      return;
+    }
     let attachmentIds: string[] = [];
     if (files.length > 0) {
       try {
@@ -97,8 +119,36 @@ export const ChatComposer = forwardRef<
     await sendNow(body, bodyRich, attachmentIds, crypto.randomUUID());
   };
 
+  const cancelEdit = () => {
+    setEditingId(null);
+    editorRef.current?.clear();
+    setDraft("");
+    onStopped();
+  };
+
   useImperativeHandle(ref, () => ({
     focus: () => editorRef.current?.focus(),
+    edit: (message) => {
+      setEditingId(message.id);
+      setFiles([]);
+      editorRef.current?.setValue(
+        normalizeRichText(message.body_rich) ?? {
+          type: "doc",
+          content: [
+            {
+              type: "paragraph",
+              // Lines of a plain message become line breaks of one paragraph
+              content: message.body_plain
+                .split("\n")
+                .flatMap((line, index) => [
+                  ...(index > 0 ? [{ type: "hardBreak" }] : []),
+                  ...(line ? [{ type: "text", text: line }] : []),
+                ]),
+            },
+          ],
+        }
+      );
+    },
     retry: (message) =>
       void sendNow(
         message.body_plain,
@@ -112,7 +162,22 @@ export const ChatComposer = forwardRef<
   const busy = upload.isPending;
 
   return (
-    <div className={cn("border-t bg-background", comfortable ? "p-3" : "p-1.5")}>
+    <div className={cn("border-t border-t-primary/20 bg-card", comfortable ? "p-3" : "p-1.5")}>
+      {editingId ? (
+        <div className="mb-1 flex items-center gap-1.5 rounded bg-primary/10 px-1.5 py-0.5 text-[11px] text-primary">
+          <Pencil className="size-3 shrink-0" />
+          <span className="flex-1 truncate">{t("window.editing")}</span>
+          <button
+            type="button"
+            aria-label={t("window.cancelEdit")}
+            title={t("window.cancelEdit")}
+            onClick={cancelEdit}
+            className="hover:text-foreground"
+          >
+            <X className="size-3" />
+          </button>
+        </div>
+      ) : null}
       {files.length > 0 ? (
         <div className="mb-1 flex flex-wrap gap-1">
           {files.map((file, index) => (
@@ -133,7 +198,7 @@ export const ChatComposer = forwardRef<
           ))}
         </div>
       ) : null}
-      <div className="flex items-end gap-0.5 rounded-md border px-2 py-[3px] pr-[3px] focus-within:ring-1 focus-within:ring-ring">
+      <div className="flex items-end gap-0.5 rounded-md border bg-background px-2 py-[3px] pr-[3px] focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/50">
         <MentionScopeProvider value={mentionScope}>
           <CompactEditor
             ref={editorRef}
@@ -167,6 +232,7 @@ export const ChatComposer = forwardRef<
         />
         <button
           type="button"
+          hidden={!!editingId}
           aria-label={t("window.attach")}
           title={t("window.attach")}
           onClick={() => fileRef.current?.click()}
@@ -181,7 +247,7 @@ export const ChatComposer = forwardRef<
           className="flex h-6 shrink-0 items-center gap-1 rounded bg-primary px-2 text-[11px] font-semibold text-primary-foreground disabled:opacity-50"
         >
           {busy ? <Loader2 className="size-3 animate-spin" /> : null}
-          {busy ? t("window.uploading") : t("window.send")}
+          {busy ? t("window.uploading") : editingId ? t("window.save") : t("window.send")}
         </button>
       </div>
       {comfortable ? (

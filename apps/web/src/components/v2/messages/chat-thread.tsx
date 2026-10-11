@@ -1,15 +1,24 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { AlertCircle, CheckCheck, FileText, Loader2 } from "lucide-react";
+import { AlertCircle, CheckCheck, FileText, Loader2, Pencil, Trash2 } from "lucide-react";
+import { toast } from "react-toastify";
 import { TypingIndicator, type TypingPerson } from "@repo/rich-text/comments";
 import type { MentionItem } from "@repo/rich-text/mention-utils";
 import { RichTextRenderer } from "@repo/rich-text/rich-text-renderer";
 import { normalizeRichText } from "@repo/rich-text/rich-text-utils";
 import { cn } from "@/lib/utils";
 import { useAttachmentsQuery } from "@/hooks/queries/attachments";
-import { useMessages } from "@/hooks/queries/messages";
+import { useMessageChanges, useMessages } from "@/hooks/queries/messages";
 import { useMentionAccess } from "@/hooks/queries/mentions";
 import { MentionChip } from "@/components/v2/mentions/mention-chip";
 import type { PendingChatMessage } from "@/lib/messages/cache";
@@ -20,7 +29,7 @@ import {
   chatDayLabel,
   formatChatTime,
 } from "@/lib/messages/format";
-import type { ChatConversationDetail } from "@/lib/messages/types";
+import { CHAT_EDIT_WINDOW_MS, type ChatConversationDetail } from "@/lib/messages/types";
 import { useChat } from "./chat-provider";
 import { systemEventText } from "./chat-text";
 
@@ -37,12 +46,15 @@ export function ChatThread({
   conversation,
   typing,
   onRetry,
+  onEdit,
   density = "compact",
 }: {
   conversationId: string;
   conversation: ChatConversationDetail | undefined;
   typing: TypingPerson[];
   onRetry: (message: PendingChatMessage) => void;
+  /** Loads an own message into the composer for editing */
+  onEdit?: (message: PendingChatMessage) => void;
   density?: "compact" | "comfortable";
 }) {
   const t = useTranslations("chat");
@@ -50,6 +62,19 @@ export function ChatThread({
   const { meId, orgId } = useChat();
   const thread = useMessages(conversationId);
   const { messages } = thread;
+  const { deleteMessage } = useMessageChanges(orgId);
+  // Delete asks once more on the same button
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  // "Edit" disappears when the 15-minute window closes
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(timer);
+  }, []);
+  const remove = (messageId: string) => {
+    setConfirmDeleteId(null);
+    deleteMessage.mutate(messageId, { onError: () => toast.error(t("errors.failed")) });
+  };
   const scrollRef = useRef<HTMLDivElement>(null);
   const atBottomRef = useRef(true);
   const lastIdRef = useRef<string | null>(null);
@@ -217,39 +242,83 @@ export function ChatThread({
                     ) : (
                       <>
                         {message.body_plain ? (
-                          // A failed message is a button (retry); a sent one is text with links
                           <div
-                            role={message.failed ? "button" : undefined}
-                            tabIndex={message.failed ? 0 : undefined}
-                            onClick={message.failed ? () => onRetry(message) : undefined}
-                            onKeyDown={
-                              message.failed
-                                ? (event) => {
-                                    if (event.key === "Enter") onRetry(message);
-                                  }
-                                : undefined
-                            }
                             className={cn(
-                              "max-w-[86%] whitespace-pre-wrap break-words rounded-md border px-2 py-1 text-left text-xs leading-[17px]",
-                              message.failed && "cursor-pointer",
-                              comfortable && "text-[13px] leading-[19px]",
-                              mine
-                                ? "border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40"
-                                : "bg-muted/60",
-                              message.pending && "opacity-60",
-                              message.failed && "border-destructive/60"
+                              "group/msg flex w-full items-center gap-1",
+                              mine ? "justify-end" : "justify-start"
                             )}
+                            onMouseLeave={() => setConfirmDeleteId(null)}
                           >
-                            {normalizeRichText(message.body_rich) ? (
-                              <RichTextRenderer
-                                value={normalizeRichText(message.body_rich)}
-                                prose={false}
-                                renderMention={renderMention}
-                                className="text-[length:inherit] [&_p]:leading-[inherit]"
-                              />
-                            ) : (
-                              message.body_plain
-                            )}
+                            {mine && !message.pending && !message.failed ? (
+                              <span className="flex shrink-0 items-center gap-0.5 opacity-0 focus-within:opacity-100 group-hover/msg:opacity-100">
+                                {confirmDeleteId === message.id ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => remove(message.id)}
+                                    className="rounded px-1 text-[10px] font-semibold text-destructive hover:bg-destructive/10"
+                                  >
+                                    {t("window.deleteConfirm")}
+                                  </button>
+                                ) : (
+                                  <>
+                                    {onEdit &&
+                                    now - new Date(message.created_at).getTime() <
+                                      CHAT_EDIT_WINDOW_MS ? (
+                                      <button
+                                        type="button"
+                                        aria-label={t("window.edit")}
+                                        title={t("window.edit")}
+                                        onClick={() => onEdit(message)}
+                                        className="flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+                                      >
+                                        <Pencil className="size-3" />
+                                      </button>
+                                    ) : null}
+                                    <button
+                                      type="button"
+                                      aria-label={t("window.delete")}
+                                      title={t("window.delete")}
+                                      onClick={() => setConfirmDeleteId(message.id)}
+                                      className="flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-destructive"
+                                    >
+                                      <Trash2 className="size-3" />
+                                    </button>
+                                  </>
+                                )}
+                              </span>
+                            ) : null}
+                            {/* A failed message is a button (retry); a sent one is text with links */}
+                            <div
+                              role={message.failed ? "button" : undefined}
+                              tabIndex={message.failed ? 0 : undefined}
+                              onClick={message.failed ? () => onRetry(message) : undefined}
+                              onKeyDown={
+                                message.failed
+                                  ? (event) => {
+                                      if (event.key === "Enter") onRetry(message);
+                                    }
+                                  : undefined
+                              }
+                              className={cn(
+                                "max-w-[86%] whitespace-pre-wrap break-words rounded-md border px-2 py-1 text-left text-xs leading-[17px]",
+                                message.failed && "cursor-pointer",
+                                comfortable && "text-[13px] leading-[19px]",
+                                mine ? "border-primary/30 bg-primary/15" : "bg-muted/60",
+                                message.pending && "opacity-60",
+                                message.failed && "border-destructive/60"
+                              )}
+                            >
+                              {normalizeRichText(message.body_rich) ? (
+                                <RichTextRenderer
+                                  value={normalizeRichText(message.body_rich)}
+                                  prose={false}
+                                  renderMention={renderMention}
+                                  className="text-[length:inherit] [&_p]:leading-[inherit]"
+                                />
+                              ) : (
+                                message.body_plain
+                              )}
+                            </div>
                           </div>
                         ) : null}
                         {message.attachment_ids.map((id) => {
@@ -271,6 +340,11 @@ export function ChatThread({
                         })}
                       </>
                     )}
+                    {message.edited_at && !message.deleted_at ? (
+                      <span className="px-0.5 text-[10px] italic text-muted-foreground">
+                        {t("window.edited")}
+                      </span>
+                    ) : null}
                     {message.failed ? (
                       <span className="flex items-center gap-1 text-[10px] text-destructive">
                         <AlertCircle className="size-3" /> {t("window.failed")}

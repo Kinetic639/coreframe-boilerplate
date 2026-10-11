@@ -12,7 +12,10 @@ import type { NotificationType } from "./types";
 export type NotificationChannel = "inApp" | "email";
 
 export interface NotificationEventDefinition {
-  type: NotificationType;
+  /** A bell notification type, or "chat.message" (unread chat messages: e-mail only) */
+  type: NotificationType | "chat.message";
+  /** Channels the event exists on; both when omitted */
+  channels?: NotificationChannel[];
   group: "helpdesk" | "planning" | "conversations";
   /** Sent by e-mail unless the user changes it */
   emailByDefault: boolean;
@@ -24,8 +27,11 @@ export const NOTIFICATION_EVENTS: NotificationEventDefinition[] = [
   { type: "ticket.status", group: "helpdesk", emailByDefault: false },
   { type: "task.assigned", group: "planning", emailByDefault: true },
   { type: "task.status", group: "planning", emailByDefault: false },
+  { type: "task.due", group: "planning", emailByDefault: false },
   { type: "comment", group: "conversations", emailByDefault: false },
   { type: "mention", group: "conversations", emailByDefault: true },
+  // Chat messages never go to the bell; an unread one can be e-mailed
+  { type: "chat.message", group: "conversations", emailByDefault: true, channels: ["email"] },
 ];
 
 export const DEFAULT_EMAIL_TYPES: string[] = NOTIFICATION_EVENTS.filter(

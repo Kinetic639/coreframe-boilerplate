@@ -34,7 +34,7 @@ export function ConversationRow({
       aria-current={active ? "true" : undefined}
       className={cn(
         "flex w-full items-center gap-2 rounded-md px-1.5 py-[5px] text-left hover:bg-background",
-        active && "bg-background"
+        active && "bg-primary/10 ring-1 ring-inset ring-primary/25"
       )}
     >
       <ChatAvatar

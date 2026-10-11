@@ -8,6 +8,7 @@
     "RESEND_FROM_EMAIL",
     "RESEND_FROM_NAME",
     "RESEND_API_KEY",
+    "CRON_SECRET",
     "SUPABASE_ACCESS_TOKEN",
     "SUPABASE_SERVICE_ROLE_KEY",
     "PORT",
@@ -20,7 +21,12 @@
     "build": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "env": ["RESEND_API_KEY", "SUPABASE_ACCESS_TOKEN", "SUPABASE_SERVICE_ROLE_KEY"],
+      "env": [
+        "RESEND_API_KEY",
+        "SUPABASE_ACCESS_TOKEN",
+        "SUPABASE_SERVICE_ROLE_KEY",
+        "CRON_SECRET"
+      ],
       "outputs": [".next/**", "!.next/cache/**"]
     },
     "lint": {

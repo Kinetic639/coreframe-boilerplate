@@ -15,6 +15,8 @@ import { createClient } from "@/utils/supabase/client";
 import { messagesKeys } from "@/hooks/queries/messages";
 import {
   applyMessageToList,
+  applyMessageUpdateToList,
+  replaceMessage,
   applyReadReceipt,
   upsertMessage,
   type MessagesInfiniteData,
@@ -125,6 +127,15 @@ export function ChatProvider({
 
     const handle = (event: ChatInboxEvent) => {
       if (event.type === "message") onMessage(event.message);
+      if (event.type === "message_updated") {
+        queryClient.setQueryData<MessagesInfiniteData>(
+          messagesKeys.thread(event.conversation_id),
+          (data) => replaceMessage(data, event.message)
+        );
+        queryClient.setQueryData<ChatConversationSummary[]>(listKey, (list) =>
+          applyMessageUpdateToList(list, event.message)
+        );
+      }
       if (event.type === "read") {
         queryClient.setQueryData<ChatConversationDetail>(
           messagesKeys.conversation(event.conversation_id),

@@ -12,7 +12,7 @@
 | N0   | Tabela, RLS, `notify()`, kanał realtime               | ✅                                   |
 | N1   | Źródła zdarzeń (tickety, komentarze, zadania, portal) | ✅ (wzmianki po M4)                  |
 | N2   | Szuflada, licznik, toast, strona                      | ✅ kod + testy, czeka na test ręczny |
-| N3   | Ustawienia, e-mail, przypomnienia, retencja           | 🟡 ustawienia gotowe, reszta czeka   |
+| N3   | Ustawienia, e-mail, przypomnienia, retencja           | ✅ kod; włączenie: CRON_SETUP        |
 
 - [x] **N0** — fundament (migracja `20261011054231_notifications`, wdrożona)
   - [x] Tabela `notifications` (§3.1), indeksy, RLS „tylko adresat” (select), bez zapisu z klienta
@@ -43,9 +43,11 @@
   - [ ] Test ręczny na deployu: dwa konta, przypisanie ticketu i komentarz → dzwonek i toast bez odświeżania
 - [ ] **N3** — ustawienia i e-mail
   - [x] Ustawienia na `/dashboard/account/notifications`: zdarzenie × kanał (W aplikacji / E-mail), `user_preferences.notification_settings` (`inApp.disabledTypes` czytane przez `_notify()`, `email.types` z domyślnymi: przypisania i wzmianki); naprawione nadpisywanie wyborów przez przełącznik kanału
-  - [ ] E-mail (Resend, `@react-email`): przypisanie i wzmianka, z opóźnieniem (np. 10 min), wysyłane tylko gdy nieprzeczytane; cisza nocna
-  - [ ] Przypomnienia terminów zadań (pg_cron: „Termin mija dziś o 15:00”)
-  - [ ] Retencja: przeczytane starsze niż 90 dni usuwane (pg_cron)
+  - [x] E-mail (Resend, `@react-email`): kolejka w bazie (`notifications_email_claim` / `_done`, migracja `20261011185523`), endpoint `POST /api/cron/notification-emails` (sekret `CRON_SECRET`), jedna wiadomość na osobę i organizację; po 10 min i tylko gdy nieprzeczytane; cisza nocna wstrzymuje do rana; domyślnie przypisania i wzmianki
+  - [ ] **Włączenie na produkcji** — kroki w `docs/NOTIFICATIONS_CRON_SETUP.md` (sekret w Vercel + skrypt w SQL Editorze); do tego czasu nic nie jest wysyłane
+  - [x] Przypomnienia terminów zadań: `notifications_task_due_run()` tuż po północy (czas polski), typ `task.due`, raz na zadanie i dzień (harmonogram: skrypt jw.)
+  - [x] Retencja: `notifications_cleanup_run()` — przeczytane starsze niż 90 dni (funkcja i harmonogram w skrypcie jw., uruchamiane ręcznie)
+  - [x] pgTAP `126_notifications_email_due_test.sql` (11/11), vitest: budowa wiadomości, kolejka, endpoint
 
 ## 1. Cel i zasady
 

@@ -1,5 +1,6 @@
 import type { useTranslations } from "next-intl";
 import {
+  CalendarClock,
   CheckCircle2,
   ListTodo,
   MessageSquare,
@@ -91,6 +92,9 @@ export function describeNotification(
         }),
       };
     }
+    case "task.due":
+      // A reminder has no actor: "Przypomnienie: termin zadania mija dziś"
+      return { actor: t("reminder"), module, icon: CalendarClock, text: t("text.task_due") };
     default:
       return { actor, module, icon: Bell, text: t("text.unknown") };
   }

@@ -8239,7 +8239,8 @@
       "status": "Status",
       "lines": "Pozycje",
       "linkedLines": "Powiązane z kartoteką",
-      "firstLines": "Pierwsze pozycje"
+      "firstLines": "Pierwsze pozycje",
+      "message": "Napisz wiadomość"
     },
     "scanner": {
       "open": "Skanuj kod",
@@ -8285,7 +8286,9 @@
       "empty": "Brak rozmów",
       "emptyHint": "Zacznij rozmowę z kimś z zespołu.",
       "noResults": "Nic nie znaleziono",
-      "loadFailed": "Nie udało się wczytać rozmów"
+      "loadFailed": "Nie udało się wczytać rozmów",
+      "soundOn": "Włącz dźwięk nowych wiadomości",
+      "soundOff": "Wyłącz dźwięk nowych wiadomości"
     },
     "window": {
       "openFull": "Otwórz w pełnym widoku",
@@ -8313,7 +8316,15 @@
       "loadFailed": "Nie udało się wczytać wiadomości",
       "retry": "Spróbuj ponownie",
       "options": "Opcje rozmowy",
-      "manageGroup": "Członkowie i ustawienia grupy"
+      "manageGroup": "Członkowie i ustawienia grupy",
+      "edit": "Edytuj wiadomość",
+      "delete": "Usuń wiadomość",
+      "deleteConfirm": "Usunąć?",
+      "edited": "edytowano",
+      "editing": "Edytujesz wiadomość",
+      "cancelEdit": "Anuluj edycję",
+      "save": "Zapisz",
+      "editClosed": "Wiadomość można edytować przez 15 minut od wysłania"
     },
     "system": {
       "created": "{actor} utworzył(a) grupę „{name}”",
@@ -8470,7 +8481,8 @@
       "task_assigned": "przypisał(a) Ci zadanie",
       "task_status": "zmienił(a) status zadania: {status}",
       "unknown": "— nowe powiadomienie",
-      "mention_chat": "wspomniał(a) o Tobie w rozmowie"
+      "mention_chat": "wspomniał(a) o Tobie w rozmowie",
+      "task_due": "termin zadania mija dziś"
     },
     "taskStatus": {
       "open": "otwarte",
@@ -8508,8 +8520,32 @@
         "task_assigned": "Przypisanie zadania",
         "task_status": "Zmiana statusu mojego zadania",
         "comment": "Komentarz w mojej sprawie",
-        "mention": "Wzmianka o mnie (@) w rozmowie lub komentarzu"
+        "mention": "Wzmianka o mnie (@) w rozmowie lub komentarzu",
+        "task_due": "Termin mojego zadania mija dziś",
+        "chat_message": "Nieprzeczytana wiadomość na czacie (po 15 minutach)"
       }
+    },
+    "reminder": "Przypomnienie:",
+    "email": {
+      "subjectOne": "{actor} {text}",
+      "subjectMany": "Masz {count} nieprzeczytane powiadomienia w Ambrze",
+      "preview": "Nieprzeczytane powiadomienia w {organization}",
+      "heading": "Czekają na Ciebie powiadomienia",
+      "greeting": "Cześć {name},",
+      "intro": "te powiadomienia w organizacji {organization} są nadal nieprzeczytane:",
+      "open": "Otwórz",
+      "openAll": "Zobacz wszystkie powiadomienia",
+      "settings": "Dostajesz tę wiadomość, bo masz włączone powiadomienia e-mail. Możesz to zmienić w ustawieniach powiadomień:",
+      "footer": "© Ambra System",
+      "chatSubject": "{count, plural, one {Masz # nieprzeczytaną wiadomość} few {Masz # nieprzeczytane wiadomości} many {Masz # nieprzeczytanych wiadomości} other {Masz # nieprzeczytanej wiadomości}} w Ambrze",
+      "chatHeading": "Nieprzeczytane wiadomości",
+      "chatIntro": "w organizacji {organization} czekają na Ciebie wiadomości:",
+      "chatDirect": "{name} — {count, plural, one {# nowa wiadomość} few {# nowe wiadomości} many {# nowych wiadomości} other {# nowej wiadomości}}",
+      "chatGroup": "Grupa „{name}” — {count, plural, one {# nowa wiadomość} few {# nowe wiadomości} many {# nowych wiadomości} other {# nowej wiadomości}}",
+      "chatAttachments": "{count, plural, one {# załącznik} few {# załączniki} many {# załączników} other {# załącznika}}",
+      "chatSomeone": "Ktoś",
+      "chatModule": "Wiadomości",
+      "chatOpenAll": "Otwórz Wiadomości"
     }
   }
 }
