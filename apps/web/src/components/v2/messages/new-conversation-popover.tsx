@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Check, ChevronRight, Loader2, Search, Users } from "lucide-react";
+import { Check, Loader2, Search, Send, UserRound, Users } from "lucide-react";
 import { toast } from "react-toastify";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -19,10 +19,11 @@ import { ChatAvatar } from "./chat-avatar";
 import { useChat } from "./chat-provider";
 
 /**
- * "New conversation". By default a private message: type to find a person,
- * ↑↓ to move, Enter (or a click) opens the 1:1 with them. "Create a group"
- * switches to picking several people with checkboxes and a group name — they
- * receive an invitation and decide themselves whether to join.
+ * "New conversation" with a switch in the header. "Person" (the default): type
+ * to find someone, ↑↓ to move, Enter (or a click) opens the 1:1 with them.
+ * "Group": the same list with checkboxes, and at the bottom the group's name
+ * with a create button — the people picked receive an invitation and decide
+ * themselves whether to join.
  */
 export function NewConversationPopover({
   children,
@@ -46,6 +47,7 @@ export function NewConversationPopover({
   const [groupName, setGroupName] = useState("");
   const [busy, setBusy] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   const list = useMemo(() => {
     const q = normalizeSearchText(query.trim());
@@ -133,55 +135,51 @@ export function NewConversationPopover({
     >
       <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent side={side} align={align} className="w-72 p-0" sideOffset={6}>
-        <div className="flex items-center gap-1.5 border-b px-2 py-2">
-          {isGroup ? (
-            <button
-              type="button"
-              aria-label={t("newConversation.back")}
-              title={t("newConversation.back")}
-              onClick={() => {
-                setMode("direct");
-                setSelected([]);
-                setGroupName("");
-              }}
-              className="flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
-            >
-              <ArrowLeft className="size-3.5" />
-            </button>
-          ) : null}
-          <div className={cn("min-w-0", !isGroup && "pl-1")}>
-            <div className="text-[13px] font-semibold">
-              {isGroup ? t("newConversation.groupTitle") : t("newConversation.title")}
-            </div>
-            <div className="text-[11px] text-muted-foreground">
-              {isGroup ? t("newConversation.groupHint") : t("newConversation.hint")}
-            </div>
+        <div className="border-b px-2 pb-2 pt-2">
+          {/* Private message or group: the choice sits above the search */}
+          <div role="tablist" aria-label={t("newConversation.title")} className="flex gap-1">
+            {(
+              [
+                { id: "direct", label: t("newConversation.modeDirect"), icon: UserRound },
+                { id: "group", label: t("newConversation.modeGroup"), icon: Users },
+              ] as const
+            ).map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                role="tab"
+                aria-selected={mode === item.id}
+                onClick={() => {
+                  setMode(item.id);
+                  if (item.id === "direct") {
+                    setSelected([]);
+                    setGroupName("");
+                  }
+                  searchRef.current?.focus();
+                }}
+                className={cn(
+                  "flex h-7 flex-1 items-center justify-center gap-1.5 rounded-md border text-xs",
+                  mode === item.id
+                    ? "border-primary/50 bg-primary/15 font-semibold text-primary"
+                    : "border-transparent text-muted-foreground hover:bg-muted hover:text-foreground"
+                )}
+              >
+                <item.icon className="size-3.5" />
+                {item.label}
+              </button>
+            ))}
+          </div>
+          <div className="mt-1.5 px-1 text-[11px] text-muted-foreground">
+            {isGroup ? t("newConversation.groupHint") : t("newConversation.hint")}
           </div>
         </div>
 
-        {isGroup ? (
-          <div className="px-2 pt-2">
-            <input
-              autoFocus
-              value={groupName}
-              maxLength={CHAT_GROUP_NAME_MAX_LENGTH}
-              onChange={(event) => setGroupName(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") void createGroup();
-              }}
-              placeholder={t("newConversation.groupNamePlaceholder")}
-              aria-label={t("newConversation.groupName")}
-              className="h-7 w-full rounded-md border bg-background px-2 text-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            />
-          </div>
-        ) : null}
-
         <div className="p-2">
-          <label className="flex h-7 items-center gap-1.5 rounded-md border bg-background px-2 text-muted-foreground">
+          <label className="flex h-7 items-center gap-1.5 rounded-md border bg-background px-2 text-muted-foreground focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/50">
             <Search className="size-3.5 shrink-0" aria-hidden />
             <input
-              // Private message: start typing a name right away
-              autoFocus={!isGroup}
+              ref={searchRef}
+              autoFocus
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               onKeyDown={(event) => {
@@ -210,22 +208,6 @@ export function NewConversationPopover({
             />
           </label>
         </div>
-
-        {!isGroup ? (
-          <div className="px-1 pb-1">
-            <button
-              type="button"
-              onClick={() => setMode("group")}
-              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-muted"
-            >
-              <span className="flex size-[26px] shrink-0 items-center justify-center rounded-md bg-primary/15 text-primary">
-                <Users className="size-3.5" />
-              </span>
-              <span className="flex-1 text-xs font-medium">{t("newConversation.createGroup")}</span>
-              <ChevronRight className="size-3.5 text-muted-foreground" />
-            </button>
-          </div>
-        ) : null}
 
         <div
           ref={listRef}
@@ -259,8 +241,9 @@ export function NewConversationPopover({
                   onClick={() => (isGroup ? toggle(person.userId) : void openDirect(person.userId))}
                   className={cn(
                     "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left",
-                    isActive && "bg-muted",
-                    isGroup && isSelected && "bg-primary/10"
+                    // The row Enter acts on must be obvious at a glance
+                    isActive && "bg-primary/15 ring-1 ring-inset ring-primary/50",
+                    isGroup && isSelected && !isActive && "bg-primary/10"
                   )}
                 >
                   <ChatAvatar
@@ -281,7 +264,7 @@ export function NewConversationPopover({
                   {isGroup ? (
                     <span
                       className={cn(
-                        "flex size-4 items-center justify-center rounded border",
+                        "flex size-4 shrink-0 items-center justify-center rounded border",
                         isSelected
                           ? "border-primary bg-primary text-primary-foreground"
                           : "bg-background"
@@ -289,6 +272,10 @@ export function NewConversationPopover({
                     >
                       {isSelected ? <Check className="size-3" /> : null}
                     </span>
+                  ) : isActive ? (
+                    <kbd className="shrink-0 rounded border border-primary/40 bg-background px-1 text-[10px] font-medium text-primary">
+                      Enter
+                    </kbd>
                   ) : null}
                 </button>
               );
@@ -297,21 +284,39 @@ export function NewConversationPopover({
         </div>
 
         {isGroup ? (
-          <div className="flex items-center gap-2 border-t px-2 py-2">
-            <span className="flex-1 text-[11px] text-muted-foreground">
+          <div className="border-t px-2 py-2">
+            <div className="flex items-center gap-1.5">
+              <input
+                value={groupName}
+                maxLength={CHAT_GROUP_NAME_MAX_LENGTH}
+                onChange={(event) => setGroupName(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") void createGroup();
+                }}
+                placeholder={t("newConversation.groupNamePlaceholder")}
+                aria-label={t("newConversation.groupName")}
+                className="h-7 min-w-0 flex-1 rounded-md border bg-background px-2 text-xs outline-none focus-visible:border-primary/50 focus-visible:ring-1 focus-visible:ring-primary/50"
+              />
+              <button
+                type="button"
+                disabled={!canCreateGroup}
+                onClick={() => void createGroup()}
+                aria-label={t("newConversation.sendInvites")}
+                title={t("newConversation.sendInvites")}
+                className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground disabled:opacity-50"
+              >
+                {busy ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <Send className="size-3.5" />
+                )}
+              </button>
+            </div>
+            <div className="mt-1 px-0.5 text-[10px] text-muted-foreground">
               {selected.length > 0
                 ? t("newConversation.selected", { count: selected.length })
-                : null}
-            </span>
-            <button
-              type="button"
-              disabled={!canCreateGroup}
-              onClick={() => void createGroup()}
-              className="flex h-7 items-center gap-1 rounded-md bg-primary px-2.5 text-xs font-semibold text-primary-foreground disabled:opacity-50"
-            >
-              {busy ? <Loader2 className="size-3 animate-spin" /> : null}
-              {t("newConversation.sendInvites")}
-            </button>
+                : t("newConversation.pickPeople")}
+            </div>
           </div>
         ) : (
           <div className="border-t px-3 py-1.5 text-[10px] text-muted-foreground">
