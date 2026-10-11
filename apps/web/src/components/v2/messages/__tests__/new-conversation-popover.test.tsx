@@ -74,7 +74,7 @@ describe("NewConversationPopover", () => {
     setup();
     const options = screen.getAllByRole("option");
     expect(options.map((option) => option.textContent)).toEqual([
-      "ANAnna Nowaka@x.test",
+      "ANAnna Nowaka@x.testEnter",
       "JKJan Kowalskij@x.test",
       "ZKZofia Kowalskaz@x.test",
     ]);
@@ -103,7 +103,7 @@ describe("NewConversationPopover", () => {
 
   it('"create a group" shows checkboxes; people are invited, not added', async () => {
     const { onCreated } = setup();
-    fireEvent.click(screen.getByRole("button", { name: "newConversation.createGroup" }));
+    fireEvent.click(screen.getByRole("tab", { name: "newConversation.modeGroup" }));
     expect(screen.getByRole("listbox")).toHaveAttribute("aria-multiselectable", "true");
     expect(screen.getByText("newConversation.groupHint")).toBeInTheDocument();
 
@@ -124,14 +124,15 @@ describe("NewConversationPopover", () => {
     expect(toastSuccess).toHaveBeenCalledWith("newConversation.invitesSent:2");
   });
 
-  it("going back from the group returns to the private message without a selection", () => {
+  it("switching back to a person drops the selection and the group fields", () => {
     setup();
-    fireEvent.click(screen.getByRole("button", { name: "newConversation.createGroup" }));
+    fireEvent.click(screen.getByRole("tab", { name: "newConversation.modeGroup" }));
     fireEvent.click(screen.getAllByRole("option")[0]);
-    fireEvent.click(screen.getByRole("button", { name: "newConversation.back" }));
-    expect(screen.getByRole("button", { name: "newConversation.createGroup" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "newConversation.createGroup" }));
-    expect(screen.getByText("newConversation.groupHint")).toBeInTheDocument();
+    expect(screen.getByText("newConversation.selected:1")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "newConversation.modeDirect" }));
+    expect(screen.queryByRole("textbox", { name: "newConversation.groupName" })).toBeNull();
+    fireEvent.click(screen.getByRole("tab", { name: "newConversation.modeGroup" }));
     expect(screen.queryByText("newConversation.selected:1")).toBeNull();
+    expect(screen.getByText("newConversation.pickPeople")).toBeInTheDocument();
   });
 });

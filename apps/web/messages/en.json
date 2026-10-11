@@ -8377,17 +8377,17 @@
       "groupName": "Group name",
       "groupNamePlaceholder": "e.g. Warehouse CNP Poznań",
       "start": "Message",
-      "createGroup": "Create a group",
       "selected": "Selected: {count}",
       "empty": "No people",
       "cancel": "Cancel",
       "hint": "Pick the person you want to write to",
-      "groupTitle": "New group",
       "groupHint": "The people you pick get an invitation and decide themselves whether to join",
-      "sendInvites": "Create and invite",
+      "sendInvites": "Create the group and send invitations",
       "invitesSent": "{count, plural, one {# invitation sent} other {# invitations sent}}",
-      "back": "Back to a private message",
-      "keys": "↑↓ select · Enter opens the conversation"
+      "keys": "↑↓ select · Enter opens the conversation",
+      "modeDirect": "Person",
+      "modeGroup": "Group",
+      "pickPeople": "Tick the people you want to invite"
     },
     "errors": {
       "forbidden": "No access to this conversation",

@@ -8351,17 +8351,17 @@
       "groupName": "Nazwa grupy",
       "groupNamePlaceholder": "np. Magazyn CNP Poznań",
       "start": "Napisz",
-      "createGroup": "Utwórz grupę",
       "selected": "Wybrane: {count}",
       "empty": "Brak osób",
       "cancel": "Anuluj",
       "hint": "Wybierz osobę, do której chcesz napisać",
-      "groupTitle": "Nowa grupa",
       "groupHint": "Wybrane osoby dostaną zaproszenie i same zdecydują, czy dołączyć",
-      "sendInvites": "Utwórz i zaproś",
+      "sendInvites": "Utwórz grupę i wyślij zaproszenia",
       "invitesSent": "{count, plural, one {Wysłano # zaproszenie} few {Wysłano # zaproszenia} many {Wysłano # zaproszeń} other {Wysłano # zaproszenia}}",
-      "back": "Wróć do wiadomości prywatnej",
-      "keys": "↑↓ wybór · Enter otwiera rozmowę"
+      "keys": "↑↓ wybór · Enter otwiera rozmowę",
+      "modeDirect": "Osoba",
+      "modeGroup": "Grupa",
+      "pickPeople": "Zaznacz osoby, które chcesz zaprosić"
     },
     "errors": {
       "forbidden": "Brak dostępu do rozmowy",

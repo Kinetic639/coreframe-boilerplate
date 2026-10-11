@@ -99,7 +99,7 @@ export function ChatWindow({ state }: { state: ChatWindowState }) {
         "pointer-events-auto flex w-[300px] flex-col overflow-hidden rounded-t-md border border-b-0 border-primary/35 border-t-2 border-t-primary shadow-[0_-8px_28px_-6px_rgba(0,0,0,0.35)]",
         // The surface is the theme colour itself, deepened (dark mode) or washed out (light
         // mode): depth against the page instead of one more neutral panel
-        "bg-[color-mix(in_oklab,var(--primary)_7%,white)] dark:bg-[color-mix(in_oklab,var(--primary)_16%,black)]",
+        "bg-[color-mix(in_oklab,var(--primary)_7%,white)] dark:bg-[color-mix(in_oklab,var(--primary)_30%,black)]",
         collapsed ? "h-[38px]" : "h-[400px]"
       )}
       data-testid="chat-window"
