@@ -95,6 +95,10 @@ describe("CompactEditor with mentions", () => {
       { type: "person", id: "u1", label: "Anna Nowak", code: null, href: null },
     ]);
     expect(extractPlainText(value)).toBe("hej @Anna Nowak");
+    // Plain objects only: React rejects prototype-less ones in server action arguments
+    const paragraph = value.content![0];
+    const mention = paragraph.content!.find((node) => node.type === "mention")!;
+    expect(Object.getPrototypeOf(mention.attrs)).toBe(Object.prototype);
     await waitFor(() => expect(screen.queryByTestId("test-list")).not.toBeInTheDocument());
     // The list is closed again: Enter sends
     press("Enter");
