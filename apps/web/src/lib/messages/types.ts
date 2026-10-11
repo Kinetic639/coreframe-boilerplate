@@ -28,7 +28,8 @@ export type ChatSystemAction =
   | "renamed"
   | "invited"
   | "joined"
-  | "declined";
+  | "declined"
+  | "withdrawn";
 
 export interface ChatSystemEvent {
   action: ChatSystemAction;
@@ -62,6 +63,8 @@ export interface ChatPendingInvite {
   email: string | null;
   avatar_url: string | null;
   created_at: string;
+  /** Who invited: that person (and the group's owner) can withdraw the invitation */
+  invited_by: string | null;
 }
 
 export interface ChatLastMessage {

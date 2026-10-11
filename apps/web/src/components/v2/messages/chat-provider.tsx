@@ -130,7 +130,12 @@ export function ChatProvider({
         onMessage(event.message);
         // Someone answered an invitation: the list of people still invited changes
         const action = event.message.system_event?.action;
-        if (action === "joined" || action === "declined" || action === "invited") {
+        if (
+          action === "joined" ||
+          action === "declined" ||
+          action === "invited" ||
+          action === "withdrawn"
+        ) {
           void queryClient.invalidateQueries({
             queryKey: messagesKeys.pendingInvites(event.conversation_id),
           });

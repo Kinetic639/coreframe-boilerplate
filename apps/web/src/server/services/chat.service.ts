@@ -239,6 +239,20 @@ export class ChatService {
     return { success: true, data: null };
   }
 
+  /** The inviter or the group's owner takes a pending invitation back */
+  static async withdrawInvitation(
+    supabase: SupabaseClient,
+    conversationId: string,
+    userId: string
+  ): Promise<ServiceResult<null>> {
+    const { error } = await supabase.rpc("chat_invitation_withdraw", {
+      p_conversation_id: conversationId,
+      p_user_id: userId,
+    });
+    if (error) return fail(error, "withdrawInvitation");
+    return { success: true, data: null };
+  }
+
   /** People invited to a conversation who have not answered (members only) */
   static async listPendingInvites(
     supabase: SupabaseClient,

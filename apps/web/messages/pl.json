@@ -8335,7 +8335,8 @@
       "someone": "Ktoś",
       "invited": "{actor} zaprosił(a): {users}",
       "joined": "{actor} dołączył(a) do grupy",
-      "declined": "{actor} odrzucił(a) zaproszenie"
+      "declined": "{actor} odrzucił(a) zaproszenie",
+      "withdrawn": "{actor} wycofał(a) zaproszenie: {users}"
     },
     "preview": {
       "you": "Ty: ",
@@ -8395,7 +8396,8 @@
       "muted": "Wyciszona",
       "back": "Wróć do listy",
       "invite": "Zaproś",
-      "invited": "Zaproszono — czeka na odpowiedź"
+      "invited": "Zaproszono — czeka na odpowiedź",
+      "withdrawInvite": "Wycofaj zaproszenie: {name}"
     },
     "invitations": {
       "title": "Zaproszenia do grup",

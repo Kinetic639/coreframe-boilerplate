@@ -45,6 +45,8 @@ export function systemEventText(
     case "invited":
       // Invited people are not members yet: their names travel with the event
       return t("system.invited", { actor, users: (event.names ?? []).join(", ") || users });
+    case "withdrawn":
+      return t("system.withdrawn", { actor, users: (event.names ?? []).join(", ") || users });
     case "joined":
       return t("system.joined", { actor: actorId === meId ? actor : event.name || actor });
     case "declined":

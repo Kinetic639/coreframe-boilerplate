@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
-import { BellOff, FileText, LogOut, Pencil, UserMinus, UserPlus } from "lucide-react";
+import { BellOff, FileText, LogOut, Pencil, UserMinus, X, UserPlus } from "lucide-react";
 import { toast } from "react-toastify";
 import {
   AlertDialog,
@@ -22,6 +22,7 @@ import {
   leaveConversationAction,
   muteConversationAction,
   removeConversationMemberAction,
+  withdrawChatInvitationAction,
   renameConversationAction,
 } from "@/app/actions/messages";
 import { useAttachmentsQuery } from "@/hooks/queries/attachments";
@@ -209,7 +210,7 @@ export function ConversationDetails({
           ))}
           {/* Invited, not answered yet: they join only if they accept */}
           {pending.map((person) => (
-            <li key={person.user_id} className="flex items-center gap-2 opacity-70">
+            <li key={person.user_id} className="group flex items-center gap-2">
               <ChatAvatar
                 initials={memberInitials(person)}
                 src={person.avatar_url}
@@ -217,9 +218,29 @@ export function ConversationDetails({
                 ringClassName="ring-background"
               />
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-xs font-medium">{memberName(person)}</span>
+                <span className="block truncate text-xs font-medium text-foreground/70">
+                  {memberName(person)}
+                </span>
                 <span className="block text-[11px] text-muted-foreground">{t("page.invited")}</span>
               </span>
+              {isOwner || person.invited_by === meId ? (
+                <button
+                  type="button"
+                  aria-label={t("page.withdrawInvite", { name: memberName(person) })}
+                  title={t("page.withdrawInvite", { name: memberName(person) })}
+                  onClick={() =>
+                    void run(() =>
+                      withdrawChatInvitationAction({
+                        conversationId: conversation.id,
+                        userId: person.user_id,
+                      })
+                    )
+                  }
+                  className="hidden size-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-destructive group-focus-within:flex group-hover:flex"
+                >
+                  <X className="size-3.5" />
+                </button>
+              ) : null}
             </li>
           ))}
         </ul>

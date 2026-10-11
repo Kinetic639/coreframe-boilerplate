@@ -8361,7 +8361,8 @@
       "someone": "Someone",
       "invited": "{actor} invited: {users}",
       "joined": "{actor} joined the group",
-      "declined": "{actor} declined the invitation"
+      "declined": "{actor} declined the invitation",
+      "withdrawn": "{actor} withdrew the invitation: {users}"
     },
     "preview": {
       "you": "You: ",
@@ -8421,7 +8422,8 @@
       "muted": "Muted",
       "back": "Back to the list",
       "invite": "Invite",
-      "invited": "Invited — waiting for an answer"
+      "invited": "Invited — waiting for an answer",
+      "withdrawInvite": "Withdraw the invitation: {name}"
     },
     "invitations": {
       "title": "Group invitations",

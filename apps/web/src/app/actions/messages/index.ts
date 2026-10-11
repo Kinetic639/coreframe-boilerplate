@@ -241,6 +241,13 @@ export async function respondToChatInvitationAction(
   );
 }
 
+/** Takes back a group invitation that has not been answered (inviter or owner) */
+export async function withdrawChatInvitationAction(rawInput: unknown): Promise<ActionResult<null>> {
+  return run(memberSchema, rawInput, "withdrawInvitation", (ctx, input) =>
+    ChatService.withdrawInvitation(ctx.supabase, input.conversationId, input.userId)
+  );
+}
+
 /** People invited to a conversation who have not answered yet */
 export async function listPendingChatInvitesAction(
   rawInput: unknown
