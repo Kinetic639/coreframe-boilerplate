@@ -46,6 +46,12 @@ SET LOCAL ROLE authenticated;
 SELECT pg_temp.act_as(a) FROM fx;
 
 INSERT INTO results SELECT 'group', to_jsonb(public.chat_create_group(org, '124 Magazyn', ARRAY[b, c])) FROM fx;
+-- Groups invite since 20261011202425_chat_group_invitations: B and C join themselves
+SELECT pg_temp.act_as(b) FROM fx;
+SELECT public.chat_invitation_respond((SELECT v #>> '{}' FROM results WHERE k = 'group')::uuid, true);
+SELECT pg_temp.act_as(c) FROM fx;
+SELECT public.chat_invitation_respond((SELECT v #>> '{}' FROM results WHERE k = 'group')::uuid, true);
+SELECT pg_temp.act_as(a) FROM fx;
 INSERT INTO results SELECT 'direct', to_jsonb(public.chat_open_direct(org, b)) FROM fx;
 
 -- Plain message, then: B, the author and an outsider mentioned, plus an object with C's id

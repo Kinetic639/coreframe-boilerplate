@@ -5,7 +5,7 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import { cn } from "@repo/ui/utils";
 import { buildExtensions } from "./rich-text-extensions";
 import { RichTextToolbar } from "./rich-text-toolbar";
-import { createEmptyRichText } from "./rich-text-utils";
+import { createEmptyRichText, toPlainRichText } from "./rich-text-utils";
 import type { RichTextEditorFieldProps } from "./rich-text-types";
 
 export function RichTextEditorField({
@@ -31,7 +31,7 @@ export function RichTextEditorField({
     editable: !disabled,
     onUpdate: ({ editor: e }) => {
       isInternalUpdate.current = true;
-      onChange(e.getJSON());
+      onChange(toPlainRichText(e.getJSON()));
     },
   });
 

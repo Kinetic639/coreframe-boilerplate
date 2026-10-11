@@ -86,7 +86,8 @@ const conversations: ChatConversationSummary[] = [
 vi.mock("@/hooks/queries/messages", () => ({
   useConversations: () => ({ data: conversations, isLoading: false, isError: false }),
   useChatPeople: () => ({ data: [], isLoading: false }),
-  messagesKeys: { conversations: () => ["x"] },
+  useChatInvitations: () => ({ data: [] }),
+  messagesKeys: { conversations: () => ["x"], invitations: () => ["i"] },
 }));
 vi.mock("../chat-provider", () => ({
   useChat: () => ({ orgId: "o1", meId: "me", meName: "Michał", onlineIds: new Set(["u-anna"]) }),

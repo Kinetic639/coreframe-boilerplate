@@ -9,7 +9,7 @@ import CharacterCount from "@tiptap/extension-character-count";
 import { cn } from "@repo/ui/utils";
 import { buildEntityMention, isMentionListOpen } from "./mention/entity-mention";
 import type { MentionOptions } from "./mention/mention-types";
-import { createEmptyRichText, extractPlainText } from "./rich-text-utils";
+import { createEmptyRichText, extractPlainText, toPlainRichText } from "./rich-text-utils";
 import type { RichTextValue } from "./rich-text-types";
 
 export interface CompactEditorHandle {
@@ -122,7 +122,7 @@ export const CompactEditor = forwardRef<CompactEditorHandle, CompactEditorProps>
       () => ({
         focus: () => editor?.commands.focus("end"),
         clear: () => editor?.commands.clearContent(true),
-        getValue: () => editor?.getJSON() ?? createEmptyRichText(),
+        getValue: () => (editor ? toPlainRichText(editor.getJSON()) : createEmptyRichText()),
         setValue: (value) =>
           editor?.chain().setContent(value, { emitUpdate: true }).focus("end").run(),
       }),

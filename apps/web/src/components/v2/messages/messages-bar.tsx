@@ -16,7 +16,7 @@ import { Link } from "@/i18n/navigation";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { normalizeSearchText } from "@/lib/global-search/match";
-import { useConversations } from "@/hooks/queries/messages";
+import { useChatInvitations, useConversations } from "@/hooks/queries/messages";
 import { unreadConversations } from "@/lib/messages/cache";
 import { useChatSound } from "@/lib/messages/sound";
 import { conversationInitials, conversationTitle, directPeer } from "@/lib/messages/display";
@@ -24,6 +24,7 @@ import type { ChatConversationSummary } from "@/lib/messages/types";
 import { useChatWindowsStore } from "@/lib/stores/v2/chat-windows-store";
 import { ChatAvatar, ChatCountBadge } from "./chat-avatar";
 import { useChat } from "./chat-provider";
+import { ChatInvitations } from "./chat-invitations";
 import { ConversationRow } from "./conversation-row";
 import { NewConversationPopover } from "./new-conversation-popover";
 
@@ -54,7 +55,9 @@ export function MessagesBar() {
   const windows = useChatWindowsStore((s) => s.windows);
   const conversations = useConversations(orgId);
   const list = useMemo(() => conversations.data ?? [], [conversations.data]);
-  const unread = unreadConversations(list);
+  // Invitations to groups count like unread conversations: both wait for the user
+  const invitations = useChatInvitations(orgId).data?.length ?? 0;
+  const unread = unreadConversations(list) + invitations;
   const openIds = useMemo(() => new Set(windows.map((w) => w.conversationId)), [windows]);
 
   const isOnline = (conversation: ChatConversationSummary) => {
@@ -287,6 +290,7 @@ function ExpandedList({
         </label>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-2">
+        <ChatInvitations onJoined={onOpen} />
         {loading ? (
           <div className="flex justify-center py-6">
             <Loader2 className="size-4 animate-spin text-muted-foreground" />

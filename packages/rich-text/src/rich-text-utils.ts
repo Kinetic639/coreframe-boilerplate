@@ -26,6 +26,16 @@ export function isRichTextEmpty(value: RichTextValue | null | undefined): boolea
   return extractPlainText(value).length === 0;
 }
 
+/**
+ * The editor's document as plain JSON. ProseMirror builds node attributes as
+ * objects without a prototype; React refuses to send those to a server action
+ * ("only plain objects can be passed"), so a document with a mention or any
+ * other attribute could not be saved. A JSON round trip makes it plain.
+ */
+export function toPlainRichText(value: RichTextValue): RichTextValue {
+  return JSON.parse(JSON.stringify(value)) as RichTextValue;
+}
+
 export function createEmptyRichText(): RichTextValue {
   return { type: "doc", content: [{ type: "paragraph" }] };
 }

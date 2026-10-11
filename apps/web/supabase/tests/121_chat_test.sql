@@ -87,6 +87,12 @@ INSERT INTO results SELECT 'topic_presence', to_jsonb(public.can_use_chat_topic(
 INSERT INTO results SELECT 'direct_ac', to_jsonb(public.chat_open_direct(org, c)) FROM fx;
 -- A group with B and C, owned by A
 INSERT INTO results SELECT 'group', to_jsonb(public.chat_create_group(org, '121 Magazyn', ARRAY[b, c])) FROM fx;
+-- Groups invite since 20261011202425_chat_group_invitations: B and C join themselves
+SELECT pg_temp.act_as(b) FROM fx;
+SELECT public.chat_invitation_respond((SELECT v #>> '{}' FROM results WHERE k = 'group')::uuid, true);
+SELECT pg_temp.act_as(c) FROM fx;
+SELECT public.chat_invitation_respond((SELECT v #>> '{}' FROM results WHERE k = 'group')::uuid, true);
+SELECT pg_temp.act_as(a) FROM fx;
 
 -- B: the same 1:1 from the other side, unread count, read receipt
 SELECT pg_temp.act_as(b) FROM fx;
@@ -177,7 +183,7 @@ INSERT INTO test_log (line) SELECT is((SELECT v #>> '{}' FROM results WHERE k = 
 INSERT INTO test_log (line) SELECT is((SELECT v FROM results WHERE k = 'c_sees_direct_messages'), '0'::jsonb, 'a non-member sees no messages (RLS)');
 INSERT INTO test_log (line) SELECT is((SELECT v #>> '{}' FROM results WHERE k = 'c_sends_direct'), '42501', 'a non-member cannot send');
 INSERT INTO test_log (line) SELECT is((SELECT v FROM results WHERE k = 'c_lists_empty_direct'), 'false'::jsonb, 'an empty 1:1 is not listed for the other person');
-INSERT INTO test_log (line) SELECT is((SELECT v FROM results WHERE k = 'c_sees_group_system'), '1'::jsonb, 'group creation writes a system message');
+INSERT INTO test_log (line) SELECT is((SELECT v FROM results WHERE k = 'c_sees_group_system'), '4'::jsonb, 'group creation, the invitations and both joins write system messages');
 INSERT INTO test_log (line) SELECT is((SELECT v FROM results WHERE k = 'c_typing_group'), 'true'::jsonb, 'group member may use its typing channel');
 INSERT INTO test_log (line) SELECT is((SELECT v FROM results WHERE k = 'c_after_removal_messages'), '0'::jsonb, 'removed member loses the history (RLS)');
 INSERT INTO test_log (line) SELECT is((SELECT v FROM results WHERE k = 'c_after_removal_typing'), 'false'::jsonb, 'removed member loses the typing channel');

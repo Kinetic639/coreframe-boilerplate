@@ -42,6 +42,15 @@ export function systemEventText(
       return t("system.left", { actor });
     case "renamed":
       return t("system.renamed", { actor, name: event.name ?? "" });
+    case "invited":
+      // Invited people are not members yet: their names travel with the event
+      return t("system.invited", { actor, users: (event.names ?? []).join(", ") || users });
+    case "withdrawn":
+      return t("system.withdrawn", { actor, users: (event.names ?? []).join(", ") || users });
+    case "joined":
+      return t("system.joined", { actor: actorId === meId ? actor : event.name || actor });
+    case "declined":
+      return t("system.declined", { actor: actorId === meId ? actor : event.name || actor });
     default:
       return t("preview.system");
   }

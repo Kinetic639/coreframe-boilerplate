@@ -162,7 +162,7 @@ export const ChatComposer = forwardRef<
   const busy = upload.isPending;
 
   return (
-    <div className={cn("border-t border-t-primary/20 bg-card", comfortable ? "p-3" : "p-1.5")}>
+    <div className={cn("border-t border-t-primary/20", comfortable ? "p-3" : "p-1.5")}>
       {editingId ? (
         <div className="mb-1 flex items-center gap-1.5 rounded bg-primary/10 px-1.5 py-0.5 text-[11px] text-primary">
           <Pencil className="size-3 shrink-0" />
