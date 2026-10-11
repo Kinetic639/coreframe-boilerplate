@@ -2,9 +2,8 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import { useTranslations } from "next-intl";
-import { ExternalLink, Minus, X } from "lucide-react";
+import { BellOff, Minus, X } from "lucide-react";
 import { useTypingIndicator } from "@repo/rich-text/comments";
-import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
 import {
   useConversation,
@@ -18,6 +17,7 @@ import { ChatAvatar } from "./chat-avatar";
 import { ChatComposer, type ChatComposerHandle } from "./chat-composer";
 import { useChat } from "./chat-provider";
 import { ChatThread } from "./chat-thread";
+import { ChatWindowOptions } from "./chat-window-options";
 
 export function chatTypingTopic(conversationId: string) {
   return `chat:${conversationId}:typing`;
@@ -120,16 +120,20 @@ export function ChatWindow({ state }: { state: ChatWindowState }) {
           aria-expanded={!collapsed}
         >
           <span className="truncate text-xs font-semibold">{title}</span>
-          <span className="truncate text-[10px] text-muted-foreground">{status}</span>
+          <span className="flex items-center gap-1 truncate text-[10px] text-muted-foreground">
+            {summary?.muted ? (
+              <BellOff className="size-2.5 shrink-0" aria-label={t("page.muted")} />
+            ) : null}
+            {status}
+          </span>
         </button>
-        <Link
-          href={{ pathname: "/dashboard/messages", query: { c: conversationId } }}
-          aria-label={t("window.openFull")}
-          title={t("window.openFull")}
-          className="flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
-        >
-          <ExternalLink className="size-3" />
-        </Link>
+        <ChatWindowOptions
+          conversationId={conversationId}
+          isGroup={source?.kind === "group"}
+          groupName={source?.kind === "group" ? title : ""}
+          muted={!!summary?.muted}
+          onClose={() => closeWindow(conversationId)}
+        />
         <button
           type="button"
           aria-label={collapsed ? t("window.expand") : t("window.collapse")}

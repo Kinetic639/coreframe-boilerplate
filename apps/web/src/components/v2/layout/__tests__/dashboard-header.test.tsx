@@ -17,6 +17,14 @@ vi.mock("../header-notifications", () => ({
   HeaderNotifications: () => <div data-testid="header-notifications">Notifications</div>,
 }));
 
+vi.mock("@/components/v2/messages/header-messages-link", () => ({
+  HeaderMessagesLink: () => <div data-testid="header-messages-link">Messages</div>,
+}));
+
+vi.mock("../header-contacts", () => ({
+  HeaderContacts: () => <div data-testid="header-contacts">Contacts</div>,
+}));
+
 vi.mock("../header-quick-add", () => ({
   HeaderQuickAdd: () => <div data-testid="header-quick-add">Quick Add</div>,
 }));

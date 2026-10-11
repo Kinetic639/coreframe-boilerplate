@@ -13,6 +13,7 @@ const changeBranchMock = vi.fn();
 const findExactHitsMock = vi.fn();
 const previewMock = vi.fn();
 const setColorThemeMock = vi.fn();
+const setStoreThemeMock = vi.fn();
 
 vi.mock("next-intl", () => ({
   useLocale: () => "pl",
@@ -27,7 +28,9 @@ vi.mock("next-intl", () => ({
     ),
 }));
 
-vi.mock("next-themes", () => ({ useTheme: () => ({ resolvedTheme: "light", setTheme }) }));
+vi.mock("next-themes", () => ({
+  useTheme: () => ({ theme: "light", resolvedTheme: "light", setTheme }),
+}));
 vi.mock("next/navigation", () => ({ useParams: () => ({}) }));
 vi.mock("@/i18n/navigation", () => ({
   useRouter: () => ({ push, replace, refresh }),
@@ -52,7 +55,7 @@ vi.mock("@/lib/stores/v2/user-store", () => ({
 vi.mock("@/lib/stores/v2/ui-store", () => ({
   useUiStoreV2: (
     selector: (s: { setTheme: () => void; setColorTheme: (n: string) => void }) => unknown
-  ) => selector({ setTheme: vi.fn(), setColorTheme: setColorThemeMock }),
+  ) => selector({ setTheme: setStoreThemeMock, setColorTheme: setColorThemeMock }),
 }));
 vi.mock("@/app/actions/shared/changeBranch", () => ({
   changeBranch: (id: string) => changeBranchMock(id),
@@ -312,12 +315,119 @@ describe("GlobalSearchDialog", () => {
     expect(refresh).toHaveBeenCalled();
   });
 
-  it("runs client commands", () => {
+  it("light / dark is a submenu: previews while browsing, Enter saves and returns to the row", () => {
     renderDialog();
     openPalette();
     type("motyw");
     fireEvent.click(screen.getByText(byText("Przełącz motyw")));
-    expect(setTheme).toHaveBeenCalledWith("dark");
+
+    // The row expanded like an accordion; the current mode is highlighted
+    const submenu = screen.getByTestId("palette-submenu");
+    expect(within(submenu).getAllByRole("option")).toHaveLength(3);
+    expect(within(submenu).getByText("themeMode.light").closest("[cmdk-item]")).toHaveAttribute(
+      "data-selected",
+      "true"
+    );
+    expect(setTheme).not.toHaveBeenCalledWith("dark");
+
+    const input = screen.getByRole("combobox");
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    expect(setTheme).toHaveBeenLastCalledWith("dark"); // preview
+    expect(setStoreThemeMock).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(setStoreThemeMock).toHaveBeenCalledWith("dark");
+    expect(screen.queryByTestId("palette-submenu")).not.toBeInTheDocument();
+    expect(useGlobalSearchStore.getState().open).toBe(true);
+  });
+
+  it("arrows stay inside an open submenu and wrap around", () => {
+    renderDialog();
+    openPalette();
+    type("motyw");
+    fireEvent.click(screen.getByText(byText("Przełącz motyw")));
+    const input = screen.getByRole("combobox");
+    const selectedLabel = () =>
+      document.querySelector('[data-testid="palette-submenu"] [data-selected="true"]')?.textContent;
+
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    expect(selectedLabel()).toContain("themeMode.system");
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    expect(selectedLabel()).toContain("themeMode.light");
+    fireEvent.keyDown(input, { key: "ArrowUp" });
+    expect(selectedLabel()).toContain("themeMode.system");
+  });
+
+  it("a data result has a submenu too: → opens its actions, Enter runs one", async () => {
+    findExactHitsMock.mockResolvedValue({
+      success: true,
+      data: {
+        exact: [
+          {
+            type: "repairOrder",
+            id: "ro1",
+            code: "ZL/174232",
+            title: "Lakomecki",
+            subtitle: null,
+            status: "open",
+            href: "/dashboard/workshop/ro1",
+          },
+        ],
+        results: [],
+        otherBranches: [],
+      },
+    });
+    renderDialog();
+    openPalette();
+    type("174232");
+    await screen.findAllByText(byText("ZL/174232"));
+    const input = screen.getByRole("combobox") as HTMLInputElement;
+    input.setSelectionRange(input.value.length, input.value.length);
+
+    fireEvent.keyDown(input, { key: "ArrowRight" });
+    const submenu = screen.getByTestId("palette-submenu");
+    expect(within(submenu).getByText("preview.openNewTab")).toBeInTheDocument();
+    expect(within(submenu).getByText("preview.copy")).toBeInTheDocument();
+
+    // ← (caret at the start) or Esc collapses; here: pick the "stock" tab
+    fireEvent.click(within(submenu).getByText("preview.tabStock"));
+    expect(push).toHaveBeenCalledWith("/dashboard/workshop/ro1?tab=stock#warehouse");
+    expect(useGlobalSearchStore.getState().open).toBe(false);
+  });
+
+  it("Enter on a data result still opens it; only → or the chevron open its submenu", async () => {
+    findExactHitsMock.mockResolvedValue({
+      success: true,
+      data: {
+        exact: [
+          {
+            type: "repairOrder",
+            id: "ro1",
+            code: "ZL/174232",
+            title: "Lakomecki",
+            subtitle: null,
+            status: "open",
+            href: "/dashboard/workshop/ro1",
+          },
+        ],
+        results: [],
+        otherBranches: [],
+      },
+    });
+    renderDialog();
+    openPalette();
+    type("174232");
+    await screen.findAllByText(byText("ZL/174232"));
+
+    fireEvent.click(screen.getAllByTestId("palette-submenu-toggle")[0]!);
+    expect(screen.getByTestId("palette-submenu")).toBeInTheDocument();
+    expect(push).not.toHaveBeenCalled();
+    fireEvent.click(screen.getAllByTestId("palette-submenu-toggle")[0]!);
+    expect(screen.queryByTestId("palette-submenu")).not.toBeInTheDocument();
+
+    fireEvent.keyDown(screen.getByRole("combobox"), { key: "Enter" });
+    expect(push).toHaveBeenCalledWith("/dashboard/workshop/ro1");
   });
 
   it("opens a page in a new tab with Ctrl+Enter", () => {
@@ -524,34 +634,64 @@ describe("GlobalSearchDialog", () => {
     expect(useGlobalSearchStore.getState().open).toBe(false);
   });
 
-  it("previews colour themes while browsing, restores on Esc and saves on Enter", () => {
+  it("colour themes are a submenu: preview while browsing, Esc restores and goes up, next Esc closes", () => {
     document.documentElement.setAttribute("data-theme", "default");
     renderDialog();
     openPalette();
     type("kolory");
     fireEvent.click(screen.getByText(byText("Zmień motyw kolorystyczny")));
 
-    expect(screen.getByText("colorTheme.heading")).toBeInTheDocument();
+    expect(screen.getByTestId("palette-submenu")).toBeInTheDocument();
+    expect(screen.getByTestId("palette-submenu-hints")).toBeInTheDocument();
     const input = screen.getByRole("combobox");
     // Arrow down highlights the next theme and previews it, nothing saved yet
     fireEvent.keyDown(input, { key: "ArrowDown" });
     expect(document.documentElement.getAttribute("data-theme")).toBe("sunset");
     expect(setColorThemeMock).not.toHaveBeenCalled();
 
-    // Esc restores the theme the picker opened with and goes back to the search
+    // First Esc: theme restored, submenu collapsed, the row selected, palette still open
     fireEvent.keyDown(input, { key: "Escape" });
     expect(document.documentElement.getAttribute("data-theme")).toBe("default");
-    expect(screen.queryByText("colorTheme.heading")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("palette-submenu")).not.toBeInTheDocument();
     expect(useGlobalSearchStore.getState().open).toBe(true);
+    expect(
+      screen.getByText(byText("Zmień motyw kolorystyczny")).closest("[cmdk-item]")
+    ).toHaveAttribute("data-selected", "true");
 
-    // Pick again, filter, Enter saves
+    // Second Esc closes the palette
+    fireEvent.keyDown(input, { key: "Escape" });
+    expect(useGlobalSearchStore.getState().open).toBe(false);
+  });
+
+  it("Enter in the colour theme submenu saves the theme and returns to the row", () => {
+    document.documentElement.setAttribute("data-theme", "default");
+    renderDialog();
+    openPalette();
+    type("kolory");
+    // Enter on the row opens the submenu (the row has no action of its own)
+    fireEvent.keyDown(screen.getByRole("combobox"), { key: "Enter" });
+    expect(screen.getByTestId("palette-submenu")).toBeInTheDocument();
+
+    fireEvent.keyDown(screen.getByRole("combobox"), { key: "ArrowDown" });
+    fireEvent.keyDown(screen.getByRole("combobox"), { key: "Enter" });
+    expect(setColorThemeMock).toHaveBeenCalledWith("sunset");
+    expect(document.documentElement.getAttribute("data-theme")).toBe("sunset");
+    expect(screen.queryByTestId("palette-submenu")).not.toBeInTheDocument();
+    expect(useGlobalSearchStore.getState().open).toBe(true);
+  });
+
+  it("collapses the submenu and undoes the preview when the row leaves the list", () => {
+    document.documentElement.setAttribute("data-theme", "default");
+    renderDialog();
+    openPalette();
     type("kolory");
     fireEvent.click(screen.getByText(byText("Zmień motyw kolorystyczny")));
-    type("graph");
-    fireEvent.keyDown(screen.getByRole("combobox"), { key: "Enter" });
-    expect(setColorThemeMock).toHaveBeenCalledWith("graphite");
-    expect(document.documentElement.getAttribute("data-theme")).toBe("graphite");
-    expect(useGlobalSearchStore.getState().open).toBe(false);
+    fireEvent.keyDown(screen.getByRole("combobox"), { key: "ArrowDown" });
+    expect(document.documentElement.getAttribute("data-theme")).toBe("sunset");
+
+    type("stany");
+    expect(screen.queryByTestId("palette-submenu")).not.toBeInTheDocument();
+    expect(document.documentElement.getAttribute("data-theme")).toBe("default");
   });
 
   it("undoes an unsaved theme preview when the palette closes", () => {

@@ -464,7 +464,8 @@
     "no": "Nie",
     "save": "Zapisz zmiany",
     "saving": "Zapisywanie...",
-    "profileUpdated": "Profil został zaktualizowany"
+    "profileUpdated": "Profil został zaktualizowany",
+    "phoneHint": "Widoczny dla współpracowników w Twojej organizacji (Kontakty)."
   },
   "AccountPage": {
     "title": "Konto",
@@ -4248,6 +4249,21 @@
       "errors": {
         "loadRetry": "Nie udało się załadować danych CRM. Spróbuj ponownie.",
         "tryAgain": "Spróbuj ponownie"
+      },
+      "directory": {
+        "kinds": {
+          "member": "Pracownik",
+          "external": "Zewnętrzny"
+        },
+        "kindFilter": {
+          "label": "Rodzaj",
+          "member": "Pracownicy",
+          "external": "Zewnętrzne"
+        },
+        "memberNote": "Dane z profilu pracownika. Zmienia je sam w Konto → Profil.",
+        "messageMember": "Napisz wiadomość",
+        "branchField": "Oddział",
+        "you": "To Ty"
       }
     },
     "analytics": {
@@ -8072,10 +8088,10 @@
       "newAudit": "Nowa inwentaryzacja",
       "newTicket": "Nowe zapytanie",
       "inviteMember": "Zaproś osobę do organizacji",
-      "toggleTheme": "Przełącz motyw jasny / ciemny",
-      "toggleLocale": "Zmień język (polski / angielski)",
+      "toggleTheme": "Motyw jasny / ciemny",
+      "toggleLocale": "Język (polski / angielski)",
       "signOut": "Wyloguj się",
-      "pickColorTheme": "Zmień motyw kolorystyczny…"
+      "pickColorTheme": "Motyw kolorystyczny"
     },
     "searching": "Szukam…",
     "hitTypes": {
@@ -8242,6 +8258,17 @@
       "hintPreview": "podgląd",
       "hintApply": "zapisz",
       "hintRestore": "przywróć poprzedni"
+    },
+    "themeMode": {
+      "light": "Jasny",
+      "dark": "Ciemny",
+      "system": "Systemowy"
+    },
+    "submenu": {
+      "toggle": "Pokaż opcje",
+      "open": "opcje",
+      "pick": "wybierz",
+      "back": "wróć"
     }
   },
   "chat": {
@@ -8284,7 +8311,9 @@
       "hint": "Enter wyślij · Shift+Enter nowa linia",
       "uploading": "Wysyłanie plików…",
       "loadFailed": "Nie udało się wczytać wiadomości",
-      "retry": "Spróbuj ponownie"
+      "retry": "Spróbuj ponownie",
+      "options": "Opcje rozmowy",
+      "manageGroup": "Członkowie i ustawienia grupy"
     },
     "system": {
       "created": "{actor} utworzył(a) grupę „{name}”",
@@ -8346,5 +8375,26 @@
       "muted": "Wyciszona",
       "back": "Wróć do listy"
     }
+  },
+  "contactsDrawer": {
+    "title": "Kontakty",
+    "description": "Pracownicy organizacji i kontakty zewnętrzne",
+    "search": "Szukaj po nazwisku, e-mailu, telefonie",
+    "tabsLabel": "Rodzaj kontaktu",
+    "tabs": {
+      "all": "Wszystkie",
+      "members": "Pracownicy",
+      "external": "Zewnętrzne"
+    },
+    "member": "Pracownik",
+    "you": "Ty",
+    "message": "Napisz wiadomość",
+    "email": "Wyślij e-mail",
+    "call": "Zadzwoń",
+    "empty": "Brak kontaktów",
+    "noResults": "Nic nie znaleziono",
+    "loadFailed": "Nie udało się wczytać kontaktów",
+    "retry": "Spróbuj ponownie",
+    "openModule": "Otwórz moduł Kontakty"
   }
 }

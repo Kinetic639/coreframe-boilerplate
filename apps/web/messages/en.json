@@ -464,7 +464,8 @@
     "no": "No",
     "save": "Save Changes",
     "saving": "Saving...",
-    "profileUpdated": "Profile updated successfully"
+    "profileUpdated": "Profile updated successfully",
+    "phoneHint": "Visible to colleagues in your organization (Contacts)."
   },
   "AccountPage": {
     "title": "Account",
@@ -4277,6 +4278,21 @@
       "errors": {
         "loadRetry": "Failed to load CRM data. Please try again.",
         "tryAgain": "Try again"
+      },
+      "directory": {
+        "kinds": {
+          "member": "Employee",
+          "external": "External"
+        },
+        "kindFilter": {
+          "label": "Kind",
+          "member": "Employees",
+          "external": "External"
+        },
+        "memberNote": "From the employee's profile. They change it themselves in Account → Profile.",
+        "messageMember": "Send a message",
+        "branchField": "Branch",
+        "you": "This is you"
       }
     },
     "analytics": {
@@ -8098,10 +8114,10 @@
       "newAudit": "New stock count",
       "newTicket": "New request",
       "inviteMember": "Invite someone to the organization",
-      "toggleTheme": "Toggle light / dark theme",
-      "toggleLocale": "Change language (Polish / English)",
+      "toggleTheme": "Light / dark theme",
+      "toggleLocale": "Language (Polish / English)",
       "signOut": "Sign out",
-      "pickColorTheme": "Change colour theme…"
+      "pickColorTheme": "Colour theme"
     },
     "searching": "Searching…",
     "hitTypes": {
@@ -8268,6 +8284,17 @@
       "hintPreview": "preview",
       "hintApply": "save",
       "hintRestore": "restore previous"
+    },
+    "themeMode": {
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System"
+    },
+    "submenu": {
+      "toggle": "Show options",
+      "open": "options",
+      "pick": "pick",
+      "back": "back"
     }
   },
   "chat": {
@@ -8310,7 +8337,9 @@
       "hint": "Enter to send · Shift+Enter new line",
       "uploading": "Uploading files…",
       "loadFailed": "Could not load messages",
-      "retry": "Try again"
+      "retry": "Try again",
+      "options": "Conversation options",
+      "manageGroup": "Members and group settings"
     },
     "system": {
       "created": "{actor} created the group “{name}”",
@@ -8372,5 +8401,26 @@
       "muted": "Muted",
       "back": "Back to the list"
     }
+  },
+  "contactsDrawer": {
+    "title": "Contacts",
+    "description": "People in your organization and external contacts",
+    "search": "Search by name, e-mail, phone",
+    "tabsLabel": "Contact kind",
+    "tabs": {
+      "all": "All",
+      "members": "Employees",
+      "external": "External"
+    },
+    "member": "Employee",
+    "you": "You",
+    "message": "Send a message",
+    "email": "Send an e-mail",
+    "call": "Call",
+    "empty": "No contacts",
+    "noResults": "Nothing found",
+    "loadFailed": "Could not load contacts",
+    "retry": "Try again",
+    "openModule": "Open the Contacts module"
   }
 }
