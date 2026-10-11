@@ -7,37 +7,39 @@
 
 ## Progress
 
-| Faza | Zakres                                                | Status |
-| ---- | ----------------------------------------------------- | ------ |
-| N0   | Tabela, RLS, `notify()`, kanał realtime               | ⬜     |
-| N1   | Źródła zdarzeń (tickety, komentarze, zadania, portal) | ⬜     |
-| N2   | Szuflada, licznik, toast, strona                      | ⬜     |
-| N3   | Ustawienia, e-mail, przypomnienia, retencja           | ⬜     |
+| Faza | Zakres                                                | Status                               |
+| ---- | ----------------------------------------------------- | ------------------------------------ |
+| N0   | Tabela, RLS, `notify()`, kanał realtime               | ✅                                   |
+| N1   | Źródła zdarzeń (tickety, komentarze, zadania, portal) | ✅ (wzmianki po M4)                  |
+| N2   | Szuflada, licznik, toast, strona                      | ✅ kod + testy, czeka na test ręczny |
+| N3   | Ustawienia, e-mail, przypomnienia, retencja           | ⬜                                   |
 
-- [ ] **N0** — fundament
-  - [ ] Tabela `notifications` (§3.1), indeksy, RLS „tylko adresat” (select, update `read_at`), bez insert z klienta
-  - [ ] `public.notify(...)` SECURITY DEFINER: deduplikacja, pomija autora, sprawdza dostęp adresata do obiektu, respektuje ustawienia
-  - [ ] Realtime: prywatny kanał `user:<uid>:notifications`, wysyłany z bazy (`realtime.send` w triggerze po insert), polityka na `realtime.messages`
-  - [ ] RPC: `notifications_list(cursor, filter)`, `notifications_unread_count()`, `notifications_mark_read(ids)`, `notifications_mark_all_read()`
-  - [ ] Serwis + akcje + hooki (`useNotifications`, `useUnreadNotificationsCount`)
-  - [ ] pgTAP: cudzy adresat niewidoczny, inna organizacja, brak insert z `authenticated`, kanał tylko dla właściciela
-- [ ] **N1** — źródła zdarzeń (triggery w bazie, nie w akcjach — działa też dla portalu i importów)
-  - [ ] Help Desk: przypisanie (`helpdesk_ticket_assignees`), zmiana statusu i zamknięcie (`helpdesk_ticket_activity`), nowy komentarz w moim tickecie
-  - [ ] Portal Ambra Zapytania: nowe zapytanie → domyślni odpowiadający typu (`helpdesk_ticket_type_default_responders`)
-  - [ ] Komentarze (`app_comments`): wzmianka `@` + nowy komentarz dla uczestników obiektu (zgłaszający, przypisani, doradca zlecenia, wykonawca zadania); komentarze `internal` tylko dla uprawnionych
-  - [ ] Wzmianka `@` w wiadomości czatu → powiadomienie tylko dla wspomnianej osoby
-  - [ ] Zadania: przypisanie / zmiana wykonawcy (`planning_tasks.assigned_to`), zmiana statusu dla autora
-  - [ ] Zlecenia: komentarz → doradca (obserwujący, gdy powstaną)
+- [x] **N0** — fundament (migracja `20261011054231_notifications`, wdrożona)
+  - [x] Tabela `notifications` (§3.1), indeksy, RLS „tylko adresat” (select), bez zapisu z klienta
+  - [x] `_notify(...)` SECURITY DEFINER: pomija autora akcji, tylko aktywni członkowie organizacji, respektuje ustawienia (`inApp.enabled`, `inApp.disabledTypes`), deduplikacja po `dedupe_key`
+  - [x] Realtime: prywatny kanał `user:<uid>:notifications`, wysyłany z bazy (`realtime.send` w triggerze po insert), polityka na `realtime.messages`
+  - [x] RPC: `notifications_list(org, filter, limit, before)`, `notifications_unread_count(org)`, `notifications_set_read(ids, read)` (przeczytane ↔ nieprzeczytane), `notifications_mark_all_read(org)`
+  - [x] Serwis + akcje + hooki (`useNotifications`, `useUnreadNotificationsCount`, `useNotificationReadActions`, `useNotificationsRealtime`)
+  - [x] pgTAP `123_notifications_test.sql` (15/15): cudzy adresat niewidoczny, inna organizacja, brak zapisu z `authenticated`, źródła zdarzeń
+- [x] **N1** — źródła zdarzeń (triggery w bazie, nie w akcjach — działa też dla portalu i importów)
+  - [x] Help Desk: przypisanie (`helpdesk_ticket_assignees`: `ticket.new` przy tworzeniu, `ticket.assigned` później), zmiana statusu / zamknięcie / akceptacja (`helpdesk_ticket_activity`), komentarz w tickecie
+  - [x] Portal Ambra Zapytania: nowe zapytanie tworzy przypisania odpowiadających, więc dostają `ticket.new`
+  - [x] Komentarze (`app_comments`): zgłaszający i przypisani (ticket; komentarz `internal` tylko do przypisanych), wykonawca i autor (zadanie), doradca (zlecenie)
+  - [x] Zadania: przypisanie / zmiana wykonawcy (`planning_tasks.assigned_to`), zmiana statusu dla autora i wykonawcy
+  - [ ] Wzmianka `@` w komentarzu i w czacie — po fazie M4 wiadomości (edytor ze wzmiankami); typ `mention` i filtr są już w bazie
+  - [ ] Zlecenia: obserwujący (model nie istnieje — dziś powiadomienie dostaje doradca)
   - [ ] Magazyn (P2): przyjęta dostawa z pozycjami do rozłożenia → osoby z uprawnieniem rozkładania w oddziale
-  - [ ] Testy pgTAP per źródło: kto dostaje, kto nie (autor, brak dostępu, inny oddział)
-- [ ] **N2** — UI (design: strona „Powiadomienia”, w stylu kompaktowym)
-  - [ ] Zastąpić mock `components/v2/layout/header-notifications.tsx`
-  - [ ] Dzwonek: licznik (9+), realtime, catch-up po powrocie karty / ponownym połączeniu
-  - [ ] Szuflada: zakładki Wszystkie / Nieprzeczytane / Wzmianki / Przypisane do mnie, grupy Dzisiaj / Wczoraj / Wcześniej, cytat przy wzmiance, kropka nieprzeczytanych, „Oznacz wszystkie”, przewijanie z doczytywaniem
-  - [ ] Kliknięcie: oznacza przeczytane i otwiera obiekt (`href` z rejestru celów)
-  - [ ] Toast przy nowym (react-toastify, własny wygląd): Otwórz / Oznacz jako przeczytane; bez toastu, gdy szuflada otwarta
-  - [ ] Strona `/dashboard/powiadomienia` (pełna lista, filtry), link w stopce szuflady
-  - [ ] Pusty stan, błąd, ładowanie; i18n pl/en; testy komponentów
+- [x] **N2** — UI (kompaktowy styl jak wiadomości)
+  - [x] Mock `components/v2/layout/header-notifications.tsx` zastąpiony prawdziwym dzwonkiem
+  - [x] Dzwonek: licznik (9+), realtime, przeładowanie po ponownym połączeniu
+  - [x] Szuflada: zakładki Wszystkie / Nieprzeczytane / Przypisane do mnie, grupy Dzisiaj / Wczoraj / Wcześniej, cytat przy komentarzu, „Oznacz wszystkie”, doczytywanie starszych
+  - [x] Koperta przy powiadomieniu zamiast kropki: zamknięta = nieprzeczytane, otwarta = przeczytane; kliknięcie przełącza stan bez otwierania
+  - [x] Kliknięcie w powiadomienie: oznacza przeczytane i otwiera obiekt
+  - [x] Toast przy nowym (react-toastify): Otwórz / Oznacz jako przeczytane; bez toastu, gdy szuflada otwarta
+  - [x] Strona `/dashboard/powiadomienia` (pełna lista, filtry), link w stopce szuflady
+  - [x] Pusty stan, błąd, ładowanie; i18n pl/en; testy komponentów
+  - [ ] Zakładka „Wzmianki” — razem ze wzmiankami (N1)
+  - [ ] Test ręczny na deployu: dwa konta, przypisanie ticketu i komentarz → dzwonek i toast bez odświeżania
 - [ ] **N3** — ustawienia i e-mail
   - [ ] Ustawienia na `/dashboard/account/notifications`: zdarzenie × kanał (W aplikacji / E-mail), `user_preferences.notification_settings`
   - [ ] E-mail (Resend, `@react-email`): przypisanie i wzmianka, z opóźnieniem (np. 10 min), wysyłane tylko gdy nieprzeczytane; cisza nocna

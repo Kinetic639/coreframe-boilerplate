@@ -66,6 +66,7 @@
   - [ ] Opisy zadań i zgłoszeń, inne pola `RichTextEditorField`
   - [ ] Portal Ambra Zapytania: tylko jeśli zdecydujemy o zakresie źródeł dla klientów portalu (domyślnie bez wzmianek)
 - [ ] **M5** — po demo
+  - [ ] Optymalizacje realtime (obecność, „przeczytane” w grupach, paczkowanie oznaczania, pomiar) — lista i wyjaśnienie w `docs/MESSAGES_REALTIME_NOTES.md`
   - [ ] Telefon: lista i rozmowa na pełnym ekranie (bez paska i okienek), wejście z nagłówka / dolnej nawigacji
   - [ ] Ctrl+K: źródło „Osoby → napisz wiadomość”, źródło „Rozmowy”
   - [ ] Dźwięk nowej wiadomości (wyłączalny), licznik w tytule karty przeglądarki
