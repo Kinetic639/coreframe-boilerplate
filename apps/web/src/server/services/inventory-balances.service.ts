@@ -125,6 +125,45 @@ export class InventoryBalancesService {
     };
   }
 
+  /**
+   * Where one item lies in a branch: a row per variant and location that holds
+   * (or held) stock, largest quantity first. Shown on the item's page.
+   */
+  static async listForProduct(
+    supabase: SupabaseClient,
+    orgId: string,
+    branchId: string,
+    productId: string
+  ): Promise<ServiceResult<InventoryBalanceListRow[]>> {
+    const { data: variants, error: variantsError } = await supabase
+      .from("inventory_variants")
+      .select("id")
+      .eq("organization_id", orgId)
+      .eq("product_id", productId)
+      .is("deleted_at", null);
+    if (variantsError) return { success: false, error: variantsError.message };
+    const variantIds = ((variants ?? []) as { id: string }[]).map((variant) => variant.id);
+    if (variantIds.length === 0) return { success: true, data: [] };
+
+    const { data, error } = await supabase
+      .from("inventory_balances")
+      .select(BALANCE_COLUMNS)
+      .eq("organization_id", orgId)
+      .eq("branch_id", branchId)
+      .in("variant_id", variantIds)
+      .neq("on_hand_quantity", 0)
+      .order("on_hand_quantity", { ascending: false })
+      .limit(200);
+    if (error) return { success: false, error: error.message };
+
+    return InventoryBalancesService.enrichBalances(
+      supabase,
+      orgId,
+      branchId,
+      (data ?? []) as BalanceRow[]
+    );
+  }
+
   static async getBalanceDetail(
     supabase: SupabaseClient,
     orgId: string,

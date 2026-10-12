@@ -7,6 +7,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { checkPermission } from "@/lib/utils/permissions";
 import {
   CRM_PARTIES_READ,
+  WAREHOUSE_INVENTORY_READ,
   WAREHOUSE_PRODUCTS_MANAGE,
   WAREHOUSE_PRODUCTS_READ,
   WAREHOUSE_READ,
@@ -28,6 +29,8 @@ import {
   type WarehouseItemSupplierRow,
 } from "@/server/services/warehouse-item-suppliers.service";
 import { InventoryReceivingService } from "@/server/services/inventory-receiving.service";
+import { InventoryBalancesService } from "@/server/services/inventory-balances.service";
+import type { InventoryBalanceListRow } from "@/lib/warehouse/inventory-types";
 import { ProductHandlingCard } from "./_components/product-handling-card";
 
 type PageProps = {
@@ -84,6 +87,19 @@ export default async function WarehouseItemDetailPage({ params }: PageProps) {
     ? await InventoryReceivingService.getProductSettings(supabase, activeBranchId, product.id)
     : null;
   const handling = handlingResult?.success ? handlingResult.data : null;
+  // Stock per location (replaces the old "Inventory" list page)
+  const tStock = await getTranslations("warehouseInventory.detail.stockByLocation");
+  const canReadStock = checkPermission(context.user.permissionSnapshot, WAREHOUSE_INVENTORY_READ);
+  const stockResult =
+    activeBranchId && canReadStock
+      ? await InventoryBalancesService.listForProduct(
+          supabase,
+          context.app.activeOrgId,
+          activeBranchId,
+          product.id
+        )
+      : null;
+  const stockRows = stockResult?.success ? stockResult.data : [];
 
   return (
     <div className="mx-auto grid w-full max-w-7xl gap-6 p-6">
@@ -306,6 +322,26 @@ export default async function WarehouseItemDetailPage({ params }: PageProps) {
         </section>
       ) : null}
 
+      {canReadStock ? (
+        <StockByLocationSection
+          rows={stockRows}
+          showSku={hasVisibleVariants}
+          locale={locale}
+          labels={{
+            title: tStock("title"),
+            empty: activeBranchId ? tStock("empty") : tStock("noBranch"),
+            sku: tc("sku"),
+            location: tc("location"),
+            onHand: tList("onHand"),
+            available: tList("available"),
+            avgCost: tStock("avgCost"),
+            value: tStock("value"),
+            lastMovement: tStock("lastMovement"),
+            total: tStock("total"),
+          }}
+        />
+      ) : null}
+
       <section className="grid gap-4 rounded-md border p-4">
         <h2 className="text-lg font-medium">{tDetail("unitConversions")}</h2>
         {product.unit_conversions.length > 0 ? (
@@ -325,6 +361,120 @@ export default async function WarehouseItemDetailPage({ params }: PageProps) {
         )}
       </section>
     </div>
+  );
+}
+
+/** Where the item lies in the active branch: quantity and value per location */
+function StockByLocationSection({
+  rows,
+  showSku,
+  locale,
+  labels,
+}: {
+  rows: InventoryBalanceListRow[];
+  showSku: boolean;
+  locale: string;
+  labels: Record<
+    | "title"
+    | "empty"
+    | "sku"
+    | "location"
+    | "onHand"
+    | "available"
+    | "avgCost"
+    | "value"
+    | "lastMovement"
+    | "total",
+    string
+  >;
+}) {
+  const money = (value: number, currency: string) =>
+    new Intl.NumberFormat(locale, { style: "currency", currency }).format(value);
+  const currency = rows[0]?.currency ?? "PLN";
+  const sameCurrency = rows.every((row) => row.currency === currency);
+  const totalOnHand = rows.reduce((sum, row) => sum + row.on_hand_quantity, 0);
+  const totalValue = rows.reduce((sum, row) => sum + row.total_value, 0);
+
+  return (
+    <section className="grid gap-3 rounded-md border p-4" data-testid="stock-by-location">
+      <h2 className="text-lg font-medium">{labels.title}</h2>
+      {rows.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{labels.empty}</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[560px] text-sm">
+            <thead>
+              <tr className="border-b text-left text-xs text-muted-foreground">
+                {showSku ? <th className="py-1.5 pr-3 font-medium">{labels.sku}</th> : null}
+                <th className="py-1.5 pr-3 font-medium">{labels.location}</th>
+                <th className="py-1.5 pr-3 text-right font-medium">{labels.onHand}</th>
+                <th className="py-1.5 pr-3 text-right font-medium">{labels.available}</th>
+                <th className="py-1.5 pr-3 text-right font-medium">{labels.avgCost}</th>
+                <th className="py-1.5 pr-3 text-right font-medium">{labels.value}</th>
+                <th className="py-1.5 font-medium">{labels.lastMovement}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.id} className="border-b last:border-b-0">
+                  {showSku ? <td className="py-1.5 pr-3 font-mono text-xs">{row.sku}</td> : null}
+                  <td className="py-1.5 pr-3">
+                    {row.location_code ? (
+                      <span className="mr-1.5 font-mono text-xs">{row.location_code}</span>
+                    ) : null}
+                    {row.location_name}
+                  </td>
+                  <td className="py-1.5 pr-3 text-right tabular-nums">
+                    {row.on_hand_quantity} {row.unit_code}
+                  </td>
+                  <td className="py-1.5 pr-3 text-right tabular-nums">
+                    {row.available_quantity} {row.unit_code}
+                  </td>
+                  <td className="py-1.5 pr-3 text-right tabular-nums">
+                    {money(row.average_unit_cost, row.currency)}
+                  </td>
+                  <td className="py-1.5 pr-3 text-right tabular-nums">
+                    {money(row.total_value, row.currency)}
+                  </td>
+                  <td className="py-1.5">
+                    {row.last_movement_id && row.last_movement_number ? (
+                      <Link
+                        href={{
+                          pathname: "/dashboard/warehouse/inventory/movements/[movementId]",
+                          params: { movementId: row.last_movement_id },
+                        }}
+                        className="font-mono text-xs text-primary underline-offset-2 hover:underline"
+                      >
+                        {row.last_movement_number}
+                      </Link>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            {rows.length > 1 ? (
+              <tfoot>
+                <tr className="border-t font-medium">
+                  <td className="py-1.5 pr-3" colSpan={showSku ? 2 : 1}>
+                    {labels.total}
+                  </td>
+                  <td className="py-1.5 pr-3 text-right tabular-nums">
+                    {totalOnHand} {rows[0]?.unit_code}
+                  </td>
+                  <td colSpan={2} />
+                  <td className="py-1.5 pr-3 text-right tabular-nums">
+                    {sameCurrency ? money(totalValue, currency) : "—"}
+                  </td>
+                  <td />
+                </tr>
+              </tfoot>
+            ) : null}
+          </table>
+        </div>
+      )}
+    </section>
   );
 }
 
