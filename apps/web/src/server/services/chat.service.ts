@@ -2,6 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ServiceResult } from "./organization.service";
+import { OrgMemberPublicProfileService } from "./org-member-public-profile.service";
 import {
   CHAT_MESSAGES_PAGE_SIZE,
   type ChatConversationDetail,
@@ -56,6 +57,32 @@ export interface SendChatMessageInput {
   mentions?: unknown[];
 }
 
+/**
+ * Fills `avatar_url` of people in chat data. The chat RPCs return the profile
+ * row's avatar_url, but uploaded avatars are private storage objects that need
+ * a signed URL — without this step the chat showed initials only.
+ */
+async function withAvatars<T>(
+  supabase: SupabaseClient,
+  orgId: string,
+  value: T,
+  people: (value: T) => ({ user_id: string; avatar_url?: string | null } | null | undefined)[]
+): Promise<T> {
+  const list = people(value).filter(
+    (person): person is { user_id: string; avatar_url?: string | null } => !!person?.user_id
+  );
+  if (list.length === 0) return value;
+  const urls = await OrgMemberPublicProfileService.avatarUrls(
+    supabase,
+    orgId,
+    list.map((person) => person.user_id)
+  );
+  for (const person of list) {
+    person.avatar_url = urls.get(person.user_id) ?? person.avatar_url ?? null;
+  }
+  return value;
+}
+
 export class ChatService {
   static async listConversations(
     supabase: SupabaseClient,
@@ -68,7 +95,13 @@ export class ChatService {
       p_before: options.before ?? null,
     });
     if (error) return fail(error, "listConversations");
-    return { success: true, data: (data ?? []) as ChatConversationSummary[] };
+    const list = await withAvatars(
+      supabase,
+      orgId,
+      (data ?? []) as ChatConversationSummary[],
+      (conversations) => conversations.flatMap((conversation) => conversation.members)
+    );
+    return { success: true, data: list };
   }
 
   static async getConversation(
@@ -80,7 +113,11 @@ export class ChatService {
     });
     if (error) return fail(error, "getConversation");
     if (!data) return { success: false, error: "notFound" };
-    return { success: true, data: data as ChatConversationDetail };
+    const detail = data as ChatConversationDetail;
+    return {
+      success: true,
+      data: await withAvatars(supabase, detail.organization_id, detail, (d) => d.members),
+    };
   }
 
   /** Newest page first from the database, returned oldest first for display */
@@ -222,7 +259,10 @@ export class ChatService {
   ): Promise<ServiceResult<ChatInvitation[]>> {
     const { data, error } = await supabase.rpc("chat_list_invitations", { p_org: orgId });
     if (error) return fail(error, "listInvitations");
-    return { success: true, data: (data ?? []) as ChatInvitation[] };
+    const list = await withAvatars(supabase, orgId, (data ?? []) as ChatInvitation[], (rows) =>
+      rows.map((row) => row.invited_by)
+    );
+    return { success: true, data: list };
   }
 
   /** Joins (accept) or declines a group invitation */
@@ -256,13 +296,20 @@ export class ChatService {
   /** People invited to a conversation who have not answered (members only) */
   static async listPendingInvites(
     supabase: SupabaseClient,
+    orgId: string,
     conversationId: string
   ): Promise<ServiceResult<ChatPendingInvite[]>> {
     const { data, error } = await supabase.rpc("chat_pending_invitations", {
       p_conversation_id: conversationId,
     });
     if (error) return fail(error, "listPendingInvites");
-    return { success: true, data: (data ?? []) as ChatPendingInvite[] };
+    const list = await withAvatars(
+      supabase,
+      orgId,
+      (data ?? []) as ChatPendingInvite[],
+      (rows) => rows
+    );
+    return { success: true, data: list };
   }
 
   /** Owner removes a member; removing oneself leaves the group */

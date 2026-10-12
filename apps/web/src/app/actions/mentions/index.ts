@@ -7,17 +7,21 @@ import { MENTION_PERSON, UUID_RE, type MentionPerson } from "@/lib/mentions";
 
 type ActionResult<T> = { success: true; data: T } | { success: false; error: string };
 
-/** Table behind each mentionable object type; reads go through the viewer's RLS */
-const MENTION_TABLES: Record<string, string> = {
-  repairOrder: "repair_orders",
-  item: "inventory_products",
-  ticket: "helpdesk_tickets",
-  task: "planning_tasks",
-  document: "inventory_movement_headers",
-  container: "inventory_containers",
-  location: "warehouse_locations",
-  party: "crm_parties",
-  contact: "crm_contacts",
+/**
+ * Table (and its organization column) behind each mentionable object type;
+ * reads go through the viewer's RLS.
+ */
+const MENTION_TABLES: Record<string, { table: string; orgColumn: string }> = {
+  repairOrder: { table: "repair_orders", orgColumn: "organization_id" },
+  item: { table: "inventory_products", orgColumn: "organization_id" },
+  // Help Desk names the column differently
+  ticket: { table: "helpdesk_tickets", orgColumn: "org_id" },
+  task: { table: "planning_tasks", orgColumn: "organization_id" },
+  document: { table: "inventory_movement_headers", orgColumn: "organization_id" },
+  container: { table: "inventory_containers", orgColumn: "organization_id" },
+  location: { table: "warehouse_locations", orgColumn: "organization_id" },
+  party: { table: "crm_parties", orgColumn: "organization_id" },
+  contact: { table: "crm_contacts", orgColumn: "organization_id" },
 };
 
 const refsSchema = z
@@ -95,10 +99,12 @@ export async function resolveMentionsAction(rawRefs: unknown): Promise<ActionRes
 
     const readable = await Promise.all(
       [...idsByType.entries()].map(async ([type, ids]) => {
+        const { table, orgColumn } = MENTION_TABLES[type];
         const { data, error } = await ctx.supabase
-          .from(MENTION_TABLES[type])
+          .from(table)
           .select("id")
-          .eq("organization_id", ctx.orgId)
+          .eq(orgColumn, ctx.orgId)
+          .is("deleted_at", null)
           .in("id", [...ids]);
         if (error) {
           console.error("[resolveMentionsAction]", type, error);
