@@ -37,8 +37,9 @@ interface LoadedImage extends CropImageSize {
 /**
  * Framing of a profile photo before it is uploaded: the picked image is shown
  * in a square with a round guide; drag (or arrow keys) moves it, the slider /
- * wheel / + − zoom. "Save" hands back a square 512 px JPEG, so avatars are
- * never stretched and the face is where the person put it.
+ * wheel / + − zoom. "Save" hands back a square 512 px image (JPEG for photos,
+ * WebP / PNG with transparency kept for everything else), so avatars are never
+ * stretched and the face is where the person put it.
  */
 export function AvatarCropDialog({
   file,
@@ -105,9 +106,6 @@ export function AvatarCropDialog({
       canvas.height = AVATAR_OUTPUT_SIZE;
       const context = canvas.getContext("2d");
       if (!context) throw new Error("no canvas");
-      // Transparent PNGs get a white background in the JPEG
-      context.fillStyle = "#ffffff";
-      context.fillRect(0, 0, AVATAR_OUTPUT_SIZE, AVATAR_OUTPUT_SIZE);
       context.imageSmoothingQuality = "high";
       context.drawImage(
         image.element,
@@ -120,11 +118,17 @@ export function AvatarCropDialog({
         AVATAR_OUTPUT_SIZE,
         AVATAR_OUTPUT_SIZE
       );
+      // A photo (JPEG) stays a JPEG. Anything that can be transparent (PNG, WebP,
+      // GIF, SVG) is saved with its transparency — never flattened onto white.
+      const opaque = file?.type === "image/jpeg";
       const blob = await new Promise<Blob | null>((resolve) =>
-        canvas.toBlob(resolve, "image/jpeg", 0.9)
+        canvas.toBlob(resolve, opaque ? "image/jpeg" : "image/webp", 0.9)
       );
       if (!blob) throw new Error("no blob");
-      await onConfirm(new File([blob], "avatar.jpg", { type: "image/jpeg" }));
+      // Browsers that cannot write WebP answer with a PNG (also transparent)
+      const extension =
+        blob.type === "image/jpeg" ? "jpg" : blob.type === "image/webp" ? "webp" : "png";
+      await onConfirm(new File([blob], `avatar.${extension}`, { type: blob.type }));
     } catch {
       setFailed(true);
     } finally {
@@ -153,7 +157,7 @@ export function AvatarCropDialog({
             aria-label={t("area")}
             tabIndex={0}
             data-testid="avatar-crop-area"
-            className="relative touch-none select-none overflow-hidden rounded-md bg-muted outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="relative touch-none select-none overflow-hidden rounded-md bg-muted bg-[repeating-conic-gradient(rgba(127,127,127,0.18)_0%_25%,transparent_0%_50%)] bg-[length:16px_16px] outline-none focus-visible:ring-2 focus-visible:ring-ring"
             style={{ width: VIEWPORT, height: VIEWPORT, cursor: image ? "grab" : "default" }}
             onPointerDown={(event) => {
               if (!image) return;
