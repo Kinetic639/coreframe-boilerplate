@@ -24,6 +24,7 @@ import { usePreferencesQuery, useUpdateProfileMutation } from "@/hooks/queries/u
 import { LoadingSkeleton } from "@/components/v2/feedback/loading-skeleton";
 import { CopyToClipboard } from "@/components/v2/utility/copy-to-clipboard";
 import { uploadAvatarAction, removeAvatarAction } from "@/app/actions/user-preferences";
+import { AvatarCropDialog } from "@/components/v2/media/avatar-crop-dialog";
 
 interface ProfileClientProps {
   avatarSignedUrl: string | null;
@@ -44,6 +45,7 @@ export function ProfileClient({ avatarSignedUrl, translations }: ProfileClientPr
   const [displayName, setDisplayName] = useState<string>("");
   const [phone, setPhone] = useState<string>("");
   const [isPendingAvatar, startAvatarTransition] = useTransition();
+  const [cropFile, setCropFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Initialize names from user store
@@ -93,7 +95,12 @@ export function ProfileClient({ avatarSignedUrl, translations }: ProfileClientPr
 
     // Reset input so the same file can be re-selected after removal
     e.target.value = "";
+    // Frame the photo first (position and zoom); the upload happens on "Save"
+    setCropFile(file);
+  };
 
+  const uploadCroppedAvatar = (file: File) => {
+    setCropFile(null);
     const formData = new FormData();
     formData.append("file", file);
 
@@ -187,6 +194,11 @@ export function ProfileClient({ avatarSignedUrl, translations }: ProfileClientPr
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground">Max 5 MB. JPG, PNG, WebP, GIF.</p>
+                <AvatarCropDialog
+                  file={cropFile}
+                  onCancel={() => setCropFile(null)}
+                  onConfirm={uploadCroppedAvatar}
+                />
               </div>
             </div>
 

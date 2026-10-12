@@ -8593,5 +8593,14 @@
       "chatModule": "Messages",
       "chatOpenAll": "Open Messages"
     }
+  },
+  "avatarCrop": {
+    "title": "Frame the photo",
+    "hint": "Drag the photo to position it and use the slider to zoom in.",
+    "area": "Photo framing — drag or use the arrow keys, + and − change the zoom",
+    "zoom": "Zoom",
+    "cancel": "Cancel",
+    "save": "Save photo",
+    "loadFailed": "This file could not be loaded. Pick another photo."
   }
 }
