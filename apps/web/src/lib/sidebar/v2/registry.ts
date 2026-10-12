@@ -99,19 +99,8 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
       requiresPermissions: [MODULE_WAREHOUSE_ACCESS],
     },
     children: [
-      // Flat list (no Inventory / Purchases sub-groups): inventory, movements,
-      // putaway and items sit directly under Warehouse
-      {
-        id: "warehouse.inventory",
-        title: "Inventory",
-        titleKey: "modules.warehouse.items.inventory.title",
-        iconKey: "clipboard",
-        href: "/dashboard/warehouse/inventory",
-        match: { exact: "/dashboard/warehouse/inventory" },
-        visibility: {
-          requiresPermissions: [WAREHOUSE_INVENTORY_READ],
-        },
-      },
+      // Flat list (no Inventory / Purchases sub-groups): movements, putaway and
+      // items sit directly under Warehouse. Stock per location is on the item's page.
       {
         id: "warehouse.inventory.movements",
         title: "Stock Movements",

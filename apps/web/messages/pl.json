@@ -6197,6 +6197,15 @@
         "saving": "Zapisywanie…",
         "saved": "Zapisano sposób obsługi części.",
         "saveError": "Nie udało się zapisać."
+      },
+      "stockByLocation": {
+        "title": "Stany w lokalizacjach",
+        "empty": "Tej części nie ma teraz w żadnej lokalizacji w tym oddziale.",
+        "noBranch": "Wybierz oddział, aby zobaczyć stany.",
+        "avgCost": "Śr. koszt",
+        "value": "Wartość",
+        "lastMovement": "Ostatni ruch",
+        "total": "Razem"
       }
     },
     "inventory": {

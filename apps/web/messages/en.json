@@ -6223,6 +6223,15 @@
         "saving": "Saving…",
         "saved": "Product handling saved.",
         "saveError": "Could not save."
+      },
+      "stockByLocation": {
+        "title": "Stock by location",
+        "empty": "This item is not in any location of this branch right now.",
+        "noBranch": "Pick a branch to see the stock.",
+        "avgCost": "Avg. cost",
+        "value": "Value",
+        "lastMovement": "Last movement",
+        "total": "Total"
       }
     },
     "inventory": {
