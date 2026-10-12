@@ -10,6 +10,7 @@ import { checkPermission } from "@/lib/utils/permissions";
 import { MESSAGES_USE } from "@/lib/constants/permissions";
 import { ChatService, type SendChatMessageInput } from "@/server/services/chat.service";
 import { OrgMembersService } from "@/server/services/organization.service";
+import { OrgMemberPublicProfileService } from "@/server/services/org-member-public-profile.service";
 import {
   CHAT_GROUP_NAME_MAX_LENGTH,
   CHAT_MESSAGE_MAX_LENGTH,
@@ -255,6 +256,7 @@ export async function listPendingChatInvitesAction(
   return run(z.object({ conversationId: uuid }), rawInput, "listPendingInvites", (ctx, input) =>
     ChatService.listPendingInvites(
       ctx.supabase,
+      ctx.orgId,
       (input as { conversationId: string }).conversationId
     )
   );
@@ -301,15 +303,22 @@ export async function listChatPeopleAction(): Promise<ActionResult<ChatPerson[]>
       console.error("[messages.listPeople]", (result as { error: string }).error);
       return { success: false, error: "failed" };
     }
-    const people = result.data
-      .filter((member) => member.user_id !== ctx.userId && member.status === "active")
-      .map((member) => ({
-        userId: member.user_id,
-        firstName: member.user_first_name,
-        lastName: member.user_last_name,
-        email: member.user_email,
-        avatarUrl: member.user_avatar_url,
-      }));
+    const active = result.data.filter(
+      (member) => member.user_id !== ctx.userId && member.status === "active"
+    );
+    // Uploaded avatars are private storage objects: sign them (one call for the list)
+    const avatars = await OrgMemberPublicProfileService.avatarUrls(
+      ctx.supabase,
+      ctx.orgId,
+      active.map((member) => member.user_id)
+    );
+    const people = active.map((member) => ({
+      userId: member.user_id,
+      firstName: member.user_first_name,
+      lastName: member.user_last_name,
+      email: member.user_email,
+      avatarUrl: avatars.get(member.user_id) ?? member.user_avatar_url,
+    }));
     return { success: true, data: people };
   });
 }

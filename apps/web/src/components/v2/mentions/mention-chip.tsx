@@ -6,7 +6,9 @@ import type { MentionItem } from "@repo/rich-text/mention-utils";
 import { Link } from "@/i18n/navigation";
 import { toUnsafeI18nHref } from "@/lib/i18n/unsafe-href";
 import { cn } from "@/lib/utils";
-import { MENTION_PERSON, mentionRoute } from "@/lib/mentions";
+import { MENTION_PERSON, UUID_RE, mentionRoute } from "@/lib/mentions";
+import { usePermissions } from "@/hooks/v2/use-permissions";
+import { CRM_CONTACTS_READ, MEMBERS_READ } from "@/lib/constants/permissions";
 import type { MentionAccess } from "@/hooks/queries/mentions";
 import { HIT_ICONS } from "@/components/v2/global-search/hit-display";
 import type { ExactHitType } from "@/server/services/global-search.service";
@@ -14,8 +16,10 @@ import type { ExactHitType } from "@/server/services/global-search.service";
 const CHIP = "inline-flex max-w-full items-center gap-1 rounded px-1 align-baseline font-medium";
 
 /**
- * A mention in rendered text. A person is a tag ("@Paweł Wiśniewski", stronger
- * when it is the reader). An object is a link with its type icon and number —
+ * A mention in rendered text. A person is "@Paweł Wiśniewski" (stronger when it
+ * is the reader), linking to their card in the contacts directory — or to the
+ * member page — when the reader may open it. An object is a link with its type
+ * icon and number —
  * only when the reader may open it; otherwise a neutral "no access" tag that
  * does not repeat the object's name.
  */
@@ -29,20 +33,45 @@ export function MentionChip({
   meId?: string | null;
 }) {
   const t = useTranslations("mentions");
+  const { can } = usePermissions();
 
   if (mention.type === MENTION_PERSON) {
+    const className = cn(
+      CHIP,
+      mention.id === meId
+        ? "bg-amber-200/80 text-amber-950 dark:bg-amber-400/30 dark:text-amber-100"
+        : "bg-primary/10 text-primary"
+    );
+    // Where a person opens depends on what the reader may see
+    const personRoute = !UUID_RE.test(mention.id)
+      ? null
+      : can(CRM_CONTACTS_READ)
+        ? { pathname: "/dashboard/crm/contacts", query: { selected: `member:${mention.id}` } }
+        : can(MEMBERS_READ)
+          ? { pathname: `/dashboard/organization/users/members/${mention.id}` }
+          : null;
+    if (!personRoute) {
+      return (
+        <span data-mention="person" className={className}>
+          @{mention.label}
+        </span>
+      );
+    }
     return (
-      <span
+      <Link
         data-mention="person"
+        href={
+          personRoute.query
+            ? { pathname: toUnsafeI18nHref(personRoute.pathname), query: personRoute.query }
+            : toUnsafeI18nHref(personRoute.pathname)
+        }
         className={cn(
-          CHIP,
-          mention.id === meId
-            ? "bg-amber-200/80 text-amber-950 dark:bg-amber-400/30 dark:text-amber-100"
-            : "bg-primary/10 text-primary"
+          className,
+          "underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         )}
       >
         @{mention.label}
-      </span>
+      </Link>
     );
   }
 

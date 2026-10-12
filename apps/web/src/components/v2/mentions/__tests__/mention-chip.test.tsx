@@ -3,6 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 import { MentionChip } from "../mention-chip";
 
 vi.mock("next-intl", () => ({ useTranslations: () => (key: string) => key }));
+let granted: string[] = [];
+vi.mock("@/hooks/v2/use-permissions", () => ({
+  usePermissions: () => ({ can: (permission: string) => granted.includes(permission) }),
+}));
 vi.mock("@/i18n/navigation", () => ({
   Link: ({
     href,
@@ -29,8 +33,36 @@ const order = {
   href: "/dashboard/workshop/r1",
 };
 
+const PERSON_ID = "832858c3-0a9f-4f9f-a230-fc7e47855e78";
+
 describe("MentionChip", () => {
+  it("a person links to their contact card, or the member page, as the reader's permissions allow", () => {
+    granted = ["crm.contacts.read"];
+    const { rerender } = render(
+      <MentionChip mention={{ type: "person", id: PERSON_ID, label: "Anna Nowak" }} access="ok" />
+    );
+    expect(screen.getByRole("link", { name: "@Anna Nowak" })).toHaveAttribute(
+      "href",
+      `/dashboard/crm/contacts?selected=member%3A${PERSON_ID}`
+    );
+    granted = ["members.read"];
+    rerender(
+      <MentionChip mention={{ type: "person", id: PERSON_ID, label: "Anna Nowak" }} access="ok" />
+    );
+    expect(screen.getByRole("link", { name: "@Anna Nowak" })).toHaveAttribute(
+      "href",
+      `/dashboard/organization/users/members/${PERSON_ID}`
+    );
+    granted = [];
+    rerender(
+      <MentionChip mention={{ type: "person", id: PERSON_ID, label: "Anna Nowak" }} access="ok" />
+    );
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    expect(screen.getByText("@Anna Nowak")).toBeInTheDocument();
+  });
+
   it("a person is a tag; the reader's own mention stands out", () => {
+    granted = [];
     const { rerender } = render(
       <MentionChip mention={{ type: "person", id: "u1", label: "Anna Nowak" }} access="ok" />
     );
