@@ -30,6 +30,7 @@ import type { CrmContactDetail } from "@/server/services/crm-contacts.service";
 import { getContactDirectoryRowAction, listContactsDirectoryAction } from "@/app/actions/contacts";
 import { isMemberKey, type ContactDirectoryRow } from "@/lib/contacts/types";
 import { ChatAvatar } from "@/components/v2/messages/chat-avatar";
+import { AvatarCropDialog } from "@/components/v2/media/avatar-crop-dialog";
 import { useOptionalChat } from "@/components/v2/messages/chat-provider";
 import { useStartDirectChat } from "@/components/v2/messages/use-start-direct-chat";
 import { memberInitials } from "@/lib/messages/display";
@@ -335,6 +336,7 @@ function CrmContactDetailPanel({
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarLoading, setAvatarLoading] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [cropFile, setCropFile] = useState<File | null>(null);
   const [form, setForm] = useState({
     display_name: detail.display_name,
     first_name: detail.first_name ?? "",
@@ -477,12 +479,21 @@ function CrmContactDetailPanel({
                 className="hidden"
                 disabled={uploadingAvatar}
                 onChange={(event) => {
-                  void uploadAvatar(event.target.files?.[0] ?? null);
+                  // Frame the photo first; the upload happens on "Save"
+                  setCropFile(event.target.files?.[0] ?? null);
                   event.currentTarget.value = "";
                 }}
               />
             </Label>
           ) : null}
+          <AvatarCropDialog
+            file={cropFile}
+            onCancel={() => setCropFile(null)}
+            onConfirm={async (file) => {
+              setCropFile(null);
+              await uploadAvatar(file);
+            }}
+          />
         </div>
         <Badge variant="outline">{t(`visibility.${current.visibility_scope}`)}</Badge>
         <h2 className="mt-2 text-xl font-semibold">{current.display_name}</h2>

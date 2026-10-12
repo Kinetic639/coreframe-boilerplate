@@ -8567,5 +8567,14 @@
       "chatModule": "Wiadomości",
       "chatOpenAll": "Otwórz Wiadomości"
     }
+  },
+  "avatarCrop": {
+    "title": "Wykadruj zdjęcie",
+    "hint": "Przeciągnij zdjęcie, aby ustawić kadr, i użyj suwaka, aby je przybliżyć.",
+    "area": "Kadr zdjęcia — przeciągnij albo użyj strzałek, + i − zmieniają przybliżenie",
+    "zoom": "Przybliżenie",
+    "cancel": "Anuluj",
+    "save": "Zapisz zdjęcie",
+    "loadFailed": "Nie udało się wczytać tego pliku. Wybierz inne zdjęcie."
   }
 }
