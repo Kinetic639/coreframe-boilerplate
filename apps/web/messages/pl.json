@@ -3610,6 +3610,31 @@
         "warehouseFilter": {
           "all": "Wszystkie magazyny",
           "label": "Magazyn"
+        },
+        "tabs": {
+          "label": "Sekcje zlecenia",
+          "overview": "Przegląd",
+          "lines": "Pozycje",
+          "warehouse": "Magazyn",
+          "documents": "Dokumenty",
+          "related": "Powiązania"
+        },
+        "relations": {
+          "loadError": "Nie udało się wczytać powiązań.",
+          "emptyTitle": "Brak powiązań",
+          "emptyHint": "Tu pojawią się zgłoszenia założone do tego zlecenia oraz zadania, komentarze i rozmowy, w których ktoś wspomniał o nim przez @.",
+          "untitled": "Bez tytułu",
+          "directConversation": "Rozmowa prywatna",
+          "groups": {
+            "ticket": "Zgłoszenia",
+            "task": "Zadania",
+            "comment": "Komentarze",
+            "chat": "Rozmowy"
+          },
+          "relation": {
+            "reference": "dotyczy zlecenia",
+            "mention": "wzmianka"
+          }
         }
       }
     },

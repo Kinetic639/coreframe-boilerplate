@@ -3639,6 +3639,31 @@
         "warehouseFilter": {
           "all": "All warehouses",
           "label": "Warehouse"
+        },
+        "tabs": {
+          "label": "Sections of the order",
+          "overview": "Overview",
+          "lines": "Lines",
+          "warehouse": "Warehouse",
+          "documents": "Documents",
+          "related": "Related"
+        },
+        "relations": {
+          "loadError": "The related items could not be loaded.",
+          "emptyTitle": "Nothing related yet",
+          "emptyHint": "Tickets raised for this order and tasks, comments and conversations that mention it with @ will show here.",
+          "untitled": "Untitled",
+          "directConversation": "Direct conversation",
+          "groups": {
+            "ticket": "Tickets",
+            "task": "Tasks",
+            "comment": "Comments",
+            "chat": "Conversations"
+          },
+          "relation": {
+            "reference": "about this order",
+            "mention": "mention"
+          }
         }
       }
     },

@@ -25,10 +25,21 @@ import {
 import { InventoryContainersService } from "@/server/services/inventory-containers.service";
 import { AttachmentsPanel } from "@/components/features/attachments";
 import { BranchWarehousesService } from "@/server/services/branch-warehouses.service";
+import { ObjectRelationsService } from "@/server/services/object-relations.service";
+import { RepairOrderRelations } from "./_components/repair-order-relations";
+import {
+  RepairOrderTabs,
+  isRepairOrderTab,
+  type RepairOrderTab,
+} from "./_components/repair-order-tabs";
 
 type PageProps = {
   params: Promise<{ id: string }>;
-  /** `?tab=stock` / `?tab=receiving` opens that warehouse tab (links from the global search) */
+  /**
+   * `?tab=` opens a tab of the page: overview (default), lines, warehouse, documents,
+   * related. `?tab=stock` / `?tab=receiving` (links from the global search) open the
+   * warehouse tab on that inner view.
+   */
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
@@ -53,6 +64,11 @@ export default async function RepairOrderDetailPage({ params, searchParams }: Pa
   const { id } = await params;
   const tabParam = (searchParams ? await searchParams : {}).tab;
   const warehouseTab = isRepairOrderWarehouseTab(tabParam) ? tabParam : undefined;
+  const initialTab: RepairOrderTab = warehouseTab
+    ? "warehouse"
+    : isRepairOrderTab(tabParam)
+      ? tabParam
+      : "overview";
   const locale = await getLocale();
   const context = await loadDashboardContextV2();
 
@@ -111,6 +127,14 @@ export default async function RepairOrderDetailPage({ params, searchParams }: Pa
   }
 
   const order = orderResult.data;
+  // Tickets raised for this order and every place it is mentioned with "@"
+  const relationsResult = await ObjectRelationsService.listForRepairOrder(supabase, orgId, {
+    id: order.id,
+    zlNumber: order.zlNumber,
+    orderNo: order.orderNo,
+    warehouseCode: order.warehouseCode,
+  });
+  const relations = relationsResult.success ? relationsResult.data : [];
   const advisorCandidates = advisorCandidatesResult.success ? advisorCandidatesResult.data : [];
   const ownAdvisorContactId = ownAdvisorResult.success ? ownAdvisorResult.data : null;
   // A failed lines read must NOT look like a genuinely empty order, and
@@ -162,56 +186,97 @@ export default async function RepairOrderDetailPage({ params, searchParams }: Pa
         <RepairOrderStatusBadge status={order.status} />
       </div>
 
-      <RepairOrderHeaderEditor
-        order={order}
-        advisorCandidates={advisorCandidates}
-        canManageOwn={canManageOwn}
-        canManageAll={canManageAll}
-        ownAdvisorContactId={ownAdvisorContactId}
-        createdAtLabel={new Date(order.createdAt).toLocaleString(locale)}
-        updatedAtLabel={new Date(order.updatedAt).toLocaleString(locale)}
+      <RepairOrderTabs
+        label={t("tabs.label")}
+        initialTab={initialTab}
+        tabs={[
+          {
+            id: "overview",
+            label: t("tabs.overview"),
+            content: (
+              <RepairOrderHeaderEditor
+                order={order}
+                advisorCandidates={advisorCandidates}
+                canManageOwn={canManageOwn}
+                canManageAll={canManageAll}
+                ownAdvisorContactId={ownAdvisorContactId}
+                createdAtLabel={new Date(order.createdAt).toLocaleString(locale)}
+                updatedAtLabel={new Date(order.updatedAt).toLocaleString(locale)}
+              />
+            ),
+          },
+          {
+            id: "lines",
+            label: t("tabs.lines"),
+            count: lines.length,
+            content: (
+              <>
+                <RepairOrderIssue
+                  repairOrderId={order.id}
+                  zlNumber={order.zlNumber}
+                  canOperate={checkPermission(snapshot, WAREHOUSE_INVENTORY_OPERATE_PERMISSION)}
+                />
+                <RepairOrderLinesList
+                  lines={lines}
+                  loadError={linesLoadError}
+                  provenance={provenance}
+                  branchId={branchId}
+                  containers={containers.map((c) => ({ id: c.id, code: c.code }))}
+                />
+              </>
+            ),
+          },
+          {
+            id: "warehouse",
+            label: t("tabs.warehouse"),
+            count: containers.length,
+            content: (
+              <>
+                <RepairOrderWarehouse
+                  lines={lines}
+                  view={warehouseResult.success ? warehouseResult.data : []}
+                  loadError={!warehouseResult.success}
+                  initialTab={warehouseTab}
+                />
+                <RepairOrderContainers
+                  repairOrderId={order.id}
+                  branchId={branchId}
+                  containers={containers}
+                  loadError={containersLoadError}
+                  suggestedCode={suggestedContainerCode}
+                />
+              </>
+            ),
+          },
+          {
+            id: "documents",
+            label: t("tabs.documents"),
+            count: provenance.length,
+            content: (
+              <>
+                <RepairOrderProvenance documents={provenance} loadError={provenanceLoadError} />
+                {/* Phase 12: signed delivery documents, photos (generic attachments, target workshop.repair_order) */}
+                <section className="rounded-lg border p-4">
+                  <AttachmentsPanel
+                    targetType="workshop.repair_order"
+                    targetId={order.id}
+                    canUpload={order.status !== "archived"}
+                    canDelete={canManageAll}
+                  />
+                </section>
+              </>
+            ),
+          },
+          {
+            id: "related",
+            label: t("tabs.related"),
+            count: relations.length,
+            content: (
+              <RepairOrderRelations items={relations} loadError={!relationsResult.success} />
+            ),
+          },
+        ]}
       />
-
-      <RepairOrderIssue
-        repairOrderId={order.id}
-        zlNumber={order.zlNumber}
-        canOperate={checkPermission(snapshot, WAREHOUSE_INVENTORY_OPERATE_PERMISSION)}
-      />
-
-      <RepairOrderLinesList
-        lines={lines}
-        loadError={linesLoadError}
-        provenance={provenance}
-        branchId={branchId}
-        containers={containers.map((c) => ({ id: c.id, code: c.code }))}
-      />
-
-      <RepairOrderWarehouse
-        lines={lines}
-        view={warehouseResult.success ? warehouseResult.data : []}
-        loadError={!warehouseResult.success}
-        initialTab={warehouseTab}
-      />
-
-      <RepairOrderContainers
-        repairOrderId={order.id}
-        branchId={branchId}
-        containers={containers}
-        loadError={containersLoadError}
-        suggestedCode={suggestedContainerCode}
-      />
-
-      <RepairOrderProvenance documents={provenance} loadError={provenanceLoadError} />
-
-      {/* Phase 12: signed delivery documents, photos (generic attachments, target workshop.repair_order) */}
-      <section className="rounded-lg border p-4">
-        <AttachmentsPanel
-          targetType="workshop.repair_order"
-          targetId={order.id}
-          canUpload={order.status !== "archived"}
-          canDelete={canManageAll}
-        />
-      </section>
 
       <p className="text-muted-foreground max-w-2xl text-xs">{t("detail.futurePhasesNote")}</p>
     </div>
