@@ -27,11 +27,8 @@ import { AttachmentsPanel } from "@/components/features/attachments";
 import { BranchWarehousesService } from "@/server/services/branch-warehouses.service";
 import { ObjectRelationsService } from "@/server/services/object-relations.service";
 import { RepairOrderRelations } from "./_components/repair-order-relations";
-import {
-  RepairOrderTabs,
-  isRepairOrderTab,
-  type RepairOrderTab,
-} from "./_components/repair-order-tabs";
+import { RepairOrderTabs } from "./_components/repair-order-tabs";
+import { isRepairOrderTab, type RepairOrderTab } from "./_components/repair-order-tab-ids";
 
 type PageProps = {
   params: Promise<{ id: string }>;
