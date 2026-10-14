@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
-import { RepairOrderTabs, isRepairOrderTab, type RepairOrderTab } from "../repair-order-tabs";
+import { RepairOrderTabs } from "../repair-order-tabs";
+import { isRepairOrderTab, type RepairOrderTab } from "../repair-order-tab-ids";
 
 const tabs = (["overview", "lines", "warehouse", "documents", "related"] as RepairOrderTab[]).map(
   (id) => ({

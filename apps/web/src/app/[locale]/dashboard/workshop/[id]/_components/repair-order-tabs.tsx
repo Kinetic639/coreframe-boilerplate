@@ -3,18 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-export const REPAIR_ORDER_TABS = [
-  "overview",
-  "lines",
-  "warehouse",
-  "documents",
-  "related",
-] as const;
-export type RepairOrderTab = (typeof REPAIR_ORDER_TABS)[number];
-
-export function isRepairOrderTab(value: unknown): value is RepairOrderTab {
-  return REPAIR_ORDER_TABS.includes(value as RepairOrderTab);
-}
+import { isRepairOrderTab, type RepairOrderTab } from "./repair-order-tab-ids";
 
 export interface RepairOrderTabDefinition {
   id: RepairOrderTab;
