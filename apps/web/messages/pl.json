@@ -6460,7 +6460,17 @@
       "colAvail": "Dost.",
       "colQuantity": "Ilość",
       "receivingZoneHint": "PZ zawsze trafia do strefy przyjęć. Towar stanie się dostępny po rozlokowaniu (Magazyn → Do rozlokowania).",
-      "receiptAttribution": "Przypięto do zleceń: {attributed} poz. Jako wolny towar: {skipped} poz. (brak zlecenia, brak części na zleceniu lub już przyjęte)."
+      "receiptAttribution": "Przypięto do zleceń: {attributed} poz. Jako wolny towar: {skipped} poz. (brak zlecenia, brak części na zleceniu lub już przyjęte).",
+      "receiptAttributionFailed": "PZ zaksięgowany, ale nie udało się przypiąć części do zleceń — leżą w strefie przyjęć jako wolny towar. Sprawdź zlecenia lub zgłoś problem.",
+      "manualCorrectionsRequired": "Włącz ręczne poprawki, zanim zmienisz pozycje z importu.",
+      "senderNameTooLong": "Nazwa nadawcy jest za długa",
+      "recipientNameTooLong": "Nazwa odbiorcy jest za długa",
+      "importedBadge": "Z importu",
+      "manualCorrectionsEnabled": "Ręczne poprawki włączone",
+      "enableManualCorrections": "Włącz ręczne poprawki",
+      "manualCorrectionsConfirm": "Ręczne poprawki mogą rozjechać pozycje z danymi zaimportowanymi z Matchera. Kontynuować?",
+      "importReplacesLines": "Import zastąpi obecne, niezapisane pozycje ruchu.",
+      "selectBranchFirst": "Wybierz oddział, aby tworzyć ruchy."
     },
     "itemPicker": {
       "title": "Selektor pozycji WMS",
@@ -7377,7 +7387,173 @@
         "zl": "ZL",
         "location": "Rozłożono na",
         "container": "Kontener",
-        "pending": "Czeka w PRZ"
+        "pending": "Czeka w PRZ",
+        "assignment": "Przypisanie"
+      },
+      "assignedSummary": "Przypisano do zleceń: {assigned} z {total} poz.",
+      "allFree": "Żadna pozycja nie została przypisana do zlecenia — cała dostawa to wolny towar.",
+      "free": "Wolny towar",
+      "reservedFor": "ZL {zl}",
+      "assignedQty": "zarezerwowano {quantity} {unit}",
+      "restFree": "reszta ({quantity}) jako wolny towar"
+    },
+    "movementImport": {
+      "title": "Import danych do ruchu",
+      "description": "Wybierz źródło i sesję. Szybki import sam utworzy brakujące zlecenia i części i wypełni formularz. Przegląd ręczny pokazuje wszystko krok po kroku.",
+      "source": "Źródło",
+      "sourcePlaceholder": "Wybierz źródło",
+      "noSources": "Brak źródeł importu dla tego typu ruchu.",
+      "sources": {
+        "svwms_wdd_matcher": "Matcher SVWMS (WDD)"
+      },
+      "fields": {
+        "session_id": {
+          "label": "Sesja Matchera",
+          "placeholder": "Wybierz sesję Matchera"
+        }
+      },
+      "selectPlaceholder": "Wybierz",
+      "noSessions": "Brak sesji tego oddziału gotowych do importu.",
+      "alreadyImportedOption": "{label} — już w {document}",
+      "alreadyImported": "Ta sesja była już zaimportowana: {document}. Ponowny import zdubluje przyjęcie tej dostawy.",
+      "quickImport": "Szybki import",
+      "quickImportHint": "Sprawdza całą sesję, tworzy brakujące zlecenia i części (jednostka: szt.) i od razu wypełnia formularz.",
+      "manualReview": "Przegląd ręczny",
+      "quickStep": {
+        "preview": "Wczytywanie sesji…",
+        "repairOrders": "Tworzenie brakujących zleceń…",
+        "products": "Tworzenie brakujących części…"
+      },
+      "quickDone": "Formularz wypełniony: {lines} poz. Nowe zlecenia: {orders}, nowe części: {products}.",
+      "quickStoppedAmbiguous": "Szybki import zatrzymany: {count, plural, one {# część pasuje} few {# części pasują} other {# części pasuje}} do kilku pozycji katalogu — wybierz właściwe poniżej.",
+      "quickStoppedNeedsReview": "Szybki import zatrzymany: część pozycji wymaga decyzji — dokończ poniżej.",
+      "quickNoProductPermission": "Brak uprawnienia do tworzenia części — brakujące części przypisz ręcznie poniżej.",
+      "quickNoUnit": "Brak jednostki „SZT” i nie udało się jej utworzyć.",
+      "quickRepairOrdersFailed": "Nie udało się utworzyć brakujących zleceń. Import zatrzymany — spróbuj ponownie lub utwórz je ręcznie poniżej.",
+      "sourceDocument": "Dokument źródłowy",
+      "documentReady": "Dokument jest gotowy do wypełnienia formularza.",
+      "repairOrders": {
+        "title": "Zlecenia z tej dostawy",
+        "hint": "Części trafią do zleceń po numerze ZL i kodzie części. Utwórz brakujące zlecenia przed zaksięgowaniem PZ — inaczej ich części zostaną wolnym towarem."
+      },
+      "allReady": "Wszystkie pozycje są gotowe. Sprawdź listę i wypełnij formularz ruchu.",
+      "allSkipped": "Wszystkie pozycje są pominięte. Przywróć przynajmniej jedną, zanim wypełnisz formularz.",
+      "needsDecisions": "Import wymaga decyzji: {rows, plural, one {# pozycja} few {# pozycje} other {# pozycji}} w {groups, plural, one {# grupie} other {# grupach}}. Wypełnienie formularza jest zablokowane, dopóki problemy nie zostaną rozwiązane lub pominięte.",
+      "tiles": {
+        "imported": "Pozycje z importu",
+        "ready": "Gotowe",
+        "missingUnits": "Brak jednostki",
+        "productExceptions": "Brak części",
+        "skipped": "Pominięte"
+      },
+      "decisions": {
+        "title": "Import wymaga decyzji",
+        "hint": "Każdą grupę (ta sama część lub jednostka) rozwiązujesz raz — pasujące pozycje zmieniają się razem."
+      },
+      "actions": {
+        "createUnits": "Utwórz brakujące jednostki",
+        "createSelected": "Utwórz zaznaczone części ({count})",
+        "toggleDetails": "Szczegóły problemów",
+        "skipMissing": "Pomiń brakujące części",
+        "restoreSkipped": "Przywróć pominięte",
+        "copyUnit": "Skopiuj jednostkę z pierwszego wiersza do wszystkich",
+        "copyAction": "Skopiuj działanie z pierwszego wiersza do wszystkich"
+      },
+      "allSkippedPanel": "Wszystkie pozycje są pominięte. Przywróć pominięte albo wybierz inną sesję.",
+      "unitMismatches": {
+        "title": "Niezgodne jednostki",
+        "description": "Najpierw ustaw jednostki, żeby brakujące części powstały z właściwą jednostką."
+      },
+      "productMismatches": {
+        "title": "Brakujące części",
+        "description": "Zdecyduj, co zrobić z każdą częścią, zanim wypełnisz formularz."
+      },
+      "items": {
+        "title": "Pozycje do przyjęcia",
+        "description": "Sprawdź pozycje przed wypełnieniem formularza ruchu.",
+        "empty": "Brak pozycji."
+      },
+      "columns": {
+        "no": "Lp.",
+        "sku": "Kod",
+        "itemSku": "Kod części",
+        "name": "Nazwa",
+        "qty": "Ilość",
+        "order": "Zlecenie",
+        "importedUnit": "Jednostka z importu",
+        "problem": "Problem",
+        "action": "Działanie",
+        "unit": "Jednostka",
+        "rows": "Pozycje",
+        "howToProceed": "Co zrobić",
+        "status": "Status",
+        "importedItem": "Pozycja z importu",
+        "product": "Część",
+        "source": "Skąd",
+        "destination": "Dokąd"
+      },
+      "more": "+{count} więcej",
+      "noUnitProvided": "brak w imporcie",
+      "problems": {
+        "ambiguousUnit": "Kilka pasujących jednostek",
+        "missingUnit": "Brak jednostki",
+        "multipleMatches": "Kilka pasujących części",
+        "missingProductSelectUnit": "Brak części · najpierw wybierz jednostkę",
+        "missingProduct": "Brak części"
+      },
+      "assignExistingUnit": "Przypisz istniejącą jednostkę",
+      "selectUnit": "Wybierz jednostkę",
+      "bulkUnit": "Ustaw jednostkę wszystkim pozycjom bez jednostki",
+      "bulkUnitAria": "Jednostka dla wszystkich pozycji",
+      "productActions": {
+        "create": "Utwórz część",
+        "assignExisting": "Przypisz istniejącą",
+        "skip": "Pomiń",
+        "pickExisting": "Wybierz istniejącą część",
+        "willCreate": "Zostanie utworzona przyciskiem „Utwórz zaznaczone części”.",
+        "willSkip": "Te pozycje zostaną pominięte."
+      },
+      "blockReasons": {
+        "ambiguous": "Część pasuje do kilku pozycji katalogu — przypisz ją ręcznie.",
+        "selectUnit": "Najpierw wybierz jednostkę.",
+        "noPermission": "Brak uprawnienia do tworzenia części."
+      },
+      "skippedRows": "{count, plural, one {# pominięta pozycja nie trafi} few {# pominięte pozycje nie trafią} other {# pominiętych pozycji nie trafi}} do tego ruchu.",
+      "statusReady": "Gotowe",
+      "needsResolution": "Wymaga decyzji",
+      "selectProduct": "Wybierz część",
+      "noSource": "Brak",
+      "noDestination": "Brak",
+      "importedUnitValue": "Z importu: {unit}",
+      "cancel": "Anuluj",
+      "fill": "Wypełnij formularz ruchu",
+      "note": "Zaimportowano z {source}: {document}",
+      "toasts": {
+        "loadSourcesFailed": "Nie udało się wczytać źródeł importu",
+        "previewFailed": "Nie udało się wczytać danych do importu",
+        "fieldRequired": "Pole „{label}” jest wymagane",
+        "unitsCreated": "Utworzono jednostki: {count}",
+        "noUnitsCreated": "Nie udało się utworzyć brakujących jednostek",
+        "createUnitsFailed": "Nie udało się utworzyć brakujących jednostek",
+        "productsCreated": "Utworzono części: {count}",
+        "noProductsCreated": "Nie udało się utworzyć brakujących części",
+        "createProductsFailed": "Nie udało się utworzyć brakujących części",
+        "resolveUnitsFirst": "Najpierw ustaw jednostki części, które chcesz utworzyć",
+        "firstRowUnitFirst": "Najpierw wybierz jednostkę w pierwszym wierszu",
+        "filled": "Dane z importu wypełniły formularz ruchu",
+        "resolveFirst": "Rozwiąż problemy importu przed wypełnieniem formularza"
+      },
+      "errors": {
+        "productRequired": "Brak części",
+        "unitRequired": "Brak jednostki",
+        "quantityRequired": "Brak ilości",
+        "sourceLocationRequired": "Brak lokalizacji źródłowej",
+        "destinationLocationRequired": "Brak lokalizacji docelowej",
+        "locationsMustDiffer": "Lokalizacja źródłowa i docelowa muszą być różne",
+        "productNotResolved": "Nie znaleziono części",
+        "unitNotResolved": "Nie znaleziono jednostki",
+        "productMultiple": "Kilka pasujących części",
+        "unitMultiple": "Kilka pasujących jednostek"
       }
     }
   },

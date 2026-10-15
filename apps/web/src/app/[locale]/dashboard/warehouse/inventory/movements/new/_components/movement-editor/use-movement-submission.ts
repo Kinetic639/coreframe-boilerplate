@@ -117,14 +117,18 @@ export function useMovementSubmission(
             }
             toast.success(t("documentPosted", { number: r.data?.document_number ?? "" }));
             const attribution = r.data?.attribution as
-              | { attributed: number; skipped: number }
+              | { attributed: number; skipped: number; failed?: undefined }
+              | { failed: true }
               | null
               | undefined;
-            if (attribution) {
-              (attribution.skipped > 0 ? toast.warning : toast.info)(
+            if (attribution && "failed" in attribution && attribution.failed) {
+              // Posted, but the parts could not be linked to their repair orders
+              toast.warning(t("receiptAttributionFailed"), { autoClose: false });
+            } else if (attribution && !("failed" in attribution && attribution.failed)) {
+              ((attribution as { skipped: number }).skipped > 0 ? toast.warning : toast.info)(
                 t("receiptAttribution", {
-                  attributed: attribution.attributed,
-                  skipped: attribution.skipped,
+                  attributed: (attribution as { attributed: number }).attributed,
+                  skipped: (attribution as { skipped: number }).skipped,
                 })
               );
             }

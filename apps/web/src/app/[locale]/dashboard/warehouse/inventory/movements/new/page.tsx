@@ -1,5 +1,5 @@
 import { redirect } from "@/i18n/navigation";
-import { getLocale } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { checkPermission } from "@/lib/utils/permissions";
 import {
   WAREHOUSE_INVENTORY_OPERATE,
@@ -40,10 +40,11 @@ export default async function WarehouseInventoryNewMovementPage() {
 
   const branchId = context.app.activeBranchId;
   if (!branchId) {
+    const t = await getTranslations("warehouseInventory.movementEditor");
     return (
       <div className="flex h-[calc(100vh-4rem)] items-center justify-center p-6">
         <div className="rounded-md border p-6 text-sm text-muted-foreground">
-          Select a branch to create movements.
+          {t("selectBranchFirst")}
         </div>
       </div>
     );

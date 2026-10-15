@@ -18,8 +18,8 @@ export function useMovementValidation(
     const positionErrors: string[] = [];
 
     if (!typeCode) documentErrors.push(t("movementTypeRequired"));
-    if (senderName.length > 200) documentErrors.push("Sender name is too long");
-    if (recipientName.length > 200) documentErrors.push("Recipient name is too long");
+    if (senderName.length > 200) documentErrors.push(t("senderNameTooLong"));
+    if (recipientName.length > 200) documentErrors.push(t("recipientNameTooLong"));
 
     if (requiresSourceLocation && !srcLoc) positionErrors.push(t("srcLocationRequired"));
     if (requiresDestinationLocation && !dstLoc) positionErrors.push(t("destLocationRequired"));

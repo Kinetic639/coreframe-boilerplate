@@ -367,22 +367,15 @@ export function useMovementFormState(
 
   const enableManualCorrections = useCallback(() => {
     if (!isImportedMovement) return;
-    if (
-      !window.confirm(
-        "Manual corrections may break alignment with the imported SVWMS source data. Continue?"
-      )
-    ) {
+    if (!window.confirm(t("manualCorrectionsConfirm"))) {
       return;
     }
     setManualCorrectionMode(true);
-  }, [isImportedMovement]);
+  }, [isImportedMovement, t]);
 
   const applyImportedDocument = useCallback(
     (document: ImportedMovementDocumentDraft) => {
-      if (
-        lines.length > 0 &&
-        !window.confirm("Importing data will replace the current unsaved movement lines.")
-      ) {
+      if (lines.length > 0 && !window.confirm(t("importReplacesLines"))) {
         return;
       }
       const nextType = movementTypes.find((type) => type.code === document.movementTypeCode);

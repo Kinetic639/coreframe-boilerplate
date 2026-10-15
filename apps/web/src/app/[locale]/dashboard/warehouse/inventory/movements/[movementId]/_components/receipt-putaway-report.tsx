@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { Download, Printer } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Link } from "@/i18n/navigation";
 import {
   Table,
   TableBody,
@@ -42,6 +43,7 @@ export function ReceiptPutawayReport({ documentNumber, lines }: Props) {
   const total = lines.reduce((s, l) => s + l.quantity, 0);
   const waiting = lines.reduce((s, l) => s + l.pendingQuantity, 0);
   const done = waiting === 0;
+  const assignedLines = lines.filter((l) => l.repairOrderId).length;
 
   function exportCsv() {
     const header = [
@@ -83,6 +85,11 @@ export function ReceiptPutawayReport({ documentNumber, lines }: Props) {
         <div>
           <h2 className="text-lg font-semibold tracking-tight">{t("title")}</h2>
           <p className="text-muted-foreground text-sm">{t("subtitle")}</p>
+          <p className="mt-1 text-sm font-medium" data-testid="receipt-report-assigned">
+            {assignedLines === 0
+              ? t("allFree")
+              : t("assignedSummary", { assigned: assignedLines, total: lines.length })}
+          </p>
         </div>
         <div className="flex items-center gap-2 print:hidden">
           <Badge variant={done ? "default" : "secondary"} data-testid="receipt-report-status">
@@ -114,7 +121,7 @@ export function ReceiptPutawayReport({ documentNumber, lines }: Props) {
               <TableHead>{t("columns.sku")}</TableHead>
               <TableHead>{t("columns.name")}</TableHead>
               <TableHead className="text-right">{t("columns.quantity")}</TableHead>
-              <TableHead>{t("columns.zl")}</TableHead>
+              <TableHead>{t("columns.assignment")}</TableHead>
               <TableHead>{t("columns.location")}</TableHead>
               <TableHead>{t("columns.container")}</TableHead>
               <TableHead className="text-right">{t("columns.pending")}</TableHead>
@@ -128,7 +135,31 @@ export function ReceiptPutawayReport({ documentNumber, lines }: Props) {
                 <TableCell className="text-right font-mono text-xs">
                   {qty(l.quantity)} {l.unitCode}
                 </TableCell>
-                <TableCell className="font-mono text-xs">{l.zlNumber ?? "—"}</TableCell>
+                <TableCell className="text-xs" data-testid="receipt-report-assignment">
+                  {l.repairOrderId ? (
+                    <div className="grid gap-0.5">
+                      <Link
+                        href={{
+                          pathname: "/dashboard/workshop/[id]",
+                          params: { id: l.repairOrderId },
+                        }}
+                        className="font-mono font-medium text-primary hover:underline print:text-foreground"
+                      >
+                        {t("reservedFor", { zl: l.zlNumber ?? "—" })}
+                      </Link>
+                      <span className="text-muted-foreground">
+                        {t("assignedQty", { quantity: qty(l.assignedQuantity), unit: l.unitCode })}
+                      </span>
+                      {l.assignedQuantity < l.quantity && (
+                        <span className="text-amber-600">
+                          {t("restFree", { quantity: qty(l.quantity - l.assignedQuantity) })}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <Badge variant="outline">{t("free")}</Badge>
+                  )}
+                </TableCell>
                 <TableCell className="text-xs">
                   {l.putaway.length === 0
                     ? "—"
