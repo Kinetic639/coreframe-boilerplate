@@ -89,6 +89,10 @@ export interface ReceiptReportLine {
   quantity: number;
   unitCode: string;
   zlNumber: string | null;
+  /** The repair order the line was reserved for on posting; null = free stock. */
+  repairOrderId: string | null;
+  /** How much of the line went to that order (the rest is free stock). */
+  assignedQuantity: number;
   putaway: ReceiptReportPutaway[];
   containers: Array<{ code: string; locationCode: string | null; locationName: string | null }>;
   pendingQuantity: number;
@@ -389,15 +393,22 @@ export class InventoryReceivingService {
 
     const { data: receiptLinks } = await supabase
       .from("repair_order_line_movement_links")
-      .select("repair_order_line_id, inventory_movement_line_id")
+      .select("repair_order_line_id, inventory_movement_line_id, applied_quantity")
       .in("inventory_movement_line_id", lineIds)
       .eq("relation_type", "receipt");
     const rolByLine = new Map<string, string>();
+    const assignedByLine = new Map<string, number>();
     for (const link of (receiptLinks ?? []) as Array<{
       repair_order_line_id: string;
       inventory_movement_line_id: string;
+      applied_quantity: number | string | null;
     }>) {
       rolByLine.set(link.inventory_movement_line_id, link.repair_order_line_id);
+      assignedByLine.set(
+        link.inventory_movement_line_id,
+        (assignedByLine.get(link.inventory_movement_line_id) ?? 0) +
+          Number(link.applied_quantity ?? 0)
+      );
     }
     const rolIds = [...new Set(rolByLine.values())];
 
@@ -626,6 +637,8 @@ export class InventoryReceivingService {
         quantity: Number(line.quantity),
         unitCode: line.unit_code,
         zlNumber: roId ? (zlByRo.get(roId) ?? null) : null,
+        repairOrderId: roId,
+        assignedQuantity: roId ? (assignedByLine.get(line.id) ?? 0) : 0,
         putaway,
         containers,
         pendingQuantity,

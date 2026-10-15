@@ -6486,7 +6486,17 @@
       "colAvail": "Avail.",
       "colQuantity": "Quantity",
       "receivingZoneHint": "A goods receipt always lands in the receiving zone. Stock becomes available once it is put away (Warehouse → Putaway).",
-      "receiptAttribution": "Linked to repair orders: {attributed} lines. Left as free stock: {skipped} lines (no order, part not on the order, or already received)."
+      "receiptAttribution": "Linked to repair orders: {attributed} lines. Left as free stock: {skipped} lines (no order, part not on the order, or already received).",
+      "receiptAttributionFailed": "Receipt posted, but its parts could not be linked to repair orders — they are free stock in the receiving zone. Check the repair orders or report the problem.",
+      "manualCorrectionsRequired": "Enable manual corrections before changing imported positions.",
+      "senderNameTooLong": "Sender name is too long",
+      "recipientNameTooLong": "Recipient name is too long",
+      "importedBadge": "Imported",
+      "manualCorrectionsEnabled": "Manual corrections enabled",
+      "enableManualCorrections": "Enable manual corrections",
+      "manualCorrectionsConfirm": "Manual corrections may break alignment with the imported SVWMS source data. Continue?",
+      "importReplacesLines": "Importing data will replace the current unsaved movement lines.",
+      "selectBranchFirst": "Select a branch to create movements."
     },
     "itemPicker": {
       "title": "WMS Item Picker",
@@ -7403,7 +7413,173 @@
         "zl": "ZL",
         "location": "Put away to",
         "container": "Container",
-        "pending": "Waiting in receiving"
+        "pending": "Waiting in receiving",
+        "assignment": "Assignment"
+      },
+      "assignedSummary": "Linked to repair orders: {assigned} of {total} lines.",
+      "allFree": "No line was linked to a repair order — the whole delivery is free stock.",
+      "free": "Free stock",
+      "reservedFor": "ZL {zl}",
+      "assignedQty": "reserved {quantity} {unit}",
+      "restFree": "rest ({quantity}) as free stock"
+    },
+    "movementImport": {
+      "title": "Import movement data",
+      "description": "Pick a source and a session. Quick import creates missing repair orders and parts and fills the form. Manual review walks through every step.",
+      "source": "Source",
+      "sourcePlaceholder": "Select source",
+      "noSources": "No import sources are available for this movement type.",
+      "sources": {
+        "svwms_wdd_matcher": "SVWMS matcher (WDD)"
+      },
+      "fields": {
+        "session_id": {
+          "label": "Matcher session",
+          "placeholder": "Select Matcher session"
+        }
+      },
+      "selectPlaceholder": "Select",
+      "noSessions": "No branch sessions are ready to import.",
+      "alreadyImportedOption": "{label} — already in {document}",
+      "alreadyImported": "This session was already imported: {document}. Importing it again receives the same delivery twice.",
+      "quickImport": "Quick import",
+      "quickImportHint": "Checks the whole session, creates missing repair orders and parts (unit: pcs) and fills the form right away.",
+      "manualReview": "Manual review",
+      "quickStep": {
+        "preview": "Loading session…",
+        "repairOrders": "Creating missing repair orders…",
+        "products": "Creating missing parts…"
+      },
+      "quickDone": "Form filled: {lines} lines. New repair orders: {orders}, new parts: {products}.",
+      "quickStoppedAmbiguous": "Quick import stopped: {count, plural, one {# part matches} other {# parts match}} several catalog items — pick the right ones below.",
+      "quickStoppedNeedsReview": "Quick import stopped: some lines need a decision — finish below.",
+      "quickNoProductPermission": "You cannot create parts — assign the missing parts manually below.",
+      "quickNoUnit": "Unit \"SZT\" is missing and could not be created.",
+      "quickRepairOrdersFailed": "Could not create the missing repair orders. Import stopped — try again or create them manually below.",
+      "sourceDocument": "Source document",
+      "documentReady": "This source document is ready to fill the form.",
+      "repairOrders": {
+        "title": "Repair orders in this delivery",
+        "hint": "Parts are matched to repair orders by ZL number and part code. Create missing repair orders before posting the receipt — otherwise their parts become free stock."
+      },
+      "allReady": "All lines are ready. Review the list, then fill the movement form.",
+      "allSkipped": "All lines are skipped. Restore at least one before filling the form.",
+      "needsDecisions": "Import needs decisions: {rows, plural, one {# line} other {# lines}} in {groups, plural, one {# group} other {# groups}}. Filling the form is blocked until issues are resolved or skipped.",
+      "tiles": {
+        "imported": "Imported lines",
+        "ready": "Ready",
+        "missingUnits": "Missing units",
+        "productExceptions": "Missing parts",
+        "skipped": "Skipped"
+      },
+      "decisions": {
+        "title": "Import needs decisions",
+        "hint": "Handle each group (same part or unit) once — matching lines update together."
+      },
+      "actions": {
+        "createUnits": "Create missing units",
+        "createSelected": "Create selected parts ({count})",
+        "toggleDetails": "Issue details",
+        "skipMissing": "Skip missing parts",
+        "restoreSkipped": "Restore skipped",
+        "copyUnit": "Copy the first row's unit to all rows",
+        "copyAction": "Copy the first row's action to all rows"
+      },
+      "allSkippedPanel": "All lines are skipped. Restore skipped lines or choose another session.",
+      "unitMismatches": {
+        "title": "Unit mismatches",
+        "description": "Resolve units first so missing parts are created with the correct unit."
+      },
+      "productMismatches": {
+        "title": "Missing parts",
+        "description": "Choose how to handle each part before filling the form."
+      },
+      "items": {
+        "title": "Lines to receive",
+        "description": "Review the lines before filling the movement form.",
+        "empty": "No lines."
+      },
+      "columns": {
+        "no": "No.",
+        "sku": "Code",
+        "itemSku": "Part code",
+        "name": "Name",
+        "qty": "Qty",
+        "order": "Repair order",
+        "importedUnit": "Imported unit",
+        "problem": "Problem",
+        "action": "Action",
+        "unit": "Unit",
+        "rows": "Lines",
+        "howToProceed": "How to proceed",
+        "status": "Status",
+        "importedItem": "Imported item",
+        "product": "Part",
+        "source": "From",
+        "destination": "To"
+      },
+      "more": "+{count} more",
+      "noUnitProvided": "not in import",
+      "problems": {
+        "ambiguousUnit": "Several matching units",
+        "missingUnit": "Missing unit",
+        "multipleMatches": "Several matching parts",
+        "missingProductSelectUnit": "Missing part · select unit first",
+        "missingProduct": "Missing part"
+      },
+      "assignExistingUnit": "Assign existing unit",
+      "selectUnit": "Select unit",
+      "bulkUnit": "Set unit for all lines without one",
+      "bulkUnitAria": "Unit for all lines",
+      "productActions": {
+        "create": "Create part",
+        "assignExisting": "Assign existing",
+        "skip": "Skip",
+        "pickExisting": "Pick existing part",
+        "willCreate": "Will be created with \"Create selected parts\".",
+        "willSkip": "These lines will be skipped."
+      },
+      "blockReasons": {
+        "ambiguous": "Part matches several catalog items — assign it manually.",
+        "selectUnit": "Select unit first.",
+        "noPermission": "You cannot create parts."
+      },
+      "skippedRows": "{count, plural, one {# skipped line is} other {# skipped lines are}} not added to this movement.",
+      "statusReady": "Ready",
+      "needsResolution": "Needs a decision",
+      "selectProduct": "Select part",
+      "noSource": "None",
+      "noDestination": "None",
+      "importedUnitValue": "Imported: {unit}",
+      "cancel": "Cancel",
+      "fill": "Fill movement form",
+      "note": "Imported from {source}: {document}",
+      "toasts": {
+        "loadSourcesFailed": "Could not load import sources",
+        "previewFailed": "Could not load import data",
+        "fieldRequired": "{label} is required",
+        "unitsCreated": "Units created: {count}",
+        "noUnitsCreated": "No missing units could be created",
+        "createUnitsFailed": "Could not create missing units",
+        "productsCreated": "Parts created: {count}",
+        "noProductsCreated": "No missing parts could be created",
+        "createProductsFailed": "Could not create missing parts",
+        "resolveUnitsFirst": "Set units for the parts you want to create first",
+        "firstRowUnitFirst": "Select a unit in the first row first",
+        "filled": "Imported data filled the movement form",
+        "resolveFirst": "Resolve import issues before filling the form"
+      },
+      "errors": {
+        "productRequired": "Part is required",
+        "unitRequired": "Unit is required",
+        "quantityRequired": "Quantity is required",
+        "sourceLocationRequired": "Source location is required",
+        "destinationLocationRequired": "Destination location is required",
+        "locationsMustDiffer": "Source and destination locations must differ",
+        "productNotResolved": "Part could not be resolved",
+        "unitNotResolved": "Unit could not be resolved",
+        "productMultiple": "Part matched several records",
+        "unitMultiple": "Unit matched several records"
       }
     }
   },

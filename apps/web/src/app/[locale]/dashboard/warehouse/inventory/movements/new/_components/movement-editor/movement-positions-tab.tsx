@@ -236,7 +236,7 @@ export const MovementPositionsTab = React.memo(function MovementPositionsTab({
                 variant="outline"
                 className="text-[10px] rounded-sm border-amber-500/40 text-amber-700"
               >
-                Imported
+                {t("importedBadge")}
               </Badge>
             )}
             {manualCorrectionMode && (
@@ -244,7 +244,7 @@ export const MovementPositionsTab = React.memo(function MovementPositionsTab({
                 variant="outline"
                 className="text-[10px] rounded-sm border-primary/40 text-primary"
               >
-                Manual corrections enabled
+                {t("manualCorrectionsEnabled")}
               </Badge>
             )}
           </div>
@@ -257,7 +257,7 @@ export const MovementPositionsTab = React.memo(function MovementPositionsTab({
               onClick={onEnableManualCorrections}
             >
               <AlertTriangle className="h-3.5 w-3.5" />
-              Enable manual corrections
+              {t("enableManualCorrections")}
             </Button>
           ) : (
             <Button

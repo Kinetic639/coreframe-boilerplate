@@ -468,6 +468,11 @@ export type MovementImportSourceField = {
     label: string;
     description?: string | null;
     disabled?: boolean;
+    /**
+     * The document this option was already imported into (e.g. a session that
+     * already became "PZ/2026/000001"); the dialog warns before importing twice.
+     */
+    imported_document?: string | null;
   }>;
 };
 

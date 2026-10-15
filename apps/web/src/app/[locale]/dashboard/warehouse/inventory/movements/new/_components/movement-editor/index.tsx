@@ -91,7 +91,7 @@ export function MovementDocumentForm({
 
   const handleOpenPicker = useCallback(() => {
     if (form.importedLinesLocked) {
-      toast.error("Enable manual corrections before changing imported positions.");
+      toast.error(t("manualCorrectionsRequired"));
       return;
     }
     if (form.is801 && !form.srcLoc) {
@@ -249,7 +249,6 @@ export function MovementDocumentForm({
         <MovementImportDialog
           open={importOpen}
           onOpenChange={setImportOpen}
-          movementTypes={movementTypes}
           currentMovementTypeCode={form.typeCode}
           variants={variants}
           units={units}

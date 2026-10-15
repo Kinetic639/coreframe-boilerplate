@@ -1800,7 +1800,7 @@ async function attributeImportedReceipt(
   userId: string,
   movementId: string,
   lines: Array<{ source_order_number?: string | null; source_product_code?: string | null }>
-): Promise<ReceiptAttributionSummary | null> {
+): Promise<ReceiptAttributionSummary | { failed: true } | null> {
   if (!lines.some((l) => l.source_order_number && l.source_product_code)) return null;
   const { data } = await supabase
     .from("inventory_movement_lines")
@@ -1828,7 +1828,8 @@ async function attributeImportedReceipt(
   );
   if (!result.success) {
     console.error("[createAndPostMovementAction] receipt attribution failed:", movementId);
-    return null;
+    // The PZ stands; the editor tells the user its parts are free stock for now
+    return { failed: true };
   }
   return result.data;
 }
