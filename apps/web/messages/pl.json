@@ -2970,6 +2970,22 @@
           "nowhere": "Zlecenie nie ma teraz części na lokalizacjach.",
           "new": "nowe",
           "released": "zwolnione"
+        },
+        "views": {
+          "documents": "Według dokumentów",
+          "parts": "Wszystkie części"
+        },
+        "documents": {
+          "summary": "{count, plural, one {# dokument} few {# dokumenty} other {# dokumentów}} z towarem do rozłożenia",
+          "unknown": "Bez dokumentu",
+          "unknownHint": "Stan w strefie przyjęć, którego nie da się przypisać do dokumentu (np. starsze ruchy).",
+          "lines": "{count, plural, one {# pozycja} few {# pozycje} other {# pozycji}}",
+          "orders": "Zlecenia: {list}",
+          "free": "wolny towar",
+          "back": "Wszystkie dokumenty",
+          "open": "Otwórz dokument",
+          "reference": "Ref.: {reference}",
+          "fromDocument": "Do rozłożenia z {document}"
         }
       }
     },

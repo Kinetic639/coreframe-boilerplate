@@ -360,3 +360,138 @@ describe("InventoryReceivingService.getReceiptReport", () => {
     expect(free.pendingQuantity).toBe(1);
   });
 });
+
+/** Table-keyed fake: every query on a table resolves to that table's rows. */
+function tableClient(tables: Record<string, unknown[]>) {
+  const from = vi.fn((table: string) => {
+    const result = { data: tables[table] ?? [], error: null };
+    const query: Record<string, unknown> = {};
+    for (const method of ["select", "eq", "in", "is", "limit", "order"]) {
+      query[method] = () => query;
+    }
+    query.then = (resolve: (value: unknown) => unknown) => Promise.resolve(result).then(resolve);
+    return query;
+  });
+  return { from } as never;
+}
+
+describe("InventoryReceivingService.attachSources", () => {
+  const pending = (over: Record<string, unknown>) =>
+    ({
+      variantId: "vA",
+      productId: "p",
+      sku: "SKU",
+      productName: "Part",
+      unitId: "u",
+      unitCode: "szt",
+      quantity: 1,
+      documentNumber: null,
+      repairOrderLineId: null,
+      repairOrderId: null,
+      zlNumber: null,
+      vehicleBrand: null,
+      handlingMode: "standard",
+      defaultLocation: null,
+      container: null,
+      ...over,
+    }) as never;
+
+  const header = (
+    id: string,
+    doc: string,
+    posted: string,
+    extra: Record<string, unknown> = {}
+  ) => ({
+    id,
+    document_number: doc,
+    movement_type_code: doc.startsWith("PZ") ? "101" : doc.startsWith("KOR") ? "900" : "801",
+    posted_at: posted,
+    external_reference: null,
+    original_movement_id: null,
+    status: "posted",
+    ...extra,
+  });
+
+  it("splits free stock newest first, nets out reversals, follows RO receipt links, keeps the rest without a document", async () => {
+    const client = tableClient({
+      inventory_stock_ledger_entries: [
+        { movement_id: "m-old", variant_id: "vA", direction: "increase", quantity: 3 },
+        { movement_id: "m-new", variant_id: "vA", direction: "increase", quantity: 2 },
+        { movement_id: "m-rev", variant_id: "vA", direction: "increase", quantity: 5 },
+        { movement_id: "m-kor", variant_id: "vA", direction: "decrease", quantity: 5 },
+        { movement_id: "m-mm", variant_id: "vA", direction: "decrease", quantity: 2 },
+        { movement_id: "m-new", variant_id: "vB", direction: "increase", quantity: 1 },
+        { movement_id: "m-old", variant_id: "vC", direction: "increase", quantity: 1 },
+      ],
+      repair_order_line_movement_links: [
+        {
+          repair_order_line_id: "rolB",
+          applied_quantity: 1,
+          inventory_movement_lines: { movement_id: "m-new", variant_id: "vB" },
+        },
+      ],
+      inventory_movement_headers: [
+        header("m-old", "PZ/2026/000001", "2026-10-14T10:00:00Z"),
+        header("m-new", "PZ/2026/000007", "2026-10-15T13:57:00Z", {
+          external_reference: "SVWMS-20261015-A36777EC",
+        }),
+        header("m-rev", "PZ/2026/000006", "2026-10-15T13:26:00Z", { status: "reversed" }),
+        header("m-kor", "KOR/2026/000001", "2026-10-15T13:27:00Z", {
+          original_movement_id: "m-rev",
+        }),
+        header("m-mm", "MM/2026/000001", "2026-10-15T14:00:00Z"),
+      ],
+      inventory_movement_types: [
+        {
+          code: "101",
+          name: "Goods receipt",
+          name_pl: "Przyjęcie zewnętrzne",
+          organization_id: null,
+        },
+      ],
+    });
+
+    const [free, roPart, unknown] = await InventoryReceivingService.attachSources(
+      client,
+      "org",
+      "branch",
+      "prz",
+      [
+        pending({ variantId: "vA", quantity: 3 }),
+        pending({ variantId: "vB", repairOrderLineId: "rolB", repairOrderId: "ro" }),
+        pending({ variantId: "vC", quantity: 4 }),
+      ]
+    );
+
+    expect(
+      free.sources.map((s: { documentNumber: string | null; quantity: number }) => [
+        s.documentNumber,
+        s.quantity,
+      ])
+    ).toEqual([
+      ["PZ/2026/000007", 2],
+      ["PZ/2026/000001", 1],
+    ]);
+    expect(free.sources[0]).toMatchObject({
+      movementId: "m-new",
+      movementTypeName: "Przyjęcie zewnętrzne",
+      externalReference: "SVWMS-20261015-A36777EC",
+    });
+    expect(roPart.sources).toEqual([
+      expect.objectContaining({
+        movementId: "m-new",
+        documentNumber: "PZ/2026/000007",
+        quantity: 1,
+      }),
+    ]);
+    expect(
+      unknown.sources.map((s: { movementId: string | null; quantity: number }) => [
+        s.movementId,
+        s.quantity,
+      ])
+    ).toEqual([
+      ["m-old", 1],
+      [null, 3],
+    ]);
+  });
+});

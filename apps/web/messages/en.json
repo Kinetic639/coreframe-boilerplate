@@ -2999,6 +2999,22 @@
           "nowhere": "The order has no parts on locations now.",
           "new": "new",
           "released": "released"
+        },
+        "views": {
+          "documents": "By document",
+          "parts": "All parts"
+        },
+        "documents": {
+          "summary": "{count, plural, one {# document} other {# documents}} with stock to put away",
+          "unknown": "No document",
+          "unknownHint": "Stock in the receiving zone no document accounts for (e.g. older movements).",
+          "lines": "{count, plural, one {# line} other {# lines}}",
+          "orders": "Repair orders: {list}",
+          "free": "free stock",
+          "back": "All documents",
+          "open": "Open document",
+          "reference": "Ref.: {reference}",
+          "fromDocument": "To put away from {document}"
         }
       }
     },

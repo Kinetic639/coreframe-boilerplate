@@ -37,6 +37,21 @@ export interface ReceivingPendingItem {
     locationCode: string | null;
     locationName: string | null;
   } | null;
+  /**
+   * Which documents brought this quantity into the receiving zone (filled by
+   * attachSources). A null movementId is stock no document accounts for.
+   */
+  sources?: ReceivingPendingSource[];
+}
+
+export interface ReceivingPendingSource {
+  movementId: string | null;
+  documentNumber: string | null;
+  movementTypeCode: string | null;
+  movementTypeName: string | null;
+  postedAt: string | null;
+  externalReference: string | null;
+  quantity: number;
 }
 
 export interface ReceivingPending {
@@ -375,6 +390,209 @@ export class InventoryReceivingService {
    * several PZs bring the same item). RepairOrder details need
    * workshop.repair_orders.read (RLS) and are simply absent otherwise.
    */
+  /**
+   * Splits what waits in the receiving zone by the documents that brought it
+   * in. Repair-order parts follow their receipt links exactly; free stock is
+   * matched to the zone's inflows for that item (net of reversals/corrections
+   * and of what those documents reserved for orders), newest first -- what
+   * still waits arrived last. The rest stays without a document.
+   */
+  static async attachSources(
+    supabase: SupabaseClient,
+    organizationId: string,
+    branchId: string,
+    receivingLocationId: string | null,
+    items: ReceivingPendingItem[]
+  ): Promise<ReceivingPendingItem[]> {
+    if (!receivingLocationId || items.length === 0) return items;
+    const variantIds = [...new Set(items.map((item) => item.variantId))];
+
+    const { data: ledger } = await supabase
+      .from("inventory_stock_ledger_entries")
+      .select("movement_id, variant_id, direction, quantity")
+      .eq("organization_id", organizationId)
+      .eq("branch_id", branchId)
+      .eq("location_id", receivingLocationId)
+      .eq("balance_field", "on_hand")
+      .in("variant_id", variantIds)
+      .limit(10000);
+    const entries = (ledger ?? []) as Array<{
+      movement_id: string | null;
+      variant_id: string;
+      direction: string;
+      quantity: number | string;
+    }>;
+    const movementIds = [
+      ...new Set(entries.map((e) => e.movement_id).filter((id): id is string => !!id)),
+    ];
+
+    const rolIds = [
+      ...new Set(items.map((item) => item.repairOrderLineId).filter((id): id is string => !!id)),
+    ];
+    const { data: links } =
+      rolIds.length > 0
+        ? await supabase
+            .from("repair_order_line_movement_links")
+            .select(
+              "repair_order_line_id, applied_quantity, inventory_movement_lines!inner(movement_id, variant_id)"
+            )
+            .in("repair_order_line_id", rolIds)
+            .eq("relation_type", "receipt")
+        : { data: [] };
+    const receiptLinks = (
+      (links ?? []) as unknown as Array<{
+        repair_order_line_id: string;
+        applied_quantity: number | string;
+        inventory_movement_lines:
+          | { movement_id: string; variant_id: string }
+          | Array<{ movement_id: string; variant_id: string }>;
+      }>
+    ).map((link) => {
+      const line = Array.isArray(link.inventory_movement_lines)
+        ? link.inventory_movement_lines[0]
+        : link.inventory_movement_lines;
+      return {
+        rolId: link.repair_order_line_id,
+        movementId: line?.movement_id ?? null,
+        variantId: line?.variant_id ?? null,
+        quantity: Number(link.applied_quantity ?? 0),
+      };
+    });
+    for (const link of receiptLinks) {
+      if (link.movementId && !movementIds.includes(link.movementId))
+        movementIds.push(link.movementId);
+    }
+
+    type Header = {
+      id: string;
+      document_number: string | null;
+      movement_type_code: string | null;
+      posted_at: string | null;
+      external_reference: string | null;
+      original_movement_id: string | null;
+      status: string;
+    };
+    const headers = new Map<string, Header>();
+    for (let start = 0; start < movementIds.length; start += 200) {
+      const { data } = await supabase
+        .from("inventory_movement_headers")
+        .select(
+          "id, document_number, movement_type_code, posted_at, external_reference, original_movement_id, status"
+        )
+        .in("id", movementIds.slice(start, start + 200));
+      for (const header of (data ?? []) as Header[]) headers.set(header.id, header);
+    }
+
+    const codes = [
+      ...new Set(
+        [...headers.values()].map((h) => h.movement_type_code).filter((c): c is string => !!c)
+      ),
+    ];
+    const typeNames = new Map<string, string>();
+    if (codes.length > 0) {
+      const { data } = await supabase
+        .from("inventory_movement_types")
+        .select("code, name, name_pl, organization_id")
+        .in("code", codes)
+        .is("deleted_at", null);
+      for (const type of (data ?? []) as Array<{
+        code: string;
+        name: string | null;
+        name_pl: string | null;
+        organization_id: string | null;
+      }>) {
+        // An organization's own name wins over the system one.
+        if (typeNames.has(type.code) && type.organization_id !== organizationId) continue;
+        typeNames.set(type.code, type.name_pl ?? type.name ?? type.code);
+      }
+    }
+
+    // Net inflow per (document, item): its increases minus the decreases of
+    // movements that reverse or correct it.
+    const inflow = new Map<string, number>();
+    const inflowKey = (movementId: string, variantId: string) => `${movementId}:${variantId}`;
+    for (const entry of entries) {
+      if (!entry.movement_id) continue;
+      const header = headers.get(entry.movement_id);
+      const quantity = Number(entry.quantity);
+      if (entry.direction === "increase") {
+        const key = inflowKey(entry.movement_id, entry.variant_id);
+        inflow.set(key, (inflow.get(key) ?? 0) + quantity);
+      } else if (header?.original_movement_id) {
+        const key = inflowKey(header.original_movement_id, entry.variant_id);
+        if (inflow.has(key) || headers.has(header.original_movement_id))
+          inflow.set(key, (inflow.get(key) ?? 0) - quantity);
+      }
+    }
+    // What a document reserved for repair orders is not free stock.
+    const reserved = new Map<string, number>();
+    for (const link of receiptLinks) {
+      if (!link.movementId || !link.variantId) continue;
+      const key = inflowKey(link.movementId, link.variantId);
+      reserved.set(key, (reserved.get(key) ?? 0) + link.quantity);
+    }
+
+    const source = (movementId: string | null, quantity: number): ReceivingPendingSource => {
+      const header = movementId ? headers.get(movementId) : undefined;
+      return {
+        movementId: header ? movementId : null,
+        documentNumber: header?.document_number ?? null,
+        movementTypeCode: header?.movement_type_code ?? null,
+        movementTypeName: header?.movement_type_code
+          ? (typeNames.get(header.movement_type_code) ?? null)
+          : null,
+        postedAt: header?.posted_at ?? null,
+        externalReference: header?.external_reference ?? null,
+        quantity,
+      };
+    };
+    const newestFirst = (left: string, right: string) =>
+      (headers.get(right)?.posted_at ?? "").localeCompare(headers.get(left)?.posted_at ?? "");
+    const allocate = (
+      wanted: number,
+      candidates: Array<{ movementId: string; quantity: number }>
+    ) => {
+      const sources: ReceivingPendingSource[] = [];
+      let left = wanted;
+      for (const candidate of candidates.sort((a, b) => newestFirst(a.movementId, b.movementId))) {
+        if (left <= 0) break;
+        const take = Math.min(left, candidate.quantity);
+        if (take <= 0) continue;
+        sources.push(source(candidate.movementId, take));
+        left -= take;
+      }
+      if (left > 1e-9) sources.push(source(null, left));
+      return sources;
+    };
+
+    return items.map((item) => {
+      if (item.repairOrderLineId) {
+        const byMovement = new Map<string, number>();
+        for (const link of receiptLinks) {
+          if (link.rolId !== item.repairOrderLineId || !link.movementId) continue;
+          const header = headers.get(link.movementId);
+          if (header && header.status !== "posted") continue;
+          byMovement.set(link.movementId, (byMovement.get(link.movementId) ?? 0) + link.quantity);
+        }
+        return {
+          ...item,
+          sources: allocate(
+            item.quantity,
+            [...byMovement.entries()].map(([movementId, quantity]) => ({ movementId, quantity }))
+          ),
+        };
+      }
+      const candidates: Array<{ movementId: string; quantity: number }> = [];
+      for (const [key, quantity] of inflow.entries()) {
+        const [movementId, variantId] = key.split(":");
+        if (variantId !== item.variantId) continue;
+        const free = quantity - (reserved.get(key) ?? 0);
+        if (free > 1e-9) candidates.push({ movementId: movementId!, quantity: free });
+      }
+      return { ...item, sources: allocate(item.quantity, candidates) };
+    });
+  }
+
   static async getReceiptReport(
     supabase: SupabaseClient,
     organizationId: string,
