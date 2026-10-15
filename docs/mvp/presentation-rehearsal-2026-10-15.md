@@ -84,4 +84,6 @@
 - Jeśli przypisanie do zleceń po zaksięgowaniu się nie uda, użytkownik dostaje stałe ostrzeżenie (PZ zaksięgowany, części jako wolny towar w strefie przyjęć). → 8
 - Przy okazji: niejednoznaczne dopasowanie części/jednostki (kilka pozycji katalogu) było gubione po ponownej walidacji w dialogu — teraz rozpoznawane po statusie z serwera.
 
+- **Raport przed importem** (prośba z próby): po wybraniu sesji dialog sam wczytuje podgląd (nic nie zapisuje) i pokazuje liczby zleceń (nowe / istniejące / konflikty) i części (w katalogu / do utworzenia / do wyboru ręcznego), werdykt — co zrobi szybki import albo na czym się zatrzyma, ile pozycji wejdzie jako wolny towar — oraz listę zleceń z klientem/pojazdem i ich częściami ze statusem każdej. Dopiero wtedy użytkownik wybiera „Szybki import” albo „Przegląd ręczny”.
+
 _(dalsze sekcje uzupełniane w trakcie próby)_

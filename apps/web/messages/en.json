@@ -7580,6 +7580,44 @@
         "unitNotResolved": "Unit could not be resolved",
         "productMultiple": "Part matched several records",
         "unitMultiple": "Unit matched several records"
+      },
+      "summary": {
+        "loading": "Checking the session: repair orders and parts…",
+        "ordersTitle": "Repair orders",
+        "ordersNew": "new: {count}",
+        "ordersExisting": "existing: {count}",
+        "ordersConflict": "conflicts: {count}",
+        "ordersUnchecked": "Repair orders could not be checked (no permission or error).",
+        "partsTitle": "Parts ({count} lines)",
+        "partsInCatalog": "in catalog: {count}",
+        "partsCreate": "to create: {count}",
+        "partsAmbiguous": "to pick manually: {count}",
+        "partsNoPermission": "cannot create (permission): {count}",
+        "verdictQuick": "Quick import will create {orders, plural, one {# repair order} other {# repair orders}} and {parts, plural, one {# part} other {# parts}} (unit SZT), then fill the form ({lines} lines).",
+        "verdictStops": "Quick import will stop at {count, plural, one {# line} other {# lines}} that need a decision — the manual review opens then.",
+        "freeStock": "{count, plural, one {# line goes} other {# lines go}} in as free stock (no repair order or order closed).",
+        "noOrder": "No repair order",
+        "partsCount": "{count, plural, one {# part} other {# parts}}",
+        "orderStatus": {
+          "new": "To create",
+          "existing": "Exists",
+          "existing_changes": "Exists · new parts",
+          "conflict": "Conflict",
+          "unknown": "Not checked",
+          "none": "Free stock"
+        },
+        "conflict": {
+          "missing_zl": "No ZL number",
+          "repair_order_closed": "Order closed",
+          "repair_order_archived": "Order archived",
+          "warehouse_not_in_branch": "Warehouse outside branch"
+        },
+        "partStatus": {
+          "in_catalog": "In catalog",
+          "create": "Will be created ({unit})",
+          "ambiguous": "Several matches — pick manually",
+          "no_permission": "Not in catalog — no permission"
+        }
       }
     }
   },

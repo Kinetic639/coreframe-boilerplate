@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "react-toastify";
 import { AlertCircle, AlertTriangle, CheckCircle2, Loader2, PlusCircle, Zap } from "lucide-react";
@@ -47,7 +47,14 @@ import {
   MOVEMENT_FIELD_KEYS,
   policiesForType,
 } from "@/lib/warehouse/movement-field-policy";
+import type { RepairOrderImportPreview } from "@/server/services/repair-order-import.service";
 import type { ImportedMovementDocumentDraft, LocationOption } from "./types";
+import {
+  MovementImportSummary,
+  type ImportSessionSummaryModel,
+  type ImportSummaryOrder,
+  type ImportSummaryPart,
+} from "./movement-import-summary";
 
 type EditableDocument = MovementImportPreviewDocument;
 type EditableLine = MovementImportPreviewLine;
@@ -252,6 +259,105 @@ function sortVariants(variants: InventoryVariantOption[]) {
   return [...variants].sort((a, b) => a.sku.localeCompare(b.sku));
 }
 
+type SessionSummaryData = {
+  data: MovementImportPreview;
+  orders: RepairOrderImportPreview | null;
+};
+
+/** The pre-import report: what quick import would create, per repair order. */
+function buildSessionSummary(
+  { data, orders }: SessionSummaryData,
+  variants: InventoryVariantOption[],
+  units: InventoryUnitRow[],
+  canManageProducts: boolean
+): ImportSessionSummaryModel {
+  const unitCode = (unitId: string | null) =>
+    unitId ? (units.find((unit) => unit.id === unitId)?.code ?? null) : null;
+  const orderByZl = new Map(
+    (orders?.orders ?? [])
+      .filter((order) => order.zlNumber)
+      .map((order) => [order.zlNumber!, order])
+  );
+  const counts = {
+    ordersNew: 0,
+    ordersExisting: 0,
+    ordersConflict: 0,
+    lines: 0,
+    inCatalog: 0,
+    create: 0,
+    ambiguous: 0,
+    noPermission: 0,
+    freeStock: 0,
+  };
+  const groups = new Map<string, ImportSummaryOrder>();
+  for (const line of data.documents.flatMap((document) => document.lines)) {
+    const variant = line.variant_id
+      ? variants.find((item) => item.id === line.variant_id)
+      : undefined;
+    const status: ImportSummaryPart["status"] = line.variant_id
+      ? "in_catalog"
+      : isProductAmbiguous(line)
+        ? "ambiguous"
+        : canManageProducts
+          ? "create"
+          : "no_permission";
+    const part: ImportSummaryPart = {
+      key: line.source_line_id,
+      code: line.normalized_product_code ?? line.raw_product_code ?? "-",
+      name: line.normalized_product_name ?? line.raw_product_name ?? "-",
+      quantity: line.quantity,
+      unit:
+        variant?.unit_code ??
+        unitCode(line.unit_id) ??
+        (status === "in_catalog" ? (line.raw_unit ?? "") : DEFAULT_UNIT_CODE),
+      status,
+    };
+    counts.lines += 1;
+    if (status === "in_catalog") counts.inCatalog += 1;
+    else if (status === "create") counts.create += 1;
+    else if (status === "ambiguous") counts.ambiguous += 1;
+    else counts.noPermission += 1;
+
+    const zl = rawMetadataString(line, "zl_number") ?? lineOrderNumber(line);
+    const key = zl ?? "\uffff";
+    let group = groups.get(key);
+    if (!group) {
+      const order = zl ? orderByZl.get(zl) : undefined;
+      group = {
+        key,
+        zlNumber: zl,
+        description: order
+          ? [order.clientName, order.vehicleBrand, order.vin].filter(Boolean).join(" · ") || null
+          : null,
+        status: !zl
+          ? "none"
+          : !order
+            ? "unknown"
+            : order.status === "new"
+              ? "new"
+              : order.status === "conflict"
+                ? "conflict"
+                : order.willChange
+                  ? "existing_changes"
+                  : "existing",
+        conflictReason: order?.conflictReason ?? null,
+        parts: [],
+      };
+      groups.set(key, group);
+      if (group.status === "new") counts.ordersNew += 1;
+      else if (group.status === "conflict") counts.ordersConflict += 1;
+      else if (group.status === "existing" || group.status === "existing_changes")
+        counts.ordersExisting += 1;
+    }
+    group.parts.push(part);
+    if (group.status === "none" || group.status === "conflict") counts.freeStock += 1;
+  }
+  const sorted = [...groups.values()].sort((left, right) =>
+    left.key.localeCompare(right.key, "pl", { numeric: true })
+  );
+  return { orders: sorted, ordersChecked: orders !== null, counts };
+}
+
 export function MovementImportDialog({
   open,
   onOpenChange,
@@ -285,6 +391,10 @@ export function MovementImportDialog({
   const [quickStep, setQuickStep] = useState<QuickImportStep | null>(null);
   // Remounts the repair order review so it re-reads orders quick import created.
   const [repairOrderReviewKey, setRepairOrderReviewKey] = useState(0);
+  // Read-only report shown once a session is picked, before any choice.
+  const [summaryData, setSummaryData] = useState<SessionSummaryData | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const summaryRequest = useRef(0);
   const [isPending, startTransition] = useTransition();
 
   const tError = (error: string) => (ERROR_KEYS[error] ? t(`errors.${ERROR_KEYS[error]}`) : error);
@@ -337,6 +447,9 @@ export function MovementImportDialog({
     selectedActiveLines.length > 0;
 
   const resetPreview = () => {
+    summaryRequest.current += 1;
+    setSummaryData(null);
+    setSummaryLoading(false);
     setPreview(null);
     setDocuments([]);
     setSelectedDocumentId("");
@@ -367,6 +480,58 @@ export function MovementImportDialog({
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reload only on open / type change
   }, [movementTypeCode, open]);
+
+  const sourceInputKey = JSON.stringify(sourceInput);
+  const sourceInputComplete =
+    Boolean(selectedSource) &&
+    (selectedSource?.input_fields ?? []).every(
+      (field) => !field.required || Boolean(sourceInput[field.key]?.trim())
+    );
+
+  // Picking a session loads the report: the movement preview plus, for
+  // Matcher sessions, which repair orders exist. Nothing is written.
+  useEffect(() => {
+    if (!open || !sourceType || !movementTypeCode || !sourceInputComplete) return;
+    const request = ++summaryRequest.current;
+    setSummaryLoading(true);
+    void (async () => {
+      const input = JSON.parse(sourceInputKey) as Record<string, string>;
+      const result = await previewMovementImportFromSourceAction({
+        source_type: sourceType,
+        source_input: input,
+        movement_type_code: movementTypeCode,
+      });
+      if (request !== summaryRequest.current) return;
+      if (!result.success || !("data" in result)) {
+        setSummaryLoading(false);
+        toast.error(withActionError(t("toasts.previewFailed"), result));
+        return;
+      }
+      const sessionId = result.data.documents[0]?.source_metadata?.session_id;
+      const orders =
+        result.data.source_type === SVWMS_SOURCE && typeof sessionId === "string"
+          ? await previewRepairOrderImportAction({
+              source_type: SVWMS_SOURCE,
+              source_input: { session_id: sessionId },
+            })
+          : null;
+      if (request !== summaryRequest.current) return;
+      setSummaryData({
+        data: result.data,
+        orders: orders?.success ? (orders as { data: RepairOrderImportPreview }).data : null,
+      });
+      setSummaryLoading(false);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed by the serialized input
+  }, [open, sourceType, movementTypeCode, sourceInputComplete, sourceInputKey]);
+
+  const sessionSummary = useMemo(
+    () =>
+      summaryData
+        ? buildSessionSummary(summaryData, variantOptions, unitOptions, canManageProducts)
+        : null,
+    [summaryData, variantOptions, unitOptions, canManageProducts]
+  );
 
   useEffect(() => setVariantOptions(variants), [variants]);
   useEffect(() => setUnitOptions(units), [units]);
@@ -402,6 +567,11 @@ export function MovementImportDialog({
 
   const handlePreview = () => {
     if (!validateSourceInput()) return;
+    // The report already holds this preview: open the review without a refetch.
+    if (summaryData) {
+      showPreviewDocuments(summaryData.data, revalidatePreviewDocuments(summaryData.data));
+      return;
+    }
 
     startTransition(async () => {
       const result = await previewMovementImportFromSourceAction({
@@ -1216,33 +1386,36 @@ export function MovementImportDialog({
             </div>
           )}
 
-          <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
-            <span className="mr-auto text-xs text-muted-foreground">{t("quickImportHint")}</span>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handlePreview}
-              disabled={busy || !sourceType}
-            >
-              {isPending && quickStep === null ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : null}
-              {t("manualReview")}
-            </Button>
-            <Button
-              type="button"
-              onClick={handleQuickImport}
-              disabled={busy || !sourceType}
-              data-testid="import-quick"
-            >
-              {quickStep ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Zap className="mr-2 h-4 w-4" />
-              )}
-              {quickStep ? t(`quickStep.${quickStep}`) : t("quickImport")}
-            </Button>
-          </div>
+          {documents.length === 0 && sourceInputComplete && (
+            <MovementImportSummary summary={sessionSummary} loading={summaryLoading} />
+          )}
+
+          {/* The choice appears only once the session was checked, so it is made
+              with the report in view. */}
+          {summaryData && !summaryLoading && (
+            <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
+              <span className="mr-auto text-xs text-muted-foreground">{t("quickImportHint")}</span>
+              <Button type="button" variant="outline" onClick={handlePreview} disabled={busy}>
+                {isPending && quickStep === null ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : null}
+                {t("manualReview")}
+              </Button>
+              <Button
+                type="button"
+                onClick={handleQuickImport}
+                disabled={busy}
+                data-testid="import-quick"
+              >
+                {quickStep ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Zap className="mr-2 h-4 w-4" />
+                )}
+                {quickStep ? t(`quickStep.${quickStep}`) : t("quickImport")}
+              </Button>
+            </div>
+          )}
 
           {documents.length > 0 && (
             <div className="mt-5 space-y-4">
