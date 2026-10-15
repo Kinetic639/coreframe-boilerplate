@@ -6,7 +6,13 @@
 > **[LIVE DEMO]** — ma być rzeczywiście pokazane na żywo na aktualnym build, wymaga zaimplementowanej funkcji i świeżej ręcznej próby.
 > **[NARRATIVE]** — wypowiedź/opowieść, nie wymaga dowodu na ekranie.
 > **[ROADMAP]** — świadomie przyszły kierunek, nie pokazywać jako gotową funkcję.
-> Poprawiono trzy konkretne, zweryfikowane niezgodności ze stanem kodu: (1) QR dotyczy lokalizacji i **kontenerów** (fizycznych zestawów), nie pojedynczych części — trwała identyfikacja QR na poziomie pojedynczej części nie jest budowana; (2) wydanie części odbywa się przez właściwy dokument magazynowy **201/WZ**, nie przez obejście korektą inwentaryzacyjną (typ 402); (3) usunięto obietnicę cyfrowego powiązania ticket↔zlecenie/część — ta funkcja nie istnieje w kodzie. Pełne uzasadnienie: `docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/pitch-script-truth-matrix.md` i `docs/mvp/reviews/pitch-documentation-consolidation-2026-09-23/current-pitch-scope.md`.
+> Poprawiono trzy konkretne, zweryfikowane niezgodności ze stanem kodu: (1) QR dotyczy lokalizacji i **kontenerów** (fizycznych zestawów), nie pojedynczych części — trwała identyfikacja QR na poziomie pojedynczej części nie jest budowana; (2) wydanie części nie jest obejściem korektą inwentaryzacyjną (typ 402); (3) usunięto obietnicę cyfrowego powiązania ticket↔zlecenie/część. Pełne uzasadnienie było w `docs/mvp/reviews/` (usunięte 2026-10-14, dostępne w historii gita: `git show ddc19a82:docs/mvp/reviews/pitch-readiness-rebaseline-2026-09-23/pitch-script-truth-matrix.md`).
+>
+> **AKTUALIZACJA (2026-10-14)** — trzy miejsca dopasowane do stanu aplikacji:
+>
+> - **§10:** wydanie na zlecenie to dokument **RW (rozchód wewnętrzny, typ 261)** — odpowiednik WU z AutoStacji — a nie 201/WZ.
+> - **§12:** zlecenie ma zakładkę **„Powiązania”**: zgłoszenia założone do tego zlecenia (portal zapisuje jego numer) oraz wzmianki `@` o zleceniu w zgłoszeniach, zadaniach, komentarzach i na czacie. Bezpośredniego przypisania części ani kontenera do ticketu nadal nie ma.
+> - **§14:** **powiadomienia** (dzwonek na żywo, w tym wzmianki `@`) i **wiadomości między pracownikami** działają i można je pokazać. Zadania cykliczne, kalendarz i Kanban zostają kierunkiem; e-maile z powiadomień są jeszcze wyłączone — nie obiecywać ich na scenie.
 
 ---
 
@@ -304,7 +310,7 @@ Dzięki temu reorganizacja magazynu może być znacznie prostsza, szczególnie p
 
 Ten sam system prowadzi nas później do drugiego końca procesu.
 
-Mogę wyszukać część albo zlecenie, zobaczyć dokładnie, gdzie się znajduje, pobrać ją i zarejestrować wydanie przez właściwy dokument magazynowy — 201/WZ, z polem odbiorcy. To nie jest korekta stanu ani obejście — to osobny, właściwy typ dokumentu dla wydania na zewnątrz.
+Mogę wyszukać część albo zlecenie, zobaczyć dokładnie, gdzie się znajduje, pobrać ją i zarejestrować wydanie na zlecenie właściwym dokumentem magazynowym — **RW, rozchodem wewnętrznym**, z polem odbiorcy. To odpowiednik WU, które znamy z AutoStacji. Na jednym dokumencie wydaję części z kontenera zlecenia i odhaczam materiały. To nie jest korekta stanu ani obejście — to osobny, właściwy dokument wydania na naprawę.
 
 I tutaj od razu zaznaczę jedną rzecz.
 
@@ -394,7 +400,11 @@ Ticket może mieć określony typ, status, osobę odpowiedzialną, komentarze i 
 
 Przy procesach takich jak zwrot można określić odpowiednią ścieżkę i wymaganą akceptację.
 
-_(Cyfrowe powiązanie ticketu bezpośrednio ze zleceniem/częścią/kontenerem to kierunek, nad którym pracujemy — dziś tickety i zlecenia to osobne, niepowiązane w bazie obiekty; nie sugerować na scenie, że to połączenie już istnieje.)_
+### OPCJONALNIE: POKAŻ ZAKŁADKĘ „POWIĄZANIA” NA ZLECENIU.
+
+Jeżeli zgłoszenie dotyczy konkretnego zlecenia, widać to również od strony zlecenia. Na zleceniu jest zakładka „Powiązania”: zgłoszenia założone do tego zlecenia oraz wszystkie miejsca, w których ktoś wspomniał o nim przez `@` — w zgłoszeniu, w zadaniu, w komentarzu albo na czacie. Każdy widzi tam tylko to, do czego sam ma dostęp.
+
+_(Uczciwie: zgłoszenie łączy się ze zleceniem przez numer zlecenia i przez wzmianki `@`. Bezpośredniego przypisania części ani kontenera do ticketu jeszcze nie ma — nie sugerować tego na scenie.)_
 
 Ale tickety nie muszą służyć wyłącznie do komunikacji z doradcami.
 
@@ -444,9 +454,16 @@ Ten sam mechanizm można wykorzystać przy reklamacjach, zwrotach i wielu innych
 
 I tutaj zaczynam widzieć jeszcze szersze zastosowanie.
 
-Pracuję również nad systemem **zadań, zadań cyklicznych, kalendarza, powiadomień i tablic Kanban**.
+Pracuję również nad systemem **zadań, zadań cyklicznych, kalendarza i tablic Kanban**.
 
 Część tych mechanizmów już istnieje albo jest rozpoczęta, ale nie chcę dzisiaj robić z nich kolejnego dużego demo.
+
+Dwie rzeczy już działają na co dzień i mogę je krótko pokazać, jeśli będzie czas:
+
+- **powiadomienia** — dzwonek na górze ekranu: przypisanie zgłoszenia lub zadania, komentarz w mojej sprawie, wzmianka `@` o mnie — pojawiają się na żywo, bez odświeżania;
+- **wiadomości między pracownikami** — czat jeden na jeden i w grupach, w którym przez `@` mogę wskazać osobę albo konkretne zlecenie czy część.
+
+_(E-maile z powiadomień są przygotowane, ale jeszcze wyłączone — nie obiecywać na scenie, że już przychodzą.)_
 
 Mogłyby one pozwolić nam organizować nie tylko problemy, ale również normalną pracę.
 
