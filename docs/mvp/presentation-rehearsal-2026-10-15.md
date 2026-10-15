@@ -84,4 +84,12 @@
 - Jeśli przypisanie do zleceń po zaksięgowaniu się nie uda, użytkownik dostaje stałe ostrzeżenie (PZ zaksięgowany, części jako wolny towar w strefie przyjęć). → 8
 - Przy okazji: niejednoznaczne dopasowanie części/jednostki (kilka pozycji katalogu) było gubione po ponownej walidacji w dialogu — teraz rozpoznawane po statusie z serwera.
 
+- **Raport przed importem** (prośba z próby): po wybraniu sesji dialog sam wczytuje podgląd (nic nie zapisuje) i pokazuje liczby zleceń (nowe / istniejące / konflikty) i części (w katalogu / do utworzenia / do wyboru ręcznego), werdykt — co zrobi szybki import albo na czym się zatrzyma, ile pozycji wejdzie jako wolny towar — oraz listę zleceń z klientem/pojazdem i ich częściami ze statusem każdej. Dopiero wtedy użytkownik wybiera „Szybki import” albo „Przegląd ręczny”.
+
+### §7 Przyjęcie, rozkładanie, raport — w toku
+
+- ✅ Po zaksięgowaniu PZ części pojawiają się w strefie przyjęć do rozlokowania.
+- ❌ **Lista „Do rozłożenia” nie mówi, skąd części się wzięły** (uwaga właściciela produktu). → poprawione: domyślny widok **„Według dokumentów”** — lista dokumentów (PZ, MM, korekty…), które wniosły towar do strefy przyjęć, od najnowszego: numer, rodzaj ruchu, data, referencja sesji, zlecenia, liczba pozycji. Po wejściu w dokument widać jego części do rozłożenia (pogrupowane po zleceniach, wolny towar osobno) i link „Otwórz dokument”. Widok „Wszystkie części” zostaje jako przełącznik.
+  - Części na zlecenie są przypisane do dokumentu dokładnie (powiązanie przyjęcia). Wolny towar — do dokumentów, które wniosły tę część do strefy przyjęć, od najnowszego (to, co leży, przyszło najpóźniej), z odjęciem storn i korekt oraz tego, co dokument zarezerwował dla zleceń. Stan, którego nie da się przypisać, jest w grupie „Bez dokumentu”.
+
 _(dalsze sekcje uzupełniane w trakcie próby)_

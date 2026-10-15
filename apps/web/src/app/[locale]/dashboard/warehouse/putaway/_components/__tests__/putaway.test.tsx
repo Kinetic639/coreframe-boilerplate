@@ -28,7 +28,16 @@ const h = vi.hoisted(() => ({
 }));
 
 vi.mock("react-toastify", () => ({ toast: { error: h.toastError, success: h.toastSuccess } }));
-vi.mock("@/i18n/navigation", () => ({ useRouter: () => ({ refresh: h.refresh }) }));
+vi.mock("@/i18n/navigation", () => ({
+  useRouter: () => ({ refresh: h.refresh }),
+  Link: ({
+    href,
+    children,
+  }: {
+    href: { pathname: string; params: { movementId: string } };
+    children: React.ReactNode;
+  }) => <a href={href.pathname.replace("[movementId]", href.params.movementId)}>{children}</a>,
+}));
 vi.mock("@/app/actions/warehouse/receiving", () => ({
   putawayFromReceivingAction: (...args: unknown[]) => h.putaway(...args),
 }));
@@ -114,8 +123,12 @@ const fender = item({
 });
 const free = item({ variantId: "v-free", sku: "FREE-1", quantity: 3 });
 
-function renderBoard(items: ReceivingPendingItem[], canOperate = true) {
-  return render(
+function renderBoard(
+  items: ReceivingPendingItem[],
+  canOperate = true,
+  view: "documents" | "parts" = "parts"
+) {
+  const result = render(
     <PutawayBoard
       branchId="b1"
       receivingLocationId="prz"
@@ -124,6 +137,22 @@ function renderBoard(items: ReceivingPendingItem[], canOperate = true) {
       canOperate={canOperate}
     />
   );
+  // The board opens per document; most tests look at the flat part list.
+  const toggle = screen.queryByTestId("putaway-view-parts");
+  if (view === "parts" && toggle) fireEvent.click(toggle);
+  return result;
+}
+
+function source(movementId: string | null, documentNumber: string | null, quantity: number) {
+  return {
+    movementId,
+    documentNumber,
+    movementTypeCode: movementId ? "101" : null,
+    movementTypeName: movementId ? "Przyjęcie zewnętrzne" : null,
+    postedAt: movementId ? `2026-10-${movementId === "m-new" ? "15" : "14"}T10:00:00Z` : null,
+    externalReference: movementId === "m-new" ? "SVWMS-20261015-A36777EC" : null,
+    quantity,
+  };
 }
 
 beforeEach(() => {
@@ -165,6 +194,42 @@ describe("PutawayBoard", () => {
       />
     );
     expect(screen.getByTestId("putaway-no-receiving")).toBeInTheDocument();
+  });
+
+  it("opens on the documents that brought stock in, newest first, then shows a document's parts", () => {
+    const fromNew = { ...bumper, sources: [source("m-new", "PZ/2026/000007", 1)] };
+    // Free stock split between two receipts.
+    const split = {
+      ...free,
+      sources: [source("m-new", "PZ/2026/000007", 2), source("m-old", "PZ/2026/000001", 1)],
+    };
+    const unknown = { ...fender, sources: [source(null, null, 1)] };
+    renderBoard([fromNew, split, unknown], true, "documents");
+
+    const cards = screen.getAllByTestId("putaway-document-card");
+    expect(cards.map((c) => c.textContent)).toEqual([
+      expect.stringContaining("PZ/2026/000007"),
+      expect.stringContaining("PZ/2026/000001"),
+      expect.stringContaining("documents.unknown"),
+    ]);
+    expect(cards[0].textContent).toContain('documents.orders:{"list":"184213"}');
+    expect(cards[0].textContent).toContain("documents.free");
+    expect(cards[0].textContent).toContain('documents.lines:{"count":2}');
+    expect(screen.queryByTestId("putaway-item")).not.toBeInTheDocument();
+
+    fireEvent.click(cards[0]);
+    const doc = screen.getByTestId("putaway-document");
+    expect(within(doc).getByText("PZ/2026/000007")).toBeInTheDocument();
+    expect(within(doc).getByRole("link").getAttribute("href")).toBe(
+      "/dashboard/warehouse/inventory/movements/m-new"
+    );
+    const rows = within(doc).getAllByTestId("putaway-item");
+    expect(rows).toHaveLength(2);
+    // The free item shows only this document's share.
+    expect(rows.map((r) => r.textContent).join(" ")).toContain("2 szt");
+
+    fireEvent.click(screen.getByTestId("putaway-document-back"));
+    expect(screen.getAllByTestId("putaway-document-card")).toHaveLength(3);
   });
 
   it("hides the putaway button without operate permission", () => {

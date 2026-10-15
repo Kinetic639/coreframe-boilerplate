@@ -45,7 +45,16 @@ export default async function PutawayPage() {
 
   // Per repair order in the receiving zone: client and existing containers,
   // so the list says where each order already sits.
-  const items = pending.success ? pending.data.items : [];
+  // Each waiting quantity carries the documents (PZ, MM, ...) that brought it in.
+  const items = pending.success
+    ? await InventoryReceivingService.attachSources(
+        supabase,
+        context.app.activeOrgId,
+        branchId,
+        pending.data.receivingLocationId,
+        pending.data.items
+      )
+    : [];
   const orderIds = [
     ...new Set(items.map((i) => i.repairOrderId).filter((id): id is string => !!id)),
   ];

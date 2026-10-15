@@ -2970,6 +2970,22 @@
           "nowhere": "Zlecenie nie ma teraz części na lokalizacjach.",
           "new": "nowe",
           "released": "zwolnione"
+        },
+        "views": {
+          "documents": "Według dokumentów",
+          "parts": "Wszystkie części"
+        },
+        "documents": {
+          "summary": "{count, plural, one {# dokument} few {# dokumenty} other {# dokumentów}} z towarem do rozłożenia",
+          "unknown": "Bez dokumentu",
+          "unknownHint": "Stan w strefie przyjęć, którego nie da się przypisać do dokumentu (np. starsze ruchy).",
+          "lines": "{count, plural, one {# pozycja} few {# pozycje} other {# pozycji}}",
+          "orders": "Zlecenia: {list}",
+          "free": "wolny towar",
+          "back": "Wszystkie dokumenty",
+          "open": "Otwórz dokument",
+          "reference": "Ref.: {reference}",
+          "fromDocument": "Do rozłożenia z {document}"
         }
       }
     },
@@ -7554,6 +7570,44 @@
         "unitNotResolved": "Nie znaleziono jednostki",
         "productMultiple": "Kilka pasujących części",
         "unitMultiple": "Kilka pasujących jednostek"
+      },
+      "summary": {
+        "loading": "Sprawdzam sesję: zlecenia i części…",
+        "ordersTitle": "Zlecenia",
+        "ordersNew": "nowe: {count}",
+        "ordersExisting": "istniejące: {count}",
+        "ordersConflict": "konflikty: {count}",
+        "ordersUnchecked": "Nie udało się sprawdzić zleceń (brak uprawnień lub błąd).",
+        "partsTitle": "Części ({count} poz.)",
+        "partsInCatalog": "w katalogu: {count}",
+        "partsCreate": "do utworzenia: {count}",
+        "partsAmbiguous": "do wyboru ręcznego: {count}",
+        "partsNoPermission": "brak uprawnień do utworzenia: {count}",
+        "verdictQuick": "Szybki import utworzy {orders, plural, =0 {0 zleceń} one {# zlecenie} few {# zlecenia} other {# zleceń}} i {parts, plural, =0 {0 części} one {# część} few {# części} other {# części}} (jednostka SZT), a potem wypełni formularz ({lines} poz.).",
+        "verdictStops": "Szybki import zatrzyma się na {count, plural, one {# pozycji} other {# pozycjach}}, które wymagają decyzji — wtedy otworzy się przegląd ręczny.",
+        "freeStock": "{count, plural, one {# pozycja wejdzie} few {# pozycje wejdą} other {# pozycji wejdzie}} jako wolny towar (bez zlecenia albo zlecenie zamknięte).",
+        "noOrder": "Bez zlecenia",
+        "partsCount": "{count, plural, one {# część} few {# części} other {# części}}",
+        "orderStatus": {
+          "new": "Do utworzenia",
+          "existing": "Istnieje",
+          "existing_changes": "Istnieje · nowe części",
+          "conflict": "Konflikt",
+          "unknown": "Nie sprawdzono",
+          "none": "Wolny towar"
+        },
+        "conflict": {
+          "missing_zl": "Brak numeru ZL",
+          "repair_order_closed": "Zlecenie zamknięte",
+          "repair_order_archived": "Zlecenie zarchiwizowane",
+          "warehouse_not_in_branch": "Magazyn spoza oddziału"
+        },
+        "partStatus": {
+          "in_catalog": "W katalogu",
+          "create": "Zostanie utworzona ({unit})",
+          "ambiguous": "Kilka pasujących — wybór ręczny",
+          "no_permission": "Brak w katalogu — brak uprawnień"
+        }
       }
     }
   },

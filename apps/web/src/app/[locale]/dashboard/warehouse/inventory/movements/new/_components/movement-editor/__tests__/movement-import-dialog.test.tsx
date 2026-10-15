@@ -159,6 +159,14 @@ async function pickSession(value: string) {
 beforeEach(() => {
   vi.clearAllMocks();
   actions.listMovementImportSourcesAction.mockResolvedValue({ success: true, data: [SOURCE] });
+  actions.previewMovementImportFromSourceAction.mockResolvedValue({
+    success: true,
+    data: preview([line({})]),
+  });
+  actions.previewRepairOrderImportAction.mockResolvedValue({
+    success: true,
+    data: { sourceType: "svwms_wdd_matcher", orders: [], counts: {} },
+  });
 });
 
 describe("MovementImportDialog", () => {
@@ -169,7 +177,89 @@ describe("MovementImportDialog", () => {
     await waitFor(() => expect(sourceSelect.querySelectorAll("option")).toHaveLength(2));
     expect((sourceSelect as HTMLSelectElement).value).toBe("");
     expect(screen.queryByText(/Movement type|Rodzaj ruchu|Typ ruchu/)).toBeNull();
-    expect(screen.getByRole("button", { name: /Szybki import/ })).toHaveProperty("disabled", true);
+    // No choice before a session is picked and checked.
+    expect(screen.queryByRole("button", { name: /Szybki import/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Przegląd ręczny" })).toBeNull();
+  });
+
+  it("shows a read-only report of repair orders and parts once a session is picked", async () => {
+    actions.previewMovementImportFromSourceAction.mockResolvedValue({
+      success: true,
+      data: preview([
+        line({}),
+        line({
+          source_line_id: "l2",
+          raw_product_code: "WHT005263",
+          normalized_product_code: "WHT005263",
+          normalized_product_name: "Spinka",
+          variant_id: "v-known",
+          unit_id: "u-szt",
+          product_resolution_status: "resolved",
+          raw_metadata: { zl_number: "184214" },
+        }),
+        line({ source_line_id: "l3", raw_metadata: {}, product_resolution_status: "ambiguous" }),
+      ]),
+    });
+    actions.previewRepairOrderImportAction.mockResolvedValue({
+      success: true,
+      data: {
+        sourceType: "svwms_wdd_matcher",
+        orders: [
+          { zlNumber: "184213", status: "new", willChange: true, clientName: "Jan Test" },
+          { zlNumber: "184214", status: "existing", willChange: false },
+        ],
+        counts: {},
+      },
+    });
+
+    const onApply = renderDialog();
+    await pickSession("s-new");
+
+    const report = await screen.findByTestId("import-summary");
+    expect(report.textContent).toContain("nowe: 1");
+    expect(report.textContent).toContain("istniejące: 1");
+    expect(report.textContent).toContain("do utworzenia: 1");
+    expect(report.textContent).toContain("w katalogu: 1");
+    expect(report.textContent).toContain("do wyboru ręcznego: 1");
+    const orders = screen.getAllByTestId("import-summary-order");
+    expect(orders.map((o) => o.querySelector("summary")?.textContent)).toEqual([
+      expect.stringContaining("ZL 184213"),
+      expect.stringContaining("ZL 184214"),
+      expect.stringContaining("Bez zlecenia"),
+    ]);
+    expect(orders[0].textContent).toContain("Jan Test");
+    expect(orders[0].textContent).toContain("Zostanie utworzona (SZT)");
+    expect(orders[1].textContent).toContain("W katalogu");
+    expect(screen.getByTestId("import-summary-verdict").textContent).toContain(
+      "Szybki import zatrzyma się"
+    );
+    // Nothing is written by the report.
+    expect(actions.applyRepairOrderImportAction).not.toHaveBeenCalled();
+    expect(actions.createMovementImportProductsAction).not.toHaveBeenCalled();
+    expect(onApply).not.toHaveBeenCalled();
+
+    // Manual review reuses the loaded preview.
+    fireEvent.click(await screen.findByRole("button", { name: "Przegląd ręczny" }));
+    expect(await screen.findByTestId("import-repair-orders")).toBeTruthy();
+    expect(actions.previewMovementImportFromSourceAction).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows the quick import / manual review choice only after the session was checked", async () => {
+    let finish: (value: unknown) => void = () => {};
+    actions.previewMovementImportFromSourceAction.mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve;
+      })
+    );
+    renderDialog();
+    await pickSession("s-new");
+    expect(await screen.findByText("Sprawdzam sesję: zlecenia i części…")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Szybki import/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Przegląd ręczny" })).toBeNull();
+
+    finish({ success: true, data: preview([line({})]) });
+    expect(await screen.findByRole("button", { name: /Szybki import/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Przegląd ręczny" })).toBeTruthy();
   });
 
   it("warns when the chosen session was already imported", async () => {
@@ -233,7 +323,7 @@ describe("MovementImportDialog", () => {
 
     const onApply = renderDialog();
     await pickSession("s-new");
-    fireEvent.click(screen.getByRole("button", { name: /Szybki import/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Szybki import/ }));
 
     await waitFor(() => expect(onApply).toHaveBeenCalledTimes(1));
     expect(actions.applyRepairOrderImportAction).toHaveBeenCalledWith({
@@ -280,7 +370,7 @@ describe("MovementImportDialog", () => {
 
     const onApply = renderDialog();
     await pickSession("s-new");
-    fireEvent.click(screen.getByRole("button", { name: /Szybki import/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Szybki import/ }));
 
     await waitFor(() => expect(toast.warning).toHaveBeenCalled());
     expect(onApply).not.toHaveBeenCalled();
