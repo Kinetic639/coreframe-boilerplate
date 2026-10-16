@@ -245,17 +245,21 @@ Każdy etap kończy się zielonymi testami i sprawdzeniem na danych demo, dopier
 
 ### Stan wdrożenia (2026-10-16)
 
-| Etap    | Stan                                                            | Migracje / testy                                          |
-| ------- | --------------------------------------------------------------- | --------------------------------------------------------- |
-| E1      | na produkcji, test 133 zielony (14/14)                          | `20261016130747_reservations_e1_blocked_state_and_events` |
-| E2 + E3 | na produkcji; test 134 i poprawiony 118 czekają na uruchomienie | `20261016132736_…e2a` … `20261016133542_…e2e`             |
-| E4–E8   | nie zaczęte                                                     | —                                                         |
+| Etap    | Stan                                                                                                          | Migracje / testy                                          |
+| ------- | ------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| E1      | na produkcji, test 133 zielony (14/14)                                                                        | `20261016130747_reservations_e1_blocked_state_and_events` |
+| E2 + E3 | na produkcji, testy 134 (20/20) i 118 (22/22) zielone                                                         | `20261016132736_…e2a` … `20261016133542_…e2e`             |
+| E4      | na produkcji (baza + serwer: serwis `inventory-reservations`, akcje `warehouse/reservations`); test 135 czeka | `20261016135034_reservations_e4_operations`               |
+| E5      | na produkcji (baza + serwer: serwis `inventory-blocks`, akcje `warehouse/blocks`); test 135 czeka             | `20261016135502_reservations_e5_stock_blocks`             |
+| E6–E8   | nie zaczęte (E6/E7 to ekrany dla E4/E5)                                                                       | —                                                         |
 
 Odstępstwa od kolejności z planu (zmiany kolejności, nie modelu):
 
 - **Dokument rezerwacji na całe zlecenie** (jeden REZ z liniami na części) wchodzi razem z przebudową ekranów zlecenia (E4/E7). W E2/E3 PZ tworzy jeden REZ na pozycję zlecenia (`reference_type = 'repair_order_line'`). Ten kształt czytają dziś wszystkie ekrany i funkcje (wydanie, kontenery), więc nic nie trzeba było przepisywać naraz. Linie i tak mają już `repair_order_line_id` i źródło.
 - **„RW 261 zawsze ze zleceniem” w bazie** wchodzi razem z edytorem ruchów (E6). Do tego czasu zwykłe RW z edytora i tak może wziąć tylko D, więc zarezerwowane części są chronione.
-- Do E4: stara funkcja `inventory_release_reservation` (transfery, ręczne zwolnienie na ekranie zlecenia) nie zapisuje jeszcze zdarzeń w historii. `inventory_attribute_receipt_lines` (przypisanie po liniach Matchera) nie jest używana przez aplikację i nie tworzy rezerwacji.
+- Zrobione w E4: `inventory_release_reservation` zapisuje zdarzenia w historii. `inventory_attribute_receipt_lines` (przypisanie po liniach Matchera) nie jest używana przez aplikację i nie tworzy rezerwacji.
+- E5: zablokowane części można przenieść (`inventory_move_blocked_stock`: MM, blokada idzie z częścią), np. na półkę reklamacji. Części w kontenerze zlecenia trzeba najpierw z niego wyjąć, żeby je zwolnić, przenieść na inne zlecenie albo zablokować (kod błędu `in_container`).
+- Do uzupełnienia: `admin_reset_demo_org_data` nie czyści jeszcze nagłówków blokad (linie i zdarzenia znikają kaskadowo razem z produktami i ruchami).
 
 **Wycofanie:** migracje są addytywne. Gdyby E2+E3 trzeba było cofnąć, akcja importu wraca do starego wywołania, funkcja strefy przyjęć do poprzedniej treści, a nowe rezerwacje zostają jako zwykłe dokumenty, które można zwolnić. Danych nie trzeba usuwać.
 

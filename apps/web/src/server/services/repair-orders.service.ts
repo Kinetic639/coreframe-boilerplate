@@ -2461,12 +2461,13 @@ export class RepairOrdersService {
       .from("inventory_reservations")
       .select(
         `id, reservation_number, status, expires_at, created_at,
-         inventory_reservation_lines(id, variant_id, location_id, lot_id, serial_id, reserved_quantity, released_quantity, fulfilled_quantity)`
+         inventory_reservation_lines!inner(id, variant_id, location_id, lot_id, serial_id, reserved_quantity, released_quantity, fulfilled_quantity)`
       )
       .eq("organization_id", scope.organizationId)
       .eq("branch_id", scope.branchId)
-      .eq("reference_type", "repair_order_line")
-      .eq("reference_id", repairOrderLineId)
+      // A reservation line names its repair-order line (one document per
+      // order line, or one per repair order with a line per part).
+      .eq("inventory_reservation_lines.repair_order_line_id", repairOrderLineId)
       .is("deleted_at", null)
       .order("created_at", { ascending: true });
 
@@ -2617,7 +2618,9 @@ export class RepairOrdersService {
 
     const { data: reservationLine, error: reservationLineError } = await supabase
       .from("inventory_reservation_lines")
-      .select("id, reservation_id, variant_id, location_id, lot_id, serial_id")
+      .select(
+        "id, reservation_id, variant_id, location_id, lot_id, serial_id, repair_order_line_id"
+      )
       .eq("id", input.reservationLineId)
       .maybeSingle();
 
@@ -2656,11 +2659,14 @@ export class RepairOrdersService {
       };
     }
 
-    const belongsToThisLine = RepairOrdersService.belongsToRepairOrderLine(
-      reservation,
-      scope,
-      input.repairOrderLineId
-    );
+    const belongsToThisLine =
+      RepairOrdersService.belongsToRepairOrderLine(reservation, scope, input.repairOrderLineId) ||
+      // One document per repair order: the LINE names the repair-order line.
+      (!!reservation &&
+        reservation.organization_id === scope.organizationId &&
+        reservation.branch_id === scope.branchId &&
+        (reservationLine as { repair_order_line_id?: string | null }).repair_order_line_id ===
+          input.repairOrderLineId);
 
     if (!belongsToThisLine) {
       // Same message either way -- an unrelated/cross-scope reservation
@@ -2801,11 +2807,10 @@ export class RepairOrdersService {
 
     const { data: reservationRows, error: reservationError } = await supabase
       .from("inventory_reservations")
-      .select("inventory_reservation_lines(id, variant_id)")
+      .select("inventory_reservation_lines!inner(id, variant_id)")
       .eq("organization_id", scope.organizationId)
       .eq("branch_id", scope.branchId)
-      .eq("reference_type", "repair_order_line")
-      .eq("reference_id", repairOrderLineId)
+      .eq("inventory_reservation_lines.repair_order_line_id", repairOrderLineId)
       .is("deleted_at", null);
 
     if (reservationError) {
