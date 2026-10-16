@@ -9,6 +9,7 @@ import {
   InventoryReservationsService,
   type ActiveReservationLine,
   type ReservationEvent,
+  type RepairOrderLineNeed,
   type ReservationResult,
   type StockEngineError,
 } from "@/server/services/inventory-reservations.service";
@@ -194,6 +195,39 @@ export async function listReservationHistoryAction(
       scope.orgId,
       scope.branchId,
       parsed.data
+    );
+  } catch {
+    return { success: false, error: "failed" };
+  }
+}
+
+const needSchema = z.object({
+  variantId: z.string().uuid(),
+  sku: z.string().trim().max(100).nullable().optional(),
+  query: z.string().trim().max(100).nullable().optional(),
+  excludeLineId: z.string().uuid().nullable().optional(),
+});
+
+/** Open repair-order lines that still need this item (reserve / transfer target). */
+export async function findRepairOrderLinesNeedingAction(
+  rawInput: unknown
+): Promise<{ success: true; data: RepairOrderLineNeed[] } | Fail> {
+  try {
+    const scope = await activeScope(WAREHOUSE_INVENTORY_READ);
+    if (!scope) return { success: false, error: "unauthorized" };
+    const parsed = needSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: "invalid_input" };
+    const supabase = await createClient();
+    return InventoryReservationsService.findLinesNeeding(
+      supabase,
+      scope.orgId,
+      scope.branchId,
+      parsed.data as {
+        variantId: string;
+        sku?: string | null;
+        query?: string | null;
+        excludeLineId?: string | null;
+      }
     );
   } catch {
     return { success: false, error: "failed" };

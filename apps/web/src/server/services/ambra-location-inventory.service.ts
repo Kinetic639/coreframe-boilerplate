@@ -20,6 +20,7 @@ type BalanceRow = {
   available_quantity: number | string | null;
   reserved_quantity: number | string;
   allocated_quantity: number | string;
+  blocked: number | string | null;
   last_movement_id: string | null;
 };
 
@@ -119,7 +120,7 @@ export class AmbraLocationInventoryService {
     const { data, error } = await supabase
       .from("inventory_balances")
       .select(
-        "id, location_id, variant_id, on_hand_quantity, available_quantity, reserved_quantity, allocated_quantity, last_movement_id"
+        "id, location_id, variant_id, on_hand_quantity, available_quantity, reserved_quantity, allocated_quantity, blocked, last_movement_id"
       )
       .eq("organization_id", orgId)
       .eq("branch_id", branchId)
@@ -218,6 +219,7 @@ export class AmbraLocationInventoryService {
           availableQuantity: toNumber(balance.available_quantity),
           reservedQuantity: toNumber(balance.reserved_quantity),
           allocatedQuantity: toNumber(balance.allocated_quantity),
+          blockedQuantity: toNumber(balance.blocked),
           lastMovementNumber: movement?.document_number ?? movement?.draft_number ?? null,
           containerId: null,
           containerCode: null,

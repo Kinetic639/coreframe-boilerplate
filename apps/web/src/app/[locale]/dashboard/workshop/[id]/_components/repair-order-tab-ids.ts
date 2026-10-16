@@ -8,6 +8,8 @@ export const REPAIR_ORDER_TABS = [
   "overview",
   "lines",
   "warehouse",
+  "containers",
+  "history",
   "documents",
   "related",
 ] as const;

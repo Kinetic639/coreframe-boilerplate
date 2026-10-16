@@ -78,6 +78,12 @@ export interface ReservationEvent {
   createdAt: string;
 }
 
+/** A history event with what the screens show next to it. */
+export interface ReservationEventView extends ReservationEvent {
+  movementNumber: string | null;
+  actorName: string | null;
+}
+
 export interface ActiveReservationLine {
   reservationLineId: string;
   reservationId: string;
@@ -93,6 +99,39 @@ export interface ActiveReservationLine {
 }
 
 const num = (v: unknown) => Number(v ?? 0);
+
+type Row = Record<string, unknown>;
+const one = (v: unknown): Row | null =>
+  Array.isArray(v) ? ((v[0] as Row | undefined) ?? null) : ((v as Row | null) ?? null);
+
+/** An active reservation line with what the screens show next to it. */
+export interface ReservationLineView extends ActiveReservationLine {
+  sku: string | null;
+  productId: string | null;
+  productName: string | null;
+  unitCode: string | null;
+  locationCode: string | null;
+  locationName: string | null;
+  /** e.g. 'receiving' for the receiving zone. */
+  locationPurpose: string | null;
+  repairOrderId: string | null;
+  zlNumber: string | null;
+  clientName: string | null;
+  partName: string | null;
+}
+
+/** A repair-order line that still needs a part (reserve / transfer target). */
+export interface RepairOrderLineNeed {
+  repairOrderLineId: string;
+  repairOrderId: string;
+  zlNumber: string | null;
+  clientName: string | null;
+  productCode: string | null;
+  productName: string | null;
+  variantId: string | null;
+  orderedQuantity: number;
+  openNeed: number;
+}
 
 export class InventoryReservationsService {
   /** "Zarezerwuj z magazynu": several parts of one repair order, one document. */
@@ -332,6 +371,255 @@ export class InventoryReservationsService {
           reason: (e.reason as string | null) ?? null,
           actorUserId: (e.actor_user_id as string | null) ?? null,
           createdAt: String(e.created_at),
+        };
+      }),
+    };
+  }
+
+  /** Active reservations of the branch with part, location and repair order (RLS read). */
+  static async listActiveDetailed(
+    supabase: SupabaseClient,
+    organizationId: string,
+    branchId: string,
+    filter: { variantIds?: string[]; repairOrderLineIds?: string[] } = {}
+  ): Promise<ServiceResult<ReservationLineView[]>> {
+    let query = supabase
+      .from("inventory_reservation_lines")
+      .select(
+        `id, reservation_id, repair_order_line_id, variant_id, location_id, reserved_quantity,
+         released_quantity, fulfilled_quantity, created_at,
+         inventory_reservations!inner(reservation_number, status, deleted_at),
+         inventory_allocation_lines(allocated_quantity, fulfilled_quantity),
+         inventory_variants(sku, product_id, inventory_products(name, inventory_units(code))),
+         warehouse_locations(code, name, purpose),
+         repair_order_lines(product_name, repair_orders(id, zl_number, client_name))`
+      )
+      .eq("organization_id", organizationId)
+      .eq("branch_id", branchId)
+      .neq("inventory_reservations.status", "cancelled")
+      .is("inventory_reservations.deleted_at", null)
+      .order("created_at", { ascending: true })
+      .limit(2000);
+    if (filter.variantIds?.length) query = query.in("variant_id", filter.variantIds);
+    if (filter.repairOrderLineIds?.length) {
+      query = query.in("repair_order_line_id", filter.repairOrderLineIds);
+    }
+    const { data, error } = await query;
+    if (error) return { success: false, error: "Failed to load reservations" };
+
+    const rows = (data ?? []) as unknown as Array<Record<string, unknown>>;
+    return {
+      success: true,
+      data: rows
+        .map((row) => {
+          const header = one(row.inventory_reservations);
+          const variant = one(row.inventory_variants);
+          const product = one(variant?.inventory_products);
+          const unit = one(product?.inventory_units);
+          const location = one(row.warehouse_locations);
+          const rol = one(row.repair_order_lines);
+          const ro = one(rol?.repair_orders);
+          const allocations = (row.inventory_allocation_lines ?? []) as Array<
+            Record<string, unknown>
+          >;
+          return {
+            reservationLineId: String(row.id),
+            reservationId: String(row.reservation_id),
+            reservationNumber: String(header?.reservation_number ?? ""),
+            repairOrderLineId: (row.repair_order_line_id as string | null) ?? null,
+            variantId: String(row.variant_id),
+            locationId: String(row.location_id),
+            openQuantity:
+              num(row.reserved_quantity) - num(row.released_quantity) - num(row.fulfilled_quantity),
+            allocatedQuantity: allocations.reduce(
+              (sum, a) => sum + num(a.allocated_quantity) - num(a.fulfilled_quantity),
+              0
+            ),
+            createdAt: String(row.created_at),
+            sku: (variant?.sku as string | null) ?? null,
+            productId: (variant?.product_id as string | null) ?? null,
+            productName: (product?.name as string | null) ?? null,
+            unitCode: (unit?.code as string | null) ?? null,
+            locationCode: (location?.code as string | null) ?? null,
+            locationName: (location?.name as string | null) ?? null,
+            locationPurpose: (location?.purpose as string | null) ?? null,
+            repairOrderId: (ro?.id as string | null) ?? null,
+            zlNumber: (ro?.zl_number as string | null) ?? null,
+            clientName: (ro?.client_name as string | null) ?? null,
+            partName: (rol?.product_name as string | null) ?? null,
+          };
+        })
+        .filter((l) => l.openQuantity > 0 || l.allocatedQuantity > 0),
+    };
+  }
+
+  /**
+   * Open repair-order lines of the branch that still need this item (its
+   * variant, or no item yet and the same part code) -- targets for "reserve
+   * for an order" and "transfer to another order". Optional ZL search.
+   */
+  static async findLinesNeeding(
+    supabase: SupabaseClient,
+    organizationId: string,
+    branchId: string,
+    input: {
+      variantId: string;
+      sku?: string | null;
+      query?: string | null;
+      excludeLineId?: string | null;
+    }
+  ): Promise<ServiceResult<RepairOrderLineNeed[]>> {
+    const code = (input.sku ?? "").replace(/[\s\-./]/g, "").toUpperCase();
+    let query = supabase
+      .from("repair_order_lines")
+      .select(
+        "id, repair_order_id, product_code, product_name, variant_id, ordered_quantity, repair_orders!inner(zl_number, client_name, status, organization_id, branch_id, deleted_at)"
+      )
+      .is("deleted_at", null)
+      .eq("repair_orders.organization_id", organizationId)
+      .eq("repair_orders.branch_id", branchId)
+      .eq("repair_orders.status", "open")
+      .is("repair_orders.deleted_at", null)
+      .limit(200);
+    query = code
+      ? query.or(
+          `variant_id.eq.${input.variantId},and(variant_id.is.null,product_code.ilike.${code})`
+        )
+      : query.eq("variant_id", input.variantId);
+    if (input.query?.trim())
+      query = query.ilike("repair_orders.zl_number", `%${input.query.trim()}%`);
+    const { data, error } = await query;
+    if (error) return { success: false, error: "Failed to load repair-order lines" };
+
+    const lines = ((data ?? []) as unknown as Array<Record<string, unknown>>).filter(
+      (l) => l.id !== input.excludeLineId
+    );
+    const needs = await Promise.all(
+      lines.map(async (l) => {
+        const { data: need } = await supabase.rpc("repair_order_line_open_need", {
+          p_repair_order_line_id: l.id,
+        });
+        return num(need);
+      })
+    );
+    return {
+      success: true,
+      data: lines
+        .map((l, i) => {
+          const ro = one(l.repair_orders);
+          return {
+            repairOrderLineId: String(l.id),
+            repairOrderId: String(l.repair_order_id),
+            zlNumber: (ro?.zl_number as string | null) ?? null,
+            clientName: (ro?.client_name as string | null) ?? null,
+            productCode: (l.product_code as string | null) ?? null,
+            productName: (l.product_name as string | null) ?? null,
+            variantId: (l.variant_id as string | null) ?? null,
+            orderedQuantity: num(l.ordered_quantity),
+            openNeed: needs[i],
+          };
+        })
+        .filter((l) => l.openNeed > 0)
+        .sort((a, b) =>
+          (a.zlNumber ?? "").localeCompare(b.zlNumber ?? "", "pl", { numeric: true })
+        ),
+    };
+  }
+
+  /** listHistory plus the movement document numbers and the actors' names. */
+  static async listHistoryDetailed(
+    supabase: SupabaseClient,
+    organizationId: string,
+    branchId: string,
+    filter: { repairOrderLineIds?: string[]; reservationId?: string; limit?: number }
+  ): Promise<ServiceResult<ReservationEventView[]>> {
+    const base = await InventoryReservationsService.listHistory(
+      supabase,
+      organizationId,
+      branchId,
+      filter
+    );
+    if (!base.success) return { success: false, error: (base as { error: string }).error };
+    const movementIds = [
+      ...new Set(base.data.map((e) => e.movementId).filter((id): id is string => !!id)),
+    ];
+    const actorIds = [
+      ...new Set(base.data.map((e) => e.actorUserId).filter((id): id is string => !!id)),
+    ];
+    const [movements, actors] = await Promise.all([
+      movementIds.length
+        ? supabase
+            .from("inventory_movement_headers")
+            .select("id, document_number")
+            .in("id", movementIds)
+        : Promise.resolve({ data: [] }),
+      actorIds.length
+        ? supabase.from("users").select("id, first_name, last_name, email").in("id", actorIds)
+        : Promise.resolve({ data: [] }),
+    ]);
+    const numberById = new Map(
+      ((movements.data ?? []) as Array<{ id: string; document_number: string | null }>).map((m) => [
+        m.id,
+        m.document_number,
+      ])
+    );
+    const nameById = new Map(
+      (
+        (actors.data ?? []) as Array<{
+          id: string;
+          first_name: string | null;
+          last_name: string | null;
+          email: string | null;
+        }>
+      ).map((u) => [u.id, [u.first_name, u.last_name].filter(Boolean).join(" ") || u.email || null])
+    );
+    return {
+      success: true,
+      data: base.data.map((e) => ({
+        ...e,
+        movementNumber: e.movementId ? (numberById.get(e.movementId) ?? null) : null,
+        actorName: e.actorUserId ? (nameById.get(e.actorUserId) ?? null) : null,
+      })),
+    };
+  }
+
+  /** Where an item can be reserved from: locations of the branch with D > 0 (RLS read). */
+  static async listAvailableStock(
+    supabase: SupabaseClient,
+    organizationId: string,
+    branchId: string,
+    variantIds: string[]
+  ): Promise<
+    ServiceResult<
+      Array<{
+        variantId: string;
+        locationId: string;
+        locationCode: string | null;
+        locationName: string | null;
+        available: number;
+      }>
+    >
+  > {
+    if (variantIds.length === 0) return { success: true, data: [] };
+    const { data, error } = await supabase
+      .from("inventory_balances")
+      .select("variant_id, location_id, available_quantity, warehouse_locations(code, name)")
+      .eq("organization_id", organizationId)
+      .eq("branch_id", branchId)
+      .in("variant_id", variantIds)
+      .gt("available_quantity", 0)
+      .order("available_quantity", { ascending: false });
+    if (error) return { success: false, error: "Failed to load available stock" };
+    return {
+      success: true,
+      data: ((data ?? []) as unknown as Array<Record<string, unknown>>).map((b) => {
+        const location = one(b.warehouse_locations);
+        return {
+          variantId: String(b.variant_id),
+          locationId: String(b.location_id),
+          locationCode: (location?.code as string | null) ?? null,
+          locationName: (location?.name as string | null) ?? null,
+          available: num(b.available_quantity),
         };
       }),
     };

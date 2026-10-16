@@ -167,6 +167,8 @@ export interface LocationInventoryLine {
   availableQuantity: number;
   reservedQuantity: number;
   allocatedQuantity: number;
+  /** B: blocked at this location. */
+  blockedQuantity: number;
   lastMovementNumber?: string | null;
   containerId?: string | null;
   containerCode?: string | null;

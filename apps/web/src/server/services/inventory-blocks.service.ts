@@ -70,6 +70,21 @@ export interface BlockEvent {
 
 const num = (v: unknown) => Number(v ?? 0);
 
+type Row = Record<string, unknown>;
+const one = (v: unknown): Row | null =>
+  Array.isArray(v) ? ((v[0] as Row | undefined) ?? null) : ((v as Row | null) ?? null);
+
+/** An active block line with what the screens show next to it. */
+export interface BlockLineView extends ActiveBlockLine {
+  sku: string | null;
+  productId: string | null;
+  productName: string | null;
+  unitCode: string | null;
+  locationCode: string | null;
+  locationName: string | null;
+  referenceType: string | null;
+}
+
 function fail<T>(error: { code?: string; message?: string }): ServiceResult<T, StockEngineError> {
   return { success: false, error: mapStockEngineError(error), message: error.message };
 }
@@ -315,6 +330,68 @@ export class InventoryBlocksService {
         actorUserId: (e.actor_user_id as string | null) ?? null,
         createdAt: String(e.created_at),
       })),
+    };
+  }
+
+  /** Active blocked stock of the branch with part and location (RLS read). */
+  static async listActiveDetailed(
+    supabase: SupabaseClient,
+    organizationId: string,
+    branchId: string,
+    filter: { variantIds?: string[] } = {}
+  ): Promise<ServiceResult<BlockLineView[]>> {
+    let query = supabase
+      .from("inventory_stock_block_lines")
+      .select(
+        `id, block_id, variant_id, location_id, blocked_quantity, unblocked_quantity, moved_quantity,
+         consumed_quantity, created_at,
+         inventory_stock_blocks!inner(block_number, reason_code, description, reference_type, reference_number, status),
+         inventory_variants(sku, product_id, inventory_products(name, inventory_units(code))),
+         warehouse_locations(code, name)`
+      )
+      .eq("organization_id", organizationId)
+      .eq("branch_id", branchId)
+      .eq("inventory_stock_blocks.status", "active")
+      .order("created_at", { ascending: true })
+      .limit(2000);
+    if (filter.variantIds?.length) query = query.in("variant_id", filter.variantIds);
+    const { data, error } = await query;
+    if (error) return { success: false, error: "Failed to load blocked stock" };
+
+    return {
+      success: true,
+      data: ((data ?? []) as unknown as Array<Record<string, unknown>>)
+        .map((row) => {
+          const header = one(row.inventory_stock_blocks) ?? {};
+          const variant = one(row.inventory_variants);
+          const product = one(variant?.inventory_products);
+          const unit = one(product?.inventory_units);
+          const location = one(row.warehouse_locations);
+          return {
+            blockLineId: String(row.id),
+            blockId: String(row.block_id),
+            blockNumber: String(header.block_number ?? ""),
+            reasonCode: header.reason_code as BlockReasonCode,
+            description: (header.description as string | null) ?? null,
+            referenceType: (header.reference_type as string | null) ?? null,
+            referenceNumber: (header.reference_number as string | null) ?? null,
+            variantId: String(row.variant_id),
+            locationId: String(row.location_id),
+            openQuantity:
+              num(row.blocked_quantity) -
+              num(row.unblocked_quantity) -
+              num(row.moved_quantity) -
+              num(row.consumed_quantity),
+            createdAt: String(row.created_at),
+            sku: (variant?.sku as string | null) ?? null,
+            productId: (variant?.product_id as string | null) ?? null,
+            productName: (product?.name as string | null) ?? null,
+            unitCode: (unit?.code as string | null) ?? null,
+            locationCode: (location?.code as string | null) ?? null,
+            locationName: (location?.name as string | null) ?? null,
+          };
+        })
+        .filter((l) => l.openQuantity > 0),
     };
   }
 }

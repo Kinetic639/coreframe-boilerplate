@@ -9,19 +9,24 @@ import {
   WORKSHOP_REPAIR_ORDERS_MANAGE_ALL,
 } from "@/lib/constants/permissions";
 import { createClient } from "@/utils/supabase/server";
-import { WAREHOUSE_INVENTORY_OPERATE as WAREHOUSE_INVENTORY_OPERATE_PERMISSION } from "@/lib/constants/permissions";
+import {
+  WAREHOUSE_INVENTORY_OPERATE as WAREHOUSE_INVENTORY_OPERATE_PERMISSION,
+  WAREHOUSE_INVENTORY_READ,
+} from "@/lib/constants/permissions";
+import { InventoryReservationsService } from "@/server/services/inventory-reservations.service";
+import { RepairOrderPositions } from "./_components/repair-order-positions";
+import {
+  RepairOrderStockDocuments,
+  RepairOrderStockHistory,
+} from "./_components/repair-order-stock-history";
 import { RepairOrdersService } from "@/server/services/repair-orders.service";
 import { ArrowLeft } from "lucide-react";
 import { RepairOrderStatusBadge } from "../_components/repair-order-status-badge";
 import { RepairOrderHeaderEditor } from "./_components/repair-order-header-editor";
-import { RepairOrderLinesList } from "./_components/repair-order-lines-list";
 import { RepairOrderProvenance } from "./_components/repair-order-provenance";
 import { RepairOrderContainers } from "./_components/repair-order-containers";
 import { RepairOrderIssue } from "./_components/repair-order-issue";
-import {
-  RepairOrderWarehouse,
-  isRepairOrderWarehouseTab,
-} from "./_components/repair-order-warehouse";
+import { isRepairOrderWarehouseTab } from "./_components/repair-order-warehouse";
 import { InventoryContainersService } from "@/server/services/inventory-containers.service";
 import { AttachmentsPanel } from "@/components/features/attachments";
 import { BranchWarehousesService } from "@/server/services/branch-warehouses.service";
@@ -61,8 +66,9 @@ export default async function RepairOrderDetailPage({ params, searchParams }: Pa
   const { id } = await params;
   const tabParam = (searchParams ? await searchParams : {}).tab;
   const warehouseTab = isRepairOrderWarehouseTab(tabParam) ? tabParam : undefined;
+  // ?tab=stock / ?tab=receiving (global search): the per-part state is on "Pozycje".
   const initialTab: RepairOrderTab = warehouseTab
-    ? "warehouse"
+    ? "lines"
     : isRepairOrderTab(tabParam)
       ? tabParam
       : "overview";
@@ -152,6 +158,58 @@ export default async function RepairOrderDetailPage({ params, searchParams }: Pa
       (w) => w.code === order.warehouseCode
     )?.name ?? null;
   const containersLoadError = !containersResult.success;
+  // Stages E6/E7: reservations (R), history and what can be reserved, per line.
+  const canReadStock = checkPermission(snapshot, WAREHOUSE_INVENTORY_READ);
+  const canOperateStock = checkPermission(snapshot, WAREHOUSE_INVENTORY_OPERATE_PERMISSION);
+  const lineIds = lines.map((l) => l.id);
+  const lineVariantIds = [
+    ...new Set(lines.map((l) => l.variantId).filter((v): v is string => !!v)),
+  ];
+  const [reservationsResult, historyResult, availableResult] =
+    canReadStock && branchId && lineIds.length > 0
+      ? await Promise.all([
+          InventoryReservationsService.listActiveDetailed(supabase, orgId, branchId, {
+            repairOrderLineIds: lineIds,
+          }),
+          InventoryReservationsService.listHistoryDetailed(supabase, orgId, branchId, {
+            repairOrderLineIds: lineIds,
+          }),
+          InventoryReservationsService.listAvailableStock(
+            supabase,
+            orgId,
+            branchId,
+            lineVariantIds
+          ),
+        ])
+      : [null, null, null];
+  const reservations = reservationsResult?.success ? reservationsResult.data : [];
+  const history = historyResult?.success ? historyResult.data : [];
+  const availableStock = availableResult?.success ? availableResult.data : [];
+  const warehouseView = warehouseResult.success ? warehouseResult.data : [];
+  const issuedByLine = Object.fromEntries(
+    warehouseView.map((v) => [
+      v.repairOrderLineId,
+      v.issues.filter((d) => d.status === "posted").reduce((sum, d) => sum + d.quantity, 0),
+    ])
+  );
+  const historyLocationIds = [
+    ...new Set(
+      history.flatMap((e) => [e.locationId, e.toLocationId]).filter((id): id is string => !!id)
+    ),
+  ];
+  const { data: historyLocations } = historyLocationIds.length
+    ? await supabase
+        .from("warehouse_locations")
+        .select("id, code, name")
+        .in("id", historyLocationIds)
+    : { data: [] };
+  const locationNames = Object.fromEntries(
+    (
+      (historyLocations ?? []) as Array<{ id: string; code: string | null; name: string | null }>
+    ).map((l) => [l.id, l.code ?? l.name ?? "—"])
+  );
+  const lineInfo = lines.map((l) => ({ id: l.id, sku: l.sku, productName: l.productName }));
+
   const suggestedContainerCode = InventoryContainersService.suggestCode(
     order.zlNumber,
     containers.map((c) => c.code)
@@ -207,42 +265,68 @@ export default async function RepairOrderDetailPage({ params, searchParams }: Pa
             label: t("tabs.lines"),
             count: lines.length,
             content: (
-              <>
+              <div className="grid gap-4">
                 <RepairOrderIssue
                   repairOrderId={order.id}
                   zlNumber={order.zlNumber}
-                  canOperate={checkPermission(snapshot, WAREHOUSE_INVENTORY_OPERATE_PERMISSION)}
+                  canOperate={canOperateStock}
                 />
-                <RepairOrderLinesList
-                  lines={lines}
+                <RepairOrderPositions
+                  repairOrderId={order.id}
+                  lines={lines.map((l) => ({
+                    id: l.id,
+                    variantId: l.variantId,
+                    sku: l.sku,
+                    productName: l.productName,
+                    orderedQuantity: l.orderedQuantity,
+                    unit: l.unit,
+                  }))}
+                  issuedByLine={issuedByLine}
+                  reservations={reservations}
+                  available={availableStock}
+                  canOperate={canOperateStock && order.status === "open"}
                   loadError={linesLoadError}
-                  provenance={provenance}
-                  branchId={branchId}
-                  containers={containers.map((c) => ({ id: c.id, code: c.code }))}
                 />
-              </>
+              </div>
             ),
           },
           {
             id: "warehouse",
             label: t("tabs.warehouse"),
+            content: (
+              <RepairOrderStockDocuments
+                lines={lineInfo}
+                view={warehouseView}
+                events={history}
+                locale={locale}
+              />
+            ),
+          },
+          {
+            id: "containers",
+            label: t("tabs.containers"),
             count: containers.length,
             content: (
-              <>
-                <RepairOrderWarehouse
-                  lines={lines}
-                  view={warehouseResult.success ? warehouseResult.data : []}
-                  loadError={!warehouseResult.success}
-                  initialTab={warehouseTab}
-                />
-                <RepairOrderContainers
-                  repairOrderId={order.id}
-                  branchId={branchId}
-                  containers={containers}
-                  loadError={containersLoadError}
-                  suggestedCode={suggestedContainerCode}
-                />
-              </>
+              <RepairOrderContainers
+                repairOrderId={order.id}
+                branchId={branchId}
+                containers={containers}
+                loadError={containersLoadError}
+                suggestedCode={suggestedContainerCode}
+              />
+            ),
+          },
+          {
+            id: "history",
+            label: t("tabs.history"),
+            count: history.length,
+            content: (
+              <RepairOrderStockHistory
+                lines={lineInfo}
+                events={history}
+                locationNames={locationNames}
+                locale={locale}
+              />
             ),
           },
           {

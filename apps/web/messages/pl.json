@@ -2716,7 +2716,9 @@
           "title": "Zakupy",
           "orders": "Zamówienia Zakupu"
         },
-        "putaway": "Do rozlokowania"
+        "putaway": "Do rozlokowania",
+        "reservations": "Rezerwacje",
+        "blocks": "Blokady"
       },
       "partnerTypes": {
         "vendor": "Dostawca",
@@ -2986,6 +2988,155 @@
           "open": "Otwórz dokument",
           "reference": "Ref.: {reference}",
           "fromDocument": "Do rozłożenia z {document}"
+        }
+      },
+      "stockCommitments": {
+        "states": {
+          "onHand": "Na stanie",
+          "available": "D · dostępne",
+          "reserved": "R · zarezerwowane",
+          "blocked": "B · zablokowane"
+        },
+        "reservations": {
+          "title": "Zarezerwowane (R)",
+          "empty": "Nic nie jest zarezerwowane.",
+          "number": "Rezerwacja",
+          "part": "Część",
+          "order": "Zlecenie",
+          "location": "Lokalizacja",
+          "quantity": "Ilość",
+          "since": "Od",
+          "inContainer": "{quantity} w kontenerze"
+        },
+        "blocks": {
+          "title": "Zablokowane (B)",
+          "empty": "Nic nie jest zablokowane.",
+          "number": "Blokada",
+          "part": "Część",
+          "reason": "Powód",
+          "reference": "Odwołanie",
+          "location": "Lokalizacja",
+          "quantity": "Ilość",
+          "since": "Od"
+        },
+        "reasons": {
+          "quality_check": "Kontrola jakości",
+          "supplier_complaint": "Reklamacja do dostawcy",
+          "damaged": "Uszkodzenie w magazynie lub warsztacie",
+          "delivery_mismatch": "Niezgodność z dostawą",
+          "other": "Inny"
+        },
+        "actions": {
+          "release": "Zwolnij",
+          "transfer": "Przenieś na inne zlecenie",
+          "block": "Zablokuj",
+          "unblock": "Odblokuj",
+          "move": "Przenieś",
+          "returnToSupplier": "Zwrot do dostawcy",
+          "scrap": "Likwidacja",
+          "reserveForOrder": "Zarezerwuj pod zlecenie",
+          "more": "Więcej operacji"
+        },
+        "dialogs": {
+          "release": {
+            "title": "Zwolnij rezerwację",
+            "description": "Część wróci do dostępnych (D). Powód zostanie zapisany w historii.",
+            "confirm": "Zwolnij rezerwację"
+          },
+          "transfer": {
+            "title": "Przenieś rezerwację na inne zlecenie",
+            "description": "Rezerwacja przejdzie na wybrane zlecenie w jednej operacji — część ani na chwilę nie będzie dostępna dla innych.",
+            "confirm": "Przenieś"
+          },
+          "block": {
+            "title": "Zablokuj część",
+            "description": "Zablokowanej części nikt nie weźmie, dopóki nie zostanie odblokowana, zwrócona do dostawcy albo zlikwidowana.",
+            "reservedNote": "Część jest zarezerwowana — blokada zdejmie ją z rezerwacji, a zlecenie znowu będzie jej potrzebować.",
+            "confirm": "Zablokuj"
+          },
+          "unblock": {
+            "title": "Odblokuj część",
+            "description": "Część wróci do dostępnych (D), nie do zlecenia.",
+            "confirm": "Odblokuj"
+          },
+          "move": {
+            "title": "Przenieś zablokowaną część",
+            "description": "Ruch MM; część zostaje zablokowana na nowym miejscu.",
+            "confirm": "Przenieś"
+          },
+          "returnToSupplier": {
+            "title": "Zwrot do dostawcy",
+            "description": "Dokument ZWD (ruch 122) zdejmie zablokowaną część ze stanu.",
+            "confirm": "Zwróć do dostawcy"
+          },
+          "scrap": {
+            "title": "Likwidacja",
+            "description": "Dokument LIK (ruch 551) zdejmie zablokowaną część ze stanu.",
+            "confirm": "Zlikwiduj"
+          },
+          "reserve": {
+            "title": "Zarezerwuj pod zlecenie",
+            "description": "Rezerwacja z dostępnych (D) dla pozycji zlecenia, która jeszcze potrzebuje tej części.",
+            "confirm": "Zarezerwuj"
+          }
+        },
+        "fields": {
+          "quantity": "Ilość",
+          "max": "maks. {max}",
+          "reason": "Powód",
+          "reasonPlaceholder": "np. klient zrezygnował, kontrola jakości OK…",
+          "reasonCode": "Powód blokady",
+          "description": "Opis",
+          "descriptionRequired": "Opis (wymagany dla „Inny”)",
+          "reference": "Numer zgłoszenia / reklamacji (opcjonalnie)",
+          "location": "Lokalizacja",
+          "destination": "Dokąd",
+          "supplier": "Dostawca (opcjonalnie)",
+          "target": "Zlecenie i pozycja",
+          "searchZl": "Szukaj po numerze ZL",
+          "needs": "potrzeba jeszcze {count}",
+          "noTargets": "Brak otwartych zleceń, które potrzebują tej części.",
+          "noAvailable": "Na żadnej lokalizacji nie ma dostępnych sztuk (D).",
+          "available": "{count} dostępne",
+          "cancel": "Anuluj",
+          "loading": "Wczytuję…"
+        },
+        "toasts": {
+          "released": "Rezerwacja zwolniona",
+          "transferred": "Przeniesiono rezerwację ({number})",
+          "blocked": "Zablokowano ({number})",
+          "unblocked": "Odblokowano",
+          "moved": "Przeniesiono ({document})",
+          "returned": "Zwrot do dostawcy: {document}",
+          "scrapped": "Likwidacja: {document}",
+          "reserved": "Zarezerwowano ({number})"
+        },
+        "errors": {
+          "unauthorized": "Brak uprawnień do tej operacji.",
+          "not_found": "Nie znaleziono — odśwież stronę.",
+          "insufficient_stock": "Za mało dostępnych (D) na tej lokalizacji.",
+          "exceeds_need": "Zlecenie potrzebuje mniej tej części.",
+          "reason_required": "Podaj powód.",
+          "not_open": "Zlecenie nie jest otwarte.",
+          "wrong_part": "To zlecenie potrzebuje innej części.",
+          "in_container": "Część jest w kontenerze zlecenia — najpierw wyjmij ją z kontenera.",
+          "invalid_request": "Nie można wykonać tej operacji.",
+          "invalid_input": "Sprawdź wprowadzone dane.",
+          "failed": "Operacja nie powiodła się. Spróbuj ponownie."
+        },
+        "pages": {
+          "reservationsTitle": "Rezerwacje",
+          "reservationsSubtitle": "Części zarezerwowane pod zlecenia (stan R). Zwolnienie przywraca je do dostępnych.",
+          "blocksTitle": "Blokady",
+          "blocksSubtitle": "Części zablokowane (stan B): nikt ich nie weźmie, dopóki nie zostaną odblokowane, zwrócone do dostawcy albo zlikwidowane.",
+          "filter": "Szukaj: część, ZL, lokalizacja, numer",
+          "noBranch": "Wybierz aktywny oddział.",
+          "loadError": "Nie udało się wczytać danych.",
+          "count": "{count, plural, one {# pozycja} few {# pozycje} other {# pozycji}}"
+        },
+        "age": {
+          "today": "dziś",
+          "days": "{count, plural, one {# dzień} other {# dni}}"
         }
       }
     },
@@ -3602,7 +3753,9 @@
           },
           "checkAll": "Zaznacz wszystkie ({count})",
           "uncheckAll": "Odznacz wszystkie",
-          "receiptHint": "Odznaczone zlecenie nie trafi do PZ razem ze swoimi częściami."
+          "receiptHint": "Odznaczone zlecenie nie trafi do PZ razem ze swoimi częściami.",
+          "alreadyImportedIn": "Ten dokument (ZL i ZW, te same części) był już zaimportowany w sesji „{session}” — nic nie zostanie dodane.",
+          "alreadyImportedInUnnamed": "Ten dokument (ZL i ZW, te same części) był już zaimportowany w innej sesji — nic nie zostanie dodane."
         },
         "warehouse": {
           "title": "Magazyn i dostawy",
@@ -3633,7 +3786,9 @@
           "lines": "Pozycje",
           "warehouse": "Magazyn",
           "documents": "Dokumenty",
-          "related": "Powiązania"
+          "related": "Powiązania",
+          "containers": "Kontenery",
+          "history": "Historia"
         },
         "relations": {
           "loadError": "Nie udało się wczytać powiązań.",
@@ -3650,6 +3805,79 @@
           "relation": {
             "reference": "dotyczy zlecenia",
             "mention": "wzmianka"
+          }
+        },
+        "stock": {
+          "positions": {
+            "title": "Pozycje zlecenia",
+            "part": "Część",
+            "needed": "Potrzeba",
+            "reserved": "Zarezerw.",
+            "issued": "Wydano",
+            "missing": "Brakuje",
+            "where": "Gdzie leży",
+            "status": "Stan",
+            "empty": "Zlecenie nie ma jeszcze pozycji.",
+            "loadError": "Nie udało się wczytać pozycji zlecenia.",
+            "complete": "Skompletowane",
+            "incomplete": "Brakuje: {count, plural, one {# pozycja} few {# pozycje} other {# pozycji}}",
+            "showReservations": "Rezerwacje",
+            "hideReservations": "Ukryj",
+            "noCatalogItem": "bez kartoteki",
+            "statuses": {
+              "missing": "brak",
+              "partial": "częściowo",
+              "reserved_receiving": "zarezerwowane w strefie przyjęć",
+              "reserved": "zarezerwowane",
+              "in_container": "w kontenerze",
+              "issued": "wydane"
+            }
+          },
+          "reserve": {
+            "button": "Zarezerwuj z magazynu",
+            "title": "Zarezerwuj z magazynu",
+            "description": "Części, których zleceniu brakuje, z dostępnych (D). Jeden dokument rezerwacji na całe zlecenie.",
+            "confirm": "Zarezerwuj zaznaczone",
+            "none": "Na magazynie nie ma dostępnych sztuk części, których brakuje temu zleceniu.",
+            "line": "{part} — brakuje {missing}",
+            "location": "Skąd",
+            "quantity": "Ilość",
+            "done": "Zarezerwowano ({number})"
+          },
+          "documents": {
+            "title": "Dokumenty magazynowe zlecenia",
+            "subtitle": "Przyjęcia, rezerwacje, przesunięcia, wydania i zwolnienia — od najstarszych.",
+            "empty": "Zlecenie nie ma jeszcze dokumentów magazynowych.",
+            "date": "Data",
+            "document": "Dokument",
+            "kind": "Rodzaj",
+            "part": "Część",
+            "quantity": "Ilość",
+            "detail": "Szczegóły"
+          },
+          "history": {
+            "title": "Historia rezerwacji",
+            "subtitle": "Każda zmiana rezerwacji części tego zlecenia: kto, kiedy, jakim dokumentem i dlaczego. Wpisów nie można edytować.",
+            "empty": "Brak zdarzeń.",
+            "when": "Kiedy",
+            "event": "Zdarzenie",
+            "part": "Część",
+            "quantity": "Ilość",
+            "where": "Gdzie",
+            "document": "Dokument",
+            "reason": "Powód",
+            "who": "Kto",
+            "system": "system"
+          },
+          "kinds": {
+            "receipt": "Przyjęcie (PZ)",
+            "issue": "Wydanie (RW)",
+            "created": "Rezerwacja",
+            "moved": "Przeniesienie (MM)",
+            "allocated": "Do kontenera",
+            "issued": "Wydanie z rezerwacji",
+            "released": "Zwolnienie rezerwacji",
+            "transferred": "Przeniesienie na inne zlecenie"
           }
         }
       }

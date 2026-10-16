@@ -282,6 +282,16 @@ export function RepairOrderImportReview({
                       adds: summary.adds,
                       present: summary.present,
                     })}
+                    {order.alreadyImportedIn !== null && (
+                      <div
+                        className="text-muted-foreground mt-0.5"
+                        data-testid="import-already-imported-document"
+                      >
+                        {order.alreadyImportedIn
+                          ? t("alreadyImportedIn", { session: order.alreadyImportedIn })
+                          : t("alreadyImportedInUnnamed")}
+                      </div>
+                    )}
                   </td>
                 </tr>
               );

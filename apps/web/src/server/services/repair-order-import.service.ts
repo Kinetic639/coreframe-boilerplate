@@ -56,6 +56,11 @@ export type RepairOrderImportPreviewOrder = {
   /** Warehouse code from the number (e.g. 3122); null when the number is not in DMS format. */
   warehouseCode: string | null;
   repairOrderId: string | null;
+  /**
+   * The same document (ZL, ZW and the same lines) was already imported in
+   * another Matcher session: its name. Nothing is added again.
+   */
+  alreadyImportedIn: string | null;
   orderNumber: string | null;
   vin: string | null;
   vehicleBrand: string | null;
@@ -237,6 +242,10 @@ export class RepairOrderImportService {
         .filter((id): id is string => !!id)
     );
 
+    // The same document already imported in another session (same ZL, same
+    // ZW number of its Matcher block, same lines) -- the import skips it.
+    const duplicateOf = await findImportedDocuments(supabase, orgId, branchId, loaded.data);
+
     const orders: RepairOrderImportPreviewOrder[] = [];
     for (const [zl, parts] of groups) {
       const ro = roByZl.get(zl) ?? null;
@@ -248,11 +257,15 @@ export class RepairOrderImportService {
       const wrongBranch =
         warehouseCodes.size > 0 && warehouseCode !== null && !warehouseCodes.has(warehouseCode);
       const conflict = wrongBranch || (ro && ro.status !== "open");
+      const alreadyImportedIn =
+        parts.map((part) => duplicateOf.get(part.key)).find((name) => name !== undefined) ?? null;
       const lines = parts.flatMap((part) =>
         part.lines.map((line) => {
           const code = normalizeProductCode(line.productCode);
           let state: RepairOrderImportLineState;
-          if (line.matcherLineId && imported.has(line.matcherLineId)) state = "already_imported";
+          if (duplicateOf.has(part.key)) state = "already_imported";
+          else if (line.matcherLineId && imported.has(line.matcherLineId))
+            state = "already_imported";
           else if (code && existingCodes.has(code))
             state = line.matcherLineId ? "adds_quantity" : "on_order";
           else state = "new";
@@ -281,6 +294,7 @@ export class RepairOrderImportService {
             : null,
         warehouseCode,
         repairOrderId: ro?.id ?? null,
+        alreadyImportedIn,
         orderNumber: first.orderNumber,
         vin: first.vin,
         vehicleBrand: first.vehicleBrand,
@@ -296,6 +310,7 @@ export class RepairOrderImportService {
         conflictReason: "missing_zl",
         warehouseCode: null,
         repairOrderId: null,
+        alreadyImportedIn: null,
         orderNumber: order.orderNumber,
         vin: order.vin,
         vehicleBrand: order.vehicleBrand,
@@ -413,4 +428,96 @@ export class RepairOrderImportService {
       },
     };
   }
+}
+
+/** Code:quantity list of a document, order-independent (same as the import RPC). */
+function documentFingerprint(
+  lines: Array<{ productCode: string | null; quantity: number | null }>
+) {
+  return lines
+    .filter((l) => (l.quantity ?? 0) > 0)
+    .map((l) => `${normalizeProductCode(l.productCode) ?? ""}:${Number(l.quantity)}`)
+    .sort()
+    .join("|");
+}
+
+/**
+ * Orders (by key) whose document -- same ZL, same ZW number of its Matcher
+ * block, same lines -- was already imported in another session, with that
+ * session's name. Mirrors the guard in repair_orders_import.
+ */
+async function findImportedDocuments(
+  supabase: SupabaseClient,
+  orgId: string,
+  branchId: string,
+  orders: CanonicalRepairOrderImportOrder[]
+): Promise<Map<string, string>> {
+  const result = new Map<string, string>();
+  const withBlock = orders.filter((o) => o.zlNumber && o.source?.blockId);
+  if (withBlock.length === 0) return result;
+
+  const { data: blocks } = await supabase
+    .from("wdd_matcher_blocks")
+    .select("id, metadata")
+    .in(
+      "id",
+      withBlock.map((o) => o.source!.blockId!)
+    );
+  const zwByBlock = new Map<string, string>();
+  for (const b of (blocks ?? []) as Array<{
+    id: string;
+    metadata: { zw_number?: string } | null;
+  }>) {
+    const zw = b.metadata?.zw_number?.trim();
+    if (zw) zwByBlock.set(b.id, zw);
+  }
+  if (zwByBlock.size === 0) return result;
+
+  const { data: docs } = await supabase
+    .from("workshop_source_documents")
+    .select(
+      "external_document_number, source_document_number, source_session_id, wdd_matcher_sessions(name), workshop_source_document_lines(product_code, quantity)"
+    )
+    .eq("organization_id", orgId)
+    .eq("branch_id", branchId)
+    .eq("document_type", "zl")
+    .in(
+      "external_document_number",
+      withBlock.map((o) => o.zlNumber!)
+    )
+    .in("source_document_number", [...new Set(zwByBlock.values())]);
+
+  type DocRow = {
+    external_document_number: string;
+    source_document_number: string;
+    source_session_id: string | null;
+    wdd_matcher_sessions: { name: string | null } | Array<{ name: string | null }> | null;
+    workshop_source_document_lines: Array<{ product_code: string | null; quantity: number | null }>;
+  };
+  const rows = (docs ?? []) as unknown as DocRow[];
+  for (const order of withBlock) {
+    const zw = zwByBlock.get(order.source!.blockId!);
+    if (!zw) continue;
+    const fingerprint = documentFingerprint(order.lines);
+    if (!fingerprint) continue;
+    const earlier = rows.find(
+      (d) =>
+        d.external_document_number === order.zlNumber &&
+        d.source_document_number === zw &&
+        d.source_session_id !== order.source!.sessionId &&
+        documentFingerprint(
+          (d.workshop_source_document_lines ?? []).map((l) => ({
+            productCode: l.product_code,
+            quantity: l.quantity,
+          }))
+        ) === fingerprint
+    );
+    if (earlier) {
+      const session = Array.isArray(earlier.wdd_matcher_sessions)
+        ? earlier.wdd_matcher_sessions[0]
+        : earlier.wdd_matcher_sessions;
+      result.set(order.key, session?.name ?? "");
+    }
+  }
+  return result;
 }
