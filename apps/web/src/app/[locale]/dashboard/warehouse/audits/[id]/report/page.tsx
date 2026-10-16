@@ -139,13 +139,13 @@ async function loadAdjustments(
 ): Promise<AdjustmentLine[]> {
   const { data: headers } = await supabase
     .from("inventory_movement_headers")
-    .select("id, movement_number")
+    .select("id, document_number")
     .eq("organization_id", orgId)
     .eq("branch_id", branchId)
     .eq("reference_type", "inventory_count")
     .eq("reference_id", sessionId);
 
-  const headerRows = (headers ?? []) as { id: string; movement_number: string }[];
+  const headerRows = (headers ?? []) as { id: string; document_number: string | null }[];
   if (headerRows.length === 0) return [];
   const headerById = new Map(headerRows.map((h) => [h.id, h]));
 
@@ -222,7 +222,7 @@ async function loadAdjustments(
 
     return {
       id: line.id,
-      movement_number: header?.movement_number ?? "—",
+      movement_number: header?.document_number ?? "—",
       variant_id: line.variant_id,
       sku: variant?.sku ?? "—",
       productName: product?.name ?? variant?.name ?? "—",
