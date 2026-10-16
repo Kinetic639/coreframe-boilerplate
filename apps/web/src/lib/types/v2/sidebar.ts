@@ -63,7 +63,9 @@ export type IconKey =
   | "checkSquare"
   | "layoutGrid"
   | "kanban"
-  | "listTodo";
+  | "listTodo"
+  | "bookmark"
+  | "lock";
 
 /**
  * Active route matching rules (strict discriminated union)

@@ -8,7 +8,12 @@ export type InventoryProductListRow = {
   thumbnail_url: string | null;
   variant_count: number;
   on_hand_quantity: number;
+  /** D: on hand minus R and B. */
   available_quantity: number;
+  /** R: reserved for repair orders (incl. parts in their containers). */
+  reserved_total_quantity: number;
+  /** B: blocked (quality check, complaint, damage...). */
+  blocked_quantity: number;
   unit_code: string;
   updated_at: string;
   sales_account_code: string | null;
@@ -63,6 +68,8 @@ export type InventoryProductVariantListRow = {
   thumbnail_url: string | null;
   on_hand_quantity: number;
   available_quantity: number;
+  reserved_total_quantity: number;
+  blocked_quantity: number;
   reorder_point: number | null;
   /** Source of truth for audit-by-supplier scoping — see
    * apps/web/docs/stock-audit-implementation-plan.md §10. */
@@ -327,10 +334,16 @@ export type InventoryBalanceListRow = {
   variant_id: string;
   sku: string;
   product_name: string;
+  location_id: string;
   location_name: string;
   location_code: string | null;
   on_hand_quantity: number;
+  /** D: on hand minus R and B. */
   available_quantity: number;
+  /** R: reserved for repair orders (incl. parts in their containers). */
+  reserved_total_quantity: number;
+  /** B: blocked. */
+  blocked_quantity: number;
   unit_code: string;
   average_unit_cost: number;
   total_value: number;

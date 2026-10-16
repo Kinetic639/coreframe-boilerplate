@@ -2745,7 +2745,9 @@
           "title": "Purchases",
           "orders": "Purchase Orders"
         },
-        "putaway": "Putaway"
+        "putaway": "Putaway",
+        "reservations": "Reservations",
+        "blocks": "Blocked stock"
       },
       "partnerTypes": {
         "vendor": "Supplier",
@@ -3015,6 +3017,155 @@
           "open": "Open document",
           "reference": "Ref.: {reference}",
           "fromDocument": "To put away from {document}"
+        }
+      },
+      "stockCommitments": {
+        "states": {
+          "onHand": "On hand",
+          "available": "D · available",
+          "reserved": "R · reserved",
+          "blocked": "B · blocked"
+        },
+        "reservations": {
+          "title": "Reserved (R)",
+          "empty": "Nothing is reserved.",
+          "number": "Reservation",
+          "part": "Part",
+          "order": "Repair order",
+          "location": "Location",
+          "quantity": "Qty",
+          "since": "Since",
+          "inContainer": "{quantity} in a container"
+        },
+        "blocks": {
+          "title": "Blocked (B)",
+          "empty": "Nothing is blocked.",
+          "number": "Block",
+          "part": "Part",
+          "reason": "Reason",
+          "reference": "Reference",
+          "location": "Location",
+          "quantity": "Qty",
+          "since": "Since"
+        },
+        "reasons": {
+          "quality_check": "Quality check",
+          "supplier_complaint": "Supplier complaint",
+          "damaged": "Damaged in warehouse or workshop",
+          "delivery_mismatch": "Delivery mismatch",
+          "other": "Other"
+        },
+        "actions": {
+          "release": "Release",
+          "transfer": "Transfer to another order",
+          "block": "Block",
+          "unblock": "Unblock",
+          "move": "Move",
+          "returnToSupplier": "Return to supplier",
+          "scrap": "Scrap",
+          "reserveForOrder": "Reserve for an order",
+          "more": "More actions"
+        },
+        "dialogs": {
+          "release": {
+            "title": "Release the reservation",
+            "description": "The part goes back to available (D). The reason is kept in the history.",
+            "confirm": "Release reservation"
+          },
+          "transfer": {
+            "title": "Transfer the reservation to another order",
+            "description": "The reservation moves to the chosen order in one operation — the part is never available to anyone else in between.",
+            "confirm": "Transfer"
+          },
+          "block": {
+            "title": "Block the part",
+            "description": "Nobody can take a blocked part until it is unblocked, returned to the supplier or scrapped.",
+            "reservedNote": "The part is reserved — blocking takes it off the reservation and the order needs it again.",
+            "confirm": "Block"
+          },
+          "unblock": {
+            "title": "Unblock the part",
+            "description": "The part goes back to available (D), not to the order.",
+            "confirm": "Unblock"
+          },
+          "move": {
+            "title": "Move the blocked part",
+            "description": "An MM movement; the part stays blocked at the new location.",
+            "confirm": "Move"
+          },
+          "returnToSupplier": {
+            "title": "Return to supplier",
+            "description": "A ZWD document (movement 122) takes the blocked part out of stock.",
+            "confirm": "Return to supplier"
+          },
+          "scrap": {
+            "title": "Scrap",
+            "description": "A LIK document (movement 551) takes the blocked part out of stock.",
+            "confirm": "Scrap"
+          },
+          "reserve": {
+            "title": "Reserve for an order",
+            "description": "A reservation from available stock (D) for an order line that still needs this part.",
+            "confirm": "Reserve"
+          }
+        },
+        "fields": {
+          "quantity": "Quantity",
+          "max": "max {max}",
+          "reason": "Reason",
+          "reasonPlaceholder": "e.g. the customer cancelled, quality check OK…",
+          "reasonCode": "Block reason",
+          "description": "Description",
+          "descriptionRequired": "Description (required for “Other”)",
+          "reference": "Ticket / complaint number (optional)",
+          "location": "Location",
+          "destination": "Destination",
+          "supplier": "Supplier (optional)",
+          "target": "Order and line",
+          "searchZl": "Search by ZL number",
+          "needs": "still needs {count}",
+          "noTargets": "No open orders need this part.",
+          "noAvailable": "No location has available pieces (D).",
+          "available": "{count} available",
+          "cancel": "Cancel",
+          "loading": "Loading…"
+        },
+        "toasts": {
+          "released": "Reservation released",
+          "transferred": "Reservation transferred ({number})",
+          "blocked": "Blocked ({number})",
+          "unblocked": "Unblocked",
+          "moved": "Moved ({document})",
+          "returned": "Returned to supplier: {document}",
+          "scrapped": "Scrapped: {document}",
+          "reserved": "Reserved ({number})"
+        },
+        "errors": {
+          "unauthorized": "You are not allowed to do this.",
+          "not_found": "Not found — refresh the page.",
+          "insufficient_stock": "Not enough available (D) at this location.",
+          "exceeds_need": "The order needs less of this part.",
+          "reason_required": "Give a reason.",
+          "not_open": "The repair order is not open.",
+          "wrong_part": "This order needs a different part.",
+          "in_container": "The part is in the order's container — take it out of the container first.",
+          "invalid_request": "This operation is not possible.",
+          "invalid_input": "Check the entered data.",
+          "failed": "The operation failed. Try again."
+        },
+        "pages": {
+          "reservationsTitle": "Reservations",
+          "reservationsSubtitle": "Parts reserved for repair orders (state R). Releasing returns them to available.",
+          "blocksTitle": "Blocked stock",
+          "blocksSubtitle": "Blocked parts (state B): nobody can take them until they are unblocked, returned to the supplier or scrapped.",
+          "filter": "Search: part, ZL, location, number",
+          "noBranch": "Choose an active branch.",
+          "loadError": "Could not load the data.",
+          "count": "{count, plural, one {# line} other {# lines}}"
+        },
+        "age": {
+          "today": "today",
+          "days": "{count, plural, one {# day} other {# days}}"
         }
       }
     },
@@ -3631,7 +3782,9 @@
           },
           "checkAll": "Select all ({count})",
           "uncheckAll": "Clear all",
-          "receiptHint": "An unchecked order stays out of the PZ together with its parts."
+          "receiptHint": "An unchecked order stays out of the PZ together with its parts.",
+          "alreadyImportedIn": "This document (ZL and ZW, the same parts) was already imported in session “{session}” — nothing will be added.",
+          "alreadyImportedInUnnamed": "This document (ZL and ZW, the same parts) was already imported in another session — nothing will be added."
         },
         "warehouse": {
           "title": "Warehouse and deliveries",
@@ -3662,7 +3815,9 @@
           "lines": "Lines",
           "warehouse": "Warehouse",
           "documents": "Documents",
-          "related": "Related"
+          "related": "Related",
+          "containers": "Containers",
+          "history": "History"
         },
         "relations": {
           "loadError": "The related items could not be loaded.",
@@ -3679,6 +3834,79 @@
           "relation": {
             "reference": "about this order",
             "mention": "mention"
+          }
+        },
+        "stock": {
+          "positions": {
+            "title": "Order lines",
+            "part": "Part",
+            "needed": "Needed",
+            "reserved": "Reserved",
+            "issued": "Issued",
+            "missing": "Missing",
+            "where": "Where",
+            "status": "State",
+            "empty": "The order has no lines yet.",
+            "loadError": "Could not load the order lines.",
+            "complete": "Complete",
+            "incomplete": "Missing: {count, plural, one {# line} other {# lines}}",
+            "showReservations": "Reservations",
+            "hideReservations": "Hide",
+            "noCatalogItem": "no catalog item",
+            "statuses": {
+              "missing": "missing",
+              "partial": "partial",
+              "reserved_receiving": "reserved in the receiving zone",
+              "reserved": "reserved",
+              "in_container": "in a container",
+              "issued": "issued"
+            }
+          },
+          "reserve": {
+            "button": "Reserve from stock",
+            "title": "Reserve from stock",
+            "description": "Parts the order is missing, from available stock (D). One reservation document for the whole order.",
+            "confirm": "Reserve selected",
+            "none": "No available pieces of the parts this order is missing.",
+            "line": "{part} — missing {missing}",
+            "location": "From",
+            "quantity": "Quantity",
+            "done": "Reserved ({number})"
+          },
+          "documents": {
+            "title": "Warehouse documents of the order",
+            "subtitle": "Receipts, reservations, moves, issues and releases — oldest first.",
+            "empty": "The order has no warehouse documents yet.",
+            "date": "Date",
+            "document": "Document",
+            "kind": "Kind",
+            "part": "Part",
+            "quantity": "Qty",
+            "detail": "Details"
+          },
+          "history": {
+            "title": "Reservation history",
+            "subtitle": "Every change to the reservations of this order's parts: who, when, with which document and why. Entries cannot be edited.",
+            "empty": "No events.",
+            "when": "When",
+            "event": "Event",
+            "part": "Part",
+            "quantity": "Qty",
+            "where": "Where",
+            "document": "Document",
+            "reason": "Reason",
+            "who": "Who",
+            "system": "system"
+          },
+          "kinds": {
+            "receipt": "Receipt (PZ)",
+            "issue": "Issue (RW)",
+            "created": "Reservation",
+            "moved": "Move (MM)",
+            "allocated": "Into a container",
+            "issued": "Issued from the reservation",
+            "released": "Reservation released",
+            "transferred": "Transferred to another order"
           }
         }
       }

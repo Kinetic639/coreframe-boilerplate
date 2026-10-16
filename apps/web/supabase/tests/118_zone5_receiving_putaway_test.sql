@@ -6,7 +6,7 @@
 --   via their Matcher source lines -> "Do rozlokowania" read model ->
 --   putaway: RepairOrder standard part (into a new RO container), RepairOrder
 --   bulk part (to its fixed bin, reserved, no container), free stock (loose).
--- Plus: no reservation at the receiving zone; quantity/destination guards;
+-- Plus: reservations allowed at the receiving zone (since stage E2); quantity/destination guards;
 -- anon has no EXECUTE.
 -- Executed live against supabase-target via Supabase MCP; everything rolls back.
 
@@ -132,16 +132,19 @@ INSERT INTO test_log(line) SELECT is(
    WHERE it->>'repair_order_line_id' IS NULL AND it->>'variant_id' = (SELECT v_std FROM fx)::text),
   3::numeric, 'T8: the unattributed remainder (3) is listed as free');
 
--- Receiving zone stock is not available.
-DO $$
-BEGIN
-  PERFORM inventory_create_reservation((SELECT org FROM fx), (SELECT branch FROM fx),
-    jsonb_build_array(jsonb_build_object('variant_id', (SELECT v_std FROM fx), 'location_id', (SELECT loc_prz FROM fx), 'quantity', 1)),
-    'repair_order_line', (SELECT rol_std FROM fx), NULL, NULL, NULL, (SELECT e2e_user FROM fx));
-  INSERT INTO test_log(line) SELECT fail('T9: expected reservation at the receiving zone to be rejected');
-EXCEPTION WHEN OTHERS THEN
-  INSERT INTO test_log(line) SELECT is(SQLSTATE, '22023', 'T9: stock in the receiving zone cannot be reserved');
-END $$;
+-- Reservations / stage E2 (docs/RESERVATIONS_BLOCKS_PLAN.md): the receiving
+-- zone accepts reservations (a PZ reserves its repair-order parts there).
+-- Free stock (3) can be reserved and released again.
+CREATE TEMP TABLE rz AS SELECT inventory_create_reservation((SELECT org FROM fx), (SELECT branch FROM fx),
+  jsonb_build_array(jsonb_build_object('variant_id', (SELECT v_std FROM fx), 'location_id', (SELECT loc_prz FROM fx), 'quantity', 1)),
+  'test', NULL, NULL, NULL, NULL, (SELECT e2e_user FROM fx)) AS r;
+GRANT SELECT ON rz TO authenticated;
+SELECT inventory_release_reservation((SELECT (r->>'reservation_id')::uuid FROM rz), (SELECT e2e_user FROM fx), true);
+INSERT INTO test_log(line) SELECT ok(
+  (SELECT r->>'reservation_number' LIKE 'REZ/%' FROM rz)
+  AND (SELECT reserved_quantity = 0 FROM inventory_balances
+       WHERE location_id = (SELECT loc_prz FROM fx) AND variant_id = (SELECT v_std FROM fx)),
+  'T9: stock in the receiving zone can be reserved (REZ/...) and released again');
 
 -- Putaway: standard RepairOrder part -> new RO container at L1.
 CREATE TEMP TABLE pa1 AS SELECT inventory_putaway_from_receiving((SELECT e2e_user FROM fx), (SELECT org FROM fx), (SELECT branch FROM fx),

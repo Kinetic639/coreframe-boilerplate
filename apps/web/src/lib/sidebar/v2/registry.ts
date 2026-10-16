@@ -124,6 +124,28 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
         },
       },
       {
+        id: "warehouse.reservations",
+        title: "Reservations",
+        titleKey: "modules.warehouse.items.reservations",
+        iconKey: "bookmark",
+        href: "/dashboard/warehouse/reservations",
+        match: { startsWith: "/dashboard/warehouse/reservations" },
+        visibility: {
+          requiresPermissions: [WAREHOUSE_INVENTORY_READ],
+        },
+      },
+      {
+        id: "warehouse.blocks",
+        title: "Blocked stock",
+        titleKey: "modules.warehouse.items.blocks",
+        iconKey: "lock",
+        href: "/dashboard/warehouse/blocks",
+        match: { startsWith: "/dashboard/warehouse/blocks" },
+        visibility: {
+          requiresPermissions: [WAREHOUSE_INVENTORY_READ],
+        },
+      },
+      {
         id: "warehouse.items",
         title: "Items",
         titleKey: "modules.warehouse.items.products.title",

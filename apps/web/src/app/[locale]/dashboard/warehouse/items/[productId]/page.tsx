@@ -7,6 +7,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { checkPermission } from "@/lib/utils/permissions";
 import {
   CRM_PARTIES_READ,
+  WAREHOUSE_INVENTORY_OPERATE,
   WAREHOUSE_INVENTORY_READ,
   WAREHOUSE_PRODUCTS_MANAGE,
   WAREHOUSE_PRODUCTS_READ,
@@ -32,6 +33,13 @@ import { InventoryReceivingService } from "@/server/services/inventory-receiving
 import { InventoryBalancesService } from "@/server/services/inventory-balances.service";
 import type { InventoryBalanceListRow } from "@/lib/warehouse/inventory-types";
 import { ProductHandlingCard } from "./_components/product-handling-card";
+import { InventoryReservationsService } from "@/server/services/inventory-reservations.service";
+import { InventoryBlocksService } from "@/server/services/inventory-blocks.service";
+import {
+  BlockLinesTable,
+  ItemStockActions,
+  ReservationLinesTable,
+} from "@/components/warehouse/stock-commitments";
 
 type PageProps = {
   params: Promise<{ productId: string }>;
@@ -100,6 +108,34 @@ export default async function WarehouseItemDetailPage({ params }: PageProps) {
         )
       : null;
   const stockRows = stockResult?.success ? stockResult.data : [];
+  // R and B of this item: the documents behind the numbers (stages E4-E6).
+  const variantIds = product.variants.map((variant) => variant.id);
+  const [reservationsResult, blocksResult] =
+    activeBranchId && canReadStock && variantIds.length > 0
+      ? await Promise.all([
+          InventoryReservationsService.listActiveDetailed(
+            supabase,
+            context.app.activeOrgId,
+            activeBranchId,
+            { variantIds }
+          ),
+          InventoryBlocksService.listActiveDetailed(
+            supabase,
+            context.app.activeOrgId,
+            activeBranchId,
+            {
+              variantIds,
+            }
+          ),
+        ])
+      : [null, null];
+  const reservationLines = reservationsResult?.success ? reservationsResult.data : [];
+  const blockLines = blocksResult?.success ? blocksResult.data : [];
+  const canOperateStock = checkPermission(
+    context.user.permissionSnapshot,
+    WAREHOUSE_INVENTORY_OPERATE
+  );
+  const tCommit = await getTranslations("modules.warehouse.stockCommitments");
 
   return (
     <div className="mx-auto grid w-full max-w-7xl gap-6 p-6">
@@ -333,13 +369,47 @@ export default async function WarehouseItemDetailPage({ params }: PageProps) {
             sku: tc("sku"),
             location: tc("location"),
             onHand: tList("onHand"),
-            available: tList("available"),
+            available: tCommit("states.available"),
+            reserved: tCommit("states.reserved"),
+            blocked: tCommit("states.blocked"),
             avgCost: tStock("avgCost"),
             value: tStock("value"),
             lastMovement: tStock("lastMovement"),
             total: tStock("total"),
           }}
         />
+      ) : null}
+
+      {canReadStock && activeBranchId ? (
+        <section className="grid gap-3 rounded-md border p-4" data-testid="item-reservations">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-lg font-medium">{tCommit("reservations.title")}</h2>
+            {canOperateStock ? (
+              <ItemStockActions
+                stock={stockRows.map((row) => ({
+                  variantId: row.variant_id,
+                  sku: hasVisibleVariants ? row.sku : null,
+                  locationId: row.location_id,
+                  locationCode: row.location_code,
+                  locationName: row.location_name,
+                  available: row.available_quantity,
+                }))}
+              />
+            ) : null}
+          </div>
+          <ReservationLinesTable
+            lines={reservationLines}
+            canOperate={canOperateStock}
+            showPart={hasVisibleVariants}
+          />
+          <h2 className="mt-2 text-lg font-medium">{tCommit("blocks.title")}</h2>
+          <BlockLinesTable
+            lines={blockLines}
+            canOperate={canOperateStock}
+            branchId={activeBranchId}
+            showPart={hasVisibleVariants}
+          />
+        </section>
       ) : null}
 
       <section className="grid gap-4 rounded-md border p-4">
@@ -381,6 +451,8 @@ function StockByLocationSection({
     | "location"
     | "onHand"
     | "available"
+    | "reserved"
+    | "blocked"
     | "avgCost"
     | "value"
     | "lastMovement"
@@ -409,6 +481,8 @@ function StockByLocationSection({
                 <th className="py-1.5 pr-3 font-medium">{labels.location}</th>
                 <th className="py-1.5 pr-3 text-right font-medium">{labels.onHand}</th>
                 <th className="py-1.5 pr-3 text-right font-medium">{labels.available}</th>
+                <th className="py-1.5 pr-3 text-right font-medium">{labels.reserved}</th>
+                <th className="py-1.5 pr-3 text-right font-medium">{labels.blocked}</th>
                 <th className="py-1.5 pr-3 text-right font-medium">{labels.avgCost}</th>
                 <th className="py-1.5 pr-3 text-right font-medium">{labels.value}</th>
                 <th className="py-1.5 font-medium">{labels.lastMovement}</th>
@@ -429,6 +503,16 @@ function StockByLocationSection({
                   </td>
                   <td className="py-1.5 pr-3 text-right tabular-nums">
                     {row.available_quantity} {row.unit_code}
+                  </td>
+                  <td className="py-1.5 pr-3 text-right tabular-nums">
+                    {row.reserved_total_quantity || "—"}
+                  </td>
+                  <td className="py-1.5 pr-3 text-right tabular-nums">
+                    {row.blocked_quantity ? (
+                      <span className="text-destructive">{row.blocked_quantity}</span>
+                    ) : (
+                      "—"
+                    )}
                   </td>
                   <td className="py-1.5 pr-3 text-right tabular-nums">
                     {money(row.average_unit_cost, row.currency)}
@@ -463,7 +547,16 @@ function StockByLocationSection({
                   <td className="py-1.5 pr-3 text-right tabular-nums">
                     {totalOnHand} {rows[0]?.unit_code}
                   </td>
-                  <td colSpan={2} />
+                  <td className="py-1.5 pr-3 text-right tabular-nums">
+                    {rows.reduce((sum, row) => sum + row.available_quantity, 0)}
+                  </td>
+                  <td className="py-1.5 pr-3 text-right tabular-nums">
+                    {rows.reduce((sum, row) => sum + row.reserved_total_quantity, 0) || "—"}
+                  </td>
+                  <td className="py-1.5 pr-3 text-right tabular-nums">
+                    {rows.reduce((sum, row) => sum + row.blocked_quantity, 0) || "—"}
+                  </td>
+                  <td />
                   <td className="py-1.5 pr-3 text-right tabular-nums">
                     {sameCurrency ? money(totalValue, currency) : "—"}
                   </td>

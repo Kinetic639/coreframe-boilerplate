@@ -228,6 +228,22 @@ function InventoryLinesTable({
                 <p className="mt-0.5 font-mono text-foreground">
                   {line.availableQuantity} {line.unitCode}
                 </p>
+                {line.reservedQuantity + line.allocatedQuantity > 0 || line.blockedQuantity > 0 ? (
+                  <p
+                    className="mt-0.5 font-mono text-[11px] text-muted-foreground"
+                    data-testid="location-line-rb"
+                  >
+                    {line.reservedQuantity + line.allocatedQuantity > 0
+                      ? `R ${line.reservedQuantity + line.allocatedQuantity}`
+                      : null}
+                    {line.reservedQuantity + line.allocatedQuantity > 0 && line.blockedQuantity > 0
+                      ? " · "
+                      : null}
+                    {line.blockedQuantity > 0 ? (
+                      <span className="text-destructive">B {line.blockedQuantity}</span>
+                    ) : null}
+                  </p>
+                ) : null}
               </div>
             </div>
           ))}

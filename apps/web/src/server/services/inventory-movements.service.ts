@@ -261,6 +261,62 @@ export class InventoryMovementsService {
     return { success: true, data: { ...result, route_key: routeKey } };
   }
 
+  /**
+   * A PZ (101) posted together with the reservations of its repair-order
+   * parts, in one transaction: either both or neither. `attribution` names
+   * the PZ lines (1-based, in line order) delivered for a ZL.
+   */
+  static async createAndFinalizeReceipt(
+    supabase: SupabaseClient,
+    orgId: string,
+    branchId: string,
+    input: CreateDraftMovementInput,
+    userId: string,
+    attribution: Array<{ lineIndex: number; zlNumber: string; productCode: string }>
+  ): Promise<
+    ServiceResult<{
+      movement_id: string;
+      document_number: string;
+      status: string;
+      attribution?: unknown;
+    }>
+  > {
+    const validation = await InventoryMovementFieldPoliciesService.validateDraftInput(
+      supabase,
+      orgId,
+      branchId,
+      input
+    );
+    if (!validation.success) return validation as ServiceResult<any>;
+
+    const { data, error } = await supabase.rpc("inventory_create_and_finalize_receipt", {
+      p_organization_id: orgId,
+      p_branch_id: branchId,
+      p_lines: input.lines,
+      p_operation_date: input.operation_date ?? null,
+      p_document_date: input.document_date ?? null,
+      p_counterparty_name: input.sender_name ?? null,
+      p_external_reference: input.external_reference ?? null,
+      p_note: input.note ?? null,
+      p_idempotency_key: input.idempotency_key ?? null,
+      p_actor_user_id: userId,
+      p_attribution: attribution.map((a) => ({
+        line_index: a.lineIndex,
+        zl_number: a.zlNumber,
+        product_code: a.productCode,
+      })),
+    });
+    if (error) return { success: false, error: error.message };
+    const result = data as any;
+    const routeKey = await this._saveRouteKey(
+      supabase,
+      result.movement_id,
+      result.document_number ?? result.draft_number
+    );
+    await this._savePartyDetails(supabase, result.movement_id, input);
+    return { success: true, data: { ...result, route_key: routeKey } };
+  }
+
   static async saveDraft(
     supabase: SupabaseClient,
     movementId: string,

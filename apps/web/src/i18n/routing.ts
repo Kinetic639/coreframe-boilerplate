@@ -147,6 +147,14 @@ export const routing = defineRouting({
       en: "/dashboard/warehouse/putaway",
       pl: "/dashboard/magazyn/rozlokowanie",
     },
+    "/dashboard/warehouse/reservations": {
+      en: "/dashboard/warehouse/reservations",
+      pl: "/dashboard/magazyn/rezerwacje",
+    },
+    "/dashboard/warehouse/blocks": {
+      en: "/dashboard/warehouse/blocks",
+      pl: "/dashboard/magazyn/blokady",
+    },
     "/dashboard/warehouse/map": {
       en: "/dashboard/warehouse/map",
       pl: "/dashboard/magazyn/mapa",

@@ -61,6 +61,70 @@ describe("normalizeProductCode", () => {
 });
 
 describe("RepairOrderImportService.preview", () => {
+  it("marks a document already imported in another session (same ZL, ZW and lines) -- nothing is added", async () => {
+    loadOrders.mockResolvedValue({
+      success: true,
+      data: [
+        order("ZL/7", [
+          { productCode: "A-1", matcherLineId: "m7", quantity: 2 },
+          { productCode: "B1", matcherLineId: "m8", quantity: 1 },
+        ]),
+        // Same ZW, other lines: a split delivery, imported as usual.
+        order("ZL/8", [{ productCode: "C1", matcherLineId: "m9", quantity: 1 }]),
+      ],
+    });
+    const supabase = client({
+      repair_orders: [
+        { id: "ro7", zl_number: "ZL/7", status: "open" },
+        { id: "ro8", zl_number: "ZL/8", status: "open" },
+      ],
+      repair_order_lines: [
+        { repair_order_id: "ro7", product_code: "A1" },
+        { repair_order_id: "ro7", product_code: "B1" },
+        { repair_order_id: "ro8", product_code: "C1" },
+      ],
+      wdd_matcher_blocks: [
+        { id: "b-ZL/7", metadata: { zw_number: "ZW/1/26/3332" } },
+        { id: "b-ZL/8", metadata: { zw_number: "ZW/2/26/3332" } },
+      ],
+      workshop_source_documents: [
+        {
+          external_document_number: "ZL/7",
+          source_document_number: "ZW/1/26/3332",
+          source_session_id: "s0",
+          wdd_matcher_sessions: { name: "Dostawa 14.10.2026" },
+          workshop_source_document_lines: [
+            { product_code: "b1", quantity: "1.0000" },
+            { product_code: "A1", quantity: 2 },
+          ],
+        },
+        {
+          external_document_number: "ZL/8",
+          source_document_number: "ZW/2/26/3332",
+          source_session_id: "s0",
+          wdd_matcher_sessions: { name: "Dostawa 14.10.2026" },
+          workshop_source_document_lines: [{ product_code: "C1", quantity: 5 }],
+        },
+      ],
+    });
+
+    const result = await RepairOrderImportService.preview(
+      supabase,
+      "org",
+      "br",
+      "svwms_wdd_matcher",
+      {}
+    );
+    if (!result.success) throw new Error("preview failed");
+    const zl7 = result.data.orders.find((o) => o.zlNumber === "ZL/7")!;
+    const zl8 = result.data.orders.find((o) => o.zlNumber === "ZL/8")!;
+    expect(zl7.alreadyImportedIn).toBe("Dostawa 14.10.2026");
+    expect(zl7.lines.every((l) => l.state === "already_imported")).toBe(true);
+    expect(zl7.willChange).toBe(false);
+    expect(zl8.alreadyImportedIn).toBeNull();
+    expect(zl8.lines[0].state).toBe("adds_quantity");
+  });
+
   it("classifies new, existing, conflicting and already-imported orders", async () => {
     loadOrders.mockResolvedValue({
       success: true,

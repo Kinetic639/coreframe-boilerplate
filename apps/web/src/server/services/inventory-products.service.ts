@@ -117,6 +117,9 @@ type BalanceRow = {
   location_id?: string | null;
   on_hand_quantity: number;
   available_quantity: number | null;
+  reserved_quantity?: number | null;
+  allocated_quantity?: number | null;
+  blocked?: number | null;
 };
 
 type VariantLocationStock = {
@@ -2672,7 +2675,9 @@ export class InventoryProductsService {
     let balancesQuery = variantIds.length
       ? supabase
           .from("inventory_balances")
-          .select("variant_id, on_hand_quantity, available_quantity")
+          .select(
+            "variant_id, on_hand_quantity, available_quantity, reserved_quantity, allocated_quantity, blocked"
+          )
           .eq("organization_id", orgId)
           .in("variant_id", variantIds)
       : null;
@@ -2787,11 +2792,20 @@ export class InventoryProductsService {
       variantsByProduct.set(variant.product_id, list);
     }
 
-    const quantitiesByVariant = new Map<string, { onHand: number; available: number }>();
+    type Quantities = { onHand: number; available: number; reserved: number; blocked: number };
+    const quantitiesByVariant = new Map<string, Quantities>();
     for (const balance of (balancesData ?? []) as BalanceRow[]) {
-      const current = quantitiesByVariant.get(balance.variant_id) ?? { onHand: 0, available: 0 };
+      const current = quantitiesByVariant.get(balance.variant_id) ?? {
+        onHand: 0,
+        available: 0,
+        reserved: 0,
+        blocked: 0,
+      };
       current.onHand += toNumber(balance.on_hand_quantity);
       current.available += toNumber(balance.available_quantity);
+      current.reserved +=
+        toNumber(balance.reserved_quantity) + toNumber(balance.allocated_quantity);
+      current.blocked += toNumber(balance.blocked);
       quantitiesByVariant.set(balance.variant_id, current);
     }
 
@@ -2900,19 +2914,28 @@ export class InventoryProductsService {
             if (q) {
               acc.onHand += q.onHand;
               acc.available += q.available;
+              acc.reserved += q.reserved;
+              acc.blocked += q.blocked;
             }
             return acc;
           },
-          { onHand: 0, available: 0 }
+          { onHand: 0, available: 0, reserved: 0, blocked: 0 }
         );
         const enrichedVariants: InventoryProductVariantListRow[] = productVariants.map(
           (variant) => {
-            const q = quantitiesByVariant.get(variant.id) ?? { onHand: 0, available: 0 };
+            const q = quantitiesByVariant.get(variant.id) ?? {
+              onHand: 0,
+              available: 0,
+              reserved: 0,
+              blocked: 0,
+            };
             return {
               ...variant,
               thumbnail_url: variantImages.get(variant.id) ?? productImages.get(product.id) ?? null,
               on_hand_quantity: q.onHand,
               available_quantity: q.available,
+              reserved_total_quantity: q.reserved,
+              blocked_quantity: q.blocked,
               reorder_point: reorderByVariant.get(variant.id) ?? null,
               option_values: (optionValuesByVariant.get(variant.id) ?? []).sort(
                 (a, b) => a.display_order - b.display_order
@@ -2933,6 +2956,8 @@ export class InventoryProductsService {
           variant_count: productVariants.length,
           on_hand_quantity: quantities.onHand,
           available_quantity: quantities.available,
+          reserved_total_quantity: quantities.reserved,
+          blocked_quantity: quantities.blocked,
           unit_code: unitsById.get(product.base_unit_id)?.code ?? "",
           updated_at: product.updated_at,
           sales_account_code: product.sales_account_code,
@@ -2964,6 +2989,8 @@ export class InventoryProductsService {
         variant_count: 1,
         on_hand_quantity: variant.on_hand_quantity,
         available_quantity: variant.available_quantity,
+        reserved_total_quantity: variant.reserved_total_quantity,
+        blocked_quantity: variant.blocked_quantity,
         custom_field_values: variant.custom_field_values,
         variants: [variant],
         is_variant_row: true,

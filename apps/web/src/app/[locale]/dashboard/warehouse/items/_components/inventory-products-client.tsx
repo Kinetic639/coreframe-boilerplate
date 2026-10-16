@@ -73,6 +73,7 @@ export function InventoryProductsClient({
 }: InventoryProductsClientProps) {
   const t = useTranslations("warehouseInventory.common");
   const tList = useTranslations("warehouseInventory.list");
+  const tCommit = useTranslations("modules.warehouse.stockCommitments");
   const [expandedProductIds, setExpandedProductIds] = useState<Record<string, true>>({});
   const [listMessage, setListMessage] = useState<string | null>(null);
 
@@ -177,6 +178,29 @@ export function InventoryProductsClient({
         defaultVisible: true,
       },
       {
+        // R: reserved for repair orders (stage E6).
+        key: "reserved_total_quantity",
+        header: tCommit("states.reserved"),
+        accessor: (row) => (
+          <span className="tabular-nums">{row.reserved_total_quantity || "—"}</span>
+        ),
+        sortable: false,
+        defaultVisible: true,
+      },
+      {
+        // B: blocked.
+        key: "blocked_quantity",
+        header: tCommit("states.blocked"),
+        accessor: (row) =>
+          row.blocked_quantity ? (
+            <span className="tabular-nums text-destructive">{row.blocked_quantity}</span>
+          ) : (
+            <span className="tabular-nums">—</span>
+          ),
+        sortable: false,
+        defaultVisible: true,
+      },
+      {
         key: "updated_at",
         header: tList("updated"),
         accessor: (row) => (
@@ -198,7 +222,7 @@ export function InventoryProductsClient({
         defaultVisible: false,
       })),
     ],
-    [customFields, t, tList]
+    [customFields, t, tList, tCommit]
   );
 
   const filters = useMemo<DataViewFilterDef[]>(
@@ -229,7 +253,7 @@ export function InventoryProductsClient({
         label: field.name,
       })),
     ],
-    [customFields, t, tList]
+    [customFields, t, tList, tCommit]
   );
 
   const renderCompactItem = useCallback(

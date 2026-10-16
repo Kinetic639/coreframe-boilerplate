@@ -1,8 +1,9 @@
 /**
  * @vitest-environment node
  *
- * Zone 5 — a PZ (101) always lands in the branch's receiving zone, and a
- * posted PZ imported from the Matcher is attributed to RepairOrderLines.
+ * Zone 5 — a PZ (101) always lands in the branch's receiving zone, and a PZ
+ * with lines delivered for a ZL is posted together with the reservations of
+ * those parts, in one call (one transaction).
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -13,20 +14,14 @@ const MATCHER_LINE = "44444444-4444-4444-8444-444444444444";
 
 const h = vi.hoisted(() => ({
   createAndFinalize: vi.fn(),
+  createAndFinalizeReceipt: vi.fn(),
   createDraft: vi.fn(),
   getReceivingLocationId: vi.fn(),
-  attributeReceipt: vi.fn(),
-  postedLines: [] as Array<{ id: string; line_number: number }>,
 }));
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/supabase/server", () => ({
-  createClient: vi.fn().mockImplementation(async () => {
-    const chain: Record<string, unknown> = {};
-    for (const m of ["select", "eq", "is"]) chain[m] = () => chain;
-    chain.order = () => Promise.resolve({ data: h.postedLines, error: null });
-    return { from: () => chain };
-  }),
+  createClient: vi.fn().mockResolvedValue({}),
 }));
 vi.mock("@/server/loaders/v2/load-dashboard-context.v2", () => ({
   loadDashboardContextV2: vi.fn().mockResolvedValue({
@@ -50,15 +45,21 @@ vi.mock("@/server/services/event.service", () => ({
 vi.mock("@/server/services/inventory-movements.service", () => ({
   InventoryMovementsService: {
     createAndFinalize: (...a: unknown[]) => h.createAndFinalize(...a),
+    createAndFinalizeReceipt: (...a: unknown[]) => h.createAndFinalizeReceipt(...a),
     createDraft: (...a: unknown[]) => h.createDraft(...a),
   },
 }));
-vi.mock("@/server/services/inventory-receiving.service", () => ({
-  InventoryReceivingService: {
-    getReceivingLocationId: (...a: unknown[]) => h.getReceivingLocationId(...a),
-    attributeReceipt: (...a: unknown[]) => h.attributeReceipt(...a),
-  },
-}));
+vi.mock("@/server/services/inventory-receiving.service", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/server/services/inventory-receiving.service")
+  >("@/server/services/inventory-receiving.service");
+  return {
+    summarizeReceiptAttribution: actual.summarizeReceiptAttribution,
+    InventoryReceivingService: {
+      getReceivingLocationId: (...a: unknown[]) => h.getReceivingLocationId(...a),
+    },
+  };
+});
 
 import { createAndPostMovementAction, createDraftMovementAction } from "../index";
 
@@ -79,18 +80,29 @@ const matcherLine = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  h.postedLines = [{ id: "ml-1", line_number: 1 }];
   h.getReceivingLocationId.mockResolvedValue("prz");
   h.createAndFinalize.mockResolvedValue({ success: true, data: { movement_id: "mv-1" } });
+  h.createAndFinalizeReceipt.mockResolvedValue({
+    success: true,
+    data: {
+      movement_id: "mv-1",
+      attribution: {
+        attributed: [{ movement_line_id: "ml-2", reservation_number: "REZ/2026/000100" }],
+        skipped: [{ reason: "no_repair_order" }],
+      },
+    },
+  });
   h.createDraft.mockResolvedValue({ success: true, data: { movement_id: "mv-2" } });
-  h.attributeReceipt.mockResolvedValue({ success: true, data: { attributed: 1, skipped: 0 } });
 });
 
 describe("PZ lands in the receiving zone", () => {
-  it("createAndPost forces the receiving location as destination for a 101", async () => {
-    await createAndPostMovementAction(payload("101", [matcherLine]));
-    const lines = h.createAndFinalize.mock.calls[0][3].lines;
-    expect(lines[0].destination_location_id).toBe("prz");
+  it("forces the receiving location as destination for a 101", async () => {
+    await createAndPostMovementAction(
+      payload("101", [
+        { variant_id: VARIANT, unit_id: UNIT, quantity: 1, destination_location_id: SHELF },
+      ])
+    );
+    expect(h.createAndFinalize.mock.calls[0][3].lines[0].destination_location_id).toBe("prz");
   });
 
   it("createDraft forces it too", async () => {
@@ -102,47 +114,58 @@ describe("PZ lands in the receiving zone", () => {
     await createAndPostMovementAction(payload("402", [matcherLine]));
     expect(h.getReceivingLocationId).not.toHaveBeenCalled();
     expect(h.createAndFinalize.mock.calls[0][3].lines[0].destination_location_id).toBe(SHELF);
+    expect(h.createAndFinalizeReceipt).not.toHaveBeenCalled();
   });
 
-  it("keeps the chosen destination when the branch has no receiving zone", async () => {
+  it("keeps the chosen destination (and reserves nothing) when the branch has no receiving zone", async () => {
     h.getReceivingLocationId.mockResolvedValue(null);
     await createAndPostMovementAction(payload("101", [matcherLine]));
     expect(h.createAndFinalize.mock.calls[0][3].lines[0].destination_location_id).toBe(SHELF);
-    expect(h.attributeReceipt).not.toHaveBeenCalled();
+    expect(h.createAndFinalizeReceipt).not.toHaveBeenCalled();
   });
 });
 
-describe("Imported PZ is attributed to repair orders after posting", () => {
-  it("pairs posted lines (by position) with their ZL and part code", async () => {
-    h.postedLines = [
-      { id: "ml-1", line_number: 1 },
-      { id: "ml-2", line_number: 2 },
-    ];
+describe("A PZ with lines for a ZL reserves them in the same transaction", () => {
+  it("posts through one call naming the ZL lines by position (1-based), and summarises the result", async () => {
     const manual = {
       variant_id: VARIANT,
       unit_id: UNIT,
       quantity: 1,
       destination_location_id: SHELF,
     };
-    await createAndPostMovementAction(payload("101", [manual, matcherLine]));
-    expect(h.attributeReceipt).toHaveBeenCalledWith(expect.anything(), "user-1", "mv-1", [
-      { movementLineId: "ml-2", zlNumber: "ZL/0042/2026/0301/BL", productCode: "N91158501" },
+    const result = await createAndPostMovementAction(payload("101", [manual, matcherLine]));
+    expect(h.createAndFinalize).not.toHaveBeenCalled();
+    const call = h.createAndFinalizeReceipt.mock.calls[0];
+    expect(
+      call[3].lines.map((l: { destination_location_id: string }) => l.destination_location_id)
+    ).toEqual(["prz", "prz"]);
+    expect(call[4]).toBe("user-1");
+    expect(call[5]).toEqual([
+      { lineIndex: 2, zlNumber: "ZL/0042/2026/0301/BL", productCode: "N91158501" },
     ]);
+    expect(result).toEqual({
+      success: true,
+      data: {
+        movement_id: "mv-1",
+        attribution: { attributed: 1, skipped: 1, skippedReasons: { no_repair_order: 1 } },
+      },
+    });
   });
 
-  it("does not attribute a PZ without imported lines", async () => {
+  it("a PZ without ZL lines is posted the plain way", async () => {
     await createAndPostMovementAction(
       payload("101", [
         { variant_id: VARIANT, unit_id: UNIT, quantity: 1, destination_location_id: SHELF },
       ])
     );
-    expect(h.attributeReceipt).not.toHaveBeenCalled();
+    expect(h.createAndFinalizeReceipt).not.toHaveBeenCalled();
+    expect(h.createAndFinalize).toHaveBeenCalledTimes(1);
   });
 
-  it("does not attribute when posting failed", async () => {
-    h.createAndFinalize.mockResolvedValue({ success: false, error: "boom" });
+  it("returns the error when the PZ with reservations fails (nothing was posted)", async () => {
+    h.createAndFinalizeReceipt.mockResolvedValue({ success: false, error: "boom" });
     const result = await createAndPostMovementAction(payload("101", [matcherLine]));
     expect(result).toEqual({ success: false, error: "boom" });
-    expect(h.attributeReceipt).not.toHaveBeenCalled();
+    expect(h.createAndFinalize).not.toHaveBeenCalled();
   });
 });

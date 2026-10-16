@@ -20,6 +20,7 @@ type BalanceRow = {
   on_hand_quantity: number;
   reserved_quantity: number;
   allocated_quantity: number;
+  blocked: number;
   available_quantity: number | null;
   last_movement_id: string | null;
   last_movement_at: string | null;
@@ -61,7 +62,7 @@ type CostRow = {
 };
 
 const BALANCE_COLUMNS =
-  "id, location_id, variant_id, on_hand_quantity, reserved_quantity, allocated_quantity, available_quantity, last_movement_id, last_movement_at, updated_at" as const;
+  "id, location_id, variant_id, on_hand_quantity, reserved_quantity, allocated_quantity, blocked, available_quantity, last_movement_id, last_movement_at, updated_at" as const;
 
 function toNumber(value: number | string | null | undefined): number {
   if (value == null) return 0;
@@ -293,10 +294,14 @@ export class InventoryBalancesService {
           variant_id: balance.variant_id,
           sku: variant?.sku ?? "",
           product_name: product?.name ?? "",
+          location_id: balance.location_id,
           location_name: location?.name ?? "",
           location_code: location?.code ?? null,
           on_hand_quantity: onHand,
           available_quantity: toNumber(balance.available_quantity),
+          reserved_total_quantity:
+            toNumber(balance.reserved_quantity) + toNumber(balance.allocated_quantity),
+          blocked_quantity: toNumber(balance.blocked),
           unit_code: product ? (unitsById.get(product.base_unit_id)?.code ?? "") : "",
           average_unit_cost: averageUnitCost,
           total_value: averageUnitCost * onHand,
