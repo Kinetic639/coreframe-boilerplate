@@ -374,33 +374,40 @@ export default async function WarehouseItemDetailPage({ params }: PageProps) {
               />
             ) : null}
           </div>
+          {stockResult && !stockResult.success ? (
+            <p className="text-sm text-destructive" data-testid="stock-load-error">
+              {tCommit("pages.loadError")}
+            </p>
+          ) : null}
           {(reservationsResult && !reservationsResult.success) ||
           (blocksResult && !blocksResult.success) ? (
             <p className="text-sm text-destructive">{tCommit("pages.loadError")}</p>
           ) : null}
-          <StockByLocationTable
-            rows={stockRows}
-            reservations={reservationLines}
-            blocks={blockLines}
-            showSku={hasVisibleVariants}
-            locale={locale}
-            canOperate={canOperateStock}
-            branchId={activeBranchId}
-            labels={{
-              title: tStock("title"),
-              empty: activeBranchId ? tStock("empty") : tStock("noBranch"),
-              sku: tc("sku"),
-              location: tc("location"),
-              onHand: tList("onHand"),
-              available: tCommit("states.available"),
-              reserved: tCommit("states.reserved"),
-              blocked: tCommit("states.blocked"),
-              avgCost: tStock("avgCost"),
-              value: tStock("value"),
-              lastMovement: tStock("lastMovement"),
-              total: tStock("total"),
-            }}
-          />
+          {stockResult && !stockResult.success ? null : (
+            <StockByLocationTable
+              rows={stockRows}
+              reservations={reservationLines}
+              blocks={blockLines}
+              showSku={hasVisibleVariants}
+              locale={locale}
+              canOperate={canOperateStock}
+              branchId={activeBranchId}
+              labels={{
+                title: tStock("title"),
+                empty: activeBranchId ? tStock("empty") : tStock("noBranch"),
+                sku: tc("sku"),
+                location: tc("location"),
+                onHand: tList("onHand"),
+                available: tCommit("states.available"),
+                reserved: tCommit("states.reserved"),
+                blocked: tCommit("states.blocked"),
+                avgCost: tStock("avgCost"),
+                value: tStock("value"),
+                lastMovement: tStock("lastMovement"),
+                total: tStock("total"),
+              }}
+            />
+          )}
         </section>
       ) : null}
 

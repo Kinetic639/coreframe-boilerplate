@@ -52,7 +52,7 @@ type UnitRow = {
 
 type MovementRow = {
   id: string;
-  movement_number: string;
+  document_number: string | null;
 };
 
 type CostRow = {
@@ -252,7 +252,7 @@ export class InventoryBalancesService {
     const { data: movementsData, error: movementsError } = movementIds.length
       ? await supabase
           .from("inventory_movement_headers")
-          .select("id, movement_number")
+          .select("id, document_number")
           .eq("organization_id", orgId)
           .eq("branch_id", branchId)
           .in("id", movementIds)
@@ -307,7 +307,7 @@ export class InventoryBalancesService {
           total_value: averageUnitCost * onHand,
           currency: cost?.currency ?? "PLN",
           last_movement_id: balance.last_movement_id,
-          last_movement_number: movement?.movement_number ?? null,
+          last_movement_number: movement?.document_number ?? null,
           last_movement_at: balance.last_movement_at,
           updated_at: balance.updated_at,
         };
