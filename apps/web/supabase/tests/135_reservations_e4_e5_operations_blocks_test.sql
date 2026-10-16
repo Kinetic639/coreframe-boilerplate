@@ -47,14 +47,14 @@ INSERT INTO repair_orders (id, organization_id, branch_id, order_number, zl_numb
 SELECT ro1, org, branch, '135-RO1', '135ZL1', 'open' FROM fx;
 INSERT INTO repair_orders (id, organization_id, branch_id, order_number, zl_number, status)
 SELECT ro2, org, branch, '135-RO2', '135ZL2', 'open' FROM fx;
-INSERT INTO repair_order_lines (id, repair_order_id, variant_id, product_code, ordered_quantity, unit)
-SELECT rol_a, ro1, v, 'P135A', 3, 'szt' FROM fx;
-INSERT INTO repair_order_lines (id, repair_order_id, variant_id, product_code, ordered_quantity, unit)
-SELECT rol_b, ro1, v, 'P135B', 2, 'szt' FROM fx;
-INSERT INTO repair_order_lines (id, repair_order_id, variant_id, product_code, ordered_quantity, unit)
-SELECT rol_c, ro2, v, 'P135C', 2, 'szt' FROM fx;
-INSERT INTO repair_order_lines (id, repair_order_id, variant_id, product_code, ordered_quantity, unit)
-SELECT rol_d, ro2, v, 'P135D', 100, 'szt' FROM fx;
+INSERT INTO repair_order_lines (id, repair_order_id, variant_id, product_code, product_name, ordered_quantity, unit)
+SELECT rol_a, ro1, v, 'P135A', '135 part A', 3, 'szt' FROM fx;
+INSERT INTO repair_order_lines (id, repair_order_id, variant_id, product_code, product_name, ordered_quantity, unit)
+SELECT rol_b, ro1, v, 'P135B', '135 part B', 2, 'szt' FROM fx;
+INSERT INTO repair_order_lines (id, repair_order_id, variant_id, product_code, product_name, ordered_quantity, unit)
+SELECT rol_c, ro2, v, 'P135C', '135 part C', 2, 'szt' FROM fx;
+INSERT INTO repair_order_lines (id, repair_order_id, variant_id, product_code, product_name, ordered_quantity, unit)
+SELECT rol_d, ro2, v, 'P135D', '135 part D', 100, 'szt' FROM fx;
 
 -- on hand / R / B / D of the test item at a location.
 CREATE OR REPLACE FUNCTION pg_temp.bal(p_loc uuid) RETURNS text LANGUAGE sql AS $fn$
