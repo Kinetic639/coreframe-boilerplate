@@ -67,6 +67,9 @@ const REASON_CODES: BlockReasonCode[] = [
 
 type Result = { success: boolean; error?: string; data?: unknown };
 
+/** Fired after every successful reservation / block operation. */
+export const STOCK_CHANGED_EVENT = "warehouse:stock-changed";
+
 function fmt(value: number) {
   return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.?0+$/, "");
 }
@@ -95,6 +98,8 @@ function useOperation() {
       toast.success(success(result.data));
       done();
       router.refresh();
+      // Client-loaded views (the products list's item panel) reload on this.
+      window.dispatchEvent(new Event(STOCK_CHANGED_EVENT));
     });
   return { pending, run };
 }

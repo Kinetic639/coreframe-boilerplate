@@ -35,7 +35,7 @@ import { ProductHandlingCard } from "./_components/product-handling-card";
 import { InventoryReservationsService } from "@/server/services/inventory-reservations.service";
 import { InventoryBlocksService } from "@/server/services/inventory-blocks.service";
 import { ItemStockActions } from "@/components/warehouse/stock-commitments";
-import { StockByLocationTable } from "./_components/stock-by-location-table";
+import { StockByLocationTable } from "@/components/warehouse/stock-by-location-table";
 
 type PageProps = {
   params: Promise<{ productId: string }>;

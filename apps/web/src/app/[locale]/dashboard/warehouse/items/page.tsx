@@ -13,6 +13,7 @@ import {
   WAREHOUSE_PRODUCTS_MANAGE,
   WAREHOUSE_PRODUCTS_READ,
   WAREHOUSE_IMPORTS_MANAGE,
+  WAREHOUSE_INVENTORY_READ,
   WAREHOUSE_READ,
 } from "@/lib/constants/permissions";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
@@ -129,6 +130,10 @@ export default async function WarehouseItemsPage({ searchParams }: PageProps = {
             canManageProducts={checkPermission(
               context.user.permissionSnapshot,
               WAREHOUSE_PRODUCTS_MANAGE
+            )}
+            canReadStock={checkPermission(
+              context.user.permissionSnapshot,
+              WAREHOUSE_INVENTORY_READ
             )}
             canImportProducts={
               checkPermission(context.user.permissionSnapshot, WAREHOUSE_IMPORTS_MANAGE) ||
