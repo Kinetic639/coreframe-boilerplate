@@ -41,6 +41,8 @@ type InventoryProductsClientProps = {
   initialDataUpdatedAt?: number;
   customFields: InventoryCustomFieldDefinition[];
   canManageProducts: boolean;
+  /** warehouse.inventory.read: the item panel shows stock per location with R / B behind it. */
+  canReadStock?: boolean;
   canImportProducts: boolean;
 };
 
@@ -69,6 +71,7 @@ export function InventoryProductsClient({
   initialDataUpdatedAt,
   customFields,
   canManageProducts,
+  canReadStock = false,
   canImportProducts,
 }: InventoryProductsClientProps) {
   const t = useTranslations("warehouseInventory.common");
@@ -300,9 +303,10 @@ export function InventoryProductsClient({
         detail={detail}
         customFields={customFields}
         canManageProducts={canManageProducts}
+        canReadStock={canReadStock}
       />
     ),
-    [canManageProducts, customFields]
+    [canManageProducts, canReadStock, customFields]
   );
 
   const getRowId = useCallback((row: InventoryProductListRow) => row.row_id, []);

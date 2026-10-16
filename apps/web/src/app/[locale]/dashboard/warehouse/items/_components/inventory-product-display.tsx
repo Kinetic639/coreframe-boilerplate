@@ -19,6 +19,7 @@ import type {
   InventoryProductVariantListRow,
 } from "@/lib/warehouse/inventory-types";
 import { InventoryRichTextDisplay } from "./inventory-rich-text";
+import { ItemStockPanel } from "@/components/warehouse/item-stock-panel";
 
 export const statusVariant: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   active: "default",
@@ -126,10 +127,13 @@ export function ProductDetailPanel({
   detail,
   customFields,
   canManageProducts,
+  canReadStock = false,
 }: {
   detail: InventoryProductDetail;
   customFields: InventoryCustomFieldDefinition[];
   canManageProducts: boolean;
+  /** Show stock per location with every reservation / block behind it. */
+  canReadStock?: boolean;
 }) {
   const t = useTranslations("warehouseInventory.common");
   const tList = useTranslations("warehouseInventory.list");
@@ -296,6 +300,8 @@ export function ProductDetailPanel({
           ) : null}
         </div>
       </section>
+
+      {canReadStock ? <ItemStockPanel productId={detail.id} showSku={hasVisibleVariants} /> : null}
 
       {customFieldRows.length > 0 ? (
         <section className="rounded-md border p-3">
