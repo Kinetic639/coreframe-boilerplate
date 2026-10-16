@@ -286,6 +286,10 @@ export default async function RepairOrderDetailPage({ params, searchParams }: Pa
                   available={availableStock}
                   canOperate={canOperateStock && order.status === "open"}
                   loadError={linesLoadError}
+                  stockLoadError={
+                    (!!reservationsResult && !reservationsResult.success) ||
+                    !warehouseResult.success
+                  }
                 />
               </div>
             ),

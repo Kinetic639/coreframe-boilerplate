@@ -103,6 +103,7 @@ export function RepairOrderPositions({
   available,
   canOperate,
   loadError,
+  stockLoadError = false,
 }: {
   repairOrderId: string;
   lines: PositionLine[];
@@ -111,6 +112,8 @@ export function RepairOrderPositions({
   available: AvailableStock[];
   canOperate: boolean;
   loadError: boolean;
+  /** Reservations could not be read: the R / missing figures are unknown, not zero. */
+  stockLoadError?: boolean;
 }) {
   const t = useTranslations("modules.workshop.repairOrders.stock");
   const [open, setOpen] = useState<Set<string>>(new Set());
@@ -135,6 +138,13 @@ export function RepairOrderPositions({
   if (loadError) return <p className="text-sm text-destructive">{t("positions.loadError")}</p>;
   if (lines.length === 0)
     return <p className="text-sm text-muted-foreground">{t("positions.empty")}</p>;
+  if (stockLoadError) {
+    return (
+      <p className="text-sm text-destructive" data-testid="positions-stock-error">
+        {t("positions.stockLoadError")}
+      </p>
+    );
+  }
 
   const toggle = (id: string) =>
     setOpen((current) => {

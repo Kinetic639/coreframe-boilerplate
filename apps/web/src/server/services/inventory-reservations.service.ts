@@ -390,7 +390,7 @@ export class InventoryReservationsService {
          released_quantity, fulfilled_quantity, created_at,
          inventory_reservations!inner(reservation_number, status, deleted_at),
          inventory_allocation_lines(allocated_quantity, fulfilled_quantity),
-         inventory_variants(sku, product_id, inventory_products(name, inventory_units(code))),
+         inventory_variants(sku, product_id, inventory_products!inventory_variants_product_fk(name, inventory_units(code))),
          warehouse_locations(code, name, purpose),
          repair_order_lines(product_name, repair_orders(id, zl_number, client_name))`
       )

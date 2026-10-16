@@ -3860,7 +3860,8 @@
               "reserved": "reserved",
               "in_container": "in a container",
               "issued": "issued"
-            }
+            },
+            "stockLoadError": "Could not load reservations and issues — the parts' state is unknown (this does not mean they are missing). Refresh the page."
           },
           "reserve": {
             "button": "Reserve from stock",
