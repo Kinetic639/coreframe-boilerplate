@@ -397,12 +397,18 @@ export default async function WarehouseItemDetailPage({ params }: PageProps) {
               />
             ) : null}
           </div>
+          {reservationsResult && !reservationsResult.success ? (
+            <p className="text-sm text-destructive">{tCommit("pages.loadError")}</p>
+          ) : null}
           <ReservationLinesTable
             lines={reservationLines}
             canOperate={canOperateStock}
             showPart={hasVisibleVariants}
           />
           <h2 className="mt-2 text-lg font-medium">{tCommit("blocks.title")}</h2>
+          {blocksResult && !blocksResult.success ? (
+            <p className="text-sm text-destructive">{tCommit("pages.loadError")}</p>
+          ) : null}
           <BlockLinesTable
             lines={blockLines}
             canOperate={canOperateStock}

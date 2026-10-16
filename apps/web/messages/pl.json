@@ -3831,7 +3831,8 @@
               "reserved": "zarezerwowane",
               "in_container": "w kontenerze",
               "issued": "wydane"
-            }
+            },
+            "stockLoadError": "Nie udało się wczytać rezerwacji i wydań — stan części jest nieznany (to nie znaczy, że ich brakuje). Odśwież stronę."
           },
           "reserve": {
             "button": "Zarezerwuj z magazynu",

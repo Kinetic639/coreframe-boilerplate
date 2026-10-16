@@ -346,7 +346,7 @@ export class InventoryBlocksService {
         `id, block_id, variant_id, location_id, blocked_quantity, unblocked_quantity, moved_quantity,
          consumed_quantity, created_at,
          inventory_stock_blocks!inner(block_number, reason_code, description, reference_type, reference_number, status),
-         inventory_variants(sku, product_id, inventory_products(name, inventory_units(code))),
+         inventory_variants(sku, product_id, inventory_products!inventory_variants_product_fk(name, inventory_units(code))),
          warehouse_locations(code, name)`
       )
       .eq("organization_id", organizationId)

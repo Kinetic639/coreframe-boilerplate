@@ -166,3 +166,22 @@ describe("RepairOrderPositions", () => {
     expect(screen.queryByTestId("positions-reserve")).toBeNull();
   });
 });
+
+describe("RepairOrderPositions -- reservations could not be read", () => {
+  it("says the state is unknown instead of showing every part as missing", () => {
+    render(
+      <RepairOrderPositions
+        repairOrderId="ro"
+        lines={[line()]}
+        issuedByLine={{}}
+        reservations={[]}
+        available={[]}
+        canOperate
+        loadError={false}
+        stockLoadError
+      />
+    );
+    expect(screen.getByTestId("positions-stock-error")).toBeTruthy();
+    expect(screen.queryByTestId("position-status")).toBeNull();
+  });
+});

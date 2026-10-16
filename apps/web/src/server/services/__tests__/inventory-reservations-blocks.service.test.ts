@@ -202,3 +202,15 @@ describe("InventoryBlocksService", () => {
     expect(result).toMatchObject({ success: false, error: "reason_required" });
   });
 });
+
+describe("PostgREST embeds", () => {
+  // inventory_variants <-> inventory_products has two relationships (product_id and
+  // the product's default_variant_id): an unnamed embed fails at runtime (PGRST201).
+  it("name the variant -> product relationship in every select", async () => {
+    const fs = await import("node:fs");
+    for (const file of ["inventory-reservations.service.ts", "inventory-blocks.service.ts"]) {
+      const source = fs.readFileSync(`${__dirname}/../${file}`, "utf8");
+      expect(source).not.toMatch(/inventory_variants\([^)]*inventory_products\(/);
+    }
+  });
+});
