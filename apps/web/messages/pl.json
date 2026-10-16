@@ -3137,6 +3137,10 @@
         "age": {
           "today": "dziś",
           "days": "{count, plural, one {# dzień} other {# dni}}"
+        },
+        "breakdown": {
+          "hint": "Rozwiń lokalizację, żeby zobaczyć każdą rezerwację i blokadę osobno: pod jakie zlecenie, jakim dokumentem i od kiedy.",
+          "summary": "Na stanie {onHand}: dostępne (D) {available} · zarezerwowane (R) {reserved} · zablokowane (B) {blocked}"
         }
       }
     },

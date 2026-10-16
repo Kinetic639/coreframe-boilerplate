@@ -31,15 +31,11 @@ import {
 } from "@/server/services/warehouse-item-suppliers.service";
 import { InventoryReceivingService } from "@/server/services/inventory-receiving.service";
 import { InventoryBalancesService } from "@/server/services/inventory-balances.service";
-import type { InventoryBalanceListRow } from "@/lib/warehouse/inventory-types";
 import { ProductHandlingCard } from "./_components/product-handling-card";
 import { InventoryReservationsService } from "@/server/services/inventory-reservations.service";
 import { InventoryBlocksService } from "@/server/services/inventory-blocks.service";
-import {
-  BlockLinesTable,
-  ItemStockActions,
-  ReservationLinesTable,
-} from "@/components/warehouse/stock-commitments";
+import { ItemStockActions } from "@/components/warehouse/stock-commitments";
+import { StockByLocationTable } from "./_components/stock-by-location-table";
 
 type PageProps = {
   params: Promise<{ productId: string }>;
@@ -359,32 +355,13 @@ export default async function WarehouseItemDetailPage({ params }: PageProps) {
       ) : null}
 
       {canReadStock ? (
-        <StockByLocationSection
-          rows={stockRows}
-          showSku={hasVisibleVariants}
-          locale={locale}
-          labels={{
-            title: tStock("title"),
-            empty: activeBranchId ? tStock("empty") : tStock("noBranch"),
-            sku: tc("sku"),
-            location: tc("location"),
-            onHand: tList("onHand"),
-            available: tCommit("states.available"),
-            reserved: tCommit("states.reserved"),
-            blocked: tCommit("states.blocked"),
-            avgCost: tStock("avgCost"),
-            value: tStock("value"),
-            lastMovement: tStock("lastMovement"),
-            total: tStock("total"),
-          }}
-        />
-      ) : null}
-
-      {canReadStock && activeBranchId ? (
-        <section className="grid gap-3 rounded-md border p-4" data-testid="item-reservations">
+        <section className="grid gap-3 rounded-md border p-4" data-testid="stock-by-location">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-lg font-medium">{tCommit("reservations.title")}</h2>
-            {canOperateStock ? (
+            <div>
+              <h2 className="text-lg font-medium">{tStock("title")}</h2>
+              <p className="text-xs text-muted-foreground">{tCommit("breakdown.hint")}</p>
+            </div>
+            {canOperateStock && activeBranchId ? (
               <ItemStockActions
                 stock={stockRows.map((row) => ({
                   variantId: row.variant_id,
@@ -397,23 +374,32 @@ export default async function WarehouseItemDetailPage({ params }: PageProps) {
               />
             ) : null}
           </div>
-          {reservationsResult && !reservationsResult.success ? (
+          {(reservationsResult && !reservationsResult.success) ||
+          (blocksResult && !blocksResult.success) ? (
             <p className="text-sm text-destructive">{tCommit("pages.loadError")}</p>
           ) : null}
-          <ReservationLinesTable
-            lines={reservationLines}
-            canOperate={canOperateStock}
-            showPart={hasVisibleVariants}
-          />
-          <h2 className="mt-2 text-lg font-medium">{tCommit("blocks.title")}</h2>
-          {blocksResult && !blocksResult.success ? (
-            <p className="text-sm text-destructive">{tCommit("pages.loadError")}</p>
-          ) : null}
-          <BlockLinesTable
-            lines={blockLines}
+          <StockByLocationTable
+            rows={stockRows}
+            reservations={reservationLines}
+            blocks={blockLines}
+            showSku={hasVisibleVariants}
+            locale={locale}
             canOperate={canOperateStock}
             branchId={activeBranchId}
-            showPart={hasVisibleVariants}
+            labels={{
+              title: tStock("title"),
+              empty: activeBranchId ? tStock("empty") : tStock("noBranch"),
+              sku: tc("sku"),
+              location: tc("location"),
+              onHand: tList("onHand"),
+              available: tCommit("states.available"),
+              reserved: tCommit("states.reserved"),
+              blocked: tCommit("states.blocked"),
+              avgCost: tStock("avgCost"),
+              value: tStock("value"),
+              lastMovement: tStock("lastMovement"),
+              total: tStock("total"),
+            }}
           />
         </section>
       ) : null}
@@ -437,143 +423,6 @@ export default async function WarehouseItemDetailPage({ params }: PageProps) {
         )}
       </section>
     </div>
-  );
-}
-
-/** Where the item lies in the active branch: quantity and value per location */
-function StockByLocationSection({
-  rows,
-  showSku,
-  locale,
-  labels,
-}: {
-  rows: InventoryBalanceListRow[];
-  showSku: boolean;
-  locale: string;
-  labels: Record<
-    | "title"
-    | "empty"
-    | "sku"
-    | "location"
-    | "onHand"
-    | "available"
-    | "reserved"
-    | "blocked"
-    | "avgCost"
-    | "value"
-    | "lastMovement"
-    | "total",
-    string
-  >;
-}) {
-  const money = (value: number, currency: string) =>
-    new Intl.NumberFormat(locale, { style: "currency", currency }).format(value);
-  const currency = rows[0]?.currency ?? "PLN";
-  const sameCurrency = rows.every((row) => row.currency === currency);
-  const totalOnHand = rows.reduce((sum, row) => sum + row.on_hand_quantity, 0);
-  const totalValue = rows.reduce((sum, row) => sum + row.total_value, 0);
-
-  return (
-    <section className="grid gap-3 rounded-md border p-4" data-testid="stock-by-location">
-      <h2 className="text-lg font-medium">{labels.title}</h2>
-      {rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{labels.empty}</p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[560px] text-sm">
-            <thead>
-              <tr className="border-b text-left text-xs text-muted-foreground">
-                {showSku ? <th className="py-1.5 pr-3 font-medium">{labels.sku}</th> : null}
-                <th className="py-1.5 pr-3 font-medium">{labels.location}</th>
-                <th className="py-1.5 pr-3 text-right font-medium">{labels.onHand}</th>
-                <th className="py-1.5 pr-3 text-right font-medium">{labels.available}</th>
-                <th className="py-1.5 pr-3 text-right font-medium">{labels.reserved}</th>
-                <th className="py-1.5 pr-3 text-right font-medium">{labels.blocked}</th>
-                <th className="py-1.5 pr-3 text-right font-medium">{labels.avgCost}</th>
-                <th className="py-1.5 pr-3 text-right font-medium">{labels.value}</th>
-                <th className="py-1.5 font-medium">{labels.lastMovement}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.id} className="border-b last:border-b-0">
-                  {showSku ? <td className="py-1.5 pr-3 font-mono text-xs">{row.sku}</td> : null}
-                  <td className="py-1.5 pr-3">
-                    {row.location_code ? (
-                      <span className="mr-1.5 font-mono text-xs">{row.location_code}</span>
-                    ) : null}
-                    {row.location_name}
-                  </td>
-                  <td className="py-1.5 pr-3 text-right tabular-nums">
-                    {row.on_hand_quantity} {row.unit_code}
-                  </td>
-                  <td className="py-1.5 pr-3 text-right tabular-nums">
-                    {row.available_quantity} {row.unit_code}
-                  </td>
-                  <td className="py-1.5 pr-3 text-right tabular-nums">
-                    {row.reserved_total_quantity || "—"}
-                  </td>
-                  <td className="py-1.5 pr-3 text-right tabular-nums">
-                    {row.blocked_quantity ? (
-                      <span className="text-destructive">{row.blocked_quantity}</span>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td className="py-1.5 pr-3 text-right tabular-nums">
-                    {money(row.average_unit_cost, row.currency)}
-                  </td>
-                  <td className="py-1.5 pr-3 text-right tabular-nums">
-                    {money(row.total_value, row.currency)}
-                  </td>
-                  <td className="py-1.5">
-                    {row.last_movement_id && row.last_movement_number ? (
-                      <Link
-                        href={{
-                          pathname: "/dashboard/warehouse/inventory/movements/[movementId]",
-                          params: { movementId: row.last_movement_id },
-                        }}
-                        className="font-mono text-xs text-primary underline-offset-2 hover:underline"
-                      >
-                        {row.last_movement_number}
-                      </Link>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-            {rows.length > 1 ? (
-              <tfoot>
-                <tr className="border-t font-medium">
-                  <td className="py-1.5 pr-3" colSpan={showSku ? 2 : 1}>
-                    {labels.total}
-                  </td>
-                  <td className="py-1.5 pr-3 text-right tabular-nums">
-                    {totalOnHand} {rows[0]?.unit_code}
-                  </td>
-                  <td className="py-1.5 pr-3 text-right tabular-nums">
-                    {rows.reduce((sum, row) => sum + row.available_quantity, 0)}
-                  </td>
-                  <td className="py-1.5 pr-3 text-right tabular-nums">
-                    {rows.reduce((sum, row) => sum + row.reserved_total_quantity, 0) || "—"}
-                  </td>
-                  <td className="py-1.5 pr-3 text-right tabular-nums">
-                    {rows.reduce((sum, row) => sum + row.blocked_quantity, 0) || "—"}
-                  </td>
-                  <td />
-                  <td className="py-1.5 pr-3 text-right tabular-nums">
-                    {sameCurrency ? money(totalValue, currency) : "—"}
-                  </td>
-                  <td />
-                </tr>
-              </tfoot>
-            ) : null}
-          </table>
-        </div>
-      )}
-    </section>
   );
 }
 
