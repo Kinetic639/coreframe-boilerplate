@@ -142,6 +142,21 @@ export interface ReceiptAttributionSummary {
   skippedReasons: Record<string, number>;
 }
 
+/** The RPC's attribution result ({ attributed: [], skipped: [{ reason }] }) as counts. */
+export function summarizeReceiptAttribution(raw: unknown): ReceiptAttributionSummary {
+  const r = (raw ?? {}) as { attributed?: unknown[]; skipped?: Array<{ reason?: string }> };
+  const skippedReasons: Record<string, number> = {};
+  for (const s of r.skipped ?? []) {
+    const reason = s.reason ?? "unknown";
+    skippedReasons[reason] = (skippedReasons[reason] ?? 0) + 1;
+  }
+  return {
+    attributed: r.attributed?.length ?? 0,
+    skipped: r.skipped?.length ?? 0,
+    skippedReasons,
+  };
+}
+
 function mapPutawayError(error: { code?: string; message: string }): PutawayError {
   const message = error.message ?? "";
   if (error.code === "28000" || error.code === "42501") return "unauthorized";
@@ -286,20 +301,7 @@ export class InventoryReceivingService {
       })),
     });
     if (error) return { success: false, error: "Failed to link the receipt to repair orders" };
-    const r = (data ?? {}) as { attributed?: unknown[]; skipped?: Array<{ reason?: string }> };
-    const skippedReasons: Record<string, number> = {};
-    for (const s of r.skipped ?? []) {
-      const reason = s.reason ?? "unknown";
-      skippedReasons[reason] = (skippedReasons[reason] ?? 0) + 1;
-    }
-    return {
-      success: true,
-      data: {
-        attributed: r.attributed?.length ?? 0,
-        skipped: r.skipped?.length ?? 0,
-        skippedReasons,
-      },
-    };
+    return { success: true, data: summarizeReceiptAttribution(data) };
   }
 
   /** The branch's receiving location id, or null when none is configured. */

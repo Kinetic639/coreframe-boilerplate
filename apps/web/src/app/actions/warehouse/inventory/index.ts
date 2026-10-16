@@ -22,7 +22,7 @@ import { InventoryBalancesService } from "@/server/services/inventory-balances.s
 import { InventoryMovementsService } from "@/server/services/inventory-movements.service";
 import {
   InventoryReceivingService,
-  type ReceiptAttributionSummary,
+  summarizeReceiptAttribution,
 } from "@/server/services/inventory-receiving.service";
 import { InventoryMovementImportsService } from "@/server/services/inventory-movement-imports.service";
 import { InventoryEnterpriseService } from "@/server/services/inventory-enterprise.service";
@@ -1729,45 +1729,72 @@ export async function createAndPostMovementAction(rawInput: unknown) {
       branch.branchId,
       parsed.data.movement_type_code!
     );
-    const result = await InventoryMovementsService.createAndFinalize(
+    const movementInput = {
+      movement_type_code: parsed.data.movement_type_code!,
+      lines: parsed.data.lines!.map((line) => ({
+        variant_id: line.variant_id!,
+        unit_id: line.unit_id!,
+        quantity: line.quantity!,
+        source_location_id: line.source_location_id ?? null,
+        destination_location_id: receivingLocationId ?? line.destination_location_id ?? null,
+        unit_cost: line.unit_cost ?? null,
+        total_cost: line.total_cost ?? null,
+        currency: line.currency ?? null,
+        note: line.note ?? null,
+      })),
+      operation_date: parsed.data.operation_date ?? null,
+      document_date: parsed.data.document_date ?? null,
+      sender_name: parsed.data.sender_name ?? null,
+      sender_details: (parsed.data.sender_details as any) ?? null,
+      recipient_name: parsed.data.recipient_name ?? null,
+      recipient_details: (parsed.data.recipient_details as any) ?? null,
+      external_reference: parsed.data.external_reference ?? null,
+      note: parsed.data.note ?? null,
+      idempotency_key: parsed.data.idempotency_key ?? null,
+    };
+
+    // A PZ into the receiving zone reserves its repair-order parts in the
+    // same transaction: lines delivered for a ZL (any import source that
+    // knows it) are reserved for that order's line. Either both or neither.
+    const attribution = receivingLocationId
+      ? parsed.data.lines!.flatMap((line, index) =>
+          line.source_order_number && line.source_product_code
+            ? [
+                {
+                  lineIndex: index + 1,
+                  zlNumber: line.source_order_number,
+                  productCode: line.source_product_code,
+                },
+              ]
+            : []
+        )
+      : [];
+    if (attribution.length > 0) {
+      const result = await InventoryMovementsService.createAndFinalizeReceipt(
+        supabase,
+        auth.context.app.activeOrgId,
+        branch.branchId,
+        movementInput,
+        userId,
+        attribution
+      );
+      if (!result.success) return result;
+      const { attribution: raw, ...posted } = result.data as typeof result.data & {
+        attribution?: unknown;
+      };
+      return {
+        ...result,
+        data: { ...posted, attribution: summarizeReceiptAttribution(raw) },
+      };
+    }
+
+    return InventoryMovementsService.createAndFinalize(
       supabase,
       auth.context.app.activeOrgId,
       branch.branchId,
-      {
-        movement_type_code: parsed.data.movement_type_code!,
-        lines: parsed.data.lines!.map((line) => ({
-          variant_id: line.variant_id!,
-          unit_id: line.unit_id!,
-          quantity: line.quantity!,
-          source_location_id: line.source_location_id ?? null,
-          destination_location_id: receivingLocationId ?? line.destination_location_id ?? null,
-          unit_cost: line.unit_cost ?? null,
-          total_cost: line.total_cost ?? null,
-          currency: line.currency ?? null,
-          note: line.note ?? null,
-        })),
-        operation_date: parsed.data.operation_date ?? null,
-        document_date: parsed.data.document_date ?? null,
-        sender_name: parsed.data.sender_name ?? null,
-        sender_details: (parsed.data.sender_details as any) ?? null,
-        recipient_name: parsed.data.recipient_name ?? null,
-        recipient_details: (parsed.data.recipient_details as any) ?? null,
-        external_reference: parsed.data.external_reference ?? null,
-        note: parsed.data.note ?? null,
-        idempotency_key: parsed.data.idempotency_key ?? null,
-      },
+      movementInput,
       userId
     );
-    if (result.success && receivingLocationId) {
-      const attribution = await attributeImportedReceipt(
-        supabase,
-        userId,
-        (result.data as { movement_id: string }).movement_id,
-        parsed.data.lines!
-      );
-      return { ...result, data: { ...(result.data as object), attribution } };
-    }
-    return result;
   } catch (error) {
     return mapUnexpected(error);
   }
@@ -1787,51 +1814,6 @@ async function receivingDestinationFor(
 ): Promise<string | null> {
   if (movementTypeCode !== "101") return null;
   return InventoryReceivingService.getReceivingLocationId(supabase, orgId, branchId);
-}
-
-/**
- * Link a just-posted PZ's lines to repair orders by ZL + part code (any
- * import source that knows the ZL). Best effort after posting -- the PZ
- * stands either way; an unlinked line shows up as free stock in the
- * receiving zone. Returns the summary so the editor can say what happened.
- */
-async function attributeImportedReceipt(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string,
-  movementId: string,
-  lines: Array<{ source_order_number?: string | null; source_product_code?: string | null }>
-): Promise<ReceiptAttributionSummary | { failed: true } | null> {
-  if (!lines.some((l) => l.source_order_number && l.source_product_code)) return null;
-  const { data } = await supabase
-    .from("inventory_movement_lines")
-    .select("id, line_number")
-    .eq("movement_id", movementId)
-    .is("deleted_at", null)
-    .order("line_number", { ascending: true });
-  const posted = (data ?? []) as Array<{ id: string; line_number: number }>;
-  const attribution = lines.flatMap((line, index) =>
-    line.source_order_number && line.source_product_code && posted[index]
-      ? [
-          {
-            movementLineId: posted[index].id,
-            zlNumber: line.source_order_number,
-            productCode: line.source_product_code,
-          },
-        ]
-      : []
-  );
-  const result = await InventoryReceivingService.attributeReceipt(
-    supabase,
-    userId,
-    movementId,
-    attribution
-  );
-  if (!result.success) {
-    console.error("[createAndPostMovementAction] receipt attribution failed:", movementId);
-    // The PZ stands; the editor tells the user its parts are free stock for now
-    return { failed: true };
-  }
-  return result.data;
 }
 
 export async function searchPickerItemsAction(rawInput: unknown) {
