@@ -3166,6 +3166,10 @@
         "age": {
           "today": "today",
           "days": "{count, plural, one {# day} other {# days}}"
+        },
+        "breakdown": {
+          "hint": "Open a location to see every reservation and block on its own: for which order, with which document and since when.",
+          "summary": "On hand {onHand}: available (D) {available} · reserved (R) {reserved} · blocked (B) {blocked}"
         }
       }
     },
