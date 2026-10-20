@@ -2987,7 +2987,10 @@
             "paused": "Tap to scan",
             "sleeping": "Camera asleep — tap to resume",
             "cameraError": "No camera access — tap to try again"
-          }
+          },
+          "offline": "No connection — scan again.",
+          "looseLoading": "Loose here",
+          "looseLoadingHint": "Checking what lies here…"
         },
         "changes": {
           "range": {

@@ -5,7 +5,12 @@ import { useTranslations } from "next-intl";
 import { AlertCircle, Loader2, Moon, ScanLine } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSharedCamera } from "@/components/features/qr/qr-camera-scanner";
-import { scanErrorFeedback, scanSuccessFeedback, unlockScanSound } from "./scan-feedback";
+import {
+  scanErrorFeedback,
+  scanReadFeedback,
+  scanSuccessFeedback,
+  unlockScanSound,
+} from "./scan-feedback";
 
 /** No scan for this long puts the camera to sleep (battery, heat). */
 export const SCAN_IDLE_SLEEP_MS = 2 * 60 * 1000;
@@ -13,6 +18,8 @@ export const SCAN_IDLE_SLEEP_MS = 2 * 60 * 1000;
 const CONFIRM_FRAMES = 2;
 /** The same code is ignored for this long after it was handled. */
 const REPEAT_GUARD_MS = 2500;
+/** A check slower than this gets an immediate "read" tick (scanReadFeedback). */
+const READ_FEEDBACK_AFTER_MS = 150;
 /** Decode at most this often (battery). */
 const FRAME_INTERVAL_MS = 120;
 
@@ -96,6 +103,9 @@ export function ScanStrip({ armed, onArm, onCode, hint }: Props) {
       busyRef.current = true;
       setBusy(true);
       touch();
+      // Read at once; the check may still be running (an unknown code asks
+      // the server). A known code answers before this ever sounds.
+      const readTick = setTimeout(scanReadFeedback, READ_FEEDBACK_AFTER_MS);
       try {
         const error = await onCode(text);
         if (error) {
@@ -106,6 +116,7 @@ export function ScanStrip({ armed, onArm, onCode, hint }: Props) {
           setMessage(null);
         }
       } finally {
+        clearTimeout(readTick);
         busyRef.current = false;
         setBusy(false);
       }

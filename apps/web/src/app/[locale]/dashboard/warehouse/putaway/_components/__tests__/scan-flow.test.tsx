@@ -137,6 +137,34 @@ const orders = {
   "ro-2": { zlNumber: "0057", clientName: "Nowak", vehicleBrand: "Skoda", containers: [] },
 };
 
+/**
+ * A code index that knows nothing on the phone: every scan goes the "ask the
+ * server" way (the container / location come back with the lookup), the
+ * slow path the real index only takes for unknown codes.
+ */
+const scanIndex = {
+  resolve: vi.fn(async () => {
+    const lookup = h.scanLookup.current as {
+      assignment: { target_type: string; target_id: string } | null;
+    };
+    const target = lookup.assignment;
+    if (target?.target_type === "inventory.container") {
+      const res = await h.getContainer(target.target_id);
+      return { ok: true, local: false, lookup, container: res?.data ?? null };
+    }
+    if (target?.target_type === "warehouse.location" && target.target_id !== "prz") {
+      const res = await h.getLocation(target.target_id);
+      return { ok: true, local: false, lookup, location: res?.data ?? null };
+    }
+    return { ok: true, local: false, lookup };
+  }),
+  locationContents: vi.fn(async (id: string) => (await h.getLocation(id))?.data ?? null),
+  bindSticker: vi.fn(),
+  containers: new Map(),
+  lookupToken: vi.fn(),
+  resolveLookup: vi.fn(),
+};
+
 function renderFlow(items = [bumper, grille, fender, rivets, free]) {
   return render(
     <ScanFlow
@@ -146,6 +174,7 @@ function renderFlow(items = [bumper, grille, fender, rivets, free]) {
       receivingLocationId="prz"
       items={items}
       orders={orders}
+      scanIndex={scanIndex as never}
     />
   );
 }

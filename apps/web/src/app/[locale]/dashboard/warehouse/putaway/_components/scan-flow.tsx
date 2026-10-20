@@ -29,16 +29,12 @@ import { cn } from "@/lib/utils";
 import { useWarehouseLocationsQuery } from "@/hooks/queries/warehouse";
 import {
   SharedCameraProvider,
-  resolveScannedQr,
   type QrScanLookup,
 } from "@/components/features/qr/qr-camera-scanner";
 import { ScanStrip } from "./scan-strip";
+import type { ScanIndex, ScanResolution } from "./scan-index";
 import { unlockScanSound } from "./scan-feedback";
-import {
-  getLocationContentsAction,
-  getScannedContainerAction,
-  putawayBatchAction,
-} from "@/app/actions/warehouse/putaway-scan";
+import { putawayBatchAction } from "@/app/actions/warehouse/putaway-scan";
 import type { ReceivingPendingItem } from "@/server/services/inventory-receiving.service";
 import type {
   LocationContents,
@@ -64,7 +60,8 @@ type Step =
       location: LocationRef | null;
       repairOrderId: string | null;
     }
-  | { kind: "location"; contents: LocationContents }
+  /** A scanned location: shown at once, what lies there loads in the background. */
+  | { kind: "location"; contents: LocationContents; loading?: boolean }
   | { kind: "loose"; location: LocationRef }
   | { kind: "scanLocation"; back: Extract<Step, { kind: "new" }> }
   | { kind: "scanSticker"; back: Extract<Step, { kind: "new" }> }
@@ -80,6 +77,8 @@ type Props = {
   receivingLocationId: string | null;
   items: ReceivingPendingItem[];
   orders: Record<string, RepairOrderInfo>;
+  /** Recognises scanned codes on the phone (see scan-index). */
+  scanIndex: ScanIndex;
   /** Open straight into a step (e.g. "new container" from the list). */
   initialStep?: Step;
 };
@@ -105,6 +104,7 @@ export function ScanFlow({
   items,
   orders,
   initialStep,
+  scanIndex,
 }: Props) {
   const t = useTranslations("modules.warehouse.putaway.scan");
   const tErr = useTranslations("modules.warehouse.putaway.scan.errors");
@@ -201,26 +201,69 @@ export function ScanFlow({
     setStep({ kind: "loose", location });
   };
 
-  async function handleStartScan(lookup: QrScanLookup): Promise<string | null> {
-    const target = lookup.assignment;
+  /**
+   * A scanned location opens at once with what the phone already knows (the
+   * location, containers of the listed orders there); what lies there loose
+   * loads in the background.
+   */
+  function openLocation(locationId: string, known: LocationContents | null | undefined) {
+    if (known) {
+      setStep({ kind: "location", contents: known });
+      return null;
+    }
+    const loc = locations.find((l) => l.id === locationId);
+    if (!loc && !locationsQuery.isLoading) return t("locationNotHere");
+    const ref = { id: locationId, code: loc?.code ?? null, name: loc?.name ?? null };
+    setStep({
+      kind: "location",
+      loading: true,
+      contents: {
+        location: ref,
+        isReceiving: false,
+        containers: [...scanIndex.containers.values()]
+          .filter((c) => c.location?.id === locationId && c.status === "active")
+          .map((c) => ({ ...c, itemCount: -1 })),
+        loose: [],
+      },
+    });
+    scanIndex
+      .locationContents(locationId)
+      .then((contents) =>
+        setStep((current) =>
+          current.kind === "location" && current.contents.location.id === locationId
+            ? contents
+              ? { kind: "location", contents }
+              : { ...current, loading: false }
+            : current
+        )
+      )
+      .catch(() =>
+        setStep((current) =>
+          current.kind === "location" && current.contents.location.id === locationId
+            ? { ...current, loading: false }
+            : current
+        )
+      );
+    return null;
+  }
+
+  async function handleStartScan(
+    resolution: Extract<ScanResolution, { ok: true }>
+  ): Promise<string | null> {
+    const target = resolution.lookup.assignment;
     if (!target) {
-      startNew({ qrCodeId: lookup.id });
+      startNew({ qrCodeId: resolution.lookup.id });
       return null;
     }
     if (target.target_type === CONTAINER_TARGET) {
-      const res = await getScannedContainerAction(target.target_id);
-      if (!res.success) return tErr("unexpected");
-      if (!res.data) return t("containerNotHere");
-      openContainer(res.data);
+      const container = resolution.container ?? scanIndex.containers.get(target.target_id) ?? null;
+      if (!container) return t("containerNotHere");
+      openContainer(container);
       return null;
     }
     if (target.target_type === LOCATION_TARGET) {
       if (target.target_id === receivingLocationId) return t("scanIsReceiving");
-      const res = await getLocationContentsAction(target.target_id);
-      if (!res.success) return tErr("unexpected");
-      if (!res.data) return t("locationNotHere");
-      setStep({ kind: "location", contents: res.data });
-      return null;
+      return openLocation(target.target_id, resolution.location);
     }
     return t("unknownCode");
   }
@@ -247,17 +290,19 @@ export function ScanFlow({
   }
 
   async function handleCode(text: string): Promise<string | null> {
-    const resolved = await resolveScannedQr(text);
+    // Known codes are answered on the phone; only unknown ones ask the server.
+    const resolved = await scanIndex.resolve(text);
     if (!resolved.ok) {
-      return tScan((resolved as Extract<typeof resolved, { ok: false }>).reason);
+      const reason = (resolved as Extract<ScanResolution, { ok: false }>).reason;
+      return reason === "offline" ? t("offline") : tScan(reason);
     }
-    const lookup = (resolved as Extract<typeof resolved, { ok: true }>).lookup;
+    const ok = resolved as Extract<ScanResolution, { ok: true }>;
     const error =
       step.kind === "scanLocation"
-        ? await handleLocationScan(step.back, lookup)
+        ? await handleLocationScan(step.back, ok.lookup)
         : step.kind === "scanSticker"
-          ? await handleStickerScan(step.back, lookup)
-          : await handleStartScan(lookup);
+          ? await handleStickerScan(step.back, ok.lookup)
+          : await handleStartScan(ok);
     // One scan, one action: pause after a taken code.
     if (!error) setArmed(false);
     return error;
@@ -290,6 +335,10 @@ export function ScanFlow({
           t("doneNew", { code: data.containerCode ?? "", count: data.lineCount }) + doc
         );
         if (data.qrAssigned === false) toast.warning(t("stickerNotBound"));
+        // The sticker now names this container: its next scan is known at once.
+        if (data.qrAssigned !== false && input.qrCodeId && data.containerId) {
+          scanIndex.bindSticker(input.qrCodeId, data.containerId);
+        }
       } else if (data.containerCode) {
         toast.success(
           t("doneContainer", { code: data.containerCode, count: data.lineCount }) + doc
@@ -722,8 +771,10 @@ export function ScanFlow({
                     {c.clientName ? ` · ${c.clientName}` : ""}
                   </p>
                   <p className="text-muted-foreground text-xs">
-                    {t("inside", { count: c.itemCount })}
-                    {pending > 0 ? ` · ${t("waiting", { count: pending })}` : ""}
+                    {c.itemCount >= 0 ? t("inside", { count: c.itemCount }) : null}
+                    {pending > 0
+                      ? `${c.itemCount >= 0 ? " · " : ""}${t("waiting", { count: pending })}`
+                      : ""}
                   </p>
                 </div>
                 {pending > 0 && (
@@ -754,9 +805,18 @@ export function ScanFlow({
 
         <section className="flex flex-col gap-2">
           <h3 className="text-sm font-semibold">
-            {t("looseHere", { count: contents.loose.length })}
+            {step.loading ? t("looseLoading") : t("looseHere", { count: contents.loose.length })}
           </h3>
-          {contents.loose.length === 0 && (
+          {step.loading ? (
+            <p
+              className="text-muted-foreground flex items-center gap-2 text-sm"
+              data-testid="scan-flow-location-loading"
+            >
+              <Loader2 className="h-4 w-4 animate-spin" />
+              {t("looseLoadingHint")}
+            </p>
+          ) : null}
+          {!step.loading && contents.loose.length === 0 && (
             <p className="text-muted-foreground text-sm">{t("nothingLoose")}</p>
           )}
           {contents.loose.map((l) => (

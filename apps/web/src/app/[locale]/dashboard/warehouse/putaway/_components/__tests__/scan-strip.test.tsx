@@ -22,6 +22,7 @@ vi.mock("@/components/features/qr/qr-camera-scanner", () => ({
 vi.mock("../scan-feedback", () => ({
   scanSuccessFeedback: vi.fn(),
   scanErrorFeedback: vi.fn(),
+  scanReadFeedback: vi.fn(),
   unlockScanSound: vi.fn(),
 }));
 

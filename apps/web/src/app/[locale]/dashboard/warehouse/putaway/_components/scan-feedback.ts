@@ -65,3 +65,17 @@ export function scanErrorFeedback() {
   }
   vibrate([80, 60, 80]);
 }
+
+/**
+ * Code read, still being checked: a soft tick and a tap, so the user can
+ * lower the phone at once. Only played when the check takes longer than a
+ * blink (a code the phone knows is answered before it would sound).
+ */
+export function scanReadFeedback() {
+  try {
+    tone(1100, 0, 0.035);
+  } catch {
+    /* no audio */
+  }
+  vibrate(15);
+}
