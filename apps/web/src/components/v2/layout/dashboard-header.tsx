@@ -3,7 +3,10 @@
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { GlobalSearchDialog } from "@/components/v2/global-search/global-search-dialog";
-import { GlobalSearchTrigger } from "@/components/v2/global-search/global-search-trigger";
+import {
+  GlobalScanTrigger,
+  GlobalSearchTrigger,
+} from "@/components/v2/global-search/global-search-trigger";
 import type { SearchEntry } from "@/lib/global-search/types";
 import type { SearchSourceId } from "@/lib/global-search/sources";
 import { HeaderMessagesLink } from "@/components/v2/messages/header-messages-link";
@@ -44,7 +47,7 @@ export function DashboardHeaderV2({
 }: DashboardHeaderV2Props) {
   return (
     <header className="sticky top-0 z-50 flex h-12 shrink-0 items-center gap-2 bg-muted shadow-sm transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-      <div className="flex items-center gap-2 px-6">
+      <div className="flex items-center gap-2 px-3 md:px-6">
         <SidebarTrigger />
         <Separator orientation="vertical" className="mr-2 h-4" />
       </div>
@@ -55,9 +58,10 @@ export function DashboardHeaderV2({
       </div>
 
       {/* Right: Quick Add + Contacts + Notifications */}
-      <div className="flex items-center gap-2 ml-auto px-6">
-        {/* Mobile: Search icon */}
-        <div className="md:hidden">
+      <div className="flex items-center gap-1 ml-auto px-3 sm:gap-2 md:px-6">
+        {/* Mobile: scan + search icons (scanning is the main way in on the floor) */}
+        <div className="flex items-center gap-1 md:hidden">
+          <GlobalScanTrigger />
           <GlobalSearchTrigger variant="icon" />
         </div>
 

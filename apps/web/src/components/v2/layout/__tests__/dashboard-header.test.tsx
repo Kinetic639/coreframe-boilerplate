@@ -7,6 +7,7 @@ import { DashboardHeaderV2 } from "../dashboard-header";
 
 vi.mock("@/components/v2/global-search/global-search-trigger", () => ({
   GlobalSearchTrigger: () => <div data-testid="header-search">Search</div>,
+  GlobalScanTrigger: () => <div data-testid="header-scan">Scan</div>,
 }));
 
 vi.mock("@/components/v2/global-search/global-search-dialog", () => ({
