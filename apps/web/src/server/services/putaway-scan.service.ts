@@ -64,6 +64,9 @@ export type PutawayBatchResult = {
   containerCode: string | null;
   containerCreated: boolean;
   lineCount: number;
+  /** The one MM that moved every part of the batch. */
+  movementId: string | null;
+  documentNumber: string | null;
 };
 
 export type LocationChange = {
@@ -385,6 +388,8 @@ export class PutawayScanService {
         containerCode: (r.container_code as string | null) ?? null,
         containerCreated: r.container_created === true,
         lineCount: Number(r.line_count ?? input.lines.length),
+        movementId: (r.movement_id as string | null) ?? null,
+        documentNumber: (r.document_number as string | null) ?? null,
       },
     };
   }

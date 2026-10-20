@@ -274,6 +274,21 @@ Odstępstwa od kolejności z planu (zmiany kolejności, nie modelu):
 
 `inventory_attribute_receipt_lines` zostaje w bazie (używa jej test 118).
 
+### Jedna operacja na wielu częściach = jeden dokument (2026-10-20)
+
+Zasada: każda operacja magazynowa (ruch, rezerwacja, blokada, zwolnienie, odblokowanie) przyjmuje listę części i daje jeden dokument z listą.
+
+| Operacja                                   | Było                        | Jest                                                                                               |
+| ------------------------------------------ | --------------------------- | -------------------------------------------------------------------------------------------------- |
+| Rozkładanie dostawy (skan, zaznaczenie)    | MM i KON na każdą część     | **jeden MM** z pozycją na część, **jeden KON** na kontener zlecenia (`inventory_putaway_internal`) |
+| Przeniesienie zablokowanych części         | jedna część = jeden MM      | lista → **jeden MM** (`inventory_move_blocked_stock_lines`)                                        |
+| Przeniesienie rezerwacji na inne zlecenie  | jedna część = jeden REZ     | lista do jednego zlecenia → **jeden REZ** (`inventory_transfer_reservation_lines`)                 |
+| Zwolnienie, odblokowanie, blokada, ZWD/LIK | silnik już przyjmował listę | ekrany: zaznaczanie kilku części i jedna operacja                                                  |
+
+Ekrany: „Rezerwacje i blokady” to jeden ekran z dwiema zakładkami (stary adres blokad przekierowuje). Jeden wiersz to jeden dokument REZ/BLK, a po rozwinięciu widać jego części z zaznaczaniem. Na karcie części i na zleceniu tabele też mają zaznaczanie. W historii zlecenia operacja na kilku częściach to jeden wiersz z listą części. Rozkładanie jednej części z okna na komputerze to dalej jeden MM (jedna część = jedna operacja). Stare funkcje jednej części (`inventory_putaway_from_receiving`, `inventory_move_blocked_stock`, `inventory_transfer_reservation`) zostały jako nakładki na nowe.
+
+Migracje: `20261020062541_one_document_per_operation_putaway`, `20261020062627_one_document_per_operation_blocks_transfers` (na produkcji). Test: pgTAP 139.
+
 **Wycofanie:** migracje są addytywne. Gdyby E2+E3 trzeba było cofnąć, akcja importu wraca do starego wywołania, funkcja strefy przyjęć do poprzedniej treści, a nowe rezerwacje zostają jako zwykłe dokumenty, które można zwolnić. Danych nie trzeba usuwać.
 
 ---

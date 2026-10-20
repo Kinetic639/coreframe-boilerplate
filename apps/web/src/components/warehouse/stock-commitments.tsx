@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "react-toastify";
-import { Ban, BookmarkCheck, Loader2, Lock, MoreHorizontal } from "lucide-react";
+import { Ban, BookmarkCheck, ChevronRight, Loader2, Lock, MoreHorizontal } from "lucide-react";
 import { Link, useRouter } from "@/i18n/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -278,34 +279,185 @@ const positive = (v: string, max: number) => {
 };
 
 // ---------------------------------------------------------------------------
+// Selection: tick several lines, run one operation on all of them (one
+// document / one engine call), or use a row's menu for that line alone.
+
+function useLineSelection<T>(
+  lines: T[],
+  idOf: (line: T) => string,
+  selectable: (line: T) => boolean
+) {
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const selectableIds = lines.filter(selectable).map(idOf);
+  const chosen = lines.filter((l) => selectable(l) && selected.has(idOf(l)));
+  const allChosen = selectableIds.length > 0 && chosen.length === selectableIds.length;
+  return {
+    chosen,
+    isChosen: (line: T) => selected.has(idOf(line)),
+    toggle: (line: T) =>
+      setSelected((prev) => {
+        const next = new Set(prev);
+        const id = idOf(line);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      }),
+    allChosen,
+    someChosen: chosen.length > 0 && !allChosen,
+    toggleAll: () => setSelected(allChosen ? new Set() : new Set(selectableIds)),
+    clear: () => setSelected(new Set()),
+    hasSelectable: selectableIds.length > 0,
+  };
+}
+
+function SelectionBar({
+  count,
+  onClear,
+  children,
+}: {
+  count: number;
+  onClear: () => void;
+  children: React.ReactNode;
+}) {
+  const t = useTranslations("modules.warehouse.stockCommitments.selection");
+  if (count === 0) return null;
+  return (
+    <div
+      className="mb-2 flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 text-sm"
+      data-testid="selection-bar"
+    >
+      <span className="font-medium">{t("selected", { count })}</span>
+      <div className="flex flex-wrap gap-2">{children}</div>
+      <Button type="button" variant="ghost" size="sm" className="ml-auto" onClick={onClear}>
+        {t("clear")}
+      </Button>
+    </div>
+  );
+}
+
+/** One editable quantity per part of the operation. */
+function useQuantities<T>(lines: T[], idOf: (line: T) => string, maxOf: (line: T) => number) {
+  const [values, setValues] = useState<Record<string, string>>(() =>
+    Object.fromEntries(lines.map((l) => [idOf(l), fmt(maxOf(l))]))
+  );
+  const parsed = lines.map((l) => positive(values[idOf(l)] ?? "", maxOf(l)));
+  return {
+    value: (line: T) => values[idOf(line)] ?? "",
+    set: (line: T, v: string) => setValues((prev) => ({ ...prev, [idOf(line)]: v })),
+    quantities: parsed,
+    valid: parsed.every((q) => q !== null),
+  };
+}
+
+function LineQuantityRow({
+  label,
+  detail,
+  value,
+  onChange,
+  max,
+  children,
+}: {
+  label: React.ReactNode;
+  detail?: React.ReactNode;
+  value: string;
+  onChange: (v: string) => void;
+  max: number;
+  children?: React.ReactNode;
+}) {
+  const t = useTranslations("modules.warehouse.stockCommitments.fields");
+  return (
+    <div className="flex items-start gap-3 border-b py-2 last:border-b-0" data-testid="sc-line">
+      <div className="min-w-0 flex-1 text-sm">
+        <div className="truncate">{label}</div>
+        {detail ? <div className="truncate text-xs text-muted-foreground">{detail}</div> : null}
+        {children}
+      </div>
+      <div className="w-24 shrink-0">
+        <Input
+          type="number"
+          inputMode="decimal"
+          min={0}
+          max={max}
+          step="any"
+          value={value}
+          aria-label={t("quantity")}
+          onChange={(e) => onChange(e.target.value)}
+          data-testid="sc-quantity"
+        />
+        <div className="mt-0.5 text-right text-[11px] text-muted-foreground">
+          {t("max", { max: fmt(max) })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Reservations
 
-type ReservationDialog = { kind: "release" | "transfer" | "block"; line: ReservationLineView };
+type ReservationKind = "release" | "transfer" | "block";
+type ReservationDialog = { kind: ReservationKind; lines: ReservationLineView[] };
 
 export function ReservationLinesTable({
   lines,
   canOperate,
   showPart = true,
   showOrder = true,
+  showNumber = true,
 }: {
   lines: ReservationLineView[];
   canOperate: boolean;
   showPart?: boolean;
   showOrder?: boolean;
+  showNumber?: boolean;
 }) {
   const t = useTranslations("modules.warehouse.stockCommitments");
   const age = useAge();
   const [dialog, setDialog] = useState<ReservationDialog | null>(null);
+  const selection = useLineSelection(
+    lines,
+    (l) => l.reservationLineId,
+    (l) => canOperate && l.openQuantity > 0
+  );
 
   if (lines.length === 0) {
     return <p className="text-sm text-muted-foreground">{t("reservations.empty")}</p>;
   }
+  const withSelection = canOperate && selection.hasSelectable;
   return (
     <div className="overflow-x-auto">
+      <SelectionBar count={selection.chosen.length} onClear={selection.clear}>
+        {(["release", "transfer", "block"] as const).map((kind) => (
+          <Button
+            key={kind}
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => setDialog({ kind, lines: selection.chosen })}
+            data-testid={`selection-${kind}`}
+          >
+            {t(`actions.${kind}`)}
+          </Button>
+        ))}
+      </SelectionBar>
       <table className="w-full min-w-[640px] text-sm" data-testid="reservation-lines">
         <thead>
           <tr className="border-b text-left text-xs text-muted-foreground">
-            <th className="py-1.5 pr-3 font-medium">{t("reservations.number")}</th>
+            {withSelection ? (
+              <th className="w-8 py-1.5 pr-2">
+                <Checkbox
+                  checked={
+                    selection.allChosen ? true : selection.someChosen ? "indeterminate" : false
+                  }
+                  onCheckedChange={selection.toggleAll}
+                  aria-label={t("selection.selectAll")}
+                  data-testid="reservation-select-all"
+                />
+              </th>
+            ) : null}
+            {showNumber ? (
+              <th className="py-1.5 pr-3 font-medium">{t("reservations.number")}</th>
+            ) : null}
             {showPart ? (
               <th className="py-1.5 pr-3 font-medium">{t("reservations.part")}</th>
             ) : null}
@@ -325,7 +477,21 @@ export function ReservationLinesTable({
               className="border-b last:border-b-0"
               data-testid="reservation-line"
             >
-              <td className="py-1.5 pr-3 font-mono text-xs">{line.reservationNumber}</td>
+              {withSelection ? (
+                <td className="py-1.5 pr-2">
+                  {line.openQuantity > 0 ? (
+                    <Checkbox
+                      checked={selection.isChosen(line)}
+                      onCheckedChange={() => selection.toggle(line)}
+                      aria-label={line.sku ?? line.reservationNumber}
+                      data-testid="reservation-select"
+                    />
+                  ) : null}
+                </td>
+              ) : null}
+              {showNumber ? (
+                <td className="py-1.5 pr-3 font-mono text-xs">{line.reservationNumber}</td>
+              ) : null}
               {showPart ? (
                 <td className="py-1.5 pr-3">
                   {line.productId ? (
@@ -390,15 +556,14 @@ export function ReservationLinesTable({
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onSelect={() => setDialog({ kind: "release", line })}>
-                          {t("actions.release")}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => setDialog({ kind: "transfer", line })}>
-                          {t("actions.transfer")}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => setDialog({ kind: "block", line })}>
-                          {t("actions.block")}
-                        </DropdownMenuItem>
+                        {(["release", "transfer", "block"] as const).map((kind) => (
+                          <DropdownMenuItem
+                            key={kind}
+                            onSelect={() => setDialog({ kind, lines: [line] })}
+                          >
+                            {t(`actions.${kind}`)}
+                          </DropdownMenuItem>
+                        ))}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   ) : null}
@@ -410,13 +575,102 @@ export function ReservationLinesTable({
       </table>
       {dialog ? (
         <ReservationOperationDialog
-          key={`${dialog.kind}:${dialog.line.reservationLineId}`}
+          key={`${dialog.kind}:${dialog.lines.map((l) => l.reservationLineId).join(",")}`}
           dialog={dialog}
-          onClose={() => setDialog(null)}
+          onClose={(done) => {
+            setDialog(null);
+            if (done) selection.clear();
+          }}
         />
       ) : null}
     </div>
   );
+}
+
+/**
+ * For "move to another order": the open needs of other orders for the
+ * selected parts, and -- once an order is picked -- which of its lines takes
+ * which part (each part to a line of the same item that still needs it).
+ */
+function useTransferTargets(lines: ReservationLineView[], enabled: boolean, search: string) {
+  const [needs, setNeeds] = useState<Array<RepairOrderLineNeed & { forVariant: string }> | null>(
+    null
+  );
+  const variants = useMemo(() => {
+    const byVariant = new Map<string, string | null>();
+    for (const l of lines) byVariant.set(l.variantId, l.sku);
+    return [...byVariant.entries()];
+  }, [lines]);
+  const sourceLineIds = useMemo(
+    () => new Set(lines.map((l) => l.repairOrderLineId).filter(Boolean)),
+    [lines]
+  );
+
+  useEffect(() => {
+    if (!enabled) return;
+    let cancelled = false;
+    const handle = setTimeout(async () => {
+      const results = await Promise.all(
+        variants.map(async ([variantId, sku]) => {
+          const result = await findRepairOrderLinesNeedingAction({
+            variantId,
+            sku,
+            query: search || null,
+          });
+          return result.success
+            ? (result.data as RepairOrderLineNeed[]).map((n) => ({ ...n, forVariant: variantId }))
+            : [];
+        })
+      );
+      if (!cancelled) {
+        setNeeds(results.flat().filter((n) => !sourceLineIds.has(n.repairOrderLineId)));
+      }
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(handle);
+    };
+  }, [enabled, variants, sourceLineIds, search]);
+
+  const orders = useMemo(() => {
+    const byOrder = new Map<
+      string,
+      { id: string; zlNumber: string | null; clientName: string | null }
+    >();
+    for (const n of needs ?? []) {
+      if (!byOrder.has(n.repairOrderId)) {
+        byOrder.set(n.repairOrderId, {
+          id: n.repairOrderId,
+          zlNumber: n.zlNumber,
+          clientName: n.clientName,
+        });
+      }
+    }
+    return [...byOrder.values()];
+  }, [needs]);
+
+  /** Part -> a line of the order with the same item and need left (greedy, in order). */
+  const assign = (orderId: string, quantities: Array<number | null>) => {
+    const left = new Map<string, number>();
+    for (const n of needs ?? []) {
+      if (n.repairOrderId === orderId) left.set(n.repairOrderLineId, n.openNeed);
+    }
+    return lines.map((line, i) => {
+      const want = quantities[i] ?? 0;
+      const target = (needs ?? []).find(
+        (n) =>
+          n.repairOrderId === orderId &&
+          n.forVariant === line.variantId &&
+          (left.get(n.repairOrderLineId) ?? 0) >= want &&
+          want > 0
+      );
+      if (!target) return null;
+      left.set(target.repairOrderLineId, (left.get(target.repairOrderLineId) ?? 0) - want);
+      return target;
+    });
+  };
+
+  return { loading: enabled && needs === null, orders, assign };
 }
 
 function ReservationOperationDialog({
@@ -424,73 +678,65 @@ function ReservationOperationDialog({
   onClose,
 }: {
   dialog: ReservationDialog;
-  onClose: () => void;
+  onClose: (done?: boolean) => void;
 }) {
   const t = useTranslations("modules.warehouse.stockCommitments");
   const { pending, run } = useOperation();
-  const { line, kind } = dialog;
-  const max = line.openQuantity;
-  const [quantity, setQuantity] = useState(fmt(max));
+  const { lines, kind } = dialog;
+  const qty = useQuantities(
+    lines,
+    (l) => l.reservationLineId,
+    (l) => l.openQuantity
+  );
   const [reason, setReason] = useState("");
   const [code, setCode] = useState<BlockReasonCode>("damaged");
   const [description, setDescription] = useState("");
   const [reference, setReference] = useState("");
-  const [target, setTarget] = useState<string>("");
-  const [targets, setTargets] = useState<RepairOrderLineNeed[] | null>(null);
+  const [orderId, setOrderId] = useState("");
   const [search, setSearch] = useState("");
+  const targets = useTransferTargets(lines, kind === "transfer", search);
+  const assigned = kind === "transfer" && orderId ? targets.assign(orderId, qty.quantities) : null;
 
-  useEffect(() => {
-    if (kind !== "transfer") return;
-    let cancelled = false;
-    const handle = setTimeout(async () => {
-      const result = await findRepairOrderLinesNeedingAction({
-        variantId: line.variantId,
-        sku: line.sku,
-        query: search || null,
-        excludeLineId: line.repairOrderLineId,
-      });
-      if (!cancelled) setTargets(result.success ? (result.data as RepairOrderLineNeed[]) : []);
-    }, 250);
-    return () => {
-      cancelled = true;
-      clearTimeout(handle);
-    };
-  }, [kind, line.variantId, line.sku, line.repairOrderLineId, search]);
-
-  const qty = positive(quantity, max);
-  const chosen = targets?.find((x) => x.repairOrderLineId === target) ?? null;
   const canConfirm =
-    qty !== null &&
+    qty.valid &&
     (kind === "block"
       ? code !== "other" || description.trim().length > 0
-      : reason.trim().length > 0 && (kind !== "transfer" || (!!chosen && qty <= chosen.openNeed)));
+      : reason.trim().length > 0 &&
+        (kind !== "transfer" || (!!assigned && assigned.every((a) => a !== null))));
 
+  const done = () => onClose(true);
   const confirm = () => {
-    if (qty === null) return;
+    if (!qty.valid) return;
+    const amounts = qty.quantities as number[];
     if (kind === "release") {
       run(
         () =>
           releaseReservationLinesAction({
-            lines: [{ reservationLineId: line.reservationLineId, quantity: qty }],
+            lines: lines.map((l, i) => ({
+              reservationLineId: l.reservationLineId,
+              quantity: amounts[i],
+            })),
             reason,
           }) as Promise<Result>,
         () => t("toasts.released"),
-        onClose
+        done
       );
-    } else if (kind === "transfer" && chosen) {
+    } else if (kind === "transfer" && assigned && assigned.every((a) => a !== null)) {
       run(
         () =>
           transferReservationAction({
-            reservationLineId: line.reservationLineId,
-            quantity: qty,
-            targetRepairOrderLineId: chosen.repairOrderLineId,
+            lines: lines.map((l, i) => ({
+              reservationLineId: l.reservationLineId,
+              quantity: amounts[i],
+              targetRepairOrderLineId: assigned[i]!.repairOrderLineId,
+            })),
             reason,
           }) as Promise<Result>,
         (data) =>
           t("toasts.transferred", {
             number: (data as { reservationNumber?: string })?.reservationNumber ?? "",
           }),
-        onClose
+        done
       );
     } else if (kind === "block") {
       run(
@@ -499,11 +745,14 @@ function ReservationOperationDialog({
             reasonCode: code,
             description: description || null,
             reference: reference ? { number: reference } : undefined,
-            lines: [{ quantity: qty, reservationLineId: line.reservationLineId }],
+            lines: lines.map((l, i) => ({
+              quantity: amounts[i],
+              reservationLineId: l.reservationLineId,
+            })),
           }) as Promise<Result>,
         (data) =>
           t("toasts.blocked", { number: (data as { blockNumber?: string })?.blockNumber ?? "" }),
-        onClose
+        done
       );
     }
   };
@@ -531,33 +780,29 @@ function ReservationOperationDialog({
       pending={pending}
       onConfirm={confirm}
     >
-      <p className="text-sm">
-        <span className="font-mono text-xs">{line.reservationNumber}</span> · {line.sku}{" "}
-        {line.productName} · {line.zlNumber ?? "—"}
-      </p>
       {kind === "transfer" ? (
         <div className="grid gap-1.5">
-          <Label htmlFor="sc-search">{t("fields.target")}</Label>
+          <Label htmlFor="sc-search">{t("fields.targetOrder")}</Label>
           <Input
             id="sc-search"
             value={search}
             placeholder={t("fields.searchZl")}
             onChange={(e) => setSearch(e.target.value)}
           />
-          {targets === null ? (
+          {targets.loading ? (
             <p className="text-xs text-muted-foreground">{t("fields.loading")}</p>
-          ) : targets.length === 0 ? (
+          ) : targets.orders.length === 0 ? (
             <p className="text-xs text-muted-foreground">{t("fields.noTargets")}</p>
           ) : (
-            <Select value={target} onValueChange={setTarget}>
+            <Select value={orderId} onValueChange={setOrderId}>
               <SelectTrigger data-testid="sc-target">
-                <SelectValue placeholder={t("fields.target")} />
+                <SelectValue placeholder={t("fields.targetOrder")} />
               </SelectTrigger>
               <SelectContent>
-                {targets.map((x) => (
-                  <SelectItem key={x.repairOrderLineId} value={x.repairOrderLineId}>
-                    {x.zlNumber} · {x.productName ?? x.productCode} ·{" "}
-                    {t("fields.needs", { count: fmt(x.openNeed) })}
+                {targets.orders.map((o) => (
+                  <SelectItem key={o.id} value={o.id}>
+                    {o.zlNumber ?? "—"}
+                    {o.clientName ? ` · ${o.clientName}` : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -565,11 +810,36 @@ function ReservationOperationDialog({
           )}
         </div>
       ) : null}
-      <QuantityField
-        value={quantity}
-        onChange={setQuantity}
-        max={kind === "transfer" && chosen ? Math.min(max, chosen.openNeed) : max}
-      />
+      <div className="max-h-72 overflow-y-auto rounded-md border px-3" data-testid="sc-lines">
+        {lines.map((line, i) => (
+          <LineQuantityRow
+            key={line.reservationLineId}
+            label={
+              <>
+                <span className="mr-1.5 font-mono text-xs">{line.sku}</span>
+                {line.productName}
+              </>
+            }
+            detail={`${line.reservationNumber} · ${line.zlNumber ?? "—"} · ${locLabel(line.locationCode, line.locationName)}`}
+            value={qty.value(line)}
+            onChange={(v) => qty.set(line, v)}
+            max={line.openQuantity}
+          >
+            {assigned ? (
+              assigned[i] ? (
+                <div className="text-xs text-emerald-700 dark:text-emerald-400">
+                  {t("fields.toLine", {
+                    part: assigned[i]!.productName ?? assigned[i]!.productCode ?? "",
+                    count: fmt(assigned[i]!.openNeed),
+                  })}
+                </div>
+              ) : (
+                <div className="text-xs text-destructive">{t("fields.noNeedInOrder")}</div>
+              )
+            ) : null}
+          </LineQuantityRow>
+        ))}
+      </div>
       {kind === "block" ? (
         <BlockReasonFields
           code={code}
@@ -589,37 +859,72 @@ function ReservationOperationDialog({
 // ---------------------------------------------------------------------------
 // Blocked stock
 
-type BlockDialog = {
-  kind: "unblock" | "move" | "returnToSupplier" | "scrap";
-  line: BlockLineView;
-};
+type BlockKind = "unblock" | "move" | "returnToSupplier" | "scrap";
+type BlockDialog = { kind: BlockKind; lines: BlockLineView[] };
+const BLOCK_KINDS: BlockKind[] = ["unblock", "move", "returnToSupplier", "scrap"];
 
 export function BlockLinesTable({
   lines,
   canOperate,
   branchId,
   showPart = true,
+  showNumber = true,
+  showReason = true,
 }: {
   lines: BlockLineView[];
   canOperate: boolean;
   branchId: string;
   showPart?: boolean;
+  showNumber?: boolean;
+  showReason?: boolean;
 }) {
   const t = useTranslations("modules.warehouse.stockCommitments");
   const age = useAge();
   const [dialog, setDialog] = useState<BlockDialog | null>(null);
+  const selection = useLineSelection(
+    lines,
+    (l) => l.blockLineId,
+    (l) => canOperate && l.openQuantity > 0
+  );
 
   if (lines.length === 0) {
     return <p className="text-sm text-muted-foreground">{t("blocks.empty")}</p>;
   }
+  const withSelection = canOperate && selection.hasSelectable;
   return (
     <div className="overflow-x-auto">
+      <SelectionBar count={selection.chosen.length} onClear={selection.clear}>
+        {BLOCK_KINDS.map((kind) => (
+          <Button
+            key={kind}
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => setDialog({ kind, lines: selection.chosen })}
+            data-testid={`selection-${kind}`}
+          >
+            {t(`actions.${kind}`)}
+          </Button>
+        ))}
+      </SelectionBar>
       <table className="w-full min-w-[640px] text-sm" data-testid="block-lines">
         <thead>
           <tr className="border-b text-left text-xs text-muted-foreground">
-            <th className="py-1.5 pr-3 font-medium">{t("blocks.number")}</th>
+            {withSelection ? (
+              <th className="w-8 py-1.5 pr-2">
+                <Checkbox
+                  checked={
+                    selection.allChosen ? true : selection.someChosen ? "indeterminate" : false
+                  }
+                  onCheckedChange={selection.toggleAll}
+                  aria-label={t("selection.selectAll")}
+                  data-testid="block-select-all"
+                />
+              </th>
+            ) : null}
+            {showNumber ? <th className="py-1.5 pr-3 font-medium">{t("blocks.number")}</th> : null}
             {showPart ? <th className="py-1.5 pr-3 font-medium">{t("blocks.part")}</th> : null}
-            <th className="py-1.5 pr-3 font-medium">{t("blocks.reason")}</th>
+            {showReason ? <th className="py-1.5 pr-3 font-medium">{t("blocks.reason")}</th> : null}
             <th className="py-1.5 pr-3 font-medium">{t("blocks.location")}</th>
             <th className="py-1.5 pr-3 text-right font-medium">{t("blocks.quantity")}</th>
             <th className="py-1.5 pr-3 font-medium">{t("blocks.since")}</th>
@@ -633,7 +938,19 @@ export function BlockLinesTable({
               className="border-b last:border-b-0"
               data-testid="block-line"
             >
-              <td className="py-1.5 pr-3 font-mono text-xs">{line.blockNumber}</td>
+              {withSelection ? (
+                <td className="py-1.5 pr-2">
+                  <Checkbox
+                    checked={selection.isChosen(line)}
+                    onCheckedChange={() => selection.toggle(line)}
+                    aria-label={line.sku ?? line.blockNumber}
+                    data-testid="block-select"
+                  />
+                </td>
+              ) : null}
+              {showNumber ? (
+                <td className="py-1.5 pr-3 font-mono text-xs">{line.blockNumber}</td>
+              ) : null}
               {showPart ? (
                 <td className="py-1.5 pr-3">
                   {line.productId ? (
@@ -652,17 +969,11 @@ export function BlockLinesTable({
                   )}
                 </td>
               ) : null}
-              <td className="py-1.5 pr-3">
-                <Badge variant="outline">{t(`reasons.${line.reasonCode}`)}</Badge>
-                {line.description ? (
-                  <div className="mt-0.5 text-xs text-muted-foreground">{line.description}</div>
-                ) : null}
-                {line.referenceNumber ? (
-                  <div className="font-mono text-xs text-muted-foreground">
-                    {line.referenceNumber}
-                  </div>
-                ) : null}
-              </td>
+              {showReason ? (
+                <td className="py-1.5 pr-3">
+                  <BlockReasonCell line={line} />
+                </td>
+              ) : null}
               <td className="py-1.5 pr-3">{locLabel(line.locationCode, line.locationName)}</td>
               <td className="py-1.5 pr-3 text-right tabular-nums">
                 {fmt(line.openQuantity)} {line.unitCode ?? ""}
@@ -683,8 +994,11 @@ export function BlockLinesTable({
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      {(["unblock", "move", "returnToSupplier", "scrap"] as const).map((kind) => (
-                        <DropdownMenuItem key={kind} onSelect={() => setDialog({ kind, line })}>
+                      {BLOCK_KINDS.map((kind) => (
+                        <DropdownMenuItem
+                          key={kind}
+                          onSelect={() => setDialog({ kind, lines: [line] })}
+                        >
                           {t(`actions.${kind}`)}
                         </DropdownMenuItem>
                       ))}
@@ -698,13 +1012,31 @@ export function BlockLinesTable({
       </table>
       {dialog ? (
         <BlockOperationDialog
-          key={`${dialog.kind}:${dialog.line.blockLineId}`}
+          key={`${dialog.kind}:${dialog.lines.map((l) => l.blockLineId).join(",")}`}
           dialog={dialog}
           branchId={branchId}
-          onClose={() => setDialog(null)}
+          onClose={(done) => {
+            setDialog(null);
+            if (done) selection.clear();
+          }}
         />
       ) : null}
     </div>
+  );
+}
+
+function BlockReasonCell({ line }: { line: BlockLineView }) {
+  const t = useTranslations("modules.warehouse.stockCommitments");
+  return (
+    <>
+      <Badge variant="outline">{t(`reasons.${line.reasonCode}`)}</Badge>
+      {line.description ? (
+        <div className="mt-0.5 text-xs text-muted-foreground">{line.description}</div>
+      ) : null}
+      {line.referenceNumber ? (
+        <div className="font-mono text-xs text-muted-foreground">{line.referenceNumber}</div>
+      ) : null}
+    </>
   );
 }
 
@@ -715,59 +1047,63 @@ function BlockOperationDialog({
 }: {
   dialog: BlockDialog;
   branchId: string;
-  onClose: () => void;
+  onClose: (done?: boolean) => void;
 }) {
   const t = useTranslations("modules.warehouse.stockCommitments");
   const { pending, run } = useOperation();
-  const { line, kind } = dialog;
-  const max = line.openQuantity;
-  const [quantity, setQuantity] = useState(fmt(max));
+  const { lines, kind } = dialog;
+  const qty = useQuantities(
+    lines,
+    (l) => l.blockLineId,
+    (l) => l.openQuantity
+  );
   const [reason, setReason] = useState("");
   const [supplier, setSupplier] = useState("");
   const [destination, setDestination] = useState("");
   const locations = useWarehouseLocationsQuery(kind === "move" ? branchId : null);
+  const sources = useMemo(() => new Set(lines.map((l) => l.locationId)), [lines]);
   const destinations = useMemo(
     () =>
       (locations.data ?? []).filter(
         (l) =>
-          l.id !== line.locationId &&
+          !sources.has(l.id) &&
           (l as { can_store_inventory?: boolean }).can_store_inventory !== false
       ),
-    [locations.data, line.locationId]
+    [locations.data, sources]
   );
 
-  const qty = positive(quantity, max);
-  const canConfirm = qty !== null && (kind === "move" ? !!destination : reason.trim().length > 0);
+  const canConfirm = qty.valid && (kind === "move" ? !!destination : reason.trim().length > 0);
+  const done = () => onClose(true);
 
   const confirm = () => {
-    if (qty === null) return;
-    const lines = [{ blockLineId: line.blockLineId, quantity: qty }];
+    if (!qty.valid) return;
+    const amounts = qty.quantities as number[];
+    const payload = lines.map((l, i) => ({ blockLineId: l.blockLineId, quantity: amounts[i] }));
     if (kind === "unblock") {
       run(
-        () => unblockStockAction({ lines, reason }) as Promise<Result>,
+        () => unblockStockAction({ lines: payload, reason }) as Promise<Result>,
         () => t("toasts.unblocked"),
-        onClose
+        done
       );
     } else if (kind === "move") {
       run(
         () =>
           moveBlockedStockAction({
-            blockLineId: line.blockLineId,
-            quantity: qty,
+            lines: payload,
             destinationLocationId: destination,
           }) as Promise<Result>,
         (data) =>
           t("toasts.moved", {
             document: (data as { documentNumber?: string })?.documentNumber ?? "",
           }),
-        onClose
+        done
       );
     } else {
       run(
         () =>
           issueBlockedStockAction({
             kind: kind === "scrap" ? "scrap" : "return_to_supplier",
-            lines,
+            lines: payload,
             reason,
             counterpartyName: kind === "returnToSupplier" ? supplier || null : null,
           }) as Promise<Result>,
@@ -775,7 +1111,7 @@ function BlockOperationDialog({
           t(kind === "scrap" ? "toasts.scrapped" : "toasts.returned", {
             document: (data as { documentNumber?: string })?.documentNumber ?? "",
           }),
-        onClose
+        done
       );
     }
   };
@@ -792,11 +1128,23 @@ function BlockOperationDialog({
       pending={pending}
       onConfirm={confirm}
     >
-      <p className="text-sm">
-        <span className="font-mono text-xs">{line.blockNumber}</span> · {line.sku}{" "}
-        {line.productName} · {locLabel(line.locationCode, line.locationName)}
-      </p>
-      <QuantityField value={quantity} onChange={setQuantity} max={max} />
+      <div className="max-h-72 overflow-y-auto rounded-md border px-3" data-testid="sc-lines">
+        {lines.map((line) => (
+          <LineQuantityRow
+            key={line.blockLineId}
+            label={
+              <>
+                <span className="mr-1.5 font-mono text-xs">{line.sku}</span>
+                {line.productName}
+              </>
+            }
+            detail={`${line.blockNumber} · ${locLabel(line.locationCode, line.locationName)}`}
+            value={qty.value(line)}
+            onChange={(v) => qty.set(line, v)}
+            max={line.openQuantity}
+          />
+        ))}
+      </div>
       {kind === "move" ? (
         <div className="grid gap-1.5">
           <Label>{t("fields.destination")}</Label>
@@ -1122,12 +1470,82 @@ export function StockStates({
 }
 
 // ---------------------------------------------------------------------------
-// List pages: search over the rows, then the table.
+// List pages: one row per document (REZ / BLK), its parts when opened.
 
 function matches(query: string, values: Array<string | null | undefined>) {
   const q = query.trim().toLowerCase();
   if (!q) return true;
   return values.some((v) => (v ?? "").toLowerCase().includes(q));
+}
+
+/** Lines grouped by their document, in the order the documents first appear. */
+function byDocument<T>(lines: T[], idOf: (line: T) => string) {
+  const groups = new Map<string, T[]>();
+  for (const line of lines) {
+    const id = idOf(line);
+    const group = groups.get(id);
+    if (group) group.push(line);
+    else groups.set(id, [line]);
+  }
+  return [...groups.entries()].map(([id, group]) => ({ id, lines: group }));
+}
+
+function oldest(dates: string[]) {
+  return dates.reduce((a, b) => (a < b ? a : b));
+}
+
+function ListFilter({
+  query,
+  onQuery,
+  count,
+}: {
+  query: string;
+  onQuery: (v: string) => void;
+  count: number;
+}) {
+  const t = useTranslations("modules.warehouse.stockCommitments.pages");
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <Input
+        value={query}
+        onChange={(e) => onQuery(e.target.value)}
+        placeholder={t("filter")}
+        className="max-w-sm"
+        data-testid="commitments-filter"
+      />
+      <span className="text-xs text-muted-foreground">{t("documents", { count })}</span>
+    </div>
+  );
+}
+
+function DocumentRow({
+  open,
+  onToggle,
+  number,
+  children,
+  testId,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  number: string;
+  children: React.ReactNode;
+  testId: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={open}
+      className="flex w-full flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2.5 text-left text-sm hover:bg-muted/50"
+      data-testid={testId}
+    >
+      <ChevronRight
+        className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-90" : ""}`}
+      />
+      <span className="font-mono text-xs font-medium">{number}</span>
+      {children}
+    </button>
+  );
 }
 
 export function ReservationsList({
@@ -1137,8 +1555,10 @@ export function ReservationsList({
   lines: ReservationLineView[];
   canOperate: boolean;
 }) {
-  const t = useTranslations("modules.warehouse.stockCommitments.pages");
+  const t = useTranslations("modules.warehouse.stockCommitments");
+  const age = useAge();
   const [query, setQuery] = useState("");
+  const [open, setOpen] = useState<Set<string>>(() => new Set());
   const shown = lines.filter((l) =>
     matches(query, [
       l.reservationNumber,
@@ -1150,19 +1570,82 @@ export function ReservationsList({
       l.locationName,
     ])
   );
+  const documents = byDocument(shown, (l) => l.reservationId);
+  const toggle = (id: string) =>
+    setOpen((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
   return (
     <div className="grid gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <Input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder={t("filter")}
-          className="max-w-sm"
-          data-testid="commitments-filter"
-        />
-        <span className="text-xs text-muted-foreground">{t("count", { count: shown.length })}</span>
-      </div>
-      <ReservationLinesTable lines={shown} canOperate={canOperate} />
+      <ListFilter query={query} onQuery={setQuery} count={documents.length} />
+      {documents.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{t("reservations.empty")}</p>
+      ) : (
+        <div className="divide-y rounded-md border" data-testid="reservation-documents">
+          {documents.map((doc) => {
+            const first = doc.lines[0];
+            const total = doc.lines.reduce((s, l) => s + l.openQuantity + l.allocatedQuantity, 0);
+            const inContainer = doc.lines.reduce((s, l) => s + l.allocatedQuantity, 0);
+            const isOpen = open.has(doc.id) || query.trim().length > 0;
+            return (
+              <div key={doc.id} data-testid="reservation-document">
+                <DocumentRow
+                  open={isOpen}
+                  onToggle={() => toggle(doc.id)}
+                  number={first.reservationNumber}
+                  testId="reservation-document-toggle"
+                >
+                  <span className="min-w-0">
+                    <span className="font-mono text-xs">{first.zlNumber ?? "—"}</span>
+                    {first.clientName ? (
+                      <span className="ml-2 text-xs text-muted-foreground">{first.clientName}</span>
+                    ) : null}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {t("reservations.parts", { count: doc.lines.length })}
+                  </span>
+                  <span className="ml-auto tabular-nums">
+                    {fmt(total)}
+                    {inContainer > 0 ? (
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        {t("reservations.inContainer", { quantity: fmt(inContainer) })}
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className="w-20 text-right text-xs text-muted-foreground">
+                    {age(oldest(doc.lines.map((l) => l.createdAt)))}
+                  </span>
+                </DocumentRow>
+                {isOpen ? (
+                  <div className="border-t bg-muted/20 px-3 py-2">
+                    {first.repairOrderId ? (
+                      <Link
+                        href={{
+                          pathname: "/dashboard/workshop/[id]",
+                          params: { id: first.repairOrderId },
+                        }}
+                        className="mb-2 inline-block text-xs hover:underline"
+                      >
+                        {t("reservations.openOrder")}
+                      </Link>
+                    ) : null}
+                    <ReservationLinesTable
+                      lines={doc.lines}
+                      canOperate={canOperate}
+                      showOrder={false}
+                      showNumber={false}
+                    />
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -1176,9 +1659,10 @@ export function BlocksList({
   canOperate: boolean;
   branchId: string;
 }) {
-  const t = useTranslations("modules.warehouse.stockCommitments.pages");
-  const tr = useTranslations("modules.warehouse.stockCommitments.reasons");
+  const t = useTranslations("modules.warehouse.stockCommitments");
+  const age = useAge();
   const [query, setQuery] = useState("");
+  const [open, setOpen] = useState<Set<string>>(() => new Set());
   const shown = lines.filter((l) =>
     matches(query, [
       l.blockNumber,
@@ -1186,24 +1670,74 @@ export function BlocksList({
       l.productName,
       l.referenceNumber,
       l.description,
-      tr(l.reasonCode),
+      t(`reasons.${l.reasonCode}`),
       l.locationCode,
       l.locationName,
     ])
   );
+  const documents = byDocument(shown, (l) => l.blockId);
+  const toggle = (id: string) =>
+    setOpen((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
   return (
     <div className="grid gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <Input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder={t("filter")}
-          className="max-w-sm"
-          data-testid="commitments-filter"
-        />
-        <span className="text-xs text-muted-foreground">{t("count", { count: shown.length })}</span>
-      </div>
-      <BlockLinesTable lines={shown} canOperate={canOperate} branchId={branchId} />
+      <ListFilter query={query} onQuery={setQuery} count={documents.length} />
+      {documents.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{t("blocks.empty")}</p>
+      ) : (
+        <div className="divide-y rounded-md border" data-testid="block-documents">
+          {documents.map((doc) => {
+            const first = doc.lines[0];
+            const total = doc.lines.reduce((s, l) => s + l.openQuantity, 0);
+            const isOpen = open.has(doc.id) || query.trim().length > 0;
+            return (
+              <div key={doc.id} data-testid="block-document">
+                <DocumentRow
+                  open={isOpen}
+                  onToggle={() => toggle(doc.id)}
+                  number={first.blockNumber}
+                  testId="block-document-toggle"
+                >
+                  <span className="min-w-0">
+                    <Badge variant="outline">{t(`reasons.${first.reasonCode}`)}</Badge>
+                    {first.referenceNumber ? (
+                      <span className="ml-2 font-mono text-xs text-muted-foreground">
+                        {first.referenceNumber}
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {t("reservations.parts", { count: doc.lines.length })}
+                  </span>
+                  <span className="ml-auto tabular-nums">{fmt(total)}</span>
+                  <span className="w-20 text-right text-xs text-muted-foreground">
+                    {age(oldest(doc.lines.map((l) => l.createdAt)))}
+                  </span>
+                </DocumentRow>
+                {isOpen ? (
+                  <div className="border-t bg-muted/20 px-3 py-2">
+                    {first.description ? (
+                      <p className="mb-2 text-xs text-muted-foreground">{first.description}</p>
+                    ) : null}
+                    <BlockLinesTable
+                      lines={doc.lines}
+                      canOperate={canOperate}
+                      branchId={branchId}
+                      showNumber={false}
+                      showReason={false}
+                    />
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

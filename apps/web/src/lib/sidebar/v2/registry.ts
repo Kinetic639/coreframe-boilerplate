@@ -124,23 +124,13 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
         },
       },
       {
+        // Reservations (R) and blocks (B): one screen, a tab each.
         id: "warehouse.reservations",
-        title: "Reservations",
-        titleKey: "modules.warehouse.items.reservations",
+        title: "Reservations and blocks",
+        titleKey: "modules.warehouse.items.reservationsAndBlocks",
         iconKey: "bookmark",
         href: "/dashboard/warehouse/reservations",
         match: { startsWith: "/dashboard/warehouse/reservations" },
-        visibility: {
-          requiresPermissions: [WAREHOUSE_INVENTORY_READ],
-        },
-      },
-      {
-        id: "warehouse.blocks",
-        title: "Blocked stock",
-        titleKey: "modules.warehouse.items.blocks",
-        iconKey: "lock",
-        href: "/dashboard/warehouse/blocks",
-        match: { startsWith: "/dashboard/warehouse/blocks" },
         visibility: {
           requiresPermissions: [WAREHOUSE_INVENTORY_READ],
         },

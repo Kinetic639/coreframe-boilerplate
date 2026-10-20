@@ -122,15 +122,15 @@ export async function unblockStockAction(
 }
 
 const moveSchema = z.object({
-  blockLineId: z.string().uuid(),
-  quantity: z.number().positive(),
+  lines: blockLines,
   destinationLocationId: z.string().uuid(),
 });
 
+/** Blocked parts -> another location, on one MM; the blocks move with them. */
 export async function moveBlockedStockAction(rawInput: unknown): Promise<
   | {
       success: true;
-      data: { blockLineId: string; movementId: string; documentNumber: string | null };
+      data: { blockLineIds: string[]; movementId: string; documentNumber: string | null };
     }
   | Fail<StockEngineError | "invalid_input">
 > {

@@ -114,16 +114,24 @@ export async function releaseReservationLinesAction(
 }
 
 const transferSchema = z.object({
-  reservationLineId: z.string().uuid(),
-  quantity: z.number().positive(),
-  targetRepairOrderLineId: z.string().uuid(),
+  lines: z
+    .array(
+      z.object({
+        reservationLineId: z.string().uuid(),
+        quantity: z.number().positive().nullable().optional(),
+        targetRepairOrderLineId: z.string().uuid(),
+      })
+    )
+    .min(1)
+    .max(200),
   reason,
 });
 
+/** Reserved parts -> lines of one other repair order, on one new REZ. */
 export async function transferReservationAction(rawInput: unknown): Promise<
   | {
       success: true;
-      data: { reservationId: string; reservationNumber: string; reservationLineId: string };
+      data: { reservationId: string; reservationNumber: string; reservationLineIds: string[] };
     }
   | Fail<StockEngineError | "invalid_input">
 > {

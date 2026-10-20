@@ -28,6 +28,8 @@ describe("PutawayScanService.putawayBatch", () => {
         container_code: "K-0042-01",
         container_created: true,
         line_count: 1,
+        movement_id: "m1",
+        document_number: "MM/2026/000003",
       },
     });
     const result = await PutawayScanService.putawayBatch(client, input);
@@ -48,6 +50,8 @@ describe("PutawayScanService.putawayBatch", () => {
         containerCode: "K-0042-01",
         containerCreated: true,
         lineCount: 1,
+        movementId: "m1",
+        documentNumber: "MM/2026/000003",
       },
     });
   });

@@ -267,13 +267,19 @@ export function ScanFlow({
         return;
       }
       const data = result.data;
+      // The whole batch is one MM: name it so the user can find it.
+      const doc = data.documentNumber ? ` · ${data.documentNumber}` : "";
       if (data.containerCreated) {
-        toast.success(t("doneNew", { code: data.containerCode ?? "", count: data.lineCount }));
+        toast.success(
+          t("doneNew", { code: data.containerCode ?? "", count: data.lineCount }) + doc
+        );
         if (data.qrAssigned === false) toast.warning(t("stickerNotBound"));
       } else if (data.containerCode) {
-        toast.success(t("doneContainer", { code: data.containerCode, count: data.lineCount }));
+        toast.success(
+          t("doneContainer", { code: data.containerCode, count: data.lineCount }) + doc
+        );
       } else {
-        toast.success(t("doneLoose", { count: data.lineCount }));
+        toast.success(t("doneLoose", { count: data.lineCount }) + doc);
       }
       router.refresh();
       goScan();

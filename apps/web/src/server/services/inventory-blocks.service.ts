@@ -176,19 +176,25 @@ export class InventoryBlocksService {
   /** Move a blocked part (MM); it stays blocked at the destination. */
   static async move(
     supabase: SupabaseClient,
-    input: Scope & { blockLineId: string; quantity: number; destinationLocationId: string }
+    input: Scope & {
+      lines: Array<{ blockLineId: string; quantity?: number | null }>;
+      destinationLocationId: string;
+    }
   ): Promise<
     ServiceResult<
-      { blockLineId: string; movementId: string; documentNumber: string | null },
+      { blockLineIds: string[]; movementId: string; documentNumber: string | null },
       StockEngineError
     >
   > {
-    const { data, error } = await supabase.rpc("inventory_move_blocked_stock", {
+    // One MM for every part; a null quantity moves all that is still blocked on that line.
+    const { data, error } = await supabase.rpc("inventory_move_blocked_stock_lines", {
       p_actor_user_id: input.actorUserId,
       p_organization_id: input.organizationId,
       p_branch_id: input.branchId,
-      p_block_line_id: input.blockLineId,
-      p_quantity: input.quantity,
+      p_lines: input.lines.map((l) => ({
+        block_line_id: l.blockLineId,
+        quantity: l.quantity ?? null,
+      })),
       p_destination_location_id: input.destinationLocationId,
     });
     if (error) return fail(error);
@@ -196,7 +202,9 @@ export class InventoryBlocksService {
     return {
       success: true,
       data: {
-        blockLineId: String(r.block_line_id),
+        blockLineIds: ((r.lines ?? []) as Array<Record<string, unknown>>).map((l) =>
+          String(l.block_line_id)
+        ),
         movementId: String(r.movement_id),
         documentNumber: (r.document_number as string | null) ?? null,
       },

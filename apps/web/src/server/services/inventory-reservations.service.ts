@@ -207,28 +207,36 @@ export class InventoryReservationsService {
     };
   }
 
-  /** Move a reserved quantity to another repair order's line (never through D). */
+  /**
+   * Move reserved parts to lines of ONE other repair order (never through D):
+   * one new REZ for the target order, a line per part. A null quantity moves
+   * all that is left on that reservation line.
+   */
   static async transfer(
     supabase: SupabaseClient,
     input: Scope & {
-      reservationLineId: string;
-      quantity: number;
-      targetRepairOrderLineId: string;
+      lines: Array<{
+        reservationLineId: string;
+        quantity?: number | null;
+        targetRepairOrderLineId: string;
+      }>;
       reason: string;
     }
   ): Promise<
     ServiceResult<
-      { reservationId: string; reservationNumber: string; reservationLineId: string },
+      { reservationId: string; reservationNumber: string; reservationLineIds: string[] },
       StockEngineError
     >
   > {
-    const { data, error } = await supabase.rpc("inventory_transfer_reservation", {
+    const { data, error } = await supabase.rpc("inventory_transfer_reservation_lines", {
       p_actor_user_id: input.actorUserId,
       p_organization_id: input.organizationId,
       p_branch_id: input.branchId,
-      p_reservation_line_id: input.reservationLineId,
-      p_quantity: input.quantity,
-      p_target_repair_order_line_id: input.targetRepairOrderLineId,
+      p_lines: input.lines.map((l) => ({
+        reservation_line_id: l.reservationLineId,
+        quantity: l.quantity ?? null,
+        target_repair_order_line_id: l.targetRepairOrderLineId,
+      })),
       p_reason: input.reason,
     });
     if (error) return fail(error);
@@ -238,7 +246,9 @@ export class InventoryReservationsService {
       data: {
         reservationId: String(r.reservation_id),
         reservationNumber: String(r.reservation_number),
-        reservationLineId: String(r.reservation_line_id),
+        reservationLineIds: ((r.lines ?? []) as Array<Record<string, unknown>>).map((l) =>
+          String(l.reservation_line_id)
+        ),
       },
     };
   }
