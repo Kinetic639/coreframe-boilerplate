@@ -111,6 +111,22 @@ export function ScanFlow({
   const router = useRouter();
   const [step, setStep] = useState<Step>(initialStep ?? { kind: "scan" });
   const [pick, setPick] = useState<PickState>(() => {
+    // Opened from an order on the list: all of that order's waiting parts
+    // come ticked (untick what is not physically in hand).
+    const orderId =
+      initialStep?.kind === "container"
+        ? initialStep.container.repairOrderId
+        : initialStep?.kind === "new"
+          ? initialStep.repairOrderId
+          : initialStep?.kind === "scanSticker"
+            ? initialStep.back.repairOrderId
+            : null;
+    if (orderId) {
+      return initialPick(
+        items.filter((i) => i.repairOrderId === orderId && isContainerPart(i)),
+        true
+      );
+    }
     if (initialStep?.kind !== "order" || !initialStep.focusKey) return {};
     const focused = items.find((i) => itemKey(i) === initialStep.focusKey);
     return focused ? { [initialStep.focusKey]: { checked: true, quantity: focused.quantity } } : {};

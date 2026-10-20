@@ -2989,6 +2989,27 @@
           "open": "Otwórz dokument",
           "reference": "Ref.: {reference}",
           "fromDocument": "Do rozłożenia z {document}"
+        },
+        "board": {
+          "history": "Historia zmian",
+          "historyTitle": "Historia rozkładania",
+          "historyHint": "Zlecenia, którym zmieniły się lokalizacje (rozłożenie, przeniesienie, wydanie) — do przepisania w AutoStacji.",
+          "back": "Rozlokowanie",
+          "allDeliveries": "Wszystkie dostawy",
+          "from": "z {document}",
+          "fixedTitle": "1. Najpierw na stałe miejsca",
+          "fixedHint": "Części z lokalizacją indywidualną — nie wkładaj ich do kontenerów zleceń.",
+          "putOne": "Odłóż",
+          "placedTitle": "2. Zlecenia, które już gdzieś leżą",
+          "placedHint": "Dołóż części do kontenera, w którym zlecenie już jest.",
+          "newTitle": "3. Nowe zlecenia",
+          "newHint": "Nic jeszcze nie jest rozłożone — zacznij nowy kontener (naklejka, potem lokalizacja).",
+          "freeTitle": "4. Wolne części i inne towary",
+          "freeHint": "Bez zlecenia — rozłóż na dowolną lokalizację.",
+          "waiting": "{count, plural, one {# część czeka} few {# części czekają} other {# części czeka}}",
+          "addTo": "Dołóż do {code} ({location})",
+          "newContainer": "Nowy kontener",
+          "oversize": "Bez naklejki"
         }
       },
       "stockCommitments": {

@@ -33,4 +33,6 @@ export type RepairOrderInfo = {
     status: string;
     location: { id: string; code: string | null; name: string | null } | null;
   }>;
+  /** Locations where parts of the order lie reserved outside containers (bulk). */
+  looseLocations?: Array<{ id: string; code: string | null; name: string | null }>;
 };

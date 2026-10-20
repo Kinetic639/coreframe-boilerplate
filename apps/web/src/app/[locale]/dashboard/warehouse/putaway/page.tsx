@@ -10,9 +10,11 @@ import { PutawayBoard } from "./_components/putaway-board";
 import type { RepairOrderInfo } from "./_components/putaway-utils";
 
 /**
- * Zone 5 -- "Do rozlokowania": everything waiting in the active branch's
- * receiving zone. Mobile-first: pick an item, scan the location, confirm.
- * Stock in the receiving zone is not available until it is put away.
+ * Zone 5 -- "Rozlokowanie": everything waiting in the active branch's
+ * receiving zone, in the order it is worked through: fixed locations,
+ * orders that already lie somewhere (add to their container), new orders
+ * (new container), free stock. The history of location changes is on its
+ * own page (putaway/changes).
  */
 export default async function PutawayPage() {
   const locale = await getLocale();
@@ -62,7 +64,7 @@ export default async function PutawayPage() {
   ];
   const orders: Record<string, RepairOrderInfo> = {};
   if (orderIds.length > 0) {
-    const [roRes, containersRes] = await Promise.all([
+    const [roRes, containersRes, looseRes] = await Promise.all([
       supabase
         .from("repair_orders")
         .select("id, zl_number, client_name, vehicle_brand")
@@ -73,10 +75,45 @@ export default async function PutawayPage() {
         branchId,
         orderIds
       ),
+      // Reserved parts of these orders lying outside containers (bulk material).
+      supabase
+        .from("inventory_reservation_lines")
+        .select(
+          "location_id, reserved_quantity, released_quantity, fulfilled_quantity, repair_order_lines!inner(repair_order_id), warehouse_locations(id, code, name)"
+        )
+        .eq("organization_id", context.app.activeOrgId)
+        .eq("branch_id", branchId)
+        .in("repair_order_lines.repair_order_id", orderIds),
     ]);
-    // Without them every order would look like it has no container yet.
-    if (roRes.error || !containersRes.success) loadError = true;
+    // Without them every order would look like it has nothing put away yet.
+    if (roRes.error || !containersRes.success || looseRes.error) loadError = true;
     const containers = containersRes.success ? containersRes.data : {};
+    const receivingId = pending.success ? pending.data.receivingLocationId : null;
+    const looseByOrder = new Map<
+      string,
+      Map<string, NonNullable<RepairOrderInfo["looseLocations"]>[number]>
+    >();
+    for (const row of (looseRes.data ?? []) as unknown as Array<{
+      location_id: string;
+      reserved_quantity: number;
+      released_quantity: number;
+      fulfilled_quantity: number;
+      repair_order_lines: { repair_order_id: string } | Array<{ repair_order_id: string }>;
+      warehouse_locations: { id: string; code: string | null; name: string | null } | null;
+    }>) {
+      const open =
+        Number(row.reserved_quantity) -
+        Number(row.released_quantity) -
+        Number(row.fulfilled_quantity);
+      const rol = Array.isArray(row.repair_order_lines)
+        ? row.repair_order_lines[0]
+        : row.repair_order_lines;
+      if (open <= 0 || !rol || !row.warehouse_locations || row.location_id === receivingId)
+        continue;
+      const places = looseByOrder.get(rol.repair_order_id) ?? new Map();
+      places.set(row.location_id, row.warehouse_locations);
+      looseByOrder.set(rol.repair_order_id, places);
+    }
     for (const ro of (roRes.data ?? []) as Array<{
       id: string;
       zl_number: string | null;
@@ -88,6 +125,7 @@ export default async function PutawayPage() {
         clientName: ro.client_name,
         vehicleBrand: ro.vehicle_brand,
         containers: containers[ro.id] ?? [],
+        looseLocations: [...(looseByOrder.get(ro.id)?.values() ?? [])],
       };
     }
   }
