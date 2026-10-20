@@ -2747,7 +2747,8 @@
         },
         "putaway": "Putaway",
         "reservations": "Reservations",
-        "blocks": "Blocked stock"
+        "blocks": "Blocked stock",
+        "reservationsAndBlocks": "Reservations and blocks"
       },
       "partnerTypes": {
         "vendor": "Supplier",
@@ -3035,7 +3036,9 @@
           "location": "Location",
           "quantity": "Qty",
           "since": "Since",
-          "inContainer": "{quantity} in a container"
+          "inContainer": "{quantity} in a container",
+          "parts": "{count, plural, one {# part} other {# parts}}",
+          "openOrder": "Open the repair order"
         },
         "blocks": {
           "title": "Blocked (B)",
@@ -3128,7 +3131,10 @@
           "noAvailable": "No location has available pieces (D).",
           "available": "{count} available",
           "cancel": "Cancel",
-          "loading": "Loading…"
+          "loading": "Loading…",
+          "targetOrder": "Target repair order",
+          "toLine": "→ {part}, still needs {count}",
+          "noNeedInOrder": "This order does not need this part (or needs fewer)."
         },
         "toasts": {
           "released": "Reservation released",
@@ -3161,7 +3167,14 @@
           "filter": "Search: part, ZL, location, number",
           "noBranch": "Choose an active branch.",
           "loadError": "Could not load the data.",
-          "count": "{count, plural, one {# line} other {# lines}}"
+          "count": "{count, plural, one {# line} other {# lines}}",
+          "title": "Reservations and blocks",
+          "subtitle": "Each row is one document (REZ or BLK). Open it, tick parts and run one operation on them.",
+          "tabs": {
+            "reservations": "Reservations (R)",
+            "blocks": "Blocked (B)"
+          },
+          "documents": "{count, plural, one {# document} other {# documents}}"
         },
         "age": {
           "today": "today",
@@ -3170,6 +3183,11 @@
         "breakdown": {
           "hint": "Open a location to see every reservation and block on its own: for which order, with which document and since when.",
           "summary": "On hand {onHand}: available (D) {available} · reserved (R) {reserved} · blocked (B) {blocked}"
+        },
+        "selection": {
+          "selected": "{count, plural, one {# part selected} other {# parts selected}}",
+          "clear": "Clear",
+          "selectAll": "Select all"
         }
       }
     },

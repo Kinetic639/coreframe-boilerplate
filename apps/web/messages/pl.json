@@ -2718,7 +2718,8 @@
         },
         "putaway": "Do rozlokowania",
         "reservations": "Rezerwacje",
-        "blocks": "Blokady"
+        "blocks": "Blokady",
+        "reservationsAndBlocks": "Rezerwacje i blokady"
       },
       "partnerTypes": {
         "vendor": "Dostawca",
@@ -3006,7 +3007,9 @@
           "location": "Lokalizacja",
           "quantity": "Ilość",
           "since": "Od",
-          "inContainer": "{quantity} w kontenerze"
+          "inContainer": "{quantity} w kontenerze",
+          "parts": "{count, plural, one {# część} few {# części} other {# części}}",
+          "openOrder": "Otwórz zlecenie"
         },
         "blocks": {
           "title": "Zablokowane (B)",
@@ -3099,7 +3102,10 @@
           "noAvailable": "Na żadnej lokalizacji nie ma dostępnych sztuk (D).",
           "available": "{count} dostępne",
           "cancel": "Anuluj",
-          "loading": "Wczytuję…"
+          "loading": "Wczytuję…",
+          "targetOrder": "Zlecenie docelowe",
+          "toLine": "→ {part}, potrzeba jeszcze {count}",
+          "noNeedInOrder": "To zlecenie nie potrzebuje tej części (albo potrzebuje mniej)."
         },
         "toasts": {
           "released": "Rezerwacja zwolniona",
@@ -3132,7 +3138,14 @@
           "filter": "Szukaj: część, ZL, lokalizacja, numer",
           "noBranch": "Wybierz aktywny oddział.",
           "loadError": "Nie udało się wczytać danych.",
-          "count": "{count, plural, one {# pozycja} few {# pozycje} other {# pozycji}}"
+          "count": "{count, plural, one {# pozycja} few {# pozycje} other {# pozycji}}",
+          "title": "Rezerwacje i blokady",
+          "subtitle": "Każdy wiersz to jeden dokument (REZ lub BLK). Rozwiń go, zaznacz części i wykonaj na nich jedną operację.",
+          "tabs": {
+            "reservations": "Rezerwacje (R)",
+            "blocks": "Blokady (B)"
+          },
+          "documents": "{count, plural, one {# dokument} few {# dokumenty} other {# dokumentów}}"
         },
         "age": {
           "today": "dziś",
@@ -3141,6 +3154,11 @@
         "breakdown": {
           "hint": "Rozwiń lokalizację, żeby zobaczyć każdą rezerwację i blokadę osobno: pod jakie zlecenie, jakim dokumentem i od kiedy.",
           "summary": "Na stanie {onHand}: dostępne (D) {available} · zarezerwowane (R) {reserved} · zablokowane (B) {blocked}"
+        },
+        "selection": {
+          "selected": "{count, plural, one {Zaznaczono # część} few {Zaznaczono # części} other {Zaznaczono # części}}",
+          "clear": "Odznacz",
+          "selectAll": "Zaznacz wszystkie"
         }
       }
     },

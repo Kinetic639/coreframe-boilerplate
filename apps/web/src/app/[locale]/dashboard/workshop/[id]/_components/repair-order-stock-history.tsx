@@ -182,6 +182,23 @@ export async function RepairOrderStockHistory({
     return from ?? to ?? "—";
   };
   const sorted = [...events].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  // One operation on several parts = one row: its events share the
+  // transaction time, kind, actor, reason and document.
+  const operations = new Map<string, ReservationEventView[]>();
+  for (const e of sorted) {
+    const key = [
+      e.createdAt,
+      e.eventType,
+      e.actorUserId,
+      e.reason,
+      e.movementId,
+      e.reservationNumber,
+    ].join("|");
+    const group = operations.get(key);
+    if (group) group.push(e);
+    else operations.set(key, [e]);
+  }
+  const rows = [...operations.entries()];
 
   return (
     <section className="grid gap-3" data-testid="repair-order-stock-history">
@@ -207,31 +224,55 @@ export async function RepairOrderStockHistory({
               </tr>
             </thead>
             <tbody>
-              {sorted.map((e) => (
-                <tr key={e.id} className="border-b last:border-b-0" data-testid="stock-history-row">
-                  <td className="py-2 pl-3 pr-3 text-xs text-muted-foreground">
-                    {new Date(e.createdAt).toLocaleString(locale)}
-                  </td>
-                  <td className="py-2 pr-3">
-                    <Badge variant="outline">{t(`kinds.${e.eventType}`)}</Badge>
-                  </td>
-                  <td className="py-2 pr-3">
-                    {part(byId, e.repairOrderLineId ?? e.toRepairOrderLineId)}
-                  </td>
-                  <td className="py-2 pr-3 text-right tabular-nums">{fmt(e.quantity)}</td>
-                  <td className="py-2 pr-3 text-xs">{where(e)}</td>
-                  <td className="py-2 pr-3">
-                    <span className="font-mono text-xs">{e.reservationNumber ?? "—"}</span>
-                    {e.movementNumber ? (
-                      <div>
-                        <DocumentLink number={e.movementNumber} movementId={e.movementId} />
-                      </div>
-                    ) : null}
-                  </td>
-                  <td className="py-2 pr-3 text-xs">{e.reason ?? "—"}</td>
-                  <td className="py-2 pr-3 text-xs">{e.actorName ?? t("history.system")}</td>
-                </tr>
-              ))}
+              {rows.map(([key, group]) => {
+                const e = group[0];
+                const places = [...new Set(group.map(where))];
+                return (
+                  <tr
+                    key={key}
+                    className="border-b last:border-b-0"
+                    data-testid="stock-history-row"
+                  >
+                    <td className="py-2 pl-3 pr-3 text-xs text-muted-foreground">
+                      {new Date(e.createdAt).toLocaleString(locale)}
+                    </td>
+                    <td className="py-2 pr-3">
+                      <Badge variant="outline">{t(`kinds.${e.eventType}`)}</Badge>
+                    </td>
+                    <td className="py-2 pr-3">
+                      {group.length === 1 ? (
+                        part(byId, e.repairOrderLineId ?? e.toRepairOrderLineId)
+                      ) : (
+                        <ul className="grid gap-0.5" data-testid="stock-history-parts">
+                          {group.map((g) => (
+                            <li key={g.id}>
+                              {part(byId, g.repairOrderLineId ?? g.toRepairOrderLineId)}{" "}
+                              <span className="text-xs text-muted-foreground">
+                                × {fmt(g.quantity)}
+                                {places.length > 1 ? ` · ${where(g)}` : ""}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </td>
+                    <td className="py-2 pr-3 text-right tabular-nums">
+                      {fmt(group.reduce((sum, g) => sum + g.quantity, 0))}
+                    </td>
+                    <td className="py-2 pr-3 text-xs">{places.length === 1 ? places[0] : "—"}</td>
+                    <td className="py-2 pr-3">
+                      <span className="font-mono text-xs">{e.reservationNumber ?? "—"}</span>
+                      {e.movementNumber ? (
+                        <div>
+                          <DocumentLink number={e.movementNumber} movementId={e.movementId} />
+                        </div>
+                      ) : null}
+                    </td>
+                    <td className="py-2 pr-3 text-xs">{e.reason ?? "—"}</td>
+                    <td className="py-2 pr-3 text-xs">{e.actorName ?? t("history.system")}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

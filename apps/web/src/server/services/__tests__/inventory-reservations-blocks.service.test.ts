@@ -117,15 +117,49 @@ describe("InventoryReservationsService", () => {
     });
     const result = await InventoryReservationsService.transfer(client, {
       ...scope,
-      reservationLineId: "rl1",
-      quantity: 2,
-      targetRepairOrderLineId: "rol2",
+      lines: [{ reservationLineId: "rl1", quantity: 2, targetRepairOrderLineId: "rol2" }],
       reason: "Pilne",
     });
     expect(result).toEqual({
       success: false,
       error: "exceeds_need",
       message: "The target repair order still needs only 1",
+    });
+  });
+
+  it("transfer sends every part in one call and returns the one new REZ", async () => {
+    const { client, rpc } = rpcClient({
+      data: {
+        reservation_id: "r9",
+        reservation_number: "REZ/2026/000009",
+        lines: [{ reservation_line_id: "n1" }, { reservation_line_id: "n2" }],
+      },
+    });
+    const result = await InventoryReservationsService.transfer(client, {
+      ...scope,
+      lines: [
+        { reservationLineId: "rl1", targetRepairOrderLineId: "rolA" },
+        { reservationLineId: "rl2", quantity: 1, targetRepairOrderLineId: "rolB" },
+      ],
+      reason: "Pilne",
+    });
+    expect(rpc).toHaveBeenCalledWith("inventory_transfer_reservation_lines", {
+      p_actor_user_id: "u1",
+      p_organization_id: "org",
+      p_branch_id: "br",
+      p_lines: [
+        { reservation_line_id: "rl1", quantity: null, target_repair_order_line_id: "rolA" },
+        { reservation_line_id: "rl2", quantity: 1, target_repair_order_line_id: "rolB" },
+      ],
+      p_reason: "Pilne",
+    });
+    expect(result).toEqual({
+      success: true,
+      data: {
+        reservationId: "r9",
+        reservationNumber: "REZ/2026/000009",
+        reservationLineIds: ["n1", "n2"],
+      },
     });
   });
 });
@@ -187,6 +221,35 @@ describe("InventoryBlocksService", () => {
     expect(result).toEqual({
       success: true,
       data: { movementId: "m1", documentNumber: "ZWD/2026/000001", movementTypeCode: "122" },
+    });
+  });
+
+  it("move sends every blocked part in one call (one MM)", async () => {
+    const { client, rpc } = rpcClient({
+      data: {
+        movement_id: "m1",
+        document_number: "MM/2026/000004",
+        lines: [{ block_line_id: "nb1" }, { block_line_id: "nb2" }],
+      },
+    });
+    const result = await InventoryBlocksService.move(client, {
+      ...scope,
+      lines: [{ blockLineId: "bl1" }, { blockLineId: "bl2", quantity: 1 }],
+      destinationLocationId: "l2",
+    });
+    expect(rpc).toHaveBeenCalledWith("inventory_move_blocked_stock_lines", {
+      p_actor_user_id: "u1",
+      p_organization_id: "org",
+      p_branch_id: "br",
+      p_lines: [
+        { block_line_id: "bl1", quantity: null },
+        { block_line_id: "bl2", quantity: 1 },
+      ],
+      p_destination_location_id: "l2",
+    });
+    expect(result).toEqual({
+      success: true,
+      data: { blockLineIds: ["nb1", "nb2"], movementId: "m1", documentNumber: "MM/2026/000004" },
     });
   });
 

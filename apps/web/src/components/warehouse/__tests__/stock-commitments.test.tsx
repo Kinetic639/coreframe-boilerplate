@@ -1,11 +1,12 @@
 /**
  * @vitest-environment jsdom
  *
- * Stage E6 — reservation and block tables on screens: what each row shows
+ * Reservation and block tables on screens: what each row shows
  * (document, part, order, location, R in containers, reason, age), the
- * search of the list pages, and the D / R / B badges.
+ * one-row-per-document lists and their search, one operation on several
+ * ticked parts, and the D / R / B badges.
  */
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 
 vi.mock("next-intl", () => ({
@@ -44,6 +45,8 @@ import {
   StockStates,
 } from "../stock-commitments";
 import type { ReservationLineView } from "@/server/services/inventory-reservations.service";
+import { releaseReservationLinesAction } from "@/app/actions/warehouse/reservations";
+import { unblockStockAction } from "@/app/actions/warehouse/blocks";
 import type { BlockLineView } from "@/server/services/inventory-blocks.service";
 
 const reservation = (over: Partial<ReservationLineView> = {}): ReservationLineView => ({
@@ -131,14 +134,111 @@ describe("BlockLinesTable", () => {
   });
 });
 
-describe("list pages", () => {
-  it("reservations: searching by ZL or part narrows the list", () => {
+describe("selection: one operation on several parts", () => {
+  it("releases two ticked reservation lines in one call, with one reason", async () => {
+    vi.mocked(releaseReservationLinesAction).mockResolvedValue({
+      success: true,
+      data: { releasedQuantity: 2 },
+    } as never);
+    render(
+      <ReservationLinesTable
+        lines={[
+          reservation({ openQuantity: 1, allocatedQuantity: 0 }),
+          reservation({ reservationLineId: "rl2", openQuantity: 1, allocatedQuantity: 0 }),
+        ]}
+        canOperate
+      />
+    );
+    expect(screen.queryByTestId("selection-bar")).toBeNull();
+    for (const box of screen.getAllByTestId("reservation-select")) fireEvent.click(box);
+    expect(screen.getByTestId("selection-bar").textContent).toContain('selected:{"count":2}');
+
+    fireEvent.click(screen.getByTestId("selection-release"));
+    expect(screen.getAllByTestId("sc-line")).toHaveLength(2);
+    fireEvent.change(screen.getByTestId("sc-reason"), { target: { value: "Klient zrezygnował" } });
+    fireEvent.click(screen.getByTestId("sc-confirm"));
+
+    await waitFor(() =>
+      expect(releaseReservationLinesAction).toHaveBeenCalledWith({
+        lines: [
+          { reservationLineId: "rl1", quantity: 1 },
+          { reservationLineId: "rl2", quantity: 1 },
+        ],
+        reason: "Klient zrezygnował",
+      })
+    );
+  });
+
+  it("offers no ticks for parts that are all in a container, nor without the permission", () => {
+    const { rerender } = render(
+      <ReservationLinesTable lines={[reservation({ openQuantity: 0 })]} canOperate />
+    );
+    expect(screen.queryByTestId("reservation-select")).toBeNull();
+    rerender(<ReservationLinesTable lines={[reservation()]} canOperate={false} />);
+    expect(screen.queryByTestId("reservation-select")).toBeNull();
+  });
+
+  it("unblocks two ticked block lines in one call", async () => {
+    vi.mocked(unblockStockAction).mockResolvedValue({
+      success: true,
+      data: { unblockedQuantity: 4 },
+    } as never);
+    render(
+      <BlockLinesTable
+        lines={[block(), block({ blockLineId: "bl2", openQuantity: 1 })]}
+        canOperate
+        branchId="b"
+      />
+    );
+    fireEvent.click(screen.getByTestId("block-select-all"));
+    fireEvent.click(screen.getByTestId("selection-unblock"));
+    fireEvent.change(screen.getByTestId("sc-reason"), { target: { value: "Kontrola OK" } });
+    fireEvent.click(screen.getByTestId("sc-confirm"));
+
+    await waitFor(() =>
+      expect(unblockStockAction).toHaveBeenCalledWith({
+        lines: [
+          { blockLineId: "bl1", quantity: 3 },
+          { blockLineId: "bl2", quantity: 1 },
+        ],
+        reason: "Kontrola OK",
+      })
+    );
+  });
+});
+
+describe("list pages: one row per document", () => {
+  it("reservations: a REZ with two parts is one row; opening it shows the parts", () => {
+    render(
+      <ReservationsList
+        lines={[
+          reservation(),
+          reservation({ reservationLineId: "rl2", sku: "AAA", productName: "Listwa" }),
+          reservation({
+            reservationLineId: "rl3",
+            reservationId: "r2",
+            reservationNumber: "REZ/2026/000101",
+            zlNumber: "ZL/9/26/3112/BL",
+          }),
+        ]}
+        canOperate={false}
+      />
+    );
+    expect(screen.getAllByTestId("reservation-document")).toHaveLength(2);
+    expect(screen.queryByTestId("reservation-line")).toBeNull();
+    fireEvent.click(screen.getAllByTestId("reservation-document-toggle")[0]);
+    expect(screen.getAllByTestId("reservation-line")).toHaveLength(2);
+  });
+
+  it("reservations: searching narrows to the matching document and opens it", () => {
     render(
       <ReservationsList
         lines={[
           reservation(),
           reservation({
             reservationLineId: "rl2",
+            reservationId: "r2",
+            reservationNumber: "REZ/2026/000101",
             zlNumber: "ZL/9/26/3112/BL",
             sku: "AAA",
             productName: "Listwa",
@@ -147,23 +247,31 @@ describe("list pages", () => {
         canOperate={false}
       />
     );
-    expect(screen.getAllByTestId("reservation-line")).toHaveLength(2);
     fireEvent.change(screen.getByTestId("commitments-filter"), { target: { value: "listwa" } });
+    expect(screen.getAllByTestId("reservation-document")).toHaveLength(1);
     expect(screen.getAllByTestId("reservation-line")).toHaveLength(1);
   });
 
-  it("blocks: searching by the complaint reference finds the block", () => {
+  it("blocks: searching by the complaint reference finds the block document", () => {
     render(
       <BlocksList
         lines={[
           block(),
-          block({ blockLineId: "bl2", referenceNumber: "HD-0001", description: null }),
+          block({
+            blockLineId: "bl2",
+            blockId: "b2",
+            blockNumber: "BLK/2026/000006",
+            referenceNumber: "HD-0001",
+            description: null,
+          }),
         ]}
         canOperate={false}
         branchId="b"
       />
     );
+    expect(screen.getAllByTestId("block-document")).toHaveLength(2);
     fireEvent.change(screen.getByTestId("commitments-filter"), { target: { value: "0087" } });
+    expect(screen.getAllByTestId("block-document")).toHaveLength(1);
     expect(screen.getAllByTestId("block-line")).toHaveLength(1);
   });
 });
