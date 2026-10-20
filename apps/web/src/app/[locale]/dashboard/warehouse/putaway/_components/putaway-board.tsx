@@ -22,6 +22,9 @@ import type { ReceivingPendingItem } from "@/server/services/inventory-receiving
 import { PutawayDialog } from "./putaway-dialog";
 import { ScanFlow, type ScanFlowStep } from "./scan-flow";
 import { unlockScanSound } from "./scan-feedback";
+import { useScanIndex } from "./scan-index";
+import { useWarehouseLocationsQuery } from "@/hooks/queries/warehouse";
+import type { QrIndexEntry } from "@/server/services/putaway-scan.service";
 import {
   formatQty,
   isContainerPart,
@@ -33,6 +36,7 @@ import {
 export { itemKey } from "./putaway-utils";
 
 type Props = {
+  organizationId: string;
   branchId: string;
   receivingLocationId: string | null;
   items: ReceivingPendingItem[];
@@ -40,6 +44,8 @@ type Props = {
   canOperate: boolean;
   /** Per repair order: client, its containers, where its loose parts lie. */
   orders?: Record<string, RepairOrderInfo>;
+  /** Every QR code of the organization: scans are recognised on the phone. */
+  qrCodes?: QrIndexEntry[];
 };
 
 type OrderGroup = {
@@ -116,12 +122,14 @@ function sectionsOf(items: ReceivingPendingItem[], orders: Record<string, Repair
 }
 
 export function PutawayBoard({
+  organizationId,
   branchId,
   receivingLocationId,
   items,
   loadError,
   canOperate,
   orders = {},
+  qrCodes = [],
 }: Props) {
   const t = useTranslations("modules.warehouse.putaway");
   const [active, setActive] = useState<ReceivingPendingItem | null>(null);
@@ -130,6 +138,9 @@ export function PutawayBoard({
   const [scanSession, setScanSession] = useState(0);
   const [openOrders, setOpenOrders] = useState<Set<string>>(() => new Set());
   const [document, setDocument] = useState<string | null>(null);
+  const scanIndex = useScanIndex({ qrCodes, organizationId, branchId, orders });
+  // Loaded with the screen, so a scanned location is known the moment it is read.
+  useWarehouseLocationsQuery(branchId);
 
   const openScan = (step?: ScanFlowStep) => {
     unlockScanSound();
@@ -489,6 +500,7 @@ export function PutawayBoard({
           receivingLocationId={receivingLocationId}
           items={items}
           orders={orders}
+          scanIndex={scanIndex}
         />
       )}
 
@@ -498,6 +510,7 @@ export function PutawayBoard({
           branchId={branchId}
           receivingLocationId={receivingLocationId}
           onClose={() => setActive(null)}
+          lookupToken={scanIndex.lookupToken}
         />
       )}
     </div>

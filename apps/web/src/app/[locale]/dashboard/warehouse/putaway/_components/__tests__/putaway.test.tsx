@@ -168,6 +168,7 @@ function renderBoard(items: ReceivingPendingItem[], canOperate = true) {
   return render(
     <PutawayBoard
       branchId="b1"
+      organizationId="o1"
       receivingLocationId="prz"
       items={items}
       orders={orders}
@@ -263,6 +264,7 @@ describe("PutawayBoard", () => {
     render(
       <PutawayBoard
         branchId="b1"
+        organizationId="o1"
         receivingLocationId={null}
         items={[]}
         loadError={false}

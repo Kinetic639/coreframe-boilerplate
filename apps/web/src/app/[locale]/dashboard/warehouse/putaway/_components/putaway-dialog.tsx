@@ -24,7 +24,11 @@ import {
 } from "@/components/ui/select";
 import { useWarehouseLocationsQuery } from "@/hooks/queries/warehouse";
 import { putawayFromReceivingAction } from "@/app/actions/warehouse/receiving";
-import { QrCameraScanner, type QrScanLookup } from "@/components/features/qr/qr-camera-scanner";
+import {
+  QrCameraScanner,
+  type QrScanLookup,
+  type TokenLookupResult,
+} from "@/components/features/qr/qr-camera-scanner";
 import type { ReceivingPendingItem } from "@/server/services/inventory-receiving.service";
 
 type Props = {
@@ -32,6 +36,8 @@ type Props = {
   branchId: string;
   receivingLocationId: string | null;
   onClose: () => void;
+  /** Recognises a scanned location on the phone (the putaway screen's code index). */
+  lookupToken?: (token: string) => Promise<TokenLookupResult>;
 };
 
 function locationLabel(loc: { code: string | null; name: string | null }) {
@@ -53,7 +59,13 @@ function suggestedLocationId(item: ReceivingPendingItem): string | null {
  * the RO's container there (or a new one), bulk material reserved at its
  * bin, free stock loose.
  */
-export function PutawayDialog({ item, branchId, receivingLocationId, onClose }: Props) {
+export function PutawayDialog({
+  item,
+  branchId,
+  receivingLocationId,
+  onClose,
+  lookupToken,
+}: Props) {
   const t = useTranslations("modules.warehouse.putaway.dialog");
   const tErr = useTranslations("modules.warehouse.putaway.errors");
   const router = useRouter();
@@ -149,6 +161,7 @@ export function PutawayDialog({ item, branchId, receivingLocationId, onClose }: 
         {scanning ? (
           <QrCameraScanner
             onScanned={handleScanned}
+            lookupToken={lookupToken}
             onBack={() => setScanning(false)}
             backLabel={t("scanBack")}
             hintLabel={t("scanHint")}

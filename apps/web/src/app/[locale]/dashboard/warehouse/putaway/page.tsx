@@ -39,11 +39,13 @@ export default async function PutawayPage() {
   }
 
   const supabase = await createClient();
-  const pending = await InventoryReceivingService.listPending(
-    supabase,
-    context.app.activeOrgId,
-    branchId
-  );
+  // The QR codes of the organization load alongside: scans are then
+  // recognised on the phone. Without them each scan asks the server (slower,
+  // still correct), so a failed read does not block the screen.
+  const [pending, qrIndex] = await Promise.all([
+    InventoryReceivingService.listPending(supabase, context.app.activeOrgId, branchId),
+    PutawayScanService.listQrIndex(supabase, context.app.activeOrgId),
+  ]);
 
   // Per repair order in the receiving zone: client and existing containers,
   // so the list says where each order already sits.
@@ -133,6 +135,8 @@ export default async function PutawayPage() {
   return (
     <PutawayBoard
       branchId={branchId}
+      organizationId={context.app.activeOrgId}
+      qrCodes={qrIndex.success ? qrIndex.data : []}
       receivingLocationId={pending.success ? pending.data.receivingLocationId : null}
       items={items}
       orders={orders}

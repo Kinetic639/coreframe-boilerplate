@@ -2958,7 +2958,10 @@
             "paused": "Stuknij, aby skanować",
             "sleeping": "Kamera uśpiona — stuknij, aby wznowić",
             "cameraError": "Brak dostępu do kamery — stuknij, aby spróbować ponownie"
-          }
+          },
+          "offline": "Brak połączenia — zeskanuj jeszcze raz.",
+          "looseLoading": "Luzem tutaj",
+          "looseLoadingHint": "Sprawdzam, co tu leży…"
         },
         "changes": {
           "range": {

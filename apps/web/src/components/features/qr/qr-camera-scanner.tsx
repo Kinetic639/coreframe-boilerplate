@@ -98,6 +98,11 @@ interface QrCameraScannerProps {
   onBack: () => void;
   backLabel?: string;
   hintLabel?: string;
+  /**
+   * Finds a scanned token. Defaults to the server lookup; a screen that
+   * already holds its codes passes a local one (no round trip).
+   */
+  lookupToken?: (token: string) => Promise<TokenLookupResult>;
   /** "Try again" after a failed scan; defaults to onBack. */
   onRetry?: () => void;
 }
@@ -106,6 +111,10 @@ interface QrCameraScannerProps {
 export function useSharedCamera() {
   return useContext(SharedCameraContext);
 }
+
+export type TokenLookupResult =
+  | { success: true; data: Omit<QrScanLookup, "token"> | null }
+  | { success: false; error: string };
 
 export type ResolvedScan =
   | { ok: true; lookup: QrScanLookup }
@@ -122,7 +131,7 @@ export async function resolveScannedQr(scannedText: string): Promise<ResolvedSca
   return { ok: true, lookup: { id, token, label, status, assignment } };
 }
 
-function extractToken(scannedText: string): string | null {
+export function extractToken(scannedText: string): string | null {
   try {
     const url = new URL(scannedText);
     const parts = url.pathname.split("/qr/");
@@ -141,6 +150,7 @@ export function QrCameraScanner({
   backLabel,
   hintLabel,
   onRetry,
+  lookupToken,
 }: QrCameraScannerProps) {
   const t = useTranslations("qrScanner");
   const shared = useContext(SharedCameraContext);
@@ -176,7 +186,7 @@ export function QrCameraScanner({
       }
 
       setScanStatus(t("lookingUp"));
-      const lookup = await getQrCodeByTokenAction(token);
+      const lookup = await (lookupToken ?? getQrCodeByTokenAction)(token);
 
       if (!lookup.success || !lookup.data) {
         setScanStatus(t("notFound"));
@@ -201,7 +211,7 @@ export function QrCameraScanner({
         processingRef.current = false;
       }
     },
-    [onScanned, stopCamera, t]
+    [onScanned, stopCamera, t, lookupToken]
   );
 
   useEffect(() => {

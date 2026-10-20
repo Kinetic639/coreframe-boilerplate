@@ -130,7 +130,59 @@ async function repairOrdersById(supabase: SupabaseClient, ids: string[]) {
   );
 }
 
+/** One QR code of the organization and what it is assigned to (null = free sticker). */
+export type QrIndexEntry = {
+  id: string;
+  token: string;
+  assignment: { target_type: string; target_id: string } | null;
+};
+
 export class PutawayScanService {
+  /**
+   * Every active QR code of the organization with its active assignment --
+   * loaded once with the putaway screen so a scan is recognised on the phone
+   * without a round trip (RLS read). The putaway itself is checked again by
+   * the engine, so a stale entry can only cost a refused putaway.
+   */
+  static async listQrIndex(
+    supabase: SupabaseClient,
+    organizationId: string
+  ): Promise<ServiceResult<QrIndexEntry[]>> {
+    const { data, error } = await supabase
+      .from("qr_codes")
+      .select(
+        "id, token, qr_assignments!qr_assignments_qr_code_id_fkey(target_type, target_id, revoked_at)"
+      )
+      .eq("organization_id", organizationId)
+      .eq("status", "active")
+      .is("deleted_at", null)
+      .limit(20000);
+    if (error) return { success: false, error: "Failed to load QR codes" };
+    return {
+      success: true,
+      data: (
+        (data ?? []) as Array<{
+          id: string;
+          token: string;
+          qr_assignments: Array<{
+            target_type: string;
+            target_id: string;
+            revoked_at: string | null;
+          }> | null;
+        }>
+      ).map((row) => {
+        const active = (row.qr_assignments ?? []).find((a) => a.revoked_at === null) ?? null;
+        return {
+          id: row.id,
+          token: row.token,
+          assignment: active
+            ? { target_type: active.target_type, target_id: active.target_id }
+            : null,
+        };
+      }),
+    };
+  }
+
   /** Active containers of the given repair orders, with their location. */
   static async containersForRepairOrders(
     supabase: SupabaseClient,
