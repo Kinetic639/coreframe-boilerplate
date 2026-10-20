@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Search } from "lucide-react";
+import { ScanLine, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { unlockScanSound } from "@/components/features/qr/scan-feedback";
 import { useGlobalSearchStore } from "./global-search-store";
 
 interface GlobalSearchTriggerProps {
@@ -52,5 +53,31 @@ export function GlobalSearchTrigger({ variant }: GlobalSearchTriggerProps) {
         {shortcut}
       </kbd>
     </button>
+  );
+}
+
+/**
+ * Phones: one tap into the camera (the same scanner as in the palette). An
+ * Ambra label opens what it points to, any other code is searched.
+ */
+export function GlobalScanTrigger() {
+  const t = useTranslations("globalSearch");
+  const openScanner = useGlobalSearchStore((s) => s.openScanner);
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      className="h-9 w-9"
+      onClick={() => {
+        // The tap also unlocks the scan sound on iOS.
+        unlockScanSound();
+        openScanner();
+      }}
+      aria-label={t("scanner.open")}
+      title={t("scanner.open")}
+      data-testid="global-scan-trigger"
+    >
+      <ScanLine className="h-5 w-5" />
+    </Button>
   );
 }

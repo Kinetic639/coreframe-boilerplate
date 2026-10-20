@@ -64,6 +64,8 @@ import {
 } from "@/lib/global-search/entity-search";
 import type { ExactHitType, SearchExactHit } from "@/server/services/global-search.service";
 import { useGlobalSearchStore } from "./global-search-store";
+import { directQrHref, useQrRouteIndex } from "./qr-route-index";
+import { scanSuccessFeedback, unlockScanSound } from "@/components/features/qr/scan-feedback";
 import { GlobalSearchPreview } from "./global-search-preview";
 import { GlobalSearchScanner, type ScannedCode } from "./global-search-scanner";
 import {
@@ -363,7 +365,7 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
   );
   const { accessibleBranches, activeBranchId, activeOrgId, setActiveBranch } = useAppStoreV2();
   const userId = useUserStoreV2((s) => s.user?.id ?? null);
-  const { open, initialQuery, setOpen, toggle } = useGlobalSearchStore();
+  const { open, initialQuery, scanOnOpen, setOpen, toggle } = useGlobalSearchStore();
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState("");
   const [recent, setRecent] = useState<RecentSearchItem[]>([]);
@@ -378,6 +380,12 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
   useEffect(() => {
     if (!open) setScanning(false);
   }, [open]);
+  // ...except from the header's scan button (phones): straight into the camera.
+  useEffect(() => {
+    if (open && scanOnOpen) setScanning(true);
+  }, [open, scanOnOpen]);
+  // Where QR labels point, loaded while the palette is open (see qr-route-index).
+  const qrRoute = useQrRouteIndex(activeOrgId ?? null, open);
   const [isPending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -766,16 +774,22 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
    */
   const onScanned = useCallback(
     (code: ScannedCode) => {
+      // The code is read: say so at once, before anything loads.
+      scanSuccessFeedback();
       setScanning(false);
       if (code.kind === "ambraQr") {
         close();
-        router.push(toUnsafeI18nHref(`/qr/${encodeURIComponent(code.token)}`));
+        // A label of a location / container of this branch opens its page
+        // directly; anything else goes through /qr (validation, branch switch).
+        const direct = directQrHref(qrRoute(code.token), activeBranchId);
+        if (direct) router.push(direct);
+        else router.push(toUnsafeI18nHref(`/qr/${encodeURIComponent(code.token)}`));
         return;
       }
       setQuery(code.text);
       requestAnimationFrame(() => inputRef.current?.focus());
     },
-    [close, router]
+    [close, router, qrRoute, activeBranchId]
   );
 
   const copyCode = useCallback(
@@ -1100,7 +1114,10 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
             </div>
             <button
               type="button"
-              onClick={() => setScanning((value) => !value)}
+              onClick={() => {
+                unlockScanSound();
+                setScanning((value) => !value);
+              }}
               aria-label={t("scanner.open")}
               aria-pressed={scanning}
               title={t("scanner.open")}
@@ -1380,7 +1397,10 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
               <div className="border-t bg-muted/40 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:hidden">
                 <button
                   type="button"
-                  onClick={() => setScanning(true)}
+                  onClick={() => {
+                    unlockScanSound();
+                    setScanning(true);
+                  }}
                   className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border bg-background text-base font-medium"
                 >
                   <ScanLine className="size-5" />

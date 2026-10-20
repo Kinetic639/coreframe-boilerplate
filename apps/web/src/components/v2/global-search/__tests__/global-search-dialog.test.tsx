@@ -4,6 +4,10 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SearchEntry } from "@/lib/global-search/types";
 import { GlobalSearchDialog } from "../global-search-dialog";
 import { useGlobalSearchStore } from "../global-search-store";
+import { resetQrRouteIndex } from "../qr-route-index";
+
+/** /api/qr/index: where QR labels point (the global scanner's map). */
+const qrIndexMock = vi.fn();
 
 const push = vi.fn();
 const replace = vi.fn();
@@ -169,7 +173,16 @@ describe("GlobalSearchDialog", () => {
       data: { exact: [], results: [], otherBranches: [] },
     });
     previewMock.mockResolvedValue({ success: true, data: null });
-    useGlobalSearchStore.setState({ open: false, initialQuery: "" });
+    useGlobalSearchStore.setState({ open: false, initialQuery: "", scanOnOpen: false });
+    resetQrRouteIndex();
+    qrIndexMock.mockResolvedValue([]);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({ success: true, data: await qrIndexMock() }),
+      }))
+    );
     window.localStorage.clear();
   });
 
@@ -616,6 +629,39 @@ describe("GlobalSearchDialog", () => {
     // Order rows in the preview open the order
     fireEvent.click(screen.getByText(byText("174232")));
     expect(push).toHaveBeenCalledWith("/dashboard/workshop/ro9");
+  });
+
+  it("opens straight into the camera from the header's scan button", () => {
+    renderDialog();
+    act(() => useGlobalSearchStore.getState().openScanner());
+    expect(screen.getByText("fake-scan-qr")).toBeInTheDocument();
+  });
+
+  it("a known label of a location in this branch opens the location at once, not /qr", async () => {
+    qrIndexMock.mockResolvedValue([
+      { token: "tok1", targetType: "warehouse.location", targetId: "loc9", branchId: "b1" },
+    ]);
+    renderDialog();
+    act(() => useGlobalSearchStore.getState().openScanner());
+    await waitFor(() => expect(qrIndexMock).toHaveBeenCalled());
+    await act(async () => {});
+    fireEvent.click(screen.getByText("fake-scan-qr"));
+    expect(push).toHaveBeenCalledWith({
+      pathname: "/dashboard/warehouse/locations",
+      query: { selected: "loc9", view: "tree" },
+    });
+  });
+
+  it("a label of another branch still goes through /qr (it offers the branch switch)", async () => {
+    qrIndexMock.mockResolvedValue([
+      { token: "tok1", targetType: "inventory.container", targetId: "c1", branchId: "b2" },
+    ]);
+    renderDialog();
+    act(() => useGlobalSearchStore.getState().openScanner());
+    await waitFor(() => expect(qrIndexMock).toHaveBeenCalled());
+    await act(async () => {});
+    fireEvent.click(screen.getByText("fake-scan-qr"));
+    expect(push).toHaveBeenCalledWith("/qr/tok1");
   });
 
   it("searches a scanned barcode and opens an Ambra QR label on its QR page", async () => {
