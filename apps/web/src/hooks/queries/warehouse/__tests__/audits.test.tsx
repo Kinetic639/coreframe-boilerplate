@@ -367,6 +367,26 @@ describe("useApproveCountSessionMutation", () => {
 
     expect(toast.error).toHaveBeenCalledWith("Missing warehouse.inventory.adjust permission");
   });
+
+  it("translates a shortage that would take reserved or blocked parts, with its numbers", async () => {
+    vi.mocked(approveInventoryCountSessionAction).mockResolvedValue({
+      success: false,
+      error:
+        "Count shortage of 1.000000 for P138 at 138-PRZ exceeds the free stock (D 0.000000): 3.000000 reserved (R) and 0.000000 blocked (B) there. Release those reservations or unblock first, then approve.",
+    });
+    const { wrapper } = makeWrapper();
+    const { result } = renderHook(() => useApproveCountSessionMutation(), { wrapper });
+
+    await act(async () => {
+      try {
+        await result.current.mutateAsync({ id: SESSION_ID });
+      } catch {
+        // expected
+      }
+    });
+
+    expect(toast.error).toHaveBeenCalledWith("sessionApproveShortage");
+  });
 });
 
 // ─── useUpdateCountSessionStatusMutation ──────────────────────────────────────

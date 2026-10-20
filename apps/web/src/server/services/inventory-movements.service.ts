@@ -1015,13 +1015,15 @@ export class InventoryMovementsService {
     const totalOnHandMap = new Map<string, number>();
     if (!isLocationMode) {
       const vIds = variants.map((v: any) => v.id);
-      const { data: totals } = await supabase
+      const { data: totals, error: totalsError } = await supabase
         .from("inventory_balances")
         .select("variant_id, on_hand_quantity")
         .eq("organization_id", orgId)
         .eq("branch_id", branchId)
         .in("variant_id", vIds)
         .gt("on_hand_quantity", 0);
+      // Otherwise every item would show 0 on hand.
+      if (totalsError) return { success: false, error: totalsError.message };
 
       for (const t of (totals ?? []) as any[]) {
         totalOnHandMap.set(

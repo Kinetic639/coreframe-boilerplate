@@ -7363,6 +7363,7 @@
         "sessionCreateFailed": "Nie udało się utworzyć sesji inwentaryzacji",
         "sessionApproved": "Inwentaryzacja zaksięgowana — stany skorygowane",
         "sessionApproveFailed": "Nie udało się zaksięgować inwentaryzacji",
+        "sessionApproveShortage": "Brakuje {shortage} szt. {sku} w {location}, a wolnych (D) jest tylko {free}: {reserved} zarezerwowanych (R) i {blocked} zablokowanych (B). Najpierw zwolnij te rezerwacje albo odblokuj części, potem zatwierdź.",
         "sessionStatusUpdateFailed": "Nie udało się zaktualizować statusu inwentaryzacji",
         "lineUpdated": "Pozycja zapisana",
         "lineUpdateFailed": "Nie udało się zapisać pozycji",
@@ -7644,7 +7645,8 @@
       "free": "Wolny towar",
       "reservedFor": "ZL {zl}",
       "assignedQty": "zarezerwowano {quantity} {unit}",
-      "restFree": "reszta ({quantity}) jako wolny towar"
+      "restFree": "reszta ({quantity}) jako wolny towar",
+      "loadError": "Nie udało się wczytać, gdzie rozlokowano pozycje tego PZ. Odśwież stronę."
     },
     "movementImport": {
       "title": "Import danych do ruchu",

@@ -25,6 +25,7 @@ type PageProps = {
 export default async function WarehouseInventoryMovementDetailPage({ params }: PageProps) {
   const locale = await getLocale();
   const t = await getTranslations("warehouseInventory.movements");
+  const tReport = await getTranslations("warehouseInventory.receiptReport");
   const context = await loadDashboardContextV2();
   const { movementId } = await params;
 
@@ -127,6 +128,11 @@ export default async function WarehouseInventoryMovementDetailPage({ params }: P
       {reportResult?.success && (
         <ReceiptPutawayReport documentNumber={detail.document_number} lines={reportResult.data} />
       )}
+      {reportResult && !reportResult.success ? (
+        <p className="text-sm text-destructive" data-testid="receipt-report-error">
+          {tReport("loadError")}
+        </p>
+      ) : null}
     </div>
   );
 }

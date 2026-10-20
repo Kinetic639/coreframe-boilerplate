@@ -139,7 +139,7 @@ export const svwmsWddMatcherMovementImportAdapter: MovementImportSourceAdapter =
     const references = sessions.data.map((session) => compactSessionReference(session));
     const importedByReference = new Map<string, string>();
     if (references.length > 0) {
-      const { data: movements } = await supabase
+      const { data: movements, error: movementsError } = await supabase
         .from("inventory_movement_headers")
         .select("external_reference, document_number, draft_number, status, created_at")
         .eq("organization_id", orgId)
@@ -147,6 +147,10 @@ export const svwmsWddMatcherMovementImportAdapter: MovementImportSourceAdapter =
         .in("external_reference", references)
         .in("status", ["draft", "posted"])
         .order("created_at", { ascending: true });
+      // Without this read every session would look not yet received.
+      if (movementsError) {
+        return { success: false, error: "Could not check which sessions are already received" };
+      }
       for (const movement of (movements ?? []) as Array<{
         external_reference: string | null;
         document_number: string | null;

@@ -9,24 +9,12 @@ import {
   assignRepairOrderAdvisorAction,
   changeRepairOrderStatusAction,
   listAdvisorCandidatesAction,
-  reserveRepairOrderLineAction,
-  releaseRepairOrderLineReservationAction,
-  listRepairOrderLineReservationsAction,
-  allocateRepairOrderLineAction,
-  listRepairOrderLineAllocationsAction,
   createRepairOrderContainerAction,
-  placeAllocationInContainerAction,
 } from "@/app/actions/workshop/repair-orders";
 import type {
   RepairOrderHeader,
   RepairOrderAdvisorCandidate,
-  RepairOrderLineReservation,
-  RepairOrderLineReservationResult,
-  RepairOrderLineReservationReleaseResult,
-  RepairOrderLineAllocationLine,
-  RepairOrderLineAllocationResult,
   RepairOrderContainerResult,
-  RepairOrderContainerPlacementResult,
 } from "@/server/services/repair-orders.service";
 
 // ---------------------------------------------------------------------------
@@ -36,22 +24,6 @@ import type {
 export const workshopKeys = {
   all: ["workshop-repair-orders"] as const,
   advisorCandidates: () => [...workshopKeys.all, "advisor-candidates"] as const,
-  /**
-   * Phase 10A correction (2026-09-14): branch-scoped. `branchId` is cache
-   * IDENTITY only, never authorization -- the server-side scope resolution
-   * in `RepairOrdersService.reserveForLine`/`releaseReservationForLine`/
-   * `listReservationsForLine` is unchanged and remains the real boundary.
-   * Without `branchId` in the key, switching the active branch while a
-   * RepairOrderLine detail view from a previous branch stays mounted could
-   * render that previous branch's cached reservation result under the new
-   * branch context -- this key shape makes that structurally impossible
-   * (a different branchId is always a different cache entry).
-   */
-  lineReservations: (branchId: string | null, lineId: string) =>
-    [...workshopKeys.all, "line-reservations", branchId, lineId] as const,
-  /** Phase 10D: same branch-scoped cache-identity rule as lineReservations. */
-  lineAllocations: (branchId: string | null, lineId: string) =>
-    [...workshopKeys.all, "line-allocations", branchId, lineId] as const,
 };
 
 // ---------------------------------------------------------------------------
@@ -123,122 +95,6 @@ export function useChangeRepairOrderStatusMutation() {
     mutationFn: (input: unknown) => changeRepairOrderStatusAction(input).then(unwrap),
     onSuccess: () => toast.success(t("toasts.statusChangedSuccess")),
     onError: (err: Error) => toast.error(err.message),
-  });
-}
-
-/**
- * Phase 10A: a RepairOrderLine's own active reservation(s), fetched ONLY
- * when `enabled` (the line's own reservation affordance is opened) --
- * never eagerly for every line on initial page load, avoiding an N+1
- * query per line. `staleTime: 0` -- reservation state changes from a
- * user's own reserve/release action and must never show stale data.
- *
- * Phase 10A correction (2026-09-14): `branchId` is now part of the query
- * key (see `workshopKeys.lineReservations`) -- cache identity only, not an
- * authorization parameter. Returns the full react-query result object
- * (not just `data`) so callers can distinguish never-fetched / loading /
- * error / success against the library's own status flags, rather than
- * inferring state from `data ?? []` (which cannot tell "never fetched"
- * apart from "fetched, genuinely zero reservations").
- */
-export function useRepairOrderLineReservationsQuery(
-  lineId: string,
-  enabled: boolean,
-  branchId: string | null
-) {
-  return useQuery<RepairOrderLineReservation[]>({
-    queryKey: workshopKeys.lineReservations(branchId, lineId),
-    queryFn: () => listRepairOrderLineReservationsAction(lineId).then(unwrap),
-    enabled,
-    staleTime: 0,
-  });
-}
-
-export function useReserveRepairOrderLineMutation(lineId: string, branchId: string | null) {
-  const t = useTranslations("modules.workshop.repairOrders");
-  const qc = useQueryClient();
-
-  return useMutation<RepairOrderLineReservationResult, Error, unknown>({
-    mutationFn: (input: unknown) => reserveRepairOrderLineAction(input).then(unwrap),
-    onSuccess: () => {
-      toast.success(t("toasts.reservationCreatedSuccess"));
-      qc.invalidateQueries({ queryKey: workshopKeys.lineReservations(branchId, lineId) });
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-}
-
-export function useReleaseRepairOrderLineReservationMutation(
-  lineId: string,
-  branchId: string | null
-) {
-  const t = useTranslations("modules.workshop.repairOrders");
-  const qc = useQueryClient();
-
-  return useMutation<RepairOrderLineReservationReleaseResult, Error, unknown>({
-    mutationFn: (input: unknown) => releaseRepairOrderLineReservationAction(input).then(unwrap),
-    onSuccess: () => {
-      toast.success(t("toasts.reservationReleasedSuccess"));
-      qc.invalidateQueries({ queryKey: workshopKeys.lineReservations(branchId, lineId) });
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-}
-
-/**
- * Phase 10D: a RepairOrderLine's allocation lines, lazily (only when the
- * line's container affordance is open), branch-scoped key.
- */
-export function useRepairOrderLineAllocationsQuery(
-  lineId: string,
-  enabled: boolean,
-  branchId: string | null
-) {
-  return useQuery<RepairOrderLineAllocationLine[]>({
-    queryKey: workshopKeys.lineAllocations(branchId, lineId),
-    queryFn: () => listRepairOrderLineAllocationsAction(lineId).then(unwrap),
-    enabled,
-    staleTime: 0,
-  });
-}
-
-/** Phase 10D: allocate a reservation line (whole outstanding quantity by
- * default, chosen by the caller). Refreshes both the line's reservations and
- * allocations, since allocating consumes reserved quantity. */
-export function useAllocateRepairOrderLineMutation(lineId: string, branchId: string | null) {
-  const t = useTranslations("modules.workshop.repairOrders.lines.container");
-  const qc = useQueryClient();
-
-  return useMutation<RepairOrderLineAllocationResult, Error, unknown>({
-    mutationFn: (input: unknown) => allocateRepairOrderLineAction(input).then(unwrap),
-    onSuccess: () => {
-      toast.success(t("allocatedToast"));
-      qc.invalidateQueries({ queryKey: workshopKeys.lineReservations(branchId, lineId) });
-      qc.invalidateQueries({ queryKey: workshopKeys.lineAllocations(branchId, lineId) });
-    },
-    onError: () => toast.error(t("allocateError")),
-  });
-}
-
-/** Phase 10D: place an allocated quantity into one of the RepairOrder's
- * own containers. The container list itself is server-rendered on the
- * detail page, so `onPlaced` lets the caller refresh it. */
-export function usePlaceAllocationInContainerMutation(
-  lineId: string,
-  branchId: string | null,
-  onPlaced?: () => void
-) {
-  const t = useTranslations("modules.workshop.repairOrders.lines.container");
-  const qc = useQueryClient();
-
-  return useMutation<RepairOrderContainerPlacementResult, Error, unknown>({
-    mutationFn: (input: unknown) => placeAllocationInContainerAction(input).then(unwrap),
-    onSuccess: () => {
-      toast.success(t("added"));
-      qc.invalidateQueries({ queryKey: workshopKeys.lineAllocations(branchId, lineId) });
-      onPlaced?.();
-    },
-    onError: () => toast.error(t("addError")),
   });
 }
 

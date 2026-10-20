@@ -257,11 +257,22 @@ Każdy etap kończy się zielonymi testami i sprawdzeniem na danych demo, dopier
 
 Odstępstwa od kolejności z planu (zmiany kolejności, nie modelu):
 
-- **Dokument rezerwacji na całe zlecenie** (jeden REZ z liniami na części) wchodzi razem z przebudową ekranów zlecenia (E4/E7). W E2/E3 PZ tworzy jeden REZ na pozycję zlecenia (`reference_type = 'repair_order_line'`). Ten kształt czytają dziś wszystkie ekrany i funkcje (wydanie, kontenery), więc nic nie trzeba było przepisywać naraz. Linie i tak mają już `repair_order_line_id` i źródło.
+- **Dokument rezerwacji na całe zlecenie** (jeden REZ z liniami na części) wchodzi razem z przebudową ekranów zlecenia (E4/E7); dla PZ od 2026-10-19 (poniżej). W E2/E3 PZ tworzył jeden REZ na pozycję zlecenia (`reference_type = 'repair_order_line'`). Ten kształt czytają dziś wszystkie ekrany i funkcje (wydanie, kontenery), więc nic nie trzeba było przepisywać naraz. Linie i tak mają już `repair_order_line_id` i źródło.
 - **„RW 261 zawsze ze zleceniem” w bazie** wchodzi razem z edytorem ruchów (E6). Do tego czasu zwykłe RW z edytora i tak może wziąć tylko D, więc zarezerwowane części są chronione.
 - Zrobione w E4: `inventory_release_reservation` zapisuje zdarzenia w historii. `inventory_attribute_receipt_lines` (przypisanie po liniach Matchera) nie jest używana przez aplikację i nie tworzy rezerwacji.
 - E5: zablokowane części można przenieść (`inventory_move_blocked_stock`: MM, blokada idzie z częścią), np. na półkę reklamacji. Części w kontenerze zlecenia trzeba najpierw z niego wyjąć, żeby je zwolnić, przenieść na inne zlecenie albo zablokować (kod błędu `in_container`).
-- Do uzupełnienia: `admin_reset_demo_org_data` nie czyści jeszcze nagłówków blokad (linie i zdarzenia znikają kaskadowo razem z produktami i ruchami).
+- `admin_reset_demo_org_data` usuwa też nagłówki blokad: migracja `20261019052400_reservations_followups_demo_reset` (do uruchomienia w edytorze SQL, MCP odrzuca DELETE/ALTER TABLE).
+
+### Poprawki po wdrożeniu (2026-10-19)
+
+| Co                                                                                                                                                                               | Gdzie                                                                                         |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| PZ tworzy **jeden REZ na zlecenie** (linia na każdą część), jak „Zarezerwuj z magazynu”. Nagłówek: `reference_type = 'repair_order'`; linie mają `repair_order_line_id`.         | `20261019052324_reservations_followups` (na produkcji), testy 134 (20/20) i 138 (7/7) zielone |
+| Inwentaryzacja, której niedobór sięga R albo B, **zatrzymuje się z czytelnym komunikatem** (ile brakuje, D, R, B, lokalizacja, co zrobić). Nic nie jest zwalniane automatycznie. | jw., test 138 zielony                                                                         |
+| Stary kod zlecenia usunięty: lista pozycji, widok magazynu, rezerwowanie i kontener po jednej pozycji (komponenty, hooki, akcje serwera, metody zapisu w serwisie, testy).       | `workshop/[id]`, `hooks/queries/workshop`, `actions/workshop`                                 |
+| Magazyn nie pokazuje błędu odczytu jako „brak danych”: strefa przyjęć (źródła części), raport PZ, lokalizacje, mapa, picker ruchu, wyszukiwanie po numerze części, sesje SVWMS.  | serwisy + strony; testy zapytań na żywym API: `warehouse-queries.live`                        |
+
+`inventory_attribute_receipt_lines` zostaje w bazie (używa jej test 118).
 
 **Wycofanie:** migracje są addytywne. Gdyby E2+E3 trzeba było cofnąć, akcja importu wraca do starego wywołania, funkcja strefy przyjęć do poprzedniej treści, a nowe rezerwacje zostają jako zwykłe dokumenty, które można zwolnić. Danych nie trzeba usuwać.
 

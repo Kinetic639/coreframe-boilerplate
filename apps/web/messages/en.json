@@ -7389,6 +7389,7 @@
         "sessionCreateFailed": "Failed to create audit session",
         "sessionApproved": "Audit posted — stock corrected",
         "sessionApproveFailed": "Failed to post audit",
+        "sessionApproveShortage": "{shortage} pcs of {sku} are missing at {location}, but only {free} are free (D): {reserved} reserved (R) and {blocked} blocked (B). Release those reservations or unblock first, then approve.",
         "sessionStatusUpdateFailed": "Failed to update audit status",
         "lineUpdated": "Line saved",
         "lineUpdateFailed": "Failed to save line",
@@ -7670,7 +7671,8 @@
       "free": "Free stock",
       "reservedFor": "ZL {zl}",
       "assignedQty": "reserved {quantity} {unit}",
-      "restFree": "rest ({quantity}) as free stock"
+      "restFree": "rest ({quantity}) as free stock",
+      "loadError": "Could not load where this receipt was put away. Refresh the page."
     },
     "movementImport": {
       "title": "Import movement data",

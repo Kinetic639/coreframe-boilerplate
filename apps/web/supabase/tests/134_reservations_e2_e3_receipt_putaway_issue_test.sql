@@ -117,10 +117,11 @@ INSERT INTO test_log(line) SELECT ok(
   'T6: R left the receiving zone and sits at L1 (in the container)');
 
 INSERT INTO test_log(line) SELECT ok(
-  (SELECT count(*) = 1 FROM inventory_reservations r JOIN inventory_reservation_lines rl ON rl.reservation_id = r.id
-   WHERE r.reference_id = (SELECT rol1 FROM fx) AND rl.location_id = (SELECT loc_l1 FROM fx)
+  (SELECT count(*) = 1 FROM inventory_reservation_lines rl
+   WHERE rl.repair_order_line_id = (SELECT rol1 FROM fx) AND rl.location_id = (SELECT loc_l1 FROM fx)
      AND rl.moved_from_line_id IS NOT NULL)
-  AND (SELECT count(DISTINCT r.id) = 1 FROM inventory_reservations r WHERE r.reference_id = (SELECT rol1 FROM fx)),
+  AND (SELECT count(DISTINCT rl.reservation_id) = 1 FROM inventory_reservation_lines rl
+       WHERE rl.repair_order_line_id = (SELECT rol1 FROM fx)),
   'T7: the same reservation document continues at L1 (moved_from the receiving-zone line)');
 
 INSERT INTO test_log(line) SELECT ok(

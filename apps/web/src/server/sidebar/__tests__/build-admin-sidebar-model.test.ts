@@ -9,6 +9,7 @@
  */
 import { describe, it, expect, afterEach } from "vitest";
 import { buildAdminSidebarModelUncached } from "../build-admin-sidebar-model";
+import { ADMIN_MAIN_NAV_ITEMS } from "@/lib/sidebar/admin-v2/registry";
 import { clearPermissionRegexCache } from "@/lib/utils/permissions";
 import {
   SUPERADMIN_ADMIN_READ,
@@ -140,7 +141,13 @@ describe("Access granted", () => {
       "en"
     );
 
-    expect(model.main).toHaveLength(2);
+    // Every item gated by one of the two granted permissions, nothing else.
+    const expected = ADMIN_MAIN_NAV_ITEMS.filter((item) =>
+      item.visibility?.requiresPermissions?.every(
+        (p) => p === SUPERADMIN_ADMIN_READ || p === SUPERADMIN_PLANS_READ
+      )
+    ).map((item) => item.id);
+    expect(model.main.map((item) => item.id)).toEqual(expected);
     expect(findItemById(model, "admin.home")).toBeDefined();
     expect(findItemById(model, "admin.plans")).toBeDefined();
     expect(findItemById(model, "admin.pricing")).toBeUndefined();

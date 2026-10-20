@@ -26,14 +26,17 @@ import { RepairOrderHeaderEditor } from "./_components/repair-order-header-edito
 import { RepairOrderProvenance } from "./_components/repair-order-provenance";
 import { RepairOrderContainers } from "./_components/repair-order-containers";
 import { RepairOrderIssue } from "./_components/repair-order-issue";
-import { isRepairOrderWarehouseTab } from "./_components/repair-order-warehouse";
 import { InventoryContainersService } from "@/server/services/inventory-containers.service";
 import { AttachmentsPanel } from "@/components/features/attachments";
 import { BranchWarehousesService } from "@/server/services/branch-warehouses.service";
 import { ObjectRelationsService } from "@/server/services/object-relations.service";
 import { RepairOrderRelations } from "./_components/repair-order-relations";
 import { RepairOrderTabs } from "./_components/repair-order-tabs";
-import { isRepairOrderTab, type RepairOrderTab } from "./_components/repair-order-tab-ids";
+import {
+  isLegacyRepairOrderWarehouseTab,
+  isRepairOrderTab,
+  type RepairOrderTab,
+} from "./_components/repair-order-tab-ids";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -65,9 +68,8 @@ type PageProps = {
 export default async function RepairOrderDetailPage({ params, searchParams }: PageProps) {
   const { id } = await params;
   const tabParam = (searchParams ? await searchParams : {}).tab;
-  const warehouseTab = isRepairOrderWarehouseTab(tabParam) ? tabParam : undefined;
   // ?tab=stock / ?tab=receiving (global search): the per-part state is on "Pozycje".
-  const initialTab: RepairOrderTab = warehouseTab
+  const initialTab: RepairOrderTab = isLegacyRepairOrderWarehouseTab(tabParam)
     ? "lines"
     : isRepairOrderTab(tabParam)
       ? tabParam

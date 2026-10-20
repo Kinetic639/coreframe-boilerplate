@@ -19,20 +19,14 @@ vi.mock("../_components/warehouse-placeholder-page", () => ({
 import WarehouseAlertsPage from "../alerts/page";
 import WarehouseClientsPage from "../clients/page";
 import WarehouseDeliveriesPage from "../deliveries/page";
-import WarehouseInventoryPage from "../inventory/page";
-import WarehouseItemsPage from "../items/page";
 import WarehousePurchasesPage from "../purchases/page";
-import WarehouseSettingsPage from "../settings/page";
 import WarehouseSuppliersPage from "../suppliers/page";
 
 const cases = [
   ["alerts", WarehouseAlertsPage, "items.alerts.title"],
   ["clients", WarehouseClientsPage, "items.sales.clients"],
   ["deliveries", WarehouseDeliveriesPage, "items.deliveries.title"],
-  ["inventory", WarehouseInventoryPage, "items.inventory.title"],
-  ["items", WarehouseItemsPage, "items.products.title"],
   ["purchases", WarehousePurchasesPage, "items.purchases.title"],
-  ["settings", WarehouseSettingsPage, "items.settings.title"],
   ["suppliers", WarehouseSuppliersPage, "items.suppliers.title"],
 ] as const;
 
