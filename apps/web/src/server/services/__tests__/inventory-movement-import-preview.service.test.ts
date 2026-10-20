@@ -33,6 +33,29 @@ const optionalPolicy = (fieldKey: string): MovementFieldPolicy => ({
   display_order: 1,
 });
 
+const matcherSession = {
+  id: "session-1",
+  organization_id: "org-1",
+  branch_id: "branch-1",
+  session_number: "SVWMS-000123",
+  name: "Dostawa 26.06.2026 22:09",
+  status: "ready_for_review" as const,
+  match_summary: null,
+  created_by: "user-1",
+  approved_by: null,
+  approved_at: null,
+  created_at: "2026-06-26T20:09:00.000Z",
+  updated_at: "2026-06-26T20:09:00.000Z",
+};
+
+/** A client whose inventory_movement_headers query (any filters) resolves to `result`. */
+function movementHeadersClient(result: { data: unknown; error: unknown }) {
+  const query: Record<string, unknown> = {};
+  for (const method of ["select", "eq", "in"]) query[method] = vi.fn(() => query);
+  query.order = vi.fn().mockResolvedValue(result);
+  return { from: vi.fn(() => query) } as never;
+}
+
 describe("InventoryMovementImportsService preview imports", () => {
   it("keeps the core movement import service independent from SVWMS", () => {
     const serviceSource = readFileSync(
@@ -99,7 +122,7 @@ describe("InventoryMovementImportsService preview imports", () => {
     });
 
     const result = await svwmsWddMatcherMovementImportAdapter.loadSourceFields?.(
-      {} as never,
+      movementHeadersClient({ data: [], error: null }),
       "org-1",
       "branch-1",
       "101"
@@ -111,8 +134,50 @@ describe("InventoryMovementImportsService preview imports", () => {
       value: "session-1",
       label: "Dostawa 26.06.2026 22:09",
       description: "2026-06-26T20:09:00.000Z",
+      imported_document: null,
     });
     expect(result.data[0].options?.[0].label).not.toContain("ready_for_review");
+  });
+
+  it("marks a session already received on a PZ with that PZ's number", async () => {
+    vi.spyOn(WddMatcherService, "listImportableSessionsForBranch").mockResolvedValue({
+      success: true,
+      data: [matcherSession],
+    });
+
+    const result = await svwmsWddMatcherMovementImportAdapter.loadSourceFields?.(
+      movementHeadersClient({
+        data: [
+          {
+            external_reference: "SVWMS-000123",
+            document_number: "PZ/2026/000007",
+            draft_number: null,
+          },
+        ],
+        error: null,
+      }),
+      "org-1",
+      "branch-1",
+      "101"
+    );
+
+    expect(result?.success && result.data[0].options?.[0].imported_document).toBe("PZ/2026/000007");
+  });
+
+  it("fails instead of showing sessions as not received when the PZ lookup fails", async () => {
+    vi.spyOn(WddMatcherService, "listImportableSessionsForBranch").mockResolvedValue({
+      success: true,
+      data: [matcherSession],
+    });
+
+    const result = await svwmsWddMatcherMovementImportAdapter.loadSourceFields?.(
+      movementHeadersClient({ data: null, error: { message: "boom" } }),
+      "org-1",
+      "branch-1",
+      "101"
+    );
+
+    expect(result?.success).toBe(false);
   });
 
   it("rejects unsupported source types before touching database dependencies", async () => {

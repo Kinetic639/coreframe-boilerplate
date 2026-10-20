@@ -35,7 +35,7 @@ export const wddMatcherKeys = {
    * Zone 1 / Phase 4: branchId is part of the query key (cache identity
    * only, never an authorization parameter) -- the session list is
    * branch-scoped server-side, and its cache identity must be too, matching
-   * the already-proven workshopKeys.lineReservations(branchId, lineId)
+   * the branch-in-key pattern used across the dashboard queries
    * pattern. `null` is a valid, deterministic key segment for "no active
    * branch yet" -- the query itself stays disabled in that state (see
    * useSessionsQuery), so this bucket is never actually populated.

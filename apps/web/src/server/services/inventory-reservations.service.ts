@@ -469,7 +469,8 @@ export class InventoryReservationsService {
       excludeLineId?: string | null;
     }
   ): Promise<ServiceResult<RepairOrderLineNeed[]>> {
-    const code = (input.sku ?? "").replace(/[\s\-./]/g, "").toUpperCase();
+    // Also drops , ( ) -- they would break the PostgREST or() filter below.
+    const code = (input.sku ?? "").replace(/[\s\-./,()]/g, "").toUpperCase();
     let query = supabase
       .from("repair_order_lines")
       .select(
@@ -496,12 +497,16 @@ export class InventoryReservationsService {
     );
     const needs = await Promise.all(
       lines.map(async (l) => {
-        const { data: need } = await supabase.rpc("repair_order_line_open_need", {
+        const { data: need, error: needError } = await supabase.rpc("repair_order_line_open_need", {
           p_repair_order_line_id: l.id,
         });
-        return num(need);
+        return needError ? null : num(need);
       })
     );
+    // A failed lookup must not read as "needs nothing" (the line would vanish).
+    if (needs.some((need) => need === null)) {
+      return { success: false, error: "Failed to load repair-order needs" };
+    }
     return {
       success: true,
       data: lines
@@ -516,7 +521,7 @@ export class InventoryReservationsService {
             productName: (l.product_name as string | null) ?? null,
             variantId: (l.variant_id as string | null) ?? null,
             orderedQuantity: num(l.ordered_quantity),
-            openNeed: needs[i],
+            openNeed: needs[i] ?? 0,
           };
         })
         .filter((l) => l.openNeed > 0)
@@ -552,11 +557,13 @@ export class InventoryReservationsService {
             .from("inventory_movement_headers")
             .select("id, document_number")
             .in("id", movementIds)
-        : Promise.resolve({ data: [] }),
+        : Promise.resolve({ data: [], error: null }),
       actorIds.length
         ? supabase.from("users").select("id, first_name, last_name, email").in("id", actorIds)
         : Promise.resolve({ data: [] }),
     ]);
+    // Document numbers are part of the trail; actor names may be hidden by RLS.
+    if (movements.error) return { success: false, error: "Failed to load reservation history" };
     const numberById = new Map(
       ((movements.data ?? []) as Array<{ id: string; document_number: string | null }>).map((m) => [
         m.id,

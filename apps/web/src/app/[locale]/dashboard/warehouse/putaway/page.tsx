@@ -46,7 +46,7 @@ export default async function PutawayPage() {
   // Per repair order in the receiving zone: client and existing containers,
   // so the list says where each order already sits.
   // Each waiting quantity carries the documents (PZ, MM, ...) that brought it in.
-  const items = pending.success
+  const sourced = pending.success
     ? await InventoryReceivingService.attachSources(
         supabase,
         context.app.activeOrgId,
@@ -54,7 +54,9 @@ export default async function PutawayPage() {
         pending.data.receivingLocationId,
         pending.data.items
       )
-    : [];
+    : null;
+  const items = sourced?.success ? sourced.data : [];
+  let loadError = !pending.success || !sourced?.success;
   const orderIds = [
     ...new Set(items.map((i) => i.repairOrderId).filter((id): id is string => !!id)),
   ];
@@ -72,6 +74,8 @@ export default async function PutawayPage() {
         orderIds
       ),
     ]);
+    // Without them every order would look like it has no container yet.
+    if (roRes.error || !containersRes.success) loadError = true;
     const containers = containersRes.success ? containersRes.data : {};
     for (const ro of (roRes.data ?? []) as Array<{
       id: string;
@@ -94,7 +98,7 @@ export default async function PutawayPage() {
       receivingLocationId={pending.success ? pending.data.receivingLocationId : null}
       items={items}
       orders={orders}
-      loadError={!pending.success}
+      loadError={loadError}
       canOperate={checkPermission(snapshot, WAREHOUSE_INVENTORY_OPERATE)}
     />
   );

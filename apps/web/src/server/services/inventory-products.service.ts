@@ -224,13 +224,15 @@ export class InventoryProductsService {
       // Zone 6: match the product name OR any of its variants' part number
       // (SKU) / barcode -- a warehouse search is usually by part number.
       const pattern = searchPattern(params.search);
-      const { data: variantHits } = await supabase
+      const { data: variantHits, error: variantHitsError } = await supabase
         .from("inventory_variants")
         .select("product_id")
         .eq("organization_id", orgId)
         .is("deleted_at", null)
         .or(`sku.ilike.${pattern},barcode.ilike.${pattern}`)
         .limit(500);
+      // Otherwise a part-number search would quietly fall back to names only.
+      if (variantHitsError) return { success: false, error: variantHitsError.message };
       const ids = [
         ...new Set(((variantHits ?? []) as Array<{ product_id: string }>).map((v) => v.product_id)),
       ];

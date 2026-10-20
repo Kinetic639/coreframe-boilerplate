@@ -362,9 +362,11 @@ describe("InventoryReceivingService.getReceiptReport", () => {
 });
 
 /** Table-keyed fake: every query on a table resolves to that table's rows. */
-function tableClient(tables: Record<string, unknown[]>) {
+function tableClient(tables: Record<string, unknown[]>, failing: string[] = []) {
   const from = vi.fn((table: string) => {
-    const result = { data: tables[table] ?? [], error: null };
+    const result = failing.includes(table)
+      ? { data: null, error: { message: "boom" } }
+      : { data: tables[table] ?? [], error: null };
     const query: Record<string, unknown> = {};
     for (const method of ["select", "eq", "in", "is", "limit", "order"]) {
       query[method] = () => query;
@@ -451,17 +453,13 @@ describe("InventoryReceivingService.attachSources", () => {
       ],
     });
 
-    const [free, roPart, unknown] = await InventoryReceivingService.attachSources(
-      client,
-      "org",
-      "branch",
-      "prz",
-      [
-        pending({ variantId: "vA", quantity: 3 }),
-        pending({ variantId: "vB", repairOrderLineId: "rolB", repairOrderId: "ro" }),
-        pending({ variantId: "vC", quantity: 4 }),
-      ]
-    );
+    const result = await InventoryReceivingService.attachSources(client, "org", "branch", "prz", [
+      pending({ variantId: "vA", quantity: 3 }),
+      pending({ variantId: "vB", repairOrderLineId: "rolB", repairOrderId: "ro" }),
+      pending({ variantId: "vC", quantity: 4 }),
+    ]);
+    expect(result.success).toBe(true);
+    const [free, roPart, unknown] = (result as Extract<typeof result, { success: true }>).data;
 
     expect(
       free.sources.map((s: { documentNumber: string | null; quantity: number }) => [
@@ -493,5 +491,21 @@ describe("InventoryReceivingService.attachSources", () => {
       ["m-old", 1],
       [null, 3],
     ]);
+  });
+});
+
+describe("InventoryReceivingService read failures", () => {
+  it("attachSources fails instead of showing waiting parts without a document", async () => {
+    const result = await InventoryReceivingService.attachSources(
+      tableClient({}, ["inventory_stock_ledger_entries"]),
+      "org",
+      "branch",
+      "prz",
+      [{ variantId: "vA", quantity: 1, repairOrderLineId: null } as never]
+    );
+    expect(result).toEqual({
+      success: false,
+      error: "Failed to load the documents behind the receiving zone",
+    });
   });
 });

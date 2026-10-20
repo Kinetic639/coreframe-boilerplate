@@ -5,6 +5,23 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 export type ServiceResult<T> = { success: true; data: T } | { success: false; error: string };
 
 /**
+ * A failed read inside a multi-query load. Thrown by checked() so the load
+ * fails as a whole instead of showing parts "without a document" or lines
+ * "not put away" just because one lookup failed.
+ */
+class ReceivingReadError extends Error {}
+
+function checked<T extends { error?: unknown }>(result: T): T {
+  if (result.error) throw new ReceivingReadError();
+  return result;
+}
+
+function checkedAll<T extends readonly { error?: unknown }[] | []>(results: T): T {
+  results.forEach(checked);
+  return results;
+}
+
+/**
  * Zone 5 (2026-10-01 product decisions): the receiving zone is a waiting
  * room. A PZ always lands in the branch's receiving location; what sits
  * there is not available until it is put away. Putaway is its own function:
@@ -405,19 +422,47 @@ export class InventoryReceivingService {
     branchId: string,
     receivingLocationId: string | null,
     items: ReceivingPendingItem[]
+  ): Promise<ServiceResult<ReceivingPendingItem[]>> {
+    try {
+      return {
+        success: true,
+        data: await InventoryReceivingService.loadSources(
+          supabase,
+          organizationId,
+          branchId,
+          receivingLocationId,
+          items
+        ),
+      };
+    } catch (error) {
+      if (error instanceof ReceivingReadError) {
+        return { success: false, error: "Failed to load the documents behind the receiving zone" };
+      }
+      throw error;
+    }
+  }
+
+  private static async loadSources(
+    supabase: SupabaseClient,
+    organizationId: string,
+    branchId: string,
+    receivingLocationId: string | null,
+    items: ReceivingPendingItem[]
   ): Promise<ReceivingPendingItem[]> {
     if (!receivingLocationId || items.length === 0) return items;
     const variantIds = [...new Set(items.map((item) => item.variantId))];
 
-    const { data: ledger } = await supabase
-      .from("inventory_stock_ledger_entries")
-      .select("movement_id, variant_id, direction, quantity")
-      .eq("organization_id", organizationId)
-      .eq("branch_id", branchId)
-      .eq("location_id", receivingLocationId)
-      .eq("balance_field", "on_hand")
-      .in("variant_id", variantIds)
-      .limit(10000);
+    const { data: ledger } = checked(
+      await supabase
+        .from("inventory_stock_ledger_entries")
+        .select("movement_id, variant_id, direction, quantity")
+        .eq("organization_id", organizationId)
+        .eq("branch_id", branchId)
+        .eq("location_id", receivingLocationId)
+        .eq("balance_field", "on_hand")
+        .in("variant_id", variantIds)
+        .limit(10000)
+    );
     const entries = (ledger ?? []) as Array<{
       movement_id: string | null;
       variant_id: string;
@@ -431,7 +476,7 @@ export class InventoryReceivingService {
     const rolIds = [
       ...new Set(items.map((item) => item.repairOrderLineId).filter((id): id is string => !!id)),
     ];
-    const { data: links } =
+    const { data: links } = checked(
       rolIds.length > 0
         ? await supabase
             .from("repair_order_line_movement_links")
@@ -440,7 +485,8 @@ export class InventoryReceivingService {
             )
             .in("repair_order_line_id", rolIds)
             .eq("relation_type", "receipt")
-        : { data: [] };
+        : { data: [], error: null }
+    );
     const receiptLinks = (
       (links ?? []) as unknown as Array<{
         repair_order_line_id: string;
@@ -476,12 +522,14 @@ export class InventoryReceivingService {
     };
     const headers = new Map<string, Header>();
     for (let start = 0; start < movementIds.length; start += 200) {
-      const { data } = await supabase
-        .from("inventory_movement_headers")
-        .select(
-          "id, document_number, movement_type_code, posted_at, external_reference, original_movement_id, status"
-        )
-        .in("id", movementIds.slice(start, start + 200));
+      const { data } = checked(
+        await supabase
+          .from("inventory_movement_headers")
+          .select(
+            "id, document_number, movement_type_code, posted_at, external_reference, original_movement_id, status"
+          )
+          .in("id", movementIds.slice(start, start + 200))
+      );
       for (const header of (data ?? []) as Header[]) headers.set(header.id, header);
     }
 
@@ -492,11 +540,13 @@ export class InventoryReceivingService {
     ];
     const typeNames = new Map<string, string>();
     if (codes.length > 0) {
-      const { data } = await supabase
-        .from("inventory_movement_types")
-        .select("code, name, name_pl, organization_id")
-        .in("code", codes)
-        .is("deleted_at", null);
+      const { data } = checked(
+        await supabase
+          .from("inventory_movement_types")
+          .select("code, name, name_pl, organization_id")
+          .in("code", codes)
+          .is("deleted_at", null)
+      );
       for (const type of (data ?? []) as Array<{
         code: string;
         name: string | null;
@@ -601,21 +651,42 @@ export class InventoryReceivingService {
     branchId: string,
     input: ReceiptReportInput
   ): Promise<ServiceResult<ReceiptReportLine[]>> {
-    const receiving = await InventoryReceivingService.getReceivingLocationId(
-      supabase,
-      organizationId,
-      branchId
-    );
+    try {
+      return await InventoryReceivingService.buildReceiptReport(
+        supabase,
+        organizationId,
+        branchId,
+        input
+      );
+    } catch (error) {
+      if (error instanceof ReceivingReadError) {
+        return { success: false, error: "Failed to load where the receipt was put away" };
+      }
+      throw error;
+    }
+  }
+
+  private static async buildReceiptReport(
+    supabase: SupabaseClient,
+    organizationId: string,
+    branchId: string,
+    input: ReceiptReportInput
+  ): Promise<ServiceResult<ReceiptReportLine[]>> {
     const pending = await InventoryReceivingService.listPending(supabase, organizationId, branchId);
-    const pendingItems = pending.success ? pending.data.items : [];
+    // Without the zone's contents every line would read as fully put away.
+    if (!pending.success) return { success: false, error: "Failed to load the receiving zone" };
+    const receiving = pending.data.receivingLocationId;
+    const pendingItems = pending.data.items;
     const lineIds = input.lines.map((l) => l.id);
     if (lineIds.length === 0) return { success: true, data: [] };
 
-    const { data: receiptLinks } = await supabase
-      .from("repair_order_line_movement_links")
-      .select("repair_order_line_id, inventory_movement_line_id, applied_quantity")
-      .in("inventory_movement_line_id", lineIds)
-      .eq("relation_type", "receipt");
+    const { data: receiptLinks } = checked(
+      await supabase
+        .from("repair_order_line_movement_links")
+        .select("repair_order_line_id, inventory_movement_line_id, applied_quantity")
+        .in("inventory_movement_line_id", lineIds)
+        .eq("relation_type", "receipt")
+    );
     const rolByLine = new Map<string, string>();
     const assignedByLine = new Map<string, number>();
     for (const link of (receiptLinks ?? []) as Array<{
@@ -636,14 +707,16 @@ export class InventoryReceivingService {
     const zlByRo = new Map<string, string | null>();
     const putawayByRol = new Map<string, Array<{ lineId: string; quantity: number }>>();
     if (rolIds.length > 0) {
-      const [{ data: rols }, { data: relocations }] = await Promise.all([
-        supabase.from("repair_order_lines").select("id, repair_order_id").in("id", rolIds),
-        supabase
-          .from("repair_order_line_movement_links")
-          .select("repair_order_line_id, inventory_movement_line_id, applied_quantity")
-          .in("repair_order_line_id", rolIds)
-          .eq("relation_type", "relocation"),
-      ]);
+      const [{ data: rols }, { data: relocations }] = checkedAll(
+        await Promise.all([
+          supabase.from("repair_order_lines").select("id, repair_order_id").in("id", rolIds),
+          supabase
+            .from("repair_order_line_movement_links")
+            .select("repair_order_line_id, inventory_movement_line_id, applied_quantity")
+            .in("repair_order_line_id", rolIds)
+            .eq("relation_type", "relocation"),
+        ])
+      );
       for (const r of (rols ?? []) as Array<{ id: string; repair_order_id: string }>) {
         roByRol.set(r.id, r.repair_order_id);
       }
@@ -658,10 +731,9 @@ export class InventoryReceivingService {
       }
       const roIds = [...new Set(roByRol.values())];
       if (roIds.length > 0) {
-        const { data: ros } = await supabase
-          .from("repair_orders")
-          .select("id, zl_number")
-          .in("id", roIds);
+        const { data: ros } = checked(
+          await supabase.from("repair_orders").select("id, zl_number").in("id", roIds)
+        );
         for (const ro of (ros ?? []) as Array<{ id: string; zl_number: string | null }>) {
           zlByRo.set(ro.id, ro.zl_number);
         }
@@ -684,12 +756,14 @@ export class InventoryReceivingService {
     };
     const outLines: OutLine[] = [];
     if (relocationLineIds.length > 0) {
-      const { data } = await supabase
-        .from("inventory_movement_lines")
-        .select(
-          "id, movement_id, variant_id, source_location_id, destination_location_id, quantity"
-        )
-        .in("id", relocationLineIds);
+      const { data } = checked(
+        await supabase
+          .from("inventory_movement_lines")
+          .select(
+            "id, movement_id, variant_id, source_location_id, destination_location_id, quantity"
+          )
+          .in("id", relocationLineIds)
+      );
       outLines.push(...((data ?? []) as OutLine[]));
     }
     const freeOut: OutLine[] = [];
@@ -702,7 +776,7 @@ export class InventoryReceivingService {
         .eq("source_location_id", receiving)
         .in("variant_id", freeVariantIds);
       if (input.postedAt) query = query.gte("created_at", input.postedAt);
-      const { data } = await query;
+      const { data } = checked(await query);
       const relocationSet = new Set(relocationLineIds);
       freeOut.push(...((data ?? []) as OutLine[]).filter((l) => !relocationSet.has(l.id)));
     }
@@ -720,12 +794,14 @@ export class InventoryReceivingService {
     >();
     const containerVariants = new Map<string, Set<string>>();
     if (roIds.length > 0) {
-      const { data: containers } = await supabase
-        .from("inventory_containers")
-        .select("id, code, reference_id, current_location_id")
-        .eq("reference_type", "repair_order")
-        .in("reference_id", roIds)
-        .is("deleted_at", null);
+      const { data: containers } = checked(
+        await supabase
+          .from("inventory_containers")
+          .select("id, code, reference_id, current_location_id")
+          .eq("reference_type", "repair_order")
+          .in("reference_id", roIds)
+          .is("deleted_at", null)
+      );
       const rows = (containers ?? []) as Array<{
         id: string;
         code: string;
@@ -739,14 +815,16 @@ export class InventoryReceivingService {
         if (c.current_location_id) locationIds.add(c.current_location_id);
       }
       if (rows.length > 0) {
-        const { data: clines } = await supabase
-          .from("inventory_container_lines")
-          .select("container_id, variant_id")
-          .in(
-            "container_id",
-            rows.map((c) => c.id)
-          )
-          .is("deleted_at", null);
+        const { data: clines } = checked(
+          await supabase
+            .from("inventory_container_lines")
+            .select("container_id, variant_id")
+            .in(
+              "container_id",
+              rows.map((c) => c.id)
+            )
+            .is("deleted_at", null)
+        );
         for (const cl of (clines ?? []) as Array<{ container_id: string; variant_id: string }>) {
           const set = containerVariants.get(cl.container_id) ?? new Set<string>();
           set.add(cl.variant_id);
@@ -755,20 +833,22 @@ export class InventoryReceivingService {
       }
     }
 
-    const [{ data: headers }, { data: locations }] = await Promise.all([
-      movementIds.length > 0
-        ? supabase
-            .from("inventory_movement_headers")
-            .select("id, document_number")
-            .in("id", movementIds)
-        : Promise.resolve({ data: [] }),
-      locationIds.size > 0
-        ? supabase
-            .from("warehouse_locations")
-            .select("id, code, name")
-            .in("id", [...locationIds])
-        : Promise.resolve({ data: [] }),
-    ]);
+    const [{ data: headers }, { data: locations }] = checkedAll(
+      await Promise.all([
+        movementIds.length > 0
+          ? supabase
+              .from("inventory_movement_headers")
+              .select("id, document_number")
+              .in("id", movementIds)
+          : Promise.resolve({ data: [], error: null }),
+        locationIds.size > 0
+          ? supabase
+              .from("warehouse_locations")
+              .select("id, code, name")
+              .in("id", [...locationIds])
+          : Promise.resolve({ data: [], error: null }),
+      ])
+    );
     const docById = new Map(
       ((headers ?? []) as Array<{ id: string; document_number: string | null }>).map((h) => [
         h.id,

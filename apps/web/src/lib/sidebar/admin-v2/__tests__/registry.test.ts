@@ -20,8 +20,26 @@ describe("Admin Sidebar Registry", () => {
   // Structural integrity
   // -------------------------------------------------------------------------
   describe("ADMIN_MAIN_NAV_ITEMS structure", () => {
-    it("should have exactly 3 main nav items", () => {
-      expect(ADMIN_MAIN_NAV_ITEMS).toHaveLength(3);
+    it("lists exactly the admin main nav items, in order", () => {
+      expect(ADMIN_MAIN_NAV_ITEMS.map((i) => i.id)).toEqual([
+        "admin.home",
+        "admin.plans",
+        "admin.pricing",
+        "admin.branding",
+        "admin.site",
+        "admin.data-view-demo",
+        "admin.rich-text-demo",
+        "admin.comments-demo",
+        "admin.avatar-demo",
+        "admin.calendar-demo",
+        "admin.org-members",
+      ]);
+    });
+
+    it("gates every item by a permission", () => {
+      ADMIN_MAIN_NAV_ITEMS.forEach((item) => {
+        expect(item.visibility?.requiresPermissions?.length).toBeGreaterThan(0);
+      });
     });
 
     it("should have non-empty, unique ids on all items", () => {

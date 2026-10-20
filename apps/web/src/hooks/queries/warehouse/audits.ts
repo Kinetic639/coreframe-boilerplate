@@ -272,6 +272,10 @@ export function useBulkApproveLinesMutation(sessionId: string | null | undefined
 
 // ─── Approve (post) session ─────────────────────────────────────────────────────
 
+/** inventory_approve_count_session's refusal when a shortage exceeds the free stock (D). */
+const COUNT_SHORTAGE_PATTERN =
+  /^Count shortage of ([\d.]+) for (.+) at (.+) exceeds the free stock \(D (-?[\d.]+)\): ([\d.]+) reserved \(R\) and ([\d.]+) blocked \(B\) there\./;
+
 export function useApproveCountSessionMutation() {
   const queryClient = useQueryClient();
   const t = useTranslations("warehouseInventory.audits.feedback");
@@ -287,6 +291,23 @@ export function useApproveCountSessionMutation() {
       // full screen change is redundant.
     },
     onError: (err: Error) => {
+      // A shortage that would take reserved (R) or blocked (B) parts: the
+      // same facts, in the user's language.
+      const shortage = COUNT_SHORTAGE_PATTERN.exec(err.message ?? "");
+      if (shortage) {
+        const [, missing, sku, location, free, reserved, blocked] = shortage;
+        toast.error(
+          t("sessionApproveShortage", {
+            shortage: Number(missing),
+            sku,
+            location,
+            free: Number(free),
+            reserved: Number(reserved),
+            blocked: Number(blocked),
+          })
+        );
+        return;
+      }
       // Surfaces the RPC's own rejection reason unchanged (all-or-nothing
       // posting gate, or missing warehouse.inventory.adjust) — never
       // generalized to a fixed message.

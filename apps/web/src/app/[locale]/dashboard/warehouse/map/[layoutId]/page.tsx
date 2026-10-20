@@ -76,7 +76,9 @@ export default async function WarehouseMapEditorPage({ params }: Props) {
     return redirect({ href: "/dashboard/warehouse/map", locale });
   }
 
-  const locations = locationsResult.success ? locationsResult.data : [];
+  // Without them the editor would show every shape as unassigned.
+  if (!locationsResult.success) throw new Error("Failed to load warehouse locations");
+  const locations = locationsResult.data;
   const locationGroups: WarehouseLocationGroup[] = groupsResult.success ? groupsResult.data : [];
   const canManage = checkPermission(snapshot, WAREHOUSE_LAYOUTS_MANAGE);
   const canPublish = checkPermission(snapshot, WAREHOUSE_LAYOUTS_PUBLISH);

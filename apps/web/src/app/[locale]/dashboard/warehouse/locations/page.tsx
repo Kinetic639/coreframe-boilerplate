@@ -56,6 +56,10 @@ export default async function AmbraWarehouseLocationsPage({ searchParams }: Page
         success: true as const,
         data: { balances: [], movements: [], containers: [], putawayRules: [] },
       };
+  // A failed read must not render as an empty tree with zero stock.
+  if (!locationsResult.success || !inventorySnapshotResult.success) {
+    throw new Error("Failed to load warehouse locations or their stock");
+  }
   const variantOptionsResult = branchId
     ? await InventoryProductsService.listVariantOptions(supabase, context.app.activeOrgId, branchId)
     : { success: true as const, data: [] };
