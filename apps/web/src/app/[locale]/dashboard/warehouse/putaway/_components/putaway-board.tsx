@@ -3,14 +3,15 @@
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
-  ChevronLeft,
+  Box,
   ChevronRight,
-  ExternalLink,
-  FileText,
+  History,
   Inbox,
   MapPin,
   Package,
+  PackagePlus,
   ScanLine,
+  Tag,
   Wrench,
 } from "lucide-react";
 import { Link } from "@/i18n/navigation";
@@ -21,7 +22,6 @@ import type { ReceivingPendingItem } from "@/server/services/inventory-receiving
 import { PutawayDialog } from "./putaway-dialog";
 import { ScanFlow, type ScanFlowStep } from "./scan-flow";
 import { unlockScanSound } from "./scan-feedback";
-import { LocationChanges } from "./location-changes";
 import {
   formatQty,
   isContainerPart,
@@ -32,107 +32,89 @@ import {
 
 export { itemKey } from "./putaway-utils";
 
-const UNKNOWN_DOCUMENT = "unknown";
-
-type SourceDocument = {
-  key: string;
-  movementId: string | null;
-  documentNumber: string | null;
-  typeName: string | null;
-  postedAt: string | null;
-  externalReference: string | null;
-  /** The document's share of each waiting item. */
-  items: ReceivingPendingItem[];
-};
-
-/** The receiving zone per document that brought the stock in, newest first. */
-function documentsOf(items: ReceivingPendingItem[]): SourceDocument[] {
-  const byKey = new Map<string, SourceDocument>();
-  for (const item of items) {
-    const sources = item.sources?.length
-      ? item.sources
-      : [
-          {
-            movementId: null,
-            documentNumber: null,
-            movementTypeCode: null,
-            movementTypeName: null,
-            postedAt: null,
-            externalReference: null,
-            quantity: item.quantity,
-          },
-        ];
-    for (const source of sources) {
-      const key = source.movementId ?? UNKNOWN_DOCUMENT;
-      const document = byKey.get(key) ?? {
-        key,
-        movementId: source.movementId,
-        documentNumber: source.documentNumber,
-        typeName: source.movementTypeName,
-        postedAt: source.postedAt,
-        externalReference: source.externalReference,
-        items: [],
-      };
-      document.items.push({ ...item, quantity: source.quantity });
-      byKey.set(key, document);
-    }
-  }
-  return [...byKey.values()].sort((left, right) => {
-    if (left.key === UNKNOWN_DOCUMENT) return 1;
-    if (right.key === UNKNOWN_DOCUMENT) return -1;
-    return (right.postedAt ?? "").localeCompare(left.postedAt ?? "");
-  });
-}
-
-function groupItems(items: ReceivingPendingItem[]) {
-  const byOrder = new Map<
-    string,
-    { title: string; brand: string | null; items: ReceivingPendingItem[] }
-  >();
-  const free: ReceivingPendingItem[] = [];
-  for (const item of items) {
-    if (!item.repairOrderId) {
-      free.push(item);
-      continue;
-    }
-    const group = byOrder.get(item.repairOrderId) ?? {
-      title: item.zlNumber ?? "—",
-      brand: item.vehicleBrand,
-      items: [],
-    };
-    group.items.push(item);
-    byOrder.set(item.repairOrderId, group);
-  }
-  return { orders: [...byOrder.entries()], free };
-}
-
-function formatDate(value: string | null) {
-  if (!value) return null;
-  return new Date(value).toLocaleString("pl-PL", {
-    day: "2-digit",
-    month: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
 type Props = {
   branchId: string;
   receivingLocationId: string | null;
   items: ReceivingPendingItem[];
   loadError: boolean;
   canOperate: boolean;
-  /** Per repair order: client and the containers it already has. */
+  /** Per repair order: client, its containers, where its loose parts lie. */
   orders?: Record<string, RepairOrderInfo>;
 };
 
+type OrderGroup = {
+  id: string;
+  zlNumber: string;
+  brand: string | null;
+  info: RepairOrderInfo | undefined;
+  items: ReceivingPendingItem[];
+  /** Containers of the order that hold parts on a location. */
+  containers: RepairOrderInfo["containers"];
+};
+
+/** The documents (PZ, MM...) that brought an item into the receiving zone. */
+function documentNumbers(item: ReceivingPendingItem): string[] {
+  return [
+    ...new Set((item.sources ?? []).map((s) => s.documentNumber).filter((n): n is string => !!n)),
+  ];
+}
+
 /**
- * "Rozlokowanie" -- mobile first. The receiving zone grouped per repair
- * order (with where each order already has containers), bulk material and
- * free stock last; a thumb-reach "Skanuj" drives the putaway (container /
- * fresh sticker / location). Each item keeps a manual "Rozłóż" fallback.
- * Second tab: repair orders whose locations changed, for AutoStacja.
+ * What waits in the receiving zone, in the order it is worked through:
+ * 1. parts with their own fixed location (they never go into a container),
+ * 2. repair orders that already lie somewhere -- add to their containers,
+ * 3. repair orders with nothing put away yet -- start a new container,
+ * 4. free stock and other goods.
  */
+function sectionsOf(items: ReceivingPendingItem[], orders: Record<string, RepairOrderInfo>) {
+  const fixed = new Map<
+    string,
+    {
+      location: NonNullable<ReceivingPendingItem["defaultLocation"]>;
+      items: ReceivingPendingItem[];
+    }
+  >();
+  const byOrder = new Map<string, OrderGroup>();
+  const loose: ReceivingPendingItem[] = [];
+
+  for (const item of items) {
+    if (isContainerPart(item) && item.repairOrderId) {
+      const info = orders[item.repairOrderId];
+      const group = byOrder.get(item.repairOrderId) ?? {
+        id: item.repairOrderId,
+        zlNumber: info?.zlNumber ?? item.zlNumber ?? "—",
+        brand: info?.vehicleBrand ?? item.vehicleBrand,
+        info,
+        items: [],
+        containers: (info?.containers ?? []).filter((c) => c.status === "active" && !!c.location),
+      };
+      group.items.push(item);
+      byOrder.set(item.repairOrderId, group);
+    } else if (item.defaultLocation) {
+      const entry = fixed.get(item.defaultLocation.id) ?? {
+        location: item.defaultLocation,
+        items: [],
+      };
+      entry.items.push(item);
+      fixed.set(item.defaultLocation.id, entry);
+    } else {
+      loose.push(item);
+    }
+  }
+
+  const groups = [...byOrder.values()];
+  const placed = (g: OrderGroup) =>
+    g.containers.length > 0 || (g.info?.looseLocations?.length ?? 0) > 0;
+  return {
+    fixed: [...fixed.values()].sort((a, b) =>
+      (a.location.code ?? "").localeCompare(b.location.code ?? "", "pl", { numeric: true })
+    ),
+    placedOrders: groups.filter(placed),
+    newOrders: groups.filter((g) => !placed(g)),
+    loose,
+  };
+}
+
 export function PutawayBoard({
   branchId,
   receivingLocationId,
@@ -142,192 +124,232 @@ export function PutawayBoard({
   orders = {},
 }: Props) {
   const t = useTranslations("modules.warehouse.putaway");
-  const [tab, setTab] = useState<"pending" | "changes">("pending");
   const [active, setActive] = useState<ReceivingPendingItem | null>(null);
   const [scanOpen, setScanOpen] = useState(false);
   const [scanStep, setScanStep] = useState<ScanFlowStep | undefined>(undefined);
   const [scanSession, setScanSession] = useState(0);
-  const [view, setView] = useState<"documents" | "parts">("documents");
-  const [documentKey, setDocumentKey] = useState<string | null>(null);
+  const [openOrders, setOpenOrders] = useState<Set<string>>(() => new Set());
+  const [document, setDocument] = useState<string | null>(null);
 
   const openScan = (step?: ScanFlowStep) => {
+    unlockScanSound();
     setScanStep(step);
     setScanSession((n) => n + 1);
     setScanOpen(true);
   };
 
-  // A repair-order part never goes onto a shelf on its own: it goes into a
-  // container of its order (existing, new with a sticker, or -- knowingly --
-  // a stickerless one for oversize parts). Only free stock and bulk
-  // material use the plain "scan a location" putaway.
-  const putAway = (item: ReceivingPendingItem) => {
-    if (isContainerPart(item) && item.repairOrderId) {
-      openScan({ kind: "order", repairOrderId: item.repairOrderId, focusKey: itemKey(item) });
-    } else {
-      setActive(item);
-    }
-  };
+  const documents = useMemo(
+    () => [...new Set(items.flatMap(documentNumbers))].sort().reverse(),
+    [items]
+  );
+  const shown = document ? items.filter((i) => documentNumbers(i).includes(document)) : items;
+  const sections = useMemo(() => sectionsOf(shown, orders), [shown, orders]);
 
-  const documents = useMemo(() => documentsOf(items), [items]);
-  const openDocument = documents.find((document) => document.key === documentKey) ?? null;
-  const documentTitle = (document: SourceDocument) =>
-    document.key === UNKNOWN_DOCUMENT
-      ? t("documents.unknown")
-      : (document.documentNumber ?? document.typeName ?? "—");
+  const toggleOrder = (id: string) =>
+    setOpenOrders((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
-  function suggestion(item: ReceivingPendingItem) {
-    if (item.handlingMode === "bulk") {
-      return item.defaultLocation
-        ? t("suggest.bulkFixed", {
-            location: locLabel(item.defaultLocation.code, item.defaultLocation.name),
-          })
-        : t("suggest.bulkNoFixed");
-    }
-    if (item.repairOrderLineId) {
-      return item.container
-        ? t("suggest.container", {
-            code: item.container.code,
-            location: locLabel(item.container.locationCode, item.container.locationName),
-          })
-        : t("suggest.newContainer");
-    }
-    return item.defaultLocation
-      ? t("suggest.freeFixed", {
-          location: locLabel(item.defaultLocation.code, item.defaultLocation.name),
-        })
-      : t("suggest.free");
-  }
+  const ready = !loadError && !!receivingLocationId;
 
-  function renderItem(item: ReceivingPendingItem) {
+  function itemRow(
+    item: ReceivingPendingItem,
+    options: { action?: string; showOrder?: boolean } = {}
+  ) {
+    const docs = documentNumbers(item);
+    const meta = [
+      options.showOrder && item.zlNumber ? `ZL ${item.zlNumber}` : null,
+      docs.length > 0 ? docs.join(", ") : null,
+    ].filter(Boolean);
     return (
       <div
         key={itemKey(item)}
-        className="bg-card flex items-center justify-between gap-3 rounded-lg border p-3"
+        className="flex items-center justify-between gap-3 py-2"
         data-testid="putaway-item"
       >
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-mono text-sm font-semibold">{item.sku ?? "—"}</span>
-            {item.handlingMode === "bulk" && (
-              <Badge variant="secondary" data-testid="putaway-bulk-badge">
-                {t("bulkBadge")}
-              </Badge>
-            )}
-          </div>
-          <p className="truncate text-sm">{item.productName ?? "—"}</p>
-          <p className="text-muted-foreground mt-0.5 flex items-center gap-1 text-xs">
-            <MapPin className="h-3 w-3 shrink-0" />
-            <span className="truncate" data-testid="putaway-suggestion">
-              {suggestion(item)}
-            </span>
+          <p className="truncate text-sm">
+            <span className="mr-1.5 font-mono font-semibold">{item.sku ?? "—"}</span>
+            {item.productName ?? ""}
           </p>
-        </div>
-        <div className="flex shrink-0 flex-col items-end gap-1.5">
-          <span className="font-mono text-base font-semibold">
-            {formatQty(item.quantity)} {item.unitCode ?? ""}
-          </span>
-          {canOperate && (
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => putAway(item)}
-              data-testid="putaway-open"
-              className="h-9"
-            >
-              {t("putaway")}
-            </Button>
+          {meta.length > 0 && (
+            <p className="text-muted-foreground truncate text-xs" data-testid="putaway-item-meta">
+              {meta.join(" · ")}
+            </p>
           )}
         </div>
+        <span className="shrink-0 font-mono text-sm font-semibold">
+          {formatQty(item.quantity)} {item.unitCode ?? ""}
+        </span>
+        {options.action && canOperate && (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-9 shrink-0"
+            onClick={() => setActive(item)}
+            data-testid="putaway-open"
+          >
+            {options.action}
+          </Button>
+        )}
       </div>
     );
   }
 
-  function renderGroups(list: ReceivingPendingItem[]) {
-    const groups = groupItems(list);
+  function sectionTitle(icon: React.ReactNode, title: string, hint: string, testId: string) {
     return (
-      <>
-        {groups.orders.map(([orderId, group]) => {
-          const info = orders[orderId];
-          const containers = (info?.containers ?? []).filter((c) => c.status === "active");
-          return (
-            <section key={orderId} className="flex flex-col gap-2" data-testid="putaway-group">
-              <div>
-                <h2 className="flex items-center gap-2 text-sm font-semibold">
-                  <Wrench className="text-muted-foreground h-4 w-4 shrink-0" />
-                  <span className="truncate font-mono">ZL {group.title}</span>
-                </h2>
-                {(info?.clientName || group.brand) && (
-                  <p className="text-muted-foreground ml-6 truncate text-xs">
-                    {[info?.clientName, info?.vehicleBrand ?? group.brand]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </p>
-                )}
-                {containers.length > 0 && (
-                  <div
-                    className="ml-6 mt-1 flex flex-wrap gap-1"
-                    data-testid="putaway-order-containers"
-                  >
-                    {containers.map((c) => (
-                      <Badge key={c.id} variant="outline" className="font-mono text-[11px]">
-                        {c.code}
-                        {c.location ? ` · ${c.location.code ?? c.location.name ?? ""}` : ""}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-              </div>
-              {group.items.map(renderItem)}
-            </section>
-          );
-        })}
-
-        {groups.free.length > 0 && (
-          <section className="flex flex-col gap-2" data-testid="putaway-group-free">
-            <h2 className="flex items-center gap-2 text-sm font-semibold">
-              <Package className="text-muted-foreground h-4 w-4" />
-              {t("freeGroup")}
-            </h2>
-            {groups.free.map(renderItem)}
-          </section>
-        )}
-      </>
+      <div data-testid={testId}>
+        <h2 className="flex items-center gap-2 text-sm font-semibold">
+          {icon}
+          {title}
+        </h2>
+        <p className="text-muted-foreground text-xs">{hint}</p>
+      </div>
     );
   }
 
-  const ready = !loadError && !!receivingLocationId;
+  function orderCard(group: OrderGroup, isNew: boolean) {
+    const open = openOrders.has(group.id);
+    const loose = group.info?.looseLocations ?? [];
+    const newStep = {
+      kind: "new" as const,
+      qrCodeId: null,
+      location: null,
+      repairOrderId: group.id,
+    };
+    return (
+      <div key={group.id} className="bg-card rounded-lg border" data-testid="putaway-order">
+        <button
+          type="button"
+          onClick={() => toggleOrder(group.id)}
+          aria-expanded={open}
+          className="flex w-full items-start gap-2 p-3 text-left"
+          data-testid="putaway-order-toggle"
+        >
+          <ChevronRight
+            className={cn(
+              "text-muted-foreground mt-0.5 h-4 w-4 shrink-0 transition-transform",
+              open && "rotate-90"
+            )}
+          />
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-mono text-sm font-semibold">ZL {group.zlNumber}</p>
+            {(group.info?.clientName || group.brand) && (
+              <p className="text-muted-foreground truncate text-xs">
+                {[group.info?.clientName, group.brand].filter(Boolean).join(" · ")}
+              </p>
+            )}
+            {(group.containers.length > 0 || loose.length > 0) && (
+              <div className="mt-1.5 flex flex-wrap gap-1" data-testid="putaway-order-places">
+                {group.containers.map((c) => (
+                  <Badge key={c.id} variant="outline" className="gap-1 font-mono text-[11px]">
+                    <Box className="h-3 w-3" />
+                    {c.code}
+                    {c.location ? ` · ${c.location.code ?? c.location.name ?? ""}` : ""}
+                  </Badge>
+                ))}
+                {loose.map((l) => (
+                  <Badge key={l.id} variant="outline" className="gap-1 font-mono text-[11px]">
+                    <MapPin className="h-3 w-3" />
+                    {l.code ?? l.name ?? "—"}
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
+          <Badge variant="secondary" className="shrink-0">
+            {t("board.waiting", { count: group.items.length })}
+          </Badge>
+        </button>
+
+        {open && (
+          <div className="border-t px-3 pb-3" data-testid="putaway-order-parts">
+            <div className="divide-y">{group.items.map((item) => itemRow(item))}</div>
+            {canOperate && (
+              <div className="mt-2 flex flex-col gap-2">
+                {group.containers.map((c) => (
+                  <Button
+                    key={c.id}
+                    type="button"
+                    className="h-11 justify-start"
+                    onClick={() =>
+                      openScan({
+                        kind: "container",
+                        container: {
+                          id: c.id,
+                          code: c.code,
+                          status: c.status,
+                          location: c.location,
+                          repairOrderId: group.id,
+                          zlNumber: group.info?.zlNumber ?? group.zlNumber,
+                          clientName: group.info?.clientName ?? null,
+                          vehicleBrand: group.brand,
+                        },
+                      })
+                    }
+                    data-testid="putaway-order-add"
+                  >
+                    <Box className="mr-2 h-4 w-4" />
+                    {t("board.addTo", {
+                      code: c.code,
+                      location: c.location ? (c.location.code ?? c.location.name ?? "") : "",
+                    })}
+                  </Button>
+                ))}
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant={isNew ? "default" : "outline"}
+                    className="h-11"
+                    onClick={() => openScan({ kind: "scanSticker", back: newStep })}
+                    data-testid="putaway-order-new"
+                  >
+                    <Tag className="mr-2 h-4 w-4" />
+                    {t("board.newContainer")}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-11"
+                    onClick={() => openScan(newStep)}
+                    data-testid="putaway-order-oversize"
+                  >
+                    <PackagePlus className="mr-2 h-4 w-4" />
+                    {t("board.oversize")}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-full flex-col" data-testid="putaway-board">
-      <div className="flex flex-col gap-4 p-4 pb-28 sm:p-6 sm:pb-28">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">{t("title")}</h1>
-          <p className="text-muted-foreground mt-1 text-sm">{t("subtitle")}</p>
+      <div className="flex flex-col gap-5 p-4 pb-28 sm:p-6 sm:pb-28">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            {ready && items.length > 0 && (
+              <p className="text-sm font-medium" data-testid="putaway-summary">
+                {t("summary", { count: items.length })}
+              </p>
+            )}
+          </div>
+          <Button asChild variant="ghost" size="sm" className="-mr-2 shrink-0">
+            <Link href="/dashboard/warehouse/putaway/changes" data-testid="putaway-history-link">
+              <History className="mr-1.5 h-4 w-4" />
+              {t("board.history")}
+            </Link>
+          </Button>
         </div>
 
-        <div className="grid grid-cols-2 gap-1 rounded-lg border p-1" role="tablist">
-          {(["pending", "changes"] as const).map((key) => (
-            <button
-              key={key}
-              type="button"
-              role="tab"
-              aria-selected={tab === key}
-              onClick={() => setTab(key)}
-              className={cn(
-                "h-10 rounded-md text-sm font-medium",
-                tab === key ? "bg-primary text-primary-foreground" : "text-muted-foreground"
-              )}
-              data-testid={`putaway-tab-${key}`}
-            >
-              {key === "pending" ? t("tabs.pending", { count: items.length }) : t("tabs.changes")}
-            </button>
-          ))}
-        </div>
-
-        {tab === "changes" ? (
-          <LocationChanges />
-        ) : loadError ? (
+        {loadError ? (
           <div
             className="border-destructive/30 bg-destructive/5 text-destructive rounded-lg border p-4 text-sm"
             data-testid="putaway-error"
@@ -351,160 +373,105 @@ export function PutawayBoard({
           </div>
         ) : (
           <>
-            <p className="text-sm" data-testid="putaway-summary">
-              {t("summary", { count: items.length })}
-            </p>
+            {documents.length > 1 && (
+              <div className="-mt-2 flex flex-wrap gap-1.5" data-testid="putaway-documents">
+                {[null, ...documents].map((number) => (
+                  <button
+                    key={number ?? "all"}
+                    type="button"
+                    onClick={() => setDocument(number)}
+                    className={cn(
+                      "rounded-full border px-3 py-1 font-mono text-xs",
+                      document === number
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "text-muted-foreground"
+                    )}
+                    data-testid="putaway-document-filter"
+                  >
+                    {number ?? t("board.allDeliveries")}
+                  </button>
+                ))}
+              </div>
+            )}
+            {documents.length === 1 && (
+              <p className="text-muted-foreground -mt-4 font-mono text-xs">
+                {t("board.from", { document: documents[0] })}
+              </p>
+            )}
 
-            <div className="grid grid-cols-2 gap-1 rounded-lg border p-1" role="tablist">
-              {(["documents", "parts"] as const).map((key) => (
-                <button
-                  key={key}
-                  type="button"
-                  role="tab"
-                  aria-selected={view === key}
-                  onClick={() => {
-                    setView(key);
-                    setDocumentKey(null);
-                  }}
-                  className={cn(
-                    "h-9 rounded-md text-sm",
-                    view === key ? "bg-muted font-medium" : "text-muted-foreground"
-                  )}
-                  data-testid={`putaway-view-${key}`}
-                >
-                  {t(`views.${key}`)}
-                </button>
-              ))}
-            </div>
-
-            {view === "parts" ? (
-              renderGroups(items)
-            ) : openDocument ? (
-              <div className="flex flex-col gap-3" data-testid="putaway-document">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="w-fit -ml-2"
-                  onClick={() => setDocumentKey(null)}
-                  data-testid="putaway-document-back"
-                >
-                  <ChevronLeft className="mr-1 h-4 w-4" />
-                  {t("documents.back")}
-                </Button>
-                <div className="bg-card rounded-lg border p-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="font-mono text-base font-semibold">
-                        {documentTitle(openDocument)}
-                      </p>
-                      <p className="text-muted-foreground text-xs">
-                        {[openDocument.typeName, formatDate(openDocument.postedAt)]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </p>
-                      {openDocument.externalReference && (
-                        <p className="text-muted-foreground truncate font-mono text-xs">
-                          {t("documents.reference", {
-                            reference: openDocument.externalReference,
-                          })}
-                        </p>
-                      )}
-                      {openDocument.key === UNKNOWN_DOCUMENT && (
-                        <p className="text-muted-foreground mt-1 text-xs">
-                          {t("documents.unknownHint")}
-                        </p>
+            {sections.fixed.length > 0 && (
+              <section className="flex flex-col gap-2" data-testid="putaway-section-fixed">
+                {sectionTitle(
+                  <MapPin className="text-muted-foreground h-4 w-4" />,
+                  t("board.fixedTitle"),
+                  t("board.fixedHint"),
+                  "putaway-section-fixed-title"
+                )}
+                {sections.fixed.map(({ location, items: list }) => (
+                  <div key={location.id} className="bg-card rounded-lg border px-3 py-1">
+                    <p className="flex items-center gap-1.5 pt-2 text-xs font-semibold">
+                      <MapPin className="h-3.5 w-3.5" />
+                      {locLabel(location.code, location.name)}
+                    </p>
+                    <div className="divide-y">
+                      {list.map((item) =>
+                        itemRow(item, { action: t("board.putOne"), showOrder: true })
                       )}
                     </div>
-                    {openDocument.movementId && (
-                      <Button
-                        asChild
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="shrink-0"
-                      >
-                        <Link
-                          href={{
-                            pathname: "/dashboard/warehouse/inventory/movements/[movementId]",
-                            params: { movementId: openDocument.movementId },
-                          }}
-                        >
-                          <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-                          {t("documents.open")}
-                        </Link>
-                      </Button>
-                    )}
                   </div>
+                ))}
+              </section>
+            )}
+
+            {sections.placedOrders.length > 0 && (
+              <section className="flex flex-col gap-2" data-testid="putaway-section-placed">
+                {sectionTitle(
+                  <Wrench className="text-muted-foreground h-4 w-4" />,
+                  t("board.placedTitle"),
+                  t("board.placedHint"),
+                  "putaway-section-placed-title"
+                )}
+                {sections.placedOrders.map((g) => orderCard(g, false))}
+              </section>
+            )}
+
+            {sections.newOrders.length > 0 && (
+              <section className="flex flex-col gap-2" data-testid="putaway-section-new">
+                {sectionTitle(
+                  <PackagePlus className="text-muted-foreground h-4 w-4" />,
+                  t("board.newTitle"),
+                  t("board.newHint"),
+                  "putaway-section-new-title"
+                )}
+                {sections.newOrders.map((g) => orderCard(g, true))}
+              </section>
+            )}
+
+            {sections.loose.length > 0 && (
+              <section className="flex flex-col gap-2" data-testid="putaway-section-free">
+                {sectionTitle(
+                  <Package className="text-muted-foreground h-4 w-4" />,
+                  t("board.freeTitle"),
+                  t("board.freeHint"),
+                  "putaway-section-free-title"
+                )}
+                <div className="bg-card divide-y rounded-lg border px-3">
+                  {sections.loose.map((item) =>
+                    itemRow(item, { action: t("putaway"), showOrder: true })
+                  )}
                 </div>
-                {renderGroups(openDocument.items)}
-              </div>
-            ) : (
-              <div className="flex flex-col gap-2" data-testid="putaway-documents">
-                <p className="text-muted-foreground text-xs">
-                  {t("documents.summary", { count: documents.length })}
-                </p>
-                {documents.map((document) => {
-                  const zls = [
-                    ...new Set(
-                      document.items.map((item) => item.zlNumber).filter((zl): zl is string => !!zl)
-                    ),
-                  ];
-                  const hasFree = document.items.some((item) => !item.repairOrderId);
-                  return (
-                    <button
-                      key={document.key}
-                      type="button"
-                      onClick={() => setDocumentKey(document.key)}
-                      className="bg-card hover:bg-muted/50 flex items-center gap-3 rounded-lg border p-3 text-left"
-                      data-testid="putaway-document-card"
-                    >
-                      <FileText className="text-muted-foreground h-5 w-5 shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-baseline gap-x-2">
-                          <span className="font-mono text-sm font-semibold">
-                            {documentTitle(document)}
-                          </span>
-                          <span className="text-muted-foreground text-xs">
-                            {[document.typeName, formatDate(document.postedAt)]
-                              .filter(Boolean)
-                              .join(" · ")}
-                          </span>
-                        </div>
-                        <p className="text-muted-foreground truncate text-xs">
-                          {[
-                            zls.length > 0 ? t("documents.orders", { list: zls.join(", ") }) : null,
-                            hasFree ? t("documents.free") : null,
-                          ]
-                            .filter(Boolean)
-                            .join(" · ")}
-                        </p>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-1">
-                        <Badge variant="secondary">
-                          {t("documents.lines", { count: document.items.length })}
-                        </Badge>
-                        <ChevronRight className="text-muted-foreground h-4 w-4" />
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
+              </section>
             )}
           </>
         )}
       </div>
 
-      {canOperate && ready && tab === "pending" && items.length > 0 && (
+      {canOperate && ready && items.length > 0 && (
         <Button
           type="button"
           size="icon"
           className="fixed right-4 bottom-[calc(1.25rem+env(safe-area-inset-bottom))] z-40 h-16 w-16 rounded-full shadow-lg sm:right-6 sm:bottom-6"
-          onClick={() => {
-            // The tap that opens the sheet also unlocks scan sounds on iOS.
-            unlockScanSound();
-            openScan();
-          }}
+          onClick={() => openScan()}
           aria-label={t("scanCta")}
           data-testid="putaway-scan-start"
         >
