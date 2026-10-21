@@ -5,7 +5,7 @@
  * source, already-imported session warning, and quick import from session
  * to a filled form (repair orders + missing parts in SZT).
  */
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import plMessages from "../../../../../../../../../../../messages/pl.json";
@@ -376,5 +376,46 @@ describe("MovementImportDialog", () => {
     expect(onApply).not.toHaveBeenCalled();
     expect(actions.createMovementImportProductsAction).not.toHaveBeenCalled();
     expect(await screen.findByText("Kilka pasujących części")).toBeTruthy();
+  });
+  it("keeps parts ordered for another branch off the PZ unless the user takes them in", async () => {
+    const otherBranch = (id: string, branch: string) =>
+      line({
+        source_line_id: id,
+        raw_product_code: "WHT005263",
+        normalized_product_code: "WHT005263",
+        variant_id: "v-known",
+        unit_id: "u-szt",
+        product_resolution_status: "resolved",
+        raw_metadata: { zw_number: "ZW/466/26/3142", destination_note: branch },
+      });
+    actions.previewMovementImportFromSourceAction.mockResolvedValue({
+      success: true,
+      data: preview([
+        line({ variant_id: "v-known", unit_id: "u-szt", product_resolution_status: "resolved" }),
+        otherBranch("l2", "WYSOG"),
+        otherBranch("l3", "GOLEZ"),
+      ]),
+    });
+
+    const onApply = renderDialog();
+    await pickSession("s-new");
+    expect(await screen.findByText("Na inny oddział: WYSOG")).toBeTruthy();
+    expect(screen.getByText("Na inny oddział: GOLEZ")).toBeTruthy();
+    expect(screen.getByTestId("import-summary-verdict").textContent).toContain(
+      "2 pozycje nie wejdą na PZ"
+    );
+    // The user takes the WYSOG parts in; GOLEZ stays off.
+    const wysog = screen
+      .getAllByTestId("import-summary-other-branch")
+      .find((el) => el.closest("details")?.textContent?.includes("WYSOG"))!;
+    fireEvent.click(within(wysog).getByRole("checkbox"));
+
+    fireEvent.click(await screen.findByRole("button", { name: /Szybki import/ }));
+    await waitFor(() => expect(onApply).toHaveBeenCalledTimes(1));
+    const draft = onApply.mock.calls[0][0];
+    expect(draft.lines.map((l: { source_line_id: string }) => l.source_line_id)).toEqual([
+      "l1",
+      "l2",
+    ]);
   });
 });

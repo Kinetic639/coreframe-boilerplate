@@ -7869,6 +7869,9 @@
         "verdictQuick": "Szybki import utworzy {orders, plural, =0 {0 zleceń} one {# zlecenie} few {# zlecenia} other {# zleceń}} i {parts, plural, =0 {0 części} one {# część} few {# części} other {# części}} (jednostka SZT), a potem wypełni formularz ({lines} poz.).",
         "verdictStops": "Szybki import zatrzyma się na {count, plural, one {# pozycji} other {# pozycjach}}, które wymagają decyzji — wtedy otworzy się przegląd ręczny.",
         "freeStock": "{count, plural, one {# pozycja wejdzie} few {# pozycje wejdą} other {# pozycji wejdzie}} jako wolny towar (bez zlecenia albo zlecenie zamknięte).",
+        "otherBranch": "{count, plural, one {# pozycja nie wejdzie} few {# pozycje nie wejdą} other {# pozycji nie wejdzie}} na PZ: zamówione na inny oddział.",
+        "otherBranchTitle": "Na inny oddział: {branch}",
+        "otherBranchReceive": "Przyjmij te części na ten PZ (jako wolny towar)",
         "noOrder": "Bez zlecenia",
         "partsCount": "{count, plural, one {# część} few {# części} other {# części}}",
         "orderStatus": {
@@ -7877,7 +7880,8 @@
           "existing_changes": "Istnieje · nowe części",
           "conflict": "Konflikt",
           "unknown": "Nie sprawdzono",
-          "none": "Wolny towar"
+          "none": "Wolny towar",
+          "other_branch": "Inny oddział"
         },
         "conflict": {
           "missing_zl": "Brak numeru ZL",

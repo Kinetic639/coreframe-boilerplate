@@ -7895,6 +7895,9 @@
         "verdictQuick": "Quick import will create {orders, plural, one {# repair order} other {# repair orders}} and {parts, plural, one {# part} other {# parts}} (unit SZT), then fill the form ({lines} lines).",
         "verdictStops": "Quick import will stop at {count, plural, one {# line} other {# lines}} that need a decision — the manual review opens then.",
         "freeStock": "{count, plural, one {# line goes} other {# lines go}} in as free stock (no repair order or order closed).",
+        "otherBranch": "{count, plural, one {# line} other {# lines}} will stay off the receipt: ordered for another branch.",
+        "otherBranchTitle": "For another branch: {branch}",
+        "otherBranchReceive": "Receive these parts on this receipt (as free stock)",
         "noOrder": "No repair order",
         "partsCount": "{count, plural, one {# part} other {# parts}}",
         "orderStatus": {
@@ -7903,7 +7906,8 @@
           "existing_changes": "Exists · new parts",
           "conflict": "Conflict",
           "unknown": "Not checked",
-          "none": "Free stock"
+          "none": "Free stock",
+          "other_branch": "Other branch"
         },
         "conflict": {
           "missing_zl": "No ZL number",

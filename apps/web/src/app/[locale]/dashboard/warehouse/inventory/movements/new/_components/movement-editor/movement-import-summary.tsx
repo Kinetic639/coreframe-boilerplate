@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export type ImportSummaryPartStatus = "in_catalog" | "create" | "ambiguous" | "no_permission";
 
@@ -23,11 +24,17 @@ export type ImportSummaryOrderStatus =
   /** Repair orders could not be checked (no permission, error). */
   | "unknown"
   /** Lines without a ZL number: free stock. */
-  | "none";
+  | "none"
+  /** A block without ZL whose SVWMS note names another branch (WYSOG, GOLEZ). */
+  | "other_branch";
 
 export type ImportSummaryOrder = {
   key: string;
   zlNumber: string | null;
+  /** The branch code of an "other_branch" group. */
+  otherBranch: string | null;
+  /** False: the group's lines stay off the PZ. */
+  received: boolean;
   description: string | null;
   status: ImportSummaryOrderStatus;
   conflictReason: string | null;
@@ -47,6 +54,7 @@ export type ImportSessionSummaryModel = {
     ambiguous: number;
     noPermission: number;
     freeStock: number;
+    otherBranch: number;
   };
 };
 
@@ -60,6 +68,7 @@ const ORDER_BADGE: Record<
   conflict: "destructive",
   unknown: "outline",
   none: "outline",
+  other_branch: "outline",
 };
 
 const PART_CLASS: Record<ImportSummaryPartStatus, string> = {
@@ -77,9 +86,11 @@ const PART_CLASS: Record<ImportSummaryPartStatus, string> = {
 export function MovementImportSummary({
   summary,
   loading,
+  onToggleOtherBranch,
 }: {
   summary: ImportSessionSummaryModel | null;
   loading: boolean;
+  onToggleOtherBranch?: (branch: string, received: boolean) => void;
 }) {
   const t = useTranslations("warehouseInventory.movementImport.summary");
 
@@ -167,6 +178,7 @@ export function MovementImportSummary({
                 lines: counts.lines,
               })}
           {counts.freeStock > 0 && <> {t("freeStock", { count: counts.freeStock })}</>}
+          {counts.otherBranch > 0 && <> {t("otherBranch", { count: counts.otherBranch })}</>}
         </span>
       </div>
 
@@ -175,12 +187,20 @@ export function MovementImportSummary({
           <details
             key={order.key}
             className="rounded-md border bg-background"
-            open={order.status === "new" || order.parts.some((p) => p.status !== "in_catalog")}
+            open={
+              order.status === "new" ||
+              order.status === "other_branch" ||
+              order.parts.some((p) => p.status !== "in_catalog")
+            }
             data-testid="import-summary-order"
           >
             <summary className="flex cursor-pointer flex-wrap items-center gap-2 px-3 py-2 text-sm">
               <span className="font-mono font-semibold">
-                {order.zlNumber ? `ZL ${order.zlNumber}` : t("noOrder")}
+                {order.otherBranch
+                  ? t("otherBranchTitle", { branch: order.otherBranch })
+                  : order.zlNumber
+                    ? `ZL ${order.zlNumber}`
+                    : t("noOrder")}
               </span>
               {order.description && (
                 <span className="text-muted-foreground">{order.description}</span>
@@ -194,12 +214,31 @@ export function MovementImportSummary({
                 {t("partsCount", { count: order.parts.length })}
               </span>
             </summary>
+            {order.otherBranch && (
+              <label
+                className="flex items-center gap-2 border-t px-3 py-2 text-xs"
+                data-testid="import-summary-other-branch"
+              >
+                <Checkbox
+                  checked={order.received}
+                  disabled={!onToggleOtherBranch}
+                  onCheckedChange={(checked) =>
+                    onToggleOtherBranch?.(order.otherBranch!, checked === true)
+                  }
+                />
+                {t("otherBranchReceive")}
+              </label>
+            )}
             <table className="w-full border-t text-xs">
               <tbody className="divide-y">
                 {order.parts.map((part) => (
                   <tr key={part.key}>
                     <td className="px-3 py-1.5 font-mono">{part.code}</td>
-                    <td className="px-3 py-1.5">{part.name}</td>
+                    <td
+                      className={`px-3 py-1.5 ${order.received ? "" : "text-muted-foreground line-through"}`}
+                    >
+                      {part.name}
+                    </td>
                     <td className="whitespace-nowrap px-3 py-1.5 text-right font-mono">
                       {part.quantity ?? "-"} {part.unit}
                     </td>

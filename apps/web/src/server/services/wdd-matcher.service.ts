@@ -212,6 +212,8 @@ export interface WddMovementImportCandidateLine {
   zwNumber: string | null;
   clientName: string | null;
   groupName: string | null;
+  /** The SVWMS note field (a branch code such as WYSOG) — on a block without ZL, the branch the parts go to. */
+  destinationNote: string | null;
   warehouseCode: string | null;
   warehouseLabel: string | null;
   documentBrand: string | null;
@@ -568,6 +570,9 @@ export class WddMatcherService {
             metadataString(orderMetadata, "client_name") ??
             metadataString(blockMetadata, "client_name"),
           groupName: metadataString(blockMetadata, "group_name"),
+          destinationNote:
+            metadataString(orderMetadata, "manual_note") ??
+            metadataString(blockMetadata, "manual_note"),
           warehouseCode:
             metadataString(orderMetadata, "warehouse_code") ??
             metadataString(blockMetadata, "warehouse_code"),

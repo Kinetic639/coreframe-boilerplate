@@ -508,14 +508,37 @@ function isStructuralHeaderRow(text: string): boolean {
   );
 }
 
+// The recipient row that opens a brand (ZW) block: a client ("3642 Blacharnia Audi (83570)")
+// or a group ("UNI_SKO - NIE ZMIENIAC (13)"). The note field to its left (a branch code such
+// as WYSOG or GOLEZ) lands either on the same visual row or on the row above.
+const INTER_BLOCK_CLIENT_RE = /^\d{3,6}\s+Blacharnia\b/i;
+const INTER_BLOCK_GROUP_RE = /^[A-Z0-9]+_[A-Z0-9]+\s*-\s*NIE\s+ZMIENIA[CĆ]\b/i;
+const INTER_BLOCK_NOTE_CODE_RE = /^[A-ZĄĆĘŁŃÓŚŹŻ]{3,8}$/;
+
+function splitInterBlockClientRow(text: string): { note: string | null; recipient: string } | null {
+  const normalized = normalizeText(text);
+  if (INTER_BLOCK_CLIENT_RE.test(normalized)) return { note: null, recipient: normalized };
+  const [first, ...rest] = normalized.split(" ");
+  const recipient = rest.join(" ");
+  if (!INTER_BLOCK_NOTE_CODE_RE.test(first) || !recipient) return null;
+  // A group row alone is also a WDD header line; only a group with its note opens a block.
+  if (INTER_BLOCK_CLIENT_RE.test(recipient) || INTER_BLOCK_GROUP_RE.test(recipient)) {
+    return { note: first, recipient };
+  }
+  return null;
+}
+
 function isInterBlockClientRow(text: string): boolean {
-  return /^\d{3,6}\s+Blacharnia\b/i.test(normalizeText(text));
+  return splitInterBlockClientRow(text) !== null;
 }
 
 function isManualInterBlockNoteRow(text: string, nextText: string | null): boolean {
   const normalized = normalizeText(text);
-  if (!nextText || !isInterBlockClientRow(nextText)) return false;
-  return /^[A-ZĄĆĘŁŃÓŚŹŻ0-9_./-]{2,24}$/i.test(normalized);
+  if (!nextText) return false;
+  if (isInterBlockClientRow(nextText)) return /^[A-ZĄĆĘŁŃÓŚŹŻ0-9_./-]{2,24}$/i.test(normalized);
+  return (
+    INTER_BLOCK_GROUP_RE.test(normalizeText(nextText)) && INTER_BLOCK_NOTE_CODE_RE.test(normalized)
+  );
 }
 
 function cleanGroupName(text: string): string | null {
@@ -616,6 +639,11 @@ function detectTruncatedName(nameFragments: string[]): boolean {
 
 function isNameConnectorToken(text: string): boolean {
   return /^[-–/'"(),.]$/.test(text.trim());
+}
+
+/** Sizes written with slashes inside a name, e.g. a tyre "245/40/19". */
+function isNameDimensionToken(text: string): boolean {
+  return /^\d+(?:\/\d+)+$/.test(text.trim());
 }
 
 function isNameNumericPrefixToken(text: string): boolean {
@@ -1048,6 +1076,9 @@ function findPreHeaderRows(
       blwkIdx = i;
       break;
     }
+    if (i > lowerBound && isManualInterBlockNoteRow(rows[i - 1].text, text)) {
+      return rows.slice(i - 1, blockStartIdx);
+    }
     if (isInterBlockClientRow(text)) {
       const previousText = rows[i - 1]?.text ?? null;
       const startIdx = previousText && isManualInterBlockNoteRow(previousText, text) ? i - 1 : i;
@@ -1184,6 +1215,8 @@ function extractManualNoteFromHeaderRows(headerRows: VisualRow[]): string | null
     const text = headerRows[index].text;
     const nextText = headerRows[index + 1]?.text ?? null;
     if (isManualInterBlockNoteRow(text, nextText)) return normalizeText(text);
+    const note = splitInterBlockClientRow(text)?.note;
+    if (note) return note;
   }
   return null;
 }
@@ -1194,10 +1227,11 @@ function extractClientLineFromHeaderRows(headerRows: VisualRow[]): string | null
 
   for (let index = 0; index < headerRows.length; index += 1) {
     const row = headerRows[index];
-    const text = row.text;
     const nextText = headerRows[index + 1]?.text ?? null;
-    if (text.length < 2) continue;
-    if (isManualInterBlockNoteRow(text, nextText)) continue;
+    if (row.text.length < 2) continue;
+    if (isManualInterBlockNoteRow(row.text, nextText)) continue;
+    // The branch code in front of the recipient is the block's note, not part of the client.
+    const text = splitInterBlockClientRow(row.text)?.recipient ?? row.text;
 
     if (isTableHeaderRow(text)) {
       if (collecting) break;
@@ -1502,13 +1536,15 @@ function buildRawTableRowsV4(
         if (!NAME_ZONE_COLS.has(cell.column)) return false;
         const v = cell.text.trim();
         if (v.length === 0) return false;
-        if (isProductCode(v)) return false;
+        // Catalog numbers carry digits; an upper-case word ("USZCZELKA") is part of the name.
+        if (isProductCode(v) && /\d/.test(v)) return false;
         if (isLikelyOperationCode(v)) return false;
         if (isLikelyLocationToken(v)) return false;
         if (
           !/[A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż]/.test(v) &&
           !isNameConnectorToken(v) &&
-          !isNameNumericPrefixToken(v)
+          !isNameNumericPrefixToken(v) &&
+          !isNameDimensionToken(v)
         ) {
           return false;
         }
@@ -2762,3 +2798,13 @@ export async function parsePdfAutoV4(buffer: ArrayBuffer): Promise<ParseResultV4
 
   return { detectedRole, blocks, parserQuality, parserStatus, fileValidation };
 }
+
+/** Internal steps, exported for unit tests only. */
+export const parserV4TestHooks = {
+  isInterBlockClientRow,
+  isManualInterBlockNoteRow,
+  findPreHeaderRows,
+  extractManualNoteFromHeaderRows,
+  extractClientLineFromHeaderRows,
+  buildRawTableRowsV4,
+};
