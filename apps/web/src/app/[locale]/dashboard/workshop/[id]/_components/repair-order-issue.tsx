@@ -166,7 +166,14 @@ export function RepairOrderIssue({ repairOrderId, zlNumber, canOperate }: Props)
         />
         <div className="min-w-0 flex-1">
           <p className="font-mono text-sm font-medium">{c.sku ?? c.productCode ?? "—"}</p>
-          <p className="truncate text-xs">{c.productName ?? ""}</p>
+          <p className="truncate text-xs">
+            {c.productName ?? ""}
+            {c.internalOrderNumber ? (
+              <span className="text-muted-foreground ml-1.5 font-mono">
+                {c.internalOrderNumber}
+              </span>
+            ) : null}
+          </p>
           <p className="text-muted-foreground text-[11px]">
             {c.containers.length > 0
               ? t("fromContainers", { containers: c.containers.join(", "), location: locLabel(c) })

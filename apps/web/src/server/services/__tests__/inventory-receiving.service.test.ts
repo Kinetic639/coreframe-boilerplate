@@ -186,14 +186,14 @@ describe("InventoryReceivingService.attributeReceipt", () => {
     expect(rpc).not.toHaveBeenCalled();
     expect(result).toEqual({
       success: true,
-      data: { attributed: 0, skipped: 0, skippedReasons: {} },
+      data: { attributed: 0, internalOrders: [], skipped: 0, skippedReasons: {} },
     });
   });
 
   it("attributes by ZL + part code and counts skipped reasons", async () => {
     const { client, rpc } = rpcClient({
       data: {
-        attributed: [{}, {}],
+        attributed: [{ internal_order_number: "ZW/1/26/3142" }, {}],
         skipped: [
           { reason: "no_repair_order" },
           { reason: "no_repair_order" },
@@ -207,12 +207,20 @@ describe("InventoryReceivingService.attributeReceipt", () => {
     expect(rpc).toHaveBeenCalledWith("inventory_attribute_receipt_to_repair_orders", {
       p_actor_user_id: "user",
       p_movement_id: "mv",
-      p_lines: [{ movement_line_id: "ml1", zl_number: "ZL/1/2026", product_code: "N911" }],
+      p_lines: [
+        {
+          movement_line_id: "ml1",
+          zl_number: "ZL/1/2026",
+          product_code: "N911",
+          source_line_id: null,
+        },
+      ],
     });
     expect(result).toEqual({
       success: true,
       data: {
         attributed: 2,
+        internalOrders: ["ZW/1/26/3142"],
         skipped: 3,
         skippedReasons: { no_repair_order: 2, already_received: 1 },
       },

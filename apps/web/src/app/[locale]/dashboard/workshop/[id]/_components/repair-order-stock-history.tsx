@@ -55,18 +55,25 @@ function DocumentLink({
   );
 }
 
-export async function RepairOrderStockDocuments({
-  lines,
-  view,
-  events,
-  locale,
-}: {
-  lines: LineInfo[];
-  view: RepairOrderLineWarehouseView[];
-  events: ReservationEventView[];
-  locale: string;
-}) {
-  const t = await getTranslations("modules.workshop.repairOrders.stock");
+/** One warehouse document of the order with its lines (parts of this order only). */
+export type StockDocument = {
+  key: string;
+  number: string | null;
+  movementId: string | null;
+  date: string;
+  kind: string;
+  lines: Array<{ key: string; part: string; quantity: number; detail: string | null }>;
+};
+
+/**
+ * Every warehouse document of the order (PZ, REZ, MM, RW, releases), oldest
+ * first, with its lines -- the "Magazyn" half of "Magazyn i zamówienia".
+ */
+export function stockDocumentsOf(
+  lines: LineInfo[],
+  view: RepairOrderLineWarehouseView[],
+  events: ReservationEventView[]
+): StockDocument[] {
   const byId = new Map(lines.map((l) => [l.id, l]));
   const rows: DocumentRow[] = [];
   for (const v of view) {
@@ -112,54 +119,26 @@ export async function RepairOrderStockDocuments({
   }
   rows.sort((a, b) => a.date.localeCompare(b.date));
 
-  return (
-    <section className="grid gap-3" data-testid="repair-order-stock-documents">
-      <div>
-        <h2 className="text-base font-semibold">{t("documents.title")}</h2>
-        <p className="text-sm text-muted-foreground">{t("documents.subtitle")}</p>
-      </div>
-      {rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t("documents.empty")}</p>
-      ) : (
-        <div className="overflow-x-auto rounded-md border">
-          <table className="w-full min-w-[720px] text-sm">
-            <thead>
-              <tr className="border-b bg-muted/30 text-left text-xs text-muted-foreground">
-                <th className="py-2 pl-3 pr-3 font-medium">{t("documents.date")}</th>
-                <th className="py-2 pr-3 font-medium">{t("documents.document")}</th>
-                <th className="py-2 pr-3 font-medium">{t("documents.kind")}</th>
-                <th className="py-2 pr-3 font-medium">{t("documents.part")}</th>
-                <th className="py-2 pr-3 text-right font-medium">{t("documents.quantity")}</th>
-                <th className="py-2 pr-3 font-medium">{t("documents.detail")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr
-                  key={row.key}
-                  className="border-b last:border-b-0"
-                  data-testid="stock-document-row"
-                >
-                  <td className="py-2 pl-3 pr-3 text-xs text-muted-foreground">
-                    {row.date ? new Date(row.date).toLocaleString(locale) : "—"}
-                  </td>
-                  <td className="py-2 pr-3">
-                    <DocumentLink number={row.number} movementId={row.movementId} />
-                  </td>
-                  <td className="py-2 pr-3">
-                    <Badge variant="outline">{t(`kinds.${row.kind}`)}</Badge>
-                  </td>
-                  <td className="py-2 pr-3">{part(byId, row.lineId)}</td>
-                  <td className="py-2 pr-3 text-right tabular-nums">{fmt(row.quantity)}</td>
-                  <td className="py-2 pr-3 text-xs text-muted-foreground">{row.detail ?? "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </section>
-  );
+  const documents = new Map<string, StockDocument>();
+  for (const row of rows) {
+    const key = `${row.kind}:${row.number ?? row.key}`;
+    const doc = documents.get(key) ?? {
+      key,
+      number: row.number,
+      movementId: row.movementId,
+      date: row.date,
+      kind: row.kind,
+      lines: [],
+    };
+    doc.lines.push({
+      key: row.key,
+      part: part(byId, row.lineId),
+      quantity: row.quantity,
+      detail: row.detail,
+    });
+    documents.set(key, doc);
+  }
+  return [...documents.values()];
 }
 
 export async function RepairOrderStockHistory({

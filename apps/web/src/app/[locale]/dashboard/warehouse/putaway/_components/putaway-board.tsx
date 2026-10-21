@@ -11,6 +11,7 @@ import {
   Package,
   PackagePlus,
   ScanLine,
+  Send,
   Tag,
   Wrench,
 } from "lucide-react";
@@ -25,9 +26,16 @@ import { unlockScanSound } from "./scan-feedback";
 import { useScanIndex } from "./scan-index";
 import { useWarehouseLocationsQuery } from "@/hooks/queries/warehouse";
 import type { QrIndexEntry } from "@/server/services/putaway-scan.service";
+import type { BranchTransferView } from "@/server/services/internal-orders.service";
+import { BranchTransfers } from "./branch-transfers";
+import {
+  ShipInternalOrderDialog,
+  type ShipBranch,
+} from "../../internal-orders/_components/ship-internal-order-dialog";
 import {
   formatQty,
   isContainerPart,
+  isInternalOrderPart,
   itemKey,
   locLabel,
   type RepairOrderInfo,
@@ -46,6 +54,10 @@ type Props = {
   orders?: Record<string, RepairOrderInfo>;
   /** Every QR code of the organization: scans are recognised on the phone. */
   qrCodes?: QrIndexEntry[];
+  /** Transfers between branches: arriving here, to send from here. */
+  transfers?: { incoming: BranchTransferView[]; toSend: BranchTransferView[] };
+  /** Other branches of the organization (a ZW is shipped to one). */
+  branches?: ShipBranch[];
 };
 
 type OrderGroup = {
@@ -65,8 +77,15 @@ function documentNumbers(item: ReceivingPendingItem): string[] {
   ];
 }
 
+type InternalOrderGroup = {
+  order: NonNullable<ReceivingPendingItem["internalOrder"]>;
+  items: ReceivingPendingItem[];
+};
+
 /**
  * What waits in the receiving zone, in the order it is worked through:
+ * 0. internal orders without a repair order (e.g. for another branch): they
+ *    stay reserved here until they leave, nothing to put away,
  * 1. parts with their own fixed location (they never go into a container),
  * 2. free stock and other goods (quick to clear, they never go into containers),
  * 3. repair orders that already lie somewhere -- add to their containers,
@@ -81,10 +100,15 @@ function sectionsOf(items: ReceivingPendingItem[], orders: Record<string, Repair
     }
   >();
   const byOrder = new Map<string, OrderGroup>();
+  const internal = new Map<string, InternalOrderGroup>();
   const loose: ReceivingPendingItem[] = [];
 
   for (const item of items) {
-    if (isContainerPart(item) && item.repairOrderId) {
+    if (item.internalOrder) {
+      const entry = internal.get(item.internalOrder.id) ?? { order: item.internalOrder, items: [] };
+      entry.items.push(item);
+      internal.set(item.internalOrder.id, entry);
+    } else if (isContainerPart(item) && item.repairOrderId) {
       const info = orders[item.repairOrderId];
       const group = byOrder.get(item.repairOrderId) ?? {
         id: item.repairOrderId,
@@ -112,6 +136,9 @@ function sectionsOf(items: ReceivingPendingItem[], orders: Record<string, Repair
   const placed = (g: OrderGroup) =>
     g.containers.length > 0 || (g.info?.looseLocations?.length ?? 0) > 0;
   return {
+    internal: [...internal.values()].sort((a, b) =>
+      a.order.number.localeCompare(b.order.number, "pl", { numeric: true })
+    ),
     fixed: [...fixed.values()].sort((a, b) =>
       (a.location.code ?? "").localeCompare(b.location.code ?? "", "pl", { numeric: true })
     ),
@@ -130,6 +157,8 @@ export function PutawayBoard({
   canOperate,
   orders = {},
   qrCodes = [],
+  transfers = { incoming: [], toSend: [] },
+  branches = [],
 }: Props) {
   const t = useTranslations("modules.warehouse.putaway");
   const [active, setActive] = useState<ReceivingPendingItem | null>(null);
@@ -144,6 +173,7 @@ export function PutawayBoard({
         ? { ...current, index: current.index + 1 }
         : null
     );
+  const [shipping, setShipping] = useState<InternalOrderGroup["order"] | null>(null);
   const [scanOpen, setScanOpen] = useState(false);
   const [scanStep, setScanStep] = useState<ScanFlowStep | undefined>(undefined);
   const [scanSession, setScanSession] = useState(0);
@@ -166,6 +196,8 @@ export function PutawayBoard({
   );
   const shown = document ? items.filter((i) => documentNumbers(i).includes(document)) : items;
   const sections = useMemo(() => sectionsOf(shown, orders), [shown, orders]);
+  // Internal-order parts are not scanned onto shelves.
+  const putawayItems = useMemo(() => items.filter((i) => !isInternalOrderPart(i)), [items]);
 
   const toggleOrder = (id: string) =>
     setOpenOrders((prev) => {
@@ -397,6 +429,12 @@ export function PutawayBoard({
           </Button>
         </div>
 
+        <BranchTransfers
+          incoming={transfers.incoming}
+          toSend={transfers.toSend}
+          canOperate={canOperate}
+        />
+
         {loadError ? (
           <div
             className="border-destructive/30 bg-destructive/5 text-destructive rounded-lg border p-4 text-sm"
@@ -445,6 +483,56 @@ export function PutawayBoard({
               <p className="text-muted-foreground -mt-4 font-mono text-xs">
                 {t("board.from", { document: documents[0] })}
               </p>
+            )}
+
+            {sections.internal.length > 0 && (
+              <section className="flex flex-col gap-2" data-testid="putaway-section-internal">
+                {sectionTitle(
+                  <Send className="text-muted-foreground h-4 w-4" />,
+                  t("board.internalTitle"),
+                  t("board.internalHint"),
+                  "putaway-section-internal-title"
+                )}
+                {sections.internal.map(({ order, items: list }) => (
+                  <div
+                    key={order.id}
+                    className="bg-card rounded-lg border px-3 py-1"
+                    data-testid="putaway-internal-order"
+                  >
+                    <div className="flex flex-wrap items-center gap-2 pt-2">
+                      <span className="font-mono text-sm font-semibold">{order.number}</span>
+                      {order.destination && (
+                        <Badge variant="secondary">
+                          {t("board.internalFor", { branch: order.destination })}
+                        </Badge>
+                      )}
+                      {canOperate && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="ml-auto h-8"
+                          onClick={() => setShipping(order)}
+                          data-testid="putaway-internal-ship"
+                        >
+                          <Send className="mr-1.5 h-4 w-4" />
+                          {t("board.internalShip")}
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-muted-foreground truncate text-xs">
+                      {[
+                        order.externalNumber
+                          ? t("board.internalExternal", { number: order.externalNumber })
+                          : null,
+                        order.client,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                    <div className="divide-y">{list.map((item) => itemRow(item))}</div>
+                  </div>
+                ))}
+              </section>
             )}
 
             {sections.fixed.length > 0 && (
@@ -545,7 +633,7 @@ export function PutawayBoard({
           onOpenChange={setScanOpen}
           branchId={branchId}
           receivingLocationId={receivingLocationId}
-          items={items}
+          items={putawayItems}
           orders={orders}
           scanIndex={scanIndex}
         />
@@ -565,6 +653,19 @@ export function PutawayBoard({
             onDone: nextInSequence,
             onSkip: nextInSequence,
           }}
+        />
+      )}
+
+      {shipping && (
+        <ShipInternalOrderDialog
+          order={{
+            id: shipping.id,
+            number: shipping.number,
+            destinationCode: shipping.destination,
+            clientName: shipping.client,
+          }}
+          branches={branches}
+          onClose={() => setShipping(null)}
         />
       )}
 

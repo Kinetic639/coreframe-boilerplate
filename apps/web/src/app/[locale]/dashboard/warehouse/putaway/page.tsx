@@ -6,6 +6,7 @@ import { WAREHOUSE_INVENTORY_OPERATE, WAREHOUSE_INVENTORY_READ } from "@/lib/con
 import { createClient } from "@/utils/supabase/server";
 import { InventoryReceivingService } from "@/server/services/inventory-receiving.service";
 import { PutawayScanService } from "@/server/services/putaway-scan.service";
+import { InternalOrderOperationsService } from "@/server/services/internal-orders.service";
 import { PutawayBoard } from "./_components/putaway-board";
 import type { RepairOrderInfo } from "./_components/putaway-utils";
 
@@ -42,9 +43,12 @@ export default async function PutawayPage() {
   // The QR codes of the organization load alongside: scans are then
   // recognised on the phone. Without them each scan asks the server (slower,
   // still correct), so a failed read does not block the screen.
-  const [pending, qrIndex] = await Promise.all([
+  const [pending, qrIndex, transfers, branches] = await Promise.all([
     InventoryReceivingService.listPending(supabase, context.app.activeOrgId, branchId),
     PutawayScanService.listQrIndex(supabase, context.app.activeOrgId),
+    // Between branches: arriving here, and reserved here by other branches.
+    InternalOrderOperationsService.listTransfers(supabase, context.app.activeOrgId, branchId),
+    InternalOrderOperationsService.listBranches(supabase, context.app.activeOrgId),
   ]);
 
   // Per repair order in the receiving zone: client and existing containers,
@@ -142,6 +146,8 @@ export default async function PutawayPage() {
       orders={orders}
       loadError={loadError}
       canOperate={checkPermission(snapshot, WAREHOUSE_INVENTORY_OPERATE)}
+      transfers={transfers.success ? transfers.data : { incoming: [], toSend: [] }}
+      branches={(branches.success ? branches.data : []).filter((b) => b.id !== branchId)}
     />
   );
 }

@@ -199,6 +199,14 @@ export const routing = defineRouting({
       en: "/dashboard/warehouse/sales",
       pl: "/dashboard/magazyn/sprzedaz",
     },
+    "/dashboard/warehouse/internal-orders": {
+      en: "/dashboard/warehouse/internal-orders",
+      pl: "/dashboard/magazyn/zamowienia-wewnetrzne",
+    },
+    "/dashboard/warehouse/internal-orders/[id]": {
+      en: "/dashboard/warehouse/internal-orders/[id]",
+      pl: "/dashboard/magazyn/zamowienia-wewnetrzne/[id]",
+    },
     "/dashboard/warehouse/sales-orders": {
       en: "/dashboard/warehouse/sales-orders",
       pl: "/dashboard/magazyn/zamowienia-sprzedazy",

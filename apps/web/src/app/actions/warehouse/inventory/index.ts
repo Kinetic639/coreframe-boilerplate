@@ -1753,17 +1753,22 @@ export async function createAndPostMovementAction(rawInput: unknown) {
       idempotency_key: parsed.data.idempotency_key ?? null,
     };
 
-    // A PZ into the receiving zone reserves its repair-order parts in the
-    // same transaction: lines delivered for a ZL (any import source that
-    // knows it) are reserved for that order's line. Either both or neither.
+    // A PZ into the receiving zone reserves its parts in the same
+    // transaction: a line from a Matcher session under its block's internal
+    // order (ZW, created when new) and through that order's repair order; a
+    // line delivered for a ZL (any import source that knows it) for that
+    // order's line. Either both or neither.
     const attribution = receivingLocationId
       ? parsed.data.lines!.flatMap((line, index) =>
-          line.source_order_number && line.source_product_code
+          (line.source_type === "svwms_wdd_matcher" && line.source_line_id) ||
+          (line.source_order_number && line.source_product_code)
             ? [
                 {
                   lineIndex: index + 1,
-                  zlNumber: line.source_order_number,
-                  productCode: line.source_product_code,
+                  zlNumber: line.source_order_number ?? null,
+                  productCode: line.source_product_code ?? null,
+                  sourceLineId:
+                    line.source_type === "svwms_wdd_matcher" ? (line.source_line_id ?? null) : null,
                 },
               ]
             : []

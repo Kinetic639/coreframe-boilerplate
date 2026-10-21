@@ -195,18 +195,13 @@ function lineOrderNumber(line: EditableLine) {
 }
 
 /**
- * A line of a block without ZL whose SVWMS note names a branch (WYSOG, GOLEZ):
- * parts ordered for another branch, not free stock here. Returns that code.
+ * A line of a block without ZL: the internal order (ZW) it is reserved under
+ * on posting -- e.g. parts ordered by another branch (its code in the note).
  */
-function lineOtherBranch(line: EditableLine) {
+function lineInternalOrder(line: EditableLine) {
   if (rawMetadataString(line, "zl_number")) return null;
-  return rawMetadataString(line, "destination_note");
-}
-
-/** Other-branch lines stay off the PZ unless the user takes them in. */
-function isLineReceived(line: EditableLine, includedOtherBranches: Set<string>) {
-  const branch = lineOtherBranch(line);
-  return !branch || includedOtherBranches.has(branch);
+  const zw = rawMetadataString(line, "zw_number");
+  return zw ? { zw, destination: rawMetadataString(line, "destination_note") } : null;
 }
 
 function lineContextNote(line: EditableLine) {
@@ -284,8 +279,7 @@ function buildSessionSummary(
   { data, orders }: SessionSummaryData,
   variants: InventoryVariantOption[],
   units: InventoryUnitRow[],
-  canManageProducts: boolean,
-  includedOtherBranches: Set<string>
+  canManageProducts: boolean
 ): ImportSessionSummaryModel {
   const unitCode = (unitId: string | null) =>
     unitId ? (units.find((unit) => unit.id === unitId)?.code ?? null) : null;
@@ -304,7 +298,7 @@ function buildSessionSummary(
     ambiguous: 0,
     noPermission: 0,
     freeStock: 0,
-    otherBranch: 0,
+    internalOrder: 0,
   };
   const groups = new Map<string, ImportSummaryOrder>();
   for (const line of data.documents.flatMap((document) => document.lines)) {
@@ -335,26 +329,24 @@ function buildSessionSummary(
     else if (status === "ambiguous") counts.ambiguous += 1;
     else counts.noPermission += 1;
 
-    const otherBranch = lineOtherBranch(line);
-    if (otherBranch) {
-      const key = `\uffff:${otherBranch}`;
+    const internalOrder = lineInternalOrder(line);
+    if (internalOrder) {
+      const key = `\ufffe:${internalOrder.zw}`;
       let group = groups.get(key);
       if (!group) {
         group = {
           key,
           zlNumber: null,
-          otherBranch,
-          received: includedOtherBranches.has(otherBranch),
-          description: rawMetadataString(line, "zw_number"),
-          status: "other_branch",
+          internalOrder,
+          description: rawMetadataString(line, "client_name"),
+          status: "internal_order",
           conflictReason: null,
           parts: [],
         };
         groups.set(key, group);
       }
       group.parts.push(part);
-      if (group.received) counts.freeStock += 1;
-      else counts.otherBranch += 1;
+      counts.internalOrder += 1;
       continue;
     }
 
@@ -366,8 +358,7 @@ function buildSessionSummary(
       group = {
         key,
         zlNumber: zl,
-        otherBranch: null,
-        received: true,
+        internalOrder: null,
         description: order
           ? [order.clientName, order.vehicleBrand, order.vin].filter(Boolean).join(" · ") || null
           : null,
@@ -425,7 +416,6 @@ export function MovementImportDialog({
   const [unitOptions, setUnitOptions] = useState(units);
   const [skippedProductKeys, setSkippedProductKeys] = useState<Set<string>>(() => new Set());
   const [excludedZls, setExcludedZls] = useState<Set<string>>(() => new Set());
-  const [includedOtherBranches, setIncludedOtherBranches] = useState<Set<string>>(() => new Set());
   const [showManualReview, setShowManualReview] = useState(false);
   const [productMismatchActions, setProductMismatchActions] = useState<
     Record<string, ProductMismatchAction>
@@ -471,11 +461,10 @@ export function MovementImportDialog({
     () =>
       (selectedDocument?.lines ?? []).filter((line) => {
         if (!isSvwmsSessionImport) return true;
-        if (!isLineReceived(line, includedOtherBranches)) return false;
         const zl = rawMetadataString(line, "zl_number");
         return !zl || !excludedZls.has(zl);
       }),
-    [excludedZls, includedOtherBranches, isSvwmsSessionImport, selectedDocument]
+    [excludedZls, isSvwmsSessionImport, selectedDocument]
   );
   const selectedActiveLines = useMemo(() => {
     if (!isSvwmsSessionImport) return orderLines;
@@ -499,7 +488,6 @@ export function MovementImportDialog({
     setSelectedDocumentId("");
     setSkippedProductKeys(new Set());
     setExcludedZls(new Set());
-    setIncludedOtherBranches(new Set());
     setShowManualReview(false);
     setProductMismatchActions({});
   };
@@ -573,15 +561,9 @@ export function MovementImportDialog({
   const sessionSummary = useMemo(
     () =>
       summaryData
-        ? buildSessionSummary(
-            summaryData,
-            variantOptions,
-            unitOptions,
-            canManageProducts,
-            includedOtherBranches
-          )
+        ? buildSessionSummary(summaryData, variantOptions, unitOptions, canManageProducts)
         : null,
-    [summaryData, variantOptions, unitOptions, canManageProducts, includedOtherBranches]
+    [summaryData, variantOptions, unitOptions, canManageProducts]
   );
 
   useEffect(() => setVariantOptions(variants), [variants]);
@@ -712,14 +694,7 @@ export function MovementImportDialog({
         const data = result.data;
         const isSvwms = data.source_type === SVWMS_SOURCE;
         const defer = { deferLocationValidation: isSvwms };
-        let nextDocuments = revalidatePreviewDocuments(data).map((document) =>
-          isSvwms
-            ? {
-                ...document,
-                lines: document.lines.filter((line) => isLineReceived(line, includedOtherBranches)),
-              }
-            : document
-        );
+        let nextDocuments = revalidatePreviewDocuments(data);
         let nextVariants = variantOptions;
         let nextUnits = unitOptions;
         let ordersCreated = 0;
@@ -1445,18 +1420,7 @@ export function MovementImportDialog({
           )}
 
           {documents.length === 0 && sourceInputComplete && (
-            <MovementImportSummary
-              summary={sessionSummary}
-              loading={summaryLoading}
-              onToggleOtherBranch={(branch, received) =>
-                setIncludedOtherBranches((current) => {
-                  const next = new Set(current);
-                  if (received) next.add(branch);
-                  else next.delete(branch);
-                  return next;
-                })
-              }
-            />
+            <MovementImportSummary summary={sessionSummary} loading={summaryLoading} />
           )}
 
           {/* The choice appears only once the session was checked, so it is made

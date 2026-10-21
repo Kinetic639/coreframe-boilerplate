@@ -522,6 +522,17 @@ export function ReservationLinesTable({
                     >
                       {line.zlNumber}
                     </Link>
+                  ) : line.internalOrderId ? (
+                    <Link
+                      href={{
+                        pathname: "/dashboard/warehouse/internal-orders/[id]",
+                        params: { id: line.internalOrderId },
+                      }}
+                      className="font-mono text-xs hover:underline"
+                    >
+                      {line.internalOrderNumber}
+                      {line.internalOrderDestination ? ` → ${line.internalOrderDestination}` : ""}
+                    </Link>
                   ) : (
                     "—"
                   )}
@@ -1565,6 +1576,8 @@ export function ReservationsList({
       l.sku,
       l.productName,
       l.zlNumber,
+      l.internalOrderNumber,
+      l.internalOrderDestination,
       l.clientName,
       l.locationCode,
       l.locationName,
@@ -1600,7 +1613,12 @@ export function ReservationsList({
                   testId="reservation-document-toggle"
                 >
                   <span className="min-w-0">
-                    <span className="font-mono text-xs">{first.zlNumber ?? "—"}</span>
+                    <span className="font-mono text-xs">
+                      {first.zlNumber ??
+                        (first.internalOrderNumber
+                          ? `${first.internalOrderNumber}${first.internalOrderDestination ? ` → ${first.internalOrderDestination}` : ""}`
+                          : "—")}
+                    </span>
                     {first.clientName ? (
                       <span className="ml-2 text-xs text-muted-foreground">{first.clientName}</span>
                     ) : null}

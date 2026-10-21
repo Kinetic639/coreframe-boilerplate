@@ -4,7 +4,7 @@ import { Fragment, useMemo, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "react-toastify";
 import { BookmarkCheck, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
-import { useRouter } from "@/i18n/navigation";
+import { Link, useRouter } from "@/i18n/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ReservationLinesTable } from "@/components/warehouse/stock-commitments";
+import { ZwLineSquares, ZwSquaresHeader } from "@/components/warehouse/internal-order-status";
 import { reserveForRepairOrderAction } from "@/app/actions/warehouse/reservations";
 import type { ReservationLineView } from "@/server/services/inventory-reservations.service";
 
@@ -86,6 +87,13 @@ export function summarizeLine(
   return { own, reserved, inContainer, issued, missing, places, status };
 }
 
+/** The internal orders (ZW) a repair-order line is on, and whether it was ordered in Ambra. */
+export type PositionOrders = {
+  orders: Array<{ id: string; number: string }>;
+  ordered: boolean;
+  cancelled: boolean;
+};
+
 const STATUS_VARIANT: Record<Status, "default" | "secondary" | "outline" | "destructive"> = {
   missing: "destructive",
   partial: "outline",
@@ -104,6 +112,7 @@ export function RepairOrderPositions({
   canOperate,
   loadError,
   stockLoadError = false,
+  ordersByLine = {},
 }: {
   repairOrderId: string;
   lines: PositionLine[];
@@ -114,6 +123,8 @@ export function RepairOrderPositions({
   loadError: boolean;
   /** Reservations could not be read: the R / missing figures are unknown, not zero. */
   stockLoadError?: boolean;
+  /** Per repair-order line: its ZW (the "Zamówienie" source and the Z / A squares). */
+  ordersByLine?: Record<string, PositionOrders>;
 }) {
   const t = useTranslations("modules.workshop.repairOrders.stock");
   const [open, setOpen] = useState<Set<string>>(new Set());
@@ -187,6 +198,9 @@ export function RepairOrderPositions({
           <thead>
             <tr className="border-b bg-muted/30 text-left text-xs text-muted-foreground">
               <th className="w-8 py-2 pl-2" />
+              <th className="py-2 pr-3 font-medium">
+                <ZwSquaresHeader />
+              </th>
               <th className="py-2 pr-3 font-medium">{t("positions.part")}</th>
               <th className="py-2 pr-3 text-right font-medium">{t("positions.needed")}</th>
               <th className="py-2 pr-3 text-right font-medium">{t("positions.reserved")}</th>
@@ -194,6 +208,7 @@ export function RepairOrderPositions({
               <th className="py-2 pr-3 text-right font-medium">{t("positions.missing")}</th>
               <th className="py-2 pr-3 font-medium">{t("positions.where")}</th>
               <th className="py-2 pr-3 font-medium">{t("positions.status")}</th>
+              <th className="py-2 pr-3 font-medium">{t("positions.source")}</th>
             </tr>
           </thead>
           <tbody>
@@ -226,6 +241,17 @@ export function RepairOrderPositions({
                       ) : null}
                     </td>
                     <td className="py-2 pr-3 align-top">
+                      <ZwLineSquares
+                        line={{
+                          quantity: row.line.orderedQuantity,
+                          ordered: !!ordersByLine[row.line.id]?.ordered,
+                          reservedQuantity: row.reserved,
+                          issuedQuantity: row.issued,
+                          cancelledAt: ordersByLine[row.line.id]?.cancelled ? "cancelled" : null,
+                        }}
+                      />
+                    </td>
+                    <td className="py-2 pr-3 align-top">
                       <div className="font-mono text-xs">{row.line.sku ?? "—"}</div>
                       <div>{row.line.productName}</div>
                       {!row.line.variantId ? (
@@ -256,11 +282,29 @@ export function RepairOrderPositions({
                         {t(`positions.statuses.${row.status}`)}
                       </Badge>
                     </td>
+                    <td className="py-2 pr-3 align-top text-xs" data-testid="position-source">
+                      {(ordersByLine[row.line.id]?.orders ?? []).length > 0
+                        ? ordersByLine[row.line.id]!.orders.map((o, i) => (
+                            <Fragment key={o.id}>
+                              {i > 0 ? ", " : null}
+                              <Link
+                                href={{
+                                  pathname: "/dashboard/warehouse/internal-orders/[id]",
+                                  params: { id: o.id },
+                                }}
+                                className="font-mono text-primary hover:underline"
+                              >
+                                {o.number}
+                              </Link>
+                            </Fragment>
+                          ))
+                        : "—"}
+                    </td>
                   </tr>
                   {expanded ? (
                     <tr className="border-b bg-muted/10">
                       <td />
-                      <td colSpan={7} className="py-2 pr-3">
+                      <td colSpan={9} className="py-2 pr-3">
                         <ReservationLinesTable
                           lines={row.own}
                           canOperate={canOperate}
