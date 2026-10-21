@@ -2,7 +2,9 @@
  * @vitest-environment node
  *
  * Phase 10F — RepairOrderIssueService: candidate building (container parts
- * vs reserved-at-location material, outstanding quantities) and the RW
+ * vs reserved-at-location material, outstanding quantities) for both
+ * reservation shapes (one REZ per order with the order line on each
+ * reservation line, and older one-REZ-per-order-line headers), and the RW
  * issue RPC call/mapping.
  */
 import { describe, it, expect, vi } from "vitest";
@@ -12,7 +14,10 @@ vi.mock("server-only", () => ({}));
 import { RepairOrderIssueService } from "../repair-order-issue.service";
 
 type Filters = Record<string, unknown>;
-function client(resolve: (table: string, f: Filters) => unknown[]) {
+function client(
+  resolve: (table: string, f: Filters) => unknown[],
+  fail?: (table: string) => boolean
+) {
   return {
     from(table: string) {
       const f: Filters = {};
@@ -22,77 +27,112 @@ function client(resolve: (table: string, f: Filters) => unknown[]) {
       chain.in = (k: string, v: unknown) => ((f[`in:${k}`] = v), chain);
       chain.neq = () => chain;
       chain.is = () => chain;
-      chain.then = (ok: (v: unknown) => unknown) => ok({ data: resolve(table, f), error: null });
+      chain.then = (ok: (v: unknown) => unknown) =>
+        ok(
+          fail?.(table)
+            ? { data: null, error: { message: "boom" } }
+            : { data: resolve(table, f), error: null }
+        );
       return chain;
     },
   } as never;
 }
 
+const orderLines = [
+  { id: "rol1", product_code: "5H0807221", product_name: "Zderzak", variant_id: "v1" },
+  { id: "rol2", product_code: "WHT005263", product_name: "Spinka", variant_id: "v2" },
+  { id: "rol3", product_code: "N91158501", product_name: "Nit", variant_id: "v3" },
+];
+
+function shared(table: string) {
+  switch (table) {
+    case "repair_order_lines":
+      return orderLines;
+    case "inventory_allocation_lines":
+      return [
+        {
+          id: "al1",
+          reservation_line_id: "rl1",
+          variant_id: "v1",
+          location_id: "zlc",
+          allocated_quantity: 1,
+          fulfilled_quantity: 0,
+        },
+      ];
+    case "inventory_allocation_container_links":
+      return [{ allocation_line_id: "al1", container_line_id: "cl1" }];
+    case "inventory_container_lines":
+      return [{ id: "cl1", container_id: "c1" }];
+    case "inventory_containers":
+      return [{ id: "c1", code: "K-184213-02" }];
+    case "inventory_variants":
+      return [
+        { id: "v1", sku: "5H0807221GRU" },
+        { id: "v2", sku: "WHT005263" },
+        { id: "v3", sku: "N91158501" },
+      ];
+    case "warehouse_locations":
+      return [
+        { id: "zlc", code: "ZLC-01", name: "Regał" },
+        { id: "prz", code: "PRZ", name: "Strefa przyjęć" },
+        { id: "bin", code: "SZ-02", name: "Kuweta" },
+      ];
+    default:
+      return [];
+  }
+}
+
 describe("RepairOrderIssueService.listCandidates", () => {
-  it("lists container parts to prepare and bulk reservations to tick off", async () => {
+  it("finds parts of the order's one REZ (order line on each reservation line), legacy per-line REZ too", async () => {
     const supabase = client((table) => {
-      switch (table) {
-        case "repair_order_lines":
-          return [
-            { id: "rol1", product_code: "5H0807221", product_name: "Zderzak", variant_id: "v1" },
-            { id: "rol2", product_code: "WHT005263", product_name: "Spinka", variant_id: "v2" },
-          ];
-        case "inventory_reservations":
-          return [
-            { id: "r1", reference_id: "rol1", status: "fulfilled" },
-            { id: "r2", reference_id: "rol2", status: "active" },
-          ];
-        case "inventory_reservation_lines":
-          return [
-            {
-              id: "rl1",
-              reservation_id: "r1",
-              variant_id: "v1",
-              location_id: "zlc",
-              reserved_quantity: 1,
-              released_quantity: 0,
-              fulfilled_quantity: 1,
-            },
-            {
-              id: "rl2",
-              reservation_id: "r2",
-              variant_id: "v2",
-              location_id: "bin",
-              reserved_quantity: 20,
-              released_quantity: 0,
-              fulfilled_quantity: 5,
-            },
-          ];
-        case "inventory_allocation_lines":
-          return [
-            {
-              id: "al1",
-              reservation_line_id: "rl1",
-              variant_id: "v1",
-              location_id: "zlc",
-              allocated_quantity: 1,
-              fulfilled_quantity: 0,
-            },
-          ];
-        case "inventory_allocation_container_links":
-          return [{ allocation_line_id: "al1", container_line_id: "cl1" }];
-        case "inventory_container_lines":
-          return [{ id: "cl1", container_id: "c1" }];
-        case "inventory_containers":
-          return [{ id: "c1", code: "K-184213-02" }];
-        case "inventory_variants":
-          return [
-            { id: "v1", sku: "5H0807221GRU" },
-            { id: "v2", sku: "WHT005263" },
-          ];
-        case "warehouse_locations":
-          return [
-            { id: "zlc", code: "ZLC-01", name: "Regał" },
-            { id: "bin", code: "SZ-02", name: "Kuweta" },
-          ];
-        default:
-          return [];
+      // One REZ for the whole order (PZ / "reserve from stock" / transfer).
+      if (table === "inventory_reservation_lines") {
+        return [
+          {
+            id: "rl1",
+            reservation_id: "rez-order",
+            repair_order_line_id: "rol1",
+            variant_id: "v1",
+            location_id: "zlc",
+            reserved_quantity: 1,
+            released_quantity: 0,
+            fulfilled_quantity: 1,
+          },
+          {
+            // Still in the receiving zone: issued straight from there.
+            id: "rl2",
+            reservation_id: "rez-order",
+            repair_order_line_id: "rol2",
+            variant_id: "v2",
+            location_id: "prz",
+            reserved_quantity: 20,
+            released_quantity: 0,
+            fulfilled_quantity: 5,
+          },
+        ];
       }
+      // An older document: the order line only in the header.
+      if (table === "inventory_reservations") {
+        return [
+          {
+            id: "rez-old",
+            reference_id: "rol3",
+            inventory_reservation_lines: [
+              {
+                id: "rl3",
+                reservation_id: "rez-old",
+                repair_order_line_id: null,
+                variant_id: "v3",
+                location_id: "bin",
+                reserved_quantity: 10,
+                released_quantity: 0,
+                fulfilled_quantity: 0,
+              },
+            ],
+          },
+        ];
+      }
+      return shared(table);
     });
 
     const result = await RepairOrderIssueService.listCandidates(supabase, "ro1");
@@ -118,10 +158,29 @@ describe("RepairOrderIssueService.listCandidates", () => {
         productName: "Spinka",
         sku: "WHT005263",
         outstanding: 15,
+        location: { id: "prz", code: "PRZ", name: "Strefa przyjęć" },
+        containers: [],
+      },
+      {
+        kind: "reservation",
+        sourceId: "rl3",
+        repairOrderLineId: "rol3",
+        productCode: "N91158501",
+        productName: "Nit",
+        sku: "N91158501",
+        outstanding: 10,
         location: { id: "bin", code: "SZ-02", name: "Kuweta" },
         containers: [],
       },
     ]);
+  });
+
+  it("fails instead of showing nothing to issue when the reservations cannot be read", async () => {
+    const result = await RepairOrderIssueService.listCandidates(
+      client(shared, (table) => table === "inventory_reservation_lines"),
+      "ro1"
+    );
+    expect(result).toEqual({ success: false, error: "Failed to load reservations" });
   });
 
   it("returns nothing when the order has no lines", async () => {

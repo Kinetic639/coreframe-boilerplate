@@ -587,27 +587,52 @@ export class PutawayScanService {
         r.repair_order_id,
       ])
     );
-    const { data: resRows } = roByRol.size
-      ? await supabase
-          .from("inventory_reservations")
-          .select(
-            "reference_id, lines:inventory_reservation_lines(location_id, reserved_quantity, released_quantity, fulfilled_quantity)"
-          )
-          .eq("reference_type", "repair_order_line")
-          .in("reference_id", [...roByRol.keys()])
-          .neq("status", "cancelled")
-          .is("deleted_at", null)
-      : { data: [] };
+    // Reservation lines of these orders' lines: the line names its order line
+    // (one REZ per order); older documents name it in the header only.
+    const rolIds = [...roByRol.keys()];
+    const lineColumns =
+      "repair_order_line_id, location_id, reserved_quantity, released_quantity, fulfilled_quantity";
+    const [byLine, legacy] = rolIds.length
+      ? await Promise.all([
+          supabase
+            .from("inventory_reservation_lines")
+            .select(`${lineColumns}, inventory_reservations!inner(status, deleted_at)`)
+            .in("repair_order_line_id", rolIds)
+            .neq("inventory_reservations.status", "cancelled")
+            .is("inventory_reservations.deleted_at", null),
+          supabase
+            .from("inventory_reservations")
+            .select(`reference_id, lines:inventory_reservation_lines(${lineColumns})`)
+            .eq("reference_type", "repair_order_line")
+            .in("reference_id", rolIds)
+            .neq("status", "cancelled")
+            .is("deleted_at", null),
+        ])
+      : [
+          { data: [], error: null },
+          { data: [], error: null },
+        ];
+    if (byLine.error || legacy.error) {
+      return { success: false, error: "Failed to load where the orders' parts lie" };
+    }
+    type OpenLine = {
+      repair_order_line_id: string | null;
+      location_id: string | null;
+      reserved_quantity: number;
+      released_quantity: number;
+      fulfilled_quantity: number;
+    };
+    const resRows: Array<{ reference_id: string; lines: OpenLine[] }> = [
+      ...((byLine.data ?? []) as unknown as OpenLine[]).map((rl) => ({
+        reference_id: rl.repair_order_line_id ?? "",
+        lines: [rl],
+      })),
+      ...(
+        (legacy.data ?? []) as unknown as Array<{ reference_id: string; lines: OpenLine[] | null }>
+      ).map((r) => ({ reference_id: r.reference_id, lines: r.lines ?? [] })),
+    ];
     const bulkLocsByRo = new Map<string, Set<string>>();
-    for (const r of (resRows ?? []) as Array<{
-      reference_id: string;
-      lines: Array<{
-        location_id: string | null;
-        reserved_quantity: number;
-        released_quantity: number;
-        fulfilled_quantity: number;
-      }> | null;
-    }>) {
+    for (const r of resRows) {
       const roId = roByRol.get(r.reference_id);
       if (!roId) continue;
       for (const rl of r.lines ?? []) {
