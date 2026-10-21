@@ -56,6 +56,7 @@ function lineToCanonicalLine(line: WddMovementImportCandidateLine): CanonicalMov
       movement_order_number: movementOrderNumber(line),
       client_name: line.clientName,
       group_name: line.groupName,
+      destination_note: line.destinationNote,
       warehouse_code: line.warehouseCode,
       warehouse_label: line.warehouseLabel,
       document_brand: line.documentBrand,
