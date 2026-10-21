@@ -16,9 +16,12 @@ import {
 import { InventoryReservationsService } from "@/server/services/inventory-reservations.service";
 import { RepairOrderPositions } from "./_components/repair-order-positions";
 import {
-  RepairOrderStockDocuments,
   RepairOrderStockHistory,
+  stockDocumentsOf,
 } from "./_components/repair-order-stock-history";
+import { RepairOrderWarehouseOrders } from "./_components/repair-order-warehouse-orders";
+import { NewInternalOrderButton } from "./_components/new-internal-order";
+import { InternalOrdersService } from "@/server/services/internal-orders.service";
 import { RepairOrdersService } from "@/server/services/repair-orders.service";
 import { ArrowLeft } from "lucide-react";
 import { RepairOrderStatusBadge } from "../_components/repair-order-status-badge";
@@ -184,6 +187,30 @@ export default async function RepairOrderDetailPage({ params, searchParams }: Pa
           ),
         ])
       : [null, null, null];
+  // Internal orders (ZW) of the order: the "Zamówienia" half and the source of each position.
+  const internalOrdersResult =
+    canReadStock && branchId
+      ? await InternalOrdersService.list(supabase, orgId, branchId, { repairOrderId: order.id })
+      : null;
+  const internalOrders = internalOrdersResult?.success ? internalOrdersResult.data : [];
+  const ordersByLine: Record<
+    string,
+    { orders: Array<{ id: string; number: string }>; ordered: boolean; cancelled: boolean }
+  > = {};
+  for (const io of internalOrders) {
+    for (const l of io.lines) {
+      if (!l.repairOrderLineId) continue;
+      const entry = (ordersByLine[l.repairOrderLineId] ??= {
+        orders: [],
+        ordered: false,
+        cancelled: true,
+      });
+      if (!entry.orders.some((o) => o.id === io.id))
+        entry.orders.push({ id: io.id, number: io.number });
+      if (l.ordered && !l.cancelledAt) entry.ordered = true;
+      if (!l.cancelledAt) entry.cancelled = false;
+    }
+  }
   const reservations = reservationsResult?.success ? reservationsResult.data : [];
   const history = historyResult?.success ? historyResult.data : [];
   const availableStock = availableResult?.success ? availableResult.data : [];
@@ -292,6 +319,7 @@ export default async function RepairOrderDetailPage({ params, searchParams }: Pa
                     (!!reservationsResult && !reservationsResult.success) ||
                     !warehouseResult.success
                   }
+                  ordersByLine={ordersByLine}
                 />
               </div>
             ),
@@ -299,12 +327,26 @@ export default async function RepairOrderDetailPage({ params, searchParams }: Pa
           {
             id: "warehouse",
             label: t("tabs.warehouse"),
+            count: internalOrders.length,
             content: (
-              <RepairOrderStockDocuments
-                lines={lineInfo}
-                view={warehouseView}
-                events={history}
+              <RepairOrderWarehouseOrders
+                documents={stockDocumentsOf(lineInfo, warehouseView, history)}
+                orders={internalOrders}
                 locale={locale}
+                ordersLoadError={!!internalOrdersResult && !internalOrdersResult.success}
+                orderActions={
+                  canOperateStock && order.status === "open" ? (
+                    <NewInternalOrderButton
+                      repairOrderId={order.id}
+                      lines={lines.map((l) => ({
+                        id: l.id,
+                        variantId: l.variantId,
+                        sku: l.sku,
+                        productName: l.productName,
+                      }))}
+                    />
+                  ) : null
+                }
               />
             ),
           },

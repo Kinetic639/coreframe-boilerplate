@@ -28,6 +28,8 @@ export interface IssueCandidate {
   outstanding: number;
   location: { id: string; code: string | null; name: string | null } | null;
   containers: string[];
+  /** The internal order (ZW) the part was reserved under, when it was. */
+  internalOrderNumber?: string | null;
 }
 
 export type IssueError =
@@ -79,7 +81,7 @@ export class RepairOrderIssueService {
     // (one REZ per order line) name it in the header only. Both count.
     const lineIds = lines.map((l) => l.id);
     const lineColumns =
-      "id, reservation_id, repair_order_line_id, variant_id, location_id, reserved_quantity, released_quantity, fulfilled_quantity";
+      "id, reservation_id, repair_order_line_id, variant_id, location_id, reserved_quantity, released_quantity, fulfilled_quantity, internal_order_line_id";
     const [byLine, legacy] = await Promise.all([
       supabase
         .from("inventory_reservation_lines")
@@ -108,6 +110,7 @@ export class RepairOrderIssueService {
       reserved_quantity: number;
       released_quantity: number;
       fulfilled_quantity: number;
+      internal_order_line_id?: string | null;
     };
     const rolByResLine = new Map<string, string>();
     const resLineById = new Map<string, ResLine>();
@@ -222,6 +225,35 @@ export class RepairOrderIssueService {
       )
     );
 
+    // The ZW of each reserved part (shown on the issue, nothing depends on it).
+    const iolIds = [
+      ...new Set(resLines.map((r) => r.internal_order_line_id).filter((id): id is string => !!id)),
+    ];
+    const { data: iolRows } = iolIds.length
+      ? await supabase
+          .from("internal_order_lines")
+          .select("id, internal_orders(order_number)")
+          .in("id", iolIds)
+      : { data: [] };
+    const zwByIol = new Map(
+      (
+        (iolRows ?? []) as unknown as Array<{
+          id: string;
+          internal_orders: { order_number: string } | Array<{ order_number: string }> | null;
+        }>
+      ).map((r) => [
+        r.id,
+        (Array.isArray(r.internal_orders) ? r.internal_orders[0] : r.internal_orders)
+          ?.order_number ?? null,
+      ])
+    );
+    const zwOf = (resLineId: string | null | undefined) => {
+      const iol = resLineId ? resLineById.get(resLineId)?.internal_order_line_id : null;
+      return iol ? (zwByIol.get(iol) ?? null) : null;
+    };
+
+    const withZw = (number: string | null) => (number ? { internalOrderNumber: number } : {});
+
     const candidates: IssueCandidate[] = [];
     for (const a of allocLines) {
       const outstanding = Number(a.allocated_quantity) - Number(a.fulfilled_quantity);
@@ -238,6 +270,7 @@ export class RepairOrderIssueService {
         outstanding,
         location: locById.get(a.location_id) ?? null,
         containers: containersByAlloc.get(a.id) ?? [],
+        ...withZw(zwOf(a.reservation_line_id)),
       });
     }
     for (const r of resLines) {
@@ -255,6 +288,7 @@ export class RepairOrderIssueService {
         outstanding,
         location: locById.get(r.location_id) ?? null,
         containers: [],
+        ...withZw(zwOf(r.id)),
       });
     }
     return { success: true, data: candidates };

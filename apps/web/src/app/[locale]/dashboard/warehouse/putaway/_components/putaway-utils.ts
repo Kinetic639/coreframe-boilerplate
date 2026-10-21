@@ -1,7 +1,7 @@
 import type { ReceivingPendingItem } from "@/server/services/inventory-receiving.service";
 
 export function itemKey(item: ReceivingPendingItem) {
-  return `${item.variantId}:${item.repairOrderLineId ?? "free"}`;
+  return `${item.variantId}:${item.repairOrderLineId ?? item.internalOrder?.lineId ?? "free"}`;
 }
 
 export function locLabel(code: string | null | undefined, name: string | null | undefined) {
@@ -20,7 +20,13 @@ export function isContainerPart(item: ReceivingPendingItem) {
 
 /** Parts put away loose on a location: free stock and bulk material. */
 export function isLoosePart(item: ReceivingPendingItem) {
+  if (item.internalOrder) return false;
   return !item.repairOrderLineId || item.handlingMode === "bulk";
+}
+
+/** Parts held under an internal order alone: they leave for it, never go on a shelf. */
+export function isInternalOrderPart(item: ReceivingPendingItem) {
+  return !!item.internalOrder;
 }
 
 export type RepairOrderInfo = {

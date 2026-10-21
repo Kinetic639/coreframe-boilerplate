@@ -79,6 +79,12 @@ export const SIDEBAR_SEARCH_KEYWORDS: Record<string, string[]> = {
   home: ["start", "panel główny", "pulpit", "strona główna", "dashboard", "home"],
   "warehouse.inventory": ["stany", "stan", "zapas", "stock", "inventory"],
   "warehouse.inventory.movements": ["ruchy", "dokumenty", "pz", "rw", "mm", "wz", "movements"],
+  "warehouse.internal-orders": [
+    "zamowienia wewnetrzne",
+    "zw",
+    "zamowienia klienta",
+    "internal orders",
+  ],
   "warehouse.putaway": ["rozlokowanie", "rozlokuj", "przyjecie", "dostawa", "putaway"],
   "warehouse.items": ["kartoteka", "czesci", "towary", "produkty", "items", "products", "parts"],
   "warehouse.audits": ["inwentaryzacja", "spis", "liczenie", "audit", "count"],

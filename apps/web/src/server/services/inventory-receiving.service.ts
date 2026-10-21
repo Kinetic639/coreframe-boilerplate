@@ -45,6 +45,18 @@ export interface ReceivingPendingItem {
   repairOrderId: string | null;
   zlNumber: string | null;
   vehicleBrand: string | null;
+  /**
+   * Held under an internal order (ZW) alone -- e.g. ordered for another
+   * branch: not free stock and not put away; it leaves for that ZW.
+   */
+  internalOrder: {
+    lineId: string;
+    id: string;
+    number: string;
+    externalNumber: string | null;
+    client: string | null;
+    destination: string | null;
+  } | null;
   handlingMode: ProductHandlingMode;
   defaultLocation: { id: string; code: string | null; name: string | null } | null;
   container: {
@@ -149,11 +161,15 @@ export interface ReceiptAttributionLine {
   /** ZL the line was delivered for. */
   zlNumber: string;
   productCode: string;
+  /** The Matcher line it came from: its block's ZW is found or created. */
+  sourceLineId?: string | null;
 }
 
 export interface ReceiptAttributionSummary {
   /** Lines received onto a repair order (possibly only part of the quantity). */
   attributed: number;
+  /** Internal orders (ZW) the receipt reserved under. */
+  internalOrders: string[];
   /** Lines (or their excess) left as free stock, by reason. */
   skipped: number;
   skippedReasons: Record<string, number>;
@@ -161,14 +177,25 @@ export interface ReceiptAttributionSummary {
 
 /** The RPC's attribution result ({ attributed: [], skipped: [{ reason }] }) as counts. */
 export function summarizeReceiptAttribution(raw: unknown): ReceiptAttributionSummary {
-  const r = (raw ?? {}) as { attributed?: unknown[]; skipped?: Array<{ reason?: string }> };
+  const r = (raw ?? {}) as {
+    attributed?: Array<{ internal_order_number?: string | null }>;
+    skipped?: Array<{ reason?: string }>;
+  };
   const skippedReasons: Record<string, number> = {};
   for (const s of r.skipped ?? []) {
     const reason = s.reason ?? "unknown";
     skippedReasons[reason] = (skippedReasons[reason] ?? 0) + 1;
   }
+  const internalOrders = [
+    ...new Set(
+      (r.attributed ?? [])
+        .map((a) => a.internal_order_number)
+        .filter((n): n is string => typeof n === "string" && n.length > 0)
+    ),
+  ];
   return {
     attributed: r.attributed?.length ?? 0,
+    internalOrders,
     skipped: r.skipped?.length ?? 0,
     skippedReasons,
   };
@@ -224,6 +251,17 @@ export class InventoryReceivingService {
         repairOrderId: str(it.repair_order_id),
         zlNumber: str(it.zl_number),
         vehicleBrand: str(it.vehicle_brand),
+        internalOrder:
+          str(it.internal_order_line_id) && str(it.internal_order_id)
+            ? {
+                lineId: String(it.internal_order_line_id),
+                id: String(it.internal_order_id),
+                number: str(it.internal_order_number) ?? "ZW",
+                externalNumber: str(it.internal_order_external_number),
+                client: str(it.internal_order_client),
+                destination: str(it.internal_order_destination),
+              }
+            : null,
         handlingMode: it.handling_mode === "bulk" ? "bulk" : "standard",
         defaultLocation: str(it.default_location_id)
           ? {
@@ -306,7 +344,10 @@ export class InventoryReceivingService {
     lines: ReceiptAttributionLine[]
   ): Promise<ServiceResult<ReceiptAttributionSummary>> {
     if (lines.length === 0) {
-      return { success: true, data: { attributed: 0, skipped: 0, skippedReasons: {} } };
+      return {
+        success: true,
+        data: { attributed: 0, internalOrders: [], skipped: 0, skippedReasons: {} },
+      };
     }
     const { data, error } = await supabase.rpc("inventory_attribute_receipt_to_repair_orders", {
       p_actor_user_id: actorUserId,
@@ -315,6 +356,7 @@ export class InventoryReceivingService {
         movement_line_id: l.movementLineId,
         zl_number: l.zlNumber,
         product_code: l.productCode,
+        source_line_id: l.sourceLineId ?? null,
       })),
     });
     if (error) return { success: false, error: "Failed to link the receipt to repair orders" };
@@ -506,7 +548,44 @@ export class InventoryReceivingService {
         quantity: Number(link.applied_quantity ?? 0),
       };
     });
-    for (const link of receiptLinks) {
+    // Receipts held under a ZW alone (no repair order).
+    const iolIds = [
+      ...new Set(
+        items.map((item) => item.internalOrder?.lineId).filter((id): id is string => !!id)
+      ),
+    ];
+    const { data: zwLinkRows } = checked(
+      iolIds.length > 0
+        ? await supabase
+            .from("internal_order_line_movement_links")
+            .select(
+              "internal_order_line_id, applied_quantity, inventory_movement_lines!inner(movement_id, variant_id)"
+            )
+            .in("internal_order_line_id", iolIds)
+            .eq("relation_type", "receipt")
+            .is("repair_order_line_id", null)
+        : { data: [], error: null }
+    );
+    const zwLinks = (
+      (zwLinkRows ?? []) as unknown as Array<{
+        internal_order_line_id: string;
+        applied_quantity: number | string;
+        inventory_movement_lines:
+          | { movement_id: string; variant_id: string }
+          | Array<{ movement_id: string; variant_id: string }>;
+      }>
+    ).map((link) => {
+      const line = Array.isArray(link.inventory_movement_lines)
+        ? link.inventory_movement_lines[0]
+        : link.inventory_movement_lines;
+      return {
+        iolId: link.internal_order_line_id,
+        movementId: line?.movement_id ?? null,
+        variantId: line?.variant_id ?? null,
+        quantity: Number(link.applied_quantity ?? 0),
+      };
+    });
+    for (const link of [...receiptLinks, ...zwLinks]) {
       if (link.movementId && !movementIds.includes(link.movementId))
         movementIds.push(link.movementId);
     }
@@ -578,7 +657,7 @@ export class InventoryReceivingService {
     }
     // What a document reserved for repair orders is not free stock.
     const reserved = new Map<string, number>();
-    for (const link of receiptLinks) {
+    for (const link of [...receiptLinks, ...zwLinks]) {
       if (!link.movementId || !link.variantId) continue;
       const key = inflowKey(link.movementId, link.variantId);
       reserved.set(key, (reserved.get(key) ?? 0) + link.quantity);
@@ -618,6 +697,21 @@ export class InventoryReceivingService {
     };
 
     return items.map((item) => {
+      if (item.internalOrder) {
+        const lineId = item.internalOrder.lineId;
+        const byMovement = new Map<string, number>();
+        for (const link of zwLinks) {
+          if (link.iolId !== lineId || !link.movementId) continue;
+          byMovement.set(link.movementId, (byMovement.get(link.movementId) ?? 0) + link.quantity);
+        }
+        return {
+          ...item,
+          sources: allocate(
+            item.quantity,
+            [...byMovement.entries()].map(([movementId, quantity]) => ({ movementId, quantity }))
+          ),
+        };
+      }
       if (item.repairOrderLineId) {
         const byMovement = new Map<string, number>();
         for (const link of receiptLinks) {

@@ -136,6 +136,18 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
         },
       },
       {
+        // Internal orders (ZW): under repair orders or for another branch.
+        id: "warehouse.internal-orders",
+        title: "Internal orders",
+        titleKey: "modules.warehouse.items.internalOrders",
+        iconKey: "clipboard",
+        href: "/dashboard/warehouse/internal-orders",
+        match: { startsWith: "/dashboard/warehouse/internal-orders" },
+        visibility: {
+          requiresPermissions: [WAREHOUSE_INVENTORY_READ],
+        },
+      },
+      {
         id: "warehouse.items",
         title: "Items",
         titleKey: "modules.warehouse.items.products.title",

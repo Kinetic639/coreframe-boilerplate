@@ -1,15 +1,7 @@
-import { getTranslations } from "next-intl/server";
-import { FileText } from "lucide-react";
-import { WarehousePlaceholderPage } from "../_components/warehouse-placeholder-page";
+import { getLocale } from "next-intl/server";
+import { redirect } from "@/i18n/navigation";
 
+// Customer orders live as internal orders (ZW), as in AutoStacja.
 export default async function WarehouseSalesOrdersPage() {
-  const t = await getTranslations("modules.warehouse");
-
-  return (
-    <WarehousePlaceholderPage
-      title={t("items.sales.orders")}
-      description={t("placeholder.moduleShell")}
-      Icon={FileText}
-    />
-  );
+  return redirect({ href: "/dashboard/warehouse/internal-orders", locale: await getLocale() });
 }

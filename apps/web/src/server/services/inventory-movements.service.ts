@@ -272,7 +272,12 @@ export class InventoryMovementsService {
     branchId: string,
     input: CreateDraftMovementInput,
     userId: string,
-    attribution: Array<{ lineIndex: number; zlNumber: string; productCode: string }>
+    attribution: Array<{
+      lineIndex: number;
+      zlNumber: string | null;
+      productCode: string | null;
+      sourceLineId?: string | null;
+    }>
   ): Promise<
     ServiceResult<{
       movement_id: string;
@@ -304,6 +309,7 @@ export class InventoryMovementsService {
         line_index: a.lineIndex,
         zl_number: a.zlNumber,
         product_code: a.productCode,
+        source_line_id: a.sourceLineId ?? null,
       })),
     });
     if (error) return { success: false, error: error.message };

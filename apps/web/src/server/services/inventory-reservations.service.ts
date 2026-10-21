@@ -118,6 +118,10 @@ export interface ReservationLineView extends ActiveReservationLine {
   zlNumber: string | null;
   clientName: string | null;
   partName: string | null;
+  /** The internal order (ZW) the line is reserved under -- the order of a ZW without repair order. */
+  internalOrderId?: string | null;
+  internalOrderNumber?: string | null;
+  internalOrderDestination?: string | null;
 }
 
 /** A repair-order line that still needs a part (reserve / transfer target). */
@@ -402,7 +406,8 @@ export class InventoryReservationsService {
          inventory_allocation_lines(allocated_quantity, fulfilled_quantity),
          inventory_variants(sku, product_id, inventory_products!inventory_variants_product_fk(name, inventory_units(code))),
          warehouse_locations(code, name, purpose),
-         repair_order_lines(product_name, repair_orders(id, zl_number, client_name))`
+         repair_order_lines(product_name, repair_orders(id, zl_number, client_name)),
+         internal_order_lines(internal_orders(id, order_number, destination_code, client_name))`
       )
       .eq("organization_id", organizationId)
       .eq("branch_id", branchId)
@@ -429,6 +434,7 @@ export class InventoryReservationsService {
           const location = one(row.warehouse_locations);
           const rol = one(row.repair_order_lines);
           const ro = one(rol?.repair_orders);
+          const io = one(one(row.internal_order_lines)?.internal_orders);
           const allocations = (row.inventory_allocation_lines ?? []) as Array<
             Record<string, unknown>
           >;
@@ -455,8 +461,11 @@ export class InventoryReservationsService {
             locationPurpose: (location?.purpose as string | null) ?? null,
             repairOrderId: (ro?.id as string | null) ?? null,
             zlNumber: (ro?.zl_number as string | null) ?? null,
-            clientName: (ro?.client_name as string | null) ?? null,
+            clientName: ((ro?.client_name ?? io?.client_name) as string | null) ?? null,
             partName: (rol?.product_name as string | null) ?? null,
+            internalOrderId: (io?.id as string | null) ?? null,
+            internalOrderNumber: (io?.order_number as string | null) ?? null,
+            internalOrderDestination: (io?.destination_code as string | null) ?? null,
           };
         })
         .filter((l) => l.openQuantity > 0 || l.allocatedQuantity > 0),

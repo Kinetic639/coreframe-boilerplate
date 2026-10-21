@@ -5,7 +5,7 @@
  * source, already-imported session warning, and quick import from session
  * to a filled form (repair orders + missing parts in SZT).
  */
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import plMessages from "../../../../../../../../../../../messages/pl.json";
@@ -377,8 +377,8 @@ describe("MovementImportDialog", () => {
     expect(actions.createMovementImportProductsAction).not.toHaveBeenCalled();
     expect(await screen.findByText("Kilka pasujących części")).toBeTruthy();
   });
-  it("keeps parts ordered for another branch off the PZ unless the user takes them in", async () => {
-    const otherBranch = (id: string, branch: string) =>
+  it("receives parts ordered by another branch onto the PZ, grouped under their ZW", async () => {
+    const zwLine = (id: string) =>
       line({
         source_line_id: id,
         raw_product_code: "WHT005263",
@@ -386,29 +386,28 @@ describe("MovementImportDialog", () => {
         variant_id: "v-known",
         unit_id: "u-szt",
         product_resolution_status: "resolved",
-        raw_metadata: { zw_number: "ZW/466/26/3142", destination_note: branch },
+        raw_metadata: {
+          zw_number: "ZW/466/26/3142",
+          destination_note: "WYSOG",
+          client_name: "3642 Blacharnia Audi (83570)",
+        },
       });
     actions.previewMovementImportFromSourceAction.mockResolvedValue({
       success: true,
       data: preview([
         line({ variant_id: "v-known", unit_id: "u-szt", product_resolution_status: "resolved" }),
-        otherBranch("l2", "WYSOG"),
-        otherBranch("l3", "GOLEZ"),
+        zwLine("l2"),
+        zwLine("l3"),
       ]),
     });
 
     const onApply = renderDialog();
     await pickSession("s-new");
-    expect(await screen.findByText("Na inny oddział: WYSOG")).toBeTruthy();
-    expect(screen.getByText("Na inny oddział: GOLEZ")).toBeTruthy();
+    expect(await screen.findByText("ZW/466/26/3142")).toBeTruthy();
+    expect(screen.getByTestId("import-summary-destination").textContent).toBe("dla: WYSOG");
     expect(screen.getByTestId("import-summary-verdict").textContent).toContain(
-      "2 pozycje nie wejdą na PZ"
+      "2 pozycje zostaną zarezerwowane pod zamówienia wewnętrzne"
     );
-    // The user takes the WYSOG parts in; GOLEZ stays off.
-    const wysog = screen
-      .getAllByTestId("import-summary-other-branch")
-      .find((el) => el.closest("details")?.textContent?.includes("WYSOG"))!;
-    fireEvent.click(within(wysog).getByRole("checkbox"));
 
     fireEvent.click(await screen.findByRole("button", { name: /Szybki import/ }));
     await waitFor(() => expect(onApply).toHaveBeenCalledTimes(1));
@@ -416,6 +415,7 @@ describe("MovementImportDialog", () => {
     expect(draft.lines.map((l: { source_line_id: string }) => l.source_line_id)).toEqual([
       "l1",
       "l2",
+      "l3",
     ]);
   });
 });

@@ -102,6 +102,7 @@ function item(over: Partial<ReceivingPendingItem>): ReceivingPendingItem {
     repairOrderId: null,
     zlNumber: null,
     vehicleBrand: null,
+    internalOrder: null,
     handlingMode: "standard",
     defaultLocation: null,
     container: null,
@@ -429,5 +430,33 @@ describe("PutawayDialog", () => {
     fireEvent.click(screen.getByTestId("putaway-confirm"));
     await waitFor(() => expect(h.toastError).toHaveBeenCalledWith("not_enough"));
     expect(h.refresh).not.toHaveBeenCalled();
+  });
+});
+
+describe("PutawayBoard — internal orders", () => {
+  it("lists parts held under a ZW in their own section, with nothing to put away", () => {
+    renderBoard([
+      item({
+        variantId: "v-zw",
+        sku: "657807217",
+        repairOrderLineId: null,
+        repairOrderId: null,
+        zlNumber: null,
+        internalOrder: {
+          lineId: "iol-1",
+          id: "io-1",
+          number: "ZW/1/26/3142",
+          externalNumber: "ZW/466/26/3142",
+          client: "3642 Blacharnia Audi (83570)",
+          destination: "WYSOG",
+        },
+      }),
+    ]);
+    const section = screen.getByTestId("putaway-section-internal");
+    expect(section.textContent).toContain("ZW/1/26/3142");
+    expect(section.textContent).toContain("board.internalFor");
+    expect(section.textContent).toContain("3642 Blacharnia Audi (83570)");
+    expect(within(section).queryByTestId("putaway-open")).toBeNull();
+    expect(screen.queryByTestId("putaway-section-free")).toBeNull();
   });
 });

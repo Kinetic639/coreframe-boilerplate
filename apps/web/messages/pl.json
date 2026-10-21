@@ -2719,7 +2719,8 @@
         "putaway": "Do rozlokowania",
         "reservations": "Rezerwacje",
         "blocks": "Blokady",
-        "reservationsAndBlocks": "Rezerwacje i blokady"
+        "reservationsAndBlocks": "Rezerwacje i blokady",
+        "internalOrders": "Zamówienia wewnętrzne"
       },
       "partnerTypes": {
         "vendor": "Dostawca",
@@ -3018,7 +3019,24 @@
           "newContainer": "Nowy kontener",
           "oversize": "Bez naklejki",
           "walkFree": "Rozłóż po kolei ({count})",
-          "walkFixed": "Odłóż po kolei ({count})"
+          "walkFixed": "Odłóż po kolei ({count})",
+          "internalTitle": "Zamówienia wewnętrzne",
+          "internalHint": "Zarezerwowane pod ZW bez zlecenia, np. dla innego oddziału. Nie rozkładaj ich na półki.",
+          "internalFor": "dla: {branch}",
+          "internalExternal": "ZW w AutoStacji: {number}",
+          "internalShip": "Wyślij"
+        },
+        "transfers": {
+          "incomingTitle": "Przychodzące z innych oddziałów",
+          "incomingHint": "Przyjmij do strefy przyjęć (MM 312). Części dla Twojego ZW od razu trafią pod nie.",
+          "toSendTitle": "Do wysłania na inne oddziały",
+          "toSendHint": "Inne oddziały zarezerwowały te części u Ciebie. Wyślij je (MM 311).",
+          "accept": "Przyjmij",
+          "send": "Wyślij",
+          "from": "z: {branch}",
+          "to": "na: {branch}",
+          "accepted": "Przyjęto {number}",
+          "sent": "Wysłano {number}"
         }
       },
       "stockCommitments": {
@@ -3189,6 +3207,173 @@
           "selected": "{count, plural, one {Zaznaczono # część} few {Zaznaczono # części} other {Zaznaczono # części}}",
           "clear": "Odznacz",
           "selectAll": "Zaznacz wszystkie"
+        }
+      },
+      "internalOrders": {
+        "title": "Zamówienia wewnętrzne (ZW)",
+        "subtitle": "ZW oddziału: pod zlecenia i bez zlecenia (np. zamówione przez inny oddział). Numer Ambry i numer z AutoStacji to osobne pola.",
+        "noBranch": "Wybierz oddział, aby zobaczyć zamówienia wewnętrzne.",
+        "loadError": "Nie udało się wczytać zamówień wewnętrznych.",
+        "empty": "Brak zamówień wewnętrznych.",
+        "searchPlaceholder": "Numer ZW, numer z AutoStacji, klient, kod oddziału…",
+        "search": "Szukaj",
+        "kinds": {
+          "all": "Wszystkie",
+          "repair_order": "Pod zlecenia",
+          "standalone": "Bez zlecenia"
+        },
+        "columns": {
+          "order": "Zamówienie",
+          "external": "ZW w AutoStacji",
+          "for": "Dla",
+          "created": "Wystawiono",
+          "lines": "Pozycje",
+          "reserved": "Ilość R",
+          "issued": "Ilość W",
+          "lp": "Lp",
+          "code": "Nr katalogowy",
+          "name": "Nazwa części",
+          "quantity": "Ilość",
+          "receipts": "Przyjęcia"
+        },
+        "repairOrder": "Zlecenie",
+        "forBranch": "dla: {branch}",
+        "back": "Zamówienia wewnętrzne",
+        "externalNumber": "ZW w AutoStacji: {number}",
+        "noExternalNumber": "Bez numeru z AutoStacji",
+        "sources": {
+          "matcher": "z dokumentów dostawy",
+          "manual": "założone w Ambrze"
+        },
+        "statuses": {
+          "open": "Otwarte",
+          "completed": "Zakończone",
+          "cancelled": "Anulowane"
+        },
+        "client": "Klient",
+        "linesTitle": "Pozycje",
+        "receiptsTitle": "Dostawy pod to ZW",
+        "noReceipts": "Pod to ZW nic jeszcze nie przyszło.",
+        "deliveryOnlyHint": "ZW utworzone z dokumentów dostawy: Ambra zna tylko pozycje, które już przyszły, więc nie zaznacza Z (zamówione).",
+        "lineCount": "{count, plural, one {# poz.} few {# poz.} other {# poz.}}",
+        "cancelledBecause": "Anulowano: {reason}",
+        "forOrder": {
+          "title": "Zamówienia (ZW) zlecenia",
+          "subtitle": "Każde ZW z jego pozycjami: Z zamówione, R zarezerwowane, W wydane, A anulowane.",
+          "empty": "Zlecenie nie ma jeszcze zamówień wewnętrznych."
+        },
+        "squares": {
+          "z": {
+            "letter": "Z",
+            "name": "Zamówione"
+          },
+          "r": {
+            "letter": "R",
+            "name": "Zarezerwowane"
+          },
+          "w": {
+            "letter": "W",
+            "name": "Wydane"
+          },
+          "a": {
+            "letter": "A",
+            "name": "Anulowane"
+          },
+          "fill": {
+            "full": "w całości",
+            "half": "częściowo",
+            "none": "nie"
+          }
+        },
+        "form": {
+          "newButton": "Nowe ZW",
+          "newStandaloneButton": "Nowe ZW bez zlecenia",
+          "title": "Nowe zamówienie wewnętrzne (ZW) zlecenia",
+          "titleStandalone": "Nowe zamówienie wewnętrzne (ZW) bez zlecenia",
+          "description": "Pozycje zlecenia albo nowe części (staną się pozycjami zlecenia). To, co jest na stanie, możesz od razu zarezerwować pod to ZW.",
+          "descriptionStandalone": "Np. części zamówione przez inny oddział: wpisz jego kod (WYSOG) albo klienta. To, co jest na stanie, możesz od razu zarezerwować.",
+          "externalNumber": "ZW w AutoStacji (opcjonalnie)",
+          "destinationCode": "Kod oddziału",
+          "client": "Klient / oddział",
+          "addPosition": "Dodaj pozycję zlecenia",
+          "addFromCatalog": "Część z katalogu",
+          "addOutsideCatalog": "Część spoza katalogu",
+          "noLines": "Dodaj co najmniej jedną część.",
+          "part": "Część",
+          "quantity": "Ilość",
+          "reserveFrom": "Zarezerwuj z",
+          "reserveQuantity": "Ile",
+          "code": "Nr katalogowy",
+          "name": "Nazwa",
+          "noStock": "brak na stanie",
+          "notInCatalog": "spoza katalogu — zarezerwujesz po przyjęciu",
+          "dontReserve": "nie rezerwuj",
+          "remove": "Usuń",
+          "cancel": "Anuluj",
+          "submit": "Utwórz ZW",
+          "created": "Utworzono {number}",
+          "createdReserved": "Utworzono {number}, zarezerwowano ({reservation})",
+          "warehouse": "Jednostka (magazyn)"
+        },
+        "actions": {
+          "setNumber": "Numer z AutoStacji",
+          "setNumberHint": "Numer ZW z AutoStacji: dostawa z tym numerem trafi do tego ZW. Można go wpisać tylko raz.",
+          "save": "Zapisz",
+          "numberSet": "Zapisano numer z AutoStacji",
+          "reserve": "Zarezerwuj z magazynu",
+          "reserveHint": "Wolne części (D) tego oddziału pod pozycje, którym czegoś brakuje. Jeden dokument REZ.",
+          "reserveConfirm": "Zarezerwuj",
+          "reserved": "Zarezerwowano ({number})",
+          "reserveElsewhere": "Zarezerwuj na innym oddziale",
+          "reserveElsewhereHint": "Części zostaną zarezerwowane na wybranym oddziale (przesunięcie przygotowane). Oddział wysyła je, a Ty przyjmujesz je w strefie przyjęć — trafią pod to ZW.",
+          "requestConfirm": "Zarezerwuj u nich",
+          "requested": "Zarezerwowano na innym oddziale ({number})",
+          "branch": "Oddział",
+          "pickBranch": "Wybierz oddział",
+          "noStockElsewhere": "Inne oddziały nie mają tych części na stanie.",
+          "needed": "brakuje: {count}",
+          "noStock": "brak na stanie",
+          "from": "Skąd",
+          "quantity": "Ilość",
+          "cancelLine": "Anuluj pozycję",
+          "cancelHint": "Pozycja zostaje na ZW ze statusem A i powodem; jej rezerwacja zostanie zwolniona.",
+          "pickLine": "Wybierz pozycję",
+          "reason": "Powód",
+          "cancelConfirm": "Anuluj pozycję",
+          "cancelled": "Anulowano pozycję",
+          "ship": "Wyślij na oddział",
+          "shipTitle": "Wyślij {number} na oddział",
+          "shipFound": "Oddział z kodem tego ZW: {branch}. Zarezerwowane części wyjadą jednym dokumentem MM 311.",
+          "shipPick": "Żaden oddział nie ma kodu tego ZW — wybierz oddział (kody ustawisz w ustawieniach magazynu).",
+          "noBranches": "Organizacja nie ma innych oddziałów.",
+          "shipConfirm": "Wyślij",
+          "shipped": "Wysłano {document} na {branch}"
+        },
+        "errors": {
+          "unauthorized": "Brak uprawnień.",
+          "not_found": "Nie znaleziono.",
+          "duplicate_number": "ZW z tym numerem z AutoStacji już istnieje.",
+          "number_already_set": "Numer z AutoStacji jest już wpisany.",
+          "not_enough": "Za dużo — pozycja nie potrzebuje tylu części.",
+          "insufficient_stock": "Na tej lokalizacji nie ma tylu wolnych części.",
+          "no_warehouse_code": "Oddział nie ma kodu magazynu do numeracji ZW.",
+          "no_destination": "Nie znaleziono oddziału docelowego.",
+          "nothing_to_ship": "Tego ZW nie ma tu nic do wysłania.",
+          "in_container": "Część pozycji leży w kontenerze zlecenia — najpierw ją wyjmij.",
+          "not_open": "ZW lub pozycja nie jest otwarta.",
+          "reason_required": "Podaj powód.",
+          "code_taken": "Ten kod ma już inny oddział.",
+          "invalid": "Nieprawidłowe dane (np. jednostka spoza oddziału).",
+          "invalid_input": "Nieprawidłowe dane.",
+          "unexpected": "Coś poszło nie tak. Spróbuj ponownie."
+        },
+        "branchCodes": {
+          "title": "Kody oddziałów (SVWMS / AutoStacja)",
+          "description": "Kody, pod którymi oddział występuje w dokumentach: kod z pola uwag (np. WYSOG) i numer jednostki (np. 3642). ZW zamówione przez inny oddział jest wysyłane na oddział z tym kodem.",
+          "placeholder": "WYSOG, 3642",
+          "codesFor": "Kody oddziału {branch}",
+          "save": "Zapisz",
+          "saved": "Zapisano kody oddziału"
         }
       }
     },
@@ -3836,7 +4021,7 @@
           "label": "Sekcje zlecenia",
           "overview": "Przegląd",
           "lines": "Pozycje",
-          "warehouse": "Magazyn",
+          "warehouse": "Magazyn i zamówienia",
           "documents": "Dokumenty",
           "related": "Powiązania",
           "containers": "Kontenery",
@@ -3884,7 +4069,8 @@
               "in_container": "w kontenerze",
               "issued": "wydane"
             },
-            "stockLoadError": "Nie udało się wczytać rezerwacji i wydań — stan części jest nieznany (to nie znaczy, że ich brakuje). Odśwież stronę."
+            "stockLoadError": "Nie udało się wczytać rezerwacji i wydań — stan części jest nieznany (to nie znaczy, że ich brakuje). Odśwież stronę.",
+            "source": "Zamówienie"
           },
           "reserve": {
             "button": "Zarezerwuj z magazynu",
@@ -7869,9 +8055,8 @@
         "verdictQuick": "Szybki import utworzy {orders, plural, =0 {0 zleceń} one {# zlecenie} few {# zlecenia} other {# zleceń}} i {parts, plural, =0 {0 części} one {# część} few {# części} other {# części}} (jednostka SZT), a potem wypełni formularz ({lines} poz.).",
         "verdictStops": "Szybki import zatrzyma się na {count, plural, one {# pozycji} other {# pozycjach}}, które wymagają decyzji — wtedy otworzy się przegląd ręczny.",
         "freeStock": "{count, plural, one {# pozycja wejdzie} few {# pozycje wejdą} other {# pozycji wejdzie}} jako wolny towar (bez zlecenia albo zlecenie zamknięte).",
-        "otherBranch": "{count, plural, one {# pozycja nie wejdzie} few {# pozycje nie wejdą} other {# pozycji nie wejdzie}} na PZ: zamówione na inny oddział.",
-        "otherBranchTitle": "Na inny oddział: {branch}",
-        "otherBranchReceive": "Przyjmij te części na ten PZ (jako wolny towar)",
+        "internalOrderStock": "{count, plural, one {# pozycja zostanie zarezerwowana} few {# pozycje zostaną zarezerwowane} other {# pozycji zostanie zarezerwowanych}} pod zamówienia wewnętrzne bez zlecenia (np. dla innego oddziału).",
+        "internalOrderFor": "dla: {branch}",
         "noOrder": "Bez zlecenia",
         "partsCount": "{count, plural, one {# część} few {# części} other {# części}}",
         "orderStatus": {
@@ -7881,7 +8066,7 @@
           "conflict": "Konflikt",
           "unknown": "Nie sprawdzono",
           "none": "Wolny towar",
-          "other_branch": "Inny oddział"
+          "internal_order": "Zamówienie wewnętrzne"
         },
         "conflict": {
           "missing_zl": "Brak numeru ZL",

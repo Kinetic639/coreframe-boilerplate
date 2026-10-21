@@ -91,6 +91,7 @@ function item(over: Partial<ReceivingPendingItem>): ReceivingPendingItem {
     repairOrderId: null,
     zlNumber: null,
     vehicleBrand: null,
+    internalOrder: null,
     handlingMode: "standard",
     defaultLocation: null,
     container: null,

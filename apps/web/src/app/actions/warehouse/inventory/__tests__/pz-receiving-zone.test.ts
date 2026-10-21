@@ -141,13 +141,23 @@ describe("A PZ with lines for a ZL reserves them in the same transaction", () =>
     ).toEqual(["prz", "prz"]);
     expect(call[4]).toBe("user-1");
     expect(call[5]).toEqual([
-      { lineIndex: 2, zlNumber: "ZL/0042/2026/0301/BL", productCode: "N91158501" },
+      {
+        lineIndex: 2,
+        zlNumber: "ZL/0042/2026/0301/BL",
+        productCode: "N91158501",
+        sourceLineId: MATCHER_LINE,
+      },
     ]);
     expect(result).toEqual({
       success: true,
       data: {
         movement_id: "mv-1",
-        attribution: { attributed: 1, skipped: 1, skippedReasons: { no_repair_order: 1 } },
+        attribution: {
+          attributed: 1,
+          internalOrders: [],
+          skipped: 1,
+          skippedReasons: { no_repair_order: 1 },
+        },
       },
     });
   });
