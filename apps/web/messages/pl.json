@@ -2861,7 +2861,10 @@
           "cancel": "Anuluj",
           "doneContainer": "Włożono do kontenera {code} ({location}).",
           "doneNewContainer": "Utworzono kontener {code} w {location} i włożono część.",
-          "doneLocation": "Rozłożono na {location}."
+          "doneLocation": "Rozłożono na {location}.",
+          "position": "{index} z {total}",
+          "skip": "Pomiń",
+          "confirmNext": "Rozłóż i dalej"
         },
         "errors": {
           "unauthorized": "Nie masz uprawnień do rozlokowania w tym oddziale.",
@@ -3013,7 +3016,9 @@
           "waiting": "{count, plural, one {# część czeka} few {# części czekają} other {# części czeka}}",
           "addTo": "Dołóż do {code} ({location})",
           "newContainer": "Nowy kontener",
-          "oversize": "Bez naklejki"
+          "oversize": "Bez naklejki",
+          "walkFree": "Rozłóż po kolei ({count})",
+          "walkFixed": "Odłóż po kolei ({count})"
         }
       },
       "stockCommitments": {

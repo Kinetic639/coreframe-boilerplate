@@ -63,15 +63,26 @@ vi.mock("@/components/features/qr/qr-camera-scanner", () => ({
   SharedCameraProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   useSharedCamera: () => null,
   resolveScannedQr: vi.fn(),
-  QrCameraScanner: ({ onScanned }: { onScanned: (l: unknown) => Promise<string | null> }) => (
-    <button
-      data-testid="fake-scan"
-      onClick={async () => {
-        h.scanResult.current = await onScanned(h.scanLookup.current);
-      }}
-    >
-      scan
-    </button>
+  QrCameraScanner: ({
+    onScanned,
+    onBack,
+    backLabel,
+  }: {
+    onScanned: (l: unknown) => Promise<string | null>;
+    onBack: () => void;
+    backLabel?: string;
+  }) => (
+    <>
+      <button
+        data-testid="fake-scan"
+        onClick={async () => {
+          h.scanResult.current = await onScanned(h.scanLookup.current);
+        }}
+      >
+        scan
+      </button>
+      <button onClick={onBack}>{backLabel}</button>
+    </>
   ),
 }));
 
@@ -287,6 +298,60 @@ describe("PutawayDialog", () => {
     renderBoard([target]);
     fireEvent.click(screen.getByTestId("putaway-open"));
   }
+
+  it('"po kolei": one button walks the free items, each opens on the scanner; skip and next', async () => {
+    h.putaway.mockResolvedValue({ success: true, data: { mode: "free" } });
+    const free2 = item({ variantId: "v-free-2", sku: "FREE-2", quantity: 2 });
+    const free3 = item({ variantId: "v-free-3", sku: "FREE-3", quantity: 1 });
+    renderBoard([free, free2, free3]);
+    fireEvent.click(screen.getByTestId("putaway-section-free-title-walk"));
+
+    // Item 1 of 3, straight on the scanner: skip it.
+    expect(screen.getByTestId("putaway-sequence").textContent).toBe(
+      'position:{"index":1,"total":3}'
+    );
+    expect(screen.getByTestId("fake-scan")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("scanBack"));
+    fireEvent.click(screen.getByTestId("putaway-skip"));
+
+    // Item 2: scan a location, "put away, next".
+    expect(screen.getByTestId("putaway-sequence").textContent).toBe(
+      'position:{"index":2,"total":3}'
+    );
+    h.scanLookup.current = {
+      id: "q",
+      token: "t",
+      label: null,
+      status: "active",
+      assignment: { target_type: "warehouse.location", target_id: "zlc" },
+    };
+    fireEvent.click(screen.getByTestId("fake-scan"));
+    await waitFor(() => expect(h.scanResult.current).toBeNull());
+    expect(screen.getByTestId("putaway-confirm").textContent).toBe("confirmNext");
+    fireEvent.click(screen.getByTestId("putaway-confirm"));
+    await waitFor(() =>
+      expect(h.putaway).toHaveBeenCalledWith({
+        variantId: "v-free-2",
+        quantity: 2,
+        destinationLocationId: "zlc",
+        repairOrderLineId: null,
+      })
+    );
+
+    // Item 3 is the last one: plain "confirm", then the walk ends.
+    await waitFor(() =>
+      expect(screen.getByTestId("putaway-sequence").textContent).toBe(
+        'position:{"index":3,"total":3}'
+      )
+    );
+    h.scanResult.current = undefined;
+    fireEvent.click(screen.getByTestId("fake-scan"));
+    await waitFor(() => expect(h.scanResult.current).toBeNull());
+    expect(screen.getByTestId("putaway-confirm").textContent).toBe("confirm");
+    fireEvent.click(screen.getByTestId("putaway-confirm"));
+    await waitFor(() => expect(screen.queryByTestId("putaway-sequence")).toBeNull());
+    expect(h.putaway).toHaveBeenCalledTimes(2);
+  });
 
   it("free stock: a scanned location sticker becomes the destination", async () => {
     h.putaway.mockResolvedValue({ success: true, data: { mode: "free" } });

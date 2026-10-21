@@ -2890,7 +2890,10 @@
           "cancel": "Cancel",
           "doneContainer": "Placed into container {code} ({location}).",
           "doneNewContainer": "Created container {code} at {location} and placed the part.",
-          "doneLocation": "Put away to {location}."
+          "doneLocation": "Put away to {location}.",
+          "position": "{index} of {total}",
+          "skip": "Skip",
+          "confirmNext": "Put away, next"
         },
         "errors": {
           "unauthorized": "You are not allowed to put away stock in this branch.",
@@ -3042,7 +3045,9 @@
           "waiting": "{count, plural, one {# part waiting} other {# parts waiting}}",
           "addTo": "Add to {code} ({location})",
           "newContainer": "New container",
-          "oversize": "No sticker"
+          "oversize": "No sticker",
+          "walkFree": "Put away one by one ({count})",
+          "walkFixed": "Put away one by one ({count})"
         }
       },
       "stockCommitments": {

@@ -38,6 +38,12 @@ type Props = {
   onClose: () => void;
   /** Recognises a scanned location on the phone (the putaway screen's code index). */
   lookupToken?: (token: string) => Promise<TokenLookupResult>;
+  /**
+   * Walking a list one item after another ("Rozłóż po kolei"): where this
+   * item is in it. The dialog then opens on the scanner, offers "skip",
+   * and after a putaway calls onDone (next item) instead of closing.
+   */
+  sequence?: { index: number; total: number; onDone: () => void; onSkip: () => void };
 };
 
 function locationLabel(loc: { code: string | null; name: string | null }) {
@@ -65,11 +71,13 @@ export function PutawayDialog({
   receivingLocationId,
   onClose,
   lookupToken,
+  sequence,
 }: Props) {
   const t = useTranslations("modules.warehouse.putaway.dialog");
   const tErr = useTranslations("modules.warehouse.putaway.errors");
   const router = useRouter();
-  const [scanning, setScanning] = useState(false);
+  // In a sequence the next item opens straight on the scanner.
+  const [scanning, setScanning] = useState(!!sequence);
   const [destinationId, setDestinationId] = useState(suggestedLocationId(item) ?? "");
   const [quantity, setQuantity] = useState(String(item.quantity));
   const [submitting, setSubmitting] = useState(false);
@@ -136,7 +144,8 @@ export function PutawayDialog({
             })
           : t("doneLocation", { location: where })
       );
-      onClose();
+      if (sequence) sequence.onDone();
+      else onClose();
       router.refresh();
     } catch {
       toast.error(tErr("unexpected"));
@@ -151,6 +160,14 @@ export function PutawayDialog({
         <DialogHeader>
           <DialogTitle>
             <span className="font-mono">{item.sku ?? "—"}</span>
+            {sequence ? (
+              <span
+                className="text-muted-foreground ml-2 text-sm font-normal"
+                data-testid="putaway-sequence"
+              >
+                {t("position", { index: sequence.index + 1, total: sequence.total })}
+              </span>
+            ) : null}
           </DialogTitle>
           <DialogDescription>
             {item.productName ?? ""}
@@ -222,6 +239,16 @@ export function PutawayDialog({
             </div>
 
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              {sequence ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={sequence.onSkip}
+                  data-testid="putaway-skip"
+                >
+                  {t("skip")}
+                </Button>
+              ) : null}
               <Button type="button" variant="ghost" onClick={onClose}>
                 {t("cancel")}
               </Button>
@@ -231,7 +258,11 @@ export function PutawayDialog({
                 disabled={!destination || !qtyValid || submitting}
                 data-testid="putaway-confirm"
               >
-                {submitting ? t("confirming") : t("confirm")}
+                {submitting
+                  ? t("confirming")
+                  : sequence && sequence.index + 1 < sequence.total
+                    ? t("confirmNext")
+                    : t("confirm")}
               </Button>
             </div>
           </div>
