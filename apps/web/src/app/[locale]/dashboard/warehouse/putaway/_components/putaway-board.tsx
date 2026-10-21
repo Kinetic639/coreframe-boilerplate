@@ -133,6 +133,17 @@ export function PutawayBoard({
 }: Props) {
   const t = useTranslations("modules.warehouse.putaway");
   const [active, setActive] = useState<ReceivingPendingItem | null>(null);
+  // "Rozłóż po kolei": a section's items, one dialog after another.
+  const [sequence, setSequence] = useState<{
+    items: ReceivingPendingItem[];
+    index: number;
+  } | null>(null);
+  const nextInSequence = () =>
+    setSequence((current) =>
+      current && current.index + 1 < current.items.length
+        ? { ...current, index: current.index + 1 }
+        : null
+    );
   const [scanOpen, setScanOpen] = useState(false);
   const [scanStep, setScanStep] = useState<ScanFlowStep | undefined>(undefined);
   const [scanSession, setScanSession] = useState(0);
@@ -195,30 +206,56 @@ export function PutawayBoard({
         <span className="shrink-0 font-mono text-sm font-semibold">
           {formatQty(item.quantity)} {item.unitCode ?? ""}
         </span>
+        {/* The section's "po kolei" walks them all; one item alone opens from its row. */}
         {options.action && canOperate && (
           <Button
             type="button"
-            size="sm"
-            variant="outline"
-            className="h-9 shrink-0"
+            size="icon"
+            variant="ghost"
+            className="text-muted-foreground h-9 w-9 shrink-0"
             onClick={() => setActive(item)}
+            aria-label={options.action}
+            title={options.action}
             data-testid="putaway-open"
           >
-            {options.action}
+            <ChevronRight className="h-4 w-4" />
           </Button>
         )}
       </div>
     );
   }
 
-  function sectionTitle(icon: React.ReactNode, title: string, hint: string, testId: string) {
+  function sectionTitle(
+    icon: React.ReactNode,
+    title: string,
+    hint: string,
+    testId: string,
+    action?: { label: string; items: ReceivingPendingItem[] }
+  ) {
     return (
-      <div data-testid={testId}>
-        <h2 className="flex items-center gap-2 text-sm font-semibold">
-          {icon}
-          {title}
-        </h2>
-        <p className="text-muted-foreground text-xs">{hint}</p>
+      <div className="flex items-start justify-between gap-3" data-testid={testId}>
+        <div className="min-w-0">
+          <h2 className="flex items-center gap-2 text-sm font-semibold">
+            {icon}
+            {title}
+          </h2>
+          <p className="text-muted-foreground text-xs">{hint}</p>
+        </div>
+        {action && canOperate && action.items.length > 0 ? (
+          <Button
+            type="button"
+            size="sm"
+            className="h-9 shrink-0"
+            onClick={() => {
+              unlockScanSound();
+              setSequence({ items: action.items, index: 0 });
+            }}
+            data-testid={`${testId}-walk`}
+          >
+            <ScanLine className="mr-1.5 h-4 w-4" />
+            {action.label}
+          </Button>
+        ) : null}
       </div>
     );
   }
@@ -416,7 +453,13 @@ export function PutawayBoard({
                   <MapPin className="text-muted-foreground h-4 w-4" />,
                   t("board.fixedTitle"),
                   t("board.fixedHint"),
-                  "putaway-section-fixed-title"
+                  "putaway-section-fixed-title",
+                  {
+                    label: t("board.walkFixed", {
+                      count: sections.fixed.flatMap((f) => f.items).length,
+                    }),
+                    items: sections.fixed.flatMap((f) => f.items),
+                  }
                 )}
                 {sections.fixed.map(({ location, items: list }) => (
                   <div key={location.id} className="bg-card rounded-lg border px-3 py-1">
@@ -464,7 +507,11 @@ export function PutawayBoard({
                   <Package className="text-muted-foreground h-4 w-4" />,
                   t("board.freeTitle"),
                   t("board.freeHint"),
-                  "putaway-section-free-title"
+                  "putaway-section-free-title",
+                  {
+                    label: t("board.walkFree", { count: sections.loose.length }),
+                    items: sections.loose,
+                  }
                 )}
                 <div className="bg-card divide-y rounded-lg border px-3">
                   {sections.loose.map((item) =>
@@ -501,6 +548,23 @@ export function PutawayBoard({
           items={items}
           orders={orders}
           scanIndex={scanIndex}
+        />
+      )}
+
+      {sequence && sequence.items[sequence.index] && (
+        <PutawayDialog
+          key={`sequence-${sequence.index}-${itemKey(sequence.items[sequence.index])}`}
+          item={sequence.items[sequence.index]}
+          branchId={branchId}
+          receivingLocationId={receivingLocationId}
+          onClose={() => setSequence(null)}
+          lookupToken={scanIndex.lookupToken}
+          sequence={{
+            index: sequence.index,
+            total: sequence.items.length,
+            onDone: nextInSequence,
+            onSkip: nextInSequence,
+          }}
         />
       )}
 

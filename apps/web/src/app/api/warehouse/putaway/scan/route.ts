@@ -52,7 +52,13 @@ export async function GET(request: NextRequest) {
       locationId
     );
     if (!location.success) return json({ success: false, error: "unexpected" }, 500);
-    return json({ success: true, data: { location: location.data } });
+    return json({
+      success: true,
+      data: {
+        location: location.data,
+        locationBranch: location.data ? null : await branchOf(supabase, locationId),
+      },
+    });
   }
 
   const { data: qr, error } = await supabase
@@ -101,7 +107,34 @@ export async function GET(request: NextRequest) {
       active.target_id
     );
     if (!location.success) return json({ success: false, error: "unexpected" }, 500);
-    return json({ success: true, data: { lookup, location: location.data } });
+    return json({
+      success: true,
+      data: {
+        lookup,
+        location: location.data,
+        locationBranch: location.data ? null : await branchOf(supabase, active.target_id),
+      },
+    });
   }
   return json({ success: true, data: { lookup } });
+}
+
+/**
+ * A location that is not in the requested branch: the name of the branch it
+ * is in (RLS read), so the scanner can say "this label is CNP Piaseczno's"
+ * -- both branches print the same location codes.
+ */
+async function branchOf(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  locationId: string
+): Promise<string | null> {
+  const { data } = await supabase
+    .from("warehouse_locations")
+    .select("branches(name)")
+    .eq("id", locationId)
+    .is("deleted_at", null)
+    .maybeSingle();
+  const branch = (data as { branches?: { name: string } | Array<{ name: string }> | null } | null)
+    ?.branches;
+  return (Array.isArray(branch) ? branch[0]?.name : branch?.name) ?? null;
 }

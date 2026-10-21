@@ -74,44 +74,60 @@ export class RepairOrderIssueService {
     if (lines.length === 0) return { success: true, data: [] };
     const lineById = new Map(lines.map((l) => [l.id, l]));
 
-    const { data: resRows, error: resError } = await supabase
-      .from("inventory_reservations")
-      .select("id, reference_id, status")
-      .eq("reference_type", "repair_order_line")
-      .in(
-        "reference_id",
-        lines.map((l) => l.id)
-      )
-      .neq("status", "cancelled")
-      .is("deleted_at", null);
-    if (resError) return { success: false, error: "Failed to load reservations" };
-    const reservations = (resRows ?? []) as Array<{ id: string; reference_id: string }>;
-    const rolByReservation = new Map(reservations.map((r) => [r.id, r.reference_id]));
-    if (reservations.length === 0) return { success: true, data: [] };
+    // The order's reservation lines. A line names its repair-order line (one
+    // REZ per order: PZ, "reserve from stock", transfers); older documents
+    // (one REZ per order line) name it in the header only. Both count.
+    const lineIds = lines.map((l) => l.id);
+    const lineColumns =
+      "id, reservation_id, repair_order_line_id, variant_id, location_id, reserved_quantity, released_quantity, fulfilled_quantity";
+    const [byLine, legacy] = await Promise.all([
+      supabase
+        .from("inventory_reservation_lines")
+        .select(`${lineColumns}, inventory_reservations!inner(status, deleted_at)`)
+        .in("repair_order_line_id", lineIds)
+        .neq("inventory_reservations.status", "cancelled")
+        .is("inventory_reservations.deleted_at", null),
+      supabase
+        .from("inventory_reservations")
+        .select(`id, reference_id, inventory_reservation_lines(${lineColumns})`)
+        .eq("reference_type", "repair_order_line")
+        .in("reference_id", lineIds)
+        .neq("status", "cancelled")
+        .is("deleted_at", null),
+    ]);
+    // A failed read must not look like "nothing to issue".
+    if (byLine.error || legacy.error)
+      return { success: false, error: "Failed to load reservations" };
 
-    const { data: rlRows } = await supabase
-      .from("inventory_reservation_lines")
-      .select(
-        "id, reservation_id, variant_id, location_id, reserved_quantity, released_quantity, fulfilled_quantity"
-      )
-      .in(
-        "reservation_id",
-        reservations.map((r) => r.id)
-      );
-    const resLines = (rlRows ?? []) as Array<{
+    type ResLine = {
       id: string;
       reservation_id: string;
+      repair_order_line_id: string | null;
       variant_id: string;
       location_id: string | null;
       reserved_quantity: number;
       released_quantity: number;
       fulfilled_quantity: number;
-    }>;
-    const rolByResLine = new Map(
-      resLines.map((rl) => [rl.id, rolByReservation.get(rl.reservation_id) ?? ""])
-    );
+    };
+    const rolByResLine = new Map<string, string>();
+    const resLineById = new Map<string, ResLine>();
+    for (const rl of (byLine.data ?? []) as unknown as ResLine[]) {
+      resLineById.set(rl.id, rl);
+      if (rl.repair_order_line_id) rolByResLine.set(rl.id, rl.repair_order_line_id);
+    }
+    for (const header of (legacy.data ?? []) as unknown as Array<{
+      reference_id: string;
+      inventory_reservation_lines: ResLine[] | null;
+    }>) {
+      for (const rl of header.inventory_reservation_lines ?? []) {
+        resLineById.set(rl.id, rl);
+        rolByResLine.set(rl.id, rl.repair_order_line_id ?? header.reference_id);
+      }
+    }
+    const resLines = [...resLineById.values()];
+    if (resLines.length === 0) return { success: true, data: [] };
 
-    const { data: alRows } = resLines.length
+    const { data: alRows, error: alError } = resLines.length
       ? await supabase
           .from("inventory_allocation_lines")
           .select(
@@ -121,7 +137,8 @@ export class RepairOrderIssueService {
             "reservation_line_id",
             resLines.map((rl) => rl.id)
           )
-      : { data: [] };
+      : { data: [], error: null };
+    if (alError) return { success: false, error: "Failed to load allocations" };
     const allocLines = (alRows ?? []) as Array<{
       id: string;
       reservation_line_id: string;
