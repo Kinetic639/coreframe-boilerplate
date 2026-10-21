@@ -195,14 +195,14 @@ beforeEach(() => {
 });
 
 describe("PutawayBoard", () => {
-  it("lists fixed locations first, then orders that lie somewhere, new orders, free stock", () => {
+  it("lists fixed locations first, then free stock, orders that lie somewhere, new orders", () => {
     renderBoard([free, fender, bumper, clips]);
     const board = screen.getByTestId("putaway-board");
     const order = [
       "putaway-section-fixed",
+      "putaway-section-free",
       "putaway-section-placed",
       "putaway-section-new",
-      "putaway-section-free",
     ].map((id) => screen.getByTestId(id));
     for (let i = 1; i < order.length; i++) {
       expect(
@@ -212,9 +212,9 @@ describe("PutawayBoard", () => {
     // The bulk part of 184213 waits under its fixed bin, not under its order.
     expect(within(order[0]).getByText(/WHT005263/)).toBeInTheDocument();
     expect(within(order[0]).getByText("SZ-02 · Kuweta")).toBeInTheDocument();
-    expect(within(order[1]).getByText("ZL 184213")).toBeInTheDocument();
-    expect(within(order[2]).getByText("ZL 184257")).toBeInTheDocument();
-    expect(within(order[3]).getByText(/FREE-1/)).toBeInTheDocument();
+    expect(within(order[1]).getByText(/FREE-1/)).toBeInTheDocument();
+    expect(within(order[2]).getByText("ZL 184213")).toBeInTheDocument();
+    expect(within(order[3]).getByText("ZL 184257")).toBeInTheDocument();
     expect(screen.queryByText("title")).toBeNull();
     expect(screen.queryByText("subtitle")).toBeNull();
     expect(board).toBeInTheDocument();

@@ -68,9 +68,9 @@ function documentNumbers(item: ReceivingPendingItem): string[] {
 /**
  * What waits in the receiving zone, in the order it is worked through:
  * 1. parts with their own fixed location (they never go into a container),
- * 2. repair orders that already lie somewhere -- add to their containers,
- * 3. repair orders with nothing put away yet -- start a new container,
- * 4. free stock and other goods.
+ * 2. free stock and other goods (quick to clear, they never go into containers),
+ * 3. repair orders that already lie somewhere -- add to their containers,
+ * 4. repair orders with nothing put away yet -- start a new container.
  */
 function sectionsOf(items: ReceivingPendingItem[], orders: Record<string, RepairOrderInfo>) {
   const fixed = new Map<
@@ -477,6 +477,26 @@ export function PutawayBoard({
               </section>
             )}
 
+            {sections.loose.length > 0 && (
+              <section className="flex flex-col gap-2" data-testid="putaway-section-free">
+                {sectionTitle(
+                  <Package className="text-muted-foreground h-4 w-4" />,
+                  t("board.freeTitle"),
+                  t("board.freeHint"),
+                  "putaway-section-free-title",
+                  {
+                    label: t("board.walkFree", { count: sections.loose.length }),
+                    items: sections.loose,
+                  }
+                )}
+                <div className="bg-card divide-y rounded-lg border px-3">
+                  {sections.loose.map((item) =>
+                    itemRow(item, { action: t("putaway"), showOrder: true })
+                  )}
+                </div>
+              </section>
+            )}
+
             {sections.placedOrders.length > 0 && (
               <section className="flex flex-col gap-2" data-testid="putaway-section-placed">
                 {sectionTitle(
@@ -498,26 +518,6 @@ export function PutawayBoard({
                   "putaway-section-new-title"
                 )}
                 {sections.newOrders.map((g) => orderCard(g, true))}
-              </section>
-            )}
-
-            {sections.loose.length > 0 && (
-              <section className="flex flex-col gap-2" data-testid="putaway-section-free">
-                {sectionTitle(
-                  <Package className="text-muted-foreground h-4 w-4" />,
-                  t("board.freeTitle"),
-                  t("board.freeHint"),
-                  "putaway-section-free-title",
-                  {
-                    label: t("board.walkFree", { count: sections.loose.length }),
-                    items: sections.loose,
-                  }
-                )}
-                <div className="bg-card divide-y rounded-lg border px-3">
-                  {sections.loose.map((item) =>
-                    itemRow(item, { action: t("putaway"), showOrder: true })
-                  )}
-                </div>
               </section>
             )}
           </>
