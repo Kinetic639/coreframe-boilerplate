@@ -154,11 +154,20 @@ const scanIndex = {
     }
     if (target?.target_type === "warehouse.location" && target.target_id !== "prz") {
       const res = await h.getLocation(target.target_id);
-      return { ok: true, local: false, lookup, location: res?.data ?? null };
+      return {
+        ok: true,
+        local: false,
+        lookup,
+        location: res?.data ?? null,
+        locationBranch: res?.locationBranch ?? null,
+      };
     }
     return { ok: true, local: false, lookup };
   }),
-  locationContents: vi.fn(async (id: string) => (await h.getLocation(id))?.data ?? null),
+  locationContents: vi.fn(async (id: string) => ({
+    contents: (await h.getLocation(id))?.data ?? null,
+    otherBranch: null,
+  })),
   bindSticker: vi.fn(),
   containers: new Map(),
   lookupToken: vi.fn(),
@@ -260,6 +269,42 @@ describe("ScanFlow", () => {
       qrCodeId: "qr-blank",
       lines: [{ variantId: "v-bumper", quantity: 1, repairOrderLineId: "rol-1" }],
     });
+  });
+
+  it("a location label of another branch is refused with that branch's name", async () => {
+    h.getLocation.mockResolvedValue({ success: true, data: null, locationBranch: "CNP Piaseczno" });
+    renderFlow();
+    await scan({
+      id: "qr-loc-2",
+      assignment: { target_type: "warehouse.location", target_id: "zlc-piaseczno" },
+    });
+    expect(h.scanResult.current).toBe('locationInBranch:{"branch":"CNP Piaseczno"}');
+    expect(screen.queryByTestId("scan-flow-location")).toBeNull();
+  });
+
+  it("a known location missing from the phone's list is confirmed by the server, not refused", async () => {
+    scanIndex.resolve.mockImplementationOnce(async () => ({
+      ok: true,
+      local: true,
+      lookup: h.scanLookup.current as never,
+    }));
+    h.getLocation.mockResolvedValue({
+      success: true,
+      data: {
+        location: { id: "r09", code: "R09", name: "Nowy regał" },
+        isReceiving: false,
+        containers: [],
+        loose: [],
+      },
+    });
+    renderFlow();
+    await scan({
+      id: "qr-r09",
+      assignment: { target_type: "warehouse.location", target_id: "r09" },
+    });
+    expect(h.scanResult.current).toBeNull();
+    expect(await screen.findByTestId("scan-flow-location")).toBeInTheDocument();
+    expect(scanIndex.locationContents).toHaveBeenCalledWith("r09");
   });
 
   it("location: shows what lies there and puts loose items away, fixed-bin material preselected", async () => {

@@ -33,6 +33,8 @@ export type ScanResolution =
       container?: ScannedContainer | null;
       /** For a location code: what lies there, when the request already brought it. */
       location?: LocationContents | null;
+      /** A location code of another branch: that branch's name. */
+      locationBranch?: string | null;
     }
   | { ok: false; reason: "invalidToken" | "notFound" | "revoked" | "offline" };
 
@@ -54,6 +56,7 @@ async function getJson(params: Record<string, string>) {
       lookup?: QrScanLookup | null;
       container?: ScannedContainer | null;
       location?: LocationContents | null;
+      locationBranch?: string | null;
     };
   };
 }
@@ -123,6 +126,7 @@ export function useScanIndex({ qrCodes, organizationId, branchId, orders }: Opti
           lookup,
           container: res.data?.container,
           location: res.data?.location,
+          locationBranch: res.data?.locationBranch ?? null,
         };
       } catch {
         return { ok: false, reason: "offline" };
@@ -133,9 +137,15 @@ export function useScanIndex({ qrCodes, organizationId, branchId, orders }: Opti
 
   /** What lies at a location (loaded in the background after a location scan). */
   const locationContents = useCallback(
-    async (locationId: string): Promise<LocationContents | null> => {
+    async (
+      locationId: string
+    ): Promise<{ contents: LocationContents | null; otherBranch: string | null }> => {
       const res = await getJson({ organizationId, branchId, locationId });
-      return res.success ? (res.data?.location ?? null) : null;
+      if (!res.success) throw new Error("scan lookup failed");
+      return {
+        contents: res.data?.location ?? null,
+        otherBranch: res.data?.locationBranch ?? null,
+      };
     },
     [organizationId, branchId]
   );

@@ -206,14 +206,43 @@ export function ScanFlow({
    * location, containers of the listed orders there); what lies there loose
    * loads in the background.
    */
-  function openLocation(locationId: string, known: LocationContents | null | undefined) {
+  /** Refusal of a location scan: where the label really belongs, when known. */
+  const notHere = (otherBranch: string | null | undefined) =>
+    otherBranch ? t("locationInBranch", { branch: otherBranch }) : t("locationNotHere");
+
+  /**
+   * A location missing from the phone's list is never refused on the phone's
+   * word alone: the server confirms (and says which branch it belongs to).
+   */
+  async function confirmLocation(locationId: string) {
+    try {
+      return await scanIndex.locationContents(locationId);
+    } catch {
+      return null;
+    }
+  }
+
+  async function openLocation(
+    locationId: string,
+    known: LocationContents | null | undefined,
+    knownBranch: string | null | undefined,
+    fromServer: boolean
+  ): Promise<string | null> {
     if (known) {
       setStep({ kind: "location", contents: known });
       return null;
     }
+    // The server already looked and did not find it in this branch.
+    if (fromServer) return notHere(knownBranch);
     const loc = locations.find((l) => l.id === locationId);
-    if (!loc && !locationsQuery.isLoading) return t("locationNotHere");
-    const ref = { id: locationId, code: loc?.code ?? null, name: loc?.name ?? null };
+    if (!loc) {
+      const checked = await confirmLocation(locationId);
+      if (!checked) return t("offline");
+      if (!checked.contents) return notHere(checked.otherBranch);
+      setStep({ kind: "location", contents: checked.contents });
+      return null;
+    }
+    const ref = { id: locationId, code: loc.code ?? null, name: loc.name ?? null };
     setStep({
       kind: "location",
       loading: true,
@@ -228,7 +257,7 @@ export function ScanFlow({
     });
     scanIndex
       .locationContents(locationId)
-      .then((contents) =>
+      .then(({ contents }) =>
         setStep((current) =>
           current.kind === "location" && current.contents.location.id === locationId
             ? contents
@@ -263,7 +292,12 @@ export function ScanFlow({
     }
     if (target.target_type === LOCATION_TARGET) {
       if (target.target_id === receivingLocationId) return t("scanIsReceiving");
-      return openLocation(target.target_id, resolution.location);
+      return openLocation(
+        target.target_id,
+        resolution.location,
+        resolution.locationBranch,
+        !resolution.local
+      );
     }
     return t("unknownCode");
   }
@@ -275,8 +309,15 @@ export function ScanFlow({
     if (lookup.assignment?.target_type !== LOCATION_TARGET) return t("scanNotLocation");
     if (lookup.assignment.target_id === receivingLocationId) return t("scanIsReceiving");
     const match = locations.find((l) => l.id === lookup.assignment?.target_id);
-    if (!match) return t("locationNotHere");
-    setStep({ ...back, location: { id: match.id, code: match.code ?? null, name: match.name } });
+    if (match) {
+      setStep({ ...back, location: { id: match.id, code: match.code ?? null, name: match.name } });
+      return null;
+    }
+    // Not on the phone's list: the server decides (and names the other branch).
+    const checked = await confirmLocation(lookup.assignment.target_id);
+    if (!checked) return t("offline");
+    if (!checked.contents) return notHere(checked.otherBranch);
+    setStep({ ...back, location: checked.contents.location });
     return null;
   }
 

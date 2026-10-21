@@ -2990,7 +2990,8 @@
           },
           "offline": "No connection — scan again.",
           "looseLoading": "Loose here",
-          "looseLoadingHint": "Checking what lies here…"
+          "looseLoadingHint": "Checking what lies here…",
+          "locationInBranch": "This label belongs to branch {branch} — another branch is active. Scan a label of this branch or switch branch."
         },
         "changes": {
           "range": {

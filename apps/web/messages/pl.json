@@ -2961,7 +2961,8 @@
           },
           "offline": "Brak połączenia — zeskanuj jeszcze raz.",
           "looseLoading": "Luzem tutaj",
-          "looseLoadingHint": "Sprawdzam, co tu leży…"
+          "looseLoadingHint": "Sprawdzam, co tu leży…",
+          "locationInBranch": "Ta etykieta jest z oddziału {branch} — aktywny jest inny oddział. Zeskanuj etykietę z tego oddziału albo przełącz oddział."
         },
         "changes": {
           "range": {
