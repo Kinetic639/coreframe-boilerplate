@@ -3053,19 +3053,28 @@
           "internalHint": "Reserved under a ZW without a repair order, e.g. for another branch. Do not put them on a shelf.",
           "internalFor": "for: {branch}",
           "internalExternal": "AutoStacja ZW: {number}",
-          "internalShip": "Ship"
+          "internalShip": "Ship",
+          "internalInTransit": "in transit ({number}) — waiting for the receiver",
+          "internalHeld": "held ({number}) — MMJ- draft, not sent"
         },
         "transfers": {
-          "incomingTitle": "Arriving from other branches",
-          "incomingHint": "Accept into the receiving zone (MM 312). Parts for your ZW go under it at once.",
-          "toSendTitle": "To send to other branches",
-          "toSendHint": "Other branches reserved these parts here. Ship them (MM 311).",
+          "incomingTitle": "Arriving from other units (MMJ+ in transit)",
+          "incomingHint": "Accept: the parts leave the sender's stock (MMJ-) and enter your receiving zone (MMJ+). Both documents get their numbers then.",
+          "toSendTitle": "Held (MMJ- drafts)",
+          "toSendHint": "Parts reserved, nothing sent, no number. Send it on its way or withdraw it.",
           "accept": "Accept",
-          "send": "Send",
+          "send": "Send on its way",
           "from": "from: {branch}",
           "to": "to: {branch}",
-          "accepted": "Accepted {number}",
-          "sent": "Sent {number}"
+          "accepted": "Received: {mmIn} (from {mmOut})",
+          "sent": "Sent on its way",
+          "loadError": "Could not load transfers between branches — arriving ones may be missing here. Refresh the page.",
+          "outgoingTitle": "Sent — in transit (MMJ-)",
+          "outgoingHint": "Waiting for the receiver to accept. Until then they are on your stock, reserved, and can be withdrawn.",
+          "withdraw": "Withdraw",
+          "statusDraft": "held",
+          "statusInTransit": "in transit",
+          "withdrawn": "Withdrawn — reservation restored"
         }
       },
       "stockCommitments": {
@@ -3372,11 +3381,14 @@
           "cancelled": "Line cancelled",
           "ship": "Ship to branch",
           "shipTitle": "Ship {number} to a branch",
-          "shipFound": "Branch with this ZW's code: {branch}. The reserved parts leave in one MM 311.",
+          "shipFound": "Branch with this ZW's code: {branch}.",
           "shipPick": "No branch has this ZW's code — pick one (codes are set in warehouse settings).",
           "noBranches": "The organization has no other branches.",
-          "shipConfirm": "Ship",
-          "shipped": "Shipped {document} to {branch}"
+          "shipConfirm": "Yes — send on its way",
+          "shipped": "Sent on its way to {branch} (MMJ- in transit)",
+          "shipHold": "No — hold",
+          "held": "Held: MMJ- draft to {branch}, parts reserved",
+          "shipNotice": "The goods will be moved to another organizational unit. A pending MMJ+ document will be created in the receiving warehouse. Until the receiver accepts, the parts stay on your stock, reserved — you can withdraw them until then."
         },
         "errors": {
           "unauthorized": "Not allowed.",
@@ -6979,7 +6991,15 @@
       "enableManualCorrections": "Enable manual corrections",
       "manualCorrectionsConfirm": "Manual corrections may break alignment with the imported SVWMS source data. Continue?",
       "importReplacesLines": "Importing data will replace the current unsaved movement lines.",
-      "selectBranchFirst": "Select a branch to create movements."
+      "selectBranchFirst": "Select a branch to create movements.",
+      "unitTransferNoBranch": "Pick the destination branch (recipient).",
+      "unitTransferFailed": "Could not create the transfer.",
+      "unitTransferSent": "Sent on its way (MMJ- in transit).",
+      "unitTransferHeld": "Held: MMJ- draft, parts reserved.",
+      "unitTransferTitle": "Transfer to another unit (MMJ-)",
+      "unitTransferHold": "No — hold",
+      "unitTransferSend": "Yes — send on its way",
+      "unitTransferNotice": "The goods will be moved to another organizational unit. A pending MMJ+ document will be created in the receiving warehouse. Until the receiver accepts, the parts stay on your stock, reserved — you can withdraw them until then."
     },
     "itemPicker": {
       "title": "WMS Item Picker",

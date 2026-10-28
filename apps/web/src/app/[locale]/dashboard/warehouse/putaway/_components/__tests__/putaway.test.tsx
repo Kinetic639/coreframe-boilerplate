@@ -449,6 +449,7 @@ describe("PutawayBoard — internal orders", () => {
           externalNumber: "ZW/466/26/3142",
           client: "3642 Blacharnia Audi (83570)",
           destination: "WYSOG",
+          transfer: null,
         },
       }),
     ]);
@@ -458,5 +459,30 @@ describe("PutawayBoard — internal orders", () => {
     expect(section.textContent).toContain("3642 Blacharnia Audi (83570)");
     expect(within(section).queryByTestId("putaway-open")).toBeNull();
     expect(screen.queryByTestId("putaway-section-free")).toBeNull();
+  });
+});
+
+describe("PutawayBoard — internal orders on their way", () => {
+  it("says a ZW part is in transit and offers no second shipment", () => {
+    renderBoard([
+      item({
+        variantId: "v-zw",
+        repairOrderLineId: null,
+        repairOrderId: null,
+        internalOrder: {
+          lineId: "iol-1",
+          id: "io-1",
+          number: "ZW/1/26/3142",
+          externalNumber: null,
+          client: null,
+          destination: "WYSOG",
+          transfer: { id: "bt-1", number: "BT-000003", status: "in_transit" },
+        },
+      }),
+    ]);
+    expect(screen.getByTestId("putaway-internal-transfer").textContent).toContain(
+      "board.internalInTransit"
+    );
+    expect(screen.queryByTestId("putaway-internal-ship")).toBeNull();
   });
 });

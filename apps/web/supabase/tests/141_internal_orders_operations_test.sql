@@ -5,7 +5,8 @@
 -- a new part becomes a new position; reserving never exceeds what a line
 -- needs; a cancelled line (A) releases its reservation; the AutoStacja number
 -- is set once; a delivery of that number joins the ordered line. A ZW for
--- another branch leaves in ONE MM 311 (W), the branch is found by its code;
+-- another branch goes onto ONE MMJ- (stays reserved until the receiver accepts,
+-- then W), the branch is found by its code;
 -- parts reserved at another branch arrive under their ZW line.
 -- Executed live against supabase-target via Supabase MCP; everything rolls back.
 
@@ -174,26 +175,28 @@ UPDATE fx SET tr = (SELECT (r->>'transfer_id')::uuid FROM shipped);
 
 INSERT INTO test_log(line) SELECT ok(
   (SELECT (r->>'destination_branch_id')::uuid = (SELECT branch_b FROM fx) FROM shipped)
-  AND (SELECT status = 'in_transit' AND internal_order_id = (SELECT zw2 FROM fx)
+  AND (SELECT status = 'in_transit' AND internal_order_id = (SELECT zw2 FROM fx) AND source_movement_id IS NULL
        FROM inventory_branch_transfers WHERE id = (SELECT tr FROM fx))
-  AND (SELECT count(*) = 1 FROM inventory_movement_headers h
-       WHERE h.id = (SELECT (r->>'movement_id')::uuid FROM shipped) AND h.movement_type_code = '311'),
-  'T7: the ZW finds branch B by its code and leaves in ONE MM 311');
+  AND (SELECT s.reserved_quantity = 1 AND s.issued_quantity = 0 FROM internal_order_line_status s
+       WHERE s.internal_order_id = (SELECT zw2 FROM fx)),
+  'T7: the ZW finds branch B by its code; in transit nothing is posted and the part stays reserved under the ZW');
 
+-- Branch B accepts: MMJ- here and MMJ+ there, in one go.
+CREATE TEMP TABLE accepted AS SELECT internal_order_accept_transfer((SELECT e2e_user FROM fx), (SELECT tr FROM fx)) AS r;
+GRANT SELECT ON accepted TO authenticated;
 INSERT INTO test_log(line) SELECT ok(
   (SELECT s.issued_quantity = 1 AND s.reserved_quantity = 0 FROM internal_order_line_status s
    WHERE s.internal_order_id = (SELECT zw2 FROM fx))
   AND (SELECT status = 'completed' AND destination_branch_id = (SELECT branch_b FROM fx)
-       FROM internal_orders WHERE id = (SELECT zw2 FROM fx)),
-  'T8: shipped counts as W (R 0), the ZW is completed');
+       FROM internal_orders WHERE id = (SELECT zw2 FROM fx))
+  AND (SELECT r->>'source_document_number' ~ '^MMJ-/[0-9]+/[0-9]{2}/9141$' FROM accepted),
+  'T8: on acceptance the shipped part is W (R 0), the ZW is completed, the MMJ- is numbered by its unit');
 
--- Branch B accepts into its receiving zone (not a ZW of B: nothing reserved there).
-SELECT internal_order_accept_transfer((SELECT e2e_user FROM fx), (SELECT tr FROM fx));
 INSERT INTO test_log(line) SELECT ok(
   (SELECT status = 'accepted' FROM inventory_branch_transfers WHERE id = (SELECT tr FROM fx))
   AND (SELECT on_hand_quantity = 1 AND reserved_quantity = 0 FROM inventory_balances
        WHERE location_id = (SELECT loc_prz_b FROM fx) AND variant_id = (SELECT v_std FROM fx)),
-  'T9: branch B receives the part (MM 312) into its receiving zone');
+  'T9: branch B receives the part (MMJ+) into its receiving zone');
 
 -- ZW 3 (repair order) gets its part reserved at branch B, sent by B, accepted here.
 UPDATE fx SET zw3 = (internal_order_create((SELECT e2e_user FROM fx), (SELECT org FROM fx), (SELECT branch FROM fx),

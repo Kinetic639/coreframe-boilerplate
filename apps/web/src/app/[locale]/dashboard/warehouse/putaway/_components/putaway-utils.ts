@@ -1,7 +1,10 @@
 import type { ReceivingPendingItem } from "@/server/services/inventory-receiving.service";
 
 export function itemKey(item: ReceivingPendingItem) {
-  return `${item.variantId}:${item.repairOrderLineId ?? item.internalOrder?.lineId ?? "free"}`;
+  const zw = item.internalOrder
+    ? `${item.internalOrder.lineId}:${item.internalOrder.transfer?.id ?? "here"}`
+    : null;
+  return `${item.variantId}:${item.repairOrderLineId ?? zw ?? "free"}`;
 }
 
 export function locLabel(code: string | null | undefined, name: string | null | undefined) {

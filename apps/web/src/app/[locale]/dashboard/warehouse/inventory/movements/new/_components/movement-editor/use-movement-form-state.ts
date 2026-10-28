@@ -26,7 +26,8 @@ type ActiveBranchParty = {
 
 const CURRENT_BRANCH_RECIPIENT_CODES = new Set(["101"]);
 const CURRENT_BRANCH_BOTH_LOCKED_CODES = new Set(["801", "401", "402"]);
-const INTER_BRANCH_OUT_CODES = new Set(["311"]);
+// MMJ- (303): to another unit; the recipient is a branch.
+const INTER_BRANCH_OUT_CODES = new Set(["303", "311"]);
 
 function initNoteValue(note?: string): RichTextValue | null {
   if (!note) return null;

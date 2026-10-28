@@ -2,7 +2,7 @@
 
 import { useState, useTransition, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
-import { Check, ExternalLink, Loader2, Pencil, Printer, Send, X, XCircle } from "lucide-react";
+import { Check, ExternalLink, Loader2, Pencil, Printer, Send, XCircle } from "lucide-react";
 import { toast } from "react-toastify";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,6 @@ import { normalizeRichText } from "@/components/primitives/rich-text/rich-text-u
 import {
   acceptInventoryBranchTransferAction,
   cancelMovementAction,
-  declineInventoryBranchTransferAction,
   finalizePostingAction,
 } from "@/app/actions/warehouse/inventory";
 import { MovementReverseDialog } from "./movement-reverse-dialog";
@@ -113,19 +112,6 @@ export function InventoryMovementDetailPanel({
       });
       setMessage(
         result.success ? tt("accepted") : "error" in result ? result.error : tc("unexpectedError")
-      );
-      if (result.success) router.refresh();
-    });
-  };
-  const declineTransfer = (formData: FormData) => {
-    setMessage(null);
-    startTransition(async () => {
-      const result = await declineInventoryBranchTransferAction({
-        id: String(formData.get("id") ?? ""),
-        decline_reason: String(formData.get("decline_reason") ?? "") || null,
-      });
-      setMessage(
-        result.success ? tt("declined") : "error" in result ? result.error : tc("unexpectedError")
       );
       if (result.success) router.refresh();
     });
@@ -585,18 +571,7 @@ export function InventoryMovementDetailPanel({
               {tt("accept")}
             </Button>
           </form>
-          <form action={declineTransfer} className="flex gap-2">
-            <input type="hidden" name="id" value={detail.id} />
-            <input
-              name="decline_reason"
-              className="h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm"
-              placeholder={tc("reason")}
-            />
-            <Button type="submit" variant="outline" disabled={isPending}>
-              <X className="mr-2 h-4 w-4" />
-              {tt("decline")}
-            </Button>
-          </form>
+          {/* The receiver can only accept (in full), as in AutoStacja. */}
         </div>
       )}
       {message && <p className="text-sm text-muted-foreground">{message}</p>}

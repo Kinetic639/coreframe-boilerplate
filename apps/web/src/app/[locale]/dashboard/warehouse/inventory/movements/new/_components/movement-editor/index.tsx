@@ -17,6 +17,7 @@ import { useMovementFormState } from "./use-movement-form-state";
 import { useMovementValidation } from "./use-movement-validation";
 import { useMovementSubmission } from "./use-movement-submission";
 import type { MovementFormProps } from "./types";
+import { UnitTransferPrompt } from "./unit-transfer-prompt";
 
 export type { MovementFormInitialValues } from "./types";
 
@@ -59,22 +60,23 @@ export function MovementDocumentForm({
     form.dstLoc,
     form.lines
   );
-  const { isPending, submit } = useMovementSubmission(
-    mode,
-    form.typeCode,
-    form.requiresSourceLocation,
-    form.allowsSender ? form.senderName : "",
-    form.allowsSender ? form.senderDetails : null,
-    form.allowsRecipient ? form.recipientName : "",
-    form.allowsRecipient ? form.recipientDetails : null,
-    form.externalReference,
-    form.noteForSave,
-    form.srcLoc,
-    form.dstLoc,
-    form.lines,
-    validation,
-    initialValues
-  );
+  const { isPending, submit, transferPrompt, confirmTransfer, cancelTransferPrompt } =
+    useMovementSubmission(
+      mode,
+      form.typeCode,
+      form.requiresSourceLocation,
+      form.allowsSender ? form.senderName : "",
+      form.allowsSender ? form.senderDetails : null,
+      form.allowsRecipient ? form.recipientName : "",
+      form.allowsRecipient ? form.recipientDetails : null,
+      form.externalReference,
+      form.noteForSave,
+      form.srcLoc,
+      form.dstLoc,
+      form.lines,
+      validation,
+      initialValues
+    );
 
   // Zone 5: a PZ always goes to the receiving zone (the server enforces it
   // too); keep the routing in sync so validation and the summary agree.
@@ -259,6 +261,13 @@ export function MovementDocumentForm({
           onApply={form.applyImportedDocument}
         />
       )}
+      <UnitTransferPrompt
+        open={transferPrompt}
+        isPending={isPending}
+        onSend={() => confirmTransfer(true)}
+        onHold={() => confirmTransfer(false)}
+        onCancel={cancelTransferPrompt}
+      />
     </div>
   );
 }

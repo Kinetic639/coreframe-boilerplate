@@ -3024,19 +3024,28 @@
           "internalHint": "Zarezerwowane pod ZW bez zlecenia, np. dla innego oddziału. Nie rozkładaj ich na półki.",
           "internalFor": "dla: {branch}",
           "internalExternal": "ZW w AutoStacji: {number}",
-          "internalShip": "Wyślij"
+          "internalShip": "Wyślij",
+          "internalInTransit": "w drodze ({number}) — czeka na zatwierdzenie odbiorcy",
+          "internalHeld": "wstrzymane ({number}) — szkic MMJ-, nie wysłane"
         },
         "transfers": {
-          "incomingTitle": "Przychodzące z innych oddziałów",
-          "incomingHint": "Przyjmij do strefy przyjęć (MM 312). Części dla Twojego ZW od razu trafią pod nie.",
-          "toSendTitle": "Do wysłania na inne oddziały",
-          "toSendHint": "Inne oddziały zarezerwowały te części u Ciebie. Wyślij je (MM 311).",
-          "accept": "Przyjmij",
-          "send": "Wyślij",
+          "incomingTitle": "Przychodzące z innych jednostek (MMJ+ w drodze)",
+          "incomingHint": "Zatwierdź przyjęcie: części zejdą ze stanu nadawcy (MMJ-) i wejdą do Twojej strefy przyjęć (MMJ+). Oba dokumenty dostaną wtedy numery.",
+          "toSendTitle": "Wstrzymane (szkice MMJ-)",
+          "toSendHint": "Części zarezerwowane, nic nie wysłane i bez numeru. Wyślij w drogę albo wycofaj.",
+          "accept": "Zatwierdź",
+          "send": "Wyślij w drogę",
           "from": "z: {branch}",
           "to": "na: {branch}",
-          "accepted": "Przyjęto {number}",
-          "sent": "Wysłano {number}"
+          "accepted": "Przyjęto: {mmIn} (z {mmOut})",
+          "sent": "Wysłano w drogę",
+          "loadError": "Nie udało się wczytać przesunięć między oddziałami — przychodzące mogą tu nie być widoczne. Odśwież stronę.",
+          "outgoingTitle": "Wysłane — w drodze (MMJ-)",
+          "outgoingHint": "Czekają na zatwierdzenie przez odbiorcę. Do tego czasu są na Twoim stanie, zarezerwowane, i możesz je wycofać.",
+          "withdraw": "Wycofaj",
+          "statusDraft": "wstrzymane",
+          "statusInTransit": "w drodze",
+          "withdrawn": "Wycofano — rezerwacja wróciła"
         }
       },
       "stockCommitments": {
@@ -3343,11 +3352,14 @@
           "cancelled": "Anulowano pozycję",
           "ship": "Wyślij na oddział",
           "shipTitle": "Wyślij {number} na oddział",
-          "shipFound": "Oddział z kodem tego ZW: {branch}. Zarezerwowane części wyjadą jednym dokumentem MM 311.",
+          "shipFound": "Oddział z kodem tego ZW: {branch}.",
           "shipPick": "Żaden oddział nie ma kodu tego ZW — wybierz oddział (kody ustawisz w ustawieniach magazynu).",
           "noBranches": "Organizacja nie ma innych oddziałów.",
-          "shipConfirm": "Wyślij",
-          "shipped": "Wysłano {document} na {branch}"
+          "shipConfirm": "Tak — wyślij w drogę",
+          "shipped": "Wysłano w drogę na {branch} (MMJ- w drodze)",
+          "shipHold": "Nie — wstrzymaj",
+          "held": "Wstrzymano: szkic MMJ- na {branch}, części zarezerwowane",
+          "shipNotice": "Nastąpi przesunięcie towarów do innej jednostki organizacyjnej. W docelowym magazynie zostanie utworzony potemowy dokument MMJ+. Do zatwierdzenia przez odbiorcę części zostają na Twoim stanie, zarezerwowane — możesz je do tego czasu wycofać."
         },
         "errors": {
           "unauthorized": "Brak uprawnień.",
@@ -6953,7 +6965,15 @@
       "enableManualCorrections": "Włącz ręczne poprawki",
       "manualCorrectionsConfirm": "Ręczne poprawki mogą rozjechać pozycje z danymi zaimportowanymi z Matchera. Kontynuować?",
       "importReplacesLines": "Import zastąpi obecne, niezapisane pozycje ruchu.",
-      "selectBranchFirst": "Wybierz oddział, aby tworzyć ruchy."
+      "selectBranchFirst": "Wybierz oddział, aby tworzyć ruchy.",
+      "unitTransferNoBranch": "Wybierz oddział docelowy (odbiorcę).",
+      "unitTransferFailed": "Nie udało się utworzyć przesunięcia.",
+      "unitTransferSent": "Wysłano w drogę (MMJ- w drodze).",
+      "unitTransferHeld": "Wstrzymano: szkic MMJ-, części zarezerwowane.",
+      "unitTransferTitle": "Przesunięcie do innej jednostki (MMJ-)",
+      "unitTransferHold": "Nie — wstrzymaj",
+      "unitTransferSend": "Tak — wyślij w drogę",
+      "unitTransferNotice": "Nastąpi przesunięcie towarów do innej jednostki organizacyjnej. W docelowym magazynie zostanie utworzony potemowy dokument MMJ+. Do zatwierdzenia przez odbiorcę części zostają na Twoim stanie, zarezerwowane — możesz je do tego czasu wycofać."
     },
     "itemPicker": {
       "title": "Selektor pozycji WMS",

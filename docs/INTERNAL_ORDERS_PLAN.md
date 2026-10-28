@@ -141,3 +141,18 @@ Widoki:
 - **Rozkładanie**: sekcja „Zamówienia wewnętrzne” z „Wyślij”, sekcje „Przychodzące z innych oddziałów” i „Do wysłania na inne oddziały”.
 - **Ustawienia magazynu**: kody oddziałów.
 - **Import PZ**: ZW bez zlecenia jako osobna grupa „ZW … dla: WYSOG”, wchodzi na PZ zarezerwowane.
+
+## 9. Przesunięcia między jednostkami: MMJ- / MMJ+ (2026-10-28)
+
+Ustalone z właścicielem produktu (na wzór AutoStacji, nazwy jak w AutoStacji):
+
+- **MM** — przesunięcie w obrębie jednostki (magazyny, półki), od razu (801, bez zmian).
+- **MMJ-** (kod 303) i **MMJ+** (kod 305) — przesunięcie do innej jednostki. W Ambrze jednostka = oddział, a kod jednostki to kod magazynu (`branch_warehouses`). Stany zostają liczone w obrębie oddziału.
+- **„Nie — wstrzymaj”** — szkic: części zarezerwowane u nadawcy, nic nie wysłane, bez numeru, odbiorca nic nie widzi.
+- **„Tak — wyślij w drogę”** — w drodze (odpowiednik POTEM): nic nie jest księgowane, części zostają na stanie nadawcy, zarezerwowane; oba dokumenty widać jako „w drodze” bez numeru. Nadawca może wycofać do zatwierdzenia.
+- **Zatwierdzenie** przez odbiorcę (tylko w całości, bez „odrzuć”): w jednej operacji MMJ- zdejmuje części u nadawcy, MMJ+ wkłada je do strefy przyjęć odbiorcy; oba dostają numery `MMJ-/<nr>/<rr>/<jednostka>`, `MMJ+/…` (licznik na jednostkę i rok), MMJ+ wskazuje MMJ- jako dokument powiązany.
+- Kody 311/312 (poprzedni przebieg, księgowany przy wysłaniu) są wyłączone. Przesunięcia wysłane wcześniej po staremu można tylko zatwierdzić (zaksięguje się samo MMJ+).
+
+Gdzie: edytor ruchu (rodzaj MMJ-, odbiorca = oddział, dialog „wyślij w drogę / wstrzymaj”), lista ruchów i Rozlokowanie (sekcje: przychodzące MMJ+ w drodze, wysłane MMJ- w drodze, wstrzymane), wysyłka ZW z Rozlokowania i ze szczegółu ZW.
+
+Migracja: `20261028120000_unit_transfers_mmj.sql`. Test pgTAP: `142_unit_transfers_mmj_test.sql` (141 zaktualizowany).
