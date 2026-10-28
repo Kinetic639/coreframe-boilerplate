@@ -168,7 +168,11 @@ export async function shipInternalOrderAction(rawInput: unknown) {
     const scope = await activeScope(WAREHOUSE_INVENTORY_OPERATE);
     if (!scope) return { success: false, error: "unauthorized" } satisfies Fail;
     const parsed = z
-      .object({ internalOrderId: uuid, destinationBranchId: uuid.nullable().optional() })
+      .object({
+        internalOrderId: uuid,
+        destinationBranchId: uuid.nullable().optional(),
+        send: z.boolean().optional(),
+      })
       .safeParse(rawInput);
     if (!parsed.success) return { success: false, error: "invalid_input" } satisfies Fail;
     const supabase = await createClient();
@@ -176,6 +180,7 @@ export async function shipInternalOrderAction(rawInput: unknown) {
       actorUserId: scope.userId,
       internalOrderId: parsed.data.internalOrderId!,
       destinationBranchId: parsed.data.destinationBranchId ?? null,
+      send: parsed.data.send !== false,
     });
   } catch {
     return { success: false, error: "unexpected" } satisfies Fail;
@@ -300,6 +305,66 @@ export async function setBranchExternalCodesAction(rawInput: unknown) {
       organizationId: scope.orgId,
       branchId: parsed.data.branchId!,
       codes: (parsed.data.codes ?? []).filter((c): c is string => !!c),
+    });
+  } catch {
+    return { success: false, error: "unexpected" } satisfies Fail;
+  }
+}
+
+/** The sender withdraws an MMJ- (draft or in transit) before it is accepted. */
+export async function withdrawBranchTransferAction(rawInput: unknown) {
+  try {
+    const scope = await activeScope(WAREHOUSE_INVENTORY_OPERATE);
+    if (!scope) return { success: false, error: "unauthorized" } satisfies Fail;
+    const parsed = z
+      .object({ transferId: uuid, reason: z.string().trim().max(500).nullable().optional() })
+      .safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: "invalid_input" } satisfies Fail;
+    const supabase = await createClient();
+    return InternalOrderOperationsService.withdrawTransfer(supabase, {
+      actorUserId: scope.userId,
+      transferId: parsed.data.transferId!,
+      reason: parsed.data.reason || null,
+    });
+  } catch {
+    return { success: false, error: "unexpected" } satisfies Fail;
+  }
+}
+
+/** A new MMJ- from the movement editor: "Tak — wyślij w drogę" (send) or "Nie — wstrzymaj". */
+export async function createUnitTransferAction(rawInput: unknown) {
+  try {
+    const scope = await activeScope(WAREHOUSE_INVENTORY_OPERATE);
+    if (!scope) return { success: false, error: "unauthorized" } satisfies Fail;
+    const parsed = z
+      .object({
+        destinationBranchId: uuid,
+        notes: z.string().trim().max(1000).nullable().optional(),
+        send: z.boolean(),
+        lines: z
+          .array(z.object({ variantId: uuid, sourceLocationId: uuid, unitId: uuid, quantity: qty }))
+          .min(1)
+          .max(500),
+      })
+      .safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: "invalid_input" } satisfies Fail;
+    if (parsed.data.destinationBranchId === scope.branchId) {
+      return { success: false, error: "no_destination" } satisfies Fail;
+    }
+    const supabase = await createClient();
+    return InternalOrderOperationsService.createTransfer(supabase, {
+      actorUserId: scope.userId,
+      organizationId: scope.orgId,
+      sourceBranchId: scope.branchId,
+      destinationBranchId: parsed.data.destinationBranchId!,
+      notes: parsed.data.notes || null,
+      send: parsed.data.send!,
+      lines: parsed.data.lines!.map((l) => ({
+        variantId: l.variantId!,
+        sourceLocationId: l.sourceLocationId!,
+        unitId: l.unitId!,
+        quantity: l.quantity!,
+      })),
     });
   } catch {
     return { success: false, error: "unexpected" } satisfies Fail;

@@ -375,6 +375,15 @@ export interface BranchTransferView {
   lines: Array<{ id: string; sku: string | null; productName: string | null; quantity: number }>;
 }
 
+export interface BranchTransferLists {
+  /** MMJ+ w drodze to this branch: accept. */
+  incoming: BranchTransferView[];
+  /** MMJ- drafts of this branch ("wstrzymane"): send or withdraw. */
+  toSend: BranchTransferView[];
+  /** MMJ- w drodze from this branch: withdraw until accepted. */
+  outgoing: BranchTransferView[];
+}
+
 export interface StockElsewhere {
   branchId: string;
   branchName: string;
@@ -477,22 +486,95 @@ export class InternalOrderOperationsService {
     return rpcResult(data, error, (r) => ({ externalNumber: String(r.external_number) }));
   }
 
+  /**
+   * The ZW's parts onto an MMJ- to the branch: sent at once ("Tak — wyślij
+   * w drogę") or kept as a draft ("Nie — wstrzymaj"). Reserved either way.
+   */
   static async ship(
     supabase: SupabaseClient,
-    input: { actorUserId: string; internalOrderId: string; destinationBranchId: string | null }
-  ): Promise<
-    OpResult<{ documentNumber: string | null; transferNumber: string; branchName: string }>
-  > {
-    const { data, error } = await supabase.rpc("internal_order_ship", {
+    input: {
+      actorUserId: string;
+      internalOrderId: string;
+      destinationBranchId: string | null;
+      send: boolean;
+    }
+  ): Promise<OpResult<{ transferNumber: string; branchName: string; status: string }>> {
+    const { data, error } = await supabase.rpc("internal_order_dispatch", {
       p_actor_user_id: input.actorUserId,
       p_internal_order_id: input.internalOrderId,
       p_destination_branch_id: input.destinationBranchId,
+      p_send: input.send,
     });
     return rpcResult(data, error, (r) => ({
-      documentNumber: (r.document_number as string | null) ?? null,
       transferNumber: String(r.transfer_number),
       branchName: String(r.destination_branch_name ?? ""),
+      status: String(r.status ?? ""),
     }));
+  }
+
+  /** A new MMJ- from the movement editor: reserved, sent at once or kept as a draft. */
+  static async createTransfer(
+    supabase: SupabaseClient,
+    input: {
+      actorUserId: string;
+      organizationId: string;
+      sourceBranchId: string;
+      destinationBranchId: string;
+      notes: string | null;
+      send: boolean;
+      lines: Array<{
+        variantId: string;
+        sourceLocationId: string;
+        unitId: string;
+        quantity: number;
+      }>;
+    }
+  ): Promise<OpResult<{ transferId: string; transferNumber: string; status: string }>> {
+    const { data, error } = await supabase.rpc("inventory_create_branch_transfer", {
+      p_organization_id: input.organizationId,
+      p_source_branch_id: input.sourceBranchId,
+      p_destination_branch_id: input.destinationBranchId,
+      p_lines: input.lines.map((l) => ({
+        variant_id: l.variantId,
+        source_location_id: l.sourceLocationId,
+        unit_id: l.unitId,
+        quantity: l.quantity,
+      })),
+      p_notes: input.notes,
+      p_actor_user_id: input.actorUserId,
+    });
+    if (error) return { success: false, error: mapInternalOrderError(error) };
+    const created = (data ?? {}) as Record<string, unknown>;
+    const transferId = String(created.transfer_id);
+    if (input.send) {
+      const sent = await InternalOrderOperationsService.sendTransfer(supabase, {
+        actorUserId: input.actorUserId,
+        transferId,
+      });
+      if (!sent.success)
+        return { success: false, error: (sent as { error: InternalOrderError }).error };
+    }
+    return {
+      success: true,
+      data: {
+        transferId,
+        transferNumber: String(created.transfer_number),
+        status: input.send ? "in_transit" : "prepared",
+      },
+    };
+  }
+
+  /** The sender withdraws a draft or an in-transit transfer (before it is accepted). */
+  static async withdrawTransfer(
+    supabase: SupabaseClient,
+    input: { actorUserId: string; transferId: string; reason: string | null }
+  ): Promise<OpResult<{ transferNumber: string }>> {
+    const { data, error } = await supabase.rpc("inventory_cancel_branch_transfer", {
+      p_transfer_id: input.transferId,
+      p_actor_user_id: input.actorUserId,
+      p_reason: input.reason,
+    });
+    return rpcResult(data, error, (r) => ({ transferNumber: String(r.transfer_number) }));
   }
 
   static async requestFromBranch(
@@ -520,26 +602,32 @@ export class InternalOrderOperationsService {
   static async sendTransfer(
     supabase: SupabaseClient,
     input: { actorUserId: string; transferId: string }
-  ): Promise<OpResult<{ documentNumber: string | null }>> {
+  ): Promise<OpResult<{ transferNumber: string }>> {
     const { data, error } = await supabase.rpc("inventory_send_branch_transfer", {
       p_transfer_id: input.transferId,
       p_actor_user_id: input.actorUserId,
     });
-    return rpcResult(data, error, (r) => ({
-      documentNumber: (r.source_document_number as string | null) ?? null,
-    }));
+    return rpcResult(data, error, (r) => ({ transferNumber: String(r.transfer_number ?? "") }));
   }
 
   static async acceptTransfer(
     supabase: SupabaseClient,
     input: { actorUserId: string; transferId: string }
-  ): Promise<OpResult<{ reservationNumber: string | null }>> {
+  ): Promise<
+    OpResult<{
+      reservationNumber: string | null;
+      outNumber: string | null;
+      inNumber: string | null;
+    }>
+  > {
     const { data, error } = await supabase.rpc("internal_order_accept_transfer", {
       p_actor_user_id: input.actorUserId,
       p_transfer_id: input.transferId,
     });
     return rpcResult(data, error, (r) => ({
       reservationNumber: (r.reservation_number as string | null) ?? null,
+      outNumber: (r.source_document_number as string | null) ?? null,
+      inNumber: (r.destination_document_number as string | null) ?? null,
     }));
   }
 
@@ -603,22 +691,24 @@ export class InternalOrderOperationsService {
   }
 
   /**
-   * Transfers to act on in this branch: arriving (in transit to it) and to
-   * send (prepared here, e.g. reserved by another branch for its ZW).
+   * MMJ transfers of this branch not yet accepted: arriving (MMJ+ w drodze,
+   * to accept), sent (MMJ- w drodze, can be withdrawn) and drafts kept here
+   * ("wstrzymane": reserved, not sent -- also those another branch reserved
+   * here for its ZW).
    */
   static async listTransfers(
     supabase: SupabaseClient,
     organizationId: string,
     branchId: string
-  ): Promise<ServiceResult<{ incoming: BranchTransferView[]; toSend: BranchTransferView[] }>> {
+  ): Promise<ServiceResult<BranchTransferLists>> {
     const { data, error } = await supabase
       .from("inventory_branch_transfers")
       .select(
-        "id, transfer_number, status, source_branch_id, destination_branch_id, internal_order_id, notes, created_at, internal_orders(order_number), inventory_branch_transfer_lines(id, quantity, inventory_variants(sku, inventory_products(name)))"
+        "id, transfer_number, status, source_branch_id, destination_branch_id, internal_order_id, notes, created_at, internal_orders(order_number), inventory_branch_transfer_lines!inventory_branch_transfer_lines_transfer_id_fkey(id, quantity, inventory_variants(sku, inventory_products!inventory_variants_product_fk(name)))"
       )
       .eq("organization_id", organizationId)
       .or(
-        `and(destination_branch_id.eq.${branchId},status.eq.in_transit),and(source_branch_id.eq.${branchId},status.eq.prepared)`
+        `and(destination_branch_id.eq.${branchId},status.eq.in_transit),and(source_branch_id.eq.${branchId},status.in.(prepared,in_transit))`
       )
       .is("deleted_at", null)
       .order("created_at", { ascending: false })
@@ -671,6 +761,7 @@ export class InternalOrderOperationsService {
           (v) => v.destinationBranchId === branchId && v.status === "in_transit"
         ),
         toSend: views.filter((v) => v.sourceBranchId === branchId && v.status === "prepared"),
+        outgoing: views.filter((v) => v.sourceBranchId === branchId && v.status === "in_transit"),
       },
     };
   }

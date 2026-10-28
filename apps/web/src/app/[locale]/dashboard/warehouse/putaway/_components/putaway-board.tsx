@@ -26,8 +26,8 @@ import { unlockScanSound } from "./scan-feedback";
 import { useScanIndex } from "./scan-index";
 import { useWarehouseLocationsQuery } from "@/hooks/queries/warehouse";
 import type { QrIndexEntry } from "@/server/services/putaway-scan.service";
-import type { BranchTransferView } from "@/server/services/internal-orders.service";
-import { BranchTransfers } from "./branch-transfers";
+import type { BranchTransferLists } from "@/server/services/internal-orders.service";
+import { BranchTransfers } from "@/components/warehouse/branch-transfers";
 import {
   ShipInternalOrderDialog,
   type ShipBranch,
@@ -55,7 +55,9 @@ type Props = {
   /** Every QR code of the organization: scans are recognised on the phone. */
   qrCodes?: QrIndexEntry[];
   /** Transfers between branches: arriving here, to send from here. */
-  transfers?: { incoming: BranchTransferView[]; toSend: BranchTransferView[] };
+  transfers?: BranchTransferLists;
+  /** The transfers could not be read: say so instead of showing none. */
+  transfersLoadError?: boolean;
   /** Other branches of the organization (a ZW is shipped to one). */
   branches?: ShipBranch[];
 };
@@ -157,7 +159,8 @@ export function PutawayBoard({
   canOperate,
   orders = {},
   qrCodes = [],
-  transfers = { incoming: [], toSend: [] },
+  transfers = { incoming: [], toSend: [], outgoing: [] },
+  transfersLoadError = false,
   branches = [],
 }: Props) {
   const t = useTranslations("modules.warehouse.putaway");
@@ -429,11 +432,15 @@ export function PutawayBoard({
           </Button>
         </div>
 
-        <BranchTransfers
-          incoming={transfers.incoming}
-          toSend={transfers.toSend}
-          canOperate={canOperate}
-        />
+        {transfersLoadError && (
+          <div
+            className="border-destructive/30 bg-destructive/5 text-destructive rounded-lg border p-3 text-sm"
+            data-testid="putaway-transfers-error"
+          >
+            {t("transfers.loadError")}
+          </div>
+        )}
+        <BranchTransfers transfers={transfers} canOperate={canOperate} />
 
         {loadError ? (
           <div
@@ -506,7 +513,7 @@ export function PutawayBoard({
                           {t("board.internalFor", { branch: order.destination })}
                         </Badge>
                       )}
-                      {canOperate && (
+                      {canOperate && list.some((item) => !item.internalOrder?.transfer) && (
                         <Button
                           type="button"
                           size="sm"
@@ -529,7 +536,26 @@ export function PutawayBoard({
                         .filter(Boolean)
                         .join(" · ")}
                     </p>
-                    <div className="divide-y">{list.map((item) => itemRow(item))}</div>
+                    <div className="divide-y">
+                      {list.map((item) => (
+                        <div key={itemKey(item)}>
+                          {itemRow(item)}
+                          {item.internalOrder?.transfer && (
+                            <p
+                              className="text-muted-foreground -mt-1.5 pb-2 text-xs"
+                              data-testid="putaway-internal-transfer"
+                            >
+                              {t(
+                                item.internalOrder.transfer.status === "in_transit"
+                                  ? "board.internalInTransit"
+                                  : "board.internalHeld",
+                                { number: item.internalOrder.transfer.number ?? "" }
+                              )}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ))}
               </section>

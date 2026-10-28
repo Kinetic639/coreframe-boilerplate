@@ -56,6 +56,8 @@ export interface ReceivingPendingItem {
     externalNumber: string | null;
     client: string | null;
     destination: string | null;
+    /** Already on an MMJ- to the branch: draft ("prepared") or "in_transit". */
+    transfer: { id: string; number: string | null; status: string | null } | null;
   } | null;
   handlingMode: ProductHandlingMode;
   defaultLocation: { id: string; code: string | null; name: string | null } | null;
@@ -260,6 +262,13 @@ export class InventoryReceivingService {
                 externalNumber: str(it.internal_order_external_number),
                 client: str(it.internal_order_client),
                 destination: str(it.internal_order_destination),
+                transfer: str(it.transfer_id)
+                  ? {
+                      id: String(it.transfer_id),
+                      number: str(it.transfer_number),
+                      status: str(it.transfer_status),
+                    }
+                  : null,
               }
             : null,
         handlingMode: it.handling_mode === "bulk" ? "bulk" : "standard",

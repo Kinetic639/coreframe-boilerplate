@@ -146,7 +146,8 @@ export default async function PutawayPage() {
       orders={orders}
       loadError={loadError}
       canOperate={checkPermission(snapshot, WAREHOUSE_INVENTORY_OPERATE)}
-      transfers={transfers.success ? transfers.data : { incoming: [], toSend: [] }}
+      transfers={transfers.success ? transfers.data : { incoming: [], toSend: [], outgoing: [] }}
+      transfersLoadError={!transfers.success}
       branches={(branches.success ? branches.data : []).filter((b) => b.id !== branchId)}
     />
   );

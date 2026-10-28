@@ -1,4 +1,4 @@
-import { useCallback, useTransition } from "react";
+import { useCallback, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { toast } from "react-toastify";
@@ -8,6 +8,7 @@ import {
   saveDraftMovementAction,
   saveAndPostDraftMovementAction,
 } from "@/app/actions/warehouse/inventory";
+import { createUnitTransferAction } from "@/app/actions/warehouse/internal-orders";
 import type { MovementPartyDetails } from "@/lib/warehouse/inventory-types";
 import { toMovementRouteKey } from "@/lib/warehouse/movement-route-key";
 import type { LineDraft, MovementFormInitialValues, ValidationResult } from "./types";
@@ -32,6 +33,8 @@ export function useMovementSubmission(
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const isEdit = mode === "edit";
+  // MMJ- (303): not posted here -- it waits for the "wyślij w drogę / wstrzymaj" choice.
+  const [transferPrompt, setTransferPrompt] = useState(false);
 
   const buildLines = useCallback(
     () =>
@@ -52,6 +55,18 @@ export function useMovementSubmission(
 
   const submit = useCallback(
     (andPost: boolean) => {
+      if (typeCode === "303" && !isEdit) {
+        if (!validation.isValid) {
+          toast.error(t("cannotPost", { count: validation.allErrors.length }));
+          return;
+        }
+        if (!recipientDetails?.branchId) {
+          toast.error(t("unitTransferNoBranch"));
+          return;
+        }
+        setTransferPrompt(true);
+        return;
+      }
       if (andPost && !validation.isValid) {
         toast.error(t("cannotPost", { count: validation.allErrors.length }));
         return;
@@ -164,5 +179,39 @@ export function useMovementSubmission(
     ]
   );
 
-  return { isPending, submit };
+  /** "Tak — wyślij w drogę" (send = true) or "Nie — wstrzymaj" (a draft). */
+  const confirmTransfer = useCallback(
+    (send: boolean) => {
+      startTransition(async () => {
+        const r = (await createUnitTransferAction({
+          destinationBranchId: recipientDetails?.branchId ?? "",
+          notes: note || null,
+          send,
+          lines: buildLines().map((l) => ({
+            variantId: l.variant_id,
+            sourceLocationId: l.source_location_id ?? "",
+            unitId: l.unit_id,
+            quantity: l.quantity,
+          })),
+        })) as { success: boolean; error?: string };
+        setTransferPrompt(false);
+        if (!r.success) {
+          toast.error(t("unitTransferFailed"));
+          return;
+        }
+        toast.success(t(send ? "unitTransferSent" : "unitTransferHeld"));
+        router.push("/dashboard/warehouse/inventory/movements");
+        router.refresh();
+      });
+    },
+    [buildLines, note, recipientDetails, router, t]
+  );
+
+  return {
+    isPending,
+    submit,
+    transferPrompt,
+    confirmTransfer,
+    cancelTransferPrompt: () => setTransferPrompt(false),
+  };
 }

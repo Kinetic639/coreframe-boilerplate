@@ -40,8 +40,11 @@ export function destinationBranchOf(
 }
 
 /**
- * "Wyślij na oddział": the ZW's reserved parts leave in ONE MM 311 to the
- * branch found by its code (or the one picked here).
+ * "Wyślij na oddział": the ZW's reserved parts go onto ONE MMJ- to the branch
+ * found by its code (or the one picked here). As in AutoStacja: "Tak —
+ * wyślij w drogę" sends it (both sides see it "w drodze" until the receiver
+ * accepts), "Nie — wstrzymaj" keeps it as a draft. The parts stay reserved
+ * at the sender until the receiver accepts.
  */
 export function ShipInternalOrderDialog({
   order,
@@ -59,20 +62,21 @@ export function ShipInternalOrderDialog({
   const found = destinationBranchOf(order, branches);
   const [branchId, setBranchId] = useState(found?.id ?? "");
 
-  const ship = () =>
+  const ship = (send: boolean) =>
     startTransition(async () => {
       const result = await shipInternalOrderAction({
         internalOrderId: order.id,
         destinationBranchId: branchId || null,
+        send,
       });
       if (!result.success) {
         const code = (result as { error: string }).error;
         toast.error(tErr.has(code) ? tErr(code) : tErr("unexpected"));
         return;
       }
-      const data = (result as { data: { documentNumber: string | null; branchName: string } }).data;
+      const data = (result as { data: { transferNumber: string; branchName: string } }).data;
       toast.success(
-        t("shipped", { document: data.documentNumber ?? "MM", branch: data.branchName })
+        send ? t("shipped", { branch: data.branchName }) : t("held", { branch: data.branchName })
       );
       onClose();
       router.refresh();
@@ -104,10 +108,22 @@ export function ShipInternalOrderDialog({
             </SelectContent>
           </Select>
         )}
-        <DialogFooter>
+        <p className="bg-muted/40 rounded-md border p-3 text-sm" data-testid="zw-ship-notice">
+          {t("shipNotice")}
+        </p>
+        <DialogFooter className="gap-2 sm:gap-0">
           <Button
             type="button"
-            onClick={ship}
+            variant="outline"
+            onClick={() => ship(false)}
+            disabled={!branchId || isPending}
+            data-testid="zw-ship-hold"
+          >
+            {t("shipHold")}
+          </Button>
+          <Button
+            type="button"
+            onClick={() => ship(true)}
             disabled={!branchId || isPending}
             data-testid="zw-ship-confirm"
           >
