@@ -111,7 +111,14 @@ export function ChatProvider({
         ?.some((conversation) => conversation.id === message.conversation_id);
       if (known) {
         queryClient.setQueryData<ChatConversationSummary[]>(listKey, (list) =>
-          applyMessageToList(list, message, meId, isVisible(message.conversation_id))
+          // An open window in a background tab is not being read: it counts as
+          // unread (tab title) until the tab is shown again (the window marks it read)
+          applyMessageToList(
+            list,
+            message,
+            meId,
+            isVisible(message.conversation_id) && !document.hidden
+          )
         );
       } else {
         void queryClient.invalidateQueries({ queryKey: listKey });
