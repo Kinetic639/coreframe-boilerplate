@@ -2,15 +2,21 @@ import type { CanvasRenderingContext2D } from "canvas";
 import path from "path";
 import type { LabelConfig } from "@/lib/qr/label-config";
 import { applyCaseTransform } from "@/lib/qr/label-config";
-import { generateStyledQrPngDataUrl } from "@/lib/qr/generate";
+import QRCode from "qrcode";
+import { buildQrScanUrl } from "@/lib/qr/generate";
 
 /**
  * ZPL label generator for Zebra GK420t (203 dpi).
  *
  * Instead of relying on Zebra's native QR command, we render the full label
- * as a monochrome bitmap and embed it with ^GFA. That lets thermal labels use
- * the same QR/logo/text styling controls as the PDF designer while still
- * respecting fixed thermal label sizes.
+ * as a monochrome bitmap and embed it with ^GFA, so thermal labels share the
+ * logo/text layout controls of the PDF designer at fixed thermal sizes.
+ *
+ * The QR itself is drawn module by module on the printer's dot grid: square
+ * modules of a whole number of dots, no scaling or rounded styles, and a
+ * lower error correction than the PDF (M, or Q under a logo). A scaled styled
+ * image gave modules of ~4.7 dots with blurred edges, which the thermal head
+ * printed unevenly on a dense code.
  */
 
 const LABEL_FONT_FAMILY = "LabelRoboto";
@@ -48,6 +54,8 @@ export interface ZplLabelItem {
 }
 
 const DOTS_PER_MM = 8;
+/** White modules kept around the code (the label padding adds to it) */
+const QR_QUIET_MODULES = 2;
 const DOTS_PER_PT = 203 / 72;
 const SIZE_CONFIG = {
   "50x30": { widthMm: 50, heightMm: 30 },
@@ -320,9 +328,41 @@ function toMonochromeHex(
   return { bytesPerRow, totalBytes, hex };
 }
 
+/**
+ * Draws the QR centred in the box, every module a whole number of dots;
+ * returns the square the code occupies (without its quiet zone).
+ */
+function drawDotGridQr(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  boxX: number,
+  boxY: number,
+  boxSize: number,
+  errorCorrectionLevel: "M" | "Q"
+) {
+  const { modules } = QRCode.create(text, { errorCorrectionLevel });
+  const count = modules.size;
+  const dot = Math.floor(boxSize / (count + QR_QUIET_MODULES * 2));
+  if (dot < 1) return { x: boxX, y: boxY, size: 0 };
+  const size = dot * count;
+  const x = Math.round(boxX + (boxSize - size) / 2);
+  const y = Math.round(boxY + (boxSize - size) / 2);
+  const quiet = dot * QR_QUIET_MODULES;
+
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(x - quiet, y - quiet, size + quiet * 2, size + quiet * 2);
+  ctx.fillStyle = "#000000";
+  for (let row = 0; row < count; row++) {
+    for (let col = 0; col < count; col++) {
+      if (modules.get(row, col)) ctx.fillRect(x + col * dot, y + row * dot, dot, dot);
+    }
+  }
+  return { x, y, size };
+}
+
 async function renderLabelGraphic(item: ZplLabelItem, size: ZplLabelSize, config: LabelConfig) {
   await ensureFontsRegistered();
-  const { createCanvas, loadImage } = await import("canvas");
+  const { createCanvas } = await import("canvas");
   const { widthMm, heightMm } = SIZE_CONFIG[size];
   const width = mm(widthMm);
   const height = mm(heightMm);
@@ -350,14 +390,19 @@ async function renderLabelGraphic(item: ZplLabelItem, size: ZplLabelSize, config
   }
 
   const layout = getLabelLayout(renderWidth, renderHeight, config, item);
-  const qrDataUrl = await generateStyledQrPngDataUrl(item.token, config.qrStyle);
-  const qrImage = await loadImage(qrDataUrl);
-  workCtx.drawImage(qrImage, layout.qrX, layout.qrY, layout.qrSize, layout.qrSize);
+  const qr = drawDotGridQr(
+    workCtx,
+    buildQrScanUrl(item.token),
+    layout.qrX,
+    layout.qrY,
+    layout.qrSize,
+    config.includeLogo ? "Q" : "M"
+  );
 
-  if (config.includeLogo) {
-    const logoSize = layout.qrSize * 0.28;
-    const logoX = layout.qrX + (layout.qrSize - logoSize) / 2;
-    const logoY = layout.qrY + (layout.qrSize - logoSize) / 2;
+  if (config.includeLogo && qr.size > 0) {
+    const logoSize = qr.size * 0.26;
+    const logoX = qr.x + (qr.size - logoSize) / 2;
+    const logoY = qr.y + (qr.size - logoSize) / 2;
     drawLogo(workCtx, config, logoX, logoY, logoSize);
   }
 
