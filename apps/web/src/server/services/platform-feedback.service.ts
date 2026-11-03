@@ -1,4 +1,5 @@
 import "server-only";
+import { compactRichInput } from "@repo/rich-text/rich-text-utils";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PaginatedResult } from "@/lib/data-view/types";
@@ -110,7 +111,7 @@ export class PlatformFeedbackService {
       p_kind: input.kind,
       p_title: input.title,
       p_body_plain: input.bodyPlain,
-      p_body_rich: input.bodyRich ?? null,
+      p_body_rich: compactRichInput(input.bodyRich ?? null),
       p_organization_id: input.organizationId,
       p_branch_id: input.branchId,
       p_context: input.context,
@@ -126,7 +127,7 @@ export class PlatformFeedbackService {
     const { data, error } = await supabase.rpc("platform_feedback_add_message", {
       p_feedback_id: input.feedbackId,
       p_body_plain: input.bodyPlain,
-      p_body_rich: input.bodyRich ?? null,
+      p_body_rich: compactRichInput(input.bodyRich ?? null),
       p_is_internal: input.isInternal,
     });
     if (error) return { success: false, error: dbError("addMessage", error) };

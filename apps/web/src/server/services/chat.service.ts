@@ -1,4 +1,5 @@
 import "server-only";
+import { compactRichInput } from "@repo/rich-text/rich-text-utils";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ServiceResult } from "./organization.service";
@@ -166,7 +167,7 @@ export class ChatService {
     const { data, error } = await supabase.rpc("chat_send", {
       p_conversation_id: input.conversationId,
       p_body_plain: input.bodyPlain,
-      p_body_rich: input.bodyRich ?? null,
+      p_body_rich: compactRichInput(input.bodyRich ?? null),
       p_client_id: input.clientId ?? null,
       p_attachment_ids: input.attachmentIds ?? [],
       p_mentions: input.mentions ?? [],
@@ -182,7 +183,7 @@ export class ChatService {
     const { data, error } = await supabase.rpc("chat_edit_message", {
       p_message_id: input.messageId,
       p_body_plain: input.bodyPlain,
-      p_body_rich: input.bodyRich ?? null,
+      p_body_rich: compactRichInput(input.bodyRich ?? null),
       p_mentions: input.mentions ?? [],
     });
     if (error) return fail(error, "editMessage");

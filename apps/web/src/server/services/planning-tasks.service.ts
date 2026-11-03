@@ -1,4 +1,5 @@
 import "server-only";
+import { compactRichInput } from "@repo/rich-text/rich-text-utils";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { DataViewListParams, PaginatedResult } from "@/lib/data-view/types";
 import { createServiceClient } from "@/utils/supabase/service";
@@ -552,7 +553,7 @@ export const PlanningTasksService = {
           description_rich: input.description_rich
             ? (() => {
                 try {
-                  return JSON.parse(input.description_rich);
+                  return compactRichInput(JSON.parse(input.description_rich));
                 } catch {
                   return null;
                 }
@@ -658,7 +659,7 @@ export const PlanningTasksService = {
           description_rich: input.description_rich
             ? (() => {
                 try {
-                  return JSON.parse(input.description_rich);
+                  return compactRichInput(JSON.parse(input.description_rich));
                 } catch {
                   return null;
                 }
