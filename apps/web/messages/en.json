@@ -471,7 +471,8 @@
     "title": "Account",
     "profile": "Profile",
     "preferences": "Preferences",
-    "notifications": "Notifications"
+    "notifications": "Notifications",
+    "feedback": "Reports"
   },
   "NotificationsPage": {
     "description": "Manage how you receive notifications and alerts."
@@ -9374,5 +9375,103 @@
     "cancel": "Cancel",
     "save": "Save photo",
     "loadFailed": "This file could not be loaded. Pick another photo."
+  },
+  "platformFeedback": {
+    "status": {
+      "new": "New",
+      "in_progress": "In progress",
+      "resolved": "Resolved",
+      "rejected": "Rejected"
+    },
+    "kind": {
+      "bug": "Bug",
+      "problem": "Problem",
+      "idea": "Idea"
+    },
+    "priority": {
+      "low": "Low",
+      "normal": "Normal",
+      "high": "High",
+      "critical": "Critical"
+    },
+    "files": {
+      "add": "Add files",
+      "pasteHint": "or paste a screenshot (Ctrl+V)",
+      "rejected": "Some files were skipped: images, PDF, documents, CSV and recordings up to 25 MB are allowed.",
+      "tooMany": "You can add at most {max} files at once.",
+      "remove": "Remove {name}"
+    },
+    "report": {
+      "open": "Report a bug or idea",
+      "title": "Report a bug or idea",
+      "description": "Describe what happened or what should change. The report goes to the Ambra team.",
+      "kind": "Report type",
+      "titleLabel": "Title",
+      "titlePlaceholder": "In short: what does not work or what to improve",
+      "bodyLabel": "Description",
+      "bodyPlaceholder": "What you did, what happened, what you expected…",
+      "contextHint": "The page, organization, branch, browser and app version are attached automatically.",
+      "cancel": "Cancel",
+      "submit": "Send report",
+      "sent": "Report {code} sent. You will find the answer in Account → Reports.",
+      "failed": "Could not send the report. Please try again.",
+      "filesFailed": "Could not add files: {files}"
+    },
+    "detail": {
+      "loading": "Loading…",
+      "reportedBy": "Reported by {name}, {date}",
+      "reportedAt": "Reported {date}",
+      "formerUser": "Deleted user",
+      "statusLabel": "Status",
+      "priorityLabel": "Priority",
+      "noDescription": "No description",
+      "context": {
+        "page": "Page",
+        "browser": "Browser",
+        "screen": "Screen",
+        "version": "Version"
+      },
+      "thread": "Conversation ({count})",
+      "noMessages": "No answers yet.",
+      "ambraTeam": "Ambra team",
+      "internalBadge": "Internal note",
+      "replyPlaceholder": "Write an answer…",
+      "internalPlaceholder": "A note visible to the Ambra team only…",
+      "internalToggle": "Internal note",
+      "send": "Send",
+      "sendInternal": "Add note",
+      "sendFailed": "Could not send the answer.",
+      "updateFailed": "Could not update the report.",
+      "filesFailed": "Could not add files: {files}"
+    },
+    "filters": {
+      "status": "Status",
+      "kind": "Type",
+      "priority": "Priority"
+    },
+    "columns": {
+      "code": "No.",
+      "title": "Report",
+      "status": "Status",
+      "reporter": "Reporter",
+      "activity": "Activity"
+    },
+    "views": {
+      "list": "List",
+      "board": "Kanban"
+    },
+    "board": {
+      "empty": "No reports"
+    },
+    "pages": {
+      "mine": {
+        "title": "My reports",
+        "subtitle": "Bugs, problems and ideas sent to the Ambra team, with the answers."
+      },
+      "admin": {
+        "title": "Reports",
+        "subtitle": "Bugs, problems and ideas from every organization."
+      }
+    }
   }
 }

@@ -13,6 +13,7 @@ import { HeaderMessagesLink } from "@/components/v2/messages/header-messages-lin
 import { HeaderNotifications } from "./header-notifications";
 import { HeaderContacts } from "./header-contacts";
 import { HeaderQuickAdd } from "./header-quick-add";
+import { HeaderReportFeedback } from "@/components/platform-feedback/report-feedback-dialog";
 
 /**
  * Dashboard Header V2
@@ -69,6 +70,7 @@ export function DashboardHeaderV2({
         <HeaderContacts />
         {/* Below lg the messages bar is hidden: the icon opens the Messages page */}
         <HeaderMessagesLink />
+        <HeaderReportFeedback />
         <HeaderNotifications />
       </div>
 

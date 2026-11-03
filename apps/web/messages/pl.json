@@ -471,7 +471,8 @@
     "title": "Konto",
     "profile": "Profil",
     "preferences": "Preferencje",
-    "notifications": "Powiadomienia"
+    "notifications": "Powiadomienia",
+    "feedback": "Zgłoszenia"
   },
   "NotificationsPage": {
     "description": "Zarządzaj sposobem otrzymywania powiadomień i alertów."
@@ -9348,5 +9349,103 @@
     "cancel": "Anuluj",
     "save": "Zapisz zdjęcie",
     "loadFailed": "Nie udało się wczytać tego pliku. Wybierz inne zdjęcie."
+  },
+  "platformFeedback": {
+    "status": {
+      "new": "Nowe",
+      "in_progress": "W trakcie",
+      "resolved": "Rozwiązane",
+      "rejected": "Odrzucone"
+    },
+    "kind": {
+      "bug": "Błąd",
+      "problem": "Problem",
+      "idea": "Propozycja"
+    },
+    "priority": {
+      "low": "Niski",
+      "normal": "Normalny",
+      "high": "Wysoki",
+      "critical": "Krytyczny"
+    },
+    "files": {
+      "add": "Dodaj pliki",
+      "pasteHint": "lub wklej zrzut ekranu (Ctrl+V)",
+      "rejected": "Niektóre pliki pominięto: dozwolone są obrazy, PDF, dokumenty, CSV i nagrania do 25 MB.",
+      "tooMany": "Można dodać najwyżej {max} plików naraz.",
+      "remove": "Usuń {name}"
+    },
+    "report": {
+      "open": "Zgłoś błąd lub propozycję",
+      "title": "Zgłoś błąd lub propozycję",
+      "description": "Opisz, co się stało albo co warto zmienić. Zgłoszenie trafi do zespołu Ambry.",
+      "kind": "Rodzaj zgłoszenia",
+      "titleLabel": "Tytuł",
+      "titlePlaceholder": "Krótko: co nie działa albo co poprawić",
+      "bodyLabel": "Opis",
+      "bodyPlaceholder": "Co robiłeś, co się stało, czego się spodziewałeś…",
+      "contextHint": "Do zgłoszenia automatycznie dołączymy stronę, organizację, oddział, przeglądarkę i wersję aplikacji.",
+      "cancel": "Anuluj",
+      "submit": "Wyślij zgłoszenie",
+      "sent": "Wysłano zgłoszenie {code}. Odpowiedź znajdziesz w Koncie → Zgłoszenia.",
+      "failed": "Nie udało się wysłać zgłoszenia. Spróbuj ponownie.",
+      "filesFailed": "Nie udało się dodać plików: {files}"
+    },
+    "detail": {
+      "loading": "Wczytywanie…",
+      "reportedBy": "Zgłosił(a) {name}, {date}",
+      "reportedAt": "Zgłoszono {date}",
+      "formerUser": "Usunięty użytkownik",
+      "statusLabel": "Status",
+      "priorityLabel": "Priorytet",
+      "noDescription": "Brak opisu",
+      "context": {
+        "page": "Strona",
+        "browser": "Przeglądarka",
+        "screen": "Ekran",
+        "version": "Wersja"
+      },
+      "thread": "Rozmowa ({count})",
+      "noMessages": "Brak odpowiedzi.",
+      "ambraTeam": "zespół Ambry",
+      "internalBadge": "Notatka wewnętrzna",
+      "replyPlaceholder": "Napisz odpowiedź…",
+      "internalPlaceholder": "Notatka widoczna tylko dla zespołu Ambry…",
+      "internalToggle": "Notatka wewnętrzna",
+      "send": "Wyślij",
+      "sendInternal": "Dodaj notatkę",
+      "sendFailed": "Nie udało się wysłać odpowiedzi.",
+      "updateFailed": "Nie udało się zmienić zgłoszenia.",
+      "filesFailed": "Nie udało się dodać plików: {files}"
+    },
+    "filters": {
+      "status": "Status",
+      "kind": "Rodzaj",
+      "priority": "Priorytet"
+    },
+    "columns": {
+      "code": "Nr",
+      "title": "Zgłoszenie",
+      "status": "Status",
+      "reporter": "Zgłaszający",
+      "activity": "Aktywność"
+    },
+    "views": {
+      "list": "Lista",
+      "board": "Kanban"
+    },
+    "board": {
+      "empty": "Brak zgłoszeń"
+    },
+    "pages": {
+      "mine": {
+        "title": "Moje zgłoszenia",
+        "subtitle": "Błędy, problemy i propozycje wysłane do zespołu Ambry wraz z odpowiedziami."
+      },
+      "admin": {
+        "title": "Zgłoszenia",
+        "subtitle": "Błędy, problemy i propozycje ze wszystkich organizacji."
+      }
+    }
   }
 }

@@ -65,7 +65,8 @@ export type IconKey =
   | "kanban"
   | "listTodo"
   | "bookmark"
-  | "lock";
+  | "lock"
+  | "bug";
 
 /**
  * Active route matching rules (strict discriminated union)

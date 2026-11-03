@@ -61,6 +61,10 @@ export const routing = defineRouting({
       en: "/admin/app-management/config",
       pl: "/admin/zarzadzanie-aplikacja/konfiguracja",
     },
+    "/admin/feedback": {
+      en: "/admin/feedback",
+      pl: "/admin/zgloszenia",
+    },
     "/admin/logs": {
       en: "/admin/logs",
       pl: "/admin/logi",
@@ -472,6 +476,10 @@ export const routing = defineRouting({
     "/dashboard/account/notifications": {
       en: "/dashboard/account/notifications",
       pl: "/dashboard/konto/powiadomienia",
+    },
+    "/dashboard/account/feedback": {
+      en: "/dashboard/account/feedback",
+      pl: "/dashboard/konto/zgloszenia",
     },
 
     // === Auth ===
