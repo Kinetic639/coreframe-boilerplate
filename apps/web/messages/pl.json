@@ -651,6 +651,8 @@
   },
   "common": {
     "loading": "Ładowanie...",
+    "loadingApp": "Uruchamianie Ambry…",
+    "loadingPage": "Wczytywanie strony…",
     "retry": "Ponów",
     "cancel": "Anuluj",
     "searching": "Wyszukiwanie...",

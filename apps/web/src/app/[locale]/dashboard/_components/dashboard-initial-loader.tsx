@@ -1,6 +1,6 @@
 "use client";
 
-import Loader from "@/components/ui/Loader";
+import { DashboardLoadingScreen } from "./dashboard-loading-screen";
 import { useUiStoreV2 } from "@/lib/stores/v2/ui-store";
 
 interface DashboardInitialLoaderProps {
@@ -23,7 +23,7 @@ export function DashboardInitialLoader({ children }: DashboardInitialLoaderProps
 
   // Show loading screen until Zustand hydrates from localStorage
   if (!hasHydrated) {
-    return <Loader fullScreen message="Loading dashboard..." className="bg-background" />;
+    return <DashboardLoadingScreen kind="starting" />;
   }
 
   // Hydrated, show dashboard content
