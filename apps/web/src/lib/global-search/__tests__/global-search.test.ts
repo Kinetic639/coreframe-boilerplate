@@ -155,6 +155,7 @@ describe("buildSearchEntries", () => {
     expect(ids).not.toContain("search.action.newItem");
     // Ungated general actions are always there
     expect(ids).toContain("search.action.signOut");
+    expect(ids).toContain("search.action.reportFeedback");
 
     const withHelpDesk = buildSearchEntries(
       sidebar,

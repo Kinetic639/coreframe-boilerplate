@@ -23,7 +23,7 @@ vi.mock("@/components/v2/messages/header-messages-link", () => ({
 }));
 
 vi.mock("@/components/platform-feedback/report-feedback-dialog", () => ({
-  HeaderReportFeedback: () => <button data-testid="header-report-feedback">report</button>,
+  ReportFeedbackHost: () => null,
 }));
 vi.mock("../header-contacts", () => ({
   HeaderContacts: () => <div data-testid="header-contacts">Contacts</div>,

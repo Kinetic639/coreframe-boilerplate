@@ -151,6 +151,18 @@ function action(
 }
 
 export const SEARCH_EXTRA_PAGES: SearchEntry[] = [
+  page("myFeedback", "general", "/dashboard/account/feedback", "bug", undefined, [
+    "błędy i propozycje",
+    "bledy",
+    "bugi",
+    "bug",
+    "moje zgłoszenia błędów",
+    "propozycje",
+    "pomysły",
+    "odpowiedzi ambry",
+    "my bugs",
+    "feedback",
+  ]),
   page(
     "warehouseMap",
     "warehouse",
@@ -380,6 +392,19 @@ export const SEARCH_ACTIONS: SearchEntry[] = [
     "language",
     "english",
     "polish",
+  ]),
+  action("reportFeedback", "general", "bug", { command: "feedback.report" }, undefined, [
+    "zgłoś błąd",
+    "zglos blad",
+    "błąd",
+    "bug",
+    "problem",
+    "propozycja",
+    "pomysł",
+    "zgłoś problem",
+    "feedback",
+    "report a bug",
+    "idea",
   ]),
   action("signOut", "general", "profile", { command: "auth.signOut" }, undefined, [
     "wyloguj",

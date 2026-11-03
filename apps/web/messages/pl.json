@@ -472,7 +472,7 @@
     "profile": "Profil",
     "preferences": "Preferencje",
     "notifications": "Powiadomienia",
-    "feedback": "Zgłoszenia"
+    "feedback": "Błędy i propozycje"
   },
   "NotificationsPage": {
     "description": "Zarządzaj sposobem otrzymywania powiadomień i alertów."
@@ -5301,7 +5301,8 @@
         "dashboard": "Panel",
         "adminPanel": "Panel administracyjny",
         "diagnostics": "Diagnostyka",
-        "logOut": "Wyloguj się"
+        "logOut": "Wyloguj się",
+        "reportFeedback": "Zgłoś błąd lub propozycję"
       }
     }
   },
@@ -8850,7 +8851,8 @@
       "accountProfile": "Mój profil",
       "accountPreferences": "Preferencje i wygląd",
       "accountNotifications": "Powiadomienia",
-      "messages": "Wiadomości"
+      "messages": "Wiadomości",
+      "myFeedback": "Moje błędy i propozycje"
     },
     "actions": {
       "newRepairOrder": "Nowe zlecenie",
@@ -8864,7 +8866,8 @@
       "toggleTheme": "Motyw jasny / ciemny",
       "toggleLocale": "Język (polski / angielski)",
       "signOut": "Wyloguj się",
-      "pickColorTheme": "Motyw kolorystyczny"
+      "pickColorTheme": "Motyw kolorystyczny",
+      "reportFeedback": "Zgłoś błąd lub propozycję"
     },
     "searching": "Szukam…",
     "hitTypes": {
@@ -9387,7 +9390,7 @@
       "contextHint": "Do zgłoszenia automatycznie dołączymy stronę, organizację, oddział, przeglądarkę i wersję aplikacji.",
       "cancel": "Anuluj",
       "submit": "Wyślij zgłoszenie",
-      "sent": "Wysłano zgłoszenie {code}. Odpowiedź znajdziesz w Koncie → Zgłoszenia.",
+      "sent": "Wysłano zgłoszenie {code}. Odpowiedź znajdziesz w Konto → Błędy i propozycje.",
       "failed": "Nie udało się wysłać zgłoszenia. Spróbuj ponownie.",
       "filesFailed": "Nie udało się dodać plików: {files}"
     },
@@ -9439,11 +9442,11 @@
     },
     "pages": {
       "mine": {
-        "title": "Moje zgłoszenia",
+        "title": "Moje błędy i propozycje",
         "subtitle": "Błędy, problemy i propozycje wysłane do zespołu Ambry wraz z odpowiedziami."
       },
       "admin": {
-        "title": "Zgłoszenia",
+        "title": "Błędy i propozycje",
         "subtitle": "Błędy, problemy i propozycje ze wszystkich organizacji."
       }
     }

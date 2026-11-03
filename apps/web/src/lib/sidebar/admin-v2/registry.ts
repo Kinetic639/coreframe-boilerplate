@@ -30,7 +30,7 @@ export const ADMIN_MAIN_NAV_ITEMS: SidebarItem[] = [
   },
   {
     id: "admin.feedback",
-    title: "Zgłoszenia",
+    title: "Błędy i propozycje",
     iconKey: "bug",
     href: "/admin/feedback",
     match: { startsWith: "/admin/feedback" },

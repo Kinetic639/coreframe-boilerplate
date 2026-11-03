@@ -472,7 +472,7 @@
     "profile": "Profile",
     "preferences": "Preferences",
     "notifications": "Notifications",
-    "feedback": "Reports"
+    "feedback": "Bugs & ideas"
   },
   "NotificationsPage": {
     "description": "Manage how you receive notifications and alerts."
@@ -5330,7 +5330,8 @@
         "dashboard": "Dashboard",
         "adminPanel": "Admin Panel",
         "diagnostics": "Diagnostics",
-        "logOut": "Log out"
+        "logOut": "Log out",
+        "reportFeedback": "Report a bug or idea"
       }
     }
   },
@@ -8876,7 +8877,8 @@
       "accountProfile": "My profile",
       "accountPreferences": "Preferences and appearance",
       "accountNotifications": "Notifications",
-      "messages": "Messages"
+      "messages": "Messages",
+      "myFeedback": "My bugs & ideas"
     },
     "actions": {
       "newRepairOrder": "New repair order",
@@ -8890,7 +8892,8 @@
       "toggleTheme": "Light / dark theme",
       "toggleLocale": "Language (Polish / English)",
       "signOut": "Sign out",
-      "pickColorTheme": "Colour theme"
+      "pickColorTheme": "Colour theme",
+      "reportFeedback": "Report a bug or idea"
     },
     "searching": "Searching…",
     "hitTypes": {
@@ -9413,7 +9416,7 @@
       "contextHint": "The page, organization, branch, browser and app version are attached automatically.",
       "cancel": "Cancel",
       "submit": "Send report",
-      "sent": "Report {code} sent. You will find the answer in Account → Reports.",
+      "sent": "Report {code} sent. You will find the answer in Account → Bugs & ideas.",
       "failed": "Could not send the report. Please try again.",
       "filesFailed": "Could not add files: {files}"
     },
@@ -9465,11 +9468,11 @@
     },
     "pages": {
       "mine": {
-        "title": "My reports",
+        "title": "My bugs & ideas",
         "subtitle": "Bugs, problems and ideas sent to the Ambra team, with the answers."
       },
       "admin": {
-        "title": "Reports",
+        "title": "Bugs & ideas",
         "subtitle": "Bugs, problems and ideas from every organization."
       }
     }

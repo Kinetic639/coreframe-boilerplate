@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "react-toastify";
-import { Bug, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,7 +15,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { RichTextEditorField } from "@/components/primitives/rich-text/rich-text-editor-field";
 import type { RichTextValue } from "@/components/primitives/rich-text/rich-text-types";
 import { createEmptyRichText, extractPlainText } from "@repo/rich-text/rich-text-utils";
@@ -24,6 +23,7 @@ import { cn } from "@/lib/utils";
 import { createFeedbackAction, registerFeedbackFilesAction } from "@/app/actions/platform-feedback";
 import { FEEDBACK_KINDS, type FeedbackKind } from "@/lib/platform-feedback/types";
 import { uploadFeedbackFiles } from "@/lib/platform-feedback/upload";
+import { useReportFeedbackStore } from "@/lib/platform-feedback/report-store";
 import { FEEDBACK_KIND_ICON } from "./feedback-badges";
 import { FeedbackFilePicker } from "./feedback-file-picker";
 
@@ -197,30 +197,12 @@ export function ReportFeedbackDialog({
   );
 }
 
-/** Header icon that opens the report dialog. */
-export function HeaderReportFeedback() {
-  const t = useTranslations("platformFeedback.report");
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <TooltipProvider delayDuration={200}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              aria-label={t("open")}
-              onClick={() => setOpen(true)}
-              data-testid="header-report-feedback"
-            >
-              <Bug className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>{t("open")}</TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-      <ReportFeedbackDialog open={open} onOpenChange={setOpen} />
-    </>
-  );
+/**
+ * The report dialog, mounted once (dashboard header); opened from the user
+ * menu or the global search through the shared store.
+ */
+export function ReportFeedbackHost() {
+  const open = useReportFeedbackStore((state) => state.open);
+  const setOpen = useReportFeedbackStore((state) => state.setOpen);
+  return <ReportFeedbackDialog open={open} onOpenChange={setOpen} />;
 }
