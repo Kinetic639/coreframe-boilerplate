@@ -19,8 +19,23 @@ import { MovementDocumentForm } from "./_components/movement-document-form";
 
 // MMJ+ (305) is created only by accepting an MMJ- at the receiving branch.
 const FLOW_ONLY_MOVEMENT_TYPES = new Set(["102", "261", "305", "900"]);
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export default async function WarehouseInventoryNewMovementPage() {
+type SearchParams = Promise<{ type?: string | string[]; svwmsSession?: string | string[] }>;
+
+export default async function WarehouseInventoryNewMovementPage({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
+  // "Utwórz PZ" in the Matcher: ?type=101&svwmsSession=<id> opens a PZ that
+  // imports that session by itself.
+  const params = await searchParams;
+  const requestedType = typeof params.type === "string" ? params.type : undefined;
+  const svwmsSession =
+    typeof params.svwmsSession === "string" && UUID_RE.test(params.svwmsSession)
+      ? params.svwmsSession
+      : null;
   const locale = await getLocale();
   const context = await loadDashboardContextV2();
 
@@ -69,6 +84,17 @@ export default async function WarehouseInventoryNewMovementPage() {
     branchId
   );
 
+  const movementTypes = typesResult.success
+    ? typesResult.data.filter((type) => !FLOW_ONLY_MOVEMENT_TYPES.has(type.code))
+    : [];
+  const initialTypeCode = movementTypes.some((type) => type.code === requestedType)
+    ? requestedType
+    : undefined;
+  const autoImport =
+    svwmsSession && initialTypeCode === "101"
+      ? { sourceType: "svwms_wdd_matcher", sourceInput: { session_id: svwmsSession } }
+      : null;
+
   const stockableLocations = locationsResult.success
     ? locationsResult.data
         .filter((loc) => loc.can_store_inventory)
@@ -95,14 +121,12 @@ export default async function WarehouseInventoryNewMovementPage() {
         context.user.user?.email ||
         ""
       }
-      movementTypes={
-        // KPZ (102), RW (261), MMJ+ (305) and storno (900) are posted by their
-        // own flows (PZ correction, repair-order issue, accepting an MMJ-,
-        // reversal), not composed here.
-        typesResult.success
-          ? typesResult.data.filter((type) => !FLOW_ONLY_MOVEMENT_TYPES.has(type.code))
-          : []
-      }
+      // KPZ (102), RW (261), MMJ+ (305) and storno (900) are posted by their
+      // own flows (PZ correction, repair-order issue, accepting an MMJ-,
+      // reversal), not composed here.
+      movementTypes={movementTypes}
+      initialTypeCode={initialTypeCode}
+      autoImport={autoImport}
       fieldPolicies={policiesResult.success ? policiesResult.data : {}}
       stockableLocations={stockableLocations}
       receivingLocationId={receivingLocationId}

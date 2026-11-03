@@ -5010,6 +5010,8 @@
         "results": {
           "session": "Session",
           "exportCsv": "Export CSV",
+          "createPz": "Create PZ",
+          "createPzHint": "New PZ from this session: repair orders and parts are checked and created, the form is filled in -- only posting is left",
           "exportEnhancedPdf": "PDF Preview",
           "newUpload": "New Upload",
           "exactMatches": "exact",
@@ -7949,6 +7951,8 @@
       "alreadyImported": "This session was already imported: {document}. Importing it again receives the same delivery twice.",
       "quickImport": "Quick import",
       "quickImportHint": "Checks the whole session, creates missing repair orders and parts (unit: pcs) and fills the form right away.",
+      "autoStartUnavailable": "This Matcher session cannot be received in this branch (another branch, or the session is not matched yet). Pick a session from the list.",
+      "autoStartAlreadyImported": "This session is already received on {document}. The import did not start by itself -- check before receiving it again.",
       "manualReview": "Manual review",
       "quickStep": {
         "preview": "Loading session…",
