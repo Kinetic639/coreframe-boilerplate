@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import Loader from "@/components/ui/Loader";
+import { DashboardLoadingScreen } from "./_components/dashboard-loading-screen";
 
 /**
  * Dashboard V2 Template
@@ -13,7 +13,7 @@ import Loader from "@/components/ui/Loader";
  */
 
 function DashboardLoadingFallback() {
-  return <Loader fullScreen message="Loading dashboard..." className="bg-muted/20" />;
+  return <DashboardLoadingScreen kind="page" className="bg-muted/20" />;
 }
 
 export default function DashboardV2Template({ children }: { children: React.ReactNode }) {

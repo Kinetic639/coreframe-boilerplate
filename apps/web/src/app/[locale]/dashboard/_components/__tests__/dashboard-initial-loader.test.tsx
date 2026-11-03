@@ -24,7 +24,7 @@ describe("DashboardInitialLoader", () => {
       </DashboardInitialLoader>
     );
 
-    expect(screen.getByText("Loading dashboard...")).toBeInTheDocument();
+    expect(screen.getByText("loadingApp")).toBeInTheDocument();
   });
 
   it("renders children after hydration", () => {
