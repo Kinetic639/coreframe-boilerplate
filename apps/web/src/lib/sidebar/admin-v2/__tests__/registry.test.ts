@@ -23,6 +23,7 @@ describe("Admin Sidebar Registry", () => {
     it("lists exactly the admin main nav items, in order", () => {
       expect(ADMIN_MAIN_NAV_ITEMS.map((i) => i.id)).toEqual([
         "admin.home",
+        "admin.feedback",
         "admin.plans",
         "admin.pricing",
         "admin.branding",

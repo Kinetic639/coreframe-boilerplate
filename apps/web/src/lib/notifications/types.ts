@@ -82,6 +82,11 @@ export function notificationRoute(
       return { pathname: `/dashboard/workshop/${notification.target_id}` };
     case "chat.conversation":
       return { pathname: "/dashboard/messages", query: { c: notification.target_id } };
+    case "platform.feedback":
+      return {
+        pathname: "/dashboard/account/feedback",
+        query: { selected: notification.target_id },
+      };
     default:
       return null;
   }
