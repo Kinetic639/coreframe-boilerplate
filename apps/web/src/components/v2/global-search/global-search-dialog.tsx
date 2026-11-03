@@ -36,6 +36,7 @@ import { useUiStoreV2 } from "@/lib/stores/v2/ui-store";
 import { useUserStoreV2 } from "@/lib/stores/v2/user-store";
 import { changeBranch } from "@/app/actions/shared/changeBranch";
 import { signOutAction } from "@/app/[locale]/actions";
+import { useReportFeedbackStore } from "@/lib/platform-feedback/report-store";
 import { cn } from "@/lib/utils";
 import {
   ACTIONS_PREFIX,
@@ -620,6 +621,10 @@ export function GlobalSearchDialog({ entries, sources = [] }: GlobalSearchDialog
         case "auth.signOut":
           close();
           startTransition(() => signOutAction());
+          return;
+        case "feedback.report":
+          close();
+          useReportFeedbackStore.getState().setOpen(true);
           return;
         default:
           if (entry.href) {
