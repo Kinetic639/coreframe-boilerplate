@@ -651,7 +651,7 @@
   },
   "common": {
     "loading": "Loading...",
-    "loadingApp": "Starting Ambra…",
+    "loadingApp": "Loading…",
     "loadingPage": "Loading the page…",
     "retry": "Retry",
     "cancel": "Cancel",
