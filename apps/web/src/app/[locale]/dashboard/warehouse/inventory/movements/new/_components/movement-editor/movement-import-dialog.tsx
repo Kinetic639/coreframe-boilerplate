@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { toast } from "react-toastify";
 import { AlertCircle, AlertTriangle, CheckCircle2, Loader2, PlusCircle, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { LoadingOverlay } from "@/components/branding";
 import { ImportCopyButton } from "@/components/warehouse/import-copy-button";
 import { WarehouseImportReviewTable } from "@/components/warehouse/import-review-table";
 import { RepairOrderImportReview } from "@/components/workshop/repair-order-import-review";
@@ -59,7 +60,9 @@ import {
 type EditableDocument = MovementImportPreviewDocument;
 type EditableLine = MovementImportPreviewLine;
 type ProductMismatchAction = "create" | "assign_existing" | "skip";
-type QuickImportStep = "preview" | "repairOrders" | "products";
+type QuickImportStep = "preview" | "repairOrders" | "products" | "fill";
+// Progress shown while a quick import started by itself runs behind the overlay
+const AUTO_STEPS = ["preview", "repairOrders", "products", "fill"] as const;
 type UnitExceptionGroup = {
   key: string;
   rawUnit: string | null;
@@ -434,6 +437,9 @@ export function MovementImportDialog({
   const [isPending, startTransition] = useTransition();
   // "picking" -> source and input set; "done" -> never again in this editor
   const autoStage = useRef<"waiting" | "picking" | "done">(autoStart ? "waiting" : "done");
+  // While the quick import runs by itself the dialog stays hidden behind a
+  // progress overlay; it shows only if the import stops for a decision.
+  const [autoRunning, setAutoRunning] = useState(Boolean(autoStart));
 
   const tError = (error: string) => (ERROR_KEYS[error] ? t(`errors.${ERROR_KEYS[error]}`) : error);
   const sourceLabel = (type: string, fallback: string) =>
@@ -529,7 +535,7 @@ export function MovementImportDialog({
   // Picking a session loads the report: the movement preview plus, for
   // Matcher sessions, which repair orders exist. Nothing is written.
   useEffect(() => {
-    if (!open || !sourceType || !movementTypeCode || !sourceInputComplete) return;
+    if (!open || autoRunning || !sourceType || !movementTypeCode || !sourceInputComplete) return;
     const request = ++summaryRequest.current;
     setSummaryLoading(true);
     void (async () => {
@@ -561,7 +567,7 @@ export function MovementImportDialog({
       setSummaryLoading(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed by the serialized input
-  }, [open, sourceType, movementTypeCode, sourceInputComplete, sourceInputKey]);
+  }, [open, autoRunning, sourceType, movementTypeCode, sourceInputComplete, sourceInputKey]);
 
   const sessionSummary = useMemo(
     () =>
@@ -879,6 +885,7 @@ export function MovementImportDialog({
           toast.warning(t("quickStoppedNeedsReview"));
           return;
         }
+        setQuickStep("fill");
         setVariantOptions(nextVariants);
         setUnitOptions(nextUnits);
         onApply(buildDraft(data, document, lines, nextVariants, nextUnits));
@@ -893,6 +900,7 @@ export function MovementImportDialog({
         );
       } finally {
         setQuickStep(null);
+        setAutoRunning(false);
       }
     });
   };
@@ -910,6 +918,7 @@ export function MovementImportDialog({
     });
     if (!source || !offered) {
       autoStage.current = "done";
+      setAutoRunning(false);
       toast.error(t("autoStartUnavailable"));
       return;
     }
@@ -924,6 +933,7 @@ export function MovementImportDialog({
     if (sourceInputKey !== JSON.stringify(autoStart.sourceInput)) return;
     autoStage.current = "done";
     if (alreadyImportedDocument) {
+      setAutoRunning(false);
       toast.warning(t("autoStartAlreadyImported", { document: alreadyImportedDocument }));
       return;
     }
@@ -1366,912 +1376,933 @@ export function MovementImportDialog({
   const busy = isPending || quickStep !== null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90vh] max-w-5xl flex-col overflow-hidden p-0">
-        <DialogHeader className="shrink-0 border-b px-5 py-4">
-          <DialogTitle>{t("title")}</DialogTitle>
-          <DialogDescription>{t("description")}</DialogDescription>
-        </DialogHeader>
+    <>
+      <LoadingOverlay
+        visible={open && autoRunning}
+        label={t("autoProgress.title")}
+        steps={AUTO_STEPS.map((step, index) => {
+          const active = Math.max(0, AUTO_STEPS.indexOf(quickStep ?? "preview"));
+          return {
+            key: step,
+            label: t(`autoProgress.${step}`),
+            status: index < active ? "done" : index === active ? "active" : "pending",
+          };
+        })}
+      />
+      <Dialog open={open && !autoRunning} onOpenChange={onOpenChange}>
+        <DialogContent className="flex max-h-[90vh] max-w-5xl flex-col overflow-hidden p-0">
+          <DialogHeader className="shrink-0 border-b px-5 py-4">
+            <DialogTitle>{t("title")}</DialogTitle>
+            <DialogDescription>{t("description")}</DialogDescription>
+          </DialogHeader>
 
-        <div className="min-h-0 flex-1 overflow-auto px-5 py-4">
-          <div className="grid gap-3 md:grid-cols-2">
-            <label className="grid gap-1 text-sm font-medium">
-              {t("source")}
-              <select
-                value={sourceType}
-                onChange={(event) => {
-                  setSourceType(event.target.value);
-                  setSourceInput({});
-                  resetPreview();
-                }}
-                className="h-9 rounded-md border bg-background px-2 text-sm"
+          <div className="min-h-0 flex-1 overflow-auto px-5 py-4">
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="grid gap-1 text-sm font-medium">
+                {t("source")}
+                <select
+                  value={sourceType}
+                  onChange={(event) => {
+                    setSourceType(event.target.value);
+                    setSourceInput({});
+                    resetPreview();
+                  }}
+                  className="h-9 rounded-md border bg-background px-2 text-sm"
+                >
+                  <option value="">{t("sourcePlaceholder")}</option>
+                  {sources.map((source) => (
+                    <option key={source.source_type} value={source.source_type}>
+                      {sourceLabel(source.source_type, source.label)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {sourcesLoaded && sources.length === 0 && (
+                <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-800 md:col-span-2">
+                  {t("noSources")}
+                </div>
+              )}
+
+              {(selectedSource?.input_fields ?? []).map((field) => (
+                <label key={field.key} className="grid gap-1 text-sm font-medium">
+                  {fieldLabel(field)}
+                  {field.type === "select" ? (
+                    <select
+                      value={sourceInput[field.key] ?? ""}
+                      onChange={(event) => {
+                        setSourceInput((current) => ({
+                          ...current,
+                          [field.key]: event.target.value,
+                        }));
+                        resetPreview();
+                      }}
+                      className="h-9 rounded-md border bg-background px-2 text-sm"
+                    >
+                      <option value="">{fieldPlaceholder(field)}</option>
+                      {(field.options ?? []).map((option) => (
+                        <option key={option.value} value={option.value} disabled={option.disabled}>
+                          {option.imported_document
+                            ? t("alreadyImportedOption", {
+                                label: option.label,
+                                document: option.imported_document,
+                              })
+                            : option.label}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <Input
+                      value={sourceInput[field.key] ?? ""}
+                      onChange={(event) =>
+                        setSourceInput((current) => ({
+                          ...current,
+                          [field.key]: event.target.value,
+                        }))
+                      }
+                      placeholder={field.placeholder}
+                      className="h-9"
+                    />
+                  )}
+                  {field.type === "select" && (field.options ?? []).length === 0 && (
+                    <span className="text-xs text-muted-foreground">{t("noSessions")}</span>
+                  )}
+                </label>
+              ))}
+            </div>
+
+            {alreadyImportedDocument && (
+              <div
+                className="mt-3 flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-200"
+                data-testid="import-already-imported"
               >
-                <option value="">{t("sourcePlaceholder")}</option>
-                {sources.map((source) => (
-                  <option key={source.source_type} value={source.source_type}>
-                    {sourceLabel(source.source_type, source.label)}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            {sourcesLoaded && sources.length === 0 && (
-              <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-800 md:col-span-2">
-                {t("noSources")}
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>{t("alreadyImported", { document: alreadyImportedDocument })}</span>
               </div>
             )}
 
-            {(selectedSource?.input_fields ?? []).map((field) => (
-              <label key={field.key} className="grid gap-1 text-sm font-medium">
-                {fieldLabel(field)}
-                {field.type === "select" ? (
-                  <select
-                    value={sourceInput[field.key] ?? ""}
-                    onChange={(event) => {
-                      setSourceInput((current) => ({
-                        ...current,
-                        [field.key]: event.target.value,
-                      }));
-                      resetPreview();
-                    }}
-                    className="h-9 rounded-md border bg-background px-2 text-sm"
-                  >
-                    <option value="">{fieldPlaceholder(field)}</option>
-                    {(field.options ?? []).map((option) => (
-                      <option key={option.value} value={option.value} disabled={option.disabled}>
-                        {option.imported_document
-                          ? t("alreadyImportedOption", {
-                              label: option.label,
-                              document: option.imported_document,
-                            })
-                          : option.label}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <Input
-                    value={sourceInput[field.key] ?? ""}
-                    onChange={(event) =>
-                      setSourceInput((current) => ({
-                        ...current,
-                        [field.key]: event.target.value,
-                      }))
-                    }
-                    placeholder={field.placeholder}
-                    className="h-9"
-                  />
-                )}
-                {field.type === "select" && (field.options ?? []).length === 0 && (
-                  <span className="text-xs text-muted-foreground">{t("noSessions")}</span>
-                )}
-              </label>
-            ))}
-          </div>
+            {documents.length === 0 && sourceInputComplete && (
+              <MovementImportSummary summary={sessionSummary} loading={summaryLoading} />
+            )}
 
-          {alreadyImportedDocument && (
-            <div
-              className="mt-3 flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-200"
-              data-testid="import-already-imported"
-            >
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-              <span>{t("alreadyImported", { document: alreadyImportedDocument })}</span>
-            </div>
-          )}
-
-          {documents.length === 0 && sourceInputComplete && (
-            <MovementImportSummary summary={sessionSummary} loading={summaryLoading} />
-          )}
-
-          {/* The choice appears only once the session was checked, so it is made
+            {/* The choice appears only once the session was checked, so it is made
               with the report in view. */}
-          {summaryData && !summaryLoading && (
-            <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
-              <span className="mr-auto text-xs text-muted-foreground">{t("quickImportHint")}</span>
-              <Button type="button" variant="outline" onClick={handlePreview} disabled={busy}>
-                {isPending && quickStep === null ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : null}
-                {t("manualReview")}
-              </Button>
-              <Button
-                type="button"
-                onClick={handleQuickImport}
-                disabled={busy}
-                data-testid="import-quick"
-              >
-                {quickStep ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Zap className="mr-2 h-4 w-4" />
-                )}
-                {quickStep ? t(`quickStep.${quickStep}`) : t("quickImport")}
-              </Button>
-            </div>
-          )}
-
-          {documents.length > 0 && (
-            <div className="mt-5 space-y-4">
-              {showDocumentSelector && (
-                <div className="grid gap-1 text-sm font-medium">
-                  {t("sourceDocument")}
-                  <select
-                    value={selectedDocumentId}
-                    onChange={(event) => setSelectedDocumentId(event.target.value)}
-                    className="h-9 rounded-md border bg-background px-2 text-sm"
-                  >
-                    {documents.map((document) => (
-                      <option key={document.source_document_id} value={document.source_document_id}>
-                        {document.source_document_number ?? document.source_document_id}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {!isSvwmsSessionImport && selectedDocumentErrors.length > 0 ? (
-                <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                  <span>{selectedDocumentErrors.map(tError).join(", ")}</span>
-                </div>
-              ) : !isSvwmsSessionImport ? (
-                <div className="flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-700">
-                  <CheckCircle2 className="h-4 w-4" />
-                  {t("documentReady")}
-                </div>
-              ) : null}
-
-              {isSvwmsSessionImport &&
-                typeof selectedDocument?.source_metadata?.session_id === "string" && (
-                  <section className="rounded-md border p-3" data-testid="import-repair-orders">
-                    <h3 className="text-sm font-semibold">{t("repairOrders.title")}</h3>
-                    <p className="text-muted-foreground mb-3 text-xs">{t("repairOrders.hint")}</p>
-                    <RepairOrderImportReview
-                      key={repairOrderReviewKey}
-                      sourceType={SVWMS_SOURCE}
-                      sourceInput={{ session_id: selectedDocument.source_metadata.session_id }}
-                      canApply
-                      compact
-                      mode="receipt"
-                      onSelectionChange={(zls) => setExcludedZls(new Set(zls))}
-                    />
-                  </section>
-                )}
-
-              {isSvwmsSessionImport && dialogView === "review_ready" && (
-                <div className="flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-700">
-                  <CheckCircle2 className="h-4 w-4" />
-                  {t("allReady")}
-                </div>
-              )}
-
-              {isSvwmsSessionImport && dialogView === "resolve_mismatches" && (
-                <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-900">
-                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                  {svwmsAllRowsSkipped ? (
-                    <span>{t("allSkipped")}</span>
+            {summaryData && !summaryLoading && (
+              <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
+                <span className="mr-auto text-xs text-muted-foreground">
+                  {t("quickImportHint")}
+                </span>
+                <Button type="button" variant="outline" onClick={handlePreview} disabled={busy}>
+                  {isPending && quickStep === null ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : null}
+                  {t("manualReview")}
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleQuickImport}
+                  disabled={busy}
+                  data-testid="import-quick"
+                >
+                  {quickStep ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
-                    <span>
-                      {t("needsDecisions", {
-                        rows: svwmsRowsNeedingDecisions,
-                        groups: svwmsUnresolvedGroupCount,
-                      })}
-                    </span>
+                    <Zap className="mr-2 h-4 w-4" />
                   )}
-                </div>
-              )}
+                  {quickStep ? t(`quickStep.${quickStep}`) : t("quickImport")}
+                </Button>
+              </div>
+            )}
 
-              {isSvwmsSessionImport ? (
-                <div className="space-y-4">
-                  <div className="grid gap-2 sm:grid-cols-5">
-                    <ImportSummaryTile
-                      label={t("tiles.imported")}
-                      value={selectedDocument?.lines.length ?? 0}
-                    />
-                    <ImportSummaryTile
-                      label={t("tiles.ready")}
-                      value={svwmsResolvedLineCount}
-                      good
-                    />
-                    <ImportSummaryTile
-                      label={t("tiles.missingUnits")}
-                      value={svwmsMissingUnitGroups.length}
-                      muted={svwmsMissingUnitGroups.length === 0}
-                    />
-                    <ImportSummaryTile
-                      label={t("tiles.productExceptions")}
-                      value={svwmsActiveProductExceptionGroups.length}
-                      muted={svwmsActiveProductExceptionGroups.length === 0}
-                    />
-                    <ImportSummaryTile
-                      label={t("tiles.skipped")}
-                      value={svwmsSkippedLineCount}
-                      muted={svwmsSkippedLineCount === 0}
-                    />
+            {documents.length > 0 && (
+              <div className="mt-5 space-y-4">
+                {showDocumentSelector && (
+                  <div className="grid gap-1 text-sm font-medium">
+                    {t("sourceDocument")}
+                    <select
+                      value={selectedDocumentId}
+                      onChange={(event) => setSelectedDocumentId(event.target.value)}
+                      className="h-9 rounded-md border bg-background px-2 text-sm"
+                    >
+                      {documents.map((document) => (
+                        <option
+                          key={document.source_document_id}
+                          value={document.source_document_id}
+                        >
+                          {document.source_document_number ?? document.source_document_id}
+                        </option>
+                      ))}
+                    </select>
                   </div>
+                )}
 
-                  {dialogView === "resolve_mismatches" ? (
-                    <div className="space-y-4 rounded-md border bg-muted/20">
-                      <div className="flex flex-wrap items-center justify-between gap-3 border-b px-3 py-2">
-                        <div>
-                          <p className="font-medium">{t("decisions.title")}</p>
-                          <p className="text-xs text-muted-foreground">{t("decisions.hint")}</p>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {canManageProducts && svwmsMissingUnitGroups.length > 0 && (
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={handleCreateMissingUnits}
-                              disabled={quickCreatePendingKey !== null}
-                            >
-                              {quickCreatePendingKey === "bulk-units" ? (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              ) : (
-                                <PlusCircle className="mr-2 h-4 w-4" />
-                              )}
-                              {t("actions.createUnits")}
-                            </Button>
-                          )}
-                          {canManageProducts &&
-                            (selectedCreateProductGroups.length > 0 ||
-                              blockedCreateProductGroups.length > 0) && (
+                {!isSvwmsSessionImport && selectedDocumentErrors.length > 0 ? (
+                  <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>{selectedDocumentErrors.map(tError).join(", ")}</span>
+                  </div>
+                ) : !isSvwmsSessionImport ? (
+                  <div className="flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-700">
+                    <CheckCircle2 className="h-4 w-4" />
+                    {t("documentReady")}
+                  </div>
+                ) : null}
+
+                {isSvwmsSessionImport &&
+                  typeof selectedDocument?.source_metadata?.session_id === "string" && (
+                    <section className="rounded-md border p-3" data-testid="import-repair-orders">
+                      <h3 className="text-sm font-semibold">{t("repairOrders.title")}</h3>
+                      <p className="text-muted-foreground mb-3 text-xs">{t("repairOrders.hint")}</p>
+                      <RepairOrderImportReview
+                        key={repairOrderReviewKey}
+                        sourceType={SVWMS_SOURCE}
+                        sourceInput={{ session_id: selectedDocument.source_metadata.session_id }}
+                        canApply
+                        compact
+                        mode="receipt"
+                        onSelectionChange={(zls) => setExcludedZls(new Set(zls))}
+                      />
+                    </section>
+                  )}
+
+                {isSvwmsSessionImport && dialogView === "review_ready" && (
+                  <div className="flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-700">
+                    <CheckCircle2 className="h-4 w-4" />
+                    {t("allReady")}
+                  </div>
+                )}
+
+                {isSvwmsSessionImport && dialogView === "resolve_mismatches" && (
+                  <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-900">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                    {svwmsAllRowsSkipped ? (
+                      <span>{t("allSkipped")}</span>
+                    ) : (
+                      <span>
+                        {t("needsDecisions", {
+                          rows: svwmsRowsNeedingDecisions,
+                          groups: svwmsUnresolvedGroupCount,
+                        })}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {isSvwmsSessionImport ? (
+                  <div className="space-y-4">
+                    <div className="grid gap-2 sm:grid-cols-5">
+                      <ImportSummaryTile
+                        label={t("tiles.imported")}
+                        value={selectedDocument?.lines.length ?? 0}
+                      />
+                      <ImportSummaryTile
+                        label={t("tiles.ready")}
+                        value={svwmsResolvedLineCount}
+                        good
+                      />
+                      <ImportSummaryTile
+                        label={t("tiles.missingUnits")}
+                        value={svwmsMissingUnitGroups.length}
+                        muted={svwmsMissingUnitGroups.length === 0}
+                      />
+                      <ImportSummaryTile
+                        label={t("tiles.productExceptions")}
+                        value={svwmsActiveProductExceptionGroups.length}
+                        muted={svwmsActiveProductExceptionGroups.length === 0}
+                      />
+                      <ImportSummaryTile
+                        label={t("tiles.skipped")}
+                        value={svwmsSkippedLineCount}
+                        muted={svwmsSkippedLineCount === 0}
+                      />
+                    </div>
+
+                    {dialogView === "resolve_mismatches" ? (
+                      <div className="space-y-4 rounded-md border bg-muted/20">
+                        <div className="flex flex-wrap items-center justify-between gap-3 border-b px-3 py-2">
+                          <div>
+                            <p className="font-medium">{t("decisions.title")}</p>
+                            <p className="text-xs text-muted-foreground">{t("decisions.hint")}</p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {canManageProducts && svwmsMissingUnitGroups.length > 0 && (
                               <Button
                                 type="button"
                                 size="sm"
                                 variant="outline"
-                                onClick={handleCreateMissingProducts}
-                                disabled={!canCreateSelectedProducts}
+                                onClick={handleCreateMissingUnits}
+                                disabled={quickCreatePendingKey !== null}
                               >
-                                {quickCreatePendingKey === "bulk-products" ? (
+                                {quickCreatePendingKey === "bulk-units" ? (
                                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                 ) : (
                                   <PlusCircle className="mr-2 h-4 w-4" />
                                 )}
-                                {t("actions.createSelected", {
-                                  count: selectedCreateProductGroups.length,
-                                })}
+                                {t("actions.createUnits")}
                               </Button>
                             )}
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setShowManualReview((current) => !current)}
-                          >
-                            {t("actions.toggleDetails")}
-                          </Button>
-                          {svwmsMissingProductGroups.length > 0 && (
+                            {canManageProducts &&
+                              (selectedCreateProductGroups.length > 0 ||
+                                blockedCreateProductGroups.length > 0) && (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={handleCreateMissingProducts}
+                                  disabled={!canCreateSelectedProducts}
+                                >
+                                  {quickCreatePendingKey === "bulk-products" ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <PlusCircle className="mr-2 h-4 w-4" />
+                                  )}
+                                  {t("actions.createSelected", {
+                                    count: selectedCreateProductGroups.length,
+                                  })}
+                                </Button>
+                              )}
                             <Button
                               type="button"
                               size="sm"
                               variant="outline"
-                              onClick={handleSkipMissingProducts}
-                              disabled={quickCreatePendingKey !== null}
+                              onClick={() => setShowManualReview((current) => !current)}
                             >
-                              {t("actions.skipMissing")}
+                              {t("actions.toggleDetails")}
                             </Button>
-                          )}
-                          {svwmsSkippedLineCount > 0 && (
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={handleRestoreSkippedProducts}
-                              disabled={quickCreatePendingKey !== null}
-                            >
-                              {t("actions.restoreSkipped")}
-                            </Button>
-                          )}
+                            {svwmsMissingProductGroups.length > 0 && (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={handleSkipMissingProducts}
+                                disabled={quickCreatePendingKey !== null}
+                              >
+                                {t("actions.skipMissing")}
+                              </Button>
+                            )}
+                            {svwmsSkippedLineCount > 0 && (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={handleRestoreSkippedProducts}
+                                disabled={quickCreatePendingKey !== null}
+                              >
+                                {t("actions.restoreSkipped")}
+                              </Button>
+                            )}
+                          </div>
                         </div>
-                      </div>
 
-                      <div className="grid gap-4 p-3">
-                        {svwmsAllRowsSkipped && (
-                          <div className="rounded-md border border-amber-500/30 bg-background p-3 text-sm">
-                            {t("allSkippedPanel")}
-                          </div>
-                        )}
+                        <div className="grid gap-4 p-3">
+                          {svwmsAllRowsSkipped && (
+                            <div className="rounded-md border border-amber-500/30 bg-background p-3 text-sm">
+                              {t("allSkippedPanel")}
+                            </div>
+                          )}
 
-                        {svwmsUnitExceptionGroups.length > 0 && (
-                          <WarehouseImportReviewTable
-                            title={t("unitMismatches.title")}
-                            description={t("unitMismatches.description")}
-                            emptyMessage={t("items.empty")}
-                            rows={svwmsUnitExceptionGroups}
-                            rowKey={(group) => group.key}
-                            minWidth="min-w-[1080px]"
-                            columns={[
-                              {
-                                key: "no",
-                                header: t("columns.no"),
-                                className: "w-16 text-muted-foreground",
-                                render: (_group, index) => index + 1,
-                              },
-                              {
-                                key: "sku",
-                                header: t("columns.sku"),
-                                render: (group) => {
-                                  const line = group.lines[0];
-                                  return (
-                                    <div className="grid gap-0.5">
-                                      <span className="font-mono text-xs">
-                                        {line?.normalized_product_code ??
-                                          line?.raw_product_code ??
-                                          "-"}
-                                      </span>
-                                      {group.lines.length > 1 ? (
-                                        <span className="text-xs text-muted-foreground">
-                                          {t("more", { count: group.lines.length - 1 })}
+                          {svwmsUnitExceptionGroups.length > 0 && (
+                            <WarehouseImportReviewTable
+                              title={t("unitMismatches.title")}
+                              description={t("unitMismatches.description")}
+                              emptyMessage={t("items.empty")}
+                              rows={svwmsUnitExceptionGroups}
+                              rowKey={(group) => group.key}
+                              minWidth="min-w-[1080px]"
+                              columns={[
+                                {
+                                  key: "no",
+                                  header: t("columns.no"),
+                                  className: "w-16 text-muted-foreground",
+                                  render: (_group, index) => index + 1,
+                                },
+                                {
+                                  key: "sku",
+                                  header: t("columns.sku"),
+                                  render: (group) => {
+                                    const line = group.lines[0];
+                                    return (
+                                      <div className="grid gap-0.5">
+                                        <span className="font-mono text-xs">
+                                          {line?.normalized_product_code ??
+                                            line?.raw_product_code ??
+                                            "-"}
                                         </span>
-                                      ) : null}
-                                    </div>
-                                  );
+                                        {group.lines.length > 1 ? (
+                                          <span className="text-xs text-muted-foreground">
+                                            {t("more", { count: group.lines.length - 1 })}
+                                          </span>
+                                        ) : null}
+                                      </div>
+                                    );
+                                  },
                                 },
-                              },
-                              {
-                                key: "name",
-                                header: t("columns.name"),
-                                className: "min-w-64",
-                                render: (group) => {
-                                  const line = group.lines[0];
-                                  return (
-                                    line?.normalized_product_name ??
-                                    line?.raw_product_name ??
-                                    line?.raw_product_code ??
-                                    "-"
-                                  );
+                                {
+                                  key: "name",
+                                  header: t("columns.name"),
+                                  className: "min-w-64",
+                                  render: (group) => {
+                                    const line = group.lines[0];
+                                    return (
+                                      line?.normalized_product_name ??
+                                      line?.raw_product_name ??
+                                      line?.raw_product_code ??
+                                      "-"
+                                    );
+                                  },
                                 },
-                              },
-                              {
-                                key: "qty",
-                                header: t("columns.qty"),
-                                className: "text-right",
-                                render: (group) => (
-                                  <span className="font-mono">
-                                    {group.lines[0]?.quantity ?? "-"}
-                                  </span>
-                                ),
-                              },
-                              {
-                                key: "order",
-                                header: t("columns.order"),
-                                render: (group) => (
-                                  <span className="font-mono text-xs">
-                                    {group.lines[0]
-                                      ? (lineOrderNumber(group.lines[0]) ?? "-")
-                                      : "-"}
-                                  </span>
-                                ),
-                              },
-                              {
-                                key: "unit",
-                                header: t("columns.importedUnit"),
-                                render: (group) => (
-                                  <span className="font-mono text-xs">
-                                    {group.rawUnit ?? t("noUnitProvided")}
-                                  </span>
-                                ),
-                              },
-                              {
-                                key: "problem",
-                                header: t("columns.problem"),
-                                render: (group) => (
-                                  <span className="text-xs text-destructive">
-                                    {group.ambiguous
-                                      ? t("problems.ambiguousUnit")
-                                      : t("problems.missingUnit")}
-                                  </span>
-                                ),
-                              },
-                              {
-                                key: "action",
-                                header: t("columns.action"),
-                                className: "min-w-64",
-                                render: (group) => (
-                                  <select
-                                    value=""
-                                    onChange={(event) =>
-                                      handleMapUnitGroup(group.key, event.target.value)
-                                    }
-                                    className="h-9 w-full rounded-md border bg-background px-2 text-sm"
-                                  >
-                                    <option value="">{t("assignExistingUnit")}</option>
-                                    {unitOptions.map((unit) => (
-                                      <option key={unit.id} value={unit.id}>
-                                        {unit.code} - {unit.name}
-                                      </option>
-                                    ))}
-                                  </select>
-                                ),
-                              },
-                            ]}
-                          />
-                        )}
+                                {
+                                  key: "qty",
+                                  header: t("columns.qty"),
+                                  className: "text-right",
+                                  render: (group) => (
+                                    <span className="font-mono">
+                                      {group.lines[0]?.quantity ?? "-"}
+                                    </span>
+                                  ),
+                                },
+                                {
+                                  key: "order",
+                                  header: t("columns.order"),
+                                  render: (group) => (
+                                    <span className="font-mono text-xs">
+                                      {group.lines[0]
+                                        ? (lineOrderNumber(group.lines[0]) ?? "-")
+                                        : "-"}
+                                    </span>
+                                  ),
+                                },
+                                {
+                                  key: "unit",
+                                  header: t("columns.importedUnit"),
+                                  render: (group) => (
+                                    <span className="font-mono text-xs">
+                                      {group.rawUnit ?? t("noUnitProvided")}
+                                    </span>
+                                  ),
+                                },
+                                {
+                                  key: "problem",
+                                  header: t("columns.problem"),
+                                  render: (group) => (
+                                    <span className="text-xs text-destructive">
+                                      {group.ambiguous
+                                        ? t("problems.ambiguousUnit")
+                                        : t("problems.missingUnit")}
+                                    </span>
+                                  ),
+                                },
+                                {
+                                  key: "action",
+                                  header: t("columns.action"),
+                                  className: "min-w-64",
+                                  render: (group) => (
+                                    <select
+                                      value=""
+                                      onChange={(event) =>
+                                        handleMapUnitGroup(group.key, event.target.value)
+                                      }
+                                      className="h-9 w-full rounded-md border bg-background px-2 text-sm"
+                                    >
+                                      <option value="">{t("assignExistingUnit")}</option>
+                                      {unitOptions.map((unit) => (
+                                        <option key={unit.id} value={unit.id}>
+                                          {unit.code} - {unit.name}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  ),
+                                },
+                              ]}
+                            />
+                          )}
 
-                        {svwmsActiveProductExceptionGroups.some((group) => !groupUnitId(group)) && (
-                          <div
-                            className="flex flex-wrap items-center gap-2 rounded-md border bg-background p-3 text-sm"
-                            data-testid="import-bulk-unit"
-                          >
-                            <span className="font-medium">{t("bulkUnit")}</span>
-                            <select
-                              value=""
-                              onChange={(event) => applyUnitToAllProducts(event.target.value)}
-                              className="h-9 min-w-56 rounded-md border bg-background px-2 text-sm"
-                              aria-label={t("bulkUnitAria")}
+                          {svwmsActiveProductExceptionGroups.some(
+                            (group) => !groupUnitId(group)
+                          ) && (
+                            <div
+                              className="flex flex-wrap items-center gap-2 rounded-md border bg-background p-3 text-sm"
+                              data-testid="import-bulk-unit"
                             >
-                              <option value="">{t("selectUnit")}</option>
-                              {unitOptions.map((unit) => (
-                                <option key={unit.id} value={unit.id}>
-                                  {unit.code} - {unit.name}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        )}
+                              <span className="font-medium">{t("bulkUnit")}</span>
+                              <select
+                                value=""
+                                onChange={(event) => applyUnitToAllProducts(event.target.value)}
+                                className="h-9 min-w-56 rounded-md border bg-background px-2 text-sm"
+                                aria-label={t("bulkUnitAria")}
+                              >
+                                <option value="">{t("selectUnit")}</option>
+                                {unitOptions.map((unit) => (
+                                  <option key={unit.id} value={unit.id}>
+                                    {unit.code} - {unit.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
 
-                        {svwmsActiveProductExceptionGroups.length > 0 && (
-                          <WarehouseImportReviewTable
-                            title={t("productMismatches.title")}
-                            description={t("productMismatches.description")}
-                            emptyMessage={t("items.empty")}
-                            rows={svwmsActiveProductExceptionGroups}
-                            rowKey={(group) => group.key}
-                            minWidth="min-w-[1040px]"
-                            columns={[
-                              {
-                                key: "no",
-                                header: t("columns.no"),
-                                className: "w-16 text-muted-foreground",
-                                render: (_group, index) => index + 1,
-                              },
-                              {
-                                key: "sku",
-                                header: t("columns.itemSku"),
-                                render: (group) => (
-                                  <span className="font-mono text-xs">
-                                    {group.normalizedCode ?? group.rawCode}
-                                  </span>
-                                ),
-                              },
-                              {
-                                key: "name",
-                                header: t("columns.name"),
-                                className: "min-w-64",
-                                render: (group) => group.rawName,
-                              },
-                              {
-                                key: "unit",
-                                header: (
-                                  <span className="flex items-center gap-1.5">
-                                    {t("columns.unit")}
-                                    <ImportCopyButton
-                                      label="unit"
-                                      title={t("actions.copyUnit")}
-                                      onClick={copyFirstProductUnitToAll}
-                                    />
-                                  </span>
-                                ),
-                                className: "min-w-56",
-                                render: (group) => (
-                                  <select
-                                    value={groupUnitId(group)}
-                                    onChange={(event) =>
-                                      handleMapProductGroupUnit(group.key, event.target.value)
-                                    }
-                                    className="h-9 w-full rounded-md border bg-background px-2 text-sm"
-                                  >
-                                    <option value="">{t("selectUnit")}</option>
-                                    {unitOptions.map((unit) => (
-                                      <option key={unit.id} value={unit.id}>
-                                        {unit.code} - {unit.name}
-                                      </option>
-                                    ))}
-                                  </select>
-                                ),
-                              },
-                              {
-                                key: "rows",
-                                header: t("columns.rows"),
-                                render: (group) => group.lines.length,
-                              },
-                              {
-                                key: "problem",
-                                header: t("columns.problem"),
-                                render: (group) => (
-                                  <span className="text-xs text-destructive">
-                                    {group.ambiguous
-                                      ? t("problems.multipleMatches")
-                                      : !groupUnitId(group)
-                                        ? t("problems.missingProductSelectUnit")
-                                        : t("problems.missingProduct")}
-                                  </span>
-                                ),
-                              },
-                              {
-                                key: "action",
-                                header: (
-                                  <span className="flex items-center gap-1.5">
-                                    {t("columns.howToProceed")}
-                                    <ImportCopyButton
-                                      label="action"
-                                      title={t("actions.copyAction")}
-                                      onClick={copyFirstProductActionToAll}
-                                    />
-                                  </span>
-                                ),
-                                className: "min-w-[420px]",
-                                render: (group) => {
-                                  const createBlockReason = productCreateBlockReason(
-                                    group,
-                                    canManageProducts
-                                  );
-                                  const action = productActionForGroup(group);
-                                  return (
-                                    <div className="grid gap-2 sm:grid-cols-[170px_minmax(180px,1fr)]">
-                                      <select
-                                        value={action}
-                                        onChange={(event) =>
-                                          handleProductMismatchActionChange(
-                                            group.key,
-                                            event.target.value as ProductMismatchAction
-                                          )
-                                        }
-                                        className="h-9 rounded-md border bg-background px-2 text-sm"
-                                      >
-                                        <option
-                                          value="create"
-                                          disabled={Boolean(createBlockReason)}
-                                        >
-                                          {t("productActions.create")}
+                          {svwmsActiveProductExceptionGroups.length > 0 && (
+                            <WarehouseImportReviewTable
+                              title={t("productMismatches.title")}
+                              description={t("productMismatches.description")}
+                              emptyMessage={t("items.empty")}
+                              rows={svwmsActiveProductExceptionGroups}
+                              rowKey={(group) => group.key}
+                              minWidth="min-w-[1040px]"
+                              columns={[
+                                {
+                                  key: "no",
+                                  header: t("columns.no"),
+                                  className: "w-16 text-muted-foreground",
+                                  render: (_group, index) => index + 1,
+                                },
+                                {
+                                  key: "sku",
+                                  header: t("columns.itemSku"),
+                                  render: (group) => (
+                                    <span className="font-mono text-xs">
+                                      {group.normalizedCode ?? group.rawCode}
+                                    </span>
+                                  ),
+                                },
+                                {
+                                  key: "name",
+                                  header: t("columns.name"),
+                                  className: "min-w-64",
+                                  render: (group) => group.rawName,
+                                },
+                                {
+                                  key: "unit",
+                                  header: (
+                                    <span className="flex items-center gap-1.5">
+                                      {t("columns.unit")}
+                                      <ImportCopyButton
+                                        label="unit"
+                                        title={t("actions.copyUnit")}
+                                        onClick={copyFirstProductUnitToAll}
+                                      />
+                                    </span>
+                                  ),
+                                  className: "min-w-56",
+                                  render: (group) => (
+                                    <select
+                                      value={groupUnitId(group)}
+                                      onChange={(event) =>
+                                        handleMapProductGroupUnit(group.key, event.target.value)
+                                      }
+                                      className="h-9 w-full rounded-md border bg-background px-2 text-sm"
+                                    >
+                                      <option value="">{t("selectUnit")}</option>
+                                      {unitOptions.map((unit) => (
+                                        <option key={unit.id} value={unit.id}>
+                                          {unit.code} - {unit.name}
                                         </option>
-                                        <option value="assign_existing">
-                                          {t("productActions.assignExisting")}
-                                        </option>
-                                        <option value="skip">{t("productActions.skip")}</option>
-                                      </select>
-
-                                      {action === "assign_existing" ? (
+                                      ))}
+                                    </select>
+                                  ),
+                                },
+                                {
+                                  key: "rows",
+                                  header: t("columns.rows"),
+                                  render: (group) => group.lines.length,
+                                },
+                                {
+                                  key: "problem",
+                                  header: t("columns.problem"),
+                                  render: (group) => (
+                                    <span className="text-xs text-destructive">
+                                      {group.ambiguous
+                                        ? t("problems.multipleMatches")
+                                        : !groupUnitId(group)
+                                          ? t("problems.missingProductSelectUnit")
+                                          : t("problems.missingProduct")}
+                                    </span>
+                                  ),
+                                },
+                                {
+                                  key: "action",
+                                  header: (
+                                    <span className="flex items-center gap-1.5">
+                                      {t("columns.howToProceed")}
+                                      <ImportCopyButton
+                                        label="action"
+                                        title={t("actions.copyAction")}
+                                        onClick={copyFirstProductActionToAll}
+                                      />
+                                    </span>
+                                  ),
+                                  className: "min-w-[420px]",
+                                  render: (group) => {
+                                    const createBlockReason = productCreateBlockReason(
+                                      group,
+                                      canManageProducts
+                                    );
+                                    const action = productActionForGroup(group);
+                                    return (
+                                      <div className="grid gap-2 sm:grid-cols-[170px_minmax(180px,1fr)]">
                                         <select
-                                          value=""
+                                          value={action}
                                           onChange={(event) =>
-                                            handleMapProductGroup(group.key, event.target.value)
+                                            handleProductMismatchActionChange(
+                                              group.key,
+                                              event.target.value as ProductMismatchAction
+                                            )
                                           }
                                           className="h-9 rounded-md border bg-background px-2 text-sm"
                                         >
-                                          <option value="">
-                                            {t("productActions.pickExisting")}
+                                          <option
+                                            value="create"
+                                            disabled={Boolean(createBlockReason)}
+                                          >
+                                            {t("productActions.create")}
                                           </option>
-                                          {variantOptions.map((variant) => (
-                                            <option key={variant.id} value={variant.id}>
-                                              {variantLabel(variant)}
-                                            </option>
-                                          ))}
+                                          <option value="assign_existing">
+                                            {t("productActions.assignExisting")}
+                                          </option>
+                                          <option value="skip">{t("productActions.skip")}</option>
                                         </select>
-                                      ) : action === "create" ? (
-                                        <span className="self-center text-xs text-muted-foreground">
-                                          {t("productActions.willCreate")}
-                                        </span>
-                                      ) : (
-                                        <span className="self-center text-xs text-muted-foreground">
-                                          {t("productActions.willSkip")}
-                                        </span>
-                                      )}
-                                      {createBlockReason ? (
-                                        <span className="text-xs text-muted-foreground sm:col-span-2">
-                                          {t(`blockReasons.${createBlockReason}`)}
-                                        </span>
-                                      ) : null}
-                                    </div>
-                                  );
-                                },
-                              },
-                            ]}
-                          />
-                        )}
 
-                        {showManualReview && (
-                          <div className="overflow-x-auto rounded-md border bg-background">
-                            <table className="w-full min-w-[840px] text-sm">
-                              <thead className="bg-muted/30 text-xs uppercase text-muted-foreground">
-                                <tr>
-                                  <th className="px-3 py-2 text-left">{t("columns.order")}</th>
-                                  <th className="px-3 py-2 text-left">{t("columns.sku")}</th>
-                                  <th className="px-3 py-2 text-left">{t("columns.name")}</th>
-                                  <th className="px-3 py-2 text-left">{t("columns.unit")}</th>
-                                  <th className="px-3 py-2 text-left">{t("columns.problem")}</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y">
-                                {selectedActiveLines
-                                  .filter((line) => line.validation_errors.length > 0)
-                                  .map((line) => (
-                                    <tr key={line.source_line_id}>
-                                      <td className="px-3 py-2 font-mono text-xs">
-                                        {lineOrderNumber(line) ?? "-"}
-                                      </td>
-                                      <td className="px-3 py-2 font-mono text-xs">
-                                        {line.normalized_product_code ??
-                                          line.raw_product_code ??
-                                          "-"}
-                                      </td>
-                                      <td className="px-3 py-2">
-                                        {line.normalized_product_name ??
-                                          line.raw_product_name ??
-                                          "-"}
-                                      </td>
-                                      <td className="px-3 py-2 font-mono text-xs">
-                                        {line.normalized_unit_code ?? line.raw_unit ?? "-"}
-                                      </td>
-                                      <td className="px-3 py-2 text-xs text-destructive">
-                                        {line.validation_errors.map(tError).join(", ")}
-                                      </td>
-                                    </tr>
-                                  ))}
-                              </tbody>
-                            </table>
+                                        {action === "assign_existing" ? (
+                                          <select
+                                            value=""
+                                            onChange={(event) =>
+                                              handleMapProductGroup(group.key, event.target.value)
+                                            }
+                                            className="h-9 rounded-md border bg-background px-2 text-sm"
+                                          >
+                                            <option value="">
+                                              {t("productActions.pickExisting")}
+                                            </option>
+                                            {variantOptions.map((variant) => (
+                                              <option key={variant.id} value={variant.id}>
+                                                {variantLabel(variant)}
+                                              </option>
+                                            ))}
+                                          </select>
+                                        ) : action === "create" ? (
+                                          <span className="self-center text-xs text-muted-foreground">
+                                            {t("productActions.willCreate")}
+                                          </span>
+                                        ) : (
+                                          <span className="self-center text-xs text-muted-foreground">
+                                            {t("productActions.willSkip")}
+                                          </span>
+                                        )}
+                                        {createBlockReason ? (
+                                          <span className="text-xs text-muted-foreground sm:col-span-2">
+                                            {t(`blockReasons.${createBlockReason}`)}
+                                          </span>
+                                        ) : null}
+                                      </div>
+                                    );
+                                  },
+                                },
+                              ]}
+                            />
+                          )}
+
+                          {showManualReview && (
+                            <div className="overflow-x-auto rounded-md border bg-background">
+                              <table className="w-full min-w-[840px] text-sm">
+                                <thead className="bg-muted/30 text-xs uppercase text-muted-foreground">
+                                  <tr>
+                                    <th className="px-3 py-2 text-left">{t("columns.order")}</th>
+                                    <th className="px-3 py-2 text-left">{t("columns.sku")}</th>
+                                    <th className="px-3 py-2 text-left">{t("columns.name")}</th>
+                                    <th className="px-3 py-2 text-left">{t("columns.unit")}</th>
+                                    <th className="px-3 py-2 text-left">{t("columns.problem")}</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y">
+                                  {selectedActiveLines
+                                    .filter((line) => line.validation_errors.length > 0)
+                                    .map((line) => (
+                                      <tr key={line.source_line_id}>
+                                        <td className="px-3 py-2 font-mono text-xs">
+                                          {lineOrderNumber(line) ?? "-"}
+                                        </td>
+                                        <td className="px-3 py-2 font-mono text-xs">
+                                          {line.normalized_product_code ??
+                                            line.raw_product_code ??
+                                            "-"}
+                                        </td>
+                                        <td className="px-3 py-2">
+                                          {line.normalized_product_name ??
+                                            line.raw_product_name ??
+                                            "-"}
+                                        </td>
+                                        <td className="px-3 py-2 font-mono text-xs">
+                                          {line.normalized_unit_code ?? line.raw_unit ?? "-"}
+                                        </td>
+                                        <td className="px-3 py-2 text-xs text-destructive">
+                                          {line.validation_errors.map(tError).join(", ")}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {svwmsSkippedLineCount > 0 && (
+                          <div className="rounded-md border bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
+                            {t("skippedRows", { count: svwmsSkippedLineCount })}
                           </div>
                         )}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {svwmsSkippedLineCount > 0 && (
-                        <div className="rounded-md border bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
-                          {t("skippedRows", { count: svwmsSkippedLineCount })}
-                        </div>
-                      )}
-                      <WarehouseImportReviewTable
-                        title={t("items.title")}
-                        description={t("items.description")}
-                        emptyMessage={t("items.empty")}
-                        rows={svwmsLines}
-                        rowKey={(line) => line.source_line_id}
-                        minWidth="min-w-[860px]"
-                        columns={[
-                          {
-                            key: "no",
-                            header: t("columns.no"),
-                            className: "w-16 text-muted-foreground",
-                            render: (_line, index) => index + 1,
-                          },
-                          {
-                            key: "sku",
-                            header: t("columns.sku"),
-                            render: (line) => (
-                              <span className="font-mono text-xs">
-                                {line.normalized_product_code ?? line.raw_product_code ?? "-"}
-                              </span>
-                            ),
-                          },
-                          {
-                            key: "name",
-                            header: t("columns.name"),
-                            className: "min-w-64",
-                            render: (line) =>
-                              line.normalized_product_name ?? line.raw_product_name ?? "-",
-                          },
-                          {
-                            key: "qty",
-                            header: t("columns.qty"),
-                            className: "text-right",
-                            render: (line) => (
-                              <span className="font-mono">{line.quantity ?? "-"}</span>
-                            ),
-                          },
-                          {
-                            key: "unit",
-                            header: t("columns.unit"),
-                            className: "min-w-44",
-                            render: (line) => (
-                              <select
-                                value={line.unit_id ?? ""}
-                                onChange={(event) =>
-                                  updateLine(line.source_line_id, {
-                                    unit_id: event.target.value || null,
-                                  })
-                                }
-                                className="h-8 w-full rounded-md border bg-background px-2 text-xs"
-                              >
-                                <option value="">{t("selectUnit")}</option>
-                                {unitOptions.map((unit) => (
-                                  <option key={unit.id} value={unit.id}>
-                                    {unit.code} - {unit.name}
-                                  </option>
-                                ))}
-                              </select>
-                            ),
-                          },
-                          {
-                            key: "order",
-                            header: t("columns.order"),
-                            render: (line) => (
-                              <span className="font-mono text-xs">
-                                {lineOrderNumber(line) ?? "-"}
-                              </span>
-                            ),
-                          },
-                          {
-                            key: "status",
-                            header: t("columns.status"),
-                            render: (line) =>
-                              isImportLineReady(line) ? (
-                                <span className="text-emerald-700">{t("statusReady")}</span>
-                              ) : (
-                                <span className="text-destructive">
-                                  {line.validation_errors.map(tError).join(", ") ||
-                                    t("needsResolution")}
+                        <WarehouseImportReviewTable
+                          title={t("items.title")}
+                          description={t("items.description")}
+                          emptyMessage={t("items.empty")}
+                          rows={svwmsLines}
+                          rowKey={(line) => line.source_line_id}
+                          minWidth="min-w-[860px]"
+                          columns={[
+                            {
+                              key: "no",
+                              header: t("columns.no"),
+                              className: "w-16 text-muted-foreground",
+                              render: (_line, index) => index + 1,
+                            },
+                            {
+                              key: "sku",
+                              header: t("columns.sku"),
+                              render: (line) => (
+                                <span className="font-mono text-xs">
+                                  {line.normalized_product_code ?? line.raw_product_code ?? "-"}
                                 </span>
                               ),
-                          },
-                        ]}
-                      />
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="overflow-x-auto rounded-md border">
-                  <table className="w-full min-w-[1180px] text-sm">
-                    <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
-                      <tr>
-                        <th className="px-3 py-2 text-left">{t("columns.importedItem")}</th>
-                        <th className="px-3 py-2 text-left">{t("columns.product")}</th>
-                        <th className="px-3 py-2 text-left">{t("columns.unit")}</th>
-                        <th className="px-3 py-2 text-left">{t("columns.qty")}</th>
-                        <th className="px-3 py-2 text-left">{t("columns.source")}</th>
-                        <th className="px-3 py-2 text-left">{t("columns.destination")}</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {(selectedDocument?.lines ?? []).map((line) => {
-                        const selectedUnit = line.unit_id ? unitById.get(line.unit_id) : null;
-                        return (
-                          <tr key={line.source_line_id}>
-                            <td className="px-3 py-2 align-top">
-                              <div className="font-mono text-xs">
-                                {line.raw_product_code ?? "-"}
-                              </div>
-                              <div className="max-w-[180px] truncate text-xs text-muted-foreground">
-                                {line.raw_product_name ?? "-"}
-                              </div>
-                              {line.validation_errors.length > 0 && (
-                                <div className="mt-1 text-xs text-destructive">
-                                  {line.validation_errors.map(tError).join(", ")}
-                                </div>
-                              )}
-                            </td>
-                            <td className="px-3 py-2 align-top">
-                              <select
-                                value={line.variant_id ?? ""}
-                                onChange={(event) =>
-                                  updateLine(line.source_line_id, {
-                                    variant_id: event.target.value || null,
-                                  })
-                                }
-                                className="h-8 w-full rounded-md border bg-background px-2 text-xs"
-                              >
-                                <option value="">{t("selectProduct")}</option>
-                                {variantOptions.map((variant) => (
-                                  <option key={variant.id} value={variant.id}>
-                                    {variantLabel(variant)}
-                                  </option>
-                                ))}
-                              </select>
-                            </td>
-                            <td className="px-3 py-2 align-top">
-                              <select
-                                value={line.unit_id ?? ""}
-                                onChange={(event) =>
-                                  updateLine(line.source_line_id, {
-                                    unit_id: event.target.value || null,
-                                  })
-                                }
-                                className="h-8 w-full rounded-md border bg-background px-2 text-xs"
-                              >
-                                <option value="">{t("selectUnit")}</option>
-                                {unitOptions.map((unit) => (
-                                  <option key={unit.id} value={unit.id}>
-                                    {unit.code} - {unit.name}
-                                  </option>
-                                ))}
-                              </select>
-                              {selectedUnit && (
-                                <div className="mt-1 text-[11px] text-muted-foreground">
-                                  {t("importedUnitValue", { unit: line.raw_unit ?? "-" })}
-                                </div>
-                              )}
-                            </td>
-                            <td className="px-3 py-2 align-top">
-                              <Input
-                                type="number"
-                                min="0.000001"
-                                value={line.quantity ?? ""}
-                                onChange={(event) =>
-                                  updateLine(line.source_line_id, {
-                                    quantity: event.target.value
-                                      ? Number(event.target.value)
-                                      : null,
-                                  })
-                                }
-                                className="h-8 text-xs"
-                              />
-                            </td>
-                            <td className="px-3 py-2 align-top">
-                              <select
-                                value={line.source_location_id ?? ""}
-                                onChange={(event) =>
-                                  updateLine(line.source_line_id, {
-                                    source_location_id: event.target.value || null,
-                                  })
-                                }
-                                className="h-8 w-full rounded-md border bg-background px-2 text-xs"
-                              >
-                                <option value="">{t("noSource")}</option>
-                                {stockableLocations.map((location) => (
-                                  <option key={location.id} value={location.id}>
-                                    {locationLabel(location)}
-                                  </option>
-                                ))}
-                              </select>
-                            </td>
-                            <td className="px-3 py-2 align-top">
-                              <select
-                                value={line.destination_location_id ?? ""}
-                                onChange={(event) =>
-                                  updateLine(line.source_line_id, {
-                                    destination_location_id: event.target.value || null,
-                                  })
-                                }
-                                className="h-8 w-full rounded-md border bg-background px-2 text-xs"
-                              >
-                                <option value="">{t("noDestination")}</option>
-                                {stockableLocations.map((location) => (
-                                  <option key={location.id} value={location.id}>
-                                    {locationLabel(location)}
-                                  </option>
-                                ))}
-                              </select>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        <DialogFooter className="shrink-0 border-t bg-background px-5 py-4">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            {t("cancel")}
-          </Button>
-          {dialogView === "resolve_mismatches" &&
-            (selectedCreateProductGroups.length > 0 || blockedCreateProductGroups.length > 0) && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleCreateMissingProducts}
-                disabled={!canCreateSelectedProducts}
-              >
-                {quickCreatePendingKey === "bulk-products" ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            },
+                            {
+                              key: "name",
+                              header: t("columns.name"),
+                              className: "min-w-64",
+                              render: (line) =>
+                                line.normalized_product_name ?? line.raw_product_name ?? "-",
+                            },
+                            {
+                              key: "qty",
+                              header: t("columns.qty"),
+                              className: "text-right",
+                              render: (line) => (
+                                <span className="font-mono">{line.quantity ?? "-"}</span>
+                              ),
+                            },
+                            {
+                              key: "unit",
+                              header: t("columns.unit"),
+                              className: "min-w-44",
+                              render: (line) => (
+                                <select
+                                  value={line.unit_id ?? ""}
+                                  onChange={(event) =>
+                                    updateLine(line.source_line_id, {
+                                      unit_id: event.target.value || null,
+                                    })
+                                  }
+                                  className="h-8 w-full rounded-md border bg-background px-2 text-xs"
+                                >
+                                  <option value="">{t("selectUnit")}</option>
+                                  {unitOptions.map((unit) => (
+                                    <option key={unit.id} value={unit.id}>
+                                      {unit.code} - {unit.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              ),
+                            },
+                            {
+                              key: "order",
+                              header: t("columns.order"),
+                              render: (line) => (
+                                <span className="font-mono text-xs">
+                                  {lineOrderNumber(line) ?? "-"}
+                                </span>
+                              ),
+                            },
+                            {
+                              key: "status",
+                              header: t("columns.status"),
+                              render: (line) =>
+                                isImportLineReady(line) ? (
+                                  <span className="text-emerald-700">{t("statusReady")}</span>
+                                ) : (
+                                  <span className="text-destructive">
+                                    {line.validation_errors.map(tError).join(", ") ||
+                                      t("needsResolution")}
+                                  </span>
+                                ),
+                            },
+                          ]}
+                        />
+                      </div>
+                    )}
+                  </div>
                 ) : (
-                  <PlusCircle className="mr-2 h-4 w-4" />
+                  <div className="overflow-x-auto rounded-md border">
+                    <table className="w-full min-w-[1180px] text-sm">
+                      <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
+                        <tr>
+                          <th className="px-3 py-2 text-left">{t("columns.importedItem")}</th>
+                          <th className="px-3 py-2 text-left">{t("columns.product")}</th>
+                          <th className="px-3 py-2 text-left">{t("columns.unit")}</th>
+                          <th className="px-3 py-2 text-left">{t("columns.qty")}</th>
+                          <th className="px-3 py-2 text-left">{t("columns.source")}</th>
+                          <th className="px-3 py-2 text-left">{t("columns.destination")}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {(selectedDocument?.lines ?? []).map((line) => {
+                          const selectedUnit = line.unit_id ? unitById.get(line.unit_id) : null;
+                          return (
+                            <tr key={line.source_line_id}>
+                              <td className="px-3 py-2 align-top">
+                                <div className="font-mono text-xs">
+                                  {line.raw_product_code ?? "-"}
+                                </div>
+                                <div className="max-w-[180px] truncate text-xs text-muted-foreground">
+                                  {line.raw_product_name ?? "-"}
+                                </div>
+                                {line.validation_errors.length > 0 && (
+                                  <div className="mt-1 text-xs text-destructive">
+                                    {line.validation_errors.map(tError).join(", ")}
+                                  </div>
+                                )}
+                              </td>
+                              <td className="px-3 py-2 align-top">
+                                <select
+                                  value={line.variant_id ?? ""}
+                                  onChange={(event) =>
+                                    updateLine(line.source_line_id, {
+                                      variant_id: event.target.value || null,
+                                    })
+                                  }
+                                  className="h-8 w-full rounded-md border bg-background px-2 text-xs"
+                                >
+                                  <option value="">{t("selectProduct")}</option>
+                                  {variantOptions.map((variant) => (
+                                    <option key={variant.id} value={variant.id}>
+                                      {variantLabel(variant)}
+                                    </option>
+                                  ))}
+                                </select>
+                              </td>
+                              <td className="px-3 py-2 align-top">
+                                <select
+                                  value={line.unit_id ?? ""}
+                                  onChange={(event) =>
+                                    updateLine(line.source_line_id, {
+                                      unit_id: event.target.value || null,
+                                    })
+                                  }
+                                  className="h-8 w-full rounded-md border bg-background px-2 text-xs"
+                                >
+                                  <option value="">{t("selectUnit")}</option>
+                                  {unitOptions.map((unit) => (
+                                    <option key={unit.id} value={unit.id}>
+                                      {unit.code} - {unit.name}
+                                    </option>
+                                  ))}
+                                </select>
+                                {selectedUnit && (
+                                  <div className="mt-1 text-[11px] text-muted-foreground">
+                                    {t("importedUnitValue", { unit: line.raw_unit ?? "-" })}
+                                  </div>
+                                )}
+                              </td>
+                              <td className="px-3 py-2 align-top">
+                                <Input
+                                  type="number"
+                                  min="0.000001"
+                                  value={line.quantity ?? ""}
+                                  onChange={(event) =>
+                                    updateLine(line.source_line_id, {
+                                      quantity: event.target.value
+                                        ? Number(event.target.value)
+                                        : null,
+                                    })
+                                  }
+                                  className="h-8 text-xs"
+                                />
+                              </td>
+                              <td className="px-3 py-2 align-top">
+                                <select
+                                  value={line.source_location_id ?? ""}
+                                  onChange={(event) =>
+                                    updateLine(line.source_line_id, {
+                                      source_location_id: event.target.value || null,
+                                    })
+                                  }
+                                  className="h-8 w-full rounded-md border bg-background px-2 text-xs"
+                                >
+                                  <option value="">{t("noSource")}</option>
+                                  {stockableLocations.map((location) => (
+                                    <option key={location.id} value={location.id}>
+                                      {locationLabel(location)}
+                                    </option>
+                                  ))}
+                                </select>
+                              </td>
+                              <td className="px-3 py-2 align-top">
+                                <select
+                                  value={line.destination_location_id ?? ""}
+                                  onChange={(event) =>
+                                    updateLine(line.source_line_id, {
+                                      destination_location_id: event.target.value || null,
+                                    })
+                                  }
+                                  className="h-8 w-full rounded-md border bg-background px-2 text-xs"
+                                >
+                                  <option value="">{t("noDestination")}</option>
+                                  {stockableLocations.map((location) => (
+                                    <option key={location.id} value={location.id}>
+                                      {locationLabel(location)}
+                                    </option>
+                                  ))}
+                                </select>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
-                {t("actions.createSelected", { count: selectedCreateProductGroups.length })}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="shrink-0 border-t bg-background px-5 py-4">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              {t("cancel")}
+            </Button>
+            {dialogView === "resolve_mismatches" &&
+              (selectedCreateProductGroups.length > 0 || blockedCreateProductGroups.length > 0) && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleCreateMissingProducts}
+                  disabled={!canCreateSelectedProducts}
+                >
+                  {quickCreatePendingKey === "bulk-products" ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                  )}
+                  {t("actions.createSelected", { count: selectedCreateProductGroups.length })}
+                </Button>
+              )}
+            {documents.length > 0 && (
+              <Button type="button" onClick={handleApply} disabled={!canApply || busy}>
+                {t("fill")}
               </Button>
             )}
-          {documents.length > 0 && (
-            <Button type="button" onClick={handleApply} disabled={!canApply || busy}>
-              {t("fill")}
-            </Button>
-          )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

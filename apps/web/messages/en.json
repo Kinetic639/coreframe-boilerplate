@@ -7957,7 +7957,15 @@
       "quickStep": {
         "preview": "Loading session…",
         "repairOrders": "Creating missing repair orders…",
-        "products": "Creating missing parts…"
+        "products": "Creating missing parts…",
+        "fill": "Filling in the form…"
+      },
+      "autoProgress": {
+        "title": "Preparing the PZ from the Matcher session…",
+        "preview": "Loading the delivery from the Matcher session",
+        "repairOrders": "Checking repair orders, creating missing ones",
+        "products": "Checking parts, creating missing ones",
+        "fill": "Filling in the PZ document"
       },
       "quickDone": "Form filled: {lines} lines. New repair orders: {orders}, new parts: {products}.",
       "quickStoppedAmbiguous": "Quick import stopped: {count, plural, one {# part matches} other {# parts match}} several catalog items — pick the right ones below.",

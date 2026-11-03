@@ -7931,7 +7931,15 @@
       "quickStep": {
         "preview": "Wczytywanie sesji…",
         "repairOrders": "Tworzenie brakujących zleceń…",
-        "products": "Tworzenie brakujących części…"
+        "products": "Tworzenie brakujących części…",
+        "fill": "Wypełnianie formularza…"
+      },
+      "autoProgress": {
+        "title": "Przygotowywanie PZ z sesji Matchera…",
+        "preview": "Wczytanie dostawy z sesji Matchera",
+        "repairOrders": "Sprawdzenie zleceń i utworzenie brakujących",
+        "products": "Sprawdzenie części i utworzenie brakujących",
+        "fill": "Wypełnienie dokumentu PZ"
       },
       "quickDone": "Formularz wypełniony: {lines} poz. Nowe zlecenia: {orders}, nowe części: {products}.",
       "quickStoppedAmbiguous": "Szybki import zatrzymany: {count, plural, one {# część pasuje} few {# części pasują} other {# części pasuje}} do kilku pozycji katalogu — wybierz właściwe poniżej.",
