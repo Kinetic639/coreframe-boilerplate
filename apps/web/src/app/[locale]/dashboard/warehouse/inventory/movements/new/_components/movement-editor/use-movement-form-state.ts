@@ -141,10 +141,15 @@ export function useMovementFormState(
   units: InventoryUnitRow[],
   initialValues?: MovementFormInitialValues,
   defaultRecipientName = "",
-  activeBranch: ActiveBranchParty = null
+  activeBranch: ActiveBranchParty = null,
+  preferredTypeCode?: string
 ) {
   const t = useTranslations("warehouseInventory.movementEditor");
-  const initialTypeCode = initialValues?.movementTypeCode ?? movementTypes[0]?.code ?? "";
+  const initialTypeCode =
+    initialValues?.movementTypeCode ??
+    (movementTypes.some((type) => type.code === preferredTypeCode) ? preferredTypeCode : null) ??
+    movementTypes[0]?.code ??
+    "";
   const initialContract = movementPartyContract(initialTypeCode);
   const initialBranchFields = useMemo(
     () => branchPartyFields(activeBranch, defaultRecipientName),

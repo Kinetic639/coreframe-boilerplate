@@ -127,7 +127,11 @@ const KNOWN = {
   unit_code: "SZT",
 };
 
-function renderDialog(onApply = vi.fn(), canManageProducts = true) {
+function renderDialog(
+  onApply = vi.fn(),
+  canManageProducts = true,
+  autoStart: { sourceType: string; sourceInput: Record<string, string> } | null = null
+) {
   render(
     <NextIntlClientProvider locale="pl" messages={plMessages}>
       <MovementImportDialog
@@ -141,6 +145,7 @@ function renderDialog(onApply = vi.fn(), canManageProducts = true) {
         currentDestinationLocationId="loc-prz"
         canManageProducts={canManageProducts}
         onApply={onApply}
+        autoStart={autoStart}
       />
     </NextIntlClientProvider>
   );
@@ -356,6 +361,62 @@ describe("MovementImportDialog", () => {
     expect(toast.success).toHaveBeenCalledWith(
       "Formularz wypełniony: 2 poz. Nowe zlecenia: 1, nowe części: 1."
     );
+  });
+
+  describe('opened from the Matcher\'s "Utwórz PZ"', () => {
+    const auto = (session: string) => ({
+      sourceType: "svwms_wdd_matcher",
+      sourceInput: { session_id: session },
+    });
+    const knownLine = line({
+      raw_product_code: "WHT005263",
+      normalized_product_code: "WHT005263",
+      variant_id: "v-known",
+      product_resolution_status: "resolved",
+    });
+
+    it("picks the session and runs the quick import by itself, once", async () => {
+      actions.previewMovementImportFromSourceAction.mockResolvedValue({
+        success: true,
+        data: preview([knownLine]),
+      });
+      const onApply = renderDialog(vi.fn(), true, auto("s-new"));
+
+      await waitFor(() => expect(onApply).toHaveBeenCalledTimes(1));
+      expect(actions.previewMovementImportFromSourceAction).toHaveBeenCalledWith({
+        source_type: "svwms_wdd_matcher",
+        source_input: { session_id: "s-new" },
+        movement_type_code: "101",
+      });
+      expect(onApply.mock.calls[0][0].lines[0]).toMatchObject({
+        variant_id: "v-known",
+        destination_location_id: "loc-prz",
+      });
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(onApply).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not start for a session already received on a PZ", async () => {
+      const onApply = renderDialog(vi.fn(), true, auto("s-old"));
+
+      await waitFor(() =>
+        expect(toast.warning).toHaveBeenCalledWith(expect.stringContaining("PZ/2026/000001"))
+      );
+      expect(onApply).not.toHaveBeenCalled();
+      expect(actions.applyRepairOrderImportAction).not.toHaveBeenCalled();
+    });
+
+    it("does not start for a session this branch does not offer", async () => {
+      const onApply = renderDialog(vi.fn(), true, auto("s-elsewhere"));
+
+      await waitFor(() =>
+        expect(toast.error).toHaveBeenCalledWith(
+          expect.stringContaining("nie można przyjąć w tym oddziale")
+        )
+      );
+      expect(onApply).not.toHaveBeenCalled();
+      expect(actions.previewMovementImportFromSourceAction).not.toHaveBeenCalled();
+    });
   });
 
   it("quick import stops on a part matching several catalog items", async () => {

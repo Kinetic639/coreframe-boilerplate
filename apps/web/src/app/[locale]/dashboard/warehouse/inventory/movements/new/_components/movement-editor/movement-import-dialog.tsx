@@ -48,7 +48,7 @@ import {
   policiesForType,
 } from "@/lib/warehouse/movement-field-policy";
 import type { RepairOrderImportPreview } from "@/server/services/repair-order-import.service";
-import type { ImportedMovementDocumentDraft, LocationOption } from "./types";
+import type { ImportedMovementDocumentDraft, LocationOption, MovementAutoImport } from "./types";
 import {
   MovementImportSummary,
   type ImportSessionSummaryModel,
@@ -88,6 +88,8 @@ type Props = {
   currentDestinationLocationId?: string;
   canManageProducts: boolean;
   onApply: (document: ImportedMovementDocumentDraft) => void;
+  /** Picks this source and runs the quick import once, as soon as it is open */
+  autoStart?: MovementAutoImport | null;
 };
 
 const SVWMS_SOURCE = "svwms_wdd_matcher";
@@ -402,6 +404,7 @@ export function MovementImportDialog({
   currentDestinationLocationId,
   canManageProducts,
   onApply,
+  autoStart = null,
 }: Props) {
   const t = useTranslations("warehouseInventory.movementImport");
   const movementTypeCode = currentMovementTypeCode;
@@ -429,6 +432,8 @@ export function MovementImportDialog({
   const [summaryLoading, setSummaryLoading] = useState(false);
   const summaryRequest = useRef(0);
   const [isPending, startTransition] = useTransition();
+  // "picking" -> source and input set; "done" -> never again in this editor
+  const autoStage = useRef<"waiting" | "picking" | "done">(autoStart ? "waiting" : "done");
 
   const tError = (error: string) => (ERROR_KEYS[error] ? t(`errors.${ERROR_KEYS[error]}`) : error);
   const sourceLabel = (type: string, fallback: string) =>
@@ -891,6 +896,40 @@ export function MovementImportDialog({
       }
     });
   };
+
+  // Opened from the Matcher's "Utwórz PZ": pick the session once the sources
+  // are loaded, then run the quick import. A session that is not offered here
+  // (another branch, not matched) or is already on a PZ does not start.
+  useEffect(() => {
+    if (!open || !autoStart || autoStage.current !== "waiting" || !sourcesLoaded) return;
+    const source = sources.find((item) => item.source_type === autoStart.sourceType);
+    const offered = source?.input_fields.every((field) => {
+      const value = autoStart.sourceInput[field.key];
+      if (!value) return !field.required;
+      return !field.options || field.options.some((option) => option.value === value);
+    });
+    if (!source || !offered) {
+      autoStage.current = "done";
+      toast.error(t("autoStartUnavailable"));
+      return;
+    }
+    autoStage.current = "picking";
+    setSourceType(autoStart.sourceType);
+    setSourceInput(autoStart.sourceInput);
+  }, [autoStart, open, sources, sourcesLoaded, t]);
+
+  useEffect(() => {
+    if (!open || !autoStart || autoStage.current !== "picking" || isPending) return;
+    if (sourceType !== autoStart.sourceType) return;
+    if (sourceInputKey !== JSON.stringify(autoStart.sourceInput)) return;
+    autoStage.current = "done";
+    if (alreadyImportedDocument) {
+      toast.warning(t("autoStartAlreadyImported", { document: alreadyImportedDocument }));
+      return;
+    }
+    handleQuickImport();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once, when the pick has landed
+  }, [alreadyImportedDocument, autoStart, isPending, open, sourceInputKey, sourceType]);
 
   const updateLine = (
     sourceLineId: string,

@@ -187,4 +187,48 @@ describe("ExtractionReviewView -- approval UI (Phase 4/5)", () => {
     expect(screen.queryByTestId("retry-materialization-button")).not.toBeInTheDocument();
     expect(screen.queryByTestId("approve-session-button")).not.toBeInTheDocument();
   });
+
+  it('offers "Utwórz PZ" for a matched session, opening a PZ that imports it', () => {
+    render(
+      <ExtractionReviewView
+        sessionId="session-1"
+        matchedSession={makeSession({ status: "ready_for_review" })}
+        onMatchingComplete={noop}
+        onBack={noop}
+      />
+    );
+
+    const link = screen.getByText("results.createPz").closest("a");
+    expect(JSON.parse(link?.getAttribute("href") ?? "{}")).toEqual({
+      pathname: "/dashboard/warehouse/inventory/movements/new",
+      query: { type: "101", svwmsSession: makeSession({}).id },
+    });
+  });
+
+  it('hides "Utwórz PZ" without the inventory operate permission or before matching', () => {
+    mockCan.mockImplementation(
+      ((permission: string) => permission !== "warehouse.inventory.operate") as never
+    );
+    const { unmount } = render(
+      <ExtractionReviewView
+        sessionId="session-1"
+        matchedSession={makeSession({ status: "ready_for_review" })}
+        onMatchingComplete={noop}
+        onBack={noop}
+      />
+    );
+    expect(screen.queryByText("results.createPz")).not.toBeInTheDocument();
+    unmount();
+
+    mockCan.mockReturnValue(true);
+    render(
+      <ExtractionReviewView
+        sessionId="session-1"
+        matchedSession={makeSession({ status: "processing" as never })}
+        onMatchingComplete={noop}
+        onBack={noop}
+      />
+    );
+    expect(screen.queryByText("results.createPz")).not.toBeInTheDocument();
+  });
 });

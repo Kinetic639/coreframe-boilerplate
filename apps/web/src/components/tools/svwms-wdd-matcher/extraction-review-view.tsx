@@ -18,6 +18,7 @@ import {
   Download,
   XCircle,
   HelpCircle,
+  PackagePlus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,7 +32,10 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { usePermissions } from "@/hooks/v2/use-permissions";
-import { PERMISSION_WDD_MATCHER_APPROVE } from "@repo/contracts/permissions";
+import {
+  PERMISSION_WDD_MATCHER_APPROVE,
+  WAREHOUSE_INVENTORY_OPERATE,
+} from "@repo/contracts/permissions";
 import type { WddMatcherPipelineState } from "./pipeline-progress";
 import { ConfidenceBar, MatchTypeBadge, SummaryChip } from "./results-view";
 import {
@@ -242,6 +246,7 @@ export function ExtractionReviewView({
   const exportCsv = useExportCsvMutation(sessionId);
   const { can } = usePermissions();
   const canApprove = can(PERMISSION_WDD_MATCHER_APPROVE);
+  const canCreatePz = can(WAREHOUSE_INVENTORY_OPERATE);
   const approveSession = useApproveSessionMutation(activeBranchId);
   const isApprovedStatus = matchedSession?.status === "approved";
   const handleApprove = useCallback(() => {
@@ -477,6 +482,30 @@ export function ExtractionReviewView({
               )}
               {approveSession.isPending ? t("approval.approving") : t("approval.markReviewed")}
             </Button>
+          )}
+
+          {/* A matched session can be received straight away: the new PZ
+              opens with this session and runs the quick import itself. */}
+          {matchedSession && (isReadyForReview || isApprovedStatus) && canCreatePz && (
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button asChild size="sm" className="h-8 px-2.5 text-xs">
+                    <Link
+                      href={{
+                        pathname: "/dashboard/warehouse/inventory/movements/new",
+                        query: { type: "101", svwmsSession: matchedSession.id },
+                      }}
+                      data-testid="create-pz-from-session"
+                    >
+                      <PackagePlus className="mr-1 h-3.5 w-3.5" />
+                      {t("results.createPz")}
+                    </Link>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">{t("results.createPzHint")}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
 
           {matchedSession ? (

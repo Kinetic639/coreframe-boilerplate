@@ -4981,6 +4981,8 @@
         "results": {
           "session": "Sesja",
           "exportCsv": "Eksportuj CSV",
+          "createPz": "Utwórz PZ",
+          "createPzHint": "Nowe PZ z tej sesji: zlecenia i części zostaną sprawdzone i uzupełnione, a formularz wypełniony — zostanie tylko zaksięgowanie",
           "exportEnhancedPdf": "Podgląd PDF",
           "newUpload": "Nowe wgranie",
           "exactMatches": "dokładne",
@@ -7923,6 +7925,8 @@
       "alreadyImported": "Ta sesja była już zaimportowana: {document}. Ponowny import zdubluje przyjęcie tej dostawy.",
       "quickImport": "Szybki import",
       "quickImportHint": "Sprawdza całą sesję, tworzy brakujące zlecenia i części (jednostka: szt.) i od razu wypełnia formularz.",
+      "autoStartUnavailable": "Tej sesji Matchera nie można przyjąć w tym oddziale (inny oddział albo sesja nie jest jeszcze dopasowana). Wybierz sesję z listy.",
+      "autoStartAlreadyImported": "Ta sesja jest już przyjęta na {document}. Import nie ruszył sam — sprawdź, zanim przyjmiesz ją drugi raz.",
       "manualReview": "Przegląd ręczny",
       "quickStep": {
         "preview": "Wczytywanie sesji…",

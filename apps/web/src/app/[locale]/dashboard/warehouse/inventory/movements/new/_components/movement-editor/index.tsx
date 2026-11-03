@@ -35,6 +35,8 @@ export function MovementDocumentForm({
   canManageProducts,
   initialValues,
   receivingLocationId = null,
+  initialTypeCode,
+  autoImport = null,
 }: MovementFormProps) {
   const t = useTranslations("warehouseInventory.movementEditor");
   const today = new Date().toISOString().split("T")[0];
@@ -48,7 +50,8 @@ export function MovementDocumentForm({
     units,
     initialValues,
     defaultRecipientName,
-    activeBranch
+    activeBranch,
+    initialTypeCode
   );
   const validation = useMovementValidation(
     form.typeCode,
@@ -87,7 +90,8 @@ export function MovementDocumentForm({
   }, [lockedDestinationId, dstLoc, setDstLoc]);
 
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [importOpen, setImportOpen] = useState(false);
+  // Opened from the Matcher's "Utwórz PZ": the import starts by itself.
+  const [importOpen, setImportOpen] = useState(() => !isEdit && Boolean(autoImport));
   const pickerMode: InventoryItemPickerMode = form.is801 ? "stockInLocation" : "allItems";
   const pickerDisabled = form.is801 && !form.srcLoc;
 
@@ -259,6 +263,7 @@ export function MovementDocumentForm({
           canManageProducts={canManageProducts}
           fieldPolicies={fieldPolicies}
           onApply={form.applyImportedDocument}
+          autoStart={autoImport}
         />
       )}
       <UnitTransferPrompt
