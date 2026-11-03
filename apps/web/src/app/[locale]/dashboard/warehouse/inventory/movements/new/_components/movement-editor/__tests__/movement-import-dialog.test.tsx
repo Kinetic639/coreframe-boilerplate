@@ -396,6 +396,42 @@ describe("MovementImportDialog", () => {
       expect(onApply).toHaveBeenCalledTimes(1);
     });
 
+    it("shows only the progress overlay while it runs, never the dialog", async () => {
+      let release: (value: unknown) => void = () => {};
+      actions.previewMovementImportFromSourceAction.mockReturnValue(
+        new Promise((resolve) => {
+          release = resolve;
+        })
+      );
+      const onApply = renderDialog(vi.fn(), true, auto("s-new"));
+
+      const steps = await screen.findByTestId("loading-overlay-steps");
+      expect(screen.getByText("Przygotowywanie PZ z sesji Matchera…")).toBeTruthy();
+      expect(steps.querySelector('[data-status="active"]')?.textContent).toBe(
+        "Wczytanie dostawy z sesji Matchera"
+      );
+      expect(steps.querySelectorAll('[data-status="pending"]')).toHaveLength(3);
+      expect(screen.queryByText("Import danych do ruchu")).toBeNull();
+
+      release({ success: true, data: preview([knownLine]) });
+      await waitFor(() => expect(onApply).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(screen.queryByTestId("loading-overlay-steps")).toBeNull());
+    });
+
+    it("shows the dialog at the decision when the quick import stops", async () => {
+      // Parts cannot be created without the permission: the import stops.
+      actions.previewMovementImportFromSourceAction.mockResolvedValue({
+        success: true,
+        data: preview([line({})]),
+      });
+      const onApply = renderDialog(vi.fn(), false, auto("s-new"));
+
+      await waitFor(() => expect(toast.warning).toHaveBeenCalled());
+      expect(onApply).not.toHaveBeenCalled();
+      expect(await screen.findByText("Import danych do ruchu")).toBeTruthy();
+      expect(screen.queryByTestId("loading-overlay-steps")).toBeNull();
+    });
+
     it("does not start for a session already received on a PZ", async () => {
       const onApply = renderDialog(vi.fn(), true, auto("s-old"));
 
