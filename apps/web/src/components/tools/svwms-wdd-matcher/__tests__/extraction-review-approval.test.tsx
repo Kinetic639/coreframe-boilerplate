@@ -231,4 +231,27 @@ describe("ExtractionReviewView -- approval UI (Phase 4/5)", () => {
     );
     expect(screen.queryByText("results.createPz")).not.toBeInTheDocument();
   });
+
+  it("shows Approve and Utwórz PZ disabled with a spinner while the session is still being saved", () => {
+    render(
+      <ExtractionReviewView
+        sessionId="session-1"
+        matchedSession={makeSession({ status: "processing" as never })}
+        pipeline={{
+          status: "running",
+          activeStep: "match",
+          completedSteps: ["session", "extract", "preview"],
+          error: null,
+        }}
+        onMatchingComplete={noop}
+        onBack={noop}
+      />
+    );
+
+    const saving = screen.getByTestId("session-saving-actions");
+    expect(saving).toHaveTextContent("results.savingShort");
+    expect(screen.getByRole("button", { name: /approval.markReviewed/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /results.createPz/ })).toBeDisabled();
+    expect(screen.queryByTestId("approve-session-button")).not.toBeInTheDocument();
+  });
 });

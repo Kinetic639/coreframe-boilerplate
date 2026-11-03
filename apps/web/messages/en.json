@@ -5014,6 +5014,8 @@
           "exportCsv": "Export CSV",
           "createPz": "Create PZ",
           "createPzHint": "New PZ from this session: repair orders and parts are checked and created, the form is filled in -- only posting is left",
+          "savingSession": "The session is still being saved -- the buttons will be available in a moment",
+          "savingShort": "Saving the session…",
           "exportEnhancedPdf": "PDF Preview",
           "newUpload": "New Upload",
           "exactMatches": "exact",

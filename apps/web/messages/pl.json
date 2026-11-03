@@ -4985,6 +4985,8 @@
           "exportCsv": "Eksportuj CSV",
           "createPz": "Utwórz PZ",
           "createPzHint": "Nowe PZ z tej sesji: zlecenia i części zostaną sprawdzone i uzupełnione, a formularz wypełniony — zostanie tylko zaksięgowanie",
+          "savingSession": "Sesja jest jeszcze zapisywana — przyciski będą dostępne za chwilę",
+          "savingShort": "Zapisywanie sesji…",
           "exportEnhancedPdf": "Podgląd PDF",
           "newUpload": "Nowe wgranie",
           "exactMatches": "dokładne",

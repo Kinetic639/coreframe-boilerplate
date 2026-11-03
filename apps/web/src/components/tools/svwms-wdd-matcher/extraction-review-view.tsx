@@ -378,6 +378,9 @@ export function ExtractionReviewView({
   const isPersistenceReady =
     matchedSession?.status === "ready_for_review" || matchedSession?.status === "approved";
   const isReadyForReview = matchedSession?.status === "ready_for_review";
+  // Results show from the fast preview while the session is still saved in
+  // the background; its buttons stay in view, disabled, until it is saved.
+  const isSavingSession = Boolean(matchedSession) && !isPersistenceReady && isAutoRunning;
   const summary = matchedSession?.match_summary as Record<string, number> | null;
   const totalWddBlocks = summary?.total_wdd_blocks ?? 0;
   const directOrders = summary?.direct_orders ?? 0;
@@ -466,6 +469,37 @@ export function ExtractionReviewView({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+
+          {isSavingSession && (canApprove || canCreatePz) && (
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    tabIndex={0}
+                    className="flex items-center gap-2"
+                    data-testid="session-saving-actions"
+                  >
+                    <span className="hidden text-xs text-muted-foreground sm:inline">
+                      {t("results.savingShort")}
+                    </span>
+                    {canApprove && (
+                      <Button size="sm" className="h-8 px-2.5 text-xs" disabled>
+                        <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                        {t("approval.markReviewed")}
+                      </Button>
+                    )}
+                    {canCreatePz && (
+                      <Button size="sm" className="h-8 px-2.5 text-xs" disabled>
+                        <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                        {t("results.createPz")}
+                      </Button>
+                    )}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">{t("results.savingSession")}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
 
           {matchedSession && isReadyForReview && canApprove && (
             <Button
