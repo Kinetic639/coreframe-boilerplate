@@ -227,7 +227,11 @@ Ze zrzutu „Kartoteka dokumentów magazynowych” AS (jednostka Seat 3252):
 - **Edytor:** sekcja „Magazyn” nad typem ruchu: magazyn dokumentu (pogrupowany po jednostkach), a dla MM magazyn docelowy tylko z tej samej jednostki. Jeśli oddział ma jeden magazyn, wybiera się sam. Przy pozycjach z Matchera wyświetla się informacja, że magazyn pochodzi z dokumentów. Zapisany szkic zachowuje swój magazyn.
 - **Historia stanu magazynów** jest zablokowana przed zmianą i usunięciem (`20261104190100`). Reset danych demo wyłącza blokadę na czas swojego działania.
 - Migracje: `20261104190000_warehouse_documents_u3.sql` i `20261104190100_warehouse_ledger_lock_u3.sql`. Test: `148_warehouse_documents_u3_test.sql`.
-- Do decyzji później: czy magazyn ma być obowiązkowy w edytorze (dziś można wybrać „Bez magazynu”); RW jako osobny typ (rozchód wewnętrzny); WU z częściami z kilku magazynów (dziś zostaje w starej numeracji, docelowo osobny WU na każdy magazyn).
+- Ustalenia po U3 (2026-11-04):
+  - **WU jak każdy ruch: z jednej jednostki i jednego magazynu.** Wydanie z dwóch magazynów wymaga dwóch osobnych WU albo najpierw MM. Ambra ma odrzucać WU z częściami z kilku magazynów (do zrobienia).
+  - **RW (rozchód wewnętrzny) nie wdrażamy.** W AS istnieje, ale nie był używany.
+  - **Stan sprzed U2 nie wymaga migracji:** wszystkie organizacje w bazie, w tym CNP, to dane testowe do usunięcia.
+  - Do decyzji: czy magazyn jest obowiązkowy na ekranie „Nowy ruch”.
 
 ## 10. Pytania otwarte
 
