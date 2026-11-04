@@ -113,6 +113,17 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
         },
       },
       {
+        id: "warehouse.inventory.warehouse-stock",
+        title: "AutoStacja warehouses",
+        titleKey: "modules.warehouse.items.inventory.warehouseStock",
+        iconKey: "warehouse",
+        href: "/dashboard/warehouse/inventory/warehouse-stock",
+        match: { startsWith: "/dashboard/warehouse/inventory/warehouse-stock" },
+        visibility: {
+          requiresPermissions: [WAREHOUSE_INVENTORY_READ],
+        },
+      },
+      {
         id: "warehouse.putaway",
         title: "Putaway",
         titleKey: "modules.warehouse.items.putaway",

@@ -47,6 +47,8 @@ export function useMovementSubmission(
     (error: string | undefined) => {
       if (!error) return t("failed");
       if (error === "draft_several_warehouses") return t("errors.draftSeveralWarehouses");
+      if (error === "warehouse_required") return t("errors.warehouseRequired");
+      if (/A WU issues parts of one magazyn/i.test(error)) return t("errors.wuOneWarehouse");
       if (error === "document_several_warehouses") return t("errors.documentSeveralWarehouses");
       if (/one jednostka/i.test(error)) return t("errors.mmOtherUnit");
       if (/The magazyn holds only/i.test(error)) return t("errors.warehouseShort");
@@ -81,7 +83,7 @@ export function useMovementSubmission(
           toast.error(t("cannotPost", { count: validation.allErrors.length }));
           return;
         }
-        if (!recipientDetails?.branchId) {
+        if (!documentWarehouse.destinationWarehouseId && !recipientDetails?.branchId) {
           toast.error(t("unitTransferNoBranch"));
           return;
         }
@@ -228,8 +230,13 @@ export function useMovementSubmission(
   const confirmTransfer = useCallback(
     (send: boolean) => {
       startTransition(async () => {
+        const byWarehouse = Boolean(
+          documentWarehouse.warehouseId && documentWarehouse.destinationWarehouseId
+        );
         const r = (await createUnitTransferAction({
-          destinationBranchId: recipientDetails?.branchId ?? "",
+          destinationBranchId: byWarehouse ? null : (recipientDetails?.branchId ?? ""),
+          sourceWarehouseId: byWarehouse ? documentWarehouse.warehouseId : null,
+          destinationWarehouseId: byWarehouse ? documentWarehouse.destinationWarehouseId : null,
           notes: note || null,
           send,
           lines: buildLines().map((l) => ({
@@ -241,7 +248,13 @@ export function useMovementSubmission(
         })) as { success: boolean; error?: string };
         setTransferPrompt(false);
         if (!r.success) {
-          toast.error(t("unitTransferFailed"));
+          toast.error(
+            r.error === "same_unit"
+              ? t("errors.mmOtherUnit")
+              : r.error === "insufficient_stock" || r.error === "warehouse_short"
+                ? t("errors.warehouseShort")
+                : t("unitTransferFailed")
+          );
           return;
         }
         toast.success(t(send ? "unitTransferSent" : "unitTransferHeld"));
@@ -249,7 +262,15 @@ export function useMovementSubmission(
         router.refresh();
       });
     },
-    [buildLines, note, recipientDetails, router, t]
+    [
+      buildLines,
+      documentWarehouse.destinationWarehouseId,
+      documentWarehouse.warehouseId,
+      note,
+      recipientDetails,
+      router,
+      t,
+    ]
   );
 
   return {

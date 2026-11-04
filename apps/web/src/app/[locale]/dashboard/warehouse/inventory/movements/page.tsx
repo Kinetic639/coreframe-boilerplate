@@ -14,6 +14,7 @@ import { WarehouseLocationsService } from "@/server/services/warehouse-locations
 import { InventoryMovementsClient } from "./_components/inventory-movements-client";
 import { InternalOrderOperationsService } from "@/server/services/internal-orders.service";
 import { BranchTransfers } from "@/components/warehouse/branch-transfers";
+import { WarehouseStockService } from "@/server/services/warehouse-stock.service";
 
 type PageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -67,6 +68,10 @@ export default async function WarehouseInventoryMovementsPage({ searchParams }: 
       )
     : null;
   const canOperate = checkPermission(context.user.permissionSnapshot, WAREHOUSE_INVENTORY_OPERATE);
+  const unitsResult = branchId
+    ? await WarehouseStockService.documentUnits(supabase, context.app.activeOrgId, branchId)
+    : null;
+  const units = unitsResult?.success ? unitsResult.data : [];
 
   return (
     <div className="flex h-[calc(100vh-4rem)] flex-col gap-4 overflow-y-auto p-4 md:p-6">
@@ -84,6 +89,7 @@ export default async function WarehouseInventoryMovementsPage({ searchParams }: 
               : { rows: [], totalCount: 0, page: params.page, pageSize: params.pageSize }
           }
           activeBranchId={branchId ?? null}
+          units={units}
           locations={
             locationsResult.success
               ? locationsResult.data.map((location) => ({

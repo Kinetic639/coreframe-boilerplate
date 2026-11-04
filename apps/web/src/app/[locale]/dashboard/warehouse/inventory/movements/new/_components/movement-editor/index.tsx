@@ -18,7 +18,11 @@ import { useMovementValidation } from "./use-movement-validation";
 import { useMovementSubmission } from "./use-movement-submission";
 import type { MovementFormProps } from "./types";
 import { UnitTransferPrompt } from "./unit-transfer-prompt";
-import { DocumentWarehouseSection, useDocumentUnits } from "./document-warehouse-section";
+import {
+  DocumentWarehouseSection,
+  useDocumentUnits,
+  useTransferTargets,
+} from "./document-warehouse-section";
 
 export type { MovementFormInitialValues } from "./types";
 
@@ -76,6 +80,19 @@ export function MovementDocumentForm({
   }, [documentUnits, isEdit, warehouseTouched]);
   const fromMatcher = form.lines.some((l) => l.source_type === "svwms_wdd_matcher");
   const changesWarehouse = form.is801 && Boolean(destinationWarehouseId);
+  // MMJ- (303): from the document's magazyn to a magazyn of another jednostka (U4)
+  const isUnitTransfer = form.typeCode === "303";
+  const transferTargets = useTransferTargets(isUnitTransfer);
+  // The magazyn is obligatory once the branch has any (lines from a Matcher
+  // session carry their own); an MMJ also needs its target.
+  const hasWarehouses = (documentUnits?.length ?? 0) > 0;
+  const warehouseMissing =
+    Boolean(form.typeCode) &&
+    hasWarehouses &&
+    !fromMatcher &&
+    !warehouseId &&
+    (!isEdit || warehouseTouched);
+  const transferTargetMissing = isUnitTransfer && hasWarehouses && !destinationWarehouseId;
 
   const validation = useMovementValidation(
     form.typeCode,
@@ -86,7 +103,8 @@ export function MovementDocumentForm({
     form.srcLoc,
     form.dstLoc,
     form.lines,
-    changesWarehouse
+    changesWarehouse,
+    { warehouseMissing, transferTargetMissing }
   );
   const { isPending, submit, transferPrompt, confirmTransfer, cancelTransferPrompt } =
     useMovementSubmission(
@@ -105,8 +123,8 @@ export function MovementDocumentForm({
       validation,
       initialValues,
       {
-        warehouseId: form.is801 || !fromMatcher ? warehouseId : null,
-        destinationWarehouseId: form.is801 ? destinationWarehouseId : null,
+        warehouseId: form.is801 || isUnitTransfer || !fromMatcher ? warehouseId : null,
+        destinationWarehouseId: form.is801 || isUnitTransfer ? destinationWarehouseId : null,
         send: !isEdit || warehouseTouched,
       }
     );
@@ -215,6 +233,7 @@ export function MovementDocumentForm({
               warehouseId={warehouseId}
               destinationWarehouseId={destinationWarehouseId}
               showDestination={form.is801}
+              transferTargets={isUnitTransfer ? transferTargets : undefined}
               fromMatcher={fromMatcher}
               onWarehouseChange={setWarehouseId}
               onDestinationChange={setDestinationWarehouseId}

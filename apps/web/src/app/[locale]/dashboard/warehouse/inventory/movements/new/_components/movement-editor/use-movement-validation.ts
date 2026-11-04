@@ -12,7 +12,12 @@ export function useMovementValidation(
   dstLoc: string,
   lines: LineDraft[],
   /** An MM to another magazyn may keep the shelf (U3) */
-  changesWarehouse = false
+  changesWarehouse = false,
+  /** The document's magazyn and an MMJ's target are obligatory (U3/U4) */
+  warehouse: { warehouseMissing: boolean; transferTargetMissing: boolean } = {
+    warehouseMissing: false,
+    transferTargetMissing: false,
+  }
 ): ValidationResult {
   const t = useTranslations("warehouseInventory.movementEditor");
   return useMemo(() => {
@@ -20,6 +25,8 @@ export function useMovementValidation(
     const positionErrors: string[] = [];
 
     if (!typeCode) documentErrors.push(t("movementTypeRequired"));
+    if (warehouse.warehouseMissing) documentErrors.push(t("warehouseRequired"));
+    if (warehouse.transferTargetMissing) documentErrors.push(t("transferTargetRequired"));
     if (senderName.length > 200) documentErrors.push(t("senderNameTooLong"));
     if (recipientName.length > 200) documentErrors.push(t("recipientNameTooLong"));
 
@@ -57,6 +64,8 @@ export function useMovementValidation(
     dstLoc,
     lines,
     changesWarehouse,
+    warehouse.warehouseMissing,
+    warehouse.transferTargetMissing,
     t,
   ]);
 }

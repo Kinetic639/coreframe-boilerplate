@@ -79,31 +79,201 @@ export interface DocumentUnit {
   id: string;
   code: string;
   name: string | null;
+  branchId: string;
+  branchName: string | null;
   defaultWarehouseId: string | null;
   warehouses: Array<{ id: string; code: string; name: string | null }>;
 }
 
+/** One part in one magazyn, for the stock report (U5). */
+export interface WarehouseReportRow {
+  variantId: string;
+  productId: string | null;
+  sku: string;
+  productName: string;
+  unitCode: string;
+  unitName: string | null;
+  warehouseId: string;
+  warehouseCode: string;
+  warehouseName: string | null;
+  quantity: number;
+}
+
+export interface WarehouseReport {
+  rows: WarehouseReportRow[];
+  /** Per magazyn: positions and pieces */
+  totals: Array<{
+    warehouseId: string;
+    warehouseCode: string;
+    warehouseName: string | null;
+    unitCode: string;
+    positions: number;
+    quantity: number;
+  }>;
+  /** Physical stock of the branch not booked to any magazyn */
+  withoutWarehouse: { positions: number; quantity: number };
+}
+
 export class WarehouseStockService {
+  /** Stock per AutoStacja magazyn of the branch, filtered by jednostka, magazyn or part. */
+  static async report(
+    supabase: SupabaseClient,
+    orgId: string,
+    branchId: string,
+    filters: { unitId?: string | null; warehouseId?: string | null; search?: string | null }
+  ): Promise<ServiceResult<WarehouseReport>> {
+    const [stockRes, balanceRes] = await Promise.all([
+      supabase
+        .from("inventory_warehouse_stock")
+        .select(
+          "variant_id, quantity, warehouse:unit_warehouses!inner(id, code, name, unit_id, unit:branch_warehouses!unit_warehouses_unit_id_fkey(code, name))"
+        )
+        .eq("organization_id", orgId)
+        .eq("branch_id", branchId)
+        .neq("quantity", 0),
+      supabase
+        .from("inventory_balances")
+        .select("variant_id, on_hand_quantity")
+        .eq("organization_id", orgId)
+        .eq("branch_id", branchId)
+        .neq("on_hand_quantity", 0),
+    ]);
+    if (stockRes.error) return { success: false, error: stockRes.error.message };
+    if (balanceRes.error) return { success: false, error: balanceRes.error.message };
+
+    type StockRow = {
+      variant_id: string;
+      quantity: number | string;
+      warehouse: {
+        id: string;
+        code: string;
+        name: string | null;
+        unit_id: string;
+        unit: { code: string; name: string | null } | null;
+      };
+    };
+    const stock = (stockRes.data ?? []) as unknown as StockRow[];
+    const balances = (balanceRes.data ?? []) as Array<{
+      variant_id: string;
+      on_hand_quantity: number | string;
+    }>;
+
+    const variantIds = [
+      ...new Set([...stock.map((r) => r.variant_id), ...balances.map((b) => b.variant_id)]),
+    ];
+    const names = new Map<string, { sku: string; productId: string | null; name: string }>();
+    if (variantIds.length > 0) {
+      const { data: variants, error } = await supabase
+        .from("inventory_variants")
+        .select("id, sku, product_id, product:inventory_products(name)")
+        .eq("organization_id", orgId)
+        .in("id", variantIds);
+      if (error) return { success: false, error: error.message };
+      for (const v of (variants ?? []) as unknown as Array<{
+        id: string;
+        sku: string | null;
+        product_id: string | null;
+        product: { name: string | null } | null;
+      }>) {
+        names.set(v.id, { sku: v.sku ?? "", productId: v.product_id, name: v.product?.name ?? "" });
+      }
+    }
+
+    // Without magazyn: physical stock beyond what the magazyny hold
+    const booked = new Map<string, number>();
+    for (const r of stock)
+      booked.set(r.variant_id, (booked.get(r.variant_id) ?? 0) + Number(r.quantity));
+    const onHand = new Map<string, number>();
+    for (const b of balances)
+      onHand.set(b.variant_id, (onHand.get(b.variant_id) ?? 0) + Number(b.on_hand_quantity));
+    let withoutPositions = 0;
+    let withoutQuantity = 0;
+    for (const [variantId, qty] of onHand) {
+      const rest = qty - (booked.get(variantId) ?? 0);
+      if (rest > 0) {
+        withoutPositions += 1;
+        withoutQuantity += rest;
+      }
+    }
+
+    const q = filters.search?.trim().toLowerCase() ?? "";
+    const rows: WarehouseReportRow[] = stock
+      .filter((r) => !filters.unitId || r.warehouse.unit_id === filters.unitId)
+      .filter((r) => !filters.warehouseId || r.warehouse.id === filters.warehouseId)
+      .map((r) => {
+        const n = names.get(r.variant_id);
+        return {
+          variantId: r.variant_id,
+          productId: n?.productId ?? null,
+          sku: n?.sku ?? "",
+          productName: n?.name ?? "",
+          unitCode: r.warehouse.unit?.code ?? "",
+          unitName: r.warehouse.unit?.name ?? null,
+          warehouseId: r.warehouse.id,
+          warehouseCode: r.warehouse.code,
+          warehouseName: r.warehouse.name,
+          quantity: Number(r.quantity),
+        };
+      })
+      .filter(
+        (r) => !q || r.sku.toLowerCase().includes(q) || r.productName.toLowerCase().includes(q)
+      )
+      .sort(
+        (a, b) =>
+          a.unitCode.localeCompare(b.unitCode) ||
+          a.warehouseCode.localeCompare(b.warehouseCode) ||
+          a.sku.localeCompare(b.sku)
+      );
+
+    const totals = new Map<string, WarehouseReport["totals"][number]>();
+    for (const r of rows) {
+      const t = totals.get(r.warehouseId) ?? {
+        warehouseId: r.warehouseId,
+        warehouseCode: r.warehouseCode,
+        warehouseName: r.warehouseName,
+        unitCode: r.unitCode,
+        positions: 0,
+        quantity: 0,
+      };
+      t.positions += 1;
+      t.quantity += r.quantity;
+      totals.set(r.warehouseId, t);
+    }
+
+    return {
+      success: true,
+      data: {
+        rows,
+        totals: [...totals.values()],
+        withoutWarehouse: { positions: withoutPositions, quantity: withoutQuantity },
+      },
+    };
+  }
+
+  /** Jednostki and their magazyny of a branch, or of the whole organization (branchId null). */
   static async documentUnits(
     supabase: SupabaseClient,
     orgId: string,
-    branchId: string
+    branchId: string | null
   ): Promise<ServiceResult<DocumentUnit[]>> {
-    const { data, error } = await supabase
+    let query = supabase
       .from("branch_warehouses")
       .select(
-        "id, code, name, default_warehouse_id, unit_warehouses!unit_warehouses_unit_id_fkey(id, code, name, is_active, deleted_at)"
+        "id, code, name, branch_id, default_warehouse_id, branches(name), unit_warehouses!unit_warehouses_unit_id_fkey(id, code, name, is_active, deleted_at)"
       )
       .eq("organization_id", orgId)
-      .eq("branch_id", branchId)
       .is("deleted_at", null)
       .order("code");
+    if (branchId) query = query.eq("branch_id", branchId);
+    const { data, error } = await query;
     if (error) return { success: false, error: error.message };
     type Row = {
       id: string;
       code: string;
       name: string | null;
+      branch_id: string;
       default_warehouse_id: string | null;
+      branches: { name: string | null } | null;
       unit_warehouses: Array<{
         id: string;
         code: string;
@@ -114,11 +284,13 @@ export class WarehouseStockService {
     };
     return {
       success: true,
-      data: ((data ?? []) as Row[])
+      data: ((data ?? []) as unknown as Row[])
         .map((u) => ({
           id: u.id,
           code: u.code,
           name: u.name,
+          branchId: u.branch_id,
+          branchName: u.branches?.name ?? null,
           defaultWarehouseId: u.default_warehouse_id,
           warehouses: (u.unit_warehouses ?? [])
             .filter((w) => !w.deleted_at && w.is_active)

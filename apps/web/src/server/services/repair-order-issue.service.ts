@@ -38,6 +38,7 @@ export type IssueError =
   | "not_enough"
   | "recipient_required"
   | "insufficient_stock"
+  | "one_warehouse"
   | "unexpected";
 
 export interface IssueResult {
@@ -51,6 +52,8 @@ function mapIssueError(error: { code?: string; message: string }): IssueError {
   if (error.code === "28000" || error.code === "42501") return "unauthorized";
   if (/recipient is required/i.test(message)) return "recipient_required";
   if (/only .* left to issue/i.test(message)) return "not_enough";
+  // U3: one WU = one magazyn
+  if (/A WU issues parts of one magazyn/i.test(message)) return "one_warehouse";
   if (error.code === "P0003") return "insufficient_stock";
   if (error.code === "P0002") return "not_found";
   return "unexpected";
