@@ -83,12 +83,14 @@ export const COMMENT_TARGET_REGISTRY: Readonly<Record<string, CommentTargetDescr
     },
 
     async afterCommentCreated({ supabase, orgId, targetId, actorId, visibility }) {
+      // A private note leaves no trace in the ticket's history (others see the history)
+      if (visibility === "internal") return;
       await supabase.from("helpdesk_ticket_activity").insert({
         ticket_id: targetId,
         org_id: orgId,
         actor_id: actorId,
         event_type: "comment_added",
-        payload: { is_internal: visibility === "internal" },
+        payload: { is_internal: false },
       });
     },
 

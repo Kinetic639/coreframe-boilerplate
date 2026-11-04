@@ -46,7 +46,9 @@ describe("buildNotificationEmail", () => {
     expect(message.subject).toBe("Marta Nowak przypisał(a) Ci zgłoszenie");
     expect(message.text).toContain("Cześć Paweł,");
     expect(message.text).toContain("HD-000014 Drukarka nie działa");
-    expect(message.text).toContain("https://app.example.test/dashboard/help-desk/tickets/t1");
+    expect(message.text).toContain(
+      "https://app.example.test/dashboard/help-desk/tickets/HD-000014"
+    );
     expect(message.html).toContain("https://app.example.test/dashboard/account/notifications");
     expect(message.html).toContain("Auto Serwis");
   });

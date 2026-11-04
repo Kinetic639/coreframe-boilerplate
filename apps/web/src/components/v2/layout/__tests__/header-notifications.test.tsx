@@ -179,7 +179,7 @@ describe("HeaderNotifications", () => {
   it("opening a notification marks it read and links to its object", async () => {
     await openDrawer();
     const link = within(screen.getAllByTestId("notification-row")[0]!).getByRole("link");
-    expect(link).toHaveAttribute("href", "/dashboard/help-desk/tickets/t1");
+    expect(link).toHaveAttribute("href", "/dashboard/help-desk/tickets/HD-000014");
     fireEvent.click(link);
     await waitFor(() =>
       expect(setReadMock).toHaveBeenCalledWith({ ids: [rows[0]!.id], read: true })
