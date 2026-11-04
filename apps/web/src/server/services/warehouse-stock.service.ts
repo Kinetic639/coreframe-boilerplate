@@ -74,7 +74,61 @@ export interface VariantWarehouseStock {
   onHand: number;
 }
 
+/** A jednostka with its magazyny, for choosing a document's magazyn. */
+export interface DocumentUnit {
+  id: string;
+  code: string;
+  name: string | null;
+  defaultWarehouseId: string | null;
+  warehouses: Array<{ id: string; code: string; name: string | null }>;
+}
+
 export class WarehouseStockService {
+  static async documentUnits(
+    supabase: SupabaseClient,
+    orgId: string,
+    branchId: string
+  ): Promise<ServiceResult<DocumentUnit[]>> {
+    const { data, error } = await supabase
+      .from("branch_warehouses")
+      .select(
+        "id, code, name, default_warehouse_id, unit_warehouses!unit_warehouses_unit_id_fkey(id, code, name, is_active, deleted_at)"
+      )
+      .eq("organization_id", orgId)
+      .eq("branch_id", branchId)
+      .is("deleted_at", null)
+      .order("code");
+    if (error) return { success: false, error: error.message };
+    type Row = {
+      id: string;
+      code: string;
+      name: string | null;
+      default_warehouse_id: string | null;
+      unit_warehouses: Array<{
+        id: string;
+        code: string;
+        name: string | null;
+        is_active: boolean;
+        deleted_at: string | null;
+      }> | null;
+    };
+    return {
+      success: true,
+      data: ((data ?? []) as Row[])
+        .map((u) => ({
+          id: u.id,
+          code: u.code,
+          name: u.name,
+          defaultWarehouseId: u.default_warehouse_id,
+          warehouses: (u.unit_warehouses ?? [])
+            .filter((w) => !w.deleted_at && w.is_active)
+            .map((w) => ({ id: w.id, code: w.code, name: w.name }))
+            .sort((a, b) => a.code.localeCompare(b.code)),
+        }))
+        .filter((u) => u.warehouses.length > 0),
+    };
+  }
+
   static async branchUnits(
     supabase: SupabaseClient,
     orgId: string,

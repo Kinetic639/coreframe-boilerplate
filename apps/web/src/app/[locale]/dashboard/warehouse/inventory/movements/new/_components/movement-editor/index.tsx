@@ -18,6 +18,7 @@ import { useMovementValidation } from "./use-movement-validation";
 import { useMovementSubmission } from "./use-movement-submission";
 import type { MovementFormProps } from "./types";
 import { UnitTransferPrompt } from "./unit-transfer-prompt";
+import { DocumentWarehouseSection, useDocumentUnits } from "./document-warehouse-section";
 
 export type { MovementFormInitialValues } from "./types";
 
@@ -53,6 +54,29 @@ export function MovementDocumentForm({
     activeBranch,
     initialTypeCode
   );
+  // The document's AutoStacja magazyn and, for an MM, the target magazyn (U3).
+  // In edit mode an untouched choice is not sent: the draft keeps its own.
+  const documentUnits = useDocumentUnits();
+  const [warehouseId, setWarehouseIdState] = useState<string | null>(null);
+  const [destinationWarehouseId, setDestinationWarehouseIdState] = useState<string | null>(null);
+  const [warehouseTouched, setWarehouseTouched] = useState(false);
+  const setWarehouseId = useCallback((id: string | null) => {
+    setWarehouseIdState(id);
+    setWarehouseTouched(true);
+  }, []);
+  const setDestinationWarehouseId = useCallback((id: string | null) => {
+    setDestinationWarehouseIdState(id);
+    setWarehouseTouched(true);
+  }, []);
+  // One magazyn in the branch: it is the document's magazyn.
+  useEffect(() => {
+    if (isEdit || warehouseTouched || !documentUnits) return;
+    const all = documentUnits.flatMap((u) => u.warehouses);
+    if (all.length === 1) setWarehouseIdState(all[0].id);
+  }, [documentUnits, isEdit, warehouseTouched]);
+  const fromMatcher = form.lines.some((l) => l.source_type === "svwms_wdd_matcher");
+  const changesWarehouse = form.is801 && Boolean(destinationWarehouseId);
+
   const validation = useMovementValidation(
     form.typeCode,
     form.requiresSourceLocation,
@@ -61,7 +85,8 @@ export function MovementDocumentForm({
     form.allowsRecipient ? form.recipientName : "",
     form.srcLoc,
     form.dstLoc,
-    form.lines
+    form.lines,
+    changesWarehouse
   );
   const { isPending, submit, transferPrompt, confirmTransfer, cancelTransferPrompt } =
     useMovementSubmission(
@@ -78,7 +103,12 @@ export function MovementDocumentForm({
       form.dstLoc,
       form.lines,
       validation,
-      initialValues
+      initialValues,
+      {
+        warehouseId: form.is801 || !fromMatcher ? warehouseId : null,
+        destinationWarehouseId: form.is801 ? destinationWarehouseId : null,
+        send: !isEdit || warehouseTouched,
+      }
     );
 
   // Zone 5: a PZ always goes to the receiving zone (the server enforces it
@@ -179,6 +209,17 @@ export function MovementDocumentForm({
       {/* Tab Content */}
       <main className="flex-1 overflow-auto">
         <div className="max-w-5xl w-full mx-auto px-4 py-4">
+          {form.activeTab === "header" && (
+            <DocumentWarehouseSection
+              units={documentUnits}
+              warehouseId={warehouseId}
+              destinationWarehouseId={destinationWarehouseId}
+              showDestination={form.is801}
+              fromMatcher={fromMatcher}
+              onWarehouseChange={setWarehouseId}
+              onDestinationChange={setDestinationWarehouseId}
+            />
+          )}
           {form.activeTab === "header" && (
             <MovementDocumentDataTab
               typeCode={form.typeCode}

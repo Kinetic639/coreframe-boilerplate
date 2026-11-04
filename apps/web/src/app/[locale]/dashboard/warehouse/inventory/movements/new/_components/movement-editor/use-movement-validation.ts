@@ -10,7 +10,9 @@ export function useMovementValidation(
   recipientName: string,
   srcLoc: string,
   dstLoc: string,
-  lines: LineDraft[]
+  lines: LineDraft[],
+  /** An MM to another magazyn may keep the shelf (U3) */
+  changesWarehouse = false
 ): ValidationResult {
   const t = useTranslations("warehouseInventory.movementEditor");
   return useMemo(() => {
@@ -23,7 +25,13 @@ export function useMovementValidation(
 
     if (requiresSourceLocation && !srcLoc) positionErrors.push(t("srcLocationRequired"));
     if (requiresDestinationLocation && !dstLoc) positionErrors.push(t("destLocationRequired"));
-    if (requiresSourceLocation && requiresDestinationLocation && srcLoc && srcLoc === dstLoc) {
+    if (
+      requiresSourceLocation &&
+      requiresDestinationLocation &&
+      srcLoc &&
+      srcLoc === dstLoc &&
+      !changesWarehouse
+    ) {
       positionErrors.push(t("srcDestSame"));
     }
     if (lines.length === 0) positionErrors.push(t("addAtLeastOneItem"));
@@ -48,6 +56,7 @@ export function useMovementValidation(
     srcLoc,
     dstLoc,
     lines,
+    changesWarehouse,
     t,
   ]);
 }

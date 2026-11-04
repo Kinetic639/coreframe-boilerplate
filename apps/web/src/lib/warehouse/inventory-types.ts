@@ -363,6 +363,8 @@ export type InventoryMovementLineInput = {
   variant_id: string;
   /** AutoStacja magazyn (unit_warehouses) the line books to; null = without magazyn */
   warehouse_id?: string | null;
+  /** MM (801): target magazyn of the same jednostka */
+  destination_warehouse_id?: string | null;
   source_location_id?: string | null;
   destination_location_id?: string | null;
   lot_id?: string | null;

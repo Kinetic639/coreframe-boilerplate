@@ -323,6 +323,82 @@ export class InventoryMovementsService {
     return { success: true, data: { ...result, route_key: routeKey } };
   }
 
+  /**
+   * A delivery of several magazyny: one PZ per magazyn, posted in one
+   * transaction (every PZ or none). `documents` are the parts, each with its
+   * lines and the attribution of its own lines (1-based within the part).
+   */
+  static async createAndFinalizeReceipts(
+    supabase: SupabaseClient,
+    orgId: string,
+    branchId: string,
+    input: Omit<CreateDraftMovementInput, "lines">,
+    documents: Array<{
+      lines: CreateDraftMovementInput["lines"];
+      attribution: Array<{
+        lineIndex: number;
+        zlNumber: string | null;
+        productCode: string | null;
+        sourceLineId?: string | null;
+      }>;
+    }>,
+    userId: string
+  ): Promise<
+    ServiceResult<
+      Array<{
+        movement_id: string;
+        document_number: string;
+        status: string;
+        attribution?: unknown;
+        route_key: string;
+      }>
+    >
+  > {
+    for (const doc of documents) {
+      const validation = await InventoryMovementFieldPoliciesService.validateDraftInput(
+        supabase,
+        orgId,
+        branchId,
+        { ...input, lines: doc.lines } as CreateDraftMovementInput
+      );
+      if (!validation.success) return validation as ServiceResult<any>;
+    }
+
+    const { data, error } = await supabase.rpc("inventory_create_and_finalize_receipts", {
+      p_organization_id: orgId,
+      p_branch_id: branchId,
+      p_documents: documents.map((doc) => ({
+        lines: doc.lines,
+        attribution: doc.attribution.map((a) => ({
+          line_index: a.lineIndex,
+          zl_number: a.zlNumber,
+          product_code: a.productCode,
+          source_line_id: a.sourceLineId ?? null,
+        })),
+      })),
+      p_operation_date: input.operation_date ?? null,
+      p_document_date: input.document_date ?? null,
+      p_counterparty_name: input.sender_name ?? null,
+      p_external_reference: input.external_reference ?? null,
+      p_note: input.note ?? null,
+      p_idempotency_key: input.idempotency_key ?? null,
+      p_actor_user_id: userId,
+    });
+    if (error) return { success: false, error: error.message };
+    const posted = ((data as any)?.documents ?? []) as Array<any>;
+    const out = [];
+    for (const result of posted) {
+      const routeKey = await this._saveRouteKey(
+        supabase,
+        result.movement_id,
+        result.document_number ?? result.draft_number
+      );
+      await this._savePartyDetails(supabase, result.movement_id, input as CreateDraftMovementInput);
+      out.push({ ...result, route_key: routeKey });
+    }
+    return { success: true, data: out };
+  }
+
   static async saveDraft(
     supabase: SupabaseClient,
     movementId: string,

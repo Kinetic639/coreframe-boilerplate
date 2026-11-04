@@ -108,6 +108,7 @@ import {
 } from "./schemas";
 import { validateInventoryImageFile } from "./image-upload-policy";
 import { WarehouseStockService } from "@/server/services/warehouse-stock.service";
+import { splitByWarehouse, warehousesOf } from "@/lib/warehouse/split-by-warehouse";
 
 export async function listInventoryProductsAction(rawInput: unknown) {
   try {
@@ -1187,6 +1188,27 @@ export async function archiveInventoryProductAction(rawInput: unknown) {
   }
 }
 
+/** Jednostki and magazyny of the active branch, for a document's magazyn (U3). */
+export async function listDocumentWarehousesAction() {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_INVENTORY_READ)) {
+      return { success: false, error: "Unauthorized" };
+    }
+    const branch = requireActiveBranch(auth);
+    if (!branch.success) return branch;
+    const supabase = await createClient();
+    return WarehouseStockService.documentUnits(
+      supabase,
+      auth.context.app.activeOrgId,
+      branch.branchId
+    );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
 export async function listInventoryBalancesAction(rawInput: unknown) {
   try {
     const auth = await requireWarehouseContext();
@@ -1320,6 +1342,20 @@ export async function createDraftMovementAction(rawInput: unknown) {
       branch.branchId,
       parsed.data.lines!
     );
+    if (
+      warehousesOf(
+        parsed.data.lines!.map((line) => ({
+          warehouse_id:
+            (line.source_line_id && lineWarehouses.get(line.source_line_id)) ||
+            parsed.data.warehouse_id ||
+            null,
+        }))
+      ).length > 1
+    ) {
+      // One document = one magazyn: a delivery of several magazyny is posted
+      // at once, as one PZ per magazyn, not kept as one draft.
+      return { success: false, error: "draft_several_warehouses" };
+    }
     return InventoryMovementsService.createDraft(
       supabase,
       auth.context.app.activeOrgId,
@@ -1327,7 +1363,11 @@ export async function createDraftMovementAction(rawInput: unknown) {
       {
         movement_type_code: parsed.data.movement_type_code!,
         lines: parsed.data.lines!.map((line) => ({
-          warehouse_id: (line.source_line_id && lineWarehouses.get(line.source_line_id)) || null,
+          warehouse_id:
+            (line.source_line_id && lineWarehouses.get(line.source_line_id)) ||
+            parsed.data.warehouse_id ||
+            null,
+          destination_warehouse_id: parsed.data.destination_warehouse_id ?? null,
           variant_id: line.variant_id!,
           source_location_id: line.source_location_id ?? null,
           destination_location_id: receivingLocationId ?? line.destination_location_id ?? null,
@@ -1635,6 +1675,9 @@ export async function saveDraftMovementAction(rawInput: unknown) {
     const parsed = z
       .object({
         movement_id: z.string().uuid(),
+        // The document's magazyn (U3); omitted = the draft keeps its own.
+        warehouse_id: z.string().uuid().nullable().optional(),
+        destination_warehouse_id: z.string().uuid().nullable().optional(),
         document_date: z.string().nullable().optional(),
         operation_date: z.string().nullable().optional(),
         sender_name: z.string().max(200).nullable().optional(),
@@ -1680,6 +1723,22 @@ export async function saveDraftMovementAction(rawInput: unknown) {
     if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
 
     const supabase = await createClient();
+    // A saved draft keeps the magazyn it was created with (e.g. from a
+    // Matcher session) unless the editor names another one.
+    const { data: current } = await supabase
+      .from("inventory_movement_headers")
+      .select("warehouse_id, destination_warehouse_id")
+      .eq("id", parsed.data.movement_id)
+      .maybeSingle();
+    const draftWarehouse =
+      parsed.data.warehouse_id !== undefined
+        ? parsed.data.warehouse_id
+        : ((current as { warehouse_id: string | null } | null)?.warehouse_id ?? null);
+    const draftDestination =
+      parsed.data.destination_warehouse_id !== undefined
+        ? parsed.data.destination_warehouse_id
+        : ((current as { destination_warehouse_id: string | null } | null)
+            ?.destination_warehouse_id ?? null);
     return InventoryMovementsService.saveDraft(
       supabase,
       parsed.data.movement_id,
@@ -1699,6 +1758,8 @@ export async function saveDraftMovementAction(rawInput: unknown) {
           source_location_id: l.source_location_id ?? null,
           destination_location_id: l.destination_location_id ?? null,
           note: l.note ?? null,
+          warehouse_id: draftWarehouse,
+          destination_warehouse_id: draftDestination,
         })),
       },
       userId
@@ -1746,7 +1807,11 @@ export async function createAndPostMovementAction(rawInput: unknown) {
     const movementInput = {
       movement_type_code: parsed.data.movement_type_code!,
       lines: parsed.data.lines!.map((line) => ({
-        warehouse_id: (line.source_line_id && lineWarehouses.get(line.source_line_id)) || null,
+        warehouse_id:
+          (line.source_line_id && lineWarehouses.get(line.source_line_id)) ||
+          parsed.data.warehouse_id ||
+          null,
+        destination_warehouse_id: parsed.data.destination_warehouse_id ?? null,
         variant_id: line.variant_id!,
         unit_id: line.unit_id!,
         quantity: line.quantity!,
@@ -1789,6 +1854,56 @@ export async function createAndPostMovementAction(rawInput: unknown) {
             : []
         )
       : [];
+
+    // One document = one magazyn (U3): a PZ whose lines belong to several
+    // magazyny becomes one PZ per magazyn, all posted in one transaction.
+    if (warehousesOf(movementInput.lines).length > 1) {
+      if (movementInput.movement_type_code !== "101") {
+        return { success: false, error: "document_several_warehouses" };
+      }
+      const { lines: allLines, ...headerInput } = movementInput;
+      const parts = splitByWarehouse(allLines, attribution);
+      const result = await InventoryMovementsService.createAndFinalizeReceipts(
+        supabase,
+        auth.context.app.activeOrgId,
+        branch.branchId,
+        headerInput,
+        parts.map((p) => ({ lines: p.lines, attribution: p.attribution })),
+        userId
+      );
+      if (!result.success) return result;
+      const docs = (result as { data: Array<Record<string, any>> }).data;
+      const summaries = docs.map((d) => summarizeReceiptAttribution(d.attribution));
+      const first = docs[0];
+      return {
+        success: true,
+        data: {
+          movement_id: first.movement_id,
+          document_number: first.document_number,
+          status: first.status,
+          route_key: first.route_key,
+          documents: docs.map((d) => ({
+            movement_id: d.movement_id as string,
+            document_number: d.document_number as string,
+            route_key: d.route_key as string,
+          })),
+          attribution:
+            attribution.length > 0
+              ? {
+                  attributed: summaries.reduce((n, x) => n + x.attributed, 0),
+                  internalOrders: [...new Set(summaries.flatMap((x) => x.internalOrders))],
+                  skipped: summaries.reduce((n, x) => n + x.skipped, 0),
+                  skippedReasons: summaries.reduce<Record<string, number>>((acc, x) => {
+                    for (const [k, v] of Object.entries(x.skippedReasons))
+                      acc[k] = (acc[k] ?? 0) + v;
+                    return acc;
+                  }, {}),
+                }
+              : null,
+        },
+      };
+    }
+
     if (attribution.length > 0) {
       const result = await InventoryMovementsService.createAndFinalizeReceipt(
         supabase,

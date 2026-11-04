@@ -7154,7 +7154,25 @@
       "unitTransferTitle": "Przesunięcie do innej jednostki (MMJ-)",
       "unitTransferHold": "Nie — wstrzymaj",
       "unitTransferSend": "Tak — wyślij w drogę",
-      "unitTransferNotice": "Nastąpi przesunięcie towarów do innej jednostki organizacyjnej. W docelowym magazynie zostanie utworzony potemowy dokument MMJ+. Do zatwierdzenia przez odbiorcę części zostają na Twoim stanie, zarezerwowane — możesz je do tego czasu wycofać."
+      "unitTransferNotice": "Nastąpi przesunięcie towarów do innej jednostki organizacyjnej. W docelowym magazynie zostanie utworzony potemowy dokument MMJ+. Do zatwierdzenia przez odbiorcę części zostają na Twoim stanie, zarezerwowane — możesz je do tego czasu wycofać.",
+      "documentsPosted": "Zaksięgowano {count, plural, one {# dokument PZ} few {# dokumenty PZ} other {# dokumentów PZ}}, po jednym na magazyn: {numbers}",
+      "errors": {
+        "draftSeveralWarehouses": "Pozycje należą do kilku magazynów. Szkic ma jeden magazyn: zaksięguj od razu, a powstanie osobne PZ dla każdego magazynu.",
+        "documentSeveralWarehouses": "Jeden dokument ma jeden magazyn. Pozycje z różnych magazynów wymagają osobnych dokumentów.",
+        "mmOtherUnit": "MM przenosi tylko między magazynami jednej jednostki. Do innej jednostki użyj MMJ.",
+        "warehouseShort": "W magazynie źródłowym jest za mało tej części.",
+        "mmNoChange": "MM musi zmienić regał albo magazyn."
+      },
+      "documentWarehouse": {
+        "title": "Magazyn",
+        "warehouse": "Magazyn dokumentu",
+        "choose": "Wybierz magazyn",
+        "none": "Bez magazynu",
+        "destination": "Magazyn docelowy",
+        "sameWarehouse": "Ten sam magazyn",
+        "destinationHint": "Tylko magazyny tej samej jednostki. Do innej jednostki: MMJ.",
+        "fromMatcher": "Pozycje z dostawy mają magazyn z dokumentów (115, 315…). Jeśli jest ich kilka, przy księgowaniu powstanie osobne PZ dla każdego magazynu."
+      }
     },
     "itemPicker": {
       "title": "Selektor pozycji WMS",
