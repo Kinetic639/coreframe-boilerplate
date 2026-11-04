@@ -97,6 +97,8 @@ export function InventoryMovementDetailPanel({
 
   // Derive common locations from lines
   const allDestinations = detail.lines.map((l) => l.destination_location_name).filter(Boolean);
+  // AutoStacja magazyn column (U2), only when some line has one
+  const hasWarehouses = detail.lines.some((l) => l.warehouse_code);
   const allSources = detail.lines.map((l) => l.source_location_name).filter(Boolean);
   const commonDestination =
     allDestinations.length > 0 && new Set(allDestinations).size === 1 ? allDestinations[0] : null;
@@ -471,6 +473,7 @@ export function InventoryMovementDetailPanel({
                 {!commonDestination && allDestinations.length > 0 && (
                   <th className="px-3 py-1.5 text-left">{td("colDestination")}</th>
                 )}
+                {hasWarehouses && <th className="px-3 py-1.5 text-left">{td("colWarehouse")}</th>}
               </tr>
             </thead>
             <tbody>
@@ -502,6 +505,15 @@ export function InventoryMovementDetailPanel({
                   {!commonDestination && allDestinations.length > 0 && (
                     <td className="px-3 py-1.5 text-xs text-muted-foreground">
                       {line.destination_location_name ?? "—"}
+                    </td>
+                  )}
+                  {hasWarehouses && (
+                    <td
+                      className="px-3 py-1.5 font-mono text-xs"
+                      title={line.warehouse_name ?? undefined}
+                      data-testid="movement-line-warehouse"
+                    >
+                      {line.warehouse_code ?? "—"}
                     </td>
                   )}
                 </tr>

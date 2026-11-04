@@ -6898,6 +6898,15 @@
         "value": "Wartość",
         "lastMovement": "Ostatni ruch",
         "total": "Razem"
+      },
+      "warehouseStock": {
+        "title": "Magazyny AutoStacji",
+        "hint": "Ile sztuk należy do którego magazynu AS. Części różnych magazynów mogą leżeć na tych samych regałach.",
+        "unit": "Jednostka",
+        "warehouse": "Magazyn",
+        "quantity": "Ilość",
+        "without": "Bez magazynu",
+        "withoutHint": "Stan sprzed podziału na magazyny albo z dostaw, w których dokument nie wskazał magazynu."
       }
     },
     "inventory": {
@@ -7270,7 +7279,8 @@
           "stock_moved": "Nie można skorygować: towar został już rozlokowany, wydany lub zarezerwowany. Skoryguj go tam, gdzie teraz jest.",
           "unexpected": "Nie udało się zaksięgować korekty."
         }
-      }
+      },
+      "colWarehouse": "Magazyn"
     },
     "transfers": {
       "title": "Przesunięcia między oddziałami",

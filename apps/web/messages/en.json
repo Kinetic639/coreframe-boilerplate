@@ -6815,6 +6815,15 @@
         "value": "Value",
         "lastMovement": "Last movement",
         "total": "Total"
+      },
+      "warehouseStock": {
+        "title": "AutoStacja warehouses",
+        "hint": "How many pieces belong to which AS warehouse. Parts of different warehouses may lie on the same shelves.",
+        "unit": "Unit",
+        "warehouse": "Warehouse",
+        "quantity": "Quantity",
+        "without": "No warehouse",
+        "withoutHint": "Stock from before the split into warehouses, or from deliveries whose document named no warehouse."
       }
     },
     "inventory": {
@@ -7187,7 +7196,8 @@
           "stock_moved": "Cannot correct: the stock has already been put away, issued or reserved.",
           "unexpected": "The correction failed."
         }
-      }
+      },
+      "colWarehouse": "Warehouse"
     },
     "transfers": {
       "title": "Branch transfers",

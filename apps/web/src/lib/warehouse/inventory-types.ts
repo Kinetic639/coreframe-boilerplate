@@ -361,6 +361,8 @@ export type InventoryBalanceDetail = InventoryBalanceListRow & {
 
 export type InventoryMovementLineInput = {
   variant_id: string;
+  /** AutoStacja magazyn (unit_warehouses) the line books to; null = without magazyn */
+  warehouse_id?: string | null;
   source_location_id?: string | null;
   destination_location_id?: string | null;
   lot_id?: string | null;
@@ -624,6 +626,9 @@ export type InventoryMovementDetail = InventoryMovementListRow & {
     source_location_name: string | null;
     destination_location_id: string | null;
     destination_location_name: string | null;
+    /** AutoStacja magazyn of the line (U2); null = without magazyn */
+    warehouse_code?: string | null;
+    warehouse_name?: string | null;
     note: string | null;
   }>;
   audit_log: InventoryMovementAuditEntry[];
