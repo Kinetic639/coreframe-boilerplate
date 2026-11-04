@@ -7071,7 +7071,25 @@
       "unitTransferTitle": "Transfer to another unit (MMJ-)",
       "unitTransferHold": "No — hold",
       "unitTransferSend": "Yes — send on its way",
-      "unitTransferNotice": "The goods will be moved to another organizational unit. A pending MMJ+ document will be created in the receiving warehouse. Until the receiver accepts, the parts stay on your stock, reserved — you can withdraw them until then."
+      "unitTransferNotice": "The goods will be moved to another organizational unit. A pending MMJ+ document will be created in the receiving warehouse. Until the receiver accepts, the parts stay on your stock, reserved — you can withdraw them until then.",
+      "documentsPosted": "Posted {count, plural, one {# goods receipt} other {# goods receipts}}, one per warehouse: {numbers}",
+      "errors": {
+        "draftSeveralWarehouses": "The lines belong to several warehouses. A draft has one warehouse: post now to get one receipt per warehouse.",
+        "documentSeveralWarehouses": "A document has one warehouse. Lines of different warehouses need separate documents.",
+        "mmOtherUnit": "An MM moves stock only between warehouses of one unit. Use MMJ for another unit.",
+        "warehouseShort": "The source warehouse does not hold enough of this part.",
+        "mmNoChange": "An MM must change the shelf or the warehouse."
+      },
+      "documentWarehouse": {
+        "title": "Warehouse",
+        "warehouse": "Document warehouse",
+        "choose": "Choose a warehouse",
+        "none": "No warehouse",
+        "destination": "Target warehouse",
+        "sameWarehouse": "Same warehouse",
+        "destinationHint": "Only warehouses of the same unit. For another unit: MMJ.",
+        "fromMatcher": "Delivery lines take their warehouse from the documents (115, 315…). If there are several, posting makes one receipt per warehouse."
+      }
     },
     "itemPicker": {
       "title": "WMS Item Picker",

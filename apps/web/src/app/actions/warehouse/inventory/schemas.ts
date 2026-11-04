@@ -263,6 +263,10 @@ const partyDetailsSchema = z
 
 export const createDraftMovementSchema = z.object({
   movement_type_code: z.string().min(1).max(20),
+  // The document's AutoStacja magazyn and, for an MM, the target magazyn of
+  // the same jednostka (U3). Matcher lines take theirs from the session.
+  warehouse_id: nullableUuidSchema,
+  destination_warehouse_id: nullableUuidSchema,
   lines: z.array(movementLineSchema).min(1),
   operation_date: z.string().nullable().optional(),
   document_date: z.string().nullable().optional(),

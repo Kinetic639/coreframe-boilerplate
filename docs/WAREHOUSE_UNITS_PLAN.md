@@ -206,6 +206,33 @@ Decyzja: magazyn AS **nie wchodzi do salda regału**. Jest osobnym saldem własn
 - **Bez magazynu zostają:** stan sprzed U2 (migracja dopiero po raporcie i akceptacji), ręczne PZ, MMJ 303/305, ruchy 311/312, 122/551 oraz RW z przydziału bez rezerwacji z magazynem. Szkic zapisany i ponownie zapisany w edytorze traci magazyn linii (edytor go jeszcze nie przenosi). Księgowanie „Utwórz PZ” z Matchera działa jednym wywołaniem, więc tego nie dotyczy.
 - Migracje: `20261104170000_warehouse_stock_u2.sql` i `20261104170100_warehouse_stock_u2_reset.sql` (reset danych demo). Test: `147_warehouse_stock_u2_test.sql`.
 
+### Dokumenty i numeracja jak w AutoStacji (ustalenia 2026-11-04, do U3)
+
+Ze zrzutu „Kartoteka dokumentów magazynowych” AS (jednostka Seat 3252):
+
+- **Format numeru:** `TYP(magazyn)/numer/rok/jednostka`, np. `WU(517)/265/26/3252`, `MMJ+(517)/264/26/3252`, `MMJ-(117)/935/26/3112`, `KWU(515)/78/26/3252`, `PZ(519)/193/26/3251`.
+- **Licznik osobny dla każdej trójki typ + magazyn + rok.** Potwierdzone przez właściciela produktu.
+- **Jeden dokument = jeden magazyn.** Wymaga tego ustawa o rachunkowości (ewidencja i inwentaryzacja według miejsc przechowywania) i JPK_MAG (plik per magazyn). Dlatego „Utwórz PZ” z Matchera ma tworzyć **osobne PZ na każdy magazyn** dostawy, w jednej transakcji, bez luk w numeracji (droga 2). Zastępuje to zasadę „jedno PZ na dostawę” z sekcji 6.
+- **MMJ to para dokumentów:** MMJ- w serii nadawcy (magazyn i jednostka nadawcy) i MMJ+ w serii odbiorcy, wzajemnie powiązane („Dok. powiązany”).
+- **WU i RW to w AS osobne ruchy** (oba można wybrać). Ambra 261 „Goods Issue to Repair Order” odpowiada **WU (Wydanie na serwis)**, a korekta WU to **KWU**. RW w znaczeniu AS (rozchód wewnętrzny) to osobny typ, jeszcze niezdefiniowany. Do potwierdzenia, czym różni się w AS od WU.
+- Magazyny i jednostki widoczne na zrzucie (517, 519, 3251) były tylko przykładem i **nie** trafiają do konfiguracji.
+- Audit trail: historia stanu magazynów (`inventory_warehouse_ledger`) dostaje w U3 blokadę zmian i usuwania w samej bazie, taką jak główna księga. Wyjątkiem jest tylko reset danych demo.
+
+### U3: zrobione 2026-11-04
+
+- **Jeden dokument = jeden magazyn.** Nagłówek ma `warehouse_id` (oraz `destination_warehouse_id` dla MM), ustawiany z linii. Linia bez magazynu dostaje magazyn dokumentu. Dokument z liniami różnych magazynów jest odrzucany w bazie.
+- **Numeracja jak w AS:** `TYP(magazyn)/nr/rr/jednostka`, z osobnym licznikiem dla każdej trójki typ + magazyn + rok, np. `PZ(115)/1/26/3112`, `MM(115)/3/26/3112`. 261 ma numer `WU(…)`, jego storno `KWU(…)`, a storno innych dokumentów `KOR(…)`. Magazyn wydania WU pochodzi z rezerwacji zlecenia, jeśli wszystkie wydawane części są z jednego magazynu. Dokument bez magazynu oraz MMJ-/MMJ+ zachowują starą numerację (MMJ zmieni się w U4).
+- **„Utwórz PZ” z Matchera:** dostawa z kilku magazynów jest księgowana jako osobne PZ, po jednym na magazyn, w jednej transakcji (`inventory_create_and_finalize_receipts`): albo wszystkie, albo żadne. Szkicu z kilkoma magazynami nie da się zapisać, Ambra prosi o zaksięgowanie od razu.
+- **MM między magazynami jednej jednostki** (115 → 116), z regałem docelowym albo w tym samym miejscu (wtedy zmienia się tylko magazyn). MM do innej jednostki jest odrzucany (to MMJ). MM ponad stan magazynu źródłowego jest odrzucany.
+- **Edytor:** sekcja „Magazyn” nad typem ruchu: magazyn dokumentu (pogrupowany po jednostkach), a dla MM magazyn docelowy tylko z tej samej jednostki. Jeśli oddział ma jeden magazyn, wybiera się sam. Przy pozycjach z Matchera wyświetla się informacja, że magazyn pochodzi z dokumentów. Zapisany szkic zachowuje swój magazyn.
+- **Historia stanu magazynów** jest zablokowana przed zmianą i usunięciem (`20261104190100`). Reset danych demo wyłącza blokadę na czas swojego działania.
+- Migracje: `20261104190000_warehouse_documents_u3.sql` i `20261104190100_warehouse_ledger_lock_u3.sql`. Test: `148_warehouse_documents_u3_test.sql`.
+- Ustalenia po U3 (2026-11-04):
+  - **WU jak każdy ruch: z jednej jednostki i jednego magazynu.** Wydanie z dwóch magazynów wymaga dwóch osobnych WU albo najpierw MM. Ambra ma odrzucać WU z częściami z kilku magazynów (do zrobienia).
+  - **RW (rozchód wewnętrzny) nie wdrażamy.** W AS istnieje, ale nie był używany.
+  - **Stan sprzed U2 nie wymaga migracji:** wszystkie organizacje w bazie, w tym CNP, to dane testowe do usunięcia.
+  - Do decyzji: czy magazyn jest obowiązkowy na ekranie „Nowy ruch”.
+
 ## 10. Pytania otwarte
 
 1. Wzór „pierwsza cyfra magazynu = jednostka” jest **możliwy, niepotwierdzony**. Ambra go **nie zakłada**: przypisanie magazynu do jednostki zawsze idzie z konfiguracji. Wzór służy tylko do podpowiedzi przy dodawaniu („515 wygląda na Seat 3252”).

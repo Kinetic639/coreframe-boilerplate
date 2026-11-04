@@ -27,7 +27,13 @@ export function useMovementSubmission(
   dstLoc: string,
   lines: LineDraft[],
   validation: ValidationResult,
-  initialValues?: MovementFormInitialValues
+  initialValues?: MovementFormInitialValues,
+  documentWarehouse: {
+    warehouseId: string | null;
+    destinationWarehouseId: string | null;
+    /** false in edit mode when untouched: the draft keeps its magazyn */
+    send: boolean;
+  } = { warehouseId: null, destinationWarehouseId: null, send: false }
 ) {
   const t = useTranslations("warehouseInventory.movementEditor");
   const router = useRouter();
@@ -35,6 +41,21 @@ export function useMovementSubmission(
   const isEdit = mode === "edit";
   // MMJ- (303): not posted here -- it waits for the "wyślij w drogę / wstrzymaj" choice.
   const [transferPrompt, setTransferPrompt] = useState(false);
+
+  // Known engine refusals in words, anything else as it came.
+  const errorText = useCallback(
+    (error: string | undefined) => {
+      if (!error) return t("failed");
+      if (error === "draft_several_warehouses") return t("errors.draftSeveralWarehouses");
+      if (error === "document_several_warehouses") return t("errors.documentSeveralWarehouses");
+      if (/one jednostka/i.test(error)) return t("errors.mmOtherUnit");
+      if (/The magazyn holds only/i.test(error)) return t("errors.warehouseShort");
+      if (/A document has one magazyn/i.test(error)) return t("errors.documentSeveralWarehouses");
+      if (/changes the shelf or the magazyn/i.test(error)) return t("errors.mmNoChange");
+      return error;
+    },
+    [t]
+  );
 
   const buildLines = useCallback(
     () =>
@@ -93,12 +114,18 @@ export function useMovementSubmission(
             external_reference: externalReference || null,
             note: note || null,
             lines: ls,
+            ...(documentWarehouse.send
+              ? {
+                  warehouse_id: documentWarehouse.warehouseId,
+                  destination_warehouse_id: documentWarehouse.destinationWarehouseId,
+                }
+              : {}),
           };
           const r = andPost
             ? ((await saveAndPostDraftMovementAction(payload)) as any)
             : ((await saveDraftMovementAction(payload)) as any);
           if (!r.success) {
-            toast.error(r.error ?? t("failed"));
+            toast.error(errorText(r.error));
             return;
           }
           const routeKey =
@@ -123,14 +150,28 @@ export function useMovementSubmission(
             note: note || null,
             idempotency_key: crypto.randomUUID(),
             lines: ls,
+            warehouse_id: documentWarehouse.warehouseId,
+            destination_warehouse_id: documentWarehouse.destinationWarehouseId,
           };
           if (andPost) {
             const r = (await createAndPostMovementAction(bp)) as any;
             if (!r.success) {
-              toast.error(r.error ?? t("failed"));
+              toast.error(errorText(r.error));
               return;
             }
-            toast.success(t("documentPosted", { number: r.data?.document_number ?? "" }));
+            const documents = (r.data?.documents ?? []) as Array<{ document_number: string }>;
+            if (documents.length > 1) {
+              // One PZ per magazyn of the delivery
+              toast.success(
+                t("documentsPosted", {
+                  count: documents.length,
+                  numbers: documents.map((d) => d.document_number).join(", "),
+                }),
+                { autoClose: 10000 }
+              );
+            } else {
+              toast.success(t("documentPosted", { number: r.data?.document_number ?? "" }));
+            }
             const attribution = r.data?.attribution as
               | { attributed: number; skipped: number; failed?: undefined }
               | { failed: true }
@@ -153,7 +194,7 @@ export function useMovementSubmission(
           } else {
             const r = (await createDraftMovementAction(bp)) as any;
             if (!r.success) {
-              toast.error(r.error ?? t("failed"));
+              toast.error(errorText(r.error));
               return;
             }
             toast.success(t("draftCreated", { number: r.data?.draft_number ?? "" }));
@@ -164,6 +205,10 @@ export function useMovementSubmission(
     },
     [
       buildLines,
+      documentWarehouse.destinationWarehouseId,
+      documentWarehouse.send,
+      documentWarehouse.warehouseId,
+      errorText,
       externalReference,
       initialValues,
       isEdit,
