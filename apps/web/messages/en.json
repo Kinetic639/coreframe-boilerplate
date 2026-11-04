@@ -3545,24 +3545,45 @@
           "save": "Save"
         },
         "warehouses": {
-          "title": "Warehouses (DMS)",
-          "subtitle": "Warehouse codes of this branch used in repair-order numbers, e.g. 3112 Volkswagen. Number prefix: ZL or ZLEC.",
-          "add": "Add",
+          "title": "Units and warehouses",
+          "subtitle": "Units are AutoStacja's branches (e.g. 3112 Volkswagen), warehouses are their warehouses (e.g. 115 body parts). Enter codes exactly as in AutoStacja. Repair-order number prefix: ZL or ZLEC.",
+          "add": "Add unit",
           "edit": "Edit",
           "remove": "Remove",
           "cancel": "Cancel",
-          "empty": "No warehouses.",
+          "empty": "No units.",
           "code": "Code",
           "codePlaceholder": "3112",
-          "name": "Name / brand",
+          "name": "Name",
           "namePlaceholder": "e.g. Volkswagen",
           "prefix": "Number prefix",
-          "confirmRemove": "Remove warehouse {code} from the branch?",
+          "confirmRemove": "Remove unit {code} together with its warehouses?",
           "errors": {
-            "duplicate_code": "This warehouse code is already assigned in the organization.",
-            "invalid_code": "A warehouse code has 3–5 digits.",
-            "forbidden": "You may not change branches.",
-            "generic": "Could not save the warehouse."
+            "duplicate_code": "This code is already used in the organization.",
+            "invalid_code": "A unit code has 3–5 digits.",
+            "forbidden": "You may not change units and warehouses.",
+            "generic": "Could not save.",
+            "invalid_warehouse_code": "A warehouse code has 2–5 digits."
+          },
+          "noWarehouses": "No warehouses.",
+          "addWarehouse": "Add warehouse",
+          "warehouseCode": "Warehouse code",
+          "warehouseCodePlaceholder": "115",
+          "warehouseName": "Warehouse name",
+          "warehouseNamePlaceholder": "e.g. body parts",
+          "default": "default",
+          "setDefault": "Set as default warehouse (receipts naming none)",
+          "unsetDefault": "Unset default",
+          "confirmRemoveWarehouse": "Remove warehouse {code}?",
+          "suggestions": {
+            "title": "The Matcher saw these in this branch's documents and they are missing here:",
+            "unit": "Unit",
+            "warehouse": "Warehouse",
+            "withUnit": "with unit {code}",
+            "seen": "{count, plural, one {# time} other {# times}}",
+            "add": "Add",
+            "needsUnit": "Add unit {code} first",
+            "hint": "Nothing is added automatically. Check the codes against AutoStacja before adding."
           }
         }
       },
@@ -4022,7 +4043,8 @@
             "missing_zl": "No ZL number",
             "repair_order_closed": "Order closed",
             "repair_order_archived": "Order archived",
-            "warehouse_not_in_branch": "Warehouse of another branch"
+            "unit_in_other_branch": "Unit {unit} belongs to branch {branch}",
+            "unit_unknown": "Unit {unit} is not in this branch (Organization → Branches → Units and warehouses)"
           },
           "parts": "{added} new · {adds} top-up · {present} present",
           "apply": "Import selected ({count})",
@@ -4030,7 +4052,8 @@
           "errors": {
             "unauthorized": "You cannot import repair orders in this branch.",
             "invalid_input": "Invalid import input.",
-            "unexpected": "The repair-order import failed."
+            "unexpected": "The repair-order import failed.",
+            "unit_not_in_branch": "Some orders belong to a unit outside this branch. Check the branch's units."
           },
           "checkAll": "Select all ({count})",
           "uncheckAll": "Clear all",
@@ -4301,8 +4324,8 @@
           "take": "Take it",
           "status": "Status",
           "replyToRequester": "Reply to requester",
-          "internalNote": "Internal note",
-          "internalBadge": "internal",
+          "internalNote": "Private note",
+          "internalBadge": "private · only you",
           "statusChanged": "Status changed",
           "taken": "Ticket assigned to you",
           "failed": "Could not save the change"
@@ -8136,7 +8159,8 @@
           "missing_zl": "No ZL number",
           "repair_order_closed": "Order closed",
           "repair_order_archived": "Order archived",
-          "warehouse_not_in_branch": "Warehouse outside branch"
+          "unit_in_other_branch": "Unit {unit} belongs to branch {branch}",
+          "unit_unknown": "Unit {unit} is not in this branch"
         },
         "partStatus": {
           "in_catalog": "In catalog",
@@ -9437,12 +9461,12 @@
       "thread": "Conversation ({count})",
       "noMessages": "No answers yet.",
       "ambraTeam": "Ambra team",
-      "internalBadge": "Internal note",
+      "internalBadge": "Private · only you",
       "replyPlaceholder": "Write an answer…",
-      "internalPlaceholder": "A note visible to the Ambra team only…",
-      "internalToggle": "Internal note",
+      "internalPlaceholder": "A note only you can see…",
+      "internalToggle": "Private note (only you)",
       "send": "Send",
-      "sendInternal": "Add note",
+      "sendInternal": "Save note",
       "sendFailed": "Could not send the answer.",
       "updateFailed": "Could not update the report.",
       "filesFailed": "Could not add files: {files}"

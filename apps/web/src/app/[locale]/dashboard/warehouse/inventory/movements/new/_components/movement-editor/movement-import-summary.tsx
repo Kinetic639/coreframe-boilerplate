@@ -35,6 +35,8 @@ export type ImportSummaryOrder = {
   description: string | null;
   status: ImportSummaryOrderStatus;
   conflictReason: string | null;
+  /** Jednostka conflicts: the jednostka and the branch it belongs to. */
+  conflictDetail: { unitCode: string; branchName: string | null } | null;
   parts: ImportSummaryPart[];
 };
 
@@ -205,7 +207,10 @@ export function MovementImportSummary({
               )}
               <Badge variant={ORDER_BADGE[order.status]} className="ml-auto">
                 {order.status === "conflict" && order.conflictReason
-                  ? t(`conflict.${order.conflictReason}`)
+                  ? t(`conflict.${order.conflictReason}`, {
+                      unit: order.conflictDetail?.unitCode ?? "?",
+                      branch: order.conflictDetail?.branchName ?? "?",
+                    })
                   : t(`orderStatus.${order.status}`)}
               </Badge>
               <span className="text-xs text-muted-foreground">

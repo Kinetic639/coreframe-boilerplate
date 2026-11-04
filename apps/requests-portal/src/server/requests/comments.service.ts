@@ -1,3 +1,4 @@
+import { compactRichInput } from "@repo/rich-text/rich-text-utils";
 import type { Json } from "@repo/supabase/database";
 import type { PortalSupabase } from "@/utils/supabase/server";
 import type { PortalContext } from "@/server/portal-context";
@@ -74,7 +75,7 @@ export async function addComment(
       target_type: TICKET_TARGET,
       target_id: ticketId,
       body_plain: body,
-      body_rich: (bodyRich ?? plainToRichDoc(body)) as Json,
+      body_rich: compactRichInput(bodyRich ?? plainToRichDoc(body)) as Json,
       visibility: "default",
       kind: "comment",
       created_by: ctx.user.id,
@@ -115,7 +116,7 @@ export async function updateOwnComment(
     .from("app_comments")
     .update({
       body_plain: body,
-      body_rich: bodyRich as Json,
+      body_rich: compactRichInput(bodyRich) as Json,
       updated_by: ctx.user.id,
       updated_at: new Date().toISOString(),
     })

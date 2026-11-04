@@ -12,6 +12,13 @@ export type CanonicalRepairOrderImportOrder = {
   vehicleBrand: string | null;
   clientName: string | null;
   dealerName: string | null;
+  /**
+   * Jednostka the order's parts belong to (AutoStacja branch, e.g. 3252), from the ZW
+   * number -- the ZL number's 4th part is not always a jednostka.
+   */
+  unitCode: string | null;
+  /** Magazyn of the parts (AutoStacja warehouse, e.g. 515) from the document header. */
+  warehouseCode: string | null;
   /** Matcher provenance; makes a re-import of the same session a no-op. */
   source: { sessionId: string; blockId: string | null } | null;
   lines: CanonicalRepairOrderImportLine[];

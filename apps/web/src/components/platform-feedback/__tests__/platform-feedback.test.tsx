@@ -157,14 +157,14 @@ describe("FeedbackDetailPanel", () => {
     wrap(<FeedbackDetailPanel initial={DETAIL} isAdmin />);
     expect(screen.getByTestId("feedback-admin-controls")).toBeInTheDocument();
     expect(screen.getByTestId("feedback-context")).toHaveTextContent("/dashboard/start");
-    expect(screen.getByText("Notatka wewnętrzna", { selector: "span" })).toBeInTheDocument();
+    expect(screen.getByText("Prywatna · tylko Ty", { selector: "span" })).toBeInTheDocument();
   });
 
   it("hides admin controls and context from the reporter", () => {
     wrap(<FeedbackDetailPanel initial={{ ...DETAIL, messages: [] }} isAdmin={false} />);
     expect(screen.queryByTestId("feedback-admin-controls")).toBeNull();
     expect(screen.queryByTestId("feedback-context")).toBeNull();
-    expect(screen.queryByText("Notatka wewnętrzna")).toBeNull();
+    expect(screen.queryByText("Prywatna · tylko Ty")).toBeNull();
   });
 
   it("sends an answer and records its files on that message", async () => {

@@ -1,4 +1,5 @@
 import "server-only";
+import { compactRichInput } from "@repo/rich-text/rich-text-utils";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceClient } from "@/utils/supabase/service";
 import type {
@@ -740,7 +741,7 @@ export class HelpdeskTicketsService {
       p_org_id: orgId,
       p_title: input.title,
       p_description_plain: input.description_plain ?? null,
-      p_description_rich: (input.description_rich as object | null) ?? null,
+      p_description_rich: compactRichInput((input.description_rich as object | null) ?? null),
       p_status: input.status ?? "waiting_response",
       p_priority: input.priority ?? "medium",
       p_ticket_type_id: input.ticket_type_id ?? null,

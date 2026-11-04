@@ -71,13 +71,16 @@ export interface NotificationRoute {
 
 /** Route of the object a notification is about, or null for unknown targets */
 export function notificationRoute(
-  notification: Pick<AppNotification, "target_type" | "target_id">
+  notification: Pick<AppNotification, "target_type" | "target_id"> &
+    Partial<Pick<AppNotification, "target_code">>
 ): NotificationRoute | null {
+  // Tickets and tasks open by their number (HD-…, task number), not by uuid
+  const code = notification.target_code ? encodeURIComponent(notification.target_code) : null;
   switch (notification.target_type) {
     case "helpdesk.ticket":
-      return { pathname: `/dashboard/help-desk/tickets/${notification.target_id}` };
+      return code ? { pathname: `/dashboard/help-desk/tickets/${code}` } : null;
     case "planning.task":
-      return { pathname: `/dashboard/planning/tasks/${notification.target_id}` };
+      return code ? { pathname: `/dashboard/planning/tasks/${code}` } : null;
     case "workshop.repair_order":
       return { pathname: `/dashboard/workshop/${notification.target_id}` };
     case "chat.conversation":
@@ -94,7 +97,8 @@ export function notificationRoute(
 
 /** Same as notificationRoute, as one string (tests, plain links) */
 export function notificationHref(
-  notification: Pick<AppNotification, "target_type" | "target_id">
+  notification: Pick<AppNotification, "target_type" | "target_id"> &
+    Partial<Pick<AppNotification, "target_code">>
 ): string | null {
   const route = notificationRoute(notification);
   if (!route) return null;

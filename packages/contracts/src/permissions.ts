@@ -116,6 +116,8 @@ export const WAREHOUSE_INVENTORY_OPERATE = "warehouse.inventory.operate" as cons
 export const WAREHOUSE_INVENTORY_ADJUST = "warehouse.inventory.adjust" as const;
 export const WAREHOUSE_INVENTORY_REVERSE = "warehouse.inventory.reverse" as const;
 export const WAREHOUSE_SETTINGS_MANAGE = "warehouse.settings.manage" as const;
+// warehouse.structure.manage — jednostki and magazyny of a branch (codes as in AutoStacja)
+export const WAREHOUSE_STRUCTURE_MANAGE = "warehouse.structure.manage" as const;
 export const WAREHOUSE_PROCUREMENT_READ = "warehouse.procurement.read" as const;
 export const WAREHOUSE_PROCUREMENT_MANAGE = "warehouse.procurement.manage" as const;
 export const WAREHOUSE_PRICING_READ = "warehouse.pricing.read" as const;
@@ -379,6 +381,7 @@ export type PermissionSlug =
   | typeof WAREHOUSE_INVENTORY_ADJUST
   | typeof WAREHOUSE_INVENTORY_REVERSE
   | typeof WAREHOUSE_SETTINGS_MANAGE
+  | typeof WAREHOUSE_STRUCTURE_MANAGE
   | typeof WAREHOUSE_PROCUREMENT_READ
   | typeof WAREHOUSE_PROCUREMENT_MANAGE
   | typeof WAREHOUSE_PRICING_READ
@@ -521,6 +524,7 @@ export const ALL_PERMISSION_SLUGS: PermissionSlug[] = [
   WAREHOUSE_INVENTORY_ADJUST,
   WAREHOUSE_INVENTORY_REVERSE,
   WAREHOUSE_SETTINGS_MANAGE,
+  WAREHOUSE_STRUCTURE_MANAGE,
   WAREHOUSE_PROCUREMENT_READ,
   WAREHOUSE_PROCUREMENT_MANAGE,
   WAREHOUSE_PRICING_READ,

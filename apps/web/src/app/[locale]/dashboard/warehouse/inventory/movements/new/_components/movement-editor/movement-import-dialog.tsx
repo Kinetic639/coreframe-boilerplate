@@ -346,6 +346,7 @@ function buildSessionSummary(
           description: rawMetadataString(line, "client_name"),
           status: "internal_order",
           conflictReason: null,
+          conflictDetail: null,
           parts: [],
         };
         groups.set(key, group);
@@ -379,6 +380,7 @@ function buildSessionSummary(
                   ? "existing_changes"
                   : "existing",
         conflictReason: order?.conflictReason ?? null,
+        conflictDetail: order?.conflictDetail ?? null,
         parts: [],
       };
       groups.set(key, group);

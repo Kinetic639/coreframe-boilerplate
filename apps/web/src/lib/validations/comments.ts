@@ -1,3 +1,4 @@
+import { compactRichText } from "@repo/rich-text/rich-text-utils";
 import { z } from "zod";
 import type { RichTextValue } from "@/components/primitives/rich-text/rich-text-types";
 
@@ -122,5 +123,5 @@ export function normalizeCommentRichText(value: unknown): RichTextValue | null {
   const candidate = value as RichTextValue;
   if (candidate.type !== "doc" || !Array.isArray(candidate.content)) return null;
 
-  return candidate;
+  return compactRichText(candidate);
 }

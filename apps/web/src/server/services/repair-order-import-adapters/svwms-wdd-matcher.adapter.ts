@@ -6,6 +6,16 @@ import {
 } from "../wdd-matcher.service";
 import type { CanonicalRepairOrderImportOrder, RepairOrderImportSourceAdapter } from "./types";
 
+/** ZW/806/26/3252 → 3252 (the jednostka); null when the number has no such part. */
+function unitCodeFromZw(zw: string | null): string | null {
+  const part = zw?.split("/")[3]?.trim() ?? "";
+  return /^[0-9]{3,5}$/.test(part) ? part : null;
+}
+
+function digitsOnly(value: string | null): string | null {
+  return value && /^[0-9]{2,5}$/.test(value.trim()) ? value.trim() : null;
+}
+
 function metadataString(metadata: Record<string, unknown> | null | undefined, key: string) {
   const value = metadata?.[key];
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -100,6 +110,8 @@ export const svwmsWddMatcherRepairOrderImportAdapter: RepairOrderImportSourceAda
       vehicleBrand: metadataString(block.metadata, "document_brand"),
       clientName: metadataString(block.metadata, "client_name"),
       dealerName: metadataString(block.metadata, "dealer_name"),
+      unitCode: unitCodeFromZw(metadataString(block.metadata, "zw_number")),
+      warehouseCode: digitsOnly(metadataString(block.metadata, "warehouse_code")),
       source: { sessionId, blockId: block.id },
       lines: (linesByBlock.get(block.id) ?? [])
         .filter((line) => line.product_code || line.product_name || line.quantity)

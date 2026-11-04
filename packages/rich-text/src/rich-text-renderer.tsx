@@ -1,7 +1,7 @@
 import { Fragment, type CSSProperties, type ReactNode } from "react";
 import type { JSONContent } from "@tiptap/core";
 import { cn } from "@repo/ui/utils";
-import { isRichTextEmpty } from "./rich-text-utils";
+import { compactRichText, isRichTextEmpty } from "./rich-text-utils";
 import type { RichTextRendererProps } from "./rich-text-types";
 import { mentionFromAttrs, mentionText } from "./mention/mention-utils";
 import type { MentionItem } from "./mention/mention-types";
@@ -174,7 +174,10 @@ export function RichTextRenderer({
     return <p className={cn("text-muted-foreground text-sm", className)}>{emptyText}</p>;
   }
 
-  const nodes = value!.content?.map((node, i) => renderNode(node, i, renderMention));
+  // Documents saved before blank-line spam was cleaned on save are cleaned here
+  const nodes = compactRichText(value!).content?.map((node, i) =>
+    renderNode(node, i, renderMention)
+  );
 
   return (
     <div
