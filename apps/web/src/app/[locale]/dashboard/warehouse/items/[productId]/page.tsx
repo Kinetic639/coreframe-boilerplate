@@ -36,6 +36,8 @@ import { InventoryReservationsService } from "@/server/services/inventory-reserv
 import { InventoryBlocksService } from "@/server/services/inventory-blocks.service";
 import { ItemStockActions } from "@/components/warehouse/stock-commitments";
 import { StockByLocationTable } from "@/components/warehouse/stock-by-location-table";
+import { WarehouseStockSection } from "@/components/warehouse/warehouse-stock-section";
+import { WarehouseStockService } from "@/server/services/warehouse-stock.service";
 
 type PageProps = {
   params: Promise<{ productId: string }>;
@@ -126,6 +128,29 @@ export default async function WarehouseItemDetailPage({ params }: PageProps) {
         ])
       : [null, null];
   const reservationLines = reservationsResult?.success ? reservationsResult.data : [];
+  // Stock per AutoStacja magazyn (U2)
+  const warehouseStock =
+    activeBranchId && canReadStock
+      ? await Promise.all(
+          product.variants.map(async (variant) => {
+            const res = await WarehouseStockService.forVariant(
+              supabase,
+              context.app.activeOrgId,
+              activeBranchId,
+              variant.id
+            );
+            return res.success
+              ? {
+                  variantId: variant.id,
+                  sku: variant.sku ?? null,
+                  rows: res.data.rows,
+                  withoutWarehouse: res.data.withoutWarehouse,
+                }
+              : null;
+          })
+        )
+      : [];
+  const tWarehouseStock = await getTranslations("warehouseInventory.detail.warehouseStock");
   const blockLines = blocksResult?.success ? blocksResult.data : [];
   const canOperateStock = checkPermission(
     context.user.permissionSnapshot,
@@ -410,6 +435,20 @@ export default async function WarehouseItemDetailPage({ params }: PageProps) {
           )}
         </section>
       ) : null}
+
+      <WarehouseStockSection
+        variants={warehouseStock.filter((v): v is NonNullable<typeof v> => v !== null)}
+        showSku={hasVisibleVariants}
+        labels={{
+          title: tWarehouseStock("title"),
+          hint: tWarehouseStock("hint"),
+          unit: tWarehouseStock("unit"),
+          warehouse: tWarehouseStock("warehouse"),
+          quantity: tWarehouseStock("quantity"),
+          without: tWarehouseStock("without"),
+          withoutHint: tWarehouseStock("withoutHint"),
+        }}
+      />
 
       <section className="grid gap-4 rounded-md border p-4">
         <h2 className="text-lg font-medium">{tDetail("unitConversions")}</h2>

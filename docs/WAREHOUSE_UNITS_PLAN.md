@@ -191,6 +191,21 @@ Każdy blok ma w nagłówku jednostkę (nazwę dealera), magazyn i markę, a w t
 - **Matcher podpowiada konfigurację:** z nagłówków bloków zbiera pary (kod magazynu, nazwa magazynu, nazwa jednostki, marka) oraz kody jednostek z ZL i ZW. Na ekranie „Jednostki i magazyny” pokazuje to, czego jeszcze brak („Matcher widział magazyn 515 blacharnia czesci przy jednostce 3252 — dodaj”). Nic nie dodaje się samo.
 - **Parser Matchera (M1, zrobione 2026-11-04):** przyczyną błędnych etykiet („VW”, „Seat”, „Mirror”) był błędny _kod_ magazynu. Gdy w nagłówku bloku nie było linii „Magazyn N”, parser brał pierwszą liczbę 115/315/415/515 z dowolnego tekstu, np. z „ZW/415/26/3142” albo „BLWK/115”. Taki fałszywy 415 robił ze zwykłego bloku blok lustrzany. Teraz blok należy do sekcji otwartej ostatnią linią „Magazyn N (nazwa)” nad nim. Gdy takiej linii nie ma, kod zostaje pusty, bez zgadywania. Nowe pola bloku: `warehouse_name`, `dealer_name`, `reservation_change` (wszystkie pozycje mają operację ZR) i `reservation_change_lines`. Dotyczy tylko nowych sesji; stare bloki w bazie mają stare wartości. Kopia parsera w `apps/public-web` nie została zmieniona.
 
+### U2: zrobione 2026-11-04 (wariant A)
+
+Decyzja: magazyn AS **nie wchodzi do salda regału**. Jest osobnym saldem własności „magazyn × część” (`inventory_warehouse_stock`, historia w `inventory_warehouse_ledger`). Działa jak w AutoStacji, która w ogóle nie zna regałów. Silnik księgowania, rozlokowanie, kontenery i przenoszenie zostały bez zmian. Wariant B (magazyn w każdym saldzie regału) wymagał przepisania 25 funkcji naraz.
+
+- **Skąd saldo:** trigger na księdze stanu (`inventory_stock_ledger_entries`, pole `on_hand`) przenosi każdy efekt ruchu na magazyn linii. PZ dodaje, RW, KPZ i różnice inwentaryzacji odejmują, a storno odwraca. MM 801 i rozlokowanie dają zero.
+- **Magazyn linii:**
+  - PZ z Matchera: ustala go serwer z sesji. Bierze magazyn z dokumentu (blok marki dopasowany do WDD, inaczej blok BC). Gdy go brak, bierze magazyn domyślny jednostki z ZW. Gdy i tego brak, linia zostaje bez magazynu.
+  - Rezerwacja dziedziczy magazyn linii PZ (oraz rezerwacji, z której ją przeniesiono).
+  - RW bierze magazyn rezerwacji zlecenia.
+  - Storno wraca do magazynu oryginału.
+  - Magazyn innego oddziału jest odrzucany.
+- **Widok:** karta towaru ma sekcję „Magazyny AutoStacji”: jednostka, magazyn, ilość oraz „Bez magazynu”. Szczegóły dokumentu mają kolumnę „Magazyn”, gdy którakolwiek linia ma magazyn.
+- **Bez magazynu zostają:** stan sprzed U2 (migracja dopiero po raporcie i akceptacji), ręczne PZ, MMJ 303/305, ruchy 311/312, 122/551 oraz RW z przydziału bez rezerwacji z magazynem. Szkic zapisany i ponownie zapisany w edytorze traci magazyn linii (edytor go jeszcze nie przenosi). Księgowanie „Utwórz PZ” z Matchera działa jednym wywołaniem, więc tego nie dotyczy.
+- Migracje: `20261104170000_warehouse_stock_u2.sql` i `20261104170100_warehouse_stock_u2_reset.sql` (reset danych demo). Test: `147_warehouse_stock_u2_test.sql`.
+
 ## 10. Pytania otwarte
 
 1. Wzór „pierwsza cyfra magazynu = jednostka” jest **możliwy, niepotwierdzony**. Ambra go **nie zakłada**: przypisanie magazynu do jednostki zawsze idzie z konfiguracji. Wzór służy tylko do podpowiedzi przy dodawaniu („515 wygląda na Seat 3252”).

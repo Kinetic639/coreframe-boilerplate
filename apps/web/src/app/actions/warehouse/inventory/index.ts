@@ -107,6 +107,7 @@ import {
   updateInventorySkuTemplateSchema,
 } from "./schemas";
 import { validateInventoryImageFile } from "./image-upload-policy";
+import { WarehouseStockService } from "@/server/services/warehouse-stock.service";
 
 export async function listInventoryProductsAction(rawInput: unknown) {
   try {
@@ -1313,6 +1314,12 @@ export async function createDraftMovementAction(rawInput: unknown) {
       branch.branchId,
       parsed.data.movement_type_code!
     );
+    const lineWarehouses = await matcherLineWarehouses(
+      supabase,
+      auth.context.app.activeOrgId,
+      branch.branchId,
+      parsed.data.lines!
+    );
     return InventoryMovementsService.createDraft(
       supabase,
       auth.context.app.activeOrgId,
@@ -1320,6 +1327,7 @@ export async function createDraftMovementAction(rawInput: unknown) {
       {
         movement_type_code: parsed.data.movement_type_code!,
         lines: parsed.data.lines!.map((line) => ({
+          warehouse_id: (line.source_line_id && lineWarehouses.get(line.source_line_id)) || null,
           variant_id: line.variant_id!,
           source_location_id: line.source_location_id ?? null,
           destination_location_id: receivingLocationId ?? line.destination_location_id ?? null,
@@ -1729,9 +1737,16 @@ export async function createAndPostMovementAction(rawInput: unknown) {
       branch.branchId,
       parsed.data.movement_type_code!
     );
+    const lineWarehouses = await matcherLineWarehouses(
+      supabase,
+      auth.context.app.activeOrgId,
+      branch.branchId,
+      parsed.data.lines!
+    );
     const movementInput = {
       movement_type_code: parsed.data.movement_type_code!,
       lines: parsed.data.lines!.map((line) => ({
+        warehouse_id: (line.source_line_id && lineWarehouses.get(line.source_line_id)) || null,
         variant_id: line.variant_id!,
         unit_id: line.unit_id!,
         quantity: line.quantity!,
@@ -1802,6 +1817,37 @@ export async function createAndPostMovementAction(rawInput: unknown) {
     );
   } catch (error) {
     return mapUnexpected(error);
+  }
+}
+
+/**
+ * The AutoStacja magazyn of each line imported from a Matcher session (U2):
+ * read on the server from the session -- the magazyn in the document, else
+ * the default magazyn of the ZW's jednostka. Lines from elsewhere, or whose
+ * magazyn is not configured in the branch, stay without magazyn.
+ */
+async function matcherLineWarehouses(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orgId: string,
+  branchId: string,
+  lines: Array<{ source_type?: string | null; source_line_id?: string | null }>
+): Promise<Map<string, string>> {
+  const ids = lines
+    .filter((l) => l.source_type === "svwms_wdd_matcher" && l.source_line_id)
+    .map((l) => l.source_line_id as string);
+  if (ids.length === 0) return new Map();
+  // No magazyn is never a reason to refuse a delivery: the stock then stays
+  // "without magazyn" and can be assigned later.
+  try {
+    const res = await WarehouseStockService.resolveMatcherLineWarehouses(
+      supabase,
+      orgId,
+      branchId,
+      ids
+    );
+    return res.success ? (res as { data: Map<string, string> }).data : new Map();
+  } catch {
+    return new Map();
   }
 }
 

@@ -49,6 +49,14 @@ vi.mock("@/server/services/inventory-movements.service", () => ({
     createDraft: (...a: unknown[]) => h.createDraft(...a),
   },
 }));
+vi.mock("@/server/services/warehouse-stock.service", () => ({
+  WarehouseStockService: {
+    resolveMatcherLineWarehouses: async (_s: unknown, _o: string, _b: string, ids: string[]) => ({
+      success: true,
+      data: new Map(ids.map((id) => [id, "mag-315"])),
+    }),
+  },
+}));
 vi.mock("@/server/services/inventory-receiving.service", async () => {
   const actual = await vi.importActual<
     typeof import("@/server/services/inventory-receiving.service")
@@ -108,6 +116,14 @@ describe("PZ lands in the receiving zone", () => {
   it("createDraft forces it too", async () => {
     await createDraftMovementAction(payload("101", [matcherLine]));
     expect(h.createDraft.mock.calls[0][3].lines[0].destination_location_id).toBe("prz");
+  });
+
+  it("books a Matcher line to the magazyn resolved on the server, others to none (U2)", async () => {
+    const manual = { ...matcherLine, source_type: null, source_line_id: null };
+    await createDraftMovementAction(payload("101", [matcherLine, manual]));
+    const lines = h.createDraft.mock.calls[0][3].lines;
+    expect(lines[0].warehouse_id).toBe("mag-315");
+    expect(lines[1].warehouse_id).toBeNull();
   });
 
   it("keeps the chosen destination for other movement types", async () => {
