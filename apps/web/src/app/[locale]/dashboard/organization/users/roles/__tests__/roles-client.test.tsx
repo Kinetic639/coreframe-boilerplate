@@ -18,7 +18,9 @@ vi.mock("@/hooks/queries/organization", () => ({
 }));
 
 vi.mock("react-toastify", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
-vi.mock("next-intl", () => ({ useTranslations: () => (key: string) => key }));
+vi.mock("next-intl", () => ({
+  useTranslations: () => Object.assign((key: string) => key, { has: () => false }),
+}));
 
 vi.mock("nuqs", () => ({
   useQueryState: vi.fn(() => [null, vi.fn()]),
@@ -70,13 +72,25 @@ const sampleRole: OrgRole = {
   permission_slugs: ["branches.read"],
 };
 
+const catalog = [
+  { slug: "warehouse.*", category: "warehouse", name: "Warehouse Wildcard" },
+  { slug: "warehouse.structure.manage", category: "warehouse", name: "Warehouse Structure Manage" },
+  { slug: "members.manage", category: "members", name: "Members Manage" },
+  { slug: "superadmin.*", category: "superadmin", name: "Superadmin Wildcard" },
+];
+
 function makeInitialData(roles: OrgRole[] = []): PaginatedResult<OrgRole> {
   return { rows: roles, totalCount: roles.length, page: 1, pageSize: 50 };
 }
 
 function renderClient(roles: OrgRole[] = []) {
   return render(
-    <RolesClient orgId="org-1" initialData={makeInitialData(roles)} allRoles={roles} />,
+    <RolesClient
+      orgId="org-1"
+      initialData={makeInitialData(roles)}
+      allRoles={roles}
+      permissionCatalog={catalog}
+    />,
     {
       wrapper: createWrapper(),
     }
@@ -110,6 +124,27 @@ describe("RolesClient", () => {
     renderClient();
     fireEvent.click(screen.getByRole("button", { name: /createButton/i }));
     await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+  });
+
+  it("offers module permissions from the catalog, never platform ones", async () => {
+    setupPermissions(true);
+    renderClient();
+    fireEvent.click(screen.getByRole("button", { name: /createButton/i }));
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+    expect(screen.getByLabelText(/Warehouse Structure Manage/)).toBeInTheDocument();
+    expect(screen.getByTestId("perm-group-warehouse")).toBeInTheDocument();
+    expect(screen.queryByText("superadmin.*")).toBeNull();
+  });
+
+  it("checks every permission of a module once its wildcard is chosen", async () => {
+    setupPermissions(true);
+    renderClient();
+    fireEvent.click(screen.getByRole("button", { name: /createButton/i }));
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("checkbox", { name: /warehouse\.\*/ }));
+    const structure = screen.getByRole("checkbox", { name: /Warehouse Structure Manage/ });
+    expect(structure).toBeChecked();
+    expect(structure).toBeDisabled();
   });
 
   // roles-4: Renders without crashing with role data

@@ -15,6 +15,10 @@ import "server-only";
 
 import { SupabaseClient } from "@supabase/supabase-js";
 import { groupMembersByBranch } from "@repo/domain/organization";
+import {
+  isAssignablePermission,
+  type CatalogPermission,
+} from "@/lib/permissions/permission-catalog";
 
 // ─── Shared Types ────────────────────────────────────────────────────────────
 
@@ -650,6 +654,47 @@ export interface OrgMemberAccess {
 }
 
 export class OrgRolesService {
+  /** Every permission an organization may put in a role (platform-only ones left out). */
+  static async listPermissionCatalog(
+    supabase: SupabaseClient
+  ): Promise<ServiceResult<CatalogPermission[]>> {
+    const { data, error } = await supabase
+      .from("permissions")
+      .select("slug, category, name")
+      .is("deleted_at", null)
+      .order("slug");
+    if (error) return { success: false, error: error.message };
+    return {
+      success: true,
+      data: ((data ?? []) as CatalogPermission[]).filter(isAssignablePermission),
+    };
+  }
+
+  /**
+   * The slugs a role may not be given: unknown ones and platform-only ones.
+   * Checked before a role is saved, so a crafted request cannot hand out
+   * superadmin permissions.
+   */
+  static async unassignableSlugs(
+    supabase: SupabaseClient,
+    slugs: string[]
+  ): Promise<ServiceResult<string[]>> {
+    const unique = [...new Set(slugs)];
+    if (unique.length === 0) return { success: true, data: [] };
+    const { data, error } = await supabase
+      .from("permissions")
+      .select("slug, category")
+      .in("slug", unique)
+      .is("deleted_at", null);
+    if (error) return { success: false, error: error.message };
+    const ok = new Set(
+      ((data ?? []) as { slug: string; category: string | null }[])
+        .filter(isAssignablePermission)
+        .map((p) => p.slug)
+    );
+    return { success: true, data: unique.filter((s) => !ok.has(s)) };
+  }
+
   static async listRoles(
     supabase: SupabaseClient,
     orgId: string

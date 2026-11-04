@@ -93,6 +93,8 @@ const map = (r: Row): BranchWarehouse => ({
 function friendly(error: { code?: string; message: string }): string {
   if (error.code === "23505") return "duplicate_code";
   if (error.code === "42501") return "forbidden";
+  // The branch guard: the branch is deleted or belongs to another organization
+  if (error.code === "22023" && /branch/i.test(error.message)) return "branch_unavailable";
   return error.message;
 }
 
