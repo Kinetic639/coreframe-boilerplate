@@ -13,7 +13,11 @@ import type {
   InventoryRelatedMovementRelation,
   LocationVariantStock,
 } from "@/lib/warehouse/inventory-types";
-import { toMovementRouteKey } from "@/lib/warehouse/movement-route-key";
+import {
+  toMovementRouteKey,
+  normalizeMovementRouteKey,
+  movementRouteKeyPattern,
+} from "@/lib/warehouse/movement-route-key";
 import { InventoryMovementFieldPoliciesService } from "./inventory-movement-field-policies.service";
 export type {
   CreateDraftMovementInput,
@@ -706,17 +710,31 @@ export class InventoryMovementsService {
       query = query.eq("id", movementIdentifier);
     } else {
       // A posted header is immutable, so the route_key saved after posting
-      // is often missing; fall back to the document number it was derived
-      // from (PZ-2026-000006 <- PZ/2026/000006).
-      const safe = movementIdentifier.replace(/[^A-Za-z0-9\-_]/g, "");
-      const documentNumber = safe.replace(/-/g, "/");
-      query = query.or(
-        `route_key.eq.${safe},draft_number.eq.${safe},document_number.eq."${documentNumber}"`
-      );
+      // is often missing; fall back to the number it was derived from:
+      // PZ(115)-1-26-3112 <- PZ(115)/1/26/3112, PZ-2026-000006 <- PZ/2026/000006.
+      const key = normalizeMovementRouteKey(movementIdentifier).replace(/[^A-Z0-9()+\-_]/g, "");
+      const pattern = movementRouteKeyPattern(movementIdentifier);
+      if (!pattern) return { success: false, error: "Movement not found" };
+      query = query
+        .or(
+          `route_key.eq."${key}",draft_number.eq."${key}",document_number.like."${pattern}",draft_number.like."${pattern}"`
+        )
+        .limit(10);
     }
-    const { data: header, error: headerError } = await query.maybeSingle();
+    const { data: found, error: headerError } = isUuid ? await query.limit(1) : await query;
 
     if (headerError) return { success: false, error: headerError.message };
+    const candidates = (found ?? []) as any[];
+    // The exact one first: a "-" in the key matches any one character.
+    const wanted = normalizeMovementRouteKey(movementIdentifier);
+    const header =
+      candidates.find(
+        (c) =>
+          c.id === movementIdentifier ||
+          c.route_key === wanted ||
+          (c.document_number && toMovementRouteKey(c.document_number) === wanted) ||
+          (c.draft_number && toMovementRouteKey(c.draft_number) === wanted)
+      ) ?? candidates[0];
     if (!header) return { success: false, error: "Movement not found" };
 
     const h = header as any;
