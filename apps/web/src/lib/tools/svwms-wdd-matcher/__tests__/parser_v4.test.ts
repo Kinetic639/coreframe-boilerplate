@@ -8,6 +8,8 @@ const {
   extractManualNoteFromHeaderRows,
   extractClientLineFromHeaderRows,
   buildRawTableRowsV4,
+  blockSectionContext,
+  reservationChangeInfo,
 } = parserV4TestHooks;
 
 type Row = Parameters<typeof findPreHeaderRows>[0][number];
@@ -116,5 +118,58 @@ describe("parser_v4 part names", () => {
     expect(result.rows[0].nameFragments.join(" ")).toBe(
       "USZCZELKA POSZYCIE PRZEDNIA OPONA 245/40/19"
     );
+  });
+});
+
+describe("parser_v4 magazyn and dealer of a block", () => {
+  // A Škoda document: the section line opens magazyn 315, then 415 further down.
+  const rows = [
+    line(800, "Dealer Skoda Poznan Wajsówny; Magazyn 315 (blacharnia czesci) 33 Skoda"),
+    line(790, "BLWK/115"),
+    line(780, "TMBJR7NU4N5038808 ZLEC/168528/26/3332/BL ZW/515/26/3332"),
+    line(770, "Dealer Skoda Poznan Wajsówny; Magazyn 415 (blacharnia czesci) 31 VWO"),
+    line(760, "BLWK/116"),
+    line(750, "WAUZZZ4F0AN053248 ZLEC/229/26/3332/BL ZW/415/26/3332"),
+  ];
+
+  it("takes the magazyn of the section, not a number from the ZW or BLWK", () => {
+    const ctx = blockSectionContext(rows, 2, [rows[1], rows[2]]);
+    expect(ctx).toMatchObject({
+      code: "315",
+      name: "blacharnia czesci",
+      label: "blacharnia czesci",
+      dealerName: "Dealer Skoda Poznan Wajsówny",
+      documentBrand: "Skoda",
+    });
+  });
+
+  it("switches to the next section after its Magazyn line", () => {
+    const ctx = blockSectionContext(rows, 5, [rows[4], rows[5]]);
+    expect(ctx.code).toBe("415");
+    expect(ctx.dealerName).toBe("Dealer Skoda Poznan Wajsówny");
+  });
+
+  it("leaves the magazyn empty rather than guessing when no section line exists", () => {
+    const bare = [line(800, "BLWK/115"), line(790, "TMB ZLEC/1/26/3332/BL ZW/515/26/3332")];
+    const ctx = blockSectionContext(bare, 1, bare);
+    expect(ctx.code).toBeNull();
+    expect(ctx.label).toBeNull();
+  });
+
+  it("marks a block whose lines are all ZR as a reservation change", () => {
+    const zr = { operationCode: "ZR" } as Parameters<typeof reservationChangeInfo>[0][number];
+    const plain = { operationCode: null } as Parameters<typeof reservationChangeInfo>[0][number];
+    expect(reservationChangeInfo([zr, zr])).toEqual({
+      reservation_change: true,
+      reservation_change_lines: 2,
+    });
+    expect(reservationChangeInfo([zr, plain])).toEqual({
+      reservation_change: false,
+      reservation_change_lines: 1,
+    });
+    expect(reservationChangeInfo([])).toEqual({
+      reservation_change: false,
+      reservation_change_lines: 0,
+    });
   });
 });

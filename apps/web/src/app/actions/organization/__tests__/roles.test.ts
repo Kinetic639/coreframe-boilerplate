@@ -36,6 +36,10 @@ vi.mock("@/server/guards/entitlements-guards", () => ({
 }));
 vi.mock("@/server/services/organization.service", () => ({
   OrgRolesService: {
+    unassignableSlugs: vi.fn(async (_s: unknown, slugs: string[]) => ({
+      success: true,
+      data: slugs.filter((x) => x.startsWith("superadmin.")),
+    })),
     listRoles: vi.fn(),
     createRole: vi.fn(),
     updateRole: vi.fn(),

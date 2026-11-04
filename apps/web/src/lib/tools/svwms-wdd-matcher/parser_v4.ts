@@ -417,11 +417,6 @@ function parseLp(text: string | null): number | null {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
-function detectWarehouseSection(text: string): string | null {
-  const match = text.match(/\b(115|315|415|515)\b/);
-  return match ? match[1] : null;
-}
-
 function warehouseToBrand(section: string | null): string | null {
   return section ? (WAREHOUSE_MAP[section] ?? null) : null;
 }
@@ -768,30 +763,99 @@ function detectDocumentBrand(rows: VisualRow[]): DocumentBrand {
   return "unknown";
 }
 
-/**
- * Extract numeric warehouse code and human label from a "Magazyn N (label)" line.
- * Falls back to WAREHOUSE_MAP if only the code number is found.
- */
-function extractWarehouseSectionInfo(rows: VisualRow[]): {
+/** "Magazyn 115 (blacharnia czesci)" or "Magazyn 415": the line that opens a section. */
+const MAGAZYN_LINE_RE = /\bMagazyn\s+(\d{2,5})\b(?:\s*\(([^)]+)\))?/i;
+/** "Dealer Seat Poznan Wajsówny; Magazyn …" or "Body Center …" */
+const DEALER_LINE_RE = /^\s*((?:Dealer|Body\s*Center)\b[^;]*?)\s*(?:;|\bMagazyn\b|$)/i;
+
+interface SectionContext {
+  /** AutoStacja magazyn code from the "Magazyn N" line, never guessed from other numbers */
   code: string | null;
+  /** Lower-case label in brackets (kept for older readers) */
   label: string | null;
-} {
-  for (const row of rows) {
-    const full = row.text.match(/Magazyn\s+(\d+)\s*\(([^)]+)\)/i);
-    if (full) return { code: full[1], label: full[2].trim().toLowerCase() };
-    const codeOnly = row.text.match(/Magazyn\s+(\d{3})\b/i);
-    if (codeOnly) {
-      return {
-        code: codeOnly[1],
-        label: WAREHOUSE_MAP[codeOnly[1]] ?? null,
-      };
-    }
-    for (const token of row.tokens) {
-      const code = detectWarehouseSection(token.text);
-      if (code) return { code, label: WAREHOUSE_MAP[code] ?? null };
-    }
+  /** The label as printed, e.g. "blacharnia czesci" */
+  name: string | null;
+  /** "Dealer Seat Poznan Wajsówny", "Body Center …" */
+  dealerName: string | null;
+  documentBrand: DocumentBrand;
+}
+
+function readMagazynLine(row: VisualRow): { code: string; name: string | null } | null {
+  const match = row.text.match(MAGAZYN_LINE_RE);
+  if (!match) return null;
+  return { code: match[1], name: match[2] ? normalizeText(match[2]) : null };
+}
+
+function readDealerLine(row: VisualRow): string | null {
+  const match = row.text.match(DEALER_LINE_RE);
+  return match ? normalizeText(match[1]) || null : null;
+}
+
+function brandFromText(text: string): DocumentBrand {
+  if (/Dealer\s+Seat/i.test(text)) return "Seat";
+  if (/Dealer\s+VW/i.test(text)) return "VW";
+  if (/Dealer\s+Skoda/i.test(text)) return "Skoda";
+  if (/Body\s*Center/i.test(text)) return "BC";
+  return "unknown";
+}
+
+/**
+ * The magazyn and dealer a block belongs to.
+ *
+ * A "Magazyn N (label)" line (often on the same row as "Dealer …") opens a
+ * section of the document; every block after it belongs to that section
+ * until the next such line. So the block's own header is read first, then
+ * the nearest section line above the block. Numbers inside ZW/ZL/BLWK
+ * numbers ("ZW/415/26/3142", "BLWK/115") are never taken for a magazyn.
+ */
+function blockSectionContext(
+  rows: VisualRow[],
+  blockStartIdx: number,
+  headerRows: VisualRow[]
+): SectionContext {
+  let magazyn: { code: string; name: string | null } | null = null;
+  let dealerName: string | null = null;
+
+  for (const row of headerRows) {
+    magazyn ??= readMagazynLine(row);
+    dealerName ??= readDealerLine(row);
   }
-  return { code: null, label: null };
+  for (let i = blockStartIdx - 1; i >= 0 && (!magazyn || !dealerName); i -= 1) {
+    const row = rows[i];
+    if (!magazyn) {
+      const found = readMagazynLine(row);
+      if (found) {
+        magazyn = found;
+        // The dealer printed on the section line belongs to that section.
+        dealerName ??= readDealerLine(row);
+        continue;
+      }
+    }
+    dealerName ??= readDealerLine(row);
+  }
+
+  let documentBrand = detectDocumentBrand(headerRows);
+  if (documentBrand === "unknown" && dealerName) documentBrand = brandFromText(dealerName);
+
+  return {
+    code: magazyn?.code ?? null,
+    label: magazyn?.name ? magazyn.name.toLowerCase() : null,
+    name: magazyn?.name ?? null,
+    dealerName,
+    documentBrand,
+  };
+}
+
+/** Lines of the block that change a reservation (operation ZR) rather than deliver. */
+function reservationChangeInfo(lines: ParsedLineV4[]): {
+  reservation_change: boolean;
+  reservation_change_lines: number;
+} {
+  const count = lines.filter((line) => (line.operationCode ?? "").toUpperCase() === "ZR").length;
+  return {
+    reservation_change: count > 0 && count === lines.length,
+    reservation_change_lines: count,
+  };
 }
 
 function computeLogicalOrderFamily(
@@ -1133,18 +1197,6 @@ function extractVin(rows: VisualRow[]): string | null {
   for (const row of rows) {
     const match = row.text.match(VIN_RE);
     if (match) return match[1].toUpperCase();
-  }
-  return null;
-}
-
-function extractWarehouse(rows: VisualRow[]): string | null {
-  for (const row of rows) {
-    const code = detectWarehouseSection(row.text);
-    if (code) return code;
-    for (const token of row.tokens) {
-      const tokenCode = detectWarehouseSection(token.text);
-      if (tokenCode) return tokenCode;
-    }
   }
   return null;
 }
@@ -2372,10 +2424,11 @@ function parseBcBlockV4(
   const preHeaderRows = findPreHeaderRows(rows, blockStart.idx, prevBlockStartIdx);
   const allHeaderRows = [...preHeaderRows, ...headerRows];
 
-  const warehouseInfo = extractWarehouseSectionInfo(allHeaderRows);
-  const warehouseCode = warehouseInfo.code ?? extractWarehouse(allHeaderRows);
+  const section = blockSectionContext(rows, blockStart.idx, allHeaderRows);
+  const warehouseInfo = { code: section.code, label: section.label };
+  const warehouseCode = section.code;
   const warehouseFamilyAlias = warehouseToBrand(warehouseCode);
-  const documentBrand = detectDocumentBrand(allHeaderRows);
+  const documentBrand = section.documentBrand;
 
   const tableResult = buildRawTableRowsV4(tableBodyRows, bandMap, tableHeaderRow !== null);
   const lines = buildParsedLinesV4(tableResult.rows);
@@ -2430,6 +2483,9 @@ function parseBcBlockV4(
       header_normalized: headerNormalized,
       warehouse_code: warehouseCode,
       warehouse_section_label: warehouseInfo.label,
+      warehouse_name: section.name,
+      dealer_name: section.dealerName,
+      ...reservationChangeInfo(lines),
       warehouse_family_alias: warehouseFamilyAlias,
       document_brand: documentBrand,
       logical_order_key: logicalOrderKey,
@@ -2523,6 +2579,9 @@ function parseBcBlockV4(
     header_normalized: headerNormalized,
     warehouse_code: warehouseCode,
     warehouse_section_label: warehouseInfo.label,
+    warehouse_name: section.name,
+    dealer_name: section.dealerName,
+    ...reservationChangeInfo(lines),
     warehouse_family_alias: warehouseFamilyAlias,
     document_brand: documentBrand,
     logical_order_key: logicalOrderKey,
@@ -2590,10 +2649,11 @@ function parseBrandBlockV4(
   } = splitBlockRegions(blockRows);
   const allHeaderRows = [...preHeaderRows, ...postTriggerHeaderRows];
 
-  const warehouseInfo = extractWarehouseSectionInfo(allHeaderRows);
-  const warehouseCode = warehouseInfo.code ?? extractWarehouse(allHeaderRows);
+  const section = blockSectionContext(rows, blockStart.idx, allHeaderRows);
+  const warehouseInfo = { code: section.code, label: section.label };
+  const warehouseCode = section.code;
   const warehouseFamilyAlias = warehouseToBrand(warehouseCode);
-  const documentBrand = detectDocumentBrand(allHeaderRows);
+  const documentBrand = section.documentBrand;
 
   const candidateKind: ParsedBlockV4["candidateKind"] =
     warehouseCode === "415" ? "mirror" : "brand_order";
@@ -2695,6 +2755,9 @@ function parseBrandBlockV4(
     header_normalized: headerNormalized,
     warehouse_code: warehouseCode,
     warehouse_section_label: warehouseInfo.label,
+    warehouse_name: section.name,
+    dealer_name: section.dealerName,
+    ...reservationChangeInfo(lines),
     warehouse_family_alias: warehouseFamilyAlias,
     document_brand: documentBrand,
     logical_order_key: logicalOrderKey,
@@ -2801,6 +2864,8 @@ export async function parsePdfAutoV4(buffer: ArrayBuffer): Promise<ParseResultV4
 
 /** Internal steps, exported for unit tests only. */
 export const parserV4TestHooks = {
+  blockSectionContext,
+  reservationChangeInfo,
   isInterBlockClientRow,
   isManualInterBlockNoteRow,
   findPreHeaderRows,
