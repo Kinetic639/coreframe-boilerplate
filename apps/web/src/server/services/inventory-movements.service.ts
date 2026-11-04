@@ -581,7 +581,10 @@ export class InventoryMovementsService {
 
     let query = supabase
       .from("inventory_movement_headers")
-      .select("*", { count: "exact" })
+      .select(
+        "*, warehouse:unit_warehouses!inventory_movement_headers_warehouse_id_fkey(code, name, unit:branch_warehouses!unit_warehouses_unit_id_fkey(code))",
+        { count: "exact" }
+      )
       .eq("organization_id", orgId)
       .eq("branch_id", branchId)
       .is("deleted_at", null)
@@ -597,6 +600,28 @@ export class InventoryMovementsService {
     const statusFilter = params.filters?.status;
     if (statusFilter && typeof statusFilter === "string") {
       query = query.eq("status", statusFilter);
+    }
+    const typeFilter = params.filters?.movement_type_code;
+    if (typeFilter && typeof typeFilter === "string") {
+      query = query.eq("movement_type_code", typeFilter);
+    }
+    // U5: by AutoStacja magazyn or jednostka of the document
+    const warehouseFilter = params.filters?.warehouse_id;
+    if (warehouseFilter && typeof warehouseFilter === "string") {
+      query = query.eq("warehouse_id", warehouseFilter);
+    }
+    const unitFilter = params.filters?.unit_id;
+    if (unitFilter && typeof unitFilter === "string") {
+      const { data: unitWarehouses } = await supabase
+        .from("unit_warehouses")
+        .select("id")
+        .eq("organization_id", orgId)
+        .eq("unit_id", unitFilter);
+      const ids = ((unitWarehouses ?? []) as Array<{ id: string }>).map((w) => w.id);
+      query = query.in(
+        "warehouse_id",
+        ids.length > 0 ? ids : ["00000000-0000-0000-0000-000000000000"]
+      );
     }
 
     const { data, error, count } = await query;
@@ -653,6 +678,9 @@ export class InventoryMovementsService {
         created_by: h.created_by,
         created_at: h.created_at,
         posted_at: h.posted_at,
+        warehouse_code: h.warehouse?.code ?? null,
+        warehouse_name: h.warehouse?.name ?? null,
+        unit_code: h.warehouse?.unit?.code ?? null,
       };
     });
 

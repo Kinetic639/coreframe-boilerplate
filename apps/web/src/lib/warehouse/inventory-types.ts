@@ -572,6 +572,10 @@ export type InventoryMovementListRow = {
   created_by: string | null;
   created_at: string;
   posted_at: string | null;
+  /** AutoStacja magazyn and jednostka of the document (U3) */
+  warehouse_code?: string | null;
+  warehouse_name?: string | null;
+  unit_code?: string | null;
 };
 
 export type InventoryPickerItem = {

@@ -309,6 +309,8 @@ export type InternalOrderError =
   | "not_open"
   | "reason_required"
   | "code_taken"
+  | "same_unit"
+  | "warehouse_short"
   | "invalid"
   | "unexpected";
 
@@ -329,6 +331,8 @@ export function mapInternalOrderError(error: {
   if (/container/i.test(m)) return "in_container";
   if (/not open|already cancelled|is cancelled/i.test(m)) return "not_open";
   if (/reason is required/i.test(m)) return "reason_required";
+  if (/Within one jednostka/i.test(m)) return "same_unit";
+  if (/The magazyn holds only/i.test(m)) return "warehouse_short";
   if (error.code === "P0002") return "not_found";
   if (error.code === "22023") return "invalid";
   return "unexpected";
@@ -519,7 +523,10 @@ export class InternalOrderOperationsService {
       actorUserId: string;
       organizationId: string;
       sourceBranchId: string;
-      destinationBranchId: string;
+      destinationBranchId: string | null;
+      /** U4: MMJ from this magazyn to a magazyn of another jednostka */
+      sourceWarehouseId?: string | null;
+      destinationWarehouseId?: string | null;
       notes: string | null;
       send: boolean;
       lines: Array<{
@@ -530,19 +537,32 @@ export class InternalOrderOperationsService {
       }>;
     }
   ): Promise<OpResult<{ transferId: string; transferNumber: string; status: string }>> {
-    const { data, error } = await supabase.rpc("inventory_create_branch_transfer", {
-      p_organization_id: input.organizationId,
-      p_source_branch_id: input.sourceBranchId,
-      p_destination_branch_id: input.destinationBranchId,
-      p_lines: input.lines.map((l) => ({
-        variant_id: l.variantId,
-        source_location_id: l.sourceLocationId,
-        unit_id: l.unitId,
-        quantity: l.quantity,
-      })),
-      p_notes: input.notes,
-      p_actor_user_id: input.actorUserId,
-    });
+    const lines = input.lines.map((l) => ({
+      variant_id: l.variantId,
+      source_location_id: l.sourceLocationId,
+      unit_id: l.unitId,
+      quantity: l.quantity,
+    }));
+    // U4: between jednostki (also within the branch) when the magazyny are named
+    const { data, error } =
+      input.sourceWarehouseId && input.destinationWarehouseId
+        ? await supabase.rpc("inventory_create_unit_transfer", {
+            p_organization_id: input.organizationId,
+            p_source_branch_id: input.sourceBranchId,
+            p_source_warehouse_id: input.sourceWarehouseId,
+            p_destination_warehouse_id: input.destinationWarehouseId,
+            p_lines: lines,
+            p_notes: input.notes,
+            p_actor_user_id: input.actorUserId,
+          })
+        : await supabase.rpc("inventory_create_branch_transfer", {
+            p_organization_id: input.organizationId,
+            p_source_branch_id: input.sourceBranchId,
+            p_destination_branch_id: input.destinationBranchId,
+            p_lines: lines,
+            p_notes: input.notes,
+            p_actor_user_id: input.actorUserId,
+          });
     if (error) return { success: false, error: mapInternalOrderError(error) };
     const created = (data ?? {}) as Record<string, unknown>;
     const transferId = String(created.transfer_id);

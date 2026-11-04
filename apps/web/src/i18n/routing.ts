@@ -107,6 +107,10 @@ export const routing = defineRouting({
       en: "/dashboard/warehouse/inventory/movements",
       pl: "/dashboard/magazyn/inwentarz/ruchy",
     },
+    "/dashboard/warehouse/inventory/warehouse-stock": {
+      en: "/dashboard/warehouse/inventory/warehouse-stock",
+      pl: "/dashboard/magazyn/inwentarz/stany-magazynow",
+    },
     "/dashboard/warehouse/inventory/movements/[movementId]": {
       en: "/dashboard/warehouse/inventory/movements/[movementId]",
       pl: "/dashboard/magazyn/inwentarz/ruchy/[movementId]",

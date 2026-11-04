@@ -338,7 +338,10 @@ export async function createUnitTransferAction(rawInput: unknown) {
     if (!scope) return { success: false, error: "unauthorized" } satisfies Fail;
     const parsed = z
       .object({
-        destinationBranchId: uuid,
+        destinationBranchId: uuid.nullable().optional(),
+        // U4: the source magazyn and the target magazyn of another jednostka
+        sourceWarehouseId: uuid.nullable().optional(),
+        destinationWarehouseId: uuid.nullable().optional(),
         notes: z.string().trim().max(1000).nullable().optional(),
         send: z.boolean(),
         lines: z
@@ -348,15 +351,22 @@ export async function createUnitTransferAction(rawInput: unknown) {
       })
       .safeParse(rawInput);
     if (!parsed.success) return { success: false, error: "invalid_input" } satisfies Fail;
-    if (parsed.data.destinationBranchId === scope.branchId) {
-      return { success: false, error: "no_destination" } satisfies Fail;
+    const byWarehouse = Boolean(
+      parsed.data.sourceWarehouseId && parsed.data.destinationWarehouseId
+    );
+    if (!byWarehouse) {
+      if (!parsed.data.destinationBranchId || parsed.data.destinationBranchId === scope.branchId) {
+        return { success: false, error: "no_destination" } satisfies Fail;
+      }
     }
     const supabase = await createClient();
     return InternalOrderOperationsService.createTransfer(supabase, {
       actorUserId: scope.userId,
       organizationId: scope.orgId,
       sourceBranchId: scope.branchId,
-      destinationBranchId: parsed.data.destinationBranchId!,
+      destinationBranchId: parsed.data.destinationBranchId ?? null,
+      sourceWarehouseId: parsed.data.sourceWarehouseId ?? null,
+      destinationWarehouseId: parsed.data.destinationWarehouseId ?? null,
       notes: parsed.data.notes || null,
       send: parsed.data.send!,
       lines: parsed.data.lines!.map((l) => ({

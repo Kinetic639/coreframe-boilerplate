@@ -23,6 +23,7 @@ import {
   listInventoryMovementsAction,
 } from "@/app/actions/warehouse/inventory";
 import { InventoryMovementDetailPanel } from "./inventory-movement-detail-panel";
+import type { DocumentUnit } from "@/server/services/warehouse-stock.service";
 
 type LocationOption = {
   id: string;
@@ -36,6 +37,8 @@ type InventoryMovementsClientProps = {
   activeBranchId: string | null;
   locations: LocationOption[];
   canOperate: boolean;
+  /** Jednostki and magazyny of the branch, for the filters (U5) */
+  units?: DocumentUnit[];
 };
 
 async function listFetcher(params: DataViewListParams) {
@@ -68,6 +71,7 @@ export function InventoryMovementsClient({
   activeBranchId,
   locations,
   canOperate,
+  units = [],
 }: InventoryMovementsClientProps) {
   const t = useTranslations("warehouseInventory.movements");
   const td = useTranslations("warehouseInventory.movementDetail");
@@ -112,6 +116,22 @@ export function InventoryMovementsClient({
         defaultVisible: true,
       },
       {
+        key: "warehouse_code",
+        header: t("warehouse"),
+        accessor: (row) =>
+          row.warehouse_code ? (
+            <span className="font-mono text-xs" title={row.warehouse_name ?? undefined}>
+              {row.warehouse_code}
+              {row.unit_code ? (
+                <span className="text-muted-foreground"> · {row.unit_code}</span>
+              ) : null}
+            </span>
+          ) : (
+            ""
+          ),
+        defaultVisible: true,
+      },
+      {
         key: "external_reference",
         header: t("reference"),
         accessor: (row) => row.external_reference ?? "",
@@ -152,11 +172,35 @@ export function InventoryMovementsClient({
       type: "select",
       key: "movement_type_code",
       label: t("kind"),
-      options: ["101", "201", "301", "401", "801"].map((value) => ({
+      options: ["101", "102", "261", "303", "305", "401", "402", "801", "900"].map((value) => ({
         label: value,
         value,
       })),
     },
+    ...(units.length > 0
+      ? ([
+          {
+            type: "select",
+            key: "unit_id",
+            label: t("unit"),
+            options: units.map((u) => ({
+              label: `${u.code}${u.name ? ` ${u.name}` : ""}`,
+              value: u.id,
+            })),
+          },
+          {
+            type: "select",
+            key: "warehouse_id",
+            label: t("warehouse"),
+            options: units.flatMap((u) =>
+              u.warehouses.map((w) => ({
+                label: `${w.code}${w.name ? ` ${w.name}` : ""} (${u.code})`,
+                value: w.id,
+              }))
+            ),
+          },
+        ] as DataViewFilterDef[])
+      : []),
     {
       type: "select",
       key: "status",

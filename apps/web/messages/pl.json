@@ -2319,7 +2319,8 @@
           "adjustments": {
             "title": "Korekty stanów",
             "single": "Pojedyncza korekta"
-          }
+          },
+          "warehouseStock": "Stany magazynów AS"
         },
         "locations": "Lokalizacje",
         "audits": "Inwentaryzacje",
@@ -3380,7 +3381,9 @@
           "code_taken": "Ten kod ma już inny oddział.",
           "invalid": "Nieprawidłowe dane (np. jednostka spoza oddziału).",
           "invalid_input": "Nieprawidłowe dane.",
-          "unexpected": "Coś poszło nie tak. Spróbuj ponownie."
+          "unexpected": "Coś poszło nie tak. Spróbuj ponownie.",
+          "same_unit": "W obrębie jednej jednostki części przenosi MM, nie MMJ.",
+          "warehouse_short": "W magazynie źródłowym jest za mało tej części."
         },
         "branchCodes": {
           "title": "Kody oddziałów (SVWMS / AutoStacja)",
@@ -4120,7 +4123,8 @@
             "recipient_required": "Podaj odbiorcę.",
             "insufficient_stock": "Na lokalizacji brakuje stanu do wydania — sprawdź magazyn.",
             "invalid_input": "Nieprawidłowe dane wydania.",
-            "unexpected": "Nie udało się wydać części. Spróbuj ponownie."
+            "unexpected": "Nie udało się wydać części. Spróbuj ponownie.",
+            "one_warehouse": "Jedno WU wydaje części z jednego magazynu. Zaznacz części z jednego magazynu i wydaj drugi magazyn osobno, albo najpierw przenieś części ruchem MM."
           }
         },
         "import": {
@@ -6984,7 +6988,9 @@
       "selectBranch": "Wybierz oddział, aby utworzyć ruch.",
       "adjustmentWarning": "Korekty służą tylko do poprawiania stanów. Dla normalnych zwrotów lub przesunięć użyj przyjęcia, wydania albo przesunięcia.",
       "from": "z {location}",
-      "to": "do {location}"
+      "to": "do {location}",
+      "warehouse": "Magazyn",
+      "unit": "Jednostka"
     },
     "movementEditor": {
       "newMovement": "Nowy ruch",
@@ -7161,7 +7167,9 @@
         "documentSeveralWarehouses": "Jeden dokument ma jeden magazyn. Pozycje z różnych magazynów wymagają osobnych dokumentów.",
         "mmOtherUnit": "MM przenosi tylko między magazynami jednej jednostki. Do innej jednostki użyj MMJ.",
         "warehouseShort": "W magazynie źródłowym jest za mało tej części.",
-        "mmNoChange": "MM musi zmienić regał albo magazyn."
+        "mmNoChange": "MM musi zmienić regał albo magazyn.",
+        "warehouseRequired": "Wybierz magazyn dokumentu. Jeśli pozycje są z dostawy, magazyn z dokumentu nie jest skonfigurowany: dodaj go w Organizacja → Oddziały → Jednostki i magazyny.",
+        "wuOneWarehouse": "Jedno WU wydaje części z jednego magazynu. Wydaj drugi magazyn osobno albo najpierw przenieś części ruchem MM."
       },
       "documentWarehouse": {
         "title": "Magazyn",
@@ -7171,8 +7179,13 @@
         "destination": "Magazyn docelowy",
         "sameWarehouse": "Ten sam magazyn",
         "destinationHint": "Tylko magazyny tej samej jednostki. Do innej jednostki: MMJ.",
-        "fromMatcher": "Pozycje z dostawy mają magazyn z dokumentów (115, 315…). Jeśli jest ich kilka, przy księgowaniu powstanie osobne PZ dla każdego magazynu."
-      }
+        "fromMatcher": "Pozycje z dostawy mają magazyn z dokumentów (115, 315…). Jeśli jest ich kilka, przy księgowaniu powstanie osobne PZ dla każdego magazynu.",
+        "transferTarget": "Jednostka i magazyn docelowy",
+        "chooseTarget": "Wybierz jednostkę i magazyn",
+        "transferTargetHint": "Inna jednostka, także w tym samym oddziale. W obrębie jednej jednostki części przenosi MM."
+      },
+      "warehouseRequired": "Wybierz magazyn dokumentu.",
+      "transferTargetRequired": "Wybierz jednostkę i magazyn docelowy MMJ."
     },
     "itemPicker": {
       "title": "Selektor pozycji WMS",
@@ -8312,6 +8325,25 @@
           "no_permission": "Brak w katalogu — brak uprawnień"
         }
       }
+    },
+    "warehouseStockReport": {
+      "title": "Stany magazynów AutoStacji",
+      "description": "Ile każdej części należy do którego magazynu AS w tym oddziale, niezależnie od regału. Do porównania z AutoStacją magazyn po magazynie.",
+      "unit": "Jednostka",
+      "warehouse": "Magazyn",
+      "search": "Część",
+      "searchPlaceholder": "Numer lub nazwa części",
+      "all": "Wszystkie",
+      "apply": "Pokaż",
+      "sku": "Numer części",
+      "name": "Nazwa",
+      "quantity": "Ilość",
+      "positions": "{count, plural, one {# pozycja} few {# pozycje} other {# pozycji}}",
+      "pieces": "{qty} szt.",
+      "without": "Bez magazynu",
+      "empty": "Brak stanu dla wybranych filtrów.",
+      "loadError": "Nie udało się wczytać stanów.",
+      "noBranch": "Wybierz oddział."
     }
   },
   "warehouseReports": {

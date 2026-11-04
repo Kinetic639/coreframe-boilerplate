@@ -18,7 +18,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { listDocumentWarehousesAction } from "@/app/actions/warehouse/inventory";
+import {
+  listDocumentWarehousesAction,
+  listTransferTargetsAction,
+} from "@/app/actions/warehouse/inventory";
 import type { DocumentUnit } from "@/server/services/warehouse-stock.service";
 
 const NONE = "__none__";
@@ -41,11 +44,32 @@ export function useDocumentUnits() {
   return units;
 }
 
+/** Every jednostka of the organization with its magazyny: the targets of an MMJ. */
+export function useTransferTargets(enabled: boolean) {
+  const [units, setUnits] = useState<DocumentUnit[] | null>(null);
+  useEffect(() => {
+    if (!enabled || units !== null) return;
+    let alive = true;
+    void (async () => {
+      const res = (await listTransferTargetsAction()) as {
+        success: boolean;
+        data?: DocumentUnit[];
+      };
+      if (alive) setUnits(res.success ? (res.data ?? []) : []);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [enabled, units]);
+  return units;
+}
+
 export function DocumentWarehouseSection({
   units,
   warehouseId,
   destinationWarehouseId,
   showDestination,
+  transferTargets,
   fromMatcher,
   readonly,
   onWarehouseChange,
@@ -56,6 +80,8 @@ export function DocumentWarehouseSection({
   destinationWarehouseId: string | null;
   /** MM: the target magazyn of the same jednostka */
   showDestination: boolean;
+  /** MMJ: the jednostki of the organization; the target is in another jednostka */
+  transferTargets?: DocumentUnit[] | null;
   /** Lines from a Matcher session carry their own magazyn */
   fromMatcher: boolean;
   readonly?: boolean;
@@ -71,13 +97,29 @@ export function DocumentWarehouseSection({
   }, [units]);
   const sourceUnit = warehouseId ? unitOf.get(warehouseId) : undefined;
   const destinations = (sourceUnit?.warehouses ?? []).filter((w) => w.id !== warehouseId);
+  const isTransfer = transferTargets !== undefined;
+  const targetUnits = (transferTargets ?? []).filter((u) => u.id !== sourceUnit?.id);
 
-  // A target magazyn outside the source's jednostka is never kept.
+  // MM: a target magazyn outside the source's jednostka is never kept.
+  // MMJ: a target inside the source's jednostka is never kept.
   useEffect(() => {
-    if (destinationWarehouseId && unitOf.get(destinationWarehouseId)?.id !== sourceUnit?.id) {
+    if (!destinationWarehouseId) return;
+    if (isTransfer) {
+      const target = (transferTargets ?? []).find((u) =>
+        u.warehouses.some((w) => w.id === destinationWarehouseId)
+      );
+      if (transferTargets && (!target || target.id === sourceUnit?.id)) onDestinationChange(null);
+    } else if (unitOf.get(destinationWarehouseId)?.id !== sourceUnit?.id) {
       onDestinationChange(null);
     }
-  }, [destinationWarehouseId, onDestinationChange, sourceUnit?.id, unitOf]);
+  }, [
+    destinationWarehouseId,
+    isTransfer,
+    onDestinationChange,
+    sourceUnit?.id,
+    transferTargets,
+    unitOf,
+  ]);
 
   if (units !== null && units.length === 0) return null;
 
@@ -94,6 +136,7 @@ export function DocumentWarehouseSection({
         <div>
           <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             {t("warehouse")}
+            {!fromMatcher && <span className="text-destructive ml-0.5">*</span>}
           </label>
           <Select
             value={warehouseId ?? NONE}
@@ -104,7 +147,7 @@ export function DocumentWarehouseSection({
               <SelectValue placeholder={t("choose")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={NONE}>{t("none")}</SelectItem>
+              <SelectItem value={NONE}>{t("choose")}</SelectItem>
               {(units ?? []).map((u) => (
                 <SelectGroup key={u.id}>
                   <SelectLabel>
@@ -121,6 +164,42 @@ export function DocumentWarehouseSection({
             </SelectContent>
           </Select>
         </div>
+
+        {isTransfer && (
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              {t("transferTarget")}
+              <span className="text-destructive ml-0.5">*</span>
+            </label>
+            <Select
+              value={destinationWarehouseId ?? NONE}
+              onValueChange={(v) => onDestinationChange(v === NONE ? null : v)}
+              disabled={readonly || !sourceUnit || transferTargets === null}
+            >
+              <SelectTrigger className="h-9 text-sm" aria-label={t("transferTarget")}>
+                <SelectValue placeholder={t("chooseTarget")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NONE}>{t("chooseTarget")}</SelectItem>
+                {targetUnits.map((u) => (
+                  <SelectGroup key={u.id}>
+                    <SelectLabel>
+                      {u.code}
+                      {u.name ? ` ${u.name}` : ""}
+                      {u.branchName ? ` · ${u.branchName}` : ""}
+                    </SelectLabel>
+                    {u.warehouses.map((w) => (
+                      <SelectItem key={w.id} value={w.id}>
+                        {label(u, w)}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="mt-1 text-xs text-muted-foreground">{t("transferTargetHint")}</p>
+          </div>
+        )}
 
         {showDestination && (
           <div>

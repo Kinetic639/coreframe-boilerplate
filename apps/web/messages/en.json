@@ -2364,7 +2364,8 @@
           "adjustments": {
             "title": "Stock Adjustments",
             "single": "Single Adjustment"
-          }
+          },
+          "warehouseStock": "AS warehouse stock"
         },
         "locations": "Locations",
         "audits": "Stock Audits",
@@ -3409,7 +3410,9 @@
           "code_taken": "Another branch already has this code.",
           "invalid": "Invalid data (e.g. a unit outside the branch).",
           "invalid_input": "Invalid data.",
-          "unexpected": "Something went wrong. Try again."
+          "unexpected": "Something went wrong. Try again.",
+          "same_unit": "Within one unit parts move by MM, not MMJ.",
+          "warehouse_short": "The source warehouse does not hold enough of this part."
         },
         "branchCodes": {
           "title": "Branch codes (SVWMS / AutoStacja)",
@@ -4040,7 +4043,8 @@
             "recipient_required": "Enter a recipient.",
             "insufficient_stock": "Not enough stock at the location — check the warehouse.",
             "invalid_input": "Invalid issue request.",
-            "unexpected": "Could not issue the parts. Please try again."
+            "unexpected": "Could not issue the parts. Please try again.",
+            "one_warehouse": "One WU issues parts of one warehouse. Select parts of one warehouse and issue the other separately, or move the parts by MM first."
           }
         },
         "import": {
@@ -6901,7 +6905,9 @@
       "selectBranch": "Select a branch to create movements.",
       "adjustmentWarning": "Adjustments should be used only for inventory corrections. For normal returns or moves, post a receipt, issue, or transfer.",
       "from": "from {location}",
-      "to": "to {location}"
+      "to": "to {location}",
+      "warehouse": "Warehouse",
+      "unit": "Unit"
     },
     "movementEditor": {
       "newMovement": "New Movement",
@@ -7078,7 +7084,9 @@
         "documentSeveralWarehouses": "A document has one warehouse. Lines of different warehouses need separate documents.",
         "mmOtherUnit": "An MM moves stock only between warehouses of one unit. Use MMJ for another unit.",
         "warehouseShort": "The source warehouse does not hold enough of this part.",
-        "mmNoChange": "An MM must change the shelf or the warehouse."
+        "mmNoChange": "An MM must change the shelf or the warehouse.",
+        "warehouseRequired": "Choose the document's warehouse. For delivery lines, the warehouse of the document is not configured: add it in Organization → Branches → Units and warehouses.",
+        "wuOneWarehouse": "One WU issues parts of one warehouse. Issue the other warehouse separately or move the parts by MM first."
       },
       "documentWarehouse": {
         "title": "Warehouse",
@@ -7088,8 +7096,13 @@
         "destination": "Target warehouse",
         "sameWarehouse": "Same warehouse",
         "destinationHint": "Only warehouses of the same unit. For another unit: MMJ.",
-        "fromMatcher": "Delivery lines take their warehouse from the documents (115, 315…). If there are several, posting makes one receipt per warehouse."
-      }
+        "fromMatcher": "Delivery lines take their warehouse from the documents (115, 315…). If there are several, posting makes one receipt per warehouse.",
+        "transferTarget": "Target unit and warehouse",
+        "chooseTarget": "Choose a unit and warehouse",
+        "transferTargetHint": "Another unit, also in the same branch. Within one unit parts move by MM."
+      },
+      "warehouseRequired": "Choose the document's warehouse.",
+      "transferTargetRequired": "Choose the target unit and warehouse of the MMJ."
     },
     "itemPicker": {
       "title": "WMS Item Picker",
@@ -8229,6 +8242,25 @@
           "no_permission": "Not in catalog — no permission"
         }
       }
+    },
+    "warehouseStockReport": {
+      "title": "AutoStacja warehouse stock",
+      "description": "How much of each part belongs to which AS warehouse of this branch, whatever the shelf. To compare with AutoStacja warehouse by warehouse.",
+      "unit": "Unit",
+      "warehouse": "Warehouse",
+      "search": "Part",
+      "searchPlaceholder": "Part number or name",
+      "all": "All",
+      "apply": "Show",
+      "sku": "Part number",
+      "name": "Name",
+      "quantity": "Quantity",
+      "positions": "{count, plural, one {# line} other {# lines}}",
+      "pieces": "{qty} pcs",
+      "without": "No warehouse",
+      "empty": "No stock for these filters.",
+      "loadError": "Could not load the stock.",
+      "noBranch": "Choose a branch."
     }
   },
   "warehouseReports": {

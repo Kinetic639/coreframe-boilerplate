@@ -1188,6 +1188,21 @@ export async function archiveInventoryProductAction(rawInput: unknown) {
   }
 }
 
+/** Jednostki and magazyny of the whole organization, as MMJ targets (U4). */
+export async function listTransferTargetsAction() {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_INVENTORY_OPERATE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+    const supabase = await createClient();
+    return WarehouseStockService.documentUnits(supabase, auth.context.app.activeOrgId, null);
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
 /** Jednostki and magazyny of the active branch, for a document's magazyn (U3). */
 export async function listDocumentWarehousesAction() {
   try {
@@ -1355,6 +1370,21 @@ export async function createDraftMovementAction(rawInput: unknown) {
       // One document = one magazyn: a delivery of several magazyny is posted
       // at once, as one PZ per magazyn, not kept as one draft.
       return { success: false, error: "draft_several_warehouses" };
+    }
+    if (
+      await missingWarehouse(
+        supabase,
+        auth.context.app.activeOrgId,
+        branch.branchId,
+        parsed.data.lines!.map((line) => ({
+          warehouse_id:
+            (line.source_line_id && lineWarehouses.get(line.source_line_id)) ||
+            parsed.data.warehouse_id ||
+            null,
+        }))
+      )
+    ) {
+      return { success: false, error: "warehouse_required" };
     }
     return InventoryMovementsService.createDraft(
       supabase,
@@ -1855,6 +1885,17 @@ export async function createAndPostMovementAction(rawInput: unknown) {
         )
       : [];
 
+    if (
+      await missingWarehouse(
+        supabase,
+        auth.context.app.activeOrgId,
+        branch.branchId,
+        movementInput.lines
+      )
+    ) {
+      return { success: false, error: "warehouse_required" };
+    }
+
     // One document = one magazyn (U3): a PZ whose lines belong to several
     // magazyny becomes one PZ per magazyn, all posted in one transaction.
     if (warehousesOf(movementInput.lines).length > 1) {
@@ -1932,6 +1973,30 @@ export async function createAndPostMovementAction(rawInput: unknown) {
     );
   } catch (error) {
     return mapUnexpected(error);
+  }
+}
+
+/**
+ * The magazyn is obligatory (decision 2026-11-04): once the branch has
+ * magazyny configured, every line of a new document names one -- its own
+ * from the Matcher session or the document's.
+ */
+async function missingWarehouse(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orgId: string,
+  branchId: string,
+  lines: Array<{ warehouse_id?: string | null }>
+): Promise<boolean> {
+  if (lines.every((l) => l.warehouse_id)) return false;
+  try {
+    const units = await WarehouseStockService.branchUnits(supabase, orgId, branchId);
+    return units.success
+      ? (units as { data: Array<{ warehouses: unknown[] }> }).data.some(
+          (u) => u.warehouses.length > 0
+        )
+      : false;
+  } catch {
+    return false;
   }
 }
 

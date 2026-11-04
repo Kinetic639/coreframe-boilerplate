@@ -233,6 +233,25 @@ Ze zrzutu „Kartoteka dokumentów magazynowych” AS (jednostka Seat 3252):
   - **Stan sprzed U2 nie wymaga migracji:** wszystkie organizacje w bazie, w tym CNP, to dane testowe do usunięcia.
   - Do decyzji: czy magazyn jest obowiązkowy na ekranie „Nowy ruch”.
 
+### Magazyn obowiązkowy, WU z jednego magazynu: zrobione 2026-11-04
+
+- Na ekranie „Nowy ruch” **magazyn jest obowiązkowy**, gdy oddział ma skonfigurowane magazyny. Dla MMJ obowiązkowa jest też jednostka i magazyn docelowy. Pozycje z Matchera biorą magazyn z dokumentów. Jeśli dokument wskazuje magazyn, którego nie ma w konfiguracji, PZ jest odrzucane z prośbą o dodanie magazynu. Serwer sprawdza to samo.
+- **WU z częściami z kilku magazynów jest odrzucane**: „wydaj drugi magazyn osobno albo najpierw przenieś części ruchem MM”.
+
+### U4: zrobione 2026-11-04
+
+- **MMJ adresuje magazyn i jednostkę**, a nie oddział (`inventory_create_unit_transfer`). Działa także w obrębie jednego oddziału (3112/115 → 3332/315), bez przełączania. MMJ w obrębie jednej jednostki jest odrzucane, bo to zadanie MM.
+- Przebieg bez zmian: przygotowane (zarezerwowane) → w drodze → przyjęte w całości.
+- Numery jak w AS: `MMJ-(115)/nr/rr/3112` u nadawcy i `MMJ+(315)/nr/rr/3332` u odbiorcy, każdy w swojej serii. MMJ- większe niż stan magazynu źródłowego jest odrzucane przy przyjęciu.
+- **ZW** rozpoznaje oddział odbiorcy także po kodzie jednostki (np. 3252), a nie tylko po `external_codes`.
+- MMJ między oddziałami bez magazynów działa i jest numerowane jak dotąd.
+- Migracja `20261104200000_unit_transfers_u4.sql`, test `149_unit_transfers_u4_test.sql`.
+
+### U5: zrobione 2026-11-04
+
+- **Lista ruchów:** kolumna „Magazyn” (kod magazynu i jednostki) oraz filtry „Jednostka”, „Magazyn” i „Rodzaj” (filtr rodzaju wcześniej nie działał).
+- **Raport „Stany magazynów AS”** (Magazyn → Stany magazynów AS, `/dashboard/warehouse/inventory/warehouse-stock`): każda część w każdym magazynie oddziału, filtr po jednostce, magazynie i części, sumy na magazyn oraz pozycja „Bez magazynu”. Służy do porównania z AutoStacją magazyn po magazynie.
+
 ## 10. Pytania otwarte
 
 1. Wzór „pierwsza cyfra magazynu = jednostka” jest **możliwy, niepotwierdzony**. Ambra go **nie zakłada**: przypisanie magazynu do jednostki zawsze idzie z konfiguracji. Wzór służy tylko do podpowiedzi przy dodawaniu („515 wygląda na Seat 3252”).
