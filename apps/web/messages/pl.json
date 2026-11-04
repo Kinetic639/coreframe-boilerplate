@@ -3516,24 +3516,45 @@
           "save": "Zapisz"
         },
         "warehouses": {
-          "title": "Magazyny (DMS)",
-          "subtitle": "Kody magazynów tego oddziału z numerów zleceń, np. 3112 Volkswagen. Prefiks numeru: ZL albo ZLEC.",
-          "add": "Dodaj",
+          "title": "Jednostki i magazyny",
+          "subtitle": "Jednostki to oddziały z AutoStacji (np. 3112 Volkswagen), magazyny to ich magazyny (np. 115 blacharnia części). Kody wpisuj dokładnie jak w AutoStacji. Prefiks numeru zlecenia: ZL albo ZLEC.",
+          "add": "Dodaj jednostkę",
           "edit": "Edytuj",
           "remove": "Usuń",
           "cancel": "Anuluj",
-          "empty": "Brak magazynów.",
+          "empty": "Brak jednostek.",
           "code": "Kod",
           "codePlaceholder": "3112",
-          "name": "Nazwa / marka",
+          "name": "Nazwa",
           "namePlaceholder": "np. Volkswagen",
           "prefix": "Prefiks numeru",
-          "confirmRemove": "Usunąć magazyn {code} z oddziału?",
+          "confirmRemove": "Usunąć jednostkę {code} razem z jej magazynami?",
           "errors": {
-            "duplicate_code": "Ten kod magazynu jest już przypisany w organizacji.",
-            "invalid_code": "Kod magazynu to 3–5 cyfr.",
-            "forbidden": "Brak uprawnień do zmiany oddziałów.",
-            "generic": "Nie udało się zapisać magazynu."
+            "duplicate_code": "Ten kod jest już użyty w organizacji.",
+            "invalid_code": "Kod jednostki to 3–5 cyfr.",
+            "forbidden": "Brak uprawnień do zmiany jednostek i magazynów.",
+            "generic": "Nie udało się zapisać.",
+            "invalid_warehouse_code": "Kod magazynu to 2–5 cyfr."
+          },
+          "noWarehouses": "Brak magazynów.",
+          "addWarehouse": "Dodaj magazyn",
+          "warehouseCode": "Kod magazynu",
+          "warehouseCodePlaceholder": "115",
+          "warehouseName": "Nazwa magazynu",
+          "warehouseNamePlaceholder": "np. blacharnia części",
+          "default": "domyślny",
+          "setDefault": "Ustaw jako magazyn domyślny (przyjęcie bez wskazanego magazynu)",
+          "unsetDefault": "Usuń jako domyślny",
+          "confirmRemoveWarehouse": "Usunąć magazyn {code}?",
+          "suggestions": {
+            "title": "Matcher widział w dokumentach tego oddziału, a nie ma ich tutaj:",
+            "unit": "Jednostka",
+            "warehouse": "Magazyn",
+            "withUnit": "przy jednostce {code}",
+            "seen": "{count, plural, one {# raz} few {# razy} many {# razy} other {# razy}}",
+            "add": "Dodaj",
+            "needsUnit": "Najpierw dodaj jednostkę {code}",
+            "hint": "Nic nie dodaje się samo. Sprawdź kody z AutoStacją przed dodaniem."
           }
         }
       },
@@ -3993,7 +4014,8 @@
             "missing_zl": "Brak numeru ZL",
             "repair_order_closed": "Zlecenie zamknięte",
             "repair_order_archived": "Zlecenie zarchiwizowane",
-            "warehouse_not_in_branch": "Magazyn spoza tego oddziału"
+            "unit_in_other_branch": "Jednostka {unit} należy do oddziału {branch}",
+            "unit_unknown": "Jednostki {unit} nie ma w tym oddziale (Organizacja → Oddziały → Jednostki i magazyny)"
           },
           "parts": "{added} nowe · {adds} uzupełnienie · {present} już są",
           "apply": "Importuj zaznaczone ({count})",
@@ -4001,7 +4023,8 @@
           "errors": {
             "unauthorized": "Brak uprawnień do importu zleceń w tym oddziale.",
             "invalid_input": "Nieprawidłowe dane importu.",
-            "unexpected": "Import zleceń nie powiódł się."
+            "unexpected": "Import zleceń nie powiódł się.",
+            "unit_not_in_branch": "Część zleceń jest z jednostki spoza tego oddziału. Sprawdź jednostki w ustawieniach oddziału."
           },
           "checkAll": "Zaznacz wszystkie ({count})",
           "uncheckAll": "Odznacz wszystkie",
@@ -4272,8 +4295,8 @@
           "take": "Biorę",
           "status": "Status",
           "replyToRequester": "Odpowiedz doradcy",
-          "internalNote": "Notatka wewnętrzna",
-          "internalBadge": "wewnętrzna",
+          "internalNote": "Prywatna notatka",
+          "internalBadge": "prywatna · tylko Ty",
           "statusChanged": "Status zmieniony",
           "taken": "Zgłoszenie przypisane do Ciebie",
           "failed": "Nie udało się zapisać zmiany"
@@ -8110,7 +8133,8 @@
           "missing_zl": "Brak numeru ZL",
           "repair_order_closed": "Zlecenie zamknięte",
           "repair_order_archived": "Zlecenie zarchiwizowane",
-          "warehouse_not_in_branch": "Magazyn spoza oddziału"
+          "unit_in_other_branch": "Jednostka {unit} należy do oddziału {branch}",
+          "unit_unknown": "Jednostki {unit} nie ma w tym oddziale"
         },
         "partStatus": {
           "in_catalog": "W katalogu",
@@ -9411,12 +9435,12 @@
       "thread": "Rozmowa ({count})",
       "noMessages": "Brak odpowiedzi.",
       "ambraTeam": "zespół Ambry",
-      "internalBadge": "Notatka wewnętrzna",
+      "internalBadge": "Prywatna · tylko Ty",
       "replyPlaceholder": "Napisz odpowiedź…",
-      "internalPlaceholder": "Notatka widoczna tylko dla zespołu Ambry…",
-      "internalToggle": "Notatka wewnętrzna",
+      "internalPlaceholder": "Notatka widoczna tylko dla Ciebie…",
+      "internalToggle": "Prywatna notatka (tylko dla Ciebie)",
       "send": "Wyślij",
-      "sendInternal": "Dodaj notatkę",
+      "sendInternal": "Zapisz notatkę",
       "sendFailed": "Nie udało się wysłać odpowiedzi.",
       "updateFailed": "Nie udało się zmienić zgłoszenia.",
       "filesFailed": "Nie udało się dodać plików: {files}"

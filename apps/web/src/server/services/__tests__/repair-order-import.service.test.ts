@@ -61,6 +61,78 @@ describe("normalizeProductCode", () => {
 });
 
 describe("RepairOrderImportService.preview", () => {
+  it("takes the jednostka from the ZW, not the ZL number, and names the branch of a foreign one", async () => {
+    loadOrders.mockResolvedValue({
+      success: true,
+      data: [
+        // ZL's 4th part 3122 is not a jednostka; the ZW says 3112 -- this branch's
+        order("ZL/178844/26/3122/BL", [{ productCode: "A1" }], {
+          unitCode: "3112",
+          warehouseCode: "115",
+        }),
+        // Seat 3252 belongs to the other branch
+        order("ZL/51005/26/3252/BL", [{ productCode: "B1" }], {
+          unitCode: "3252",
+          warehouseCode: "515",
+        }),
+        // 9999 is nowhere in the organization
+        order("ZL/1/26/9999/BL", [{ productCode: "C1" }], { unitCode: null, warehouseCode: null }),
+      ],
+    });
+    const supabase = client({
+      branch_warehouses: [
+        {
+          id: "u1",
+          branch_id: "br",
+          code: "3112",
+          name: "VW",
+          order_prefix: "ZL",
+          default_warehouse_id: null,
+          unit_warehouses: [],
+        },
+        {
+          id: "u2",
+          branch_id: "other",
+          code: "3252",
+          name: "Seat",
+          order_prefix: "ZL",
+          default_warehouse_id: null,
+          unit_warehouses: [],
+        },
+      ],
+      branches: [
+        { id: "br", name: "Poznań Komorniki" },
+        { id: "other", name: "Poznań Wysogotowo" },
+      ],
+    });
+
+    const result = await RepairOrderImportService.preview(
+      supabase,
+      "org",
+      "br",
+      "svwms_wdd_matcher",
+      {}
+    );
+    if (!result.success) throw new Error("preview failed");
+    const byZl = (zl: string) => result.data.orders.find((o) => o.zlNumber === zl)!;
+
+    expect(byZl("ZL/178844/26/3122/BL")).toMatchObject({
+      status: "new",
+      conflictReason: null,
+      warehouseCode: "3112",
+    });
+    expect(byZl("ZL/51005/26/3252/BL")).toMatchObject({
+      status: "conflict",
+      conflictReason: "unit_in_other_branch",
+      conflictDetail: { unitCode: "3252", branchName: "Poznań Wysogotowo" },
+    });
+    expect(byZl("ZL/1/26/9999/BL")).toMatchObject({
+      status: "conflict",
+      conflictReason: "unit_unknown",
+      conflictDetail: { unitCode: "9999", branchName: null },
+    });
+  });
+
   it("marks a document already imported in another session (same ZL, ZW and lines) -- nothing is added", async () => {
     loadOrders.mockResolvedValue({
       success: true,

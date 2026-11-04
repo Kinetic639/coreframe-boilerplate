@@ -17,7 +17,12 @@ import { Building2, Plus, Pencil, Trash2, Map } from "lucide-react";
 import { useRouter } from "@/i18n/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePermissions } from "@/hooks/v2/use-permissions";
-import { BRANCHES_CREATE, BRANCHES_UPDATE, BRANCHES_DELETE } from "@/lib/constants/permissions";
+import {
+  BRANCHES_CREATE,
+  BRANCHES_UPDATE,
+  BRANCHES_DELETE,
+  WAREHOUSE_STRUCTURE_MANAGE,
+} from "@/lib/constants/permissions";
 import {
   useCreateBranchMutation,
   useUpdateBranchMutation,
@@ -87,6 +92,8 @@ export function BranchesClient({
 
   const canCreate = can(BRANCHES_CREATE);
   const canUpdate = can(BRANCHES_UPDATE);
+  // Jednostki and magazyny: also kierownik magazynu / admin (warehouse.structure.manage)
+  const canManageStructure = canUpdate || can(WAREHOUSE_STRUCTURE_MANAGE);
   const canDelete = can(BRANCHES_DELETE);
 
   const refreshAfterMutation = async () => {
@@ -298,7 +305,7 @@ export function BranchesClient({
         </div>
       </div>
 
-      <BranchWarehousesPanel key={branch.id} branchId={branch.id} canManage={canUpdate} />
+      <BranchWarehousesPanel key={branch.id} branchId={branch.id} canManage={canManageStructure} />
 
       {(canUpdate || canDelete) && (
         <div className="flex gap-2 border-t pt-3">

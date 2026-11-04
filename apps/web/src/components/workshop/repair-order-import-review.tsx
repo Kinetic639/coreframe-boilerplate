@@ -266,7 +266,10 @@ export function RepairOrderImportReview({
                     {order.status === "conflict" ? (
                       <span className="text-destructive flex items-center gap-1 text-xs">
                         <AlertTriangle className="h-3.5 w-3.5" />
-                        {t(`conflict.${order.conflictReason ?? "missing_zl"}`)}
+                        {t(`conflict.${order.conflictReason ?? "missing_zl"}`, {
+                          unit: order.conflictDetail?.unitCode ?? "?",
+                          branch: order.conflictDetail?.branchName ?? "?",
+                        })}
                       </span>
                     ) : order.status === "new" ? (
                       <Badge variant="default">{t("status.new")}</Badge>
