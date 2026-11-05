@@ -762,7 +762,7 @@ export class InventoryMovementsService {
       supabase
         .from("inventory_movement_lines")
         .select(
-          "id, line_number, variant_id, unit_id, quantity, unit_cost, source_location_id, destination_location_id, note, snapshot_product_name, snapshot_sku, snapshot_unit_code, snapshot_source_location_name, snapshot_destination_location_name, warehouse:unit_warehouses(code, name)"
+          "id, line_number, variant_id, unit_id, quantity, unit_cost, source_location_id, destination_location_id, note, snapshot_product_name, snapshot_sku, snapshot_unit_code, snapshot_source_location_name, snapshot_destination_location_name, warehouse:unit_warehouses!inventory_movement_lines_warehouse_id_fkey(code, name), destination_warehouse:unit_warehouses!inventory_movement_lines_destination_warehouse_id_fkey(code, name)"
         )
         .eq("movement_id", h.id)
         .is("deleted_at", null)
@@ -781,6 +781,8 @@ export class InventoryMovementsService {
         .order("created_at", { ascending: true }),
     ]);
 
+    // A failed line query must not look like a document without lines.
+    if (linesRes.error) return { success: false, error: linesRes.error.message };
     const lines = (linesRes.data ?? []) as any[];
     const mvtType = typeRes.data as any;
     const auditEntries = (auditRes.data ?? []) as any[];
@@ -871,6 +873,7 @@ export class InventoryMovementsService {
           : (locationsById.get(l.destination_location_id)?.name ?? null),
         warehouse_code: l.warehouse?.code ?? null,
         warehouse_name: l.warehouse?.name ?? null,
+        destination_warehouse_code: l.destination_warehouse?.code ?? null,
         note: l.note ?? null,
       };
     });
@@ -1065,19 +1068,31 @@ export class InventoryMovementsService {
     if (isLocationMode) {
       const { data: balances, error: balError } = await supabase
         .from("inventory_balances")
-        .select("variant_id, on_hand_quantity")
+        .select("variant_id, on_hand_quantity, reserved_quantity, allocated_quantity, blocked")
         .eq("organization_id", orgId)
         .eq("branch_id", branchId)
         .eq("location_id", opts.sourceLocationId!)
         .gt("on_hand_quantity", 0);
 
       if (balError) return { success: false, error: balError.message };
-      if (!balances || balances.length === 0) return { success: true, data: [] };
 
-      variantIds = (balances as any[]).map((b) => b.variant_id);
-      for (const b of balances as any[]) {
-        locationOnHand.set(b.variant_id, Number(b.on_hand_quantity));
-      }
+      // Only what is free can be moved: reserved (for a ZL, ZW or transfer),
+      // allocated (in a container) and blocked stock stays where it is --
+      // the engine refuses to strand it. Reserved parts move by putaway.
+      const free = ((balances ?? []) as any[])
+        .map((b) => ({
+          variantId: b.variant_id as string,
+          free:
+            Number(b.on_hand_quantity) -
+            Number(b.reserved_quantity ?? 0) -
+            Number(b.allocated_quantity ?? 0) -
+            Number(b.blocked ?? 0),
+        }))
+        .filter((b) => b.free > 0);
+      if (free.length === 0) return { success: true, data: [] };
+
+      variantIds = free.map((b) => b.variantId);
+      for (const b of free) locationOnHand.set(b.variantId, b.free);
     }
 
     let vQuery = supabase

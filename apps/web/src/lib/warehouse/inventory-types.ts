@@ -635,6 +635,8 @@ export type InventoryMovementDetail = InventoryMovementListRow & {
     /** AutoStacja magazyn of the line (U2); null = without magazyn */
     warehouse_code?: string | null;
     warehouse_name?: string | null;
+    /** MM between magazyny: the target magazyn */
+    destination_warehouse_code?: string | null;
     note: string | null;
   }>;
   audit_log: InventoryMovementAuditEntry[];

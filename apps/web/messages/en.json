@@ -7115,7 +7115,7 @@
       "noItemsMatch": "No items match your search.",
       "noStockInSource": "No stock in this source location.",
       "noItemsFound": "No items found.",
-      "binToBinHint": "Bin-to-bin movements only show items with stock at the source location.",
+      "binToBinHint": "An MM lists only the free stock of the location. Parts reserved for a repair order or ZW move by putaway.",
       "available": "Available",
       "add": "Add",
       "ok": "OK",
