@@ -7198,7 +7198,7 @@
       "noItemsMatch": "Brak pozycji pasujących do wyszukiwania.",
       "noStockInSource": "Brak zapasu w tej lokalizacji źródłowej.",
       "noItemsFound": "Nie znaleziono pozycji.",
-      "binToBinHint": "Przesunięcia bin-to-bin pokazują tylko pozycje z zapasem w lokalizacji źródłowej.",
+      "binToBinHint": "MM pokazuje tylko wolne części lokalizacji. Części zarezerwowane pod zlecenie lub ZW przenosi rozlokowanie.",
       "available": "Dostępne",
       "add": "Dodaj",
       "ok": "OK",

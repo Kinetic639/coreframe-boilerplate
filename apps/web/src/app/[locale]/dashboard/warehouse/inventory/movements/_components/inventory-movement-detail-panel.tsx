@@ -514,6 +514,9 @@ export function InventoryMovementDetailPanel({
                       data-testid="movement-line-warehouse"
                     >
                       {line.warehouse_code ?? "—"}
+                      {line.destination_warehouse_code
+                        ? ` → ${line.destination_warehouse_code}`
+                        : ""}
                     </td>
                   )}
                 </tr>
