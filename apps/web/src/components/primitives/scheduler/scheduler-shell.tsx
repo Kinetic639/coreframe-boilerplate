@@ -559,7 +559,7 @@ export const SchedulerWorkspace: React.FC<SchedulerWorkspaceProps> = ({
   }
 
   return (
-    <div className="bg-background flex h-full w-full flex-col overflow-hidden font-sans transition-colors duration-200 lg:flex-row">
+    <div className="isolate bg-background flex h-full w-full flex-col overflow-hidden font-sans transition-colors duration-200 lg:flex-row">
       {/* Mobile Top Navigation layout drawer bar */}
       <div className="bg-card flex shrink-0 items-center justify-between border-b px-5 py-3 lg:hidden">
         <div className="flex items-center gap-2">

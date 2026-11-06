@@ -1,6 +1,26 @@
 "use client";
 
-import { useMemo, useCallback, useState, useEffect, useRef, Fragment } from "react";
+import {
+  useMemo,
+  useCallback,
+  useState,
+  useEffect,
+  useLayoutEffect,
+  Fragment,
+  createContext,
+  useContext,
+} from "react";
+import {
+  FloatingPortal,
+  safePolygon,
+  useClick,
+  useDismiss,
+  useFloating,
+  useFocus,
+  useHover,
+  useInteractions,
+  useRole,
+} from "@floating-ui/react";
 import { ChevronRight } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
@@ -20,7 +40,6 @@ import {
   SidebarMenuSubButton,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { NavUser } from "@/components/nav-user";
 import { SidebarBranchSwitcher } from "./sidebar-branch-switcher";
@@ -185,19 +204,23 @@ function NavL2Item({
 }
 
 // ---------------------------------------------------------------------------
-// Collapsed sidebar flyout system — stable native-style menu
+// Collapsed sidebar flyout system
 //
-// Important design decision:
-// The first collapsed icon is NOT cloned into a portal anymore.
-// The real trigger element itself becomes the stretched root row and then
-// shrinks back. This removes the one-frame flash caused by swapping between
-// a hidden sidebar icon and a portal copy.
+// One controller for the whole sidebar: at most one flyout is open at a time,
+// and opening another closes the previous one at once (no overlap).
+// floating-ui drives the interaction -- hover with a safe polygon towards the
+// sub-columns, keyboard focus, tap on touch screens, and dismissal (Escape,
+// press outside, scroll); the controller also closes on navigation, window
+// blur/resize and when the sidebar expands.
+// The whole flyout, the stretched root row included, renders in ONE portal
+// layer above the app (--z-sidebar-flyout), so nothing on the page can cover
+// any part of it, and the icon in the sidebar never changes its layout under
+// the pointer. The look and the animations are unchanged.
 // ---------------------------------------------------------------------------
 
 const FLYOUT_W = 220;
 const FLYOUT_ROW_H = 38;
-const FLYOUT_CLOSE_DELAY = 140;
-const ROOT_TRANSITION_MS = 145;
+const FLYOUT_CLOSE_DELAY = 120;
 
 const iconHoverSpring = { type: "spring", stiffness: 520, damping: 28, mass: 0.35 } as const;
 
@@ -213,12 +236,49 @@ const flyoutIconHoverVariants: import("framer-motion").Variants = {
 
 type FlyoutRowRadiusRole = "title" | "item";
 
-type FlyoutRootState = {
-  item: SidebarItem;
-  rect: DOMRect;
+type FlyoutController = {
+  openId: string | null;
+  setOpenId: (update: (current: string | null) => string | null) => void;
 };
 
-type FlyoutMode = "closed" | "open" | "closing";
+const FlyoutControllerContext = createContext<FlyoutController | null>(null);
+
+/** The single source of truth of which collapsed-sidebar flyout is open. */
+function FlyoutControllerProvider({ children }: { children: React.ReactNode }) {
+  const [openId, setOpenIdState] = useState<string | null>(null);
+  const pathname = usePathname();
+  const { state: sidebarState } = useSidebar();
+
+  const setOpenId = useCallback(
+    (update: (current: string | null) => string | null) => setOpenIdState(update),
+    []
+  );
+
+  // Navigation, an expanded sidebar, leaving the window or resizing it close any flyout.
+  useEffect(() => {
+    setOpenIdState(null);
+  }, [pathname, sidebarState]);
+  useEffect(() => {
+    const close = () => setOpenIdState(null);
+    window.addEventListener("blur", close);
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("blur", close);
+      window.removeEventListener("resize", close);
+    };
+  }, []);
+
+  const value = useMemo(() => ({ openId, setOpenId }), [openId, setOpenId]);
+  return (
+    <FlyoutControllerContext.Provider value={value}>{children}</FlyoutControllerContext.Provider>
+  );
+}
+
+function useFlyoutController(): FlyoutController {
+  const ctrl = useContext(FlyoutControllerContext);
+  if (!ctrl) throw new Error("useFlyoutController outside FlyoutControllerProvider");
+  return ctrl;
+}
 
 function getFlyoutRowRadius({
   role,
@@ -236,29 +296,8 @@ function getFlyoutRowRadius({
   return "rounded-none";
 }
 
-function useFlyoutDelay() {
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const cancel = useCallback(() => {
-    if (timer.current) {
-      clearTimeout(timer.current);
-      timer.current = null;
-    }
-  }, []);
-
-  const closeLater = useCallback(
-    (close: () => void) => {
-      cancel();
-      timer.current = setTimeout(close, FLYOUT_CLOSE_DELAY);
-    },
-    [cancel]
-  );
-
-  useEffect(() => cancel, [cancel]);
-
-  return { cancel, closeLater };
-}
-
+// `custom` = true when another flyout took over: the old one goes at once,
+// so two flyouts are never on screen together.
 const flyoutColumnVariants: import("framer-motion").Variants = {
   initial: { opacity: 0, x: -4 },
   animate: {
@@ -266,7 +305,10 @@ const flyoutColumnVariants: import("framer-motion").Variants = {
     x: 0,
     transition: { duration: 0.11, ease: "easeOut", staggerChildren: 0.025, delayChildren: 0.015 },
   },
-  exit: { opacity: 0, x: -4, transition: { duration: 0.08, ease: "easeIn" } },
+  exit: (instant: boolean) =>
+    instant
+      ? { opacity: 0, transition: { duration: 0 } }
+      : { opacity: 0, x: -4, transition: { duration: 0.08, ease: "easeIn" } },
 };
 
 const flyoutRowVariants: import("framer-motion").Variants = {
@@ -276,7 +318,10 @@ const flyoutRowVariants: import("framer-motion").Variants = {
     y: 0,
     transition: { duration: 0.09, ease: "easeOut" },
   },
-  exit: { opacity: 0, y: -3, transition: { duration: 0.06, ease: "easeIn" } },
+  exit: (instant: boolean) =>
+    instant
+      ? { opacity: 0, transition: { duration: 0 } }
+      : { opacity: 0, y: -3, transition: { duration: 0.06, ease: "easeIn" } },
 };
 
 function FlyoutRowContent({
@@ -384,6 +429,7 @@ function FlyoutRow({
   index,
   total,
   onMouseEnter,
+  onNavigate,
 }: {
   item: SidebarItem;
   pathname: string;
@@ -393,6 +439,8 @@ function FlyoutRow({
   index: number;
   total: number;
   onMouseEnter?: () => void;
+  /** A link was chosen: the flyout closes right away */
+  onNavigate?: () => void;
 }) {
   const label = getLabel(item);
   const hasChildren = !!item.children?.length;
@@ -419,6 +467,8 @@ function FlyoutRow({
           className={className}
           style={{ width: stretched ? FLYOUT_W * 2 : undefined, height: FLYOUT_ROW_H }}
           onMouseEnter={onMouseEnter}
+          onClick={onNavigate}
+          role="menuitem"
         >
           <FlyoutRowContent item={item} label={label} showChevron={false} expanded={expanded} />
         </Link>
@@ -437,125 +487,12 @@ function FlyoutRow({
       style={{ width: stretched ? FLYOUT_W * 2 : undefined, height: FLYOUT_ROW_H }}
       onMouseEnter={onMouseEnter}
       disabled={!!item.disabledReason && !hasChildren}
+      role="menuitem"
+      aria-haspopup={hasChildren ? "menu" : undefined}
+      aria-expanded={hasChildren ? !!expanded : undefined}
     >
       <FlyoutRowContent item={item} label={label} showChevron={hasChildren} expanded={expanded} />
     </motion.button>
-  );
-}
-
-function CollapsedFlyoutLayer({
-  root,
-  visible,
-  activeL2,
-  setActiveL2,
-  pathname,
-  getLabel,
-  keepOpen,
-  closeLater,
-  onClose,
-}: {
-  root: FlyoutRootState;
-  visible: boolean;
-  activeL2: SidebarItem | null;
-  setActiveL2: (item: SidebarItem | null) => void;
-  pathname: string;
-  getLabel: (item: SidebarItem) => string;
-  keepOpen: () => void;
-  closeLater: (close: () => void) => void;
-  onClose: () => void;
-}) {
-  const rootChildren = root.item.children ?? [];
-  const activeL2Index = activeL2 ? rootChildren.findIndex((child) => child.id === activeL2.id) : -1;
-
-  const l1ColumnLeft = root.rect.left + root.rect.width;
-  const l1ColumnTop = root.rect.top + root.rect.height;
-  const l2ColumnLeft = root.rect.left + root.rect.width + FLYOUT_W;
-
-  return createPortal(
-    <AnimatePresence>
-      {visible && (
-        <>
-          <motion.div
-            key={`${root.item.id}-l1`}
-            variants={flyoutColumnVariants}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-            className="pointer-events-auto fixed z-[calc(var(--z-sidebar-flyout)+1)] overflow-visible bg-sidebar "
-            style={{ left: l1ColumnLeft, top: l1ColumnTop, width: FLYOUT_W }}
-            onMouseEnter={keepOpen}
-            onMouseLeave={() => closeLater(onClose)}
-          >
-            {rootChildren.map((child, index) => {
-              const hasChildren = !!child.children?.length;
-              const isExpanded = activeL2?.id === child.id;
-
-              return (
-                <motion.div
-                  key={child.id}
-                  variants={flyoutRowVariants}
-                  className="relative p-0"
-                  style={{ height: FLYOUT_ROW_H }}
-                >
-                  <FlyoutRow
-                    item={child}
-                    pathname={pathname}
-                    getLabel={getLabel}
-                    expanded={isExpanded}
-                    stretched={isExpanded && hasChildren}
-                    index={index}
-                    total={rootChildren.length}
-                    onMouseEnter={() => {
-                      keepOpen();
-                      setActiveL2(hasChildren ? child : null);
-                    }}
-                  />
-                </motion.div>
-              );
-            })}
-          </motion.div>
-
-          <AnimatePresence mode="wait">
-            {activeL2 && activeL2.children?.length && activeL2Index >= 0 && (
-              <motion.div
-                key={activeL2.id}
-                variants={flyoutColumnVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                style={{
-                  position: "fixed",
-                  left: l2ColumnLeft,
-                  top: l1ColumnTop + (activeL2Index + 1) * FLYOUT_ROW_H,
-                  width: FLYOUT_W,
-                }}
-                className="pointer-events-auto z-[var(--z-sidebar-flyout)] bg-sidebar "
-                onMouseEnter={keepOpen}
-                onMouseLeave={() => closeLater(onClose)}
-              >
-                {activeL2.children.map((child, index) => (
-                  <motion.div
-                    key={child.id}
-                    variants={flyoutRowVariants}
-                    style={{ height: FLYOUT_ROW_H }}
-                  >
-                    <FlyoutRow
-                      item={child}
-                      pathname={pathname}
-                      getLabel={getLabel}
-                      index={index}
-                      total={activeL2.children?.length ?? 0}
-                      onMouseEnter={keepOpen}
-                    />
-                  </motion.div>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </>
-      )}
-    </AnimatePresence>,
-    document.body
   );
 }
 
@@ -568,139 +505,217 @@ function NavL1Flyout({
   pathname: string;
   getLabel: (item: SidebarItem) => string;
 }) {
-  const [root, setRoot] = useState<FlyoutRootState | null>(null);
-  const [mode, setMode] = useState<FlyoutMode>("closed");
+  const { openId, setOpenId } = useFlyoutController();
+  const open = openId === item.id;
+  // Another flyout took over: this one leaves without its exit animation.
+  const replaced = !open && openId !== null;
+  const [rect, setRect] = useState<DOMRect | null>(null);
   const [activeL2, setActiveL2] = useState<SidebarItem | null>(null);
-  const triggerRef = useRef<HTMLDivElement>(null);
-  const closeFinishTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { cancel, closeLater } = useFlyoutDelay();
 
   const Icon = getIconComponent(item.iconKey);
   const label = getLabel(item);
   const routeActive = item.disabledReason ? false : isItemActive(item, pathname);
-  const isOpenish = mode === "open" || mode === "closing";
-  const expanded = mode === "open";
-  const rect = root?.rect;
+  const rootChildren = item.children ?? [];
 
-  const clearCloseFinishTimer = useCallback(() => {
-    if (closeFinishTimer.current) {
-      clearTimeout(closeFinishTimer.current);
-      closeFinishTimer.current = null;
+  const onOpenChange = useCallback(
+    (next: boolean) =>
+      setOpenId((current) => (next ? item.id : current === item.id ? null : current)),
+    [item.id, setOpenId]
+  );
+  const close = useCallback(() => onOpenChange(false), [onOpenChange]);
+
+  const { refs, context, elements } = useFloating({ open, onOpenChange, strategy: "fixed" });
+  const hover = useHover(context, {
+    mouseOnly: true,
+    delay: { open: 0, close: FLYOUT_CLOSE_DELAY },
+    handleClose: safePolygon({ buffer: 2 }),
+  });
+  const focus = useFocus(context, { visibleOnly: true });
+  const tap = useClick(context, { ignoreMouse: true });
+  const dismiss = useDismiss(context, { ancestorScroll: true });
+  const role = useRole(context, { role: "menu" });
+  const { getReferenceProps, getFloatingProps } = useInteractions([
+    hover,
+    focus,
+    tap,
+    dismiss,
+    role,
+  ]);
+
+  // The flyout is anchored to the icon's slot, measured before paint so the
+  // stretched row covers the icon in the very first frame.
+  useLayoutEffect(() => {
+    if (open && elements.domReference) {
+      setRect(elements.domReference.getBoundingClientRect());
     }
-  }, []);
+    if (!open) setActiveL2(null);
+  }, [open, elements.domReference]);
 
-  useEffect(() => clearCloseFinishTimer, [clearCloseFinishTimer]);
-
-  const openFlyout = useCallback(() => {
-    cancel();
-    clearCloseFinishTimer();
-
-    // Critical: once the root has opened, keep the original sidebar-slot rect.
-    // Re-reading getBoundingClientRect() while the root is fixed + stretched makes
-    // the flyout anchor jump away from the pointer when entering child panels.
-    if (root) {
-      setMode("open");
-      return;
-    }
-
-    if (triggerRef.current) {
-      const nextRect = triggerRef.current.getBoundingClientRect();
-      setRoot({ item, rect: nextRect });
-      setMode("open");
-    }
-  }, [cancel, clearCloseFinishTimer, item, root]);
-
-  const closeFlyout = useCallback(() => {
-    if (mode === "closed") return;
-
-    cancel();
-    setMode("closing");
-    setActiveL2(null);
-
-    clearCloseFinishTimer();
-    closeFinishTimer.current = setTimeout(() => {
-      setMode("closed");
-      setRoot(null);
-    }, ROOT_TRANSITION_MS);
-  }, [cancel, clearCloseFinishTimer, mode]);
-
-  const rootWidth = rect ? (expanded ? rect.width + FLYOUT_W : rect.width) : undefined;
-  const rootHeight = rect?.height ?? 32;
+  const activeL2Index = activeL2 ? rootChildren.findIndex((child) => child.id === activeL2.id) : -1;
+  const l2Rows = activeL2?.children?.length ?? 0;
 
   return (
     <SidebarMenuItem className="relative h-8">
       <motion.div
-        ref={triggerRef}
-        role="button"
+        ref={refs.setReference}
+        tabIndex={0}
+        aria-label={label}
+        data-testid="sidebar-flyout-trigger"
+        data-state={open ? "open" : "closed"}
         initial="rest"
         animate="rest"
         whileHover="hover"
         transition={iconHoverSpring}
-        tabIndex={0}
-        aria-label={label}
-        onMouseEnter={openFlyout}
-        onMouseLeave={() => closeLater(closeFlyout)}
-        onFocus={openFlyout}
-        onBlur={() => closeLater(closeFlyout)}
+        {...getReferenceProps()}
         className={cn(
-          "z-[calc(var(--z-sidebar-flyout)+2)] flex items-center justify-center overflow-hidden outline-none",
+          "relative flex h-8 w-8 items-center justify-center overflow-hidden rounded-sm outline-none",
           "text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
-          "transition-[width,background-color,color,border-radius,box-shadow] duration-150 ease-out",
-          isOpenish
-            ? cn(
-                "fixed justify-start rounded-sm ",
-                routeActive
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                  : "bg-muted text-sidebar-foreground"
-              )
-            : cn(
-                "relative h-8 w-8 rounded-sm",
-                routeActive
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                  : "bg-transparent text-sidebar-foreground"
-              )
+          "transition-[background-color,color] duration-150 ease-out",
+          routeActive
+            ? "bg-sidebar-accent text-sidebar-accent-foreground"
+            : open
+              ? "bg-muted text-sidebar-foreground"
+              : "bg-transparent text-sidebar-foreground"
         )}
-        style={
-          isOpenish && rect
-            ? {
-                left: rect.left,
-                top: rect.top,
-                width: rootWidth,
-                height: rootHeight,
-              }
-            : undefined
-        }
       >
-        {isOpenish && rect ? (
-          <FlyoutRootRowContent
-            item={item}
-            label={label}
-            iconSlotWidth={rect.width}
-            expanded={expanded}
-          />
-        ) : (
-          <motion.span
-            variants={flyoutIconHoverVariants}
-            className="flex size-4 shrink-0 items-center justify-center will-change-transform"
-          >
-            <Icon className="size-4 shrink-0" />
-          </motion.span>
-        )}
+        <motion.span
+          variants={flyoutIconHoverVariants}
+          className="flex size-4 shrink-0 items-center justify-center will-change-transform"
+        >
+          <Icon className="size-4 shrink-0" />
+        </motion.span>
       </motion.div>
 
-      {root && (
-        <CollapsedFlyoutLayer
-          root={root}
-          visible={mode === "open"}
-          activeL2={activeL2}
-          setActiveL2={setActiveL2}
-          pathname={pathname}
-          getLabel={getLabel}
-          keepOpen={openFlyout}
-          closeLater={closeLater}
-          onClose={closeFlyout}
-        />
-      )}
+      <FloatingPortal>
+        {/* Another flyout took over: this one is removed at once, even mid-exit,
+            so two flyouts are never on screen together. */}
+        {!replaced && (
+          <AnimatePresence custom={replaced}>
+            {open && rect && (
+              <motion.div
+                key={item.id}
+                ref={refs.setFloating}
+                {...getFloatingProps()}
+                data-testid="sidebar-flyout"
+                data-flyout-id={item.id}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                custom={replaced}
+                // A zero-size anchor at the icon: only the rows and columns catch the
+                // pointer, so the empty space around them (the other sidebar icons)
+                // neither blocks the pointer nor keeps the flyout open.
+                className="pointer-events-none fixed"
+                style={{
+                  left: rect.left,
+                  top: rect.top,
+                  width: 0,
+                  height: 0,
+                  zIndex: "var(--z-sidebar-flyout)",
+                }}
+              >
+                {/* Stretched root row: drawn over the icon, grows to the column's width */}
+                <motion.div
+                  className={cn(
+                    "pointer-events-auto absolute left-0 top-0 flex items-center justify-start overflow-hidden rounded-sm",
+                    routeActive
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                      : "bg-muted text-sidebar-foreground"
+                  )}
+                  style={{ height: rect.height }}
+                  initial={{ width: rect.width }}
+                  animate={{
+                    width: rect.width + FLYOUT_W,
+                    transition: { duration: 0.15, ease: "easeOut" },
+                  }}
+                  exit={
+                    replaced
+                      ? { opacity: 0, transition: { duration: 0 } }
+                      : { width: rect.width, transition: { duration: 0.1, ease: "easeIn" } }
+                  }
+                >
+                  <FlyoutRootRowContent
+                    item={item}
+                    label={label}
+                    iconSlotWidth={rect.width}
+                    expanded
+                  />
+                </motion.div>
+
+                <motion.div
+                  variants={flyoutColumnVariants}
+                  custom={replaced}
+                  className="pointer-events-auto absolute overflow-visible bg-sidebar"
+                  style={{ left: rect.width, top: rect.height, width: FLYOUT_W }}
+                >
+                  {rootChildren.map((child, index) => {
+                    const hasChildren = !!child.children?.length;
+                    const isExpanded = activeL2?.id === child.id;
+                    return (
+                      <motion.div
+                        key={child.id}
+                        variants={flyoutRowVariants}
+                        custom={replaced}
+                        className="relative p-0"
+                        style={{ height: FLYOUT_ROW_H }}
+                      >
+                        <FlyoutRow
+                          item={child}
+                          pathname={pathname}
+                          getLabel={getLabel}
+                          expanded={isExpanded}
+                          stretched={isExpanded && hasChildren}
+                          index={index}
+                          total={rootChildren.length}
+                          onMouseEnter={() => setActiveL2(hasChildren ? child : null)}
+                          onNavigate={close}
+                        />
+                      </motion.div>
+                    );
+                  })}
+                </motion.div>
+
+                <AnimatePresence mode="wait" custom={replaced}>
+                  {activeL2 && l2Rows > 0 && activeL2Index >= 0 && (
+                    <motion.div
+                      key={activeL2.id}
+                      variants={flyoutColumnVariants}
+                      initial="initial"
+                      animate="animate"
+                      exit="exit"
+                      custom={replaced}
+                      className="pointer-events-auto absolute bg-sidebar"
+                      style={{
+                        left: rect.width + FLYOUT_W,
+                        top: rect.height + (activeL2Index + 1) * FLYOUT_ROW_H,
+                        width: FLYOUT_W,
+                      }}
+                    >
+                      {activeL2.children!.map((child, index) => (
+                        <motion.div
+                          key={child.id}
+                          variants={flyoutRowVariants}
+                          custom={replaced}
+                          style={{ height: FLYOUT_ROW_H }}
+                        >
+                          <FlyoutRow
+                            item={child}
+                            pathname={pathname}
+                            getLabel={getLabel}
+                            index={index}
+                            total={l2Rows}
+                            onNavigate={close}
+                          />
+                        </motion.div>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        )}
+      </FloatingPortal>
     </SidebarMenuItem>
   );
 }
@@ -921,13 +936,15 @@ function AppSidebar({
         <SidebarBranchSwitcher branches={accessibleBranches} activeBranchId={activeBranchId} />
       </SidebarHeader>
       <SidebarContent>
-        {itemGroups.map((groupItems, i) => (
-          <Fragment key={groupItems[0]?.id ?? i}>
-            {i > 0 && <div className="mx-2 h-px shrink-0 bg-border/50" />}
-            <NavSection items={groupItems} pathname={pathname} getLabel={getItemLabel} />
-          </Fragment>
-        ))}
-        <NavSection items={model.footer} pathname={pathname} getLabel={getItemLabel} />
+        <FlyoutControllerProvider>
+          {itemGroups.map((groupItems, i) => (
+            <Fragment key={groupItems[0]?.id ?? i}>
+              {i > 0 && <div className="mx-2 h-px shrink-0 bg-border/50" />}
+              <NavSection items={groupItems} pathname={pathname} getLabel={getItemLabel} />
+            </Fragment>
+          ))}
+          <NavSection items={model.footer} pathname={pathname} getLabel={getItemLabel} />
+        </FlyoutControllerProvider>
       </SidebarContent>
       <SidebarFooter className="bg-muted border-t">
         <NavUser user={userData} isAdmin={isAdmin} />
