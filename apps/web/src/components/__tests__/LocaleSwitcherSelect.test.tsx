@@ -2,6 +2,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 
 const replaceMock = vi.fn();
+vi.mock("@/i18n/use-locale-switch", () => ({ useLocaleSwitch: () => replaceMock }));
 
 vi.mock("next/navigation", () => ({
   useParams: () => ({ slug: "dashboard" }),
@@ -37,9 +38,6 @@ describe("LocaleSwitcherSelect", () => {
 
     fireEvent.change(screen.getByRole("combobox"), { target: { value: "pl" } });
 
-    expect(replaceMock).toHaveBeenCalledWith(
-      { pathname: "/dashboard/start", params: { slug: "dashboard" } },
-      { locale: "pl" }
-    );
+    expect(replaceMock).toHaveBeenCalledWith("pl");
   });
 });

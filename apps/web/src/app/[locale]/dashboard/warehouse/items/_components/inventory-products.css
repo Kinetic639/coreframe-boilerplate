@@ -43,21 +43,37 @@ body:has(.inventory-products-view) {
 .products-desktop-table {
   display: flex;
 }
+.products-desktop-mini-list {
+  display: block;
+}
 .products-mobile-list {
   display: none;
 }
-/* Zoho direction: photographic identity, quiet horizontal rules, clear headings. */
+@media (min-width: 1280px) {
+  .products-list-pane--preview {
+    width: 260px;
+    min-width: 260px;
+    flex: 0 0 260px;
+  }
+}
+/* D / Zoho direction: an operational list, not the spreadsheet-like Kolor Sensu grid. */
+.products-desktop-table table {
+  font-size: 12px;
+}
 .products-desktop-table table > thead th {
-  height: 38px;
-  border-right: 0;
-  background: var(--muted);
-  font-size: 11px;
-  font-weight: 600;
+  height: 34px !important;
+  border-right: 0 !important;
+  background: color-mix(in srgb, var(--muted) 72%, var(--background)) !important;
+  padding-inline: 12px;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
 }
 .products-desktop-table table > tbody td,
 .products-desktop-table table > tbody th {
-  height: 46px;
-  border-right: 0;
+  height: 49px !important;
+  border-right: 0 !important;
+  padding-inline: 12px;
 }
 .products-desktop-table table > tbody tr {
   transition: background-color 0.1s;
@@ -68,8 +84,30 @@ body:has(.inventory-products-view) {
 .products-desktop-table table > tbody tr[data-selected] {
   background: var(--primary-soft);
 }
-.products-panel .product-panel-summary {
-  background: var(--surface-subtle);
+.products-desktop-table table > thead th:first-child,
+.products-desktop-table table > tbody th {
+  box-shadow: inset -1px 0 0 var(--border) !important;
+}
+.products-desktop-table table > thead th:last-child,
+.products-desktop-table table > tbody td:last-child {
+  box-shadow: inset 1px 0 0 var(--border) !important;
+}
+.products-desktop-table table > tbody a:has(img),
+.products-desktop-table table > tbody a:has(svg) {
+  min-height: 38px;
+}
+.products-panel {
+  animation: products-panel-in 160ms ease-out;
+}
+@keyframes products-panel-in {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 @media (max-width: 767px) {
   .inventory-products-view {
@@ -77,6 +115,9 @@ body:has(.inventory-products-view) {
     min-height: 320px;
   }
   .products-desktop-table {
+    display: none;
+  }
+  .products-desktop-mini-list {
     display: none;
   }
   .products-mobile-list {

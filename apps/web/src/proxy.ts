@@ -108,6 +108,8 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
+  // Locale changes use useLocaleSwitch: sync NEXT_LOCALE, then navigate to the
+  // canonical URL. A forced /pl prefix bypasses localized-slug rewriting here.
   // NOTE: Next.js requires `matcher` to be a statically-analyzable literal --
   // "Matcher values must be constants to allow for static analysis at
   // build-time; dynamic values are ignored" (Next.js docs). That means this

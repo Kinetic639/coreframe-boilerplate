@@ -16,9 +16,9 @@ import { createClient } from "@/utils/supabase/server";
 import { InventoryProductsService } from "@/server/services/inventory-products.service";
 import { parseLayout, parseWidths } from "@/components/kolor-sensu/data-table/columns";
 import { Button } from "@/components/ui/button";
-import { ProductExport } from "./_components/inventory-products-controls";
-import { InventoryProductsTable, productColumnSet } from "./_components/inventory-products-table";
-import { ProductRecordPanel } from "./_components/inventory-product-record-panel";
+import { ProductExport, ProductFilters } from "./_components/inventory-products-controls";
+import { productColumnSet } from "./_components/inventory-products-table";
+import { InventoryProductsWorkspace } from "./_components/inventory-products-workspace";
 import {
   loadProductState,
   productListParams,
@@ -60,7 +60,7 @@ export default async function WarehouseItemsPage({ searchParams }: PageProps = {
   if (migration.changed || state.strona < 1)
     return redirectUrl(productHref(path, state, { strona: Math.max(1, state.strona) }));
   const supabase = await createClient();
-  const [productsResult, customFieldsResult, detailResult] = await Promise.all([
+  const [productsResult, customFieldsResult] = await Promise.all([
     InventoryProductsService.listProducts(
       supabase,
       context.app.activeOrgId,
@@ -68,14 +68,6 @@ export default async function WarehouseItemsPage({ searchParams }: PageProps = {
       context.app.activeBranchId
     ),
     InventoryProductsService.listCustomFields(supabase, context.app.activeOrgId, ["product"]),
-    state.selected
-      ? InventoryProductsService.getProductDetail(
-          supabase,
-          context.app.activeOrgId,
-          state.selected,
-          context.app.activeBranchId
-        )
-      : Promise.resolve({ success: true as const, data: null }),
   ]);
   const data = productsResult.success
     ? productsResult.data
@@ -208,39 +200,28 @@ export default async function WarehouseItemsPage({ searchParams }: PageProps = {
           {labels.customFields}: {labels.loadError}
         </p>
       ) : null}
-      <div className="flex min-h-0 min-w-0 flex-1">
-        <InventoryProductsTable
-          data={data}
-          state={state}
-          path={path}
-          set={set}
-          layout={layout}
-          widths={widths}
-          cookie={cookie}
-          customFields={customFields}
-          labels={labels}
-          canManageProducts={canManageProducts}
-          productPath={productPath}
-          error={"error" in productsResult ? productsResult.error : null}
-        />
-        {state.selected ? (
-          <ProductRecordPanel
-            detail={detailResult.success ? detailResult.data : null}
-            error={"error" in detailResult ? detailResult.error : null}
-            state={state}
-            path={path}
-            labels={labels}
-            customFields={customFields}
-            canManageProducts={canManageProducts}
-            canReadStock={checkPermission(
-              context.user.permissionSnapshot,
-              WAREHOUSE_INVENTORY_READ
-            )}
-            fullPath={productPath(state.selected.split("::")[0])}
-            editPath={productPath(state.selected.split("::")[0], true)}
-          />
-        ) : null}
-      </div>
+      <ProductFilters
+        order={layout.map((column) => column.id)}
+        customFields={customFields}
+        labels={labels}
+      />
+      <InventoryProductsWorkspace
+        data={data}
+        state={state}
+        path={path}
+        set={set}
+        layout={layout}
+        widths={widths}
+        cookie={cookie}
+        customFields={customFields}
+        labels={labels}
+        canManageProducts={canManageProducts}
+        productPathTemplate={productPath("__PRODUCT_ID__")}
+        productEditPathTemplate={productPath("__PRODUCT_ID__", true)}
+        error={"error" in productsResult ? productsResult.error : null}
+        canReadStock={checkPermission(context.user.permissionSnapshot, WAREHOUSE_INVENTORY_READ)}
+        scope={`${context.app.activeOrgId}:${context.app.activeBranchId ?? "all"}`}
+      />
     </section>
   );
 }

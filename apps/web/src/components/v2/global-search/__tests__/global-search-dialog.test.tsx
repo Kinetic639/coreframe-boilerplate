@@ -11,6 +11,8 @@ const qrIndexMock = vi.fn();
 
 const push = vi.fn();
 const replace = vi.fn();
+const switchLocaleMock = vi.fn();
+vi.mock("@/i18n/use-locale-switch", () => ({ useLocaleSwitch: () => switchLocaleMock }));
 const refresh = vi.fn();
 const setTheme = vi.fn();
 const changeBranchMock = vi.fn();
@@ -84,11 +86,11 @@ vi.mock("../global-search-scanner", () => ({
   ),
 }));
 
-function renderDialog() {
+function renderDialog(testEntries = entries) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <GlobalSearchDialog entries={entries} sources={["repairOrders", "items", "tickets"]} />
+      <GlobalSearchDialog entries={testEntries} sources={["repairOrders", "items", "tickets"]} />
     </QueryClientProvider>
   );
 }
@@ -809,6 +811,28 @@ describe("GlobalSearchDialog", () => {
     expect(useGlobalSearchStore.getState().open).toBe(true);
 
     fireEvent.keyDown(input, { key: "Escape" });
+    expect(useGlobalSearchStore.getState().open).toBe(false);
+  });
+
+  it("switches language through the canonical navigation handler", () => {
+    renderDialog([
+      ...entries,
+      {
+        id: "locale",
+        kind: "action",
+        section: "general",
+        title: "Zmień język",
+        iconKey: "preferences",
+        command: "locale.toggle",
+      },
+    ]);
+    openPalette();
+    type("> język");
+    fireEvent.click(screen.getByText(byText("Zmień język")));
+    fireEvent.click(within(screen.getByTestId("palette-submenu")).getByText("English"));
+    expect(switchLocaleMock).toHaveBeenCalledWith("en");
+    expect(push).not.toHaveBeenCalled();
+    expect(replace).not.toHaveBeenCalled();
     expect(useGlobalSearchStore.getState().open).toBe(false);
   });
 
