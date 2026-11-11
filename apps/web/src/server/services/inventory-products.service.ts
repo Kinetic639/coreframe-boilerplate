@@ -153,7 +153,7 @@ function applyProductSort(query: any, sort: DataViewListParams["sort"]) {
   };
   const field = sort?.field ? sortMap[sort.field] : "updated_at";
   const ascending = sort?.direction === "asc";
-  return query.order(field ?? "updated_at", { ascending });
+  return query.order(field ?? "updated_at", { ascending }).order("id", { ascending: true });
 }
 
 function toNumber(value: number | string | null | undefined): number {
@@ -245,11 +245,15 @@ export class InventoryProductsService {
     const status = params.filters.status;
     if (typeof status === "string" && status) {
       query = query.eq("status", status);
+    } else if (Array.isArray(status) && status.length) {
+      query = query.in("status", status);
     }
 
     const productType = params.filters.product_type;
     if (typeof productType === "string" && productType) {
       query = query.eq("product_type", productType);
+    } else if (Array.isArray(productType) && productType.length) {
+      query = query.in("product_type", productType);
     }
 
     const filteredProductIds = await InventoryProductsService.resolveProductListFilterProductIds(
@@ -337,11 +341,15 @@ export class InventoryProductsService {
     const status = params.filters.status;
     if (typeof status === "string" && status) {
       indexQuery = indexQuery.eq("status", status);
+    } else if (Array.isArray(status) && status.length) {
+      indexQuery = indexQuery.in("status", status);
     }
 
     const productType = params.filters.product_type;
     if (typeof productType === "string" && productType) {
       indexQuery = indexQuery.eq("product_type", productType);
+    } else if (Array.isArray(productType) && productType.length) {
+      indexQuery = indexQuery.in("product_type", productType);
     }
 
     if (filteredProductIds) {

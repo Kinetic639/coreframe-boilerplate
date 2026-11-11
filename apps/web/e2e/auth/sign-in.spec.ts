@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { test as authTest, E2E_TEST_EMAIL } from "../fixtures";
+import { test as authTest, E2E_TEST_EMAIL, E2E_TEST_PASSWORD } from "../fixtures";
 
 test.describe("Sign-in routing", () => {
   // Regression test for a routing bug found 2026-08-07: next-intl's default-locale
@@ -54,4 +54,40 @@ authTest.describe("Sign-in flow", () => {
       await expect(page.getByText(E2E_TEST_EMAIL!)).toBeVisible();
     }
   );
+});
+
+test.describe("Sign-in navigation", () => {
+  test.skip(!E2E_TEST_EMAIL || !E2E_TEST_PASSWORD, "Test account is not configured");
+
+  for (const scenario of [
+    { entry: "/logowanie", destination: "/dashboard/start" },
+    { entry: "/en/sign-in", destination: "/en/dashboard/start" },
+    {
+      entry: "/en/sign-in?returnUrl=%2Fdashboard%2Fstart%3Ffrom%3Dlogin",
+      destination: "/en/dashboard/start?from=login",
+    },
+  ]) {
+    test(`opens a fresh dashboard document after login from ${scenario.entry}`, async ({
+      page,
+    }) => {
+      test.setTimeout(60_000);
+      await page.goto(scenario.entry);
+      await page.locator('input[type="email"]').fill(E2E_TEST_EMAIL!);
+      await page.locator('input[type="password"]').fill(E2E_TEST_PASSWORD!);
+
+      // The authentication boundary must create a document with the new cookies,
+      // rather than keeping the anonymous sign-in router tree alive.
+      const navigation = page.waitForRequest(
+        (request) => request.isNavigationRequest() && request.resourceType() === "document",
+        { timeout: 15_000 }
+      );
+      await page.locator('form button[type="submit"]').click();
+      await navigation;
+
+      await expect(page).toHaveURL(new RegExp(`${scenario.destination.replace(/[?]/g, "\\?")}$`));
+      await expect(page.getByTestId("home-dashboard")).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByTestId("home-dashboard")).toHaveAttribute("aria-busy", "false");
+      await expect(page.locator('input[type="password"]')).toHaveCount(0);
+    });
+  }
 });

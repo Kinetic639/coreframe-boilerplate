@@ -56,6 +56,8 @@ vi.mock("next-intl/server", () => ({
 }));
 
 vi.mock("@/i18n/navigation", () => ({
+  getPathname: ({ href, locale }: { href: string; locale: string }) =>
+    locale === "pl" ? href : `/${locale}${href}`,
   redirect: vi.fn((options) => {
     // Simulate Next.js redirect behavior by throwing
     const error = new Error("NEXT_REDIRECT");
@@ -474,6 +476,56 @@ describe("T-EMIT-TYPED-FAILURE — typed result handling", () => {
   });
 
   // -------------------------------------------------------------------------
+  // Successful sign-in returns a destination for a fresh document navigation.
+  describe("signInAction — successful navigation", () => {
+    function credentials(returnUrl?: string) {
+      const formData = new FormData();
+      formData.set("email", "user@example.com");
+      formData.set("password", "test-password");
+      if (returnUrl) formData.set("returnUrl", returnUrl);
+      return formData;
+    }
+
+    beforeEach(() => {
+      mockSupabaseClient.auth.signInWithPassword.mockResolvedValue({ data: {}, error: null });
+      mockSupabaseClient.rpc.mockResolvedValue({
+        data: { success: true, invitations: [] },
+        error: null,
+      });
+    });
+
+    it("returns the localized dashboard URL after successful authentication", async () => {
+      await expect(signInAction(credentials())).resolves.toEqual({
+        redirectTo: "/en/dashboard/start",
+      });
+    });
+
+    it("preserves the original return path and query", async () => {
+      await expect(signInAction(credentials("/dashboard/start?from=login"))).resolves.toEqual({
+        redirectTo: "/dashboard/start?from=login",
+      });
+    });
+
+    it("keeps pending invitations ahead of the default dashboard destination", async () => {
+      mockSupabaseClient.rpc.mockResolvedValueOnce({
+        data: { success: true, invitations: [{ id: "invite-1" }] },
+        error: null,
+      });
+      await expect(signInAction(credentials())).resolves.toEqual({
+        redirectTo: "/en/invite/resolve",
+      });
+    });
+
+    it.each(["https://example.com", "//example.com", "/\\example.com"])(
+      "rejects external return destinations: %s",
+      async (returnUrl) => {
+        await expect(signInAction(credentials(returnUrl))).resolves.toEqual({
+          redirectTo: "/en/dashboard/start",
+        });
+      }
+    );
+  });
+
   // signInAction — failed login path (auth.login.failed event)
   // -------------------------------------------------------------------------
   describe("signInAction — failed login emit", () => {

@@ -135,6 +135,10 @@ export const routing = defineRouting({
       en: "/dashboard/warehouse/items/import",
       pl: "/dashboard/magazyn/produkty/import",
     },
+    "/dashboard/warehouse/items/custom-fields": {
+      en: "/dashboard/warehouse/items/custom-fields",
+      pl: "/dashboard/magazyn/produkty/pola-wlasne",
+    },
     "/dashboard/warehouse/items/[productId]": {
       en: "/dashboard/warehouse/items/[productId]",
       pl: "/dashboard/magazyn/produkty/[productId]",

@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Ambra — porównanie inspiracji UI</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: #f3f4f5;
+        color: #202329;
+        font:
+          15px/1.5 system-ui,
+          sans-serif;
+      }
+      main {
+        max-width: 1180px;
+        margin: auto;
+        padding: 28px;
+      }
+      h1 {
+        font-size: 25px;
+        line-height: 1.2;
+        margin: 0 0 8px;
+      }
+      h2 {
+        font-size: 19px;
+        margin: 0 0 4px;
+      }
+      p {
+        margin: 0 0 14px;
+        color: #50555d;
+      }
+      .intro {
+        max-width: 850px;
+      }
+      .tag {
+        display: inline-grid;
+        place-items: center;
+        background: #272b31;
+        color: white;
+        width: 30px;
+        height: 30px;
+        margin-right: 10px;
+        vertical-align: middle;
+        font-size: 16px;
+      }
+      .example {
+        margin: 24px 0 32px;
+      }
+      .shot {
+        display: block;
+        border: 1px solid #d6d9de;
+        background: #fff;
+        padding: 12px;
+      }
+      .shot img {
+        display: block;
+        max-width: 100%;
+        max-height: 620px;
+        width: auto;
+        height: auto;
+        margin: auto;
+        object-fit: contain;
+      }
+      .source {
+        display: flex;
+        gap: 18px;
+        margin-top: 7px;
+        font-size: 12px;
+      }
+      .source a {
+        color: #4b5563;
+      }
+      .mobile {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+      }
+      .mobile .shot img {
+        max-height: 540px;
+      }
+      .muted {
+        color: #626871;
+        font-size: 13px;
+      }
+      .pair {
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        gap: 14px;
+        min-height: 260px;
+      }
+      .pair img {
+        max-width: 48%;
+        max-height: 540px;
+      }
+      .note {
+        border-left: 3px solid #c2851e;
+        padding: 9px 14px;
+        margin: 20px 0;
+        background: #fff;
+      }
+      a:focus-visible {
+        outline: 3px solid #c2851e;
+        outline-offset: 3px;
+      }
+      @media (max-width: 720px) {
+        main {
+          padding: 16px;
+        }
+        .mobile {
+          grid-template-columns: 1fr;
+        }
+        h1 {
+          font-size: 22px;
+        }
+        .shot {
+          padding: 5px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Ambra — zobacz kierunki, zanim wybierzemy</h1>
+      <p class="intro">
+        Rzeczywiste przykłady ekranów z materiałów produktów. Nie są to makiety Ambry. Kliknij
+        obraz, aby zobaczyć pełny rozmiar. Porównuj układ, czytelność i ilość informacji — kolory
+        marki Ambry możemy zachować.
+      </p>
+      <div class="note">
+        Kierunek wizualny jest jeszcze otwarty. Desktop: A / B / C. Mobile: D / E. Możemy łączyć
+        wybrane cechy.
+      </div>
+
+      <section class="example">
+        <h2><span class="tag">A</span>Linear — spokojna, zwarta lista</h2>
+        <p>
+          Do zadań, zgłoszeń i CRM. Zwróć uwagę na niewielkie wiersze, boczną nawigację i
+          ograniczoną liczbę akcentów.
+        </p>
+        <a
+          class="shot"
+          target="_blank"
+          rel="noreferrer"
+          href="https://cdn.sanity.io/images/ornj730p/production/81ac25292faa05f7f4529a07f79f4cbc68998a71-2160x1327.png"
+          ><img
+            alt="Linear: ciemna lista zgłoszeń pogrupowanych według statusu"
+            src="https://cdn.sanity.io/images/ornj730p/production/81ac25292faa05f7f4529a07f79f4cbc68998a71-2160x1327.png"
+        /></a>
+        <div class="source">
+          <a href="https://linear.app/docs/conceptual-model">Źródło: Linear Docs</a
+          ><span>Referencja wizualna; zrzut dokumentacyjny</span>
+        </div>
+      </section>
+
+      <section class="example">
+        <h2><span class="tag">B</span>Business Central — klasyczne narzędzie ERP</h2>
+        <p>
+          Do produktów, stanów i dokumentów. Gęsta tabela, porównywanie rekordów i szczegóły po
+          prawej.
+        </p>
+        <a
+          class="shot"
+          target="_blank"
+          rel="noreferrer"
+          href="https://cdn.shopify.com/s/files/1/0684/8846/2635/files/Items.jpg?v=1675850155"
+          ><img
+            alt="Microsoft Dynamics Business Central: lista produktów z panelem szczegółów"
+            src="https://cdn.shopify.com/s/files/1/0684/8846/2635/files/Items.jpg?v=1675850155"
+        /></a>
+        <div class="source">
+          <a href="https://launchpadforbusinesscentral.com/blogs/news/inventory-management"
+            >Źródło zrzutu: Launchpad for Business Central</a
+          ><span>Zrzut demonstracyjny; historyczny wygląd</span>
+        </div>
+      </section>
+
+      <section class="example">
+        <h2><span class="tag">C</span>SAP Fiori — lista i szczegóły obok siebie</h2>
+        <p>
+          Do pracy na lokalizacjach, produktach i kontrahentach. Obiekt zmieniasz bez opuszczania
+          listy.
+        </p>
+        <a
+          class="shot"
+          target="_blank"
+          rel="noreferrer"
+          href="https://help.sap.com/doc/468a97775123488ab3345a0c48cadd8f/202510.001/en-US/loio24122e039ed14a7a874ec26d0cf51614_LowRes.png"
+          ><img
+            alt="SAP Fiori: lista produktów po lewej i szczegóły z zakładkami po prawej"
+            src="https://help.sap.com/doc/468a97775123488ab3345a0c48cadd8f/202510.001/en-US/loio24122e039ed14a7a874ec26d0cf51614_LowRes.png"
+        /></a>
+        <div class="source">
+          <a
+            href="https://help.sap.com/docs/ABAP_PLATFORM_NEW/468a97775123488ab3345a0c48cadd8f/7f651316d396400d88835adb0d021532.html"
+            >Źródło: SAP Help</a
+          ><span>Przykład układu, nie propozycja kolorów Ambry</span>
+        </div>
+      </section>
+
+      <div class="mobile">
+        <section class="example">
+          <h2><span class="tag">D</span>Zoho Inventory — mobilny WMS</h2>
+          <p>Kartoteka i operacja magazynowa jako dwa czytelne ekrany zadaniowe.</p>
+          <div class="shot pair">
+            <a
+              target="_blank"
+              rel="noreferrer"
+              href="https://www.zoho.com/inventory/mobile-apps/android/control-stock-1x.png"
+              ><img
+                alt="Zoho Inventory Android: kartoteka produktu"
+                style="max-width: 100%"
+                src="https://www.zoho.com/inventory/mobile-apps/android/control-stock-1x.png" /></a
+            ><a
+              target="_blank"
+              rel="noreferrer"
+              href="https://www.zoho.com/inventory/mobile-apps/android/inventory-adjustment-1x.png"
+              ><img
+                alt="Zoho Inventory Android: korekta magazynowa"
+                style="max-width: 100%"
+                src="https://www.zoho.com/inventory/mobile-apps/android/inventory-adjustment-1x.png"
+            /></a>
+          </div>
+          <div class="source">
+            <a href="https://www.zoho.com/inventory/mobile-apps/">Źródło: Zoho Inventory</a>
+          </div>
+        </section>
+        <section class="example">
+          <h2><span class="tag">E</span>SAP iOS — lista na małym ekranie</h2>
+          <p>Spójna lista z wyszukiwaniem i filtrami, dostosowana do szerokości ekranu.</p>
+          <a
+            class="shot"
+            target="_blank"
+            rel="noreferrer"
+            href="https://www.sap.com/design-system/fiori-design-ios/v26-1/page-types/media_16433529a98eb1f006a2ca96d7b3662e3939586fa.png?format=png&amp;optimize=medium&amp;width=750"
+            ><img
+              alt="SAP Fiori iOS: porównanie listy w małej i większej szerokości"
+              src="https://www.sap.com/design-system/fiori-design-ios/v26-1/page-types/media_16433529a98eb1f006a2ca96d7b3662e3939586fa.png?format=png&amp;optimize=medium&amp;width=750"
+          /></a>
+          <div class="source">
+            <a
+              href="https://www.sap.com/design-system/fiori-design-ios/v26-1/page-types/list-report"
+              >Źródło: SAP Fiori for iOS</a
+            >
+          </div>
+        </section>
+      </div>
+      <p class="muted">
+        Obrazy pozostają u ich wydawców i wymagają połączenia z internetem. Wyboru dokonamy na
+        podstawie konkretnych cech, a pierwszy ekran Ambry zaprojektujemy jako pilot. Pełny spis
+        prac: VIEW_CHECKLIST.md.
+      </p>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="pl">
+  <meta charset="utf-8" /><meta
+    name="viewport"
+    content="width=device-width,initial-scale=1"
+  /><title>Ambra DataView — 24 propozycje ekranów</title
+  ><style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      background: #eef0f3;
+      color: #252b34;
+      font: 14px/1.5 system-ui;
+    }
+    header {
+      padding: 24px 30px;
+      background: white;
+      border-bottom: 1px solid #d9dde3;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+    h1 {
+      font-size: 22px;
+      margin: 0 0 6px;
+    }
+    p {
+      margin: 0 0 12px;
+      color: #67717f;
+    }
+    nav {
+      display: flex;
+      gap: 9px;
+      flex-wrap: wrap;
+    }
+    a {
+      color: inherit;
+    }
+    nav a,
+    .play {
+      padding: 6px 10px;
+      background: #f5f6f8;
+      border: 1px solid #d9dde3;
+      border-radius: 5px;
+      text-decoration: none;
+      font-size: 12px;
+    }
+    main {
+      max-width: 1600px;
+      margin: auto;
+      padding: 24px;
+    }
+    .variant {
+      margin-bottom: 45px;
+      scroll-margin-top: 155px;
+    }
+    .variant h2 {
+      font-size: 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .play {
+      margin-left: auto;
+      font-weight: 400;
+    }
+    .screens {
+      display: grid;
+      grid-template-columns: 2fr 2fr 0.9fr 0.9fr;
+      gap: 12px;
+      align-items: start;
+    }
+    figure {
+      margin: 0;
+      min-width: 0;
+    }
+    img {
+      display: block;
+      width: 100%;
+      border: 1px solid #d7dce3;
+      background: white;
+    }
+    figcaption {
+      font-size: 11px;
+      margin-top: 7px;
+      color: #5c6776;
+    }
+    .hint {
+      font-size: 12px;
+    }
+    @media (max-width: 1000px) {
+      .screens {
+        grid-template-columns: 1fr 1fr;
+      }
+      header {
+        position: static;
+      }
+      .variant h2 {
+        flex-wrap: wrap;
+      }
+      .play {
+        margin-left: 0;
+      }
+    }
+    @media (max-width: 500px) {
+      main,
+      header {
+        padding: 15px;
+      }
+      .screens {
+        grid-template-columns: 1fr;
+      }
+      .screens figure:nth-child(n + 3) {
+        max-width: 330px;
+      }
+    }
+  </style>
+  <header>
+    <h1>Ten sam DataView, sześć kierunków</h1>
+    <p>
+      24 zrzuty: w każdym kierunku pełna lista i szczegóły, na desktopie i telefonie. Kliknij ekran,
+      aby go powiększyć. Dane są przykładowe.
+    </p>
+    <nav>
+      <a href="#A">A · Linear</a><a href="#B">B · Business Central</a><a href="#C">C · SAP Fiori</a
+      ><a href="#D">D · Zoho Inventory</a><a href="#E">E · SAP iOS / iPad</a
+      ><a href="#F">F · Kolor Sensu → Ambra</a
+      ><a href="/dashboard/magazyn/produkty?variant=F&device=desktop"
+        >Otwórz interaktywny prototyp →</a
+      >
+    </nav>
+  </header>
+  <main>
+    <section class="variant" id="A">
+      <h2>
+        A — Linear<a class="play" href="/dashboard/magazyn/produkty?variant=A&device=desktop"
+          >Wypróbuj ten kierunek →</a
+        >
+      </h2>
+      <div class="screens">
+        <figure>
+          <a href="/previews/A-desktop-list.png" target="_blank"
+            ><img src="/previews/A-desktop-list.png" alt="A Desktop · pełna lista" loading="lazy"
+          /></a>
+          <figcaption>Desktop · pełna lista</figcaption>
+        </figure>
+        <figure>
+          <a href="/previews/A-desktop-detail.png" target="_blank"
+            ><img
+              src="/previews/A-desktop-detail.png"
+              alt="A Desktop · szczegóły rekordu"
+              loading="lazy"
+          /></a>
+          <figcaption>Desktop · szczegóły rekordu</figcaption>
+        </figure>
+        <figure>
+          <a href="/previews/A-mobile-list.png" target="_blank"
+            ><img src="/previews/A-mobile-list.png" alt="A Mobile · pełna lista" loading="lazy"
+          /></a>
+          <figcaption>Mobile · pełna lista</figcaption>
+        </figure>
+        <figure>
+          <a href="/previews/A-mobile-detail.png" target="_blank"
+            ><img
+              src="/previews/A-mobile-detail.png"
+              alt="A Mobile · szczegóły rekordu"
+              loading="lazy"
+          /></a>
+          <figcaption>Mobile · szczegóły rekordu</figcaption>
+        </figure>
+      </div>
+    </section>
+    <section class="variant" id="B">
+      <h2>
+        B — Business Central<a
+          class="play"
+          href="/dashboard/magazyn/produkty?variant=B&device=desktop"
+          >Wypróbuj ten kierunek →</a
+        >
+      </h2>
+      <div class="screens">
+        <figure>
+          <a href="/previews/B-desktop-list.png" target="_blank"
+            ><img src="/previews/B-desktop-list.png" alt="B Desktop · pełna lista" loading="lazy"
+          /></a>
+          <figcaption>Desktop · pełna lista</figcaption>
+        </figure>
+        <figure>
+          <a href="/previews/B-desktop-detail.png" target="_blank"
+            ><img
+              src="/previews/B-desktop-detail.png"
+              alt="B Desktop · szczegóły rekordu"
+              loading="lazy"
+          /></a>
+          <figcaption>Desktop · szczegóły rekordu</figcaption>
+        </figure>
+        <figure>
+          <a href="/previews/B-mobile-list.png" target="_blank"
+            ><img src="/previews/B-mobile-list.png" alt="B Mobile · pełna lista" loading="lazy"
+          /></a>
+          <figcaption>Mobile · pełna lista</figcaption>
+        </figure>
+        <figure>
+          <a href="/previews/B-mobile-detail.png" target="_blank"
+            ><img
+              src="/previews/B-mobile-detail.png"
+              alt="B Mobile · szczegóły rekordu"
+              loading="lazy"
+          /></a>
+          <figcaption>Mobile · szczegóły rekordu</figcaption>
+        </figure>
+      </div>
+    </section>
+    <section class="variant" id="C">
+      <h2>
+        C — SAP Fiori<a class="play" href="/dashboard/magazyn/produkty?variant=C&device=desktop"
+          >Wypróbuj ten kierunek →</a
+        >
+      </h2>
+      <div class="screens">
+        <figure>
+          <a href="/previews/C-desktop-list.png" target="_blank"
+            ><img src="/previews/C-desktop-list.png" alt="C Desktop · pełna lista" loading="lazy"
+          /></a>
+          <figcaption>Desktop · pełna lista</figcaption>
+        </figure>
+        <figure>
+          <a href="/previews/C-desktop-detail.png" target="_blank"
+            ><img
+              src="/previews/C-desktop-detail.png"
+              alt="C Desktop · szczegóły rekordu"
+              loading="lazy"
+          /></a>
+          <figcaption>Desktop · szczegóły rekordu</figcaption>
+        </figure>
+        <figure>
+          <a href="/previews/C-mobile-list.png" target="_blank"
+            ><img src="/previews/C-mobile-list.png" alt="C Mobile · pełna lista" loading="lazy"
+          /></a>
+          <figcaption>Mobile · pełna lista</figcaption>
+        </figure>
+        <figure>
+          <a href="/previews/C-mobile-detail.png" target="_blank"
+            ><img
+              src="/previews/C-mobile-detail.png"
+              alt="C Mobile · szczegóły rekordu"
+              loading="lazy"
+          /></a>
+          <figcaption>Mobile · szczegóły rekordu</figcaption>
+        </figure>
+      </div>
+    </section>
+    <section class="variant" id="D">
+      <h2>
+        D — Zoho Inventory<a
+          class="play"
+          href="/dashboard/magazyn/produkty?variant=D&device=desktop"
+          >Wypróbuj ten kierunek →</a
+        >
+      </h2>
+      <div class="screens">
+        <figure>
+          <a href="/previews/D-desktop-list.png" target="_blank"
+            ><img src="/previews/D-desktop-list.png" alt="D Desktop · pełna lista" loading="lazy"
+          /></a>
+          <figcaption>Desktop · pełna lista</figcaption>
+        </figure>
+        <figure>
+          <a href="/previews/D-desktop-detail.png" target="_blank"
+            ><img
+              src="/previews/D-desktop-detail.png"
+              alt="D Desktop · szczegóły rekordu"
+              loading="lazy"
+          /></a>
+          <figcaption>Desktop · szczegóły rekordu</figcaption>
+        </figure>
+        <figure>
+          <a href="/previews/D-mobile-list.png" target="_blank"
+            ><img src="/previews/D-mobile-list.png" alt="D Mobile · pełna lista" loading="lazy"
+          /></a>
+          <figcaption>Mobile · pełna lista</figcaption>
+        </figure>
+        <figure>
+          <a href="/previews/D-mobile-detail.png" target="_blank"
+            ><img
+              src="/previews/D-mobile-detail.png"
+              alt="D Mobile · szczegóły rekordu"
+              loading="lazy"
+          /></a>
+          <figcaption>Mobile · szczegóły rekordu</figcaption>
+        </figure>
+      </div>
+    </section>
+    <section class="variant" id="E">
+      <h2>
+        E — SAP iOS / iPad<a
+          class="play"
+          href="/dashboard/magazyn/produkty?variant=E&device=desktop"
+          >Wypróbuj ten kierunek →</a
+        >
+      </h2>
+      <div class="screens">
+        <figure>
+          <a href="/previews/E-desktop-list.png" target="_blank"
+            ><img src="/previews/E-desktop-list.png" alt="E Desktop · pełna lista" loading="lazy"
+          /></a>
+          <figcaption>Desktop · pełna lista</figcaption>
+        </figure>
+        <figure>
+          <a href="/previews/E-desktop-detail.png" target="_blank"
+            ><img
+              src="/previews/E-desktop-detail.png"
+              alt="E Desktop · szczegóły rekordu"
+              loading="lazy"
+          /></a>
+          <figcaption>Desktop · szczegóły rekordu</figcaption>
+        </figure>
+        <figure>
+          <a href="/previews/E-mobile-list.png" target="_blank"
+            ><img src="/previews/E-mobile-list.png" alt="E Mobile · pełna lista" loading="lazy"
+          /></a>
+          <figcaption>Mobile · pełna lista</figcaption>
+        </figure>
+        <figure>
+          <a href="/previews/E-mobile-detail.png" target="_blank"
+            ><img
+              src="/previews/E-mobile-detail.png"
+              alt="E Mobile · szczegóły rekordu"
+              loading="lazy"
+          /></a>
+          <figcaption>Mobile · szczegóły rekordu</figcaption>
+        </figure>
+      </div>
+    </section>
+    <section class="variant" id="F">
+      <h2>
+        F — Kolor Sensu → Ambra<a
+          class="play"
+          href="/dashboard/magazyn/produkty?variant=F&device=desktop"
+          >Wypróbuj ten kierunek →</a
+        >
+      </h2>
+      <div class="screens">
+        <figure>
+          <a href="/previews/F-desktop-list.png" target="_blank"
+            ><img src="/previews/F-desktop-list.png" alt="F Desktop · pełna lista" loading="lazy"
+          /></a>
+          <figcaption>Desktop · pełna lista</figcaption>
+        </figure>
+        <figure>
+          <a href="/previews/F-desktop-detail.png" target="_blank"
+            ><img
+              src="/previews/F-desktop-detail.png"
+              alt="F Desktop · szczegóły rekordu"
+              loading="lazy"
+          /></a>
+          <figcaption>Desktop · szczegóły rekordu</figcaption>
+        </figure>
+        <figure>
+          <a href="/previews/F-mobile-list.png" target="_blank"
+            ><img src="/previews/F-mobile-list.png" alt="F Mobile · pełna lista" loading="lazy"
+          /></a>
+          <figcaption>Mobile · pełna lista</figcaption>
+        </figure>
+        <figure>
+          <a href="/previews/F-mobile-detail.png" target="_blank"
+            ><img
+              src="/previews/F-mobile-detail.png"
+              alt="F Mobile · szczegóły rekordu"
+              loading="lazy"
+          /></a>
+          <figcaption>Mobile · szczegóły rekordu</figcaption>
+        </figure>
+      </div>
+    </section>
+  </main>
+</html>
