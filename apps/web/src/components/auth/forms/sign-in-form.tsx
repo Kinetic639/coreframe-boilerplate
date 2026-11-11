@@ -9,6 +9,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useForm } from "react-hook-form";
+import { useState } from "react";
 import { z } from "zod";
 import { AuthCard } from "../AuthCard";
 
@@ -26,6 +27,7 @@ interface SignInFormProps {
 
 export function SignInForm({ message, returnUrl }: SignInFormProps) {
   const t = useTranslations("authForms.SignInForm");
+  const [isNavigating, setIsNavigating] = useState(false);
 
   const {
     register,
@@ -36,7 +38,14 @@ export function SignInForm({ message, returnUrl }: SignInFormProps) {
 
   return (
     <AuthCard showImage={true} variant="signin">
-      <form action={signInAction} className="flex w-full flex-col">
+      <form
+        action={async (formData) => {
+          const { redirectTo } = await signInAction(formData);
+          setIsNavigating(true);
+          window.location.replace(redirectTo);
+        }}
+        className="flex w-full flex-col"
+      >
         {returnUrl && <input type="hidden" name="returnUrl" value={returnUrl} />}
         <h1 className="text-2xl font-medium">{t("title")}</h1>
         <p className="text-sm text-foreground">
@@ -74,7 +83,7 @@ export function SignInForm({ message, returnUrl }: SignInFormProps) {
           </div>
 
           <div className="mt-4">
-            <SubmitButton disabled={isSubmitting} pendingText={t("pending")}>
+            <SubmitButton disabled={isSubmitting || isNavigating} pendingText={t("pending")}>
               {t("submit")}
             </SubmitButton>
           </div>

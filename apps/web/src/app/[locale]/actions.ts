@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { encodedRedirect } from "@/utils/utils";
 import { createClient } from "@/utils/supabase/server";
 import { createServiceClient } from "@/utils/supabase/service";
-import { redirect } from "@/i18n/navigation";
+import { getPathname, redirect } from "@/i18n/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import { eventService } from "@/server/services/event.service";
 import { SiteSettingsService } from "@/server/services/site-settings.service";
@@ -221,16 +221,23 @@ export const signInAction = async (formData: FormData) => {
   // If there's a returnUrl, validate it is same-origin (starts with /, not //)
   // before honoring it — prevents open-redirect attacks.
   const trimmedReturnUrl = returnUrl?.trim() ?? "";
-  if (trimmedReturnUrl && trimmedReturnUrl.startsWith("/") && !trimmedReturnUrl.startsWith("//")) {
-    const { redirect: nextRedirect } = await import("next/navigation");
-    return nextRedirect(trimmedReturnUrl);
+  const hasUnsafeCharacters = [...trimmedReturnUrl].some(
+    (character) =>
+      character === "\\" || character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127
+  );
+  if (
+    trimmedReturnUrl.startsWith("/") &&
+    !trimmedReturnUrl.startsWith("//") &&
+    !hasUnsafeCharacters
+  ) {
+    return { redirectTo: trimmedReturnUrl };
   }
 
   // Check for pending invites — route to resolution if found
   const { data: pendingData } = await supabase.rpc("get_my_pending_invitations");
   const pendingResult = pendingData as { success: boolean; invitations?: unknown[] } | null;
   if (pendingResult?.success && (pendingResult.invitations?.length ?? 0) > 0) {
-    return redirect({ href: "/invite/resolve", locale });
+    return { redirectTo: getPathname({ href: "/invite/resolve", locale }) };
   }
 
   // Check if user has any active org membership — if not, route to onboarding
@@ -243,10 +250,12 @@ export const signInAction = async (formData: FormData) => {
     .maybeSingle();
 
   if (!membership) {
-    return redirect({ href: "/onboarding", locale });
+    return { redirectTo: getPathname({ href: "/onboarding", locale }) };
   }
 
-  return redirect({ href: "/dashboard/start", locale });
+  // Return only after the action has committed the session cookies. The form
+  // opens a fresh document so the anonymous router tree cannot survive sign-in.
+  return { redirectTo: getPathname({ href: "/dashboard/start", locale }) };
 };
 
 export const forgotPasswordAction = async (formData: FormData) => {
